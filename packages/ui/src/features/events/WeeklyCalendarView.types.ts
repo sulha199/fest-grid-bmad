@@ -80,7 +80,7 @@ export interface WeeklyCalendarViewLabels {
   favoriteToggleLabel?: string;
   /** Status badge (list variant) — event has already ended. Matches `EventCardLabels.statusEnded`. Default: "Ended". */
   statusEnded?: string;
-  /** Status badge (list variant) — event has started and does not end today. Matches `EventCardLabels.statusHappeningNow`. Default: "Happening Now". */
+  /** Status badge (list variant) — event has started and does not end today. Matches `EventCardLabels.statusHappeningNow`. Default: "Now" (shortened from "Happening Now" by Story 1.i1l, per DESIGN.md § event_card_status_badge). */
   statusHappeningNow?: string;
   /** Status badge (list variant) — event has started and ends today. Matches `EventCardLabels.statusEndsToday`. Default: "Ends Today". */
   statusEndsToday?: string;

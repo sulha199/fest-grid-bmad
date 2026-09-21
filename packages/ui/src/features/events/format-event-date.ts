@@ -185,7 +185,7 @@ export function formatEventStatus(
     if (endDayDiff > 0) {
       // The one state with its own DESIGN.md color treatment (AC4) — surfaced from this
       // same branch, never re-derived by the caller.
-      return { text: labels?.statusHappeningNow ?? 'Happening Now', isHappeningNow: true };
+      return { text: labels?.statusHappeningNow ?? 'Now', isHappeningNow: true };
     }
     // endDayDiff === 0 here: ended-check above already handled endDayDiff < 0.
     return { text: labels?.statusEndsToday ?? 'Ends Today', isHappeningNow: false };

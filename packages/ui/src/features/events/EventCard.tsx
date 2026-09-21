@@ -25,18 +25,10 @@ import {
   EventCardFavoriteBadge,
   EventCardStatusBadge,
   EventCardNearbyBadge,
-  EVENT_CARD_TILL_LABEL_CLASS,
+  eventCardTillLabelClass,
+  EVENT_CARD_BADGE_TEXT_SIZE_CLASS,
+  EVENT_CARD_CONTAINER_CLASS,
 } from './EventCardMediaPrimitives';
-
-/**
- * Shared TILL-badge treatment (Story 1.i1e, Task 3): the solid-amber, top-left-corner
- * tag anchored to whichever date-box container is present in either `prominentPoster`
- * state — `DESIGN.md` § event_card_till_badge.base. Alias of `EventCardMediaPrimitives.tsx`'s
- * exported `EVENT_CARD_TILL_LABEL_CLASS` (Story 1.i1k Task 2.7) so this file's one remaining
- * raw-`<span>` call site (the `prominentPoster=true` overlay below) and `EventCardDateBox`'s
- * own internal `tillLabel` slot can never drift apart.
- */
-const TILL_BADGE_CLASS = EVENT_CARD_TILL_LABEL_CLASS;
 
 /**
  * EventCard is a reusable, framework-agnostic presentation component for displaying
@@ -96,7 +88,7 @@ export function EventCard({
     tomorrow: 'Tomorrow',
     yesterday: 'Yesterday',
     statusEnded: 'Ended',
-    statusHappeningNow: 'Happening Now',
+    statusHappeningNow: 'Now',
     statusEndsToday: 'Ends Today',
     statusInHours: 'In {n} hour(s)',
     statusInDays: 'In {n} days',
@@ -110,8 +102,15 @@ export function EventCard({
 
   const [imgError, setImgError] = useState(false);
 
+  // Story 1.i1l — hoisted to component scope (was declared only inside the `loading`
+  // skeleton branch) because Rule 1's `max-w-[230px]` cap and Rule 4's pill positions must
+  // both be gated on it from the real card's own render path too. `variant='standard'` is
+  // deliberately untouched by every Story 1.i1l rule: those branches serve BOTH
+  // `masonry+prominentPoster` and `standard`, and only masonry is in the 2026-09-14 pass.
+  const isMasonry = variant === 'masonry';
+
   // Story 1.i1e — masonry `prominentPoster=false` ("masonry default") composition.
-  const isMasonryDefault = variant === 'masonry' && !prominentPoster;
+  const isMasonryDefault = isMasonry && !prominentPoster;
 
   // Task 2.2 — whether the default-state thumbnail currently has a valid image, so
   // the RootTag-external favorite badge knows its scale ('default' vs 'large').
@@ -140,12 +139,11 @@ export function EventCard({
   const activeTimezone = timezone || contextTimezone;
 
   if (loading) {
-    const isMasonry = variant === 'masonry';
     return (
       <article
         aria-busy="true"
         aria-label={defaultLabels.loading}
-        className={`w-full max-w-sm rounded-xl overflow-hidden shadow-sm border border-border bg-card animate-pulse ${isGreyedOut ? 'opacity-50 grayscale' : ''}`}
+        className={`w-full ${isMasonry ? 'max-w-[230px]' : 'max-w-sm'} rounded-xl overflow-hidden shadow-sm border border-border bg-card animate-pulse ${isGreyedOut ? 'opacity-50 grayscale' : ''}`}
       >
         <div className={`${isMasonry ? 'aspect-[3/4]' : 'h-48'} bg-gray-200 w-full`} />
         <div className={isMasonry ? 'p-3 flex flex-col gap-2' : 'p-4 flex flex-col gap-4'}>
@@ -237,7 +235,9 @@ export function EventCard({
 
   return (
     <article
-      className={`w-full max-w-sm rounded-xl overflow-hidden shadow-sm border border-border bg-card transition-all hover:shadow-md relative group flex flex-col ${
+      className={`w-full ${
+        isMasonry ? `max-w-[230px] ${EVENT_CARD_CONTAINER_CLASS}` : 'max-w-sm'
+      } rounded-xl overflow-hidden shadow-sm border border-border bg-card transition-all hover:shadow-md relative group flex flex-col ${
         pendingRemoval ? 'opacity-50 grayscale' : ''
       }`}
       aria-disabled={pendingRemoval}
@@ -251,9 +251,15 @@ export function EventCard({
             onFavoriteToggle(e);
           }}
           aria-label={defaultLabels.favoriteToggle}
-          className={`absolute top-3 right-3 z-10 rounded-full bg-background/80 backdrop-blur-sm shadow-sm hover:bg-background transition-colors flex items-center justify-center ${
-            favoriteCount !== undefined ? 'px-2.5 py-1.5 gap-1.5' : 'p-2'
-          }`}
+          className={`absolute ${
+            // Rule 4 (`DESIGN.md` § event_card_date_box.favorite_pill): on masonry this pill
+            // moves down in lockstep with the date pill when a TILL tag is present, so the
+            // tag has room to clear the poster's own `overflow-hidden` edge. `standard` keeps
+            // its shipped `top-3 right-3` — it is not one of the three masonry states.
+            isMasonry ? `${tillBadgeText ? 'top-5' : 'top-2'} right-2` : 'top-3 right-3'
+          } z-10 rounded-full bg-background/80 backdrop-blur-sm shadow-sm hover:bg-background transition-colors flex items-center justify-center ${
+            isMasonry ? EVENT_CARD_BADGE_TEXT_SIZE_CLASS : 'text-xs'
+          } ${favoriteCount !== undefined ? 'px-1.5 py-1 gap-1.5' : 'p-2'}`}
         >
           <Heart
             // lucide's own `size` prop would be silently overridden by this `style` --
@@ -263,7 +269,7 @@ export function EventCard({
             fill={isFavorited ? 'currentColor' : 'none'}
           />
           {favoriteCount !== undefined && (
-            <span className="text-xs font-semibold text-black pr-0.5 select-none">
+            <span className="font-semibold text-black pr-0.5 select-none">
               {favoriteCount}
             </span>
           )}
@@ -345,18 +351,26 @@ export function EventCard({
         ) : (
           <div
             className={`relative ${
-              variant === 'masonry' ? 'aspect-[2/3]' : 'h-48'
+              isMasonry ? 'aspect-square' : 'h-48'
             } w-full bg-muted overflow-hidden flex items-center justify-center`}
           >
             {statusBadge && (
               <div className="absolute top-2 right-2 z-10">{statusBadge}</div>
             )}
-            {variant === 'masonry' && (
-              <div className="absolute top-3 left-3 z-10 flex items-center gap-1 px-2.5 py-1 rounded-md bg-background/80 backdrop-blur-sm shadow-sm text-xs font-semibold text-foreground">
+            {isMasonry && (
+              // Rule 4 (`DESIGN.md` § event_card_date_box.base): `top-2` by default, `top-5`
+              // when a TILL tag is present. Padding stays uniform `p-1` in both states — the
+              // token's own note records that an asymmetric-padding fix was tried and
+              // explicitly rejected by the user, position-only being the sanctioned mechanism.
+              <div
+                className={`absolute ${
+                  tillBadgeText ? 'top-5' : 'top-2'
+                } left-2 z-10 flex items-center gap-1 p-1 rounded-md bg-background/80 backdrop-blur-sm shadow-sm ${EVENT_CARD_BADGE_TEXT_SIZE_CLASS} font-semibold text-foreground`}
+              >
                 {hasTime && dayDiff === 0 && <Clock className="w-3 h-3" />}
                 {dateBoxText}
                 {tillBadgeText && (
-                  <span className={TILL_BADGE_CLASS}>{tillBadgeText}</span>
+                  <span className={eventCardTillLabelClass('prominent')}>{tillBadgeText}</span>
                 )}
               </div>
             )}

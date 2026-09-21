@@ -8,6 +8,9 @@ import {
   EventCardDateBox,
   EventCardStatusBadge,
   EventCardNearbyBadge,
+  eventCardTillLabelClass,
+  EVENT_CARD_BADGE_TEXT_SIZE_CLASS,
+  EVENT_CARD_CONTAINER_CLASS,
 } from './EventCardMediaPrimitives';
 import {
   EVENT_CARD_BADGE_ICON_SCALE_LARGE,
@@ -451,5 +454,118 @@ describe('EventCardNearbyBadge - AC1/AC2/AC6 (self-gating <8km, non-interactive)
     expect(badge.getAttribute('title')).toBeNull();
     expect(badge.getAttribute('tabindex')).toBeNull();
     expect(container.querySelectorAll('button, a, input, [tabindex]')).toHaveLength(0);
+  });
+});
+
+// ── Story 1.i1l ──────────────────────────────────────────────────────────────
+// Rules 4, 5 and 7 of backlog row IDEA-046. These are structural ratchets, not
+// rendered-size assertions: JSDOM implements neither container queries nor Tailwind,
+// so `getComputedStyle().fontSize` here would report the same value at every width and
+// prove nothing. What CAN be proven — and is what the rules actually require — is that
+// the two badges resolve from ONE shared token, and that the token is a complete
+// literal string Tailwind's content scanner can see.
+describe('Story 1.i1l — badge font-size harmonization and the TILL offset context', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('gives the TILL tag and the favorite pill the identical font-size token (favorite >= TILL at every width)', () => {
+    // EXPERIENCE.md § Masonry EventCard Badge Row: "Favorite badge font-size >= TILL badge
+    // font-size ... Verified at every real width across all three card families." Asserting
+    // both carry the SAME token makes the relation hold at every width by construction --
+    // strictly stronger than sampling two widths, and it cannot silently regress the way a
+    // pair of independently-declared sizes did before round 8.
+    const { container } = render(
+      <EventCardDateBox size="default" month="OCT" day="12" tillLabel="till" />
+    );
+    const till = screen.getByText('till');
+    expect(till.className).toContain(EVENT_CARD_BADGE_TEXT_SIZE_CLASS);
+    expect(container.querySelector('[data-event-card-date-box]')).not.toBeNull();
+
+    cleanup();
+
+    const { container: favContainer } = render(
+      <EventCardFavoriteBadge
+        scale="default"
+        isFavorited={false}
+        favoriteCount={12}
+        onFavoriteToggle={() => {}}
+      />
+    );
+    const pill = favContainer.querySelector('button') as HTMLElement;
+    expect(pill.className).toContain(EVENT_CARD_BADGE_TEXT_SIZE_CLASS);
+  });
+
+  it('keeps the favorite pill at the round-8 padding, not the looser value it removed', () => {
+    const { container } = render(
+      <EventCardFavoriteBadge
+        scale="default"
+        isFavorited={false}
+        favoriteCount={12}
+        onFavoriteToggle={() => {}}
+      />
+    );
+    const pill = container.querySelector('button') as HTMLElement;
+    // DESIGN.md § event_card_masonry.thumbnail_default.favorite_badge -- "was a looser
+    // `px-2.5 py-1.5` at the desktop real width before this pass."
+    expect(pill).toHaveClass('px-1.5');
+    expect(pill).toHaveClass('py-1');
+    expect(pill).not.toHaveClass('px-2.5');
+    expect(pill).not.toHaveClass('py-1.5');
+  });
+
+  it('lets the favorite count inherit the pill font-size instead of pinning its own', () => {
+    // DESIGN.md: the responsive size is "inherited by the count text". A hardcoded
+    // `text-xs` on the count would leave it at 12px while its pill grew to 14px.
+    const { container } = render(
+      <EventCardFavoriteBadge
+        scale="default"
+        isFavorited={false}
+        favoriteCount={12}
+        onFavoriteToggle={() => {}}
+      />
+    );
+    const count = screen.getByText('12');
+    expect(count.className).not.toContain('text-xs');
+    expect(count.className).not.toContain('text-sm');
+  });
+
+  it('offsets the TILL tag by context: -top-1.5 on a two-tier pill, -top-3 on the prominent chip', () => {
+    // DESIGN.md § event_card_till_badge, "OFFSET DIFFERS BY CONTEXT". Asserted on the helper
+    // directly so both contexts are covered even though only one renders through EventCardDateBox.
+    expect(eventCardTillLabelClass('default')).toContain('-top-1.5');
+    expect(eventCardTillLabelClass('default')).not.toContain('-top-3');
+    expect(eventCardTillLabelClass('prominent')).toContain('-top-3');
+    expect(eventCardTillLabelClass('prominent')).not.toContain('-top-1.5');
+
+    // Everything except the vertical offset is identical -- position-only, per the token's
+    // own note that an asymmetric-padding fix was tried and explicitly rejected.
+    const normalize = (s: string) => s.replace('-top-1.5', 'OFFSET').replace('-top-3', 'OFFSET');
+    expect(normalize(eventCardTillLabelClass('default'))).toBe(
+      normalize(eventCardTillLabelClass('prominent'))
+    );
+  });
+
+  it('clears the 11px legibility floor on every badge family the primitives own', () => {
+    // EXPERIENCE.md's floor rule. `text-xs` is 12px; the TILL tag's old `text-[10px]` was under it.
+    expect(eventCardTillLabelClass('default')).not.toContain('text-[10px]');
+    expect(EVENT_CARD_BADGE_TEXT_SIZE_CLASS.startsWith('text-xs')).toBe(true);
+
+    const { container } = render(<EventCardStatusBadge text="Now" isHappeningNow />);
+    expect(container.querySelector('[data-event-card-status-badge]')).toHaveClass('text-xs');
+
+    cleanup();
+    const { container: nearby } = render(<EventCardNearbyBadge distanceKm={1} />);
+    expect(nearby.querySelector('[data-event-card-nearby-badge]')).toHaveClass('text-xs');
+  });
+
+  it('keeps both class tokens complete literal strings Tailwind can statically see', () => {
+    // The FIND-025 / commit 7bf99260 failure mode: a class assembled by runtime
+    // interpolation is invisible to Tailwind's content scanner and emits NO CSS at all.
+    // `packages/ui`'s own `no-dynamic-tailwind-arbitrary-value` lint rule (Story 1.i1k)
+    // guards the `w-[${expr}]` shape; this pins the two tokens Story 1.i1l added, whose
+    // arbitrary variant would fail exactly the same way if it were ever interpolated.
+    expect(EVENT_CARD_BADGE_TEXT_SIZE_CLASS).toBe('text-xs [@container(min-width:200px)]:text-sm');
+    expect(EVENT_CARD_CONTAINER_CLASS).toBe('[container-type:inline-size]');
   });
 });

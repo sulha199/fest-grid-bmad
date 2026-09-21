@@ -1470,7 +1470,7 @@ describe('WeeklyCalendarView', () => {
         // the identical happeningNow state.
         expect(badges).toHaveLength(3);
         badges.forEach((badge) => {
-          expect(badge).toHaveTextContent('Happening Now');
+          expect(badge).toHaveTextContent('Now');
           expect(badge).toHaveClass('bg-emerald-600');
           expect(badge).toHaveClass('text-white');
         });
@@ -1677,4 +1677,107 @@ describe('WeeklyCalendarView', () => {
       expect(within(mobileView).queryByText('Gallery Tour')).not.toBeInTheDocument();
     });
   });
+  describe('Story 1.i1l — compact-row title wrap and the 11px floor (rule 6, rule 5)', () => {
+    beforeAll(() => {
+      vi.useFakeTimers();
+      // 2026-08-04 makes every day of the 2026-08-05 week future-dated, so the
+      // mobile list variant renders expanded and its rows are queryable.
+      vi.setSystemTime(new Date('2026-08-04T12:00:00Z'));
+    });
+
+    afterAll(() => {
+      vi.useRealTimers();
+    });
+
+    const longNameSchedule = [
+      {
+        id: 'wrap-1',
+        eventSlug: 'wrap-fest',
+        eventName: 'A Deliberately Long Festival Name That Needs Two Lines',
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+        eventEndDate: '2026-08-07', // multi-day, so the badge renders too
+      },
+    ];
+
+    it('wraps the compact-row title to two lines and drops the parent clip that would no-op it', () => {
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...defaultProps} schedules={longNameSchedule} />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      const title = within(mobileView).getAllByText(
+        'A Deliberately Long Festival Name That Needs Two Lines'
+      )[0];
+
+      expect(title).toHaveClass('line-clamp-2');
+      expect(title).not.toHaveClass('truncate');
+
+      // The parent's own `truncate` is what silently defeats `line-clamp-2`, so
+      // its removal is the load-bearing half of rule 6 and is asserted directly.
+      const titleRow = title.parentElement as HTMLElement;
+      expect(titleRow).not.toHaveClass('truncate');
+      expect(titleRow).toHaveClass('items-start');
+      expect(titleRow).not.toHaveClass('items-center');
+    });
+
+    it('nudges the inline row icons to the first line once the title can wrap', () => {
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView
+            {...defaultProps}
+            schedules={[{ ...longNameSchedule[0], isFavorited: true, isAddedToCalendar: true }]}
+          />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      const row = within(mobileView).getAllByText(
+        'A Deliberately Long Festival Name That Needs Two Lines'
+      )[0].parentElement as HTMLElement;
+
+      expect(within(row).getByTestId('heart-icon')).toHaveClass('mt-0.5');
+      expect(within(row).getByTestId('calendar-plus-icon')).toHaveClass('mt-0.5');
+    });
+
+    it('raises the multi-day badge to the 11px legibility floor', () => {
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...defaultProps} schedules={longNameSchedule} />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      const badge = within(mobileView).getAllByTestId('multi-day-badge')[0];
+
+      expect(badge).toHaveClass('text-[11px]');
+      expect(badge).not.toHaveClass('text-[10px]');
+    });
+
+    it('leaves the variant="grid" day-cell title clipped to one line (rule 6 is compact-row only)', () => {
+      // Single-day on purpose: a multi-day schedule renders on desktop as a spanning
+      // bar built from `EventCardCalendarGridItem`, which is a different component with
+      // its own title styling. The day-cell title is only reachable via a single-day row.
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView
+            {...defaultProps}
+            schedules={[{ ...longNameSchedule[0], eventEndDate: '2026-08-05' }]}
+          />
+        </ScopedLocaleProvider>
+      );
+
+      const desktopView = rtlScreen.getByTestId('desktop-calendar-view');
+      const gridTitle = within(desktopView).getAllByText(
+        'A Deliberately Long Festival Name That Needs Two Lines'
+      )[0];
+
+      expect(gridTitle).toHaveClass('truncate');
+      expect(gridTitle).not.toHaveClass('line-clamp-2');
+      expect(gridTitle.parentElement as HTMLElement).toHaveClass('truncate', 'items-center');
+    });
+  });
+
 });

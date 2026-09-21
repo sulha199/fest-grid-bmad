@@ -71,6 +71,40 @@ existing-spec work, not new design. Line references are the spec source; code re
 
 ## Promoted
 
-Not yet promoted — no story exists. Verify each row's code reference before drafting (this audit is a
-point-in-time check, and 1.i1i/1.i1j/1.i1k all touch these same components). Once a story is drafted,
-fold this history into its Dev Notes and update the tracking doc's "Prototype coverage" section.
+**Promoted 2026-09-21** via `bmad-create-story`, into two stories:
+
+- **Story 1.i1l** (`1-i1l-apply-the-six-unowned-prototype-fidelity-rules`, `ready-for-dev`) — rules **1-6**.
+- **Story 1.i1m** (`1-i1m-drop-the-calendar-rows-reserved-image-slot`, `backlog`) — rule **7**, carved out by
+  Gate 2 as a sibling (not a prerequisite). Three independent reasons: it forks `EventCardMediaSlot`'s
+  contract (masonry keeps its reserved slot, the row drops it); it contradicts Story 1.i1z's shipped AC3 and
+  its two live CI ratchet tests; and its "favorite control grows into the freed space" behaviour is not
+  expressible in AD-15's two fixed badge scales — worse, removing the slot removes the element declaring
+  `--event-card-badge-font-size`, silently shrinking the icon from 28px to the 24px fallback.
+
+### Re-verification against `c80cd9b` (2026-09-21)
+
+This capture's own instruction to re-verify before drafting was carried out. **All seven still reproduce**
+after 1.i1i/1.i1j/1.i1k landed. Two code references had moved or widened since the 2026-09-20 audit:
+
+- **Rule 3** named two default sites; there are now **three** — Story 1.i1j added `WeeklyCalendarView.tsx:298`.
+  Also relevant: `format-event-date.ts` is re-exported wholesale by the feature's `index.ts`, so this default
+  is package-level, slightly broader than DESIGN.md's own card-family-scoped hedge.
+- **Rule 5** named the primitive's favorite pill only; the identical `px-2.5 py-1.5` literal also survives
+  inline at `EventCard.tsx:255`, serving the prominent-poster and non-masonry corner pill.
+
+Additionally, **rules 1 and 4 target sites that are not variant-gated today** (`EventCard.tsx:148`, `:240`,
+`:254` all serve `variant='standard'` too), so both need a gate that does not exist yet — a literal class swap
+would shrink and reposition the non-masonry card.
+
+### Carved out on promotion (§13)
+
+- **`IDEA-048`** — the compact row renders no venue line at all (DESIGN.md `:52` adds an explicit `venue` token
+  and `locationName` is already plumbed by 1.i1g), and still corner-overlays its favorite pill rather than
+  stacking it below the thumbnail (DESIGN.md `:53-55`, `image_wrapper`/`favorite_badge`). Both are in the same
+  `event_card_compact` token block as rules 6/7 and were user-directed in the same 2026-09-14 pass, but neither
+  appears in this row's seven. The with-image counterpart to rule 7, so it belongs with Story 1.i1m.
+- **`FIND-046`** — `validation-log.md`'s rounds 5-8 coverage gap (surfaced in this row's own note). Not a
+  prerequisite for Story 1.i1l; the written spec is unambiguous for all six rules it implements.
+
+The tracking doc's "Prototype coverage" section and this file's history are now folded into Story 1.i1l's own
+Dev Notes, which carry the full line-level evidence.
