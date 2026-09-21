@@ -357,7 +357,7 @@ describe('WeeklyCalendarView', () => {
     expect(screen.getAllByText('Trailing Festival')).toHaveLength(1);
   });
 
-  it('camps daily events if they exceed maxEventsPerDay and triggers popover', () => {
+  it('camps daily events if they exceed maxEventsPerDay and opens the shared overflow dialog', () => {
     // Sunday Aug 2 gets 3 events
     const lotsOfEvents = [
       { id: '1', eventName: 'Event 1', isMainSchedule: true, eventStartDate: '2026-08-05' },
@@ -366,6 +366,7 @@ describe('WeeklyCalendarView', () => {
     ];
 
     const moreLabel = vi.fn((count: number) => `+${count} items remaining`);
+    const onOverflowRequested = vi.fn();
 
     render(
       <WeeklyCalendarView
@@ -373,6 +374,15 @@ describe('WeeklyCalendarView', () => {
         schedules={lotsOfEvents}
         maxEventsPerDay={2}
         labels={{ moreLabel }}
+        onOverflowRequested={onOverflowRequested}
+        // Story 1.i1h Task 8.3 — the day-scoped query result is caller-owned (React Query never
+        // reaches `packages/ui`), so a test that wants to see the dialog's contents supplies it.
+        overflowDialogData={{
+          items: lotsOfEvents,
+          fetchNextPage: vi.fn(),
+          hasNextPage: false,
+          isFetchingNextPage: false,
+        }}
         locale="en-US"
       />
     );
@@ -387,20 +397,52 @@ describe('WeeklyCalendarView', () => {
     const trigger = screen.getByText('+1 items remaining');
     expect(trigger).toBeInTheDocument();
 
-    // Trigger popover open
+    // Task 7.1 — the trigger asks the caller for that day's data (all three AC9 payload fields)
+    // and opens the ONE shared dialog instead of the deleted inline popover.
     fireEvent.click(trigger);
+    expect(onOverflowRequested).toHaveBeenCalledWith('2026-08-05', 'desktop', 1);
 
-    // Event 3 should now be visible in popover
-    expect(screen.getByLabelText(/Schedules for/i)).toBeInTheDocument();
-    expect(screen.getByText('All Schedules')).toBeInTheDocument();
-    expect(screen.getAllByText('Event 3').length).toBe(1);
+    const dialog = screen.getByRole('dialog', { name: /Schedules for/i });
+    expect(dialog).toHaveAttribute('data-date', '2026-08-05');
+    // Event 3 now renders inside the dialog (via EventCardCalendarGridItem's no-image
+    // composition), and exactly once overall — never duplicated next to the capped day cell.
+    // Asserted via the visible heading, not by text (the row's click layer also carries an
+    // `sr-only` copy of the name as its accessible name).
+    expect(within(dialog).getByRole('heading', { name: 'Event 3' })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { name: 'Event 3' })).toHaveLength(1);
 
-    // Escape closing popover
-    fireEvent.keyDown(screen.getByLabelText(/Schedules for/i), { key: 'Escape' });
-    expect(screen.queryByLabelText(/Schedules for/i)).not.toBeInTheDocument();
+    // Escape closes the dialog — its own document-level keydown handler owns this now.
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByTestId('calendar-overflow-dialog')).not.toBeInTheDocument();
   });
 
-  it('triggers onScheduleClick with full schedule object on grid card or popover card click', () => {
+  it('returns focus to the exact "+N more" trigger that opened the dialog (Task 7.4)', async () => {
+    const lotsOfEvents = [
+      { id: '1', eventName: 'Event 1', isMainSchedule: true, eventStartDate: '2026-08-05' },
+      { id: '2', eventName: 'Event 2', isMainSchedule: true, eventStartDate: '2026-08-05' },
+      { id: '3', eventName: 'Event 3', isMainSchedule: true, eventStartDate: '2026-08-05' },
+    ];
+
+    render(
+      <WeeklyCalendarView
+        {...defaultProps}
+        schedules={lotsOfEvents}
+        maxEventsPerDay={2}
+        locale="en-US"
+      />
+    );
+
+    const trigger = screen.getByText('+1 more');
+    fireEvent.click(trigger);
+    expect(screen.getByTestId('calendar-overflow-dialog')).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('triggers onScheduleClick with full schedule object on grid card or dialog card click', () => {
     const onScheduleClick = vi.fn();
     const lotsOfEvents = [
       { id: '1', eventSlug: 'e1', eventName: 'Event 1', isMainSchedule: true, eventStartDate: '2026-08-05' },
@@ -414,6 +456,12 @@ describe('WeeklyCalendarView', () => {
         schedules={lotsOfEvents}
         maxEventsPerDay={2}
         onScheduleClick={onScheduleClick}
+        overflowDialogData={{
+          items: lotsOfEvents,
+          fetchNextPage: vi.fn(),
+          hasNextPage: false,
+          isFetchingNextPage: false,
+        }}
         locale="en-US"
       />
     );
@@ -422,10 +470,15 @@ describe('WeeklyCalendarView', () => {
     fireEvent.click(screen.getByText('Event 1'));
     expect(onScheduleClick).toHaveBeenLastCalledWith(lotsOfEvents[0]);
 
-    // Open popover and click popover card
+    // Open the shared dialog and activate the overflowing card. The dialog renders each row with
+    // the Story 1.i1g AC12 shape (a real click-target <button> sitting under a purely visual card
+    // layer), so the interactive element — not the visible <h3> text — is the click target.
     fireEvent.click(screen.getByText('+1 more'));
-    fireEvent.click(screen.getByText('Event 3'));
+    fireEvent.click(rtlScreen.getByRole('button', { name: 'Event 3' }));
+
     expect(onScheduleClick).toHaveBeenLastCalledWith(lotsOfEvents[2]);
+    // Activating a card closes the dialog, matching the superseded popover's behaviour.
+    expect(rtlScreen.queryByTestId('calendar-overflow-dialog')).not.toBeInTheDocument();
   });
 
   it('hovering and keyboard focusing compact card displays custom tooltip', () => {
@@ -452,7 +505,7 @@ describe('WeeklyCalendarView', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
-  it('keeps multi-day schedules out of the capped day cells and the "+N more" popover (AC5/AC6)', () => {
+  it('keeps multi-day schedules out of the capped day cells and the shared overflow dialog (AC4)', () => {
     const mixedSchedules = [
       { id: '1', eventSlug: 'e1', eventName: 'Event 1', isMainSchedule: true, eventStartDate: '2026-08-05' },
       { id: '2', eventSlug: 'e2', eventName: 'Event 2', isMainSchedule: true, eventStartDate: '2026-08-05' },
@@ -475,6 +528,14 @@ describe('WeeklyCalendarView', () => {
         schedules={mixedSchedules}
         maxEventsPerDay={2}
         labels={{ moreLabel }}
+        // Desktop's day cell — and therefore the day-scoped overflow list it opens — is
+        // single-day-only, so the caller's merged bucket for this day excludes the expo.
+        overflowDialogData={{
+          items: mixedSchedules.filter((schedule) => !schedule.eventEndDate),
+          fetchNextPage: vi.fn(),
+          hasNextPage: false,
+          isFetchingNextPage: false,
+        }}
         locale="en-US"
       />
     );
@@ -496,10 +557,10 @@ describe('WeeklyCalendarView', () => {
     expect(moreLabel).toHaveBeenCalledWith(1);
     fireEvent.click(screen.getByText('+1 items remaining'));
 
-    // The popover lists the remaining single-day schedule, never the multi-day one.
-    const popover = screen.getByLabelText(/Schedules for/i);
-    expect(within(popover).getByText('Event 3')).toBeInTheDocument();
-    expect(within(popover).queryByText('All Week Expo')).not.toBeInTheDocument();
+    // The dialog lists the remaining single-day schedule the caller supplied, never the multi-day one.
+    const dialog = rtlScreen.getByRole('dialog', { name: /Schedules for/i });
+    expect(within(dialog).getByRole('heading', { name: 'Event 3' })).toBeInTheDocument();
+    expect(within(dialog).queryByText('All Week Expo')).not.toBeInTheDocument();
 
     // The multi-day schedule still renders exactly once overall (no duplication).
     expect(screen.getAllByText('All Week Expo')).toHaveLength(1);
@@ -894,7 +955,7 @@ describe('WeeklyCalendarView', () => {
       expect(within(mobileView).getByText('Day 4 of 10')).toBeInTheDocument();
     });
 
-    it('never caps events or shows a popover trigger, rendering all schedules', () => {
+    it('caps desktop independently of the mobile list (mobile keeps its own flat-20 bound)', () => {
       const threeEvents = [
         { id: '1', eventName: 'Event 1', isMainSchedule: true, eventStartDate: '2026-08-05' },
         { id: '2', eventName: 'Event 2', isMainSchedule: true, eventStartDate: '2026-08-05' },
@@ -906,7 +967,7 @@ describe('WeeklyCalendarView', () => {
           <WeeklyCalendarView
             {...defaultProps}
             schedules={threeEvents}
-            maxEventsPerDay={1} // Cap desktop but NOT mobile
+            maxEventsPerDay={1} // Cap desktop but NOT the mobile list, which has its own flat 20
           />
         </ScopedLocaleProvider>
       );
@@ -915,7 +976,80 @@ describe('WeeklyCalendarView', () => {
       expect(within(mobileView).getByText('Event 1')).toBeInTheDocument();
       expect(within(mobileView).getByText('Event 2')).toBeInTheDocument();
       expect(within(mobileView).getByText('Event 3')).toBeInTheDocument();
-      expect(within(mobileView).queryByText(/\+.*more/)).not.toBeInTheDocument();
+      // Well under the new flat-20 single-day bound, so mobile shows no overflow trigger at all.
+      expect(within(mobileView).queryByTestId('calendar-overflow-trigger-mobile')).not.toBeInTheDocument();
+    });
+
+    it('caps at a flat 20 single-day occurrences and opens the shared dialog (Task 7.2)', () => {
+      const twentyFive = Array.from({ length: 25 }, (_, i) => ({
+        id: `m-${i + 1}`,
+        eventName: `Mobile Event ${i + 1}`,
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+      }));
+
+      const onOverflowRequested = vi.fn();
+
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView
+            {...defaultProps}
+            schedules={twentyFive}
+            onOverflowRequested={onOverflowRequested}
+            overflowDialogData={{
+              items: twentyFive.slice(20),
+              fetchNextPage: vi.fn(),
+              hasNextPage: false,
+              isFetchingNextPage: false,
+            }}
+          />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      // 20 render inline; the remaining 5 sit behind mobile's brand-new "+N more" affordance.
+      expect(within(mobileView).getByText('Mobile Event 20')).toBeInTheDocument();
+      expect(within(mobileView).queryByText('Mobile Event 21')).not.toBeInTheDocument();
+
+      const trigger = within(mobileView).getByTestId('calendar-overflow-trigger-mobile');
+      expect(trigger).toHaveTextContent('+5 more');
+
+      fireEvent.click(trigger);
+      expect(onOverflowRequested).toHaveBeenCalledWith('2026-08-05', 'mobile', 5);
+
+      const dialog = rtlScreen.getByRole('dialog', { name: /Schedules for/i });
+      expect(within(dialog).getByRole('heading', { name: 'Mobile Event 21' })).toBeInTheDocument();
+    });
+
+    it('exempts multi-day segments from the mobile single-day cap (Task 7.2)', () => {
+      // Exactly 20 single-day occurrences plus 2 multi-day ones: because multi-day segments are
+      // never counted, all 22 render inline and no trigger appears — the same exemption principle
+      // desktop's `day_cell` already applies.
+      const schedules = [
+        ...Array.from({ length: 20 }, (_, i) => ({
+          id: `single-${i + 1}`,
+          eventName: `Single ${i + 1}`,
+          isMainSchedule: true,
+          eventStartDate: '2026-08-05',
+        })),
+        { id: 'md-1', eventName: 'Expo One', isMainSchedule: true, eventStartDate: '2026-08-05', eventEndDate: '2026-08-07' },
+        { id: 'md-2', eventName: 'Expo Two', isMainSchedule: true, eventStartDate: '2026-08-05', eventEndDate: '2026-08-06' },
+      ];
+
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...defaultProps} schedules={schedules} />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      expect(within(mobileView).getByText('Single 1')).toBeInTheDocument();
+      expect(within(mobileView).getByText('Single 20')).toBeInTheDocument();
+      // Multi-day segments render day-by-day on mobile, so each appears once per covered day —
+      // the assertion is simply that they are present inline and never counted toward the cap.
+      expect(within(mobileView).getAllByText('Expo One').length).toBeGreaterThan(0);
+      expect(within(mobileView).getAllByText('Expo Two').length).toBeGreaterThan(0);
+      expect(within(mobileView).queryByTestId('calendar-overflow-trigger-mobile')).not.toBeInTheDocument();
     });
 
     it('renders the new date box (till text) and favorite count, with no redundant time-range-inline in list-variant', () => {

@@ -61,8 +61,17 @@ export interface WeeklyCalendarViewLabels {
    * Falls back to `Day ${dayNumber} of ${totalDays}` if omitted.
    */
   multiDaySegmentLabel?: (dayNumber: number, totalDays: number) => string;
-  /** aria-label for the "+N more" popover's dismiss control */
+  /** aria-label for the "+N more" overflow dialog's dismiss control (Story 1.i1h Task 7 — the shared `CalendarOverflowDialog` replaced the superseded desktop popover) */
   closePopoverLabel?: string;
+  /**
+   * Accessible name for the shared overflow dialog, invoked once at open time with that day's
+   * already-formatted header text (e.g. `Tue, Aug 5`). A resolver FUNCTION, not a static string,
+   * for the same reason `moreLabel`/`multiDaySegmentLabel` are: the open day is only known after
+   * this component's own day computation runs. Falls back to `` (dayLabel) => `Schedules for
+   * ${dayLabel}` `` — the exact string the superseded desktop popover already used as its
+   * `aria-label`.
+   */
+  overflowDialogTitleLabel?: (dayLabel: string) => string;
   /** Shown while `status === 'loading'` (aria-label on the skeleton grid) */
   loadingText?: string;
   /** Prefix text for the list-variant date box's till/end content (default "till", AC4/AC9). */
@@ -70,6 +79,28 @@ export interface WeeklyCalendarViewLabels {
   /** Accessible name for the list-variant thumbnail's favorite-toggle badge (default "Toggle favorite", AC3/AC9). */
   favoriteToggleLabel?: string;
 }
+
+export interface WeeklyCalendarViewOverflowDialogData<
+  TSchedule extends WeeklyCalendarViewScheduleShape = WeeklyCalendarViewScheduleShape,
+> {
+  /**
+   * Rows to render, already merged by the caller: the week-fetch's own client-side bucket for the
+   * open day plus every page resolved by the day-scoped `useInfiniteQuery`. `CalendarOverflowDialog`
+   * keys rows by `id` and renders in array order, so a caller merging pages must dedupe by id.
+   */
+  items: TSchedule[];
+  /** Day-scoped "load more" — typically React Query's `fetchNextPage`. */
+  fetchNextPage: () => Promise<unknown> | void;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+}
+
+/**
+ * Which affordance opened the shared overflow dialog — AC9's `calendar_overflow_dialog_opened`
+ * `surface` field. Exported (rather than inlined) so `apps/web`'s `CalendarView.tsx` can type its
+ * PostHog payload without re-declaring the union.
+ */
+export type WeeklyCalendarViewOverflowSurface = 'desktop' | 'mobile';
 
 export interface WeeklyCalendarViewProps<TSchedule extends WeeklyCalendarViewScheduleShape = WeeklyCalendarViewScheduleShape> {
   weekStart: Date | string;
@@ -104,5 +135,33 @@ export interface WeeklyCalendarViewProps<TSchedule extends WeeklyCalendarViewSch
    * masonry `EventCard` (Story 1.i1f review finding, `FIND-045`).
    */
   nearbyBadgeThreshold?: number;
+  /**
+   * Fired when a day's "+N more" affordance opens the shared overflow dialog (Story 1.i1h Task
+   * 7.1/7.2), so the caller knows *which* day's data to start fetching (`date`) and can fire AC9's
+   * `calendar_overflow_dialog_opened` (`surface` + `inlineHiddenCount`). A caller that omits it
+   * still gets a working open/close dialog, just one that lists only whatever it passes via
+   * `overflowDialogData`.
+   */
+  onOverflowRequested?: (
+    date: string,
+    surface: WeeklyCalendarViewOverflowSurface,
+    inlineHiddenCount: number
+  ) => void;
+  /**
+   * Fired when the overflow dialog closes (Escape, the dismiss control, an outside pointerdown, or
+   * activating a card), so the caller can clear the day it opened a fetch for (Story 1.i1h Task
+   * 8.1) — this component only owns the open/closed UI state, never the query's lifetime.
+   */
+  onOverflowClosed?: () => void;
+  /**
+   * Caller-owned, day-scoped pagination result for the currently-open overflow dialog (Story
+   * 1.i1h Task 8.3). Optional because this component owns no fetch of its own — React Query is
+   * isolated to `apps/web` per `project-context.md`'s State Management Architecture rule — so a
+   * consumer with no such query simply never supplies it. When omitted, `CalendarOverflowDialog`
+   * opens with an empty list and no "load more", and the other three `WeeklyCalendarView`
+   * consumers (explicitly not switched to windowed fetching in this story, AC10) are otherwise
+   * unaffected.
+   */
+  overflowDialogData?: WeeklyCalendarViewOverflowDialogData<TSchedule>;
   className?: string;
 }

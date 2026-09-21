@@ -34,6 +34,53 @@ export const getWeekEnd = (weekStartStr: string) => {
   return formatIsoDate(sunday);
 };
 
+/**
+ * Story 1.i1h Task 8.3 — the event → schedule mapping extracted into an exported pure function.
+ *
+ * `CalendarView.tsx`'s day-scoped overflow `useInfiniteQuery` returns *additional* pages of the
+ * same `Event`-shaped rows the week-level fetch returns, and those pages must be mapped into
+ * `WeeklyCalendarViewScheduleShape` exactly the way `rawEvents` already is. Exporting the one
+ * mapping (instead of duplicating it in `apps/web`) is what keeps the two lists identical —
+ * including `distanceKm`, `locationName` and `imageUrl`, which the overflowing cards need.
+ */
+export function mapCalendarSchedules<TEvent = any, TSchedule = any>(
+  rawEvents: TEvent[] | null | undefined,
+  viewerCoord?: { latitude: number; longitude: number }
+): TSchedule[] {
+  const events = rawEvents ?? [];
+  return events.flatMap((event: any) => {
+    return (event.schedules || []).map((schedule: any) => {
+      const targetCoords = schedule.locationDetails?.coordinates;
+      const distanceKm =
+        viewerCoord && targetCoords
+          ? computeDistanceKm(viewerCoord, { latitude: targetCoords.lat, longitude: targetCoords.lng })
+          : undefined;
+
+      return {
+        id: schedule.id,
+        eventSlug: event.slug,
+        eventName: event.eventName,
+        isMainSchedule: schedule.isMainSchedule,
+        eventStartDate: schedule.eventStartDate,
+        eventEndDate: schedule.eventEndDate,
+        eventStartTime: schedule.eventStartTime,
+        eventEndTime: schedule.eventEndTime,
+        isFavorited: !!event.isFavorited,
+        favoriteCount: event.favoriteCount,
+        isAddedToCalendar: !!schedule.isAddedToCalendar,
+        eventId: event.id,
+        imageUrl: event.imageUrl,
+        // Story 1.i1g AC10 — venue text for the spanning calendar grid item card.
+        // `location` is already selected at the Event level by both calendar GraphQL
+        // queries, so this is purely a dropped-mapping fix (no query/codegen change),
+        // matching EventListView.tsx's existing `locationName` mapping precedent.
+        locationName: event.location ?? undefined,
+        distanceKm,
+      };
+    });
+  }) as TSchedule[];
+}
+
 export function useWeeklyCalendarController<TEvent = any, TSchedule = any>(
   options: WeeklyCalendarControllerOptions<TEvent>
 ): WeeklyCalendarControllerResult<TSchedule> {
@@ -54,40 +101,10 @@ export function useWeeklyCalendarController<TEvent = any, TSchedule = any>(
   const currentWeekStart = useMemo(() => getWeekStart(todayStr), [todayStr]);
   const isPrevWeekDisabled = weekStart <= currentWeekStart;
 
-  const schedules = useMemo(() => {
-    const events = rawEvents ?? [];
-    return events.flatMap((event: any) => {
-      return (event.schedules || []).map((schedule: any) => {
-        const targetCoords = schedule.locationDetails?.coordinates;
-        const distanceKm =
-          viewerCoord && targetCoords
-            ? computeDistanceKm(viewerCoord, { latitude: targetCoords.lat, longitude: targetCoords.lng })
-            : undefined;
-
-        return {
-          id: schedule.id,
-          eventSlug: event.slug,
-          eventName: event.eventName,
-          isMainSchedule: schedule.isMainSchedule,
-          eventStartDate: schedule.eventStartDate,
-          eventEndDate: schedule.eventEndDate,
-          eventStartTime: schedule.eventStartTime,
-          eventEndTime: schedule.eventEndTime,
-          isFavorited: !!event.isFavorited,
-          favoriteCount: event.favoriteCount,
-          isAddedToCalendar: !!schedule.isAddedToCalendar,
-          eventId: event.id,
-          imageUrl: event.imageUrl,
-          // Story 1.i1g AC10 — venue text for the spanning calendar grid item card.
-          // `location` is already selected at the Event level by both calendar GraphQL
-          // queries, so this is purely a dropped-mapping fix (no query/codegen change),
-          // matching EventListView.tsx's existing `locationName` mapping precedent.
-          locationName: event.location ?? undefined,
-          distanceKm,
-        };
-      });
-    });
-  }, [rawEvents, viewerCoord]);
+  const schedules = useMemo(
+    () => mapCalendarSchedules<TEvent, TSchedule>(rawEvents, viewerCoord),
+    [rawEvents, viewerCoord]
+  );
 
   const handlePrevWeek = () => {
     if (isPrevWeekDisabled) return;

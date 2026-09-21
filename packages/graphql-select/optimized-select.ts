@@ -5,11 +5,18 @@ import { getTableColumns, SQL } from 'drizzle-orm';
 
 export interface OptimizedDrizzleSelectOptions {
   /**
-   * A single segment or an ordered array of segments used to traverse down from the
-   * resolver's current `info` scope to a nested object type (e.g. `['items', 'schedules']`
-   * reaches the `Schedule` type nested under an `EventConnection.items[0]`). A bare string
-   * is treated as a single-segment path (backward compatible with `event`/`eventBySlug`'s
-   * `path: 'schedules'` usage).
+   * A path used to traverse down from the resolver's current `info` scope to a nested object
+   * type. Three accepted forms (Story 1.i1h Task 1 — the dot-separated string form is a strict
+   * superset of the previous single-segment-only behaviour):
+   *
+   * - a **dot-separated string**: `'items.schedules'` reaches the `Schedule` type nested under
+   *   `EventConnection.items[0]`, and `'items'` reaches `Event` directly;
+   * - an **ordered array of segments**: `['items', 'schedules']` — equivalent to the above;
+   * - a **single segment string** with no dot: `'schedules'` (`event`/`eventBySlug`'s existing
+   *   usage).
+   *
+   * Dot-separated strings are split on `.`; empty segments (e.g. a leading/trailing dot) are
+   * dropped rather than treated as a lookup key.
    */
   path?: string | string[];
   /**
@@ -38,7 +45,12 @@ export function getRequestedFieldNames(
     return requested;
   }
 
-  const segments = typeof path === 'string' ? [path] : (path ?? []);
+  // Story 1.i1h (Task 1) — a bare string is now a dot-separated path (`'items.schedules'`),
+  // while a no-dot string (`'schedules'`) still yields exactly one segment, so every existing
+  // single-segment call site behaves identically. The array form is unchanged.
+  const segments = typeof path === 'string'
+    ? path.split('.').filter((segment) => segment.length > 0)
+    : (path ?? []);
 
   for (const segment of segments) {
     const typeNames = Object.keys(parsedInfo.fieldsByTypeName);

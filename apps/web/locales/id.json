@@ -304,7 +304,8 @@
     "calendarMoreLabel": "{count, plural, =1 {# acara lainnya} other {# acara lainnya}}",
     "calendarMultiDaySegmentLabel": "Hari {dayNumber} dari {totalDays}",
     "calendarErrorState": "Gagal memuat acara kalender.",
-    "calendarClosePopoverLabel": "Tutup popover"
+    "calendarClosePopoverLabel": "Tutup popover",
+    "calendarOverflowDialogTitleLabel": "Jadwal untuk {day}"
   },
   "FeedPage": {
     "title": "Feed Saya",

@@ -194,6 +194,83 @@ test('buildOptimizedDrizzleSelect', async (t) => {
     assert.strictEqual(selectResult.country, undefined, 'unrequested nested column should be omitted');
   });
 
+  await t.test('traverses a dot-separated nested path string to a child type (Story 1.i1h Task 1)', async () => {
+    let selectResult: any = null;
+
+    const rootValue = {
+      eventFeed: (_args: any, context: any, info: any) => {
+        selectResult = buildOptimizedDrizzleSelect(eventLocations, info, {
+          path: 'items.location',
+        });
+        return { items: [] };
+      },
+    };
+
+    await graphql({
+      schema,
+      source: '{ eventFeed { items { location { city } } } }',
+      rootValue,
+    });
+
+    assert.ok(selectResult, 'dot-separated path traversal should not return an empty select');
+    assert.ok(selectResult.city, '`city` column should be selected via the dot-separated path');
+    assert.strictEqual(selectResult.country, undefined, 'unrequested nested column should be omitted');
+  });
+
+  await t.test('a dot-separated path behaves identically to the equivalent segment array', async () => {
+    const captured: { fromString?: any; fromArray?: any } = {};
+
+    const makeRootValue = (slot: 'fromString' | 'fromArray') => ({
+      eventFeed: (_args: any, context: any, info: any) => {
+        captured[slot] = buildOptimizedDrizzleSelect(eventLocations, info, {
+          path: slot === 'fromString' ? 'items.location' : ['items', 'location'],
+        });
+        return { items: [] };
+      },
+    });
+
+    await graphql({
+      schema,
+      source: '{ eventFeed { items { location { city country } } } }',
+      rootValue: makeRootValue('fromString'),
+    });
+    await graphql({
+      schema,
+      source: '{ eventFeed { items { location { city country } } } }',
+      rootValue: makeRootValue('fromArray'),
+    });
+
+    assert.ok(captured.fromString, 'string-form select should be captured');
+    assert.ok(captured.fromArray, 'array-form select should be captured');
+    assert.deepStrictEqual(
+      Object.keys(captured.fromString).sort(),
+      Object.keys(captured.fromArray).sort(),
+      'both path forms should select the same column set'
+    );
+  });
+
+  await t.test('a no-dot string path is still a single segment (backward compatible)', async () => {
+    let selectResult: any = null;
+
+    const rootValue = {
+      eventFeed: (_args: any, context: any, info: any) => {
+        selectResult = buildOptimizedDrizzleSelect(eventItems, info, { path: 'items' });
+        return { items: [] };
+      },
+    };
+
+    await graphql({
+      schema,
+      source: '{ eventFeed { items { id title } } }',
+      rootValue,
+    });
+
+    assert.ok(selectResult, 'single-segment string path should not return an empty select');
+    assert.ok(selectResult.id, '`id` should be selected');
+    assert.ok(selectResult.title, '`title` should be selected');
+    assert.strictEqual(selectResult.likes, undefined, 'unrequested field should be omitted');
+  });
+
   await t.test('getRequestedFieldNames returns leaf fields for the current type and for a path', async () => {
     const captured: { currentType?: Set<string>; nested?: Set<string> } = {};
 

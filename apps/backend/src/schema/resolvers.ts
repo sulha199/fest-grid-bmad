@@ -2889,7 +2889,7 @@ Constraints and Guidelines:
       }
       return false;
     },
-    events: async (_: any, { query, filter, limit, offset, includeSoftDeleted, includeMyArchived }: any, context: any, info: any) => {
+    events: async (_: any, { query, filter, limit, offset, perDayLimit, includeSoftDeleted, includeMyArchived }: any, context: any, info: any) => {
       const hasFavoritedEqTrue = (condition: QueryCondition | undefined): boolean => {
         if (!condition) {
           return false;
@@ -2904,6 +2904,31 @@ Constraints and Guidelines:
         if (!condition) return false;
         if ('conditions' in condition) return condition.conditions.some(hasWithinRadiusCondition);
         return condition.operator === 'withinRadius';
+      };
+
+      // Story 1.i1h (Task 4.1, AC6) — collects every exact schedule-date pinned by the
+      // (already-merged) condition tree, i.e. an `overlaps` on `scheduleDateRange` whose
+      // `from === to`. The caller only uses the result when it holds exactly *one* distinct
+      // date: the ORDER BY tie-break it enables is only sound when the entire result set
+      // provably shares one date, and an ambiguous tree (two different exact dates) must not
+      // silently pick one. The week-level fetch's own `{from: weekStart, to: weekEnd}`
+      // overlap is deliberately not "exact" and contributes nothing, so that caller's ordering
+      // is untouched. Mirrors the `hasWithinRadiusCondition`/`hasFavoritedEqTrue` walkers above.
+      const collectExactDates = (condition: QueryCondition | undefined, found: Set<string>): void => {
+        if (!condition) return;
+        if ('conditions' in condition) {
+          for (const child of condition.conditions) {
+            collectExactDates(child, found);
+          }
+          return;
+        }
+        if (condition.field !== 'scheduleDateRange' || condition.operator !== 'overlaps') {
+          return;
+        }
+        const value = condition.value as { from?: unknown; to?: unknown } | null | undefined;
+        if (value && typeof value.from === 'string' && value.from === value.to) {
+          found.add(value.from);
+        }
       };
 
       // Create field map for DSL
@@ -3057,6 +3082,7 @@ Constraints and Guidelines:
         isHiddenByModeration: sql`(${events.deletedAt} IS NOT NULL)`
       };
 
+      let mergedCondition: QueryCondition;
       let whereClause;
       if (includeMyArchived === true) {
         requireAuth(context);
@@ -3084,6 +3110,7 @@ Constraints and Guidelines:
             forcedConnectionCondition,
           ],
         };
+        mergedCondition = finalCondition;
         whereClause = buildDrizzleWhere(finalCondition, fieldMap);
       } else {
         const finalCondition: QueryCondition = {
@@ -3093,6 +3120,7 @@ Constraints and Guidelines:
             ...defaultVisibilityConditions,
           ],
         };
+        mergedCondition = finalCondition;
         whereClause = buildDrizzleWhere(finalCondition, fieldMap);
 
         if (includeSoftDeleted === true) {
@@ -3119,6 +3147,198 @@ Constraints and Guidelines:
           isAddedToCalendar: fieldMap.isAddedToCalendar,
         },
       });
+      // -----------------------------------------------------------------------------------
+      // Story 1.i1h (AC1-AC3, AC5-AC6) — "calendar windowed mode".
+      //
+      // Triggered by the new optional `perDayLimit` argument, and used only by `apps/web`'s
+      // Discovery calendar week fetch (`CalendarView.tsx`). Two things change versus the flat
+      // event-first path below:
+      //
+      // 1. Row granularity becomes *schedule*-first, not event-first. The fairness problem this
+      //    fixes (BUG-036) is per-day, and a day is made of schedule occurrences —
+      //    `WeeklyCalendarView`'s `dayBuckets` flattens each event's `schedules` into one
+      //    calendar card per schedule client-side. The old flat `ORDER BY + LIMIT` over events
+      //    let one popular day consume the entire 1000-row budget and silently starve a later
+      //    day of the same week.
+      // 2. Each day gets its own budget via a SQL window function partitioned on
+      //    `schedules.event_start_date` (the first `ROW_NUMBER()`/`OVER (PARTITION BY)` use in
+      //    this file — deliberately resolver-local for now; extract only once a second
+      //    "fair per-group pagination" need appears, following `resolveWithinRadiusConditions`).
+      //
+      // Everything above this point (auth, visibility defaults, `includeSoftDeleted`/
+      // `includeMyArchived`, the DSL `whereClause`, `fieldMap`) is *shared* with the flat path
+      // and unchanged — the two paths diverge only from here down, so a bug in one cannot
+      // regress the other by construction.
+      // -----------------------------------------------------------------------------------
+      if (perDayLimit != null) {
+        const safePerDayLimit = Math.max(1, Math.min(Math.floor(perDayLimit), 1000));
+
+        // AC1 (multi-day exemption) — a schedule spanning more than one day is one continuous
+        // occurrence, so its per-day segments must never be counted against a day's budget:
+        // otherwise a week-long festival could evict a genuinely different single-day event
+        // just by existing. Exempt rows are always returned, whatever their rank.
+        //
+        // BUG-026 note: the "collapsed day-of-week runs" half of AD-23 rule 2 is deliberately
+        // NOT implemented here — `Schedule.applicableDaysOfWeek` does not exist in the schema
+        // yet (confirmed by full-codebase grep at story-authoring time). Once that column
+        // ships, extend this predicate with
+        // `OR (schedules.applicable_days_of_week IS NOT NULL AND cardinality(schedules.applicable_days_of_week) > 0)`.
+        // Do not build speculative SQL against a column that does not exist.
+        const isMultiDaySchedule = sql`(${schedules.eventEndDate} IS NOT NULL AND ${schedules.eventEndDate} <> ${schedules.eventStartDate})`;
+
+        // AC1/AC6 — the per-day rank. This ORDER BY is the *same* key the flat path's
+        // single-exact-date tie-break uses (Task 4), which is what keeps the windowed fetch's
+        // first `perDayLimit` rows of a day and the overflow dialog's own offset-`perDayLimit`
+        // continuation of that same day on one consistent ordering.
+        //
+        // The leading `CASE ... END` is what makes AC1's exemption real rather than nominal: an
+        // exempt multi-day occurrence is ranked *after* every single-day one in its partition, so
+        // the `rn <= N` cutoff below can never trim a day's single-day budget because a multi-day
+        // occurrence happens to start earlier. The exempt row's own `rn` is therefore meaningless
+        // (it is included by the `isMultiDay` disjunction, never by its rank) and the outer
+        // chronological ORDER BY re-sorts the surviving rows, so this ranking order never leaks
+        // into the response order.
+        const dayRank = sql<number>`ROW_NUMBER() OVER (
+          PARTITION BY ${schedules.eventStartDate}
+          ORDER BY
+            CASE WHEN ${isMultiDaySchedule} THEN 1 ELSE 0 END ASC,
+            ${schedules.eventStartTime} ASC NULLS LAST,
+            ${schedules.id} ASC
+        )`;
+
+        // Stage 1 — windowed *occurrence identification* only (event id, schedule id, and the
+        // window/order keys). Deliberately a narrow projection: spreading the full Event and
+        // Schedule column sets into a single flat row here would alias-collide (`id`,
+        // `location`, `isAddedToCalendar`, `createdAt`, `updatedAt` all exist on both tables),
+        // so the full rows are fetched separately below and zipped back by id — the same
+        // two-query shape the flat path already uses for its batched `Event.schedules` select
+        // (Story 1.3j AC3). `posts` is joined only because `fieldMap.hashtags` maps to
+        // `posts.hashtags` and therefore may appear in `whereClause`.
+        const windowedCandidates = db.select({
+          // Every projection needs an explicit SQL alias: drizzle aliases a plain column by the
+          // column's own SQL name, and showing both `events.id` and `schedules.id` in one subquery
+          // select list would render two columns named `id`, making every outer reference
+          // ("column reference \"id\" is ambiguous") unresolvable.
+          eventId: sql<string>`${events.id}`.as('event_id'),
+          scheduleId: sql<string>`${schedules.id}`.as('schedule_id'),
+          startDate: sql<string>`${schedules.eventStartDate}`.as('start_date'),
+          startTime: sql<string | null>`${schedules.eventStartTime}`.as('start_time'),
+          // The two window-computed projections are raw `sql` expressions, and drizzle likewise
+          // requires them to be explicitly aliased before an outer query can reference them through
+          // the subquery — without `.as(...)` the outer WHERE/ORDER BY below throws "You tried to
+          // reference \"dayRank\" field from a subquery, which is a raw SQL field, but it doesn't
+          // have an alias declared".
+          dayRank: dayRank.as('day_rank'),
+          isMultiDay: isMultiDaySchedule.as('is_multi_day'),
+        }).from(schedules)
+          .innerJoin(events, eq(schedules.eventId, events.id))
+          .leftJoin(posts, eq(events.postId, posts.id))
+          .where(whereClause ?? sql`true`)
+          .as('calendar_window_candidates');
+
+        // The cutoff lives in an outer WHERE because Postgres cannot reference a window
+        // function at the same query level that defines it. Exempt (multi-day) rows are never
+        // subject to the cutoff — see AC1 above. The outer ORDER BY makes the whole week arrive
+        // chronological across days, not merely correctly windowed within each day.
+        const dayFairRows = await db.select({
+          eventId: windowedCandidates.eventId,
+          scheduleId: windowedCandidates.scheduleId,
+          startDate: windowedCandidates.startDate,
+          startTime: windowedCandidates.startTime,
+        }).from(windowedCandidates)
+          .where(sql`${windowedCandidates.dayRank} <= ${safePerDayLimit} OR ${windowedCandidates.isMultiDay}`)
+          .orderBy(
+            sql`${windowedCandidates.startDate} ASC`,
+            sql`${windowedCandidates.startTime} ASC NULLS LAST`,
+            sql`${windowedCandidates.scheduleId} ASC`
+          );
+
+        if (dayFairRows.length === 0) {
+          return { items: [], hasMore: false, totalCount: 0 };
+        }
+
+        // Stage 2 — the full Event rows, using the exact same projection the flat path's items
+        // query builds, so every `Event` field resolver (`imageUrl`/`durableImageUrl`/
+        // `videoUrl`/`sourceSocialMediaAccountProfile`/…) reads the same pre-selected columns
+        // in both modes. No ORDER BY/LIMIT/OFFSET here: row order and the per-day budget were
+        // already decided by `dayFairRows` above.
+        const windowedEventRows = await db.select({
+          ...requestedFields,
+          id: events.id,
+          postId: events.postId,
+          imageUrl: posts.imageUrl,
+          durableImageUrl: posts.durableImageUrl,
+          imageUrlExpiresAt: posts.imageUrlExpiresAt,
+          videoUrl: posts.videoUrl,
+          sourcePostUrl: posts.postUrl,
+          originalPostUrl: posts.originalPostUrl,
+          isImageStorageOptedIn: socialMediaAccountProfiles.isImageStorageOptedIn,
+        }).from(events)
+          .leftJoin(posts, eq(events.postId, posts.id))
+          .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
+          .where(inArray(events.id, Array.from(new Set(dayFairRows.map((row) => row.eventId)))));
+
+        const eventRowById = new Map<string, any>();
+        for (const row of windowedEventRows) {
+          eventRowById.set((row as any).id as string, row);
+        }
+
+        // Stage 3 (AC3 / Task 3.3) — the one matched schedule per occurrence, shaped with the
+        // same field-selection helper the flat path's batched schedules query uses. The
+        // dot-separated `path` form is Story 1.i1h Task 1's new capability; the array form
+        // (`['items', 'schedules']`) remains equivalent.
+        //
+        // Each item carries exactly one schedule: an event with two schedules that both land in
+        // the visible week intentionally appears as two `items` entries (one calendar card per
+        // schedule), which is what `WeeklyCalendarView` already renders. No merging of multiple
+        // schedules onto one event row is attempted in this branch.
+        const wantsSchedules = getRequestedFieldNames(info, 'items').has('schedules');
+        const scheduleRowById = new Map<string, any>();
+        if (wantsSchedules) {
+          const windowedScheduleRows = await db.select({
+            ...buildOptimizedDrizzleSelect(schedules, info, { path: 'items.schedules' }),
+            id: schedules.id,
+            eventId: schedules.eventId,
+          }).from(schedules).where(inArray(schedules.id, dayFairRows.map((row) => row.scheduleId)));
+
+          for (const row of windowedScheduleRows) {
+            scheduleRowById.set((row as any).id as string, row);
+          }
+        }
+
+        // Zip stages 1-3 back into the `Event`-shaped rows the GraphQL layer expects.
+        const windowedItems: Record<string, unknown>[] = [];
+        for (const row of dayFairRows) {
+          const eventRow = eventRowById.get(row.eventId);
+          if (!eventRow) {
+            continue;
+          }
+          const item: Record<string, unknown> = { ...(eventRow as Record<string, unknown>) };
+          if (wantsSchedules) {
+            const scheduleRow = scheduleRowById.get(row.scheduleId);
+            // Task 3.4's `Event.schedules` short-circuit reads this resolver-internal marker
+            // first. It is never exposed through the GraphQL schema — that field resolver
+            // consumes it and the schema only ever sees `schedules`.
+            if (scheduleRow) {
+              item.__schedulesPreloaded = [scheduleRow];
+            }
+          }
+          windowedItems.push(item);
+        }
+
+        // Task 3.5 / AC3 — `hasMore`/`totalCount` are not consumed by windowed mode's only
+        // caller (`CalendarView.tsx` destructures `data?.events?.items` only), so they are
+        // computed cheaply from the page already in hand rather than paying for a second,
+        // expensive COUNT query over the whole week. Do not "fix" this into a real count query
+        // while there is still no consumer.
+        return {
+          items: windowedItems as any,
+          hasMore: false,
+          totalCount: windowedItems.length,
+        };
+      }
+
+
 
       // Note: to filter on schedules' columns safely with a left join, or sort, we filter schedules in the join or where clause.
       // The AC specifies: "default sort order... is by the event's main schedule's eventStartDate/eventStartTime ascending".
@@ -3174,6 +3394,45 @@ Constraints and Guidelines:
         // WHERE fields (performers, scheduleLocation, scheduleCoordinates);
         // sorting uses a correlated subquery so it considers every schedule for
         // the event.
+        // Story 1.i1h (Task 4.2, AC6) — when the active condition pins exactly one date,
+        // append a schedule-level tie-break. Two independently offset-paginated calls share
+        // that single-date filter (the windowed week fetch's per-day rows, then the overflow
+        // dialog's continuation from `offset: perDayLimit`), and without this every candidate
+        // row computes the *same* "next-upcoming date", so the primary key alone leaves row
+        // order undefined and rows can duplicate or skip across the two calls. The appended
+        // key mirrors the windowed path's per-partition ORDER BY
+        // (`event_start_time ASC NULLS LAST, schedules.id ASC`) for the schedule occurrence
+        // that actually matches the pinned date, so both calls walk one sequence.
+        //
+        // Deliberately inside this single `orderBy` call rather than a second one: drizzle
+        // 0.30's `orderBy` *replaces* the configured ordering, so a second call would silently
+        // drop the primary sort key above.
+        //
+        // Degenerate case: an event with two distinct same-date schedules cannot express
+        // per-schedule position through an event-level ordering. The dialog merges its pages
+        // keyed by schedule id, so that narrowing never surfaces as a duplicate card.
+        const exactDates = new Set<string>();
+        collectExactDates(mergedCondition, exactDates);
+        const singleExactDate = exactDates.size === 1 ? [...exactDates][0] : undefined;
+        const singleDateTieBreak = singleExactDate === undefined ? sql`` : sql`,
+          COALESCE(
+            (SELECT s5.event_start_time FROM schedules s5
+              WHERE s5.event_id = ${events.id}
+                AND daterange(s5.event_start_date, COALESCE(s5.event_end_date, s5.event_start_date), '[]')
+                    && daterange(${singleExactDate}::date, ${singleExactDate}::date, '[]')
+              ORDER BY s5.event_start_time ASC NULLS LAST, s5.id ASC
+              LIMIT 1)
+          ) ASC NULLS LAST,
+          COALESCE(
+            (SELECT s6.id FROM schedules s6
+              WHERE s6.event_id = ${events.id}
+                AND daterange(s6.event_start_date, COALESCE(s6.event_end_date, s6.event_start_date), '[]')
+                    && daterange(${singleExactDate}::date, ${singleExactDate}::date, '[]')
+              ORDER BY s6.event_start_time ASC NULLS LAST, s6.id ASC
+              LIMIT 1)
+          ) ASC
+        `;
+
         itemsQuery.orderBy(sql`
           COALESCE(
             (SELECT s2.event_start_date FROM schedules s2
@@ -3189,7 +3448,7 @@ Constraints and Guidelines:
               WHERE s4.event_id = ${events.id}
               ORDER BY s4.event_start_date ASC, s4.event_start_time ASC NULLS LAST
               LIMIT 1)
-          ) ASC
+          ) ASC${singleDateTieBreak}
         `);
       }
       itemsQuery.limit(qLimit + 1).offset(qOffset);
@@ -3685,6 +3944,19 @@ Constraints and Guidelines:
       return (rows[0] as any) || null;
     },
     schedules: async (parent: any, args: any, context: any, info: any) => {
+      // Story 1.i1h (Task 3.4) — windowed-mode short-circuit. `Query.events`' windowed
+      // (`perDayLimit`) branch is schedule-first, so it pre-populates the exact matched
+      // schedule(s) for this row on this resolver-internal marker. Checked *first*, ahead of
+      // the Story 1.3j `parent.schedules` passthrough below, because the windowed branch
+      // deliberately does not select a `schedules` array column.
+      //
+      // A strict no-op for every other caller: only rows produced by the windowed branch ever
+      // carry this property, so Discovery/Feed/Favorites/My-Calendar/the event-detail page all
+      // fall straight through to the existing behaviour. Never exposed through the GraphQL
+      // schema.
+      if (parent.__schedulesPreloaded) {
+        return parent.__schedulesPreloaded as any;
+      }
       // Story 1.3j (AC3, AD-17 Rule 2) — passthrough: read the batched schedules already
       // pre-populated on the parent by the `events` resolver. Fall back to the legacy per-row
       // query only when absent (a defensive path for a caller that reaches this resolver

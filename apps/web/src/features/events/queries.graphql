@@ -134,8 +134,8 @@ query getEventForIcsExport($id: ID!) {
   }
 }
 
-query getEventsForCalendar($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
-  events(limit: $limit, offset: $offset, query: $query) {
+query getEventsForCalendar($limit: Int, $offset: Int, $perDayLimit: Int, $query: EventQueryConditionInput) {
+  events(limit: $limit, offset: $offset, perDayLimit: $perDayLimit, query: $query) {
     items {
       id
       eventName

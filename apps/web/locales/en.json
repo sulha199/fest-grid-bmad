@@ -304,7 +304,8 @@
     "calendarMoreLabel": "{count, plural, =1 {# more event} other {# more events}}",
     "calendarMultiDaySegmentLabel": "Day {dayNumber} of {totalDays}",
     "calendarErrorState": "Failed to load calendar events.",
-    "calendarClosePopoverLabel": "Close popover"
+    "calendarClosePopoverLabel": "Close popover",
+    "calendarOverflowDialogTitleLabel": "Schedules for {day}"
   },
   "FeedPage": {
     "title": "My Feed",

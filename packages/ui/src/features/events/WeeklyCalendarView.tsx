@@ -1,16 +1,18 @@
 "use client"
 
 import React, { useState, useRef, useEffect, useMemo, useId } from 'react';
-import { ChevronLeft, ChevronRight, X, Heart, CalendarPlus, CalendarRange, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Heart, CalendarPlus, CalendarRange, ChevronDown } from 'lucide-react';
 import { WeekPicker } from '../../core/WeekPicker';
 import { useScopedLocale, useScopedTimezone } from '../../hooks';
 import type {
   WeeklyCalendarViewProps,
   WeeklyCalendarViewScheduleShape,
+  WeeklyCalendarViewOverflowSurface,
 } from './WeeklyCalendarView.types';
 import { getWeekStart, getWeekEnd } from '../../hooks';
 import { EventCardMediaSlot, EventCardDateBox } from './EventCardMediaPrimitives';
 import { EventCardCalendarGridItem } from './EventCardCalendarGridItem';
+import { CalendarOverflowDialog } from './CalendarOverflowDialog';
 import { computeCalendarSegmentTillText } from './format-event-date';
 
 // Design system styles from DESIGN.md
@@ -41,6 +43,23 @@ const SPANNING_BAR_CLICK_CLASS = "absolute inset-0 z-10 w-full rounded-md focus-
  * shape as Story 1.i1d's `variant='list'` restructure).
  */
 const SPANNING_BAR_VISUAL_CLASS = "relative z-20 pointer-events-none [&_button]:pointer-events-auto";
+/**
+ * Story 1.i1h Task 7.2 / AC4 — mobile's new flat inline bound on single-day/isolated occurrences
+ * per day (EXPERIENCE.md's sanctioned practical fallback, replacing the previous
+ * uncapped-always-render rule). Deliberately a flat constant and NOT a `ResizeObserver`-measured
+ * dynamic size: the precise per-render measurement technique is explicitly deferred by AC7.
+ * Multi-day segments are exempt from this count entirely and always render inline
+ * (`isMultiDaySchedule` below).
+ */
+const MOBILE_INLINE_CAP = 20;
+/** Stable no-op for the not-yet-supplied `overflowDialogData` case (keeps `useInfiniteScroll`'s effect graph stable when omitted). */
+const NOOP = () => {};
+/**
+ * Default accessible name for the shared overflow dialog — the exact `Schedules for ${day}` string
+ * the superseded desktop popover already used as its `aria-label`, now day-scoped per open day.
+ */
+const DEFAULT_OVERFLOW_DIALOG_TITLE_LABEL = (dayLabel: string) => `Schedules for ${dayLabel}`;
+
 
 /**
  * Format range helper with graceful degradation for invalid timezone/locale.
@@ -242,6 +261,9 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   timezone,
   labels = {},
   nearbyBadgeThreshold,
+  onOverflowRequested,
+  onOverflowClosed,
+  overflowDialogData,
   className = '',
 }: WeeklyCalendarViewProps<TSchedule>) {
   // Provide default getWeekRange if not supplied
@@ -274,6 +296,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     favoriteToggleLabel: 'Toggle favorite',
     ...labels,
   };
+  const overflowDialogTitleLabel = labels.overflowDialogTitleLabel ?? DEFAULT_OVERFLOW_DIALOG_TITLE_LABEL;
 
   // 1. Compute the 7 visible days of the week from the caller-supplied weekStart.
   const visibleDays = useMemo(() => {
@@ -475,92 +498,62 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     }
   };
 
-  // 4. Popover state & focus trap implementation
-  const [openPopoverDayIdx, setOpenPopoverDayIdx] = useState<number | null>(null);
+  // 4. Overflow-dialog state (Story 1.i1h Task 7)
+  //
+  // The UI open/closed state stays local to `WeeklyCalendarView` exactly as the superseded desktop
+  // popover's `openPopoverDayIdx` did (Task 7.1's explicit instruction); only the *data* is lifted
+  // to the caller (Task 8's `overflowDialogData`), because React Query must stay isolated to
+  // `apps/web` per project-context.md's State Management Architecture rule. The whole focus-trap /
+  // Escape / outside-pointerdown / focus-return mechanism that used to live here was deleted and
+  // now lives inside `CalendarOverflowDialog` (Task 6.5) — the dialog is rendered exactly ONCE
+  // (Task 7.3), so there is exactly one trap / live region / sentinel in the document (AC8).
+  const [openOverflow, setOpenOverflow] = useState<{
+    dayIdx: number;
+    surface: WeeklyCalendarViewOverflowSurface;
+  } | null>(null);
   const [dayOverrides, setDayOverrides] = useState<Record<string, boolean>>({});
   const todayISO = getTodayISOInTimezone(activeTimezone);
   const mobileDayContentIdPrefix = useId();
-  const popoverTriggerRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const popoverContainerRef = useRef<HTMLDivElement>(null);
+  /**
+   * Trigger refs, kept in two per-surface arrays indexed by day because desktop and mobile live in
+   * separate `hidden md:block` / `md:hidden` trees — only one is ever mounted. `openOverflowTriggerRef`
+   * holds whichever trigger was actually activated, and is what the dialog receives as
+   * `triggerRef` so focus returns to that exact "+N more" control on close (Task 7.4 / AC8).
+   */
+  const desktopOverflowTriggerRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const mobileOverflowTriggerRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const openOverflowTriggerRef = useRef<HTMLElement | null>(null);
 
-  const handleOpenPopover = (dayIdx: number) => {
-    setOpenPopoverDayIdx(dayIdx);
+  const handleOpenOverflow = (
+    dayIdx: number,
+    surface: WeeklyCalendarViewOverflowSurface,
+    inlineHiddenCount: number
+  ) => {
+    const triggerRefs = surface === 'desktop' ? desktopOverflowTriggerRefs : mobileOverflowTriggerRefs;
+    openOverflowTriggerRef.current = triggerRefs.current[dayIdx];
+    setOpenOverflow({ dayIdx, surface });
+    // Task 7.1 / 8.4 — the caller owns the day-scoped fetch *and* AC9's
+    // `calendar_overflow_dialog_opened` event, so it needs all three payload fields: which date,
+    // which surface the trigger came from, and how many inline items that surface hid.
+    onOverflowRequested?.(toISODateString(visibleDays[dayIdx]), surface, inlineHiddenCount);
   };
 
-  const handleClosePopover = () => {
-    const prevTrigger = openPopoverDayIdx !== null ? popoverTriggerRefs.current[openPopoverDayIdx] : null;
-    setOpenPopoverDayIdx(null);
-    if (prevTrigger) {
-      setTimeout(() => prevTrigger.focus(), 0);
-    }
+  const handleCloseOverflow = () => {
+    // Focus return is the dialog's own responsibility via `triggerRef` (Task 6.5) — there is no
+    // local `setTimeout(() => trigger.focus())` here any more.
+    setOpenOverflow(null);
+    // Task 8.1 — the caller owns the day-scoped query's lifetime, so it needs to know the dialog
+    // closed in order to clear its own `openOverflowDate` and let that query go dormant again.
+    onOverflowClosed?.();
   };
 
-  // Focus trap inside Popover
-  useEffect(() => {
-    if (openPopoverDayIdx === null) return;
+  const overflowDayIdx = openOverflow?.dayIdx ?? null;
+  const overflowDate = overflowDayIdx === null ? null : toISODateString(visibleDays[overflowDayIdx]);
 
-    const container = popoverContainerRef.current;
-    if (container) {
-      container.focus();
-    }
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        handleClosePopover();
-        return;
-      }
-      if (e.key !== 'Tab') return;
-      if (!container) return;
-
-      const focusable = container.querySelectorAll<HTMLElement>(
-        'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), iframe, object, embed, [tabindex="0"], [contenteditable]'
-      );
-
-      const focusableElements = Array.from(focusable).filter((el) => el.tabIndex !== -1);
-
-      if (focusableElements.length === 0) {
-        e.preventDefault();
-        container.focus();
-        return;
-      }
-
-      const firstElement = focusableElements[0];
-      const lastElement = focusableElements[focusableElements.length - 1];
-
-      if (e.shiftKey) {
-        if (document.activeElement === firstElement || document.activeElement === container) {
-          e.preventDefault();
-          lastElement?.focus();
-        }
-      } else {
-        if (document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement?.focus();
-        }
-      }
-    };
-
-    // Close on outside click
-    const handleOutsideClick = (e: PointerEvent) => {
-      if (container && !container.contains(e.target as Node)) {
-        // Verify we aren't clicking the popover trigger itself
-        const trigger = popoverTriggerRefs.current[openPopoverDayIdx];
-        if (trigger && trigger.contains(e.target as Node)) {
-          return;
-        }
-        handleClosePopover();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('pointerdown', handleOutsideClick);
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('pointerdown', handleOutsideClick);
-    };
-  }, [openPopoverDayIdx]);
+  // (The superseded popover's focus-trap / Escape / outside-pointerdown effect lived here. It was
+  // deleted in Story 1.i1h Task 7.1 and reimplemented, unchanged in behaviour, inside
+  // `CalendarOverflowDialog` — one shared implementation for both the desktop and mobile surfaces
+  // instead of a bespoke desktop-only one.)
 
   // Loading Skeleton State (AC11)
   if (status === 'loading') {
@@ -736,67 +729,28 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
                 />
               ))}
 
-              {/* "+N more" affordance (AC5) */}
+              {/* "+N more" affordance (AC4) — Story 1.i1h Task 7.1: same trigger, but it now opens
+                  the shared `CalendarOverflowDialog` instead of the bespoke inline
+                  `w-56 max-h-56 overflow-y-auto` popover, which is deleted. */}
               {hiddenCount > 0 && (
                 <button
                   type="button"
+                  data-testid="calendar-overflow-trigger-desktop"
                   ref={(el) => {
-                    popoverTriggerRefs.current[dayIdx] = el;
+                    desktopOverflowTriggerRefs.current[dayIdx] = el;
                   }}
                   className={MORE_LINK_CLASS}
-                  onClick={() => handleOpenPopover(dayIdx)}
-                  aria-expanded={openPopoverDayIdx === dayIdx}
+                  onClick={() => handleOpenOverflow(dayIdx, 'desktop', hiddenCount)}
+                  aria-expanded={openOverflow?.surface === 'desktop' && overflowDayIdx === dayIdx}
                   aria-haspopup="dialog"
                 >
                   {labels.moreLabel ? labels.moreLabel(hiddenCount) : `+${hiddenCount} more`}
                 </button>
               )}
 
-              {/* Floating popover disclosure (AC5) */}
-              {openPopoverDayIdx === dayIdx && (
-                <div
-                  ref={popoverContainerRef}
-                  tabIndex={-1}
-                  role="dialog"
-                  aria-modal="true"
-                  aria-label={`Schedules for ${formatDayHeader(activeLocale, activeTimezone, visibleDays[dayIdx])}`}
-                  className="absolute left-1/2 -translate-x-1/2 bottom-1 z-40 bg-white border border-gray-300 rounded-lg shadow-xl p-3 w-56 max-h-56 overflow-y-auto flex flex-col gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
-                >
-                  <div className="flex items-center justify-between pb-1 border-b border-gray-200">
-                    <span className="text-xs font-bold text-gray-700">All Schedules</span>
-                    <button
-                      type="button"
-                      onClick={handleClosePopover}
-                      aria-label={defaultLabels.closePopoverLabel}
-                      className="p-0.5 rounded hover:bg-gray-100 text-gray-500 focus-visible:ring-1 focus-visible:ring-violet-500"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    {bucket.map((seg) => (
-                      <CalendarCard
-                        key={`popover-${seg.schedule.id}`}
-                        segment={seg}
-                        dayIdx={dayIdx}
-                        cardIdx={-1} // Non-grid/no roving tabindex within popover
-                        isRovingActive={false}
-                        locale={activeLocale}
-                        timezone={activeTimezone}
-                        onScheduleClick={(s) => {
-                          handleClosePopover();
-                          onScheduleClick(s);
-                        }}
-                        onFavoriteToggle={onFavoriteToggle}
-                        favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
-                        tillLabel={defaultLabels.tillLabel}
-                        favoritedBadgeLabel={defaultLabels.favoritedBadgeLabel}
-                        addedToCalendarBadgeLabel={defaultLabels.addedToCalendarBadgeLabel}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* (Story 1.i1h Task 7.1 — the floating `w-56 max-h-56 overflow-y-auto` popover
+                  disclosure that lived here is deleted; its contents/mechanics are the shared
+                  `CalendarOverflowDialog`, rendered once at this component's root.) */}
             </div>
           );
         })}
@@ -812,6 +766,20 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
           const headerStr = formatDayHeader(activeLocale, activeTimezone, dayDate);
           const dateISO = toISODateString(dayDate);
           const isCollapsed = dayOverrides[dateISO] ?? (dateISO < todayISO);
+
+          // Task 7.2 / AC4 — mobile's NEW flat inline bound. Only single-day/isolated occurrences
+          // count toward it; multi-day segments are exempt and always render inline regardless of
+          // how many there are (EXPERIENCE.md's exemption rule, the same principle desktop's
+          // `day_cell` already applies by filtering multi-day schedules into the spanning banner).
+          // Iterating the bucket itself (rather than concatenating two filtered arrays) preserves
+          // the existing chronological order of the rendered list.
+          let singleDaySeen = 0;
+          const mobileVisibleSegments = bucket.filter((seg) => {
+            if (isMultiDaySchedule(seg.schedule)) return true;
+            singleDaySeen += 1;
+            return singleDaySeen <= MOBILE_INLINE_CAP;
+          });
+          const mobileHiddenCount = bucket.length - mobileVisibleSegments.length;
 
           return (
             <div key={dayIdx} className="flex flex-col gap-1 py-3" data-testid="mobile-day-row">
@@ -829,7 +797,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
               </button>
               {!isCollapsed && (
                 <div id={`${mobileDayContentIdPrefix}-mobile-day-content-${dayIdx}`} className="flex flex-col gap-2 px-1">
-                  {bucket.map((seg) => (
+                  {mobileVisibleSegments.map((seg) => (
                     <CalendarCard
                       key={seg.schedule.id}
                       segment={seg}
@@ -849,12 +817,63 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
                       addedToCalendarBadgeLabel={defaultLabels.addedToCalendarBadgeLabel}
                     />
                   ))}
+
+                  {/* Task 7.2 — mobile's brand-new "+N more" affordance (mobile had none before),
+                      opening the very same shared dialog as desktop's. */}
+                  {mobileHiddenCount > 0 && (
+                    <button
+                      type="button"
+                      data-testid="calendar-overflow-trigger-mobile"
+                      ref={(el) => {
+                        mobileOverflowTriggerRefs.current[dayIdx] = el;
+                      }}
+                      className={MORE_LINK_CLASS}
+                      onClick={() => handleOpenOverflow(dayIdx, 'mobile', mobileHiddenCount)}
+                      aria-expanded={openOverflow?.surface === 'mobile' && overflowDayIdx === dayIdx}
+                      aria-haspopup="dialog"
+                    >
+                      {labels.moreLabel ? labels.moreLabel(mobileHiddenCount) : `+${mobileHiddenCount} more`}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
           );
         })}
     </div>
+
+    {/* Shared overflow dialog (Story 1.i1h Task 7.3) — rendered exactly ONCE at the root, never
+        once per day, so there is a single focus trap, a single `aria-live` region and a single
+        infinite-scroll sentinel in the document no matter how many days overflowed (AC8). It is
+        `fixed`-positioned, so its DOM placement here is layout-irrelevant. */}
+    <CalendarOverflowDialog<TSchedule>
+      open={overflowDayIdx !== null}
+      date={overflowDate}
+      items={overflowDialogData?.items ?? []}
+      fetchNextPage={overflowDialogData?.fetchNextPage ?? NOOP}
+      hasNextPage={overflowDialogData?.hasNextPage ?? false}
+      isFetchingNextPage={overflowDialogData?.isFetchingNextPage ?? false}
+      onClose={handleCloseOverflow}
+      onScheduleClick={(schedule) => {
+        // Matches the superseded popover's own behaviour: activating a card closes the surface so
+        // the navigation it triggers is not left sitting behind an open modal.
+        handleCloseOverflow();
+        onScheduleClick(schedule);
+      }}
+      onFavoriteToggle={onFavoriteToggle}
+      nearbyBadgeThreshold={nearbyBadgeThreshold}
+      triggerRef={openOverflowTriggerRef}
+      labels={{
+        titleLabel:
+          overflowDayIdx === null
+            ? undefined
+            : overflowDialogTitleLabel(
+                formatDayHeader(activeLocale, activeTimezone, visibleDays[overflowDayIdx])
+              ),
+        closeLabel: defaultLabels.closePopoverLabel,
+        favoriteToggleLabel: defaultLabels.favoriteToggleLabel,
+      }}
+    />
   </div>
   );
 }

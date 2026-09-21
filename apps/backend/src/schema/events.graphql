@@ -143,7 +143,7 @@ input EventQueryConditionInput {
 }
 
 extend type Query {
-  events(query: EventQueryConditionInput, filter: EventFilterInput, limit: Int, offset: Int, includeSoftDeleted: Boolean, includeMyArchived: Boolean): EventConnection!
+  events(query: EventQueryConditionInput, filter: EventFilterInput, limit: Int, offset: Int, perDayLimit: Int, includeSoftDeleted: Boolean, includeMyArchived: Boolean): EventConnection!
   event(id: ID!, includeMyArchived: Boolean): Event
   eventBySlug(slug: String!, includeMyArchived: Boolean): Event
 }

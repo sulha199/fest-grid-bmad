@@ -449,7 +449,13 @@ development_status:
   # Event.schedules short-circuit). Gate 2/3: no split -- reuse useInfiniteScroll,
   # added a11y + PostHog ACs. Sweep predates this story. Blocked on 1.i1f shipping
   # EventCardCalendarGridItem -- see own Pre-Coding Gate.)
-  1-i1h-shared-calendar-overflow-dialog-and-fair-per-day-fetching: ready-for-dev
+  # (dev 2026-09-21, bmad-dev-story: ready-for-dev -> review. Tasks 1-9 implemented;
+  # verification 37/37 graphql-select, 5/5 new backend windowed-path suite, 75/75
+  # resolvers regression, 359/359 + 68/68 ui, 9/9 + 45/45 web, tsc/eslint clean.
+  # Two windowed-path bugs (missing drizzle subquery aliases; exempt multi-day rows
+  # consuming a per-day rank slot) found by the first real Postgres execution and
+  # fixed in resolvers.ts. DoD manual browser QA explicitly left unchecked.)
+  1-i1h-shared-calendar-overflow-dialog-and-fair-per-day-fetching: review
   # added 2026-09-17 via bmad-create-story (Gate 2 split off 1-i1j while drafting
   # IDEA-025) -- status/nearby badge markup was about to become a third inline
   # duplicate (EventCard.tsx masonry, Story 1.i1f's undrafted EventCardCalendarGridItem,

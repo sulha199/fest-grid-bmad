@@ -930,6 +930,7 @@ export type QueryEventsArgs = {
   includeSoftDeleted?: InputMaybe<Scalars['Boolean']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
+  perDayLimit?: InputMaybe<Scalars['Int']['input']>;
   query?: InputMaybe<EventQueryConditionInput>;
 };
 
@@ -1531,6 +1532,7 @@ export type GetEventForIcsExportQuery = { event: { id: string, eventName: string
 export type GetEventsForCalendarQueryVariables = Exact<{
   limit?: number | null | undefined;
   offset?: number | null | undefined;
+  perDayLimit?: number | null | undefined;
   query?: EventQueryConditionInput | null | undefined;
 }>;
 
@@ -2683,8 +2685,8 @@ export const useGetEventForIcsExportQuery = <
     )};
 
 export const GetEventsForCalendarDocument = new TypedDocumentString(`
-    query getEventsForCalendar($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
-  events(limit: $limit, offset: $offset, query: $query) {
+    query getEventsForCalendar($limit: Int, $offset: Int, $perDayLimit: Int, $query: EventQueryConditionInput) {
+  events(limit: $limit, offset: $offset, perDayLimit: $perDayLimit, query: $query) {
     items {
       id
       eventName
