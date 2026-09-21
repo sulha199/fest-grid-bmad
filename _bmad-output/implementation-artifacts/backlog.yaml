@@ -1348,3 +1348,13 @@ items:
      touches: [web:posts],
      note: "Deferred from: bmad-quick-dev spec-curator-guide-frontend-gate-stale review (2026-09-19). 4 findings."}
 
+  # ── 2026-09-21 (bmad-code-review of Story 1.i1f, deferred findings) ──────────
+  FIND-045:
+    {type: finding, status: backlog, created: 2026-09-21,
+     impact: internal, effort: s,
+     title: "EventCardCalendarGridItem's hardcoded/duplicated nearby-badge logic, a use-nearby-filter loading-race, and a stale AC11 sentence, all found reviewing Story 1.i1f",
+     ref: [implementation-artifacts/1-i1f-wire-nearby-distance-badges-and-build-the-calendar-grid-item-card.md,
+           implementation-artifacts/deferred-work.md],
+     touches: [web:events, pkg:ui],
+     note: "Deferred from: code review of 1-i1f-wire-nearby-distance-badges-and-build-the-calendar-grid-item-card (2026-09-21). 4 findings."}
+

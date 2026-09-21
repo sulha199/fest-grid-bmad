@@ -8,7 +8,7 @@ baseline_commit: 964bbec2201e114770563c0423360ff93d65829b
 
 - Epic: 1.i1
 - Story ID: 1.i1f
-- Status: review
+- Status: in-progress
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -107,6 +107,28 @@ so that "nearby" distance is computed identically everywhere it's shown (client 
   - [x] 8.3 `apps/web`'s full Vitest suite passes (445/445 tests, 66 files, after all 2026-09-20 revisions), including `nearby.test.tsx` (`home-content`/`use-nearby-filter` coverage, including the new ambient-fallback tests) and `CalendarView.test.tsx`.
   - [x] 8.4 `eslint` clean (repo-wide `pnpm lint`: 0 errors) and `tsc --noEmit` clean for every touched/added file (`apps/web`'s `tsc --noEmit` shows only pre-existing baseline errors, confirmed identical before/after, none in any file this story touches).
   - [x] 8.5 Confirmed GraphQL codegen ran and the generated file's diff is additive-only (no unrelated regeneration noise beyond the two edited documents).
+
+### Review Findings
+
+*Code review of commit range `964bbec..aed15ff` (this story's own commits, including the co-shipped Story 0.39/0.42 ambient-location work), via `bmad-code-review`, 2026-09-21. All 16 ACs independently verified satisfied by the Acceptance Auditor layer (one doc-only nit, see Defer). 9 patch findings, 1 decision-needed, 4 deferred, 2 dismissed as noise.*
+
+- [ ] [Review][Patch] Stale coordinate reused after browser permission revoked mid-session — user decided (2026-09-21): clear `coordinate` when `permissionStatus` transitions to `denied` [apps/web/src/lib/state/viewer-location-store.ts:setPermissionStatus, apps/web/src/lib/hooks/useViewerLocation.ts:69-84]
+- [ ] [Review][Patch] Dead code shipped: `captureIfPermissionGranted()` has zero real call sites, contradicting the Change Log's claim it was removed [packages/ui/src/hooks/useCurrentLocationCapture.ts:22,80-98]
+- [ ] [Review][Patch] Geolocation permission-change listener permanently torn down after first unmount — module-level guard has no refcount, deviating from this codebase's own established permanent-listener precedent (`apps/web/src/lib/state/pwa-install-store.ts`) [apps/web/src/lib/hooks/useViewerLocation.ts:19,52-67]
+- [ ] [Review][Patch] `captureAmbient()` has no in-flight guard — concurrent mounts of `useViewerLocation()` (4 real call sites) can trigger duplicate real `getCurrentPosition()` calls in the same commit [apps/web/src/lib/hooks/useViewerLocation.ts:69-92]
+- [ ] [Review][Patch] `canShowAmbientAsk` reads an optimistic initial `'prompt'` status + `localStorage` synchronously in the render body — risks an SSR/hydration mismatch (`AppShellWrapper` is SSR'd) and a client-side banner-eligibility flash before the async permission query resolves [apps/web/src/lib/hooks/useViewerLocation.ts:100-105]
+- [ ] [Review][Patch] `dismissPermanently`/`remindLater` persist to `localStorage` but never force a re-render of their own hook instance — `canShowAmbientAsk` only updates today because `AppShellWrapper`'s one consumer happens to also trigger a separate Zustand update in the same handler; this codebase already has an established `forceRender()` pattern for this exact problem (`apps/web/src/lib/hooks/usePwaInstallPrompt.ts:71-79`) that wasn't reused here [apps/web/src/lib/hooks/useViewerLocation.ts:107-113]
+- [ ] [Review][Patch] `Number(process.env.NEXT_PUBLIC_NEARBY_BADGE_DISTANCE_KM) || 8` silently discards an intentionally-configured `0` and passes negative/NaN values through unvalidated [apps/web/src/app/[locale]/home-content.tsx:49]
+- [ ] [Review][Patch] New `NEXT_PUBLIC_NEARBY_BADGE_DISTANCE_KM` env var not documented in `.env.example` [.env.example]
+- [ ] [Review][Patch] Analytics event `viewer_location_ambient_consent_resolved` conflates all `captureExplicit()` failure reasons (timeout, unavailable, unknown) into a single `'denied'` outcome tag [apps/web/src/components/layout/AppShellWrapper.tsx:76-86]
+- [ ] [Review][Patch] Code comment mislabels the implemented formula as "haversine" when it is the spherical law of cosines (a different, non-interchangeable formula) — carried from the AC's own imprecise phrasing into the shipped comment [packages/domain/src/geolocation/computeDistanceKm.ts]
+
+- [x] [Review][Defer] Nearby-badge threshold hardcoded to `< 8` in the new `EventCardCalendarGridItem` with no override, unlike `EventCard.tsx`'s configurable `nearbyBadgeThreshold` prop this same story introduced — deferred, already slated for consolidation into one shared badge component by Story 1.i1i per this story's own "Out of Scope" section [packages/ui/src/features/events/EventCardCalendarGridItem.tsx:46] — deferred, pre-existing sequencing decision
+- [x] [Review][Defer] `use-nearby-filter.ts`'s `activeFilterCoord` transiently omits a saved-location filter's distance while `getMyLocations` is still loading (no distinction from "confirmed no coordinate"), affecting deep-linked pages — self-correcting once the query resolves [apps/web/src/app/[locale]/use-nearby-filter.ts:130-137] — deferred, cosmetic/transient
+- [x] [Review][Defer] `EventCardCalendarGridItem.tsx` hand-rolls its own nearby-badge JSX instead of reusing shared logic — already earmarked for extraction into a shared component by Story 1.i1i per this story's own "Out of Scope" section [packages/ui/src/features/events/EventCardCalendarGridItem.tsx] — deferred, pre-existing sequencing decision
+- [x] [Review][Defer] AC11's literal text still reads "`adHocCoords` when `selectedValue === 'current'`" though `adHocCoords` was fully removed by this story's own later revision (Dev Notes' table and three Change Log entries document and approve the removal; only the AC11 sentence itself was never reworded) [story file AC11] — deferred, documentation-only cleanup
+
+*Dismissed as noise: (1) `use-nearby-filter.ts`'s "saved location with no coordinate" defensive branch/test models a state that `LocationDetails.coordinates: Coordinates!`/`UserLocation.locationDetails: LocationDetails!` make unreachable through the typed GraphQL contract — harmless defensive coding, not a bug. (2) `EventCardCalendarGridItem.tsx`'s `imgError` state not resetting on an `imageUrl` prop change exactly mirrors `EventCard.tsx`'s own already-shipped, live production pattern (same gap, same convention) — not a regression introduced by this diff, and this component has no live consumer yet (Task 7.6).*
 
 ## Dev Notes
 
@@ -304,6 +326,7 @@ implements the "active filter location" branch and simply omits itself otherwise
 ## Completion Status
 
 - [x] Complete — ready for code review.
+- [ ] Code review complete (2026-09-21, `bmad-code-review`): 10 patch findings left as action items in Review Findings above (not yet fixed), 4 deferred (`FIND-045`), 2 dismissed as noise, 0 unresolved decisions. Status set to `in-progress` pending patch resolution.
 
 ## Dev Agent Record
 

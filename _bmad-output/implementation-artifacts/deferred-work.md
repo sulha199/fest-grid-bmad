@@ -489,3 +489,18 @@ This file tracks work deferred from development stories, code reviews, and plann
 - source_spec: `_bmad-output/implementation-artifacts/spec-curator-guide-frontend-gate-stale.md`
   summary: `PostsSelectContent`'s remaining gated-account icons (`inactiveWarningTitle`, `gatedAwaitingApprovalTooltip`, `gatedPersonalTooltip`) pass their tooltip text via a non-standard `xlinkTitle` prop instead of `title` — this attribute has no effect in HTML/SVG, so none of these icons actually get an accessible/hover tooltip today.
   evidence: Surfaced by the Blind Hunter review pass while this diff deleted a fourth instance of the same pattern (`gatedCuratorTooltip`) alongside the CURATOR_GUIDE gate. Pre-existing across the whole file (introduced by an earlier commit, before this session), not caused by this fix; fixing the remaining 3 is a one-line-each follow-up but touches unrelated gate paths (PERSONAL/AWAITING_APPROVAL) this fix intentionally leaves untouched. [apps/web/src/app/[locale]/posts/select/posts-select-content.tsx:437-452]
+
+## Deferred from: code review of 1-i1f-wire-nearby-distance-badges-and-build-the-calendar-grid-item-card (2026-09-21)
+
+- source_spec: `_bmad-output/implementation-artifacts/1-i1f-wire-nearby-distance-badges-and-build-the-calendar-grid-item-card.md`
+  summary: Nearby-badge threshold hardcoded to `< 8` in the new `EventCardCalendarGridItem` with no override, unlike `EventCard.tsx`'s configurable `nearbyBadgeThreshold` prop this same story introduced.
+  evidence: Surfaced by Blind Hunter. Already slated for consolidation into one shared badge component by Story 1.i1i per this story's own "Out of Scope" section — not fixed independently to avoid throwaway work. [packages/ui/src/features/events/EventCardCalendarGridItem.tsx:46]
+- source_spec: `_bmad-output/implementation-artifacts/1-i1f-wire-nearby-distance-badges-and-build-the-calendar-grid-item-card.md`
+  summary: `use-nearby-filter.ts`'s `activeFilterCoord` transiently omits a saved-location filter's distance while `getMyLocations` is still loading, with no distinction from "confirmed no coordinate" — affects deep-linked pages (e.g. `?nearby=loc-1`).
+  evidence: Surfaced by Edge Case Hunter. Self-correcting once the query resolves on the same page load; cosmetic/transient, not a data-correctness bug. [apps/web/src/app/[locale]/use-nearby-filter.ts:130-137]
+- source_spec: `_bmad-output/implementation-artifacts/1-i1f-wire-nearby-distance-badges-and-build-the-calendar-grid-item-card.md`
+  summary: `EventCardCalendarGridItem.tsx` hand-rolls its own nearby-badge JSX instead of reusing shared logic, duplicating the badge implementation already present in `EventCard.tsx`.
+  evidence: Surfaced by Blind Hunter. Already earmarked for extraction into a shared component by Story 1.i1i per this story's own "Out of Scope" section. [packages/ui/src/features/events/EventCardCalendarGridItem.tsx]
+- source_spec: `_bmad-output/implementation-artifacts/1-i1f-wire-nearby-distance-badges-and-build-the-calendar-grid-item-card.md`
+  summary: AC11's literal text still reads "`adHocCoords` when `selectedValue === 'current'`" though `adHocCoords` was fully removed by this story's own later revision.
+  evidence: Surfaced by the Acceptance Auditor. Dev Notes' worked-through table and all three Change Log entries document and approve the removal/unification into `useViewerLocation().coordinate` — only the AC11 sentence itself was never reworded to match. Documentation-only cleanup, code matches the story's own final intent. [story file, AC11]
