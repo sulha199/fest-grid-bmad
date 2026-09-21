@@ -4,7 +4,7 @@
 
 - Epic: 1.i1
 - Story ID: 1.i1g
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -58,38 +58,38 @@ so that the desktop calendar grid shows multi-day events with the same richer ca
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Close the `locationName` data-plumbing gap (AC10)**
-  - [ ] 1.1 Add `locationName?: string` to `WeeklyCalendarViewScheduleShape` (`WeeklyCalendarView.types.ts`).
-  - [ ] 1.2 In `useWeeklyCalendarController.ts`'s `schedules` flatMap, add `locationName: event.location ?? undefined`, matching `EventListView.tsx`'s existing mapping verbatim.
-  - [ ] 1.3 Add/extend `useWeeklyCalendarController.test.tsx` coverage confirming `locationName` is populated from `event.location` and gracefully `undefined` when absent.
+- [x] **Task 1 — Close the `locationName` data-plumbing gap (AC10)**
+  - [x] 1.1 Add `locationName?: string` to `WeeklyCalendarViewScheduleShape` (`WeeklyCalendarView.types.ts`).
+  - [x] 1.2 In `useWeeklyCalendarController.ts`'s `schedules` flatMap, add `locationName: event.location ?? undefined`, matching `EventListView.tsx`'s existing mapping verbatim.
+  - [x] 1.3 Add/extend `useWeeklyCalendarController.test.tsx` coverage confirming `locationName` is populated from `event.location` and gracefully `undefined` when absent.
 
-- [ ] **Task 2 — Compute the multi-day spanning set (AC1, AC3, AC4, AC6)**
-  - [ ] 2.1 Add a new memo (e.g. `spanningSchedules`) derived from `schedules` (not from the shared `dayBuckets` memo — do not filter `dayBuckets` itself, per AC6) that: filters to schedules overlapping the visible week with `eventEndDate !== eventStartDate`; computes each one's clipped `startColIdx`/`endColIdx`/`spanCount` against `visibleDays` using the existing `toISODateString`/`diffInDays` helpers; sorts ascending by `(eventStartDate, eventStartTime ?? '99:99', id)`.
-  - [ ] 2.2 Confirm this new memo has zero effect on the existing `dayBuckets` memo, `gridCards` memo, or the mobile `variant='list'` render path — all three continue receiving single-day **and** multi-day entries exactly as today (AC6).
+- [x] **Task 2 — Compute the multi-day spanning set (AC1, AC3, AC4, AC6)**
+  - [x] 2.1 Add a new memo (e.g. `spanningSchedules`) derived from `schedules` (not from the shared `dayBuckets` memo — do not filter `dayBuckets` itself, per AC6) that: filters to schedules overlapping the visible week with `eventEndDate !== eventStartDate`; computes each one's clipped `startColIdx`/`endColIdx`/`spanCount` against `visibleDays` using the existing `toISODateString`/`diffInDays` helpers; sorts ascending by `(eventStartDate, eventStartTime ?? '99:99', id)`.
+  - [x] 2.2 Confirm this new memo has zero effect on the existing `dayBuckets` memo, `gridCards` memo, or the mobile `variant='list'` render path — all three continue receiving single-day **and** multi-day entries exactly as today (AC6).
 
-- [ ] **Task 3 — Filter multi-day out of the desktop grid's day-cell/popover rendering (AC5, AC6)**
-  - [ ] 3.1 At the desktop grid's day-cell render call site (today's `dayBuckets.map((bucket, dayIdx) => ...)` block, lines ~582-676), filter each `bucket` to single-day entries only (`!isMultiDay`) before computing `displayLimit`/`visibleSegments`/`hiddenCount` and before rendering the popover's full bucket list — leaving the mobile `variant='list'` block (lines ~679-730) reading the unfiltered `bucket` exactly as today.
-  - [ ] 3.2 Verify the "+N more" popover's count/contents reflect single-day schedules only post-filter (no multi-day duplication, no off-by-N-from-excluded-multi-day count).
+- [x] **Task 3 — Filter multi-day out of the desktop grid's day-cell/popover rendering (AC5, AC6)**
+  - [x] 3.1 At the desktop grid's day-cell render call site (today's `dayBuckets.map((bucket, dayIdx) => ...)` block, lines ~582-676), filter each `bucket` to single-day entries only (`!isMultiDay`) before computing `displayLimit`/`visibleSegments`/`hiddenCount` and before rendering the popover's full bucket list — leaving the mobile `variant='list'` block (lines ~679-730) reading the unfiltered `bucket` exactly as today.
+  - [x] 3.2 Verify the "+N more" popover's count/contents reflect single-day schedules only post-filter (no multi-day duplication, no off-by-N-from-excluded-multi-day count).
 
-- [ ] **Task 4 — Build the spanning-bar subcomponent and banner row (AC1, AC2, AC7, AC8, AC9, AC11, AC12)**
-  - [ ] 4.1 Add a new colocated subcomponent in `WeeklyCalendarView.tsx` (matching `CalendarCard`'s existing colocation precedent — e.g. `MultiDaySpanningBar`) that: renders `EventCardCalendarGridItem`'s with-image composition (confirm exact prop names against Story 1.i1f's shipped `EventCardCalendarGridItem.types.ts`); positions itself via inline `style={{ gridColumn: `${startColIdx + 1} / span ${spanCount}` }}`; reuses `formatTooltipTimeRange` + the same local hover/focus/dismiss `useState` pattern and `aria-describedby` tooltip JSX `CalendarCard`'s grid variant already implements (AC11); is a plain linear Tab stop, `tabIndex={0}`, no roving-tabindex wiring (AC12); wraps the primitive following this epic's established "non-interactive chrome + sibling interactive elements" pattern (Story 1.i1d's `variant='list'` restructure) so the primitive's own internal favorite-toggle control is never nested inside the schedule-click element (AC7) — confirm the primitive's exact click-target/favorite-toggle contract against its as-shipped implementation, since Story 1.i1f is not yet built.
-  - [ ] 4.2 Render the new banner: a `grid grid-cols-7 divide-x divide-gray-200` container (reusing `GRID_WEEKLY_CLASS` verbatim, AC2) placed directly above the existing day-cell grid, containing one `MultiDaySpanningBar` per entry in `spanningSchedules` (Task 2), each in its own row (AC4) — do not render the container at all when `spanningSchedules` is empty (no empty banner chrome).
-  - [ ] 4.3 Wire `onScheduleClick`/`onFavoriteToggle`/`locale`/`timezone`/labels through identically to how `CalendarCard` already receives them.
+- [x] **Task 4 — Build the spanning-bar subcomponent and banner row (AC1, AC2, AC7, AC8, AC9, AC11, AC12)**
+  - [x] 4.1 Add a new colocated subcomponent in `WeeklyCalendarView.tsx` (matching `CalendarCard`'s existing colocation precedent — e.g. `MultiDaySpanningBar`) that: renders `EventCardCalendarGridItem`'s with-image composition (confirm exact prop names against Story 1.i1f's shipped `EventCardCalendarGridItem.types.ts`); positions itself via inline `style={{ gridColumn: `${startColIdx + 1} / span ${spanCount}` }}`; reuses `formatTooltipTimeRange` + the same local hover/focus/dismiss `useState` pattern and `aria-describedby` tooltip JSX `CalendarCard`'s grid variant already implements (AC11); is a plain linear Tab stop, `tabIndex={0}`, no roving-tabindex wiring (AC12); wraps the primitive following this epic's established "non-interactive chrome + sibling interactive elements" pattern (Story 1.i1d's `variant='list'` restructure) so the primitive's own internal favorite-toggle control is never nested inside the schedule-click element (AC7) — confirm the primitive's exact click-target/favorite-toggle contract against its as-shipped implementation, since Story 1.i1f is not yet built.
+  - [x] 4.2 Render the new banner: a `grid grid-cols-7 divide-x divide-gray-200` container (reusing `GRID_WEEKLY_CLASS` verbatim, AC2) placed directly above the existing day-cell grid, containing one `MultiDaySpanningBar` per entry in `spanningSchedules` (Task 2), each in its own row (AC4) — do not render the container at all when `spanningSchedules` is empty (no empty banner chrome).
+  - [x] 4.3 Wire `onScheduleClick`/`onFavoriteToggle`/`locale`/`timezone`/labels through identically to how `CalendarCard` already receives them.
 
-- [ ] **Task 5 — Remove superseded grid-variant dead code (AC7)**
-  - [ ] 5.1 In `CalendarCard`'s `multiDayRoundingClass` computation, remove the `variant !== 'list'` (`isFirstSegment`/`isLastSegment`-conditional) branch entirely — grid-variant `CalendarCard` no longer ever renders a multi-day segment (Task 3 filters them out), so this branch is unreachable dead code. Leave the `variant === 'list'` branch (`multiDayRoundingClass = "rounded-md"`) untouched.
-  - [ ] 5.2 Grep the file for any other now-unreachable multi-day-segment logic scoped to the grid variant specifically (e.g. `isMultiDay`-conditional styling inside the grid-variant `CalendarCard` render branch) and remove it, without touching the equivalent mobile-list-variant logic.
+- [x] **Task 5 — Remove superseded grid-variant dead code (AC7)**
+  - [x] 5.1 In `CalendarCard`'s `multiDayRoundingClass` computation, remove the `variant !== 'list'` (`isFirstSegment`/`isLastSegment`-conditional) branch entirely — grid-variant `CalendarCard` no longer ever renders a multi-day segment (Task 3 filters them out), so this branch is unreachable dead code. Leave the `variant === 'list'` branch (`multiDayRoundingClass = "rounded-md"`) untouched.
+  - [x] 5.2 Grep the file for any other now-unreachable multi-day-segment logic scoped to the grid variant specifically (e.g. `isMultiDay`-conditional styling inside the grid-variant `CalendarCard` render branch) and remove it, without touching the equivalent mobile-list-variant logic.
 
-- [ ] **Task 6 — Rewrite superseded tests, add new coverage (AC13, plus new-behavior coverage for AC1-AC12)**
-  - [ ] 6.1 Rewrite `renders a multi-day schedule as connected per-day segments` to assert exactly one rendered `Tech Workshop` instance, spanning the correct 3 columns.
-  - [ ] 6.2 Rewrite `clips multi-day schedules at week boundaries correctly` to assert exactly one rendered `Boundary Festival` instance, clipped to the correct boundary columns (not the schedule's true out-of-week start/end).
-  - [ ] 6.3 Add new tests: two overlapping multi-day schedules render as two stacked banner rows in the correct sort order; a multi-day schedule no longer appears inside its days' "+N more" popover or capped visible list; single-day schedules and their existing cap/popover behavior are provably unaffected (regression guard); the spanning bar's tooltip/`aria-describedby` renders the correct date-range text on hover/focus; the spanning bar is reachable via linear Tab order and is excluded from arrow-key day-cell navigation; `locationName` renders on the spanning card when present and degrades gracefully when absent.
-  - [ ] 6.4 Confirm `useWeeklyCalendarController.test.tsx`'s new `locationName` coverage (Task 1.3) passes.
+- [x] **Task 6 — Rewrite superseded tests, add new coverage (AC13, plus new-behavior coverage for AC1-AC12)**
+  - [x] 6.1 Rewrite `renders a multi-day schedule as connected per-day segments` to assert exactly one rendered `Tech Workshop` instance, spanning the correct 3 columns.
+  - [x] 6.2 Rewrite `clips multi-day schedules at week boundaries correctly` to assert exactly one rendered `Boundary Festival` instance, clipped to the correct boundary columns (not the schedule's true out-of-week start/end).
+  - [x] 6.3 Add new tests: two overlapping multi-day schedules render as two stacked banner rows in the correct sort order; a multi-day schedule no longer appears inside its days' "+N more" popover or capped visible list; single-day schedules and their existing cap/popover behavior are provably unaffected (regression guard); the spanning bar's tooltip/`aria-describedby` renders the correct date-range text on hover/focus; the spanning bar is reachable via linear Tab order and is excluded from arrow-key day-cell navigation; `locationName` renders on the spanning card when present and degrades gracefully when absent.
+  - [x] 6.4 Confirm `useWeeklyCalendarController.test.tsx`'s new `locationName` coverage (Task 1.3) passes.
 
-- [ ] **Task 7 — Full verification (all ACs)**
-  - [ ] 7.1 Run `packages/ui`'s Vitest suite and confirm all touched/added tests pass, with no regression in existing `WeeklyCalendarView`/`useWeeklyCalendarController` suites (including the ones shipped by 1.i1a-1.i1e/1.i1z, all currently `review` status).
-  - [ ] 7.2 `eslint` and `tsc --noEmit` clean for every touched file (or no new errors beyond this epic's documented pre-existing baseline).
-  - [ ] 7.3 Manually confirm (or via a Playwright/visual check if convenient) that banner-row columns align pixel-for-pixel with the day-header and day-cell grids at a real desktop width.
+- [x] **Task 7 — Full verification (all ACs)**
+  - [x] 7.1 Run `packages/ui`'s Vitest suite and confirm all touched/added tests pass, with no regression in existing `WeeklyCalendarView`/`useWeeklyCalendarController` suites (including the ones shipped by 1.i1a-1.i1e/1.i1z, all currently `review` status).
+  - [x] 7.2 `eslint` and `tsc --noEmit` clean for every touched file (or no new errors beyond this epic's documented pre-existing baseline).
+  - [x] 7.3 Confirmed by real Playwright browser run, not just structurally. **Correction:** the earlier note in this task ("this repo has no Playwright dependency and no `playwright.config.ts`") was factually wrong — `apps/web` has had a full Playwright setup (`playwright.config.ts`, `@playwright/test`, 19+ specs in `apps/web/e2e/`) since well before this story existed (`git log -- apps/web/playwright.config.ts` shows it predates commit `cf428e6`). A new spec, `apps/web/e2e/calendar-banner-alignment.spec.ts`, was added and run for real against `pnpm dev` + the backend + seeded Postgres (`npx playwright test calendar-banner-alignment`, Chromium, 1440×900 viewport — a real desktop width): it opens the public account page (`/en/ig/ig_jkt_events`), switches to its "Calendar View" tab, locates the "Ongoing Culture Fest 2026-2027" spanning bar (seeded, `eventStartDate` 2026-01-10 / `eventEndDate` 2027-12-31 — spans any current week for the fixture's lifetime), derives the columns it claims via its own computed `grid-column-start`/`grid-column-end` styling (not a hardcoded assumption), and asserts its bounding-box left/right edges match the corresponding day-header cell and day-cell edges within 1px. **Result: 1 passed (1.4m).**
 
 ## Dev Notes
 
@@ -170,29 +170,29 @@ No `AskUserQuestion` was needed for the gate outcomes themselves (all three reso
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — this story restructures `WeeklyCalendarView.tsx`'s desktop grid to render multi-day schedules as ONE spanning `EventCardCalendarGridItem` in a new banner row above the day-cell grid (uncapped, one row per schedule, linear Tab order), leaves single-day rendering and the mobile list completely unchanged, and closes a `locationName` data-plumbing gap needed for the spanning card's venue text to render at all.
-- [ ] **Blocking dependency confirmed** — Story 1.i1f (`EventCardCalendarGridItem` primitive) is `ready-for-dev`/not yet implemented as of this story's creation. This story's Task 4 cannot be completed until 1.i1f ships (or its `EventCardCalendarGridItem.types.ts` prop contract is otherwise locked) — confirm 1.i1f's status before starting `bmad-dev-story` on this story, or explicitly accept building against 1.i1f's story-file-documented (not yet code-verified) prop contract with a follow-up reconciliation pass once 1.i1f lands.
-- [ ] Architecture and boundary confirmation — all changes stay inside `packages/ui` (`WeeklyCalendarView.tsx`/`.types.ts`, `useWeeklyCalendarController.ts`); no new API surface, no `packages/domain` involvement, no GraphQL/codegen change.
-- [ ] Testing plan confirmation — Task 6/7's coverage across `packages/ui` (rewritten superseded tests, new spanning/stacking/a11y/keyboard/`locationName` coverage, full regression pass).
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed — Gate 1: no gap (reasoned fresh, sweep-consistent). Gate 2: no split, `items-center` AC added (`runSubagent`, 2026-09-19). Gate 3: no gap (reasoned fresh, sweep-consistent). No new prerequisite stories or `sprint-status.yaml`/`epics.md` entries required by this story's own gate findings.
-- [ ] Architecture-mechanism decisions confirmed — layout (banner row above day cells), overlap stacking (uncapped, one row per schedule), keyboard model (linear Tab order), all three user-confirmed via `AskUserQuestion` on 2026-09-19 before this story was drafted (see Dev Notes).
+- [x] Scope confirmation — this story restructures `WeeklyCalendarView.tsx`'s desktop grid to render multi-day schedules as ONE spanning `EventCardCalendarGridItem` in a new banner row above the day-cell grid (uncapped, one row per schedule, linear Tab order), leaves single-day rendering and the mobile list completely unchanged, and closes a `locationName` data-plumbing gap needed for the spanning card's venue text to render at all.
+- [x] **Blocking dependency confirmed** — Story 1.i1f (`EventCardCalendarGridItem` primitive) is `ready-for-dev`/not yet implemented as of this story's creation. This story's Task 4 cannot be completed until 1.i1f ships (or its `EventCardCalendarGridItem.types.ts` prop contract is otherwise locked) — confirm 1.i1f's status before starting `bmad-dev-story` on this story, or explicitly accept building against 1.i1f's story-file-documented (not yet code-verified) prop contract with a follow-up reconciliation pass once 1.i1f lands.
+- [x] Architecture and boundary confirmation — all changes stay inside `packages/ui` (`WeeklyCalendarView.tsx`/`.types.ts`, `useWeeklyCalendarController.ts`); no new API surface, no `packages/domain` involvement, no GraphQL/codegen change.
+- [x] Testing plan confirmation — Task 6/7's coverage across `packages/ui` (rewritten superseded tests, new spanning/stacking/a11y/keyboard/`locationName` coverage, full regression pass).
+- [x] Explicit human approval state (Default: pending approval)
+- [x] Gate 1/2/3 prerequisites confirmed — Gate 1: no gap (reasoned fresh, sweep-consistent). Gate 2: no split, `items-center` AC added (`runSubagent`, 2026-09-19). Gate 3: no gap (reasoned fresh, sweep-consistent). No new prerequisite stories or `sprint-status.yaml`/`epics.md` entries required by this story's own gate findings.
+- [x] Architecture-mechanism decisions confirmed — layout (banner row above day cells), overlap stacking (uncapped, one row per schedule), keyboard model (linear Tab order), all three user-confirmed via `AskUserQuestion` on 2026-09-19 before this story was drafted (see Dev Notes).
 
 ## Testing Requirements
 
-- [ ] Component/integration tests — `WeeklyCalendarView.test.tsx`: rewritten multi-day tests (AC13), new banner/stacking/filtering/a11y/keyboard/`locationName` tests (Task 6.3); `useWeeklyCalendarController.test.tsx`: new `locationName` mapping coverage (Task 1.3).
-- [ ] Regression coverage — confirm all pre-existing `WeeklyCalendarView`/`useWeeklyCalendarController` tests (single-day cap/popover behavior, roving-tabindex arrow-key nav, mobile list rendering, favorite/added-to-calendar icons) remain green and unmodified in intent (Task 7.1).
-- [ ] E2E tests — not required for this story; existing component/integration coverage is sufficient for a presentational rendering restructure with no new user-facing flow beyond richer visual presentation of an already-clickable/already-favoritable card, consistent with this epic's established precedent (Story 1.i1f's own Testing Requirements reached the same conclusion for its comparable scope).
+- [x] Component/integration tests — `WeeklyCalendarView.test.tsx`: rewritten multi-day tests (AC13), new banner/stacking/filtering/a11y/keyboard/`locationName` tests (Task 6.3); `useWeeklyCalendarController.test.tsx`: new `locationName` mapping coverage (Task 1.3).
+- [x] Regression coverage — confirm all pre-existing `WeeklyCalendarView`/`useWeeklyCalendarController` tests (single-day cap/popover behavior, roving-tabindex arrow-key nav, mobile list rendering, favorite/added-to-calendar icons) remain green and unmodified in intent (Task 7.1).
+- [x] E2E tests — not required for this story; existing component/integration coverage is sufficient for a presentational rendering restructure with no new user-facing flow beyond richer visual presentation of an already-clickable/already-favoritable card, consistent with this epic's established precedent (Story 1.i1f's own Testing Requirements reached the same conclusion for its comparable scope).
 
 ## Deliverables Checklist
 
-- [ ] `WeeklyCalendarViewScheduleShape.locationName?: string` added and populated by `useWeeklyCalendarController.ts` from `event.location`.
-- [ ] Multi-day schedules render as ONE spanning `EventCardCalendarGridItem` in a new banner row above the day-cell grid, columns aligned with day headers/day cells.
-- [ ] Multiple overlapping multi-day schedules stack as separate uncapped rows, correctly sorted.
-- [ ] Single-day day-cell/popover rendering, cap behavior, and mobile list rendering are all provably unaffected.
-- [ ] Superseded grid-variant `multiDayRoundingClass`/"Day X of N" dead code removed (mobile's own equivalents untouched).
-- [ ] Spanning bar has working hover/focus tooltip (`aria-describedby`) conveying the date range, and is a linear Tab stop outside the 2D roving-tabindex grid.
-- [ ] All rewritten/new tests passing; `eslint`/`tsc --noEmit` clean.
+- [x] `WeeklyCalendarViewScheduleShape.locationName?: string` added and populated by `useWeeklyCalendarController.ts` from `event.location`.
+- [x] Multi-day schedules render as ONE spanning `EventCardCalendarGridItem` in a new banner row above the day-cell grid, columns aligned with day headers/day cells.
+- [x] Multiple overlapping multi-day schedules stack as separate uncapped rows, correctly sorted.
+- [x] Single-day day-cell/popover rendering, cap behavior, and mobile list rendering are all provably unaffected.
+- [x] Superseded grid-variant `multiDayRoundingClass`/"Day X of N" dead code removed (mobile's own equivalents untouched).
+- [x] Spanning bar has working hover/focus tooltip (`aria-describedby`) conveying the date range, and is a linear Tab stop outside the 2D roving-tabindex grid.
+- [x] All rewritten/new tests passing; `eslint`/`tsc --noEmit` clean.
 
 ## Out of Scope
 
@@ -206,23 +206,33 @@ No `AskUserQuestion` was needed for the gate outcomes themselves (all three reso
 
 ## Definition of Done
 
-- [ ] All Acceptance Criteria satisfied.
-- [ ] All Task 7 tests passing (`packages/ui`, including full regression of pre-existing `WeeklyCalendarView`/`useWeeklyCalendarController` suites).
-- [ ] Lint (`eslint`) and `tsc --noEmit` clean for every touched file (or no new errors beyond this epic's documented pre-existing baseline).
-- [ ] No GraphQL document, generated-types file, resolver, or consumer page touched (confirmed via `git diff`).
-- [ ] Story 1.i1f's `EventCardCalendarGridItem` primitive is either shipped, or this story's implementation against its documented-not-yet-verified prop contract has been explicitly reconciled once 1.i1f lands.
+- [x] All Acceptance Criteria satisfied.
+- [x] All Task 7 tests passing (`packages/ui`, including full regression of pre-existing `WeeklyCalendarView`/`useWeeklyCalendarController` suites).
+- [x] Lint (`eslint`) and `tsc --noEmit` clean for every touched file (or no new errors beyond this epic's documented pre-existing baseline).
+- [x] No GraphQL document, generated-types file, resolver, or consumer page touched (confirmed via `git diff`).
+- [x] Story 1.i1f's `EventCardCalendarGridItem` primitive is either shipped, or this story's implementation against its documented-not-yet-verified prop contract has been explicitly reconciled once 1.i1f lands.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — ready for code review. Task 7.3 (pixel-level visual alignment check) is now closed with a real Playwright browser run (see Debug Log References) — the prior note claiming this repo had no Playwright tooling was incorrect and has been corrected in Task 7.3's own line.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-_To be filled by the dev agent._
+Claude Sonnet 5 (`claude-sonnet-5`), via `bmad-dev-story`.
 
 ### Debug Log References
+
+- **Verification tooling note (how the results below were actually obtained).** `run_commands`/`read_files` output came back empty for several attempts at the start of this session, so verification was re-established by redirecting command output to a temp file and reading it back with `Select-String` in a follow-up command (`packages/ui/ui-verify.txt`, `packages/ui/ui-full.txt` + `ui-full-err.txt`); `tsc` output was captured the same way. Every temp file used for this (`tsc-out*.txt`, `ui-*.txt`, `__baseline_*.test.tsx`) was deleted afterwards, and `git status` is free of them. The numbers recorded here were read from those files, not inferred.
+- **`tsc --noEmit` (`packages/ui`):** 78 errors, all confined to five files this story does **not** touch — `src/core/map.tsx`, `src/features/events/EventDetailView.test.tsx`, `src/features/events/EventDiscoveryPanel.test.tsx`, `src/features/events/FilterHub.test.tsx`, `src/hooks/useCurrentLocationCapture.test.ts` (this epic's documented pre-existing baseline). **Zero errors in any file this story touches**, including every new prop passed from `MultiDaySpanningBar` into `EventCardCalendarGridItem`.
+- **Lint parity was measured, not assumed.** HEAD copies of both rewritten test files (`git show HEAD:./src/...` written to `src/__baseline_*.test.tsx`) were linted side-by-side with the working copies and produce an identical set of messages (11 warnings in `WeeklyCalendarView.test.tsx` at the same line/column positions — the mock header block carried over verbatim — plus 2 in `useWeeklyCalendarController.test.tsx` at the same `any`-typed mock helpers, shifted only by the newly inserted fixture lines). The 4 remaining warnings in this story's non-test files (`useWeeklyCalendarController.ts` 37:54, 37:71, 59:35, 60:53 / `WeeklyCalendarView.tsx` baseline) are pre-existing too. **0 errors, no new warnings anywhere.**
+- **Full `packages/ui` suite: 583/583 tests passing across 55/55 files** (`npx vitest run --reporter=dot`, 46.6s). Focused run of the two touched test files: **45/45 passing across 2/2 files**.
+- **A false failure worth recording:** an earlier concurrent full-suite run reported `Test Files 2 failed | 55 passed (57)` with `Tests 583 passed (583)`. The two "failed suites" were this session's own temporary baseline copies (`src/__baseline_wcv.test.tsx`, `src/__baseline_uwcc.test.tsx`) disappearing mid-run while Vitest was still collecting them (`Cannot find module .../__baseline_*.test.tsx`) — a byproduct of the lint-parity comparison above, **not** real test failures. The clean re-run after deleting them is the recorded result.
+- **Implementation reconciliations found while wiring against the already-shipped 1.i1f primitive:** the calendar shape's field is `locationName` (AC10) while `EventCardCalendarGridItem`'s prop is `location`, so `MultiDaySpanningBar` bridges them at the call site (`location={schedule.locationName}`) — the primitive itself needed no change. `isMultiDay`, `distanceKm`, and `labels.favoriteToggle` all typecheck as-is; AC9's `items-center` alignment is satisfied inside the primitive's own `flex items-center gap-2` chrome (line 67 of `EventCardCalendarGridItem.tsx`), so the spanning bar adds no wrapping alignment class of its own.
+- **Task 5 cleanup scope check:** after removing the grid-variant `multiDayRoundingClass` branch, a grep for `border-r-0|border-l-0|rounded-l-md|rounded-r-md|rounded-none border-x` in `WeeklyCalendarView.tsx` returns only the explanatory comment (line 966) — no leftover grid-variant segment-styling remains. `isMultiDay`/`baseButtonClass`/`multiDayBadgeText` are **not** dead: they remain reachable through the untouched mobile `variant='list'` branch, so they were deliberately left alone. `ArrowUp`/`ArrowDown` roving tabindex was re-pointed at the new `singleDayDayBuckets` so arrow navigation covers exactly the cells' own single-day cards and never tries to land on a spanning bar (AC12).
+- **Task 7.3 closed in a follow-up session (2026-09-21, `bmad-help`)**, correcting this story's own earlier false claim that the repo "has no Playwright dependency and no `playwright.config.ts`" — it does, and has since before this story existed. Added `apps/web/e2e/calendar-banner-alignment.spec.ts` and ran it for real (`npx playwright test calendar-banner-alignment`, Chromium, 1440×900, against `pnpm dev` + backend + seeded local Postgres): **1 passed (1.4m)**. See Task 7.3's own line for the full assertion description.
+- **Independent re-verification of Task 7.3 (2026-09-21, later session), with an honest note on cold starts.** Re-ran the same spec three times from a clean workstation state: (1) **fully cold** — nothing running, so Playwright started both webServers itself — **failed for an environmental reason and never reached an alignment assertion**: Next's first-ever compile of `/[locale]/[platformSlug]/[accountId]` overlapped the backend's `tsx watch` boot, the account page's SSR GraphQL fetch to `localhost:4001` timed out (`ETIMEDOUT`, page digest `621602019`), the page rendered "Application error: a server-side exception", and the spec then timed out waiting for the `Calendar View` tab; (2) **both dev servers warm** — **`1 passed` (6.7s)**; (3) **backend cold, started by Playwright, web server warm** — **`1 passed` (7.1s)**. Together with the earlier session's cold-start pass (1.4m), that makes the cold-start race **intermittent rather than deterministic**, and it originates in `playwright.config.ts`'s two-webServer readiness wiring (relevant to CI, which always starts servers fresh because `reuseExistingServer` is false there) — not in the spec and not in this story's implementation. Cheap hardening if it ever bites in CI: wrap the `goto` + tab click in `await expect(async () => { ... }).toPass()`, or make the backend's `webServer.url` a request that only succeeds once GraphQL is actually serving. Deliberately not applied here, because it changes shared config/all-spec behavior and the failure is not reproducible on demand.
 
 ### Completion Notes List
 
@@ -230,8 +240,17 @@ _To be filled by the dev agent._
 
 ### File List
 
-_To be filled by the dev agent during implementation._
+- `packages/ui/src/features/events/WeeklyCalendarView.types.ts` — `locationName?: string` added to `WeeklyCalendarViewScheduleShape` (AC10).
+- `packages/ui/src/features/events/WeeklyCalendarView.tsx` — new `spanningSchedules` memo + `singleDayDayBuckets` filter memo, desktop day-cell/popover filtering of multi-day entries, new banner grid row, new `MultiDaySpanningBar` subcomponent, grid-variant multi-day dead-code removal, roving-nav re-point (Tasks 2–5).
+- `packages/ui/src/features/events/WeeklyCalendarView.test.tsx` — superseded multi-day tests rewritten + new banner/stacking/clipping/filtering/a11y/keyboard/`locationName` coverage (Task 6).
+- `packages/ui/src/hooks/useWeeklyCalendarController.ts` — `locationName: event.location ?? undefined` in the schedules mapping (Task 1.2).
+- `packages/ui/src/hooks/useWeeklyCalendarController.test.tsx` — `locationName` plumbing coverage incl. graceful `undefined` (Task 1.3).
+- `apps/web/e2e/calendar-banner-alignment.spec.ts` — new (2026-09-21 follow-up): real-browser pixel alignment check for Task 7.3, using the existing `apps/web` Playwright setup. The only file this story adds outside `packages/ui`; it touches no production code.
+
+Untouched by this story (confirmed via `git diff --stat HEAD -- packages/ui`: exactly the five files above, 640 insertions / 59 deletions): no GraphQL document, no `apps/web/src/generated/graphql.ts` change, no resolver, no `apps/web` consumer page, no `EventCardCalendarGridItem` change. `git diff --stat HEAD -- apps/web` shows only `apps/web/tsconfig.tsbuildinfo` (a TypeScript incremental build cache, one hash line, not source) and `apps/web/src/generated/graphql.ts` — both pre-existing working-tree changes from Story 1.i1f's own uncommitted work, not written by this story.
 
 ## Change Log
 
 - 2026-09-19: Story created via `bmad-create-story`, split from Story 1.i1f via Gate 2 (recorded in Story 1.i1f's own Dev Notes, 2026-09-17). Full Gate 1/2/3 re-evaluation, three `AskUserQuestion` architecture-mechanism decisions, and one newly-discovered data-plumbing gap (`locationName`) recorded above.
+- 2026-09-21: Implementation completed via `bmad-dev-story` (Tasks 1–7). Multi-day schedules now render as ONE uncapped spanning `EventCardCalendarGridItem` bar per schedule in a new `GRID_WEEKLY_CLASS` banner row above the day-cell grid (explicit `gridColumn: start+1 / span N`, explicit per-schedule row for overlap stacking), while day cells/popover and the mobile list keep rendering single-day schedules only and the mobile `variant='list'` multi-day treatment stays byte-identical. Grid-variant multi-day dead code removed; roving `ArrowUp`/`ArrowDown` re-pointed at the single-day buckets so spanning bars stay a plain linear Tab stop. Verification: `packages/ui` **583/583 tests passing (55 files)**, touched-file focused run 45/45, `eslint` 0 errors with lint parity proven against HEAD copies of the rewritten tests, `tsc --noEmit` 0 errors in every touched file (78 pre-existing baseline errors confined to five unrelated files), and `git diff` confirms no GraphQL/codegen/resolver/consumer-page file touched. Task 7.3 is closed with a real browser run rather than a structural proxy: the new `apps/web/e2e/calendar-banner-alignment.spec.ts` (Playwright/Chromium, 1440×900, live app + seeded data) asserts the spanning bar's left/right edges match the day-header and day-cell column edges within 1px. Independently re-run later the same day: **`1 passed` (6.7s) with servers warm and `1 passed` (7.1s) with Playwright starting the backend itself**, alongside one fully-cold run that failed environmentally before reaching any assertion (backend `tsx watch` boot racing Next's first compile → account-page SSR GraphQL fetch `ETIMEDOUT`) — an intermittent `playwright.config.ts` webServer-boot race (CI always starts servers fresh), not a spec or implementation defect; details in Debug Log References. Status set to `review`; `sprint-status.yaml`'s `1-i1g-...` entry moved `ready-for-dev` → `review`.
+- 2026-09-21 (follow-up, `bmad-help`): User asked to "create the playwright setup" for Task 7.3, citing this story's own note that the repo had none. Verified first — that note was **wrong**: `apps/web/playwright.config.ts`, `@playwright/test@1.62.0`, and 19+ e2e specs already existed, committed well before this story (`git log` shows the config predates commit `cf428e6`). No setup was needed; instead added `apps/web/e2e/calendar-banner-alignment.spec.ts`, which navigates to the public account page's "Calendar View" tab, locates the seeded "Ongoing Culture Fest 2026-2027" spanning bar, derives its claimed grid columns from its own computed styling, and asserts pixel alignment (≤1px) against both the day-header and day-cell grids. Ran for real against `pnpm dev` + backend + seeded local Postgres: **1 passed (1.4m)**. Task 7.3 now checked; this entry and Task 7.3/Completion Status/Debug Log References corrected to stop citing the false "no Playwright" claim.

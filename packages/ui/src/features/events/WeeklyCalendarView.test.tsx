@@ -231,17 +231,84 @@ describe('WeeklyCalendarView', () => {
     expect(screen.getByText('Gallery Tour')).toHaveClass('font-normal');
   });
 
-  it('renders a multi-day schedule as connected per-day segments', () => {
+  it('renders a multi-day schedule as one spanning card across its day columns (AC1/AC2/AC13)', () => {
     render(<WeeklyCalendarView {...defaultProps} locale="en-US" />);
 
-    // Tech Workshop is multi-day: Aug 5 (Wed), Aug 6 (Thu), Aug 7 (Fri)
-    // Grid weekly has 7 columns (Sun 2 - Sat 8)
-    // Tech Workshop segments should be rendered
-    const segments = screen.getAllByText('Tech Workshop');
-    expect(segments.length).toBe(3); // Wednesday, Thursday, Friday
+    // Tech Workshop is multi-day: Aug 5 (Wed) -> Aug 7 (Fri). The visible week starts on the
+    // supplied weekStart (Aug 5), so those are columns 1-3 of the 7-column grid.
+    const banner = rtlScreen.getByTestId('multi-day-spanning-banner');
+    const bars = within(banner).getAllByTestId('multi-day-spanning-bar');
+
+    // Exactly ONE rendered instance — not N per-day segments (AC1).
+    expect(bars).toHaveLength(1);
+    expect(within(bars[0]).getByText('Tech Workshop')).toBeInTheDocument();
+    expect(screen.getAllByText('Tech Workshop')).toHaveLength(1);
+
+    // AC1 — the bar is a direct child of the banner's own CSS grid, not nested in a day cell.
+    expect(bars[0].parentElement).toBe(banner);
+    expect(banner).toHaveClass('grid-cols-7');
+
+    // AC5 — and no multi-day segment is left behind inside any of the 7 day cells.
+    const dayCells = rtlScreen
+      .getByTestId('desktop-calendar-view')
+      .querySelectorAll('.h-32');
+    expect(dayCells).toHaveLength(7);
+    dayCells.forEach((cell) => {
+      expect(cell).not.toHaveTextContent('Tech Workshop');
+    });
+
+    // AC1/AC3 — spans its clipped day-column range via an explicit grid-column.
+    expect(bars[0]).toHaveStyle({ gridColumn: '1 / span 3', gridRow: '1' });
   });
 
-  it('clips multi-day schedules at week boundaries correctly', () => {
+  it('stacks overlapping multi-day schedules one row each, in ascending start order (AC4)', () => {
+    // Deliberately declared out of order (later start first) to prove the sort.
+    const overlapping = [
+      {
+        id: 'md-late',
+        eventSlug: 'late-fest',
+        eventName: 'Late Fest',
+        isMainSchedule: false,
+        eventStartDate: '2026-08-06',
+        eventEndDate: '2026-08-08',
+        eventStartTime: '10:00:00',
+      },
+      {
+        id: 'md-early',
+        eventSlug: 'early-fest',
+        eventName: 'Early Fest',
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+        eventEndDate: '2026-08-07',
+        eventStartTime: '09:00:00',
+      },
+    ];
+
+    render(
+      <WeeklyCalendarView
+        {...defaultProps}
+        schedules={overlapping}
+        locale="en-US"
+      />
+    );
+
+    const banner = rtlScreen.getByTestId('multi-day-spanning-banner');
+    const bars = within(banner).getAllByTestId('multi-day-spanning-bar');
+
+    // Uncapped: both multi-day schedules get their own full-width row.
+    expect(bars).toHaveLength(2);
+    expect(bars.map((bar) => bar.getAttribute('data-schedule-id'))).toEqual([
+      'md-early',
+      'md-late',
+    ]);
+
+    // Each row is explicit, so overlapping spans stack instead of colliding.
+    expect(bars[0]).toHaveStyle({ gridColumn: '1 / span 3', gridRow: '1' });
+    expect(bars[1]).toHaveStyle({ gridColumn: '2 / span 3', gridRow: '2' });
+  });
+
+  it('clips multi-day schedules at week boundaries correctly (AC3)', () => {
+    // Runs Jul 31 -> Aug 4; the visible week (weekStart Aug 2) only shows Aug 2, 3, 4.
     const outOfBoundsSchedule = [
       {
         id: 'sched-boundary',
@@ -250,6 +317,15 @@ describe('WeeklyCalendarView', () => {
         isMainSchedule: true,
         eventStartDate: '2026-07-31',
         eventEndDate: '2026-08-04',
+      },
+      // Runs Aug 6 -> Aug 20; the visible week only shows Aug 6, 7, 8.
+      {
+        id: 'sched-trailing',
+        eventSlug: 'trailing-fest',
+        eventName: 'Trailing Festival',
+        isMainSchedule: true,
+        eventStartDate: '2026-08-06',
+        eventEndDate: '2026-08-20',
       },
     ];
 
@@ -262,8 +338,23 @@ describe('WeeklyCalendarView', () => {
       />
     );
 
-    const segments = screen.getAllByText('Boundary Festival');
-    expect(segments.length).toBe(3);
+    const bars = within(rtlScreen.getByTestId('multi-day-spanning-banner')).getAllByTestId(
+      'multi-day-spanning-bar'
+    );
+    expect(bars).toHaveLength(2);
+    expect(bars.map((bar) => bar.getAttribute('data-schedule-id'))).toEqual([
+      'sched-boundary',
+      'sched-trailing',
+    ]);
+
+    // Clipped to the on-screen columns, never off-grid: leading edge -> columns 1-3,
+    // trailing edge -> columns 5-7.
+    expect(bars[0]).toHaveStyle({ gridColumn: '1 / span 3', gridRow: '1' });
+    expect(bars[1]).toHaveStyle({ gridColumn: '5 / span 3', gridRow: '2' });
+
+    // Still exactly one instance each (never repeated per day of the week).
+    expect(screen.getAllByText('Boundary Festival')).toHaveLength(1);
+    expect(screen.getAllByText('Trailing Festival')).toHaveLength(1);
   });
 
   it('camps daily events if they exceed maxEventsPerDay and triggers popover', () => {
@@ -361,44 +452,203 @@ describe('WeeklyCalendarView', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
+  it('keeps multi-day schedules out of the capped day cells and the "+N more" popover (AC5/AC6)', () => {
+    const mixedSchedules = [
+      { id: '1', eventSlug: 'e1', eventName: 'Event 1', isMainSchedule: true, eventStartDate: '2026-08-05' },
+      { id: '2', eventSlug: 'e2', eventName: 'Event 2', isMainSchedule: true, eventStartDate: '2026-08-05' },
+      { id: '3', eventSlug: 'e3', eventName: 'Event 3', isMainSchedule: true, eventStartDate: '2026-08-05' },
+      {
+        id: 'md-expo',
+        eventSlug: 'expo',
+        eventName: 'All Week Expo',
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+        eventEndDate: '2026-08-07',
+      },
+    ];
+
+    const moreLabel = vi.fn((count: number) => `+${count} items remaining`);
+
+    render(
+      <WeeklyCalendarView
+        {...defaultProps}
+        schedules={mixedSchedules}
+        maxEventsPerDay={2}
+        labels={{ moreLabel }}
+        locale="en-US"
+      />
+    );
+
+    // The multi-day schedule has its own spanning bar…
+    const banner = rtlScreen.getByTestId('multi-day-spanning-banner');
+    expect(within(banner).getAllByTestId('multi-day-spanning-bar')).toHaveLength(1);
+    expect(within(banner).getByText('All Week Expo')).toBeInTheDocument();
+
+    // …and is never duplicated inside a day cell.
+    // The visible week starts at the supplied weekStart (Aug 5 = Wed), so that day is cell 0.
+    const wedCell = rtlScreen.getByTestId('desktop-calendar-view').querySelectorAll('.h-32')[0];
+    expect(wedCell).not.toHaveTextContent('All Week Expo');
+    expect(within(wedCell as HTMLElement).getByText('Event 1')).toBeInTheDocument();
+    expect(within(wedCell as HTMLElement).getByText('Event 2')).toBeInTheDocument();
+    expect(within(wedCell as HTMLElement).queryByText('Event 3')).not.toBeInTheDocument();
+
+    // The cap/count is computed over single-day schedules only (3 single-day, limit 2 -> +1).
+    expect(moreLabel).toHaveBeenCalledWith(1);
+    fireEvent.click(screen.getByText('+1 items remaining'));
+
+    // The popover lists the remaining single-day schedule, never the multi-day one.
+    const popover = screen.getByLabelText(/Schedules for/i);
+    expect(within(popover).getByText('Event 3')).toBeInTheDocument();
+    expect(within(popover).queryByText('All Week Expo')).not.toBeInTheDocument();
+
+    // The multi-day schedule still renders exactly once overall (no duplication).
+    expect(screen.getAllByText('All Week Expo')).toHaveLength(1);
+  });
+
+  it('fires onScheduleClick from the spanning card and onFavoriteToggle without navigating (AC7/AC12)', () => {
+    const onScheduleClick = vi.fn();
+    const onFavoriteToggle = vi.fn();
+
+    render(
+      <WeeklyCalendarView
+        {...defaultProps}
+        locale="en-US"
+        onScheduleClick={onScheduleClick}
+        onFavoriteToggle={onFavoriteToggle}
+      />
+    );
+
+    const bar = rtlScreen.getByTestId('multi-day-spanning-bar');
+    const barButton = within(bar).getByRole('button', { name: 'Tech Workshop' });
+
+    // AC12 — a plain linear Tab stop, deliberately outside the roving day-cell grid.
+    expect(barButton).toHaveAttribute('tabIndex', '0');
+    expect(barButton).not.toHaveAttribute('id');
+
+    fireEvent.click(barButton);
+    expect(onScheduleClick).toHaveBeenCalledTimes(1);
+    expect(onScheduleClick).toHaveBeenCalledWith(sampleSchedules[2]);
+
+    // AC7 — the primitive's favorite control is a sibling, never nested in the click target.
+    const favoriteButton = within(bar).getByRole('button', { name: 'Toggle favorite' });
+    expect(barButton.contains(favoriteButton)).toBe(false);
+
+    fireEvent.click(favoriteButton);
+    expect(onFavoriteToggle).toHaveBeenCalledWith(sampleSchedules[2]);
+    // Toggling the favorite never navigates.
+    expect(onScheduleClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('exposes the multi-day date range through the hover/focus tooltip (AC11)', () => {
+    render(<WeeklyCalendarView {...defaultProps} locale="en-US" />);
+
+    const bar = rtlScreen.getByTestId('multi-day-spanning-bar');
+    const barButton = within(bar).getByRole('button', { name: 'Tech Workshop' });
+
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+
+    fireEvent.pointerEnter(barButton, { pointerType: 'mouse' });
+    const tooltip = screen.getByRole('tooltip');
+    expect(tooltip).toHaveTextContent('Tech Workshop');
+    // Aug 5 -> Aug 7, 2026 (09:00 - 17:00) in en-US.
+    expect(tooltip).toHaveTextContent(/Aug 5/);
+    expect(tooltip).toHaveTextContent(/7, 2026/);
+    expect(tooltip).toHaveTextContent(/9:00 AM/);
+    expect(tooltip).toHaveTextContent(/5:00 PM/);
+    expect(barButton).toHaveAttribute('aria-describedby', tooltip.id);
+
+    fireEvent.pointerLeave(barButton, { pointerType: 'mouse' });
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+
+    fireEvent.focus(barButton);
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+
+    fireEvent.keyDown(barButton, { key: 'Escape' });
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('renders the spanning card venue from locationName and the <8km nearby badge (AC8/AC10)', () => {
+    const withVenue = [
+      {
+        id: 'md-venue',
+        eventSlug: 'venue-fest',
+        eventName: 'Venue Fest',
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+        eventEndDate: '2026-08-07',
+        locationName: 'Hall 4',
+        distanceKm: 3,
+      },
+    ];
+    const withoutVenue = [
+      {
+        id: 'md-far',
+        eventSlug: 'far-fest',
+        eventName: 'Far Fest',
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+        eventEndDate: '2026-08-07',
+        distanceKm: 12,
+      },
+    ];
+
+    render(<WeeklyCalendarView {...defaultProps} schedules={withVenue} locale="en-US" />);
+
+    const bar = rtlScreen.getByTestId('multi-day-spanning-bar');
+    expect(within(bar).getByText('Hall 4')).toBeInTheDocument();
+    expect(within(bar).getByText('Nearby')).toBeInTheDocument();
+
+    cleanup();
+
+    render(<WeeklyCalendarView {...defaultProps} schedules={withoutVenue} locale="en-US" />);
+
+    const barNoVenue = rtlScreen.getByTestId('multi-day-spanning-bar');
+    // AC10 — degrades gracefully when the venue is absent: no venue line, no placeholder.
+    expect(within(barNoVenue).queryByText('Hall 4')).not.toBeInTheDocument();
+    expect(within(barNoVenue).queryByText('Nearby')).not.toBeInTheDocument();
+  });
+
   it('roving-tabindex keyboard arrow navigation between schedule cards behaves correctly', () => {
     render(<WeeklyCalendarView {...defaultProps} locale="en-US" />);
 
-    // Wed Aug 5: Main Stage Concert (card-0), Tech Workshop (card-1)
-    // Thu Aug 6: Tech Workshop (card-0), Gallery Tour (card-1)
-    // Fri Aug 7: Tech Workshop (card-0)
-    
-    // There are 5 display cards total across visible days
-    // Wed: card-0 (Main Stage Concert), card-1 (Tech Workshop)
-    // Thu: card-0 (Tech Workshop), card-1 (Gallery Tour)
-    // Fri: card-0 (Tech Workshop)
+    // Multi-day Tech Workshop is excluded from the day cells (AC5/AC6) — it has its own
+    // spanning bar instead — so the roving grid is only:
+    //   Cell 0 (Wed Aug 5): Main Stage Concert (card-0)
+    //   Cell 1 (Thu Aug 6): Gallery Tour (card-0)
+    //   Cell 2 (Fri Aug 7): nothing (Tech Workshop only)
+    const wed0 = screen.getByText('Main Stage Concert').closest('button')!;
+    const thu0 = screen.getByText('Gallery Tour').closest('button')!;
 
-    const wed0 = screen.getAllByText('Tech Workshop')[0].closest('button')!;
-    const wed1 = screen.getByText('Main Stage Concert').closest('button')!;
-    const thu0 = screen.getAllByText('Tech Workshop')[1].closest('button')!;
-
-    // Initial roving tabIndex=0 is wed0 (Tech Workshop, since it sorts before Main Stage Concert as 09:00:00 vs 18:00:00)
+    // Initial roving tabIndex=0 is the first rendered card of the week
     expect(wed0).toHaveAttribute('tabIndex', '0');
-    expect(wed1).toHaveAttribute('tabIndex', '-1');
     expect(thu0).toHaveAttribute('tabIndex', '-1');
 
-    // Focus wed0 and ArrowRight moves to wed1 (which is the next card in the flat list)
+    // ArrowRight moves to the next card in the flat list (Thu's Gallery Tour)
     fireEvent.keyDown(wed0, { key: 'ArrowRight' });
-    expect(wed1).toHaveFocus();
-    expect(wed1).toHaveAttribute('tabIndex', '0');
+    expect(thu0).toHaveFocus();
+    expect(thu0).toHaveAttribute('tabIndex', '0');
     expect(wed0).toHaveAttribute('tabIndex', '-1');
 
-    // ArrowRight moves to next day's first card (thu0)
-    fireEvent.keyDown(wed1, { key: 'ArrowRight' });
+    // ArrowLeft moves back to the previous card
+    fireEvent.keyDown(thu0, { key: 'ArrowLeft' });
+    expect(wed0).toHaveFocus();
+
+    // ArrowDown moves to the same card index on the next day (Wed -> Thu)
+    fireEvent.keyDown(wed0, { key: 'ArrowDown' });
     expect(thu0).toHaveFocus();
 
-    // ArrowDown moves down to same row or column equivalent on adjacent day (falling back sensibly)
-    // From thu0 (day 4, card-0) we press ArrowDown (which does col index movement in calendar logic)
-    // Actually, our ArrowUp/ArrowDown is defined to move to the corresponding card index in the adjacent day cell.
-    // e.g. From thu0 (Thu, card-0) ArrowDown moves to Fri, card-0 (which is the Friday Tech Workshop)
+    // Fri has no single-day card left, so ArrowDown must not strand focus on a card that is
+    // not rendered (its only schedule is the multi-day span).
     fireEvent.keyDown(thu0, { key: 'ArrowDown' });
-    const fri0 = screen.getAllByText('Tech Workshop')[2].closest('button')!;
-    expect(fri0).toHaveFocus();
+    expect(thu0).toHaveFocus();
+
+    // AC12 — the spanning bar stays a plain linear Tab stop, outside arrow-key navigation.
+    const spanningButton = within(rtlScreen.getByTestId('multi-day-spanning-banner')).getByRole(
+      'button',
+      { name: 'Tech Workshop' }
+    );
+    expect(spanningButton).toHaveAttribute('tabIndex', '0');
+    expect(spanningButton).not.toHaveFocus();
   });
 
   it('graceful degradation for invalid/malformed locale or timezone instead of crashing', () => {

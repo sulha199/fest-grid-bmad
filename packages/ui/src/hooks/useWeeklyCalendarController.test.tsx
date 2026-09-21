@@ -10,6 +10,7 @@ describe('useWeeklyCalendarController', () => {
       eventName: 'Event One',
       isFavorited: true,
       imageUrl: 'https://img.example/event-one.jpg',
+      location: 'Grand Arena, Hall 4',
       schedules: [
         {
           id: 'schedule-1',
@@ -78,6 +79,8 @@ describe('useWeeklyCalendarController', () => {
       isAddedToCalendar: true,
       eventId: 'event-1',
       imageUrl: 'https://img.example/event-one.jpg',
+      // Story 1.i1g AC10 — venue mapped from the Event-level `location`.
+      locationName: 'Grand Arena, Hall 4',
     });
     expect(result.current.schedules[1]).toEqual({
       id: 'schedule-2',
@@ -92,7 +95,40 @@ describe('useWeeklyCalendarController', () => {
       isAddedToCalendar: false,
       eventId: 'event-1',
       imageUrl: 'https://img.example/event-one.jpg',
+      locationName: 'Grand Arena, Hall 4',
     });
+  });
+
+  it('degrades locationName to undefined when the event has no location (Story 1.i1g AC10)', () => {
+    const eventsWithoutLocation = [
+      {
+        id: 'event-2',
+        slug: 'event-two',
+        eventName: 'Event Two',
+        schedules: [
+          {
+            id: 'schedule-3',
+            isMainSchedule: true,
+            eventStartDate: '2026-08-12',
+            eventEndDate: '2026-08-12',
+          },
+        ],
+      },
+    ];
+
+    const { result } = renderHook(() =>
+      useWeeklyCalendarController({
+        week: '2026-08-10',
+        setWeek: vi.fn(),
+        todayStr: '2026-08-10',
+        rawEvents: eventsWithoutLocation,
+        queryStatus: 'success',
+        queryError: null,
+      })
+    );
+
+    // Never `null`, never an empty string — the spanning card omits the venue line entirely.
+    expect(result.current.schedules[0].locationName).toBeUndefined();
   });
 
   it('computes distanceKm per schedule when viewerCoord and schedule coordinates are both present (Story 1.i1f AC13-14)', () => {

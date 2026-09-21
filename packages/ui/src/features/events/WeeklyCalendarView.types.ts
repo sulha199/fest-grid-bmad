@@ -14,6 +14,13 @@ export interface WeeklyCalendarViewScheduleShape {
   eventId?: string;
   /** Parent event's poster image URL, mapped from the already-fetched `event.imageUrl` (Story 1.i1d AC1/AC2). */
   imageUrl?: string;
+  /**
+   * Venue/location display text for the spanning calendar grid item card, mapped from the
+   * already-fetched `event.location` (Story 1.i1g AC10). Optional: every existing consumer
+   * that never sets it continues to compile/render, and the spanning card omits the venue
+   * line entirely when it is absent (matching `EventCardCalendarGridItem`'s own convention).
+   */
+  locationName?: string;
   /** Caller-computed distance in kilometers from the viewer to this schedule's location (Story 1.i1f AC13-14). Undefined when no viewer coordinate is resolvable. */
   distanceKm?: number;
 }

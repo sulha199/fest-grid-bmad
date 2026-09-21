@@ -10,6 +10,7 @@ import type {
 } from './WeeklyCalendarView.types';
 import { getWeekStart, getWeekEnd } from '../../hooks';
 import { EventCardMediaSlot, EventCardDateBox } from './EventCardMediaPrimitives';
+import { EventCardCalendarGridItem } from './EventCardCalendarGridItem';
 import { computeCalendarSegmentTillText } from './format-event-date';
 
 // Design system styles from DESIGN.md
@@ -24,6 +25,22 @@ const MORE_LINK_CLASS = "text-xs text-center text-violet-600 hover:underline cur
 const MULTI_DAY_EVENT_CLASS = "w-full bg-violet-50 border border-violet-200 p-1 relative text-left text-xs transition-colors hover:bg-violet-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:z-10";
 const HOVER_TOOLTIP_CLASS = "absolute z-30 p-2 text-sm bg-gray-800 text-white rounded-md shadow-lg pointer-events-auto max-w-xs break-words";
 const EVENT_CARD_COMPACT_CLASS = "rounded-md shadow-sm p-2 bg-violet-50 border border-violet-200 text-left text-xs transition-all hover:bg-violet-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:z-10";
+/**
+ * Story 1.i1g (AC12) — the spanning bar's full-card schedule-click target. It is a real
+ * `<button>` (Enter/Space activation, `focus-visible` ring, single linear Tab stop), hidden
+ * *underneath* the visual card layer (`z-10` vs. the layer's `z-20`) so the card layer paints
+ * on top of it while mouse/touch events fall through to it — see `MultiDaySpanningBar`.
+ */
+const SPANNING_BAR_CLICK_CLASS = "absolute inset-0 z-10 w-full rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500";
+/**
+ * Story 1.i1g (AC7) — the primitive's own visible chrome, kept in the DOM as a purely visual
+ * (non-interactive) layer: `pointer-events-none` lets every pointer event fall through to the
+ * click target underneath, while `[&_button]:pointer-events-auto` restores interactivity for
+ * the primitive's internal favorite-toggle `<button>`, which therefore is never nested inside
+ * the schedule-click element (same "non-interactive chrome + sibling interactive elements"
+ * shape as Story 1.i1d's `variant='list'` restructure).
+ */
+const SPANNING_BAR_VISUAL_CLASS = "relative z-20 pointer-events-none [&_button]:pointer-events-auto";
 
 /**
  * Format range helper with graceful degradation for invalid timezone/locale.
@@ -88,6 +105,14 @@ const diffInDays = (startStr: string, endStr: string) => {
   const diffMs = end.getTime() - start.getTime();
   return Math.round(diffMs / (1000 * 60 * 60 * 24));
 };
+
+/**
+ * Whether a schedule spans more than one day (`eventEndDate !== eventStartDate`).
+ * Story 1.i1g — the single predicate behind both "this schedule belongs in the spanning
+ * banner, not in a desktop day cell" (AC5/AC6) and the primitive's `isMultiDay` prop (AC8).
+ */
+const isMultiDaySchedule = (schedule: WeeklyCalendarViewScheduleShape) =>
+  !!schedule.eventEndDate && schedule.eventEndDate !== schedule.eventStartDate;
 
 /**
  * Format day header helper with graceful degradation.
@@ -178,6 +203,18 @@ interface Segment<TSchedule> {
   schedule: TSchedule;
   isFirstSegment: boolean;
   isLastSegment: boolean;
+}
+
+/**
+ * One multi-day schedule as it appears in the spanning banner row (Story 1.i1g Task 2):
+ * the schedule itself plus its already-clipped column range within the visible week.
+ */
+interface SpanningSchedule<TSchedule> {
+  schedule: TSchedule;
+  /** 0-based index of the first visible day-column the schedule occupies (AC3). */
+  startColIdx: number;
+  /** Number of visible day-columns the (clipped) schedule spans (AC1/AC3). */
+  spanCount: number;
 }
 
 /**
@@ -290,20 +327,79 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     return buckets;
   }, [schedules, visibleDays]);
 
+  // 2b. Story 1.i1g Task 2 — multi-day schedules as *one* spanning row entry each.
+  //
+  // Range intersection in date-string space (`YYYY-MM-DD` sorts lexicographically) mirrors
+  // the dayBuckets overlap test above, but is computed once per schedule instead of once per
+  // day-column. Column indices are always derived against the *visible week* (never the
+  // schedule's true start/end), so a schedule running past either edge of the week is clipped
+  // to the columns that are actually on screen (AC3) while still rendering exactly one bar.
+  const spanningSchedules = useMemo(() => {
+    const weekStartStr = toISODateString(visibleDays[0]);
+    const weekEndStr = toISODateString(visibleDays[6]);
+    const entries: SpanningSchedule<TSchedule>[] = [];
+
+    schedules.forEach((schedule) => {
+      if (!isMultiDaySchedule(schedule)) return;
+
+      const start = schedule.eventStartDate;
+      const end = schedule.eventEndDate || start;
+
+      // No overlap with the visible week at all → no bar in this week's banner.
+      if (start > weekEndStr || end < weekStartStr) return;
+
+      const clippedStart = start < weekStartStr ? weekStartStr : start;
+      const clippedEnd = end > weekEndStr ? weekEndStr : end;
+
+      const startColIdx = Math.max(0, diffInDays(weekStartStr, clippedStart));
+      const endColIdx = Math.min(6, diffInDays(weekStartStr, clippedEnd));
+
+      entries.push({ schedule, startColIdx, spanCount: endColIdx - startColIdx + 1 });
+    });
+
+    // AC4 — deterministic row order: earliest start date, then earliest start time (untimed
+    // schedules last, matching the day-bucket time sort's `'99:99'` sentinel), then id so the
+    // order never depends on caller-supplied array order.
+    entries.sort((a, b) => {
+      const byStart = a.schedule.eventStartDate.localeCompare(b.schedule.eventStartDate);
+      if (byStart !== 0) return byStart;
+
+      const timeA = a.schedule.eventStartTime || '99:99';
+      const timeB = b.schedule.eventStartTime || '99:99';
+      const byTime = timeA.localeCompare(timeB);
+      if (byTime !== 0) return byTime;
+
+      return String(a.schedule.id).localeCompare(String(b.schedule.id));
+    });
+
+    return entries;
+  }, [schedules, visibleDays]);
+
+  // 2c. Story 1.i1g Task 3 (AC5/AC6) — the desktop day cells and their "+N more" popover list
+  // single-day schedules only, because every multi-day schedule in a bucket already has its own
+  // spanning bar above the day-cell row; keeping the per-day segments too would duplicate it.
+  // `dayBuckets` itself is left untouched — the mobile list still renders multi-day segments
+  // day-by-day (AC13) — and this filtered view is also what the roving tabindex grid is built
+  // from, so spanning bars stay out of Arrow-key navigation (AC12).
+  const singleDayDayBuckets = useMemo(
+    () => dayBuckets.map((bucket) => bucket.filter((segment) => !isMultiDaySchedule(segment.schedule))),
+    [dayBuckets]
+  );
+
   // 3. Roving Tabindex State & Arrow-key Nav implementation
   const [activeCardCoords, setActiveCardCoords] = useState<{ dayIdx: number; cardIdx: number } | null>(null);
 
   // Flattened grid of accessible cards (excluding popover-only elements) for Arrow movements
   const gridCards = useMemo(() => {
     const cards: { dayIdx: number; cardIdx: number; key: string }[] = [];
-    dayBuckets.forEach((bucket, dayIdx) => {
+    singleDayDayBuckets.forEach((bucket, dayIdx) => {
       const displayCount = maxEventsPerDay === -1 ? bucket.length : Math.min(maxEventsPerDay, bucket.length);
       for (let cardIdx = 0; cardIdx < displayCount; cardIdx++) {
         cards.push({ dayIdx, cardIdx, key: `${dayIdx}-${cardIdx}` });
       }
     });
     return cards;
-  }, [dayBuckets, maxEventsPerDay]);
+  }, [singleDayDayBuckets, maxEventsPerDay]);
 
   // Sync active roving tabindex coordinate if previous coordinate gets removed / is invalid
   useEffect(() => {
@@ -354,7 +450,11 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
       const targetDayIdx = dayIdx + colOffset;
 
       if (targetDayIdx >= 0 && targetDayIdx < 7) {
-        const targetBucket = dayBuckets[targetDayIdx];
+        // Story 1.i1g Task 3 (AC5/AC6): must read the *same* single-day buckets the day cells
+        // actually render from — reading raw `dayBuckets` here would let ArrowDown "move" the
+        // roving coordinate onto a day whose only entry is a multi-day schedule (rendered as a
+        // spanning bar, not a card), stranding focus on a non-existent `calendar-card-*` id.
+        const targetBucket = singleDayDayBuckets[targetDayIdx];
         const displayLimit = maxEventsPerDay === -1 ? targetBucket.length : Math.min(maxEventsPerDay, targetBucket.length);
         if (displayLimit > 0) {
           // fallback sensibly if that day has fewer cards
@@ -577,9 +677,34 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
         })}
       </div>
 
+      {/* Multi-day spanning banner (Story 1.i1g Task 4).
+          One row per multi-day schedule, spanning its day-columns so the schedule reads as a
+          single continuous grid item (AC1/AC2). It reuses the exact same `GRID_WEEKLY_CLASS`
+          column template as the day-header and day-cell grids above/below, so its column
+          boundaries align pixel-for-pixel (AC2). Rendered only when the visible week actually
+          has a multi-day schedule (Task 4.2 / AC4). */}
+      {spanningSchedules.length > 0 && (
+        <div className={`${GRID_WEEKLY_CLASS} bg-white`} data-testid="multi-day-spanning-banner">
+          {spanningSchedules.map((entry, rowIdx) => (
+            <MultiDaySpanningBar
+              key={entry.schedule.id}
+              schedule={entry.schedule}
+              startColIdx={entry.startColIdx}
+              spanCount={entry.spanCount}
+              rowIdx={rowIdx}
+              locale={activeLocale}
+              timezone={activeTimezone}
+              onScheduleClick={onScheduleClick}
+              onFavoriteToggle={onFavoriteToggle}
+              favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Day cells grid */}
       <div className={GRID_WEEKLY_CLASS}>
-        {dayBuckets.map((bucket, dayIdx) => {
+        {singleDayDayBuckets.map((bucket, dayIdx) => {
           const totalSchedules = bucket.length;
           const displayLimit = maxEventsPerDay === -1 ? totalSchedules : Math.min(maxEventsPerDay, totalSchedules);
           const visibleSegments = bucket.slice(0, displayLimit);
@@ -774,7 +899,7 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   currentDayStr,
   multiDaySegmentLabel,
 }: CalendarCardProps<TSchedule>) {
-  const { schedule, isFirstSegment, isLastSegment } = segment;
+  const { schedule } = segment;
 
   // Tooltip visibility states
   const [isHovered, setIsHovered] = useState(false);
@@ -835,22 +960,16 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
     ? "font-bold"
     : "font-normal";
 
-  // Rounded corners styling for multi day clamping segments
+  // Rounded corners styling for multi day clamping segments.
+  //
+  // Story 1.i1g Task 5 (AC7): the grid-variant branch this used to hold (per-segment
+  // `rounded-l-md border-r-0` / `rounded-r-md border-l-0` / `rounded-none border-x-0` edge
+  // suppression) is gone — a multi-day schedule is now a single spanning bar (Task 2/4) and
+  // no longer renders as per-day grid-variant segments at all, so only the mobile list
+  // variant's `rounded-md` case remains reachable.
   let multiDayRoundingClass = "";
-  if (isMultiDay) {
-    if (variant === 'list') {
-      multiDayRoundingClass = "rounded-md";
-    } else {
-      if (isFirstSegment && isLastSegment) {
-        multiDayRoundingClass = "rounded-md";
-      } else if (isFirstSegment) {
-        multiDayRoundingClass = "rounded-l-md border-r-0";
-      } else if (isLastSegment) {
-        multiDayRoundingClass = "rounded-r-md border-l-0";
-      } else {
-        multiDayRoundingClass = "rounded-none border-x-0";
-      }
-    }
+  if (isMultiDay && variant === 'list') {
+    multiDayRoundingClass = "rounded-md";
   }
 
   const baseButtonClass = isMultiDay ? MULTI_DAY_EVENT_CLASS : EVENT_CARD_COMPACT_CLASS;
@@ -934,11 +1053,13 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
     );
   }
 
-  // TODO(1.i1g/1.i1h): this `variant === 'grid'` path stays exactly as-is (plain
-  // text-only pill) for this story. `EventCardCalendarGridItem` (Story 1.i1f, Task
-  // 7) is built and tested standalone but not yet wired in here — 1.i1g adopts it
-  // for the multi-day spanning-bar mechanism, 1.i1h for the single-day/overflow-
-  // dialog surface. See Story 1.i1f's Out of Scope section for the full split.
+  // NOTE(1.i1g/1.i1h): the plain text-only `variant === 'grid'` pill below is retained only
+  // for single-day schedules — `EventCardCalendarGridItem` (Story 1.i1f, Task 7) is adopted by
+  // this story's *spanning* banner (`MultiDaySpanningBar`, above) only, because a multi-day
+  // schedule never reaches this branch any more (`WeeklyCalendarView` filters multi-day
+  // schedules out of every desktop day cell and its "+N more" popover — Task 3/AC5-AC6).
+  // 1.i1h replaces this single-day/overflow-dialog surface with the same primitive. See Story
+  // 1.i1f's Out of Scope section for the full split.
   return (
     <div className="relative w-full">
       <button
@@ -987,3 +1108,165 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
     </div>
   );
 }
+
+/**
+ * Story 1.i1g Task 4.1 — props for one row of the multi-day spanning banner.
+ */
+interface MultiDaySpanningBarProps<TSchedule extends WeeklyCalendarViewScheduleShape> {
+  /** The multi-day schedule this single spanning card represents. */
+  schedule: TSchedule;
+  /** 0-based index of the first visible day-column (AC3) — becomes the CSS grid column start. */
+  startColIdx: number;
+  /** Number of visible day-columns spanned (AC1/AC3) — becomes the CSS grid column span. */
+  spanCount: number;
+  /** 0-based banner row index, so overlapping spans stack instead of colliding (AC4). */
+  rowIdx: number;
+  locale: string;
+  timezone?: string;
+  onScheduleClick: (schedule: TSchedule) => void;
+  onFavoriteToggle?: (schedule: TSchedule) => void;
+  /** aria-label for the primitive's favorite control (defaults inside the primitive). */
+  favoriteToggleLabel?: string;
+}
+
+/**
+ * Story 1.i1g Task 4.1 (AC1-AC4, AC7-AC12) — one multi-day schedule as a single spanning
+ * calendar grid item card.
+ *
+ * Structural shape follows this epic's established "non-interactive chrome + sibling
+ * interactive elements" pattern (Story 1.i1d's `variant='list'` chrome div, Story 1.i1e's
+ * masonry card): this wrapper is a non-interactive positioned container holding two siblings —
+ *
+ *  1. the schedule-click `<button>` (the interactive/accessible element), and
+ *  2. `EventCardCalendarGridItem` (Story 1.i1f), the visible card, inside a
+ *     `pointer-events-none` layer (`SPANNING_BAR_VISUAL_CLASS`) that paints on top of the
+ *     click target so the schedule reads as one card, while pointer events fall straight
+ *     through to it — except for the primitive's own favorite-toggle button, re-enabled via
+ *     `[&_button]:pointer-events-auto`.
+ *
+ * The primitive's favorite control is therefore never nested inside the schedule-click
+ * element (AC7), and the click target itself stays a single plain linear Tab stop (AC12) that
+ * never joins the day cells' roving tabindex grid.
+ *
+ * The card layer is purely visual, so the click target carries its own accessible name
+ * (`aria-label`) and, while its tooltip is visible, the same `aria-describedby` →
+ * `role="tooltip"` date/time range wiring as `CalendarCard`'s grid variant (AC11).
+ */
+function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>({
+  schedule,
+  startColIdx,
+  spanCount,
+  rowIdx,
+  locale,
+  timezone,
+  onScheduleClick,
+  onFavoriteToggle,
+  favoriteToggleLabel,
+}: MultiDaySpanningBarProps<TSchedule>) {
+  // Tooltip visibility states — same hover/focus/Escape model as CalendarCard's grid variant.
+  const [isHovered, setIsHovered] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(false);
+
+  const tooltipVisible = (isHovered || isFocused) && !isDismissed;
+
+  const tooltipText = useMemo(() => {
+    return formatTooltipTimeRange(
+      locale,
+      timezone,
+      schedule.eventStartDate,
+      schedule.eventEndDate,
+      schedule.eventStartTime,
+      schedule.eventEndTime
+    );
+  }, [locale, timezone, schedule]);
+
+  const handlePointerEnter = (e: React.PointerEvent) => {
+    if (e.pointerType !== 'touch') {
+      setIsDismissed(false);
+      setIsHovered(true);
+    }
+  };
+
+  const handlePointerLeave = (e: React.PointerEvent) => {
+    if (e.pointerType !== 'touch') {
+      setIsHovered(false);
+    }
+  };
+
+  const handleFocus = () => {
+    setIsDismissed(false);
+    setIsFocused(true);
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+  };
+
+  const handleKeyDownLocal = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setIsDismissed(true);
+    }
+  };
+
+  const tooltipId = `spanning-tooltip-${schedule.id}`;
+
+  return (
+    <div
+      className="relative w-full"
+      data-testid="multi-day-spanning-bar"
+      data-schedule-id={schedule.id}
+      // AC1/AC3 — explicit column start + span and an explicit row, so the bar physically
+      // spans its day-columns within the shared `GRID_WEEKLY_CLASS` template and never
+      // auto-places into a neighbouring row.
+      style={{ gridColumn: `${startColIdx + 1} / span ${spanCount}`, gridRow: `${rowIdx + 1}` }}
+    >
+      {/* AC12 — the schedule-click target: a real button (Enter/Space, focus-visible ring,
+          one linear Tab stop) sitting underneath the visual card layer. */}
+      <button
+        type="button"
+        tabIndex={0}
+        className={SPANNING_BAR_CLICK_CLASS}
+        aria-label={schedule.eventName}
+        aria-describedby={tooltipVisible ? tooltipId : undefined}
+        onClick={() => onScheduleClick(schedule)}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDownLocal}
+      />
+
+      {/* AC7/AC8/AC9 — the visible card is `EventCardCalendarGridItem` (Story 1.i1f) in its
+          multi-day composition, wrapped so its own internal favorite-toggle button is the only
+          interactive element inside this layer. */}
+      <div className={SPANNING_BAR_VISUAL_CLASS}>
+        <EventCardCalendarGridItem
+          eventName={schedule.eventName}
+          location={schedule.locationName}
+          imageUrl={schedule.imageUrl}
+          imageAlt={schedule.eventName}
+          isMultiDay
+          isFavorited={schedule.isFavorited}
+          favoriteCount={schedule.favoriteCount}
+          onFavoriteToggle={onFavoriteToggle ? () => onFavoriteToggle(schedule) : undefined}
+          distanceKm={schedule.distanceKm}
+          labels={{ favoriteToggle: favoriteToggleLabel }}
+        />
+      </div>
+
+      {/* Hover+Focus accessible tooltip (AC11) — same element/behavior as the day-cell cards. */}
+      {tooltipVisible && (
+        <div
+          id={tooltipId}
+          role="tooltip"
+          className={`${HOVER_TOOLTIP_CLASS} bottom-full left-1/2 -translate-x-1/2 mb-1`}
+        >
+          <p className="font-semibold text-xs mb-0.5">{schedule.eventName}</p>
+          <p className="text-[10px] text-gray-300 leading-none">{tooltipText}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+

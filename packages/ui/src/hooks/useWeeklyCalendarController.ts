@@ -78,6 +78,11 @@ export function useWeeklyCalendarController<TEvent = any, TSchedule = any>(
           isAddedToCalendar: !!schedule.isAddedToCalendar,
           eventId: event.id,
           imageUrl: event.imageUrl,
+          // Story 1.i1g AC10 — venue text for the spanning calendar grid item card.
+          // `location` is already selected at the Event level by both calendar GraphQL
+          // queries, so this is purely a dropped-mapping fix (no query/codegen change),
+          // matching EventListView.tsx's existing `locationName` mapping precedent.
+          locationName: event.location ?? undefined,
           distanceKm,
         };
       });
