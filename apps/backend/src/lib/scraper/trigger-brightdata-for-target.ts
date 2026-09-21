@@ -1,3 +1,6 @@
+import { db } from '../../db/client.js';
+import { scraperActorRuns } from '@festgrid/database';
+import { eq, desc } from 'drizzle-orm';
 import { isProviderCapacityAvailable, recordProviderUsage } from './usage-store.js';
 import { triggerBrightDataJob, mapBrightDataDateToStartDate } from './brightdata-client.js';
 import { createPendingJob } from './brightdata-pending-jobs-store.js';
@@ -21,7 +24,15 @@ export let attemptBrightDataTrigger = async (
     const webhookToken = generateWebhookToken();
     const webhookUrl = `${env.brightdataWebhookBaseUrl}?jobToken=${webhookToken}`;
 
-    const startDate = mapBrightDataDateToStartDate(newerThan);
+    // Use the last successful scraper run timestamp as the cursor, falling back to newerThan
+    // This ensures we don't re-scrape posts already captured, regardless of vendor
+    const lastSuccessfulRun = await db.query.scraperActorRuns.findFirst({
+      where: eq(scraperActorRuns.profileId, target.profileId),
+      orderBy: desc(scraperActorRuns.completedAt),
+    });
+
+    const scrapeCursorTimestamp = lastSuccessfulRun?.completedAt?.toISOString() ?? newerThan;
+    const startDate = mapBrightDataDateToStartDate(scrapeCursorTimestamp);
     const profileUrl = `https://www.instagram.com/${target.username}/`;
 
     const triggerResult = await triggerBrightDataJob(
