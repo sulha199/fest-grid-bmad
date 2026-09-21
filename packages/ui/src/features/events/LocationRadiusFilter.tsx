@@ -12,6 +12,7 @@ export function LocationRadiusFilter({
   currentLocationError,
   onSelectLocation,
   onRadiusChange,
+  isSelectedLocationPending = false,
   labels,
   className = "",
 }: LocationRadiusFilterProps) {
@@ -52,7 +53,12 @@ export function LocationRadiusFilter({
             {labels.locationsErrorLabel}
           </span>
         )}
-        {savedLocations.length === 0 && (
+        {/* Story 1.i1f review finding FIND-045 — `savedLocations.length === 0` is only an
+            honest "no saved locations" statement once the query has settled. While a
+            deep-linked saved-location filter is still resolving (`isSelectedLocationPending`),
+            the query is in flight and the `Loading...` line above already reports that, so this
+            hint would otherwise contradict it. */}
+        {savedLocations.length === 0 && !isSelectedLocationPending && (
           <p className="text-xs text-muted-foreground">
             {labels.noSavedLocationsHint}
           </p>

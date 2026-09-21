@@ -93,5 +93,16 @@ export interface WeeklyCalendarViewProps<TSchedule extends WeeklyCalendarViewSch
   locale?: string;
   timezone?: string;
   labels?: WeeklyCalendarViewLabels;
+  /**
+   * Distance threshold (km) below which the multi-day spanning card's nearby badge renders,
+   * forwarded verbatim to `EventCardCalendarGridItem` → `EventCardNearbyBadge` (Story 1.i1f
+   * AC15 / Story 1.i1i AC2, Architecture Spine AD-24 Rule 2). Optional: when omitted, the
+   * card's own `8` default applies, so every existing consumer
+   * (`AccountCalendarView`/`FeedCalendarView`/`my-calendar-content`) is unaffected. Discovery's
+   * `CalendarView` forwards the `NEXT_PUBLIC_NEARBY_BADGE_DISTANCE_KM`-derived override here so
+   * the configured threshold reaches the calendar surface exactly as it already reaches the
+   * masonry `EventCard` (Story 1.i1f review finding, `FIND-045`).
+   */
+  nearbyBadgeThreshold?: number;
   className?: string;
 }

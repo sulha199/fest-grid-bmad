@@ -127,45 +127,60 @@ export function useNearbyFilter() {
     };
   }, [session, nearby, nearbyRadiusKm, coordinate]);
 
-  // Story 1.i1f review finding FIND-045 — the saved-location lookup is shared by
-  // `activeFilterCoord` and `isActiveFilterCoordPending` so the two can never disagree about
-  // which location counts as "the active one".
+  // Story 1.i1f review finding FIND-045 — one predicate decides whether a saved-location id
+  // (never `off`, `current`, absent, or the empty string a bare `?nearby=` produces) is driving
+  // the filter, so `activeSavedLocation`, `activeFilterCoord` and `isActiveFilterCoordPending`
+  // cannot disagree about which location counts as "the active one". Previously one derived
+  // value guarded with `!nearby` while the flag used three explicit comparisons, so `?nearby=`
+  // read as "no filter" for one and "a pending saved location" for the other.
+  const hasSavedLocationFilter = !!nearby && nearby !== "off" && nearby !== "current";
+
   const activeSavedLocation = useMemo(() => {
-    if (nearby === "off" || !nearby || nearby === "current") return undefined;
+    if (!hasSavedLocationFilter) return undefined;
     return savedLocations.find((l) => l.id === nearby);
-  }, [nearby, savedLocations]);
+  }, [hasSavedLocationFilter, nearby, savedLocations]);
 
   const activeFilterCoord = useMemo(() => {
-    if (nearby === "off" || !nearby || nearby === "current") return coordinate ?? undefined;
+    if (!hasSavedLocationFilter) return coordinate ?? undefined;
     const loc = activeSavedLocation;
     if (loc?.latitude != null && loc?.longitude != null) {
       return { latitude: loc.latitude, longitude: loc.longitude };
     }
     return undefined;
-  }, [nearby, coordinate, activeSavedLocation]);
+  }, [hasSavedLocationFilter, coordinate, activeSavedLocation]);
 
   /**
    * Story 1.i1f review finding FIND-045 — distinguishes "the coordinate is not known yet"
    * from "confirmed absent". `activeFilterCoord` is `undefined` in both cases (the distance
-   * badge is correctly omitted either way), so this flag is the only way a consumer can tell
-   * them apart.
+   * badge is correctly omitted either way — `EventCardNearbyBadge` is "never a
+   * disabled/placeholder state", Story 1.i1i AC1), so this flag is the only way a consumer can
+   * tell them apart.
    *
-   * True only while a saved-location filter is selected AND its coordinate is still
-   * unresolvable because the `getMyLocations` query that carries it is in flight — the
-   * transient window a hard load of a deep link (`?nearby=loc-1`) opens. It flips to `false`
-   * as soon as the query settles: a location with a coordinate resolves `activeFilterCoord`
-   * instead, and one genuinely without a coordinate (or one that no longer exists) is
-   * confirmed absent. An anonymous viewer never runs this query at all (`enabled: !!session`,
-   * so React Query v5's `isLoading` stays `false`) and has no filter UI either (AC7), so the
-   * flag stays `false` there too.
+   * It answers exactly one question — "is the selected saved location's coordinate still being
+   * fetched?" — and deliberately not "does that location have a coordinate":
    *
-   * Always `false` in `off`/`current` mode — both read `useViewerLocation().coordinate`, which
-   * never depends on this query.
+   *  - `true` while a saved-location filter is selected AND its coordinate is unresolvable
+   *    because the `getMyLocations` query that carries it is in flight — the transient window a
+   *    hard load of a deep link (`?nearby=loc-1`) opens.
+   *  - `false` once that query settles: a location with a coordinate resolves
+   *    `activeFilterCoord` instead, and one genuinely without a coordinate (or one that no
+   *    longer exists) is confirmed absent.
+   *  - `false` when the query fails (`locationsError`) — nothing is in flight, so there is no
+   *    pending state to report even though the coordinate is unknown.
+   *  - `false` in `off`/`current` mode and for a bare `?nearby=`, all of which
+   *    `hasSavedLocationFilter` treats as "no saved-location filter". `off`/`current` read
+   *    `useViewerLocation().coordinate`, which never depends on this query.
+   *  - `false` for an anonymous viewer, who never runs this query at all (`enabled: !!session`,
+   *    so React Query v5's `isLoading` stays `false`) and has no filter UI either (AC7).
+   *
+   * Consumer: the location filter panel (`EventDiscoveryPanel` → `FilterHub` →
+   * `LocationRadiusFilter`'s `isSelectedLocationPending` prop), which uses it to keep the
+   * "no saved locations" hint from contradicting the loading line while a deep-linked filter is
+   * still resolving.
    */
   const isActiveFilterCoordPending =
-    nearby != null &&
-    nearby !== "off" &&
-    nearby !== "current" &&
+    hasSavedLocationFilter &&
+    !locationsError &&
     isLoadingLocations &&
     (activeSavedLocation?.latitude == null || activeSavedLocation?.longitude == null);
 

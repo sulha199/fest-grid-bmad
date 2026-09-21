@@ -120,6 +120,19 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
         <EventCardCalendarGridItem {...defaultProps} distanceKm={3} nearbyBadgeThreshold={4} />
       );
       expect(screen.getByText('Nearby')).toBeInTheDocument();
+
+      // AC15's gate is strict (`< thresholdKm`), so the override's boundary behaves exactly like
+      // the `<8` default's — finding FIND-045 second-review patch (the override test previously
+      // only probed 3-vs-2 and 3-vs-4, never the boundary itself).
+      rerender(
+        <EventCardCalendarGridItem {...defaultProps} distanceKm={4} nearbyBadgeThreshold={4} />
+      );
+      expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+
+      rerender(
+        <EventCardCalendarGridItem {...defaultProps} distanceKm={3.99} nearbyBadgeThreshold={4} />
+      );
+      expect(container.querySelector('[data-event-card-nearby-badge]')).not.toBeNull();
     });
 
     it('omits the badge when distanceKm is null or undefined', () => {

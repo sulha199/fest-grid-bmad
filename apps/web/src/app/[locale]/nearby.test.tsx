@@ -142,7 +142,23 @@ vi.mock('@/lib/hooks/useViewerLocation', () => ({
 // Story 1.i1f review finding FIND-045 — `mockLocationsQueryResult` lets an individual test model
 // the query's in-flight window (`isLoading: true`, no data), which is exactly the state
 // `isActiveFilterCoordPending` exists to describe. `null` means "the default resolved fixture".
-let mockLocationsQueryResult: { data?: any; isLoading: boolean } | null = null;
+//
+// Typed against the exact slice `useNearbyFilter` consumes (finding FIND-045 second-review
+// patch: this was `{ data?: any; isLoading: boolean }`) — a renamed or forgotten fixture field is
+// now a compile error instead of a silent `undefined` the hook would treat as "no coordinate".
+// `coordinates: null` is deliberately modelled even though `Coordinates!` makes it unreachable
+// through the typed GraphQL contract (dismissed as harmless defensive coverage in the first
+// review) — with the narrower type, forgetting to model it would be the compile error.
+type MockSavedLocation = {
+  id: string;
+  name: string;
+  radius: number;
+  createdAt: string;
+  locationDetails: { coordinates: { lat: number; lng: number } | null } | null;
+};
+let mockLocationsQueryResult:
+  | { data?: { myLocations: MockSavedLocation[] } | undefined; isLoading: boolean }
+  | null = null;
 
 vi.mock('@/generated/graphql', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/generated/graphql')>();
@@ -219,7 +235,10 @@ const mockLocations = [
   {
     id: 'loc-no-coords',
     name: 'No Coords',
-    radius: 5,
+    // `radius` is metres (the hook maps it as `Math.round(radius / 1000)`, and loc-1 above uses
+    // 10000 for 10km) — finding FIND-045 second-review patch: this fixture used a bare `5`,
+    // which would have silently meant a 0km radius.
+    radius: 5000,
     createdAt: '2026-08-02T00:00:00Z',
     updatedAt: '2026-08-02T00:00:00Z',
     locationDetails: {

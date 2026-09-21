@@ -29,9 +29,14 @@ export interface EventCardCalendarGridItemProps {
   /**
    * Distance threshold (km) below which the nearby badge renders. Defaults to `8`
    * (`DESIGN.md` § `event_card_nearby_badge` — the corrected `< 8`km gate), forwarded verbatim
-   * to the shared `EventCardNearbyBadge`; mirrors `EventCardProps.nearbyBadgeThreshold` so a
-   * caller-supplied override (`NEXT_PUBLIC_NEARBY_BADGE_DISTANCE_KM`) reaches every card
-   * surface the same way. Story 1.i1f review finding FIND-045.
+   * to the shared `EventCardNearbyBadge`; mirrors `EventCardProps.nearbyBadgeThreshold`.
+   *
+   * The caller-supplied override reaches every card surface the same way: Discovery's
+   * `home-content.tsx` derives it from `NEXT_PUBLIC_NEARBY_BADGE_DISTANCE_KM` via
+   * `parseNearbyBadgeThreshold` and passes it to both the masonry `EventCard` and, through
+   * `CalendarView` → `WeeklyCalendarView` → this card, to the multi-day spanning bar (Story
+   * 1.i1f review finding `FIND-045`). Undefined keeps the `8` default, so consumers with no
+   * nearby-filter plumbing are unaffected.
    */
   nearbyBadgeThreshold?: number;
   labels?: EventCardFavoriteBadgeLabels & {

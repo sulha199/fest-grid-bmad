@@ -342,6 +342,7 @@ export function FavoritesContent() {
         currentLocationError={nearbyFilter.currentLocationError}
         onSelectLocation={nearbyFilter.onSelectLocation}
         onRadiusChange={nearbyFilter.onRadiusChange}
+        isSelectedLocationPending={nearbyFilter.isActiveFilterCoordPending}
         showAITrigger={aiFilter.filterHubProps.showAITrigger}
         onAITriggerClick={aiFilter.filterHubProps.onAITriggerClick}
         aiFilterSummary={aiFilter.filterHubProps.aiFilterSummary}

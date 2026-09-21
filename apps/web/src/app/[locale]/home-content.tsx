@@ -266,6 +266,9 @@ export function HomeContent() {
         currentLocationError={nearbyFilter.currentLocationError}
         onSelectLocation={nearbyFilter.onSelectLocation}
         onRadiusChange={nearbyFilter.onRadiusChange}
+        // FIND-045 — distinguishes "the selected saved location is still resolving" from
+        // "you have no saved locations", so the panel's empty-state hint stays honest.
+        isSelectedLocationPending={nearbyFilter.isActiveFilterCoordPending}
         showAITrigger={aiFilter.filterHubProps.showAITrigger}
         onAITriggerClick={aiFilter.filterHubProps.onAITriggerClick}
         aiFilterSummary={aiFilter.filterHubProps.aiFilterSummary}
@@ -334,7 +337,7 @@ export function HomeContent() {
             id: 'calendar',
             label: t('viewSwitcherCalendarLabel'),
             icon: <CalendarDays className="w-4 h-4" />,
-            content: <CalendarView q={q} types={types} categories={categories} nearby={resolvedNearby} viewerCoord={nearbyFilter.activeFilterCoord} onFavoriteToggle={(eventId) => {
+            content: <CalendarView q={q} types={types} categories={categories} nearby={resolvedNearby} viewerCoord={nearbyFilter.activeFilterCoord} nearbyBadgeThreshold={nearbyBadgeThreshold} onFavoriteToggle={(eventId) => {
               if (!session) {
                 setIsLoginModalOpen(true);
                 return;

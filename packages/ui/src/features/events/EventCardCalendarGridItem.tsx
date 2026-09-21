@@ -63,7 +63,11 @@ export function EventCardCalendarGridItem({
     <EventCardNearbyBadge
       distanceKm={distanceKm}
       thresholdKm={nearbyBadgeThreshold}
-      labels={defaultLabels}
+      // Only the badge's own key — `defaultLabels` also carries `favoriteToggle`, and passing
+      // the widened object would hand `EventCardNearbyBadgeLabels` a key outside its contract
+      // (TypeScript's excess-property check does not fire for a non-literal object). Matches
+      // `EventCard.tsx`'s own call site, which narrows the same way.
+      labels={{ nearbyBadge: defaultLabels.nearbyBadge }}
     />
   );
 

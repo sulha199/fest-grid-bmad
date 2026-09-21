@@ -241,6 +241,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   locale,
   timezone,
   labels = {},
+  nearbyBadgeThreshold,
   className = '',
 }: WeeklyCalendarViewProps<TSchedule>) {
   // Provide default getWeekRange if not supplied
@@ -697,6 +698,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
               onScheduleClick={onScheduleClick}
               onFavoriteToggle={onFavoriteToggle}
               favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
+              nearbyBadgeThreshold={nearbyBadgeThreshold}
             />
           ))}
         </div>
@@ -1127,6 +1129,11 @@ interface MultiDaySpanningBarProps<TSchedule extends WeeklyCalendarViewScheduleS
   onFavoriteToggle?: (schedule: TSchedule) => void;
   /** aria-label for the primitive's favorite control (defaults inside the primitive). */
   favoriteToggleLabel?: string;
+  /**
+   * Distance threshold (km) for this card's nearby badge, passed straight through to
+   * `EventCardCalendarGridItem`. Undefined keeps the card's own `8` default.
+   */
+  nearbyBadgeThreshold?: number;
 }
 
 /**
@@ -1162,6 +1169,7 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
   onScheduleClick,
   onFavoriteToggle,
   favoriteToggleLabel,
+  nearbyBadgeThreshold,
 }: MultiDaySpanningBarProps<TSchedule>) {
   // Tooltip visibility states — same hover/focus/Escape model as CalendarCard's grid variant.
   const [isHovered, setIsHovered] = useState(false);
@@ -1251,6 +1259,7 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
           favoriteCount={schedule.favoriteCount}
           onFavoriteToggle={onFavoriteToggle ? () => onFavoriteToggle(schedule) : undefined}
           distanceKm={schedule.distanceKm}
+          nearbyBadgeThreshold={nearbyBadgeThreshold}
           labels={{ favoriteToggle: favoriteToggleLabel }}
         />
       </div>

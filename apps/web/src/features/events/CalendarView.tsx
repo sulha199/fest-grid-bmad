@@ -19,10 +19,18 @@ interface CalendarViewProps {
   nearby?: NearbyFilterInput;
   /** Story 1.i1f AC13-14: the active nearby-filter's resolved coordinate, threaded into `useWeeklyCalendarController` for per-schedule `distanceKm`. `FeedCalendarView`/`AccountCalendarView`/`my-calendar-content` have no nearby-filter plumbing today and do not pass this. */
   viewerCoord?: { latitude: number; longitude: number };
+  /**
+   * Distance threshold (km) for the spanning card's nearby badge, forwarded to
+   * `WeeklyCalendarView` → `EventCardCalendarGridItem`. Derived from
+   * `NEXT_PUBLIC_NEARBY_BADGE_DISTANCE_KM` by the caller so the configured override reaches the
+   * calendar surface the same way it reaches the masonry `EventCard` (Story 1.i1f review
+   * finding, `FIND-045`). Omit to keep the card's own `8` default.
+   */
+  nearbyBadgeThreshold?: number;
   onFavoriteToggle?: (eventId: string) => void;
 }
 
-export function CalendarView({ q, types, categories, nearby, viewerCoord, onFavoriteToggle }: CalendarViewProps) {
+export function CalendarView({ q, types, categories, nearby, viewerCoord, nearbyBadgeThreshold, onFavoriteToggle }: CalendarViewProps) {
   const t = useTranslations('DiscoveryPage');
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -122,6 +130,7 @@ export function CalendarView({ q, types, categories, nearby, viewerCoord, onFavo
       onNextWeek={handleNextWeek}
       onSelectWeek={handleSelectWeek}
       onScheduleClick={handleScheduleClick}
+      nearbyBadgeThreshold={nearbyBadgeThreshold}
       onFavoriteToggle={
         onFavoriteToggle
           ? (schedule) => schedule.eventId && onFavoriteToggle(schedule.eventId)

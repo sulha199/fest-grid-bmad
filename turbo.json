@@ -25,6 +25,7 @@
     "build": {
       "dependsOn": ["^build", "codegen"],
       "env": [
+        "NEXT_PUBLIC_NEARBY_BADGE_DISTANCE_KM",
         "NEXT_PUBLIC_POSTHOG_KEY",
         "NEXT_PUBLIC_POSTHOG_HOST",
         "NEXT_PUBLIC_POSTHOG_DEFAULTS",
@@ -43,6 +44,7 @@
     "lint": {
       "dependsOn": [],
       "env": [
+        "NEXT_PUBLIC_NEARBY_BADGE_DISTANCE_KM",
         "NEXT_PUBLIC_POSTHOG_KEY",
         "NEXT_PUBLIC_POSTHOG_HOST",
         "NEXT_PUBLIC_POSTHOG_DEFAULTS",
@@ -63,6 +65,7 @@
         "BACKEND_PORT",
         "DATABASE_URL",
         "GEOAPIFY_API_KEY",
+        "NEXT_PUBLIC_NEARBY_BADGE_DISTANCE_KM",
         "NEXT_PUBLIC_POSTHOG_KEY",
         "NEXT_PUBLIC_POSTHOG_HOST",
         "NEXT_PUBLIC_POSTHOG_DEFAULTS",
@@ -89,6 +92,7 @@
       "cache": false,
       "persistent": true,
       "env": [
+        "NEXT_PUBLIC_NEARBY_BADGE_DISTANCE_KM",
         "NEXT_PUBLIC_POSTHOG_KEY",
         "NEXT_PUBLIC_POSTHOG_HOST",
         "NEXT_PUBLIC_POSTHOG_DEFAULTS",

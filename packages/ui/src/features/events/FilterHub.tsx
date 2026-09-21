@@ -56,6 +56,7 @@ export function FilterHub({
   currentLocationError,
   onSelectLocation,
   onRadiusChange,
+  isSelectedLocationPending,
   showAITrigger,
   onAITriggerClick,
   aiFilterSummary,
@@ -251,6 +252,7 @@ export function FilterHub({
               currentLocationError={currentLocationError}
               onSelectLocation={onSelectLocation}
               onRadiusChange={onRadiusChange}
+              isSelectedLocationPending={isSelectedLocationPending}
               labels={labels.locationFilterLabels}
             />
           </PopoverContent>
