@@ -1376,6 +1376,7 @@ items:
            implementation-artifacts/deferred-work.md],
      touches: [web:events, pkg:ui],
      note: "Deferred from: code review of 1-i1f-wire-nearby-distance-badges-and-build-the-calendar-grid-item-card (2026-09-21). 4 findings. Fixed 2026-09-21 (see the story's Change Log and deferred-work.md)."}
+
   # ── 2026-09-21 (user-reported, investigated via bmad-help) ──────────────────
   BUG-039:
     {type: bug, status: backlog, created: 2026-09-21,
@@ -1384,3 +1385,11 @@ items:
      ref: [backlog/BUG-039-no-automatic-post-extraction.md],
      touches: [app:backend, cross:ai-extraction, cross:prd],
      note: "enqueuePostForProcessing's only caller is the manual selectPostsForExtraction mutation; PRD 3.4/3.5's automatic round-robin BYOK processing has no trigger anywhere. Needs a PRD/architecture pass first. Full trace in backlog/BUG-039-no-automatic-post-extraction.md."}
+
+  IDEA-047:
+    {type: idea, status: backlog, created: 2026-09-21,
+     impact: user-visible, effort: m,
+     title: "AI-assisted correction should support re-scraping a post when its images/caption no longer exist",
+     ref: [backlog/IDEA-047-re-extract-on-missing-post-media.md],
+     touches: [web:events, app:backend, cross:ai-extraction, cross:architecture],
+     note: "Includes an explicit CURATOR_GUIDE carve-out (user direction 2026-09-21): allow re-extract/re-scrape there too when the post's caption/images are missing, narrowing 3.4o's blanket correction-trigger hide. Detail in backlog/IDEA-047-re-extract-on-missing-post-media.md."}
