@@ -96,3 +96,61 @@ export interface EventCardDateBoxProps {
   /** Extra classes appended to the date box root. */
   className?: string;
 }
+
+/**
+ * The event/schedule status badge (`DESIGN.md` § event_card_status_badge, Story 1.i1i AC1).
+ * Two shapes only: the shared neutral `base` for 7 of `formatEventStatus`'s 8 states, and
+ * the `happening_now` emerald variant for the `happeningNow` state alone — deliberately NOT
+ * a general per-state styling mechanism.
+ *
+ * Non-interactive by design (AC6, `EXPERIENCE.md` Accessibility Floor): no `aria-label`,
+ * no tooltip, no independent focus stop. The consumer (`EventCard.tsx`) owns the surrounding
+ * badge-row `<div>` and renders this as a sibling child alongside the other badges.
+ */
+export interface EventCardStatusBadgeProps {
+  /** The already-labeled status string — i.e. `formatEventStatus(...).text`. Never re-formatted here. */
+  text: string;
+  /**
+   * `formatEventStatus(...).isHappeningNow` — the surfaced `started && endDayDiff > 0`
+   * discriminant (AC4). When true, renders `DESIGN.md`'s `happening_now` emerald variant
+   * instead of the default neutral `base`. Defaults to `false`.
+   */
+  isHappeningNow?: boolean;
+  /** Extra classes appended to the badge root. */
+  className?: string;
+}
+
+/** Label overrides for `EventCardNearbyBadge` (AC3 — matches `EventCardLabels.nearbyBadge`). */
+export interface EventCardNearbyBadgeLabels {
+  /** Nearby-badge text. Defaults to "Nearby". */
+  nearbyBadge?: string;
+}
+
+/**
+ * The nearby-distance badge (`DESIGN.md` § event_card_nearby_badge, Story 1.i1i AC1/AC2).
+ * Self-gating: it renders nothing unless `distanceKm != null && distanceKm < thresholdKm`,
+ * so callers never precompute a `showNearbyBadge` boolean locally (Architecture Spine AD-24
+ * Rule 2). `<8km` is the one sanctioned threshold (the DESIGN.md 2026-09-14 correction of the
+ * shipped `<=5km` bug).
+ *
+ * Non-interactive by design (AC6, `EXPERIENCE.md` Accessibility Floor): no `aria-label`,
+ * no tooltip, no independent focus stop.
+ */
+export interface EventCardNearbyBadgeProps {
+  /**
+   * Caller-computed distance in kilometers from the viewer to this event (client-side
+   * geolocation math — this primitive performs no location/distance logic itself). Omit/null
+   * when the viewer's location is unknown — the badge then renders nothing.
+   */
+  distanceKm?: number | null;
+  /**
+   * Distance threshold (km) below which the badge renders. Defaults to `8`
+   * (`DESIGN.md` § event_card_nearby_badge); exposed only so an existing caller-level override
+   * (`EventCardProps.nearbyBadgeThreshold`) can still be forwarded rather than re-derived.
+   */
+  thresholdKm?: number;
+  /** Optional label overrides for internally-rendered microcopy (i18n-readiness). */
+  labels?: EventCardNearbyBadgeLabels;
+  /** Extra classes appended to the badge root. */
+  className?: string;
+}

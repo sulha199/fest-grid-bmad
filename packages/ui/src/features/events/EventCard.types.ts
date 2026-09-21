@@ -26,7 +26,7 @@ export interface EventCardLabels {
   statusUpcoming?: string;
   /** TILL sub-badge (masonry variant) prefix, e.g. "till 6:00 PM" or bare "till". Default: "till". */
   tillLabel?: string;
-  /** Nearby badge (masonry variant) text, shown when `distanceKm <= 5`. Default: "Nearby". */
+  /** Nearby badge (masonry variant) text, rendered only when the caller-supplied distance is below `nearbyBadgeThreshold` (`DESIGN.md`'s corrected `< 8`km gate, Story 1.i1i). Default: "Nearby". */
   nearbyBadge?: string;
 }
 

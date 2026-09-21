@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useLayoutEffect, useRef } from 'react';
-import { MapPin, Heart, Clock, Navigation } from 'lucide-react';
+import { MapPin, Heart, Clock } from 'lucide-react';
 import { useScopedLocale, useScopedTimezone } from '../../hooks';
 import type { EventCardProps } from './EventCard.types';
 import {
@@ -22,6 +22,8 @@ import {
   EventCardDateBox,
   EventCardMediaSlot,
   EventCardFavoriteBadge,
+  EventCardStatusBadge,
+  EventCardNearbyBadge,
 } from './EventCardMediaPrimitives';
 
 /**
@@ -200,8 +202,10 @@ export function EventCard({
     // endDayDiff < 0 (already ended): no TILL badge — not explicitly specified by AC14, safest default.
   }
 
-  // AC15 — status badge (masonry only): always one of 8 states.
-  const statusText = formatEventStatus(
+  // AC15 — status badge (masonry only): always one of 8 states. Story 1.i1i AC4 — the same
+  // single computation now also surfaces the `happeningNow` discriminant that
+  // `EventCardStatusBadge` renders as DESIGN.md's one sanctioned emerald exception.
+  const { text: statusText, isHappeningNow } = formatEventStatus(
     activeLocale,
     activeTimezone,
     new Date(),
@@ -212,8 +216,9 @@ export function EventCard({
     defaultLabels
   );
 
-  // AC5 (Story 1.i1f) — nearby badge (masonry only): renders only when distanceKm is known and < nearbyBadgeThreshold (default 8km).
-  const showNearbyBadge = distanceKm != null && distanceKm < nearbyBadgeThreshold;
+  // AC5 (Story 1.i1f) / AC2 (Story 1.i1i) — the nearby badge's `< nearbyBadgeThreshold` gate
+  // now lives inside `EventCardNearbyBadge` itself (Architecture Spine AD-24 Rule 2), so this
+  // call site no longer precomputes a `showNearbyBadge` boolean.
 
   const RootTag = href ? 'a' : onClick ? 'button' : 'div';
   const interactiveProps = href 
@@ -356,15 +361,14 @@ export function EventCard({
         {variant === 'masonry' ? (
           <div className="p-3 flex-1 flex flex-col gap-2">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="inline-flex items-center text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-muted text-muted-foreground">
-                {statusText}
-              </span>
-              {showNearbyBadge && (
-                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground">
-                  <Navigation className="w-3 h-3" />
-                  {defaultLabels.nearbyBadge}
-                </span>
-              )}
+              <EventCardStatusBadge text={statusText} isHappeningNow={isHappeningNow} />
+              {/* AC5 (Story 1.i1i) — kept as an independent sibling of the badge row's
+                  `<div>` so Story 1.3k's `EventCardRepeatBadge` can slot in between. */}
+              <EventCardNearbyBadge
+                distanceKm={distanceKm}
+                thresholdKm={nearbyBadgeThreshold}
+                labels={{ nearbyBadge: defaultLabels.nearbyBadge }}
+              />
             </div>
             <h3 className="text-sm font-semibold leading-tight tracking-tight text-card-foreground line-clamp-2">
               {eventName}

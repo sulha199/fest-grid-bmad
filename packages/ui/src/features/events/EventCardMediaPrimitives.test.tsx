@@ -2,7 +2,13 @@
 import React from 'react';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { EventCardMediaSlot, EventCardFavoriteBadge, EventCardDateBox } from './EventCardMediaPrimitives';
+import {
+  EventCardMediaSlot,
+  EventCardFavoriteBadge,
+  EventCardDateBox,
+  EventCardStatusBadge,
+  EventCardNearbyBadge,
+} from './EventCardMediaPrimitives';
 import {
   EVENT_CARD_BADGE_ICON_SCALE_LARGE,
   EVENT_CARD_BADGE_ICON_SCALE_DEFAULT,
@@ -264,4 +270,144 @@ describe('EventCardDateBox', () => {
   });
 });
 
+});
+
+// Story 1.i1i AC6 — both new badge primitives are presentation-only. These blocks pin the two
+// DESIGN.md status_badge shapes (neutral base + the single happening_now emerald exception), the
+// self-gating `<8km` nearby contract, and the non-interactive rule that keeps them from adding a
+// second focus stop to EventCard's poster/media link.
+describe('EventCardStatusBadge - AC1/AC6 (two DESIGN.md shapes, non-interactive)', () => {
+  afterEach(() => cleanup());
+
+  const NEUTRAL_STATES = [
+    'Ended',
+    'Ends Today',
+    'In 4 hour(s)',
+    'Tomorrow',
+    'Wednesday',
+    'In 7 days',
+    'Upcoming',
+  ];
+
+  it.each(NEUTRAL_STATES)('renders the "%s" state with the shared neutral base shape', (text) => {
+    const { container } = render(<EventCardStatusBadge text={text} />);
+    const badge = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveTextContent(text);
+    expect(badge).toHaveClass('bg-muted');
+    expect(badge).toHaveClass('text-muted-foreground');
+    expect(badge).not.toHaveClass('bg-emerald-600');
+    expect(badge).not.toHaveClass('text-white');
+  });
+
+  it('renders happeningNow with the emerald DESIGN.md exception instead of the neutral base', () => {
+    const { container } = render(<EventCardStatusBadge text="Happening Now" isHappeningNow />);
+    const badge = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
+    expect(badge).toHaveTextContent('Happening Now');
+    expect(badge).toHaveClass('bg-emerald-600');
+    expect(badge).toHaveClass('text-white');
+    expect(badge).not.toHaveClass('bg-muted');
+    expect(badge).not.toHaveClass('text-muted-foreground');
+  });
+
+  it('defaults isHappeningNow to false, so the neutral base needs no explicit prop', () => {
+    const { container } = render(<EventCardStatusBadge text="Upcoming" />);
+    const badge = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
+    expect(badge).toHaveClass('bg-muted');
+  });
+
+  it('keeps one shared geometry across both variants (only color differs per state)', () => {
+    // Strips only the four color utilities that distinguish the two DESIGN.md shapes, so any
+    // geometry drift between the neutral and emerald variants fails here.
+    const COLOR_CLASSES = ['bg-muted', 'text-muted-foreground', 'bg-emerald-600', 'text-white'];
+    const shapeOf = (className: string) => className.split(' ').filter((c) => !COLOR_CLASSES.includes(c));
+
+    const { container, rerender } = render(<EventCardStatusBadge text="Upcoming" />);
+    const neutral = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
+    const neutralShape = shapeOf(neutral.className);
+
+    rerender(<EventCardStatusBadge text="Happening Now" isHappeningNow />);
+    const happening = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
+    const happeningShape = shapeOf(happening.className);
+
+    expect(neutralShape).toEqual(happeningShape);
+    expect(neutralShape).toContain('text-xs');
+    expect(neutralShape).toContain('shrink-0');
+  });
+
+  it('stays non-interactive: no aria-label, no title/tooltip, no extra focus stop', () => {
+    const { container } = render(<EventCardStatusBadge text="Happening Now" isHappeningNow />);
+    const badge = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
+    expect(badge.tagName).toBe('SPAN');
+    expect(badge.getAttribute('aria-label')).toBeNull();
+    expect(badge.getAttribute('title')).toBeNull();
+    expect(badge.getAttribute('tabindex')).toBeNull();
+    expect(badge.getAttribute('role')).toBeNull();
+    expect(container.querySelectorAll('button, a, input, [tabindex]')).toHaveLength(0);
+  });
+});
+
+describe('EventCardNearbyBadge - AC1/AC2/AC6 (self-gating <8km, non-interactive)', () => {
+  afterEach(() => cleanup());
+
+  it('renders at 7.99km (just inside the corrected `<8km` gate) with the Navigation icon', () => {
+    const { container } = render(<EventCardNearbyBadge distanceKm={7.99} />);
+    const badge = container.querySelector('[data-event-card-nearby-badge]') as HTMLElement;
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveTextContent('Nearby');
+    expect(badge).toHaveClass('bg-secondary');
+    expect(badge).toHaveClass('text-secondary-foreground');
+    expect(badge.querySelector('svg')).not.toBeNull();
+  });
+
+  it.each([8, 8.01, 25])('renders nothing at %skm (at or past the gate) - omitted, never a placeholder', (km) => {
+    const { container } = render(<EventCardNearbyBadge distanceKm={km} />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+    expect(container.textContent).toBe('');
+  });
+
+  it('renders nothing when the distance is unknown (null or omitted)', () => {
+    const { container, rerender } = render(<EventCardNearbyBadge distanceKm={null} />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+
+    rerender(<EventCardNearbyBadge />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+  });
+
+  it('renders at 0km (the caller passes distance only - never a precomputed showNearbyBadge boolean)', () => {
+    const { container } = render(<EventCardNearbyBadge distanceKm={0} />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).not.toBeNull();
+  });
+
+  it('self-gates on its own default threshold; only a caller-level thresholdKm override changes it', () => {
+    const { container, rerender } = render(<EventCardNearbyBadge distanceKm={9} />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+
+    // EventCardProps.nearbyBadgeThreshold forwards through this one additive prop only.
+    rerender(<EventCardNearbyBadge distanceKm={9} thresholdKm={10} />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).not.toBeNull();
+
+    rerender(<EventCardNearbyBadge distanceKm={3} thresholdKm={2} />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+  });
+
+  it('defaults the label to "Nearby" and accepts the EventCardLabels.nearbyBadge override', () => {
+    const { container, rerender } = render(<EventCardNearbyBadge distanceKm={1} />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toHaveTextContent('Nearby');
+
+    rerender(<EventCardNearbyBadge distanceKm={1} labels={{ nearbyBadge: 'Dekat' }} />);
+    const badge = container.querySelector('[data-event-card-nearby-badge]') as HTMLElement;
+    expect(badge).toHaveTextContent('Dekat');
+    expect(badge).not.toHaveTextContent('Nearby');
+  });
+
+  it('stays non-interactive: no aria-label, no title/tooltip, no extra focus stop', () => {
+    const { container } = render(<EventCardNearbyBadge distanceKm={1} />);
+    const badge = container.querySelector('[data-event-card-nearby-badge]') as HTMLElement;
+    expect(badge.tagName).toBe('SPAN');
+    expect(badge.getAttribute('aria-label')).toBeNull();
+    expect(badge.getAttribute('title')).toBeNull();
+    expect(badge.getAttribute('tabindex')).toBeNull();
+    expect(container.querySelectorAll('button, a, input, [tabindex]')).toHaveLength(0);
+  });
 });

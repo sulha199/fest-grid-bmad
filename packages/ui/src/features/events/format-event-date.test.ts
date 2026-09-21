@@ -142,93 +142,126 @@ describe('format-event-date helpers', () => {
     });
   });
 
-  describe('formatEventStatus (Story 1.3b AC15)', () => {
+  describe('formatEventStatus (Story 1.3b AC15, return shape extended by Story 1.i1i AC4)', () => {
+    // Story 1.i1i AC4 — every assertion below pins BOTH halves of the new return shape, so a
+    // regression in `isHappeningNow` fails explicitly instead of being masked by a text match.
+    const notNow = (text: string) => ({ text, isHappeningNow: false });
+
     it('ended: endDayDiff < 0 (event ended days ago)', () => {
       const startDate = localDate(2026, 6, 5);
       const endDate = localDate(2026, 6, 10);
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, null)).toBe('Ended');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, null)).toEqual(
+        notNow('Ended')
+      );
     });
 
     it('ended: endDayDiff === 0 with a known endTime already past', () => {
       const startDate = localDate(2026, 6, 14);
       const endDate = localDate(2026, 6, 15);
       // NOW is 10:00 local; 08:00 has already passed.
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, '08:00:00')).toBe('Ended');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, '08:00:00')).toEqual(
+        notNow('Ended')
+      );
     });
 
     it('endsToday: endDayDiff === 0 with a known endTime still in the future', () => {
       const startDate = localDate(2026, 6, 14);
       const endDate = localDate(2026, 6, 15);
       // NOW is 10:00 local; 18:00 is still ahead.
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, '18:00:00')).toBe('Ends Today');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, '18:00:00')).toEqual(
+        notNow('Ends Today')
+      );
     });
 
     it('endsToday: endDayDiff === 0 with NO known endTime (not yet "ended", exact end instant unknown)', () => {
       const startDate = localDate(2026, 6, 14);
       const endDate = localDate(2026, 6, 15);
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, null)).toBe('Ends Today');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, null)).toEqual(
+        notNow('Ends Today')
+      );
     });
 
-    it('happeningNow: started, multi-day event not ending today', () => {
+    it('happeningNow: started, multi-day event not ending today — the ONE isHappeningNow: true state', () => {
       const startDate = localDate(2026, 6, 13);
       const endDate = localDate(2026, 6, 17);
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, null)).toBe('Happening Now');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, null)).toEqual({
+        text: 'Happening Now',
+        isHappeningNow: true,
+      });
     });
 
     it('absent endDate falls back to "ends same day as start" (matches AC14\'s identical fallback)', () => {
       const startDate = localDate(2026, 6, 12);
       // No endDate given -> effective end is startDate (June 12) -> endDayDiff = -3 -> ended.
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, undefined, null)).toBe('Ended');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, undefined, null)).toEqual(
+        notNow('Ended')
+      );
     });
 
     it('inHours(n): starts later today, with a known startTime, n rounded up', () => {
       const startDate = localDate(2026, 6, 15); // date part only -- startTime supplies the actual hour
       // NOW is 10:00 local; a 14:00 local startTime is 4 hours out.
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, '14:00:00', null, null)).toBe('In 4 hour(s)');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, '14:00:00', null, null)).toEqual(
+        notNow('In 4 hour(s)')
+      );
     });
 
     it('inHours(n): starts later today with no known startTime falls back to n=0 (deferred edge case)', () => {
       const startDate = localDate(2026, 6, 15, 23, 59); // still today, later than NOW, but no explicit startTime override
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toBe('In 0 hour(s)');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toEqual(
+        notNow('In 0 hour(s)')
+      );
     });
 
     it('tomorrow: startDayDiff === 1', () => {
       const startDate = localDate(2026, 6, 16);
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toBe('Tomorrow');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toEqual(
+        notNow('Tomorrow')
+      );
     });
 
     it('weekday name: startDayDiff === 2 (lower boundary of "same week")', () => {
       const startDate = localDate(2026, 6, 17);
       const expected = formatWeekday('en-US', undefined, startDate);
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toBe(expected);
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toEqual(
+        notNow(expected)
+      );
     });
 
     it('weekday name: startDayDiff === 6 (upper boundary of "same week")', () => {
       const startDate = localDate(2026, 6, 21);
       const expected = formatWeekday('en-US', undefined, startDate);
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toBe(expected);
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toEqual(
+        notNow(expected)
+      );
     });
 
     it('inDays(n): startDayDiff === 7 (lower boundary of "next week")', () => {
       const startDate = localDate(2026, 6, 22);
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toBe('In 7 days');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toEqual(
+        notNow('In 7 days')
+      );
     });
 
     it('inDays(n): startDayDiff === 13 (upper boundary of "next week")', () => {
       const startDate = localDate(2026, 6, 28);
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toBe('In 13 days');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toEqual(
+        notNow('In 13 days')
+      );
     });
 
     it('upcoming: startDayDiff === 14 (beyond "next week")', () => {
       const startDate = localDate(2026, 6, 29);
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toBe('Upcoming');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toEqual(
+        notNow('Upcoming')
+      );
     });
 
     it('accepts label overrides for every parameterized/non-weekday state', () => {
       const startDate = localDate(2026, 6, 22);
       expect(
         formatEventStatus('en-US', undefined, NOW, startDate, null, null, null, { statusInDays: 'Dalam {n} hari' })
-      ).toBe('Dalam 7 hari');
+      ).toEqual(notNow('Dalam 7 hari'));
     });
   });
 });

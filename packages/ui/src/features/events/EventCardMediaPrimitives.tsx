@@ -11,15 +11,20 @@
  *    (small corner pill) or `large` (borderless, centered in an empty slot) scale.
  *  - `EventCardDateBox` — thin styled wrapper for the date box; the concrete `text-xs`
  *    font-size source the icon-scale token (AD-15) is calibrated against.
+ *  - `EventCardStatusBadge` / `EventCardNearbyBadge` — the status (`formatEventStatus`'s 8
+ *    states, with `DESIGN.md`'s one `happeningNow` emerald exception) and `<8km`-gated
+ *    nearby-distance badges (Story 1.i1i / AD-24). Unlike the primitives above, these two
+ *    ARE consumed by `EventCard.tsx`'s masonry branch as of Story 1.i1i; adoption by
+ *    `WeeklyCalendarView.tsx`'s compact row and `EventCardCalendarGridItem` is deferred to
+ *    Stories 1.i1j / 1.i1f.
  *
- * This file is build-only for Story 1.i1a: it is NOT wired into `EventCard.tsx` or
- * `WeeklyCalendarView.tsx`. Adoption is deliberately split into Stories 1.i1b–1.i1e.
+ * Story 1.i1a built the media primitives standalone; Stories 1.i1b–1.i1e adopted them.
  *
  * @see event-card-media-tokens.ts        — the icon-scale CSS-custom-property token family
  * @see EventCardMediaPrimitives.types.ts — exported prop interfaces
  */
 import React, { useState, useEffect } from 'react';
-import { Heart } from 'lucide-react';
+import { Heart, Navigation } from 'lucide-react';
 import {
   EVENT_CARD_BADGE_FONT_SIZE,
   EVENT_CARD_BADGE_FONT_SIZE_VAR,
@@ -30,6 +35,8 @@ import type {
   EventCardMediaSlotProps,
   EventCardFavoriteBadgeProps,
   EventCardDateBoxProps,
+  EventCardStatusBadgeProps,
+  EventCardNearbyBadgeProps,
 } from './EventCardMediaPrimitives.types';
 
 /** Inline style declaring the shared badge-font-size custom property on a primitive root. */
@@ -197,6 +204,68 @@ export function EventCardDateBox({ children, className = '' }: EventCardDateBoxP
       className={`relative flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-800 text-white shadow-sm text-xs font-semibold shrink-0 ${className}`}
     >
       {children}
+    </span>
+  );
+}
+
+/**
+ * The event/schedule status badge (`DESIGN.md` § event_card_status_badge, Story 1.i1i AC1).
+ * Takes the already-labeled `formatEventStatus` string (no date/locale logic is reimplemented
+ * here) and applies exactly one of that token's two shapes: the shared neutral `base` for the
+ * 7 non-`happeningNow` states, or `happening_now`'s solid emerald fill for `happeningNow` —
+ * the single deliberate per-state exception, never a general per-state styling mechanism.
+ *
+ * Exported standalone (AC5) so the future `EventCardRepeatBadge` (Story 1.3k) can be inserted
+ * between it and `EventCardNearbyBadge` inside the consumer's badge-row `<div>` without either
+ * component — or the row itself — being modified.
+ */
+export function EventCardStatusBadge({
+  text,
+  isHappeningNow = false,
+  className = '',
+}: EventCardStatusBadgeProps) {
+  return (
+    <span
+      data-event-card-status-badge=""
+      className={`inline-flex items-center text-xs px-2 py-0.5 rounded font-medium shrink-0 ${
+        isHappeningNow ? 'bg-emerald-600 text-white' : 'bg-muted text-muted-foreground'
+      } ${className}`}
+    >
+      {text}
+    </span>
+  );
+}
+
+/**
+ * The nearby-distance badge (`DESIGN.md` § event_card_nearby_badge, Story 1.i1i AC1/AC2).
+ * Self-gating (AC1, mirroring `EventCardFavoriteBadge`'s early-return convention): renders
+ * nothing unless the caller passes a known `distanceKm` below `thresholdKm` (default `8`), so
+ * no consumer needs to precompute a `showNearbyBadge` boolean or re-derive the threshold
+ * (Architecture Spine AD-24 Rule 2). Omitted entirely — never a disabled/placeholder state.
+ *
+ * Exported standalone (AC5) rather than as part of a combined badge-row primitive.
+ */
+export function EventCardNearbyBadge({
+  distanceKm,
+  thresholdKm = 8,
+  labels = {},
+  className = '',
+}: EventCardNearbyBadgeProps) {
+  // AC3 — match EventCard's existing labels/defaultLabels merge pattern exactly (same key
+  // `nearbyBadge`, same default string), never a second labels shape.
+  const defaultLabels = { nearbyBadge: 'Nearby', ...labels };
+
+  if (distanceKm == null || distanceKm >= thresholdKm) {
+    return null;
+  }
+
+  return (
+    <span
+      data-event-card-nearby-badge=""
+      className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground ${className}`}
+    >
+      <Navigation className="w-3 h-3" />
+      {defaultLabels.nearbyBadge}
     </span>
   );
 }

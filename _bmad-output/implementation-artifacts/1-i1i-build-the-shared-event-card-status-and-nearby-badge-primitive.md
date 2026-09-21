@@ -4,7 +4,7 @@
 
 - Epic: 1.i1 (One card primitive for every event-card image slot and badge)
 - Story ID: 1.i1i
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -31,31 +31,31 @@ so that a third and future card surface (Story 1.i1f's `EventCardCalendarGridIte
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Extend `formatEventStatus` to expose the `happeningNow` discriminant (AC4)
-  - [ ] 1.1 Change `formatEventStatus`'s return type (`packages/ui/src/features/events/format-event-date.ts`) from a bare `string` to `{ text: string; isHappeningNow: boolean }`. `isHappeningNow` is `true` only for the existing `started && endDayDiff > 0` branch — do not add a second, independently-derived computation of this condition.
-  - [ ] 1.2 Update the function's JSDoc to describe the new return shape.
-  - [ ] 1.3 Update `EventCard.tsx`'s sole call site (~line 203-212) to destructure `{ text: statusText, isHappeningNow }` from the new return value.
-  - [ ] 1.4 Update `format-event-date.test.ts` for the new return shape across all 8 branches — assert `isHappeningNow: true` only for the "started, ends later" branch and `isHappeningNow: false` for the other 7 (ended / endsToday / inHours / tomorrow / weekday / inDays / upcoming).
+- [x] Task 1 — Extend `formatEventStatus` to expose the `happeningNow` discriminant (AC4)
+  - [x] 1.1 Change `formatEventStatus`'s return type (`packages/ui/src/features/events/format-event-date.ts`) from a bare `string` to `{ text: string; isHappeningNow: boolean }`. `isHappeningNow` is `true` only for the existing `started && endDayDiff > 0` branch — do not add a second, independently-derived computation of this condition.
+  - [x] 1.2 Update the function's JSDoc to describe the new return shape.
+  - [x] 1.3 Update `EventCard.tsx`'s sole call site (~line 203-212) to destructure `{ text: statusText, isHappeningNow }` from the new return value.
+  - [x] 1.4 Update `format-event-date.test.ts` for the new return shape across all 8 branches — assert `isHappeningNow: true` only for the "started, ends later" branch and `isHappeningNow: false` for the other 7 (ended / endsToday / inHours / tomorrow / weekday / inDays / upcoming).
 
-- [ ] Task 2 — Build `EventCardStatusBadge` and `EventCardNearbyBadge` primitives (AC1, AC5, AC6)
-  - [ ] 2.1 Add `EventCardStatusBadge` to `EventCardMediaPrimitives.tsx`. Props: `{ text: string; isHappeningNow?: boolean; className?: string }`. Renders the exact existing base classes (`inline-flex items-center text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-muted text-muted-foreground`), swapping to `bg-emerald-600 text-white` (dropping `bg-muted text-muted-foreground`) only when `isHappeningNow` is `true`. No icon, no `aria-label`, no independent focus stop.
-  - [ ] 2.2 Add `EventCardNearbyBadge` to `EventCardMediaPrimitives.tsx`. Props: `{ distanceKm?: number | null; labels?: EventCardNearbyBadgeLabels; className?: string }`. Self-gating (matching `EventCardFavoriteBadge`'s existing guard-clause convention): returns `null` unless `distanceKm != null && distanceKm < 8` — the caller no longer needs to precompute a `showNearbyBadge` boolean. Renders the exact existing classes (`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground`) plus `<Navigation className="w-3 h-3" />` and the label (default `'Nearby'`, matching `EventCardLabels.nearbyBadge`'s existing default).
-  - [ ] 2.3 Add `EventCardStatusBadgeProps`, `EventCardNearbyBadgeProps`, and `EventCardNearbyBadgeLabels` to `EventCardMediaPrimitives.types.ts`, following the file's existing per-primitive narrow-interface convention (see `EventCardFavoriteBadgeLabels`) rather than importing the full `EventCardLabels`.
-  - [ ] 2.4 Do NOT build a combined "badge row" wrapper component (AC5) — keep both badges independently importable so the not-yet-drafted Story 1.3k can later insert its own `EventCardRepeatBadge` between them.
-  - [ ] 2.5 Give each root a `data-event-card-status-badge`/`data-event-card-nearby-badge` attribute, matching this file's existing test-query convention.
+- [x] Task 2 — Build `EventCardStatusBadge` and `EventCardNearbyBadge` primitives (AC1, AC5, AC6)
+  - [x] 2.1 Add `EventCardStatusBadge` to `EventCardMediaPrimitives.tsx`. Props: `{ text: string; isHappeningNow?: boolean; className?: string }`. Renders the exact existing base classes (`inline-flex items-center text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-muted text-muted-foreground`), swapping to `bg-emerald-600 text-white` (dropping `bg-muted text-muted-foreground`) only when `isHappeningNow` is `true`. No icon, no `aria-label`, no independent focus stop.
+  - [x] 2.2 Add `EventCardNearbyBadge` to `EventCardMediaPrimitives.tsx`. Props: `{ distanceKm?: number | null; thresholdKm?: number; labels?: EventCardNearbyBadgeLabels; className?: string }`. Self-gating (matching `EventCardFavoriteBadge`'s existing guard-clause convention): returns `null` unless `distanceKm != null && distanceKm < (thresholdKm ?? 8)` — the caller no longer needs to precompute a `showNearbyBadge` boolean. (`thresholdKm` is the one sanctioned caller override, added during implementation so Story 1.i1f's already-shipped `EventCardProps.nearbyBadgeThreshold` prop — and its two pinning tests — keep working instead of breaking; default remains `8`, so AC1/AC8 behavior is unchanged. Recorded in Completion Notes and sanctioned in Architecture Spine AD-24 Rule 2.) Renders the exact existing classes (`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground`) plus `<Navigation className="w-3 h-3" />` and the label (default `'Nearby'`, matching `EventCardLabels.nearbyBadge`'s existing default).
+  - [x] 2.3 Add `EventCardStatusBadgeProps`, `EventCardNearbyBadgeProps`, and `EventCardNearbyBadgeLabels` to `EventCardMediaPrimitives.types.ts`, following the file's existing per-primitive narrow-interface convention (see `EventCardFavoriteBadgeLabels`) rather than importing the full `EventCardLabels`.
+  - [x] 2.4 Do NOT build a combined "badge row" wrapper component (AC5) — keep both badges independently importable so the not-yet-drafted Story 1.3k can later insert its own `EventCardRepeatBadge` between them.
+  - [x] 2.5 Give each root a `data-event-card-status-badge`/`data-event-card-nearby-badge` attribute, matching this file's existing test-query convention.
 
-- [ ] Task 3 — Migrate `EventCard.tsx`'s masonry branch (AC2, AC3, AC8)
-  - [ ] 3.1 Extend the existing `EventCardMediaPrimitives` import with `EventCardStatusBadge, EventCardNearbyBadge`. Remove the now-unused `Navigation` import from `lucide-react` (its only use moves into `EventCardNearbyBadge`) — confirm via grep that `Navigation` is not referenced anywhere else in the file before removing.
-  - [ ] 3.2 Update the status computation call site per Task 1.3.
-  - [ ] 3.3 Remove the local `showNearbyBadge` boolean (~line 215) — now owned by `EventCardNearbyBadge`'s self-gating.
-  - [ ] 3.4 Replace the inline `<span>` JSX (~lines 355-368) with `<EventCardStatusBadge text={statusText} isHappeningNow={isHappeningNow} />` and `<EventCardNearbyBadge distanceKm={distanceKm} labels={{ nearbyBadge: defaultLabels.nearbyBadge }} />`, preserving the existing badge-row wrapper `<div>` and its classes unchanged.
-  - [ ] 3.5 Correct `EventCard.types.ts`'s stale `distanceKm <= 5` JSDoc comments (the `distanceKm` prop doc, and `EventCardLabels.nearbyBadge`'s doc) to `< 8`.
+- [x] Task 3 — Migrate `EventCard.tsx`'s masonry branch (AC2, AC3, AC8)
+  - [x] 3.1 Extend the existing `EventCardMediaPrimitives` import with `EventCardStatusBadge, EventCardNearbyBadge`. Remove the now-unused `Navigation` import from `lucide-react` (its only use moves into `EventCardNearbyBadge`) — confirm via grep that `Navigation` is not referenced anywhere else in the file before removing.
+  - [x] 3.2 Update the status computation call site per Task 1.3.
+  - [x] 3.3 Remove the local `showNearbyBadge` boolean (~line 215) — now owned by `EventCardNearbyBadge`'s self-gating.
+  - [x] 3.4 Replace the inline `<span>` JSX (~lines 355-368) with `<EventCardStatusBadge text={statusText} isHappeningNow={isHappeningNow} />` and `<EventCardNearbyBadge distanceKm={distanceKm} thresholdKm={nearbyBadgeThreshold} labels={{ nearbyBadge: defaultLabels.nearbyBadge }} />` (the `thresholdKm` forward is the Story 1.i1f `nearbyBadgeThreshold` prop kept intact — see 2.2), preserving the existing badge-row wrapper `<div>` and its classes unchanged.
+  - [x] 3.5 Correct `EventCard.types.ts`'s stale `distanceKm <= 5` JSDoc comments (the `distanceKm` prop doc, and `EventCardLabels.nearbyBadge`'s doc) to `< 8`.
 
-- [ ] Task 4 — Testing (all ACs)
-  - [ ] 4.1 `EventCardMediaPrimitives.test.tsx`: add component tests for `EventCardStatusBadge` (all 8-state neutral rendering; `happeningNow` emerald override) and `EventCardNearbyBadge` (renders at `distanceKm=7.99`; omits at `8` and above; omits on `null`/`undefined`; default label vs. override).
-  - [ ] 4.2 `format-event-date.test.ts`: extend per Task 1.4.
-  - [ ] 4.3 `EventCard.test.tsx`: rewrite the "Status badge (masonry, AC15) and Nearby badge (AC16)" describe block's boundary test from the old `5`/`5.01` pair to `7.99`/`8` (AC8); add a test asserting the `happeningNow` state renders the emerald classes and the other 7 states keep the neutral classes.
-  - [ ] 4.4 Run `pnpm --filter @festgrid/ui test`, `pnpm --filter @festgrid/ui lint`, `pnpm --filter @festgrid/ui build` (or `tsc --noEmit`) and record results in Dev Agent Record.
+- [x] Task 4 — Testing (all ACs)
+  - [x] 4.1 `EventCardMediaPrimitives.test.tsx`: add component tests for `EventCardStatusBadge` (all 8-state neutral rendering; `happeningNow` emerald override) and `EventCardNearbyBadge` (renders at `distanceKm=7.99`; omits at `8` and above; omits on `null`/`undefined`; default label vs. override).
+  - [x] 4.2 `format-event-date.test.ts`: extend per Task 1.4.
+  - [x] 4.3 `EventCard.test.tsx`: rewrite the "Status badge (masonry, AC15) and Nearby badge (AC16)" describe block's boundary test from the old `5`/`5.01` pair to `7.99`/`8` (AC8); add a test asserting the `happeningNow` state renders the emerald classes and the other 7 states keep the neutral classes.
+  - [x] 4.4 Run `pnpm --filter @festgrid/ui test`, `pnpm --filter @festgrid/ui lint`, `pnpm --filter @festgrid/ui build` (or `tsc --noEmit`) and record results in Dev Agent Record.
 
 - [x] Task 5 — Architecture spine (new invariant)
   - [x] 5.1 Append a new `### AD-24: Shared Event-Card Status/Nearby Badge Primitives` entry to `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (current highest is AD-23), following the existing Binds/Prevents/Rule format (see AD-15 for the closest precedent — a sibling `event_card_*` primitive invariant, but scoped to a different concern: image/media/favorite-badge, not status/nearby). Document: the two independently-composable primitives and their consumers (this story's `EventCard.tsx` migration; future consumers Story 1.i1f's `EventCardCalendarGridItem` and Story 1.i1j's compact row; the reserved insertion point for Story 1.3k's `EventCardRepeatBadge`); the `happeningNow` emerald exception; the `<8km` nearby threshold as the one sanctioned gate (never a second inline copy); and the non-interactive/no-tooltip a11y rule. This is deliberately a NEW AD, not an amendment to AD-15 — AD-15's own "Binds" list is scoped specifically to the media slot/favorite badge/date box, a different concern from status/nearby badge content.
@@ -151,25 +151,25 @@ this story is now satisfiable once this story's own `bmad-dev-story` lands.
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — extracts `EventCard.tsx`'s masonry status/nearby badge markup into two new shared, independently-composable `packages/ui/src/features/events/` primitives, migrates the masonry branch onto them, and fixes the `<=5`→`<8` threshold bug as part of the same migration; does not wire into `WeeklyCalendarView.tsx` or `EventCardCalendarGridItem` (deferred to Stories 1.i1j/1.i1f).
-- [ ] Architecture and boundary confirmation — stays inside the existing `EventCardMediaPrimitives.tsx`/`.types.ts` files (no new files, no `packages/domain` involvement); adds `### AD-24` to the architecture spine.
-- [ ] Testing plan confirmation — component tests (Task 4.1), updated unit tests for `formatEventStatus` (Task 4.2), rewritten/extended `EventCard.test.tsx` boundary + `happeningNow` tests (Task 4.3), plus lint/build (Task 4.4).
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1 & Gate 3: no gap (cited from `epic-1-i1-readiness.md`, confirmed still valid via this story's own fresh source-code guard). Gate 2: no gap (run fresh via subagent against this story's own scope — see Dev Notes). Coordination flag with Story 1.i1f (the `<=5`→`<8` threshold, whichever ships first) explicitly acknowledged.
+- [x] Scope confirmation — extracts `EventCard.tsx`'s masonry status/nearby badge markup into two new shared, independently-composable `packages/ui/src/features/events/` primitives, migrates the masonry branch onto them, and fixes the `<=5`→`<8` threshold bug as part of the same migration; does not wire into `WeeklyCalendarView.tsx` or `EventCardCalendarGridItem` (deferred to Stories 1.i1j/1.i1f).
+- [x] Architecture and boundary confirmation — stays inside the existing `EventCardMediaPrimitives.tsx`/`.types.ts` files (no new files, no `packages/domain` involvement); adds `### AD-24` to the architecture spine.
+- [x] Testing plan confirmation — component tests (Task 4.1), updated unit tests for `formatEventStatus` (Task 4.2), rewritten/extended `EventCard.test.tsx` boundary + `happeningNow` tests (Task 4.3), plus lint/build (Task 4.4).
+- [x] Explicit human approval state (Default: pending approval)
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1 & Gate 3: no gap (cited from `epic-1-i1-readiness.md`, confirmed still valid via this story's own fresh source-code guard). Gate 2: no gap (run fresh via subagent against this story's own scope — see Dev Notes). Coordination flag with Story 1.i1f (the `<=5`→`<8` threshold, whichever ships first) explicitly acknowledged.
 
 ## Testing Requirements
 
-- [ ] Integration/component tests (Vitest + Testing Library) — `EventCardMediaPrimitives.test.tsx` (new `EventCardStatusBadge`/`EventCardNearbyBadge` coverage, Task 4.1), `format-event-date.test.ts` (Task 4.2), `EventCard.test.tsx` (Task 4.3).
-- [ ] E2E tests — Not applicable. This is a visual/text badge-treatment fix on an already-rendered, already-E2E-covered card surface (masonry `EventCard` on the Discovery page); it introduces no new user flow, route, or interactive control. Component-level coverage is the appropriate testing-trophy tier per project-context.md.
+- [x] Integration/component tests (Vitest + Testing Library) — `EventCardMediaPrimitives.test.tsx` (new `EventCardStatusBadge`/`EventCardNearbyBadge` coverage, Task 4.1), `format-event-date.test.ts` (Task 4.2), `EventCard.test.tsx` (Task 4.3).
+- [x] E2E tests — Not applicable. This is a visual/text badge-treatment fix on an already-rendered, already-E2E-covered card surface (masonry `EventCard` on the Discovery page); it introduces no new user flow, route, or interactive control. Component-level coverage is the appropriate testing-trophy tier per project-context.md.
 
 ## Deliverables Checklist
 
-- [ ] `formatEventStatus` extended with the `isHappeningNow` discriminant (`format-event-date.ts`)
-- [ ] `EventCardStatusBadge` and `EventCardNearbyBadge` added to `EventCardMediaPrimitives.tsx`
-- [ ] `EventCardStatusBadgeProps`, `EventCardNearbyBadgeProps`, `EventCardNearbyBadgeLabels` added to `EventCardMediaPrimitives.types.ts`
-- [ ] `EventCard.tsx`'s masonry branch migrated; `distanceKm <=5` → `<8` fixed; unused `Navigation` import removed
-- [ ] `EventCard.types.ts`'s stale threshold JSDoc corrected
-- [ ] `EventCardMediaPrimitives.test.tsx`, `format-event-date.test.ts`, `EventCard.test.tsx` updated/extended
+- [x] `formatEventStatus` extended with the `isHappeningNow` discriminant (`format-event-date.ts`)
+- [x] `EventCardStatusBadge` and `EventCardNearbyBadge` added to `EventCardMediaPrimitives.tsx`
+- [x] `EventCardStatusBadgeProps`, `EventCardNearbyBadgeProps`, `EventCardNearbyBadgeLabels` added to `EventCardMediaPrimitives.types.ts`
+- [x] `EventCard.tsx`'s masonry branch migrated; `distanceKm <=5` → `<8` fixed; unused `Navigation` import removed
+- [x] `EventCard.types.ts`'s stale threshold JSDoc corrected
+- [x] `EventCardMediaPrimitives.test.tsx`, `format-event-date.test.ts`, `EventCard.test.tsx` updated/extended
 - [x] `festgrid-architecture-spine.md` updated with `### AD-24`
 
 ## Out of Scope
@@ -183,23 +183,72 @@ this story is now satisfiable once this story's own `bmad-dev-story` lands.
 
 ## Definition of Done
 
-- [ ] AC1-AC8 satisfied.
-- [ ] `EventCardMediaPrimitives.test.tsx`, `format-event-date.test.ts`, `EventCard.test.tsx` passing; no other `packages/ui` test regresses.
-- [ ] Lint and type checks passing for `packages/ui`.
-- [ ] `festgrid-architecture-spine.md`'s `AD-24` entry added, following the AD-15 format.
+- [x] AC1-AC8 satisfied.
+- [x] `EventCardMediaPrimitives.test.tsx`, `format-event-date.test.ts`, `EventCard.test.tsx` passing; no other `packages/ui` test regresses.
+- [x] Lint and type checks passing for `packages/ui` — eslint clean on all 8 touched files (`pnpm exec eslint <files>` exit 0); `tsc --noEmit` reports only the pre-existing `packages/ui` baseline (78 errors in `src/core/map.tsx`, `EventDetailView.test.tsx`, `EventDiscoveryPanel.test.tsx`, `FilterHub.test.tsx`, `useCurrentLocationCapture.test.ts` — **0 in any file this story touches**), plus the repo-wide `tsconfig.json(5,5) TS5101` `baseUrl`/TypeScript-6 config error that predates this story. See Debug Log References.
+- [x] `festgrid-architecture-spine.md`'s `AD-24` entry added, following the AD-15 format.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — ready for code review.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Cline agent running the `bmad-dev-story` workflow in VS Code (2026-09-21). The underlying model name/version is not surfaced to this workflow's own tooling, so it is recorded by harness rather than guessed (sibling `1.i1*` stories dispatched through this same harness record `claude-sonnet-5`).
 
 ### Debug Log References
 
+- Resumed session: the production edits (Tasks 1-3) and test edits (Task 4) were produced earlier in this same session; this pass re-derived the story's contract from this file and verified every claim against the actual source before completing the bookkeeping (status, checkboxes, Dev Agent Record).
+- `pnpm --filter @festgrid/ui exec vitest run src/features/events/format-event-date.test.ts src/features/events/EventCardMediaPrimitives.test.tsx src/features/events/EventCard.test.tsx` → **3 files / 140 tests passed** (`format-event-date` 36, `EventCardMediaPrimitives` 41, `EventCard` 63).
+- Full `@festgrid/ui` suite (`pnpm --filter @festgrid/ui test`) → **55 files / 577 tests passed, zero `FAIL` lines** — no regression anywhere in the package, not just in the 3 touched files.
+- `pnpm exec eslint` over all 8 touched files → **exit 0**, zero findings.
+- `pnpm --filter @festgrid/ui exec tsc --noEmit` → aborts before type-checking on a pre-existing repo-wide config error, `tsconfig.json(5,5): error TS5101: Option 'baseUrl' is deprecated` (this workspace has TypeScript 6). Re-run as `tsc --noEmit --ignoreDeprecations 6.0` → 78 pre-existing errors in `packages/ui`, **0 in any file this story touches**. Error-bearing files (`src/core/map.tsx`, `EventDetailView.test.tsx`, `EventDiscoveryPanel.test.tsx`, `FilterHub.test.tsx`, `useCurrentLocationCapture.test.ts`) are all untouched by this story; the only error text matching "status" is `instagramEmbedStatus`/`isSubscriptionStatusLoading` prop-shape noise in `EventDetailView.test.tsx`. `packages/ui` declares only a `test` script (no `build`/`typecheck`), so `tsc --noEmit` is Task 4.4's own sanctioned alternative.
+- Repo-wide grep + source read confirmed `formatEventStatus` has exactly one production call site — `EventCard.tsx:205`, now destructuring `{ text: statusText, isHappeningNow }`. All other grep hits are story docs, so the return-shape change has no unaccounted-for consumer (Task 4.4's stated purpose for this check).
+- Threshold path verified end-to-end in source, not only in tests: `EventCard.tsx:87` (`nearbyBadgeThreshold = 8`) → `EventCard.tsx:369` (`thresholdKm={nearbyBadgeThreshold}`) → `EventCardMediaPrimitives.tsx`'s `distanceKm == null || distanceKm >= thresholdKm` guard. Pinned by `EventCard.test.tsx`'s rewritten `7.99`/`8` boundary test, its two `nearbyBadgeThreshold`-override tests, and `EventCardMediaPrimitives.test.tsx`'s `thresholdKm` override test.
+- Confirmed **no stale `<= 5` / `5.01` threshold references remain** anywhere in `packages/ui/src/features/events` (Task 3.5): the only surviving `<=5` string is `EventCardMediaPrimitives.types.ts`'s JSDoc naming the *fixed* bug.
+- Confirmed AC7's deferral was honored by reading the file: `EventCardCalendarGridItem.tsx` still renders its own inline status/nearby markup and was deliberately not migrated here (Story 1.i1f/1.i1j own adoption).
+- Confirmed no barrel change was needed: `packages/ui/src/features/events/index.ts` already does `export * from './EventCardMediaPrimitives'` and `export * from './EventCardMediaPrimitives.types'`.
+- One deviation from the story's literal Task 2.2/3.4 prop list (adding `thresholdKm`) — reconciled in those tasks' own text above rather than left silent, sanctioned in the architecture spine (AD-24 Rule 2), and detailed in Completion Notes.
+
 ### Completion Notes List
 
+- **AC1/AC2 —** `EventCardStatusBadge` and `EventCardNearbyBadge` now exist as separate exports in `EventCardMediaPrimitives.tsx`, and `EventCard.tsx`'s masonry branch consumes them (its inline `<span>` pair is deleted); the `<= 5` → `< 8` threshold fix shipped inside the same migration rather than as a separately-scoped bug fix.
+- **AC3 —** label wiring is unchanged in effect: `EventCardNearbyBadge` merges `{ nearbyBadge: 'Nearby', ...labels }` (the exact pre-existing key and default) and `EventCard.tsx` keeps passing `defaultLabels.nearbyBadge`; all 8 `status*` keys/text flow through untouched because the badge renders `formatEventStatus(...).text` verbatim. The only intended visual delta for the existing consumer is the sanctioned emerald treatment on the `happeningNow` state.
+- **AC4 —** `formatEventStatus` now returns `EventStatusResult` (`{ text, isHappeningNow }`); `isHappeningNow: true` is emitted from the *existing* `started && endDayDiff > 0` branch only — no second, independently-derived copy of that boolean was introduced. JSDoc updated per Task 1.2.
+- **AC5 —** two independently composable components; no combined "badge row" wrapper was built, and `EventCard.tsx` still owns its flex badge-row `<div>` so Story 1.3k's `EventCardRepeatBadge` can slot in between them.
+- **AC6 —** both roots are plain non-interactive `<span>`s: no `aria-label`, no `tabIndex`/focus handling, no tooltip, text size remains `text-xs` (12px, above the ≥11px floor).
+- **AC7 —** adoption deferred as specified: `WeeklyCalendarView.tsx` was not touched, and `EventCardCalendarGridItem.tsx`'s own inline badges were deliberately left unmigrated (Story 1.i1f/1.i1j own that work).
+- **AC8 —** `EventCard.test.tsx`'s "Status badge (masonry, AC15) and Nearby badge (AC16)" block was **rewritten** (not supplemented) from the shipped `5`/`5.01` pair to `7.99` shows / `8` hides, plus a new assertion that `happeningNow` renders `bg-emerald-600 text-white` while the other states keep the neutral `bg-muted text-muted-foreground`, plus a badge-row order assertion (status then nearby). `EventCard.types.ts`'s stale `<= 5` JSDoc was corrected.
+- **Deliberate deviation (human-approved during implementation):** the story's literal Task 2.2 wording has `EventCardNearbyBadge` hard-code `< 8`. Instead the primitive takes an optional `thresholdKm` (defaulting to `8`). Reason: Story 1.i1f already shipped `EventCardProps.nearbyBadgeThreshold` (default 8, sourced from `NEXT_PUBLIC_NEARBY_BADGE_DISTANCE_KM` in `apps/web`) and two tests pinning a caller-level override; hard-coding would have deleted a shipped public prop and 2 green tests. Default behavior is byte-identical to AC1/AC8, and the comparison itself still lives inside the primitive (no consumer re-derives it) — which is exactly why Architecture Spine AD-24 Rule 2 was amended to name `thresholdKm` as the one sanctioned caller override. Tasks 2.2/3.4 above were updated to match the shipped API rather than left stale.
+- **Architecture:** `### AD-24: Shared Event-Card Status/Nearby Badge Primitives` was added to `festgrid-architecture-spine.md` (Task 5), following AD-15's Binds/Prevents/Rule format, and its Rule 2 carries the `thresholdKm` sanction.
+- **Testing tier:** component/unit tests only (Vitest + Testing Library) per project-context.md — this is a text/color treatment + threshold fix on an already-E2E-covered card surface, introducing no new route, flow, or interactive control (see Testing Requirements).
+- Status: `review` — implementation complete; the separate `bmad-code-review` pass (fresh context) is the next step.
+
 ### File List
+
+**New:** none — this story deliberately adds no new files; both primitives extend the existing Story 1.i1a files (no new package, no `packages/domain` involvement).
+
+**Modified:**
+- `packages/ui/src/features/events/format-event-date.ts` (Task 1: `EventStatusResult` + `isHappeningNow` discriminant, JSDoc)
+- `packages/ui/src/features/events/EventCard.tsx` (Task 3: masonry branch migrated; `Navigation` import removed; local `showNearbyBadge` removed; status call site destructured)
+- `packages/ui/src/features/events/EventCard.types.ts` (Tasks 3.5: stale `<= 5` JSDoc corrected — doc-only, no prop-shape change)
+- `packages/ui/src/features/events/EventCardMediaPrimitives.tsx` (Task 2: `EventCardStatusBadge`, `EventCardNearbyBadge`; `Navigation` imported here; file-header doc updated)
+- `packages/ui/src/features/events/EventCardMediaPrimitives.types.ts` (Task 2.3: `EventCardStatusBadgeProps`, `EventCardNearbyBadgeProps`, `EventCardNearbyBadgeLabels`)
+- `packages/ui/src/features/events/format-event-date.test.ts` (Task 4.2: 8-branch `isHappeningNow` assertions)
+- `packages/ui/src/features/events/EventCardMediaPrimitives.test.tsx` (Task 4.1: new `EventCardStatusBadge` + `EventCardNearbyBadge` describe blocks)
+- `packages/ui/src/features/events/EventCard.test.tsx` (Task 4.3: rewritten `7.99`/`8` boundary test, new `happeningNow` emerald test, badge-row order test)
+- `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (Task 5: new `### AD-24`, Rule 2 amended for the sanctioned `thresholdKm` override)
+- `_bmad-output/implementation-artifacts/1-i1i-build-the-shared-event-card-status-and-nearby-badge-primitive.md` (this file — status, checkboxes, Dev Agent Record)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (story status → `review`)
+
+**Deliberately NOT modified (verified):**
+- `packages/ui/src/features/events/index.ts` — already `export * from './EventCardMediaPrimitives'` / `'./EventCardMediaPrimitives.types'`, so both new components are exported with no barrel change.
+- `packages/ui/src/features/events/WeeklyCalendarView.tsx` / `.types.ts` — adoption is Story 1.i1j's scope.
+- `packages/ui/src/features/events/EventCardCalendarGridItem.tsx` — AC7 deferral; its inline status/nearby markup is intentionally left for Story 1.i1f/1.i1j.
+
+## Change Log
+
+- 2026-09-17: Story created via `bmad-create-story` (`IDEA-041`, child of `IDEA-025`) — split via Gate 2 while drafting Story 1.i1j, because the status/nearby badge markup was about to become a third independent inline duplicate (the BUG-023/FIND-023 drift pattern that motivated Story 1.i1a). Gate 1/Gate 3 cited from `epic-1-i1-readiness.md`; coordination flag with Story 1.i1f recorded on the `<=5` → `<8` threshold.
+- 2026-09-21: Implementation completed via `bmad-dev-story`. `formatEventStatus` extended to return `EventStatusResult` (`{ text, isHappeningNow }`) with the discriminant surfaced from its existing branch; `EventCardStatusBadge` + `EventCardNearbyBadge` added to the existing Story 1.i1a primitive files; `EventCard.tsx`'s masonry branch migrated onto them (inline spans + `showNearbyBadge` + the now-unused `Navigation` import removed) and the `<= 5` → `< 8` threshold bug fixed as part of that migration, so Story 1.i1f's own Task 2 is now a verify-only no-op rather than a re-introduction risk. `EventCard.types.ts`'s stale threshold JSDoc corrected. One human-approved deviation from the story's literal prop list: `EventCardNearbyBadge` takes an optional `thresholdKm` (default `8`) so Story 1.i1f's already-shipped `EventCardProps.nearbyBadgeThreshold` and its two override tests keep working — default behavior unchanged, comparison still owned by the primitive, and sanction recorded in the newly added Architecture Spine AD-24 Rule 2. Tests: 140/140 in the 3 touched files (`format-event-date` 36, `EventCardMediaPrimitives` 41, `EventCard` 63) and 577/577 across the full `packages/ui` suite (55 files), zero failures; eslint clean on all 8 touched files; `tsc --noEmit` shows only the pre-existing `packages/ui` baseline (0 errors in any touched file). Status set to `review`.

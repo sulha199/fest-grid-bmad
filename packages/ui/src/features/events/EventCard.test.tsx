@@ -848,6 +848,61 @@ describe('EventCard', () => {
       expect(badgeRowWithNearby?.children.length).toBe(2);
       expect(badgeRowWithNearby?.children[1]).toHaveTextContent('Nearby');
     });
+
+    it('renders the happeningNow status badge with the emerald DESIGN.md exception (Story 1.i1i AC4)', () => {
+      const started = new Date();
+      started.setDate(started.getDate() - 2);
+      const ending = new Date();
+      ending.setDate(ending.getDate() + 2);
+
+      const { container } = render(
+        <EventCard
+          eventName="Happening Now Festival"
+          startDate={started}
+          endDate={ending}
+          variant="masonry"
+          locale="en-US"
+        />
+      );
+
+      const badge = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
+      expect(badge).not.toBeNull();
+      expect(badge).toHaveTextContent('Happening Now');
+      expect(badge).toHaveClass('bg-emerald-600');
+      expect(badge).toHaveClass('text-white');
+      expect(badge).not.toHaveClass('bg-muted');
+      expect(badge).not.toHaveClass('text-muted-foreground');
+    });
+
+    it('renders every non-happeningNow state with the shared neutral base, never the emerald fill (Story 1.i1i AC4)', () => {
+      const { container } = render(
+        <EventCard
+          eventName="Long Ended Festival"
+          startDate={new Date('2020-01-01T10:00:00Z')}
+          variant="masonry"
+          locale="en-US"
+        />
+      );
+
+      const badge = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
+      expect(badge).not.toBeNull();
+      expect(badge).toHaveTextContent('Ended');
+      expect(badge).toHaveClass('bg-muted');
+      expect(badge).toHaveClass('text-muted-foreground');
+      expect(badge).not.toHaveClass('bg-emerald-600');
+      expect(badge).not.toHaveClass('text-white');
+    });
+
+    it('marks each badge-row child with its primitive hook, in status-then-nearby order (Story 1.i1i AC5)', () => {
+      const { container } = render(
+        <EventCard {...defaultProps} variant="masonry" distanceKm={1} locale="en-US" />
+      );
+      const badgeRow = container.querySelector('.p-3.flex-1.flex.flex-col.gap-2 > div') as HTMLElement;
+      expect(badgeRow.children[0].hasAttribute('data-event-card-status-badge')).toBe(true);
+      expect(badgeRow.children[1].hasAttribute('data-event-card-nearby-badge')).toBe(true);
+      expect(container.querySelectorAll('[data-event-card-status-badge]')).toHaveLength(1);
+      expect(container.querySelectorAll('[data-event-card-nearby-badge]')).toHaveLength(1);
+    });
   });
 
   describe('Prominent poster (masonry, AC17)', () => {

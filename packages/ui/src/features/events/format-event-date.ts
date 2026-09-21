@@ -124,10 +124,28 @@ export interface EventStatusLabels {
 }
 
 /**
+ * `formatEventStatus`'s return shape (Story 1.i1i AC4): the already-labeled display string
+ * plus the one state discriminant its single consumer (`EventCardStatusBadge`) needs.
+ */
+export interface EventStatusResult {
+  /** The already-labeled display string for the active state (unchanged from AC15). */
+  text: string;
+  /**
+   * True only for the `happeningNow` state (event already started and not ending today) —
+   * the one state `DESIGN.md` § event_card_status_badge gives a distinct visual treatment
+   * (`happening_now`'s solid emerald fill) instead of the shared neutral `base`.
+   */
+  isHappeningNow: boolean;
+}
+
+/**
  * Computes the masonry variant's status badge text (Story 1.3b AC15): one of 8 states
  * — ended / happeningNow / endsToday / inHours(n) / tomorrow / a weekday name /
- * inDays(n) / upcoming — always returning an already-labeled display string (matching
- * `formatRelativeDayOrDate`'s existing return-a-ready-string convention).
+ * inDays(n) / upcoming — returning the already-labeled display string (matching
+ * `formatRelativeDayOrDate`'s existing return-a-ready-string convention) together with
+ * the `happeningNow` discriminant (Story 1.i1i AC4), so `EventCardStatusBadge` can apply
+ * `DESIGN.md`'s one sanctioned per-state treatment without re-deriving
+ * `started && endDayDiff > 0` at the call site.
  *
  * `now` is an explicit parameter (unlike `getEventDayDiff`, which calls a bare `new Date()`
  * internally) so every state boundary is unit-testable without mocking global time.
@@ -144,7 +162,7 @@ export function formatEventStatus(
   endDate: Date | string | null | undefined,
   endTime: string | null | undefined,
   labels?: EventStatusLabels
-): string {
+): EventStatusResult {
   const startDateTime = combineDateTime(startDate, startTime);
   const nowParts = getLocalDateInTimezone(now, timezone);
   const startParts = getLocalDateInTimezone(startDateTime, timezone);
@@ -160,15 +178,17 @@ export function formatEventStatus(
     endDayDiff < 0 || (endDayDiff === 0 && !!endTime && now.getTime() >= endDateTime.getTime());
 
   if (ended) {
-    return labels?.statusEnded ?? 'Ended';
+    return { text: labels?.statusEnded ?? 'Ended', isHappeningNow: false };
   }
 
   if (started) {
     if (endDayDiff > 0) {
-      return labels?.statusHappeningNow ?? 'Happening Now';
+      // The one state with its own DESIGN.md color treatment (AC4) — surfaced from this
+      // same branch, never re-derived by the caller.
+      return { text: labels?.statusHappeningNow ?? 'Happening Now', isHappeningNow: true };
     }
     // endDayDiff === 0 here: ended-check above already handled endDayDiff < 0.
-    return labels?.statusEndsToday ?? 'Ends Today';
+    return { text: labels?.statusEndsToday ?? 'Ends Today', isHappeningNow: false };
   }
 
   // Not started.
@@ -178,18 +198,24 @@ export function formatEventStatus(
       const diffMs = startDateTime.getTime() - now.getTime();
       n = Math.ceil(diffMs / (1000 * 60 * 60));
     }
-    return (labels?.statusInHours ?? 'In {n} hour(s)').replace('{n}', String(n));
+    return {
+      text: (labels?.statusInHours ?? 'In {n} hour(s)').replace('{n}', String(n)),
+      isHappeningNow: false,
+    };
   }
   if (startDayDiff === 1) {
-    return labels?.tomorrow ?? 'Tomorrow';
+    return { text: labels?.tomorrow ?? 'Tomorrow', isHappeningNow: false };
   }
   if (startDayDiff >= 2 && startDayDiff <= 6) {
-    return formatWeekday(locale, timezone, startDateTime);
+    return { text: formatWeekday(locale, timezone, startDateTime), isHappeningNow: false };
   }
   if (startDayDiff >= 7 && startDayDiff <= 13) {
-    return (labels?.statusInDays ?? 'In {n} days').replace('{n}', String(startDayDiff));
+    return {
+      text: (labels?.statusInDays ?? 'In {n} days').replace('{n}', String(startDayDiff)),
+      isHappeningNow: false,
+    };
   }
-  return labels?.statusUpcoming ?? 'Upcoming';
+  return { text: labels?.statusUpcoming ?? 'Upcoming', isHappeningNow: false };
 }
 
 export function formatRelativeDayOrDate(

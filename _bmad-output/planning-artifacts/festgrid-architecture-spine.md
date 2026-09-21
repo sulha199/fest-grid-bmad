@@ -1023,7 +1023,11 @@ This document defines the core architectural invariants for the FestDaily applic
           `format-event-date.test.ts`'s `isHappeningNow` branch assertions (Story 1.i1i).
     2.  **`<8km` is the one sanctioned nearby-badge gate.** `EventCardNearbyBadge` self-gates,
         returning `null` unless `distanceKm != null && distanceKm < 8` — callers no longer
-        precompute a `showNearbyBadge` boolean locally.
+        precompute a `showNearbyBadge` boolean locally. The threshold is the primitive's own
+        default, not a value each consumer re-derives; the only sanctioned override is a
+        forwarded caller-level value (`EventCardNearbyBadge`'s `thresholdKm`, defaulting to `8`,
+        fed by `EventCardProps.nearbyBadgeThreshold` — Story 1.i1f already shipped that prop and
+        its tests), which still leaves the comparison itself owned by the primitive.
         - **Enforced by:** `EventCardMediaPrimitives.test.tsx`'s boundary assertions
           (`distanceKm=7.99` renders, `8` and above omit, `null`/`undefined` omit) and
           `EventCard.test.tsx`'s rewritten masonry boundary test (Story 1.i1i).
