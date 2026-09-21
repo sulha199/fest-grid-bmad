@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-21T11:06:16Z
+last_updated: 2026-09-21T11:30:28Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -505,6 +505,26 @@ development_status:
   # comments across EventCardMediaPrimitives.test.tsx (2), EventCard.test.tsx (2), WeeklyCalendarView.test.tsx (3).
   # Verified: 3 touched files 103 tests green, full packages/ui 48 files / 465 tests green, eslint 0 errors,
   # ci.yml already covers packages/ui — no CI change. No new test/production code. Depends on 1.i1a/1.i1c/1.i1d/1.i1e [all review].)
+  # added 2026-09-21 via bmad-create-story, sourced from backlog.yaml's IDEA-046
+  # (renumbered from IDEA-043 the same day; parent CC-019). Implements rules 1-6 of that
+  # row's seven-residual table -- the 2026-09-14 prototype-fidelity rules that DESIGN.md/
+  # EXPERIENCE.md specify in full but no story or board row ever owned. All seven were
+  # re-verified against c80cd9b and still reproduce. Gates 1/3 cited from
+  # epic-1-i1-readiness.md's sweep; the repo's first container query (needed because rule 1's
+  # 230px cap makes the viewport a wrong trigger for rule 5's font step) was assessed under
+  # the escape-hatch guard and judged not a Gate 1 finding. Gate 2 run fresh: split rule 7
+  # into sibling 1-i1m (below, NOT a prerequisite). Two further residuals found while
+  # drafting -> IDEA-048; the validation-log rounds 5-8 fidelity gap -> FIND-046. Amends
+  # Story 1.i1i's shipped AC quote in epics.md. Full record in this story's own Dev Notes.
+  1-i1l-apply-the-six-unowned-prototype-fidelity-rules: ready-for-dev
+  # added 2026-09-21 via bmad-create-story (Gate 2 split off 1-i1l) -- rule 7 of IDEA-046,
+  # the calendar row's reserved-slot reversal. Carved out rather than absorbed: it forks
+  # EventCardMediaSlot's contract (masonry keeps its reserved slot, the row drops it),
+  # contradicts Story 1.i1z's shipped AC3 and its two live CI ratchet tests, and needs a
+  # favorite-badge growth mechanism AD-15 cannot express today. Sibling of 1-i1l, not a
+  # dependency either way. Full section in epics.md; not yet drafted via its own
+  # bmad-create-story pass.
+  1-i1m-drop-the-calendar-rows-reserved-image-slot: backlog
   1-i1z-ratchet-no-card-surface-sizes-or-falls-back-locally: review
   epic-1: in-progress
   1-1-create-initial-database-tables: done
