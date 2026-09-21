@@ -1,11 +1,11 @@
 ---
-backlog_id: IDEA-043
+backlog_id: IDEA-046
 title: "Seven rules the 2026-09-14 prototype pass validated have no story and no board row"
 captured: 2026-09-20
 parent: CC-019
 ---
 
-# IDEA-043 — Unowned prototype-fidelity residuals (2026-09-14 UX pass)
+# IDEA-046 — Unowned prototype-fidelity residuals (2026-09-14 UX pass)
 
 ## Capture
 

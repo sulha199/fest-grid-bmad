@@ -45,7 +45,7 @@ states, `text-[10px]`/`text-[11px]` replaced by the `text-xs`/`text-sm` pair). S
 `DESIGN.md` attributes to "git history on this file" (its own history) rather than to a named round.
 No prototype-file revision or screenshot re-validation was recorded for those rounds, so the final
 spec state has no fidelity record here. Flagged rather than reconstructed; see `backlog.yaml`
-IDEA-043 (`_bmad-output/implementation-artifacts/backlog/IDEA-043-prototype-fidelity-residuals.md`)
-for the rules and their implementation status.
+IDEA-046 (`_bmad-output/implementation-artifacts/backlog/IDEA-046-prototype-fidelity-residuals.md`,
+renumbered from IDEA-043) for the rules and their implementation status.
 
 
