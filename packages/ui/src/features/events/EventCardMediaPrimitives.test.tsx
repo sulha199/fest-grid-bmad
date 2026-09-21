@@ -1,6 +1,6 @@
 /// <reference types="@testing-library/jest-dom" />
 import React from 'react';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
   EventCardMediaSlot,
@@ -20,6 +20,9 @@ import {
   EVENT_CARD_BADGE_FONT_SIZE_BY_SIZE,
   EVENT_CARD_BADGE_MIN_TOUCH_REM,
   eventCardBadgeIconSizeStyle,
+  eventCardRowFavoriteIconGrowingStyle,
+  EVENT_CARD_ROW_FAVORITE_ICON_MIN_PX,
+  EVENT_CARD_ROW_FAVORITE_ICON_MAX_PX,
 } from './event-card-media-tokens';
 
 // Built independently from the raw exported constants, not by calling
@@ -261,6 +264,115 @@ describe('EventCardMediaSlot additive props (Story 1.i1e)', () => {
       />
     );
     expect(onImagePresenceChange).toHaveBeenCalledWith(false);
+  });
+});
+
+describe('EventCardMediaSlot collapseOnFallback (Story 1.i1m AC1/AC3)', () => {
+  afterEach(() => cleanup());
+
+  it('defaults to false and preserves the exact reserved-blank fallback when omitted (masonry regression guard)', () => {
+    const { container } = render(
+      <EventCardMediaSlot layout="flex-fill" onFavoriteToggle={vi.fn()} />
+    );
+    // Today's exact reserved-blank behavior: the slot's own root element still mounts,
+    // reserving its footprint, with the large favorite badge centered inside it.
+    const slot = container.querySelector('[data-event-card-media-slot]');
+    expect(slot).not.toBeNull();
+    expect(within(slot as HTMLElement).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
+  });
+
+  it('renders null (no slot element at all) when collapseOnFallback is true and no imageUrl is provided', () => {
+    const { container } = render(
+      <EventCardMediaSlot layout="fixed-square" onFavoriteToggle={vi.fn()} collapseOnFallback />
+    );
+    expect(container.querySelector('[data-event-card-media-slot]')).toBeNull();
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('removes the slot element entirely (not merely emptied) when collapseOnFallback is true and the image onError fires', () => {
+    const { container } = render(
+      <EventCardMediaSlot
+        layout="fixed-square"
+        imageUrl="/broken.jpg"
+        onFavoriteToggle={vi.fn()}
+        collapseOnFallback
+      />
+    );
+    const slotBeforeError = container.querySelector('[data-event-card-media-slot]');
+    expect(slotBeforeError).not.toBeNull();
+    const img = slotBeforeError?.querySelector('img');
+    expect(img).not.toBeNull();
+
+    fireEvent.error(img as HTMLImageElement);
+
+    expect(container.querySelector('[data-event-card-media-slot]')).toBeNull();
+  });
+
+  it('keeps the with-image branch byte-identical when collapseOnFallback is true (only the fallback branch changes)', () => {
+    const { container } = render(
+      <EventCardMediaSlot
+        layout="fixed-square"
+        imageUrl="/a.jpg"
+        onFavoriteToggle={vi.fn()}
+        collapseOnFallback
+      />
+    );
+    const slot = container.querySelector('[data-event-card-media-slot]');
+    expect(slot).not.toBeNull();
+    expect(slot?.querySelector('img')).toHaveAttribute('src', '/a.jpg');
+    expect(within(slot as HTMLElement).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
+  });
+});
+
+describe('EventCardFavoriteBadge icon/text-size overrides (Story 1.i1m AC5)', () => {
+  afterEach(() => cleanup());
+
+  it('uses the ratio-derived default icon size and fixed text-sm when neither override is supplied (masonry/default regression guard)', () => {
+    render(<EventCardFavoriteBadge scale="large" onFavoriteToggle={vi.fn()} favoriteCount={3} />);
+    const button = screen.getByRole('button', { name: 'Toggle favorite' });
+    expect(button.className).toMatch(/\btext-sm\b/);
+    const heart = button.querySelector('svg');
+    const expected = expectedIconSize(EVENT_CARD_BADGE_ICON_SCALE_LARGE);
+    expect(heart?.style.width).toBe(expected);
+    expect(heart?.style.height).toBe(expected);
+  });
+
+  it('applies iconSizeStyle and largeTextSizeClassName overrides when supplied, replacing the ratio-derived default', () => {
+    // A plain px value proves the override-plumbing mechanism itself (this component passes
+    // `iconSizeStyle`/`largeTextSizeClassName` straight through, unconditionally replacing its
+    // own ratio-derived computation) without round-tripping a `cqi`/`clamp()` value through
+    // JSDOM's CSS parser, which — per this story's own AC7 — does not reliably represent
+    // container-query units. `eventCardRowFavoriteIconGrowingStyle()`'s own returned object is
+    // verified directly (no DOM involved) in the next test below.
+    const overrideStyle = { width: '42px', height: '42px' };
+    render(
+      <EventCardFavoriteBadge
+        scale="large"
+        onFavoriteToggle={vi.fn()}
+        favoriteCount={3}
+        iconSizeStyle={overrideStyle}
+        largeTextSizeClassName="text-sm [@container(min-width:490px)]:text-base"
+      />
+    );
+    const button = screen.getByRole('button', { name: 'Toggle favorite' });
+    expect(button.className).toMatch(/\[@container\(min-width:490px\)\]:text-base\b/);
+    const heart = button.querySelector('svg');
+    expect(heart?.style.width).toBe(overrideStyle.width);
+    expect(heart?.style.height).toBe(overrideStyle.height);
+    // Not the ratio-derived default this override replaces.
+    expect(heart?.style.width).not.toBe(expectedIconSize(EVENT_CARD_BADGE_ICON_SCALE_LARGE));
+  });
+
+  it("eventCardRowFavoriteIconGrowingStyle() returns the calibrated clamp()/cqi formula (Story 1.i1m AC5/AC7)", () => {
+    // Pure function, no DOM/JSDOM CSS parsing involved — proves the formula itself is
+    // calibrated to the two validated prototype points (36px @ 326px row, 56px @ 655px row)
+    // independently of whether JSDOM can represent the resulting string.
+    const style = eventCardRowFavoriteIconGrowingStyle();
+    const expected = `clamp(${EVENT_CARD_ROW_FAVORITE_ICON_MIN_PX}px, calc(16.2px + 6.08cqi), ${EVENT_CARD_ROW_FAVORITE_ICON_MAX_PX}px)`;
+    expect(style.width).toBe(expected);
+    expect(style.height).toBe(expected);
+    expect(EVENT_CARD_ROW_FAVORITE_ICON_MIN_PX).toBe(36);
+    expect(EVENT_CARD_ROW_FAVORITE_ICON_MAX_PX).toBe(56);
   });
 });
 

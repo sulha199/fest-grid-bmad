@@ -107,3 +107,47 @@ export function badgeFontSizeStyleFor(size: EventCardDateBoxSize): CSSProperties
     [EVENT_CARD_BADGE_FONT_SIZE_VAR]: EVENT_CARD_BADGE_FONT_SIZE_BY_SIZE[size],
   } as CSSProperties;
 }
+
+/**
+ * Story 1.i1m AC5 — the calendar compact row's favorite icon grows CONTINUOUSLY with the
+ * row's own rendered width, not the viewport (this surface is `md:hidden`, so viewport
+ * width doesn't predict row width either) and not a third fixed discrete ratio. The two
+ * ratios above (`EVENT_CARD_BADGE_ICON_SCALE_LARGE`/`_DEFAULT`) are fixed multiples of a
+ * sibling-declared font-size and cannot express "keeps growing as more space frees up" —
+ * this is a distinct, row-only mechanism, not a third ratio in that family.
+ *
+ * Calibrated against the two real widths the prototype validates (round 6, final state —
+ * `design-artifacts/UX-festgrid-run-1/prototypes/event-card-calendar-row/thumbnail-fallback.html`):
+ * 36px icon at a 326px row (narrow mobile) and 56px icon at a 655px row (widest mobile,
+ * just below the `md:` breakpoint this surface stops existing at). Linear interpolation
+ * between those two points: `icon_px = 16.2 + 6.08 * containerWidthPercent`, expressed as
+ * `cqi` (1cqi = 1% of the nearest `container-type: inline-size` ancestor's inline size —
+ * see `EVENT_CARD_CONTAINER_CLASS`, reused on the row's own wrapper, not redefined here).
+ * `clamp()` floors/caps the result at the two validated points themselves, so a real device
+ * narrower than 326px or (this surface's ceiling) wider than 655px never extrapolates past
+ * what was actually validated.
+ *
+ * CSS-only (`clamp()` + `cqi`), no `ResizeObserver` or other JS-side pixel math, per this
+ * file's own stated design principle above and the precedent Story 1.i1l's AC7 established
+ * for "this surface's own width, not the viewport" via a CSS container query.
+ */
+export const EVENT_CARD_ROW_FAVORITE_ICON_MIN_PX = 36;
+export const EVENT_CARD_ROW_FAVORITE_ICON_MAX_PX = 56;
+
+export function eventCardRowFavoriteIconGrowingStyle(): CSSProperties {
+  const size = `clamp(${EVENT_CARD_ROW_FAVORITE_ICON_MIN_PX}px, calc(16.2px + 6.08cqi), ${EVENT_CARD_ROW_FAVORITE_ICON_MAX_PX}px)`;
+  return { width: size, height: size };
+}
+
+/**
+ * Story 1.i1m AC5 — the calendar row's favorite count text steps `text-sm` (14px, narrow
+ * row) → `text-base` (16px, wide row), per the same validated prototype (round 6). Unlike
+ * the icon above, two discrete steps satisfy the prototype exactly, so this reuses the
+ * `EVENT_CARD_BADGE_TEXT_SIZE_CLASS`/`EVENT_CARD_CONTAINER_CLASS` container-query technique
+ * Story 1.i1l already shipped for masonry's badges, at a threshold re-tuned for this row's
+ * own two real widths (326px/655px) rather than masonry's (175px/230px) — 490px sits
+ * between them, mirroring that token's own "sits between the two real validated widths"
+ * placement rule.
+ */
+export const EVENT_CARD_ROW_FAVORITE_COUNT_TEXT_SIZE_CLASS =
+  'text-sm [@container(min-width:490px)]:text-base';

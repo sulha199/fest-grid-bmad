@@ -1,4 +1,4 @@
-import type { MouseEventHandler, ReactNode } from 'react';
+import type { CSSProperties, MouseEventHandler, ReactNode } from 'react';
 import type { EventCardDateBoxSize } from './event-card-media-tokens';
 
 /**
@@ -66,6 +66,16 @@ export interface EventCardMediaSlotProps {
    * badge scale (`'default'` vs `'large'`) would apply. Safe to omit.
    */
   onImagePresenceChange?: (imagePresent: boolean) => void;
+  /**
+   * Story 1.i1m AC1/AC3: when `true`, the slot renders `null` (removed from the DOM
+   * entirely, not left as an empty reserved element) whenever the image is absent or
+   * errored, instead of this primitive's default reserved-blank fallback. Defaults to
+   * `false` — every existing consumer (masonry's two call sites) omits this prop and
+   * keeps today's exact reserved-blank behavior. Only the calendar compact row
+   * (`WeeklyCalendarView.tsx`) passes `true`; masonry's own reserved-space convention is
+   * explicitly and permanently unaffected by this prop's existence.
+   */
+  collapseOnFallback?: boolean;
 }
 
 /** Label overrides for the favorite-toggle control (AC5 — matches `EventCardLabels.favoriteToggle`). */
@@ -91,6 +101,23 @@ export interface EventCardFavoriteBadgeProps {
    * (e.g. `absolute top-1 right-1 z-10` for the corner-pill placement).
    */
   className?: string;
+  /**
+   * Story 1.i1m AC5: overrides this badge's own icon size, replacing the ratio-derived
+   * `eventCardBadgeIconSizeStyle(scale)` this component computes internally. The two fixed
+   * ratios that function expresses (`EVENT_CARD_BADGE_ICON_SCALE_LARGE`/`_DEFAULT`) cannot
+   * express continuous, container-width-driven growth — the calendar compact row's own
+   * `eventCardRowFavoriteIconGrowingStyle()` is the one real caller. Omitted by every other
+   * call site, which keeps today's exact ratio-derived sizing unchanged.
+   */
+  iconSizeStyle?: CSSProperties;
+  /**
+   * Story 1.i1m AC5: overrides the `large`-scale badge's own fixed `text-sm` count-text
+   * class (which also styles the button's overall text size/weight context). The one real
+   * caller is the calendar compact row's `EVENT_CARD_ROW_FAVORITE_COUNT_TEXT_SIZE_CLASS`
+   * (a `text-sm`/`text-base` container-query step); every other call site omits this and
+   * keeps the fixed `text-sm`. Ignored when `scale !== 'large'`.
+   */
+  largeTextSizeClassName?: string;
 }
 
 /**
