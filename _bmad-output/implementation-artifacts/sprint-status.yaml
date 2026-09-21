@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-21T12:04:32Z
+last_updated: 2026-09-21T15:20:55Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -517,14 +517,14 @@ development_status:
   # drafting -> IDEA-048; the validation-log rounds 5-8 fidelity gap -> FIND-046. Amends
   # Story 1.i1i's shipped AC quote in epics.md. Full record in this story's own Dev Notes.
   1-i1l-apply-the-six-unowned-prototype-fidelity-rules: review
-  # added 2026-09-21 via bmad-create-story (Gate 2 split off 1-i1l) -- rule 7 of IDEA-046,
+  # drafted 2026-09-21 via bmad-create-story (Gate 2 split off 1-i1l) -- rule 7 of IDEA-046,
   # the calendar row's reserved-slot reversal. Carved out rather than absorbed: it forks
-  # EventCardMediaSlot's contract (masonry keeps its reserved slot, the row drops it),
-  # contradicts Story 1.i1z's shipped AC3 and its two live CI ratchet tests, and needs a
-  # favorite-badge growth mechanism AD-15 cannot express today. Sibling of 1-i1l, not a
-  # dependency either way. Full section in epics.md; not yet drafted via its own
-  # bmad-create-story pass.
-  1-i1m-drop-the-calendar-rows-reserved-image-slot: backlog
+  # EventCardMediaSlot's contract (masonry keeps its reserved slot, the row drops it via a
+  # new opt-in prop), contradicts Story 1.i1z's shipped AC3 and its two live CI ratchet
+  # tests (inverted, not deleted), and needs a CSS clamp()/cqi favorite-badge growth
+  # mechanism AD-15 didn't express before this story. Sibling of 1-i1l, not a dependency
+  # either way. Gate 2 re-run fresh: no gap, built in place. Full story file drafted.
+  1-i1m-drop-the-calendar-rows-reserved-image-slot: review
   1-i1z-ratchet-no-card-surface-sizes-or-falls-back-locally: review
   epic-1: in-progress
   1-1-create-initial-database-tables: done

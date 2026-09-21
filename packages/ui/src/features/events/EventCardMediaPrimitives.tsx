@@ -110,6 +110,7 @@ export function EventCardMediaSlot({
   size = 'default',
   hideFavoriteBadge = false,
   onImagePresenceChange,
+  collapseOnFallback = false,
 }: EventCardMediaSlotProps) {
   // Same onError detection EventCard.tsx's existing `imgError` state uses (AC3).
   const [imgError, setImgError] = useState(false);
@@ -121,6 +122,18 @@ export function EventCardMediaSlot({
   useEffect(() => {
     onImagePresenceChange?.(imagePresent);
   }, [imagePresent, onImagePresenceChange]);
+
+  // Story 1.i1m AC1/AC3: opt-in, additive fork of this primitive's contract. Every
+  // existing consumer (masonry's two call sites) omits this prop and keeps today's exact
+  // reserved-blank behavior below, byte-for-byte. Only the calendar compact row passes
+  // `true`, per DESIGN.md `event_card_compact_thumbnail_fallback` ("no area for image at
+  // all … the image element is omitted from the DOM entirely"). Returning `null` here --
+  // rather than an empty reserved div -- is what removes the element from the DOM rather
+  // than merely emptying it, both on initial render (no imageUrl) and after `onError`
+  // fires post-mount (the `imagePresent` recompute above already covers both cases).
+  if (collapseOnFallback && !imagePresent) {
+    return null;
+  }
 
   const layoutClasses =
     layout === 'flex-fill' ? 'flex-1 h-full min-w-0' : 'w-16 h-16 shrink-0';
@@ -191,6 +204,8 @@ export function EventCardFavoriteBadge({
   onFavoriteToggle,
   labels = {},
   className = '',
+  iconSizeStyle: iconSizeStyleOverride,
+  largeTextSizeClassName = 'text-sm',
 }: EventCardFavoriteBadgeProps) {
   // AC5 — match EventCard's existing labels/defaultLabels merge pattern exactly
   // (same key `favoriteToggle`, same default string), never a second labels shape.
@@ -202,7 +217,10 @@ export function EventCardFavoriteBadge({
     return null;
   }
 
-  const iconSizeStyle = eventCardBadgeIconSizeStyle(scale);
+  // Story 1.i1m AC5 — `iconSizeStyleOverride` lets the calendar compact row substitute its
+  // own continuous, container-width-driven growth for the ratio-derived default. Every
+  // other call site omits it and keeps today's exact sizing.
+  const iconSizeStyle = iconSizeStyleOverride ?? eventCardBadgeIconSizeStyle(scale);
   const isLarge = scale === 'large';
 
   return (
@@ -216,7 +234,7 @@ export function EventCardFavoriteBadge({
       }}
       className={
         isLarge
-          ? `flex flex-col items-center justify-center gap-0.5 min-h-11 min-w-11 text-sm font-medium text-foreground ${className}`
+          ? `flex flex-col items-center justify-center gap-0.5 min-h-11 min-w-11 ${largeTextSizeClassName} font-medium text-foreground ${className}`
           : `flex items-center justify-center rounded-full bg-background/80 backdrop-blur-sm shadow-sm hover:bg-background transition-colors ${EVENT_CARD_BADGE_TEXT_SIZE_CLASS} ${
               favoriteCount !== undefined ? 'px-1.5 py-1 gap-1.5' : 'p-2'
             } ${className}`

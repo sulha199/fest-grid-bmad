@@ -1740,7 +1740,7 @@ Note: Added 2026-08-01 at user request, scoped to Epic 1 (the only route it can 
 *   **When** the repo-wide sweep test runs in CI,
 *   **Then** it fails if any component under `packages/ui/src/features/events` renders an image slot, thumbnail, favorite icon or date badge with a hardcoded dimension class instead of an `event_card_*` token.
 *   **And** it fails if the literal "No image available", or any other placeholder text or icon, appears inside an image-fallback branch anywhere outside the shared primitive.
-*   **And** a test asserts every card surface — masonry default, masonry prominent, and the calendar compact row — renders reserved-but-blank on image error with no layout shift.
+*   **And** a test asserts every card surface — masonry default, masonry prominent — renders reserved-but-blank on image error with no layout shift. ***Amended 2026-09-21 (Story 1.i1m):*** *narrowed from "every card surface including the calendar compact row" to masonry only. The 2026-09-14 user-directed reversal (DESIGN.md `event_card_compact_thumbnail_fallback`, "no area for image at all") supersedes this AC for the calendar-compact row, which now omits its media element from the DOM entirely on image absence/error instead of rendering reserved-but-blank — the opposite of what this AC originally asserted for that surface. The two ratchet tests this AC cited in `WeeklyCalendarView.test.tsx` were replaced with inverted ratchets protecting the row's own (opposite) behavior, rather than deleted. Masonry's own reserved-but-blank guarantee, and this AC's force for masonry, are unchanged.*
 
 **Depends on:** Stories 1.i1a, 1.i1b, 1.i1c, 1.i1d, 1.i1e.
 
