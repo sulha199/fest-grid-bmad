@@ -1408,6 +1408,195 @@ describe('WeeklyCalendarView', () => {
       expect(dateBox2).not.toBeNull();
       expect(dateBox2.textContent).toBe('till');
     });
+
+    describe('Status and nearby badges (Story 1.i1j, AC1-AC6)', () => {
+      it('renders the happeningNow status badge with the emerald treatment, identically on every day-segment of a multi-day schedule (AC1/AC2/AC5)', () => {
+        // "now" pinned to the schedule's own first day so none of its 3 day-segment rows
+        // (Aug 5/6/7) default-collapse as a past day (mobile collapses days before "today").
+        vi.setSystemTime(new Date('2026-08-05T12:00:00Z'));
+
+        const schedule = [
+          {
+            id: 'hn-1',
+            eventSlug: 'happening-now-fest',
+            eventName: 'Happening Now Festival',
+            isMainSchedule: true,
+            eventStartDate: '2026-08-05',
+            eventStartTime: '00:00:00',
+            eventEndDate: '2026-08-07',
+            eventEndTime: '23:00:00',
+          },
+        ];
+
+        const { container } = render(
+          <ScopedLocaleProvider locale="en-US">
+            <WeeklyCalendarView {...defaultProps} schedules={schedule} />
+          </ScopedLocaleProvider>
+        );
+
+        const badges = container.querySelectorAll('[data-event-card-status-badge]');
+        // AC5 — three day-segments (Aug 5/6/7), each independently computing status from the
+        // same schedule-level start/end fields against the same real "now", so all three show
+        // the identical happeningNow state.
+        expect(badges).toHaveLength(3);
+        badges.forEach((badge) => {
+          expect(badge).toHaveTextContent('Happening Now');
+          expect(badge).toHaveClass('bg-emerald-600');
+          expect(badge).toHaveClass('text-white');
+        });
+      });
+
+      it('renders the Ended status badge with the shared neutral treatment, never emerald (AC1/AC2)', () => {
+        vi.setSystemTime(new Date('2026-08-05T15:00:00Z'));
+
+        const schedule = [
+          {
+            id: 'ended-1',
+            eventSlug: 'ended-fest',
+            eventName: 'Ended Festival',
+            isMainSchedule: true,
+            eventStartDate: '2026-08-05',
+            eventStartTime: '09:00:00',
+            eventEndDate: '2026-08-05',
+            eventEndTime: '10:00:00',
+          },
+        ];
+
+        const { container } = render(
+          <ScopedLocaleProvider locale="en-US">
+            <WeeklyCalendarView {...defaultProps} schedules={schedule} />
+          </ScopedLocaleProvider>
+        );
+
+        const badge = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
+        expect(badge).not.toBeNull();
+        expect(badge).toHaveTextContent('Ended');
+        expect(badge).toHaveClass('bg-muted');
+        expect(badge).toHaveClass('text-muted-foreground');
+        expect(badge).not.toHaveClass('bg-emerald-600');
+      });
+
+      it('renders the Upcoming status badge for a schedule starting 14+ days out (AC1/AC2)', () => {
+        vi.setSystemTime(new Date('2026-07-01T12:00:00Z'));
+
+        const schedule = [
+          {
+            id: 'upcoming-1',
+            eventSlug: 'upcoming-fest',
+            eventName: 'Upcoming Festival',
+            isMainSchedule: true,
+            eventStartDate: '2026-08-10',
+          },
+        ];
+
+        const { container } = render(
+          <ScopedLocaleProvider locale="en-US">
+            <WeeklyCalendarView {...defaultProps} schedules={schedule} />
+          </ScopedLocaleProvider>
+        );
+
+        const badge = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
+        expect(badge).not.toBeNull();
+        expect(badge).toHaveTextContent('Upcoming');
+      });
+
+      it('renders the nearby badge only when distanceKm is below the 8km threshold, omitted at exactly 8 and at undefined (AC3)', () => {
+        vi.setSystemTime(new Date('2026-08-04T12:00:00Z'));
+
+        const schedules = [
+          {
+            id: 'near-1',
+            eventSlug: 'near-fest',
+            eventName: 'Near Festival',
+            isMainSchedule: true,
+            eventStartDate: '2026-08-05',
+            distanceKm: 7.9,
+          },
+          {
+            id: 'boundary-1',
+            eventSlug: 'boundary-fest',
+            eventName: 'Boundary Festival',
+            isMainSchedule: true,
+            eventStartDate: '2026-08-06',
+            distanceKm: 8,
+          },
+          {
+            id: 'unknown-1',
+            eventSlug: 'unknown-fest',
+            eventName: 'Unknown Distance Festival',
+            isMainSchedule: true,
+            eventStartDate: '2026-08-07',
+          },
+        ];
+
+        const { container } = render(
+          <ScopedLocaleProvider locale="en-US">
+            <WeeklyCalendarView {...defaultProps} schedules={schedules} />
+          </ScopedLocaleProvider>
+        );
+
+        const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+        const nearCard = within(mobileView).getByText('Near Festival').closest('[data-testid="mobile-day-row"]') as HTMLElement;
+        const boundaryCard = within(mobileView).getByText('Boundary Festival').closest('[data-testid="mobile-day-row"]') as HTMLElement;
+        const unknownCard = within(mobileView).getByText('Unknown Distance Festival').closest('[data-testid="mobile-day-row"]') as HTMLElement;
+
+        expect(nearCard.querySelector('[data-event-card-nearby-badge]')).not.toBeNull();
+        expect(nearCard.querySelector('[data-event-card-nearby-badge]')).toHaveTextContent('Nearby');
+        expect(boundaryCard.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+        expect(unknownCard.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+        // No placeholder/error markup takes its place when omitted.
+        expect(container.querySelectorAll('[data-event-card-nearby-badge]')).toHaveLength(1);
+      });
+
+      it('appends the badge row as the content column\'s last child, after the multi-day-badge line (AC4)', () => {
+        vi.setSystemTime(new Date('2026-08-04T12:00:00Z'));
+
+        const schedule = [
+          {
+            id: 'md-order-1',
+            eventSlug: 'order-fest',
+            eventName: 'Order Festival',
+            isMainSchedule: true,
+            eventStartDate: '2026-08-05',
+            eventEndDate: '2026-08-07',
+            distanceKm: 1,
+          },
+        ];
+
+        render(
+          <ScopedLocaleProvider locale="en-US">
+            <WeeklyCalendarView {...defaultProps} schedules={schedule} />
+          </ScopedLocaleProvider>
+        );
+
+        const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+        const card = within(mobileView).getAllByText('Order Festival')[0].closest('button') as HTMLElement;
+        const contentColumn = card.querySelector('span.flex.min-w-0.w-full.flex-col') as HTMLElement;
+        const lastChild = contentColumn.lastElementChild as HTMLElement;
+
+        expect(lastChild.querySelector('[data-event-card-status-badge]')).not.toBeNull();
+        expect(lastChild.querySelector('[data-event-card-nearby-badge]')).not.toBeNull();
+        const multiDayBadgeIdx = Array.from(contentColumn.children).findIndex(
+          (el) => el.getAttribute('data-testid') === 'multi-day-badge'
+        );
+        const badgeRowIdx = Array.from(contentColumn.children).indexOf(lastChild);
+        expect(badgeRowIdx).toBeGreaterThan(multiDayBadgeIdx);
+      });
+
+      it('leaves variant="grid" completely unaffected — no status/nearby badge markup on desktop (AC7)', () => {
+        vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+
+        render(
+          <ScopedLocaleProvider locale="en-US">
+            <WeeklyCalendarView {...defaultProps} />
+          </ScopedLocaleProvider>
+        );
+
+        const desktopView = rtlScreen.getByTestId('desktop-calendar-view');
+        expect(desktopView.querySelector('[data-event-card-status-badge]')).toBeNull();
+        expect(desktopView.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+      });
+    });
   });
   describe('Mobile Day Collapse State', () => {
     beforeAll(() => {

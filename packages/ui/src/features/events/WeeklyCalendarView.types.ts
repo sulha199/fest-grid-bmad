@@ -78,6 +78,22 @@ export interface WeeklyCalendarViewLabels {
   tillLabel?: string;
   /** Accessible name for the list-variant thumbnail's favorite-toggle badge (default "Toggle favorite", AC3/AC9). */
   favoriteToggleLabel?: string;
+  /** Status badge (list variant) — event has already ended. Matches `EventCardLabels.statusEnded`. Default: "Ended". */
+  statusEnded?: string;
+  /** Status badge (list variant) — event has started and does not end today. Matches `EventCardLabels.statusHappeningNow`. Default: "Happening Now". */
+  statusHappeningNow?: string;
+  /** Status badge (list variant) — event has started and ends today. Matches `EventCardLabels.statusEndsToday`. Default: "Ends Today". */
+  statusEndsToday?: string;
+  /** Status badge (list variant) — event starts later today. `{n}` is replaced with the hour count. Matches `EventCardLabels.statusInHours`. Default: "In {n} hour(s)". */
+  statusInHours?: string;
+  /** Status badge (list variant) — event starts 7-13 days out. `{n}` is replaced with the day count. Matches `EventCardLabels.statusInDays`. Default: "In {n} days". */
+  statusInDays?: string;
+  /** Status badge (list variant) — event starts 14+ days out. Matches `EventCardLabels.statusUpcoming`. Default: "Upcoming". */
+  statusUpcoming?: string;
+  /** Status badge (list variant) — event starts tomorrow. Matches `EventCardLabels.tomorrow`. Default: "Tomorrow". */
+  tomorrow?: string;
+  /** Nearby badge (list variant) text, rendered only when `schedule.distanceKm` is below `nearbyBadgeThreshold`. Matches `EventCardLabels.nearbyBadge`. Default: "Nearby". */
+  nearbyBadge?: string;
 }
 
 export interface WeeklyCalendarViewOverflowDialogData<

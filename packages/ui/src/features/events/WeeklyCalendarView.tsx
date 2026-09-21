@@ -10,10 +10,10 @@ import type {
   WeeklyCalendarViewOverflowSurface,
 } from './WeeklyCalendarView.types';
 import { getWeekStart, getWeekEnd } from '../../hooks';
-import { EventCardMediaSlot, EventCardDateBox } from './EventCardMediaPrimitives';
+import { EventCardMediaSlot, EventCardDateBox, EventCardStatusBadge, EventCardNearbyBadge } from './EventCardMediaPrimitives';
 import { EventCardCalendarGridItem } from './EventCardCalendarGridItem';
 import { CalendarOverflowDialog } from './CalendarOverflowDialog';
-import { computeCalendarSegmentTillText } from './format-event-date';
+import { computeCalendarSegmentTillText, formatEventStatus, type EventStatusLabels } from './format-event-date';
 
 // Design system styles from DESIGN.md
 const CALENDAR_BASE_CLASS = "border border-gray-200 rounded-lg";
@@ -294,6 +294,14 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     addedToCalendarBadgeLabel: 'Added to calendar',
     tillLabel: 'till',
     favoriteToggleLabel: 'Toggle favorite',
+    statusEnded: 'Ended',
+    statusHappeningNow: 'Happening Now',
+    statusEndsToday: 'Ends Today',
+    statusInHours: 'In {n} hour(s)',
+    statusInDays: 'In {n} days',
+    statusUpcoming: 'Upcoming',
+    tomorrow: 'Tomorrow',
+    nearbyBadge: 'Nearby',
     ...labels,
   };
   const overflowDialogTitleLabel = labels.overflowDialogTitleLabel ?? DEFAULT_OVERFLOW_DIALOG_TITLE_LABEL;
@@ -815,6 +823,17 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
                       multiDaySegmentLabel={labels?.multiDaySegmentLabel}
                       favoritedBadgeLabel={defaultLabels.favoritedBadgeLabel}
                       addedToCalendarBadgeLabel={defaultLabels.addedToCalendarBadgeLabel}
+                      statusLabels={{
+                        statusEnded: defaultLabels.statusEnded,
+                        statusHappeningNow: defaultLabels.statusHappeningNow,
+                        statusEndsToday: defaultLabels.statusEndsToday,
+                        statusInHours: defaultLabels.statusInHours,
+                        statusInDays: defaultLabels.statusInDays,
+                        statusUpcoming: defaultLabels.statusUpcoming,
+                        tomorrow: defaultLabels.tomorrow,
+                      }}
+                      nearbyBadgeLabel={defaultLabels.nearbyBadge}
+                      nearbyBadgeThreshold={nearbyBadgeThreshold}
                     />
                   ))}
 
@@ -896,6 +915,12 @@ interface CalendarCardProps<TSchedule> {
   variant?: 'grid' | 'list';
   currentDayStr?: string;
   multiDaySegmentLabel?: (dayNumber: number, totalDays: number) => string;
+  /** `list`-variant status badge labels (AC1/AC6), forwarded verbatim to `formatEventStatus`. */
+  statusLabels?: EventStatusLabels;
+  /** `list`-variant nearby badge text (AC3/AC6). Defaults to "Nearby" inside `EventCardNearbyBadge` when omitted. */
+  nearbyBadgeLabel?: string;
+  /** `list`-variant nearby badge distance threshold (km), forwarded to `EventCardNearbyBadge` (AC3). Defaults to `8`. */
+  nearbyBadgeThreshold?: number;
 }
 
 /**
@@ -919,6 +944,9 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   variant = 'grid',
   currentDayStr,
   multiDaySegmentLabel,
+  statusLabels,
+  nearbyBadgeLabel,
+  nearbyBadgeThreshold,
 }: CalendarCardProps<TSchedule>) {
   const { schedule } = segment;
 
@@ -1022,6 +1050,20 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
       tillLabel || 'till'
     );
 
+    // AC1 (Story 1.i1j) — same computation EventCard's masonry variant already uses; no new
+    // plumbing, computed per-card from fields WeeklyCalendarViewScheduleShape already carries
+    // (Architecture Spine AD-22 Rule 1).
+    const { text: statusText, isHappeningNow } = formatEventStatus(
+      locale,
+      timezone,
+      new Date(),
+      schedule.eventStartDate,
+      schedule.eventStartTime,
+      schedule.eventEndDate,
+      schedule.eventEndTime,
+      statusLabels
+    );
+
     return (
       <div className="relative w-full">
         <div className={`${baseButtonClass} ${multiDayRoundingClass} w-full flex items-stretch gap-2`}>
@@ -1058,6 +1100,18 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
                   <span>{multiDayBadgeText}</span>
                 </span>
               )}
+              {/* AC2/AC3/AC4 (Story 1.i1j) — status + nearby badges, appended as the content
+                  column's last child. Mirrors EventCard.tsx's masonry `badge_row` classes for
+                  visual family consistency (DESIGN.md gives no explicit ordering/gap sub-token
+                  of its own for this row — see Dev Notes). */}
+              <span className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                <EventCardStatusBadge text={statusText} isHappeningNow={isHappeningNow} />
+                <EventCardNearbyBadge
+                  distanceKm={schedule.distanceKm}
+                  thresholdKm={nearbyBadgeThreshold}
+                  labels={{ nearbyBadge: nearbyBadgeLabel }}
+                />
+              </span>
             </span>
           </button>
           <EventCardMediaSlot

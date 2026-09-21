@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-21T00:00:00Z
+last_updated: 2026-09-21T10:43:31Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -489,7 +489,7 @@ development_status:
   # 1-i1f NOR 1-i1i is implemented yet as of this story's creation -- see its own
   # Pre-Coding Approval Gate blocking checklist item. Full record in this story's
   # own Dev Notes.
-  1-i1j-add-status-and-nearby-badges-to-weeklycalendarviews-compact-row: ready-for-dev
+  1-i1j-add-status-and-nearby-badges-to-weeklycalendarviews-compact-row: review
   # added 2026-09-17 via bmad-create-story (Gate 2 split off 1-i1j while drafting
   # IDEA-025) -- DESIGN.md's 2026-09-14 pass documents this EventCardDateBox
   # shape gap twice (event_card_date_box.base_default and event_card_compact.date_box
