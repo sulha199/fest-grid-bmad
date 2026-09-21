@@ -33,3 +33,19 @@ The user supplied a consolidated rules document organized by view-mode (calendar
 
 All revised files re-screenshot-validated; no new overflow/clipping issues introduced by these changes.
 
+## Coverage note added 2026-09-20 -- rounds 5-8 are not recorded in this file
+
+This log covers rounds 1-4 (all 2026-09-14). `DESIGN.md` and `EXPERIENCE.md` cite further
+user-directed revisions from the same pass -- "rounds 5-7" (date/favorite pill position made
+conditional on the TILL badge, and the TILL tag's `-top-1.5` default / `-top-3` prominent-poster
+exception), "round 6" (`favorite` badge font-size >= TILL badge font-size; `happeningNow`'s solid
+emerald `happening_now` color), "round 7" (masonry card max-width capped at 230px across all three
+states) and "round 8" (TILL and favorite badge font/padding harmonized across all three masonry
+states, `text-[10px]`/`text-[11px]` replaced by the `text-xs`/`text-sm` pair). Some of those
+`DESIGN.md` attributes to "git history on this file" (its own history) rather than to a named round.
+No prototype-file revision or screenshot re-validation was recorded for those rounds, so the final
+spec state has no fidelity record here. Flagged rather than reconstructed; see `backlog.yaml`
+IDEA-043 (`_bmad-output/implementation-artifacts/backlog/IDEA-043-prototype-fidelity-residuals.md`)
+for the rules and their implementation status.
+
+

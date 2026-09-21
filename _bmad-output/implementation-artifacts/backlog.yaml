@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-09-19"
+last_updated: "2026-09-20"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -1348,3 +1348,15 @@ items:
      touches: [web:posts],
      note: "Deferred from: bmad-quick-dev spec-curator-guide-frontend-gate-stale review (2026-09-19). 4 findings."}
 
+  # ── 2026-09-20 (doc-coverage audit of the 2026-09-14 bmad-png-to-html prototype pass) ──
+  IDEA-043:
+    {type: idea, status: triaged, epic: epic-1-i1, created: 2026-09-20, parent: CC-019,
+     impact: user-visible, effort: s,
+     title: "Seven rules the 2026-09-14 prototype pass validated have no story and no board row (230px masonry cap, square prominent-poster crop, \"Now\" label, date-pill/TILL position mechanism, badge size harmonization, calendar-row title wrap, calendar-row reserved-slot reversal)",
+     ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md,
+           design-artifacts/UX-festgrid-run-1/prototypes/validation-log.md,
+           implementation-artifacts/1-i1d-adopt-the-primitive-into-weeklycalendarview-compact-row.md,
+           implementation-artifacts/1-i1e-adopt-the-primitive-into-the-masonry-default-state.md,
+           backlog/IDEA-043-prototype-fidelity-residuals.md],
+     touches: [pkg:ui, web:events/EventCard, web:events/WeeklyCalendarView, cross:ux-tokens],
+     note: "Found 2026-09-20 auditing prototype-to-story coverage. IDEA-016's row says 3 prototyping corrections and IDEA-017's says 7 refinements were never 'folded into a story amendment'; most landed since (masonry title/venue clamps, category-badge replaced by the <8km nearby badge, grid-item title wrap, happeningNow emerald via 1.i1i), but 7 did not and no row captured them -- DESIGN.md/EXPERIENCE.md already specify all 7 in full, so this is code-following-existing-spec work, not new design. Rules 4/5 rewrite the same EventCardDateBox/TILL class strings Story 1.i1k is about to rewrite (fold in, or dispatch after 1.i1k); rule 3 additionally needs an epics.md AC change since 1.i1i's AC freezes 'Happening Now'. No prerequisite otherwise. Also surfaced: validation-log.md stops at round 4 while DESIGN.md cites rounds 5-8. Full detail, line-level code evidence, and the prototype-to-story matrix in backlog/IDEA-043-prototype-fidelity-residuals.md."}
