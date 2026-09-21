@@ -5,7 +5,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { NextIntlClientProvider } from 'next-intl';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import enMessages from '../../../locales/en.json';
-import { HomeContent } from './home-content';
+import { HomeContent, parseNearbyBadgeThreshold } from './home-content';
 
 const mockRouterPush = vi.fn();
 const mockPosthogCapture = vi.fn();
@@ -293,4 +293,24 @@ describe('HomeContent', () => {
 
     expect(scrollToSpy).toHaveBeenCalledWith({ top: 0, behavior: expect.stringMatching(/auto|smooth/) });
   });
+});
+
+// Story 1.i1f review finding 7 — the env-var threshold parser is a pure function,
+// so it is asserted directly rather than through a full HomeContent render.
+describe('parseNearbyBadgeThreshold (Story 1.i1f review finding 7)', () => {
+  it('honours an intentionally-configured 0 instead of falling back to the default', () => {
+    expect(parseNearbyBadgeThreshold('0')).toBe(0);
+  });
+
+  it('accepts positive and fractional overrides', () => {
+    expect(parseNearbyBadgeThreshold('12')).toBe(12);
+    expect(parseNearbyBadgeThreshold('2.5')).toBe(2.5);
+  });
+
+  it.each([undefined, '', '   ', 'abc', '-3', 'NaN', 'Infinity'])(
+    'falls back to the built-in default of 8 for %s',
+    (raw) => {
+      expect(parseNearbyBadgeThreshold(raw as string | undefined)).toBe(8);
+    }
+  );
 });

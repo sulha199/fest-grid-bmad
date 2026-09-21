@@ -97,7 +97,9 @@ export function buildDrizzleWhere(
     case "withinRadius": {
       const { latitude, longitude, radiusKm } = value as { latitude: number; longitude: number; radiusKm: number };
       const { latColumn, lngColumn } = column as { latColumn: PgColumn; lngColumn: PgColumn };
-      // Bounding-box pre-filter (uses the schedule_coordinates_idx btree index) + exact Haversine trim.
+      // Bounding-box pre-filter (uses the schedule_coordinates_idx btree index) + exact
+      // spherical-law-of-cosines trim (NOT the haversine formula — see the note in
+      // packages/domain/src/geolocation/computeDistanceKm.ts, Story 1.i1f finding 10).
       // 1 degree of latitude ≈ 111.32 km; longitude degree length shrinks with cos(latitude).
       // NOTE: This exact formula must be mirrored client-side by packages/domain/src/geolocation/computeDistanceKm.ts
       const latDelta = radiusKm / 111.32;

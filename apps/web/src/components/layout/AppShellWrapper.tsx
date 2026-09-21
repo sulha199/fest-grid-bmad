@@ -5,7 +5,7 @@ import { ReactNode } from 'react';
 import { usePathname, useRouter, Link } from '@/i18n/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuthSession } from '@/components/providers/auth-session-provider';
-import { AppShell, NavKey, AmbientLocationBanner } from '@festgrid/ui';
+import { AppShell, NavKey, AmbientLocationBanner, isGeolocationCaptureFailure } from '@festgrid/ui';
 import { useMeQuery, useModeratorPendingItemCountQuery } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
 import { useHasApiKey } from '@/features/onboarding/use-has-api-key';
@@ -78,8 +78,14 @@ export function AppShellWrapper({ children }: { children: ReactNode }) {
     try {
       await captureLocationExplicit();
       posthog.capture('viewer_location_ambient_consent_resolved', { outcome: 'granted' });
-    } catch {
-      posthog.capture('viewer_location_ambient_consent_resolved', { outcome: 'denied' });
+    } catch (error) {
+      // Story 1.i1f review finding 9 — a timeout / unavailable / unknown capture
+      // is a failed attempt, not a consent decision; only a real
+      // 'permission-denied' is a denial. Tagging every failure as 'denied'
+      // corrupted the consent funnel this event exists to measure.
+      posthog.capture('viewer_location_ambient_consent_resolved', {
+        outcome: isGeolocationCaptureFailure(error) ? error.code : 'unknown',
+      });
     } finally {
       setIsLocationAskPending(false);
     }

@@ -77,6 +77,7 @@ vi.mock('@festgrid/ui', async (importOriginal) => {
 
 import { AppShellWrapper } from './AppShellWrapper';
 import { useAmbientCapabilityAskSlotStore } from '@/lib/state/ambient-capability-ask-slot-store';
+import { GeolocationCaptureFailure } from '@festgrid/ui';
 
 function renderWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -128,6 +129,51 @@ describe('AppShellWrapper (Story 0.42 AC14 + Story 0.39 Task 5.3 location partic
     await vi.waitFor(() => {
       expect(mockPosthogCapture).toHaveBeenCalledWith('viewer_location_ambient_consent_resolved', {
         outcome: 'granted',
+      });
+    });
+  });
+
+  it('tags a genuine permission denial as permission-denied rather than a generic denied (finding 9)', async () => {
+    mockCanShowAmbientAsk = true;
+    mockCaptureExplicit.mockRejectedValue(new GeolocationCaptureFailure('permission-denied'));
+    renderWrapper();
+
+    fireEvent.click(screen.getByRole('button', { name: 'AmbientLocationBanner.enableButtonLabel' }));
+
+    await vi.waitFor(() => {
+      expect(mockPosthogCapture).toHaveBeenCalledWith('viewer_location_ambient_consent_resolved', {
+        outcome: 'permission-denied',
+      });
+    });
+    expect(mockPosthogCapture).not.toHaveBeenCalledWith('viewer_location_ambient_consent_resolved', {
+      outcome: 'denied',
+    });
+  });
+
+  it('tags a timed-out capture with its own outcome, not a consent denial (finding 9)', async () => {
+    mockCanShowAmbientAsk = true;
+    mockCaptureExplicit.mockRejectedValue(new GeolocationCaptureFailure('timeout'));
+    renderWrapper();
+
+    fireEvent.click(screen.getByRole('button', { name: 'AmbientLocationBanner.enableButtonLabel' }));
+
+    await vi.waitFor(() => {
+      expect(mockPosthogCapture).toHaveBeenCalledWith('viewer_location_ambient_consent_resolved', {
+        outcome: 'timeout',
+      });
+    });
+  });
+
+  it('falls back to unknown when the rejection is not a typed capture failure (finding 9)', async () => {
+    mockCanShowAmbientAsk = true;
+    mockCaptureExplicit.mockRejectedValue(new Error('boom'));
+    renderWrapper();
+
+    fireEvent.click(screen.getByRole('button', { name: 'AmbientLocationBanner.enableButtonLabel' }));
+
+    await vi.waitFor(() => {
+      expect(mockPosthogCapture).toHaveBeenCalledWith('viewer_location_ambient_consent_resolved', {
+        outcome: 'unknown',
       });
     });
   });

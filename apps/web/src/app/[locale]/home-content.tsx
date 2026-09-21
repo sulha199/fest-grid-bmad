@@ -37,6 +37,25 @@ function buildEnumLabels(values: string[], translate: (key: string) => string) {
   )
 }
 
+const DEFAULT_NEARBY_BADGE_THRESHOLD_KM = 8
+
+/**
+ * Story 1.i1f review finding 7 — the previous
+ * `Number(process.env.NEXT_PUBLIC_NEARBY_BADGE_DISTANCE_KM) || 8` silently
+ * discarded an intentionally-configured `0` (falsy) and passed `NaN`/negative
+ * values straight through into the badge gate. Parse explicitly instead:
+ * absent, blank, non-numeric, non-finite or negative falls back to the default;
+ * `0` is honoured as a real (if strict) override.
+ */
+export function parseNearbyBadgeThreshold(raw: string | undefined): number {
+  if (raw == null || raw.trim() === '') return DEFAULT_NEARBY_BADGE_THRESHOLD_KM
+
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed) || parsed < 0) return DEFAULT_NEARBY_BADGE_THRESHOLD_KM
+
+  return parsed
+}
+
 export function HomeContent() {
   const t = useTranslations('DiscoveryPage')
   const posthog = usePostHog()
@@ -45,8 +64,11 @@ export function HomeContent() {
   const nearbyFilter = useNearbyFilter()
   // Env-configurable nearby-badge threshold (km); NEXT_PUBLIC_ is required for
   // client-side availability in Next.js. Falls back to EventCard's own default (8)
-  // when unset or invalid.
-  const nearbyBadgeThreshold = Number(process.env.NEXT_PUBLIC_NEARBY_BADGE_DISTANCE_KM) || 8
+  // when unset or invalid — see `parseNearbyBadgeThreshold`. Documented in the
+  // repo-root `.env.example`.
+  const nearbyBadgeThreshold = parseNearbyBadgeThreshold(
+    process.env.NEXT_PUBLIC_NEARBY_BADGE_DISTANCE_KM
+  )
   const aiFilter = useAIFilter()
   const [q, setQ] = useQueryState('q', parseAsString.withDefault(''))
   const [types] = useQueryState('types', parseAsArrayOf(parseAsString).withDefault([]))

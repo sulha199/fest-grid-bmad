@@ -20,6 +20,47 @@ async function loadHook() {
 
 const mockCapture = vi.fn()
 
+type TestPermissionState = 'granted' | 'denied' | 'prompt'
+
+/**
+ * Stubs `navigator.permissions` with a shared, mutable `PermissionStatus`-like
+ * object, so a test can (a) drive a real `change` notification instead of only
+ * the one-shot initial query result and (b) hold the initial query open to
+ * assert the pre-resolution render state.
+ */
+function stubPermissionApi(state: TestPermissionState, options: { deferQuery?: boolean } = {}) {
+  const listeners = new Set<() => void>()
+  const status = {
+    state,
+    addEventListener: (_type: string, listener: () => void) => {
+      listeners.add(listener)
+    },
+    removeEventListener: (_type: string, listener: () => void) => {
+      listeners.delete(listener)
+    },
+  }
+  const pending: Array<(value: typeof status) => void> = []
+  const query = vi.fn(() =>
+    options.deferQuery
+      ? new Promise<typeof status>((resolve) => {
+          pending.push(resolve)
+        })
+      : Promise.resolve(status)
+  )
+
+  vi.stubGlobal('navigator', { geolocation: {}, permissions: { query } })
+
+  return {
+    query,
+    status,
+    pending,
+    notifyChange: (next: TestPermissionState) => {
+      status.state = next
+      listeners.forEach((listener) => listener())
+    },
+  }
+}
+
 describe('useViewerLocation (Story 0.39 AC2-AC5, AC9, AC10)', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -216,6 +257,118 @@ describe('useViewerLocation (Story 0.39 AC2-AC5, AC9, AC10)', () => {
       const { result: result2 } = renderHook(() => useViewerLocationAgain())
       await waitFor(() => expect(result2.current.permissionStatus).toBe('prompt'))
       expect(result2.current.canShowAmbientAsk).toBe(false)
+    })
+  })
+
+  // Story 1.i1f review findings 1, 3, 4, 5, 6 — the post-review patch pass.
+  describe('post-review patches (findings 1, 3, 4, 5, 6)', () => {
+    it('clears the cached coordinate when the browser later reports permission denied (finding 1)', async () => {
+      const permission = stubPermissionApi('granted')
+      mockCapture.mockResolvedValue({ latitude: 4, longitude: 5 })
+
+      const useViewerLocation = await loadHook()
+      const { result } = renderHook(() => useViewerLocation())
+
+      await waitFor(() => expect(result.current.coordinate).toEqual({ latitude: 4, longitude: 5 }))
+
+      await act(async () => {
+        permission.notifyChange('denied')
+      })
+
+      await waitFor(() => expect(result.current.permissionStatus).toBe('denied'))
+      expect(result.current.coordinate).toBeNull()
+    })
+
+    it('keeps the permission-change subscription alive after the first consumer unmounts (finding 3)', async () => {
+      const permission = stubPermissionApi('prompt')
+      mockCapture.mockResolvedValue({ latitude: 1, longitude: 1 })
+
+      const useViewerLocation = await loadHook()
+      const first = renderHook(() => useViewerLocation())
+      await waitFor(() => expect(first.result.current.permissionStatus).toBe('prompt'))
+
+      first.unmount()
+
+      await act(async () => {
+        permission.notifyChange('granted')
+      })
+
+      const second = renderHook(() => useViewerLocation())
+      await waitFor(() => expect(second.result.current.permissionStatus).toBe('granted'))
+    })
+
+    it('shares one in-flight geolocation capture between concurrent ambient callers (finding 4)', async () => {
+      stubPermissionApi('granted')
+      const resolvers: Array<(value: { latitude: number; longitude: number }) => void> = []
+      mockCapture.mockImplementation(() => new Promise((resolve) => resolvers.push(resolve)))
+
+      const useViewerLocation = await loadHook()
+      const first = renderHook(() => useViewerLocation())
+      const second = renderHook(() => useViewerLocation())
+
+      await waitFor(() => expect(first.result.current.permissionStatus).toBe('granted'))
+      expect(second.result.current.permissionStatus).toBe('granted')
+      // AC3's silent self-capture already started the one real getCurrentPosition.
+      expect(mockCapture).toHaveBeenCalledTimes(1)
+
+      const [firstCoord, secondCoord] = await act(async () => {
+        const p1 = first.result.current.captureAmbient()
+        const p2 = second.result.current.captureAmbient()
+        resolvers.forEach((resolve) => resolve({ latitude: 7, longitude: 8 }))
+        return Promise.all([p1, p2])
+      })
+
+      expect(mockCapture).toHaveBeenCalledTimes(1)
+      expect(firstCoord).toEqual({ latitude: 7, longitude: 8 })
+      expect(secondCoord).toEqual({ latitude: 7, longitude: 8 })
+    })
+
+    it('withholds ambient-ask eligibility until the permission status has actually resolved (finding 5)', async () => {
+      const permission = stubPermissionApi('prompt', { deferQuery: true })
+
+      const useViewerLocation = await loadHook()
+      const { result } = renderHook(() => useViewerLocation())
+
+      // SSR-equivalent first render: the browser's answer is still unknown, so
+      // nothing may claim eligibility yet.
+      expect(result.current.permissionStatus).toBe('prompt')
+      expect(result.current.canShowAmbientAsk).toBe(false)
+
+      await act(async () => {
+        permission.pending.splice(0).forEach((resolve) => resolve(permission.status))
+      })
+
+      await waitFor(() => expect(result.current.canShowAmbientAsk).toBe(true))
+    })
+
+    it('dismissPermanently() re-renders the calling hook instance so eligibility updates immediately (finding 6)', async () => {
+      stubPermissionApi('prompt')
+
+      const useViewerLocation = await loadHook()
+      const { result } = renderHook(() => useViewerLocation())
+      await waitFor(() => expect(result.current.canShowAmbientAsk).toBe(true))
+
+      act(() => {
+        result.current.dismissPermanently()
+      })
+
+      // No Zustand update happens in between — this instance's own render must
+      // reflect the persisted dismissal.
+      expect(result.current.canShowAmbientAsk).toBe(false)
+    })
+
+    it('remindLater() re-renders the calling hook instance so eligibility updates immediately (finding 6)', async () => {
+      stubPermissionApi('prompt')
+
+      const useViewerLocation = await loadHook()
+      const { result } = renderHook(() => useViewerLocation())
+      await waitFor(() => expect(result.current.canShowAmbientAsk).toBe(true))
+
+      act(() => {
+        result.current.remindLater()
+      })
+
+      expect(result.current.canShowAmbientAsk).toBe(false)
     })
   })
 })
