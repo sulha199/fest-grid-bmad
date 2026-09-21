@@ -127,14 +127,47 @@ export function useNearbyFilter() {
     };
   }, [session, nearby, nearbyRadiusKm, coordinate]);
 
+  // Story 1.i1f review finding FIND-045 — the saved-location lookup is shared by
+  // `activeFilterCoord` and `isActiveFilterCoordPending` so the two can never disagree about
+  // which location counts as "the active one".
+  const activeSavedLocation = useMemo(() => {
+    if (nearby === "off" || !nearby || nearby === "current") return undefined;
+    return savedLocations.find((l) => l.id === nearby);
+  }, [nearby, savedLocations]);
+
   const activeFilterCoord = useMemo(() => {
     if (nearby === "off" || !nearby || nearby === "current") return coordinate ?? undefined;
-    const loc = savedLocations.find(l => l.id === nearby);
+    const loc = activeSavedLocation;
     if (loc?.latitude != null && loc?.longitude != null) {
       return { latitude: loc.latitude, longitude: loc.longitude };
     }
     return undefined;
-  }, [nearby, coordinate, savedLocations]);
+  }, [nearby, coordinate, activeSavedLocation]);
+
+  /**
+   * Story 1.i1f review finding FIND-045 — distinguishes "the coordinate is not known yet"
+   * from "confirmed absent". `activeFilterCoord` is `undefined` in both cases (the distance
+   * badge is correctly omitted either way), so this flag is the only way a consumer can tell
+   * them apart.
+   *
+   * True only while a saved-location filter is selected AND its coordinate is still
+   * unresolvable because the `getMyLocations` query that carries it is in flight — the
+   * transient window a hard load of a deep link (`?nearby=loc-1`) opens. It flips to `false`
+   * as soon as the query settles: a location with a coordinate resolves `activeFilterCoord`
+   * instead, and one genuinely without a coordinate (or one that no longer exists) is
+   * confirmed absent. An anonymous viewer never runs this query at all (`enabled: !!session`,
+   * so React Query v5's `isLoading` stays `false`) and has no filter UI either (AC7), so the
+   * flag stays `false` there too.
+   *
+   * Always `false` in `off`/`current` mode — both read `useViewerLocation().coordinate`, which
+   * never depends on this query.
+   */
+  const isActiveFilterCoordPending =
+    nearby != null &&
+    nearby !== "off" &&
+    nearby !== "current" &&
+    isLoadingLocations &&
+    (activeSavedLocation?.latitude == null || activeSavedLocation?.longitude == null);
 
   return {
     isAuthenticated: !!session,
@@ -149,5 +182,6 @@ export function useNearbyFilter() {
     onRadiusChange: handleRadiusChange,
     resolvedFilter,
     activeFilterCoord,
+    isActiveFilterCoordPending,
   };
 }

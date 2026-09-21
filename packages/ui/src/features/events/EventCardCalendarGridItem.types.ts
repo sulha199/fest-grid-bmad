@@ -24,8 +24,16 @@ export interface EventCardCalendarGridItemProps {
   favoriteCount?: number;
   /** Must be provided to render the favorite control (mirrors `EventCard`'s own convention). */
   onFavoriteToggle?: MouseEventHandler<HTMLButtonElement>;
-  /** Caller-computed distance in kilometers from the viewer to this schedule's location. A "Nearby" badge renders only when this is non-null and < 8. */
+  /** Caller-computed distance in kilometers from the viewer to this schedule's location. A "Nearby" badge renders only when this is non-null and below `nearbyBadgeThreshold` (default `8`). */
   distanceKm?: number | null;
+  /**
+   * Distance threshold (km) below which the nearby badge renders. Defaults to `8`
+   * (`DESIGN.md` § `event_card_nearby_badge` — the corrected `< 8`km gate), forwarded verbatim
+   * to the shared `EventCardNearbyBadge`; mirrors `EventCardProps.nearbyBadgeThreshold` so a
+   * caller-supplied override (`NEXT_PUBLIC_NEARBY_BADGE_DISTANCE_KM`) reaches every card
+   * surface the same way. Story 1.i1f review finding FIND-045.
+   */
+  nearbyBadgeThreshold?: number;
   labels?: EventCardFavoriteBadgeLabels & {
     /** Accessible/visible text for the nearby badge. Defaults to "Nearby". */
     nearbyBadge?: string;

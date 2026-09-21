@@ -10,10 +10,10 @@
  * single-day/overflow-dialog surface is deferred to Stories 1.i1g/1.i1h.
  *
  * @see EventCardMediaPrimitives.tsx — reused `EventCardFavoriteBadge` (large scale)
+ *   and `EventCardNearbyBadge` (the shared, self-gating `< thresholdKm` badge)
  */
 import React, { useState } from 'react';
-import { Navigation } from 'lucide-react';
-import { EventCardFavoriteBadge } from './EventCardMediaPrimitives';
+import { EventCardFavoriteBadge, EventCardNearbyBadge } from './EventCardMediaPrimitives';
 import type { EventCardCalendarGridItemProps } from './EventCardCalendarGridItem.types';
 
 export function EventCardCalendarGridItem({
@@ -26,6 +26,7 @@ export function EventCardCalendarGridItem({
   favoriteCount,
   onFavoriteToggle,
   distanceKm,
+  nearbyBadgeThreshold = 8,
   labels = {},
 }: EventCardCalendarGridItemProps) {
   const defaultLabels = {
@@ -42,9 +43,6 @@ export function EventCardCalendarGridItem({
   // schedule with a non-errored image attempts the with-image composition.
   const showImage = isMultiDay && !!imageUrl && !imgError;
 
-  // AC15/DESIGN.md event_card_nearby_badge — <8km gated, omitted entirely otherwise.
-  const showNearbyBadge = distanceKm != null && distanceKm < 8;
-
   const favoriteBadge = (
     <EventCardFavoriteBadge
       scale="large"
@@ -55,11 +53,18 @@ export function EventCardCalendarGridItem({
     />
   );
 
-  const nearbyBadge = showNearbyBadge && (
-    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground">
-      <Navigation className="w-3 h-3" />
-      {defaultLabels.nearbyBadge}
-    </span>
+  // AC15/DESIGN.md event_card_nearby_badge — the shared, self-gating `EventCardNearbyBadge`
+  // (Story 1.i1i AC1/AC2) owns the `< thresholdKm` gate, the badge markup, and the
+  // "omit entirely otherwise" behaviour, so this card only forwards the caller's distance and
+  // threshold and never re-derives a `showNearbyBadge` boolean of its own (Architecture Spine
+  // AD-24 Rule 2). Replaced 1.i1f's hand-rolled badge JSX — Story 1.i1f review finding
+  // FIND-045, resolved once 1.i1i's shared primitive landed.
+  const nearbyBadge = (
+    <EventCardNearbyBadge
+      distanceKm={distanceKm}
+      thresholdKm={nearbyBadgeThreshold}
+      labels={defaultLabels}
+    />
   );
 
   if (showImage) {

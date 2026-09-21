@@ -138,43 +138,23 @@ vi.mock('@/lib/hooks/useViewerLocation', () => ({
   }),
 }));
 
-// Mock getMyLocations react-query hook to avoid MSW/network issues
+// Mock getMyLocations react-query hook to avoid MSW/network issues.
+// Story 1.i1f review finding FIND-045 — `mockLocationsQueryResult` lets an individual test model
+// the query's in-flight window (`isLoading: true`, no data), which is exactly the state
+// `isActiveFilterCoordPending` exists to describe. `null` means "the default resolved fixture".
+let mockLocationsQueryResult: { data?: any; isLoading: boolean } | null = null;
+
 vi.mock('@/generated/graphql', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/generated/graphql')>();
   return {
     ...actual,
-    useGetMyLocationsQuery: () => ({
-      data: {
-        myLocations: [
-          {
-            id: 'loc-1',
-            name: 'Home Base',
-            radius: 10000,
-            createdAt: '2026-08-01T00:00:00Z',
-            updatedAt: '2026-08-01T00:00:00Z',
-            locationDetails: {
-              formattedAddress: 'Jakarta, Indonesia',
-              placeName: 'Jakarta',
-              coordinates: { lat: -6.2, lng: 106.8 }
-            }
-          },
-          {
-            id: 'loc-no-coords',
-            name: 'No Coords',
-            radius: 5000,
-            createdAt: '2026-08-02T00:00:00Z',
-            updatedAt: '2026-08-02T00:00:00Z',
-            locationDetails: {
-              formattedAddress: 'Unknown',
-              placeName: 'Unknown',
-              coordinates: null
-            }
-          }
-        ]
+    useGetMyLocationsQuery: () =>
+      mockLocationsQueryResult ?? {
+        // Reuses the same fixture the `getMyLocations` MSW handler below returns.
+        data: { myLocations: mockLocations },
+        isLoading: false,
+        isError: false,
       },
-      isLoading: false,
-      isError: false,
-    }),
   };
 });
 
@@ -272,6 +252,7 @@ afterEach(() => {
   mockSession = { user: { email: 'test@example.com' } };
   sessionStorage.clear();
   mockCoordinate = null;
+  mockLocationsQueryResult = null;
   mockCaptureExplicit.mockClear();
   if ((global as any).__resetNuqsStore) {
     (global as any).__resetNuqsStore();
@@ -473,6 +454,8 @@ describe('useNearbyFilter (AC10-11)', () => {
     });
 
     expect(result.current.activeFilterCoord).toBeUndefined();
+    // FIND-045 — `off` reads the shared viewer coordinate, never this query.
+    expect(result.current.isActiveFilterCoordPending).toBe(false);
   });
 
   it('saved-location mode returns that location coordinate', async () => {
@@ -488,6 +471,7 @@ describe('useNearbyFilter (AC10-11)', () => {
     });
 
     expect(result.current.activeFilterCoord).toEqual({ latitude: -6.2, longitude: 106.8 });
+    expect(result.current.isActiveFilterCoordPending).toBe(false);
   });
 
   it('current-location mode reads the shared coordinate via captureExplicit', async () => {
@@ -501,6 +485,8 @@ describe('useNearbyFilter (AC10-11)', () => {
 
     expect(mockCaptureExplicit).toHaveBeenCalledTimes(1);
     expect(result.current.activeFilterCoord).toEqual({ latitude: 1.23, longitude: 4.56 });
+    // FIND-045 — `current` reads the shared viewer coordinate, never this query.
+    expect(result.current.isActiveFilterCoordPending).toBe(false);
   });
 
   it('saved location with no coordinate returns undefined gracefully', async () => {
@@ -515,6 +501,54 @@ describe('useNearbyFilter (AC10-11)', () => {
     });
 
     expect(result.current.activeFilterCoord).toBeUndefined();
+    // FIND-045 — the query has settled and this location genuinely has no coordinate:
+    // "confirmed absent", which must NOT be reported as pending.
+    expect(result.current.isActiveFilterCoordPending).toBe(false);
+  });
+
+  it('distinguishes an in-flight saved location from a confirmed-absent one (FIND-045)', async () => {
+    // The transient window: a deep link to `?nearby=loc-1` hard-loading before
+    // `getMyLocations` has returned, so the coordinate is genuinely not known yet.
+    mockLocationsQueryResult = { data: undefined, isLoading: true };
+
+    const { result, rerender } = renderHook(() => useNearbyFilter(), { wrapper: Wrapper });
+
+    await act(async () => {
+      await result.current.onSelectLocation('loc-1');
+    });
+
+    expect(result.current.activeFilterCoord).toBeUndefined();
+    expect(result.current.isActiveFilterCoordPending).toBe(true);
+
+    // Same selection once the query settles — the coordinate resolves and the flag clears.
+    mockLocationsQueryResult = null;
+    await act(async () => {
+      rerender();
+    });
+
+    expect(result.current.isActiveFilterCoordPending).toBe(false);
+    expect(result.current.activeFilterCoord).toEqual({ latitude: -6.2, longitude: 106.8 });
+  });
+
+  it('stays pending for a deep-linked saved location that resolves to no coordinate (FIND-045)', async () => {
+    // Still in flight, and this id is not even in the (empty) loading payload yet — the
+    // hook must not claim "confirmed absent" before the query has answered.
+    mockLocationsQueryResult = { data: undefined, isLoading: true };
+
+    const { result, rerender } = renderHook(() => useNearbyFilter(), { wrapper: Wrapper });
+
+    await act(async () => {
+      await result.current.onSelectLocation('loc-no-coords');
+    });
+    expect(result.current.isActiveFilterCoordPending).toBe(true);
+
+    mockLocationsQueryResult = null;
+    await act(async () => {
+      rerender();
+    });
+
+    expect(result.current.activeFilterCoord).toBeUndefined();
+    expect(result.current.isActiveFilterCoordPending).toBe(false);
   });
 });
 

@@ -91,7 +91,7 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
     });
   });
 
-  describe('Nearby badge (<8km gate, shared with both compositions)', () => {
+  describe('Nearby badge (`< nearbyBadgeThreshold` gate, shared with both compositions)', () => {
     it('renders the badge just under 8km and omits it at/past the boundary', () => {
       const { rerender } = render(
         <EventCardCalendarGridItem {...defaultProps} distanceKm={7.99} />
@@ -100,6 +100,26 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
 
       rerender(<EventCardCalendarGridItem {...defaultProps} distanceKm={8} />);
       expect(screen.queryByText('Nearby')).not.toBeInTheDocument();
+    });
+
+    it('delegates to the shared EventCardNearbyBadge primitive (no hand-rolled badge JSX)', () => {
+      const { container } = render(
+        <EventCardCalendarGridItem {...defaultProps} distanceKm={7.99} />
+      );
+      expect(container.querySelector('[data-event-card-nearby-badge]')).not.toBeNull();
+    });
+
+    it('respects a caller-supplied nearbyBadgeThreshold override (finding FIND-045)', () => {
+      const { container, rerender } = render(
+        <EventCardCalendarGridItem {...defaultProps} distanceKm={3} nearbyBadgeThreshold={2} />
+      );
+      expect(screen.queryByText('Nearby')).not.toBeInTheDocument();
+      expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+
+      rerender(
+        <EventCardCalendarGridItem {...defaultProps} distanceKm={3} nearbyBadgeThreshold={4} />
+      );
+      expect(screen.getByText('Nearby')).toBeInTheDocument();
     });
 
     it('omits the badge when distanceKm is null or undefined', () => {
