@@ -426,6 +426,7 @@ This file tracks work deferred from development stories, code reviews, and plann
 - source_spec: `_bmad-output/implementation-artifacts/spec-fix-eventcard-favorite-badge-clipping.md`
   summary: No lint rule, code convention check, or test guards against a future dynamically-interpolated Tailwind arbitrary-value class (e.g. `` `w-[${expr}]` ``) being reintroduced anywhere in the `event-card-media-tokens.ts`/`EventCardMediaPrimitives.tsx` file family — the exact root cause of the dead-CSS bug this spec fixed.
   evidence: Surfaced by Blind Hunter adversarial review. A structural guard (a custom ESLint rule flagging template-literal-interpolated Tailwind arbitrary-value classes, or a build-time check) is a tooling investment beyond this bugfix's scope, not a code change to this file family itself.
+  **RESOLVED, 2026-09-21 (Story 1.i1k):** a package-local ESLint rule (`local/no-dynamic-tailwind-arbitrary-value`, `packages/ui/eslint-rules/no-dynamic-tailwind-arbitrary-value.mjs`) now guards exactly this pattern, wired via `packages/ui`'s new, narrowly-scoped `eslint.config.mjs`/`lint` script (`files: ['src/features/events/**/*.{ts,tsx}']`) and running in CI. Verified via a dedicated `RuleTester`-based test (`no-dynamic-tailwind-arbitrary-value.test.ts`) that it fires on the historical bug pattern and does not fire on this file family's legitimate template-literal usages.
 
 ## Deferred from: code review of 2-7-automatically-hide-past-events (2026-09-14)
 

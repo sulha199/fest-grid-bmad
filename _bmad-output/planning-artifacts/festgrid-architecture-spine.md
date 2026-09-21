@@ -429,12 +429,20 @@ This document defines the core architectural invariants for the FestDaily applic
           `WeeklyCalendarView.test.tsx`'s `renders the reserved-blank fallback with a large centered favorite badge when imageUrl is absent (AC2)`
           and `switches to the reserved-blank fallback when the image onError fires (AC2)`.
     3.  **One shared icon-scale token family, CSS-custom-property driven.** Both badge scales derive their
-        icon size from a single exported ratio family keyed off the date box's `text-xs` (12px) via
-        `calc(var(--event-card-badge-font-size,0.75rem) * <ratio>)` — the mechanism that works because the
-        date box and badge are DOM *siblings* (plain `em` inheritance only flows down a subtree). `large`
-        is calibrated to DESIGN.md's explicit 24px target (ratio 2); `default` is a distinct smaller ratio
-        (5/3 → 20px, matching EventCard's current corner heart so 1.i1b reads as a proportion fix). No
-        consumer computes pixels; nothing hardcodes a fixed pixel `w-*`/`h-*` class on either variant.
+        icon size from a single exported ratio family via `calc(var(--event-card-badge-font-size,0.75rem) *
+        <ratio>)` — the mechanism that works because the date box and badge are DOM *siblings* (plain `em`
+        inheritance only flows down a subtree). `large` is calibrated to DESIGN.md's explicit 24px target
+        (ratio 2); `default` is a distinct smaller ratio (5/3 → 20px, matching EventCard's current corner
+        heart so 1.i1b reads as a proportion fix). No consumer computes pixels; nothing hardcodes a fixed
+        pixel `w-*`/`h-*` class on either variant. **Recalibrated by Story 1.i1k:** the token is now
+        size-keyed (`EVENT_CARD_BADGE_FONT_SIZE_BY_SIZE`, `EventCardDateBoxSize = 'default' | 'compact'`) —
+        `default` → `1.125rem` (masonry's own `month`-line size), `compact` → `0.875rem` (the compact row's
+        own `month`-line size) — since `EventCardDateBox` moved from a single-line `text-xs` box to
+        DESIGN.md's two-tier stacked month/day chrome and no longer has one flat font-size to key off. The
+        flat `EVENT_CARD_BADGE_FONT_SIZE` (`0.75rem`) constant is unchanged and keeps its distinct,
+        narrower role as `eventCardBadgeIconSizeStyle`'s own inline `calc()` fallback for the untouched
+        standalone/`prominentPoster=true` corner-badge path, which renders outside any slot/date-box root
+        and never had a `size` variant.
         - **Enforced by:** the same test file's AC2 suite (ratio values + distinct computed sizes).
     4.  **The favorite badge is always one live control, at a real tap target.** Both scales render as a
         single focusable favorite-toggle `<button>` sharing one accessible name/role — never a decorative

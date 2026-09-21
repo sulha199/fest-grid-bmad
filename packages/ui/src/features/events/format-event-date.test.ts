@@ -8,8 +8,10 @@ import {
   formatEventTime,
   formatRelativeDayOrDate,
   formatShortEventDateTime,
+  formatShortEventDateTimeParts,
   formatEventStatus,
   computeCalendarSegmentTillText,
+  computeCalendarSegmentDateBoxContent,
 } from './format-event-date';
 
 // Fixed local reference instant used by formatEventStatus tests below, so every
@@ -301,6 +303,93 @@ describe('computeCalendarSegmentTillText (Story 1.i1d AC4)', () => {
     expect(
       computeCalendarSegmentTillText('en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', '21:00:00', 'bis')
     ).toBe('bis 9:00 PM');
+  });
+});
+
+describe('formatShortEventDateTimeParts (Story 1.i1k Task 1.2)', () => {
+  it('today WITH a startTime -> month empty, day = formatted time', () => {
+    const today = new Date();
+    const testDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 15, 45, 0);
+    const result = formatShortEventDateTimeParts('en-US', undefined, testDate, true);
+    expect(result).toEqual({ month: '', day: formatEventTime('en-US', undefined, testDate) });
+  });
+
+  it('today with NO startTime -> month empty, day = labels.today or Today', () => {
+    const today = new Date();
+    const testDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0);
+    expect(formatShortEventDateTimeParts('en-US', undefined, testDate, false)).toEqual({ month: '', day: 'Today' });
+    expect(
+      formatShortEventDateTimeParts('en-US', undefined, testDate, false, { today: 'Hari Ini' })
+    ).toEqual({ month: '', day: 'Hari Ini' });
+  });
+
+  it('tomorrow (dayDiff === 1) -> month empty, day = labels.tomorrow or Tomorrow', () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    expect(formatShortEventDateTimeParts('en-US', undefined, tomorrow, false)).toEqual({ month: '', day: 'Tomorrow' });
+  });
+
+  it('yesterday (dayDiff === -1) -> month empty, day = labels.yesterday or Yesterday', () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    expect(formatShortEventDateTimeParts('en-US', undefined, yesterday, false)).toEqual({ month: '', day: 'Yesterday' });
+  });
+
+  it('a real short date (3+ days out) -> month = short month abbrev, day = day number, no year', () => {
+    const future = new Date();
+    future.setDate(future.getDate() + 4);
+    future.setFullYear(new Date().getFullYear());
+    const expectedMonth = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(future);
+    const expectedDay = new Intl.DateTimeFormat('en-US', { day: 'numeric' }).format(future);
+    expect(formatShortEventDateTimeParts('en-US', undefined, future, false)).toEqual({
+      month: expectedMonth,
+      day: expectedDay,
+    });
+  });
+});
+
+describe('computeCalendarSegmentDateBoxContent (Story 1.i1k AC4)', () => {
+  it('continuing segment: shows the real effective-end-date month/day, tillLabel carries the bare till text', () => {
+    const result = computeCalendarSegmentDateBoxContent(
+      'en-US', undefined, '2026-08-05', '2026-08-05', '2026-08-07', '21:00:00', 'till'
+    );
+    expect(result).toEqual({ month: 'Aug', day: '7', tillLabel: 'till' });
+  });
+
+  it('last/only day with a known end time: month carries the till label text, day carries the formatted end time, tillLabel omitted', () => {
+    const result = computeCalendarSegmentDateBoxContent(
+      'en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', '21:00:00', 'till'
+    );
+    expect(result).toEqual({ month: 'till', day: '9:00 PM', tillLabel: undefined });
+  });
+
+  it('last/only day with an explicit end date but no end time: day is an empty string', () => {
+    const result = computeCalendarSegmentDateBoxContent(
+      'en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', null, 'till'
+    );
+    expect(result).toEqual({ month: 'till', day: '', tillLabel: undefined });
+  });
+
+  it('no end information at all (single-day): behaves like the last/only day, no time', () => {
+    const result = computeCalendarSegmentDateBoxContent(
+      'en-US', undefined, '2026-08-05', '2026-08-05', undefined, undefined, 'till'
+    );
+    expect(result).toEqual({ month: 'till', day: '', tillLabel: undefined });
+  });
+
+  it('never repeats the event\'s own start date in the last/only-day branch', () => {
+    const result = computeCalendarSegmentDateBoxContent(
+      'en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', '21:00:00', 'till'
+    );
+    expect(result.month).not.toContain('5');
+    expect(result.day).not.toContain('5');
+  });
+
+  it('honors a custom till label', () => {
+    const result = computeCalendarSegmentDateBoxContent(
+      'en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', '21:00:00', 'bis'
+    );
+    expect(result).toEqual({ month: 'bis', day: '9:00 PM', tillLabel: undefined });
   });
 });
 

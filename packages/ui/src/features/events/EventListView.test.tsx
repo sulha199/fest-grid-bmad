@@ -358,8 +358,12 @@ describe('EventListView', () => {
 
       // The fallback branch must display the earliest-start schedule (A: Jan 5),
       // never Schedule B (Feb 10) — proving the real selection reached the card.
-      expect(screen.getByText(/Jan 5/i)).toBeInTheDocument();
-      expect(screen.queryByText(/Feb 10/i)).not.toBeInTheDocument();
+      // Story 1.i1k: month/day now render as separate elements (the two-tier date box),
+      // so assert each part rather than a single concatenated "Jan 5" text node.
+      expect(screen.getByText('Jan')).toBeInTheDocument();
+      expect(screen.getByText('5')).toBeInTheDocument();
+      expect(screen.queryByText('Feb')).not.toBeInTheDocument();
+      expect(screen.queryByText('10')).not.toBeInTheDocument();
       expect(screen.getByText('All End Dates Passed')).toBeInTheDocument();
     });
 

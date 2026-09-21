@@ -311,6 +311,113 @@ export function formatShortEventDateTime(
   }
 }
 
+/** Mirrors `formatEventDate`/`formatWeekday`/`formatEventTime`'s own locale+timezone -> locale-only -> 'en-US' fallback pattern. */
+export function formatMonthAbbrev(locale: string, timezone: string | undefined, dateObj: Date): string {
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      month: 'short',
+      ...(timezone ? { timeZone: timezone } : {}),
+    }).format(dateObj);
+  } catch {
+    try {
+      return new Intl.DateTimeFormat(locale, { month: 'short' }).format(dateObj);
+    } catch {
+      return new Intl.DateTimeFormat('en-US', { month: 'short' }).format(dateObj);
+    }
+  }
+}
+
+/** Mirrors `formatEventDate`/`formatWeekday`/`formatEventTime`'s own locale+timezone -> locale-only -> 'en-US' fallback pattern. */
+export function formatDayNumber(locale: string, timezone: string | undefined, dateObj: Date): string {
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      day: 'numeric',
+      ...(timezone ? { timeZone: timezone } : {}),
+    }).format(dateObj);
+  } catch {
+    try {
+      return new Intl.DateTimeFormat(locale, { day: 'numeric' }).format(dateObj);
+    } catch {
+      return new Intl.DateTimeFormat('en-US', { day: 'numeric' }).format(dateObj);
+    }
+  }
+}
+
+/**
+ * Structured sibling of `formatShortEventDateTime` (which stays unchanged and is still used
+ * as-is by `EventDetailView.tsx`, out of this story's scope). Branches identically on
+ * `dayDiff`, but returns `{ month, day }` parts instead of one flat string — the two-tier
+ * `EventCardDateBox` chrome (Story 1.i1k) needs the month/day split, not a single node.
+ * Deliberately omits the 2-digit year `formatShortEventDateTime`'s own non-sameYear branch
+ * appends, matching DESIGN.md's own month/day-only example (an accepted minor simplification,
+ * not a bug — see Story 1.i1k Dev Notes Task 1.2).
+ */
+export function formatShortEventDateTimeParts(
+  locale: string,
+  timezone: string | undefined,
+  dateObj: Date,
+  hasTime: boolean,
+  labels?: { today?: string; tomorrow?: string; yesterday?: string }
+): { month: string; day: string } {
+  const dayDiff = getEventDayDiff(dateObj, timezone);
+
+  if (dayDiff === 0) {
+    return {
+      month: '',
+      day: hasTime ? formatEventTime(locale, timezone, dateObj) : (labels?.today ?? 'Today'),
+    };
+  } else if (dayDiff === 1) {
+    return { month: '', day: labels?.tomorrow ?? 'Tomorrow' };
+  } else if (dayDiff === -1) {
+    return { month: '', day: labels?.yesterday ?? 'Yesterday' };
+  }
+
+  return {
+    month: formatMonthAbbrev(locale, timezone, dateObj),
+    day: formatDayNumber(locale, timezone, dateObj),
+  };
+}
+
+/**
+ * Computes the WeeklyCalendarView list-variant date box's structured `month`/`day`/`tillLabel`
+ * content (Story 1.i1k AC4 — resolves DESIGN.md's own "deferred to the amendment story" open
+ * item). Unlike `computeCalendarSegmentTillText` (which stays unchanged/exported, still directly
+ * unit-tested, still used nowhere else), this function's branch conditions and return shape
+ * diverge from it — it must not call it internally:
+ *  - **Continuing segment** (`currentDayStr < effectiveEnd`): `month`/`day` show the segment's
+ *    real effective-end-date month/day (genuinely new information); `tillLabel` carries the bare
+ *    till label text.
+ *  - **Last/only day** (`currentDayStr >= effectiveEnd`): showing the effective end date here
+ *    would exactly repeat the start date the day-row header already shows (the "never repeats
+ *    the start date" regression guard) — instead `month` carries the till label text and `day`
+ *    carries the known end time (or an empty string when no time is known); `tillLabel` is
+ *    omitted (`undefined`) since it would duplicate the same text already shown via `month`/`day`.
+ */
+export function computeCalendarSegmentDateBoxContent(
+  locale: string,
+  timezone: string | undefined,
+  currentDayStr: string,
+  startDate: string,
+  endDate: string | null | undefined,
+  endTime: string | null | undefined,
+  tillLabel: string
+): { month: string; day: string; tillLabel: string | undefined } {
+  const effectiveEnd = endDate ?? startDate;
+
+  if (currentDayStr < effectiveEnd) {
+    const endDateTime = combineDateTime(effectiveEnd);
+    return {
+      month: formatMonthAbbrev(locale, timezone, endDateTime),
+      day: formatDayNumber(locale, timezone, endDateTime),
+      tillLabel,
+    };
+  }
+
+  // This is the segment's last/only day.
+  const day = endTime && effectiveEnd ? formatEventTime(locale, timezone, combineDateTime(effectiveEnd, endTime)) : '';
+  return { month: tillLabel, day, tillLabel: undefined };
+}
+
 /**
  * Computes the till/end text for the WeeklyCalendarView list-variant's date box
  * (Story 1.i1d AC4). Unlike `EventCard`'s own TILL badge, this is keyed off the

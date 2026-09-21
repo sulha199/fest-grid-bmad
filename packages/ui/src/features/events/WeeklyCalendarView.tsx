@@ -13,7 +13,7 @@ import { getWeekStart, getWeekEnd } from '../../hooks';
 import { EventCardMediaSlot, EventCardDateBox, EventCardStatusBadge, EventCardNearbyBadge } from './EventCardMediaPrimitives';
 import { EventCardCalendarGridItem } from './EventCardCalendarGridItem';
 import { CalendarOverflowDialog } from './CalendarOverflowDialog';
-import { computeCalendarSegmentTillText, formatEventStatus, type EventStatusLabels } from './format-event-date';
+import { computeCalendarSegmentDateBoxContent, formatEventStatus, type EventStatusLabels } from './format-event-date';
 
 // Design system styles from DESIGN.md
 const CALENDAR_BASE_CLASS = "border border-gray-200 rounded-lg";
@@ -1040,7 +1040,7 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   // schedule-click <button> (AC7, mirrors EventCard.tsx's article > button + RootTag).
   // The `variant === 'grid'` path below is deliberately untouched (AC8).
   if (variant === 'list') {
-    const tillText = computeCalendarSegmentTillText(
+    const dateBoxContent = computeCalendarSegmentDateBoxContent(
       locale,
       timezone,
       currentDayStr || '',
@@ -1077,7 +1077,12 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
             onFocus={handleFocus}
             onBlur={handleBlur}
           >
-            <EventCardDateBox>{tillText}</EventCardDateBox>
+            <EventCardDateBox
+              size="compact"
+              month={dateBoxContent.month}
+              day={dateBoxContent.day}
+              tillLabel={dateBoxContent.tillLabel}
+            />
             <span className="flex min-w-0 w-full flex-col text-left">
               <span className="flex items-center gap-1 w-full truncate text-left">
                 {schedule.isFavorited && (
@@ -1116,6 +1121,7 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
           </button>
           <EventCardMediaSlot
             layout="fixed-square"
+            size="compact"
             imageUrl={schedule.imageUrl}
             imageAlt={schedule.eventName}
             isFavorited={schedule.isFavorited}

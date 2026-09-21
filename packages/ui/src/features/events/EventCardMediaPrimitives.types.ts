@@ -1,4 +1,5 @@
 import type { MouseEventHandler, ReactNode } from 'react';
+import type { EventCardDateBoxSize } from './event-card-media-tokens';
 
 /**
  * Icon-scale variant for `EventCardFavoriteBadge`.
@@ -41,6 +42,14 @@ export interface EventCardMediaSlotProps {
   labels?: EventCardFavoriteBadgeLabels;
   /** Extra classes appended to the slot root (e.g. margin in a composed row). */
   className?: string;
+  /**
+   * Which badge-font-size custom-property value (AD-15, Story 1.i1k AC5) to declare on this
+   * slot's root — must match the sibling `EventCardDateBox`'s own `size` in the same
+   * composition, since the two communicate icon scale only via that one shared custom
+   * property. Defaults to `'default'` if omitted (least-surprise back-compat); both real call
+   * sites pass it explicitly.
+   */
+  size?: EventCardDateBoxSize;
   /**
    * When true, suppress the slot's own internal favorite badge in BOTH branches
    * (the image-present corner pill and the reserved-blank large fallback), so a
@@ -85,14 +94,22 @@ export interface EventCardFavoriteBadgeProps {
 }
 
 /**
- * Thin styled wrapper for the event-card date box. Intentionally takes `children`
- * (the caller's already-formatted date text/icon) — it does NOT reimplement any
- * date/locale formatting (that stays in `format-event-date.ts`). It is also the
- * concrete `text-xs` font-size source the icon-scale token (AC2) is calibrated against.
+ * Two-tier stacked month/day chrome for the event-card date box (Story 1.i1k, DESIGN.md
+ * `event_card_date_box.base_default` / `event_card_compact.date_box`). Takes structured,
+ * caller-already-formatted `month`/`day` slots (no date/locale formatting is reimplemented
+ * here — that stays in `format-event-date.ts`) plus an optional `tillLabel` slot rendered
+ * internally as the amber corner tag, so no caller hand-wraps a `<span>` with a duplicated
+ * literal class string.
  */
 export interface EventCardDateBoxProps {
-  /** The caller's already-formatted date content (text and/or a small icon). */
-  children: ReactNode;
+  /** Which token-specified size to render — `'default'` (masonry) or `'compact'` (compact row). Required: both real consumers must choose explicitly. */
+  size: EventCardDateBoxSize;
+  /** The caller's already-formatted month/weekday content (small uppercase line). */
+  month: ReactNode;
+  /** The caller's already-formatted day content (large bold line). */
+  day: ReactNode;
+  /** Optional amber corner tag content (e.g. "till"). Omitted entirely when not provided. */
+  tillLabel?: ReactNode;
   /** Extra classes appended to the date box root. */
   className?: string;
 }

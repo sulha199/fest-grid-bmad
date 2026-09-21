@@ -14,6 +14,7 @@ import {
   EVENT_CARD_BADGE_ICON_SCALE_DEFAULT,
   EVENT_CARD_BADGE_FONT_SIZE,
   EVENT_CARD_BADGE_FONT_SIZE_VAR,
+  EVENT_CARD_BADGE_FONT_SIZE_BY_SIZE,
   EVENT_CARD_BADGE_MIN_TOUCH_REM,
   eventCardBadgeIconSizeStyle,
 } from './event-card-media-tokens';
@@ -54,10 +55,17 @@ describe('EventCardMediaSlot - AC1 (dimensions come from the surrounding chrome,
     expect(cls).toContain('shrink-0');
   });
 
-  it('declares the shared badge-font-size custom property on the slot root', () => {
+  it('declares the size-keyed badge-font-size custom property on the slot root, defaulting to "default" when size is omitted', () => {
     const { container } = render(<EventCardMediaSlot layout="flex-fill" imageUrl="/a.jpg" />);
     expect(slotRoot(container).style.getPropertyValue('--event-card-badge-font-size')).toBe(
-      EVENT_CARD_BADGE_FONT_SIZE
+      EVENT_CARD_BADGE_FONT_SIZE_BY_SIZE.default
+    );
+  });
+
+  it('declares the "compact" size variant\'s badge-font-size value when size="compact" is passed', () => {
+    const { container } = render(<EventCardMediaSlot layout="fixed-square" size="compact" imageUrl="/a.jpg" />);
+    expect(slotRoot(container).style.getPropertyValue('--event-card-badge-font-size')).toBe(
+      EVENT_CARD_BADGE_FONT_SIZE_BY_SIZE.compact
     );
   });
 });
@@ -253,20 +261,54 @@ describe('EventCardMediaSlot additive props (Story 1.i1e)', () => {
   });
 });
 
-describe('EventCardDateBox', () => {
+describe('EventCardDateBox (Story 1.i1k two-tier month/day chrome)', () => {
   afterEach(() => cleanup());
 
-  it('renders the caller already-formatted children unchanged (no locale re-formatting)', () => {
-    render(<EventCardDateBox>12 Oct</EventCardDateBox>);
-    expect(screen.getByText('12 Oct')).toBeInTheDocument();
+  it('renders the caller already-formatted month/day content in their own dedicated slots', () => {
+    const { container } = render(<EventCardDateBox size="default" month="Oct" day="12" />);
+    expect(container.querySelector('[data-event-card-date-box-month]')).toHaveTextContent('Oct');
+    expect(container.querySelector('[data-event-card-date-box-day]')).toHaveTextContent('12');
   });
 
-  it('uses the text-xs shape and declares the badge-font-size source for the icon token', () => {
-    const { container } = render(<EventCardDateBox>12 Oct</EventCardDateBox>);
+  it.each(['default', 'compact'] as const)(
+    'declares the size-keyed badge-font-size value for size="%s" (AC5)',
+    (size) => {
+      const { container } = render(<EventCardDateBox size={size} month="Oct" day="12" />);
+      const box = container.querySelector('[data-event-card-date-box]') as HTMLElement;
+      expect(box).not.toBeNull();
+      expect(box.style.getPropertyValue('--event-card-badge-font-size')).toBe(
+        EVENT_CARD_BADGE_FONT_SIZE_BY_SIZE[size]
+      );
+    }
+  );
+
+  it('DESIGN.md AC1 default size classes: base_default padding/month/day literals', () => {
+    const { container } = render(<EventCardDateBox size="default" month="Oct" day="12" />);
     const box = container.querySelector('[data-event-card-date-box]') as HTMLElement;
-    expect(box).not.toBeNull();
-    expect(box.className).toContain('text-xs');
-    expect(box.style.getPropertyValue('--event-card-badge-font-size')).toBe(EVENT_CARD_BADGE_FONT_SIZE);
+    expect(box.className).toContain('px-4 py-3');
+    expect(box.className).toContain('bg-slate-800');
+    expect(container.querySelector('[data-event-card-date-box-month]')?.className).toContain('text-lg font-bold uppercase tracking-wide');
+    expect(container.querySelector('[data-event-card-date-box-day]')?.className).toContain('text-5xl font-extrabold leading-none');
+  });
+
+  it('DESIGN.md AC1 compact size classes: event_card_compact.date_box padding/month/day literals', () => {
+    const { container } = render(<EventCardDateBox size="compact" month="Oct" day="12" />);
+    const box = container.querySelector('[data-event-card-date-box]') as HTMLElement;
+    expect(box.className).toContain('px-3 py-2');
+    expect(box.className).toContain('bg-slate-800');
+    expect(container.querySelector('[data-event-card-date-box-month]')?.className).toContain('text-sm font-bold uppercase tracking-wide');
+    expect(container.querySelector('[data-event-card-date-box-day]')?.className).toContain('text-3xl font-extrabold leading-none');
+  });
+
+  it('renders the amber tillLabel corner tag when provided', () => {
+    const { container } = render(<EventCardDateBox size="default" month="Oct" day="12" tillLabel="till" />);
+    expect(container.querySelector('[data-event-card-date-box]')).toHaveTextContent('till');
+    expect(screen.getByText('till').className).toContain('bg-amber-700');
+  });
+
+  it('renders no amber tag element at all when tillLabel is omitted', () => {
+    const { container } = render(<EventCardDateBox size="default" month="Oct" day="12" />);
+    expect(container.querySelector('.bg-amber-700')).toBeNull();
   });
 });
 

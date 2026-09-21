@@ -76,3 +76,34 @@ export function eventCardBadgeIconSizeStyle(scale: 'default' | 'large'): CSSProp
  * a duplicated literal that can silently drift from the button's own class.
  */
 export const EVENT_CARD_BADGE_MIN_TOUCH_REM = 2.75;
+
+/**
+ * `EventCardDateBox`'s two size variants (Story 1.i1k AC1): `default` = masonry's
+ * `base_default`, `compact` = the compact row's `date_box`.
+ */
+export type EventCardDateBoxSize = 'default' | 'compact';
+
+/**
+ * Size-keyed recalibration of the badge-font-size token (AD-15, Story 1.i1k AC5), one
+ * value per `EventCardDateBoxSize` — each variant's own `month`-line font-size (the
+ * closest analog to the old single-line box's own font-size role, decided directly per
+ * this story's own Dev Notes "HIL decisions" #1). `EVENT_CARD_BADGE_FONT_SIZE` above
+ * (`0.75rem`) is unchanged and keeps its distinct role as `eventCardBadgeIconSizeStyle`'s
+ * own inline fallback for the untouched standalone/`prominentPoster=true` path.
+ */
+export const EVENT_CARD_BADGE_FONT_SIZE_BY_SIZE: Record<EventCardDateBoxSize, string> = {
+  default: '1.125rem',
+  compact: '0.875rem',
+};
+
+/**
+ * Returns the size-keyed badge-font-size custom property declaration, mirroring
+ * `eventCardBadgeIconSizeStyle`'s existing placement/export pattern. Declared on both
+ * `EventCardMediaSlot`'s and `EventCardDateBox`'s roots (DOM siblings that communicate
+ * icon scale only via this one shared custom property).
+ */
+export function badgeFontSizeStyleFor(size: EventCardDateBoxSize): CSSProperties {
+  return {
+    [EVENT_CARD_BADGE_FONT_SIZE_VAR]: EVENT_CARD_BADGE_FONT_SIZE_BY_SIZE[size],
+  } as CSSProperties;
+}

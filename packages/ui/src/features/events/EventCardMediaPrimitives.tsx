@@ -9,8 +9,9 @@
  *    present+ok) and the large centered favorite control (image absent/errored).
  *  - `EventCardFavoriteBadge` — the favorite heart+count control at either `default`
  *    (small corner pill) or `large` (borderless, centered in an empty slot) scale.
- *  - `EventCardDateBox` — thin styled wrapper for the date box; the concrete `text-xs`
- *    font-size source the icon-scale token (AD-15) is calibrated against.
+ *  - `EventCardDateBox` — the two-tier stacked month/day date box (Story 1.i1k), sized
+ *    `'default'`/`'compact'`; its own `month`-line font-size is the icon-scale token's
+ *    (AD-15) recalibration source per size variant.
  *  - `EventCardStatusBadge` / `EventCardNearbyBadge` — the status (`formatEventStatus`'s 8
  *    states, with `DESIGN.md`'s one `happeningNow` emerald exception) and `<8km`-gated
  *    nearby-distance badges (Story 1.i1i / AD-24). Unlike the primitives above, these two
@@ -26,10 +27,9 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, Navigation } from 'lucide-react';
 import {
-  EVENT_CARD_BADGE_FONT_SIZE,
-  EVENT_CARD_BADGE_FONT_SIZE_VAR,
   EVENT_CARD_BADGE_MIN_TOUCH_REM,
   eventCardBadgeIconSizeStyle,
+  badgeFontSizeStyleFor,
 } from './event-card-media-tokens';
 import type {
   EventCardMediaSlotProps,
@@ -39,10 +39,14 @@ import type {
   EventCardNearbyBadgeProps,
 } from './EventCardMediaPrimitives.types';
 
-/** Inline style declaring the shared badge-font-size custom property on a primitive root. */
-const badgeFontSizeStyle = {
-  [EVENT_CARD_BADGE_FONT_SIZE_VAR]: EVENT_CARD_BADGE_FONT_SIZE,
-} as React.CSSProperties & Record<string, string>;
+/**
+ * Shared amber corner-tag treatment (`DESIGN.md` § event_card_till_badge / § event_card_compact.date_box.till_label),
+ * used internally by `EventCardDateBox`'s `tillLabel` slot. Exported so `EventCard.tsx`'s one
+ * remaining un-migrated call site (the `prominentPoster=true` overlay's raw `<span>`) can
+ * consume the same literal instead of hand-duplicating it a 3rd time.
+ */
+export const EVENT_CARD_TILL_LABEL_CLASS =
+  'absolute -top-1.5 -left-1.5 z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white text-[10px] font-semibold leading-none shadow-sm whitespace-nowrap';
 
 /**
  * The image/fallback slot. Owns image-slot dimensions (from the surrounding chrome,
@@ -57,6 +61,7 @@ export function EventCardMediaSlot({
   onFavoriteToggle,
   labels,
   className = '',
+  size = 'default',
   hideFavoriteBadge = false,
   onImagePresenceChange,
 }: EventCardMediaSlotProps) {
@@ -77,7 +82,7 @@ export function EventCardMediaSlot({
   return (
     <div
       data-event-card-media-slot=""
-      style={badgeFontSizeStyle}
+      style={badgeFontSizeStyleFor(size)}
       className={`relative overflow-hidden rounded-md ${layoutClasses} ${className}`}
     >
       {imagePresent ? (
@@ -192,18 +197,31 @@ export function EventCardFavoriteBadge({
 }
 
 /**
- * Thin styled wrapper for the event-card date box. Takes already-formatted `children`
- * (no date/locale formatting is reimplemented here) and is the concrete `text-xs`
- * font-size source the icon-scale token keys off (`DESIGN.md` § event_card_date_box.base_default).
+ * Two-tier stacked month/day chrome for the event-card date box (Story 1.i1k). Takes
+ * structured, already-formatted `month`/`day` slots (no date/locale formatting is
+ * reimplemented here) plus an optional `tillLabel` slot rendered as the amber corner tag,
+ * and is the size-keyed font-size source the icon-scale token (AD-15) keys off
+ * (`DESIGN.md` § event_card_date_box.base_default / § event_card_compact.date_box).
  */
-export function EventCardDateBox({ children, className = '' }: EventCardDateBoxProps) {
+export function EventCardDateBox({ size, month, day, tillLabel, className = '' }: EventCardDateBoxProps) {
+  const paddingClasses = size === 'compact' ? 'px-3 py-2' : 'px-4 py-3';
+  const monthClasses = size === 'compact' ? 'text-sm font-bold uppercase tracking-wide' : 'text-lg font-bold uppercase tracking-wide';
+  const dayClasses = size === 'compact' ? 'text-3xl font-extrabold leading-none' : 'text-5xl font-extrabold leading-none';
+
   return (
     <span
-      style={badgeFontSizeStyle}
+      style={badgeFontSizeStyleFor(size)}
       data-event-card-date-box=""
-      className={`relative flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-800 text-white shadow-sm text-xs font-semibold shrink-0 ${className}`}
+      data-event-card-date-box-size={size}
+      className={`relative flex flex-col justify-center gap-0.5 ${paddingClasses} rounded-md bg-slate-800 text-white shadow-sm shrink-0 leading-none ${className}`}
     >
-      {children}
+      {tillLabel ? <span className={EVENT_CARD_TILL_LABEL_CLASS}>{tillLabel}</span> : null}
+      <span data-event-card-date-box-month="" className={monthClasses}>
+        {month}
+      </span>
+      <span data-event-card-date-box-day="" className={dayClasses}>
+        {day}
+      </span>
     </span>
   );
 }

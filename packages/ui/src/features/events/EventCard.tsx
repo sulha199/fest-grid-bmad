@@ -8,6 +8,7 @@ import {
   getEventDayDiff,
   formatRelativeDayOrDate,
   formatShortEventDateTime,
+  formatShortEventDateTimeParts,
   formatEventTime,
   formatEventStatus,
   combineDateTime,
@@ -24,17 +25,18 @@ import {
   EventCardFavoriteBadge,
   EventCardStatusBadge,
   EventCardNearbyBadge,
+  EVENT_CARD_TILL_LABEL_CLASS,
 } from './EventCardMediaPrimitives';
 
 /**
  * Shared TILL-badge treatment (Story 1.i1e, Task 3): the solid-amber, top-left-corner
  * tag anchored to whichever date-box container is present in either `prominentPoster`
- * state — `DESIGN.md` § event_card_till_badge.base. Shared via one constant (not
- * duplicated by hand) so both the `prominentPoster=true` overlay and the
- * `prominentPoster=false` `EventCardDateBox` composition can never drift apart.
+ * state — `DESIGN.md` § event_card_till_badge.base. Alias of `EventCardMediaPrimitives.tsx`'s
+ * exported `EVENT_CARD_TILL_LABEL_CLASS` (Story 1.i1k Task 2.7) so this file's one remaining
+ * raw-`<span>` call site (the `prominentPoster=true` overlay below) and `EventCardDateBox`'s
+ * own internal `tillLabel` slot can never drift apart.
  */
-const TILL_BADGE_CLASS =
-  'absolute -top-1.5 -left-1.5 z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white text-[10px] font-semibold leading-none shadow-sm whitespace-nowrap';
+const TILL_BADGE_CLASS = EVENT_CARD_TILL_LABEL_CLASS;
 
 /**
  * EventCard is a reusable, framework-agnostic presentation component for displaying
@@ -174,6 +176,12 @@ export function EventCard({
   const dateBoxText = dateIsValid
     ? formatShortEventDateTime(activeLocale, activeTimezone, dateObj, hasTime, defaultLabels)
     : '';
+  // Task 3.1 (Story 1.i1k) — a NEW, parallel computation consumed only by the
+  // `isMasonryDefault` branch below; `dateBoxText`/`formatShortEventDateTime` above stays
+  // computed unconditionally, still used as-is by the untouched non-masonry-default overlay.
+  const dateBoxParts = dateIsValid
+    ? formatShortEventDateTimeParts(activeLocale, activeTimezone, dateObj, hasTime, defaultLabels)
+    : { month: '', day: '' };
 
   const finalImageAlt = imageAlt || eventName;
 
@@ -310,16 +318,21 @@ export function EventCard({
         {isMasonryDefault ? (
           <div className="relative flex items-stretch gap-2">
             <div ref={dateBoxRef} className="shrink-0">
-              <EventCardDateBox>
-                {hasTime && dayDiff === 0 && <Clock className="w-3 h-3" />}
-                {dateBoxText}
-                {tillBadgeText && (
-                  <span className={TILL_BADGE_CLASS}>{tillBadgeText}</span>
-                )}
-              </EventCardDateBox>
+              <EventCardDateBox
+                size="default"
+                month={
+                  <>
+                    {hasTime && dayDiff === 0 && <Clock className="w-3 h-3" />}
+                    {dateBoxParts.month}
+                  </>
+                }
+                day={dateBoxParts.day}
+                tillLabel={tillBadgeText || undefined}
+              />
             </div>
             <EventCardMediaSlot
               layout="flex-fill"
+              size="default"
               imageUrl={imageUrl}
               imageAlt={finalImageAlt}
               hideFavoriteBadge

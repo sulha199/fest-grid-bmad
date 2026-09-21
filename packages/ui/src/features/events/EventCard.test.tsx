@@ -515,15 +515,16 @@ describe('EventCard', () => {
         expect(screen.getByText('Yesterday')).toBeInTheDocument();
       });
 
-      it('A date 3+ days in the future, SAME calendar year as today -> badge shows day+short-month only, no year, no time', () => {
+      it('A date 3+ days in the future, SAME calendar year as today -> badge shows short-month/day-number two-tier split, no year, no time', () => {
         const futureSameYear = new Date();
         futureSameYear.setDate(futureSameYear.getDate() + 3);
         const now = new Date();
         futureSameYear.setFullYear(now.getFullYear());
-        
-        const expectedPillText = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short' }).format(futureSameYear);
 
-        render(
+        const expectedMonth = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(futureSameYear);
+        const expectedDay = new Intl.DateTimeFormat('en-US', { day: 'numeric' }).format(futureSameYear);
+
+        const { container } = render(
           <EventCard
             eventName="Masonry Future Same Year"
             startDate={futureSameYear}
@@ -532,17 +533,19 @@ describe('EventCard', () => {
           />
         );
 
-        expect(screen.getByText(expectedPillText)).toBeInTheDocument();
+        expect(container.querySelector('[data-event-card-date-box-month]')).toHaveTextContent(expectedMonth);
+        expect(container.querySelector('[data-event-card-date-box-day]')).toHaveTextContent(expectedDay);
         expect(screen.queryByText(String(futureSameYear.getFullYear()))).not.toBeInTheDocument();
       });
 
-      it('A date in a DIFFERENT calendar year than today -> badge shows day+short-month+2-digit-year, no time', () => {
+      it('A date in a DIFFERENT calendar year than today -> badge shows short-month/day-number split, no year (Story 1.i1k accepted simplification, no time)', () => {
         const differentYearDate = new Date();
         differentYearDate.setFullYear(differentYearDate.getFullYear() + 2);
-        
-        const expectedPillText = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: '2-digit' }).format(differentYearDate);
 
-        render(
+        const expectedMonth = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(differentYearDate);
+        const expectedDay = new Intl.DateTimeFormat('en-US', { day: 'numeric' }).format(differentYearDate);
+
+        const { container } = render(
           <EventCard
             eventName="Masonry Different Year"
             startDate={differentYearDate}
@@ -551,7 +554,13 @@ describe('EventCard', () => {
           />
         );
 
-        expect(screen.getByText(expectedPillText)).toBeInTheDocument();
+        expect(container.querySelector('[data-event-card-date-box-month]')).toHaveTextContent(expectedMonth);
+        expect(container.querySelector('[data-event-card-date-box-day]')).toHaveTextContent(expectedDay);
+        // Story 1.i1k's formatShortEventDateTimeParts deliberately omits the 2-digit year
+        // formatShortEventDateTime's own non-sameYear branch appends (accepted simplification) --
+        // there is no comma-separated year suffix anywhere in the date box's content.
+        const dateBox = container.querySelector('[data-event-card-date-box]');
+        expect(dateBox?.textContent).not.toContain(',');
       });
     });
   });

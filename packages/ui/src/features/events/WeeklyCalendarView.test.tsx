@@ -1339,6 +1339,33 @@ describe('WeeklyCalendarView', () => {
       expect((dateBox as HTMLElement).textContent).not.toMatch(/[0-9]:[0-9]{2}/);
     });
 
+    it('shows the segment\'s real effective-end-date month/day on a continuing multi-day segment, with tillLabel as the amber tag (AC4)', () => {
+      const { container } = render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView
+            {...defaultProps}
+            schedules={[
+              {
+                id: 'md-2',
+                eventSlug: 'test',
+                eventName: 'Multi Day Event Continuing',
+                isMainSchedule: true,
+                eventStartDate: '2026-08-05',
+                eventEndDate: '2026-08-07',
+              }
+            ]}
+          />
+        </ScopedLocaleProvider>
+      );
+
+      // Day 05 (the segment's first, non-last day) is a "continuing" segment: month/day show
+      // the real effective-end-date (Aug 7) since it's genuinely new information not already
+      // shown by the day-row header.
+      expect(container.querySelector('[data-event-card-date-box-month]')).toHaveTextContent('Aug');
+      expect(container.querySelector('[data-event-card-date-box-day]')).toHaveTextContent('7');
+      expect(container.querySelector('.bg-amber-700')).toHaveTextContent('till');
+    });
+
     it('shows "till {time}" on the last day when an end time is known, and never the start date (AC4)', () => {
       const { container } = render(
         <ScopedLocaleProvider locale="en-US">
@@ -1361,7 +1388,10 @@ describe('WeeklyCalendarView', () => {
 
       const dateBox = container.querySelector('[data-event-card-date-box]') as HTMLElement;
       expect(dateBox).not.toBeNull();
-      expect(dateBox.textContent).toBe('till 9:00 PM');
+      // Story 1.i1k: month/day are now separate elements (last/only-day branch: month carries
+      // the till label text, day carries the formatted end time), not one flat text node.
+      expect(container.querySelector('[data-event-card-date-box-month]')).toHaveTextContent('till');
+      expect(container.querySelector('[data-event-card-date-box-day]')).toHaveTextContent('9:00 PM');
       // The date box never repeats the event's own start date text.
       expect(dateBox.textContent).not.toContain('Aug 5');
     });
