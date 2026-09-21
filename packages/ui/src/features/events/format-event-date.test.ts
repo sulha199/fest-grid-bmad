@@ -187,7 +187,7 @@ describe('format-event-date helpers', () => {
       const startDate = localDate(2026, 6, 13);
       const endDate = localDate(2026, 6, 17);
       expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, null)).toEqual({
-        text: 'Happening Now',
+        text: 'Now',
         isHappeningNow: true,
       });
     });

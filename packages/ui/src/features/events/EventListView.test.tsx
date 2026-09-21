@@ -425,7 +425,9 @@ describe('EventListView', () => {
       const durableCard = screen.getByText('Durable Poster').closest('article');
       const notDurableCard = screen.getByText('Not Durable').closest('article');
 
-      expect(durableCard?.querySelector('.aspect-\\[2\\/3\\]')).toBeInTheDocument();
+      // Story 1.i1l rule 2: the prominent poster's crop is `aspect-square`, not `aspect-[2/3]`.
+      expect(durableCard?.querySelector('.aspect-square')).toBeInTheDocument();
+      expect(durableCard?.querySelector('.aspect-\\[2\\/3\\]')).not.toBeInTheDocument();
       expect(durableCard?.querySelector('.aspect-\\[3\\/4\\]')).not.toBeInTheDocument();
 
       // prominentPoster=false now uses the top_row_default flex-fill thumbnail slot,

@@ -8,7 +8,7 @@ baseline_commit: c80cd9bdbe342e5e99346a51365cd0e0f4a3de19
 
 - Epic: 1.i1
 - Story ID: 1.i1l
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -205,14 +205,14 @@ Also carved, into **`FIND-046`** (child of `IDEA-046`): `prototypes/validation-l
 
 ## Pre-Coding Approval Gate
 
-- [ ] **Scope confirmed** — six rules (1-6 of `IDEA-046`); rule 7 is explicitly *not* here (Story 1.i1m).
-- [ ] **Gate 2 split accepted** — rule 7 carved to Story 1.i1m as a sibling. Story 1.i1m is **not** a prerequisite; this story can be implemented first.
-- [ ] **Carve-outs accepted** — the compact row's missing venue line and its favorite-pill stack reversal are tracked as `IDEA-048`, not built here; the validation-log fidelity gap is tracked as `FIND-046`.
-- [ ] **Shipped-AC amendment approved** — Story 1.i1i's `epics.md` AC quote changes from "Happening Now" to "Now" (AC8). This edits an already-shipped story's acceptance criterion.
-- [ ] **Architecture and boundary confirmed** — pure `packages/ui` presentational work; Gates 1/3 cited from `epic-1-i1-readiness.md`; the container query assessed as not a Gate 1 finding.
-- [ ] **AC7's mechanism is unverified** — neither container-query candidate has been proven to compile in this repo. Task 7.1 must settle it empirically **before** any font class is written. If neither works, stop and re-escalate rather than falling back to a viewport breakpoint, which the user explicitly did not choose.
-- [ ] **Testing plan confirmed** — six updated assertions, four new ones, plus the generated-CSS check.
-- [ ] **Human approval:** _pending_
+- [x] **Scope confirmed** — six rules (1-6 of `IDEA-046`); rule 7 is explicitly *not* here (Story 1.i1m).
+- [x] **Gate 2 split accepted** — rule 7 carved to Story 1.i1m as a sibling. Story 1.i1m is **not** a prerequisite; this story can be implemented first.
+- [x] **Carve-outs accepted** — the compact row's missing venue line and its favorite-pill stack reversal are tracked as `IDEA-048`, not built here; the validation-log fidelity gap is tracked as `FIND-046`.
+- [x] **Shipped-AC amendment approved** — Story 1.i1i's `epics.md` AC quote changes from "Happening Now" to "Now" (AC8). This edits an already-shipped story's acceptance criterion.
+- [x] **Architecture and boundary confirmed** — pure `packages/ui` presentational work; Gates 1/3 cited from `epic-1-i1-readiness.md`; the container query assessed as not a Gate 1 finding.
+- [x] **AC7's mechanism — RESOLVED 2026-09-21 (Task 7.1).** Candidate (a), the plugin-free Tailwind 3.4 arbitrary-variant form, compiles. No plugin was added and `apps/web/tailwind.config.ts` is untouched. Evidence is in the Debug Log below. Original gate text:  neither container-query candidate has been proven to compile in this repo. Task 7.1 must settle it empirically **before** any font class is written. If neither works, stop and re-escalate rather than falling back to a viewport breakpoint, which the user explicitly did not choose.
+- [x] **Testing plan confirmed** — six updated assertions, four new ones, plus the generated-CSS check.
+- [x] **Human approval:** granted 2026-09-21 — the two open scope questions were answered directly ("Keep both stage" → both font steps stay, keyed to the card's own width; "Do recommended" → the 11px floor applies to every badge on the three card families). Implementation authorised on branch `claude/project-thread-ij9lsl`.
 
 ## Testing Requirements
 
@@ -224,15 +224,15 @@ Also carved, into **`FIND-046`** (child of `IDEA-046`): `prototypes/validation-l
 
 ## Deliverables Checklist
 
-- [ ] Task 1 — context-keyed TILL class helper, all three consumers migrated
-- [ ] Task 2 — variant-gated 230px cap, overlay geometry re-checked
-- [ ] Task 3 — `aspect-square` + three assertions
-- [ ] Task 4 — "Now" across three defaults + three assertions + the `epics.md` amendment
-- [ ] Task 5 — pill positions and badge harmonization, implemented and validated in the stated order
-- [ ] Task 6 — compact-row title wrap including the parent `truncate` removal
-- [ ] Task 7 — container-query mechanism, empirically verified
-- [ ] Task 8 — six updated + four new assertions
-- [ ] Task 9 — full test / lint / typecheck, and the untouched-files diff check
+- [x] Task 1 — context-keyed TILL class helper, all three consumers migrated
+- [x] Task 2 — variant-gated 230px cap, overlay geometry re-checked
+- [x] Task 3 — `aspect-square` + three assertions
+- [x] Task 4 — "Now" across three defaults + three assertions + the `epics.md` amendment
+- [x] Task 5 — pill positions and badge harmonization, implemented and validated in the stated order
+- [x] Task 6 — compact-row title wrap including the parent `truncate` removal
+- [x] Task 7 — container-query mechanism, empirically verified
+- [x] Task 8 — six updated + four new assertions
+- [x] Task 9 — full test / lint / typecheck, and the untouched-files diff check
 
 ## Out of Scope
 
@@ -245,13 +245,13 @@ Also carved, into **`FIND-046`** (child of `IDEA-046`): `prototypes/validation-l
 
 ## Definition of Done
 
-- [ ] All eight ACs satisfied, each traceable to its DESIGN.md/EXPERIENCE.md token.
-- [ ] Full `packages/ui` test suite green; the six updated and four new assertions passing.
-- [ ] `lint` and `tsc --noEmit` clean for every touched package.
-- [ ] AC7's generated-CSS check passing — the `@container` rule is present in the built stylesheet, not merely in the source.
-- [ ] `git diff` confirms no out-of-scope file was modified.
-- [ ] `epics.md`'s Story 1.i1i AC amendment applied and dated.
-- [ ] Story 1.i1m exists in `epics.md` and `sprint-status.yaml`; `IDEA-048` and `FIND-046` exist in `backlog.yaml`.
+- [x] All eight ACs satisfied, each traceable to its DESIGN.md/EXPERIENCE.md token.
+- [x] Full `packages/ui` test suite green — 57 files / 652 tests, up from the 638 at this story's baseline. The updated assertions and the new ones all pass; the new count came in at 14 rather than the planned 4 (see Completion Notes).
+- [x] `lint` clean — `pnpm lint` at the repo root is 7/7 green and `packages/ui`'s own `eslint . --max-warnings 0` passes. **Qualified:** a bare `tsc --noEmit -p packages/ui/tsconfig.json` emits one `TS5101` (`baseUrl` deprecated in TypeScript 7.0). That is a pre-existing config deprecation in a file this story does not touch, not a type error in the change; the repo's real gates (`lint`, `build`) are both green.
+- [x] AC7's generated-CSS check passing — the `@container` rule is present in the built stylesheet, not merely in the source.
+- [x] `git diff` confirms no out-of-scope file was modified — 11 files, all under `packages/ui/src/features/events/`. `PostCard.tsx`, `EventCardCalendarGridItem.tsx` and `EventDetailView.tsx` are absent from the diff, and the `variant='grid'` block is untouched.
+- [x] `epics.md`'s Story 1.i1i AC amendment applied and dated.
+- [x] Story 1.i1m exists in `epics.md` and `sprint-status.yaml`; `IDEA-048` and `FIND-046` exist in `backlog.yaml`.
 
 ## Completion Status
 
@@ -261,16 +261,85 @@ Created 2026-09-21 via `bmad-create-story` from backlog row `IDEA-046` (renumber
 
 ### Agent Model Used
 
-_(to be filled by `bmad-dev-story`)_
+Claude Code, running the `bmad-dev-story` skill. Implemented 2026-09-21 in one continuous pass on branch `claude/project-thread-ij9lsl`, from baseline `c80cd9b`.
 
 ### Debug Log References
 
-_(to be filled by `bmad-dev-story`)_
+**Task 7.1 — the container-query mechanism, settled empirically (this was the story's one open risk).**
+
+Candidate (a), the plugin-free Tailwind 3.4 arbitrary-variant form, compiles and behaves correctly. No dependency was added; `apps/web/tailwind.config.ts` is untouched. Verified against the real `apps/web` production build output, not the source:
+
+| what | where in the bundle | value |
+| --- | --- | --- |
+| base step | `.text-xs` @ byte 29169 | `font-size:.75rem` (12px) |
+| stepped-up | `@container(min-width:200px){...text-sm}` @ byte 68942 | `font-size:.875rem` (14px) |
+| the container itself | `.[container-type:inline-size]` | `container-type:inline-size` |
+
+Both rules land in the same stylesheet (`apps/web/.next/static/css/0e5cfe86f4d4cd62.css`) with the `@container` block **after** the base rule in source order, so it wins by cascade position whenever it matches. This is the check AC7 demanded: a class Tailwind cannot parse emits nothing at all and would have looked correct in JSDOM.
+
+Chromium behaviour at the three widths that matter:
+
+- 175px container → 12px (below the query's threshold).
+- 230px container → 14px (rule 1's capped masonry width).
+- **No `container-type` ancestor at all → 12px.** This is the load-bearing case. It is what lets one shared token serve both families: the masonry card declares a container and gets the responsive pair, while the calendar compact row declares none and stays at a static 12px — comfortably above the 11px floor rule 5 sets.
+
+**Environment issues hit along the way (neither is a defect in this change):**
+
+1. First test run failed 11 files with `Failed to resolve import "@festgrid/domain/geolocation"`. `@festgrid/domain` publishes subpath exports out of `dist/`, which did not exist yet. Fixed by `pnpm --filter @festgrid/domain... build`.
+2. `pnpm build` failed in `apps/web` with `SELF_SIGNED_CERT_IN_CHAIN` while `next/font` fetched Inter from Google Fonts — the sandbox's egress proxy, not the diff. Re-running with `NODE_USE_ENV_PROXY=1 NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt` builds clean, and that build is what the AC7 evidence above was read from.
 
 ### Completion Notes List
 
-_(to be filled by `bmad-dev-story`)_
+**Corrections to the story's own predictions.** The story is a plan written before `node_modules` existed; three of its specifics were wrong and are recorded here rather than quietly fixed:
+
+1. **The updated-assertion count was 6; the real count is 8.** Two were unforeseen. The story missed a third consumer of the prominent-poster crop — `EventListView.test.tsx:428` selects on `.aspect-[2/3]`, and rule 2 changes what that selector matches, so it moved to `.aspect-square` too. And rule 4's TILL-offset change invalidated a shipped assertion the story did not list (see the next note). Final breakdown: `EventCard.test.tsx` 5, `EventListView.test.tsx` 1, `WeeklyCalendarView.test.tsx` 1, `format-event-date.test.ts` 1.
+2. **`EventCard.test.tsx` pins `-top-1.5` at two sites, not one.** Line 773 is the masonry-**default** TILL case and line 804 is the **prominentPoster** case. Only the second changes to `-top-3`; the first is exactly the `'default'` context rule 4 keeps at `-top-1.5`, so an unscoped replace would have destroyed the very distinction AC4 introduces. Caught by a test failure, not by reading.
+3. **The new-assertion count was 4; the real count is 14.** Splitting the planned four into their actual independent claims produced 6 in `EventCardMediaPrimitives.test.tsx` (shared font-size token, round-8 padding, count inherits, TILL offset by context, the 11px floor, and literal-string pinning), 4 in `EventCard.test.tsx` (the 230px cap and container declared on masonry only, skeleton parity so the cap causes no CLS on swap, `variant='standard'` keeping `top-3 right-3`, and both masonry pills moving to `top-5` together only when a TILL tag is present) and 4 in `WeeklyCalendarView.test.tsx` (the title wrap together with the parent-clip removal that would otherwise no-op it, icon alignment, the 11px badge floor, and the `variant='grid'` guard).
+
+**A JSDOM limit, and what the tests assert instead.** JSDOM does not evaluate container queries, so no unit test can sample a computed font size across the step. AC5's "favorite badge font-size >= TILL badge font-size at both widths" is therefore ratcheted **structurally**: both badges are asserted to resolve their size from the one shared `EVENT_CARD_BADGE_TEXT_SIZE_CLASS` token, and that token is asserted to be a complete literal string. Equal-by-construction is a stronger guarantee than two sampled numbers, and it cannot drift. The numeric side is covered by the build-level check in the Debug Log.
+
+**A test-fixture trap worth recording.** The first `variant='grid'` guard failed because its fixture was multi-day. On desktop a multi-day schedule renders as a *spanning bar* built from `EventCardCalendarGridItem` — a different component with its own title styling — so `getAllByText(...)[0]` never reached the day-cell title at `WeeklyCalendarView.tsx:1173` at all. The day-cell title is only reachable through a **single-day** schedule. The guard now uses one, with a comment saying why.
+
+**Task 2.3's silent-input check.** Rule 1's cap changes every value `dateBoxRef`/`dateBoxSize` measures, which feed the masonry-default overlay's `left: calc(${dateBoxSize.w}px + 0.5rem)` and `height: ${dateBoxSize.h}px`. No rule names this. The geometry is derived at runtime from the measured box rather than from the card width, so the cap moves the inputs without invalidating the formula, and the shipped overlay tests stay green.
+
+**Rule 5's ordering note was followed.** Positions (5.1-5.2) and sizes (5.3-5.5) landed together, not in separate passes — growing the pill to 14px moves the geometry the `top-5`/`-top-3` offsets were tuned against, so validating positions first would have validated the wrong thing.
+
+**Deliberately outside the 11px floor.** `WeeklyCalendarView.tsx:1192` and `:1360` are tooltip `<p>` text, not badges; `FilterHub.tsx:164` is not one of the three card families. None is touched.
 
 ### File List
 
-_(to be filled by `bmad-dev-story`)_
+**Source (6):**
+
+- `packages/ui/src/features/events/EventCardMediaPrimitives.tsx` — the frozen `EVENT_CARD_TILL_LABEL_CLASS` replaced by three exports: `eventCardTillLabelClass(context)`, the shared `EVENT_CARD_BADGE_TEXT_SIZE_CLASS` token and `EVENT_CARD_CONTAINER_CLASS`; favorite badge padding to `px-1.5 py-1`; the count span drops its hardcoded `text-xs`.
+- `packages/ui/src/features/events/EventCard.tsx` — rules 1-5: `isMasonry` hoisted to component scope, the 230px cap and container declaration on card root and skeleton, `aspect-square`, the TILL-conditional `top-2`/`top-5` on both pills with `left-2`/`right-2` and uniform `p-1`, and `statusHappeningNow: 'Now'`.
+- `packages/ui/src/features/events/WeeklyCalendarView.tsx` — rules 3, 5, 6: `'Now'`, the `multi-day-badge` to `text-[11px]`, and the compact-row title to `line-clamp-2` with the parent's `truncate` removed and `items-center` → `items-start`.
+- `packages/ui/src/features/events/format-event-date.ts` — `formatEventStatus`'s own `'Now'` fallback.
+- `packages/ui/src/features/events/EventCard.types.ts` — doc comment for the changed default.
+- `packages/ui/src/features/events/WeeklyCalendarView.types.ts` — same.
+
+**Tests (5):**
+
+- `packages/ui/src/features/events/EventCardMediaPrimitives.test.tsx` — 6 new.
+- `packages/ui/src/features/events/EventCard.test.tsx` — 5 updated, 4 new.
+- `packages/ui/src/features/events/WeeklyCalendarView.test.tsx` — 1 updated, 4 new.
+- `packages/ui/src/features/events/EventListView.test.tsx` — 1 updated (the third crop consumer the story missed).
+- `packages/ui/src/features/events/format-event-date.test.ts` — 1 updated.
+
+**Planning artifacts (4):**
+
+- `_bmad-output/implementation-artifacts/1-i1l-apply-the-six-unowned-prototype-fidelity-rules.md` — this story.
+- `_bmad-output/planning-artifacts/epics.md` — Stories 1.i1l and 1.i1m added; Story 1.i1i's shipped AC amended and dated (AC8).
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` — both new story keys.
+- `_bmad-output/implementation-artifacts/backlog.yaml` — `IDEA-046` promoted; `IDEA-048` and `FIND-046` added.
+
+## Change Log
+
+| Date | Change |
+| --- | --- |
+| 2026-09-21 | Story drafted by `bmad-create-story` from backlog row `IDEA-046` (renumbered from the requested `IDEA-043`). Gate 2 carved rule 7 into sibling Story 1.i1m. Status `ready-for-dev`. |
+| 2026-09-21 | Two scope questions answered by the user: both badge font steps kept and keyed to the card's own width; the 11px floor extended to every badge on the three card families. Pre-Coding Approval Gate cleared. |
+| 2026-09-21 | `bmad-dev-story`: Tasks 1-9 implemented. AC7's mechanism settled empirically in favour of the plugin-free arbitrary-variant form and verified in the built stylesheet. 8 assertions updated, 14 added. Suite 652/652, lint 7/7, `apps/web` build clean. Status `in-progress` → `review`. |
+
+## Status
+
+**review** — all eight ACs satisfied and every task complete. Verification actually run: `pnpm --filter @festgrid/ui test` (57 files / 652 tests green), `pnpm lint` at the repo root (7/7, warnings all pre-existing and none in `packages/ui`), `packages/ui`'s own `eslint . --max-warnings 0`, `pnpm build` (7/7 with the proxy CA set), the AC7 generated-CSS grep against `apps/web/.next/static/css/`, and the `git diff --stat` out-of-scope check. The one qualification is the pre-existing `TS5101` `baseUrl` deprecation in `packages/ui/tsconfig.json`, recorded in the Definition of Done above.
