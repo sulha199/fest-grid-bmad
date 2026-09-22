@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-21T15:20:55Z
+last_updated: 2026-09-22T04:09:13Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -320,6 +320,12 @@ development_status:
   # content). User confirmed the split via AskUserQuestion. Story 0.38 amended in place to
   # depend on this story. See epics.md Story 0.42 and Story 0.39's own Dev Notes.
   0-42-build-the-shared-ambient-capability-ask-banner-slot-primitive: review
+  # added 2026-09-22 via bmad-architecture AD-26 (IDEA-049): new packages/visual-audit
+  # tool. See festgrid-architecture-spine.md AD-26/AD-27.
+  0-43-visual-fidelity-audit-tool: ready-for-dev
+  # added 2026-09-22 via bmad-create-story Gate 3 finding (FIND-047) while drafting
+  # Story 0.43: no testing-standard tier exists for a meta-testing/tooling package.
+  0-44-define-testing-standard-for-meta-testing-tooling-packages: ready-for-dev
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.

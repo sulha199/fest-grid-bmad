@@ -2,7 +2,7 @@
 title: "Architecture Spine: FestDaily"
 status: "draft"
 created: "2026-07-20T09:34:00Z"
-updated: "2026-09-18T00:00:00Z"
+updated: "2026-09-22T00:00:00Z"
 ---
 
 # Architecture Spine: FestDaily
@@ -1137,6 +1137,133 @@ This document defines the core architectural invariants for the FestDaily applic
         independent meaning without their parent). `accountId` FK carries no `onDelete` override,
         mirroring `posts.accountId`/`subscriptions.accountId` exactly — `socialMediaAccountProfiles`
         rows are never deleted in this codebase, so no cascade path is needed.
+
+---
+
+### AD-26: Visual-Fidelity Audit Tool — Reference + Rule-Based, Isolated-Render-First
+
+*   **Binds:** A new workspace package, `packages/visual-audit`, and any future story whose
+    acceptance criteria depend on matching a design-reference prototype (the 7
+    `design-artifacts/UX-festgrid-run-1/prototypes/**/*.html` + `imports/**/*.png` pairs today,
+    and any added later) or a described-but-unprototyped visual invariant (e.g. AD-27's masonry
+    column behavior, which has no HTML/PNG reference at all). Triggered by this session's own
+    visual-fidelity audit of the event-card/calendar family, which had to improvise its method ad
+    hoc (isolated Playwright screenshots + manual `getBoundingClientRect` measurement) for lack of
+    reusable tooling, and which found a real production bug (`EventCardDateBox`'s day slot
+    overflowing on word/time content, e.g. "Tomorrow") that no existing test caught because no
+    prototype ever depicted that content variant.
+*   **Prevents:**
+    1.  **Ad-hoc, session-specific verification methods** that aren't reusable and leave no
+        artifact behind — the exact gap this session hit.
+    2.  **Content-variant blind spots.** A prototype/PNG is one frozen snapshot; a component's real
+        content space (e.g. a formatted date that can render as a number, "Today", "Tomorrow", or
+        a time string) is usually larger than what any one screenshot shows. A check that only
+        compares against the one depicted state can pass while a real, undepicted state overflows
+        in production.
+    3.  **False confidence from either signal alone.** Pixel-diff alone is noisy (font
+        rendering/anti-aliasing) and can't explain *why* two renders differ; computed-style
+        assertions alone can miss whatever no one thought to assert. Neither is sufficient by
+        itself.
+    4.  **A tool that only works when a golden HTML/PNG reference exists** — several real defects
+        (e.g. AD-27's masonry grid behavior) are only ever specified in prose, never prototyped.
+*   **Rule:**
+    1.  **Two audit modes, one check engine.** *Reference-based*: live render is compared against
+        a validated prototype HTML/PNG pair. *Rule-based*: an invariant with no golden reference
+        (e.g. "masonry columns share one width; cards within a column vary height independently")
+        is hand-encoded directly as an expected structural value. Both modes resolve to the same
+        underlying computed-style/DOM assertions — the only difference is where the expected value
+        comes from.
+    1a. **Render scope is per-manifest-entry, not fixed to "one instance."** Most entries mount a
+        single component instance (isolated-render, Rule 4) — that's what Rule 5's sibling-dimension
+        auto-clustering groups elements *within*. A manifest entry may instead declare a
+        **multi-instance** render (e.g. AD-27's masonry check mounts several cards to assert
+        cross-card column behavior) when the invariant is inherently about more than one instance.
+        Rule 5's auto-clustering then groups across whatever the manifest actually rendered — never
+        silently assumed to be single- or multi-instance by the engine itself.
+    2.  **Compare mechanism is a hybrid, computed-style first.** Primary signal: DOM introspection
+        — bounding rects and computed CSS properties compared against resolved DESIGN.md/Tailwind
+        token values (precise, explainable). Secondary/confirmatory signal: pixel screenshot diff
+        against the source PNG, for whatever the assertions don't yet cover.
+    3.  **A manifest declares what's checked, not inline per-story code.** Each covered
+        component/variant/viewport gets one manifest entry (e.g.
+        `packages/visual-audit/manifests/event-card-masonry.ts`) naming its prototype/PNG pair (if
+        reference-based), its fixture props, and its rule set. A story's AC cites the manifest
+        entry by name; `bmad-dev-story` runs it like any other test, and the story isn't `done`
+        until it passes. This keeps a running, queryable catalog of what actually has a visual AC
+        versus what doesn't (today: 7 reference-based pairs, `IDEA-046`/`IDEA-048`'s remaining
+        gaps, and AD-27's rule-based masonry check).
+    4.  **Isolated-component-render is the default mode.** The manifest mounts the component
+        directly with fixture props — no live server, no DB, no auth. Live-route mode is a
+        documented fallback only for defects that are genuinely route/data-dependent. Directly
+        motivated by this session's own audit stalling against `my-calendar` (auth-gated) and
+        missing near-term/multi-day/durable-image seed data in `packages/database/seed.ts` — a
+        tool that always needs a live route+DB inherits that same fragility.
+    5.  **Four checkable rule classes, each with its own tolerance shape:**
+        - **Cross-render fidelity** (reference-based only): live vs. prototype computed-style and
+          pixel diff, at the manifest's declared viewport(s).
+        - **Sibling-dimension consistency**: elements are auto-clustered into rows/columns by
+          bounding-box coordinate overlap, scoped to whatever the manifest entry actually rendered
+          (Rule 1a) — a single card instance for most entries, or multiple instances when the
+          invariant is inherently cross-instance (e.g. AD-27's masonry columns). Clustered siblings
+          expected to share a dimension are checked at a **near-zero absolute tolerance, default
+          ≤2px** (they're supposed to be identical, not merely similar).
+        - **Intra-box ratio consistency**: named element pairs (e.g. month-text:day-text size)
+          checked against an expected ratio — sourced from an explicit DESIGN.md token when the
+          relationship is a deliberate design rule, otherwise derived once from the validated
+          prototype's own rendered ratio — at a **relative tolerance, default ±8–10%** (proportional
+          by nature, unlike sibling-dimension equality). Both tolerances are overridable per rule
+          in the manifest, not hardcoded in the engine.
+        - **Overflow/clipping, including *potential* overflow for undepicted content.** The
+          content-variant catalog for a text/content slot is derived via **static analysis of its
+          formatting function's branches** (e.g. `format-event-date.ts`'s `dayDiff` branches for
+          `EventCardDateBox`'s day slot), not hand-authored fixtures. Each enumerated variant is
+          rendered and checked for `scrollWidth > clientWidth` / a bounding rect exceeding its
+          ancestor's. Accepted gap: this enumerates branch *shapes*, not arbitrary translated
+          *string content* — i18n string-length variance is a known blind spot this rule accepts,
+          not one it solves.
+    6.  **Color fidelity**: resolve the expected color from its DESIGN.md/Tailwind token (exact
+        computed-value match, e.g. `bg-slate-800`'s resolved RGB/OKLCH) as the primary check;
+        perceptual pixel diff against the source PNG is the fallback for anything not yet
+        tokenized.
+
+### AD-27: Masonry Grid — JS Shortest-Column Placement, Not CSS Grid
+
+*   **Binds:** `GridContainer`'s (`packages/ui/src/core/grid-container.tsx`) `variant="masonry"`
+    consumer path (`EventListView.tsx`'s Discovery/masonry surface). Surfaced while scoping AD-26:
+    the component is named "masonry" but is implemented as plain CSS Grid (`grid-cols-N`, default
+    `grid-auto-rows`) — a layout with no prototype/PNG reference of its own (only ever described in
+    prose/expectation, exactly the gap AD-26's rule-based audit mode exists to check).
+*   **Prevents:**
+    1.  **CSS Grid's row-locking behavior masquerading as masonry.** In CSS Grid, every row's
+        height is set by its tallest cell across *all* columns — a short card in column 1 can never
+        let column 2 flow independently past it. This is a card-*grid*, not Pinterest-style
+        masonry, regardless of the prop's name.
+    2.  **Adopting native CSS masonry before it's viable.** Web-verified 2026-09-22: CSS Grid Lanes
+        (`grid-template-rows: masonry`) ships only in Safari 26; Chrome/Firefox remain behind
+        experimental flags with non-interoperable edge-case behavior
+        ([caniuse](https://caniuse.com/mdn-css_properties_grid-template-rows_masonry),
+        [stefanjudis.com](https://www.stefanjudis.com/blog/how-to-use-and-feature-detect-css-grid-masonry-layout/)).
+        Not production-viable; do not bind to it.
+    3.  **A silent reading-order regression.** CSS multi-column (`columns-N`) achieves independent
+        column flow in pure CSS, but reorders content column-major (top-to-bottom, then wraps to
+        the next column) instead of today's row-major left-to-right — a real, user-visible behavior
+        change that must not be adopted as a shortcut.
+*   **Rule:**
+    1.  **JS shortest-column placement** (the standard Pinterest/`react-masonry-css` algorithm):
+        measure each card's rendered height, then place each next item into whichever column is
+        currently shortest. Achieves true independent per-column height while keeping the visual
+        placement order close to today's left-to-right reading order (unlike CSS multi-column).
+    2.  **Client-side measurement implies a hydration/layout-shift strategy** — the initial
+        server-rendered pass has no measured heights yet. Deferred to the implementing story: pick
+        an explicit strategy (e.g. an estimated-height first pass reflowed post-hydration, or a
+        skeleton state held until measurement completes) rather than leaving it implicit.
+    3.  **Verified by AD-26's rule-based audit mode**, not a bespoke one-off test: the manifest
+        entry for `GridContainer`'s masonry variant encodes "columns share one width; cards within
+        a column vary height independently; placement order approximates left-to-right" as its
+        rule set.
+*   **Deferred:** the specific library-vs-hand-rolled-hook choice for the shortest-column algorithm
+    itself, and the exact hydration/layout-shift strategy (Rule 2) — left to the implementing
+    story's own research, not decided here.
 
 ---
 

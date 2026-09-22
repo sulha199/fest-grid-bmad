@@ -176,17 +176,67 @@ verified 2026-09-20:
 | 6 | Calendar-row title wrap — `1-i1d` amendment pt 2 (round 3) | wraps up to 2 lines | `truncate` (`WeeklyCalendarView.tsx:907`, `:965`) |
 | 7 | Calendar-row reserved-slot reversal — `1-i1d` amendment pt 3 (round 3), EXPERIENCE.md:450 | image omitted from the DOM; content expands; favorite at the row's end with no reserved wrapper | `EventCardMediaSlot layout="fixed-square"` renders unconditionally → `w-16 h-16 shrink-0` always (`EventCardMediaPrimitives.tsx:67-74`, used at `WeeklyCalendarView.tsx:923`) |
 
-**Dispatch note:** rules 4 and 5 rewrite the exact class strings Story 1.i1k rewrites
-(`EventCardDateBox`'s chrome and the TILL tag it reuses) — **1.i1k reached `review` 2026-09-22**
-(commit `c80cd9bd`), so this ordering constraint is now satisfied; IDEA-046 can proceed without
-re-checking for overlap, though rules 4/5 should still be verified against 1.i1k's landed diff
-before folding them in, since 1.i1k has not yet been independently re-verified against them.
-Rules 1/2/3/6/7 have no such overlap. IDEA-046 itself needs no prerequisite: 1.i1e/1.i1f are
-already `review`.
+**RESOLVED, 2026-09-22** — IDEA-046 shipped as two stories after a fresh `git pull` surfaced commits
+from elsewhere (`6412792c`, `13861432`), both `review`:
+
+- **Story 1.i1l** (`1-i1l-apply-the-six-unowned-prototype-fidelity-rules`) — rules 1/2/3/4/5/6 above.
+  Its own Gate 1/2 re-verified all seven rules still reproduced against `c80cd9b` (post-1.i1i/j/k)
+  before drafting, and corrected two of this table's code references that had moved since
+  (rule 3 gained a third default site at `WeeklyCalendarView.tsx:298`; rule 5's `px-2.5 py-1.5`
+  literal also survives inline at `EventCard.tsx:255`).
+- **Story 1.i1m** (`1-i1m-drop-the-calendar-rows-reserved-image-slot`) — rule 7, carved out of
+  1.i1l via its own Gate 2: rule 7 forks `EventCardMediaSlot`'s shared reserved-blank-fallback
+  contract between masonry and the compact row, and contradicts a shipped AC (Story 1.i1z AC3 +
+  two live CI ratchet tests asserting the compact row *does* reserve blank space) — governance
+  work needing its own review, not a same-story class swap.
+
+**Also carved:** **`IDEA-048`** (child of IDEA-046) — two further `event_card_compact` gaps found
+during 1.i1l's Gate 2 sweep, deliberately left for 1.i1m's row-restructure rather than folded in:
+the compact row never renders `DESIGN.md`'s `event_card_compact.venue` line at all (data already
+plumbed via Story 1.i1g), and its favorite badge still corner-overlays the thumbnail instead of
+DESIGN.md's spec'd reversal (a vertical stack below it, glassmorphism dropped).
+
+**Still open, NOT covered by IDEA-046/1.i1l/1.i1m:** the `EventCardDateBox` word/time-content
+overflow bug found by this session's own visual-fidelity audit (2026-09-22) — `dayClasses` at
+`EventCardMediaPrimitives.tsx:273` is still bare `text-5xl`/`text-3xl font-extrabold leading-none`
+with no `max-width`/`whitespace-nowrap`/word-variant handling, confirmed unchanged by both 1.i1l and
+1.i1m (neither touches this). See the dedicated audit findings for detail — this needs its own
+story, sequenced ahead of Story 1.3k (see "Known conflicts" below).
 
 **Also flagged:** `prototypes/validation-log.md` records rounds 1-4 only, while `DESIGN.md` cites
 rounds 5-8 as user-directed revisions of that same pass. A dated addendum in that file now records
 the gap (the added rules are quoted there) rather than leaving it silent.
+
+## Known conflicts for any new event-card story
+
+**Story 1.3k** (`1-3k-render-day-of-week-recurring-schedules-and-repeat-badge`) is `ready-for-dev`,
+not yet started, and its own `Depends on:` line names "Story 1.i1a-e (the shared
+`EventCardMediaPrimitives.tsx` primitives this story adds to)" while its AC touches
+`WeeklyCalendarView.tsx`'s `dayBuckets` and regression tests across `EventCard.test.tsx`. Any new
+story touching `EventCardDateBox`/`EventCardMediaPrimitives.tsx`/`EventCard.tsx`/
+`WeeklyCalendarView.tsx` (e.g. the date-box overflow fix above) should land and reach at least
+`review` — ideally amend 1.3k's own epics.md `Depends on:` line to name it — before 1.3k's
+`bmad-dev-story` is dispatched, so 1.3k isn't built blind to a shared-primitive change landing
+underneath it.
+
+## Story 0.44 -> Story 0.43 dependency (packages/visual-audit)
+
+**Story 0.43** (`0-43-visual-fidelity-audit-tool`, `ready-for-dev`) — the new `packages/visual-audit`
+tool (Architecture Spine AD-26) this session's own audit findings above (the `EventCardDateBox`
+overflow bug) motivated — is now **blocked on Story 0.44**
+(`0-44-define-testing-standard-for-meta-testing-tooling-packages`, `ready-for-dev`) reaching `done`.
+
+0.43's own Gate 3 pass found `project-context.md`'s Testing Rules section has no tier for a
+meta-testing/tooling package (neither `packages/domain`'s 100%-unit tier nor `apps/*`'s
+testing-trophy tier fits); it split out Story 0.44 to define that tier and, per its AC13, offered
+an Escape Hatch letting 0.43 proceed under its own self-declared scoped DoD in the meantime. **The
+user explicitly rejected the Escape Hatch and chose "0.44 first, then 0.43."** Story 0.43's file was
+amended accordingly: it now carries a `Depends on: Story 0.44` line, AC13 inherits Story 0.44's
+tier instead of self-declaring one, and its Pre-Coding Approval Gate blocks `bmad-dev-story` until
+Story 0.44 is `done`. Both stories sit at `ready-for-dev` in `sprint-status.yaml` — per this doc's
+own established convention (e.g. Story 1.3k above, Story 0.38/0.38a), the gate is enforced via each
+story's explicit Pre-Coding Approval Gate note, checked at dispatch time, not via a separate status
+value. **Do not dispatch 0.43's `bmad-dev-story` before 0.44 reaches `done`.**
 
 ## How to use this doc during dev-story dispatch
 

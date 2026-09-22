@@ -10,7 +10,7 @@ last_updated: "2026-09-21"
 tags:
   web:   [accounts, auth, events, locations, moderation, onboarding, post-selection,
           posts, reports, settings, subscriptions, system, votes, widgets, wizard]
-  pkg:   [analytics, database, domain, graphql-select, shared-types, ui]
+  pkg:   [analytics, database, domain, graphql-select, shared-types, ui, visual-audit]
   app:   [backend, infrastructure]
   cross: [ai-extraction, prd, architecture, ux-tokens, i18n, notifications, process]
 
@@ -1414,3 +1414,39 @@ items:
            implementation-artifacts/1-i1l-apply-the-six-unowned-prototype-fidelity-rules.md],
      touches: [cross:ux-tokens, cross:process],
      note: "Surfaced by IDEA-046's audit, carved out on its promotion. DESIGN.md/EXPERIENCE.md cite revisions through round 8; the log stops at round 4 and already carries a 2026-09-20 coverage note. Not a prerequisite for Story 1.i1l."}
+
+  # ── 2026-09-22 (bmad-architecture, visual-fidelity audit session) ────────────
+  IDEA-049:
+    {type: idea, status: promoted, created: 2026-09-22,
+     impact: internal, effort: m,
+     stories: [0-43-visual-fidelity-audit-tool],
+     title: "New packages/visual-audit tool: reference-based + rule-based visual-fidelity checks against design prototypes, so a story's AC can automate 'does this match its prototype' instead of eyeballing it",
+     ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/architecture/architecture-festgrid-2026-09-22/.memlog.md],
+     touches: [pkg:visual-audit, cross:architecture, cross:ux-tokens],
+     note: "Architecture Spine AD-26. Triggered by this session's own event-card/calendar visual-fidelity audit (~70% prototype accuracy found), which had to improvise its method ad hoc for lack of reusable tooling. Story 0.43 drafted 2026-09-22 via bmad-create-story. Unlocks IDEA-050 (masonry engine) and a still-to-be-registered fix for the EventCardDateBox overflow bug found by the same audit."}
+
+  IDEA-050:
+    {type: idea, status: triaged, created: 2026-09-22, parent: IDEA-049,
+     impact: user-visible, effort: m,
+     title: "GridContainer's masonry variant is plain CSS Grid (row-locked), not true Pinterest-style independent column flow — replace with JS shortest-column placement",
+     ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/architecture/architecture-festgrid-2026-09-22/.memlog.md],
+     touches: [pkg:ui, web:events, cross:architecture],
+     note: "Architecture Spine AD-27, decided in the same session as AD-26/IDEA-049. Native CSS masonry ruled out (Safari-only in 2026); CSS multi-column rejected (reading-order regression). Becomes AD-26's tool's first rule-based-mode consumer -- sequence bmad-create-story for this after Story 0.43 exists. Not yet story-created."}
+
+  BUG-040:
+    {type: bug, status: triaged, created: 2026-09-22,
+     impact: user-visible, effort: s,
+     title: "EventCardDateBox's day slot overflows/clips on word or time content (Today/Tomorrow/Yesterday/a time string) instead of a numeric day — confirmed to overflow the entire 175px mobile masonry card by ~107px for \"Tomorrow\"",
+     ref: [planning-artifacts/event-pages-dev-story-tracking.md, planning-artifacts/festgrid-architecture-spine.md],
+     touches: [pkg:ui, web:events],
+     note: "Confirmed via this session's visual-fidelity audit (isolated Playwright measurement at real card widths); reproduces in production, not just a cosmetic mismatch. Not covered by IDEA-046/Story 1.i1l/1.i1m (which only covered the 7 spec-vs-code gaps, not this). Should cite AD-26's tool (Story 0.43) for its own AC once that tool exists; sequence its own story before Story 1.3k's bmad-dev-story dispatch (shared-file conflict, see event-pages-dev-story-tracking.md's 'Known conflicts')."}
+
+  # ── 2026-09-22 (bmad-create-story, Story 0.43 Gate 3 finding) ───────────────
+  FIND-047:
+    {type: finding, status: backlog, created: 2026-09-22, parent: IDEA-049,
+     impact: internal, effort: xs,
+     stories: [0-44-define-testing-standard-for-meta-testing-tooling-packages],
+     title: "project-context.md's Testing Rules section has no tier for a meta-testing/tooling package (packages/domain's 100%-unit-test rule and the apps/* testing-trophy/E2E-DoD rule are a closed partition that packages/visual-audit fits neither)",
+     ref: [project-context.md, implementation-artifacts/0-43-visual-fidelity-audit-tool.md],
+     touches: [cross:project-context, pkg:visual-audit],
+     note: "Surfaced by bmad-create-story's mandatory Gate 3 (story-split-gate.md) while drafting Story 0.43 (2026-09-22): Story 0.43 is the first-of-a-kind dev-tooling/check-engine package, and its own future adopters (IDEA-050's masonry story, BUG-040's fix story) will inherit whatever testing/DoD convention it sets. Left undecided, that precedent gets set ad hoc by whichever story happens first instead of as a reusable, project-wide rule. Story 0.44 amends project-context.md's Testing Rules with an explicit third tier; Story 0.43 proceeds with its own scoped, documented DoD in the meantime (escape hatch accepted, not blocking)."}
