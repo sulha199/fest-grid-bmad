@@ -9,6 +9,7 @@
  */
 
 import type { Page } from '@playwright/test';
+import path from 'node:path';
 import { defaultRegistry } from './manifest.js';
 import { mountManifestEntry, mountPrototypeFile } from './render.js';
 import { getElementSnapshots, getElementSnapshot } from './compare/computed-style.js';
@@ -16,6 +17,7 @@ import { clusterByRowOverlap, clusterByColumnOverlap, checkSiblingDimension } fr
 import { checkIntraBoxRatio, deriveRatioFromReference } from './rules/intra-box-ratio.js';
 import { checkColorToken } from './rules/color.js';
 import { runOverflowRule } from './rules/overflow.js';
+import { diffScreenshotAgainstReferencePng } from './compare/pixel-diff.js';
 
 export interface RuleRunResult {
   kind: string;
@@ -73,7 +75,22 @@ export async function runManifestEntry(page: Page, name: string, options: RunMan
         if (entry.mode !== 'reference') {
           throw new Error(`Rule-based manifest entry "${name}" must declare an explicit expectedRatio (no reference to derive one from)`);
         }
-        expectedRatio = deriveRatioFromReference(valueA, valueB);
+        // Review Follow-up (decision-needed item 2, RULING: mount real prototype as reference +
+        // negative canary, 2026-09-22): the expected ratio must come from an *independently
+        // rendered* reference (the validated prototype), never from the same live page/render
+        // being checked -- otherwise this rule can never fail by construction. A separate page
+        // in the same browser context mounts the reference via `mountReferenceFor`.
+        const referencePage = await page.context().newPage();
+        try {
+          await mountReferenceFor(referencePage, name, options.repoRoot);
+          const [refA, refB] = await Promise.all([
+            getElementSnapshot(referencePage, rule.referenceSelectorA ?? rule.selectorA, cssProps),
+            getElementSnapshot(referencePage, rule.referenceSelectorB ?? rule.selectorB, cssProps),
+          ]);
+          expectedRatio = deriveRatioFromReference(dimensionValue(refA, rule.dimension), dimensionValue(refB, rule.dimension));
+        } finally {
+          await referencePage.close();
+        }
       }
       const result = checkIntraBoxRatio(valueA, valueB, expectedRatio, rule.toleranceRelative);
       ruleResults.push({ kind: rule.kind, pass: result.pass, message: result.message, details: result });
@@ -83,10 +100,28 @@ export async function runManifestEntry(page: Page, name: string, options: RunMan
       if (rule.expectedToken) {
         const result = checkColorToken(actual, rule.expectedToken.resolvedValue);
         ruleResults.push({ kind: rule.kind, pass: result.pass, message: result.message, details: result });
+      } else if (entry.mode === 'reference' && entry.reference) {
+        // Review Follow-up (patch item 5, 2026-09-22): a missing token previously reported
+        // pass: true trivially, so the rule could never fail and a consumer trusting the
+        // structured result got false confidence. AC10's actual fallback signal is a perceptual
+        // pixel diff of this element against the source PNG -- run that for real instead.
+        const elementScreenshot = await page.locator(rule.selector).screenshot();
+        const pngPath = path.resolve(options.repoRoot, entry.reference.prototypePngPath);
+        const diffResult = await diffScreenshotAgainstReferencePng(elementScreenshot, pngPath, entry.reference.pixelDiffOptions);
+        ruleResults.push({
+          kind: rule.kind,
+          pass: diffResult.pass,
+          message: `No token declared; used pixel-diff fallback signal -- ${diffResult.message}`,
+          details: diffResult,
+        });
       } else {
-        // Fallback signal (pixel diff) is exercised via the manifest's own toHaveScreenshot()
-        // assertion in the proof spec, not re-implemented here -- see compare/pixel-diff.ts.
-        ruleResults.push({ kind: rule.kind, pass: true, message: 'No token declared; falling back to pixel-diff signal (see manifest spec)' });
+        // Rule-based entries have no reference PNG to fall back to -- a color rule with no
+        // token here is a genuine authoring gap, not something to silently pass.
+        ruleResults.push({
+          kind: rule.kind,
+          pass: false,
+          message: 'No token declared and no reference PNG available for the pixel-diff fallback signal (AC10) -- color fidelity cannot be verified',
+        });
       }
     } else if (rule.kind === 'overflow') {
       const result = await runOverflowRule(page, rule, options.repoRoot);
@@ -102,6 +137,20 @@ export async function runManifestEntry(page: Page, name: string, options: RunMan
     } else {
       throw new Error(`Unknown rule kind: ${(rule as { kind: string }).kind}`);
     }
+  }
+
+  // Review Follow-up (patch item 6, 2026-09-22): AC6 requires "a failure in either signal fails
+  // the check" -- previously the pixel-diff signal was only ever exercised by the proof spec's
+  // own separate `toHaveScreenshot()` test, never by `runManifestEntry` itself, so a future
+  // consumer calling this API directly would never see a visual-divergence failure. Every
+  // reference-mode entry with a declared PNG now runs the real pixel-diff signal here too.
+  if (entry.mode === 'reference' && entry.reference) {
+    await mountManifestEntry(page, entry);
+    const locator = entry.reference.pixelDiffSelector ? page.locator(entry.reference.pixelDiffSelector) : page;
+    const screenshotBuffer = await locator.screenshot();
+    const pngPath = path.resolve(options.repoRoot, entry.reference.prototypePngPath);
+    const diffResult = await diffScreenshotAgainstReferencePng(screenshotBuffer, pngPath, entry.reference.pixelDiffOptions);
+    ruleResults.push({ kind: 'pixel-diff', pass: diffResult.pass, message: diffResult.message, details: diffResult });
   }
 
   return {

@@ -4,6 +4,16 @@
   "private": true,
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./count-badge": {
+      "types": "./src/core/count-badge.tsx",
+      "default": "./src/core/count-badge.tsx"
+    }
+  },
   "dependencies": {
     "@festgrid/domain": "workspace:*",
     "@festgrid/shared-types": "workspace:*",

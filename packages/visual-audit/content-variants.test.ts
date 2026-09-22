@@ -84,5 +84,23 @@ test('enumerateContentVariants', async (t) => {
     `;
     const variants = enumerateContentVariants(source, 'formatEventStatus');
     assert.ok(variants.length >= 7);
+    // Review Follow-up (patch item 4, 2026-09-22): the nested `if (started) { if (endDayDiff >
+    // 0) { return 'Now' } return 'Ends Today' }` shape previously lost the 'Now' branch entirely
+    // -- the block-level scan only ever found the trailing `return 'Ends Today'`, since a nested
+    // IfStatement isn't itself a ReturnStatement. Both branches of that nested case must now be
+    // enumerated, not just one.
+    assert.ok(
+      variants.some((v) => v.returnExpressionText === "'Now'"),
+      'expected the nested if(endDayDiff > 0) branch ("Now") to be enumerated'
+    );
+    assert.ok(
+      variants.some((v) => v.returnExpressionText === "'Ends Today'"),
+      'expected the started-but-not-endDayDiff>0 branch ("Ends Today") to still be enumerated'
+    );
+  });
+
+  await t.test('walking nested if branches does not lose top-level if/else-if branches', () => {
+    const variants = enumerateContentVariants(IF_ELSE_CHAIN_SOURCE, 'classify');
+    assert.strictEqual(variants.length, 4);
   });
 });

@@ -21,11 +21,35 @@ export interface OverflowRuleResult {
   variants: OverflowVariantResult[];
 }
 
+export class FormattingFunctionNotFoundError extends Error {
+  constructor(functionName: string, filePath: string) {
+    super(`Expected to find an exported function "${functionName}" in ${filePath}`);
+    this.name = 'FormattingFunctionNotFoundError';
+  }
+}
+
+/**
+ * Review Follow-up (patch item 7, 2026-09-22): fail fast and loud if the source function an
+ * `OverflowRule` cites has moved/been renamed, rather than a confusing "function not found"
+ * error surfacing deep inside `ts-morph`. Previously this guard existed only as a dead,
+ * manifest-specific export (`assertFormattingFunctionExists`) nothing ever called; it is now
+ * generic (works for any `OverflowRule`, not just one manifest's) and wired directly into this
+ * rule's own execution path, so it runs on every overflow check unconditionally.
+ */
+function assertFormattingFunctionExists(sourceText: string, functionName: string, filePath: string): void {
+  const exportPattern = new RegExp(`export\\s+function\\s+${functionName}\\b`);
+  if (!exportPattern.test(sourceText)) {
+    throw new FormattingFunctionNotFoundError(functionName, filePath);
+  }
+}
+
 /** Runs an `OverflowRule` against every enumerated content variant, reusing `page` (viewport
  * already set by the caller's render step) for each variant's isolated markup. */
 export async function runOverflowRule(page: Page, rule: OverflowRule, repoRoot: string): Promise<OverflowRuleResult> {
   const path = await import('node:path');
-  const sourceText = readFileSync(path.resolve(repoRoot, rule.formattingFunction.filePath), 'utf-8');
+  const absolutePath = path.resolve(repoRoot, rule.formattingFunction.filePath);
+  const sourceText = readFileSync(absolutePath, 'utf-8');
+  assertFormattingFunctionExists(sourceText, rule.formattingFunction.functionName, absolutePath);
   const variants = enumerateContentVariants(sourceText, rule.formattingFunction.functionName);
 
   const results: OverflowVariantResult[] = [];

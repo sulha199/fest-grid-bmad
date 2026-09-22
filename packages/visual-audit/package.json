@@ -17,13 +17,19 @@
     "lint": "eslint . --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
-    "ts-morph": "^24.0.0"
+    "ts-morph": "^24.0.0",
+    "sharp": "0.34.5",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@festgrid/eslint-config": "workspace:*",
     "@festgrid/typescript-config": "workspace:*",
+    "@festgrid/ui": "workspace:*",
     "@playwright/test": "1.62.0",
     "@types/node": "^20.14.10",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
     "tsx": "^4.16.2",
     "typescript": "^5.4.5"
   }

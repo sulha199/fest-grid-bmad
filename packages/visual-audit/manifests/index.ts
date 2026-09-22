@@ -3,6 +3,8 @@
  * style; there is no dynamic directory scan since the registry rejects duplicates explicitly). */
 import './event-card-masonry-thumbnail-fallback.js';
 import './masonry-column-width-invariant.js';
+import './count-badge-react-mount.js';
 
 export { entry as eventCardMasonryThumbnailFallback } from './event-card-masonry-thumbnail-fallback.js';
 export { entry as masonryColumnWidthInvariant } from './masonry-column-width-invariant.js';
+export { entry as countBadgeReactMount } from './count-badge-react-mount.js';

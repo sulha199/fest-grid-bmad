@@ -3,13 +3,22 @@
  * that can't be meaningfully unit-tested without mocking away the thing being verified are
  * proved here by actually running the example manifest entries end-to-end (isolated render,
  * both audit modes, all five AD-26 Rule 5/6 rule classes, and the pixel-diff secondary signal).
+ *
+ * Review Follow-up (2026-09-22): the previous `toHaveScreenshot()`-based pixel-diff test is
+ * removed -- it diffed a self-captured baseline against the exact same render being checked, so
+ * it could never fail by construction, and it pinned a win32-qualified snapshot file that would
+ * fail outright on Linux CI (decision-needed item 3 / patch item 8). The real pixel-diff signal
+ * (against `reference.prototypePngPath`'s actual source PNG, via `compare/pixel-diff.ts`) is now
+ * exercised as part of `runManifestEntry` itself (patch item 6) and asserted below alongside the
+ * other rule classes -- no separate snapshot mechanism, no committed platform-specific baseline.
  */
 
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
 import './manifests/index.js';
 import { runManifestEntry } from './src/engine.js';
-import { defaultRegistry } from './src/manifest.js';
+import { defaultRegistry, registerManifestEntry, type ManifestEntry } from './src/manifest.js';
+import { MOBILE_PANEL_HTML } from './manifests/event-card-masonry-thumbnail-fallback.js';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
@@ -23,7 +32,7 @@ test.describe('reference-based example: EventCardMasonry default-thumbnail-fallb
     expect(entry.renderScope).toBe('single-instance');
   });
 
-  test('runs all declared rule classes (sibling-dimension, intra-box-ratio, overflow, color) and passes', async ({ page }) => {
+  test('runs all declared rule classes plus the pixel-diff signal, and passes', async ({ page }) => {
     const result = await runManifestEntry(page, NAME, { repoRoot: REPO_ROOT });
 
     for (const ruleResult of result.ruleResults) {
@@ -32,7 +41,17 @@ test.describe('reference-based example: EventCardMasonry default-thumbnail-fallb
     expect(result.pass).toBe(true);
 
     const kinds = result.ruleResults.map((r) => r.kind).sort();
-    expect(kinds).toEqual(['color', 'intra-box-ratio', 'overflow', 'sibling-dimension']);
+    // 'pixel-diff' (patch item 6): the secondary signal is now part of the engine's own result,
+    // not just a separate toHaveScreenshot() test -- AC6's "failure in either signal fails the
+    // check" is enforced by runManifestEntry itself.
+    expect(kinds).toEqual(['color', 'intra-box-ratio', 'overflow', 'pixel-diff', 'sibling-dimension']);
+
+    // The pixel-diff result really read the source-of-truth PNG (decision-needed item 3) --
+    // confirm it reports real pixel counts against that file, not a self-captured baseline.
+    const pixelDiffResult = result.ruleResults.find((r) => r.kind === 'pixel-diff');
+    const details = pixelDiffResult?.details as { totalPixels: number; diffPixelCount: number } | undefined;
+    expect(details?.totalPixels).toBeGreaterThan(0);
+    expect(pixelDiffResult?.message).toContain('default-thumbnail-fallback.png');
 
     // The overflow rule enumerated formatEventStatus's real branches via ts-morph, not a
     // hand-authored list -- confirm more than the prototype's own single depicted "Now" state
@@ -42,18 +61,64 @@ test.describe('reference-based example: EventCardMasonry default-thumbnail-fallb
     expect(variantCount).toBeGreaterThan(1);
   });
 
-  test('secondary pixel-diff signal: isolated render matches the committed baseline screenshot', async ({ page }) => {
-    const entry = defaultRegistry.get(NAME);
-    await page.setViewportSize(entry.viewport);
-    if (entry.render.kind !== 'isolated-html') {
-      throw new Error('Expected an isolated-html render spec for this example manifest entry');
+  test('negative canary: a deliberately wrong live render fails the intra-box-ratio check (Review Follow-up item 2)', async ({ page }) => {
+    // Proves the fix actually closes the "can never fail" gap: the expected ratio is derived
+    // from an *independently mounted* reference render (via mountReferenceFor), never from the
+    // same live page being checked -- so mutating only the live page's markup here must make the
+    // check fail, since the reference-derived expected ratio is unaffected by the mutation.
+    const CANARY_NAME = 'event-card-masonry:default-thumbnail-fallback-canary:175x400';
+    if (!defaultRegistry.has(CANARY_NAME)) {
+      const baseEntry = defaultRegistry.get(NAME);
+      // Shrink the month text drastically (text-xs -> text-[1px]) so the live render's actual
+      // month:day font-size ratio is nowhere near the reference's real ~0.5 (12px/24px) ratio.
+      const mutatedHtml = MOBILE_PANEL_HTML.replace(
+        'text-xs font-bold uppercase tracking-wide pt-1.5" data-testid="date-month"',
+        'text-[1px] font-bold uppercase tracking-wide pt-1.5" data-testid="date-month"'
+      );
+      expect(mutatedHtml).not.toBe(MOBILE_PANEL_HTML);
+
+      const canaryEntry: ManifestEntry = {
+        ...baseEntry,
+        variant: 'default-thumbnail-fallback-canary',
+        render: { kind: 'isolated-html', html: mutatedHtml },
+        rules: [
+          {
+            kind: 'intra-box-ratio',
+            selectorA: '[data-testid="date-month"]',
+            selectorB: '[data-testid="date-day"]',
+            dimension: 'fontSize',
+            referenceSelectorA: '.text-xs.font-bold.uppercase.tracking-wide',
+            referenceSelectorB: '.text-2xl.font-extrabold.leading-none',
+          },
+        ],
+      };
+      registerManifestEntry(CANARY_NAME, canaryEntry);
     }
-    const html = typeof entry.render.html === 'function' ? entry.render.html({}) : entry.render.html;
-    await page.setContent(html, { waitUntil: 'load' });
-    const card = page.locator('[data-testid="masonry-card"]');
-    await expect(card).toHaveScreenshot('event-card-masonry-thumbnail-fallback-mobile.png', {
-      maxDiffPixelRatio: 0.02,
-    });
+
+    const result = await runManifestEntry(page, CANARY_NAME, { repoRoot: REPO_ROOT });
+    expect(result.pass).toBe(false);
+    const ratioResult = result.ruleResults[0];
+    expect(ratioResult.kind).toBe('intra-box-ratio');
+    expect(ratioResult.pass).toBe(false);
+  });
+});
+
+test.describe('react-component mount example: CountBadge (Review Follow-up item 1)', () => {
+  const NAME = 'count-badge:react-mount-overflow:200x100';
+
+  test('manifest entry mounts a real @festgrid/ui component, not a hand-typed markup replica', () => {
+    expect(defaultRegistry.has(NAME)).toBe(true);
+    const entry = defaultRegistry.get(NAME);
+    expect(entry.render.kind).toBe('react-component');
+    expect(entry.mode).toBe('rule');
+  });
+
+  test('runs the color and intra-box-ratio checks against the real mounted component and passes', async ({ page }) => {
+    const result = await runManifestEntry(page, NAME, { repoRoot: REPO_ROOT });
+    for (const ruleResult of result.ruleResults) {
+      expect(ruleResult.pass, `${ruleResult.kind}: ${ruleResult.message}`).toBe(true);
+    }
+    expect(result.pass).toBe(true);
   });
 });
 

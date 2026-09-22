@@ -4,6 +4,6 @@ import { config as baseConfig } from "@festgrid/eslint-config/base";
 export default [
   ...baseConfig,
   {
-    ignores: ["dist/", "test-results/", "playwright-report/"],
+    ignores: ["dist/", "test-results/", "playwright-report/", "vendor/tailwind.generated.css", "vendor/*.cjs"],
   },
 ];

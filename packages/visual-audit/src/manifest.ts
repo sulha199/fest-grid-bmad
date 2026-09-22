@@ -27,7 +27,27 @@ export interface LiveRouteRender {
   url: string;
 }
 
-export type RenderSpec = IsolatedRender | LiveRouteRender;
+/**
+ * Mount-backed render (Review Follow-up, 2026-09-22 ruling): renders a real React component
+ * tree -- e.g. `EventCard`/`EventCardDateBox` from `@festgrid/ui` -- server-side to static
+ * markup via `react-dom/server`, then loads that markup the same isolated, server/DB/auth-free
+ * way `isolated-html` does. This is what lets the engine audit the actual production component
+ * (closing the "can't mount a real React component" gap AC5 originally left open) instead of
+ * only ever re-typing its markup by hand into a fixture string.
+ *
+ * `render` receives the manifest entry's `fixtureProps` and must return a React element (build
+ * it with `React.createElement(Component, props)` -- no JSX build step is required in this
+ * package). `documentTemplate`, if provided, wraps the rendered markup in a full HTML document
+ * (head/theme/script tags); when omitted, `render.ts`'s default Tailwind-CDN-shaped template is
+ * used (see `wrapBodyHtml`), matching every other fixture in this package.
+ */
+export interface ReactComponentRender {
+  kind: 'react-component';
+  render: (fixtureProps: Record<string, unknown>) => import('react').ReactElement;
+  documentTemplate?: (bodyHtml: string) => string;
+}
+
+export type RenderSpec = IsolatedRender | LiveRouteRender | ReactComponentRender;
 
 /** AD-26 Rule 5, sibling-dimension consistency: default absolute tolerance <=2px. */
 export interface SiblingDimensionRule {
@@ -48,6 +68,17 @@ export interface IntraBoxRatioRule {
    * own rendered ratio (reference-based manifests only). */
   expectedRatio?: number;
   toleranceRelative?: number;
+  /**
+   * Selectors to use against the *independently mounted reference render* when deriving
+   * `expectedRatio` (Review Follow-up item 2). The real validated prototype HTML file is
+   * design-artifact markup, not this manifest's own fixture -- it generally has no
+   * `data-testid` attributes (or other selectors invented for the live-render fixture), so a
+   * manifest author declares the selectors that actually address the same two elements inside
+   * the real prototype file here. Defaults to `selectorA`/`selectorB` when omitted, for the rare
+   * case where the live and reference markup genuinely share the same selector.
+   */
+  referenceSelectorA?: string;
+  referenceSelectorB?: string;
 }
 
 /** AD-26 Rule 5, overflow/clipping via ts-morph branch enumeration of a formatting function. */
@@ -77,8 +108,13 @@ export type Rule = SiblingDimensionRule | IntraBoxRatioRule | OverflowRule | Col
 export interface ReferenceSource {
   /** Path to the validated prototype HTML, relative to the repo root. */
   prototypeHtmlPath: string;
-  /** Path to the source PNG the prototype was validated against, relative to the repo root. */
+  /** Path to the source PNG the prototype was validated against, relative to the repo root --
+   * the real diff target for AD-26 Rule 2's secondary signal (Review Follow-up item 3). */
   prototypePngPath: string;
+  /** Selector to screenshot for the `prototypePngPath` pixel-diff secondary signal; defaults to
+   * the full viewport when omitted. */
+  pixelDiffSelector?: string;
+  pixelDiffOptions?: { maxDiffPixelRatio?: number; threshold?: number };
 }
 
 export interface ManifestEntry {

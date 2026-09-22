@@ -67,48 +67,60 @@ export function enumerateContentVariants(sourceText: string, functionName: strin
   }
 
   const variants: Array<Omit<ContentVariant, 'sampleText'>> = [];
-  let anonymousCounter = 0;
 
-  function labelFor(conditionText: string | undefined, fallback: string): string {
-    if (!conditionText) return fallback;
-    anonymousCounter += 1;
-    return conditionText;
+  /**
+   * Walks a `then`/`else` arm's statement. Review Follow-up (patch item 4, 2026-09-22): the
+   * original version only inspected a `Block` arm for a *direct* `ReturnStatement` among its
+   * immediate children, so a nested `if` inside that block (e.g. `formatEventStatus`'s
+   * `if (started) { if (endDayDiff > 0) { return happeningNow } return endsToday }`) was never
+   * descended into -- the block's own trailing `return` (`endsToday`) shadowed the nested
+   * branch entirely, and the nested branch's real content (the `happeningNow`/"Now" case) was
+   * never enumerated. This now recurses into every nested `IfStatement` it finds at any depth
+   * inside the arm, in addition to still capturing a same-level trailing `return` as its own
+   * variant -- both branches of a case like `started` are enumerated, not just one.
+   */
+  function collectFromStatement(stmt: Node | undefined, label: string): void {
+    if (!stmt) return;
+    if (stmt.isKind(SyntaxKind.IfStatement)) {
+      collectFromIfStatement(stmt, label);
+      return;
+    }
+    if (stmt.isKind(SyntaxKind.ReturnStatement)) {
+      variants.push({ label, returnExpressionText: stmt.getExpression()?.getText() ?? 'undefined' });
+      return;
+    }
+    if (stmt.isKind(SyntaxKind.Block)) {
+      let sawBranch = false;
+      for (const inner of stmt.getStatements()) {
+        if (inner.isKind(SyntaxKind.IfStatement)) {
+          collectFromIfStatement(inner, label);
+          sawBranch = true;
+        } else if (inner.isKind(SyntaxKind.ReturnStatement)) {
+          variants.push({ label, returnExpressionText: inner.getExpression()?.getText() ?? 'undefined' });
+          sawBranch = true;
+        }
+      }
+      if (!sawBranch) {
+        variants.push({ label, returnExpressionText: '(no direct return -- nested block)' });
+      }
+      return;
+    }
+    variants.push({ label, returnExpressionText: '(no direct return -- nested block)' });
   }
 
-  function collectFromIfStatement(ifStmt: Node): void {
+  function collectFromIfStatement(ifStmt: Node, labelPrefix = ''): void {
     if (!ifStmt.isKind(SyntaxKind.IfStatement)) return;
     const condition = ifStmt.getExpression().getText();
-    const thenReturn = findDirectReturn(ifStmt.getThenStatement());
-    if (thenReturn) {
-      variants.push({ label: labelFor(condition, `branch_${anonymousCounter}`), returnExpressionText: thenReturn });
-    } else {
-      // Nested statements without a direct return still count as a reachable branch shape.
-      variants.push({ label: condition, returnExpressionText: '(no direct return -- nested block)' });
-    }
+    const label = labelPrefix ? `${labelPrefix} && ${condition}` : condition;
+    collectFromStatement(ifStmt.getThenStatement(), label);
 
     const elseStmt = ifStmt.getElseStatement();
     if (!elseStmt) return;
     if (elseStmt.isKind(SyntaxKind.IfStatement)) {
-      collectFromIfStatement(elseStmt);
+      collectFromIfStatement(elseStmt, labelPrefix);
     } else {
-      const elseReturn = findDirectReturn(elseStmt);
-      variants.push({ label: 'else', returnExpressionText: elseReturn ?? '(no direct return -- nested block)' });
+      collectFromStatement(elseStmt, labelPrefix ? `${labelPrefix} && else` : 'else');
     }
-  }
-
-  function findDirectReturn(stmt: Node | undefined): string | undefined {
-    if (!stmt) return undefined;
-    if (stmt.isKind(SyntaxKind.ReturnStatement)) {
-      return stmt.getExpression()?.getText() ?? 'undefined';
-    }
-    if (stmt.isKind(SyntaxKind.Block)) {
-      const statements = stmt.getStatements();
-      const ret = statements.find((s) => s.isKind(SyntaxKind.ReturnStatement));
-      if (ret && ret.isKind(SyntaxKind.ReturnStatement)) {
-        return ret.getExpression()?.getText() ?? 'undefined';
-      }
-    }
-    return undefined;
   }
 
   const topLevelIfs = body.isKind(SyntaxKind.Block) ? body.getStatements().filter((s) => s.isKind(SyntaxKind.IfStatement)) : [];
