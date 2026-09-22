@@ -27,6 +27,7 @@
     "@festgrid/typescript-config": "workspace:*",
     "@festgrid/ui": "workspace:*",
     "@playwright/test": "1.62.0",
+    "lucide-react": "^0.473.0",
     "@types/node": "^20.14.10",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",

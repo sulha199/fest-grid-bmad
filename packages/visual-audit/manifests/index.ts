@@ -4,7 +4,9 @@
 import './event-card-masonry-thumbnail-fallback.js';
 import './masonry-column-width-invariant.js';
 import './count-badge-react-mount.js';
+import './event-card-date-box-react-mount.js';
 
 export { entry as eventCardMasonryThumbnailFallback } from './event-card-masonry-thumbnail-fallback.js';
 export { entry as masonryColumnWidthInvariant } from './masonry-column-width-invariant.js';
 export { entry as countBadgeReactMount } from './count-badge-react-mount.js';
+export { entry as eventCardDateBoxReactMount } from './event-card-date-box-react-mount.js';

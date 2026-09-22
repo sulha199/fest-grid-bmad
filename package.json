@@ -24,6 +24,9 @@
     "approvedBuilds": [
       "es5-ext",
       "esbuild"
-    ]
+    ],
+    "patchedDependencies": {
+      "lucide-react@0.473.0": "patches/lucide-react@0.473.0.patch"
+    }
   }
 }

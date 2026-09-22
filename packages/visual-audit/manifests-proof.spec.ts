@@ -122,6 +122,38 @@ test.describe('react-component mount example: CountBadge (Review Follow-up item 
   });
 });
 
+test.describe('react-component mount example: EventCardDateBox Clock-icon-hasTime-today (Review Follow-up, round 2)', () => {
+  const NAME = 'event-card-date-box:clock-icon-has-time-today:220x160';
+
+  test('manifest entry mounts the real, unmodified EventCardDateBox export', () => {
+    expect(defaultRegistry.has(NAME)).toBe(true);
+    const entry = defaultRegistry.get(NAME);
+    expect(entry.component).toBe('EventCardDateBox');
+    expect(entry.render.kind).toBe('react-component');
+    expect(entry.mode).toBe('rule');
+  });
+
+  test('mounts cleanly, renders the real Clock icon inline with the month text, and passes', async ({ page }) => {
+    // This is the actual regression proof: mounting EventCardDateBox previously threw
+    // `ReferenceError: require is not defined` (lucide-react's dual-package hazard) before
+    // reaching any assertion at all. Reaching runManifestEntry's result here at all is already
+    // proof the mount mechanism works against the story's real motivating component, not just
+    // the lucide-free CountBadge fallback.
+    const result = await runManifestEntry(page, NAME, { repoRoot: REPO_ROOT });
+    for (const ruleResult of result.ruleResults) {
+      expect(ruleResult.pass, `${ruleResult.kind}: ${ruleResult.message}`).toBe(true);
+    }
+    expect(result.pass).toBe(true);
+
+    // Confirms the Clock icon's own <svg> was actually found by the second color rule (which
+    // throws on zero matches) -- i.e. the hasTime && dayDiff === 0 icon path genuinely rendered,
+    // not just the plain month/day text.
+    const iconColorResult = result.ruleResults[1];
+    expect(iconColorResult.kind).toBe('color');
+    expect(iconColorResult.pass).toBe(true);
+  });
+});
+
 test.describe('rule-based example: GridContainer masonry-columns-synthetic (multi-instance)', () => {
   const NAME = 'grid-container:masonry-columns-synthetic:800x600';
 

@@ -12,6 +12,10 @@
     "./count-badge": {
       "types": "./src/core/count-badge.tsx",
       "default": "./src/core/count-badge.tsx"
+    },
+    "./event-card-media-primitives": {
+      "types": "./src/features/events/EventCardMediaPrimitives.tsx",
+      "default": "./src/features/events/EventCardMediaPrimitives.tsx"
     }
   },
   "dependencies": {

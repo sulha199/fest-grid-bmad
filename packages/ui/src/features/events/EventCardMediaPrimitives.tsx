@@ -1,5 +1,13 @@
 "use client"
 
+/** @jsxImportSource react */
+// The pragma above is a no-op for this package's own build (tsconfig already defaults JSX to
+// React's automatic runtime) -- it exists only so a *different* package's test tooling
+// (packages/visual-audit's `react-component` RenderSpec, which mounts these components through
+// Playwright's test transform) doesn't have this file's JSX default to Playwright's own internal
+// `playwright/jsx-runtime` (used for its reporter/attachment UI, an unrelated coincidental reuse
+// of the `jsx`/`jsxs` function names) instead of React's. Same fix as `count-badge.tsx`; see that
+// file's header for the direct repro this is based on.
 /**
  * EventCardMediaPrimitives.tsx
  *
