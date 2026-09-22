@@ -123,12 +123,12 @@ after each dispatch and at the end).
 
 ## Full row checklist (verification — every row must end up ticked)
 
-- [x] BUG-030 — Story 1.3j (`ready-for-dev`)
+- [x] BUG-030 — Story 1.3j (`review` as of 2026-09-22, was `ready-for-dev`)
 - [x] BUG-033 — Story 1.6c (`ready-for-dev`)
-- [x] BUG-034 — Story 1.3j (`ready-for-dev`)
+- [x] BUG-034 — Story 1.3j (`review` as of 2026-09-22, was `ready-for-dev`)
 - [x] BUG-035 — Story 1.6c (`ready-for-dev`)
-- [x] FIND-027 — Story 1.3j (`ready-for-dev`)
-- [x] FIND-028 — Story 1.3j (`ready-for-dev`)
+- [x] FIND-027 — Story 1.3j (`review` as of 2026-09-22, was `ready-for-dev`)
+- [x] FIND-028 — Story 1.3j (`review` as of 2026-09-22, was `ready-for-dev`)
 - [x] FIND-030 — Story 1.6c (`ready-for-dev`)
 - [x] IDEA-029 — Story 1.6d (`ready-for-dev`)
 - [x] IDEA-032 (post-carve, Epic 1/3 half) — Story 0.i6e (`ready-for-dev`)

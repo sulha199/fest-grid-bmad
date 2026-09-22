@@ -349,11 +349,12 @@ short of an actual story file.
       `ready-for-dev` (Story 1.3l for BUG-025, Story 0.i5e for the controller adoption) — see
       `event-pages-dev-story-tracking.md` for the dispatch order
 - [x] IDEA-039 story (Story 1.i1g) — created 2026-09-19 (`ritual-orchestrator` batch,
-      `all-claude-medium`), `ready-for-dev`. Gate raised 3 design questions (spanning-bar banner
-      layout, overlap stacking, keyboard nav), all resolved via `AskUserQuestion`: new banner row
-      above day cells (multi-day only, single-day events unaffected), each overlapping bar its own
-      full-width row uncapped, simple linear Tab order.
-- [x] BUG-036/FIND-026 story (Story 1.i1h) — created 2026-09-19 (same batch), `ready-for-dev`.
+      `all-claude-medium`), now `review` (implementation landed, verified 2026-09-22). Gate raised
+      3 design questions (spanning-bar banner layout, overlap stacking, keyboard nav), all resolved
+      via `AskUserQuestion`: new banner row above day cells (multi-day only, single-day events
+      unaffected), each overlapping bar its own full-width row uncapped, simple linear Tab order.
+- [x] BUG-036/FIND-026 story (Story 1.i1h) — created 2026-09-19 (same batch), now `review`
+      (implementation landed, verified 2026-09-22).
       Gate 1 found a real event/schedule granularity mismatch resolved in-story (schedule-first
       windowed query + `Event.schedules` short-circuit guard); one design question resolved via
       `AskUserQuestion` — the flat-vs-windowed `Query.events` mode is now selected by a new
@@ -369,9 +370,11 @@ short of an actual story file.
       before committing — resumed via `run-ritual.ts --resume-label` rather than redispatched
       from scratch, which completed the sprint-status.yaml/backlog.yaml/epics.md updates and
       committed cleanly (`c2f36ca`).
-- [x] IDEA-041 story (Story 1.i1i) — drafted 2026-09-18 (`ready-for-dev`); prerequisite for
-      Story 1.i1j's `bmad-dev-story`. AD-24 added to the architecture spine.
-- [x] IDEA-042 story (Story 1.i1k) — drafted 2026-09-18 (`ready-for-dev`); folded FIND-025's
+- [x] IDEA-041 story (Story 1.i1i) — drafted 2026-09-18, now `review` (implementation landed,
+      verified 2026-09-22); prerequisite for Story 1.i1j's `bmad-dev-story`. AD-24 added to the
+      architecture spine.
+- [x] IDEA-042 story (Story 1.i1k) — drafted 2026-09-18, now `review` (implementation landed,
+      commit `c80cd9bd`, verified 2026-09-22); folded FIND-025's
       still-open finding (2) in as a narrowly-scoped `no-dynamic-tailwind-arbitrary-value` lint
       guard. Gate 1 surfaced that `packages/ui` has no lint config at all — carved out as new
       Story 0.41 / backlog row FIND-036 (renumbered from 0.40 on merge with master, which
@@ -383,40 +386,55 @@ short of an actual story file.
 - [x] BUG-007 — Story 2.i1a (`review`)
 - [x] BUG-008 — Story 2.i1a (`review`)
 - [x] BUG-009
-- [ ] BUG-018
+- [ ] BUG-018 — fix applied 2026-09-17 alongside BUG-031 (shared root cause, `min-h-16` sentinel
+      fix), but per Cluster B's own standing caution, not yet independently re-verified against
+      BUG-018's exact original repro steps — left unchecked until that verification runs
 - [x] BUG-019 — Story 0.i5b (`review`)
-- [ ] BUG-031
-- [ ] BUG-032
-- [x] BUG-036 — Story 1.i1h (`ready-for-dev`), created 2026-09-19 alongside FIND-026's
-      overflow-dialog scope, per AD-23's fair per-day fetch fix
+- [x] BUG-031 — root cause confirmed and fixed 2026-09-17 (see Cluster B above): collapsing
+      infinite-scroll sentinel triggered native scroll-anchoring; fixed via `min-h-16` + end-of-list
+      indicator, lint/build green
+- [x] BUG-032 — diagnosed and fixed 2026-09-17 (see Cluster B above): Bright Data mapper/call-site
+      gap for hashtags/locationName/ownerUsername, all extracted + forwarded with regression tests;
+      ownerDisplayName + carousel-equivalent capture intentionally left open (no confirming schema
+      evidence yet)
+- [x] BUG-036 — Story 1.i1h (created 2026-09-19 alongside FIND-026's overflow-dialog scope, per
+      AD-23's fair per-day fetch fix; now `review` as of 2026-09-22)
 - [x] FIND-006 (closes via Story 2.i1a's BUG-008 coverage, not independently)
-- [ ] FIND-010
+- [x] FIND-010 (DW-009 slice) — Story 0.i6f (`review`), created 2026-09-16 alongside IDEA-031
 - [x] FIND-011
-- [ ] FIND-016
-- [ ] FIND-024
+- [x] FIND-016 — split into Stories 0.34 + 0.35, both `review` (created 2026-09-16)
+- [x] FIND-024 — duplicate confirmation of BUG-032, fixed together 2026-09-17 (see Cluster B above)
 - [x] FIND-025 — finding (1) superseded by IDEA-042/Story 1.i1k; finding (2) folded into
       Story 1.i1k's own lint-guard scope (2026-09-18)
-- [x] FIND-026 — Story 1.i1h (`ready-for-dev`), created 2026-09-19, same story as BUG-036
-- [ ] FIND-029
+- [x] FIND-026 — Story 1.i1h (created 2026-09-19, same story as BUG-036; now `review` as of
+      2026-09-22)
+- [x] FIND-029 — bundled into Story 0.36 (`review`), created 2026-09-16
 - [x] IDEA-003 — Story 1.3k (`ready-for-dev`)
 - [x] IDEA-011 — Story 0.i5a (`review`)
 - [x] IDEA-012 — Story 0.37 (`review`)
 - [x] IDEA-019 — Story 0.i5d (`ready-for-dev`); child row IDEA-038 carved for Feed/Favorites
-- [x] IDEA-020 — Stories 0.38a + 0.38 (`ready-for-dev`)
-- [x] IDEA-025 — Story 1.i1j (`ready-for-dev`, blocked on 1.i1f + 1.i1i prerequisites); child rows
-      IDEA-041/IDEA-042 carved (Stories 1.i1i/1.i1k, both `ready-for-dev` as of 2026-09-18)
-- [x] IDEA-026 — Story 1.i1f (`ready-for-dev`); child rows IDEA-039/BUG-036+FIND-026/IDEA-040
-      carved for remaining desktop-grid wiring (Stories 1.i1g/1.i1h/0.39, all `ready-for-dev` as
-      of 2026-09-19)
+- [x] IDEA-020 — Story 0.38a now `review` (implementation landed), Story 0.38 still `ready-for-dev`
+      (blocked on 0.38a + 0.42, latter now also `review`)
+- [x] IDEA-025 — Story 1.i1j (now `review`, implementation landed 2026-09-22, commit `d1b135b8` —
+      prerequisites 1.i1f + 1.i1i both reached `review` first); child rows IDEA-041/IDEA-042 carved
+      (Stories 1.i1i/1.i1k, both now `review` as of 2026-09-22)
+- [x] IDEA-026 — Story 1.i1f (`review`, implementation landed); child rows
+      IDEA-039/BUG-036+FIND-026/IDEA-040 carved for remaining desktop-grid wiring (Stories
+      1.i1g/1.i1h/0.39, all now `review` as of 2026-09-22)
 - [x] IDEA-030 — Story 1.6f (`review`); see corrected note in Cluster A above
 - [x] IDEA-031 — Story 0.i6f (2026-09-16)
 - [ ] IDEA-038 (Story 0.i5d's own child, Cluster F) — still blocked, not yet story-created;
-      prerequisites Story 1.3l (BUG-025) and Story 0.i5e both `ready-for-dev` as of 2026-09-19
-- [x] IDEA-039 (Story 1.i1f's own child, Cluster F) — Story 1.i1g (`ready-for-dev`, 2026-09-19)
-- [x] IDEA-040 (Story 1.i1f's own child, Cluster F) — Story 0.39 (`ready-for-dev`, 2026-09-19);
-      also carved a new prerequisite Story 0.42 (shared banner-slot primitive, `ready-for-dev`)
-- [x] IDEA-041 (Story 1.i1j's own child, Cluster F) — Story 1.i1i (`ready-for-dev`, 2026-09-18)
-- [x] IDEA-042 (Story 1.i1j's own child, Cluster F) — Story 1.i1k (`ready-for-dev`, 2026-09-18)
+      prerequisite Story 1.3l (BUG-025) now `review` (implementation landed), Story 0.i5e still
+      `ready-for-dev` — both still short of `done`, so still blocked (verified 2026-09-22)
+- [x] IDEA-039 (Story 1.i1f's own child, Cluster F) — Story 1.i1g (created 2026-09-19, now
+      `review` as of 2026-09-22)
+- [x] IDEA-040 (Story 1.i1f's own child, Cluster F) — Story 0.39 (created 2026-09-19, now `review`
+      as of 2026-09-22); also carved a new prerequisite Story 0.42 (shared banner-slot primitive,
+      also now `review`)
+- [x] IDEA-041 (Story 1.i1j's own child, Cluster F) — Story 1.i1i (created 2026-09-18, now
+      `review` as of 2026-09-22)
+- [x] IDEA-042 (Story 1.i1j's own child, Cluster F) — Story 1.i1k (created 2026-09-18, now
+      `review` as of 2026-09-22, commit `c80cd9bd`)
 
 ## Explicitly not in this doc
 
