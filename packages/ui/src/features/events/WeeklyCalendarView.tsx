@@ -10,10 +10,22 @@ import type {
   WeeklyCalendarViewOverflowSurface,
 } from './WeeklyCalendarView.types';
 import { getWeekStart, getWeekEnd } from '../../hooks';
-import { EventCardMediaSlot, EventCardDateBox, EventCardStatusBadge, EventCardNearbyBadge } from './EventCardMediaPrimitives';
+import {
+  EventCardMediaSlot,
+  EventCardDateBox,
+  EventCardStatusBadge,
+  EventCardNearbyBadge,
+  EventCardFavoriteBadge,
+  EVENT_CARD_CONTAINER_CLASS,
+} from './EventCardMediaPrimitives';
 import { EventCardCalendarGridItem } from './EventCardCalendarGridItem';
 import { CalendarOverflowDialog } from './CalendarOverflowDialog';
 import { computeCalendarSegmentDateBoxContent, formatEventStatus, type EventStatusLabels } from './format-event-date';
+import {
+  badgeFontSizeStyleFor,
+  eventCardRowFavoriteIconGrowingStyle,
+  EVENT_CARD_ROW_FAVORITE_COUNT_TEXT_SIZE_CLASS,
+} from './event-card-media-tokens';
 
 // Design system styles from DESIGN.md
 const CALENDAR_BASE_CLASS = "border border-gray-200 rounded-lg";
@@ -295,7 +307,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     tillLabel: 'till',
     favoriteToggleLabel: 'Toggle favorite',
     statusEnded: 'Ended',
-    statusHappeningNow: 'Happening Now',
+    statusHappeningNow: 'Now',
     statusEndsToday: 'Ends Today',
     statusInHours: 'In {n} hour(s)',
     statusInDays: 'In {n} days',
@@ -955,6 +967,14 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   const [isFocused, setIsFocused] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
 
+  // Story 1.i1m AC1/AC4 (`variant='list'` only) — seeded from the schedule's own `imageUrl`
+  // and kept current via `EventCardMediaSlot`'s `onImagePresenceChange`, mirroring
+  // `EventCard.tsx`'s identical masonry-side pattern. Local component state only, not
+  // Server/URL/Global (per this story's own Dev Notes categorization) — it derives from a
+  // prop already passed down and drives only this component's own render branch (whether
+  // the favorite control is composed externally, per AC4).
+  const [imagePresent, setImagePresent] = useState(!!schedule.imageUrl);
+
   const tooltipVisible = variant === 'grid' && (isHovered || isFocused) && !isDismissed;
 
   const tooltipText = useMemo(() => {
@@ -1066,7 +1086,18 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
 
     return (
       <div className="relative w-full">
-        <div className={`${baseButtonClass} ${multiDayRoundingClass} w-full flex items-stretch gap-2`}>
+        {/* Story 1.i1m AC6/AC7/Task 3.2/4.1: this row is the CSS container-query root
+            (`EVENT_CARD_CONTAINER_CLASS`, reused from Story 1.i1l's masonry mechanism, not
+            redefined) for the favorite badge's continuous growth and stepped count text
+            (Task 4), and the AD-15 icon-scale custom property's declaration point
+            (`badgeFontSizeStyleFor('compact')`). Declaring it here — not on the media slot,
+            which may not exist in the DOM once the image is absent/errored (AC1) — is what
+            lets the externally-composed favorite badge below inherit both mechanisms via
+            ordinary CSS whether or not the slot is mounted. */}
+        <div
+          className={`${baseButtonClass} ${multiDayRoundingClass} w-full flex items-stretch gap-2 ${EVENT_CARD_CONTAINER_CLASS}`}
+          style={badgeFontSizeStyleFor('compact')}
+        >
           <button
             id={elementId}
             type="button"
@@ -1084,14 +1115,20 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
               tillLabel={dateBoxContent.tillLabel}
             />
             <span className="flex min-w-0 w-full flex-col text-left">
-              <span className="flex items-center gap-1 w-full truncate text-left">
+              {/* Rule 6 (Story 1.i1l, DESIGN.md § event_card_compact.title): the title wraps
+                  to 2 lines. The parent's own `truncate` is removed deliberately — leaving it
+                  clips the row to one line and makes the child's `line-clamp-2` a no-op — and
+                  `items-center` becomes `items-start` so the inline favorited /
+                  added-to-calendar icons pin to the first line rather than centring against a
+                  2-line block. The `variant='grid'` day-cell pill below keeps `truncate`. */}
+              <span className="flex items-start gap-1 w-full text-left">
                 {schedule.isFavorited && (
-                  <Heart className="w-3 h-3 text-rose-500 fill-rose-500 shrink-0 inline" aria-label={favoritedBadgeLabel || 'Favorited'} data-testid="heart-icon" />
+                  <Heart className="w-3 h-3 mt-0.5 text-rose-500 fill-rose-500 shrink-0 inline" aria-label={favoritedBadgeLabel || 'Favorited'} data-testid="heart-icon" />
                 )}
                 {schedule.isAddedToCalendar && (
-                  <CalendarPlus className="w-3 h-3 text-emerald-600 shrink-0 inline" aria-label={addedToCalendarBadgeLabel || 'Added to calendar'} data-testid="calendar-plus-icon" />
+                  <CalendarPlus className="w-3 h-3 mt-0.5 text-emerald-600 shrink-0 inline" aria-label={addedToCalendarBadgeLabel || 'Added to calendar'} data-testid="calendar-plus-icon" />
                 )}
-                <span className={`${weightClass} truncate block`}>{schedule.eventName}</span>
+                <span className={`${weightClass} line-clamp-2 block`}>{schedule.eventName}</span>
               </span>
               {schedule.favoriteCount !== undefined && schedule.favoriteCount > 0 && (
                 <span className="flex items-center gap-1 text-[11px] text-gray-500 mt-0.5" data-testid="favorite-count-line" aria-label="Favorites">
@@ -1100,7 +1137,7 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
                 </span>
               )}
               {isMultiDay && multiDayBadgeText && (
-                <span className="text-[10px] text-violet-600 flex items-center gap-1 mt-0.5" data-testid="multi-day-badge">
+                <span className="text-[11px] text-violet-600 flex items-center gap-1 mt-0.5" data-testid="multi-day-badge">
                   <CalendarRange className="w-3 h-3 shrink-0 inline" aria-hidden="true" />
                   <span>{multiDayBadgeText}</span>
                 </span>
@@ -1128,7 +1165,27 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
             favoriteCount={schedule.favoriteCount}
             onFavoriteToggle={onFavoriteToggle ? () => onFavoriteToggle(schedule) : undefined}
             labels={{ favoriteToggle: favoriteToggleLabel }}
+            collapseOnFallback
+            onImagePresenceChange={setImagePresent}
           />
+          {/* Story 1.i1m AC1/AC4: the favorite control, externally composed as a plain flex
+              sibling (not absolutely positioned — unlike masonry's `EventCard.tsx` overlay,
+              this row has no image to overlay when collapsed, so the badge is simply the
+              row's last flex child) whenever the media slot above has collapsed to `null`.
+              With an image present, the slot's own internal corner-pill badge renders
+              instead (unchanged), so this and the slot's internal badge are mutually
+              exclusive, never both. */}
+          {!imagePresent && (
+            <EventCardFavoriteBadge
+              scale="large"
+              isFavorited={schedule.isFavorited}
+              favoriteCount={schedule.favoriteCount}
+              onFavoriteToggle={onFavoriteToggle ? () => onFavoriteToggle(schedule) : undefined}
+              labels={{ favoriteToggle: favoriteToggleLabel }}
+              iconSizeStyle={eventCardRowFavoriteIconGrowingStyle()}
+              largeTextSizeClassName={EVENT_CARD_ROW_FAVORITE_COUNT_TEXT_SIZE_CLASS}
+            />
+          )}
         </div>
       </div>
     );

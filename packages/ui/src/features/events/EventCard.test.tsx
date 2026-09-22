@@ -244,16 +244,19 @@ describe('EventCard', () => {
 
   // Story 1.i1z CI ratchet — AC2/AC3 for the masonry-prominent surface: this test fails if a
   // placeholder/icon or an unreserved (reflowing) fallback is reintroduced here. Note: this surface is
-  // intentionally EXCLUDED from AC1 (legacy, non-primitive `aspect-[2/3]` sizing per Story 1.i1c).
+  // intentionally EXCLUDED from AC1 (legacy, non-primitive aspect sizing per Story 1.i1c;
+  // `aspect-[2/3]` -> `aspect-square` per Story 1.i1l rule 2).
   it('renders a blank, correctly-sized fallback on masonry with prominentPoster=true', () => {
     const { container } = render(<EventCard {...defaultProps} variant="masonry" prominentPoster />);
     // No placeholder text/icon and no img
     expect(screen.queryByText('No image available')).not.toBeInTheDocument();
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
-    // Wrapper div keeps its variant-appropriate sizing class (prominent poster => aspect-[2/3])
+    // Wrapper div keeps its variant-appropriate sizing class (prominent poster => aspect-square,
+    // Story 1.i1l rule 2 / DESIGN.md event_card_masonry.image_prominent)
     const wrapper = container.querySelector('.relative.w-full.bg-muted.overflow-hidden');
     expect(wrapper).not.toBeNull();
-    expect(wrapper).toHaveClass('aspect-[2/3]');
+    expect(wrapper).toHaveClass('aspect-square');
+    expect(wrapper).not.toHaveClass('aspect-[2/3]');
     expect(wrapper).not.toHaveClass('aspect-[3/4]');
   });
 
@@ -801,7 +804,12 @@ describe('EventCard', () => {
       const badge = screen.getByText(`till ${expectedTime}`);
       expect(badge).toHaveClass('bg-amber-700');
       expect(badge).toHaveClass('text-white');
-      expect(badge).toHaveClass('-top-1.5');
+      // Story 1.i1l rule 4 (DESIGN.md event_card_till_badge, "OFFSET DIFFERS BY CONTEXT"):
+      // prominentPoster=true is the ONE context taking the larger `-top-3` offset, so the tag
+      // clears that short single-line chip's own text. The masonry-default two-tier pill above
+      // keeps `-top-1.5`.
+      expect(badge).toHaveClass('-top-3');
+      expect(badge).not.toHaveClass('-top-1.5');
       expect(badge).toHaveClass('-left-1.5');
       expect(badge).not.toHaveClass('bg-foreground');
       expect(badge).not.toHaveClass('-bottom-1.5');
@@ -876,7 +884,7 @@ describe('EventCard', () => {
 
       const badge = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
       expect(badge).not.toBeNull();
-      expect(badge).toHaveTextContent('Happening Now');
+      expect(badge).toHaveTextContent('Now');
       expect(badge).toHaveClass('bg-emerald-600');
       expect(badge).toHaveClass('text-white');
       expect(badge).not.toHaveClass('bg-muted');
@@ -914,8 +922,119 @@ describe('EventCard', () => {
     });
   });
 
+  // ── Story 1.i1l ────────────────────────────────────────────────────────────
+  // Rules 1, 4 and 7 of backlog row IDEA-046 all edit lines that serve BOTH
+  // `masonry+prominentPoster` AND `variant='standard'`. Only masonry is in the
+  // 2026-09-14 pass's scope, so these guard the gate rather than the new values --
+  // without them a later "simplification" that drops the `isMasonry ?` ternary would
+  // silently shrink and reposition the standard card and no test would notice.
+  describe('Story 1.i1l — masonry-only gating (variant="standard" regression guard)', () => {
+    it('caps the card at 230px and declares a query container on masonry only', () => {
+      const { container } = render(
+        <EventCard {...defaultProps} variant="masonry" locale="en-US" />
+      );
+      const masonryRoot = container.querySelector('article') as HTMLElement;
+      expect(masonryRoot).toHaveClass('max-w-[230px]');
+      expect(masonryRoot).toHaveClass('[container-type:inline-size]');
+      expect(masonryRoot).not.toHaveClass('max-w-sm');
+
+      cleanup();
+
+      const { container: std } = render(<EventCard {...defaultProps} locale="en-US" />);
+      const standardRoot = std.querySelector('article') as HTMLElement;
+      expect(standardRoot).toHaveClass('max-w-sm');
+      expect(standardRoot).not.toHaveClass('max-w-[230px]');
+      // No container on the standard card, so the badge font-size step never fires there.
+      expect(standardRoot).not.toHaveClass('[container-type:inline-size]');
+    });
+
+    it('caps the loading skeleton to match its real card (no CLS on swap)', () => {
+      // project-context.md, "Keep Skeletons in Sync With Their Real Component": a skeleton
+      // left at 384px while the real card renders at 230px reintroduces the exact layout
+      // shift skeletons exist to prevent, just delayed until the swap.
+      const { container } = render(
+        <EventCard {...defaultProps} variant="masonry" loading locale="en-US" />
+      );
+      const skeleton = container.querySelector('.animate-pulse') as HTMLElement;
+      expect(skeleton).toHaveClass('max-w-[230px]');
+      expect(skeleton).not.toHaveClass('max-w-sm');
+
+      cleanup();
+
+      const { container: std } = render(<EventCard {...defaultProps} loading locale="en-US" />);
+      expect(std.querySelector('.animate-pulse')).toHaveClass('max-w-sm');
+    });
+
+    it('leaves the standard card favorite pill at its shipped top-3 right-3 position', () => {
+      // Rule 4 moves the masonry pill to top-2/top-5 and right-2; `standard` is untouched.
+      const { container } = render(
+        <EventCard {...defaultProps} locale="en-US" onFavoriteToggle={() => {}} />
+      );
+      const pill = container.querySelector('article > button') as HTMLElement;
+      expect(pill).not.toBeNull();
+      expect(pill).toHaveClass('top-3');
+      expect(pill).toHaveClass('right-3');
+      expect(pill).not.toHaveClass('top-2');
+      expect(pill).not.toHaveClass('top-5');
+      expect(pill).not.toHaveClass('right-2');
+    });
+
+    it('moves the masonry date and favorite pills to top-5 together only when a TILL tag is present', () => {
+      // DESIGN.md § event_card_date_box.base: the two move in lockstep so the tag has room
+      // to clear the poster's own `overflow-hidden` edge.
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const { container } = render(
+        <EventCard
+          eventName="Has Till"
+          startDate={yesterday}
+          endDate={tomorrow}
+          variant="masonry"
+          prominentPoster
+          imageUrl="http://example.com/image.jpg"
+          locale="en-US"
+          onFavoriteToggle={() => {}}
+        />
+      );
+      const favPill = container.querySelector('article > button') as HTMLElement;
+      expect(favPill).toHaveClass('top-5');
+      expect(favPill).toHaveClass('right-2');
+      const datePill = container.querySelector('.rounded-md.bg-background\\/80') as HTMLElement;
+      expect(datePill).toHaveClass('top-5');
+      expect(datePill).toHaveClass('left-2');
+      // Padding stays uniform -- the rejected asymmetric-padding mechanism must not return.
+      expect(datePill).toHaveClass('p-1');
+      expect(datePill).not.toHaveClass('px-2.5');
+
+      cleanup();
+
+      // Already ended -> no TILL tag -> both pills stay at their default top-2.
+      const longAgoStart = new Date();
+      longAgoStart.setDate(longAgoStart.getDate() - 10);
+      const longAgoEnd = new Date();
+      longAgoEnd.setDate(longAgoEnd.getDate() - 9);
+      const { container: noTill } = render(
+        <EventCard
+          eventName="No Till"
+          startDate={longAgoStart}
+          endDate={longAgoEnd}
+          variant="masonry"
+          prominentPoster
+          imageUrl="http://example.com/image.jpg"
+          locale="en-US"
+          onFavoriteToggle={() => {}}
+        />
+      );
+      expect(noTill.querySelector('article > button')).toHaveClass('top-2');
+      expect(noTill.querySelector('.rounded-md.bg-background\\/80')).toHaveClass('top-2');
+    });
+  });
+
   describe('Prominent poster (masonry, AC17)', () => {
-    it('uses the enlarged aspect-[2/3] poster treatment when prominentPoster is true', () => {
+    it('uses the square poster treatment when prominentPoster is true (Story 1.i1l rule 2)', () => {
       render(
         <EventCard
           {...defaultProps}
@@ -927,7 +1046,8 @@ describe('EventCard', () => {
       );
       const img = screen.getByRole('img', { name: 'Summer Music Festival' });
       const imgContainer = img.parentElement;
-      expect(imgContainer).toHaveClass('aspect-[2/3]');
+      expect(imgContainer).toHaveClass('aspect-square');
+      expect(imgContainer).not.toHaveClass('aspect-[2/3]');
       expect(imgContainer).not.toHaveClass('aspect-[3/4]');
     });
 
@@ -947,7 +1067,7 @@ describe('EventCard', () => {
       expect(slot).toHaveClass('flex-1');
       expect(slot).toHaveClass('h-full');
       expect(slot).not.toHaveClass('aspect-[3/4]');
-      expect(slot).not.toHaveClass('aspect-[2/3]');
+      expect(slot).not.toHaveClass('aspect-square');
     });
   });
 

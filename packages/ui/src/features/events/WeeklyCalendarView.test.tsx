@@ -4,6 +4,7 @@ import { render, screen as rtlScreen, fireEvent, cleanup, within } from '@testin
 import { describe, it, expect, vi, afterEach, beforeAll, afterAll } from 'vitest';
 import { WeeklyCalendarView } from './WeeklyCalendarView';
 import { ScopedLocaleProvider } from '../../hooks/useScopedLocale';
+import { EVENT_CARD_BADGE_FONT_SIZE_VAR, EVENT_CARD_BADGE_FONT_SIZE_BY_SIZE } from './event-card-media-tokens';
 
 // Custom screen wrapper to automatically scope existing desktop-grid assertions
 const screen = {
@@ -1186,9 +1187,14 @@ describe('WeeklyCalendarView', () => {
       expect(within(mobileView).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
     });
 
-    // Story 1.i1z CI ratchet — AC2/AC3 for the calendar compact-row surface: this test proves the
-    // reserved-blank footprint with no reflow and no placeholder when `imageUrl` is absent. Part of Story 1.i1z.
-    it('renders the reserved-blank fallback with a large centered favorite badge when imageUrl is absent (AC2)', () => {
+    // Story 1.i1m CI ratchet (inverts the Story 1.i1z ratchet of the same name that used to
+    // assert the OPPOSITE — reserved-but-blank — behavior for this exact surface): the media
+    // slot is omitted from the DOM entirely, not left as an empty reserved element, when
+    // `imageUrl` is absent. Content expands into the freed width and the favorite control
+    // still renders (composed externally, per AC4) and remains interactive. Masonry's own
+    // reserved-blank convention is unchanged — see `EventCardMediaPrimitives.test.tsx`'s own
+    // `collapseOnFallback defaults to false` regression guard.
+    it('omits the media slot entirely (no reserved element) and still renders the favorite control when imageUrl is absent (Story 1.i1m AC1/AC4)', () => {
       const onFavoriteToggle = vi.fn();
       const schedule = [
         {
@@ -1211,16 +1217,16 @@ describe('WeeklyCalendarView', () => {
       );
 
       const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
-      const slot = container.querySelector('[data-event-card-media-slot]');
-      expect(slot).not.toBeNull();
-      // Reserved-blank fallback: no <img> at all, and the large favorite control renders.
-      expect(slot?.querySelector('img')).toBeNull();
+      // No reserved element at all — not merely an empty/blank one.
+      expect(container.querySelector('[data-event-card-media-slot]')).toBeNull();
+      // The favorite control still renders (externally composed) and remains interactive.
       expect(within(mobileView).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
     });
 
-    // Story 1.i1z CI ratchet — AC2/AC3 for the calendar compact-row surface: this test proves the
-    // reserved-blank footprint with no reflow when the image `onError` fires. Part of Story 1.i1z.
-    it('switches to the reserved-blank fallback when the image onError fires (AC2)', () => {
+    // Story 1.i1m CI ratchet (inverts the Story 1.i1z ratchet of the same name). The slot is
+    // present with an image on mount, then removed from the DOM entirely — not merely
+    // emptied — once the image's `onError` fires.
+    it('removes the media slot from the DOM entirely (not merely emptied) when the image onError fires (Story 1.i1m AC1)', () => {
       const onFavoriteToggle = vi.fn();
       const schedule = [
         {
@@ -1243,6 +1249,7 @@ describe('WeeklyCalendarView', () => {
         </ScopedLocaleProvider>
       );
 
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
       const slot = container.querySelector('[data-event-card-media-slot]') as HTMLElement;
       expect(slot).not.toBeNull();
       const img = slot.querySelector('img');
@@ -1250,10 +1257,102 @@ describe('WeeklyCalendarView', () => {
 
       fireEvent.error(img as Element);
 
-      // After the error, the reserved 64x64 slot keeps its footprint (no reflow) but the image is gone.
-      expect(slot.querySelector('img')).toBeNull();
-      // The favorite badge (large, centered) still renders and remains interactive.
-      expect(within(slot).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
+      // After the error, the slot element itself is gone from the DOM (not just its image).
+      expect(container.querySelector('[data-event-card-media-slot]')).toBeNull();
+      // The favorite badge (now externally composed) still renders and remains interactive.
+      expect(within(mobileView).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
+    });
+
+    // Story 1.i1m AC2 — the content column expands to fill the width the media slot's
+    // removal frees up (falls out of the flex row losing a child; asserted structurally by
+    // confirming the content button has no sibling media-slot element, complementing the two
+    // DOM-presence ratchets above rather than asserting a specific computed pixel width,
+    // which JSDOM does not lay out).
+    it('has no media-slot sibling for the content column to compete with when imageUrl is absent (Story 1.i1m AC2)', () => {
+      const onFavoriteToggle = vi.fn();
+      const schedule = [
+        {
+          id: 'noimg-reflow-1',
+          eventSlug: 'test',
+          eventName: 'No Image Reflow Event',
+          isMainSchedule: true,
+          eventStartDate: '2026-08-05',
+        }
+      ];
+      const { container } = render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView
+            {...defaultProps}
+            schedules={schedule}
+            onFavoriteToggle={onFavoriteToggle}
+          />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      const contentButton = within(mobileView).getByText('No Image Reflow Event').closest('button');
+      expect(contentButton).not.toBeNull();
+      // The row wrapper (button's parent) has exactly two children: the content button (its
+      // `flex-1` free to expand) and the externally-composed favorite badge — no third
+      // (media-slot) sibling competing for width.
+      const rowWrapper = contentButton?.parentElement;
+      expect(rowWrapper?.children).toHaveLength(2);
+    });
+
+    // Story 1.i1m AC6/Task 6.3 — the AD-15 icon-scale custom property must reach the
+    // favorite badge whether it's a descendant of the media slot (with-image case) or an
+    // external sibling composed by the row itself (no-image case), since removing the slot
+    // in the latter case also removes the element that used to declare it.
+    it('declares the AD-15 icon-scale custom property on a shared ancestor of the favorite badge in both the with-image and no-image row states (Story 1.i1m AC6)', () => {
+      const expectedValue = EVENT_CARD_BADGE_FONT_SIZE_BY_SIZE.compact;
+
+      const withImageSchedule = [
+        {
+          id: 'withimg-cssvar-1',
+          eventSlug: 'test',
+          eventName: 'With Image CSS Var Event',
+          isMainSchedule: true,
+          eventStartDate: '2026-08-05',
+          imageUrl: 'https://img.example/thumb.jpg',
+        }
+      ];
+      const { container: withImageContainer } = render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...defaultProps} schedules={withImageSchedule} onFavoriteToggle={vi.fn()} />
+        </ScopedLocaleProvider>
+      );
+      const withImageSlot = withImageContainer.querySelector('[data-event-card-media-slot]');
+      expect(withImageSlot).not.toBeNull();
+      const withImageBadgeButton = within(withImageSlot as HTMLElement).getByRole('button', { name: 'Toggle favorite' });
+      // Nearest ancestor declaring the custom property — the slot's own root, unchanged.
+      const withImageAncestor = (withImageBadgeButton.closest('[data-event-card-media-slot]') as HTMLElement) ?? undefined;
+      expect(withImageAncestor?.style.getPropertyValue(EVENT_CARD_BADGE_FONT_SIZE_VAR)).toBe(expectedValue);
+      cleanup();
+
+      const noImageSchedule = [
+        {
+          id: 'noimg-cssvar-1',
+          eventSlug: 'test',
+          eventName: 'No Image CSS Var Event',
+          isMainSchedule: true,
+          eventStartDate: '2026-08-05',
+        }
+      ];
+      const { container: noImageContainer } = render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...defaultProps} schedules={noImageSchedule} onFavoriteToggle={vi.fn()} />
+        </ScopedLocaleProvider>
+      );
+      expect(noImageContainer.querySelector('[data-event-card-media-slot]')).toBeNull();
+      const noImageBadgeButton = rtlScreen.getByRole('button', { name: 'Toggle favorite' });
+      // No slot exists in this state — the row's own outer wrapper is the ancestor that must
+      // declare the property instead, per Task 3.2's relocation.
+      let rowWrapperAncestor: HTMLElement | null = noImageBadgeButton.parentElement;
+      while (rowWrapperAncestor && !rowWrapperAncestor.style.getPropertyValue(EVENT_CARD_BADGE_FONT_SIZE_VAR)) {
+        rowWrapperAncestor = rowWrapperAncestor.parentElement;
+      }
+      expect(rowWrapperAncestor).not.toBeNull();
+      expect(rowWrapperAncestor?.style.getPropertyValue(EVENT_CARD_BADGE_FONT_SIZE_VAR)).toBe(expectedValue);
     });
 
     it('fires onFavoriteToggle with the exact schedule and does not trigger onScheduleClick (AC3/AC7)', () => {
@@ -1470,7 +1569,7 @@ describe('WeeklyCalendarView', () => {
         // the identical happeningNow state.
         expect(badges).toHaveLength(3);
         badges.forEach((badge) => {
-          expect(badge).toHaveTextContent('Happening Now');
+          expect(badge).toHaveTextContent('Now');
           expect(badge).toHaveClass('bg-emerald-600');
           expect(badge).toHaveClass('text-white');
         });
@@ -1626,6 +1725,23 @@ describe('WeeklyCalendarView', () => {
         expect(desktopView.querySelector('[data-event-card-status-badge]')).toBeNull();
         expect(desktopView.querySelector('[data-event-card-nearby-badge]')).toBeNull();
       });
+
+      // Story 1.i1m Task 6.5 — this story touches only `variant='list'`; the desktop
+      // `variant='grid'` day-cell pill never rendered `EventCardMediaSlot` at all (it's a
+      // different component, `EventCardCalendarGridItem`), so this guard confirms that stays
+      // true rather than assuming it from the story's own Out of Scope note alone.
+      it('leaves variant="grid" completely unaffected — no media-slot element on desktop (Story 1.i1m)', () => {
+        vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+
+        render(
+          <ScopedLocaleProvider locale="en-US">
+            <WeeklyCalendarView {...defaultProps} />
+          </ScopedLocaleProvider>
+        );
+
+        const desktopView = rtlScreen.getByTestId('desktop-calendar-view');
+        expect(desktopView.querySelector('[data-event-card-media-slot]')).toBeNull();
+      });
     });
   });
   describe('Mobile Day Collapse State', () => {
@@ -1677,4 +1793,107 @@ describe('WeeklyCalendarView', () => {
       expect(within(mobileView).queryByText('Gallery Tour')).not.toBeInTheDocument();
     });
   });
+  describe('Story 1.i1l — compact-row title wrap and the 11px floor (rule 6, rule 5)', () => {
+    beforeAll(() => {
+      vi.useFakeTimers();
+      // 2026-08-04 makes every day of the 2026-08-05 week future-dated, so the
+      // mobile list variant renders expanded and its rows are queryable.
+      vi.setSystemTime(new Date('2026-08-04T12:00:00Z'));
+    });
+
+    afterAll(() => {
+      vi.useRealTimers();
+    });
+
+    const longNameSchedule = [
+      {
+        id: 'wrap-1',
+        eventSlug: 'wrap-fest',
+        eventName: 'A Deliberately Long Festival Name That Needs Two Lines',
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+        eventEndDate: '2026-08-07', // multi-day, so the badge renders too
+      },
+    ];
+
+    it('wraps the compact-row title to two lines and drops the parent clip that would no-op it', () => {
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...defaultProps} schedules={longNameSchedule} />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      const title = within(mobileView).getAllByText(
+        'A Deliberately Long Festival Name That Needs Two Lines'
+      )[0];
+
+      expect(title).toHaveClass('line-clamp-2');
+      expect(title).not.toHaveClass('truncate');
+
+      // The parent's own `truncate` is what silently defeats `line-clamp-2`, so
+      // its removal is the load-bearing half of rule 6 and is asserted directly.
+      const titleRow = title.parentElement as HTMLElement;
+      expect(titleRow).not.toHaveClass('truncate');
+      expect(titleRow).toHaveClass('items-start');
+      expect(titleRow).not.toHaveClass('items-center');
+    });
+
+    it('nudges the inline row icons to the first line once the title can wrap', () => {
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView
+            {...defaultProps}
+            schedules={[{ ...longNameSchedule[0], isFavorited: true, isAddedToCalendar: true }]}
+          />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      const row = within(mobileView).getAllByText(
+        'A Deliberately Long Festival Name That Needs Two Lines'
+      )[0].parentElement as HTMLElement;
+
+      expect(within(row).getByTestId('heart-icon')).toHaveClass('mt-0.5');
+      expect(within(row).getByTestId('calendar-plus-icon')).toHaveClass('mt-0.5');
+    });
+
+    it('raises the multi-day badge to the 11px legibility floor', () => {
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...defaultProps} schedules={longNameSchedule} />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      const badge = within(mobileView).getAllByTestId('multi-day-badge')[0];
+
+      expect(badge).toHaveClass('text-[11px]');
+      expect(badge).not.toHaveClass('text-[10px]');
+    });
+
+    it('leaves the variant="grid" day-cell title clipped to one line (rule 6 is compact-row only)', () => {
+      // Single-day on purpose: a multi-day schedule renders on desktop as a spanning
+      // bar built from `EventCardCalendarGridItem`, which is a different component with
+      // its own title styling. The day-cell title is only reachable via a single-day row.
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView
+            {...defaultProps}
+            schedules={[{ ...longNameSchedule[0], eventEndDate: '2026-08-05' }]}
+          />
+        </ScopedLocaleProvider>
+      );
+
+      const desktopView = rtlScreen.getByTestId('desktop-calendar-view');
+      const gridTitle = within(desktopView).getAllByText(
+        'A Deliberately Long Festival Name That Needs Two Lines'
+      )[0];
+
+      expect(gridTitle).toHaveClass('truncate');
+      expect(gridTitle).not.toHaveClass('line-clamp-2');
+      expect(gridTitle.parentElement as HTMLElement).toHaveClass('truncate', 'items-center');
+    });
+  });
+
 });

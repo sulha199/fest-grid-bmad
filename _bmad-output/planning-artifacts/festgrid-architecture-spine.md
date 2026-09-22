@@ -414,20 +414,40 @@ This document defines the core architectural invariants for the FestDaily applic
         footprint fixed by its layout — masonry `flex-fill` matches a sibling date box's own height via the
         row's `items-stretch` (`flex-1 h-full min-w-0`); calendar-compact is a fixed `w-16 h-16 shrink-0` —
         so nothing shifts when the image loads or fails.
+
+        **Narrowed to masonry only, 2026-09-21 (Story 1.i1m).** This rule now binds `EventCard.tsx`'s
+        masonry `prominentPoster=false` branch alone. The calendar-compact row is no longer bound by it —
+        the row's own image element is omitted from the DOM entirely on absence/error (`collapseOnFallback`
+        on `EventCardMediaSlot`), a deliberate, user-directed 2026-09-14 reversal of the row's own prior
+        convention, distinct from masonry's, which is unchanged. See Rule 2's own amendment note below and
+        Story 1.i1m's Dev Notes for the full record.
         - **Enforced by:** `packages/ui/src/features/events/EventCardMediaPrimitives.test.tsx` AC1
           (`flex-fill`/`fixed-square` className-shape assertions) — the primitive's own shape half of the
           proof (Story 1.i1a; ratchet = Story 1.i1z) — plus the two adopting consumers' own tests:
           `EventCard.test.tsx`'s `renders a blank, flex-fill fallback on masonry default (prominentPoster=false, top_row_default)`
-          and `WeeklyCalendarView.test.tsx`'s `renders the thumbnail image and its favorite badge when imageUrl is present (AC1)`.
+          and `WeeklyCalendarView.test.tsx`'s `renders the thumbnail image and its favorite badge when imageUrl is present (AC1)`
+          (the with-image case, unchanged by Story 1.i1m).
     2.  **Fallback is reserved-blank, not a placeholder.** A missing/errored image renders zero content in
         the reserved slot — no icon, no filler, no "No image available" text — keeping the exact AC1
         footprint. Only the large favorite badge (rule 3) renders, centered in the slot's place.
+
+        **Narrowed to masonry only, 2026-09-21 (Story 1.i1m).** Masonry's own reserved-space convention
+        (`event_card_masonry.thumbnail_default_fallback`) is unchanged. The calendar-compact row no longer
+        follows this rule at all: per DESIGN.md `event_card_compact_thumbnail_fallback` ("no area for image
+        at all"), the row omits the media-slot element from the DOM entirely when the image is absent or
+        errored, rather than rendering it reserved-but-blank — a real, user-directed reversal of the row's
+        own prior behavior, not a bug. `EventCardMediaSlot`'s new `collapseOnFallback` prop (default `false`,
+        preserving this rule unchanged for every existing consumer) is what the row opts into; masonry's two
+        call sites omit it and keep exactly the reserved-blank behavior this rule still describes for them.
         - **Enforced by:** the same test file's AC3 suite (blank-reserved assertions + `onError` switch),
-          plus the two consumers' reserved-blank tests: `EventCard.test.tsx`'s
+          plus masonry's own reserved-blank tests: `EventCard.test.tsx`'s
           `renders a blank, flex-fill fallback on masonry default (prominentPoster=false, top_row_default)` and
-          `renders a blank, correctly-sized fallback on masonry with prominentPoster=true`, and
-          `WeeklyCalendarView.test.tsx`'s `renders the reserved-blank fallback with a large centered favorite badge when imageUrl is absent (AC2)`
-          and `switches to the reserved-blank fallback when the image onError fires (AC2)`.
+          `renders a blank, correctly-sized fallback on masonry with prominentPoster=true`. The calendar-row
+          counterpart tests this rule used to cite — `WeeklyCalendarView.test.tsx`'s
+          `renders the reserved-blank fallback with a large centered favorite badge when imageUrl is absent (AC2)`
+          and `switches to the reserved-blank fallback when the image onError fires (AC2)` — were **inverted**
+          by Story 1.i1m into ratchets for the row's own (opposite) behavior; they no longer enforce this rule
+          and are cited instead under Story 1.i1m's own Dev Notes.
     3.  **One shared icon-scale token family, CSS-custom-property driven.** Both badge scales derive their
         icon size from a single exported ratio family via `calc(var(--event-card-badge-font-size,0.75rem) *
         <ratio>)` — the mechanism that works because the date box and badge are DOM *siblings* (plain `em`

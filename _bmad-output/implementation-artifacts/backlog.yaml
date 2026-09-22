@@ -1356,7 +1356,7 @@ items:
   # event-pages-dev-story-tracking.md, prototypes/validation-log.md) was updated in the
   # same pass.
   IDEA-046:
-    {type: idea, status: triaged, epic: epic-1-i1, created: 2026-09-20, parent: CC-019,
+    {type: idea, status: promoted, epic: epic-1-i1, created: 2026-09-20, parent: CC-019,
      impact: user-visible, effort: s,
      title: "Seven rules the 2026-09-14 prototype pass validated have no story and no board row (230px masonry cap, square prominent-poster crop, \"Now\" label, date-pill/TILL position mechanism, badge size harmonization, calendar-row title wrap, calendar-row reserved-slot reversal)",
      ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md,
@@ -1364,8 +1364,10 @@ items:
            implementation-artifacts/1-i1d-adopt-the-primitive-into-weeklycalendarview-compact-row.md,
            implementation-artifacts/1-i1e-adopt-the-primitive-into-the-masonry-default-state.md,
            backlog/IDEA-046-prototype-fidelity-residuals.md],
+     stories: [1-i1l-apply-the-six-unowned-prototype-fidelity-rules,
+               1-i1m-drop-the-calendar-rows-reserved-image-slot],
      touches: [pkg:ui, web:events/EventCard, web:events/WeeklyCalendarView, cross:ux-tokens],
-     note: "Found 2026-09-20 auditing prototype-to-story coverage. IDEA-016's row says 3 prototyping corrections and IDEA-017's says 7 refinements were never 'folded into a story amendment'; most landed since (masonry title/venue clamps, category-badge replaced by the <8km nearby badge, grid-item title wrap, happeningNow emerald via 1.i1i), but 7 did not and no row captured them -- DESIGN.md/EXPERIENCE.md already specify all 7 in full, so this is code-following-existing-spec work, not new design. Rules 4/5 rewrite the same EventCardDateBox/TILL class strings Story 1.i1k is about to rewrite (fold in, or dispatch after 1.i1k); rule 3 additionally needs an epics.md AC change since 1.i1i's AC freezes 'Happening Now'. No prerequisite otherwise. Also surfaced: validation-log.md stops at round 4 while DESIGN.md cites rounds 5-8. Full detail, line-level code evidence, and the prototype-to-story matrix in backlog/IDEA-046-prototype-fidelity-residuals.md."}
+     note: "Promoted 2026-09-21: rules 1-6 -> Story 1.i1l, rule 7 -> Story 1.i1m (Gate 2 split). All seven re-verified against c80cd9b and still reproducing; two of the 2026-09-20 code references had moved. Carve-outs: IDEA-048, FIND-046. Full record in Story 1.i1l's Dev Notes."}
 
   # ── 2026-09-21 (bmad-code-review of Story 1.i1f, deferred findings) ──────────
   FIND-045:
@@ -1393,3 +1395,22 @@ items:
      ref: [backlog/IDEA-047-re-extract-on-missing-post-media.md],
      touches: [web:events, app:backend, cross:ai-extraction, cross:architecture],
      note: "Includes an explicit CURATOR_GUIDE carve-out (user direction 2026-09-21): allow re-extract/re-scrape there too when the post's caption/images are missing, narrowing 3.4o's blanket correction-trigger hide. Detail in backlog/IDEA-047-re-extract-on-missing-post-media.md."}
+
+  # ── 2026-09-21 (bmad-create-story, IDEA-046 promotion carve-outs) ───────────
+  IDEA-048:
+    {type: idea, status: backlog, epic: epic-1-i1, created: 2026-09-21, parent: IDEA-046,
+     impact: user-visible, effort: s,
+     title: "Calendar compact row renders no venue line at all, and still corner-overlays its favorite pill instead of stacking it below the thumbnail",
+     ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md,
+           implementation-artifacts/1-i1l-apply-the-six-unowned-prototype-fidelity-rules.md],
+     touches: [pkg:ui, web:events/WeeklyCalendarView, cross:ux-tokens],
+     note: "Found 2026-09-21 drafting Story 1.i1l: two residuals in the same event_card_compact token block as IDEA-046 rules 6/7, user-directed in the same 2026-09-14 pass but absent from that row's seven. The with-image counterpart to rule 7, so it belongs with Story 1.i1m."}
+
+  FIND-046:
+    {type: finding, status: backlog, created: 2026-09-21, parent: IDEA-046,
+     impact: internal, effort: s,
+     title: "prototypes/validation-log.md records rounds 1-4 only, so four of the rules shipped by Story 1.i1l have no screenshot re-validation record",
+     ref: [design-artifacts/UX-festgrid-run-1/prototypes/validation-log.md,
+           implementation-artifacts/1-i1l-apply-the-six-unowned-prototype-fidelity-rules.md],
+     touches: [cross:ux-tokens, cross:process],
+     note: "Surfaced by IDEA-046's audit, carved out on its promotion. DESIGN.md/EXPERIENCE.md cite revisions through round 8; the log stops at round 4 and already carries a 2026-09-20 coverage note. Not a prerequisite for Story 1.i1l."}

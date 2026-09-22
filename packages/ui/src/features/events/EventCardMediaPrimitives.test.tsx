@@ -1,6 +1,6 @@
 /// <reference types="@testing-library/jest-dom" />
 import React from 'react';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
   EventCardMediaSlot,
@@ -8,6 +8,9 @@ import {
   EventCardDateBox,
   EventCardStatusBadge,
   EventCardNearbyBadge,
+  eventCardTillLabelClass,
+  EVENT_CARD_BADGE_TEXT_SIZE_CLASS,
+  EVENT_CARD_CONTAINER_CLASS,
 } from './EventCardMediaPrimitives';
 import {
   EVENT_CARD_BADGE_ICON_SCALE_LARGE,
@@ -17,6 +20,9 @@ import {
   EVENT_CARD_BADGE_FONT_SIZE_BY_SIZE,
   EVENT_CARD_BADGE_MIN_TOUCH_REM,
   eventCardBadgeIconSizeStyle,
+  eventCardRowFavoriteIconGrowingStyle,
+  EVENT_CARD_ROW_FAVORITE_ICON_MIN_PX,
+  EVENT_CARD_ROW_FAVORITE_ICON_MAX_PX,
 } from './event-card-media-tokens';
 
 // Built independently from the raw exported constants, not by calling
@@ -261,6 +267,115 @@ describe('EventCardMediaSlot additive props (Story 1.i1e)', () => {
   });
 });
 
+describe('EventCardMediaSlot collapseOnFallback (Story 1.i1m AC1/AC3)', () => {
+  afterEach(() => cleanup());
+
+  it('defaults to false and preserves the exact reserved-blank fallback when omitted (masonry regression guard)', () => {
+    const { container } = render(
+      <EventCardMediaSlot layout="flex-fill" onFavoriteToggle={vi.fn()} />
+    );
+    // Today's exact reserved-blank behavior: the slot's own root element still mounts,
+    // reserving its footprint, with the large favorite badge centered inside it.
+    const slot = container.querySelector('[data-event-card-media-slot]');
+    expect(slot).not.toBeNull();
+    expect(within(slot as HTMLElement).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
+  });
+
+  it('renders null (no slot element at all) when collapseOnFallback is true and no imageUrl is provided', () => {
+    const { container } = render(
+      <EventCardMediaSlot layout="fixed-square" onFavoriteToggle={vi.fn()} collapseOnFallback />
+    );
+    expect(container.querySelector('[data-event-card-media-slot]')).toBeNull();
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('removes the slot element entirely (not merely emptied) when collapseOnFallback is true and the image onError fires', () => {
+    const { container } = render(
+      <EventCardMediaSlot
+        layout="fixed-square"
+        imageUrl="/broken.jpg"
+        onFavoriteToggle={vi.fn()}
+        collapseOnFallback
+      />
+    );
+    const slotBeforeError = container.querySelector('[data-event-card-media-slot]');
+    expect(slotBeforeError).not.toBeNull();
+    const img = slotBeforeError?.querySelector('img');
+    expect(img).not.toBeNull();
+
+    fireEvent.error(img as HTMLImageElement);
+
+    expect(container.querySelector('[data-event-card-media-slot]')).toBeNull();
+  });
+
+  it('keeps the with-image branch byte-identical when collapseOnFallback is true (only the fallback branch changes)', () => {
+    const { container } = render(
+      <EventCardMediaSlot
+        layout="fixed-square"
+        imageUrl="/a.jpg"
+        onFavoriteToggle={vi.fn()}
+        collapseOnFallback
+      />
+    );
+    const slot = container.querySelector('[data-event-card-media-slot]');
+    expect(slot).not.toBeNull();
+    expect(slot?.querySelector('img')).toHaveAttribute('src', '/a.jpg');
+    expect(within(slot as HTMLElement).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
+  });
+});
+
+describe('EventCardFavoriteBadge icon/text-size overrides (Story 1.i1m AC5)', () => {
+  afterEach(() => cleanup());
+
+  it('uses the ratio-derived default icon size and fixed text-sm when neither override is supplied (masonry/default regression guard)', () => {
+    render(<EventCardFavoriteBadge scale="large" onFavoriteToggle={vi.fn()} favoriteCount={3} />);
+    const button = screen.getByRole('button', { name: 'Toggle favorite' });
+    expect(button.className).toMatch(/\btext-sm\b/);
+    const heart = button.querySelector('svg');
+    const expected = expectedIconSize(EVENT_CARD_BADGE_ICON_SCALE_LARGE);
+    expect(heart?.style.width).toBe(expected);
+    expect(heart?.style.height).toBe(expected);
+  });
+
+  it('applies iconSizeStyle and largeTextSizeClassName overrides when supplied, replacing the ratio-derived default', () => {
+    // A plain px value proves the override-plumbing mechanism itself (this component passes
+    // `iconSizeStyle`/`largeTextSizeClassName` straight through, unconditionally replacing its
+    // own ratio-derived computation) without round-tripping a `cqi`/`clamp()` value through
+    // JSDOM's CSS parser, which — per this story's own AC7 — does not reliably represent
+    // container-query units. `eventCardRowFavoriteIconGrowingStyle()`'s own returned object is
+    // verified directly (no DOM involved) in the next test below.
+    const overrideStyle = { width: '42px', height: '42px' };
+    render(
+      <EventCardFavoriteBadge
+        scale="large"
+        onFavoriteToggle={vi.fn()}
+        favoriteCount={3}
+        iconSizeStyle={overrideStyle}
+        largeTextSizeClassName="text-sm [@container(min-width:490px)]:text-base"
+      />
+    );
+    const button = screen.getByRole('button', { name: 'Toggle favorite' });
+    expect(button.className).toMatch(/\[@container\(min-width:490px\)\]:text-base\b/);
+    const heart = button.querySelector('svg');
+    expect(heart?.style.width).toBe(overrideStyle.width);
+    expect(heart?.style.height).toBe(overrideStyle.height);
+    // Not the ratio-derived default this override replaces.
+    expect(heart?.style.width).not.toBe(expectedIconSize(EVENT_CARD_BADGE_ICON_SCALE_LARGE));
+  });
+
+  it("eventCardRowFavoriteIconGrowingStyle() returns the calibrated clamp()/cqi formula (Story 1.i1m AC5/AC7)", () => {
+    // Pure function, no DOM/JSDOM CSS parsing involved — proves the formula itself is
+    // calibrated to the two validated prototype points (36px @ 326px row, 56px @ 655px row)
+    // independently of whether JSDOM can represent the resulting string.
+    const style = eventCardRowFavoriteIconGrowingStyle();
+    const expected = `clamp(${EVENT_CARD_ROW_FAVORITE_ICON_MIN_PX}px, calc(16.2px + 6.08cqi), ${EVENT_CARD_ROW_FAVORITE_ICON_MAX_PX}px)`;
+    expect(style.width).toBe(expected);
+    expect(style.height).toBe(expected);
+    expect(EVENT_CARD_ROW_FAVORITE_ICON_MIN_PX).toBe(36);
+    expect(EVENT_CARD_ROW_FAVORITE_ICON_MAX_PX).toBe(56);
+  });
+});
+
 describe('EventCardDateBox (Story 1.i1k two-tier month/day chrome)', () => {
   afterEach(() => cleanup());
 
@@ -451,5 +566,118 @@ describe('EventCardNearbyBadge - AC1/AC2/AC6 (self-gating <8km, non-interactive)
     expect(badge.getAttribute('title')).toBeNull();
     expect(badge.getAttribute('tabindex')).toBeNull();
     expect(container.querySelectorAll('button, a, input, [tabindex]')).toHaveLength(0);
+  });
+});
+
+// ── Story 1.i1l ──────────────────────────────────────────────────────────────
+// Rules 4, 5 and 7 of backlog row IDEA-046. These are structural ratchets, not
+// rendered-size assertions: JSDOM implements neither container queries nor Tailwind,
+// so `getComputedStyle().fontSize` here would report the same value at every width and
+// prove nothing. What CAN be proven — and is what the rules actually require — is that
+// the two badges resolve from ONE shared token, and that the token is a complete
+// literal string Tailwind's content scanner can see.
+describe('Story 1.i1l — badge font-size harmonization and the TILL offset context', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('gives the TILL tag and the favorite pill the identical font-size token (favorite >= TILL at every width)', () => {
+    // EXPERIENCE.md § Masonry EventCard Badge Row: "Favorite badge font-size >= TILL badge
+    // font-size ... Verified at every real width across all three card families." Asserting
+    // both carry the SAME token makes the relation hold at every width by construction --
+    // strictly stronger than sampling two widths, and it cannot silently regress the way a
+    // pair of independently-declared sizes did before round 8.
+    const { container } = render(
+      <EventCardDateBox size="default" month="OCT" day="12" tillLabel="till" />
+    );
+    const till = screen.getByText('till');
+    expect(till.className).toContain(EVENT_CARD_BADGE_TEXT_SIZE_CLASS);
+    expect(container.querySelector('[data-event-card-date-box]')).not.toBeNull();
+
+    cleanup();
+
+    const { container: favContainer } = render(
+      <EventCardFavoriteBadge
+        scale="default"
+        isFavorited={false}
+        favoriteCount={12}
+        onFavoriteToggle={() => {}}
+      />
+    );
+    const pill = favContainer.querySelector('button') as HTMLElement;
+    expect(pill.className).toContain(EVENT_CARD_BADGE_TEXT_SIZE_CLASS);
+  });
+
+  it('keeps the favorite pill at the round-8 padding, not the looser value it removed', () => {
+    const { container } = render(
+      <EventCardFavoriteBadge
+        scale="default"
+        isFavorited={false}
+        favoriteCount={12}
+        onFavoriteToggle={() => {}}
+      />
+    );
+    const pill = container.querySelector('button') as HTMLElement;
+    // DESIGN.md § event_card_masonry.thumbnail_default.favorite_badge -- "was a looser
+    // `px-2.5 py-1.5` at the desktop real width before this pass."
+    expect(pill).toHaveClass('px-1.5');
+    expect(pill).toHaveClass('py-1');
+    expect(pill).not.toHaveClass('px-2.5');
+    expect(pill).not.toHaveClass('py-1.5');
+  });
+
+  it('lets the favorite count inherit the pill font-size instead of pinning its own', () => {
+    // DESIGN.md: the responsive size is "inherited by the count text". A hardcoded
+    // `text-xs` on the count would leave it at 12px while its pill grew to 14px.
+    const { container } = render(
+      <EventCardFavoriteBadge
+        scale="default"
+        isFavorited={false}
+        favoriteCount={12}
+        onFavoriteToggle={() => {}}
+      />
+    );
+    const count = screen.getByText('12');
+    expect(count.className).not.toContain('text-xs');
+    expect(count.className).not.toContain('text-sm');
+  });
+
+  it('offsets the TILL tag by context: -top-1.5 on a two-tier pill, -top-3 on the prominent chip', () => {
+    // DESIGN.md § event_card_till_badge, "OFFSET DIFFERS BY CONTEXT". Asserted on the helper
+    // directly so both contexts are covered even though only one renders through EventCardDateBox.
+    expect(eventCardTillLabelClass('default')).toContain('-top-1.5');
+    expect(eventCardTillLabelClass('default')).not.toContain('-top-3');
+    expect(eventCardTillLabelClass('prominent')).toContain('-top-3');
+    expect(eventCardTillLabelClass('prominent')).not.toContain('-top-1.5');
+
+    // Everything except the vertical offset is identical -- position-only, per the token's
+    // own note that an asymmetric-padding fix was tried and explicitly rejected.
+    const normalize = (s: string) => s.replace('-top-1.5', 'OFFSET').replace('-top-3', 'OFFSET');
+    expect(normalize(eventCardTillLabelClass('default'))).toBe(
+      normalize(eventCardTillLabelClass('prominent'))
+    );
+  });
+
+  it('clears the 11px legibility floor on every badge family the primitives own', () => {
+    // EXPERIENCE.md's floor rule. `text-xs` is 12px; the TILL tag's old `text-[10px]` was under it.
+    expect(eventCardTillLabelClass('default')).not.toContain('text-[10px]');
+    expect(EVENT_CARD_BADGE_TEXT_SIZE_CLASS.startsWith('text-xs')).toBe(true);
+
+    const { container } = render(<EventCardStatusBadge text="Now" isHappeningNow />);
+    expect(container.querySelector('[data-event-card-status-badge]')).toHaveClass('text-xs');
+
+    cleanup();
+    const { container: nearby } = render(<EventCardNearbyBadge distanceKm={1} />);
+    expect(nearby.querySelector('[data-event-card-nearby-badge]')).toHaveClass('text-xs');
+  });
+
+  it('keeps both class tokens complete literal strings Tailwind can statically see', () => {
+    // The FIND-025 / commit 7bf99260 failure mode: a class assembled by runtime
+    // interpolation is invisible to Tailwind's content scanner and emits NO CSS at all.
+    // `packages/ui`'s own `no-dynamic-tailwind-arbitrary-value` lint rule (Story 1.i1k)
+    // guards the `w-[${expr}]` shape; this pins the two tokens Story 1.i1l added, whose
+    // arbitrary variant would fail exactly the same way if it were ever interpolated.
+    expect(EVENT_CARD_BADGE_TEXT_SIZE_CLASS).toBe('text-xs [@container(min-width:200px)]:text-sm');
+    expect(EVENT_CARD_CONTAINER_CLASS).toBe('[container-type:inline-size]');
   });
 });
