@@ -321,7 +321,8 @@ development_status:
   # depend on this story. See epics.md Story 0.42 and Story 0.39's own Dev Notes.
   0-42-build-the-shared-ambient-capability-ask-banner-slot-primitive: review
   # added 2026-09-22 via bmad-architecture AD-26 (IDEA-049): new packages/visual-audit
-  # tool. See festgrid-architecture-spine.md AD-26/AD-27.
+  # tool. See festgrid-architecture-spine.md AD-26/AD-27. Hard prerequisite: Story 0.44
+  # must reach done (Pre-Coding Approval Gate) before bmad-dev-story runs for this story.
   0-43-visual-fidelity-audit-tool: ready-for-dev
   # added 2026-09-22 via bmad-create-story Gate 3 finding (FIND-047) while drafting
   # Story 0.43: no testing-standard tier exists for a meta-testing/tooling package.

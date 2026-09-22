@@ -1450,3 +1450,12 @@ items:
      ref: [project-context.md, implementation-artifacts/0-43-visual-fidelity-audit-tool.md],
      touches: [cross:project-context, pkg:visual-audit],
      note: "Surfaced by bmad-create-story's mandatory Gate 3 (story-split-gate.md) while drafting Story 0.43 (2026-09-22): Story 0.43 is the first-of-a-kind dev-tooling/check-engine package, and its own future adopters (IDEA-050's masonry story, BUG-040's fix story) will inherit whatever testing/DoD convention it sets. Left undecided, that precedent gets set ad hoc by whichever story happens first instead of as a reusable, project-wide rule. Story 0.44 amends project-context.md's Testing Rules with an explicit third tier; Story 0.43 proceeds with its own scoped, documented DoD in the meantime (escape hatch accepted, not blocking)."}
+
+  # ── 2026-09-22 (Story 0.44 code review follow-up, user-directed deferral) ────
+  FIND-048:
+    {type: finding, status: triaged, created: 2026-09-22,
+     impact: internal, effort: xs,
+     title: "project-context.md's new Meta-Testing/Tooling Packages testing tier (Story 0.44) may need propagating into other spec/companion docs that restate testing rules",
+     ref: [project-context.md, implementation-artifacts/0-44-define-testing-standard-for-meta-testing-tooling-packages.md],
+     touches: [cross:process],
+     note: "Deferred by explicit user direction during Story 0.44's code-review follow-up pass: skip re-running test/lint/build on this doc-only change, and revisit whether the new tier needs cross-referencing/propagating into any other spec companion (e.g. SPEC.md-style docs, other project-context-adjacent references) later rather than now. Not yet scoped -- needs a pass to first confirm which docs, if any, actually duplicate the Testing Rules content before deciding this is real work."}
