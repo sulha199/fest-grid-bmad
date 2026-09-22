@@ -8,7 +8,7 @@ baseline_commit: dc39a681217e21ba0cf7b2046ec4abbc768f6c14
 
 - Epic: 0
 - Story ID: 0.44
-- Status: review
+- Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -134,7 +134,7 @@ so that Story 0.43 and its future adopters (the AD-27 masonry engine story, the 
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Done — all tasks complete, all 7 ACs satisfied, code review findings resolved (8/8 Patch), status `done`.
 
 ## Dev Agent Record
 
@@ -166,6 +166,7 @@ Claude Sonnet 5 (`claude-sonnet-5`), via `bmad-dev-story`.
 
 - 2026-09-22: Drafted and shipped the "Meta-Testing / Tooling Packages" Testing Rules tier in `project-context.md` (AC1-AC5, AC7); verified Story 0.43's already-existing reconciliation matches exactly (AC6, no further edit needed). Verified `npx tsx src/run-check.ts --kind test|lint|build` (unfiltered) all green — 11/11 test tasks, 7/7 lint tasks, 7/7 build tasks — after fixing an unrelated pre-existing broken `next-intl` pnpm symlink via `pnpm install --frozen-lockfile` (no lockfile change). Status moved `ready-for-dev` → `in-progress` → `review`.
 - 2026-09-22: Addressed code review findings — 8/8 Patch items resolved. Amended `project-context.md`'s domain-tier scoping, added a straddling-package tie-break to the classification test, a verifiable coverage-branch criterion, a manifest re-verification mechanism, and a `tsx --test` Vitest escape clause; annotated this story's Task 2 checkbox and Dev Agent Record for audit-trail honesty; added a `sprint-status.yaml` comment on Story 0.43's line noting the hard prerequisite.
+- 2026-09-22: Test/lint/build gate skipped for this review-follow-up pass per explicit user direction (doc-only change, no application code touched). Deferred question of whether the new tier needs propagating into other spec companion docs tracked as `FIND-048`. Status moved `review` → `done`; Story 0.43's Pre-Coding Approval Gate is now satisfied.
 
 ### Review Findings
 
