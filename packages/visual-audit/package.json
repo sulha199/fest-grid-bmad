@@ -1,0 +1,30 @@
+{
+  "name": "@festgrid/visual-audit",
+  "version": "1.0.0",
+  "description": "AD-26 visual-fidelity audit engine: reference-based and rule-based checks for isolated component renders",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "tsx --test *.test.ts",
+    "test:manifests": "playwright test --config=playwright.config.ts",
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0"
+  },
+  "dependencies": {
+    "ts-morph": "^24.0.0"
+  },
+  "devDependencies": {
+    "@festgrid/eslint-config": "workspace:*",
+    "@festgrid/typescript-config": "workspace:*",
+    "@playwright/test": "1.62.0",
+    "@types/node": "^20.14.10",
+    "tsx": "^4.16.2",
+    "typescript": "^5.4.5"
+  }
+}
