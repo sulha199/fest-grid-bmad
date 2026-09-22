@@ -1453,9 +1453,9 @@ items:
 
   # ── 2026-09-22 (Story 0.44 code review follow-up, user-directed deferral) ────
   FIND-048:
-    {type: finding, status: triaged, created: 2026-09-22,
+    {type: finding, status: done, created: 2026-09-22, closed: 2026-09-22,
      impact: internal, effort: xs,
      title: "project-context.md's new Meta-Testing/Tooling Packages testing tier (Story 0.44) may need propagating into other spec/companion docs that restate testing rules",
-     ref: [project-context.md, implementation-artifacts/0-44-define-testing-standard-for-meta-testing-tooling-packages.md],
+     ref: [project-context.md, README.md, packages/testing-config/README.md, implementation-artifacts/0-44-define-testing-standard-for-meta-testing-tooling-packages.md],
      touches: [cross:process],
-     note: "Deferred by explicit user direction during Story 0.44's code-review follow-up pass: skip re-running test/lint/build on this doc-only change, and revisit whether the new tier needs cross-referencing/propagating into any other spec companion (e.g. SPEC.md-style docs, other project-context-adjacent references) later rather than now. Not yet scoped -- needs a pass to first confirm which docs, if any, actually duplicate the Testing Rules content before deciding this is real work."}
+     note: "Scoping pass found exactly two real duplicates (only one project-context.md exists repo-wide; the 4 SPEC.md companions under _bmad-output/specs/ don't restate testing rules at all): (1) top-level README.md's own onboarding description of the tiered testing strategy, now amended to mention the third tier; (2) packages/testing-config/README.md's Testing Philosophy section, which never documented the tsx --test pattern packages/graphql-select already used (a pre-existing gap, not caused by Story 0.44) -- added as a fourth bullet, citing graphql-select as precedent and project-context.md's tier as the full rule. No other doc needed a change. Fixed directly, not deferred further."}
