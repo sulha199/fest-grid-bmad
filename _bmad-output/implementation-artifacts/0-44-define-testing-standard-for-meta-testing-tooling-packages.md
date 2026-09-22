@@ -1,10 +1,14 @@
+---
+baseline_commit: dc39a681217e21ba0cf7b2046ec4abbc768f6c14
+---
+
 # Story 0.44: Define the testing standard for meta-testing/tooling packages
 
 ## Story Details
 
 - Epic: 0
 - Story ID: 0.44
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -26,18 +30,18 @@ so that Story 0.43 and its future adopters (the AD-27 masonry engine story, the 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Draft the new Testing Rules tier (AC: #1, #2, #3, #4, #5, #7)
-  - [ ] Insert a new "Meta-Testing / Tooling Packages" subsection into `_bmad-output/project-context.md`'s `### Testing Rules` section, positioned after the existing `packages/domain` and `apps/*` bullets so the three-tier partition reads in order.
-  - [ ] State the unit-testing requirement for pure logic (`tsx --test` pattern, `packages/graphql-select` precedent cited by name).
-  - [ ] State the no-100%-coverage stance explicitly (qualitative judgment, not a percentage gate).
-  - [ ] State the example/proof-artifact-as-integration-proof rule for browser-automation/AST-analysis surfaces that cannot be meaningfully unit-tested without mocking away the thing being verified.
-  - [ ] State the one-line classification test for "does a package belong in this tier."
-- [ ] Task 2 — Reconcile Story 0.43 against the new rule (AC: #6)
-  - [ ] Confirm Story 0.43's AC13/Dev Notes/Definition of Done testing decision matches the new tier exactly (it does — see Dev Notes below for the side-by-side).
-  - [ ] Amend Story 0.43's file (`_bmad-output/implementation-artifacts/0-43-visual-fidelity-audit-tool.md`) and its `epics.md` section: add a `Depends on: Story 0.44` note, revise/replace AC13 to reference this story's tier instead of self-declaring, and add a Pre-Coding Approval Gate note blocking `bmad-dev-story` for 0.43 until this story reaches `done` — performed as a direct amendment once this story is `ready-for-dev`, not deferred further.
-- [ ] Task 3 — Verification (AC: #1–#7)
-  - [ ] Re-read the amended `project-context.md` Testing Rules section end-to-end to confirm it reads as a coherent three-tier partition with no contradiction against the existing two tiers.
-  - [ ] Confirm no other `project-context.md` section was touched (diff review).
+- [x] Task 1 — Draft the new Testing Rules tier (AC: #1, #2, #3, #4, #5, #7)
+  - [x] Insert a new "Meta-Testing / Tooling Packages" subsection into `_bmad-output/project-context.md`'s `### Testing Rules` section, positioned after the existing `packages/domain` and `apps/*` bullets so the three-tier partition reads in order.
+  - [x] State the unit-testing requirement for pure logic (`tsx --test` pattern, `packages/graphql-select` precedent cited by name).
+  - [x] State the no-100%-coverage stance explicitly (qualitative judgment, not a percentage gate).
+  - [x] State the example/proof-artifact-as-integration-proof rule for browser-automation/AST-analysis surfaces that cannot be meaningfully unit-tested without mocking away the thing being verified.
+  - [x] State the one-line classification test for "does a package belong in this tier."
+- [x] Task 2 — Reconcile Story 0.43 against the new rule (AC: #6)
+  - [x] Confirm Story 0.43's AC13/Dev Notes/Definition of Done testing decision matches the new tier exactly (it does — see Dev Notes below for the side-by-side).
+  - [x] Amend Story 0.43's file (`_bmad-output/implementation-artifacts/0-43-visual-fidelity-audit-tool.md`) and its `epics.md` section: add a `Depends on: Story 0.44` note, revise/replace AC13 to reference this story's tier instead of self-declaring, and add a Pre-Coding Approval Gate note blocking `bmad-dev-story` for 0.43 until this story reaches `done` — **already performed in a prior commit (`dc39a681`, same session that created both story files); verified during this session's dev-story run to already match this story's shipped tier exactly (Depends-on note at line 8/915, revised AC13 at line 32/935, blocking Pre-Coding Approval Gate item at line 140/1038), so no further edit to either file was needed.**
+- [x] Task 3 — Verification (AC: #1–#7)
+  - [x] Re-read the amended `project-context.md` Testing Rules section end-to-end to confirm it reads as a coherent three-tier partition with no contradiction against the existing two tiers.
+  - [x] Confirm no other `project-context.md` section was touched (diff review).
 
 ## Dev Notes
 
@@ -136,8 +140,28 @@ so that Story 0.43 and its future adopters (the AD-27 masonry engine story, the 
 
 ### Agent Model Used
 
+Claude Sonnet 5 (`claude-sonnet-5`), via `bmad-dev-story`.
+
 ### Debug Log References
+
+- Initial `npx tsx src/run-check.ts --kind test` (unfiltered) reported 1 failure in `web`, traced to every `next-intl`-importing test file failing with `Failed to resolve import "next-intl"`. Root cause: a broken pnpm symlink in `apps/web/node_modules/next-intl` pointing at a `.pnpm` store entry that did not exist on disk — a pre-existing local environment defect, unrelated to this story's documentation-only change (verified: the diff touches only `_bmad-output/project-context.md`, `_bmad-output/implementation-artifacts/0-44-...md`, and `sprint-status.yaml`; nothing under `apps/web`). Fixed by running `pnpm install --frozen-lockfile` at the repo root (lockfile unchanged, only missing/broken node_modules entries were restored). Re-ran `--kind test --filter web` afterward: all green. Re-ran the full unfiltered `--kind test` afterward: 11/11 tasks passed.
+- Confirmed via `git diff -- _bmad-output/project-context.md` that only the Testing Rules section changed (AC7 scope discipline).
+- Confirmed Story 0.43's `Depends on: Story 0.44` note, revised AC13, and blocking Pre-Coding Approval Gate item — plus the mirrored amendment in `epics.md`'s Story 0.43 section — were already present from the prior session's commit (`dc39a681`) that created both story files together, and match this story's shipped tier text exactly (same `tsx --test` pattern, same no-100%-coverage stance, same example-manifest-as-integration-proof shape). No further edit to either file was required for Task 2/AC6.
 
 ### Completion Notes List
 
+- Task 1: Inserted the "Meta-Testing / Tooling Packages" tier into `_bmad-output/project-context.md`'s `### Testing Rules` section, positioned after the existing `packages/domain` and `apps/*` bullets. Covers: unit-test requirement for pure logic via `tsx --test` (packages/graphql-select precedent, named), explicit no-100%-coverage stance (qualitative judgment), the example/proof-manifest-as-integration-proof rule for browser-automation/AST-analysis surfaces, and a one-line classification test. No other `project-context.md` section touched (AC7; verified via `git diff`).
+- Task 2: Verified Story 0.43's file and its `epics.md` section already carry the correct reconciliation (added in the prior session alongside this story's own creation) — AC6 confirmed satisfied without further edits needed.
+- Task 3: Read through the amended Testing Rules section end-to-end — reads as a coherent, closed three-tier partition with no contradiction against the two existing tiers. Diff-reviewed `project-context.md` to confirm no other section was touched.
+- This is a documentation-only story: no application code, package, or test file was added. Per the story's own Dev Notes, "testing" this story means direct read-through verification (Task 3), not new automated tests. The mandatory `run-check.ts` test/lint/build gates were still run in full per the skill's own requirement and all passed clean (11/11 test tasks, 7/7 lint tasks, 7/7 build tasks) — the one failure encountered along the way was a pre-existing, unrelated environment defect (see Debug Log References), not caused by or curable within this story's own change.
+
 ### File List
+
+- `_bmad-output/project-context.md` (modified) — new "Meta-Testing / Tooling Packages" Testing Rules tier
+- `_bmad-output/implementation-artifacts/0-44-define-testing-standard-for-meta-testing-tooling-packages.md` (modified) — this story file: baseline_commit frontmatter, Tasks/Subtasks checkboxes, Dev Agent Record, File List, Change Log, Status
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified) — status `ready-for-dev` → `in-progress` → `review`
+- `_bmad-output/implementation-artifacts/0-43-visual-fidelity-audit-tool.md` and `_bmad-output/planning-artifacts/epics.md` (verified, not modified this session — already amended in prior commit `dc39a681`; confirmed to match this story's shipped tier, satisfying AC6/Task 2)
+
+## Change Log
+
+- 2026-09-22: Drafted and shipped the "Meta-Testing / Tooling Packages" Testing Rules tier in `project-context.md` (AC1-AC5, AC7); verified Story 0.43's already-existing reconciliation matches exactly (AC6, no further edit needed). Verified `npx tsx src/run-check.ts --kind test|lint|build` (unfiltered) all green — 11/11 test tasks, 7/7 lint tasks, 7/7 build tasks — after fixing an unrelated pre-existing broken `next-intl` pnpm symlink via `pnpm install --frozen-lockfile` (no lockfile change). Status moved `ready-for-dev` → `in-progress` → `review`.
