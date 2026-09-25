@@ -146,11 +146,29 @@ describe('useMasonryLayout', () => {
     // Simulate useInfiniteScroll appending a new, not-yet-measured page (item 2).
     rerender({ itemCount: 3, columnCount: 2 });
 
-    // Still measured (item 0/1 heights persist) — item 2 (unmeasured, contributes 0) is placed
-    // by the shortest-column algorithm, not reverted to a fresh round-robin pass.
+    // Still measured (item 0/1 heights persist) — item 2 (unmeasured) is placed by the review-fix
+    // round-robin rule for unmeasured items (not reverted to a fresh round-robin pass of the WHOLE
+    // list): the first unmeasured item takes column 0.
     expect(result.current.hasMeasured).toBe(true);
-    // col0=100, col1=10 -> the new unmeasured item (0 estimate) goes to col1 (currently shortest).
-    expect(result.current.columnAssignments).toEqual([0, 1, 1]);
+    expect(result.current.columnAssignments).toEqual([0, 1, 0]);
+  });
+
+  it('an unmeasured appended batch spreads round-robin across columns instead of piling into one (review fix 2026-09-26)', () => {
+    const { result, rerender } = setup({ itemCount: 2, columnCount: 2 });
+
+    act(() => {
+      result.current.registerItemRef(0)(makeNode(100));
+      result.current.registerItemRef(1)(makeNode(10));
+    });
+    expect(result.current.hasMeasured).toBe(true);
+
+    // Page 1 of results, none of its items yet measured: without the fix, all three would take
+    // the single currently-shortest column (col1, height 10) since every 0 estimate fails to move
+    // the shortest pointer. With the fix they spread round-robin.
+    rerender({ itemCount: 5, columnCount: 2 });
+
+    expect(result.current.columnAssignments).toEqual([0, 1, 0, 1, 0]);
+    expect(result.current.columns).toEqual([[0, 2, 4], [1, 3]]);
   });
 
   it('unregistering an item ref removes its measured height', () => {

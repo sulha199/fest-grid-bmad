@@ -40,7 +40,8 @@ export interface UseMasonryLayoutResult {
    * True once at least one item has a known measured height. While `false` (nothing measured
    * yet — the SSR/first-paint state), `columnAssignments` is the round-robin estimate (AC5);
    * once `true`, it is real shortest-column placement derived from measured heights (any item
-   * not yet measured contributes a `0` estimate until it is).
+   * not yet measured is placed round-robin among the columns and contributes a `0` height
+   * estimate until it is).
    */
   hasMeasured: boolean;
 }

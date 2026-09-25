@@ -28,9 +28,9 @@ import type { UseMasonryLayoutOptions, UseMasonryLayoutResult } from './useMason
  * item does. This is deliberate: with `useInfiniteScroll`/`useListPaginationController` growing
  * `itemCount` over time, gating on "every item measured" would revert the WHOLE already-placed
  * list back to round-robin on every newly-loaded page (each page briefly adds unmeasured items).
- * Once real placement has started, an unmeasured item just contributes a `0` height estimate
- * until it measures in (see `columnAssignments` below) — its column reflows once it does, but the
- * rest of the list doesn't visibly reshuffle.
+ * Once real placement has started, an unmeasured item is placed round-robin among the columns and
+ * contributes a `0` height estimate until it measures in (see `columnAssignments` below) — its
+ * column reflows once it does, but the rest of the list doesn't visibly reshuffle.
  */
 export function useMasonryLayout({ itemCount, columnCount }: UseMasonryLayoutOptions): UseMasonryLayoutResult {
   const nodesRef = useRef<Map<number, HTMLElement>>(new Map());
@@ -129,11 +129,21 @@ export function useMasonryLayout({ itemCount, columnCount }: UseMasonryLayoutOpt
       return assignments;
     }
 
-    // True shortest-column placement (AC2/AC4): each item goes into whichever column currently
-    // has the smallest accumulated height. An item not yet measured (e.g. a just-appended page
-    // of results still mid-mount) contributes 0 until its own height lands, then reflows.
+    // True shortest-column placement (AC2/AC4): an item with a known height goes into whichever
+    // column currently has the smallest accumulated height. An item NOT yet measured (e.g. a
+    // just-appended page of results still mid-mount) is placed round-robin among the columns
+    // (review finding 2026-09-26: a 0-height estimate made the whole unmeasured batch pile into
+    // the single currently-shortest column and clump); it contributes its 0 estimate to column
+    // heights, so it still reflows to true placement once its own height lands.
     const colHeights = new Array(columnCount).fill(0);
+    let unmeasuredCursor = 0;
     for (let i = 0; i < itemCount; i += 1) {
+      const height = heights[i];
+      if (height === undefined) {
+        assignments[i] = unmeasuredCursor % columnCount;
+        unmeasuredCursor += 1;
+        continue;
+      }
       let shortest = 0;
       for (let c = 1; c < columnCount; c += 1) {
         if (colHeights[c] < colHeights[shortest]) {
@@ -141,7 +151,7 @@ export function useMasonryLayout({ itemCount, columnCount }: UseMasonryLayoutOpt
         }
       }
       assignments[i] = shortest;
-      colHeights[shortest] += heights[i] ?? 0;
+      colHeights[shortest] += height;
     }
     return assignments;
   }, [itemCount, columnCount, heights, hasMeasured]);

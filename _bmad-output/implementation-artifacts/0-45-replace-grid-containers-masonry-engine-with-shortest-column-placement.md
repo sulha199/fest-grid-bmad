@@ -8,7 +8,7 @@ baseline_commit: dba2f7c2
 
 - Epic: 0
 - Story ID: 0.45
-- Status: review
+- Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -237,8 +237,24 @@ Claude Sonnet 5 (`claude-sonnet-5`), via `bmad-dev-story`.
 
 ## Change Log
 
+### Review Findings
+
+- [x] [Review][Decision→Patched] Unmeasured newly-paginated items all pile into one shortest column — In `useMasonryLayout.ts`, any item without a measured height contributed `0`, so on an infinite-scroll-style append every not-yet-measured item on the new page targeted the SAME currently-shortest column (a 0-height contribution never moved the shortest pointer within the unmeasured batch). Page-2+ items visibly clumped into one column and then jumped apart once their heights landed. — RESOLVED 2026-09-26: unmeasured items now spread round-robin among columns (`unmeasuredCursor`) while contributing their 0 estimate; regression test added ("an unmeasured appended batch spreads round-robin…"), hook/core suites 88/88 green.
+- [x] [Review][Defer] Column reassignment remounts items → ref churn + keyboard focus loss — In `grid-container.tsx`'s masonry render the wrapper is `key={itemIndex}` under a column parent; when placement shifts, items crossing columns are unmounted/remounted (ref null→reattach churn, extra renders, keyboard focus lost inside moved cards). — DEFERRED 2026-09-26 per user decision: accept react-masonry-css-style churn for now; a mount-stable engine (absolute-positioned items under one parent) is a larger follow-up, tracked on the backlog board (see `deferred-work.md`).
+- [x] [Review][Decision→Accepted w/ disclosure] AC9 verification is weaker than the AC's letter — sibling-dimension rule non-falsifiable as mounted, placement-order passes under both algorithms, manifest render is SSR-only (post-hydration placement rests on hook unit tests); compensating pairwise `intra-box-ratio` real checks exist. — RESOLVED 2026-09-26 per user decision: accepted with the disclosure comments kept in `grid-container-masonry.ts` as documentation of intent.
+
+_Non-blocking / dismissed during triage (4): render-time `validateColumnCounts` throw (pre-existing css-grid convention, same outage class), added `use client` pragma (no behavioral impact), heights-by-index staleness on data reshuffle (covered by wrapper-node ResizeObserver), and `refCallbacksRef` cache growth (bounded by max list length)._
+
+## Change Log
 ### 2026-09-25: Implemented via `bmad-dev-story`
 
 - All 11 ACs implemented and verified (see Completion Notes List for per-AC evidence).
 - Full regression pass green: `packages/ui` (681 tests), `packages/visual-audit` unit (41 tests) + Playwright manifest proof (15 tests), repo-wide `pnpm test`/`pnpm lint`/`pnpm build`.
 - Status: `ready-for-dev` → `in-progress` → `review`.
+
+### 2026-09-26: Code review passed (bmad-code-review)
+
+- Adversarial review of dba2f7c2..HEAD: 3 decision-needed findings resolved by user — 1 patched (unmeasured items now spread round-robin in useMasonryLayout, regression test added, hook/core suites 88/88 green), 1 deferred to backlog (FIND-052, remount churn/focus loss on reflow), 1 accepted with disclosure (AC9 verification scope, documented in grid-container-masonry.ts).
+- 4 findings dismissed as noise during triage.
+- Backlog board cleanly registered the deferral (FIND-052; backlog-check passes for the row).
+- Status: review → done.
