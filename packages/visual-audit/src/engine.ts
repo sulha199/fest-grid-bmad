@@ -104,8 +104,16 @@ export async function runManifestEntry(page: Page, name: string, options: RunMan
         // Review Follow-up (patch item 5, 2026-09-22): a missing token previously reported
         // pass: true trivially, so the rule could never fail and a consumer trusting the
         // structured result got false confidence. AC10's actual fallback signal is a perceptual
-        // pixel diff of this element against the source PNG -- run that for real instead.
-        const elementScreenshot = await page.locator(rule.selector).screenshot();
+        // pixel diff against the source PNG -- run that for real instead.
+        //
+        // Review Follow-up round 3 (decision-needed, RULING user 2026-09-25, option a): this
+        // used to screenshot the individual rule's own `rule.selector` element and diff it
+        // against the entry's whole-card `prototypePngPath` -- an element crop compared against
+        // a full-card image, which `compare/pixel-diff.ts` itself documents as "meaningless."
+        // Reuse the same framing convention the entry-level pixel-diff signal below already
+        // uses (`pixelDiffSelector ?? page`) instead of inventing a second one.
+        const fallbackLocator = entry.reference.pixelDiffSelector ? page.locator(entry.reference.pixelDiffSelector) : page;
+        const elementScreenshot = await fallbackLocator.screenshot();
         const pngPath = path.resolve(options.repoRoot, entry.reference.prototypePngPath);
         const diffResult = await diffScreenshotAgainstReferencePng(elementScreenshot, pngPath, entry.reference.pixelDiffOptions);
         ruleResults.push({
@@ -160,9 +168,13 @@ export async function runManifestEntry(page: Page, name: string, options: RunMan
   };
 }
 
-/** Loads the reference-based entry's validated prototype file into `page` -- callers use this
- * alongside `runManifestEntry` plus their own `toHaveScreenshot()` assertion for the secondary
- * pixel-diff signal (AD-26 Rule 2). */
+/** Loads a reference-based entry's validated prototype file into an independently-mounted
+ * `page` -- distinct from the live render `runManifestEntry` checks. Used internally for
+ * intra-box-ratio expected-ratio derivation and for `runManifestEntry`'s own pixel-diff signal,
+ * which each need a render of the *reference* (not the render under test) to compare against.
+ * (Review Follow-up round 3, patch item: the older doc comment describing a caller-added
+ * `toHaveScreenshot()` assertion is stale -- that mechanism was removed in the prior review
+ * round; the pixel-diff signal now runs inside `runManifestEntry` itself.) */
 export async function mountReferenceFor(page: Page, name: string, repoRoot: string): Promise<void> {
   const entry = defaultRegistry.get(name);
   if (entry.mode !== 'reference' || !entry.reference) {

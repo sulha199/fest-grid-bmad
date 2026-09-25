@@ -2,7 +2,11 @@
  * bundle covering every class this package's fixtures/manifests and the design-artifact
  * prototypes actually use, so rendering never depends on reaching cdn.tailwindcss.com. Content
  * globs intentionally cover both this package's own sources and the prototype HTML files it
- * mounts, since both are Tailwind CDN consumers this harness intercepts. */
+ * mounts, since both are Tailwind CDN consumers this harness intercepts.
+ *
+ * To regenerate `tailwind.generated.css` after adding a new fixture/class, run
+ * `pnpm --filter @festgrid/visual-audit build:vendor-tailwind` (uses this package's pinned
+ * local `tailwindcss@3.4.1` devDependency -- no network access needed). */
 module.exports = {
   content: [
     'manifests/**/*.{ts,tsx}',

@@ -113,7 +113,7 @@ test.describe('react-component mount example: CountBadge (Review Follow-up item 
     expect(entry.mode).toBe('rule');
   });
 
-  test('runs the color and intra-box-ratio checks against the real mounted component and passes', async ({ page }) => {
+  test('runs the color and sibling-dimension checks against the real mounted component and passes', async ({ page }) => {
     const result = await runManifestEntry(page, NAME, { repoRoot: REPO_ROOT });
     for (const ruleResult of result.ruleResults) {
       expect(ruleResult.pass, `${ruleResult.kind}: ${ruleResult.message}`).toBe(true);
