@@ -8,7 +8,7 @@ baseline_commit: fb50c887
 
 - Epic: 1.i1 (One card primitive for every event-card image slot and badge)
 - Story ID: 1.i1n
-- Status: review
+- Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -217,6 +217,15 @@ Claude Sonnet 5 (`claude-sonnet-5`), via `bmad-dev-story`.
 - `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (modified) — AD-26 Rule 5 "Enforced by" citation (AC7).
 
 ## Change Log
+
+### 2026-09-25: Code review verdict — approved (2 review patches applied; 1 deferral)
+
+- bmad-code-review completed against commit `acc2675b`. All 6 implementer claim groups independently verified (`dayVariant` prop; `'number'` path byte-for-byte unchanged; word-safe overflow classes; ts-morph `ConditionalExpression` fix genericity — live enumeration output confirmed; debugging findings real; TS5101 pre-existing, verified identical at baseline `fb50c887` via temp worktree).
+- Manifest proof independently reproduced: temporarily reverting `dayClasses` made the Playwright manifest proof fail (scrollWidth 265/263 vs clientWidth 127), restoring it went green again — the check is not trivially passing.
+- **Review patch 1 (applied):** `format-event-date.ts` `computeCalendarSegmentDateBoxContent` — inline `'number'`/`'word'` literals replaced with `DAY_VARIANT_NUMBER`/`DAY_VARIANT_WORD` constants, matching the dev's own heuristic-pollution fix. Constant-safety only, no behavior change.
+- **Review patch 2 (applied):** `event-card-date-box-overflow.ts` manifest — corrected a false top comment claiming the literal-free fallback enumerates to `'number'`; it actually enumerates to the `'Wednesday'` placeholder and mounts as `'word'`. Comment/doc rewrite only (word classes fit any ≤96px content, so the consequence is benign, not a defect).
+- Deferred (backlog `FIND-051`): the manifest fixture never exercises the shipped `'number'` class path (literal-free branches collide on the same `'Wednesday'` sample), and only mounts `size='default'` — compact-row word rendering has no live fixture. Low risk: identical class set, `shrink-0` box, `'Yesterday'` ≈70px < 96px budget.
+- Post-patch verification green: `packages/ui` vitest run (EventCardMediaPrimitives + format-event-date suites), `content-variants.test.ts`, Playwright manifest proof; `tsc` emits exactly the 1 pre-existing TS5101 error, unchanged.
 
 - 2026-09-25: Story created via `bmad-create-story` from backlog `BUG-040` (found by this session's own `packages/visual-audit` — Story 0.43 — audit of the event-card family). Gate 1/3 cited from `epic-1-i1-readiness.md`'s sweep plus a fresh lightweight guard (no new gap found); Gate 2 run fresh via subagent (Freya persona) — verdict NO SPLIT. Story 1.3k's `epics.md` `Depends on:` line amended to add this story; `event-pages-dev-story-tracking.md`'s Known-conflicts note updated to record the resolution. `backlog.yaml`'s `BUG-040` row updated with `stories: [1-i1n-fix-eventcarddatebox-overflow-on-word-time-content]`, status re-derived to `promoted`.
 - 2026-09-25: Implemented via `bmad-dev-story`. All 7 ACs satisfied: `dayVariant` discriminant added to both formatter functions and `EventCardDateBoxProps`; both real consumers migrated; `content-variants.ts`'s `ConditionalExpression`-in-return-expression enumeration gap closed generically; new `event-card-date-box-overflow.ts` manifest entry added and proven (post-fix pass, pre-fix fail, both independently verified); AD-26 Rule 5 "Enforced by" citation added. Two real defects found and fixed during empirical tuning (see Dev Agent Record → Debug Log References): a `dayVariant` literal polluting the ts-morph sample-text heuristic, and a `leading-none`/font-metric height-overflow false positive. Full repo-wide test/lint/build clean. Status: `review`.

@@ -9,8 +9,10 @@
  * `ConditionalExpression`-in-return-expression fix is what makes the `hasTime` time-string
  * sub-variant enumerable here at all -- pre-Task-4, this branch silently collapsed to whichever
  * string literal `extractSampleText` found first). Per enumerated variant, `buildFixtureHtml`
- * mounts `EventCardDateBox` with the SAME `dayVariant` its real branch would produce (word
- * variants -> `'word'`, the trailing real-date fallback -> `'number'`) -- so this proves the
+ * mounts `EventCardDateBox` with the SAME `dayVariant` its real branch would produce where
+ * `sampleText` distinguishes branches (word variants -> `'word'`); see the
+ * `WORD_VARIANT_SAMPLE_TEXTS` note below for the placeholder-collision nuance on the
+ * literal-free branches. This proves the
  * actual per-variant fix, not a single fixed guess applied uniformly.
  *
  * Selector/mechanism note: `OverflowRule.buildFixtureHtml` has signature `(variantLabel: string)
@@ -40,10 +42,19 @@ import { registerManifestEntry, type ManifestEntry } from '../src/manifest.js';
 
 /** The set of sample texts `formatShortEventDateTimeParts`'s word/time branches can enumerate to
  * (Today/Tomorrow/Yesterday, plus `content-variants.ts`'s own `DEFAULT_SAMPLE_TEXT_FALLBACK`
- * placeholder for the `hasTime` sub-variant, which has no string literal of its own). Any other
- * enumerated sample text is the trailing real-date fallback branch (numeric day-of-month) --
- * this is how `buildFixtureHtml` recovers each variant's real `dayVariant` from only the
- * `sampleText` string `OverflowRule.buildFixtureHtml`'s signature provides (see manifest.ts). */
+ * placeholder for the `hasTime` sub-variant, which has no string literal of its own).
+ *
+ * Review note (Story 1.i1n code review, acc2675b): the trailing real-date fallback branch is
+ * *also* literal-free (`month`/`day` both come from calls; `dayVariant` is the dayVariant-number
+ * *identifier*, invisible to the quoted-literal regex), so it enumerates to the same 'Wednesday'
+ * placeholder and is indistinguishable from the time-string sub-variant by `sampleText` alone.
+ * It therefore gets 'word' fixture classes here too — not `'number'` as an earlier draft of this
+ * comment claimed. Consequence is benign: the word class set fits any content ≤96px, so the
+ * fallback variant's check is still meaningful, the `'number'` render path is byte-for-byte
+ * unchanged and covered by the class-literal unit tests, and the real pre-fix-fail proof
+ * ('Tomorrow'/'Yesterday', scrollWidth 265/263 vs clientWidth 127) is unaffected. `dayVariantForSample`
+ * still returns `'number'` as the safe default for any future variant whose sample text is none of
+ * these. If a future engine change gives the placeholder per-branch resolution, revisit. */
 const WORD_VARIANT_SAMPLE_TEXTS = new Set(['Today', 'Tomorrow', 'Yesterday', 'Wednesday']);
 
 function dayVariantForSample(sampleText: string): 'number' | 'word' {

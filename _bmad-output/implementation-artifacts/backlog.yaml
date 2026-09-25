@@ -1477,3 +1477,12 @@ items:
      ref: [implementation-artifacts/0-43-visual-fidelity-audit-tool.md],
      touches: [pkg:visual-audit],
      note: "Deferred by the reviewer, 2026-09-25 second-pass code review on Story 0.43: this manifest is a demo/proof entry, not a real audited component -- a single-member sibling-dimension cluster always passes by definition. Fix when a real future story actually audits CountBadge's overflow behavior; not blocking for Story 0.43 itself. packages/visual-audit/manifests/count-badge-react-mount.ts:61-66."}
+
+  # ── 2026-09-25 (Story 1.i1n code-review pass, deferred finding) ──────────────
+  FIND-051:
+    {type: finding, status: triaged, created: 2026-09-25,
+     impact: internal, effort: s,
+     title: "event-card-date-box-overflow manifest fixture never mounts the shipped 'number' day-variant class path and only covers size='default' — no live fixture for compact-row word rendering",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/1-i1n-fix-eventcarddatebox-overflow-on-word-time-content.md],
+     touches: [pkg:visual-audit, pkg:ui],
+     note: "Deferred by the reviewer, 2026-09-25 code review on Story 1.i1n: all literal-free enumerate branches (real-date fallback, hasTime time-string) collide on the same 'Wednesday' placeholder sample so dayVariantForSample mounts them as 'word'; collision is benign today (word classes fit every mounted content under 96px; compact row uses an identical class set on a shrink-0 box, yesterday ≈70px). Add a fixture variant if the date box ever gains new day-variants or sizes. Deferred from: 'Deferred from: code review of 1-i1n-fix-eventcarddatebox-overflow-on-word-time-content (2026-09-25)'. 1 finding. packages/visual-audit/manifests/event-card-date-box-overflow.ts."}

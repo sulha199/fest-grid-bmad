@@ -427,13 +427,19 @@ export function computeCalendarSegmentDateBoxContent(
       month: formatMonthAbbrev(locale, timezone, endDateTime),
       day: formatDayNumber(locale, timezone, endDateTime),
       tillLabel,
-      dayVariant: 'number',
+      // Review (Story 1.i1n, acc2675b): DAY_VARIANT_NUMBER constant, not an inline 'number'
+      // literal — the reason documented on formatShortEventDateTimeParts above applies here
+      // identically: packages/visual-audit's ts-morph sample-text extraction picks the longest
+      // quoted literal in a branch's return expression, so an inline `dayVariant: 'number'`
+      // literal would corrupt this (otherwise literal-free) branch's fixture if it is ever
+      // enumerated by an overflow rule.
+      dayVariant: DAY_VARIANT_NUMBER,
     };
   }
 
   // This is the segment's last/only day.
   const day = endTime && effectiveEnd ? formatEventTime(locale, timezone, combineDateTime(effectiveEnd, endTime)) : '';
-  return { month: tillLabel, day, tillLabel: undefined, dayVariant: 'word' };
+  return { month: tillLabel, day, tillLabel: undefined, dayVariant: DAY_VARIANT_WORD };
 }
 
 /**
