@@ -1426,8 +1426,9 @@ items:
      note: "Architecture Spine AD-26. Triggered by this session's own event-card/calendar visual-fidelity audit (~70% prototype accuracy found), which had to improvise its method ad hoc for lack of reusable tooling. Story 0.43 drafted 2026-09-22 via bmad-create-story. Unlocks IDEA-050 (masonry engine) and a still-to-be-registered fix for the EventCardDateBox overflow bug found by the same audit."}
 
   IDEA-050:
-    {type: idea, status: triaged, created: 2026-09-22, parent: IDEA-049,
+    {type: idea, status: promoted, created: 2026-09-22, parent: IDEA-049,
      impact: user-visible, effort: m,
+     stories: [0-45-replace-grid-containers-masonry-engine-with-shortest-column-placement],
      title: "GridContainer's masonry variant is plain CSS Grid (row-locked), not true Pinterest-style independent column flow — replace with JS shortest-column placement",
      ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/architecture/architecture-festgrid-2026-09-22/.memlog.md],
      touches: [pkg:ui, web:events, cross:architecture],

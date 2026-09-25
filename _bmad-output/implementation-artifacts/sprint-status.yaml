@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-25T13:05:00Z
+last_updated: 2026-09-25T15:42:31Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -327,6 +327,9 @@ development_status:
   # added 2026-09-22 via bmad-create-story Gate 3 finding (FIND-047) while drafting
   # Story 0.43: no testing-standard tier exists for a meta-testing/tooling package.
   0-44-define-testing-standard-for-meta-testing-tooling-packages: done
+  # added 2026-09-25 via bmad-create-story: IDEA-050 (AD-27), GridContainer's masonry
+  # engine + folded-in max-width/responsive-scaling gap (user-reported).
+  0-45-replace-grid-containers-masonry-engine-with-shortest-column-placement: ready-for-dev
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.
