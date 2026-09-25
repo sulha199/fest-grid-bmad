@@ -8,7 +8,7 @@ baseline_commit: d0e509ca48b074e50cfb56b6f6d93a31d9ce17e2
 
 - Epic: 0
 - Story ID: 0.43
-- Status: review
+- Status: done
 - **Depends on: Story 0.44** (`0-44-define-testing-standard-for-meta-testing-tooling-packages`) — see Pre-Coding Approval Gate below. `bmad-dev-story` must not start on this story until Story 0.44 reaches `done`.
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
@@ -175,7 +175,7 @@ so that a future story's AC can automate "does this match its prototype / does t
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Done — all 13 ACs satisfied, two independent code-review passes resolved (9 + 4 items), status `done`. Two minor pre-existing-pattern-risk findings (FIND-049, FIND-050) deferred and registered on the backlog board, not blocking.
 
 ## Change Log
 ### Review Findings
@@ -381,3 +381,5 @@ Claude Sonnet 5 (claude-sonnet-5), via `bmad-dev-story`.
 
 - [x] [Review][Defer] `assertFormattingFunctionExists` regex only matches `export function` declarations [`packages/visual-audit/src/rules/overflow.ts:110-115`] — an `export const formatX = (...) =>`-style formatter would trigger a false `FormattingFunctionNotFoundError`. Deferred, pre-existing pattern risk (this repo's formatting functions are all `function` declarations today; document `function`-declaration-only as a contract or widen the regex when a consumer needs it).
 - [x] [Review][Defer] `count-badge-react-mount`'s "overflow" rule is a trivially-passing single-element sibling cluster [`packages/visual-audit/manifests/count-badge-react-mount.ts:61-66`] — the comment says "the badge must not clip its {max}+ text," but a single-member `sibling-dimension` cluster always passes, so the rule enforces nothing actual today. Deferred to whatever story actually audits `CountBadge`'s overflow for real (it's a demo manifest; the intended consumer is a future story).
+
+- 2026-09-25 — Two independent code-review passes both resolved (9 items, then 4 more), including a genuine upstream `lucide-react` dual-package-hazard fix (`patches/lucide-react@0.473.0.patch`) that unblocked mounting the real `EventCardDateBox` with its Clock-icon path — the actual component `BUG-040`'s fix will need this tool to verify. Two minor, pre-existing-pattern-risk findings deferred and registered as `FIND-049`/`FIND-050`. Status moved `review` → `done`.

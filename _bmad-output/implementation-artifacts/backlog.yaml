@@ -1459,3 +1459,20 @@ items:
      ref: [project-context.md, README.md, packages/testing-config/README.md, implementation-artifacts/0-44-define-testing-standard-for-meta-testing-tooling-packages.md],
      touches: [cross:process],
      note: "Scoping pass found exactly two real duplicates (only one project-context.md exists repo-wide; the 4 SPEC.md companions under _bmad-output/specs/ don't restate testing rules at all): (1) top-level README.md's own onboarding description of the tiered testing strategy, now amended to mention the third tier; (2) packages/testing-config/README.md's Testing Philosophy section, which never documented the tsx --test pattern packages/graphql-select already used (a pre-existing gap, not caused by Story 0.44) -- added as a fourth bullet, citing graphql-select as precedent and project-context.md's tier as the full rule. No other doc needed a change. Fixed directly, not deferred further."}
+
+  # ── 2026-09-25 (Story 0.43 second code-review pass, deferred findings) ───────
+  FIND-049:
+    {type: finding, status: triaged, created: 2026-09-25,
+     impact: internal, effort: xs,
+     title: "assertFormattingFunctionExists's regex only matches export function declarations, false-throws on export const formatX = (...) =>-style formatters",
+     ref: [implementation-artifacts/0-43-visual-fidelity-audit-tool.md],
+     touches: [pkg:visual-audit],
+     note: "Deferred by the reviewer, 2026-09-25 second-pass code review on Story 0.43: pre-existing pattern risk, not a regression -- every formatting function this repo has today (e.g. format-event-date.ts) uses function declarations, so nothing trips this yet. Fix when a consumer needs an arrow-function-style formatter: either widen the regex or document function-declaration-only as this guard's contract. packages/visual-audit/src/rules/overflow.ts:110-115."}
+
+  FIND-050:
+    {type: finding, status: triaged, created: 2026-09-25,
+     impact: internal, effort: xs,
+     title: "count-badge-react-mount demo manifest's overflow rule is a trivially-passing single-element sibling cluster, enforces nothing",
+     ref: [implementation-artifacts/0-43-visual-fidelity-audit-tool.md],
+     touches: [pkg:visual-audit],
+     note: "Deferred by the reviewer, 2026-09-25 second-pass code review on Story 0.43: this manifest is a demo/proof entry, not a real audited component -- a single-member sibling-dimension cluster always passes by definition. Fix when a real future story actually audits CountBadge's overflow behavior; not blocking for Story 0.43 itself. packages/visual-audit/manifests/count-badge-react-mount.ts:61-66."}
