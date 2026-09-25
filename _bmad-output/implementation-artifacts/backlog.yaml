@@ -1505,3 +1505,20 @@ items:
      ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/0-45-replace-grid-containers-masonry-engine-with-shortest-column-placement.md],
      touches: [pkg:ui],
      note: "Deferred from: 'Deferred from: code review of story 0.45 (2026-09-26)'. 1 finding. Wrappers keyed by itemIndex under per-column column parents remount on any placement change (react-masonry-css-style); fix = mount-stable engine, deferred per user decision."}
+
+  # ── 2026-09-26 (live production audit, https://fest-grid.vercel.app/id) ──────
+  BUG-042:
+    {type: bug, status: triaged, created: 2026-09-26,
+     impact: user-visible, effort: s,
+     title: "EventCard never shows a thumbnail image -- missing the imageUrl->imageFallbackUrl (durableImageUrl) pattern EventImage/EventDetailView already has",
+     ref: [apps/web/src/features/events/mapper.ts, packages/ui/src/features/events/EventCard.tsx, packages/ui/src/features/events/EventCard.types.ts, packages/ui/src/features/events/EventImage.tsx],
+     touches: [pkg:ui, web:events],
+     note: "Found via live-deployment visual audit (https://fest-grid.vercel.app/id) at user's request. Confirmed root cause, not just observed: production GraphQL responses show imageUrl:null for nearly every event (by the backend's own durable-re-hosting design -- durableImageUrl is the real source once re-hosting has happened), but EventCard.types.ts's EventCardProps only declares imageUrl, never imageFallbackUrl -- mapper.ts:115 computes imageFallbackUrl from durableImageUrl but EventCard never receives or reads it, so every list-view card (Discovery, Feed, Favorites, Archive, calendar) shows a blank thumbnail even when a valid durable image exists. EventDetailView already has the correct pattern via the shared EventImage component (EventImage.tsx:53 -- tries imageUrl first, falls back to imageFallbackUrl on error) -- EventCard needs the same wiring, not a new mechanism. Routed to bmad-quick-dev per user direction."}
+
+  BUG-043:
+    {type: bug, status: triaged, created: 2026-09-26,
+     impact: user-visible, effort: m,
+     title: "Discovery infinite scroll stops loading after exactly one extra page despite hasMore:true",
+     ref: [apps/web/src/features/events],
+     touches: [web:events],
+     note: "Found via live-deployment visual audit (https://fest-grid.vercel.app/id) at user's request. Observed, not yet root-caused: scrolled to bottom 6 times on the live Discovery masonry page; the infinite-scroll fetch fired exactly once (10 -> 20 -> 30 cards loaded, one extra GraphQL call), then stopped completely despite the response still reporting hasMore:true and totalCount:123 (only 30/123 events ever load). Likely candidate: useInfiniteScroll/useListPaginationController's intersection-observer sentinel losing visibility once the masonry grid's real DOM layout grows tall (same failure class BUG-031 fixed for a different symptom -- worth checking whether this is a regression of that fix under the new masonry engine, Story 0.45, or an unrelated pre-existing gap). Not yet scoped or fixed."}
