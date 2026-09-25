@@ -1490,9 +1490,9 @@ items:
 
   # ── 2026-09-25 (user-reported, live UI observation) ──────────────────────────
   BUG-041:
-    {type: bug, status: triaged, created: 2026-09-25,
+    {type: bug, status: done, created: 2026-09-25, closed: 2026-09-25,
      impact: user-visible, effort: xs,
+     ref: [design-artifacts/UX-festgrid-run-1/prototypes/event-card-masonry/default-with-thumbnail.html, packages/ui/src/features/events/EventCard.tsx, implementation-artifacts/spec-bug-041-till-badge-padding.md],
      title: "EventCard masonry-default's TILL badge is cropped -- the card has no padding around the date-box+thumbnail row, unlike the validated prototype",
-     ref: [design-artifacts/UX-festgrid-run-1/prototypes/event-card-masonry/default-with-thumbnail.html, packages/ui/src/features/events/EventCard.tsx],
      touches: [pkg:ui],
-     note: "User-reported, confirmed by direct code comparison: the validated prototype wraps its date-box+thumbnail row in a p-2 padding container (default-with-thumbnail.html:62), giving the till badge's -top-1.5/-left-1.5 corner offset room inside the card's overflow-hidden bounds. EventCard.tsx's real isMasonryDefault composition (:325, touched by Stories 1.i1e/1.i1k/1.i1l) has no padding wrapper at all -- the row sits flush against the <article>'s own edges, so the till badge pokes outside the card and gets clipped. Not caught by any prior story's AC. Routed to bmad-quick-dev (small, scoped, independent of IDEA-050)."}
+     note: "User-reported, confirmed by direct code comparison: the validated prototype wraps its date-box+thumbnail row in a p-2 padding container (default-with-thumbnail.html:62), giving the till badge's -top-1.5/-left-1.5 corner offset room inside the card's overflow-hidden bounds. EventCard.tsx's real isMasonryDefault composition (:325, touched by Stories 1.i1e/1.i1k/1.i1l) had no padding wrapper at all -- the row sat flush against the <article>'s own edges, so the till badge poked outside the card and got clipped. Fixed via bmad-quick-dev (commit 77a236b5): added the p-2 wrapper, then corrected two other absolutely-positioned overlays that assumed zero row padding (the no-thumbnail favorite-badge overlay's inline math, the thumbnail-present favorite badge's stale top-1/right-1 offset) -- caught during the same pass, not left as follow-on gaps. statusBadge checked and confirmed to need no change. Verified independently: 68/68 EventCard tests, lint clean, repo-wide build 8/8."}
