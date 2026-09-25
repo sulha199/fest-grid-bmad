@@ -1434,12 +1434,13 @@ items:
      note: "Architecture Spine AD-27, decided in the same session as AD-26/IDEA-049. Native CSS masonry ruled out (Safari-only in 2026); CSS multi-column rejected (reading-order regression). Becomes AD-26's tool's first rule-based-mode consumer -- sequence bmad-create-story for this after Story 0.43 exists. Not yet story-created."}
 
   BUG-040:
-    {type: bug, status: triaged, created: 2026-09-22,
+    {type: bug, status: promoted, created: 2026-09-22,
      impact: user-visible, effort: s,
+     stories: [1-i1n-fix-eventcarddatebox-overflow-on-word-time-content],
      title: "EventCardDateBox's day slot overflows/clips on word or time content (Today/Tomorrow/Yesterday/a time string) instead of a numeric day — confirmed to overflow the entire 175px mobile masonry card by ~107px for \"Tomorrow\"",
      ref: [planning-artifacts/event-pages-dev-story-tracking.md, planning-artifacts/festgrid-architecture-spine.md],
      touches: [pkg:ui, web:events],
-     note: "Confirmed via this session's visual-fidelity audit (isolated Playwright measurement at real card widths); reproduces in production, not just a cosmetic mismatch. Not covered by IDEA-046/Story 1.i1l/1.i1m (which only covered the 7 spec-vs-code gaps, not this). Should cite AD-26's tool (Story 0.43) for its own AC once that tool exists; sequence its own story before Story 1.3k's bmad-dev-story dispatch (shared-file conflict, see event-pages-dev-story-tracking.md's 'Known conflicts')."}
+     note: "Confirmed via this session's visual-fidelity audit (isolated Playwright measurement at real card widths); reproduces in production, not just a cosmetic mismatch. Not covered by IDEA-046/Story 1.i1l/1.i1m (which only covered the 7 spec-vs-code gaps, not this). Story 1.i1n drafted 2026-09-25 via bmad-create-story, citing AD-26's tool (Story 0.43, done) for its own AC; sequenced before Story 1.3k's bmad-dev-story dispatch via an actual epics.md Depends-on amendment (not just a flagged risk) — see event-pages-dev-story-tracking.md's 'Known conflicts'."}
 
   # ── 2026-09-22 (bmad-create-story, Story 0.43 Gate 3 finding) ───────────────
   FIND-047:

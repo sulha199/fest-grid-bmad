@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-25T11:38:16Z
+last_updated: 2026-09-25T11:48:30Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -532,6 +532,10 @@ development_status:
   # mechanism AD-15 didn't express before this story. Sibling of 1-i1l, not a dependency
   # either way. Gate 2 re-run fresh: no gap, built in place. Full story file drafted.
   1-i1m-drop-the-calendar-rows-reserved-image-slot: review
+  # added 2026-09-25 via bmad-create-story: BUG-040, EventCardDateBox day-slot
+  # overflow on word/time content, found by this session's visual-audit tool
+  # (packages/visual-audit, Story 0.43).
+  1-i1n-fix-eventcarddatebox-overflow-on-word-time-content: ready-for-dev
   1-i1z-ratchet-no-card-surface-sizes-or-falls-back-locally: review
   epic-1: in-progress
   1-1-create-initial-database-tables: done

@@ -196,12 +196,13 @@ the compact row never renders `DESIGN.md`'s `event_card_compact.venue` line at a
 plumbed via Story 1.i1g), and its favorite badge still corner-overlays the thumbnail instead of
 DESIGN.md's spec'd reversal (a vertical stack below it, glassmorphism dropped).
 
-**Still open, NOT covered by IDEA-046/1.i1l/1.i1m:** the `EventCardDateBox` word/time-content
-overflow bug found by this session's own visual-fidelity audit (2026-09-22) — `dayClasses` at
-`EventCardMediaPrimitives.tsx:273` is still bare `text-5xl`/`text-3xl font-extrabold leading-none`
+**RESOLVED, 2026-09-25:** the `EventCardDateBox` word/time-content overflow bug found by this
+session's own visual-fidelity audit (2026-09-22) — `dayClasses` at
+`EventCardMediaPrimitives.tsx:273` was still bare `text-5xl`/`text-3xl font-extrabold leading-none`
 with no `max-width`/`whitespace-nowrap`/word-variant handling, confirmed unchanged by both 1.i1l and
-1.i1m (neither touches this). See the dedicated audit findings for detail — this needs its own
-story, sequenced ahead of Story 1.3k (see "Known conflicts" below).
+1.i1m (neither touched this) — now has its own story, `1-i1n-fix-eventcarddatebox-overflow-on-word-time-content`
+(`backlog.yaml` `BUG-040`), sequenced ahead of Story 1.3k per its own `epics.md` `Depends on:` line
+(see "Known conflicts" below).
 
 **Also flagged:** `prototypes/validation-log.md` records rounds 1-4 only, while `DESIGN.md` cites
 rounds 5-8 as user-directed revisions of that same pass. A dated addendum in that file now records
@@ -209,15 +210,20 @@ the gap (the added rules are quoted there) rather than leaving it silent.
 
 ## Known conflicts for any new event-card story
 
+**RESOLVED, 2026-09-25 (`bmad-create-story`, Story 1.i1n):** the date-box overflow fix flagged
+below now has its own story, `1-i1n-fix-eventcarddatebox-overflow-on-word-time-content`
+(`backlog.yaml` `BUG-040`), and `epics.md`'s Story 1.3k section's `Depends on:` line has been
+amended to add `Story 1.i1n` directly — no longer just a flagged risk in this doc. Story 1.i1n
+should land and reach at least `review` before 1.3k's `bmad-dev-story` is dispatched.
+
 **Story 1.3k** (`1-3k-render-day-of-week-recurring-schedules-and-repeat-badge`) is `ready-for-dev`,
 not yet started, and its own `Depends on:` line names "Story 1.i1a-e (the shared
-`EventCardMediaPrimitives.tsx` primitives this story adds to)" while its AC touches
-`WeeklyCalendarView.tsx`'s `dayBuckets` and regression tests across `EventCard.test.tsx`. Any new
-story touching `EventCardDateBox`/`EventCardMediaPrimitives.tsx`/`EventCard.tsx`/
-`WeeklyCalendarView.tsx` (e.g. the date-box overflow fix above) should land and reach at least
-`review` — ideally amend 1.3k's own epics.md `Depends on:` line to name it — before 1.3k's
-`bmad-dev-story` is dispatched, so 1.3k isn't built blind to a shared-primitive change landing
-underneath it.
+`EventCardMediaPrimitives.tsx` primitives this story adds to)" and now also Story 1.i1n, while its
+AC touches `WeeklyCalendarView.tsx`'s `dayBuckets` and regression tests across `EventCard.test.tsx`.
+Any *other* new story touching `EventCardDateBox`/`EventCardMediaPrimitives.tsx`/`EventCard.tsx`/
+`WeeklyCalendarView.tsx` should land and reach at least `review` — ideally amend 1.3k's own
+epics.md `Depends on:` line to name it — before 1.3k's `bmad-dev-story` is dispatched, so 1.3k
+isn't built blind to a shared-primitive change landing underneath it.
 
 ## Story 0.44 -> Story 0.43 dependency (packages/visual-audit)
 
