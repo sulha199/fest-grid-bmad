@@ -17,6 +17,7 @@ export type {
   IntraBoxRatioRule,
   OverflowRule,
   ColorRule,
+  PlacementOrderRule,
   ReferenceSource,
 } from './manifest.js';
 
@@ -44,5 +45,7 @@ export { checkIntraBoxRatio, deriveRatioFromReference, DEFAULT_RATIO_TOLERANCE_R
 export { checkColorToken, type ColorCheckResult } from './rules/color.js';
 
 export { runOverflowRule, type OverflowRuleResult, type OverflowVariantResult } from './rules/overflow.js';
+
+export { checkPlacementOrder, type PlacementOrderCheckResult } from './rules/placement-order.js';
 
 export { enumerateContentVariants, type ContentVariant } from './content-variants.js';

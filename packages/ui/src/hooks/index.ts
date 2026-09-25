@@ -16,3 +16,5 @@ export * from './useWeeklyCalendarController.types';
 export * from './useCollapseHeaderOnScroll';
 export * from './useListPaginationController';
 export * from './useListPaginationController.types';
+export * from './useMasonryLayout';
+export * from './useMasonryLayout.types';

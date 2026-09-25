@@ -17,6 +17,7 @@ import { clusterByRowOverlap, clusterByColumnOverlap, checkSiblingDimension } fr
 import { checkIntraBoxRatio, deriveRatioFromReference } from './rules/intra-box-ratio.js';
 import { checkColorToken } from './rules/color.js';
 import { runOverflowRule } from './rules/overflow.js';
+import { checkPlacementOrder } from './rules/placement-order.js';
 import { diffScreenshotAgainstReferencePng } from './compare/pixel-diff.js';
 
 export interface RuleRunResult {
@@ -142,6 +143,24 @@ export async function runManifestEntry(page: Page, name: string, options: RunMan
       // Overflow variants render into a fresh page content each iteration; restore the entry's
       // own render for any rule that runs after this one in the manifest's rule list.
       await mountManifestEntry(page, entry);
+    } else if (rule.kind === 'placement-order') {
+      const leadingIndices = await page.$$eval(
+        rule.columnSelector,
+        (columns, args) => {
+          const { itemSelector, attr } = args as { itemSelector: string; attr: string };
+          return columns.map((col) => {
+            const item = col.querySelector(itemSelector);
+            if (!item) {
+              return -1;
+            }
+            const raw = item.getAttribute(attr);
+            return raw === null ? -1 : parseInt(raw, 10);
+          });
+        },
+        { itemSelector: rule.itemSelector, attr: rule.itemIndexAttribute }
+      );
+      const result = checkPlacementOrder(leadingIndices);
+      ruleResults.push({ kind: rule.kind, pass: result.pass, message: result.message, details: result });
     } else {
       throw new Error(`Unknown rule kind: ${(rule as { kind: string }).kind}`);
     }

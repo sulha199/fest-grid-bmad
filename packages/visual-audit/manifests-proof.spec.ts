@@ -210,3 +210,88 @@ test.describe('rule-based example: GridContainer masonry-columns-synthetic (mult
     expect(clusters.length).toBe(3);
   });
 });
+
+test.describe('rule-based example: GridContainer masonry-real-eventcard (Story 0.45 AC9, real GridContainer + EventCard)', () => {
+  const NAME = 'grid-container:masonry-real-eventcard:900x700';
+
+  test('manifest entry mounts the real, unmodified GridContainer(layout="masonry") + EventCard, not a fixture replica', () => {
+    expect(defaultRegistry.has(NAME)).toBe(true);
+    const entry = defaultRegistry.get(NAME);
+    expect(entry.component).toBe('GridContainer');
+    expect(entry.render.kind).toBe('react-component');
+    expect(entry.mode).toBe('rule');
+    expect(entry.renderScope).toBe('multi-instance');
+  });
+
+  test('columns share one width and the leading items land one-per-column in index order, and passes', async ({ page }) => {
+    const result = await runManifestEntry(page, NAME, { repoRoot: REPO_ROOT });
+
+    for (const ruleResult of result.ruleResults) {
+      expect(ruleResult.pass, `${ruleResult.kind}: ${ruleResult.message}`).toBe(true);
+    }
+    expect(result.pass).toBe(true);
+
+    const kinds = result.ruleResults.map((r) => r.kind);
+    expect(kinds).toEqual(['sibling-dimension', 'intra-box-ratio', 'intra-box-ratio', 'placement-order']);
+
+    // AC9(b)'s real signal: the first N items (N = column count) land one-per-column, left to
+    // right, in index order -- the SSR/first-paint round-robin estimate this static server render
+    // always exercises (no client hydration runs in this harness — see the manifest file's own
+    // header for why that's the correct, deterministic thing to check here).
+    const placementResult = result.ruleResults.find((r) => r.kind === 'placement-order');
+    const details = placementResult?.details as { actualLeadingIndices: number[] } | undefined;
+    expect(details?.actualLeadingIndices).toEqual([0, 1, 2]);
+  });
+
+  test('AD-27 Rule 1 — columns actually vary in HEIGHT independently (not CSS Grid row-locked)', async ({ page }) => {
+    // The two width checks above prove the tracks are structurally equal-width columns; this
+    // test proves the other half of AD-27's actual regression: unlike plain CSS Grid (which
+    // shares row height across every column), each `[data-grid-container-column]` here is its
+    // own independent flex-col box, so genuinely different card content (varying eventName
+    // length / locationName presence, per FIXTURE_CARDS) produces genuinely different column
+    // heights — not one row height shared/stretched across all three.
+    await runManifestEntry(page, NAME, { repoRoot: REPO_ROOT });
+    const heights: number[] = await page.$$eval('[data-grid-container-column]', (cols) =>
+      cols.map((c) => c.getBoundingClientRect().height)
+    );
+    expect(heights).toHaveLength(3);
+    const distinctHeights = new Set(heights.map((h) => Math.round(h)));
+    // At least two of the three columns must differ by more than a rounding artifact --
+    // proving real independent per-column height flow, not three uniformly-stretched boxes.
+    expect(distinctHeights.size).toBeGreaterThan(1);
+  });
+
+  test('negative canary: a deliberately mismatched column width fails the intra-box-ratio check', async ({ page }) => {
+    // Proves the real load-bearing width check can actually fail (see the manifest file's own
+    // comment on why the sibling-dimension rule alone cannot): mutate one column's width class
+    // in the live render so it clearly diverges from its siblings, and confirm the check catches it.
+    const CANARY_NAME = 'grid-container:masonry-real-eventcard-canary:900x700';
+    if (!defaultRegistry.has(CANARY_NAME)) {
+      const baseEntry = defaultRegistry.get(NAME);
+      const canaryEntry: ManifestEntry = {
+        ...baseEntry,
+        variant: 'masonry-real-eventcard-canary',
+        render: {
+          kind: 'react-component',
+          // Reuses the real fixture, but wraps it so column 0 gets forced to double width via
+          // an inline style injected after render -- a targeted DOM mutation, not a hand-typed
+          // markup replica, kept minimal by post-processing the real render's own HTML.
+          render: baseEntry.render.kind === 'react-component' ? baseEntry.render.render : () => { throw new Error('unreachable'); },
+          documentTemplate: (bodyHtml: string) => `
+<script src="https://cdn.tailwindcss.com"></script>
+<style>body{font-family:Inter,sans-serif; margin:0;}
+[data-grid-container-column-index="0"] { flex-grow: 4 !important; }
+</style>
+<div class="p-6 bg-slate-100">${bodyHtml}</div>
+`,
+        },
+      };
+      registerManifestEntry(CANARY_NAME, canaryEntry);
+    }
+
+    const result = await runManifestEntry(page, CANARY_NAME, { repoRoot: REPO_ROOT });
+    expect(result.pass).toBe(false);
+    const ratioResults = result.ruleResults.filter((r) => r.kind === 'intra-box-ratio');
+    expect(ratioResults.some((r) => !r.pass)).toBe(true);
+  });
+});

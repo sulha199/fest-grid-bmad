@@ -16,6 +16,14 @@
     "./event-card-media-primitives": {
       "types": "./src/features/events/EventCardMediaPrimitives.tsx",
       "default": "./src/features/events/EventCardMediaPrimitives.tsx"
+    },
+    "./event-card": {
+      "types": "./src/features/events/EventCard.tsx",
+      "default": "./src/features/events/EventCard.tsx"
+    },
+    "./grid-container": {
+      "types": "./src/core/grid-container.tsx",
+      "default": "./src/core/grid-container.tsx"
     }
   },
   "dependencies": {

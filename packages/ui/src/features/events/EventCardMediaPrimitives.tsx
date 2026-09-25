@@ -75,6 +75,25 @@ export const EVENT_CARD_BADGE_TEXT_SIZE_CLASS =
   'text-xs [@container(min-width:200px)]:text-sm';
 
 /**
+ * Story 0.45 (Architecture Spine AD-27, AC8): the masonry card's title font-size, now stepped by
+ * the card's own rendered width via the SAME container-query mechanism as
+ * `EVENT_CARD_BADGE_TEXT_SIZE_CLASS` above — never a viewport breakpoint. Once `GridContainer`'s
+ * `layout="masonry"` engine replaces the old `max-w-[230px]` cap (AC7) with a card that fills its
+ * actual, JS-computed column width, the card's rendered width genuinely varies across the real
+ * masonry breakpoint range (as narrow as the mobile 2-col slot, as wide as the desktop 6-col
+ * slot) — so, unlike the removed fixed cap, the title now has real headroom to grow at wider
+ * columns instead of staying pinned at its narrowest-slot size.
+ *
+ * `text-sm` (14px, today's shipped value) below 200px, stepping to `text-base` (16px) at/above
+ * it — the same 200px threshold `EVENT_CARD_BADGE_TEXT_SIZE_CLASS` already uses (there is no
+ * DESIGN.md token for this pairing to derive a different threshold from; reusing the established
+ * one keeps every masonry-card container-query step consistent rather than inventing a second
+ * breakpoint).
+ */
+export const EVENT_CARD_TITLE_TEXT_SIZE_CLASS =
+  'text-sm [@container(min-width:200px)]:text-base';
+
+/**
  * Marks an element as the query container the badge font-size steps against.
  * Applied to `EventCard`'s own root (Story 1.i1l), so the card's width — not the
  * viewport's — drives `EVENT_CARD_BADGE_TEXT_SIZE_CLASS`.

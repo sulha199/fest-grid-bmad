@@ -1,5 +1,12 @@
 "use client"
 
+/** @jsxImportSource react */
+// The pragma above is a no-op for this package's own build (tsconfig already defaults JSX to
+// React's automatic runtime) -- it exists only so packages/visual-audit's `react-component`
+// RenderSpec (which mounts this component through Playwright's test transform) doesn't have this
+// file's JSX default to Playwright's own internal `playwright/jsx-runtime` instead of React's.
+// Same fix as `count-badge.tsx`/`EventCardMediaPrimitives.tsx`; see either file's header for the
+// direct repro this is based on.
 import React, { useState, useLayoutEffect, useRef } from 'react';
 import { MapPin, Heart, Clock } from 'lucide-react';
 import { useScopedLocale, useScopedTimezone } from '../../hooks';
@@ -28,6 +35,7 @@ import {
   eventCardTillLabelClass,
   EVENT_CARD_BADGE_TEXT_SIZE_CLASS,
   EVENT_CARD_CONTAINER_CLASS,
+  EVENT_CARD_TITLE_TEXT_SIZE_CLASS,
 } from './EventCardMediaPrimitives';
 
 /**
@@ -143,7 +151,7 @@ export function EventCard({
       <article
         aria-busy="true"
         aria-label={defaultLabels.loading}
-        className={`w-full ${isMasonry ? 'max-w-[230px]' : 'max-w-sm'} rounded-xl overflow-hidden shadow-sm border border-border bg-card animate-pulse ${isGreyedOut ? 'opacity-50 grayscale' : ''}`}
+        className={`w-full ${isMasonry ? '' : 'max-w-sm'} rounded-xl overflow-hidden shadow-sm border border-border bg-card animate-pulse ${isGreyedOut ? 'opacity-50 grayscale' : ''}`}
       >
         <div className={`${isMasonry ? 'aspect-[3/4]' : 'h-48'} bg-gray-200 w-full`} />
         <div className={isMasonry ? 'p-3 flex flex-col gap-2' : 'p-4 flex flex-col gap-4'}>
@@ -236,7 +244,7 @@ export function EventCard({
   return (
     <article
       className={`w-full ${
-        isMasonry ? `max-w-[230px] ${EVENT_CARD_CONTAINER_CLASS}` : 'max-w-sm'
+        isMasonry ? EVENT_CARD_CONTAINER_CLASS : 'max-w-sm'
       } rounded-xl overflow-hidden shadow-sm border border-border bg-card transition-all hover:shadow-md relative group flex flex-col ${
         pendingRemoval ? 'opacity-50 grayscale' : ''
       }`}
@@ -413,7 +421,7 @@ export function EventCard({
                 labels={{ nearbyBadge: defaultLabels.nearbyBadge }}
               />
             </div>
-            <h3 className="text-sm font-semibold leading-tight tracking-tight text-card-foreground line-clamp-2">
+            <h3 className={`${EVENT_CARD_TITLE_TEXT_SIZE_CLASS} font-semibold leading-tight tracking-tight text-card-foreground line-clamp-2`}>
               {eventName}
             </h3>
             {locationName && (

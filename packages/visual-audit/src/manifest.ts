@@ -103,7 +103,22 @@ export interface ColorRule {
   expectedToken?: { name: string; resolvedValue: string };
 }
 
-export type Rule = SiblingDimensionRule | IntraBoxRatioRule | OverflowRule | ColorRule;
+/**
+ * Story 0.45 AC9(b): placement-order consistency -- the first N items (N = number of columns)
+ * must land one-per-column, left to right, in index order (AD-27 Rule 1/4's row-major-approximate
+ * placement, as opposed to CSS multi-column's rejected column-major reading order).
+ */
+export interface PlacementOrderRule {
+  kind: 'placement-order';
+  /** Selector matching each column-track element, expected in left-to-right DOM order. */
+  columnSelector: string;
+  /** Selector (matched within each column) for an item's DOM node, carrying `itemIndexAttribute`. */
+  itemSelector: string;
+  /** Attribute holding an item's original (pre-placement) index, e.g. `data-masonry-item-index`. */
+  itemIndexAttribute: string;
+}
+
+export type Rule = SiblingDimensionRule | IntraBoxRatioRule | OverflowRule | ColorRule | PlacementOrderRule;
 
 export interface ReferenceSource {
   /** Path to the validated prototype HTML, relative to the repo root. */

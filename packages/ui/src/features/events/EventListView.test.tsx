@@ -179,10 +179,15 @@ describe('EventListView', () => {
         />
       );
 
-      const grid = container.querySelector('.grid');
+      // Story 0.45: EventListView's grid now uses GridContainer's layout="masonry" JS
+      // shortest-column engine (Architecture Spine AD-27), not plain CSS Grid classes — the same
+      // baseCols=2/colsStep=1 breakpoint table still applies, just via `useMasonryLayout`'s flex
+      // column tracks instead of `grid-cols-*` classes (AC1/AC3/AC6).
+      const grid = container.querySelector('[data-grid-container-layout="masonry"]');
       expect(grid).toBeInTheDocument();
-      expect(grid).toHaveClass('grid-cols-2');
-      expect(grid).toHaveClass('md:grid-cols-3');
+      expect(grid?.className).not.toContain('grid-cols');
+      const columns = container.querySelectorAll('[data-grid-container-column]');
+      expect(columns.length).toBeGreaterThan(0);
 
       const cardTitle = screen.getByText('Summer Fest');
       const cardContainer = cardTitle.closest('.p-3');
@@ -202,10 +207,9 @@ describe('EventListView', () => {
         />
       );
 
-      const grid = container.querySelector('.grid');
+      const grid = container.querySelector('[data-grid-container-layout="masonry"]');
       expect(grid).toBeInTheDocument();
-      expect(grid).toHaveClass('grid-cols-2');
-      expect(grid).toHaveClass('md:grid-cols-3');
+      expect(grid?.className).not.toContain('grid-cols');
 
       const skeletonImages = container.querySelectorAll('.aspect-\\[3\\/4\\]');
       expect(skeletonImages.length).toBe(6);
@@ -485,7 +489,7 @@ describe('EventListView', () => {
         />
       );
 
-      const grid = container.querySelector('.grid');
+      const grid = container.querySelector('[data-grid-container-layout="masonry"]');
       expect(grid).toHaveClass('gap-x-2');
       expect(grid).toHaveClass('gap-y-6');
       expect(grid).not.toHaveClass('gap-2');
@@ -504,7 +508,7 @@ describe('EventListView', () => {
         />
       );
 
-      const grid = container.querySelector('.grid');
+      const grid = container.querySelector('[data-grid-container-layout="masonry"]');
       expect(grid).toHaveClass('gap-x-2');
       expect(grid).toHaveClass('gap-y-6');
       expect(grid).not.toHaveClass('gap-2');

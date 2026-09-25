@@ -963,14 +963,19 @@ describe('EventCard', () => {
   // without them a later "simplification" that drops the `isMasonry ?` ternary would
   // silently shrink and reposition the standard card and no test would notice.
   describe('Story 1.i1l — masonry-only gating (variant="standard" regression guard)', () => {
-    it('caps the card at 230px and declares a query container on masonry only', () => {
+    it('Story 0.45 AC7 — no longer caps the masonry card at 230px, but still declares a query container', () => {
+      // Story 0.45 (AD-27): the fixed 230px cap is removed so the card fills its actual JS
+      // masonry column width instead of centering inside a wider, mostly-empty grid cell. The
+      // container-query mechanism (AC8) stays — it now steps off the card's real, JS-computed
+      // width instead of a value that used to be pinned by the removed cap.
       const { container } = render(
         <EventCard {...defaultProps} variant="masonry" locale="en-US" />
       );
       const masonryRoot = container.querySelector('article') as HTMLElement;
-      expect(masonryRoot).toHaveClass('max-w-[230px]');
+      expect(masonryRoot).not.toHaveClass('max-w-[230px]');
       expect(masonryRoot).toHaveClass('[container-type:inline-size]');
       expect(masonryRoot).not.toHaveClass('max-w-sm');
+      expect(masonryRoot).toHaveClass('w-full');
 
       cleanup();
 
@@ -982,21 +987,40 @@ describe('EventCard', () => {
       expect(standardRoot).not.toHaveClass('[container-type:inline-size]');
     });
 
-    it('caps the loading skeleton to match its real card (no CLS on swap)', () => {
-      // project-context.md, "Keep Skeletons in Sync With Their Real Component": a skeleton
-      // left at 384px while the real card renders at 230px reintroduces the exact layout
-      // shift skeletons exist to prevent, just delayed until the swap.
+    it('Story 0.45 AC7 — the loading skeleton drops the 230px cap in lockstep with the real card (no CLS on swap)', () => {
+      // project-context.md, "Keep Skeletons in Sync With Their Real Component": a skeleton still
+      // capped at 230px while the real card now fills its actual column width would reintroduce
+      // the exact layout shift skeletons exist to prevent, just delayed until the swap.
       const { container } = render(
         <EventCard {...defaultProps} variant="masonry" loading locale="en-US" />
       );
       const skeleton = container.querySelector('.animate-pulse') as HTMLElement;
-      expect(skeleton).toHaveClass('max-w-[230px]');
+      expect(skeleton).not.toHaveClass('max-w-[230px]');
       expect(skeleton).not.toHaveClass('max-w-sm');
+      expect(skeleton).toHaveClass('w-full');
 
       cleanup();
 
       const { container: std } = render(<EventCard {...defaultProps} loading locale="en-US" />);
       expect(std.querySelector('.animate-pulse')).toHaveClass('max-w-sm');
+    });
+
+    it('Story 0.45 AC8 — the masonry title scales via a container-query step, not a viewport breakpoint', () => {
+      const { container } = render(
+        <EventCard {...defaultProps} variant="masonry" locale="en-US" />
+      );
+      const title = screen.getByText(defaultProps.eventName).closest('h3') as HTMLElement;
+      expect(title).toHaveClass('text-sm');
+      expect(title).toHaveClass('[@container(min-width:200px)]:text-base');
+      // No viewport-breakpoint (sm:/md:/…) font-size class — the card's own rendered width
+      // drives this, not the viewport (AC8's explicit constraint).
+      expect(title.className).not.toMatch(/\b(sm|md|lg|xl|2xl):text-/);
+
+      cleanup();
+
+      const { container: std } = render(<EventCard {...defaultProps} locale="en-US" />);
+      const standardTitle = screen.getByText(defaultProps.eventName).closest('h3') as HTMLElement;
+      expect(standardTitle).not.toHaveClass('[@container(min-width:200px)]:text-base');
     });
 
     it('leaves the standard card favorite pill at its shipped top-3 right-3 position', () => {

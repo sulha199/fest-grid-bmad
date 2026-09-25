@@ -22,6 +22,12 @@ module.exports = {
     // this glob entry, those classes (e.g. max-w-[80px] on the day slot) would silently render
     // unstyled against the offline vendored bundle.
     '../ui/src/features/events/EventCardMediaPrimitives.tsx',
+    // Story 0.45: grid-container-masonry.ts mounts the real GridContainer(layout="masonry") +
+    // EventCard -- both files' own Tailwind classes (flex-1/min-w-0/items-start column-track
+    // classes, gap-x-2/gap-y-6, the new EVENT_CARD_TITLE_TEXT_SIZE_CLASS container-query step)
+    // must be in this offline bundle too, or they'd silently render unstyled here.
+    '../ui/src/core/grid-container.tsx',
+    '../ui/src/features/events/EventCard.tsx',
   ],
   theme: {
     extend: {

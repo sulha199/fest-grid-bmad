@@ -20,7 +20,7 @@ export function EventListView<TEvent extends EventListViewItem>({
 }: EventListViewProps<TEvent>) {
   if (status === 'loading') {
     return (
-      <GridContainer baseCols={2} colsStep={1} gap="gap-x-2 gap-y-6" className={className}>
+      <GridContainer baseCols={2} colsStep={1} gap="gap-x-2 gap-y-6" layout="masonry" className={className}>
         {Array.from({ length: skeletonCount }).map((_, i) => (
           <EventCard
             key={i}
@@ -61,7 +61,7 @@ export function EventListView<TEvent extends EventListViewItem>({
       // This is stronger than excluding the sentinel alone: without it, the browser can anchor
       // to whichever card sits nearest the bottom of the viewport, not just the sentinel.
       <div className="contents [overflow-anchor:none]">
-        <GridContainer baseCols={2} colsStep={1} gap="gap-x-2 gap-y-6" className={className}>
+        <GridContainer baseCols={2} colsStep={1} gap="gap-x-2 gap-y-6" layout="masonry" className={className}>
           {events.map((event) => {
             // Story 2.7 — prefer the next-upcoming schedule for display (falling
             // back to the main schedule, then the first schedule), instead of

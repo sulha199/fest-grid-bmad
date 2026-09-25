@@ -1,10 +1,14 @@
+---
+baseline_commit: dba2f7c2
+---
+
 # Story 0.45: Replace GridContainer's masonry engine with JS shortest-column placement
 
 ## Story Details
 
 - Epic: 0
 - Story ID: 0.45
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -30,34 +34,34 @@ So that the Discovery masonry surface (`EventListView.tsx`) achieves true Pinter
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — `GridContainer` `layout` prop and column-count derivation (AC1, AC3)
-  - [ ] Add `layout?: 'css-grid' | 'masonry'` to `GridContainerProps` (`grid-container.types.ts`), default `'css-grid'`.
-  - [ ] Extract the existing `baseCols`/`colsStep` → per-breakpoint column-count formula into a shared helper usable by both the `css-grid` (Tailwind class lookup) and `masonry` (JS column count) paths, so both stay derived from one source instead of two independently-maintained tables.
-- [ ] Task 2 — `useMasonryLayout` hook (AC2, AC4, AC5, AC11)
-  - [ ] Implement `packages/ui/src/hooks/useMasonryLayout.ts` + `.types.ts`: takes item count/refs and the current column count, returns column assignments.
-  - [ ] SSR/first-paint estimate: round-robin assignment by index (no measurement dependency).
-  - [ ] Post-hydration: measure each item's rendered height (`ResizeObserver`, mirroring `swipe-to-reveal.tsx`'s `measure()` idiom); reflow into true shortest-column placement.
-  - [ ] Recompute column count and re-run placement on a breakpoint-crossing container/window resize.
-  - [ ] Re-run placement when an already-placed item's measured height changes (e.g. async image load).
-  - [ ] Export from `packages/ui/src/hooks/index.ts`.
-  - [ ] Unit tests: `useMasonryLayout.test.ts`.
-- [ ] Task 3 — `GridContainer` masonry render path (AC4)
-  - [ ] When `layout="masonry"`, render N equal-width (`flex-1 min-w-0`) column tracks wired to `useMasonryLayout`'s assignments, instead of the CSS Grid classes.
-  - [ ] Translate the existing `gap` prop (e.g. `gap-x-2 gap-y-6`) into the flex-track model (row-level horizontal gap between tracks, per-track vertical gap between stacked items).
-  - [ ] Update `grid-container.test.tsx` for the new path (AC11).
-- [ ] Task 4 — Wire `EventListView.tsx` to `layout="masonry"` (AC6)
-  - [ ] Add `layout="masonry"` to both `GridContainer` call sites (loading skeleton line 23, success grid line 64).
-- [ ] Task 5 — Remove `EventCard.tsx`'s masonry width cap and add container-query scaling (AC7, AC8)
-  - [ ] Remove `max-w-[230px]` at `EventCard.tsx:239` (real render) and `EventCard.tsx:146` (loading skeleton); confirm `w-full` alone governs width within the new flex column track.
-  - [ ] Add at least one additional `@container` step to the card title's font-size (and any other element judged to need it during implementation), following `EVENT_CARD_BADGE_TEXT_SIZE_CLASS`'s existing arbitrary-variant pattern — no new viewport-breakpoint-based sizing.
-  - [ ] Update `EventCard.test.tsx`'s `max-w-[230px]` assertions (currently at lines ~971/993) to assert the cap's removal and the new container-query class instead.
-- [ ] Task 6 — Real visual-audit manifest entry (AC9)
-  - [ ] Author `packages/visual-audit/manifests/grid-container-masonry.ts` per AC9; register it in `packages/visual-audit/manifests/index.ts`.
-  - [ ] Confirm it runs and passes via `packages/visual-audit`'s public API (`pnpm --filter @festgrid/visual-audit test` or the manifest-runner entrypoint Story 0.43 exposed).
-- [ ] Task 7 — DESIGN.md reconciliation (AC3)
-  - [ ] Confirm `components.grid.masonry` token's documented breakpoint→column-count table still matches after this story (it should, per AC3's derivation requirement); if the flex-track implementation changes the token's literal Tailwind-class description (`grid grid-cols-2 md:grid-cols-3...`), update the token's comment to describe the new flex-track shape while keeping the same column-count semantics.
-- [ ] Task 8 — Full regression pass (Definition of Done)
-  - [ ] `pnpm --filter @festgrid/ui test`, `pnpm --filter @festgrid/ui lint`, `pnpm --filter @festgrid/visual-audit test`.
+- [x] Task 1 — `GridContainer` `layout` prop and column-count derivation (AC1, AC3)
+  - [x] Add `layout?: 'css-grid' | 'masonry'` to `GridContainerProps` (`grid-container.types.ts`), default `'css-grid'`.
+  - [x] Extract the existing `baseCols`/`colsStep` → per-breakpoint column-count formula into a shared helper usable by both the `css-grid` (Tailwind class lookup) and `masonry` (JS column count) paths, so both stay derived from one source instead of two independently-maintained tables.
+- [x] Task 2 — `useMasonryLayout` hook (AC2, AC4, AC5, AC11)
+  - [x] Implement `packages/ui/src/hooks/useMasonryLayout.ts` + `.types.ts`: takes item count/refs and the current column count, returns column assignments.
+  - [x] SSR/first-paint estimate: round-robin assignment by index (no measurement dependency).
+  - [x] Post-hydration: measure each item's rendered height (`ResizeObserver`, mirroring `swipe-to-reveal.tsx`'s `measure()` idiom); reflow into true shortest-column placement.
+  - [x] Recompute column count and re-run placement on a breakpoint-crossing container/window resize.
+  - [x] Re-run placement when an already-placed item's measured height changes (e.g. async image load).
+  - [x] Export from `packages/ui/src/hooks/index.ts`.
+  - [x] Unit tests: `useMasonryLayout.test.ts`.
+- [x] Task 3 — `GridContainer` masonry render path (AC4)
+  - [x] When `layout="masonry"`, render N equal-width (`flex-1 min-w-0`) column tracks wired to `useMasonryLayout`'s assignments, instead of the CSS Grid classes.
+  - [x] Translate the existing `gap` prop (e.g. `gap-x-2 gap-y-6`) into the flex-track model (row-level horizontal gap between tracks, per-track vertical gap between stacked items).
+  - [x] Update `grid-container.test.tsx` for the new path (AC11).
+- [x] Task 4 — Wire `EventListView.tsx` to `layout="masonry"` (AC6)
+  - [x] Add `layout="masonry"` to both `GridContainer` call sites (loading skeleton line 23, success grid line 64).
+- [x] Task 5 — Remove `EventCard.tsx`'s masonry width cap and add container-query scaling (AC7, AC8)
+  - [x] Remove `max-w-[230px]` at `EventCard.tsx:239` (real render) and `EventCard.tsx:146` (loading skeleton); confirm `w-full` alone governs width within the new flex column track.
+  - [x] Add at least one additional `@container` step to the card title's font-size (and any other element judged to need it during implementation), following `EVENT_CARD_BADGE_TEXT_SIZE_CLASS`'s existing arbitrary-variant pattern — no new viewport-breakpoint-based sizing.
+  - [x] Update `EventCard.test.tsx`'s `max-w-[230px]` assertions (currently at lines ~971/993) to assert the cap's removal and the new container-query class instead.
+- [x] Task 6 — Real visual-audit manifest entry (AC9)
+  - [x] Author `packages/visual-audit/manifests/grid-container-masonry.ts` per AC9; register it in `packages/visual-audit/manifests/index.ts`.
+  - [x] Confirm it runs and passes via `packages/visual-audit`'s public API (`pnpm --filter @festgrid/visual-audit test` or the manifest-runner entrypoint Story 0.43 exposed).
+- [x] Task 7 — DESIGN.md reconciliation (AC3)
+  - [x] Confirm `components.grid.masonry` token's documented breakpoint→column-count table still matches after this story (it should, per AC3's derivation requirement); if the flex-track implementation changes the token's literal Tailwind-class description (`grid grid-cols-2 md:grid-cols-3...`), update the token's comment to describe the new flex-track shape while keeping the same column-count semantics.
+- [x] Task 8 — Full regression pass (Definition of Done)
+  - [x] `pnpm --filter @festgrid/ui test`, `pnpm --filter @festgrid/ui lint`, `pnpm --filter @festgrid/visual-audit test`.
 
 ## Dev Notes
 
@@ -171,14 +175,70 @@ Story Split Gates run fresh for this story (the existing `_bmad-output/planning-
 
 ## Completion Status
 
-- [ ] Not started
+Implemented via `bmad-dev-story` (2026-09-25). All 11 ACs satisfied, all 8 tasks complete, full test/lint/build clean. Status: `review`.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
+Claude Sonnet 5 (`claude-sonnet-5`), via `bmad-dev-story`.
+
 ### Debug Log References
+
+- `registerItemRef(index)` inline-closure bug: `useMasonryLayout`'s first draft created a brand-new ref-callback function on every render (`(index) => (node) => {...}` called fresh in `GridContainer`'s JSX each render). React treats a changed ref-callback reference as "detach old, attach new" on every commit, and attach synchronously calls `setHeights` — producing an infinite detach/attach/setState render loop, caught immediately by `grid-container.test.tsx`'s new masonry tests ("Maximum update depth exceeded"). Fixed by caching one stable callback per item index in a `Map` inside the hook (`refCallbacksRef`), so `registerItemRef(index)` returns the SAME function reference across re-renders.
+- `hasMeasured` gating design (AC5): an initial draft flipped `hasMeasured` via a `useEffect` that ran unconditionally on mount, independent of whether any items were actually measured yet. Under jsdom's real (always-0) `offsetHeight`, or a `renderHook`-only test with no DOM refs attached, this made `columnAssignments` collapse everything into column 0 (shortest-column ties always resolve to the lowest index; if no column height ever increases, it's always column 0) instead of behaving as round-robin. Redesigned so `hasMeasured = Object.keys(heights).length > 0` — measurement happens synchronously in the ref-callback on attach (no separate effect needed for the first pass), and the round-robin/shortest-column switch is now correctly driven by "has anything actually been measured," not "has the mount effect fired." This also avoids a whole-list flicker back to round-robin on every `useInfiniteScroll` page load (only unmeasured new items default to a `0` estimate, not the entire list).
+- AC9's real manifest mounts `GridContainer(layout="masonry")` + `EventCard` via `react-component`'s `renderToStaticMarkup` (no client hydration in that harness) — this deterministically exercises ONLY the SSR/round-robin first pass (refs never attach in a static string render, so `useMasonryLayout` never measures). Documented this explicitly in the manifest file's header so a future reader doesn't mistake it for a hydration-reflow proof; the true shortest-column/reflow logic is exhaustively covered instead by `useMasonryLayout.test.ts` (AC11), where jsdom's real ref/effect lifecycle runs.
+- Discovered mid-implementation that AC9(a)'s literal "sibling-dimension rule asserting all column tracks share one width" cannot, by itself, meaningfully fail: `renderScope: 'multi-instance'` clusters via `clusterByColumnOverlap` (horizontal-overlap grouping), and three genuinely side-by-side, non-overlapping column tracks each land in their own 1-member cluster — a 1-member cluster trivially "passes" regardless of actual width. This matches the earlier `masonry-column-width-invariant.ts` synthetic entry's own admitted behavior (its test literally asserts 3 separate 1-member clusters). Kept the literal `sibling-dimension` rule (AC9(a) names it explicitly) but added two `intra-box-ratio` (expectedRatio=1) pairwise width checks as the real load-bearing proof, and added a negative-canary Playwright test (`manifests-proof.spec.ts`) confirming it genuinely fails when a column's width is deliberately mutated.
+- The offline vendored Tailwind bundle (`packages/visual-audit/vendor/tailwind.generated.css`) did not scan `grid-container.tsx`/`EventCard.tsx` for class names, so the new manifest's real render would have silently lost `gap-y-6` and the new title container-query class in that harness (didn't affect this story's own rule results, which check width/order, not spacing/font-size — but would have been a latent gap for any future check). Added both files to `vendor/tailwind.config.cjs`'s content globs and rebuilt via `pnpm --filter @festgrid/visual-audit build:vendor-tailwind`.
+- `lucide-react`/JSX-runtime interop (already fixed by a prior story's `pnpm patch` + `@jsxImportSource react` pragma convention) needed the SAME `@jsxImportSource react` pragma added to `grid-container.tsx` and `EventCard.tsx` themselves (previously only `count-badge.tsx`/`EventCardMediaPrimitives.tsx` carried it) — without it, Playwright's test transform would default their JSX to its own internal `jsx-runtime` instead of React's, the same class of bug already root-caused by that prior story.
 
 ### Completion Notes List
 
+- AC1-AC11 all satisfied; see Tasks/Subtasks above for per-task evidence.
+- AC1 (unaffected default path): existing `grid-container.test.tsx` assertions for the default/`css-grid` path pass byte-for-byte unmodified; `layout="masonry"` consumers only exercise the new hooks (`useActiveColumnCount`/`useMasonryLayout` are still called unconditionally per React's rules-of-hooks, but with `itemCount: 0`/`enabled: false` when not in masonry mode, so no resize listener or measurement work happens for non-masonry consumers).
+- AC2/AC11: `useMasonryLayout.test.ts` (8 tests) covers shortest-column selection with unequal heights (diverging from round-robin, proving real greedy placement), the round-robin SSR estimate (pure `renderHook`, no DOM refs attached), reflow-on-remeasure (via a mocked `ResizeObserver.trigger()`), reflow-on-column-count-change (breakpoint-style `rerender`), a newly-appended page not reverting the whole list to round-robin, ref-unregistration, and the `columnCount<=0` edge case.
+- AC3: column-count derivation is now a single shared `computeGridContainerColumnCounts(baseCols, colsStep)` helper in `grid-container.tsx`, used by both the `css-grid` Tailwind-class lookup and the masonry path's `useActiveColumnCount` breakpoint tracker (same 768/1024/1280/1536 px thresholds).
+- AC4: masonry columns are `flex-1 min-w-0` tracks under a `flex items-start` row (`items-start` is the critical fix that keeps columns from being cross-axis-stretched to a shared height by flexbox's default `stretch` — without it every column's DOM box would report the tallest column's height regardless of real content). Concretely verified independent height flow via a dedicated Playwright test reading real `getBoundingClientRect().height` per column against the real-EventCard manifest — 3 distinct column heights, not one shared value (see Dev Notes / manifest test below).
+- AC5: SSR/first-paint round-robin, then reflow to true shortest-column placement once ANY item is measured (not gated on "every item measured", to avoid full-list flicker on `useInfiniteScroll` page growth — see Debug Log). Measurement happens at ref-attach time (mirrors `swipe-to-reveal.tsx`'s `measure()` timing) plus a `ResizeObserver` per item for later height changes.
+- AC6: both `EventListView.tsx` `GridContainer` call sites (skeleton + success grid) now pass `layout="masonry"`.
+- AC7: both `max-w-[230px]` occurrences removed (`EventCard.tsx` real render + loading skeleton); `w-full` alone now governs width within the flex column track.
+- AC8: new `EVENT_CARD_TITLE_TEXT_SIZE_CLASS` (`text-sm [@container(min-width:200px)]:text-base`) added to `EventCardMediaPrimitives.tsx`, reusing the exact 200px container-query threshold `EVENT_CARD_BADGE_TEXT_SIZE_CLASS` already established — no viewport-breakpoint sizing introduced.
+- AC9: real `packages/visual-audit/manifests/grid-container-masonry.ts` mounts the actual `GridContainer(layout="masonry")` + `EventCard` (6 fixture cards, varying title length/location presence), `renderScope: 'multi-instance'`, `mode: 'rule'`, registered in `manifests/index.ts`. Verified passing via the package's own public entrypoint: `pnpm --filter @festgrid/visual-audit test:manifests` (15/15 tests green, including 2 new negative-canary tests proving the width and placement-order checks can genuinely fail).
+- AC10: i18n N/A confirmed — no new user-facing strings; purely structural/layout/CSS work.
+- Verification commands actually run (not just listed): `pnpm --filter @festgrid/ui test` (681 tests), `pnpm --filter @festgrid/ui lint`, `pnpm --filter @festgrid/visual-audit test` (`tsx --test`, 41 tests), `pnpm --filter @festgrid/visual-audit lint`, `npx tsc --noEmit` in `packages/visual-audit`, `pnpm --filter @festgrid/visual-audit test:manifests` (`playwright test`, 15 tests), and finally the full unfiltered repo-wide `pnpm test` / `pnpm lint` / `pnpm build` via this workflow's own `run-check.ts` gate (Step 9) — all green.
+- Manual check (Verification Plan's last item, "no large empty inter-column space at 2xl viewport widths"): confirmed structurally, not just visually — the removed `max-w-[230px]` cap plus the JS masonry engine's `flex-1` column tracks mean a card's rendered width is now always its actual column width (no fixed cap centering it inside a wider cell); `EVENT_CARD_TITLE_TEXT_SIZE_CLASS`'s container-query step lets the title (and the pre-existing badge/pill container-query classes) grow at wider columns instead of staying pinned at the narrowest slot's size.
+
 ### File List
+
+- `packages/ui/src/core/grid-container.tsx` (modified) — `layout` prop, `computeGridContainerColumnCounts` shared helper, `useActiveColumnCount` breakpoint tracker, masonry flex-track render path, `@jsxImportSource react` pragma.
+- `packages/ui/src/core/grid-container.types.ts` (modified) — `layout?: 'css-grid' | 'masonry'` prop.
+- `packages/ui/src/core/grid-container.test.tsx` (modified) — new `layout="masonry"` describe block (AC1/AC3/AC4/AC11).
+- `packages/ui/src/hooks/useMasonryLayout.ts` (new) — the JS shortest-column-placement hook.
+- `packages/ui/src/hooks/useMasonryLayout.types.ts` (new) — hook's prop/result types.
+- `packages/ui/src/hooks/useMasonryLayout.test.ts` (new) — dedicated unit tests (AC11).
+- `packages/ui/src/hooks/index.ts` (modified) — exports the new hook.
+- `packages/ui/src/features/events/EventListView.tsx` (modified) — both `GridContainer` call sites adopt `layout="masonry"` (AC6).
+- `packages/ui/src/features/events/EventListView.test.tsx` (modified) — 4 existing tests updated for the masonry DOM structure (no longer plain CSS Grid classes).
+- `packages/ui/src/features/events/EventCard.tsx` (modified) — both `max-w-[230px]` occurrences removed, title uses `EVENT_CARD_TITLE_TEXT_SIZE_CLASS`, `@jsxImportSource react` pragma.
+- `packages/ui/src/features/events/EventCard.test.tsx` (modified) — updated masonry-cap assertions (AC7) + new AC8 container-query title test.
+- `packages/ui/src/features/events/EventCardMediaPrimitives.tsx` (modified) — new `EVENT_CARD_TITLE_TEXT_SIZE_CLASS` constant (AC8).
+- `packages/ui/package.json` (modified) — new `./event-card` and `./grid-container` export subpaths (for the visual-audit manifest mount).
+- `packages/visual-audit/src/manifest.ts` (modified) — new `PlacementOrderRule` type (AC9(b)).
+- `packages/visual-audit/src/rules/placement-order.ts` (new) — pure placement-order comparison logic.
+- `packages/visual-audit/placement-order.test.ts` (new) — unit tests for the pure logic.
+- `packages/visual-audit/src/engine.ts` (modified) — dispatches the new `placement-order` rule kind.
+- `packages/visual-audit/src/index.ts` (modified) — exports the new rule type/function.
+- `packages/visual-audit/manifests/grid-container-masonry.ts` (new) — the AC9 real manifest entry.
+- `packages/visual-audit/manifests/index.ts` (modified) — registers the new manifest entry.
+- `packages/visual-audit/manifests-proof.spec.ts` (modified) — new `test.describe` block (4 tests: registration, real check pass, independent-height proof, negative canary).
+- `packages/visual-audit/vendor/tailwind.config.cjs` (modified) — added `grid-container.tsx`/`EventCard.tsx` to the offline-Tailwind content glob.
+- `packages/visual-audit/vendor/tailwind.generated.css` (modified, regenerated) — rebuilt via `build:vendor-tailwind`.
+- `design-artifacts/UX-festgrid-run-1/DESIGN.md` (modified) — `components.grid.masonry` token reconciled to describe the new flex-track shape (Task 7, AC3).
+
+## Change Log
+
+### 2026-09-25: Implemented via `bmad-dev-story`
+
+- All 11 ACs implemented and verified (see Completion Notes List for per-AC evidence).
+- Full regression pass green: `packages/ui` (681 tests), `packages/visual-audit` unit (41 tests) + Playwright manifest proof (15 tests), repo-wide `pnpm test`/`pnpm lint`/`pnpm build`.
+- Status: `ready-for-dev` → `in-progress` → `review`.
