@@ -179,7 +179,7 @@ export function EventCard({
   // computed unconditionally, still used as-is by the untouched non-masonry-default overlay.
   const dateBoxParts = dateIsValid
     ? formatShortEventDateTimeParts(activeLocale, activeTimezone, dateObj, hasTime, defaultLabels)
-    : { month: '', day: '' };
+    : { month: '', day: '', dayVariant: 'number' as const };
 
   const finalImageAlt = imageAlt || eventName;
 
@@ -333,6 +333,7 @@ export function EventCard({
                   </>
                 }
                 day={dateBoxParts.day}
+                dayVariant={dateBoxParts.dayVariant}
                 tillLabel={tillBadgeText || undefined}
               />
             </div>

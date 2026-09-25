@@ -425,6 +425,48 @@ describe('EventCardDateBox (Story 1.i1k two-tier month/day chrome)', () => {
     const { container } = render(<EventCardDateBox size="default" month="Oct" day="12" />);
     expect(container.querySelector('.bg-amber-700')).toBeNull();
   });
+
+  describe('dayVariant (Story 1.i1n AC1/AC2/AC3)', () => {
+    it('dayVariant omitted -> byte-for-byte unchanged from the pre-Story-1.i1n numeric output (AC3)', () => {
+      const { container } = render(<EventCardDateBox size="default" month="Oct" day="12" />);
+      expect(container.querySelector('[data-event-card-date-box-day]')?.className).toBe(
+        'text-5xl font-extrabold leading-none'
+      );
+    });
+
+    it('dayVariant="number" (explicit) -> same classes as omitted, both sizes (AC3)', () => {
+      const { container: defaultContainer } = render(
+        <EventCardDateBox size="default" month="Oct" day="12" dayVariant="number" />
+      );
+      expect(defaultContainer.querySelector('[data-event-card-date-box-day]')?.className).toBe(
+        'text-5xl font-extrabold leading-none'
+      );
+
+      const { container: compactContainer } = render(
+        <EventCardDateBox size="compact" month="Oct" day="12" dayVariant="number" />
+      );
+      expect(compactContainer.querySelector('[data-event-card-date-box-day]')?.className).toBe(
+        'text-3xl font-extrabold leading-none'
+      );
+    });
+
+    it('dayVariant="word" -> a smaller, word-safe class pair, same for both sizes (AC2)', () => {
+      const { container: defaultContainer } = render(
+        <EventCardDateBox size="default" month="" day="Tomorrow" dayVariant="word" />
+      );
+      const defaultDayEl = defaultContainer.querySelector('[data-event-card-date-box-day]');
+      expect(defaultDayEl).toHaveTextContent('Tomorrow');
+      expect(defaultDayEl?.className).not.toContain('text-5xl');
+      expect(defaultDayEl?.className).toContain('whitespace-nowrap');
+
+      const { container: compactContainer } = render(
+        <EventCardDateBox size="compact" month="" day="Tomorrow" dayVariant="word" />
+      );
+      const compactDayEl = compactContainer.querySelector('[data-event-card-date-box-day]');
+      expect(compactDayEl?.className).not.toContain('text-3xl');
+      expect(compactDayEl?.className).toBe(defaultDayEl?.className);
+    });
+  });
 });
 
 });

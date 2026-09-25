@@ -311,28 +311,28 @@ describe('formatShortEventDateTimeParts (Story 1.i1k Task 1.2)', () => {
     const today = new Date();
     const testDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 15, 45, 0);
     const result = formatShortEventDateTimeParts('en-US', undefined, testDate, true);
-    expect(result).toEqual({ month: '', day: formatEventTime('en-US', undefined, testDate) });
+    expect(result).toEqual({ month: '', day: formatEventTime('en-US', undefined, testDate), dayVariant: 'word' });
   });
 
   it('today with NO startTime -> month empty, day = labels.today or Today', () => {
     const today = new Date();
     const testDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0);
-    expect(formatShortEventDateTimeParts('en-US', undefined, testDate, false)).toEqual({ month: '', day: 'Today' });
+    expect(formatShortEventDateTimeParts('en-US', undefined, testDate, false)).toEqual({ month: '', day: 'Today', dayVariant: 'word' });
     expect(
       formatShortEventDateTimeParts('en-US', undefined, testDate, false, { today: 'Hari Ini' })
-    ).toEqual({ month: '', day: 'Hari Ini' });
+    ).toEqual({ month: '', day: 'Hari Ini', dayVariant: 'word' });
   });
 
   it('tomorrow (dayDiff === 1) -> month empty, day = labels.tomorrow or Tomorrow', () => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    expect(formatShortEventDateTimeParts('en-US', undefined, tomorrow, false)).toEqual({ month: '', day: 'Tomorrow' });
+    expect(formatShortEventDateTimeParts('en-US', undefined, tomorrow, false)).toEqual({ month: '', day: 'Tomorrow', dayVariant: 'word' });
   });
 
   it('yesterday (dayDiff === -1) -> month empty, day = labels.yesterday or Yesterday', () => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    expect(formatShortEventDateTimeParts('en-US', undefined, yesterday, false)).toEqual({ month: '', day: 'Yesterday' });
+    expect(formatShortEventDateTimeParts('en-US', undefined, yesterday, false)).toEqual({ month: '', day: 'Yesterday', dayVariant: 'word' });
   });
 
   it('a real short date (3+ days out) -> month = short month abbrev, day = day number, no year', () => {
@@ -344,7 +344,25 @@ describe('formatShortEventDateTimeParts (Story 1.i1k Task 1.2)', () => {
     expect(formatShortEventDateTimeParts('en-US', undefined, future, false)).toEqual({
       month: expectedMonth,
       day: expectedDay,
+      dayVariant: 'number',
     });
+  });
+
+  it('every dayDiff branch reports the correct dayVariant discriminant (Story 1.i1n AC1/AC4)', () => {
+    const today = new Date();
+    const testDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const future = new Date();
+    future.setDate(future.getDate() + 4);
+
+    expect(formatShortEventDateTimeParts('en-US', undefined, testDate, false).dayVariant).toBe('word');
+    expect(formatShortEventDateTimeParts('en-US', undefined, testDate, true).dayVariant).toBe('word');
+    expect(formatShortEventDateTimeParts('en-US', undefined, tomorrow, false).dayVariant).toBe('word');
+    expect(formatShortEventDateTimeParts('en-US', undefined, yesterday, false).dayVariant).toBe('word');
+    expect(formatShortEventDateTimeParts('en-US', undefined, future, false).dayVariant).toBe('number');
   });
 });
 
@@ -353,28 +371,28 @@ describe('computeCalendarSegmentDateBoxContent (Story 1.i1k AC4)', () => {
     const result = computeCalendarSegmentDateBoxContent(
       'en-US', undefined, '2026-08-05', '2026-08-05', '2026-08-07', '21:00:00', 'till'
     );
-    expect(result).toEqual({ month: 'Aug', day: '7', tillLabel: 'till' });
+    expect(result).toEqual({ month: 'Aug', day: '7', tillLabel: 'till', dayVariant: 'number' });
   });
 
   it('last/only day with a known end time: month carries the till label text, day carries the formatted end time, tillLabel omitted', () => {
     const result = computeCalendarSegmentDateBoxContent(
       'en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', '21:00:00', 'till'
     );
-    expect(result).toEqual({ month: 'till', day: '9:00 PM', tillLabel: undefined });
+    expect(result).toEqual({ month: 'till', day: '9:00 PM', tillLabel: undefined, dayVariant: 'word' });
   });
 
   it('last/only day with an explicit end date but no end time: day is an empty string', () => {
     const result = computeCalendarSegmentDateBoxContent(
       'en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', null, 'till'
     );
-    expect(result).toEqual({ month: 'till', day: '', tillLabel: undefined });
+    expect(result).toEqual({ month: 'till', day: '', tillLabel: undefined, dayVariant: 'word' });
   });
 
   it('no end information at all (single-day): behaves like the last/only day, no time', () => {
     const result = computeCalendarSegmentDateBoxContent(
       'en-US', undefined, '2026-08-05', '2026-08-05', undefined, undefined, 'till'
     );
-    expect(result).toEqual({ month: 'till', day: '', tillLabel: undefined });
+    expect(result).toEqual({ month: 'till', day: '', tillLabel: undefined, dayVariant: 'word' });
   });
 
   it('never repeats the event\'s own start date in the last/only-day branch', () => {
@@ -389,7 +407,19 @@ describe('computeCalendarSegmentDateBoxContent (Story 1.i1k AC4)', () => {
     const result = computeCalendarSegmentDateBoxContent(
       'en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', '21:00:00', 'bis'
     );
-    expect(result).toEqual({ month: 'bis', day: '9:00 PM', tillLabel: undefined });
+    expect(result).toEqual({ month: 'bis', day: '9:00 PM', tillLabel: undefined, dayVariant: 'word' });
+  });
+
+  it('dayVariant is number for the continuing segment and word for the last/only-day segment (Story 1.i1n AC4)', () => {
+    const continuing = computeCalendarSegmentDateBoxContent(
+      'en-US', undefined, '2026-08-05', '2026-08-05', '2026-08-07', '21:00:00', 'till'
+    );
+    expect(continuing.dayVariant).toBe('number');
+
+    const lastDay = computeCalendarSegmentDateBoxContent(
+      'en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', '21:00:00', 'till'
+    );
+    expect(lastDay.dayVariant).toBe('word');
   });
 });
 

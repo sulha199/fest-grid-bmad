@@ -1221,6 +1221,11 @@ This document defines the core architectural invariants for the FestDaily applic
           ancestor's. Accepted gap: this enumerates branch *shapes*, not arbitrary translated
           *string content* — i18n string-length variance is a known blind spot this rule accepts,
           not one it solves.
+        - **Enforced by:** `packages/visual-audit/manifests/event-card-date-box-overflow.ts`
+          (`event-card-date-box:overflow-word-time-content:175x160`) — the real
+          `EventCardDateBox` day slot checked against every `formatShortEventDateTimeParts`
+          branch, including the `content-variants.ts` ternary-enumeration fix (Story 1.i1n AC6)
+          that makes the `hasTime` time-string sub-variant enumerable at all.
     6.  **Color fidelity**: resolve the expected color from its DESIGN.md/Tailwind token (exact
         computed-value match, e.g. `bg-slate-800`'s resolved RGB/OKLCH) as the primary check;
         perceptual pixel diff against the source PNG is the fallback for anything not yet

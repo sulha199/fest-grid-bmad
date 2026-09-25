@@ -135,6 +135,18 @@ export interface EventCardDateBoxProps {
   month: ReactNode;
   /** The caller's already-formatted day content (large bold line). */
   day: ReactNode;
+  /**
+   * Story 1.i1n AC1: which font-size treatment the day slot renders at. `'number'` (default,
+   * omitted callers keep today's exact byte-for-byte output, AC3) is sized for a 1-2 digit
+   * numeric day-of-month (`text-5xl`/`text-3xl`). `'word'` renders a smaller, word-safe size
+   * that fits every real word/time content variant ("Today", "Tomorrow", "Yesterday", a
+   * locale-formatted time string) without overflow at the real mobile masonry (175px) and
+   * compact-row widths (AC2, enforced by `event-card-date-box-overflow.ts`'s automated check).
+   * `EventCardDateBox` does not infer this from `day`'s rendered content — the caller already
+   * knows which branch of its own formatter (`formatShortEventDateTimeParts` /
+   * `computeCalendarSegmentDateBoxContent`) fired.
+   */
+  dayVariant?: 'number' | 'word';
   /** Optional amber corner tag content (e.g. "till"). Omitted entirely when not provided. */
   tillLabel?: ReactNode;
   /** Extra classes appended to the date box root. */

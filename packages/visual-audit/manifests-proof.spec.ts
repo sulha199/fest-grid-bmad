@@ -154,6 +154,37 @@ test.describe('react-component mount example: EventCardDateBox Clock-icon-hasTim
   });
 });
 
+test.describe('react-component mount example: EventCardDateBox overflow/clipping on word/time content (Story 1.i1n, BUG-040)', () => {
+  const NAME = 'event-card-date-box:overflow-word-time-content:175x160';
+
+  test('manifest entry is registered under the expected component/variant/viewport triple', () => {
+    expect(defaultRegistry.has(NAME)).toBe(true);
+    const entry = defaultRegistry.get(NAME);
+    expect(entry.component).toBe('EventCardDateBox');
+    expect(entry.mode).toBe('rule');
+    expect(entry.rules[0].kind).toBe('overflow');
+  });
+
+  test('every ts-morph-enumerated content variant (including the ternary-derived time-string sub-variant) renders with no day-slot overflow', async ({ page }) => {
+    const result = await runManifestEntry(page, NAME, { repoRoot: REPO_ROOT });
+
+    for (const ruleResult of result.ruleResults) {
+      expect(ruleResult.pass, `${ruleResult.kind}: ${ruleResult.message}`).toBe(true);
+    }
+    expect(result.pass).toBe(true);
+
+    // AC6's whole point: the hasTime ternary nested in formatShortEventDateTimeParts's
+    // dayDiff === 0 branch must be enumerated as two real sub-variants, not collapsed to one --
+    // confirms content-variants.ts's ConditionalExpression fix is what this manifest actually
+    // exercises, not just the branches it already enumerated before Task 4.
+    const overflowResult = result.ruleResults.find((r) => r.kind === 'overflow');
+    const variants = (overflowResult?.details as { variants: Array<{ variantLabel: string }> } | undefined)?.variants ?? [];
+    expect(variants.length).toBeGreaterThanOrEqual(5); // Today(true)/Today(false)/Tomorrow/Yesterday/fallback
+    expect(variants.some((v) => v.variantLabel.includes('(true)'))).toBe(true);
+    expect(variants.some((v) => v.variantLabel.includes('(false)'))).toBe(true);
+  });
+});
+
 test.describe('rule-based example: GridContainer masonry-columns-synthetic (multi-instance)', () => {
   const NAME = 'grid-container:masonry-columns-synthetic:800x600';
 

@@ -8,7 +8,7 @@ baseline_commit: fb50c887
 
 - Epic: 1.i1 (One card primitive for every event-card image slot and badge)
 - Story ID: 1.i1n
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -32,39 +32,39 @@ so that the whole card stops overflowing/clipping in production for the (majorit
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add `dayVariant` discriminant to both formatter functions (AC1, AC4) — `packages/ui/src/features/events/format-event-date.ts`
-  - [ ] 1.1 Extend `formatShortEventDateTimeParts`'s return type to `{ month: string; day: string; dayVariant: 'number' | 'word' }`. `dayVariant: 'word'` for the `dayDiff===0`/`dayDiff===1`/`dayDiff===-1` branches; `dayVariant: 'number'` for the trailing real-date fallback branch. No change to any existing branch's `month`/`day` computation.
-  - [ ] 1.2 Extend `computeCalendarSegmentDateBoxContent`'s return type to `{ month: string; day: string; tillLabel: string | undefined; dayVariant: 'number' | 'word' }`. `dayVariant: 'word'` for the last/only-day branch (till-label/time pair); `dayVariant: 'number'` for the continuing-segment branch (real end-date month/day).
-  - [ ] 1.3 Update `format-event-date.test.ts`'s existing direct unit tests for both functions to assert the new `dayVariant` field on every branch (extend existing assertions, don't add a parallel duplicate test suite).
+- [x] Task 1: Add `dayVariant` discriminant to both formatter functions (AC1, AC4) — `packages/ui/src/features/events/format-event-date.ts`
+  - [x] 1.1 Extend `formatShortEventDateTimeParts`'s return type to `{ month: string; day: string; dayVariant: 'number' | 'word' }`. `dayVariant: 'word'` for the `dayDiff===0`/`dayDiff===1`/`dayDiff===-1` branches; `dayVariant: 'number'` for the trailing real-date fallback branch. No change to any existing branch's `month`/`day` computation.
+  - [x] 1.2 Extend `computeCalendarSegmentDateBoxContent`'s return type to `{ month: string; day: string; tillLabel: string | undefined; dayVariant: 'number' | 'word' }`. `dayVariant: 'word'` for the last/only-day branch (till-label/time pair); `dayVariant: 'number'` for the continuing-segment branch (real end-date month/day).
+  - [x] 1.3 Update `format-event-date.test.ts`'s existing direct unit tests for both functions to assert the new `dayVariant` field on every branch (extend existing assertions, don't add a parallel duplicate test suite).
 
-- [ ] Task 2: Add `dayVariant` prop to `EventCardDateBox` and the word-safe day style (AC1, AC2, AC3) — `packages/ui/src/features/events/EventCardMediaPrimitives.tsx`, `EventCardMediaPrimitives.types.ts`
-  - [ ] 2.1 Add `dayVariant?: 'number' | 'word'` to `EventCardDateBoxProps` (`EventCardMediaPrimitives.types.ts`), documented per AC1 — default `'number'` inside the component when omitted.
-  - [ ] 2.2 In `EventCardDateBox`, branch `dayClasses` on `dayVariant` in addition to the existing `size` branch: `dayVariant === 'number'` keeps today's exact `text-5xl`/`text-3xl font-extrabold leading-none` (AC3, byte-for-byte); `dayVariant === 'word'` uses a new, smaller word-safe class pair — start from a candidate (e.g. `text-xl`/`text-base font-extrabold leading-none whitespace-nowrap`) and tune against AC5's overflow check until it passes for every enumerated variant at the real 175px width; do not guess-and-ship without running the check.
-  - [ ] 2.3 If AC2's single-line word-safe size cannot clear both the overflow check and `EXPERIENCE.md`'s 11px legibility floor at 175px, fall back to a `line-clamp-2`/`whitespace-normal break-words` two-line treatment for the word variant instead of shrinking further — record which path was taken and why in Dev Notes (do not silently pick one without the comparison).
+- [x] Task 2: Add `dayVariant` prop to `EventCardDateBox` and the word-safe day style (AC1, AC2, AC3) — `packages/ui/src/features/events/EventCardMediaPrimitives.tsx`, `EventCardMediaPrimitives.types.ts`
+  - [x] 2.1 Add `dayVariant?: 'number' | 'word'` to `EventCardDateBoxProps` (`EventCardMediaPrimitives.types.ts`), documented per AC1 — default `'number'` inside the component when omitted.
+  - [x] 2.2 In `EventCardDateBox`, branch `dayClasses` on `dayVariant` in addition to the existing `size` branch: `dayVariant === 'number'` keeps today's exact `text-5xl`/`text-3xl font-extrabold leading-none` (AC3, byte-for-byte); `dayVariant === 'word'` uses a new, smaller word-safe class pair — tuned against AC5's overflow check (see Dev Notes for the empirical derivation and the final chosen classes).
+  - [x] 2.3 Single-line word-safe size cleared both the overflow check and EXPERIENCE.md's 11px legibility floor at 175px (14px `text-sm`, well above the floor) — the `line-clamp-2` fallback was not needed. Recorded in Dev Notes.
 
-- [ ] Task 3: Migrate both consumers to pass `dayVariant` explicitly (AC4) — `EventCard.tsx`, `WeeklyCalendarView.tsx`
-  - [ ] 3.1 `EventCard.tsx`'s `isMasonryDefault` branch: add `dayVariant={dateBoxParts.dayVariant}` to its existing `<EventCardDateBox size="default" month={...} day={dateBoxParts.day} tillLabel={...} />` call. Confirm (via `git diff`) the `prominentPoster=true` overlay branch (not using `EventCardDateBox` at all) is untouched.
-  - [ ] 3.2 `WeeklyCalendarView.tsx`'s `variant === 'list'` branch: add `dayVariant={dateBoxContent.dayVariant}` to its existing `<EventCardDateBox size="compact" month={...} day={...} tillLabel={...} />` call. Confirm (via `git diff`) the `variant === 'grid'` branch is untouched.
+- [x] Task 3: Migrate both consumers to pass `dayVariant` explicitly (AC4) — `EventCard.tsx`, `WeeklyCalendarView.tsx`
+  - [x] 3.1 `EventCard.tsx`'s `isMasonryDefault` branch: added `dayVariant={dateBoxParts.dayVariant}` to its existing `<EventCardDateBox size="default" month={...} day={dateBoxParts.day} tillLabel={...} />` call. Confirmed via `git diff` the `prominentPoster=true` overlay branch (not using `EventCardDateBox` at all) is untouched.
+  - [x] 3.2 `WeeklyCalendarView.tsx`'s `variant === 'list'` branch: added `dayVariant={dateBoxContent.dayVariant}` to its existing `<EventCardDateBox size="compact" month={...} day={...} tillLabel={...} />` call. Confirmed via `git diff` the `variant === 'grid'` branch is untouched.
 
-- [ ] Task 4: Extend `packages/visual-audit`'s ternary-enumeration gap (AC6) — `packages/visual-audit/src/content-variants.ts`, `packages/visual-audit/content-variants.test.ts` (or wherever this package's existing `tsx --test` suite for this file lives — confirm exact path before adding)
-  - [ ] 4.1 In `enumerateContentVariants`'s branch-collection walk, when a branch's terminal `ReturnStatement`'s expression is (or contains, at the top level of an object-literal property value) a `ConditionalExpression`, emit two variants instead of one: `${label} (true)` sourced from the ternary's `whenTrue` sub-expression text, `${label} (false)` from `whenFalse` — reusing the existing `extractSampleText` literal-extraction logic on each sub-expression's own text rather than the whole branch's return-expression text.
-  - [ ] 4.2 Add a fixture function to `content-variants.test.ts` mirroring `formatShortEventDateTimeParts`'s exact `dayDiff===0` branch shape (`return { month: '', day: hasTime ? formatEventTime(...) : (labels?.today ?? 'Today') };`) and assert both `(true)`/`(false)` sub-variants are enumerated, with the `(false)` sub-variant's sample text being `'Today'` and the `(true)` sub-variant falling back to `content-variants.ts`'s existing `DEFAULT_SAMPLE_TEXT_FALLBACK` representative-length placeholder (no string literal exists in the `formatEventTime(...)` call itself — matching this file's own existing, already-accepted "no literal → representative placeholder" behavior, not a regression).
-  - [ ] 4.3 Run this package's existing test command for `content-variants.ts` (confirm exact script from `packages/visual-audit/package.json` before assuming `tsx --test` vs. Vitest — this package's own Testing Rules tier, per `project-context.md`'s Meta-Testing/Tooling Packages section, established in Story 0.44) and confirm all existing + new assertions pass.
+- [x] Task 4: Extend `packages/visual-audit`'s ternary-enumeration gap (AC6) — `packages/visual-audit/src/content-variants.ts`, `packages/visual-audit/content-variants.test.ts`
+  - [x] 4.1 `enumerateContentVariants`'s branch-collection walk now recurses into a `ConditionalExpression` found as the return expression itself, or as the top-level initializer of an object-literal return's property (the exact shape `formatShortEventDateTimeParts` uses) — emitting `${label} (true)`/`${label} (false)` sub-variants via a new shared `pushReturnVariant` helper used at every existing push site (direct return, nested block, trailing fallback, switch/case).
+  - [x] 4.2 Added a fixture function to `content-variants.test.ts` mirroring `formatShortEventDateTimeParts`'s exact `dayDiff===0` branch shape; asserts both `(true)`/`(false)` sub-variants are enumerated, `(false)` -> `'Today'`, `(true)` -> `DEFAULT_SAMPLE_TEXT_FALLBACK` ('Wednesday', no literal in `formatEventTime(...)` — matches existing accepted behavior).
+  - [x] 4.3 Ran `tsx --test *.test.ts` (this package's `test` script) — all existing + new assertions pass.
 
-- [ ] Task 5: Add the new overflow manifest entry (AC5) — `packages/visual-audit/manifests/event-card-date-box-overflow.ts`
-  - [ ] 5.1 New manifest entry, sibling to `event-card-date-box-react-mount.ts`, `mode: 'rule'`, `viewport: { width: 175, height: 160 }` (the real mobile 2-col masonry slot width, per DESIGN.md `event_card_masonry.max_width`'s own documented 175px case — not an arbitrary width).
-  - [ ] 5.2 `rules: [{ kind: 'overflow', selector: '[data-event-card-date-box-day]', formattingFunction: { filePath: 'packages/ui/src/features/events/format-event-date.ts', functionName: 'formatShortEventDateTimeParts' }, buildFixtureHtml }]`. `buildFixtureHtml(variantLabel)` renders the real `EventCardDateBox` via `react-dom/server`'s `renderToStaticMarkup` (mirroring `render.ts`'s own `renderReactComponentToHtml` pattern — reuse it if it's exported, don't hand-roll a second copy) with `size="default"`, `day={variantLabel}`, `dayVariant` set correctly per the variant's own branch (word variants → `'word'`, the fallback variant → `'number'`) so the fix under test actually applies per-variant, not a fixed guess.
-  - [ ] 5.3 Register the entry (`registerManifestEntry`) and add it to `packages/visual-audit/manifests/index.ts`'s existing registration list (confirm this file's exact registration mechanism before assuming — read it first).
-  - [ ] 5.4 Run this package's own proof-manifest execution path (however `event-card-date-box-react-mount.ts`'s sibling entries are currently run — confirm the exact command from this package's own README/`package.json` before assuming) and confirm the new entry passes against the Task 2/3 fix, and that it would have failed against the pre-fix `text-5xl`/`text-3xl`-only code (verify this directly — temporarily revert Task 2's `dayVariant` branch, confirm the check fails with a real overflow message, then re-apply — don't just trust that it *would* fail).
+- [x] Task 5: Add the new overflow manifest entry (AC5) — `packages/visual-audit/manifests/event-card-date-box-overflow.ts`
+  - [x] 5.1 New manifest entry, sibling to `event-card-date-box-react-mount.ts`, `mode: 'rule'`, `viewport: { width: 175, height: 160 }`.
+  - [x] 5.2 `rules: [{ kind: 'overflow', selector: '[data-event-card-date-box-day]', formattingFunction: {...}, buildFixtureHtml }]`. `buildFixtureHtml` renders the real `EventCardDateBox` via `react-dom/server`'s `renderToStaticMarkup` (imported statically here, not via `render.ts`'s async `renderReactComponentToHtml`, since `OverflowRule.buildFixtureHtml` is a synchronous call site — see manifest file header). `dayVariant` is derived per-sample-text (word set vs. fallback), not fixed.
+  - [x] 5.3 Registered via `registerManifestEntry` and added to `packages/visual-audit/manifests/index.ts`.
+  - [x] 5.4 Ran via `npx playwright test --config=playwright.config.ts` (this package's `test:manifests` script) — new entry passes post-fix. Pre-fix failure independently verified: temporarily reverted Task 2's `dayVariant` branch, re-ran, confirmed a real failure (`scrollWidth`/`clientWidth` mismatches matching the story's own reported ~overflow, e.g. "Tomorrow" 265 vs 127, "Yesterday" 263 vs 127), then restored the fix and re-confirmed green. See Dev Notes for the full empirical derivation (including two real defects found and fixed along the way: a `dayVariant` string-literal artifact polluting the ts-morph sample-text extraction, and a `leading-none` line-height/glyph-metric mismatch tripping the height half of the check).
 
-- [ ] Task 6: Architecture Spine citation (AC7) — `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`
-  - [ ] 6.1 Under AD-26 Rule 5's overflow/clipping bullet, append a short "Enforced by" note citing `event-card-date-box-overflow.ts` and the `content-variants.ts` ternary-enumeration extension, matching Story 1.i1z's AD-15 citation style (small, factual, not a rewrite of the rule's own text).
+- [x] Task 6: Architecture Spine citation (AC7) — `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`
+  - [x] 6.1 Added an "Enforced by" line under AD-26 Rule 5's overflow/clipping bullet citing `event-card-date-box-overflow.ts` and the `content-variants.ts` ternary-enumeration fix.
 
-- [ ] Task 7: Full verification and record-keeping
-  - [ ] 7.1 Run `pnpm --filter @festgrid/ui test`, `pnpm --filter @festgrid/ui lint`, `tsc --noEmit` for `packages/ui`; confirm no new failures (this package's `tsc --noEmit` has pre-existing unrelated errors per Story 1.i1k's Dev Notes — diff before/after, don't assume a clean baseline).
-  - [ ] 7.2 Run `packages/visual-audit`'s own test/manifest-verification commands (Task 4.3, Task 5.4).
-  - [ ] 7.3 Confirm (via `git diff`) no `packages/domain`, GraphQL, or `apps/backend` files were touched.
-  - [ ] 7.4 Record Dev Agent Record (File List, test results, lint/build status).
+- [x] Task 7: Full verification and record-keeping
+  - [x] 7.1 Ran `pnpm --filter @festgrid/ui test` (pass), `pnpm --filter @festgrid/ui lint` (pass), `tsc --noEmit` for `packages/ui` — one pre-existing `TS5101` (`baseUrl` deprecated) error, confirmed identical before and after this story's diff via `git stash`/`git stash pop` (Story 1.i1k's own documented pre-existing baseline, not a regression).
+  - [x] 7.2 Ran `packages/visual-audit`'s own `tsx --test *.test.ts` and `playwright test --config=playwright.config.ts` (all 11 manifest-proof tests pass, including the new entry).
+  - [x] 7.3 Confirmed via `git diff --stat -- packages/domain apps/backend '**/*.graphql' '**/*.gql'` — no output, no such files touched.
+  - [x] 7.4 Recorded Dev Agent Record below (File List, test results, lint/build status). Full unfiltered `pnpm test`/`pnpm lint`/`pnpm build` (repo-wide, via `run-check.ts`) also run clean as this workflow's own Step 9 gate.
 
 ## Dev Notes
 
@@ -171,26 +171,52 @@ so that the whole card stops overflowing/clipping in production for the (majorit
 
 ## Completion Status
 
-Story drafted via `bmad-create-story` (2026-09-25) from backlog `BUG-040`. Not yet implemented.
+Implemented via `bmad-dev-story` (2026-09-25). All 7 ACs satisfied, all tasks complete, full test/lint/build clean. Status: `review`.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-_To be filled by `bmad-dev-story`._
+Claude Sonnet 5 (`claude-sonnet-5`), via `bmad-dev-story`.
 
 ### Debug Log References
 
-_To be filled by `bmad-dev-story`._
+- Empirical derivation of the word-safe day-slot CSS (Task 2.2/2.3), run directly against real Chromium via a throwaway probe script (not committed) before finalizing:
+  - A plain `display: inline` element's `clientWidth`/`scrollWidth` stay equal regardless of content length (CSS `max-width`/`overflow` have no effect on non-replaced inline boxes) — confirmed empirically, meaning `[data-event-card-date-box-day]` could never report a real overflow signal without an explicit box. Resolved by giving the word-variant day slot `inline-block` + `max-w-[96px]` + `overflow-x-hidden`.
+  - First candidate (`max-w-[80px]`, `overflow-hidden`, `leading-none`) failed the real overflow-manifest run: `overflow-hidden` clips both axes, and `leading-none`'s exact-1x line-height measured ~2px shorter than the offline test harness's fallback-font glyph box, tripping the height half of the check on content that was never too wide. Fixed by widening to `max-w-[96px]`, switching to `overflow-x-hidden` (width-only), and `leading-tight` (1.25x) instead of `leading-none`.
+  - A second, independent defect was found while tuning: adding a `dayVariant: 'word'|'number'` string literal directly into `formatShortEventDateTimeParts`'s return objects polluted `content-variants.ts`'s naive "longest quoted literal in the whole return expression" sample-text extraction — the previously-literal-free real-date fallback branch started extracting the literal `'number'` (from the new field) as its overflow-check sample text instead of the engine's own `DEFAULT_SAMPLE_TEXT_FALLBACK` placeholder. Fixed by referencing `DAY_VARIANT_WORD`/`DAY_VARIANT_NUMBER` module-level constants (bare identifiers, invisible to the literal-extraction regex) instead of inline string literals.
+  - Pre-fix-must-fail verification (Task 5.4): temporarily reverted `EventCardDateBox`'s `dayClasses` to the pre-Story-1.i1n unconditional `text-5xl`/`text-3xl` and re-ran the manifest test — confirmed a real failure (e.g. "Tomorrow" scrollWidth=265 vs clientWidth=127, "Yesterday" 263 vs 127 — the same overflow class the story's own bug report described), then restored the fix and re-confirmed all 11 manifest-proof tests green.
+- `packages/visual-audit`'s offline vendored Tailwind bundle (`vendor/tailwind.generated.css`) did not previously scan `EventCardMediaPrimitives.tsx` for class names (only `count-badge.tsx` was individually globbed). Added that file to `vendor/tailwind.config.cjs`'s content globs and rebuilt via `pnpm --filter @festgrid/visual-audit build:vendor-tailwind` so the new word-variant classes (`inline-block`, `text-sm`, `leading-tight`, `max-w-[96px]`, `overflow-x-hidden`) actually render in the offline harness.
 
 ### Completion Notes List
 
-_To be filled by `bmad-dev-story`._
+- AC1-AC7 all satisfied; see Tasks/Subtasks above for per-task evidence.
+- `dayVariant='number'` (default/omitted) path confirmed byte-for-byte unchanged: `EventCardMediaPrimitives.test.tsx`'s existing DESIGN.md AC1 class-literal assertions (`text-5xl font-extrabold leading-none` / `text-3xl font-extrabold leading-none`) pass unmodified, plus a new explicit `dayVariant="number"` test confirming identical output to the omitted case.
+- Final word-safe day-slot classes: `inline-block text-sm font-extrabold leading-tight whitespace-nowrap max-w-[96px] overflow-x-hidden` — 14px (`text-sm`), comfortably above EXPERIENCE.md's 11px legibility floor, chosen empirically via the automated overflow check (not guessed upfront), per the story's own Dev Notes allowance.
+- `content-variants.ts`'s `ConditionalExpression`-in-return-expression fix is generic (works for the return expression itself or a top-level object-literal property initializer), matching AC6's "small, generic engine fix" requirement — not scoped narrowly to `formatShortEventDateTimeParts`.
+- Verification commands actually run (not just listed): `pnpm --filter @festgrid/ui test`, `pnpm --filter @festgrid/ui lint`, `pnpm --filter @festgrid/ui exec tsc --noEmit`, `pnpm --filter @festgrid/visual-audit test` (`tsx --test`), `pnpm --filter @festgrid/visual-audit lint`, `npx playwright test --config=playwright.config.ts` (in `packages/visual-audit`), and finally the full unfiltered repo-wide `pnpm test` / `pnpm lint` / `pnpm build` via this workflow's own `run-check.ts` gate (Step 9) — all green. Results recorded in Task 7's subtasks above.
+- No `packages/domain`/GraphQL/`apps/backend` files touched (`git diff --stat` confirms zero matches).
+- `epics.md`'s Story 1.3k `Depends on:` amendment and `event-pages-dev-story-tracking.md`'s Known-conflicts resolution note were already made during this story's own `bmad-create-story` creation commit (confirmed via `git log`/`grep`) — no further edit needed here.
 
 ### File List
 
-_To be filled by `bmad-dev-story`._
+- `packages/ui/src/features/events/format-event-date.ts` (modified) — `dayVariant` discriminant on both formatter functions; `DAY_VARIANT_WORD`/`DAY_VARIANT_NUMBER` constants.
+- `packages/ui/src/features/events/format-event-date.test.ts` (modified) — `dayVariant` assertions on every branch of both functions.
+- `packages/ui/src/features/events/EventCardMediaPrimitives.tsx` (modified) — `dayVariant` prop + word-safe `dayClasses` branch on `EventCardDateBox`.
+- `packages/ui/src/features/events/EventCardMediaPrimitives.types.ts` (modified) — `EventCardDateBoxProps.dayVariant`.
+- `packages/ui/src/features/events/EventCardMediaPrimitives.test.tsx` (modified) — new `dayVariant` test block (AC1/AC2/AC3).
+- `packages/ui/src/features/events/EventCard.tsx` (modified) — forwards `dateBoxParts.dayVariant`.
+- `packages/ui/src/features/events/WeeklyCalendarView.tsx` (modified) — forwards `dateBoxContent.dayVariant`.
+- `packages/visual-audit/src/content-variants.ts` (modified) — `ConditionalExpression`-in-return-expression enumeration (`findTopLevelConditional`/`pushReturnVariant`).
+- `packages/visual-audit/content-variants.test.ts` (modified) — new ternary-enumeration fixture test.
+- `packages/visual-audit/manifests/event-card-date-box-overflow.ts` (new) — the AC5 overflow manifest entry.
+- `packages/visual-audit/manifests/index.ts` (modified) — registers the new manifest entry.
+- `packages/visual-audit/manifests-proof.spec.ts` (modified) — new `test.describe` block proving the manifest entry.
+- `packages/visual-audit/vendor/tailwind.config.cjs` (modified) — added `EventCardMediaPrimitives.tsx` to the offline-Tailwind content glob.
+- `packages/visual-audit/vendor/tailwind.generated.css` (modified, regenerated) — rebuilt via `build:vendor-tailwind` to include the new word-variant classes.
+- `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (modified) — AD-26 Rule 5 "Enforced by" citation (AC7).
 
 ## Change Log
 
 - 2026-09-25: Story created via `bmad-create-story` from backlog `BUG-040` (found by this session's own `packages/visual-audit` — Story 0.43 — audit of the event-card family). Gate 1/3 cited from `epic-1-i1-readiness.md`'s sweep plus a fresh lightweight guard (no new gap found); Gate 2 run fresh via subagent (Freya persona) — verdict NO SPLIT. Story 1.3k's `epics.md` `Depends on:` line amended to add this story; `event-pages-dev-story-tracking.md`'s Known-conflicts note updated to record the resolution. `backlog.yaml`'s `BUG-040` row updated with `stories: [1-i1n-fix-eventcarddatebox-overflow-on-word-time-content]`, status re-derived to `promoted`.
+- 2026-09-25: Implemented via `bmad-dev-story`. All 7 ACs satisfied: `dayVariant` discriminant added to both formatter functions and `EventCardDateBoxProps`; both real consumers migrated; `content-variants.ts`'s `ConditionalExpression`-in-return-expression enumeration gap closed generically; new `event-card-date-box-overflow.ts` manifest entry added and proven (post-fix pass, pre-fix fail, both independently verified); AD-26 Rule 5 "Enforced by" citation added. Two real defects found and fixed during empirical tuning (see Dev Agent Record → Debug Log References): a `dayVariant` literal polluting the ts-morph sample-text heuristic, and a `leading-none`/font-metric height-overflow false positive. Full repo-wide test/lint/build clean. Status: `review`.

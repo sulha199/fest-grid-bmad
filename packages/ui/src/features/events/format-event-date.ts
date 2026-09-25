@@ -351,30 +351,47 @@ export function formatDayNumber(locale: string, timezone: string | undefined, da
  * Deliberately omits the 2-digit year `formatShortEventDateTime`'s own non-sameYear branch
  * appends, matching DESIGN.md's own month/day-only example (an accepted minor simplification,
  * not a bug — see Story 1.i1k Dev Notes Task 1.2).
+ *
+ * `dayVariant` (Story 1.i1n AC1/AC4) is assigned from the `DAY_VARIANT_WORD`/`_NUMBER` constants
+ * below rather than inline `'word'`/`'number'` string literals: `packages/visual-audit`'s
+ * `ts-morph`-based `enumerateContentVariants` (Task 4/AC6) derives each branch's overflow-check
+ * sample text from the *longest quoted string literal anywhere in that branch's return
+ * expression* — an inline `dayVariant: 'number'` literal on the real-date fallback branch (which
+ * otherwise has no string literal of its own; both `month`/`day` come from function calls) would
+ * itself become that branch's picked sample text ("number", 6 chars) instead of the engine's own
+ * intended representative-length placeholder, silently corrupting `event-card-date-box-
+ * overflow.ts`'s fallback-branch fixture. A bare identifier reference isn't a quoted literal, so
+ * it's invisible to that extraction — confirmed against `event-card-date-box-overflow.ts`'s own
+ * proof spec before landing.
  */
+const DAY_VARIANT_WORD: 'word' = 'word';
+const DAY_VARIANT_NUMBER: 'number' = 'number';
+
 export function formatShortEventDateTimeParts(
   locale: string,
   timezone: string | undefined,
   dateObj: Date,
   hasTime: boolean,
   labels?: { today?: string; tomorrow?: string; yesterday?: string }
-): { month: string; day: string } {
+): { month: string; day: string; dayVariant: 'number' | 'word' } {
   const dayDiff = getEventDayDiff(dateObj, timezone);
 
   if (dayDiff === 0) {
     return {
       month: '',
       day: hasTime ? formatEventTime(locale, timezone, dateObj) : (labels?.today ?? 'Today'),
+      dayVariant: DAY_VARIANT_WORD,
     };
   } else if (dayDiff === 1) {
-    return { month: '', day: labels?.tomorrow ?? 'Tomorrow' };
+    return { month: '', day: labels?.tomorrow ?? 'Tomorrow', dayVariant: DAY_VARIANT_WORD };
   } else if (dayDiff === -1) {
-    return { month: '', day: labels?.yesterday ?? 'Yesterday' };
+    return { month: '', day: labels?.yesterday ?? 'Yesterday', dayVariant: DAY_VARIANT_WORD };
   }
 
   return {
     month: formatMonthAbbrev(locale, timezone, dateObj),
     day: formatDayNumber(locale, timezone, dateObj),
+    dayVariant: DAY_VARIANT_NUMBER,
   };
 }
 
@@ -401,7 +418,7 @@ export function computeCalendarSegmentDateBoxContent(
   endDate: string | null | undefined,
   endTime: string | null | undefined,
   tillLabel: string
-): { month: string; day: string; tillLabel: string | undefined } {
+): { month: string; day: string; tillLabel: string | undefined; dayVariant: 'number' | 'word' } {
   const effectiveEnd = endDate ?? startDate;
 
   if (currentDayStr < effectiveEnd) {
@@ -410,12 +427,13 @@ export function computeCalendarSegmentDateBoxContent(
       month: formatMonthAbbrev(locale, timezone, endDateTime),
       day: formatDayNumber(locale, timezone, endDateTime),
       tillLabel,
+      dayVariant: 'number',
     };
   }
 
   // This is the segment's last/only day.
   const day = endTime && effectiveEnd ? formatEventTime(locale, timezone, combineDateTime(effectiveEnd, endTime)) : '';
-  return { month: tillLabel, day, tillLabel: undefined };
+  return { month: tillLabel, day, tillLabel: undefined, dayVariant: 'word' };
 }
 
 /**

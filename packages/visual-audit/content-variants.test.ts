@@ -103,4 +103,38 @@ test('enumerateContentVariants', async (t) => {
     const variants = enumerateContentVariants(IF_ELSE_CHAIN_SOURCE, 'classify');
     assert.strictEqual(variants.length, 4);
   });
+
+  await t.test('enumerates both sub-variants of a ConditionalExpression nested in an object-literal return (Story 1.i1n AC6)', () => {
+    // Mirrors formatShortEventDateTimeParts's exact dayDiff === 0 branch shape: an object-literal
+    // return whose `day` property is a ternary (`hasTime ? formatEventTime(...) : (labels?.today
+    // ?? 'Today')`) -- a shape the pre-1.i1n walker collapsed to whichever string literal
+    // extractSampleText found first anywhere in the whole return expression's text, silently
+    // losing the `hasTime` (time-string) branch entirely.
+    const source = `
+      export function formatShortEventDateTimeParts(hasTime, labels) {
+        if (dayDiff === 0) {
+          return { month: '', day: hasTime ? formatEventTime(locale, timezone, dateObj) : (labels?.today ?? 'Today') };
+        }
+        return { month: '', day: 'Tomorrow' };
+      }
+    `;
+    const variants = enumerateContentVariants(source, 'formatShortEventDateTimeParts');
+
+    const trueVariant = variants.find((v) => v.label.endsWith('(true)'));
+    const falseVariant = variants.find((v) => v.label.endsWith('(false)'));
+    assert.ok(trueVariant, 'expected a "(true)" sub-variant for the hasTime branch');
+    assert.ok(falseVariant, 'expected a "(false)" sub-variant for the labels?.today ?? \'Today\' branch');
+
+    // No literal string exists in `formatEventTime(...)` itself -- this now falls back to the
+    // engine's existing representative-length placeholder (not a regression; matches this file's
+    // own already-accepted "no literal -> placeholder" behavior for a bare call expression).
+    assert.strictEqual(trueVariant?.sampleText, 'Wednesday');
+    // The `(false)` sub-variant's real sample text is 'Today', extracted from its own
+    // sub-expression text in isolation, not from the whole (now-ambiguous) return expression.
+    assert.strictEqual(falseVariant?.sampleText, 'Today');
+
+    // The top-level fallback branch (unconditional 'Tomorrow' return) is still enumerated
+    // normally -- the conditional-expression handling doesn't swallow sibling branches.
+    assert.ok(variants.some((v) => v.sampleText === 'Tomorrow'));
+  });
 });

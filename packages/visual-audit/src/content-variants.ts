@@ -69,6 +69,49 @@ export function enumerateContentVariants(sourceText: string, functionName: strin
   const variants: Array<Omit<ContentVariant, 'sampleText'>> = [];
 
   /**
+   * Story 1.i1n AC6/Task 4: a branch's terminal `return` can itself contain a content-bearing
+   * `ConditionalExpression` (a ternary) that the walker above never recurses into on its own --
+   * the exact shape `formatShortEventDateTimeParts`'s `dayDiff === 0` branch uses:
+   * `return { month: '', day: hasTime ? formatEventTime(...) : (labels?.today ?? 'Today') };`.
+   * Without this, `extractSampleText` silently collapses to whichever string literal it happens
+   * to find first in the whole return expression's text, losing one real runtime variant.
+   *
+   * Looks for a `ConditionalExpression` either as the return expression itself, or as the
+   * top-level initializer of one of an object-literal return's properties (the shape above) --
+   * not an arbitrarily deep search, matching AC6's own "nested in a branch's return expression
+   * (an object literal property value)" scope. When found, yields two sub-variants instead of
+   * one, `${label} (true)` / `${label} (false)`, each sourced from the ternary's own
+   * `whenTrue`/`whenFalse` sub-expression text -- `extractSampleText` is then applied to each
+   * sub-expression independently, so e.g. `formatEventTime(...)` (no literal) still falls back to
+   * `DEFAULT_SAMPLE_TEXT_FALLBACK` while `(labels?.today ?? 'Today')` still yields `'Today'`.
+   */
+  function findTopLevelConditional(expr: Node | undefined): Node | undefined {
+    if (!expr) return undefined;
+    if (expr.isKind(SyntaxKind.ConditionalExpression)) return expr;
+    if (expr.isKind(SyntaxKind.ObjectLiteralExpression)) {
+      for (const prop of expr.getProperties()) {
+        if (prop.isKind(SyntaxKind.PropertyAssignment)) {
+          const init = prop.getInitializer();
+          if (init && init.isKind(SyntaxKind.ConditionalExpression)) {
+            return init;
+          }
+        }
+      }
+    }
+    return undefined;
+  }
+
+  function pushReturnVariant(label: string, returnExpr: Node | undefined): void {
+    const conditional = findTopLevelConditional(returnExpr);
+    if (conditional && conditional.isKind(SyntaxKind.ConditionalExpression)) {
+      variants.push({ label: `${label} (true)`, returnExpressionText: conditional.getWhenTrue().getText() });
+      variants.push({ label: `${label} (false)`, returnExpressionText: conditional.getWhenFalse().getText() });
+      return;
+    }
+    variants.push({ label, returnExpressionText: returnExpr?.getText() ?? 'undefined' });
+  }
+
+  /**
    * Walks a `then`/`else` arm's statement. Review Follow-up (patch item 4, 2026-09-22): the
    * original version only inspected a `Block` arm for a *direct* `ReturnStatement` among its
    * immediate children, so a nested `if` inside that block (e.g. `formatEventStatus`'s
@@ -86,7 +129,7 @@ export function enumerateContentVariants(sourceText: string, functionName: strin
       return;
     }
     if (stmt.isKind(SyntaxKind.ReturnStatement)) {
-      variants.push({ label, returnExpressionText: stmt.getExpression()?.getText() ?? 'undefined' });
+      pushReturnVariant(label, stmt.getExpression());
       return;
     }
     if (stmt.isKind(SyntaxKind.Block)) {
@@ -96,7 +139,7 @@ export function enumerateContentVariants(sourceText: string, functionName: strin
           collectFromIfStatement(inner, label);
           sawBranch = true;
         } else if (inner.isKind(SyntaxKind.ReturnStatement)) {
-          variants.push({ label, returnExpressionText: inner.getExpression()?.getText() ?? 'undefined' });
+          pushReturnVariant(label, inner.getExpression());
           sawBranch = true;
         }
       }
@@ -135,7 +178,7 @@ export function enumerateContentVariants(sourceText: string, functionName: strin
     const statements = body.getStatements();
     const last = statements[statements.length - 1];
     if (last && last.isKind(SyntaxKind.ReturnStatement)) {
-      variants.push({ label: 'fallback', returnExpressionText: last.getExpression()?.getText() ?? 'undefined' });
+      pushReturnVariant('fallback', last.getExpression());
     }
   }
 
@@ -147,10 +190,11 @@ export function enumerateContentVariants(sourceText: string, functionName: strin
       const isDefault = clause.isKind(SyntaxKind.DefaultClause);
       const label = isDefault ? 'default' : clause.asKindOrThrow(SyntaxKind.CaseClause).getExpression().getText();
       const ret = clause.getStatements().find((s) => s.isKind(SyntaxKind.ReturnStatement));
-      variants.push({
-        label,
-        returnExpressionText: ret && ret.isKind(SyntaxKind.ReturnStatement) ? (ret.getExpression()?.getText() ?? 'undefined') : '(no direct return)',
-      });
+      if (ret && ret.isKind(SyntaxKind.ReturnStatement)) {
+        pushReturnVariant(label, ret.getExpression());
+      } else {
+        variants.push({ label, returnExpressionText: '(no direct return)' });
+      }
     }
   }
 

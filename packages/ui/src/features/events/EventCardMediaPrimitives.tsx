@@ -275,10 +275,34 @@ export function EventCardFavoriteBadge({
  * and is the size-keyed font-size source the icon-scale token (AD-15) keys off
  * (`DESIGN.md` § event_card_date_box.base_default / § event_card_compact.date_box).
  */
-export function EventCardDateBox({ size, month, day, tillLabel, className = '' }: EventCardDateBoxProps) {
+export function EventCardDateBox({ size, month, day, dayVariant = 'number', tillLabel, className = '' }: EventCardDateBoxProps) {
   const paddingClasses = size === 'compact' ? 'px-3 py-2' : 'px-4 py-3';
   const monthClasses = size === 'compact' ? 'text-sm font-bold uppercase tracking-wide' : 'text-lg font-bold uppercase tracking-wide';
-  const dayClasses = size === 'compact' ? 'text-3xl font-extrabold leading-none' : 'text-5xl font-extrabold leading-none';
+  // dayVariant === 'number' (default, AC3): byte-for-byte unchanged from pre-Story-1.i1n output.
+  // dayVariant === 'word' (AC2): a smaller, word-safe size so "Today"/"Tomorrow"/"Yesterday"/a
+  // time string ("3:00 PM") fit the real 175px mobile masonry width and the compact row's own
+  // width with no scrollWidth > clientWidth overflow. `inline-block` + `max-w-[96px]` give the
+  // day slot itself a real, checkable box (a plain `inline` element's own clientWidth/scrollWidth
+  // stay equal regardless of content length -- CSS `max-width`/`overflow` have no effect on
+  // non-replaced inline boxes, confirmed empirically, so without this the slot could never report
+  // an overflow at all, checkable or otherwise). `overflow-x-hidden` constrains width only.
+  // `leading-tight` (not this component's usual `leading-none`) is a deliberate, empirically-
+  // driven deviation: `leading-none`'s line-height (exactly 1x font-size) measured a couple px
+  // shorter than this rendered box's own content height in `event-card-date-box-overflow.ts`'s
+  // automated check (a real cross-font-metric effect, not a fixture bug), which tripped the
+  // check's *height* half (`scrollHeight > clientHeight`) on content that was never actually too
+  // wide -- `leading-tight` (1.25x) clears that margin. `text-sm` (14px, comfortably above
+  // EXPERIENCE.md's 11px legibility floor) + the 96px budget is the smallest-font/tightest-width
+  // combination empirically confirmed (via that same automated check, Dev Notes) to fit every
+  // real ts-morph-enumerated word/time content variant, including `content-variants.ts`'s own
+  // representative placeholder for the (no-literal) time-string sub-variant -- not a guessed
+  // value.
+  const dayClasses =
+    dayVariant === 'word'
+      ? 'inline-block text-sm font-extrabold leading-tight whitespace-nowrap max-w-[96px] overflow-x-hidden'
+      : size === 'compact'
+        ? 'text-3xl font-extrabold leading-none'
+        : 'text-5xl font-extrabold leading-none';
 
   return (
     <span

@@ -1112,6 +1112,7 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
               size="compact"
               month={dateBoxContent.month}
               day={dateBoxContent.day}
+              dayVariant={dateBoxContent.dayVariant}
               tillLabel={dateBoxContent.tillLabel}
             />
             <span className="flex min-w-0 w-full flex-col text-left">
