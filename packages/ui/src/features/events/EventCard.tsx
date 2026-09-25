@@ -287,15 +287,26 @@ export function EventCard({
         <div
           className={
             defaultThumbnailImagePresent
-              ? 'absolute top-1 right-1 z-10'
+              // BUG-041: was `top-1 right-1` (0.25rem) measured from the <article>'s own
+              // edge. The row below now carries `p-2` (0.5rem), so the thumbnail this pill
+              // sits over is inset that much further in -- bumped to `top-3 right-3`
+              // (0.25rem + 0.5rem = 0.75rem) to keep it over the image's corner instead of
+              // floating in the new padding gutter. Matches the `top-3 right-3` already used
+              // for the `!isMasonry` corner heart above.
+              ? 'absolute top-3 right-3 z-10'
               : 'absolute z-10 flex items-center justify-center'
           }
           style={
             !defaultThumbnailImagePresent
               ? {
-                  left: `calc(${dateBoxSize.w}px + 0.5rem)`,
-                  top: 0,
-                  right: 0,
+                  // BUG-041: the row below now carries a `p-2` (0.5rem) padding wrapper to
+                  // match the validated prototype, so this overlay -- a sibling of RootTag
+                  // positioned relative to the <article>'s own edge, not the row's -- must
+                  // add that same 0.5rem inset on every side to stay aligned with the date
+                  // box (left) and the reserved blank thumbnail area (top/right) it sits on.
+                  left: `calc(${dateBoxSize.w}px + 1rem)`,
+                  top: '0.5rem',
+                  right: '0.5rem',
                   height: dateBoxSize.h ? `${dateBoxSize.h}px` : undefined,
                   // CSS min-height (not a JS Math.max on a px literal) so this never drops
                   // below the favorite badge's own min-h-11 touch target, and stays correct
@@ -322,7 +333,11 @@ export function EventCard({
         className="flex-1 flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {isMasonryDefault ? (
-          <div className="relative flex items-stretch gap-2">
+          // BUG-041: p-2 matches the validated prototype (default-with-thumbnail.html:62) --
+          // without it this row sat flush against the <article>'s own overflow-hidden edges,
+          // clipping EventCardDateBox's TILL corner tag (-top-1.5/-left-1.5) instead of
+          // letting it overlap the card's own padding as the prototype shows.
+          <div className="relative flex items-stretch gap-2 p-2">
             <div ref={dateBoxRef} className="shrink-0">
               <EventCardDateBox
                 size="default"

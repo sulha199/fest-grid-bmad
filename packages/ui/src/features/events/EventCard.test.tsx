@@ -814,6 +814,40 @@ describe('EventCard', () => {
       expect(badge).not.toHaveClass('bg-foreground');
       expect(badge).not.toHaveClass('-bottom-1.5');
     });
+
+    it('BUG-041: wraps the masonry-default date-box+thumbnail row in padding so the TILL badge is not flush against the card edge', () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const today = new Date();
+      const expectedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(
+        new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 0)
+      );
+
+      const { container } = render(
+        <EventCard
+          eventName="Amber Default"
+          startDate={yesterday}
+          startTime="00:00:01"
+          endDate={today}
+          endTime="23:59:00"
+          variant="masonry"
+          locale="en-US"
+        />
+      );
+
+      // jsdom does not compute real layout/clipping, so the available, deterministic proof
+      // is structural: the row that owns the date box (and therefore the TILL badge's
+      // -top-1.5/-left-1.5 corner offset) must carry the p-2 padding matching the validated
+      // prototype (default-with-thumbnail.html:62) -- without it the badge sits flush
+      // against the <article>'s own overflow-hidden edge and gets clipped.
+      const dateBox = container.querySelector('[data-event-card-date-box]');
+      const row = dateBox?.closest('.relative.flex.items-stretch');
+      expect(row).not.toBeNull();
+      expect(row).toHaveClass('p-2');
+
+      const badge = screen.getByText(`till ${expectedTime}`);
+      expect(row?.contains(badge)).toBe(true);
+    });
   });
 
   describe('Status badge (masonry, AC15) and Nearby badge (AC16)', () => {
