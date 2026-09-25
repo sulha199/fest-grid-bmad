@@ -1431,7 +1431,8 @@ items:
      title: "GridContainer's masonry variant is plain CSS Grid (row-locked), not true Pinterest-style independent column flow — replace with JS shortest-column placement",
      ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/architecture/architecture-festgrid-2026-09-22/.memlog.md],
      touches: [pkg:ui, web:events, cross:architecture],
-     note: "Architecture Spine AD-27, decided in the same session as AD-26/IDEA-049. Native CSS masonry ruled out (Safari-only in 2026); CSS multi-column rejected (reading-order regression). Becomes AD-26's tool's first rule-based-mode consumer -- sequence bmad-create-story for this after Story 0.43 exists. Not yet story-created."}
+     note: "Architecture Spine AD-27, decided in the same session as AD-26/IDEA-049. Native CSS masonry ruled out (Safari-only in 2026); CSS multi-column rejected (reading-order regression). Becomes AD-26's tool's first rule-based-mode consumer -- sequence bmad-create-story for this after Story 0.43 exists.
+     SCOPE WIDENED, 2026-09-25 (user-reported, direct code comparison confirmed real): EventCard's masonry variant caps at max-w-[230px] (EventCard.tsx:239) regardless of its actual grid-cell width. GridContainer (baseCols=2, colsStep=1 on Discovery) grows to 6 grid-cols-N columns at 2xl, and CSS Grid's equal-fractional-column sizing means a cell easily exceeds 230px on wide screens -- the capped card centers inside a wider cell, producing large empty inter-column gaps. User wants max-width removed and the card's elements/font-size to scale responsively at larger screens instead. Deliberately folded into this same story rather than fixed separately first: a JS shortest-column-placement algorithm decides its own column-width strategy from scratch (it doesn't inherit Tailwind's grid-cols-N breakpoints), so solving card sizing under the soon-to-be-replaced CSS Grid engine would likely be redone the moment this story lands. Not yet story-created."}
 
   BUG-040:
     {type: bug, status: promoted, created: 2026-09-22,
@@ -1486,3 +1487,12 @@ items:
      ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/1-i1n-fix-eventcarddatebox-overflow-on-word-time-content.md],
      touches: [pkg:visual-audit, pkg:ui],
      note: "Deferred by the reviewer, 2026-09-25 code review on Story 1.i1n: all literal-free enumerate branches (real-date fallback, hasTime time-string) collide on the same 'Wednesday' placeholder sample so dayVariantForSample mounts them as 'word'; collision is benign today (word classes fit every mounted content under 96px; compact row uses an identical class set on a shrink-0 box, yesterday ≈70px). Add a fixture variant if the date box ever gains new day-variants or sizes. Deferred from: 'Deferred from: code review of 1-i1n-fix-eventcarddatebox-overflow-on-word-time-content (2026-09-25)'. 1 finding. packages/visual-audit/manifests/event-card-date-box-overflow.ts."}
+
+  # ── 2026-09-25 (user-reported, live UI observation) ──────────────────────────
+  BUG-041:
+    {type: bug, status: triaged, created: 2026-09-25,
+     impact: user-visible, effort: xs,
+     title: "EventCard masonry-default's TILL badge is cropped -- the card has no padding around the date-box+thumbnail row, unlike the validated prototype",
+     ref: [design-artifacts/UX-festgrid-run-1/prototypes/event-card-masonry/default-with-thumbnail.html, packages/ui/src/features/events/EventCard.tsx],
+     touches: [pkg:ui],
+     note: "User-reported, confirmed by direct code comparison: the validated prototype wraps its date-box+thumbnail row in a p-2 padding container (default-with-thumbnail.html:62), giving the till badge's -top-1.5/-left-1.5 corner offset room inside the card's overflow-hidden bounds. EventCard.tsx's real isMasonryDefault composition (:325, touched by Stories 1.i1e/1.i1k/1.i1l) has no padding wrapper at all -- the row sits flush against the <article>'s own edges, so the till badge pokes outside the card and gets clipped. Not caught by any prior story's AC. Routed to bmad-quick-dev (small, scoped, independent of IDEA-050)."}
