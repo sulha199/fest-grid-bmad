@@ -1523,12 +1523,13 @@ items:
      note: "Found via live-deployment visual audit (https://fest-grid.vercel.app/id) at user's request. Observed, not yet root-caused: scrolled to bottom 6 times on the live Discovery masonry page; the infinite-scroll fetch fired exactly once (10 -> 20 -> 30 cards loaded, one extra GraphQL call), then stopped completely despite the response still reporting hasMore:true and totalCount:123 (only 30/123 events ever load). Likely candidate: useInfiniteScroll/useListPaginationController's intersection-observer sentinel losing visibility once the masonry grid's real DOM layout grows tall (same failure class BUG-031 fixed for a different symptom -- worth checking whether this is a regression of that fix under the new masonry engine, Story 0.45, or an unrelated pre-existing gap). Not yet scoped or fixed."}
 
   BUG-044:
-    {type: bug, status: triaged, created: 2026-09-26,
+    {type: bug, status: promoted, created: 2026-09-26,
      impact: user-visible, effort: m,
      title: "No event-card label is wired to next-intl in production -- entire EventCard/WeeklyCalendarView labels surface (till, all 8 status-badge states, favorite toggle, nearby badge) shows hardcoded English even on the /id locale",
      ref: ["apps/web/src/app/[locale]/home-content.tsx", packages/ui/src/features/events/EventCard.tsx, packages/ui/src/features/events/EventCard.types.ts, packages/ui/src/features/events/WeeklyCalendarView.types.ts, planning-artifacts/event-card-family-consolidated-acs.md],
      touches: [web:events, pkg:ui, cross:i18n],
-     note: "Root-caused 2026-09-26: home-content.tsx never passes a labels prop through EventListView to EventCard despite using next-intl elsewhere on the same page; scope is the full labels surface (AC-I18N-1 in the consolidated spec), not just till. Also covers the nearby-badge's new distance-template label once BUG-049 lands -- one more string to translate, same wiring gap. Needs real Indonesian content for ~15+ strings across both card families -- bmad-create-story scope, not quick-dev."}
+     stories: [1-i1o-wire-eventcard-and-weeklycalendarview-labels-to-nextintl],
+     note: "Root-caused 2026-09-26: entire EventCard/WeeklyCalendarView labels surface (AC-I18N-1), not just till. Promoted 2026-09-27 via bmad-create-story -> Story 1-i1o, covering the row's full stated scope end to end -- no child row carved. Full detail in the story's own Dev Notes."}
 
   # ── 2026-09-26 (Event-Card family consolidation, Phase B backlog reconciliation) ──
   BUG-045:

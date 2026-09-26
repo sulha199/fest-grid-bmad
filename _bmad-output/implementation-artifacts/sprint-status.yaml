@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-26T00:00:00Z
+last_updated: 2026-09-26T17:49:08Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -539,6 +539,16 @@ development_status:
   # overflow on word/time content, found by this session's visual-audit tool
   # (packages/visual-audit, Story 0.43).
   1-i1n-fix-eventcarddatebox-overflow-on-word-time-content: done
+  # added 2026-09-27 via bmad-create-story: BUG-044, EventCard/WeeklyCalendarView's
+  # entire labels surface (till, 8-state status badge, favorite toggle, nearby badge)
+  # never wired to next-intl -- shows hardcoded English even on /id. Gates 1/3: no gap,
+  # reasoned fresh (epic-1-i1-readiness.md's sweep explicitly assumed no new i18n
+  # strings, which this story contradicts; next-intl itself is already established,
+  # so this is the Gate 3 "adding strings to an existing system" excluded case, not a
+  # foundational gap). Gate 2: no split (pure label-content wiring into already-shipped
+  # `labels` props, no new component/hook). Full record in epics.md/this story's own
+  # Dev Notes.
+  1-i1o-wire-eventcard-and-weeklycalendarview-labels-to-nextintl: ready-for-dev
   1-i1z-ratchet-no-card-surface-sizes-or-falls-back-locally: review
   epic-1: in-progress
   1-1-create-initial-database-tables: done
