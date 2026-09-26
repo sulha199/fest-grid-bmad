@@ -7,7 +7,7 @@
 // file's JSX default to Playwright's own internal `playwright/jsx-runtime` instead of React's.
 // Same fix as `count-badge.tsx`/`EventCardMediaPrimitives.tsx`; see either file's header for the
 // direct repro this is based on.
-import React, { useState, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { MapPin, Heart, Clock } from 'lucide-react';
 import { useScopedLocale, useScopedTimezone } from '../../hooks';
 import type { EventCardProps } from './EventCard.types';
@@ -70,6 +70,7 @@ export function EventCard({
   locale,
   timezone,
   imageUrl,
+  imageFallbackUrl,
   imageAlt,
   loading = false,
   locationName,
@@ -107,7 +108,47 @@ export function EventCard({
     nearbyBadge: labels.nearbyBadge ?? formatNearbyBadgeDistance,
   };
 
-  const [imgError, setImgError] = useState(false);
+  // BUG-042 (AC-IMG-1/AC-IMG-3): VM1's (prominentPoster=true) own retry-once fallback chain,
+  // mirroring EventImage.tsx/EventCardMediaSlot's exact shape. `onError` swaps to
+  // `imageFallbackUrl` once (`posterHasTriedFallback`), then sets the terminal `posterImgError`
+  // (no broken-image icon/placeholder ever rendered). VM1 previously had zero fallback UI at all
+  // on image error; the failure state (both URLs missing/erroring) now renders
+  // `EventCardFavoriteBadge scale="large"` in place of the poster, same as every sibling variant,
+  // and the small corner favorite button is gated off in that state (no duplicate control).
+  //
+  // Code-review fix (BUG-042 loopback): the AC's "on missing/onError, fall back" wording covers
+  // BOTH a `null`/`undefined` `imageUrl` from the very first render AND a later `onError` — the
+  // original cut only wired the fallback into `onError`, so a report with no primary image at all
+  // (the exact case this bug targets — a rehosted-but-source-gone post) silently skipped the
+  // fallback and never mounted an `<img>` to error in the first place. `posterImgSrc` now starts
+  // at `imageUrl ?? imageFallbackUrl` and `posterHasTriedFallback` starts `true` whenever that
+  // initial pick was already the fallback (imageUrl absent) — so an error on that starting image
+  // goes straight to the terminal state instead of "falling back" to the same URL again. The
+  // `imageFallbackUrl !== posterImgSrc` guard in the handler below covers the sibling edge case
+  // where both URLs happen to be identical: without it, `setPosterImgSrc` would be a no-op (same
+  // string), the `<img>` would never re-request, `onError` would never refire, and the slot would
+  // be stuck showing the browser's native broken-image icon forever instead of ever reaching the
+  // reserved-blank/favorite-badge fallback this whole feature exists to guarantee.
+  const [posterImgSrc, setPosterImgSrc] = useState<string | undefined>(imageUrl ?? imageFallbackUrl ?? undefined);
+  const [posterHasTriedFallback, setPosterHasTriedFallback] = useState(!imageUrl && !!imageFallbackUrl);
+  const [posterImgError, setPosterImgError] = useState(false);
+
+  useEffect(() => {
+    setPosterImgSrc(imageUrl ?? imageFallbackUrl ?? undefined);
+    setPosterHasTriedFallback(!imageUrl && !!imageFallbackUrl);
+    setPosterImgError(false);
+  }, [imageUrl, imageFallbackUrl]);
+
+  const handlePosterImageError = () => {
+    if (imageFallbackUrl && imageFallbackUrl !== posterImgSrc && !posterHasTriedFallback) {
+      setPosterHasTriedFallback(true);
+      setPosterImgSrc(imageFallbackUrl);
+    } else {
+      setPosterImgError(true);
+    }
+  };
+
+  const posterImagePresent = !!posterImgSrc && !posterImgError;
 
   // FIND-053: `variant='standard'` was dead code (EventListView, the only production call
   // site, always passed `variant="masonry"`), so it was removed. `variant` itself stays on
@@ -262,7 +303,7 @@ export function EventCard({
       }`}
       aria-disabled={pendingRemoval}
     >
-      {onFavoriteToggle && !isMasonryDefault && (
+      {onFavoriteToggle && !isMasonryDefault && posterImagePresent && (
         <button
           type="button"
           onClick={(e) => {
@@ -371,6 +412,7 @@ export function EventCard({
               layout="flex-fill"
               size="default"
               imageUrl={imageUrl}
+              imageFallbackUrl={imageFallbackUrl}
               imageAlt={finalImageAlt}
               hideFavoriteBadge
               onImagePresenceChange={setDefaultThumbnailImagePresent}
@@ -403,14 +445,34 @@ export function EventCard({
                 <span className={eventCardTillLabelClass('prominent')}>{tillBadgeText}</span>
               )}
             </div>
-            {!imgError && imageUrl ? (
-              <img 
-                src={imageUrl} 
+            {posterImagePresent ? (
+              <img
+                src={posterImgSrc}
                 alt={finalImageAlt}
-                onError={() => setImgError(true)}
+                onError={handlePosterImageError}
                 className="object-cover w-full h-full"
               />
-            ) : null}
+            ) : (
+              // AC-IMG-3: both imageUrl and imageFallbackUrl missing/erroring — the poster area
+              // is replaced by the same scale="large" (vertical icon+count) favorite control
+              // every sibling variant (VM2/VM6/VM7) already shows in its own reserved-blank
+              // fallback, only when a favorite toggle is supplied; otherwise a plain reserved-
+              // blank area (no control, no icon — this div's own bg-muted background).
+              onFavoriteToggle && (
+                <div
+                  className="flex items-center justify-center w-full h-full"
+                  style={{ minHeight: `${EVENT_CARD_BADGE_MIN_TOUCH_REM}rem` }}
+                >
+                  <EventCardFavoriteBadge
+                    scale="large"
+                    isFavorited={isFavorited}
+                    favoriteCount={favoriteCount}
+                    onFavoriteToggle={onFavoriteToggle}
+                    labels={{ favoriteToggle: defaultLabels.favoriteToggle }}
+                  />
+                </div>
+              )
+            )}
           </div>
         )}
 

@@ -146,6 +146,83 @@ describe('EventCardMediaSlot fallback - AC3 (reserved blank, no placeholder icon
     expect(screen.getByRole('button')).toBeInTheDocument();
   });
 
+  // BUG-042 (AC-IMG-1): the imageUrl -> imageFallbackUrl -> reserved-blank retry-once chain.
+  it('renders imageUrl when it loads fine, even with an imageFallbackUrl also supplied', () => {
+    render(
+      <EventCardMediaSlot layout="flex-fill" imageUrl="/a.jpg" imageFallbackUrl="/fallback.jpg" />
+    );
+    const img = document.querySelector('img');
+    expect(img).toHaveAttribute('src', '/a.jpg');
+  });
+
+  // Code-review fix (BUG-042 loopback): the original cut only wired the fallback into
+  // `onError`, so a slot with no `imageUrl` at all from the first render never mounted an
+  // `<img>` to error and silently skipped `imageFallbackUrl`.
+  it('renders imageFallbackUrl directly when imageUrl is absent from the first render', () => {
+    render(
+      <EventCardMediaSlot layout="flex-fill" imageUrl={undefined} imageFallbackUrl="/fallback.jpg" />
+    );
+    const img = document.querySelector('img');
+    expect(img).toHaveAttribute('src', '/fallback.jpg');
+  });
+
+  it('falls through to the reserved-blank fallback if the imageUrl-absent fallback itself errors', () => {
+    render(
+      <EventCardMediaSlot
+        layout="flex-fill"
+        imageUrl={undefined}
+        imageFallbackUrl="/also-broken.jpg"
+        onFavoriteToggle={vi.fn()}
+      />
+    );
+    const img = document.querySelector('img');
+    fireEvent.error(img as HTMLImageElement);
+    expect(document.querySelector('img')).toBeNull();
+    expect(screen.getByRole('button')).toBeInTheDocument();
+  });
+
+  // Code-review fix (BUG-042 loopback): without the `imageFallbackUrl !== currentImgSrc` guard,
+  // an identical fallback URL would be a no-op `setState`, `onError` would never refire, and the
+  // slot would be stuck showing the browser's native broken-image icon forever.
+  it('goes straight to the terminal error state when imageFallbackUrl equals imageUrl, instead of getting stuck', () => {
+    render(
+      <EventCardMediaSlot layout="flex-fill" imageUrl="/same.jpg" imageFallbackUrl="/same.jpg" />
+    );
+    const img = document.querySelector('img');
+    fireEvent.error(img as HTMLImageElement);
+    expect(document.querySelector('img')).toBeNull();
+  });
+
+  it('swaps to imageFallbackUrl once when imageUrl errors, and renders it', () => {
+    render(
+      <EventCardMediaSlot layout="flex-fill" imageUrl="/broken.jpg" imageFallbackUrl="/fallback.jpg" />
+    );
+    const img = document.querySelector('img');
+    expect(img).not.toBeNull();
+    fireEvent.error(img as HTMLImageElement);
+    const swapped = document.querySelector('img');
+    expect(swapped).toHaveAttribute('src', '/fallback.jpg');
+  });
+
+  it('falls through to the reserved-blank fallback when both imageUrl and imageFallbackUrl error', () => {
+    render(
+      <EventCardMediaSlot
+        layout="flex-fill"
+        imageUrl="/broken.jpg"
+        imageFallbackUrl="/also-broken.jpg"
+        onFavoriteToggle={vi.fn()}
+      />
+    );
+    const img = document.querySelector('img');
+    fireEvent.error(img as HTMLImageElement);
+    const swapped = document.querySelector('img');
+    expect(swapped).not.toBeNull();
+    fireEvent.error(swapped as HTMLImageElement);
+    expect(document.querySelector('img')).toBeNull();
+    expect(screen.queryByText(/no image available/i)).toBeNull();
+    expect(screen.getByRole('button')).toBeInTheDocument();
+  });
+
 describe('EventCardMediaSlot - AC4 (one live favorite-toggle control, adequate tap target, no extra focus stop)', () => {
   afterEach(() => cleanup());
 

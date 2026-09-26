@@ -62,6 +62,99 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
       expect(container.querySelector('img')).toBeNull();
       expect(container.firstChild).toHaveClass('flex-col');
     });
+
+    // BUG-042 (AC-IMG-1): the imageUrl -> imageFallbackUrl -> reserved-blank retry-once chain.
+    it('swaps to imageFallbackUrl once when imageUrl errors, and stays in the with-image composition', () => {
+      const { container } = render(
+        <EventCardCalendarGridItem
+          {...defaultProps}
+          isMultiDay
+          imageUrl="https://img.example/broken.jpg"
+          imageFallbackUrl="https://img.example/durable.jpg"
+        />
+      );
+
+      const img = container.querySelector('img');
+      expect(img).not.toBeNull();
+      fireEvent.error(img!);
+
+      const swapped = container.querySelector('img');
+      expect(swapped).toHaveAttribute('src', 'https://img.example/durable.jpg');
+    });
+
+    it('falls back to the no-image composition once both imageUrl and imageFallbackUrl error', () => {
+      const { container } = render(
+        <EventCardCalendarGridItem
+          {...defaultProps}
+          isMultiDay
+          imageUrl="https://img.example/broken.jpg"
+          imageFallbackUrl="https://img.example/also-broken.jpg"
+        />
+      );
+
+      const img = container.querySelector('img');
+      fireEvent.error(img!);
+      const swapped = container.querySelector('img');
+      expect(swapped).not.toBeNull();
+      fireEvent.error(swapped!);
+
+      expect(container.querySelector('img')).toBeNull();
+      expect(container.firstChild).toHaveClass('flex-col');
+    });
+
+    // Code-review fix (BUG-042 loopback): the original cut only wired the fallback into
+    // `onError`, so a multi-day schedule with no `imageUrl` at all from the first render never
+    // attempted `imageFallbackUrl` and fell straight to the no-image composition.
+    it('attempts imageFallbackUrl directly when imageUrl is absent, staying in the with-image composition', () => {
+      const { container } = render(
+        <EventCardCalendarGridItem
+          {...defaultProps}
+          isMultiDay
+          imageUrl={undefined}
+          imageFallbackUrl="https://img.example/durable.jpg"
+        />
+      );
+
+      const img = container.querySelector('img');
+      expect(img).toHaveAttribute('src', 'https://img.example/durable.jpg');
+    });
+
+    it('falls to the no-image composition if the imageUrl-absent fallback itself errors', () => {
+      const { container } = render(
+        <EventCardCalendarGridItem
+          {...defaultProps}
+          isMultiDay
+          imageUrl={undefined}
+          imageFallbackUrl="https://img.example/also-broken.jpg"
+        />
+      );
+
+      const img = container.querySelector('img');
+      fireEvent.error(img!);
+
+      expect(container.querySelector('img')).toBeNull();
+      expect(container.firstChild).toHaveClass('flex-col');
+    });
+
+    // Code-review fix (BUG-042 loopback): without the `imageFallbackUrl !== currentImgSrc`
+    // guard, an identical fallback URL would be a no-op `setState`, `onError` would never
+    // refire, and `showImage` would stay `true` on a permanently broken `<img>`.
+    it('falls to the no-image composition when imageFallbackUrl equals imageUrl, instead of getting stuck', () => {
+      const { container } = render(
+        <EventCardCalendarGridItem
+          {...defaultProps}
+          isMultiDay
+          imageUrl="https://img.example/same.jpg"
+          imageFallbackUrl="https://img.example/same.jpg"
+        />
+      );
+
+      const img = container.querySelector('img');
+      fireEvent.error(img!);
+
+      expect(container.querySelector('img')).toBeNull();
+      expect(container.firstChild).toHaveClass('flex-col');
+    });
   });
 
   describe('No-image composition (single-day, or multi-day without an image)', () => {

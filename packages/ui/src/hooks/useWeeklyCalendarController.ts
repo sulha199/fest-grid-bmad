@@ -70,6 +70,10 @@ export function mapCalendarSchedules<TEvent = any, TSchedule = any>(
         isAddedToCalendar: !!schedule.isAddedToCalendar,
         eventId: event.id,
         imageUrl: event.imageUrl,
+        // BUG-042 (AC-IMG-1): single shared mapping point for every calendar surface
+        // (CalendarView, FeedCalendarView, AccountCalendarView, my-calendar-content) —
+        // the imageUrl -> imageFallbackUrl retry chain's second URL.
+        imageFallbackUrl: event.durableImageUrl,
         // Story 1.i1g AC10 — venue text for the spanning calendar grid item card.
         // `location` is already selected at the Event level by both calendar GraphQL
         // queries, so this is purely a dropped-mapping fix (no query/codegen change),

@@ -23,6 +23,13 @@ export type EventCardFavoriteBadgeScale = 'default' | 'large';
 export interface EventCardMediaSlotProps {
   /** Optional URL for the event image. Absent (or an `onError` firing) renders the reserved-blank fallback. */
   imageUrl?: string;
+  /**
+   * BUG-042 (AC-IMG-1): optional fallback URL (`durableImageUrl`) tried once, in order, after
+   * `imageUrl` is missing or errors — the same `imageUrl -> imageFallbackUrl -> reserved-blank`
+   * chain `EventImage.tsx` already implements. Omitted/null callers keep today's single-URL
+   * behavior (fails straight to the reserved-blank fallback).
+   */
+  imageFallbackUrl?: string | null;
   /** Optional explicit alt text for the image; defaults to an empty string when absent on an errored/present note. */
   imageAlt?: string;
   /**

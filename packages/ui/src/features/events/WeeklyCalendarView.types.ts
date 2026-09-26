@@ -15,6 +15,13 @@ export interface WeeklyCalendarViewScheduleShape {
   /** Parent event's poster image URL, mapped from the already-fetched `event.imageUrl` (Story 1.i1d AC1/AC2). */
   imageUrl?: string;
   /**
+   * BUG-042 (AC-IMG-1): the imageUrl -> imageFallbackUrl retry chain's second URL, mapped from
+   * the already-fetched `event.durableImageUrl` (`mapCalendarSchedules`, the single shared
+   * mapping point for every calendar surface: CalendarView, FeedCalendarView, AccountCalendarView,
+   * my-calendar-content).
+   */
+  imageFallbackUrl?: string | null;
+  /**
    * Venue/location display text for the spanning calendar grid item card, mapped from the
    * already-fetched `event.location` (Story 1.i1g AC10). Optional: every existing consumer
    * that never sets it continues to compile/render, and the spanning card omits the venue

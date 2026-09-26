@@ -284,11 +284,26 @@ components:
       # reserved slot instead of corner-anchored, matching the reference screenshot exactly.
       # Reference: imports/event-card-masonry/default-thumbnail-fallback.png.
       base: "flex items-center justify-center h-full"
-    # >>> Event-Card family consolidation (2026-09-26, consolidated-acs.md §2.1/AC-IMG-3): the prominentPoster=true
-    # >>> state (image_prominent above) has NO documented fallback for an errored/expired poster -- confirmed as a
-    # >>> real, newly-identified gap in EventCard.tsx (the poster area just goes blank; the corner favorite pill
-    # >>> never scales up or repositions). Needs its own fallback token here once that gap is fixed, matching
-    # >>> thumbnail_default_fallback's pattern above.
+    image_prominent_fallback:
+      # RESOLVED <BUG-042, 2026-09-26, consolidated-acs.md §2.1/AC-IMG-3> -- closes the gap this token's
+      # placeholder previously flagged: image_prominent (prominentPoster=true, VM1) had NO fallback at all for
+      # an errored/expired poster -- the poster area went fully blank on error and the corner favorite pill
+      # (event_card_masonry's small horizontal heart+count) never scaled up or repositioned. EventCard.tsx now
+      # implements the exact imageUrl -> imageFallbackUrl -> reserved-blank retry chain EventImage.tsx already
+      # ships (same as thumbnail_default_fallback above): once both imageUrl and imageFallbackUrl
+      # (durableImageUrl) are missing/erroring, the poster area renders event_card_favorite_count_badge_large
+      # (below) in place of the image -- centered, filling the reserved aspect-square footprint -- and the
+      # small corner favorite pill is gated off in that state (never rendered alongside the large badge, no
+      # duplicate control). Matches thumbnail_default_fallback's pattern exactly: image_prominent's own
+      # aspect-square dimensions stay reserved and unchanged; nothing else renders in the image's place (no
+      # icon, no "image not available" text). Gated on `onFavoriteToggle` being supplied, same as every sibling
+      # fallback -- with no favorite toggle at all, the poster area is a plain reserved-blank (no control, no
+      # icon).
+      # Class string corrected (code review, 2026-09-27) to literally match EventCard.tsx's shipped
+      # wrapper div -- the aspect-square footprint is already established by this branch's own
+      # outer container (`relative aspect-square w-full bg-muted overflow-hidden ...`), so this
+      # token's own div only needs to fill that parent, not re-declare aspect-square itself.
+      base: "flex items-center justify-center w-full h-full"
   event_card_favorite_count_badge_large:
     # New <bmad-ux pass, 2026-09-11> -- shared between event_card_masonry's default-state missing-image fallback
     # (thumbnail_default_fallback above) and the new calendar row-card's own missing-image fallback
@@ -303,10 +318,12 @@ components:
     # -- it's still the live favorite toggle, not a decorative label.
     base: "flex flex-col items-center justify-center gap-0.5 min-h-11 min-w-11 text-sm font-medium text-foreground" # no bg/pill, unlike event_card_favorite_count_badge's small corner pill. Text size floor: >=11px (bmad-ux pass, 2026-09-14, general legibility rule covering this + till/status/nearby badges) -- text-sm (14px) already clears it; never drop below text-[11px] at any real card width. ADDITIONAL RULE (round 6, user-directed): this favorite badge's font-size must always be >= whatever {components.event_card_till_badge}/{components.event_card_date_box} till-adjacent text size applies on the same card -- verified at every real width across all three card families (masonry, calendar-row); where a mismatch was found (masonry mobile: favorite was 11px against till's 12px) the favorite was bumped up, never the till badge down.
     icon: "w-6 h-6 text-rose-500 fill-rose-500" # larger than event_card_favorite_count_badge's default icon -- confirm that component's exact current icon size at implementation time and size this proportionally larger, not to an arbitrary fixed value. REVISED <bmad-ux pass, 2026-09-14>, user-directed: on the masonry and calendar-row cards' missing-image fallback, this icon actively scales up with however much space the missing image freed -- masonry's reserved slot is a fixed size (matching the date box's own height) so the icon fills more of that fixed footprint at each real card width (validated at both 175px mobile and 269px desktop masonry widths); the calendar-row card has no reserved slot at all, so its icon scales with however much of the row's real width is actually left over after title/venue/badges (validated at both 326px and 655px real row widths). Not a single fixed icon size -- see prototypes/event-card-masonry/default-thumbnail-fallback.html and prototypes/event-card-calendar-row/thumbnail-fallback.html for the concrete sizes at each real width.
-    # >>> Event-Card family consolidation (2026-09-26, consolidated-acs.md §2.1/AC-IMG-3): "icon and count are
-    # >>> displayed vertically" is confirmed by `base`'s own `flex-col` above -- this token already matches the
-    # >>> consolidation's AC-IMG-3 shape. The gap is VM1 (event_card_masonry's prominentPoster=true state) never
-    # >>> reaching this fallback at all today -- see the note on event_card_masonry above.
+    # RESOLVED <BUG-042, 2026-09-26, consolidated-acs.md §2.1/AC-IMG-3>: "icon and count are displayed
+    # vertically" was already confirmed by `base`'s own `flex-col` above -- this token needed no shape change.
+    # The gap was VM1 (event_card_masonry's prominentPoster=true state) never reaching this fallback at all;
+    # EventCard.tsx now renders this exact token (verbatim, no new component/styling) as
+    # event_card_masonry.image_prominent_fallback's content once VM1's own imageUrl -> imageFallbackUrl chain
+    # is exhausted -- see that token above.
   event_card_date_box:
     # Added <bmad-ux pass, 2026-09-04> -- sprint-change-proposal-2026-09-04.md Section 4.3, supersedes
     # event_card_relative_day_pill (2026-08-25) entirely for the masonry variant. REVISED <bmad-ux pass,

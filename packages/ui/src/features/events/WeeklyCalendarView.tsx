@@ -1252,6 +1252,7 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
             layout="fixed-square"
             size="compact"
             imageUrl={schedule.imageUrl}
+            imageFallbackUrl={schedule.imageFallbackUrl}
             imageAlt={schedule.eventName}
             isFavorited={schedule.isFavorited}
             favoriteCount={schedule.favoriteCount}
@@ -1513,6 +1514,7 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
           eventName={schedule.eventName}
           location={schedule.locationName}
           imageUrl={schedule.imageUrl}
+          imageFallbackUrl={schedule.imageFallbackUrl}
           imageAlt={schedule.eventName}
           isMultiDay
           isFavorited={schedule.isFavorited}

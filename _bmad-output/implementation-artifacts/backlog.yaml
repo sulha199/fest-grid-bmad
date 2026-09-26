@@ -1507,12 +1507,12 @@ items:
 
   # ── 2026-09-26 (live production audit, https://fest-grid.vercel.app/id) ──────
   BUG-042:
-    {type: bug, status: triaged, created: 2026-09-26,
+    {type: bug, status: done, created: 2026-09-26, closed: 2026-09-27,
      impact: user-visible, effort: m,
      title: "EventCard never shows a thumbnail image -- missing the imageUrl->imageFallbackUrl (durableImageUrl) pattern EventImage/EventDetailView already has",
-     ref: [apps/web/src/features/events/mapper.ts, packages/ui/src/features/events/EventCard.tsx, packages/ui/src/features/events/EventCard.types.ts, packages/ui/src/features/events/EventImage.tsx, planning-artifacts/event-card-family-consolidated-acs.md],
+     ref: [apps/web/src/features/events/mapper.ts, packages/ui/src/features/events/EventCard.tsx, packages/ui/src/features/events/EventCard.types.ts, packages/ui/src/features/events/EventImage.tsx, planning-artifacts/event-card-family-consolidated-acs.md, implementation-artifacts/spec-bug-042-eventcard-family-image-fallback-chain.md],
      touches: [pkg:ui, web:events],
-     note: "Consolidated 2026-09-26 (event-card-family-consolidated-acs.md AC-IMG-1/2/3): confirmed 3 independent surfaces need this fix (EventCard-based pages; Archive's query, which never selects durableImageUrl; Calendar's separate query+component, same gap), not just EventCard, and confirmed the durableImageUrl-while-opted-out data point is expected write-time-gated behavior, not a backend bug. Also folds in AC-IMG-3: EventCard's prominentPoster=true state (VM1) has zero image-error fallback at all today, unlike every sibling variant -- a newly-identified sibling gap, fixed in the same pass. effort raised s->m to reflect the full 3-surface + VM1 scope. Routed to bmad-quick-dev per user direction; scope now bmad-create-story-sized given the query/codegen changes needed on 2 of the 3 surfaces."}
+     note: "Fixed 2026-09-27 (bmad-quick-dev): added durableImageUrl to the 3 gap GraphQL queries, threaded imageFallbackUrl through EventCard/EventCardMediaSlot/EventCardCalendarGridItem/WeeklyCalendarView, and fixed VM1's AC-IMG-3 gap (scale=\"large\" favorite badge on total image failure). Code-review loopback caught a real bug in the first pass: the retry chain only fired on onError, missing the common case where imageUrl is null from the start. See spec-bug-042-eventcard-family-image-fallback-chain.md for full detail."}
 
   BUG-043:
     {type: bug, status: triaged, created: 2026-09-26,

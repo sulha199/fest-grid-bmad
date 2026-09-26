@@ -82,6 +82,10 @@ export function EventListView<TEvent extends EventListViewItem>({
               endDate: displaySchedule?.eventEndDate ?? undefined,
               endTime: displaySchedule?.eventEndTime ?? null,
               imageUrl: event.imageUrl ?? undefined,
+              // BUG-042 (AC-IMG-1): the imageUrl -> imageFallbackUrl retry chain's second URL —
+              // this single derivation point also fixes the Archive page, which routes through
+              // this same EventListView/getCardProps composition (no separate Archive mapper).
+              imageFallbackUrl: event.durableImageUrl ?? undefined,
               locationName: event.location ?? undefined,
               categories: event.categories ?? [],
               types: event.types ?? [],

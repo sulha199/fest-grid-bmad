@@ -14,6 +14,13 @@ export interface EventCardCalendarGridItemProps {
   /** Venue/location display text. Omitted entirely when absent — no reserved space. */
   location?: string | null;
   imageUrl?: string | null;
+  /**
+   * BUG-042 (AC-IMG-1): optional fallback URL (`durableImageUrl`) tried once, in order, after
+   * `imageUrl` is missing or errors — the same `imageUrl -> imageFallbackUrl -> reserved-blank`
+   * chain `EventImage.tsx` already implements. Only ever consulted by the with-image (multi-day)
+   * composition below; the single-day, image-less composition never receives an image at all.
+   */
+  imageFallbackUrl?: string | null;
   imageAlt?: string;
   /**
    * Whether this schedule spans multiple days. Gates the with-image composition

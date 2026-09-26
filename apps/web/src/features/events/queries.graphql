@@ -141,6 +141,7 @@ query getEventsForCalendar($limit: Int, $offset: Int, $perDayLimit: Int, $query:
       eventName
       slug
       imageUrl
+      durableImageUrl
       location
       types
       categories
@@ -174,6 +175,7 @@ query getEventsForMyCalendar($limit: Int, $offset: Int, $query: EventQueryCondit
       eventName
       slug
       imageUrl
+      durableImageUrl
       location
       types
       categories
@@ -208,6 +210,7 @@ query getArchivedEvents($limit: Int, $offset: Int) {
       slug
       eventName
       imageUrl
+      durableImageUrl
       location
       categories
       types

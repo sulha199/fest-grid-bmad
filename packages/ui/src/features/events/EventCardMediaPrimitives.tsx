@@ -127,6 +127,7 @@ export function eventCardTillLabelClass(context: 'default' | 'prominent'): strin
  */
 export function EventCardMediaSlot({
   imageUrl,
+  imageFallbackUrl,
   imageAlt,
   layout,
   isFavorited = false,
@@ -139,9 +140,42 @@ export function EventCardMediaSlot({
   onImagePresenceChange,
   collapseOnFallback = false,
 }: EventCardMediaSlotProps) {
-  // Same onError detection EventCard.tsx's existing `imgError` state uses (AC3).
+  // BUG-042 (AC-IMG-1): the same imageUrl -> imageFallbackUrl -> reserved-blank retry-once
+  // chain `EventImage.tsx` already implements — `onError` swaps to `imageFallbackUrl` once
+  // (`hasTriedFallback`), then sets the terminal `imgError` (no broken-image icon/placeholder
+  // ever rendered).
+  //
+  // Code-review fix (BUG-042 loopback): "on missing/onError, fall back" covers a `null`/
+  // `undefined` `imageUrl` from the first render too, not just a later `onError` — the original
+  // cut only wired the fallback into `onError`, so a schedule with no primary image at all never
+  // mounted an `<img>` to error and silently skipped `imageFallbackUrl`. `currentImgSrc` now
+  // starts at `imageUrl ?? imageFallbackUrl`, and `hasTriedFallback` starts `true` whenever that
+  // initial pick was already the fallback — an error on that starting image goes straight to the
+  // terminal state instead of re-"falling back" to the same URL. The `imageFallbackUrl !==
+  // currentImgSrc` guard below covers the sibling case where both URLs are identical: without it
+  // `setCurrentImgSrc` would be a no-op, `onError` would never refire, and the slot would be stuck
+  // on the browser's native broken-image icon instead of ever reaching the reserved-blank
+  // fallback.
   const [imgError, setImgError] = useState(false);
-  const imagePresent = !!imageUrl && !imgError;
+  const [currentImgSrc, setCurrentImgSrc] = useState<string | undefined>(imageUrl ?? imageFallbackUrl ?? undefined);
+  const [hasTriedFallback, setHasTriedFallback] = useState(!imageUrl && !!imageFallbackUrl);
+
+  useEffect(() => {
+    setCurrentImgSrc(imageUrl ?? imageFallbackUrl ?? undefined);
+    setHasTriedFallback(!imageUrl && !!imageFallbackUrl);
+    setImgError(false);
+  }, [imageUrl, imageFallbackUrl]);
+
+  const handleImageError = () => {
+    if (imageFallbackUrl && imageFallbackUrl !== currentImgSrc && !hasTriedFallback) {
+      setHasTriedFallback(true);
+      setCurrentImgSrc(imageFallbackUrl);
+    } else {
+      setImgError(true);
+    }
+  };
+
+  const imagePresent = !!currentImgSrc && !imgError;
 
   // Notify an external caller (only when one is supplied) of the local
   // image-presence state, including the initial mount value — Story 1.i1e uses
@@ -174,9 +208,9 @@ export function EventCardMediaSlot({
       {imagePresent ? (
         <>
           <img
-            src={imageUrl}
+            src={currentImgSrc}
             alt={imageAlt ?? ''}
-            onError={() => setImgError(true)}
+            onError={handleImageError}
             className="object-cover w-full h-full"
           />
           {!hideFavoriteBadge && onFavoriteToggle && (

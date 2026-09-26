@@ -59,6 +59,14 @@ export interface EventCardProps {
   /** Optional URL for the event image */
   imageUrl?: string;
 
+  /**
+   * BUG-042 (AC-IMG-1): optional fallback URL (`durableImageUrl`) tried once, in order, after
+   * `imageUrl` is missing or errors — the same `imageUrl -> imageFallbackUrl -> reserved-blank`
+   * chain `EventImage.tsx` already implements. Omitted/null callers keep today's single-URL
+   * behavior (fails straight to the reserved-blank/favorite-badge fallback).
+   */
+  imageFallbackUrl?: string | null;
+
   /** Optional explicit alt text for the image. If not provided, it will be auto-derived from eventName */
   imageAlt?: string;
 

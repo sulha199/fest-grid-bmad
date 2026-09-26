@@ -22,7 +22,7 @@
  *   `EventCardStatusBadge` (BUG-048, AC-STATUS-1 — rendered only when `eventStartDate` is passed)
  * @see format-event-date.ts — `formatEventStatus`, computed internally once `eventStartDate` is present
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   EventCardFavoriteBadge,
   EventCardNearbyBadge,
@@ -37,6 +37,7 @@ export function EventCardCalendarGridItem({
   eventName,
   location,
   imageUrl,
+  imageFallbackUrl,
   imageAlt,
   isMultiDay,
   isFavorited = false,
@@ -72,13 +73,47 @@ export function EventCardCalendarGridItem({
     nearbyBadge: labels.nearbyBadge ?? formatNearbyBadgeDistance,
   };
 
-  // Same onError detection EventCard.tsx's existing `imgError` state uses.
+  // BUG-042 (AC-IMG-1): the same imageUrl -> imageFallbackUrl -> reserved-blank retry-once chain
+  // `EventImage.tsx`/`EventCardMediaSlot` already implement — `onError` swaps to
+  // `imageFallbackUrl` once (`hasTriedFallback`), then sets the terminal `imgError` (no
+  // broken-image icon/placeholder ever rendered). Only the with-image (multi-day) composition
+  // below ever consults this chain — the single-day, image-less composition stays deliberately
+  // image-less by design (VM5, `event-card-family-consolidated-acs.md` §1).
+  //
+  // Code-review fix (BUG-042 loopback): "on missing/onError, fall back" covers a `null`/
+  // `undefined` `imageUrl` from the first render too, not just a later `onError` — the original
+  // cut only wired the fallback into `onError`, so a multi-day schedule with no primary image at
+  // all never attempted `imageFallbackUrl` and fell straight to the no-image composition.
+  // `currentImgSrc` now starts at `imageUrl ?? imageFallbackUrl`, and `hasTriedFallback` starts
+  // `true` whenever that initial pick was already the fallback — an error on that starting image
+  // goes straight to the terminal state instead of re-"falling back" to the same URL. The
+  // `imageFallbackUrl !== currentImgSrc` guard below covers the sibling case where both URLs are
+  // identical: without it `setCurrentImgSrc` would be a no-op, `onError` would never refire, and
+  // `showImage` would stay `true` on a permanently broken `<img>` instead of ever falling to the
+  // no-image composition.
   const [imgError, setImgError] = useState(false);
+  const [currentImgSrc, setCurrentImgSrc] = useState<string | null | undefined>(imageUrl ?? imageFallbackUrl ?? undefined);
+  const [hasTriedFallback, setHasTriedFallback] = useState(!imageUrl && !!imageFallbackUrl);
+
+  useEffect(() => {
+    setCurrentImgSrc(imageUrl ?? imageFallbackUrl ?? undefined);
+    setHasTriedFallback(!imageUrl && !!imageFallbackUrl);
+    setImgError(false);
+  }, [imageUrl, imageFallbackUrl]);
+
+  const handleImageError = () => {
+    if (imageFallbackUrl && imageFallbackUrl !== currentImgSrc && !hasTriedFallback) {
+      setHasTriedFallback(true);
+      setCurrentImgSrc(imageFallbackUrl);
+    } else {
+      setImgError(true);
+    }
+  };
 
   // AC15 — image is conditional, never a reserved slot (deliberate divergence from
   // the masonry/row cards' reserved-space-not-reflow convention): only a multi-day
   // schedule with a non-errored image attempts the with-image composition.
-  const showImage = isMultiDay && !!imageUrl && !imgError;
+  const showImage = isMultiDay && !!currentImgSrc && !imgError;
 
   const favoriteBadge = (
     <EventCardFavoriteBadge
@@ -138,9 +173,9 @@ export function EventCardCalendarGridItem({
     return (
       <div className="flex items-center gap-2 rounded-md shadow-sm p-2 bg-violet-50 border border-violet-200">
         <img
-          src={imageUrl!}
+          src={currentImgSrc!}
           alt={imageAlt ?? ''}
-          onError={() => setImgError(true)}
+          onError={handleImageError}
           className="w-14 aspect-square object-cover rounded-md"
         />
         <div className="flex-1 min-w-0 flex flex-col gap-1 justify-center">

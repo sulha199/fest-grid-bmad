@@ -201,6 +201,134 @@ describe('EventCard', () => {
     expect(wrapper).not.toHaveClass('aspect-[3/4]');
   });
 
+  // BUG-042 (AC-IMG-1/AC-IMG-3): VM1's (prominentPoster=true) own imageUrl -> imageFallbackUrl ->
+  // reserved-blank/favorite-badge retry-once chain.
+  describe('VM1 (prominentPoster) image fallback chain', () => {
+    it('renders imageUrl when it loads fine, even with an imageFallbackUrl also supplied', () => {
+      render(
+        <EventCard
+          {...defaultProps}
+          prominentPoster
+          imageUrl="http://example.com/image.jpg"
+          imageFallbackUrl="http://example.com/fallback.jpg"
+        />
+      );
+      const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+      expect(img).toHaveAttribute('src', 'http://example.com/image.jpg');
+    });
+
+    // Code-review fix (BUG-042 loopback): the original cut only wired the fallback into
+    // `onError`, so a missing `imageUrl` from the very first render (the actual core scenario —
+    // a rehosted-but-source-gone post) never mounted an `<img>` to error and silently skipped
+    // `imageFallbackUrl`.
+    it('renders imageFallbackUrl directly when imageUrl is absent from the first render', () => {
+      render(
+        <EventCard
+          {...defaultProps}
+          prominentPoster
+          imageUrl={undefined}
+          imageFallbackUrl="http://example.com/fallback.jpg"
+        />
+      );
+      const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+      expect(img).toHaveAttribute('src', 'http://example.com/fallback.jpg');
+    });
+
+    it('goes straight to the reserved-blank/favorite-badge state if the imageUrl-absent fallback itself errors', () => {
+      const onFavoriteToggle = vi.fn();
+      render(
+        <EventCard
+          {...defaultProps}
+          prominentPoster
+          onFavoriteToggle={onFavoriteToggle}
+          imageUrl={undefined}
+          imageFallbackUrl="http://example.com/fallback.jpg"
+        />
+      );
+      const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+      fireEvent.error(img);
+
+      expect(screen.queryByRole('img')).not.toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: 'Toggle favorite' })).toHaveLength(1);
+    });
+
+    // Code-review fix (BUG-042 loopback): without the `imageFallbackUrl !== currentSrc` guard,
+    // an identical fallback URL would be a no-op `setState`, `onError` would never refire, and
+    // the poster would be stuck showing the browser's native broken-image icon forever.
+    it('goes straight to the terminal error state when imageFallbackUrl equals imageUrl, instead of getting stuck', () => {
+      render(
+        <EventCard
+          {...defaultProps}
+          prominentPoster
+          imageUrl="http://example.com/same.jpg"
+          imageFallbackUrl="http://example.com/same.jpg"
+        />
+      );
+      const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+      fireEvent.error(img);
+
+      expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    });
+
+    it('swaps to imageFallbackUrl once when imageUrl errors, and renders it', () => {
+      render(
+        <EventCard
+          {...defaultProps}
+          prominentPoster
+          imageUrl="http://example.com/bad-image.jpg"
+          imageFallbackUrl="http://example.com/fallback.jpg"
+        />
+      );
+      const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+      fireEvent.error(img);
+      const swapped = screen.getByRole('img', { name: 'Summer Music Festival' });
+      expect(swapped).toHaveAttribute('src', 'http://example.com/fallback.jpg');
+    });
+
+    it('shows a plain reserved-blank (no control) once both URLs error and no onFavoriteToggle is supplied', () => {
+      render(
+        <EventCard
+          {...defaultProps}
+          prominentPoster
+          imageUrl="http://example.com/bad-image.jpg"
+          imageFallbackUrl="http://example.com/also-bad.jpg"
+        />
+      );
+      const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+      fireEvent.error(img);
+      const swapped = screen.getByRole('img', { name: 'Summer Music Festival' });
+      fireEvent.error(swapped);
+
+      expect(screen.queryByRole('img')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Toggle favorite' })).not.toBeInTheDocument();
+      expect(screen.queryByText('No image available')).not.toBeInTheDocument();
+    });
+
+    it('shows EventCardFavoriteBadge scale="large" in place of the poster once both URLs error, when onFavoriteToggle is supplied — and no duplicate corner button', () => {
+      const onFavoriteToggle = vi.fn();
+      render(
+        <EventCard
+          {...defaultProps}
+          prominentPoster
+          onFavoriteToggle={onFavoriteToggle}
+          favoriteCount={3}
+          imageUrl="http://example.com/bad-image.jpg"
+          imageFallbackUrl="http://example.com/also-bad.jpg"
+        />
+      );
+      const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+      fireEvent.error(img);
+      const swapped = screen.getByRole('img', { name: 'Summer Music Festival' });
+      fireEvent.error(swapped);
+
+      expect(screen.queryByRole('img')).not.toBeInTheDocument();
+      // Exactly one favorite control — the large vertical badge — no duplicate small corner button.
+      const favoriteButtons = screen.getAllByRole('button', { name: 'Toggle favorite' });
+      expect(favoriteButtons).toHaveLength(1);
+      expect(screen.getByText('3')).toBeInTheDocument();
+    });
+  });
+
   it('applies pending-removal visual state when pendingRemoval is true', () => {
     render(<EventCard {...defaultProps} pendingRemoval={true} />);
 
@@ -510,9 +638,19 @@ describe('EventCard', () => {
       // path rendering this raw corner button. `prominentPoster` is the sole surviving masonry
       // state that still uses it (masonry-default renders its own EventCardFavoriteBadge
       // instead), so it's made explicit here to keep exercising this exact code.
+      // BUG-042 (AC-IMG-3): the corner button only renders while the poster image itself is
+      // present — an absent/errored poster now shows the large favorite badge instead (this
+      // test's point is the corner button's own icon sizing, so a valid imageUrl keeps it on
+      // that path rather than the new failure-state badge).
       const onFavoriteToggle = vi.fn();
       render(
-        <EventCard {...defaultProps} prominentPoster onFavoriteToggle={onFavoriteToggle} isFavorited={false} />
+        <EventCard
+          {...defaultProps}
+          prominentPoster
+          onFavoriteToggle={onFavoriteToggle}
+          isFavorited={false}
+          imageUrl="http://example.com/image.jpg"
+        />
       );
 
       const btn = screen.getByLabelText(/favorite/i);
@@ -529,7 +667,9 @@ describe('EventCard', () => {
     });
 
     it('keeps the count-span classes and the button positioning/background classes unchanged', () => {
-      // See the previous test's note -- `prominentPoster` is required to reach this raw button.
+      // See the previous test's note -- `prominentPoster` is required to reach this raw button,
+      // and (BUG-042 AC-IMG-3) a present poster image is now required too, since an absent one
+      // renders the large favorite badge instead of this corner button.
       const onFavoriteToggle = vi.fn();
       render(
         <EventCard
@@ -537,6 +677,7 @@ describe('EventCard', () => {
           prominentPoster
           onFavoriteToggle={onFavoriteToggle}
           favoriteCount={42}
+          imageUrl="http://example.com/image.jpg"
         />
       );
 
