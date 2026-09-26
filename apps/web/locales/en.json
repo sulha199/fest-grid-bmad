@@ -396,6 +396,31 @@
     "AUTOMOTIVE": "Automotive",
     "OTHER": "Other"
   },
+  "EventCard": {
+    "favoriteToggle": "Toggle favorite",
+    "tillLabel": "till",
+    "statusEnded": "Ended",
+    "statusHappeningNow": "Now",
+    "statusEndsToday": "Ends Today",
+    "statusInHours": "In {n} hour(s)",
+    "statusInDays": "In {n} days",
+    "statusUpcoming": "Upcoming",
+    "tomorrow": "Tomorrow"
+  },
+  "WeeklyCalendarView": {
+    "loadingText": "Loading calendar view...",
+    "favoriteToggleLabel": "Toggle favorite",
+    "favoritedBadgeLabel": "Favorited",
+    "addedToCalendarBadgeLabel": "Added to calendar",
+    "tillLabel": "till",
+    "statusEnded": "Ended",
+    "statusHappeningNow": "Now",
+    "statusEndsToday": "Ends Today",
+    "statusInHours": "In {n} hour(s)",
+    "statusInDays": "In {n} days",
+    "statusUpcoming": "Upcoming",
+    "tomorrow": "Tomorrow"
+  },
   "ReportReason": {
     "cancelled": "Cancelled",
     "dangerous": "Dangerous",

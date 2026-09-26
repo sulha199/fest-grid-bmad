@@ -2,11 +2,11 @@
 
 import React, { useMemo } from 'react';
 import { useQueryState, parseAsString } from 'nuqs';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { useGetEventsForCalendarQuery } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
 import { buildFeedCalendarQueryCondition } from '@festgrid/domain/events';
-import { WeeklyCalendarView, useWeeklyCalendarController, getWeekStart, getWeekEnd } from '@festgrid/ui';
+import { WeeklyCalendarView, useWeeklyCalendarController, getWeekStart, getWeekEnd, formatLocalizedNearbyBadgeDistance } from '@festgrid/ui';
 import { useRouter } from '@/i18n/navigation';
 import { useSearchParams } from 'next/navigation';
 import { usePostHog } from '@festgrid/analytics';
@@ -21,6 +21,8 @@ interface FeedCalendarViewProps {
 
 export function FeedCalendarView({ q, types, categories, subscriptions, onFavoriteToggle }: FeedCalendarViewProps) {
   const t = useTranslations('FeedPage');
+  const tCalendar = useTranslations('WeeklyCalendarView');
+  const locale = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
   const posthog = usePostHog();
@@ -96,6 +98,19 @@ export function FeedCalendarView({ q, types, categories, subscriptions, onFavori
     moreLabel: (count: number) => t('calendarMoreLabel', { count }),
     multiDaySegmentLabel: (dayNumber: number, totalDays: number) => t('calendarMultiDaySegmentLabel', { dayNumber, totalDays }),
     closePopoverLabel: t('calendarClosePopoverLabel'),
+    loadingText: tCalendar('loadingText'),
+    favoriteToggleLabel: tCalendar('favoriteToggleLabel'),
+    favoritedBadgeLabel: tCalendar('favoritedBadgeLabel'),
+    addedToCalendarBadgeLabel: tCalendar('addedToCalendarBadgeLabel'),
+    tillLabel: tCalendar('tillLabel'),
+    statusEnded: tCalendar('statusEnded'),
+    statusHappeningNow: tCalendar('statusHappeningNow'),
+    statusEndsToday: tCalendar('statusEndsToday'),
+    statusInHours: tCalendar('statusInHours'),
+    statusInDays: tCalendar('statusInDays'),
+    statusUpcoming: tCalendar('statusUpcoming'),
+    tomorrow: tCalendar('tomorrow'),
+    nearbyBadge: (distanceKm: number) => formatLocalizedNearbyBadgeDistance(locale, distanceKm),
   };
 
   return (

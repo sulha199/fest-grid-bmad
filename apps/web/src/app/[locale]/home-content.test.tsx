@@ -5,6 +5,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { NextIntlClientProvider } from 'next-intl';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import enMessages from '../../../locales/en.json';
+import idMessages from '../../../locales/id.json';
 import { HomeContent, parseNearbyBadgeThreshold } from './home-content';
 
 const mockRouterPush = vi.fn();
@@ -185,7 +186,7 @@ afterEach(() => {
   }
 });
 
-function renderWithProviders() {
+function renderWithProviders(locale: 'en' | 'id' = 'en') {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -197,8 +198,10 @@ function renderWithProviders() {
     },
   });
 
+  const messages = locale === 'id' ? idMessages : enMessages;
+
   return render(
-    <NextIntlClientProvider locale="en" messages={enMessages}>
+    <NextIntlClientProvider locale={locale} messages={messages}>
       <QueryClientProvider client={queryClient}>
         <HomeContent />
       </QueryClientProvider>
@@ -292,6 +295,32 @@ describe('HomeContent', () => {
     expect(resetCall[1].offset).toBe(0);
 
     expect(scrollToSpy).toHaveBeenCalledWith({ top: 0, behavior: expect.stringMatching(/auto|smooth/) });
+  });
+});
+
+// Story 1.i1o AC1/AC3 — the EventCard `favoriteToggle` label (rendered as the favorite
+// button's aria-label) must come from the new shared `EventCard` next-intl namespace, not
+// EventCard.tsx's hardcoded English `defaultLabels`, on any live locale.
+describe('HomeContent - Story 1.i1o (EventCard label i18n)', () => {
+  it('renders the translated Indonesian favorite-toggle label under the id locale', async () => {
+    renderWithProviders('id');
+
+    await waitFor(() => {
+      expect(screen.getByText('Event Home 1')).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('button', { name: 'Alihkan favorit' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Toggle favorite' })).not.toBeInTheDocument();
+  });
+
+  it('renders the English favorite-toggle label under the en locale (unchanged)', async () => {
+    renderWithProviders('en');
+
+    await waitFor(() => {
+      expect(screen.getByText('Event Home 1')).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
   });
 });
 

@@ -1,13 +1,14 @@
 "use client"
 
 import { useEffect, useMemo, useRef } from "react"
-import { useTranslations } from "next-intl"
+import { useTranslations, useLocale } from "next-intl"
 import { useInfiniteQuery, InfiniteData } from "@tanstack/react-query"
 import {
   EventListView,
   useInfiniteScroll,
   StatusBadge,
   PageContainer,
+  formatLocalizedNearbyBadgeDistance,
 } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import {
@@ -38,6 +39,8 @@ export function ArchiveContent() {
   const t = useTranslations("ArchivePage")
   const tCategory = useTranslations("EventCategory")
   const tType = useTranslations("EventType")
+  const tEventCard = useTranslations("EventCard")
+  const locale = useLocale()
   const posthog = usePostHog()
   const router = useRouter()
   const { session, isLoading } = useAuthSession()
@@ -132,10 +135,19 @@ export function ArchiveContent() {
           </div>
         }
         cardLabels={{
-          favoriteToggle: "", // not favoritable in Archive
+          favoriteToggle: tEventCard("favoriteToggle"), // unreachable today -- Archive never passes onFavoriteToggle, kept for consistency with every other page
           priceFrom: t("priceFrom"),
           categoryLabels,
           typeLabels,
+          tillLabel: tEventCard("tillLabel"),
+          statusEnded: tEventCard("statusEnded"),
+          statusHappeningNow: tEventCard("statusHappeningNow"),
+          statusEndsToday: tEventCard("statusEndsToday"),
+          statusInHours: tEventCard("statusInHours"),
+          statusInDays: tEventCard("statusInDays"),
+          statusUpcoming: tEventCard("statusUpcoming"),
+          tomorrow: tEventCard("tomorrow"),
+          nearbyBadge: (distanceKm: number) => formatLocalizedNearbyBadgeDistance(locale, distanceKm),
         }}
         getCardProps={(event: any) => {
           // Priority order: moderation-removed > hidden-by-me > expired

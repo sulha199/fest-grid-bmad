@@ -297,6 +297,10 @@ describe('FavoritesContent', () => {
   });
 
   it('marks item pending, supports undo, and fires mutations immediately', async () => {
+    // Story 1.i1o Task 3.2: `cardLabels.favoriteToggle` now comes uniformly from the shared
+    // `EventCard` namespace ("Toggle favorite") on every page, replacing this page's previous
+    // page-specific "Remove from Favorites" wording -- an explicit, story-directed content
+    // change, not a regression.
     const requestSpy = vi.spyOn(graphqlClient, 'request');
     renderWithProviders();
 
@@ -304,7 +308,7 @@ describe('FavoritesContent', () => {
       expect(screen.getByText('Event evt-1')).toBeInTheDocument();
     });
 
-    const removeButton = screen.getAllByRole('button', { name: 'Remove from Favorites' })[0];
+    const removeButton = screen.getAllByRole('button', { name: 'Toggle favorite' })[0];
     fireEvent.click(removeButton);
 
     await waitFor(() => {
@@ -345,7 +349,7 @@ describe('FavoritesContent', () => {
       expect(screen.getByText('Event evt-1')).toBeInTheDocument();
     });
 
-    const removeButton = screen.getAllByRole('button', { name: 'Remove from Favorites' })[0];
+    const removeButton = screen.getAllByRole('button', { name: 'Toggle favorite' })[0];
     fireEvent.click(removeButton);
 
     await waitFor(() => {
@@ -384,7 +388,7 @@ describe('FavoritesContent', () => {
       expect(screen.getByText('Event evt-1')).toBeInTheDocument();
     });
 
-    const removeButton = screen.getAllByRole('button', { name: 'Remove from Favorites' })[0];
+    const removeButton = screen.getAllByRole('button', { name: 'Toggle favorite' })[0];
     fireEvent.click(removeButton);
 
     await waitFor(() => {

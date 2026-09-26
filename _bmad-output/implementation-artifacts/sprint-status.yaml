@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-26T17:49:08Z
+last_updated: 2026-09-26T18:15:52Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -548,7 +548,7 @@ development_status:
   # foundational gap). Gate 2: no split (pure label-content wiring into already-shipped
   # `labels` props, no new component/hook). Full record in epics.md/this story's own
   # Dev Notes.
-  1-i1o-wire-eventcard-and-weeklycalendarview-labels-to-nextintl: ready-for-dev
+  1-i1o-wire-eventcard-and-weeklycalendarview-labels-to-nextintl: review
   1-i1z-ratchet-no-card-surface-sizes-or-falls-back-locally: review
   epic-1: in-progress
   1-1-create-initial-database-tables: done

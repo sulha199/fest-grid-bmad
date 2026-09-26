@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useTranslations } from "next-intl"
+import { useTranslations, useLocale } from "next-intl"
 import { useInfiniteQuery, useQuery, InfiniteData, useQueryClient } from "@tanstack/react-query"
 import {
   EventListView,
@@ -10,6 +10,7 @@ import {
   PageContainer,
   AIFilterOverlay,
   BlockingLoader,
+  formatLocalizedNearbyBadgeDistance,
 } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import {
@@ -85,6 +86,8 @@ export function FavoritesContent() {
   const tType = useTranslations("EventType")
   const tFilterHub = useTranslations("FilterHub")
   const tNearby = useTranslations("NearbyFilter")
+  const tEventCard = useTranslations("EventCard")
+  const locale = useLocale()
   const [q, setQ] = useQueryState("q", parseAsString.withDefault(""))
   const [types] = useQueryState("types", parseAsArrayOf(parseAsString).withDefault([]))
   const [categories] = useQueryState("categories", parseAsArrayOf(parseAsString).withDefault([]))
@@ -367,10 +370,19 @@ export function FavoritesContent() {
                   </div>
                 }
                 cardLabels={{
-                  favoriteToggle: t("favoriteButtonLabel"),
+                  favoriteToggle: tEventCard("favoriteToggle"),
                   priceFrom: t("priceFrom"),
                   categoryLabels,
                   typeLabels,
+                  tillLabel: tEventCard("tillLabel"),
+                  statusEnded: tEventCard("statusEnded"),
+                  statusHappeningNow: tEventCard("statusHappeningNow"),
+                  statusEndsToday: tEventCard("statusEndsToday"),
+                  statusInHours: tEventCard("statusInHours"),
+                  statusInDays: tEventCard("statusInDays"),
+                  statusUpcoming: tEventCard("statusUpcoming"),
+                  tomorrow: tEventCard("tomorrow"),
+                  nearbyBadge: (distanceKm: number) => formatLocalizedNearbyBadgeDistance(locale, distanceKm),
                 }}
                 getCardProps={(event) => {
                   const isOptimisticallyUnfavorited = unfavoritedIds.has(event.id)

@@ -396,6 +396,31 @@
     "AUTOMOTIVE": "Otomotif",
     "OTHER": "Lainnya"
   },
+  "EventCard": {
+    "favoriteToggle": "Alihkan favorit",
+    "tillLabel": "sampai",
+    "statusEnded": "Berakhir",
+    "statusHappeningNow": "Hari ini",
+    "statusEndsToday": "Berakhir Hari Ini",
+    "statusInHours": "{n} jam lagi",
+    "statusInDays": "{n} hari lagi",
+    "statusUpcoming": "Mendatang",
+    "tomorrow": "Besok"
+  },
+  "WeeklyCalendarView": {
+    "loadingText": "Memuat tampilan kalender...",
+    "favoriteToggleLabel": "Alihkan favorit",
+    "favoritedBadgeLabel": "Difavoritkan",
+    "addedToCalendarBadgeLabel": "Ditambahkan ke kalender",
+    "tillLabel": "sampai",
+    "statusEnded": "Berakhir",
+    "statusHappeningNow": "Hari ini",
+    "statusEndsToday": "Berakhir Hari Ini",
+    "statusInHours": "{n} jam lagi",
+    "statusInDays": "{n} hari lagi",
+    "statusUpcoming": "Mendatang",
+    "tomorrow": "Besok"
+  },
   "ReportReason": {
     "cancelled": "Dibatalkan",
     "dangerous": "Berbahaya",

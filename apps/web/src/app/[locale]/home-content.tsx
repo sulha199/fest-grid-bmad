@@ -1,9 +1,9 @@
 "use client"
 
 import { useMemo, useState, useEffect } from "react"
-import { useTranslations } from "next-intl"
+import { useTranslations, useLocale } from "next-intl"
 import { useInfiniteQuery, InfiniteData, useQueryClient } from "@tanstack/react-query"
-import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, AIFilterOverlay, BlockingLoader, useListPaginationController, usePrefersReducedMotion } from "@festgrid/ui"
+import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, AIFilterOverlay, BlockingLoader, useListPaginationController, usePrefersReducedMotion, formatLocalizedNearbyBadgeDistance } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput, useToggleFavoriteMutation } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
@@ -131,6 +131,8 @@ export function HomeContent() {
   const tCategory = useTranslations('EventCategory')
   const tType = useTranslations('EventType')
   const tFilterHub = useTranslations('FilterHub')
+  const tEventCard = useTranslations('EventCard')
+  const locale = useLocale()
 
   const categoryLabels = useMemo(
     () => buildEnumLabels(Object.values(EventCategory), tCategory),
@@ -291,7 +293,21 @@ export function HomeContent() {
                     {q.trim() ? t('searchEmptyState') : t('emptyState')}
                   </div>
                 }
-                cardLabels={{ priceFrom: t('priceFrom'), categoryLabels, typeLabels }}
+                cardLabels={{
+                  priceFrom: t('priceFrom'),
+                  categoryLabels,
+                  typeLabels,
+                  favoriteToggle: tEventCard('favoriteToggle'),
+                  tillLabel: tEventCard('tillLabel'),
+                  statusEnded: tEventCard('statusEnded'),
+                  statusHappeningNow: tEventCard('statusHappeningNow'),
+                  statusEndsToday: tEventCard('statusEndsToday'),
+                  statusInHours: tEventCard('statusInHours'),
+                  statusInDays: tEventCard('statusInDays'),
+                  statusUpcoming: tEventCard('statusUpcoming'),
+                  tomorrow: tEventCard('tomorrow'),
+                  nearbyBadge: (distanceKm: number) => formatLocalizedNearbyBadgeDistance(locale, distanceKm),
+                }}
                 // Story 1.i1f AC5-9: distanceKm is computed only on this (Discovery) page.
                 // feed-content.tsx/favorites-content.tsx are deliberately left unwired here —
                 // both hardcode isAuthenticated={false}/savedLocations={[]} and never render

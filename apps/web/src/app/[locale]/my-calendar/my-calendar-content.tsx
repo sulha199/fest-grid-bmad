@@ -2,12 +2,12 @@
 
 import React, { useMemo, useEffect } from 'react';
 import { useQueryState, parseAsString, parseAsBoolean } from 'nuqs';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGetEventsForMyCalendarQuery, useToggleFavoriteMutation } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
 import { buildMyCalendarQueryCondition } from '@festgrid/domain/events';
-import { WeeklyCalendarView, Checkbox, useWeeklyCalendarController, getWeekStart, getWeekEnd, PageContainer } from '@festgrid/ui';
+import { WeeklyCalendarView, Checkbox, useWeeklyCalendarController, getWeekStart, getWeekEnd, PageContainer, formatLocalizedNearbyBadgeDistance } from '@festgrid/ui';
 import { useRouter } from '@/i18n/navigation';
 import { useSearchParams } from 'next/navigation';
 import { usePostHog } from '@festgrid/analytics';
@@ -15,6 +15,8 @@ import { useAuthSession } from '@/components/providers/auth-session-provider';
 
 export function MyCalendarContent() {
   const t = useTranslations('MyCalendarPage');
+  const tCalendar = useTranslations('WeeklyCalendarView');
+  const locale = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
   const posthog = usePostHog();
@@ -133,8 +135,23 @@ export function MyCalendarContent() {
     moreLabel: (count: number) => t('calendarMoreLabel', { count }),
     multiDaySegmentLabel: (dayNumber: number, totalDays: number) => t('calendarMultiDaySegmentLabel', { dayNumber, totalDays }),
     closePopoverLabel: t('calendarClosePopoverLabel'),
-    favoritedBadgeLabel: t('favoritedBadgeLabel'),
-    addedToCalendarBadgeLabel: t('addedToCalendarBadgeLabel'),
+    loadingText: tCalendar('loadingText'),
+    favoriteToggleLabel: tCalendar('favoriteToggleLabel'),
+    // Story 1.i1o Task 4.3: replaced from MyCalendarPage.favoritedBadgeLabel/addedToCalendarBadgeLabel
+    // with the new shared WeeklyCalendarView namespace, avoiding a dual-source-of-truth for the
+    // same two badges across the app. The old MyCalendarPage keys stay in the locale JSON (unused),
+    // per this story's Out of Scope.
+    favoritedBadgeLabel: tCalendar('favoritedBadgeLabel'),
+    addedToCalendarBadgeLabel: tCalendar('addedToCalendarBadgeLabel'),
+    tillLabel: tCalendar('tillLabel'),
+    statusEnded: tCalendar('statusEnded'),
+    statusHappeningNow: tCalendar('statusHappeningNow'),
+    statusEndsToday: tCalendar('statusEndsToday'),
+    statusInHours: tCalendar('statusInHours'),
+    statusInDays: tCalendar('statusInDays'),
+    statusUpcoming: tCalendar('statusUpcoming'),
+    tomorrow: tCalendar('tomorrow'),
+    nearbyBadge: (distanceKm: number) => formatLocalizedNearbyBadgeDistance(locale, distanceKm),
   };
 
   const getWeekRange = (date: Date) => {

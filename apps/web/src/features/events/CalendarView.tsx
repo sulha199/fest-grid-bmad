@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryState, parseAsString } from 'nuqs';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
 import {
   useGetEventsForCalendarQuery,
@@ -18,6 +18,7 @@ import {
   getWeekStart,
   getWeekEnd,
   mapCalendarSchedules,
+  formatLocalizedNearbyBadgeDistance,
   type WeeklyCalendarViewOverflowSurface,
 } from '@festgrid/ui';
 import { useRouter } from '@/i18n/navigation';
@@ -59,6 +60,8 @@ interface CalendarViewProps {
 
 export function CalendarView({ q, types, categories, nearby, viewerCoord, nearbyBadgeThreshold, onFavoriteToggle }: CalendarViewProps) {
   const t = useTranslations('DiscoveryPage');
+  const tCalendar = useTranslations('WeeklyCalendarView');
+  const locale = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
   const posthog = usePostHog();
@@ -261,6 +264,19 @@ export function CalendarView({ q, types, categories, nearby, viewerCoord, nearby
     multiDaySegmentLabel: (dayNumber: number, totalDays: number) => t('calendarMultiDaySegmentLabel', { dayNumber, totalDays }),
     closePopoverLabel: t('calendarClosePopoverLabel'),
     overflowDialogTitleLabel: (dayLabel: string) => t('calendarOverflowDialogTitleLabel', { day: dayLabel }),
+    loadingText: tCalendar('loadingText'),
+    favoriteToggleLabel: tCalendar('favoriteToggleLabel'),
+    favoritedBadgeLabel: tCalendar('favoritedBadgeLabel'),
+    addedToCalendarBadgeLabel: tCalendar('addedToCalendarBadgeLabel'),
+    tillLabel: tCalendar('tillLabel'),
+    statusEnded: tCalendar('statusEnded'),
+    statusHappeningNow: tCalendar('statusHappeningNow'),
+    statusEndsToday: tCalendar('statusEndsToday'),
+    statusInHours: tCalendar('statusInHours'),
+    statusInDays: tCalendar('statusInDays'),
+    statusUpcoming: tCalendar('statusUpcoming'),
+    tomorrow: tCalendar('tomorrow'),
+    nearbyBadge: (distanceKm: number) => formatLocalizedNearbyBadgeDistance(locale, distanceKm),
   };
 
   const getWeekRange = (date: Date) => {

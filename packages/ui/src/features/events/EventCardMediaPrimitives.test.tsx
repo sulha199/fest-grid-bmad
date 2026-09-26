@@ -12,6 +12,7 @@ import {
   EVENT_CARD_BADGE_TEXT_SIZE_CLASS,
   EVENT_CARD_CONTAINER_CLASS,
   formatNearbyBadgeDistance,
+  formatLocalizedNearbyBadgeDistance,
 } from './EventCardMediaPrimitives';
 import {
   EVENT_CARD_BADGE_ICON_SCALE_LARGE,
@@ -722,6 +723,24 @@ describe('formatNearbyBadgeDistance - BUG-049 AC-NEARBY-3 (decimal-precision bou
   it('selects the >=2 branch as soon as the raw distance reaches 2km, even fractionally', () => {
     // 2.05 >= 2, so it takes the no-decimal branch; Math.round(2.05) still lands on 2.
     expect(formatNearbyBadgeDistance(2.05)).toBe('2 km');
+  });
+});
+
+describe('formatLocalizedNearbyBadgeDistance - Story 1.i1o AC4 (locale-aware decimal separator)', () => {
+  it('formats Indonesian sub-2km distances with a comma decimal separator', () => {
+    expect(formatLocalizedNearbyBadgeDistance('id', 1.2)).toBe('1,2 km');
+  });
+
+  it('formats Indonesian >=2km distances with no decimal place', () => {
+    expect(formatLocalizedNearbyBadgeDistance('id', 5)).toBe('5 km');
+  });
+
+  it('formats English sub-2km distances with a period decimal separator', () => {
+    expect(formatLocalizedNearbyBadgeDistance('en', 1.2)).toBe('1.2 km');
+  });
+
+  it('formats English >=2km distances with no decimal place', () => {
+    expect(formatLocalizedNearbyBadgeDistance('en', 5)).toBe('5 km');
   });
 });
 

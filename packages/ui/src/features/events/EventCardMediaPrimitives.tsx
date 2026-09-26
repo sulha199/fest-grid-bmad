@@ -427,6 +427,24 @@ export function formatNearbyBadgeDistance(distanceKm: number): string {
 }
 
 /**
+ * Story 1.i1o (AC4, `project-context.md`'s Locale-Sensitive Data Rendering rule): locale-aware
+ * counterpart to `formatNearbyBadgeDistance` above — same `distanceKm >= 2` (0 fraction digits)
+ * / `< 2` (1 fraction digit) branching, but formatted via `Intl.NumberFormat(locale, ...)` instead
+ * of `Math.round`/`.toFixed(1)`, so the decimal separator itself follows the active locale (e.g.
+ * Indonesian's comma: `"1,2 km"` vs English's `"1.2 km"`). Every content/calendar page's
+ * `nearbyBadge` closure calls this with its own `useLocale()` value; `formatNearbyBadgeDistance`
+ * itself is left unchanged and stays the component's English-only internal safety-net default.
+ */
+export function formatLocalizedNearbyBadgeDistance(locale: string, distanceKm: number): string {
+  const fractionDigits = distanceKm >= 2 ? 0 : 1;
+  const formatted = new Intl.NumberFormat(locale, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(distanceKm);
+  return `${formatted} km`;
+}
+
+/**
  * The nearby-distance badge (`DESIGN.md` § event_card_nearby_badge, Story 1.i1i AC1/AC2;
  * BUG-049 AC-NEARBY-1/2/3). Self-gating (AC1, mirroring `EventCardFavoriteBadge`'s early-return
  * convention): renders nothing unless the caller passes a known `distanceKm` below

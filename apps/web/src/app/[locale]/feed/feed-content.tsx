@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useEffect } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { useInfiniteQuery, InfiniteData, useQueryClient } from "@tanstack/react-query";
-import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, AIFilterOverlay, BlockingLoader } from "@festgrid/ui";
+import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, AIFilterOverlay, BlockingLoader, formatLocalizedNearbyBadgeDistance } from "@festgrid/ui";
 import { EventCategory, EventType } from "@festgrid/shared-types";
 import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput, useToggleFavoriteMutation, useGetMySubscriptionsQuery } from "@/generated/graphql";
 import { graphqlClient } from "@/lib/graphql-client";
@@ -36,6 +36,8 @@ export function FeedContent() {
   const tType = useTranslations("EventType");
   const tFilterHub = useTranslations("FilterHub");
   const tNearby = useTranslations("NearbyFilter");
+  const tEventCard = useTranslations("EventCard");
+  const locale = useLocale();
   const posthog = usePostHog();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -292,10 +294,19 @@ export function FeedContent() {
                   </div>
                 }
                 cardLabels={{
-                  favoriteToggle: t("favoriteButtonLabel") || "Toggle Favorite",
+                  favoriteToggle: tEventCard("favoriteToggle"),
                   priceFrom: t("priceFrom") || "From",
                   categoryLabels,
                   typeLabels,
+                  tillLabel: tEventCard("tillLabel"),
+                  statusEnded: tEventCard("statusEnded"),
+                  statusHappeningNow: tEventCard("statusHappeningNow"),
+                  statusEndsToday: tEventCard("statusEndsToday"),
+                  statusInHours: tEventCard("statusInHours"),
+                  statusInDays: tEventCard("statusInDays"),
+                  statusUpcoming: tEventCard("statusUpcoming"),
+                  tomorrow: tEventCard("tomorrow"),
+                  nearbyBadge: (distanceKm: number) => formatLocalizedNearbyBadgeDistance(locale, distanceKm),
                 }}
                 getCardProps={(event) => ({
                   isFavorited: event.isFavorited,

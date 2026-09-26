@@ -261,11 +261,32 @@ describe('CalendarView', () => {
     );
 
     // Verify loading state is shown initially (via the skeleton grid aria-label)
-    expect(screen.getByLabelText('Loading calendar view...')).toBeInTheDocument();
+    // Story 1.i1o AC2/AC4: loadingText now comes from the WeeklyCalendarView i18n namespace
+    // (via `tCalendar('loadingText')`), not the component's hardcoded English default.
+    expect(screen.getByLabelText('WeeklyCalendarView.loadingText')).toBeInTheDocument();
 
     // Wait for the query to resolve and content to render
     const eventCard = await screen.findByText('Weekly Jazz Jam');
     expect(eventCard).toBeInTheDocument();
+  });
+
+  it('wires the WeeklyCalendarView i18n namespace into the status badge (Story 1.i1o AC2/AC4)', async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <NuqsTestingAdapter>
+          <CalendarView q="jazz" types={['MUSIC']} categories={[]} />
+        </NuqsTestingAdapter>
+      </QueryClientProvider>
+    );
+
+    await screen.findByText('Weekly Jazz Jam');
+
+    // The test clock is stubbed to 2026-08-12T12:00Z (see beforeEach below) and the fixture
+    // schedule ends later the same day (22:00), so it resolves to the "ends today" status --
+    // rendered via the mocked next-intl format (`${namespace}.${key}`), proving the label came
+    // from `tCalendar('statusEndsToday')` and not WeeklyCalendarView.tsx's own hardcoded
+    // `'Ends Today'` default.
+    expect(screen.getAllByText('WeeklyCalendarView.statusEndsToday').length).toBeGreaterThan(0);
   });
 
   it('navigates weeks and triggers posthog and state updates', async () => {
@@ -325,7 +346,9 @@ describe('CalendarView', () => {
     // scope to the most recent mobile view (matching the file's queryAllByTestId pattern).
     const mobileViews = rtlScreen.queryAllByTestId('mobile-calendar-view');
     const mobileView = mobileViews[mobileViews.length - 1];
-    const favButton = within(mobileView).getByRole('button', { name: 'Toggle favorite' });
+    // Story 1.i1o AC2/AC4: favoriteToggleLabel now comes from the WeeklyCalendarView i18n
+    // namespace, not the component's hardcoded English default.
+    const favButton = within(mobileView).getByRole('button', { name: 'WeeklyCalendarView.favoriteToggleLabel' });
     fireEvent.click(favButton);
 
     expect(onFavoriteToggle).toHaveBeenCalledTimes(1);
