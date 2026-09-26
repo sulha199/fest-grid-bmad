@@ -294,7 +294,12 @@ export function FeedContent() {
                   </div>
                 }
                 cardLabels={{
-                  favoriteToggle: tEventCard("favoriteToggle"),
+                  // Deliberately NOT tEventCard("favoriteToggle")'s generic "Toggle favorite" --
+                  // every card on this page is by definition already favorited, so this page's
+                  // own "Remove from Favorites" ("Hapus dari Favorit") is the more accurate,
+                  // actionable label, especially for screen-reader users. User-directed exception
+                  // to Story 1.i1o's otherwise-uniform wording (2026-09-27).
+                  favoriteToggle: t("favoriteButtonLabel"),
                   priceFrom: t("priceFrom") || "From",
                   categoryLabels,
                   typeLabels,

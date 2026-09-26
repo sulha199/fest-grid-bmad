@@ -297,10 +297,12 @@ describe('FavoritesContent', () => {
   });
 
   it('marks item pending, supports undo, and fires mutations immediately', async () => {
-    // Story 1.i1o Task 3.2: `cardLabels.favoriteToggle` now comes uniformly from the shared
-    // `EventCard` namespace ("Toggle favorite") on every page, replacing this page's previous
-    // page-specific "Remove from Favorites" wording -- an explicit, story-directed content
-    // change, not a regression.
+    // Story 1.i1o: `cardLabels.favoriteToggle` keeps this page's own "Remove from Favorites"
+    // wording (FavoritesPage.favoriteButtonLabel) rather than the shared EventCard namespace's
+    // generic "Toggle favorite" -- every card here is by definition already favorited, so
+    // "Remove" is the more accurate, actionable label. User-directed exception (2026-09-27) to
+    // this story's otherwise-uniform wording; every other EventCard label on this page (till,
+    // status, nearby) still comes from the shared namespace.
     const requestSpy = vi.spyOn(graphqlClient, 'request');
     renderWithProviders();
 
@@ -308,7 +310,7 @@ describe('FavoritesContent', () => {
       expect(screen.getByText('Event evt-1')).toBeInTheDocument();
     });
 
-    const removeButton = screen.getAllByRole('button', { name: 'Toggle favorite' })[0];
+    const removeButton = screen.getAllByRole('button', { name: 'Remove from Favorites' })[0];
     fireEvent.click(removeButton);
 
     await waitFor(() => {
@@ -349,7 +351,7 @@ describe('FavoritesContent', () => {
       expect(screen.getByText('Event evt-1')).toBeInTheDocument();
     });
 
-    const removeButton = screen.getAllByRole('button', { name: 'Toggle favorite' })[0];
+    const removeButton = screen.getAllByRole('button', { name: 'Remove from Favorites' })[0];
     fireEvent.click(removeButton);
 
     await waitFor(() => {
@@ -388,7 +390,7 @@ describe('FavoritesContent', () => {
       expect(screen.getByText('Event evt-1')).toBeInTheDocument();
     });
 
-    const removeButton = screen.getAllByRole('button', { name: 'Toggle favorite' })[0];
+    const removeButton = screen.getAllByRole('button', { name: 'Remove from Favorites' })[0];
     fireEvent.click(removeButton);
 
     await waitFor(() => {
