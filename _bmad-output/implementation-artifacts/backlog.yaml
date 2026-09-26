@@ -1540,12 +1540,12 @@ items:
      note: "Fixed 2026-09-26 (bmad-quick-dev): NOT GridContainer/masonry (it always fit its own container) -- real cause was PageContainer's md/lg/xl min-w floors ignoring AppShell's fixed nav-rail inset. See implementation-artifacts/spec-bug-045-masonry-horizontal-overflow.md for full root cause and fix."}
 
   BUG-046:
-    {type: bug, status: triaged, created: 2026-09-26,
+    {type: bug, status: done, created: 2026-09-26,
      impact: user-visible, effort: s,
      title: "Infinite scroll snaps back to the bottom on every new page load -- distinct from BUG-043 (which stops loading entirely)",
-     ref: [planning-artifacts/event-card-family-consolidated-acs.md],
+     ref: [planning-artifacts/event-card-family-consolidated-acs.md, implementation-artifacts/spec-bug-046-infinite-scroll-scroll-position-reset.md],
      touches: [web:events],
-     note: "Found on live-deployment audit; not a duplicate of BUG-043 -- this is a scroll-position bug (page keeps re-anchoring to the bottom as new content appends), BUG-043 is a data-fetching bug (fetch stops firing after one page). Likely browser scroll-anchoring locking onto the infinite-scroll sentinel; usual fix is a targeted `overflow-anchor: none` or sentinel repositioning (event-card-family-consolidated-acs.md §2.9), not a virtualization-library adoption -- the existing useInfiniteScroll/useListPaginationController hooks are tightly coupled to AD-27's masonry engine."}
+     note: "Fixed 2026-09-26 (bmad-quick-dev): BUG-038's fix was scoped too narrowly; browser still anchored to <body>/<main>. Fix: overflow-anchor:none on body. See spec-bug-046-infinite-scroll-scroll-position-reset.md."}
 
   BUG-047:
     {type: bug, status: triaged, created: 2026-09-26, parent: CC-019,
