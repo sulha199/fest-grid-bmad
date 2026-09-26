@@ -1547,6 +1547,14 @@ items:
      touches: [web:events],
      note: "Fixed 2026-09-26 (bmad-quick-dev): BUG-038's fix was scoped too narrowly; browser still anchored to <body>/<main>. Fix: overflow-anchor:none on body. See spec-bug-046-infinite-scroll-scroll-position-reset.md."}
 
+  FIND-055:
+    {type: finding, status: backlog, created: 2026-09-26,
+     impact: internal, effort: s,
+     title: "BUG-046's fix leaves 4 hardening gaps: no regression test for a now-3x-recurring bug class, body-only scope, unaudited other-route/nested-scroll blast radius, and 4 overlapping overflow-anchor:none mechanisms with no consolidation plan",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-bug-046-infinite-scroll-scroll-position-reset.md],
+     touches: [web:events, pkg:ui],
+     note: "Deferred from: 'Deferred from: code review of spec-bug-046-infinite-scroll-scroll-position-reset.md (2026-09-26)'. 4 findings."}
+
   BUG-047:
     {type: bug, status: triaged, created: 2026-09-26, parent: CC-019,
      impact: user-visible, effort: m,
