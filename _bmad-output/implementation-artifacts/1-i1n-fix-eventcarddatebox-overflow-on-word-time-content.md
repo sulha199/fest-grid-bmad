@@ -218,6 +218,19 @@ Claude Sonnet 5 (`claude-sonnet-5`), via `bmad-dev-story`.
 
 ## Change Log
 
+### 2026-09-26: Approach superseded by BUG-047 (Event-Card family consolidation)
+
+- This story's fix — a word-safe `dayVariant='word'` sizing branch for `EventCardDateBox` — is
+  superseded, not extended, by `backlog.yaml`'s `BUG-047` (see
+  `planning-artifacts/event-card-family-consolidated-acs.md` AC-DATE-1). The 2026-09-26
+  consolidation reverses course: the date-box's day slot must show numeric days only, never
+  word/time content — so `dayVariant='word'` and its consumers become dead code once `BUG-047`
+  lands, and `FIND-051`'s deferred fixture gap becomes moot along with it.
+- This story's own fix remains a correct, real fix for the narrower defect it targeted at the
+  time (an actual production overflow bug) — `stories`/`status: done` on `backlog.yaml`'s
+  `BUG-040` are unchanged. Recorded here only so a future reader of this file knows the mechanism
+  it shipped does not survive `BUG-047`'s implementation.
+
 ### 2026-09-25: Code review verdict — approved (2 review patches applied; 1 deferral)
 
 - bmad-code-review completed against commit `acc2675b`. All 6 implementer claim groups independently verified (`dayVariant` prop; `'number'` path byte-for-byte unchanged; word-safe overflow classes; ts-morph `ConditionalExpression` fix genericity — live enumeration output confirmed; debugging findings real; TS5101 pre-existing, verified identical at baseline `fb50c887` via temp worktree).
