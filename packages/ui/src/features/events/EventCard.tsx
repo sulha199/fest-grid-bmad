@@ -13,8 +13,8 @@ import { useScopedLocale, useScopedTimezone } from '../../hooks';
 import type { EventCardProps } from './EventCard.types';
 import {
   getEventDayDiff,
-  formatShortEventDateTime,
-  formatShortEventDateTimeParts,
+  computeEventCardDateBoxParts,
+  formatEventCardDateBoxLine,
   formatEventTime,
   formatEventStatus,
   combineDateTime,
@@ -169,26 +169,46 @@ export function EventCard({
   const dateIsValid = !isNaN(dateObj.getTime());
 
   const dayDiff = dateIsValid ? getEventDayDiff(dateObj, activeTimezone) : NaN;
-  const dateBoxText = dateIsValid
-    ? formatShortEventDateTime(activeLocale, activeTimezone, dateObj, hasTime, defaultLabels)
-    : '';
-  // Task 3.1 (Story 1.i1k) — a NEW, parallel computation consumed only by the
-  // `isMasonryDefault` branch below; `dateBoxText`/`formatShortEventDateTime` above stays
-  // computed unconditionally, still used as-is by the untouched non-masonry-default overlay.
+
+  // Single "now" read for this whole render (code-review finding, both Blind Hunter and Edge
+  // Case Hunter independently flagged separate `new Date()`/`Date.now()` reads for the date-box,
+  // TILL badge, and status badge as a theoretical millisecond-boundary disagreement risk between
+  // the three) — every "current instant" use below shares this one value instead.
+  const now = new Date();
+
+  // AC14's TILL badge and BUG-047's date-box content both need the same effective-end-date
+  // computation — hoisted here and computed unconditionally (previously only derived inside the
+  // `started` branch below, when only the TILL badge needed it) so
+  // `computeEventCardDateBoxParts` reuses these exact values instead of re-deriving a second,
+  // divergent computation. Absent endDate falls back to startDate ("ends same day as start",
+  // AC14/AC15's shared convention).
+  const effectiveEndDate = endDate ?? startDate;
+  const endDateTime = combineDateTime(effectiveEndDate, endTime);
+
+  // BUG-047 (Event-Card family consolidation, AC-DATE-1/2/3): the date-box's own numeric-only,
+  // context-date-driven content — a NEW, dedicated computation, entirely separate from
+  // `formatShortEventDateTime`/`formatShortEventDateTimeParts` (untouched, unaffected, still used
+  // as-is by whatever else consumes them — e.g. `EventDetailView.tsx`). Shows the end date once
+  // the event has started and not yet ended (resolves BUG-022's startDate-vs-TILL-badge
+  // contradiction), otherwise the start date. `dateBoxParts` (month/day split) feeds VM2's
+  // two-tier `EventCardDateBox`; `dateBoxLine` below (same resolution, one combined string)
+  // feeds VM1's single-line inline overlay.
   const dateBoxParts = dateIsValid
-    ? formatShortEventDateTimeParts(activeLocale, activeTimezone, dateObj, hasTime, defaultLabels)
-    : { month: '', day: '', dayVariant: 'number' as const };
+    ? computeEventCardDateBoxParts(activeLocale, activeTimezone, now, dateObj, endDateTime, endTime)
+    : { month: '', day: '' };
+  // VM1 (prominentPoster=true) one-line text — same shared resolution, locale-correct combined
+  // format instead of VM2's two separate month/day slots (see the function's own doc comment).
+  const dateBoxLine = dateIsValid
+    ? formatEventCardDateBoxLine(activeLocale, activeTimezone, now, dateObj, endDateTime, endTime)
+    : '';
 
   const finalImageAlt = imageAlt || eventName;
 
   // AC14 — TILL sub-badge (masonry only): "till hh:mm" / bare "till" / no badge.
-  // Absent endDate falls back to startDate ("ends same day as start", AC14/AC15's shared convention).
-  const started = Date.now() >= dateObj.getTime();
+  const started = now.getTime() >= dateObj.getTime();
   let tillBadgeText: string | null = null;
   if (started) {
-    const effectiveEndDate = endDate ?? startDate;
-    const endDateTime = combineDateTime(effectiveEndDate, endTime);
-    const nowParts = getLocalDateInTimezone(new Date(), activeTimezone);
+    const nowParts = getLocalDateInTimezone(now, activeTimezone);
     const endParts = getLocalDateInTimezone(endDateTime, activeTimezone);
     const endDayDiff = getCalendarDayDifference(nowParts, endParts);
 
@@ -212,7 +232,7 @@ export function EventCard({
   const { text: statusText, isHappeningNow } = formatEventStatus(
     activeLocale,
     activeTimezone,
-    new Date(),
+    now,
     startDate,
     startTime,
     endDate,
@@ -340,7 +360,6 @@ export function EventCard({
                   </>
                 }
                 day={dateBoxParts.day}
-                dayVariant={dateBoxParts.dayVariant}
                 tillLabel={tillBadgeText || undefined}
               />
             </div>
@@ -375,7 +394,7 @@ export function EventCard({
               } left-2 z-10 flex items-center gap-1 p-1 rounded-md bg-background/80 backdrop-blur-sm shadow-sm ${EVENT_CARD_BADGE_TEXT_SIZE_CLASS} font-semibold text-foreground`}
             >
               {hasTime && dayDiff === 0 && <Clock className="w-3 h-3" />}
-              {dateBoxText}
+              {dateBoxLine}
               {tillBadgeText && (
                 <span className={eventCardTillLabelClass('prominent')}>{tillBadgeText}</span>
               )}

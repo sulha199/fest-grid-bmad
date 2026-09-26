@@ -396,19 +396,102 @@ export function formatShortEventDateTimeParts(
 }
 
 /**
+ * BUG-047 (Event-Card family consolidation, `event-card-family-consolidated-acs.md` §2.2
+ * AC-DATE-3): the masonry variant's shared context-date computation. Given the real "now" as the
+ * context date, an event whose start has passed but whose effective end hasn't yet shows the END
+ * date; every other case shows the START date. `startDateTime`/`endDateTime` are caller-computed
+ * (`EventCard.tsx`'s own TILL-badge derivation, hoisted and reused — never re-derived here) so
+ * this function does no date-combining of its own, only the comparison + formatting.
+ *
+ * **CORRECTED (review loop 1, Spec Change Log):** `notYetEnded` is day-difference based, mirroring
+ * `formatEventStatus`'s own already-tested `ended` computation in this same file (reusing its two
+ * building blocks, `getLocalDateInTimezone`/`getCalendarDayDifference`, independently — this
+ * function never calls `formatEventStatus` itself or duplicates its full 8-state return shape,
+ * only the same `ended` boundary logic). A strict raw-timestamp `now < endDateTime` compare (the
+ * originally-specified rule) re-broke BUG-022 for any multi-day event with no precise `endTime`:
+ * `combineDateTime` collapses an absent `endTime` to midnight of the effective end date, so the
+ * date-box would revert to the start date for nearly the entire still-ongoing last day. The
+ * corrected rule: an end day with no known `endTime` is never "ended" for its whole calendar day;
+ * a precise timestamp compare only applies once an `endTime` is actually known.
+ */
+function resolveEventCardDateBoxTarget(
+  timezone: string | undefined,
+  now: Date,
+  startDateTime: Date,
+  endDateTime: Date,
+  endTime: string | null | undefined
+): Date {
+  const started = now.getTime() >= startDateTime.getTime();
+  const nowParts = getLocalDateInTimezone(now, timezone);
+  const endParts = getLocalDateInTimezone(endDateTime, timezone);
+  const endDayDiff = getCalendarDayDifference(nowParts, endParts);
+  const ended = endDayDiff < 0 || (endDayDiff === 0 && !!endTime && now.getTime() >= endDateTime.getTime());
+  const notYetEnded = !ended;
+  return started && notYetEnded ? endDateTime : startDateTime;
+}
+
+export function computeEventCardDateBoxParts(
+  locale: string,
+  timezone: string | undefined,
+  now: Date,
+  startDateTime: Date,
+  endDateTime: Date,
+  endTime: string | null | undefined
+): { month: string; day: string } {
+  const targetDateTime = resolveEventCardDateBoxTarget(timezone, now, startDateTime, endDateTime, endTime);
+  return {
+    month: formatMonthAbbrev(locale, timezone, targetDateTime),
+    day: formatDayNumber(locale, timezone, targetDateTime),
+  };
+}
+
+/**
+ * BUG-047 (VM1, masonry `prominentPoster=true`): the single-line date-box's text. Same shared
+ * `resolveEventCardDateBoxTarget` resolution as `computeEventCardDateBoxParts` above (never a
+ * second, divergent started/notYetEnded computation) — the two-tier box (VM2) needs `month`/`day`
+ * as separate slots, but VM1's one-line chip needs one locale-correct "month day" phrase (the
+ * part ORDER is locale-determined, e.g. day-before-month in some locales, which naively gluing
+ * `computeEventCardDateBoxParts`'s two already-formatted strings together in a fixed order would
+ * lose). No year, no time — mirrors `formatMonthAbbrev`/`formatDayNumber`'s own locale+timezone ->
+ * locale-only -> 'en-US' fallback pattern.
+ */
+export function formatEventCardDateBoxLine(
+  locale: string,
+  timezone: string | undefined,
+  now: Date,
+  startDateTime: Date,
+  endDateTime: Date,
+  endTime: string | null | undefined
+): string {
+  const targetDateTime = resolveEventCardDateBoxTarget(timezone, now, startDateTime, endDateTime, endTime);
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      day: 'numeric',
+      month: 'short',
+      ...(timezone ? { timeZone: timezone } : {}),
+    }).format(targetDateTime);
+  } catch {
+    try {
+      return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }).format(targetDateTime);
+    } catch {
+      return new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short' }).format(targetDateTime);
+    }
+  }
+}
+
+/**
  * Computes the WeeklyCalendarView list-variant date box's structured `month`/`day`/`tillLabel`
- * content (Story 1.i1k AC4 — resolves DESIGN.md's own "deferred to the amendment story" open
- * item). Unlike `computeCalendarSegmentTillText` (which stays unchanged/exported, still directly
- * unit-tested, still used nowhere else), this function's branch conditions and return shape
- * diverge from it — it must not call it internally:
- *  - **Continuing segment** (`currentDayStr < effectiveEnd`): `month`/`day` show the segment's
- *    real effective-end-date month/day (genuinely new information); `tillLabel` carries the bare
- *    till label text.
- *  - **Last/only day** (`currentDayStr >= effectiveEnd`): showing the effective end date here
- *    would exactly repeat the start date the day-row header already shows (the "never repeats
- *    the start date" regression guard) — instead `month` carries the till label text and `day`
- *    carries the known end time (or an empty string when no time is known); `tillLabel` is
- *    omitted (`undefined`) since it would duplicate the same text already shown via `month`/`day`.
+ * content (Story 1.i1k AC4, rewritten by BUG-047/AC-DATE-3 to replace the till-repurposing "last/
+ * only day" branch below). Same `started && notYetEnded` -> show-end-date rule as
+ * `computeEventCardDateBoxParts` above, applied at day-string granularity:
+ *  - `started` = `currentDayStr >= startDate`.
+ *  - `notYetEnded` = `currentDayStr <= effectiveEnd` — **`<=`, not `<`** (user-confirmed
+ *    2026-09-26): a multi-day event is still ongoing for its entire last calendar day, so the day
+ *    the event ends must still resolve to "show the end date," unlike a continuous timestamp
+ *    comparison (which has no meaningful equality case to widen for).
+ * `month`/`day` are therefore ALWAYS real numeric digits now — no more till-label/time-string
+ * overload. The till/time text moves entirely to `tillLabel`, populated in every case (not just
+ * the former "continuing segment") via the existing, unchanged `computeCalendarSegmentTillText`.
  */
 export function computeCalendarSegmentDateBoxContent(
   locale: string,
@@ -418,28 +501,18 @@ export function computeCalendarSegmentDateBoxContent(
   endDate: string | null | undefined,
   endTime: string | null | undefined,
   tillLabel: string
-): { month: string; day: string; tillLabel: string | undefined; dayVariant: 'number' | 'word' } {
+): { month: string; day: string; tillLabel: string | undefined } {
   const effectiveEnd = endDate ?? startDate;
+  const started = currentDayStr >= startDate;
+  const notYetEnded = currentDayStr <= effectiveEnd;
+  const targetDate = started && notYetEnded ? effectiveEnd : startDate;
+  const targetDateTime = combineDateTime(targetDate);
 
-  if (currentDayStr < effectiveEnd) {
-    const endDateTime = combineDateTime(effectiveEnd);
-    return {
-      month: formatMonthAbbrev(locale, timezone, endDateTime),
-      day: formatDayNumber(locale, timezone, endDateTime),
-      tillLabel,
-      // Review (Story 1.i1n, acc2675b): DAY_VARIANT_NUMBER constant, not an inline 'number'
-      // literal — the reason documented on formatShortEventDateTimeParts above applies here
-      // identically: packages/visual-audit's ts-morph sample-text extraction picks the longest
-      // quoted literal in a branch's return expression, so an inline `dayVariant: 'number'`
-      // literal would corrupt this (otherwise literal-free) branch's fixture if it is ever
-      // enumerated by an overflow rule.
-      dayVariant: DAY_VARIANT_NUMBER,
-    };
-  }
-
-  // This is the segment's last/only day.
-  const day = endTime && effectiveEnd ? formatEventTime(locale, timezone, combineDateTime(effectiveEnd, endTime)) : '';
-  return { month: tillLabel, day, tillLabel: undefined, dayVariant: DAY_VARIANT_WORD };
+  return {
+    month: formatMonthAbbrev(locale, timezone, targetDateTime),
+    day: formatDayNumber(locale, timezone, targetDateTime),
+    tillLabel: computeCalendarSegmentTillText(locale, timezone, currentDayStr, startDate, endDate, endTime, tillLabel),
+  };
 }
 
 /**

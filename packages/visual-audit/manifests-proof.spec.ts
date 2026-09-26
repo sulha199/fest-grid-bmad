@@ -154,34 +154,51 @@ test.describe('react-component mount example: EventCardDateBox Clock-icon-hasTim
   });
 });
 
-test.describe('react-component mount example: EventCardDateBox overflow/clipping on word/time content (Story 1.i1n, BUG-040)', () => {
-  const NAME = 'event-card-date-box:overflow-word-time-content:175x160';
+// BUG-047: the `EventCardDateBox` overflow/clipping-on-word/time-content proof (Story 1.i1n,
+// BUG-040) is removed along with its manifest entry — the scenario it proved (dayVariant='word'
+// sizing) is dead code now that no content source ever produces word/time content (AC-DATE-1).
+// Replaced below by two durable checks for AC-DATE-4/AC-DATE-5 (added during BUG-047's own code
+// review — the width/height fixes were originally verified only by a throwaway script + a unit
+// test asserting an exact class-string match, which the reviewer correctly flagged as weaker
+// coverage than what was removed).
 
-  test('manifest entry is registered under the expected component/variant/viewport triple', () => {
+test.describe('rule-based example: EventCardDateBox width-consistency-1-vs-2-digit (AC-DATE-4)', () => {
+  const NAME = 'event-card-date-box:width-consistency-1-vs-2-digit:300x160';
+
+  test('manifest entry is registered as rule-based, multi-instance', () => {
     expect(defaultRegistry.has(NAME)).toBe(true);
     const entry = defaultRegistry.get(NAME);
     expect(entry.component).toBe('EventCardDateBox');
     expect(entry.mode).toBe('rule');
-    expect(entry.rules[0].kind).toBe('overflow');
+    expect(entry.renderScope).toBe('multi-instance');
   });
 
-  test('every ts-morph-enumerated content variant (including the ternary-derived time-string sub-variant) renders with no day-slot overflow', async ({ page }) => {
+  test('a 1-digit day ("3") and a 2-digit day ("23") render the date-box at the same width', async ({ page }) => {
     const result = await runManifestEntry(page, NAME, { repoRoot: REPO_ROOT });
-
     for (const ruleResult of result.ruleResults) {
       expect(ruleResult.pass, `${ruleResult.kind}: ${ruleResult.message}`).toBe(true);
     }
     expect(result.pass).toBe(true);
+  });
+});
 
-    // AC6's whole point: the hasTime ternary nested in formatShortEventDateTimeParts's
-    // dayDiff === 0 branch must be enumerated as two real sub-variants, not collapsed to one --
-    // confirms content-variants.ts's ConditionalExpression fix is what this manifest actually
-    // exercises, not just the branches it already enumerated before Task 4.
-    const overflowResult = result.ruleResults.find((r) => r.kind === 'overflow');
-    const variants = (overflowResult?.details as { variants: Array<{ variantLabel: string }> } | undefined)?.variants ?? [];
-    expect(variants.length).toBeGreaterThanOrEqual(5); // Today(true)/Today(false)/Tomorrow/Yesterday/fallback
-    expect(variants.some((v) => v.variantLabel.includes('(true)'))).toBe(true);
-    expect(variants.some((v) => v.variantLabel.includes('(false)'))).toBe(true);
+test.describe('rule-based example: EventCardDateBox date-box-height-matches-thumbnail (AC-DATE-5)', () => {
+  const NAME = 'event-card-date-box:date-box-height-matches-thumbnail:400x400';
+
+  test('manifest entry mounts the real, unmodified EventCard masonry-default composition', () => {
+    expect(defaultRegistry.has(NAME)).toBe(true);
+    const entry = defaultRegistry.get(NAME);
+    expect(entry.component).toBe('EventCard');
+    expect(entry.render.kind).toBe('react-component');
+    expect(entry.mode).toBe('rule');
+  });
+
+  test('the visible date-box and the adjacent thumbnail render at the same height', async ({ page }) => {
+    const result = await runManifestEntry(page, NAME, { repoRoot: REPO_ROOT });
+    for (const ruleResult of result.ruleResults) {
+      expect(ruleResult.pass, `${ruleResult.kind}: ${ruleResult.message}`).toBe(true);
+    }
+    expect(result.pass).toBe(true);
   });
 });
 

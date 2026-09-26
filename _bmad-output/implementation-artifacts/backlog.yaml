@@ -1556,12 +1556,13 @@ items:
      note: "Deferred from: 'Deferred from: code review of spec-bug-046-infinite-scroll-scroll-position-reset.md (2026-09-26)'. 4 findings."}
 
   BUG-047:
-    {type: bug, status: triaged, created: 2026-09-26, parent: CC-019,
+    {type: bug, status: done, created: 2026-09-26, closed: 2026-09-26, parent: CC-019,
      impact: user-visible, effort: m,
+     spec: spec-bug-047-eventcarddatebox-unified-content-rule.md,
      title: "EventCardDateBox needs one unified, context-date-driven, numeric-only content rule -- supersedes BUG-022 and BUG-040/Story 1.i1n's word-variant fix",
      ref: [planning-artifacts/event-card-family-consolidated-acs.md],
      touches: [pkg:ui, web:events/EventCard, web:events/WeeklyCalendarView, cross:ux-tokens],
-     note: "Consolidates AC-DATE-1..5 from event-card-family-consolidated-acs.md into one story: numeric-day-only content (no Today/Tomorrow/Yesterday/time-string, reversing 1.i1n), a new dedicated context-date-driven computation (context=today for masonry, =currentDayStr for calendar) that shows the end date once started-and-not-yet-ended (fixes BUG-022, unifies VM7's till-repurposing hack), plus masonry-scoped fixed-width/height invariants (AC-DATE-4/5). Does NOT touch formatShortEventDateTimeParts/formatEventStatus/other existing date-formatting functions -- user-directed 2026-09-26, a new function replaces them for the date-box only."}
+     note: "Consolidates AC-DATE-1..5 into one unified, context-date-driven, numeric-only date-box rule (fixes BUG-022, reverses 1.i1n's word-variant fix, adds AC-DATE-4/5 sizing). Full implementation/decision/review-loop detail lives in the spec file (see `spec:` above), not here."}
 
   BUG-048:
     {type: bug, status: triaged, created: 2026-09-26,
@@ -1602,3 +1603,11 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      touches: [pkg:ui],
      note: "Deferred from: code review of spec-bug-045-masonry-horizontal-overflow (2026-09-26). 1 finding."}
+
+  FIND-056:
+    {type: finding, status: backlog, created: 2026-09-26,
+     impact: internal, effort: xs,
+     title: "BUG-047 code review: min-w-[2ch] numeral-width assumption, and a latent date-vs-till-tag mismatch for an unreachable calendar input",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [pkg:ui],
+     note: "Deferred from: code review of spec-bug-047-eventcarddatebox-unified-content-rule.md (2026-09-26). 2 findings."}

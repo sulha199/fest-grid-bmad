@@ -426,45 +426,27 @@ describe('EventCardDateBox (Story 1.i1k two-tier month/day chrome)', () => {
     expect(container.querySelector('.bg-amber-700')).toBeNull();
   });
 
-  describe('dayVariant (Story 1.i1n AC1/AC2/AC3)', () => {
-    it('dayVariant omitted -> byte-for-byte unchanged from the pre-Story-1.i1n numeric output (AC3)', () => {
+  describe('day slot sizing (BUG-047 AC-DATE-4, replaces Story 1.i1n\'s dayVariant mechanism)', () => {
+    it('size="default": fixed-width classes (tabular-nums + min-w-[2ch]) so 1-digit/2-digit days render the same width', () => {
       const { container } = render(<EventCardDateBox size="default" month="Oct" day="12" />);
       expect(container.querySelector('[data-event-card-date-box-day]')?.className).toBe(
-        'text-5xl font-extrabold leading-none'
+        'inline-block text-center tabular-nums min-w-[2ch] text-5xl font-extrabold leading-none'
       );
     });
 
-    it('dayVariant="number" (explicit) -> same classes as omitted, both sizes (AC3)', () => {
-      const { container: defaultContainer } = render(
-        <EventCardDateBox size="default" month="Oct" day="12" dayVariant="number" />
+    it('size="default" 1-digit day gets the identical class list (and therefore identical rendered width) as a 2-digit day', () => {
+      const { container: oneDigit } = render(<EventCardDateBox size="default" month="Oct" day="3" />);
+      const { container: twoDigit } = render(<EventCardDateBox size="default" month="Oct" day="23" />);
+      expect(oneDigit.querySelector('[data-event-card-date-box-day]')?.className).toBe(
+        twoDigit.querySelector('[data-event-card-date-box-day]')?.className
       );
-      expect(defaultContainer.querySelector('[data-event-card-date-box-day]')?.className).toBe(
-        'text-5xl font-extrabold leading-none'
-      );
+    });
 
-      const { container: compactContainer } = render(
-        <EventCardDateBox size="compact" month="Oct" day="12" dayVariant="number" />
-      );
-      expect(compactContainer.querySelector('[data-event-card-date-box-day]')?.className).toBe(
+    it('size="compact" (calendar list row) is unaffected -- no width-fix classes, unchanged from before BUG-047', () => {
+      const { container } = render(<EventCardDateBox size="compact" month="Oct" day="12" />);
+      expect(container.querySelector('[data-event-card-date-box-day]')?.className).toBe(
         'text-3xl font-extrabold leading-none'
       );
-    });
-
-    it('dayVariant="word" -> a smaller, word-safe class pair, same for both sizes (AC2)', () => {
-      const { container: defaultContainer } = render(
-        <EventCardDateBox size="default" month="" day="Tomorrow" dayVariant="word" />
-      );
-      const defaultDayEl = defaultContainer.querySelector('[data-event-card-date-box-day]');
-      expect(defaultDayEl).toHaveTextContent('Tomorrow');
-      expect(defaultDayEl?.className).not.toContain('text-5xl');
-      expect(defaultDayEl?.className).toContain('whitespace-nowrap');
-
-      const { container: compactContainer } = render(
-        <EventCardDateBox size="compact" month="" day="Tomorrow" dayVariant="word" />
-      );
-      const compactDayEl = compactContainer.querySelector('[data-event-card-date-box-day]');
-      expect(compactDayEl?.className).not.toContain('text-3xl');
-      expect(compactDayEl?.className).toBe(defaultDayEl?.className);
     });
   });
 });

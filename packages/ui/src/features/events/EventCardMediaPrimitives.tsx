@@ -294,41 +294,50 @@ export function EventCardFavoriteBadge({
  * and is the size-keyed font-size source the icon-scale token (AD-15) keys off
  * (`DESIGN.md` § event_card_date_box.base_default / § event_card_compact.date_box).
  */
-export function EventCardDateBox({ size, month, day, dayVariant = 'number', tillLabel, className = '' }: EventCardDateBoxProps) {
+export function EventCardDateBox({ size, month, day, tillLabel, className = '' }: EventCardDateBoxProps) {
   const paddingClasses = size === 'compact' ? 'px-3 py-2' : 'px-4 py-3';
   const monthClasses = size === 'compact' ? 'text-sm font-bold uppercase tracking-wide' : 'text-lg font-bold uppercase tracking-wide';
-  // dayVariant === 'number' (default, AC3): byte-for-byte unchanged from pre-Story-1.i1n output.
-  // dayVariant === 'word' (AC2): a smaller, word-safe size so "Today"/"Tomorrow"/"Yesterday"/a
-  // time string ("3:00 PM") fit the real 175px mobile masonry width and the compact row's own
-  // width with no scrollWidth > clientWidth overflow. `inline-block` + `max-w-[96px]` give the
-  // day slot itself a real, checkable box (a plain `inline` element's own clientWidth/scrollWidth
-  // stay equal regardless of content length -- CSS `max-width`/`overflow` have no effect on
-  // non-replaced inline boxes, confirmed empirically, so without this the slot could never report
-  // an overflow at all, checkable or otherwise). `overflow-x-hidden` constrains width only.
-  // `leading-tight` (not this component's usual `leading-none`) is a deliberate, empirically-
-  // driven deviation: `leading-none`'s line-height (exactly 1x font-size) measured a couple px
-  // shorter than this rendered box's own content height in `event-card-date-box-overflow.ts`'s
-  // automated check (a real cross-font-metric effect, not a fixture bug), which tripped the
-  // check's *height* half (`scrollHeight > clientHeight`) on content that was never actually too
-  // wide -- `leading-tight` (1.25x) clears that margin. `text-sm` (14px, comfortably above
-  // EXPERIENCE.md's 11px legibility floor) + the 96px budget is the smallest-font/tightest-width
-  // combination empirically confirmed (via that same automated check, Dev Notes) to fit every
-  // real ts-morph-enumerated word/time content variant, including `content-variants.ts`'s own
-  // representative placeholder for the (no-literal) time-string sub-variant -- not a guessed
-  // value.
+  // BUG-047 (Event-Card family consolidation, AC-DATE-1): the day slot is numeric-only by
+  // construction now -- both content sources (`computeEventCardDateBoxParts`,
+  // `computeCalendarSegmentDateBoxContent`) only ever produce a 1-2 digit day-of-month, so the
+  // former `dayVariant='word'` sizing branch (Story 1.i1n/BUG-040, word-safe `text-sm`/`max-w-
+  // [96px]`) has no remaining caller and is deleted, not kept "just in case" (superseded, per
+  // backlog.yaml's BUG-040 note).
+  //
+  // AC-DATE-4 (masonry `size='default'` only): the day slot gets an explicit `tabular-nums` +
+  // `min-w-[2ch]` floor so the box's rendered width is identical whether the day is 1-digit ("3")
+  // or 2-digit ("23") -- previously nothing constrained this, so glyph width alone could shift the
+  // box's total width. `size='compact'` (the calendar list row) is explicitly unaffected --
+  // confirmed masonry-only, no cross-family invariant intended.
   const dayClasses =
-    dayVariant === 'word'
-      ? 'inline-block text-sm font-extrabold leading-tight whitespace-nowrap max-w-[96px] overflow-x-hidden'
-      : size === 'compact'
-        ? 'text-3xl font-extrabold leading-none'
-        : 'text-5xl font-extrabold leading-none';
+    size === 'compact'
+      ? 'text-3xl font-extrabold leading-none'
+      : 'inline-block text-center tabular-nums min-w-[2ch] text-5xl font-extrabold leading-none';
+
+  // AC-DATE-5 (masonry `size='default'` only): empirically confirmed (Playwright, real render)
+  // that the *wrapper* div `EventCard.tsx`'s `top_row_default` gives this component already
+  // stretches correctly to the sibling thumbnail's height (`flex items-stretch` + the media
+  // slot's `h-full` do work) -- but this component's own root `<span>` has no height rule of its
+  // own, so it only fills its NATURAL content height inside that taller wrapper, leaving the
+  // visible navy box visually shorter than the thumbnail beside it. `h-full` on the span (masonry
+  // `size='default'` only, never `'compact'` -- the calendar list row was not part of this AC and
+  // keeps its established layout) closes that gap.
+  const heightClass = size === 'default' ? 'h-full' : '';
 
   return (
     <span
       style={badgeFontSizeStyleFor(size)}
       data-event-card-date-box=""
       data-event-card-date-box-size={size}
-      className={`relative flex flex-col justify-center gap-0.5 ${paddingClasses} rounded-md bg-slate-800 text-white shadow-sm shrink-0 leading-none ${className}`}
+      className={[
+        'relative flex flex-col justify-center gap-0.5',
+        paddingClasses,
+        'rounded-md bg-slate-800 text-white shadow-sm shrink-0 leading-none',
+        heightClass,
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
       {tillLabel ? <span className={eventCardTillLabelClass('default')}>{tillLabel}</span> : null}
       <span data-event-card-date-box-month="" className={monthClasses}>

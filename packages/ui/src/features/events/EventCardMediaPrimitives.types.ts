@@ -133,20 +133,14 @@ export interface EventCardDateBoxProps {
   size: EventCardDateBoxSize;
   /** The caller's already-formatted month/weekday content (small uppercase line). */
   month: ReactNode;
-  /** The caller's already-formatted day content (large bold line). */
-  day: ReactNode;
   /**
-   * Story 1.i1n AC1: which font-size treatment the day slot renders at. `'number'` (default,
-   * omitted callers keep today's exact byte-for-byte output, AC3) is sized for a 1-2 digit
-   * numeric day-of-month (`text-5xl`/`text-3xl`). `'word'` renders a smaller, word-safe size
-   * that fits every real word/time content variant ("Today", "Tomorrow", "Yesterday", a
-   * locale-formatted time string) without overflow at the real mobile masonry (175px) and
-   * compact-row widths (AC2, enforced by `event-card-date-box-overflow.ts`'s automated check).
-   * `EventCardDateBox` does not infer this from `day`'s rendered content — the caller already
-   * knows which branch of its own formatter (`formatShortEventDateTimeParts` /
-   * `computeCalendarSegmentDateBoxContent`) fired.
+   * The caller's already-formatted day content (large bold line) — always a 1-2 digit
+   * numeric day-of-month (BUG-047/AC-DATE-1: the day slot is numeric-only by construction now).
+   * The former `dayVariant` prop (Story 1.i1n, word-safe sizing for "Today"/"Tomorrow"/a time
+   * string) is removed — no content source produces that shape any more, so the discriminant
+   * has no remaining use.
    */
-  dayVariant?: 'number' | 'word';
+  day: ReactNode;
   /** Optional amber corner tag content (e.g. "till"). Omitted entirely when not provided. */
   tillLabel?: ReactNode;
   /** Extra classes appended to the date box root. */

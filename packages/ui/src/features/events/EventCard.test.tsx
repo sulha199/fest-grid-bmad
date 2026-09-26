@@ -316,30 +316,39 @@ describe('EventCard', () => {
       vi.useRealTimers();
     });
 
-    it('renders "Today" for dates 0 days out', () => {
+    it('renders real numeric start-date digits (never "Today") for a dayDiff===0, no-time, no-endDate event (BUG-047 AC-DATE-1: already "ended" as of now, since endDateTime===startDateTime)', () => {
       const today = new Date();
-      render(<EventCard eventName="Today Event" startDate={today} locale="en-US" />);
-      expect(screen.getByText('Today')).toBeInTheDocument();
+      const expectedMonth = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(today);
+      const expectedDay = new Intl.DateTimeFormat('en-US', { day: 'numeric' }).format(today);
+      const { container } = render(<EventCard eventName="Today Event" startDate={today} locale="en-US" />);
+      expect(screen.queryByText('Today')).not.toBeInTheDocument();
+      expect(container.querySelector('[data-event-card-date-box-month]')).toHaveTextContent(expectedMonth);
+      expect(container.querySelector('[data-event-card-date-box-day]')).toHaveTextContent(expectedDay);
     });
 
-    it('renders "Tomorrow" for dates 1 day out', () => {
+    it('renders real numeric digits (never "Tomorrow") for dates 1 day out -- not yet started, so the START date shows', () => {
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
+      const expectedMonth = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(tomorrow);
+      const expectedDay = new Intl.DateTimeFormat('en-US', { day: 'numeric' }).format(tomorrow);
       const { container } = render(
         <EventCard eventName="Tomorrow Event" startDate={tomorrow} locale="en-US" />
       );
-      // A dayDiff===1 event shows "Tomorrow" in both the date box (AC12) and the
-      // below-image status badge (AC15) -- scope to the date box (primitive) specifically.
+      // The status badge (AC15, formatEventStatus -- untouched) still says "Tomorrow" in prose;
+      // the date box (AC-DATE-1) never does -- scope to the date box (primitive) specifically.
       const datePill = container.querySelector('[data-event-card-date-box]');
-      expect(datePill).toHaveTextContent('Tomorrow');
+      expect(datePill).not.toHaveTextContent('Tomorrow');
+      expect(container.querySelector('[data-event-card-date-box-month]')).toHaveTextContent(expectedMonth);
+      expect(container.querySelector('[data-event-card-date-box-day]')).toHaveTextContent(expectedDay);
     });
 
     describe('Masonry badge display behavior', () => {
-      it('Today WITH a startTime provided -> badge shows the formatted time (via formatEventTime), with the Clock icon present', () => {
+      it('Today WITH a startTime provided -> Clock icon still shows (unchanged trigger), but the date box shows real digits, never a bare time string (BUG-047 AC-DATE-1, supersedes the old time-string branch)', () => {
         const today = new Date();
         const dateWithTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 18, 0, 0);
         const expectedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(dateWithTime);
-        
+        const expectedDay = new Intl.DateTimeFormat('en-US', { day: 'numeric' }).format(today);
+
         const { container } = render(
           <EventCard
             eventName="Masonry Today with Time"
@@ -351,13 +360,15 @@ describe('EventCard', () => {
         );
 
         expect(screen.queryByText('Today')).not.toBeInTheDocument();
-        expect(screen.getByText(expectedTime)).toBeInTheDocument();
+        expect(screen.queryByText(expectedTime)).not.toBeInTheDocument();
+        expect(container.querySelector('[data-event-card-date-box-day]')).toHaveTextContent(expectedDay);
         const clockIcon = container.querySelector('svg.lucide-clock');
         expect(clockIcon).toBeInTheDocument();
       });
 
-      it('Today with NO startTime provided (startTime omitted/null) -> badge shows Today text, no Clock icon', () => {
+      it('Today with NO startTime provided (startTime omitted/null) -> date box shows real digits, no Clock icon', () => {
         const today = new Date();
+        const expectedDay = new Intl.DateTimeFormat('en-US', { day: 'numeric' }).format(today);
         const { container } = render(
           <EventCard
             eventName="Masonry Today no Time"
@@ -367,14 +378,17 @@ describe('EventCard', () => {
           />
         );
 
-        expect(screen.getByText('Today')).toBeInTheDocument();
+        expect(screen.queryByText('Today')).not.toBeInTheDocument();
+        expect(container.querySelector('[data-event-card-date-box-day]')).toHaveTextContent(expectedDay);
         const clockIcon = container.querySelector('svg.lucide-clock');
         expect(clockIcon).not.toBeInTheDocument();
       });
 
-      it('Tomorrow (dayDiff===1) -> badge shows Tomorrow', () => {
+      it('Tomorrow (dayDiff===1) -> date box shows real digits, never the word "Tomorrow"', () => {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
+        const expectedMonth = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(tomorrow);
+        const expectedDay = new Intl.DateTimeFormat('en-US', { day: 'numeric' }).format(tomorrow);
         const { container } = render(
           <EventCard
             eventName="Masonry Tomorrow"
@@ -384,17 +398,22 @@ describe('EventCard', () => {
           />
         );
 
-        // Both the date box (AC12) and the below-image status badge (AC15) render
-        // "Tomorrow" for a dayDiff===1 event -- scope to the date box (primitive) specifically.
+        // The status badge (AC15, untouched) still renders "Tomorrow" in prose; the date box
+        // (AC-DATE-1) never does -- scope to the date box (primitive) specifically, and confirm
+        // exactly one "Tomorrow" text node exists (the status badge's, not a second date-box one).
         const datePill = container.querySelector('[data-event-card-date-box]');
-        expect(datePill).toHaveTextContent('Tomorrow');
-        expect(screen.getAllByText('Tomorrow').length).toBe(2);
+        expect(datePill).not.toHaveTextContent('Tomorrow');
+        expect(container.querySelector('[data-event-card-date-box-month]')).toHaveTextContent(expectedMonth);
+        expect(container.querySelector('[data-event-card-date-box-day]')).toHaveTextContent(expectedDay);
+        expect(screen.getAllByText('Tomorrow').length).toBe(1);
       });
 
-      it('Yesterday (dayDiff===-1) -> badge shows Yesterday (new case)', () => {
+      it('Yesterday (dayDiff===-1) -> date box shows real digits, never the word "Yesterday"', () => {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
-        render(
+        const expectedMonth = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(yesterday);
+        const expectedDay = new Intl.DateTimeFormat('en-US', { day: 'numeric' }).format(yesterday);
+        const { container } = render(
           <EventCard
             eventName="Masonry Yesterday"
             startDate={yesterday}
@@ -403,7 +422,9 @@ describe('EventCard', () => {
           />
         );
 
-        expect(screen.getByText('Yesterday')).toBeInTheDocument();
+        expect(screen.queryByText('Yesterday')).not.toBeInTheDocument();
+        expect(container.querySelector('[data-event-card-date-box-month]')).toHaveTextContent(expectedMonth);
+        expect(container.querySelector('[data-event-card-date-box-day]')).toHaveTextContent(expectedDay);
       });
 
       it('A date 3+ days in the future, SAME calendar year as today -> badge shows short-month/day-number two-tier split, no year, no time', () => {
@@ -607,6 +628,31 @@ describe('EventCard', () => {
         />
       );
 
+      expect(screen.getByText('till')).toBeInTheDocument();
+    });
+
+    it('BUG-047 review loop 1 regression: on the actual last day of a multi-day event with NO known endTime, the date-box shows the END date (not the start date), staying consistent with the still-shown TILL badge', () => {
+      const twoDaysAgo = new Date();
+      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+      const today = new Date();
+      const expectedMonth = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(today);
+      const expectedDay = new Intl.DateTimeFormat('en-US', { day: 'numeric' }).format(today);
+
+      const { container } = render(
+        <EventCard
+          eventName="Ends Today No Time"
+          startDate={twoDaysAgo}
+          endDate={today}
+          variant="masonry"
+          locale="en-US"
+        />
+      );
+
+      // Before the review-loop-1 fix, a strict raw-timestamp `notYetEnded` compare against
+      // `endDate`'s midnight-collapsed instant would have already flipped this back to the START
+      // date for the entire day -- the exact BUG-022 contradiction this story exists to fix.
+      expect(container.querySelector('[data-event-card-date-box-month]')).toHaveTextContent(expectedMonth);
+      expect(container.querySelector('[data-event-card-date-box-day]')).toHaveTextContent(expectedDay);
       expect(screen.getByText('till')).toBeInTheDocument();
     });
 

@@ -76,6 +76,11 @@ components:
       # slot via the shared `EventCardDateBox` primitive and `computeCalendarSegmentTillText` -- that component
       # still needs the same two-tier/till_label adoption `event_card_date_box.base_default` does, tracked as the
       # same follow-up story (see that token's comment).
+      # RESOLVED <BUG-047, 2026-09-26>: `month`/`day` here follow the SAME unified, numeric-only,
+      # context-date-driven rule as `event_card_date_box.base_default` (see that token's own comment for the
+      # full rule) -- always real end-or-start-date digits, never the till/time text. `till_label` (this box's
+      # own amber corner tag) carries the till/time text instead, populated on every segment day now (not just
+      # a "continuing" subset).
       # Reference: imports/event-card-calendar-row/with-thumbnail.png; validated prototype:
       # prototypes/event-card-calendar-row/with-thumbnail.html.
       base: "relative flex flex-col justify-center gap-0.5 px-3 py-2 rounded-md bg-slate-800 text-white shadow-sm shrink-0 leading-none"
@@ -382,13 +387,41 @@ components:
       # Reference: imports/event-card-masonry/default-with-thumbnail.png; validated prototype:
       # prototypes/event-card-masonry/default-with-thumbnail.html.
       base: "relative flex flex-col justify-center gap-0.5 px-4 py-3 rounded-md bg-slate-800 text-white shadow-sm shrink-0 leading-none"
-      month: "text-lg font-bold uppercase tracking-wide" # top line -- weekday/month abbreviation, e.g. "Oct"; Clock icon (AC12) renders inline with this line when hasTime && dayDiff === 0
-      day: "text-5xl font-extrabold leading-none" # bottom line -- the day-of-month number, e.g. "12"
-    # >>> Event-Card family consolidation (2026-09-26, consolidated-acs.md §2.2/§2.3): `base`/`base_default`'s
-    # >>> content rule (formatShortEventDateTime's Today/Tomorrow/weekday output) is being replaced by a new,
-    # >>> dedicated numeric-only, context-date-driven computation (AC-DATE-1/2/3) -- do not extend this token's
-    # >>> word-content description further; it is superseded once that AC lands. `base_default`'s `day` slot also
-    # >>> needs the width/height invariants in AC-DATE-4/5 (masonry-scoped only).
+      month: "text-lg font-bold uppercase tracking-wide" # top line -- month abbreviation, e.g. "Oct"; Clock icon (AC12) renders inline with this line when hasTime && dayDiff === 0
+      # RESOLVED <BUG-047, 2026-09-26 Event-Card family consolidation, consolidated-acs.md §2.2/§2.3>.
+      # Content rule for `base`/`base_default` (and the calendar list row's `event_card_compact.date_box`
+      # below) is no longer `formatShortEventDateTime`'s Today/Tomorrow/weekday/time-string output --
+      # a NEW, dedicated, numeric-only, context-date-driven computation (`computeEventCardDateBoxParts` /
+      # `formatEventCardDateBoxLine` for masonry, the rewritten `computeCalendarSegmentDateBoxContent` for
+      # the calendar row) replaces it as the date-box's sole content source. Every date-box render is
+      # anchored to a CONTEXT DATE -- masonry: real "now"; calendar list row: the day-column
+      # (`currentDayStr`) the card is rendered under. Rule: `started` (context date on/after the event's
+      # start) && `notYetEnded` (context date before the event's effective end) -> month/day show the
+      # EVENT'S END DATE; otherwise -> the event's START DATE. Masonry's `notYetEnded` uses a strict `<`
+      # on real timestamps; the calendar row's day-string `notYetEnded` uses `<=` (a multi-day event's
+      # actual last calendar day still counts as ongoing for its own full day, unlike a continuous
+      # timestamp's boundary). The day slot NEVER renders a word or a bare time string, by construction
+      # (no word branches exist) -- this supersedes BUG-040/Story 1.i1n's word-safe sizing mechanism
+      # (`dayVariant='word'`, now deleted, not kept) and fixes BUG-022 (masonry previously always showed
+      # `startDate`, contradicting its own TILL sub-badge once the event had started). On the calendar
+      # row's former "last/only day" case, month/day now show real end-date digits like every other case
+      # (the old "avoid repeating the day-row header's own date" guard is deliberately removed) -- the
+      # till/time text moves entirely to the amber corner tag (`computeCalendarSegmentTillText`,
+      # unchanged, now populated in every case, not just the former "continuing segment").
+      #
+      # AC-DATE-4 (masonry `size='default'` ONLY -- never `event_card_compact.date_box`): the `day` slot
+      # gets an explicit `tabular-nums min-w-[2ch] text-center inline-block` floor so the box's rendered
+      # width is identical whether the day is 1-digit ("3") or 2-digit ("23") -- previously nothing
+      # constrained this, so glyph width alone could shift the box's total width.
+      # AC-DATE-5 (masonry `size='default'`, VM2/`isMasonryDefault`): the date-box's rendered height must
+      # equal the adjacent thumbnail's height. NOT already structurally satisfied as originally
+      # speculated -- confirmed via a real Playwright render that `top_row_default`'s `flex items-stretch`
+      # row + the media slot's `h-full` DO correctly stretch this component's own WRAPPER div to the
+      # thumbnail's height, but this component's root `<span>` (the visible slate-800 box) had no height
+      # rule of its own and only filled its natural content height inside that taller wrapper -- the
+      # visible box was shorter than the thumbnail beside it. Fixed with `h-full` on the span, gated to
+      # `size='default'` only (never `'compact'`, which keeps its established layout).
+      day: "inline-block text-center tabular-nums min-w-[2ch] text-5xl font-extrabold leading-none" # bottom line -- always a real 1-2 digit day-of-month, e.g. "12" (AC-DATE-4 fixed-width classes, masonry `size='default'` only)
   event_card_till_badge:
     # Added <bmad-ux pass, 2026-09-04> -- Story 1.3b AC14. REVISED <bmad-ux pass, 2026-09-11> -- reference
     # screenshots reopened both the position (was bottom-edge-center) and the color (was a neutral inverted

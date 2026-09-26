@@ -1465,7 +1465,7 @@ describe('WeeklyCalendarView', () => {
       expect(container.querySelector('.bg-amber-700')).toHaveTextContent('till');
     });
 
-    it('shows "till {time}" on the last day when an end time is known, and never the start date (AC4)', () => {
+    it('BUG-047 AC-DATE-3 (<= rule): on a single-day event\'s only day, month/day now show the real (start===end) date digits -- the old "never repeats the start date" avoidance is deliberately gone; "till {time}" moves entirely to the amber corner tag', () => {
       const { container } = render(
         <ScopedLocaleProvider locale="en-US">
           <WeeklyCalendarView
@@ -1487,15 +1487,14 @@ describe('WeeklyCalendarView', () => {
 
       const dateBox = container.querySelector('[data-event-card-date-box]') as HTMLElement;
       expect(dateBox).not.toBeNull();
-      // Story 1.i1k: month/day are now separate elements (last/only-day branch: month carries
-      // the till label text, day carries the formatted end time), not one flat text node.
-      expect(container.querySelector('[data-event-card-date-box-month]')).toHaveTextContent('till');
-      expect(container.querySelector('[data-event-card-date-box-day]')).toHaveTextContent('9:00 PM');
-      // The date box never repeats the event's own start date text.
-      expect(dateBox.textContent).not.toContain('Aug 5');
+      expect(container.querySelector('[data-event-card-date-box-month]')).toHaveTextContent('Aug');
+      expect(container.querySelector('[data-event-card-date-box-day]')).toHaveTextContent('5');
+      expect(container.querySelector('.bg-amber-700')).toHaveTextContent('till 9:00 PM');
+      // Never a bare time string / word in the day slot itself (AC-DATE-1).
+      expect(container.querySelector('[data-event-card-date-box-day]')?.textContent).toMatch(/^\d{1,2}$/);
     });
 
-    it('falls back to a bare till with an end date but no time, and with no end info at all (AC4)', () => {
+    it('falls back to a bare "till" corner tag (real date digits in month/day either way) with an end date but no time, and with no end info at all', () => {
       const { container: c1 } = render(
         <ScopedLocaleProvider locale="en-US">
           <WeeklyCalendarView
@@ -1513,9 +1512,9 @@ describe('WeeklyCalendarView', () => {
           />
         </ScopedLocaleProvider>
       );
-      const dateBox1 = c1.querySelector('[data-event-card-date-box]') as HTMLElement;
-      expect(dateBox1).not.toBeNull();
-      expect(dateBox1.textContent).toBe('till');
+      expect(c1.querySelector('[data-event-card-date-box-month]')).toHaveTextContent('Aug');
+      expect(c1.querySelector('[data-event-card-date-box-day]')).toHaveTextContent('5');
+      expect(c1.querySelector('.bg-amber-700')).toHaveTextContent('till');
 
       const { container: c2 } = render(
         <ScopedLocaleProvider locale="en-US">
@@ -1533,9 +1532,9 @@ describe('WeeklyCalendarView', () => {
           />
         </ScopedLocaleProvider>
       );
-      const dateBox2 = c2.querySelector('[data-event-card-date-box]') as HTMLElement;
-      expect(dateBox2).not.toBeNull();
-      expect(dateBox2.textContent).toBe('till');
+      expect(c2.querySelector('[data-event-card-date-box-month]')).toHaveTextContent('Aug');
+      expect(c2.querySelector('[data-event-card-date-box-day]')).toHaveTextContent('5');
+      expect(c2.querySelector('.bg-amber-700')).toHaveTextContent('till');
     });
 
     describe('Status and nearby badges (Story 1.i1j, AC1-AC6)', () => {
