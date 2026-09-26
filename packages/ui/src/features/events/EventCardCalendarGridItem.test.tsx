@@ -181,6 +181,154 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
     });
   });
 
+  describe('Status badge (BUG-048, AC-STATUS-1)', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('renders no status badge when eventStartDate is omitted (e.g. CalendarOverflowDialog, not yet amended)', () => {
+      render(<EventCardCalendarGridItem {...defaultProps} />);
+      expect(document.querySelector('[data-event-card-status-badge]')).toBeNull();
+    });
+
+    it('renders no status badge in the with-image composition either, when eventStartDate is omitted', () => {
+      render(
+        <EventCardCalendarGridItem
+          {...defaultProps}
+          isMultiDay
+          imageUrl="https://img.example/poster.jpg"
+        />
+      );
+      expect(document.querySelector('[data-event-card-status-badge]')).toBeNull();
+    });
+
+    it('renders the happeningNow state with the emerald treatment', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+      render(
+        <EventCardCalendarGridItem
+          {...defaultProps}
+          eventStartDate="2026-08-05"
+          eventStartTime="00:00:00"
+          eventEndDate="2026-08-07"
+          eventEndTime="23:00:00"
+          timezone="UTC"
+        />
+      );
+      const badge = document.querySelector('[data-event-card-status-badge]') as HTMLElement;
+      expect(badge).toHaveTextContent('Now');
+      expect(badge).toHaveClass('bg-emerald-600');
+    });
+
+    it('renders the Ended state', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-08-05T15:00:00Z'));
+      render(
+        <EventCardCalendarGridItem
+          {...defaultProps}
+          eventStartDate="2026-08-05"
+          eventStartTime="09:00:00"
+          eventEndDate="2026-08-05"
+          eventEndTime="10:00:00"
+          timezone="UTC"
+        />
+      );
+      expect(document.querySelector('[data-event-card-status-badge]')).toHaveTextContent('Ended');
+    });
+
+    it('renders the Ends Today state', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-08-05T12:00:00Z'));
+      render(
+        <EventCardCalendarGridItem
+          {...defaultProps}
+          eventStartDate="2026-08-05"
+          eventStartTime="09:00:00"
+          eventEndDate="2026-08-05"
+          eventEndTime="23:00:00"
+          timezone="UTC"
+        />
+      );
+      expect(document.querySelector('[data-event-card-status-badge]')).toHaveTextContent('Ends Today');
+    });
+
+    it('renders the In {n} hour(s) state', () => {
+      // `combineDateTime` always builds the start instant from the machine's local wall clock
+      // (it ignores the `timezone` prop), so "now" is set the same way here — both anchor to
+      // the same local calendar day/hour arithmetic regardless of the actual host timezone.
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 7, 5, 10, 0, 0));
+      render(
+        <EventCardCalendarGridItem
+          {...defaultProps}
+          eventStartDate="2026-08-05"
+          eventStartTime="13:00:00"
+        />
+      );
+      expect(document.querySelector('[data-event-card-status-badge]')).toHaveTextContent('In 3 hour(s)');
+    });
+
+    it('renders the Tomorrow state', () => {
+      // A date-only `eventStartDate`/no `eventStartTime` sits on an exact one-day boundary with
+      // zero slack, so `timezone` must be pinned — otherwise the host machine's local offset can
+      // shift which calendar day the comparison lands on and flip this to a different state.
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-08-05T12:00:00Z'));
+      render(<EventCardCalendarGridItem {...defaultProps} eventStartDate="2026-08-06" timezone="UTC" />);
+      expect(document.querySelector('[data-event-card-status-badge]')).toHaveTextContent('Tomorrow');
+    });
+
+    it('renders a weekday name 2-6 days out', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-08-05T12:00:00Z'));
+      render(<EventCardCalendarGridItem {...defaultProps} eventStartDate="2026-08-08" locale="en-US" timezone="UTC" />);
+      expect(document.querySelector('[data-event-card-status-badge]')).toHaveTextContent('Saturday');
+    });
+
+    it('renders the In {n} days state 7-13 days out', () => {
+      // Pinned for the same reason as the Tomorrow test above — the exact day count asserted
+      // here is sensitive to the host machine's local timezone offset without it.
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-08-05T12:00:00Z'));
+      render(<EventCardCalendarGridItem {...defaultProps} eventStartDate="2026-08-13" timezone="UTC" />);
+      expect(document.querySelector('[data-event-card-status-badge]')).toHaveTextContent('In 8 days');
+    });
+
+    it('renders the Upcoming state 14+ days out', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-08-05T12:00:00Z'));
+      render(<EventCardCalendarGridItem {...defaultProps} eventStartDate="2026-08-25" timezone="UTC" />);
+      expect(document.querySelector('[data-event-card-status-badge]')).toHaveTextContent('Upcoming');
+    });
+
+    it('renders the status badge in the with-image composition too', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-08-05T12:00:00Z'));
+      render(
+        <EventCardCalendarGridItem
+          {...defaultProps}
+          isMultiDay
+          imageUrl="https://img.example/poster.jpg"
+          eventStartDate="2026-08-25"
+        />
+      );
+      expect(document.querySelector('[data-event-card-status-badge]')).toHaveTextContent('Upcoming');
+    });
+
+    it('respects caller-supplied statusLabels overrides', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-08-05T12:00:00Z'));
+      render(
+        <EventCardCalendarGridItem
+          {...defaultProps}
+          eventStartDate="2026-08-25"
+          statusLabels={{ statusUpcoming: 'Mendatang' }}
+        />
+      );
+      expect(document.querySelector('[data-event-card-status-badge]')).toHaveTextContent('Mendatang');
+    });
+  });
+
   describe('Title/venue wrap behavior', () => {
     it('title has no truncation class (wraps freely across multiple lines)', () => {
       render(<EventCardCalendarGridItem {...defaultProps} />);

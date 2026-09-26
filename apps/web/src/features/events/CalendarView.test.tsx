@@ -299,8 +299,10 @@ describe('CalendarView', () => {
 
     await screen.findAllByText('Weekly Jazz Jam');
 
-    const cards = screen.getAllByText('Weekly Jazz Jam');
-    fireEvent.click(cards[0]);
+    // BUG-048: the desktop grid cell's click target is now a sibling `<button>` carrying
+    // `aria-label={schedule.eventName}` rather than the visible text itself (which lives in a
+    // separate `pointer-events-none` visual layer built from `EventCardCalendarGridItem`).
+    fireEvent.click(screen.getByRole('button', { name: 'Weekly Jazz Jam' }));
 
     expect(mockRouterPush).toHaveBeenCalledWith(
       expect.stringContaining('/events/weekly-jazz-jam?fromList=true&q=jazz&types=MUSIC')

@@ -321,6 +321,18 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     nearbyBadge: labels.nearbyBadge ?? formatNearbyBadgeDistance,
   };
   const overflowDialogTitleLabel = labels.overflowDialogTitleLabel ?? DEFAULT_OVERFLOW_DIALOG_TITLE_LABEL;
+  // BUG-048 review finding: computed once and reused at all three `statusLabels` call sites
+  // (spanning bar, grid cell, mobile list row) instead of re-literalling the same 7-key object
+  // three times — a future label-key change now only needs to happen here.
+  const statusLabels: EventStatusLabels = {
+    statusEnded: defaultLabels.statusEnded,
+    statusHappeningNow: defaultLabels.statusHappeningNow,
+    statusEndsToday: defaultLabels.statusEndsToday,
+    statusInHours: defaultLabels.statusInHours,
+    statusInDays: defaultLabels.statusInDays,
+    statusUpcoming: defaultLabels.statusUpcoming,
+    tomorrow: defaultLabels.tomorrow,
+  };
 
   // 1. Compute the 7 visible days of the week from the caller-supplied weekStart.
   const visibleDays = useMemo(() => {
@@ -716,6 +728,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
               onFavoriteToggle={onFavoriteToggle}
               favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
               nearbyBadgeThreshold={nearbyBadgeThreshold}
+              statusLabels={statusLabels}
             />
           ))}
         </div>
@@ -750,6 +763,9 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
                   onFocus={() => setActiveCardCoords({ dayIdx, cardIdx })}
                   favoritedBadgeLabel={defaultLabels.favoritedBadgeLabel}
                   addedToCalendarBadgeLabel={defaultLabels.addedToCalendarBadgeLabel}
+                  nearbyBadgeLabel={defaultLabels.nearbyBadge}
+                  nearbyBadgeThreshold={nearbyBadgeThreshold}
+                  statusLabels={statusLabels}
                 />
               ))}
 
@@ -839,15 +855,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
                       multiDaySegmentLabel={labels?.multiDaySegmentLabel}
                       favoritedBadgeLabel={defaultLabels.favoritedBadgeLabel}
                       addedToCalendarBadgeLabel={defaultLabels.addedToCalendarBadgeLabel}
-                      statusLabels={{
-                        statusEnded: defaultLabels.statusEnded,
-                        statusHappeningNow: defaultLabels.statusHappeningNow,
-                        statusEndsToday: defaultLabels.statusEndsToday,
-                        statusInHours: defaultLabels.statusInHours,
-                        statusInDays: defaultLabels.statusInDays,
-                        statusUpcoming: defaultLabels.statusUpcoming,
-                        tomorrow: defaultLabels.tomorrow,
-                      }}
+                      statusLabels={statusLabels}
                       nearbyBadgeLabel={defaultLabels.nearbyBadge}
                       nearbyBadgeThreshold={nearbyBadgeThreshold}
                     />
@@ -931,7 +939,11 @@ interface CalendarCardProps<TSchedule> {
   variant?: 'grid' | 'list';
   currentDayStr?: string;
   multiDaySegmentLabel?: (dayNumber: number, totalDays: number) => string;
-  /** `list`-variant status badge labels (AC1/AC6), forwarded verbatim to `formatEventStatus`. */
+  /**
+   * Status badge labels (AC1/AC6), forwarded verbatim to `formatEventStatus`. Used by the
+   * `list` variant directly and, as of BUG-048, threaded through to `EventCardCalendarGridItem`
+   * for the `grid` variant's single-day cells too (both compute the same 8-state badge).
+   */
   statusLabels?: EventStatusLabels;
   /**
    * `list`-variant nearby badge text (AC3/AC6). Resolver FUNCTION, not a static string
@@ -1199,20 +1211,24 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
     );
   }
 
-  // NOTE(1.i1g/1.i1h): the plain text-only `variant === 'grid'` pill below is retained only
-  // for single-day schedules — `EventCardCalendarGridItem` (Story 1.i1f, Task 7) is adopted by
-  // this story's *spanning* banner (`MultiDaySpanningBar`, above) only, because a multi-day
-  // schedule never reaches this branch any more (`WeeklyCalendarView` filters multi-day
-  // schedules out of every desktop day cell and its "+N more" popover — Task 3/AC5-AC6).
-  // 1.i1h replaces this single-day/overflow-dialog surface with the same primitive. See Story
-  // 1.i1f's Out of Scope section for the full split.
+  // BUG-048: single-day schedules now adopt `EventCardCalendarGridItem` (Story 1.i1f), the same
+  // primitive the *spanning* banner (`MultiDaySpanningBar`, above) already uses — the exact
+  // "non-interactive chrome + sibling interactive elements" shape that bar's own doc comment
+  // describes (see `MultiDaySpanningBar` below): a real click-target `<button>` (keeps its
+  // roving-tabindex `id`/`tabIndex`/`onKeyDown`/`onFocus`, unchanged from before this fix) sits
+  // underneath a `pointer-events-none` visual layer painting the card on top, so the primitive's
+  // own internal favorite-toggle button stays interactive while the schedule-click target stays
+  // one linear roving-tabindex stop. `schedule.isAddedToCalendar` has no slot in the shared
+  // primitive (unlike `isFavorited`, which the primitive's own favorite control absorbs whenever
+  // an `onFavoriteToggle` handler is supplied) — it stays a small icon composed directly here.
   return (
-    <div className="relative w-full">
+    <div className="relative w-full" data-testid="calendar-grid-card">
       <button
         id={elementId}
         type="button"
         tabIndex={cardIdx >= 0 ? (isRovingActive ? 0 : -1) : 0}
-        className={`${baseButtonClass} ${multiDayRoundingClass} w-full block`}
+        className={SPANNING_BAR_CLICK_CLASS}
+        aria-label={schedule.eventName}
         onClick={() => onScheduleClick(schedule)}
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
@@ -1220,25 +1236,50 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
         onBlur={handleBlur}
         onKeyDown={handleKeyDownLocal}
         aria-describedby={tooltipVisible ? `tooltip-${dayIdx}-${schedule.id}` : undefined}
-      >
-        <span className="flex flex-col w-full text-left">
-          <span className="flex items-center gap-1 w-full truncate text-left">
-            {schedule.isFavorited && (
-              <Heart className="w-3 h-3 text-rose-500 fill-rose-500 shrink-0 inline" aria-label={favoritedBadgeLabel || 'Favorited'} data-testid="heart-icon" />
-            )}
-            {schedule.isAddedToCalendar && (
-              <CalendarPlus className="w-3 h-3 text-emerald-600 shrink-0 inline" aria-label={addedToCalendarBadgeLabel || 'Added to calendar'} data-testid="calendar-plus-icon" />
-            )}
-            <span className={`${weightClass} truncate block`}>{schedule.eventName}</span>
-          </span>
-          {schedule.favoriteCount !== undefined && schedule.favoriteCount > 0 && (
-            <span className="flex items-center gap-1 text-[11px] text-gray-500 mt-0.5" data-testid="favorite-count-line" aria-label="Favorites">
-              {!schedule.isFavorited && <Heart className="w-2.5 h-2.5 text-rose-500 shrink-0 inline" aria-hidden="true" />}
-              <span>{schedule.favoriteCount}</span>
-            </span>
-          )}
-        </span>
-      </button>
+      />
+
+      <div className={SPANNING_BAR_VISUAL_CLASS}>
+        <EventCardCalendarGridItem
+          eventName={schedule.eventName}
+          location={schedule.locationName}
+          isMultiDay={false}
+          isFavorited={schedule.isFavorited}
+          favoriteCount={schedule.favoriteCount}
+          onFavoriteToggle={onFavoriteToggle ? () => onFavoriteToggle(schedule) : undefined}
+          distanceKm={schedule.distanceKm}
+          nearbyBadgeThreshold={nearbyBadgeThreshold}
+          eventStartDate={schedule.eventStartDate}
+          eventStartTime={schedule.eventStartTime}
+          eventEndDate={schedule.eventEndDate}
+          eventEndTime={schedule.eventEndTime}
+          statusLabels={statusLabels}
+          locale={locale}
+          timezone={timezone}
+          labels={{ favoriteToggle: favoriteToggleLabel, nearbyBadge: nearbyBadgeLabel }}
+        />
+        {/* `EventCardCalendarGridItem`'s own favorite control only renders when a toggle handler
+            is supplied (mirrors `EventCard`'s convention, matches VM6's own already-shipped
+            tradeoff). When no handler exists at all there is no interactive control to fall back
+            to, so a purely decorative heart preserves the pre-BUG-048 behavior of showing
+            `isFavorited` unconditionally. Positioned with a *negative* offset so it sits outside
+            the card's own `p-2` padding box (a corner badge over the border, not the content) —
+            EventCardCalendarGridItem's title/favorite row starts flush at that same corner, so a
+            same-corner icon inside the padding box would overlap the title text. */}
+        {schedule.isFavorited && !onFavoriteToggle && (
+          <Heart
+            className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 text-rose-500 fill-rose-500 bg-white/90 rounded-full p-0.5 shadow-sm"
+            aria-label={favoritedBadgeLabel || 'Favorited'}
+            data-testid="heart-icon"
+          />
+        )}
+        {schedule.isAddedToCalendar && (
+          <CalendarPlus
+            className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 text-emerald-600 bg-white/90 rounded-full p-0.5 shadow-sm"
+            aria-label={addedToCalendarBadgeLabel || 'Added to calendar'}
+            data-testid="calendar-plus-icon"
+          />
+        )}
+      </div>
 
       {/* Hover+Focus accessible tooltip (AC7) */}
       {tooltipVisible && (
@@ -1278,6 +1319,8 @@ interface MultiDaySpanningBarProps<TSchedule extends WeeklyCalendarViewScheduleS
    * `EventCardCalendarGridItem`. Undefined keeps the card's own `8` default.
    */
   nearbyBadgeThreshold?: number;
+  /** BUG-048 (AC-STATUS-1) — forwarded to `EventCardCalendarGridItem`'s internal `formatEventStatus` call. */
+  statusLabels?: EventStatusLabels;
 }
 
 /**
@@ -1314,6 +1357,7 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
   onFavoriteToggle,
   favoriteToggleLabel,
   nearbyBadgeThreshold,
+  statusLabels,
 }: MultiDaySpanningBarProps<TSchedule>) {
   // Tooltip visibility states — same hover/focus/Escape model as CalendarCard's grid variant.
   const [isHovered, setIsHovered] = useState(false);
@@ -1404,6 +1448,13 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
           onFavoriteToggle={onFavoriteToggle ? () => onFavoriteToggle(schedule) : undefined}
           distanceKm={schedule.distanceKm}
           nearbyBadgeThreshold={nearbyBadgeThreshold}
+          eventStartDate={schedule.eventStartDate}
+          eventStartTime={schedule.eventStartTime}
+          eventEndDate={schedule.eventEndDate}
+          eventEndTime={schedule.eventEndTime}
+          statusLabels={statusLabels}
+          locale={locale}
+          timezone={timezone}
           labels={{ favoriteToggle: favoriteToggleLabel }}
         />
       </div>

@@ -218,18 +218,21 @@ describe('WeeklyCalendarView', () => {
     }
   });
 
-  it('renders compact schedule cards with correct title weights', () => {
+  it('renders compact schedule cards, both main and sub schedules, on the desktop grid', () => {
     render(<WeeklyCalendarView {...defaultProps} locale="en-US" />);
 
-    const mainCard = screen.getByText('Main Stage Concert').closest('button');
+    // BUG-048: the grid-variant title is now `EventCardCalendarGridItem`'s own `<h3>`, which
+    // (like VM6's already-shipped multi-day spanning bar) always renders `font-bold` — the
+    // main/sub `isMainSchedule` weight distinction the old plain-text pill drew is a property of
+    // the pill this fix replaces, not something the shared primitive exposes; VM6 already ships
+    // without it too. `variant='list'` (mobile) keeps its own separate weight distinction.
+    const mainCard = screen.getByRole('button', { name: 'Main Stage Concert' });
     expect(mainCard).toBeInTheDocument();
-    // Bold weight for main schedule
     expect(screen.getByText('Main Stage Concert')).toHaveClass('font-bold');
 
-    const subCard = screen.getByText('Gallery Tour').closest('button');
+    const subCard = screen.getByRole('button', { name: 'Gallery Tour' });
     expect(subCard).toBeInTheDocument();
-    // Normal weight for sub schedule
-    expect(screen.getByText('Gallery Tour')).toHaveClass('font-normal');
+    expect(screen.getByText('Gallery Tour')).toHaveClass('font-bold');
   });
 
   it('renders a multi-day schedule as one spanning card across its day columns (AC1/AC2/AC13)', () => {
@@ -467,8 +470,10 @@ describe('WeeklyCalendarView', () => {
       />
     );
 
-    // Click grid card
-    fireEvent.click(screen.getByText('Event 1'));
+    // Click grid card — BUG-048: the click target is the sibling `<button>` (accessible name =
+    // `schedule.eventName`), not the visible `<h3>` text, which now lives in a separate
+    // `pointer-events-none` visual layer.
+    fireEvent.click(rtlScreen.getByRole('button', { name: 'Event 1' }));
     expect(onScheduleClick).toHaveBeenLastCalledWith(lotsOfEvents[0]);
 
     // Open the shared dialog and activate the overflowing card. The dialog renders each row with
@@ -485,7 +490,9 @@ describe('WeeklyCalendarView', () => {
   it('hovering and keyboard focusing compact card displays custom tooltip', () => {
     render(<WeeklyCalendarView {...defaultProps} locale="en-US" />);
 
-    const cardButton = screen.getByText('Gallery Tour').closest('button');
+    // BUG-048: the click target is a sibling of the visible card now, with no text content of
+    // its own — its accessible name comes from `aria-label={schedule.eventName}` instead.
+    const cardButton = screen.getByRole('button', { name: 'Gallery Tour' });
     expect(cardButton).toBeInTheDocument();
 
     // Enter pointer
@@ -678,8 +685,10 @@ describe('WeeklyCalendarView', () => {
     //   Cell 0 (Wed Aug 5): Main Stage Concert (card-0)
     //   Cell 1 (Thu Aug 6): Gallery Tour (card-0)
     //   Cell 2 (Fri Aug 7): nothing (Tech Workshop only)
-    const wed0 = screen.getByText('Main Stage Concert').closest('button')!;
-    const thu0 = screen.getByText('Gallery Tour').closest('button')!;
+    // BUG-048: grid-cell click targets carry `aria-label={schedule.eventName}` rather than
+    // visible text, so they're located by accessible name instead of `closest('button')`.
+    const wed0 = screen.getByRole('button', { name: 'Main Stage Concert' });
+    const thu0 = screen.getByRole('button', { name: 'Gallery Tour' });
 
     // Initial roving tabIndex=0 is the first rendered card of the week
     expect(wed0).toHaveAttribute('tabIndex', '0');
@@ -791,23 +800,28 @@ describe('WeeklyCalendarView', () => {
       />
     );
 
+    // BUG-048: the grid cell now composes `EventCardCalendarGridItem` inside a wrapper carrying
+    // `data-testid="calendar-grid-card"` — the schedule name is no longer inside the click
+    // `<button>` (that button now carries only an `aria-label`), so queries anchor on the wrapper.
+    // No `onFavoriteToggle` is passed here, so `isFavorited` falls back to the decorative heart.
+
     // Fav Event should have heart badge
-    const favCard = screen.getByText('Fav Event').closest('button');
+    const favCard = screen.getByText('Fav Event').closest('[data-testid="calendar-grid-card"]');
     expect(favCard?.querySelector('[data-testid="heart-icon"]')).toBeInTheDocument();
     expect(favCard?.querySelector('[data-testid="calendar-plus-icon"]')).not.toBeInTheDocument();
 
     // Added Event should have calendar plus badge
-    const addedCard = screen.getByText('Added Event').closest('button');
+    const addedCard = screen.getByText('Added Event').closest('[data-testid="calendar-grid-card"]');
     expect(addedCard?.querySelector('[data-testid="heart-icon"]')).not.toBeInTheDocument();
     expect(addedCard?.querySelector('[data-testid="calendar-plus-icon"]')).toBeInTheDocument();
 
     // Both Event should have both badges
-    const bothCard = screen.getByText('Both Event').closest('button');
+    const bothCard = screen.getByText('Both Event').closest('[data-testid="calendar-grid-card"]');
     expect(bothCard?.querySelector('[data-testid="heart-icon"]')).toBeInTheDocument();
     expect(bothCard?.querySelector('[data-testid="calendar-plus-icon"]')).toBeInTheDocument();
 
     // None Event should have neither badge
-    const noneCard = screen.getByText('None Event').closest('button');
+    const noneCard = screen.getByText('None Event').closest('[data-testid="calendar-grid-card"]');
     expect(noneCard?.querySelector('[data-testid="heart-icon"]')).not.toBeInTheDocument();
     expect(noneCard?.querySelector('[data-testid="calendar-plus-icon"]')).not.toBeInTheDocument();
   });
@@ -840,27 +854,31 @@ describe('WeeklyCalendarView', () => {
       },
     ];
 
+    // BUG-048: the grid cell's favorite count is now shown inside
+    // `EventCardCalendarGridItem`'s own favorite-toggle control (`EventCardFavoriteBadge`), which
+    // only renders when `onFavoriteToggle` is supplied (same tradeoff VM6's spanning bar already
+    // ships with) — so this scenario needs the handler passed to exercise the count at all. That
+    // control also renders "0" (its own gate is `favoriteCount !== undefined`, not `> 0`), unlike
+    // the superseded plain-text pill which hid the line entirely at 0.
     render(
       <WeeklyCalendarView
         {...defaultProps}
         schedules={customizedSchedules}
         locale="en-US"
+        onFavoriteToggle={vi.fn()}
       />
     );
 
-    // Event with 5 Favorites should have the favorite-count-line with text '5'
-    const cardWith5 = screen.getByText('Event with 5 Favorites').closest('button');
-    const favCountLine = cardWith5?.querySelector('[data-testid="favorite-count-line"]');
-    expect(favCountLine).toBeInTheDocument();
-    expect(favCountLine).toHaveTextContent('5');
+    const cardWith5 = screen.getByText('Event with 5 Favorites').closest('[data-testid="calendar-grid-card"]') as HTMLElement;
+    expect(within(cardWith5).getByText('5')).toBeInTheDocument();
 
-    // Event with 0 Favorites should NOT have favorite-count-line
-    const cardWith0 = screen.getByText('Event with 0 Favorites').closest('button');
-    expect(cardWith0?.querySelector('[data-testid="favorite-count-line"]')).not.toBeInTheDocument();
+    const cardWith0 = screen.getByText('Event with 0 Favorites').closest('[data-testid="calendar-grid-card"]') as HTMLElement;
+    expect(within(cardWith0).getByText('0')).toBeInTheDocument();
 
-    // Event with Undefined Favorites should NOT have favorite-count-line
-    const cardWithUndefined = screen.getByText('Event with Undefined Favorites').closest('button');
-    expect(cardWithUndefined?.querySelector('[data-testid="favorite-count-line"]')).not.toBeInTheDocument();
+    const cardWithUndefined = screen.getByText('Event with Undefined Favorites').closest('[data-testid="calendar-grid-card"]') as HTMLElement;
+    // No count span at all when `favoriteCount` is undefined — only the icon renders.
+    expect(within(cardWithUndefined).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
+    expect(within(cardWithUndefined).queryByText('0')).not.toBeInTheDocument();
   });
 
   describe('Mobile Vertical List View (AC15)', () => {
@@ -1344,7 +1362,12 @@ describe('WeeklyCalendarView', () => {
         </ScopedLocaleProvider>
       );
       expect(noImageContainer.querySelector('[data-event-card-media-slot]')).toBeNull();
-      const noImageBadgeButton = rtlScreen.getByRole('button', { name: 'Toggle favorite' });
+      // BUG-048: scoped to the mobile view — the desktop grid cell now also renders a "Toggle
+      // favorite" control (via `EventCardCalendarGridItem`), so an unscoped query would match
+      // both.
+      const noImageBadgeButton = within(
+        rtlScreen.getByTestId('mobile-calendar-view')
+      ).getByRole('button', { name: 'Toggle favorite' });
       // No slot exists in this state — the row's own outer wrapper is the ancestor that must
       // declare the property instead, per Task 3.2's relocation.
       let rowWrapperAncestor: HTMLElement | null = noImageBadgeButton.parentElement;
@@ -1562,7 +1585,12 @@ describe('WeeklyCalendarView', () => {
           </ScopedLocaleProvider>
         );
 
-        const badges = container.querySelectorAll('[data-event-card-status-badge]');
+        // BUG-048: scoped to the mobile view — the desktop spanning bar now also renders a
+        // status badge for this same multi-day schedule (`EventCardCalendarGridItem`'s own
+        // AC-STATUS-1 amendment), which would otherwise inflate this count to 4.
+        const badges = rtlScreen
+          .getByTestId('mobile-calendar-view')
+          .querySelectorAll('[data-event-card-status-badge]');
         // AC5 — three day-segments (Aug 5/6/7), each independently computing status from the
         // same schedule-level start/end fields against the same real "now", so all three show
         // the identical happeningNow state.
@@ -1673,8 +1701,12 @@ describe('WeeklyCalendarView', () => {
         expect(nearCard.querySelector('[data-event-card-nearby-badge]')).toHaveTextContent('8 km');
         expect(boundaryCard.querySelector('[data-event-card-nearby-badge]')).toBeNull();
         expect(unknownCard.querySelector('[data-event-card-nearby-badge]')).toBeNull();
-        // No placeholder/error markup takes its place when omitted.
-        expect(container.querySelectorAll('[data-event-card-nearby-badge]')).toHaveLength(1);
+        // BUG-048: "today" (Aug 4) is before the visible week, so mobile day rows default
+        // expanded — the same single-day schedules also render on the desktop grid, which now
+        // renders the nearby badge too (`EventCardCalendarGridItem`'s existing gate, reachable
+        // from the grid variant as of this fix). So "Near Festival" renders the badge twice
+        // (once per surface); "Boundary"/"Unknown" render it nowhere, on either surface.
+        expect(container.querySelectorAll('[data-event-card-nearby-badge]')).toHaveLength(2);
       });
 
       it('appends the badge row as the content column\'s last child, after the multi-day-badge line (AC4)', () => {
@@ -1712,7 +1744,7 @@ describe('WeeklyCalendarView', () => {
         expect(badgeRowIdx).toBeGreaterThan(multiDayBadgeIdx);
       });
 
-      it('leaves variant="grid" completely unaffected — no status/nearby badge markup on desktop (AC7)', () => {
+      it('renders status badges on desktop variant="grid" day cells now that EventCardCalendarGridItem is adopted (BUG-048)', () => {
         vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
 
         render(
@@ -1722,8 +1754,29 @@ describe('WeeklyCalendarView', () => {
         );
 
         const desktopView = rtlScreen.getByTestId('desktop-calendar-view');
-        expect(desktopView.querySelector('[data-event-card-status-badge]')).toBeNull();
+        // Single-day cells (Main Stage Concert, Gallery Tour) now render
+        // `EventCardCalendarGridItem`, which renders a status badge whenever `eventStartDate` is
+        // present — both fixtures have one.
+        expect(desktopView.querySelectorAll('[data-event-card-status-badge]').length).toBeGreaterThan(0);
+        // No fixture schedule carries `distanceKm`, so the nearby badge is correctly still absent.
         expect(desktopView.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+      });
+
+      it('renders the nearby badge on desktop variant="grid" day cells when distanceKm is under threshold (BUG-048)', () => {
+        vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+
+        render(
+          <ScopedLocaleProvider locale="en-US">
+            <WeeklyCalendarView
+              {...defaultProps}
+              schedules={[{ ...sampleSchedules[0], distanceKm: 2 }]}
+            />
+          </ScopedLocaleProvider>
+        );
+
+        const desktopView = rtlScreen.getByTestId('desktop-calendar-view');
+        expect(desktopView.querySelector('[data-event-card-nearby-badge]')).not.toBeNull();
+        expect(desktopView.querySelector('[data-event-card-nearby-badge]')).toHaveTextContent('2 km');
       });
 
       // Story 1.i1m Task 6.5 — this story touches only `variant='list'`; the desktop
@@ -1872,10 +1925,10 @@ describe('WeeklyCalendarView', () => {
       expect(badge).not.toHaveClass('text-[10px]');
     });
 
-    it('leaves the variant="grid" day-cell title clipped to one line (rule 6 is compact-row only)', () => {
+    it('lets the variant="grid" day-cell title wrap freely, matching EventCardCalendarGridItem\'s own composition (BUG-048)', () => {
       // Single-day on purpose: a multi-day schedule renders on desktop as a spanning
-      // bar built from `EventCardCalendarGridItem`, which is a different component with
-      // its own title styling. The day-cell title is only reachable via a single-day row.
+      // bar built from `EventCardCalendarGridItem` too (Story 1.i1g), so both surfaces now
+      // share the exact same title styling — no more compact-row-only vs. grid-only split.
       render(
         <ScopedLocaleProvider locale="en-US">
           <WeeklyCalendarView
@@ -1890,9 +1943,8 @@ describe('WeeklyCalendarView', () => {
         'A Deliberately Long Festival Name That Needs Two Lines'
       )[0];
 
-      expect(gridTitle).toHaveClass('truncate');
+      expect(gridTitle).not.toHaveClass('truncate');
       expect(gridTitle).not.toHaveClass('line-clamp-2');
-      expect(gridTitle.parentElement as HTMLElement).toHaveClass('truncate', 'items-center');
     });
   });
 

@@ -1565,12 +1565,29 @@ items:
      note: "Consolidates AC-DATE-1..5 into one unified, context-date-driven, numeric-only date-box rule (fixes BUG-022, reverses 1.i1n's word-variant fix, adds AC-DATE-4/5 sizing). Full implementation/decision/review-loop detail lives in the spec file (see `spec:` above), not here."}
 
   BUG-048:
-    {type: bug, status: triaged, created: 2026-09-26,
+    {type: bug, status: done, created: 2026-09-26, closed: 2026-09-26,
      impact: cosmetic, effort: s,
+     spec: spec-bug-048-eventcardcalendargriditem-single-day-adoption.md,
      title: "WeeklyCalendarView's desktop single-day grid-item cell never adopted EventCardCalendarGridItem -- renders a plain untokened text pill instead",
      ref: [planning-artifacts/event-card-family-consolidated-acs.md, design-artifacts/UX-festgrid-run-1/prototypes/event-card-calendar-grid-item/thumbnail-fallback.html],
      touches: [pkg:ui, web:events/WeeklyCalendarView],
-     note: "EventCardCalendarGridItem's existing no-image composition is already prototype-validated for exactly this single-day case (thumbnail-fallback.html) -- this is a component-substitution wiring fix, not a new design item. Also amends EventCardCalendarGridItem itself to add EventCardStatusBadge (AC-STATUS-1): it currently has none, which matters once BUG-047 makes the date-box numeric-only elsewhere and the status badge becomes the family's sole carrier of relative-day meaning."}
+     note: "Fixed 2026-09-26 (bmad-quick-dev): grid cell now composes EventCardCalendarGridItem, plus a shared status-badge amendment (AC-STATUS-1, VM5+VM6). See the spec file for detail/decisions."}
+
+  FIND-057:
+    {type: finding, status: backlog, created: 2026-09-26,
+     impact: cosmetic, effort: xs,
+     title: "CalendarOverflowDialog (VM8) still doesn't render EventCardStatusBadge -- EventCardCalendarGridItem's BUG-048 status-badge amendment only reaches VM5/VM6",
+     ref: [planning-artifacts/event-card-family-consolidated-acs.md, implementation-artifacts/spec-bug-048-eventcardcalendargriditem-single-day-adoption.md],
+     touches: [pkg:ui, web:events/CalendarOverflowDialog],
+     note: "Deferred from: code review of spec-bug-048-eventcardcalendargriditem-single-day-adoption.md (2026-09-26). CalendarOverflowDialogItemShape has no date fields to pass through yet; extending it (a subset of WeeklyCalendarViewScheduleShape) is the fix."}
+
+  FIND-058:
+    {type: finding, status: backlog, created: 2026-09-26,
+     impact: cosmetic, effort: xs,
+     title: "3 more findings from BUG-048's review: MultiDaySpanningBar's missing nearbyBadgeLabel/isAddedToCalendar treatment, and no browser/screenshot check of the new grid composition",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-bug-048-eventcardcalendargriditem-single-day-adoption.md],
+     touches: [pkg:ui, web:events/WeeklyCalendarView],
+     note: "Deferred from: code review of spec-bug-048-eventcardcalendargriditem-single-day-adoption.md (2026-09-26). 3 findings (plus FIND-057, tracked separately)."}
 
   BUG-049:
     {type: bug, status: done, created: 2026-09-26, parent: CC-019,
