@@ -379,11 +379,27 @@ export function EventCardStatusBadge({
 }
 
 /**
- * The nearby-distance badge (`DESIGN.md` § event_card_nearby_badge, Story 1.i1i AC1/AC2).
- * Self-gating (AC1, mirroring `EventCardFavoriteBadge`'s early-return convention): renders
- * nothing unless the caller passes a known `distanceKm` below `thresholdKm` (default `8`), so
- * no consumer needs to precompute a `showNearbyBadge` boolean or re-derive the threshold
- * (Architecture Spine AD-24 Rule 2). Omitted entirely — never a disabled/placeholder state.
+ * BUG-049 (AC-NEARBY-1/2/3, `event-card-family-consolidated-acs.md` §2.4): shared default
+ * formatter for the nearby-badge's distance text. `distanceKm >= 2` renders with no decimal
+ * place ("5 km"); `distanceKm < 2` renders with one decimal place ("1.2 km"). Branch selection
+ * always uses the raw (un-rounded) `distanceKm` — so `1.95` stays in the `<2` branch and
+ * displays as `"2.0 km"` once `toFixed(1)` rounds the printed digit; the source value never
+ * actually crossed the 2km line, only its rendered text did. Exported so every call site
+ * (`EventCard.tsx`, `WeeklyCalendarView.tsx`, `EventCardCalendarGridItem.tsx`,
+ * `CalendarOverflowDialog.tsx`) shares one implementation of this rule instead of four.
+ */
+export function formatNearbyBadgeDistance(distanceKm: number): string {
+  return distanceKm >= 2 ? `${Math.round(distanceKm)} km` : `${distanceKm.toFixed(1)} km`;
+}
+
+/**
+ * The nearby-distance badge (`DESIGN.md` § event_card_nearby_badge, Story 1.i1i AC1/AC2;
+ * BUG-049 AC-NEARBY-1/2/3). Self-gating (AC1, mirroring `EventCardFavoriteBadge`'s early-return
+ * convention): renders nothing unless the caller passes a known `distanceKm` below
+ * `thresholdKm` (default `8`), so no consumer needs to precompute a `showNearbyBadge` boolean
+ * or re-derive the threshold (Architecture Spine AD-24 Rule 2). Omitted entirely — never a
+ * disabled/placeholder state. This gating is unchanged by BUG-049 — only the badge's rendered
+ * CONTENT changed, from a static "Nearby" word to the actual computed distance.
  *
  * Exported standalone (AC5) rather than as part of a combined badge-row primitive.
  */
@@ -394,10 +410,19 @@ export function EventCardNearbyBadge({
   className = '',
 }: EventCardNearbyBadgeProps) {
   // AC3 — match EventCard's existing labels/defaultLabels merge pattern exactly (same key
-  // `nearbyBadge`, same default string), never a second labels shape.
-  const defaultLabels = { nearbyBadge: 'Nearby', ...labels };
+  // `nearbyBadge`), now a function-shaped label (BUG-049) rather than a bare string default.
+  // Nullish-coalescing, not spread-after-default: a caller-supplied `labels={{ nearbyBadge:
+  // undefined }}` (key present, value undefined) must still fall back to the default function,
+  // never silently resolve to `undefined` and crash `defaultLabels.nearbyBadge(distanceKm)`
+  // below (review finding, BUG-049 — a plain object spread would have let that through).
+  const defaultLabels = { nearbyBadge: labels.nearbyBadge ?? formatNearbyBadgeDistance };
 
-  if (distanceKm == null || distanceKm >= thresholdKm) {
+  // BUG-049 review finding: `distanceKm` reaching here as NaN/negative/non-finite (a caller-side
+  // geolocation bug, not this primitive's concern) used to be masked by the old static "Nearby"
+  // label -- rendering it through `formatNearbyBadgeDistance` would surface it as visible broken
+  // text ("NaN km", "-3.0 km"). Treat it exactly like an unknown distance (`== null`) and omit
+  // the badge, rather than widen what the `< thresholdKm` comparison itself means.
+  if (distanceKm == null || !Number.isFinite(distanceKm) || distanceKm < 0 || distanceKm >= thresholdKm) {
     return null;
   }
 
@@ -407,7 +432,7 @@ export function EventCardNearbyBadge({
       className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground ${className}`}
     >
       <Navigation className="w-3 h-3" />
-      {defaultLabels.nearbyBadge}
+      {defaultLabels.nearbyBadge(distanceKm)}
     </span>
   );
 }

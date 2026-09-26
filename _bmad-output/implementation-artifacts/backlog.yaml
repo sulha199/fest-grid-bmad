@@ -1573,12 +1573,12 @@ items:
      note: "EventCardCalendarGridItem's existing no-image composition is already prototype-validated for exactly this single-day case (thumbnail-fallback.html) -- this is a component-substitution wiring fix, not a new design item. Also amends EventCardCalendarGridItem itself to add EventCardStatusBadge (AC-STATUS-1): it currently has none, which matters once BUG-047 makes the date-box numeric-only elsewhere and the status badge becomes the family's sole carrier of relative-day meaning."}
 
   BUG-049:
-    {type: bug, status: triaged, created: 2026-09-26, parent: CC-019,
+    {type: bug, status: done, created: 2026-09-26, parent: CC-019,
      impact: user-visible, effort: s,
      title: "EventCardNearbyBadge shows a static translated word (\"Nearby\") instead of the actual computed distance",
-     ref: [planning-artifacts/event-card-family-consolidated-acs.md],
+     ref: [planning-artifacts/event-card-family-consolidated-acs.md, implementation-artifacts/spec-bug-049-nearby-badge-distance.md],
      touches: [pkg:ui, web:events/EventCard, web:events/WeeklyCalendarView, cross:i18n],
-     note: "AC-NEARBY-1/2/3: badge text becomes the localized distance (>=2km: no decimal; <2km: 1 decimal), e.g. \"2.3 km\" -- the <8km threshold gate (AD-24 Rule 2) is unchanged. Breaking prop-shape change: nearbyBadge becomes a function-shaped label (distanceKm: number) => string, matching this codebase's existing moreLabel/multiDaySegmentLabel precedent -- every call site (EventCard.tsx, WeeklyCalendarView.tsx, EventCardCalendarGridItem.tsx) needs updating together."}
+     note: "Fixed 2026-09-26 (bmad-quick-dev): nearbyBadge is now a distance-formatting function (AC-NEARBY-1/2/3), not a static string -- see implementation-artifacts/spec-bug-049-nearby-badge-distance.md for the 4 call sites, the shared formatter, and the BUG-044 i18n follow-up."}
 
   BUG-050:
     {type: bug, status: triaged, created: 2026-09-26,

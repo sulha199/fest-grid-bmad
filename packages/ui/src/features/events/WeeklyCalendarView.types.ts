@@ -92,8 +92,15 @@ export interface WeeklyCalendarViewLabels {
   statusUpcoming?: string;
   /** Status badge (list variant) — event starts tomorrow. Matches `EventCardLabels.tomorrow`. Default: "Tomorrow". */
   tomorrow?: string;
-  /** Nearby badge (list variant) text, rendered only when `schedule.distanceKm` is below `nearbyBadgeThreshold`. Matches `EventCardLabels.nearbyBadge`. Default: "Nearby". */
-  nearbyBadge?: string;
+  /**
+   * Nearby badge (list variant) text, rendered only when `schedule.distanceKm` is below
+   * `nearbyBadgeThreshold`. Matches `EventCardLabels.nearbyBadge`. Resolver FUNCTION, not a
+   * static string (BUG-049, AC-NEARBY-1/2/3), for the same reason `moreLabel`/
+   * `multiDaySegmentLabel` are: the distance is only known once `schedule.distanceKm` resolves.
+   * Defaults to `formatNearbyBadgeDistance` (`>=2km` → no decimal, e.g. "5 km"; `<2km` → 1
+   * decimal, e.g. "1.2 km").
+   */
+  nearbyBadge?: (distanceKm: number) => string;
 }
 
 export interface WeeklyCalendarViewOverflowDialogData<

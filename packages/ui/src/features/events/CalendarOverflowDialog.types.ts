@@ -40,8 +40,12 @@ export interface CalendarOverflowDialogLabels {
   loadedAnnouncement?: (count: number) => string;
   /** Forwarded to every row's favorite-toggle button. Defaults to "Toggle favorite". */
   favoriteToggleLabel?: string;
-  /** Forwarded to every row's nearby badge. Defaults to "Nearby". */
-  nearbyBadgeLabel?: string;
+  /**
+   * Forwarded to every row's nearby badge. Resolver FUNCTION, not a static string (BUG-049,
+   * AC-NEARBY-1/2/3). Defaults to `formatNearbyBadgeDistance` (`>=2km` → no decimal, e.g.
+   * "5 km"; `<2km` → 1 decimal, e.g. "1.2 km").
+   */
+  nearbyBadgeLabel?: (distanceKm: number) => string;
 }
 
 /**

@@ -92,14 +92,14 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
   });
 
   describe('Nearby badge (`< nearbyBadgeThreshold` gate, shared with both compositions)', () => {
-    it('renders the badge just under 8km and omits it at/past the boundary', () => {
-      const { rerender } = render(
+    it('renders the badge just under 8km with the real distance (BUG-049) and omits it at/past the boundary', () => {
+      const { container, rerender } = render(
         <EventCardCalendarGridItem {...defaultProps} distanceKm={7.99} />
       );
-      expect(screen.getByText('Nearby')).toBeInTheDocument();
+      expect(screen.getByText('8 km')).toBeInTheDocument();
 
       rerender(<EventCardCalendarGridItem {...defaultProps} distanceKm={8} />);
-      expect(screen.queryByText('Nearby')).not.toBeInTheDocument();
+      expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
     });
 
     it('delegates to the shared EventCardNearbyBadge primitive (no hand-rolled badge JSX)', () => {
@@ -113,13 +113,12 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
       const { container, rerender } = render(
         <EventCardCalendarGridItem {...defaultProps} distanceKm={3} nearbyBadgeThreshold={2} />
       );
-      expect(screen.queryByText('Nearby')).not.toBeInTheDocument();
       expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
 
       rerender(
         <EventCardCalendarGridItem {...defaultProps} distanceKm={3} nearbyBadgeThreshold={4} />
       );
-      expect(screen.getByText('Nearby')).toBeInTheDocument();
+      expect(screen.getByText('3 km')).toBeInTheDocument();
 
       // AC15's gate is strict (`< thresholdKm`), so the override's boundary behaves exactly like
       // the `<8` default's — finding FIND-045 second-review patch (the override test previously
@@ -136,16 +135,16 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
     });
 
     it('omits the badge when distanceKm is null or undefined', () => {
-      const { rerender } = render(
+      const { container, rerender } = render(
         <EventCardCalendarGridItem {...defaultProps} distanceKm={null} />
       );
-      expect(screen.queryByText('Nearby')).not.toBeInTheDocument();
+      expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
 
       rerender(<EventCardCalendarGridItem {...defaultProps} />);
-      expect(screen.queryByText('Nearby')).not.toBeInTheDocument();
+      expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
     });
 
-    it('renders the badge in the with-image composition too', () => {
+    it('renders the badge in the with-image composition too, with the real distance (BUG-049)', () => {
       render(
         <EventCardCalendarGridItem
           {...defaultProps}
@@ -154,7 +153,7 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
           distanceKm={1}
         />
       );
-      expect(screen.getByText('Nearby')).toBeInTheDocument();
+      expect(screen.getByText('1.0 km')).toBeInTheDocument();
     });
   });
 

@@ -26,8 +26,15 @@ export interface EventCardLabels {
   statusUpcoming?: string;
   /** TILL sub-badge (masonry variant) prefix, e.g. "till 6:00 PM" or bare "till". Default: "till". */
   tillLabel?: string;
-  /** Nearby badge (masonry variant) text, rendered only when the caller-supplied distance is below `nearbyBadgeThreshold` (`DESIGN.md`'s corrected `< 8`km gate, Story 1.i1i). Default: "Nearby". */
-  nearbyBadge?: string;
+  /**
+   * Nearby badge (masonry variant) text, rendered only when the caller-supplied distance is
+   * below `nearbyBadgeThreshold` (`DESIGN.md`'s corrected `< 8`km gate, Story 1.i1i). Resolver
+   * FUNCTION, not a static string (BUG-049, AC-NEARBY-1/2/3) — the distance is only known once
+   * `distanceKm` resolves, exactly like `moreLabel`/`multiDaySegmentLabel`. Defaults to
+   * `formatNearbyBadgeDistance` (`>=2km` → no decimal, e.g. "5 km"; `<2km` → 1 decimal, e.g.
+   * "1.2 km").
+   */
+  nearbyBadge?: (distanceKm: number) => string;
 }
 
 export interface EventCardProps {

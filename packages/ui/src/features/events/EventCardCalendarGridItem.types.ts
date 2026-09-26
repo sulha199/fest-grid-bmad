@@ -40,7 +40,11 @@ export interface EventCardCalendarGridItemProps {
    */
   nearbyBadgeThreshold?: number;
   labels?: EventCardFavoriteBadgeLabels & {
-    /** Accessible/visible text for the nearby badge. Defaults to "Nearby". */
-    nearbyBadge?: string;
+    /**
+     * Accessible/visible text for the nearby badge. Resolver FUNCTION, not a static string
+     * (BUG-049, AC-NEARBY-1/2/3). Defaults to `formatNearbyBadgeDistance` (`>=2km` → no
+     * decimal, e.g. "5 km"; `<2km` → 1 decimal, e.g. "1.2 km").
+     */
+    nearbyBadge?: (distanceKm: number) => string;
   };
 }

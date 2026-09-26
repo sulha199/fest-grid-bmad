@@ -172,8 +172,14 @@ export interface EventCardStatusBadgeProps {
 
 /** Label overrides for `EventCardNearbyBadge` (AC3 — matches `EventCardLabels.nearbyBadge`). */
 export interface EventCardNearbyBadgeLabels {
-  /** Nearby-badge text. Defaults to "Nearby". */
-  nearbyBadge?: string;
+  /**
+   * Resolver FUNCTION, not a static string (BUG-049, AC-NEARBY-1/2/3) — the distance is only
+   * known once the caller's own geolocation math resolves `distanceKm`, exactly like
+   * `WeeklyCalendarViewLabels.moreLabel`/`multiDaySegmentLabel`. Defaults to
+   * `formatNearbyBadgeDistance` (`>=2km` → no decimal, e.g. "5 km"; `<2km` → 1 decimal, e.g.
+   * "1.2 km").
+   */
+  nearbyBadge?: (distanceKm: number) => string;
 }
 
 /**

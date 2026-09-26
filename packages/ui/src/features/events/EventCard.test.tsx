@@ -793,42 +793,42 @@ describe('EventCard', () => {
   });
 
   describe('Status badge (masonry, AC15) and Nearby badge (AC16)', () => {
-    it('renders the nearby badge just under the distanceKm=8 boundary and omits it at/past it (Story 1.i1f AC5)', () => {
+    it('renders the nearby badge just under the distanceKm=8 boundary with the real distance (BUG-049) and omits it at/past it (Story 1.i1f AC5)', () => {
       const { rerender } = render(
         <EventCard {...defaultProps} variant="masonry" distanceKm={7.99} locale="en-US" />
       );
-      expect(screen.getByText('Nearby')).toBeInTheDocument();
+      expect(screen.getByText('8 km')).toBeInTheDocument();
 
       rerender(<EventCard {...defaultProps} variant="masonry" distanceKm={8} locale="en-US" />);
-      expect(screen.queryByText('Nearby')).not.toBeInTheDocument();
+      expect(screen.queryByText('8 km')).not.toBeInTheDocument();
 
       rerender(<EventCard {...defaultProps} variant="masonry" distanceKm={8.01} locale="en-US" />);
-      expect(screen.queryByText('Nearby')).not.toBeInTheDocument();
+      expect(screen.queryByText('8 km')).not.toBeInTheDocument();
     });
 
     it('respects a caller-supplied nearbyBadgeThreshold override', () => {
       const { rerender } = render(
         <EventCard {...defaultProps} variant="masonry" distanceKm={3} nearbyBadgeThreshold={2} locale="en-US" />
       );
-      expect(screen.queryByText('Nearby')).not.toBeInTheDocument();
+      expect(screen.queryByText('3 km')).not.toBeInTheDocument();
 
       rerender(
         <EventCard {...defaultProps} variant="masonry" distanceKm={3} nearbyBadgeThreshold={4} locale="en-US" />
       );
-      expect(screen.getByText('Nearby')).toBeInTheDocument();
+      expect(screen.getByText('3 km')).toBeInTheDocument();
     });
 
     it('omits the nearby badge when distanceKm is null or undefined', () => {
-      const { rerender } = render(
+      const { container, rerender } = render(
         <EventCard {...defaultProps} variant="masonry" distanceKm={null} locale="en-US" />
       );
-      expect(screen.queryByText('Nearby')).not.toBeInTheDocument();
+      expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
 
       rerender(<EventCard {...defaultProps} variant="masonry" locale="en-US" />);
-      expect(screen.queryByText('Nearby')).not.toBeInTheDocument();
+      expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
     });
 
-    it('renders the status badge alone (no nearby badge) when distanceKm is absent, and status-then-nearby order when present', () => {
+    it('renders the status badge alone (no nearby badge) when distanceKm is absent, and status-then-nearby order with the real distance (BUG-049) when present', () => {
       const { container, rerender } = render(
         <EventCard {...defaultProps} variant="masonry" locale="en-US" />
       );
@@ -839,7 +839,7 @@ describe('EventCard', () => {
       rerender(<EventCard {...defaultProps} variant="masonry" distanceKm={1} locale="en-US" />);
       const badgeRowWithNearby = container.querySelector('.p-3.flex-1.flex.flex-col.gap-2 > div');
       expect(badgeRowWithNearby?.children.length).toBe(2);
-      expect(badgeRowWithNearby?.children[1]).toHaveTextContent('Nearby');
+      expect(badgeRowWithNearby?.children[1]).toHaveTextContent('1.0 km');
     });
 
     it('renders the happeningNow status badge with the emerald DESIGN.md exception (Story 1.i1i AC4)', () => {

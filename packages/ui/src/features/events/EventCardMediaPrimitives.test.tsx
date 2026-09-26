@@ -11,6 +11,7 @@ import {
   eventCardTillLabelClass,
   EVENT_CARD_BADGE_TEXT_SIZE_CLASS,
   EVENT_CARD_CONTAINER_CLASS,
+  formatNearbyBadgeDistance,
 } from './EventCardMediaPrimitives';
 import {
   EVENT_CARD_BADGE_ICON_SCALE_LARGE,
@@ -531,11 +532,11 @@ describe('EventCardStatusBadge - AC1/AC6 (two DESIGN.md shapes, non-interactive)
 describe('EventCardNearbyBadge - AC1/AC2/AC6 (self-gating <8km, non-interactive)', () => {
   afterEach(() => cleanup());
 
-  it('renders at 7.99km (just inside the corrected `<8km` gate) with the Navigation icon', () => {
+  it('renders at 7.99km (just inside the corrected `<8km` gate) with the Navigation icon and the real distance (BUG-049)', () => {
     const { container } = render(<EventCardNearbyBadge distanceKm={7.99} />);
     const badge = container.querySelector('[data-event-card-nearby-badge]') as HTMLElement;
     expect(badge).not.toBeNull();
-    expect(badge).toHaveTextContent('Nearby');
+    expect(badge).toHaveTextContent('8 km');
     expect(badge).toHaveClass('bg-secondary');
     expect(badge).toHaveClass('text-secondary-foreground');
     expect(badge.querySelector('svg')).not.toBeNull();
@@ -555,9 +556,32 @@ describe('EventCardNearbyBadge - AC1/AC2/AC6 (self-gating <8km, non-interactive)
     expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
   });
 
-  it('renders at 0km (the caller passes distance only - never a precomputed showNearbyBadge boolean)', () => {
+  it('renders nothing for a non-finite or negative distanceKm (BUG-049 review finding — a caller-side geolocation bug used to be masked by the static "Nearby" text; formatting it now would surface visibly broken text like "NaN km")', () => {
+    const { container, rerender } = render(<EventCardNearbyBadge distanceKm={NaN} />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+
+    rerender(<EventCardNearbyBadge distanceKm={Infinity} />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+
+    rerender(<EventCardNearbyBadge distanceKm={-Infinity} />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+
+    rerender(<EventCardNearbyBadge distanceKm={-3} />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+  });
+
+  it('falls back to the default formatter when labels.nearbyBadge is explicitly undefined (BUG-049 review finding — a plain object spread would let this crash instead of falling back)', () => {
+    const { container } = render(
+      <EventCardNearbyBadge distanceKm={1} labels={{ nearbyBadge: undefined }} />
+    );
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toHaveTextContent('1.0 km');
+  });
+
+  it('renders at 0km (the caller passes distance only - never a precomputed showNearbyBadge boolean), formatted with 1 decimal (BUG-049 AC-NEARBY-3)', () => {
     const { container } = render(<EventCardNearbyBadge distanceKm={0} />);
-    expect(container.querySelector('[data-event-card-nearby-badge]')).not.toBeNull();
+    const badge = container.querySelector('[data-event-card-nearby-badge]');
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveTextContent('0.0 km');
   });
 
   it('self-gates on its own default threshold; only a caller-level thresholdKm override changes it', () => {
@@ -572,14 +596,16 @@ describe('EventCardNearbyBadge - AC1/AC2/AC6 (self-gating <8km, non-interactive)
     expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
   });
 
-  it('defaults the label to "Nearby" and accepts the EventCardLabels.nearbyBadge override', () => {
+  it('defaults the label to the formatted distance and accepts the EventCardLabels.nearbyBadge function override (BUG-049)', () => {
     const { container, rerender } = render(<EventCardNearbyBadge distanceKm={1} />);
-    expect(container.querySelector('[data-event-card-nearby-badge]')).toHaveTextContent('Nearby');
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toHaveTextContent('1.0 km');
 
-    rerender(<EventCardNearbyBadge distanceKm={1} labels={{ nearbyBadge: 'Dekat' }} />);
+    rerender(
+      <EventCardNearbyBadge distanceKm={1} labels={{ nearbyBadge: (km) => `Dekat ${km}` }} />
+    );
     const badge = container.querySelector('[data-event-card-nearby-badge]') as HTMLElement;
-    expect(badge).toHaveTextContent('Dekat');
-    expect(badge).not.toHaveTextContent('Nearby');
+    expect(badge).toHaveTextContent('Dekat 1');
+    expect(badge).not.toHaveTextContent('1.0 km');
   });
 
   it('stays non-interactive: no aria-label, no title/tooltip, no extra focus stop', () => {
@@ -590,6 +616,35 @@ describe('EventCardNearbyBadge - AC1/AC2/AC6 (self-gating <8km, non-interactive)
     expect(badge.getAttribute('title')).toBeNull();
     expect(badge.getAttribute('tabindex')).toBeNull();
     expect(container.querySelectorAll('button, a, input, [tabindex]')).toHaveLength(0);
+  });
+});
+
+describe('formatNearbyBadgeDistance - BUG-049 AC-NEARBY-3 (decimal-precision boundary)', () => {
+  it('renders round numbers >= 2km with no decimal place', () => {
+    expect(formatNearbyBadgeDistance(5)).toBe('5 km');
+    expect(formatNearbyBadgeDistance(7.99)).toBe('8 km');
+  });
+
+  it('renders exactly 2.0km with no decimal place (the >=2 branch includes the boundary itself)', () => {
+    expect(formatNearbyBadgeDistance(2)).toBe('2 km');
+  });
+
+  it('renders sub-2km distances with exactly 1 decimal place', () => {
+    expect(formatNearbyBadgeDistance(1.2)).toBe('1.2 km');
+    expect(formatNearbyBadgeDistance(0)).toBe('0.0 km');
+  });
+
+  it('selects the branch off the RAW distance, not any rounded display value (1.95 stays <2, verified: JS float repr. makes (1.95).toFixed(1) === "1.9")', () => {
+    // 1.95 never reaches 2km -- it takes the <2 branch. Verified against real JS behavior
+    // (not assumed): 1.95 isn't exactly representable in IEEE-754 double, so it's actually
+    // stored fractionally below 1.95, and (1.95).toFixed(1) === '1.9', not '2.0'. The point of
+    // this test is the BRANCH choice (raw value, always <2 branch here), not a specific digit.
+    expect(formatNearbyBadgeDistance(1.95)).toBe('1.9 km');
+  });
+
+  it('selects the >=2 branch as soon as the raw distance reaches 2km, even fractionally', () => {
+    // 2.05 >= 2, so it takes the no-decimal branch; Math.round(2.05) still lands on 2.
+    expect(formatNearbyBadgeDistance(2.05)).toBe('2 km');
   });
 });
 

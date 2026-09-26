@@ -433,7 +433,8 @@ describe('Masonry distance-badge wiring (Story 1.i1f AC5-9, Task 5.4)', () => {
     await waitFor(() => {
       const title = screen.getByText('Nearby Event 1');
       const card = title.closest('button') as HTMLElement;
-      expect(within(card).getByText('Nearby')).toBeInTheDocument();
+      // BUG-049: badge shows the real distance (0km -- same coords as loc-1), not a static word.
+      expect(within(card).getByText('0.0 km')).toBeInTheDocument();
     });
   });
 
@@ -614,7 +615,8 @@ describe('Ambient current-location fallback (Story 0.39, wired into Story 1.i1f)
     await waitFor(() => {
       const title = screen.getByText('Nearby Event 1');
       const card = title.closest('button') as HTMLElement;
-      expect(within(card).getByText('Nearby')).toBeInTheDocument();
+      // BUG-049: badge shows the real distance (0km -- same coords as loc-1), not a static word.
+      expect(within(card).getByText('0.0 km')).toBeInTheDocument();
     });
   });
 });

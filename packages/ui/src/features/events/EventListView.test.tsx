@@ -420,7 +420,7 @@ describe('EventListView', () => {
       expect(container).toBeInTheDocument();
     });
 
-    it('passes a getCardProps-supplied distanceKm through unmodified (EventListView performs no distance computation itself, AC18)', () => {
+    it('passes a getCardProps-supplied distanceKm through unmodified (EventListView performs no distance computation itself, AC18), rendered as the real distance (BUG-049)', () => {
       render(
         <EventListView
           status="success"
@@ -433,11 +433,11 @@ describe('EventListView', () => {
         />
       );
 
-      expect(screen.getByText('Nearby')).toBeInTheDocument();
+      expect(screen.getByText('3 km')).toBeInTheDocument();
     });
 
     it('does not render a Nearby badge when getCardProps omits distanceKm', () => {
-      render(
+      const { container } = render(
         <EventListView
           status="success"
           events={[mockEvents[0]!]}
@@ -449,7 +449,7 @@ describe('EventListView', () => {
         />
       );
 
-      expect(screen.queryByText('Nearby')).not.toBeInTheDocument();
+      expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
     });
 
     it('renders the success grid with gap-x-2 gap-y-6 spacing (AC19)', () => {

@@ -17,6 +17,7 @@ import {
   EventCardNearbyBadge,
   EventCardFavoriteBadge,
   EVENT_CARD_CONTAINER_CLASS,
+  formatNearbyBadgeDistance,
 } from './EventCardMediaPrimitives';
 import { EventCardCalendarGridItem } from './EventCardCalendarGridItem';
 import { CalendarOverflowDialog } from './CalendarOverflowDialog';
@@ -313,8 +314,11 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     statusInDays: 'In {n} days',
     statusUpcoming: 'Upcoming',
     tomorrow: 'Tomorrow',
-    nearbyBadge: 'Nearby',
     ...labels,
+    // BUG-049 review finding: set after the spread with `??`, not spread-after-default, so an
+    // explicit `labels={{ nearbyBadge: undefined }}` still falls back to the formatter instead
+    // of crashing `EventCardNearbyBadge` when it calls `defaultLabels.nearbyBadge(distanceKm)`.
+    nearbyBadge: labels.nearbyBadge ?? formatNearbyBadgeDistance,
   };
   const overflowDialogTitleLabel = labels.overflowDialogTitleLabel ?? DEFAULT_OVERFLOW_DIALOG_TITLE_LABEL;
 
@@ -929,8 +933,12 @@ interface CalendarCardProps<TSchedule> {
   multiDaySegmentLabel?: (dayNumber: number, totalDays: number) => string;
   /** `list`-variant status badge labels (AC1/AC6), forwarded verbatim to `formatEventStatus`. */
   statusLabels?: EventStatusLabels;
-  /** `list`-variant nearby badge text (AC3/AC6). Defaults to "Nearby" inside `EventCardNearbyBadge` when omitted. */
-  nearbyBadgeLabel?: string;
+  /**
+   * `list`-variant nearby badge text (AC3/AC6). Resolver FUNCTION, not a static string
+   * (BUG-049, AC-NEARBY-1/2/3) — defaults to `formatNearbyBadgeDistance` inside
+   * `EventCardNearbyBadge` when omitted.
+   */
+  nearbyBadgeLabel?: (distanceKm: number) => string;
   /** `list`-variant nearby badge distance threshold (km), forwarded to `EventCardNearbyBadge` (AC3). Defaults to `8`. */
   nearbyBadgeThreshold?: number;
 }

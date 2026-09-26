@@ -31,6 +31,7 @@ import {
   EventCardFavoriteBadge,
   EventCardStatusBadge,
   EventCardNearbyBadge,
+  formatNearbyBadgeDistance,
   eventCardTillLabelClass,
   EVENT_CARD_BADGE_TEXT_SIZE_CLASS,
   EVENT_CARD_CONTAINER_CLASS,
@@ -99,8 +100,11 @@ export function EventCard({
     statusInDays: 'In {n} days',
     statusUpcoming: 'Upcoming',
     tillLabel: 'till',
-    nearbyBadge: 'Nearby',
     ...labels,
+    // BUG-049 review finding: set after the spread with `??`, not spread-after-default, so an
+    // explicit `labels={{ nearbyBadge: undefined }}` still falls back to the formatter instead
+    // of crashing `EventCardNearbyBadge` when it calls `defaultLabels.nearbyBadge(distanceKm)`.
+    nearbyBadge: labels.nearbyBadge ?? formatNearbyBadgeDistance,
   };
 
   const [imgError, setImgError] = useState(false);

@@ -629,7 +629,7 @@ describe('WeeklyCalendarView', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
-  it('renders the spanning card venue from locationName and the <8km nearby badge (AC8/AC10)', () => {
+  it('renders the spanning card venue from locationName and the <8km nearby badge with the real distance (BUG-049) (AC8/AC10)', () => {
     const withVenue = [
       {
         id: 'md-venue',
@@ -658,7 +658,7 @@ describe('WeeklyCalendarView', () => {
 
     const bar = rtlScreen.getByTestId('multi-day-spanning-bar');
     expect(within(bar).getByText('Hall 4')).toBeInTheDocument();
-    expect(within(bar).getByText('Nearby')).toBeInTheDocument();
+    expect(within(bar).getByText('3 km')).toBeInTheDocument();
 
     cleanup();
 
@@ -667,7 +667,7 @@ describe('WeeklyCalendarView', () => {
     const barNoVenue = rtlScreen.getByTestId('multi-day-spanning-bar');
     // AC10 — degrades gracefully when the venue is absent: no venue line, no placeholder.
     expect(within(barNoVenue).queryByText('Hall 4')).not.toBeInTheDocument();
-    expect(within(barNoVenue).queryByText('Nearby')).not.toBeInTheDocument();
+    expect(barNoVenue.querySelector('[data-event-card-nearby-badge]')).toBeNull();
   });
 
   it('roving-tabindex keyboard arrow navigation between schedule cards behaves correctly', () => {
@@ -1669,7 +1669,8 @@ describe('WeeklyCalendarView', () => {
         const unknownCard = within(mobileView).getByText('Unknown Distance Festival').closest('[data-testid="mobile-day-row"]') as HTMLElement;
 
         expect(nearCard.querySelector('[data-event-card-nearby-badge]')).not.toBeNull();
-        expect(nearCard.querySelector('[data-event-card-nearby-badge]')).toHaveTextContent('Nearby');
+        // BUG-049: badge shows the real distance, not a static word (7.9 rounds to "8 km").
+        expect(nearCard.querySelector('[data-event-card-nearby-badge]')).toHaveTextContent('8 km');
         expect(boundaryCard.querySelector('[data-event-card-nearby-badge]')).toBeNull();
         expect(unknownCard.querySelector('[data-event-card-nearby-badge]')).toBeNull();
         // No placeholder/error markup takes its place when omitted.

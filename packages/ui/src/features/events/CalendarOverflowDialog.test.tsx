@@ -413,7 +413,8 @@ describe('CalendarOverflowDialog (Story 1.i1h Task 6)', () => {
       );
 
       // Exactly one row is inside the 5km gate — the other two render no badge at all.
-      expect(screen.getAllByText('Nearby')).toHaveLength(1);
+      // BUG-049: the badge shows the real distance ("3 km"), not a static word.
+      expect(screen.getAllByText('3 km')).toHaveLength(1);
       expect(container.querySelectorAll('[data-event-card-nearby-badge]')).toHaveLength(1);
     });
   });

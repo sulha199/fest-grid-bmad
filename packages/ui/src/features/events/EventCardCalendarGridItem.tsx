@@ -13,7 +13,7 @@
  *   and `EventCardNearbyBadge` (the shared, self-gating `< thresholdKm` badge)
  */
 import React, { useState } from 'react';
-import { EventCardFavoriteBadge, EventCardNearbyBadge } from './EventCardMediaPrimitives';
+import { EventCardFavoriteBadge, EventCardNearbyBadge, formatNearbyBadgeDistance } from './EventCardMediaPrimitives';
 import type { EventCardCalendarGridItemProps } from './EventCardCalendarGridItem.types';
 
 export function EventCardCalendarGridItem({
@@ -31,8 +31,11 @@ export function EventCardCalendarGridItem({
 }: EventCardCalendarGridItemProps) {
   const defaultLabels = {
     favoriteToggle: 'Toggle favorite',
-    nearbyBadge: 'Nearby',
     ...labels,
+    // BUG-049 review finding: set after the spread with `??`, not spread-after-default, so an
+    // explicit `labels={{ nearbyBadge: undefined }}` still falls back to the formatter instead
+    // of crashing `EventCardNearbyBadge` when it calls `defaultLabels.nearbyBadge(distanceKm)`.
+    nearbyBadge: labels.nearbyBadge ?? formatNearbyBadgeDistance,
   };
 
   // Same onError detection EventCard.tsx's existing `imgError` state uses.

@@ -20,6 +20,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { useInfiniteScroll } from '../../hooks';
 import { EventCardCalendarGridItem } from './EventCardCalendarGridItem';
+import { formatNearbyBadgeDistance } from './EventCardMediaPrimitives';
 import type {
   CalendarOverflowDialogItemShape,
   CalendarOverflowDialogProps,
@@ -91,8 +92,11 @@ export function CalendarOverflowDialog<
     loadMoreErrorLabel: 'Could not load more events.',
     loadedAnnouncement: (count: number) => `${count} more ${count === 1 ? 'event' : 'events'} loaded`,
     favoriteToggleLabel: 'Toggle favorite',
-    nearbyBadgeLabel: 'Nearby',
     ...labels,
+    // BUG-049 review finding: set after the spread with `??`, not spread-after-default, so an
+    // explicit `labels={{ nearbyBadgeLabel: undefined }}` still falls back to the formatter
+    // instead of forwarding `undefined` into `EventCardCalendarGridItem`'s `labels.nearbyBadge`.
+    nearbyBadgeLabel: labels.nearbyBadgeLabel ?? formatNearbyBadgeDistance,
   };
 
   const dialogRef = useRef<HTMLDivElement>(null);
