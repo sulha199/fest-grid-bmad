@@ -213,30 +213,6 @@ describe('EventListView', () => {
 
       const skeletonImages = container.querySelectorAll('.aspect-\\[3\\/4\\]');
       expect(skeletonImages.length).toBe(6);
-      const standardImages = container.querySelectorAll('.h-48');
-      expect(standardImages.length).toBe(0);
-    });
-
-    it('allows overriding default masonry variant via getCardProps', () => {
-      render(
-        <EventListView
-          status="success"
-          events={[mockEvents[0]!]}
-          emptyState={<div>Empty</div>}
-          getCardProps={() => ({
-            variant: 'standard',
-          })}
-          sentinelRef={vi.fn()}
-          isFetchingNextPage={false}
-          loadingMoreLabel="Loading more..."
-        />
-      );
-
-      const cardTitle = screen.getByText('Summer Fest');
-      const cardContainer = cardTitle.closest('.p-4');
-      expect(cardContainer).toBeInTheDocument();
-      const masonryContainer = cardTitle.closest('.p-3');
-      expect(masonryContainer).not.toBeInTheDocument();
     });
   });
 

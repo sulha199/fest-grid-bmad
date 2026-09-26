@@ -38,6 +38,18 @@ This file tracks work deferred from development stories, code reviews, and plann
   summary: FIND-020 — add throttling/dedup to the scraper audit-trail alert (`send-scraper-audit-alert.ts`), reusing the `getModeratorEmails()` dedup helper and a DB-backed cooldown store modeled on `scraper-provider-health-store.ts`.
   evidence: Split from a combined BUG-015+FIND-020 quick-dev intent per the multi-goal check — the two are independent, unrelated backend fixes touching different files with no shared dependency (BUG-015 is the enqueue loop's partial-failure tracking; FIND-020 is the audit-alert's throttling/dedup). User chose to split and do BUG-015 first since it's the live risk per the backlog note.
 
+## Deferred from: bmad-quick-dev FIND-053 review (2026-09-26)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-find-053-remove-eventcard-standard-variant.md`
+  summary: `EventCardProps.categories`/`types`/`priceFrom` (and the matching `EventCardLabels.priceFrom`/`typeLabels`/`categoryLabels`) are now fully unread by `EventCard.tsx` — FIND-053 deleted their only renderer (the `variant='standard'` caption) but left the props themselves on the public type, so a caller can still pass them and TypeScript accepts it silently doing nothing. Removing them is a further public-API breaking change beyond what FIND-053 asked for (drop `'standard'` from the `variant` union only) and needs its own explicit go-ahead plus an EventListView.tsx `derivedProps` cleanup (it still builds `categories`/`types`/`priceFrom` for every card).
+  evidence: Surfaced by the Blind Hunter review pass; independently confirmed by grep — no remaining read of these fields anywhere in `EventCard.tsx` outside their own declaration. Marked accepted-but-unused in both files' doc comments in the meantime.
+- source_spec: `_bmad-output/implementation-artifacts/spec-find-053-remove-eventcard-standard-variant.md`
+  summary: `formatRelativeDayOrDate` (`format-event-date.ts`) has no remaining production consumer anywhere in the repo now that `EventCard.tsx` no longer imports it (it powered only the deleted `variant='standard'` caption's date line) — it's still exported from `packages/ui/src/features/events/index.ts` and covered by its own unit tests in `format-event-date.test.ts`, but is otherwise dead code one layer removed from this fix's stated scope.
+  evidence: Surfaced by the Blind Hunter review pass; confirmed by repo-wide grep (only `format-event-date.ts` itself and `format-event-date.test.ts` reference it). Left exported since `format-event-date.ts` is a general-purpose date-formatting module, not exclusive to `EventCard`, and removing a public export is a separate decision from this fix's scope.
+- source_spec: `_bmad-output/implementation-artifacts/spec-find-053-remove-eventcard-standard-variant.md`
+  summary: `apps/web/src/app/[locale]/archive/archive-content.tsx`'s `getCardProps` callback is typed with an `any`-typed event parameter, which means a rogue `variant: 'standard'` (or any other invalid `EventCardProps` value) assigned through it would not be caught by the narrower `variant?: 'masonry'` type FIND-053 introduced — the type-safety improvement only holds where callers aren't already using `any` to bypass it.
+  evidence: Surfaced by the Blind Hunter review pass. Pre-existing looseness in that call site, unrelated to and not introduced by this fix; would need its own typing pass to close.
+
 ## Deferred from: find-011-cruft-cleanup (2026-09-15)
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-find-011-cruft-cleanup.md`

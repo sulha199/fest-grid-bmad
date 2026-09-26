@@ -11,22 +11,22 @@ import {
 } from './event-card-media-tokens';
 import { ScopedLocaleProvider } from '../../hooks/useScopedLocale';
 
-// Mirrors EventCard's own Intl.DateTimeFormat options, so expected values are
-// computed with the same ICU data the component under test uses — this keeps
-// the assertions correct regardless of which locale data the CI Node build
-// ships (Node bundles full ICU by default since v13, so 'id' formatting is
-// expected to be available; this pattern is just defense against the assumption
-// ever becoming false, or the format options drifting).
-const DATE_OPTS: Intl.DateTimeFormatOptions = {
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-};
-
-function expectedDate(locale: string, date: Date, timeZone?: string) {
-  return new Intl.DateTimeFormat(locale, { ...DATE_OPTS, ...(timeZone ? { timeZone } : {}) }).format(date);
+// FIND-053 removed `variant='standard'` (dead code -- no production call site ever passed
+// it), which was the only EventCard render path that ever showed a full month/day/year/
+// time date string. The masonry date overlay (rendered whenever `prominentPoster` is true)
+// instead mirrors `formatShortEventDateTime`'s same-year branch: locale/timezone-sensitive
+// short month + day, no year, no time -- this helper matches that for the locale/timezone
+// resolution tests below (all fixtures share `defaultProps.startDate`'s 2026 year with
+// "now", so the same-year branch always applies). Mirrors EventCard's own Intl call so
+// assertions stay correct regardless of which locale data the CI Node build ships (Node
+// bundles full ICU by default since v13, so 'id' formatting is expected to be available;
+// this pattern is just defense against the assumption ever becoming false).
+function expectedShortDate(locale: string, date: Date, timeZone?: string) {
+  return new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'short',
+    ...(timeZone ? { timeZone } : {}),
+  }).format(date);
 }
 
 describe('EventCard', () => {
@@ -41,59 +41,59 @@ describe('EventCard', () => {
   it('formats the date using the nearest ScopedLocaleProvider when no locale prop is given', () => {
     render(
       <ScopedLocaleProvider locale="id">
-        <EventCard {...defaultProps} />
+        <EventCard {...defaultProps} prominentPoster />
       </ScopedLocaleProvider>
     );
-    expect(screen.getByText(expectedDate('id', defaultProps.startDate))).toBeInTheDocument();
-    expect(screen.queryByText(expectedDate('en-US', defaultProps.startDate))).not.toBeInTheDocument();
+    expect(screen.getByText(expectedShortDate('id', defaultProps.startDate))).toBeInTheDocument();
+    expect(screen.queryByText(expectedShortDate('en-US', defaultProps.startDate))).not.toBeInTheDocument();
   });
 
   it('lets an explicit locale prop override the ambient ScopedLocaleProvider', () => {
     render(
       <ScopedLocaleProvider locale="id">
-        <EventCard {...defaultProps} locale="en-US" />
+        <EventCard {...defaultProps} prominentPoster locale="en-US" />
       </ScopedLocaleProvider>
     );
-    expect(screen.getByText(expectedDate('en-US', defaultProps.startDate))).toBeInTheDocument();
+    expect(screen.getByText(expectedShortDate('en-US', defaultProps.startDate))).toBeInTheDocument();
   });
 
   it('formats the date using the nearest ScopedLocaleProvider timezone when no timezone prop is given', () => {
     render(
       <ScopedLocaleProvider locale="en-US" timezone="Asia/Jakarta">
-        <EventCard {...defaultProps} />
+        <EventCard {...defaultProps} prominentPoster />
       </ScopedLocaleProvider>
     );
     expect(
-      screen.getByText(expectedDate('en-US', defaultProps.startDate, 'Asia/Jakarta'))
+      screen.getByText(expectedShortDate('en-US', defaultProps.startDate, 'Asia/Jakarta'))
     ).toBeInTheDocument();
   });
 
   it('lets an explicit timezone prop override the ambient ScopedLocaleProvider timezone', () => {
     render(
       <ScopedLocaleProvider locale="en-US" timezone="Asia/Jakarta">
-        <EventCard {...defaultProps} timezone="UTC" />
+        <EventCard {...defaultProps} prominentPoster timezone="UTC" />
       </ScopedLocaleProvider>
     );
-    expect(screen.getByText(expectedDate('en-US', defaultProps.startDate, 'UTC'))).toBeInTheDocument();
+    expect(screen.getByText(expectedShortDate('en-US', defaultProps.startDate, 'UTC'))).toBeInTheDocument();
   });
 
   it('inherits the timezone from an outer provider when a nested provider only overrides locale', () => {
     render(
       <ScopedLocaleProvider locale="id" timezone="Asia/Jakarta">
         <ScopedLocaleProvider locale="en-US">
-          <EventCard {...defaultProps} />
+          <EventCard {...defaultProps} prominentPoster />
         </ScopedLocaleProvider>
       </ScopedLocaleProvider>
     );
     expect(
-      screen.getByText(expectedDate('en-US', defaultProps.startDate, 'Asia/Jakarta'))
+      screen.getByText(expectedShortDate('en-US', defaultProps.startDate, 'Asia/Jakarta'))
     ).toBeInTheDocument();
   });
 
   it('falls back to a safe format instead of crashing when given an invalid timezone', () => {
-    render(<EventCard {...defaultProps} locale="en-US" timezone="Not/A_Real_Zone" />);
+    render(<EventCard {...defaultProps} prominentPoster locale="en-US" timezone="Not/A_Real_Zone" />);
     // Degrades to locale-only formatting (no timeZone applied) rather than throwing.
-    expect(screen.getByText(expectedDate('en-US', defaultProps.startDate))).toBeInTheDocument();
+    expect(screen.getByText(expectedShortDate('en-US', defaultProps.startDate))).toBeInTheDocument();
   });
 
   // DW-070 (BUG-013): a bad `startDate` can still yield an Invalid Date inside
@@ -101,13 +101,6 @@ describe('EventCard', () => {
   // that NaN must not propagate unguarded into getEventDayDiff/formatRelativeDayOrDate
   // (or formatShortEventDateTime, which calls getEventDayDiff internally) and throw in
   // Intl formatting. Both variants must instead degrade to a blank date without crashing.
-  it('degrades to a blank date (no throw) when given an invalid startDate (standard variant)', () => {
-    render(
-      <EventCard eventName="Broken Date Card" startDate={new Date('not-a-real-date')} locale="en-US" />
-    );
-    expect(screen.getByText('Broken Date Card')).toBeInTheDocument();
-  });
-
   it('degrades to a blank date (no throw) when given an invalid startDate (masonry variant)', () => {
     render(
       <EventCard eventName="Broken Date Card Masonry" startDate="not-a-real-date" variant="masonry" locale="en-US" />
@@ -135,56 +128,10 @@ describe('EventCard', () => {
         {...defaultProps}
         locale="en-US"
         locationName="Central Park"
-        categories={['Music', 'Outdoor']}
-        types={['Festival']}
-        priceFrom={50}
       />
     );
-    
+
     expect(screen.getByText('Central Park')).toBeInTheDocument();
-    expect(screen.getByText('Music')).toBeInTheDocument();
-    expect(screen.getByText('Outdoor')).toBeInTheDocument();
-    expect(screen.getByText('Festival')).toBeInTheDocument();
-    expect(screen.getByText('50')).toBeInTheDocument();
-  });
-
-  it('renders translated labels for categories/types/price when provided, falling back to raw values otherwise', () => {
-    render(
-      <EventCard
-        {...defaultProps}
-        locale="en-US"
-        categories={['MUSIC']}
-        types={['FESTIVAL']}
-        priceFrom={50}
-        labels={{
-          categoryLabels: { MUSIC: 'Music' },
-          typeLabels: { FESTIVAL: 'Festival' },
-          priceFrom: 'Starting at',
-        }}
-      />
-    );
-
-    expect(screen.getByText('Music')).toBeInTheDocument();
-    expect(screen.getByText('Festival')).toBeInTheDocument();
-    expect(screen.getByText('Starting at')).toBeInTheDocument();
-    expect(screen.queryByText('MUSIC')).not.toBeInTheDocument();
-    expect(screen.queryByText('FESTIVAL')).not.toBeInTheDocument();
-
-    cleanup();
-
-    // No labels provided: falls back to the raw value rather than throwing/blanking
-    render(
-      <EventCard
-        {...defaultProps}
-        locale="en-US"
-        categories={['MUSIC']}
-        types={['FESTIVAL']}
-        priceFrom={50}
-      />
-    );
-    expect(screen.getByText('MUSIC')).toBeInTheDocument();
-    expect(screen.getByText('FESTIVAL')).toBeInTheDocument();
-    expect(screen.getByText('From')).toBeInTheDocument();
   });
 
   it('handles image success', () => {
@@ -194,8 +141,12 @@ describe('EventCard', () => {
     expect(img).toHaveAttribute('src', 'http://example.com/image.jpg');
   });
 
-  it('handles image error fallback', () => {
-    render(<EventCard {...defaultProps} imageUrl="http://example.com/bad-image.jpg" />);
+  it('handles image error fallback (prominentPoster, the only remaining raw-<img> path)', () => {
+    // FIND-053 removed `variant='standard'` (dead code), which was the only path using this
+    // wrapper's default-state `<img onError>` handling. The masonry `prominentPoster=true`
+    // state is the sole surviving consumer of the same raw-<img> code, so this test now
+    // exercises that state directly instead of the removed default.
+    render(<EventCard {...defaultProps} prominentPoster imageUrl="http://example.com/bad-image.jpg" />);
 
     const img = screen.getByRole('img', { name: 'Summer Music Festival' });
     const imgContainer = img.parentElement;
@@ -207,20 +158,10 @@ describe('EventCard', () => {
     expect(screen.queryByRole('img', { name: 'Summer Music Festival' })).not.toBeInTheDocument();
     expect(screen.queryByText('No image available')).not.toBeInTheDocument();
 
-    // No reflow: the wrapper div keeps its variant-appropriate footprint (standard => h-48)
+    // No reflow: the wrapper div keeps its prominent-poster footprint (aspect-square)
     expect(imgContainer).not.toBeNull();
-    expect(imgContainer).toHaveClass('h-48');
+    expect(imgContainer).toHaveClass('aspect-square');
     expect(imgContainer).toHaveClass('bg-muted');
-  });
-
-  it('renders no-imageUrl fallback immediately', () => {
-    const { container } = render(<EventCard {...defaultProps} />);
-    // No imageUrl provided: reserved blank slot, no placeholder text/icon, no img
-    expect(screen.queryByText('No image available')).not.toBeInTheDocument();
-    expect(screen.queryByRole('img')).not.toBeInTheDocument();
-    const wrapper = container.querySelector('.relative.w-full.bg-muted.overflow-hidden.h-48');
-    expect(wrapper).not.toBeNull();
-    expect(wrapper).toHaveClass('h-48');
   });
 
   // Story 1.i1z CI ratchet — AC1/AC3 for the masonry-default surface: this test fails if
@@ -360,46 +301,6 @@ describe('EventCard', () => {
     expect(screen.queryByText('$20')).not.toBeInTheDocument();
   });
 
-  // Story 0.35 (DW-048): the "From" label must only pair with a price value that reads as
-  // numeric/currency (contains a digit). Free-form status text (e.g. "Free") has no numeric
-  // amount, so pairing it with "From" reads as grammatically broken ("From Free").
-  describe('priceFrom "From" label pairing (Story 0.35)', () => {
-    it('renders free-form text with no "From" prefix when it contains no digit', () => {
-      render(<EventCard {...defaultProps} priceFrom="Free" />);
-
-      expect(screen.getByText('Free')).toBeInTheDocument();
-      expect(screen.queryByText('From')).not.toBeInTheDocument();
-    });
-
-    it('renders longer free-form text with no "From" prefix when it contains no digit', () => {
-      render(<EventCard {...defaultProps} priceFrom="Free with registration" />);
-
-      expect(screen.getByText('Free with registration')).toBeInTheDocument();
-      expect(screen.queryByText('From')).not.toBeInTheDocument();
-    });
-
-    it('still renders the "From" prefix for a currency-coded amount even though the code starts with letters', () => {
-      render(<EventCard {...defaultProps} priceFrom="IDR 150000" />);
-
-      expect(screen.getByText('IDR 150000')).toBeInTheDocument();
-      expect(screen.getByText('From')).toBeInTheDocument();
-    });
-
-    it('still renders the "From" prefix for a numeric priceFrom', () => {
-      render(<EventCard {...defaultProps} priceFrom={50} />);
-
-      expect(screen.getByText('50')).toBeInTheDocument();
-      expect(screen.getByText('From')).toBeInTheDocument();
-    });
-
-    it('still renders the "From" prefix for a currency string with a digit (e.g. "$20")', () => {
-      render(<EventCard {...defaultProps} priceFrom="$20" />);
-
-      expect(screen.getByText('$20')).toBeInTheDocument();
-      expect(screen.getByText('From')).toBeInTheDocument();
-    });
-  });
-
   describe('Relative-day date display', () => {
     // FIND-009: freeze the clock to a fixed reference instant so every relative-day
     // assertion ("Today"/"Tomorrow"/weekday/absolute fallback) is deterministic
@@ -424,26 +325,13 @@ describe('EventCard', () => {
     it('renders "Tomorrow" for dates 1 day out', () => {
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
-      render(<EventCard eventName="Tomorrow Event" startDate={tomorrow} locale="en-US" />);
-      expect(screen.getByText('Tomorrow')).toBeInTheDocument();
-    });
-
-    it('renders weekday name for dates 2-6 days out', () => {
-      const day2 = new Date();
-      day2.setDate(day2.getDate() + 2);
-      const expectedWeekday = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(day2);
-
-      render(<EventCard eventName="Weekday Event" startDate={day2} locale="en-US" />);
-      expect(screen.getByText(expectedWeekday)).toBeInTheDocument();
-    });
-
-    it('falls back to standard absolute format for dates exactly 7 days out', () => {
-      const day7 = new Date();
-      day7.setDate(day7.getDate() + 7);
-      const expectedAbsDate = expectedDate('en-US', day7);
-
-      render(<EventCard eventName="Future Event" startDate={day7} locale="en-US" />);
-      expect(screen.getByText(expectedAbsDate)).toBeInTheDocument();
+      const { container } = render(
+        <EventCard eventName="Tomorrow Event" startDate={tomorrow} locale="en-US" />
+      );
+      // A dayDiff===1 event shows "Tomorrow" in both the date box (AC12) and the
+      // below-image status badge (AC15) -- scope to the date box (primitive) specifically.
+      const datePill = container.querySelector('[data-event-card-date-box]');
+      expect(datePill).toHaveTextContent('Tomorrow');
     });
 
     describe('Masonry badge display behavior', () => {
@@ -597,9 +485,13 @@ describe('EventCard', () => {
     });
 
     it('sizes the heart icon by the shared badge-scale token, not hardcoded w-5 h-5', () => {
+      // FIND-053 removed `variant='standard'` (dead code), which was the only default-state
+      // path rendering this raw corner button. `prominentPoster` is the sole surviving masonry
+      // state that still uses it (masonry-default renders its own EventCardFavoriteBadge
+      // instead), so it's made explicit here to keep exercising this exact code.
       const onFavoriteToggle = vi.fn();
       render(
-        <EventCard {...defaultProps} onFavoriteToggle={onFavoriteToggle} isFavorited={false} />
+        <EventCard {...defaultProps} prominentPoster onFavoriteToggle={onFavoriteToggle} isFavorited={false} />
       );
 
       const btn = screen.getByLabelText(/favorite/i);
@@ -616,10 +508,12 @@ describe('EventCard', () => {
     });
 
     it('keeps the count-span classes and the button positioning/background classes unchanged', () => {
+      // See the previous test's note -- `prominentPoster` is required to reach this raw button.
       const onFavoriteToggle = vi.fn();
       render(
         <EventCard
           {...defaultProps}
+          prominentPoster
           onFavoriteToggle={onFavoriteToggle}
           favoriteCount={42}
         />
@@ -627,10 +521,12 @@ describe('EventCard', () => {
 
       const btn = screen.getByLabelText(/favorite/i);
       expect(btn).toHaveTextContent('42');
-      // Button positioning + pill background stay byte-for-byte the same (AC2).
+      // Button positioning + pill background stay byte-for-byte the same (AC2). FIND-053
+      // removed the `standard`-only `top-3 right-3` corner position -- masonry's own
+      // `top-2`/`right-2` (no TILL tag present here) is now the only value this renders.
       expect(btn.className).toContain('absolute');
-      expect(btn.className).toContain('top-3');
-      expect(btn.className).toContain('right-3');
+      expect(btn.className).toContain('top-2');
+      expect(btn.className).toContain('right-2');
       expect(btn.className).toContain('z-10');
       expect(btn.className).toContain('rounded-full');
       expect(btn.className).toContain('bg-background/80');
@@ -957,12 +853,12 @@ describe('EventCard', () => {
   });
 
   // ── Story 1.i1l ────────────────────────────────────────────────────────────
-  // Rules 1, 4 and 7 of backlog row IDEA-046 all edit lines that serve BOTH
-  // `masonry+prominentPoster` AND `variant='standard'`. Only masonry is in the
-  // 2026-09-14 pass's scope, so these guard the gate rather than the new values --
-  // without them a later "simplification" that drops the `isMasonry ?` ternary would
-  // silently shrink and reposition the standard card and no test would notice.
-  describe('Story 1.i1l — masonry-only gating (variant="standard" regression guard)', () => {
+  // Rules 1, 4 and 7 of backlog row IDEA-046 originally edited lines shared by
+  // `masonry+prominentPoster` AND `variant='standard'`. FIND-053 removed `standard`
+  // entirely (dead code -- no production call site ever passed it), so these guards
+  // now assert the masonry values directly instead of contrasting them against a
+  // `standard` render.
+  describe('Story 1.i1l — masonry sizing (AD-27)', () => {
     it('Story 0.45 AC7 — no longer caps the masonry card at 230px, but still declares a query container', () => {
       // Story 0.45 (AD-27): the fixed 230px cap is removed so the card fills its actual JS
       // masonry column width instead of centering inside a wider, mostly-empty grid cell. The
@@ -976,15 +872,6 @@ describe('EventCard', () => {
       expect(masonryRoot).toHaveClass('[container-type:inline-size]');
       expect(masonryRoot).not.toHaveClass('max-w-sm');
       expect(masonryRoot).toHaveClass('w-full');
-
-      cleanup();
-
-      const { container: std } = render(<EventCard {...defaultProps} locale="en-US" />);
-      const standardRoot = std.querySelector('article') as HTMLElement;
-      expect(standardRoot).toHaveClass('max-w-sm');
-      expect(standardRoot).not.toHaveClass('max-w-[230px]');
-      // No container on the standard card, so the badge font-size step never fires there.
-      expect(standardRoot).not.toHaveClass('[container-type:inline-size]');
     });
 
     it('Story 0.45 AC7 — the loading skeleton drops the 230px cap in lockstep with the real card (no CLS on swap)', () => {
@@ -998,11 +885,6 @@ describe('EventCard', () => {
       expect(skeleton).not.toHaveClass('max-w-[230px]');
       expect(skeleton).not.toHaveClass('max-w-sm');
       expect(skeleton).toHaveClass('w-full');
-
-      cleanup();
-
-      const { container: std } = render(<EventCard {...defaultProps} loading locale="en-US" />);
-      expect(std.querySelector('.animate-pulse')).toHaveClass('max-w-sm');
     });
 
     it('Story 0.45 AC8 — the masonry title scales via a container-query step, not a viewport breakpoint', () => {
@@ -1015,26 +897,6 @@ describe('EventCard', () => {
       // No viewport-breakpoint (sm:/md:/…) font-size class — the card's own rendered width
       // drives this, not the viewport (AC8's explicit constraint).
       expect(title.className).not.toMatch(/\b(sm|md|lg|xl|2xl):text-/);
-
-      cleanup();
-
-      const { container: std } = render(<EventCard {...defaultProps} locale="en-US" />);
-      const standardTitle = screen.getByText(defaultProps.eventName).closest('h3') as HTMLElement;
-      expect(standardTitle).not.toHaveClass('[@container(min-width:200px)]:text-base');
-    });
-
-    it('leaves the standard card favorite pill at its shipped top-3 right-3 position', () => {
-      // Rule 4 moves the masonry pill to top-2/top-5 and right-2; `standard` is untouched.
-      const { container } = render(
-        <EventCard {...defaultProps} locale="en-US" onFavoriteToggle={() => {}} />
-      );
-      const pill = container.querySelector('article > button') as HTMLElement;
-      expect(pill).not.toBeNull();
-      expect(pill).toHaveClass('top-3');
-      expect(pill).toHaveClass('right-3');
-      expect(pill).not.toHaveClass('top-2');
-      expect(pill).not.toHaveClass('top-5');
-      expect(pill).not.toHaveClass('right-2');
     });
 
     it('moves the masonry date and favorite pills to top-5 together only when a TILL tag is present', () => {

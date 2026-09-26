@@ -32,7 +32,7 @@ export interface EventCardLabels {
 
 export interface EventCardProps {
   /** Optional layout variant */
-  variant?: 'standard' | 'masonry';
+  variant?: 'masonry';
 
   /** The name of the event (required) */
   eventName: string;
@@ -61,13 +61,16 @@ export interface EventCardProps {
   /** Optional location name to display */
   locationName?: string;
 
-  /** Optional list of categories to display as badges */
+  /** Accepted for backward compatibility, currently unused: FIND-053 removed `variant='standard'`
+   * (its only renderer) without removing the prop itself -- see the deferred-work entry. */
   categories?: string[];
 
-  /** Optional list of event types to display as badges */
+  /** Accepted for backward compatibility, currently unused: FIND-053 removed `variant='standard'`
+   * (its only renderer) without removing the prop itself -- see the deferred-work entry. */
   types?: string[];
 
-  /** Optional starting price to display */
+  /** Accepted for backward compatibility, currently unused: FIND-053 removed `variant='standard'`
+   * (its only renderer) without removing the prop itself -- see the deferred-work entry. */
   priceFrom?: string | number;
 
   /** Optional visual state for deferred unfavorite flows where removal is pending confirmation */
