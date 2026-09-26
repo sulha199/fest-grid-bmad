@@ -30,9 +30,9 @@ describe('PageContainer', () => {
       'w-full',
       'min-w-[320px]',
       'sm:min-w-[640px]',
-      'md:min-w-[768px]',
-      'lg:min-w-[1024px]',
-      'xl:min-w-[1280px]',
+      'md:min-w-[min(768px,100%)]',
+      'lg:min-w-[min(1024px,100%)]',
+      'xl:min-w-[min(1280px,100%)]',
       'p-4',
       'sm:p-8',
       'space-y-8'
@@ -69,8 +69,8 @@ describe('PageContainer', () => {
       expect(rootDiv.className).toContain(cls);
     });
 
-    // Should NOT contain xl:min-w-[1280px]
-    expect(rootDiv.className).not.toContain('xl:min-w-[1280px]');
+    // Should NOT contain the fullWidth variant's xl floor
+    expect(rootDiv.className).not.toContain('xl:min-w-[min(1280px,100%)]');
   });
 
   it('merges an additional className prop without losing base classes when fullWidth is true', () => {

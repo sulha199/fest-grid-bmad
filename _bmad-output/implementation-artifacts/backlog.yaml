@@ -1532,12 +1532,12 @@ items:
 
   # ── 2026-09-26 (Event-Card family consolidation, Phase B backlog reconciliation) ──
   BUG-045:
-    {type: bug, status: triaged, created: 2026-09-26,
+    {type: bug, status: done, created: 2026-09-26,
      impact: user-visible, effort: s,
      title: "Masonry grid overflows horizontally, producing a page scrollbar -- column count likely mismatches the actual measured container width",
-     ref: [planning-artifacts/event-card-family-consolidated-acs.md, planning-artifacts/festgrid-architecture-spine.md],
+     ref: [planning-artifacts/event-card-family-consolidated-acs.md, planning-artifacts/festgrid-architecture-spine.md, implementation-artifacts/spec-bug-045-masonry-horizontal-overflow.md],
      touches: [pkg:ui, web:events/EventListView, cross:architecture],
-     note: "Found on live-deployment audit. GridContainer's masonry columnCount derives from a viewport-breakpoint table, not the container's own measured width -- useMasonryLayout (AD-27) only does column-assignment/height-measurement and has no sizing opinion. Recommendation (event-card-family-consolidated-acs.md §2.8): fix within the existing AD-27 hand-rolled engine (e.g. ResizeObserver-driven columnCount), not a third-party masonry library -- that tradeoff was already evaluated and rejected in Story 0.45's own Dev Notes."}
+     note: "Fixed 2026-09-26 (bmad-quick-dev): NOT GridContainer/masonry (it always fit its own container) -- real cause was PageContainer's md/lg/xl min-w floors ignoring AppShell's fixed nav-rail inset. See implementation-artifacts/spec-bug-045-masonry-horizontal-overflow.md for full root cause and fix."}
 
   BUG-046:
     {type: bug, status: triaged, created: 2026-09-26,
@@ -1586,3 +1586,11 @@ items:
      ref: [planning-artifacts/event-card-family-consolidated-acs.md],
      touches: [pkg:ui, web:events/EventCard],
      note: "Confirmed 2026-09-26: EventListView.tsx (the only production <EventCard> call site) always passes variant=\"masonry\" explicitly; variant='standard' has no DESIGN.md/EVENT-CARD-DESIGN.md token and appears nowhere in apps/web outside EventCard.tsx's own default parameter and its test fixtures. Delete the branch and its dedicated tests rather than carry it forward or spend further AC-consolidation effort on it."}
+
+  FIND-054:
+    {type: finding, status: backlog, created: 2026-09-26,
+     impact: internal, effort: s,
+     title: "PageContainer's contained (fullWidth=false) variant has the same unguarded min-w-floor-vs-nav-rail-inset pattern BUG-045 fixed, latent not active",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [pkg:ui],
+     note: "Deferred from: code review of spec-bug-045-masonry-horizontal-overflow (2026-09-26). 1 finding."}

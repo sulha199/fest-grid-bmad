@@ -528,3 +528,9 @@ This file tracks work deferred from development stories, code reviews, and plann
 
 ## Deferred from: code review of story 0.45 (2026-09-26)
 - Masonry reflow remount churn + focus loss (Story 0.45 review): GridContainer wrappers are key={itemIndex} under per-column parents, so any placement change unmounts/remounts items crossing columns (ref null->reattach churn, 2 extra renders + forced reflows per moved item, keyboard focus lost inside moved cards). User accepted react-masonry-css-style behavior for now; a mount-stable engine (absolute-positioned items under one parent) is the eventual fix. [implementation-artifacts/deferred-work.md]
+
+## Deferred from: code review of spec-bug-045-masonry-horizontal-overflow (2026-09-26)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-bug-045-masonry-horizontal-overflow.md`
+  summary: `PageContainer`'s `fullWidth={false}` (`contained`) variant still has a bare `lg:min-w-[768px]` floor, the same unguarded-against-`AppShell`-nav-rail-inset pattern BUG-045 just fixed on the `fullWidth` variant, left untouched because it doesn't currently overflow.
+  evidence: Surfaced by Blind Hunter + Edge Case Hunter (both independently). Not fixed now: under the current sidebar geometry (`md:ps-16 xl:ps-56`, i.e. 64px/224px inset) the contained variant's available width at any viewport where its `lg:` floor applies (>=1024px) is always >=960px, comfortably above the 768px floor, so no overflow is possible today — confirmed by the same arithmetic BUG-045's investigation used. Would need the identical `min(768px,100%)` treatment if `AppShell`'s inset values or the settings-page layout it's used in ever change. [packages/ui/src/core/page-container.tsx:22]
