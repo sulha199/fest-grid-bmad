@@ -1598,12 +1598,13 @@ items:
      note: "Fixed 2026-09-26 (bmad-quick-dev): nearbyBadge is now a distance-formatting function (AC-NEARBY-1/2/3), not a static string -- see implementation-artifacts/spec-bug-049-nearby-badge-distance.md for the 4 call sites, the shared formatter, and the BUG-044 i18n follow-up."}
 
   BUG-050:
-    {type: bug, status: triaged, created: 2026-09-26,
+    {type: bug, status: done, created: 2026-09-26, closed: 2026-09-26,
      impact: user-visible, effort: s,
+     spec: spec-bug-050-calendar-desktop-gridlines.md,
      title: "Calendar desktop view: card items make the day-column gridlines invisible -- should remain visible under/around cards",
-     ref: [planning-artifacts/event-card-family-consolidated-acs.md],
-     touches: [web:events/WeeklyCalendarView],
-     note: "AC-GRID-1. Root-cause candidate (§2.7): GRID_WEEKLY_CLASS's divide-x utility derives its border from DOM-sibling adjacency, correct for the day-header/day-cell rows (always exactly 7 children) but not for the multi-day spanning-banner row (only N children, explicitly CSS-positioned via inline gridColumn) -- its divide-x borders land on schedule-index boundaries, not real column boundaries. Recommended direction: a fixed background column-boundary layer shared by all three stacked grid blocks, independent of DOM child count -- not decided here, needs its own investigation."}
+     ref: [planning-artifacts/event-card-family-consolidated-acs.md, implementation-artifacts/spec-bug-050-calendar-desktop-gridlines.md],
+     touches: [pkg:ui, web:events/WeeklyCalendarView],
+     note: "Fixed 2026-09-26 (bmad-quick-dev): §2.7's divide-x candidate confirmed as sole cause, scoped to the spanning-banner row only (header/day-cell rows were already correct) -- see spec-bug-050-calendar-desktop-gridlines.md for the full root-cause writeup, fix, and committed Playwright geometry proof."}
 
   FIND-053:
     {type: finding, status: triaged, created: 2026-09-26,

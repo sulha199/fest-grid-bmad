@@ -1,5 +1,12 @@
 "use client"
 
+/** @jsxImportSource react */
+// BUG-050 verification: a no-op for this package's own build (tsconfig already defaults JSX to
+// React's automatic runtime) -- added only so packages/visual-audit's `react-component`
+// RenderSpec (which mounts real components through Playwright's own test transform) resolves
+// this file's JSX to React's runtime instead of Playwright's internal one. Same fix already
+// applied to EventCardMediaPrimitives.tsx/count-badge.tsx for the identical reason -- see that
+// file's header comment for the full root-cause writeup.
 import React, { useState, useRef, useEffect, useMemo, useId } from 'react';
 import { ChevronLeft, ChevronRight, Heart, CalendarPlus, CalendarRange, ChevronDown } from 'lucide-react';
 import { WeekPicker } from '../../core/WeekPicker';
@@ -33,7 +40,27 @@ const CALENDAR_BASE_CLASS = "border border-gray-200 rounded-lg";
 const HEADER_CLASS = "flex items-center justify-between p-4 border-b border-gray-200";
 const DATE_RANGE_CLASS = "text-lg font-semibold";
 const NAV_BUTTON_CLASS = "py-1 px-3 rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors";
+/**
+ * Single source of truth for "a week has 7 days" — shared by `visibleDays`' construction loop and
+ * `GridColumnGuides`' marker count (BUG-050 review finding: these were two independent hardcoded
+ * `7`s pre-fix, which could silently desync if either one ever changed without the other).
+ */
+const DAYS_PER_WEEK = 7;
 const GRID_WEEKLY_CLASS = "grid grid-cols-7 divide-x divide-gray-200";
+/**
+ * BUG-050 (AC-GRID-1) — the multi-day spanning-banner row's own container class, deliberately
+ * NOT `GRID_WEEKLY_CLASS`: it keeps the same `grid grid-cols-7` equal-width column basis (so its
+ * column-boundary x-positions stay pixel-identical to the day-header/day-cell rows above/below,
+ * which both keep `GRID_WEEKLY_CLASS`'s `divide-x` unchanged), but drops `divide-x` because that
+ * mechanism is structurally wrong for this one row — see `GridColumnGuides` below for why. Also
+ * needs `relative isolate`: `relative` so `GridColumnGuides`' `absolute inset-0` overlay anchors to
+ * this row, not some further-out ancestor; `isolate` (BUG-050 review finding) so this row forms its
+ * own stacking context, making `GridColumnGuides`' `-z-10` guaranteed to paint behind every sibling
+ * `<MultiDaySpanningBar>` regardless of DOM order — not contingent on those siblings (or their own
+ * internal `SPANNING_BAR_CLICK_CLASS`/`SPANNING_BAR_VISUAL_CLASS` z-10/z-20 layers) never gaining an
+ * explicit z-index of their own in a future change.
+ */
+const GRID_WEEKLY_CLASS_NO_DIVIDE = "grid grid-cols-7 relative isolate";
 const DAY_CELL_CLASS = "p-2 h-32 flex flex-col gap-1 overflow-hidden relative";
 const DAY_HEADER_CLASS = "text-sm text-center font-medium py-2 bg-gray-50 border-b border-gray-200";
 const MORE_LINK_CLASS = "text-xs text-center text-violet-600 hover:underline cursor-pointer bg-transparent border-none p-0 w-full mt-auto block focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-violet-500 rounded";
@@ -145,6 +172,50 @@ const diffInDays = (startStr: string, endStr: string) => {
  */
 const isMultiDaySchedule = (schedule: WeeklyCalendarViewScheduleShape) =>
   !!schedule.eventEndDate && schedule.eventEndDate !== schedule.eventStartDate;
+
+/**
+ * BUG-050 (AC-GRID-1) — a fixed, content-independent overlay of the 7 day-column boundary lines,
+ * used ONLY by the multi-day spanning-banner row (`GRID_WEEKLY_CLASS_NO_DIVIDE` above).
+ *
+ * Root cause this exists to fix: the day-header and day-cell rows correctly render their vertical
+ * gridlines via Tailwind's `divide-x` (`GRID_WEEKLY_CLASS`), which draws borders through the
+ * `> * + *` DOM-sibling-adjacency selector — correct there because both rows always render exactly
+ * 7 real DOM children, 1:1 with the 7 visual columns, in left-to-right order. The spanning-banner
+ * row breaks that assumption: it renders 0–7 `<MultiDaySpanningBar>` children (one per multi-day
+ * schedule in the visible week), each explicitly placed into an arbitrary column via inline
+ * `gridColumn`/`gridRow` CSS. `divide-x`'s selector borders DOM-order siblings, not visual grid
+ * position, so its border landed on schedule-index boundaries — wrong whenever a schedule's DOM
+ * order didn't match its column position, and simply absent at any column boundary with no
+ * adjacent schedule pair there at all.
+ *
+ * Fix: render exactly `DAYS_PER_WEEK` empty, always-present marker elements — decoupled from
+ * schedule count — and let THEM carry `divide-x`, inside an `absolute inset-0 -z-10` overlay
+ * painted as this row's own background layer. `-z-10` (BUG-050 review finding) makes "behind the
+ * real `<MultiDaySpanningBar>` cards" an explicit stacking guarantee rather than an implicit one
+ * that happened to hold only because those cards have no z-index of their own yet — paired with
+ * `GRID_WEEKLY_CLASS_NO_DIVIDE`'s `isolate` on the row container, this overlay is guaranteed
+ * behind every sibling regardless of DOM order or any z-index a future change gives them. Sharing
+ * the same `grid-cols-7` equal-width template as `GRID_WEEKLY_CLASS` guarantees the resulting
+ * lines land pixel-identical to the header/day-cell rows' own boundaries (live-measured 0px delta
+ * — see the committed `weekly-calendar-gridlines.spec.ts` proof in `packages/visual-audit`).
+ * Wherever a spanning card's own body visually covers part of this overlay, only the boundaries
+ * *within* that card's own column span are hidden — correct, since that card is one continuous
+ * multi-day item there — while every boundary outside any card remains visible, restoring
+ * AC-GRID-1's "continuous line, cards or not" requirement.
+ */
+function GridColumnGuides() {
+  return (
+    <div
+      className="absolute inset-0 -z-10 grid grid-cols-7 divide-x divide-gray-200 pointer-events-none"
+      aria-hidden="true"
+      data-testid="grid-column-guides"
+    >
+      {Array.from({ length: DAYS_PER_WEEK }).map((_, i) => (
+        <div key={i} />
+      ))}
+    </div>
+  );
+}
 
 /**
  * Format day header helper with graceful degradation.
@@ -341,7 +412,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
       : new Date(weekStart);
 
     const days: Date[] = [];
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < DAYS_PER_WEEK; i++) {
       const nextDay = new Date(baseDate);
       nextDay.setUTCDate(baseDate.getUTCDate() + i);
       days.push(nextDay);
@@ -714,7 +785,8 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
           boundaries align pixel-for-pixel (AC2). Rendered only when the visible week actually
           has a multi-day schedule (Task 4.2 / AC4). */}
       {spanningSchedules.length > 0 && (
-        <div className={`${GRID_WEEKLY_CLASS} bg-white`} data-testid="multi-day-spanning-banner">
+        <div className={`${GRID_WEEKLY_CLASS_NO_DIVIDE} bg-white`} data-testid="multi-day-spanning-banner">
+          <GridColumnGuides />
           {spanningSchedules.map((entry, rowIdx) => (
             <MultiDaySpanningBar
               key={entry.schedule.id}

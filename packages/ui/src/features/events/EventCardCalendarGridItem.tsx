@@ -1,5 +1,12 @@
 "use client"
 
+/** @jsxImportSource react */
+// BUG-050 verification: a no-op for this package's own build (tsconfig already defaults JSX to
+// React's automatic runtime) -- added only so packages/visual-audit's `react-component`
+// RenderSpec (which mounts real components through Playwright's own test transform) resolves
+// this file's JSX to React's runtime instead of Playwright's internal one. Same fix already
+// applied to EventCardMediaPrimitives.tsx/count-badge.tsx/WeeklyCalendarView.tsx for the
+// identical reason -- see EventCardMediaPrimitives.tsx's header comment for the root-cause writeup.
 /**
  * EventCardCalendarGridItem — the desktop Calendar Grid Item Card primitive
  * (`DESIGN.md` § `event_card_calendar_grid_item`, Story 1.i1f Task 7).

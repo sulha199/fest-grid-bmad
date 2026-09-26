@@ -265,6 +265,29 @@ describe('WeeklyCalendarView', () => {
     expect(bars[0]).toHaveStyle({ gridColumn: '1 / span 3', gridRow: '1' });
   });
 
+  it('BUG-050 (AC-GRID-1): renders 7 fixed, content-independent gridline markers behind the spanning-banner cards, not divide-x on the real schedule count', () => {
+    render(<WeeklyCalendarView {...defaultProps} locale="en-US" />);
+
+    const banner = rtlScreen.getByTestId('multi-day-spanning-banner');
+
+    // The old (broken) mechanism derived column separators from `divide-x`'s DOM-sibling-adjacency
+    // selector directly on the banner's real `<MultiDaySpanningBar>` children — which never map
+    // 1:1 to the 7 visual columns. That class must be gone from the banner itself now.
+    expect(banner).not.toHaveClass('divide-x');
+    expect(banner).toHaveClass('grid-cols-7');
+
+    // The new mechanism: a dedicated, always-7-children overlay, decoupled from schedule count,
+    // painted behind the real cards (first in the DOM) and out of the a11y tree/pointer events.
+    const guides = within(banner).getByTestId('grid-column-guides');
+    expect(guides).toHaveClass('grid-cols-7', 'divide-x', 'divide-gray-200', 'pointer-events-none');
+    expect(guides).toHaveAttribute('aria-hidden', 'true');
+    expect(guides.children).toHaveLength(7);
+
+    // Painted behind, not interspersed: the guide overlay is the banner's first child, every real
+    // spanning-bar card comes after it (later same-stacking-level siblings paint on top).
+    expect(banner.firstElementChild).toBe(guides);
+  });
+
   it('stacks overlapping multi-day schedules one row each, in ascending start order (AC4)', () => {
     // Deliberately declared out of order (later start first) to prove the sort.
     const overlapping = [
@@ -309,6 +332,25 @@ describe('WeeklyCalendarView', () => {
     // Each row is explicit, so overlapping spans stack instead of colliding.
     expect(bars[0]).toHaveStyle({ gridColumn: '1 / span 3', gridRow: '1' });
     expect(bars[1]).toHaveStyle({ gridColumn: '2 / span 3', gridRow: '2' });
+
+    // BUG-050 review finding (Blind Hunter/Edge Case Hunter): the riskiest gridline scenario is
+    // exactly this one -- multiple stacked sub-rows in the banner -- so it must carry its own
+    // guide-overlay assertion, not just the single-schedule case. Still one overlay per banner
+    // (`inset-0` spans the whole banner block's height, covering every stacked sub-row), not one
+    // per sub-row.
+    expect(within(banner).getAllByTestId('grid-column-guides')).toHaveLength(1);
+    expect(within(banner).getByTestId('grid-column-guides').children).toHaveLength(7);
+  });
+
+  it('BUG-050 (AC-GRID-1 regression guard): renders no guide overlay when there is no spanning banner at all', () => {
+    // No multi-day schedules in this fixture at all -- the banner block (and therefore
+    // GridColumnGuides) must not render, same as pre-fix behavior (Edge Case Hunter finding: this
+    // implicit branch of `spanningSchedules.length > 0` had no explicit coverage).
+    const singleDayOnly = [sampleSchedules[0], sampleSchedules[1]];
+    render(<WeeklyCalendarView {...defaultProps} schedules={singleDayOnly} locale="en-US" />);
+
+    expect(rtlScreen.queryByTestId('multi-day-spanning-banner')).not.toBeInTheDocument();
+    expect(rtlScreen.queryByTestId('grid-column-guides')).not.toBeInTheDocument();
   });
 
   it('clips multi-day schedules at week boundaries correctly (AC3)', () => {
