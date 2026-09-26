@@ -38,6 +38,7 @@ The following documents contain detailed specifications, architectures, and desi
 
 ### UX Design (Festgrid Main App)
 - `design-artifacts/UX-festgrid-run-1/DESIGN.md`
+- `design-artifacts/UX-festgrid-run-1/EVENT-CARD-DESIGN.md` *(the `event_card_*` token family, split out of DESIGN.md 2026-09-26 — read this too for any EventCard/WeeklyCalendarView/Event-Card-family work; DESIGN.md's `components:` section carries a cross-reference comment where it used to live)*
 - `design-artifacts/UX-festgrid-run-1/EXPERIENCE.md`
 
 ### UX Design (Wizard Page)
