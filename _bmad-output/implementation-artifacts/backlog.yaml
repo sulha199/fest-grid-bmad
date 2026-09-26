@@ -711,13 +711,12 @@ items:
      note: "Not a new gap: Story 2-7's default visibility rule already covers this, Story 4-8 is the done escape hatch. AMENDED 2026-09-15: both stories now terminal, status corrected to done. Full trail in Story 2-7's Dev Notes."}
 
   BUG-022:
-    {type: bug, status: promoted, created: 2026-09-07, parent: CC-019,
+    {type: bug, status: superseded, created: 2026-09-07, parent: CC-019, superseded_by: BUG-047,
      impact: user-visible, effort: xs,
      title: "EventCard's masonry date box shows startDate even while the event is ongoing, contradicting its own TILL sub-badge",
-     ref: [],
-     stories: [1-3b-build-the-reusable-eventcard-component],
+     ref: [planning-artifacts/event-card-family-consolidated-acs.md],
      touches: [web:events/EventCard, pkg:ui],
-     note: "Reported by user via bmad-help, immediately after CC-019's AC14 TILL-badge amendment landed (2026-09-07) — AC14 already anchors the TILL sub-badge to the date box (the 'placement' half of the report), but the box's primary text still always renders startDate/startTime, so a started event reads as a contradictory 'start-date box with an ends-qualifier attached'. No existing AC swaps the box's text to the effective end date while `started === true`. Folded into Story 1.3b as a new AC19 (epics.md) rather than a standalone story, since it's a narrow follow-on to the exact element AC14 just amended. status: triaged, not backlog, since story-level AC/task text already exists and needs implementation, not further scoping."}
+     note: "Never actually landed despite being marked promoted against Story 1.3b's supposed AC19 — direct code reading 2026-09-26 confirmed EventCard.tsx still always derives the date-box's month/day from startDate regardless of `started`. Superseded by BUG-047's unified context-date rule, which fixes this and BUG-040's overlapping surface in one pass rather than two."}
 
   BUG-023:
     {type: bug, status: promoted, epic: epic-1-i1, created: 2026-09-07, parent: CC-019,
@@ -1436,13 +1435,13 @@ items:
      SCOPE WIDENED, 2026-09-25 (user-reported, direct code comparison confirmed real): EventCard's masonry variant caps at max-w-[230px] (EventCard.tsx:239) regardless of its actual grid-cell width. GridContainer (baseCols=2, colsStep=1 on Discovery) grows to 6 grid-cols-N columns at 2xl, and CSS Grid's equal-fractional-column sizing means a cell easily exceeds 230px on wide screens -- the capped card centers inside a wider cell, producing large empty inter-column gaps. User wants max-width removed and the card's elements/font-size to scale responsively at larger screens instead. Deliberately folded into this same story rather than fixed separately first: a JS shortest-column-placement algorithm decides its own column-width strategy from scratch (it doesn't inherit Tailwind's grid-cols-N breakpoints), so solving card sizing under the soon-to-be-replaced CSS Grid engine would likely be redone the moment this story lands. Not yet story-created."}
 
   BUG-040:
-    {type: bug, status: promoted, created: 2026-09-22,
+    {type: bug, status: done, created: 2026-09-22, closed: 2026-09-25,
      impact: user-visible, effort: s,
      stories: [1-i1n-fix-eventcarddatebox-overflow-on-word-time-content],
      title: "EventCardDateBox's day slot overflows/clips on word or time content (Today/Tomorrow/Yesterday/a time string) instead of a numeric day — confirmed to overflow the entire 175px mobile masonry card by ~107px for \"Tomorrow\"",
-     ref: [planning-artifacts/event-pages-dev-story-tracking.md, planning-artifacts/festgrid-architecture-spine.md],
+     ref: [planning-artifacts/event-pages-dev-story-tracking.md, planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/event-card-family-consolidated-acs.md],
      touches: [pkg:ui, web:events],
-     note: "Confirmed via this session's visual-fidelity audit (isolated Playwright measurement at real card widths); reproduces in production, not just a cosmetic mismatch. Not covered by IDEA-046/Story 1.i1l/1.i1m (which only covered the 7 spec-vs-code gaps, not this). Story 1.i1n drafted 2026-09-25 via bmad-create-story, citing AD-26's tool (Story 0.43, done) for its own AC; sequenced before Story 1.3k's bmad-dev-story dispatch via an actual epics.md Depends-on amendment (not just a flagged risk) — see event-pages-dev-story-tracking.md's 'Known conflicts'."}
+     note: "Story 1.i1n's fix (dayVariant='word' sizing) is superseded, not extended, by BUG-047 — the 2026-09-26 consolidation reverses course and removes word content from the date-box entirely (numeric-only, AC-DATE-1), making 1.i1n's word-safe sizing mechanism dead code once BUG-047 lands. 1.i1n itself stays `done` as a historical record of a real fix for its own narrower scope at the time."}
 
   # ── 2026-09-22 (bmad-create-story, Story 0.43 Gate 3 finding) ───────────────
   FIND-047:
@@ -1509,11 +1508,11 @@ items:
   # ── 2026-09-26 (live production audit, https://fest-grid.vercel.app/id) ──────
   BUG-042:
     {type: bug, status: triaged, created: 2026-09-26,
-     impact: user-visible, effort: s,
+     impact: user-visible, effort: m,
      title: "EventCard never shows a thumbnail image -- missing the imageUrl->imageFallbackUrl (durableImageUrl) pattern EventImage/EventDetailView already has",
-     ref: [apps/web/src/features/events/mapper.ts, packages/ui/src/features/events/EventCard.tsx, packages/ui/src/features/events/EventCard.types.ts, packages/ui/src/features/events/EventImage.tsx],
+     ref: [apps/web/src/features/events/mapper.ts, packages/ui/src/features/events/EventCard.tsx, packages/ui/src/features/events/EventCard.types.ts, packages/ui/src/features/events/EventImage.tsx, planning-artifacts/event-card-family-consolidated-acs.md],
      touches: [pkg:ui, web:events],
-     note: "Found via live-deployment visual audit (https://fest-grid.vercel.app/id) at user's request. Confirmed root cause, not just observed: production GraphQL responses show imageUrl:null for nearly every event (by the backend's own durable-re-hosting design -- durableImageUrl is the real source once re-hosting has happened), but EventCard.types.ts's EventCardProps only declares imageUrl, never imageFallbackUrl -- mapper.ts:115 computes imageFallbackUrl from durableImageUrl but EventCard never receives or reads it, so every list-view card (Discovery, Feed, Favorites, Archive, calendar) shows a blank thumbnail even when a valid durable image exists. EventDetailView already has the correct pattern via the shared EventImage component (EventImage.tsx:53 -- tries imageUrl first, falls back to imageFallbackUrl on error) -- EventCard needs the same wiring, not a new mechanism. Routed to bmad-quick-dev per user direction."}
+     note: "Consolidated 2026-09-26 (event-card-family-consolidated-acs.md AC-IMG-1/2/3): confirmed 3 independent surfaces need this fix (EventCard-based pages; Archive's query, which never selects durableImageUrl; Calendar's separate query+component, same gap), not just EventCard, and confirmed the durableImageUrl-while-opted-out data point is expected write-time-gated behavior, not a backend bug. Also folds in AC-IMG-3: EventCard's prominentPoster=true state (VM1) has zero image-error fallback at all today, unlike every sibling variant -- a newly-identified sibling gap, fixed in the same pass. effort raised s->m to reflect the full 3-surface + VM1 scope. Routed to bmad-quick-dev per user direction; scope now bmad-create-story-sized given the query/codegen changes needed on 2 of the 3 surfaces."}
 
   BUG-043:
     {type: bug, status: triaged, created: 2026-09-26,
@@ -1527,6 +1526,63 @@ items:
     {type: bug, status: triaged, created: 2026-09-26,
      impact: user-visible, effort: m,
      title: "No event-card label is wired to next-intl in production -- entire EventCard/WeeklyCalendarView labels surface (till, all 8 status-badge states, favorite toggle, nearby badge) shows hardcoded English even on the /id locale",
-     ref: [apps/web/src/app/[locale]/home-content.tsx, packages/ui/src/features/events/EventCard.tsx, packages/ui/src/features/events/EventCard.types.ts, packages/ui/src/features/events/WeeklyCalendarView.types.ts],
+     ref: ["apps/web/src/app/[locale]/home-content.tsx", packages/ui/src/features/events/EventCard.tsx, packages/ui/src/features/events/EventCard.types.ts, packages/ui/src/features/events/WeeklyCalendarView.types.ts, planning-artifacts/event-card-family-consolidated-acs.md],
      touches: [web:events, pkg:ui, cross:i18n],
-     note: "Found via live-deployment visual audit (https://fest-grid.vercel.app/id) at user's request -- the TILL badge literally shows 'till' (English) on the Indonesian locale page. Root-caused: EventCard.tsx:104's defaultLabels.tillLabel='till' is a hardcoded fallback, EventCardProps.tillLabel (EventCard.types.ts:28) is a real, overridable prop -- but home-content.tsx never passes a labels prop through EventListView to EventCard at all, despite already using next-intl's useTranslations for other UI text on the exact same page. This is not narrowly a till bug: EventCard's full defaultLabels object (status text for all 8 formatEventStatus states, favorite toggle aria-label, nearby badge) and WeeklyCalendarViewLabels are both unwired the same way. Multiple prior stories (1.i1d, 1.i1i, 1.i1j) explicitly noted this exact gap in their own Dev Notes as 'a pre-existing, cross-cutting i18n gap, not this story's to close' -- but no backlog row was ever registered for it until now. Needs real Indonesian translation content authored (not just code wiring) for ~15+ label strings across both card families -- likely bmad-create-story scope, not quick-dev."}
+     note: "Root-caused 2026-09-26: home-content.tsx never passes a labels prop through EventListView to EventCard despite using next-intl elsewhere on the same page; scope is the full labels surface (AC-I18N-1 in the consolidated spec), not just till. Also covers the nearby-badge's new distance-template label once BUG-049 lands -- one more string to translate, same wiring gap. Needs real Indonesian content for ~15+ strings across both card families -- bmad-create-story scope, not quick-dev."}
+
+  # ── 2026-09-26 (Event-Card family consolidation, Phase B backlog reconciliation) ──
+  BUG-045:
+    {type: bug, status: triaged, created: 2026-09-26,
+     impact: user-visible, effort: s,
+     title: "Masonry grid overflows horizontally, producing a page scrollbar -- column count likely mismatches the actual measured container width",
+     ref: [planning-artifacts/event-card-family-consolidated-acs.md, planning-artifacts/festgrid-architecture-spine.md],
+     touches: [pkg:ui, web:events/EventListView, cross:architecture],
+     note: "Found on live-deployment audit. GridContainer's masonry columnCount derives from a viewport-breakpoint table, not the container's own measured width -- useMasonryLayout (AD-27) only does column-assignment/height-measurement and has no sizing opinion. Recommendation (event-card-family-consolidated-acs.md §2.8): fix within the existing AD-27 hand-rolled engine (e.g. ResizeObserver-driven columnCount), not a third-party masonry library -- that tradeoff was already evaluated and rejected in Story 0.45's own Dev Notes."}
+
+  BUG-046:
+    {type: bug, status: triaged, created: 2026-09-26,
+     impact: user-visible, effort: s,
+     title: "Infinite scroll snaps back to the bottom on every new page load -- distinct from BUG-043 (which stops loading entirely)",
+     ref: [planning-artifacts/event-card-family-consolidated-acs.md],
+     touches: [web:events],
+     note: "Found on live-deployment audit; not a duplicate of BUG-043 -- this is a scroll-position bug (page keeps re-anchoring to the bottom as new content appends), BUG-043 is a data-fetching bug (fetch stops firing after one page). Likely browser scroll-anchoring locking onto the infinite-scroll sentinel; usual fix is a targeted `overflow-anchor: none` or sentinel repositioning (event-card-family-consolidated-acs.md §2.9), not a virtualization-library adoption -- the existing useInfiniteScroll/useListPaginationController hooks are tightly coupled to AD-27's masonry engine."}
+
+  BUG-047:
+    {type: bug, status: triaged, created: 2026-09-26, parent: CC-019,
+     impact: user-visible, effort: m,
+     title: "EventCardDateBox needs one unified, context-date-driven, numeric-only content rule -- supersedes BUG-022 and BUG-040/Story 1.i1n's word-variant fix",
+     ref: [planning-artifacts/event-card-family-consolidated-acs.md],
+     touches: [pkg:ui, web:events/EventCard, web:events/WeeklyCalendarView, cross:ux-tokens],
+     note: "Consolidates AC-DATE-1..5 from event-card-family-consolidated-acs.md into one story: numeric-day-only content (no Today/Tomorrow/Yesterday/time-string, reversing 1.i1n), a new dedicated context-date-driven computation (context=today for masonry, =currentDayStr for calendar) that shows the end date once started-and-not-yet-ended (fixes BUG-022, unifies VM7's till-repurposing hack), plus masonry-scoped fixed-width/height invariants (AC-DATE-4/5). Does NOT touch formatShortEventDateTimeParts/formatEventStatus/other existing date-formatting functions -- user-directed 2026-09-26, a new function replaces them for the date-box only."}
+
+  BUG-048:
+    {type: bug, status: triaged, created: 2026-09-26,
+     impact: cosmetic, effort: s,
+     title: "WeeklyCalendarView's desktop single-day grid-item cell never adopted EventCardCalendarGridItem -- renders a plain untokened text pill instead",
+     ref: [planning-artifacts/event-card-family-consolidated-acs.md, design-artifacts/UX-festgrid-run-1/prototypes/event-card-calendar-grid-item/thumbnail-fallback.html],
+     touches: [pkg:ui, web:events/WeeklyCalendarView],
+     note: "EventCardCalendarGridItem's existing no-image composition is already prototype-validated for exactly this single-day case (thumbnail-fallback.html) -- this is a component-substitution wiring fix, not a new design item. Also amends EventCardCalendarGridItem itself to add EventCardStatusBadge (AC-STATUS-1): it currently has none, which matters once BUG-047 makes the date-box numeric-only elsewhere and the status badge becomes the family's sole carrier of relative-day meaning."}
+
+  BUG-049:
+    {type: bug, status: triaged, created: 2026-09-26, parent: CC-019,
+     impact: user-visible, effort: s,
+     title: "EventCardNearbyBadge shows a static translated word (\"Nearby\") instead of the actual computed distance",
+     ref: [planning-artifacts/event-card-family-consolidated-acs.md],
+     touches: [pkg:ui, web:events/EventCard, web:events/WeeklyCalendarView, cross:i18n],
+     note: "AC-NEARBY-1/2/3: badge text becomes the localized distance (>=2km: no decimal; <2km: 1 decimal), e.g. \"2.3 km\" -- the <8km threshold gate (AD-24 Rule 2) is unchanged. Breaking prop-shape change: nearbyBadge becomes a function-shaped label (distanceKm: number) => string, matching this codebase's existing moreLabel/multiDaySegmentLabel precedent -- every call site (EventCard.tsx, WeeklyCalendarView.tsx, EventCardCalendarGridItem.tsx) needs updating together."}
+
+  BUG-050:
+    {type: bug, status: triaged, created: 2026-09-26,
+     impact: user-visible, effort: s,
+     title: "Calendar desktop view: card items make the day-column gridlines invisible -- should remain visible under/around cards",
+     ref: [planning-artifacts/event-card-family-consolidated-acs.md],
+     touches: [web:events/WeeklyCalendarView],
+     note: "AC-GRID-1. Root-cause candidate (§2.7): GRID_WEEKLY_CLASS's divide-x utility derives its border from DOM-sibling adjacency, correct for the day-header/day-cell rows (always exactly 7 children) but not for the multi-day spanning-banner row (only N children, explicitly CSS-positioned via inline gridColumn) -- its divide-x borders land on schedule-index boundaries, not real column boundaries. Recommended direction: a fixed background column-boundary layer shared by all three stacked grid blocks, independent of DOM child count -- not decided here, needs its own investigation."}
+
+  FIND-053:
+    {type: finding, status: triaged, created: 2026-09-26,
+     impact: internal, effort: xs,
+     title: "EventCard.tsx's variant='standard' branch is dead code -- no production call site reaches it",
+     ref: [planning-artifacts/event-card-family-consolidated-acs.md],
+     touches: [pkg:ui, web:events/EventCard],
+     note: "Confirmed 2026-09-26: EventListView.tsx (the only production <EventCard> call site) always passes variant=\"masonry\" explicitly; variant='standard' has no DESIGN.md/EVENT-CARD-DESIGN.md token and appears nowhere in apps/web outside EventCard.tsx's own default parameter and its test fixtures. Delete the branch and its dedicated tests rather than carry it forward or spend further AC-consolidation effort on it."}
