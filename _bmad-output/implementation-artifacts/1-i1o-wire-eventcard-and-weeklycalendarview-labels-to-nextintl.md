@@ -8,7 +8,7 @@ baseline_commit: 0a85e106
 
 - Epic: 1.i1 (One card primitive for every event-card image slot and badge)
 - Story ID: 1.i1o
-- Status: review
+- Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -47,6 +47,7 @@ so that switching to `/id` doesn't silently ship English microcopy across every 
   - [x] 3.2 Extend each file's existing `cardLabels={{ ... }}` object literal (passed to `EventListView`) with: `favoriteToggle: tEventCard('favoriteToggle')` (replacing any existing hardcoded/partial value — see 3.3 for Archive's special case), `tillLabel: tEventCard('tillLabel')`, `statusEnded: tEventCard('statusEnded')`, `statusHappeningNow: tEventCard('statusHappeningNow')`, `statusEndsToday: tEventCard('statusEndsToday')`, `statusInHours: (n: number) => tEventCard('statusInHours', { n })` — **no**, see note below — `tomorrow: tEventCard('tomorrow')`, `statusUpcoming: tEventCard('statusUpcoming')`, and `nearbyBadge: (distanceKm: number) => formatLocalizedNearbyBadgeDistance(locale, distanceKm)`.
     - **Important correction to the naive mapping above:** `EventCardLabels.statusInHours`/`statusInDays` are **plain strings** (`EventCard.tsx` does `(labels?.statusInHours ?? 'In {n} hour(s)').replace('{n}', String(n))` itself, not a resolver function) — do **not** wrap them as functions. Pass `statusInHours: tEventCard('statusInHours')` and `statusInDays: tEventCard('statusInDays')` as plain translated template strings containing a literal `{n}` placeholder (e.g. English `"In {n} hour(s)"`, Indonesian `"Dalam {n} jam"`), which `EventCard.tsx`'s own `.replace('{n}', ...)` substitutes at render time — do not route these through next-intl's `t(key, {n})` interpolation call, since the numeric value isn't known until `EventCard`'s own render (same reasoning `EventCard.tsx` already encodes; see Dev Notes for why Indonesian needs no ICU plural handling here).
   - [x] 3.3 `archive-content.tsx` specifically (AC6): replace `favoriteToggle: "", // not favoritable in Archive` with `favoriteToggle: tEventCard('favoriteToggle'), // unreachable today -- Archive never passes onFavoriteToggle, kept for consistency with every other page`.
+  - **Exception (user-directed, 2026-09-27):** `feed-content.tsx` and `favorites-content.tsx` deliberately keep their own `t('favoriteButtonLabel')` for `favoriteToggle` only — every card there is by definition already favorited, so "Remove from Favorites" is the more accurate, actionable label (a11y consequence). The shared `EventCard` namespace covers every other key (`tillLabel`, 8 status states, `nearbyBadge`) on those two pages. See Completion Notes "Reverted post-ship".
   - [x] 3.4 Confirm no existing field in any of these 5 files' `cardLabels` object is removed or reordered in a way that changes behavior — `priceFrom`, `categoryLabels`, `typeLabels`, and (where present) the page's own pre-existing `favoriteToggle` value are superseded/merged, not duplicated as separate keys.
 
 - [x] Task 4: Wire `WeeklyCalendarView`-family label content into the 4 calendar-view files (AC2, AC4) — `CalendarView.tsx`, `FeedCalendarView.tsx`, `AccountCalendarView.tsx`, `my-calendar-content.tsx`
@@ -248,3 +249,10 @@ claude-sonnet-5 (bmad-dev-story)
 - `apps/web/src/app/[locale]/[platformSlug]/[accountId]/AccountCalendarView.tsx` (modified — `labels` extended)
 - `apps/web/src/app/[locale]/my-calendar/my-calendar-content.tsx` (modified — `labels` extended; `favoritedBadgeLabel`/`addedToCalendarBadgeLabel` source switched to `WeeklyCalendarView` namespace)
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified — status transitions ready-for-dev → in-progress → review)
+
+
+### Review Findings
+
+- [x] [Review][Patch] AC1/Task 3.2 story text still mandates uniform `tEventCard('favoriteToggle')` on all 5 card-list pages, contradicting the shipped feed/favorites exception — amended in place (doc-only) to record the documented user-directed exception (2026-09-27, see Completion Notes "Reverted post-ship"). Story text itself, not app code.
+- [x] [Review][Patch] `formatLocalizedNearbyBadgeDistance` constructs a new `Intl.NumberFormat` per call [packages/ui/src/features/events/EventCardMediaPrimitives.tsx:437] — now cached per locale (module-level `Map`), eliminating per-card/per-render formatter construction. Post-patch `EventCardMediaPrimitives.test.tsx` re-run: 80/80 pass.
+- [x] [Review][Defer] Card-list page `/id` integration coverage only asserts `favoriteToggle` — no till/status/nearby-badge assertions on a card-list page (CalendarView.test covers the calendar surface) [apps/web/src/app/[locale]/home-content.test.tsx:302] — deferred, test-hardening follow-up; AC minimum satisfied.

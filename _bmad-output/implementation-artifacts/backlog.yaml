@@ -1630,3 +1630,11 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      touches: [pkg:ui],
      note: "Deferred from: code review of spec-bug-047-eventcarddatebox-unified-content-rule.md (2026-09-26). 2 findings."}
+
+  FIND-059:
+    {type: finding, status: backlog, created: 2026-09-27,
+     impact: internal, effort: xs,
+     title: "Story 1.i1o code review: card-list-page /id integration tests only assert favoriteToggle -- no till/status/nearby assertions on a card-list page",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [web:events/EventCard, pkg:ui],
+     note: "Deferred from: code review of 1-i1o-wire-eventcard-and-weeklycalendarview-labels-to-nextintl.md (2026-09-27). 1 finding."}

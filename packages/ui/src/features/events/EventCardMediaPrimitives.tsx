@@ -437,11 +437,28 @@ export function formatNearbyBadgeDistance(distanceKm: number): string {
  */
 export function formatLocalizedNearbyBadgeDistance(locale: string, distanceKm: number): string {
   const fractionDigits = distanceKm >= 2 ? 0 : 1;
-  const formatted = new Intl.NumberFormat(locale, {
-    minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: fractionDigits,
-  }).format(distanceKm);
+  const formatted = formatLocalizedDistanceNumber(locale, fractionDigits).format(distanceKm);
   return `${formatted} km`;
+}
+
+/**
+ * Story 1.i1o review patch: `Intl.NumberFormat` construction is non-trivial, and the nearby-badge
+ * closure above runs once per rendered card per render pass. Caching one formatter per
+ * (locale, fractionDigits) pair keeps the same output with zero per-call construction cost.
+ */
+const localizedDistanceFormatterCache = new Map<string, Intl.NumberFormat>();
+
+function formatLocalizedDistanceNumber(locale: string, fractionDigits: number): Intl.NumberFormat {
+  const cacheKey = `${locale}:${fractionDigits}`;
+  let formatter = localizedDistanceFormatterCache.get(cacheKey);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, {
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    });
+    localizedDistanceFormatterCache.set(cacheKey, formatter);
+  }
+  return formatter;
 }
 
 /**
