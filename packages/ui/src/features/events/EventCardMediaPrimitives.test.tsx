@@ -516,8 +516,9 @@ describe('EventCardDateBox (Story 1.i1k two-tier month/day chrome)', () => {
   // Pixel-perfect pass (2026-09-27, round 5, user feedback): masonry `size='default'` centers
   // month/day horizontally (`items-center` on the box, `text-center` on both spans) instead of
   // stretching them to the box's now much-wider `flex-1` width, which looked pushed toward the
-  // right edge. `size='compact'` (calendar list row) is unaffected by this pass.
-  it('centers month/day horizontally for size="default" but not for size="compact"', () => {
+  // right edge. Later same-day feedback extended `items-center`/`text-center` to `size='compact'`
+  // (the calendar list row) too, for the same centering reason.
+  it('centers month/day horizontally for both size="default" and size="compact"', () => {
     const { container: defaultContainer } = render(
       <EventCardDateBox size="default" month="Oct" day="12" />
     );
@@ -530,8 +531,8 @@ describe('EventCardDateBox (Story 1.i1k two-tier month/day chrome)', () => {
       <EventCardDateBox size="compact" month="Oct" day="12" />
     );
     const compactBox = compactContainer.querySelector('[data-event-card-date-box]') as HTMLElement;
-    expect(compactBox.className).not.toContain('items-center');
-    expect(compactContainer.querySelector('[data-event-card-date-box-month]')?.className).not.toContain('text-center');
+    expect(compactBox.className).toContain('items-center');
+    expect(compactContainer.querySelector('[data-event-card-date-box-month]')?.className).toContain('text-center');
   });
 
   it('renders no amber tag element at all when tillLabel is omitted', () => {
@@ -555,10 +556,13 @@ describe('EventCardDateBox (Story 1.i1k two-tier month/day chrome)', () => {
       );
     });
 
-    it('size="compact" (calendar list row) is unaffected -- no width-fix classes, unchanged from before BUG-047', () => {
+    // User feedback (2026-09-27): "width should always same when it's two or one digit" extended
+    // to `size='compact'` too -- originally masonry-only, now the calendar list row gets the same
+    // `tabular-nums`/`min-w-[2ch]` width-invariant floor.
+    it('size="compact" (calendar list row) now gets the same width-fix classes as size="default"', () => {
       const { container } = render(<EventCardDateBox size="compact" month="Oct" day="12" />);
       expect(container.querySelector('[data-event-card-date-box-day]')?.className).toBe(
-        'text-3xl font-extrabold leading-none'
+        'inline-block text-center tabular-nums min-w-[2ch] text-3xl font-extrabold leading-none'
       );
     });
   });
@@ -595,7 +599,7 @@ describe('EventCardStatusBadge - AC1/AC6 (two DESIGN.md shapes, non-interactive)
   });
 
   it('renders happeningNow with the emerald DESIGN.md exception instead of the neutral base', () => {
-    const { container } = render(<EventCardStatusBadge text="Happening Now" isHappeningNow />);
+    const { container } = render(<EventCardStatusBadge text="Happening Now" variant="happeningNow" />);
     const badge = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
     expect(badge).toHaveTextContent('Happening Now');
     expect(badge).toHaveClass('bg-emerald-600');
@@ -604,7 +608,7 @@ describe('EventCardStatusBadge - AC1/AC6 (two DESIGN.md shapes, non-interactive)
     expect(badge).not.toHaveClass('text-muted-foreground');
   });
 
-  it('defaults isHappeningNow to false, so the neutral base needs no explicit prop', () => {
+  it('defaults variant to "default", so the neutral base needs no explicit prop', () => {
     const { container } = render(<EventCardStatusBadge text="Upcoming" />);
     const badge = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
     expect(badge).toHaveClass('bg-muted');
@@ -620,7 +624,7 @@ describe('EventCardStatusBadge - AC1/AC6 (two DESIGN.md shapes, non-interactive)
     const neutral = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
     const neutralShape = shapeOf(neutral.className);
 
-    rerender(<EventCardStatusBadge text="Happening Now" isHappeningNow />);
+    rerender(<EventCardStatusBadge text="Happening Now" variant="happeningNow" />);
     const happening = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
     const happeningShape = shapeOf(happening.className);
 
@@ -630,7 +634,7 @@ describe('EventCardStatusBadge - AC1/AC6 (two DESIGN.md shapes, non-interactive)
   });
 
   it('stays non-interactive: no aria-label, no title/tooltip, no extra focus stop', () => {
-    const { container } = render(<EventCardStatusBadge text="Happening Now" isHappeningNow />);
+    const { container } = render(<EventCardStatusBadge text="Happening Now" variant="happeningNow" />);
     const badge = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
     expect(badge.tagName).toBe('SPAN');
     expect(badge.getAttribute('aria-label')).toBeNull();
@@ -902,7 +906,7 @@ describe('Story 1.i1l — badge font-size harmonization and the TILL offset cont
     expect(eventCardTillLabelClass('default')).not.toContain('text-[10px]');
     expect(EVENT_CARD_BADGE_TEXT_SIZE_CLASS.startsWith('text-xs')).toBe(true);
 
-    const { container } = render(<EventCardStatusBadge text="Now" isHappeningNow />);
+    const { container } = render(<EventCardStatusBadge text="Now" variant="happeningNow" />);
     expect(container.querySelector('[data-event-card-status-badge]')).toHaveClass('text-xs');
 
     cleanup();

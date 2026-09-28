@@ -300,10 +300,21 @@ Files: `WeeklyCalendarView.tsx`, `EventCardCalendarGridItem.tsx`, `EventCardCale
 - The `>1200px` aspect-ratio breakpoint (item 1) keys off raw **viewport** width
   (`min-[1200px]:aspect-square`), not the masonry grid's actual column-driven **card** width —
   flagged earlier in this session as an open question, never resolved with the user.
-- No full lint/test/build verification pass has been run on any edit in this document (favorite-
-  icon revert, date-box centering, `ResizeObserver` fix, item 9's TILL-badge restructure, item
-  10's query-cache fix, item 11's `isHappeningNow`→`variant` rename) — pending the user's explicit
-  go-ahead before the next full check, per their standing instruction this session. Item 11 in
-  particular leaves `EventCard.test.tsx`/`EventCardMediaPrimitives.test.tsx`/
-  `WeeklyCalendarView.test.tsx`'s existing `isHappeningNow` prop assertions unreconciled with the
-  new `variant` API until that check runs.
+- ~~No full lint/test/build verification pass has been run...~~ **Done (2026-09-28).** Full
+  `pnpm lint`/`pnpm test`/`pnpm build` pass across `packages/ui` and `apps/web`, all green. Fixed
+  along the way:
+  - `EventCard.test.tsx`/`EventCardMediaPrimitives.test.tsx`/`format-event-date.test.ts` updated
+    for item 9's TILL-badge restructure (`top-5`/`top-2` conditional restored, new sibling
+    `top-1 left-2` badge position) and item 11's `isHappeningNow`→`variant`/`state` rename.
+  - Two more `EventCardMediaPrimitives.test.tsx` cases were stale from a *prior* session's
+    `items-center`/`tabular-nums` extension to `size='compact'` (unrelated to this session's own
+    edits, just never reconciled until this check) — updated to assert the extended behavior
+    instead of the pre-extension one.
+  - `CalendarView.test.tsx`'s and `my-calendar-content.test.tsx`'s `next-intl` mocks were missing
+    `t.raw`, which item 3's `t.raw(key)` fix (prior session) needs — added a `.raw` stub to both
+    mocks (pre-existing gap, surfaced only once these tests actually ran).
+  - `CalendarView.test.tsx`'s "wires the i18n namespace into the status badge" test asserted the
+    fixture (known `eventEndTime`) resolves to `statusEndsToday` — actually `statusEndsAt` per
+    item 3's own "ends today" rule (`endTime` known → precise `Ends hh:mm`, not the generic
+    label). Pre-existing test bug, masked until the `t.raw` fix above let the test actually run
+    instead of crashing first.

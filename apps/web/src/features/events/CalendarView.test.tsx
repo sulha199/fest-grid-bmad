@@ -155,11 +155,18 @@ vi.mock('@festgrid/analytics', () => ({
 }));
 
 vi.mock('next-intl', () => ({
-  useTranslations: (namespace: string) => (key: string, options?: { count?: number }) => {
-    if (options && options.count !== undefined) {
-      return `${namespace}.${key}(count:${options.count})`;
-    }
-    return `${namespace}.${key}`;
+  useTranslations: (namespace: string) => {
+    const t = (key: string, options?: { count?: number }) => {
+      if (options && options.count !== undefined) {
+        return `${namespace}.${key}(count:${options.count})`;
+      }
+      return `${namespace}.${key}`;
+    };
+    // `t.raw` bypasses ICU processing for `{time}`/`{n}`-templated keys (`formatEventStatus`
+    // does its own `.replace()` afterward) -- the mock's plain lookup is a fine stand-in since
+    // no test here asserts the exact templated string.
+    t.raw = (key: string) => `${namespace}.${key}`;
+    return t;
   },
   useLocale: () => 'en',
 }));
@@ -282,11 +289,12 @@ describe('CalendarView', () => {
     await screen.findByText('Weekly Jazz Jam');
 
     // The test clock is stubbed to 2026-08-12T12:00Z (see beforeEach below) and the fixture
-    // schedule ends later the same day (22:00), so it resolves to the "ends today" status --
-    // rendered via the mocked next-intl format (`${namespace}.${key}`), proving the label came
-    // from `tCalendar('statusEndsToday')` and not WeeklyCalendarView.tsx's own hardcoded
-    // `'Ends Today'` default.
-    expect(screen.getAllByText('WeeklyCalendarView.statusEndsToday').length).toBeGreaterThan(0);
+    // schedule ends later the same day with a known endTime (22:00) -- per the "ends today"
+    // rule (2026-09-27: once the end time is known, show the precise "Ends hh:mm" instead of
+    // the generic "Ends Today"), it resolves to the "endsAt" status, rendered via the mocked
+    // next-intl `t.raw` format (`${namespace}.${key}`), proving the label came from
+    // `tCalendar.raw('statusEndsAt')` and not WeeklyCalendarView.tsx's own hardcoded default.
+    expect(screen.getAllByText('WeeklyCalendarView.statusEndsAt').length).toBeGreaterThan(0);
   });
 
   it('navigates weeks and triggers posthog and state updates', async () => {

@@ -27,11 +27,18 @@ vi.mock('@festgrid/analytics', () => ({
 }));
 
 vi.mock('next-intl', () => ({
-  useTranslations: (namespace: string) => (key: string, options?: { count?: number }) => {
-    if (options && options.count !== undefined) {
-      return `${namespace}.${key}(count:${options.count})`;
-    }
-    return `${namespace}.${key}`;
+  useTranslations: (namespace: string) => {
+    const t = (key: string, options?: { count?: number }) => {
+      if (options && options.count !== undefined) {
+        return `${namespace}.${key}(count:${options.count})`;
+      }
+      return `${namespace}.${key}`;
+    };
+    // `t.raw` bypasses ICU processing for `{time}`/`{n}`-templated keys (`formatEventStatus`
+    // does its own `.replace()` afterward) -- the mock's plain lookup is a fine stand-in since
+    // no test here asserts the exact templated string.
+    t.raw = (key: string) => `${namespace}.${key}`;
+    return t;
   },
   useLocale: () => 'en',
 }));
