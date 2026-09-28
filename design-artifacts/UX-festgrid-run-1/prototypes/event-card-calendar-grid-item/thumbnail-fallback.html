@@ -24,7 +24,18 @@
      day_cell (direct) + the "+N more" popover (overflow) -- WeeklyCalendarView.tsx: w-56/224px, p-3/12px padding
      -> 200px inner content width, scrollable. This composition is compact enough (no image) that it may fit
      directly in a day_cell for at least one visible event; exact max_events_per_day recalibration is still an
-     implementation-story question, not resolved here. Rendered at the popover's real 200px inner width. -->
+     implementation-story question, not resolved here. Rendered at the popover's real 200px inner width.
+
+     REVISED 2026-09-27 (user feedback: "I should see the grid, make the card's bg color to have 50% opacity"):
+     fill opacity halved, `bg-violet-50` -> `bg-violet-50/50`, so the underlying weekly-grid lines stay visible
+     through the card.
+
+     REVISED 2026-09-28 (user feedback: "shows only statusInHours and statusEndsAt badge under locationName if
+     its applicable"): a status badge is back on this composition (was removed 2026-09-14, then briefly BUG-048
+     re-added/re-removed 2026-09-26/27 for ALL 8 states -- see EVENT-CARD-DESIGN.md's own history note), but
+     narrowed to ONLY the `inHours`/`endsAt` states, rendered as a third element after Row 2 (venue + nearby
+     badge), not inline within either row. The second card below demonstrates the `inHours`/`starting_soon` sky
+     variant; every other state (including `endsToday`) still shows no badge, same as the first card. -->
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
@@ -48,7 +59,7 @@
   <div class="w-56 max-h-56 overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-xl p-3 flex flex-col gap-1.5">
     <!-- No image element -- single-day event (or a multi-day event whose image errored), no reserved slot.
          Two stacked rows instead of the with-image state's 3-column row. -->
-    <div class="flex flex-col gap-1 rounded-md shadow-sm p-2 bg-violet-50 border border-violet-200">
+    <div class="flex flex-col gap-1 rounded-md shadow-sm p-2 bg-violet-50/50 border border-violet-200">
       <!-- Row 1: title + favorite, top-aligned so a wrapping multi-line title doesn't push the favorite control down -->
       <div class="flex items-start justify-between gap-2">
         <div class="text-sm font-bold text-foreground flex-1 min-w-0">BCA Auto Show 2026 International Edition</div>
@@ -66,8 +77,9 @@
         </span>
       </div>
     </div>
-    <!-- Second card: >=8km away -- nearby badge omitted entirely, not shown empty/greyed -->
-    <div class="flex flex-col gap-1 rounded-md shadow-sm p-2 bg-violet-50 border border-violet-200">
+    <!-- Second card: >=8km away -- nearby badge omitted entirely, not shown empty/greyed. Also demonstrates the
+         2026-09-28 re-added status badge (inHours/starting_soon, sky) as a third element after Row 2. -->
+    <div class="flex flex-col gap-1 rounded-md shadow-sm p-2 bg-violet-50/50 border border-violet-200">
       <div class="flex items-start justify-between gap-2">
         <div class="text-sm font-bold text-foreground flex-1 min-w-0">Downtown Jazz Festival</div>
         <div class="flex flex-col items-center gap-0.5 shrink-0 text-sm font-medium text-foreground">
@@ -78,6 +90,8 @@
       <div class="flex items-center justify-between gap-2">
         <div class="text-xs text-muted-foreground line-clamp-2 flex-1 min-w-0">City Central Park</div>
       </div>
+      <!-- event_card_status_badge, re-added 2026-09-28, narrowed to inHours/endsAt only -- `starting_soon` sky variant shown here (inHours: starts soon). Rendered as its own element after Row 2, not inline within it. -->
+      <span class="inline-flex items-center text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-sky-600 text-white">In 2 hour(s)</span>
     </div>
   </div>
 </div>

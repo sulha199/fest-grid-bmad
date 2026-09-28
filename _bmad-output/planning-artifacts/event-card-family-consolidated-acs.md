@@ -262,6 +262,19 @@ status badge to carry relative-day meaning once the date-box goes numeric-only, 
 `EventCardStatusBadge`/`EventCardNearbyBadge` treatment VM6/VM7 already have, or an explicit,
 separately-justified exception — not a silent gap.
 
+**RESOLVED, explicit exception (2026-09-28)** — see
+`design-artifacts/UX-festgrid-run-1/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md` items 7 and 12 for
+the full history. `EventCardNearbyBadge` coverage shipped as this AC originally asked (both VM5 and
+VM6 render it unconditionally). The status-badge half took a different path than "the same
+treatment VM6/VM7 have": BUG-048 first shipped the full 8-state badge (2026-09-26), the user then
+had it removed entirely (2026-09-27, "don't show the now/ending_at badge"), then re-added but
+deliberately narrower than VM6/VM7's own full-state badge — VM5/VM6 now show a status badge ONLY
+for the `inHours`/`endsAt` states, never the other 6 (including `endsToday`), positioned under
+location/venue rather than beside the favorite+nearby stack. This narrower rule is the
+user-directed, separately-justified exception this AC's own text anticipated — not a silent gap,
+and not still open. Future work should target this narrower rule (also documented in
+`EVENT-CARD-DESIGN.md`'s `event_card_calendar_grid_item` token), not VM6/VM7's full 8-state badge.
+
 ### 2.7 Calendar desktop gridlines (new AC)
 
 **AC-GRID-1:** The day-column vertical gridlines must remain visible as one continuous line per
@@ -342,8 +355,8 @@ before committing to a fix.
 | VM1 prominent poster | ✅ | **❌ gap — see §2.1** | ✅ (single-line box — confirm the new function's output still fits this box's one-line layout, not the two-tier stack) | n/a (single-line, not masonry's two-tier box) | ✅ | ✅ | n/a (already has it) | n/a |
 | VM2 masonry default | ✅ | ✅ already compliant | ✅ | ✅ | ✅ | ✅ | n/a (already has it) | n/a |
 | VM3 no-image fallback | ✅ (defines the fallback) | ✅ already compliant (defines it) | inherits VM2 | inherits VM2 | inherits VM2 | inherits VM2 | n/a | n/a |
-| VM5 calendar grid single-day | ✅ | ✅ already compliant (via `EventCardCalendarGridItem`'s no-image composition) | n/a — inherits `EventCardCalendarGridItem`'s no-date-box composition (§1) | n/a | ✅ (add via `EventCardCalendarGridItem` amendment) | ✅ | ✅ (gap, §2.6 — amend `EventCardCalendarGridItem` for both VM5+VM6) | ✅ |
-| VM6 calendar grid multi-day | ✅ | ✅ already compliant | n/a (deliberately no date-box, DESIGN.md) | n/a | ✅ | ✅ | ✅ (same amendment as VM5, §2.6) | ✅ |
+| VM5 calendar grid single-day | ✅ | ✅ already compliant (via `EventCardCalendarGridItem`'s no-image composition) | n/a — inherits `EventCardCalendarGridItem`'s no-date-box composition (§1) | n/a | ✅ shipped | ✅ | ✅ resolved, narrower exception (§2.6, 2026-09-28 — `inHours`/`endsAt` only, not the full 8-state badge) | ✅ |
+| VM6 calendar grid multi-day | ✅ | ✅ already compliant | n/a (deliberately no date-box, DESIGN.md) | n/a | ✅ | ✅ | ✅ resolved, same narrower exception as VM5 (§2.6, 2026-09-28) | ✅ |
 | VM7 calendar list row | ✅ | ✅ already compliant | ✅ (unified rule, §2.2 — resolves former till-repurposing divergence) | n/a (masonry-only, §2.3) | ✅ | ✅ | n/a (already has it) | n/a |
 | VM8 overflow dialog | inherits VM6/VM7 per surface | inherits VM6/VM7 | inherits | inherits | inherits | inherits | inherits | n/a |
 

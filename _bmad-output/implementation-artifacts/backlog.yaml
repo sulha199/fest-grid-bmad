@@ -1495,7 +1495,8 @@ items:
      ref: [design-artifacts/UX-festgrid-run-1/prototypes/event-card-masonry/default-with-thumbnail.html, packages/ui/src/features/events/EventCard.tsx, implementation-artifacts/spec-bug-041-till-badge-padding.md],
      title: "EventCard masonry-default's TILL badge is cropped -- the card has no padding around the date-box+thumbnail row, unlike the validated prototype",
      touches: [pkg:ui],
-     note: "User-reported, confirmed by direct code comparison: the validated prototype wraps its date-box+thumbnail row in a p-2 padding container (default-with-thumbnail.html:62), giving the till badge's -top-1.5/-left-1.5 corner offset room inside the card's overflow-hidden bounds. EventCard.tsx's real isMasonryDefault composition (:325, touched by Stories 1.i1e/1.i1k/1.i1l) had no padding wrapper at all -- the row sat flush against the <article>'s own edges, so the till badge poked outside the card and got clipped. Fixed via bmad-quick-dev (commit 77a236b5): added the p-2 wrapper, then corrected two other absolutely-positioned overlays that assumed zero row padding (the no-thumbnail favorite-badge overlay's inline math, the thumbnail-present favorite badge's stale top-1/right-1 offset) -- caught during the same pass, not left as follow-on gaps. statusBadge checked and confirmed to need no change. Verified independently: 68/68 EventCard tests, lint clean, repo-wide build 8/8."}
+     note: "User-reported, confirmed by direct code comparison: the validated prototype wraps its date-box+thumbnail row in a p-2 padding container (default-with-thumbnail.html:62), giving the till badge's -top-1.5/-left-1.5 corner offset room inside the card's overflow-hidden bounds. EventCard.tsx's real isMasonryDefault composition (:325, touched by Stories 1.i1e/1.i1k/1.i1l) had no padding wrapper at all -- the row sat flush against the <article>'s own edges, so the till badge poked outside the card and got clipped. Fixed via bmad-quick-dev (commit 77a236b5): added the p-2 wrapper, then corrected two other absolutely-positioned overlays that assumed zero row padding (the no-thumbnail favorite-badge overlay's inline math, the thumbnail-present favorite badge's stale top-1/right-1 offset) -- caught during the same pass, not left as follow-on gaps. statusBadge checked and confirmed to need no change. Verified independently: 68/68 EventCard tests, lint clean, repo-wide build 8/8.
+     SUPERSEDED 2026-09-27 (see design-artifacts/UX-festgrid-run-1/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md item 1): the pixel-perfect masonry pass removed this p-2 padding again -- the date-box+thumbnail row is flush against the card's edges once more, and the TILL/favorite badges moved from negative (floating-past-edge) to positive (just-inside-edge) offsets instead, with the outer card's overflow-hidden restored. Do NOT re-add p-2 padding to fix a cropped till badge -- that's this closed bug's fix, now reversed on purpose."}
 
   FIND-052:
     {type: finding, status: backlog, created: 2026-09-26,
@@ -1572,15 +1573,17 @@ items:
      title: "WeeklyCalendarView's desktop single-day grid-item cell never adopted EventCardCalendarGridItem -- renders a plain untokened text pill instead",
      ref: [planning-artifacts/event-card-family-consolidated-acs.md, design-artifacts/UX-festgrid-run-1/prototypes/event-card-calendar-grid-item/thumbnail-fallback.html],
      touches: [pkg:ui, web:events/WeeklyCalendarView],
-     note: "Fixed 2026-09-26 (bmad-quick-dev): grid cell now composes EventCardCalendarGridItem, plus a shared status-badge amendment (AC-STATUS-1, VM5+VM6). See the spec file for detail/decisions."}
+     note: "Fixed 2026-09-26 (bmad-quick-dev): grid cell now composes EventCardCalendarGridItem, plus a shared status-badge amendment (AC-STATUS-1, VM5+VM6). See the spec file for detail/decisions.
+     AMENDED 2026-09-28 (see design-artifacts/UX-festgrid-run-1/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md items 7 and 12): the grid-cell/spanning-bar adoption above is UNCHANGED, but the status-badge half of this fix did NOT survive intact -- item 7 (2026-09-27) removed the status badge from VM5/VM6 entirely, reversing AC-STATUS-1 back to 2026-09-14's original 'no status badge' decision; item 12 (2026-09-28) then re-added a badge, but far narrower than AC-STATUS-1's original scope -- only for the `inHours`/`endsAt` states (formatEventStatus's `state` field), rendered under location/venue, with no nearby-badge-parity claim either way. Any future work referencing this bug's AC-STATUS-1 scope should target item 12's narrower rule, not this note's original 'shared status-badge amendment' description."}
 
   FIND-057:
     {type: finding, status: backlog, created: 2026-09-26,
      impact: cosmetic, effort: xs,
-     title: "CalendarOverflowDialog (VM8) still doesn't render EventCardStatusBadge -- EventCardCalendarGridItem's BUG-048 status-badge amendment only reaches VM5/VM6",
-     ref: [planning-artifacts/event-card-family-consolidated-acs.md, implementation-artifacts/spec-bug-048-eventcardcalendargriditem-single-day-adoption.md],
+     title: "CalendarOverflowDialog (VM8) still doesn't render a status badge -- EventCardCalendarGridItem's status-badge treatment (VM5/VM6) never reaches it",
+     ref: [planning-artifacts/event-card-family-consolidated-acs.md, implementation-artifacts/spec-bug-048-eventcardcalendargriditem-single-day-adoption.md, design-artifacts/UX-festgrid-run-1/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md],
      touches: [pkg:ui, web:events/CalendarOverflowDialog],
-     note: "Deferred from: code review of spec-bug-048-eventcardcalendargriditem-single-day-adoption.md (2026-09-26). CalendarOverflowDialogItemShape has no date fields to pass through yet; extending it (a subset of WeeklyCalendarViewScheduleShape) is the fix."}
+     note: "Deferred from: code review of spec-bug-048-eventcardcalendargriditem-single-day-adoption.md (2026-09-26). CalendarOverflowDialogItemShape has no date fields to pass through yet; extending it (a subset of WeeklyCalendarViewScheduleShape) is the fix.
+     RE-SCOPED 2026-09-28: the target this row should match against changed twice since it was filed -- BUG-048's original AC-STATUS-1 badge (all 8 states) was removed 2026-09-27, then re-added 2026-09-28 far narrower (see MASONRY-CARD-SESSION-CHANGES-2026-09-27.md item 12): only `inHours`/`endsAt`, gated on formatEventStatus's `state` field, rendered under location/venue. If this finding is ever picked up, extend CalendarOverflowDialogItemShape to match VM5/VM6's CURRENT narrow rule, not BUG-048's original full-scope one."}
 
   FIND-058:
     {type: finding, status: backlog, created: 2026-09-26,
@@ -1605,7 +1608,8 @@ items:
      title: "Calendar desktop view: card items make the day-column gridlines invisible -- should remain visible under/around cards",
      ref: [planning-artifacts/event-card-family-consolidated-acs.md, implementation-artifacts/spec-bug-050-calendar-desktop-gridlines.md],
      touches: [pkg:ui, web:events/WeeklyCalendarView],
-     note: "Fixed 2026-09-26 (bmad-quick-dev): §2.7's divide-x candidate confirmed as sole cause, scoped to the spanning-banner row only (header/day-cell rows were already correct) -- see spec-bug-050-calendar-desktop-gridlines.md for the full root-cause writeup, fix, and committed Playwright geometry proof."}
+     note: "Fixed 2026-09-26 (bmad-quick-dev): §2.7's divide-x candidate confirmed as sole cause, scoped to the spanning-banner row only (header/day-cell rows were already correct) -- see spec-bug-050-calendar-desktop-gridlines.md for the full root-cause writeup, fix, and committed Playwright geometry proof.
+     CROSS-REFERENCE 2026-09-28 (not a reopen): design-artifacts/UX-festgrid-run-1/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md item 7 fixes a related but distinct symptom of the same 'grid should stay visible under cards' goal -- EventCardCalendarGridItem's own bg-violet-50 fill halved to bg-violet-50/50, since a fully opaque card fill hides the gridlines regardless of the divide-x cause this bug fixed. Both fixes are complementary, not overlapping."}
 
   FIND-053:
     {type: finding, status: triaged, created: 2026-09-26,
@@ -1629,7 +1633,8 @@ items:
      title: "BUG-047 code review: min-w-[2ch] numeral-width assumption, and a latent date-vs-till-tag mismatch for an unreachable calendar input",
      ref: [implementation-artifacts/deferred-work.md],
      touches: [pkg:ui],
-     note: "Deferred from: code review of spec-bug-047-eventcarddatebox-unified-content-rule.md (2026-09-26). 2 findings."}
+     note: "Deferred from: code review of spec-bug-047-eventcarddatebox-unified-content-rule.md (2026-09-26). 2 findings.
+     PARTIALLY SUPERSEDED 2026-09-28: finding 2 (date-vs-till-tag mismatch for an event rendered on a calendar day after it already ended, via computeCalendarSegmentTillText's `<` vs the date-box's widened `<=`) is now moot -- computeCalendarSegmentTillText was removed entirely on 2026-09-27 (see design-artifacts/UX-festgrid-run-1/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md item 3: the TILL badge no longer shows at all when the end date is today, the status badge covers that case instead). Finding 1 (min-w-[2ch] Latin-numeral-glyph-width assumption, still present at EventCardMediaPrimitives.tsx) is untouched and still open."}
 
   FIND-059:
     {type: finding, status: backlog, created: 2026-09-27,
