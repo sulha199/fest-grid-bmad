@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
 import { users, events, schedules, corrections } from '@festgrid/database';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 // read the generated schema for the yoga server
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
@@ -46,7 +46,11 @@ test('submitCorrection resolver integration', async (t) => {
     const seededEvents = await db.select({ id: events.id }).from(events).limit(1);
     if (seededEvents.length > 0) {
       testEventId = seededEvents[0].id;
-      const seededSchedules = await db.select({ id: schedules.id }).from(schedules).where(eq(schedules.eventId, testEventId)).limit(1);
+      // Picking the *main* schedule specifically (not just any schedule for the event) matters
+      // for events with more than one schedule: the tests below set `isMainSchedule: true` on
+      // whichever schedule id they're given, and doing that to an already-non-main schedule
+      // would collide with the event's existing main schedule on `idx_schedules_one_main_per_event`.
+      const seededSchedules = await db.select({ id: schedules.id }).from(schedules).where(and(eq(schedules.eventId, testEventId), eq(schedules.isMainSchedule, true))).limit(1);
       if (seededSchedules.length > 0) {
         testScheduleId = seededSchedules[0].id;
       }

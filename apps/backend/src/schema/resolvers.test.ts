@@ -3036,9 +3036,15 @@ test('events - query-count is a constant, not O(N), when batched fields are requ
     createdFavoriteIds.push(fav.id);
   }
 
+  // Scope the query to exactly the 3 events this test created via an `id in [...]`
+  // condition, so the result set (and therefore `favorited.length` below) is deterministic
+  // regardless of whatever other events already exist in the database (e.g. local dev seed
+  // fixtures dated ahead of these, which would otherwise crowd the 3 seeded events out of a
+  // plain `limit: 10` page).
+  const idsFilter = JSON.stringify([eventA.id, eventB.id, eventC.id]);
   const baseQuery = `
     query {
-      events(limit: 10) {
+      events(limit: 10, query: { field: "id", operator: "in", value: ${idsFilter} }) {
         items {
           id
           schedules { id }
@@ -3053,7 +3059,7 @@ test('events - query-count is a constant, not O(N), when batched fields are requ
   `;
   const queryWithoutTotalCount = `
     query {
-      events(limit: 10) {
+      events(limit: 10, query: { field: "id", operator: "in", value: ${idsFilter} }) {
         items {
           id
           schedules { id }
@@ -3088,7 +3094,7 @@ test('events - query-count is a constant, not O(N), when batched fields are requ
   const { result, count } = await runEventsQuery(baseQuery);
   assert.ok(!result.errors, `GraphQL errors returned: ${JSON.stringify(result.errors)}`);
   const items = (result.data.events.items as any[]);
-  assert.ok(items.length >= 3, 'should return the 3 seeded events');
+  assert.strictEqual(items.length, 3, 'should return exactly the 3 seeded events');
   const withCount = count;
   assert.ok(count >= 3, `expected at least 3 queries, got ${count}`);
   assert.ok(count <= 4, `expected a small constant query count (<= 4) but got ${count}`);
