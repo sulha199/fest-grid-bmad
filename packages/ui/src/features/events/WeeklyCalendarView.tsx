@@ -472,14 +472,21 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   // day-column. Column indices are always derived against the *visible week* (never the
   // schedule's true start/end), so a schedule running past either edge of the week is clipped
   // to the columns that are actually on screen (AC3) while still rendering exactly one bar.
+  //
+  // User feedback (2026-09-28, desktop view): whether a schedule EARNS a spanning bar at all is
+  // now decided by its CLIPPED span count within this visible week, not by comparing its raw
+  // `eventStartDate`/`eventEndDate` globally ("determined based on the number of consecutive days
+  // in that week rather than by counting the dates in schedule"). A schedule that's multi-day in
+  // the database but whose current week only overlaps one of its days (e.g. a Dec 30 - Jan 2
+  // event viewed in the Jan 2 - 8 week) now renders as a normal single-day cell instead of a
+  // one-column-wide spanning bar — `spanCount <= 1` below is the gate, computed unconditionally
+  // (dropping the old upfront `isMultiDaySchedule` gate, which only ever looked at the raw dates).
   const spanningSchedules = useMemo(() => {
     const weekStartStr = toISODateString(visibleDays[0]);
     const weekEndStr = toISODateString(visibleDays[6]);
     const entries: SpanningSchedule<TSchedule>[] = [];
 
     schedules.forEach((schedule) => {
-      if (!isMultiDaySchedule(schedule)) return;
-
       const start = schedule.eventStartDate;
       const end = schedule.eventEndDate || start;
 
@@ -491,8 +498,13 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
 
       const startColIdx = Math.max(0, diffInDays(weekStartStr, clippedStart));
       const endColIdx = Math.min(6, diffInDays(weekStartStr, clippedEnd));
+      const spanCount = endColIdx - startColIdx + 1;
 
-      entries.push({ schedule, startColIdx, spanCount: endColIdx - startColIdx + 1 });
+      // Only one day of this schedule is actually visible this week — not multi-day *here*,
+      // even if `isMultiDaySchedule(schedule)` (raw dates) would say otherwise.
+      if (spanCount <= 1) return;
+
+      entries.push({ schedule, startColIdx, spanCount });
     });
 
     // AC4 — deterministic row order: earliest start date, then earliest start time (untimed
@@ -514,14 +526,21 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   }, [schedules, visibleDays]);
 
   // 2c. Story 1.i1g Task 3 (AC5/AC6) — the desktop day cells and their "+N more" popover list
-  // single-day schedules only, because every multi-day schedule in a bucket already has its own
-  // spanning bar above the day-cell row; keeping the per-day segments too would duplicate it.
+  // single-day schedules only, because every schedule that actually got a spanning bar above
+  // (`spanningSchedules`, week-clipped per the note above) already has its own row; keeping the
+  // per-day segments too would duplicate it. Excluding by `spanningSchedules` membership (not the
+  // raw `isMultiDaySchedule` predicate) keeps this consistent with that gate — a schedule denied a
+  // spanning bar because this week only shows one of its days stays in its one day's bucket here.
   // `dayBuckets` itself is left untouched — the mobile list still renders multi-day segments
   // day-by-day (AC13) — and this filtered view is also what the roving tabindex grid is built
   // from, so spanning bars stay out of Arrow-key navigation (AC12).
+  const spanningScheduleIds = useMemo(
+    () => new Set(spanningSchedules.map((entry) => String(entry.schedule.id))),
+    [spanningSchedules]
+  );
   const singleDayDayBuckets = useMemo(
-    () => dayBuckets.map((bucket) => bucket.filter((segment) => !isMultiDaySchedule(segment.schedule))),
-    [dayBuckets]
+    () => dayBuckets.map((bucket) => bucket.filter((segment) => !spanningScheduleIds.has(String(segment.schedule.id)))),
+    [dayBuckets, spanningScheduleIds]
   );
 
   // 3. Roving Tabindex State & Arrow-key Nav implementation
@@ -807,6 +826,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
               onFavoriteToggle={onFavoriteToggle}
               favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
               nearbyBadgeThreshold={nearbyBadgeThreshold}
+              statusLabels={statusLabels}
             />
           ))}
         </div>
@@ -1277,6 +1297,24 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
     );
   }
 
+  // User feedback (2026-09-28): the desktop grid cell shows a status badge again, but only for
+  // the `inHours`/`endsAt` states — every other state (including `endsToday`) stays badge-less,
+  // per BUG-048's original revert (see `EventCardCalendarGridItem.tsx`'s own note).
+  const { text: gridStatusText, variant: gridStatusVariant, state: gridStatusState } = formatEventStatus(
+    locale,
+    timezone,
+    new Date(),
+    schedule.eventStartDate,
+    schedule.eventStartTime,
+    schedule.eventEndDate,
+    schedule.eventEndTime,
+    statusLabels
+  );
+  const gridStatusBadge =
+    gridStatusState === 'inHours' || gridStatusState === 'endsAt' ? (
+      <EventCardStatusBadge text={gridStatusText} variant={gridStatusVariant} />
+    ) : undefined;
+
   // BUG-048: single-day schedules now adopt `EventCardCalendarGridItem` (Story 1.i1f), the same
   // primitive the *spanning* banner (`MultiDaySpanningBar`, above) already uses — the exact
   // "non-interactive chrome + sibling interactive elements" shape that bar's own doc comment
@@ -1314,6 +1352,7 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
           onFavoriteToggle={onFavoriteToggle ? () => onFavoriteToggle(schedule) : undefined}
           distanceKm={schedule.distanceKm}
           nearbyBadgeThreshold={nearbyBadgeThreshold}
+          statusBadge={gridStatusBadge}
           labels={{ favoriteToggle: favoriteToggleLabel, nearbyBadge: nearbyBadgeLabel }}
         />
         {/* `EventCardCalendarGridItem`'s own favorite control only renders when a toggle handler
@@ -1378,6 +1417,8 @@ interface MultiDaySpanningBarProps<TSchedule extends WeeklyCalendarViewScheduleS
    * `EventCardCalendarGridItem`. Undefined keeps the card's own `8` default.
    */
   nearbyBadgeThreshold?: number;
+  /** Forwarded to `formatEventStatus` for this bar's own `inHours`/`endsAt`-only status badge. */
+  statusLabels?: EventStatusLabels;
 }
 
 /**
@@ -1414,6 +1455,7 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
   onFavoriteToggle,
   favoriteToggleLabel,
   nearbyBadgeThreshold,
+  statusLabels,
 }: MultiDaySpanningBarProps<TSchedule>) {
   // Tooltip visibility states — same hover/focus/Escape model as CalendarCard's grid variant.
   const [isHovered, setIsHovered] = useState(false);
@@ -1432,6 +1474,24 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
       schedule.eventEndTime
     );
   }, [locale, timezone, schedule]);
+
+  // User feedback (2026-09-28): same `inHours`/`endsAt`-only status badge as the single-day grid
+  // cell (`CalendarCard`'s own note above) — a multi-day schedule can be starting or ending soon
+  // too, and this bar shares the same underlying primitive/badge slot.
+  const { text: spanStatusText, variant: spanStatusVariant, state: spanStatusState } = formatEventStatus(
+    locale,
+    timezone,
+    new Date(),
+    schedule.eventStartDate,
+    schedule.eventStartTime,
+    schedule.eventEndDate,
+    schedule.eventEndTime,
+    statusLabels
+  );
+  const spanStatusBadge =
+    spanStatusState === 'inHours' || spanStatusState === 'endsAt' ? (
+      <EventCardStatusBadge text={spanStatusText} variant={spanStatusVariant} />
+    ) : undefined;
 
   const handlePointerEnter = (e: React.PointerEvent) => {
     if (e.pointerType !== 'touch') {
@@ -1505,6 +1565,7 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
           onFavoriteToggle={onFavoriteToggle ? () => onFavoriteToggle(schedule) : undefined}
           distanceKm={schedule.distanceKm}
           nearbyBadgeThreshold={nearbyBadgeThreshold}
+          statusBadge={spanStatusBadge}
           labels={{ favoriteToggle: favoriteToggleLabel }}
         />
       </div>

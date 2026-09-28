@@ -151,6 +151,13 @@ seeded "Home Jakarta" location). Each with-thumbnail/prominent fixture post also
 GraphQL per item 4 above; without it these fixtures would have silently rendered as no-image
 fallback despite having a real `imageUrl` in the DB.
 
+**Follow-up:** these 8 fixtures' dates were originally hardcoded to specific 2026-09/10/11 dates
+relative to the fixture set's authoring date (2026-09-27, "today" at the time). Replaced with a
+new `relativeDate(offsetDays)` helper (`new Date()` + UTC day offset) so each fixture's intended
+state (not-started / ongoing / ends-today) still renders correctly no matter when the seed is
+actually run, instead of silently drifting out of its intended state once "today" moves past the
+hardcoded dates.
+
 ## 7. Calendar-grid card (VM5/VM6, `EventCardCalendarGridItem`) — status badge reverted, multi-day layout change
 
 Out of scope for the masonry family itself, but changed in this same session and previously
@@ -249,6 +256,42 @@ boolean branch (`EventCardMediaPrimitives.tsx`). Both call sites (`EventCard.tsx
 
 Files: `format-event-date.ts`, `EventCardMediaPrimitives.types.ts`, `EventCardMediaPrimitives.tsx`,
 `EventCard.tsx`, `WeeklyCalendarView.tsx`.
+
+## 12. Calendar desktop view — week-clipped multi-day determination + `inHours`/`endsAt` badge
+
+Out of scope for the masonry family, but changed in this same session (`WeeklyCalendarView.tsx`,
+`EventCardCalendarGridItem.tsx`/`.types.ts`, `format-event-date.ts`):
+
+- **Multi-day determination is now week-clipped, not schedule-global.** `spanningSchedules`
+  previously gated on the raw `isMultiDaySchedule(schedule)` predicate
+  (`eventEndDate !== eventStartDate`) *before* computing the visible week's clipped column span —
+  so a schedule that's multi-day in the database but whose current week only overlaps one of its
+  days (e.g. a Dec 30 – Jan 2 event viewed in the Jan 2–8 week) still got a one-column-wide
+  spanning bar instead of a normal single-day cell. Per user feedback ("it should be determined
+  based on the number of consecutive days in that week rather than by counting the dates in
+  schedule"), the gate moved to *after* the clip: every schedule overlapping the week gets its
+  `spanCount` computed unconditionally, and only `spanCount > 1` earns a spanning bar.
+  `singleDayDayBuckets` was updated to match — it now excludes a schedule from the day-cell view by
+  checking membership in the resulting `spanningSchedules` set (`spanningScheduleIds`), not the raw
+  predicate, so a schedule denied a bar this week correctly falls back into its one day's cell.
+  Mobile's own multi-day handling (`isMultiDaySchedule` at the mobile inline-cap check) is
+  untouched — this was scoped to desktop only, per the request.
+- **`EventCardCalendarGridItem` status badge, re-added but narrowed.** Section 7 above removed the
+  status badge entirely (BUG-048 revert). Per new user feedback ("shows only statusInHours and
+  statusEndsAt badge under locationName if its applicable"), it's re-added but gated tighter than
+  BUG-048's original: a new `statusBadge?: ReactNode` prop renders directly under `location` in
+  both compositions, and the caller (`CalendarCard`'s grid path and `MultiDaySpanningBar`, both in
+  `WeeklyCalendarView.tsx`) only builds that element for `formatEventStatus(...).state ===
+  'inHours' | 'endsAt'` — every other state, including `endsToday`, stays badge-less.
+  `MultiDaySpanningBar` didn't have `statusLabels` wired in at all before this (only `CalendarCard`
+  did) — added it to `MultiDaySpanningBarProps` and its call site.
+  - This needed a finer-grained discriminant than section 11's `variant` (which merges `endsAt`
+    and `endsToday` into one `'endingSoon'` color) — `EventStatusResult` gained a `state` field
+    with the exact one of the 8 states (`'ended' | 'happeningNow' | 'endsAt' | 'endsToday' |
+    'inHours' | 'tomorrow' | 'weekday' | 'inDays' | 'upcoming'`), alongside the unchanged `variant`.
+
+Files: `WeeklyCalendarView.tsx`, `EventCardCalendarGridItem.tsx`, `EventCardCalendarGridItem.types.ts`,
+`format-event-date.ts`.
 
 ## Known-open items / not done this session
 

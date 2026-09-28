@@ -1,4 +1,4 @@
-import type { MouseEventHandler } from 'react';
+import type { MouseEventHandler, ReactNode } from 'react';
 import type { EventCardFavoriteBadgeLabels } from './EventCardMediaPrimitives.types';
 
 /**
@@ -46,6 +46,15 @@ export interface EventCardCalendarGridItemProps {
    * nearby-filter plumbing are unaffected.
    */
   nearbyBadgeThreshold?: number;
+  /**
+   * User feedback (2026-09-28): the desktop calendar grid card shows a status badge again, but
+   * only for the `inHours`/`endsAt` states (`formatEventStatus(...).state`) — every other state
+   * (including `endsToday`, deliberately excluded) stays badge-less, per BUG-048's original
+   * revert. The caller (`WeeklyCalendarView.tsx`) owns that gating and passes the already-built
+   * `<EventCardStatusBadge>` element (or `undefined`) rather than this primitive re-deriving
+   * `formatEventStatus` itself. Rendered directly under `location`, in both compositions.
+   */
+  statusBadge?: ReactNode;
   labels?: EventCardFavoriteBadgeLabels & {
     /**
      * Accessible/visible text for the nearby badge. Resolver FUNCTION, not a static string

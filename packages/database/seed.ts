@@ -922,6 +922,15 @@ const FIXTURE_EVENTS = [
   },
 ];
 
+// Returns a 'YYYY-MM-DD' date offsetDays from the actual seed-run date (UTC), so the
+// Event-Card manual investigation fixtures below keep rendering their intended state
+// (not-started / ongoing / ends-today) no matter when the seed is run.
+function relativeDate(offsetDays: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + offsetDays);
+  return d.toISOString().slice(0, 10);
+}
+
 const FIXTURE_SCHEDULES = [
   {
     id: '50000000-0000-0000-0000-000000000001',
@@ -998,16 +1007,16 @@ const FIXTURE_SCHEDULES = [
     ticketPrice: 'Free',
     locationDetails: { coordinates: { latitude: -6.1701, longitude: 106.8283 } },
   },
-  // --- Event-Card manual investigation fixtures (2026-09-27) --- dates are relative to this
-  // fixture set's authoring date (2026-09-27, "today") so each state (not-started / ongoing /
+  // --- Event-Card manual investigation fixtures (2026-09-27) --- dates are computed via
+  // relativeDate() off the actual seed-run date so each state (not-started / ongoing /
   // ends-today) actually renders as intended when browsed live, not just under frozen test clocks.
   {
     id: '50000000-0000-0000-0000-000000000006',
     slug: 'eventcard-not-started-main-fixed',
     eventId: FIXTURE_EVENTS[4].id,
     isMainSchedule: true,
-    eventStartDate: '2026-10-15',
-    eventEndDate: '2026-10-15',
+    eventStartDate: relativeDate(18),
+    eventEndDate: relativeDate(18),
     eventStartTime: '09:00:00',
     eventEndTime: '12:00:00',
     title: 'Not Started Yet',
@@ -1021,8 +1030,8 @@ const FIXTURE_SCHEDULES = [
     slug: 'eventcard-ongoing-main-fixed',
     eventId: FIXTURE_EVENTS[5].id,
     isMainSchedule: true,
-    eventStartDate: '2026-09-20',
-    eventEndDate: '2026-10-05',
+    eventStartDate: relativeDate(-7),
+    eventEndDate: relativeDate(8),
     eventStartTime: '09:00:00',
     eventEndTime: '21:00:00',
     title: 'Ongoing Now',
@@ -1036,8 +1045,8 @@ const FIXTURE_SCHEDULES = [
     slug: 'eventcard-ends-today-main-fixed',
     eventId: FIXTURE_EVENTS[6].id,
     isMainSchedule: true,
-    eventStartDate: '2026-09-25',
-    eventEndDate: '2026-09-27',
+    eventStartDate: relativeDate(-2),
+    eventEndDate: relativeDate(0),
     eventStartTime: '09:00:00',
     eventEndTime: '23:59:00',
     title: 'Ends Today',
@@ -1051,8 +1060,8 @@ const FIXTURE_SCHEDULES = [
     slug: 'eventcard-noimage-upcoming-main-fixed',
     eventId: FIXTURE_EVENTS[7].id,
     isMainSchedule: true,
-    eventStartDate: '2026-11-01',
-    eventEndDate: '2026-11-01',
+    eventStartDate: relativeDate(35),
+    eventEndDate: relativeDate(35),
     eventStartTime: '10:00:00',
     eventEndTime: '18:00:00',
     title: 'No-Image, Not Started Yet',
@@ -1066,8 +1075,8 @@ const FIXTURE_SCHEDULES = [
     slug: 'eventcard-noimage-ongoing-main-fixed',
     eventId: FIXTURE_EVENTS[8].id,
     isMainSchedule: true,
-    eventStartDate: '2026-09-10',
-    eventEndDate: '2026-10-20',
+    eventStartDate: relativeDate(-17),
+    eventEndDate: relativeDate(23),
     eventStartTime: '10:00:00',
     eventEndTime: '18:00:00',
     title: 'No-Image, Ongoing Now',
@@ -1081,8 +1090,8 @@ const FIXTURE_SCHEDULES = [
     slug: 'eventcard-prominent-not-started-main-fixed',
     eventId: FIXTURE_EVENTS[9].id,
     isMainSchedule: true,
-    eventStartDate: '2026-10-20',
-    eventEndDate: '2026-10-20',
+    eventStartDate: relativeDate(23),
+    eventEndDate: relativeDate(23),
     eventStartTime: '19:00:00',
     eventEndTime: '22:00:00',
     title: 'Prominent Poster, Not Started Yet',
@@ -1096,8 +1105,8 @@ const FIXTURE_SCHEDULES = [
     slug: 'eventcard-prominent-ongoing-main-fixed',
     eventId: FIXTURE_EVENTS[10].id,
     isMainSchedule: true,
-    eventStartDate: '2026-09-15',
-    eventEndDate: '2026-10-15',
+    eventStartDate: relativeDate(-12),
+    eventEndDate: relativeDate(18),
     eventStartTime: '19:00:00',
     eventEndTime: '22:00:00',
     title: 'Prominent Poster, Ongoing Now',
@@ -1111,8 +1120,8 @@ const FIXTURE_SCHEDULES = [
     slug: 'eventcard-nearby-main-fixed',
     eventId: FIXTURE_EVENTS[11].id,
     isMainSchedule: true,
-    eventStartDate: '2026-09-20',
-    eventEndDate: '2026-10-05',
+    eventStartDate: relativeDate(-7),
+    eventEndDate: relativeDate(8),
     eventStartTime: '09:00:00',
     eventEndTime: '21:00:00',
     // ~0.3km from FIXTURE_USER_LOCATIONS[0] ("Home Jakarta", -6.2088/106.8456) -- well under the

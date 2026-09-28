@@ -133,13 +133,20 @@ export interface EventStatusResult {
   /** The already-labeled display string for the active state (unchanged from AC15). */
   text: string;
   /**
-   * The state discriminant `EventCardStatusBadge` uses to pick its color: `'happeningNow'`
-   * (event already started, not ending today) gets the solid emerald treatment; `'endingSoon'`
+   * The color discriminant `EventCardStatusBadge` uses: `'happeningNow'` (event already
+   * started, not ending today) gets the solid emerald treatment; `'endingSoon'`
    * (`statusEndsAt`/`statusEndsToday`) gets amber, matching the masonry TILL tag's own
    * end-time color; `'startingSoon'` (`statusInHours`) gets sky; every other state (`ended`,
    * `tomorrow`, a weekday name, `inDays`, `upcoming`) stays `'default'` (shared neutral `base`).
    */
   variant: 'default' | 'happeningNow' | 'endingSoon' | 'startingSoon';
+  /**
+   * The exact one of the 8 states (finer-grained than `variant`, which merges `endsAt` and
+   * `endsToday` into one `'endingSoon'` color) — lets a caller distinguish, e.g., `endsAt` from
+   * `endsToday` when it only wants to react to one of the two (`EventCardCalendarGridItem`'s
+   * desktop calendar card shows a badge for `inHours`/`endsAt` only, not `endsToday`).
+   */
+  state: 'ended' | 'happeningNow' | 'endsAt' | 'endsToday' | 'inHours' | 'tomorrow' | 'weekday' | 'inDays' | 'upcoming';
 }
 
 /**
@@ -182,14 +189,14 @@ export function formatEventStatus(
     endDayDiff < 0 || (endDayDiff === 0 && !!endTime && now.getTime() >= endDateTime.getTime());
 
   if (ended) {
-    return { text: labels?.statusEnded ?? 'Ended', variant: 'default' };
+    return { text: labels?.statusEnded ?? 'Ended', variant: 'default', state: 'ended' };
   }
 
   if (started) {
     if (endDayDiff > 0) {
       // The one state with its own DESIGN.md color treatment (AC4) — surfaced from this
       // same branch, never re-derived by the caller.
-      return { text: labels?.statusHappeningNow ?? 'Now', variant: 'happeningNow' };
+      return { text: labels?.statusHappeningNow ?? 'Now', variant: 'happeningNow', state: 'happeningNow' };
     }
     // endDayDiff === 0 here: ended-check above already handled endDayDiff < 0.
     // User feedback (2026-09-27): once the end time is known, show the precise "Ends hh:mm"
@@ -202,9 +209,10 @@ export function formatEventStatus(
           formatEventTime(locale, timezone, endDateTime)
         ),
         variant: 'endingSoon',
+        state: 'endsAt',
       };
     }
-    return { text: labels?.statusEndsToday ?? 'Ends Today', variant: 'endingSoon' };
+    return { text: labels?.statusEndsToday ?? 'Ends Today', variant: 'endingSoon', state: 'endsToday' };
   }
 
   // Not started.
@@ -217,21 +225,23 @@ export function formatEventStatus(
     return {
       text: (labels?.statusInHours ?? 'In {n} hour(s)').replace('{n}', String(n)),
       variant: 'startingSoon',
+      state: 'inHours',
     };
   }
   if (startDayDiff === 1) {
-    return { text: labels?.tomorrow ?? 'Tomorrow', variant: 'default' };
+    return { text: labels?.tomorrow ?? 'Tomorrow', variant: 'default', state: 'tomorrow' };
   }
   if (startDayDiff >= 2 && startDayDiff <= 6) {
-    return { text: formatWeekday(locale, timezone, startDateTime), variant: 'default' };
+    return { text: formatWeekday(locale, timezone, startDateTime), variant: 'default', state: 'weekday' };
   }
   if (startDayDiff >= 7 && startDayDiff <= 13) {
     return {
       text: (labels?.statusInDays ?? 'In {n} days').replace('{n}', String(startDayDiff)),
       variant: 'default',
+      state: 'inDays',
     };
   }
-  return { text: labels?.statusUpcoming ?? 'Upcoming', variant: 'default' };
+  return { text: labels?.statusUpcoming ?? 'Upcoming', variant: 'default', state: 'upcoming' };
 }
 
 export function formatRelativeDayOrDate(

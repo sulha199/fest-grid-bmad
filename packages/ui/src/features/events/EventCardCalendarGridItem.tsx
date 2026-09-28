@@ -24,8 +24,11 @@
  * (`!isMultiDay`) uses the separate two-row stacked composition, since VM5 never attempts an
  * image at all.
  *
- * No status badge in either composition (BUG-048/AC-STATUS-1 briefly added one, 2026-09-26;
- * reversed 2026-09-27, user feedback: "don't show the now/ending_at badge").
+ * Status badge (BUG-048/AC-STATUS-1) briefly added 2026-09-26, reversed 2026-09-27 ("don't show
+ * the now/ending_at badge"), re-added 2026-09-28 but narrowed: the caller now passes a ready-made
+ * `statusBadge` element only for the `inHours`/`endsAt` states (see `.types.ts`'s own note),
+ * rendered directly under `location` in both compositions below; every other state — including
+ * `endsToday` — stays badge-less, same as the 2026-09-27 revert.
  *
  * @see EventCardMediaPrimitives.tsx — reused `EventCardFavoriteBadge` (large scale) and
  *   `EventCardNearbyBadge` (the shared, self-gating `< thresholdKm` badge)
@@ -50,6 +53,7 @@ export function EventCardCalendarGridItem({
   onFavoriteToggle,
   distanceKm,
   nearbyBadgeThreshold = 8,
+  statusBadge,
   labels = {},
 }: EventCardCalendarGridItemProps) {
   const defaultLabels = {
@@ -131,13 +135,6 @@ export function EventCardCalendarGridItem({
     />
   );
 
-  // User feedback (2026-09-27): the status badge ("Now"/"Ends hh:mm"/etc, BUG-048/AC-STATUS-1)
-  // is removed from this card entirely -- both compositions below now render only
-  // `favoriteBadge`/`nearbyBadge`. This reverses BUG-048's adoption and restores the ORIGINAL
-  // 2026-09-14 "no status badge on this composition" decision documented in
-  // EVENT-CARD-DESIGN.md's event_card_calendar_grid_item token (which BUG-048 had explicitly
-  // marked as "being revisited... do not treat as settled" -- now resolved back to "no badge").
-
   // User feedback (2026-09-27): a multi-day schedule with NO thumbnail (image missing/errored)
   // now uses this SAME with-image row layout instead of falling through to the single-day (VM5)
   // 2-row stacked composition below -- just without the `<img>` element ("replace the grid
@@ -161,6 +158,7 @@ export function EventCardCalendarGridItem({
         <div className="flex-1 min-w-0 flex flex-col gap-1 justify-center">
           <h3 className="text-sm font-bold">{eventName}</h3>
           {location && <p className="text-xs text-muted-foreground line-clamp-2">{location}</p>}
+          {statusBadge}
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
           {favoriteBadge}
@@ -180,6 +178,7 @@ export function EventCardCalendarGridItem({
         {location && <p className="text-xs text-muted-foreground line-clamp-2 flex-1">{location}</p>}
         {nearbyBadge}
       </div>
+      {statusBadge}
     </div>
   );
 }
