@@ -156,6 +156,17 @@ worth knowing at dispatch time:
 | `calendar-grid-item/with-thumbnail-multiple-days.html` | `event_card_calendar_grid_item` (with-image), attachment decision | 1.i1f, 1.i1g, 1.i1h | all `review` (updated 2026-09-22 — 1.i1g/1.i1h moved to `review`) |
 | `calendar-grid-item/thumbnail-fallback.html` | `event_card_calendar_grid_item` (no-image two-row) | 1.i1f, 1.i1h | all `review` (updated 2026-09-22 — 1.i1h moved to `review`) |
 
+**OUT-OF-BAND REVISION, 2026-09-27/28** (not a story dispatch — a direct chat/quick-dev-style session,
+tracked in `design-artifacts/UX-festgrid-run-1/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md`): 3 of the
+7 prototypes above were revised again, past what the stories in this table validated —
+`masonry/prominent-poster.html` (TILL badge repositioning, see IDEA-046 rule 4's own note below) and
+both `calendar-grid-item/*.html` files (`bg-violet-50/50` opacity + a re-added, narrowed status badge).
+The "Stories that consume them"/"Status" columns above still correctly describe each STORY's own
+completion state — they just no longer describe the CURRENT content of those 3 prototype files, which
+now reflect code shipped after those stories closed. `EVENT-CARD-DESIGN.md`'s own token comments (and
+`backlog.yaml`'s BUG-048 note) carry the up-to-date account; this table is left as a historical record
+of story coverage, not re-verified against the revised prototypes.
+
 *(All seven under `design-artifacts/UX-festgrid-run-1/prototypes/event-card-…`.)* The pass's one real
 engineering finding — a thumbnail-bearing card physically cannot fit the real 174×128 `day_cell` — is
 the best-traced item of all: `FIND-026` + `BUG-036` → Story 1.i1h.
@@ -189,6 +200,16 @@ from elsewhere (`6412792c`, `13861432`), both `review`:
   contract between masonry and the compact row, and contradicts a shipped AC (Story 1.i1z AC3 +
   two live CI ratchet tests asserting the compact row *does* reserve blank space) — governance
   work needing its own review, not a same-story class swap.
+
+  **Rule 4 further evolved, 2026-09-27/28 (out-of-band, not a story)** — 1.i1l's own shipped
+  mechanism (pill `top-2`/`top-5` conditional; TILL offset `-top-1.5` default / `-top-3` on
+  `prominentPoster=true`, NESTED inside the pill) is exactly what a direct chat/quick-dev-style
+  session (`MASONRY-CARD-SESSION-CHANGES-2026-09-27.md`) tried to unify further, reverted, then
+  landed on for real: VM1's `-top-3` nested offset is now a `top-1 left-2` floating SIBLING
+  outside the pill entirely (not nested, not routed through the shared
+  `eventCardTillLabelClass()` helper for VM1 any more), while the `top-2`/`top-5` pill-conditional
+  itself is unchanged from what 1.i1l shipped. See `EVENT-CARD-DESIGN.md`'s
+  `event_card_till_badge`/`event_card_date_box` tokens for the current mechanism.
 
 **Also carved:** **`IDEA-048`** (child of IDEA-046) — two further `event_card_compact` gaps found
 during 1.i1l's Gate 2 sweep, deliberately left for 1.i1m's row-restructure rather than folded in:
@@ -224,6 +245,26 @@ Any *other* new story touching `EventCardDateBox`/`EventCardMediaPrimitives.tsx`
 `WeeklyCalendarView.tsx` should land and reach at least `review` — ideally amend 1.3k's own
 epics.md `Depends on:` line to name it — before 1.3k's `bmad-dev-story` is dispatched, so 1.3k
 isn't built blind to a shared-primitive change landing underneath it.
+
+**OUT-OF-BAND LANDING, 2026-09-27/28 (no `Depends on:` line exists to amend — flagging here
+instead):** a direct chat/quick-dev-style session, not run through `bmad-create-story`/
+`bmad-dev-story`, landed committed changes to exactly this set of files — `EventCard.tsx`,
+`EventCardMediaPrimitives.tsx`, `EventCardMediaPrimitives.types.ts`, `format-event-date.ts`,
+`EventCard.test.tsx`, `EventCardMediaPrimitives.test.tsx`, `format-event-date.test.ts`, and
+`WeeklyCalendarView.tsx` (including its `EventCardCalendarGridItem.tsx`/`.types.ts` sibling).
+Full detail: `design-artifacts/UX-festgrid-run-1/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md`.
+**Most relevant to 1.3k specifically:** `WeeklyCalendarView.tsx`'s `spanningSchedules`/
+`singleDayDayBuckets` computation (item 12) was rewritten — multi-day attachment is now
+week-clipped (gated on `spanCount > 1` within the visible week) rather than the schedule's raw
+`eventStartDate`/`eventEndDate`, and a `spanningScheduleIds` set now drives which schedules
+`singleDayDayBuckets` excludes. `dayBuckets` itself (the array 1.3k's own AC touches) is
+unchanged, but the derived buckets immediately downstream of it are not — whoever dispatches
+1.3k's `bmad-dev-story` should re-read this logic fresh against current `WeeklyCalendarView.tsx`
+rather than trusting 1.3k's own story file's description of it, which predates this landing by
+over a week (created 2026-09-17). `EventCardStatusBadge`'s `isHappeningNow` boolean prop was also
+renamed to `variant`/a new `state` field in this same landing — if 1.3k's repeat-badge work reads
+or extends that component's props, it should target the current API, not what existed when 1.3k
+was drafted.
 
 ## Story 0.44 -> Story 0.43 dependency (packages/visual-audit)
 
