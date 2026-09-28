@@ -34,7 +34,44 @@
      the favorite icon getting bigger/stacked is called out for this state, not "no area for image" the way it's
      explicitly called out for the other two card families.
      Real-grid sizing: same math as default-with-thumbnail.html -- 175px (mobile, 390px viewport, 2-col) and
-     269px (desktop, 1440px viewport, xl:5-col). -->
+     269px (desktop, 1440px viewport, xl:5-col).
+
+     REVISED 2026-09-27 (user feedback, screenshot-driven -- see event-card-family-consolidated-acs.md AC-DATE-4/
+     AC-DATE-5): three changes, mirroring default-with-thumbnail.html's same-dated revision (see that file's
+     header for the full rationale -- the favorite-badge-position and location-line changes there don't apply to
+     this state, which never had an inset favorite pill or a location line rendered inside the reserved slot).
+     1. Date box `shrink-0` -> `flex-1 min-w-0`, same 50/50 equal-width split with the reserved fallback slot
+        (which was already `flex-1`) -- keeps this state's date box pixel-identical in width/height to
+        default-with-thumbnail.html's, since both files now use the same flex-1/flex-1 row math.
+     2. The favorite icon grows larger again this round (mobile w-10->w-12, desktop w-16->w-20) -- continuing the
+        same "actively occupy more of the reserved space" direction rounds 4-5 already established.
+     3. The venue/location line: no location-pin icon (never had one), `break-all` instead of truncate,
+        center-aligned instead of left-aligned -- identical rule to default-with-thumbnail.html's change 4.
+
+     REVISED 2026-09-27, round 2 (user feedback, same-day follow-up): identical round-2 changes to
+     default-with-thumbnail.html's own same-dated comment -- row padding/gap removed entirely (date box and the
+     reserved fallback slot now sit flush against each other and the card's true edges), outer `overflow-hidden`
+     removed from the card wrapper so the TILL badge floats unclipped on the card's true corner, `rounded-md` ->
+     `rounded-l-md`/`rounded-r-md` on the two top-row children (only the card-edge corners round; the seam
+     corners are square), and the event title becomes center-aligned.
+
+     REVISED 2026-09-27, round 3 (user feedback, same-day follow-up): identical round-3 changes to
+     default-with-thumbnail.html's own same-dated comment -- date box and the reserved fallback slot lose all
+     border radius (were `rounded-l-md`/`rounded-r-md`), and the fallback slot's height mechanism changes from
+     `h-full` (stretch to match the date box) to owning its own aspect-ratio (`aspect-[5/6]` widening to
+     `aspect-square` at/above 1200px screen width, same rule and same per-panel-hardcoded demo convention as the
+     with-image state -- kept identical between both states so the date box renders at the same height in both,
+     matching AC-DATE-5).
+
+     REVISED 2026-09-27, round 4 (user feedback): identical round-4 change to default-with-thumbnail.html's own
+     same-dated comment -- the TILL badge moves from floating past the card's true corner (`-top-1.5 -left-1.5`)
+     to sitting just inside it (`top-1.5 left-1.5`), and the outer card regains `overflow-hidden`/`rounded-lg`
+     since nothing needs to float past its silhouette anymore.
+
+     REVISED 2026-09-27, round 5 (user feedback): identical round-5 change to default-with-thumbnail.html's own
+     same-dated comment -- `items-center` added to the date box's flex container, `text-center` added to the
+     month span (day already had it), fixing month/day text that looked pushed toward the right edge once the
+     box grew wide (flex-1). -->
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
@@ -59,18 +96,30 @@
 <div class="p-6 bg-slate-100 min-h-screen flex flex-wrap items-start gap-8 justify-center">
   <div class="flex flex-col items-center gap-2">
     <span class="text-xs font-mono text-slate-500">175px -- mobile 2-col (390px viewport)</span>
+    <!-- REVISED 2026-09-27 round 4: outer `overflow-hidden` RESTORED -- see default-with-thumbnail.html's
+         identical-dated comment for the full rationale (the TILL badge now sits inside the card's own corner). -->
     <div class="w-[175px] rounded-lg shadow-md bg-background overflow-hidden">
-      <div class="p-2 flex items-stretch gap-1.5">
-        <!-- event_card_date_box.base_default (two-tier stacked) -->
-        <div class="relative flex flex-col justify-center gap-0.5 px-2.5 py-2 rounded-md bg-slate-800 text-white shadow-sm shrink-0 leading-none">
-          <span class="absolute -top-1.5 -left-1.5 z-20 px-1.5 py-1 rounded-full bg-amber-700 text-white text-xs font-semibold leading-none shadow-sm whitespace-nowrap">TILL</span>
-          <span class="text-xs font-bold uppercase tracking-wide pt-1.5">Oct</span>
-          <span class="text-2xl font-extrabold leading-none">12</span>
+      <!-- REVISED 2026-09-27 round 2: no padding, no gap -- date-box and the reserved fallback slot sit flush
+           against each other and the card's own edges (same reasoning as default-with-thumbnail.html). -->
+      <div class="flex items-stretch">
+        <!-- event_card_date_box.base_default (two-tier stacked). round 3: NO border radius (was `rounded-l-md`).
+             Height comes from `items-stretch` matching the reserved slot's aspect-ratio-derived height, same
+             mechanism as default-with-thumbnail.html. -->
+        <div class="relative flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 px-2.5 py-2 bg-slate-800 text-white shadow-sm leading-none">
+          <span class="absolute top-1.5 left-1.5 z-20 px-1.5 py-1 rounded-full bg-amber-700 text-white text-xs font-semibold leading-none shadow-sm whitespace-nowrap">TILL</span>
+          <span class="text-xs font-bold uppercase tracking-wide text-center pt-1.5">Oct</span>
+          <span class="text-2xl font-extrabold leading-none text-center">12</span>
         </div>
-        <!-- event_card_masonry.thumbnail_default_fallback: reserved slot, nothing renders, large centered favorite badge -->
-        <div class="relative flex-1 h-full min-w-0 rounded-md flex items-center justify-center">
+        <!-- event_card_masonry.thumbnail_default_fallback: reserved slot, nothing renders, large centered favorite
+             badge. round 3: NO border radius (was `rounded-r-md`); `h-full` -> `aspect-[5/6]` so this state's
+             reserved slot is pixel-identical in height to the with-image state's thumbnail at the same width
+             (both now derive height from the same aspect-ratio rule, not from stretching to the date box). This
+             mobile panel hardcodes the <1200px state (`aspect-[5/6]`) -- see default-with-thumbnail.html's
+             identical-round comment for why each demo panel hardcodes its own end-state rather than relying on a
+             live media query. -->
+        <div class="relative flex-1 min-w-0 aspect-[5/6] flex items-center justify-center">
           <button type="button" class="flex flex-col items-center justify-center gap-0.5 min-h-11 min-w-11 text-sm font-medium text-foreground">
-            <svg class="w-10 h-10 text-rose-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.3-8.13C.6 9.9 1.4 6.4 4.3 5.1c2-.9 4.2-.2 5.7 1.5C11.5 4.9 13.7 4.2 15.7 5.1c2.9 1.3 3.7 4.8 1.6 7.77C18.7 16.65 12 21 12 21z"/></svg>
+            <svg class="w-12 h-12 text-rose-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.3-8.13C.6 9.9 1.4 6.4 4.3 5.1c2-.9 4.2-.2 5.7 1.5C11.5 4.9 13.7 4.2 15.7 5.1c2.9 1.3 3.7 4.8 1.6 7.77C18.7 16.65 12 21 12 21z"/></svg>
             <span>1.2k</span>
           </button>
         </div>
@@ -83,8 +132,11 @@
           </span>
           <span class="inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white">Now</span>
         </div>
-        <div class="text-sm font-bold text-foreground leading-tight line-clamp-2">AI Tech Summit 2026: International Edition</div>
-        <div class="text-xs text-muted-foreground truncate">Blue Note Lounge</div>
+        <!-- REVISED 2026-09-27 round 2: title centered. -->
+        <div class="text-sm font-bold text-foreground leading-tight line-clamp-2 text-center">AI Tech Summit 2026: International Edition</div>
+        <!-- REVISED 2026-09-27 (change 3): no location-pin icon; centered; break-all instead of truncate.
+             REVISED round 5 (user feedback): stays single-line (`line-clamp-1`). -->
+        <div class="text-xs text-muted-foreground text-center break-all line-clamp-1">Blue Note Lounge</div>
       </div>
     </div>
   </div>
@@ -93,15 +145,19 @@
     <span class="text-xs font-mono text-slate-500">269px xl:5-col slot, card capped at max-w-230px (1440px viewport)</span>
     <div class="w-[269px] max-w-[230px] bg-slate-50">
     <div class="rounded-lg shadow-md bg-background overflow-hidden">
-      <div class="p-3 flex items-stretch gap-2">
-        <div class="relative flex flex-col justify-center gap-0.5 px-4 py-3 rounded-md bg-slate-800 text-white shadow-sm shrink-0 leading-none">
-          <span class="absolute -top-1.5 -left-1.5 z-20 px-1.5 py-1 rounded-full bg-amber-700 text-white text-sm font-semibold leading-none shadow-sm whitespace-nowrap">TILL</span>
-          <span class="text-lg font-bold uppercase tracking-wide pt-2">Oct</span>
-          <span class="text-5xl font-extrabold leading-none">12</span>
+      <div class="flex items-stretch">
+        <!-- round 3: no border radius. round 4: TILL badge sits inside the card corner (top-1.5 left-1.5). -->
+        <div class="relative flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 px-4 py-3 bg-slate-800 text-white shadow-sm leading-none">
+          <span class="absolute top-1.5 left-1.5 z-20 px-1.5 py-1 rounded-full bg-amber-700 text-white text-sm font-semibold leading-none shadow-sm whitespace-nowrap">TILL</span>
+          <span class="text-lg font-bold uppercase tracking-wide text-center pt-2">Oct</span>
+          <span class="text-5xl font-extrabold leading-none text-center">12</span>
         </div>
-        <div class="relative flex-1 h-full min-w-0 rounded-md flex items-center justify-center">
+        <!-- round 3: no border radius; `aspect-square` hardcoded -- this panel represents the >=1200px screen
+             state (1440px viewport, per its own label above). See default-with-thumbnail.html's identical-round
+             comment. -->
+        <div class="relative flex-1 min-w-0 aspect-square flex items-center justify-center">
           <button type="button" class="flex flex-col items-center justify-center gap-1 min-h-11 min-w-11 text-base font-medium text-foreground">
-            <svg class="w-16 h-16 text-rose-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.3-8.13C.6 9.9 1.4 6.4 4.3 5.1c2-.9 4.2-.2 5.7 1.5C11.5 4.9 13.7 4.2 15.7 5.1c2.9 1.3 3.7 4.8 1.6 7.77C18.7 16.65 12 21 12 21z"/></svg>
+            <svg class="w-20 h-20 text-rose-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.3-8.13C.6 9.9 1.4 6.4 4.3 5.1c2-.9 4.2-.2 5.7 1.5C11.5 4.9 13.7 4.2 15.7 5.1c2.9 1.3 3.7 4.8 1.6 7.77C18.7 16.65 12 21 12 21z"/></svg>
             <span>1.2k</span>
           </button>
         </div>
@@ -114,8 +170,8 @@
           </span>
           <span class="inline-flex items-center text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white">Now</span>
         </div>
-        <div class="text-base font-bold text-foreground leading-tight line-clamp-2">AI Tech Summit 2026: International Edition</div>
-        <div class="text-sm text-muted-foreground truncate">Blue Note Lounge</div>
+        <div class="text-base font-bold text-foreground leading-tight line-clamp-2 text-center">AI Tech Summit 2026: International Edition</div>
+        <div class="text-sm text-muted-foreground text-center break-all line-clamp-1">Blue Note Lounge</div>
       </div>
     </div>
     </div>

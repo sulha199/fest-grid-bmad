@@ -32,7 +32,69 @@
      REVISED 2026-09-14, round 7 (user feedback): the masonry card's own max-width is capped at 230px -- at the
      xl:5-col desktop grid slot (269px), the card no longer fills the full slot width; it renders at 230px,
      left-aligned within the wider grid cell (default CSS Grid item alignment), leaving the remaining ~39px as
-     unused cell space. The mobile 2-col slot (175px) is already narrower than the cap, so it's unaffected. -->
+     unused cell space. The mobile 2-col slot (175px) is already narrower than the cap, so it's unaffected.
+
+     REVISED 2026-09-27 (user feedback, screenshot-driven -- see event-card-family-consolidated-acs.md AC-DATE-4/
+     AC-DATE-5): four changes to the top row and location line.
+     1. The date box and the thumbnail now split the row's width EQUALLY (both `flex-1 min-w-0`, was date-box
+        `shrink-0` (intrinsic content width) + thumbnail `flex-1` (fills the remainder) -- the date box used to be
+        much narrower than the thumbnail. `flex-1` on both, with the same `flex: 1 1 0%` basis, guarantees an exact
+        50/50 split regardless of the day's digit count or the thumbnail's own content -- this also satisfies
+        AC-DATE-4 (date-box width must not vary between a 1- and 2-digit day) as a side effect, since the box's
+        width is now driven purely by the row's flex math, never by its own text content.
+     2. `event_card_masonry.thumbnail_default`'s own element now uses `min-h-full h-auto` instead of a strict
+        `h-full` -- `min-height:100%` still guarantees it's never shorter than the date box (AC-DATE-5), but
+        `height:auto` (rather than a forced `height:100%`) lets the element's own content establish height where
+        relevant instead of being forced to an exact figure.
+     3. The favorite heart+count badge moves from an inset corner pill (`top-0.5/1 right-0.5/1`, sitting inside the
+        thumbnail's own padding) to a floating corner tag overlapping the thumbnail's top-right edge -- the exact
+        `-top-1.5 -right-1.5` offset magnitude `event_card_till_badge` already uses on the date box's top-left
+        corner, mirrored to the right side. Same visual identity (translucent `bg-background/80 backdrop-blur-sm`
+        pill, not the till badge's solid amber) -- only the position now matches.
+     4. The venue/location line drops its truncate-to-one-line behavior for `break-all` (wraps across multiple
+        lines, breaking mid-word if needed, rather than a single ellipsized line) and is now center-aligned
+        (`text-center`) instead of left-aligned. No location-pin icon is shown -- this file never had one; the
+        rule now applies explicitly rather than by omission, since the shipped component (`EventCard.tsx`) DID
+        carry a `MapPin` icon here that this prototype never reflected -- the icon is removed from the component
+        to match this prototype, not added here to match the component.
+
+     REVISED 2026-09-27, round 2 (user feedback, same-day follow-up): round 1 gave the date box/thumbnail equal
+     width but left them floating inside the row's own `p-2`/`p-3` padding gutter -- round 2 removes that padding
+     (and the row's own `gap`) entirely, so both elements sit flush against each other AND against the card's
+     true outer edges. This is *why* the TILL badge and the favorite badge (round 1's repositioning) now matter:
+     with no padding gutter left to float in, both badges land exactly on the card's own corner, unclipped --
+     which requires removing `overflow-hidden` from the OUTER card wrapper (it would otherwise clip them). To
+     keep the card's overall silhouette still reading as rounded without that outer clipping, the date box and
+     thumbnail each carry their own outer-corner rounding instead (`rounded-l-md`/`rounded-r-md` -- only the
+     corners touching the card's own edge round; the corners touching each other at the seam are square, so two
+     independently-rounded corners meeting mid-row never create a lens-shaped gap). The event title also becomes
+     center-aligned this round (was left-aligned), matching the venue line's round-1 alignment.
+
+     REVISED 2026-09-27, round 3 (user feedback, same-day follow-up): two more changes.
+     1. Date box and thumbnail lose ALL border radius (were `rounded-l-md`/`rounded-r-md` from round 2) -- fully
+        square corners on both, flush with the card's own edges/border.
+     2. The thumbnail's height mechanism changes from "stretch to match the date box" (`min-h-full h-auto`) to
+        "own an aspect-ratio, let the date box stretch to match IT instead": `aspect-[5/6]` (portrait) below a
+        1200px screen width, widening toward `aspect-square` (1:1) at/above 1200px -- 1:1 is the maximum, the
+        ratio never goes wider than square. Real code: `aspect-[5/6] min-[1200px]:aspect-square`. Each demo panel
+        below hardcodes the state it represents (mobile: `aspect-[5/6]`; desktop: `aspect-square`) rather than
+        relying on a live media query, since both panels share one real browser window in this side-by-side demo
+        page -- see each panel's own inline comment.
+
+     REVISED 2026-09-27, round 4 (user feedback): the TILL badge and favorite badge move from floating past the
+     card's true outer corner (round 1-3's `-top-1.5 -left-1.5` / `-top-1.5 -right-1.5`, which required removing
+     the outer card's `overflow-hidden`) to sitting just INSIDE the card's edge instead (`top-1.5 left-1.5` /
+     `top-1.5 right-1.5`, positive offsets) -- "the datebox and thumbnail box area that are outside of the card
+     should not be visible." The outer card regains `overflow-hidden` and its `rounded-lg`, since nothing needs
+     to float past its silhouette anymore; the date-box/thumbnail's own square corners (round 3) are simply
+     clipped to the card's rounded corner where they meet it, same as any other card content.
+
+     REVISED 2026-09-27, round 5 (user feedback): the date box's month/day text looked pushed toward the right
+     edge once round 1 made the box much wider (flex-1, matching the thumbnail's own share of the row) -- the
+     flex column's default cross-axis alignment (`align-items: stretch`) stretched the month/day spans to the
+     box's full width without centering their text within it. Added `items-center` to the date box's own flex
+     container and `text-center` to both the month and day spans (day already had it via AC-DATE-4; month did
+     not) so both now hug their own content and center horizontally in the box. -->
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
@@ -58,18 +120,40 @@
 <div class="p-6 bg-slate-100 min-h-screen flex flex-wrap items-start gap-8 justify-center">
   <div class="flex flex-col items-center gap-2">
     <span class="text-xs font-mono text-slate-500">175px -- mobile 2-col (390px viewport)</span>
+    <!-- REVISED 2026-09-27 round 4: outer card's `overflow-hidden` RESTORED -- the TILL/favorite corner badges
+         now sit just INSIDE the card's edge (positive offsets, see the row's own comment below), so nothing
+         needs to float past the card's true corner anymore, and content outside the card's silhouette must not
+         be visible. -->
     <div class="w-[175px] rounded-lg shadow-md bg-background overflow-hidden">
-      <div class="p-2 flex items-stretch gap-1.5">
-        <!-- event_card_date_box.base_default (two-tier stacked) -->
-        <div class="relative flex flex-col justify-center gap-0.5 px-2.5 py-2 rounded-md bg-slate-800 text-white shadow-sm shrink-0 leading-none">
-          <span class="absolute -top-1.5 -left-1.5 z-20 px-1.5 py-1 rounded-full bg-amber-700 text-white text-xs font-semibold leading-none shadow-sm whitespace-nowrap">TILL</span>
-          <span class="text-xs font-bold uppercase tracking-wide pt-1.5">Oct</span>
-          <span class="text-2xl font-extrabold leading-none">12</span>
+      <!-- REVISED 2026-09-27 round 2: p-2 gap-1.5 -> no padding, no gap -- date-box and thumbnail now sit flush
+           against each other AND against the card's own edges (round 1 already made them equal-width; this round
+           removes the padding gutter round 1 still had them floating inside). REVISED round 4: the TILL badge
+           (top-1.5 left-1.5) and the favorite badge (top-1.5 right-1.5) now land just inside the card's own
+           corners instead of floating past them. -->
+      <div class="flex items-stretch">
+        <!-- event_card_date_box.base_default (two-tier stacked). round 3: NO border radius at all on this
+             element (was `rounded-l-md`) -- square corners, flush with the card's own edges/border. Height comes
+             entirely from `items-stretch` matching the thumbnail's own aspect-ratio-derived height (round 3),
+             not from any height utility on this element itself. -->
+        <div class="relative flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 px-2.5 py-2 bg-slate-800 text-white shadow-sm leading-none">
+          <span class="absolute top-1.5 left-1.5 z-20 px-1.5 py-1 rounded-full bg-amber-700 text-white text-xs font-semibold leading-none shadow-sm whitespace-nowrap">TILL</span>
+          <span class="text-xs font-bold uppercase tracking-wide text-center pt-1.5">Oct</span>
+          <span class="text-2xl font-extrabold leading-none text-center">12</span>
         </div>
-        <!-- event_card_masonry.thumbnail_default -->
-        <div class="relative flex-1 h-full min-w-0 rounded-md overflow-hidden bg-slate-900">
+        <!-- event_card_masonry.thumbnail_default. round 3: NO border radius (was `rounded-r-md`); height no
+             longer stretches to match the date box (`min-h-full h-auto` removed) -- instead this element now
+             OWNS the row's height via aspect-ratio. Real rule: `aspect-[5/6]` (portrait) below 1200px screen
+             width, widening toward `aspect-square` (1:1, the maximum -- never wider than square) at/above 1200px
+             (`aspect-[5/6] min-[1200px]:aspect-square` in real code). This demo page renders both real panels in
+             ONE actual browser window, so a live `min-[1200px]:` media query would key off the artifact viewer's
+             own window width, not each panel's simulated viewport -- both panels would flip together instead of
+             showing the two real end-states side by side. This mobile panel therefore hardcodes `aspect-[5/6]`
+             (the <1200px state it represents); the desktop panel below hardcodes `aspect-square` (the >=1200px
+             state) -- see that panel's own comment. The date box (above) stretches to match THIS element's height
+             via the row's own `items-stretch`, not the other way around. -->
+        <div class="relative flex-1 min-w-0 aspect-[5/6] overflow-hidden bg-slate-900">
           <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%23151b3d'/%3E%3C/svg%3E" class="w-full h-full object-cover" alt="AI Tech Summit" />
-          <div class="absolute top-0.5 right-0.5 z-10 flex items-center gap-0.5 px-1.5 py-1 rounded-full bg-background/80 backdrop-blur-sm shadow-sm">
+          <div class="absolute top-1.5 right-1.5 z-20 flex items-center gap-0.5 px-1.5 py-1 rounded-full bg-background/80 backdrop-blur-sm shadow-sm">
             <svg class="w-2.5 h-2.5 text-red-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.3-8.13C.6 9.9 1.4 6.4 4.3 5.1c2-.9 4.2-.2 5.7 1.5C11.5 4.9 13.7 4.2 15.7 5.1c2.9 1.3 3.7 4.8 1.6 7.77C18.7 16.65 12 21 12 21z"/></svg>
             <span class="text-xs font-semibold">1.2k</span>
           </div>
@@ -84,8 +168,12 @@
           </span>
           <span class="inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white">Now</span>
         </div>
-        <div class="text-sm font-bold text-foreground leading-tight line-clamp-2">AI Tech Summit 2026: International Edition</div>
-        <div class="text-xs text-muted-foreground truncate">Blue Note Lounge</div>
+        <!-- REVISED 2026-09-27 round 2: title centered (was left-aligned by default). -->
+        <div class="text-sm font-bold text-foreground leading-tight line-clamp-2 text-center">AI Tech Summit 2026: International Edition</div>
+        <!-- REVISED 2026-09-27 (change 4): no location-pin icon; centered; break-all instead of truncate.
+             REVISED round 5 (user feedback): stays single-line (`line-clamp-1`) -- break-all still governs
+             mid-word wrapping if it didn't fit, but the line itself never grows past one row. -->
+        <div class="text-xs text-muted-foreground text-center break-all line-clamp-1">Blue Note Lounge</div>
       </div>
     </div>
   </div>
@@ -95,19 +183,25 @@
     <!-- outer div represents the real 269px grid cell; the card itself caps at 230px, left-aligned within it -->
     <div class="w-[269px] max-w-[230px] bg-slate-50">
     <div class="rounded-lg shadow-md bg-background overflow-hidden">
-      <div class="p-3 flex items-stretch gap-2">
-        <div class="relative flex flex-col justify-center gap-0.5 px-4 py-3 rounded-md bg-slate-800 text-white shadow-sm shrink-0 leading-none">
-          <span class="absolute -top-1.5 -left-1.5 z-20 px-1.5 py-1 rounded-full bg-amber-700 text-white text-sm font-semibold leading-none shadow-sm whitespace-nowrap">TILL</span>
-          <span class="text-lg font-bold uppercase tracking-wide pt-2">Oct</span>
-          <span class="text-5xl font-extrabold leading-none">12</span>
+      <div class="flex items-stretch">
+        <!-- round 3: no border radius. round 4: TILL badge sits inside the card corner (top-1.5 left-1.5). -->
+        <div class="relative flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 px-4 py-3 bg-slate-800 text-white shadow-sm leading-none">
+          <span class="absolute top-1.5 left-1.5 z-20 px-1.5 py-1 rounded-full bg-amber-700 text-white text-sm font-semibold leading-none shadow-sm whitespace-nowrap">TILL</span>
+          <span class="text-lg font-bold uppercase tracking-wide text-center pt-2">Oct</span>
+          <span class="text-5xl font-extrabold leading-none text-center">12</span>
         </div>
-        <div class="relative flex-1 min-w-0 rounded-md overflow-hidden bg-slate-900">
+        <!-- round 3: no border radius; aspect-square hardcoded here -- this panel represents the >=1200px screen
+             state (1440px viewport, per its own label above), the max end of the 5:6-widening-to-1:1 range. See
+             the mobile panel's identical-round comment for why this is hardcoded per-panel rather than a live
+             `min-[1200px]:` media query in this side-by-side demo page. -->
+        <div class="relative flex-1 min-w-0 aspect-square overflow-hidden bg-slate-900">
           <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%23151b3d'/%3E%3C/svg%3E" class="w-full h-full object-cover" alt="AI Tech Summit" />
           <div class="absolute inset-0 flex flex-col items-center justify-center gap-1 text-white">
             <span class="text-xl font-bold tracking-tight">AI TECH</span>
             <span class="text-lg font-extrabold tracking-tight">SUMMIT</span>
           </div>
-          <div class="absolute top-1 right-1 z-10 flex items-center gap-1.5 px-1.5 py-1 rounded-full bg-background/80 backdrop-blur-sm shadow-sm">
+          <!-- round 4: favorite badge sits inside the card corner (top-1.5 right-1.5), mirroring the TILL badge. -->
+          <div class="absolute top-1.5 right-1.5 z-20 flex items-center gap-1.5 px-1.5 py-1 rounded-full bg-background/80 backdrop-blur-sm shadow-sm">
             <svg class="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.3-8.13C.6 9.9 1.4 6.4 4.3 5.1c2-.9 4.2-.2 5.7 1.5C11.5 4.9 13.7 4.2 15.7 5.1c2.9 1.3 3.7 4.8 1.6 7.77C18.7 16.65 12 21 12 21z"/></svg>
             <span class="text-sm font-semibold">1.2k</span>
           </div>
@@ -121,8 +215,8 @@
           </span>
           <span class="inline-flex items-center text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white">Now</span>
         </div>
-        <div class="text-base font-bold text-foreground leading-tight line-clamp-2">AI Tech Summit 2026: International Edition</div>
-        <div class="text-sm text-muted-foreground truncate">Blue Note Lounge</div>
+        <div class="text-base font-bold text-foreground leading-tight line-clamp-2 text-center">AI Tech Summit 2026: International Edition</div>
+        <div class="text-sm text-muted-foreground text-center break-all line-clamp-1">Blue Note Lounge</div>
       </div>
     </div>
     </div>

@@ -17,20 +17,25 @@
  * click-target `<button>`, per that pattern's own doc comment. `CalendarOverflowDialog` (Story
  * 1.i1h) also renders it directly for its no-image composition.
  *
- * @see EventCardMediaPrimitives.tsx — reused `EventCardFavoriteBadge` (large scale),
- *   `EventCardNearbyBadge` (the shared, self-gating `< thresholdKm` badge), and
- *   `EventCardStatusBadge` (BUG-048, AC-STATUS-1 — rendered only when `eventStartDate` is passed)
- * @see format-event-date.ts — `formatEventStatus`, computed internally once `eventStartDate` is present
+ * A multi-day schedule (`isMultiDay`) always uses the with-image 3-column row layout, whether or
+ * not it actually has a usable image (2026-09-27, user feedback: "replace the grid layout to use
+ * the grid from multiday span with thumbnail, with the thumbnail not displayed") -- the `<img>`
+ * element itself is simply omitted when absent/errored. Only a single-day schedule
+ * (`!isMultiDay`) uses the separate two-row stacked composition, since VM5 never attempts an
+ * image at all.
+ *
+ * No status badge in either composition (BUG-048/AC-STATUS-1 briefly added one, 2026-09-26;
+ * reversed 2026-09-27, user feedback: "don't show the now/ending_at badge").
+ *
+ * @see EventCardMediaPrimitives.tsx — reused `EventCardFavoriteBadge` (large scale) and
+ *   `EventCardNearbyBadge` (the shared, self-gating `< thresholdKm` badge)
  */
 import React, { useState, useEffect } from 'react';
 import {
   EventCardFavoriteBadge,
   EventCardNearbyBadge,
-  EventCardStatusBadge,
   formatNearbyBadgeDistance,
 } from './EventCardMediaPrimitives';
-import { formatEventStatus } from './format-event-date';
-import { useScopedLocale, useScopedTimezone } from '../../hooks';
 import type { EventCardCalendarGridItemProps } from './EventCardCalendarGridItem.types';
 
 export function EventCardCalendarGridItem({
@@ -46,24 +51,7 @@ export function EventCardCalendarGridItem({
   distanceKm,
   nearbyBadgeThreshold = 8,
   labels = {},
-  eventStartDate,
-  eventStartTime,
-  eventEndDate,
-  eventEndTime,
-  statusLabels,
-  locale: localeProp,
-  timezone: timezoneProp,
 }: EventCardCalendarGridItemProps) {
-  // BUG-048 (AC-STATUS-1) — same "explicit prop overrides scoped context" convention EventCard.tsx
-  // already uses (project-context.md's Scoped locale/timezone context rule); every VM5/VM6 caller
-  // already has `locale`/`timezone` in scope and passes them explicitly.
-  const contextLocale = useScopedLocale();
-  const contextTimezone = useScopedTimezone();
-  // `||`, not `??`, for both — matches `EventCard.tsx`/`WeeklyCalendarView.tsx`'s identical
-  // `activeLocale`/`activeTimezone` resolution exactly (an explicit empty string falls through
-  // to context the same way an omitted prop does, on both fields).
-  const locale = localeProp || contextLocale;
-  const timezone = timezoneProp || contextTimezone;
   const defaultLabels = {
     favoriteToggle: 'Toggle favorite',
     ...labels,
@@ -143,48 +131,39 @@ export function EventCardCalendarGridItem({
     />
   );
 
-  // BUG-048 (AC-STATUS-1) — one shared computation for both VM5 (single-day grid cell) and VM6
-  // (multi-day spanning bar), gated on `eventStartDate` being supplied at all: a caller with no
-  // date info (e.g. `CalendarOverflowDialog`, not yet amended) renders no badge, same as before
-  // this change, rather than crashing or showing a meaningless "Ended"/"Upcoming" guess.
-  //
-  // The rendered element is the same in both compositions below, but its *position* deliberately
-  // follows each composition's own pre-existing layout rather than a single shared slot: stacked
-  // vertically alongside `favoriteBadge`/`nearbyBadge` in the with-image row (matching that row's
-  // existing `flex-col items-end` badge column), inline with `nearbyBadge` in a wrapping row in
-  // the no-image layout (matching that layout's existing bottom row). Intentional, not an
-  // oversight — each composition keeps its own established badge arrangement.
-  const statusBadge = eventStartDate ? (
-    <EventCardStatusBadge
-      {...formatEventStatus(
-        locale,
-        timezone,
-        new Date(),
-        eventStartDate,
-        eventStartTime,
-        eventEndDate,
-        eventEndTime,
-        statusLabels
-      )}
-    />
-  ) : null;
+  // User feedback (2026-09-27): the status badge ("Now"/"Ends hh:mm"/etc, BUG-048/AC-STATUS-1)
+  // is removed from this card entirely -- both compositions below now render only
+  // `favoriteBadge`/`nearbyBadge`. This reverses BUG-048's adoption and restores the ORIGINAL
+  // 2026-09-14 "no status badge on this composition" decision documented in
+  // EVENT-CARD-DESIGN.md's event_card_calendar_grid_item token (which BUG-048 had explicitly
+  // marked as "being revisited... do not treat as settled" -- now resolved back to "no badge").
 
-  if (showImage) {
+  // User feedback (2026-09-27): a multi-day schedule with NO thumbnail (image missing/errored)
+  // now uses this SAME with-image row layout instead of falling through to the single-day (VM5)
+  // 2-row stacked composition below -- just without the `<img>` element ("replace the grid
+  // layout to use the grid from multiday span with thumbnail, with the thumbnail not
+  // displayed"). Single-day schedules (`!isMultiDay`) never reach this branch at all -- VM5
+  // never attempts an image, per DESIGN.md, and keeps its own established 2-row layout.
+  if (isMultiDay) {
     return (
-      <div className="flex items-center gap-2 rounded-md shadow-sm p-2 bg-violet-50 border border-violet-200">
-        <img
-          src={currentImgSrc!}
-          alt={imageAlt ?? ''}
-          onError={handleImageError}
-          className="w-14 aspect-square object-cover rounded-md"
-        />
+      // User feedback (2026-09-27): "I should see the grid, make the card's bg color to have 50%
+      // opacity" -- `bg-violet-50` (solid) -> `bg-violet-50/50`, so the underlying weekly grid
+      // lines remain visible through the card.
+      <div className="flex items-center gap-2 rounded-md shadow-sm p-2 bg-violet-50/50 border border-violet-200">
+        {showImage && (
+          <img
+            src={currentImgSrc!}
+            alt={imageAlt ?? ''}
+            onError={handleImageError}
+            className="w-14 aspect-square object-cover rounded-md"
+          />
+        )}
         <div className="flex-1 min-w-0 flex flex-col gap-1 justify-center">
           <h3 className="text-sm font-bold">{eventName}</h3>
           {location && <p className="text-xs text-muted-foreground line-clamp-2">{location}</p>}
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
           {favoriteBadge}
-          {statusBadge}
           {nearbyBadge}
         </div>
       </div>
@@ -192,17 +171,14 @@ export function EventCardCalendarGridItem({
   }
 
   return (
-    <div className="flex flex-col gap-1 rounded-md shadow-sm p-2 bg-violet-50 border border-violet-200">
+    <div className="flex flex-col gap-1 rounded-md shadow-sm p-2 bg-violet-50/50 border border-violet-200">
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-sm font-bold flex-1">{eventName}</h3>
         {favoriteBadge}
       </div>
       <div className="flex items-center justify-between gap-2">
         {location && <p className="text-xs text-muted-foreground line-clamp-2 flex-1">{location}</p>}
-        <span className="flex items-center gap-1.5 flex-wrap shrink-0">
-          {statusBadge}
-          {nearbyBadge}
-        </span>
+        {nearbyBadge}
       </div>
     </div>
   );

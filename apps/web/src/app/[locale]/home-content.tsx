@@ -90,36 +90,45 @@ export function HomeContent() {
   const { mutate: toggleFavorite } = useToggleFavoriteMutation(graphqlClient, {
     onMutate: async (variables) => {
       await queryClient.cancelQueries({ queryKey: ['events'] })
-      const previousData = queryClient.getQueryData(['events', { q, types, categories }])
+      // Snapshot every matched cache entry (not just the main list's) so `onError` can roll
+      // back CalendarView's own query too — `['events']` matches both.
+      const previousQueries = queryClient.getQueriesData({ queryKey: ['events'] })
+
+      const toggleItem = (item: any) =>
+        item.id === variables.eventId
+          ? {
+              ...item,
+              isFavorited: !item.isFavorited,
+              favoriteCount: Math.max(0, (item.favoriteCount ?? 0) + (item.isFavorited ? -1 : 1)),
+            }
+          : item
 
       queryClient.setQueriesData({ queryKey: ['events'] }, (old: any) => {
-        if (!old) return old
-        return {
-          ...old,
-          pages: old.pages.map((page: any) => ({
-            ...page,
-            events: {
-              ...page.events,
-              items: page.events.items.map((item: any) =>
-                item.id === variables.eventId
-                  ? {
-                      ...item,
-                      isFavorited: !item.isFavorited,
-                      favoriteCount: Math.max(0, (item.favoriteCount ?? 0) + (item.isFavorited ? -1 : 1)),
-                    }
-                  : item
-              ),
-            },
-          })),
+        // `['events']` also matches non-paginated cache entries under the same prefix
+        // (e.g. CalendarView's `useGetEventsForCalendarQuery`, a plain `useQuery` returning
+        // `{ events: { items } }` directly, not `{ pages: [...] }`) — handle both shapes so the
+        // calendar view's own favorite icon updates optimistically too, not just the card list.
+        if (old?.pages) {
+          return {
+            ...old,
+            pages: old.pages.map((page: any) => ({
+              ...page,
+              events: { ...page.events, items: page.events.items.map(toggleItem) },
+            })),
+          }
         }
+        if (old?.events?.items) {
+          return { ...old, events: { ...old.events, items: old.events.items.map(toggleItem) } }
+        }
+        return old
       })
 
-      return { previousData }
+      return { previousQueries }
     },
     onError: (err, variables, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(['events', { q, types, categories, nearby: resolvedNearby }], context.previousData)
-      }
+      context?.previousQueries?.forEach(([key, data]: any) => {
+        queryClient.setQueryData(key, data)
+      })
     },
     onSuccess: (data, variables) => {
       posthog.capture(data.toggleFavorite.isFavorited ? "event_favorited" : "event_unfavorited", {
@@ -302,8 +311,9 @@ export function HomeContent() {
                   statusEnded: tEventCard('statusEnded'),
                   statusHappeningNow: tEventCard('statusHappeningNow'),
                   statusEndsToday: tEventCard('statusEndsToday'),
-                  statusInHours: tEventCard('statusInHours'),
-                  statusInDays: tEventCard('statusInDays'),
+                  statusEndsAt: tEventCard.raw('statusEndsAt'),
+                  statusInHours: tEventCard.raw('statusInHours'),
+                  statusInDays: tEventCard.raw('statusInDays'),
                   statusUpcoming: tEventCard('statusUpcoming'),
                   tomorrow: tEventCard('tomorrow'),
                   nearbyBadge: (distanceKm: number) => formatLocalizedNearbyBadgeDistance(locale, distanceKm),

@@ -89,8 +89,10 @@ export interface WeeklyCalendarViewLabels {
   statusEnded?: string;
   /** Status badge (list variant) — event has started and does not end today. Matches `EventCardLabels.statusHappeningNow`. Default: "Now" (shortened from "Happening Now" by Story 1.i1l, per DESIGN.md § event_card_status_badge). */
   statusHappeningNow?: string;
-  /** Status badge (list variant) — event has started and ends today. Matches `EventCardLabels.statusEndsToday`. Default: "Ends Today". */
+  /** Status badge (list variant) — event has started, ends today, and no end time is known. Matches `EventCardLabels.statusEndsToday`. Default: "Ends Today". */
   statusEndsToday?: string;
+  /** Status badge (list variant) — event has started, ends today, AND the end time is known. `{time}` is replaced with the formatted end time. Matches `EventCardLabels.statusEndsAt`. Default: "Ends {time}". */
+  statusEndsAt?: string;
   /** Status badge (list variant) — event starts later today. `{n}` is replaced with the hour count. Matches `EventCardLabels.statusInHours`. Default: "In {n} hour(s)". */
   statusInHours?: string;
   /** Status badge (list variant) — event starts 7-13 days out. `{n}` is replaced with the day count. Matches `EventCardLabels.statusInDays`. Default: "In {n} days". */

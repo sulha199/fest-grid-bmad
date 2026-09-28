@@ -168,11 +168,14 @@ export interface EventCardStatusBadgeProps {
   /** The already-labeled status string — i.e. `formatEventStatus(...).text`. Never re-formatted here. */
   text: string;
   /**
-   * `formatEventStatus(...).isHappeningNow` — the surfaced `started && endDayDiff > 0`
-   * discriminant (AC4). When true, renders `DESIGN.md`'s `happening_now` emerald variant
-   * instead of the default neutral `base`. Defaults to `false`.
+   * `formatEventStatus(...).variant` — the surfaced state discriminant. `'happeningNow'` renders
+   * `DESIGN.md`'s solid emerald variant; `'endingSoon'` (`statusEndsAt`/`statusEndsToday`) renders
+   * a solid amber variant (matching the masonry TILL tag's own amber, "amber = end-time info");
+   * `'startingSoon'` (`statusInHours`) renders a solid sky variant ("starts soon" without the
+   * urgency of amber/emerald); every other state stays the default neutral `base`. Defaults to
+   * `'default'`.
    */
-  isHappeningNow?: boolean;
+  variant?: 'default' | 'happeningNow' | 'endingSoon' | 'startingSoon';
   /** Extra classes appended to the badge root. */
   className?: string;
 }

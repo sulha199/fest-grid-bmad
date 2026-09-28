@@ -176,7 +176,10 @@ describe('EventCard', () => {
     const slot = container.querySelector('[data-event-card-media-slot]');
     expect(slot).not.toBeNull();
     expect(slot).toHaveClass('flex-1');
-    expect(slot).toHaveClass('h-full');
+    // Pixel-perfect pass (2026-09-27, round 3): height is aspect-ratio-owned now, not `h-full`.
+    // User feedback (2026-09-27, later same-day): static 5:6, no responsive widening.
+    expect(slot).toHaveClass('aspect-[5/6]');
+    expect(slot).not.toHaveClass('min-[1200px]:aspect-square');
     // The date box (base_default primitive) is a flex sibling (top_row_default)
     expect(container.querySelector('[data-event-card-date-box]')).not.toBeNull();
     // No full-width aspect-ratio poster wrapper in the default state
@@ -418,7 +421,7 @@ describe('EventCard', () => {
     const slot = img.closest('[data-event-card-media-slot]');
     expect(slot).not.toBeNull();
     expect(slot).toHaveClass('flex-1');
-    expect(slot).toHaveClass('h-full');
+    expect(slot).toHaveClass('aspect-[5/6]');
     expect(slot).not.toHaveClass('h-48');
 
     expect(screen.getByText('Summer Music Festival')).toBeInTheDocument();
@@ -686,10 +689,13 @@ describe('EventCard', () => {
       // Button positioning + pill background stay byte-for-byte the same (AC2). FIND-053
       // removed the `standard`-only `top-3 right-3` corner position -- masonry's own
       // `top-2`/`right-2` (no TILL tag present here) is now the only value this renders.
+      // z-index bumped z-10 -> z-30 (2026-09-27, user feedback: "the favorite icon should be
+      // clickable to toggle favorite") -- unambiguously wins any stacking tie against a sibling
+      // overlay.
       expect(btn.className).toContain('absolute');
       expect(btn.className).toContain('top-2');
       expect(btn.className).toContain('right-2');
-      expect(btn.className).toContain('z-10');
+      expect(btn.className).toContain('z-30');
       expect(btn.className).toContain('rounded-full');
       expect(btn.className).toContain('bg-background/80');
       expect(btn.className).toContain('backdrop-blur-sm');
@@ -731,13 +737,13 @@ describe('EventCard', () => {
       expect(screen.queryByText(/till/)).not.toBeInTheDocument();
     });
 
-    it('renders "till hh:mm" when started and endDate is today with a known endTime', () => {
+    // User feedback (2026-09-27): no TILL badge at all once the end date is today, even with a
+    // known endTime -- the status badge covers this state directly instead ("Ends hh:mm", see
+    // format-event-date.test.ts), so the TILL tag would be pure duplication.
+    it('renders no TILL badge when started and endDate is today, even with a known endTime', () => {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       const today = new Date();
-      const expectedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(
-        new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 0)
-      );
 
       render(
         <EventCard
@@ -750,7 +756,7 @@ describe('EventCard', () => {
         />
       );
 
-      expect(screen.getByText(`till ${expectedTime}`)).toBeInTheDocument();
+      expect(screen.queryByText(/till/)).not.toBeInTheDocument();
     });
 
     it('renders bare "till" (no time) when started and endDate is tomorrow or later', () => {
@@ -794,7 +800,9 @@ describe('EventCard', () => {
       // date for the entire day -- the exact BUG-022 contradiction this story exists to fix.
       expect(container.querySelector('[data-event-card-date-box-month]')).toHaveTextContent(expectedMonth);
       expect(container.querySelector('[data-event-card-date-box-day]')).toHaveTextContent(expectedDay);
-      expect(screen.getByText('till')).toBeInTheDocument();
+      // User feedback (2026-09-27): endDate is today here, so no TILL badge -- unrelated to and
+      // unaffected by the date-box content assertions above, which remain this test's real point.
+      expect(screen.queryByText(/till/)).not.toBeInTheDocument();
     });
 
     it('renders no TILL badge for the absent-endDate fallback with no known end time', () => {
@@ -813,11 +821,11 @@ describe('EventCard', () => {
       expect(screen.queryByText(/till/)).not.toBeInTheDocument();
     });
 
-    it('renders "till hh:mm" for the absent-endDate fallback when endTime is present and the fallback day is today', () => {
+    // User feedback (2026-09-27): the absent-endDate fallback lands on the start day, so once
+    // that fallback day is today, this is the same "end date is today" case as every other
+    // TILL-suppression test above -- no TILL badge, regardless of endTime.
+    it('renders no TILL badge for the absent-endDate fallback when endTime is present and the fallback day is today', () => {
       const today = new Date();
-      const expectedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(
-        new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 0)
-      );
 
       render(
         <EventCard
@@ -830,34 +838,38 @@ describe('EventCard', () => {
         />
       );
 
-      expect(screen.getByText(`till ${expectedTime}`)).toBeInTheDocument();
+      expect(screen.queryByText(/till/)).not.toBeInTheDocument();
     });
 
     it('renders the TILL badge in the amber/corner treatment for prominentPoster=false (top_row_default)', () => {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      const today = new Date();
-      const expectedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(
-        new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 0)
-      );
+      // Deliberately NOT today -- endDate=today now suppresses the TILL badge entirely (user
+      // feedback, 2026-09-27), so this style-focused test uses a later end date to keep a TILL
+      // badge present to assert against.
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
 
       render(
         <EventCard
           eventName="Amber Default"
           startDate={yesterday}
           startTime="00:00:01"
-          endDate={today}
-          endTime="23:59:00"
+          endDate={tomorrow}
           variant="masonry"
           locale="en-US"
         />
       );
 
-      const badge = screen.getByText(`till ${expectedTime}`);
+      const badge = screen.getByText('till');
       expect(badge).toHaveClass('bg-amber-700');
       expect(badge).toHaveClass('text-white');
-      expect(badge).toHaveClass('-top-1.5');
-      expect(badge).toHaveClass('-left-1.5');
+      // Pixel-perfect pass (2026-09-27, round 4): sits INSIDE the card's clipped edge now
+      // (positive offset), not floating past it (`-top-1.5 -left-1.5`).
+      expect(badge).toHaveClass('top-1.5');
+      expect(badge).toHaveClass('left-1.5');
+      expect(badge).not.toHaveClass('-top-1.5');
+      expect(badge).not.toHaveClass('-left-1.5');
       expect(badge).not.toHaveClass('bg-foreground');
       expect(badge).not.toHaveClass('-bottom-1.5');
     });
@@ -865,18 +877,16 @@ describe('EventCard', () => {
     it('renders the TILL badge in the amber/corner treatment for prominentPoster=true as well (AC3 both-states scope)', () => {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      const today = new Date();
-      const expectedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(
-        new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 0)
-      );
+      // Deliberately NOT today -- see the prominentPoster=false test above for why.
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
 
       render(
         <EventCard
           eventName="Amber Prominent"
           startDate={yesterday}
           startTime="00:00:01"
-          endDate={today}
-          endTime="23:59:00"
+          endDate={tomorrow}
           variant="masonry"
           prominentPoster
           imageUrl="http://example.com/image.jpg"
@@ -884,51 +894,56 @@ describe('EventCard', () => {
         />
       );
 
-      const badge = screen.getByText(`till ${expectedTime}`);
+      const badge = screen.getByText('till');
       expect(badge).toHaveClass('bg-amber-700');
       expect(badge).toHaveClass('text-white');
-      // Story 1.i1l rule 4 (DESIGN.md event_card_till_badge, "OFFSET DIFFERS BY CONTEXT"):
-      // prominentPoster=true is the ONE context taking the larger `-top-3` offset, so the tag
-      // clears that short single-line chip's own text. The masonry-default two-tier pill above
-      // keeps `-top-1.5`.
-      expect(badge).toHaveClass('-top-3');
+      // User feedback (2026-09-27, later same-day): prominentPoster=true now uses the SAME
+      // `top-1.5` offset as the masonry-default (VM2) pill -- "tillbox should have same top
+      // position to the tillbox position on masonry view-non prominent's" -- superseding Story
+      // 1.i1l rule 4's original `-top-3` (which existed specifically to clear the short
+      // single-line chip's own text at the old floating-outside position).
+      expect(badge).toHaveClass('top-1.5');
       expect(badge).not.toHaveClass('-top-1.5');
+      expect(badge).not.toHaveClass('-top-3');
       expect(badge).toHaveClass('-left-1.5');
       expect(badge).not.toHaveClass('bg-foreground');
       expect(badge).not.toHaveClass('-bottom-1.5');
     });
 
-    it('BUG-041: wraps the masonry-default date-box+thumbnail row in padding so the TILL badge is not flush against the card edge', () => {
+    // Pixel-perfect pass (2026-09-27, masonry-default prototype round 2-4): BUG-041's `p-2`
+    // padding wrapper is superseded -- the row is now flush (no padding/gap) against the card's
+    // own edges, matching the validated prototype exactly. The TILL badge (round 4) sits just
+    // INSIDE the card's edge on a positive offset, so the <article> keeps `overflow-hidden`
+    // (anything outside the card must stay invisible) instead of needing padding for clearance.
+    it('keeps the masonry-default composition overflow-hidden with the TILL badge sitting inside the card edge', () => {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      const today = new Date();
-      const expectedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(
-        new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 0)
-      );
+      // Deliberately NOT today -- see the amber/corner tests above for why.
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
 
       const { container } = render(
         <EventCard
           eventName="Amber Default"
           startDate={yesterday}
           startTime="00:00:01"
-          endDate={today}
-          endTime="23:59:00"
+          endDate={tomorrow}
           variant="masonry"
           locale="en-US"
         />
       );
 
-      // jsdom does not compute real layout/clipping, so the available, deterministic proof
-      // is structural: the row that owns the date box (and therefore the TILL badge's
-      // -top-1.5/-left-1.5 corner offset) must carry the p-2 padding matching the validated
-      // prototype (default-with-thumbnail.html:62) -- without it the badge sits flush
-      // against the <article>'s own overflow-hidden edge and gets clipped.
+      const article = container.querySelector('article');
+      expect(article).toHaveClass('overflow-hidden');
+      expect(article).not.toHaveClass('overflow-visible');
+
       const dateBox = container.querySelector('[data-event-card-date-box]');
       const row = dateBox?.closest('.relative.flex.items-stretch');
       expect(row).not.toBeNull();
-      expect(row).toHaveClass('p-2');
+      expect(row).not.toHaveClass('p-2');
+      expect(row).not.toHaveClass('gap-2');
 
-      const badge = screen.getByText(`till ${expectedTime}`);
+      const badge = screen.getByText('till');
       expect(row?.contains(badge)).toBe(true);
     });
   });
@@ -1086,9 +1101,16 @@ describe('EventCard', () => {
       expect(title.className).not.toMatch(/\b(sm|md|lg|xl|2xl):text-/);
     });
 
-    it('moves the masonry date and favorite pills to top-5 together only when a TILL tag is present', () => {
-      // DESIGN.md § event_card_date_box.base: the two move in lockstep so the tag has room
-      // to clear the poster's own `overflow-hidden` edge.
+    // User feedback (2026-09-27): the `top-5` shift (previously applied to both pills in lockstep
+    // whenever a TILL tag was present, so the tag had room to clear the poster's own
+    // `overflow-hidden` edge while it floated ABOVE the pill at `-top-3`) is REMOVED -- the TILL
+    // tag now sits INSIDE the pill at `top-1.5` (matching VM2's masonry-default position, "tillbox
+    // should have same top position to the tillbox position on masonry view-non prominent's"),
+    // so the pill no longer needs extra clearance. The old `top-5` shift was actively pushing the
+    // date pill's own text down into the TILL tag's own space, covering the date ("the latest
+    // changes make the tillbox move further down causing it covers the date"). Both pills now
+    // stay at `top-2` always, regardless of TILL presence.
+    it('keeps the masonry date and favorite pills at top-2 always, whether or not a TILL tag is present', () => {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       const tomorrow = new Date();
@@ -1107,10 +1129,12 @@ describe('EventCard', () => {
         />
       );
       const favPill = container.querySelector('article > button') as HTMLElement;
-      expect(favPill).toHaveClass('top-5');
+      expect(favPill).toHaveClass('top-2');
+      expect(favPill).not.toHaveClass('top-5');
       expect(favPill).toHaveClass('right-2');
       const datePill = container.querySelector('.rounded-md.bg-background\\/80') as HTMLElement;
-      expect(datePill).toHaveClass('top-5');
+      expect(datePill).toHaveClass('top-2');
+      expect(datePill).not.toHaveClass('top-5');
       expect(datePill).toHaveClass('left-2');
       // Padding stays uniform -- the rejected asymmetric-padding mechanism must not return.
       expect(datePill).toHaveClass('p-1');
@@ -1118,7 +1142,7 @@ describe('EventCard', () => {
 
       cleanup();
 
-      // Already ended -> no TILL tag -> both pills stay at their default top-2.
+      // No TILL tag either -> both pills still at top-2 (unchanged, unconditional now).
       const longAgoStart = new Date();
       longAgoStart.setDate(longAgoStart.getDate() - 10);
       const longAgoEnd = new Date();
@@ -1172,7 +1196,7 @@ describe('EventCard', () => {
       const slot = img.closest('[data-event-card-media-slot]');
       expect(slot).not.toBeNull();
       expect(slot).toHaveClass('flex-1');
-      expect(slot).toHaveClass('h-full');
+      expect(slot).toHaveClass('aspect-[5/6]');
       expect(slot).not.toHaveClass('aspect-[3/4]');
       expect(slot).not.toHaveClass('aspect-square');
     });
@@ -1237,6 +1261,39 @@ describe('EventCard', () => {
       const favButton = screen.getByRole('button', { name: 'Toggle favorite' });
       const favWrapper = favButton.parentElement as HTMLElement;
       expect(favWrapper.style.minHeight).toBe(`${EVENT_CARD_BADGE_MIN_TOUCH_REM}rem`);
+    });
+
+    // Pixel-perfect pass (2026-09-27, user feedback): the with-thumbnail favorite icon keeps its
+    // ORIGINAL standalone size (no `--event-card-badge-font-size` override) -- an earlier same-
+    // dated revision of this pass tried inheriting masonry `size='default'`'s larger 1.125rem
+    // basis here, but follow-up user feedback ("fav-icon on small-thumbnail mode is too big, use
+    // the previous size") reverted it back to this default.
+    it('does not override the with-thumbnail favorite badge\'s icon size, keeping its original standalone 20px sizing', () => {
+      render(
+        <EventCard
+          {...defaultProps}
+          variant="masonry"
+          imageUrl="http://example.com/image.jpg"
+          onFavoriteToggle={vi.fn()}
+        />
+      );
+      const favButton = screen.getByRole('button', { name: 'Toggle favorite' });
+      const favWrapper = favButton.parentElement as HTMLElement;
+      expect(favWrapper.style.getPropertyValue('--event-card-badge-font-size')).toBe('');
+
+      const heart = favButton.querySelector('svg');
+      expect(heart?.style.width).toBe('calc(var(--event-card-badge-font-size,0.75rem)*1.6666666666666667)');
+    });
+
+    // Pixel-perfect pass (2026-09-27, user feedback): no-thumbnail mode's fallback icon gets a
+    // bespoke 4x ratio (EVENT_CARD_BADGE_ICON_SCALE_MASONRY_NO_IMAGE), not the shared
+    // EVENT_CARD_BADGE_ICON_SCALE_LARGE (2x) every other `scale="large"` consumer still uses.
+    it('sizes the no-thumbnail fallback favorite icon at the masonry-only 4x ratio', () => {
+      render(<EventCard {...defaultProps} variant="masonry" onFavoriteToggle={vi.fn()} />);
+      const favButton = screen.getByRole('button', { name: 'Toggle favorite' });
+      const heart = favButton.querySelector('svg');
+      expect(heart?.style.width).toBe('calc(var(--event-card-badge-font-size,0.75rem)*4)');
+      expect(heart?.style.height).toBe('calc(var(--event-card-badge-font-size,0.75rem)*4)');
     });
   });
 

@@ -41,7 +41,13 @@
      aspect-square sizing means it's larger at 230px than 175px, so there's if anything more clearance, not less.
      Title/venue text sized up (text-base/text-sm) to match the other masonry files' desktop-panel convention;
      TILL/favorite/radius/"Now" badges stay at text-[11px], unchanged from mobile -- the 12px-mobile/14px-desktop
-     TILL sizing rule was explicitly scoped to non-prominent cards only, not this one. -->
+     TILL sizing rule was explicitly scoped to non-prominent cards only, not this one.
+
+     REVISED 2026-09-27 (user feedback): venue/location line -- no icon (never had one in this
+     file), centered (`text-center`, was left-aligned by default), breaks mid-word if a single
+     long word overflows (`break-all` instead of `truncate`), stays a single line (`line-clamp-1`).
+     Identical rule to default-with-thumbnail.html's own same-dated change, now unified across
+     both prominentPoster states rather than VM1 keeping the old icon+truncate treatment. -->
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
@@ -95,7 +101,7 @@
           <span class="inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white">Now</span>
         </div>
         <div class="text-sm font-bold text-foreground leading-tight line-clamp-2">Quantum Leap Symposium: The Global Tour</div>
-        <div class="text-xs text-muted-foreground truncate">The Glass Atrium</div>
+        <div class="text-xs text-muted-foreground text-center break-all line-clamp-1">The Glass Atrium</div>
       </div>
     </div>
   </div>
@@ -127,7 +133,7 @@
           <span class="inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white">Now</span>
         </div>
         <div class="text-sm font-bold text-foreground leading-tight line-clamp-2">Jazz Night Live</div>
-        <div class="text-xs text-muted-foreground truncate">Rooftop Bar</div>
+        <div class="text-xs text-muted-foreground text-center break-all line-clamp-1">Rooftop Bar</div>
       </div>
     </div>
   </div>
@@ -160,7 +166,7 @@
             <span class="inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white">Now</span>
           </div>
           <div class="text-base font-bold text-foreground leading-tight line-clamp-2">Quantum Leap Symposium: The Global Tour</div>
-          <div class="text-sm text-muted-foreground truncate">The Glass Atrium</div>
+          <div class="text-sm text-muted-foreground text-center break-all line-clamp-1">The Glass Atrium</div>
         </div>
       </div>
     </div>
@@ -192,7 +198,7 @@
             <span class="inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white">Now</span>
           </div>
           <div class="text-base font-bold text-foreground leading-tight line-clamp-2">Jazz Night Live</div>
-          <div class="text-sm text-muted-foreground truncate">Rooftop Bar</div>
+          <div class="text-sm text-muted-foreground text-center break-all line-clamp-1">Rooftop Bar</div>
         </div>
       </div>
     </div>

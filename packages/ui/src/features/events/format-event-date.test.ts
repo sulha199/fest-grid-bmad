@@ -10,7 +10,6 @@ import {
   formatShortEventDateTime,
   formatShortEventDateTimeParts,
   formatEventStatus,
-  computeCalendarSegmentTillText,
   computeCalendarSegmentDateBoxContent,
   computeEventCardDateBoxParts,
   formatEventCardDateBoxLine,
@@ -168,13 +167,31 @@ describe('format-event-date helpers', () => {
       );
     });
 
-    it('endsToday: endDayDiff === 0 with a known endTime still in the future', () => {
+    // User feedback (2026-09-27): once the end time is known, show the precise "Ends hh:mm"
+    // instead of the generic "Ends Today" -- more useful information for the same state.
+    it('endsToday: endDayDiff === 0 with a known endTime still in the future shows "Ends hh:mm", not the generic "Ends Today"', () => {
       const startDate = localDate(2026, 6, 14);
       const endDate = localDate(2026, 6, 15);
       // NOW is 10:00 local; 18:00 is still ahead.
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, '18:00:00')).toEqual(
-        notNow('Ends Today')
+      const expectedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(
+        localDate(2026, 6, 15, 18, 0)
       );
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, '18:00:00')).toEqual(
+        notNow(`Ends ${expectedTime}`)
+      );
+    });
+
+    it('endsToday: a custom {time}-templated statusEndsAt label is respected', () => {
+      const startDate = localDate(2026, 6, 14);
+      const endDate = localDate(2026, 6, 15);
+      const expectedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(
+        localDate(2026, 6, 15, 18, 0)
+      );
+      expect(
+        formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, '18:00:00', {
+          statusEndsAt: 'Berakhir {time}',
+        })
+      ).toEqual(notNow(`Berakhir ${expectedTime}`));
     });
 
     it('endsToday: endDayDiff === 0 with NO known endTime (not yet "ended", exact end instant unknown)', () => {
@@ -270,44 +287,6 @@ describe('format-event-date helpers', () => {
   });
 });
 
-describe('computeCalendarSegmentTillText (Story 1.i1d AC4)', () => {
-  it('returns the bare till label for a continuing multi-day segment (its day is before the end day)', () => {
-    expect(
-      computeCalendarSegmentTillText('en-US', undefined, '2026-08-05', '2026-08-05', '2026-08-07', '21:00:00', 'till')
-    ).toBe('till');
-  });
-
-  it('returns "till {formatted time}" on the segment\'s last day when an end time is known', () => {
-    expect(
-      computeCalendarSegmentTillText('en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', '21:00:00', 'till')
-    ).toBe('till 9:00 PM');
-  });
-
-  it('returns the bare till label on the last day with an explicit end date but no end time', () => {
-    expect(
-      computeCalendarSegmentTillText('en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', null, 'till')
-    ).toBe('till');
-  });
-
-  it('returns the bare till label when there is no end information at all (single-day)', () => {
-    expect(
-      computeCalendarSegmentTillText('en-US', undefined, '2026-08-05', '2026-08-05', undefined, undefined, 'till')
-    ).toBe('till');
-  });
-
-  it('never repeats the event\'s own start date as the date box text', () => {
-    const result = computeCalendarSegmentTillText('en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', '21:00:00', 'till');
-    expect(result).not.toContain('Aug 5');
-    expect(result).not.toContain('2026');
-  });
-
-  it('honors a custom till label', () => {
-    expect(
-      computeCalendarSegmentTillText('en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', '21:00:00', 'bis')
-    ).toBe('bis 9:00 PM');
-  });
-});
-
 describe('formatShortEventDateTimeParts (Story 1.i1k Task 1.2)', () => {
   it('today WITH a startTime -> month empty, day = formatted time', () => {
     const today = new Date();
@@ -368,66 +347,63 @@ describe('formatShortEventDateTimeParts (Story 1.i1k Task 1.2)', () => {
   });
 });
 
-describe('computeCalendarSegmentDateBoxContent (BUG-047 AC-DATE-1/2/3, rewritten)', () => {
+describe('computeCalendarSegmentDateBoxContent (BUG-047 AC-DATE-1/2/3, rewritten; tillLabel always-bare per 2026-09-27 user feedback)', () => {
   it('first day of a multi-day segment (not yet the last day): shows the real effective-end-date digits, tillLabel carries the bare till text', () => {
     const result = computeCalendarSegmentDateBoxContent(
-      'en-US', undefined, '2026-08-05', '2026-08-05', '2026-08-07', '21:00:00', 'till'
+      'en-US', undefined, '2026-08-05', '2026-08-05', '2026-08-07', 'till'
     );
     expect(result).toEqual({ month: 'Aug', day: '7', tillLabel: 'till' });
   });
 
-  it('last day of a multi-day segment (currentDayStr === effectiveEnd): month/day STILL show the real end-date digits (<= rule, not the old till/time overload), tillLabel carries "till {time}"', () => {
+  // User feedback (2026-09-27): tillLabel no longer appends the formatted end time on the
+  // segment's last/only day -- the status badge under the event name already shows "Ends
+  // {time}" directly, so appending it here too was pure duplication ("don't show clock in the
+  // till box").
+  it('last day of a multi-day segment (currentDayStr === effectiveEnd): month/day STILL show the real end-date digits (<= rule, not the old till/time overload), tillLabel stays bare', () => {
     const result = computeCalendarSegmentDateBoxContent(
-      'en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', '21:00:00', 'till'
-    );
-    expect(result).toEqual({ month: 'Aug', day: '7', tillLabel: 'till 9:00 PM' });
-  });
-
-  it('last day with an explicit end date but no end time: tillLabel is the bare label', () => {
-    const result = computeCalendarSegmentDateBoxContent(
-      'en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', null, 'till'
+      'en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', 'till'
     );
     expect(result).toEqual({ month: 'Aug', day: '7', tillLabel: 'till' });
   });
 
   it('no end information at all (single-day event): month/day show the start date (== effectiveEnd), bare tillLabel', () => {
     const result = computeCalendarSegmentDateBoxContent(
-      'en-US', undefined, '2026-08-05', '2026-08-05', undefined, undefined, 'till'
+      'en-US', undefined, '2026-08-05', '2026-08-05', undefined, 'till'
     );
     expect(result).toEqual({ month: 'Aug', day: '5', tillLabel: 'till' });
   });
 
   it('honors a custom till label', () => {
     const result = computeCalendarSegmentDateBoxContent(
-      'en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', '21:00:00', 'bis'
+      'en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', 'bis'
     );
-    expect(result).toEqual({ month: 'Aug', day: '7', tillLabel: 'bis 9:00 PM' });
+    expect(result).toEqual({ month: 'Aug', day: '7', tillLabel: 'bis' });
   });
 
   it('day slot is never a word, weekday, or bare time string on any branch', () => {
-    const cases: Array<[string, string, string | null, string | null]> = [
-      ['2026-08-05', '2026-08-05', '2026-08-07', '21:00:00'], // first day
-      ['2026-08-07', '2026-08-05', '2026-08-07', '21:00:00'], // last day
-      ['2026-08-05', '2026-08-05', null, null], // single-day
+    const cases: Array<[string, string, string | null]> = [
+      ['2026-08-05', '2026-08-05', '2026-08-07'], // first day
+      ['2026-08-07', '2026-08-05', '2026-08-07'], // last day
+      ['2026-08-05', '2026-08-05', null], // single-day
     ];
-    for (const [currentDayStr, startDate, endDate, endTime] of cases) {
-      const result = computeCalendarSegmentDateBoxContent('en-US', undefined, currentDayStr, startDate, endDate, endTime, 'till');
+    for (const [currentDayStr, startDate, endDate] of cases) {
+      const result = computeCalendarSegmentDateBoxContent('en-US', undefined, currentDayStr, startDate, endDate, 'till');
       expect(result.day).toMatch(/^\d{1,2}$/);
     }
   });
 
   it('a calendar day BEFORE the event has started (should not normally occur, but the formula must not crash): falls to the "otherwise" branch, shows the start date', () => {
     const result = computeCalendarSegmentDateBoxContent(
-      'en-US', undefined, '2026-08-01', '2026-08-05', '2026-08-07', '21:00:00', 'till'
+      'en-US', undefined, '2026-08-01', '2026-08-05', '2026-08-07', 'till'
     );
     expect(result).toEqual({ month: 'Aug', day: '5', tillLabel: 'till' });
   });
 
   it('a calendar day AFTER the event has already ended (should not normally occur -- WeeklyCalendarView only ever renders segments within the event\'s own date range -- but the formula must not crash): symmetric to the before-start case, falls to the "otherwise" branch and shows the start date (code-review finding, Edge Case Hunter)', () => {
     const result = computeCalendarSegmentDateBoxContent(
-      'en-US', undefined, '2026-08-09', '2026-08-05', '2026-08-07', '21:00:00', 'till'
+      'en-US', undefined, '2026-08-09', '2026-08-05', '2026-08-07', 'till'
     );
-    expect(result).toEqual({ month: 'Aug', day: '5', tillLabel: 'till 9:00 PM' });
+    expect(result).toEqual({ month: 'Aug', day: '5', tillLabel: 'till' });
   });
 });
 

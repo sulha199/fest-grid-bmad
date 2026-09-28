@@ -34,19 +34,29 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
       expect(container.firstChild).toHaveClass('flex', 'items-center');
     });
 
-    it('does not render a status badge in the with-image composition', () => {
-      render(
+    // User feedback (2026-09-27): the status badge is removed from this card entirely (reverses
+    // BUG-048/AC-STATUS-1's adoption) -- the component no longer even accepts
+    // eventStartDate/eventEndDate/statusLabels props, so there is no way to make it render.
+    it('never renders a status badge, in either composition', () => {
+      const { container: withImage } = render(
         <EventCardCalendarGridItem
           {...defaultProps}
           isMultiDay
           imageUrl="https://img.example/poster.jpg"
         />
       );
-      expect(screen.queryByText(/upcoming/i)).not.toBeInTheDocument();
-      expect(screen.queryByText(/happening now/i)).not.toBeInTheDocument();
+      expect(withImage.querySelector('[data-event-card-status-badge]')).toBeNull();
+
+      const { container: noImage } = render(<EventCardCalendarGridItem {...defaultProps} />);
+      expect(noImage.querySelector('[data-event-card-status-badge]')).toBeNull();
     });
 
-    it('falls back to the no-image (two-row) composition when a multi-day image errors', () => {
+    // User feedback (2026-09-27): "multiple day span no thumbnail: replace the grid layout to
+    // use the grid from multiday span with thumbnail, with the thumbnail not displayed" -- a
+    // multi-day schedule whose image errors now STAYS in this same 3-column `items-center` row
+    // layout, simply without the `<img>` element, instead of falling through to the single-day
+    // (VM5) two-row stacked composition.
+    it('keeps the multi-day with-image row layout (minus the <img>) when the image errors, instead of falling to the single-day two-row composition', () => {
       const { container } = render(
         <EventCardCalendarGridItem
           {...defaultProps}
@@ -60,7 +70,10 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
       fireEvent.error(img!);
 
       expect(container.querySelector('img')).toBeNull();
-      expect(container.firstChild).toHaveClass('flex-col');
+      expect(container.firstChild).toHaveClass('flex', 'items-center');
+      expect(container.firstChild).not.toHaveClass('flex-col');
+      expect(screen.getByText('Summer Music Festival')).toBeInTheDocument();
+      expect(screen.getByText('Central Park')).toBeInTheDocument();
     });
 
     // BUG-042 (AC-IMG-1): the imageUrl -> imageFallbackUrl -> reserved-blank retry-once chain.
@@ -82,7 +95,7 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
       expect(swapped).toHaveAttribute('src', 'https://img.example/durable.jpg');
     });
 
-    it('falls back to the no-image composition once both imageUrl and imageFallbackUrl error', () => {
+    it('keeps the multi-day with-image row layout (minus the <img>) once both imageUrl and imageFallbackUrl error', () => {
       const { container } = render(
         <EventCardCalendarGridItem
           {...defaultProps}
@@ -99,7 +112,8 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
       fireEvent.error(swapped!);
 
       expect(container.querySelector('img')).toBeNull();
-      expect(container.firstChild).toHaveClass('flex-col');
+      expect(container.firstChild).toHaveClass('flex', 'items-center');
+      expect(container.firstChild).not.toHaveClass('flex-col');
     });
 
     // Code-review fix (BUG-042 loopback): the original cut only wired the fallback into
@@ -119,7 +133,7 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
       expect(img).toHaveAttribute('src', 'https://img.example/durable.jpg');
     });
 
-    it('falls to the no-image composition if the imageUrl-absent fallback itself errors', () => {
+    it('keeps the multi-day with-image row layout (minus the <img>) if the imageUrl-absent fallback itself errors', () => {
       const { container } = render(
         <EventCardCalendarGridItem
           {...defaultProps}
@@ -133,13 +147,14 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
       fireEvent.error(img!);
 
       expect(container.querySelector('img')).toBeNull();
-      expect(container.firstChild).toHaveClass('flex-col');
+      expect(container.firstChild).toHaveClass('flex', 'items-center');
+      expect(container.firstChild).not.toHaveClass('flex-col');
     });
 
     // Code-review fix (BUG-042 loopback): without the `imageFallbackUrl !== currentImgSrc`
     // guard, an identical fallback URL would be a no-op `setState`, `onError` would never
     // refire, and `showImage` would stay `true` on a permanently broken `<img>`.
-    it('falls to the no-image composition when imageFallbackUrl equals imageUrl, instead of getting stuck', () => {
+    it('keeps the multi-day with-image row layout (minus the <img>) when imageFallbackUrl equals imageUrl, instead of getting stuck', () => {
       const { container } = render(
         <EventCardCalendarGridItem
           {...defaultProps}
@@ -153,11 +168,15 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
       fireEvent.error(img!);
 
       expect(container.querySelector('img')).toBeNull();
-      expect(container.firstChild).toHaveClass('flex-col');
+      expect(container.firstChild).toHaveClass('flex', 'items-center');
+      expect(container.firstChild).not.toHaveClass('flex-col');
     });
   });
 
-  describe('No-image composition (single-day, or multi-day without an image)', () => {
+  // User feedback (2026-09-27): this composition is now reachable ONLY by single-day (VM5)
+  // schedules -- a multi-day schedule with no usable image uses the with-image row layout
+  // instead (minus the `<img>`), see the "With-image composition" describe block above.
+  describe('No-image composition (single-day only)', () => {
     it('renders the two-row stacked layout — title/favorite row, then venue/nearby row', () => {
       const { container } = render(<EventCardCalendarGridItem {...defaultProps} />);
 
@@ -271,154 +290,6 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
     it('does not render a favorite control when onFavoriteToggle is not provided', () => {
       render(<EventCardCalendarGridItem {...defaultProps} />);
       expect(screen.queryByRole('button', { name: 'Toggle favorite' })).not.toBeInTheDocument();
-    });
-  });
-
-  describe('Status badge (BUG-048, AC-STATUS-1)', () => {
-    afterEach(() => {
-      vi.useRealTimers();
-    });
-
-    it('renders no status badge when eventStartDate is omitted (e.g. CalendarOverflowDialog, not yet amended)', () => {
-      render(<EventCardCalendarGridItem {...defaultProps} />);
-      expect(document.querySelector('[data-event-card-status-badge]')).toBeNull();
-    });
-
-    it('renders no status badge in the with-image composition either, when eventStartDate is omitted', () => {
-      render(
-        <EventCardCalendarGridItem
-          {...defaultProps}
-          isMultiDay
-          imageUrl="https://img.example/poster.jpg"
-        />
-      );
-      expect(document.querySelector('[data-event-card-status-badge]')).toBeNull();
-    });
-
-    it('renders the happeningNow state with the emerald treatment', () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
-      render(
-        <EventCardCalendarGridItem
-          {...defaultProps}
-          eventStartDate="2026-08-05"
-          eventStartTime="00:00:00"
-          eventEndDate="2026-08-07"
-          eventEndTime="23:00:00"
-          timezone="UTC"
-        />
-      );
-      const badge = document.querySelector('[data-event-card-status-badge]') as HTMLElement;
-      expect(badge).toHaveTextContent('Now');
-      expect(badge).toHaveClass('bg-emerald-600');
-    });
-
-    it('renders the Ended state', () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date('2026-08-05T15:00:00Z'));
-      render(
-        <EventCardCalendarGridItem
-          {...defaultProps}
-          eventStartDate="2026-08-05"
-          eventStartTime="09:00:00"
-          eventEndDate="2026-08-05"
-          eventEndTime="10:00:00"
-          timezone="UTC"
-        />
-      );
-      expect(document.querySelector('[data-event-card-status-badge]')).toHaveTextContent('Ended');
-    });
-
-    it('renders the Ends Today state', () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date('2026-08-05T12:00:00Z'));
-      render(
-        <EventCardCalendarGridItem
-          {...defaultProps}
-          eventStartDate="2026-08-05"
-          eventStartTime="09:00:00"
-          eventEndDate="2026-08-05"
-          eventEndTime="23:00:00"
-          timezone="UTC"
-        />
-      );
-      expect(document.querySelector('[data-event-card-status-badge]')).toHaveTextContent('Ends Today');
-    });
-
-    it('renders the In {n} hour(s) state', () => {
-      // `combineDateTime` always builds the start instant from the machine's local wall clock
-      // (it ignores the `timezone` prop), so "now" is set the same way here — both anchor to
-      // the same local calendar day/hour arithmetic regardless of the actual host timezone.
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date(2026, 7, 5, 10, 0, 0));
-      render(
-        <EventCardCalendarGridItem
-          {...defaultProps}
-          eventStartDate="2026-08-05"
-          eventStartTime="13:00:00"
-        />
-      );
-      expect(document.querySelector('[data-event-card-status-badge]')).toHaveTextContent('In 3 hour(s)');
-    });
-
-    it('renders the Tomorrow state', () => {
-      // A date-only `eventStartDate`/no `eventStartTime` sits on an exact one-day boundary with
-      // zero slack, so `timezone` must be pinned — otherwise the host machine's local offset can
-      // shift which calendar day the comparison lands on and flip this to a different state.
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date('2026-08-05T12:00:00Z'));
-      render(<EventCardCalendarGridItem {...defaultProps} eventStartDate="2026-08-06" timezone="UTC" />);
-      expect(document.querySelector('[data-event-card-status-badge]')).toHaveTextContent('Tomorrow');
-    });
-
-    it('renders a weekday name 2-6 days out', () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date('2026-08-05T12:00:00Z'));
-      render(<EventCardCalendarGridItem {...defaultProps} eventStartDate="2026-08-08" locale="en-US" timezone="UTC" />);
-      expect(document.querySelector('[data-event-card-status-badge]')).toHaveTextContent('Saturday');
-    });
-
-    it('renders the In {n} days state 7-13 days out', () => {
-      // Pinned for the same reason as the Tomorrow test above — the exact day count asserted
-      // here is sensitive to the host machine's local timezone offset without it.
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date('2026-08-05T12:00:00Z'));
-      render(<EventCardCalendarGridItem {...defaultProps} eventStartDate="2026-08-13" timezone="UTC" />);
-      expect(document.querySelector('[data-event-card-status-badge]')).toHaveTextContent('In 8 days');
-    });
-
-    it('renders the Upcoming state 14+ days out', () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date('2026-08-05T12:00:00Z'));
-      render(<EventCardCalendarGridItem {...defaultProps} eventStartDate="2026-08-25" timezone="UTC" />);
-      expect(document.querySelector('[data-event-card-status-badge]')).toHaveTextContent('Upcoming');
-    });
-
-    it('renders the status badge in the with-image composition too', () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date('2026-08-05T12:00:00Z'));
-      render(
-        <EventCardCalendarGridItem
-          {...defaultProps}
-          isMultiDay
-          imageUrl="https://img.example/poster.jpg"
-          eventStartDate="2026-08-25"
-        />
-      );
-      expect(document.querySelector('[data-event-card-status-badge]')).toHaveTextContent('Upcoming');
-    });
-
-    it('respects caller-supplied statusLabels overrides', () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date('2026-08-05T12:00:00Z'));
-      render(
-        <EventCardCalendarGridItem
-          {...defaultProps}
-          eventStartDate="2026-08-25"
-          statusLabels={{ statusUpcoming: 'Mendatang' }}
-        />
-      );
-      expect(document.querySelector('[data-event-card-status-badge]')).toHaveTextContent('Mendatang');
     });
   });
 

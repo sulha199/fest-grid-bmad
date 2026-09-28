@@ -398,13 +398,14 @@
   },
   "EventCard": {
     "favoriteToggle": "Alihkan favorit",
-    "tillLabel": "sampai",
+    "tillLabel": "s.d.",
     "statusEnded": "Berakhir",
     "statusHappeningNow": "Hari ini",
     "statusEndsToday": "Berakhir Hari Ini",
+    "statusEndsAt": "Berakhir {time}",
     "statusInHours": "{n} jam lagi",
     "statusInDays": "{n} hari lagi",
-    "statusUpcoming": "Mendatang",
+    "statusUpcoming": "Akan Datang",
     "tomorrow": "Besok"
   },
   "WeeklyCalendarView": {
@@ -412,13 +413,14 @@
     "favoriteToggleLabel": "Alihkan favorit",
     "favoritedBadgeLabel": "Difavoritkan",
     "addedToCalendarBadgeLabel": "Ditambahkan ke kalender",
-    "tillLabel": "sampai",
+    "tillLabel": "s.d.",
     "statusEnded": "Berakhir",
     "statusHappeningNow": "Hari ini",
     "statusEndsToday": "Berakhir Hari Ini",
+    "statusEndsAt": "Berakhir {time}",
     "statusInHours": "{n} jam lagi",
     "statusInDays": "{n} hari lagi",
-    "statusUpcoming": "Mendatang",
+    "statusUpcoming": "Akan Datang",
     "tomorrow": "Besok"
   },
   "ReportReason": {

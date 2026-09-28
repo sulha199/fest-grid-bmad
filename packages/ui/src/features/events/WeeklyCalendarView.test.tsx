@@ -949,7 +949,13 @@ describe('WeeklyCalendarView', () => {
       expect(within(mobileView).queryByText('8 Sat')).not.toBeInTheDocument();
     });
 
-    it('renders a multi-day schedule with cross-week Day X of N badges and single-day without badges', () => {
+    // User feedback (2026-09-27): "don't show 'day 3 of 3'" -- the mobile list view's per-day
+    // "Day X of N" badge is removed entirely for multi-day schedules (this was already the
+    // established rule for the desktop grid variant, per EVENT-CARD-DESIGN.md's
+    // event_card_calendar_grid_item "NO DAY X OF N BADGE" note -- the mobile list view is now
+    // consistent with it). `multiDaySegmentLabel` stays a valid (if now unconsumed) field on
+    // `WeeklyCalendarViewLabels` for API stability; `CalendarCard` itself no longer reads it.
+    it('never renders a "Day X of N" badge for a multi-day schedule in the mobile list view', () => {
       const longSchedule = [
         {
           id: 'long-1',
@@ -968,52 +974,18 @@ describe('WeeklyCalendarView', () => {
         }
       ];
 
-      const multiDaySegmentLabel = vi.fn((dayNumber: number, totalDays: number) => `Day ${dayNumber}/${totalDays} customized`);
-
       render(
         <ScopedLocaleProvider locale="en-US">
-          <WeeklyCalendarView
-            {...defaultProps}
-            schedules={longSchedule}
-            labels={{ multiDaySegmentLabel }}
-          />
+          <WeeklyCalendarView {...defaultProps} schedules={longSchedule} />
         </ScopedLocaleProvider>
       );
 
       const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
-      expect(multiDaySegmentLabel).toHaveBeenCalledWith(4, 10);
-      expect(multiDaySegmentLabel).toHaveBeenCalledWith(5, 10);
-
-      const customizedBadges = within(mobileView).getAllByText(/customized/);
-      expect(customizedBadges[0]).toHaveTextContent('Day 4/10 customized');
+      expect(within(mobileView).queryByTestId('multi-day-badge')).not.toBeInTheDocument();
+      expect(within(mobileView).queryByText(/Day \d+ of \d+/)).not.toBeInTheDocument();
 
       const singleDayCard = within(mobileView).getByText('Single Day Event').closest('button');
       expect(singleDayCard?.querySelector('[data-testid="multi-day-badge"]')).not.toBeInTheDocument();
-    });
-
-    it('falls back to default string when multiDaySegmentLabel is omitted', () => {
-      const longSchedule = [
-        {
-          id: 'long-1',
-          eventSlug: 'long-fest',
-          eventName: 'Long Festival',
-          isMainSchedule: true,
-          eventStartDate: '2026-08-02',
-          eventEndDate: '2026-08-11',
-        }
-      ];
-
-      render(
-        <ScopedLocaleProvider locale="en-US">
-          <WeeklyCalendarView
-            {...defaultProps}
-            schedules={longSchedule}
-          />
-        </ScopedLocaleProvider>
-      );
-
-      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
-      expect(within(mobileView).getByText('Day 4 of 10')).toBeInTheDocument();
     });
 
     it('caps desktop independently of the mobile list (mobile keeps its own flat-20 bound)', () => {
@@ -1142,15 +1114,16 @@ describe('WeeklyCalendarView', () => {
       expect(within(mobileView).queryByTestId('time-range-inline')).not.toBeInTheDocument();
 
       // AC4 — the new date box renders till/end timing content for this day's segment.
+      // User feedback (2026-09-27): the till badge no longer appends the formatted end time
+      // (that duplicated the status badge's own "Ends {time}" state) -- stays bare "till".
       const dateBox = container.querySelector('[data-event-card-date-box]');
       expect(dateBox).not.toBeNull();
       expect(dateBox).toHaveTextContent(/till/);
-      expect(dateBox).toHaveTextContent(/9:00 PM/);
+      expect(dateBox).not.toHaveTextContent(/9:00 PM/);
 
-      // AC6 — the favorite count line is unchanged.
-      const favLine = within(mobileView).getByTestId('favorite-count-line');
-      expect(favLine).toBeInTheDocument();
-      expect(favLine).toHaveTextContent('15');
+      // User feedback (2026-09-27): "should not have favorite icon+count on the event-title
+      // area" -- the favorite-count line under the title is removed entirely.
+      expect(within(mobileView).queryByTestId('favorite-count-line')).not.toBeInTheDocument();
     });
 
     it('uses plain linear Tab stops with tabIndex=0 and no roving attributes in list-variant', () => {
@@ -1174,7 +1147,10 @@ describe('WeeklyCalendarView', () => {
       });
     });
 
-    it('renders exactly one Heart icon when schedule isFavorited: true and favoriteCount > 0', () => {
+    // User feedback (2026-09-27): "should not have favorite icon+count on the event-title area"
+    // -- both the inline isFavorited Heart icon and the favorite-count line under the title are
+    // removed entirely; favorite state is only shown via the real interactive favorite control.
+    it('never renders a Heart icon or a favorite-count line in the title area, regardless of isFavorited/favoriteCount', () => {
       const schedule = [
         {
           id: '1',
@@ -1193,19 +1169,52 @@ describe('WeeklyCalendarView', () => {
       );
 
       const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      const card = within(mobileView).getByText('Fav Event').closest('button') as HTMLElement;
 
-      const badgeHeart = within(mobileView).queryByTestId('heart-icon');
-      expect(badgeHeart).toBeInTheDocument();
-      
-      const favLine = within(mobileView).getByTestId('favorite-count-line');
-      expect(favLine).toHaveTextContent('15');
+      expect(within(card).queryByTestId('heart-icon')).not.toBeInTheDocument();
+      expect(within(mobileView).queryByTestId('favorite-count-line')).not.toBeInTheDocument();
+    });
 
-      const countHeart = within(favLine).queryByLabelText('Favorites');
-      expect(countHeart).not.toBeInTheDocument();
+    // User feedback (2026-09-27): "should show location-name in one line, break-word: all".
+    it('renders locationName as a single line with mid-word breaking', () => {
+      const schedule = [
+        {
+          id: '1',
+          eventSlug: 'test',
+          eventName: 'Location Event',
+          isMainSchedule: true,
+          eventStartDate: '2026-08-05',
+          locationName: 'ASupercalifragilisticexpialidociousVenueName',
+        }
+      ];
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...defaultProps} schedules={schedule} />
+        </ScopedLocaleProvider>
+      );
 
-      // The count line still carries an accessible label even with its icon
-      // suppressed, so screen-reader users aren't left with a bare number.
-      expect(favLine).toHaveAttribute('aria-label', 'Favorites');
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      const location = within(mobileView).getByText('ASupercalifragilisticexpialidociousVenueName');
+      expect(location).toHaveClass('line-clamp-1');
+      expect(location).toHaveClass('break-all');
+    });
+
+    it('omits the location line entirely when locationName is absent', () => {
+      const schedule = [
+        {
+          id: '1',
+          eventSlug: 'test',
+          eventName: 'No Location Event',
+          isMainSchedule: true,
+          eventStartDate: '2026-08-05',
+        }
+      ];
+      const { container } = render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...defaultProps} schedules={schedule} />
+        </ScopedLocaleProvider>
+      );
+      expect(container.querySelector('.line-clamp-1.break-all')).not.toBeInTheDocument();
     });
 
     // Story 1.i1z CI ratchet — AC1 for the calendar compact-row surface: this test fails if
@@ -1530,7 +1539,7 @@ describe('WeeklyCalendarView', () => {
       expect(container.querySelector('.bg-amber-700')).toHaveTextContent('till');
     });
 
-    it('BUG-047 AC-DATE-3 (<= rule): on a single-day event\'s only day, month/day now show the real (start===end) date digits -- the old "never repeats the start date" avoidance is deliberately gone; "till {time}" moves entirely to the amber corner tag', () => {
+    it('BUG-047 AC-DATE-3 (<= rule): on a single-day event\'s only day, month/day now show the real (start===end) date digits -- the old "never repeats the start date" avoidance is deliberately gone; the amber corner tag stays a bare "till" (2026-09-27: no longer appends the end time, which duplicated the status badge\'s "Ends {time}" state)', () => {
       const { container } = render(
         <ScopedLocaleProvider locale="en-US">
           <WeeklyCalendarView
@@ -1554,7 +1563,8 @@ describe('WeeklyCalendarView', () => {
       expect(dateBox).not.toBeNull();
       expect(container.querySelector('[data-event-card-date-box-month]')).toHaveTextContent('Aug');
       expect(container.querySelector('[data-event-card-date-box-day]')).toHaveTextContent('5');
-      expect(container.querySelector('.bg-amber-700')).toHaveTextContent('till 9:00 PM');
+      expect(container.querySelector('.bg-amber-700')).toHaveTextContent('till');
+      expect(container.querySelector('.bg-amber-700')).not.toHaveTextContent(/9:00 PM/);
       // Never a bare time string / word in the day slot itself (AC-DATE-1).
       expect(container.querySelector('[data-event-card-date-box-day]')?.textContent).toMatch(/^\d{1,2}$/);
     });
@@ -1627,9 +1637,10 @@ describe('WeeklyCalendarView', () => {
           </ScopedLocaleProvider>
         );
 
-        // BUG-048: scoped to the mobile view — the desktop spanning bar now also renders a
-        // status badge for this same multi-day schedule (`EventCardCalendarGridItem`'s own
-        // AC-STATUS-1 amendment), which would otherwise inflate this count to 4.
+        // Scoped to the mobile view — the desktop spanning bar (`EventCardCalendarGridItem`)
+        // no longer renders a status badge at all (BUG-048's AC-STATUS-1 amendment was reversed,
+        // 2026-09-27, user feedback: "don't show the now/ending_at badge"), so this scoping is
+        // now belt-and-suspenders rather than load-bearing, but kept for clarity.
         const badges = rtlScreen
           .getByTestId('mobile-calendar-view')
           .querySelectorAll('[data-event-card-status-badge]');
@@ -1751,7 +1762,7 @@ describe('WeeklyCalendarView', () => {
         expect(container.querySelectorAll('[data-event-card-nearby-badge]')).toHaveLength(2);
       });
 
-      it('appends the badge row as the content column\'s last child, after the multi-day-badge line (AC4)', () => {
+      it('appends the badge row as the content column\'s last child (AC4)', () => {
         vi.setSystemTime(new Date('2026-08-04T12:00:00Z'));
 
         const schedule = [
@@ -1779,14 +1790,15 @@ describe('WeeklyCalendarView', () => {
 
         expect(lastChild.querySelector('[data-event-card-status-badge]')).not.toBeNull();
         expect(lastChild.querySelector('[data-event-card-nearby-badge]')).not.toBeNull();
-        const multiDayBadgeIdx = Array.from(contentColumn.children).findIndex(
-          (el) => el.getAttribute('data-testid') === 'multi-day-badge'
-        );
-        const badgeRowIdx = Array.from(contentColumn.children).indexOf(lastChild);
-        expect(badgeRowIdx).toBeGreaterThan(multiDayBadgeIdx);
+        // User feedback (2026-09-27): the "Day X of N" multi-day badge line this test used to
+        // order against is removed entirely -- confirm it's genuinely gone, not just re-ordered.
+        expect(contentColumn.querySelector('[data-testid="multi-day-badge"]')).toBeNull();
       });
 
-      it('renders status badges on desktop variant="grid" day cells now that EventCardCalendarGridItem is adopted (BUG-048)', () => {
+      // User feedback (2026-09-27): "don't show the now/ending_at badge" -- reverses BUG-048's
+      // AC-STATUS-1 adoption; `EventCardCalendarGridItem` no longer renders a status badge in
+      // either composition, so desktop `variant="grid"` day cells never show one.
+      it('never renders status badges on desktop variant="grid" day cells (status badge removed, 2026-09-27)', () => {
         vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
 
         render(
@@ -1796,10 +1808,7 @@ describe('WeeklyCalendarView', () => {
         );
 
         const desktopView = rtlScreen.getByTestId('desktop-calendar-view');
-        // Single-day cells (Main Stage Concert, Gallery Tour) now render
-        // `EventCardCalendarGridItem`, which renders a status badge whenever `eventStartDate` is
-        // present — both fixtures have one.
-        expect(desktopView.querySelectorAll('[data-event-card-status-badge]').length).toBeGreaterThan(0);
+        expect(desktopView.querySelector('[data-event-card-status-badge]')).toBeNull();
         // No fixture schedule carries `distanceKm`, so the nearby badge is correctly still absent.
         expect(desktopView.querySelector('[data-event-card-nearby-badge]')).toBeNull();
       });
@@ -1949,22 +1958,10 @@ describe('WeeklyCalendarView', () => {
         'A Deliberately Long Festival Name That Needs Two Lines'
       )[0].parentElement as HTMLElement;
 
-      expect(within(row).getByTestId('heart-icon')).toHaveClass('mt-0.5');
+      // User feedback (2026-09-27): the inline isFavorited Heart icon is removed from this row
+      // entirely -- only the isAddedToCalendar icon remains here.
+      expect(within(row).queryByTestId('heart-icon')).not.toBeInTheDocument();
       expect(within(row).getByTestId('calendar-plus-icon')).toHaveClass('mt-0.5');
-    });
-
-    it('raises the multi-day badge to the 11px legibility floor', () => {
-      render(
-        <ScopedLocaleProvider locale="en-US">
-          <WeeklyCalendarView {...defaultProps} schedules={longNameSchedule} />
-        </ScopedLocaleProvider>
-      );
-
-      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
-      const badge = within(mobileView).getAllByTestId('multi-day-badge')[0];
-
-      expect(badge).toHaveClass('text-[11px]');
-      expect(badge).not.toHaveClass('text-[10px]');
     });
 
     it('lets the variant="grid" day-cell title wrap freely, matching EventCardCalendarGridItem\'s own composition (BUG-048)', () => {

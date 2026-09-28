@@ -8,7 +8,7 @@
 // applied to EventCardMediaPrimitives.tsx/count-badge.tsx for the identical reason -- see that
 // file's header comment for the full root-cause writeup.
 import React, { useState, useRef, useEffect, useMemo, useId } from 'react';
-import { ChevronLeft, ChevronRight, Heart, CalendarPlus, CalendarRange, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Heart, CalendarPlus, ChevronDown } from 'lucide-react';
 import { WeekPicker } from '../../core/WeekPicker';
 import { useScopedLocale, useScopedTimezone } from '../../hooks';
 import type {
@@ -82,7 +82,12 @@ const SPANNING_BAR_CLICK_CLASS = "absolute inset-0 z-10 w-full rounded-md focus-
  * the schedule-click element (same "non-interactive chrome + sibling interactive elements"
  * shape as Story 1.i1d's `variant='list'` restructure).
  */
-const SPANNING_BAR_VISUAL_CLASS = "relative z-20 pointer-events-none [&_button]:pointer-events-auto";
+// User feedback (2026-09-27, "the favorite icon should be clickable to toggle favorite"):
+// `[&_button]:pointer-events-auto` promoted to `!pointer-events-auto` (Tailwind's important
+// modifier) -- a defensive hardening so this override always wins regardless of any other rule
+// (e.g. a future utility class added directly on the button, or specificity drift) that might
+// otherwise re-suppress pointer events on the primitive's own favorite-toggle button.
+const SPANNING_BAR_VISUAL_CLASS = "relative z-20 pointer-events-none [&_button]:!pointer-events-auto";
 /**
  * Story 1.i1h Task 7.2 / AC4 — mobile's new flat inline bound on single-day/isolated occurrences
  * per day (EXPERIENCE.md's sanctioned practical fallback, replacing the previous
@@ -381,6 +386,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     statusEnded: 'Ended',
     statusHappeningNow: 'Now',
     statusEndsToday: 'Ends Today',
+    statusEndsAt: 'Ends {time}',
     statusInHours: 'In {n} hour(s)',
     statusInDays: 'In {n} days',
     statusUpcoming: 'Upcoming',
@@ -399,6 +405,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     statusEnded: defaultLabels.statusEnded,
     statusHappeningNow: defaultLabels.statusHappeningNow,
     statusEndsToday: defaultLabels.statusEndsToday,
+    statusEndsAt: defaultLabels.statusEndsAt,
     statusInHours: defaultLabels.statusInHours,
     statusInDays: defaultLabels.statusInDays,
     statusUpcoming: defaultLabels.statusUpcoming,
@@ -800,7 +807,6 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
               onFavoriteToggle={onFavoriteToggle}
               favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
               nearbyBadgeThreshold={nearbyBadgeThreshold}
-              statusLabels={statusLabels}
             />
           ))}
         </div>
@@ -924,7 +930,6 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
                       tillLabel={defaultLabels.tillLabel}
                       variant="list"
                       currentDayStr={dateISO}
-                      multiDaySegmentLabel={labels?.multiDaySegmentLabel}
                       favoritedBadgeLabel={defaultLabels.favoritedBadgeLabel}
                       addedToCalendarBadgeLabel={defaultLabels.addedToCalendarBadgeLabel}
                       statusLabels={statusLabels}
@@ -1010,11 +1015,12 @@ interface CalendarCardProps<TSchedule> {
   addedToCalendarBadgeLabel?: string;
   variant?: 'grid' | 'list';
   currentDayStr?: string;
-  multiDaySegmentLabel?: (dayNumber: number, totalDays: number) => string;
   /**
    * Status badge labels (AC1/AC6), forwarded verbatim to `formatEventStatus`. Used by the
-   * `list` variant directly and, as of BUG-048, threaded through to `EventCardCalendarGridItem`
-   * for the `grid` variant's single-day cells too (both compute the same 8-state badge).
+   * `list` variant only -- BUG-048 briefly threaded this through to `EventCardCalendarGridItem`
+   * for the `grid` variant's single-day cells too, but that status badge was removed again
+   * (2026-09-27, user feedback: "don't show the now/ending_at badge"), so the `grid` variant no
+   * longer consumes this at all.
    */
   statusLabels?: EventStatusLabels;
   /**
@@ -1047,7 +1053,6 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   addedToCalendarBadgeLabel,
   variant = 'grid',
   currentDayStr,
-  multiDaySegmentLabel,
   statusLabels,
   nearbyBadgeLabel,
   nearbyBadgeThreshold,
@@ -1136,15 +1141,6 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   const baseButtonClass = isMultiDay ? MULTI_DAY_EVENT_CLASS : EVENT_CARD_COMPACT_CLASS;
   const elementId = cardIdx >= 0 ? `calendar-card-${dayIdx}-${cardIdx}` : undefined;
 
-  const multiDayBadgeText = useMemo(() => {
-    if (variant !== 'list' || !isMultiDay) return null;
-    const dayNumber = currentDayStr ? diffInDays(schedule.eventStartDate, currentDayStr) + 1 : 1;
-    const totalDays = schedule.eventEndDate ? diffInDays(schedule.eventStartDate, schedule.eventEndDate) + 1 : 1;
-    return multiDaySegmentLabel
-      ? multiDaySegmentLabel(dayNumber, totalDays)
-      : `Day ${dayNumber} of ${totalDays}`;
-  }, [variant, isMultiDay, currentDayStr, schedule.eventStartDate, schedule.eventEndDate, multiDaySegmentLabel]);
-
   // Task 3 (Story 1.i1d AC1/AC2/AC4/AC5/AC6/AC7): the `variant === 'list'` (Mobile
   // Vertical Day List) render path restructured into a non-interactive chrome div
   // containing a sibling (event-schedule-click button + EventCardMediaSlot), so the
@@ -1158,14 +1154,13 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
       currentDayStr || '',
       schedule.eventStartDate,
       schedule.eventEndDate,
-      schedule.eventEndTime,
       tillLabel || 'till'
     );
 
     // AC1 (Story 1.i1j) — same computation EventCard's masonry variant already uses; no new
     // plumbing, computed per-card from fields WeeklyCalendarViewScheduleShape already carries
     // (Architecture Spine AD-22 Rule 1).
-    const { text: statusText, isHappeningNow } = formatEventStatus(
+    const { text: statusText, variant: statusVariant } = formatEventStatus(
       locale,
       timezone,
       new Date(),
@@ -1214,24 +1209,22 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
                   added-to-calendar icons pin to the first line rather than centring against a
                   2-line block. The `variant='grid'` day-cell pill below keeps `truncate`. */}
               <span className="flex items-start gap-1 w-full text-left">
-                {schedule.isFavorited && (
-                  <Heart className="w-3 h-3 mt-0.5 text-rose-500 fill-rose-500 shrink-0 inline" aria-label={favoritedBadgeLabel || 'Favorited'} data-testid="heart-icon" />
-                )}
+                {/* User feedback (2026-09-27): "should not have favorite icon+count on the
+                    event-title area" -- the isFavorited Heart icon that used to sit inline here
+                    is removed; favorite state is only shown via the real interactive favorite
+                    control (the thumbnail's own corner pill / large fallback icon below). */}
                 {schedule.isAddedToCalendar && (
                   <CalendarPlus className="w-3 h-3 mt-0.5 text-emerald-600 shrink-0 inline" aria-label={addedToCalendarBadgeLabel || 'Added to calendar'} data-testid="calendar-plus-icon" />
                 )}
                 <span className={`${weightClass} line-clamp-2 block`}>{schedule.eventName}</span>
               </span>
-              {schedule.favoriteCount !== undefined && schedule.favoriteCount > 0 && (
-                <span className="flex items-center gap-1 text-[11px] text-gray-500 mt-0.5" data-testid="favorite-count-line" aria-label="Favorites">
-                  {!schedule.isFavorited && <Heart className="w-2.5 h-2.5 text-rose-500 shrink-0 inline" aria-hidden="true" />}
-                  <span>{schedule.favoriteCount}</span>
-                </span>
-              )}
-              {isMultiDay && multiDayBadgeText && (
-                <span className="text-[11px] text-violet-600 flex items-center gap-1 mt-0.5" data-testid="multi-day-badge">
-                  <CalendarRange className="w-3 h-3 shrink-0 inline" aria-hidden="true" />
-                  <span>{multiDayBadgeText}</span>
+              {/* User feedback (2026-09-27): "should show location-name in one line, break-word:
+                  all" -- new location line, single line (`line-clamp-1`) with mid-word breaking
+                  (`break-all`) if a single long word overflows, matching masonry's own
+                  locationName treatment (minus the centering, which wasn't asked for here). */}
+              {schedule.locationName && (
+                <span className="text-xs text-muted-foreground line-clamp-1 break-all mt-0.5">
+                  {schedule.locationName}
                 </span>
               )}
               {/* AC2/AC3/AC4 (Story 1.i1j) — status + nearby badges, appended as the content
@@ -1239,7 +1232,7 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
                   visual family consistency (DESIGN.md gives no explicit ordering/gap sub-token
                   of its own for this row — see Dev Notes). */}
               <span className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                <EventCardStatusBadge text={statusText} isHappeningNow={isHappeningNow} />
+                <EventCardStatusBadge text={statusText} variant={statusVariant} />
                 <EventCardNearbyBadge
                   distanceKm={schedule.distanceKm}
                   thresholdKm={nearbyBadgeThreshold}
@@ -1321,13 +1314,6 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
           onFavoriteToggle={onFavoriteToggle ? () => onFavoriteToggle(schedule) : undefined}
           distanceKm={schedule.distanceKm}
           nearbyBadgeThreshold={nearbyBadgeThreshold}
-          eventStartDate={schedule.eventStartDate}
-          eventStartTime={schedule.eventStartTime}
-          eventEndDate={schedule.eventEndDate}
-          eventEndTime={schedule.eventEndTime}
-          statusLabels={statusLabels}
-          locale={locale}
-          timezone={timezone}
           labels={{ favoriteToggle: favoriteToggleLabel, nearbyBadge: nearbyBadgeLabel }}
         />
         {/* `EventCardCalendarGridItem`'s own favorite control only renders when a toggle handler
@@ -1392,8 +1378,6 @@ interface MultiDaySpanningBarProps<TSchedule extends WeeklyCalendarViewScheduleS
    * `EventCardCalendarGridItem`. Undefined keeps the card's own `8` default.
    */
   nearbyBadgeThreshold?: number;
-  /** BUG-048 (AC-STATUS-1) — forwarded to `EventCardCalendarGridItem`'s internal `formatEventStatus` call. */
-  statusLabels?: EventStatusLabels;
 }
 
 /**
@@ -1430,7 +1414,6 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
   onFavoriteToggle,
   favoriteToggleLabel,
   nearbyBadgeThreshold,
-  statusLabels,
 }: MultiDaySpanningBarProps<TSchedule>) {
   // Tooltip visibility states — same hover/focus/Escape model as CalendarCard's grid variant.
   const [isHovered, setIsHovered] = useState(false);
@@ -1522,13 +1505,6 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
           onFavoriteToggle={onFavoriteToggle ? () => onFavoriteToggle(schedule) : undefined}
           distanceKm={schedule.distanceKm}
           nearbyBadgeThreshold={nearbyBadgeThreshold}
-          eventStartDate={schedule.eventStartDate}
-          eventStartTime={schedule.eventStartTime}
-          eventEndDate={schedule.eventEndDate}
-          eventEndTime={schedule.eventEndTime}
-          statusLabels={statusLabels}
-          locale={locale}
-          timezone={timezone}
           labels={{ favoriteToggle: favoriteToggleLabel }}
         />
       </div>

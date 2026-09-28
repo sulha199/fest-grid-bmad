@@ -118,6 +118,8 @@ export interface EventStatusLabels {
   statusEnded?: string;
   statusHappeningNow?: string;
   statusEndsToday?: string;
+  /** `{time}`-templated, e.g. 'Ends {time}' -- used instead of `statusEndsToday` once the end time is known (see `formatEventStatus`'s `endDayDiff === 0` branch). */
+  statusEndsAt?: string;
   statusInHours?: string;
   statusInDays?: string;
   statusUpcoming?: string;
@@ -131,11 +133,13 @@ export interface EventStatusResult {
   /** The already-labeled display string for the active state (unchanged from AC15). */
   text: string;
   /**
-   * True only for the `happeningNow` state (event already started and not ending today) —
-   * the one state `DESIGN.md` § event_card_status_badge gives a distinct visual treatment
-   * (`happening_now`'s solid emerald fill) instead of the shared neutral `base`.
+   * The state discriminant `EventCardStatusBadge` uses to pick its color: `'happeningNow'`
+   * (event already started, not ending today) gets the solid emerald treatment; `'endingSoon'`
+   * (`statusEndsAt`/`statusEndsToday`) gets amber, matching the masonry TILL tag's own
+   * end-time color; `'startingSoon'` (`statusInHours`) gets sky; every other state (`ended`,
+   * `tomorrow`, a weekday name, `inDays`, `upcoming`) stays `'default'` (shared neutral `base`).
    */
-  isHappeningNow: boolean;
+  variant: 'default' | 'happeningNow' | 'endingSoon' | 'startingSoon';
 }
 
 /**
@@ -178,17 +182,29 @@ export function formatEventStatus(
     endDayDiff < 0 || (endDayDiff === 0 && !!endTime && now.getTime() >= endDateTime.getTime());
 
   if (ended) {
-    return { text: labels?.statusEnded ?? 'Ended', isHappeningNow: false };
+    return { text: labels?.statusEnded ?? 'Ended', variant: 'default' };
   }
 
   if (started) {
     if (endDayDiff > 0) {
       // The one state with its own DESIGN.md color treatment (AC4) — surfaced from this
       // same branch, never re-derived by the caller.
-      return { text: labels?.statusHappeningNow ?? 'Now', isHappeningNow: true };
+      return { text: labels?.statusHappeningNow ?? 'Now', variant: 'happeningNow' };
     }
     // endDayDiff === 0 here: ended-check above already handled endDayDiff < 0.
-    return { text: labels?.statusEndsToday ?? 'Ends Today', isHappeningNow: false };
+    // User feedback (2026-09-27): once the end time is known, show the precise "Ends hh:mm"
+    // instead of the generic "Ends Today" -- more useful than a state the viewer can already
+    // infer from the card just having reached this branch.
+    if (endTime) {
+      return {
+        text: (labels?.statusEndsAt ?? 'Ends {time}').replace(
+          '{time}',
+          formatEventTime(locale, timezone, endDateTime)
+        ),
+        variant: 'endingSoon',
+      };
+    }
+    return { text: labels?.statusEndsToday ?? 'Ends Today', variant: 'endingSoon' };
   }
 
   // Not started.
@@ -200,22 +216,22 @@ export function formatEventStatus(
     }
     return {
       text: (labels?.statusInHours ?? 'In {n} hour(s)').replace('{n}', String(n)),
-      isHappeningNow: false,
+      variant: 'startingSoon',
     };
   }
   if (startDayDiff === 1) {
-    return { text: labels?.tomorrow ?? 'Tomorrow', isHappeningNow: false };
+    return { text: labels?.tomorrow ?? 'Tomorrow', variant: 'default' };
   }
   if (startDayDiff >= 2 && startDayDiff <= 6) {
-    return { text: formatWeekday(locale, timezone, startDateTime), isHappeningNow: false };
+    return { text: formatWeekday(locale, timezone, startDateTime), variant: 'default' };
   }
   if (startDayDiff >= 7 && startDayDiff <= 13) {
     return {
       text: (labels?.statusInDays ?? 'In {n} days').replace('{n}', String(startDayDiff)),
-      isHappeningNow: false,
+      variant: 'default',
     };
   }
-  return { text: labels?.statusUpcoming ?? 'Upcoming', isHappeningNow: false };
+  return { text: labels?.statusUpcoming ?? 'Upcoming', variant: 'default' };
 }
 
 export function formatRelativeDayOrDate(
@@ -490,8 +506,13 @@ export function formatEventCardDateBoxLine(
  *    the event ends must still resolve to "show the end date," unlike a continuous timestamp
  *    comparison (which has no meaningful equality case to widen for).
  * `month`/`day` are therefore ALWAYS real numeric digits now — no more till-label/time-string
- * overload. The till/time text moves entirely to `tillLabel`, populated in every case (not just
- * the former "continuing segment") via the existing, unchanged `computeCalendarSegmentTillText`.
+ * overload. `tillLabel` is returned bare, unchanged, in every case -- it used to have the
+ * formatted end time appended on a segment's last/only day (`computeCalendarSegmentTillText`,
+ * removed 2026-09-27, user feedback): the status badge under the event name already shows that
+ * exact information directly (`formatEventStatus`'s `"Ends {time}"` state, the calendar-row
+ * mirror of the same masonry TILL-badge-vs-status-badge duplication fix), so appending it here
+ * too was pure duplication ("don't show clock in the till box, we already have the endtime badge
+ * under the event name").
  */
 export function computeCalendarSegmentDateBoxContent(
   locale: string,
@@ -499,9 +520,8 @@ export function computeCalendarSegmentDateBoxContent(
   currentDayStr: string,
   startDate: string,
   endDate: string | null | undefined,
-  endTime: string | null | undefined,
   tillLabel: string
-): { month: string; day: string; tillLabel: string | undefined } {
+): { month: string; day: string; tillLabel: string } {
   const effectiveEnd = endDate ?? startDate;
   const started = currentDayStr >= startDate;
   const notYetEnded = currentDayStr <= effectiveEnd;
@@ -511,48 +531,8 @@ export function computeCalendarSegmentDateBoxContent(
   return {
     month: formatMonthAbbrev(locale, timezone, targetDateTime),
     day: formatDayNumber(locale, timezone, targetDateTime),
-    tillLabel: computeCalendarSegmentTillText(locale, timezone, currentDayStr, startDate, endDate, endTime, tillLabel),
+    tillLabel,
   };
 }
 
-/**
- * Computes the till/end text for the WeeklyCalendarView list-variant's date box
- * (Story 1.i1d AC4). Unlike `EventCard`'s own TILL badge, this is keyed off the
- * segment's *own calendar day* (`currentDayStr`), never off "now", so it always
- * returns non-empty content:
- *  - segment continues past this calendar day (`currentDayStr < effectiveEnd`)
- *    → bare `tillLabel` ("till");
- *  - segment is this day's last/only day and a distinct end time is known
- *    → `"{tillLabel} {formatted end time}"` via `combineDateTime` + `formatEventTime`;
- *  - every other case (explicit end date with no end time, or no end info at all)
- *    → bare `tillLabel`.
- */
-export function computeCalendarSegmentTillText(
-  locale: string,
-  timezone: string | undefined,
-  currentDayStr: string,
-  startDate: string,
-  endDate: string | null | undefined,
-  endTime: string | null | undefined,
-  tillLabel: string
-): string {
-  // Absent end date falls back to start date ("ends same day as start", matching
-  // EventCard AC14's shared convention).
-  const effectiveEnd = endDate ?? startDate;
-
-  // String comparison is safe here: both `currentDayStr` and `effectiveEnd` are
-  // YYYY-MM-DD ISO date strings.
-  if (currentDayStr < effectiveEnd) {
-    return tillLabel;
-  }
-
-  // This is the segment's last/only day.
-  if (endTime && effectiveEnd) {
-    const endDateTime = combineDateTime(effectiveEnd, endTime);
-    const formattedTime = formatEventTime(locale, timezone, endDateTime);
-    return `${tillLabel} ${formattedTime}`;
-  }
-
-  return tillLabel;
-}
 

@@ -47,19 +47,32 @@ function slotRoot(container: HTMLElement): HTMLElement {
 describe('EventCardMediaSlot - AC1 (dimensions come from the surrounding chrome, never the image)', () => {
   afterEach(() => cleanup());
 
+  // Pixel-perfect pass (2026-09-27, masonry-default prototype round 3): `flex-fill`'s height is
+  // now aspect-ratio-owned instead of `h-full`-derived from the sibling date-box, and it carries
+  // no border radius (was `rounded-md` via the slot's own shared wrapper) to sit flush against
+  // the date-box's own squared edge.
+  //
+  // User feedback (2026-09-27, later same-day): the `min-[1200px]:aspect-square` widening rule
+  // is REMOVED -- the ratio is now a STATIC `aspect-[5/6]`, never changing on screen-size changes.
   it('renders the flex-fill (masonry) className shape when layout="flex-fill"', () => {
     const { container } = render(<EventCardMediaSlot layout="flex-fill" imageUrl="/a.jpg" />);
     const cls = slotRoot(container).className;
     expect(cls).toContain('flex-1');
-    expect(cls).toContain('h-full');
     expect(cls).toContain('min-w-0');
+    expect(cls).toContain('aspect-[5/6]');
+    expect(cls).not.toContain('min-[1200px]:aspect-square');
+    expect(cls).not.toContain('rounded-md');
   });
 
+  // User feedback (2026-09-27): "datebox should always have static aspect-ratio 5:6" extended to
+  // the calendar list row's thumbnail too -- was a fixed `w-16 h-16` square, now `w-16
+  // aspect-[5/6]` (width stays fixed, height derives from the ratio instead of being pinned 1:1).
   it('renders the fixed-square (compact) className shape when layout="fixed-square"', () => {
     const { container } = render(<EventCardMediaSlot layout="fixed-square" imageUrl="/a.jpg" />);
     const cls = slotRoot(container).className;
     expect(cls).toContain('w-16');
-    expect(cls).toContain('h-16');
+    expect(cls).toContain('aspect-[5/6]');
+    expect(cls).not.toContain('h-16');
     expect(cls).toContain('shrink-0');
   });
 
@@ -500,6 +513,27 @@ describe('EventCardDateBox (Story 1.i1k two-tier month/day chrome)', () => {
     expect(screen.getByText('till').className).toContain('bg-amber-700');
   });
 
+  // Pixel-perfect pass (2026-09-27, round 5, user feedback): masonry `size='default'` centers
+  // month/day horizontally (`items-center` on the box, `text-center` on both spans) instead of
+  // stretching them to the box's now much-wider `flex-1` width, which looked pushed toward the
+  // right edge. `size='compact'` (calendar list row) is unaffected by this pass.
+  it('centers month/day horizontally for size="default" but not for size="compact"', () => {
+    const { container: defaultContainer } = render(
+      <EventCardDateBox size="default" month="Oct" day="12" />
+    );
+    const defaultBox = defaultContainer.querySelector('[data-event-card-date-box]') as HTMLElement;
+    expect(defaultBox.className).toContain('items-center');
+    expect(defaultContainer.querySelector('[data-event-card-date-box-month]')?.className).toContain('text-center');
+    expect(defaultContainer.querySelector('[data-event-card-date-box-day]')?.className).toContain('text-center');
+
+    const { container: compactContainer } = render(
+      <EventCardDateBox size="compact" month="Oct" day="12" />
+    );
+    const compactBox = compactContainer.querySelector('[data-event-card-date-box]') as HTMLElement;
+    expect(compactBox.className).not.toContain('items-center');
+    expect(compactContainer.querySelector('[data-event-card-date-box-month]')?.className).not.toContain('text-center');
+  });
+
   it('renders no amber tag element at all when tillLabel is omitted', () => {
     const { container } = render(<EventCardDateBox size="default" month="Oct" day="12" />);
     expect(container.querySelector('.bg-amber-700')).toBeNull();
@@ -817,20 +851,50 @@ describe('Story 1.i1l — badge font-size harmonization and the TILL offset cont
     expect(count.className).not.toContain('text-sm');
   });
 
-  it('offsets the TILL tag by context: -top-1.5 on a two-tier pill, -top-3 on the prominent chip', () => {
+  // Pixel-perfect pass (2026-09-27, masonry-default prototype round 4): `'default'` (masonry
+  // size='default') moved from floating past the card's true corner (`-top-1.5 -left-1.5`) to
+  // sitting just INSIDE it (`top-1.5 left-1.5`, positive), since the card returned to
+  // `overflow-hidden` and anything outside it must not be visible. `'compact'` (calendar list
+  // row) was briefly, unintentionally regressed to `'default'`'s new offset (EventCardDateBox's
+  // tillLabel span hardcoded `eventCardTillLabelClass('default')` regardless of `size`) -- fixed
+  // by giving `'compact'` its own context, restoring the original floating-past-the-edge
+  // behavior the calendar row's own (unclipped, still-padded) chrome relies on.
+  //
+  // User feedback (2026-09-27, later same-day): `'prominent'` (masonry VM1) now uses the SAME
+  // top offset as `'default'` (VM1's own sibling composition, VM2) -- `top-1.5`, not `-top-3` --
+  // "tillbox should have same top position to the tillbox position on masonry view-non
+  // prominent's". Horizontal offset is unchanged (`-left-1.5`).
+  it('offsets the TILL tag by context: top-1.5/left-1.5 (inside the card) on masonry\'s two-tier pill AND the prominent chip (same top position, per user feedback), -top-1.5/-left-1.5 (floats past the row\'s edge, into its own padding) on the calendar row', () => {
     // DESIGN.md § event_card_till_badge, "OFFSET DIFFERS BY CONTEXT". Asserted on the helper
-    // directly so both contexts are covered even though only one renders through EventCardDateBox.
-    expect(eventCardTillLabelClass('default')).toContain('-top-1.5');
-    expect(eventCardTillLabelClass('default')).not.toContain('-top-3');
-    expect(eventCardTillLabelClass('prominent')).toContain('-top-3');
+    // directly so all three contexts are covered even though only two render through
+    // EventCardDateBox (`'prominent'` is EventCard.tsx's own direct call site).
+    expect(eventCardTillLabelClass('default')).toContain('top-1.5');
+    expect(eventCardTillLabelClass('default')).toContain('left-1.5');
+    expect(eventCardTillLabelClass('default')).not.toContain('-top-1.5');
+    expect(eventCardTillLabelClass('default')).not.toContain('-left-1.5');
+    expect(eventCardTillLabelClass('compact')).toContain('-top-1.5');
+    expect(eventCardTillLabelClass('compact')).toContain('-left-1.5');
+    expect(eventCardTillLabelClass('prominent')).toContain('top-1.5');
     expect(eventCardTillLabelClass('prominent')).not.toContain('-top-1.5');
+    expect(eventCardTillLabelClass('prominent')).not.toContain('-top-3');
+    expect(eventCardTillLabelClass('prominent')).toContain('-left-1.5');
+  });
 
-    // Everything except the vertical offset is identical -- position-only, per the token's
-    // own note that an asymmetric-padding fix was tried and explicitly rejected.
-    const normalize = (s: string) => s.replace('-top-1.5', 'OFFSET').replace('-top-3', 'OFFSET');
-    expect(normalize(eventCardTillLabelClass('default'))).toBe(
-      normalize(eventCardTillLabelClass('prominent'))
+  it('EventCardDateBox routes its tillLabel span through the size-aware context (compact stays outside, default stays inside)', () => {
+    const { container: compactContainer } = render(
+      <EventCardDateBox size="compact" month="Oct" day="12" tillLabel="till" />
     );
+    const compactTill = compactContainer.querySelector('.bg-amber-700');
+    expect(compactTill?.className).toContain('-top-1.5');
+    expect(compactTill?.className).toContain('-left-1.5');
+    cleanup();
+
+    const { container: defaultContainer } = render(
+      <EventCardDateBox size="default" month="Oct" day="12" tillLabel="till" />
+    );
+    const defaultTill = defaultContainer.querySelector('.bg-amber-700');
+    expect(defaultTill?.className).toContain('top-1.5');
+    expect(defaultTill?.className).not.toContain('-top-1.5');
   });
 
   it('clears the 11px legibility floor on every badge family the primitives own', () => {

@@ -61,9 +61,31 @@ export const EVENT_CARD_BADGE_ICON_SCALE_DEFAULT = 5 / 3;
 export function eventCardBadgeIconSizeStyle(scale: 'default' | 'large'): CSSProperties {
   const ratio =
     scale === 'large' ? EVENT_CARD_BADGE_ICON_SCALE_LARGE : EVENT_CARD_BADGE_ICON_SCALE_DEFAULT;
+  return eventCardBadgeIconSizeStyleForRatio(ratio);
+}
+
+/**
+ * `calc(var(--event-card-badge-font-size, 0.75rem) * ratio)` for an arbitrary ratio, factored
+ * out of `eventCardBadgeIconSizeStyle` above so a one-off ratio (e.g.
+ * `EVENT_CARD_BADGE_ICON_SCALE_MASONRY_NO_IMAGE` below) still goes through the same token
+ * mechanism instead of a hand-rolled `calc()` string at the call site.
+ */
+export function eventCardBadgeIconSizeStyleForRatio(ratio: number): CSSProperties {
   const size = `calc(var(${EVENT_CARD_BADGE_FONT_SIZE_VAR},${EVENT_CARD_BADGE_FONT_SIZE})*${ratio})`;
   return { width: size, height: size };
 }
+
+/**
+ * `4×` → 12px × 4 = **48px** at the token's standalone fallback size (0.75rem), scaling
+ * further with `--event-card-badge-font-size` like every other ratio here. Pixel-perfect
+ * pass (2026-09-27, user feedback): the masonry-default card's no-thumbnail fallback favorite
+ * icon (`EventCard.tsx`'s `isMasonryDefault && !defaultThumbnailImagePresent` branch) needed
+ * to be noticeably bigger than the shared `EVENT_CARD_BADGE_ICON_SCALE_LARGE` (2x) every other
+ * `scale="large"` consumer (VM1's image-fallback, `EventCardCalendarGridItem`, the calendar
+ * compact row's own fallback) still uses -- a bespoke, masonry-only ratio via `iconSizeStyle`
+ * override rather than bumping the shared constant, so those other surfaces are untouched.
+ */
+export const EVENT_CARD_BADGE_ICON_SCALE_MASONRY_NO_IMAGE = 4;
 
 /**
  * The `large`-scale favorite badge's own minimum touch-target size (matches

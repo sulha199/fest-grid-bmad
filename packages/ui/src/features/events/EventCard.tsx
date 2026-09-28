@@ -8,14 +8,13 @@
 // Same fix as `count-badge.tsx`/`EventCardMediaPrimitives.tsx`; see either file's header for the
 // direct repro this is based on.
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { MapPin, Heart, Clock } from 'lucide-react';
+import { Heart, Clock } from 'lucide-react';
 import { useScopedLocale, useScopedTimezone } from '../../hooks';
 import type { EventCardProps } from './EventCard.types';
 import {
   getEventDayDiff,
   computeEventCardDateBoxParts,
   formatEventCardDateBoxLine,
-  formatEventTime,
   formatEventStatus,
   combineDateTime,
   getLocalDateInTimezone,
@@ -23,7 +22,9 @@ import {
 } from './format-event-date';
 import {
   eventCardBadgeIconSizeStyle,
+  eventCardBadgeIconSizeStyleForRatio,
   EVENT_CARD_BADGE_MIN_TOUCH_REM,
+  EVENT_CARD_BADGE_ICON_SCALE_MASONRY_NO_IMAGE,
 } from './event-card-media-tokens';
 import {
   EventCardDateBox,
@@ -32,7 +33,6 @@ import {
   EventCardStatusBadge,
   EventCardNearbyBadge,
   formatNearbyBadgeDistance,
-  eventCardTillLabelClass,
   EVENT_CARD_BADGE_TEXT_SIZE_CLASS,
   EVENT_CARD_CONTAINER_CLASS,
   EVENT_CARD_TITLE_TEXT_SIZE_CLASS,
@@ -166,16 +166,39 @@ export function EventCard({
   const [defaultThumbnailImagePresent, setDefaultThumbnailImagePresent] = useState<boolean>(() => !!imageUrl);
 
   // Task 2.3 — sibling favorite badge (large / image-absent case) centering: measured
-  // once on layout from the date box's own box so the badge centers within just the
-  // thumbnail, not the whole row (jsdom yields 0×0, so tests assert the mechanism,
-  // not exact pixels — confirm the final visual against the reference screenshot).
+  // from the date box's own box so the badge centers within just the thumbnail, not the
+  // whole row (jsdom yields 0×0, so tests assert the mechanism, not exact pixels — confirm
+  // the final visual against the reference screenshot). Kept live via ResizeObserver, not
+  // just a one-shot mount measurement — see that effect's own comment for why.
   const dateBoxRef = useRef<HTMLDivElement | null>(null);
   const [dateBoxSize, setDateBoxSize] = useState({ w: 0, h: 0 });
+  // User feedback (2026-09-27): at some viewport widths (e.g. 1381px), the no-image-mode
+  // favorite badge floated outside/got clipped by the card edge on the first couple of cards in
+  // a masonry grid. Root cause: this used to be a one-shot `useLayoutEffect` (`[]` deps) that
+  // measured the date-box's width/height exactly once at mount -- but the grid's own column
+  // count/card width can still be settling at that exact moment (many cards mounting
+  // simultaneously, CSS Grid/responsive classes not fully resolved on the very first layout
+  // pass), so the earliest-mounting cards could capture a size wider than the box's real,
+  // final flex-1-resolved width. A stale, too-wide `dateBoxSize.w` pushes the badge's `left`
+  // offset (below) past the thumbnail's actual right edge, where the card's `overflow-hidden`
+  // clips it. A `ResizeObserver` re-measures whenever the box's real size actually changes
+  // (grid reflow, window resize, font load, etc.), not just once at mount.
   useLayoutEffect(() => {
     const el = dateBoxRef.current;
-    if (el) {
-      setDateBoxSize({ w: el.offsetWidth, h: el.offsetHeight });
-    }
+    if (!el) return;
+    setDateBoxSize({ w: el.offsetWidth, h: el.offsetHeight });
+    if (typeof ResizeObserver === 'undefined') return;
+    // Deliberately re-reads `offsetWidth`/`offsetHeight` from the element rather than using the
+    // callback's own `entry.contentRect` -- `contentRect` excludes padding/border while
+    // `offsetWidth`/`offsetHeight` (used for the initial measurement above) include them; mixing
+    // the two would make the badge jump between the first paint and the first observed resize.
+    const observer = new ResizeObserver(() => {
+      const width = el.offsetWidth;
+      const height = el.offsetHeight;
+      setDateBoxSize((prev) => (prev.w === width && prev.h === height ? prev : { w: width, h: height }));
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
   const contextLocale = useScopedLocale();
@@ -258,13 +281,10 @@ export function EventCard({
     const endDayDiff = getCalendarDayDifference(nowParts, endParts);
 
     if (endDayDiff === 0) {
-      if (endTime) {
-        tillBadgeText = `${defaultLabels.tillLabel} ${formatEventTime(activeLocale, activeTimezone, endDateTime)}`;
-      } else if (endDate != null) {
-        // A real endDate of today with no known endTime: still show a bare "till" tag.
-        tillBadgeText = defaultLabels.tillLabel;
-      }
-      // else: absent endDate (fallback to start day) with no known end time -> no TILL badge (AC14).
+      // User feedback (2026-09-27): no TILL badge at all once the end date is today --
+      // the status badge already communicates this state directly ("Ends Today", or "Ends
+      // hh:mm" once the end time is known — see formatEventStatus's own endDayDiff === 0
+      // branch), so the TILL tag would be pure duplication rather than distinct information.
     } else if (endDayDiff > 0) {
       tillBadgeText = defaultLabels.tillLabel;
     }
@@ -274,7 +294,7 @@ export function EventCard({
   // AC15 — status badge (masonry only): always one of 8 states. Story 1.i1i AC4 — the same
   // single computation now also surfaces the `happeningNow` discriminant that
   // `EventCardStatusBadge` renders as DESIGN.md's one sanctioned emerald exception.
-  const { text: statusText, isHappeningNow } = formatEventStatus(
+  const { text: statusText, variant: statusVariant } = formatEventStatus(
     activeLocale,
     activeTimezone,
     now,
@@ -312,12 +332,15 @@ export function EventCard({
             onFavoriteToggle(e);
           }}
           aria-label={defaultLabels.favoriteToggle}
-          className={`absolute ${
-            // Rule 4 (`DESIGN.md` § event_card_date_box.favorite_pill): this pill moves down
-            // in lockstep with the date pill when a TILL tag is present, so the tag has room
-            // to clear the poster's own `overflow-hidden` edge.
-            tillBadgeText ? 'top-5' : 'top-2'
-          } right-2 z-10 rounded-full bg-background/80 backdrop-blur-sm shadow-sm hover:bg-background transition-colors flex items-center justify-center ${EVENT_CARD_BADGE_TEXT_SIZE_CLASS} ${favoriteCount !== undefined ? 'px-1.5 py-1 gap-1.5' : 'p-2'}`}
+          // Rule 4 (`DESIGN.md` § event_card_date_box.base): `top-2` by default, `top-5` when a
+          // TILL tag is present -- gives the TILL tag (rendered as its own floating sibling
+          // above the date pill, not nested inside it) clearance against the poster's own
+          // `overflow-hidden` edge. User feedback (2026-09-28): a same-day attempt to remove
+          // this shift (moving the pill/fav-icon UP to a flat `top-2`) is REVERTED -- that made
+          // the TILL tag cover MORE of the date pill, not less ("rather than moving till-box
+          // down, you moved the datebox and fav-icon up"). The fix belongs entirely on the TILL
+          // tag's own position (see below), not here.
+          className={`absolute ${tillBadgeText ? 'top-5' : 'top-2'} right-2 z-30 rounded-full bg-background/80 backdrop-blur-sm shadow-sm hover:bg-background transition-colors flex items-center justify-center ${EVENT_CARD_BADGE_TEXT_SIZE_CLASS} ${favoriteCount !== undefined ? 'px-1.5 py-1 gap-1.5' : 'p-2'}`}
         >
           <Heart
             // lucide's own `size` prop would be silently overridden by this `style` --
@@ -345,25 +368,34 @@ export function EventCard({
         <div
           className={
             defaultThumbnailImagePresent
-              // BUG-041: was `top-1 right-1` (0.25rem) measured from the <article>'s own
-              // edge. The row below now carries `p-2` (0.5rem), so the thumbnail this pill
-              // sits over is inset that much further in -- bumped to `top-3 right-3`
-              // (0.25rem + 0.5rem = 0.75rem) to keep it over the image's corner instead of
-              // floating in the new padding gutter.
-              ? 'absolute top-3 right-3 z-10'
-              : 'absolute z-10 flex items-center justify-center'
+              // Pixel-perfect pass (2026-09-27, masonry-default prototype round 4): the
+              // <article> is back to `overflow-hidden` (anything outside the card must not be
+              // visible), so this pill sits just INSIDE the thumbnail's corner (`top-1.5
+              // right-1.5`, positive offset) mirroring EventCardDateBox's TILL tag on the
+              // opposite corner (`top-1.5 left-1.5` via eventCardTillLabelClass), not floating
+              // past the true edge.
+              //
+              // User feedback (2026-09-27, later same-day: "the favorite icon should be
+              // clickable to toggle favorite"): z-index bumped to z-30 in both branches --
+              // previously z-20/z-10, tied or losing against the row's own `statusBadge` overlay
+              // (`top-2 right-2 z-10`, rendered from a DEEPER, later DOM position inside RootTag)
+              // in the no-thumbnail case specifically, which spans the exact same top-right
+              // region this control's large centered button occupies. z-30 unambiguously wins
+              // regardless of DOM order in both branches.
+              ? 'absolute top-1.5 right-1.5 z-30'
+              : 'absolute z-30 flex items-center justify-center'
           }
           style={
             !defaultThumbnailImagePresent
               ? {
-                  // BUG-041: the row below now carries a `p-2` (0.5rem) padding wrapper to
-                  // match the validated prototype, so this overlay -- a sibling of RootTag
-                  // positioned relative to the <article>'s own edge, not the row's -- must
-                  // add that same 0.5rem inset on every side to stay aligned with the date
-                  // box (left) and the reserved blank thumbnail area (top/right) it sits on.
-                  left: `calc(${dateBoxSize.w}px + 1rem)`,
-                  top: '0.5rem',
-                  right: '0.5rem',
+                  // Pixel-perfect pass (2026-09-27): the row below no longer carries any
+                  // padding/gap, so this overlay -- a sibling of RootTag positioned relative to
+                  // the <article>'s own edge, not the row's -- now aligns flush (no added inset)
+                  // with the date box (left) and the reserved-blank thumbnail area (top/right)
+                  // it sits on top of.
+                  left: `${dateBoxSize.w}px`,
+                  top: '0',
+                  right: '0',
                   height: dateBoxSize.h ? `${dateBoxSize.h}px` : undefined,
                   // CSS min-height (not a JS Math.max on a px literal) so this never drops
                   // below the favorite badge's own min-h-11 touch target, and stays correct
@@ -372,7 +404,14 @@ export function EventCard({
                   // article's overflow-hidden (only the heart's bottom point showed).
                   minHeight: `${EVENT_CARD_BADGE_MIN_TOUCH_REM}rem`,
                 }
-              : undefined
+              : // Pixel-perfect pass (2026-09-27, user feedback): a same-dated earlier revision
+                // of this pass tried inheriting masonry `size='default'`'s larger
+                // `--event-card-badge-font-size` (1.125rem basis, a ~30px icon) here -- reverted
+                // per follow-up user feedback ("fav-icon on small-thumbnail mode is too big, use
+                // the previous size"), back to this badge's own standalone 0.75rem fallback
+                // (`eventCardBadgeIconSizeStyle`'s default ratio, a 20px icon) by declaring no
+                // override at all.
+                undefined
           }
         >
           <EventCardFavoriteBadge
@@ -381,6 +420,16 @@ export function EventCard({
             favoriteCount={favoriteCount}
             onFavoriteToggle={onFavoriteToggle}
             labels={{ favoriteToggle: defaultLabels.favoriteToggle }}
+            // Pixel-perfect pass (2026-09-27, user feedback): no-thumbnail mode's fallback icon
+            // is bumped to a bespoke 4x ratio (EVENT_CARD_BADGE_ICON_SCALE_MASONRY_NO_IMAGE) via
+            // this override, instead of the shared EVENT_CARD_BADGE_ICON_SCALE_LARGE (2x) every
+            // other `scale="large"` consumer still uses -- see that constant's own comment for
+            // why this stays masonry-only rather than a global bump.
+            iconSizeStyle={
+              defaultThumbnailImagePresent
+                ? undefined
+                : eventCardBadgeIconSizeStyleForRatio(EVENT_CARD_BADGE_ICON_SCALE_MASONRY_NO_IMAGE)
+            }
           />
         </div>
       )}
@@ -390,12 +439,13 @@ export function EventCard({
         className="flex-1 flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {isMasonryDefault ? (
-          // BUG-041: p-2 matches the validated prototype (default-with-thumbnail.html:62) --
-          // without it this row sat flush against the <article>'s own overflow-hidden edges,
-          // clipping EventCardDateBox's TILL corner tag (-top-1.5/-left-1.5) instead of
-          // letting it overlap the card's own padding as the prototype shows.
-          <div className="relative flex items-stretch gap-2 p-2">
-            <div ref={dateBoxRef} className="shrink-0">
+          // Pixel-perfect pass (2026-09-27, masonry-default prototype round 2-4): no padding/gap
+          // -- the date-box and thumbnail stick flush to the card's own edges and to each other
+          // (BUG-041's `p-2`/`gap-2` are superseded). The TILL/favorite corner tags (round 4) now
+          // sit just INSIDE the card's edge (positive offset) rather than floating past it, so the
+          // <article>'s `overflow-hidden` (unchanged) clips nothing that should stay visible.
+          <div className="relative flex items-stretch">
+            <div ref={dateBoxRef} className="flex-1 min-w-0">
               <EventCardDateBox
                 size="default"
                 month={
@@ -430,21 +480,30 @@ export function EventCard({
             )}
             {
               // Rule 4 (`DESIGN.md` § event_card_date_box.base): `top-2` by default, `top-5`
-              // when a TILL tag is present. Padding stays uniform `p-1` in both states — the
-              // token's own note records that an asymmetric-padding fix was tried and
-              // explicitly rejected by the user, position-only being the sanctioned mechanism.
+              // when a TILL tag is present, restoring clearance for the tag's own floating
+              // sibling badge (below) against the poster's `overflow-hidden` edge. Padding stays
+              // uniform `p-1` — the token's own note records that an asymmetric-padding fix was
+              // tried and explicitly rejected by the user, position-only being the sanctioned
+              // mechanism.
             }
             <div
-              className={`absolute ${
-                tillBadgeText ? 'top-5' : 'top-2'
-              } left-2 z-10 flex items-center gap-1 p-1 rounded-md bg-background/80 backdrop-blur-sm shadow-sm ${EVENT_CARD_BADGE_TEXT_SIZE_CLASS} font-semibold text-foreground`}
+              className={`absolute ${tillBadgeText ? 'top-5' : 'top-2'} left-2 z-10 flex items-center gap-1 p-1 rounded-md bg-background/80 backdrop-blur-sm shadow-sm ${EVENT_CARD_BADGE_TEXT_SIZE_CLASS} font-semibold text-foreground`}
             >
               {hasTime && dayDiff === 0 && <Clock className="w-3 h-3" />}
               {dateBoxLine}
-              {tillBadgeText && (
-                <span className={eventCardTillLabelClass('prominent')}>{tillBadgeText}</span>
-              )}
             </div>
+            {tillBadgeText && (
+              // User feedback (2026-09-28): nesting this INSIDE the date pill (`top-1.5`,
+              // matching VM2/masonry-default's own corner offset literally) covered most of the
+              // pill's single line of date text -- the pill is a small compact chip, not VM2's
+              // full-height date box, so there's no internal room for an overlaid badge. Floats
+              // instead as its own sibling directly against the poster's top-left corner (the
+              // same corner VM2's tag hangs from, just relative to the poster instead of the
+              // pill), landing in the gap the pill's own `top-5` shift (above) opens up above it.
+              <span className={`absolute top-1 left-2 z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white ${EVENT_CARD_BADGE_TEXT_SIZE_CLASS} font-semibold leading-none shadow-sm whitespace-nowrap`}>
+                {tillBadgeText}
+              </span>
+            )}
             {posterImagePresent ? (
               <img
                 src={posterImgSrc}
@@ -478,7 +537,7 @@ export function EventCard({
 
         <div className="p-3 flex-1 flex flex-col gap-2">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <EventCardStatusBadge text={statusText} isHappeningNow={isHappeningNow} />
+            <EventCardStatusBadge text={statusText} variant={statusVariant} />
             {/* AC5 (Story 1.i1i) — kept as an independent sibling of the badge row's
                 `<div>` so Story 1.3k's `EventCardRepeatBadge` can slot in between. */}
             <EventCardNearbyBadge
@@ -491,9 +550,14 @@ export function EventCard({
             {eventName}
           </h3>
           {locationName && (
-            <div className="flex items-center text-sm text-muted-foreground gap-1.5">
-              <MapPin className="w-4 h-4 shrink-0" />
-              <span className="line-clamp-1">{locationName}</span>
+            // Pixel-perfect pass (2026-09-27, masonry-default prototype, later extended to VM1
+            // prominentPoster=true per user feedback): both masonry states drop the MapPin icon,
+            // center the text, and stay a single line (`line-clamp-1`) while still breaking
+            // mid-word if needed (`break-all`) instead of truncating with an ellipsis. VM1 and
+            // VM2 were briefly divergent here (VM1 kept its icon + left-aligned treatment) --
+            // unified to the same rule since the user asked for the identical fix on VM1 too.
+            <div className="text-sm text-muted-foreground text-center break-all line-clamp-1">
+              {locationName}
             </div>
           )}
         </div>

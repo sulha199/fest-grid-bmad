@@ -1,6 +1,5 @@
 import type { MouseEventHandler } from 'react';
 import type { EventCardFavoriteBadgeLabels } from './EventCardMediaPrimitives.types';
-import type { EventStatusLabels } from './format-event-date';
 
 /**
  * Story 1.i1f (Task 7) — props for the desktop Calendar Grid Item Card primitive
@@ -55,26 +54,4 @@ export interface EventCardCalendarGridItemProps {
      */
     nearbyBadge?: (distanceKm: number) => string;
   };
-  /**
-   * BUG-048 (AC-STATUS-1, `event-card-family-consolidated-acs.md` §2.6): the schedule's own
-   * start date, threaded in so this shared primitive can compute `formatEventStatus` itself —
-   * one computation, reused by both VM5 (single-day grid cell) and VM6 (multi-day spanning bar)
-   * rather than re-derived per caller. Optional and deliberately the presence-gate for the whole
-   * status-badge feature: omitting it (e.g. `CalendarOverflowDialog`, not yet wired) renders no
-   * badge at all, same as before this amendment — not a required prop, so existing callers/tests
-   * that don't pass date info keep compiling and rendering unchanged.
-   */
-  eventStartDate?: string;
-  eventStartTime?: string | null;
-  eventEndDate?: string | null;
-  eventEndTime?: string | null;
-  /** Forwarded verbatim to `formatEventStatus` — same i18n contract as `CalendarCardProps.statusLabels`. */
-  statusLabels?: EventStatusLabels;
-  /**
-   * Explicit locale/timezone override for the internal `formatEventStatus` call, mirroring
-   * `EventCard.tsx`'s own convention (project-context.md's Scoped locale/timezone context rule):
-   * when omitted, falls back to `useScopedLocale()`/`useScopedTimezone()`.
-   */
-  locale?: string;
-  timezone?: string;
 }

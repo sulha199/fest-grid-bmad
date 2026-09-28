@@ -16,8 +16,10 @@ export interface EventCardLabels {
   statusEnded?: string;
   /** Status badge (masonry variant) — event has started and does not end today. Default: "Now" (shortened from "Happening Now" by Story 1.i1l, per DESIGN.md § event_card_status_badge). */
   statusHappeningNow?: string;
-  /** Status badge (masonry variant) — event has started and ends today. Default: "Ends Today". */
+  /** Status badge (masonry variant) — event has started, ends today, and no end time is known. Default: "Ends Today". */
   statusEndsToday?: string;
+  /** Status badge (masonry variant) — event has started, ends today, AND the end time is known. `{time}` is replaced with the formatted end time. Default: "Ends {time}". */
+  statusEndsAt?: string;
   /** Status badge (masonry variant) — event starts later today. `{n}` is replaced with the hour count. Default: "In {n} hour(s)". */
   statusInHours?: string;
   /** Status badge (masonry variant) — event starts 7-13 days out. `{n}` is replaced with the day count. Default: "In {n} days". */
