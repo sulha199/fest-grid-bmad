@@ -97,17 +97,49 @@ export function getEventDayDiff(dateObj: Date, timezone: string | undefined): nu
  * (e.g. "18:00:00") into a single Date instance. Mirrors the date+time combining logic
  * `EventCard.tsx` already used inline for `startDate`/`startTime` — extracted here so
  * `formatEventStatus` and the masonry TILL badge can reuse it rather than duplicating it.
+ *
+ * BUG (2026-09-28, production, mobile-only, `timeStr` present only): `eventStartDate`/
+ * `eventEndDate` arrive from the GraphQL `Date` scalar as a bare `"YYYY-MM-DD"` string with no
+ * time/timezone of its own — it's a calendar date, not an instant. `new Date("2026-10-02")`
+ * parses that as UTC midnight per the ECMAScript spec; the old code then read
+ * `.getFullYear()/.getMonth()/.getDate()` off THAT to combine with `timeStr` — local getters,
+ * which apply the VIEWER's own device timezone offset to a string that never had one. For any
+ * device west of UTC, that silently rolled the date back a day (reported: an event's detail page
+ * correctly showed "Oct 2", its masonry card showed "Oct 1", reproducing only on the reporter's
+ * own phone — device-timezone-dependent, invisible on a UTC-timezone'd CI/dev machine). Fixed by
+ * extracting a BARE date-only string's Y/M/D digits directly instead, never round-tripping them
+ * through a UTC-parsed Date object's local getters — scoped narrowly to strings matching exactly
+ * `YYYY-MM-DD` (see the inline regex's own `$` anchor note): a fuller ISO timestamp string with
+ * its own real instant/timezone (e.g. some test fixtures pass `"2026-01-01T18:00:00Z"`) is left
+ * on the pre-existing local-getter path, which is the correct way to resolve a real instant into
+ * the viewer's own local calendar day. The no-`timeStr` passthrough below
+ * (`return new Date(base.getTime())`) was NEVER affected by this bug — it returns the UTC-parsed
+ * instant unchanged, which every caller then reformats via `Intl.DateTimeFormat` with an explicit
+ * IANA `timeZone`, correctly recovering the calendar date regardless of device timezone; changing
+ * that passthrough to build a new LOCAL-midnight instant would reintroduce the same class of bug
+ * one level up, just for callers that never look at `timeStr` at all.
  */
 export function combineDateTime(dateInput: Date | string, timeStr?: string | null): Date {
   const base = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
   if (timeStr && !isNaN(base.getTime())) {
     const [h = 0, m = 0, s = 0] = timeStr.split(':').map((n) => parseInt(n, 10));
-    // Build from local date components rather than the UTC ISO date part: for a Date
-    // carrying a local wall-clock time after UTC midnight (e.g. 03:00 WIB == 20:00 UTC
-    // the previous day), `toISOString()` would yield the wrong calendar date and shift
-    // event times a day back. Event start/end times are local wall-clock values, so the
-    // combination must stay in local time.
-    const d = new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, m, s, 0);
+    // Extract the calendar Y/M/D straight from the source STRING when `dateInput` is a BARE
+    // date-only string ("YYYY-MM-DD", nothing else -- the `$` anchor matters: a fuller ISO
+    // timestamp string like "2026-01-01T18:00:00Z" must NOT match here, since that string
+    // already carries its own real instant/timezone info, and the local-getter path below
+    // (parse as an instant, then read the VIEWER's local calendar date off it) is the correct,
+    // deliberate way to resolve which local day that instant falls on -- only a bare date has no
+    // timezone of its own for `new Date(string)`'s UTC-midnight assumption to get wrong.
+    const dateOnlyMatch = typeof dateInput === 'string' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateInput) : null;
+    const year = dateOnlyMatch ? parseInt(dateOnlyMatch[1], 10) : base.getFullYear();
+    const month = dateOnlyMatch ? parseInt(dateOnlyMatch[2], 10) - 1 : base.getMonth();
+    const day = dateOnlyMatch ? parseInt(dateOnlyMatch[3], 10) : base.getDate();
+    // Build from local date components rather than the UTC ISO date part: for a Date carrying a
+    // local wall-clock time after UTC midnight (e.g. 03:00 WIB == 20:00 UTC the previous day),
+    // `toISOString()` would yield the wrong calendar date and shift event times a day back.
+    // Event start/end times are local wall-clock values, so the combination must stay in local
+    // time.
+    const d = new Date(year, month, day, h, m, s, 0);
     if (!isNaN(d.getTime())) return d;
   }
   return new Date(base.getTime());
