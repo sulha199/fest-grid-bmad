@@ -93,56 +93,122 @@ export function getEventDayDiff(dateObj: Date, timezone: string | undefined): nu
 }
 
 /**
+ * Converts a wall-clock date+time to the UTC instant it represents IN `timezone` (e.g. "10:00 on
+ * 2026-10-02 in Asia/Jakarta" -> the real UTC instant that is, regardless of what timezone the
+ * CALLING device/process happens to be in). Standard "guess and correct" technique, since the
+ * JS `Date` constructor has no direct way to build an instant from wall-clock components in an
+ * arbitrary IANA zone: treat the wall-clock as if it were UTC (a guess), ask `Intl` what that
+ * guess instant displays as when rendered in `timezone`, and shift the guess by the difference.
+ * One iteration is sufficient for this app's purposes (event start/end times are never
+ * authored/queried during the ~1-2 hour DST-transition window this would need a second pass for,
+ * and no existing timezone-arithmetic in this file handles that edge either).
+ */
+function zonedTimeToUtc(
+  year: number,
+  month: number, // 0-indexed
+  day: number,
+  hour: number,
+  minute: number,
+  second: number,
+  timezone: string | undefined
+): Date {
+  if (!timezone) {
+    // No explicit timezone to target -- fall back to the calling runtime's own local timezone
+    // (pre-existing behavior, still correct for any caller that genuinely has none to supply).
+    return new Date(year, month, day, hour, minute, second);
+  }
+  try {
+    const utcGuess = Date.UTC(year, month, day, hour, minute, second);
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).formatToParts(new Date(utcGuess));
+    const get = (type: string) => parseInt(parts.find((p) => p.type === type)?.value || '0', 10);
+    // Some engines/locales print "24" for midnight in 24-hour format -- normalize to 0.
+    const displayedAsUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour') % 24, get('minute'), get('second'));
+    const offsetMs = displayedAsUtc - utcGuess;
+    return new Date(utcGuess - offsetMs);
+  } catch {
+    return new Date(year, month, day, hour, minute, second);
+  }
+}
+
+/**
  * Combines a date (Date object or ISO-ish string) with an optional time-of-day string
  * (e.g. "18:00:00") into a single Date instance. Mirrors the date+time combining logic
  * `EventCard.tsx` already used inline for `startDate`/`startTime` — extracted here so
  * `formatEventStatus` and the masonry TILL badge can reuse it rather than duplicating it.
  *
- * BUG (2026-09-28, production, mobile-only, `timeStr` present only): `eventStartDate`/
- * `eventEndDate` arrive from the GraphQL `Date` scalar as a bare `"YYYY-MM-DD"` string with no
- * time/timezone of its own — it's a calendar date, not an instant. `new Date("2026-10-02")`
- * parses that as UTC midnight per the ECMAScript spec; the old code then read
- * `.getFullYear()/.getMonth()/.getDate()` off THAT to combine with `timeStr` — local getters,
- * which apply the VIEWER's own device timezone offset to a string that never had one. For any
- * device west of UTC, that silently rolled the date back a day (reported: an event's detail page
- * correctly showed "Oct 2", its masonry card showed "Oct 1", reproducing only on the reporter's
- * own phone — device-timezone-dependent, invisible on a UTC-timezone'd CI/dev machine). Fixed by
- * extracting a BARE date-only string's Y/M/D digits directly instead, never round-tripping them
- * through a UTC-parsed Date object's local getters — scoped narrowly to strings matching exactly
- * `YYYY-MM-DD` (see the inline regex's own `$` anchor note): a fuller ISO timestamp string with
- * its own real instant/timezone (e.g. some test fixtures pass `"2026-01-01T18:00:00Z"`) is left
- * on the pre-existing local-getter path, which is the correct way to resolve a real instant into
- * the viewer's own local calendar day. The no-`timeStr` passthrough below
- * (`return new Date(base.getTime())`) was NEVER affected by this bug — it returns the UTC-parsed
- * instant unchanged, which every caller then reformats via `Intl.DateTimeFormat` with an explicit
- * IANA `timeZone`, correctly recovering the calendar date regardless of device timezone; changing
- * that passthrough to build a new LOCAL-midnight instant would reintroduce the same class of bug
- * one level up, just for callers that never look at `timeStr` at all.
+ * `timezone` is the IANA zone this combination's wall-clock values are IN (e.g. the event's own
+ * display timezone) — NOT necessarily the calling device's own timezone, which is irrelevant to
+ * what instant "10:00 on 2026-10-02" actually represents.
+ *
+ * BUG (2026-09-28/29, production): two related but distinct bugs, both device-timezone-dependent
+ * and invisible on a UTC-timezone'd CI/dev machine, both reported as "an event's detail page
+ * correctly showed Oct 2, its masonry card showed Oct 1":
+ * 1. (2026-09-28 fix) `eventStartDate`/`eventEndDate` arrive from the GraphQL `Date` scalar as a
+ *    bare `"YYYY-MM-DD"` string with no time/timezone of its own. `new Date("2026-10-02")` parses
+ *    that as UTC midnight per the ECMAScript spec; the old code then read
+ *    `.getFullYear()/.getMonth()/.getDate()` off THAT to combine with `timeStr` — local getters,
+ *    which applied the CALLING RUNTIME's own device timezone offset to a string that never had
+ *    one. Fixed by extracting a bare date-only string's Y/M/D digits directly from the string
+ *    instead, never round-tripping them through a UTC-parsed Date object's local getters.
+ * 2. (2026-09-29 fix, this pass) fix 1 alone was incomplete: once the wall-clock date+time was
+ *    correctly resolved, it was still combined via `new Date(year, month, day, h, m, s)` — which
+ *    ALWAYS builds the instant in the CALLING RUNTIME's own local timezone, no way around it via
+ *    that constructor. Every caller then reformats the result via `Intl.DateTimeFormat` using an
+ *    EXPLICIT, often-different timezone (e.g. the masonry card has no per-schedule timezone
+ *    threaded to it, so it falls back to `ScopedLocaleProvider`'s fixed per-locale mapping —
+ *    `America/New_York` for `/en/`). Building the instant in the viewer's device timezone (say
+ *    Asia/Jakarta, UTC+7) and then displaying it in a DIFFERENT fixed zone (New York, UTC-4) can
+ *    shift the calendar date by up to a day depending on the specific hour — reproducing exactly
+ *    this bug report even after fix 1, and NOT actually limited to "devices west of UTC" as fix
+ *    1's framing assumed (the real factor is the gap between the device's ambient timezone and
+ *    whatever explicit timezone the result gets displayed in, in either direction). Fixed by
+ *    building the instant with `zonedTimeToUtc` against the EXPLICIT `timezone` parameter now
+ *    threaded all the way from `formatEventStatus`/`EventCard.tsx`, instead of ever touching the
+ *    calling runtime's own local timezone for real production dates.
+ *
+ * The no-`timeStr`, bare-date passthrough anchors at UTC midnight for the resolved calendar date
+ * (not local midnight in either the device's or `timezone`'s own zone) — downstream
+ * `Intl.DateTimeFormat` calls with an explicit `timeZone` correctly recover this exact calendar
+ * day from a UTC-anchored instant regardless of what zone that is, so there's nothing to convert.
  */
-export function combineDateTime(dateInput: Date | string, timeStr?: string | null): Date {
+export function combineDateTime(dateInput: Date | string, timeStr?: string | null, timezone?: string): Date {
   const base = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-  if (timeStr && !isNaN(base.getTime())) {
+  // Extract the calendar Y/M/D straight from the source STRING when `dateInput` is a BARE
+  // date-only string ("YYYY-MM-DD", nothing else -- the `$` anchor matters: a fuller ISO
+  // timestamp string like "2026-01-01T18:00:00Z" must NOT match here, since that string already
+  // carries its own real instant/timezone info, and the local-getter path below (parse as an
+  // instant, then read its calendar date in `timezone`) is the correct, deliberate way to
+  // resolve which day that instant falls on -- only a bare date has no timezone of its own for
+  // `new Date(string)`'s UTC-midnight assumption to get wrong.
+  const dateOnlyMatch = typeof dateInput === 'string' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateInput) : null;
+
+  if (dateOnlyMatch) {
+    const year = parseInt(dateOnlyMatch[1], 10);
+    const month = parseInt(dateOnlyMatch[2], 10) - 1;
+    const day = parseInt(dateOnlyMatch[3], 10);
+    if (!timeStr) {
+      return new Date(Date.UTC(year, month, day));
+    }
     const [h = 0, m = 0, s = 0] = timeStr.split(':').map((n) => parseInt(n, 10));
-    // Extract the calendar Y/M/D straight from the source STRING when `dateInput` is a BARE
-    // date-only string ("YYYY-MM-DD", nothing else -- the `$` anchor matters: a fuller ISO
-    // timestamp string like "2026-01-01T18:00:00Z" must NOT match here, since that string
-    // already carries its own real instant/timezone info, and the local-getter path below
-    // (parse as an instant, then read the VIEWER's local calendar date off it) is the correct,
-    // deliberate way to resolve which local day that instant falls on -- only a bare date has no
-    // timezone of its own for `new Date(string)`'s UTC-midnight assumption to get wrong.
-    const dateOnlyMatch = typeof dateInput === 'string' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateInput) : null;
-    const year = dateOnlyMatch ? parseInt(dateOnlyMatch[1], 10) : base.getFullYear();
-    const month = dateOnlyMatch ? parseInt(dateOnlyMatch[2], 10) - 1 : base.getMonth();
-    const day = dateOnlyMatch ? parseInt(dateOnlyMatch[3], 10) : base.getDate();
-    // Build from local date components rather than the UTC ISO date part: for a Date carrying a
-    // local wall-clock time after UTC midnight (e.g. 03:00 WIB == 20:00 UTC the previous day),
-    // `toISOString()` would yield the wrong calendar date and shift event times a day back.
-    // Event start/end times are local wall-clock values, so the combination must stay in local
-    // time.
-    const d = new Date(year, month, day, h, m, s, 0);
-    if (!isNaN(d.getTime())) return d;
+    return zonedTimeToUtc(year, month, day, h, m, s, timezone);
   }
-  return new Date(base.getTime());
+
+  if (isNaN(base.getTime())) return new Date(base.getTime());
+  if (!timeStr) return new Date(base.getTime());
+
+  const [h = 0, m = 0, s = 0] = timeStr.split(':').map((n) => parseInt(n, 10));
+  const { year, month, day } = getLocalDateInTimezone(base, timezone);
+  const d = zonedTimeToUtc(year, month - 1, day, h, m, s, timezone);
+  return isNaN(d.getTime()) ? new Date(base.getTime()) : d;
 }
 
 export interface EventStatusLabels {
@@ -206,14 +272,14 @@ export function formatEventStatus(
   endTime: string | null | undefined,
   labels?: EventStatusLabels
 ): EventStatusResult {
-  const startDateTime = combineDateTime(startDate, startTime);
+  const startDateTime = combineDateTime(startDate, startTime, timezone);
   const nowParts = getLocalDateInTimezone(now, timezone);
   const startParts = getLocalDateInTimezone(startDateTime, timezone);
   const startDayDiff = getCalendarDayDifference(nowParts, startParts);
   const started = now.getTime() >= startDateTime.getTime();
 
   const effectiveEndDate = endDate ?? startDate;
-  const endDateTime = combineDateTime(effectiveEndDate, endTime);
+  const endDateTime = combineDateTime(effectiveEndDate, endTime, timezone);
   const endParts = getLocalDateInTimezone(endDateTime, timezone);
   const endDayDiff = getCalendarDayDifference(nowParts, endParts);
 

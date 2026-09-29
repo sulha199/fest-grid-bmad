@@ -226,7 +226,7 @@ export function EventCard({
 
   const hasTime = !!startTime;
 
-  const dateObj = combineDateTime(startDate, startTime);
+  const dateObj = combineDateTime(startDate, startTime, activeTimezone);
 
   // DW-070 (BUG-013): `combineDateTime`'s own isNaN guard only covers its internal
   // date+time-combining fallback — a genuinely unusable `startDate` can still produce
@@ -251,7 +251,7 @@ export function EventCard({
   // divergent computation. Absent endDate falls back to startDate ("ends same day as start",
   // AC14/AC15's shared convention).
   const effectiveEndDate = endDate ?? startDate;
-  const endDateTime = combineDateTime(effectiveEndDate, endTime);
+  const endDateTime = combineDateTime(effectiveEndDate, endTime, activeTimezone);
 
   // BUG-047 (Event-Card family consolidation, AC-DATE-1/2/3): the date-box's own numeric-only,
   // context-date-driven content — a NEW, dedicated computation, entirely separate from
