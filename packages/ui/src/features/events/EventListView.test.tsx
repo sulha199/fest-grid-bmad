@@ -222,7 +222,15 @@ describe('EventListView', () => {
     });
 
     it('threads eventEndDate/eventEndTime from the main schedule into endDate/endTime (TILL badge appears once the event has started and an end is known)', () => {
-      // Fixed "now": well after the event's start, same UTC calendar day as its end.
+      // Fixed "now": well after the event's start, a full UTC calendar day before its end.
+      // The end date is deliberately a full day (not just hours) ahead of "now" in UTC —
+      // enough margin that the TILL badge's `endDayDiff > 0` gate reads true across the
+      // entire real-world IANA offset range (UTC-12..UTC+14), not just on whichever
+      // ambient timezone the test happens to run under. A same-UTC-day end (as this used
+      // to be) makes `endDayDiff` flip between 0 and >0 depending on the machine's local
+      // timezone, since `combineDateTime`'s end-of-day derivation reads local Date getters
+      // — it passed only on dev machines set to a timezone far enough east of UTC, and
+      // failed on standard (UTC) CI runners.
       vi.useFakeTimers();
       vi.setSystemTime(new Date('2026-01-01T14:00:00Z'));
 
@@ -234,7 +242,7 @@ describe('EventListView', () => {
           {
             isMainSchedule: true,
             eventStartDate: '2026-01-01T10:00:00Z',
-            eventEndDate: '2026-01-01T18:00:00Z',
+            eventEndDate: '2026-01-02T18:00:00Z',
             eventEndTime: '18:00:00',
           },
         ],
@@ -257,12 +265,15 @@ describe('EventListView', () => {
 
     it('selects a lone non-main schedule that is still ending today as upcoming (not a past fallback) and threads its end fields too', () => {
       vi.useFakeTimers();
-      // "now" is inside this single schedule's day (starts 10:00, ends 18:00 on
-      // 2026-01-01, now is 14:00). Its eventEndDate (2026-01-01T18:00:00Z)
-      // still compares >= today's date-only string ("2026-01-01"), so under the
-      // Story 2.7 algorithm it is selected via the *upcoming* branch — not the
-      // all-ended fallback branch. This test pinpoints that distinction and
-      // sanity-checks that its end fields are still threaded into the card.
+      // "now" is inside this single schedule's day (starts 10:00 on 2026-01-01, now is
+      // 14:00). Its eventEndDate (2026-01-02T18:00:00Z) still compares >= today's
+      // date-only string ("2026-01-01"), so under the Story 2.7 algorithm it is selected
+      // via the *upcoming* branch — not the all-ended fallback branch. This test
+      // pinpoints that distinction and sanity-checks that its end fields are still
+      // threaded into the card. The end date is a full UTC day ahead of "now" (not
+      // same-day) so the TILL-badge assertion below is deterministic across every
+      // real-world ambient timezone — see the sibling test above for why a same-UTC-day
+      // end previously made this CI-environment-dependent.
       vi.setSystemTime(new Date('2026-01-01T14:00:00Z'));
 
       const eventNoMain: EventListViewItem = {
@@ -273,7 +284,7 @@ describe('EventListView', () => {
           {
             isMainSchedule: false,
             eventStartDate: '2026-01-01T10:00:00Z',
-            eventEndDate: '2026-01-01T18:00:00Z',
+            eventEndDate: '2026-01-02T18:00:00Z',
             eventEndTime: '18:00:00',
           },
         ],
