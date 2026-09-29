@@ -150,13 +150,15 @@ describe('combineDateTime (BUG, 2026-09-28: mobile-only date-off-by-one)', () =>
   });
 });
 
-// KNOWN OPEN GAP (2026-09-29, not fixed by this pass): the masonry card's date-box has no
-// per-schedule `timezone` field threaded to it at all (`EventCard.tsx` only ever receives
-// `ScopedLocaleProvider`'s fixed per-locale mapping -- `America/New_York` for `/en/`, `Asia/
-// Jakarta` for `/id/` -- never the actual event's own `schedule.timezone`). This session's fix
-// makes that fixed display timezone finally apply CONSISTENTLY (device-independent), but an /en/
-// locale viewer will still see a Jakarta-morning event's date/time shifted relative to its real
-// Jakarta wall-clock time, because it's being displayed in New York's clock, not the event's own.
-// Threading the schedule's real timezone through (when trustworthy -- some scraped schedules have
-// clearly-wrong inferred timezones, e.g. "Europe/Paris" for a Yogyakarta venue, seen live in
-// production) is a separate, larger fix than this file's scope.
+// CONFIRMED PRODUCT DECISION (2026-09-29, user-directed: "let's use viewer's locale for now"):
+// the masonry card's date-box has no per-schedule `timezone` field threaded to it at all
+// (`EventCard.tsx` only ever receives `ScopedLocaleProvider`'s fixed per-locale mapping --
+// `America/New_York` for `/en/`, `Asia/Jakarta` for `/id/` -- never the actual event's own
+// `schedule.timezone`). This was raised as an open question after this session's fix made that
+// fixed display timezone finally apply CONSISTENTLY (device-independent) -- an /en/ locale viewer
+// sees a Jakarta-morning event's date/time normalized into New York's clock, not the event's own
+// venue time. User confirmed this is the INTENDED behavior (normalize to the viewer's own locale,
+// not each event's own venue timezone) -- not a bug, don't thread `schedule.timezone` through.
+// (Separately, some scraped schedules also carry clearly-wrong inferred timezones, e.g.
+// "Europe/Paris" for a Yogyakarta venue, seen live in production -- moot for this card either
+// way, since it never consults that field.)
