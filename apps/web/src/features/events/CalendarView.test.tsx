@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { graphql, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { NuqsTestingAdapter } from 'nuqs/adapters/testing';
+import { ScopedLocaleProvider } from '@festgrid/ui';
 
 /**
  * Story 1.i1h Task 9.3 — every `getEventsForCalendar` request this test file makes, in order, so the
@@ -188,7 +189,12 @@ const mockCalendarEvents = {
             isMainSchedule: true,
             eventStartDate: '2026-08-12',
             eventEndDate: '2026-08-12',
-            eventStartTime: '19:00:00',
+            // 10:00-22:00 (not the original 19:00-22:00) -- see the "wires the WeeklyCalendarView
+            // i18n namespace" test's own comment: this wide a window keeps the shared beforeEach's
+            // 12:00Z clock inside the event's [start,end] interval whether combineDateTime's
+            // local-wall-clock arithmetic runs on a UTC machine (CI) or one several hours ahead
+            // (dev machines), instead of depending on which one happens to run the suite.
+            eventStartTime: '10:00:00',
             eventEndTime: '22:00:00',
             ticketPrice: '20.00',
             locationDetails: { coordinates: { lat: -6.2, lng: 106.8 } },
@@ -278,21 +284,35 @@ describe('CalendarView', () => {
   });
 
   it('wires the WeeklyCalendarView i18n namespace into the status badge (Story 1.i1o AC2/AC4)', async () => {
+    // CI regression (2026-09-29): `combineDateTime`'s local-wall-clock arithmetic (packages/ui's
+    // format-event-date.ts) always runs against the test RUNNER's own real process timezone --
+    // `ScopedLocaleProvider`'s `timezone` prop only affects day-boundary/display formatting
+    // downstream, it can't make that arithmetic deterministic on its own. This test's fixture
+    // schedule was originally a narrow 19:00-22:00Z window, tuned against whichever machine
+    // authored it (started-but-not-ended only held true interpreted several hours ahead of UTC)
+    // -- passed on dev machines, failed in CI (UTC runners). The fixture is now a wide 10:00-22:00
+    // window (see its own comment) so the shared `beforeEach`'s 12:00Z clock sits inside the
+    // event's [start,end] interval whichever real timezone the arithmetic runs against, without
+    // needing a per-test clock override. `ScopedLocaleProvider` is still wrapped here for
+    // representativeness (every real page always has one, per `app/[locale]/layout.tsx`), even
+    // though it isn't what makes this specific assertion deterministic.
     render(
       <QueryClientProvider client={queryClient}>
         <NuqsTestingAdapter>
-          <CalendarView q="jazz" types={['MUSIC']} categories={[]} />
+          <ScopedLocaleProvider locale="en-US" timezone="UTC">
+            <CalendarView q="jazz" types={['MUSIC']} categories={[]} />
+          </ScopedLocaleProvider>
         </NuqsTestingAdapter>
       </QueryClientProvider>
     );
 
     await screen.findByText('Weekly Jazz Jam');
 
-    // The test clock is stubbed to 2026-08-12T12:00Z (see beforeEach below) and the fixture
-    // schedule ends later the same day with a known endTime (22:00) -- per the "ends today"
-    // rule (2026-09-27: once the end time is known, show the precise "Ends hh:mm" instead of
-    // the generic "Ends Today"), it resolves to the "endsAt" status, rendered via the mocked
-    // next-intl `t.raw` format (`${namespace}.${key}`), proving the label came from
+    // The shared beforeEach clock (2026-08-12T12:00Z) sits inside the fixture schedule's
+    // 10:00-22:00Z window -- started, not yet ended, with a known endTime (22:00) -- per the
+    // "ends today" rule (2026-09-27: once the end time is known, show the precise "Ends hh:mm"
+    // instead of the generic "Ends Today"), it resolves to the "endsAt" status, rendered via the
+    // mocked next-intl `t.raw` format (`${namespace}.${key}`), proving the label came from
     // `tCalendar.raw('statusEndsAt')` and not WeeklyCalendarView.tsx's own hardcoded default.
     expect(screen.getAllByText('WeeklyCalendarView.statusEndsAt').length).toBeGreaterThan(0);
   });
