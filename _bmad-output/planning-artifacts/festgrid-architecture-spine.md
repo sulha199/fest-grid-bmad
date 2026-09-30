@@ -377,8 +377,13 @@ This document defines the core architectural invariants for the FestDaily applic
           0.i7z ratchet header) + the `locationDetails` passthrough test in
           `apps/web/src/features/events/mapper.test.ts` (Story 1.6e; supersedes the removed
           `mapUrl gating (Story 0.i7c / 0.i7z)` block — both 1.6d and 1.6e have now landed, so this is the
-          current enforcer, not a future-tense placeholder); GraphQL exposure — the three
-          `apps/web` `.graphql.test.ts` AST guard tests from Story 0.i7d
+          current enforcer, not a future-tense placeholder); account-card consumer —
+          `packages/ui/src/features/subscriptions/SubscribedAccountCard.test.tsx`'s `location prop`
+          block (Story 0.i6e, carries the 0.i7z ratchet header, including the `confidence: 0.5`/
+          `matchType: 'full_match'` trustworthy boundary case and the `null`-confidence untrustworthy
+          case) + the `accountLocation derivation` block in `apps/web/src/features/events/mapper.test.ts`
+          (Story 0.i6e; proves the `defaultLocation` passthrough that feeds that gate); GraphQL exposure —
+          the three `apps/web` `.graphql.test.ts` AST guard tests from Story 0.i7d
           (`apps/web/src/features/subscriptions/mutations.graphql.test.ts`,
           `apps/web/src/features/locations/mutations.graphql.test.ts`,
           `apps/web/src/features/locations/queries.graphql.test.ts`). (Story 0.i7z AC 2–4 ratchet.)
