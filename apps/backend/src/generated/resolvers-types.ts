@@ -330,6 +330,7 @@ export type EventFilterInput = {
   isFree?: InputMaybe<Scalars['Boolean']['input']>;
   keyword?: InputMaybe<Scalars['String']['input']>;
   location?: InputMaybe<LocationFilterInput>;
+  temporalFilter?: InputMaybe<TemporalFilter>;
   types?: InputMaybe<Array<EventType>>;
   venueType?: InputMaybe<Scalars['String']['input']>;
 };
@@ -1180,6 +1181,10 @@ export type Subscription = {
   pendingExtractionCount: Scalars['Int']['output'];
 };
 
+export type TemporalFilter =
+  | 'TODAY'
+  | 'UPCOMING';
+
 export type ToggleCalendarAdditionResult = {
   __typename?: 'ToggleCalendarAdditionResult';
   eventId: Scalars['ID']['output'];
@@ -1471,6 +1476,7 @@ export type ResolversTypes = ResolversObject<{
   SubscribeToAccountInput: SubscribeToAccountInput;
   SubscribeToAccountResult: ResolverTypeWrapper<SubscribeToAccountResult>;
   Subscription: ResolverTypeWrapper<{}>;
+  TemporalFilter: TemporalFilter;
   ToggleCalendarAdditionResult: ResolverTypeWrapper<ToggleCalendarAdditionResult>;
   ToggleFavoriteResult: ResolverTypeWrapper<ToggleFavoriteResult>;
   TriggerAccountScrapeResult: ResolverTypeWrapper<TriggerAccountScrapeResult>;
