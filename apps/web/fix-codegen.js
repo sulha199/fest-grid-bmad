@@ -90,6 +90,8 @@ content = content.replace(/export type ProposedScheduleCorrectionInput = \{\r?\n
 content = content.replace(/export type DateAnchor =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type DateOffsetUnit =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type DayOfWeek =[\s\S]*?;\r?\n/g, '');
+// Replace duplicate TemporalFilter (Story 0.i5d: union-type re-declaration of the enum above)
+content = content.replace(/export type TemporalFilter =[\s\S]*?;\r?\n/g, '');
 
 // Replace duplicate CoordinatesInput, DateRangeFilterInput, EventFilterInput and LocationFilterInput
 content = content.replace(/export type CoordinatesInput = \{\r?\n\s+lat: number;[\s\S]*?\};\r?\n/g, '');

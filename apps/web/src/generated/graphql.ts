@@ -1378,9 +1378,6 @@ export enum WidgetTheme {
 
 
 
-export type TemporalFilter =
-  | 'TODAY'
-  | 'UPCOMING';
 
 
 
