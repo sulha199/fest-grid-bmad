@@ -73,13 +73,19 @@ export function resolveDateRangeFilter(
   }
   return { from: fmt(s), to: fmt(e) };
 }
-function getDays(fromStr: string, toStr: string, dow: DayOfWeek | string): string[] {
+/**
+ * AD-19 Rule 1: returns every date in `[fromStr, toStr]` whose weekday matches ANY member of
+ * `dow` (a union over the array, not just one weekday). Exported/generalized from the original
+ * module-local single-weekday helper so `packages/ui`'s day-of-week occurrence-narrowing (AC4)
+ * can share this exact matching logic instead of a second reimplementation.
+ */
+export function getDays(fromStr: string, toStr: string, dow: DayOfWeek[]): string[] {
   const map: Record<string, number> = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 };
-  const target = map[dow];
+  const targets = new Set(dow.map((d) => map[d]));
   const end = new Date(toStr + 'T00:00:00Z');
   const res: string[] = [], cur = new Date(fromStr + 'T00:00:00Z');
   while (cur <= end) {
-    if (cur.getUTCDay() === target) res.push(fmt(cur));
+    if (targets.has(cur.getUTCDay())) res.push(fmt(cur));
     cur.setUTCDate(cur.getUTCDate() + 1);
   }
   return res;
@@ -146,7 +152,7 @@ export function buildEventsQueryCondition({
         ? resolveDateRangeFilter(filter.dateRange.anchor, filter.dateRange.offsetAmount, filter.dateRange.offsetUnit, now)
         : { from: fmt(now), to: fmt(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 90))) };
       if (filter.dayOfWeek) {
-        const dates = getDays(r.from, r.to, filter.dayOfWeek);
+        const dates = getDays(r.from, r.to, [filter.dayOfWeek as DayOfWeek]);
         if (dates.length === 0) {
           conditions.push({ field: 'scheduleDateRange', operator: 'overlaps', value: { from: '1970-01-01', to: '1970-01-01' } });
         } else if (dates.length === 1) {

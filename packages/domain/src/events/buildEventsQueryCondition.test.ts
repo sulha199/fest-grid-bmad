@@ -1,6 +1,31 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildEventsQueryCondition, resolveDateRangeFilter } from './buildEventsQueryCondition.js';
+import { buildEventsQueryCondition, resolveDateRangeFilter, getDays, DayOfWeek } from './buildEventsQueryCondition.js';
+
+describe('getDays (AC1, Task 1)', () => {
+  it('returns every date matching a single weekday (regression: unchanged single-value behavior)', () => {
+    // 2026-08-01 is a Saturday; 2026-08-31 is a Monday.
+    assert.deepEqual(getDays('2026-08-01', '2026-08-31', [DayOfWeek.FRI]), [
+      '2026-08-07', '2026-08-14', '2026-08-21', '2026-08-28'
+    ]);
+  });
+  it('returns the union of dates matching any of 2+ weekdays', () => {
+    assert.deepEqual(getDays('2026-08-01', '2026-08-14', [DayOfWeek.MON, DayOfWeek.TUE]), [
+      '2026-08-03', '2026-08-04', '2026-08-10', '2026-08-11'
+    ]);
+  });
+  it('returns an empty array when dow is empty', () => {
+    assert.deepEqual(getDays('2026-08-01', '2026-08-31', []), []);
+  });
+  it('returns every date in range when all 7 weekdays are supplied', () => {
+    const res = getDays('2026-08-01', '2026-08-07', [
+      DayOfWeek.SUN, DayOfWeek.MON, DayOfWeek.TUE, DayOfWeek.WED, DayOfWeek.THU, DayOfWeek.FRI, DayOfWeek.SAT
+    ]);
+    assert.deepEqual(res, [
+      '2026-08-01', '2026-08-02', '2026-08-03', '2026-08-04', '2026-08-05', '2026-08-06', '2026-08-07'
+    ]);
+  });
+});
 describe('buildEventsQueryCondition', () => {
   it('returns undefined when no filters are provided', () => {
     assert.equal(buildEventsQueryCondition({ search: ' ', types: [], categories: [] }), undefined);
