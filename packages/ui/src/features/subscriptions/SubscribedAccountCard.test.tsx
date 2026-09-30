@@ -253,4 +253,101 @@ describe('SubscribedAccountCard', () => {
     expect(screen.getByText('@testuser')).toHaveClass('text-sm');
     expect(screen.getByText('@testuser')).not.toHaveClass('text-base');
   });
+
+  // Story 0.i7z ratchet — AD-14 Rule 2 consumer: SubscribedAccountCard newly
+  // consumes a LocationDetails confidence signal (isLocationTrustworthy) to
+  // decide between rendering a LocationLink and the existing @username
+  // fallback. These cases prove the gate is actually read, not assumed.
+  describe('location prop (Story 0.i6e)', () => {
+    it('renders LocationLink with location.name instead of @username when location is trustworthy, even with displayName/username present', () => {
+      const props = {
+        ...defaultProps,
+        location: {
+          name: 'The Grand Hall',
+          coordinates: { lat: 41.8758, lng: -87.6245 },
+          confidence: 0.9,
+          matchType: 'full_match',
+        },
+      };
+      render(<SubscribedAccountCard {...props} />);
+
+      expect(screen.getByText('The Grand Hall')).toBeInTheDocument();
+      expect(screen.queryByText('@testuser')).not.toBeInTheDocument();
+    });
+
+    it('falls back to unchanged @username rendering when location is untrustworthy (confidence: 0.2)', () => {
+      const props = {
+        ...defaultProps,
+        location: {
+          name: 'Some Place',
+          coordinates: { lat: 41.8758, lng: -87.6245 },
+          confidence: 0.2,
+          matchType: 'full_match',
+        },
+      };
+      render(<SubscribedAccountCard {...props} />);
+
+      expect(screen.getByText('@testuser')).toBeInTheDocument();
+      expect(screen.queryByText('Some Place')).not.toBeInTheDocument();
+    });
+
+    it('falls back to unchanged rendering when location is absent (omitted prop, regression)', () => {
+      render(<SubscribedAccountCard {...defaultProps} />);
+
+      expect(screen.getByText('Test User')).toBeInTheDocument();
+      expect(screen.getByText('@testuser')).toBeInTheDocument();
+    });
+
+    it('renders LocationLink unconditionally on location trustworthiness even when displayName/username are both empty', () => {
+      const props = {
+        ...defaultProps,
+        account: { ...defaultProps.account, displayName: '', username: '' },
+        location: {
+          name: 'The Grand Hall',
+          coordinates: { lat: 41.8758, lng: -87.6245 },
+          confidence: 0.9,
+          matchType: 'full_match',
+        },
+      };
+      render(<SubscribedAccountCard {...props} />);
+
+      expect(screen.getByText('The Grand Hall')).toBeInTheDocument();
+      expect(screen.getByText('Unknown account')).toBeInTheDocument();
+    });
+
+    // Confidence-boundary case: 0.5 is the minimum trustworthy confidence
+    // (MIN_TRUSTWORTHY_CONFIDENCE), null confidence is always untrustworthy
+    // regardless of matchType.
+    it('treats confidence: 0.5 with matchType full_match as trustworthy (boundary)', () => {
+      const props = {
+        ...defaultProps,
+        location: {
+          name: 'Boundary Venue',
+          coordinates: { lat: 1, lng: 2 },
+          confidence: 0.5,
+          matchType: 'full_match',
+        },
+      };
+      render(<SubscribedAccountCard {...props} />);
+
+      expect(screen.getByText('Boundary Venue')).toBeInTheDocument();
+      expect(screen.queryByText('@testuser')).not.toBeInTheDocument();
+    });
+
+    it('treats null confidence as untrustworthy regardless of matchType', () => {
+      const props = {
+        ...defaultProps,
+        location: {
+          name: 'Boundary Venue',
+          coordinates: { lat: 1, lng: 2 },
+          confidence: null,
+          matchType: 'full_match',
+        },
+      };
+      render(<SubscribedAccountCard {...props} />);
+
+      expect(screen.getByText('@testuser')).toBeInTheDocument();
+      expect(screen.queryByText('Boundary Venue')).not.toBeInTheDocument();
+    });
+  });
 });
