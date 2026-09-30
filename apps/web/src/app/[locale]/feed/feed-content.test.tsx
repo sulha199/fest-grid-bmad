@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import React from 'react';
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, act, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { NextIntlClientProvider } from 'next-intl';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -53,6 +53,15 @@ vi.mock('nuqs', () => {
   (global as any).__resetNuqsStore = () => {
     for (const key in store) delete store[key];
     for (const key in listeners) listeners[key].clear();
+  };
+
+  // Story 0.i5e: lets tests simulate a filter change (e.g. `q`) without driving actual UI,
+  // matching home-content.test.tsx's own helper.
+  (global as any).__setNuqsValue = (key: string, value: any) => {
+    store[key] = value;
+    if (listeners[key]) {
+      listeners[key].forEach((listener: any) => listener(value));
+    }
   };
 
   return {
@@ -114,6 +123,8 @@ let mockEventsItems: any[] = [
 ];
 
 let mockSubscriptions: any[] = [];
+let mockHasMore = false;
+let shouldRejectToggle = false;
 
 let mockRequestSpy = vi.fn().mockImplementation(async (document: any, variables: any) => {
   const queryStr = JSON.stringify(document);
@@ -123,10 +134,25 @@ let mockRequestSpy = vi.fn().mockImplementation(async (document: any, variables:
     };
   }
 
+  if (queryStr.includes('toggleFavorite')) {
+    if (shouldRejectToggle) {
+      throw new Error('toggleFavorite mutation failed');
+    }
+    const item = mockEventsItems.find((e) => e.id === variables.eventId);
+    const nextFavorited = item ? !item.isFavorited : true;
+    return {
+      toggleFavorite: {
+        eventId: variables.eventId,
+        isFavorited: nextFavorited,
+        favoriteCount: Math.max(0, (item?.favoriteCount ?? 0) + (nextFavorited ? 1 : -1)),
+      },
+    };
+  }
+
   return {
     events: {
       items: mockEventsItems,
-      hasMore: false,
+      hasMore: mockHasMore,
       totalCount: mockEventsItems.length,
     },
   };
@@ -184,6 +210,8 @@ afterEach(() => {
   ];
   mockRequestSpy.mockClear();
   mockSubscriptions = [];
+  mockHasMore = false;
+  shouldRejectToggle = false;
   if ((global as any).__resetNuqsStore) {
     (global as any).__resetNuqsStore();
   }
@@ -314,6 +342,106 @@ describe('FeedContent', () => {
         return args[1]?.query?.conditions?.some((c: any) => c.field === 'socialMediaAccountProfileId');
       });
       expect(call).toBeDefined();
+    });
+  });
+});
+
+// Story 0.i5e — FeedContent adopts useListPaginationController: resetToken-into-queryKey
+// integration, scroll-to-top-on-reset, and the AC6-extension favorite-toggle rollback fix.
+describe('FeedContent - Story 0.i5e (pagination controller)', () => {
+  it('does not call window.scrollTo on initial mount', async () => {
+    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText('Event Feed 1')).toBeInTheDocument();
+    });
+
+    expect(scrollToSpy).not.toHaveBeenCalled();
+  });
+
+  it('resets to offset 0 (not 10) and scrolls to top when a filter changes after a page-2 fetch', async () => {
+    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    mockHasMore = true;
+
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText('Event Feed 1')).toBeInTheDocument();
+    });
+
+    // Trigger a page-2 fetch (offset 10)
+    await act(async () => {
+      (window as any).triggerScroll();
+    });
+
+    await waitFor(() => {
+      const calls = mockRequestSpy.mock.calls;
+      expect(calls.some((c: any) => c[1]?.offset === 10)).toBe(true);
+    });
+
+    mockRequestSpy.mockClear();
+    mockHasMore = false;
+    expect(scrollToSpy).not.toHaveBeenCalled();
+
+    // Simulate a filter change (search) via the shared nuqs store
+    await act(async () => {
+      (global as any).__setNuqsValue('q', 'jazz');
+    });
+
+    await waitFor(() => {
+      const calls = mockRequestSpy.mock.calls;
+      expect(calls.some((c: any) => c[1]?.offset === 0)).toBe(true);
+    });
+
+    expect(scrollToSpy).toHaveBeenCalledWith({ top: 0, behavior: expect.stringMatching(/auto|smooth/) });
+  });
+
+  it('rolls back an optimistic favorite toggle when the mutation fails, under the real nearby/aiFilter/resetToken-bearing key (AC6 extension)', async () => {
+    mockEventsItems = [
+      {
+        id: 'evt-1',
+        eventName: 'Event Feed 1',
+        slug: 'event-feed-1',
+        isFavorited: true,
+        favoriteCount: 5,
+        imageUrl: null,
+        location: 'Location 1',
+        types: ['FESTIVAL'],
+        categories: ['MUSIC'],
+        schedules: [
+          {
+            id: 'evt-1-schedule',
+            isMainSchedule: true,
+            eventStartDate: new Date('2026-08-12T12:00:00Z').toISOString(),
+            ticketPrice: '100',
+          },
+        ],
+      },
+    ];
+    shouldRejectToggle = true;
+
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText('Event Feed 1')).toBeInTheDocument();
+    });
+
+    // Pre-toggle state: favorited, count 5
+    expect(screen.getByText('5')).toBeInTheDocument();
+
+    const toggleButton = screen.getByRole('button', { name: 'Remove from Favorites' });
+    fireEvent.click(toggleButton);
+
+    // Optimistic flip applied immediately: unfavorited, count decremented to 4
+    await waitFor(() => {
+      expect(screen.getByText('4')).toBeInTheDocument();
+    });
+
+    // Mutation rejects -- onError must restore the pre-toggle card state (count back to 5)
+    await waitFor(() => {
+      expect(screen.getByText('5')).toBeInTheDocument();
     });
   });
 });

@@ -3,7 +3,7 @@
 import { useMemo, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { useInfiniteQuery, InfiniteData, useQueryClient } from "@tanstack/react-query";
-import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, AIFilterOverlay, BlockingLoader, formatLocalizedNearbyBadgeDistance } from "@festgrid/ui";
+import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, AIFilterOverlay, BlockingLoader, formatLocalizedNearbyBadgeDistance, useListPaginationController, usePrefersReducedMotion } from "@festgrid/ui";
 import { EventCategory, EventType } from "@festgrid/shared-types";
 import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput, useToggleFavoriteMutation, useGetMySubscriptionsQuery } from "@/generated/graphql";
 import { graphqlClient } from "@/lib/graphql-client";
@@ -133,6 +133,17 @@ export function FeedContent() {
     });
   }, [q, types, categories, subscriptionsQuery, resolvedNearby, aiFilter.activeFilter]);
 
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const pagination = useListPaginationController({
+    filterKey: { q, types, categories, subscriptions: subscriptionsQuery, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter },
+    initialCursor: 0,
+    onReset: () => {
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+      }
+    },
+  });
+
   const {
     data,
     fetchNextPage,
@@ -141,7 +152,7 @@ export function FeedContent() {
     status: listStatus,
     error,
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter }],
+    queryKey: ["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter }, pagination.resetToken],
     queryFn: async ({ pageParam }) => {
       return graphqlClient.request<GetEventsQuery>(GetEventsDocument, {
         limit: 10,
@@ -168,7 +179,14 @@ export function FeedContent() {
   const { mutate: toggleFavorite } = useToggleFavoriteMutation(graphqlClient, {
     onMutate: async (variables) => {
       await queryClient.cancelQueries({ queryKey: ["events", "feed"] });
-      const previousData = queryClient.getQueryData(["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery }]);
+      // AC6 extension (readiness correction 2026-09-30): snapshot every cached feed page-set
+      // under the ["events", "feed"] prefix rather than a single exact-key lookup. The prior
+      // exact-key getQueryData/setQueryData pair used a stale 4-field key shape ({ q, types,
+      // categories, subscriptions }) that stopped matching once Story 1.3l added `nearby`/
+      // `aiFilter` to the live queryKey, so `previousData` was always undefined and onError's
+      // rollback silently no-op'd. A prefix-matched getQueriesData snapshot is resilient to any
+      // further queryKey shape changes (including this story's own resetToken append).
+      const previous = queryClient.getQueriesData({ queryKey: ["events", "feed"] });
 
       queryClient.setQueriesData({ queryKey: ["events", "feed"] }, (old: any) => {
         if (!old) return old;
@@ -192,12 +210,12 @@ export function FeedContent() {
         };
       });
 
-      return { previousData };
+      return { previous };
     },
     onError: (err, variables, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery }], context.previousData);
-      }
+      context?.previous?.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data);
+      });
     },
     onSuccess: (data, variables) => {
       posthog.capture(data.toggleFavorite.isFavorited ? "event_favorited" : "event_unfavorited", {

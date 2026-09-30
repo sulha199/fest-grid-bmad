@@ -11,6 +11,8 @@ import {
   AIFilterOverlay,
   BlockingLoader,
   formatLocalizedNearbyBadgeDistance,
+  useListPaginationController,
+  usePrefersReducedMotion,
 } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import {
@@ -163,20 +165,27 @@ export function FavoritesContent() {
     }
   }, [isLoading, session, router])
 
-  const snapshotQueryKey = useMemo(
-    () => JSON.stringify({ q, types, categories, filter: aiFilter.activeFilter, nearby: resolvedNearby }),
-    [q, types, categories, aiFilter.activeFilter, resolvedNearby]
-  )
-  const previousSnapshotKeyRef = useRef(snapshotQueryKey)
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const pagination = useListPaginationController({
+    // Deliberately keyed on the same {q, types, categories, nearby, aiFilter} snapshot
+    // idSnapshotData itself uses, NOT on frozenIds (a derived value) -- see Dev Notes
+    // "Why the controller's filterKey deliberately excludes frozenIds (Favorites)".
+    filterKey: { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter },
+    initialCursor: 0,
+    onReset: () => {
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' })
+      }
+    },
+  })
 
+  // AC3/Task 3: the controller's resetToken is now the single source of truth for "a filter
+  // change happened" -- replaces the previous previousSnapshotKeyRef/snapshotQueryKey-comparison
+  // effect. A filter-driven reset finalizes any pending removal immediately (no blocking/
+  // deferring the undo window), per the user's AskUserQuestion decision recorded in AC3.
   useEffect(() => {
-    if (previousSnapshotKeyRef.current === snapshotQueryKey) {
-      return
-    }
-
-    previousSnapshotKeyRef.current = snapshotQueryKey
     setUnfavoritedIds(new Set())
-  }, [snapshotQueryKey])
+  }, [pagination.resetToken])
 
   const {
     data: idSnapshotData,
@@ -223,7 +232,7 @@ export function FavoritesContent() {
     status,
     error,
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ["favoriteEvents", { ids: frozenIds, q, types, categories, filter: aiFilter.activeFilter, nearby: resolvedNearby }],
+    queryKey: ["favoriteEvents", { ids: frozenIds, q, types, categories, filter: aiFilter.activeFilter, nearby: resolvedNearby }, pagination.resetToken],
     queryFn: async ({ pageParam }) => {
       const start = pageParam as number
       const batchIds = frozenIds.slice(start, start + PAGE_SIZE)

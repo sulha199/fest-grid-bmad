@@ -843,7 +843,8 @@ items:
      title: "Extend the Today/Upcoming/All temporal filter to Feed and Favorites once they adopt useListPaginationController",
      ref: [backlog/IDEA-038-feed-favorites-temporal-filter-adoption.md], touches: [web:events, pkg:ui],
      note: "AMENDED 2026-09-19: missing prerequisite carved to Story 0-i5e (ready-for-dev); still blocked on 0-i5e + 1-3l both landing. Full detail in backlog/IDEA-038-feed-favorites-temporal-filter-adoption.md.
-     AMENDED 2026-09-30 (batch-event-pages-wave-a-readiness.md): also depends on Story 0-i5d -- it builds TemporalFilterToggle / EventFilterInput.temporalFilter, which this row extends to Feed/Favorites. Unblock chain is 1-3l + 0-i5e + 0-i5d, each at least `review`."}
+     AMENDED 2026-09-30 (batch-event-pages-wave-a-readiness.md): also depends on Story 0-i5d -- it builds TemporalFilterToggle / EventFilterInput.temporalFilter, which this row extends to Feed/Favorites. Unblock chain is 1-3l + 0-i5e + 0-i5d, each at least `review`.
+     AMENDED 2026-09-30 (Story 0-i5e completion): 0-i5e's own scope (Feed/Favorites adopting useListPaginationController) is now landed -- that prerequisite in the unblock chain is closed. Remaining blockers: 0-i5d and 1-3l, each still needing to reach at least `review`."}
 
   # ── 2026-09-11 (bmad-help event-extraction-recurrence-bug session) ──────────
   BUG-026:
@@ -1209,7 +1210,8 @@ items:
      title: "Formalize scroll-to-top-on-filter-reset as a cross-surface EXPERIENCE.md convention",
      ref: [implementation-artifacts/0-i5b-adopt-the-controller-in-discovery-event-list-surfaces.md],
      touches: [pkg:ui, web:events, cross:ux-tokens],
-     note: "Surfaced during Story 0.i5b (bmad-create-story, 2026-09-15): Gate 2 found neither DESIGN.md nor EXPERIENCE.md addresses whether a filter change should scroll a list view back to top. User chose (via AskUserQuestion) to add this behavior to Discovery's home-content.tsx now — window.scrollTo({top:0}) fired from useListPaginationController's onReset, reusing useCollapseHeaderOnScroll.ts's existing reduced-motion-aware convention — but explicitly as a single-surface implementation, not a binding EXPERIENCE.md rule. This idea tracks formalizing it into a documented cross-surface convention if/when Feed/Favorites or other useListPaginationController adopters need the same treatment. Not promoted to a story; no adoption story references it yet."}
+     note: "Surfaced during Story 0.i5b (bmad-create-story, 2026-09-15): Gate 2 found neither DESIGN.md nor EXPERIENCE.md addresses whether a filter change should scroll a list view back to top. User chose (via AskUserQuestion) to add this behavior to Discovery's home-content.tsx now — window.scrollTo({top:0}) fired from useListPaginationController's onReset, reusing useCollapseHeaderOnScroll.ts's existing reduced-motion-aware convention — but explicitly as a single-surface implementation, not a binding EXPERIENCE.md rule. This idea tracks formalizing it into a documented cross-surface convention if/when Feed/Favorites or other useListPaginationController adopters need the same treatment. Not promoted to a story; no adoption story references it yet.
+     UPDATED 2026-09-30 (Story 0-i5e): Feed (feed-content.tsx) and Favorites (favorites-content.tsx) now also implement scroll-to-top-on-filter-reset the same way, via AskUserQuestion during Story 0.i5e's creation. All 3 current useListPaginationController adopters (Discovery, Feed, Favorites) now implement this behavior — still recorded here as a documented convention, not promoted to a binding EXPERIENCE.md rule by this story."}
 
   # ── 2026-09-17 (direct AWS CLI investigation) ────────────────────────────────
   FIND-034:
