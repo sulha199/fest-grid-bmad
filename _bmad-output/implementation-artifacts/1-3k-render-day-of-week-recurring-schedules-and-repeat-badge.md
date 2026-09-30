@@ -1,3 +1,7 @@
+---
+baseline_commit: 40c01ca32638a16352723bd8fc095a1b444ac097
+---
+
 # Story 1.3k: Render Day-of-Week Recurring Schedules and the Repeat Badge Across Calendar and Card Surfaces
 
 ## Story Details
