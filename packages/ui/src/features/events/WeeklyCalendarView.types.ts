@@ -1,3 +1,5 @@
+import type { DayOfWeek as DomainDayOfWeek } from '@festgrid/domain/events';
+
 export interface WeeklyCalendarViewScheduleShape {
   id: string;
   eventSlug: string;
@@ -30,6 +32,14 @@ export interface WeeklyCalendarViewScheduleShape {
   locationName?: string;
   /** Caller-computed distance in kilometers from the viewer to this schedule's location (Story 1.i1f AC13-14). Undefined when no viewer coordinate is resolvable. */
   distanceKm?: number;
+  /**
+   * Story 1.3k (AC4/AC6-8) — the weekdays this schedule actually occurs on within its
+   * `[eventStartDate, eventEndDate]` span. Already mapped to `packages/domain`'s own
+   * `DayOfWeek` enum by the caller (`apps/web/src/lib/day-of-week-mapping.ts`) — `packages/ui`
+   * never imports the GraphQL-generated enum directly (AD-19 Rule 2/3). Unset/empty means the
+   * schedule occurs on every day of its span (today's default/legacy behavior, zero change).
+   */
+  applicableDaysOfWeek?: DomainDayOfWeek[] | null;
 }
 
 export interface WeeklyCalendarViewLabels {
@@ -110,6 +120,18 @@ export interface WeeklyCalendarViewLabels {
    * decimal, e.g. "1.2 km").
    */
   nearbyBadge?: (distanceKm: number) => string;
+  /**
+   * Story 1.3k (AC9) — translated weekday labels keyed by the exact `DayOfWeek` enum member
+   * name (`MON`/`TUE`/…), consumed by `EventCardRepeatBadge`'s tooltip/aria-label. Mirrors the
+   * `typeLabels`/`categoryLabels` pattern already established elsewhere in this codebase.
+   */
+  dayOfWeekLabels?: Record<string, string>;
+  /**
+   * Repeat badge aria-label/tooltip text resolver (Story 1.3k AC6), invoked with the schedule's
+   * translated matching weekday labels in order. Falls back to `EventCardRepeatBadge`'s own
+   * `Repeats on ${dayLabels.join(', ')}` default when omitted.
+   */
+  repeatBadgeAriaLabel?: (dayLabels: string[]) => string;
 }
 
 export interface WeeklyCalendarViewOverflowDialogData<
