@@ -5,6 +5,7 @@ import { useQueryState, parseAsString } from 'nuqs';
 import { SlidersHorizontal } from 'lucide-react';
 import { SearchBar } from './SearchBar';
 import { FilterHub } from './FilterHub';
+import { TemporalFilterToggle } from './TemporalFilterToggle';
 import { EventDiscoveryPanelProps } from './EventDiscoveryPanel.types';
 import { useCollapseHeaderOnScroll } from '../../hooks';
 
@@ -38,6 +39,9 @@ export function EventDiscoveryPanel({
   onAIClear,
   onAIExpand,
   showFiltersLabel,
+  temporalFilter,
+  onTemporalFilterChange,
+  temporalFilterLabels,
 }: EventDiscoveryPanelProps) {
   const [activeView, setActiveView] = useQueryState(
     'view',
@@ -84,6 +88,14 @@ export function EventDiscoveryPanel({
               placeholder={searchPlaceholder}
               clearLabel={searchClearLabel}
             />
+
+            {currentViewId === 'card' && (
+              <TemporalFilterToggle
+                value={temporalFilter}
+                onChange={onTemporalFilterChange}
+                labels={temporalFilterLabels}
+              />
+            )}
 
             <FilterHub
               labels={filterLabels}

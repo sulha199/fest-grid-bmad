@@ -262,6 +262,32 @@ export interface EventStatusResult {
  * Absent `endDate` is treated as "ends same day as start" (falls back to `startDate`),
  * matching the masonry TILL badge's identical fallback (AC14), for consistency.
  */
+/**
+ * Pure boolean extraction of `formatEventStatus`'s own `ended` computation (Story 0.i5d,
+ * Task 3/AC9) -- extracted so the shared `ended-cases.ts` fixture (AD-20 Rule 4) has one
+ * canonical, directly-callable boolean to assert against, on both the UI badge side and the
+ * SQL `notEnded` condition side (`packages/graphql-select/drizzle-where.ts`), instead of
+ * inferring `ended` from `formatEventStatus`'s returned label string. This is a pure
+ * extract-function refactor: `formatEventStatus`'s own signature/return values/existing test
+ * assertions are unchanged (AC9's non-negotiable constraint).
+ */
+export function isEventEnded(
+  now: Date,
+  timezone: string | undefined,
+  startDate: Date | string,
+  startTime: string | null | undefined,
+  endDate: Date | string | null | undefined,
+  endTime: string | null | undefined
+): boolean {
+  const nowParts = getLocalDateInTimezone(now, timezone);
+  const effectiveEndDate = endDate ?? startDate;
+  const endDateTime = combineDateTime(effectiveEndDate, endTime, timezone);
+  const endParts = getLocalDateInTimezone(endDateTime, timezone);
+  const endDayDiff = getCalendarDayDifference(nowParts, endParts);
+
+  return endDayDiff < 0 || (endDayDiff === 0 && !!endTime && now.getTime() >= endDateTime.getTime());
+}
+
 export function formatEventStatus(
   locale: string,
   timezone: string | undefined,
@@ -283,8 +309,7 @@ export function formatEventStatus(
   const endParts = getLocalDateInTimezone(endDateTime, timezone);
   const endDayDiff = getCalendarDayDifference(nowParts, endParts);
 
-  const ended =
-    endDayDiff < 0 || (endDayDiff === 0 && !!endTime && now.getTime() >= endDateTime.getTime());
+  const ended = isEventEnded(now, timezone, startDate, startTime, endDate, endTime);
 
   if (ended) {
     return { text: labels?.statusEnded ?? 'Ended', variant: 'default', state: 'ended' };

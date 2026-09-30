@@ -10,10 +10,12 @@ import {
   formatShortEventDateTime,
   formatShortEventDateTimeParts,
   formatEventStatus,
+  isEventEnded,
   computeCalendarSegmentDateBoxContent,
   computeEventCardDateBoxParts,
   formatEventCardDateBoxLine,
 } from './format-event-date';
+import { ENDED_CASE_FIXTURES } from '@festgrid/domain/events';
 
 // Fixed local reference instant used by formatEventStatus tests below, so every
 // boundary is deterministic regardless of when the test suite actually runs
@@ -527,3 +529,23 @@ describe('formatEventCardDateBoxLine (BUG-047, VM1 single-line date-box text)', 
   });
 });
 
+
+describe('isEventEnded (shared ended-cases fixture, Story 0.i5d Task 3/AC5/AC9)', () => {
+  for (const fixture of ENDED_CASE_FIXTURES) {
+    it(fixture.description, () => {
+      // `timezone: undefined` deliberately -- matches the no-timezone-conversion scope this
+      // story's Dev Notes ("Timezone scope of the `!ended` mirror") documents as the correct
+      // interpretation of "exactly mirror" the new SQL `notEnded` condition.
+      expect(
+        isEventEnded(
+          new Date(fixture.now),
+          undefined,
+          fixture.startDate,
+          fixture.startTime,
+          fixture.endDate,
+          fixture.endTime
+        )
+      ).toBe(fixture.expectedEnded);
+    });
+  }
+});

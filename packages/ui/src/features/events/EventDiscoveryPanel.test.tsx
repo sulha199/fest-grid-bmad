@@ -108,6 +108,14 @@ describe('EventDiscoveryPanel', () => {
       { id: 'card', label: 'Card View', content: <div data-testid="card-view">Card View Content</div> },
       { id: 'calendar', label: 'Calendar View', content: <div data-testid="calendar-view">Calendar View Content</div> },
     ],
+    temporalFilter: null,
+    onTemporalFilterChange: vi.fn(),
+    temporalFilterLabels: {
+      today: 'Today',
+      upcoming: 'Upcoming',
+      all: 'All',
+      groupLabel: 'Filter events by time',
+    },
   };
 
   it('renders search, filter, and active view content (single-view render / composition)', () => {
@@ -182,6 +190,22 @@ describe('EventDiscoveryPanel', () => {
 
     expect(screen.queryByTestId('card-view')).not.toBeInTheDocument();
     expect(screen.getByTestId('calendar-view')).toBeInTheDocument();
+  });
+
+  describe('temporal filter toggle (Story 0.i5d, AC6)', () => {
+    it('renders the temporal filter toggle when currentViewId === "card" (the default)', () => {
+      render(<EventDiscoveryPanel {...defaultProps} />);
+      expect(screen.getByRole('radiogroup', { name: 'Filter events by time' })).toBeInTheDocument();
+    });
+
+    it('does not render the temporal filter toggle when currentViewId === "calendar"', () => {
+      const { fireEvent } = require('@testing-library/react');
+      render(<EventDiscoveryPanel {...defaultProps} />);
+
+      fireEvent.click(screen.getByRole('tab', { name: 'Calendar View' }));
+
+      expect(screen.queryByRole('radiogroup', { name: 'Filter events by time' })).not.toBeInTheDocument();
+    });
   });
 
   describe('scroll collapse behavior', () => {

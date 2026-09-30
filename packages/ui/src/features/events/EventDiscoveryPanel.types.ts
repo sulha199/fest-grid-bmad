@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { FilterHubProps } from './FilterHub.js';
 import { LocationRadiusFilterProps } from './LocationRadiusFilter.types.js';
+import { TemporalFilterToggleLabels, TemporalFilterValue } from './TemporalFilterToggle.types.js';
 
 export interface EventDiscoveryPanelView {
   id: string;
@@ -33,4 +34,8 @@ export interface EventDiscoveryPanelProps extends Omit<FilterHubProps, 'labels' 
   views: EventDiscoveryPanelView[];
   className?: string;
   showFiltersLabel?: string;
+  // Temporal filter (Story 0.i5d, AC6) -- card view only.
+  temporalFilter: TemporalFilterValue;
+  onTemporalFilterChange: (value: TemporalFilterValue) => void;
+  temporalFilterLabels: TemporalFilterToggleLabels;
 }

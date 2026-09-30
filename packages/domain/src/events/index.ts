@@ -20,6 +20,7 @@ export * from './resolveInstagramEmbedResult.js';
 export * from './matches-childrens-data-keyword-filter.js';
 export * from './build-correction-classification-text.js';
 export * from './sanitize-event-links.js';
+export * from './__fixtures__/ended-cases.js';
 
 export const DEFAULT_CANCELLED_REPORT_THRESHOLD = 3;
 export const DEFAULT_CANCELLED_REPORT_WINDOW_DAYS = 7;

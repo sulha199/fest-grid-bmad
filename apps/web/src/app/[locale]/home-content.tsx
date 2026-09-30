@@ -7,7 +7,7 @@ import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, A
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput, useToggleFavoriteMutation } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
-import { useQueryState, parseAsString, parseAsArrayOf } from "nuqs"
+import { useQueryState, parseAsString, parseAsArrayOf, parseAsStringEnum } from "nuqs"
 import { usePostHog } from "@festgrid/analytics"
 import { useRouter } from "@/i18n/navigation"
 import { useSearchParams } from "next/navigation"
@@ -73,6 +73,12 @@ export function HomeContent() {
   const [q, setQ] = useQueryState('q', parseAsString.withDefault(''))
   const [types] = useQueryState('types', parseAsArrayOf(parseAsString).withDefault([]))
   const [categories] = useQueryState('categories', parseAsArrayOf(parseAsString).withDefault([]))
+  // No `.withDefault(...)` -- absent/null means "All" (AC7), matching the committed value's
+  // own null-means-All contract used throughout `buildEventsQueryCondition`/`TemporalFilterToggle`.
+  const [temporalFilter, setTemporalFilter] = useQueryState(
+    'temporal',
+    parseAsStringEnum<'TODAY' | 'UPCOMING'>(['TODAY', 'UPCOMING'])
+  )
   const queryClient = useQueryClient()
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
 
@@ -194,7 +200,7 @@ export function HomeContent() {
 
   const prefersReducedMotion = usePrefersReducedMotion();
   const pagination = useListPaginationController({
-    filterKey: { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter },
+    filterKey: { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter, temporalFilter },
     initialCursor: 0,
     onReset: () => {
       if (typeof window !== 'undefined') {
@@ -211,11 +217,11 @@ export function HomeContent() {
     status,
     error
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ['events', { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter }, pagination.resetToken],
+    queryKey: ['events', { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter, temporalFilter }, pagination.resetToken],
     queryFn: async ({ pageParam }) => {
       const condition = aiFilter.activeFilter
-        ? buildEventsQueryCondition({ filter: aiFilter.activeFilter })
-        : buildEventsQueryCondition({ search: q, types, categories, nearby: resolvedNearby });
+        ? buildEventsQueryCondition({ filter: { ...aiFilter.activeFilter, temporalFilter } })
+        : buildEventsQueryCondition({ search: q, types, categories, nearby: resolvedNearby, temporalFilter });
       return graphqlClient.request<GetEventsQuery>(GetEventsDocument, {
         limit: 10,
         offset: pageParam as number,
@@ -249,6 +255,18 @@ export function HomeContent() {
       posthog.capture('search_submitted', { query: searchQuery })
     }
   }, [posthog]);
+
+  const handleTemporalFilterChange = useMemo(() => (value: 'TODAY' | 'UPCOMING' | null) => {
+    setTemporalFilter(value)
+    posthog.capture('temporal_filter_changed', { value: value ?? 'ALL' })
+  }, [setTemporalFilter, posthog]);
+
+  const temporalFilterLabels = useMemo(() => ({
+    today: t('temporalFilterTodayLabel'),
+    upcoming: t('temporalFilterUpcomingLabel'),
+    all: t('temporalFilterAllLabel'),
+    groupLabel: t('temporalFilterGroupLabel'),
+  }), [t]);
 
   return (
     <PageContainer>
@@ -286,6 +304,9 @@ export function HomeContent() {
         aiCaveatsText={aiFilter.filterHubProps.aiCaveatsText}
         onAIClear={aiFilter.filterHubProps.onAIClear}
         onAIExpand={aiFilter.filterHubProps.onAIExpand}
+        temporalFilter={temporalFilter}
+        onTemporalFilterChange={handleTemporalFilterChange}
+        temporalFilterLabels={temporalFilterLabels}
         views={[
           {
             id: 'card',

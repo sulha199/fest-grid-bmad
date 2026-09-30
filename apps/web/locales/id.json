@@ -305,7 +305,11 @@
     "calendarMultiDaySegmentLabel": "Hari {dayNumber} dari {totalDays}",
     "calendarErrorState": "Gagal memuat acara kalender.",
     "calendarClosePopoverLabel": "Tutup popover",
-    "calendarOverflowDialogTitleLabel": "Jadwal untuk {day}"
+    "calendarOverflowDialogTitleLabel": "Jadwal untuk {day}",
+    "temporalFilterTodayLabel": "Hari Ini",
+    "temporalFilterUpcomingLabel": "Mendatang",
+    "temporalFilterAllLabel": "Semua",
+    "temporalFilterGroupLabel": "Filter acara berdasarkan waktu"
   },
   "FeedPage": {
     "title": "Feed Saya",

@@ -305,7 +305,11 @@
     "calendarMultiDaySegmentLabel": "Day {dayNumber} of {totalDays}",
     "calendarErrorState": "Failed to load calendar events.",
     "calendarClosePopoverLabel": "Close popover",
-    "calendarOverflowDialogTitleLabel": "Schedules for {day}"
+    "calendarOverflowDialogTitleLabel": "Schedules for {day}",
+    "temporalFilterTodayLabel": "Today",
+    "temporalFilterUpcomingLabel": "Upcoming",
+    "temporalFilterAllLabel": "All",
+    "temporalFilterGroupLabel": "Filter events by time"
   },
   "FeedPage": {
     "title": "My Feed",
