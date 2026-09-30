@@ -1643,3 +1643,35 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      touches: [web:events/EventCard, pkg:ui],
      note: "Deferred from: code review of 1-i1o-wire-eventcard-and-weeklycalendarview-labels-to-nextintl.md (2026-09-27). 1 finding."}
+
+  # ── 2026-09-30 ──────────────────────────────────────────────────────────────
+  CC-023:
+    {type: proposal, status: triaged, created: 2026-09-30,
+     impact: compliance, effort: m,
+     title: "Face-blurred, consent-independent post thumbnails (AD-28) + extraction quality audit log (AD-29)",
+     ref: [planning-artifacts/sprint-change-proposal-2026-09-30.md],
+     touches: [app:backend, pkg:database, web:events, web:posts, cross:ai-extraction, cross:architecture, cross:prd]}
+
+  IDEA-051:
+    {type: idea, status: backlog, created: 2026-09-30, parent: CC-023,
+     impact: internal, effort: s,
+     title: "Sample hasFaceImage=false posts through face-api.js to measure the pre-filter's real false-negative rate",
+     ref: [planning-artifacts/sprint-change-proposal-2026-09-30.md],
+     touches: [cross:ai-extraction, app:backend],
+     note: "AD-29 Rule 4's recorded blind spot: extraction_audit_logs can't verify hasFaceImage=false today since face-api.js never runs on those rows."}
+
+  BUG-051:
+    {type: bug, status: backlog, created: 2026-09-30,
+     impact: user-visible, effort: l,
+     title: "A post advertising multiple distinct events has its schedules incorrectly merged into one event",
+     ref: [],
+     touches: [cross:ai-extraction, app:backend, cross:architecture],
+     note: "Raised 2026-09-30 alongside CC-023; needs Event<->Post many-to-many, its own bmad-correct-course/architecture session -- not folded into CC-023."}
+
+  BUG-052:
+    {type: bug, status: backlog, created: 2026-09-30,
+     impact: user-visible, effort: l,
+     title: "No duplicate-event detection across posts/accounts",
+     ref: [],
+     touches: [cross:ai-extraction, app:backend, cross:architecture],
+     note: "Related to BUG-051's Event<->Post cardinality change; raised 2026-09-30, needs its own session."}
