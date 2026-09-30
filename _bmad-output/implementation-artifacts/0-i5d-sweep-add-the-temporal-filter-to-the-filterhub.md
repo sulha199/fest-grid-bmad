@@ -287,22 +287,22 @@ it.
 
 ## Testing Requirements
 
-- [ ] Unit tests — `packages/domain` (`buildEventsQueryCondition`'s new `temporalFilter` branches + `ended-cases` fixture shape), `packages/graphql-select` (`drizzle-where.test.ts`'s new `notEnded` case), `packages/ui` (`TemporalFilterToggle.test.tsx`, `format-event-date.test.ts`'s new `isEventEnded`/fixture-driven cases, `EventDiscoveryPanel.test.tsx`'s card/calendar gating cases).
-- [ ] Integration tests — `apps/web/src/app/[locale]/home-content.test.tsx` (temporal-filter-triggers-reset, request-shape, analytics-event cases); `apps/backend/src/schema/resolvers.test.ts` (real-DB `TODAY`/`UPCOMING` filtering, including every `ended-cases` fixture entry, per AC5).
-- [ ] E2E tests — not required; no new critical user flow beyond what Discovery's existing Playwright coverage (if any) already exercises. A future `bmad-testarch` pass may add one if the team wants explicit end-to-end coverage of the toggle, but it is not a blocking requirement of this story.
+- [x] Unit tests — `packages/domain` (`buildEventsQueryCondition`'s new `temporalFilter` branches + `ended-cases` fixture shape), `packages/graphql-select` (`drizzle-where.test.ts`'s new `notEnded` case), `packages/ui` (`TemporalFilterToggle.test.tsx`, `format-event-date.test.ts`'s new `isEventEnded`/fixture-driven cases, `EventDiscoveryPanel.test.tsx`'s card/calendar gating cases).
+- [ ] Integration tests — `apps/web/src/app/[locale]/home-content.test.tsx` (temporal-filter-triggers-reset, request-shape, analytics-event cases); `apps/backend/src/schema/resolvers.test.ts` (real-DB `TODAY`/`UPCOMING` filtering, including every `ended-cases` fixture entry, per AC5). — **partially verified:** the `home-content.test.tsx` cases pass; the `resolvers.test.ts` real-DB cases are written but were NOT executed in this sandbox (no Postgres), so this line is left open.
+- [x] E2E tests — not required; no new critical user flow beyond what Discovery's existing Playwright coverage (if any) already exercises. A future `bmad-testarch` pass may add one if the team wants explicit end-to-end coverage of the toggle, but it is not a blocking requirement of this story.
 
 ## Deliverables Checklist
 
-- [ ] `EventFilterInput.temporalFilter: TemporalFilter` added to the GraphQL schema; client types regenerated.
-- [ ] `buildEventsQueryCondition.ts` translates `TODAY`/`UPCOMING` per AD-20 Rules 2-3, via both the `filter` and top-level-param paths.
-- [ ] `drizzle-where.ts` gains exactly one new `notEnded` operator case; `resolvers.ts` gains the matching `scheduleEndedBoundary` fieldMap entry.
-- [ ] `packages/domain/src/events/__fixtures__/ended-cases.ts` exists and is imported by both `format-event-date.test.ts` and `resolvers.test.ts`.
-- [ ] `formatEventStatus`'s `ended` logic is extracted to `isEventEnded()` with zero behavior change to `formatEventStatus` itself.
-- [ ] `TemporalFilterToggle` renders `DESIGN.md`'s tokens, built on a new Radix-backed `radio-group.tsx` primitive.
-- [ ] `EventDiscoveryPanel.tsx` renders the toggle only when `currentViewId === 'card'`.
-- [ ] `home-content.tsx` threads the committed value through `useListPaginationController`/`queryKey`, fires `temporal_filter_changed`, and passes the new i18n labels.
+- [x] `EventFilterInput.temporalFilter: TemporalFilter` added to the GraphQL schema; client types regenerated.
+- [x] `buildEventsQueryCondition.ts` translates `TODAY`/`UPCOMING` per AD-20 Rules 2-3, via both the `filter` and top-level-param paths.
+- [x] `drizzle-where.ts` gains exactly one new `notEnded` operator case; `resolvers.ts` gains the matching `scheduleEndedBoundary` fieldMap entry.
+- [x] `packages/domain/src/events/__fixtures__/ended-cases.ts` exists and is imported by both `format-event-date.test.ts` and `resolvers.test.ts`.
+- [x] `formatEventStatus`'s `ended` logic is extracted to `isEventEnded()` with zero behavior change to `formatEventStatus` itself.
+- [x] `TemporalFilterToggle` renders `DESIGN.md`'s tokens, built on a new Radix-backed `radio-group.tsx` primitive.
+- [x] `EventDiscoveryPanel.tsx` renders the toggle only when `currentViewId === 'card'`.
+- [x] `home-content.tsx` threads the committed value through `useListPaginationController`/`queryKey`, fires `temporal_filter_changed`, and passes the new i18n labels.
 - [x] Task 4's DB index research is complete — decisive "no new index" recommendation, documented with full before/after `EXPLAIN ANALYZE` evidence in Dev Notes.
-- [ ] All Task 9 verification commands pass.
+- [ ] All Task 9 verification commands pass. — all except `pnpm --filter backend test -- resolvers` (needs live Postgres, not executed in this sandbox).
 
 ## Out of Scope
 
@@ -315,15 +315,15 @@ it.
 
 ## Definition of Done
 
-- [ ] AC 1-11 satisfied.
-- [ ] Required tests passing (Task 9).
-- [ ] Lint and type checks passing for every touched package.
+- [ ] AC 1-11 satisfied. — implemented; AC5 backend cross-boundary parity assertions are written but unexecuted here.
+- [ ] Required tests passing (Task 9). — scoped suite (turbo test, backend excluded) passes 10/10; backend real-DB tests not executed in this sandbox.
+- [x] Lint and type checks passing for every touched package.
 - [x] Task 4's DB index research documented and its recommendation (no migration needed, evidence-based) acted on.
-- [ ] Pre-Coding Approval Gate's explicit human approval obtained before implementation starts.
+- [x] Pre-Coding Approval Gate's explicit human approval obtained before implementation starts.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Implemented — status: review (backend DB-backed integration verification NOT executed in this sandbox; see Completion Notes)
 
 ## Dev Agent Record
 
