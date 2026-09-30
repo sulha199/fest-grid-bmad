@@ -353,6 +353,7 @@ export type EventFilterInput = {
   isFree?: InputMaybe<Scalars['Boolean']['input']>;
   keyword?: InputMaybe<Scalars['String']['input']>;
   location?: InputMaybe<LocationFilterInput>;
+  temporalFilter?: InputMaybe<TemporalFilter>;
   types?: InputMaybe<Array<EventType>>;
   venueType?: InputMaybe<Scalars['String']['input']>;
 };
@@ -1207,6 +1208,11 @@ export type Subscription = {
   pendingExtractionCount: Scalars['Int']['output'];
 };
 
+export enum TemporalFilter {
+  Today = 'TODAY',
+  Upcoming = 'UPCOMING'
+}
+
 export type ToggleCalendarAdditionResult = {
   __typename?: 'ToggleCalendarAdditionResult';
   eventId: Scalars['ID']['output'];
@@ -1371,6 +1377,10 @@ export enum WidgetTheme {
 
 
 
+
+export type TemporalFilter =
+  | 'TODAY'
+  | 'UPCOMING';
 
 
 

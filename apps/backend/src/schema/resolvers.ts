@@ -2992,7 +2992,14 @@ Constraints and Guidelines:
 
       // Compute threshold precisely matching buildDefaultEventVisibilityConditions --
       // both now use the shared computePastEventThreshold helper (Story 0.36 AC6).
-      const now = new Date();
+      // Story 0.i5d Task 3: allow tests to pin `now` via `context.now` so the TODAY
+      // temporal-filter's `!ended` boundary can be asserted deterministically against the
+      // shared `ended-cases` fixture. Only honored in test builds -- never exposed as GraphQL
+      // input, so this cannot be influenced by a real client request.
+      const now =
+        process.env.NODE_ENV === 'test' && (context as { now?: Date })?.now instanceof Date
+          ? (context as { now: Date }).now
+          : new Date();
       const threshold = computePastEventThreshold({ now, hidePastEventsAfterDays });
 
       // Story 2.7 — the display/sort key uses the next-upcoming schedule,
@@ -3008,7 +3015,7 @@ Constraints and Guidelines:
       let baseQuery = query;
       if (filter) {
         try {
-          const filterQuery = buildEventsQueryCondition({ filter });
+          const filterQuery = buildEventsQueryCondition({ filter, currentDate: now });
           if (filterQuery) {
             if (baseQuery) {
               baseQuery = {

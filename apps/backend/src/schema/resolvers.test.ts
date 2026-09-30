@@ -9,6 +9,7 @@ import * as path from 'path';
 import { db, enableQueryDebug, resetExecutedQueryCount, getExecutedQueryCount } from '../db/client.js';
 import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, calendarAdditions, unprocessedScraperPayloads, instagramOembedCache, accountVotes } from '@festgrid/database';
 import { eq, inArray, count, sql } from 'drizzle-orm';
+import { ENDED_CASE_FIXTURES } from '@festgrid/domain/events';
 
 // read the generated schema for the yoga server
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
@@ -26,11 +27,16 @@ const schema = createSchema({
 });
 
 let mockUser: any = null;
+// Story 0.i5d Task 3: lets tests pin the `events` resolver's `now` deterministically
+// (only honored by resolvers.ts when NODE_ENV === 'test') so the TODAY temporal-filter's
+// `!ended` boundary can be asserted against the shared `ended-cases` fixture.
+let mockNow: Date | null = null;
 
 const yoga = createYoga({
   schema,
   context: () => ({
     user: mockUser,
+    now: mockNow ?? undefined,
   }) as any,
 });
 
@@ -503,6 +509,107 @@ test('events resolver integration via Yoga', async (t) => {
       assert.ok(ids.has(insideEvent.id), 'first scheduleDateRange condition should still match independently');
       assert.ok(ids.has(secondWeekEvent.id), 'second, independent scheduleDateRange condition should match');
       assert.ok(!ids.has(outsideEvent.id), 'event matching neither condition should NOT match');
+    });
+  });
+
+  await t.test('events - temporalFilter TODAY/UPCOMING (Story 0.i5d, AC2/AC3/AC5)', async (t) => {
+    const createdEventIds: string[] = [];
+
+    async function createEventWithSchedule(opts: {
+      eventName: string;
+      scheduleStartDate: string;
+      scheduleStartTime?: string | null;
+      scheduleEndDate?: string | null;
+      scheduleEndTime?: string | null;
+    }) {
+      const [event] = await db.insert(events).values({
+        eventName: opts.eventName,
+        location: 'Test City',
+      }).returning();
+      createdEventIds.push(event.id);
+      await db.insert(schedules).values({
+        eventId: event.id,
+        eventStartDate: opts.scheduleStartDate,
+        eventStartTime: opts.scheduleStartTime ?? null,
+        eventEndDate: opts.scheduleEndDate ?? null,
+        eventEndTime: opts.scheduleEndTime ?? null,
+        isMainSchedule: true,
+      });
+      return event;
+    }
+
+    t.after(async () => {
+      mockNow = null;
+      await db.delete(events).where(inArray(events.id, createdEventIds));
+    });
+
+    async function queryTemporalFilter(temporalFilter: 'TODAY' | 'UPCOMING') {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query Events($filter: EventFilterInput) {
+              events(filter: $filter, limit: 1000) {
+                items { id }
+              }
+            }
+          `,
+          variables: { filter: { temporalFilter } },
+        }),
+      });
+      const result = await response.json();
+      assert.ok(!result.errors, `GraphQL errors returned: ${JSON.stringify(result.errors)}`);
+      return new Set<string>(result.data.events.items.map((i: { id: string }) => i.id));
+    }
+
+    await t.test('TODAY includes/excludes exactly per the shared ended-cases fixture (AC3, AC5)', async () => {
+      for (const fixture of ENDED_CASE_FIXTURES) {
+        const now = new Date(fixture.now);
+        const todayISO = fixture.now.slice(0, 10);
+        const effectiveEnd = fixture.endDate ?? fixture.startDate;
+        const overlapsToday = fixture.startDate <= todayISO && todayISO <= effectiveEnd;
+        const expectedIncluded = overlapsToday && !fixture.expectedEnded;
+
+        const event = await createEventWithSchedule({
+          eventName: `0.i5d TODAY test - ${fixture.description}`,
+          scheduleStartDate: fixture.startDate,
+          scheduleStartTime: fixture.startTime,
+          scheduleEndDate: fixture.endDate,
+          scheduleEndTime: fixture.endTime,
+        });
+
+        mockNow = now;
+        const ids = await queryTemporalFilter('TODAY');
+        assert.strictEqual(
+          ids.has(event.id),
+          expectedIncluded,
+          `case "${fixture.description}": expected included=${expectedIncluded} (overlapsToday=${overlapsToday}, expectedEnded=${fixture.expectedEnded})`
+        );
+      }
+    });
+
+    await t.test('UPCOMING matches the existing scheduleDateRange.overlaps{tomorrow, null} condition (AC2)', async () => {
+      mockNow = new Date('2030-08-15T12:00:00Z');
+
+      const tomorrowEvent = await createEventWithSchedule({
+        eventName: '0.i5d UPCOMING test - starts tomorrow',
+        scheduleStartDate: '2030-08-16',
+      });
+      const todayOnlyEvent = await createEventWithSchedule({
+        eventName: '0.i5d UPCOMING test - today only, does not overlap [tomorrow, null)',
+        scheduleStartDate: '2030-08-15',
+        scheduleEndDate: '2030-08-15',
+      });
+      const farFutureEvent = await createEventWithSchedule({
+        eventName: '0.i5d UPCOMING test - far future',
+        scheduleStartDate: '2030-09-01',
+      });
+
+      const ids = await queryTemporalFilter('UPCOMING');
+      assert.ok(ids.has(tomorrowEvent.id), 'event starting tomorrow should be included');
+      assert.ok(ids.has(farFutureEvent.id), 'far-future event should be included');
+      assert.ok(!ids.has(todayOnlyEvent.id), 'event ending today (not overlapping [tomorrow, null)) should NOT be included');
     });
   });
 
