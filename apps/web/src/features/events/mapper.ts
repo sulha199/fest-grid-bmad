@@ -127,6 +127,22 @@ export function mapGraphQLEventToDetailViewProps(
     accountHref: event.sourceSocialMediaAccountProfile
       ? `/${getPlatformSlug(event.sourceSocialMediaAccountProfile.platform as any)}/${event.sourceSocialMediaAccountProfile.accountId}`
       : null,
+    accountLocation: (() => {
+      const defaultLocation = event.sourceSocialMediaAccountProfile?.defaultLocation;
+      if (!defaultLocation) {
+        return null;
+      }
+      const name = defaultLocation.placeName || defaultLocation.formattedAddress || '';
+      if (!name) {
+        return null;
+      }
+      return {
+        name,
+        coordinates: defaultLocation.coordinates ?? null,
+        confidence: defaultLocation.confidence ?? null,
+        matchType: defaultLocation.matchType ?? null,
+      };
+    })(),
     locale,
     labels,
   };

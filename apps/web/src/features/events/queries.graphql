@@ -79,6 +79,16 @@ query getEventBySlug($slug: String!) {
       displayName
       profileImageUrl
       accountType
+      defaultLocation {
+        coordinates {
+          lat
+          lng
+        }
+        placeName
+        formattedAddress
+        confidence
+        matchType
+      }
     }
     schedules {
       id

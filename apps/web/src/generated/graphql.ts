@@ -1520,7 +1520,7 @@ export type GetEventBySlugQueryVariables = Exact<{
 }>;
 
 
-export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, durableImageUrl: string | null, videoUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, publishedAt: string | null, organizerName: string | null, contactInfo: string | null, hasPrivateContact: boolean, isFavorited: boolean, favoriteCount: number, isHiddenForCurrentUser: boolean, instagramEmbed: { status: InstagramEmbedStatus, html: string | null, durableImageUrl: string | null } | null, links: Array<{ url: string, label: string | null }> | null, sourceSocialMediaAccountProfile: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null, accountType: string | null } | null, schedules: Array<{ id: string, isMainSchedule: boolean, title: string | null, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
+export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, durableImageUrl: string | null, videoUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, publishedAt: string | null, organizerName: string | null, contactInfo: string | null, hasPrivateContact: boolean, isFavorited: boolean, favoriteCount: number, isHiddenForCurrentUser: boolean, instagramEmbed: { status: InstagramEmbedStatus, html: string | null, durableImageUrl: string | null } | null, links: Array<{ url: string, label: string | null }> | null, sourceSocialMediaAccountProfile: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null, accountType: string | null, defaultLocation: { placeName: string | null, formattedAddress: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null } | null, schedules: Array<{ id: string, isMainSchedule: boolean, title: string | null, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
 
 export type GetEventForIcsExportQueryVariables = Exact<{
   id: string | number;
@@ -2590,6 +2590,16 @@ export const GetEventBySlugDocument = new TypedDocumentString(`
       displayName
       profileImageUrl
       accountType
+      defaultLocation {
+        coordinates {
+          lat
+          lng
+        }
+        placeName
+        formattedAddress
+        confidence
+        matchType
+      }
     }
     schedules {
       id
