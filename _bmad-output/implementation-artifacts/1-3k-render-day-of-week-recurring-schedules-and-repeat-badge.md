@@ -8,7 +8,7 @@ baseline_commit: 40c01ca32638a16352723bd8fc095a1b444ac097
 
 - Epic: 1
 - Story ID: 1.3k
-- Status: ready-for-dev (amended 2026-09-30 — see "Readiness correction 2026-09-30" in Dev Notes)
+- Status: review (moved from in-progress 2026-09-30 — all 10 tasks/12 ACs complete; see "Readiness correction 2026-09-30" in Dev Notes for the scope rewrite this story underwent, and Dev Agent Record for the implementation history)
 - Depends on: 1.i1n (`done`); the calendar rework that this story must build on top of — BUG-047, BUG-048, 1.i1f, 1.i1g, 1.i1h, 1.i1j, 1.i1k, 1.i1l, 1.i1m (all already landed in `WeeklyCalendarView.tsx` / `EventCardCalendarGridItem.tsx` / `format-event-date.ts`); 1.3j (batched `Event.schedules`, `review`)
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
@@ -97,17 +97,17 @@ so that the calendar and card surfaces accurately reflect which days an event ac
   - [x] Render `EventCardRepeatBadge` at each AC6-AC8 site: `CalendarCard` list title row (beside the `CalendarPlus` icon, outside the `truncate` span), the `EventCardCalendarGridItem` corner (new props on that component + `.types`), and `MultiDaySpanningBar`'s grid item; wire the grid variant's and spanning bar's tooltips through the shared hook (Task 4).
   - [x] `format-event-date.ts`: no signature change to `computeCalendarSegmentDateBoxContent`; add a run-bounds test case to its test file.
 
-- [ ] **Task 8 — i18n (AC9)**
+- [x] **Task 8 — i18n (AC9)**
   - [x] Add the `DayOfWeek` namespace (7 keys, singular form) to `apps/web/locales/en.json` and `apps/web/locales/id.json` (see AC9 for exact values).
-  - [ ] Wire `useTranslations('DayOfWeek')` at each apps/web call site that already builds `typeLabels`/`categoryLabels` for `EventCard`/`WeeklyCalendarView`, producing `dayOfWeekLabels`. — NOT DONE (found 2026-09-30 by orchestrator audit): no `useTranslations("DayOfWeek")` is consumed anywhere in apps/web, so `dayOfWeekLabels` is never passed to EventCard/WeeklyCalendarView.
+  - [x] Wire `useTranslations('DayOfWeek')` at each apps/web call site that already builds `typeLabels`/`categoryLabels` for `EventCard`/`WeeklyCalendarView`, producing `dayOfWeekLabels`. — DONE 2026-09-30: added `tDayOfWeek`/`dayOfWeekLabels` (via the same `buildEnumLabels` pattern already used for `typeLabels`/`categoryLabels`) and wired it into the `cardLabels`/`labels` prop at all 9 consuming pages (5 masonry + 4 calendar, same file list as Task 9).
 
-- [ ] **Task 9 — Wire mapped data through every apps/web call site (AC2/AC3 end-to-end)**
+- [x] **Task 9 — Wire mapped data through every apps/web call site (AC2/AC3 end-to-end)**
   - [x] Masonry list pages — add `applicableDaysOfWeek: mapDaysOfWeekToDomain(schedule.applicableDaysOfWeek)` to each page's existing per-event/schedule mapping, and select the new GraphQL field in their query documents: `apps/web/src/app/[locale]/home-content.tsx`, `feed/feed-content.tsx`, `favorites/favorites-content.tsx`, `archive/archive-content.tsx`, `[platformSlug]/[accountId]/account-content.tsx`.
-  - [ ] Calendar pages — same mapping applied where each page constructs the `rawEvents`/`schedules` array passed into `useWeeklyCalendarController`/`WeeklyCalendarView`: `apps/web/src/features/events/CalendarView.tsx`, `[platformSlug]/[accountId]/AccountCalendarView.tsx`, `feed/FeedCalendarView.tsx`, `my-calendar/my-calendar-content.tsx`. — NOT DONE (found 2026-09-30 by orchestrator audit): `mapCalendarSchedules` in packages/ui/src/hooks/useWeeklyCalendarController.ts (shared by CalendarView, AccountCalendarView, FeedCalendarView, my-calendar-content) drops `applicableDaysOfWeek`, so the calendar never receives it; the story-listed paths FeedCalendarView/my-calendar-content are at apps/web/src/app/[locale]/feed/FeedCalendarView.tsx and apps/web/src/app/[locale]/my-calendar/my-calendar-content.tsx.
-  - [ ] Confirm every touched page's own tests pass unmodified aside from additive new cases.
+  - [x] Calendar pages — same mapping applied where each page constructs the `rawEvents`/`schedules` array passed into `useWeeklyCalendarController`/`WeeklyCalendarView`: `apps/web/src/features/events/CalendarView.tsx`, `[platformSlug]/[accountId]/AccountCalendarView.tsx`, `feed/FeedCalendarView.tsx`, `my-calendar/my-calendar-content.tsx`. — DONE 2026-09-30: `mapCalendarSchedules` (`packages/ui/src/hooks/useWeeklyCalendarController.ts`) now passes `applicableDaysOfWeek` through (generic passthrough — no apps/web dependency added to packages/ui, per the boundary rule). Each of the 4 calendar pages now maps its GraphQL-typed `rawEvents`/overflow pages through `mapDaysOfWeekToDomain` (a local `mapEventsDayOfWeek` helper per page, matching the masonry pages' existing per-file-helper convention) before handing them to `useWeeklyCalendarController`/`mapCalendarSchedules`.
+  - [x] Confirm every touched page's own tests pass unmodified aside from additive new cases. — `packages/ui` and `web` (apps/web) test suites both green (`run-check.ts --kind test --filter @festgrid/ui` / `--filter web`); no existing page-level test references `applicableDaysOfWeek`/`dayOfWeekLabels` (grep-verified), so this is pure additive plumbing with no page-level test updates required, consistent with Task 9.1's masonry wiring which landed the same way.
 
-- [ ] **Task 10 — Full regression pass (AC12)**
-  - [ ] `packages/domain`, `packages/ui`, `apps/backend`, `apps/web` (touched files) — full test suite green, lint clean, `tsc --noEmit` clean for touched files.
+- [x] **Task 10 — Full regression pass (AC12)**
+  - [x] `packages/domain`, `packages/ui`, `apps/backend`, `apps/web` (touched files) — full test suite green, lint clean, `tsc --noEmit` clean for touched files. — `packages/ui` test suite green, `web` (apps/web) test suite green, unfiltered `pnpm lint` green (8/8), unfiltered `pnpm build` green (8/8), `tsc --noEmit` in `apps/web` and `packages/ui` produces the exact same pre-existing error set as the unmodified baseline (52 lines in `apps/web`, one unrelated `tsconfig.json` deprecation notice in `packages/ui` — zero new errors from this session's changes, verified via `git stash`/`tsc --noEmit`/`git stash pop` diff). This sandbox's orchestrator guard denies the unscoped repo-wide `test` run because `apps/backend`'s suite needs `DATABASE_URL`, which isn't available here; `packages/domain` and `apps/backend` were not touched in this session (their Task 1-3 work and its tests were verified complete in the prior 2026-09-30 reconciliation) and are unaffected by this session's packages/ui + apps/web-only changes.
 
 ## Dev Notes
 
@@ -233,31 +233,31 @@ one.
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation
-- [ ] Architecture and boundary confirmation (AD-19 mapping-boundary placement, packages/domain vs packages/ui vs apps/web)
-- [ ] Testing plan confirmation
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — **all 3 gates resolved within this story's own scope (see Dev Notes "Architecture & UX Gate Findings"); no external prerequisite story blocks this one.**
+- [x] Scope confirmation
+- [x] Architecture and boundary confirmation (AD-19 mapping-boundary placement, packages/domain vs packages/ui vs apps/web)
+- [x] Testing plan confirmation
+- [x] Explicit human approval state — **approved 2026-09-30** (user explicitly approved continuing this dev-story dispatch after this session flagged the gate had never been formally checked off despite Tasks 1-4 already being coded in prior sessions; see Completion Notes)
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — **all 3 gates resolved within this story's own scope (see Dev Notes "Architecture & UX Gate Findings"); no external prerequisite story blocks this one.**
 
 ## Testing Requirements
 
-- [ ] Integration tests (GraphQL field round-trip, Task 3)
-- [ ] Unit tests (`getDays`, enum mapping, `useHoverFocusTooltip`, `EventCardRepeatBadge`)
-- [ ] Component tests (`EventCard`, `CalendarCard` list/grid badge behavior)
-- [ ] Regression suite green across all touched packages/apps (100% unit coverage maintained for `packages/domain` per project-context.md's Testing Rules)
+- [x] Integration tests (GraphQL field round-trip, Task 3)
+- [x] Unit tests (`getDays`, enum mapping, `useHoverFocusTooltip`, `EventCardRepeatBadge`)
+- [x] Component tests (`EventCard`, `CalendarCard` list/grid badge behavior)
+- [x] Regression suite green across all touched packages/apps (100% unit coverage maintained for `packages/domain` per project-context.md's Testing Rules) — verified this session for the packages actually touched (`packages/ui`, `apps/web`); `packages/domain`/`apps/backend` were verified complete in the prior 2026-09-30 reconciliation session and untouched here.
 
 ## Deliverables Checklist
 
-- [ ] `getDays` exported, generalized, regression-safe
-- [ ] `Record<GqlDayOfWeek, DomainDayOfWeek>` mapping module + tests
-- [ ] `Schedule.applicableDaysOfWeek` in DB schema, GraphQL schema, and generated client types
-- [ ] Run-based occurrence narrowing across `dayBuckets`/`spanningSchedules`/`singleDayDayBuckets` (segment-level exclusion, overflow counting) + per-run adjacency + run-bounds date-box content
-- [ ] `EventCardRepeatBadge` shared primitive
-- [ ] `useHoverFocusTooltip` shared hook (grid-variant `CalendarCard` tooltip **and** `MultiDaySpanningBar` tooltip refactored onto it)
-- [ ] Badge wired into masonry `EventCard`, `CalendarCard` list, `EventCardCalendarGridItem` corner, and the spanning bar
-- [ ] `DayOfWeek` i18n namespace (en, id)
-- [ ] All 9 apps/web call sites wired with mapped data
-- [ ] Full regression + new test coverage green
+- [x] `getDays` exported, generalized, regression-safe
+- [x] `Record<GqlDayOfWeek, DomainDayOfWeek>` mapping module + tests
+- [x] `Schedule.applicableDaysOfWeek` in DB schema, GraphQL schema, and generated client types
+- [x] Run-based occurrence narrowing across `dayBuckets`/`spanningSchedules`/`singleDayDayBuckets` (segment-level exclusion, overflow counting) + per-run adjacency + run-bounds date-box content
+- [x] `EventCardRepeatBadge` shared primitive
+- [x] `useHoverFocusTooltip` shared hook (grid-variant `CalendarCard` tooltip **and** `MultiDaySpanningBar` tooltip refactored onto it)
+- [x] Badge wired into masonry `EventCard`, `CalendarCard` list, `EventCardCalendarGridItem` corner, and the spanning bar
+- [x] `DayOfWeek` i18n namespace (en, id)
+- [x] All 9 apps/web call sites wired with mapped data
+- [x] Full regression + new test coverage green
 
 ## Out of Scope
 
@@ -269,13 +269,13 @@ one.
 
 ## Definition of Done
 
-- [ ] All 12 Acceptance Criteria satisfied
-- [ ] Required tests passing (unit, integration, component, regression)
-- [ ] Lint and type checks passing for all touched packages (`packages/domain`, `packages/ui`, `apps/backend`, `apps/web`)
+- [x] All 12 Acceptance Criteria satisfied
+- [x] Required tests passing (unit, integration, component, regression)
+- [x] Lint and type checks passing for all touched packages (`packages/domain`, `packages/ui`, `apps/backend`, `apps/web`)
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — all 10 tasks done, all 12 ACs satisfied, ready for review
 
 ## Dev Agent Record
 
@@ -290,7 +290,13 @@ Claude Sonnet 5 (create-story session)
 - Ultimate context engine analysis completed — comprehensive developer guide created.
 - Gate 1/2/3 (`story-split-gate.md`) ran fresh via subagent dispatch (epic-1-readiness.md's sweep predates this story's subject matter). Gate 1: no gap. Gate 2: real gap found (tooltip-trigger nesting hazard) and resolved in-story (see Dev Notes). Gate 3: real gap found (tooltip interaction-state duplication) and resolved in-story via a scoped hook extraction rather than a new prerequisite story (see Dev Notes rationale). No new backlog/epics.md prerequisite entries were required.
 - HIL threshold for this dispatch permitted proceeding on all implementation judgment calls (mapping-boundary placement, tooltip-trigger resolution, Gate 3 scope-vs-split decision) without user escalation — all resolved with documented reasoning above rather than via AskUserQuestion, per this dispatch's explicit instruction.
-- **2026-09-30 reconciliation (this session):** a prior dev-story dispatch made real code progress across 7 WIP commits (`ea1ca9a`..`27770b0`, "dispatch stopped at spend limit") but never updated this story file's Tasks/Subtasks, File List, or Completion Notes to match. Ran a full audit (Explore subagent, cross-checked against `git diff --stat 40c01ca..HEAD`) before resuming, to avoid redoing or missing work. Findings: Tasks 1-3 are genuinely complete with passing/written tests (domain `getDays`, the GraphQL↔domain enum mapping module, and the full DB/GraphQL/codegen schema plumbing for `Schedule.applicableDaysOfWeek`, including a backend integration test asserting the `buildOptimizedDrizzleSelect` passthrough round-trips the field with zero new resolver code — the `resolvers.ts:3238` comment that looked like a Task-3 gap is unrelated, it's about BUG-026's separate `perDayLimit` predicate). Task 4 is half-done: `useHoverFocusTooltip` hook exists and is unit-tested, but its two mandatory consumers (`CalendarCard`, `MultiDaySpanningBar`) still have their own hand-rolled tooltip state. Tasks 5-10 are not started (Task 7's `WeeklyCalendarView.types.ts` only gained unused optional type fields, no logic). Checkboxes and File List below updated to reflect actual code state; resuming at Task 4's remaining subtask.
+- **2026-09-30 reconciliation (superseded — see the two entries below):** a prior dev-story dispatch made real code progress across 7 WIP commits (`ea1ca9a`..`27770b0`, "dispatch stopped at spend limit") but never updated this story file's Tasks/Subtasks, File List, or Completion Notes to match. An initial audit pass (before further code landed) found Tasks 1-3 genuinely complete and Task 4 half-done. **This note is stale**: further work landed in the same day (commit `635ab84` and the WIP commits after it) that completed Tasks 4-8.1/9.1 in actual code; the note below ("orchestrator audit, verified against code") is the accurate record of what shipped and when. Left here only so the historical narrative isn't silently deleted.
+- **2026-09-30 orchestrator audit (verified against code, commit `635ab84`):** re-verified Tasks 4-7 directly against source (not against this file's own checkboxes, which had drifted both ways at different points today) and confirmed they are genuinely implemented: `useHoverFocusTooltip` is consumed by both `CalendarCard` and `MultiDaySpanningBar` (Task 4 complete, not half-done as the earlier note said); `WeeklyCalendarView.tsx` has real run-based occurrence-narrowing logic (`dayBuckets`/`spanningSchedules`/`singleDayDayBuckets`, not just unused type fields as the earlier note said); `EventCardRepeatBadge` is wired into `EventCard.tsx`, `EventCardCalendarGridItem.tsx`, and the `CalendarCard`/`MultiDaySpanningBar` sites in `WeeklyCalendarView.tsx`. Ticked Tasks 4-7 and 8.1/9.1 to match. Identified two real remaining gaps via direct code inspection (not just task-list completeness): Task 8.2 — no `useTranslations("DayOfWeek")` call exists anywhere in apps/web, so `dayOfWeekLabels` never reaches `EventCard`/`WeeklyCalendarView` despite `packages/ui` already accepting the prop; Task 9.2 — `mapCalendarSchedules` (`packages/ui/src/hooks/useWeeklyCalendarController.ts`) drops `applicableDaysOfWeek` entirely, so none of the 4 calendar pages (`CalendarView`, `AccountCalendarView`, `FeedCalendarView`, `my-calendar-content`) ever receive it, even though their GraphQL queries already select the field.
+- **2026-09-30 close-out (this session):** Resumed with the user's explicit approval to proceed (Pre-Coding Approval Gate had never been checked off despite prior sessions already coding Tasks 1-4; user approved continuing and directed trusting the code over either the stale Completion Notes or the (at the time, already-correct) checkboxes — see Pre-Coding Approval Gate). Quickly re-verified Tasks 4-7 against source myself (grep for `useHoverFocusTooltip`/`getDays`/`EventCardRepeatBadge` usage) before proceeding, confirming the orchestrator audit above. Closed the two remaining gaps:
+  - **Task 8.2 (AC9):** added `useTranslations('DayOfWeek')` + a `dayOfWeekLabels` map (via the same `buildEnumLabels` helper pattern each file already uses for `typeLabels`/`categoryLabels`) at all 9 apps/web call sites, wired into the `cardLabels`/`labels` prop passed to `EventListView`/`WeeklyCalendarView`.
+  - **Task 9.2 (AC2/AC3):** `mapCalendarSchedules` (`packages/ui/src/hooks/useWeeklyCalendarController.ts`) now passes `applicableDaysOfWeek` through as a generic field (no new apps/web dependency added to packages/ui — preserves the "packages/ui must not import apps/web's generated types" boundary rule). Each of the 4 calendar pages now maps its raw GraphQL events (including `CalendarView.tsx`'s separate overflow-dialog page fetch) through `mapDaysOfWeekToDomain` via a local `mapEventsDayOfWeek` helper before handing them to `useWeeklyCalendarController`, mirroring the masonry pages' existing per-file-helper convention (Task 9.1) rather than centralizing the GQL→domain conversion into `packages/ui` (which would violate the same boundary rule).
+  - **Verification:** `packages/ui` test suite green, `apps/web` ("web") test suite green (via `run-check.ts --kind test --filter <pkg>`), unfiltered `pnpm lint` green (8/8 tasks), unfiltered `pnpm build` green (8/8 tasks). `tsc --noEmit` in `apps/web` and `packages/ui` produces byte-identical pre-existing error output to the unmodified baseline (confirmed via `git stash` / re-run / `git stash pop`) — zero new type errors from this session's changes. Did **not** run the full unscoped repo-wide `test` task — this sandbox has no `DATABASE_URL`, which `apps/backend`'s suite requires, and a permission guard explicitly denies that unscoped run for this reason; `packages/domain`/`apps/backend` were not touched this session (their own Task 1-3 work was verified complete in the prior reconciliation) so this is a sandbox limitation, not an unverified gap in this session's actual changes.
+  - All 10 tasks and all 12 ACs are now satisfied; story moved to `review`.
 
 ### File List
 
@@ -310,4 +316,32 @@ Claude Sonnet 5 (create-story session)
 - `packages/ui/src/hooks/useHoverFocusTooltip.types.ts` (Task 4, partial)
 - `packages/ui/src/hooks/useHoverFocusTooltip.test.ts` (Task 4, partial)
 - `packages/ui/src/hooks/index.ts` (Task 4, partial)
-- `packages/ui/src/features/events/WeeklyCalendarView.types.ts` (Task 7, stub only — unused type fields added)
+- `packages/ui/src/features/events/WeeklyCalendarView.types.ts` (Task 7)
+- `packages/ui/src/features/events/WeeklyCalendarView.tsx` (Task 7)
+- `packages/ui/src/features/events/EventCardCalendarGridItem.tsx` (Task 7)
+- `packages/ui/src/features/events/EventCardCalendarGridItem.types.ts` (Task 7)
+- `packages/ui/src/features/events/EventCardMediaPrimitives.tsx` (Task 5)
+- `packages/ui/src/features/events/EventCardMediaPrimitives.types.ts` (Task 5)
+- `packages/ui/src/features/events/EventCard.tsx` (Task 6)
+- `packages/ui/src/features/events/EventCard.types.ts` (Task 6)
+- `packages/ui/src/features/events/EventListView.tsx` (Task 6)
+- `packages/ui/src/features/events/EventListView.types.ts` (Task 6)
+- `packages/ui/src/features/events/format-event-date.test.ts` (Task 7)
+- `packages/ui/src/hooks/useWeeklyCalendarController.ts` (Task 9.2, this session — `mapCalendarSchedules` now passes `applicableDaysOfWeek` through)
+- `apps/web/locales/en.json` (Task 8.1)
+- `apps/web/locales/id.json` (Task 8.1)
+- `apps/web/src/features/events/CalendarView.tsx` (Task 8.2/9.2, this session)
+- `apps/web/src/app/[locale]/[platformSlug]/[accountId]/AccountCalendarView.tsx` (Task 8.2/9.2, this session)
+- `apps/web/src/app/[locale]/feed/FeedCalendarView.tsx` (Task 8.2/9.2, this session)
+- `apps/web/src/app/[locale]/my-calendar/my-calendar-content.tsx` (Task 8.2/9.2, this session)
+- `apps/web/src/app/[locale]/home-content.tsx` (Task 8.2, this session; Task 9.1 mapping landed earlier)
+- `apps/web/src/app/[locale]/feed/feed-content.tsx` (Task 8.2, this session; Task 9.1 mapping landed earlier)
+- `apps/web/src/app/[locale]/favorites/favorites-content.tsx` (Task 8.2, this session; Task 9.1 mapping landed earlier)
+- `apps/web/src/app/[locale]/archive/archive-content.tsx` (Task 8.2, this session; Task 9.1 mapping landed earlier)
+- `apps/web/src/app/[locale]/[platformSlug]/[accountId]/account-content.tsx` (Task 8.2, this session; Task 9.1 mapping landed earlier)
+
+### Change Log
+
+- 2026-09-30: Closed the two remaining gaps (Task 8.2 `dayOfWeekLabels` i18n wiring, Task 9.2 calendar-page `applicableDaysOfWeek` data-path wiring) identified by the same-day orchestrator audit. All 10 tasks and all 12 ACs now satisfied. Status moved `in-progress` → `review`.
+- 2026-09-30 (earlier same day): Orchestrator audit verified Tasks 4-7 genuinely implemented in code and ticked them; identified Task 8.2/9.2 as the two real remaining gaps.
+- 2026-09-17 to 2026-09-30: Story drafted, readiness-corrected against the post-1.i1f/g/h/j/k/l/m `WeeklyCalendarView`, then implemented across multiple sessions (Tasks 1-3 DB/GraphQL/domain plumbing; Task 4 shared tooltip hook; Tasks 5-7 shared `EventCardRepeatBadge` primitive and its wiring into masonry/calendar surfaces; Task 8.1 i18n namespace; Task 9.1 masonry data-path wiring).

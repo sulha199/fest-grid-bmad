@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-30T15:19:34Z
+last_updated: 2026-09-30T21:54:53Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -709,7 +709,7 @@ development_status:
   # added 2026-09-17 via bmad-create-story (IDEA-003, resolved via bmad-ux +
   # bmad-architecture AD-19): day-of-week recurrence occurrence-expansion +
   # event_card_repeat_badge across all 3 card families. See epics.md Story 1.3k.
-  1-3k-render-day-of-week-recurring-schedules-and-repeat-badge: in-progress
+  1-3k-render-day-of-week-recurring-schedules-and-repeat-badge: review
   # added 2026-09-19 via bmad-create-story (BUG-025). See epics.md Story 1.3l.
   # Implemented + verified 2026-09-20 (cline): Tasks 1-6 complete. Feed/Favorites now
   # wire useNearbyFilter/useAIFilter; buildFeedQueryCondition/buildFavoritesQueryCondition
