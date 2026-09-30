@@ -702,6 +702,21 @@ This document defines the core architectural invariants for the FestDaily applic
           different route (event-detail page vs. the three list views) and BUG-035 is a
           materially different fix category (frontend caching, not DB batching) that doesn't
           belong bundled into Story A's DB-layer change set.
+        - **Story sequence item B shipped (Story 1.6c, 2026-09-30).** BUG-035's fix used the
+          **authenticated `cache()` + `HydrationBoundary`** variant, not the anonymous-only
+          alternative: the SSR fetch that seeds the client's `getEventBySlug` cache reads the
+          visitor's session server-side (`createSupabaseServerClient()`) and forwards the token
+          per-request via `graphqlClient.request()`'s own `headers` argument — never the shared
+          singleton's `.setHeader()`, which would race across concurrent requests from different
+          users in the same Node process. This was a real, escalated tradeoff (not mechanical):
+          an anonymous-only SSR fetch would have hydrated `isFavorited`/`isAddedToCalendar`
+          forced `false` for every visitor, including logged-in ones with real favorited/
+          calendar-added state, masked for up to the app's 30s default `staleTime`. A future
+          route introducing a similar SSR-fetch-plus-client-hydration page (Gate 3 confirmed
+          this story's scope is narrow-by-design, not shared infra) should default to this same
+          authenticated pattern, not the cheaper anonymous-only one, unless that route's data has
+          no per-visitor-authenticated fields at all. See Story 1.6c's own Dev Notes → "Design
+          Decision" for the full tradeoff writeup.
 *   **Considered and rejected:** Leaving `schedules` as a per-row field resolver while only
     fixing the scalar fields (Rule 1) — rejected because `schedules{...}` is requested on every
     item by the shared `getEvents.graphql` document (per BUG-030's own finding) and is exactly as
