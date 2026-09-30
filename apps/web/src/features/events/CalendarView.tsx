@@ -316,6 +316,7 @@ export function CalendarView({ q, types, categories, nearby, viewerCoord, nearby
     statusUpcoming: tCalendar('statusUpcoming'),
     tomorrow: tCalendar('tomorrow'),
     nearbyBadge: (distanceKm: number) => formatLocalizedNearbyBadgeDistance(locale, distanceKm),
+    dayOfWeekLabels,
   };
 
   const getWeekRange = (date: Date) => {

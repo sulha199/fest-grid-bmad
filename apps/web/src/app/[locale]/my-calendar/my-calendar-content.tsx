@@ -12,11 +12,45 @@ import { useRouter } from '@/i18n/navigation';
 import { useSearchParams } from 'next/navigation';
 import { usePostHog } from '@festgrid/analytics';
 import { useAuthSession } from '@/components/providers/auth-session-provider';
+import { DayOfWeek as DomainDayOfWeek } from '@festgrid/domain/events';
+import { mapDaysOfWeekToDomain } from '@/lib/day-of-week-mapping';
+
+// Falls back to the raw enum value if a translation key is missing, matching the same
+// pattern already established in home-content.tsx/feed-content.tsx/etc.
+function buildEnumLabels(values: string[], translate: (key: string) => string) {
+  return Object.fromEntries(values.map((value) => [value, translate(value)]));
+}
+
+/**
+ * Story 1.3k Task 9 (AC2/AC3 end-to-end) — maps every schedule's GraphQL-typed
+ * `applicableDaysOfWeek` to the domain enum before the events reach `useWeeklyCalendarController`
+ * (whose shared `mapCalendarSchedules` lives in packages/ui and must not import apps/web's
+ * generated types/mapping module — see the story's "Mapping boundary placement" Dev Note).
+ */
+function mapEventsDayOfWeek<T extends { schedules?: ({ applicableDaysOfWeek?: any } | null | undefined)[] | null }>(
+  events: T[] | null | undefined
+): T[] | undefined {
+  return events?.map((event) => ({
+    ...event,
+    schedules: (event.schedules ?? []).map((schedule) => ({
+      ...schedule,
+      applicableDaysOfWeek: mapDaysOfWeekToDomain(schedule?.applicableDaysOfWeek),
+    })),
+  })) as T[] | undefined;
+}
 
 export function MyCalendarContent() {
   const t = useTranslations('MyCalendarPage');
   const tCalendar = useTranslations('WeeklyCalendarView');
+  const tDayOfWeek = useTranslations('DayOfWeek');
   const locale = useLocale();
+
+  // Story 1.3k Task 8 (AC9) — DayOfWeek i18n namespace, passed through to WeeklyCalendarView as
+  // `dayOfWeekLabels`.
+  const dayOfWeekLabels = useMemo(
+    () => buildEnumLabels(Object.values(DomainDayOfWeek), tDayOfWeek),
+    [tDayOfWeek]
+  );
   const router = useRouter();
   const searchParams = useSearchParams();
   const posthog = usePostHog();
@@ -67,6 +101,10 @@ export function MyCalendarContent() {
     }
   );
 
+  // Story 1.3k Task 9 (AC2/AC3 end-to-end) — GQL-to-domain enum mapping applied before the raw
+  // events reach `useWeeklyCalendarController`'s shared `mapCalendarSchedules` (packages/ui).
+  const mappedRawEvents = useMemo(() => mapEventsDayOfWeek(data?.events?.items), [data?.events?.items]);
+
   const {
     schedules: rawSchedules,
     status,
@@ -83,7 +121,7 @@ export function MyCalendarContent() {
       setWeek(newWeek);
     },
     todayStr,
-    rawEvents: data?.events?.items,
+    rawEvents: mappedRawEvents,
     queryStatus,
     queryError,
     errorStateLabel: t('calendarErrorState'),
@@ -153,6 +191,7 @@ export function MyCalendarContent() {
     statusUpcoming: tCalendar('statusUpcoming'),
     tomorrow: tCalendar('tomorrow'),
     nearbyBadge: (distanceKm: number) => formatLocalizedNearbyBadgeDistance(locale, distanceKm),
+    dayOfWeekLabels,
   };
 
   const getWeekRange = (date: Date) => {
