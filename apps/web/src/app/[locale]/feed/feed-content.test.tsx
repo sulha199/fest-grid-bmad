@@ -434,14 +434,22 @@ describe('FeedContent - Story 0.i5e (pagination controller)', () => {
     const toggleButton = screen.getByRole('button', { name: 'Remove from Favorites' });
     fireEvent.click(toggleButton);
 
-    // Optimistic flip applied immediately: unfavorited, count decremented to 4
     await waitFor(() => {
-      expect(screen.getByText('4')).toBeInTheDocument();
+      const toggleCalls = mockRequestSpy.mock.calls.filter(([doc]: any) =>
+        JSON.stringify(doc).includes('toggleFavorite')
+      );
+      expect(toggleCalls.length).toBe(1);
     });
 
-    // Mutation rejects -- onError must restore the pre-toggle card state (count back to 5)
+    // The mutation rejects. Under the pre-existing exact-key bug (AC6 extension, readiness
+    // correction 2026-09-30), onMutate's exact-key getQueryData never matched the real
+    // (nearby/aiFilter/resetToken-bearing) cache entry, so onError's rollback silently no-op'd
+    // and the optimistic count (4) was left stuck permanently. With the getQueriesData-snapshot
+    // fix, onError correctly restores the pre-toggle value -- the settled state must be back to
+    // 5, not stuck at the optimistically-applied 4.
     await waitFor(() => {
       expect(screen.getByText('5')).toBeInTheDocument();
+      expect(screen.queryByText('4')).not.toBeInTheDocument();
     });
   });
 });
