@@ -49,6 +49,19 @@ vi.mock('@/lib/push-notifications', () => ({
   requestPushPermissionAndRegister: () => mockRequestPushPermissionAndRegister(),
 }));
 
+// Story 0.38 (AC15/Task 6.2) — mocked so the Settings-tab "Install App" action can be
+// exercised independently of Story 0.38a's real beforeinstallprompt/localStorage logic.
+const mockPromptInstall = vi.fn();
+vi.mock('@/lib/hooks/usePwaInstallPrompt', () => ({
+  usePwaInstallPrompt: () => ({
+    canShow: true,
+    platform: 'android',
+    promptInstall: mockPromptInstall,
+    dismissPermanently: vi.fn(),
+    remindLater: vi.fn(),
+  }),
+}));
+
 let updateUserSettingsVariables: any = null;
 let registerFcmTokenVariables: any = null;
 let settingsEnabledValue = false;
@@ -323,5 +336,79 @@ describe('NotificationsContent', () => {
 
     expect(toggle).not.toBeChecked();
     expect(mockPosthogCapture).not.toHaveBeenCalled();
+  });
+
+  // Story 0.38 (AC15/Task 6.2)
+  describe('Install App fallback (Story 0.38 AC15)', () => {
+    it('is always visible, independent of banner/dismiss state', async () => {
+      mockSession = { user: { id: 'user-1' } };
+      settingsEnabledValue = false;
+      renderWithProviders(<NotificationsContent />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Notification Settings')).toBeInTheDocument();
+      });
+
+      expect(screen.getByRole('button', { name: 'Install' })).toBeInTheDocument();
+    });
+
+    it('android branch: calls promptInstall and fires pwa_install_prompt_accepted with source "settings"', async () => {
+      mockSession = { user: { id: 'user-1' } };
+      settingsEnabledValue = false;
+      mockPromptInstall.mockResolvedValue('accepted');
+      renderWithProviders(<NotificationsContent />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Notification Settings')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Install' }));
+
+      await waitFor(() => {
+        expect(mockPromptInstall).toHaveBeenCalledTimes(1);
+        expect(mockPosthogCapture).toHaveBeenCalledWith('pwa_install_prompt_accepted', {
+          source: 'settings',
+          platform: 'android',
+        });
+      });
+    });
+
+    it('android branch: fires pwa_install_prompt_declined when the native prompt is dismissed', async () => {
+      mockSession = { user: { id: 'user-1' } };
+      settingsEnabledValue = false;
+      mockPromptInstall.mockResolvedValue('dismissed');
+      renderWithProviders(<NotificationsContent />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Notification Settings')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Install' }));
+
+      await waitFor(() => {
+        expect(mockPosthogCapture).toHaveBeenCalledWith('pwa_install_prompt_declined', {
+          source: 'settings',
+          platform: 'android',
+        });
+      });
+    });
+
+    it('iOS branch: opens PwaInstallIosModal and fires pwa_install_ios_modal_opened with source "settings"', async () => {
+      mockSession = { user: { id: 'user-1' } };
+      settingsEnabledValue = false;
+      mockPromptInstall.mockResolvedValue('ios-instructions');
+      renderWithProviders(<NotificationsContent />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Notification Settings')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Install' }));
+
+      await waitFor(() => {
+        expect(mockPosthogCapture).toHaveBeenCalledWith('pwa_install_ios_modal_opened', { source: 'settings' });
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+      });
+    });
   });
 });

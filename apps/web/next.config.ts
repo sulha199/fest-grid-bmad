@@ -55,6 +55,18 @@ const nextConfig = {
               "connect-src 'self' https:",
             ].join('; '),
           },
+          // Story 0.38 (AC6/AC7, AD-21) — the event-detail page's iframe loads
+          // from https://www.instagram.com, a fixed, confirmed origin (unlike
+          // Instagram's dynamically-sharded CDN media host, which cannot be
+          // predicted ahead of the real request — deliberately not hinted
+          // here). The HTTP `Link` response header is used rather than a JSX
+          // `<link>` tag since Next.js App Router's Metadata API has no
+          // dedicated preconnect field and raw `<link>`s aren't reliably
+          // hoisted into `<head>` from a Server Component.
+          {
+            key: 'Link',
+            value: '<https://www.instagram.com>; rel=preconnect, <https://www.instagram.com>; rel=dns-prefetch',
+          },
         ],
       },
     ];

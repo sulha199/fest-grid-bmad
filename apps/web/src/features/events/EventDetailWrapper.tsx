@@ -312,6 +312,22 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
   const eventId = data?.eventBySlug?.id || ""
   const nav = useListNavigationForEvent(eventId, isModal)
 
+  // Story 0.38 (AC1, AC2) — register the dedicated, locale-scoped Instagram
+  // embed.js caching service worker. Deliberately NOT
+  // `apps/web/public/firebase-messaging-sw.js` (stays root-scoped, unrelated
+  // FCM push delivery) and NOT `apps/web/public/embed.js` (this project's own
+  // same-origin widget-embedding script, Epic 6). Firing once per locale
+  // actually visited (not eagerly for both locales) is a deliberate
+  // implementation choice — see AC2.
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return
+    navigator.serviceWorker
+      .register("/instagram-embed-cache-sw.js", { scope: `/${locale}/events/` })
+      .catch((err) => {
+        console.error("Failed to register instagram-embed-cache-sw.js", err)
+      })
+  }, [locale])
+
   // Fire analytics exactly once when details view is successfully opened with populated event data
   useEffect(() => {
     if (data?.eventBySlug) {

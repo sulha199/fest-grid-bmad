@@ -16,6 +16,8 @@ export * from './core/grid-container';
 export * from './core/route-loader';
 export * from './core/ambient-capability-banner-tokens';
 export * from './core/AmbientLocationBanner';
+export * from './core/PwaInstallBanner';
+export * from './core/PwaInstallIosModal';
 export * from './core/WeekPicker';
 export * from './core/LocationLink';
 export * from './core/soft-delete-toaster';
