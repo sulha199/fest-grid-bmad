@@ -116,6 +116,44 @@ export function endOfUtcDay(date: Date): Date {
   return d;
 }
 
+// Story 1.3j (AC3, AD-17 Rule 2) originated this batching inline inside the `events` list
+// resolver only. Story 1.6c (AC1) extracts it into this shared, callable function so
+// `event`/`eventBySlug` can reuse the exact same `IN (...)` batched-schedules query/grouping
+// shape instead of a separate implementation — this is a regression-neutral refactor: the
+// `events` resolver's own output is unchanged by this extraction (see resolvers.test.ts's
+// existing `events` schedules assertions, re-run unmodified after this change).
+//
+// `virtualFields` is optional and caller-supplied so each call site controls exactly which
+// computed schedule-level fields (e.g. `isAddedToCalendar`, gated on that caller's own `userId`)
+// are added to the batched select — the `events` resolver passes none (its own scope, unchanged
+// by this story), while `event`/`eventBySlug` pass an `isAddedToCalendar` entry (Story 1.6c
+// Task 2).
+async function batchScheduleRowsForEvents({
+  eventIds,
+  info,
+  path,
+  virtualFields,
+}: {
+  eventIds: string[];
+  info: any;
+  path: string | string[];
+  virtualFields?: Record<string, any>;
+}): Promise<Map<string, any[]>> {
+  const scheduleRows = await db.select({
+    ...buildOptimizedDrizzleSelect(schedules, info, { path, virtualFields }),
+    eventId: schedules.eventId,
+  }).from(schedules).where(inArray(schedules.eventId, eventIds));
+
+  const schedulesByEvent = new Map<string, any[]>();
+  for (const row of scheduleRows) {
+    const eventId = (row as any).eventId;
+    const list = schedulesByEvent.get(eventId) ?? [];
+    list.push(row);
+    schedulesByEvent.set(eventId, list);
+  }
+  return schedulesByEvent;
+}
+
 
 export const resolvers: Resolvers = {
   JSON: GraphQLJSON,
@@ -3462,19 +3500,14 @@ Constraints and Guidelines:
       // a single `IN (...)` query when requested (instead of one per-row query per Event), then
       // group by eventId and attach to each parent row. The batched rows are pre-populated on
       // the parent so `Event.schedules`'s passthrough (Task 4) reads them without an extra query.
+      // Story 1.6c (Task 1) extracted this into the shared `batchScheduleRowsForEvents` helper —
+      // this call site's own behavior/output is unchanged by that extraction.
       if (getRequestedFieldNames(info, 'items').has('schedules') && items.length > 0) {
-        const scheduleRows = await db.select({
-          ...buildOptimizedDrizzleSelect(schedules, info, { path: ['items', 'schedules'] }),
-          eventId: schedules.eventId,
-        }).from(schedules).where(inArray(schedules.eventId, items.map(i => (i as any).id)));
-
-        const schedulesByEvent = new Map<string, any[]>();
-        for (const row of scheduleRows) {
-          const eventId = (row as any).eventId;
-          const list = schedulesByEvent.get(eventId) ?? [];
-          list.push(row);
-          schedulesByEvent.set(eventId, list);
-        }
+        const schedulesByEvent = await batchScheduleRowsForEvents({
+          eventIds: items.map(i => (i as any).id),
+          info,
+          path: ['items', 'schedules'],
+        });
         for (const item of items) {
           (item as any).schedules = schedulesByEvent.get((item as any).id) ?? [];
         }
@@ -3579,7 +3612,47 @@ Constraints and Guidelines:
         .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
         .where(condition);
 
-      return (rows[0] as any) || null;
+      const row = (rows[0] as any) || null;
+
+      // Story 1.6c (AC1, AC6) — reuse Story 1.3j's shared batched-schedules code path (Task 1)
+      // instead of a separate per-row query, with a schedule-level `isAddedToCalendar` virtual
+      // field mirroring `fieldMap.isAddedToCalendar`'s existing Event-level shape one level down.
+      // An `IN (...)` query over a single-element id array is the same query shape as the
+      // `events` list resolver's page case, so no resolver-arity special-casing is needed.
+      if (row && getRequestedFieldNames(info).has('schedules')) {
+        // Silent auth probe — mirrors the `events` list resolver's own userId derivation. This
+        // resolver must keep working for anonymous visitors, so auth failure is swallowed here
+        // rather than propagated (no `requireAuth()`).
+        let userId: string | null = null;
+        try {
+          const authUser = eventsAuthProbe(context);
+          userId = authUser.userId;
+        } catch (err) {
+          if ((err as { extensions?: { code?: string } })?.extensions?.code !== 'UNAUTHENTICATED') {
+            throw err;
+          }
+        }
+
+        const schedulesByEvent = await batchScheduleRowsForEvents({
+          eventIds: [row.id],
+          info,
+          path: 'schedules',
+          virtualFields: {
+            isAddedToCalendar: userId ? exists(
+              db.select({ id: calendarAdditions.id })
+                .from(calendarAdditions)
+                .where(and(
+                  eq(calendarAdditions.userId, userId),
+                  eq(calendarAdditions.scheduleId, schedules.id),
+                  activeOnly(calendarAdditions)
+                ))
+            ) : sql`false`,
+          },
+        });
+        row.schedules = schedulesByEvent.get(row.id) ?? [];
+      }
+
+      return row;
     },
     eventBySlug: async (_: any, { slug, includeMyArchived }: any, context: any, info: any) => {
       const requestedFields = buildOptimizedDrizzleSelect(events, info);
@@ -3661,7 +3734,41 @@ Constraints and Guidelines:
         .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
         .where(condition);
 
-      return (rows[0] as any) || null;
+      const row = (rows[0] as any) || null;
+
+      // Story 1.6c (AC1, AC6) — see the identical `event` resolver comment above; this is the
+      // same shared batched-schedules code path, reused verbatim for the slug lookup.
+      if (row && getRequestedFieldNames(info).has('schedules')) {
+        let userId: string | null = null;
+        try {
+          const authUser = eventsAuthProbe(context);
+          userId = authUser.userId;
+        } catch (err) {
+          if ((err as { extensions?: { code?: string } })?.extensions?.code !== 'UNAUTHENTICATED') {
+            throw err;
+          }
+        }
+
+        const schedulesByEvent = await batchScheduleRowsForEvents({
+          eventIds: [row.id],
+          info,
+          path: 'schedules',
+          virtualFields: {
+            isAddedToCalendar: userId ? exists(
+              db.select({ id: calendarAdditions.id })
+                .from(calendarAdditions)
+                .where(and(
+                  eq(calendarAdditions.userId, userId),
+                  eq(calendarAdditions.scheduleId, schedules.id),
+                  activeOnly(calendarAdditions)
+                ))
+            ) : sql`false`,
+          },
+        });
+        row.schedules = schedulesByEvent.get(row.id) ?? [];
+      }
+
+      return row;
     },
     queryUnprocessedPayloads: async (_: any, { filters, first, after }: any, context: any) => {
       requireModerator(context);
@@ -4088,6 +4195,15 @@ Constraints and Guidelines:
   },
   Schedule: {
     isAddedToCalendar: async (parent: any, _: any, context: any) => {
+      // Story 1.6c (AC1) — passthrough: read the value pre-populated on the parent by the
+      // batched schedules query (`event`/`eventBySlug`, Task 2). Falls back to the legacy
+      // per-schedule query only when absent — mirrors the Event-level passthrough pattern
+      // already shipped by Story 1.3j (`Event.isFavorited`/`favoriteCount`/`isAddedToCalendar`).
+      // Without this check, Task 2's batched `isAddedToCalendar` virtual field would be computed
+      // but silently discarded, and this resolver would still issue one query per schedule.
+      if (parent.isAddedToCalendar !== undefined) {
+        return parent.isAddedToCalendar;
+      }
       try {
         const authUser = requireAuth(context);
         const rows = await db.select({ id: calendarAdditions.id })

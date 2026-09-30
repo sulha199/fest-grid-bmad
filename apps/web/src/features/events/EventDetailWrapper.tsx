@@ -59,7 +59,10 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     graphqlClient,
     undefined,
     {
-      enabled: !!session,
+      // Story 1.6c (AC5, FIND-030) — narrowed from `!!session` alone: this query is only useful
+      // when the event actually has a linked source account to subscribe to. Gating removes the
+      // call entirely for the common case of an event with no linked account.
+      enabled: !!session && !!data?.eventBySlug?.sourceSocialMediaAccountProfile,
     }
   )
 
