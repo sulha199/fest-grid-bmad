@@ -94,6 +94,7 @@ type Schedule {
   updatedAt: String!
   createdAt: String!
   isAddedToCalendar: Boolean!
+  applicableDaysOfWeek: [DayOfWeek!]
 }
 
 type Event {
