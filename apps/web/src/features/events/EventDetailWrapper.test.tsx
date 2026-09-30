@@ -1172,4 +1172,43 @@ describe("EventDetailWrapper", () => {
       expect(screen.getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "true")
     })
   })
+
+  it("does NOT invoke getMySubscriptions when the event has no linked source account (Story 1.6c AC5, FIND-030)", async () => {
+    currentMockEvent.sourceSocialMediaAccountProfile = null
+
+    const mySubscriptionsSpy = vi.fn(() =>
+      HttpResponse.json({ data: { mySubscriptions: currentMockSubscriptions } })
+    )
+    server.use(api.query("getMySubscriptions", mySubscriptionsSpy))
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    // Give any would-be in-flight request a chance to land before asserting it never did.
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(mySubscriptionsSpy).not.toHaveBeenCalled()
+  })
+
+  it("DOES invoke getMySubscriptions when the event has a linked source account and a session (Story 1.6c AC5, FIND-030)", async () => {
+    currentMockEvent.sourceSocialMediaAccountProfile = {
+      accountId: "123",
+      platform: "instagram",
+      username: "org",
+      displayName: "Org",
+      profileImageUrl: null,
+    }
+
+    const mySubscriptionsSpy = vi.fn(() =>
+      HttpResponse.json({ data: { mySubscriptions: currentMockSubscriptions } })
+    )
+    server.use(api.query("getMySubscriptions", mySubscriptionsSpy))
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+    await waitFor(() => {
+      expect(mySubscriptionsSpy).toHaveBeenCalled()
+    })
+  })
 })
