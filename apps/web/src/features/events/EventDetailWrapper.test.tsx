@@ -1054,8 +1054,13 @@ describe("EventDetailWrapper", () => {
 
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
     expect(screen.getByText("Org")).toBeInTheDocument()
-    const toggle = screen.getByTestId("subscribe-toggle")
-    expect(toggle).toHaveAttribute("aria-pressed", "false")
+    // Story 1.6c (AC5) — getMySubscriptions is now gated on eventBySlug's own data (it only
+    // starts once sourceSocialMediaAccountProfile is known), so the toggle briefly renders in
+    // its neutral/checking state before this resolves; wait for the settled state instead of
+    // asserting synchronously right after the heading appears.
+    await waitFor(() => {
+      expect(screen.getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "false")
+    })
   })
 
   it("clicking the toggle calls the subscribe mutation and updates to the subscribed state on success", async () => {
@@ -1070,8 +1075,12 @@ describe("EventDetailWrapper", () => {
 
     renderComponent()
 
-    const toggle = await screen.findByTestId("subscribe-toggle")
-    expect(toggle).toHaveAttribute("aria-pressed", "false")
+    // Story 1.6c (AC5) — see the identical comment in the preceding test: wait for the
+    // now-gated getMySubscriptions query to settle before asserting/clicking the toggle.
+    await waitFor(() => {
+      expect(screen.getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "false")
+    })
+    const toggle = screen.getByTestId("subscribe-toggle")
     fireEvent.click(toggle)
 
     await waitFor(() => {
