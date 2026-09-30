@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-27T00:00:00Z
+last_updated: 2026-09-30T03:35:54Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -792,7 +792,7 @@ development_status:
   # No prerequisite story added. Depended on by Story 1.6e (event-detail
   # schedule adoption) and Story 0.i6e (SubscribedAccountCard adoption),
   # both out of this story's own scope. See epics.md Story 1.6d.
-  1-6d-build-the-reusable-locationlink-component: ready-for-dev
+  1-6d-build-the-reusable-locationlink-component: in-progress
   # epics.md section added 2026-09-15 via bmad-correct-course (CC-021, same
   # proposal as 1-6d). sprint-status.yaml registration deferred to this
   # bmad-create-story session (2026-09-19). Amends EventDetailView.tsx's

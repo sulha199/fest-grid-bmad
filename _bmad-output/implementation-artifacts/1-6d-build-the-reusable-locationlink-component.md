@@ -134,11 +134,11 @@ Recent commit history (`203522c` `fix(cluster-b): stabilize infinite-scroll sent
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmed: build `LocationLink` as a standalone, presentation-only UI component in `packages/ui/src/core/`; no backend work, no live-data wiring, no consumer integration (Stories 1.6e/0.i6e wire the first real usage).
-- [ ] Architecture confirmed: component built with plain Tailwind + native HTML elements + `lucide-react` only (no Radix, no `next-intl`, no maps SDK), placed under `packages/ui/src/core/` as `LocationLink.tsx` with inline props (matching `WeekPicker`/`RawJsonViewer`).
-- [ ] Testing plan confirmed: Vitest + `@testing-library/react` component tests via the existing `packages/ui/vitest.config.ts` (`@festgrid/testing-config/vitest-react`), no new test-infra setup required.
-- [ ] Gate 1/2/3 findings acknowledged: all three run fresh (epic-1-readiness.md predates this story) and all three returned "No gap found" — no prerequisite story required.
-- [ ] Explicit human approval state (pending)
+- [x] Scope confirmed: build `LocationLink` as a standalone, presentation-only UI component in `packages/ui/src/core/`; no backend work, no live-data wiring, no consumer integration (Stories 1.6e/0.i6e wire the first real usage).
+- [x] Architecture confirmed: component built with plain Tailwind + native HTML elements + `lucide-react` only (no Radix, no `next-intl`, no maps SDK), placed under `packages/ui/src/core/` as `LocationLink.tsx` with inline props (matching `WeekPicker`/`RawJsonViewer`).
+- [x] Testing plan confirmed: Vitest + `@testing-library/react` component tests via the existing `packages/ui/vitest.config.ts` (`@festgrid/testing-config/vitest-react`), no new test-infra setup required.
+- [x] Gate 1/2/3 findings acknowledged: all three run fresh (epic-1-readiness.md predates this story) and all three returned "No gap found" — no prerequisite story required.
+- [x] Explicit human approval state: **Approved** by shulha (2026-09-30, via bmad-dev-story activation).
 
 ## Testing Requirements
 
