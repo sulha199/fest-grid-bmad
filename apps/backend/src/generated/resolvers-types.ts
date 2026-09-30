@@ -1070,6 +1070,7 @@ export type ResolvedAiEventFilterResult = {
 
 export type Schedule = {
   __typename?: 'Schedule';
+  applicableDaysOfWeek?: Maybe<Array<DayOfWeek>>;
   createdAt: Scalars['String']['output'];
   eventEndDate?: Maybe<Scalars['String']['output']>;
   eventEndTime?: Maybe<Scalars['String']['output']>;
@@ -2029,6 +2030,7 @@ export type ResolvedAiEventFilterResultResolvers<ContextType = GraphQLContext, P
 }>;
 
 export type ScheduleResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Schedule'] = ResolversParentTypes['Schedule']> = ResolversObject<{
+  applicableDaysOfWeek?: Resolver<Maybe<Array<ResolversTypes['DayOfWeek']>>, ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   eventEndDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   eventEndTime?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
