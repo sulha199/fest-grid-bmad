@@ -2112,7 +2112,13 @@ describe('WeeklyCalendarView', () => {
       expect(rtlScreen.queryByTestId('multi-day-spanning-banner')).not.toBeInTheDocument();
 
       const desktopView = rtlScreen.getByTestId('desktop-calendar-view');
-      const cardButton = within(desktopView).getByRole('button', { name: 'Boundary Event' });
+
+      // The schedule's occurrences also land on Wednesday Aug5 (the visible week's FIRST day) --
+      // the tail end of the PRIOR week's own Aug4-Aug5 run, equally isolated in-week. Scope to
+      // Tuesday's day cell (index 6, the LAST visible day) specifically, since that's the one
+      // whose run continues past the visible week's right edge into Wednesday Aug12.
+      const tuesdayCell = desktopView.querySelectorAll('.h-32')[6] as HTMLElement;
+      const cardButton = within(tuesdayCell).getByRole('button', { name: 'Boundary Event' });
 
       fireEvent.pointerEnter(cardButton, { pointerType: 'mouse' });
 
