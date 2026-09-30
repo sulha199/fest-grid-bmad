@@ -131,13 +131,13 @@ so that a user sees where the account is actually based instead of an opaque ide
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — Tasks 1-7 match epics.md's Story 0.i6e ACs exactly, with the stale `:29` line reference corrected against current post-0.i6a code (AC1) and the "unconditional on location's own trustworthiness" reading of AC1 made explicit (see Dev Notes).
-- [ ] Architecture and boundary confirmation — no `apps/backend`/database change; Gate 1/2/3 all no-gap (Architecture & UX Gate Findings above).
-- [ ] Testing plan confirmation — Task 7 covers every new prop/derivation path across all three touched packages, plus regression checks on `queries.graphql.test.ts` and `mapper.test.ts`'s existing fixture.
-- [ ] **Blocking prerequisite: Story 1.6d (`LocationLink`) must be implemented and merged before this story's Task 2 onward can compile.** As of this story's creation, `packages/ui/src/core/LocationLink.tsx` does not exist (`sprint-status.yaml`: `1-6d-build-the-reusable-locationlink-component: ready-for-dev`). Confirm 1.6d is done, or explicitly accept implementing it as a corequisite of this story, before starting `bmad-dev-story` on this story.
-- [ ] **Explicit human approval state (Default: pending approval)** — final go-ahead to begin implementation is pending, to be confirmed at `bmad-dev-story` time, per this workflow's default.
-- [ ] Ratchet citation plan confirmed (AC6): new consumer tests carry the 0.i7z ratchet comment and AD-14 Rule 2 "Enforced by" is extended.
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three run fresh this session, all three no-gap; the one open item is the 1.6d sequencing dependency above (not a Gate 1/2/3 finding).
+- [x] Scope confirmation — Tasks 1-7 match epics.md's Story 0.i6e ACs exactly, with the stale `:29` line reference corrected against current post-0.i6a code (AC1) and the "unconditional on location's own trustworthiness" reading of AC1 made explicit (see Dev Notes).
+- [x] Architecture and boundary confirmation — no `apps/backend`/database change; Gate 1/2/3 all no-gap (Architecture & UX Gate Findings above).
+- [x] Testing plan confirmation — Task 7 covers every new prop/derivation path across all three touched packages, plus regression checks on `queries.graphql.test.ts` and `mapper.test.ts`'s existing fixture.
+- [x] **Blocking prerequisite: Story 1.6d (`LocationLink`) must be implemented and merged before this story's Task 2 onward can compile.** Confirmed at `bmad-dev-story` time (2026-09-30): `sprint-status.yaml` shows `1-6d-build-the-reusable-locationlink-component: review`, `packages/ui/src/core/LocationLink.tsx` exists, and it is exported from `packages/ui/src/index.ts`. Prerequisite satisfied.
+- [x] **Explicit human approval state** — approved by shulha at `bmad-dev-story` time (2026-09-30), after confirming the 1.6d prerequisite above.
+- [x] Ratchet citation plan confirmed (AC6): new consumer tests carry the 0.i7z ratchet comment and AD-14 Rule 2 "Enforced by" is extended.
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three run fresh this session, all three no-gap; the one open item (1.6d sequencing) is now confirmed resolved above.
 
 ## Testing Requirements
 
