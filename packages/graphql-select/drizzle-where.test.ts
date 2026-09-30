@@ -2,7 +2,7 @@ import test from 'node:test';
 import * as assert from 'node:assert';
 import { buildDrizzleWhere } from './drizzle-where.js';
 import { QueryCondition } from '@festgrid/domain/query';
-import { pgTable, text, uuid, date, time, doublePrecision } from 'drizzle-orm/pg-core';
+import { pgTable, text, uuid, date, time, doublePrecision, PgDialect } from 'drizzle-orm/pg-core';
 
 const testTable = pgTable('test_table', {
   id: uuid('id'),
@@ -259,7 +259,6 @@ test('buildDrizzleWhere', async (t) => {
     // GUC). Rendered via the pg dialect's own toQuery, matching the existing overlaps-operator
     // tests' scope in this file (assert the condition is defined and the SQL text/params
     // contain the expected shape, not a config-fragile chunk-internals walk).
-    const { PgDialect } = require('drizzle-orm/pg-core');
     const dialect = new PgDialect();
     const query = dialect.sqlToQuery(res!);
     assert.match(query.sql, /EXISTS/);
