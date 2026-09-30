@@ -220,7 +220,7 @@ Most recent commits (per `git log --oneline -5` at drafting time) are unrelated 
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Implementation complete; 3 subtasks (backend `resolvers.test.ts` full-suite run, Playwright E2E, and the AC7 authenticated-hydration integration test) remain unexecuted — blocked by a sandbox constraint (no Postgres/DATABASE_URL, no running dev server) rather than a code defect. See Dev Agent Record → Completion Notes for the runnable-verification summary and the explicit before-merge follow-up.
 
 ## Dev Agent Record
 
@@ -238,8 +238,28 @@ Claude Sonnet 5 (`claude-sonnet-5`)
 
 ### Completion Notes List
 
-_To be filled by `bmad-dev-story` upon implementation._
+- **Sandbox constraint (this session, confirmed and not re-investigated per standing environment guidance):** this sandbox has no Postgres/`DATABASE_URL` and no running dev server. All code for Tasks 1-8 and Task 10 was already implemented and committed by prior sessions; this session verified the implementation against the story's ACs by reading every changed file (resolver batching in `resolvers.ts`, `get-event-by-slug-cached.ts`, both `page.tsx` files' `HydrationBoundary`/`dehydrate` wiring, `EventDetailWrapper.tsx`'s `enabled` gate) and confirmed it matches the Tasks/Dev Notes exactly — no code changes were needed.
+- **Runnable verification performed this session:**
+  - `apps/web` full `vitest` suite (`turbo run test --filter=web`): **PASS** — all tests green, including `EventDetailWrapper.test.tsx`'s new AC5 subscriptions-gating assertions.
+  - Full-repo `pnpm lint`: **PASS** (all 8 workspace lint tasks).
+  - Full-repo `pnpm build`: **PASS** (all 8 workspace build tasks).
+- **Not runnable in this sandbox (documented, not silently skipped):**
+  - Task 7's backend `tsx --test resolvers.test.ts` full-suite regression run and the new query-count test (AC1/AC6) — both written, neither executed; require a local Postgres/`DATABASE_URL`.
+  - Task 8's new Playwright E2E test (`event-details.spec.ts`, AC4) and the new authenticated-hydration integration test (AC7) — both written, neither executed; require a running dev server + real backend + DB.
+  - Task 9's manual `React.cache()` dedup verification (AC2(a)) — requires a running dev server; not performed.
+  - **These three items are the explicit gap between "implementation complete" and "fully verified."** They must be run in a DB-backed environment before this story is promoted to `done`. Nothing above indicates a code defect — the `cache()` dedup, batching query shape, and hydration wiring were all verified by direct code reading to match Story 1.3j's shipped mechanism and this story's own Design Decision.
+- Story moved to `review` per this project's standard flow (implementation + all runnable checks green); the three DB/dev-server-gated verification items are flagged for the reviewer/next session to execute before `done`.
 
 ### File List
 
-_To be filled by `bmad-dev-story` upon implementation._
+- `apps/backend/src/schema/resolvers.ts` (modified — `event`/`eventBySlug` batched-schedules + `isAddedToCalendar` virtual field, Tasks 1-2)
+- `apps/backend/src/schema/resolvers.test.ts` (modified — new query-count integration test, Task 7; not executed, see Completion Notes)
+- `apps/web/src/features/events/get-event-by-slug-cached.ts` (new — shared `cache()`-wrapped authenticated fetcher, Task 3)
+- `apps/web/src/app/[locale]/events/[slug]/page.tsx` (modified — shared fetcher + `HydrationBoundary`/`dehydrate` wiring, Tasks 4-5)
+- `apps/web/src/app/[locale]/@modal/(.)events/[slug]/page.tsx` (modified — same as above, Tasks 4-5)
+- `apps/web/src/features/events/EventDetailWrapper.tsx` (modified — `useGetMySubscriptionsQuery` `enabled` gate narrowed, Task 6)
+- `apps/web/src/features/events/EventDetailWrapper.test.tsx` (modified — new AC5 subscriptions-gating assertions, Task 8; executed, passing)
+- `apps/web/e2e/event-details.spec.ts` (new — Playwright tests for AC4 and AC7, Task 8; not executed, see Completion Notes)
+- `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (modified — AD-17 "Story sequence item B shipped" note, Task 10)
+- `_bmad-output/implementation-artifacts/1-6c-batch-isaddedtocalendar-dedupe-eventbyslug-fetch-and-gate-subscriptions-query.md` (this story file — status/Dev Agent Record updates)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (status tracking update)
