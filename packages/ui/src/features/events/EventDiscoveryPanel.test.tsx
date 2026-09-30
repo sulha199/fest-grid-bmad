@@ -54,12 +54,21 @@ vi.mock('nuqs', () => {
     },
     parseAsString: { withDefault: (val: any) => ({ defaultValue: val }) },
     parseAsArrayOf: () => ({ withDefault: (val: any) => ({ defaultValue: val }) }),
+    // Story 0.i5d: lets each test start from a clean `view` query-state instead of leaking
+    // whatever a prior test's tab click left behind (the shared `store` above is module-scoped
+    // and otherwise persists across tests in this file).
+    __resetStore: () => {
+      for (const key of Object.keys(store)) delete store[key];
+      for (const key of Object.keys(listeners)) delete listeners[key];
+    },
   };
 });
 
 describe('EventDiscoveryPanel', () => {
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
+    const nuqsMock = await import('nuqs');
+    (nuqsMock as any).__resetStore();
   });
 
   const defaultProps = {
