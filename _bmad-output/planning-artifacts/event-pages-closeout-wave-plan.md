@@ -44,7 +44,7 @@ least `review`.
       rows: BUG-033, BUG-035, FIND-030) — Batch `isAddedToCalendar`, dedupe the `eventBySlug`
       fetch, gate the subscriptions query. Prerequisite Story 1.3j is `review`.
 - [ ] **1.3k** (`1-3k-render-day-of-week-recurring-schedules-and-repeat-badge`, row: IDEA-003) —
-      Render day-of-week recurring schedules + repeat badge. Prerequisite Story 1.i1n is `done`.
+      Render day-of-week recurring schedules + repeat badge. Prerequisite Story 1.i1n is `done`. **Amended 2026-09-30** (batch readiness report): the story file was rewritten against the current `WeeklyCalendarView` (run-based spanning bars, `EventCardCalendarGridItem`, next-sequential migration number) and now also depends on BUG-047, BUG-048 and 1.i1f/g/h/j/k/l/m; dispatch it last in Wave A, after 0.i5d and 0.i5e.
 - [ ] **0.i5d** (`0-i5d-sweep-add-the-temporal-filter-to-the-filterhub`, row: IDEA-019) — Add the
       Today/Upcoming/All temporal filter to FilterHub. Standalone.
 - [ ] **0.i5e** (`0-i5e-adopt-the-controller-in-feed-and-favorites`, unblocks IDEA-038) — Adopt
@@ -59,12 +59,14 @@ least `review`.
 - [ ] **0.i6e** (`0-i6e-replace-the-cards-raw-account-identifier-line-with-a-location-link-when-confirmed`,
       row: IDEA-032) — Replace the account card's raw identifier with a location link. Needs 1.6d.
 
-## Wave C — re-invoke create-story (only after 0.i5e reaches at least `review`)
+## Wave C — re-invoke create-story (only after 0.i5e **and 0.i5d** reach at least `review`)
 
 - [ ] **IDEA-038** — Re-run `bmad-create-story IDEA-038` (extend the Today/Upcoming/All temporal
       filter to Feed/Favorites). Its prior dispatch (2026-09-19) declined and carved 0.i5e as a
       missing prerequisite instead — see `event-pages-dev-story-tracking.md`'s own "IDEA-038's own
-      unblock chain" section for the full history.
+      unblock chain" section for the full history. IDEA-038 extends 0.i5d's `TemporalFilterToggle` /
+      `EventFilterInput.temporalFilter` to Feed/Favorites, so **0.i5d is part of its unblock chain
+      alongside 0.i5e** (added 2026-09-30, batch readiness report).
 
 ## Wave 0 — doc correction (no backlog ID, do this first so nothing downstream cites the wrong spec)
 
@@ -139,7 +141,7 @@ least `review`.
 1. Dispatch Wave A first via `ritual-orchestrator` (`bmad-dev-story`) — these are the most
    fully-scoped, highest-fan-out items left in the whole event-pages backlog.
 2. Wave B only after 1.6d reaches at least `review`.
-3. Wave C only after 0.i5e reaches at least `review`.
+3. Wave C only after 0.i5e and 0.i5d both reach at least `review`.
 4. Waves 0–4 can interleave with A/B/C on business priority — none of them block or are blocked by
    the ready-for-dev queue.
 5. Re-run `verify-story.ts`/`backlog-check.py` after each dispatch, same convention as

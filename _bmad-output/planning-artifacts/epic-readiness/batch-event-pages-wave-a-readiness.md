@@ -66,7 +66,7 @@ No new Epic 0 tooling needed.
 | 0.i6e | READY-WITH-CORRECTION (minor) | Needs 1.6d. Correction 3 (ratchet-cite new consumer). |
 | 1.3k | **DO NOT DISPATCH AS WRITTEN** | Drafted 2026-09-17 against a since-changed `WeeklyCalendarView` (1.i1f/g/h/j, BUG-047/048). Correction 1. |
 
-## Corrections (not yet applied — apply via story edit before dispatching each)
+## Corrections (applied 2026-09-30 — story files, AD-14 spine line, wave plan, tracking doc and backlog.yaml updated; see each story's "Readiness correction 2026-09-30" note)
 1. **1.3k**
    - AC4/AC5: ignores `spanningSchedules`/`MultiDaySpanningBar` (bars built from raw start/end ~490–520;
      a Monday-only Sep 7–28 schedule would render a week-wide bar). `spanningScheduleIds` (~541)

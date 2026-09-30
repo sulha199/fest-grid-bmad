@@ -373,7 +373,11 @@ This document defines the core architectural invariants for the FestDaily applic
           (pure-function coverage of `selectBestCandidate`) + `apps/backend/src/lib/geolocation/adapter.test.ts`'s
           `'adapter resolveLocation re-ranks ADDRESS by confidence (BUG-017)'` integration test;
           map-link gate — `packages/domain/src/geolocation/is-location-trustworthy.test.ts` +
-          `apps/web/src/features/events/mapper.test.ts`; GraphQL exposure — the three
+          `packages/ui/src/core/LocationLink.test.tsx` (confidence-boundary cases; Story 1.6d, carries the
+          0.i7z ratchet header) + the `locationDetails` passthrough test in
+          `apps/web/src/features/events/mapper.test.ts` (Story 1.6e; supersedes the removed
+          `mapUrl gating (Story 0.i7c / 0.i7z)` block — until 1.6d/1.6e land, that block remains the enforcer;
+          readiness correction 2026-09-30); GraphQL exposure — the three
           `apps/web` `.graphql.test.ts` AST guard tests from Story 0.i7d
           (`apps/web/src/features/subscriptions/mutations.graphql.test.ts`,
           `apps/web/src/features/locations/mutations.graphql.test.ts`,

@@ -25,7 +25,7 @@ complete for this item — see backlog.yaml#IDEA-020's note for the full record.
 implements both halves.
 
 DEPENDS ON Story 0.38a (split off THIS story by a Gate 2 finding during drafting — see
-Architecture & UX Gate Findings below): 0.38a must be done first. Both stories were
+Architecture & UX Gate Findings below): 0.38a must be at least `review` first. Both stories were
 authored together in the same bmad-create-story dispatch.
 
 **AMENDED 2026-09-19 (via bmad-create-story, while drafting Story 0.39):** this story now
@@ -136,9 +136,9 @@ non-intrusive path to install FestDaily as an app if I want to.
    `sizes: '192x192'` and one `sizes: '512x512'`, both real, valid PNG files (not
    placeholders) — this app has **zero** icon/favicon assets anywhere today (confirmed:
    `apps/web/public` has no `favicon.ico`/`icon-*.png` of any kind; `push-notifications.ts`'s
-   FCM background-notification fallback already references a non-existent
-   `/icon-192x192.png` — a pre-existing, unrelated gap this story does not need to fix, but
-   may as well reuse the same real icon file for once both exist). Generate the actual PNG
+   FCM background-notification fallback (in `firebase-messaging-sw.js`) already references a
+   non-existent `/icon-192x192.png` — reconciled by this story: once the real icon exists, that
+   fallback is repointed at `/icons/icon-192.png`, see Task 3.2b). Generate the actual PNG
    assets from the existing `packages/ui/src/core/app-shell/LogoMark.tsx` SVG (already the
    source of the app's icon-only mark elsewhere, e.g. `RouteLoader`) via a one-time
    rasterization step (a small Node script using an SVG-to-PNG library, or an equivalent
@@ -156,7 +156,7 @@ non-intrusive path to install FestDaily as an app if I want to.
 ### PWA install banner (EXPERIENCE.md "PWA Install Prompt", DESIGN.md `pwa_install_banner`)
 
 10. Given Story 0.38a's `usePwaInstallPrompt()` hook (a **hard dependency** — do not begin
-    this section until 0.38a is done) and Story 0.42's shared slot primitive (**also a hard
+    this section until 0.38a is at least `review`) and Story 0.42's shared slot primitive (**also a hard
     dependency**, amended 2026-09-19 — see Dev Notes), when `canShow` is `true`, then a new
     `PwaInstallBanner` presentational component (`packages/ui/src/core/PwaInstallBanner.tsx`
     — a `core/` primitive per this codebase's established RouteLoader/PageContainer/
@@ -275,6 +275,15 @@ non-intrusive path to install FestDaily as an app if I want to.
     two step-instruction strings, and the Settings-tab `installAppButtonLabel`/description
     text. No key is added to only one locale file.
 
+### Readiness correction 2026-09-30 (installability vs AD-21; icon paths)
+
+Per `_bmad-output/planning-artifacts/epic-readiness/batch-event-pages-wave-a-readiness.md` (Gate 1 note "0.38 installability"), verified against source and the spine:
+
+- **AD-21 does not cover installability.** The spine's AD-21 header and "Binds" line explicitly exclude PWA installability and iOS install UX; there is no AD for the manifest, icons or `start_url`, so "architecture complete" in the header comment above applies to the embed.js caching/preconnect half only. The installability half (AC8/AC9) rests on this story plus EXPERIENCE.md "PWA Install Prompt". No new AD is required; if implementation surfaces a binding cross-story rule (e.g. a `start_url`/scope invariant), add a short AD-21 amendment then.
+- **Task 3.3 is the acceptance check for installability.** The manual Lighthouse / DevTools Manifest audit must confirm Chrome reports the app installable, given the caching service worker is registered only at `/en/events/` and `/id/events/` (AD-21 Rule 3) and `start_url` is `/`. **If Lighthouse objects to the narrow SW scope, do NOT widen the caching SW to root or to `/` scope** — that would collide with `firebase-messaging-sw.js`'s root registration and break AD-21 Rule 3. Record the finding and either accept it (installability via manifest alone where the browser allows) or log a backlog row; widening scope requires a new architecture decision, not a dev-time tweak.
+- **Icon path reconciliation.** This story adds `apps/web/public/icons/icon-192.png` and `icon-512.png` (AC8; `apps/web/public/icons/` does not exist yet). The FCM background-notification fallback in `apps/web/public/firebase-messaging-sw.js` (line 39) references a non-existent `/icon-192x192.png`. Task 3 must pick one canonical path: reference `/icons/icon-192.png` from the manifest and, since the files now exist, update that FCM fallback to `/icons/icon-192.png` (a one-line change in the same task; not a separate story). This supersedes the "pre-existing, unrelated gap this story does not need to fix" wording in AC8, and the same-named note under Out of Scope.
+- **Dependency wording:** 0.38a and 0.42 must be at least `review` (not necessarily `done`) before Tasks 4-6, consistent with the project's standing "review-status prerequisites are safe to build against" rule. Land after 1.6c (both edit `EventDetailWrapper.tsx`).
+
 ## Tasks / Subtasks
 
 - [ ] Task 1: Embed.js caching service worker (AC: #1, #2, #3, #4, #5)
@@ -318,9 +327,14 @@ non-intrusive path to install FestDaily as an app if I want to.
   - [ ] 3.2 Create `apps/web/src/app/manifest.ts` per AC8's field list, importing the
         `name`/theme colors from this project's existing brand tokens rather than
         hand-guessing new hex values
+  - [ ] 3.2b Reconcile icon paths: point `firebase-messaging-sw.js`'s fallback `icon`
+        (currently the non-existent `/icon-192x192.png`) at the new `/icons/icon-192.png`
+        (readiness correction 2026-09-30)
   - [ ] 3.3 Manually verify (e.g. Chrome DevTools → Application → Manifest panel, or
         Lighthouse's PWA installability audit) that the manifest+icons+service-worker
-        combination satisfies Chrome's installability criteria with no reported errors
+        combination satisfies Chrome's installability criteria with no reported errors.
+        If it objects to the caching SW's narrow scope, do NOT widen the SW scope (breaks
+        AD-21 Rule 3) — record the finding instead
 - [ ] Task 4: PwaInstallBanner component (AC: #10, #12)
   - [ ] 4.1 Create `packages/ui/src/core/PwaInstallBanner.tsx` implementing the
         `pwa_install_banner` DESIGN.md tokens and the exact button-order rule from AC10;
@@ -726,8 +740,8 @@ resolved/superseded before this promotion via IDEA-021/IDEA-022/IDEA-028).
       per Testing Requirements below.
 - [ ] Explicit human approval state — **pending approval.**
 - [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — **Story 0.38a must be
-      `done` before Tasks 4-6 of this story begin; Story 0.42 must be `done` before Task
-      4.3/4.4's amended slot-registration work begins.** Confirm both stories' status before
+      at least `review` before Tasks 4-6 of this story begin; Story 0.42 must be at least
+      `review` before Task 4.3/4.4's amended slot-registration work begins.** Confirm both stories' status before
       starting implementation past Task 3.
 - [ ] iOS modal icon names (`Share`/`PlusSquare` or `SquarePlus`) confirmed against the
       installed `lucide-react` version before implementation (AC13's own caveat).
@@ -773,17 +787,17 @@ resolved/superseded before this promotion via IDEA-021/IDEA-022/IDEA-028).
   platform limitation (AD-21), not a design gap or a deferred item.
 - Any change to `next.config.ts`'s CSP directives or to where `embed.js`/its iframe loads
   from — the existing e2e guard must stay green with zero modification.
-- Extending or restructuring `apps/web/public/firebase-messaging-sw.js` — the new caching
+- Extending or restructuring `apps/web/public/firebase-messaging-sw.js` (beyond Task 3.2b's one-line icon-path repoint) — the new caching
   worker is deliberately separate, per AD-21 rule 3 (user-directed).
 - The PWA install banner/prompt appearing anywhere in the onboarding wizard flow —
   explicitly excluded per EXPERIENCE.md (Chrome's own engagement gate would not be
   satisfied that early).
 - Localizing the web app manifest's `name`/`short_name` per-locale — a single,
   locale-agnostic manifest is the deliberate choice (AC9).
-- Fixing `push-notifications.ts`'s pre-existing, unrelated reference to a non-existent
-  `/icon-192x192.png` FCM-notification fallback icon — noted as a discovered adjacent gap,
-  not this story's own scope (though the real icon file this story creates may coincidentally
-  resolve it; not verified or claimed as a fix here).
+- Fixing the FCM-notification fallback icon beyond a one-line path repoint: Task 3.2b only
+  changes the fallback `icon` string in `firebase-messaging-sw.js` from the non-existent
+  `/icon-192x192.png` to `/icons/icon-192.png` (readiness correction 2026-09-30); no other
+  change to that worker (see the "Extending or restructuring" bullet above).
 - Story 0.38a's `usePwaInstallPrompt()` hook, its Zustand store, and its
   platform-detection/localStorage logic — built in that prerequisite story, only consumed
   here.

@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-09-26"
+last_updated: "2026-09-30"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -842,7 +842,8 @@ items:
      impact: user-visible, effort: m,
      title: "Extend the Today/Upcoming/All temporal filter to Feed and Favorites once they adopt useListPaginationController",
      ref: [backlog/IDEA-038-feed-favorites-temporal-filter-adoption.md], touches: [web:events, pkg:ui],
-     note: "AMENDED 2026-09-19: missing prerequisite carved to Story 0-i5e (ready-for-dev); still blocked on 0-i5e + 1-3l both landing. Full detail in backlog/IDEA-038-feed-favorites-temporal-filter-adoption.md."}
+     note: "AMENDED 2026-09-19: missing prerequisite carved to Story 0-i5e (ready-for-dev); still blocked on 0-i5e + 1-3l both landing. Full detail in backlog/IDEA-038-feed-favorites-temporal-filter-adoption.md.
+     AMENDED 2026-09-30 (batch-event-pages-wave-a-readiness.md): also depends on Story 0-i5d -- it builds TemporalFilterToggle / EventFilterInput.temporalFilter, which this row extends to Feed/Favorites. Unblock chain is 1-3l + 0-i5e + 0-i5d, each at least `review`."}
 
   # ── 2026-09-11 (bmad-help event-extraction-recurrence-bug session) ──────────
   BUG-026:
@@ -1649,3 +1650,19 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      touches: [web:events/EventCard, pkg:ui],
      note: "Deferred from: code review of 1-i1o-wire-eventcard-and-weeklycalendarview-labels-to-nextintl.md (2026-09-27). 1 finding."}
+
+  # ── 2026-09-30 (batch-event-pages-wave-a-readiness.md) ──────────────────────
+  FIND-060:
+    {type: finding, status: backlog, created: 2026-09-30, parent: BUG-026,
+     impact: user-visible, effort: m,
+     title: "Story 0.i5d's TODAY/UPCOMING temporal filter ignores Schedule.applicableDaysOfWeek, so a weekday-only recurring schedule matches every day inside its span",
+     ref: [planning-artifacts/epic-readiness/batch-event-pages-wave-a-readiness.md, backlog/BUG-026-recurring-weekday-schedule-date-span.md],
+     touches: [pkg:domain, app:backend, web:events],
+     note: "Found 2026-09-30 by the Wave A batch readiness sweep. Not a new gap: this is BUG-026's still-open filter-matching-correctness fix (buildEventsQueryCondition.ts / drizzle-where.ts) reaching the new temporalFilter path added by 0-i5d. Fold into BUG-026's matching fix (reuse the exported getDays(DayOfWeek[]) from 1-3k / AD-19) rather than a separate mechanism."}
+
+  IDEA-051:
+    {type: idea, status: backlog, created: 2026-09-30,
+     impact: internal, effort: s,
+     title: "Move useNavRailItemInteraction onto the shared useHoverFocusTooltip hook (three hand-rolled hover+focus tooltip copies exist)",
+     ref: [planning-artifacts/epic-readiness/batch-event-pages-wave-a-readiness.md, implementation-artifacts/1-3k-render-day-of-week-recurring-schedules-and-repeat-badge.md], touches: [pkg:ui],
+     note: "Found 2026-09-30 (Wave A readiness Gate 3): hover+focus+Escape tooltip state is hand-rolled in CalendarCard, MultiDaySpanningBar (both WeeklyCalendarView.tsx) and packages/ui/src/hooks/useNavRailItemInteraction.ts. Story 1-3k extracts useHoverFocusTooltip and adopts it in the first two; this row is the optional follow-up to adopt it in the nav rail, behavior-preserving, after 1-3k lands."}

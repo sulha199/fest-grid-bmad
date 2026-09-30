@@ -25,6 +25,9 @@ so that every place that displays a resolved location (the event-detail schedule
 4. **AC4 — Domain-agnostic, no i18n dependency:** The component is domain-agnostic beyond reusing `isLocationTrustworthy`: no `next-intl` import, no FestGrid-specific business logic, no hardcoded translatable copy. An optional `ariaLabel` prop lets a caller supply localized accessible text (set as `aria-label` on the wrapping `<a>` when provided); when omitted, the `<a>` carries no explicit `aria-label` and falls back to the browser's default accessible-name computation from its visible text content (`name`) — matching how every other plain `<a>` link already rendered in this codebase (e.g. `EventDetailView.tsx`'s private-contact and additional-links rows) is exposed to assistive tech today, i.e. this story introduces no new accessible-naming mechanism beyond what a caller opts into via `ariaLabel`.
 5. **AC5 — Documented and exported for reuse:** `LocationLink` (and its `LocationLinkProps` type) is exported from `packages/ui`'s public entry point (`packages/ui/src/index.ts`) with TSDoc prop documentation, and has component tests proving the trustworthy/untrustworthy/absent-coordinate states, the `ariaLabel` override, and the always-clickable/always-new-tab behavior — so it is discoverable and reusable across features (first two consumers: Story 1.6e's event-detail schedule, Story 0.i6e's `SubscribedAccountCard`, both out of scope for this story).
 
+6. **AC6 — Blank name renders nothing (readiness correction 2026-09-30):** Given `name` is empty or whitespace-only (`''`, `'   '`), when `LocationLink` renders, then it returns `null` — no `<a>`, no icons, no empty-link DOM — so a caller that passes an absent/blank location (e.g. Story 1.6e's `schedule.location || event.location` resolving to `''`) can never produce an empty, unlabeled `<a target="_blank">`. Covered by a component test for `''` and `'   '` (`container` is empty).
+7. **AC7 — Ratchet-enforced consumer (AD-14 Rule 2 / Story 0.i7z, readiness correction 2026-09-30):** Given `LocationLink` becomes the event-detail and account-card map-link gate, when its test file is written, then `packages/ui/src/core/LocationLink.test.tsx` opens with a `// Story 0.i7z ratchet — AD-14 Rule 2 / Story 0.i7z AC 3 consumer:` header comment (same wording pattern as the block above `describe('mapGraphQLEventToDetailViewProps mapUrl gating (Story 0.i7c / 0.i7z)'` in `apps/web/src/features/events/mapper.test.ts`) and its confidence-boundary cases assert `isLocationTrustworthy`'s gate through the rendered `href`/icon: `confidence` exactly `0.5` (trustworthy, `>=`), just below (`0.49`, untrustworthy), `matchType: 'full_match'` vs any other `matchType`, `confidence: null`, and `confidence: undefined` (each of the last two untrustworthy). This test is what Story 1.6e cites as the replacement enforcer before it deletes the `mapper.test.ts` `mapUrl gating` block, and what the AD-14 "Enforced by" line will reference.
+
 ## Tasks / Subtasks
 
 - [ ] 1. Create `packages/ui/src/core/LocationLink.tsx` with an inline, exported `LocationLinkProps` interface (`name: string; coordinates?: { lat: number; lng: number } | null; confidence?: number | null; matchType?: string | null; ariaLabel?: string`) — following the PascalCase-filename, inline-props convention already used by `WeekPicker.tsx`/`RawJsonViewer.tsx` (not the kebab-case `.tsx`/`.types.ts` split used by `blocking-loader.tsx`/`multi-select.tsx`), matching the exact filename `LocationLink.tsx` epics.md's Story 1.6d Note specifies. (AC1, AC4)
@@ -33,9 +36,14 @@ so that every place that displays a resolved location (the event-detail schedule
 - [ ] 4. Thread the optional `ariaLabel` prop to `aria-label` on the wrapping `<a>` only when provided (no fallback aria-label synthesized when omitted — see AC4's reasoning). (AC4)
 - [ ] 5. Add TSDoc comments to the component and its props documenting purpose, the confidence-gating behavior, and reuse guidance. (AC5)
 - [ ] 6. Export `LocationLink`, `LocationLinkProps` from `packages/ui/src/core/LocationLink.tsx`, and add `export * from './core/LocationLink';` to `packages/ui/src/index.ts` (alongside the existing `export * from './core/WeekPicker';` line, same PascalCase-file export style). (AC5)
-- [ ] 7. Write component tests (Vitest + `@testing-library/react`, `packages/ui/src/core/LocationLink.test.tsx`, via `@festgrid/testing-config/vitest-react` per Testing Requirements) covering: pin icon + name always render; the wrapping `<a>` always has `target="_blank"`/`rel="noopener noreferrer"`; trustworthy coordinate case (`confidence: 0.9, matchType: 'full_match'`) renders the coordinate-query `href` and the `ExternalLink` icon (not `Search`); the exact boundary confidence `0.5` is still trustworthy (`>=`, not `>`); untrustworthy cases (confidence below `0.5`, `matchType` not `'full_match'`, `coordinates` entirely absent, `confidence`/`matchType` explicitly `null`) all render the `encodeURIComponent(name)` text-query `href` and the `Search` icon (never `ExternalLink`); a `name` containing characters requiring encoding (e.g. spaces/`&`) is correctly `encodeURIComponent`-escaped in the fallback `href`; `ariaLabel` is applied as `aria-label` when provided and absent from the DOM when omitted. (AC1–AC5)
+- [ ] 6b. Return `null` from `LocationLink` when `name.trim()` is empty (before any hook/icon work). (AC6)
+- [ ] 7. Write component tests (Vitest + `@testing-library/react`, `packages/ui/src/core/LocationLink.test.tsx`, via `@festgrid/testing-config/vitest-react` per Testing Requirements) covering: pin icon + name always render; the wrapping `<a>` always has `target="_blank"`/`rel="noopener noreferrer"`; trustworthy coordinate case (`confidence: 0.9, matchType: 'full_match'`) renders the coordinate-query `href` and the `ExternalLink` icon (not `Search`); the exact boundary confidence `0.5` is still trustworthy (`>=`, not `>`); untrustworthy cases (confidence below `0.5`, `matchType` not `'full_match'`, `coordinates` entirely absent, `confidence`/`matchType` explicitly `null`) all render the `encodeURIComponent(name)` text-query `href` and the `Search` icon (never `ExternalLink`); a `name` containing characters requiring encoding (e.g. spaces/`&`) is correctly `encodeURIComponent`-escaped in the fallback `href`; `ariaLabel` is applied as `aria-label` when provided and absent from the DOM when omitted; blank/whitespace-only `name` renders nothing (AC6); the file carries the 0.i7z ratchet header comment and the confidence-boundary cases listed in AC7 (`0.5`, `0.49`, `full_match` vs other, `null`, `undefined`). (AC1–AC7)
 
 ## Dev Notes
+
+### Readiness correction 2026-09-30
+
+Per `_bmad-output/planning-artifacts/epic-readiness/batch-event-pages-wave-a-readiness.md` (Corrections 2 and 3): added AC6 (blank `name` renders nothing) and AC7 (`LocationLink.test.tsx` carries the 0.i7z ratchet header + confidence-boundary cases). Verified against source: `apps/web/src/features/events/mapper.test.ts` currently holds the `mapUrl gating (Story 0.i7c / 0.i7z)` block (with its 0.i7z ratchet comment at lines ~100-102) that AD-14 Rule 2's "Enforced by" line cites; Story 1.6e will delete that block, so its enforcement must exist here first. `packages/ui/src/core/LocationLink.tsx` does not exist yet.
 
 ### Architecture & UX Gate Findings
 
@@ -148,7 +156,7 @@ Recent commit history (`203522c` `fix(cluster-b): stabilize infinite-scroll sent
 - [ ] Optional `ariaLabel` prop threaded to `aria-label`, no synthesized fallback when omitted.
 - [ ] No `next-intl` import, no FestGrid-specific business logic.
 - [ ] Exported from `packages/ui`'s public entry point with TSDoc prop documentation.
-- [ ] Component tests written and passing.
+- [ ] Component tests written and passing, including blank-name (AC6) and the 0.i7z ratchet header + confidence-boundary cases (AC7).
 
 ## Out of Scope
 
@@ -160,7 +168,7 @@ Recent commit history (`203522c` `fix(cluster-b): stabilize infinite-scroll sent
 
 ## Definition of Done
 
-- [ ] All Acceptance Criteria (AC1–AC5) are met.
+- [ ] All Acceptance Criteria (AC1–AC7) are met.
 - [ ] Required component tests (see Testing Requirements) are written and passing.
 - [ ] Lint and TypeScript strict-mode checks pass for `packages/ui`.
 - [ ] `LocationLink` is exported from `packages/ui`'s public entry point and documented with TSDoc.
