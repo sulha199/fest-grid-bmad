@@ -89,9 +89,9 @@ export function EventDiscoveryPanel({
               clearLabel={searchClearLabel}
             />
 
-            {currentViewId === 'card' && (
+            {currentViewId === 'card' && temporalFilterLabels && onTemporalFilterChange && (
               <TemporalFilterToggle
-                value={temporalFilter}
+                value={temporalFilter ?? null}
                 onChange={onTemporalFilterChange}
                 labels={temporalFilterLabels}
               />
