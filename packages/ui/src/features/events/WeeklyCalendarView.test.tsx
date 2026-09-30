@@ -2122,7 +2122,12 @@ describe('WeeklyCalendarView', () => {
 
       fireEvent.pointerEnter(cardButton, { pointerType: 'mouse' });
 
-      const tooltip = within(desktopView).getByRole('tooltip');
+      // Scope to the card's own describing tooltip via `aria-describedby` -- the card also
+      // carries a separate always-on "Repeats on TUE, WED" recurrence-badge tooltip (role=
+      // "tooltip" too), so an unscoped query would itself find multiple matches.
+      const tooltipId = cardButton.getAttribute('aria-describedby');
+      expect(tooltipId).toBeTruthy();
+      const tooltip = document.getElementById(tooltipId as string) as HTMLElement;
       // The run's own end date (Aug 12, one day PAST the visible week's own last day Aug 11) is
       // present in the tooltip's date range -- proof the adjacency computation looked past the
       // visible week's right edge instead of treating Aug 11 as an isolated single day.
