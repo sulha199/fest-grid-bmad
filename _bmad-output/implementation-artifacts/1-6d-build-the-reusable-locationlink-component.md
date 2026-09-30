@@ -7,7 +7,7 @@ baseline_commit: 81c07e4428ed7a7b027d63e46b180b2e7ff7a003
 
 - Epic: 1
 - Story ID: 1.6d
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -30,14 +30,14 @@ so that every place that displays a resolved location (the event-detail schedule
 
 ## Tasks / Subtasks
 
-- [ ] 1. Create `packages/ui/src/core/LocationLink.tsx` with an inline, exported `LocationLinkProps` interface (`name: string; coordinates?: { lat: number; lng: number } | null; confidence?: number | null; matchType?: string | null; ariaLabel?: string`) — following the PascalCase-filename, inline-props convention already used by `WeekPicker.tsx`/`RawJsonViewer.tsx` (not the kebab-case `.tsx`/`.types.ts` split used by `blocking-loader.tsx`/`multi-select.tsx`), matching the exact filename `LocationLink.tsx` epics.md's Story 1.6d Note specifies. (AC1, AC4)
-- [ ] 2. Implement the base render: `MapPin` icon (`lucide-react`) + `name` text inside a single `<a target="_blank" rel="noopener noreferrer">`. (AC1)
-- [ ] 3. Implement the href/trailing-icon computation: import `isLocationTrustworthy` from `@festgrid/domain/geolocation`; when `coordinates` is present and `isLocationTrustworthy({ confidence, matchType })` is `true`, set `href` to the coordinate-query Google Maps URL and render a trailing `ExternalLink` icon; otherwise set `href` to the `encodeURIComponent(name)` text-query Google Maps URL and render a trailing `Search` icon. (AC2, AC3)
-- [ ] 4. Thread the optional `ariaLabel` prop to `aria-label` on the wrapping `<a>` only when provided (no fallback aria-label synthesized when omitted — see AC4's reasoning). (AC4)
-- [ ] 5. Add TSDoc comments to the component and its props documenting purpose, the confidence-gating behavior, and reuse guidance. (AC5)
-- [ ] 6. Export `LocationLink`, `LocationLinkProps` from `packages/ui/src/core/LocationLink.tsx`, and add `export * from './core/LocationLink';` to `packages/ui/src/index.ts` (alongside the existing `export * from './core/WeekPicker';` line, same PascalCase-file export style). (AC5)
-- [ ] 6b. Return `null` from `LocationLink` when `name.trim()` is empty (before any hook/icon work). (AC6)
-- [ ] 7. Write component tests (Vitest + `@testing-library/react`, `packages/ui/src/core/LocationLink.test.tsx`, via `@festgrid/testing-config/vitest-react` per Testing Requirements) covering: pin icon + name always render; the wrapping `<a>` always has `target="_blank"`/`rel="noopener noreferrer"`; trustworthy coordinate case (`confidence: 0.9, matchType: 'full_match'`) renders the coordinate-query `href` and the `ExternalLink` icon (not `Search`); the exact boundary confidence `0.5` is still trustworthy (`>=`, not `>`); untrustworthy cases (confidence below `0.5`, `matchType` not `'full_match'`, `coordinates` entirely absent, `confidence`/`matchType` explicitly `null`) all render the `encodeURIComponent(name)` text-query `href` and the `Search` icon (never `ExternalLink`); a `name` containing characters requiring encoding (e.g. spaces/`&`) is correctly `encodeURIComponent`-escaped in the fallback `href`; `ariaLabel` is applied as `aria-label` when provided and absent from the DOM when omitted; blank/whitespace-only `name` renders nothing (AC6); the file carries the 0.i7z ratchet header comment and the confidence-boundary cases listed in AC7 (`0.5`, `0.49`, `full_match` vs other, `null`, `undefined`). (AC1–AC7)
+- [x] 1. Create `packages/ui/src/core/LocationLink.tsx` with an inline, exported `LocationLinkProps` interface (`name: string; coordinates?: { lat: number; lng: number } | null; confidence?: number | null; matchType?: string | null; ariaLabel?: string`) — following the PascalCase-filename, inline-props convention already used by `WeekPicker.tsx`/`RawJsonViewer.tsx` (not the kebab-case `.tsx`/`.types.ts` split used by `blocking-loader.tsx`/`multi-select.tsx`), matching the exact filename `LocationLink.tsx` epics.md's Story 1.6d Note specifies. (AC1, AC4)
+- [x] 2. Implement the base render: `MapPin` icon (`lucide-react`) + `name` text inside a single `<a target="_blank" rel="noopener noreferrer">`. (AC1)
+- [x] 3. Implement the href/trailing-icon computation: import `isLocationTrustworthy` from `@festgrid/domain/geolocation`; when `coordinates` is present and `isLocationTrustworthy({ confidence, matchType })` is `true`, set `href` to the coordinate-query Google Maps URL and render a trailing `ExternalLink` icon; otherwise set `href` to the `encodeURIComponent(name)` text-query Google Maps URL and render a trailing `Search` icon. (AC2, AC3)
+- [x] 4. Thread the optional `ariaLabel` prop to `aria-label` on the wrapping `<a>` only when provided (no fallback aria-label synthesized when omitted — see AC4's reasoning). (AC4)
+- [x] 5. Add TSDoc comments to the component and its props documenting purpose, the confidence-gating behavior, and reuse guidance. (AC5)
+- [x] 6. Export `LocationLink`, `LocationLinkProps` from `packages/ui/src/core/LocationLink.tsx`, and add `export * from './core/LocationLink';` to `packages/ui/src/index.ts` (alongside the existing `export * from './core/WeekPicker';` line, same PascalCase-file export style). (AC5)
+- [x] 6b. Return `null` from `LocationLink` when `name.trim()` is empty (before any hook/icon work). (AC6)
+- [x] 7. Write component tests (Vitest + `@testing-library/react`, `packages/ui/src/core/LocationLink.test.tsx`, via `@festgrid/testing-config/vitest-react` per Testing Requirements) covering: pin icon + name always render; the wrapping `<a>` always has `target="_blank"`/`rel="noopener noreferrer"`; trustworthy coordinate case (`confidence: 0.9, matchType: 'full_match'`) renders the coordinate-query `href` and the `ExternalLink` icon (not `Search`); the exact boundary confidence `0.5` is still trustworthy (`>=`, not `>`); untrustworthy cases (confidence below `0.5`, `matchType` not `'full_match'`, `coordinates` entirely absent, `confidence`/`matchType` explicitly `null`) all render the `encodeURIComponent(name)` text-query `href` and the `Search` icon (never `ExternalLink`); a `name` containing characters requiring encoding (e.g. spaces/`&`) is correctly `encodeURIComponent`-escaped in the fallback `href`; `ariaLabel` is applied as `aria-label` when provided and absent from the DOM when omitted; blank/whitespace-only `name` renders nothing (AC6); the file carries the 0.i7z ratchet header comment and the confidence-boundary cases listed in AC7 (`0.5`, `0.49`, `full_match` vs other, `null`, `undefined`). (AC1–AC7)
 
 ## Dev Notes
 
@@ -142,21 +142,21 @@ Recent commit history (`203522c` `fix(cluster-b): stabilize infinite-scroll sent
 
 ## Testing Requirements
 
-- [ ] Component tests (Vitest + `@testing-library/react`) for: base render (pin icon + name always present, `<a target="_blank" rel="noopener noreferrer">` always present); trustworthy-coordinate case renders the coordinate-query `href` + `ExternalLink` icon; boundary confidence `0.5` is trustworthy; untrustworthy confidence, wrong `matchType`, absent `coordinates`, and explicit `null` confidence/matchType all render the `encodeURIComponent(name)` text-query `href` + `Search` icon; `ariaLabel` applied when provided, absent from the DOM when omitted.
-- [ ] No E2E test required for this story (no live page consumes `LocationLink` yet; E2E coverage arrives with Story 1.6e/0.i6e).
-- [ ] 100% coverage is not mandated here — that requirement is scoped to `packages/domain` only per `project-context.md`; `packages/ui` follows the "testing trophy" integration-style approach.
-- [ ] Note: use `@festgrid/testing-config/vitest-react` (Story 0.10, already available) for `packages/ui/vitest.config.ts` — do not create a parallel/ad hoc testing-config setup.
+- [x] Component tests (Vitest + `@testing-library/react`) for: base render (pin icon + name always present, `<a target="_blank" rel="noopener noreferrer">` always present); trustworthy-coordinate case renders the coordinate-query `href` + `ExternalLink` icon; boundary confidence `0.5` is trustworthy; untrustworthy confidence, wrong `matchType`, absent `coordinates`, and explicit `null` confidence/matchType all render the `encodeURIComponent(name)` text-query `href` + `Search` icon; `ariaLabel` applied when provided, absent from the DOM when omitted.
+- [x] No E2E test required for this story (no live page consumes `LocationLink` yet; E2E coverage arrives with Story 1.6e/0.i6e).
+- [x] 100% coverage is not mandated here — that requirement is scoped to `packages/domain` only per `project-context.md`; `packages/ui` follows the "testing trophy" integration-style approach.
+- [x] Note: use `@festgrid/testing-config/vitest-react` (Story 0.10, already available) for `packages/ui/vitest.config.ts` — do not create a parallel/ad hoc testing-config setup.
 
 ## Deliverables Checklist
 
-- [ ] `LocationLink` component implemented in `packages/ui/src/core/LocationLink.tsx`, inline `LocationLinkProps`.
-- [ ] Pin icon + name text, always wrapped in a single clickable `<a target="_blank" rel="noopener noreferrer">`.
-- [ ] Confidence-gated href/trailing-icon: coordinate-query `href` + `ExternalLink` icon when trustworthy; text-query `href` + `Search` icon otherwise.
-- [ ] `isLocationTrustworthy` imported and reused verbatim from `@festgrid/domain/geolocation` — no second predicate implementation.
-- [ ] Optional `ariaLabel` prop threaded to `aria-label`, no synthesized fallback when omitted.
-- [ ] No `next-intl` import, no FestGrid-specific business logic.
-- [ ] Exported from `packages/ui`'s public entry point with TSDoc prop documentation.
-- [ ] Component tests written and passing, including blank-name (AC6) and the 0.i7z ratchet header + confidence-boundary cases (AC7).
+- [x] `LocationLink` component implemented in `packages/ui/src/core/LocationLink.tsx`, inline `LocationLinkProps`.
+- [x] Pin icon + name text, always wrapped in a single clickable `<a target="_blank" rel="noopener noreferrer">`.
+- [x] Confidence-gated href/trailing-icon: coordinate-query `href` + `ExternalLink` icon when trustworthy; text-query `href` + `Search` icon otherwise.
+- [x] `isLocationTrustworthy` imported and reused verbatim from `@festgrid/domain/geolocation` — no second predicate implementation.
+- [x] Optional `ariaLabel` prop threaded to `aria-label`, no synthesized fallback when omitted.
+- [x] No `next-intl` import, no FestGrid-specific business logic.
+- [x] Exported from `packages/ui`'s public entry point with TSDoc prop documentation.
+- [x] Component tests written and passing, including blank-name (AC6) and the 0.i7z ratchet header + confidence-boundary cases (AC7).
 
 ## Out of Scope
 
@@ -168,15 +168,15 @@ Recent commit history (`203522c` `fix(cluster-b): stabilize infinite-scroll sent
 
 ## Definition of Done
 
-- [ ] All Acceptance Criteria (AC1–AC7) are met.
-- [ ] Required component tests (see Testing Requirements) are written and passing.
-- [ ] Lint and TypeScript strict-mode checks pass for `packages/ui`.
-- [ ] `LocationLink` is exported from `packages/ui`'s public entry point and documented with TSDoc.
-- [ ] Pre-Coding Approval Gate has moved from pending to explicitly approved before implementation began.
+- [x] All Acceptance Criteria (AC1–AC7) are met.
+- [x] Required component tests (see Testing Requirements) are written and passing.
+- [x] Lint and TypeScript strict-mode checks pass for `packages/ui`.
+- [x] `LocationLink` is exported from `packages/ui`'s public entry point and documented with TSDoc.
+- [x] Pre-Coding Approval Gate has moved from pending to explicitly approved before implementation began.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — all tasks/subtasks done, all ACs satisfied, full regression/lint/build passing.
 
 ## Dev Agent Record
 
@@ -192,8 +192,23 @@ Claude Sonnet 5 (`claude-sonnet-5`)
 
 ### Completion Notes List
 
-_To be filled by the dev agent during implementation._
+- Implemented `LocationLink` in `packages/ui/src/core/LocationLink.tsx` per AC1–AC5: renders `MapPin` + `name` inside a single `<a target="_blank" rel="noopener noreferrer">`; computes href/trailing icon via `isLocationTrustworthy` imported verbatim from `@festgrid/domain/geolocation` (coordinate-query href + `ExternalLink` when trustworthy, `encodeURIComponent(name)` text-query href + `Search` otherwise); threads optional `ariaLabel` to `aria-label` with no synthesized fallback; TSDoc added on the component and every prop; exported (`LocationLink`, `LocationLinkProps`) from `packages/ui/src/index.ts`.
+- AC6: added an early `if (!name.trim()) return null;` guard before any icon/href computation, so a blank/whitespace-only `name` renders nothing.
+- AC7: `LocationLink.test.tsx` opens with the `// Story 0.i7z ratchet — AD-14 Rule 2 / Story 0.i7z AC 3 consumer:` header comment (matching `mapper.test.ts`'s wording pattern) and includes dedicated confidence-boundary test cases for `0.5` (trustworthy), `0.49` (untrustworthy), `matchType` `'full_match'` vs `'partial_match'`, explicit `null`, and `undefined`.
+- Wrote 14 component tests in `packages/ui/src/core/LocationLink.test.tsx` (Vitest + `@testing-library/react`) covering: base render/always-clickable/new-tab, trustworthy coordinate href + icon, the `0.5` boundary, the `0.49`/wrong-`matchType`/absent-coordinates/`null`/`undefined` fallback cases, no-`ExternalLink`-in-fallback, `encodeURIComponent` escaping of a name with spaces/`&`, `ariaLabel` present/absent, and blank/whitespace-only `name` → `null`.
+- **Verification actually executed and result recorded** (per project-context.md's mandatory-verification rule):
+  - `packages/domain` had no `dist/` (`@festgrid/domain/geolocation` unresolved) and `node_modules` was missing repo-wide — ran `pnpm install` once, then `pnpm --filter @festgrid/domain build` to produce `dist/`, both one-time environment setup, not story-scoped changes.
+  - `pnpm --filter @festgrid/ui test -- LocationLink` → 14/14 new tests passed.
+  - `pnpm --filter @festgrid/ui test` (full package regression) → 60 test files / 737 tests passed, no regressions.
+  - `pnpm lint` (repo root, unfiltered) → 8/8 tasks successful; only pre-existing warnings in unrelated files (no errors, nothing in `LocationLink.tsx`/`LocationLink.test.tsx`/`index.ts`).
+  - `pnpm build` (repo root, unfiltered) → first attempt hit a transient `web:build` failure (`next/font`: `Failed to fetch 'Inter' from Google Fonts`, `SELF_SIGNED_CERT_IN_CHAIN` after 3 retries) — a sandbox network/proxy flake unrelated to this story's `packages/ui`-only change (confirmed via `git stash`, which reported "No local changes to save" since the new files are untracked, i.e. the retry ran with this story's code already present). Re-ran `pnpm build` immediately after: 8/8 tasks successful, `web` build included, 7/8 cached.
 
 ### File List
 
-_To be filled by the dev agent during implementation._
+- NEW `packages/ui/src/core/LocationLink.tsx`
+- NEW `packages/ui/src/core/LocationLink.test.tsx`
+- MODIFIED `packages/ui/src/index.ts`
+
+### Change Log
+
+- 2026-09-30: Implemented Story 1.6d — `LocationLink` component (AC1–AC7), exported from `packages/ui`, 14 component tests added. Full `packages/ui` regression (737 tests), repo-root `lint` (8/8), and repo-root `build` (8/8) all verified passing. Status moved to `review`.
