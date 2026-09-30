@@ -3323,3 +3323,83 @@ test('eventBySlug/event - schedules.isAddedToCalendar batches at a constant quer
   assert.ok(anonSchedules.every((s) => s.isAddedToCalendar === false), 'every schedule should read isAddedToCalendar=false for an anonymous caller');
   assert.ok(anonCount <= 3, `expected a small constant query count (<= 3) but got ${anonCount}`);
 });
+
+test('Schedule.applicableDaysOfWeek round-trips via the existing buildOptimizedDrizzleSelect passthrough on all three schedules select sites (Story 1.3k AC3, Task 3)', async (t) => {
+  // Story 1.3k AC3 — this is a read-only, additive-field addition. No new resolver code should
+  // be needed: `buildOptimizedDrizzleSelect` matches any requested GraphQL field name straight
+  // to its Drizzle column (see optimized-select.ts), so seeding `applicableDaysOfWeek` on a
+  // schedule row and requesting the field through GraphQL should just work across:
+  //   1. the legacy per-row `Schedule.schedules` field resolver (this test, via `eventBySlug`,
+  //      which for a single event still exercises the batched `batchScheduleRowsForEvents` path
+  //      shared with `events`/`event`),
+  //   2. the batched `events` list resolver path (same shared function, asserted separately
+  //      below via `Query.events`).
+  // Note: DB-backed integration tests are not executable in this sandbox (no Postgres
+  // available) — this test is written and type-checked but not run here; it is expected to run
+  // in a real environment with `DATABASE_URL` configured, per this story's Definition of Done.
+
+  const [event] = await db.insert(events).values({
+    eventName: '1.3k - event with a recurring schedule',
+    location: 'Test City',
+  }).returning();
+
+  const [schedule] = await db.insert(schedules).values({
+    eventId: event.id,
+    eventStartDate: '2030-09-07',
+    eventEndDate: '2030-09-28',
+    isMainSchedule: true,
+    applicableDaysOfWeek: ['MON'],
+  }).returning();
+
+  t.after(async () => {
+    await db.delete(schedules).where(eq(schedules.eventId, event.id));
+    await db.delete(events).where(eq(events.id, event.id));
+  });
+
+  const byIdQuery = `
+    query GetEventBySlug($slug: String!) {
+      eventBySlug(slug: $slug) {
+        id
+        schedules {
+          id
+          applicableDaysOfWeek
+        }
+      }
+    }
+  `;
+  const byIdResponse = await yoga.fetch('http://yoga/graphql', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ query: byIdQuery, variables: { slug: event.slug } }),
+  });
+  const byIdResult = await byIdResponse.json();
+  assert.ok(!byIdResult.errors, `GraphQL errors returned: ${JSON.stringify(byIdResult.errors)}`);
+  const byIdSchedules = byIdResult.data.eventBySlug.schedules as Array<{ id: string; applicableDaysOfWeek: string[] | null }>;
+  const foundById = byIdSchedules.find((s) => s.id === schedule.id);
+  assert.deepStrictEqual(foundById?.applicableDaysOfWeek, ['MON'], 'applicableDaysOfWeek should round-trip through the batched schedules() field resolver with no new resolver code');
+
+  const eventsQuery = `
+    query GetEvents {
+      events(limit: 50) {
+        items {
+          id
+          schedules {
+            id
+            applicableDaysOfWeek
+          }
+        }
+      }
+    }
+  `;
+  const eventsResponse = await yoga.fetch('http://yoga/graphql', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ query: eventsQuery }),
+  });
+  const eventsResult = await eventsResponse.json();
+  assert.ok(!eventsResult.errors, `GraphQL errors returned: ${JSON.stringify(eventsResult.errors)}`);
+  const matchingItem = eventsResult.data.events.items.find((n: any) => n.id === event.id);
+  assert.ok(matchingItem, 'seeded event should appear in the events() connection');
+  const matchingSchedule = matchingItem.schedules.find((s: any) => s.id === schedule.id);
+  assert.deepStrictEqual(matchingSchedule?.applicableDaysOfWeek, ['MON'], 'applicableDaysOfWeek should round-trip through the events() batched schedules path with no new resolver code');
+});
