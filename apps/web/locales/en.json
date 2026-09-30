@@ -597,6 +597,19 @@
     "permissionDeniedToast": "Please enable notification permissions in your browser settings to receive notifications on this device.",
     "saveErrorToast": "Failed to update notification settings. Please try again."
   },
+  "PwaInstallPrompt": {
+    "bannerMessage": "Add FestDaily to your home screen for quick access to festival events near you.",
+    "installButtonLabel": "Install",
+    "howToInstallButtonLabel": "How to install",
+    "notNowButtonLabel": "Not now",
+    "remindLaterButtonLabel": "Remind me in 2 weeks",
+    "iosModalTitle": "Install FestDaily",
+    "iosModalShareStep": "Tap the Share icon",
+    "iosModalAddToHomeScreenStep": "Tap \"Add to Home Screen\"",
+    "iosModalCloseLabel": "Close",
+    "installAppButtonLabel": "Install",
+    "installAppDescription": "Install FestDaily on this device for quick access to festival events."
+  },
   "Wizards": {
     "onboarding": {
       "title": "Getting Started",

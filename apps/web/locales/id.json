@@ -597,6 +597,19 @@
     "permissionDeniedToast": "Silakan aktifkan izin notifikasi di pengaturan browser Anda untuk menerima notifikasi di perangkat ini.",
     "saveErrorToast": "Gagal memperbarui pengaturan notifikasi. Silakan coba lagi."
   },
+  "PwaInstallPrompt": {
+    "bannerMessage": "Tambahkan FestDaily ke layar utama untuk akses cepat ke acara festival di sekitar Anda.",
+    "installButtonLabel": "Pasang",
+    "howToInstallButtonLabel": "Cara memasang",
+    "notNowButtonLabel": "Nanti saja",
+    "remindLaterButtonLabel": "Ingatkan saya dalam 2 minggu",
+    "iosModalTitle": "Pasang FestDaily",
+    "iosModalShareStep": "Ketuk ikon Bagikan",
+    "iosModalAddToHomeScreenStep": "Ketuk \"Tambah ke Layar Utama\"",
+    "iosModalCloseLabel": "Tutup",
+    "installAppButtonLabel": "Pasang",
+    "installAppDescription": "Pasang FestDaily di perangkat ini untuk akses cepat ke acara festival."
+  },
   "Wizards": {
     "onboarding": {
       "title": "Memulai",
