@@ -47,6 +47,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   accountId,
   accountPlatformIconUrl,
   accountHref,
+  accountLocation,
   isSubscribedToAccount,
   onSubscribeToAccount,
   isSubscribingToAccount,
@@ -285,6 +286,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
                   onUnsubscribe={canActOnSubscription ? onUnsubscribeFromAccount : undefined}
                   isStatusLoading={isSubscriptionStatusLoading}
                   isTogglePending={isTogglePending}
+                  location={accountLocation}
                   labels={{
                     subscribeLabel: labels.subscribeButtonLabel,
                     unsubscribeLabel: labels.unsubscribeButtonLabel,
