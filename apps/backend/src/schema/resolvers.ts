@@ -3072,6 +3072,17 @@ Constraints and Guidelines:
           startCol: schedules.eventStartDate,
           endCol: schedules.eventEndDate,
         },
+        // Story 0.i5d (AD-20 Rule 2/4) -- the TODAY temporal-filter bucket's `!ended` boundary.
+        // Extends the same fieldMap-descriptor-to-EXISTS-subquery pattern `scheduleDateRange`
+        // already uses above; see `drizzle-where.ts`'s `notEnded` case for the SQL shape.
+        scheduleEndedBoundary: {
+          table: schedules,
+          eventIdCol: schedules.eventId,
+          correlateCol: events.id,
+          startCol: schedules.eventStartDate,
+          endCol: schedules.eventEndDate,
+          endTimeCol: schedules.eventEndTime,
+        },
         adminArea: sql`(${schedules.locationDetails}->>'adminArea')`,
         venueType: sql`(${schedules.locationDetails}->>'venueType')`,
         isFree: sql`(${schedules.ticketPrice} ILIKE 'free' OR ${schedules.ticketPrice} ILIKE 'gratis')`,
