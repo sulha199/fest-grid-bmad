@@ -75,7 +75,7 @@ so that the calendar and card surfaces accurately reflect which days an event ac
   - [x] Run `drizzle-kit generate` to produce the migration file in `packages/database/migrations/` (next sequential number at dev time — last is `0060_square_pretty_boy.sql` as of 2026-09-30; never hand-number it); hand-verify the generated SQL (nullable column addition only, no data loss). — landed as `0061_brief_killraven.sql`.
   - [x] Add `applicableDaysOfWeek: [DayOfWeek!]` to `Schedule` in `apps/backend/src/schema/events.graphql`.
   - [x] Run GraphQL Code Generator (`apps/web`) to regenerate `apps/web/src/generated/graphql.ts` with the new field on every operation that selects `Schedule.applicableDaysOfWeek` (add the field to the relevant `.graphql` documents consumed by Discovery/Feed/Favorites/Calendar queries).
-  - [ ] Integration test: seed a schedule with `applicableDaysOfWeek`, query it through `Query.events`/`Query.eventBySlug`, assert the field round-trips with **no new resolver code** (i.e. assert `buildOptimizedDrizzleSelect`'s existing passthrough handles it).
+  - [ ] Integration test: seed a schedule with `applicableDaysOfWeek`, query it through `Query.events`/`Query.eventBySlug`, assert the field round-trips with **no new resolver code** (i.e. assert `buildOptimizedDrizzleSelect`'s existing passthrough handles it). — **NOT executed in this sandbox** (no Postgres): the test is written and type-checked in apps/backend/src/schema/resolvers.test.ts but must be run in a DB-backed environment before this can be ticked.
 
 - [x] **Task 4 — `packages/ui`: shared `useHoverFocusTooltip` hook (AC11, Gate 3 resolution)**
   - [x] Extract `isHovered`/`isFocused`/`isDismissed` state + pointer/focus/blur/Escape handlers from `CalendarCard` (`WeeklyCalendarView.tsx` ~lines 1083-1120) and `MultiDaySpanningBar` (~lines 1461-1510) into `packages/ui/src/hooks/useHoverFocusTooltip.ts`, parameterized so touch-gating (`pointerType !== 'touch'`) and the "only active in a given mode" gate (today: `variant === 'grid'`) are caller-controlled, not hardcoded in the hook.
@@ -241,7 +241,7 @@ one.
 
 ## Testing Requirements
 
-- [ ] Integration tests (GraphQL field round-trip, Task 3)
+- [ ] Integration tests (GraphQL field round-trip, Task 3) — **NOT executed in this sandbox** (no Postgres): the test is written and type-checked in apps/backend/src/schema/resolvers.test.ts but must be run in a DB-backed environment before this can be ticked.
 - [x] Unit tests (`getDays`, enum mapping, `useHoverFocusTooltip`, `EventCardRepeatBadge`)
 - [x] Component tests (`EventCard`, `CalendarCard` list/grid badge behavior)
 - [x] Regression suite green across all touched packages/apps (100% unit coverage maintained for `packages/domain` per project-context.md's Testing Rules) — verified this session for the packages actually touched (`packages/ui`, `apps/web`); `packages/domain`/`apps/backend` were verified complete in the prior 2026-09-30 reconciliation session and untouched here.
@@ -257,7 +257,7 @@ one.
 - [x] Badge wired into masonry `EventCard`, `CalendarCard` list, `EventCardCalendarGridItem` corner, and the spanning bar
 - [x] `DayOfWeek` i18n namespace (en, id)
 - [x] All 9 apps/web call sites wired with mapped data
-- [x] Full regression + new test coverage green
+- [ ] Full regression + new test coverage green — all verified except the backend DB-backed round-trip test (AC3/Task 3), which is written but NOT executed in this sandbox.
 
 ## Out of Scope
 
@@ -269,8 +269,8 @@ one.
 
 ## Definition of Done
 
-- [x] All 12 Acceptance Criteria satisfied
-- [ ] Required tests passing (unit, integration, component, regression)
+- [ ] All 12 Acceptance Criteria satisfied — all verified except the backend DB-backed round-trip test (AC3/Task 3), which is written but NOT executed in this sandbox.
+- [ ] Required tests passing (unit, integration, component, regression) — **NOT executed in this sandbox** (no Postgres): the test is written and type-checked in apps/backend/src/schema/resolvers.test.ts but must be run in a DB-backed environment before this can be ticked.
 - [x] Lint and type checks passing for all touched packages (`packages/domain`, `packages/ui`, `apps/backend`, `apps/web`)
 
 ## Completion Status
