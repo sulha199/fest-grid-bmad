@@ -386,6 +386,12 @@ export const schedules = pgTable('schedules', {
   longitude: doublePrecision('longitude'),
   timezone: text('timezone'),
   timezoneStatus: scheduleTimezoneStatusEnum('timezone_status'),
+  // Story 1.3k / AD-19 / BUG-026 (PRD §4.4) — the weekdays a recurring schedule actually occurs
+  // on within its [eventStartDate, eventEndDate] span. Nullable; absent/null means "every day in
+  // the span applies" (legacy-compatible default, no backfill needed). Free-form text array
+  // matching the `events.types`/`events.categories` convention ("expect values from the
+  // DayOfWeek enum", not a strict Postgres enum type) rather than a DB-level enum constraint.
+  applicableDaysOfWeek: text('applicable_days_of_week').array(),
   ...timestamps,
 }, (t) => ({
   performersIdx: index('schedule_performers_idx').on(t.performers),
