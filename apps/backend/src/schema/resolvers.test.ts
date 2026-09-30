@@ -7,7 +7,7 @@ import { resolvers, setEventsAuthProbe, eventsAuthProbe } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db, enableQueryDebug, resetExecutedQueryCount, getExecutedQueryCount } from '../db/client.js';
-import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, unprocessedScraperPayloads, instagramOembedCache, accountVotes } from '@festgrid/database';
+import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, calendarAdditions, unprocessedScraperPayloads, instagramOembedCache, accountVotes } from '@festgrid/database';
 import { eq, inArray, count, sql } from 'drizzle-orm';
 
 // read the generated schema for the yoga server
@@ -3114,4 +3114,105 @@ test('events - query-count is a constant, not O(N), when batched fields are requ
   assert.ok(!second.result.errors, `GraphQL errors returned (no totalCount): ${JSON.stringify(second.result.errors)}`);
   assert.strictEqual(second.count, withCount - 1, 'removing totalCount should drop the query count by exactly 1');
   assert.ok(second.count >= 2, 'items + schedules selects should still run');
+});
+
+test('eventBySlug/event - schedules.isAddedToCalendar batches at a constant query count, not O(N schedules) (Story 1.6c AC1, AC7)', async (t) => {
+  // Story 1.6c (AC1) — `event`/`eventBySlug` reuse Story 1.3j's batched-schedules code path
+  // (Task 1's shared `batchScheduleRowsForEvents` extraction) with an added
+  // `isAddedToCalendar` virtual field. Before this story, resolving N schedules'
+  // `isAddedToCalendar` cost 1 (parent) + 1 (schedules) + N (one per-schedule
+  // isAddedToCalendar query) = 2 + N. After batching it must be a small constant (parent
+  // select + one batched schedules-with-isAddedToCalendar select), regardless of N.
+
+  const createdUser = await db.insert(users).values({
+    email: `qc16c-${crypto.randomUUID()}@example.com`,
+    name: 'Story 1.6c Query Count User',
+    role: 'user',
+  }).returning();
+  const qcUser = createdUser[0];
+
+  const [event] = await db.insert(events).values({
+    eventName: '1.6c qc - event with 3 schedules',
+    location: 'Test City',
+  }).returning();
+
+  const createdSchedules = await db.insert(schedules).values([
+    { eventId: event.id, eventStartDate: '2030-10-01', isMainSchedule: true },
+    { eventId: event.id, eventStartDate: '2030-10-02' },
+    { eventId: event.id, eventStartDate: '2030-10-03' },
+  ]).returning();
+
+  // AC7: seed a real calendar addition for exactly one of the three schedules, so the
+  // hydration-correctness assertion below can distinguish "batched real state" from
+  // "forced false for everyone".
+  const [calendarAddition] = await db.insert(calendarAdditions).values({
+    userId: qcUser.id,
+    eventId: event.id,
+    scheduleId: createdSchedules[1].id,
+  }).returning();
+
+  t.after(async () => {
+    mockUser = null;
+    enableQueryDebug(false);
+    await db.delete(calendarAdditions).where(eq(calendarAdditions.id, calendarAddition.id));
+    await db.delete(schedules).where(eq(schedules.eventId, event.id));
+    await db.delete(events).where(eq(events.id, event.id));
+    await db.delete(users).where(eq(users.id, qcUser.id));
+  });
+
+  const query = `
+    query GetEventBySlug($slug: String!) {
+      eventBySlug(slug: $slug) {
+        id
+        schedules {
+          id
+          isAddedToCalendar
+        }
+      }
+    }
+  `;
+
+  async function runQuery() {
+    enableQueryDebug(true);
+    resetExecutedQueryCount();
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ query, variables: { slug: event.slug } }),
+    });
+    const count = getExecutedQueryCount();
+    enableQueryDebug(false);
+    const result = await response.json();
+    return { result, count };
+  }
+
+  // Authenticated caller: constant query count (parent select + batched schedules select),
+  // not 2 + N (N=3 here).
+  mockUser = { userId: qcUser.id, role: 'user' };
+  const { result: authedResult, count: authedCount } = await runQuery();
+  assert.ok(!authedResult.errors, `GraphQL errors returned: ${JSON.stringify(authedResult.errors)}`);
+  const authedSchedules = authedResult.data.eventBySlug.schedules as Array<{ id: string; isAddedToCalendar: boolean }>;
+  assert.strictEqual(authedSchedules.length, 3, 'should return all 3 seeded schedules');
+  assert.ok(authedCount <= 3, `expected a small constant query count (<= 3) but got ${authedCount}`);
+
+  // AC7: the batched result reflects the visitor's REAL calendar-addition state, not a forced
+  // `false` — exactly one schedule (the one seeded above) is `true`.
+  const addedTrue = authedSchedules.filter((s) => s.isAddedToCalendar === true);
+  assert.strictEqual(addedTrue.length, 1, 'exactly one schedule should read isAddedToCalendar=true from the batched select');
+  assert.strictEqual(
+    authedSchedules.find((s) => s.id === createdSchedules[1].id)?.isAddedToCalendar,
+    true,
+    'the specific schedule seeded with a calendar addition should be true'
+  );
+
+  // Anonymous caller: `isAddedToCalendar` is `false` for every schedule without needing
+  // `calendarAdditions` in scope at all (mirrors `fieldMap.isAddedToCalendar`'s existing
+  // `userId ? ... : sql\`false\`` shape) — and still a small constant query count.
+  mockUser = null;
+  const { result: anonResult, count: anonCount } = await runQuery();
+  assert.ok(!anonResult.errors, `GraphQL errors returned (anonymous): ${JSON.stringify(anonResult.errors)}`);
+  const anonSchedules = anonResult.data.eventBySlug.schedules as Array<{ id: string; isAddedToCalendar: boolean }>;
+  assert.strictEqual(anonSchedules.length, 3);
+  assert.ok(anonSchedules.every((s) => s.isAddedToCalendar === false), 'every schedule should read isAddedToCalendar=false for an anonymous caller');
+  assert.ok(anonCount <= 3, `expected a small constant query count (<= 3) but got ${anonCount}`);
 });
