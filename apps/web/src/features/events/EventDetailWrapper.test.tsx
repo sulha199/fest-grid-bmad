@@ -1248,10 +1248,11 @@ describe("EventDetailWrapper", () => {
 
   it("does not throw when 'serviceWorker' is unsupported by the browser (AC1's guard)", async () => {
     const originalDescriptor = Object.getOwnPropertyDescriptor(navigator, "serviceWorker")
-    Object.defineProperty(navigator, "serviceWorker", {
-      configurable: true,
-      value: undefined,
-    })
+    // The guard is `'serviceWorker' in navigator` — an `in` check, not a
+    // truthiness check — so the property key itself must be absent (not just
+    // `undefined`-valued) to exercise the unsupported-browser branch.
+    // @ts-expect-error -- deliberately deleting a non-optional DOM property for this test
+    delete navigator.serviceWorker
 
     expect(() => renderComponent()).not.toThrow()
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
