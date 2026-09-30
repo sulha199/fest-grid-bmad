@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-30T04:23:16Z
+last_updated: 2026-09-30T04:27:13Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -779,7 +779,7 @@ development_status:
   # 1-3j (status: review as of 2026-09-20 -- implemented, full backend suite passes,
   # so 1.6c's block on it is cleared) -- see the story file's own
   # Pre-Coding Approval Gate. See epics.md Story 1.6c.
-  1-6c-batch-isaddedtocalendar-dedupe-eventbyslug-fetch-and-gate-subscriptions-query: ready-for-dev
+  1-6c-batch-isaddedtocalendar-dedupe-eventbyslug-fetch-and-gate-subscriptions-query: in-progress
   # epics.md section added 2026-09-15 via bmad-correct-course (CC-021,
   # sprint-change-proposal-2026-09-15-reusable-location-link.md), which
   # deferred sprint-status.yaml registration to a later bmad-create-story

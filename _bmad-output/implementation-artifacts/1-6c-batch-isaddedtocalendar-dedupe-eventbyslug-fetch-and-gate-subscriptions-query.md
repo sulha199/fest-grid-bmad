@@ -1,3 +1,7 @@
+---
+baseline_commit: 1fe70759b0c0a0d8731c18b8d643e3d0915be059
+---
+
 # Story 1.6c: Batch Schedule.isAddedToCalendar, dedupe the eventBySlug double-fetch, and gate the event-detail subscriptions query
 
 ## Story Details
