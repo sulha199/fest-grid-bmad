@@ -30,7 +30,7 @@ import { usePostHog } from "@festgrid/analytics"
 import { useRouter } from "@/i18n/navigation"
 import { useSearchParams } from "next/navigation"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
-import { buildEventsQueryCondition, EventFilterInput, NearbyFilterInput } from "@festgrid/domain/events"
+import { buildEventsQueryCondition, EventFilterInput, NearbyFilterInput, DayOfWeek as DomainDayOfWeek } from "@festgrid/domain/events"
 import { useAIFilter } from "@/features/events/use-ai-filter"
 import { useNearbyFilter } from "../use-nearby-filter"
 import { mapDaysOfWeekToDomain } from "@/lib/day-of-week-mapping"
@@ -87,6 +87,7 @@ export function FavoritesContent() {
   const t = useTranslations("FavoritesPage")
   const tCategory = useTranslations("EventCategory")
   const tType = useTranslations("EventType")
+  const tDayOfWeek = useTranslations("DayOfWeek")
   const tFilterHub = useTranslations("FilterHub")
   const tNearby = useTranslations("NearbyFilter")
   const tEventCard = useTranslations("EventCard")
@@ -110,6 +111,12 @@ export function FavoritesContent() {
     [tCategory]
   )
   const typeLabels = useMemo(() => buildEnumLabels(Object.values(EventType), tType), [tType])
+  // Story 1.3k Task 8 (AC9) — DayOfWeek i18n namespace, passed through to EventListView/EventCard
+  // as `dayOfWeekLabels`.
+  const dayOfWeekLabels = useMemo(
+    () => buildEnumLabels(Object.values(DomainDayOfWeek), tDayOfWeek),
+    [tDayOfWeek]
+  )
 
   const filterLabels = useMemo(
     () => ({
@@ -399,6 +406,7 @@ export function FavoritesContent() {
                   priceFrom: t("priceFrom"),
                   categoryLabels,
                   typeLabels,
+                  dayOfWeekLabels,
                   tillLabel: tEventCard("tillLabel"),
                   statusEnded: tEventCard("statusEnded"),
                   statusHappeningNow: tEventCard("statusHappeningNow"),

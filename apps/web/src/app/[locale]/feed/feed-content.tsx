@@ -18,6 +18,7 @@ import { SubscriptionPicker } from "@festgrid/ui";
 import { useAIFilter } from "@/features/events/use-ai-filter";
 import { useNearbyFilter } from "../use-nearby-filter";
 import { mapDaysOfWeekToDomain } from "@/lib/day-of-week-mapping";
+import { DayOfWeek as DomainDayOfWeek } from "@festgrid/domain/events";
 
 function buildEnumLabels(values: string[], translate: (key: string) => string) {
   return Object.fromEntries(
@@ -35,6 +36,7 @@ export function FeedContent() {
   const t = useTranslations("FeedPage");
   const tCategory = useTranslations("EventCategory");
   const tType = useTranslations("EventType");
+  const tDayOfWeek = useTranslations("DayOfWeek");
   const tFilterHub = useTranslations("FilterHub");
   const tNearby = useTranslations("NearbyFilter");
   const tEventCard = useTranslations("EventCard");
@@ -78,6 +80,12 @@ export function FeedContent() {
     [tCategory]
   );
   const typeLabels = useMemo(() => buildEnumLabels(Object.values(EventType), tType), [tType]);
+  // Story 1.3k Task 8 (AC9) — DayOfWeek i18n namespace, passed through to EventListView/EventCard
+  // as `dayOfWeekLabels`.
+  const dayOfWeekLabels = useMemo(
+    () => buildEnumLabels(Object.values(DomainDayOfWeek), tDayOfWeek),
+    [tDayOfWeek]
+  );
 
   const filterLabels = useMemo(
     () => ({
@@ -331,6 +339,7 @@ export function FeedContent() {
                   priceFrom: t("priceFrom") || "From",
                   categoryLabels,
                   typeLabels,
+                  dayOfWeekLabels,
                   tillLabel: tEventCard("tillLabel"),
                   statusEnded: tEventCard("statusEnded"),
                   statusHappeningNow: tEventCard("statusHappeningNow"),

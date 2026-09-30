@@ -22,6 +22,7 @@ import { useAIFilter } from "@/features/events/use-ai-filter"
 import { computeDistanceKm } from "@festgrid/domain/geolocation"
 import { selectDisplaySchedule } from "@festgrid/domain/events"
 import { mapDaysOfWeekToDomain } from "@/lib/day-of-week-mapping"
+import { DayOfWeek as DomainDayOfWeek } from "@festgrid/domain/events"
 
 // Falls back to the raw enum value if a translation key is missing, so a
 // locale file drifting out of sync with the enum degrades gracefully instead
@@ -146,6 +147,7 @@ export function HomeContent() {
   
   const tCategory = useTranslations('EventCategory')
   const tType = useTranslations('EventType')
+  const tDayOfWeek = useTranslations('DayOfWeek')
   const tFilterHub = useTranslations('FilterHub')
   const tEventCard = useTranslations('EventCard')
   const locale = useLocale()
@@ -157,6 +159,12 @@ export function HomeContent() {
   const typeLabels = useMemo(
     () => buildEnumLabels(Object.values(EventType), tType),
     [tType]
+  )
+  // Story 1.3k Task 8 (AC9) — DayOfWeek i18n namespace, passed through to EventListView/EventCard
+  // as `dayOfWeekLabels`.
+  const dayOfWeekLabels = useMemo(
+    () => buildEnumLabels(Object.values(DomainDayOfWeek), tDayOfWeek),
+    [tDayOfWeek]
   )
 
   const router = useRouter()
@@ -339,6 +347,7 @@ export function HomeContent() {
                   priceFrom: t('priceFrom'),
                   categoryLabels,
                   typeLabels,
+                  dayOfWeekLabels,
                   favoriteToggle: tEventCard('favoriteToggle'),
                   tillLabel: tEventCard('tillLabel'),
                   statusEnded: tEventCard('statusEnded'),

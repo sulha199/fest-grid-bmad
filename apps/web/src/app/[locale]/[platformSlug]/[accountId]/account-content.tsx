@@ -17,6 +17,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { LoginContent } from "../../login/login-content";
 import AccountCalendarView from "./AccountCalendarView";
 import { mapDaysOfWeekToDomain } from "@/lib/day-of-week-mapping";
+import { DayOfWeek as DomainDayOfWeek } from "@festgrid/domain/events";
 
 interface AccountContentProps {
   platformSlug: string;
@@ -48,6 +49,7 @@ export default function AccountContent({ platformSlug, accountId, profile }: Acc
   const t = useTranslations("AccountPage");
   const tCategory = useTranslations("EventCategory");
   const tType = useTranslations("EventType");
+  const tDayOfWeek = useTranslations("DayOfWeek");
   const tFilterHub = useTranslations("FilterHub");
   const tNearby = useTranslations("NearbyFilter");
   const tEventCard = useTranslations("EventCard");
@@ -75,6 +77,12 @@ export default function AccountContent({ platformSlug, accountId, profile }: Acc
     [tCategory]
   );
   const typeLabels = useMemo(() => buildEnumLabels(Object.values(EventType), tType), [tType]);
+  // Story 1.3k Task 8 (AC9) — DayOfWeek i18n namespace, passed through to EventListView/EventCard
+  // as `dayOfWeekLabels`.
+  const dayOfWeekLabels = useMemo(
+    () => buildEnumLabels(Object.values(DomainDayOfWeek), tDayOfWeek),
+    [tDayOfWeek]
+  );
 
   const filterLabels = useMemo(
     () => ({
@@ -282,6 +290,7 @@ export default function AccountContent({ platformSlug, accountId, profile }: Acc
                   priceFrom: t("priceFrom") || "From",
                   categoryLabels,
                   typeLabels,
+                  dayOfWeekLabels,
                   tillLabel: tEventCard("tillLabel"),
                   statusEnded: tEventCard("statusEnded"),
                   statusHappeningNow: tEventCard("statusHappeningNow"),
