@@ -1,26 +1,43 @@
 /**
- * Chains one act-mode ritual (bmad-dev-story or bmad-quick-dev) with a
- * post-run verification: dispatch the skill, then run lint, build, and test
- * in sequence (fail-fast, cheapest first) via run-check.ts. If any of the
- * three fails, automatically dispatch bmad-quick-dev with that check's
- * failure summary to fix it. Supersedes run-act-with-tests.ts, which only
- * verified test -- the user's own bar is "lint, build, test are not
- * catching error by the end of quick-dev or dev-story", so all three are
- * now checked, not just test.
+ * Chains one act-mode ritual (originally both bmad-dev-story and
+ * bmad-quick-dev, now bmad-dev-story only -- see below) with a post-run
+ * verification: dispatch the skill, then run a caller-selected subset of
+ * lint/build/test in sequence (fail-fast, cheapest first) via run-check.ts.
+ * If a selected check fails, automatically dispatch bmad-quick-dev with that
+ * check's failure summary to fix it. Supersedes run-act-with-tests.ts, which
+ * only verified test.
+ *
+ * Cost/time-efficiency note (2026-09-30): originally ran all three checks
+ * for both bmad-dev-story and bmad-quick-dev. Per-item lint+build on every
+ * dispatch was the dominant per-story cost in a multi-story batch for
+ * marginal extra safety over a single end-of-batch pass, so the
+ * ritual-orchestrator skill now calls this with `--checks test` for
+ * bmad-dev-story and bypasses this script entirely for bmad-quick-dev
+ * (dispatched via dispatch-ritual.ts directly, no per-item check). The
+ * deferred lint/build/test coverage runs once at the end of the batch
+ * instead -- see that skill's Step 4.5.
  *
  * Usage:
  *   tsx src/run-act-with-checks.ts --skill bmad-dev-story --story 3.6h \
  *       --mailbox ../mailbox --cwd C:/projects/portfolio/festgrid/bmad \
- *       [--config <preset-name-or-path>] \
+ *       [--config <preset-name-or-path>] [--checks lint,build,test] \
  *       [--lint-command "pnpm lint"] [--build-command "pnpm build"] [--test-command "pnpm test"] \
  *       [--check-timeout-ms 1200000] [--skip-quick-dev-on-failure]
+ *
+ * --checks selects the subset (and order) of lint/build/test to run this
+ * invocation -- default is all three. The ritual-orchestrator skill's batch
+ * procedure calls this with `--checks test` for bmad-dev-story (lint/build
+ * are deferred to a single end-of-batch pass instead of repeating them per
+ * story) and skips this script entirely for bmad-quick-dev (dispatches via
+ * dispatch-ritual.ts directly, no per-item check at all -- also deferred to
+ * the batch-end pass). See that skill's Step 4.5 for the deferred pass.
  *
  * Flow:
  *   1. dispatch-ritual.ts --skill <skill> --story <story> ... (any
  *      AskUserQuestion still relays through the mailbox exactly as normal).
- *   2. On success, run-check.ts --kind lint, then --kind build, then
- *      --kind test, in that order, stopping at the first failure (cheapest
- *      checks first; test already implies a build via turbo's own
+ *   2. On success, run-check.ts for each kind in --checks, in order,
+ *      stopping at the first failure (default order is lint, build, test --
+ *      cheapest first; test already implies a build via turbo's own
  *      dependsOn graph, but running build explicitly first attributes a
  *      compile error to "build" instead of burying it inside a "test"
  *      failure).
@@ -58,9 +75,22 @@ interface Args {
   mailbox: string;
   cwd: string;
   config?: string;
+  checks: CheckKind[];
   commands: Record<CheckKind, string>;
   checkTimeoutMs: number;
   skipQuickDevOnFailure: boolean;
+}
+
+function parseChecks(raw: string | undefined): CheckKind[] {
+  if (!raw) return CHECK_ORDER;
+  const requested = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  for (const kind of requested) {
+    if (!CHECK_ORDER.includes(kind as CheckKind)) {
+      throw new Error(`--checks: unknown kind "${kind}" (expected a comma-separated subset of ${CHECK_ORDER.join(",")})`);
+    }
+  }
+  // Preserve the canonical cheapest-first order regardless of input order.
+  return CHECK_ORDER.filter((kind) => requested.includes(kind));
 }
 
 function parseArgs(argv: string[]): Args {
@@ -75,9 +105,13 @@ function parseArgs(argv: string[]): Args {
   if (!skill || !story || !mailbox || !cwd) {
     throw new Error(
       "Required: --skill <name> --story <id> --mailbox <dir> --cwd <repo-root> " +
-        '[--config <preset>] [--lint-command "pnpm lint"] [--build-command "pnpm build"] [--test-command "pnpm test"] ' +
+        '[--config <preset>] [--checks lint,build,test] [--lint-command "pnpm lint"] [--build-command "pnpm build"] [--test-command "pnpm test"] ' +
         "[--check-timeout-ms N] [--skip-quick-dev-on-failure]",
     );
+  }
+  const checks = parseChecks(get("--checks"));
+  if (checks.length === 0) {
+    throw new Error("--checks resolved to an empty set -- pass at least one of lint,build,test, or omit the flag entirely.");
   }
   return {
     skill,
@@ -85,6 +119,7 @@ function parseArgs(argv: string[]): Args {
     mailbox,
     cwd,
     config: get("--config"),
+    checks,
     commands: {
       lint: get("--lint-command") ?? "pnpm lint",
       build: get("--build-command") ?? "pnpm build",
@@ -138,9 +173,9 @@ async function main() {
     return;
   }
 
-  console.log(`\n[run-act-with-checks] step 2/2: running checks in order (${CHECK_ORDER.join(" -> ")})`);
+  console.log(`\n[run-act-with-checks] step 2/2: running checks in order (${args.checks.join(" -> ")})`);
 
-  for (const kind of CHECK_ORDER) {
+  for (const kind of args.checks) {
     console.log(`\n[run-act-with-checks] running ${kind} ("${args.commands[kind]}")`);
     const logFile = path.join(args.mailbox, `${kind}-run-${args.story}-${Date.now()}.log`);
     const checkExit = await runScript("run-check.ts", [
@@ -184,13 +219,13 @@ async function main() {
 
     console.log(
       `\n[run-act-with-checks] bmad-quick-dev dispatched (exit ${quickDevExit}) -- this script does not re-run checks after the fix; re-run this script (or run-check.ts directly) to verify. ` +
-        `Stopping here (fail-fast) -- ${CHECK_ORDER.slice(CHECK_ORDER.indexOf(kind) + 1).join(", ") || "no further checks"} not yet run.`,
+        `Stopping here (fail-fast) -- ${args.checks.slice(args.checks.indexOf(kind) + 1).join(", ") || "no further checks"} not yet run.`,
     );
     process.exitCode = quickDevExit;
     return;
   }
 
-  console.log(`\n[run-act-with-checks] lint, build, and test all passed -- done. (${args.skill} on ${args.story})`);
+  console.log(`\n[run-act-with-checks] ${args.checks.join(", ")} all passed -- done. (${args.skill} on ${args.story})`);
   process.exitCode = 0;
 }
 

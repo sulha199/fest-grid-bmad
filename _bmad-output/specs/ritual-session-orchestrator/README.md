@@ -139,18 +139,20 @@ That failing run itself is a real, current finding worth acting on, not just a t
 
 **`build-lint-output-summary.ts`** (kinds `build`/`lint`) does the same for turbo's build/lint output — also grounded in real triggered failures (2026-09-04), not assumed: a genuine `tsc` type error (`<pkg>:build: src/foo.ts(1,14): error TS2322: ...`) and a genuine `--max-warnings 0` breach (an eslint `warning`-severity line that still fails the task, surfaced via the package's own `✖ N problems (0 errors, N warnings)` / `ESLint found too many warnings` lines rather than an `error`-severity line, since not every real lint failure is an eslint "error"). Turbo's own `Failed:    <pkg>#<task>` line (one per failed task) is the most reliable "what exactly failed" signal for both kinds, cross-checked against the same `Tasks: X successful, Y total` verdict line `test-output-summary.ts` relies on.
 
-**`run-act-with-checks.ts`** is the actual chained workflow — dispatch an act-mode skill, then verify it against all three checks, not just test:
+**`run-act-with-checks.ts`** is the actual chained workflow — dispatch an act-mode skill, then verify it against a caller-selected subset of the three checks:
 
 ```bash
 npx tsx src/run-act-with-checks.ts --skill bmad-dev-story --story 3.6h \
-    --mailbox ../mailbox --cwd <repo-root> [--config <preset>]
+    --mailbox ../mailbox --cwd <repo-root> [--config <preset>] [--checks lint,build,test]
 ```
 
 1. `dispatch-ritual.ts --skill bmad-dev-story --story 3.6h` (any `AskUserQuestion` still relays through the mailbox exactly as normal — this script only sequences around that, doesn't change it).
-2. On success, runs `run-check.ts --kind lint`, then `--kind build`, then `--kind test`, in that order — cheapest first, fail-fast. Test already implies a build via turbo's own `dependsOn` graph, but running build explicitly first attributes a compile error to "build" instead of burying it inside a "test" failure.
+2. On success, runs `run-check.ts` for each kind named in `--checks`, in cheapest-first order (lint, build, test), fail-fast at the first failure. Test already implies a build via turbo's own `dependsOn` graph, but running build explicitly first attributes a compile error to "build" instead of burying it inside a "test" failure.
 3. At the first failing check, dispatches `bmad-quick-dev` (via `dispatch-ritual.ts` again, same `--config`) with a prompt built from that check's own failure summary, asking it to fix it.
 
 Deliberately does **not** loop — it dispatches quick-dev once for the first failing check and reports; it doesn't re-run the remaining checks afterward or retry indefinitely. Re-running this same script (or `run-check.ts` directly) is how you'd verify the fix actually worked, same as any other story step in this design — no hidden autonomous retry loop. Supersedes the earlier test-only `run-act-with-tests.ts`, which this replaces.
+
+**Cost/time-efficiency change, 2026-09-30: per-item checks narrowed, deferred to a batch-end pass.** Originally ran all three checks per dispatch for both `bmad-dev-story` and `bmad-quick-dev` — but per-item lint+build on every dispatch was the dominant per-story cost across a multi-story batch for marginal extra safety over one pass at the end. Added a `--checks <comma-list>` flag (default all three, order always normalized to lint→build→test) so a caller can select a subset. The `ritual-orchestrator` skill's batch procedure now calls this with `--checks test` for `bmad-dev-story` (lint+build deferred) and bypasses this script entirely for `bmad-quick-dev` (dispatched via `dispatch-ritual.ts` directly, no per-item check at all — all three deferred). `bmad-create-story` and other plan/review-bucket skills never ran checks here to begin with (document-only, nothing to lint/build/test). The deferred coverage runs once, after the whole batch, in the skill's own Step 4.5 — not per story, and not auto-fixed on failure (attribution across a multi-story batch isn't reliable the way it is for a single-story `run-act-with-checks.ts` call, so a batch-end failure is reported to the user rather than auto-dispatching a fix).
 
 **Skill-level enforcement**: `bmad-dev-story` (Step 9, definition-of-done) and `bmad-quick-dev` (`step-03-implement.md`, before handing off to review) now explicitly require lint + build + test to all pass before the skill considers its own work complete — this holds even when a ritual is run directly in an interactive session, not only when wrapped by `run-act-with-checks.ts`. The orchestrator script is the outer safety net for batch/unattended runs; the skill files are the inner gate for every invocation.
 
