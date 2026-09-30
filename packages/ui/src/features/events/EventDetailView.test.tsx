@@ -834,6 +834,38 @@ describe('EventDetailView', () => {
     expect(screen.getByRole('link', { name: /View source/i })).toBeInTheDocument();
   });
 
+  // Story 0.i6e: accountLocation prop threading onto SubscribedAccountCard's location prop.
+  describe('accountLocation prop threading (Story 0.i6e)', () => {
+    it('threads accountLocation to SubscribedAccountCard, rendering a location link instead of @username when trustworthy', () => {
+      render(
+        <EventDetailView
+          {...minimalProps}
+          accountName="Org"
+          accountPlatformIconUrl="http://icon"
+          accountHref="/link"
+          accountId="123"
+          accountPlatform="instagram"
+          accountUsername="org"
+          isSubscribedToAccount={false}
+          accountLocation={{
+            name: 'The Grand Hall',
+            coordinates: { lat: 41.8758, lng: -87.6245 },
+            confidence: 0.9,
+            matchType: 'full_match',
+          }}
+        />
+      );
+
+      expect(screen.getByText('The Grand Hall')).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /@org/i })).not.toBeInTheDocument();
+    });
+
+    it('remains green with accountLocation omitted (existing tests regression check)', () => {
+      render(<EventDetailView {...fullProps} />);
+      expect(screen.getByRole('link', { name: /@festorganizer/i })).toBeInTheDocument();
+    });
+  });
+
   it('shows the subscribed toggle state (aria-pressed true) when already subscribed', () => {
     render(<EventDetailView {...fullProps} isSubscribedToAccount={true} onUnsubscribeFromAccount={vi.fn()} />);
     const toggle = screen.getByTestId('subscribe-toggle');
