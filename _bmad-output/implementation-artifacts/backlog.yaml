@@ -666,13 +666,14 @@ items:
      note: "PROMOTED (2026-09-13 via bmad-dev-story, user-confirmed): fully covered by Story 0.i7b — selectBestCandidate re-ranks the retained candidate set by confidence (matchType-priority tiebreak) in resolveLocation's ADDRESS branch, so a low-confidence Geoapify top hit no longer wins over a correct, lower-ranked sub-venue. Threshold/filtering and event-detail map-link follow-through remain IDEA-023/Story 0.i7c."}
 
   BUG-018:
-    {type: bug, status: promoted, created: 2026-09-07, epic: epic-0-i5,
+    {type: bug, status: done, created: 2026-09-07, closed: 2026-09-30, epic: epic-0-i5,
      impact: user-visible, effort: s,
      title: "Infinite-scroll next-page load doesn't preserve scroll position, forcing user to scroll up/down again to trigger the following page",
      ref: [],
      stories: [0-i5b-adopt-the-controller-in-discovery-event-list-surfaces],
      touches: [web:events, pkg:ui],
-     note: "CAUTION: Story 0.i5b's fix targeted a hypothesis not present in the code; symptom not independently re-verified. Real fix was via sibling BUG-031 (sentinel height collapse), not re-confirmed against this row's repro. Full trail in Story 0.i5b's Dev Notes."}
+     note: "CAUTION (superseded, see below): Story 0.i5b's fix targeted a hypothesis not present in the code; symptom not independently re-verified. Real fix was via sibling BUG-031 (sentinel height collapse), not re-confirmed against this row's repro. Full trail in Story 0.i5b's Dev Notes.
+     VERIFIED RESOLVED 2026-09-30: this row's exact repro (a naive repeated scroll-to-bottom must keep triggering the next page WITHOUT the user needing to scroll up then down again to re-trigger the observer) is precisely what BUG-043's live-prod Playwright re-test just demonstrated -- 8 consecutive `scrollTo(bottom)` calls in a tight loop, zero manual up/down correction between them, loaded pages continuously (20->30->...->100, one request per scroll). If this row's symptom still existed, that simple loop would have stalled after one page exactly like BUG-043 originally did. Between BUG-031 (sentinel min-h-16), BUG-038, and BUG-046 (both overflow-anchor fixes), this failure class has been fixed three times over since this row was filed. Closing on this evidence rather than leaving the caution open indefinitely."}
 
   BUG-019:
     {type: bug, status: promoted, created: 2026-09-07, epic: epic-0-i5,
@@ -792,7 +793,8 @@ items:
      ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
      touches: [pkg:ui, web:events/WeeklyCalendarView, cross:ux-tokens],
      stories: [1-i1d-adopt-the-primitive-into-weeklycalendarview-compact-row],
-     note: "Story 1.i1d delivered thumbnail+fallback+date box on CalendarCard variant='list'; badges carved to IDEA-025. AMENDED 2026-09-14: 3 prototyping corrections not yet folded into a story amendment. Full detail in Story 1.i1d's Dev Notes."}
+     note: "Story 1.i1d delivered thumbnail+fallback+date box on CalendarCard variant='list'; badges carved to IDEA-025. AMENDED 2026-09-14: 3 prototyping corrections not yet folded into a story amendment. Full detail in Story 1.i1d's Dev Notes.
+     STALE NOTE CORRECTED 2026-09-29 (double-check against EVENT-CARD-DESIGN.md/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md as source of truth): the '3 prototyping corrections not yet folded in' are exactly the gap IDEA-046 audited and closed via Story 1.i1l (explicitly named in that story's own opening paragraph) -- now `review`, verified against commit c80cd9b. No remaining unaddressed corrections from this row."}
 
   IDEA-017:
     {type: idea, status: promoted, epic: epic-1-i1, created: 2026-09-11, parent: CC-019,
@@ -801,7 +803,8 @@ items:
      ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
      touches: [pkg:ui, web:events/EventCard, cross:ux-tokens],
      stories: [1-i1e-adopt-the-primitive-into-the-masonry-default-state],
-     note: "Story 1.i1e delivered the promoted scope (date-box-beside-thumbnail + TILL-badge restyle); no child row. AMENDED 2026-09-14: 7 prototyping refinements (see CC-019) post-date 1.i1e, not yet folded into a story amendment. Full detail in Story 1.i1e's Dev Notes."}
+     note: "Story 1.i1e delivered the promoted scope (date-box-beside-thumbnail + TILL-badge restyle); no child row. AMENDED 2026-09-14: 7 prototyping refinements (see CC-019) post-date 1.i1e, not yet folded into a story amendment. Full detail in Story 1.i1e's Dev Notes.
+     STALE NOTE CORRECTED 2026-09-29 (double-check against EVENT-CARD-DESIGN.md/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md as source of truth): the '7 prototyping refinements' are exactly the gap IDEA-046 audited and closed via Story 1.i1l (explicitly named in that story's own opening paragraph) -- now `review`, verified against commit c80cd9b. Note this masonry surface was then further revised past 1.i1l's own scope by the 2026-09-27/28 pixel-perfect pass (uncommitted-at-the-time changes, committed 2026-09-28) -- EVENT-CARD-DESIGN.md's event_card_masonry tokens (top_row_default, thumbnail_default, event_card_date_box.base_default) are the current source of truth, not 1.i1e's or 1.i1l's own original AC text."}
 
   # ── 2026-09-11 (bmad-help scraper-webhook-token-bug session) ────────────────
   IDEA-018:
@@ -1398,12 +1401,13 @@ items:
   # ── 2026-09-21 (bmad-create-story, IDEA-046 promotion carve-outs) ───────────
   IDEA-048:
     {type: idea, status: backlog, epic: epic-1-i1, created: 2026-09-21, parent: IDEA-046,
-     impact: user-visible, effort: s,
-     title: "Calendar compact row renders no venue line at all, and still corner-overlays its favorite pill instead of stacking it below the thumbnail",
-     ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md,
+     impact: user-visible, effort: xs,
+     title: "Calendar compact row (Mobile Vertical Day List): favorite pill still corner-overlays the thumbnail instead of mirroring the till badge's floating-corner treatment on the opposite side",
+     ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md, design-artifacts/UX-festgrid-run-1/EVENT-CARD-DESIGN.md,
            implementation-artifacts/1-i1l-apply-the-six-unowned-prototype-fidelity-rules.md],
      touches: [pkg:ui, web:events/WeeklyCalendarView, cross:ux-tokens],
-     note: "Found 2026-09-21 drafting Story 1.i1l: two residuals in the same event_card_compact token block as IDEA-046 rules 6/7, user-directed in the same 2026-09-14 pass but absent from that row's seven. The with-image counterpart to rule 7, so it belongs with Story 1.i1m."}
+     note: "Found 2026-09-21 drafting Story 1.i1l: two residuals in the same event_card_compact token block as IDEA-046 rules 6/7. The with-image counterpart to rule 7, originally expected to land with Story 1.i1m -- it didn't (1.i1m only touched the no-image branch).
+     RESCOPED 2026-09-29 after direct code verification: this IS the Mobile Vertical Day List's per-schedule card (`WeeklyCalendarView.tsx`'s `variant === 'list'` path, confirmed rendered inside `data-testid=\"mobile-day-row\"` -- mobile only, not the desktop grid). (a) Venue line gap CLOSED -- `WeeklyCalendarView.tsx:1245-1249` now renders `schedule.locationName` (shipped in a 2026-09-27 session commit), title narrowed to just the remaining gap. (b) Favorite-pill corner-overlay CONFIRMED still present: `EventCardMediaPrimitives.tsx:265`'s with-image branch still renders `className=\"absolute top-1 right-1 z-30\"` (positive, inset) for `size='compact'` same as masonry. User-directed fix (2026-09-29): mirror the till badge's floating-corner treatment (`eventCardTillLabelClass('compact')` = `-top-1.5 -left-1.5`, floating past the thumbnail's own corner into the row's unclipped padding gutter) onto the favorite pill's OPPOSITE corner (`-top-1.5 -right-1.5`). Implementation note: the till badge achieves this by living in a different component (`EventCardDateBox`, not clipped) -- the favorite pill currently lives inside `EventCardMediaSlot`'s own `overflow-hidden` wrapper (`EventCardMediaPrimitives.tsx:244`), so a naive negative-offset class would get clipped. Will need the same treatment masonry VM1's till tag got (pulled out as an external floating sibling positioned against the thumbnail's own corner, not nested inside the clipped slot) -- scope this at pickup, not a one-line class swap."}
 
   FIND-046:
     {type: finding, status: backlog, created: 2026-09-21, parent: IDEA-046,
@@ -1516,12 +1520,12 @@ items:
      note: "Fixed 2026-09-27 (bmad-quick-dev): added durableImageUrl to the 3 gap GraphQL queries, threaded imageFallbackUrl through EventCard/EventCardMediaSlot/EventCardCalendarGridItem/WeeklyCalendarView, and fixed VM1's AC-IMG-3 gap (scale=\"large\" favorite badge on total image failure). Code-review loopback caught a real bug in the first pass: the retry chain only fired on onError, missing the common case where imageUrl is null from the start. See spec-bug-042-eventcard-family-image-fallback-chain.md for full detail."}
 
   BUG-043:
-    {type: bug, status: triaged, created: 2026-09-26,
+    {type: bug, status: done, created: 2026-09-26, closed: 2026-09-29,
      impact: user-visible, effort: m,
      title: "Discovery infinite scroll stops loading after exactly one extra page despite hasMore:true",
      ref: [apps/web/src/features/events],
      touches: [web:events],
-     note: "Found via live-deployment visual audit (https://fest-grid.vercel.app/id) at user's request. Observed, not yet root-caused: scrolled to bottom 6 times on the live Discovery masonry page; the infinite-scroll fetch fired exactly once (10 -> 20 -> 30 cards loaded, one extra GraphQL call), then stopped completely despite the response still reporting hasMore:true and totalCount:123 (only 30/123 events ever load). Likely candidate: useInfiniteScroll/useListPaginationController's intersection-observer sentinel losing visibility once the masonry grid's real DOM layout grows tall (same failure class BUG-031 fixed for a different symptom -- worth checking whether this is a regression of that fix under the new masonry engine, Story 0.45, or an unrelated pre-existing gap). Not yet scoped or fixed."}
+     note: "Found via live-deployment visual audit (https://fest-grid.vercel.app/id) at user's request. Original observation: scrolled to bottom 6 times, fetch fired exactly once (10->20->30), then stopped despite hasMore:true/totalCount:123. Note's own hypothesis (masonry's JS engine, Story 0.45, absolutely-positioning items and breaking the sentinel) was CHECKED 2026-09-29 by reading grid-container.tsx's actual masonry branch -- no `position: absolute` anywhere, plain flex columns, real DOM children; the sentinel is also a sibling outside GridContainer entirely (EventListView.tsx) so masonry layout can't affect it. Hypothesis was wrong, but the underlying bug is CONFIRMED FIXED regardless: user reported it works now, independently re-verified live against https://fest-grid.vercel.app/id via a scripted Playwright run (8 scrolls, cards grew 20->30->40->50->60->70->80->90->100, one getEvents request fired per scroll, no stall). Root cause of the original stall (and whichever commit fixed it) was never identified -- likely subsumed by one of the several other infinite-scroll fixes landed 2026-09-26 (BUG-045/046) or the masonry engine rewrite itself -- but the symptom no longer reproduces."}
 
   BUG-044:
     {type: bug, status: promoted, created: 2026-09-26,
@@ -1588,10 +1592,12 @@ items:
   FIND-058:
     {type: finding, status: backlog, created: 2026-09-26,
      impact: cosmetic, effort: xs,
-     title: "3 more findings from BUG-048's review: MultiDaySpanningBar's missing nearbyBadgeLabel/isAddedToCalendar treatment, and no browser/screenshot check of the new grid composition",
+     title: "MultiDaySpanningBar still missing isAddedToCalendar treatment (nearbyBadgeLabel gap since closed), and no browser/screenshot check of the new grid composition",
      ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-bug-048-eventcardcalendargriditem-single-day-adoption.md],
      touches: [pkg:ui, web:events/WeeklyCalendarView],
-     note: "Deferred from: code review of spec-bug-048-eventcardcalendargriditem-single-day-adoption.md (2026-09-26). 3 findings (plus FIND-057, tracked separately)."}
+     note: "Deferred from: code review of spec-bug-048-eventcardcalendargriditem-single-day-adoption.md (2026-09-26). 3 findings (plus FIND-057, tracked separately).
+     VERIFIED 2026-09-29 against live code: nearbyBadgeLabel is now wired and rendering with an estimated-distance value (user-confirmed live; matches AC-NEARBY-1/2/3, BUG-049) -- that part of this finding is CLOSED. `isAddedToCalendar` treatment is CONFIRMED still missing from `MultiDaySpanningBar` (`WeeklyCalendarView.tsx:1556-1570` -- `EventCardCalendarGridItem`'s `labels` prop only forwards `favoriteToggle`, no isAddedToCalendar slot exists in the shared primitive at all, same as the day-cell's own comment at :1325-1327 already notes). LAYOUT PROPOSAL (2026-09-29, user asked for one): reuse the sibling single-day grid card's own already-shipped pattern verbatim -- `WeeklyCalendarView.tsx:1373-1379` renders a decorative `CalendarPlus` icon at `absolute -top-1.5 -left-1.5` (white/90 rounded bg, shadow-sm) as a sibling of `EventCardCalendarGridItem` inside `SPANNING_BAR_VISUAL_CLASS`, floating outside the card's own `p-2` padding box over the border corner -- mirroring the same corner's decorative favorited-Heart icon (`-top-1.5 -right-1.5`, only shown when `!onFavoriteToggle`). MultiDaySpanningBar has the identical outer structure (`SPANNING_BAR_VISUAL_CLASS` wrapper, no competing decorative-favorite icon since `onFavoriteToggle` is always supplied there) -- the top-left corner is free, so the exact same `schedule.isAddedToCalendar && <CalendarPlus className=\"absolute -top-1.5 -left-1.5 ...\" />` block can be copied in unchanged. Screenshot/visual-audit-check sub-finding remains open, unaddressed.
+     SCOPE WIDENED, DEFERRED 2026-09-30 (user observation, verified): this isn't MultiDaySpanningBar-only -- `EventCard.tsx` (masonry family) has ZERO references to `isAddedToCalendar` anywhere (grep confirmed), so the masonry card doesn't show this indicator at all either, unlike the calendar single-day grid card and the mobile compact row (both of which already have a CalendarPlus treatment). The 2026-09-29 layout proposal above still holds for MultiDaySpanningBar specifically, but shipping it there alone would make the badge's presence/absence inconsistent across the three card families with no product decision behind that inconsistency. User-directed: DEFER isAddedToCalendar work entirely (both the MultiDaySpanningBar fix and any masonry addition) until a cross-family decision is made on which card families should show it at all -- do not dispatch this row's remaining scope as-is."}
 
   BUG-049:
     {type: bug, status: done, created: 2026-09-26, parent: CC-019,
