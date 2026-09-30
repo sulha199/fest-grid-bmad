@@ -8,7 +8,7 @@ baseline_commit: 53d4e82
 
 - Epic: 0.i5 (Shared list-pagination and filter-state controller)
 - Story ID: 0.i5e
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -33,12 +33,12 @@ so that Feed and Favorites gain the same structurally-guaranteed filter-change-r
 
 ## Tasks / Subtasks
 
-- [ ] **Task 0 — Confirm prerequisite Story 1.3l's status (AC: #7)**
-  - [ ] Before starting, run `python3 scripts/sprint-status-tool.py get 1-3l-wire-feed-and-favorites-to-real-auth-location-and-ai-filter-state`. If not `review` or `done`, STOP and surface this to the user rather than implementing against pre-1.3l file shapes (per this story's standing sequencing rule, AC7). Do not silently implement against the current, pre-1.3l `feed-content.tsx`/`favorites-content.tsx` code — the `filterKey`/`queryKey` field lists this story's ACs specify (`nearby`, `aiFilter` on Favorites) assume 1.3l has already landed.
+- [x] **Task 0 — Confirm prerequisite Story 1.3l's status (AC: #7)**
+  - [x] Before starting, run `python3 scripts/sprint-status-tool.py get 1-3l-wire-feed-and-favorites-to-real-auth-location-and-ai-filter-state`. If not `review` or `done`, STOP and surface this to the user rather than implementing against pre-1.3l file shapes (per this story's standing sequencing rule, AC7). Do not silently implement against the current, pre-1.3l `feed-content.tsx`/`favorites-content.tsx` code — the `filterKey`/`queryKey` field lists this story's ACs specify (`nearby`, `aiFilter` on Favorites) assume 1.3l has already landed. **Confirmed `review` — proceeded.**
 
-- [ ] **Task 1 — Wire `useListPaginationController` into `feed-content.tsx` (AC: #1, #4, #5, #6)**
-  - [ ] Import `useListPaginationController` and `usePrefersReducedMotion` from `@festgrid/ui`.
-  - [ ] After the filter/nearby/AI state is resolved (post-1.3l), add:
+- [x] **Task 1 — Wire `useListPaginationController` into `feed-content.tsx` (AC: #1, #4, #5, #6)**
+  - [x] Import `useListPaginationController` and `usePrefersReducedMotion` from `@festgrid/ui`.
+  - [x] After the filter/nearby/AI state is resolved (post-1.3l), add:
     ```ts
     const prefersReducedMotion = usePrefersReducedMotion();
     const pagination = useListPaginationController({
@@ -51,36 +51,36 @@ so that Feed and Favorites gain the same structurally-guaranteed filter-change-r
       },
     });
     ```
-  - [ ] Append `pagination.resetToken` as a new trailing element to the `useInfiniteQuery`'s `queryKey` array; do not remove any existing element.
-  - [ ] Do not touch `initialPageParam`, `getNextPageParam`, `fetchNextPage`, `hasNextPage`, `isFetchingNextPage`, or the `useInfiniteScroll` call.
-  - [ ] Verify `useToggleFavoriteMutation`'s `["events", "feed"]`-prefix `cancelQueries`/`setQueriesData` calls are unaffected by the new trailing `resetToken` element (AC6).
-  - [ ] **Fix the exact-key rollback (AC6 extension):** replace `getQueryData(["events","feed",{q,types,categories,subscriptions}])` / `setQueryData(<same exact key>, previousData)` in `onMutate`/`onError` with a `getQueriesData({ queryKey: ["events","feed"] })` snapshot and a per-entry `setQueryData(key, data)` restore. Add the failed-mutation rollback test in Task 5.
+  - [x] Append `pagination.resetToken` as a new trailing element to the `useInfiniteQuery`'s `queryKey` array; do not remove any existing element.
+  - [x] Do not touch `initialPageParam`, `getNextPageParam`, `fetchNextPage`, `hasNextPage`, `isFetchingNextPage`, or the `useInfiniteScroll` call.
+  - [x] Verify `useToggleFavoriteMutation`'s `["events", "feed"]`-prefix `cancelQueries`/`setQueriesData` calls are unaffected by the new trailing `resetToken` element (AC6).
+  - [x] **Fix the exact-key rollback (AC6 extension):** replace `getQueryData(["events","feed",{q,types,categories,subscriptions}])` / `setQueryData(<same exact key>, previousData)` in `onMutate`/`onError` with a `getQueriesData({ queryKey: ["events","feed"] })` snapshot and a per-entry `setQueryData(key, data)` restore. Add the failed-mutation rollback test in Task 5.
 
-- [ ] **Task 2 — Wire `useListPaginationController` into `favorites-content.tsx`'s `favoriteEvents` query only (AC: #2, #4, #5, #6)**
-  - [ ] Import `useListPaginationController` and `usePrefersReducedMotion` from `@festgrid/ui`.
-  - [ ] Add the same `pagination`/`prefersReducedMotion` block as Task 1, with `filterKey: { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter }` (no `subscriptions` field — Favorites has none; deliberately no `ids`/`frozenIds` field — see Dev Notes).
-  - [ ] Append `pagination.resetToken` as a new trailing element to the `favoriteEvents` `useInfiniteQuery`'s `queryKey` array ONLY. Do NOT add `resetToken` to `idSnapshotData`'s `queryKey` (AC2) — that query is not a pagination consumer.
-  - [ ] Do not touch `initialPageParam`, `getNextPageParam`, the client-side `frozenIds` slicing logic, or the `useInfiniteScroll` call.
-  - [ ] Verify the `["favoriteEvents"]`-prefix `setQueriesData` call inside `handleToggle`'s success path is unaffected by the new trailing `resetToken` element (AC6).
+- [x] **Task 2 — Wire `useListPaginationController` into `favorites-content.tsx`'s `favoriteEvents` query only (AC: #2, #4, #5, #6)**
+  - [x] Import `useListPaginationController` and `usePrefersReducedMotion` from `@festgrid/ui`.
+  - [x] Add the same `pagination`/`prefersReducedMotion` block as Task 1, with `filterKey: { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter }` (no `subscriptions` field — Favorites has none; deliberately no `ids`/`frozenIds` field — see Dev Notes).
+  - [x] Append `pagination.resetToken` as a new trailing element to the `favoriteEvents` `useInfiniteQuery`'s `queryKey` array ONLY. Do NOT add `resetToken` to `idSnapshotData`'s `queryKey` (AC2) — that query is not a pagination consumer.
+  - [x] Do not touch `initialPageParam`, `getNextPageParam`, the client-side `frozenIds` slicing logic, or the `useInfiniteScroll` call.
+  - [x] Verify the `["favoriteEvents"]`-prefix `setQueriesData` call inside `handleToggle`'s success path is unaffected by the new trailing `resetToken` element (AC6).
 
-- [ ] **Task 3 — Rewire Favorites' `unfavoritedIds` reset to `pagination.resetToken` (AC: #3)**
-  - [ ] Remove the existing `previousSnapshotKeyRef`/`snapshotQueryKey`-comparison `useEffect` that clears `unfavoritedIds` today.
-  - [ ] Replace it with a `useEffect` keyed on `pagination.resetToken` that clears `unfavoritedIds` (`setUnfavoritedIds(new Set())`) whenever it changes — matching the same "controller is the single source of truth for a filter change" principle this whole epic establishes, and directly implementing the user's `AskUserQuestion` decision that a filter-driven reset finalizes any pending removal immediately (no blocking/deferring).
-  - [ ] Confirm no other code path depended on the removed ref/`snapshotQueryKey` value (grep the file for both identifiers before deleting).
+- [x] **Task 3 — Rewire Favorites' `unfavoritedIds` reset to `pagination.resetToken` (AC: #3)**
+  - [x] Remove the existing `previousSnapshotKeyRef`/`snapshotQueryKey`-comparison `useEffect` that clears `unfavoritedIds` today.
+  - [x] Replace it with a `useEffect` keyed on `pagination.resetToken` that clears `unfavoritedIds` (`setUnfavoritedIds(new Set())`) whenever it changes — matching the same "controller is the single source of truth for a filter change" principle this whole epic establishes, and directly implementing the user's `AskUserQuestion` decision that a filter-driven reset finalizes any pending removal immediately (no blocking/deferring).
+  - [x] Confirm no other code path depended on the removed ref/`snapshotQueryKey` value (grep the file for both identifiers before deleting). **Confirmed — both identifiers were used only by the removed effect.**
 
-- [ ] **Task 4 — Update `backlog.yaml`'s `IDEA-035` note (AC: #5)**
-  - [ ] Update `IDEA-035`'s `note` field to record that Feed and Favorites (this story) now also implement the scroll-to-top-on-filter-reset behavior, alongside Discovery (Story 0.i5b) — 3-of-3 current `useListPaginationController` adopters. Keep status `triaged` (still not promoted to a binding `EXPERIENCE.md` rule by this story, per AC5).
+- [x] **Task 4 — Update `backlog.yaml`'s `IDEA-035` note (AC: #5)**
+  - [x] Update `IDEA-035`'s `note` field to record that Feed and Favorites (this story) now also implement the scroll-to-top-on-filter-reset behavior, alongside Discovery (Story 0.i5b) — 3-of-3 current `useListPaginationController` adopters. Keep status `triaged` (still not promoted to a binding `EXPERIENCE.md` rule by this story, per AC5). Also amended `IDEA-038`'s note to reflect this story's prerequisite work as landed.
 
-- [ ] **Task 5 — Extend `feed-content.test.tsx` and `favorites-content.test.tsx` (AC: #8)**
-  - [ ] Feed: add a filter-change-after-page-2-fetch test (mirrors 0.i5b's `home-content.test.tsx` BUG-019-shape regression test) asserting the next request restarts at offset 0; add scroll-to-top-on-reset and not-on-mount-guard tests, spying on `window.scrollTo` (`vi.spyOn(window, 'scrollTo').mockImplementation(() => {})`, matching the existing project pattern from `home-content.test.tsx`/`EventDiscoveryPanel.test.tsx`).
-  - [ ] Favorites: add the equivalent filter-change-resets-pagination and scroll-to-top tests, PLUS a new test proving AC3 — start a favorite-toggle (enter `pendingRemoval`), then trigger a filter change (via the mocked `nuqs` store), and assert `unfavoritedIds`-driven UI state (the greyed-out/pending card) is cleared/superseded by the fresh refetch rather than persisting inconsistently.
-  - [ ] Feed: add the failed-toggle rollback test (AC6 extension) — optimistic flip, mutation rejects, card reverts to pre-toggle `isFavorited`/`favoriteCount` under the real (`nearby`/`aiFilter`/`resetToken`-bearing) key. Favorites: confirm no equivalent `getQueryData`/`setQueryData` rollback exists (none as of 2026-09-30); if one is found, apply the same fix and test.
-  - [ ] Run `pnpm --filter web test -- feed-content favorites-content` and confirm all green; then `pnpm --filter web test` for the full suite, checking for the same kind of cache-coincidence regression 0.i5b found in `page.test.tsx` (a pre-existing test relying on a stale cached response that a `resetToken`-forced fresh fetch would now correctly bypass) — fix narrowly with `{ once: true }` on any such MSW/mock override, matching 0.i5b's precedent, rather than a broader rewrite.
+- [x] **Task 5 — Extend `feed-content.test.tsx` and `favorites-content.test.tsx` (AC: #8)**
+  - [x] Feed: add a filter-change-after-page-2-fetch test (mirrors 0.i5b's `home-content.test.tsx` BUG-019-shape regression test) asserting the next request restarts at offset 0; add scroll-to-top-on-reset and not-on-mount-guard tests, spying on `window.scrollTo` (`vi.spyOn(window, 'scrollTo').mockImplementation(() => {})`, matching the existing project pattern from `home-content.test.tsx`/`EventDiscoveryPanel.test.tsx`).
+  - [x] Favorites: add the equivalent filter-change-resets-pagination and scroll-to-top tests, PLUS a new test proving AC3 — start a favorite-toggle (enter `pendingRemoval`), then trigger a filter change (via the mocked `nuqs` store), and assert `unfavoritedIds`-driven UI state (the greyed-out/pending card) is cleared/superseded by the fresh refetch rather than persisting inconsistently.
+  - [x] Feed: add the failed-toggle rollback test (AC6 extension) — optimistic flip, mutation rejects, card reverts to pre-toggle `isFavorited`/`favoriteCount` under the real (`nearby`/`aiFilter`/`resetToken`-bearing) key. Favorites: confirm no equivalent `getQueryData`/`setQueryData` rollback exists (none as of 2026-09-30); if one is found, apply the same fix and test. **Confirmed none exists in `favorites-content.tsx` — no change needed there.**
+  - [x] Run `pnpm --filter web test -- feed-content favorites-content` and confirm all green; then `pnpm --filter web test` for the full suite, checking for the same kind of cache-coincidence regression 0.i5b found in `page.test.tsx` (a pre-existing test relying on a stale cached response that a `resetToken`-forced fresh fetch would now correctly bypass) — fix narrowly with `{ once: true }` on any such MSW/mock override, matching 0.i5b's precedent, rather than a broader rewrite. **All 540 tests in the full suite passed; no cache-coincidence regression found.**
 
-- [ ] **Task 6 — Verification (AC: all)**
-  - [ ] `pnpm --filter web test` — full suite green, no regressions.
-  - [ ] `pnpm lint` / `pnpm build` (repo root) — clean.
-  - [ ] `git diff`/file list confirms only `feed-content.tsx`, `favorites-content.tsx`, their two test files, `backlog.yaml`, this story file, and `sprint-status.yaml` are touched — no `packages/ui`, `packages/domain`, `apps/backend`, or `packages/database` changes (the controller itself, built in 0.i5a, is untouched).
+- [x] **Task 6 — Verification (AC: all)**
+  - [x] `pnpm --filter web test` — full suite green, no regressions (540/540 passed).
+  - [x] `pnpm lint` / `pnpm build` (repo root) — clean (lint: pre-existing warnings only, zero errors; build: succeeded, all 39 static pages generated).
+  - [x] `git diff`/file list confirms only `feed-content.tsx`, `favorites-content.tsx`, their two test files, `backlog.yaml`, this story file, and `sprint-status.yaml` are touched — no `packages/ui`, `packages/domain`, `apps/backend`, or `packages/database` changes (the controller itself, built in 0.i5a, is untouched).
 
 ## Dev Notes
 
@@ -227,27 +227,41 @@ Not applicable. This story introduces no new user-facing strings — no new rend
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — all tasks implemented, tested, and verified; ready for review.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-_To be filled by `bmad-dev-story`._
+Claude Sonnet 5 (claude-sonnet-5), via `bmad-dev-story`.
 
 ### Debug Log References
 
-_To be filled by `bmad-dev-story`._
+No debugger/log-file references required; verification was via `pnpm --filter web test`, `pnpm lint`, and `pnpm build` runs (all green — see Completion Notes for figures).
 
 ### Completion Notes List
 
-_To be filled by `bmad-dev-story`._
+- Prerequisite gate (Task 0/AC7): confirmed `1-3l-wire-feed-and-favorites-to-real-auth-location-and-ai-filter-state` was `review` in `sprint-status.yaml` before starting; both `feed-content.tsx`/`favorites-content.tsx` already carried the post-1.3l `nearby`/`aiFilter` fields.
+- Pre-Coding Approval Gate: explicit "approve, start coding" sign-off obtained from the user via `AskUserQuestion` this session, in addition to the prerequisite check above.
+- `feed-content.tsx` (Task 1): wired `useListPaginationController`/`usePrefersReducedMotion`, spliced `pagination.resetToken` as a new trailing `queryKey` element, added `onReset` scroll-to-top. AC6 extension: replaced the stale exact-key `getQueryData`/`setQueryData` rollback in `useToggleFavoriteMutation`'s `onMutate`/`onError` (which used a pre-1.3l 4-field key shape that never matched the live cache entry, so rollback silently no-op'd) with a `getQueriesData({ queryKey: ["events","feed"] })` snapshot and a per-entry `setQueryData` restore.
+- `favorites-content.tsx` (Tasks 2–3): wired the controller to the `favoriteEvents` query only (not `idSnapshotData`, per AC2/Dev Notes — it's not a pagination consumer), with `filterKey` deliberately excluding `frozenIds` (a derived value) per Dev Notes' same-render-pass reasoning. Replaced the old `previousSnapshotKeyRef`/`snapshotQueryKey`-comparison effect with one keyed on `pagination.resetToken` (AC3) — confirmed via grep that both removed identifiers had no other consumers. Verified Favorites has no `getQueryData`/`setQueryData` rollback pattern to begin with (AC6 extension's Favorites side needed no change).
+- `backlog.yaml` (Task 4): amended `IDEA-035`'s note (3-of-3 adopters now implement scroll-to-top-on-reset, still a documented convention not a binding rule) and `IDEA-038`'s note (this story's prerequisite work is now landed; IDEA-038 itself remains blocked on `0-i5d`/`1-3l` reaching `review`).
+- Tests (Task 5): extended both `feed-content.test.tsx` and `favorites-content.test.tsx` per AC8 — filter-change-after-page-2-fetch offset-reset tests, scroll-to-top-on-reset + not-on-mount-guard tests (both pages), a pendingRemoval-finalized-on-reset test (Favorites, AC3), and a failed-toggle-rollback test (Feed, AC6 extension) asserting the card settles back to its pre-toggle `favoriteCount` (not stuck at the optimistically-applied value) rather than asserting the racy microtask-timed transient state directly.
+- Verification (Task 6, all commands actually executed, not just listed): `pnpm --filter web test -- feed-content favorites-content` → 17/17 passed. `pnpm --filter web test` (full suite) → 540/540 passed, no regressions, no cache-coincidence failures. `pnpm lint` (repo root, unfiltered) → 8/8 tasks successful, only pre-existing warnings (no errors). `pnpm build` (repo root, unfiltered) → 8/8 tasks successful, all 39 static pages generated cleanly.
+- `git diff` confirmed only the files listed in File List below were touched — no `packages/ui`/`packages/domain`/`apps/backend`/`packages/database` changes.
 
 ### File List
 
-_To be filled by `bmad-dev-story`._
+- `apps/web/src/app/[locale]/feed/feed-content.tsx` (modified)
+- `apps/web/src/app/[locale]/feed/feed-content.test.tsx` (modified)
+- `apps/web/src/app/[locale]/favorites/favorites-content.tsx` (modified)
+- `apps/web/src/app/[locale]/favorites/favorites-content.test.tsx` (modified)
+- `_bmad-output/implementation-artifacts/backlog.yaml` (modified — `IDEA-035`/`IDEA-038` notes)
+- `_bmad-output/implementation-artifacts/0-i5e-adopt-the-controller-in-feed-and-favorites.md` (this story file, modified — task checkboxes, Dev Agent Record, Status)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified — status transitions)
 
 ### Change Log
 
 - 2026-09-19: Story created via `bmad-create-story`, surfaced as a Gate 3-style prerequisite while attempting to create `IDEA-038` (extend the temporal filter to Feed/Favorites) — `IDEA-038`'s own capture doc named "Feed/Favorites adopting `useListPaginationController`" as a blocking prerequisite, but no story in epic-0-i5 covered it. User chose to create this prerequisite story first rather than draft `IDEA-038` against an unbuilt foundation. Two UX-decision flags from Gate 2 (scroll-to-top scope, pending-removal reset behavior) resolved via `AskUserQuestion` before drafting.
 - 2026-09-30: Readiness correction applied per `batch-event-pages-wave-a-readiness.md` (Correction 4) — AC6 extended to fix Feed's exact-key favorite-toggle rollback (snapshot via `getQueriesData`); Favorites verified unaffected; Task 1/Task 5 updated.
+- 2026-09-30: Implemented via `bmad-dev-story` — all 6 tasks complete, all ACs satisfied, full test suite (540 tests)/lint/build green. Status moved to `review`.
