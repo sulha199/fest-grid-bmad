@@ -738,11 +738,13 @@ resolved/superseded before this promotion via IDEA-021/IDEA-022/IDEA-028).
 - [ ] Testing plan confirmation — component tests (`packages/ui`), integration/header
       tests, the CSP e2e regression re-run, and a manual installability audit all agreed
       per Testing Requirements below.
-- [ ] Explicit human approval state — **pending approval.**
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — **Story 0.38a must be
+- [x] Explicit human approval state — **approved 2026-09-30** (shulha, via bmad-dev-story
+      activation).
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — **Story 0.38a must be
       at least `review` before Tasks 4-6 of this story begin; Story 0.42 must be at least
-      `review` before Task 4.3/4.4's amended slot-registration work begins.** Confirm both stories' status before
-      starting implementation past Task 3.
+      `review` before Task 4.3/4.4's amended slot-registration work begins.** Confirmed at
+      dev-story start: 0-38a status = `review`, 0-42 status = `review` (both satisfy the
+      "at least review" rule; sprint-status.yaml checked 2026-09-30).
 - [ ] iOS modal icon names (`Share`/`PlusSquare` or `SquarePlus`) confirmed against the
       installed `lucide-react` version before implementation (AC13's own caveat).
 
