@@ -17,6 +17,7 @@ export * from './core/route-loader';
 export * from './core/ambient-capability-banner-tokens';
 export * from './core/AmbientLocationBanner';
 export * from './core/WeekPicker';
+export * from './core/LocationLink';
 export * from './core/soft-delete-toaster';
 export * from './core/swipe-to-reveal';
 export * from './core/tabbed-shell';
