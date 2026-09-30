@@ -1220,4 +1220,44 @@ describe("EventDetailWrapper", () => {
       expect(mySubscriptionsSpy).toHaveBeenCalled()
     })
   })
+
+  it("registers the Instagram embed.js caching service worker with the current locale's scope (Story 0.38 AC1/AC2, Task 1.5)", async () => {
+    const registerSpy = vi.fn().mockResolvedValue({ scope: "/en/events/" })
+    Object.defineProperty(navigator, "serviceWorker", {
+      configurable: true,
+      value: { register: registerSpy },
+    })
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(registerSpy).toHaveBeenCalledWith("/instagram-embed-cache-sw.js", {
+        scope: "/en/events/",
+      })
+    })
+    // Never the unrelated, root-scoped FCM worker or this project's own
+    // same-origin widget-embedding script (AC1's explicit disambiguation).
+    expect(registerSpy).not.toHaveBeenCalledWith(
+      "/firebase-messaging-sw.js",
+      expect.anything()
+    )
+    expect(registerSpy).not.toHaveBeenCalledWith("/embed.js", expect.anything())
+  })
+
+  it("does not throw when 'serviceWorker' is unsupported by the browser (AC1's guard)", async () => {
+    const originalDescriptor = Object.getOwnPropertyDescriptor(navigator, "serviceWorker")
+    Object.defineProperty(navigator, "serviceWorker", {
+      configurable: true,
+      value: undefined,
+    })
+
+    expect(() => renderComponent()).not.toThrow()
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    if (originalDescriptor) {
+      Object.defineProperty(navigator, "serviceWorker", originalDescriptor)
+    }
+  })
 })
