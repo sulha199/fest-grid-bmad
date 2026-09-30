@@ -376,8 +376,8 @@ This document defines the core architectural invariants for the FestDaily applic
           `packages/ui/src/core/LocationLink.test.tsx` (confidence-boundary cases; Story 1.6d, carries the
           0.i7z ratchet header) + the `locationDetails` passthrough test in
           `apps/web/src/features/events/mapper.test.ts` (Story 1.6e; supersedes the removed
-          `mapUrl gating (Story 0.i7c / 0.i7z)` block — until 1.6d/1.6e land, that block remains the enforcer;
-          readiness correction 2026-09-30); GraphQL exposure — the three
+          `mapUrl gating (Story 0.i7c / 0.i7z)` block — both 1.6d and 1.6e have now landed, so this is the
+          current enforcer, not a future-tense placeholder); GraphQL exposure — the three
           `apps/web` `.graphql.test.ts` AST guard tests from Story 0.i7d
           (`apps/web/src/features/subscriptions/mutations.graphql.test.ts`,
           `apps/web/src/features/locations/mutations.graphql.test.ts`,

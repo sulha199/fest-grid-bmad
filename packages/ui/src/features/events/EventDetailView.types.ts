@@ -16,7 +16,11 @@ export interface ScheduleDetail {
   performers?: string | null;
   location?: string | null;
   ticketPrice?: string | null;
-  mapUrl?: string | null;
+  locationDetails?: {
+    coordinates?: { lat: number; lng: number } | null;
+    confidence?: number | null;
+    matchType?: string | null;
+  } | null;
   isAddedToCalendar?: boolean;
 }
 
