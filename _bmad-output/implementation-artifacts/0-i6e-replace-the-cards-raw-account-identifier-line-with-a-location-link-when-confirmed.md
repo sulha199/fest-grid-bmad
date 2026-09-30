@@ -7,7 +7,7 @@ baseline_commit: 7ac24fd5d6e6507536830efd9fdcd3dac1e9b3e3
 
 - Epic: 0.i6 (SubscribedAccountCard improvement epic)
 - Story ID: 0.i6e
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -141,23 +141,23 @@ so that a user sees where the account is actually based instead of an opaque ide
 
 ## Testing Requirements
 
-- [ ] Component tests — `packages/ui/src/features/subscriptions/SubscribedAccountCard.test.tsx`: trustworthy `location` → `LocationLink`/`location.name` rendered instead of `@username` (including when `displayName`/`username` are both empty); untrustworthy `location` → unchanged `@username` fallback; absent `location` → unchanged existing behavior (regression).
-- [ ] Component tests — `packages/ui/src/features/events/EventDetailView.test.tsx`: `accountLocation` prop threaded to `SubscribedAccountCard`'s `location` prop; existing tests remain green with the new optional prop omitted.
-- [ ] Unit tests — `apps/web/src/features/events/mapper.test.ts`: `accountLocation` derivation for `placeName` present, `placeName` empty + `formattedAddress` present, both empty (→ `null`), `defaultLocation` entirely absent (→ `null`).
-- [ ] Integration/regression check — `apps/web/src/features/events/queries.graphql.test.ts` (Story 3.7c AC1's list-view guard) confirmed unaffected by the `getEventBySlug`-only selection-set addition.
-- [ ] E2E tests — not required; this is a presentational conditional-rendering change to an already-shipped, already-tested card + a query-selection-set addition, matching this component family's existing E2E-not-required precedent (Stories 0.i6a/0.i6f/1.6d).
-- [ ] Migration verification — not applicable; no migration in this story (see Data Type Compatibility & Migration Requirements).
-- [ ] Codegen verification — `pnpm --filter web codegen` run successfully; generated `graphql.ts` diff contains only the additive `defaultLocation` field, nothing else changed.
+- [x] Component tests — `packages/ui/src/features/subscriptions/SubscribedAccountCard.test.tsx`: trustworthy `location` → `LocationLink`/`location.name` rendered instead of `@username` (including when `displayName`/`username` are both empty); untrustworthy `location` → unchanged `@username` fallback; absent `location` → unchanged existing behavior (regression).
+- [x] Component tests — `packages/ui/src/features/events/EventDetailView.test.tsx`: `accountLocation` prop threaded to `SubscribedAccountCard`'s `location` prop; existing tests remain green with the new optional prop omitted.
+- [x] Unit tests — `apps/web/src/features/events/mapper.test.ts`: `accountLocation` derivation for `placeName` present, `placeName` empty + `formattedAddress` present, both empty (→ `null`), `defaultLocation` entirely absent (→ `null`).
+- [x] Integration/regression check — `apps/web/src/features/events/queries.graphql.test.ts` (Story 3.7c AC1's list-view guard) confirmed unaffected by the `getEventBySlug`-only selection-set addition.
+- [x] E2E tests — not required; this is a presentational conditional-rendering change to an already-shipped, already-tested card + a query-selection-set addition, matching this component family's existing E2E-not-required precedent (Stories 0.i6a/0.i6f/1.6d).
+- [x] Migration verification — not applicable; no migration in this story (see Data Type Compatibility & Migration Requirements).
+- [x] Codegen verification — `pnpm --filter web codegen` run successfully; generated `graphql.ts` diff contains only the additive `defaultLocation` field, nothing else changed.
 
 ## Deliverables Checklist
 
-- [ ] `SubscribedAccountCard` renders `LocationLink` (Story 1.6d) in place of the `@username` secondary line whenever `location` is present and `isLocationTrustworthy(location)` is true, regardless of `displayName`/`username` presence.
-- [ ] `SubscribedAccountCard`'s untrustworthy/absent-`location` rendering is byte-for-byte unchanged from today.
-- [ ] `SubscribedAccountCardProps`/`EventDetailViewProps` widened with the new optional `location`/`accountLocation` fields; `packages/ui`/`apps/web` type-check clean.
-- [ ] `mapper.ts`'s `accountLocation` derivation implemented per AC3 (placeName-then-formattedAddress name resolution, empty-both → `null`).
-- [ ] `getEventBySlug`'s `sourceSocialMediaAccountProfile` selection gains `defaultLocation {...}`; codegen regenerated.
-- [ ] All Task 7 test additions passing; `queries.graphql.test.ts` and `mapper.test.ts`'s existing fixture default unmodified and still passing.
-- [ ] Confirmed (manually or via test) that Post Selection/Subscribed Accounts settings adoption sites are unaffected (they don't exist in code yet — this is a forward-looking non-regression note, not a live check).
+- [x] `SubscribedAccountCard` renders `LocationLink` (Story 1.6d) in place of the `@username` secondary line whenever `location` is present and `isLocationTrustworthy(location)` is true, regardless of `displayName`/`username` presence.
+- [x] `SubscribedAccountCard`'s untrustworthy/absent-`location` rendering is byte-for-byte unchanged from today.
+- [x] `SubscribedAccountCardProps`/`EventDetailViewProps` widened with the new optional `location`/`accountLocation` fields; `packages/ui`/`apps/web` type-check clean.
+- [x] `mapper.ts`'s `accountLocation` derivation implemented per AC3 (placeName-then-formattedAddress name resolution, empty-both → `null`).
+- [x] `getEventBySlug`'s `sourceSocialMediaAccountProfile` selection gains `defaultLocation {...}`; codegen regenerated.
+- [x] All Task 7 test additions passing; `queries.graphql.test.ts` and `mapper.test.ts`'s existing fixture default unmodified and still passing.
+- [x] Confirmed (manually or via test) that Post Selection/Subscribed Accounts settings adoption sites are unaffected (they don't exist in code yet — this is a forward-looking non-regression note, not a live check).
 
 ## Out of Scope
 
@@ -171,15 +171,15 @@ so that a user sees where the account is actually based instead of an opaque ide
 
 ## Definition of Done
 
-- [ ] All Acceptance Criteria (AC1-AC5) are met.
-- [ ] Required tests passing (Task 7 + Testing Requirements) across `packages/ui` and `apps/web`.
-- [ ] Lint and TypeScript strict-mode checks pass for `packages/ui` and `apps/web`.
-- [ ] Codegen regenerated and committed with only the additive `defaultLocation` diff.
-- [ ] Pre-Coding Approval Gate's explicit human approval state confirmed, and the Story-1.6d blocking prerequisite resolved, before this story is marked done.
+- [x] All Acceptance Criteria (AC1-AC5) are met.
+- [x] Required tests passing (Task 7 + Testing Requirements) across `packages/ui` and `apps/web`.
+- [x] Lint and TypeScript strict-mode checks pass for `packages/ui` and `apps/web`.
+- [x] Codegen regenerated and committed with only the additive `defaultLocation` diff.
+- [x] Pre-Coding Approval Gate's explicit human approval state confirmed, and the Story-1.6d blocking prerequisite resolved, before this story is marked done.
 
 ## Completion Status
 
-- [ ] Not started — story created and ready for `bmad-dev-story` (blocked on Story 1.6d's implementation, see Pre-Coding Approval Gate).
+- [x] Complete — all tasks/subtasks implemented and tested, full regression/lint/build green, story moved to `review`.
 
 ## Dev Agent Record
 
@@ -196,13 +196,33 @@ Claude Sonnet 5 (`claude-sonnet-5`)
 
 ### Completion Notes List
 
-_To be filled by the dev agent during implementation._
+- Confirmed the blocking prerequisite (Story 1.6d) was satisfied before starting: `sprint-status.yaml` shows `1-6d-build-the-reusable-locationlink-component: review`, `packages/ui/src/core/LocationLink.tsx` exists, and it is exported from `packages/ui/src/index.ts`. Explicit human approval to start coding was requested and granted (shulha, 2026-09-30) per the Pre-Coding Approval Gate.
+- Task 1/2: Widened `SubscribedAccountCardProps` with `location` and replaced the secondary identity line in `SubscribedAccountCard.tsx` with a conditional `isLocationTrustworthy(location)` gate — trustworthy renders `LocationLink`, otherwise the original `@username` fallback is untouched. Red-green-refactor followed: wrote 6 new tests (including the AC6/0.i7z ratchet-tagged block with the `0.5`/`null` confidence-boundary cases) confirmed failing (3 of 6 failed pre-implementation, the rest were already-passing regression checks), then implemented until all 22 tests in the file passed.
+- Task 3/4: Widened `EventDetailViewProps` with `accountLocation` and threaded it to `SubscribedAccountCard`'s `location` prop in `EventDetailView.tsx`, with no change to `canActOnSubscription` or other prop wiring. Added a new threading test (confirmed red, then green); all 68 tests in `EventDetailView.test.tsx` pass.
+- Task 5: Implemented `mapper.ts`'s `accountLocation` derivation exactly per AC3 — `placeName || formattedAddress || ''` name resolution, empty-both → `null`, `defaultLocation` absent → `null`, `coordinates`/`confidence`/`matchType` passed through via `?? null`. Added 5 new unit tests covering every derivation branch (confirmed red — 5 failures — then green); all 13 tests in `mapper.test.ts` pass, including the pre-existing `sourceSocialMediaAccountProfile: null` fixture default left unmodified.
+- Task 6: Added `defaultLocation { coordinates { lat lng } placeName formattedAddress confidence matchType }` to `getEventBySlug`'s `sourceSocialMediaAccountProfile` selection in `queries.graphql`, then ran `pnpm --filter web codegen` — `GetEventBySlugQuery`'s generated type now carries the nested field. Confirmed `queries.graphql.test.ts` (Story 3.7c AC1's list-view guard, which deliberately excludes `getEventBySlug`) still passes unmodified (10/10 tests across both `.graphql.test.ts` files).
+- Task 7: All test additions land; also extended AD-14 Rule 2's "Enforced by" line in `festgrid-architecture-spine.md` to cite `SubscribedAccountCard.test.tsx`'s `location prop` block and `mapper.test.ts`'s `accountLocation derivation` block, fulfilling AC6/the readiness correction.
+- Full validation (Step 9, unfiltered at repo root): `pnpm --filter @festgrid/ui test` → 60 files / 753 tests passed. `pnpm --filter web test` → 70 files / 515 tests passed. `pnpm lint` (repo-wide, turbo) → 8/8 tasks successful, zero errors (only pre-existing warnings unrelated to this story's files, beyond one pre-existing `mapper.ts:128` `no-explicit-any` warning on an untouched line). `pnpm build` (repo-wide, turbo) → 8/8 tasks successful, `apps/web`'s Next.js build (which type-checks) completed cleanly.
+- No `AskUserQuestion` was needed during implementation — every decision followed directly from the story's explicit AC/task text; the one required human touchpoint (Pre-Coding Approval Gate's explicit approval) was requested and granted before Task 1 began.
 
 ### File List
 
-_To be filled by the dev agent during implementation._
+- `packages/ui/src/features/subscriptions/SubscribedAccountCard.types.ts` (modified) — added `location` prop.
+- `packages/ui/src/features/subscriptions/SubscribedAccountCard.tsx` (modified) — conditional `LocationLink` render gated by `isLocationTrustworthy`.
+- `packages/ui/src/features/subscriptions/SubscribedAccountCard.test.tsx` (modified) — new `location prop (Story 0.i6e)` test block, 0.i7z ratchet-tagged.
+- `packages/ui/src/features/events/EventDetailView.types.ts` (modified) — added `accountLocation` prop.
+- `packages/ui/src/features/events/EventDetailView.tsx` (modified) — destructured `accountLocation`, threaded to `SubscribedAccountCard`'s `location` prop.
+- `packages/ui/src/features/events/EventDetailView.test.tsx` (modified) — new `accountLocation prop threading (Story 0.i6e)` test block.
+- `apps/web/src/features/events/mapper.ts` (modified) — added `accountLocation` derivation.
+- `apps/web/src/features/events/mapper.test.ts` (modified) — new `accountLocation derivation (Story 0.i6e)` test block, 0.i7z ratchet-tagged.
+- `apps/web/src/features/events/queries.graphql` (modified) — added `defaultLocation {...}` to `getEventBySlug`'s `sourceSocialMediaAccountProfile` selection.
+- `apps/web/src/generated/graphql.ts` (regenerated) — codegen output for the new `defaultLocation` selection.
+- `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (modified) — extended AD-14 Rule 2's "Enforced by" line (AC6 ratchet citation).
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified) — story status `ready-for-dev` → `in-progress` → `review`.
+- `_bmad-output/implementation-artifacts/0-i6e-replace-the-cards-raw-account-identifier-line-with-a-location-link-when-confirmed.md` (modified) — this story file: Pre-Coding Approval Gate, task checkboxes, Dev Agent Record, File List, Change Log, Status.
 
 ## Change Log
 
 - 2026-09-19: Story created via `bmad-create-story`, invoked directly with identifier `0.i6e`. Registered in `sprint-status.yaml` (was previously only referenced, not entried). Gate 1/2/3 all run fresh (no epic-0-i6 readiness report), all no-gap. Blocking prerequisite on Story 1.6d's implementation recorded explicitly.
 - 2026-09-30: Readiness correction applied per `batch-event-pages-wave-a-readiness.md` (Correction 3) — added AC6 (ratchet-cite new `isLocationTrustworthy` consumer; extend AD-14 Rule 2 "Enforced by"); dependency on 1.6d stated as at least `review`.
+- 2026-09-30: `bmad-dev-story` executed. Confirmed Story 1.6d prerequisite satisfied (status `review`, `LocationLink.tsx` shipped and exported); explicit human approval granted. Implemented all 7 tasks (Tasks 1-7) per red-green-refactor: `SubscribedAccountCard`/`EventDetailView`/`mapper.ts` widened with the new `location`/`accountLocation` fields, `queries.graphql` gained the `defaultLocation` selection with codegen regenerated, and AD-14 Rule 2's "Enforced by" line extended to cite the new consumer tests (AC6). Full test suite (`packages/ui`: 753 tests; `apps/web`: 515 tests), lint, and build all pass. Story moved to `review`.
