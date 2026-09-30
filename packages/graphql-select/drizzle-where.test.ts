@@ -2,7 +2,7 @@ import test from 'node:test';
 import * as assert from 'node:assert';
 import { buildDrizzleWhere } from './drizzle-where.js';
 import { QueryCondition } from '@festgrid/domain/query';
-import { pgTable, text, uuid, date, doublePrecision } from 'drizzle-orm/pg-core';
+import { pgTable, text, uuid, date, time, doublePrecision } from 'drizzle-orm/pg-core';
 
 const testTable = pgTable('test_table', {
   id: uuid('id'),
@@ -14,6 +14,7 @@ const scheduleTestTable = pgTable('schedule_test_table', {
   eventId: uuid('event_id'),
   eventStartDate: date('event_start_date'),
   eventEndDate: date('event_end_date'),
+  eventEndTime: time('event_end_time'),
   latitude: doublePrecision('latitude'),
   longitude: doublePrecision('longitude'),
 });
@@ -28,6 +29,15 @@ const fieldMap = {
     correlateCol: testTable.id,
     startCol: scheduleTestTable.eventStartDate,
     endCol: scheduleTestTable.eventEndDate,
+  },
+  // Story 0.i5d (AD-20 Rule 2/4) -- the TODAY temporal-filter bucket's `!ended` boundary.
+  scheduleEndedBoundary: {
+    table: scheduleTestTable,
+    eventIdCol: scheduleTestTable.eventId,
+    correlateCol: testTable.id,
+    startCol: scheduleTestTable.eventStartDate,
+    endCol: scheduleTestTable.eventEndDate,
+    endTimeCol: scheduleTestTable.eventEndTime,
   },
   scheduleCoordinates: {
     latColumn: scheduleTestTable.latitude,
@@ -233,6 +243,29 @@ test('buildDrizzleWhere', async (t) => {
     };
     const res = buildDrizzleWhere(condition, fieldMap);
     assert.ok(res !== undefined);
+  });
+
+  await t.test('handles notEnded operator on scheduleEndedBoundary field', () => {
+    const condition: QueryCondition = {
+      field: 'scheduleEndedBoundary',
+      operator: 'notEnded',
+      value: { now: '2026-06-15T18:00:00Z', today: '2026-06-15' }
+    };
+    const res = buildDrizzleWhere(condition, fieldMap);
+    assert.ok(res !== undefined);
+    // Generated SQL shape: an EXISTS anti-join, with the trailing 'Z'/offset stripped from
+    // `now` before the `::timestamp` cast (Dev Notes -- casting a tz-qualified string to a
+    // naive `timestamp` would otherwise be silently reinterpreted via the session's TimeZone
+    // GUC). Rendered via the pg dialect's own toQuery, matching the existing overlaps-operator
+    // tests' scope in this file (assert the condition is defined and the SQL text/params
+    // contain the expected shape, not a config-fragile chunk-internals walk).
+    const { PgDialect } = require('drizzle-orm/pg-core');
+    const dialect = new PgDialect();
+    const query = dialect.sqlToQuery(res!);
+    assert.match(query.sql, /EXISTS/);
+    assert.match(query.sql, /::timestamp/);
+    assert.ok(query.params.includes('2026-06-15'));
+    assert.ok(query.params.includes('2026-06-15T18:00:00'));
   });
 
   await t.test('handles withinRadius operator on scheduleCoordinates field', () => {
