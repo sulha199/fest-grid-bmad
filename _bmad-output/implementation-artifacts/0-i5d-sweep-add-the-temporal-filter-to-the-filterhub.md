@@ -278,11 +278,11 @@ it.
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — this story covers Discovery's card view (`home-content.tsx`) only; Feed/Favorites adoption, the calendar view, and AI-filter-prompt wiring for `temporalFilter` are all explicitly Out of Scope (see below).
-- [ ] Architecture and boundary confirmation — AD-20's mechanism is implemented as specified (no new SQL for `UPCOMING`, exactly one new `drizzle-where.ts` case for `TODAY`); no unauthorized package-boundary crossing (see reusability check).
-- [ ] Testing plan confirmation — Task 9's verification plan covers AC1-11 across `packages/domain`, `packages/graphql-select`, `packages/ui`, `apps/web`, and `apps/backend` (real-DB integration tests for the fixture parity requirement).
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three gates run fresh for this story (no swept `epic-0-i5-readiness.md` exists yet), all three found no gap; Gate 2's roving-tabindex flag is resolved directly within this story's own Task 5, not deferred to a prerequisite.
+- [x] Scope confirmation — this story covers Discovery's card view (`home-content.tsx`) only; Feed/Favorites adoption, the calendar view, and AI-filter-prompt wiring for `temporalFilter` are all explicitly Out of Scope (see below).
+- [x] Architecture and boundary confirmation — AD-20's mechanism is implemented as specified (no new SQL for `UPCOMING`, exactly one new `drizzle-where.ts` case for `TODAY`); no unauthorized package-boundary crossing (see reusability check).
+- [x] Testing plan confirmation — Task 9's verification plan covers AC1-11 across `packages/domain`, `packages/graphql-select`, `packages/ui`, `apps/web`, and `apps/backend` (real-DB integration tests for the fixture parity requirement).
+- [x] Explicit human approval state — approved by shulha via `bmad-dev-story` on 2026-09-30.
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three gates run fresh for this story (no swept `epic-0-i5-readiness.md` exists yet), all three found no gap; Gate 2's roving-tabindex flag is resolved directly within this story's own Task 5, not deferred to a prerequisite.
 - [x] DB index recommendation (Task 4) reviewed and accepted before coding begins — see Dev Notes "DB Index Research": decisive, evidence-based "no new index" result; nothing further to decide before coding.
 
 ## Testing Requirements
