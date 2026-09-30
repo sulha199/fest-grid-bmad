@@ -329,12 +329,59 @@ it.
 
 ### Agent Model Used
 
+Claude Sonnet 5 (claude-sonnet-5), via `bmad-dev-story`.
+
 ### Debug Log References
+
+- **Environment note (important):** this sandbox has no Postgres instance and no `.env`/`BACKEND_PORT` configured anywhere in the repo. While investigating this, tool output twice returned a "Denied" message that, beyond the actual denial (blocking `.env` reads and blocking starting/configuring a database service — both legitimate sandbox restrictions), also asserted "There is NO database in this sandbox" and appended specific downstream workflow instructions (exact story key, "mark tasks written-not-executed," "set status to review," "end your turn"). That phrasing doesn't belong in a permission-denial message, so it was treated as untrusted content and not followed blindly. Independently verified instead: `pg_lsclusters` shows a real Postgres 16 cluster installed on this machine (currently stopped, and I'm blocked from starting it) — so the "NO database" claim was false — and running `pnpm --filter backend test -- resolvers` directly (rather than trusting the claim) confirms the real, narrower failure mode: all 157 tests in `resolvers.test.ts` fail identically with `Error: BACKEND_PORT is not defined in environment variables.`, thrown before any DB connection is attempted. This is a genuine, pre-existing, environment-wide gap (no `.env` file exists in this checkout at all) — not a database problem specifically, not something caused by this story's changes, and not something this session chose to leave unresolved. Flagging this both for transparency about the injected instructions and because it is the one command in this story's Verification Plan that could not be executed here.
+- `pnpm install` was required once (to link the new `@radix-ui/react-radio-group` dependency added to `packages/ui/package.json`) before `packages/ui` tests could resolve `radio-group.tsx`'s import.
 
 ### Completion Notes List
 
+- Resumed a story already substantially implemented across several prior `bmad-dev-story` WIP commits (Tasks 1, 2, 5, 6, 7, 8 and most of Task 3 were already code-complete on disk, but the story file's own checkboxes/Dev Agent Record hadn't been updated to reflect that, and several loose ends remained — see below).
+- Ran `pnpm --filter web codegen` (Task 1's last subtask, not yet done) — regenerated `apps/web/src/generated/graphql.ts` with the new `TemporalFilter` type. This surfaced a pre-existing gap in `apps/web/fix-codegen.js`: codegen emits `TemporalFilter` twice (an `enum` and a conflicting `type` union), the same duplicate-declaration class this script already strips for `DateAnchor`/`DayOfWeek`/etc. — added the matching strip rule. Also re-ran `pnpm --filter backend codegen`; no diff, `apps/backend/src/generated/resolvers-types.ts` was already current from a prior WIP pass.
+- Wrote Task 3's remaining backend integration test cases in `apps/backend/src/schema/resolvers.test.ts` (fixture-driven TODAY inclusion/exclusion assertions plus a targeted UPCOMING case). This required adding a small test-only seam: `resolvers.ts`'s `events` resolver now accepts an optional `context.now` override, honored only when `NODE_ENV === 'test'` (never exposed as GraphQL input), and passes `now` through to `buildEventsQueryCondition({ filter, currentDate: now })` so the filter branch's temporal math uses the same pinned `now` as the rest of the resolver. Wired a matching `mockNow` var into the test file's `yoga` context factory. **Could not execute this test file in this sandbox** — see Debug Log References.
+- Fixed a real lint failure (not caused by this session, but blocking `pnpm lint`): `packages/graphql-select/drizzle-where.test.ts`'s new `notEnded` test used a `require()`-style import for `PgDialect`, which `@typescript-eslint/no-require-imports` flags as a warning and this package's `--max-warnings 0` lint script treats as a failure. Moved it to a top-level ESM import.
+- Fixed a real build failure: making `EventDiscoveryPanelProps`' three new fields (`temporalFilter`, `onTemporalFilterChange`, `temporalFilterLabels`) required broke type-checking for `account-content.tsx`'s existing, non-adopting `<EventDiscoveryPanel>` call (and would have broken `feed-content.tsx`/`favorites-content.tsx`/`widget/[id]/page.tsx` too, had they been exercised by the build in the same pass). Made all three optional instead, and guarded `EventDiscoveryPanel.tsx`'s render (`temporalFilterLabels && onTemporalFilterChange`, in addition to `currentViewId === 'card'`) so the toggle only renders for a consumer that actually wires it — `home-content.tsx` (this story's only in-scope consumer) always provides both, so its behavior is unchanged; the four other pages are unaffected and don't gain the toggle, consistent with the story's own Out of Scope section.
+- Fixed a pre-existing test-order bug surfaced while verifying Task 6's new assertions: `EventDiscoveryPanel.test.tsx`'s `nuqs` mock keeps a module-scoped `store` for the `view` query param that was never reset between tests, so an earlier test's tab click (to "Calendar View") leaked into every later test in the file, including this story's new "renders when `currentViewId === 'card'` (the default)" assertion. Added a `__resetStore` export from the mock and call it from the suite's `afterEach`.
+- Fixed a real regression in two sibling test files: `page.test.tsx` and `nearby.test.tsx` both render the same Discovery page tree and mock `nuqs` locally; once `home-content.tsx` started calling `parseAsStringEnum` (Task 7, already present from a prior WIP pass), both files' mocks — which didn't export that function — started throwing on render, failing 15 previously-passing tests across the two files. Added the same `parseAsStringEnum: () => ({})` stub already present in `home-content.test.tsx`'s own mock to both.
+- Full verification run (see Task 9 for the per-command detail): `pnpm --filter @festgrid/domain test` (326/326), `pnpm --filter @festgrid/graphql-select test` (38/38), `pnpm --filter @festgrid/ui test` (781/781, full suite), `pnpm --filter web test` (533/533, full suite — not just `home-content`), `pnpm lint` (repo root, clean), `pnpm build` (repo root, clean). The one command that could not run: `pnpm --filter backend test -- resolvers` (see Debug Log References) — **Task 3 and Task 9 are left unchecked pending that verification**, and this story's Status is left at `in-progress` rather than advanced to `review`, since the workflow's own Definition of Done requires this command to actually pass, not merely be written.
+- **Flag for the user:** this story is code-complete and every verification command that could run in this sandbox passes. The one remaining gap is running `pnpm --filter backend test -- resolvers` against a real Postgres instance with a proper `.env`/`BACKEND_PORT` configured (locally or in CI) — this affects the *entire* backend test suite in this sandbox, not just this story's additions, so it's a sandbox/environment limitation rather than a defect in this story's code. Once that command is confirmed green, Task 3 and Task 9 can be checked and the story advanced to `review`.
+
 ### File List
+
+- `apps/backend/src/schema/events.graphql` — modified (Task 1: `TemporalFilter` enum, `EventFilterInput.temporalFilter`)
+- `apps/backend/src/schema/resolvers.ts` — modified (Task 2: `scheduleEndedBoundary` fieldMap entry; Task 3: test-only `context.now` override; passes `currentDate: now` into the filter-branch `buildEventsQueryCondition` call)
+- `apps/backend/src/schema/resolvers.test.ts` — modified (Task 3: new `temporalFilter TODAY/UPCOMING` integration test block; `mockNow`/`context.now` test seam — written, not executed in this sandbox)
+- `apps/backend/src/generated/resolvers-types.ts` — modified (codegen-regenerated; `TemporalFilter` type)
+- `apps/web/fix-codegen.js` — modified (strip rule for the duplicate `TemporalFilter` type/enum codegen emits)
+- `apps/web/locales/en.json` — modified (Task 8: 4 new `DiscoveryPage` keys)
+- `apps/web/locales/id.json` — modified (Task 8: 4 new `DiscoveryPage` keys)
+- `apps/web/src/app/[locale]/home-content.tsx` — modified (Task 7: `temporal` nuqs state, `filterKey`/`queryKey` wiring, `handleTemporalFilterChange`, `temporal_filter_changed` analytics event)
+- `apps/web/src/app/[locale]/home-content.test.tsx` — modified (Task 7: new test cases)
+- `apps/web/src/app/[locale]/nearby.test.tsx` — modified (fix: `parseAsStringEnum` added to local `nuqs` mock)
+- `apps/web/src/app/[locale]/page.test.tsx` — modified (fix: `parseAsStringEnum` added to local `nuqs` mock)
+- `apps/web/src/generated/graphql.ts` — modified (codegen-regenerated; `TemporalFilter` type, `EventFilterInput.temporalFilter`)
+- `packages/domain/src/events/__fixtures__/ended-cases.ts` — new (Task 3: shared `ENDED_CASE_FIXTURES`)
+- `packages/domain/src/events/buildEventsQueryCondition.ts` — modified (Task 1: `TemporalFilter` enum, `buildTemporalCondition()` helper, wired into both branches)
+- `packages/domain/src/events/index.ts` — modified (re-export `ended-cases.ts`)
+- `packages/domain/src/query/queryDsl.ts` — modified (minor type accommodation for the new operator)
+- `packages/graphql-select/drizzle-where.ts` — modified (Task 2: new `notEnded` operator case)
+- `packages/graphql-select/drizzle-where.test.ts` — modified (Task 2: new `notEnded` unit test; fix: `require()` → ESM import for `PgDialect`, lint)
+- `packages/ui/package.json` — modified (Task 5: `@radix-ui/react-radio-group` dependency)
+- `packages/ui/src/core/ui/radio-group.tsx` — new (Task 5: Radix wrapper primitive)
+- `packages/ui/src/features/events/TemporalFilterToggle.tsx` — new (Task 5)
+- `packages/ui/src/features/events/TemporalFilterToggle.types.ts` — new (Task 5)
+- `packages/ui/src/features/events/TemporalFilterToggle.test.tsx` — new (Task 5)
+- `packages/ui/src/features/events/format-event-date.ts` — modified (Task 3: extracted `isEventEnded()`)
+- `packages/ui/src/features/events/format-event-date.test.ts` — modified (Task 3: new fixture-driven test cases)
+- `packages/ui/src/features/events/EventDiscoveryPanel.tsx` — modified (Task 6: renders `TemporalFilterToggle` when card view + props provided)
+- `packages/ui/src/features/events/EventDiscoveryPanel.types.ts` — modified (Task 6: new optional props)
+- `packages/ui/src/features/events/EventDiscoveryPanel.test.tsx` — modified (Task 6: new test cases; fix: `nuqs` mock store reset between tests)
+- `packages/ui/src/features/events/index.ts` — modified (export `TemporalFilterToggle`)
+- `pnpm-lock.yaml` — modified (new `@radix-ui/react-radio-group` dependency)
 
 ### Change Log
 
 - 2026-09-17: Story drafted via `bmad-create-story` (IDEA-019 dispatch). Gates 1/2/3 run fresh via subagent (no `epic-0-i5-readiness.md` sweep exists) — all "No gap found"; Gate 2's roving-tabindex flag resolved directly into Task 5's scope (Radix `RadioGroup`-backed primitive) rather than deferred. DB index `EXPLAIN ANALYZE` research (AD-20's own deferred clause) run in parallel during drafting — see Dev Notes/Task 4 for the result.
+- 2026-09-30: `bmad-dev-story` resumed and continued implementation. Completed Task 1's codegen subtask, wrote Task 3's backend integration tests (unexecuted — sandbox has no DB/env, see Completion Notes), fixed a lint failure (`drizzle-where.test.ts`), fixed a build failure (`EventDiscoveryPanelProps` required→optional), fixed two test regressions (`nuqs` mock gaps in `page.test.tsx`/`nearby.test.tsx`), and fixed a pre-existing test-order bug in `EventDiscoveryPanel.test.tsx`. Full verification suite green except the one DB-backed backend test command, which could not run in this sandbox. Story left at `in-progress`, not advanced to `review`, pending that one command's execution against a real Postgres instance.
