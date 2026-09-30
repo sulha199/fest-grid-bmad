@@ -194,3 +194,106 @@ describe('mapGraphQLEventToDetailViewProps types/categories badge shape (Story 1
     expect(props.categories).not.toEqual([]);
   });
 });
+
+// Story 0.i7z ratchet — AD-14 Rule 2 consumer: mapper.ts's accountLocation
+// derivation passes sourceSocialMediaAccountProfile.defaultLocation's
+// confidence/matchType signal through unchanged onto EventDetailViewProps.accountLocation,
+// which SubscribedAccountCard (Story 0.i6e) then gates via isLocationTrustworthy.
+describe('mapGraphQLEventToDetailViewProps accountLocation derivation (Story 0.i6e)', () => {
+  it('uses placeName verbatim when present', () => {
+    const event = {
+      ...buildEvent({}),
+      sourceSocialMediaAccountProfile: {
+        accountId: 'acc-1',
+        platform: 'instagram',
+        username: 'org',
+        displayName: 'Org',
+        profileImageUrl: null,
+        accountType: null,
+        defaultLocation: {
+          coordinates: { lat: 41.8758, lng: -87.6245 },
+          placeName: 'The Grand Hall',
+          formattedAddress: '1 Main St',
+          confidence: 0.9,
+          matchType: 'full_match',
+        },
+      },
+    };
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.accountLocation).toEqual({
+      name: 'The Grand Hall',
+      coordinates: { lat: 41.8758, lng: -87.6245 },
+      confidence: 0.9,
+      matchType: 'full_match',
+    });
+  });
+
+  it('falls back to formattedAddress when placeName is empty', () => {
+    const event = {
+      ...buildEvent({}),
+      sourceSocialMediaAccountProfile: {
+        accountId: 'acc-1',
+        platform: 'instagram',
+        username: 'org',
+        displayName: 'Org',
+        profileImageUrl: null,
+        accountType: null,
+        defaultLocation: {
+          coordinates: { lat: 41.8758, lng: -87.6245 },
+          placeName: '',
+          formattedAddress: '1 Main St',
+          confidence: 0.9,
+          matchType: 'full_match',
+        },
+      },
+    };
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.accountLocation?.name).toBe('1 Main St');
+  });
+
+  it('resolves to null when both placeName and formattedAddress are empty', () => {
+    const event = {
+      ...buildEvent({}),
+      sourceSocialMediaAccountProfile: {
+        accountId: 'acc-1',
+        platform: 'instagram',
+        username: 'org',
+        displayName: 'Org',
+        profileImageUrl: null,
+        accountType: null,
+        defaultLocation: {
+          coordinates: { lat: 41.8758, lng: -87.6245 },
+          placeName: '',
+          formattedAddress: '',
+          confidence: 0.9,
+          matchType: 'full_match',
+        },
+      },
+    };
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.accountLocation).toBeNull();
+  });
+
+  it('resolves to null when defaultLocation is entirely absent', () => {
+    const event = {
+      ...buildEvent({}),
+      sourceSocialMediaAccountProfile: {
+        accountId: 'acc-1',
+        platform: 'instagram',
+        username: 'org',
+        displayName: 'Org',
+        profileImageUrl: null,
+        accountType: null,
+        defaultLocation: null,
+      },
+    };
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.accountLocation).toBeNull();
+  });
+
+  it('resolves to null when sourceSocialMediaAccountProfile itself is absent', () => {
+    const event = buildEvent({}); // sourceSocialMediaAccountProfile: null per buildEvent's default fixture
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.accountLocation).toBeNull();
+  });
+});
