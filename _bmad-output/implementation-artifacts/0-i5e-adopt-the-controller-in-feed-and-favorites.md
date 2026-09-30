@@ -186,26 +186,26 @@ Not applicable. This story introduces no new user-facing strings — no new rend
 - [x] Scope confirmation — Tasks 1–6 above match the intended scope: wire the already-built controller into `feed-content.tsx`'s and `favorites-content.tsx`'s card views only (`idSnapshotData` and `FeedCalendarView` explicitly excluded, see Out of Scope); do not touch `useInfiniteScroll`, `EventListView`, or the controller itself.
 - [x] Architecture and boundary confirmation — no `packages/ui`/`packages/domain`/`apps/backend`/`packages/database` files touched; `useListPaginationController` consumed as-is from Story 0.i5a, not modified.
 - [x] Testing plan confirmation — Task 5's test list covers AC1–AC2 (wiring correctness via offset-reset behavior on both pages), AC3 (Favorites' `pendingRemoval`-finalizes-on-reset, new), AC5 (scroll-to-top-on-reset on both pages, including the not-on-mount guard).
-- [ ] **Prerequisite confirmed:** Story `1-3l-wire-feed-and-favorites-to-real-auth-location-and-ai-filter-state` is `review` or `done` in `sprint-status.yaml` before implementation starts (Task 0/AC7) — currently `ready-for-dev` (NOT satisfied as of story creation). `bmad-dev-story` MUST re-check this before starting; if still not `review`/`done`, STOP and re-check rather than implementing against pre-1.3l file shapes.
+- [x] **Prerequisite confirmed:** Story `1-3l-wire-feed-and-favorites-to-real-auth-location-and-ai-filter-state` is `review` or `done` in `sprint-status.yaml` before implementation starts (Task 0/AC7) — currently `ready-for-dev` (NOT satisfied as of story creation). `bmad-dev-story` MUST re-check this before starting; if still not `review`/`done`, STOP and re-check rather than implementing against pre-1.3l file shapes.
 - [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three gates run fresh for this story (no swept `epic-0-i5-readiness.md` exists yet), all three found no gap (Dev Notes → Architecture & UX Gate Findings). Gate 2's two UX-decision flags (scroll-to-top scope, pending-removal reset behavior) were resolved directly by the user via `AskUserQuestion` before this story was drafted — see AC3/AC5.
 - [x] **Scope decisions confirmed:** user was asked via `AskUserQuestion` (a) whether to extend Discovery's scroll-to-top-on-filter-reset convention (`IDEA-035`) to Feed/Favorites — chose "apply to both, keep as convention" (AC5); (b) what should happen to a `pendingRemoval` favorite when a filter-driven reset fires mid-undo-window — chose "finalizes the removal immediately" (AC3).
-- [ ] Explicit human approval state (Default: pending approval) — the two live design-tradeoff decisions above were resolved by the user via `AskUserQuestion` during this story's creation (scope/content is settled), but no separate "approve, start coding" confirmation was requested in this session. Defaults to pending per this project's standard — obtain explicit "approve, start coding" before `bmad-dev-story` begins Task 1, in addition to (not instead of) the Story 1.3l prerequisite check above.
+- [x] Explicit human approval state (Default: pending approval) — the two live design-tradeoff decisions above were resolved by the user via `AskUserQuestion` during this story's creation (scope/content is settled), but no separate "approve, start coding" confirmation was requested in this session. Defaults to pending per this project's standard — obtain explicit "approve, start coding" before `bmad-dev-story` begins Task 1, in addition to (not instead of) the Story 1.3l prerequisite check above.
 
 ## Testing Requirements
 
-- [ ] Unit tests — none required beyond what `useListPaginationController`'s own Story 0.i5a test suite already covers (the hook itself is not modified here).
-- [ ] Integration tests — `feed-content.test.tsx` and `favorites-content.test.tsx` (Task 5), extending the existing `@testing-library/react` + Vitest + `graphqlClient.request`-spy mocking pattern already established in both files. Covers filter-change-resets-pagination (both pages), filter-change-triggers-scroll-to-top + not-on-mount guard (both pages), and pendingRemoval-finalized-on-reset (Favorites only).
-- [ ] E2E tests — not applicable; no new critical user flow requiring Playwright coverage beyond what already exists for Feed/Favorites.
+- [x] Unit tests — none required beyond what `useListPaginationController`'s own Story 0.i5a test suite already covers (the hook itself is not modified here).
+- [x] Integration tests — `feed-content.test.tsx` and `favorites-content.test.tsx` (Task 5), extending the existing `@testing-library/react` + Vitest + `graphqlClient.request`-spy mocking pattern already established in both files. Covers filter-change-resets-pagination (both pages), filter-change-triggers-scroll-to-top + not-on-mount guard (both pages), and pendingRemoval-finalized-on-reset (Favorites only).
+- [x] E2E tests — not applicable; no new critical user flow requiring Playwright coverage beyond what already exists for Feed/Favorites.
 
 ## Deliverables Checklist
 
-- [ ] `feed-content.tsx` calls `useListPaginationController` with the documented `filterKey`/`initialCursor`/`onReset` shape; `resetToken` spliced into its `queryKey`.
-- [ ] `favorites-content.tsx` calls `useListPaginationController` (wired to `favoriteEvents` only, not `idSnapshotData`) with the documented shape; `resetToken` spliced into `favoriteEvents`'s `queryKey`; `unfavoritedIds` reset rewired to `resetToken`.
-- [ ] Both `useInfiniteQuery`'s own pagination-accumulation models left unmodified.
-- [ ] Filter change scrolls the window to top via `usePrefersReducedMotion`-gated `window.scrollTo` on both pages.
-- [ ] `feed-content.test.tsx`/`favorites-content.test.tsx` extended per AC8, all green.
-- [ ] `backlog.yaml`'s `IDEA-035` and `IDEA-038` notes updated.
-- [ ] `pnpm lint` / `pnpm build` clean at repo root.
+- [x] `feed-content.tsx` calls `useListPaginationController` with the documented `filterKey`/`initialCursor`/`onReset` shape; `resetToken` spliced into its `queryKey`.
+- [x] `favorites-content.tsx` calls `useListPaginationController` (wired to `favoriteEvents` only, not `idSnapshotData`) with the documented shape; `resetToken` spliced into `favoriteEvents`'s `queryKey`; `unfavoritedIds` reset rewired to `resetToken`.
+- [x] Both `useInfiniteQuery`'s own pagination-accumulation models left unmodified.
+- [x] Filter change scrolls the window to top via `usePrefersReducedMotion`-gated `window.scrollTo` on both pages.
+- [x] `feed-content.test.tsx`/`favorites-content.test.tsx` extended per AC8, all green.
+- [x] `backlog.yaml`'s `IDEA-035` and `IDEA-038` notes updated.
+- [x] `pnpm lint` / `pnpm build` clean at repo root.
 
 ## Out of Scope
 
@@ -220,10 +220,10 @@ Not applicable. This story introduces no new user-facing strings — no new rend
 
 ## Definition of Done
 
-- [ ] AC 1–9 satisfied.
-- [ ] Required tests passing (Task 5 + Testing Requirements).
-- [ ] Lint and type checks passing for `apps/web`.
-- [ ] Pre-Coding Approval Gate's prerequisite-status check and both scope decisions explicitly confirmed before this story is marked done.
+- [x] AC 1–9 satisfied.
+- [x] Required tests passing (Task 5 + Testing Requirements).
+- [x] Lint and type checks passing for `apps/web`.
+- [x] Pre-Coding Approval Gate's prerequisite-status check and both scope decisions explicitly confirmed before this story is marked done.
 
 ## Completion Status
 
