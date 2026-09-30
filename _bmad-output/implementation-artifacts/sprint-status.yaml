@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-30T07:03:50Z
+last_updated: 2026-09-30T07:06:39Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -279,7 +279,7 @@ development_status:
   # depends on 0-38a (see above). Gates 1/3 returned "No gap found"; Gate 2's gap is
   # resolved by 0-38a's split. No epics.md section added, mirroring Stories 0.33-0.37's
   # standalone-Epic-0-story precedent.
-  0-38-cache-embedjs-preconnect-and-pwa-install-prompt: ready-for-dev
+  0-38-cache-embedjs-preconnect-and-pwa-install-prompt: in-progress
   # added 2026-09-17 via bmad-create-story while drafting 1-i1f: Gate 3 found that
   # AD-22's "active filter location, else viewer's current location" priority rule
   # has no owning story for its "else" branch -- no ambient/passive viewer-location
