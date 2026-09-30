@@ -199,9 +199,10 @@ describe('EventDetailView', () => {
         'href',
         'https://www.google.com/maps/search/?api=1&query=41.8758,-87.6245'
       );
-      // Only one pin icon renders for this row (LocationLink's own, no redundant standalone one).
+      // LocationLink renders exactly its own two icons (pin + trailing ExternalLink) --
+      // the standalone MapPin this story removes is not duplicated alongside it.
       const row = link.closest('address')!;
-      expect(row.querySelectorAll('svg').length).toBe(1);
+      expect(row.querySelectorAll('svg').length).toBe(2);
     });
 
     it('renders plain text with the static MapPin icon (no link) when schedule.location is blank but the event-level location is not', () => {
