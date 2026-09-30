@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-30T03:54:44Z
+last_updated: 2026-09-30T04:03:11Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -805,7 +805,7 @@ development_status:
   # (same as 1.6c/1.6d/1.6f) so it was not cited -- ran Gates 1/2/3 fresh via
   # subagent dispatch, all three "no gap found." No prerequisite story
   # added. See epics.md Story 1.6e.
-  1-6e-event-detail-schedule-refinements-smaller-name-bigger-add-to-calendar-action-location-link: in-progress
+  1-6e-event-detail-schedule-refinements-smaller-name-bigger-add-to-calendar-action-location-link: review
   # reopened 2026-08-15 via bmad-create-story per sprint-change-proposal-2026-08-13-
   # discovery-detail-calendar-ux.md Section 4.2: added AC13 (Carousel-chrome
   # navigation) and AC14 (icon-only modal close). Verified via git show that AC14

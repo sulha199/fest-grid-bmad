@@ -7,7 +7,7 @@ baseline_commit: 0211b0e0a3b973cca70f4c593c8fddfec8e673b6
 
 - Epic: 1
 - Story ID: 1.6e
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -56,16 +56,16 @@ so that the schedule list is easier to scan and act on without opening the full 
 
 ## Tasks / Subtasks
 
-- [ ] 1. Remove `text-lg` from the schedule title `<h3>` (`EventDetailView.tsx` line 471). (AC1)
-- [ ] 2. Replace the decorative `CalendarDays` icon (line 472) with the clickable `CalendarPlus` button per AC2's exact markup, gated on `onAddToCalendar` being provided; retain the current `CalendarDays` rendering as the fallback when `onAddToCalendar` is absent. (AC2, AC3)
-- [ ] 3. Do **not** add an `isAuthenticated` branch to the new button's click handler — confirmed unnecessary per AC3's analysis of `EventDetailWrapper.tsx`'s `handleAddToCalendar`. (AC3)
-- [ ] 4. Add `locationDetails` to `ScheduleDetail` (`EventDetailView.types.ts`) and remove `mapUrl`. (AC5)
-- [ ] 5. Replace the schedule item's location block (lines 519-532) with `LocationLink`, importing it from `../../core/LocationLink`; remove the now-redundant standalone `<MapPin>` icon; implement AC4's three-way `scheduleLocation` fallback (own name -> `LocationLink`; event-level only -> plain text with static `MapPin`; both blank -> no block) with a test for each branch. (AC4)
-- [ ] 6. Update `apps/web/src/features/events/mapper.ts`: remove the `mapUrl`-computing block (lines 60-66) and its now-unused `isLocationTrustworthy` import; pass `locationDetails: s.locationDetails ?? null` through instead. (AC5)
-- [ ] 7. Update `packages/ui/src/features/events/EventDetailView.test.tsx`: replace the `mapUrl` fixture field and href assertion per AC6. (AC6)
-- [ ] 8. **Only after** 1.6d's `LocationLink.test.tsx` (0.i7z ratchet header + confidence-boundary cases) is green: replace `apps/web/src/features/events/mapper.test.ts`'s `mapUrl gating (Story 0.i7c / 0.i7z)` describe block with a `locationDetails` passthrough test per AC6, in the same commit. (AC6)
-- [ ] 8b. Update AD-14 Rule 2's **Enforced by** line (map-link gate clause, `festgrid-architecture-spine.md` ~lines 376-380) to cite `packages/ui/src/core/LocationLink.test.tsx` + the `mapper.test.ts` passthrough test in place of the removed `mapUrl gating` block (already applied by the 2026-09-30 readiness correction; verify it still matches after implementation). (AC6)
-- [ ] 9. Run `pnpm --filter @festgrid/ui test`, `pnpm --filter @festgrid/ui lint`, `pnpm --filter web test`, `pnpm --filter web lint`, and TypeScript strict-mode checks for both packages; confirm no regressions in the untouched parts of `EventDetailView.test.tsx`/`mapper.test.ts`. (AC6)
+- [x] 1. Remove `text-lg` from the schedule title `<h3>` (`EventDetailView.tsx` line 471). (AC1)
+- [x] 2. Replace the decorative `CalendarDays` icon (line 472) with the clickable `CalendarPlus` button per AC2's exact markup, gated on `onAddToCalendar` being provided; retain the current `CalendarDays` rendering as the fallback when `onAddToCalendar` is absent. (AC2, AC3)
+- [x] 3. Do **not** add an `isAuthenticated` branch to the new button's click handler — confirmed unnecessary per AC3's analysis of `EventDetailWrapper.tsx`'s `handleAddToCalendar`. (AC3)
+- [x] 4. Add `locationDetails` to `ScheduleDetail` (`EventDetailView.types.ts`) and remove `mapUrl`. (AC5)
+- [x] 5. Replace the schedule item's location block (lines 519-532) with `LocationLink`, importing it from `../../core/LocationLink`; remove the now-redundant standalone `<MapPin>` icon; implement AC4's three-way `scheduleLocation` fallback (own name -> `LocationLink`; event-level only -> plain text with static `MapPin`; both blank -> no block) with a test for each branch. (AC4)
+- [x] 6. Update `apps/web/src/features/events/mapper.ts`: remove the `mapUrl`-computing block (lines 60-66) and its now-unused `isLocationTrustworthy` import; pass `locationDetails: s.locationDetails ?? null` through instead. (AC5)
+- [x] 7. Update `packages/ui/src/features/events/EventDetailView.test.tsx`: replace the `mapUrl` fixture field and href assertion per AC6. (AC6)
+- [x] 8. **Only after** 1.6d's `LocationLink.test.tsx` (0.i7z ratchet header + confidence-boundary cases) is green: replace `apps/web/src/features/events/mapper.test.ts`'s `mapUrl gating (Story 0.i7c / 0.i7z)` describe block with a `locationDetails` passthrough test per AC6, in the same commit. (AC6)
+- [x] 8b. Update AD-14 Rule 2's **Enforced by** line (map-link gate clause, `festgrid-architecture-spine.md` ~lines 376-380) to cite `packages/ui/src/core/LocationLink.test.tsx` + the `mapper.test.ts` passthrough test in place of the removed `mapUrl gating` block (already applied by the 2026-09-30 readiness correction; verify it still matches after implementation). (AC6)
+- [x] 9. Run `pnpm --filter @festgrid/ui test`, `pnpm --filter @festgrid/ui lint`, `pnpm --filter web test`, `pnpm --filter web lint`, and TypeScript strict-mode checks for both packages; confirm no regressions in the untouched parts of `EventDetailView.test.tsx`/`mapper.test.ts`. (AC6)
 
 ## Dev Notes
 
@@ -229,8 +229,21 @@ Claude Sonnet 5 (`claude-sonnet-5`)
 
 ### Completion Notes List
 
-_To be filled by the dev agent during implementation._
+- **Pre-Coding Approval Gate:** at activation, the gate was unchecked with "Explicit human approval state (Default: pending approval)". Per this workflow's rules, paused and asked the user via `AskUserQuestion` before touching any code, having first independently verified the one real blocker: Story 1.6d's `LocationLink` component (`packages/ui/src/core/LocationLink.tsx`) already exists on disk, its props (`name`/`coordinates`/`confidence`/`matchType`/`ariaLabel`) match exactly what this story's AC4/AC5 assume, and its own test suite (`LocationLink.test.tsx`, 14 tests) passes. User approved proceeding. (The gate's own checkboxes in the story body are left as-is per this workflow's restriction that only specific story sections may be edited — Pre-Coding Approval Gate is not one of them; this note is the durable record of that approval instead.)
+- **AC1:** Removed `text-lg` from the schedule title `<h3>` in `EventDetailView.tsx`; the other classes (`font-semibold flex items-center gap-2`) are unchanged.
+- **AC2/AC3:** Replaced the decorative `CalendarDays` icon with a `CalendarPlus` icon button (exact markup from the AC), gated on `onAddToCalendar` being provided — falls back to the original non-interactive `CalendarDays` rendering when absent. The button calls `onAddToCalendar([schedule.id])` directly with no `isAuthenticated` branch, per AC3's analysis of `EventDetailWrapper.tsx`'s `handleAddToCalendar` (its `!session` check precedes any use of `selectedIds`, so the redirect fires identically regardless of the array passed).
+- **AC4:** Replaced the schedule-item location block with a three-way fallback: (a) `schedule.location` non-blank → `<address>` wrapping `LocationLink` (imported from `../../core/LocationLink`, relative import matching the existing `PlatformIcon` convention) with `name`/`coordinates`/`confidence`/`matchType` from the schedule; (b) `schedule.location` blank but event-level `location` non-blank → `<address>` with the static `MapPin` icon and a plain `<span>` (today's non-link behavior, unchanged); (c) both blank → no `<address>` block at all. The now-unused `scheduleLocation` local variable was removed. Added three dedicated tests (one per branch) plus verified the rendered row shows exactly `LocationLink`'s own two icons (pin + trailing confidence icon), not a duplicated outer pin.
+- **AC5:** Removed `ScheduleDetail.mapUrl` from `EventDetailView.types.ts`, added `locationDetails?: { coordinates?; confidence?; matchType? } | null`, structurally matching `LocationLinkProps`. `mapper.ts` no longer computes `mapUrl` or imports `isLocationTrustworthy`; it now passes `locationDetails: s.locationDetails ?? null` straight through.
+- **AC6:** Updated `EventDetailView.test.tsx`'s `fullProps` fixture to a `locationDetails` shape and rewrote the href assertion against `LocationLink`'s own computed output. Replaced `mapper.test.ts`'s `mapUrl gating (Story 0.i7c / 0.i7z)` describe block with a `locationDetails` passthrough test (this story's Task 8 required 1.6d's `LocationLink.test.tsx` to be green first — confirmed above). Updated AD-14 Rule 2's "Enforced by" line in `festgrid-architecture-spine.md` to drop the "until 1.6d/1.6e land" caveat now that both have shipped (Task 8b).
+- **Incidental test fix (not its own AC, but required by AC2's new button sharing an accessible name):** the new per-schedule `CalendarPlus` button uses `aria-label={labels.addToCalendarButtonLabel}` — the exact same accessible name as the pre-existing overflow-menu "Add to Calendar" entry and the two existing tests that asserted no such *button* existed at all (Story 1.6f regression tests, lines ~344/394 pre-change) before this story's per-schedule buttons existed. Rescoped both assertions to check within the header row specifically (`within(heading.parentElement!)`) so they still correctly assert "no standalone top-level button beside the title" without colliding with the new, intentional per-schedule buttons elsewhere on the page.
+- **Verification run (2026-09-30):** `pnpm --filter @festgrid/ui test` — 60 files / 745 tests passed. `pnpm --filter web test -- mapper EventDetailWrapper` — 3 files / 46 tests passed (confirms `EventDetailWrapper.test.tsx`'s `locationDetails: null` fixtures still pass unmodified). `pnpm --filter @festgrid/ui lint` — clean (0 warnings, `--max-warnings 0`). `pnpm --filter web lint` — exit 0 (only pre-existing warnings in unrelated files; `mapper.ts` itself has zero). `pnpm --filter web build` — succeeded (Next.js strict-mode TypeScript compilation across the whole app, including `mapper.ts`/`EventDetailView.tsx`'s consumers). Grepped the full `apps/web`/`packages/ui` tree for any remaining `mapUrl` reference — none found. The orchestrator's own `run-check.ts --kind test` tool refused to run the repo-wide suite by design (backend tests can't run in this sandbox) and directed reliance on the targeted `packages/ui`/`web` runs above plus lint/build for the touched packages — followed that guidance.
+- No design tradeoff requiring a mid-implementation `AskUserQuestion` was found beyond the Pre-Coding Approval Gate itself (handled above); all ACs were fully specified down to exact classes/props/branches.
 
 ### File List
 
-_To be filled by the dev agent during implementation._
+- `packages/ui/src/features/events/EventDetailView.tsx` (UPDATE)
+- `packages/ui/src/features/events/EventDetailView.types.ts` (UPDATE)
+- `packages/ui/src/features/events/EventDetailView.test.tsx` (UPDATE)
+- `apps/web/src/features/events/mapper.ts` (UPDATE)
+- `apps/web/src/features/events/mapper.test.ts` (UPDATE)
+- `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (UPDATE — AD-14 Rule 2 "Enforced by" line, Task 8b)
