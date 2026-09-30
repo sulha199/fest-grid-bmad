@@ -21,6 +21,7 @@ import { useNearbyFilter } from "./use-nearby-filter"
 import { useAIFilter } from "@/features/events/use-ai-filter"
 import { computeDistanceKm } from "@festgrid/domain/geolocation"
 import { selectDisplaySchedule } from "@festgrid/domain/events"
+import { mapDaysOfWeekToDomain } from "@/lib/day-of-week-mapping"
 
 // Falls back to the raw enum value if a translation key is missing, so a
 // locale file drifting out of sync with the enum degrades gracefully instead
@@ -244,7 +245,18 @@ export function HomeContent() {
   })
 
   type EventItem = GetEventsQuery['events']['items'][number];
-  const events: EventItem[] = (data?.pages || []).flatMap((page: GetEventsQuery) => page.events.items) ?? []
+  // Story 1.3k Task 9 (AC2/AC3 end-to-end) — maps every schedule's GraphQL-typed
+  // `applicableDaysOfWeek` to the domain enum `EventListView`/`EventCard` consume for the repeat
+  // badge (AD-19 Rule 2/3 — never an implicit cast on the raw GQL enum array).
+  const events = ((data?.pages || []).flatMap((page: GetEventsQuery) => page.events.items) ?? []).map(
+    (event: EventItem) => ({
+      ...event,
+      schedules: (event.schedules ?? []).map((schedule) => ({
+        ...schedule,
+        applicableDaysOfWeek: mapDaysOfWeekToDomain(schedule.applicableDaysOfWeek),
+      })),
+    })
+  )
 
   const handleSearchSubmit = useMemo(() => (searchQuery: string) => {
     setQ(searchQuery || '')

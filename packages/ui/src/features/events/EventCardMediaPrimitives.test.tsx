@@ -8,6 +8,7 @@ import {
   EventCardDateBox,
   EventCardStatusBadge,
   EventCardNearbyBadge,
+  EventCardRepeatBadge,
   eventCardTillLabelClass,
   EVENT_CARD_BADGE_TEXT_SIZE_CLASS,
   EVENT_CARD_CONTAINER_CLASS,
@@ -642,6 +643,84 @@ describe('EventCardStatusBadge - AC1/AC6 (two DESIGN.md shapes, non-interactive)
     expect(badge.getAttribute('tabindex')).toBeNull();
     expect(badge.getAttribute('role')).toBeNull();
     expect(container.querySelectorAll('button, a, input, [tabindex]')).toHaveLength(0);
+  });
+});
+
+describe('EventCardRepeatBadge - Story 1.3k AC6/AC10 (self-gating, always-present aria-label, hover/focus tooltip)', () => {
+  afterEach(() => cleanup());
+
+  it('renders null when daysOfWeek is undefined', () => {
+    const { container } = render(<EventCardRepeatBadge />);
+    expect(container.querySelector('[data-event-card-repeat-badge]')).toBeNull();
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('renders null when daysOfWeek is an empty array', () => {
+    const { container } = render(<EventCardRepeatBadge daysOfWeek={[]} />);
+    expect(container.querySelector('[data-event-card-repeat-badge]')).toBeNull();
+  });
+
+  it('renders null when daysOfWeek is explicitly null', () => {
+    const { container } = render(<EventCardRepeatBadge daysOfWeek={null} />);
+    expect(container.querySelector('[data-event-card-repeat-badge]')).toBeNull();
+  });
+
+  it('renders the Repeat icon with the always-present default fallback aria-label when daysOfWeek is set', () => {
+    const { container } = render(<EventCardRepeatBadge daysOfWeek={['MON', 'WED'] as any} />);
+    const badge = container.querySelector('[data-event-card-repeat-badge]') as HTMLElement;
+    expect(badge).not.toBeNull();
+    const icon = badge.querySelector('svg') as SVGElement;
+    expect(icon).not.toBeNull();
+    expect(icon.getAttribute('aria-label')).toBe('Repeats on MON, WED');
+  });
+
+  it('resolves translated day labels via dayOfWeekLabels, falling back to the raw enum member for a missing key', () => {
+    const { container } = render(
+      <EventCardRepeatBadge
+        daysOfWeek={['MON', 'WED'] as any}
+        dayOfWeekLabels={{ MON: 'Monday' }}
+      />
+    );
+    const icon = container.querySelector('[data-event-card-repeat-badge] svg') as SVGElement;
+    // WED has no translation entry -> falls back to the raw enum member name.
+    expect(icon.getAttribute('aria-label')).toBe('Repeats on Monday, WED');
+  });
+
+  it('invokes the caller-supplied repeatBadgeAriaLabel resolver with the translated day labels in order', () => {
+    const repeatBadgeAriaLabel = vi.fn((dayLabels: string[]) => `Every ${dayLabels.join(' & ')}`);
+    const { container } = render(
+      <EventCardRepeatBadge
+        daysOfWeek={['MON', 'TUE'] as any}
+        dayOfWeekLabels={{ MON: 'Monday', TUE: 'Tuesday' }}
+        repeatBadgeAriaLabel={repeatBadgeAriaLabel}
+      />
+    );
+    expect(repeatBadgeAriaLabel).toHaveBeenCalledWith(['Monday', 'Tuesday']);
+    const icon = container.querySelector('[data-event-card-repeat-badge] svg') as SVGElement;
+    expect(icon.getAttribute('aria-label')).toBe('Every Monday & Tuesday');
+  });
+
+  it('does not render a tooltip element when tooltipVisible is false/omitted', () => {
+    const { container } = render(<EventCardRepeatBadge daysOfWeek={['MON'] as any} />);
+    expect(container.querySelector('[role="tooltip"]')).toBeNull();
+  });
+
+  it('renders a role="tooltip" element with the same label text when tooltipVisible is true', () => {
+    const { container } = render(
+      <EventCardRepeatBadge
+        daysOfWeek={['MON'] as any}
+        dayOfWeekLabels={{ MON: 'Monday' }}
+        tooltipVisible
+      />
+    );
+    const tooltip = container.querySelector('[role="tooltip"]');
+    expect(tooltip).not.toBeNull();
+    expect(tooltip).toHaveTextContent('Repeats on Monday');
+  });
+
+  it('gives the badge icon no independent focus stop (no tabIndex, no button/a wrapper) per the Tooltip trigger resolution', () => {
+    const { container } = render(<EventCardRepeatBadge daysOfWeek={['MON'] as any} tooltipVisible />);
+    expect(container.querySelectorAll('button, a, [tabindex]')).toHaveLength(0);
   });
 });
 

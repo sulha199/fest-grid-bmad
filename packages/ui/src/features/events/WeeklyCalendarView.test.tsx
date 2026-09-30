@@ -1987,4 +1987,154 @@ describe('WeeklyCalendarView', () => {
     });
   });
 
+  // ── Story 1.3k Task 7 (AC4/AC5) — day-of-week recurring schedules ─────────
+  // weekStart is '2026-08-05' (Wednesday) per defaultProps, so the 7 visible columns are:
+  // idx0=Wed Aug5, idx1=Thu Aug6, idx2=Fri Aug7, idx3=Sat Aug8, idx4=Sun Aug9,
+  // idx5=Mon Aug10, idx6=Tue Aug11.
+  describe('Day-of-week recurring schedules (Story 1.3k AC4/AC5)', () => {
+    it('(a) a Monday-only schedule spanning multiple weeks yields no week-wide bar -- only isolated single-day segments', () => {
+      const schedules = [
+        {
+          id: 'mon-only',
+          eventName: 'Monday Only Market',
+          isMainSchedule: true,
+          eventStartDate: '2026-07-06',
+          eventEndDate: '2026-08-31',
+          applicableDaysOfWeek: ['MON'],
+        },
+      ];
+
+      render(<WeeklyCalendarView {...defaultProps} schedules={schedules as any} locale="en-US" />);
+
+      // No spanning banner at all -- the only occurrence visible this week (Monday Aug10) is an
+      // isolated one-day run, which never earns a bar (AC4).
+      expect(rtlScreen.queryByTestId('multi-day-spanning-banner')).not.toBeInTheDocument();
+
+      // It renders as a normal single-day grid card on Monday's day cell instead.
+      const dayCells = rtlScreen.getByTestId('desktop-calendar-view').querySelectorAll('.h-32');
+      expect(dayCells).toHaveLength(7);
+      expect(within(dayCells[5] as HTMLElement).getByText('Monday Only Market')).toBeInTheDocument();
+      // No other day cell shows it (it doesn't occur on any other weekday).
+      [0, 1, 2, 3, 4, 6].forEach((idx) => {
+        expect(within(dayCells[idx] as HTMLElement).queryByText('Monday Only Market')).not.toBeInTheDocument();
+      });
+    });
+
+    it('(b) a Mon+Tue run plus an isolated Friday in the same week renders one Mon-Tue bar AND keeps the Friday day-cell segment (the AC4 regression case)', () => {
+      const schedules = [
+        {
+          id: 'pop-up',
+          eventName: 'Weekly Pop-up',
+          isMainSchedule: true,
+          eventStartDate: '2026-08-01',
+          eventEndDate: '2026-08-31',
+          applicableDaysOfWeek: ['MON', 'TUE', 'FRI'],
+        },
+      ];
+
+      render(<WeeklyCalendarView {...defaultProps} schedules={schedules as any} locale="en-US" />);
+
+      // Exactly one Mon-Tue spanning bar (columns 5-6, 0-based -> CSS grid-column "6 / span 2").
+      const banner = rtlScreen.getByTestId('multi-day-spanning-banner');
+      const bars = within(banner).getAllByTestId('multi-day-spanning-bar');
+      expect(bars).toHaveLength(1);
+      expect(within(bars[0]).getByText('Weekly Pop-up')).toBeInTheDocument();
+      expect(bars[0]).toHaveStyle({ gridColumn: '6 / span 2' });
+
+      // The old id-based `spanningScheduleIds` filter would have also dropped Friday's isolated
+      // occurrence of the SAME schedule -- the segment-level fix (AC4) keeps it.
+      const dayCells = rtlScreen.getByTestId('desktop-calendar-view').querySelectorAll('.h-32');
+      expect(within(dayCells[2] as HTMLElement).getByText('Weekly Pop-up')).toBeInTheDocument();
+
+      // Monday/Tuesday's OWN day cells do not also show a duplicate single-day copy of it --
+      // it's covered by the bar there, not double-rendered.
+      expect(within(dayCells[5] as HTMLElement).queryByText('Weekly Pop-up')).not.toBeInTheDocument();
+      expect(within(dayCells[6] as HTMLElement).queryByText('Weekly Pop-up')).not.toBeInTheDocument();
+
+      // Exactly 2 renders total (one in the bar, one in Friday's cell) -- never 3+.
+      expect(within(rtlScreen.getByTestId('desktop-calendar-view')).getAllByText('Weekly Pop-up')).toHaveLength(2);
+    });
+
+    it('(c) desktop overflow ("+N more") counts isolated occurrences correctly, never double-counting a segment already shown as a bar', () => {
+      const schedules = [
+        // Mon+Tue bar -- its Monday segment must never be counted toward Monday's overflow.
+        {
+          id: 'run',
+          eventName: 'Bar Event',
+          isMainSchedule: true,
+          eventStartDate: '2026-08-01',
+          eventEndDate: '2026-08-31',
+          applicableDaysOfWeek: ['MON', 'TUE'],
+        },
+        { id: 's1', eventName: 'Solo 1', isMainSchedule: true, eventStartDate: '2026-08-10' },
+        { id: 's2', eventName: 'Solo 2', isMainSchedule: true, eventStartDate: '2026-08-10' },
+        { id: 's3', eventName: 'Solo 3', isMainSchedule: true, eventStartDate: '2026-08-10' },
+      ];
+
+      render(
+        <WeeklyCalendarView {...defaultProps} schedules={schedules as any} maxEventsPerDay={2} locale="en-US" />
+      );
+
+      // 3 isolated single-day occurrences on Monday (the bar's own Monday segment is excluded
+      // entirely from the count) -- maxEventsPerDay=2 means exactly 1 is hidden behind "+1 more",
+      // never "+2 more" (which would mean the bar's segment was double-counted).
+      expect(screen.getByText('+1 more')).toBeInTheDocument();
+      expect(screen.getByText('Solo 1')).toBeInTheDocument();
+      expect(screen.getByText('Solo 2')).toBeInTheDocument();
+      expect(screen.queryByText('Solo 3')).not.toBeInTheDocument();
+
+      // The bar itself still renders once, separately from the day-cell overflow accounting.
+      const banner = rtlScreen.getByTestId('multi-day-spanning-banner');
+      expect(within(banner).getAllByTestId('multi-day-spanning-bar')).toHaveLength(1);
+    });
+
+    it('(d) per-run adjacency is evaluated against the FULL occurrence set, including days outside the visible week -- a run straddling the week boundary is not misclassified as isolated', () => {
+      // TUE+WED matches every week. Within the visible week (Aug5 Wed - Aug11 Tue), Tuesday
+      // (Aug11, the LAST visible day) is the START of a run that continues into Wednesday Aug12,
+      // which is NOT visible this week. Only one day of that run is on-screen, so it correctly
+      // gets no bar (spanCount<=1) -- but its OWN run bounds (runStartDate/runEndDate) must still
+      // reflect the full run (Aug11-Aug12), not be clipped/misread as a 1-day isolated occurrence,
+      // which the tooltip's date range proves.
+      const schedules = [
+        {
+          id: 'boundary',
+          eventName: 'Boundary Event',
+          isMainSchedule: true,
+          eventStartDate: '2026-07-01',
+          eventEndDate: '2026-09-30',
+          applicableDaysOfWeek: ['TUE', 'WED'],
+        },
+      ];
+
+      render(<WeeklyCalendarView {...defaultProps} schedules={schedules as any} locale="en-US" />);
+
+      // No bar (only Tuesday is visible from this run) -- renders as a normal single-day grid card.
+      expect(rtlScreen.queryByTestId('multi-day-spanning-banner')).not.toBeInTheDocument();
+
+      const desktopView = rtlScreen.getByTestId('desktop-calendar-view');
+      const cardButton = within(desktopView).getByRole('button', { name: 'Boundary Event' });
+
+      fireEvent.pointerEnter(cardButton, { pointerType: 'mouse' });
+
+      const tooltip = within(desktopView).getByRole('tooltip');
+      // The run's own end date (Aug 12, one day PAST the visible week's own last day Aug 11) is
+      // present in the tooltip's date range -- proof the adjacency computation looked past the
+      // visible week's right edge instead of treating Aug 11 as an isolated single day.
+      expect(tooltip).toHaveTextContent(/12/);
+    });
+
+    it('(e) a legacy/default schedule with unset/empty applicableDaysOfWeek behaves identically to before -- one run spanning its whole date range, confirmed via the existing multi-day-spanning-bar assertions', () => {
+      // Re-runs this suite's own pre-1.3k multi-day assertion (`sampleSchedules`'s "Tech
+      // Workshop", Aug5-Aug7, no `applicableDaysOfWeek`) to confirm AC4's "zero behavior change
+      // for legacy/default schedules" requirement -- a single run equal to the whole span, one bar.
+      render(<WeeklyCalendarView {...defaultProps} locale="en-US" />);
+
+      const banner = rtlScreen.getByTestId('multi-day-spanning-banner');
+      const bars = within(banner).getAllByTestId('multi-day-spanning-bar');
+      expect(bars).toHaveLength(1);
+      expect(within(bars[0]).getByText('Tech Workshop')).toBeInTheDocument();
+      expect(bars[0]).toHaveStyle({ gridColumn: '1 / span 3', gridRow: '1' });
+    });
+  });
+
 });

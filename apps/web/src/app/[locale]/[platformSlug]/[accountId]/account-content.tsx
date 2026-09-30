@@ -16,6 +16,7 @@ import { buildAccountEventsQueryCondition } from "@festgrid/domain/events";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { LoginContent } from "../../login/login-content";
 import AccountCalendarView from "./AccountCalendarView";
+import { mapDaysOfWeekToDomain } from "@/lib/day-of-week-mapping";
 
 interface AccountContentProps {
   platformSlug: string;
@@ -201,8 +202,17 @@ export default function AccountContent({ platformSlug, accountId, profile }: Acc
   });
 
   type EventItem = GetEventsQuery["events"]["items"][number];
-  const events: EventItem[] =
-    (data?.pages || []).flatMap((page: GetEventsQuery) => page.events.items) ?? [];
+  // Story 1.3k Task 9 — map each schedule's GraphQL-typed `applicableDaysOfWeek` to the domain
+  // enum (AD-19 Rule 2/3), consumed by `EventListView`'s repeat badge.
+  const events = ((data?.pages || []).flatMap((page: GetEventsQuery) => page.events.items) ?? []).map(
+    (event: EventItem) => ({
+      ...event,
+      schedules: (event.schedules ?? []).map((schedule) => ({
+        ...schedule,
+        applicableDaysOfWeek: mapDaysOfWeekToDomain(schedule.applicableDaysOfWeek),
+      })),
+    })
+  );
 
   const handleSearchSubmit = useMemo(
     () => (searchQuery: string) => {

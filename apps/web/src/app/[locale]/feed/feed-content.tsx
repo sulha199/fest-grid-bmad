@@ -17,6 +17,7 @@ import { FeedCalendarView } from "./FeedCalendarView";
 import { SubscriptionPicker } from "@festgrid/ui";
 import { useAIFilter } from "@/features/events/use-ai-filter";
 import { useNearbyFilter } from "../use-nearby-filter";
+import { mapDaysOfWeekToDomain } from "@/lib/day-of-week-mapping";
 
 function buildEnumLabels(values: string[], translate: (key: string) => string) {
   return Object.fromEntries(
@@ -225,8 +226,17 @@ export function FeedContent() {
   });
 
   type EventItem = GetEventsQuery["events"]["items"][number];
-  const events: EventItem[] =
-    (data?.pages || []).flatMap((page: GetEventsQuery) => page.events.items) ?? [];
+  // Story 1.3k Task 9 — map each schedule's GraphQL-typed `applicableDaysOfWeek` to the domain
+  // enum (AD-19 Rule 2/3), consumed by `EventListView`'s repeat badge.
+  const events = ((data?.pages || []).flatMap((page: GetEventsQuery) => page.events.items) ?? []).map(
+    (event: EventItem) => ({
+      ...event,
+      schedules: (event.schedules ?? []).map((schedule) => ({
+        ...schedule,
+        applicableDaysOfWeek: mapDaysOfWeekToDomain(schedule.applicableDaysOfWeek),
+      })),
+    })
+  );
 
   const handleSearchSubmit = useMemo(
     () => (searchQuery: string) => {
