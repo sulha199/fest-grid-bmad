@@ -9,8 +9,9 @@
 // file's header comment for the full root-cause writeup.
 import React, { useState, useRef, useEffect, useMemo, useId } from 'react';
 import { ChevronLeft, ChevronRight, Heart, CalendarPlus, ChevronDown } from 'lucide-react';
+import { getDays } from '@festgrid/domain/events';
 import { WeekPicker } from '../../core/WeekPicker';
-import { useScopedLocale, useScopedTimezone } from '../../hooks';
+import { useScopedLocale, useScopedTimezone, useHoverFocusTooltip } from '../../hooks';
 import type {
   WeeklyCalendarViewProps,
   WeeklyCalendarViewScheduleShape,
@@ -23,6 +24,7 @@ import {
   EventCardStatusBadge,
   EventCardNearbyBadge,
   EventCardFavoriteBadge,
+  EventCardRepeatBadge,
   EVENT_CARD_CONTAINER_CLASS,
   formatNearbyBadgeDistance,
 } from './EventCardMediaPrimitives';
@@ -94,7 +96,7 @@ const SPANNING_BAR_VISUAL_CLASS = "relative z-20 pointer-events-none [&_button]:
  * uncapped-always-render rule). Deliberately a flat constant and NOT a `ResizeObserver`-measured
  * dynamic size: the precise per-render measurement technique is explicitly deferred by AC7.
  * Multi-day segments are exempt from this count entirely and always render inline
- * (`isMultiDaySchedule` below).
+ * (`isMultiDayRunSegment` below, Story 1.3k).
  */
 const MOBILE_INLINE_CAP = 20;
 /** Stable no-op for the not-yet-supplied `overflowDialogData` case (keeps `useInfiniteScroll`'s effect graph stable when omitted). */
@@ -169,14 +171,6 @@ const diffInDays = (startStr: string, endStr: string) => {
   const diffMs = end.getTime() - start.getTime();
   return Math.round(diffMs / (1000 * 60 * 60 * 24));
 };
-
-/**
- * Whether a schedule spans more than one day (`eventEndDate !== eventStartDate`).
- * Story 1.i1g — the single predicate behind both "this schedule belongs in the spanning
- * banner, not in a desktop day cell" (AC5/AC6) and the primitive's `isMultiDay` prop (AC8).
- */
-const isMultiDaySchedule = (schedule: WeeklyCalendarViewScheduleShape) =>
-  !!schedule.eventEndDate && schedule.eventEndDate !== schedule.eventStartDate;
 
 /**
  * BUG-050 (AC-GRID-1) — a fixed, content-independent overlay of the 7 day-column boundary lines,
@@ -311,6 +305,16 @@ interface Segment<TSchedule> {
   schedule: TSchedule;
   isFirstSegment: boolean;
   isLastSegment: boolean;
+  /**
+   * Story 1.3k (AC5) — the occurrence RUN this segment belongs to, not the schedule's overall
+   * `eventStartDate`/`eventEndDate` span. For a schedule with no `applicableDaysOfWeek` (legacy/
+   * default), the run is the whole span, so these are byte-identical to
+   * `schedule.eventStartDate`/`eventEndDate` — zero behavior change. For a day-of-week-narrowed
+   * schedule, these are the specific run's (possibly 1-day) first/last occurrence day, which may
+   * fall outside the range that's actually visible this week (AC5's week-boundary-straddling case).
+   */
+  runStartDate: string;
+  runEndDate: string;
 }
 
 /**
@@ -323,6 +327,71 @@ interface SpanningSchedule<TSchedule> {
   startColIdx: number;
   /** Number of visible day-columns the (clipped) schedule spans (AC1/AC3). */
   spanCount: number;
+  /** Story 1.3k (AC4/AC5) — this bar's run's own (possibly week-external) first/last occurrence day. */
+  runStartDate: string;
+  runEndDate: string;
+}
+
+/**
+ * Story 1.3k (AC4/AC5) — one maximal run of calendar-adjacent occurrence days for a schedule.
+ */
+interface OccurrenceRun {
+  start: string;
+  end: string;
+}
+
+/**
+ * Story 1.3k (AC4) — computes a schedule's occurrence runs once (shared by `dayBuckets`,
+ * `spanningSchedules` and the mobile list's multi-day exemption), reusing the shared domain
+ * `getDays` utility (AC1) rather than a second reimplementation of weekday matching in
+ * `packages/ui`.
+ *
+ * A schedule with `applicableDaysOfWeek` unset/empty gets exactly ONE run — its whole
+ * `[eventStartDate, eventEndDate]` span — matching today's behavior byte-for-byte (AC4's "zero
+ * behavior change for legacy/default schedules" requirement). A day-of-week-narrowed schedule's
+ * runs are computed against its FULL span (never clipped to the visible week first), so a run
+ * that starts/continues outside the currently-displayed week is still correctly detected as
+ * non-isolated at its week-boundary-straddling edge (AC5's "Week-boundary adjacency" note) —
+ * clipping to columns actually on screen happens only afterward, in `spanningSchedules`/`dayBuckets`.
+ */
+function computeScheduleRuns(schedule: WeeklyCalendarViewScheduleShape): OccurrenceRun[] {
+  const start = schedule.eventStartDate;
+  const end = schedule.eventEndDate || start;
+
+  if (!schedule.applicableDaysOfWeek || schedule.applicableDaysOfWeek.length === 0) {
+    return [{ start, end }];
+  }
+
+  const occurrenceDays = getDays(start, end, schedule.applicableDaysOfWeek);
+  if (occurrenceDays.length === 0) return [];
+
+  const runs: OccurrenceRun[] = [];
+  let runStart = occurrenceDays[0];
+  let prev = occurrenceDays[0];
+  for (let i = 1; i < occurrenceDays.length; i++) {
+    const day = occurrenceDays[i];
+    if (diffInDays(prev, day) === 1) {
+      prev = day;
+    } else {
+      runs.push({ start: runStart, end: prev });
+      runStart = day;
+      prev = day;
+    }
+  }
+  runs.push({ start: runStart, end: prev });
+  return runs;
+}
+
+/**
+ * Story 1.3k (AC4) — whether a SEGMENT belongs to a multi-day run (>= 2 occurrence days), not
+ * whether its schedule's raw date span is multi-day. Replaces the old `isMultiDaySchedule`
+ * predicate at every call site that decides per-segment/per-run behavior (the mobile inline-cap
+ * exemption, list-variant multi-day styling); `isMultiDaySchedule` itself is kept for the one
+ * remaining call site that genuinely needs the raw schedule-level predicate (`MultiDaySpanningBar`
+ * composition, which is already per-run since `spanningSchedules` entries are per run).
+ */
+function isMultiDayRunSegment<TSchedule>(seg: Segment<TSchedule>): boolean {
+  return seg.runStartDate !== seg.runEndDate;
 }
 
 /**
@@ -427,30 +496,47 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     return days;
   }, [weekStart]);
 
+  // Story 1.3k (AC4) — each schedule's occurrence runs, computed ONCE (shared by `dayBuckets`,
+  // `spanningSchedules`, and the mobile multi-day exemption below) via the shared `getDays`
+  // utility. Keyed by schedule id, not recomputed per visible week.
+  const scheduleRunsById = useMemo(() => {
+    const map = new Map<string, OccurrenceRun[]>();
+    schedules.forEach((schedule) => {
+      map.set(String(schedule.id), computeScheduleRuns(schedule));
+    });
+    return map;
+  }, [schedules]);
+
   // 2. Bucketing schedules/segments into visible days
+  //
+  // Story 1.3k (AC4/AC5) rewrite: iterates each schedule's occurrence RUNS (not its raw
+  // `eventStartDate`/`eventEndDate` span) — a schedule with `applicableDaysOfWeek` unset/empty
+  // has exactly one run (its whole span), so this is byte-identical to the pre-1.3k logic for
+  // every legacy/default schedule (zero behavior change, AC4's explicit regression requirement).
   const dayBuckets = useMemo(() => {
     const buckets: Segment<TSchedule>[][] = Array.from({ length: 7 }, () => []);
     const startStr = toISODateString(visibleDays[0]);
     const endStr = toISODateString(visibleDays[6]);
 
     schedules.forEach((schedule) => {
-      const start = schedule.eventStartDate;
-      const end = schedule.eventEndDate || start;
-
-      // Check overlap with visible week range [startStr, endStr]
-      if (start <= endStr && end >= startStr) {
-        // Find indices of days we overlap with
-        visibleDays.forEach((day, idx) => {
-          const dayISO = toISODateString(day);
-          if (dayISO >= start && dayISO <= end) {
-            buckets[idx].push({
-              schedule,
-              isFirstSegment: dayISO === start,
-              isLastSegment: dayISO === end,
-            });
-          }
-        });
-      }
+      const runs = scheduleRunsById.get(String(schedule.id)) ?? [];
+      runs.forEach((run) => {
+        // Check overlap with visible week range [startStr, endStr]
+        if (run.start <= endStr && run.end >= startStr) {
+          visibleDays.forEach((day, idx) => {
+            const dayISO = toISODateString(day);
+            if (dayISO >= run.start && dayISO <= run.end) {
+              buckets[idx].push({
+                schedule,
+                isFirstSegment: dayISO === run.start,
+                isLastSegment: dayISO === run.end,
+                runStartDate: run.start,
+                runEndDate: run.end,
+              });
+            }
+          });
+        }
+      });
     });
 
     // Sort bucket segments by time ascending
@@ -463,7 +549,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     });
 
     return buckets;
-  }, [schedules, visibleDays]);
+  }, [schedules, visibleDays, scheduleRunsById]);
 
   // 2b. Story 1.i1g Task 2 — multi-day schedules as *one* spanning row entry each.
   //
@@ -487,24 +573,27 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     const entries: SpanningSchedule<TSchedule>[] = [];
 
     schedules.forEach((schedule) => {
-      const start = schedule.eventStartDate;
-      const end = schedule.eventEndDate || start;
+      const runs = scheduleRunsById.get(String(schedule.id)) ?? [];
+      runs.forEach((run) => {
+        const { start, end } = run;
 
-      // No overlap with the visible week at all → no bar in this week's banner.
-      if (start > weekEndStr || end < weekStartStr) return;
+        // No overlap with the visible week at all → no bar in this week's banner.
+        if (start > weekEndStr || end < weekStartStr) return;
 
-      const clippedStart = start < weekStartStr ? weekStartStr : start;
-      const clippedEnd = end > weekEndStr ? weekEndStr : end;
+        const clippedStart = start < weekStartStr ? weekStartStr : start;
+        const clippedEnd = end > weekEndStr ? weekEndStr : end;
 
-      const startColIdx = Math.max(0, diffInDays(weekStartStr, clippedStart));
-      const endColIdx = Math.min(6, diffInDays(weekStartStr, clippedEnd));
-      const spanCount = endColIdx - startColIdx + 1;
+        const startColIdx = Math.max(0, diffInDays(weekStartStr, clippedStart));
+        const endColIdx = Math.min(6, diffInDays(weekStartStr, clippedEnd));
+        const spanCount = endColIdx - startColIdx + 1;
 
-      // Only one day of this schedule is actually visible this week — not multi-day *here*,
-      // even if `isMultiDaySchedule(schedule)` (raw dates) would say otherwise.
-      if (spanCount <= 1) return;
+        // Only one day of this run is actually visible this week — not multi-day *here*, even
+        // if the run itself spans more days overall (isolated one-day runs, and runs with only
+        // one visible day this week, get no bar — AC4).
+        if (spanCount <= 1) return;
 
-      entries.push({ schedule, startColIdx, spanCount });
+        entries.push({ schedule, startColIdx, spanCount, runStartDate: start, runEndDate: end });
+      });
     });
 
     // AC4 — deterministic row order: earliest start date, then earliest start time (untimed
@@ -523,24 +612,35 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     });
 
     return entries;
-  }, [schedules, visibleDays]);
+  }, [schedules, visibleDays, scheduleRunsById]);
 
-  // 2c. Story 1.i1g Task 3 (AC5/AC6) — the desktop day cells and their "+N more" popover list
-  // single-day schedules only, because every schedule that actually got a spanning bar above
-  // (`spanningSchedules`, week-clipped per the note above) already has its own row; keeping the
-  // per-day segments too would duplicate it. Excluding by `spanningSchedules` membership (not the
-  // raw `isMultiDaySchedule` predicate) keeps this consistent with that gate — a schedule denied a
-  // spanning bar because this week only shows one of its days stays in its one day's bucket here.
-  // `dayBuckets` itself is left untouched — the mobile list still renders multi-day segments
-  // day-by-day (AC13) — and this filtered view is also what the roving tabindex grid is built
-  // from, so spanning bars stay out of Arrow-key navigation (AC12).
-  const spanningScheduleIds = useMemo(
-    () => new Set(spanningSchedules.map((entry) => String(entry.schedule.id))),
-    [spanningSchedules]
-  );
+  // 2c. Story 1.i1g Task 3 (AC5/AC6), rewritten by Story 1.3k (AC4) — the desktop day cells and
+  // their "+N more" popover list single-day/isolated segments only, because every DAY-COLUMN that
+  // actually got covered by a spanning bar above already has its own row there; keeping the same
+  // day's segment too would duplicate it.
+  //
+  // Story 1.3k AC4's fix: exclusion is now SEGMENT-level (`scheduleId + this exact calendar day`),
+  // not schedule-id-level. The pre-1.3k `spanningScheduleIds` set dropped every day-bucket segment
+  // belonging to a schedule that earned a bar ANYWHERE this week — silently also dropping that same
+  // schedule's isolated single-day occurrences elsewhere in the week (the Mon+Tue-run-plus-isolated-
+  // Friday regression case AC4 calls out). Built from the literal (dayIdx, schedule id) pairs a
+  // rendered bar actually covers, so an isolated day of the same schedule outside any bar's span
+  // is never excluded.
+  const excludedBarSegmentKeys = useMemo(() => {
+    const keys = new Set<string>();
+    spanningSchedules.forEach((entry) => {
+      for (let colIdx = entry.startColIdx; colIdx < entry.startColIdx + entry.spanCount; colIdx++) {
+        keys.add(`${String(entry.schedule.id)}:${colIdx}`);
+      }
+    });
+    return keys;
+  }, [spanningSchedules]);
   const singleDayDayBuckets = useMemo(
-    () => dayBuckets.map((bucket) => bucket.filter((segment) => !spanningScheduleIds.has(String(segment.schedule.id)))),
-    [dayBuckets, spanningScheduleIds]
+    () =>
+      dayBuckets.map((bucket, dayIdx) =>
+        bucket.filter((segment) => !excludedBarSegmentKeys.has(`${String(segment.schedule.id)}:${dayIdx}`))
+      ),
+    [dayBuckets, excludedBarSegmentKeys]
   );
 
   // 3. Roving Tabindex State & Arrow-key Nav implementation
@@ -815,10 +915,15 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
           <GridColumnGuides />
           {spanningSchedules.map((entry, rowIdx) => (
             <MultiDaySpanningBar
-              key={entry.schedule.id}
+              // Story 1.3k — a schedule can now produce MULTIPLE bars (one per visible run), so
+              // the schedule id alone is no longer a unique key; the run's own start date makes
+              // each bar instance unique even when the same schedule has two runs in one week.
+              key={`${entry.schedule.id}-${entry.runStartDate}`}
               schedule={entry.schedule}
               startColIdx={entry.startColIdx}
               spanCount={entry.spanCount}
+              runStartDate={entry.runStartDate}
+              runEndDate={entry.runEndDate}
               rowIdx={rowIdx}
               locale={activeLocale}
               timezone={activeTimezone}
@@ -827,6 +932,8 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
               favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
               nearbyBadgeThreshold={nearbyBadgeThreshold}
               statusLabels={statusLabels}
+              dayOfWeekLabels={labels.dayOfWeekLabels}
+              repeatBadgeAriaLabel={labels.repeatBadgeAriaLabel}
             />
           ))}
         </div>
@@ -864,6 +971,8 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
                   nearbyBadgeLabel={defaultLabels.nearbyBadge}
                   nearbyBadgeThreshold={nearbyBadgeThreshold}
                   statusLabels={statusLabels}
+                  dayOfWeekLabels={labels.dayOfWeekLabels}
+                  repeatBadgeAriaLabel={labels.repeatBadgeAriaLabel}
                 />
               ))}
 
@@ -911,9 +1020,13 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
           // `day_cell` already applies by filtering multi-day schedules into the spanning banner).
           // Iterating the bucket itself (rather than concatenating two filtered arrays) preserves
           // the existing chronological order of the rendered list.
+          //
+          // Story 1.3k (AC4): the exemption is decided per RUN (`isMultiDayRunSegment`, `segment
+          // belongs to a run of >=2 days`), not by the schedule's raw date span — a day-of-week
+          // schedule whose overall span is long but whose runs are all 1-day gets no exemption.
           let singleDaySeen = 0;
           const mobileVisibleSegments = bucket.filter((seg) => {
-            if (isMultiDaySchedule(seg.schedule)) return true;
+            if (isMultiDayRunSegment(seg)) return true;
             singleDaySeen += 1;
             return singleDaySeen <= MOBILE_INLINE_CAP;
           });
@@ -955,6 +1068,8 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
                       statusLabels={statusLabels}
                       nearbyBadgeLabel={defaultLabels.nearbyBadge}
                       nearbyBadgeThreshold={nearbyBadgeThreshold}
+                      dayOfWeekLabels={labels.dayOfWeekLabels}
+                      repeatBadgeAriaLabel={labels.repeatBadgeAriaLabel}
                     />
                   ))}
 
@@ -1051,6 +1166,10 @@ interface CalendarCardProps<TSchedule> {
   nearbyBadgeLabel?: (distanceKm: number) => string;
   /** `list`-variant nearby badge distance threshold (km), forwarded to `EventCardNearbyBadge` (AC3). Defaults to `8`. */
   nearbyBadgeThreshold?: number;
+  /** Story 1.3k (AC9) — translated weekday labels for the repeat badge, keyed by `DayOfWeek` enum member name. */
+  dayOfWeekLabels?: Record<string, string>;
+  /** Story 1.3k (AC6/AC7) — repeat badge aria-label/tooltip text resolver. */
+  repeatBadgeAriaLabel?: (dayLabels: string[]) => string;
 }
 
 /**
@@ -1076,13 +1195,20 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   statusLabels,
   nearbyBadgeLabel,
   nearbyBadgeThreshold,
+  dayOfWeekLabels,
+  repeatBadgeAriaLabel,
 }: CalendarCardProps<TSchedule>) {
   const { schedule } = segment;
 
-  // Tooltip visibility states
-  const [isHovered, setIsHovered] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
-  const [isDismissed, setIsDismissed] = useState(false);
+  // Story 1.3k Task 4 (AC11) — the hover+focus+Escape-dismiss interaction state, now the shared
+  // `useHoverFocusTooltip` hook instead of this component's own hand-rolled copy. `enabled: true`
+  // unconditionally: the time-range tooltip stays gated to `variant === 'grid'` in the render
+  // condition below (unchanged), but the SAME hover/focus state also drives the repeat badge's
+  // tooltip in BOTH variants (AC6/AC7) — one physical interaction (hovering/focusing the card),
+  // different pieces of UI shown depending on variant.
+  const { isVisible: interactionVisible, handlers: tooltipHandlers } = useHoverFocusTooltip({
+    enabled: true,
+  });
 
   // Story 1.i1m AC1/AC4 (`variant='list'` only) — seeded from the schedule's own `imageUrl`
   // and kept current via `EventCardMediaSlot`'s `onImagePresenceChange`, mirroring
@@ -1092,54 +1218,49 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   // the favorite control is composed externally, per AC4).
   const [imagePresent, setImagePresent] = useState(!!schedule.imageUrl);
 
-  const tooltipVisible = variant === 'grid' && (isHovered || isFocused) && !isDismissed;
+  const tooltipVisible = variant === 'grid' && interactionVisible;
 
   const tooltipText = useMemo(() => {
+    // Story 1.3k (AC5) — the run's own bounds, never the schedule's overall span.
     return formatTooltipTimeRange(
       locale,
       timezone,
-      schedule.eventStartDate,
-      schedule.eventEndDate,
+      segment.runStartDate,
+      segment.runEndDate,
       schedule.eventStartTime,
       schedule.eventEndTime
     );
-  }, [locale, timezone, schedule]);
+  }, [locale, timezone, segment.runStartDate, segment.runEndDate, schedule]);
 
-  const handlePointerEnter = (e: React.PointerEvent) => {
-    if (e.pointerType !== 'touch') {
-      setIsDismissed(false);
-      setIsHovered(true);
-    }
-  };
-
-  const handlePointerLeave = (e: React.PointerEvent) => {
-    if (e.pointerType !== 'touch') {
-      setIsHovered(false);
-    }
-  };
-
-  const handleFocus = () => {
-    setIsDismissed(false);
-    setIsFocused(true);
+  // Grid variant additionally needs the roving-tabindex `onFocus` callback and the arrow-key
+  // `onKeyDown` forwarding the hook itself knows nothing about — composed on top of the hook's
+  // own handlers rather than duplicating the hover/focus/dismiss state a second time.
+  const handleFocus = (e: React.FocusEvent<HTMLElement>) => {
+    tooltipHandlers.onFocus(e);
     if (variant === 'grid') {
       onFocus?.();
     }
   };
 
-  const handleBlur = () => {
-    setIsFocused(false);
-  };
-
-  const handleKeyDownLocal = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      setIsDismissed(true);
-    }
+  const handleKeyDownLocal = (e: React.KeyboardEvent<HTMLElement>) => {
+    tooltipHandlers.onKeyDown(e);
     if (variant === 'grid') {
       onKeyDown?.(e);
     }
   };
 
-  const isMultiDay = schedule.eventEndDate && schedule.eventEndDate !== schedule.eventStartDate;
+  // Story 1.3k (AC4) — per-RUN, not the schedule's raw date span (a day-of-week schedule's
+  // overall span can be multi-day while this specific segment's run is 1-day, and vice versa).
+  const isMultiDay = isMultiDayRunSegment(segment);
+
+  const repeatBadge = (
+    <EventCardRepeatBadge
+      daysOfWeek={schedule.applicableDaysOfWeek}
+      dayOfWeekLabels={dayOfWeekLabels}
+      repeatBadgeAriaLabel={repeatBadgeAriaLabel}
+      tooltipVisible={interactionVisible}
+    />
+  );
 
   // Formatting styling class names
   const weightClass = schedule.isMainSchedule
@@ -1168,12 +1289,14 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   // schedule-click <button> (AC7, mirrors EventCard.tsx's article > button + RootTag).
   // The `variant === 'grid'` path below is deliberately untouched (AC8).
   if (variant === 'list') {
+    // Story 1.3k (AC5) — the run's own first/last occurrence day, never the schedule's overall
+    // span; byte-identical to the pre-1.3k call for a legacy schedule (one run = the whole span).
     const dateBoxContent = computeCalendarSegmentDateBoxContent(
       locale,
       timezone,
       currentDayStr || '',
-      schedule.eventStartDate,
-      schedule.eventEndDate,
+      segment.runStartDate,
+      segment.runEndDate,
       tillLabel || 'till'
     );
 
@@ -1213,7 +1336,9 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
             onClick={() => onScheduleClick(schedule)}
             onKeyDown={handleKeyDownLocal}
             onFocus={handleFocus}
-            onBlur={handleBlur}
+            onBlur={tooltipHandlers.onBlur}
+            onPointerEnter={tooltipHandlers.onPointerEnter}
+            onPointerLeave={tooltipHandlers.onPointerLeave}
           >
             <EventCardDateBox
               size="compact"
@@ -1236,6 +1361,9 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
                 {schedule.isAddedToCalendar && (
                   <CalendarPlus className="w-3 h-3 mt-0.5 text-emerald-600 shrink-0 inline" aria-label={addedToCalendarBadgeLabel || 'Added to calendar'} data-testid="calendar-plus-icon" />
                 )}
+                {/* Story 1.3k (AC7) — outside the title's own `line-clamp-2` span so it is never
+                    clipped; before the title text, beside the added-to-calendar icon. */}
+                {repeatBadge}
                 <span className={`${weightClass} line-clamp-2 block`}>{schedule.eventName}</span>
               </span>
               {/* User feedback (2026-09-27): "should show location-name in one line, break-word:
@@ -1334,10 +1462,10 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
         className={SPANNING_BAR_CLICK_CLASS}
         aria-label={schedule.eventName}
         onClick={() => onScheduleClick(schedule)}
-        onPointerEnter={handlePointerEnter}
-        onPointerLeave={handlePointerLeave}
+        onPointerEnter={tooltipHandlers.onPointerEnter}
+        onPointerLeave={tooltipHandlers.onPointerLeave}
         onFocus={handleFocus}
-        onBlur={handleBlur}
+        onBlur={tooltipHandlers.onBlur}
         onKeyDown={handleKeyDownLocal}
         aria-describedby={tooltipVisible ? `tooltip-${dayIdx}-${schedule.id}` : undefined}
       />
@@ -1354,6 +1482,10 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
           nearbyBadgeThreshold={nearbyBadgeThreshold}
           statusBadge={gridStatusBadge}
           labels={{ favoriteToggle: favoriteToggleLabel, nearbyBadge: nearbyBadgeLabel }}
+          applicableDaysOfWeek={schedule.applicableDaysOfWeek}
+          dayOfWeekLabels={dayOfWeekLabels}
+          repeatBadgeAriaLabel={repeatBadgeAriaLabel}
+          repeatBadgeTooltipVisible={interactionVisible}
         />
         {/* `EventCardCalendarGridItem`'s own favorite control only renders when a toggle handler
             is supplied (mirrors `EventCard`'s convention, matches VM6's own already-shipped
@@ -1419,6 +1551,13 @@ interface MultiDaySpanningBarProps<TSchedule extends WeeklyCalendarViewScheduleS
   nearbyBadgeThreshold?: number;
   /** Forwarded to `formatEventStatus` for this bar's own `inHours`/`endsAt`-only status badge. */
   statusLabels?: EventStatusLabels;
+  /** Story 1.3k (AC5) — this run's own (possibly week-external) first/last occurrence day. */
+  runStartDate: string;
+  runEndDate: string;
+  /** Story 1.3k (AC9) — translated weekday labels for the repeat badge. */
+  dayOfWeekLabels?: Record<string, string>;
+  /** Story 1.3k (AC6/AC8) — repeat badge aria-label/tooltip text resolver. */
+  repeatBadgeAriaLabel?: (dayLabels: string[]) => string;
 }
 
 /**
@@ -1456,24 +1595,30 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
   favoriteToggleLabel,
   nearbyBadgeThreshold,
   statusLabels,
+  runStartDate,
+  runEndDate,
+  dayOfWeekLabels,
+  repeatBadgeAriaLabel,
 }: MultiDaySpanningBarProps<TSchedule>) {
-  // Tooltip visibility states — same hover/focus/Escape model as CalendarCard's grid variant.
-  const [isHovered, setIsHovered] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
-  const [isDismissed, setIsDismissed] = useState(false);
-
-  const tooltipVisible = (isHovered || isFocused) && !isDismissed;
+  // Story 1.3k Task 4 (AC11) — same shared hook as `CalendarCard`'s grid variant, replacing this
+  // component's own hand-rolled `isHovered`/`isFocused`/`isDismissed` state (the mandatory second
+  // consumer per Gate 3's resolution — see the hook's own header comment). No mode gate here (this
+  // bar's tooltip is always active), matching the pre-refactor unconditional `tooltipVisible`.
+  const { isVisible: tooltipVisible, handlers: tooltipHandlers } = useHoverFocusTooltip({
+    enabled: true,
+  });
 
   const tooltipText = useMemo(() => {
+    // Story 1.3k (AC5) — the run's own bounds, never the schedule's overall span.
     return formatTooltipTimeRange(
       locale,
       timezone,
-      schedule.eventStartDate,
-      schedule.eventEndDate,
+      runStartDate,
+      runEndDate,
       schedule.eventStartTime,
       schedule.eventEndTime
     );
-  }, [locale, timezone, schedule]);
+  }, [locale, timezone, runStartDate, runEndDate, schedule]);
 
   // User feedback (2026-09-28): same `inHours`/`endsAt`-only status badge as the single-day grid
   // cell (`CalendarCard`'s own note above) — a multi-day schedule can be starting or ending soon
@@ -1492,34 +1637,6 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
     spanStatusState === 'inHours' || spanStatusState === 'endsAt' ? (
       <EventCardStatusBadge text={spanStatusText} variant={spanStatusVariant} />
     ) : undefined;
-
-  const handlePointerEnter = (e: React.PointerEvent) => {
-    if (e.pointerType !== 'touch') {
-      setIsDismissed(false);
-      setIsHovered(true);
-    }
-  };
-
-  const handlePointerLeave = (e: React.PointerEvent) => {
-    if (e.pointerType !== 'touch') {
-      setIsHovered(false);
-    }
-  };
-
-  const handleFocus = () => {
-    setIsDismissed(false);
-    setIsFocused(true);
-  };
-
-  const handleBlur = () => {
-    setIsFocused(false);
-  };
-
-  const handleKeyDownLocal = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      setIsDismissed(true);
-    }
-  };
 
   const tooltipId = `spanning-tooltip-${schedule.id}`;
 
@@ -1542,11 +1659,11 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
         aria-label={schedule.eventName}
         aria-describedby={tooltipVisible ? tooltipId : undefined}
         onClick={() => onScheduleClick(schedule)}
-        onPointerEnter={handlePointerEnter}
-        onPointerLeave={handlePointerLeave}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        onKeyDown={handleKeyDownLocal}
+        onPointerEnter={tooltipHandlers.onPointerEnter}
+        onPointerLeave={tooltipHandlers.onPointerLeave}
+        onFocus={tooltipHandlers.onFocus}
+        onBlur={tooltipHandlers.onBlur}
+        onKeyDown={tooltipHandlers.onKeyDown}
       />
 
       {/* AC7/AC8/AC9 — the visible card is `EventCardCalendarGridItem` (Story 1.i1f) in its
@@ -1567,6 +1684,10 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
           nearbyBadgeThreshold={nearbyBadgeThreshold}
           statusBadge={spanStatusBadge}
           labels={{ favoriteToggle: favoriteToggleLabel }}
+          applicableDaysOfWeek={schedule.applicableDaysOfWeek}
+          dayOfWeekLabels={dayOfWeekLabels}
+          repeatBadgeAriaLabel={repeatBadgeAriaLabel}
+          repeatBadgeTooltipVisible={tooltipVisible}
         />
       </div>
 

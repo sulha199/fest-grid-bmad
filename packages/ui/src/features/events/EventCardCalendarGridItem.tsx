@@ -37,6 +37,7 @@ import React, { useState, useEffect } from 'react';
 import {
   EventCardFavoriteBadge,
   EventCardNearbyBadge,
+  EventCardRepeatBadge,
   formatNearbyBadgeDistance,
 } from './EventCardMediaPrimitives';
 import type { EventCardCalendarGridItemProps } from './EventCardCalendarGridItem.types';
@@ -55,6 +56,10 @@ export function EventCardCalendarGridItem({
   nearbyBadgeThreshold = 8,
   statusBadge,
   labels = {},
+  applicableDaysOfWeek,
+  dayOfWeekLabels,
+  repeatBadgeAriaLabel,
+  repeatBadgeTooltipVisible,
 }: EventCardCalendarGridItemProps) {
   const defaultLabels = {
     favoriteToggle: 'Toggle favorite',
@@ -135,6 +140,22 @@ export function EventCardCalendarGridItem({
     />
   );
 
+  // Story 1.3k (AC8) — an absolutely-positioned corner icon, in the SAME non-interactive style
+  // as the caller's own `isAddedToCalendar` `CalendarPlus` corner badge (`-top-1.5 -left-1.5`),
+  // but at a DIFFERENT corner so the two never overlap. This component's own root div is not
+  // itself `position: relative` (both compositions below), but every caller composes this
+  // primitive inside a `relative` wrapper (`SPANNING_BAR_VISUAL_CLASS`), so the absolute
+  // position resolves against that ancestor exactly like the caller's own corner badges do.
+  const repeatBadge = (
+    <EventCardRepeatBadge
+      daysOfWeek={applicableDaysOfWeek}
+      dayOfWeekLabels={dayOfWeekLabels}
+      repeatBadgeAriaLabel={repeatBadgeAriaLabel}
+      tooltipVisible={repeatBadgeTooltipVisible}
+      className="absolute -bottom-1.5 -right-1.5 z-20 bg-white/90 rounded-full p-0.5 shadow-sm"
+    />
+  );
+
   // User feedback (2026-09-27): a multi-day schedule with NO thumbnail (image missing/errored)
   // now uses this SAME with-image row layout instead of falling through to the single-day (VM5)
   // 2-row stacked composition below -- just without the `<img>` element ("replace the grid
@@ -143,32 +164,36 @@ export function EventCardCalendarGridItem({
   // never attempts an image, per DESIGN.md, and keeps its own established 2-row layout.
   if (isMultiDay) {
     return (
-      // User feedback (2026-09-27): "I should see the grid, make the card's bg color to have 50%
-      // opacity" -- `bg-violet-50` (solid) -> `bg-violet-50/50`, so the underlying weekly grid
-      // lines remain visible through the card.
-      <div className="flex items-center gap-2 rounded-md shadow-sm p-2 bg-violet-50/50 border border-violet-200">
-        {showImage && (
-          <img
-            src={currentImgSrc!}
-            alt={imageAlt ?? ''}
-            onError={handleImageError}
-            className="w-14 aspect-square object-cover rounded-md"
-          />
-        )}
-        <div className="flex-1 min-w-0 flex flex-col gap-1 justify-center">
-          <h3 className="text-sm font-bold">{eventName}</h3>
-          {location && <p className="text-xs text-muted-foreground line-clamp-2">{location}</p>}
-          {statusBadge}
+      <>
+        {/* User feedback (2026-09-27): "I should see the grid, make the card's bg color to have
+            50% opacity" -- `bg-violet-50` (solid) -> `bg-violet-50/50`, so the underlying weekly
+            grid lines remain visible through the card. */}
+        <div className="flex items-center gap-2 rounded-md shadow-sm p-2 bg-violet-50/50 border border-violet-200">
+          {showImage && (
+            <img
+              src={currentImgSrc!}
+              alt={imageAlt ?? ''}
+              onError={handleImageError}
+              className="w-14 aspect-square object-cover rounded-md"
+            />
+          )}
+          <div className="flex-1 min-w-0 flex flex-col gap-1 justify-center">
+            <h3 className="text-sm font-bold">{eventName}</h3>
+            {location && <p className="text-xs text-muted-foreground line-clamp-2">{location}</p>}
+            {statusBadge}
+          </div>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            {favoriteBadge}
+            {nearbyBadge}
+          </div>
         </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          {favoriteBadge}
-          {nearbyBadge}
-        </div>
-      </div>
+        {repeatBadge}
+      </>
     );
   }
 
   return (
+    <>
     <div className="flex flex-col gap-1 rounded-md shadow-sm p-2 bg-violet-50/50 border border-violet-200">
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-sm font-bold flex-1">{eventName}</h3>
@@ -180,5 +205,7 @@ export function EventCardCalendarGridItem({
       </div>
       {statusBadge}
     </div>
+    {repeatBadge}
+    </>
   );
 }

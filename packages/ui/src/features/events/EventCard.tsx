@@ -9,7 +9,7 @@
 // direct repro this is based on.
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Heart, Clock } from 'lucide-react';
-import { useScopedLocale, useScopedTimezone } from '../../hooks';
+import { useScopedLocale, useScopedTimezone, useHoverFocusTooltip } from '../../hooks';
 import type { EventCardProps } from './EventCard.types';
 import {
   getEventDayDiff,
@@ -32,6 +32,7 @@ import {
   EventCardFavoriteBadge,
   EventCardStatusBadge,
   EventCardNearbyBadge,
+  EventCardRepeatBadge,
   formatNearbyBadgeDistance,
   EVENT_CARD_BADGE_TEXT_SIZE_CLASS,
   EVENT_CARD_CONTAINER_CLASS,
@@ -87,6 +88,7 @@ export function EventCard({
   prominentPoster = false,
   distanceKm,
   nearbyBadgeThreshold = 8,
+  applicableDaysOfWeek,
 }: EventCardProps) {
   const defaultLabels = {
     loading: 'Loading event details',
@@ -310,11 +312,19 @@ export function EventCard({
   // call site no longer precomputes a `showNearbyBadge` boolean.
 
   const RootTag = href ? 'a' : onClick ? 'button' : 'div';
-  const interactiveProps = href 
-    ? { href } 
-    : onClick 
-      ? { onClick, type: 'button' as const } 
+  const interactiveProps = href
+    ? { href }
+    : onClick
+      ? { onClick, type: 'button' as const }
       : {};
+
+  // Story 1.3k Task 6 (AC6, "Tooltip trigger resolution" Dev Notes) — the repeat badge is never
+  // an independently-focusable trigger of its own (it would nest a focusable element inside
+  // RootTag, already an `<a>`/`<button>` when `href`/`onClick` is supplied — the same hazard
+  // Story 1.i1d/1.i1e already solved for the favorite badge). Instead RootTag's own existing
+  // hover/focus state, via the shared `useHoverFocusTooltip` hook, drives the badge's tooltip.
+  const { isVisible: repeatBadgeTooltipVisible, handlers: repeatBadgeTooltipHandlers } =
+    useHoverFocusTooltip({ enabled: true });
 
   return (
     <article
@@ -434,9 +444,14 @@ export function EventCard({
         </div>
       )}
 
-      <RootTag 
-        {...interactiveProps} 
+      <RootTag
+        {...interactiveProps}
         className="flex-1 flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        onPointerEnter={repeatBadgeTooltipHandlers.onPointerEnter}
+        onPointerLeave={repeatBadgeTooltipHandlers.onPointerLeave}
+        onFocus={repeatBadgeTooltipHandlers.onFocus}
+        onBlur={repeatBadgeTooltipHandlers.onBlur}
+        onKeyDown={repeatBadgeTooltipHandlers.onKeyDown}
       >
         {isMasonryDefault ? (
           // Pixel-perfect pass (2026-09-27, masonry-default prototype round 2-4): no padding/gap
@@ -538,8 +553,13 @@ export function EventCard({
         <div className="p-3 flex-1 flex flex-col gap-2">
           <div className="flex items-center gap-1.5 flex-wrap">
             <EventCardStatusBadge text={statusText} variant={statusVariant} />
-            {/* AC5 (Story 1.i1i) — kept as an independent sibling of the badge row's
-                `<div>` so Story 1.3k's `EventCardRepeatBadge` can slot in between. */}
+            {/* Story 1.3k (AC6) — order: status → repeat → nearby. */}
+            <EventCardRepeatBadge
+              daysOfWeek={applicableDaysOfWeek}
+              dayOfWeekLabels={labels.dayOfWeekLabels}
+              repeatBadgeAriaLabel={labels.repeatBadgeAriaLabel}
+              tooltipVisible={repeatBadgeTooltipVisible}
+            />
             <EventCardNearbyBadge
               distanceKm={distanceKm}
               thresholdKm={nearbyBadgeThreshold}

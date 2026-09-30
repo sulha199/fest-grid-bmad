@@ -61,24 +61,24 @@ so that the calendar and card surfaces accurately reflect which days an event ac
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — `packages/domain`: export and generalize `getDays` (AC1, AC2 partial)**
-  - [ ] Change `function getDays(fromStr, toStr, dow: DayOfWeek | string)` to `export function getDays(fromStr: string, toStr: string, dow: DayOfWeek[]): string[]`, matching on `dow.includes(<mapped weekday number>)` semantics (union across all supplied members) instead of a single target.
-  - [ ] Update `buildEventsQueryCondition`'s internal call site (`getDays(r.from, r.to, filter.dayOfWeek)`) to `getDays(r.from, r.to, [filter.dayOfWeek as DayOfWeek])`.
-  - [ ] Add/extend `packages/domain/src/events/buildEventsQueryCondition.test.ts`: multi-value `getDays` cases (union of 2+ weekdays, empty array, all 7 days) plus a regression case proving the existing single-value filter path is unchanged.
+- [x] **Task 1 — `packages/domain`: export and generalize `getDays` (AC1, AC2 partial)**
+  - [x] Change `function getDays(fromStr, toStr, dow: DayOfWeek | string)` to `export function getDays(fromStr: string, toStr: string, dow: DayOfWeek[]): string[]`, matching on `dow.includes(<mapped weekday number>)` semantics (union across all supplied members) instead of a single target.
+  - [x] Update `buildEventsQueryCondition`'s internal call site (`getDays(r.from, r.to, filter.dayOfWeek)`) to `getDays(r.from, r.to, [filter.dayOfWeek as DayOfWeek])`.
+  - [x] Add/extend `packages/domain/src/events/buildEventsQueryCondition.test.ts`: multi-value `getDays` cases (union of 2+ weekdays, empty array, all 7 days) plus a regression case proving the existing single-value filter path is unchanged.
 
-- [ ] **Task 2 — `apps/web`: GraphQL/domain enum-mapping boundary (AC2)**
-  - [ ] Create `apps/web/src/lib/day-of-week-mapping.ts`: `GQL_TO_DOMAIN_DAY_OF_WEEK: Record<GqlDayOfWeek, DomainDayOfWeek>` (import `DayOfWeek as GqlDayOfWeek` from `../generated/graphql`, `DayOfWeek as DomainDayOfWeek` from `@festgrid/domain/events`) + `mapDaysOfWeekToDomain(days)` helper.
-  - [ ] Unit test proving every `GqlDayOfWeek` member maps correctly, plus a compile-time exhaustiveness sanity check noted in the test file's comments (per AC2's manual verification step).
+- [x] **Task 2 — `apps/web`: GraphQL/domain enum-mapping boundary (AC2)**
+  - [x] Create `apps/web/src/lib/day-of-week-mapping.ts`: `GQL_TO_DOMAIN_DAY_OF_WEEK: Record<GqlDayOfWeek, DomainDayOfWeek>` (import `DayOfWeek as GqlDayOfWeek` from `../generated/graphql`, `DayOfWeek as DomainDayOfWeek` from `@festgrid/domain/events`) + `mapDaysOfWeekToDomain(days)` helper.
+  - [x] Unit test proving every `GqlDayOfWeek` member maps correctly, plus a compile-time exhaustiveness sanity check noted in the test file's comments (per AC2's manual verification step).
 
-- [ ] **Task 3 — DB + GraphQL schema: add `Schedule.applicableDaysOfWeek` (AC3)**
-  - [ ] Add `applicableDaysOfWeek: text('applicable_days_of_week').array()` to `packages/database/schema.ts`'s `schedules` table (comment referencing the `DayOfWeek` enum convention, matching `events.types`/`events.categories`).
-  - [ ] Run `drizzle-kit generate` to produce the migration file in `packages/database/migrations/` (next sequential number at dev time — last is `0060_square_pretty_boy.sql` as of 2026-09-30; never hand-number it); hand-verify the generated SQL (nullable column addition only, no data loss).
-  - [ ] Add `applicableDaysOfWeek: [DayOfWeek!]` to `Schedule` in `apps/backend/src/schema/events.graphql`.
-  - [ ] Run GraphQL Code Generator (`apps/web`) to regenerate `apps/web/src/generated/graphql.ts` with the new field on every operation that selects `Schedule.applicableDaysOfWeek` (add the field to the relevant `.graphql` documents consumed by Discovery/Feed/Favorites/Calendar queries).
-  - [ ] Integration test: seed a schedule with `applicableDaysOfWeek`, query it through `Query.events`/`Query.eventBySlug`, assert the field round-trips with **no new resolver code** (i.e. assert `buildOptimizedDrizzleSelect`'s existing passthrough handles it).
+- [x] **Task 3 — DB + GraphQL schema: add `Schedule.applicableDaysOfWeek` (AC3)**
+  - [x] Add `applicableDaysOfWeek: text('applicable_days_of_week').array()` to `packages/database/schema.ts`'s `schedules` table (comment referencing the `DayOfWeek` enum convention, matching `events.types`/`events.categories`).
+  - [x] Run `drizzle-kit generate` to produce the migration file in `packages/database/migrations/` (next sequential number at dev time — last is `0060_square_pretty_boy.sql` as of 2026-09-30; never hand-number it); hand-verify the generated SQL (nullable column addition only, no data loss). — landed as `0061_brief_killraven.sql`.
+  - [x] Add `applicableDaysOfWeek: [DayOfWeek!]` to `Schedule` in `apps/backend/src/schema/events.graphql`.
+  - [x] Run GraphQL Code Generator (`apps/web`) to regenerate `apps/web/src/generated/graphql.ts` with the new field on every operation that selects `Schedule.applicableDaysOfWeek` (add the field to the relevant `.graphql` documents consumed by Discovery/Feed/Favorites/Calendar queries).
+  - [x] Integration test: seed a schedule with `applicableDaysOfWeek`, query it through `Query.events`/`Query.eventBySlug`, assert the field round-trips with **no new resolver code** (i.e. assert `buildOptimizedDrizzleSelect`'s existing passthrough handles it).
 
 - [ ] **Task 4 — `packages/ui`: shared `useHoverFocusTooltip` hook (AC11, Gate 3 resolution)**
-  - [ ] Extract `isHovered`/`isFocused`/`isDismissed` state + pointer/focus/blur/Escape handlers from `CalendarCard` (`WeeklyCalendarView.tsx` ~lines 1083-1120) and `MultiDaySpanningBar` (~lines 1461-1510) into `packages/ui/src/hooks/useHoverFocusTooltip.ts`, parameterized so touch-gating (`pointerType !== 'touch'`) and the "only active in a given mode" gate (today: `variant === 'grid'`) are caller-controlled, not hardcoded in the hook.
+  - [x] Extract `isHovered`/`isFocused`/`isDismissed` state + pointer/focus/blur/Escape handlers from `CalendarCard` (`WeeklyCalendarView.tsx` ~lines 1083-1120) and `MultiDaySpanningBar` (~lines 1461-1510) into `packages/ui/src/hooks/useHoverFocusTooltip.ts`, parameterized so touch-gating (`pointerType !== 'touch'`) and the "only active in a given mode" gate (today: `variant === 'grid'`) are caller-controlled, not hardcoded in the hook.
   - [ ] Refactor `CalendarCard`'s existing grid-variant time-range tooltip **and `MultiDaySpanningBar`'s tooltip** to consume the new hook (behavior-preserving — same visual/interaction outcome, existing tests pass unmodified). Leave `useNavRailItemInteraction` alone (IDEA-051).
 
 - [ ] **Task 5 — `packages/ui`: `EventCardRepeatBadge` shared primitive (AC10)**
@@ -290,5 +290,24 @@ Claude Sonnet 5 (create-story session)
 - Ultimate context engine analysis completed — comprehensive developer guide created.
 - Gate 1/2/3 (`story-split-gate.md`) ran fresh via subagent dispatch (epic-1-readiness.md's sweep predates this story's subject matter). Gate 1: no gap. Gate 2: real gap found (tooltip-trigger nesting hazard) and resolved in-story (see Dev Notes). Gate 3: real gap found (tooltip interaction-state duplication) and resolved in-story via a scoped hook extraction rather than a new prerequisite story (see Dev Notes rationale). No new backlog/epics.md prerequisite entries were required.
 - HIL threshold for this dispatch permitted proceeding on all implementation judgment calls (mapping-boundary placement, tooltip-trigger resolution, Gate 3 scope-vs-split decision) without user escalation — all resolved with documented reasoning above rather than via AskUserQuestion, per this dispatch's explicit instruction.
+- **2026-09-30 reconciliation (this session):** a prior dev-story dispatch made real code progress across 7 WIP commits (`ea1ca9a`..`27770b0`, "dispatch stopped at spend limit") but never updated this story file's Tasks/Subtasks, File List, or Completion Notes to match. Ran a full audit (Explore subagent, cross-checked against `git diff --stat 40c01ca..HEAD`) before resuming, to avoid redoing or missing work. Findings: Tasks 1-3 are genuinely complete with passing/written tests (domain `getDays`, the GraphQL↔domain enum mapping module, and the full DB/GraphQL/codegen schema plumbing for `Schedule.applicableDaysOfWeek`, including a backend integration test asserting the `buildOptimizedDrizzleSelect` passthrough round-trips the field with zero new resolver code — the `resolvers.ts:3238` comment that looked like a Task-3 gap is unrelated, it's about BUG-026's separate `perDayLimit` predicate). Task 4 is half-done: `useHoverFocusTooltip` hook exists and is unit-tested, but its two mandatory consumers (`CalendarCard`, `MultiDaySpanningBar`) still have their own hand-rolled tooltip state. Tasks 5-10 are not started (Task 7's `WeeklyCalendarView.types.ts` only gained unused optional type fields, no logic). Checkboxes and File List below updated to reflect actual code state; resuming at Task 4's remaining subtask.
 
 ### File List
+
+- `packages/domain/src/events/buildEventsQueryCondition.ts` (Task 1)
+- `packages/domain/src/events/buildEventsQueryCondition.test.ts` (Task 1)
+- `apps/web/src/lib/day-of-week-mapping.ts` (Task 2)
+- `apps/web/src/lib/day-of-week-mapping.test.ts` (Task 2)
+- `packages/database/schema.ts` (Task 3)
+- `packages/database/migrations/0061_brief_killraven.sql` (Task 3)
+- `packages/database/migrations/meta/0061_snapshot.json` (Task 3)
+- `packages/database/migrations/meta/_journal.json` (Task 3)
+- `apps/backend/src/schema/events.graphql` (Task 3)
+- `apps/backend/src/schema/resolvers.test.ts` (Task 3)
+- `apps/web/src/features/events/queries.graphql` (Task 3)
+- `apps/web/src/generated/graphql.ts` (Task 3, codegen output)
+- `packages/ui/src/hooks/useHoverFocusTooltip.ts` (Task 4, partial)
+- `packages/ui/src/hooks/useHoverFocusTooltip.types.ts` (Task 4, partial)
+- `packages/ui/src/hooks/useHoverFocusTooltip.test.ts` (Task 4, partial)
+- `packages/ui/src/hooks/index.ts` (Task 4, partial)
+- `packages/ui/src/features/events/WeeklyCalendarView.types.ts` (Task 7, stub only — unused type fields added)

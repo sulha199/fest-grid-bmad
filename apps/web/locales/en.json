@@ -1,4 +1,13 @@
 {
+  "DayOfWeek": {
+    "MON": "Monday",
+    "TUE": "Tuesday",
+    "WED": "Wednesday",
+    "THU": "Thursday",
+    "FRI": "Friday",
+    "SAT": "Saturday",
+    "SUN": "Sunday"
+  },
   "AccountSettings": {
     "apiKeysTabLabel": "API Keys",
     "subscribedAccountsTabLabel": "Subscribed Accounts",

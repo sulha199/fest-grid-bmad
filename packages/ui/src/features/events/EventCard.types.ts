@@ -1,4 +1,5 @@
 import { MouseEventHandler } from 'react';
+import type { DayOfWeek as DomainDayOfWeek } from '@festgrid/domain/events';
 
 export interface EventCardLabels {
   loading?: string;
@@ -37,6 +38,14 @@ export interface EventCardLabels {
    * "1.2 km").
    */
   nearbyBadge?: (distanceKm: number) => string;
+  /**
+   * Repeat badge (Story 1.3k AC6) aria-label/tooltip text resolver, invoked with the schedule's
+   * translated matching weekday labels in order. Falls back to `EventCardRepeatBadge`'s own
+   * `Repeats on ${dayLabels.join(', ')}` default when omitted.
+   */
+  repeatBadgeAriaLabel?: (dayLabels: string[]) => string;
+  /** Story 1.3k (AC9) — translated weekday labels for the repeat badge, keyed by `DayOfWeek` enum member name. */
+  dayOfWeekLabels?: Record<string, string>;
 }
 
 export interface EventCardProps {
@@ -130,4 +139,12 @@ export interface EventCardProps {
 
   /** Distance threshold (km) below which the "Nearby" badge renders. Default: 8. Caller-supplied — EventCard reads no env vars itself (framework-agnostic package). */
   nearbyBadgeThreshold?: number;
+
+  /**
+   * Story 1.3k (AC6) — the weekdays the displayed schedule actually occurs on. Already mapped
+   * to `packages/domain`'s own `DayOfWeek` enum by the caller (`apps/web/src/lib/day-of-week-
+   * mapping.ts`) — `EventCard` never imports the GraphQL-generated enum directly (AD-19 Rule
+   * 2/3). Renders the repeat badge only when non-empty.
+   */
+  applicableDaysOfWeek?: DomainDayOfWeek[] | null;
 }

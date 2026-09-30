@@ -33,7 +33,7 @@
  * @see EventCardMediaPrimitives.types.ts — exported prop interfaces
  */
 import React, { useState, useEffect } from 'react';
-import { Heart, Navigation } from 'lucide-react';
+import { Heart, Navigation, Repeat } from 'lucide-react';
 import {
   EVENT_CARD_BADGE_MIN_TOUCH_REM,
   eventCardBadgeIconSizeStyle,
@@ -45,6 +45,7 @@ import type {
   EventCardDateBoxProps,
   EventCardStatusBadgeProps,
   EventCardNearbyBadgeProps,
+  EventCardRepeatBadgeProps,
 } from './EventCardMediaPrimitives.types';
 
 /**
@@ -504,6 +505,58 @@ export function EventCardStatusBadge({
       className={`inline-flex items-center text-xs px-2 py-0.5 rounded font-medium shrink-0 ${EVENT_CARD_STATUS_BADGE_VARIANT_CLASS[variant]} ${className}`}
     >
       {text}
+    </span>
+  );
+}
+
+/**
+ * Story 1.3k (AC6/AC10/AC11) — the shared repeat-badge primitive, one implementation reused by
+ * every card family (masonry `EventCard`, `CalendarCard` list row, the desktop
+ * `EventCardCalendarGridItem` corner, and `MultiDaySpanningBar`) instead of three/four
+ * hand-rolled copies, matching this file's own established cross-card-family reuse precedent.
+ *
+ * Icon-only `Repeat` glyph, no fill/pill background — `w-3.5 h-3.5 text-muted-foreground
+ * shrink-0` (DESIGN.md `event_card_repeat_badge`). Always carries an `aria-label` (present
+ * regardless of hover state, for screen-reader/touch users who can't hover — AC6), and renders
+ * an additional `role="tooltip"` element when the caller's own hover/focus interaction state
+ * (`useHoverFocusTooltip`, owned by the consuming card's already-interactive root — see
+ * "Tooltip trigger resolution" Dev Notes) is active. The icon itself carries no `tabIndex`/focus
+ * handlers of its own — it is never an independently-focusable trigger, avoiding the nested-
+ * interactive-element hazard this story's Dev Notes record.
+ *
+ * Self-gating (mirrors `EventCardFavoriteBadge`'s "renders only when applicable" convention):
+ * renders `null` when `daysOfWeek` is empty/undefined.
+ */
+export function EventCardRepeatBadge({
+  daysOfWeek,
+  dayOfWeekLabels = {},
+  repeatBadgeAriaLabel,
+  tooltipVisible = false,
+  className = '',
+}: EventCardRepeatBadgeProps) {
+  if (!daysOfWeek || daysOfWeek.length === 0) {
+    return null;
+  }
+
+  const dayLabels = daysOfWeek.map((day) => dayOfWeekLabels[day] ?? day);
+  const label = repeatBadgeAriaLabel
+    ? repeatBadgeAriaLabel(dayLabels)
+    : `Repeats on ${dayLabels.join(', ')}`;
+
+  return (
+    <span
+      data-event-card-repeat-badge=""
+      className={`relative inline-flex items-center justify-center ${className}`}
+    >
+      <Repeat className="w-3.5 h-3.5 text-muted-foreground shrink-0" aria-label={label} />
+      {tooltipVisible && (
+        <span
+          role="tooltip"
+          className="absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-1 whitespace-nowrap px-2 py-1 text-xs bg-gray-800 text-white rounded-md shadow-lg pointer-events-none"
+        >
+          {label}
+        </span>
+      )}
     </span>
   );
 }

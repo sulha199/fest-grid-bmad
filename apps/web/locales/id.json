@@ -1,4 +1,13 @@
 {
+  "DayOfWeek": {
+    "MON": "Senin",
+    "TUE": "Selasa",
+    "WED": "Rabu",
+    "THU": "Kamis",
+    "FRI": "Jumat",
+    "SAT": "Sabtu",
+    "SUN": "Minggu"
+  },
   "AccountSettings": {
     "apiKeysTabLabel": "Kunci API",
     "subscribedAccountsTabLabel": "Akun Berlangganan",
