@@ -1,0 +1,95 @@
+name: Backfill Post Media Keys
+
+# Manual-only, dedicated workflow -- never runs on push/pull_request, and is separate from
+# ci.yml so a manual trigger only ever runs this backfill, not the full CI/CD pipeline.
+# Migrates already-rehosted posts.durableImageUrl values off the legacy flat
+# `posts/{postId}` S3 key format onto the content-versioned
+# `posts/{postId}/full-{hash8}.{ext}` format (AD-28 Rule 9, Story 3.6q).
+#
+# Unlike the "Backfill Scraper Audit Trail" workflow, this backfill needs no S3 input
+# upload step -- it reads directly from the `posts` table and re-fetches each object's
+# current bytes from the post-media S3 bucket itself.
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Commit changes (unchecked = dry run, writes nothing)'
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  backfill-post-media-keys:
+    name: Backfill Post Media Keys (manual)
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: backfill-post-media-keys
+      cancel-in-progress: false
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'package.json'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Workspace packages (@festgrid/database, @festgrid/domain) resolve to their gitignored
+      # dist/ output, so they must be built before the backfill script can import them.
+      - name: Build workspace packages
+        run: pnpm run build
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Resolve post-media bucket/CDN/distribution outputs
+        id: resolve
+        run: |
+          BUCKET_NAME=$(aws cloudformation describe-stacks \
+            --stack-name FestgridBackendStack-prod \
+            --query "Stacks[0].Outputs[?OutputKey=='postMediaBucketNameOutput'].OutputValue" \
+            --output text)
+          CDN_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name FestgridBackendStack-prod \
+            --query "Stacks[0].Outputs[?OutputKey=='postMediaCdnDomainOutput'].OutputValue" \
+            --output text)
+          DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+            --stack-name FestgridBackendStack-prod \
+            --query "Stacks[0].Outputs[?OutputKey=='postMediaDistributionIdOutput'].OutputValue" \
+            --output text)
+          if [ -z "$BUCKET_NAME" ] || [ "$BUCKET_NAME" = "None" ] || [ -z "$CDN_DOMAIN" ] || [ "$CDN_DOMAIN" = "None" ] || [ -z "$DISTRIBUTION_ID" ] || [ "$DISTRIBUTION_ID" = "None" ]; then
+            echo "::error::Could not resolve post-media bucket/CDN/distribution outputs from FestgridBackendStack-prod outputs."
+            exit 1
+          fi
+          echo "bucket_name=$BUCKET_NAME" >> "$GITHUB_OUTPUT"
+          echo "cdn_domain=$CDN_DOMAIN" >> "$GITHUB_OUTPUT"
+          echo "distribution_id=$DISTRIBUTION_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Run backfill
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          POST_MEDIA_BUCKET_NAME: ${{ steps.resolve.outputs.bucket_name }}
+          POST_MEDIA_CDN_DOMAIN: ${{ steps.resolve.outputs.cdn_domain }}
+          POST_MEDIA_DISTRIBUTION_ID: ${{ steps.resolve.outputs.distribution_id }}
+        run: |
+          cd apps/backend
+          if [ "${{ inputs.apply }}" = "true" ]; then
+            npx tsx src/backfill-post-media-keys.ts backfill --apply
+          else
+            echo "::notice::Running in DRY RUN mode -- nothing will be written. Re-run with 'apply: true' to commit."
+            npx tsx src/backfill-post-media-keys.ts backfill
+          fi
