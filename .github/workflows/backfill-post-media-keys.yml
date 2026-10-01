@@ -44,6 +44,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Workspace packages (@festgrid/database, @festgrid/domain) resolve to their gitignored
+      # dist/ output, so they must be built before the backfill script can import them.
+      - name: Build workspace packages
+        run: pnpm run build
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
