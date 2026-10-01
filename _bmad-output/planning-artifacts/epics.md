@@ -3318,7 +3318,7 @@ on the platform, regardless of whether the source account has opted into image r
 *   **And** `poc-ingestion-preview.ts` handles N events, and the four reference posts (`DdV_7Jsk6pw`, `DdT1cgTlJ2k`, `DcntzF0mB7z`, `Ddi9wU6RCRQ`) are regression fixtures: each is run several times and the grouping decision must match on every run.
 *   **And** the AJV schema (`extracted-event.schema.ts`) validates the new shape; the extraction call count per post stays exactly one.
 
-**Depends on:** Story 3.6l, Story 3.6r. Prerequisite: BUG-012 (Gemini request timeout).
+**Depends on:** Story 3.6l, Story 3.6r, Story 0.i2c (guarded Gemini call wrapper, extended to cover `callGemini` by the 2026-10-01 readiness sweep; BUG-012, Gemini request timeout) — or an explicit output cap and timeout inline in this story if 0.i2c is still `backlog` when it is created.
 
 ### Story 3.6t: Ingest multiple events per post, with per-event slugs and notifications
 

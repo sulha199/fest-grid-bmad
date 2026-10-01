@@ -62,14 +62,23 @@ the event-pages batch), and 3.16 / 3.17 / 3.19 (coauthor stories not on this wav
 
 ## Wave 1 — Hygiene, then the readiness sweep
 
-- [ ] Push `master` (4 local CC-024 commits) or move them to a branch + PR; the
+- [ ] Push `master` (local CC-024 commits) or move them to a branch + PR; the
       `docs/cc-024-multi-event-posts-proposal` branch is stale at `1aca854e` — delete or fast-forward it
 - [ ] `epics.md`: add FR113 and FR114 to the requirements inventory and coverage map
 - [ ] PRD loose ends: do suggested matches count toward the moderator badge (§3.9.3)? Add
       `publishedAt` to the `Post` interface (needed for the posted-at time in source-post entries)
-- [ ] **Run `bmad-epic-readiness-check`, batch-scoped** over 3.6r, 3.6s, 3.6t, 3.6u, 3.6v, 3.6w,
-      3.6x, 3.6y, 3.6z, 3.7f, 3.7g, 3.7h, 3.7i, 3.13, 3.14, 3.15, 3.18 (Gates 1 and 3) → `epic-readiness/batch-cc-024-multi-event-readiness.md`
-- [ ] Fold any new prerequisite stories the sweep finds into `epics.md` and `sprint-status.yaml`
+- [x] **Run `bmad-epic-readiness-check`, batch-scoped** (done 2026-10-01, commit `90c0c0cd`) over 3.6r, 3.6s, 3.6t, 3.6u, 3.6v, 3.6w,
+      3.6x, 3.6y, 3.6z, 3.7f, 3.7g, 3.7h, 3.7i, 3.13, 3.14, 3.15, 3.18 (Gates 1 and 3) → `epic-readiness/batch-cc-024-multi-event-readiness.md` — **no new prerequisite stories; 3 AC corrections applied** (0.i2c, 3.6t, 3.6v)
+- [x] Fold any new prerequisite stories the sweep finds into `epics.md` and `sprint-status.yaml` — none needed
+
+## Readiness sweep result (2026-10-01)
+
+Report: `epic-readiness/batch-cc-024-multi-event-readiness.md`. Verdicts: **READY** — 3.6r, 3.6u, 3.6w,
+3.6x, 3.6y, 3.7f, 3.7g, 3.7h, 3.7i, 3.13, 3.14, 3.15, 3.18. **READY-WITH-CORRECTION** (applied) — 3.6t
+(queue message without `extractionOrdinal` defaults to ordinal 0), 3.6v (alias redirect wired into both
+Next.js slug routes; `getEventBySlugCached` must not swallow a redirect signal). **READY-WITH-CAVEAT** — 3.6s
+and 3.6z (the unguarded Gemini call, see the BUG-012 item below). Order to create stories: 3.7f → 3.7g → 3.7h →
+3.7i alongside 3.13 → 3.14 → 3.15, then 3.6r → 3.6s → 3.6t → 3.6u/3.6y/3.6z → 3.6v → 3.6w/3.6x/3.18.
 
 ## Wave 2 — Prerequisites and diagnostics (no CC-024 behavior change yet)
 
@@ -85,8 +94,11 @@ the event-pages batch), and 3.16 / 3.17 / 3.19 (coauthor stories not on this wav
       `pushNotificationsEnabled` default
 - [ ] **BUG-053** (`getPostByUrl` fails against the live Apify actor): fix so the POC script and the
       by-URL resolver path work, and the 4 reference posts can be re-scraped for 3.6s fixtures
-- [ ] **BUG-012** (no Gemini request timeout; epic `epic-0-i2`): at least Story 0.i2a (guarded vendor
-      call wrapper) in place before 3.6s, or an explicit output cap + timeout inside 3.6s
+- [ ] **BUG-012** (no Gemini request timeout; epic `epic-0-i2`): the sweep found that 0.i2b/0.i2c as drafted
+      did not cover `callGemini`, the extraction pipeline's own call path. **0.i2c** (adopt the wrapper in the
+      async inference path) is now amended to include it. Needs **0.i2a** (build the guarded vendor call
+      wrapper) then **0.i2c** before 3.6s — or an explicit output cap + timeout inline in 3.6s. 3.6z carries
+      the same exposure
 - [ ] **3.13** (normalize vendor coauthor/publisher roles) → **3.14** (deduplicated subscribable
       profiles) → **3.15** (post–account association table + migration): create-story, then dev. Gates 3.6v
 - [ ] Prerequisite stories **1.3j**, **1.6c**, **1.3k** are at `review`: standing rule is to build
@@ -150,7 +162,7 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
 | Story | Depends on |
 |---|---|
 | 3.6r | 3.6b, AD-30 |
-| 3.6s | 3.6l, 3.6r; BUG-012 (via 0.i2a) |
+| 3.6s | 3.6l, 3.6r; 0.i2c (needs 0.i2a), or an inline output cap + timeout |
 | 3.6t | 3.6r, 3.6s, 3.7f, 3.7g |
 | 3.6u | 3.6r, 3.6t, 1.3j, 1.6c; coordinate 0.i6g (3.7h/3.7i recommended) |
 | 3.6v | 3.6t, 3.13–3.15, 3.4n, 3.7g, 3.7h |
