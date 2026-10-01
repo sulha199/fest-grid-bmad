@@ -83,8 +83,14 @@ export async function rehostPostImage(
     // the function's return value (AC3) -- a cleanup failure must not turn a successful
     // rehost into a null return.
     if (previousKey && previousKey !== key) {
+      // Delete and invalidation are independent best-effort steps: a failed delete must not
+      // skip the invalidation (and vice versa).
       try {
         await s3ClientInstance.send(new DeleteObjectCommand({ Bucket: postMediaBucketName, Key: previousKey }));
+      } catch (cleanupError) {
+        console.error(`S3 cleanup failed for post ${postId} (previousKey=${previousKey}):`, cleanupError);
+      }
+      try {
         await cloudFrontClientInstance.send(
           new CreateInvalidationCommand({
             DistributionId: env.postMediaDistributionId,
@@ -95,7 +101,7 @@ export async function rehostPostImage(
           })
         );
       } catch (cleanupError) {
-        console.error(`S3/CloudFront cleanup failed for post ${postId} (previousKey=${previousKey}):`, cleanupError);
+        console.error(`CloudFront invalidation failed for post ${postId} (previousKey=${previousKey}):`, cleanupError);
       }
     }
 
