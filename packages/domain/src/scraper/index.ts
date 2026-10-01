@@ -3,4 +3,5 @@ export * from "./platform-registry.js";
 export * from "./adapter-registry.js";
 export * from "./account-enrichment.js";
 export * from "./parse-image-url-expiry.js";
+export * from "./parse-platform-post-identity.js";
 export * from "./account-classification.js";

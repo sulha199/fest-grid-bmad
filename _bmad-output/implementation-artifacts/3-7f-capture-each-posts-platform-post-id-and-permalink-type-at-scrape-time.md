@@ -1,10 +1,14 @@
+---
+baseline_commit: 0308e1734b8ff2a892611a9ef6b62da72d3b3063
+---
+
 # Story 3.7f: Capture each post's platform post id and permalink type at scrape time
 
 ## Story Details
 
 - Epic: 3
 - Story ID: 3.7f
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -23,34 +27,34 @@ so that event slugs (Story 3.7g) and the DB-free oEmbed lookup (Architecture Spi
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Schema: add `platformPostId`/`platformPostType` columns to `posts`** (AC: 1, 2, 4)
-  - [ ] In `packages/database/schema.ts`'s `posts` table, add two new nullable columns immediately after `originalPostUrl` (they are both URL-derived identity fields, same conceptual group): `platformPostId: text('platform_post_id')` and `platformPostType: text('platform_post_type')`. No index — nothing in this story or its two immediate dependents (3.7g, 3.7h — AD-16 Rule 6 reconstructs the permalink from the *slug*, not by querying `posts` on these columns) filters `WHERE` on them yet.
-  - [ ] Run `pnpm --filter @festgrid/database generate` to produce the migration SQL file (next sequential number after `0061_brief_killraven.sql`, i.e. `0062_<drizzle-kit-generated-name>.sql`) and confirm `packages/database/migrations/meta/_journal.json` gained the matching entry. Confirm the generated SQL is two plain `ALTER TABLE "posts" ADD COLUMN ...` statements with no `NOT NULL`/`DEFAULT` (both columns must stay nullable) — reversible by a straightforward `DROP COLUMN` (Drizzle-kit's down-migration is implicit/manual per this repo's existing migrations; no custom down-migration file is needed, matching every prior nullable-column-add in this migrations folder, e.g. `0058_nice_liz_osborn.sql`/`0059_dapper_doctor_strange.sql` — inspect one for the exact shape before writing/reviewing the generated file).
-  - [ ] Run `pnpm --filter @festgrid/database migrate` against the local native Windows Postgres (`.env`'s `DATABASE_URL`) to apply it.
+- [x] **Task 1 — Schema: add `platformPostId`/`platformPostType` columns to `posts`** (AC: 1, 2, 4)
+  - [x] In `packages/database/schema.ts`'s `posts` table, add two new nullable columns immediately after `originalPostUrl` (they are both URL-derived identity fields, same conceptual group): `platformPostId: text('platform_post_id')` and `platformPostType: text('platform_post_type')`. No index — nothing in this story or its two immediate dependents (3.7g, 3.7h — AD-16 Rule 6 reconstructs the permalink from the *slug*, not by querying `posts` on these columns) filters `WHERE` on them yet.
+  - [x] Run `pnpm --filter @festgrid/database generate` to produce the migration SQL file (next sequential number after `0061_brief_killraven.sql`, i.e. `0062_<drizzle-kit-generated-name>.sql`) and confirm `packages/database/migrations/meta/_journal.json` gained the matching entry. Confirm the generated SQL is two plain `ALTER TABLE "posts" ADD COLUMN ...` statements with no `NOT NULL`/`DEFAULT` (both columns must stay nullable) — reversible by a straightforward `DROP COLUMN` (Drizzle-kit's down-migration is implicit/manual per this repo's existing migrations; no custom down-migration file is needed, matching every prior nullable-column-add in this migrations folder, e.g. `0058_nice_liz_osborn.sql`/`0059_dapper_doctor_strange.sql` — inspect one for the exact shape before writing/reviewing the generated file).
+  - [x] Run `pnpm --filter @festgrid/database migrate` against the local native Windows Postgres (`.env`'s `DATABASE_URL`) to apply it.
 
-- [ ] **Task 2 — Domain: `parsePlatformPostIdentity()` pure parser** (AC: 1, 2, 3)
-  - [ ] Add `packages/domain/src/scraper/parse-platform-post-identity.ts`, sibling to and matching the style of `parse-image-url-expiry.ts` (same `try { new URL(...) } catch { return ... }` shape, same doc-comment convention).
-  - [ ] Signature: `parsePlatformPostIdentity(urls: { postUrl?: string | null; originalPostUrl?: string | null }): { platformPostId: string | null; platformPostType: string | null }`. Internally: try `originalPostUrl` first (per `epics.md`'s own description of the field, line ~1625: "`Post.originalPostUrl` (when derivable) ... the real source link" vs "`Post.postUrl` (the post as actually scraped, which may be a proxy/mirror site)" — `originalPostUrl`, when present, is the more authoritative candidate); if that yields no match, fall back to `postUrl`. Fixture evidence this ordering must satisfy: `persist-scraped-post.test.ts` test (d) already exercises a post whose `postUrl` is a non-Instagram-shaped proxy domain (`https://proxy1.com/p/first_scraper_...`) alongside a real `originalPostUrl` (`https://instagram.com/p/canonical_shared_...`) — both happen to be `/p/`-shaped in that fixture, but the ordering rule (prefer `originalPostUrl`) is what makes the *general* case correct, not this specific fixture's coincidental shape match.
-  - [ ] Matching logic is **shape-based on the URL path, not hostname-based** — do not call `detectPlatformFromUrl()` or check `hostname` at all. Reasoning (record in Dev Notes, not just here): `postUrl` is explicitly documented as "may be a proxy/mirror site" (a non-`instagram.com` domain that still mirrors Instagram's own path convention, per the `proxy1.com/p/...` fixture above) — gating on hostname would wrongly null out exactly the proxy case this column exists to still capture correctly. A single regex against `new URL(url).pathname` — `/\/(p|reel|reels)\/([^/?#]+)/` — extracts `platformPostType` (group 1, verbatim — `reel` and `reels` are **not** normalized to one value, per AD-16 Rule 2's "the real scraped path type is captured and replayed verbatim, never assumed") and `platformPostId` (group 2, trailing slash and query string already excluded by the regex/`URL` parsing, never further split). No match (including any genuinely non-Instagram URL, e.g. a `twitter.com`/`x.com` link, or a malformed string) → both fields `null`.
-  - [ ] AC3's "platform codes come only from `platform-registry.ts`, never a new mapping" is satisfied by **not introducing any platform/hostname mapping at all** in this parser (see previous bullet) — there is nothing here that could drift from `getPlatformSlug()`/`getPlatformByCode()`. Document this explicitly in the story's Dev Notes so `bmad-dev-story`/review don't go looking for an unnecessary `platform-registry.ts` import inside this file.
-  - [ ] Export from `packages/domain/src/scraper/index.ts` (`export * from "./parse-platform-post-identity.js";`, matching the existing `parse-image-url-expiry.js` line).
-  - [ ] `packages/domain/src/scraper/parse-platform-post-identity.test.ts`: 100% branch/line coverage (project-context.md Testing Rules), covering at minimum — `/p/{id}`, `/reel/{id}`, `/reels/{id}`; trailing slash (`/p/{id}/`); query string (`/p/{id}?utm_source=ig_web_copy_link`); `originalPostUrl` present and parseable (used, `postUrl` ignored); `originalPostUrl` present but unparseable, `postUrl` parseable (falls back correctly); both absent/null/undefined; a non-Instagram-shaped URL (e.g. a bare profile URL with no `/p//reel//reels/` segment, and a `twitter.com` URL); a malformed URL string.
+- [x] **Task 2 — Domain: `parsePlatformPostIdentity()` pure parser** (AC: 1, 2, 3)
+  - [x] Add `packages/domain/src/scraper/parse-platform-post-identity.ts`, sibling to and matching the style of `parse-image-url-expiry.ts` (same `try { new URL(...) } catch { return ... }` shape, same doc-comment convention).
+  - [x] Signature: `parsePlatformPostIdentity(urls: { postUrl?: string | null; originalPostUrl?: string | null }): { platformPostId: string | null; platformPostType: string | null }`. Internally: try `originalPostUrl` first (per `epics.md`'s own description of the field, line ~1625: "`Post.originalPostUrl` (when derivable) ... the real source link" vs "`Post.postUrl` (the post as actually scraped, which may be a proxy/mirror site)" — `originalPostUrl`, when present, is the more authoritative candidate); if that yields no match, fall back to `postUrl`. Fixture evidence this ordering must satisfy: `persist-scraped-post.test.ts` test (d) already exercises a post whose `postUrl` is a non-Instagram-shaped proxy domain (`https://proxy1.com/p/first_scraper_...`) alongside a real `originalPostUrl` (`https://instagram.com/p/canonical_shared_...`) — both happen to be `/p/`-shaped in that fixture, but the ordering rule (prefer `originalPostUrl`) is what makes the *general* case correct, not this specific fixture's coincidental shape match.
+  - [x] Matching logic is **shape-based on the URL path, not hostname-based** — do not call `detectPlatformFromUrl()` or check `hostname` at all. Reasoning (record in Dev Notes, not just here): `postUrl` is explicitly documented as "may be a proxy/mirror site" (a non-`instagram.com` domain that still mirrors Instagram's own path convention, per the `proxy1.com/p/...` fixture above) — gating on hostname would wrongly null out exactly the proxy case this column exists to still capture correctly. A single regex against `new URL(url).pathname` — `/\/(p|reel|reels)\/([^/?#]+)/` — extracts `platformPostType` (group 1, verbatim — `reel` and `reels` are **not** normalized to one value, per AD-16 Rule 2's "the real scraped path type is captured and replayed verbatim, never assumed") and `platformPostId` (group 2, trailing slash and query string already excluded by the regex/`URL` parsing, never further split). No match (including any genuinely non-Instagram URL, e.g. a `twitter.com`/`x.com` link, or a malformed string) → both fields `null`.
+  - [x] AC3's "platform codes come only from `platform-registry.ts`, never a new mapping" is satisfied by **not introducing any platform/hostname mapping at all** in this parser (see previous bullet) — there is nothing here that could drift from `getPlatformSlug()`/`getPlatformByCode()`. Document this explicitly in the story's Dev Notes so `bmad-dev-story`/review don't go looking for an unnecessary `platform-registry.ts` import inside this file.
+  - [x] Export from `packages/domain/src/scraper/index.ts` (`export * from "./parse-platform-post-identity.js";`, matching the existing `parse-image-url-expiry.js` line).
+  - [x] `packages/domain/src/scraper/parse-platform-post-identity.test.ts`: 100% branch/line coverage (project-context.md Testing Rules), covering at minimum — `/p/{id}`, `/reel/{id}`, `/reels/{id}`; trailing slash (`/p/{id}/`); query string (`/p/{id}?utm_source=ig_web_copy_link`); `originalPostUrl` present and parseable (used, `postUrl` ignored); `originalPostUrl` present but unparseable, `postUrl` parseable (falls back correctly); both absent/null/undefined; a non-Instagram-shaped URL (e.g. a bare profile URL with no `/p//reel//reels/` segment, and a `twitter.com` URL); a malformed URL string.
 
-- [ ] **Task 3 — Wire into `persistScrapedPost()`, insert-only** (AC: 1, 2)
-  - [ ] In `apps/backend/src/lib/posts/persist-scraped-post.ts`'s **insert path only** (the `insertValues` block, not the existing-row `backfillPatch` block above it), call `parsePlatformPostIdentity({ postUrl, originalPostUrl })` and spread `platformPostId`/`platformPostType` into `insertValues`, alongside the existing `imageUrlExpiresAt` computation (same call-site pattern AD-16 Rule 2 describes — "alongside the existing expiry parse").
-  - [ ] Do **not** touch the `backfillPatch` object (the dedupe/existing-row branch) — it must keep backfilling only `videoUrl`/`imageUrl`(+`imageUrlExpiresAt`) exactly as today; adding these two new fields there would violate AC2's no-backfill rule.
-  - [ ] Both the primary insert and the FK-violation retry insert (`insertValues` is reused for both, per the existing `{...insertValues, scraperActorRunId: null}` retry) automatically carry the new fields through unchanged — no separate wiring needed for the retry branch.
+- [x] **Task 3 — Wire into `persistScrapedPost()`, insert-only** (AC: 1, 2)
+  - [x] In `apps/backend/src/lib/posts/persist-scraped-post.ts`'s **insert path only** (the `insertValues` block, not the existing-row `backfillPatch` block above it), call `parsePlatformPostIdentity({ postUrl, originalPostUrl })` and spread `platformPostId`/`platformPostType` into `insertValues`, alongside the existing `imageUrlExpiresAt` computation (same call-site pattern AD-16 Rule 2 describes — "alongside the existing expiry parse").
+  - [x] Do **not** touch the `backfillPatch` object (the dedupe/existing-row branch) — it must keep backfilling only `videoUrl`/`imageUrl`(+`imageUrlExpiresAt`) exactly as today; adding these two new fields there would violate AC2's no-backfill rule.
+  - [x] Both the primary insert and the FK-violation retry insert (`insertValues` is reused for both, per the existing `{...insertValues, scraperActorRunId: null}` retry) automatically carry the new fields through unchanged — no separate wiring needed for the retry branch.
 
-- [ ] **Task 4 — Extend `persist-scraped-post.test.ts`** (AC: 1, 2)
-  - [ ] New case: a brand-new post with an Instagram-shaped `postUrl` (no `originalPostUrl`) persists `platformPostId`/`platformPostType` correctly (read back from the DB, not just the returned object).
-  - [ ] New case: a brand-new post whose `postUrl` cannot be parsed persists both columns as `null`.
-  - [ ] New case: re-persisting an **existing** `postUrl` (dedupe/backfill path) whose original insert happened to leave these columns `null` must **still** leave them `null` after the second call — even though the second call's input URL would now parse successfully — proving the no-backfill rule (AC2) is enforced, not merely untested.
-  - [ ] New case extending the existing dual-lookup test (d): confirm `originalPostUrl` wins over a differently-shaped `postUrl` when both are present and parseable (the priority rule from Task 2).
+- [x] **Task 4 — Extend `persist-scraped-post.test.ts`** (AC: 1, 2)
+  - [x] New case: a brand-new post with an Instagram-shaped `postUrl` (no `originalPostUrl`) persists `platformPostId`/`platformPostType` correctly (read back from the DB, not just the returned object).
+  - [x] New case: a brand-new post whose `postUrl` cannot be parsed persists both columns as `null`.
+  - [x] New case: re-persisting an **existing** `postUrl` (dedupe/backfill path) whose original insert happened to leave these columns `null` must **still** leave them `null` after the second call — even though the second call's input URL would now parse successfully — proving the no-backfill rule (AC2) is enforced, not merely untested.
+  - [x] New case extending the existing dual-lookup test (d): confirm `originalPostUrl` wins over a differently-shaped `postUrl` when both are present and parseable (the priority rule from Task 2).
 
-- [ ] **Task 5 — Verification** (AC: 1, 2, 3, 4)
-  - [ ] `pnpm --filter @festgrid/domain test` — 100% coverage on the new parser (no coverage tool is wired into this `tsx --test` script today beyond the project's qualitative-but-complete-branch-mapping convention already used by `parse-image-url-expiry.test.ts`; make sure every branch enumerated in Task 2's test list has a named case).
-  - [ ] `pnpm --filter @festgrid/backend test` — the extended `persist-scraped-post.test.ts` integration suite (requires the local native Windows Postgres `postgresql-x64-18` service running, migration from Task 1 applied).
-  - [ ] `pnpm --filter @festgrid/database build && pnpm --filter @festgrid/backend build` (or the repo's equivalent `turbo`-driven build/typecheck) — confirm the new Drizzle columns typecheck cleanly through to `persist-scraped-post.ts`'s inferred `posts` row type with no manual type authoring needed.
+- [x] **Task 5 — Verification** (AC: 1, 2, 3, 4)
+  - [x] `pnpm --filter @festgrid/domain test` — 100% coverage on the new parser (no coverage tool is wired into this `tsx --test` script today beyond the project's qualitative-but-complete-branch-mapping convention already used by `parse-image-url-expiry.test.ts`; make sure every branch enumerated in Task 2's test list has a named case).
+  - [x] `pnpm --filter @festgrid/backend test` — the extended `persist-scraped-post.test.ts` integration suite (requires the local native Windows Postgres `postgresql-x64-18` service running, migration from Task 1 applied).
+  - [x] `pnpm --filter @festgrid/database build && pnpm --filter @festgrid/backend build` (or the repo's equivalent `turbo`-driven build/typecheck) — confirm the new Drizzle columns typecheck cleanly through to `persist-scraped-post.ts`'s inferred `posts` row type with no manual type authoring needed.
 
 ## Dev Notes
 
@@ -160,24 +164,24 @@ Not applicable — no React code, so none of Server State (React Query) / URL St
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation (two new nullable `posts` columns + one new pure domain parser + its wiring into `persistScrapedPost()`'s insert-only path; no other caller, no GraphQL exposure, no UI)
-- [ ] Architecture and boundary confirmation (AD-16 Rule 2 compliance; `packages/domain` purity; no new platform mapping)
-- [ ] Testing plan confirmation (100% domain-parser coverage; integration tests including the no-backfill regression case)
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1/3 cited from `batch-cc-024-multi-event-readiness.md` (verdict READY, no corrections applicable to this story); Gate 2 run fresh (NO GAP, 2026-10-01). No gap exists to accept.
+- [x] Scope confirmation (two new nullable `posts` columns + one new pure domain parser + its wiring into `persistScrapedPost()`'s insert-only path; no other caller, no GraphQL exposure, no UI)
+- [x] Architecture and boundary confirmation (AD-16 Rule 2 compliance; `packages/domain` purity; no new platform mapping)
+- [x] Testing plan confirmation (100% domain-parser coverage; integration tests including the no-backfill regression case)
+- [x] Explicit human approval state — **Approved** by user (shulha.y@gmail.com) via `bmad-dev-story` Pre-Coding Approval Gate prompt, 2026-10-01
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1/3 cited from `batch-cc-024-multi-event-readiness.md` (verdict READY, no corrections applicable to this story); Gate 2 run fresh (NO GAP, 2026-10-01). No gap exists to accept.
 
 ## Testing Requirements
 
-- [ ] Unit tests (100% coverage, `packages/domain`'s `parsePlatformPostIdentity()` — Task 2's enumerated cases)
-- [ ] Integration tests (`apps/backend`'s `persist-scraped-post.test.ts` — Task 4's four new cases, against the real local Postgres DB)
-- [ ] E2E tests — not applicable; this story has no user-facing surface to exercise end-to-end.
+- [x] Unit tests (100% coverage, `packages/domain`'s `parsePlatformPostIdentity()` — Task 2's enumerated cases)
+- [x] Integration tests (`apps/backend`'s `persist-scraped-post.test.ts` — Task 4's four new cases, against the real local Postgres DB)
+- [x] E2E tests — not applicable; this story has no user-facing surface to exercise end-to-end.
 
 ## Deliverables Checklist
 
-- [ ] `posts.platform_post_id` / `posts.platform_post_type` columns added (nullable, no default) via a generated, reversible Drizzle migration
-- [ ] `parsePlatformPostIdentity()` added to `packages/domain/src/scraper/`, exported from its `index.ts`, with 100% unit-test coverage
-- [ ] `persistScrapedPost()`'s insert path populates both new columns; its existing-row/backfill path is unchanged and verified to never write them
-- [ ] All new/extended tests passing locally against the local native Windows Postgres DB
+- [x] `posts.platform_post_id` / `posts.platform_post_type` columns added (nullable, no default) via a generated, reversible Drizzle migration
+- [x] `parsePlatformPostIdentity()` added to `packages/domain/src/scraper/`, exported from its `index.ts`, with 100% unit-test coverage
+- [x] `persistScrapedPost()`'s insert path populates both new columns; its existing-row/backfill path is unchanged and verified to never write them
+- [x] All new/extended tests passing locally against the local native Windows Postgres DB
 
 ## Out of Scope
 
@@ -189,26 +193,54 @@ Not applicable — no React code, so none of Server State (React Query) / URL St
 
 ## Definition of Done
 
-- [ ] AC1-AC4 satisfied
-- [ ] Required unit and integration tests passing (Testing Requirements above)
-- [ ] Lint and type checks passing for `packages/database`, `packages/domain`, and `apps/backend`
+- [x] AC1-AC4 satisfied
+- [x] Required unit and integration tests passing (Testing Requirements above)
+- [x] Lint and type checks passing for `packages/database`, `packages/domain`, and `apps/backend`
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — Status: review
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-sonnet-5 (Claude Code, `bmad-dev-story`)
 
 ### Debug Log References
 
+- `pnpm --filter @festgrid/database generate` → `packages/database/migrations/0062_handy_ego.sql` (two plain nullable `ALTER TABLE "posts" ADD COLUMN` statements, no `NOT NULL`/`DEFAULT`, matching the `0058`/`0059` precedent).
+- `pnpm --filter @festgrid/database migrate` → applied cleanly against the local native Windows Postgres (`postgresql-x64-18`, `.env`'s `DATABASE_URL`).
+- `pnpm --filter @festgrid/domain test` → 357/357 passed (includes the new 14-case `parse-platform-post-identity.test.ts`).
+- `npx tsx --test --test-concurrency=1 "src/lib/posts/persist-scraped-post.test.ts"` (apps/backend, scoped per Story 3.7f's own Verification Plan rather than the repo-wide `pnpm test`) → 18/18 passed, including the four new Task 4 cases (n)-(q).
+- `pnpm --filter @festgrid/database test` (vitest) → 10/10 passed.
+- `pnpm --filter @festgrid/database build`, `pnpm --filter @festgrid/domain build`, `pnpm --filter backend build` → all clean, zero errors; confirms the new nullable columns flow through Drizzle's inferred `posts` row type into `persist-scraped-post.ts` with no manual type authoring.
+- `pnpm --filter @festgrid/database lint`, `pnpm --filter @festgrid/domain lint` → zero issues. `pnpm --filter backend lint` → zero errors (1209 pre-existing warnings unrelated to this story's files; the one warning inside `persist-scraped-post.ts` — line 109, `dbErr as any` — predates this story and was not touched).
+- Full repo-wide `pnpm test` intentionally **not** run for this story (known ~10 min runtime plus unrelated environment-specific failures already tracked outside this story's scope: `packages/ui`'s `format-event-date.test.ts` in non-UTC zones, `apps/backend`'s `system-key-adapter` tests against a now-defined `SYSTEM_GEMINI_API_KEY`, and DB-backed `events` integration tests expecting removed synthetic volume-seed rows). Verification instead ran exactly Story 3.7f's own Verification Plan commands, scoped to the three packages this story touches, per the Pre-Coding Approval Gate's testing-plan confirmation.
+
 ### Completion Notes List
 
+- Added `posts.platform_post_id` / `posts.platform_post_type` (nullable `text`, no default) via a generated, reversible Drizzle migration (`0062_handy_ego.sql`); applied locally.
+- Added `parsePlatformPostIdentity()` to `packages/domain/src/scraper/`, a pure, shape-based (URL-pathname-regex) parser with no `platform-registry.ts`/hostname dependency, preferring `originalPostUrl` over `postUrl`; exported from the scraper package's `index.ts`; 14 unit-test cases cover every branch enumerated in Task 2 (100% coverage, `tsx --test`, no mocks).
+- Wired the parser into `persistScrapedPost()`'s insert-only path (`insertValues`), alongside the existing `imageUrlExpiresAt` computation; the dedupe/existing-row `backfillPatch` branch is untouched, so re-persisting an existing `postUrl` never backfills these two columns even when newly derivable (AC2, verified by new test case (p)).
+- Extended `persist-scraped-post.test.ts` with the four Task 4 cases: (n) new Instagram-shaped `postUrl` persists both columns correctly (DB read-back); (o) unparseable `postUrl` persists both as `null`; (p) dedupe path never backfills (explicit regression case); (q) `originalPostUrl` wins over a differently-shaped `postUrl` when both are present and parseable.
+- No other caller of `persistScrapedPost()` needed changes (fields are derived internally from already-passed parameters); no GraphQL/UI surface touched, matching the story's own Out of Scope section.
+- This session picked up implementation work from a prior session interrupted mid-task (its background test run was lost without a completion record); all code artifacts from that session (migration, parser + test, wiring, extended backend test) were reviewed against every task/AC in this story, found complete and correct, and then independently re-verified end-to-end (tests, build, lint) in this session before marking the story done.
+
 ### File List
+
+- `packages/database/schema.ts` — added `platformPostId`/`platformPostType` nullable `text` columns to the `posts` table (after `originalPostUrl`).
+- `packages/database/migrations/0062_handy_ego.sql` (new) — generated Drizzle migration, two nullable `ADD COLUMN` statements.
+- `packages/database/migrations/meta/_journal.json` — new `0062_handy_ego` journal entry (drizzle-kit generated).
+- `packages/database/migrations/meta/0062_snapshot.json` (new) — drizzle-kit generated schema snapshot.
+- `packages/domain/src/scraper/parse-platform-post-identity.ts` (new) — pure parser.
+- `packages/domain/src/scraper/parse-platform-post-identity.test.ts` (new) — 14-case unit test suite, 100% branch coverage.
+- `packages/domain/src/scraper/index.ts` — added the new export line.
+- `apps/backend/src/lib/posts/persist-scraped-post.ts` — call `parsePlatformPostIdentity()` on the insert path only; spread result into `insertValues`.
+- `apps/backend/src/lib/posts/persist-scraped-post.test.ts` — added Task 4's four new cases (n)-(q).
 
 ## Change Log
 
 - 2026-10-01 — Story created via `bmad-create-story` (Gate 1/3 cited from `batch-cc-024-multi-event-readiness.md`; Gate 2 run fresh, NO GAP). Part of CC-024 (Multi-event posts and cross-post event matching) Wave 2A, carved out of IDEA-028 (platform-prefixed event slugs).
+- 2026-10-01 — Pre-Coding Approval Gate approved by user (shulha.y@gmail.com) via `bmad-dev-story`.
+- 2026-10-02 — Story 3.7f (Capture each post's platform post id and permalink type at scrape time) implementation completed via `bmad-dev-story`: migration applied, `parsePlatformPostIdentity()` added with 100% coverage, `persistScrapedPost()` wired insert-only, backend integration tests extended (18/18 passing), `@festgrid/database`/`@festgrid/domain`/`backend` builds and lint all clean. Status set to `review`.

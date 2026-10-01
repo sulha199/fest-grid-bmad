@@ -281,6 +281,11 @@ export const posts = pgTable('posts', {
   videoUrl: text('video_url'),
   postUrl: text('post_url').notNull(),
   originalPostUrl: text('original_post_url'),
+  // Platform-native post id and real permalink type ('p', 'reel', 'reels', ...), captured once at
+  // scrape-time from postUrl/originalPostUrl (insert only, no backfill -- AD-16 Rule 2). Powers Story
+  // 3.7g's event slug construction and Story 3.7h's DB-free oEmbed lookup. Null when unparseable.
+  platformPostId: text('platform_post_id'),
+  platformPostType: text('platform_post_type'),
   isExtracted: boolean('is_extracted').default(false).notNull(),
   publishedAt: timestamp('published_at', { withTimezone: true }).notNull(),
   scraperActorRunId: uuid('scraper_actor_run_id').references(() => scraperActorRuns.id),

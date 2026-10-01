@@ -406,4 +406,107 @@ test('persistScrapedPost integration tests', async (t) => {
     assert.deepStrictEqual(result2.post.additionalImageUrls, ['https://test.com/orig_slide2.jpg']);
   });
 
+  await t.test('(n) a brand-new Instagram-shaped postUrl (no originalPostUrl) persists platformPostId/platformPostType', async () => {
+    const postId = 'platform_identity_n_' + Date.now();
+    const postUrl = `https://instagram.com/p/${postId}`;
+    const result = await persistScrapedPost({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'Test content N',
+      postUrl,
+      publishedAt: new Date().toISOString(),
+    });
+
+    assert.strictEqual(result.alreadyExisted, false);
+    assert.strictEqual(result.post.platformPostId, postId);
+    assert.strictEqual(result.post.platformPostType, 'p');
+
+    // Read back from the DB, not just the returned object
+    const [dbPost] = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.id, result.post.id));
+    assert.strictEqual(dbPost.platformPostId, postId);
+    assert.strictEqual(dbPost.platformPostType, 'p');
+  });
+
+  await t.test('(o) a brand-new post whose postUrl cannot be parsed persists both columns as null', async () => {
+    const postUrl = 'https://instagram.com/unparseable_profile_o_' + Date.now();
+    const result = await persistScrapedPost({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'Test content O',
+      postUrl,
+      publishedAt: new Date().toISOString(),
+    });
+
+    assert.strictEqual(result.alreadyExisted, false);
+    assert.strictEqual(result.post.platformPostId, null);
+    assert.strictEqual(result.post.platformPostType, null);
+
+    const [dbPost] = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.id, result.post.id));
+    assert.strictEqual(dbPost.platformPostId, null);
+    assert.strictEqual(dbPost.platformPostType, null);
+  });
+
+  await t.test('(p) re-persisting an existing postUrl (dedupe) never backfills platformPostId/platformPostType even though the second call would now parse', async () => {
+    // 1st insert: unparseable postUrl, so columns start out null
+    const postUrl = 'https://instagram.com/unparseable_profile_p_' + Date.now();
+    const result1 = await persistScrapedPost({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'Original content P',
+      postUrl,
+      publishedAt: new Date().toISOString(),
+    });
+    assert.strictEqual(result1.alreadyExisted, false);
+    assert.strictEqual(result1.post.platformPostId, null);
+    assert.strictEqual(result1.post.platformPostType, null);
+
+    // 2nd call: same postUrl (dedupe/backfill path) -- even though a differently-shaped originalPostUrl
+    // would now parse successfully, the existing-row branch must never write these columns.
+    const result2 = await persistScrapedPost({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'Updated content ignored',
+      postUrl,
+      originalPostUrl: 'https://instagram.com/p/should_never_be_written_' + Date.now(),
+      publishedAt: new Date().toISOString(),
+    });
+
+    assert.strictEqual(result2.alreadyExisted, true);
+    assert.strictEqual(result2.post.id, result1.post.id);
+    assert.strictEqual(result2.post.platformPostId, null, 'dedupe path must never backfill platformPostId');
+    assert.strictEqual(result2.post.platformPostType, null, 'dedupe path must never backfill platformPostType');
+
+    const [dbPost] = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.id, result1.post.id));
+    assert.strictEqual(dbPost.platformPostId, null);
+    assert.strictEqual(dbPost.platformPostType, null);
+  });
+
+  await t.test('(q) originalPostUrl wins over a differently-shaped postUrl when both are present and parseable', async () => {
+    const originalPostUrl = 'https://instagram.com/p/canonical_identity_q_' + Date.now();
+    const postUrl = 'https://proxy1.com/reel/proxy_identity_q_' + Date.now();
+
+    const result = await persistScrapedPost({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'Test content Q',
+      postUrl,
+      originalPostUrl,
+      publishedAt: new Date().toISOString(),
+    });
+
+    assert.strictEqual(result.alreadyExisted, false);
+    const expectedId = originalPostUrl.split('/p/')[1];
+    assert.strictEqual(result.post.platformPostId, expectedId);
+    assert.strictEqual(result.post.platformPostType, 'p');
+  });
+
 });

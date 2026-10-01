@@ -435,6 +435,13 @@
       "when": 1790781686060,
       "tag": "0061_brief_killraven",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "6",
+      "when": 1790873361753,
+      "tag": "0062_handy_ego",
+      "breakpoints": true
     }
   ]
 }
