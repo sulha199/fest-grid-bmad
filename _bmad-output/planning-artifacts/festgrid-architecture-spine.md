@@ -1369,6 +1369,24 @@ This document defines the core architectural invariants for the FestDaily applic
     8.  **Accepted accuracy trade-off:** face-api.js has materially lower recall than Rekognition
         on small/angled/occluded/low-light faces — the profile of real event crowd photos — so
         some faces may go unblurred. Chosen deliberately to avoid a per-image AWS fee.
+    9.  **Media caching — versioned URLs, HTTP cache only (amends AD-12 Rule 2; added via
+        `bmad-correct-course` follow-up, 2026-10-01):** every re-hosted media object
+        (`durableThumbnailUrl` and `durableImageUrl` alike) is stored under a *content-versioned*
+        key, `posts/{postId}/thumb-{hash8}.jpg` / `posts/{postId}/full-{hash8}.{ext}`
+        (`hash8` = first 8 hex chars of the SHA-256 of the stored bytes), replacing today's fixed
+        `posts/{postId}` key. A changed or re-blurred image therefore always gets a new URL, so
+        `immutable` caching is safe. The CloudFront response-headers policy sends
+        `Cache-Control: public, max-age=604800, immutable` (7 days, down from 1 year): the 7-day
+        value is the ceiling on how long a deleted or replaced object can linger on a device that
+        never refreshes its event data. **Deletion semantics:** deleting an image sets the DB
+        column to null and removes the S3 object (plus a CloudFront invalidation of its key);
+        clients stop requesting it as soon as their event data refreshes — no client-side eviction
+        is attempted. **No Cache API / service-worker image cache** (considered, rejected: the
+        HTTP cache already gives cache-first behavior for immutable versioned URLs, a service
+        worker would only add offline viewing — not a current requirement — plus CORS/opaque-
+        response handling and custom expiry code, and Safari caps script-writable storage at 7
+        days for non-installed sites, negating a 7-day SW ceiling there). Revisit only if offline
+        image viewing becomes a requirement.
 *   **Considered and rejected:** AWS Rekognition `DetectFaces` per-image (higher accuracy, ongoing
     per-image fee); batching multiple thumbnails into one Rekognition call (foreign buffering
     stage, risks a face silently escaping detection past the API's per-call face-count cap).

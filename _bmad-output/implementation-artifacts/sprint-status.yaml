@@ -1776,6 +1776,9 @@ development_status:
   3-6n-detect-and-blur-faces-in-extracted-post-images-generating-a-consent-independent-durable-thumbnail: backlog
   3-6o-skip-face-blur-processing-for-events-ending-before-their-source-image-expires: backlog
   3-6p-create-extraction-audit-logs-table-and-write-path-for-gemini-self-reported-extraction-signals: backlog
+  3-6q-version-re-hosted-media-keys-and-set-a-7-day-immutable-http-cache-policy: backlog
+  # 3.6q added 2026-10-01 (AD-28 Rule 9): versioned media keys + 7-day immutable HTTP cache,
+  # HTTP cache only (no service worker). Must land before 3.6n.
   # added 2026-09-30 via bmad-correct-course (sprint-change-proposal-2026-09-30.md):
   # triggering issue -- exploratory bmad-help conversation on face-blurred post
   # thumbnails for bystander privacy, converged into Architecture Spine AD-28

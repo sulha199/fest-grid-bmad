@@ -3206,14 +3206,14 @@ on the platform, regardless of whether the source account has opted into image r
 *   **Given** a post's extraction reports `hasFaceImage = true` (Story 3.6m), **when** the AI Processor Lambda has finished extraction, **then** it runs `@vladmandic/face-api` (SSD MobileNetV1 detector) against the already-fetched original image bytes (no second fetch) to locate face bounding boxes.
 *   **And** a Gaussian blur is applied over each detected face's bounding box at the image's original resolution, **before** any resizing or cropping (processing order is correctness-critical — cropping first risks misaligned coordinates for a face partially outside the eventual crop).
 *   **And** the blurred image is then resized/cropped via `sharp.resize(480, 480, { fit: 'cover', withoutEnlargement: true })` and re-encoded as JPEG quality 80.
-*   **And** the resulting thumbnail is uploaded to the same private-S3-bucket-plus-CloudFront-OAC mechanism Architecture Spine AD-12 Rule 2 already established, with the resulting CloudFront URL written to a new `posts.durableThumbnailUrl` column — **independent of `isImageStorageOptedIn`** (populated for opted-in and non-opted-in accounts alike; distinct from and never conflated with `durableImageUrl`, which keeps its existing opted-in-only, unblurred, full-resolution behavior completely unchanged).
+*   **And** the resulting thumbnail is uploaded under the content-versioned key `posts/{postId}/thumb-{hash8}.jpg` (Architecture Spine AD-28 Rule 9, via Story 3.6q's key helper) to the same private-S3-bucket-plus-CloudFront-OAC mechanism Architecture Spine AD-12 Rule 2 already established, with the resulting CloudFront URL written to a new `posts.durableThumbnailUrl` column — **independent of `isImageStorageOptedIn`** (populated for opted-in and non-opted-in accounts alike; distinct from and never conflated with `durableImageUrl`, which keeps its existing opted-in-only, unblurred, full-resolution behavior completely unchanged).
 *   **And** `event_card_masonry`'s `prominentPoster` trigger widens from `durableImageUrl != null` to `durableImageUrl != null || durableThumbnailUrl != null`; when both are present, `durableImageUrl` (sharp) is rendered in preference to `durableThumbnailUrl` (blurred); when neither is present, today's default non-prominent card state renders unchanged.
 *   **And** if detection, blur, resize, or upload fails at any step, the failure is caught and logged; `durableThumbnailUrl` stays null and extraction/ingestion proceeds unaffected (best-effort, matching Story 3.6e's existing precedent for `durableImageUrl`).
 *   **And** a regression test fixture covering a photo with a clearly visible face confirms the stored thumbnail's face region is visibly blurred, and a fixture with `hasFaceImage = false` confirms detection is skipped entirely (no face-api.js invocation).
 
 **Note (added via `bmad-correct-course`, Architecture Spine AD-28):** face-api.js was chosen over AWS Rekognition specifically to avoid a recurring per-image AWS fee, at the accepted cost of lower recall than Rekognition on small/angled/occluded/low-light faces — the profile of real event crowd photos. Some faces may go unblurred; this is a deliberate, recorded trade-off, not an oversight. Widening `prominentPoster` measurably changes PRD §3.16's framing of the prominent card as a binary "felt incentive to opt in" (see the accompanying PRD edit) — opt-in is now "sharp prominent" vs. "blurred prominent," not "prominent" vs. "nothing."
 
-**Depends on:** Story 3.6m, Story 3.6e (re-hosting/upload mechanism), Story 0.33 (media bucket).
+**Depends on:** Story 3.6m, Story 3.6e (re-hosting/upload mechanism), Story 0.33 (media bucket), Story 3.6q (versioned keys).
 
 ### Story 3.6o: Skip face-blur processing for events ending before their source image expires
 
@@ -3250,6 +3250,25 @@ on the platform, regardless of whether the source account has opted into image r
 **Note (added via `bmad-correct-course`, Architecture Spine AD-29):** This table cannot measure `hasFaceImage`'s false-negative rate on its own — rows where it's `false` never get a ground-truth comparison, since Story 3.6n's face-api.js pipeline never runs on them. Closing that gap would require periodically sampling `hasFaceImage = false` rows through face-api.js anyway; left as an explicit future decision, not built here.
 
 **Depends on:** Story 3.6e, Story 3.6l.
+
+### Story 3.6q: Version re-hosted media keys and set a 7-day immutable HTTP cache policy
+
+**As a** subscriber,
+**I want** re-hosted event images to be cached efficiently by my browser but stop appearing once they are deleted or replaced,
+**So that** pages load fast without a deleted or re-blurred image lingering on my device for a year.
+
+**Acceptance Criteria:**
+
+*   **Given** Architecture Spine AD-28 Rule 9, **when** a post image is re-hosted, **then** the S3 key is content-versioned (`posts/{postId}/full-{hash8}.{ext}`; `hash8` = first 8 hex chars of the SHA-256 of the stored bytes) and `posts.durableImageUrl` holds the resulting CloudFront URL. A shared key-building helper is exported for Story 3.6n's `thumb-{hash8}.jpg` keys.
+*   **And** when a post's media is replaced, the previous object is deleted from S3 and its key invalidated in CloudFront (best-effort, failures logged, never failing ingestion).
+*   **And** the media CloudFront response-headers policy sends `Cache-Control: public, max-age=604800, immutable` (7 days), replacing the 1-year value; the infra comment is updated to describe versioned keys rather than "write-once" files.
+*   **And** a one-time, idempotent backfill migrates existing `posts/{postId}` objects to versioned keys, re-points `posts.durableImageUrl`, then deletes the old objects and invalidates their paths; re-running it is a no-op.
+*   **And** no service worker or Cache API image cache is introduced (AD-28 Rule 9).
+*   **And** unit tests cover the key helper (stable hash, extension handling) and the rehost write path; infra assertion tests cover the new header value.
+
+**Depends on:** Story 3.6e (re-hosting mechanism), Story 0.33 (media bucket). **Feeds:** Story 3.6n.
+
+---
 
 ### Story 3.7: Display extracted events to the user
 
