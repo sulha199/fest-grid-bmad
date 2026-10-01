@@ -20,6 +20,13 @@
  *   pnpm seed:volume -- --events 5000
  *   pnpm seed:volume:clean           remove only the synthetic rows
  *
+ * WARNING -- do not leave this data in the database the test suite uses. The backend's DB-backed
+ * integration tests share `DATABASE_URL` and assume only the fixture seed is present: with 30,000
+ * synthetic events loaded, 12 of them failed (events default sort, past-event visibility, self-reported
+ * and soft-deleted events, applicableDaysOfWeek) and the backend run was ~7x slower (verified
+ * 2026-10-01; removing exactly these rows made them pass). Run `pnpm seed:volume:clean` before
+ * `pnpm test`, and re-seed only when you need EXPLAIN/performance evidence.
+ *
  * Markers: profiles `account_id LIKE 'vol-acct-%'`, posts `post_url LIKE '%/p/VOL%'`,
  * events `slug LIKE 'vol-event-%'` (schedules/favorites/calendar entries cascade from events).
  * User-scoped rows (subscriptions, favorites, calendar entries) attach to the two fixture users and

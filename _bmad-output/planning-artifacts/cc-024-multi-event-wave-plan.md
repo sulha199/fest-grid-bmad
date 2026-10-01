@@ -97,6 +97,29 @@ depends on it. Wave labels below follow this order; stories inside a wave are li
 `dev` = `bmad-dev-story` done (`review`); `review` = `bmad-code-review` done. Orchestrator batch state files
 live in `_bmad-output/specs/ritual-session-orchestrator/mailbox-runner/` (`.batch-state-cc024-*.json`).
 
+## Test-gate facts learned while orchestrating Wave 2A (2026-10-01)
+
+Read this before trusting a red gate. None of these come from CC-024 stories.
+
+- **Stale `node_modules` after pulling master** broke the first gate (declared but not installed:
+  `@aws-sdk/client-cloudfront` in apps/backend, `@radix-ui/react-radio-group` in packages/ui). Fix:
+  `pnpm install --frozen-lockfile` (lockfile unchanged). Do this after every pull.
+- **Time-zone test:** `packages/ui` `format-event-date.test.ts` ("endTime present, endDate today, now BEFORE
+  the combined end instant") passes under `TZ=UTC` and fails in Asia/Jakarta — the shared fixture in
+  `packages/domain/src/events/__fixtures__/ended-cases.ts` assumes UTC. Run gates with `TZ=UTC`.
+- **`.env` system key:** 4 backend `system-key-adapter` tests fail because `.env` now defines
+  `SYSTEM_GEMINI_API_KEY` and `loadBackendEnv()` re-reads it after the test `delete`s it from `process.env`.
+- **Synthetic volume pollutes the DB-backed tests:** with `seed:volume` rows present, 12 backend integration
+  tests failed and the run took ~640 s; after `seed:volume:clean` only the 4 key tests failed. Always clean
+  before running tests.
+- **Backend suite is slow:** ~570 s (800 tests) when clean; the gate's 1,200 s timeout is fine, but the
+  orchestrator's per-story `--checks test` is expensive. With these known failures the auto-dispatched
+  quick-dev fix would chase environment problems, so Wave 2A dev stories run through the plain dispatch and
+  the whole-repo gate runs once at the end (`TZ=UTC`, volume cleaned), tolerating the 4 key-test failures.
+- **To file on the backlog (not yet filed):** (1) `isEventEnded` shared fixture is time-zone dependent;
+  (2) `system-key-adapter` tests depend on `.env` lacking `SYSTEM_GEMINI_API_KEY`; (3) DB-backed backend
+  integration tests share the developer database, so any extra data breaks them.
+
 ## Wave 2A — Slug foundation (orchestrate first)
 
 - [ ] **3.7f** Capture each post's platform post id and permalink type at scrape time — *gates 3.6t*
