@@ -3245,8 +3245,8 @@ test('eventBySlug/event - schedules.isAddedToCalendar batches at a constant quer
 
   const createdSchedules = await db.insert(schedules).values([
     { eventId: event.id, eventStartDate: '2030-10-01', isMainSchedule: true },
-    { eventId: event.id, eventStartDate: '2030-10-02' },
-    { eventId: event.id, eventStartDate: '2030-10-03' },
+    { eventId: event.id, eventStartDate: '2030-10-02', isMainSchedule: false },
+    { eventId: event.id, eventStartDate: '2030-10-03', isMainSchedule: false },
   ]).returning();
 
   // AC7: seed a real calendar addition for exactly one of the three schedules, so the
