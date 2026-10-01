@@ -3329,6 +3329,7 @@ on the platform, regardless of whether the source account has opted into image r
 **Acceptance Criteria:**
 
 *   **Given** an `events[]` payload, **when** ingestion runs, **then** one queue message per event is sent carrying `extractionOrdinal`, and `processIngestionJob` first looks up `event_posts(post_id, extraction_ordinal)` and inserts with `onConflictDoNothing` on `(post_id, extraction_ordinal)`, writing the `event_posts` row (with its ordinal) via the Story 3.6r helper. A unique violation on either index or the `event_posts` PK is an idempotent **skip**, never a failure that triggers queue redelivery (AD-30 Rule 3).
+*   **And** `ExtractedEventMessage`'s new `extractionOrdinal` field is optional on read: a `DataIngestionQueue` message already enqueued before this story deploys (no `extractionOrdinal` at all — the field does not exist on the producer side yet) is treated as ordinal `0` by `processIngestionJob`, never as a validation failure or a dead-letter. (`ExtractedEventMessage`/`ExtractedScheduleMessage` are plain TypeScript interfaces with no runtime schema validation at the consumer boundary today — verified in `packages/domain/src/events/types.ts` — so this is a behavioral default to implement, not a schema migration.)
 *   **And** the slug is `{platformSlug}_{postType}_{platformPostId}` of the primary post plus `~{ordinal}` when ordinal > 0 (AD-16 amendment, Rules 8–9: the separator is `~` because `-` is a valid Instagram shortcode character; e.g. `ig_p_Ddi9wU6RCRQ~2`); `detail_level` is `stub` for roundup-sourced and `CURATOR_GUIDE`-sourced events.
 *   **And** schedules (including `applicableDaysOfWeek`) are persisted per event; timezone resolution is per event.
 *   **And** notifications are sent per newly inserted event, except for roundup-sourced events (primary post's `grouping_reason = roundup`) and curator-sourced ones, and the send sets `events.notified_at` through the one notify helper (AD-30 Rule 10) — this story defines no marker of its own.
@@ -3365,6 +3366,7 @@ on the platform, regardless of whether the source account has opted into image r
 *   **And** this story ships the shared event-level account-match helper (AD-31 Rule 4) with its `posts.accountId` leg, and the account filter and `isFromSubscribedAccount` use it, so an event promoted from a roundup stays visible to the roundup account's subscribers; Story 3.18 later adds the association leg. A source-scan ratchet fails if either is built without the helper.
 *   **And** enrichment is in place: fields with an approved correction or moderator edit are never overwritten (changes queue for moderation); schedules match by date and are updated or added, never deleted while a `calendar_additions` row references them.
 *   **And** on promotion the event adopts the matched candidate's `extraction_ordinal`, is re-slugged to name the new primary post, and the old slug is recorded in `event_slug_aliases`; `eventBySlug` resolves aliases only on a miss and returns a permanent redirect to the canonical slug.
+*   **And** the redirect is wired into **both** Next.js routes that render `eventBySlug` by slug — `apps/web/src/app/[locale]/events/[slug]/page.tsx` (full page) and `apps/web/src/app/[locale]/@modal/(.)events/[slug]/page.tsx` (intercepted modal) — not only the backend resolver: both call `getEventBySlugCached()` (`apps/web/src/features/events/get-event-by-slug-cached.ts`), which today swallows every failure (including a redirect signal) into a plain `null` return (verified in source); this story must change that helper to distinguish "redirect to canonical slug" from "not found"/"network error" and issue the redirect (e.g. Next's `redirect()`) before `EventDetailWrapper` mounts, so the "no not-found flash" contract (`EXPERIENCE.md` § CC-024 "Redirected slug") holds in both routes, not just one.
 *   **And** the first organizer-authored primary post triggers one notification to that account's subscribers when `events.notified_at IS NULL`, setting it via the Story 3.6t notify helper (AD-30 Rule 10).
 *   **And** re-running either post creates no duplicate and no extra link.
 
@@ -4827,14 +4829,17 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 ### Story 0.i2c: Adopt the wrapper in the async inference path
 
 **As a** developer,
-**I want** `backfillAccountProfileAndInferDefaultLocation` and `resolvePromptToEventFilter` to call through the guarded wrapper,
-**So that** unlocked duplicate-billable calls, missing retry backoff, and the missing rate limit (BUG-011) are all closed by the same mechanism.
+**I want** `backfillAccountProfileAndInferDefaultLocation`, `resolvePromptToEventFilter`, and `callGemini` (`apps/backend/src/lib/ai-gateway/adapter.ts`, the AI extraction pipeline's own call path, invoked from `process-ai-job.ts` for every scraped post) to call through the guarded wrapper,
+**So that** unlocked duplicate-billable calls, missing retry backoff, and the missing rate limit (BUG-011) are all closed by the same mechanism — including the pipeline's highest-volume and highest-payload-variance call site.
 
 **Acceptance Criteria:**
 
 *   **Given** a background inference call on this path,
 *   **When** it is invoked concurrently or repeatedly,
 *   **Then** it is serialized per key, retried with backoff on failure, and bounded by the rate limit the wrapper enforces.
+*   **Given** `callGemini`'s own call to `callGeminiGenerateContent` (`ai-gateway/gemini-client.ts`), **when** the extraction response is large (e.g. a multi-event/roundup post's `events[]` payload, Story 3.6s) or the call simply hangs, **then** it is bounded by the wrapper's request timeout — it must not block the AI Processor Lambda indefinitely or past its own infrastructure timeout (`apps/infrastructure/lib/festgrid-backend-stack.ts`).
+
+**Note (2026-10-01, added via `bmad-epic-readiness-check`'s CC-024 batch sweep, Gate 3):** Verified against source (`apps/backend/src/lib/ai-gateway/adapter.ts`, `gemini-client.ts`, `process-ai-job.ts`) that this story's original scope named only `backfillAccountProfileAndInferDefaultLocation`/`resolvePromptToEventFilter` — neither is the call path `process-ai-job.ts` actually uses (`callGemini` → `callGeminiGenerateContent`, no request timeout anywhere today). Story 3.6s's own "Prerequisite: BUG-012" note assumed this story already covered the extraction path; it did not, until this correction. Stories 3.6s (multi-event extraction, larger/slower responses) and 3.6z (automatic enqueueing, higher call volume) both increase exposure on this exact call site, raising this from a latent gap to a load-bearing one for CC-024.
 
 **Depends on:** Story 0.i2a.
 
