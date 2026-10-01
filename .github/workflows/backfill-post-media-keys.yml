@@ -81,6 +81,9 @@ jobs:
 
       - name: Run backfill
         env:
+          # loadBackendEnv() (run at import time by db/client.ts) requires this; the backfill never
+          # binds a port, so any valid number works.
+          BACKEND_PORT: '4001'
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           POST_MEDIA_BUCKET_NAME: ${{ steps.resolve.outputs.bucket_name }}
           POST_MEDIA_CDN_DOMAIN: ${{ steps.resolve.outputs.cdn_domain }}
