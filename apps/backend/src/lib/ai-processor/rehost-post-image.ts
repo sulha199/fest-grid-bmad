@@ -1,13 +1,22 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { CloudFrontClient, CreateInvalidationCommand } from '@aws-sdk/client-cloudfront';
+import { createHash } from 'node:crypto';
 import { db } from '../../db/client.js';
 import { posts } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import { type BackendEnv } from '../../env.js';
+import { buildPostMediaKey, resolvePostMediaExtension, extractPostMediaKeyFromUrl } from '@festgrid/domain/posts';
 
 export let s3ClientInstance = new S3Client({});
 
 export function setS3ClientInstance(client: S3Client) {
   s3ClientInstance = client;
+}
+
+export let cloudFrontClientInstance = new CloudFrontClient({});
+
+export function setCloudFrontClientInstance(client: CloudFrontClient) {
+  cloudFrontClientInstance = client;
 }
 
 /**
@@ -16,6 +25,15 @@ export function setS3ClientInstance(client: S3Client) {
  *
  * This function handles its own errors: if configured correctly but S3 upload fails,
  * it logs the failure and returns null without throwing.
+ *
+ * The S3 key is content-versioned (AD-28 Rule 9): `posts/{postId}/full-{hash8}.{ext}`,
+ * where `hash8` is derived from the exact uploaded bytes. If a previous `durableImageUrl`
+ * already pointed at a *different* key for this post (a changed/re-blurred image, or a
+ * pre-versioning flat key), the previous S3 object is deleted and its CloudFront path is
+ * invalidated on a best-effort basis after the new upload + DB update both succeed — never
+ * blocking or undoing the already-committed new `durableImageUrl`. This generic "clean up
+ * whatever the DB row already points at" behavior is also what lets the one-time backfill
+ * script (Task 6) reuse this same function instead of duplicating the upload/cleanup logic.
  */
 export async function rehostPostImage(
   postId: string,
@@ -32,8 +50,18 @@ export async function rehostPostImage(
     return null;
   }
 
-  const key = `posts/${postId}`;
   try {
+    const [currentRow] = await db
+      .select({ durableImageUrl: posts.durableImageUrl })
+      .from(posts)
+      .where(eq(posts.id, postId))
+      .limit(1);
+    const previousKey = extractPostMediaKeyFromUrl(postMediaCdnDomain, currentRow?.durableImageUrl);
+
+    const hash8 = createHash('sha256').update(imageBytes).digest('hex').slice(0, 8);
+    const ext = resolvePostMediaExtension(imageContentType);
+    const key = buildPostMediaKey(postId, 'full', hash8, ext);
+
     await s3ClientInstance.send(
       new PutObjectCommand({
         Bucket: postMediaBucketName,
@@ -50,6 +78,26 @@ export async function rehostPostImage(
       .update(posts)
       .set({ durableImageUrl })
       .where(eq(posts.id, postId));
+
+    // Best-effort cleanup of a previous, now-superseded object. Never allowed to affect
+    // the function's return value (AC3) -- a cleanup failure must not turn a successful
+    // rehost into a null return.
+    if (previousKey && previousKey !== key) {
+      try {
+        await s3ClientInstance.send(new DeleteObjectCommand({ Bucket: postMediaBucketName, Key: previousKey }));
+        await cloudFrontClientInstance.send(
+          new CreateInvalidationCommand({
+            DistributionId: env.postMediaDistributionId,
+            InvalidationBatch: {
+              CallerReference: `${postId}-${hash8}-${Date.now()}`,
+              Paths: { Quantity: 1, Items: [`/${previousKey}`] },
+            },
+          })
+        );
+      } catch (cleanupError) {
+        console.error(`S3/CloudFront cleanup failed for post ${postId} (previousKey=${previousKey}):`, cleanupError);
+      }
+    }
 
     return durableImageUrl;
   } catch (error) {

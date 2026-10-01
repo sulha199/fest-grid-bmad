@@ -59,6 +59,7 @@ export interface BackendEnv {
   systemGeminiApiKey?: string;
   postMediaBucketName?: string;
   postMediaCdnDomain?: string;
+  postMediaDistributionId?: string;
   // Below this AI-inference confidence score (0.0-1.0), a Default Location change is held as
   // AWAITING_APPROVAL instead of applying immediately (added 2026-08-28)
   locationInferenceConfidenceThreshold: number;
@@ -215,6 +216,8 @@ export function loadBackendEnv(): BackendEnv {
     postMediaBucketName: process.env.POST_MEDIA_BUCKET_NAME,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     postMediaCdnDomain: process.env.POST_MEDIA_CDN_DOMAIN,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    postMediaDistributionId: process.env.POST_MEDIA_DISTRIBUTION_ID,
   };
 
   // Ensure required Bright Data variables are present (webhook base URL is set post-deploy by CDK)
