@@ -80,67 +80,104 @@ Next.js slug routes; `getEventBySlugCached` must not swallow a redirect signal).
 and 3.6z (the unguarded Gemini call, see the BUG-012 item below). Order to create stories: 3.7f → 3.7g → 3.7h →
 3.7i alongside 3.13 → 3.14 → 3.15, then 3.6r → 3.6s → 3.6t → 3.6u/3.6y/3.6z → 3.6v → 3.6w/3.6x/3.18.
 
-## Wave 2 — Prerequisites and diagnostics (no CC-024 behavior change yet)
+## Order of work (from the readiness sweep, 2026-10-01)
 
-- [x] **IDEA-028** (platform-prefixed event slugs, AD-16) split into four stories in `epics.md` and
-      `sprint-status.yaml` (2026-10-01), so the readiness sweep covers them:
-  - [ ] **3.7f** Capture each post's platform post id and permalink type at scrape time — *gates 3.6t*
-  - [ ] **3.7g** Build platform-prefixed event slugs at ingestion — *needs 3.7f; gates 3.6t and 3.6v*
-  - [ ] **3.7h** Resolve Instagram oEmbed from the event slug without a database lookup — *needs 3.7g, 3.7e; gates 3.6v*
-  - [ ] **3.7i** Fetch the event-detail oEmbed in parallel with the event query — *needs 3.7h, 3.7d, 1.6c*
-  - [ ] Each: create-story → dev-story → code-review
-- [ ] **FIND-061** (no new-event push ever received): diagnose before 3.6t/3.6z ship per-event
-      notifications. Leads: inner joins to `user_settings`/`fcm_tokens`, empty `sourceSocialMediaAccountId`,
+Create stories one at a time via `bmad-create-story`, building each (`bmad-dev-story`) before anything that
+depends on it. Wave labels below follow this order; stories inside a wave are listed in dispatch order.
+
+1. **Wave 2A** — Slug foundation: 3.7f → 3.7g → 3.7h → 3.7i
+2. **Wave 2B** — Coauthor/publisher roles: 3.13 → 3.14 → 3.15 (independent of 2A; may interleave)
+3. **Wave 2C** — Diagnostics: FIND-061, BUG-053
+4. **Wave 3** — Core build: 3.6r → 3.6s → 3.6t
+5. **Wave 4A** — 3.6u, 3.6y, 3.6z (any order after 3.6t)
+6. **Wave 4B** — 3.6v (needs 3.13–3.15 and 3.7g/3.7h)
+7. **Wave 5** — 3.6w, 3.6x, 3.18
+
+**Per-story box legend:** `create` = `bmad-create-story` done (story file exists, status `ready-for-dev`);
+`dev` = `bmad-dev-story` done (`review`); `review` = `bmad-code-review` done. Orchestrator batch state files
+live in `_bmad-output/specs/ritual-session-orchestrator/mailbox-runner/` (`.batch-state-cc024-*.json`).
+
+## Wave 2A — Slug foundation (orchestrate first)
+
+- [ ] **3.7f** Capture each post's platform post id and permalink type at scrape time — *gates 3.6t*
+  - [ ] create  - [ ] dev  - [ ] review
+- [ ] **3.7g** Build platform-prefixed event slugs at ingestion — *needs 3.7f; gates 3.6t and 3.6v*
+  - [ ] create  - [ ] dev  - [ ] review
+- [ ] **3.7h** Resolve Instagram oEmbed from the event slug without a database lookup — *needs 3.7g, 3.7e; gates 3.6v*
+  - [ ] create  - [ ] dev  - [ ] review
+- [ ] **3.7i** Fetch the event-detail oEmbed in parallel with the event query — *needs 3.7h, 3.7d, 1.6c*
+  - [ ] create  - [ ] dev  - [ ] review
+- [x] IDEA-028 (platform-prefixed event slugs) split into 3.7f–3.7i in `epics.md` / `sprint-status.yaml` (2026-10-01)
+
+## Deferred track — Gemini call guard (does NOT gate this wave)
+
+- [ ] **Architecture decision needed first.** No AD exists for the guarded vendor-call wrapper (AD-1–AD-31 have
+      none) and **0.i2a** (build the guarded vendor call wrapper) says it establishes one; it also carries the
+      FIND-004 vendor-DPA compliance gate. Run `bmad-architecture` for it (AD-32) before 3.6-series
+      work needs it. Then **0.i2a** → **0.i2c** (amended to cover `callGemini`) → 0.i2b.
+- [x] **3.6s carries a minimal inline guard instead** (`AbortController` timeout + output-size cap on the
+      extraction call; amended in `epics.md` 2026-10-01). When 0.i2c lands it replaces the inline guard.
+
+## Wave 2B — Coauthor and publisher roles (gates 3.6v)
+
+- [ ] **3.13** Normalize Apify vendor coauthor/publisher roles during ingestion
+  - [ ] create  - [ ] dev  - [ ] review
+- [ ] **3.14** Deduplicated, provenance-tracked subscribable profiles — *needs 3.13*
+  - [ ] create  - [ ] dev  - [ ] review
+- [ ] **3.15** Post-account association table + lossless migration — *needs 3.13/3.14 outputs; AD-25 and AD-31 settle the DDL*
+  - [ ] create  - [ ] dev  - [ ] review
+- [ ] Prerequisite stories **1.3j**, **1.6c**, **1.3k** are at `review`: standing rule is to build against
+      `review`-status prerequisites, so no wait — confirm they reach `done` before 3.6u/3.6y close
+
+## Wave 2C — Diagnostics (no CC-024 behavior change)
+
+- [ ] **FIND-061** (no new-event push ever received): diagnose before 3.6t/3.6z ship per-event notifications.
+      Leads: inner joins to `user_settings`/`fcm_tokens`, empty `sourceSocialMediaAccountId`,
       `pushNotificationsEnabled` default
-- [ ] **BUG-053** (`getPostByUrl` fails against the live Apify actor): fix so the POC script and the
-      by-URL resolver path work, and the 4 reference posts can be re-scraped for 3.6s fixtures
-- [ ] **BUG-012** (no Gemini request timeout; epic `epic-0-i2`): the sweep found that 0.i2b/0.i2c as drafted
-      did not cover `callGemini`, the extraction pipeline's own call path. **0.i2c** (adopt the wrapper in the
-      async inference path) is now amended to include it. Needs **0.i2a** (build the guarded vendor call
-      wrapper) then **0.i2c** before 3.6s — or an explicit output cap + timeout inline in 3.6s. 3.6z carries
-      the same exposure
-- [ ] **3.13** (normalize vendor coauthor/publisher roles) → **3.14** (deduplicated subscribable
-      profiles) → **3.15** (post–account association table + migration): create-story, then dev. Gates 3.6v
-- [ ] Prerequisite stories **1.3j**, **1.6c**, **1.3k** are at `review`: standing rule is to build
-      against `review`-status prerequisites, so no wait — confirm they reach `done` before 3.6u/3.6y close
+- [ ] **BUG-053** (`getPostByUrl` fails against the live Apify actor): fix so the POC script and the by-URL
+      resolver path work, and the 4 reference posts can be re-scraped for 3.6s fixtures
 
 ## Wave 3 — Core build (strictly sequential)
 
 Per story: `create-story` → `dev-story` → `code-review` → status verified in `sprint-status.yaml`.
 
-- [ ] **3.6r** Add the event–post link table and multi-event schema — *needs AD-30; attach before/after
-      EXPLAIN plans for `Query.events` and `Query.eventBySlug`*
-  - [ ] create-story  - [ ] dev-story  - [ ] code-review  - [ ] EXPLAIN evidence attached
-- [ ] **3.6s** Extract multiple events per post with grouping rules — *needs 3.6r; fixtures: the 4
-      reference posts, run repeatedly, grouping must match every run*
-  - [ ] create-story  - [ ] dev-story  - [ ] code-review  - [ ] fixtures stable across runs
-- [ ] **3.6t** Ingest multiple events per post, with per-event slugs and notifications — *needs 3.6r,
-      3.6s, 3.7f and 3.7g*
-  - [ ] create-story  - [ ] dev-story  - [ ] code-review  - [ ] re-run creates no duplicates
+- [ ] **3.6r** Add the event–post link table and multi-event schema — *needs AD-30; re-run the four scenarios of
+      `cc-024-explain-baseline-2026-10-01.md` and compare; promote a clean version of the capture script*
+  - [ ] create  - [ ] dev  - [ ] review  - [ ] EXPLAIN evidence attached
+- [ ] **3.6s** Extract multiple events per post with grouping rules — *needs 3.6r; carries an inline Gemini timeout
+      + output cap (see Deferred track); fixtures: the 4 reference posts, run repeatedly, grouping must match every run*
+  - [ ] create  - [ ] dev  - [ ] review  - [ ] fixtures stable across runs
+- [ ] **3.6t** Ingest multiple events per post, with per-event slugs and notifications — *needs 3.6r, 3.6s, 3.7f,
+      3.7g; sweep correction: a queued message without `extractionOrdinal` defaults to ordinal 0*
+  - [ ] create  - [ ] dev  - [ ] review  - [ ] re-run creates no duplicates
 
-## Wave 4 — Read side, matching, auto-extraction, weekday filter
+## Wave 4A — Read side, weekday filter, auto-extraction (after 3.6t, any order)
 
-- [ ] **3.6u** Show all source posts and related events on the event detail page — *needs 3.6r, 3.6t,
-      1.3j, 1.6c; coordinate with 0.i6g (coauthor attribution UI); 3.7h/3.7i recommended*
-  - [ ] create-story  - [ ] dev-story  - [ ] code-review  - [ ] hot-path EXPLAIN unchanged
-- [ ] **3.6v** Match new posts to existing events and enrich them in place — *needs 3.6t, 3.13–3.15,
-      3.4n, 3.7g and 3.7h*
-  - [ ] create-story  - [ ] dev-story  - [ ] code-review  - [ ] promotion keeps favorites/calendar entries
-- [ ] **3.6y** Respect weekday-narrowed schedules in day-of-week filtering — *needs 3.6r, 1.3j*
-  - [ ] create-story  - [ ] dev-story  - [ ] code-review
-- [ ] **3.6z** Automatically enqueue new scraped posts for extraction within quota — *needs 3.5, 3.6t;
+- [ ] **3.6u** Show all source posts and related events on the event detail page — *needs 3.6r, 3.6t, 1.3j, 1.6c;
+      coordinate with 0.i6g (coauthor attribution UI); 3.7h/3.7i recommended*
+  - [ ] create  - [ ] dev  - [ ] review  - [ ] hot-path EXPLAIN unchanged
+- [ ] **3.6y** Respect weekday-narrowed schedules in day-of-week filtering — *needs 3.6r, 1.3k, 1.3j*
+  - [ ] create  - [ ] dev  - [ ] review
+- [ ] **3.6z** Automatically enqueue new scraped posts for extraction within quota — *needs 3.5, 3.6t (and 3.6s's inline guard);
       soft: FIND-061 diagnosed*
-  - [ ] create-story  - [ ] dev-story  - [ ] code-review
+  - [ ] create  - [ ] dev  - [ ] review
 
-## Wave 5 — Moderation and collection page
+## Wave 4B — Matching and enrichment
+
+- [ ] **3.6v** Match new posts to existing events and enrich them in place — *needs 3.6t, 3.13–3.15, 3.4n, 3.7g,
+      3.7h; sweep correction: the alias redirect is wired into both Next.js slug routes and
+      `getEventBySlugCached` must not swallow a redirect signal*
+  - [ ] create  - [ ] dev  - [ ] review  - [ ] promotion keeps favorites/calendar entries
+
+## Wave 5 — Moderation, collection page, account filtering
 
 - [ ] **3.6w** Let moderators merge duplicate events, with slug redirects — *needs 3.6v, 4.7b*
-  - [ ] create-story  - [ ] dev-story  - [ ] code-review
-- [ ] **3.6x** Show all events from a post on a post collection page — *needs 3.6u; reuses the
-      existing event-list UI and logic, no parallel list implementation*
-  - [ ] create-story  - [ ] dev-story  - [ ] code-review
+  - [ ] create  - [ ] dev  - [ ] review
+- [ ] **3.6x** Show all events from a post on a post collection page — *needs 3.6u; reuses the existing event-list
+      UI and logic, no parallel list implementation*
+  - [ ] create  - [ ] dev  - [ ] review
 - [ ] **3.18** Union-of-associations account filtering (amended: event level via `event_posts`) — *needs 3.15, 3.6r*
-  - [ ] create-story  - [ ] dev-story  - [ ] code-review
+  - [ ] create  - [ ] dev  - [ ] review
 
 ## Wave 6 — Batch-end checks and closeout
 
@@ -162,7 +199,8 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
 | Story | Depends on |
 |---|---|
 | 3.6r | 3.6b, AD-30 |
-| 3.6s | 3.6l, 3.6r; 0.i2c (needs 0.i2a), or an inline output cap + timeout |
+| 3.6s | 3.6l, 3.6r (inline Gemini guard; 0.i2c later replaces it) |
+| 0.i2c | 0.i2a, AD-32 (not yet written) |
 | 3.6t | 3.6r, 3.6s, 3.7f, 3.7g |
 | 3.6u | 3.6r, 3.6t, 1.3j, 1.6c; coordinate 0.i6g (3.7h/3.7i recommended) |
 | 3.6v | 3.6t, 3.13–3.15, 3.4n, 3.7g, 3.7h |

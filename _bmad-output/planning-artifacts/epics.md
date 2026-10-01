@@ -3318,7 +3318,9 @@ on the platform, regardless of whether the source account has opted into image r
 *   **And** `poc-ingestion-preview.ts` handles N events, and the four reference posts (`DdV_7Jsk6pw`, `DdT1cgTlJ2k`, `DcntzF0mB7z`, `Ddi9wU6RCRQ`) are regression fixtures: each is run several times and the grouping decision must match on every run.
 *   **And** the AJV schema (`extracted-event.schema.ts`) validates the new shape; the extraction call count per post stays exactly one.
 
-**Depends on:** Story 3.6l, Story 3.6r, Story 0.i2c (guarded Gemini call wrapper, extended to cover `callGemini` by the 2026-10-01 readiness sweep; BUG-012, Gemini request timeout) — or an explicit output cap and timeout inline in this story if 0.i2c is still `backlog` when it is created.
+**Depends on:** Story 3.6l, Story 3.6r.
+
+**Amendment (2026-10-01, `bmad-correct-course`, CC-024 readiness follow-up):** The extraction call (`callGemini` → `callGeminiGenerateContent`, `apps/backend/src/lib/ai-gateway/`) has no timeout today, and Story 0.i2a/0.i2c (the guarded vendor-call wrapper that would add one) **cannot be created yet**: no Architecture Spine decision for the wrapper exists (AD-1–AD-31 contain none; 0.i2a's own note says it establishes a new AD, and it carries FIND-004's vendor-DPA compliance gate). So this story carries a **minimal inline guard** and does not wait: an `AbortController`-based request timeout on the extraction call and an explicit response-size cap (`maxOutputTokens`), with a timeout surfaced as a retryable job failure, never a hang; a unit test covers both. Story 0.i2c, when it later lands, supersedes this guard by routing the same call through the wrapper — it should delete the inline guard, not stack on it.
 
 ### Story 3.6t: Ingest multiple events per post, with per-event slugs and notifications
 
@@ -3425,7 +3427,7 @@ on the platform, regardless of whether the source account has opted into image r
 *   **And** multi-event and roundup rules (Stories 3.6s/3.6t) apply to auto-extracted posts, and `CURATOR_GUIDE` minimization (Story 3.4o) is unchanged.
 *   **And** `enqueuePostForProcessing` is idempotent so a post is never enqueued twice.
 
-**Depends on:** Story 3.5, Story 3.6t. Soft: FIND-061 diagnosis.
+**Depends on:** Story 3.5, Story 3.6t (and Story 3.6s's inline Gemini timeout guard on the shared extraction call). Soft: FIND-061 diagnosis.
 
 
 ---
