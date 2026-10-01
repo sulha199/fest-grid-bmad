@@ -3185,14 +3185,14 @@ without paying for a separate detection call on every extracted image.
 
 *   **Given** `geminiExtractionResponseSchema` (`build-gemini-request.ts`) and `extractedEventSchema` (`extracted-event.schema.ts`), **when** this story ships, **then** both gain two new optional fields, added together in the same change (`extractedEventSchema`'s `additionalProperties: false` means a real Gemini response carrying these fields is silently dropped by AJV unless both files change together — the same load-bearing pattern Story 3.6l's `minScheduleCount`/`expectedScheduleNames` already established): `hasFaceImage` (boolean) and `faceImageCount` (number, advisory/logging-only — never trusted as an exact count).
 *   **And** the system prompt is amended with an explicit instruction to report both fields based on the same image(s) already provided for event extraction — no second image fetch, no second Gemini call.
-*   **And** `hasFaceImage`/`faceImageCount` are written to the new `extraction_audit_logs` table (Story 3.6p, Architecture Spine AD-29) — **never** to `posts`/`EventInfo`, and never exposed via GraphQL. They exist for offline extraction-quality evaluation only.
-*   **And** a regression test fixture covering an image with no people (e.g. a text-only graphic-design flyer) and an image with a clearly visible person confirms `hasFaceImage` reports the expected value and both are correctly written to the audit row.
+*   **And** `processAiJob` **logs** `hasFaceImage`/`faceImageCount` (structured, with `postId`) when an `isEvent === true` payload carries them, mirroring Story 3.6l's log-only handling of `minScheduleCount`/`expectedScheduleNames`. This story does **not** write to any DB table: persistence into `extraction_audit_logs` is Story 3.6p's job (AD-29), which depends on this story and retrofits both 3.6l's and 3.6m's logged fields in one pass. The values are **never** written to `posts`/`EventInfo` and never exposed via GraphQL — offline extraction-quality evaluation only.
+*   **And** a regression test fixture covering an image with no people (e.g. a text-only graphic-design flyer) and an image with a clearly visible person confirms `hasFaceImage` reports the expected value and that both values are logged (and that nothing is logged when the fields are absent or `isEvent === false`).
 
 **Note (added via `bmad-correct-course`, Architecture Spine AD-28):** This field rides the extraction call that already runs on every post and already fetches the image bytes — image tokens are billed once regardless of what's asked about the image, so this adds only a handful of schema-definition and output tokens, not a new billable unit. Used exclusively as a pre-filter gate for Story 3.6n's face-detection pass; never itself used to decide whether to blur anything.
 
 **Cross-reference:** This story and Stories 3.6i/3.6j/3.6k/3.6l all edit `build-gemini-request.ts`'s prompt/response schema. Whichever lands last must rebase on the others' changes rather than silently conflicting.
 
-**Depends on:** Story 3.6, Story 3.6l, Story 3.6p.
+**Depends on:** Story 3.6, Story 3.6l. (Persistence of these fields is Story 3.6p's scope; 3.6p depends on this story, not the reverse.)
 
 ### Story 3.6n: Detect and blur faces in extracted post images, generating a consent-independent durable thumbnail
 
@@ -3243,13 +3243,13 @@ on the platform, regardless of whether the source account has opted into image r
 
 *   **Given** the schema defined in Architecture Spine AD-29, **when** this story's migration runs, **then** it creates `extraction_audit_logs` (`postId` FK to `posts.id`, `geminiModel`, `isEvent`, `confidenceScore`, `minScheduleCount`, `expectedScheduleNames` (jsonb), `actualScheduleCount`, `hasFaceImage`, `faceImageCount`, `actualFaceDetectionCount`, `faceDetectionSkippedReason`, `createdAt`), indexed on `postId`.
 *   **And** `process-ai-job.ts` writes one row per extraction attempt immediately after Gemini's response is parsed, populating `minScheduleCount`/`expectedScheduleNames`/`hasFaceImage`/`faceImageCount` from the response and `actualScheduleCount` once schedules are persisted.
-*   **And** this is a **retrofit onto the already-in-review Story 3.6l** — `minScheduleCount`/`expectedScheduleNames` were shipped there as log-only fields; this story adds their persistence without changing 3.6l's own extraction/logging behavior.
+*   **And** this is a **retrofit onto the already-in-review Story 3.6l and onto Story 3.6m** — `minScheduleCount`/`expectedScheduleNames` (3.6l) and `hasFaceImage`/`faceImageCount` (3.6m) were shipped as log-only fields; this story adds their persistence without changing either story's own extraction/logging behavior.
 *   **And** once Story 3.6n/3.6o run, `actualFaceDetectionCount` and `faceDetectionSkippedReason` are back-filled on the same row (`'no_face_reported'` when Story 3.6m's `hasFaceImage = false` skipped detection, `'event_relevance_gate'` when Story 3.6o's expiry check skipped it, `null` with a real count when detection ran).
 *   **And** no resolver serving any client-facing GraphQL field ever queries this table (AD-29 Rule 5) — verified by a lint/review check that `extraction_audit_logs` has no import from `apps/backend/src/schema/resolvers.ts`'s hot-path fields.
 
 **Note (added via `bmad-correct-course`, Architecture Spine AD-29):** This table cannot measure `hasFaceImage`'s false-negative rate on its own — rows where it's `false` never get a ground-truth comparison, since Story 3.6n's face-api.js pipeline never runs on them. Closing that gap would require periodically sampling `hasFaceImage = false` rows through face-api.js anyway; left as an explicit future decision, not built here.
 
-**Depends on:** Story 3.6e, Story 3.6l.
+**Depends on:** Story 3.6e, Story 3.6l, Story 3.6m (the `hasFaceImage`/`faceImageCount` fields must exist before they can be persisted).
 
 ### Story 3.6q: Version re-hosted media keys and set a 7-day immutable HTTP cache policy
 
