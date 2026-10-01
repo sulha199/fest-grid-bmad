@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-01T08:53:41Z
+last_updated: 2026-10-01T16:43:15Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -1890,7 +1890,7 @@ development_status:
   # generalization needed (single consumer) and no new foundational dependency. No
   # prerequisite stories created.
   3-7e-instagram-oembed-backend-integration-adapter-and-resolver-field: review
-  3-7f-capture-each-posts-platform-post-id-and-permalink-type-at-scrape-time: backlog
+  3-7f-capture-each-posts-platform-post-id-and-permalink-type-at-scrape-time: ready-for-dev
   3-7g-build-platform-prefixed-event-slugs-at-ingestion: backlog
   3-7h-resolve-instagram-oembed-from-the-event-slug-without-a-database-lookup: backlog
   3-7i-fetch-the-event-detail-oembed-in-parallel-with-the-event-query: backlog

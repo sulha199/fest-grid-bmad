@@ -100,7 +100,7 @@ live in `_bmad-output/specs/ritual-session-orchestrator/mailbox-runner/` (`.batc
 ## Wave 2A — Slug foundation (orchestrate first)
 
 - [ ] **3.7f** Capture each post's platform post id and permalink type at scrape time — *gates 3.6t*
-  - [ ] create  - [ ] dev  - [ ] review
+  - [x] create  - [ ] dev  - [ ] review
 - [ ] **3.7g** Build platform-prefixed event slugs at ingestion — *needs 3.7f; gates 3.6t and 3.6v*
   - [ ] create  - [ ] dev  - [ ] review
 - [ ] **3.7h** Resolve Instagram oEmbed from the event slug without a database lookup — *needs 3.7g, 3.7e; gates 3.6v*
