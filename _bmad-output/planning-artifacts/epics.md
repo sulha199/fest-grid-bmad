@@ -2849,6 +2849,8 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Depends on:** Story 3.2, Story 3.4, Story 3.4m (AI-inference trigger pattern).
 
+**Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** `accountType` also feeds multi-event handling (Story 3.6s/3.6v): an event extracted from a `CURATOR_GUIDE` post is created as `detail_level = 'stub'`, and a `CURATOR_GUIDE` post is demoted in primary-post selection against an `ORGANIZER_VENUE_EVENT` post. No change to this story's own ACs.
+
 ### Story 3.4o: Minimize stored/displayed data for curator/guide-sourced posts
 
 **As a** platform operator,
@@ -2868,6 +2870,8 @@ Users can subscribe to social media accounts to import events into their feed.
 **Amendment (2026-09-03, added via `bmad-create-story` during this story's own creation):** The AC list above is superseded by the full story file, not this summary — in brief: (1) AC1's "acceptable end-state" question is resolved as **opt-in overrides the default** — a moderator can opt a specific `CURATOR_GUIDE` account into durable image storage via Story 3.6g's `setImageStorageOptIn` mutation, scoped to image storage only (never to caption display/clearing); this makes Story 3.6g a genuine new dependency of this story (added below), not just 3.6e/3.6/3.4n, since `isImageStorageOptedIn` doesn't exist in the schema yet; (2) AC3's terminal-state trigger point is defined as exactly the two existing `markPostExtractedSeam` call sites in `process-ai-job.ts` — a third code path (Gemini response fails validation) never reaches `isExtracted: true` under the pipeline's own pre-existing, deliberate design (confirmed via Story 3.6's own Dev Notes: a non-retryable skip-and-log with no existing re-selection mechanism), so it's an accepted, documented gap, not a blocker; (3) AC2's downstream-caption-consumer audit found a real conflict with the existing "AI-assisted correction" flow (`extractEventDataFromUrl`, reads `posts.content` directly for re-extraction) — resolved as an accepted limitation, enforced by hiding the correction trigger for `CURATOR_GUIDE`-sourced events **and** guarding the resolver itself against a null caption. This story's own Data Type Compatibility audit also found `posts.content`'s `NOT NULL` constraint and `extraction.graphql`'s `Post.content: String!` both need to become nullable — neither was anticipated by the original AC text. All three tradeoffs were resolved with the user via `AskUserQuestion`. See `_bmad-output/implementation-artifacts/3-4o-minimize-stored-displayed-data-for-curator-guide-sourced-posts.md` for full detail.
 
 **Depends on:** Story 3.4n, Story 3.6e, Story 3.6, Story 3.6g (image-storage opt-in flag — added 2026-09-03; AC1/AC5's opt-in override needs its `isImageStorageOptedIn` column, which doesn't exist until 3.6g ships).
+
+**Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** Because `posts.content` is nulled after a terminal extraction state for `CURATOR_GUIDE` posts, Story 3.6s must capture each extracted event's `organizerHandle` into the event at extraction time; cross-post matching (Story 3.6v) can never re-read a curator caption. A roundup-sourced stub from a non-opted-in curator account uses the transient hotlinked cover with the existing placeholder fallback (Story 3.7c). `groupingRationale` is never persisted.
 
 ### Story 3.4p: Fix daily-batch scrape-scheduling race that silently skips accounts
 
@@ -2985,6 +2989,8 @@ Users can subscribe to social media accounts to import events into their feed.
 **Note (2026-08-10, added via `bmad-create-story` while drafting Story 3.6):** Story 3.6's own creation found that PRD FR33's full three-tier timezone-inference strategy had no owning story anywhere in Epic 3 — Story 0.16 (Geolocation adapter) explicitly named "timezone inference for extracted events" as an anticipated consumer, but no story ever built the consumption side, and `epic-3-readiness.md`'s Gate 1/3 sweep did not flag the gap either (it evaluated architecture/foundation completeness, not FR-level requirements coverage). User confirmed via `AskUserQuestion`: Story 3.6 absorbs Tier 1 (location-based inference, low incremental cost via the already-built Geolocation adapter) directly into its own AC6; this story absorbs the two genuinely ambiguous, product-decision-requiring tiers (2 and 3) that Story 3.6's own scope should not silently decide. Positioned as a lettered suffix directly off Story 3.6 (the story whose own creation surfaced the gap), per `story-split-gate.md`'s "single-story split" numbering rule.
 
 **Depends on:** Story 3.6.
+
+**Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** With `events[]` extraction (Story 3.6s) this story's behavior applies **per extracted event**, not once per payload — an explicit AC in Story 3.6s/3.6t verifies it for a multi-event post.
 
 ### Story 3.6b: Ingest processed events into the database
 
@@ -3115,6 +3121,8 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Depends on:** Story 3.6.
 
+**Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** With `events[]` extraction (Story 3.6s) this story's behavior applies **per extracted event**, not once per payload — an explicit AC in Story 3.6s/3.6t verifies it for a multi-event post.
+
 ### Story 3.6j: Verify and guard against performer-contact/photo leakage in extraction
 
 **As a** platform operator,
@@ -3131,6 +3139,8 @@ Users can subscribe to social media accounts to import events into their feed.
 **Note (2026-09-02, added via `bmad-correct-course`, `sprint-change-proposal-2026-09-02.md`):** Per the minimization doc (§2.4), this guardrail "is not yet built... not yet verified or shipped" per the legal doc's own language — this story exists specifically to close that verification gap, not to build new suppression logic from scratch (some of it may already incidentally work; this story's job is to confirm and harden it, not assume).
 
 **Depends on:** Story 3.6.
+
+**Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** With `events[]` extraction (Story 3.6s) this story's behavior applies **per extracted event**, not once per payload — an explicit AC in Story 3.6s/3.6t verifies it for a multi-event post.
 
 ### Story 3.6k: Children's-data keyword filter (Tier 1 pre-ingestion suppression)
 
@@ -3149,6 +3159,8 @@ Users can subscribe to social media accounts to import events into their feed.
 **Note (2026-09-02, added via `bmad-correct-course`, `sprint-change-proposal-2026-09-02.md`):** Per the minimization doc (§2.5, §5 item 4), no keyword filter, Tier 1/Tier 2 distinction, or category-triggered suppression exists in the codebase today (confirmed via grep — no children's-data terms found in `apps/backend/src`). Positioned as a lettered suffix off Story 3.6 since Tier 1 applies to the scraping/extraction pipeline; its UGC-correction half touches Story 4.1/4.2's form and processing path.
 
 **Depends on:** Story 3.6, Story 4.1, Story 4.2.
+
+**Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** Stays a **post-level** pre-ingestion filter: one children's-data match suppresses the whole post, including unrelated events in a multi-event or roundup post (conservative; accepted).
 
 ### Story 3.6l: Extract events from multi-image carousel posts using a single batched Gemini request
 
@@ -3172,6 +3184,8 @@ Users can subscribe to social media accounts to import events into their feed.
 **Depends on:** Story 3.6, Story 3.3e.
 
 **Cross-reference (2026-09-30, added via `bmad-correct-course`):** This story's `minScheduleCount`/`expectedScheduleNames` fields gain persistence into the new `extraction_audit_logs` table via Story 3.6p, for extraction-quality evaluation — no change to this story's own already-shipped/in-review log-only behavior.
+
+**Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** `minScheduleCount`/`expectedScheduleNames` become **per-event** (Story 3.6s); a post-level `minEventCount` is added.
 
 ### Story 3.6m: Add hasFaceImage/faceImageCount self-reported fields to Gemini extraction schema
 
@@ -3233,6 +3247,8 @@ on the platform, regardless of whether the source account has opted into image r
 
 **Depends on:** Story 3.6n.
 
+**Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** The relevance gate takes the latest schedule end across **all events** of the post, because the image belongs to the post and several events may share it.
+
 ### Story 3.6p: Create extraction_audit_logs table and write path for Gemini self-reported extraction signals
 
 **As a** platform operator,
@@ -3251,6 +3267,8 @@ on the platform, regardless of whether the source account has opted into image r
 
 **Depends on:** Story 3.6e, Story 3.6l, Story 3.6m (the `hasFaceImage`/`faceImageCount` fields must exist before they can be persisted).
 
+**Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** The audit row also records `groupingReason` and the extracted event count. `posts.grouping_reason`/`posts.extracted_event_count` (Story 3.6r) are product-facing and separate from this audit table.
+
 ### Story 3.6q: Version re-hosted media keys and set a 7-day immutable HTTP cache policy
 
 **As a** subscriber,
@@ -3267,6 +3285,145 @@ on the platform, regardless of whether the source account has opted into image r
 *   **And** unit tests cover the key helper (stable hash, extension handling) and the rehost write path; infra assertion tests cover the new header value.
 
 **Depends on:** Story 3.6e (re-hosting mechanism), Story 0.33 (media bucket). **Feeds:** Story 3.6n.
+
+### Story 3.6r: Add the event–post link table and multi-event schema
+
+**As a** platform operator,
+**I want** an event to be linkable to several posts and a post to yield several events,
+**So that** multi-event posts (BUG-051) and cross-post matching (BUG-052) have a data model that does not slow the highest-traffic endpoints.
+
+**Acceptance Criteria:**
+
+*   **Given** Architecture Spine AD-30, **when** the migration runs, **then** `event_posts(event_id, post_id, created_at)` exists (PK `(event_id, post_id)`, index `(post_id, event_id)`, both FKs cascade), `events.post_id` is kept as the **primary-post pointer** with its `unique()` dropped, and `events.extraction_ordinal`, `events.detail_level` (`stub|full`), `events.merged_into_event_id`, `posts.grouping_reason`, `posts.extracted_event_count`, `schedules.applicable_days_of_week` (BUG-026) and `event_slug_aliases` exist.
+*   **And** a unique index on `events (post_id, extraction_ordinal)` (unconditional on `deleted_at`) backs ingestion idempotency; existing rows backfill to ordinal 0 and get a matching `event_posts` row.
+*   **And** one write helper sets `events.post_id` and inserts the matching `event_posts` row in a single transaction, and a consistency check asserts every non-null `events.post_id` has its `event_posts` row.
+*   **And** deleting a post (including profile/account erasure) promotes the next linked post to primary by the primary rule, else sets `events.post_id` null, re-checking the invariant in the same transaction.
+*   **And** `pg_trgm` and a trigram index on `events.event_name` are added (write-path matching only).
+*   **And** EXPLAIN plans for `Query.events` and `Query.eventBySlug` on representative seed data show the same join count and no new Seq Scan; `event_post_id_idx` is dropped only if EXPLAIN shows it is not needed beside the composite unique index.
+
+**Depends on:** Story 3.6b, AD-30. Coordinate migrations with Story 3.15.
+
+### Story 3.6s: Extract multiple events per post with grouping rules
+
+**As a** subscriber,
+**I want** a post that advertises several distinct events to produce several events, and a single event with several schedules to stay one event,
+**So that** events are neither merged nor needlessly split.
+
+**Acceptance Criteria:**
+
+*   **Given** PRD §3.7 "Multi-Event Posts", **when** extraction runs, **then** the Gemini response is `events[]` (each with its own `schedules[]`, `organizerHandle`, per-event `expectedScheduleNames`) plus post-level `groupingReason` (`single-event | program-lineup | dependent-stages | separate-events | roundup`), `minEventCount` and `skippedItems`; `hasFaceImage`/`faceImageCount` stay at the payload root; `groupingRationale` is requested but never persisted.
+*   **And** the prompt encodes the ordered grouping rules (strong signals; two weak signals; bounded window; dependent stages and registration windows are schedules) and the roundup rules (event per item only with a readable date and location; per-post cap, default 10, configurable; reduced confidence when location is missing).
+*   **And** the per-event schedule schema carries `applicableDaysOfWeek` (BUG-026) and any other schedule field shipped at that time; an output cap is set for the response.
+*   **And** timezone inference (3.6a), private-contact classification (3.6i) and performer-leakage guards (3.6j) run **per event**.
+*   **And** `poc-ingestion-preview.ts` handles N events, and the four reference posts (`DdV_7Jsk6pw`, `DdT1cgTlJ2k`, `DcntzF0mB7z`, `Ddi9wU6RCRQ`) are regression fixtures: each is run several times and the grouping decision must match on every run.
+*   **And** the AJV schema (`extracted-event.schema.ts`) validates the new shape; the extraction call count per post stays exactly one.
+
+**Depends on:** Story 3.6l, Story 3.6r. Prerequisite: BUG-012 (Gemini request timeout).
+
+### Story 3.6t: Ingest multiple events per post, with per-event slugs and notifications
+
+**As a** subscriber,
+**I want** each extracted event from a post stored exactly once with a stable URL,
+**So that** multi-event posts show up correctly and re-running extraction never duplicates events.
+
+**Acceptance Criteria:**
+
+*   **Given** an `events[]` payload, **when** ingestion runs, **then** one queue message per event is sent carrying `extractionOrdinal`, and `processIngestionJob` inserts with `onConflictDoNothing` on `(post_id, extraction_ordinal)`, writing the `event_posts` row via the Story 3.6r helper.
+*   **And** the slug is `{platformSlug}_{postType}_{platformPostId}` of the primary post plus `-{ordinal}` when ordinal > 0 (AD-16 amendment); `detail_level` is `stub` for roundup-sourced and `CURATOR_GUIDE`-sourced events.
+*   **And** schedules (including `applicableDaysOfWeek`) are persisted per event; timezone resolution is per event.
+*   **And** notifications are sent per newly inserted event, except for roundup-sourced events.
+*   **And** re-running ingestion for the same post inserts nothing new.
+
+**Depends on:** Story 3.6r, Story 3.6s, and the IDEA-028 / AD-16 platform-prefixed-slug stories.
+
+### Story 3.6u: Show all source posts and related events on the event detail page
+
+**As a** subscriber,
+**I want** the event detail to link every post an event came from and to show the other events from the same posts,
+**So that** I can reach the original posts and discover related events.
+
+**Acceptance Criteria:**
+
+*   **Given** an event with two or more linked posts, **when** I open its detail, **then** the source area lists a link per original post (primary first, then link order) with account name, platform icon, posted-at time and that post's coauthors (unified with Story 0.i6g); the embed and image/video stay on the primary post; a single-post event looks as today.
+*   **And** `Event.sourcePosts` returns each linked post with `groupingReason` and `extractedEventCount`, resolved lazily only on the detail page.
+*   **And** the related-events section loads lazily when near the viewport in two steps: `Query.relatedEventIds` (an index-only read of `event_posts`, excluding the current event), then `Query.events` with `id in [...]`; it never gates primary content (AD-16 Rule 7).
+*   **And** events are grouped by post with labels such as "Events from [post/account]"; each item uses the mobile calendar compact event card; up to **5** per group show inline, then a "See all N events" link opens Story 3.6x's page; the section is hidden when empty; skeletons match the compact card.
+*   **And** `Query.events` and `Query.eventBySlug` per-row cost is unchanged (AD-17).
+
+**Depends on:** Story 3.6r, Story 3.6t, Story 1.3j, Story 1.6c, the IDEA-028 / AD-16 stories, Story 0.i6g (coordinate).
+
+### Story 3.6v: Match new posts to existing events and enrich them in place
+
+**As a** subscriber,
+**I want** the same real-world event advertised by several posts to be one event,
+**So that** a thin roundup entry becomes the detailed event when the organizer posts, with my favorites and calendar entries intact (BUG-052).
+
+**Acceptance Criteria:**
+
+*   **Given** an extracted event, **when** ingestion runs, **then** matching runs before insert: candidates by overlapping dates (±2 days) plus trigram name similarity; score by same organizer account (`organizerHandle` or a `PUBLISHER`/`COAUTHOR` association), shared registration/ticket link, date+name similarity and venue; **high** auto-links, **mid** is queued for moderator review, **low** creates a new event.
+*   **And** primary selection: organizer-authored over roundup/aggregator (using `accountType` and roles), then more detail, then earlier post.
+*   **And** enrichment is in place: fields with an approved correction or moderator edit are never overwritten (changes queue for moderation); schedules match by date and are updated or added, never deleted while a `calendar_additions` row references them.
+*   **And** on promotion the event adopts the matched candidate's `extraction_ordinal`, is re-slugged to name the new primary post, and the old slug is recorded in `event_slug_aliases`; `eventBySlug` resolves aliases only on a miss and returns a permanent redirect to the canonical slug.
+*   **And** the first organizer-authored primary post triggers one notification to that account's subscribers.
+*   **And** re-running either post creates no duplicate and no extra link.
+
+**Depends on:** Story 3.6t, Stories 3.13–3.15 (roles), Story 3.4n, the IDEA-028 / AD-16 stories.
+
+### Story 3.6w: Let moderators merge duplicate events, with slug redirects
+
+**As a** moderator,
+**I want** to merge two events that turned out to be duplicates,
+**So that** users keep their favorites and calendar entries and old links still work.
+
+**Acceptance Criteria:**
+
+*   **Given** two events, **when** a moderator merges B into A with confirmation, **then** B is soft-deleted with `merged_into_event_id = A`, B's favorites, calendar entries and reports are repointed to A (deduplicated per user), B's posts are linked to A, and B's slug becomes an alias of A.
+*   **And** a suggested-match review list (mid-confidence matches from Story 3.6v) lets a moderator accept or reject; an undo window matches the soft-delete undo pattern.
+*   **And** old links redirect to the survivor through Story 3.6v's alias mechanism.
+
+**Depends on:** Story 3.6v, Story 4.7b.
+
+### Story 3.6x: Show all events from a post on a post collection page
+
+**As a** subscriber,
+**I want** a page listing every event from a post,
+**So that** I can browse a roundup or multi-event post's events when there are more than the inline limit.
+
+**Acceptance Criteria:**
+
+*   **Given** the "See all N events" link from Story 3.6u, **when** I open it, **then** a post collection page (route roughly `/posts/{platformSlug}/{postType}/{platformPostId}/events`, finalized in the `bmad-ux` pass) lists the post's events.
+*   **And** the page **reuses the existing event-list UI and logic** (`EventListView`, `PageContainer`/`PageHeader`/`GridContainer`, `useListPaginationController`, infinite scroll, context-aware Next/Previous detail navigation) with no parallel list implementation; data comes from `Query.relatedEventIds` (post variant) then `Query.events` with `id in [...]`.
+*   **And** the title/meta are set via `generateMetadata` per project rules.
+
+**Depends on:** Story 3.6u.
+
+### Story 3.6y: Respect weekday-narrowed schedules in day-of-week filtering
+
+**As a** subscriber filtering by day of week,
+**I want** a schedule that applies only on certain weekdays to match only those weekdays,
+**So that** a Monday-only promo does not show up for every Friday inside its span (BUG-026).
+
+**Acceptance Criteria:**
+
+*   **Given** a schedule with `applicableDaysOfWeek`, **when** the day-of-week filter or calendar occurrence logic evaluates it, **then** only the stated weekdays inside its span match; schedules with the field unset behave as today.
+*   **And** `buildEventsQueryCondition` and the date-range overlap in `drizzle-where` honor the field; EXPLAIN evidence shows no regression on `Query.events` (AD-17).
+
+**Depends on:** Story 3.6r (column), Story 1.3j.
+
+### Story 3.6z: Automatically enqueue new scraped posts for extraction within quota
+
+**As a** subscriber,
+**I want** newly scraped posts from my subscribed accounts to be extracted automatically,
+**So that** events appear without my selecting each post (BUG-039; PRD §3.4/§3.5).
+
+**Acceptance Criteria:**
+
+*   **Given** a scrape completes, **when** new posts are persisted for a subscribed account, **then** they are enqueued automatically using the existing Tier 1/Tier 2 key round-robin and quota checks; posts without an available key or quota stay for manual selection (PRD §3.10), which remains for older posts.
+*   **And** multi-event and roundup rules (Stories 3.6s/3.6t) apply to auto-extracted posts, and `CURATOR_GUIDE` minimization (Story 3.4o) is unchanged.
+*   **And** `enqueuePostForProcessing` is idempotent so a post is never enqueued twice.
+
+**Depends on:** Story 3.5, Story 3.6t. Soft: FIND-061 diagnosis.
+
 
 ---
 
@@ -3396,6 +3553,8 @@ on the platform, regardless of whether the source account has opted into image r
 *   **And** the push notification contains the event name and a short description.
 
 **Depends on:** Story 0.12, Story 2.9.
+
+**Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** Notifications are sent **per extracted event**, except events sourced from a `roundup` post (none, since the posting account is not the organizer). One notification is also sent the first time an event gains an organizer-authored primary post (Story 3.6v). FIND-061 (no new-event notification has ever been received) is to be diagnosed before relying on this path.
 
 ### Story 3.9: Implement API key quota management
 
@@ -3553,6 +3712,8 @@ Full resolved shape — columns: `id` (uuid, PK, `defaultRandom`), `postId` (uui
 
 **Depends on:** Story 3.3a, Story 3.14.
 
+**Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** Unblocked by Architecture Spine **AD-31** (post–account associations), authored in the same `bmad-architecture` session as AD-30 (Event↔Post many-to-many). Its roles feed Story 3.6v's "organizer-authored" test. Coordinate migration order with Story 3.6r (both change `packages/database/schema.ts`).
+
 ### Story 3.16: Immediate coauthor/publisher subscribability
 
 **As a** user,
@@ -3606,6 +3767,8 @@ Full resolved shape — columns: `id` (uuid, PK, `defaultRandom`), `postId` (uui
 **Note:** Added 2026-09-18 via `bmad-correct-course` from FIND-022's spec, CAP-6.
 
 **Depends on:** Story 3.15, Story 3.7b.
+
+**Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** Account filtering and `isFromSubscribedAccount` extend to the **event level**: an event matches when **any** post linked through `event_posts` has a matching association (an `EXISTS`, applied only when an account filter is present; EXPLAIN-gated per AD-30/AD-17). **Depends on** Story 3.6r.
 
 ### Story 3.19: Sanitized subscription-toggle analytics
 
@@ -4996,6 +5159,8 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 **Note:** Added 2026-09-18 via `bmad-correct-course` from FIND-022's spec, CAP-7. Homed under Epic 0.i6 rather than Epic 3 or Epic 1 — this is an adoption of the shared card contract onto a new surface, the same class of change Stories 0.i6b/0.i6c/0.i6d/0.i6e/0.i6f already established as this epic's pattern, and epics.md's own prior note on Story 0.i6a anticipated exactly this landing spot. The confirm-then-refetch-vs-optimistic UI-convention conflict flagged as an open question in the spec is adjudicated by this same Sprint Change Proposal as a scoped exception (see `project-context.md`), not reopened as a broader convention change.
 
 **Depends on:** Story 0.i6c, Story 3.15, Story 3.16.
+
+**Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** Unified with Story 3.6u's source-post entries: when an event has several posts, each entry shows that post's original-post link, posted-at time and coauthors, with this story's subscribe toggle per coauthor. The embed stays on the primary post.
 
 ### Story 0.i6z: Ratchet — no display surface bypasses the card
 

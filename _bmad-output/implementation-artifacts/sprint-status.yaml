@@ -1779,6 +1779,21 @@ development_status:
   3-6q-version-re-hosted-media-keys-and-set-a-7-day-immutable-http-cache-policy: review
   # 3.6q added 2026-10-01 (AD-28 Rule 9): versioned media keys + 7-day immutable HTTP cache,
   # HTTP cache only (no service worker). Must land before 3.6n.
+  3-6r-add-the-event-post-link-table-and-multi-event-schema: backlog
+  3-6s-extract-multiple-events-per-post-with-grouping-rules: backlog
+  3-6t-ingest-multiple-events-per-post-with-per-event-slugs-and-notifications: backlog
+  3-6u-show-all-source-posts-and-related-events-on-the-event-detail-page: backlog
+  3-6v-match-new-posts-to-existing-events-and-enrich-them-in-place: backlog
+  3-6w-let-moderators-merge-duplicate-events-with-slug-redirects: backlog
+  3-6x-show-all-events-from-a-post-on-a-post-collection-page: backlog
+  3-6y-respect-weekday-narrowed-schedules-in-day-of-week-filtering: backlog
+  3-6z-automatically-enqueue-new-scraped-posts-for-extraction-within-quota: backlog
+  # 3.6r-3.6z added 2026-10-01 via bmad-correct-course
+  # (sprint-change-proposal-2026-10-01-multi-event-posts.md, CC-024): multi-event posts
+  # (BUG-051), cross-post matching (BUG-052), weekday-narrowed schedules (BUG-026) and
+  # automatic extraction (BUG-039). Needs AD-30/AD-31 (bmad-architecture) before 3.6r;
+  # 3.6t/3.6v also wait on the IDEA-028 / AD-16 slug stories, 3.6s on BUG-012,
+  # 3.6u on 1.3j/1.6c, 3.6v on 3.13-3.15.
   # added 2026-09-30 via bmad-correct-course (sprint-change-proposal-2026-09-30.md):
   # triggering issue -- exploratory bmad-help conversation on face-blurred post
   # thumbnails for bystander privacy, converged into Architecture Spine AD-28

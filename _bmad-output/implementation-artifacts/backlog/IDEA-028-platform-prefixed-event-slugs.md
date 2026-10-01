@@ -52,3 +52,13 @@ Ready for `bmad-create-story` (architecture pass complete, no open design questi
 splits into multiple stories given its breadth (schema migration, ingestion parser, resolver,
 GraphQL schema change, frontend query split) — similar to how 3-7d/3-7e split apart a comparably
 sized oEmbed change.
+
+## Amendment (2026-10-01, CC-024 / `sprint-change-proposal-2026-10-01-multi-event-posts.md`)
+
+Event<->Post becomes many-to-many (AD-30), so this slug design gains three rules:
+
+1. **Invariant: the slug names the primary post.** `{platformSlug}_{postType}_{platformPostId}` is built from `events.post_id` (the primary pointer); this is what keeps Rule 6's DB-free oEmbed correct.
+2. **Ordinal suffix:** `-{extraction_ordinal}` when the event's ordinal is greater than 0 (`ig_p_Ddi9wU6RCRQ`, `ig_p_Ddi9wU6RCRQ-2`) so several events from one post get distinct slugs.
+3. **Primary change re-slugs:** when cross-post matching (Story 3.6v) promotes a new primary post, the event takes the new post's slug and the old one is recorded in `event_slug_aliases`; `eventBySlug` resolves aliases only on a slug miss and returns a permanent redirect.
+
+**Sequencing:** this idea's stories are a hard prerequisite of Stories 3.6t (multi-event ingestion) and 3.6v (matching/enrichment), hence `blocks: [CC-024]` on the board.
