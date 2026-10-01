@@ -13,7 +13,7 @@ let this drift the way the other two docs did.
 
 Both source plans are now past `bmad-create-story`. What's left is execution order: 19 stories
 sit at `ready-for-dev` with a real (if partly undocumented) dependency graph between them, plus
-one item (IDEA-038) still genuinely blocked pending two of those stories reaching `done`. The
+one item (IDEA-038) still genuinely blocked pending three of those stories (1.3l, 0.i5e, 0.i5d) reaching at least `review`. The
 orchestrator dispatches `bmad-dev-story` strictly sequentially (one story in flight at a time —
 `sprint-status.yaml`/`epics.md` are shared-write hazards), so this doc's "waves" are really just
 a safe *ordering*, not real parallelism — but front-loading high-fan-out prerequisites means
@@ -57,8 +57,8 @@ another story in this set.
 - **By effort (heaviest chain)**: **0.38a (l) → 0.38 (l)**, additionally gated by 0.42 (m) — the
   two largest stories in the queue, chained. This is the longer pole if optimizing for calendar
   time even though it isn't the highest-fan-out node.
-- **IDEA-038's own unblock chain** (1.3l → 0.i5e → IDEA-038 itself needs a *third*
-  `bmad-create-story` pass once both are `done`) is the one genuinely 3-stage chain in the whole
+- **IDEA-038's own unblock chain** (1.3l → 0.i5e, plus 0.i5d → IDEA-038 itself needs a *third*
+  `bmad-create-story` pass once all are at least `review`) is the one genuinely 3-stage chain in the whole
   picture — see its own section below.
 
 ## Recommended dispatch order
@@ -100,12 +100,17 @@ IDEA-038 (extend the Today/Upcoming/All temporal filter to Feed/Favorites) stays
 declined to draft it yet (per `AskUserQuestion`, "create the missing prerequisite story first")
 and instead carved **Story 0.i5e** as a new prerequisite. Full chain:
 
-1. [ ] Story 1.3l (BUG-025) reaches `done` — wires Feed/Favorites to real
+1. [ ] Story 1.3l (BUG-025) reaches at least `review` — wires Feed/Favorites to real
        auth/location/AI-filter state
-2. [ ] Story 0.i5e reaches `done` — adopts `useListPaginationController` in Feed/Favorites
+2. [ ] Story 0.i5e reaches at least `review` — adopts `useListPaginationController` in Feed/Favorites
        (depends on 1.3l per its own epics.md `Depends on:` line, plus already-shipped 0.i5a)
-3. [ ] Re-invoke `bmad-create-story` for IDEA-038 once both are `done` — only then does the
-       temporal filter extension itself become actionable
+3. [ ] Story 0.i5d reaches at least `review` — builds `TemporalFilterToggle` /
+       `EventFilterInput.temporalFilter`, which IDEA-038 extends to Feed/Favorites (added
+       2026-09-30, batch readiness report; standalone, no dependency on the two above)
+4. [ ] Re-invoke `bmad-create-story` for IDEA-038 once all three are at least `review` — only then
+       does the temporal filter extension itself become actionable ("at least `review`" is the
+       project's standing rule for build-against prerequisites; reconciled 2026-09-30 with the
+       wave plan, replacing the earlier "`done`" wording)
 
 ## Full story status (verification — re-check via `verify-story.ts` before trusting stale rows)
 
@@ -130,7 +135,7 @@ and instead carved **Story 0.i5e** as a new prerequisite. Full chain:
 | 0.38 | IDEA-020 | `ready-for-dev` | needs 0.38a + 0.42 |
 | 1.3l | BUG-025 | `review` | standalone — implementation landed |
 | 0.i5e | (carved from IDEA-038's create-story) | `ready-for-dev` | needs 1.3l |
-| — | IDEA-038 | `backlog` (not yet storied) | blocked on 1.3l + 0.i5e reaching `done` |
+| — | IDEA-038 | `backlog` (not yet storied) | blocked on 1.3l + 0.i5e + 0.i5d reaching at least `review` |
 
 ## Prototype coverage — 2026-09-14 UX pass (audited 2026-09-20)
 
@@ -293,5 +298,5 @@ value. **Do not dispatch 0.43's `bmad-dev-story` before 0.44 reaches `done`.**
 3. Run `npx tsx src/detect-new-stories.ts` after each dispatch — `bmad-dev-story` can also
    surface gaps that carve new stories, same as `bmad-create-story` did today (0.42, 0.i5e, 1.3l
    were all created this way).
-4. Once 1.3l and 0.i5e are both `done`, re-invoke `bmad-create-story IDEA-038` and fold the
+4. Once 1.3l, 0.i5e and 0.i5d are all at least `review`, re-invoke `bmad-create-story IDEA-038` and fold the
    result into this doc.

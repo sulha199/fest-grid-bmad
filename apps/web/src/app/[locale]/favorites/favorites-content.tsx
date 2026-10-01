@@ -11,6 +11,8 @@ import {
   AIFilterOverlay,
   BlockingLoader,
   formatLocalizedNearbyBadgeDistance,
+  useListPaginationController,
+  usePrefersReducedMotion,
 } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import {
@@ -28,9 +30,10 @@ import { usePostHog } from "@festgrid/analytics"
 import { useRouter } from "@/i18n/navigation"
 import { useSearchParams } from "next/navigation"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
-import { buildEventsQueryCondition, EventFilterInput, NearbyFilterInput } from "@festgrid/domain/events"
+import { buildEventsQueryCondition, EventFilterInput, NearbyFilterInput, DayOfWeek as DomainDayOfWeek } from "@festgrid/domain/events"
 import { useAIFilter } from "@/features/events/use-ai-filter"
 import { useNearbyFilter } from "../use-nearby-filter"
+import { mapDaysOfWeekToDomain } from "@/lib/day-of-week-mapping"
 
 const PAGE_SIZE = 10
 
@@ -84,6 +87,7 @@ export function FavoritesContent() {
   const t = useTranslations("FavoritesPage")
   const tCategory = useTranslations("EventCategory")
   const tType = useTranslations("EventType")
+  const tDayOfWeek = useTranslations("DayOfWeek")
   const tFilterHub = useTranslations("FilterHub")
   const tNearby = useTranslations("NearbyFilter")
   const tEventCard = useTranslations("EventCard")
@@ -107,6 +111,12 @@ export function FavoritesContent() {
     [tCategory]
   )
   const typeLabels = useMemo(() => buildEnumLabels(Object.values(EventType), tType), [tType])
+  // Story 1.3k Task 8 (AC9) — DayOfWeek i18n namespace, passed through to EventListView/EventCard
+  // as `dayOfWeekLabels`.
+  const dayOfWeekLabels = useMemo(
+    () => buildEnumLabels(Object.values(DomainDayOfWeek), tDayOfWeek),
+    [tDayOfWeek]
+  )
 
   const filterLabels = useMemo(
     () => ({
@@ -163,20 +173,27 @@ export function FavoritesContent() {
     }
   }, [isLoading, session, router])
 
-  const snapshotQueryKey = useMemo(
-    () => JSON.stringify({ q, types, categories, filter: aiFilter.activeFilter, nearby: resolvedNearby }),
-    [q, types, categories, aiFilter.activeFilter, resolvedNearby]
-  )
-  const previousSnapshotKeyRef = useRef(snapshotQueryKey)
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const pagination = useListPaginationController({
+    // Deliberately keyed on the same {q, types, categories, nearby, aiFilter} snapshot
+    // idSnapshotData itself uses, NOT on frozenIds (a derived value) -- see Dev Notes
+    // "Why the controller's filterKey deliberately excludes frozenIds (Favorites)".
+    filterKey: { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter },
+    initialCursor: 0,
+    onReset: () => {
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' })
+      }
+    },
+  })
 
+  // AC3/Task 3: the controller's resetToken is now the single source of truth for "a filter
+  // change happened" -- replaces the previous previousSnapshotKeyRef/snapshotQueryKey-comparison
+  // effect. A filter-driven reset finalizes any pending removal immediately (no blocking/
+  // deferring the undo window), per the user's AskUserQuestion decision recorded in AC3.
   useEffect(() => {
-    if (previousSnapshotKeyRef.current === snapshotQueryKey) {
-      return
-    }
-
-    previousSnapshotKeyRef.current = snapshotQueryKey
     setUnfavoritedIds(new Set())
-  }, [snapshotQueryKey])
+  }, [pagination.resetToken])
 
   const {
     data: idSnapshotData,
@@ -223,7 +240,7 @@ export function FavoritesContent() {
     status,
     error,
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ["favoriteEvents", { ids: frozenIds, q, types, categories, filter: aiFilter.activeFilter, nearby: resolvedNearby }],
+    queryKey: ["favoriteEvents", { ids: frozenIds, q, types, categories, filter: aiFilter.activeFilter, nearby: resolvedNearby }, pagination.resetToken],
     queryFn: async ({ pageParam }) => {
       const start = pageParam as number
       const batchIds = frozenIds.slice(start, start + PAGE_SIZE)
@@ -298,7 +315,17 @@ export function FavoritesContent() {
   })
 
   type EventItem = GetEventsQuery["events"]["items"][number]
-  const events: EventItem[] = (data?.pages || []).flatMap((page: GetEventsQuery) => page.events.items) ?? []
+  // Story 1.3k Task 9 — map each schedule's GraphQL-typed `applicableDaysOfWeek` to the domain
+  // enum (AD-19 Rule 2/3), consumed by `EventListView`'s repeat badge.
+  const events = ((data?.pages || []).flatMap((page: GetEventsQuery) => page.events.items) ?? []).map(
+    (event: EventItem) => ({
+      ...event,
+      schedules: (event.schedules ?? []).map((schedule) => ({
+        ...schedule,
+        applicableDaysOfWeek: mapDaysOfWeekToDomain(schedule.applicableDaysOfWeek),
+      })),
+    })
+  )
 
   const handleSearchSubmit = useMemo(
     () => (searchQuery: string) => {
@@ -379,6 +406,7 @@ export function FavoritesContent() {
                   priceFrom: t("priceFrom"),
                   categoryLabels,
                   typeLabels,
+                  dayOfWeekLabels,
                   tillLabel: tEventCard("tillLabel"),
                   statusEnded: tEventCard("statusEnded"),
                   statusHappeningNow: tEventCard("statusHappeningNow"),

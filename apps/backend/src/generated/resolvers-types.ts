@@ -330,6 +330,7 @@ export type EventFilterInput = {
   isFree?: InputMaybe<Scalars['Boolean']['input']>;
   keyword?: InputMaybe<Scalars['String']['input']>;
   location?: InputMaybe<LocationFilterInput>;
+  temporalFilter?: InputMaybe<TemporalFilter>;
   types?: InputMaybe<Array<EventType>>;
   venueType?: InputMaybe<Scalars['String']['input']>;
 };
@@ -1069,6 +1070,7 @@ export type ResolvedAiEventFilterResult = {
 
 export type Schedule = {
   __typename?: 'Schedule';
+  applicableDaysOfWeek?: Maybe<Array<DayOfWeek>>;
   createdAt: Scalars['String']['output'];
   eventEndDate?: Maybe<Scalars['String']['output']>;
   eventEndTime?: Maybe<Scalars['String']['output']>;
@@ -1179,6 +1181,10 @@ export type Subscription = {
   isNewlyAdded: Scalars['Boolean']['output'];
   pendingExtractionCount: Scalars['Int']['output'];
 };
+
+export type TemporalFilter =
+  | 'TODAY'
+  | 'UPCOMING';
 
 export type ToggleCalendarAdditionResult = {
   __typename?: 'ToggleCalendarAdditionResult';
@@ -1471,6 +1477,7 @@ export type ResolversTypes = ResolversObject<{
   SubscribeToAccountInput: SubscribeToAccountInput;
   SubscribeToAccountResult: ResolverTypeWrapper<SubscribeToAccountResult>;
   Subscription: ResolverTypeWrapper<{}>;
+  TemporalFilter: TemporalFilter;
   ToggleCalendarAdditionResult: ResolverTypeWrapper<ToggleCalendarAdditionResult>;
   ToggleFavoriteResult: ResolverTypeWrapper<ToggleFavoriteResult>;
   TriggerAccountScrapeResult: ResolverTypeWrapper<TriggerAccountScrapeResult>;
@@ -2023,6 +2030,7 @@ export type ResolvedAiEventFilterResultResolvers<ContextType = GraphQLContext, P
 }>;
 
 export type ScheduleResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Schedule'] = ResolversParentTypes['Schedule']> = ResolversObject<{
+  applicableDaysOfWeek?: Resolver<Maybe<Array<ResolversTypes['DayOfWeek']>>, ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   eventEndDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   eventEndTime?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

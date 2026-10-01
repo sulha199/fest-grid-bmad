@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { FilterHubProps } from './FilterHub.js';
 import { LocationRadiusFilterProps } from './LocationRadiusFilter.types.js';
+import { TemporalFilterToggleLabels, TemporalFilterValue } from './TemporalFilterToggle.types.js';
 
 export interface EventDiscoveryPanelView {
   id: string;
@@ -33,4 +34,11 @@ export interface EventDiscoveryPanelProps extends Omit<FilterHubProps, 'labels' 
   views: EventDiscoveryPanelView[];
   className?: string;
   showFiltersLabel?: string;
+  // Temporal filter (Story 0.i5d, AC6) -- card view only. Optional: this story wires it into
+  // Discovery's card view (home-content.tsx) only -- Feed/Favorites/the account page/widget
+  // embeds don't pass these yet (out of scope, see story Dev Notes), so the toggle simply
+  // doesn't render for those callers rather than requiring every existing consumer to adopt it.
+  temporalFilter?: TemporalFilterValue;
+  onTemporalFilterChange?: (value: TemporalFilterValue) => void;
+  temporalFilterLabels?: TemporalFilterToggleLabels;
 }

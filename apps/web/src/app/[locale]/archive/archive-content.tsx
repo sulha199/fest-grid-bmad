@@ -19,6 +19,8 @@ import { graphqlClient } from "@/lib/graphql-client"
 import { usePostHog } from "@festgrid/analytics"
 import { useRouter } from "@/i18n/navigation"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
+import { mapDaysOfWeekToDomain } from "@/lib/day-of-week-mapping"
+import { DayOfWeek as DomainDayOfWeek } from "@festgrid/domain/events"
 
 
 const PAGE_SIZE = 10
@@ -39,6 +41,7 @@ export function ArchiveContent() {
   const t = useTranslations("ArchivePage")
   const tCategory = useTranslations("EventCategory")
   const tType = useTranslations("EventType")
+  const tDayOfWeek = useTranslations("DayOfWeek")
   const tEventCard = useTranslations("EventCard")
   const locale = useLocale()
   const posthog = usePostHog()
@@ -50,6 +53,12 @@ export function ArchiveContent() {
     [tCategory]
   )
   const typeLabels = useMemo(() => buildEnumLabels(Object.values(EventType), tType), [tType])
+  // Story 1.3k Task 8 (AC9) — DayOfWeek i18n namespace, passed through to EventListView/EventCard
+  // as `dayOfWeekLabels`.
+  const dayOfWeekLabels = useMemo(
+    () => buildEnumLabels(Object.values(DomainDayOfWeek), tDayOfWeek),
+    [tDayOfWeek]
+  )
 
   // AC6: unauthenticated visitors are redirected to /login
   useEffect(() => {
@@ -93,7 +102,17 @@ export function ArchiveContent() {
   })
 
   type EventItem = GetArchivedEventsQuery["events"]["items"][number]
-  const events: EventItem[] = (data?.pages || []).flatMap((page: GetArchivedEventsQuery) => page.events.items) ?? []
+  // Story 1.3k Task 9 — map each schedule's GraphQL-typed `applicableDaysOfWeek` to the domain
+  // enum (AD-19 Rule 2/3), consumed by `EventListView`'s repeat badge.
+  const events = ((data?.pages || []).flatMap((page: GetArchivedEventsQuery) => page.events.items) ?? []).map(
+    (event: EventItem) => ({
+      ...event,
+      schedules: (event.schedules ?? []).map((schedule) => ({
+        ...schedule,
+        applicableDaysOfWeek: mapDaysOfWeekToDomain(schedule.applicableDaysOfWeek),
+      })),
+    })
+  )
 
   // Capture once per successful load
   const hasLoadedRef = useRef(false)
@@ -139,6 +158,7 @@ export function ArchiveContent() {
           priceFrom: t("priceFrom"),
           categoryLabels,
           typeLabels,
+          dayOfWeekLabels,
           tillLabel: tEventCard("tillLabel"),
           statusEnded: tEventCard("statusEnded"),
           statusHappeningNow: tEventCard("statusHappeningNow"),

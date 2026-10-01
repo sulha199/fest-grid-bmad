@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-27T00:00:00Z
+last_updated: 2026-10-01T03:17:47Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -279,7 +279,7 @@ development_status:
   # depends on 0-38a (see above). Gates 1/3 returned "No gap found"; Gate 2's gap is
   # resolved by 0-38a's split. No epics.md section added, mirroring Stories 0.33-0.37's
   # standalone-Epic-0-story precedent.
-  0-38-cache-embedjs-preconnect-and-pwa-install-prompt: ready-for-dev
+  0-38-cache-embedjs-preconnect-and-pwa-install-prompt: review
   # added 2026-09-17 via bmad-create-story while drafting 1-i1f: Gate 3 found that
   # AD-22's "active filter location, else viewer's current location" priority rule
   # has no owning story for its "else" branch -- no ambient/passive viewer-location
@@ -359,8 +359,8 @@ development_status:
   0-i5a-build-the-shared-pagination-filter-controller: review
   0-i5b-adopt-the-controller-in-discovery-event-list-surfaces: review
   0-i5c-adopt-the-controller-in-the-moderator-tools-pages: backlog
-  0-i5d-sweep-add-the-temporal-filter-to-the-filterhub: ready-for-dev
-  0-i5e-adopt-the-controller-in-feed-and-favorites: ready-for-dev
+  0-i5d-sweep-add-the-temporal-filter-to-the-filterhub: review
+  0-i5e-adopt-the-controller-in-feed-and-favorites: review
   0-i5z-ratchet-no-list-surface-manages-pagination-filter-state-locally: backlog
   epic-0-i6: in-progress
   # corrected 2026-09-16 via bmad-dev-story: entry was stale at 'backlog' despite
@@ -381,7 +381,7 @@ development_status:
   # registration deferred to this bmad-create-story session (2026-09-19). Blocked on Story
   # 1-6d (LocationLink, ready-for-dev, not yet implemented) -- see story file's own
   # Pre-Coding Approval Gate.
-  0-i6e-replace-the-cards-raw-account-identifier-line-with-a-location-link-when-confirmed: ready-for-dev
+  0-i6e-replace-the-cards-raw-account-identifier-line-with-a-location-link-when-confirmed: review
   0-i6f-platform-icon-fallback-and-functional-subscribe-unsubscribe-toggle: review
   # added 2026-09-18 via bmad-correct-course (FIND-022 spec CAP-7); depends on
   # 3-15/3-16 in epic-3, so cannot start before those land.
@@ -709,7 +709,7 @@ development_status:
   # added 2026-09-17 via bmad-create-story (IDEA-003, resolved via bmad-ux +
   # bmad-architecture AD-19): day-of-week recurrence occurrence-expansion +
   # event_card_repeat_badge across all 3 card families. See epics.md Story 1.3k.
-  1-3k-render-day-of-week-recurring-schedules-and-repeat-badge: ready-for-dev
+  1-3k-render-day-of-week-recurring-schedules-and-repeat-badge: review
   # added 2026-09-19 via bmad-create-story (BUG-025). See epics.md Story 1.3l.
   # Implemented + verified 2026-09-20 (cline): Tasks 1-6 complete. Feed/Favorites now
   # wire useNearbyFilter/useAIFilter; buildFeedQueryCondition/buildFavoritesQueryCondition
@@ -779,7 +779,7 @@ development_status:
   # 1-3j (status: review as of 2026-09-20 -- implemented, full backend suite passes,
   # so 1.6c's block on it is cleared) -- see the story file's own
   # Pre-Coding Approval Gate. See epics.md Story 1.6c.
-  1-6c-batch-isaddedtocalendar-dedupe-eventbyslug-fetch-and-gate-subscriptions-query: ready-for-dev
+  1-6c-batch-isaddedtocalendar-dedupe-eventbyslug-fetch-and-gate-subscriptions-query: review
   # epics.md section added 2026-09-15 via bmad-correct-course (CC-021,
   # sprint-change-proposal-2026-09-15-reusable-location-link.md), which
   # deferred sprint-status.yaml registration to a later bmad-create-story
@@ -792,7 +792,7 @@ development_status:
   # No prerequisite story added. Depended on by Story 1.6e (event-detail
   # schedule adoption) and Story 0.i6e (SubscribedAccountCard adoption),
   # both out of this story's own scope. See epics.md Story 1.6d.
-  1-6d-build-the-reusable-locationlink-component: ready-for-dev
+  1-6d-build-the-reusable-locationlink-component: review
   # epics.md section added 2026-09-15 via bmad-correct-course (CC-021, same
   # proposal as 1-6d). sprint-status.yaml registration deferred to this
   # bmad-create-story session (2026-09-19). Amends EventDetailView.tsx's
@@ -805,7 +805,7 @@ development_status:
   # (same as 1.6c/1.6d/1.6f) so it was not cited -- ran Gates 1/2/3 fresh via
   # subagent dispatch, all three "no gap found." No prerequisite story
   # added. See epics.md Story 1.6e.
-  1-6e-event-detail-schedule-refinements-smaller-name-bigger-add-to-calendar-action-location-link: ready-for-dev
+  1-6e-event-detail-schedule-refinements-smaller-name-bigger-add-to-calendar-action-location-link: review
   # reopened 2026-08-15 via bmad-create-story per sprint-change-proposal-2026-08-13-
   # discovery-detail-calendar-ux.md Section 4.2: added AC13 (Carousel-chrome
   # navigation) and AC14 (icon-only modal close). Verified via git show that AC14
@@ -1776,6 +1776,9 @@ development_status:
   3-6n-detect-and-blur-faces-in-extracted-post-images-generating-a-consent-independent-durable-thumbnail: backlog
   3-6o-skip-face-blur-processing-for-events-ending-before-their-source-image-expires: backlog
   3-6p-create-extraction-audit-logs-table-and-write-path-for-gemini-self-reported-extraction-signals: backlog
+  3-6q-version-re-hosted-media-keys-and-set-a-7-day-immutable-http-cache-policy: review
+  # 3.6q added 2026-10-01 (AD-28 Rule 9): versioned media keys + 7-day immutable HTTP cache,
+  # HTTP cache only (no service worker). Must land before 3.6n.
   # added 2026-09-30 via bmad-correct-course (sprint-change-proposal-2026-09-30.md):
   # triggering issue -- exploratory bmad-help conversation on face-blurred post
   # thumbnails for bystander privacy, converged into Architecture Spine AD-28

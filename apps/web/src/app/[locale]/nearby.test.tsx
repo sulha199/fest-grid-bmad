@@ -98,6 +98,10 @@ vi.mock('nuqs', () => {
     parseAsArrayOf: () => ({ withDefault: (val: any) => ({ defaultValue: val }) }),
     parseAsStringLiteral: (allowed: any) => ({ withDefault: (val: any) => ({ defaultValue: val }) }),
     parseAsInteger: { withDefault: (val: any) => ({ defaultValue: val }) },
+    // Story 0.i5d: home-content.tsx's `temporal` query-state uses parseAsStringEnum with no
+    // `.withDefault(...)` (absent/null means "All") -- the shared store's own
+    // `defaultValue ?? null` fallback above already gives it a starting value of `null`.
+    parseAsStringEnum: () => ({}),
   };
 });
 

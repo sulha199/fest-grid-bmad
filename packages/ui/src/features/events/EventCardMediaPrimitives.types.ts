@@ -1,4 +1,5 @@
 import type { CSSProperties, MouseEventHandler, ReactNode } from 'react';
+import type { DayOfWeek as DomainDayOfWeek } from '@festgrid/domain/events';
 import type { EventCardDateBoxSize } from './event-card-media-tokens';
 
 /**
@@ -202,6 +203,44 @@ export interface EventCardNearbyBadgeLabels {
  * Non-interactive by design (AC6, `EXPERIENCE.md` Accessibility Floor): no `aria-label`,
  * no tooltip, no independent focus stop.
  */
+/**
+ * Story 1.3k (AC6/AC10) — the repeat badge shared by every card family (masonry, calendar list
+ * row, grid-item corner, spanning bar). Icon-only, non-interactive (AC "Tooltip trigger
+ * resolution" — never an independently-focusable trigger of its own): the consuming card's own
+ * already-interactive root (`RootTag`, the schedule-click `<button>`, or the grid variant's outer
+ * `<button>`) drives `tooltipVisible` via the shared `useHoverFocusTooltip` hook.
+ */
+export interface EventCardRepeatBadgeProps {
+  /**
+   * The weekdays this schedule actually occurs on. Already mapped to `packages/domain`'s own
+   * `DayOfWeek` enum by the caller (`apps/web/src/lib/day-of-week-mapping.ts`) — this primitive
+   * never imports the GraphQL-generated enum directly (AD-19 Rule 2/3). Renders `null` when
+   * empty/undefined (mirrors `EventCardFavoriteBadge`'s "renders only when applicable"
+   * convention).
+   */
+  daysOfWeek?: DomainDayOfWeek[] | null;
+  /**
+   * Translated weekday display labels keyed by the exact `DayOfWeek` enum member name (Story
+   * 1.3k AC9's `DayOfWeek` i18n namespace). Falls back to the raw enum member name if a key is
+   * missing.
+   */
+  dayOfWeekLabels?: Record<string, string>;
+  /**
+   * aria-label/tooltip text resolver, invoked with the schedule's translated matching weekday
+   * labels in array order. Falls back to `Repeats on ${dayLabels.join(', ')}` when omitted
+   * (mirrors this file's `moreLabel`/`multiDaySegmentLabel` fallback-string convention).
+   */
+  repeatBadgeAriaLabel?: (dayLabels: string[]) => string;
+  /**
+   * Whether the caller's own hover/focus tooltip state (from `useHoverFocusTooltip`) is
+   * currently active — renders this badge's own tooltip only then. The `aria-label` itself is
+   * always present regardless of this flag (AC6 — screen-reader/touch users who can't hover).
+   */
+  tooltipVisible?: boolean;
+  /** Extra classes appended to the badge root (e.g. absolute corner positioning). */
+  className?: string;
+}
+
 export interface EventCardNearbyBadgeProps {
   /**
    * Caller-computed distance in kilometers from the viewer to this event (client-side

@@ -70,6 +70,12 @@ export function mapCalendarSchedules<TEvent = any, TSchedule = any>(
         isAddedToCalendar: !!schedule.isAddedToCalendar,
         eventId: event.id,
         imageUrl: event.imageUrl,
+        // Story 1.3k (AC4/AC7/AC8) — passthrough only: the caller is responsible for mapping the
+        // GraphQL-generated `DayOfWeek` enum to domain's own enum before `rawEvents` reaches this
+        // function (packages/ui must not depend on apps/web's generated types/mapping module — see
+        // the story's "Mapping boundary placement" Dev Note). This shared mapper simply forwards
+        // whatever value is already on `schedule.applicableDaysOfWeek`.
+        applicableDaysOfWeek: schedule.applicableDaysOfWeek,
         // BUG-042 (AC-IMG-1): single shared mapping point for every calendar surface
         // (CalendarView, FeedCalendarView, AccountCalendarView, my-calendar-content) —
         // the imageUrl -> imageFallbackUrl retry chain's second URL.

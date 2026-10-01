@@ -36,7 +36,10 @@ if (firebaseConfig.apiKey && firebaseConfig.messagingSenderId) {
     const notificationTitle = payload.notification?.title || 'FestGrid Notification';
     const notificationOptions = {
       body: payload.notification?.body || 'FCM background message received.',
-      icon: payload.notification?.image || '/icon-192x192.png',
+      // Story 0.38 (Task 3.2b, readiness correction 2026-09-30) — repointed
+      // from the non-existent '/icon-192x192.png' to the real, checked-in
+      // icon this story adds (apps/web/public/icons/icon-192.png).
+      icon: payload.notification?.image || '/icons/icon-192.png',
       data: payload.data,
     };
 

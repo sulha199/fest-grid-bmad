@@ -1054,8 +1054,13 @@ describe("EventDetailWrapper", () => {
 
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
     expect(screen.getByText("Org")).toBeInTheDocument()
-    const toggle = screen.getByTestId("subscribe-toggle")
-    expect(toggle).toHaveAttribute("aria-pressed", "false")
+    // Story 1.6c (AC5) — getMySubscriptions is now gated on eventBySlug's own data (it only
+    // starts once sourceSocialMediaAccountProfile is known), so the toggle briefly renders in
+    // its neutral/checking state before this resolves; wait for the settled state instead of
+    // asserting synchronously right after the heading appears.
+    await waitFor(() => {
+      expect(screen.getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "false")
+    })
   })
 
   it("clicking the toggle calls the subscribe mutation and updates to the subscribed state on success", async () => {
@@ -1070,8 +1075,12 @@ describe("EventDetailWrapper", () => {
 
     renderComponent()
 
-    const toggle = await screen.findByTestId("subscribe-toggle")
-    expect(toggle).toHaveAttribute("aria-pressed", "false")
+    // Story 1.6c (AC5) — see the identical comment in the preceding test: wait for the
+    // now-gated getMySubscriptions query to settle before asserting/clicking the toggle.
+    await waitFor(() => {
+      expect(screen.getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "false")
+    })
+    const toggle = screen.getByTestId("subscribe-toggle")
     fireEvent.click(toggle)
 
     await waitFor(() => {
@@ -1171,5 +1180,85 @@ describe("EventDetailWrapper", () => {
     await waitFor(() => {
       expect(screen.getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "true")
     })
+  })
+
+  it("does NOT invoke getMySubscriptions when the event has no linked source account (Story 1.6c AC5, FIND-030)", async () => {
+    currentMockEvent.sourceSocialMediaAccountProfile = null
+
+    const mySubscriptionsSpy = vi.fn(() =>
+      HttpResponse.json({ data: { mySubscriptions: currentMockSubscriptions } })
+    )
+    server.use(api.query("getMySubscriptions", mySubscriptionsSpy))
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    // Give any would-be in-flight request a chance to land before asserting it never did.
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(mySubscriptionsSpy).not.toHaveBeenCalled()
+  })
+
+  it("DOES invoke getMySubscriptions when the event has a linked source account and a session (Story 1.6c AC5, FIND-030)", async () => {
+    currentMockEvent.sourceSocialMediaAccountProfile = {
+      accountId: "123",
+      platform: "instagram",
+      username: "org",
+      displayName: "Org",
+      profileImageUrl: null,
+    }
+
+    const mySubscriptionsSpy = vi.fn(() =>
+      HttpResponse.json({ data: { mySubscriptions: currentMockSubscriptions } })
+    )
+    server.use(api.query("getMySubscriptions", mySubscriptionsSpy))
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+    await waitFor(() => {
+      expect(mySubscriptionsSpy).toHaveBeenCalled()
+    })
+  })
+
+  it("registers the Instagram embed.js caching service worker with the current locale's scope (Story 0.38 AC1/AC2, Task 1.5)", async () => {
+    const registerSpy = vi.fn().mockResolvedValue({ scope: "/en/events/" })
+    Object.defineProperty(navigator, "serviceWorker", {
+      configurable: true,
+      value: { register: registerSpy },
+    })
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(registerSpy).toHaveBeenCalledWith("/instagram-embed-cache-sw.js", {
+        scope: "/en/events/",
+      })
+    })
+    // Never the unrelated, root-scoped FCM worker or this project's own
+    // same-origin widget-embedding script (AC1's explicit disambiguation).
+    expect(registerSpy).not.toHaveBeenCalledWith(
+      "/firebase-messaging-sw.js",
+      expect.anything()
+    )
+    expect(registerSpy).not.toHaveBeenCalledWith("/embed.js", expect.anything())
+  })
+
+  it("does not throw when 'serviceWorker' is unsupported by the browser (AC1's guard)", async () => {
+    const originalDescriptor = Object.getOwnPropertyDescriptor(navigator, "serviceWorker")
+    // The guard is `'serviceWorker' in navigator` — an `in` check, not a
+    // truthiness check — so the property key itself must be absent (not just
+    // `undefined`-valued) to exercise the unsupported-browser branch.
+    // @ts-expect-error -- deliberately deleting a non-optional DOM property for this test
+    delete navigator.serviceWorker
+
+    expect(() => renderComponent()).not.toThrow()
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    if (originalDescriptor) {
+      Object.defineProperty(navigator, "serviceWorker", originalDescriptor)
+    }
   })
 })

@@ -13,15 +13,36 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { usePostHog } from "@festgrid/analytics"
 import { requestPushPermissionAndRegister } from "@/lib/push-notifications"
-import { PageContainer, PageHeader } from "@festgrid/ui"
+import { PageContainer, PageHeader, PwaInstallIosModal } from "@festgrid/ui"
+import { Share, SquarePlus } from "lucide-react"
+import { usePwaInstallPrompt } from "@/lib/hooks/usePwaInstallPrompt"
 
 export function NotificationsContent() {
   const t = useTranslations("NotificationsSettingsPage")
+  const tPwaInstallPrompt = useTranslations("PwaInstallPrompt")
   const router = useRouter()
   const posthog = usePostHog()
   const { session, isLoading: authLoading } = useAuthSession()
 
   const [isEnabled, setIsEnabled] = useState<boolean>(false)
+
+  // Story 0.38 (AC15) — the "Install App" Settings-tab fallback, independent
+  // of the ambient banner's own show/dismiss/cooldown state (a second,
+  // independent consumer of Story 0.38a's hook).
+  const { promptInstall } = usePwaInstallPrompt()
+  const [isPwaInstallIosModalOpen, setIsPwaInstallIosModalOpen] = useState(false)
+
+  const handleInstallAppClick = async () => {
+    const outcome = await promptInstall()
+    if (outcome === "accepted") {
+      posthog.capture("pwa_install_prompt_accepted", { source: "settings", platform: "android" })
+    } else if (outcome === "dismissed") {
+      posthog.capture("pwa_install_prompt_declined", { source: "settings", platform: "android" })
+    } else if (outcome === "ios-instructions") {
+      posthog.capture("pwa_install_ios_modal_opened", { source: "settings" })
+      setIsPwaInstallIosModalOpen(true)
+    }
+  }
 
   // Redirect if unauthenticated
   useEffect(() => {
@@ -209,6 +230,36 @@ export function NotificationsContent() {
           aria-label={t("toggleLabel")}
         />
       </div>
+
+      {/* Story 0.38 (AC15) — always visible, independent of the ambient banner's own
+          shown/dismissed/cooldown state; mirrors the push-notification toggle's own
+          "device/browser capability" section styling above. */}
+      <div className="flex items-start justify-between p-6 rounded-lg border bg-card text-card-foreground shadow-sm">
+        <div className="space-y-1.5 pr-4">
+          <h2 className="font-semibold text-lg leading-none">{tPwaInstallPrompt("installAppButtonLabel")}</h2>
+          <p className="text-sm text-muted-foreground">{tPwaInstallPrompt("installAppDescription")}</p>
+        </div>
+        <button
+          type="button"
+          onClick={handleInstallAppClick}
+          className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 shrink-0"
+        >
+          {tPwaInstallPrompt("installAppButtonLabel")}
+        </button>
+      </div>
+
+      <PwaInstallIosModal
+        open={isPwaInstallIosModalOpen}
+        labels={{
+          title: tPwaInstallPrompt("iosModalTitle"),
+          shareStepText: tPwaInstallPrompt("iosModalShareStep"),
+          addToHomeScreenStepText: tPwaInstallPrompt("iosModalAddToHomeScreenStep"),
+          closeLabel: tPwaInstallPrompt("iosModalCloseLabel"),
+        }}
+        shareIcon={Share}
+        addToHomeScreenIcon={SquarePlus}
+        onClose={() => setIsPwaInstallIosModalOpen(false)}
+      />
     </PageContainer>
   )
 }

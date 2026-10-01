@@ -1,11 +1,12 @@
 import React from 'react';
-import { MapPin, CalendarDays, ExternalLink, Heart, User, DollarSign, MoreVertical, AlertCircle, Instagram, Phone, Link as LinkIcon } from 'lucide-react';
+import { MapPin, CalendarDays, CalendarPlus, ExternalLink, Heart, User, DollarSign, MoreVertical, AlertCircle, Instagram, Phone, Link as LinkIcon } from 'lucide-react';
 import { detectPlatformFromUrl } from '@festgrid/domain';
 import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels } from './EventDetailView.types';
 import { EventImage } from './EventImage';
 import { InstagramEmbed } from './InstagramEmbed';
 import { SubscribedAccountCard } from '../subscriptions';
 import { PlatformIcon } from '../../core/platform-icon';
+import { LocationLink } from '../../core/LocationLink';
 import { formatShortEventDateTime } from './format-event-date';
 
 /**
@@ -46,6 +47,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   accountId,
   accountPlatformIconUrl,
   accountHref,
+  accountLocation,
   isSubscribedToAccount,
   onSubscribeToAccount,
   isSubscribingToAccount,
@@ -284,6 +286,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
                   onUnsubscribe={canActOnSubscription ? onUnsubscribeFromAccount : undefined}
                   isStatusLoading={isSubscriptionStatusLoading}
                   isTogglePending={isTogglePending}
+                  location={accountLocation}
                   labels={{
                     subscribeLabel: labels.subscribeButtonLabel,
                     unsubscribeLabel: labels.unsubscribeButtonLabel,
@@ -464,12 +467,23 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
         {schedules && schedules.length > 0 ? (
           <ul className="flex flex-col gap-4">
             {schedules.map((schedule, idx) => {
-              const scheduleLocation = schedule.location || location;
               const scheduleAsHeader = !schedule.title && schedules.length === 1;
               return (
                 <li key={idx} className="p-4 border border-gray-200 dark:border-gray-800 rounded-lg flex flex-col gap-3">
-                  <h3 className="font-semibold text-lg flex items-center gap-2">
-                    <CalendarDays className="w-5 h-5 text-gray-500" />
+                  <h3 className="font-semibold flex items-center gap-2">
+                    {onAddToCalendar ? (
+                      <button
+                        type="button"
+                        onClick={() => onAddToCalendar?.([schedule.id])}
+                        className="p-1 -m-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        aria-label={labels.addToCalendarButtonLabel}
+                        aria-pressed={!!schedule.isAddedToCalendar}
+                      >
+                        <CalendarPlus className={`w-5 h-5 ${schedule.isAddedToCalendar ? 'fill-primary text-primary' : 'text-gray-500'}`} />
+                      </button>
+                    ) : (
+                      <CalendarDays className="w-5 h-5 text-gray-500" />
+                    )}
                     {
                       scheduleAsHeader ?
                         formatScheduleDate(schedule) :
@@ -516,20 +530,25 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
                       </p>
                     )}
 
-                    <address className="not-italic flex items-start gap-2">
-                      <MapPin className="w-4 h-4 shrink-0 mt-0.5" />
-                      <div>
+                    {schedule.location ? (
+                      <address className="not-italic flex items-start gap-2">
                         <span className="sr-only">{labels.locationLabel}:</span>
-                        {schedule.mapUrl ? (
-                          <a href={schedule.mapUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
-                            {scheduleLocation}
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        ) : (
-                          <span>{scheduleLocation}</span>
-                        )}
-                      </div>
-                    </address>
+                        <LocationLink
+                          name={schedule.location}
+                          coordinates={schedule.locationDetails?.coordinates}
+                          confidence={schedule.locationDetails?.confidence}
+                          matchType={schedule.locationDetails?.matchType}
+                        />
+                      </address>
+                    ) : location ? (
+                      <address className="not-italic flex items-start gap-2">
+                        <MapPin className="w-4 h-4 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="sr-only">{labels.locationLabel}:</span>
+                          <span>{location}</span>
+                        </div>
+                      </address>
+                    ) : null}
 
                     {schedule.performers && (
                       <div className="flex items-start gap-2">

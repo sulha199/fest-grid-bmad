@@ -201,6 +201,7 @@ test('FestgridBackendStack provisions correct resources', () => {
         DATA_INGESTION_QUEUE_URL: Match.anyValue(),
         POST_MEDIA_BUCKET_NAME: Match.anyValue(),
         POST_MEDIA_CDN_DOMAIN: Match.anyValue(),
+        POST_MEDIA_DISTRIBUTION_ID: Match.anyValue(),
       }),
     },
   });
@@ -210,6 +211,52 @@ test('FestgridBackendStack provisions correct resources', () => {
   template.resourceCountIs('AWS::Lambda::EventSourceMapping', 3);
   template.allResourcesProperties('AWS::Lambda::EventSourceMapping', {
     Enabled: false,
+  });
+
+  // 16. Story 3.6q / AD-28 Rule 9: PostMediaCacheHeadersPolicy's Cache-Control value is 7-day
+  // immutable (not the old 1-year value) now that re-hosted media keys are content-versioned.
+  template.hasResourceProperties('AWS::CloudFront::ResponseHeadersPolicy', {
+    ResponseHeadersPolicyConfig: Match.objectLike({
+      CustomHeadersConfig: {
+        Items: Match.arrayWith([
+          Match.objectLike({
+            Header: 'Cache-Control',
+            Override: true,
+            Value: 'public, max-age=604800, immutable',
+          }),
+        ]),
+      },
+    }),
+  });
+
+  // 17. Story 3.6q / AD-28 Rule 9: aiProcessorLambda's IAM role holds a cloudfront:CreateInvalidation
+  // grant (via postMediaDistribution.grantCreateInvalidation), needed to invalidate a superseded
+  // content-versioned key's cached edge responses after deleting the underlying S3 object.
+  template.hasResourceProperties('AWS::IAM::Policy', {
+    PolicyDocument: {
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Action: 'cloudfront:CreateInvalidation',
+          Effect: 'Allow',
+        }),
+      ]),
+    },
+  });
+
+  // 18. Story 3.6q / AD-28 Rule 9: aiProcessorLambda's IAM role also holds s3:DeleteObject* on the
+  // post-media bucket (via postMediaBucket.grantDelete, which synthesizes as a single-string
+  // "s3:DeleteObject*" Action, not an array — confirmed against this file's real synthesized
+  // output before asserting), alongside the existing s3:PutObject grant (test 13 above) — both
+  // needed for the best-effort cleanup of a superseded key.
+  template.hasResourceProperties('AWS::IAM::Policy', {
+    PolicyDocument: {
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Action: 's3:DeleteObject*',
+          Effect: 'Allow',
+        }),
+      ]),
+    },
   });
 });
 

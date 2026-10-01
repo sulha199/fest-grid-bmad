@@ -7,8 +7,9 @@ import { resolvers, setEventsAuthProbe, eventsAuthProbe } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db, enableQueryDebug, resetExecutedQueryCount, getExecutedQueryCount } from '../db/client.js';
-import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, unprocessedScraperPayloads, instagramOembedCache, accountVotes } from '@festgrid/database';
+import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, calendarAdditions, unprocessedScraperPayloads, instagramOembedCache, accountVotes } from '@festgrid/database';
 import { eq, inArray, count, sql } from 'drizzle-orm';
+import { ENDED_CASE_FIXTURES } from '@festgrid/domain/events';
 
 // read the generated schema for the yoga server
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
@@ -26,11 +27,16 @@ const schema = createSchema({
 });
 
 let mockUser: any = null;
+// Story 0.i5d Task 3: lets tests pin the `events` resolver's `now` deterministically
+// (only honored by resolvers.ts when NODE_ENV === 'test') so the TODAY temporal-filter's
+// `!ended` boundary can be asserted against the shared `ended-cases` fixture.
+let mockNow: Date | null = null;
 
 const yoga = createYoga({
   schema,
   context: () => ({
     user: mockUser,
+    now: mockNow ?? undefined,
   }) as any,
 });
 
@@ -503,6 +509,107 @@ test('events resolver integration via Yoga', async (t) => {
       assert.ok(ids.has(insideEvent.id), 'first scheduleDateRange condition should still match independently');
       assert.ok(ids.has(secondWeekEvent.id), 'second, independent scheduleDateRange condition should match');
       assert.ok(!ids.has(outsideEvent.id), 'event matching neither condition should NOT match');
+    });
+  });
+
+  await t.test('events - temporalFilter TODAY/UPCOMING (Story 0.i5d, AC2/AC3/AC5)', async (t) => {
+    const createdEventIds: string[] = [];
+
+    async function createEventWithSchedule(opts: {
+      eventName: string;
+      scheduleStartDate: string;
+      scheduleStartTime?: string | null;
+      scheduleEndDate?: string | null;
+      scheduleEndTime?: string | null;
+    }) {
+      const [event] = await db.insert(events).values({
+        eventName: opts.eventName,
+        location: 'Test City',
+      }).returning();
+      createdEventIds.push(event.id);
+      await db.insert(schedules).values({
+        eventId: event.id,
+        eventStartDate: opts.scheduleStartDate,
+        eventStartTime: opts.scheduleStartTime ?? null,
+        eventEndDate: opts.scheduleEndDate ?? null,
+        eventEndTime: opts.scheduleEndTime ?? null,
+        isMainSchedule: true,
+      });
+      return event;
+    }
+
+    t.after(async () => {
+      mockNow = null;
+      await db.delete(events).where(inArray(events.id, createdEventIds));
+    });
+
+    async function queryTemporalFilter(temporalFilter: 'TODAY' | 'UPCOMING') {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query Events($filter: EventFilterInput) {
+              events(filter: $filter, limit: 1000) {
+                items { id }
+              }
+            }
+          `,
+          variables: { filter: { temporalFilter } },
+        }),
+      });
+      const result = await response.json();
+      assert.ok(!result.errors, `GraphQL errors returned: ${JSON.stringify(result.errors)}`);
+      return new Set<string>(result.data.events.items.map((i: { id: string }) => i.id));
+    }
+
+    await t.test('TODAY includes/excludes exactly per the shared ended-cases fixture (AC3, AC5)', async () => {
+      for (const fixture of ENDED_CASE_FIXTURES) {
+        const now = new Date(fixture.now);
+        const todayISO = fixture.now.slice(0, 10);
+        const effectiveEnd = fixture.endDate ?? fixture.startDate;
+        const overlapsToday = fixture.startDate <= todayISO && todayISO <= effectiveEnd;
+        const expectedIncluded = overlapsToday && !fixture.expectedEnded;
+
+        const event = await createEventWithSchedule({
+          eventName: `0.i5d TODAY test - ${fixture.description}`,
+          scheduleStartDate: fixture.startDate,
+          scheduleStartTime: fixture.startTime,
+          scheduleEndDate: fixture.endDate,
+          scheduleEndTime: fixture.endTime,
+        });
+
+        mockNow = now;
+        const ids = await queryTemporalFilter('TODAY');
+        assert.strictEqual(
+          ids.has(event.id),
+          expectedIncluded,
+          `case "${fixture.description}": expected included=${expectedIncluded} (overlapsToday=${overlapsToday}, expectedEnded=${fixture.expectedEnded})`
+        );
+      }
+    });
+
+    await t.test('UPCOMING matches the existing scheduleDateRange.overlaps{tomorrow, null} condition (AC2)', async () => {
+      mockNow = new Date('2030-08-15T12:00:00Z');
+
+      const tomorrowEvent = await createEventWithSchedule({
+        eventName: '0.i5d UPCOMING test - starts tomorrow',
+        scheduleStartDate: '2030-08-16',
+      });
+      const todayOnlyEvent = await createEventWithSchedule({
+        eventName: '0.i5d UPCOMING test - today only, does not overlap [tomorrow, null)',
+        scheduleStartDate: '2030-08-15',
+        scheduleEndDate: '2030-08-15',
+      });
+      const farFutureEvent = await createEventWithSchedule({
+        eventName: '0.i5d UPCOMING test - far future',
+        scheduleStartDate: '2030-09-01',
+      });
+
+      const ids = await queryTemporalFilter('UPCOMING');
+      assert.ok(ids.has(tomorrowEvent.id), 'event starting tomorrow should be included');
+      assert.ok(ids.has(farFutureEvent.id), 'far-future event should be included');
+      assert.ok(!ids.has(todayOnlyEvent.id), 'event ending today (not overlapping [tomorrow, null)) should NOT be included');
     });
   });
 
@@ -3114,4 +3221,185 @@ test('events - query-count is a constant, not O(N), when batched fields are requ
   assert.ok(!second.result.errors, `GraphQL errors returned (no totalCount): ${JSON.stringify(second.result.errors)}`);
   assert.strictEqual(second.count, withCount - 1, 'removing totalCount should drop the query count by exactly 1');
   assert.ok(second.count >= 2, 'items + schedules selects should still run');
+});
+
+test('eventBySlug/event - schedules.isAddedToCalendar batches at a constant query count, not O(N schedules) (Story 1.6c AC1, AC7)', async (t) => {
+  // Story 1.6c (AC1) — `event`/`eventBySlug` reuse Story 1.3j's batched-schedules code path
+  // (Task 1's shared `batchScheduleRowsForEvents` extraction) with an added
+  // `isAddedToCalendar` virtual field. Before this story, resolving N schedules'
+  // `isAddedToCalendar` cost 1 (parent) + 1 (schedules) + N (one per-schedule
+  // isAddedToCalendar query) = 2 + N. After batching it must be a small constant (parent
+  // select + one batched schedules-with-isAddedToCalendar select), regardless of N.
+
+  const createdUser = await db.insert(users).values({
+    email: `qc16c-${crypto.randomUUID()}@example.com`,
+    name: 'Story 1.6c Query Count User',
+    role: 'user',
+  }).returning();
+  const qcUser = createdUser[0];
+
+  const [event] = await db.insert(events).values({
+    eventName: '1.6c qc - event with 3 schedules',
+    location: 'Test City',
+  }).returning();
+
+  const createdSchedules = await db.insert(schedules).values([
+    { eventId: event.id, eventStartDate: '2030-10-01', isMainSchedule: true },
+    { eventId: event.id, eventStartDate: '2030-10-02', isMainSchedule: false },
+    { eventId: event.id, eventStartDate: '2030-10-03', isMainSchedule: false },
+  ]).returning();
+
+  // AC7: seed a real calendar addition for exactly one of the three schedules, so the
+  // hydration-correctness assertion below can distinguish "batched real state" from
+  // "forced false for everyone".
+  const [calendarAddition] = await db.insert(calendarAdditions).values({
+    userId: qcUser.id,
+    eventId: event.id,
+    scheduleId: createdSchedules[1].id,
+  }).returning();
+
+  t.after(async () => {
+    mockUser = null;
+    enableQueryDebug(false);
+    await db.delete(calendarAdditions).where(eq(calendarAdditions.id, calendarAddition.id));
+    await db.delete(schedules).where(eq(schedules.eventId, event.id));
+    await db.delete(events).where(eq(events.id, event.id));
+    await db.delete(users).where(eq(users.id, qcUser.id));
+  });
+
+  const query = `
+    query GetEventBySlug($slug: String!) {
+      eventBySlug(slug: $slug) {
+        id
+        schedules {
+          id
+          isAddedToCalendar
+        }
+      }
+    }
+  `;
+
+  async function runQuery() {
+    enableQueryDebug(true);
+    resetExecutedQueryCount();
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ query, variables: { slug: event.slug } }),
+    });
+    const count = getExecutedQueryCount();
+    enableQueryDebug(false);
+    const result = await response.json();
+    return { result, count };
+  }
+
+  // Authenticated caller: constant query count (parent select + batched schedules select),
+  // not 2 + N (N=3 here).
+  mockUser = { userId: qcUser.id, role: 'user' };
+  const { result: authedResult, count: authedCount } = await runQuery();
+  assert.ok(!authedResult.errors, `GraphQL errors returned: ${JSON.stringify(authedResult.errors)}`);
+  const authedSchedules = authedResult.data.eventBySlug.schedules as Array<{ id: string; isAddedToCalendar: boolean }>;
+  assert.strictEqual(authedSchedules.length, 3, 'should return all 3 seeded schedules');
+  assert.ok(authedCount <= 3, `expected a small constant query count (<= 3) but got ${authedCount}`);
+
+  // AC7: the batched result reflects the visitor's REAL calendar-addition state, not a forced
+  // `false` — exactly one schedule (the one seeded above) is `true`.
+  const addedTrue = authedSchedules.filter((s) => s.isAddedToCalendar === true);
+  assert.strictEqual(addedTrue.length, 1, 'exactly one schedule should read isAddedToCalendar=true from the batched select');
+  assert.strictEqual(
+    authedSchedules.find((s) => s.id === createdSchedules[1].id)?.isAddedToCalendar,
+    true,
+    'the specific schedule seeded with a calendar addition should be true'
+  );
+
+  // Anonymous caller: `isAddedToCalendar` is `false` for every schedule without needing
+  // `calendarAdditions` in scope at all (mirrors `fieldMap.isAddedToCalendar`'s existing
+  // `userId ? ... : sql\`false\`` shape) — and still a small constant query count.
+  mockUser = null;
+  const { result: anonResult, count: anonCount } = await runQuery();
+  assert.ok(!anonResult.errors, `GraphQL errors returned (anonymous): ${JSON.stringify(anonResult.errors)}`);
+  const anonSchedules = anonResult.data.eventBySlug.schedules as Array<{ id: string; isAddedToCalendar: boolean }>;
+  assert.strictEqual(anonSchedules.length, 3);
+  assert.ok(anonSchedules.every((s) => s.isAddedToCalendar === false), 'every schedule should read isAddedToCalendar=false for an anonymous caller');
+  assert.ok(anonCount <= 3, `expected a small constant query count (<= 3) but got ${anonCount}`);
+});
+
+test('Schedule.applicableDaysOfWeek round-trips via the existing buildOptimizedDrizzleSelect passthrough on all three schedules select sites (Story 1.3k AC3, Task 3)', async (t) => {
+  // Story 1.3k AC3 — this is a read-only, additive-field addition. No new resolver code should
+  // be needed: `buildOptimizedDrizzleSelect` matches any requested GraphQL field name straight
+  // to its Drizzle column (see optimized-select.ts), so seeding `applicableDaysOfWeek` on a
+  // schedule row and requesting the field through GraphQL should just work across:
+  //   1. the legacy per-row `Schedule.schedules` field resolver (this test, via `eventBySlug`,
+  //      which for a single event still exercises the batched `batchScheduleRowsForEvents` path
+  //      shared with `events`/`event`),
+  //   2. the batched `events` list resolver path (same shared function, asserted separately
+  //      below via `Query.events`).
+  // Note: DB-backed integration tests are not executable in this sandbox (no Postgres
+  // available) — this test is written and type-checked but not run here; it is expected to run
+  // in a real environment with `DATABASE_URL` configured, per this story's Definition of Done.
+
+  const [event] = await db.insert(events).values({
+    eventName: '1.3k - event with a recurring schedule',
+    location: 'Test City',
+  }).returning();
+
+  const [schedule] = await db.insert(schedules).values({
+    eventId: event.id,
+    eventStartDate: '2030-09-07',
+    eventEndDate: '2030-09-28',
+    isMainSchedule: true,
+    applicableDaysOfWeek: ['MON'],
+  }).returning();
+
+  t.after(async () => {
+    await db.delete(schedules).where(eq(schedules.eventId, event.id));
+    await db.delete(events).where(eq(events.id, event.id));
+  });
+
+  const byIdQuery = `
+    query GetEventBySlug($slug: String!) {
+      eventBySlug(slug: $slug) {
+        id
+        schedules {
+          id
+          applicableDaysOfWeek
+        }
+      }
+    }
+  `;
+  const byIdResponse = await yoga.fetch('http://yoga/graphql', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ query: byIdQuery, variables: { slug: event.slug } }),
+  });
+  const byIdResult = await byIdResponse.json();
+  assert.ok(!byIdResult.errors, `GraphQL errors returned: ${JSON.stringify(byIdResult.errors)}`);
+  const byIdSchedules = byIdResult.data.eventBySlug.schedules as Array<{ id: string; applicableDaysOfWeek: string[] | null }>;
+  const foundById = byIdSchedules.find((s) => s.id === schedule.id);
+  assert.deepStrictEqual(foundById?.applicableDaysOfWeek, ['MON'], 'applicableDaysOfWeek should round-trip through the batched schedules() field resolver with no new resolver code');
+
+  const eventsQuery = `
+    query GetEvents {
+      events(limit: 50) {
+        items {
+          id
+          schedules {
+            id
+            applicableDaysOfWeek
+          }
+        }
+      }
+    }
+  `;
+  const eventsResponse = await yoga.fetch('http://yoga/graphql', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ query: eventsQuery }),
+  });
+  const eventsResult = await eventsResponse.json();
+  assert.ok(!eventsResult.errors, `GraphQL errors returned: ${JSON.stringify(eventsResult.errors)}`);
+  const matchingItem = eventsResult.data.events.items.find((n: any) => n.id === event.id);
+  assert.ok(matchingItem, 'seeded event should appear in the events() connection');
+  const matchingSchedule = matchingItem.schedules.find((s: any) => s.id === schedule.id);
+  assert.deepStrictEqual(matchingSchedule?.applicableDaysOfWeek, ['MON'], 'applicableDaysOfWeek should round-trip through the events() batched schedules path with no new resolver code');
 });

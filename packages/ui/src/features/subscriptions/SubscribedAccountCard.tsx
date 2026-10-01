@@ -2,6 +2,8 @@ import * as React from 'react';
 import { UserPlus, UserCheck } from 'lucide-react';
 import { AccountAvatar } from '../../core/account-avatar';
 import { getAccountIdentityLabel } from '../../core/account-identity';
+import { LocationLink } from '../../core/LocationLink';
+import { isLocationTrustworthy } from '@festgrid/domain/geolocation';
 import type { SubscribedAccountCardProps } from './SubscribedAccountCard.types';
 
 export function SubscribedAccountCard({
@@ -15,6 +17,7 @@ export function SubscribedAccountCard({
   labels,
   size,
   className = '',
+  location,
 }: SubscribedAccountCardProps) {
   const displayNameTextClass = size === 'lg' ? 'text-lg' : '';
   const usernameTextClass = size === 'lg' ? 'text-base' : 'text-sm';
@@ -49,8 +52,19 @@ export function SubscribedAccountCard({
       />
       <div className="flex flex-col min-w-0">
         <span className={`truncate font-medium ${displayNameTextClass}`} title={primaryLabel}>{primaryLabel}</span>
-        {account.displayName && account.username && (
-          <span className={`truncate text-gray-500 ${usernameTextClass}`} title={account.username}>@{account.username}</span>
+        {location && isLocationTrustworthy(location) ? (
+          <span className={`truncate text-gray-500 ${usernameTextClass}`}>
+            <LocationLink
+              name={location.name}
+              coordinates={location.coordinates}
+              confidence={location.confidence}
+              matchType={location.matchType}
+            />
+          </span>
+        ) : (
+          account.displayName && account.username && (
+            <span className={`truncate text-gray-500 ${usernameTextClass}`} title={account.username}>@{account.username}</span>
+          )
         )}
       </div>
     </>

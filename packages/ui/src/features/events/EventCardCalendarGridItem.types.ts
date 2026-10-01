@@ -1,4 +1,5 @@
 import type { MouseEventHandler, ReactNode } from 'react';
+import type { DayOfWeek as DomainDayOfWeek } from '@festgrid/domain/events';
 import type { EventCardFavoriteBadgeLabels } from './EventCardMediaPrimitives.types';
 
 /**
@@ -63,4 +64,21 @@ export interface EventCardCalendarGridItemProps {
      */
     nearbyBadge?: (distanceKm: number) => string;
   };
+  /**
+   * Story 1.3k (AC8) — the weekdays this schedule actually occurs on, forwarded verbatim to
+   * `EventCardRepeatBadge`. Renders an absolutely-positioned corner icon (a different corner
+   * than the caller's own `isAddedToCalendar` `CalendarPlus` corner badge, so the two never
+   * overlap) when non-empty; omitted entirely when empty/undefined.
+   */
+  applicableDaysOfWeek?: DomainDayOfWeek[] | null;
+  /** Story 1.3k (AC9) — translated weekday labels for the repeat badge. */
+  dayOfWeekLabels?: Record<string, string>;
+  /** Story 1.3k (AC6/AC8) — repeat badge aria-label/tooltip text resolver. */
+  repeatBadgeAriaLabel?: (dayLabels: string[]) => string;
+  /**
+   * Whether the caller's own hover/focus tooltip state (from `useHoverFocusTooltip`, owned by
+   * the card's already-interactive root) is currently active — shows the repeat badge's own
+   * tooltip only then (AC6/AC8).
+   */
+  repeatBadgeTooltipVisible?: boolean;
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "schedules" ADD COLUMN "applicable_days_of_week" text[];

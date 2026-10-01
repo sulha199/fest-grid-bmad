@@ -10,10 +10,12 @@ import {
   formatShortEventDateTime,
   formatShortEventDateTimeParts,
   formatEventStatus,
+  isEventEnded,
   computeCalendarSegmentDateBoxContent,
   computeEventCardDateBoxParts,
   formatEventCardDateBoxLine,
 } from './format-event-date';
+import { ENDED_CASE_FIXTURES } from '@festgrid/domain/events';
 
 // Fixed local reference instant used by formatEventStatus tests below, so every
 // boundary is deterministic regardless of when the test suite actually runs
@@ -418,6 +420,29 @@ describe('computeCalendarSegmentDateBoxContent (BUG-047 AC-DATE-1/2/3, rewritten
     );
     expect(result).toEqual({ month: 'Aug', day: '5', tillLabel: 'till' });
   });
+
+  // Story 1.3k (AC5): the function's own signature is unchanged -- it always took `startDate`/
+  // `endDate` as plain parameters. This proves its callers in WeeklyCalendarView.tsx now pass a
+  // day-of-week-narrowed schedule's RUN bounds (a Mon+Tue run inside a much longer overall
+  // schedule span), never the schedule's own `eventStartDate`/`eventEndDate`, by exercising the
+  // function directly with run-sized bounds that differ sharply from a hypothetical wider span.
+  it('run-bounds case (Story 1.3k AC5): a 2-day run (Mon+Tue) nested inside a 30-day schedule span shows the RUN\'s own end date, never the 30-day span\'s', () => {
+    // The run is Mon 2026-08-10 - Tue 2026-08-11 (the schedule's overall span is far wider,
+    // e.g. 2026-08-01 - 2026-08-30, but that wider span is never passed to this function by a
+    // run-aware caller -- only the run's own two dates are).
+    const runStart = '2026-08-10';
+    const runEnd = '2026-08-11';
+
+    const firstDay = computeCalendarSegmentDateBoxContent('en-US', undefined, runStart, runStart, runEnd, 'till');
+    expect(firstDay).toEqual({ month: 'Aug', day: '11', tillLabel: 'till' });
+
+    const lastDay = computeCalendarSegmentDateBoxContent('en-US', undefined, runEnd, runStart, runEnd, 'till');
+    expect(lastDay).toEqual({ month: 'Aug', day: '11', tillLabel: 'till' });
+
+    // Sanity check: if the schedule's overall 30-day span were passed instead of the run bounds,
+    // the end date would be '30', not '11' -- this asserts the run's own narrower end wins.
+    expect(firstDay.day).not.toBe('30');
+  });
 });
 
 describe('computeEventCardDateBoxParts (BUG-047 AC-DATE-1/2/3, notYetEnded corrected in review loop 1)', () => {
@@ -527,3 +552,23 @@ describe('formatEventCardDateBoxLine (BUG-047, VM1 single-line date-box text)', 
   });
 });
 
+
+describe('isEventEnded (shared ended-cases fixture, Story 0.i5d Task 3/AC5/AC9)', () => {
+  for (const fixture of ENDED_CASE_FIXTURES) {
+    it(fixture.description, () => {
+      // `timezone: undefined` deliberately -- matches the no-timezone-conversion scope this
+      // story's Dev Notes ("Timezone scope of the `!ended` mirror") documents as the correct
+      // interpretation of "exactly mirror" the new SQL `notEnded` condition.
+      expect(
+        isEventEnded(
+          new Date(fixture.now),
+          undefined,
+          fixture.startDate,
+          fixture.startTime,
+          fixture.endDate,
+          fixture.endTime
+        )
+      ).toBe(fixture.expectedEnded);
+    });
+  }
+});

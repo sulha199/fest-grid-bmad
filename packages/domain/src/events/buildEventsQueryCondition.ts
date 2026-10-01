@@ -5,6 +5,7 @@ export type NearbyFilterInput =
 export enum DateAnchor { TODAY = 'TODAY', THIS_WEEK = 'THIS_WEEK', THIS_MONTH = 'THIS_MONTH' }
 export enum DateOffsetUnit { DAY = 'DAY', WEEK = 'WEEK', MONTH = 'MONTH' }
 export enum DayOfWeek { MON = 'MON', TUE = 'TUE', WED = 'WED', THU = 'THU', FRI = 'FRI', SAT = 'SAT', SUN = 'SUN' }
+export enum TemporalFilter { TODAY = 'TODAY', UPCOMING = 'UPCOMING' }
 export interface DateRangeFilter {
   anchor: DateAnchor | 'TODAY' | 'THIS_WEEK' | 'THIS_MONTH';
   offsetAmount: number;
@@ -25,10 +26,12 @@ export interface EventFilterInput {
   location?: LocationFilter | null;
   venueType?: string | null;
   isFree?: boolean | null;
+  temporalFilter?: TemporalFilter | 'TODAY' | 'UPCOMING' | null;
 }
 export interface BuildEventsQueryConditionInput {
   search?: string; types?: string[]; categories?: string[]; nearby?: NearbyFilterInput;
   filter?: EventFilterInput; currentDate?: Date;
+  temporalFilter?: TemporalFilter | 'TODAY' | 'UPCOMING' | null;
 }
 const fmt = (d: Date) => d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
 export function resolveDateRangeFilter(
@@ -70,19 +73,57 @@ export function resolveDateRangeFilter(
   }
   return { from: fmt(s), to: fmt(e) };
 }
-function getDays(fromStr: string, toStr: string, dow: DayOfWeek | string): string[] {
+/**
+ * AD-19 Rule 1: returns every date in `[fromStr, toStr]` whose weekday matches ANY member of
+ * `dow` (a union over the array, not just one weekday). Exported/generalized from the original
+ * module-local single-weekday helper so `packages/ui`'s day-of-week occurrence-narrowing (AC4)
+ * can share this exact matching logic instead of a second reimplementation.
+ */
+export function getDays(fromStr: string, toStr: string, dow: DayOfWeek[]): string[] {
   const map: Record<string, number> = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 };
-  const target = map[dow];
+  const targets = new Set(dow.map((d) => map[d]));
   const end = new Date(toStr + 'T00:00:00Z');
   const res: string[] = [], cur = new Date(fromStr + 'T00:00:00Z');
   while (cur <= end) {
-    if (cur.getUTCDay() === target) res.push(fmt(cur));
+    if (targets.has(cur.getUTCDay())) res.push(fmt(cur));
     cur.setUTCDate(cur.getUTCDate() + 1);
   }
   return res;
 }
+/**
+ * AD-20 Rules 2-3: translates the temporal filter's committed value into a `QueryCondition`.
+ * `UPCOMING` reuses the existing, unmodified `scheduleDateRange`/`overlaps` mechanism (zero new
+ * SQL). `TODAY` ANDs that same `overlaps` condition with exactly one new `scheduleEndedBoundary`/
+ * `notEnded` condition, whose literal `now` instant is `now.toISOString()` -- never a live SQL
+ * `NOW()` -- so both sides of the DSL/SQL boundary agree on a single resolved instant.
+ * Shared by both the `filter`/AI-filter branch and the top-level-param branch below so the
+ * translation logic itself is never duplicated (Dev Notes).
+ */
+function buildTemporalCondition(
+  temporalFilter: TemporalFilter | string | null | undefined,
+  now: Date
+): QueryCondition | undefined {
+  if (!temporalFilter) return undefined;
+  const todayISO = fmt(now);
+  if (temporalFilter === 'UPCOMING') {
+    const tomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+    const tomorrowISO = fmt(tomorrow);
+    return { field: 'scheduleDateRange', operator: 'overlaps', value: { from: tomorrowISO, to: null } };
+  }
+  if (temporalFilter === 'TODAY') {
+    return {
+      operator: 'and',
+      conditions: [
+        { field: 'scheduleDateRange', operator: 'overlaps', value: { from: todayISO, to: todayISO } },
+        { field: 'scheduleEndedBoundary', operator: 'notEnded', value: { now: now.toISOString(), today: todayISO } },
+      ],
+    };
+  }
+  return undefined;
+}
+
 export function buildEventsQueryCondition({
-  search, types, categories, nearby, filter, currentDate
+  search, types, categories, nearby, filter, currentDate, temporalFilter
 }: BuildEventsQueryConditionInput): QueryCondition | undefined {
   const conditions: QueryCondition[] = [];
   const now = currentDate ?? new Date();
@@ -111,7 +152,7 @@ export function buildEventsQueryCondition({
         ? resolveDateRangeFilter(filter.dateRange.anchor, filter.dateRange.offsetAmount, filter.dateRange.offsetUnit, now)
         : { from: fmt(now), to: fmt(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 90))) };
       if (filter.dayOfWeek) {
-        const dates = getDays(r.from, r.to, filter.dayOfWeek);
+        const dates = getDays(r.from, r.to, [filter.dayOfWeek as DayOfWeek]);
         if (dates.length === 0) {
           conditions.push({ field: 'scheduleDateRange', operator: 'overlaps', value: { from: '1970-01-01', to: '1970-01-01' } });
         } else if (dates.length === 1) {
@@ -141,6 +182,8 @@ export function buildEventsQueryCondition({
     }
     if (filter.venueType) conditions.push({ field: 'venueType', operator: 'eq', value: filter.venueType });
     if (filter.isFree !== undefined) conditions.push({ field: 'isFree', operator: 'eq', value: filter.isFree });
+    const filterTemporalCondition = buildTemporalCondition(filter.temporalFilter, now);
+    if (filterTemporalCondition) conditions.push(filterTemporalCondition);
   } else {
     const trimmed = (search ?? '').trim();
     if (trimmed.startsWith('#')) {
@@ -159,6 +202,8 @@ export function buildEventsQueryCondition({
     if (types && types.length > 0) conditions.push({ field: 'types', operator: 'in', value: types });
     if (categories && categories.length > 0) conditions.push({ field: 'categories', operator: 'in', value: categories });
     if (nearby) conditions.push({ field: 'scheduleCoordinates', operator: 'withinRadius', value: nearby });
+    const topLevelTemporalCondition = buildTemporalCondition(temporalFilter, now);
+    if (topLevelTemporalCondition) conditions.push(topLevelTemporalCondition);
   }
   if (conditions.length === 0) return undefined;
   return { operator: 'and', conditions };

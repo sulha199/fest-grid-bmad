@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import React from 'react';
-import { render, screen, waitFor, cleanup, act } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, act, within } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { NextIntlClientProvider } from 'next-intl';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -94,6 +94,10 @@ vi.mock('nuqs', () => {
     parseAsString: { withDefault: (val: any) => ({ defaultValue: val }) },
     parseAsInteger: { withDefault: (val: any) => ({ defaultValue: val }) },
     parseAsArrayOf: () => ({ withDefault: (val: any) => ({ defaultValue: val }) }),
+    // No `.withDefault(...)` call in home-content.tsx (AC7: absent/null means "All"), so this
+    // mock never needs to supply one -- the shared store's own `defaultValue ?? null` fallback
+    // already gives `temporal` a starting value of `null`.
+    parseAsStringEnum: () => ({}),
   };
 });
 
@@ -295,6 +299,105 @@ describe('HomeContent', () => {
     expect(resetCall[1].offset).toBe(0);
 
     expect(scrollToSpy).toHaveBeenCalledWith({ top: 0, behavior: expect.stringMatching(/auto|smooth/) });
+  });
+});
+
+// Story 0.i5d — the temporal filter's committed value (`temporal` nuqs query state, AC7).
+describe('HomeContent - Story 0.i5d (temporal filter)', () => {
+  it('resets offset to 0 (not 20) when the temporal filter changes after a page-2 fetch', async () => {
+    mockHasMore = true;
+
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText('Event Home 1')).toBeInTheDocument();
+    });
+
+    // Trigger a page-2 fetch (offset 10)
+    await act(async () => {
+      (window as any).triggerScroll();
+    });
+
+    await waitFor(() => {
+      const calls = mockRequestSpy.mock.calls;
+      expect(calls.some((c: any) => c[1].offset === 10)).toBe(true);
+    });
+
+    mockRequestSpy.mockClear();
+    mockHasMore = false;
+
+    await act(async () => {
+      (global as any).__setNuqsValue('temporal', 'TODAY');
+    });
+
+    await waitFor(() => {
+      expect(mockRequestSpy).toHaveBeenCalled();
+    });
+
+    const resetCall = mockRequestSpy.mock.calls[0];
+    expect(resetCall[1].offset).toBe(0);
+  });
+
+  it('includes a scheduleEndedBoundary/notEnded condition in the request query when temporal=TODAY', async () => {
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText('Event Home 1')).toBeInTheDocument();
+    });
+
+    mockRequestSpy.mockClear();
+
+    await act(async () => {
+      (global as any).__setNuqsValue('temporal', 'TODAY');
+    });
+
+    await waitFor(() => {
+      expect(mockRequestSpy).toHaveBeenCalled();
+    });
+
+    const call = mockRequestSpy.mock.calls[0];
+    const query = call[1].query;
+    const serialized = JSON.stringify(query);
+    expect(serialized).toContain('scheduleEndedBoundary');
+    expect(serialized).toContain('notEnded');
+  });
+
+  it('omits any temporal narrowing from the request query when the filter is null (All)', async () => {
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText('Event Home 1')).toBeInTheDocument();
+    });
+
+    const call = mockRequestSpy.mock.calls[0];
+    const serialized = JSON.stringify(call[1].query ?? null);
+    expect(serialized).not.toContain('scheduleEndedBoundary');
+  });
+
+  it('fires temporal_filter_changed with the correct payload when the filter changes, and "ALL" on reset to default', async () => {
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText('Event Home 1')).toBeInTheDocument();
+    });
+
+    const toggleGroup = screen.getByRole('radiogroup', { name: 'Filter events by time' });
+    const todayOption = within(toggleGroup).getByRole('radio', { name: 'Today' });
+
+    await act(async () => {
+      todayOption.click();
+    });
+
+    expect(mockPosthogCapture).toHaveBeenCalledWith('temporal_filter_changed', { value: 'TODAY' });
+
+    const allOption = within(toggleGroup).getByRole('radio', { name: 'All' });
+    mockPosthogCapture.mockClear();
+
+    await act(async () => {
+      allOption.click();
+    });
+
+    expect(mockPosthogCapture).toHaveBeenCalledWith('temporal_filter_changed', { value: 'ALL' });
   });
 });
 

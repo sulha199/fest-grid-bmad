@@ -1057,6 +1057,125 @@ describe('EventCard', () => {
     });
   });
 
+  // ── Story 1.3k Task 6 (AC6) ───────────────────────────────────────────────
+  describe('Repeat badge (masonry, Story 1.3k AC6)', () => {
+    it('omits the repeat badge when applicableDaysOfWeek is absent/empty', () => {
+      const { container, rerender } = render(
+        <EventCard {...defaultProps} variant="masonry" locale="en-US" />
+      );
+      expect(container.querySelector('[data-event-card-repeat-badge]')).toBeNull();
+
+      rerender(
+        <EventCard {...defaultProps} variant="masonry" locale="en-US" applicableDaysOfWeek={[]} />
+      );
+      expect(container.querySelector('[data-event-card-repeat-badge]')).toBeNull();
+    });
+
+    it('renders the repeat badge in status -> repeat -> nearby order when applicableDaysOfWeek is set', () => {
+      const { container } = render(
+        <EventCard
+          {...defaultProps}
+          variant="masonry"
+          locale="en-US"
+          distanceKm={1}
+          applicableDaysOfWeek={['MON', 'WED'] as any}
+        />
+      );
+      const badgeRow = container.querySelector('.p-3.flex-1.flex.flex-col.gap-2 > div') as HTMLElement;
+      expect(badgeRow.children.length).toBe(3);
+      expect(badgeRow.children[0].hasAttribute('data-event-card-status-badge')).toBe(true);
+      expect(badgeRow.children[1].hasAttribute('data-event-card-repeat-badge')).toBe(true);
+      expect(badgeRow.children[2].hasAttribute('data-event-card-nearby-badge')).toBe(true);
+    });
+
+    it('always carries an aria-label on the repeat icon regardless of hover/focus state', () => {
+      const { container } = render(
+        <EventCard
+          {...defaultProps}
+          variant="masonry"
+          locale="en-US"
+          applicableDaysOfWeek={['MON', 'TUE'] as any}
+          labels={{ dayOfWeekLabels: { MON: 'Monday', TUE: 'Tuesday' } }}
+        />
+      );
+      const icon = container.querySelector('[data-event-card-repeat-badge] svg') as SVGElement;
+      expect(icon).not.toBeNull();
+      expect(icon.getAttribute('aria-label')).toBe('Repeats on Monday, Tuesday');
+    });
+
+    it('shows the tooltip when the card root (RootTag) is hovered, and hides it again on pointer leave', () => {
+      const { container } = render(
+        <EventCard
+          {...defaultProps}
+          variant="masonry"
+          locale="en-US"
+          applicableDaysOfWeek={['MON'] as any}
+          labels={{ dayOfWeekLabels: { MON: 'Monday' } }}
+        />
+      );
+      // RootTag is a <div> here (no href/onClick supplied) -- it's the flex-1 wrapper that
+      // carries the shared useHoverFocusTooltip pointer/focus handlers (EventCard.tsx ~447-454).
+      const rootTag = container.querySelector('.flex-1.flex.flex-col.focus-visible\\:outline-none') as HTMLElement;
+      expect(rootTag).not.toBeNull();
+      expect(container.querySelector('[role="tooltip"]')).toBeNull();
+
+      fireEvent.pointerEnter(rootTag, { pointerType: 'mouse' });
+      expect(container.querySelector('[role="tooltip"]')).not.toBeNull();
+      expect(container.querySelector('[role="tooltip"]')).toHaveTextContent('Repeats on Monday');
+
+      fireEvent.pointerLeave(rootTag, { pointerType: 'mouse' });
+      expect(container.querySelector('[role="tooltip"]')).toBeNull();
+    });
+
+    it('shows the tooltip when the card root (RootTag) is focused, and hides it again on blur', () => {
+      const { container } = render(
+        <EventCard
+          {...defaultProps}
+          variant="masonry"
+          locale="en-US"
+          applicableDaysOfWeek={['FRI'] as any}
+          labels={{ dayOfWeekLabels: { FRI: 'Friday' } }}
+        />
+      );
+      const rootTag = container.querySelector('.flex-1.flex.flex-col.focus-visible\\:outline-none') as HTMLElement;
+
+      fireEvent.focus(rootTag);
+      expect(container.querySelector('[role="tooltip"]')).not.toBeNull();
+      expect(container.querySelector('[role="tooltip"]')).toHaveTextContent('Repeats on Friday');
+
+      fireEvent.blur(rootTag);
+      expect(container.querySelector('[role="tooltip"]')).toBeNull();
+    });
+
+    it('resolves the tooltip/aria-label text through the caller-supplied repeatBadgeAriaLabel resolver when provided', () => {
+      const repeatBadgeAriaLabel = (dayLabels: string[]) => `Every ${dayLabels.join(' & ')}`;
+      const { container } = render(
+        <EventCard
+          {...defaultProps}
+          variant="masonry"
+          locale="en-US"
+          applicableDaysOfWeek={['MON', 'TUE'] as any}
+          labels={{ dayOfWeekLabels: { MON: 'Monday', TUE: 'Tuesday' }, repeatBadgeAriaLabel }}
+        />
+      );
+      const icon = container.querySelector('[data-event-card-repeat-badge] svg') as SVGElement;
+      expect(icon.getAttribute('aria-label')).toBe('Every Monday & Tuesday');
+    });
+
+    it('gives the repeat badge icon no independent focus stop', () => {
+      const { container } = render(
+        <EventCard
+          {...defaultProps}
+          variant="masonry"
+          locale="en-US"
+          applicableDaysOfWeek={['MON'] as any}
+        />
+      );
+      const badge = container.querySelector('[data-event-card-repeat-badge]') as HTMLElement;
+      expect(badge.querySelector('button, a, [tabindex]')).toBeNull();
+    });
+  });
+
   // ── Story 1.i1l ────────────────────────────────────────────────────────────
   // Rules 1, 4 and 7 of backlog row IDEA-046 originally edited lines shared by
   // `masonry+prominentPoster` AND `variant='standard'`. FIND-053 removed `standard`

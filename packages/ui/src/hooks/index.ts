@@ -18,3 +18,5 @@ export * from './useListPaginationController';
 export * from './useListPaginationController.types';
 export * from './useMasonryLayout';
 export * from './useMasonryLayout.types';
+export * from './useHoverFocusTooltip';
+export * from './useHoverFocusTooltip.types';

@@ -3,7 +3,7 @@
 import { useMemo, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { useInfiniteQuery, InfiniteData, useQueryClient } from "@tanstack/react-query";
-import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, AIFilterOverlay, BlockingLoader, formatLocalizedNearbyBadgeDistance } from "@festgrid/ui";
+import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, AIFilterOverlay, BlockingLoader, formatLocalizedNearbyBadgeDistance, useListPaginationController, usePrefersReducedMotion } from "@festgrid/ui";
 import { EventCategory, EventType } from "@festgrid/shared-types";
 import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput, useToggleFavoriteMutation, useGetMySubscriptionsQuery } from "@/generated/graphql";
 import { graphqlClient } from "@/lib/graphql-client";
@@ -17,6 +17,8 @@ import { FeedCalendarView } from "./FeedCalendarView";
 import { SubscriptionPicker } from "@festgrid/ui";
 import { useAIFilter } from "@/features/events/use-ai-filter";
 import { useNearbyFilter } from "../use-nearby-filter";
+import { mapDaysOfWeekToDomain } from "@/lib/day-of-week-mapping";
+import { DayOfWeek as DomainDayOfWeek } from "@festgrid/domain/events";
 
 function buildEnumLabels(values: string[], translate: (key: string) => string) {
   return Object.fromEntries(
@@ -34,6 +36,7 @@ export function FeedContent() {
   const t = useTranslations("FeedPage");
   const tCategory = useTranslations("EventCategory");
   const tType = useTranslations("EventType");
+  const tDayOfWeek = useTranslations("DayOfWeek");
   const tFilterHub = useTranslations("FilterHub");
   const tNearby = useTranslations("NearbyFilter");
   const tEventCard = useTranslations("EventCard");
@@ -77,6 +80,12 @@ export function FeedContent() {
     [tCategory]
   );
   const typeLabels = useMemo(() => buildEnumLabels(Object.values(EventType), tType), [tType]);
+  // Story 1.3k Task 8 (AC9) — DayOfWeek i18n namespace, passed through to EventListView/EventCard
+  // as `dayOfWeekLabels`.
+  const dayOfWeekLabels = useMemo(
+    () => buildEnumLabels(Object.values(DomainDayOfWeek), tDayOfWeek),
+    [tDayOfWeek]
+  );
 
   const filterLabels = useMemo(
     () => ({
@@ -133,6 +142,17 @@ export function FeedContent() {
     });
   }, [q, types, categories, subscriptionsQuery, resolvedNearby, aiFilter.activeFilter]);
 
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const pagination = useListPaginationController({
+    filterKey: { q, types, categories, subscriptions: subscriptionsQuery, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter },
+    initialCursor: 0,
+    onReset: () => {
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+      }
+    },
+  });
+
   const {
     data,
     fetchNextPage,
@@ -141,7 +161,7 @@ export function FeedContent() {
     status: listStatus,
     error,
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter }],
+    queryKey: ["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter }, pagination.resetToken],
     queryFn: async ({ pageParam }) => {
       return graphqlClient.request<GetEventsQuery>(GetEventsDocument, {
         limit: 10,
@@ -168,7 +188,14 @@ export function FeedContent() {
   const { mutate: toggleFavorite } = useToggleFavoriteMutation(graphqlClient, {
     onMutate: async (variables) => {
       await queryClient.cancelQueries({ queryKey: ["events", "feed"] });
-      const previousData = queryClient.getQueryData(["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery }]);
+      // AC6 extension (readiness correction 2026-09-30): snapshot every cached feed page-set
+      // under the ["events", "feed"] prefix rather than a single exact-key lookup. The prior
+      // exact-key getQueryData/setQueryData pair used a stale 4-field key shape ({ q, types,
+      // categories, subscriptions }) that stopped matching once Story 1.3l added `nearby`/
+      // `aiFilter` to the live queryKey, so `previousData` was always undefined and onError's
+      // rollback silently no-op'd. A prefix-matched getQueriesData snapshot is resilient to any
+      // further queryKey shape changes (including this story's own resetToken append).
+      const previous = queryClient.getQueriesData({ queryKey: ["events", "feed"] });
 
       queryClient.setQueriesData({ queryKey: ["events", "feed"] }, (old: any) => {
         if (!old) return old;
@@ -192,12 +219,12 @@ export function FeedContent() {
         };
       });
 
-      return { previousData };
+      return { previous };
     },
     onError: (err, variables, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery }], context.previousData);
-      }
+      context?.previous?.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data);
+      });
     },
     onSuccess: (data, variables) => {
       posthog.capture(data.toggleFavorite.isFavorited ? "event_favorited" : "event_unfavorited", {
@@ -207,8 +234,17 @@ export function FeedContent() {
   });
 
   type EventItem = GetEventsQuery["events"]["items"][number];
-  const events: EventItem[] =
-    (data?.pages || []).flatMap((page: GetEventsQuery) => page.events.items) ?? [];
+  // Story 1.3k Task 9 — map each schedule's GraphQL-typed `applicableDaysOfWeek` to the domain
+  // enum (AD-19 Rule 2/3), consumed by `EventListView`'s repeat badge.
+  const events = ((data?.pages || []).flatMap((page: GetEventsQuery) => page.events.items) ?? []).map(
+    (event: EventItem) => ({
+      ...event,
+      schedules: (event.schedules ?? []).map((schedule) => ({
+        ...schedule,
+        applicableDaysOfWeek: mapDaysOfWeekToDomain(schedule.applicableDaysOfWeek),
+      })),
+    })
+  );
 
   const handleSearchSubmit = useMemo(
     () => (searchQuery: string) => {
@@ -303,6 +339,7 @@ export function FeedContent() {
                   priceFrom: t("priceFrom") || "From",
                   categoryLabels,
                   typeLabels,
+                  dayOfWeekLabels,
                   tillLabel: tEventCard("tillLabel"),
                   statusEnded: tEventCard("statusEnded"),
                   statusHappeningNow: tEventCard("statusHappeningNow"),

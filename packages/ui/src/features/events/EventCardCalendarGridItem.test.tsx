@@ -308,4 +308,84 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
       expect(venue).toHaveClass('line-clamp-2');
     });
   });
+
+  // ── Story 1.3k Task 7 (AC8) — corner repeat badge ─────────────────────────
+  describe('Repeat badge corner (Story 1.3k AC8)', () => {
+    it('omits the repeat badge when applicableDaysOfWeek is absent/empty (single-day composition)', () => {
+      const { container, rerender } = render(<EventCardCalendarGridItem {...defaultProps} />);
+      expect(container.querySelector('[data-event-card-repeat-badge]')).toBeNull();
+
+      rerender(<EventCardCalendarGridItem {...defaultProps} applicableDaysOfWeek={[]} />);
+      expect(container.querySelector('[data-event-card-repeat-badge]')).toBeNull();
+    });
+
+    it('omits the repeat badge when applicableDaysOfWeek is absent (multi-day/with-image composition)', () => {
+      const { container } = render(
+        <EventCardCalendarGridItem {...defaultProps} isMultiDay imageUrl="https://img.example/poster.jpg" />
+      );
+      expect(container.querySelector('[data-event-card-repeat-badge]')).toBeNull();
+    });
+
+    it('renders the repeat badge at a distinct corner from the single-day composition when applicableDaysOfWeek is set', () => {
+      const { container } = render(
+        <EventCardCalendarGridItem
+          {...defaultProps}
+          applicableDaysOfWeek={['MON', 'WED'] as any}
+          dayOfWeekLabels={{ MON: 'Monday', WED: 'Wednesday' }}
+        />
+      );
+      const badge = container.querySelector('[data-event-card-repeat-badge]') as HTMLElement;
+      expect(badge).not.toBeNull();
+      expect(badge).toHaveClass('absolute', '-bottom-1.5', '-right-1.5');
+      const icon = badge.querySelector('svg') as SVGElement;
+      expect(icon.getAttribute('aria-label')).toBe('Repeats on Monday, Wednesday');
+    });
+
+    it('renders the repeat badge for the multi-day/with-image composition too', () => {
+      const { container } = render(
+        <EventCardCalendarGridItem
+          {...defaultProps}
+          isMultiDay
+          imageUrl="https://img.example/poster.jpg"
+          applicableDaysOfWeek={['FRI'] as any}
+        />
+      );
+      expect(container.querySelector('[data-event-card-repeat-badge]')).not.toBeNull();
+    });
+
+    it("never overlaps the caller's own isAddedToCalendar corner (top-left) -- the repeat badge sits at a different corner (bottom-right)", () => {
+      // `isAddedToCalendar`'s CalendarPlus icon is rendered by the CALLER (WeeklyCalendarView.tsx),
+      // not this component -- this test only asserts this component's own corner choice never
+      // collides with that documented `-top-1.5 -left-1.5` slot.
+      const { container } = render(
+        <EventCardCalendarGridItem {...defaultProps} applicableDaysOfWeek={['SAT'] as any} />
+      );
+      const badge = container.querySelector('[data-event-card-repeat-badge]') as HTMLElement;
+      expect(badge).not.toHaveClass('-top-1.5');
+      expect(badge).not.toHaveClass('-left-1.5');
+    });
+
+    it('applies the tooltip via repeatBadgeTooltipVisible, matching EventCardRepeatBadge contract', () => {
+      const { container, rerender } = render(
+        <EventCardCalendarGridItem
+          {...defaultProps}
+          applicableDaysOfWeek={['SUN'] as any}
+          dayOfWeekLabels={{ SUN: 'Sunday' }}
+        />
+      );
+      expect(container.querySelector('[role="tooltip"]')).toBeNull();
+
+      rerender(
+        <EventCardCalendarGridItem
+          {...defaultProps}
+          applicableDaysOfWeek={['SUN'] as any}
+          dayOfWeekLabels={{ SUN: 'Sunday' }}
+          repeatBadgeTooltipVisible
+        />
+      );
+      const tooltip = container.querySelector('[role="tooltip"]');
+      expect(tooltip).not.toBeNull();
+      expect(tooltip).toHaveTextContent('Repeats on Sunday');
+    });
+  });
 });

@@ -7,7 +7,7 @@ import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, A
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput, useToggleFavoriteMutation } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
-import { useQueryState, parseAsString, parseAsArrayOf } from "nuqs"
+import { useQueryState, parseAsString, parseAsArrayOf, parseAsStringEnum } from "nuqs"
 import { usePostHog } from "@festgrid/analytics"
 import { useRouter } from "@/i18n/navigation"
 import { useSearchParams } from "next/navigation"
@@ -21,6 +21,8 @@ import { useNearbyFilter } from "./use-nearby-filter"
 import { useAIFilter } from "@/features/events/use-ai-filter"
 import { computeDistanceKm } from "@festgrid/domain/geolocation"
 import { selectDisplaySchedule } from "@festgrid/domain/events"
+import { mapDaysOfWeekToDomain } from "@/lib/day-of-week-mapping"
+import { DayOfWeek as DomainDayOfWeek } from "@festgrid/domain/events"
 
 // Falls back to the raw enum value if a translation key is missing, so a
 // locale file drifting out of sync with the enum degrades gracefully instead
@@ -73,6 +75,12 @@ export function HomeContent() {
   const [q, setQ] = useQueryState('q', parseAsString.withDefault(''))
   const [types] = useQueryState('types', parseAsArrayOf(parseAsString).withDefault([]))
   const [categories] = useQueryState('categories', parseAsArrayOf(parseAsString).withDefault([]))
+  // No `.withDefault(...)` -- absent/null means "All" (AC7), matching the committed value's
+  // own null-means-All contract used throughout `buildEventsQueryCondition`/`TemporalFilterToggle`.
+  const [temporalFilter, setTemporalFilter] = useQueryState(
+    'temporal',
+    parseAsStringEnum<'TODAY' | 'UPCOMING'>(['TODAY', 'UPCOMING'])
+  )
   const queryClient = useQueryClient()
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
 
@@ -139,6 +147,7 @@ export function HomeContent() {
   
   const tCategory = useTranslations('EventCategory')
   const tType = useTranslations('EventType')
+  const tDayOfWeek = useTranslations('DayOfWeek')
   const tFilterHub = useTranslations('FilterHub')
   const tEventCard = useTranslations('EventCard')
   const locale = useLocale()
@@ -150,6 +159,12 @@ export function HomeContent() {
   const typeLabels = useMemo(
     () => buildEnumLabels(Object.values(EventType), tType),
     [tType]
+  )
+  // Story 1.3k Task 8 (AC9) — DayOfWeek i18n namespace, passed through to EventListView/EventCard
+  // as `dayOfWeekLabels`.
+  const dayOfWeekLabels = useMemo(
+    () => buildEnumLabels(Object.values(DomainDayOfWeek), tDayOfWeek),
+    [tDayOfWeek]
   )
 
   const router = useRouter()
@@ -194,7 +209,7 @@ export function HomeContent() {
 
   const prefersReducedMotion = usePrefersReducedMotion();
   const pagination = useListPaginationController({
-    filterKey: { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter },
+    filterKey: { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter, temporalFilter },
     initialCursor: 0,
     onReset: () => {
       if (typeof window !== 'undefined') {
@@ -211,11 +226,11 @@ export function HomeContent() {
     status,
     error
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ['events', { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter }, pagination.resetToken],
+    queryKey: ['events', { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter, temporalFilter }, pagination.resetToken],
     queryFn: async ({ pageParam }) => {
       const condition = aiFilter.activeFilter
-        ? buildEventsQueryCondition({ filter: aiFilter.activeFilter })
-        : buildEventsQueryCondition({ search: q, types, categories, nearby: resolvedNearby });
+        ? buildEventsQueryCondition({ filter: { ...aiFilter.activeFilter, temporalFilter } })
+        : buildEventsQueryCondition({ search: q, types, categories, nearby: resolvedNearby, temporalFilter });
       return graphqlClient.request<GetEventsQuery>(GetEventsDocument, {
         limit: 10,
         offset: pageParam as number,
@@ -238,7 +253,18 @@ export function HomeContent() {
   })
 
   type EventItem = GetEventsQuery['events']['items'][number];
-  const events: EventItem[] = (data?.pages || []).flatMap((page: GetEventsQuery) => page.events.items) ?? []
+  // Story 1.3k Task 9 (AC2/AC3 end-to-end) — maps every schedule's GraphQL-typed
+  // `applicableDaysOfWeek` to the domain enum `EventListView`/`EventCard` consume for the repeat
+  // badge (AD-19 Rule 2/3 — never an implicit cast on the raw GQL enum array).
+  const events = ((data?.pages || []).flatMap((page: GetEventsQuery) => page.events.items) ?? []).map(
+    (event: EventItem) => ({
+      ...event,
+      schedules: (event.schedules ?? []).map((schedule) => ({
+        ...schedule,
+        applicableDaysOfWeek: mapDaysOfWeekToDomain(schedule.applicableDaysOfWeek),
+      })),
+    })
+  )
 
   const handleSearchSubmit = useMemo(() => (searchQuery: string) => {
     setQ(searchQuery || '')
@@ -249,6 +275,18 @@ export function HomeContent() {
       posthog.capture('search_submitted', { query: searchQuery })
     }
   }, [posthog]);
+
+  const handleTemporalFilterChange = useMemo(() => (value: 'TODAY' | 'UPCOMING' | null) => {
+    setTemporalFilter(value)
+    posthog.capture('temporal_filter_changed', { value: value ?? 'ALL' })
+  }, [setTemporalFilter, posthog]);
+
+  const temporalFilterLabels = useMemo(() => ({
+    today: t('temporalFilterTodayLabel'),
+    upcoming: t('temporalFilterUpcomingLabel'),
+    all: t('temporalFilterAllLabel'),
+    groupLabel: t('temporalFilterGroupLabel'),
+  }), [t]);
 
   return (
     <PageContainer>
@@ -286,6 +324,9 @@ export function HomeContent() {
         aiCaveatsText={aiFilter.filterHubProps.aiCaveatsText}
         onAIClear={aiFilter.filterHubProps.onAIClear}
         onAIExpand={aiFilter.filterHubProps.onAIExpand}
+        temporalFilter={temporalFilter}
+        onTemporalFilterChange={handleTemporalFilterChange}
+        temporalFilterLabels={temporalFilterLabels}
         views={[
           {
             id: 'card',
@@ -306,6 +347,7 @@ export function HomeContent() {
                   priceFrom: t('priceFrom'),
                   categoryLabels,
                   typeLabels,
+                  dayOfWeekLabels,
                   favoriteToggle: tEventCard('favoriteToggle'),
                   tillLabel: tEventCard('tillLabel'),
                   statusEnded: tEventCard('statusEnded'),

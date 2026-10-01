@@ -20,4 +20,10 @@ export interface SubscribedAccountCardProps {
   };
   size?: 'sm' | 'lg';
   className?: string;
+  location?: {
+    name: string;
+    coordinates?: { lat: number; lng: number } | null;
+    confidence?: number | null;
+    matchType?: string | null;
+  } | null;
 }

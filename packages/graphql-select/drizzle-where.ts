@@ -94,6 +94,40 @@ export function buildDrizzleWhere(
               && daterange(${from}::date, ${toSql}, '[]')
       )`;
     }
+    case "notEnded": {
+      // AD-20 Rule 2/4 -- exactly mirrors `isEventEnded`'s (packages/ui/src/features/events/
+      // format-event-date.ts) own boolean, with NO timezone conversion on either side (see this
+      // story's Dev Notes, "Timezone scope of the `!ended` mirror" -- a deliberate scope
+      // decision, not an oversight: no call site in this codebase passes a real per-event
+      // timezone today, so both sides already agree on the same lack of conversion).
+      const { now, today } = value as { now: string; today: string };
+      const { table, eventIdCol, correlateCol, startCol, endCol, endTimeCol } = column as {
+        table: PgTable;
+        eventIdCol: PgColumn;
+        correlateCol: PgColumn;
+        startCol: PgColumn;
+        endCol: PgColumn;
+        endTimeCol: PgColumn;
+      };
+      // Strip any trailing 'Z'/offset before interpolating into a `::timestamp`
+      // (timezone-naive) cast -- see Dev Notes "Timezone scope of the !ended mirror."
+      // Casting a tz-qualified string to a naive `timestamp` type makes Postgres
+      // silently reinterpret it via the session's `TimeZone` GUC, which this app's
+      // connection (apps/backend/src/db/client.ts) does not pin to UTC.
+      const naiveNow = now.replace(/Z$|[+-]\d{2}:?\d{2}$/, '');
+      return sql`EXISTS (
+        SELECT 1 FROM ${table}
+        WHERE ${eventIdCol} = ${correlateCol}
+          AND NOT (
+            COALESCE(${endCol}, ${startCol}) < ${today}::date
+            OR (
+              COALESCE(${endCol}, ${startCol}) = ${today}::date
+              AND ${endTimeCol} IS NOT NULL
+              AND (COALESCE(${endCol}, ${startCol})::timestamp + ${endTimeCol}) <= ${naiveNow}::timestamp
+            )
+          )
+      )`;
+    }
     case "withinRadius": {
       const { latitude, longitude, radiusKm } = value as { latitude: number; longitude: number; radiusKm: number };
       const { latColumn, lngColumn } = column as { latColumn: PgColumn; lngColumn: PgColumn };

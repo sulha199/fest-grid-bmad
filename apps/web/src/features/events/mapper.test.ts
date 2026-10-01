@@ -98,72 +98,28 @@ function toSchedule(event: NonNullable<GetEventBySlugQuery['eventBySlug']>) {
 }
 
 // Story 0.i7z ratchet — AD-14 Rule 2 / Story 0.i7z AC 3 consumer: this mapper is the
-// event-detail map-link gate. Proves `mapper.ts` calls `isLocationTrustworthy` and branches
-// `mapUrl` on its result (coordinate link when trustworthy, text-query fallback otherwise).
-describe('mapGraphQLEventToDetailViewProps mapUrl gating (Story 0.i7c / 0.i7z)', () => {
-  it('links the raw coordinate for a trustworthy (confidence>=0.5, full_match) locationDetails', () => {
-    const event = buildEvent({
-      locationDetails: {
-        placeName: 'Place',
-        placeId: 'place-1',
-        formattedAddress: '1 Main St',
-        timezone: 'America/Chicago',
-        confidence: 0.9,
-        matchType: 'full_match',
-        coordinates: { lat: 41.8758, lng: -87.6245 },
-      },
-    });
-    expect(toSchedule(event).mapUrl).toBe(
-      `https://www.google.com/maps/search/?api=1&query=41.8758,-87.6245`
-    );
+// event-detail map-link gate. Story 1.6e moves the confidence-gating logic itself into
+// `LocationLink` (Story 1.6d, see `packages/ui/src/core/LocationLink.test.tsx` for the
+// confidence-boundary cases); this mapper's own responsibility is now just an unchanged
+// passthrough of `locationDetails` onto `ScheduleDetail`, proved below.
+describe('mapGraphQLEventToDetailViewProps locationDetails passthrough (Story 1.6e)', () => {
+  it('passes locationDetails through onto ScheduleDetail.locationDetails unchanged', () => {
+    const locationDetails = {
+      placeName: 'Place',
+      placeId: 'place-1',
+      formattedAddress: '1 Main St',
+      timezone: 'America/Chicago',
+      confidence: 0.9,
+      matchType: 'full_match',
+      coordinates: { lat: 41.8758, lng: -87.6245 },
+    };
+    const event = buildEvent({ locationDetails });
+    expect(toSchedule(event).locationDetails).toEqual(locationDetails);
   });
 
-  it('falls back to a text query when confidence is below the bar despite full_match', () => {
-    const event = buildEvent({
-      location: 'Stage 1',
-      locationDetails: {
-        placeName: 'Place',
-        placeId: 'place-1',
-        formattedAddress: '1 Main St',
-        timezone: 'America/Chicago',
-        confidence: 0.3,
-        matchType: 'full_match',
-        coordinates: { lat: 41.8758, lng: -87.6245 },
-      },
-    });
-    expect(toSchedule(event).mapUrl).toBe(
-      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('Stage 1')}`
-    );
-  });
-
-  it('falls back to a text query when confidence/matchType are null (legacy pre-epic data)', () => {
-    const event = buildEvent({
-      location: 'Stage 1',
-      locationDetails: {
-        placeName: 'Place',
-        placeId: 'place-1',
-        formattedAddress: '1 Main St',
-        timezone: 'America/Chicago',
-        confidence: null,
-        matchType: null,
-        coordinates: { lat: 41.8758, lng: -87.6245 },
-      },
-    });
-    expect(toSchedule(event).mapUrl).toBe(
-      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('Stage 1')}`
-    );
-  });
-
-  it('falls back to a text query when there is no locationDetails at all (unchanged behavior)', () => {
-    const event = buildEvent({ location: 'Stage 1' });
-    expect(toSchedule(event).mapUrl).toBe(
-      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('Stage 1')}`
-    );
-  });
-
-  it('yields a null mapUrl when there is neither locationDetails nor location (unchanged behavior)', () => {
-    const event = buildEvent({ location: null });
-    expect(toSchedule(event).mapUrl).toBeNull();
+  it('passes through a null locationDetails as null (no locationDetails resolved for this schedule)', () => {
+    const event = buildEvent({ locationDetails: null });
+    expect(toSchedule(event).locationDetails).toBeNull();
   });
 });
 
@@ -236,5 +192,108 @@ describe('mapGraphQLEventToDetailViewProps types/categories badge shape (Story 1
     expect(props.categories).toBeUndefined();
     expect(props.types).not.toEqual([]);
     expect(props.categories).not.toEqual([]);
+  });
+});
+
+// Story 0.i7z ratchet — AD-14 Rule 2 consumer: mapper.ts's accountLocation
+// derivation passes sourceSocialMediaAccountProfile.defaultLocation's
+// confidence/matchType signal through unchanged onto EventDetailViewProps.accountLocation,
+// which SubscribedAccountCard (Story 0.i6e) then gates via isLocationTrustworthy.
+describe('mapGraphQLEventToDetailViewProps accountLocation derivation (Story 0.i6e)', () => {
+  it('uses placeName verbatim when present', () => {
+    const event = {
+      ...buildEvent({}),
+      sourceSocialMediaAccountProfile: {
+        accountId: 'acc-1',
+        platform: 'instagram',
+        username: 'org',
+        displayName: 'Org',
+        profileImageUrl: null,
+        accountType: null,
+        defaultLocation: {
+          coordinates: { lat: 41.8758, lng: -87.6245 },
+          placeName: 'The Grand Hall',
+          formattedAddress: '1 Main St',
+          confidence: 0.9,
+          matchType: 'full_match',
+        },
+      },
+    };
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.accountLocation).toEqual({
+      name: 'The Grand Hall',
+      coordinates: { lat: 41.8758, lng: -87.6245 },
+      confidence: 0.9,
+      matchType: 'full_match',
+    });
+  });
+
+  it('falls back to formattedAddress when placeName is empty', () => {
+    const event = {
+      ...buildEvent({}),
+      sourceSocialMediaAccountProfile: {
+        accountId: 'acc-1',
+        platform: 'instagram',
+        username: 'org',
+        displayName: 'Org',
+        profileImageUrl: null,
+        accountType: null,
+        defaultLocation: {
+          coordinates: { lat: 41.8758, lng: -87.6245 },
+          placeName: '',
+          formattedAddress: '1 Main St',
+          confidence: 0.9,
+          matchType: 'full_match',
+        },
+      },
+    };
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.accountLocation?.name).toBe('1 Main St');
+  });
+
+  it('resolves to null when both placeName and formattedAddress are empty', () => {
+    const event = {
+      ...buildEvent({}),
+      sourceSocialMediaAccountProfile: {
+        accountId: 'acc-1',
+        platform: 'instagram',
+        username: 'org',
+        displayName: 'Org',
+        profileImageUrl: null,
+        accountType: null,
+        defaultLocation: {
+          coordinates: { lat: 41.8758, lng: -87.6245 },
+          placeName: '',
+          formattedAddress: '',
+          confidence: 0.9,
+          matchType: 'full_match',
+        },
+      },
+    };
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.accountLocation).toBeNull();
+  });
+
+  it('resolves to null when defaultLocation is entirely absent', () => {
+    const event = {
+      ...buildEvent({}),
+      sourceSocialMediaAccountProfile: {
+        accountId: 'acc-1',
+        platform: 'instagram',
+        username: 'org',
+        displayName: 'Org',
+        profileImageUrl: null,
+        accountType: null,
+        defaultLocation: null,
+      },
+    };
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.accountLocation).toBeNull();
+  });
+
+  it('resolves to null when sourceSocialMediaAccountProfile itself is absent', () => {
+    const event = buildEvent({}); // sourceSocialMediaAccountProfile: null per buildEvent's default fixture
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.accountLocation).toBeNull();
   });
 });

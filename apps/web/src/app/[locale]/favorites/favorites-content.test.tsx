@@ -404,9 +404,105 @@ describe('FavoritesContent', () => {
 
     // Ensure no additional unmount mutation calls were fired (since it was already committed)
     await new Promise((resolve) => setTimeout(resolve, 50));
-    const toggleCalls = requestSpy.mock.calls.filter(([doc]) => 
+    const toggleCalls = requestSpy.mock.calls.filter(([doc]) =>
       JSON.stringify(doc).includes('toggleFavorite')
     );
     expect(toggleCalls.length).toBe(1);
+  });
+});
+
+// Story 0.i5e — FavoritesContent adopts useListPaginationController on the `favoriteEvents`
+// query only: resetToken-into-queryKey integration, scroll-to-top-on-reset, and rewiring
+// unfavoritedIds' reset from the old ref-comparison effect to pagination.resetToken (AC3).
+describe('FavoritesContent - Story 0.i5e (pagination controller)', () => {
+  it('does not call window.scrollTo on initial mount', async () => {
+    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText('Event evt-1')).toBeInTheDocument();
+    });
+
+    expect(scrollToSpy).not.toHaveBeenCalled();
+  });
+
+  it('scrolls to top when a filter change resets pagination', async () => {
+    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText('Event evt-1')).toBeInTheDocument();
+    });
+
+    expect(scrollToSpy).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Type' }));
+    const festivalOption = await screen.findByRole('button', { name: 'Festival' });
+    fireEvent.click(festivalOption);
+
+    await waitFor(() => {
+      expect(scrollToSpy).toHaveBeenCalledWith({ top: 0, behavior: expect.stringMatching(/auto|smooth/) });
+    });
+  });
+
+  it('resets favoriteEvents pagination to the first batch (not continuing from page 2) when a filter changes after a page-2 fetch', async () => {
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText('Event evt-1')).toBeInTheDocument();
+    });
+
+    (window as any).triggerScroll();
+
+    await waitFor(() => {
+      expect(screen.getByText('Event evt-11')).toBeInTheDocument();
+    });
+
+    eventsCalls.length = 0;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Type' }));
+    const festivalOption = await screen.findByRole('button', { name: 'Festival' });
+    fireEvent.click(festivalOption);
+
+    await waitFor(() => {
+      expect(eventsCalls.length).toBeGreaterThan(0);
+    });
+
+    // The first post-reset batch's id condition must be the FIRST page of ids (offset 0
+    // again), not a continuation from the page-2 batch already fetched above.
+    const firstNewCall = eventsCalls[0];
+    const idCondition = firstNewCall?.query?.conditions?.find((c: any) => c?.field === 'id');
+    expect(idCondition?.value?.length).toBeLessThanOrEqual(10);
+    expect(idCondition?.value).toContain('evt-1');
+  });
+
+  it('finalizes a pendingRemoval favorite immediately when a filter change triggers a reset (AC3)', async () => {
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText('Event evt-1')).toBeInTheDocument();
+    });
+
+    const removeButton = screen.getAllByRole('button', { name: 'Remove from Favorites' })[0];
+    fireEvent.click(removeButton);
+
+    await waitFor(() => {
+      const article = screen.getAllByRole('article').find((el) => el.getAttribute('aria-disabled') === 'true');
+      expect(article).toBeTruthy();
+    });
+
+    // A filter-driven reset finalizes the pending removal immediately (AC3 -- user-confirmed
+    // via AskUserQuestion during story creation) rather than blocking/deferring the reset until
+    // the undo toast window closes.
+    fireEvent.click(screen.getByRole('button', { name: 'Type' }));
+    const festivalOption = await screen.findByRole('button', { name: 'Festival' });
+    fireEvent.click(festivalOption);
+
+    await waitFor(() => {
+      const pendingArticles = screen.getAllByRole('article').filter((el) => el.getAttribute('aria-disabled') === 'true');
+      expect(pendingArticles).toHaveLength(0);
+    });
   });
 });

@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-09-26"
+last_updated: "2026-09-30"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -842,7 +842,10 @@ items:
      impact: user-visible, effort: m,
      title: "Extend the Today/Upcoming/All temporal filter to Feed and Favorites once they adopt useListPaginationController",
      ref: [backlog/IDEA-038-feed-favorites-temporal-filter-adoption.md], touches: [web:events, pkg:ui],
-     note: "AMENDED 2026-09-19: missing prerequisite carved to Story 0-i5e (ready-for-dev); still blocked on 0-i5e + 1-3l both landing. Full detail in backlog/IDEA-038-feed-favorites-temporal-filter-adoption.md."}
+     note: "AMENDED 2026-09-19: missing prerequisite carved to Story 0-i5e (ready-for-dev); still blocked on 0-i5e + 1-3l both landing. Full detail in backlog/IDEA-038-feed-favorites-temporal-filter-adoption.md.
+     AMENDED 2026-09-30 (batch-event-pages-wave-a-readiness.md): also depends on Story 0-i5d -- it builds TemporalFilterToggle / EventFilterInput.temporalFilter, which this row extends to Feed/Favorites. Unblock chain is 1-3l + 0-i5e + 0-i5d, each at least `review`.
+     AMENDED 2026-09-30 (Story 0-i5e completion): 0-i5e's own scope (Feed/Favorites adopting useListPaginationController) is now landed -- that prerequisite in the unblock chain is closed. Remaining blockers: 0-i5d and 1-3l, each still needing to reach at least `review`.
+     UPDATED 2026-09-30 (after Wave A batch): 0-i5d, 1-3l and 0-i5e are now all at `review` -- the unblock chain is satisfied; this row is ready for `bmad-create-story IDEA-038`."}
 
   # ── 2026-09-11 (bmad-help event-extraction-recurrence-bug session) ──────────
   BUG-026:
@@ -1208,7 +1211,8 @@ items:
      title: "Formalize scroll-to-top-on-filter-reset as a cross-surface EXPERIENCE.md convention",
      ref: [implementation-artifacts/0-i5b-adopt-the-controller-in-discovery-event-list-surfaces.md],
      touches: [pkg:ui, web:events, cross:ux-tokens],
-     note: "Surfaced during Story 0.i5b (bmad-create-story, 2026-09-15): Gate 2 found neither DESIGN.md nor EXPERIENCE.md addresses whether a filter change should scroll a list view back to top. User chose (via AskUserQuestion) to add this behavior to Discovery's home-content.tsx now — window.scrollTo({top:0}) fired from useListPaginationController's onReset, reusing useCollapseHeaderOnScroll.ts's existing reduced-motion-aware convention — but explicitly as a single-surface implementation, not a binding EXPERIENCE.md rule. This idea tracks formalizing it into a documented cross-surface convention if/when Feed/Favorites or other useListPaginationController adopters need the same treatment. Not promoted to a story; no adoption story references it yet."}
+     note: "Surfaced during Story 0.i5b (bmad-create-story, 2026-09-15): Gate 2 found neither DESIGN.md nor EXPERIENCE.md addresses whether a filter change should scroll a list view back to top. User chose (via AskUserQuestion) to add this behavior to Discovery's home-content.tsx now — window.scrollTo({top:0}) fired from useListPaginationController's onReset, reusing useCollapseHeaderOnScroll.ts's existing reduced-motion-aware convention — but explicitly as a single-surface implementation, not a binding EXPERIENCE.md rule. This idea tracks formalizing it into a documented cross-surface convention if/when Feed/Favorites or other useListPaginationController adopters need the same treatment. Not promoted to a story; no adoption story references it yet.
+     UPDATED 2026-09-30 (Story 0-i5e): Feed (feed-content.tsx) and Favorites (favorites-content.tsx) now also implement scroll-to-top-on-filter-reset the same way, via AskUserQuestion during Story 0.i5e's creation. All 3 current useListPaginationController adopters (Discovery, Feed, Favorites) now implement this behavior — still recorded here as a documented convention, not promoted to a binding EXPERIENCE.md rule by this story."}
 
   # ── 2026-09-17 (direct AWS CLI investigation) ────────────────────────────────
   FIND-034:
@@ -1650,6 +1654,22 @@ items:
      touches: [web:events/EventCard, pkg:ui],
      note: "Deferred from: code review of 1-i1o-wire-eventcard-and-weeklycalendarview-labels-to-nextintl.md (2026-09-27). 1 finding."}
 
+  # ── 2026-09-30 (batch-event-pages-wave-a-readiness.md) ──────────────────────
+  FIND-060:
+    {type: finding, status: backlog, created: 2026-09-30, parent: BUG-026,
+     impact: user-visible, effort: m,
+     title: "Story 0.i5d's TODAY/UPCOMING temporal filter ignores Schedule.applicableDaysOfWeek, so a weekday-only recurring schedule matches every day inside its span",
+     ref: [planning-artifacts/epic-readiness/batch-event-pages-wave-a-readiness.md, backlog/BUG-026-recurring-weekday-schedule-date-span.md],
+     touches: [pkg:domain, app:backend, web:events],
+     note: "Found 2026-09-30 by the Wave A batch readiness sweep. Not a new gap: this is BUG-026's still-open filter-matching-correctness fix (buildEventsQueryCondition.ts / drizzle-where.ts) reaching the new temporalFilter path added by 0-i5d. Fold into BUG-026's matching fix (reuse the exported getDays(DayOfWeek[]) from 1-3k / AD-19) rather than a separate mechanism."}
+
+  IDEA-052:
+    {type: idea, status: backlog, created: 2026-09-30,
+     impact: internal, effort: s,
+     title: "Move useNavRailItemInteraction onto the shared useHoverFocusTooltip hook (three hand-rolled hover+focus tooltip copies exist)",
+     ref: [planning-artifacts/epic-readiness/batch-event-pages-wave-a-readiness.md, implementation-artifacts/1-3k-render-day-of-week-recurring-schedules-and-repeat-badge.md], touches: [pkg:ui],
+     note: "Found 2026-09-30 (Wave A readiness Gate 3): hover+focus+Escape tooltip state is hand-rolled in CalendarCard, MultiDaySpanningBar (both WeeklyCalendarView.tsx) and packages/ui/src/hooks/useNavRailItemInteraction.ts. Story 1-3k extracts useHoverFocusTooltip and adopts it in the first two; this row is the optional follow-up to adopt it in the nav rail, behavior-preserving, after 1-3k lands."}
+
   # ── 2026-09-30 ──────────────────────────────────────────────────────────────
   CC-023:
     {type: proposal, status: triaged, created: 2026-09-30,
@@ -1665,6 +1685,14 @@ items:
      ref: [planning-artifacts/sprint-change-proposal-2026-09-30.md],
      touches: [cross:ai-extraction, app:backend],
      note: "AD-29 Rule 4's recorded blind spot: extraction_audit_logs can't verify hasFaceImage=false today since face-api.js never runs on those rows."}
+
+  IDEA-053:
+    {type: idea, status: promoted, created: 2026-10-01, parent: CC-023,
+     title: "Version re-hosted media keys and set a 7-day immutable HTTP cache policy (Story 3.6q, AD-28 Rule 9)",
+     ref: [planning-artifacts/sprint-change-proposal-2026-09-30.md, planning-artifacts/festgrid-architecture-spine.md],
+     stories: [3-6q-version-re-hosted-media-keys-and-set-a-7-day-immutable-http-cache-policy],
+     touches: [app:backend, app:infrastructure, cross:architecture],
+     note: "Raised 2026-10-01. Fixed posts/{postId} key + 1-year immutable cache means a deleted or replaced image can linger in browsers. HTTP cache only; a service-worker image cache was considered and rejected (AD-28 Rule 9). Must land before Story 3.6n."}
 
   BUG-051:
     {type: bug, status: backlog, created: 2026-09-30,

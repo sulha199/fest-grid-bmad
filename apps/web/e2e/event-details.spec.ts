@@ -1,5 +1,10 @@
 import { test, expect } from "@playwright/test"
 
+const storageStatePath = process.env.E2E_AUTH_STORAGE_STATE
+if (storageStatePath) {
+  test.use({ storageState: storageStatePath })
+}
+
 test.describe("Event Details", () => {
   test("should open modal when clicking an event card, update the URL, and support close", async ({ page }) => {
     // Navigate to the main discovery page
@@ -68,5 +73,81 @@ test.describe("Event Details", () => {
     const nextBtn = page.getByRole("button", { name: "Next Event" })
     await expect(prevBtn).not.toBeVisible()
     await expect(nextBtn).not.toBeVisible()
+  })
+
+  // Story 1.6c (AC4) — proves the observable, client-side half of "not two fetches": after the
+  // SSR-hydrated page settles, the browser must issue ZERO additional client-initiated
+  // /api/graphql requests for the getEventBySlug operation (the server-side dedup, AC2(a), runs
+  // inside the Next.js server process and is not independently observable via browser-level
+  // network interception -- verified separately per Task 9's manual check).
+  function countGetEventBySlugRequests(page: import("@playwright/test").Page): { count: () => number } {
+    let count = 0
+    page.on("request", (request) => {
+      if (!request.url().includes("/api/graphql")) return
+      const postData = request.postData()
+      if (postData && postData.includes("getEventBySlug")) {
+        count++
+      }
+    })
+    return { count: () => count }
+  }
+
+  test("issues zero client-initiated getEventBySlug requests after the full-page route settles (Story 1.6c AC4)", async ({ page }) => {
+    const tracker = countGetEventBySlugRequests(page)
+
+    await page.goto("/en/events/ongoing-culture-fest-2026-2027-fixed")
+    await expect(page.locator("h1", { hasText: "Ongoing Culture Fest 2026-2027" })).toBeVisible()
+
+    // Settle window: give any would-be client re-fetch a chance to fire before asserting it didn't.
+    await page.waitForTimeout(1000)
+
+    expect(tracker.count()).toBe(0)
+  })
+
+  test("issues zero client-initiated getEventBySlug requests after the intercepted modal route settles (Story 1.6c AC4)", async ({ page }) => {
+    await page.goto("/en")
+    const firstCard = page.locator("article").first()
+    await expect(firstCard).toBeVisible({ timeout: 10000 })
+
+    // Start tracking only once the modal navigation begins, so the initial Discovery-page
+    // load's own network activity (unrelated to this route pair) isn't counted.
+    const tracker = countGetEventBySlugRequests(page)
+
+    await firstCard.click()
+    await expect(page).toHaveURL(/\/en\/events\/[a-z0-9-]+/)
+    await expect(page.locator("role=dialog").locator("h1")).toBeVisible()
+
+    await page.waitForTimeout(1000)
+
+    expect(tracker.count()).toBe(0)
+  })
+
+  // Story 1.6c (AC7) — proves the SSR-hydrated fetch is AUTHENTICATED, not just deduped: a
+  // logged-in visitor who has already favorited an event sees the "favorited" state on first
+  // paint, not a forced `false` momentarily corrected by a background refetch (the concrete
+  // risk this story's Design Decision Dev Note escalated). Requires a real seeded, logged-in
+  // session with at least one favorited event -- gated on the same E2E_AUTH_STORAGE_STATE
+  // convention already used by favorites.spec.ts/etc., since this project's testing-trophy
+  // convention for authenticated flows is against a real local dev DB, not a mocked one.
+  test("shows an authenticated visitor's real isFavorited state on first render, not a forced false (Story 1.6c AC7)", async ({ page }) => {
+    test.skip(!storageStatePath, "Set E2E_AUTH_STORAGE_STATE to run this authenticated hydration-correctness check.")
+
+    await page.goto("/en/favorites")
+    await expect(page.getByRole("heading", { level: 1, name: "My Favorites" })).toBeVisible()
+
+    const firstCard = page.locator("article").first()
+    await expect(firstCard).toBeVisible({ timeout: 15000 })
+    const eventName = await firstCard.locator("h3").innerText()
+    await firstCard.click()
+
+    await expect(page).toHaveURL(/\/en\/events\/[a-z0-9-]+/)
+    const modalTitle = page.locator("role=dialog").locator("h1")
+    await expect(modalTitle).toHaveText(eventName)
+
+    // The very first render of the "Remove from Favorites" (favorited=true) button state --
+    // no intermediate "Add to Favorites" (favorited=false) flash corrected a moment later.
+    const favoriteButton = page.locator("role=dialog").getByRole("button", { name: "Remove from Favorites" })
+    await expect(favoriteButton).toBeVisible({ timeout: 2000 })
+    await expect(favoriteButton).toHaveAttribute("aria-pressed", "true")
   })
 })

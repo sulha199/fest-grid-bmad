@@ -373,8 +373,17 @@ This document defines the core architectural invariants for the FestDaily applic
           (pure-function coverage of `selectBestCandidate`) + `apps/backend/src/lib/geolocation/adapter.test.ts`'s
           `'adapter resolveLocation re-ranks ADDRESS by confidence (BUG-017)'` integration test;
           map-link gate — `packages/domain/src/geolocation/is-location-trustworthy.test.ts` +
-          `apps/web/src/features/events/mapper.test.ts`; GraphQL exposure — the three
-          `apps/web` `.graphql.test.ts` AST guard tests from Story 0.i7d
+          `packages/ui/src/core/LocationLink.test.tsx` (confidence-boundary cases; Story 1.6d, carries the
+          0.i7z ratchet header) + the `locationDetails` passthrough test in
+          `apps/web/src/features/events/mapper.test.ts` (Story 1.6e; supersedes the removed
+          `mapUrl gating (Story 0.i7c / 0.i7z)` block — both 1.6d and 1.6e have now landed, so this is the
+          current enforcer, not a future-tense placeholder); account-card consumer —
+          `packages/ui/src/features/subscriptions/SubscribedAccountCard.test.tsx`'s `location prop`
+          block (Story 0.i6e, carries the 0.i7z ratchet header, including the `confidence: 0.5`/
+          `matchType: 'full_match'` trustworthy boundary case and the `null`-confidence untrustworthy
+          case) + the `accountLocation derivation` block in `apps/web/src/features/events/mapper.test.ts`
+          (Story 0.i6e; proves the `defaultLocation` passthrough that feeds that gate); GraphQL exposure —
+          the three `apps/web` `.graphql.test.ts` AST guard tests from Story 0.i7d
           (`apps/web/src/features/subscriptions/mutations.graphql.test.ts`,
           `apps/web/src/features/locations/mutations.graphql.test.ts`,
           `apps/web/src/features/locations/queries.graphql.test.ts`). (Story 0.i7z AC 2–4 ratchet.)
@@ -693,6 +702,21 @@ This document defines the core architectural invariants for the FestDaily applic
           different route (event-detail page vs. the three list views) and BUG-035 is a
           materially different fix category (frontend caching, not DB batching) that doesn't
           belong bundled into Story A's DB-layer change set.
+        - **Story sequence item B shipped (Story 1.6c, 2026-09-30).** BUG-035's fix used the
+          **authenticated `cache()` + `HydrationBoundary`** variant, not the anonymous-only
+          alternative: the SSR fetch that seeds the client's `getEventBySlug` cache reads the
+          visitor's session server-side (`createSupabaseServerClient()`) and forwards the token
+          per-request via `graphqlClient.request()`'s own `headers` argument — never the shared
+          singleton's `.setHeader()`, which would race across concurrent requests from different
+          users in the same Node process. This was a real, escalated tradeoff (not mechanical):
+          an anonymous-only SSR fetch would have hydrated `isFavorited`/`isAddedToCalendar`
+          forced `false` for every visitor, including logged-in ones with real favorited/
+          calendar-added state, masked for up to the app's 30s default `staleTime`. A future
+          route introducing a similar SSR-fetch-plus-client-hydration page (Gate 3 confirmed
+          this story's scope is narrow-by-design, not shared infra) should default to this same
+          authenticated pattern, not the cheaper anonymous-only one, unless that route's data has
+          no per-visitor-authenticated fields at all. See Story 1.6c's own Dev Notes → "Design
+          Decision" for the full tradeoff writeup.
 *   **Considered and rejected:** Leaving `schedules` as a per-row field resolver while only
     fixing the scalar fields (Rule 1) — rejected because `schedules{...}` is requested on every
     item by the shared `getEvents.graphql` document (per BUG-030's own finding) and is exactly as
@@ -1345,6 +1369,24 @@ This document defines the core architectural invariants for the FestDaily applic
     8.  **Accepted accuracy trade-off:** face-api.js has materially lower recall than Rekognition
         on small/angled/occluded/low-light faces — the profile of real event crowd photos — so
         some faces may go unblurred. Chosen deliberately to avoid a per-image AWS fee.
+    9.  **Media caching — versioned URLs, HTTP cache only (amends AD-12 Rule 2; added via
+        `bmad-correct-course` follow-up, 2026-10-01):** every re-hosted media object
+        (`durableThumbnailUrl` and `durableImageUrl` alike) is stored under a *content-versioned*
+        key, `posts/{postId}/thumb-{hash8}.jpg` / `posts/{postId}/full-{hash8}.{ext}`
+        (`hash8` = first 8 hex chars of the SHA-256 of the stored bytes), replacing today's fixed
+        `posts/{postId}` key. A changed or re-blurred image therefore always gets a new URL, so
+        `immutable` caching is safe. The CloudFront response-headers policy sends
+        `Cache-Control: public, max-age=604800, immutable` (7 days, down from 1 year): the 7-day
+        value is the ceiling on how long a deleted or replaced object can linger on a device that
+        never refreshes its event data. **Deletion semantics:** deleting an image sets the DB
+        column to null and removes the S3 object (plus a CloudFront invalidation of its key);
+        clients stop requesting it as soon as their event data refreshes — no client-side eviction
+        is attempted. **No Cache API / service-worker image cache** (considered, rejected: the
+        HTTP cache already gives cache-first behavior for immutable versioned URLs, a service
+        worker would only add offline viewing — not a current requirement — plus CORS/opaque-
+        response handling and custom expiry code, and Safari caps script-writable storage at 7
+        days for non-installed sites, negating a 7-day SW ceiling there). Revisit only if offline
+        image viewing becomes a requirement.
 *   **Considered and rejected:** AWS Rekognition `DetectFaces` per-image (higher accuracy, ongoing
     per-image fee); batching multiple thumbnails into one Rekognition call (foreign buffering
     stage, risks a face silently escaping detection past the API's per-call face-count cap).

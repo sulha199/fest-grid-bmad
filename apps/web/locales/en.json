@@ -1,4 +1,13 @@
 {
+  "DayOfWeek": {
+    "MON": "Monday",
+    "TUE": "Tuesday",
+    "WED": "Wednesday",
+    "THU": "Thursday",
+    "FRI": "Friday",
+    "SAT": "Saturday",
+    "SUN": "Sunday"
+  },
   "AccountSettings": {
     "apiKeysTabLabel": "API Keys",
     "subscribedAccountsTabLabel": "Subscribed Accounts",
@@ -305,7 +314,11 @@
     "calendarMultiDaySegmentLabel": "Day {dayNumber} of {totalDays}",
     "calendarErrorState": "Failed to load calendar events.",
     "calendarClosePopoverLabel": "Close popover",
-    "calendarOverflowDialogTitleLabel": "Schedules for {day}"
+    "calendarOverflowDialogTitleLabel": "Schedules for {day}",
+    "temporalFilterTodayLabel": "Today",
+    "temporalFilterUpcomingLabel": "Upcoming",
+    "temporalFilterAllLabel": "All",
+    "temporalFilterGroupLabel": "Filter events by time"
   },
   "FeedPage": {
     "title": "My Feed",
@@ -596,6 +609,19 @@
     "retryButtonLabel": "Retry",
     "permissionDeniedToast": "Please enable notification permissions in your browser settings to receive notifications on this device.",
     "saveErrorToast": "Failed to update notification settings. Please try again."
+  },
+  "PwaInstallPrompt": {
+    "bannerMessage": "Add FestDaily to your home screen for quick access to festival events near you.",
+    "installButtonLabel": "Install",
+    "howToInstallButtonLabel": "How to install",
+    "notNowButtonLabel": "Not now",
+    "remindLaterButtonLabel": "Remind me in 2 weeks",
+    "iosModalTitle": "Install FestDaily",
+    "iosModalShareStep": "Tap the Share icon",
+    "iosModalAddToHomeScreenStep": "Tap \"Add to Home Screen\"",
+    "iosModalCloseLabel": "Close",
+    "installAppButtonLabel": "Install",
+    "installAppDescription": "Install FestDaily on this device for quick access to festival events."
   },
   "Wizards": {
     "onboarding": {

@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import type { DayOfWeek as DomainDayOfWeek } from '@festgrid/domain/events';
 import { EventCardLabels, EventCardProps } from './EventCard.types';
 
 export interface EventListViewScheduleShape {
@@ -9,6 +10,12 @@ export interface EventListViewScheduleShape {
   eventEndTime?: string | null;
   ticketPrice?: string | number | null;
   locationDetails?: { coordinates?: { lat: number; lng: number } | null } | null;
+  /**
+   * Story 1.3k (AC6) — the weekdays this schedule actually occurs on. Already mapped to
+   * `packages/domain`'s own `DayOfWeek` enum by the caller (AD-19 Rule 2/3). Unset/empty means
+   * the schedule occurs on every day of its span (legacy/default behavior).
+   */
+  applicableDaysOfWeek?: DomainDayOfWeek[] | null;
 }
 
 export interface EventListViewItem {

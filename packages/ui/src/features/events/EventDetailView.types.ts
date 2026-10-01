@@ -16,7 +16,11 @@ export interface ScheduleDetail {
   performers?: string | null;
   location?: string | null;
   ticketPrice?: string | null;
-  mapUrl?: string | null;
+  locationDetails?: {
+    coordinates?: { lat: number; lng: number } | null;
+    confidence?: number | null;
+    matchType?: string | null;
+  } | null;
   isAddedToCalendar?: boolean;
 }
 
@@ -123,6 +127,12 @@ export interface EventDetailViewProps {
   accountId?: string | null;
   accountPlatformIconUrl?: string | null;
   accountHref?: string | null;
+  accountLocation?: {
+    name: string;
+    coordinates?: { lat: number; lng: number } | null;
+    confidence?: number | null;
+    matchType?: string | null;
+  } | null;
   isSubscribedToAccount?: boolean;
   onSubscribeToAccount?: () => void;
   isSubscribingToAccount?: boolean;

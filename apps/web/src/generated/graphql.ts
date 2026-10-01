@@ -353,6 +353,7 @@ export type EventFilterInput = {
   isFree?: InputMaybe<Scalars['Boolean']['input']>;
   keyword?: InputMaybe<Scalars['String']['input']>;
   location?: InputMaybe<LocationFilterInput>;
+  temporalFilter?: InputMaybe<TemporalFilter>;
   types?: InputMaybe<Array<EventType>>;
   venueType?: InputMaybe<Scalars['String']['input']>;
 };
@@ -1094,6 +1095,7 @@ export type ResolvedAiEventFilterResult = {
 
 export type Schedule = {
   __typename?: 'Schedule';
+  applicableDaysOfWeek?: Maybe<Array<DayOfWeek>>;
   createdAt: Scalars['String']['output'];
   eventEndDate?: Maybe<Scalars['String']['output']>;
   eventEndTime?: Maybe<Scalars['String']['output']>;
@@ -1206,6 +1208,11 @@ export type Subscription = {
   isNewlyAdded: Scalars['Boolean']['output'];
   pendingExtractionCount: Scalars['Int']['output'];
 };
+
+export enum TemporalFilter {
+  Today = 'TODAY',
+  Upcoming = 'UPCOMING'
+}
 
 export type ToggleCalendarAdditionResult = {
   __typename?: 'ToggleCalendarAdditionResult';
@@ -1378,6 +1385,7 @@ export enum WidgetTheme {
 
 
 
+
 export type QueryActorRunsQueryVariables = Exact<{
   filters?: ActorRunFilters | null | undefined;
   first?: number | null | undefined;
@@ -1506,7 +1514,7 @@ export type GetEventsQueryVariables = Exact<{
 }>;
 
 
-export type GetEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, isFavorited: boolean, favoriteCount: number, imageUrl: string | null, durableImageUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventStartTime: string | null, eventEndDate: string | null, eventEndTime: string | null, ticketPrice: string | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
+export type GetEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, isFavorited: boolean, favoriteCount: number, imageUrl: string | null, durableImageUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventStartTime: string | null, eventEndDate: string | null, eventEndTime: string | null, ticketPrice: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
 
 export type GetFavoritedEventIdsQueryVariables = Exact<{
   query?: EventQueryConditionInput | null | undefined;
@@ -1520,7 +1528,7 @@ export type GetEventBySlugQueryVariables = Exact<{
 }>;
 
 
-export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, durableImageUrl: string | null, videoUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, publishedAt: string | null, organizerName: string | null, contactInfo: string | null, hasPrivateContact: boolean, isFavorited: boolean, favoriteCount: number, isHiddenForCurrentUser: boolean, instagramEmbed: { status: InstagramEmbedStatus, html: string | null, durableImageUrl: string | null } | null, links: Array<{ url: string, label: string | null }> | null, sourceSocialMediaAccountProfile: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null, accountType: string | null } | null, schedules: Array<{ id: string, isMainSchedule: boolean, title: string | null, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
+export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, durableImageUrl: string | null, videoUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, publishedAt: string | null, organizerName: string | null, contactInfo: string | null, hasPrivateContact: boolean, isFavorited: boolean, favoriteCount: number, isHiddenForCurrentUser: boolean, instagramEmbed: { status: InstagramEmbedStatus, html: string | null, durableImageUrl: string | null } | null, links: Array<{ url: string, label: string | null }> | null, sourceSocialMediaAccountProfile: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null, accountType: string | null, defaultLocation: { placeName: string | null, formattedAddress: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null } | null, schedules: Array<{ id: string, isMainSchedule: boolean, title: string | null, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
 
 export type GetEventForIcsExportQueryVariables = Exact<{
   id: string | number;
@@ -1537,7 +1545,7 @@ export type GetEventsForCalendarQueryVariables = Exact<{
 }>;
 
 
-export type GetEventsForCalendarQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, durableImageUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, isFavorited: boolean, favoriteCount: number, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, ticketPrice: string | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
+export type GetEventsForCalendarQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, durableImageUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, isFavorited: boolean, favoriteCount: number, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, ticketPrice: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
 
 export type GetEventsForMyCalendarQueryVariables = Exact<{
   limit?: number | null | undefined;
@@ -1546,7 +1554,7 @@ export type GetEventsForMyCalendarQueryVariables = Exact<{
 }>;
 
 
-export type GetEventsForMyCalendarQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, durableImageUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, isFavorited: boolean, favoriteCount: number, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, ticketPrice: string | null, isAddedToCalendar: boolean, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
+export type GetEventsForMyCalendarQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, durableImageUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, isFavorited: boolean, favoriteCount: number, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, ticketPrice: string | null, isAddedToCalendar: boolean, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
 
 export type GetArchivedEventsQueryVariables = Exact<{
   limit?: number | null | undefined;
@@ -1554,7 +1562,7 @@ export type GetArchivedEventsQueryVariables = Exact<{
 }>;
 
 
-export type GetArchivedEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, slug: string, eventName: string, imageUrl: string | null, durableImageUrl: string | null, location: string | null, categories: Array<EventCategory> | null, types: Array<EventType> | null, deletedAt: string | null, isHiddenForCurrentUser: boolean, isExpiredForCurrentUser: boolean, schedules: Array<{ isMainSchedule: boolean, eventStartDate: string, ticketPrice: string | null }> }> } };
+export type GetArchivedEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, slug: string, eventName: string, imageUrl: string | null, durableImageUrl: string | null, location: string | null, categories: Array<EventCategory> | null, types: Array<EventType> | null, deletedAt: string | null, isHiddenForCurrentUser: boolean, isExpiredForCurrentUser: boolean, schedules: Array<{ isMainSchedule: boolean, eventStartDate: string, ticketPrice: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null }> }> } };
 
 export type GetMyAiEventFiltersQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -2491,6 +2499,7 @@ export const GetEventsDocument = new TypedDocumentString(`
         eventEndDate
         eventEndTime
         ticketPrice
+        applicableDaysOfWeek
         locationDetails {
           coordinates {
             lat
@@ -2590,6 +2599,16 @@ export const GetEventBySlugDocument = new TypedDocumentString(`
       displayName
       profileImageUrl
       accountType
+      defaultLocation {
+        coordinates {
+          lat
+          lng
+        }
+        placeName
+        formattedAddress
+        confidence
+        matchType
+      }
     }
     schedules {
       id
@@ -2619,6 +2638,7 @@ export const GetEventBySlugDocument = new TypedDocumentString(`
       ticketPrice
       ticketUrl
       registrationUrl
+      applicableDaysOfWeek
     }
   }
 }
@@ -2706,6 +2726,7 @@ export const GetEventsForCalendarDocument = new TypedDocumentString(`
         eventStartTime
         eventEndTime
         ticketPrice
+        applicableDaysOfWeek
         locationDetails {
           coordinates {
             lat
@@ -2761,6 +2782,7 @@ export const GetEventsForMyCalendarDocument = new TypedDocumentString(`
         eventEndTime
         ticketPrice
         isAddedToCalendar
+        applicableDaysOfWeek
         locationDetails {
           coordinates {
             lat
@@ -2809,6 +2831,7 @@ export const GetArchivedEventsDocument = new TypedDocumentString(`
         isMainSchedule
         eventStartDate
         ticketPrice
+        applicableDaysOfWeek
       }
       deletedAt
       isHiddenForCurrentUser

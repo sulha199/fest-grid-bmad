@@ -94,6 +94,7 @@ type Schedule {
   updatedAt: String!
   createdAt: String!
   isAddedToCalendar: Boolean!
+  applicableDaysOfWeek: [DayOfWeek!]
 }
 
 type Event {
@@ -199,6 +200,11 @@ input LocationFilterInput {
   adminArea: String
 }
 
+enum TemporalFilter {
+  TODAY
+  UPCOMING
+}
+
 input EventFilterInput {
   accountId: ID
   types: [EventType!]
@@ -209,6 +215,7 @@ input EventFilterInput {
   location: LocationFilterInput
   venueType: String
   isFree: Boolean
+  temporalFilter: TemporalFilter
 }
 
 type DateRangeFilter {

@@ -56,7 +56,11 @@ describe('EventDetailView', () => {
         performers: 'Band A, DJ B',
         location: 'Stage 1',
         ticketPrice: '$10',
-        mapUrl: 'https://maps.example.com/stage1',
+        locationDetails: {
+          coordinates: { lat: 41.8758, lng: -87.6245 },
+          confidence: 0.9,
+          matchType: 'full_match',
+        },
       },
       {
         id: 'sched-2',
@@ -103,12 +107,138 @@ describe('EventDetailView', () => {
     expect(screen.getByText('Stage 1')).toBeInTheDocument();
     expect(screen.getByText('Band A, DJ B')).toBeInTheDocument();
     expect(screen.getByText('$10')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Stage 1/i })).toHaveAttribute('href', 'https://maps.example.com/stage1');
+    // Trustworthy coordinates (confidence>=0.5, full_match) -> LocationLink links directly
+    // to the coordinate (its own AC2/AC3 from Story 1.6d), not a hardcoded mapUrl.
+    expect(screen.getByRole('link', { name: /Stage 1/i })).toHaveAttribute(
+      'href',
+      'https://www.google.com/maps/search/?api=1&query=41.8758,-87.6245'
+    );
 
     // Schedule 2 fallback location (no map link)
     // Note: Test Location will be present for schedule 2 because it falls back to event level location
     const locations = screen.getAllByText('Test Location');
     expect(locations.length).toBeGreaterThan(0);
+  });
+
+  // Story 1.6e AC1: schedule title no longer competes visually with the event's own title.
+  it('removes text-lg from the schedule title, keeping the other classes (AC1)', () => {
+    render(<EventDetailView {...fullProps} />);
+    const title = screen.getByText('Morning Session').closest('h3')!;
+    expect(title).toHaveClass('font-semibold');
+    expect(title).toHaveClass('flex');
+    expect(title).toHaveClass('items-center');
+    expect(title).toHaveClass('gap-2');
+    expect(title).not.toHaveClass('text-lg');
+  });
+
+  // Story 1.6e AC2/AC3: decorative CalendarDays icon becomes a functional per-schedule
+  // add-to-calendar button when onAddToCalendar is provided; falls back to the
+  // non-interactive icon when it is absent (no functional regression for that caller).
+  describe('per-schedule add-to-calendar button (Story 1.6e, AC2/AC3)', () => {
+    it('renders a clickable CalendarPlus button per schedule when onAddToCalendar is provided, calling it with just that schedule id', () => {
+      const onAddToCalendar = vi.fn();
+      render(<EventDetailView {...fullProps} onAddToCalendar={onAddToCalendar} />);
+
+      const buttons = screen.getAllByRole('button', { name: 'Add to Calendar' });
+      expect(buttons).toHaveLength(2); // one per schedule in fullProps
+
+      fireEvent.click(buttons[0]);
+      expect(onAddToCalendar).toHaveBeenCalledWith(['sched-1']);
+
+      fireEvent.click(buttons[1]);
+      expect(onAddToCalendar).toHaveBeenCalledWith(['sched-2']);
+    });
+
+    it('reflects isAddedToCalendar via aria-pressed and fill styling', () => {
+      const onAddToCalendar = vi.fn();
+      const testProps = {
+        ...fullProps,
+        schedules: [
+          { ...fullProps.schedules[0], isAddedToCalendar: true },
+          { ...fullProps.schedules[1], isAddedToCalendar: false },
+        ],
+      };
+      render(<EventDetailView {...testProps} onAddToCalendar={onAddToCalendar} />);
+
+      const buttons = screen.getAllByRole('button', { name: 'Add to Calendar' });
+      expect(buttons[0]).toHaveAttribute('aria-pressed', 'true');
+      expect(buttons[1]).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('falls back to the non-interactive CalendarDays icon when onAddToCalendar is absent (no regression)', () => {
+      const { container } = render(<EventDetailView {...fullProps} />);
+      expect(screen.queryByRole('button', { name: 'Add to Calendar' })).not.toBeInTheDocument();
+      // The decorative icon still renders (svg present, no button wrapper).
+      const titles = container.querySelectorAll('h3');
+      expect(titles.length).toBeGreaterThan(0);
+      titles.forEach((title) => {
+        expect(title.querySelector('svg')).toBeTruthy();
+        expect(title.querySelector('button')).toBeNull();
+      });
+    });
+
+    // AC3: calling onAddToCalendar([schedule.id]) directly is safe unauthenticated --
+    // handleAddToCalendar's own !session check (in the caller, EventDetailWrapper.tsx)
+    // precedes any use of selectedIds, so no isAuthenticated branch is needed here.
+    it('calls onAddToCalendar unconditionally, with no isAuthenticated gating, even when isAuthenticated is false', () => {
+      const onAddToCalendar = vi.fn();
+      render(<EventDetailView {...fullProps} onAddToCalendar={onAddToCalendar} isAuthenticated={false} />);
+
+      const buttons = screen.getAllByRole('button', { name: 'Add to Calendar' });
+      fireEvent.click(buttons[0]);
+      expect(onAddToCalendar).toHaveBeenCalledWith(['sched-1']);
+    });
+  });
+
+  // Story 1.6e AC4: LocationLink adoption with the three-way scheduleLocation fallback.
+  describe('schedule location via LocationLink (Story 1.6e, AC4)', () => {
+    it('renders LocationLink with the schedule\'s own name and locationDetails when schedule.location is non-blank', () => {
+      render(<EventDetailView {...fullProps} />);
+      const link = screen.getByRole('link', { name: /Stage 1/i });
+      expect(link).toHaveAttribute(
+        'href',
+        'https://www.google.com/maps/search/?api=1&query=41.8758,-87.6245'
+      );
+      // LocationLink renders exactly its own two icons (pin + trailing ExternalLink) --
+      // the standalone MapPin this story removes is not duplicated alongside it.
+      const row = link.closest('address')!;
+      expect(row.querySelectorAll('svg').length).toBe(2);
+    });
+
+    it('renders plain text with the static MapPin icon (no link) when schedule.location is blank but the event-level location is not', () => {
+      const testProps = {
+        ...fullProps,
+        schedules: [
+          {
+            id: 'sched-2',
+            eventStartDate: '2026-08-11T14:00:00Z',
+            title: 'Afternoon Session',
+            // location omitted -- falls back to event-level `location` ("Test Location")
+          },
+        ],
+      };
+      render(<EventDetailView {...testProps} />);
+      expect(screen.queryByRole('link', { name: /Test Location/i })).not.toBeInTheDocument();
+      const label = screen.getByText('Test Location');
+      const row = label.closest('address')!;
+      expect(row.querySelectorAll('svg').length).toBe(1);
+    });
+
+    it('renders no location block at all when both schedule.location and event-level location are blank', () => {
+      const testProps = {
+        ...fullProps,
+        location: '',
+        schedules: [
+          {
+            id: 'sched-2',
+            eventStartDate: '2026-08-11T14:00:00Z',
+            title: 'Afternoon Session',
+          },
+        ],
+      };
+      const { container } = render(<EventDetailView {...testProps} />);
+      expect(container.querySelector('address')).toBeNull();
+    });
   });
 
   // Story 1.6f Task 1 (AC1): responsive layout reorder -- jsdom doesn't evaluate
@@ -340,8 +470,10 @@ describe('EventDetailView', () => {
     fireEvent.click(favBtn);
     expect(onFavoriteToggle).toHaveBeenCalledTimes(1);
 
-    // AC6: no standalone top-level Add to Calendar button
-    expect(screen.queryByRole('button', { name: 'Add to Calendar' })).not.toBeInTheDocument();
+    // AC6 (Story 1.6f): no standalone top-level Add to Calendar button beside the title.
+    // Story 1.6e adds a *per-schedule* button with the same accessible name further down
+    // the page (inside the schedule list), so this check is scoped to the header row.
+    expect(within(heading.parentElement!).queryByRole('button', { name: 'Add to Calendar' })).not.toBeInTheDocument();
   });
 
   it('shows the favorite count beside the icon when favoriteCount is provided', () => {
@@ -380,7 +512,11 @@ describe('EventDetailView', () => {
     const onAddToCalendar = vi.fn();
     render(<EventDetailView {...fullProps} onAddToCalendar={onAddToCalendar} />);
 
-    expect(screen.queryByRole('button', { name: 'Add to Calendar' })).not.toBeInTheDocument();
+    // No standalone top-level Add to Calendar button beside the title (Story 1.6f AC6).
+    // Story 1.6e's per-schedule buttons share this accessible name but live in the
+    // schedule list, not the header, so this check is scoped to the header row.
+    const heading = screen.getByRole('heading', { name: 'Test Event' });
+    expect(within(heading.parentElement!).queryByRole('button', { name: 'Add to Calendar' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
     const calendarItem = screen.getByRole('menuitem', { name: 'Add to Calendar' });
@@ -696,6 +832,38 @@ describe('EventDetailView', () => {
     expect(screen.getByRole('link', { name: /@festorganizer/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /View original post/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /View source/i })).toBeInTheDocument();
+  });
+
+  // Story 0.i6e: accountLocation prop threading onto SubscribedAccountCard's location prop.
+  describe('accountLocation prop threading (Story 0.i6e)', () => {
+    it('threads accountLocation to SubscribedAccountCard, rendering a location link instead of @username when trustworthy', () => {
+      render(
+        <EventDetailView
+          {...minimalProps}
+          accountName="Org"
+          accountPlatformIconUrl="http://icon"
+          accountHref="/link"
+          accountId="123"
+          accountPlatform="instagram"
+          accountUsername="org"
+          isSubscribedToAccount={false}
+          accountLocation={{
+            name: 'The Grand Hall',
+            coordinates: { lat: 41.8758, lng: -87.6245 },
+            confidence: 0.9,
+            matchType: 'full_match',
+          }}
+        />
+      );
+
+      expect(screen.getByText('The Grand Hall')).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /@org/i })).not.toBeInTheDocument();
+    });
+
+    it('remains green with accountLocation omitted (existing tests regression check)', () => {
+      render(<EventDetailView {...fullProps} />);
+      expect(screen.getByRole('link', { name: /@festorganizer/i })).toBeInTheDocument();
+    });
   });
 
   it('shows the subscribed toggle state (aria-pressed true) when already subscribed', () => {

@@ -93,6 +93,8 @@ export function EventListView<TEvent extends EventListViewItem>({
                 displaySchedule?.ticketPrice ??
                 mainSchedule?.ticketPrice ??
                 undefined,
+              // Story 1.3k (AC6) — passed through to `EventCard`'s repeat badge.
+              applicableDaysOfWeek: displaySchedule?.applicableDaysOfWeek ?? undefined,
               prominentPoster: event.durableImageUrl != null,
               labels: cardLabels,
               variant: 'masonry' as const,

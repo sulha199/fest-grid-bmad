@@ -20,6 +20,7 @@ query getEvents($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
         eventEndDate
         eventEndTime
         ticketPrice
+        applicableDaysOfWeek
         locationDetails {
           coordinates {
             lat
@@ -79,6 +80,16 @@ query getEventBySlug($slug: String!) {
       displayName
       profileImageUrl
       accountType
+      defaultLocation {
+        coordinates {
+          lat
+          lng
+        }
+        placeName
+        formattedAddress
+        confidence
+        matchType
+      }
     }
     schedules {
       id
@@ -108,6 +119,7 @@ query getEventBySlug($slug: String!) {
       ticketPrice
       ticketUrl
       registrationUrl
+      applicableDaysOfWeek
     }
   }
 }
@@ -155,6 +167,7 @@ query getEventsForCalendar($limit: Int, $offset: Int, $perDayLimit: Int, $query:
         eventStartTime
         eventEndTime
         ticketPrice
+        applicableDaysOfWeek
         locationDetails {
           coordinates {
             lat
@@ -190,6 +203,7 @@ query getEventsForMyCalendar($limit: Int, $offset: Int, $query: EventQueryCondit
         eventEndTime
         ticketPrice
         isAddedToCalendar
+        applicableDaysOfWeek
         locationDetails {
           coordinates {
             lat
@@ -218,6 +232,7 @@ query getArchivedEvents($limit: Int, $offset: Int) {
         isMainSchedule
         eventStartDate
         ticketPrice
+        applicableDaysOfWeek
       }
       deletedAt
       isHiddenForCurrentUser
