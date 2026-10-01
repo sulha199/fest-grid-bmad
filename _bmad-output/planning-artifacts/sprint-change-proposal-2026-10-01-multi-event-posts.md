@@ -96,12 +96,12 @@ Key decisions made with the user during this session:
 8. **Merge.** A moderator merge soft-deletes the loser with `merged_into_event_id`, repoints favorites/calendar entries/reports (deduplicated per user), and registers its slug as an alias.
 9. **Organizer signals.** Each extracted event carries `organizerHandle` captured **at extraction time** (a `CURATOR_GUIDE` post's caption is nulled after extraction per Story 3.4o, so matching can never re-read it). `groupingRationale` is never persisted. `accountType = CURATOR_GUIDE` (Story 3.4n) marks an event `stub` and demotes that post in primary selection; once Story 3.15 lands, "organizer-authored" means a `PUBLISHER`/`COAUTHOR` association rather than `posts.accountId`.
 10. **Post deletion.** Deleting a post (including profile/account erasure) promotes the next linked post to primary by the primary rule, else sets `events.post_id` null; `event_posts` rows cascade. The primary-pointer invariant is re-checked in the same transaction.
-11. **Weekday-narrowed schedules (BUG-026).** `schedules.applicable_days_of_week` (PRD §4.4, already amended 2026-09-11) is added by the schema story, populated by the per-event schedule schema/prompt, persisted by ingestion, and honored by day-of-week query matching (separate story, AD-17 EXPLAIN-gated).
+11. **Weekday-narrowed schedules (BUG-026).** `schedules.applicable_days_of_week` (PRD §4.4, already amended 2026-09-11) **already exists (Story 1.3k) and is not re-added**; it is populated by the per-event schedule schema/prompt, persisted by ingestion, and honored by day-of-week query matching (separate story, AD-17 EXPLAIN-gated).
 12. **Related events.** `Query.relatedEventIds(eventId | postId)` is an index-only read of `event_posts`; the client then calls `Query.events` with the existing DSL condition `id in [...]`. No new `Query.events` filter or field resolver (AD-17).
 
-**AD-16 amendment.** Slug for platform-sourced events is `{platformSlug}_{postType}_{platformPostId}` of the **primary** post, plus `-{ordinal}` when `extraction_ordinal > 0` (`ig_p_Ddi9wU6RCRQ`, `ig_p_Ddi9wU6RCRQ-2`). The invariant "the slug names the primary post" is what keeps Rule 6's DB-free oEmbed correct; a primary change re-slugs the event and records the old slug in `event_slug_aliases`; `eventBySlug` resolves aliases **only on a slug miss** and signals a permanent redirect to the canonical slug.
+**AD-16 amendment.** Slug for platform-sourced events is `{platformSlug}_{postType}_{platformPostId}` of the **primary** post, plus `~{ordinal}` when `extraction_ordinal > 0` (`ig_p_Ddi9wU6RCRQ`, `ig_p_Ddi9wU6RCRQ~2`) — `~`, not `-`, because `-` is a valid Instagram shortcode character and would make the suffix ambiguous (decided in the architecture session, AD-16 Rules 8–9). The invariant "the slug names the primary post" is what keeps Rule 6's DB-free oEmbed correct; a primary change re-slugs the event and records the old slug in `event_slug_aliases`; `eventBySlug` resolves aliases **only on a slug miss** and signals a permanent redirect to the canonical slug.
 
-**AD-31 (companion, written in the same architecture session): post–account associations** — the DDL Story 3.15 is blocked on (`PostAccountAssociation`, roles `PUBLISHER`/`COAUTHOR`/`SCRAPING_SOURCE`/`PUBLISHER_UNKNOWN`), authored with AD-30 so the two join tables, their migrations and the union-filtering semantics are designed together.
+**AD-31 (companion, written in the same architecture session): post–account associations** — as written in the architecture session, AD-31 adds **no DDL**: AD-25 (2026-09-18) already resolved the `post_account_associations` DDL that Story 3.15 was blocked on. AD-31 fixes the role vocabulary (`PUBLISHER`/`COAUTHOR`/`SCRAPING_SOURCE`/`PUBLISHER_UNKNOWN`), the shared "organizer-authored" predicate and the event-level union-filtering helper, designed together with AD-30's `event_posts`.
 
 **AD-17 note.** Related-events loading is detail-page-only and lazy; it adds nothing to `Query.events` per-row cost.
 
@@ -129,9 +129,9 @@ Additional amendments (cross-backlog review):
 - **3.8** (push notifications): per event; none for roundup-sourced events; one notification when an event first gains an organizer-authored primary post.
 - **3.4n / 3.4o** (account type / curator-guide minimization): `accountType` is a stub and primary-demotion signal; extraction captures `organizerHandle` before the caption is nulled; a stub's roundup cover from a non-opted-in curator account is a transient hotlink with the existing placeholder fallback.
 - **3.6a / 3.6i / 3.6j** (timezone inference, private-contact and performer-leakage guards): run **per event** (explicit ACs in 3.6s/3.6t). **3.6k** (children's-data filter) stays post-level, so one match suppresses the whole post (conservative; accepted).
-- **3.6r**: adds the post-deletion/primary-promotion AC and the `schedules.applicable_days_of_week` column. **3.6s**: the per-event schedule schema carries `applicableDaysOfWeek` and `organizerHandle`, and sets an output cap. **3.6t**: persists `applicableDaysOfWeek`.
+- **3.6r**: adds the post-deletion/primary-promotion AC (the `schedules.applicable_days_of_week` column already exists from Story 1.3k, so it is not added). **3.6s**: the per-event schedule schema carries `applicableDaysOfWeek` and `organizerHandle`, and sets an output cap. **3.6t**: persists `applicableDaysOfWeek`.
 - **3.18** (union-of-associations account filtering): extends to the event level — match any post linked through `event_posts`. **0.i6g** (coauthor/publisher toggle on event/post detail) and CAP-7 attribution UI: unified with 3.6u's source-post entries (each entry: link, posted-at time, coauthors).
-- **3.15**: unblocked by AD-31 from the same architecture session.
+- **3.15**: already unblocked by AD-25 (2026-09-18); AD-31 from the same architecture session adds role semantics, not DDL.
 
 Amendments: **3.6l** — `minScheduleCount`/`expectedScheduleNames` become per-event; **3.6o** — the relevance gate takes the max end across **all events** of the post; **3.6p** — also persists/logs event count and `groupingReason`.
 
@@ -140,7 +140,7 @@ Amendments: **3.6l** — `minScheduleCount`/`expectedScheduleNames` become per-e
 - **§3.7** new bullet **Multi-Event Posts** (grouping rules, roundup guardrails, no roundup notifications, one extraction call per post, quota unchanged).
 - **§3.7** new bullet **Cross-Post Event Matching** (auto-link on high confidence, moderation on mid, primary rule, in-place enrichment, first-organizer-post notification, merge + redirect, slug follows primary, related events).
 - **§3.3.3** Source Attribution: link to **every** linked post (primary first, labelled by account/platform); embed and image/video from the primary post.
-- **§4.1** `EventInfo.postId` is the primary post; add `sourcePosts?`, `detailLevel`, `mergedIntoEventId`; slug `-{ordinal}` note. **§4.7** `Post` may yield zero/one/several events; add `groupingReason?`, `extractedEventCount?`.
+- **§4.1** `EventInfo.postId` is the primary post; add `sourcePosts?`, `detailLevel`, `mergedIntoEventId`; slug `~{ordinal}` note. **§4.7** `Post` may yield zero/one/several events; add `groupingReason?`, `extractedEventCount?`.
 - **§3.4 / §3.5 / §3.10 (BUG-039):** state that newly scraped posts from subscribed accounts are extracted automatically within the Tier 1/Tier 2 key and quota rules, and that manual selection (§3.10) covers older or over-quota posts. §3.7 multi-event rules apply to auto-extracted posts too.
 - **Account feeds:** the "Subscribed Events" feed and any account-filter semantics match an event linked to **any** of the subscribed account's posts.
 - Add two FRs at the next free FR numbers.
@@ -157,7 +157,7 @@ Amendments: **3.6l** — `minScheduleCount`/`expectedScheduleNames` become per-e
 ### 4.5 Sprint status and backlog
 
 - `sprint-status.yaml`: add 3-6r … 3-6z under `epic-3` as `backlog`.
-- `backlog.yaml`: CC-024 (this proposal, `triaged`); BUG-051, BUG-052, BUG-026 and BUG-039 gain this proposal in `ref` (status unchanged until `bmad-create-story` promotes them); IDEA-028 gains `blocks: [CC-024]` (the AD-16 slug stories gate 3.6t/3.6v) and its design file is amended with the primary-slug invariant, `-{ordinal}` suffix and alias table; child rows BUG-053 (`getPostByUrl` actor input), FIND-061 (no new-event notification ever received — diagnose), IDEA-054 (notification burst throttling), IDEA-056 (LLM tie-break for mid-confidence matches).
+- `backlog.yaml`: CC-024 (this proposal, `triaged`); BUG-051, BUG-052, BUG-026 and BUG-039 gain this proposal in `ref` (status unchanged until `bmad-create-story` promotes them); IDEA-028 gains `blocks: [CC-024]` (the AD-16 slug stories gate 3.6t/3.6v) and its design file is amended with the primary-slug invariant, `~{ordinal}` suffix and alias table; child rows BUG-053 (`getPostByUrl` actor input), FIND-061 (no new-event notification ever received — diagnose), IDEA-054 (notification burst throttling), IDEA-056 (LLM tie-break for mid-confidence matches).
 
 ---
 
@@ -180,4 +180,4 @@ Amendments: **3.6l** — `minScheduleCount`/`expectedScheduleNames` become per-e
 - A roundup post yields at most the configured cap of events, none with a missing date or location, and sends no push notifications.
 - Calendar entries survive enrichment and merge.
 - A weekday-narrowed schedule matches only its stated weekdays in day-of-week filtering; newly scraped posts are enqueued automatically within quota; an event promoted from a roundup stays visible to the roundup account's subscribers.
-- AD-30 and AD-31 are written together, unblocking Story 3.15.
+- AD-30 and AD-31 are written together (Story 3.15 itself was already unblocked by AD-25).

@@ -2,7 +2,7 @@
 title: "Architecture Spine: FestDaily"
 status: "draft"
 created: "2026-07-20T09:34:00Z"
-updated: "2026-09-22T00:00:00Z"
+updated: "2026-10-01T00:00:00Z"
 ---
 
 # Architecture Spine: FestDaily
@@ -271,6 +271,13 @@ This document defines the core architectural invariants for the FestDaily applic
         change proposal above) — there is no storage-cost problem to solve. If storage hygiene is
         ever wanted, the right tool is a no-code **S3 Lifecycle rule** keyed to object age (e.g.
         transition/delete after 2+ years), not application logic keyed to event-expiry semantics.
+
+        **Premise amended 2026-10-01 (AD-30, CC-024):** `events.postId` is no longer 1:1 — it is
+        the *primary-post* pointer, and one post may now yield several events and one event may be
+        linked to several posts. Re-hosting stays strictly per post (Rule 1 is unchanged: bytes
+        belong to `posts.durableImageUrl`), and an event serves its **primary** post's media, so
+        this rule's conclusion (never delete on expiry) holds; only its "no shared-image risk"
+        aside no longer applies — a post's image is now legitimately shared by sibling events.
     7.  **Consent gate (added 2026-09-02, `bmad-correct-course`, sprint-change-proposal-2026-09-02.md):**
         this AD originally shipped (Story 3.6e/3.6f) with re-hosting and serving unconditional for
         every extracted post — no account-level consent concept existed in the schema yet. That
@@ -334,6 +341,10 @@ This document defines the core architectural invariants for the FestDaily applic
         trigger an additional Gemini call. A genuine multi-call re-processing loop was considered and
         explicitly rejected in favor of this rule; revisit only if the batched cap itself proves
         insufficient in practice.
+    4.  **Amended 2026-10-01 (AD-30, CC-024):** the request still covers exactly one post, but its
+        response now carries `events[]`; `minScheduleCount`/`expectedScheduleNames` become
+        **per-event** fields and the post-level `minEventCount` joins them. All three stay
+        log-only signals under rule 3 — a short event list never triggers another Gemini call.
 
 ---
 
@@ -564,6 +575,38 @@ This document defines the core architectural invariants for the FestDaily applic
         `page.tsx`/the modal route is unrelated to this — it covers the route-shell boundary only
         (project-context.md's Route-Level Suspense Fallback rule), not in-page data fetching, and is
         unchanged by this AD.
+*   **Amended 2026-10-01 (AD-30, CC-024 multi-event posts)** — Rules 1 and 6 are read together
+    with Rules 8–12 below; Rules 2–5 and 7 are unchanged. Rules 2–7 are themselves **not yet
+    built** (`posts.platformPostId`/`platformPostType` do not exist; IDEA-028 owns them), so Rules
+    8–12 build on top of that work — the dependency Stories 3.6t/3.6v already record.
+    8.  **The slug names the primary post.** For an event with a primary post (`events.post_id`,
+        AD-30), the slug is the Rule 1 form built from that post, plus `~{ordinal}` when
+        `events.extraction_ordinal > 0` (`ig_p_Ddi9wU6RCRQ`, `ig_p_Ddi9wU6RCRQ~2`). Ordinal 0 keeps
+        the unsuffixed form, so every existing slug is unchanged. This invariant is what keeps
+        Rule 6's DB-free oEmbed correct: Rule 6 reads only the id/type segments and ignores the
+        ordinal.
+    9.  **The ordinal separator is `~`, not `-`.** The first draft of this amendment used
+        `-{ordinal}`; rejected because Instagram shortcodes are base64url (`A-Za-z0-9-_`, verified
+        2026-10-01) and Rule 1 already allows `-` inside `platformPostId`, so `ig_p_X-2` could
+        mean post `X`/ordinal 2 *or* post `X-2`/ordinal 0 (roughly 1 in 400 posts end in
+        `-<digit>`), and Rule 6 would embed the wrong post with no visible failure. `.` is also
+        unusable: `apps/web/src/middleware.ts`'s matcher skips any path containing a dot, so
+        locale handling would not run. **Parse:** after splitting `platformSlug`/`postType` on the
+        first two `_`, split the remainder at the **last** `~`; no `~` means ordinal 0. A platform
+        adapter whose ids can contain `~` must fail loudly at Rule 2's parse step, never silently.
+    10. **Re-slug on primary change, alias redirect.** Changing the primary post re-slugs the event
+        in the same transaction as the pointer change (AD-30 Rule 2) and inserts the old slug into
+        `event_slug_aliases`. Aliases are permanent tombstones: a slug present in the alias table
+        is never issued as canonical for any **other** event, and slug generation checks it. The one
+        exception is a primary that returns to a former post (R→O→R): the event may re-take its own
+        old slug, and that alias row is deleted in the same transaction.
+    11. **Resolution order.** `eventBySlug` looks up the canonical slug first (the unchanged hot
+        path — no extra query on a hit) and consults `event_slug_aliases` only on a miss, then
+        signals a permanent redirect to the canonical slug. Rule 6's oEmbed query must only ever
+        be called with a canonical slug (the route redirects before the embed hook mounts).
+    12. **Events with no primary post keep their slug.** When the last linked post is deleted
+        (AD-30 Rule 8) the slug stays as it was; no re-slug to the legacy hex form, since that
+        would orphan every shared URL for no gain.
 *   **Considered and rejected:** A 2-part slug (`{platformSlug}_{platformPostId}`) that always
     reconstructs the URL as `instagram.com/p/{id}`, on the assumption that `/p/` resolves reels too.
     Rejected — unverified against Meta's own documentation, and wrong would silently break the
@@ -740,6 +783,15 @@ This document defines the core architectural invariants for the FestDaily applic
     shipped (migration `0060_square_pretty_boy.sql`, hand-edited per AD-8 rule 3), and the three
     `getEvents` hooks gained `staleTime: 30_000`. Story B (Story **1.6c**) reuses this landed
     `virtualFields`/batched-schedules mechanism verbatim rather than reimplementing it.
+*   **Note 2026-10-01 (AD-30, CC-024):** related-events and source-post loading are
+    detail-page-only and lazy, and add nothing to `Query.events` per-row cost. (1)
+    `Query.relatedEventIds` is a separate index-driven read, and the client follows it with the
+    existing `id in [...]` DSL condition through this AD's own `buildOptimizedDrizzleSelect` path,
+    so computed fields batch exactly as Rules 1–2 describe. (2) `Event.sourcePosts` is **not** a
+    per-row field resolver: it is resolved as one batched `IN (...)` query (Rule 2's idiom) over
+    `event_posts JOIN posts`, only when requested, and the shared list documents
+    (`apps/web/src/features/events/queries.graphql`) must not request it. (3) The only per-row change to `Query.events` is
+    `isFromSubscribedAccount`'s `EXISTS` gaining one index lookup (AD-30 Rule 6, EXPLAIN-gated).
 
 ---
 ### AD-18: Filter Apply-Timing Convention
@@ -1161,6 +1213,10 @@ This document defines the core architectural invariants for the FestDaily applic
         independent meaning without their parent). `accountId` FK carries no `onDelete` override,
         mirroring `posts.accountId`/`subscriptions.accountId` exactly — `socialMediaAccountProfiles`
         rows are never deleted in this codebase, so no cascade path is needed.
+    7.  **Scope note 2026-10-01:** this AD remains the sole owner of the table's DDL. The role
+        vocabulary and meaning, the "organizer-authored" predicate, and event-level union
+        filtering are owned by **AD-31**, which inherits this AD unchanged. Story 3.15's
+        `blocked` status in `sprint-status.yaml` predates this AD's resolution and is stale.
 
 ---
 
@@ -1427,6 +1483,10 @@ This document defines the core architectural invariants for the FestDaily applic
         not built here.
     5.  **Never joined into a hot path:** no resolver serving any client-facing field ever reads
         this table. Offline/admin evaluation tooling only.
+    6.  **Multi-event posts, 2026-10-01 (AD-30):** still one row per extraction attempt, which now
+        also records `minEventCount` and `actualEventCount`. The shape of per-event completeness
+        data (per-event `minScheduleCount`/`expectedScheduleNames` vs. persisted counts) is left to
+        Stories 3.6s/3.6p — a story-level call, not an invariant.
 *   **Considered and rejected:** adding these fields directly as columns on `posts`/`events` —
     rejected once the audit requirement was raised, since no product surface consumes them and
     there would be no natural home for the ground-truth comparison columns this table exists to
@@ -1434,6 +1494,238 @@ This document defines the core architectural invariants for the FestDaily applic
 
 ---
 
+
+### AD-30: Event↔Post Is Many-to-Many — `events.post_id` Stays the Primary Pointer
+
+*   **Binds:** `packages/database/schema.ts` (`events`, new `event_posts`, `event_slug_aliases`,
+    `posts` columns); the extraction contract (`build-gemini-request.ts`, `process-ai-job.ts`);
+    ingestion (`process-ingestion-job.ts`, `build-event-insert-values.ts`); the matching, enrichment
+    and merge paths (Stories 3.6v/3.6w); `Query.events`'s account filter and `isFromSubscribedAccount`
+    (`resolvers.ts`); the new `Query.relatedEventIds`. Delivered by Stories 3.6r–3.6z (CC-024,
+    BUG-051 "Multi-event posts merged into one event", BUG-052 "No cross-post duplicate
+    detection"). Reads `schedules.applicable_days_of_week` (BUG-026, already shipped by Story 1.3k).
+*   **Prevents:** A second representation of "which post is primary" (an `is_primary` column that can
+    disagree with `events.post_id`); any hot-path resolver reading `event_posts` for a field that
+    `events.post_id` already answers; re-extraction creating duplicate events; enrichment or merge
+    silently deleting a user's calendar entries; two units each inventing their own grouping
+    vocabulary, ordinal numbering, or "organizer-authored" test.
+*   **Rule:**
+    1.  **Tables and columns.**
+        ```mermaid
+        erDiagram
+          events }o--o| posts : "post_id = PRIMARY post"
+          events ||--o{ event_posts : "linked posts"
+          posts  ||--o{ event_posts : "linked events"
+          events ||--o{ event_slug_aliases : "old slugs"
+          events ||--o{ schedules : has
+          events }o--o| events : "merged_into_event_id"
+        ```
+        - `event_posts(event_id FK cascade, post_id FK cascade, extraction_ordinal smallint null,
+          created_at)`; PK `(event_id, post_id)`; index `(post_id, event_id)`; **full** unique
+          `(post_id, extraction_ordinal)` (Postgres treats NULLs as distinct, so manual links with a
+          null ordinal never collide and no partial predicate is needed).
+        - `events.post_id` is **kept** as the primary-post pointer; its `unique()` is dropped. There
+          is no `is_primary` column — "primary = `events.post_id`, and a matching `event_posts` row
+          exists" is the single source of truth.
+        - `events.extraction_ordinal smallint null` (the event's index within its **primary** post's
+          extraction; existing rows backfill to 0), `events.detail_level` (`stub | full`, default
+          `full`), `events.merged_into_event_id uuid null` (self-FK, `on delete set null`),
+          `events.notified_at timestamptz null` (Rule 10). New unique index
+          `events(post_id, extraction_ordinal)`, **unconditional on `deleted_at`** — a soft-deleted
+          event is not recreated by re-extraction. A hand-written
+          `CHECK (post_id IS NULL OR extraction_ordinal IS NOT NULL)` closes the NULL-ordinal hole
+          (NULLs are distinct in a unique index, so a null ordinal would bypass idempotency).
+        - `posts.grouping_reason` and `posts.extracted_event_count` (nullable post-level facts that
+          product UI reads, so they do not live only in AD-29's audit table; `groupingRationale` is
+          never persisted).
+        - `event_slug_aliases(slug unique, event_id FK cascade)`.
+        - `pg_trgm` plus a trigram GIN index on `events.event_name` (partial, `deleted_at IS NULL`),
+          for write-path matching only — never in a hot-path query.
+        - `grouping_reason`, `detail_level` are closed sets declared once in `packages/domain` and
+          persisted as `pgEnum` (repo precedent: `scheduleTimezoneStatusEnum`).
+        - **Migration:** one migration creates the tables, backfills an `event_posts` row (ordinal 0)
+          for every event with a `post_id`, then drops the old unique and creates the new one. The
+          trigram index, `CREATE EXTENSION IF NOT EXISTS pg_trgm` (default schema, so local native
+          Postgres and Supabase behave alike) and the partial predicates are **hand-written** in the
+          SQL (as is the `CHECK` above): drizzle-kit 0.21 drops `WHERE` predicates (AD-8 rule 3), and
+          operator classes are reported to be ignored too (drizzle-orm#2935 — not re-verified against
+          0.21.x, so hand-write regardless). `pg_trgm` 1.6 is available on the local PG 18.4.
+    2.  **Drift guard — one write helper.** A single backend module owns every write to
+        `events.post_id`: it sets the pointer, upserts the matching `event_posts` row (and its
+        ordinal), re-slugs and records the alias (AD-16 Rules 10–11) in **one transaction**. Nothing
+        else writes `events.post_id`. A consistency check asserts every non-null `events.post_id` has
+        its `event_posts` row with an equal ordinal. (A deferrable composite FK would enforce this
+        in the DB, but Drizzle cannot express deferrable FKs.) **Enforced by** a source-scan test in
+        the AD-14 citation-ratchet style: it fails if any file other than the helper's module writes
+        `postId` in an `events` insert or update.
+    3.  **Ingestion idempotency.** Ingestion first looks up `event_posts(post_id, extraction_ordinal)`;
+        a hit means "this item is already represented" and the item is skipped or enriched. Creation
+        then relies on both unique indexes inside one transaction. A unique violation on either
+        `events(post_id, extraction_ordinal)`, `event_posts(post_id, extraction_ordinal)` or the
+        `event_posts` PK means "already represented": it is an idempotent **skip**, never a
+        failure, so a queue redelivery cannot loop to the dead-letter queue. The per-link ordinal is what keeps a re-run idempotent **after** a
+        roundup stub was promoted to another primary post — otherwise the roundup's ordinal slot is
+        free again, the stub is re-created, and its slug collides with the promoted event's alias.
+    4.  **Hot path unchanged.** `Query.events`, `Query.eventBySlug` and `Report.event` keep
+        `events LEFT JOIN posts ON events.post_id = posts.id` — same join count, no `event_posts`
+        read. **Acceptance:** `EXPLAIN` plans for `Query.events` and `Query.eventBySlug` before/after
+        on representative seed data show identical join count and no new Seq Scan.
+        `event_post_id_idx` is dropped only if `EXPLAIN` shows the planner does not need it beside
+        the new unique index.
+    5.  **Extraction contract.** One Gemini call per post (AD-13, quota unchanged). The payload gains
+        `events[]`, each with its own `schedules[]`, `expectedScheduleNames`, `organizerHandle`
+        (captured **at extraction time**: Story 3.4o — planned, not yet built — nulls a
+        `CURATOR_GUIDE` post's caption after extraction, so matching can never re-read it) and per-schedule
+        `applicableDaysOfWeek`; and post-level `groupingReason` (`single-event | program-lineup |
+        dependent-stages | separate-events | roundup`), `groupingRationale`, `skippedItems`,
+        `minEventCount`. `hasFaceImage`/`faceImageCount` stay at the payload root (post-level).
+        Per-post cap on events (default 10, configurable); timezone inference, private-contact and
+        performer-leakage guards (3.6a/3.6i/3.6j) run **per event**; the children's-data filter
+        (3.6k) stays post-level.
+        **Grouping rules, in order:** (1) any strong signal — own registration/ticket/fee/sign-up,
+        own organizer handle, different venue — ⇒ separate events; (2) two or more weak signals —
+        standalone headliner/title, dates more than ~7 days apart, different category ⇒ separate;
+        (3) items within ~7 days under one title and venue ⇒ one event; (4) dependent stages ⇒ one
+        event, and registration windows are schedules; (5) otherwise one event. **Roundup:** an event
+        per item only with a readable date **and** location (items missing either go to
+        `skippedItems`), capped per post. `[ASSUMPTION]` the proposal also mentions "reduced
+        confidence when location missing"; that is kept only for non-roundup separate events, since
+        a roundup item with no location is skipped outright.
+    6.  **Account-feed matching is any-linked-post.** The account filter and
+        `isFromSubscribedAccount` match an event when **any** post in `event_posts` belongs to a
+        subscribed account (via `posts.accountId`; via the association table once Story 3.15 lands —
+        see AD-31 Rule 4, which owns the shared helper and the union semantics). Both become
+        `EXISTS (event_posts → posts → …)` descriptors in the `fieldMap` mechanism (AD-17); the
+        account filter today is a join on the primary post (`socialMediaAccountProfileId:
+        posts.accountId`) and stops being one. **EXPLAIN gate:** the plans for the account-filtered
+        `Query.events` and for a selection including `isFromSubscribedAccount` show no new Seq Scan
+        and no regression beyond the single added index lookup.
+    7.  **Matching (BUG-052), write-path only.** After extraction and before insert, per extracted
+        event: candidates by overlapping schedule dates (±2 days) plus trigram name similarity; score
+        on same organizer account (the item's `organizerHandle`, or the candidate's organizer),
+        shared registration/ticket link, date+name similarity, venue/coordinates. High ⇒ auto-link;
+        mid ⇒ moderation queue; low ⇒ new event. Thresholds are tuned in Story 3.6v, not fixed here.
+        **Mid-confidence interim:** the item is ingested as its own **new event** (so its
+        `(post, ordinal)` slot is taken and a re-run skips it, Rule 3) and a suggested-match record
+        is queued; approving it *is* a merge (Rule 9), rejecting it is a recorded dismissal. There is
+        no separate "pending" event state. An event absorbs **at most one item per post**: when two
+        items of one post match the same event, the better-scoring one links and the other is
+        treated as a lower band. The suggested-match record's shape belongs to Story 3.6v.
+        Matching is best-effort: a concurrent-ingestion duplicate it misses is resolved by moderator
+        merge (Rule 9), no distributed lock is designed.
+        **Primary-post rule, evaluated in order:** (1) organizer-authored (AD-31 Rule 3) beats
+        roundup/aggregator/curator; (2) the post whose extraction has more schedules with a complete
+        date and location `[ASSUMPTION]`; (3) earlier post; (4) lower post id (deterministic final
+        tie-break). `CURATOR_GUIDE` accounts (Story 3.4n) mark an event `stub` and rank last.
+    8.  **Promotion and post deletion.** On promotion the event adopts the matched candidate's
+        `extraction_ordinal` under the new primary (that `(post, ordinal)` slot is free — the
+        candidate was matched to this event rather than creating one) and keeps its old link
+        and the old link's ordinal. Promoting to a post whose link has a null ordinal (a manual
+        link) assigns that post's next free ordinal (`max + 1`), never null (Rule 1's `CHECK`).
+        Deleting a post (including profile/account erasure) promotes the
+        next linked post by the primary rule, else sets `events.post_id` null. Because
+        `events.post_id` is `ON DELETE SET NULL` (`schema.ts`), the DB nulls the pointer **inside the
+        delete itself**; promotion therefore runs in the same transaction **before** the post is
+        deleted, through the Rule 2 helper. `event_posts` rows then cascade.
+    9.  **Enrichment in place and merge.** Fields with an approved correction or moderator edit are
+        never overwritten (proposed changes queue for moderation). Schedules match by date: updated,
+        added, **never deleted while a `calendar_additions` row references them**
+        (`calendar_additions.schedule_id` is `ON DELETE CASCADE`, so wholesale replacement would
+        silently delete users' entries). A moderator merge soft-deletes the loser, sets
+        `merged_into_event_id` to the **final** winner (the winner must not itself be merged),
+        repoints favorites and reports (deduplicated per user), and repoints every alias that
+        targeted the loser to the winner (flat, no chains) plus registers the loser's own slug as an
+        alias (AD-16 Rule 10). **Calendar entries** follow schedules, not events: each loser
+        schedule maps to the winner schedule with the same date (the enrichment match key), or is
+        copied onto the winner when none matches, and `calendar_additions.schedule_id` is repointed
+        to that schedule (deduplicated per user on `(user_id, schedule_id)`). **A merge never
+        deletes an `event_posts` row**: links to posts the winner does not yet link are repointed;
+        links to posts it already links stay on the soft-deleted loser and are excluded from reads
+        — deleting one would free that `(post, ordinal)` slot and let a re-run re-create the
+        duplicate. A merge must be reversible within the moderator undo window (`EXPERIENCE.md`'s
+        soft-delete-with-undo pattern); the journal that records what was repointed is owned by
+        Story 3.6w and must preserve these link rows.
+    10. **Notifications are per event, with one marker.** `events.notified_at` is set by one
+        notify helper and nowhere else. An event notifies at ingestion iff its primary post's
+        `grouping_reason` is not `roundup` and the post is not curator-sourced (AD-31 Rule 3
+        negated for the curator case); a roundup-sourced stub never notifies at ingestion. When a
+        later primary change makes the event organizer-authored (AD-31 Rule 3) and `notified_at IS
+        NULL`, exactly one notification is sent and `notified_at` is set. A merge keeps the earliest
+        non-null `notified_at` of the two events, so it can never re-fire. Stories 3.8 and 3.6t
+        consume this; neither defines its own marker.
+    11. **Related events and source posts.** `Query.relatedEventIds(eventId | postId)` is an
+        index-driven read of `event_posts` joined to `events` — it excludes soft-deleted and merged
+        events and the subject event itself, so a "See all N" count never includes a hidden event —
+        returning IDs grouped by linked post; the client then calls `Query.events` with the
+        existing `id in [...]` condition (`id` is already in the `fieldMap`, and `activeOnly(events)`
+        already hides soft-deleted and merged events). No new `Query.events` filter and no per-row
+        field resolver (AD-17 note). `Event.sourcePosts` follows AD-17's batched-`IN` idiom and is
+        requested only by the event-detail document.
+    12. **Weekday-narrowed schedules (BUG-026).** `schedules.applicable_days_of_week` **already
+        exists** (Story 1.3k) — this change must not re-add it. It only binds that per-event
+        extraction populates it and ingestion persists it; matching stays AD-19's single mechanism.
+*   **Considered and rejected:** an `is_primary` column on `event_posts` (two truths); making the
+    slug opaque so a primary change needs no re-slug (reverses AD-16's DB-free embed); reading
+    `event_posts` in the hot-path join (adds a join to the most-queried endpoint); promoting a
+    roundup's events by editing in place without a per-link ordinal (re-run duplicates, Rule 3).
+
+---
+
+### AD-31: Post–Account Association Semantics — Roles, Organizer-Authored Predicate, Event-Level Union Filtering
+
+*   **Binds:** The values and meaning of `post_account_associations.role` (the table's DDL is owned
+    by **AD-25**, which this AD inherits unchanged); Stories 3.13 (role normalization), 3.15
+    (table + migration), 3.18 (union-of-associations filtering), 3.6v (primary-post rule), 3.8
+    (first-organizer-post notification), 0.i6g (coauthor toggle); and AD-30 Rule 6's event-level
+    account matching.
+*   **Prevents:** Two owners of one table (this AD adds no DDL); each consumer re-deriving
+    "organizer-authored" differently; the post-level (3.18) and event-level (AD-30) account filters
+    drifting into two implementations; a role inferred from vendor producer-array position; the
+    scraping-source account being read as an author.
+*   **Rule:**
+    1.  **Inherited, not redeclared.** AD-25's `UNIQUE(post_id, account_id, role)`, the two partial
+        uniques, the `scraperActorRunId` FK, `INDEX(account_id, post_id)` and its cascade/no-soft-
+        delete rules are binding and unchanged. `[ADOPTED]` — Story 3.15 is unblocked by AD-25
+        (2026-09-18); the `blocked` entry in `sprint-status.yaml` is stale.
+    2.  **Closed role vocabulary**, declared once in `packages/domain` and persisted as a `pgEnum`:
+        - `PUBLISHER` — the verified canonical publisher, from a vendor role-bearing field
+          (never producer-array order).
+        - `COAUTHOR` — zero or more per post, from the vendor coauthor field.
+        - `SCRAPING_SOURCE` — the account the scrape ran under; may equal the publisher.
+        - `PUBLISHER_UNKNOWN` — legacy migrated rows only; never written for a newly ingested post.
+    3.  **Organizer-authored predicate.** A post is organizer-authored iff it has a `PUBLISHER` or
+        `COAUTHOR` association whose account is not curator-typed. **Curator-typed** means
+        `accountType = CURATOR_GUIDE` whether `CONFIRMED` or `AWAITING_APPROVAL` (conservative: a
+        misread curator must not become a primary or fire a notification); a **NULL** `accountType`
+        (the column is nullable) is *not* curator-typed, so the test is `IS DISTINCT FROM`, never
+        `<>`. `SCRAPING_SOURCE` never counts as authorship. **Legacy posts:** a post with no
+        `PUBLISHER` association (only the migrated `PUBLISHER_UNKNOWN`/`SCRAPING_SOURCE` rows)
+        falls back to `posts.accountId` with the same curator test, so Story 3.15's migration does
+        not flip every historical organizer post to "not organizer-authored". The same fallback is
+        the whole predicate until Story 3.15 lands. One shared domain function owns it — created by
+        the first story that needs it, extended with the association leg by Story 3.15 — and
+        primary-post selection (AD-30 Rule 7), the stub marker, and the first-organizer-post
+        notification (AD-30 Rule 10) all call it.
+    4.  **Event-level union filtering — one helper.** An event matches account A iff some post in
+        `event_posts(event)` has an association with A in **any** of the four roles (a strict
+        addition to today's `posts.accountId` behavior, per Story 3.18). One shared helper builds
+        `EXISTS (event_posts ep JOIN post_account_associations paa ON paa.post_id = ep.post_id
+        WHERE ep.event_id = events.id AND paa.account_id = …)`; before Story 3.15 its second leg
+        reads `posts.accountId`. The account filter, `isFromSubscribedAccount` and Story 3.18 all use
+        it; none re-implements it. Story 3.6v (the first story that creates multi-linked events) ships
+        it with the `posts.accountId` leg, and Story 3.18 owns the switch to the association leg.
+        **Enforced by** the same source-scan ratchet style as AD-30 Rule 2: a test fails if the
+        account `fieldMap` entry or `isFromSubscribedAccount` is built without the helper.
+        Serving indexes are AD-25's `(account_id, post_id)` and AD-30's `event_posts` PK and
+        `(post_id, event_id)`; **EXPLAIN gate** as in AD-30 Rule 6.
+    5.  **Migration independence.** `event_posts` (3.6r) and `post_account_associations` (3.15) are
+        independent tables with no FK between them and may land in either order; both edit
+        `schema.ts`, so each ships as its own self-contained migration.
+*   **Considered and rejected:** an event-level association table (`event_account_associations`) —
+    derivable from `event_posts × post_account_associations`, so a stored copy would only drift;
+    counting `SCRAPING_SOURCE` as authorship — it is the *subscription* account, not the author.
+
+---
 
 ## Related Documents
 

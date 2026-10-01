@@ -1968,11 +1968,12 @@ development_status:
   # settings-into-a-tabbed-shell.md.
   3-12-consolidate-account-settings-into-a-tabbed-shell: review
   # added 2026-09-18 via bmad-correct-course (FIND-022 spec, CAP-1..6/8). 3-15 is
-  # blocked pending a bmad-architecture pass on the post_account_associations
-  # table's uniqueness-constraint DDL -- see epics.md Story 3.15's Architecture note.
+  # was blocked pending a bmad-architecture pass on the post_account_associations
+  # table's uniqueness-constraint DDL -- resolved 2026-09-18 by AD-25 (unblocked to
+  # backlog 2026-10-01; AD-31 adds role semantics only). See epics.md Story 3.15.
   3-13-normalize-apify-vendor-coauthor-publisher-roles-during-ingestion: backlog
   3-14-deduplicated-provenance-tracked-subscribable-profiles: backlog
-  3-15-post-account-association-table-lossless-migration: blocked
+  3-15-post-account-association-table-lossless-migration: backlog
   3-16-immediate-coauthor-publisher-subscribability: backlog
   3-17-demand-gated-discovery-for-scrape-discovered-profiles: backlog
   3-18-union-of-associations-account-filtering: backlog

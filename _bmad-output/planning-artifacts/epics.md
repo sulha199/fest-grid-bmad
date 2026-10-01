@@ -3294,11 +3294,11 @@ on the platform, regardless of whether the source account has opted into image r
 
 **Acceptance Criteria:**
 
-*   **Given** Architecture Spine AD-30, **when** the migration runs, **then** `event_posts(event_id, post_id, created_at)` exists (PK `(event_id, post_id)`, index `(post_id, event_id)`, both FKs cascade), `events.post_id` is kept as the **primary-post pointer** with its `unique()` dropped, and `events.extraction_ordinal`, `events.detail_level` (`stub|full`), `events.merged_into_event_id`, `posts.grouping_reason`, `posts.extracted_event_count`, `schedules.applicable_days_of_week` (BUG-026) and `event_slug_aliases` exist.
-*   **And** a unique index on `events (post_id, extraction_ordinal)` (unconditional on `deleted_at`) backs ingestion idempotency; existing rows backfill to ordinal 0 and get a matching `event_posts` row.
-*   **And** one write helper sets `events.post_id` and inserts the matching `event_posts` row in a single transaction, and a consistency check asserts every non-null `events.post_id` has its `event_posts` row.
-*   **And** deleting a post (including profile/account erasure) promotes the next linked post to primary by the primary rule, else sets `events.post_id` null, re-checking the invariant in the same transaction.
-*   **And** `pg_trgm` and a trigram index on `events.event_name` are added (write-path matching only).
+*   **Given** Architecture Spine AD-30, **when** the migration runs, **then** `event_posts(event_id, post_id, extraction_ordinal, created_at)` exists (PK `(event_id, post_id)`, index `(post_id, event_id)`, full unique `(post_id, extraction_ordinal)`, both FKs cascade), `events.post_id` is kept as the **primary-post pointer** with its `unique()` dropped, and `events.extraction_ordinal`, `events.detail_level` (`stub|full`), `events.merged_into_event_id`, `events.notified_at` (the single notification marker, AD-30 Rule 10), `posts.grouping_reason`, `posts.extracted_event_count` and `event_slug_aliases` exist. (`schedules.applicable_days_of_week` is **not** added here — it already shipped with Story 1.3k, so this migration must not re-create it.)
+*   **And** a unique index on `events (post_id, extraction_ordinal)` (unconditional on `deleted_at`) backs ingestion idempotency; existing rows backfill to ordinal 0 on both tables and get a matching `event_posts` row; a hand-written `CHECK (post_id IS NULL OR extraction_ordinal IS NOT NULL)` prevents a null ordinal from bypassing the unique index.
+*   **And** one write helper sets `events.post_id` and inserts the matching `event_posts` row in a single transaction, and a consistency check asserts every non-null `events.post_id` has its `event_posts` row with an equal ordinal; a source-scan test (AD-14 ratchet style) fails if any file other than the helper's module writes `postId` in an `events` insert or update.
+*   **And** deleting a post (including profile/account erasure) promotes the next linked post to primary by the primary rule, else sets `events.post_id` null; because `events.post_id` is `ON DELETE SET NULL`, promotion runs in the same transaction **before** the post is deleted, and promoting to a manually linked post (null ordinal) assigns that post's next free ordinal (`max + 1`).
+*   **And** `pg_trgm` (`CREATE EXTENSION IF NOT EXISTS`, default schema), a partial trigram GIN index on `events.event_name`, the `CHECK` above and every partial predicate are **hand-written** in the migration SQL (drizzle-kit 0.21 drops `WHERE` predicates; operator-class support is unverified), used for write-path matching only.
 *   **And** EXPLAIN plans for `Query.events` and `Query.eventBySlug` on representative seed data show the same join count and no new Seq Scan; `event_post_id_idx` is dropped only if EXPLAIN shows it is not needed beside the composite unique index.
 
 **Depends on:** Story 3.6b, AD-30. Coordinate migrations with Story 3.15.
@@ -3312,7 +3312,7 @@ on the platform, regardless of whether the source account has opted into image r
 **Acceptance Criteria:**
 
 *   **Given** PRD §3.7 "Multi-Event Posts", **when** extraction runs, **then** the Gemini response is `events[]` (each with its own `schedules[]`, `organizerHandle`, per-event `expectedScheduleNames`) plus post-level `groupingReason` (`single-event | program-lineup | dependent-stages | separate-events | roundup`), `minEventCount` and `skippedItems`; `hasFaceImage`/`faceImageCount` stay at the payload root; `groupingRationale` is requested but never persisted.
-*   **And** the prompt encodes the ordered grouping rules (strong signals; two weak signals; bounded window; dependent stages and registration windows are schedules) and the roundup rules (event per item only with a readable date and location; per-post cap, default 10, configurable; reduced confidence when location is missing).
+*   **And** the prompt encodes the ordered grouping rules (strong signals; two weak signals; bounded window; dependent stages and registration windows are schedules) and the roundup rules (event per item only with a readable date **and** location — items missing either go to `skippedItems`; per-post cap, default 10, configurable; reduced confidence for a missing location applies only to non-roundup separate events, AD-30 Rule 5).
 *   **And** the per-event schedule schema carries `applicableDaysOfWeek` (BUG-026) and any other schedule field shipped at that time; an output cap is set for the response.
 *   **And** timezone inference (3.6a), private-contact classification (3.6i) and performer-leakage guards (3.6j) run **per event**.
 *   **And** `poc-ingestion-preview.ts` handles N events, and the four reference posts (`DdV_7Jsk6pw`, `DdT1cgTlJ2k`, `DcntzF0mB7z`, `Ddi9wU6RCRQ`) are regression fixtures: each is run several times and the grouping decision must match on every run.
@@ -3328,10 +3328,10 @@ on the platform, regardless of whether the source account has opted into image r
 
 **Acceptance Criteria:**
 
-*   **Given** an `events[]` payload, **when** ingestion runs, **then** one queue message per event is sent carrying `extractionOrdinal`, and `processIngestionJob` inserts with `onConflictDoNothing` on `(post_id, extraction_ordinal)`, writing the `event_posts` row via the Story 3.6r helper.
-*   **And** the slug is `{platformSlug}_{postType}_{platformPostId}` of the primary post plus `-{ordinal}` when ordinal > 0 (AD-16 amendment); `detail_level` is `stub` for roundup-sourced and `CURATOR_GUIDE`-sourced events.
+*   **Given** an `events[]` payload, **when** ingestion runs, **then** one queue message per event is sent carrying `extractionOrdinal`, and `processIngestionJob` first looks up `event_posts(post_id, extraction_ordinal)` and inserts with `onConflictDoNothing` on `(post_id, extraction_ordinal)`, writing the `event_posts` row (with its ordinal) via the Story 3.6r helper. A unique violation on either index or the `event_posts` PK is an idempotent **skip**, never a failure that triggers queue redelivery (AD-30 Rule 3).
+*   **And** the slug is `{platformSlug}_{postType}_{platformPostId}` of the primary post plus `~{ordinal}` when ordinal > 0 (AD-16 amendment, Rules 8–9: the separator is `~` because `-` is a valid Instagram shortcode character; e.g. `ig_p_Ddi9wU6RCRQ~2`); `detail_level` is `stub` for roundup-sourced and `CURATOR_GUIDE`-sourced events.
 *   **And** schedules (including `applicableDaysOfWeek`) are persisted per event; timezone resolution is per event.
-*   **And** notifications are sent per newly inserted event, except for roundup-sourced events.
+*   **And** notifications are sent per newly inserted event, except for roundup-sourced events (primary post's `grouping_reason = roundup`) and curator-sourced ones, and the send sets `events.notified_at` through the one notify helper (AD-30 Rule 10) — this story defines no marker of its own.
 *   **And** re-running ingestion for the same post inserts nothing new.
 
 **Depends on:** Story 3.6r, Story 3.6s, and the IDEA-028 / AD-16 platform-prefixed-slug stories.
@@ -3346,7 +3346,7 @@ on the platform, regardless of whether the source account has opted into image r
 
 *   **Given** an event with two or more linked posts, **when** I open its detail, **then** the source area lists a link per original post (primary first, then link order) with account name, platform icon, posted-at time and that post's coauthors (unified with Story 0.i6g); the embed and image/video stay on the primary post; a single-post event looks as today.
 *   **And** `Event.sourcePosts` returns each linked post with `groupingReason` and `extractedEventCount`, resolved lazily only on the detail page.
-*   **And** the related-events section loads lazily when near the viewport in two steps: `Query.relatedEventIds` (an index-only read of `event_posts`, excluding the current event), then `Query.events` with `id in [...]`; it never gates primary content (AD-16 Rule 7).
+*   **And** the related-events section loads lazily when near the viewport in two steps: `Query.relatedEventIds` (an index-driven read of `event_posts` joined to `events`, excluding the current event and any soft-deleted or merged event so "See all N" never counts hidden ones), then `Query.events` with `id in [...]`; it never gates primary content (AD-16 Rule 7).
 *   **And** events are grouped by post with labels such as "Events from [post/account]"; each item uses the mobile calendar compact event card; up to **5** per group show inline, then a "See all N events" link opens Story 3.6x's page; the section is hidden when empty; skeletons match the compact card.
 *   **And** `Query.events` and `Query.eventBySlug` per-row cost is unchanged (AD-17).
 
@@ -3360,11 +3360,12 @@ on the platform, regardless of whether the source account has opted into image r
 
 **Acceptance Criteria:**
 
-*   **Given** an extracted event, **when** ingestion runs, **then** matching runs before insert: candidates by overlapping dates (±2 days) plus trigram name similarity; score by same organizer account (`organizerHandle` or a `PUBLISHER`/`COAUTHOR` association), shared registration/ticket link, date+name similarity and venue; **high** auto-links, **mid** is queued for moderator review, **low** creates a new event.
-*   **And** primary selection: organizer-authored over roundup/aggregator (using `accountType` and roles), then more detail, then earlier post.
+*   **Given** an extracted event, **when** ingestion runs, **then** matching runs before insert: candidates by overlapping dates (±2 days) plus trigram name similarity; score by same organizer account (`organizerHandle` or a `PUBLISHER`/`COAUTHOR` association), shared registration/ticket link, date+name similarity and venue; **high** auto-links, **mid** is ingested as its own new event and a suggested-match record is queued for moderator review (approving it is a merge, Story 3.6w; no separate "pending" state), **low** creates a new event. An event absorbs at most one item per post.
+*   **And** primary selection (AD-30 Rule 7): organizer-authored (the shared AD-31 Rule 3 predicate, never re-implemented here) over roundup/aggregator/curator, then the post whose extraction has more schedules with a complete date and location, then earlier post, then lower post id.
+*   **And** this story ships the shared event-level account-match helper (AD-31 Rule 4) with its `posts.accountId` leg, and the account filter and `isFromSubscribedAccount` use it, so an event promoted from a roundup stays visible to the roundup account's subscribers; Story 3.18 later adds the association leg. A source-scan ratchet fails if either is built without the helper.
 *   **And** enrichment is in place: fields with an approved correction or moderator edit are never overwritten (changes queue for moderation); schedules match by date and are updated or added, never deleted while a `calendar_additions` row references them.
 *   **And** on promotion the event adopts the matched candidate's `extraction_ordinal`, is re-slugged to name the new primary post, and the old slug is recorded in `event_slug_aliases`; `eventBySlug` resolves aliases only on a miss and returns a permanent redirect to the canonical slug.
-*   **And** the first organizer-authored primary post triggers one notification to that account's subscribers.
+*   **And** the first organizer-authored primary post triggers one notification to that account's subscribers when `events.notified_at IS NULL`, setting it via the Story 3.6t notify helper (AD-30 Rule 10).
 *   **And** re-running either post creates no duplicate and no extra link.
 
 **Depends on:** Story 3.6t, Stories 3.13–3.15 (roles), Story 3.4n, the IDEA-028 / AD-16 stories.
@@ -3377,7 +3378,7 @@ on the platform, regardless of whether the source account has opted into image r
 
 **Acceptance Criteria:**
 
-*   **Given** two events, **when** a moderator merges B into A with confirmation, **then** B is soft-deleted with `merged_into_event_id = A`, B's favorites, calendar entries and reports are repointed to A (deduplicated per user), B's posts are linked to A, and B's slug becomes an alias of A.
+*   **Given** two events, **when** a moderator merges B into A with confirmation, **then** B is soft-deleted with `merged_into_event_id = A`, B's favorites and reports are repointed to A (deduplicated per user), B's calendar entries follow schedules (each B schedule maps to the A schedule with the same date, or is copied onto A, and `calendar_additions.schedule_id` is repointed, deduplicated on `(user_id, schedule_id)`), B's slug becomes an alias of A and every alias that targeted B is repointed to A (no chains), and `notified_at` keeps the earlier non-null value. **No `event_posts` row is ever deleted**: links to posts A does not yet link are repointed to A; links to posts A already links stay on soft-deleted B and are excluded from reads (AD-30 Rule 9). The merge journal that makes the undo window work is owned by this story and must preserve those link rows.
 *   **And** a suggested-match review list (mid-confidence matches from Story 3.6v) lets a moderator accept or reject; an undo window matches the soft-delete undo pattern.
 *   **And** old links redirect to the survivor through Story 3.6v's alias mechanism.
 
@@ -3408,7 +3409,7 @@ on the platform, regardless of whether the source account has opted into image r
 *   **Given** a schedule with `applicableDaysOfWeek`, **when** the day-of-week filter or calendar occurrence logic evaluates it, **then** only the stated weekdays inside its span match; schedules with the field unset behave as today.
 *   **And** `buildEventsQueryCondition` and the date-range overlap in `drizzle-where` honor the field; EXPLAIN evidence shows no regression on `Query.events` (AD-17).
 
-**Depends on:** Story 3.6r (column), Story 1.3j.
+**Depends on:** Story 1.3k (the `applicable_days_of_week` column and calendar occurrence logic already ship there), Story 1.3j.
 
 ### Story 3.6z: Automatically enqueue new scraped posts for extraction within quota
 
@@ -3554,7 +3555,7 @@ on the platform, regardless of whether the source account has opted into image r
 
 **Depends on:** Story 0.12, Story 2.9.
 
-**Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** Notifications are sent **per extracted event**, except events sourced from a `roundup` post (none, since the posting account is not the organizer). One notification is also sent the first time an event gains an organizer-authored primary post (Story 3.6v). FIND-061 (no new-event notification has ever been received) is to be diagnosed before relying on this path.
+**Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** Notifications are sent **per extracted event**, except events sourced from a `roundup` post (none, since the posting account is not the organizer). One notification is also sent the first time an event gains an organizer-authored primary post (Story 3.6v). Both paths share one marker, `events.notified_at`, owned by AD-30 Rule 10 (set by a single notify helper; a merge can never re-fire it). FIND-061 (no new-event notification has ever been received) is to be diagnosed before relying on this path.
 
 ### Story 3.9: Implement API key quota management
 
@@ -3712,7 +3713,7 @@ Full resolved shape — columns: `id` (uuid, PK, `defaultRandom`), `postId` (uui
 
 **Depends on:** Story 3.3a, Story 3.14.
 
-**Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** Unblocked by Architecture Spine **AD-31** (post–account associations), authored in the same `bmad-architecture` session as AD-30 (Event↔Post many-to-many). Its roles feed Story 3.6v's "organizer-authored" test. Coordinate migration order with Story 3.6r (both change `packages/database/schema.ts`).
+**Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** This story was already unblocked on 2026-09-18 when AD-25 resolved the table's DDL; the 2026-10-01 `bmad-architecture` session (AD-30 Event↔Post many-to-many, **AD-31** post–account association semantics) adds no DDL, only: the closed role vocabulary (`pgEnum`), and the shared "organizer-authored" predicate that Story 3.15 extends with the association leg while **keeping the `posts.accountId` fallback for legacy posts** that have only `PUBLISHER_UNKNOWN`/`SCRAPING_SOURCE` rows (AD-31 Rule 3). Migration order with Story 3.6r is free (no FK between the tables); each ships its own self-contained migration.
 
 ### Story 3.16: Immediate coauthor/publisher subscribability
 
@@ -3768,7 +3769,7 @@ Full resolved shape — columns: `id` (uuid, PK, `defaultRandom`), `postId` (uui
 
 **Depends on:** Story 3.15, Story 3.7b.
 
-**Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** Account filtering and `isFromSubscribedAccount` extend to the **event level**: an event matches when **any** post linked through `event_posts` has a matching association (an `EXISTS`, applied only when an account filter is present; EXPLAIN-gated per AD-30/AD-17). **Depends on** Story 3.6r.
+**Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** Account filtering and `isFromSubscribedAccount` extend to the **event level**: an event matches when **any** post linked through `event_posts` has a matching association (an `EXISTS`, applied only when an account filter is present; EXPLAIN-gated per AD-30/AD-17). Story 3.6v ships the shared helper (AD-31 Rule 4) with its `posts.accountId` leg; this story switches it to the `post_account_associations` leg (any of the four roles) and owns that switch. **Depends on** Story 3.6r, Story 3.6v.
 
 ### Story 3.19: Sanitized subscription-toggle analytics
 
