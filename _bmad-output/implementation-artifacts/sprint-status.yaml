@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-01T03:17:47Z
+last_updated: 2026-10-01T08:53:41Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -1772,7 +1772,7 @@ development_status:
   # RPM/RPD *and* TPM bound, so batching is the quota-efficient choice.
   # Depends on Story 3.6, Story 3.3e. Coordinate merge order with in-flight
   # 3-6i/3-6j/3-6k (same build-gemini-request.ts prompt file).
-  3-6m-add-hasfaceimage-faceimagecount-self-reported-fields-to-gemini-extraction-schema: backlog
+  3-6m-add-hasfaceimage-faceimagecount-self-reported-fields-to-gemini-extraction-schema: ready-for-dev
   3-6n-detect-and-blur-faces-in-extracted-post-images-generating-a-consent-independent-durable-thumbnail: backlog
   3-6o-skip-face-blur-processing-for-events-ending-before-their-source-image-expires: backlog
   3-6p-create-extraction-audit-logs-table-and-write-path-for-gemini-self-reported-extraction-signals: backlog
