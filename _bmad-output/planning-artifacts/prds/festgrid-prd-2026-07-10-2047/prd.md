@@ -7,7 +7,7 @@ status: "final"
 
 created: "2026-07-10T20:50:17Z"
 
-updated: "2026-09-30T00:00:00Z"
+updated: "2026-10-01T00:00:00Z"
 
 ---
 
@@ -53,9 +53,9 @@ This document outlines the product requirements for FestDaily, a platform design
     *   When adding an event to a calendar, users can select which specific schedules to add.
     *   For MVP, this is a one-way integration (app to calendar).
 *   **3.3.2. Event Details Centralization:** Consolidate all relevant event information in one place.
-*   **3.3.3. Source Attribution:** The event details view will display attribution for, and links back to, the social media post the event was extracted from: the original-platform post (`Post.originalPostUrl`, when the scraper adapter was able to derive it) and/or the source post actually scraped (`Post.postUrl`, which may be a proxy/mirror site — see Section 3.7). Whichever of the two is unavailable for a given post is simply omitted, not shown broken. These are read-only informational links, not editable/correctable fields (see Section 3.9 for corrections).
-*   **3.3.4. Account Attribution:** The event details view will also display the source account's name and platform icon (from `SocialMediaAccountProfile`, Section 4.5). Clicking it navigates to that account's public event page (Section 3.7). This is separate from the source-post attribution links (3.3.3), which point to the original post rather than the account.
-*   **3.3.5. Video Prioritization:** When the source post has an associated video (`Post.videoUrl`, e.g. an Instagram Reel/clip), the event details view plays the video in place of the static poster image, autoplaying muted and looped (no manual controls for v1). The poster image (`Post.imageUrl`) remains the skeleton-loader placeholder shown while the video loads, and is also the fallback shown if video playback fails — in that case the view additionally surfaces the existing source-attribution link (Section 3.3.3) so the user can view the video on the original post.
+*   **3.3.3. Source Attribution:** The event details view will display attribution for, and links back to, the social media post the event was extracted from: the original-platform post (`Post.originalPostUrl`, when the scraper adapter was able to derive it) and/or the source post actually scraped (`Post.postUrl`, which may be a proxy/mirror site — see Section 3.7). Whichever of the two is unavailable for a given post is simply omitted, not shown broken. These are read-only informational links, not editable/correctable fields (see Section 3.9 for corrections). **(Amended 2026-10-01, FR114)** An event may be linked to more than one post (Section 3.7, Cross-Post Event Matching). When it is, the details view lists a link to **every** linked post (`EventInfo.sourcePosts`, Section 4.1), the primary post first (`EventInfo.postId`), each labelled by its account name and platform icon; an event with a single linked post looks as it does today. The embedded post, poster image and video (Sections 3.3.5, 3.16) always come from the **primary** post only.
+*   **3.3.4. Account Attribution:** The event details view will also display the source account's name and platform icon (from `SocialMediaAccountProfile`, Section 4.5). Clicking it navigates to that account's public event page (Section 3.7). This is separate from the source-post attribution links (3.3.3), which point to the original post rather than the account. When an event has several linked posts, the account labels in 3.3.3's list identify each linked post's account.
+*   **3.3.5. Video Prioritization:** When the source post (the event's primary post, when it has several) has an associated video (`Post.videoUrl`, e.g. an Instagram Reel/clip), the event details view plays the video in place of the static poster image, autoplaying muted and looped (no manual controls for v1). The poster image (`Post.imageUrl`) remains the skeleton-loader placeholder shown while the video loads, and is also the fallback shown if video playback fails — in that case the view additionally surfaces the existing source-attribution link (Section 3.3.3) so the user can view the video on the original post.
 
 ### 3.5 Global View Rules
 
@@ -75,6 +75,7 @@ This feature allows users to curate their event feed by subscribing to specific 
 
 *   **Scraping Approach (Adapter-Specific):** Posts are scraped via a platform-specific scraper adapter (see Architecture Spine's Adapter Pattern rule). Where a platform blocks direct scraping (e.g. Instagram), the adapter scrapes through a proxy/mirror site instead (e.g. `imginn.com`) and persists the URL it actually fetched (`Post.postUrl`). When the adapter can also determine the canonical original-platform URL for that post (e.g. `imginn.com` preserves Instagram's own post ID, letting the original URL be deterministically derived), it persists that too (`Post.originalPostUrl`). This derivation rule is adapter-specific — a future adapter for a different platform/proxy may need to capture the original URL separately rather than derive it, or may not be able to supply one at all.
 *   **Account Subscription:** Users can subscribe to desired social media accounts by providing their own Gemini API Key (BYOK). Event data from these subscribed accounts will be processed by an AI agent to extract event details. For accounts subscribed to by multiple users, the system will intelligently utilize any valid API key from contributing users to optimize data extraction and distribute quota usage.
+    *   **Automatic Extraction of New Posts (clarified 2026-10-01; BUG-039):** Extraction of newly scraped posts from subscribed accounts is automatic, not something a user must trigger. After each scrape, every new post is enqueued for extraction under the Tier 1/Tier 2 key-selection and quota rules (Quota Management Algorithm, below), consuming the same one extraction call per post as any other path. Posts that cannot be extracted automatically — older posts that predate the subscription, and posts left unextracted because no key had quota — remain available for the user to select by hand (Section 3.10). The Multi-Event Posts rules below apply identically to automatically and manually extracted posts.
     *   **Default Location for Subscriptions:** To handle cases where an event's location is implicit (e.g., an event at a mall posted on the mall's social media), users can optionally set a "Default Location" when subscribing to an account. If the AI agent does not find an explicit location in a post, it will use this default location for the event.
         *   **Shared, Account-Level Setting:** A "Default Location" belongs to the social media account, not to an individual subscriber — because AI extraction runs once per post for accounts with multiple subscribers, a per-subscriber default would be ambiguous about which value applies to the resulting event. Any subscriber may set it if unset.
         *   **Immediate Apply with Moderator Oversight:** Editing a "Default Location" takes effect immediately, with no pre-approval gate — extraction is not blocked waiting on review. When a change is made, moderators are notified by email and can, from Moderator Tools (Section 3.9.3), accept the change or revert the account to its previous default location. This is the default posture for a human edit and for a high-confidence AI inference (see below); a low-confidence AI inference instead requires moderator pre-approval before it applies.
@@ -82,7 +83,27 @@ This feature allows users to curate their event feed by subscribing to specific 
         *   **Key Used for Inference (added 2026-08-24):** This inference call prefers a contributing subscriber's own BYOK Gemini key (the same fairness/rotation approach as regular extraction, above). Only when no subscriber of the account has a usable key does the system fall back to a platform-funded key, held centrally for this purpose. This system key is used exclusively for default-location inference on accounts with no subscriber-contributed key; it does not extend to general post-extraction processing, which remains BYOK-only until the managed-key-pool phase of the platform's rollout (Section 6).
         *   **Moderator Override (added 2026-08-24):** A moderator reviewing a pending change is not limited to accepting or reverting it as-is — they may also set "Default Location" directly to a corrected value, using the same mechanism a subscriber uses. This closes a gap the AI-inference feature above makes routine: reverting a wrong AI guess only blanks the value (Section 3.9.3), it does not let a moderator supply the value that should have been inferred. A moderator-sourced change requires no further review — the moderator's own edit *is* the review — and is recorded with `changeSource: MODERATOR` (Section 4.14). Setting a new value this way, by a subscriber or a moderator, automatically supersedes any other still-pending `DefaultLocationChangeRequest` for that account, since an earlier pending record's captured before/after values are no longer accurate once a later edit has overtaken it.
 *   **Multi-Image (Carousel) Extraction (added 2026-09-03; FR112):** A scraped post may carry multiple images (e.g. an Instagram carousel/Sidecar post) — schedule information for the event(s) being advertised does not always appear on the cover image or in the caption; it may live on a later slide. When a post has additional images, the AI agent is given the cover image plus up to a configurable number of the post's additional images (`Post.additionalImageUrls`) in the **same** extraction call, so it can read schedule details across all provided slides. This is not a separate/repeated extraction pass — see Section 3.8 for how this interacts with quota, and Section 3.10, where the "Selected Posts" quota count is unaffected since a carousel post still costs exactly one extraction call.
-*   **Weekday-Narrowed Recurring Schedules (added 2026-09-11):** A caption may state that a schedule recurs only on specific weekdays within a date range (e.g. "Valid only Monday to Wednesday during September 2026"), rather than applying to every day in that range. When the AI agent identifies this pattern, it records the schedule's full span via `eventStartDate`/`eventEndDate` as usual, plus the stated weekdays via `applicableDaysOfWeek` (Section 4.4), so downstream matching and calendar rendering treat only those weekdays as valid occurrences, not the entire span. Extraction may represent a multi-weekday recurrence either as one schedule per weekday (matching how the source names each occurrence) or as a single schedule covering multiple weekdays that share the same title/time/price/location — both are valid under this field; the AI agent is not required to force one shape over the other.
+*   **Weekday-Narrowed Recurring Schedules (added 2026-09-11):** A caption may state that a schedule recurs only on specific weekdays within a date range (e.g. "Valid only Monday to Wednesday during September 2026"), rather than applying to every day in that range. When the AI agent identifies this pattern, it records the schedule's full span via `eventStartDate`/`eventEndDate` as usual, plus the stated weekdays via `applicableDaysOfWeek` (Section 4.4), so downstream matching and calendar rendering treat only those weekdays as valid occurrences, not the entire span. Extraction may represent a multi-weekday recurrence either as one schedule per weekday (matching how the source names each occurrence) or as a single schedule covering multiple weekdays that share the same title/time/price/location — both are valid under this field; the AI agent is not required to force one shape over the other. In a post that yields several events (Multi-Event Posts, below), this applies per event — each event's schedules carry their own `applicableDaysOfWeek`.
+*   **Multi-Event Posts (added 2026-10-01; FR113):** A single post may advertise one event or several distinct ones, so the system does not assume one post is one event. The AI agent decides the grouping within the **same single extraction call** per post — quota and carousel handling (above, and Section 3.8) are unchanged — and the outcome is recorded on the post as `Post.groupingReason` (`single-event`, `program-lineup`, `dependent-stages`, `separate-events`, or `roundup`) and `Post.extractedEventCount` (Section 4.7). Items are grouped by these rules, applied in order:
+    1.  **Strong signals — any one makes a separate event:** an item has its own registration/ticket/fee/sign-up, its own organizer handle, or a different venue.
+    2.  **Weak signals — two or more make a separate event:** a standalone headliner or title, dates more than about 7 days apart, or a different category.
+    3.  Items within about 7 days of each other under one title and venue are **one event** with several schedules (`program-lineup`).
+    4.  **Dependent stages** (e.g. online audition → finalists → final) are **one event** (`dependent-stages`). Registration and sign-up windows are schedules of the event they belong to, never separate events.
+    5.  Anything else is one event.
+
+    *   **Roundup Posts:** A post that lists many events by many organizers (`roundup`) yields an event per item **only when the item has a readable date and a readable location**; every other item is skipped, not guessed. The number of events extracted from one post is capped (default 10, configurable). Events created from a roundup are **stubs** (`detailLevel: 'stub'`) that show the roundup post's cover image and a lighter "details coming" treatment until a post from the event's own organizer is linked (Cross-Post Event Matching, below). Events from a curator/local-guide account (Section 3.16) are likewise stubs.
+    *   **Per-Event Handling:** Timezone inference (below), the private-contact guard (Section 4.1, `hasPrivateContact`) and the performer-data guard (Section 4.4, `performers`) run **per event**. The children's-data filter (Section 5, Security) stays **post-level**: one match suppresses the whole post, accepted as the conservative choice.
+    *   **Notifications:** Push notifications are sent per event, not per post. An event created from a roundup post sends none at creation; see the first-organizer-post notification under Cross-Post Event Matching.
+    *   **No Duplicate Re-Extraction:** Re-running extraction or ingestion for a post never creates a second event for an item it already produced, and an event a moderator has soft-deleted (Section 3.9) is not recreated by a re-run.
+*   **Cross-Post Event Matching (added 2026-10-01; FR114):** The same event is often advertised by several posts — the organizer's own, a venue's, an aggregator's roundup. Rather than listing it once per post, the system links them to a single event.
+    *   **Matching:** Before creating each extracted event, the system looks for an existing event with overlapping schedule dates (within 2 days) and a similar name, then scores the pair on shared organizer account (the item's organizer handle, captured at extraction time, against the existing event's organizer), a shared registration/ticket link, date and name similarity, and venue. A **high** score links the new post to the existing event automatically, with no moderator step. A **mid** score creates the item as its own event and queues a suggested match for a moderator (Section 3.9.3); approving it merges the two, rejecting it records a dismissal. A **low** score creates a new event. Score thresholds are tuned during implementation. An event absorbs at most one item per post.
+    *   **Primary Post:** One linked post is the event's **primary** post (`EventInfo.postId`, Section 4.1); its image, video and embedded post are what the event shows. The primary is chosen in order: (1) a post authored by the event's organizer (the publisher or a coauthor, Section 4.7a — not a curator/local-guide account) beats a roundup, aggregator or curator post; (2) the post whose extraction gave more schedules with a complete date and location; (3) the earlier post; (4) a deterministic tie-break. When a better primary arrives, the event's primary changes to it.
+    *   **Enrichment in Place:** A matched post enriches the existing event rather than replacing it. A field that has an approved user correction or a moderator edit (Section 3.9) is never overwritten — the proposed change is queued for a moderator instead. Schedules are matched by date: existing ones are updated, new ones added, and a schedule that a user's calendar entry references is never removed. A stub event gains full detail this way (`detailLevel` becomes `'full'`).
+    *   **First-Organizer-Post Notification:** When an event that has not yet notified anyone first gains an organizer-authored primary post, **one** notification is sent for it, and never again for that event (including after a merge).
+    *   **Merge and Redirect:** A moderator can merge two events that are duplicates (Section 3.9.3). The merged-away event is soft-deleted and points at the surviving one (`mergedIntoEventId`); favorites, calendar entries and reports move to the survivor with no per-user duplicates, and a user's calendar entries are preserved. A merge can be undone within the moderator undo window. A link to a merged-away or re-slugged event continues to work by redirecting to the surviving event's current address.
+    *   **Slug Follows the Primary Post:** An event's URL slug names its primary post (Section 4.1). When the primary changes, the event gets a new slug and the old one permanently redirects to it.
+    *   **Post Deletion:** When a post is deleted (including through account or profile erasure), the event's next linked post becomes primary by the rule above; an event left with no linked post stays, keeping its slug, with no image or source link.
+    *   **Related Events:** An event's detail view shows the other events that share a linked post with it, grouped by post ("Events from [post/account]"), loaded lazily as they near the viewport and hidden when there are none. Each group shows up to 5 events inline, then a "See all N events" link to a **post collection page** listing every event from that post. That page reuses the existing event-list view, filters and Next/Previous detail navigation (Section 3.12), not a separate list implementation. Soft-deleted and merged events are never shown or counted.
 *   **Account Profile Backfill from Scraped Posts (added 2026-08-24):** Every scraped post also carries the publishing account's own profile information (its current display name and username). When this differs from what is stored, the system updates the account's stored profile to match — keeping subscriber-facing account details current without requiring a subscriber to notice and re-enter them.
 *   **Quota Management & Notifications:**
 *   **Email Notifications:** Users will receive email notifications if `X` of their subscribed posts have been queued for `Y` days due to Gemini API quota exhaustion. These notifications will suggest contributing an additional API key.
@@ -97,6 +118,7 @@ This feature allows users to curate their event feed by subscribing to specific 
     *   **Multiple API Keys:** If a user provides multiple API keys, the system will treat them as a pool of resources for that user, cycling through them as needed.
     *   **Key Failure:** If a user's key fails or is rate-limited, it will be temporarily skipped, and the next user's key in the round-robin will be used.
 *   **Display Subscribed Events:** Events extracted from a user's social media accounts will be displayed to the user.
+    *   **Any-Linked-Post Account Matching (added 2026-10-01; FR114):** An event belongs to a subscribed account's feed when **any** post linked to the event (Cross-Post Event Matching, above) belongs to that account — not only the event's primary post. An event first extracted from a roundup account's post therefore stays visible to that account's subscribers after it is promoted to the organizer's own post, and is also visible to the organizer account's subscribers. The same rule applies to the "Subscribed Events" feed, to the filter-by-account control below, to the Public Account Page, and to whether an event is marked as coming from a subscribed account. Once post–account associations are in place (Section 4.7a), "belongs to that account" means the account holds any association role on the linked post.
     *   **View Options:** Users can view these events in a calendar-view (default) or a card-view.
         *   **Calendar View Behavior:**
             *   Each schedule within an `EventInfo` object will be displayed as a separate, clickable item in the calendar, on each date its `eventStartDate`-`eventEndDate` span covers -- narrowed to only the dates matching `applicableDaysOfWeek` when that field is set (Section 4.4), rather than on every date in the span.
@@ -105,7 +127,7 @@ This feature allows users to curate their event feed by subscribing to specific 
                 *   If `isMainSchedule` is `false`, the title will be a combination of the event name and the schedule title, in the format: `eventName - schedule.title`.
             *   Clicking on any schedule item in the calendar will open a detail view for the entire event, with all its schedules listed. The selected schedule may be highlighted for context.
 *   **Search and Filter:** A free-text search bar will allow users to search events from their subscribed accounts by event name, performers, and location name. Users can also filter events by type, category, and the specific social media account source. As with Section 3.1's search, a `#`-prefixed phrase matches exactly against a post's hashtags (Section 4.7) instead (added 2026-08-28).
-*   **Public Account Page:** Each social media account has its own public, unauthenticated page at `/{platform-slug}/{accountId}` (e.g. an Instagram account at `/ig/{accountId}`), showing every event sourced from that account. This page offers the same card view, calendar view, search, and filtering behavior as the main event discovery page (Section 3.1), reusing its components. Unlike "Display Subscribed Events" above, this page requires no subscription or login — it is a shareable, public view scoped to a single account. `{platform-slug}` is a short, stable slug derived from `SocialMediaAccountProfile.platform` (e.g. `ig` for Instagram); `{accountId}` is `SocialMediaAccountProfile.accountId` (Section 4.5) — the account's platform-native identifier — not the application's internal database id.
+*   **Public Account Page:** Each social media account has its own public, unauthenticated page at `/{platform-slug}/{accountId}` (e.g. an Instagram account at `/ig/{accountId}`), showing every event sourced from that account (an event counts as sourced from the account when any of its linked posts is, per Any-Linked-Post Account Matching above). This page offers the same card view, calendar view, search, and filtering behavior as the main event discovery page (Section 3.1), reusing its components. Unlike "Display Subscribed Events" above, this page requires no subscription or login — it is a shareable, public view scoped to a single account. `{platform-slug}` is a short, stable slug derived from `SocialMediaAccountProfile.platform` (e.g. `ig` for Instagram); `{accountId}` is `SocialMediaAccountProfile.accountId` (Section 4.5) — the account's platform-native identifier — not the application's internal database id.
 *   **Personalized Reminders:** Event data processed from subscribed accounts will be used to generate personalized event reminders.
 *   **Timezone Inference:** When an event's timezone is not explicitly provided, the system will infer it using the following strategies, in order of preference:
     *   **Location-based Inference:** The event's location will be used to determine the timezone via a standard geolocation service. To manage API costs and limits, results from the geolocation service will be cached.
@@ -169,12 +191,14 @@ A 'Report' button will be available for all events (whether from Social Media Ac
 #### 3.9.3 User and Moderator Interfaces
 
 *   **User Reports Page:** Authenticated users will have access to a dedicated 'Reports' page under their user menu, displaying the status and history of their submitted reports.
-*   **Moderator Tools:** For users with a 'moderator' access level, a 'Moderator Items' page will be available under the user menu. For the MVP, moderator access levels will be assigned manually via the database. In addition to user reports, this page surfaces pending "Default Location" changes (Section 3.7): post-hoc `PENDING_REVIEW` items to accept or revert, and pre-hoc `AWAITING_APPROVAL` items (low-confidence AI inferences awaiting a decision before they ever apply) to approve or reject, visually distinguished from each other.
+*   **Moderator Tools:** For users with a 'moderator' access level, a 'Moderator Items' page will be available under the user menu. For the MVP, moderator access levels will be assigned manually via the database. In addition to user reports, this page surfaces pending "Default Location" changes (Section 3.7): post-hoc `PENDING_REVIEW` items to accept or revert, and pre-hoc `AWAITING_APPROVAL` items (low-confidence AI inferences awaiting a decision before they ever apply) to approve or reject, visually distinguished from each other. **(Added 2026-10-01, FR114)** It also surfaces suggested cross-post event matches (Section 3.7) for review, and offers a merge action for duplicate events — with confirmation and an undo window matching the existing soft-delete-with-undo pattern.
 *   **Moderator Pending-Item Badge (added 2026-08-28):** For users with moderator access, a numeric badge shows the combined count of items awaiting moderator action — pending reports above, and Default Location changes in `PENDING_REVIEW` or `AWAITING_APPROVAL` status (Section 3.7/4.14) — in two places: next to the "Moderator Items" entry inside the opened user menu, and on the user's avatar in the navbar when the menu is closed. The badge shows one combined total, not a per-category breakdown; opening Moderator Items itself provides that detail. The count is kept reasonably current (refreshed periodically or on relevant navigation), not necessarily instantaneous.
 
 ### 3.10 Manual Post Selection for Event Extraction
 
 To provide users with greater control over their API quota usage and improve the relevance of extracted events, FestDaily will offer a manual post selection feature. This allows users to choose which specific social media posts should be processed by the AI agent.
+
+*   **Relationship to Automatic Extraction (clarified 2026-10-01; BUG-039):** New posts from subscribed accounts are extracted automatically after each scrape, within the Tier 1/Tier 2 key and quota rules (Section 3.7). Manual selection is therefore the path for posts automatic extraction does not cover: older posts that predate the subscription, and posts left unextracted because no key had quota. Both paths cost one extraction call per post, draw on the same quota, and apply the same Multi-Event Posts rules (Section 3.7). A post that has already been extracted (`Post.isExtracted`) — automatically or by hand — is shown as processed and cannot be selected again, whether it yielded zero, one or several events.
 
 *   **User Interface:** A new screen will be introduced, featuring a tab-based layout where each tab corresponds to one of the user's subscribed social media accounts.
     *   **Tab Content:** Each tab, when selected, will display a list of the 20 most recent posts from that account, presented in a card-based view.
@@ -182,7 +206,7 @@ To provide users with greater control over their API quota usage and improve the
 *   **Post Selection:**
     *   Users can select multiple posts by clicking a checkbox on each post card.
     *   The selection state is preserved as the user navigates between different tabs.
-    *   Posts that have already been processed and resulted in an event will be visually disabled and cannot be selected for re-extraction.
+    *   Posts that have already been processed and resulted in one or more events will be visually disabled and cannot be selected for re-extraction.
 *   **Quota Management:**
     *   A summary bar will display the number of selected posts against the user's remaining API quota (e.g., "Selected Posts: 5 / 50").
     *   The system will prevent users from extracting more posts than their quota allows.
@@ -397,7 +421,11 @@ interface EventInfo {
   /**
    * A unique, URL-friendly slug. For events sourced from a social media post, generated as
    * `{platform-slug}_{postType}_{platformPostId}` (e.g. `ig_p_Cx9uWttkSN`) -- see the Architecture
-   * Spine's AD-16. Events with no resolvable source post fall back to a random hex string
+   * Spine's AD-16. **(Amended 2026-10-01, AD-16/AD-30)** The slug names the event's **primary**
+   * post (`postId`, below). When one post yields several events, every event after the first
+   * (extraction ordinal > 0) appends `~{ordinal}` (e.g. `ig_p_Ddi9wU6RCRQ`, `ig_p_Ddi9wU6RCRQ~2`).
+   * When the primary post changes, the event is re-slugged and the old slug permanently redirects
+   * to the new one. Events with no resolvable source post fall back to a random hex string
    * (`randomBytes(6).toString('hex')`, the same mechanism previously and incorrectly documented
    * here as "Nano ID" -- it was never Nano ID). Supports manual custom modification post-MVP
    * (Section 8.2).
@@ -412,13 +440,36 @@ interface EventInfo {
    */
   sourceSocialMediaAccountId?: string;
   /**
-   * The ID of the `Post` (see the `Post` interface, Section 4.7) this event was extracted from, if any.
+   * The ID of the event's **primary** `Post` (see the `Post` interface, Section 4.7) — the post it was
+   * first extracted from, or the better post it was later promoted to (Section 3.7, Cross-Post Event
+   * Matching), if any. **(Amended 2026-10-01, AD-30)** An event may be linked to several posts
+   * (`sourcePosts`, below); `postId` is the one whose data the event shows.
    * EventInfo intentionally has no image or video field of its own — an event's image and video are
-   * resolved via this relation, from the source post's `imageUrl`/`videoUrl`. The event details view
-   * also uses this relation to surface attribution and links back to the source post's `postUrl`/
+   * resolved via this relation, from the primary post's `imageUrl`/`videoUrl`. The event details view
+   * also uses this relation to surface attribution and links back to the primary post's `postUrl`/
    * `originalPostUrl` (Section 3.3.3).
    */
   postId?: string;
+  /**
+   * Every `Post` linked to this event, primary post (`postId`) first, then in link order (added
+   * 2026-10-01, FR114, AD-30). Always includes the primary when one exists. Requested only by the
+   * event details view (source-post links, Section 3.3.3); never part of list/discovery queries.
+   * Each entry exposes the post's `postUrl`/`originalPostUrl` and its account (Sections 4.5,
+   * 4.7a, including coauthors).
+   */
+  sourcePosts?: Post[];
+  /**
+   * `'stub'` for an event created from a roundup or curator/local-guide post, which has little
+   * detail and shows the roundup post's cover image until a post from the event's own organizer is
+   * linked; `'full'` otherwise (added 2026-10-01, FR113, AD-30). Defaults to `'full'`. Section 3.7.
+   */
+  detailLevel: 'stub' | 'full';
+  /**
+   * Set when a moderator merged this event into another as a duplicate (added 2026-10-01, FR114,
+   * AD-30); the event is soft-deleted (`deletedAt`) and this is the surviving event's `id`. Links
+   * to this event's slug redirect to that event. Absent on every event that has not been merged away.
+   */
+  mergedIntoEventId?: string;
   /**
    * Indicates if the event has been favorited by the current user.
    * This is a user-contextual field added at runtime.
@@ -720,7 +771,9 @@ interface SocialMediaAccountProfile {
  * Represents a social media post to be displayed for selection, and — when it yields an
  * extracted event — the source an `EventInfo` links back to via `EventInfo.postId` (Section 4.1),
  * which is how an event's image (`imageUrl`) and source attribution links (`postUrl`/
- * `originalPostUrl`, Section 3.3.3) are resolved.
+ * `originalPostUrl`, Section 3.3.3) are resolved. **(Amended 2026-10-01, AD-30)** A post may yield
+ * zero, one or several events, and an event may be linked to several posts; `EventInfo.postId`
+ * is the event's primary post and `EventInfo.sourcePosts` lists all of them (Section 3.7).
  */
 interface Post {
   /**
@@ -787,6 +840,21 @@ interface Post {
    * signal in a future pass.
    */
   hashtags?: string[];
+  /**
+   * How AI extraction grouped this post's content into events (added 2026-10-01, FR113, AD-30).
+   * `single-event`: one event. `program-lineup`: one event with several schedules.
+   * `dependent-stages`: one event whose stages depend on each other (e.g. audition → final).
+   * `separate-events`: several distinct events. `roundup`: a list of events by many organizers.
+   * Absent until the post has been extracted. The model's free-text rationale for the grouping is
+   * never persisted. Grouping rules: Section 3.7, Multi-Event Posts.
+   */
+  groupingReason?: 'single-event' | 'program-lineup' | 'dependent-stages' | 'separate-events' | 'roundup';
+  /**
+   * The number of events created from this post by extraction (added 2026-10-01, FR113, AD-30).
+   * Absent until the post has been extracted; `0` when extraction found no event (items skipped
+   * for a missing date or location do not count).
+   */
+  extractedEventCount?: number;
 }
 ```
 
