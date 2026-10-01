@@ -1772,6 +1772,17 @@ development_status:
   # RPM/RPD *and* TPM bound, so batching is the quota-efficient choice.
   # Depends on Story 3.6, Story 3.3e. Coordinate merge order with in-flight
   # 3-6i/3-6j/3-6k (same build-gemini-request.ts prompt file).
+  3-6m-add-hasfaceimage-faceimagecount-self-reported-fields-to-gemini-extraction-schema: backlog
+  3-6n-detect-and-blur-faces-in-extracted-post-images-generating-a-consent-independent-durable-thumbnail: backlog
+  3-6o-skip-face-blur-processing-for-events-ending-before-their-source-image-expires: backlog
+  3-6p-create-extraction-audit-logs-table-and-write-path-for-gemini-self-reported-extraction-signals: backlog
+  # added 2026-09-30 via bmad-correct-course (sprint-change-proposal-2026-09-30.md):
+  # triggering issue -- exploratory bmad-help conversation on face-blurred post
+  # thumbnails for bystander privacy, converged into Architecture Spine AD-28
+  # (face-api.js detection, consent-independent durableThumbnailUrl, expiry-gated)
+  # and AD-29 (extraction_audit_logs, ground-truth-where-available). Depends on
+  # Story 3.6l for the audit-table retrofit; coordinate merge order with any other
+  # in-flight build-gemini-request.ts changes.
   # added 2026-08-10 via bmad-create-story Gate 2 finding (Freya persona, run fresh
   # since epic-3-readiness.md only swept Gate 1/3) while drafting Story 3.7: Feed's
   # planned calendar view would be a third near-byte-for-byte duplicate of

@@ -3171,6 +3171,86 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Depends on:** Story 3.6, Story 3.3e.
 
+**Cross-reference (2026-09-30, added via `bmad-correct-course`):** This story's `minScheduleCount`/`expectedScheduleNames` fields gain persistence into the new `extraction_audit_logs` table via Story 3.6p, for extraction-quality evaluation — no change to this story's own already-shipped/in-review log-only behavior.
+
+### Story 3.6m: Add hasFaceImage/faceImageCount self-reported fields to Gemini extraction schema
+
+**As a** system,
+**I want** the Gemini extraction response to self-report whether a post's image contains any
+people,
+**So that** a later face-detection/blur pass (Story 3.6n) can skip images that plainly have none,
+without paying for a separate detection call on every extracted image.
+
+**Acceptance Criteria:**
+
+*   **Given** `geminiExtractionResponseSchema` (`build-gemini-request.ts`) and `extractedEventSchema` (`extracted-event.schema.ts`), **when** this story ships, **then** both gain two new optional fields, added together in the same change (`extractedEventSchema`'s `additionalProperties: false` means a real Gemini response carrying these fields is silently dropped by AJV unless both files change together — the same load-bearing pattern Story 3.6l's `minScheduleCount`/`expectedScheduleNames` already established): `hasFaceImage` (boolean) and `faceImageCount` (number, advisory/logging-only — never trusted as an exact count).
+*   **And** the system prompt is amended with an explicit instruction to report both fields based on the same image(s) already provided for event extraction — no second image fetch, no second Gemini call.
+*   **And** `hasFaceImage`/`faceImageCount` are written to the new `extraction_audit_logs` table (Story 3.6p, Architecture Spine AD-29) — **never** to `posts`/`EventInfo`, and never exposed via GraphQL. They exist for offline extraction-quality evaluation only.
+*   **And** a regression test fixture covering an image with no people (e.g. a text-only graphic-design flyer) and an image with a clearly visible person confirms `hasFaceImage` reports the expected value and both are correctly written to the audit row.
+
+**Note (added via `bmad-correct-course`, Architecture Spine AD-28):** This field rides the extraction call that already runs on every post and already fetches the image bytes — image tokens are billed once regardless of what's asked about the image, so this adds only a handful of schema-definition and output tokens, not a new billable unit. Used exclusively as a pre-filter gate for Story 3.6n's face-detection pass; never itself used to decide whether to blur anything.
+
+**Cross-reference:** This story and Stories 3.6i/3.6j/3.6k/3.6l all edit `build-gemini-request.ts`'s prompt/response schema. Whichever lands last must rebase on the others' changes rather than silently conflicting.
+
+**Depends on:** Story 3.6, Story 3.6l, Story 3.6p.
+
+### Story 3.6n: Detect and blur faces in extracted post images, generating a consent-independent durable thumbnail
+
+**As a** subscriber,
+**I want** any bystander's face visible in an event's photo to be blurred in the app's card views,
+**So that** FestDaily doesn't display an identifiable photo of someone who never agreed to appear
+on the platform, regardless of whether the source account has opted into image re-hosting.
+
+**Acceptance Criteria:**
+
+*   **Given** a post's extraction reports `hasFaceImage = true` (Story 3.6m), **when** the AI Processor Lambda has finished extraction, **then** it runs `@vladmandic/face-api` (SSD MobileNetV1 detector) against the already-fetched original image bytes (no second fetch) to locate face bounding boxes.
+*   **And** a Gaussian blur is applied over each detected face's bounding box at the image's original resolution, **before** any resizing or cropping (processing order is correctness-critical — cropping first risks misaligned coordinates for a face partially outside the eventual crop).
+*   **And** the blurred image is then resized/cropped via `sharp.resize(480, 480, { fit: 'cover', withoutEnlargement: true })` and re-encoded as JPEG quality 80.
+*   **And** the resulting thumbnail is uploaded to the same private-S3-bucket-plus-CloudFront-OAC mechanism Architecture Spine AD-12 Rule 2 already established, with the resulting CloudFront URL written to a new `posts.durableThumbnailUrl` column — **independent of `isImageStorageOptedIn`** (populated for opted-in and non-opted-in accounts alike; distinct from and never conflated with `durableImageUrl`, which keeps its existing opted-in-only, unblurred, full-resolution behavior completely unchanged).
+*   **And** `event_card_masonry`'s `prominentPoster` trigger widens from `durableImageUrl != null` to `durableImageUrl != null || durableThumbnailUrl != null`; when both are present, `durableImageUrl` (sharp) is rendered in preference to `durableThumbnailUrl` (blurred); when neither is present, today's default non-prominent card state renders unchanged.
+*   **And** if detection, blur, resize, or upload fails at any step, the failure is caught and logged; `durableThumbnailUrl` stays null and extraction/ingestion proceeds unaffected (best-effort, matching Story 3.6e's existing precedent for `durableImageUrl`).
+*   **And** a regression test fixture covering a photo with a clearly visible face confirms the stored thumbnail's face region is visibly blurred, and a fixture with `hasFaceImage = false` confirms detection is skipped entirely (no face-api.js invocation).
+
+**Note (added via `bmad-correct-course`, Architecture Spine AD-28):** face-api.js was chosen over AWS Rekognition specifically to avoid a recurring per-image AWS fee, at the accepted cost of lower recall than Rekognition on small/angled/occluded/low-light faces — the profile of real event crowd photos. Some faces may go unblurred; this is a deliberate, recorded trade-off, not an oversight. Widening `prominentPoster` measurably changes PRD §3.16's framing of the prominent card as a binary "felt incentive to opt in" (see the accompanying PRD edit) — opt-in is now "sharp prominent" vs. "blurred prominent," not "prominent" vs. "nothing."
+
+**Depends on:** Story 3.6m, Story 3.6e (re-hosting/upload mechanism), Story 0.33 (media bucket).
+
+### Story 3.6o: Skip face-blur processing for events ending before their source image expires
+
+**As a** platform operator,
+**I want** to skip Story 3.6n's detection/blur/storage pipeline for events whose relevance window ends before their source image URL would have expired anyway,
+**So that** FestDaily doesn't spend compute, storage, and bystander-photo retention on a durable copy that could never actually be needed as a fallback.
+
+**Acceptance Criteria:**
+
+*   **Given** a post's extraction has produced one or more schedules (Story 3.6's pipeline) and `posts.imageUrlExpiresAt` is already populated (Story 3.6e, parsed at scrape time), **when** Story 3.6n's pipeline is about to run, **then** the event's latest schedule end (the max of `schedules[].eventEndDate`/`eventEndTime` across all extracted schedules; falls back to `eventStartDate` when no end is given) is compared against `imageUrlExpiresAt`.
+*   **And** if the event's latest schedule end is at or before `imageUrlExpiresAt`, Story 3.6n's detection/blur/resize/upload pipeline is skipped entirely — no face-api.js invocation, no S3 upload, `durableThumbnailUrl` stays null for that post.
+*   **And** if the event's latest schedule end is after `imageUrlExpiresAt` (or `imageUrlExpiresAt` is null, treated as "already expired" per AD-12 Rule 3's existing convention), Story 3.6n's pipeline runs exactly as that story implemented it, unchanged.
+*   **And** this comparison is explicitly documented (code comment) as distinct from `Event.isExpiredForCurrentUser`/`computePastEventThreshold` (a runtime, grace-period visibility check for an already-viewing user) — this is a one-time, build-time relevance check with no grace period.
+*   **And** a regression test fixture covering a short-lived event (ends same day, well before a multi-day image expiry) confirms the pipeline is skipped, and a fixture covering a long-running event (ends after the image's expiry) confirms it runs.
+
+**Note (added via `bmad-correct-course`, Architecture Spine AD-28 Rule 2):** This is a pure optimization layered on top of Story 3.6n, mirroring how Story 3.6h layered the opt-in consent gate on top of Story 3.6e's already-shipped unconditional re-hosting — Story 3.6n may ship and operate correctly without this gate; this story narrows its footprint afterward.
+
+**Depends on:** Story 3.6n.
+
+### Story 3.6p: Create extraction_audit_logs table and write path for Gemini self-reported extraction signals
+
+**As a** platform operator,
+**I want** every extraction's self-reported completeness/face signals stored alongside the ground truth they can be checked against,
+**So that** the AI extraction pipeline's accuracy can be evaluated over time instead of self-reported numbers only ever being logged and forgotten.
+
+**Acceptance Criteria:**
+
+*   **Given** the schema defined in Architecture Spine AD-29, **when** this story's migration runs, **then** it creates `extraction_audit_logs` (`postId` FK to `posts.id`, `geminiModel`, `isEvent`, `confidenceScore`, `minScheduleCount`, `expectedScheduleNames` (jsonb), `actualScheduleCount`, `hasFaceImage`, `faceImageCount`, `actualFaceDetectionCount`, `faceDetectionSkippedReason`, `createdAt`), indexed on `postId`.
+*   **And** `process-ai-job.ts` writes one row per extraction attempt immediately after Gemini's response is parsed, populating `minScheduleCount`/`expectedScheduleNames`/`hasFaceImage`/`faceImageCount` from the response and `actualScheduleCount` once schedules are persisted.
+*   **And** this is a **retrofit onto the already-in-review Story 3.6l** — `minScheduleCount`/`expectedScheduleNames` were shipped there as log-only fields; this story adds their persistence without changing 3.6l's own extraction/logging behavior.
+*   **And** once Story 3.6n/3.6o run, `actualFaceDetectionCount` and `faceDetectionSkippedReason` are back-filled on the same row (`'no_face_reported'` when Story 3.6m's `hasFaceImage = false` skipped detection, `'event_relevance_gate'` when Story 3.6o's expiry check skipped it, `null` with a real count when detection ran).
+*   **And** no resolver serving any client-facing GraphQL field ever queries this table (AD-29 Rule 5) — verified by a lint/review check that `extraction_audit_logs` has no import from `apps/backend/src/schema/resolvers.ts`'s hot-path fields.
+
+**Note (added via `bmad-correct-course`, Architecture Spine AD-29):** This table cannot measure `hasFaceImage`'s false-negative rate on its own — rows where it's `false` never get a ground-truth comparison, since Story 3.6n's face-api.js pipeline never runs on them. Closing that gap would require periodically sampling `hasFaceImage = false` rows through face-api.js anyway; left as an explicit future decision, not built here.
+
+**Depends on:** Story 3.6e, Story 3.6l.
+
 ### Story 3.7: Display extracted events to the user
 
 **As a** user,

@@ -1296,6 +1296,126 @@ This document defines the core architectural invariants for the FestDaily applic
 
 ---
 
+### AD-28: Face-Blurred Thumbnails — Consent-Independent, Expiry-Gated
+
+*   **Binds:** New `posts.durableThumbnailUrl` column (distinct from and independent of AD-12's
+    `posts.durableImageUrl`); `geminiExtractionResponseSchema` (build-gemini-request.ts) and
+    `extractedEventSchema` (extracted-event.schema.ts) — gain `hasFaceImage`/`faceImageCount`,
+    same pattern Story 3.6l used for `minScheduleCount`; the AI Processor Lambda's
+    post-extraction step (new face-api.js detection + sharp blur/resize stage);
+    `event_card_masonry`'s `prominentPoster` trigger (EVENT-CARD-DESIGN.md).
+*   **Prevents:** AWS Rekognition as the detector (per-image fee, rejected for zero marginal AWS
+    cost); merging multiple thumbnails into one batched Rekognition call (buffering layer foreign
+    to the per-post SQS pipeline, risks silently dropping faces past Rekognition's per-call cap);
+    gating this feature on `isImageStorageOptedIn` (Rule 6); running detection/blur/storage for
+    events that will never need the durable copy (Rule 2); conflating `durableThumbnailUrl` with
+    `durableImageUrl` — they are separate fields with separate consent rules and must never merge
+    into one gate or one column.
+*   **Rule:**
+    1.  **Pre-filter:** the Gemini extraction schema gains `hasFaceImage: boolean` and
+        `faceImageCount: number`. Near-zero marginal cost — rides the extraction call that
+        already fetches the image bytes. Used to skip face-detection when `hasFaceImage === false`,
+        and captured into `extraction_audit_logs` (AD-29) for evaluation — never written to
+        `posts`/`EventInfo`, never GraphQL-exposed. `faceImageCount` is advisory/logging-only —
+        general vision-language models are unreliable at precise counting in dense scenes and this
+        is never trusted for a hard cutoff.
+    2.  **Relevance gate:** before running detection, compare the event's latest schedule end
+        (max of `schedules[].eventEndDate`/`eventEndTime` across all extracted schedules, from
+        this same Gemini response) against `posts.imageUrlExpiresAt` (AD-12 Rule 3, already
+        parsed and stored at scrape time). If the event ends at or before the original image URL
+        itself expires, skip detection, blur, thumbnail generation, and storage entirely — the
+        hotlinked original stays valid for the event's entire relevant display window. Distinct
+        from `Event.isExpiredForCurrentUser`/`computePastEventThreshold` (a runtime, grace-period
+        visibility check) — this is a one-time build-time relevance check.
+    3.  **Detection:** for images passing both gates, run `@vladmandic/face-api` (TensorFlow.js,
+        pure npm, no native binaries) with the SSD MobileNetV1 detector — chosen over the Tiny
+        Face Detector for better small/angled-face accuracy — directly against the image's
+        *original* fetched bytes, never a pre-resized copy. The detector's own `inputSize`
+        parameter (default 512) already downsamples internally for its forward pass and returns
+        boxes in the coordinate space of whatever image it was given; pre-resizing ourselves would
+        only risk shrinking small/distant faces below a recoverable resolution and would force an
+        extra coordinate-remapping step before Rule 4's blur, for no compute or accuracy benefit.
+        Runs in the same AI Processor Lambda that already holds the fetched image bytes — no
+        second fetch.
+    4.  **Processing order (correctness-critical):** detect faces and apply the Gaussian blur at
+        the image's *original* fetched resolution/coordinates first; only *then* resize/crop to
+        the final thumbnail. Cropping before blurring risks a face partially outside the eventual
+        square being detected against the wrong coordinate space.
+    5.  **Thumbnail spec:** `sharp.resize(480, 480, { fit: 'cover', withoutEnlargement: true })`,
+        JPEG quality 80, square-cropped. Sized for 2x-retina sharpness through phones, tablets,
+        and common laptops (~1366-1440px); deliberate, accepted softness on desktop/ultrawide
+        viewports (masonry's `image_prominent` slot can render up to ~400-550px CSS-wide there),
+        on the reasoning that desktop viewing distance is typically greater, making that softness
+        acceptable — and this is a privacy-motivated blurred thumbnail, not a pixel-fidelity
+        showcase. Well under typical Instagram source resolution (commonly 1080px), so this is a
+        real bandwidth/storage reduction, not an upscale.
+    6.  **Consent-independent by design:** `durableThumbnailUrl` is populated **regardless of
+        `isImageStorageOptedIn`** — a deliberate, explicit divergence from AD-12 Rule 7's consent
+        gate, not an oversight. Rule 7 exists to prevent an unconsented *persistent copy* of a
+        scraped account's original content, for copyright/ToS-exposure reasons; this AD persists
+        a blurred derivative for an independent reason (bystander privacy), and Rule 2 above
+        narrows the resulting footprint by skipping storage for short-lived events.
+        `durableImageUrl` (AD-12) keeps its exact existing meaning and behavior — full
+        resolution, unblurred, opted-in-only — completely untouched by this AD.
+    7.  **`prominentPoster` trigger widens:** from `durableImageUrl != null` to
+        `durableImageUrl != null || durableThumbnailUrl != null` — non-opted-in accounts now
+        also qualify for the prominent square card treatment, using the blurred thumbnail.
+        Render preference when both exist: `durableImageUrl` (opted-in, sharp) wins; otherwise
+        `durableThumbnailUrl` (blurred); otherwise today's default non-prominent state
+        (e.g. for an event Rule 2 skipped). This measurably dilutes PRD §3.16's framing of the
+        prominent card as a binary "felt incentive to opt in" — opt-in is now "sharp prominent"
+        vs. "blurred prominent," not "prominent" vs. "nothing." PRD wording updated accordingly
+        (Section 3.16).
+    8.  **Accepted accuracy trade-off:** face-api.js has materially lower recall than Rekognition
+        on small/angled/occluded/low-light faces — the profile of real event crowd photos — so
+        some faces may go unblurred. Chosen deliberately to avoid a per-image AWS fee.
+*   **Considered and rejected:** AWS Rekognition `DetectFaces` per-image (higher accuracy, ongoing
+    per-image fee); batching multiple thumbnails into one Rekognition call (foreign buffering
+    stage, risks a face silently escaping detection past the API's per-call face-count cap).
+
+---
+
+### AD-29: Extraction Quality Audit Log — Separate Table, Ground Truth Where Available
+
+*   **Binds:** New `extraction_audit_logs` table (`packages/database/schema.ts`);
+    `process-ai-job.ts`'s post-extraction step (writes one row per extraction attempt);
+    Story 3.6l's `minScheduleCount`/`expectedScheduleNames` (retrofit) and Story 3.6m's
+    `hasFaceImage`/`faceImageCount` (new).
+*   **Prevents:** Polluting `posts`/`events`'s business-facing schema with internal
+    model-self-report telemetry no product surface consumes; joining this table into any
+    hot-path resolver (`Query.events`/`Query.eventBySlug`, AD-17) — it is write-once/read-rarely,
+    for offline evaluation tooling only, never a GraphQL-exposed field; a self-reported value
+    being read as verified when its ground-truth counterpart is silently absent from the row.
+*   **Rule:**
+    1.  **New table, not new columns:** one row per extraction attempt (`postId` FK), holding
+        every Gemini self-reported extraction-quality signal — so this class of data has one
+        growing home instead of accumulating as ad hoc columns on `posts`/`events` each time a
+        new self-reported field is added.
+    2.  **Ground truth captured alongside self-report, wherever available:**
+        `actualScheduleCount` (the real persisted `schedules.length`) sits beside
+        `minScheduleCount`; `actualFaceDetectionCount` (face-api.js's real detected count) sits
+        beside `faceImageCount`. A self-reported value with no ground-truth counterpart in the
+        same row is only useful for manual spot review, not automated accuracy scoring.
+    3.  **Skips are recorded, not silently absent:** `faceDetectionSkippedReason`
+        (`'no_face_reported' | 'event_relevance_gate' | null`) records why
+        `actualFaceDetectionCount` is null, so a null is never misread as "detection ran and
+        found zero faces."
+    4.  **Known blind spot, recorded not hidden:** rows where `hasFaceImage = false` never get a
+        ground-truth comparison, since Story 3.6n's face-api.js pipeline never runs on them by
+        design (AD-28 Rule 1). This table cannot measure the pre-filter's false-negative rate on
+        its own — only its behavior when it already said yes. Closing that gap would need
+        periodically sampling `hasFaceImage = false` rows through face-api.js anyway, spending
+        some of the compute the pre-filter exists to save — left as an explicit future decision,
+        not built here.
+    5.  **Never joined into a hot path:** no resolver serving any client-facing field ever reads
+        this table. Offline/admin evaluation tooling only.
+*   **Considered and rejected:** adding these fields directly as columns on `posts`/`events` —
+    rejected once the audit requirement was raised, since no product surface consumes them and
+    there would be no natural home for the ground-truth comparison columns this table exists to
+    hold.
+
+---
+
 
 ## Related Documents
 

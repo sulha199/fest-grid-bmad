@@ -1663,9 +1663,41 @@ items:
      touches: [pkg:domain, app:backend, web:events],
      note: "Found 2026-09-30 by the Wave A batch readiness sweep. Not a new gap: this is BUG-026's still-open filter-matching-correctness fix (buildEventsQueryCondition.ts / drizzle-where.ts) reaching the new temporalFilter path added by 0-i5d. Fold into BUG-026's matching fix (reuse the exported getDays(DayOfWeek[]) from 1-3k / AD-19) rather than a separate mechanism."}
 
-  IDEA-051:
+  IDEA-052:
     {type: idea, status: backlog, created: 2026-09-30,
      impact: internal, effort: s,
      title: "Move useNavRailItemInteraction onto the shared useHoverFocusTooltip hook (three hand-rolled hover+focus tooltip copies exist)",
      ref: [planning-artifacts/epic-readiness/batch-event-pages-wave-a-readiness.md, implementation-artifacts/1-3k-render-day-of-week-recurring-schedules-and-repeat-badge.md], touches: [pkg:ui],
      note: "Found 2026-09-30 (Wave A readiness Gate 3): hover+focus+Escape tooltip state is hand-rolled in CalendarCard, MultiDaySpanningBar (both WeeklyCalendarView.tsx) and packages/ui/src/hooks/useNavRailItemInteraction.ts. Story 1-3k extracts useHoverFocusTooltip and adopts it in the first two; this row is the optional follow-up to adopt it in the nav rail, behavior-preserving, after 1-3k lands."}
+
+  # ── 2026-09-30 ──────────────────────────────────────────────────────────────
+  CC-023:
+    {type: proposal, status: triaged, created: 2026-09-30,
+     impact: compliance, effort: m,
+     title: "Face-blurred, consent-independent post thumbnails (AD-28) + extraction quality audit log (AD-29)",
+     ref: [planning-artifacts/sprint-change-proposal-2026-09-30.md],
+     touches: [app:backend, pkg:database, web:events, web:posts, cross:ai-extraction, cross:architecture, cross:prd]}
+
+  IDEA-051:
+    {type: idea, status: backlog, created: 2026-09-30, parent: CC-023,
+     impact: internal, effort: s,
+     title: "Sample hasFaceImage=false posts through face-api.js to measure the pre-filter's real false-negative rate",
+     ref: [planning-artifacts/sprint-change-proposal-2026-09-30.md],
+     touches: [cross:ai-extraction, app:backend],
+     note: "AD-29 Rule 4's recorded blind spot: extraction_audit_logs can't verify hasFaceImage=false today since face-api.js never runs on those rows."}
+
+  BUG-051:
+    {type: bug, status: backlog, created: 2026-09-30,
+     impact: user-visible, effort: l,
+     title: "A post advertising multiple distinct events has its schedules incorrectly merged into one event",
+     ref: [],
+     touches: [cross:ai-extraction, app:backend, cross:architecture],
+     note: "Raised 2026-09-30 alongside CC-023; needs Event<->Post many-to-many, its own bmad-correct-course/architecture session -- not folded into CC-023."}
+
+  BUG-052:
+    {type: bug, status: backlog, created: 2026-09-30,
+     impact: user-visible, effort: l,
+     title: "No duplicate-event detection across posts/accounts",
+     ref: [],
+     touches: [cross:ai-extraction, app:backend, cross:architecture],
+     note: "Related to BUG-051's Event<->Post cardinality change; raised 2026-09-30, needs its own session."}
