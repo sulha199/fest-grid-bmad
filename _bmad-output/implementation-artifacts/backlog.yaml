@@ -1692,7 +1692,7 @@ items:
      ref: [planning-artifacts/sprint-change-proposal-2026-09-30.md, planning-artifacts/festgrid-architecture-spine.md],
      stories: [3-6q-version-re-hosted-media-keys-and-set-a-7-day-immutable-http-cache-policy],
      touches: [app:backend, app:infrastructure, cross:architecture],
-     note: "Raised 2026-10-01. Fixed posts/{postId} key + 1-year immutable cache means a deleted or replaced image can linger in browsers. HTTP cache only; a service-worker image cache was considered and rejected (AD-28 Rule 9). Must land before Story 3.6n. 1:1 with Story 3.6q -- no leftover scope, no child row carved."}
+     note: "Raised 2026-10-01. Fixed posts/{postId} key + 1-year immutable cache means a deleted or replaced image can linger in browsers. HTTP cache only; a service-worker image cache was considered and rejected (AD-28 Rule 9). Must land before Story 3.6n."}
 
   BUG-051:
     {type: bug, status: backlog, created: 2026-09-30,
