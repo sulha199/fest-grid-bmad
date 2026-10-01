@@ -3334,7 +3334,7 @@ on the platform, regardless of whether the source account has opted into image r
 *   **And** notifications are sent per newly inserted event, except for roundup-sourced events (primary post's `grouping_reason = roundup`) and curator-sourced ones, and the send sets `events.notified_at` through the one notify helper (AD-30 Rule 10) — this story defines no marker of its own.
 *   **And** re-running ingestion for the same post inserts nothing new.
 
-**Depends on:** Story 3.6r, Story 3.6s, and the IDEA-028 / AD-16 platform-prefixed-slug stories.
+**Depends on:** Story 3.6r, Story 3.6s, Stories 3.7f and 3.7g (platform post id capture; base platform-prefixed slug).
 
 ### Story 3.6u: Show all source posts and related events on the event detail page
 
@@ -3350,7 +3350,7 @@ on the platform, regardless of whether the source account has opted into image r
 *   **And** events are grouped by post with labels such as "Events from [post/account]"; each item uses the mobile calendar compact event card; up to **5** per group show inline, then a "See all N events" link opens Story 3.6x's page; the section is hidden when empty; skeletons match the compact card.
 *   **And** `Query.events` and `Query.eventBySlug` per-row cost is unchanged (AD-17).
 
-**Depends on:** Story 3.6r, Story 3.6t, Story 1.3j, Story 1.6c, the IDEA-028 / AD-16 stories, Story 0.i6g (coordinate).
+**Depends on:** Story 3.6r, Story 3.6t, Story 1.3j, Story 1.6c, Story 0.i6g (coordinate). Stories 3.7h/3.7i (DB-free embed) are recommended, not required: the existing `Event.instagramEmbed` path already follows `events.post_id`.
 
 ### Story 3.6v: Match new posts to existing events and enrich them in place
 
@@ -3368,7 +3368,7 @@ on the platform, regardless of whether the source account has opted into image r
 *   **And** the first organizer-authored primary post triggers one notification to that account's subscribers when `events.notified_at IS NULL`, setting it via the Story 3.6t notify helper (AD-30 Rule 10).
 *   **And** re-running either post creates no duplicate and no extra link.
 
-**Depends on:** Story 3.6t, Stories 3.13–3.15 (roles), Story 3.4n, the IDEA-028 / AD-16 stories.
+**Depends on:** Story 3.6t, Stories 3.13–3.15 (roles), Story 3.4n, Stories 3.7g and 3.7h (slug builder and DB-free embed, which a re-slug must keep correct).
 
 ### Story 3.6w: Let moderators merge duplicate events, with slug redirects
 
@@ -3538,6 +3538,68 @@ on the platform, regardless of whether the source account has opted into image r
 **Note (2026-09-04, added via `bmad-create-story` while drafting Story 3.7d, Gate 1/Gate 3 findings):** Split out because Story 3.7d's AC3/AC4 (opt-in-aware failure branching on embed unavailability) cannot be satisfied by a frontend-only implementation — Instagram's oEmbed response is only reliably obtainable server-side (browser calls are blocked by Instagram's own `Cross-Origin-Resource-Policy` header, independent of the credential question), and the opt-in flag/join this story reuses already lives in the backend per Story 3.6h. Scoped as a single combined story (adapter + resolver, no separate credential/IaC story) because Meta's 2026-06-15 tokenless-oEmbed reversal means no Meta App credential is needed at all — confirmed via live research during this story's creation (see Story 3.7d's Amendment note for the citations). Not generalized into a shared `EmbedAdapter` interface (Gate 3) since Story 3.7c (the only sibling image-display story) stays hotlink-only with no embed concept — single consumer today.
 
 **Depends on:** Story 3.6h (opt-in flag + gated `Event.imageUrl` join pattern this story mirrors), Story 3.3a (`posts` table, `originalPostUrl`/`postUrl`).
+
+### Story 3.7f: Capture each post's platform post id and permalink type at scrape time
+
+**As a** developer,
+**I want** every scraped post to store its platform post id and its real permalink type (`p`, `reel`, ...),
+**So that** event slugs and the DB-free oEmbed lookup (Architecture Spine AD-16) can be built from data captured once, never re-parsed or assumed.
+
+**Acceptance Criteria:**
+
+*   **Given** Architecture Spine AD-16 Rule 2, **when** `persistScrapedPost()` (`apps/backend/src/lib/posts/persist-scraped-post.ts`) persists a post, **then** `posts.platformPostId` and `posts.platformPostType` (new nullable columns) are populated by a new sibling parser next to `parseImageUrlExpiry()` in `@festgrid/domain/scraper`, derived from `postUrl`/`originalPostUrl`, capturing the real `/p/` vs `/reel/` type rather than assuming one.
+*   **And** a post whose URL cannot be parsed keeps both columns null (never a guessed value); existing rows are **not** backfilled (fix-going-forward only, AD-12 Rule 5 precedent).
+*   **And** the parser is pure, lives in `packages/domain`, and has 100% unit-test coverage including `/p/`, `/reel/`, `/reels/`, trailing slashes, query strings and non-Instagram URLs; platform codes come only from `platform-registry.ts` (`getPlatformSlug()`/`getPlatformByCode()`), never a new mapping.
+*   **And** the Drizzle migration is generated and reversible.
+
+**Note (2026-10-01, `bmad-correct-course`, CC-024):** Carved out of IDEA-028 (platform-prefixed event slugs) so the slug and embed work can ship as separate, reviewable stories. Prerequisite of Story 3.6t.
+
+**Depends on:** Story 3.3a (`posts` table, `persistScrapedPost`), Story 3.3c (platform-slug registry).
+
+### Story 3.7g: Build platform-prefixed event slugs at ingestion
+
+**As a** subscriber,
+**I want** an event's URL to name the platform post it came from (e.g. `ig_p_Cx9uWttkSN`),
+**So that** links are readable and the embed can be resolved from the URL alone.
+
+**Acceptance Criteria:**
+
+*   **Given** Architecture Spine AD-16 Rules 1, 3 and 4, **when** `buildEventInsertValues()` (`packages/domain/src/events/build-event-insert-values.ts`) builds an event whose source post has `platformPostId`/`platformPostType`, **then** `events.slug` is `{platformSlug}_{postType}_{platformPostId}`; slug generation moves out of `schema.ts`'s `$defaultFn`; the function only reads the already-populated columns and performs no parsing.
+*   **And** an event with no resolvable platform post keeps the legacy `randomBytes(6).toString('hex')` slug unchanged (unambiguous by shape).
+*   **And** existing events keep their hex slugs (no backfill); parsing splits on the first two `_` only.
+*   **And** this story builds the **base** slug (ordinal 0). The `-{ordinal}` suffix for further events from one post is added by Story 3.6t, and re-slugging with an alias on a primary-post change by Story 3.6v (AD-16 amendment, AD-30).
+*   **And** `prd.md`'s stale "Nano ID" slug description is confirmed corrected (PRD sections 4.1, 4.4, 8.2).
+
+**Depends on:** Story 3.7f, Story 3.6b (ingestion).
+
+### Story 3.7h: Resolve Instagram oEmbed from the event slug without a database lookup
+
+**As a** subscriber,
+**I want** the event-detail embed to start loading from the URL alone,
+**So that** the detail page does not wait for the event query before the embed round trip begins.
+
+**Acceptance Criteria:**
+
+*   **Given** Architecture Spine AD-16 Rule 6, **when** a new backend query receives an event slug of the form `{platformSlug}_{postType}_{platformPostId}`, **then** it reconstructs the permalink from the slug alone (no `posts` join) and calls the existing `resolveInstagramOEmbed()`/`instagramOembedCache` unchanged; `apps/backend` remains the sole owner of the Meta call, cache and credentials.
+*   **And** a legacy hex slug returns a typed "not resolvable from slug" result so the caller can fall back to the existing `Event.instagramEmbed` path (Story 3.7e).
+*   **And** the existing opt-in-aware fallback rule (Stories 3.6h/3.7e) still applies to the result.
+*   **And** the query stays correct after a primary-post change because the slug always names the primary post (AD-30/AD-16 amendment).
+
+**Depends on:** Story 3.7g, Story 3.7e.
+
+### Story 3.7i: Fetch the event-detail oEmbed in parallel with the event query
+
+**As a** subscriber,
+**I want** the event details to render without waiting on Instagram,
+**So that** the page is fast even when the embed is slow.
+
+**Acceptance Criteria:**
+
+*   **Given** Architecture Spine AD-16 Rule 7, **when** `EventDetailWrapper.tsx` mounts, **then** `instagramEmbed` is removed from `getEventBySlug.graphql` and a second, independent React Query hook calls Story 3.7h's query; both fire on mount in parallel, and primary content renders off the event query alone.
+*   **And** `InstagramEmbed.tsx` keeps its own loading state machine (Story 3.7d) driven by the new hook; the full-page route and the intercepted modal route both use it; no `loading.tsx` is added to the modal route.
+*   **And** legacy-slug events fall back to the existing embed behavior.
+
+**Depends on:** Story 3.7h, Story 3.7d, Story 1.6c (`eventBySlug` dedupe).
 
 ### Story 3.8: Push notifications for extracted events
 

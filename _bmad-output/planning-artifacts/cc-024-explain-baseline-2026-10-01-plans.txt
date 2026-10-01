@@ -1,0 +1,674 @@
+#### getEvents plain (limit 20, logged-in user) / stmt 2
+select "events"."id", "events"."event_name", "events"."slug", exists (select "id" from "favorites" where ("favorites"."user_id" = $1 and "favorites"."event_id" = "events"."id" and "favorites"."deleted_at" is null)), (SELECT count(*) FROM favorites WHERE favorites.event_id = "events"."id" AND favorites.deleted_at IS NULL), "events"."location", "events"."types", "events"."categories", "events"."post_id", "posts"."image_url", "posts"."durable_image_url", "posts"."image_url_expires_at", "posts"."video_url", "posts"."post_url", "posts"."original_post_url", "social_media_account_profiles"."is_image_storage_opted_in" from "events" left join "schedules" on ("events"."id" = "schedules"."event_id" and "schedules"."is_main_schedule" = $2) left join "posts" on "events"."post_id" = "posts"."id" left join "social_media_account_profiles" on "posts"."account_id" = "social_media_account_profiles"."id" where ((EXISTS (
+        SELECT 1 FROM "schedules"
+        WHERE "schedules"."event_id" = "events"."id"
+          AND daterange("schedules"."event_start_date", COALESCE("schedules"."event_end_date", "schedules"."event_start_date"), '[]')
+              && daterange($3::date, NULL, '[]')
+      ) and exists (select "id" from "reports" where ("reports"."reporter_user_id" = $4 and "reports"."event_id" = "events"."id")) = $5) and "events"."deleted_at" is null) order by 
+          COALESCE(
+            (SELECT s2.event_start_date FROM schedules s2
+              WHERE s2.event_id = "events"."id"
+                AND COALESCE(s2.event_end_date, s2.event_start_date) >= $6
+              ORDER BY s2.event_start_date ASC, s2.event_start_time ASC NULLS LAST
+              LIMIT 1),
+            (SELECT s3.event_start_date FROM schedules s3
+              WHERE s3.event_id = "events"."id" AND s3.is_main_schedule = true
+              ORDER BY s3.event_start_date ASC, s3.event_start_time ASC NULLS LAST
+              LIMIT 1),
+            (SELECT s4.event_start_date FROM schedules s4
+              WHERE s4.event_id = "events"."id"
+              ORDER BY s4.event_start_date ASC, s4.event_start_time ASC NULLS LAST
+              LIMIT 1)
+          ) ASC
+         limit $7
+Limit  (cost=575764.69..576554.08 rows=21 width=382) (actual time=215.969..216.114 rows=21.00 loops=1)
+  Buffers: shared hit=170665
+  ->  Result  (cost=575764.69..1108339.81 rows=14168 width=382) (actual time=215.969..216.112 rows=21.00 loops=1)
+        Buffers: shared hit=170665
+        ->  Sort  (cost=575764.69..575800.11 rows=14168 width=373) (actual time=215.138..215.142 rows=21.00 loops=1)
+              Sort Key: (COALESCE((SubPlan 4), (SubPlan 5), (SubPlan 6)))
+              Sort Method: top-N heapsort  Memory: 44kB
+              Buffers: shared hit=170552
+              ->  Hash Left Join  (cost=8309.63..575382.69 rows=14168 width=373) (actual time=55.380..206.005 rows=24703.00 loops=1)
+                    Hash Cond: (events.id = schedules.event_id)
+                    Buffers: shared hit=170549
+                    ->  Hash Left Join  (cost=5292.99..218517.05 rows=14168 width=369) (actual time=48.067..115.176 rows=22336.00 loops=1)
+                          Hash Cond: (events.post_id = posts.id)
+                          Buffers: shared hit=93174
+                          ->  Nested Loop  (cost=3155.11..216184.36 rows=14168 width=167) (actual time=26.704..83.821 rows=22336.00 loops=1)
+                                Buffers: shared hit=91797
+                                ->  HashAggregate  (cost=3154.83..3399.63 rows=24480 width=16) (actual time=26.656..30.402 rows=22337.00 loops=1)
+                                      Group Key: schedules_1.event_id
+                                      Batches: 1  Memory Usage: 1305kB
+                                      Buffers: shared hit=2448
+                                      ->  Seq Scan on schedules schedules_1  (cost=0.00..3077.22 rows=31042 width=16) (actual time=0.013..21.520 rows=31101.00 loops=1)
+                                            Filter: (daterange(event_start_date, COALESCE(event_end_date, event_start_date), '[]'::text) && '[2026-10-01,)'::daterange)
+                                            Rows Removed by Filter: 10847
+                                            Buffers: shared hit=2448
+                                ->  Index Scan using events_pkey on events  (cost=0.29..8.68 rows=1 width=167) (actual time=0.002..0.002 rows=1.00 loops=22337)
+                                      Index Cond: (id = schedules_1.event_id)
+                                      Filter: ((deleted_at IS NULL) AND (NOT EXISTS(SubPlan 7)))
+                                      Rows Removed by Filter: 0
+                                      Index Searches: 22337
+                                      Buffers: shared hit=89349
+                                      SubPlan 7
+                                        ->  Index Scan using idx_reports_event_id on reports  (cost=0.15..8.19 rows=1 width=0) (actual time=0.000..0.000 rows=0.00 loops=22337)
+                                              Index Cond: (event_id = events.id)
+                                              Filter: (reporter_user_id = '8d01845c-dc75-4e71-890d-49893bfa366e'::uuid)
+                                              Index Searches: 22337
+                                              Buffers: shared hit=22338
+                          ->  Hash  (cost=1762.44..1762.44 rows=30035 width=218) (actual time=21.280..21.281 rows=30035.00 loops=1)
+                                Buckets: 32768  Batches: 1  Memory Usage: 5658kB
+                                Buffers: shared hit=1377
+                                ->  Hash Left Join  (cost=14.61..1762.44 rows=30035 width=218) (actual time=0.138..14.002 rows=30035.00 loops=1)
+                                      Hash Cond: (posts.account_id = social_media_account_profiles.id)
+                                      Buffers: shared hit=1377
+                                      ->  Seq Scan on posts  (cost=0.00..1667.35 rows=30035 width=233) (actual time=0.023..9.438 rows=30035.00 loops=1)
+                                            Buffers: shared hit=1367
+                                      ->  Hash  (cost=12.05..12.05 rows=205 width=17) (actual time=0.104..0.105 rows=205.00 loops=1)
+                                            Buckets: 1024  Batches: 1  Memory Usage: 18kB
+                                            Buffers: shared hit=10
+                                            ->  Seq Scan on social_media_account_profiles  (cost=0.00..12.05 rows=205 width=17) (actual time=0.010..0.066 rows=205.00 loops=1)
+                                                  Buffers: shared hit=10
+                    ->  Hash  (cost=2867.48..2867.48 rows=11933 width=16) (actual time=7.173..7.174 rows=11936.00 loops=1)
+                          Buckets: 16384  Batches: 1  Memory Usage: 688kB
+                          Buffers: shared hit=2448
+                          ->  Seq Scan on schedules  (cost=0.00..2867.48 rows=11933 width=16) (actual time=0.025..5.682 rows=11936.00 loops=1)
+                                Filter: (NOT is_main_schedule)
+                                Rows Removed by Filter: 30012
+                                Buffers: shared hit=2448
+                    SubPlan 4
+                      ->  Limit  (cost=8.32..8.32 rows=1 width=12) (actual time=0.003..0.003 rows=1.00 loops=24703)
+                            Buffers: shared hit=74927
+                            ->  Sort  (cost=8.32..8.32 rows=1 width=12) (actual time=0.003..0.003 rows=1.00 loops=24703)
+                                  Sort Key: s2.event_start_date, s2.event_start_time
+                                  Sort Method: quicksort  Memory: 25kB
+                                  Buffers: shared hit=74927
+                                  ->  Index Scan using schedule_event_date_idx on schedules s2  (cost=0.29..8.31 rows=1 width=12) (actual time=0.002..0.002 rows=1.53 loops=24703)
+                                        Index Cond: ((event_id = events.id) AND (COALESCE(event_end_date, event_start_date) >= '2026-10-01'::date))
+                                        Index Searches: 24703
+                                        Buffers: shared hit=74922
+                    SubPlan 5
+                      ->  Limit  (cost=8.31..8.32 rows=1 width=12) (never executed)
+                            ->  Sort  (cost=8.31..8.32 rows=1 width=12) (never executed)
+                                  Sort Key: s3.event_start_date, s3.event_start_time
+                                  ->  Index Scan using idx_schedules_one_main_per_event on schedules s3  (cost=0.29..8.30 rows=1 width=12) (never executed)
+                                        Index Cond: (event_id = events.id)
+                                        Index Searches: 0
+                    SubPlan 6
+                      ->  Limit  (cost=8.32..8.32 rows=1 width=12) (never executed)
+                            ->  Sort  (cost=8.32..8.32 rows=1 width=12) (never executed)
+                                  Sort Key: s4.event_start_date, s4.event_start_time
+                                  ->  Index Only Scan using schedule_event_date_idx on schedules s4  (cost=0.29..8.31 rows=1 width=12) (never executed)
+                                        Index Cond: (event_id = events.id)
+                                        Heap Fetches: 0
+                                        Index Searches: 0
+        SubPlan 2
+          ->  Bitmap Heap Scan on favorites  (cost=30.58..121.02 rows=938 width=16) (actual time=0.083..0.512 rows=1875.00 loops=1)
+                Recheck Cond: (user_id = '8d01845c-dc75-4e71-890d-49893bfa366e'::uuid)
+                Filter: (deleted_at IS NULL)
+                Heap Blocks: exact=67
+                Buffers: shared hit=70
+                ->  Bitmap Index Scan on idx_favorites_active  (cost=0.00..30.34 rows=1875 width=0) (actual time=0.053..0.053 rows=1875.00 loops=1)
+                      Index Cond: (user_id = '8d01845c-dc75-4e71-890d-49893bfa366e'::uuid)
+                      Index Searches: 1
+                      Buffers: shared hit=3
+        SubPlan 3
+          ->  Aggregate  (cost=4.30..4.31 rows=1 width=8) (actual time=0.007..0.007 rows=1.00 loops=21)
+                Buffers: shared hit=43
+                ->  Index Only Scan using idx_favorites_event_id on favorites favorites_1  (cost=0.28..4.30 rows=1 width=0) (actual time=0.006..0.006 rows=0.10 loops=21)
+                      Index Cond: (event_id = events.id)
+                      Heap Fetches: 0
+                      Index Searches: 21
+                      Buffers: shared hit=43
+Planning:
+  Buffers: shared hit=860
+Planning Time: 16.654 ms
+Execution Time: 217.621 ms
+
+#### getEvents plain (limit 20, logged-in user) / stmt 3
+select "id", "is_main_schedule", "event_start_date", "event_start_time", "event_end_date", "event_end_time", "ticket_price", "applicable_days_of_week", "location_details", "event_id" from "schedules" where "schedules"."event_id" in ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+Index Scan using schedule_event_date_idx on schedules  (cost=0.29..141.66 rows=30 width=340) (actual time=0.008..0.040 rows=27.00 loops=1)
+  Index Cond: (event_id = ANY ('{40000000-0000-0000-0000-000000000002,40000000-0000-0000-0000-000000000009,40000000-0000-0000-0000-000000000011,40000000-0000-0000-0000-000000000012,40000000-0000-0000-0000-000000000006,a3000000-0000-4000-8000-0000000022d8,a3000000-0000-4000-8000-00000000264b,a3000000-0000-4000-8000-000000006ee7,a3000000-0000-4000-8000-00000000384a,a3000000-0000-4000-8000-0000000053f2,a3000000-0000-4000-8000-000000004b28,a3000000-0000-4000-8000-00000000433c,a3000000-0000-4000-8000-000000001ca9,a3000000-0000-4000-8000-000000004c56,a3000000-0000-4000-8000-000000004ddc,a3000000-0000-4000-8000-000000001a66,a3000000-0000-4000-8000-0000000045d2,a3000000-0000-4000-8000-000000006da5,a3000000-0000-4000-8000-0000000021fa,a3000000-0000-4000-8000-00000000348d}'::uuid[]))
+  Index Searches: 16
+  Buffers: shared hit=50
+Planning:
+  Buffers: shared hit=52
+Planning Time: 0.201 ms
+Execution Time: 0.049 ms
+
+#### getEvents plain (limit 20, logged-in user) / stmt 4
+select count(*) from "events" left join "schedules" on ("events"."id" = "schedules"."event_id" and "schedules"."is_main_schedule" = $1) left join "posts" on "events"."post_id" = "posts"."id" where ((EXISTS (
+        SELECT 1 FROM "schedules"
+        WHERE "schedules"."event_id" = "events"."id"
+          AND daterange("schedules"."event_start_date", COALESCE("schedules"."event_end_date", "schedules"."event_start_date"), '[]')
+              && daterange($2::date, NULL, '[]')
+      ) and exists (select "id" from "reports" where ("reports"."reporter_user_id" = $3 and "reports"."event_id" = "events"."id")) = $4) and "events"."deleted_at" is null)
+Aggregate  (cost=219345.89..219345.90 rows=1 width=8) (actual time=72.885..72.886 rows=1.00 loops=1)
+  Buffers: shared hit=94245
+  ->  Hash Left Join  (cost=6171.76..219310.47 rows=14168 width=0) (actual time=24.669..71.782 rows=24703.00 loops=1)
+        Hash Cond: (events.id = schedules.event_id)
+        Buffers: shared hit=94245
+        ->  Nested Loop  (cost=3155.11..216184.36 rows=14168 width=16) (actual time=17.643..60.728 rows=22336.00 loops=1)
+              Buffers: shared hit=91797
+              ->  HashAggregate  (cost=3154.83..3399.63 rows=24480 width=16) (actual time=17.624..20.281 rows=22337.00 loops=1)
+                    Group Key: schedules_1.event_id
+                    Batches: 1  Memory Usage: 1305kB
+                    Buffers: shared hit=2448
+                    ->  Seq Scan on schedules schedules_1  (cost=0.00..3077.22 rows=31042 width=16) (actual time=0.011..13.303 rows=31101.00 loops=1)
+                          Filter: (daterange(event_start_date, COALESCE(event_end_date, event_start_date), '[]'::text) && '[2026-10-01,)'::daterange)
+                          Rows Removed by Filter: 10847
+                          Buffers: shared hit=2448
+              ->  Index Scan using events_pkey on events  (cost=0.29..8.68 rows=1 width=32) (actual time=0.002..0.002 rows=1.00 loops=22337)
+                    Index Cond: (id = schedules_1.event_id)
+                    Filter: ((deleted_at IS NULL) AND (NOT EXISTS(SubPlan 1)))
+                    Rows Removed by Filter: 0
+                    Index Searches: 22337
+                    Buffers: shared hit=89349
+                    SubPlan 1
+                      ->  Index Scan using idx_reports_event_id on reports  (cost=0.15..8.19 rows=1 width=0) (actual time=0.000..0.000 rows=0.00 loops=22337)
+                            Index Cond: (event_id = events.id)
+                            Filter: (reporter_user_id = '8d01845c-dc75-4e71-890d-49893bfa366e'::uuid)
+                            Index Searches: 22337
+                            Buffers: shared hit=22338
+        ->  Hash  (cost=2867.48..2867.48 rows=11933 width=16) (actual time=6.989..6.989 rows=11936.00 loops=1)
+              Buckets: 16384  Batches: 1  Memory Usage: 688kB
+              Buffers: shared hit=2448
+              ->  Seq Scan on schedules  (cost=0.00..2867.48 rows=11933 width=16) (actual time=0.012..5.575 rows=11936.00 loops=1)
+                    Filter: (NOT is_main_schedule)
+                    Rows Removed by Filter: 30012
+                    Buffers: shared hit=2448
+Planning:
+  Buffers: shared hit=28
+Planning Time: 0.421 ms
+Execution Time: 73.276 ms
+
+#### getEvents UPCOMING temporal filter / stmt 2
+select "events"."id", "events"."event_name", "events"."slug", exists (select "id" from "favorites" where ("favorites"."user_id" = $1 and "favorites"."event_id" = "events"."id" and "favorites"."deleted_at" is null)), (SELECT count(*) FROM favorites WHERE favorites.event_id = "events"."id" AND favorites.deleted_at IS NULL), "events"."location", "events"."types", "events"."categories", "events"."post_id", "posts"."image_url", "posts"."durable_image_url", "posts"."image_url_expires_at", "posts"."video_url", "posts"."post_url", "posts"."original_post_url", "social_media_account_profiles"."is_image_storage_opted_in" from "events" left join "schedules" on ("events"."id" = "schedules"."event_id" and "schedules"."is_main_schedule" = $2) left join "posts" on "events"."post_id" = "posts"."id" left join "social_media_account_profiles" on "posts"."account_id" = "social_media_account_profiles"."id" where ((EXISTS (
+        SELECT 1 FROM "schedules"
+        WHERE "schedules"."event_id" = "events"."id"
+          AND daterange("schedules"."event_start_date", COALESCE("schedules"."event_end_date", "schedules"."event_start_date"), '[]')
+              && daterange($3::date, NULL, '[]')
+      ) and EXISTS (
+        SELECT 1 FROM "schedules"
+        WHERE "schedules"."event_id" = "events"."id"
+          AND daterange("schedules"."event_start_date", COALESCE("schedules"."event_end_date", "schedules"."event_start_date"), '[]')
+              && daterange($4::date, NULL, '[]')
+      ) and exists (select "id" from "reports" where ("reports"."reporter_user_id" = $5 and "reports"."event_id" = "events"."id")) = $6) and "events"."deleted_at" is null) order by 
+          COALESCE(
+            (SELECT s2.event_start_date FROM schedules s2
+              WHERE s2.event_id = "events"."id"
+                AND COALESCE(s2.event_end_date, s2.event_start_date) >= $7
+              ORDER BY s2.event_start_date ASC, s2.event_start_time ASC NULLS LAST
+              LIMIT 1),
+            (SELECT s3.event_start_date FROM schedules s3
+              WHERE s3.event_id = "events"."id" AND s3.is_main_schedule = true
+              ORDER BY s3.event_start_date ASC, s3.event_start_time ASC NULLS LAST
+              LIMIT 1),
+            (SELECT s4.event_start_date FROM schedules s4
+              WHERE s4.event_id = "events"."id"
+              ORDER BY s4.event_start_date ASC, s4.event_start_time ASC NULLS LAST
+              LIMIT 1)
+          ) ASC
+         limit $8
+Limit  (cost=577533.48..578322.87 rows=21 width=382) (actual time=223.643..223.686 rows=21.00 loops=1)
+  Buffers: shared hit=170602
+  ->  Result  (cost=577533.48..1110108.60 rows=14168 width=382) (actual time=223.643..223.684 rows=21.00 loops=1)
+        Buffers: shared hit=170602
+        ->  Sort  (cost=577533.48..577568.90 rows=14168 width=373) (actual time=223.018..223.022 rows=21.00 loops=1)
+              Sort Key: (COALESCE((SubPlan 4), (SubPlan 5), (SubPlan 6)))
+              Sort Method: top-N heapsort  Memory: 44kB
+              Buffers: shared hit=170490
+              ->  Hash Semi Join  (cost=11773.83..577151.49 rows=14168 width=373) (actual time=55.961..213.442 rows=24341.00 loops=1)
+                    Hash Cond: (schedules_1.event_id = schedules_2.event_id)
+                    Buffers: shared hit=170490
+                    ->  Hash Left Join  (cost=8308.58..219751.89 rows=14168 width=385) (actual time=39.295..109.683 rows=24341.00 loops=1)
+                          Hash Cond: (events.id = schedules.event_id)
+                          Buffers: shared hit=94206
+                          ->  Hash Left Join  (cost=5291.94..216625.79 rows=14168 width=385) (actual time=33.035..96.631 rows=21982.00 loops=1)
+                                Hash Cond: (events.post_id = posts.id)
+                                Buffers: shared hit=91758
+                                ->  Nested Loop  (cost=3154.06..214293.11 rows=14168 width=183) (actual time=17.047..70.125 rows=21982.00 loops=1)
+                                      Buffers: shared hit=90381
+                                      ->  HashAggregate  (cost=3153.78..3396.36 rows=24258 width=16) (actual time=17.021..20.980 rows=21983.00 loops=1)
+                                            Group Key: schedules_1.event_id
+                                            Batches: 1  Memory Usage: 1305kB
+                                            Buffers: shared hit=2448
+                                            ->  Seq Scan on schedules schedules_1  (cost=0.00..3077.22 rows=30622 width=16) (actual time=0.015..12.463 rows=30623.00 loops=1)
+                                                  Filter: (daterange(event_start_date, COALESCE(event_end_date, event_start_date), '[]'::text) && '[2026-10-02,)'::daterange)
+                                                  Rows Removed by Filter: 11325
+                                                  Buffers: shared hit=2448
+                                      ->  Index Scan using events_pkey on events  (cost=0.29..8.68 rows=1 width=167) (actual time=0.002..0.002 rows=1.00 loops=21983)
+                                            Index Cond: (id = schedules_1.event_id)
+                                            Filter: ((deleted_at IS NULL) AND (NOT EXISTS(SubPlan 7)))
+                                            Rows Removed by Filter: 0
+                                            Index Searches: 21983
+                                            Buffers: shared hit=87933
+                                            SubPlan 7
+                                              ->  Index Scan using idx_reports_event_id on reports  (cost=0.15..8.19 rows=1 width=0) (actual time=0.000..0.000 rows=0.00 loops=21983)
+                                                    Index Cond: (event_id = events.id)
+                                                    Filter: (reporter_user_id = '8d01845c-dc75-4e71-890d-49893bfa366e'::uuid)
+                                                    Index Searches: 21983
+                                                    Buffers: shared hit=21984
+                                ->  Hash  (cost=1762.44..1762.44 rows=30035 width=218) (actual time=15.896..15.897 rows=30035.00 loops=1)
+                                      Buckets: 32768  Batches: 1  Memory Usage: 5658kB
+                                      Buffers: shared hit=1377
+                                      ->  Hash Left Join  (cost=14.61..1762.44 rows=30035 width=218) (actual time=0.087..9.213 rows=30035.00 loops=1)
+                                            Hash Cond: (posts.account_id = social_media_account_profiles.id)
+                                            Buffers: shared hit=1377
+                                            ->  Seq Scan on posts  (cost=0.00..1667.35 rows=30035 width=233) (actual time=0.010..5.016 rows=30035.00 loops=1)
+                                                  Buffers: shared hit=1367
+                                            ->  Hash  (cost=12.05..12.05 rows=205 width=17) (actual time=0.072..0.072 rows=205.00 loops=1)
+                                                  Buckets: 1024  Batches: 1  Memory Usage: 18kB
+                                                  Buffers: shared hit=10
+                                                  ->  Seq Scan on social_media_account_profiles  (cost=0.00..12.05 rows=205 width=17) (actual time=0.007..0.039 rows=205.00 loops=1)
+                                                        Buffers: shared hit=10
+                          ->  Hash  (cost=2867.48..2867.48 rows=11933 width=16) (actual time=6.204..6.205 rows=11936.00 loops=1)
+                                Buckets: 16384  Batches: 1  Memory Usage: 688kB
+                                Buffers: shared hit=2448
+                                ->  Seq Scan on schedules  (cost=0.00..2867.48 rows=11933 width=16) (actual time=0.009..4.891 rows=11936.00 loops=1)
+                                      Filter: (NOT is_main_schedule)
+                                      Rows Removed by Filter: 30012
+                                      Buffers: shared hit=2448
+                    ->  Hash  (cost=3077.22..3077.22 rows=31042 width=16) (actual time=16.434..16.434 rows=31101.00 loops=1)
+                          Buckets: 32768  Batches: 1  Memory Usage: 1714kB
+                          Buffers: shared hit=2448
+                          ->  Seq Scan on schedules schedules_2  (cost=0.00..3077.22 rows=31042 width=16) (actual time=0.020..12.731 rows=31101.00 loops=1)
+                                Filter: (daterange(event_start_date, COALESCE(event_end_date, event_start_date), '[]'::text) && '[2026-10-01,)'::daterange)
+                                Rows Removed by Filter: 10847
+                                Buffers: shared hit=2448
+                    SubPlan 4
+                      ->  Limit  (cost=8.32..8.32 rows=1 width=12) (actual time=0.003..0.003 rows=1.00 loops=24341)
+                            Buffers: shared hit=73836
+                            ->  Sort  (cost=8.32..8.32 rows=1 width=12) (actual time=0.003..0.003 rows=1.00 loops=24341)
+                                  Sort Key: s2.event_start_date, s2.event_start_time
+                                  Sort Method: quicksort  Memory: 25kB
+                                  Buffers: shared hit=73836
+                                  ->  Index Scan using schedule_event_date_idx on schedules s2  (cost=0.29..8.31 rows=1 width=12) (actual time=0.002..0.002 rows=1.54 loops=24341)
+                                        Index Cond: ((event_id = events.id) AND (COALESCE(event_end_date, event_start_date) >= '2026-10-01'::date))
+                                        Index Searches: 24341
+                                        Buffers: shared hit=73836
+                    SubPlan 5
+                      ->  Limit  (cost=8.31..8.32 rows=1 width=12) (never executed)
+                            ->  Sort  (cost=8.31..8.32 rows=1 width=12) (never executed)
+                                  Sort Key: s3.event_start_date, s3.event_start_time
+                                  ->  Index Scan using idx_schedules_one_main_per_event on schedules s3  (cost=0.29..8.30 rows=1 width=12) (never executed)
+                                        Index Cond: (event_id = events.id)
+                                        Index Searches: 0
+                    SubPlan 6
+                      ->  Limit  (cost=8.32..8.32 rows=1 width=12) (never executed)
+                            ->  Sort  (cost=8.32..8.32 rows=1 width=12) (never executed)
+                                  Sort Key: s4.event_start_date, s4.event_start_time
+                                  ->  Index Only Scan using schedule_event_date_idx on schedules s4  (cost=0.29..8.31 rows=1 width=12) (never executed)
+                                        Index Cond: (event_id = events.id)
+                                        Heap Fetches: 0
+                                        Index Searches: 0
+        SubPlan 2
+          ->  Bitmap Heap Scan on favorites  (cost=30.58..121.02 rows=938 width=16) (actual time=0.060..0.312 rows=1875.00 loops=1)
+                Recheck Cond: (user_id = '8d01845c-dc75-4e71-890d-49893bfa366e'::uuid)
+                Filter: (deleted_at IS NULL)
+                Heap Blocks: exact=67
+                Buffers: shared hit=70
+                ->  Bitmap Index Scan on idx_favorites_active  (cost=0.00..30.34 rows=1875 width=0) (actual time=0.036..0.036 rows=1875.00 loops=1)
+                      Index Cond: (user_id = '8d01845c-dc75-4e71-890d-49893bfa366e'::uuid)
+                      Index Searches: 1
+                      Buffers: shared hit=3
+        SubPlan 3
+          ->  Aggregate  (cost=4.30..4.31 rows=1 width=8) (actual time=0.002..0.002 rows=1.00 loops=21)
+                Buffers: shared hit=42
+                ->  Index Only Scan using idx_favorites_event_id on favorites favorites_1  (cost=0.28..4.30 rows=1 width=0) (actual time=0.001..0.001 rows=0.00 loops=21)
+                      Index Cond: (event_id = events.id)
+                      Heap Fetches: 0
+                      Index Searches: 21
+                      Buffers: shared hit=42
+Planning:
+  Buffers: shared hit=87
+Planning Time: 2.202 ms
+Execution Time: 225.094 ms
+
+#### getEvents UPCOMING temporal filter / stmt 3
+select "id", "is_main_schedule", "event_start_date", "event_start_time", "event_end_date", "event_end_time", "ticket_price", "applicable_days_of_week", "location_details", "event_id" from "schedules" where "schedules"."event_id" in ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+Index Scan using schedule_event_date_idx on schedules  (cost=0.29..141.66 rows=30 width=340) (actual time=0.020..0.057 rows=33.00 loops=1)
+  Index Cond: (event_id = ANY ('{40000000-0000-0000-0000-000000000002,40000000-0000-0000-0000-000000000009,40000000-0000-0000-0000-000000000011,40000000-0000-0000-0000-000000000012,40000000-0000-0000-0000-000000000006,a3000000-0000-4000-8000-0000000022d8,a3000000-0000-4000-8000-00000000006a,a3000000-0000-4000-8000-000000004af7,a3000000-0000-4000-8000-0000000053f2,a3000000-0000-4000-8000-00000000264b,a3000000-0000-4000-8000-00000000433c,a3000000-0000-4000-8000-0000000035da,a3000000-0000-4000-8000-0000000053b9,a3000000-0000-4000-8000-000000005f00,a3000000-0000-4000-8000-0000000006c3,a3000000-0000-4000-8000-000000002881,a3000000-0000-4000-8000-000000002bc5,a3000000-0000-4000-8000-000000004564,a3000000-0000-4000-8000-000000004c7c,a3000000-0000-4000-8000-0000000040ce}'::uuid[]))
+  Index Searches: 14
+  Buffers: shared hit=47
+Planning Time: 0.094 ms
+Execution Time: 0.066 ms
+
+#### getEvents UPCOMING temporal filter / stmt 4
+select count(*) from "events" left join "schedules" on ("events"."id" = "schedules"."event_id" and "schedules"."is_main_schedule" = $1) left join "posts" on "events"."post_id" = "posts"."id" where ((EXISTS (
+        SELECT 1 FROM "schedules"
+        WHERE "schedules"."event_id" = "events"."id"
+          AND daterange("schedules"."event_start_date", COALESCE("schedules"."event_end_date", "schedules"."event_start_date"), '[]')
+              && daterange($2::date, NULL, '[]')
+      ) and EXISTS (
+        SELECT 1 FROM "schedules"
+        WHERE "schedules"."event_id" = "events"."id"
+          AND daterange("schedules"."event_start_date", COALESCE("schedules"."event_end_date", "schedules"."event_start_date"), '[]')
+              && daterange($3::date, NULL, '[]')
+      ) and exists (select "id" from "reports" where ("reports"."reporter_user_id" = $4 and "reports"."event_id" = "events"."id")) = $5) and "events"."deleted_at" is null)
+Aggregate  (cost=221114.68..221114.69 rows=1 width=8) (actual time=96.663..96.665 rows=1.00 loops=1)
+  Buffers: shared hit=95277
+  ->  Hash Semi Join  (cost=9635.95..221079.26 rows=14168 width=0) (actual time=41.381..95.486 rows=24341.00 loops=1)
+        Hash Cond: (schedules_1.event_id = schedules_2.event_id)
+        Buffers: shared hit=95277
+        ->  Hash Left Join  (cost=6170.70..217419.21 rows=14168 width=32) (actual time=24.062..72.931 rows=24341.00 loops=1)
+              Hash Cond: (events.id = schedules.event_id)
+              Buffers: shared hit=92829
+              ->  Nested Loop  (cost=3154.06..214293.11 rows=14168 width=32) (actual time=17.417..61.916 rows=21982.00 loops=1)
+                    Buffers: shared hit=90381
+                    ->  HashAggregate  (cost=3153.78..3396.36 rows=24258 width=16) (actual time=17.393..20.191 rows=21983.00 loops=1)
+                          Group Key: schedules_1.event_id
+                          Batches: 1  Memory Usage: 1305kB
+                          Buffers: shared hit=2448
+                          ->  Seq Scan on schedules schedules_1  (cost=0.00..3077.22 rows=30622 width=16) (actual time=0.020..12.613 rows=30623.00 loops=1)
+                                Filter: (daterange(event_start_date, COALESCE(event_end_date, event_start_date), '[]'::text) && '[2026-10-02,)'::daterange)
+                                Rows Removed by Filter: 11325
+                                Buffers: shared hit=2448
+                    ->  Index Scan using events_pkey on events  (cost=0.29..8.68 rows=1 width=32) (actual time=0.002..0.002 rows=1.00 loops=21983)
+                          Index Cond: (id = schedules_1.event_id)
+                          Filter: ((deleted_at IS NULL) AND (NOT EXISTS(SubPlan 1)))
+                          Rows Removed by Filter: 0
+                          Index Searches: 21983
+                          Buffers: shared hit=87933
+                          SubPlan 1
+                            ->  Index Scan using idx_reports_event_id on reports  (cost=0.15..8.19 rows=1 width=0) (actual time=0.000..0.000 rows=0.00 loops=21983)
+                                  Index Cond: (event_id = events.id)
+                                  Filter: (reporter_user_id = '8d01845c-dc75-4e71-890d-49893bfa366e'::uuid)
+                                  Index Searches: 21983
+                                  Buffers: shared hit=21984
+              ->  Hash  (cost=2867.48..2867.48 rows=11933 width=16) (actual time=6.605..6.605 rows=11936.00 loops=1)
+                    Buckets: 16384  Batches: 1  Memory Usage: 688kB
+                    Buffers: shared hit=2448
+                    ->  Seq Scan on schedules  (cost=0.00..2867.48 rows=11933 width=16) (actual time=0.013..5.186 rows=11936.00 loops=1)
+                          Filter: (NOT is_main_schedule)
+                          Rows Removed by Filter: 30012
+                          Buffers: shared hit=2448
+        ->  Hash  (cost=3077.22..3077.22 rows=31042 width=16) (actual time=17.241..17.242 rows=31101.00 loops=1)
+              Buckets: 32768  Batches: 1  Memory Usage: 1714kB
+              Buffers: shared hit=2448
+              ->  Seq Scan on schedules schedules_2  (cost=0.00..3077.22 rows=31042 width=16) (actual time=0.011..13.567 rows=31101.00 loops=1)
+                    Filter: (daterange(event_start_date, COALESCE(event_end_date, event_start_date), '[]'::text) && '[2026-10-01,)'::daterange)
+                    Rows Removed by Filter: 10847
+                    Buffers: shared hit=2448
+Planning:
+  Buffers: shared hit=56
+Planning Time: 0.627 ms
+Execution Time: 97.364 ms
+
+#### getEvents filtered by a subscribed account / stmt 2
+select "events"."id", "events"."event_name", "events"."slug", exists (select "id" from "favorites" where ("favorites"."user_id" = $1 and "favorites"."event_id" = "events"."id" and "favorites"."deleted_at" is null)), (SELECT count(*) FROM favorites WHERE favorites.event_id = "events"."id" AND favorites.deleted_at IS NULL), "events"."location", "events"."types", "events"."categories", "events"."post_id", "posts"."image_url", "posts"."durable_image_url", "posts"."image_url_expires_at", "posts"."video_url", "posts"."post_url", "posts"."original_post_url", "social_media_account_profiles"."is_image_storage_opted_in" from "events" left join "schedules" on ("events"."id" = "schedules"."event_id" and "schedules"."is_main_schedule" = $2) left join "posts" on "events"."post_id" = "posts"."id" left join "social_media_account_profiles" on "posts"."account_id" = "social_media_account_profiles"."id" where (("posts"."account_id" = $3 and EXISTS (
+        SELECT 1 FROM "schedules"
+        WHERE "schedules"."event_id" = "events"."id"
+          AND daterange("schedules"."event_start_date", COALESCE("schedules"."event_end_date", "schedules"."event_start_date"), '[]')
+              && daterange($4::date, NULL, '[]')
+      ) and exists (select "id" from "reports" where ("reports"."reporter_user_id" = $5 and "reports"."event_id" = "events"."id")) = $6) and "events"."deleted_at" is null) order by 
+          COALESCE(
+            (SELECT s2.event_start_date FROM schedules s2
+              WHERE s2.event_id = "events"."id"
+                AND COALESCE(s2.event_end_date, s2.event_start_date) >= $7
+              ORDER BY s2.event_start_date ASC, s2.event_start_time ASC NULLS LAST
+              LIMIT 1),
+            (SELECT s3.event_start_date FROM schedules s3
+              WHERE s3.event_id = "events"."id" AND s3.is_main_schedule = true
+              ORDER BY s3.event_start_date ASC, s3.event_start_time ASC NULLS LAST
+              LIMIT 1),
+            (SELECT s4.event_start_date FROM schedules s4
+              WHERE s4.event_id = "events"."id"
+              ORDER BY s4.event_start_date ASC, s4.event_start_time ASC NULLS LAST
+              LIMIT 1)
+          ) ASC
+         limit $8
+Limit  (cost=4575.93..5365.32 rows=21 width=382) (actual time=2.744..2.795 rows=21.00 loops=1)
+  Buffers: shared hit=2033
+  ->  Result  (cost=4575.93..7244.82 rows=71 width=382) (actual time=2.743..2.793 rows=21.00 loops=1)
+        Buffers: shared hit=2033
+        ->  Sort  (cost=4575.93..4576.11 rows=71 width=373) (actual time=2.066..2.070 rows=21.00 loops=1)
+              Sort Key: (COALESCE((SubPlan 4), (SubPlan 5), (SubPlan 6)))
+              Sort Method: top-N heapsort  Memory: 42kB
+              Buffers: shared hit=1920
+              ->  Nested Loop Left Join  (cost=6.46..4574.02 rows=71 width=373) (actual time=0.095..2.010 rows=124.00 loops=1)
+                    Buffers: shared hit=1920
+                    ->  Nested Loop Left Join  (cost=6.32..2792.27 rows=71 width=384) (actual time=0.075..1.601 rows=124.00 loops=1)
+                          Buffers: shared hit=1545
+                          ->  Nested Loop Semi Join  (cost=6.03..2718.57 rows=71 width=384) (actual time=0.070..1.424 rows=114.00 loops=1)
+                                Buffers: shared hit=1202
+                                ->  Nested Loop  (cost=5.74..2642.82 rows=75 width=384) (actual time=0.063..1.014 rows=150.00 loops=1)
+                                      Buffers: shared hit=752
+                                      ->  Bitmap Heap Scan on posts  (cost=5.45..440.57 rows=150 width=233) (actual time=0.038..0.180 rows=150.00 loops=1)
+                                            Recheck Cond: (account_id = 'a1000000-0000-4000-8000-000000000001'::uuid)
+                                            Heap Blocks: exact=150
+                                            Buffers: shared hit=152
+                                            ->  Bitmap Index Scan on account_id_idx  (cost=0.00..5.41 rows=150 width=0) (actual time=0.016..0.016 rows=150.00 loops=1)
+                                                  Index Cond: (account_id = 'a1000000-0000-4000-8000-000000000001'::uuid)
+                                                  Index Searches: 1
+                                                  Buffers: shared hit=2
+                                      ->  Index Scan using event_post_id_idx on events  (cost=0.29..14.68 rows=1 width=167) (actual time=0.005..0.005 rows=1.00 loops=150)
+                                            Index Cond: (post_id = posts.id)
+                                            Filter: (NOT EXISTS(SubPlan 7))
+                                            Index Searches: 150
+                                            Buffers: shared hit=600
+                                            SubPlan 7
+                                              ->  Index Scan using idx_reports_event_id on reports  (cost=0.15..8.19 rows=1 width=0) (actual time=0.000..0.000 rows=0.00 loops=150)
+                                                    Index Cond: (event_id = events.id)
+                                                    Filter: (reporter_user_id = '8d01845c-dc75-4e71-890d-49893bfa366e'::uuid)
+                                                    Index Searches: 150
+                                                    Buffers: shared hit=150
+                                ->  Index Scan using schedule_event_date_idx on schedules schedules_1  (cost=0.29..1.03 rows=1 width=16) (actual time=0.002..0.002 rows=0.76 loops=150)
+                                      Index Cond: (event_id = events.id)
+                                      Filter: (daterange(event_start_date, COALESCE(event_end_date, event_start_date), '[]'::text) && '[2026-10-01,)'::daterange)
+                                      Rows Removed by Filter: 0
+                                      Index Searches: 150
+                                      Buffers: shared hit=450
+                          ->  Index Scan using schedule_event_date_idx on schedules  (cost=0.29..1.03 rows=1 width=16) (actual time=0.001..0.001 rows=0.40 loops=114)
+                                Index Cond: (event_id = events.id)
+                                Filter: (NOT is_main_schedule)
+                                Rows Removed by Filter: 1
+                                Index Searches: 114
+                                Buffers: shared hit=343
+                    ->  Materialize  (cost=0.14..8.17 rows=1 width=17) (actual time=0.000..0.000 rows=1.00 loops=124)
+                          Storage: Memory  Maximum Storage: 17kB
+                          Buffers: shared hit=2
+                          ->  Index Scan using social_media_account_profiles_pkey on social_media_account_profiles  (cost=0.14..8.16 rows=1 width=17) (actual time=0.006..0.006 rows=1.00 loops=1)
+                                Index Cond: (id = 'a1000000-0000-4000-8000-000000000001'::uuid)
+                                Index Searches: 1
+                                Buffers: shared hit=2
+                    SubPlan 4
+                      ->  Limit  (cost=8.32..8.32 rows=1 width=12) (actual time=0.003..0.003 rows=1.00 loops=124)
+                            Buffers: shared hit=373
+                            ->  Sort  (cost=8.32..8.32 rows=1 width=12) (actual time=0.002..0.002 rows=1.00 loops=124)
+                                  Sort Key: s2.event_start_date, s2.event_start_time
+                                  Sort Method: quicksort  Memory: 25kB
+                                  Buffers: shared hit=373
+                                  ->  Index Scan using schedule_event_date_idx on schedules s2  (cost=0.29..8.31 rows=1 width=12) (actual time=0.001..0.001 rows=1.51 loops=124)
+                                        Index Cond: ((event_id = events.id) AND (COALESCE(event_end_date, event_start_date) >= '2026-10-01'::date))
+                                        Index Searches: 124
+                                        Buffers: shared hit=373
+                    SubPlan 5
+                      ->  Limit  (cost=8.31..8.32 rows=1 width=12) (never executed)
+                            ->  Sort  (cost=8.31..8.32 rows=1 width=12) (never executed)
+                                  Sort Key: s3.event_start_date, s3.event_start_time
+                                  ->  Index Scan using idx_schedules_one_main_per_event on schedules s3  (cost=0.29..8.30 rows=1 width=12) (never executed)
+                                        Index Cond: (event_id = events.id)
+                                        Index Searches: 0
+                    SubPlan 6
+                      ->  Limit  (cost=8.32..8.32 rows=1 width=12) (never executed)
+                            ->  Sort  (cost=8.32..8.32 rows=1 width=12) (never executed)
+                                  Sort Key: s4.event_start_date, s4.event_start_time
+                                  ->  Index Only Scan using schedule_event_date_idx on schedules s4  (cost=0.29..8.31 rows=1 width=12) (never executed)
+                                        Index Cond: (event_id = events.id)
+                                        Heap Fetches: 0
+                                        Index Searches: 0
+        SubPlan 2
+          ->  Bitmap Heap Scan on favorites  (cost=30.58..121.02 rows=938 width=16) (actual time=0.056..0.351 rows=1875.00 loops=1)
+                Recheck Cond: (user_id = '8d01845c-dc75-4e71-890d-49893bfa366e'::uuid)
+                Filter: (deleted_at IS NULL)
+                Heap Blocks: exact=67
+                Buffers: shared hit=70
+                ->  Bitmap Index Scan on idx_favorites_active  (cost=0.00..30.34 rows=1875 width=0) (actual time=0.041..0.041 rows=1875.00 loops=1)
+                      Index Cond: (user_id = '8d01845c-dc75-4e71-890d-49893bfa366e'::uuid)
+                      Index Searches: 1
+                      Buffers: shared hit=3
+        SubPlan 3
+          ->  Aggregate  (cost=4.30..4.31 rows=1 width=8) (actual time=0.002..0.002 rows=1.00 loops=21)
+                Buffers: shared hit=43
+                ->  Index Only Scan using idx_favorites_event_id on favorites favorites_1  (cost=0.28..4.30 rows=1 width=0) (actual time=0.002..0.002 rows=0.57 loops=21)
+                      Index Cond: (event_id = events.id)
+                      Heap Fetches: 0
+                      Index Searches: 21
+                      Buffers: shared hit=43
+Planning:
+  Buffers: shared hit=41
+Planning Time: 1.060 ms
+Execution Time: 2.939 ms
+
+#### getEvents filtered by a subscribed account / stmt 3
+select "id", "is_main_schedule", "event_start_date", "event_start_time", "event_end_date", "event_end_time", "ticket_price", "applicable_days_of_week", "location_details", "event_id" from "schedules" where "schedules"."event_id" in ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+Index Scan using schedule_event_date_idx on schedules  (cost=0.29..141.66 rows=30 width=340) (actual time=0.009..0.048 rows=29.00 loops=1)
+  Index Cond: (event_id = ANY ('{a3000000-0000-4000-8000-000000005461,a3000000-0000-4000-8000-000000003071,a3000000-0000-4000-8000-000000004a39,a3000000-0000-4000-8000-0000000036b1,a3000000-0000-4000-8000-0000000003e9,a3000000-0000-4000-8000-0000000019c9,a3000000-0000-4000-8000-000000004331,a3000000-0000-4000-8000-000000002fa9,a3000000-0000-4000-8000-000000007149,a3000000-0000-4000-8000-000000004b01,a3000000-0000-4000-8000-0000000032c9,a3000000-0000-4000-8000-0000000052d1,a3000000-0000-4000-8000-000000000af1,a3000000-0000-4000-8000-0000000039d1,a3000000-0000-4000-8000-000000007469,a3000000-0000-4000-8000-000000003e81,a3000000-0000-4000-8000-000000001839,a3000000-0000-4000-8000-000000004651,a3000000-0000-4000-8000-000000005b69,a3000000-0000-4000-8000-000000005f51}'::uuid[]))
+  Index Searches: 20
+  Buffers: shared hit=60
+Planning Time: 0.077 ms
+Execution Time: 0.057 ms
+
+#### getEvents filtered by a subscribed account / stmt 4
+select count(*) from "events" left join "schedules" on ("events"."id" = "schedules"."event_id" and "schedules"."is_main_schedule" = $1) left join "posts" on "events"."post_id" = "posts"."id" where (("posts"."account_id" = $2 and EXISTS (
+        SELECT 1 FROM "schedules"
+        WHERE "schedules"."event_id" = "events"."id"
+          AND daterange("schedules"."event_start_date", COALESCE("schedules"."event_end_date", "schedules"."event_start_date"), '[]')
+              && daterange($3::date, NULL, '[]')
+      ) and exists (select "id" from "reports" where ("reports"."reporter_user_id" = $4 and "reports"."event_id" = "events"."id")) = $5) and "events"."deleted_at" is null)
+Aggregate  (cost=2792.45..2792.46 rows=1 width=8) (actual time=1.294..1.295 rows=1.00 loops=1)
+  Buffers: shared hit=1545
+  ->  Nested Loop Left Join  (cost=6.32..2792.27 rows=71 width=0) (actual time=0.058..1.287 rows=124.00 loops=1)
+        Buffers: shared hit=1545
+        ->  Nested Loop Semi Join  (cost=6.03..2718.57 rows=71 width=16) (actual time=0.052..1.108 rows=114.00 loops=1)
+              Buffers: shared hit=1202
+              ->  Nested Loop  (cost=5.74..2642.82 rows=75 width=16) (actual time=0.045..0.659 rows=150.00 loops=1)
+                    Buffers: shared hit=752
+                    ->  Bitmap Heap Scan on posts  (cost=5.45..440.57 rows=150 width=16) (actual time=0.032..0.154 rows=150.00 loops=1)
+                          Recheck Cond: (account_id = 'a1000000-0000-4000-8000-000000000001'::uuid)
+                          Heap Blocks: exact=150
+                          Buffers: shared hit=152
+                          ->  Bitmap Index Scan on account_id_idx  (cost=0.00..5.41 rows=150 width=0) (actual time=0.011..0.011 rows=150.00 loops=1)
+                                Index Cond: (account_id = 'a1000000-0000-4000-8000-000000000001'::uuid)
+                                Index Searches: 1
+                                Buffers: shared hit=2
+                    ->  Index Scan using event_post_id_idx on events  (cost=0.29..14.68 rows=1 width=32) (actual time=0.003..0.003 rows=1.00 loops=150)
+                          Index Cond: (post_id = posts.id)
+                          Filter: (NOT EXISTS(SubPlan 1))
+                          Index Searches: 150
+                          Buffers: shared hit=600
+                          SubPlan 1
+                            ->  Index Scan using idx_reports_event_id on reports  (cost=0.15..8.19 rows=1 width=0) (actual time=0.000..0.000 rows=0.00 loops=150)
+                                  Index Cond: (event_id = events.id)
+                                  Filter: (reporter_user_id = '8d01845c-dc75-4e71-890d-49893bfa366e'::uuid)
+                                  Index Searches: 150
+                                  Buffers: shared hit=150
+              ->  Index Scan using schedule_event_date_idx on schedules schedules_1  (cost=0.29..1.03 rows=1 width=16) (actual time=0.003..0.003 rows=0.76 loops=150)
+                    Index Cond: (event_id = events.id)
+                    Filter: (daterange(event_start_date, COALESCE(event_end_date, event_start_date), '[]'::text) && '[2026-10-01,)'::daterange)
+                    Rows Removed by Filter: 0
+                    Index Searches: 150
+                    Buffers: shared hit=450
+        ->  Index Scan using schedule_event_date_idx on schedules  (cost=0.29..1.03 rows=1 width=16) (actual time=0.001..0.001 rows=0.40 loops=114)
+              Index Cond: (event_id = events.id)
+              Filter: (NOT is_main_schedule)
+              Rows Removed by Filter: 1
+              Index Searches: 114
+              Buffers: shared hit=343
+Planning:
+  Buffers: shared hit=41
+Planning Time: 0.543 ms
+Execution Time: 1.324 ms
+
+#### eventBySlug (mid-table event) / stmt 1
+select "events"."id", "events"."event_name", "events"."slug", "events"."description", "events"."location", "events"."types", "events"."categories", "events"."organizer_name", "events"."contact_info", "events"."has_private_contact", "events"."links", "events"."post_id", "posts"."image_url", "posts"."durable_image_url", "posts"."image_url_expires_at", "posts"."video_url", "posts"."post_url", "posts"."original_post_url", "posts"."published_at", "social_media_account_profiles"."is_image_storage_opted_in" from "events" left join "posts" on "events"."post_id" = "posts"."id" left join "social_media_account_profiles" on "posts"."account_id" = "social_media_account_profiles"."id" where "events"."slug" = $1
+Nested Loop Left Join  (cost=0.72..16.77 rows=1 width=511) (actual time=0.060..0.061 rows=1.00 loops=1)
+  Buffers: shared hit=8
+  ->  Nested Loop Left Join  (cost=0.57..16.61 rows=1 width=526) (actual time=0.054..0.055 rows=1.00 loops=1)
+        Buffers: shared hit=6
+        ->  Index Scan using events_slug_unique on events  (cost=0.29..8.30 rows=1 width=301) (actual time=0.029..0.030 rows=1.00 loops=1)
+              Index Cond: (slug = 'vol-event-12345'::text)
+              Index Searches: 1
+              Buffers: shared hit=3
+        ->  Index Scan using posts_pkey on posts  (cost=0.29..8.30 rows=1 width=241) (actual time=0.023..0.023 rows=1.00 loops=1)
+              Index Cond: (id = events.post_id)
+              Index Searches: 1
+              Buffers: shared hit=3
+  ->  Index Scan using social_media_account_profiles_pkey on social_media_account_profiles  (cost=0.14..0.16 rows=1 width=17) (actual time=0.006..0.006 rows=1.00 loops=1)
+        Index Cond: (id = posts.account_id)
+        Index Searches: 1
+        Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=49
+Planning Time: 0.397 ms
+Execution Time: 0.087 ms
+
+#### eventBySlug (mid-table event) / stmt 2
+select "id", "is_main_schedule", "title", "event_start_date", exists (select "id" from "calendar_additions" where ("calendar_additions"."user_id" = $1 and "calendar_additions"."schedule_id" = "schedules"."id" and "calendar_additions"."deleted_at" is null)), "event_end_date", "event_start_time", "event_end_time", "timezone", "performers", "location", "event_id" from "schedules" where "schedules"."event_id" in ($2)
+Index Scan using schedule_event_date_idx on schedules  (cost=0.29..16.60 rows=1 width=133) (actual time=0.021..0.021 rows=1.00 loops=1)
+  Index Cond: (event_id = 'a3000000-0000-4000-8000-000000003039'::uuid)
+  Index Searches: 1
+  Buffers: shared hit=5
+  SubPlan 1
+    ->  Index Scan using idx_calendar_additions_active on calendar_additions  (cost=0.28..8.29 rows=1 width=0) (actual time=0.013..0.013 rows=0.00 loops=1)
+          Index Cond: ((user_id = '8d01845c-dc75-4e71-890d-49893bfa366e'::uuid) AND (schedule_id = schedules.id))
+          Filter: (deleted_at IS NULL)
+          Index Searches: 1
+          Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=69
+Planning Time: 3.425 ms
+Execution Time: 0.038 ms
+
+#### eventBySlug (mid-table event) / stmt 3
+select "id" from "favorites" where ("favorites"."user_id" = $1 and "favorites"."event_id" = $2 and "favorites"."deleted_at" is null)
+Index Scan using idx_favorites_event_id on favorites  (cost=0.28..8.30 rows=1 width=16) (actual time=0.004..0.004 rows=0.00 loops=1)
+  Index Cond: (event_id = 'a3000000-0000-4000-8000-000000003039'::uuid)
+  Filter: (user_id = '8d01845c-dc75-4e71-890d-49893bfa366e'::uuid)
+  Index Searches: 1
+  Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=3
+Planning Time: 0.071 ms
+Execution Time: 0.011 ms
+
+#### eventBySlug (mid-table event) / stmt 4
+select count(*) from "favorites" where ("favorites"."event_id" = $1 and "favorites"."deleted_at" is null)
+Aggregate  (cost=4.30..4.31 rows=1 width=8) (actual time=0.012..0.012 rows=1.00 loops=1)
+  Buffers: shared hit=2
+  ->  Index Only Scan using idx_favorites_event_id on favorites  (cost=0.28..4.30 rows=1 width=0) (actual time=0.011..0.011 rows=0.00 loops=1)
+        Index Cond: (event_id = 'a3000000-0000-4000-8000-000000003039'::uuid)
+        Heap Fetches: 0
+        Index Searches: 1
+        Buffers: shared hit=2
+Planning Time: 0.054 ms
+Execution Time: 0.023 ms
+
+#### eventBySlug (mid-table event) / stmt 5
+select "id" from "reports" where ("reports"."reporter_user_id" = $1 and "reports"."event_id" = $2)
+Index Scan using idx_reports_event_id on reports  (cost=0.15..4.17 rows=1 width=16) (actual time=0.004..0.004 rows=0.00 loops=1)
+  Index Cond: (event_id = 'a3000000-0000-4000-8000-000000003039'::uuid)
+  Filter: (reporter_user_id = '8d01845c-dc75-4e71-890d-49893bfa366e'::uuid)
+  Index Searches: 1
+  Buffers: shared hit=1
+Planning Time: 0.051 ms
+Execution Time: 0.010 ms
+
+#### eventBySlug (mid-table event) / stmt 6
+select "social_media_account_profiles"."account_id", "social_media_account_profiles"."platform", "social_media_account_profiles"."username", "social_media_account_profiles"."display_name", "social_media_account_profiles"."profile_image_url", "social_media_account_profiles"."account_type", "social_media_account_profiles"."id" from "social_media_account_profiles" inner join "posts" on "posts"."account_id" = "social_media_account_profiles"."id" where "posts"."id" = $1
+Nested Loop  (cost=0.43..16.55 rows=1 width=130) (actual time=0.008..0.008 rows=1.00 loops=1)
+  Buffers: shared hit=5
+  ->  Index Scan using posts_pkey on posts  (cost=0.29..8.30 rows=1 width=16) (actual time=0.005..0.005 rows=1.00 loops=1)
+        Index Cond: (id = 'a2000000-0000-4000-8000-000000003039'::uuid)
+        Index Searches: 1
+        Buffers: shared hit=3
+  ->  Index Scan using social_media_account_profiles_pkey on social_media_account_profiles  (cost=0.14..8.16 rows=1 width=130) (actual time=0.002..0.002 rows=1.00 loops=1)
+        Index Cond: (id = posts.account_id)
+        Index Searches: 1
+        Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=30
+Planning Time: 0.204 ms
+Execution Time: 0.026 ms

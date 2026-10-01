@@ -17,7 +17,7 @@ import {
 import { loadDatabaseEnv } from './env';
 import { getTablesInDeleteOrder } from './delete-order';
 
-const FIXTURE_USERS = [
+export const FIXTURE_USERS = [
   {
     id: '8d01845c-dc75-4e71-890d-49893bfa366e',
     email: 'shulha.y@gmail.com',
@@ -925,8 +925,9 @@ const FIXTURE_EVENTS = [
 // Returns a 'YYYY-MM-DD' date offsetDays from the actual seed-run date (UTC), so the
 // Event-Card manual investigation fixtures below keep rendering their intended state
 // (not-started / ongoing / ends-today) no matter when the seed is run.
-function relativeDate(offsetDays: number): string {
-  const d = new Date();
+// `from` lets seed-volume.ts build its schedule dates against an injected "today" (testable).
+export function relativeDate(offsetDays: number, from: Date = new Date()): string {
+  const d = new Date(from);
   d.setUTCDate(d.getUTCDate() + offsetDays);
   return d.toISOString().slice(0, 10);
 }
