@@ -1062,10 +1062,11 @@ items:
      impact: user-visible, effort: l,
      title: "Platform-prefixed event slugs (Architecture Spine AD-16) — DB-free, truly-parallel Instagram oEmbed resolution for the event-detail page, superseding IDEA-022's sequential split",
      ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md, backlog/IDEA-028-platform-prefixed-event-slugs.md, planning-artifacts/sprint-change-proposal-2026-10-01-multi-event-posts.md],
-     stories: [3-7f-capture-each-posts-platform-post-id-and-permalink-type-at-scrape-time],
+     stories: [3-7f-capture-each-posts-platform-post-id-and-permalink-type-at-scrape-time,
+       3-7g-build-platform-prefixed-event-slugs-at-ingestion],
      touches: [app:backend, pkg:database, pkg:domain, web:events, cross:architecture, cross:prd],
      parent: IDEA-020, blocks: [CC-024],
-     note: "Supersedes IDEA-022. Split into Stories 3.7f-3.7i (cc-024-multi-event-wave-plan.md Wave 2A); 3.7f created 2026-10-01, 3.7g-3.7i pending -- each appends to this row's stories as it lands, no child row needed."}
+     note: "Supersedes IDEA-022. Split into Stories 3.7f-3.7i (cc-024-multi-event-wave-plan.md Wave 2A); 3.7f/3.7g created (2026-10-01), 3.7h-3.7i pending -- each appends to this row's stories as it lands, no child row needed."}
 
   # ── 2026-09-15 (bmad-agent-architect event-detail page perf audit) ──────────
   BUG-035:

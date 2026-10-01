@@ -122,10 +122,10 @@ Read this before trusting a red gate. None of these come from CC-024 stories.
 
 ## Wave 2A — Slug foundation (orchestrate first)
 
-- [ ] **3.7f** Capture each post's platform post id and permalink type at scrape time — *gates 3.6t*
-  - [x] create  - [ ] dev  - [ ] review
-- [ ] **3.7g** Build platform-prefixed event slugs at ingestion — *needs 3.7f; gates 3.6t and 3.6v*
-  - [ ] create  - [ ] dev  - [ ] review
+- [ ] **3.7f** Capture each post's platform post id and permalink type at scrape time — *gates 3.6t* (dev done, commit `90dae6d9`, status `review`)
+  - [x] create  - [x] dev  - [ ] review
+- [ ] **3.7g** Build platform-prefixed event slugs at ingestion — *needs 3.7f; gates 3.6t and 3.6v* (story created 2026-10-02, status `ready-for-dev`) (dev done, commit `04c94a42`, status `review`)
+  - [x] create  - [x] dev  - [ ] review
 - [ ] **3.7h** Resolve Instagram oEmbed from the event slug without a database lookup — *needs 3.7g, 3.7e; gates 3.6v*
   - [ ] create  - [ ] dev  - [ ] review
 - [ ] **3.7i** Fetch the event-detail oEmbed in parallel with the event query — *needs 3.7h, 3.7d, 1.6c*
