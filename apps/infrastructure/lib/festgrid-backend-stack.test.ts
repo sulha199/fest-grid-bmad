@@ -243,14 +243,16 @@ test('FestgridBackendStack provisions correct resources', () => {
     },
   });
 
-  // 18. Story 3.6q / AD-28 Rule 9: aiProcessorLambda's IAM role also holds s3:DeleteObject on the
-  // post-media bucket (via postMediaBucket.grantDelete), alongside the existing s3:PutObject grant
-  // (test 13 above) — both needed for the best-effort cleanup of a superseded key.
+  // 18. Story 3.6q / AD-28 Rule 9: aiProcessorLambda's IAM role also holds s3:DeleteObject* on the
+  // post-media bucket (via postMediaBucket.grantDelete, which synthesizes as a single-string
+  // "s3:DeleteObject*" Action, not an array — confirmed against this file's real synthesized
+  // output before asserting), alongside the existing s3:PutObject grant (test 13 above) — both
+  // needed for the best-effort cleanup of a superseded key.
   template.hasResourceProperties('AWS::IAM::Policy', {
     PolicyDocument: {
       Statement: Match.arrayWith([
         Match.objectLike({
-          Action: Match.arrayWith(['s3:DeleteObject']),
+          Action: 's3:DeleteObject*',
           Effect: 'Allow',
         }),
       ]),
