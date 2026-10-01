@@ -8,8 +8,11 @@ import {
   formatEventTime,
   formatRelativeDayOrDate,
   formatShortEventDateTime,
+  formatShortEventDateTimeParts,
   formatEventStatus,
-  computeCalendarSegmentTillText,
+  computeCalendarSegmentDateBoxContent,
+  computeEventCardDateBoxParts,
+  formatEventCardDateBoxLine,
 } from './format-event-date';
 
 // Fixed local reference instant used by formatEventStatus tests below, so every
@@ -142,132 +145,385 @@ describe('format-event-date helpers', () => {
     });
   });
 
-  describe('formatEventStatus (Story 1.3b AC15)', () => {
+  describe('formatEventStatus (Story 1.3b AC15, return shape extended by Story 1.i1i AC4 + 2026-09-28 state field)', () => {
+    // Story 1.i1i AC4 / 2026-09-28 — every assertion below pins all three fields of the return
+    // shape, so a regression in `variant`/`state` fails explicitly instead of being masked by a
+    // text match.
+    const expectResult = (
+      text: string,
+      variant: 'default' | 'happeningNow' | 'endingSoon' | 'startingSoon',
+      state:
+        | 'ended'
+        | 'happeningNow'
+        | 'endsAt'
+        | 'endsToday'
+        | 'inHours'
+        | 'tomorrow'
+        | 'weekday'
+        | 'inDays'
+        | 'upcoming'
+    ) => ({ text, variant, state });
+
     it('ended: endDayDiff < 0 (event ended days ago)', () => {
       const startDate = localDate(2026, 6, 5);
       const endDate = localDate(2026, 6, 10);
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, null)).toBe('Ended');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, null)).toEqual(
+        expectResult('Ended', 'default', 'ended')
+      );
     });
 
     it('ended: endDayDiff === 0 with a known endTime already past', () => {
       const startDate = localDate(2026, 6, 14);
       const endDate = localDate(2026, 6, 15);
       // NOW is 10:00 local; 08:00 has already passed.
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, '08:00:00')).toBe('Ended');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, '08:00:00')).toEqual(
+        expectResult('Ended', 'default', 'ended')
+      );
     });
 
-    it('endsToday: endDayDiff === 0 with a known endTime still in the future', () => {
+    // User feedback (2026-09-27): once the end time is known, show the precise "Ends hh:mm"
+    // instead of the generic "Ends Today" -- more useful information for the same state.
+    it('endsToday: endDayDiff === 0 with a known endTime still in the future shows "Ends hh:mm", not the generic "Ends Today"', () => {
       const startDate = localDate(2026, 6, 14);
       const endDate = localDate(2026, 6, 15);
       // NOW is 10:00 local; 18:00 is still ahead.
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, '18:00:00')).toBe('Ends Today');
+      const expectedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(
+        localDate(2026, 6, 15, 18, 0)
+      );
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, '18:00:00')).toEqual(
+        expectResult(`Ends ${expectedTime}`, 'endingSoon', 'endsAt')
+      );
+    });
+
+    it('endsToday: a custom {time}-templated statusEndsAt label is respected', () => {
+      const startDate = localDate(2026, 6, 14);
+      const endDate = localDate(2026, 6, 15);
+      const expectedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(
+        localDate(2026, 6, 15, 18, 0)
+      );
+      expect(
+        formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, '18:00:00', {
+          statusEndsAt: 'Berakhir {time}',
+        })
+      ).toEqual(expectResult(`Berakhir ${expectedTime}`, 'endingSoon', 'endsAt'));
     });
 
     it('endsToday: endDayDiff === 0 with NO known endTime (not yet "ended", exact end instant unknown)', () => {
       const startDate = localDate(2026, 6, 14);
       const endDate = localDate(2026, 6, 15);
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, null)).toBe('Ends Today');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, null)).toEqual(
+        expectResult('Ends Today', 'endingSoon', 'endsToday')
+      );
     });
 
-    it('happeningNow: started, multi-day event not ending today', () => {
+    it('happeningNow: started, multi-day event not ending today — the ONE happeningNow state', () => {
       const startDate = localDate(2026, 6, 13);
       const endDate = localDate(2026, 6, 17);
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, null)).toBe('Happening Now');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, endDate, null)).toEqual(
+        expectResult('Now', 'happeningNow', 'happeningNow')
+      );
     });
 
     it('absent endDate falls back to "ends same day as start" (matches AC14\'s identical fallback)', () => {
       const startDate = localDate(2026, 6, 12);
       // No endDate given -> effective end is startDate (June 12) -> endDayDiff = -3 -> ended.
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, undefined, null)).toBe('Ended');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, undefined, null)).toEqual(
+        expectResult('Ended', 'default', 'ended')
+      );
     });
 
     it('inHours(n): starts later today, with a known startTime, n rounded up', () => {
       const startDate = localDate(2026, 6, 15); // date part only -- startTime supplies the actual hour
       // NOW is 10:00 local; a 14:00 local startTime is 4 hours out.
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, '14:00:00', null, null)).toBe('In 4 hour(s)');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, '14:00:00', null, null)).toEqual(
+        expectResult('In 4 hour(s)', 'startingSoon', 'inHours')
+      );
     });
 
     it('inHours(n): starts later today with no known startTime falls back to n=0 (deferred edge case)', () => {
       const startDate = localDate(2026, 6, 15, 23, 59); // still today, later than NOW, but no explicit startTime override
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toBe('In 0 hour(s)');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toEqual(
+        expectResult('In 0 hour(s)', 'startingSoon', 'inHours')
+      );
     });
 
     it('tomorrow: startDayDiff === 1', () => {
       const startDate = localDate(2026, 6, 16);
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toBe('Tomorrow');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toEqual(
+        expectResult('Tomorrow', 'default', 'tomorrow')
+      );
     });
 
     it('weekday name: startDayDiff === 2 (lower boundary of "same week")', () => {
       const startDate = localDate(2026, 6, 17);
       const expected = formatWeekday('en-US', undefined, startDate);
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toBe(expected);
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toEqual(
+        expectResult(expected, 'default', 'weekday')
+      );
     });
 
     it('weekday name: startDayDiff === 6 (upper boundary of "same week")', () => {
       const startDate = localDate(2026, 6, 21);
       const expected = formatWeekday('en-US', undefined, startDate);
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toBe(expected);
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toEqual(
+        expectResult(expected, 'default', 'weekday')
+      );
     });
 
     it('inDays(n): startDayDiff === 7 (lower boundary of "next week")', () => {
       const startDate = localDate(2026, 6, 22);
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toBe('In 7 days');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toEqual(
+        expectResult('In 7 days', 'default', 'inDays')
+      );
     });
 
     it('inDays(n): startDayDiff === 13 (upper boundary of "next week")', () => {
       const startDate = localDate(2026, 6, 28);
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toBe('In 13 days');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toEqual(
+        expectResult('In 13 days', 'default', 'inDays')
+      );
     });
 
     it('upcoming: startDayDiff === 14 (beyond "next week")', () => {
       const startDate = localDate(2026, 6, 29);
-      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toBe('Upcoming');
+      expect(formatEventStatus('en-US', undefined, NOW, startDate, null, null, null)).toEqual(
+        expectResult('Upcoming', 'default', 'upcoming')
+      );
     });
 
     it('accepts label overrides for every parameterized/non-weekday state', () => {
       const startDate = localDate(2026, 6, 22);
       expect(
         formatEventStatus('en-US', undefined, NOW, startDate, null, null, null, { statusInDays: 'Dalam {n} hari' })
-      ).toBe('Dalam 7 hari');
+      ).toEqual(expectResult('Dalam 7 hari', 'default', 'inDays'));
     });
   });
 });
 
-describe('computeCalendarSegmentTillText (Story 1.i1d AC4)', () => {
-  it('returns the bare till label for a continuing multi-day segment (its day is before the end day)', () => {
-    expect(
-      computeCalendarSegmentTillText('en-US', undefined, '2026-08-05', '2026-08-05', '2026-08-07', '21:00:00', 'till')
-    ).toBe('till');
+describe('formatShortEventDateTimeParts (Story 1.i1k Task 1.2)', () => {
+  it('today WITH a startTime -> month empty, day = formatted time', () => {
+    const today = new Date();
+    const testDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 15, 45, 0);
+    const result = formatShortEventDateTimeParts('en-US', undefined, testDate, true);
+    expect(result).toEqual({ month: '', day: formatEventTime('en-US', undefined, testDate), dayVariant: 'word' });
   });
 
-  it('returns "till {formatted time}" on the segment\'s last day when an end time is known', () => {
+  it('today with NO startTime -> month empty, day = labels.today or Today', () => {
+    const today = new Date();
+    const testDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0);
+    expect(formatShortEventDateTimeParts('en-US', undefined, testDate, false)).toEqual({ month: '', day: 'Today', dayVariant: 'word' });
     expect(
-      computeCalendarSegmentTillText('en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', '21:00:00', 'till')
-    ).toBe('till 9:00 PM');
+      formatShortEventDateTimeParts('en-US', undefined, testDate, false, { today: 'Hari Ini' })
+    ).toEqual({ month: '', day: 'Hari Ini', dayVariant: 'word' });
   });
 
-  it('returns the bare till label on the last day with an explicit end date but no end time', () => {
-    expect(
-      computeCalendarSegmentTillText('en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', null, 'till')
-    ).toBe('till');
+  it('tomorrow (dayDiff === 1) -> month empty, day = labels.tomorrow or Tomorrow', () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    expect(formatShortEventDateTimeParts('en-US', undefined, tomorrow, false)).toEqual({ month: '', day: 'Tomorrow', dayVariant: 'word' });
   });
 
-  it('returns the bare till label when there is no end information at all (single-day)', () => {
-    expect(
-      computeCalendarSegmentTillText('en-US', undefined, '2026-08-05', '2026-08-05', undefined, undefined, 'till')
-    ).toBe('till');
+  it('yesterday (dayDiff === -1) -> month empty, day = labels.yesterday or Yesterday', () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    expect(formatShortEventDateTimeParts('en-US', undefined, yesterday, false)).toEqual({ month: '', day: 'Yesterday', dayVariant: 'word' });
   });
 
-  it('never repeats the event\'s own start date as the date box text', () => {
-    const result = computeCalendarSegmentTillText('en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', '21:00:00', 'till');
-    expect(result).not.toContain('Aug 5');
-    expect(result).not.toContain('2026');
+  it('a real short date (3+ days out) -> month = short month abbrev, day = day number, no year', () => {
+    const future = new Date();
+    future.setDate(future.getDate() + 4);
+    future.setFullYear(new Date().getFullYear());
+    const expectedMonth = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(future);
+    const expectedDay = new Intl.DateTimeFormat('en-US', { day: 'numeric' }).format(future);
+    expect(formatShortEventDateTimeParts('en-US', undefined, future, false)).toEqual({
+      month: expectedMonth,
+      day: expectedDay,
+      dayVariant: 'number',
+    });
+  });
+
+  it('every dayDiff branch reports the correct dayVariant discriminant (Story 1.i1n AC1/AC4)', () => {
+    const today = new Date();
+    const testDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const future = new Date();
+    future.setDate(future.getDate() + 4);
+
+    expect(formatShortEventDateTimeParts('en-US', undefined, testDate, false).dayVariant).toBe('word');
+    expect(formatShortEventDateTimeParts('en-US', undefined, testDate, true).dayVariant).toBe('word');
+    expect(formatShortEventDateTimeParts('en-US', undefined, tomorrow, false).dayVariant).toBe('word');
+    expect(formatShortEventDateTimeParts('en-US', undefined, yesterday, false).dayVariant).toBe('word');
+    expect(formatShortEventDateTimeParts('en-US', undefined, future, false).dayVariant).toBe('number');
+  });
+});
+
+describe('computeCalendarSegmentDateBoxContent (BUG-047 AC-DATE-1/2/3, rewritten; tillLabel always-bare per 2026-09-27 user feedback)', () => {
+  it('first day of a multi-day segment (not yet the last day): shows the real effective-end-date digits, tillLabel carries the bare till text', () => {
+    const result = computeCalendarSegmentDateBoxContent(
+      'en-US', undefined, '2026-08-05', '2026-08-05', '2026-08-07', 'till'
+    );
+    expect(result).toEqual({ month: 'Aug', day: '7', tillLabel: 'till' });
+  });
+
+  // User feedback (2026-09-27): tillLabel no longer appends the formatted end time on the
+  // segment's last/only day -- the status badge under the event name already shows "Ends
+  // {time}" directly, so appending it here too was pure duplication ("don't show clock in the
+  // till box").
+  it('last day of a multi-day segment (currentDayStr === effectiveEnd): month/day STILL show the real end-date digits (<= rule, not the old till/time overload), tillLabel stays bare', () => {
+    const result = computeCalendarSegmentDateBoxContent(
+      'en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', 'till'
+    );
+    expect(result).toEqual({ month: 'Aug', day: '7', tillLabel: 'till' });
+  });
+
+  it('no end information at all (single-day event): month/day show the start date (== effectiveEnd), bare tillLabel', () => {
+    const result = computeCalendarSegmentDateBoxContent(
+      'en-US', undefined, '2026-08-05', '2026-08-05', undefined, 'till'
+    );
+    expect(result).toEqual({ month: 'Aug', day: '5', tillLabel: 'till' });
   });
 
   it('honors a custom till label', () => {
-    expect(
-      computeCalendarSegmentTillText('en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', '21:00:00', 'bis')
-    ).toBe('bis 9:00 PM');
+    const result = computeCalendarSegmentDateBoxContent(
+      'en-US', undefined, '2026-08-07', '2026-08-05', '2026-08-07', 'bis'
+    );
+    expect(result).toEqual({ month: 'Aug', day: '7', tillLabel: 'bis' });
+  });
+
+  it('day slot is never a word, weekday, or bare time string on any branch', () => {
+    const cases: Array<[string, string, string | null]> = [
+      ['2026-08-05', '2026-08-05', '2026-08-07'], // first day
+      ['2026-08-07', '2026-08-05', '2026-08-07'], // last day
+      ['2026-08-05', '2026-08-05', null], // single-day
+    ];
+    for (const [currentDayStr, startDate, endDate] of cases) {
+      const result = computeCalendarSegmentDateBoxContent('en-US', undefined, currentDayStr, startDate, endDate, 'till');
+      expect(result.day).toMatch(/^\d{1,2}$/);
+    }
+  });
+
+  it('a calendar day BEFORE the event has started (should not normally occur, but the formula must not crash): falls to the "otherwise" branch, shows the start date', () => {
+    const result = computeCalendarSegmentDateBoxContent(
+      'en-US', undefined, '2026-08-01', '2026-08-05', '2026-08-07', 'till'
+    );
+    expect(result).toEqual({ month: 'Aug', day: '5', tillLabel: 'till' });
+  });
+
+  it('a calendar day AFTER the event has already ended (should not normally occur -- WeeklyCalendarView only ever renders segments within the event\'s own date range -- but the formula must not crash): symmetric to the before-start case, falls to the "otherwise" branch and shows the start date (code-review finding, Edge Case Hunter)', () => {
+    const result = computeCalendarSegmentDateBoxContent(
+      'en-US', undefined, '2026-08-09', '2026-08-05', '2026-08-07', 'till'
+    );
+    expect(result).toEqual({ month: 'Aug', day: '5', tillLabel: 'till' });
+  });
+});
+
+describe('computeEventCardDateBoxParts (BUG-047 AC-DATE-1/2/3, notYetEnded corrected in review loop 1)', () => {
+  const startDateTime = localDate(2026, 8, 5, 18, 0);
+  const endDateTime = localDate(2026, 8, 7, 21, 0);
+  const KNOWN_END_TIME = '21:00:00';
+
+  it('not started: shows the start date', () => {
+    const now = localDate(2026, 8, 4, 12, 0);
+    const result = computeEventCardDateBoxParts('en-US', undefined, now, startDateTime, endDateTime, KNOWN_END_TIME);
+    expect(result).toEqual({ month: 'Aug', day: '5' });
+  });
+
+  it('started and not yet ended (ongoing, before the end day): shows the end date (fixes BUG-022)', () => {
+    const now = localDate(2026, 8, 6, 12, 0);
+    const result = computeEventCardDateBoxParts('en-US', undefined, now, startDateTime, endDateTime, KNOWN_END_TIME);
+    expect(result).toEqual({ month: 'Aug', day: '7' });
+  });
+
+  it('exactly at the start instant: counts as started -- shows the end date', () => {
+    const result = computeEventCardDateBoxParts('en-US', undefined, startDateTime, startDateTime, endDateTime, KNOWN_END_TIME);
+    expect(result).toEqual({ month: 'Aug', day: '7' });
+  });
+
+  it('endTime known, exactly at the end instant: ended -- falls back to the start date', () => {
+    const result = computeEventCardDateBoxParts('en-US', undefined, endDateTime, startDateTime, endDateTime, KNOWN_END_TIME);
+    expect(result).toEqual({ month: 'Aug', day: '5' });
+  });
+
+  it('endTime known, already ended (past the end day): shows the start date', () => {
+    const now = localDate(2026, 8, 9, 12, 0);
+    const result = computeEventCardDateBoxParts('en-US', undefined, now, startDateTime, endDateTime, KNOWN_END_TIME);
+    expect(result).toEqual({ month: 'Aug', day: '5' });
+  });
+
+  // Review loop 1 fix: the exact regression both reviewers found. A multi-day event with NO
+  // precise endTime must stay "ongoing" (show the end date) for the ENTIRE calendar day it ends
+  // on -- not just up until midnight, which is what `combineDateTime` collapses an absent endTime
+  // to and what the original strict `now < endDateTime` rule was comparing against.
+  describe('no known endTime (the BUG-022-recurrence scenario)', () => {
+    it('afternoon of the actual last day: still shows the END date, not the start date', () => {
+      const now = localDate(2026, 8, 7, 15, 0); // Aug 7, mid-afternoon -- same day endDateTime collapses to midnight of
+      const result = computeEventCardDateBoxParts('en-US', undefined, now, startDateTime, endDateTime, null);
+      expect(result).toEqual({ month: 'Aug', day: '7' });
+    });
+
+    it('very end of the actual last day (23:59): still shows the END date', () => {
+      const now = localDate(2026, 8, 7, 23, 59);
+      const result = computeEventCardDateBoxParts('en-US', undefined, now, startDateTime, endDateTime, undefined);
+      expect(result).toEqual({ month: 'Aug', day: '7' });
+    });
+
+    it('the day AFTER the last day: correctly falls back to the start date (no known time to compare against, but the calendar day has passed)', () => {
+      const now = localDate(2026, 8, 8, 1, 0);
+      const result = computeEventCardDateBoxParts('en-US', undefined, now, startDateTime, endDateTime, null);
+      expect(result).toEqual({ month: 'Aug', day: '5' });
+    });
+  });
+
+  it('single-day event (start === end): every state shows the same digits', () => {
+    const singleDayStart = localDate(2026, 8, 5, 9, 0);
+    const singleDayEnd = localDate(2026, 8, 5, 23, 0);
+    const ongoing = computeEventCardDateBoxParts('en-US', undefined, localDate(2026, 8, 5, 12, 0), singleDayStart, singleDayEnd, '23:00:00');
+    expect(ongoing).toEqual({ month: 'Aug', day: '5' });
+  });
+
+  it('day is always a bare numeric string, never a word', () => {
+    const now = localDate(2026, 8, 5, 12, 0); // "today" relative to itself
+    const result = computeEventCardDateBoxParts('en-US', undefined, now, now, localDate(2026, 8, 5, 23, 0), '23:00:00');
+    expect(result.day).toMatch(/^\d{1,2}$/);
+  });
+});
+
+describe('formatEventCardDateBoxLine (BUG-047, VM1 single-line date-box text)', () => {
+  const startDateTime = localDate(2026, 8, 5, 18, 0);
+  const endDateTime = localDate(2026, 8, 7, 21, 0);
+  const KNOWN_END_TIME = '21:00:00';
+
+  it('resolves the same target (end date while started+ongoing) as computeEventCardDateBoxParts, as one locale-correct combined string', () => {
+    const now = localDate(2026, 8, 6, 12, 0);
+    const line = formatEventCardDateBoxLine('en-US', undefined, now, startDateTime, endDateTime, KNOWN_END_TIME);
+    const parts = computeEventCardDateBoxParts('en-US', undefined, now, startDateTime, endDateTime, KNOWN_END_TIME);
+    expect(line).toBe(`${parts.month} ${parts.day}`);
+  });
+
+  it('not started: shows the start date', () => {
+    const now = localDate(2026, 8, 4, 12, 0);
+    expect(formatEventCardDateBoxLine('en-US', undefined, now, startDateTime, endDateTime, KNOWN_END_TIME)).toBe('Aug 5');
+  });
+
+  it('already ended: shows the start date', () => {
+    const now = localDate(2026, 8, 9, 12, 0);
+    expect(formatEventCardDateBoxLine('en-US', undefined, now, startDateTime, endDateTime, KNOWN_END_TIME)).toBe('Aug 5');
+  });
+
+  it('no known endTime, afternoon of the actual last day: still shows the end date (same review-loop-1 fix as computeEventCardDateBoxParts)', () => {
+    const now = localDate(2026, 8, 7, 15, 0);
+    expect(formatEventCardDateBoxLine('en-US', undefined, now, startDateTime, endDateTime, null)).toBe('Aug 7');
+  });
+
+  it('degrades gracefully (no throw) on an invalid timezone, falling back to locale-only formatting (code-review finding: fallback chain had no coverage)', () => {
+    const now = localDate(2026, 8, 6, 12, 0);
+    expect(() =>
+      formatEventCardDateBoxLine('en-US', 'Not/A_Real_Zone', now, startDateTime, endDateTime, KNOWN_END_TIME)
+    ).not.toThrow();
+    expect(formatEventCardDateBoxLine('en-US', 'Not/A_Real_Zone', now, startDateTime, endDateTime, KNOWN_END_TIME)).toBe('Aug 7');
   });
 });
 

@@ -1,0 +1,686 @@
+---
+title: "EVENT-CARD-DESIGN.md: festgrid — Event-Card family"
+status: "draft"
+created: "2026-09-26T00:00:00Z"
+updated: "2026-09-27T00:00:00Z"
+extracted_from: "design-artifacts/UX-festgrid-run-1/DESIGN.md"
+extraction_reason: >
+  Split out of DESIGN.md (2026-09-26) because the event_card_* token family had grown into the
+  single largest, most-revised block in that file (11+ correction passes across masonry, calendar
+  row, and calendar grid-item cards) and is now under active, cross-cutting revision via the
+  Event-Card family consolidation. DESIGN.md keeps a short cross-reference comment in its place;
+  see that file's `components:` section, right after `calendar:`.
+sources:
+  - "design-artifacts/UX-festgrid-run-1/DESIGN.md"
+companions:
+  - "_bmad-output/planning-artifacts/event-card-family-consolidated-acs.md"
+---
+# Event-Card family design tokens
+
+This file holds every `event_card_*` token from `DESIGN.md`'s `components:` map, moved here
+verbatim (no content changes as part of the split itself). Read this file **alongside**
+`../../_bmad-output/planning-artifacts/event-card-family-consolidated-acs.md`, which is the
+current, authoritative AC breakdown driving this family's next revision pass (context-date-driven
+date-box, image-error fallback parity, nearby-badge distance text, `EventCardCalendarGridItem`
+adoption for the calendar desktop single-day cell, etc.) — the tokens below still describe
+**today's shipped/documented behavior**, not yet amended for that consolidation.
+
+All other `DESIGN.md` tokens (colors, typography, `card`, `button`, `grid`, `calendar` container/
+grid-weekly chrome, `modal`, `nav`, etc.) are unaffected by this split and remain in `DESIGN.md`.
+`calendar.grid_weekly`/`calendar.day_cell` in particular stay in `DESIGN.md` — they are the
+calendar's own container/grid chrome, not a card composition, even though the AC-GRID-1 gridline
+finding (consolidated-acs.md §2.7) concerns them directly.
+
+```yaml
+components:
+  event_card_compact:
+    # base/image/title below predate this pass and were never actually wired into WeeklyCalendarView.tsx or any
+    # other consumer (confirmed by grep across packages/ and apps/ -- no match beyond this file and planning
+    # docs referencing it). REVISED <bmad-ux pass, 2026-09-11> -- backlog IDEA-016/FIND-023, per two user
+    # reference screenshots of a calendar-view row card. Row composition, left to right: date box, then a
+    # title/venue/badges column, then a thumbnail with its own heart+count overlay (or the large bare-heart
+    # fallback when missing/expired) -- the same date-box-beside-a-height-matched-thumbnail principle as
+    # event_card_masonry.top_row_default, just in a full-width horizontal row instead of a narrow 2-col grid
+    # tile.
+    # Resolves this pass's own earlier open item (which WeeklyCalendarView render path gets a date box, given
+    # the existing mobile_day_list day_row's per-schedule card has none today, since day_row_header already
+    # anchors the *start* date for the whole group): user-confirmed 2026-09-11, keep a single date box (no
+    # separate event_card_till_badge on this surface at all), but repurpose its content from start-date to
+    # end/"till" info -- since the surrounding day/date container already tells the viewer when the schedule
+    # starts, showing that same start date a second time per-card would be pure duplication, whereas the end
+    # time is new information the day container doesn't carry. This is a genuinely different content rule from
+    # event_card_date_box (masonry), not just a restyle -- see date_box below. Still left open, and still an
+    # architecture question for the amendment story (not this pass): whether this composition attaches to the
+    # existing mobile_day_list per-schedule card, a new flatter/ungrouped surface, or both.
+    # References: imports/event-card-calendar-row/with-thumbnail.png (with-image state), imports/event-card-calendar-row/thumbnail-fallback.png (missing/expired-image fallback).
+    base: "flex items-stretch gap-2 rounded-md shadow-sm p-2 bg-violet-50 border border-violet-200" # was already the card's own chrome (violet-50 fill/border) -- now also the 3-zone flex row container below
+    date_box:
+      # CORRECTED <bmad-ux pass, 2026-09-14>. Previously a single-line `text-xs` box -- the same wrong shape
+      # event_card_date_box.base_default carried before this pass's correction (see that token's own comment for
+      # the full story). Now reuses the corrected two-tier month/day chrome, scaled down slightly for this row's
+      # tighter height. Same solid-navy treatment (no photo directly behind it, same reasoning), but its content
+      # is till/end info, not formatShortEventDateTime's start-date output -- unchanged from the 2026-09-11 pass's
+      # resolution (.memlog.md override): no separate `event_card_till_badge` component instance on this card.
+      # The small amber corner tag imports/event-card-calendar-row/with-thumbnail.png shows is this box's own
+      # chrome (`till_label` below), reusing event_card_till_badge.base's literal classes for visual consistency,
+      # not a second independently-gated badge -- this single box does both jobs (date-shaped chrome, till-shaped
+      # content), since the day/date container this card sits inside already shows the start date. **Differs from
+      # event_card_till_badge's own gating (AC14: no badge until the event has started)**: a calendar row is
+      # already anchored to one specific day/segment, so showing nothing pre-start would leave most upcoming
+      # cards' date boxes empty, which defeats the point of keeping a box here at all -- `till_label` is always
+      # shown, never gated. Deferred to the amendment story: the exact always-shown text rule for `month`/`day`
+      # below (e.g. that day's segment end time, "till hh:mm", independent of has-it-started) -- reuses
+      # `formatEventTime` and the day-segment data `WeeklyCalendarView.tsx` already computes
+      # (`dayBuckets`/`isFirstSegment`/`isLastSegment`), not new formatting logic.
+      # Implementation note: `WeeklyCalendarView.tsx`'s shipped `variant === 'list'` path already renders this
+      # slot via the shared `EventCardDateBox` primitive and `computeCalendarSegmentTillText` -- that component
+      # still needs the same two-tier/till_label adoption `event_card_date_box.base_default` does, tracked as the
+      # same follow-up story (see that token's comment).
+      # RESOLVED <BUG-047, 2026-09-26>: `month`/`day` here follow the SAME unified, numeric-only,
+      # context-date-driven rule as `event_card_date_box.base_default` (see that token's own comment for the
+      # full rule) -- always real end-or-start-date digits, never the till/time text. `till_label` (this box's
+      # own amber corner tag) carries the till/time text instead, populated on every segment day now (not just
+      # a "continuing" subset).
+      # Reference: imports/event-card-calendar-row/with-thumbnail.png; validated prototype:
+      # prototypes/event-card-calendar-row/with-thumbnail.html.
+      base: "relative flex flex-col justify-center gap-0.5 px-3 py-2 rounded-md bg-slate-800 text-white shadow-sm shrink-0 leading-none"
+      till_label: "absolute -top-1.5 -left-1.5 z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white text-[10px] font-semibold leading-none shadow-sm whitespace-nowrap" # literal-class match to event_card_till_badge.base's chrome -- not that component, see note above
+      month: "text-sm font-bold uppercase tracking-wide" # slightly smaller than event_card_date_box.base_default.month for this row's tighter height
+      day: "text-3xl font-extrabold leading-none" # slightly smaller than event_card_date_box.base_default.day
+    content: "flex-1 min-w-0 flex flex-col gap-1 justify-center" # title/venue/badges column -- reuses event_card_status_badge (happeningNow now labeled "Now") / event_card_nearby_badge (now REPLACES the category/type badge in this row, <8km gated -- see event_card_nearby_badge's own comment) as-is, no new badge tokens needed
+    title: "text-sm font-bold line-clamp-2" # REVISED <bmad-ux pass, 2026-09-14>, user-directed -- was text-xs truncate (1 line). Mobile calendar view rule: event name up to 2 lines.
+    venue: "text-xs text-muted-foreground truncate" # New <bmad-ux pass, 2026-09-14>, user-directed explicit token -- single line. Mobile calendar view rule: venue name max 1 line (unchanged behavior, now named/tokenized).
+    image_wrapper: "h-full flex flex-col items-center justify-center gap-1 shrink-0" # New <bmad-ux pass, 2026-09-14>, user-directed (user replaced the reference screenshot to show this). Holds `image` and `favorite_badge` as a vertical two-item stack (thumbnail, then favorite pill below it) centered within the row's full stretched height -- REVERSES the prior corner-overlay composition (favorite_badge was absolutely positioned on the thumbnail's own corner). With-image composition only.
+    image: "w-16 h-16 object-cover rounded-md" # was "w-full h-12" (assumed full-bleed top image, never built) -- resized to a fixed square thumbnail matching the row's own height, mirroring event_card_masonry.thumbnail_default's "size the image to the fixed chrome around it, not the reverse" rule, for the same graceful-degrade reason (FIND-023). Only rendered when the image is present and not errored -- see event_card_compact_thumbnail_fallback below for what renders otherwise, now a structurally different (not reserved-slot) case. No longer needs `relative` -- favorite_badge is a sibling below it now, not an absolute overlay on top of it.
+    favorite_badge: "flex items-center gap-1 px-2 py-1 rounded-full bg-background shadow-sm" # REVISED <bmad-ux pass, 2026-09-14>, user-directed: moved from a small corner-overlay pill on the thumbnail (absolute top-1 right-1, bg-background/80 backdrop-blur-sm) to its own pill directly BELOW the thumbnail, inside `image_wrapper`. Drops the glassmorphism (bg-background/80 backdrop-blur-sm) since it no longer sits over image content -- solid bg-background/shadow-sm instead. With-image composition only.
+  event_card_compact_thumbnail_fallback:
+    # REVISED <bmad-ux pass, 2026-09-14>, user-directed -- REVERSES this token's own original (2026-09-11)
+    # reserved-space-not-reflow convention, brought in line with event_card_calendar_grid_item's same-pass rule
+    # rather than event_card_masonry's. Previously: the w-16 h-16 slot stayed reserved (no reflow/collapse),
+    # matching event_card_masonry.thumbnail_default_fallback's convention. Now: "no area for image" -- when the
+    # image is absent or errored, the `image` element is omitted from the DOM entirely (not left blank in place),
+    # `content` expands to fill the freed width, and `{components.event_card_favorite_count_badge_large}` sits
+    # directly at the row's end with no fixed-width wrapper reserved for it. Masonry's own fallback
+    # (thumbnail_default_fallback) is UNCHANGED by this revision -- the user's rules explicitly distinguish
+    # masonry (keeps its reserved slot) from the row and grid-item cards (both drop it), not a general rule
+    # applied uniformly across all three families.
+    # Reference: imports/event-card-calendar-row/thumbnail-fallback.png; validated prototype:
+    # prototypes/event-card-calendar-row/thumbnail-fallback.html.
+    base: null # deliberately no chrome of its own, no reserved dimensions -- see comment above; content/favorite render via event_card_compact.content and event_card_favorite_count_badge_large directly
+  event_card_calendar_grid_item:
+    # New <bmad-ux pass, 2026-09-14> -- backlog IDEA-016/IDEA-017, the desktop counterpart to event_card_compact
+    # (Calendar Row Card, mobile). Grounded directly in WeeklyCalendarView.tsx's actual `variant === 'grid'`
+    # CalendarCard path (today: plain text-only -- title + favorited/added-to-calendar icons + favoriteCount
+    # line, no thumbnail, no date box) and its `DAY_CELL_CLASS`/popover/multi-day-bar chrome (see attachment
+    # note below).
+    #
+    # ATTACHMENT SPLITS BY SINGLE-DAY VS. MULTI-DAY (revised 2026-09-14, user-directed -- this pass's earlier
+    # draft gave both cases one shared mechanism; that was wrong, per the user's own view-mode rules).
+    #
+    # Single-day (unchanged from this pass's earlier finding): `DAY_CELL_CLASS` = "p-2 h-32 flex flex-col gap-1
+    # overflow-hidden relative" -- a FIXED h-32 (128px) with overflow-hidden, meant to hold up to
+    # `event_rendering.discovery_view.max_events_per_day` (5) events before the "+N more" popover takes over. At
+    # a common 1280px viewport (sm:p-8/32px page padding): content=1280-64=1216, day_cell width=1216/7=174px.
+    # Single-day events never show a thumbnail at all (see `no_image_*` tokens below), so this composition is
+    # compact enough it may fit directly in a day_cell for at least the first visible event; overflow beyond
+    # whatever fits still goes to the EXISTING "+N more" popover (WeeklyCalendarView.tsx: `w-56 max-h-56
+    # overflow-y-auto p-3` -- 224px wide, 12px padding, 200px inner content width, scrollable, no fixed per-item
+    # height) -- screenshot-validated at that real width (prototypes/event-card-calendar-grid-item/
+    # thumbnail-fallback.html): fits comfortably, multiple cards scroll cleanly. Exact max_events_per_day
+    # recalibration for the richer (vs. today's plain-text) single-day card remains an implementation-story
+    # question, not resolved here.
+    #
+    # Multi-day (revised 2026-09-14 -- NOT the popover): a multi-day schedule renders as ONE card spanning
+    # across its N day-columns directly in `grid_weekly`, extending the same mechanism
+    # `MULTI_DAY_EVENT_CLASS`/`multiDayRoundingClass` already uses for the plain-text multi-day bar today, not a
+    # per-day popover-list item. Because its width is `N * day_cell_width` (e.g. a 3-day span at the 1280px
+    # viewport above = 3*174=522px) rather than a fixed ~200px, this composition -- which DOES show a thumbnail,
+    # see the with-image composition below -- has ample room; screenshot-validated at that real spanning width
+    # (prototypes/event-card-calendar-grid-item/with-thumbnail-multiple-days.html): fits comfortably. This also
+    # simplifies the old per-segment rounding logic: since it's one spanning element, not repeated per-column
+    # segments, there is no need for `multiDayRoundingClass`'s suppressed-rounding-at-touching-edges trick --
+    # ordinary uniform rounding on both ends is enough.
+    # See EXPERIENCE.md Component Patterns > Calendar View Cards: Attachment and Composition for the full
+    # resolution, covering this card and event_card_compact together.
+    #
+    # "MULTI-DAY" IS NOW WEEK-CLIPPED, NOT SCHEDULE-GLOBAL (2026-09-28, user feedback: "it should be determined
+    # based on the number of consecutive days in that week rather than by counting the dates in schedule"): a
+    # schedule attaches to this card's multi-day (spanning-bar) composition only when it covers MORE THAN ONE
+    # DAY OF THE CURRENTLY VISIBLE WEEK -- not merely because its own `eventStartDate`/`eventEndDate` differ
+    # globally. A schedule that's multi-day in the database but whose current week only overlaps one of its
+    # days (e.g. a Dec 30 - Jan 2 event viewed in the Jan 2-8 week) now attaches to the single-day (VM5,
+    # `no_image_base`) composition instead of getting a one-column-wide spanning bar. This is upstream
+    # attachment logic (`WeeklyCalendarView.tsx`'s own schedule-bucketing), not a change to either
+    # composition's own tokens below.
+    #
+    # NO "DAY X OF N" BADGE (revised 2026-09-14, user-directed -- reverses this pass's own earlier addition).
+    # Since a multi-day schedule now renders as one spanning card rather than repeated per-day segments, its
+    # position in the calendar already conveys which days it covers -- an explicit "Day X of N" label would be
+    # pure duplication. The `multi_day_badge` token this pass first added is REMOVED; no replacement token.
+    #
+    # COMPOSITION: deliberately has NO date box at all (unlike event_card_compact, which keeps one showing
+    # till/end info) -- the desktop day-column header(s) sit directly above wherever this card renders (a single
+    # day_cell, or the columns a multi-day bar spans), so a per-card date reference here is even more redundant
+    # than on mobile (where day_row_header can already be several rows away by scroll). imports/
+    # event-card-calendar-grid-item/with-thumbnail-multiple-days.png confirms this -- no date chrome of any kind
+    # appears anywhere in the reference.
+    #
+    # IMAGE IS CONDITIONAL, NOT A RESERVED SLOT (revised 2026-09-14, user-directed correction of this pass's own
+    # first draft, which wrongly copied the masonry/row cards' "reserved space, never reflows" convention onto
+    # this card). `image` renders ONLY when the schedule is multi-day AND its image hasn't errored/expired
+    # (`isMultiDay && !imgError`) -- a single-day event never attempts an image at all, and there is no reserved
+    # blank slot for it: when the condition is false, the `image` element is omitted from the DOM entirely and
+    # `content`/`favorite` occupy the card's full width from its left edge. This is a genuine, deliberate
+    # divergence from `event_card_masonry`/`event_card_compact`'s reserved-space-not-reflow rule (see
+    # `no_image_*` tokens below and EXPERIENCE.md's Accessibility Floor note on why this doesn't carry the same
+    # WCAG 2.4.3 concern here).
+    #
+    # WITH-IMAGE COMPOSITION (3-column row, multi-day only, spanning N day-columns -- see Attachment above):
+    # image, then a title/venue column (no multi-day badge, per above), then a favorite+badges stack on the
+    # right -- badges sit beside the favorite control here, NOT inline under title/venue like
+    # event_card_masonry.badge_row/event_card_compact.content -- a genuine, PNG-observed layout difference,
+    # preserved as-is. `title`/`venue` get however much width the span gives them (user: "the event title and
+    # venue name area's width could expand adapting the card width").
+    # Reference: imports/event-card-calendar-grid-item/with-thumbnail-multiple-days.png; validated prototype:
+    # prototypes/event-card-calendar-grid-item/with-thumbnail-multiple-days.html.
+    #
+    # IMAGE AND FAVORITE AREA ARE 1:1/CENTERED AGAINST THE ROW'S OWN HEIGHT (revised 2026-09-14, user-directed:
+    # "the thumbnail and its parent area are positioned center both vertically and horizontally" / "the favorite
+    # area should be positioned center both vertically and horizontally"). `image` is explicitly `aspect-square`.
+    # SIMPLIFIED MECHANISM (user's own later edit, superseding this pass's first draft): rather than each column
+    # individually stretching to the row's height and then re-centering its own content in a nested wrapper, the
+    # row's own alignment is simply `items-center` (not `items-stretch`) -- every column (image, content,
+    # side_stack) then sizes to its own natural height and centers directly against the row's tallest sibling
+    # (normally `content`'s title/venue text). This is why `base` uses `items-center`, not `items-stretch`, unlike
+    # every other card family's row-based composition in this document.
+    #
+    # STATUS BADGE HISTORY -- NOT SETTLED, THIRD REVERSAL (removed 2026-09-14, user-directed: "no need the `now`
+    # related badge"; BUG-048/AC-STATUS-1, 2026-09-26, temporarily REVERSED this and added the status badge to
+    # BOTH compositions, `event_card_status_badge`, so VM5/VM6 could carry relative-day meaning the same way
+    # every sibling card does; 2026-09-27, user feedback "don't show the now/ending_at badge" REMOVED it again).
+    #
+    # RE-ADDED, NARROWED (2026-09-28, user feedback: "shows only statusInHours and statusEndsAt badge under
+    # locationName if its applicable"): a status badge is back, but far narrower than BUG-048's original --
+    # it renders ONLY for the `inHours`/`endsAt` states (`{components.event_card_status_badge}`'s
+    # `starting_soon`/`ending_soon` variants respectively), using the `state` discriminant that token's own note
+    # describes. Every other state, including `endsToday` (deliberately excluded, unlike `endsAt`), stays
+    # badge-less -- this is why a color-only check isn't enough here: `endsAt`/`endsToday` share `ending_soon`'s
+    # amber, but only `endsAt` earns a badge on this card. Positioned directly under `venue`/location in BOTH
+    # compositions (with-image and no-image `title_row`/`location_row`), not beside the favorite+nearby stack.
+    # `side_stack`/the no-image bottom row still show only the favorite control and the nearby/radius badge, as
+    # before -- the status badge is a separate element under location, not appended to that row/stack.
+    #
+    # CATEGORY/TYPE BADGE REPLACED BY THE NEARBY/RADIUS BADGE, GATED AT <8KM (revised 2026-09-14, user-directed;
+    # threshold corrected same pass -- see event_card_nearby_badge's own comment for the general, cross-card-family
+    # version of this rule): this card never shows the category/type badge ("Music") its siblings previously
+    # showed -- the same badge slot instead shows `{components.event_card_nearby_badge}` (Navigation icon +
+    # distance) ONLY when the event is <8km away, omitted entirely (not a placeholder) otherwise. Not a new
+    # token; reuses that existing component as-is, just with its threshold and role both revised this pass.
+    #
+    # FAVORITE CONTROL IS ALWAYS THE "LARGE" SHAPE, NOT GATED ON IMAGE SUCCESS/FAILURE (corrected 2026-09-14 after
+    # re-comparing both reference screenshots side by side): both the with-image and no-image states show the
+    # identical large, unpilled, icon-over-text heart+count (`{components.event_card_favorite_count_badge_large}`)
+    # -- unlike the masonry/row cards, this card has no small-corner-pill favorite variant at all, so there is
+    # nothing to gate between. This pass's first draft wrongly built the with-image state's favorite control as a
+    # small inline icon+text row; corrected here to match the reference.
+    #
+    # TITLE WRAPS, VENUE WRAPS UP TO 2 LINES (revised 2026-09-14, user-directed; this pass's first draft
+    # incorrectly single-line-truncated both): the user's explicit line-count rules for this pass covered mobile
+    # (title 2 lines/venue 1 line) and masonry (title 2 lines/venue 1 line) but not this card, so its own
+    # reference screenshots remain the source of truth here: title wraps freely across multiple lines, venue
+    # wraps up to 2 lines -- a genuine, deliberate difference from its siblings' explicit caps, not an oversight.
+    base: "flex items-center gap-2 rounded-md shadow-sm p-2 bg-violet-50/50 border border-violet-200" # REVISED <bmad-ux pass, 2026-09-14>, user-directed -- was `items-stretch`; see the IMAGE AND FAVORITE AREA comment above for why `items-center` is now correct here (a deliberate divergence from EVENT_CARD_COMPACT_CLASS/MULTI_DAY_EVENT_CLASS elsewhere, which do use items-stretch). RE-SCOPED (2026-09-27, user feedback: "multiple day span no thumbnail: replace the grid layout to use the grid from multiday span with thumbnail, with the thumbnail not displayed") -- `base` is now used for EVERY multi-day schedule (`isMultiDay`), with or without a usable image, not just the with-image case; a multi-day schedule whose image is missing/errored simply omits the `image` element below rather than falling through to `no_image_base`. `no_image_base` (below) is now reachable ONLY by single-day (VM5) schedules, which never attempt an image at all regardless of this change. Width is `N * day_cell_width` for a multi-day span, not a fixed value -- see Attachment above. Fill OPACITY 50% (2026-09-27, later same-day, user feedback: "I should see the grid, make the card's bg color to have 50% opacity") -- was solid `bg-violet-50`; halved to `bg-violet-50/50` so the underlying weekly-grid lines stay visible through the card.
+    image: "w-14 aspect-square object-cover rounded-md" # only rendered when isMultiDay && !imgError -- see comment above. 1:1, centered against the row's own height via `base`'s `items-center` (no separate wrapper needed). Smaller than event_card_compact.image's w-16 h-16. OMITTED ENTIRELY (2026-09-27) when isMultiDay but the image is missing/errored -- `content`/`side_stack` occupy the row's full width instead, same as the image ALWAYS being conditional per the rule above.
+    content: "flex-1 min-w-0 flex flex-col gap-1 justify-center" # multi-day composition only (with or without image). Now also hosts the re-added status badge (2026-09-28) directly under `venue`, when applicable -- see the STATUS BADGE note above.
+    title: "text-sm font-bold" # no truncate -- wraps freely across multiple lines, shared by both the multi-day and single-day (no_image_base) compositions
+    venue: "text-xs text-muted-foreground line-clamp-2" # wraps up to 2 lines, shared by both compositions
+    side_stack: "flex flex-col items-end gap-1 shrink-0" # multi-day composition only: event_card_favorite_count_badge_large, then event_card_nearby_badge (<8km gated, omitted otherwise), right-aligned; centered against the row's own height via `base`'s `items-center` (REVISED 2026-09-14, was a separate `h-full`/`justify-center` wrapper, simplified away once `base` itself switched to `items-center`) -- still NO status badge here (2026-09-28's re-add renders under `venue` inside `content` instead -- see the STATUS BADGE note above, not this stack).
+    no_image_base: "flex flex-col gap-1 rounded-md shadow-sm p-2 bg-violet-50/50 border border-violet-200" # New 2026-09-14. RE-SCOPED (2026-09-27): reachable ONLY by single-day (VM5) schedules now -- a multi-day schedule with no usable image uses `base` (above) instead, just without the `image` element, per that token's own note. Same fill/border as `base`, but flex-col (two stacked rows) instead of `base`'s flex row (3 columns), since there's no image/side-stack column to lay out against. Fill opacity 50% (2026-09-27, see `base`'s own note) -- was solid `bg-violet-50`.
+    title_row: "flex items-start justify-between gap-2" # New 2026-09-14. Row 1 of the single-day (no_image_base) composition: `title` (flex-1) beside `event_card_favorite_count_badge_large` (shrink-0). `items-start` (not center) so a wrapping multi-line title doesn't push the favorite control down the row -- it stays pinned to the row's top edge, matching the reference screenshot.
+    location_row: "flex items-center justify-between gap-2" # New 2026-09-14. Row 2 of the single-day (no_image_base) composition: `venue` (flex-1) beside `event_card_nearby_badge` (shrink-0, <8km gated, omitted otherwise). Status badge (2026-09-28 re-add, when applicable) renders as a THIRD element after this row, still inside `no_image_base`, not inline within this row -- see the STATUS BADGE note above.
+  event_card_calendar_grid_item_thumbnail_fallback:
+    # CORRECTED 2026-09-14 (this pass's own first draft was wrong, per user-supplied revised reference
+    # screenshot). This is NOT a reserved-slot-stays-blank fallback the way event_card_masonry.
+    # thumbnail_default_fallback is (event_card_compact_thumbnail_fallback was ALSO revised this same pass to
+    # drop its own reserved slot -- see that token's comment; masonry alone keeps the reserved-space convention)
+    # -- this card has no reserved image space to begin with (see event_card_calendar_grid_item's own comment:
+    # `image` is conditional on `isMultiDay && !imgError`, never a reserved slot). For a SINGLE-DAY schedule
+    # (never attempts an image at all), there is no fallback element to token here -- the card instead renders
+    # entirely via event_card_calendar_grid_item's `no_image_base`/`title_row`/`location_row` tokens, a
+    # structurally different two-row composition (title + favorite on row 1, venue + nearby badge on row 2)
+    # rather than the with-image state's 3-column row. This token block is kept only as a named cross-reference
+    # to that composition, not as its own distinct chrome.
+    #
+    # RE-SCOPED (2026-09-27, user feedback): a MULTI-DAY schedule whose image is missing/errored no longer
+    # reaches this token/`no_image_base` at all -- it now renders via `base` (the WITH-image 3-column row),
+    # simply omitting the `image` element, per that token's own note ("replace the grid layout to use the grid
+    # from multiday span with thumbnail, with the thumbnail not displayed"). This token/`no_image_base` are
+    # reachable ONLY by single-day (VM5) schedules now.
+    # Reference: imports/event-card-calendar-grid-item/thumbnail-fallback.png; validated prototype:
+    # prototypes/event-card-calendar-grid-item/thumbnail-fallback.html.
+    base: null # deliberately no chrome of its own -- see event_card_calendar_grid_item.no_image_base/title_row/location_row for the actual tokens this state renders with
+  event_card_masonry:
+    # Added 2026-08-25 -- Story 1.3b's variant="masonry" prop, sprint-change-proposal-2026-08-24-ux-rework-batch.md
+    # Section 4.4/4.5. Distinct from event_card_compact above, which is the calendar view's per-schedule
+    # mini-card, not a card-grid mode. Amended 2026-09-04 -- sprint-change-proposal-2026-09-04.md Section 4.3
+    # (Story 1.3b AC14-AC18 / 1.3d AC16-AC19): replaces the top-left relative-day pill with event_card_date_box
+    # (below), adds a below-image badge row, and adds the prominent-poster treatment for durableImageUrl-driven
+    # opted-in accounts (PRD SS3.16). Reference: two user-provided screenshots -- default and opted-in/prominent
+    # states are the identical structure, only the poster's aspect ratio differs between them (user-confirmed).
+    #
+    # OUTER CARD KEEPS `overflow-hidden` (settled 2026-09-27, round 4, user feedback: "the datebox and thumbnail
+    # box area that are outside of the card should not be visible"). An interim round 2-3 draft of this same
+    # pixel-perfect pass removed `overflow-hidden` from the outer card so the TILL/favorite corner badges could
+    # float PAST the card's true edge on negative offsets -- round 4 reverted that: both badges now sit on
+    # POSITIVE offsets just INSIDE the card's edge instead (see event_card_till_badge and thumbnail_default.
+    # favorite_badge below), so the card never needs to expose content outside its own rounded silhouette.
+    max_width: "max-w-[230px]" # New <bmad-ux pass, 2026-09-14>, user-directed, applies to ALL THREE masonry states (default-with-thumbnail, default-thumbnail-fallback, prominent-poster). The card never exceeds 230px regardless of its grid slot's own width -- at the mobile 2-col slot (175px) this has no effect (already narrower than the cap); at the desktop xl:5-col slot (269px) the card renders at 230px, left-aligned within the wider cell via ordinary CSS Grid item alignment (no `justify-items` override needed), leaving the remainder as unused cell space. Implemented as a single class on the card's own root element (`w-full max-w-[230px]`, or on a wrapper carrying both the real slot width and this cap) -- not a second nested wrapper.
+    image: "w-full aspect-[3/4] object-cover" # native aspect ratio, default/non-prominent poster -- unchanged
+    image_prominent: "w-full aspect-square object-cover" # REVISED <bmad-ux pass, 2026-09-14>, user-directed -- was aspect-[2/3] (Story 1.3b AC17's taller portrait poster). Rendered when prominentPoster=true (EventListView derives this from durableImageUrl != null, AC17). Same date_box/till_badge/heart+count overlay treatment and badge_row placement as the default state -- only the image silhouette changes.
+    caption: "p-3 flex-1 flex flex-col gap-2" # unchanged container -- badge_row (below) is now its first flex child, so the existing gap-2 spacing applies uniformly between badge_row, the title, and locationName with no separate wrapper needed
+    title: "text-sm font-bold text-foreground leading-tight line-clamp-2" # New <bmad-ux pass, 2026-09-14>, user-directed -- previously used the generic {components.card.title} token (text-lg font-bold), single-line by default. Now an explicit masonry-specific override: wraps up to 2 lines, and the font size is deliberately smaller than {components.card.title} to leave room for a 2-line title in a narrow 2-col mobile tile (user: "the event name font size could be smaller compared to the screenshot").
+    venue:
+      # New <bmad-ux pass, 2026-09-14>, user-directed -- explicit single-line truncation (was
+      # unstyled/unclamped, relying on default block wrapping): "text-xs text-muted-foreground
+      # truncate", with a MapPin icon + left-aligned layout.
+      #
+      # PIXEL-PERFECT PASS (2026-09-27, rounds 1 and 5, user feedback): this treatment was first
+      # replaced for prominentPoster=false (VM2, isMasonryDefault) ONLY -- no MapPin icon (round 1:
+      # "dont display location icon"), centered text (`text-center`), breaking mid-word rather than
+      # ellipsizing if a single long word doesn't fit (`break-all`, round 1: "word-break: break-
+      # all"), capped to a single line (`line-clamp-1`, round 5: "locationName should only one
+      # line" -- superseding round 1-4's multi-row `break-all` wrap). VM1 (prominentPoster=true)
+      # kept its icon + left-aligned truncate for a few rounds after that.
+      #
+      # UNIFIED (2026-09-27, later same-day user feedback): VM1 now gets the IDENTICAL VM2
+      # treatment -- no icon, centered, break-all, line-clamp-1. Both states share one token again;
+      # no wrapping `<span>`+icon container needed -- this is a single text element, no flex/gap.
+      base: "text-sm text-muted-foreground text-center break-all line-clamp-1"
+    badge_row: "flex items-center gap-1.5 flex-wrap" # status badge (event_card_status_badge, "happeningNow" now labeled "Now") always first, then event_card_nearby_badge -- REVISED <bmad-ux pass, 2026-09-14>, user-directed: the nearby/radius badge now REPLACES the category/type badge in this row entirely (distanceKm < 8 gated, omitted otherwise) rather than appending alongside it (AC15/AC16's original "status badge + nearby badge when present" pairing is unchanged in spirit -- what changed is that a category/type badge no longer competes for the same row at all). Sits below the top row (poster, or top_row_default below) against the card's own bg-card background, so unlike date_box/till_badge it uses solid fills, not glassmorphism. REVISED <bmad-ux pass, 2026-09-16>, user-directed: order is now status badge, then event_card_repeat_badge (icon-only, gated on this card's featured schedule carrying applicableDaysOfWeek -- see EXPERIENCE.md Component Patterns > Day-of-Week Recurring Schedules), then event_card_nearby_badge.
+    top_row_default:
+      # New <bmad-ux pass, 2026-09-11>. Replaces "full-width poster with date box overlaid on top" for
+      # prominentPoster=false ONLY -- the common case, where the poster image is hotlinked/scraped and can
+      # expire (PRD SS3.16). prominentPoster=true is completely unchanged: still the original full-width
+      # event_card_masonry.image_prominent poster with event_card_date_box.base overlaid on top (Story 1.3b
+      # AC17, already shipped, untouched by this pass).
+      # Reason (user-confirmed, 2026-09-11): binding the default thumbnail's size to the date box's own height,
+      # rather than to a full-width poster, means an expired/broken image degrades gracefully -- the row's
+      # layout never depends on the image actually loading, so there's no reflow/collapse when it fails (see
+      # thumbnail_default_fallback below and backlog FIND-023).
+      # Reference: imports/event-card-masonry/default-with-thumbnail.png.
+      #
+      # PIXEL-PERFECT PASS (2026-09-27, screenshot-driven, rounds 1-5 -- consolidated-acs.md AC-DATE-4/AC-DATE-5).
+      # `gap-2` REMOVED -- the date box and thumbnail now sit flush against each other with zero gap (round 2), so
+      # that both children can carry a matching equal-width `flex-1 min-w-0` (see thumbnail_default and
+      # event_card_date_box.base_default below) with no visible gutter between them. `top_row_default`'s own
+      # parent no longer carries padding either (real code: `EventCard.tsx`'s row wrapper dropped BUG-041's
+      # `p-2`) -- the row is flush against the card's own edges too. See event_card_masonry's own top-level note
+      # on why `overflow-hidden` stayed on the outer card throughout this pass (round 4 reverted an interim
+      # round-2/3 experiment that removed it).
+      base: "flex items-stretch"
+    thumbnail_default:
+      # Sits beside event_card_date_box.base_default inside top_row_default, now with a MATCHING `flex-1 min-w-0`
+      # (round 1, "date box and its right area should always have same height and width") -- both children share
+      # the identical `flex: 1 1 0%` basis, guaranteeing an exact 50/50 split regardless of the day's digit count
+      # or the thumbnail's own content.
+      #
+      # PIXEL-PERFECT PASS (2026-09-27, rounds 1-5): height mechanism changed from "stretch to match the date
+      # box" (`h-full`, requiring `items-stretch` to hand it a height) to "own an aspect-ratio, let the date box
+      # stretch to match IT instead" (round 3) -- `aspect-[5/6]` (portrait). `rounded-md`
+      # REMOVED (round 3, "the datebox and thumbnail box shouldn't have border radius") -- fully square corners,
+      # flush with the date box's own squared edge at the seam and with the card's own edge on the outside (round
+      # 4 clips that outside edge via the card's own `overflow-hidden`, not this element's rounding). `overflow-
+      # hidden` ADDED directly on this element (was implicit via the object-cover image alone) so the `<img>`
+      # itself clips to the aspect-ratio box.
+      #
+      # STATIC RATIO, NO RESPONSIVE WIDENING (2026-09-27, later same-day, user feedback: "datebox should always
+      # have static aspect-ratio 5:6, dont change on screen size changes") -- the `min-[1200px]:aspect-square`
+      # widening rule an earlier same-dated round introduced is REMOVED. This also resolves this pass's own
+      # previously-open question (whether that breakpoint should key off viewport or card width) by removing the
+      # breakpoint behavior entirely.
+      base: "flex-1 min-w-0 aspect-[5/6] overflow-hidden object-cover"
+      favorite_badge: "absolute top-1.5 right-1.5 z-30 flex items-center gap-1 px-1.5 py-1 rounded-full bg-background/80 backdrop-blur-sm shadow-sm font-semibold" # small heart+count pill overlaid on the thumbnail's own corner -- same role the full poster's heart+count pill already plays, just repositioned onto a smaller image; requires the thumbnail's own wrapper to carry `relative`. Padding (`px-1.5 py-1`) and responsive font-size (`text-xs` mobile/`text-sm` desktop, inherited by the count text) REVISED <bmad-ux pass, 2026-09-14>, round 8, user-directed ("favorite badge font and padding size uniform on prominent-card & card-with-small-thumbnail") to exactly match {components.event_card_date_box.favorite_pill} -- was a looser `px-2.5 py-1.5` at the desktop real width before this pass. REVISED PIXEL-PERFECT PASS (2026-09-27, round 4, user feedback: "the till box should be inside the card not outside"): position moved from the original inset corner pill (`top-1/right-1`) to mirror `event_card_till_badge`'s own corner offset on the OPPOSITE corner -- `top-1.5 right-1.5` (positive, INSIDE the card's own `overflow-hidden` edge; an interim round-1/2/3 draft floated this past the true edge on a negative `-top-1.5 -right-1.5` offset with the card's `overflow-hidden` removed, which round 4 reverted as visually wrong). z-index bumped z-20 -> z-30 (2026-09-27, later same-day, user feedback: "the favorite icon should be clickable to toggle favorite") -- unambiguously wins any z-index/DOM-order stacking tie against the row's own `statusBadge` overlay (`top-2 right-2 z-10`), which shares this same top-right region.
+    thumbnail_default_fallback:
+      # New <bmad-ux pass, 2026-09-11> -- backlog FIND-023 + the missing/expired-image reference screenshot.
+      # Renders when the image is absent or its onError fires -- the same detection EventCard.tsx's existing
+      # `!imgError && imageUrl` branch already does for AC3's standard-variant fallback; this is that branch's
+      # masonry-default equivalent, not new detection logic. thumbnail_default's own reserved footprint (now
+      # `flex-1 min-w-0 aspect-[5/6] min-[1200px]:aspect-square`, pixel-perfect pass above) is unchanged and still
+      # reserved -- per FIND-023, nothing else renders in the image's place (no icon, no "image not available"
+      # text, no fill distinct from the card's own bg-card) -- and event_card_favorite_count_badge_large (below,
+      # enlarged again this pixel-perfect pass -- mobile icon `w-10`->`w-12`, desktop `w-16`->`w-20`) replaces the
+      # small corner favorite_badge, centered in the reserved slot instead of corner-anchored, matching the
+      # reference screenshot exactly.
+      # Reference: imports/event-card-masonry/default-thumbnail-fallback.png.
+      base: "flex-1 min-w-0 aspect-[5/6] flex items-center justify-center" # PIXEL-PERFECT PASS (2026-09-27): height source changed from `h-full` to the same aspect-ratio rule as thumbnail_default (kept identical between both states so the date box renders at the same height regardless of image presence, AC-DATE-5). Static 5:6, no responsive widening (2026-09-27, later same-day) -- see thumbnail_default's own note.
+    image_prominent_fallback:
+      # RESOLVED <BUG-042, 2026-09-26, consolidated-acs.md §2.1/AC-IMG-3> -- closes the gap this token's
+      # placeholder previously flagged: image_prominent (prominentPoster=true, VM1) had NO fallback at all for
+      # an errored/expired poster -- the poster area went fully blank on error and the corner favorite pill
+      # (event_card_masonry's small horizontal heart+count) never scaled up or repositioned. EventCard.tsx now
+      # implements the exact imageUrl -> imageFallbackUrl -> reserved-blank retry chain EventImage.tsx already
+      # ships (same as thumbnail_default_fallback above): once both imageUrl and imageFallbackUrl
+      # (durableImageUrl) are missing/erroring, the poster area renders event_card_favorite_count_badge_large
+      # (below) in place of the image -- centered, filling the reserved aspect-square footprint -- and the
+      # small corner favorite pill is gated off in that state (never rendered alongside the large badge, no
+      # duplicate control). Matches thumbnail_default_fallback's pattern exactly: image_prominent's own
+      # aspect-square dimensions stay reserved and unchanged; nothing else renders in the image's place (no
+      # icon, no "image not available" text). Gated on `onFavoriteToggle` being supplied, same as every sibling
+      # fallback -- with no favorite toggle at all, the poster area is a plain reserved-blank (no control, no
+      # icon).
+      # Class string corrected (code review, 2026-09-27) to literally match EventCard.tsx's shipped
+      # wrapper div -- the aspect-square footprint is already established by this branch's own
+      # outer container (`relative aspect-square w-full bg-muted overflow-hidden ...`), so this
+      # token's own div only needs to fill that parent, not re-declare aspect-square itself.
+      base: "flex items-center justify-center w-full h-full"
+  event_card_favorite_count_badge_large:
+    # New <bmad-ux pass, 2026-09-11> -- shared between event_card_masonry's default-state missing-image fallback
+    # (thumbnail_default_fallback above) and the new calendar row-card's own missing-image fallback
+    # (event_card_compact_thumbnail_fallback below). Both reference screenshots show the identical treatment:
+    # imports/event-card-masonry/default-thumbnail-fallback.png and
+    # imports/event-card-calendar-row/thumbnail-fallback.png.
+    # the same favorite-toggle heart icon and count, just larger and with no pill/background, standing alone
+    # where the image would have been. Not a new component -- the same favorite-toggle button EventCard/
+    # WeeklyCalendarView already render, just re-skinned; only the icon size and the removed pill background
+    # differ from event_card_favorite_count_badge's default styling. Kept a real, min-h-11/min-w-11-sized tap
+    # target (components.nav.item_hit_area's existing convention) even though it visually looks like bare text
+    # -- it's still the live favorite toggle, not a decorative label.
+    base: "flex flex-col items-center justify-center gap-0.5 min-h-11 min-w-11 text-sm font-medium text-foreground" # no bg/pill, unlike event_card_favorite_count_badge's small corner pill. Text size floor: >=11px (bmad-ux pass, 2026-09-14, general legibility rule covering this + till/status/nearby badges) -- text-sm (14px) already clears it; never drop below text-[11px] at any real card width. ADDITIONAL RULE (round 6, user-directed): this favorite badge's font-size must always be >= whatever {components.event_card_till_badge}/{components.event_card_date_box} till-adjacent text size applies on the same card -- verified at every real width across all three card families (masonry, calendar-row); where a mismatch was found (masonry mobile: favorite was 11px against till's 12px) the favorite was bumped up, never the till badge down.
+    icon: "w-6 h-6 text-rose-500 fill-rose-500" # larger than event_card_favorite_count_badge's default icon -- confirm that component's exact current icon size at implementation time and size this proportionally larger, not to an arbitrary fixed value. REVISED <bmad-ux pass, 2026-09-14>, user-directed: on the masonry and calendar-row cards' missing-image fallback, this icon actively scales up with however much space the missing image freed -- masonry's reserved slot is a fixed size (matching the date box's own height) so the icon fills more of that fixed footprint at each real card width (validated at both 175px mobile and 269px desktop masonry widths); the calendar-row card has no reserved slot at all, so its icon scales with however much of the row's real width is actually left over after title/venue/badges (validated at both 326px and 655px real row widths). Not a single fixed icon size -- see prototypes/event-card-masonry/default-thumbnail-fallback.html and prototypes/event-card-calendar-row/thumbnail-fallback.html for the concrete sizes at each real width.
+    # RESOLVED <BUG-042, 2026-09-26, consolidated-acs.md §2.1/AC-IMG-3>: "icon and count are displayed
+    # vertically" was already confirmed by `base`'s own `flex-col` above -- this token needed no shape change.
+    # The gap was VM1 (event_card_masonry's prominentPoster=true state) never reaching this fallback at all;
+    # EventCard.tsx now renders this exact token (verbatim, no new component/styling) as
+    # event_card_masonry.image_prominent_fallback's content once VM1's own imageUrl -> imageFallbackUrl chain
+    # is exhausted -- see that token above.
+  event_card_date_box:
+    # Added <bmad-ux pass, 2026-09-04> -- sprint-change-proposal-2026-09-04.md Section 4.3, supersedes
+    # event_card_relative_day_pill (2026-08-25) entirely for the masonry variant. REVISED <bmad-ux pass,
+    # 2026-09-11> -- reference screenshots reopened this pass overturned the "identical in both poster states"
+    # premise below: this is now two compositions gated on prominentPoster (the same durableImageUrl-derived
+    # flag Story 1.3b AC17 already threads through), not one. `base` (unchanged) now applies ONLY when
+    # prominentPoster=true. See `base_default` for the new prominentPoster=false composition, and
+    # event_card_masonry.top_row_default for how the two sit in the DOM.
+    #
+    # `base` (prominentPoster=true only): same top-left overlay slot/z-index as the relative-day pill it
+    # replaced; restyled as a squarer "box" (rounded-md, not rounded-full) so it reads as a date chip distinct
+    # from a pure status pill. Primary content is the exact same formatShortEventDateTime() output the pill
+    # already rendered (Today/Tomorrow/weekday/short-date, e.g. "12 Oct") plus its existing
+    # Clock-icon-when-today-with-time rule (AC12) -- reused verbatim, not reimplemented.
+    #
+    # POSITION WAS CONDITIONAL ON WHETHER `{components.event_card_till_badge}` WAS PRESENT (revised 2026-09-14,
+    # rounds 5-7, user-directed) -- REMOVED (2026-09-27, later user feedback). Originally: the overlay's own
+    # corner tag (till badge), which floated ABOVE this pill at `-top-3`, needed vertical clearance the pill's
+    # default `top-2` position didn't leave inside the poster (`overflow-hidden` would clip the tag) -- resolved
+    # by moving this pill (and `{components.event_card_masonry.favorite_pill}` in lockstep) down to `top-5`
+    # whenever a till badge was present.
+    #
+    # UNIFIED WITH VM2, TOP-5 SHIFT REMOVED (2026-09-27, user feedback: "tillbox should have same top position to
+    # the tillbox position on masonry view-non prominent's"): the till badge now sits INSIDE this pill at
+    # `top-1.5` (matching `{components.event_card_date_box.base_default}`'s masonry-default position), so it no
+    # longer needs the pill to shift down for clearance. The `top-5` conditional is REMOVED entirely -- this pill
+    # and `favorite_pill` both stay at a plain, unconditional `top-2` now, regardless of till-badge presence.
+    # Keeping the old `top-5` shift after moving the tag inside actively pushed the pill's own date text down
+    # INTO the tag's own space, covering it ("the latest changes make the tillbox move further down causing it
+    # covers the date") -- this fix is why the shift had to go, not just move the tag itself. Padding stays
+    # uniform (`p-1`, all sides equal), unchanged.
+    #
+    # SUPERSEDED, SAME-DAY (2026-09-28) -- REVERTED BACK TO THE `top-5`/`top-2` CONDITIONAL. The note directly
+    # above turned out wrong about WHY the tag was covering the date: moving the tag to a POSITIVE `top-1.5`
+    # nested inside this pill doesn't stop covering the text just because the pill's own outer position also
+    # moves -- the tag's position is relative to the pill's own box either way, so flattening the pill to
+    # `top-2` only shrank the card's own top margin for no benefit and made the covering WORSE, not better
+    # ("rather than moving till-box down, you moved the datebox and fav-icon up which make the tillbox
+    # covering more datebox area"). Root cause: this pill (VM1) is a short single-line chip with no vertical
+    # room to spare above its own text -- unlike VM2's full-height two-tier box, which has plenty of room above
+    # its vertically-centered month/day text for a corner tag to land in without touching it. The REAL fix
+    # moves the tag entirely OUT of this pill instead (see `{components.event_card_till_badge}`'s own note) --
+    # this pill and `favorite_pill` are back to their original `top-5`-when-till-present / `top-2`-otherwise
+    # conditional, UNCHANGED from before this whole VM1 saga started.
+    # FONT SIZE HARMONIZED ACROSS ALL THREE MASONRY VARIANTS (revised 2026-09-14, round 8, user-directed: "the
+    # till badge has font and padding size uniform across different variant"). This pill's font-size is now set
+    # ONCE on the pill container itself and inherited by both the till badge span and the date text inside it
+    # (rather than each element declaring its own size, which could drift out of sync) -- `text-xs` (12px) at the
+    # mobile real width, `text-sm` (14px) at the desktop real width. This is the SAME responsive convention
+    # `{components.event_card_date_box.base_default}` (below) and `{components.event_card_compact.date_box}`
+    # already use for their own till-adjacent text -- previously this token was pinned at a fixed `text-[11px]`
+    # regardless of viewport as a deliberate prominent-only exception; that exception is now removed in favor of
+    # full cross-variant consistency.
+    # Reference: imports/event-card-masonry/prominent-poster.png; validated prototype:
+    # prototypes/event-card-masonry/prominent-poster.html (Panels A-D).
+    base: "absolute {top-5 if tillBadgeText else top-2} left-2 z-10 flex items-center gap-1 p-1 rounded-md bg-background/80 backdrop-blur-sm shadow-sm text-foreground font-semibold" # RESTORED (2026-09-28) to the top-5/top-2 conditional -- the 2026-09-27 flattening to an unconditional top-2 is superseded, see the note above. text-xs mobile / text-sm desktop, set here and inherited by the date text inside (the till tag itself no longer lives inside this pill at all -- see event_card_till_badge)
+    icon: "w-3 h-3" # existing Clock icon, rendered only when hasTime && dayDiff === 0 -- unchanged rule carried over from the superseded pill
+    favorite_pill: "absolute {top-5 if tillBadgeText else top-2} right-2 z-30 flex items-center gap-1 px-1.5 py-1 rounded-full bg-background/80 backdrop-blur-sm shadow-sm font-semibold" # New <bmad-ux pass, 2026-09-14>. The prominentPoster=true poster's own heart+count overlay (distinct from event_card_masonry.thumbnail_default.favorite_badge, which is the non-prominent state's equivalent) -- previously untokenized. RESTORED (2026-09-28) to the top-5/top-2 conditional, moved in lockstep with `base` -- the 2026-09-27 flattening to an unconditional top-2 is superseded, see that token's comment. z-index stays z-30 (2026-09-27, user feedback: "the favorite icon should be clickable to toggle favorite"). Padding (`px-1.5 py-1`) and responsive font-size (`text-xs`/`text-sm`, inherited by its count text) now match {components.event_card_masonry.thumbnail_default.favorite_badge} exactly -- round 8's "favorite badge font and padding size uniform on prominent-card & card-with-small-thumbnail" harmonization. Icon stays `w-3 h-3` (unchanged, matches the non-prominent state's corner pill icon size).
+    base_default:
+      # New <bmad-ux pass, 2026-09-11>. prominentPoster=false (the common case -- a hotlinked/scraped image that
+      # can expire, PRD SS3.16). No longer absolutely positioned over a poster: it's a normal-flow flex sibling
+      # of the small thumbnail (event_card_masonry.thumbnail_default) inside event_card_masonry.top_row_default,
+      # which uses `items-stretch` so the *thumbnail* stretches to match the date box's own intrinsic height --
+      # not the other way around. Solid fill instead of glass/blur, since there's no photo directly behind it to
+      # blur here, only the card's own bg-card background -- matching badge_row's existing "solid fills, not
+      # glassmorphism" rationale one level down. `bg-slate-800` is a literal-class match for `colors.primary`
+      # (#1E293B) -- reuses the existing brand primary rather than introducing a new dark neutral, and matches
+      # the reference screenshots' solid navy box. `relative` is required here (unlike `base`, which is itself
+      # `absolute` and so already a valid containing block) so event_card_till_badge can still anchor to this
+      # box's corner.
+      #
+      # CORRECTED <bmad-ux pass, 2026-09-14>. The `base`/`month`/`day` below previously described a single-line
+      # `text-xs` box -- literally `base` above, just re-skinned -- and claimed its content rule was "identical to
+      # `base`" otherwise unchanged. That was wrong from the moment it was written: imports/event-card-masonry/
+      # default-with-thumbnail.png has always shown a large two-tier stacked treatment (a small uppercase
+      # month/weekday line over a large bold day-of-month number), not a single line -- a genuine content-rule
+      # difference from `base`, not just a restyle. This went unnoticed through two prior passes (2026-09-04,
+      # 2026-09-11) because both re-described the reference screenshot in prose rather than reconstructing it;
+      # caught only now because this pass built and screenshot-validated an actual HTML/Tailwind prototype from
+      # the PNG (prototypes/event-card-masonry/default-with-thumbnail.html, prototypes/validation-log.md) per
+      # bmad-png-to-html's fidelity check, and the doc is corrected to match the prototype/PNG, not the other way
+      # around. Content rule: still formatShortEventDateTime's output, now split across `month` (e.g. "Oct") and
+      # `day` (e.g. "12"); the existing Clock-icon-when-today-with-time rule (AC12) is unchanged in trigger
+      # condition, rendered inline with `month`.
+      # Deferred to the implementation story (doc-only pass, no code changed here): packages/ui/src/features/
+      # events/EventCardMediaPrimitives.tsx's shipped `EventCardDateBox` component still renders the old
+      # single-line `text-xs` shape this correction replaces, and event-card-media-tokens.ts's AD-15 icon-scale
+      # token is calibrated against that same text-xs size -- both need a follow-up story, not just this doc fix.
+      # Reference: imports/event-card-masonry/default-with-thumbnail.png; validated prototype:
+      # prototypes/event-card-masonry/default-with-thumbnail.html.
+      # PIXEL-PERFECT PASS (2026-09-27, rounds 1-3, user feedback): `shrink-0` -> the wrapping flex-item div in
+      # EventCard.tsx now carries `flex-1 min-w-0` (round 1, matching thumbnail_default's own `flex-1 min-w-0`
+      # for the equal-width split); this component's own root span fills that wrapper via `w-full h-full`
+      # (replacing the old `h-full`-only AC-DATE-5 fix, since width now also needs to track the wrapper).
+      # `rounded-md` REMOVED (round 3, "shouldn't have border radius") -- square corners, flush with the
+      # thumbnail's own squared edge at the seam.
+      # PIXEL-PERFECT PASS (2026-09-27, round 5, user feedback): `items-center` ADDED -- once the box grew much
+      # wider (round 1, `flex-1` matching the thumbnail's own share of the row), the flex column's default
+      # cross-axis alignment (`align-items: stretch`) stretched the month/day spans to the box's full width
+      # without centering their text within it, reading as pushed toward the right edge. `items-center` makes
+      # both spans hug their own content and center in the box instead.
+      base: "relative flex flex-col items-center justify-center gap-0.5 px-4 py-3 bg-slate-800 text-white shadow-sm leading-none w-full h-full"
+      month: "text-lg font-bold uppercase tracking-wide text-center" # top line -- month abbreviation, e.g. "Oct"; Clock icon (AC12) renders inline with this line when hasTime && dayDiff === 0. `text-center` ADDED (round 5) -- day already had it via AC-DATE-4, month did not.
+      # RESOLVED <BUG-047, 2026-09-26 Event-Card family consolidation, consolidated-acs.md §2.2/§2.3>.
+      # Content rule for `base`/`base_default` (and the calendar list row's `event_card_compact.date_box`
+      # below) is no longer `formatShortEventDateTime`'s Today/Tomorrow/weekday/time-string output --
+      # a NEW, dedicated, numeric-only, context-date-driven computation (`computeEventCardDateBoxParts` /
+      # `formatEventCardDateBoxLine` for masonry, the rewritten `computeCalendarSegmentDateBoxContent` for
+      # the calendar row) replaces it as the date-box's sole content source. Every date-box render is
+      # anchored to a CONTEXT DATE -- masonry: real "now"; calendar list row: the day-column
+      # (`currentDayStr`) the card is rendered under. Rule: `started` (context date on/after the event's
+      # start) && `notYetEnded` (context date before the event's effective end) -> month/day show the
+      # EVENT'S END DATE; otherwise -> the event's START DATE. Masonry's `notYetEnded` uses a strict `<`
+      # on real timestamps; the calendar row's day-string `notYetEnded` uses `<=` (a multi-day event's
+      # actual last calendar day still counts as ongoing for its own full day, unlike a continuous
+      # timestamp's boundary). The day slot NEVER renders a word or a bare time string, by construction
+      # (no word branches exist) -- this supersedes BUG-040/Story 1.i1n's word-safe sizing mechanism
+      # (`dayVariant='word'`, now deleted, not kept) and fixes BUG-022 (masonry previously always showed
+      # `startDate`, contradicting its own TILL sub-badge once the event had started). On the calendar
+      # row's former "last/only day" case, month/day now show real end-date digits like every other case
+      # (the old "avoid repeating the day-row header's own date" guard is deliberately removed) -- the
+      # till/time text moves entirely to the amber corner tag (`computeCalendarSegmentTillText`,
+      # unchanged, now populated in every case, not just the former "continuing segment").
+      #
+      # AC-DATE-4 (masonry `size='default'` ONLY -- never `event_card_compact.date_box`): the `day` slot
+      # gets an explicit `tabular-nums min-w-[2ch] text-center inline-block` floor so the box's rendered
+      # width is identical whether the day is 1-digit ("3") or 2-digit ("23") -- previously nothing
+      # constrained this, so glyph width alone could shift the box's total width.
+      # AC-DATE-5 (masonry `size='default'`, VM2/`isMasonryDefault`): the date-box's rendered height must
+      # equal the adjacent thumbnail's height. NOT already structurally satisfied as originally
+      # speculated -- confirmed via a real Playwright render that `top_row_default`'s `flex items-stretch`
+      # row + the media slot's `h-full` DO correctly stretch this component's own WRAPPER div to the
+      # thumbnail's height, but this component's root `<span>` (the visible slate-800 box) had no height
+      # rule of its own and only filled its natural content height inside that taller wrapper -- the
+      # visible box was shorter than the thumbnail beside it. Fixed with `h-full` on the span, gated to
+      # `size='default'` only (never `'compact'`, which keeps its established layout).
+      day: "inline-block text-center tabular-nums min-w-[2ch] text-5xl font-extrabold leading-none" # bottom line -- always a real 1-2 digit day-of-month, e.g. "12" (AC-DATE-4 fixed-width classes, masonry `size='default'` only)
+  event_card_till_badge:
+    # Added <bmad-ux pass, 2026-09-04> -- Story 1.3b AC14. REVISED <bmad-ux pass, 2026-09-11> -- reference
+    # screenshots reopened both the position (was bottom-edge-center) and the color (was a neutral inverted
+    # bg-foreground/text-background, tied to whichever background the date box itself used) to a corner tag
+    # with its own distinct amber/gold accent, decoupled from the date box's own color -- the two would otherwise
+    # have to track each other's now-divergent styling across prominentPoster states (see event_card_date_box).
+    # User confirmed (2026-09-11): a new solid amber token, not a reuse of status_badge.pendingReview's pale
+    # amber-100/amber-800 pill (that pairing reads as a calm review-status pill, not an urgency accent tag) and
+    # not the brand accent #FF5A5F (reads coral/red, not gold). amber-700 (#B45309) on white was chosen over
+    # amber-600 (#D97706) specifically for contrast at this token's small text size (originally 10px; raised to
+    # >=11px <bmad-ux pass, 2026-09-14> per that pass's general legibility rule -- doesn't cross WCAG 1.4.3's
+    # 18px/14px-bold "large text" threshold, so the calculation below still applies unchanged): amber-600/white
+    # measures ~3.19:1, failing WCAG 1.4.3's 4.5:1 small-text floor; amber-700/white measures ~5.03:1, passing
+    # with margin. Anchored to the containing date box's top-left corner in both prominentPoster states (works
+    # against `base`, which is itself `absolute` and so already a containing block, and against `base_default`,
+    # which now carries its own `relative` for exactly this reason).
+    # References: imports/event-card-masonry/prominent-poster.png (prominentPoster=true), imports/event-card-masonry/default-with-thumbnail.png (prominentPoster=false).
+    #
+    # OFFSET DIFFERS BY CONTEXT (revised 2026-09-14, rounds 5-7, user-directed): the `-top-1.5 -left-1.5` corner
+    # offset below is the DEFAULT, used as-is by `{components.event_card_date_box.base_default}` (masonry
+    # non-prominent) and `{components.event_card_compact.date_box}` (calendar row) -- both anchor to a tall
+    # two-tier pill with enough of its own vertical padding that the tag's default overlap never reaches the
+    # text. `{components.event_card_date_box.base}` (masonry prominentPoster=true) is the ONE exception: its pill
+    # is a short single-line chip with much less vertical room, so the tag needs a larger `-top-3` offset there
+    # to clear the pill's text -- a position-only difference, not a different padding or chrome. See that token's
+    # own comment for the full mechanism (including why the pill itself moves down to compensate).
+    #
+    # PIXEL-PERFECT PASS (2026-09-27, round 4, user feedback: "the till box should be inside the card not
+    # outside"): `{components.event_card_date_box.base_default}`'s (masonry non-prominent, VM2) offset flips from
+    # NEGATIVE (`-top-1.5 -left-1.5`, floating past the card's own true corner -- which required the outer card
+    # to drop `overflow-hidden` for rounds 2-3) to POSITIVE (`top-1.5 left-1.5`, sitting just INSIDE the card's
+    # edge instead) -- the outer card reverted to `overflow-hidden` in the same round, so anything drawn outside
+    # it must not be visible.
+    #
+    # UNIFIED WITH VM2 (2026-09-27, later same-day, user feedback: "tillbox should have same top position to the
+    # tillbox position on masonry view-non prominent's"): `{components.event_card_date_box.base}` (masonry
+    # prominentPoster=true, VM1) now ALSO uses `top-1.5` (was `-top-3`, floating past the poster's own edge) --
+    # horizontal offset (`-left-1.5`) is unchanged, only the top position was unified with VM2's.
+    #
+    # SUPERSEDED, SAME-DAY (2026-09-28) -- VM1 NO LONGER USES THIS SHARED `base` TOKEN AT ALL. The unification
+    # above nested the tag INSIDE `{components.event_card_date_box.base}`'s own pill at `top-1.5`, positioned
+    # relative to that pill's own box -- but VM1's pill is a short single-line chip with no vertical room above
+    # its own text (unlike VM2's tall two-tier box, which has plenty), so the nested tag covered most of the
+    # pill's date text. Rather than tune the offset again, VM1's tag is pulled entirely OUT of the pill: it's
+    # now its OWN floating sibling `<span>`, positioned directly against the POSTER's top-left corner (not the
+    # pill's corner) at `top-1 left-2` -- landing in the gap `{components.event_card_date_box.base}`'s own
+    # `top-5`-when-till-present shift (restored, see that token's note) opens up above the pill. Implemented as
+    # a one-off literal class string in `EventCard.tsx` directly, NOT routed through this token/the shared
+    # `eventCardTillLabelClass()` helper below -- that helper's `'prominent'` context argument (still present in
+    # code for backward-compat/tests) is unused by VM1 as of this fix; only `'default'` (VM2) and `'compact'`
+    # (calendar row) are still live call sites. `-left-1.5`/`top-1.5` below is VM2/calendar-row ONLY now.
+    #
+    # FONT SIZE NO LONGER FIXED AT text-[11px] (revised 2026-09-14, round 8, user-directed: "till badge font ...
+    # uniform across different variant"). In every context, this tag's rendered size now matches its own pill's
+    # text size -- `text-xs` (12px) mobile / `text-sm` (14px) desktop -- resolving round 4's flat >=11px floor
+    # into a precise per-breakpoint pair. The MECHANISM differs slightly by context: on
+    # `{components.event_card_date_box.base}` (masonry prominentPoster=true), whose pill has one simple text run
+    # ("SEP 25"/"TODAY"), the size is set once on the pill and this tag inherits it via normal CSS cascade. On the
+    # two-tier pills (`base_default`, `{components.event_card_compact.date_box}`), the month/day (or month/day
+    # equivalent) spans need two DIFFERENT sizes each, so there's no single value to inherit from -- this tag
+    # instead sets the same `text-xs`/`text-sm` explicitly, matching its pill's own text size by convention rather
+    # than inheritance. Either way, the tag and its pill's text render at the identical size. NO LONGER TRUE FOR
+    # VM1 (2026-09-28): now a bespoke floating sibling outside the pill (see the SUPERSEDED note above), it sets
+    # its own explicit size the same way the two-tier pills do, rather than inheriting from a pill it's no
+    # longer nested inside.
+    base: "absolute z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white font-semibold leading-none shadow-sm whitespace-nowrap" # VM2/default and calendar list row ONLY (as of 2026-09-28 -- VM1/prominent no longer routes through this token, see the SUPERSEDED note above): `top-1.5 left-1.5` (masonry VM2, inside the card) or `-top-1.5 -left-1.5` (calendar list row -- floats past the row's own edge, into its own padding gutter); font-size inherited from the containing pill, not set here. VM1's own equivalent literal is `absolute top-1 left-2 z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white ... leading-none shadow-sm whitespace-nowrap` -- same chrome, explicit size, different position mechanism (see `EventCard.tsx`).
+  event_card_status_badge:
+    # Added <bmad-ux pass, 2026-09-04> -- Story 1.3b AC15 (8-state status badge: ended/happeningNow/endsToday/
+    # inHours/tomorrow/weekday/inDays/upcoming). User decision: a single neutral style for all 8 states, text
+    # alone differentiates them -- deliberately does NOT reuse {components.status_badge}'s positive/negative/
+    # pendingReview/superseded palette, since that palette encodes review-workflow outcomes, not time-urgency,
+    # and mapping e.g. "ended" onto its red "negative" variant would misread as an error/failure state. Shape
+    # mirrors {components.status_badge}'s own base shape (`text-xs px-2 py-0.5 rounded font-medium shrink-0`)
+    # exactly, just with a new neutral color pairing, so the two still read as the same family of "badge."
+    # LABEL for the `happeningNow` state shortened to "Now" (decided <bmad-ux pass, 2026-09-14>, user-directed:
+    # the previous "Happening Now" label should be a single translatable word). Scoped to this token's usage on
+    # the masonry/row/grid-item card families this pass covers -- not asserted as an app-wide i18n string-table
+    # change beyond that. The other 7 states' labels are unchanged.
+    #
+    # COLOR EXCEPTION FOR `happeningNow` ONLY (revised 2026-09-14, round 6, user-directed: "`now`-badge should
+    # have more noticeable color"). This one state gets a distinctly more noticeable solid emerald green
+    # (`happening_now` variant below) instead of the shared neutral `base` every other state uses. This is a
+    # scoped, deliberate exception for this state's own visual weight -- NOT a reversal of the 2026-09-04 "one
+    # neutral style for all 8 states" decision documented above; the other 7 states keep `base` unchanged, still
+    # differentiated by text alone. Applied everywhere this badge renders in the masonry and calendar-row card
+    # families; the calendar-grid-item family has its own narrower gating -- see
+    # `{components.event_card_calendar_grid_item}`'s own note.
+    #
+    # TWO MORE COLOR EXCEPTIONS ADDED (2026-09-28, user-directed): `endsAt`/`endsToday` (the "ending soon/today"
+    # states) and `inHours` (the "starting soon" state) each get their own solid color now too, extending the
+    # `happeningNow` exception above rather than reversing the "one neutral style for the rest" decision -- the
+    # remaining 5 states (`ended`, `tomorrow`, a weekday name, `inDays`, `upcoming`) still share `base` unchanged.
+    # - `endsAt`/`endsToday` -> `ending_soon` (below): reuses `{components.event_card_till_badge}`'s own
+    #   amber-700 (already verified ~5.03:1 contrast on white at this token's text size) so amber reads as one
+    #   consistent "end-time" color across the whole card family, not a color invented fresh for this badge.
+    # - `inHours` -> `starting_soon` (below): sky-600, not amber (ending) or emerald (live now) -- "starts soon,
+    #   get ready" without ending-soon's urgency. Not indigo/violet since the calendar-grid-item's own card
+    #   chrome (`bg-violet-50/50`) already uses that hue family.
+    # Implementation needed a state discriminant finer than the 4 colors themselves (`endsAt` and `endsToday`
+    # share one color but must stay independently selectable, since the calendar-grid-item family shows a badge
+    # for `endsAt` but never `endsToday` -- see that token's own note): `formatEventStatus`'s return shape grew a
+    # `state` field (the exact one of the 8 states) alongside the pre-existing color-only discriminant.
+    base: "inline-flex items-center text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-muted text-muted-foreground" # text-xs (12px) already clears the >=11px badge-legibility floor (bmad-ux pass, 2026-09-14) -- no change needed here. `ended`/`tomorrow`/weekday/`inDays`/`upcoming` only.
+    happening_now: "inline-flex items-center text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white" # New <bmad-ux pass, 2026-09-14>, round 6. Same shape as `base`, solid emerald fill instead of the neutral muted one -- the one deliberate per-state color exception. `happeningNow` only.
+    ending_soon: "inline-flex items-center text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-amber-700 text-white" # New (2026-09-28). Same shape as `base`/`happening_now`, solid amber instead. `endsAt`/`endsToday` only.
+    starting_soon: "inline-flex items-center text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-sky-600 text-white" # New (2026-09-28). Same shape, solid sky instead. `inHours` only.
+  event_card_nearby_badge:
+    # Added <bmad-ux pass, 2026-09-04> -- Story 1.3b AC16. Distinguished from event_card_status_badge by both a
+    # solid accent fill (not color alone) and its own icon, satisfying the project's existing non-color-cue
+    # convention (EXPERIENCE.md State Patterns > Soft Delete "at least one non-color cue is required", WCAG
+    # 1.4.1) -- reuses the exact bg-secondary/text-secondary-foreground pairing EventCard.tsx's standard-variant
+    # type badges already use, rather than inventing a new color pairing.
+    # REVISED <bmad-ux pass, 2026-09-14>, user-directed, two changes:
+    # 1. Threshold changed from distanceKm <= 5 to distanceKm < 8. Distance is computed client-side against the
+    #    active filter location if one is selected, else the viewer's current location coordinate (not a new
+    #    backend field -- same distanceKm input this token already gated on, just a different frontend
+    #    comparison and, now, a different source-of-truth priority for what "distance" means).
+    # 2. On the masonry, calendar-row, and calendar-grid-item card families (event_card_masonry.badge_row,
+    #    event_card_compact.content, event_card_calendar_grid_item.side_stack/location_row), this badge now
+    #    REPLACES the category/type badge in that same slot rather than appearing alongside it -- those cards no
+    #    longer show a category/type badge at all. Renders only when distanceKm < 8; omitted entirely otherwise
+    #    (no placeholder/disabled state, unchanged from the original AC16 behavior). This is a UI-composition
+    #    change scoped to those three card families' badge slot, not a claim that every other consumer of this
+    #    token (e.g. any existing standard-variant EventCard usage outside this pass's scope) changes its own
+    #    category-badge behavior too.
+    base: "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground"
+    icon: "w-3 h-3" # lucide-react Navigation icon -- deliberately distinct from the caption's own MapPin (locationName row) so the two location-related glyphs never look identical in an already-dense card; confirm the exact icon name against the installed lucide-react version at implementation time (same caveat already applied to components.calendar.mobile_day_list.multi_day_badge's CalendarRange icon)
+    # >>> Event-Card family consolidation (2026-09-26, consolidated-acs.md §2.4, AC-NEARBY-1/2/3): this badge's
+    # >>> content is being changed from the static "Nearby" word to the actual computed distance text
+    # >>> (>=2km: no decimal; <2km: 1 decimal), localized -- the `<8km` threshold gate above is UNCHANGED, only
+    # >>> the rendered text changes. `nearbyBadge` becomes a function-shaped label
+    # >>> (`(distanceKm: number) => string`), matching this codebase's existing `moreLabel`/`multiDaySegmentLabel`
+    # >>> precedent, not a static string.
+  event_card_repeat_badge:
+    # Added <bmad-ux pass, 2026-09-16> -- extends the Mobile Multi-Day Calendar Spanning section
+    # (IDEA-003) to cover Schedule.applicableDaysOfWeek?: DayOfWeek[] (PRD Section 4.4, BUG-026's
+    # 2026-09-11 PRD amendment). Icon-only, no text label and no fill/pill background (unlike
+    # event_card_status_badge/event_card_nearby_badge) -- user-directed: "subtle, neutral color so
+    # it doesn't fight with the heart icon or distance badges". Marks any occurrence (an isolated
+    # single day, or a collapsed multi-day run) that originates from a day-of-week pattern rather
+    # than a genuine one-off schedule -- see EXPERIENCE.md Component Patterns > Day-of-Week
+    # Recurring Schedules for why position/span alone can no longer convey that distinction once
+    # collapsed. Always paired with a hover+focus tooltip (reusing WeeklyCalendarView.tsx's
+    # existing non-touch-gated tooltip mechanism) plus an aria-label, both carrying the schedule's
+    # actual matching weekdays translated through the project's existing DayOfWeek enum-translation
+    # convention (project-context.md Locale-Sensitive Data Rendering) -- never a raw enum string.
+    icon: "w-3.5 h-3.5 text-muted-foreground shrink-0" # lucide-react Repeat icon, 14px -- between event_card_nearby_badge's 12px and the favorite icon's 24px; confirm the exact icon name against the installed lucide-react version at implementation time (same caveat already applied to the multi_day_badge CalendarRange icon and event_card_nearby_badge's Navigation icon)
+  event_card_favorite_count_badge:
+    # This is a separate, older token from event_card_favorite_count_badge_large above (kept as its own
+    # entry in the original DESIGN.md, non-contiguous with the rest of this family -- preserved here as-is
+    # rather than merged, so as not to lose the distinction the original author intended).
+    base: "flex items-center gap-1 text-xs font-medium" # count text rendered inline next to the existing Heart icon inside the favorite-toggle button, not a separate element -- reuses EventCard's existing top-right slot rather than adding a third overlay
+    # Confirmed visually unchanged by the 2026-09-04 bmad-ux pass (sprint-change-proposal-2026-09-04.md Section 4.3 item 3) -- both reference screenshots show this top-right slot untouched by the new date_box/till_badge/badge_row additions.
+```

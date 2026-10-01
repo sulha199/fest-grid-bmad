@@ -54,6 +54,16 @@ Change `{spec_file}` status to `done` in the frontmatter.
 
 Follow `./sync-sprint-status.md` with `{target_status}` = `review`.
 
+### Verify Backlog Board, If Touched
+
+If this session edited `_bmad-output/implementation-artifacts/backlog.yaml` (e.g. closing out a
+row this fix addresses), run
+`uv run --python 3.11 --with pyyaml {project-root}/scripts/backlog-check.py --quiet` before
+committing. A check 15 failure means a `note` you wrote or touched grew past one line — move
+the detail into this story's own Dev Notes (the failure message says so too) and leave a
+one-line pointer, per `backlog-spec.md` §3/§9. Do not commit a backlog.yaml change with any
+check failing.
+
 ### Commit and Open
 
 1. If version control is available and the tree is dirty, create a local commit with a conventional message derived from the spec title.

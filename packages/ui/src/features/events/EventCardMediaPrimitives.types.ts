@@ -1,4 +1,5 @@
-import type { MouseEventHandler, ReactNode } from 'react';
+import type { CSSProperties, MouseEventHandler, ReactNode } from 'react';
+import type { EventCardDateBoxSize } from './event-card-media-tokens';
 
 /**
  * Icon-scale variant for `EventCardFavoriteBadge`.
@@ -22,6 +23,13 @@ export type EventCardFavoriteBadgeScale = 'default' | 'large';
 export interface EventCardMediaSlotProps {
   /** Optional URL for the event image. Absent (or an `onError` firing) renders the reserved-blank fallback. */
   imageUrl?: string;
+  /**
+   * BUG-042 (AC-IMG-1): optional fallback URL (`durableImageUrl`) tried once, in order, after
+   * `imageUrl` is missing or errors — the same `imageUrl -> imageFallbackUrl -> reserved-blank`
+   * chain `EventImage.tsx` already implements. Omitted/null callers keep today's single-URL
+   * behavior (fails straight to the reserved-blank fallback).
+   */
+  imageFallbackUrl?: string | null;
   /** Optional explicit alt text for the image; defaults to an empty string when absent on an errored/present note. */
   imageAlt?: string;
   /**
@@ -42,6 +50,14 @@ export interface EventCardMediaSlotProps {
   /** Extra classes appended to the slot root (e.g. margin in a composed row). */
   className?: string;
   /**
+   * Which badge-font-size custom-property value (AD-15, Story 1.i1k AC5) to declare on this
+   * slot's root — must match the sibling `EventCardDateBox`'s own `size` in the same
+   * composition, since the two communicate icon scale only via that one shared custom
+   * property. Defaults to `'default'` if omitted (least-surprise back-compat); both real call
+   * sites pass it explicitly.
+   */
+  size?: EventCardDateBoxSize;
+  /**
    * When true, suppress the slot's own internal favorite badge in BOTH branches
    * (the image-present corner pill and the reserved-blank large fallback), so a
    * caller can compose an external favorite control instead (e.g. a
@@ -57,6 +73,16 @@ export interface EventCardMediaSlotProps {
    * badge scale (`'default'` vs `'large'`) would apply. Safe to omit.
    */
   onImagePresenceChange?: (imagePresent: boolean) => void;
+  /**
+   * Story 1.i1m AC1/AC3: when `true`, the slot renders `null` (removed from the DOM
+   * entirely, not left as an empty reserved element) whenever the image is absent or
+   * errored, instead of this primitive's default reserved-blank fallback. Defaults to
+   * `false` — every existing consumer (masonry's two call sites) omits this prop and
+   * keeps today's exact reserved-blank behavior. Only the calendar compact row
+   * (`WeeklyCalendarView.tsx`) passes `true`; masonry's own reserved-space convention is
+   * explicitly and permanently unaffected by this prop's existence.
+   */
+  collapseOnFallback?: boolean;
 }
 
 /** Label overrides for the favorite-toggle control (AC5 — matches `EventCardLabels.favoriteToggle`). */
@@ -82,17 +108,115 @@ export interface EventCardFavoriteBadgeProps {
    * (e.g. `absolute top-1 right-1 z-10` for the corner-pill placement).
    */
   className?: string;
+  /**
+   * Story 1.i1m AC5: overrides this badge's own icon size, replacing the ratio-derived
+   * `eventCardBadgeIconSizeStyle(scale)` this component computes internally. The two fixed
+   * ratios that function expresses (`EVENT_CARD_BADGE_ICON_SCALE_LARGE`/`_DEFAULT`) cannot
+   * express continuous, container-width-driven growth — the calendar compact row's own
+   * `eventCardRowFavoriteIconGrowingStyle()` is the one real caller. Omitted by every other
+   * call site, which keeps today's exact ratio-derived sizing unchanged.
+   */
+  iconSizeStyle?: CSSProperties;
+  /**
+   * Story 1.i1m AC5: overrides the `large`-scale badge's own fixed `text-sm` count-text
+   * class (which also styles the button's overall text size/weight context). The one real
+   * caller is the calendar compact row's `EVENT_CARD_ROW_FAVORITE_COUNT_TEXT_SIZE_CLASS`
+   * (a `text-sm`/`text-base` container-query step); every other call site omits this and
+   * keeps the fixed `text-sm`. Ignored when `scale !== 'large'`.
+   */
+  largeTextSizeClassName?: string;
 }
 
 /**
- * Thin styled wrapper for the event-card date box. Intentionally takes `children`
- * (the caller's already-formatted date text/icon) — it does NOT reimplement any
- * date/locale formatting (that stays in `format-event-date.ts`). It is also the
- * concrete `text-xs` font-size source the icon-scale token (AC2) is calibrated against.
+ * Two-tier stacked month/day chrome for the event-card date box (Story 1.i1k, DESIGN.md
+ * `event_card_date_box.base_default` / `event_card_compact.date_box`). Takes structured,
+ * caller-already-formatted `month`/`day` slots (no date/locale formatting is reimplemented
+ * here — that stays in `format-event-date.ts`) plus an optional `tillLabel` slot rendered
+ * internally as the amber corner tag, so no caller hand-wraps a `<span>` with a duplicated
+ * literal class string.
  */
 export interface EventCardDateBoxProps {
-  /** The caller's already-formatted date content (text and/or a small icon). */
-  children: ReactNode;
+  /** Which token-specified size to render — `'default'` (masonry) or `'compact'` (compact row). Required: both real consumers must choose explicitly. */
+  size: EventCardDateBoxSize;
+  /** The caller's already-formatted month/weekday content (small uppercase line). */
+  month: ReactNode;
+  /**
+   * The caller's already-formatted day content (large bold line) — always a 1-2 digit
+   * numeric day-of-month (BUG-047/AC-DATE-1: the day slot is numeric-only by construction now).
+   * The former `dayVariant` prop (Story 1.i1n, word-safe sizing for "Today"/"Tomorrow"/a time
+   * string) is removed — no content source produces that shape any more, so the discriminant
+   * has no remaining use.
+   */
+  day: ReactNode;
+  /** Optional amber corner tag content (e.g. "till"). Omitted entirely when not provided. */
+  tillLabel?: ReactNode;
   /** Extra classes appended to the date box root. */
+  className?: string;
+}
+
+/**
+ * The event/schedule status badge (`DESIGN.md` § event_card_status_badge, Story 1.i1i AC1).
+ * Two shapes only: the shared neutral `base` for 7 of `formatEventStatus`'s 8 states, and
+ * the `happening_now` emerald variant for the `happeningNow` state alone — deliberately NOT
+ * a general per-state styling mechanism.
+ *
+ * Non-interactive by design (AC6, `EXPERIENCE.md` Accessibility Floor): no `aria-label`,
+ * no tooltip, no independent focus stop. The consumer (`EventCard.tsx`) owns the surrounding
+ * badge-row `<div>` and renders this as a sibling child alongside the other badges.
+ */
+export interface EventCardStatusBadgeProps {
+  /** The already-labeled status string — i.e. `formatEventStatus(...).text`. Never re-formatted here. */
+  text: string;
+  /**
+   * `formatEventStatus(...).variant` — the surfaced state discriminant. `'happeningNow'` renders
+   * `DESIGN.md`'s solid emerald variant; `'endingSoon'` (`statusEndsAt`/`statusEndsToday`) renders
+   * a solid amber variant (matching the masonry TILL tag's own amber, "amber = end-time info");
+   * `'startingSoon'` (`statusInHours`) renders a solid sky variant ("starts soon" without the
+   * urgency of amber/emerald); every other state stays the default neutral `base`. Defaults to
+   * `'default'`.
+   */
+  variant?: 'default' | 'happeningNow' | 'endingSoon' | 'startingSoon';
+  /** Extra classes appended to the badge root. */
+  className?: string;
+}
+
+/** Label overrides for `EventCardNearbyBadge` (AC3 — matches `EventCardLabels.nearbyBadge`). */
+export interface EventCardNearbyBadgeLabels {
+  /**
+   * Resolver FUNCTION, not a static string (BUG-049, AC-NEARBY-1/2/3) — the distance is only
+   * known once the caller's own geolocation math resolves `distanceKm`, exactly like
+   * `WeeklyCalendarViewLabels.moreLabel`/`multiDaySegmentLabel`. Defaults to
+   * `formatNearbyBadgeDistance` (`>=2km` → no decimal, e.g. "5 km"; `<2km` → 1 decimal, e.g.
+   * "1.2 km").
+   */
+  nearbyBadge?: (distanceKm: number) => string;
+}
+
+/**
+ * The nearby-distance badge (`DESIGN.md` § event_card_nearby_badge, Story 1.i1i AC1/AC2).
+ * Self-gating: it renders nothing unless `distanceKm != null && distanceKm < thresholdKm`,
+ * so callers never precompute a `showNearbyBadge` boolean locally (Architecture Spine AD-24
+ * Rule 2). `<8km` is the one sanctioned threshold (the DESIGN.md 2026-09-14 correction of the
+ * shipped `<=5km` bug).
+ *
+ * Non-interactive by design (AC6, `EXPERIENCE.md` Accessibility Floor): no `aria-label`,
+ * no tooltip, no independent focus stop.
+ */
+export interface EventCardNearbyBadgeProps {
+  /**
+   * Caller-computed distance in kilometers from the viewer to this event (client-side
+   * geolocation math — this primitive performs no location/distance logic itself). Omit/null
+   * when the viewer's location is unknown — the badge then renders nothing.
+   */
+  distanceKm?: number | null;
+  /**
+   * Distance threshold (km) below which the badge renders. Defaults to `8`
+   * (`DESIGN.md` § event_card_nearby_badge); exposed only so an existing caller-level override
+   * (`EventCardProps.nearbyBadgeThreshold`) can still be forwarded rather than re-derived.
+   */
+  thresholdKm?: number;
+  /** Optional label overrides for internally-rendered microcopy (i18n-readiness). */
+  labels?: EventCardNearbyBadgeLabels;
+  /** Extra classes appended to the badge root. */
   className?: string;
 }

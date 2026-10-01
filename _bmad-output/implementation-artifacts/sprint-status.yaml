@@ -1,5 +1,5 @@
 # generated: 2026-07-29T02:58:30Z
-# last_updated: 2026-09-16T19:35:00Z
+# last_updated: 2026-09-21T00:00:00Z
 # project: festgrid
 # project_key: NOKEY
 # tracking_system: file-system
@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-09-18T03:47:23Z
+last_updated: 2026-09-27T00:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -275,7 +275,7 @@ development_status:
   # dependency of two unrelated consumers (the app-shell banner and the Settings fallback)
   # -- and was split into this prerequisite story per the 0.7/0.7a precedent. See
   # 0-38a's and 0-38's own Dev Notes for the full Gate 1/2/3 record.
-  0-38a-build-the-pwa-install-eligibility-hook: ready-for-dev
+  0-38a-build-the-pwa-install-eligibility-hook: review
   # depends on 0-38a (see above). Gates 1/3 returned "No gap found"; Gate 2's gap is
   # resolved by 0-38a's split. No epics.md section added, mirroring Stories 0.33-0.37's
   # standalone-Epic-0-story precedent.
@@ -291,14 +291,18 @@ development_status:
   # 1-i1f's own badge only implements the "active filter location" branch; the badge is
   # simply omitted (not an error) when no filter is active. See epics.md Story 0.39 and
   # backlog.yaml IDEA-040.
-  0-39-ambient-viewer-location-capability: backlog
+  0-39-ambient-viewer-location-capability: review
   # Sourced from backlog.yaml FIND-034 via bmad-create-story. Settled design (stage-gate
   # dev/staging ESM default-off + prod scheduled 5-min poll-and-drain) already agreed with
   # the user in the backlog note; this story formalized it into ACs, ran Gate 1/2/3 fresh
   # (epic-0-readiness.md's swept report stops at 0.19), and resolved two design gaps the
   # settled note left open via AskUserQuestion: staging treated like dev (not prod), and
   # the poll-and-drain branch loops until drained/time-budget rather than a single batch.
-  0-40-replace-idle-sqs-lambda-pollers-with-scheduled-poll-and-drain: review
+  # bmad-code-review 2026-09-19: 6 patch findings fixed, 1 retracted as a false positive
+  # (SETUP_WALKTHROUGH.md heading claim, disproven by reading the full doc structure), 3
+  # deferred to backlog as FIND-040/FIND-041/FIND-042. Re-verified via cdk synth (all 3
+  # stages), infra tests, targeted backend tests, full build, and lint before commit 086b563.
+  0-40-replace-idle-sqs-lambda-pollers-with-scheduled-poll-and-drain: done
   # added 2026-09-18 via bmad-create-story while drafting 1-i1k: wiring that story's
   # own FIND-025-finding-(2) lint guard required giving packages/ui its first-ever
   # `lint` script, which revealed the package has never been linted in CI at all
@@ -306,8 +310,26 @@ development_status:
   # full-ruleset enablement is a real, unbounded-size infra gap -- not folded into
   # 1-i1k's own narrowly-scoped guard. Renumbered 0.40 -> 0.41 on merge with master
   # (master independently landed its own real Story 0.40 for FIND-034 first). See
-  # epics.md Story 0.41 and backlog.yaml FIND-035.
+  # epics.md Story 0.41 and backlog.yaml FIND-036.
   0-41-wire-up-packages-ui-eslint-configuration: backlog
+  # added 2026-09-19 via bmad-create-story while drafting Story 0.39: Gate 2 found the
+  # shared "Ambient Capability Ask" banner slot (EXPERIENCE.md, DESIGN.md
+  # ambient_capability_banner) needed by both Story 0.38's PWA-install banner and Story
+  # 0.39's location-consent banner doesn't exist anywhere yet -- neither consuming story
+  # builds it (0.38 predates the shared-slot UX pass; 0.39 only supplies its own banner
+  # content). User confirmed the split via AskUserQuestion. Story 0.38 amended in place to
+  # depend on this story. See epics.md Story 0.42 and Story 0.39's own Dev Notes.
+  0-42-build-the-shared-ambient-capability-ask-banner-slot-primitive: review
+  # added 2026-09-22 via bmad-architecture AD-26 (IDEA-049): new packages/visual-audit
+  # tool. See festgrid-architecture-spine.md AD-26/AD-27. Hard prerequisite: Story 0.44
+  # must reach done (Pre-Coding Approval Gate) before bmad-dev-story runs for this story.
+  0-43-visual-fidelity-audit-tool: done
+  # added 2026-09-22 via bmad-create-story Gate 3 finding (FIND-047) while drafting
+  # Story 0.43: no testing-standard tier exists for a meta-testing/tooling package.
+  0-44-define-testing-standard-for-meta-testing-tooling-packages: done
+  # added 2026-09-25 via bmad-create-story: IDEA-050 (AD-27), GridContainer's masonry
+  # engine + folded-in max-width/responsive-scaling gap (user-reported).
+  0-45-replace-grid-containers-masonry-engine-with-shortest-column-placement: done
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.
@@ -338,6 +360,7 @@ development_status:
   0-i5b-adopt-the-controller-in-discovery-event-list-surfaces: review
   0-i5c-adopt-the-controller-in-the-moderator-tools-pages: backlog
   0-i5d-sweep-add-the-temporal-filter-to-the-filterhub: ready-for-dev
+  0-i5e-adopt-the-controller-in-feed-and-favorites: ready-for-dev
   0-i5z-ratchet-no-list-surface-manages-pagination-filter-state-locally: backlog
   epic-0-i6: in-progress
   # corrected 2026-09-16 via bmad-dev-story: entry was stale at 'backlog' despite
@@ -354,7 +377,15 @@ development_status:
   0-i6b-adopt-the-card-into-post-selection: backlog
   0-i6c-adopt-the-card-into-subscribed-accounts-settings-and-settle-the-detail-surface-variant: backlog
   0-i6d-route-accountavatar-border-through-the-cards-tokens: backlog
+  # epics.md section added 2026-09-15 via bmad-correct-course (CC-021); sprint-status.yaml
+  # registration deferred to this bmad-create-story session (2026-09-19). Blocked on Story
+  # 1-6d (LocationLink, ready-for-dev, not yet implemented) -- see story file's own
+  # Pre-Coding Approval Gate.
+  0-i6e-replace-the-cards-raw-account-identifier-line-with-a-location-link-when-confirmed: ready-for-dev
   0-i6f-platform-icon-fallback-and-functional-subscribe-unsubscribe-toggle: review
+  # added 2026-09-18 via bmad-correct-course (FIND-022 spec CAP-7); depends on
+  # 3-15/3-16 in epic-3, so cannot start before those land.
+  0-i6g-event-post-detail-coauthor-attribution-ui-with-confirm-then-refetch-toggle: backlog
   0-i6z-ratchet-no-display-surface-bypasses-the-card: backlog
   epic-0-i7: in-progress
   0-i7a-carry-confidence-and-country-bias-through-every-geoapify-response-mapper: review
@@ -410,16 +441,31 @@ development_status:
   # epic's own established build-primitive-then-adopt precedent (1.i1a -> 1.i1c/d/e).
   # Gate 3: split -- the ambient/passive viewer-location fallback is carved into a new
   # prerequisite, 0-39 (see above). Full record in this story's own Dev Notes.
-  1-i1f-wire-nearby-distance-badges-and-build-the-calendar-grid-item-card: ready-for-dev
-  # added 2026-09-17 via bmad-create-story (Gate 2 split off 1-i1f, see above). Full
-  # section in epics.md; not yet drafted via its own bmad-create-story pass.
-  1-i1g-render-multi-day-schedules-as-a-spanning-calendar-grid-item-card: backlog
-  # added 2026-09-17 via bmad-create-story (Gate 2 split off 1-i1f, see above; also
-  # implements BUG-036 and FIND-026's "Calendar Overflow: Scalable Cap +
-  # Infinite-Scroll Popup" resolution, per AD-23's sequencing mandate that the
-  # window-fetch fix and the overflow dialog ship together). Full section in
-  # epics.md; not yet drafted via its own bmad-create-story pass.
-  1-i1h-shared-calendar-overflow-dialog-and-fair-per-day-fetching: backlog
+  # (code review 2026-09-21, full mode, remediation commit 68859b54: review -> done.
+  # Second review pass over f90112c4 raised 16 findings -- 2 decision-needed (both
+  # resolved by the user as "wire both properly": nearbyBadgeThreshold now reaches
+  # EventCardNearbyBadge through home-content -> CalendarView -> WeeklyCalendarView ->
+  # MultiDaySpanningBar, and isActiveFilterCoordPending now feeds LocationRadiusFilter's
+  # noSavedLocationsHint), 9 patches (all applied, committed), 0 deferred, 5 dismissed.
+  # Nothing unresolved, so the workflow's step-6 rule sets done.)
+  1-i1f-wire-nearby-distance-badges-and-build-the-calendar-grid-item-card: done
+  # (create-story 1.i1g, 2026-09-19: backlog -> ready-for-dev. Gate 2 no split (AC9
+  # items-center added); Gate 1/3 no gap, reasoned fresh, sweep predates this story.
+  # Blocked on Story 1.i1f shipping EventCardCalendarGridItem -- see own Pre-Coding Gate.)
+  1-i1g-render-multi-day-schedules-as-a-spanning-calendar-grid-item-card: review
+  # (create-story 1.i1h, 2026-09-19: backlog -> ready-for-dev. perDayLimit arg
+  # confirmed w/ user via AskUserQuestion. Gate 1: no split -- resolved a real
+  # event/schedule granularity mismatch in-resolver (schedule-first query +
+  # Event.schedules short-circuit). Gate 2/3: no split -- reuse useInfiniteScroll,
+  # added a11y + PostHog ACs. Sweep predates this story. Blocked on 1.i1f shipping
+  # EventCardCalendarGridItem -- see own Pre-Coding Gate.)
+  # (dev 2026-09-21, bmad-dev-story: ready-for-dev -> review. Tasks 1-9 implemented;
+  # verification 37/37 graphql-select, 5/5 new backend windowed-path suite, 75/75
+  # resolvers regression, 359/359 + 68/68 ui, 9/9 + 45/45 web, tsc/eslint clean.
+  # Two windowed-path bugs (missing drizzle subquery aliases; exempt multi-day rows
+  # consuming a per-day rank slot) found by the first real Postgres execution and
+  # fixed in resolvers.ts. DoD manual browser QA explicitly left unchecked.)
+  1-i1h-shared-calendar-overflow-dialog-and-fair-per-day-fetching: review
   # added 2026-09-17 via bmad-create-story (Gate 2 split off 1-i1j while drafting
   # IDEA-025) -- status/nearby badge markup was about to become a third inline
   # duplicate (EventCard.tsx masonry, Story 1.i1f's undrafted EventCardCalendarGridItem,
@@ -427,7 +473,21 @@ development_status:
   # epic's own EventCardMediaPrimitives extraction. Full section in epics.md
   # (backlog.yaml IDEA-041, child of IDEA-025); not yet drafted via its own
   # bmad-create-story pass. 1-i1j depends on this story.
-  1-i1i-build-the-shared-event-card-status-and-nearby-badge-primitive: ready-for-dev
+  # (dev-story 1.i1i, 2026-09-21: ready-for-dev -> review. Both shared primitives --
+  # EventCardStatusBadge + EventCardNearbyBadge -- plus the `formatEventStatus`
+  # `isHappeningNow` discriminant shipped in the existing 1.i1a files; EventCard.tsx's
+  # masonry branch migrated onto them and the shipped `<=5` -> `<8` nearby threshold
+  # fixed in the same pass, which makes 1-i1f's own Task 2 a verify-only no-op (do not
+  # re-introduce `<=5`). One human-approved deviation from this story's literal Task 2.2:
+  # EventCardNearbyBadge takes an optional `thresholdKm` (default 8) so 1-i1f's already
+  # shipped EventCardProps.nearbyBadgeThreshold + its 2 override tests keep working --
+  # default behavior unchanged, comparison still owned by the primitive, sanction
+  # recorded in the newly added Architecture Spine AD-24 Rule 2. Verification: 140/140
+  # in the 3 touched test files, 577/577 across the full packages/ui suite (55 files),
+  # eslint clean on all 8 touched files, `tsc --noEmit` showing only the pre-existing
+  # packages/ui baseline (0 errors in any touched file). 1-i1j's dependency on this
+  # story is now satisfied; 1-i1f is already in review/shipped.)
+  1-i1i-build-the-shared-event-card-status-and-nearby-badge-primitive: review
   # added 2026-09-17 via bmad-create-story, sourced from backlog.yaml's IDEA-025
   # (parent IDEA-016; direct follow-on to Story 1.i1f, promoted the same session).
   # Gates 1/3 cited from epic-1-i1-readiness.md's sweep (no gap -- pure packages/ui
@@ -439,7 +499,7 @@ development_status:
   # 1-i1f NOR 1-i1i is implemented yet as of this story's creation -- see its own
   # Pre-Coding Approval Gate blocking checklist item. Full record in this story's
   # own Dev Notes.
-  1-i1j-add-status-and-nearby-badges-to-weeklycalendarviews-compact-row: ready-for-dev
+  1-i1j-add-status-and-nearby-badges-to-weeklycalendarviews-compact-row: review
   # added 2026-09-17 via bmad-create-story (Gate 2 split off 1-i1j while drafting
   # IDEA-025) -- DESIGN.md's 2026-09-14 pass documents this EventCardDateBox
   # shape gap twice (event_card_date_box.base_default and event_card_compact.date_box
@@ -448,13 +508,47 @@ development_status:
   # a local detail of the compact row's badge content). Full section in epics.md
   # (backlog.yaml IDEA-042, child of IDEA-025); not yet drafted via its own
   # bmad-create-story pass.
-  1-i1k-give-eventcarddatebox-the-design-specified-two-tier-chrome: ready-for-dev
+  1-i1k-give-eventcarddatebox-the-design-specified-two-tier-chrome: review
   # (dev-story 1.i1z: ready-for-dev -> review. Implemented — audit + traceability only per user-resolved
   # Design Decisions 1 & 2. AC 1-3 re-confirmed already-enforced by existing tests; AC 4 delivered as
   # AD-15 Rules 1/2 "Enforced by" citations + narrowed-scope sentence; AC 5 delivered as 5 ratchet-marking
   # comments across EventCardMediaPrimitives.test.tsx (2), EventCard.test.tsx (2), WeeklyCalendarView.test.tsx (3).
   # Verified: 3 touched files 103 tests green, full packages/ui 48 files / 465 tests green, eslint 0 errors,
   # ci.yml already covers packages/ui — no CI change. No new test/production code. Depends on 1.i1a/1.i1c/1.i1d/1.i1e [all review].)
+  # added 2026-09-21 via bmad-create-story, sourced from backlog.yaml's IDEA-046
+  # (renumbered from IDEA-043 the same day; parent CC-019). Implements rules 1-6 of that
+  # row's seven-residual table -- the 2026-09-14 prototype-fidelity rules that DESIGN.md/
+  # EXPERIENCE.md specify in full but no story or board row ever owned. All seven were
+  # re-verified against c80cd9b and still reproduce. Gates 1/3 cited from
+  # epic-1-i1-readiness.md's sweep; the repo's first container query (needed because rule 1's
+  # 230px cap makes the viewport a wrong trigger for rule 5's font step) was assessed under
+  # the escape-hatch guard and judged not a Gate 1 finding. Gate 2 run fresh: split rule 7
+  # into sibling 1-i1m (below, NOT a prerequisite). Two further residuals found while
+  # drafting -> IDEA-048; the validation-log rounds 5-8 fidelity gap -> FIND-046. Amends
+  # Story 1.i1i's shipped AC quote in epics.md. Full record in this story's own Dev Notes.
+  1-i1l-apply-the-six-unowned-prototype-fidelity-rules: review
+  # drafted 2026-09-21 via bmad-create-story (Gate 2 split off 1-i1l) -- rule 7 of IDEA-046,
+  # the calendar row's reserved-slot reversal. Carved out rather than absorbed: it forks
+  # EventCardMediaSlot's contract (masonry keeps its reserved slot, the row drops it via a
+  # new opt-in prop), contradicts Story 1.i1z's shipped AC3 and its two live CI ratchet
+  # tests (inverted, not deleted), and needs a CSS clamp()/cqi favorite-badge growth
+  # mechanism AD-15 didn't express before this story. Sibling of 1-i1l, not a dependency
+  # either way. Gate 2 re-run fresh: no gap, built in place. Full story file drafted.
+  1-i1m-drop-the-calendar-rows-reserved-image-slot: review
+  # added 2026-09-25 via bmad-create-story: BUG-040, EventCardDateBox day-slot
+  # overflow on word/time content, found by this session's visual-audit tool
+  # (packages/visual-audit, Story 0.43).
+  1-i1n-fix-eventcarddatebox-overflow-on-word-time-content: done
+  # added 2026-09-27 via bmad-create-story: BUG-044, EventCard/WeeklyCalendarView's
+  # entire labels surface (till, 8-state status badge, favorite toggle, nearby badge)
+  # never wired to next-intl -- shows hardcoded English even on /id. Gates 1/3: no gap,
+  # reasoned fresh (epic-1-i1-readiness.md's sweep explicitly assumed no new i18n
+  # strings, which this story contradicts; next-intl itself is already established,
+  # so this is the Gate 3 "adding strings to an existing system" excluded case, not a
+  # foundational gap). Gate 2: no split (pure label-content wiring into already-shipped
+  # `labels` props, no new component/hook). Full record in epics.md/this story's own
+  # Dev Notes.
+  1-i1o-wire-eventcard-and-weeklycalendarview-labels-to-nextintl: done
   1-i1z-ratchet-no-card-surface-sizes-or-falls-back-locally: review
   epic-1: in-progress
   1-1-create-initial-database-tables: done
@@ -604,10 +698,24 @@ development_status:
   # status. No code change follows from this; left `done` since the story
   # itself was never reverted, only superseded.
   1-3i-wire-the-list-masonry-view-mode-toggle-into-apps-web: done
+  # epics.md section added 2026-09-15 via bmad-correct-course (CC-020,
+  # sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md),
+  # which deferred sprint-status.yaml registration to a later bmad-create-story
+  # session. Registered here 2026-09-19. Batches BUG-030/FIND-027/BUG-034/
+  # FIND-028 (AD-17 Story sequence item A) -- extends buildOptimizedDrizzleSelect
+  # with virtualFields, batches schedules/isFavorited/favoriteCount/
+  # isAddedToCalendar, gates totalCount, adds staleTime. See epics.md Story 1.3j.
+  1-3j-batch-computed-event-fields-and-gate-totalcount-staletime: review
   # added 2026-09-17 via bmad-create-story (IDEA-003, resolved via bmad-ux +
   # bmad-architecture AD-19): day-of-week recurrence occurrence-expansion +
   # event_card_repeat_badge across all 3 card families. See epics.md Story 1.3k.
   1-3k-render-day-of-week-recurring-schedules-and-repeat-badge: ready-for-dev
+  # added 2026-09-19 via bmad-create-story (BUG-025). See epics.md Story 1.3l.
+  # Implemented + verified 2026-09-20 (cline): Tasks 1-6 complete. Feed/Favorites now
+  # wire useNearbyFilter/useAIFilter; buildFeedQueryCondition/buildFavoritesQueryCondition
+  # forward `nearby`. Tests green (domain 326/326, web 485/485), lint clean, web build OK
+  # (required rebuilding packages/domain dist -- its d.ts was stale for the new `nearby` field).
+  1-3l-wire-feed-and-favorites-to-real-auth-location-and-ai-filter-state: review
   # Reopened 2026-08-24 via bmad-create-story: added AC9/Task 7 -- root
   # container drops its max-w-7xl cap in favor of full width
   # (ux-rework-2026-08-24.md item #1, missed by the original bmad-correct-
@@ -657,6 +765,47 @@ development_status:
   # AccountLocationField fix) -- corrected before merge.
   1-6a-build-the-reusable-event-detail-view-component: done
   1-6b-build-the-context-aware-list-navigation-hook: done
+  # epics.md section added 2026-09-15 via bmad-correct-course (CC-020,
+  # sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md),
+  # which deferred sprint-status.yaml registration to a later bmad-create-story
+  # session. Registered here 2026-09-19 (same session that also registered
+  # this proposal's other half, Story 1-3j). Batches BUG-033 (Schedule.
+  # isAddedToCalendar N+1, reusing Story 1.3j's batched-schedules mechanism),
+  # BUG-035 (eventBySlug double-fetch, fixed via an AUTHENTICATED
+  # React.cache()+HydrationBoundary/dehydrate SSR seed -- resolved via
+  # AskUserQuestion in favor of correctness for logged-in visitors over the
+  # lower-risk anonymous-only alternative), and FIND-030 (gate the
+  # subscriptions query on sourceSocialMediaAccountProfile). Blocked on Story
+  # 1-3j (status: review as of 2026-09-20 -- implemented, full backend suite passes,
+  # so 1.6c's block on it is cleared) -- see the story file's own
+  # Pre-Coding Approval Gate. See epics.md Story 1.6c.
+  1-6c-batch-isaddedtocalendar-dedupe-eventbyslug-fetch-and-gate-subscriptions-query: ready-for-dev
+  # epics.md section added 2026-09-15 via bmad-correct-course (CC-021,
+  # sprint-change-proposal-2026-09-15-reusable-location-link.md), which
+  # deferred sprint-status.yaml registration to a later bmad-create-story
+  # session. Registered here 2026-09-19. Builds a reusable LocationLink
+  # component (packages/ui/src/core/LocationLink.tsx) reusing the existing
+  # isLocationTrustworthy predicate (packages/domain/src/geolocation, Story
+  # 0.i7a-0.i7c) for a confidence-gated map-link icon. epic-1-readiness.md
+  # predates this story (same as Stories 1.6c/1.6f) so it was not cited --
+  # ran Gates 1/2/3 fresh via subagent dispatch, all three "no gap found."
+  # No prerequisite story added. Depended on by Story 1.6e (event-detail
+  # schedule adoption) and Story 0.i6e (SubscribedAccountCard adoption),
+  # both out of this story's own scope. See epics.md Story 1.6d.
+  1-6d-build-the-reusable-locationlink-component: ready-for-dev
+  # epics.md section added 2026-09-15 via bmad-correct-course (CC-021, same
+  # proposal as 1-6d). sprint-status.yaml registration deferred to this
+  # bmad-create-story session (2026-09-19). Amends EventDetailView.tsx's
+  # schedule item: removes text-lg from the title, replaces the decorative
+  # CalendarDays icon with a functional per-schedule CalendarPlus
+  # add-to-calendar action (existing onAddToCalendar prop), and swaps the
+  # manual mapUrl link for LocationLink (Story 1.6d -- not yet implemented
+  # in code, confirmed via git log; this story's Pre-Coding Approval Gate
+  # requires 1.6d to ship first). epic-1-readiness.md predates this story
+  # (same as 1.6c/1.6d/1.6f) so it was not cited -- ran Gates 1/2/3 fresh via
+  # subagent dispatch, all three "no gap found." No prerequisite story
+  # added. See epics.md Story 1.6e.
+  1-6e-event-detail-schedule-refinements-smaller-name-bigger-add-to-calendar-action-location-link: ready-for-dev
   # reopened 2026-08-15 via bmad-create-story per sprint-change-proposal-2026-08-13-
   # discovery-detail-calendar-ux.md Section 4.2: added AC13 (Carousel-chrome
   # navigation) and AC14 (icon-only modal close). Verified via git show that AC14
@@ -1623,6 +1772,17 @@ development_status:
   # RPM/RPD *and* TPM bound, so batching is the quota-efficient choice.
   # Depends on Story 3.6, Story 3.3e. Coordinate merge order with in-flight
   # 3-6i/3-6j/3-6k (same build-gemini-request.ts prompt file).
+  3-6m-add-hasfaceimage-faceimagecount-self-reported-fields-to-gemini-extraction-schema: backlog
+  3-6n-detect-and-blur-faces-in-extracted-post-images-generating-a-consent-independent-durable-thumbnail: backlog
+  3-6o-skip-face-blur-processing-for-events-ending-before-their-source-image-expires: backlog
+  3-6p-create-extraction-audit-logs-table-and-write-path-for-gemini-self-reported-extraction-signals: backlog
+  # added 2026-09-30 via bmad-correct-course (sprint-change-proposal-2026-09-30.md):
+  # triggering issue -- exploratory bmad-help conversation on face-blurred post
+  # thumbnails for bystander privacy, converged into Architecture Spine AD-28
+  # (face-api.js detection, consent-independent durableThumbnailUrl, expiry-gated)
+  # and AD-29 (extraction_audit_logs, ground-truth-where-available). Depends on
+  # Story 3.6l for the audit-table retrofit; coordinate merge order with any other
+  # in-flight build-gemini-request.ts changes.
   # added 2026-08-10 via bmad-create-story Gate 2 finding (Freya persona, run fresh
   # since epic-3-readiness.md only swept Gate 1/3) while drafting Story 3.7: Feed's
   # planned calendar view would be a third near-byte-for-byte duplicate of
@@ -1789,6 +1949,16 @@ development_status:
   # story's creation in the same session. See 3-12-consolidate-account-
   # settings-into-a-tabbed-shell.md.
   3-12-consolidate-account-settings-into-a-tabbed-shell: review
+  # added 2026-09-18 via bmad-correct-course (FIND-022 spec, CAP-1..6/8). 3-15 is
+  # blocked pending a bmad-architecture pass on the post_account_associations
+  # table's uniqueness-constraint DDL -- see epics.md Story 3.15's Architecture note.
+  3-13-normalize-apify-vendor-coauthor-publisher-roles-during-ingestion: backlog
+  3-14-deduplicated-provenance-tracked-subscribable-profiles: backlog
+  3-15-post-account-association-table-lossless-migration: blocked
+  3-16-immediate-coauthor-publisher-subscribability: backlog
+  3-17-demand-gated-discovery-for-scrape-discovered-profiles: backlog
+  3-18-union-of-associations-account-filtering: backlog
+  3-19-sanitized-subscription-toggle-analytics: backlog
   epic-3-retrospective: optional
   epic-4: in-progress
   # regenerated 2026-08-11 via bmad-create-story: full context engine pass. Gate 1/3
@@ -2148,6 +2318,12 @@ development_status:
   # DONE 2026-08-24: AC6 merged (Wave 2, story/wave2-page-grid-adoption).
   5-3-display-and-enforce-api-quota: done
   5-4-inactive-account-warning: review
+  # Added 2026-09-19 via bmad-create-story from backlog IDEA-010 (promoted,
+  # epic-formation 2026-09-11 pass). Fixes Subscription.isInactive returning
+  # true for never-scraped/scrape-in-progress accounts, adds two new tab
+  # badges. Gate 1/2/3 run fresh (Story 5.6 postdates the epic-5 sweep): no
+  # gap, builds inline. See epics.md Story 5.4a.
+  5-4a-distinguish-inactive-in-progress-and-never-scraped-states: ready-for-dev
   # Reopened 2026-08-24 via bmad-correct-course: wizard steps extended with a
   # push-notification opt-in step (reusing Story 2.9's toggle), exitPath changed
   # to /feed. See sprint-change-proposal-2026-08-24-ux-rework-batch.md Section 4.6.

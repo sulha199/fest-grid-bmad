@@ -2,7 +2,7 @@
 title: "Architecture Spine: FestDaily"
 status: "draft"
 created: "2026-07-20T09:34:00Z"
-updated: "2026-09-17T00:00:00Z"
+updated: "2026-09-22T00:00:00Z"
 ---
 
 # Architecture Spine: FestDaily
@@ -414,27 +414,55 @@ This document defines the core architectural invariants for the FestDaily applic
         footprint fixed by its layout — masonry `flex-fill` matches a sibling date box's own height via the
         row's `items-stretch` (`flex-1 h-full min-w-0`); calendar-compact is a fixed `w-16 h-16 shrink-0` —
         so nothing shifts when the image loads or fails.
+
+        **Narrowed to masonry only, 2026-09-21 (Story 1.i1m).** This rule now binds `EventCard.tsx`'s
+        masonry `prominentPoster=false` branch alone. The calendar-compact row is no longer bound by it —
+        the row's own image element is omitted from the DOM entirely on absence/error (`collapseOnFallback`
+        on `EventCardMediaSlot`), a deliberate, user-directed 2026-09-14 reversal of the row's own prior
+        convention, distinct from masonry's, which is unchanged. See Rule 2's own amendment note below and
+        Story 1.i1m's Dev Notes for the full record.
         - **Enforced by:** `packages/ui/src/features/events/EventCardMediaPrimitives.test.tsx` AC1
           (`flex-fill`/`fixed-square` className-shape assertions) — the primitive's own shape half of the
           proof (Story 1.i1a; ratchet = Story 1.i1z) — plus the two adopting consumers' own tests:
           `EventCard.test.tsx`'s `renders a blank, flex-fill fallback on masonry default (prominentPoster=false, top_row_default)`
-          and `WeeklyCalendarView.test.tsx`'s `renders the thumbnail image and its favorite badge when imageUrl is present (AC1)`.
+          and `WeeklyCalendarView.test.tsx`'s `renders the thumbnail image and its favorite badge when imageUrl is present (AC1)`
+          (the with-image case, unchanged by Story 1.i1m).
     2.  **Fallback is reserved-blank, not a placeholder.** A missing/errored image renders zero content in
         the reserved slot — no icon, no filler, no "No image available" text — keeping the exact AC1
         footprint. Only the large favorite badge (rule 3) renders, centered in the slot's place.
+
+        **Narrowed to masonry only, 2026-09-21 (Story 1.i1m).** Masonry's own reserved-space convention
+        (`event_card_masonry.thumbnail_default_fallback`) is unchanged. The calendar-compact row no longer
+        follows this rule at all: per DESIGN.md `event_card_compact_thumbnail_fallback` ("no area for image
+        at all"), the row omits the media-slot element from the DOM entirely when the image is absent or
+        errored, rather than rendering it reserved-but-blank — a real, user-directed reversal of the row's
+        own prior behavior, not a bug. `EventCardMediaSlot`'s new `collapseOnFallback` prop (default `false`,
+        preserving this rule unchanged for every existing consumer) is what the row opts into; masonry's two
+        call sites omit it and keep exactly the reserved-blank behavior this rule still describes for them.
         - **Enforced by:** the same test file's AC3 suite (blank-reserved assertions + `onError` switch),
-          plus the two consumers' reserved-blank tests: `EventCard.test.tsx`'s
+          plus masonry's own reserved-blank tests: `EventCard.test.tsx`'s
           `renders a blank, flex-fill fallback on masonry default (prominentPoster=false, top_row_default)` and
-          `renders a blank, correctly-sized fallback on masonry with prominentPoster=true`, and
-          `WeeklyCalendarView.test.tsx`'s `renders the reserved-blank fallback with a large centered favorite badge when imageUrl is absent (AC2)`
-          and `switches to the reserved-blank fallback when the image onError fires (AC2)`.
+          `renders a blank, correctly-sized fallback on masonry with prominentPoster=true`. The calendar-row
+          counterpart tests this rule used to cite — `WeeklyCalendarView.test.tsx`'s
+          `renders the reserved-blank fallback with a large centered favorite badge when imageUrl is absent (AC2)`
+          and `switches to the reserved-blank fallback when the image onError fires (AC2)` — were **inverted**
+          by Story 1.i1m into ratchets for the row's own (opposite) behavior; they no longer enforce this rule
+          and are cited instead under Story 1.i1m's own Dev Notes.
     3.  **One shared icon-scale token family, CSS-custom-property driven.** Both badge scales derive their
-        icon size from a single exported ratio family keyed off the date box's `text-xs` (12px) via
-        `calc(var(--event-card-badge-font-size,0.75rem) * <ratio>)` — the mechanism that works because the
-        date box and badge are DOM *siblings* (plain `em` inheritance only flows down a subtree). `large`
-        is calibrated to DESIGN.md's explicit 24px target (ratio 2); `default` is a distinct smaller ratio
-        (5/3 → 20px, matching EventCard's current corner heart so 1.i1b reads as a proportion fix). No
-        consumer computes pixels; nothing hardcodes a fixed pixel `w-*`/`h-*` class on either variant.
+        icon size from a single exported ratio family via `calc(var(--event-card-badge-font-size,0.75rem) *
+        <ratio>)` — the mechanism that works because the date box and badge are DOM *siblings* (plain `em`
+        inheritance only flows down a subtree). `large` is calibrated to DESIGN.md's explicit 24px target
+        (ratio 2); `default` is a distinct smaller ratio (5/3 → 20px, matching EventCard's current corner
+        heart so 1.i1b reads as a proportion fix). No consumer computes pixels; nothing hardcodes a fixed
+        pixel `w-*`/`h-*` class on either variant. **Recalibrated by Story 1.i1k:** the token is now
+        size-keyed (`EVENT_CARD_BADGE_FONT_SIZE_BY_SIZE`, `EventCardDateBoxSize = 'default' | 'compact'`) —
+        `default` → `1.125rem` (masonry's own `month`-line size), `compact` → `0.875rem` (the compact row's
+        own `month`-line size) — since `EventCardDateBox` moved from a single-line `text-xs` box to
+        DESIGN.md's two-tier stacked month/day chrome and no longer has one flat font-size to key off. The
+        flat `EVENT_CARD_BADGE_FONT_SIZE` (`0.75rem`) constant is unchanged and keeps its distinct,
+        narrower role as `eventCardBadgeIconSizeStyle`'s own inline `calc()` fallback for the untouched
+        standalone/`prominentPoster=true` corner-badge path, which renders outside any slot/date-box root
+        and never had a `size` variant.
         - **Enforced by:** the same test file's AC2 suite (ratio values + distinct computed sizes).
     4.  **The favorite badge is always one live control, at a real tap target.** Both scales render as a
         single focusable favorite-toggle `<button>` sharing one accessible name/role — never a decorative
@@ -679,6 +707,15 @@ This document defines the core architectural invariants for the FestDaily applic
     new and meaningfully more complex code shape with no precedent anywhere in this codebase,
     for a benefit (one fewer query) that doesn't move the needle relative to eliminating the
     O(N) per-row resolver calls, which Rule 2's simpler `IN (...)` query already fully achieves.
+*   **Status (2026-09-20):** **Story sequence item A has shipped** (Story **1.3j**,
+    `batch-computed-event-fields-and-gate-totalcount-staletime`, status `review`). The `events`
+    resolver now passes `isFavorited`/`favoriteCount`/`isAddedToCalendar` as
+    `virtualFields` into its items select (gated on `info`), batch-resolves `schedules` as one
+    `IN (...)` query, gates the `totalCount` count query on selection, the four `Event` field
+    resolvers became passthrough-with-fallback, the `idx_favorites_event_id` partial index
+    shipped (migration `0060_square_pretty_boy.sql`, hand-edited per AD-8 rule 3), and the three
+    `getEvents` hooks gained `staleTime: 30_000`. Story B (Story **1.6c**) reuses this landed
+    `virtualFields`/batched-schedules mechanism verbatim rather than reimplementing it.
 
 ---
 ### AD-18: Filter Apply-Timing Convention
@@ -1014,7 +1051,11 @@ This document defines the core architectural invariants for the FestDaily applic
           `format-event-date.test.ts`'s `isHappeningNow` branch assertions (Story 1.i1i).
     2.  **`<8km` is the one sanctioned nearby-badge gate.** `EventCardNearbyBadge` self-gates,
         returning `null` unless `distanceKm != null && distanceKm < 8` — callers no longer
-        precompute a `showNearbyBadge` boolean locally.
+        precompute a `showNearbyBadge` boolean locally. The threshold is the primitive's own
+        default, not a value each consumer re-derives; the only sanctioned override is a
+        forwarded caller-level value (`EventCardNearbyBadge`'s `thresholdKm`, defaulting to `8`,
+        fed by `EventCardProps.nearbyBadgeThreshold` — Story 1.i1f already shipped that prop and
+        its tests), which still leaves the comparison itself owned by the primitive.
         - **Enforced by:** `EventCardMediaPrimitives.test.tsx`'s boundary assertions
           (`distanceKm=7.99` renders, `8` and above omit, `null`/`undefined` omit) and
           `EventCard.test.tsx`'s rewritten masonry boundary test (Story 1.i1i).
@@ -1031,6 +1072,323 @@ This document defines the core architectural invariants for the FestDaily applic
         Floor (that floor's focus/aria requirements are reserved for the future repeat badge only).
         - **Enforced by:** `EventCardMediaPrimitives.test.tsx`'s a11y assertions (no `aria-label`,
           no independent tab stop) for both components (Story 1.i1i).
+
+---
+
+### AD-25: Post-Account Association Table Shape
+
+*   **Binds:** The new `post_account_associations` table (`packages/database/schema.ts`) and its
+    two writers/readers — Story 3.15's CAP-3 ingestion write path (`persistScrapedPost` and its
+    lossless migration over existing `posts` rows) and Story 3.18's CAP-6 union-of-associations
+    feed filter (`Query.events`/`getEvents`). Resolves SPEC-post-coauthor-attribution's own Open
+    Questions item, which explicitly deferred the table's uniqueness DDL to architecture/epic
+    decomposition.
+*   **Prevents:**
+    1.  A `UNIQUE(post_id, account_id)` constraint — the naive dedupe-by-pair shape — which would
+        make it structurally impossible for one account to hold both a `PUBLISHER` and a
+        `SCRAPING_SOURCE` row on the same post, even though the spec explicitly requires that case
+        ("may equal the publisher").
+    2.  Two different accounts both being written as `PUBLISHER` (or both as `SCRAPING_SOURCE`) on
+        one post — a defect a bare 3-column unique constraint is silent on, since it keys on
+        `account_id` too and so allows unlimited distinct-account rows per role.
+    3.  A second, independently-drifting representation of scrape provenance (`vendor` + `runId`)
+        growing up alongside the `scraperActorRunId` FK `posts` already uses for the same fact.
+    4.  Story 3.18's filter join reopening the exact per-row-cost defect AD-17 already fixed
+        elsewhere (BUG-030/BUG-034's sequential-scan class) by shipping against a table with no
+        index serving the join's actual predicate column.
+*   **Rule:**
+    1.  **Base idempotency constraint:** `UNIQUE(post_id, account_id, role)` — one row per
+        (post, account, role) triple. This is what makes CAP-3's re-ingestion idempotency (the
+        spec's own Constraints section, and epics.md's Story 3.15 AC) hold: re-processing a post
+        can never append a duplicate role row, and the same account legitimately gets two rows
+        (`PUBLISHER` + `SCRAPING_SOURCE`) when it holds both roles on one post.
+    2.  **Per-post cardinality, two partial unique indexes** — the base constraint alone doesn't
+        cover this, since it keys on `account_id` too:
+        - `UNIQUE(post_id) WHERE role IN ('PUBLISHER', 'PUBLISHER_UNKNOWN')` — exactly one
+          publisher-or-unknown row per post.
+        - `UNIQUE(post_id) WHERE role = 'SCRAPING_SOURCE'` — exactly one scraping-source row per
+          post.
+        Direct precedent already in this schema: `schedules.oneMainPerEventIdx`
+        (`idx_schedules_one_main_per_event`, `UNIQUE(event_id) WHERE is_main_schedule = true`) is
+        the identical "exactly one X per parent" shape. The same build-time gotcha applies and must
+        carry into the migration: drizzle-kit 0.21.4's `index()`/`uniqueIndex()` builder drops the
+        `WHERE` predicate from generated migration SQL (same gap as that schedules precedent and
+        AD-8 rule 3's `idx_favorites_active`) — the builder call documents intent for
+        drizzle-orm's runtime/type layer only; the actual partial-unique DDL must be hand-added to
+        the generated migration file, not trusted to `drizzle-kit generate`.
+    3.  **Provenance is a nullable FK, not a denormalized copy:** `scraperActorRunId: uuid
+        references scraper_actor_runs.id` — the same column/pattern `posts.scraperActorRunId`
+        already uses, including reusing `persistScrapedPost`'s existing graceful FK-violation
+        fallback (insert with `scraperActorRunId: null` on a `23503`) for the association insert.
+        `vendor`/`runId` are read via one join to `scraper_actor_runs` (itself unique on
+        `vendor, runId`) rather than duplicated inline — one source of truth for "which scrape run
+        produced this."
+    4.  **CAP-6 filter index:** `INDEX(account_id, post_id)`, leading column `account_id` — matches
+        the filter's actual predicate (`WHERE account_id = ANY(subscribedAccountIds)` /
+        an `IN`-join), satisfying AD-17's per-row-cost discipline for Story 3.18's join. No
+        standalone `post_id`-only index is added: the base unique constraint's own index already
+        leads on `post_id` and serves "all associations for a post" (moderation/analytics) lookups.
+    5.  **No soft-delete.** The table is exempt from AD-8, on the same grounds AD-8 already exempts
+        `posts` itself and the append-only-log tables (`scraperBatchRuns`,
+        `scraperProviderHealth`): rows are only ever inserted, idempotently, via Rules 1–2 above —
+        never updated or deleted after the fact.
+    6.  **Cascade convention:** `postId` FK is `onDelete: 'cascade'` (matches
+        `schedules`/`favorites`/`calendarAdditions` → `events`'s convention for child rows with no
+        independent meaning without their parent). `accountId` FK carries no `onDelete` override,
+        mirroring `posts.accountId`/`subscriptions.accountId` exactly — `socialMediaAccountProfiles`
+        rows are never deleted in this codebase, so no cascade path is needed.
+
+---
+
+### AD-26: Visual-Fidelity Audit Tool — Reference + Rule-Based, Isolated-Render-First
+
+*   **Binds:** A new workspace package, `packages/visual-audit`, and any future story whose
+    acceptance criteria depend on matching a design-reference prototype (the 7
+    `design-artifacts/UX-festgrid-run-1/prototypes/**/*.html` + `imports/**/*.png` pairs today,
+    and any added later) or a described-but-unprototyped visual invariant (e.g. AD-27's masonry
+    column behavior, which has no HTML/PNG reference at all). Triggered by this session's own
+    visual-fidelity audit of the event-card/calendar family, which had to improvise its method ad
+    hoc (isolated Playwright screenshots + manual `getBoundingClientRect` measurement) for lack of
+    reusable tooling, and which found a real production bug (`EventCardDateBox`'s day slot
+    overflowing on word/time content, e.g. "Tomorrow") that no existing test caught because no
+    prototype ever depicted that content variant.
+*   **Prevents:**
+    1.  **Ad-hoc, session-specific verification methods** that aren't reusable and leave no
+        artifact behind — the exact gap this session hit.
+    2.  **Content-variant blind spots.** A prototype/PNG is one frozen snapshot; a component's real
+        content space (e.g. a formatted date that can render as a number, "Today", "Tomorrow", or
+        a time string) is usually larger than what any one screenshot shows. A check that only
+        compares against the one depicted state can pass while a real, undepicted state overflows
+        in production.
+    3.  **False confidence from either signal alone.** Pixel-diff alone is noisy (font
+        rendering/anti-aliasing) and can't explain *why* two renders differ; computed-style
+        assertions alone can miss whatever no one thought to assert. Neither is sufficient by
+        itself.
+    4.  **A tool that only works when a golden HTML/PNG reference exists** — several real defects
+        (e.g. AD-27's masonry grid behavior) are only ever specified in prose, never prototyped.
+*   **Rule:**
+    1.  **Two audit modes, one check engine.** *Reference-based*: live render is compared against
+        a validated prototype HTML/PNG pair. *Rule-based*: an invariant with no golden reference
+        (e.g. "masonry columns share one width; cards within a column vary height independently")
+        is hand-encoded directly as an expected structural value. Both modes resolve to the same
+        underlying computed-style/DOM assertions — the only difference is where the expected value
+        comes from.
+    1a. **Render scope is per-manifest-entry, not fixed to "one instance."** Most entries mount a
+        single component instance (isolated-render, Rule 4) — that's what Rule 5's sibling-dimension
+        auto-clustering groups elements *within*. A manifest entry may instead declare a
+        **multi-instance** render (e.g. AD-27's masonry check mounts several cards to assert
+        cross-card column behavior) when the invariant is inherently about more than one instance.
+        Rule 5's auto-clustering then groups across whatever the manifest actually rendered — never
+        silently assumed to be single- or multi-instance by the engine itself.
+    2.  **Compare mechanism is a hybrid, computed-style first.** Primary signal: DOM introspection
+        — bounding rects and computed CSS properties compared against resolved DESIGN.md/Tailwind
+        token values (precise, explainable). Secondary/confirmatory signal: pixel screenshot diff
+        against the source PNG, for whatever the assertions don't yet cover.
+    3.  **A manifest declares what's checked, not inline per-story code.** Each covered
+        component/variant/viewport gets one manifest entry (e.g.
+        `packages/visual-audit/manifests/event-card-masonry.ts`) naming its prototype/PNG pair (if
+        reference-based), its fixture props, and its rule set. A story's AC cites the manifest
+        entry by name; `bmad-dev-story` runs it like any other test, and the story isn't `done`
+        until it passes. This keeps a running, queryable catalog of what actually has a visual AC
+        versus what doesn't (today: 7 reference-based pairs, `IDEA-046`/`IDEA-048`'s remaining
+        gaps, and AD-27's rule-based masonry check).
+    4.  **Isolated-component-render is the default mode.** The manifest mounts the component
+        directly with fixture props — no live server, no DB, no auth. Live-route mode is a
+        documented fallback only for defects that are genuinely route/data-dependent. Directly
+        motivated by this session's own audit stalling against `my-calendar` (auth-gated) and
+        missing near-term/multi-day/durable-image seed data in `packages/database/seed.ts` — a
+        tool that always needs a live route+DB inherits that same fragility.
+    5.  **Four checkable rule classes, each with its own tolerance shape:**
+        - **Cross-render fidelity** (reference-based only): live vs. prototype computed-style and
+          pixel diff, at the manifest's declared viewport(s).
+        - **Sibling-dimension consistency**: elements are auto-clustered into rows/columns by
+          bounding-box coordinate overlap, scoped to whatever the manifest entry actually rendered
+          (Rule 1a) — a single card instance for most entries, or multiple instances when the
+          invariant is inherently cross-instance (e.g. AD-27's masonry columns). Clustered siblings
+          expected to share a dimension are checked at a **near-zero absolute tolerance, default
+          ≤2px** (they're supposed to be identical, not merely similar).
+        - **Intra-box ratio consistency**: named element pairs (e.g. month-text:day-text size)
+          checked against an expected ratio — sourced from an explicit DESIGN.md token when the
+          relationship is a deliberate design rule, otherwise derived once from the validated
+          prototype's own rendered ratio — at a **relative tolerance, default ±8–10%** (proportional
+          by nature, unlike sibling-dimension equality). Both tolerances are overridable per rule
+          in the manifest, not hardcoded in the engine.
+        - **Overflow/clipping, including *potential* overflow for undepicted content.** The
+          content-variant catalog for a text/content slot is derived via **static analysis of its
+          formatting function's branches** (e.g. `format-event-date.ts`'s `dayDiff` branches for
+          `EventCardDateBox`'s day slot), not hand-authored fixtures. Each enumerated variant is
+          rendered and checked for `scrollWidth > clientWidth` / a bounding rect exceeding its
+          ancestor's. Accepted gap: this enumerates branch *shapes*, not arbitrary translated
+          *string content* — i18n string-length variance is a known blind spot this rule accepts,
+          not one it solves.
+        - **Enforced by:** `packages/visual-audit/manifests/event-card-date-box-overflow.ts`
+          (`event-card-date-box:overflow-word-time-content:175x160`) — the real
+          `EventCardDateBox` day slot checked against every `formatShortEventDateTimeParts`
+          branch, including the `content-variants.ts` ternary-enumeration fix (Story 1.i1n AC6)
+          that makes the `hasTime` time-string sub-variant enumerable at all.
+    6.  **Color fidelity**: resolve the expected color from its DESIGN.md/Tailwind token (exact
+        computed-value match, e.g. `bg-slate-800`'s resolved RGB/OKLCH) as the primary check;
+        perceptual pixel diff against the source PNG is the fallback for anything not yet
+        tokenized.
+
+### AD-27: Masonry Grid — JS Shortest-Column Placement, Not CSS Grid
+
+*   **Binds:** `GridContainer`'s (`packages/ui/src/core/grid-container.tsx`) `variant="masonry"`
+    consumer path (`EventListView.tsx`'s Discovery/masonry surface). Surfaced while scoping AD-26:
+    the component is named "masonry" but is implemented as plain CSS Grid (`grid-cols-N`, default
+    `grid-auto-rows`) — a layout with no prototype/PNG reference of its own (only ever described in
+    prose/expectation, exactly the gap AD-26's rule-based audit mode exists to check).
+*   **Prevents:**
+    1.  **CSS Grid's row-locking behavior masquerading as masonry.** In CSS Grid, every row's
+        height is set by its tallest cell across *all* columns — a short card in column 1 can never
+        let column 2 flow independently past it. This is a card-*grid*, not Pinterest-style
+        masonry, regardless of the prop's name.
+    2.  **Adopting native CSS masonry before it's viable.** Web-verified 2026-09-22: CSS Grid Lanes
+        (`grid-template-rows: masonry`) ships only in Safari 26; Chrome/Firefox remain behind
+        experimental flags with non-interoperable edge-case behavior
+        ([caniuse](https://caniuse.com/mdn-css_properties_grid-template-rows_masonry),
+        [stefanjudis.com](https://www.stefanjudis.com/blog/how-to-use-and-feature-detect-css-grid-masonry-layout/)).
+        Not production-viable; do not bind to it.
+    3.  **A silent reading-order regression.** CSS multi-column (`columns-N`) achieves independent
+        column flow in pure CSS, but reorders content column-major (top-to-bottom, then wraps to
+        the next column) instead of today's row-major left-to-right — a real, user-visible behavior
+        change that must not be adopted as a shortcut.
+*   **Rule:**
+    1.  **JS shortest-column placement** (the standard Pinterest/`react-masonry-css` algorithm):
+        measure each card's rendered height, then place each next item into whichever column is
+        currently shortest. Achieves true independent per-column height while keeping the visual
+        placement order close to today's left-to-right reading order (unlike CSS multi-column).
+    2.  **Client-side measurement implies a hydration/layout-shift strategy** — the initial
+        server-rendered pass has no measured heights yet. Deferred to the implementing story: pick
+        an explicit strategy (e.g. an estimated-height first pass reflowed post-hydration, or a
+        skeleton state held until measurement completes) rather than leaving it implicit.
+    3.  **Verified by AD-26's rule-based audit mode**, not a bespoke one-off test: the manifest
+        entry for `GridContainer`'s masonry variant encodes "columns share one width; cards within
+        a column vary height independently; placement order approximates left-to-right" as its
+        rule set.
+*   **Deferred:** the specific library-vs-hand-rolled-hook choice for the shortest-column algorithm
+    itself, and the exact hydration/layout-shift strategy (Rule 2) — left to the implementing
+    story's own research, not decided here.
+
+---
+
+### AD-28: Face-Blurred Thumbnails — Consent-Independent, Expiry-Gated
+
+*   **Binds:** New `posts.durableThumbnailUrl` column (distinct from and independent of AD-12's
+    `posts.durableImageUrl`); `geminiExtractionResponseSchema` (build-gemini-request.ts) and
+    `extractedEventSchema` (extracted-event.schema.ts) — gain `hasFaceImage`/`faceImageCount`,
+    same pattern Story 3.6l used for `minScheduleCount`; the AI Processor Lambda's
+    post-extraction step (new face-api.js detection + sharp blur/resize stage);
+    `event_card_masonry`'s `prominentPoster` trigger (EVENT-CARD-DESIGN.md).
+*   **Prevents:** AWS Rekognition as the detector (per-image fee, rejected for zero marginal AWS
+    cost); merging multiple thumbnails into one batched Rekognition call (buffering layer foreign
+    to the per-post SQS pipeline, risks silently dropping faces past Rekognition's per-call cap);
+    gating this feature on `isImageStorageOptedIn` (Rule 6); running detection/blur/storage for
+    events that will never need the durable copy (Rule 2); conflating `durableThumbnailUrl` with
+    `durableImageUrl` — they are separate fields with separate consent rules and must never merge
+    into one gate or one column.
+*   **Rule:**
+    1.  **Pre-filter:** the Gemini extraction schema gains `hasFaceImage: boolean` and
+        `faceImageCount: number`. Near-zero marginal cost — rides the extraction call that
+        already fetches the image bytes. Used to skip face-detection when `hasFaceImage === false`,
+        and captured into `extraction_audit_logs` (AD-29) for evaluation — never written to
+        `posts`/`EventInfo`, never GraphQL-exposed. `faceImageCount` is advisory/logging-only —
+        general vision-language models are unreliable at precise counting in dense scenes and this
+        is never trusted for a hard cutoff.
+    2.  **Relevance gate:** before running detection, compare the event's latest schedule end
+        (max of `schedules[].eventEndDate`/`eventEndTime` across all extracted schedules, from
+        this same Gemini response) against `posts.imageUrlExpiresAt` (AD-12 Rule 3, already
+        parsed and stored at scrape time). If the event ends at or before the original image URL
+        itself expires, skip detection, blur, thumbnail generation, and storage entirely — the
+        hotlinked original stays valid for the event's entire relevant display window. Distinct
+        from `Event.isExpiredForCurrentUser`/`computePastEventThreshold` (a runtime, grace-period
+        visibility check) — this is a one-time build-time relevance check.
+    3.  **Detection:** for images passing both gates, run `@vladmandic/face-api` (TensorFlow.js,
+        pure npm, no native binaries) with the SSD MobileNetV1 detector — chosen over the Tiny
+        Face Detector for better small/angled-face accuracy — directly against the image's
+        *original* fetched bytes, never a pre-resized copy. The detector's own `inputSize`
+        parameter (default 512) already downsamples internally for its forward pass and returns
+        boxes in the coordinate space of whatever image it was given; pre-resizing ourselves would
+        only risk shrinking small/distant faces below a recoverable resolution and would force an
+        extra coordinate-remapping step before Rule 4's blur, for no compute or accuracy benefit.
+        Runs in the same AI Processor Lambda that already holds the fetched image bytes — no
+        second fetch.
+    4.  **Processing order (correctness-critical):** detect faces and apply the Gaussian blur at
+        the image's *original* fetched resolution/coordinates first; only *then* resize/crop to
+        the final thumbnail. Cropping before blurring risks a face partially outside the eventual
+        square being detected against the wrong coordinate space.
+    5.  **Thumbnail spec:** `sharp.resize(480, 480, { fit: 'cover', withoutEnlargement: true })`,
+        JPEG quality 80, square-cropped. Sized for 2x-retina sharpness through phones, tablets,
+        and common laptops (~1366-1440px); deliberate, accepted softness on desktop/ultrawide
+        viewports (masonry's `image_prominent` slot can render up to ~400-550px CSS-wide there),
+        on the reasoning that desktop viewing distance is typically greater, making that softness
+        acceptable — and this is a privacy-motivated blurred thumbnail, not a pixel-fidelity
+        showcase. Well under typical Instagram source resolution (commonly 1080px), so this is a
+        real bandwidth/storage reduction, not an upscale.
+    6.  **Consent-independent by design:** `durableThumbnailUrl` is populated **regardless of
+        `isImageStorageOptedIn`** — a deliberate, explicit divergence from AD-12 Rule 7's consent
+        gate, not an oversight. Rule 7 exists to prevent an unconsented *persistent copy* of a
+        scraped account's original content, for copyright/ToS-exposure reasons; this AD persists
+        a blurred derivative for an independent reason (bystander privacy), and Rule 2 above
+        narrows the resulting footprint by skipping storage for short-lived events.
+        `durableImageUrl` (AD-12) keeps its exact existing meaning and behavior — full
+        resolution, unblurred, opted-in-only — completely untouched by this AD.
+    7.  **`prominentPoster` trigger widens:** from `durableImageUrl != null` to
+        `durableImageUrl != null || durableThumbnailUrl != null` — non-opted-in accounts now
+        also qualify for the prominent square card treatment, using the blurred thumbnail.
+        Render preference when both exist: `durableImageUrl` (opted-in, sharp) wins; otherwise
+        `durableThumbnailUrl` (blurred); otherwise today's default non-prominent state
+        (e.g. for an event Rule 2 skipped). This measurably dilutes PRD §3.16's framing of the
+        prominent card as a binary "felt incentive to opt in" — opt-in is now "sharp prominent"
+        vs. "blurred prominent," not "prominent" vs. "nothing." PRD wording updated accordingly
+        (Section 3.16).
+    8.  **Accepted accuracy trade-off:** face-api.js has materially lower recall than Rekognition
+        on small/angled/occluded/low-light faces — the profile of real event crowd photos — so
+        some faces may go unblurred. Chosen deliberately to avoid a per-image AWS fee.
+*   **Considered and rejected:** AWS Rekognition `DetectFaces` per-image (higher accuracy, ongoing
+    per-image fee); batching multiple thumbnails into one Rekognition call (foreign buffering
+    stage, risks a face silently escaping detection past the API's per-call face-count cap).
+
+---
+
+### AD-29: Extraction Quality Audit Log — Separate Table, Ground Truth Where Available
+
+*   **Binds:** New `extraction_audit_logs` table (`packages/database/schema.ts`);
+    `process-ai-job.ts`'s post-extraction step (writes one row per extraction attempt);
+    Story 3.6l's `minScheduleCount`/`expectedScheduleNames` (retrofit) and Story 3.6m's
+    `hasFaceImage`/`faceImageCount` (new).
+*   **Prevents:** Polluting `posts`/`events`'s business-facing schema with internal
+    model-self-report telemetry no product surface consumes; joining this table into any
+    hot-path resolver (`Query.events`/`Query.eventBySlug`, AD-17) — it is write-once/read-rarely,
+    for offline evaluation tooling only, never a GraphQL-exposed field; a self-reported value
+    being read as verified when its ground-truth counterpart is silently absent from the row.
+*   **Rule:**
+    1.  **New table, not new columns:** one row per extraction attempt (`postId` FK), holding
+        every Gemini self-reported extraction-quality signal — so this class of data has one
+        growing home instead of accumulating as ad hoc columns on `posts`/`events` each time a
+        new self-reported field is added.
+    2.  **Ground truth captured alongside self-report, wherever available:**
+        `actualScheduleCount` (the real persisted `schedules.length`) sits beside
+        `minScheduleCount`; `actualFaceDetectionCount` (face-api.js's real detected count) sits
+        beside `faceImageCount`. A self-reported value with no ground-truth counterpart in the
+        same row is only useful for manual spot review, not automated accuracy scoring.
+    3.  **Skips are recorded, not silently absent:** `faceDetectionSkippedReason`
+        (`'no_face_reported' | 'event_relevance_gate' | null`) records why
+        `actualFaceDetectionCount` is null, so a null is never misread as "detection ran and
+        found zero faces."
+    4.  **Known blind spot, recorded not hidden:** rows where `hasFaceImage = false` never get a
+        ground-truth comparison, since Story 3.6n's face-api.js pipeline never runs on them by
+        design (AD-28 Rule 1). This table cannot measure the pre-filter's false-negative rate on
+        its own — only its behavior when it already said yes. Closing that gap would need
+        periodically sampling `hasFaceImage = false` rows through face-api.js anyway, spending
+        some of the compute the pre-filter exists to save — left as an explicit future decision,
+        not built here.
+    5.  **Never joined into a hot path:** no resolver serving any client-facing field ever reads
+        this table. Offline/admin evaluation tooling only.
+*   **Considered and rejected:** adding these fields directly as columns on `posts`/`events` —
+    rejected once the audit requirement was raised, since no product surface consumes them and
+    there would be no natural home for the ground-truth comparison columns this table exists to
+    hold.
 
 ---
 

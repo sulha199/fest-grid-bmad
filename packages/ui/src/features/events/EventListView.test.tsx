@@ -179,10 +179,15 @@ describe('EventListView', () => {
         />
       );
 
-      const grid = container.querySelector('.grid');
+      // Story 0.45: EventListView's grid now uses GridContainer's layout="masonry" JS
+      // shortest-column engine (Architecture Spine AD-27), not plain CSS Grid classes — the same
+      // baseCols=2/colsStep=1 breakpoint table still applies, just via `useMasonryLayout`'s flex
+      // column tracks instead of `grid-cols-*` classes (AC1/AC3/AC6).
+      const grid = container.querySelector('[data-grid-container-layout="masonry"]');
       expect(grid).toBeInTheDocument();
-      expect(grid).toHaveClass('grid-cols-2');
-      expect(grid).toHaveClass('md:grid-cols-3');
+      expect(grid?.className).not.toContain('grid-cols');
+      const columns = container.querySelectorAll('[data-grid-container-column]');
+      expect(columns.length).toBeGreaterThan(0);
 
       const cardTitle = screen.getByText('Summer Fest');
       const cardContainer = cardTitle.closest('.p-3');
@@ -202,37 +207,12 @@ describe('EventListView', () => {
         />
       );
 
-      const grid = container.querySelector('.grid');
+      const grid = container.querySelector('[data-grid-container-layout="masonry"]');
       expect(grid).toBeInTheDocument();
-      expect(grid).toHaveClass('grid-cols-2');
-      expect(grid).toHaveClass('md:grid-cols-3');
+      expect(grid?.className).not.toContain('grid-cols');
 
       const skeletonImages = container.querySelectorAll('.aspect-\\[3\\/4\\]');
       expect(skeletonImages.length).toBe(6);
-      const standardImages = container.querySelectorAll('.h-48');
-      expect(standardImages.length).toBe(0);
-    });
-
-    it('allows overriding default masonry variant via getCardProps', () => {
-      render(
-        <EventListView
-          status="success"
-          events={[mockEvents[0]!]}
-          emptyState={<div>Empty</div>}
-          getCardProps={() => ({
-            variant: 'standard',
-          })}
-          sentinelRef={vi.fn()}
-          isFetchingNextPage={false}
-          loadingMoreLabel="Loading more..."
-        />
-      );
-
-      const cardTitle = screen.getByText('Summer Fest');
-      const cardContainer = cardTitle.closest('.p-4');
-      expect(cardContainer).toBeInTheDocument();
-      const masonryContainer = cardTitle.closest('.p-3');
-      expect(masonryContainer).not.toBeInTheDocument();
     });
   });
 
@@ -242,7 +222,15 @@ describe('EventListView', () => {
     });
 
     it('threads eventEndDate/eventEndTime from the main schedule into endDate/endTime (TILL badge appears once the event has started and an end is known)', () => {
-      // Fixed "now": well after the event's start, same UTC calendar day as its end.
+      // Fixed "now": well after the event's start, a full UTC calendar day before its end.
+      // The end date is deliberately a full day (not just hours) ahead of "now" in UTC —
+      // enough margin that the TILL badge's `endDayDiff > 0` gate reads true across the
+      // entire real-world IANA offset range (UTC-12..UTC+14), not just on whichever
+      // ambient timezone the test happens to run under. A same-UTC-day end (as this used
+      // to be) makes `endDayDiff` flip between 0 and >0 depending on the machine's local
+      // timezone, since `combineDateTime`'s end-of-day derivation reads local Date getters
+      // — it passed only on dev machines set to a timezone far enough east of UTC, and
+      // failed on standard (UTC) CI runners.
       vi.useFakeTimers();
       vi.setSystemTime(new Date('2026-01-01T14:00:00Z'));
 
@@ -254,7 +242,7 @@ describe('EventListView', () => {
           {
             isMainSchedule: true,
             eventStartDate: '2026-01-01T10:00:00Z',
-            eventEndDate: '2026-01-01T18:00:00Z',
+            eventEndDate: '2026-01-02T18:00:00Z',
             eventEndTime: '18:00:00',
           },
         ],
@@ -277,12 +265,15 @@ describe('EventListView', () => {
 
     it('selects a lone non-main schedule that is still ending today as upcoming (not a past fallback) and threads its end fields too', () => {
       vi.useFakeTimers();
-      // "now" is inside this single schedule's day (starts 10:00, ends 18:00 on
-      // 2026-01-01, now is 14:00). Its eventEndDate (2026-01-01T18:00:00Z)
-      // still compares >= today's date-only string ("2026-01-01"), so under the
-      // Story 2.7 algorithm it is selected via the *upcoming* branch — not the
-      // all-ended fallback branch. This test pinpoints that distinction and
-      // sanity-checks that its end fields are still threaded into the card.
+      // "now" is inside this single schedule's day (starts 10:00 on 2026-01-01, now is
+      // 14:00). Its eventEndDate (2026-01-02T18:00:00Z) still compares >= today's
+      // date-only string ("2026-01-01"), so under the Story 2.7 algorithm it is selected
+      // via the *upcoming* branch — not the all-ended fallback branch. This test
+      // pinpoints that distinction and sanity-checks that its end fields are still
+      // threaded into the card. The end date is a full UTC day ahead of "now" (not
+      // same-day) so the TILL-badge assertion below is deterministic across every
+      // real-world ambient timezone — see the sibling test above for why a same-UTC-day
+      // end previously made this CI-environment-dependent.
       vi.setSystemTime(new Date('2026-01-01T14:00:00Z'));
 
       const eventNoMain: EventListViewItem = {
@@ -293,7 +284,7 @@ describe('EventListView', () => {
           {
             isMainSchedule: false,
             eventStartDate: '2026-01-01T10:00:00Z',
-            eventEndDate: '2026-01-01T18:00:00Z',
+            eventEndDate: '2026-01-02T18:00:00Z',
             eventEndTime: '18:00:00',
           },
         ],
@@ -358,8 +349,12 @@ describe('EventListView', () => {
 
       // The fallback branch must display the earliest-start schedule (A: Jan 5),
       // never Schedule B (Feb 10) — proving the real selection reached the card.
-      expect(screen.getByText(/Jan 5/i)).toBeInTheDocument();
-      expect(screen.queryByText(/Feb 10/i)).not.toBeInTheDocument();
+      // Story 1.i1k: month/day now render as separate elements (the two-tier date box),
+      // so assert each part rather than a single concatenated "Jan 5" text node.
+      expect(screen.getByText('Jan')).toBeInTheDocument();
+      expect(screen.getByText('5')).toBeInTheDocument();
+      expect(screen.queryByText('Feb')).not.toBeInTheDocument();
+      expect(screen.queryByText('10')).not.toBeInTheDocument();
       expect(screen.getByText('All End Dates Passed')).toBeInTheDocument();
     });
 
@@ -421,7 +416,9 @@ describe('EventListView', () => {
       const durableCard = screen.getByText('Durable Poster').closest('article');
       const notDurableCard = screen.getByText('Not Durable').closest('article');
 
-      expect(durableCard?.querySelector('.aspect-\\[2\\/3\\]')).toBeInTheDocument();
+      // Story 1.i1l rule 2: the prominent poster's crop is `aspect-square`, not `aspect-[2/3]`.
+      expect(durableCard?.querySelector('.aspect-square')).toBeInTheDocument();
+      expect(durableCard?.querySelector('.aspect-\\[2\\/3\\]')).not.toBeInTheDocument();
       expect(durableCard?.querySelector('.aspect-\\[3\\/4\\]')).not.toBeInTheDocument();
 
       // prominentPoster=false now uses the top_row_default flex-fill thumbnail slot,
@@ -434,7 +431,7 @@ describe('EventListView', () => {
       expect(container).toBeInTheDocument();
     });
 
-    it('passes a getCardProps-supplied distanceKm through unmodified (EventListView performs no distance computation itself, AC18)', () => {
+    it('passes a getCardProps-supplied distanceKm through unmodified (EventListView performs no distance computation itself, AC18), rendered as the real distance (BUG-049)', () => {
       render(
         <EventListView
           status="success"
@@ -447,11 +444,11 @@ describe('EventListView', () => {
         />
       );
 
-      expect(screen.getByText('Nearby')).toBeInTheDocument();
+      expect(screen.getByText('3 km')).toBeInTheDocument();
     });
 
     it('does not render a Nearby badge when getCardProps omits distanceKm', () => {
-      render(
+      const { container } = render(
         <EventListView
           status="success"
           events={[mockEvents[0]!]}
@@ -463,7 +460,7 @@ describe('EventListView', () => {
         />
       );
 
-      expect(screen.queryByText('Nearby')).not.toBeInTheDocument();
+      expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
     });
 
     it('renders the success grid with gap-x-2 gap-y-6 spacing (AC19)', () => {
@@ -479,7 +476,7 @@ describe('EventListView', () => {
         />
       );
 
-      const grid = container.querySelector('.grid');
+      const grid = container.querySelector('[data-grid-container-layout="masonry"]');
       expect(grid).toHaveClass('gap-x-2');
       expect(grid).toHaveClass('gap-y-6');
       expect(grid).not.toHaveClass('gap-2');
@@ -498,7 +495,7 @@ describe('EventListView', () => {
         />
       );
 
-      const grid = container.querySelector('.grid');
+      const grid = container.querySelector('[data-grid-container-layout="masonry"]');
       expect(grid).toHaveClass('gap-x-2');
       expect(grid).toHaveClass('gap-y-6');
       expect(grid).not.toHaveClass('gap-2');

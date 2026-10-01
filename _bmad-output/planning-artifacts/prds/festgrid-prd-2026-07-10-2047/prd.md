@@ -7,7 +7,7 @@ status: "final"
 
 created: "2026-07-10T20:50:17Z"
 
-updated: "2026-09-11T00:00:00Z"
+updated: "2026-09-30T00:00:00Z"
 
 ---
 
@@ -271,7 +271,8 @@ As a faster alternative to operating FilterHub's manual controls (Section 3.1), 
 Full rationale and the authoritative rule-by-rule reference lives in `monetization-plans/scraping-extraction-display-rules-2026-09-02.md` (cited here as "the minimization doc"); this section states the resulting product requirements.
 
 *   **Event list (grid/card view):** Renders `Post.imageUrl` (hotlink to the original scraper-source CDN URL) directly — never a re-hosted/durable copy, for any account, by default. Must degrade to a defined placeholder (never a broken-image icon) when the hotlinked URL is expired or fails to load.
-*   **Opted-in accounts get a visually distinct, more prominent card** — the image becomes the visual center of interest rather than a small thumbnail — as a felt incentive to opt in (Section 4.5 `isImageStorageOptedIn`). This card is the only surface that uses `Post.durableImageUrl`. **(Added 2026-09-04)** The presence of a non-null `durableImageUrl` on an event is the frontend's trigger for this prominent treatment — no separate opt-in flag is exposed to or read by the client, since `durableImageUrl` is never populated for a non-opted-in account's post (AD-12 Rule 1). See Story 1.3b for the exact layout.
+*   **Opted-in accounts get a visually distinct, more prominent card** — the image becomes the visual center of interest rather than a small thumbnail. **(Added 2026-09-04; revised 2026-09-30)** The presence of a non-null `durableImageUrl` OR `durableThumbnailUrl` on an event is the frontend's trigger for this prominent treatment (Architecture Spine AD-28 Rule 7) — no separate opt-in flag is exposed to or read by the client. `durableImageUrl` is never populated for a non-opted-in account's post (AD-12 Rule 1) and, when present, is always rendered in preference to `durableThumbnailUrl`. As of 2026-09-30 this is no longer a binary "prominent vs. nothing" incentive: an opted-in account's prominent card shows the sharp, unblurred original (`durableImageUrl`); a non-opted-in account can still get the prominent treatment using a face-blurred thumbnail (`durableThumbnailUrl`, below) whenever one was generated. Opting in remains materially better (sharp vs. blurred) but is no longer the only way to get a prominent card at all. See Story 1.3b for the exact layout.
+*   **Face-blurred thumbnails are consent-independent.** **(Added 2026-09-30, Architecture Spine AD-28)** Any face detected in a post's image is blurred in a separate, durably-stored `durableThumbnailUrl` derivative — generated and stored **regardless of the source account's `isImageStorageOptedIn` status**. This is a deliberate, explicit divergence from this section's own default-hotlink/no-persistent-copy-without-opt-in rule above: that rule exists to prevent an unconsented copy of an account's *original* content for copyright/ToS-exposure reasons, while this rule protects an independent concern (an identifiable bystander's privacy) via a blurred derivative. `durableThumbnailUrl` is skipped entirely (never generated or stored) for an event whose schedule(s) end before its source image's own expiry would have made a durable copy relevant in the first place — narrowing the feature's footprint for short-lived events. Detection uses `face-api.js`, chosen to avoid a recurring per-image AWS fee at the accepted cost of lower recall than a managed cloud detector on small/angled/occluded faces — some bystander faces may go unblurred.
 *   **Event detail page:** Uses an embedded Instagram post (oEmbed-style), not a raw hotlinked image URL. This is a copyright/retention-footprint improvement, not by itself a personal-data-exposure fix — an embed showing an identifiable individual is still subject to the same display-lifecycle bound as a hotlinked image would be. Requires a defined fallback ("content no longer available" for non-opted-in accounts; `durableImageUrl` is acceptable for opted-in accounts) if the source post becomes unavailable.
 *   **`SocialMediaAccountProfile.profileImageUrl` is never stored or displayed on any surface, including via embed, regardless of the account's image-storage opt-in status** (Section 4.5) — this is a stricter, independent rule from the post/poster-image handling above.
 *   **Account-type filtering:** scraping must exclude personal attendee accounts and curator/local-guide accounts — only organizer/venue/event accounts are in scope. Not yet built; tracked in epics.md.
@@ -688,6 +689,26 @@ interface SocialMediaAccountProfile {
    * `free_user` subscription cap (Section 6) if the owner also subscribes.
    */
   claimedByUserId?: string;
+  /**
+   * When this identity was first observed by any scrape/ingestion run, and when it was
+   * most recently re-observed (added 2026-09-18, `bmad-correct-course`, FIND-022 CAP-2,
+   * Story 3.14). Retained regardless of subscription status.
+   */
+  firstSeen?: string;
+  lastSeen?: string;
+  /**
+   * Which vendor/run first surfaced this identity — provenance for moderation/analytics
+   * (FIND-022 CAP-2, Story 3.14).
+   */
+  discoverySource?: { vendor: string; runId?: string };
+  /**
+   * Gates broad account autocomplete/ranked-discovery surfaces (FIND-022 CAP-5, Story
+   * 3.17). `false` for a freshly scrape-discovered profile until a subscribe or vote
+   * signals intentional demand — never blocks direct/contextual subscription (e.g. from
+   * an event/post detail page, Story 3.16). Defaults to `true` for a profile a user
+   * subscribed to directly (the pre-existing, non-discovered path).
+   */
+  isVerifiedForDiscovery: boolean;
 }
 ```
 
@@ -750,7 +771,13 @@ interface Post {
    */
   isExtracted?: boolean;
   /**
-   * The ID of the `SocialMediaAccountProfile` (Section 4.5) that published this post.
+   * The ID of the `SocialMediaAccountProfile` (Section 4.5) whose subscription/scrape job
+   * triggered this post's ingestion — the *scraping-source* account, which is not always
+   * the post's actual publisher (a repost/native-collab post can surface under a different
+   * account's feed than the one that authored it; added clarification 2026-09-18,
+   * `bmad-correct-course`, FIND-022 — this field's persisted meaning is unchanged, only
+   * this comment was corrected). See `PostAccountAssociation` (Section 4.7a) for the
+   * verified publisher/coauthor identities, added by Epic 3's FIND-022 stories (3.13-3.19).
    */
   accountId: string;
   /**
@@ -760,6 +787,35 @@ interface Post {
    * signal in a future pass.
    */
   hashtags?: string[];
+}
+```
+
+### 4.7a. PostAccountAssociation Interface
+
+```typescript
+/**
+ * One (post, account) role association — the normalized replacement for treating
+ * `Post.accountId` as a post's sole identity (added 2026-09-18, `bmad-correct-course`,
+ * FIND-022; see Epic 3 Stories 3.13-3.19). A post may have zero-or-more `COAUTHOR`
+ * associations, exactly one `PUBLISHER` (or `PUBLISHER_UNKNOWN` for pre-migration/legacy
+ * rows, Story 3.15) association, and exactly one `SCRAPING_SOURCE` association (may equal
+ * the publisher). Never inferred from vendor producer-array order — always read from each
+ * vendor's explicit role-bearing fields (Story 3.13).
+ */
+interface PostAccountAssociation {
+  id: string;
+  postId: string;
+  /**
+   * The ID of the associated `SocialMediaAccountProfile` (Section 4.5).
+   */
+  accountId: string;
+  role: 'PUBLISHER' | 'COAUTHOR' | 'SCRAPING_SOURCE' | 'PUBLISHER_UNKNOWN';
+  /**
+   * Which vendor/run surfaced this association — retained for moderation/analytics
+   * queries, not just for the account-filtering path (Story 3.18).
+   */
+  discoverySource?: { vendor: string; runId?: string };
+  createdAt: string;
 }
 ```
 

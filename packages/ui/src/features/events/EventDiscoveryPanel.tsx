@@ -30,6 +30,7 @@ export function EventDiscoveryPanel({
   currentLocationError,
   onSelectLocation,
   onRadiusChange,
+  isSelectedLocationPending,
   showAITrigger,
   onAITriggerClick,
   aiFilterSummary,
@@ -99,6 +100,7 @@ export function EventDiscoveryPanel({
               currentLocationError={currentLocationError}
               onSelectLocation={onSelectLocation}
               onRadiusChange={onRadiusChange}
+              isSelectedLocationPending={isSelectedLocationPending}
               showAITrigger={showAITrigger}
               onAITriggerClick={onAITriggerClick}
               aiFilterSummary={aiFilterSummary}

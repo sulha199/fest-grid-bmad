@@ -91,7 +91,7 @@ export const accountTypeStatusEnum = pgEnum('account_type_status', ['CONFIRMED',
 
 export const brightdataPendingJobs = pgTable('brightdata_pending_jobs', {
   id: uuid('id').defaultRandom().primaryKey(),
-  profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id).notNull(),
+  profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id, { onDelete: 'cascade' }).notNull(),
   snapshotId: text('snapshot_id').notNull().unique(),
   webhookToken: text('webhook_token').notNull().unique(),
   status: brightdataJobStatusEnum('status').default('PENDING').notNull(),
@@ -106,7 +106,7 @@ export const apifyJobStatusEnum = pgEnum('apify_job_status', ['PENDING', 'COMPLE
 
 export const apifyPendingJobs = pgTable('apify_pending_jobs', {
   id: uuid('id').defaultRandom().primaryKey(),
-  profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id).notNull(),
+  profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id, { onDelete: 'cascade' }).notNull(),
   runId: text('run_id').notNull().unique(),
   webhookToken: text('webhook_token').notNull().unique(),
   status: apifyJobStatusEnum('status').default('PENDING').notNull(),
@@ -314,7 +314,7 @@ export const scraperActorRuns = pgTable('scraper_actor_runs', {
   id: uuid('id').defaultRandom().primaryKey(),
   vendor: scraperRunVendorEnum('vendor').notNull(),
   triggerMode: scraperRunTriggerModeEnum('trigger_mode').notNull(),
-  profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id).notNull(),
+  profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id, { onDelete: 'cascade' }).notNull(),
   runId: text('run_id').notNull(),
   status: scraperRunStatusEnum('status').default('PENDING').notNull(),
   rawInput: jsonb('raw_input').notNull(),
@@ -421,6 +421,14 @@ export const favorites = pgTable('favorites', {
 }, (t) => ({
   unq: unique().on(t.userId, t.eventId),
   activeIdx: index('idx_favorites_active').on(t.userId).where(sql`deleted_at IS NULL`),
+  // Story 1.3j (AC5, BUG-034) — eventId-leading partial index so Story 1.3j's per-row
+  // correlated subqueries (`favoriteCount`, and `isFavorited`/`isAddedToCalendar` EXISTS when
+  // driven via the items select) scan only the matching soft-live rows instead of the whole
+  // table once per output row. Builder-level approximation only: drizzle-kit 0.21.4 drops the
+  // WHERE predicate from generated migration SQL (same class of gap as `idx_favorites_active`
+  // and migration 0057), so the index as actually created in the DB is hand-edited in
+  // migration 0060_*.sql to append `WHERE deleted_at IS NULL`.
+  eventIdIdx: index('idx_favorites_event_id').on(t.eventId).where(sql`deleted_at IS NULL`),
 }));
 
 export const calendarAdditions = pgTable('calendar_additions', {

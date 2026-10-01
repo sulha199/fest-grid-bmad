@@ -218,3 +218,36 @@ export interface EventListViewItem {
 **Sprint-status.yaml impact (checklist 6.4):** N/A — no epics added/removed/renumbered. Stories 1.3b/1.3d stay `review`; add an amendment reference comment (matching the existing convention, e.g. Story 1.3g's AC13-15 amendment comments) once `bmad-create-story` finalizes the new ACs.
 
 **Success criteria:** `EventCard`'s masonry variant renders the TILL badge, status badge, and nearby badge per the state rules in Section 4.4; opted-in accounts' cards render the prominent poster treatment keyed off `durableImageUrl`; the masonry grid shows the new asymmetric gap; all new logic (status-badge state machine, TILL rule, prominent-poster derivation) has unit/component test coverage per this project's existing testing-trophy rule.
+
+## 6. Post-Proposal History (appended, verbatim from backlog.yaml CC-019, moved 2026-09-18)
+
+IDEA-007's bmad-ux pass landed (DESIGN.md/EXPERIENCE.md tokens), then Story 1.3b gained
+AC14-18 and Story 1.3d gained AC16-19 — both moved to `ready-for-dev` (2026-09-06), not yet
+coded. PRD 3.1/3.16 bullets applied via BUG-016 (done).
+
+**AMENDED (2026-09-14, bmad-png-to-html prototype-first pass):** a full UX design pass across
+all three event-card surfaces (masonry, calendar-row, and a new calendar-grid-item family), run
+in `design-artifacts/UX-festgrid-run-1/` via 8 feedback rounds plus a final class-string
+cleanup, prototype-HTML-first per explicit user directive each round ("update html first,"
+specs deferred until told to "process with specs"). Produced/screenshot-validated 7
+HTML/Tailwind prototypes at real production grid dimensions (not just PNG canvas size — this
+real-size check itself surfaced a genuine finding, see IDEA-026), then folded into
+DESIGN.md/EXPERIENCE.md. Commits: `70564a0` (prototypes), `3fb9233` (DESIGN.md/EXPERIENCE.md
+rounds 4-8), `e3fe946` (TILL badge class-string cleanup, no behavior change).
+
+Two already-promoted stories were affected and needed re-amendment before further dev-story
+work: IDEA-017 (masonry, Story 1.i1e — see that story's own "Backlog row history" section for
+the 7-point diff) and IDEA-016 (calendar-row, Story 1.i1d — see that story's own "Backlog row
+history" section for the 3-point diff). One net-new item reached spec-complete-but-uncoded
+status: IDEA-026 (desktop calendar-grid-item card), which this pass's real-dimension validation
+resolved into a `day_cell`+popover split for single-day events and a spanning-bar mechanism for
+multi-day events. General rules applied across all three families: category badge replaced by
+`event_card_nearby_badge` (<8km, changed from AC16's <=5km), `happeningNow` status label
+shortened to "Now" with a new solid-emerald color variant. One open question flagged, not
+resolved at the time: FIND-026 (`max_events_per_day`'s continued relevance given the popover's
+now-richer card).
+
+As of 2026-09-14 none of this pass's findings were coded yet; Stories 1.3b/1.3d's status
+remained `promoted`/`ready-for-dev` on the record but their underlying AC text was stale
+against the current spec until the amendment pass ran (see IDEA-017/IDEA-016/IDEA-026's own
+downstream stories for how each piece was eventually promoted and implemented).

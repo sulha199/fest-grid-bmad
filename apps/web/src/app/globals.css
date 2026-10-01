@@ -88,6 +88,15 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* BUG-046: BUG-038's overflow-anchor:none fix was scoped to EventDiscoveryPanel's own
+       subtree (cards + sentinel), which correctly excludes them from being picked as a scroll
+       anchor -- but live production measurement showed the browser was still anchoring to
+       `body`/`main` themselves, which sit outside that excluded subtree and were never covered.
+       Excluding `body` here (confirmed by injecting this identical rule against production and
+       re-running the same scroll repro: it alone eliminates the jump) closes that gap without
+       chasing every possible anchor node component-by-component. See
+       _bmad-output/implementation-artifacts/spec-bug-046-infinite-scroll-scroll-position-reset.md. */
+    overflow-anchor: none;
   }
 }
 

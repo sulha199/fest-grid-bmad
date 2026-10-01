@@ -1,3 +1,6 @@
+import { db } from '../../db/client.js';
+import { scraperActorRuns } from '@festgrid/database';
+import { eq, desc } from 'drizzle-orm';
 import { getApifyClient } from './instagram-adapter.js';
 import { createPendingJob } from './apify-pending-jobs-store.js';
 import { recordProviderUsage, isProviderCapacityAvailable } from './usage-store.js';
@@ -32,6 +35,15 @@ export let attemptApifyAsyncTrigger = async (
     // Build webhook URL
     const webhookUrl = `${env.apifyWebhookBaseUrl}?jobToken=${webhookToken}`;
 
+    // Use the last successful scraper run timestamp as the cursor, falling back to newerThan
+    // This ensures we don't re-scrape posts already captured, regardless of vendor
+    const lastSuccessfulRun = await db.query.scraperActorRuns.findFirst({
+      where: eq(scraperActorRuns.profileId, target.profileId),
+      orderBy: desc(scraperActorRuns.completedAt),
+    });
+
+    const scrapeCursorTimestamp = lastSuccessfulRun?.completedAt?.toISOString() ?? newerThan;
+
     // Get Apify client
     const client = getApifyClient();
 
@@ -41,7 +53,7 @@ export let attemptApifyAsyncTrigger = async (
         directUrls: [`https://www.instagram.com/${target.username}/`],
         resultsType: 'posts',
         resultsLimit: env.scrapeResultsLimit,
-        onlyPostsNewerThan: newerThan,
+        onlyPostsNewerThan: scrapeCursorTimestamp,
       },
       {
         webhooks: [
@@ -63,7 +75,7 @@ export let attemptApifyAsyncTrigger = async (
         directUrls: [`https://www.instagram.com/${target.username}/`],
         resultsType: 'posts',
         resultsLimit: env.scrapeResultsLimit,
-        onlyPostsNewerThan: newerThan,
+        onlyPostsNewerThan: scrapeCursorTimestamp,
       },
       status: 'PENDING',
     });

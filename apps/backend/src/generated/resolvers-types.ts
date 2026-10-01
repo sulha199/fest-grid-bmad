@@ -908,6 +908,7 @@ export type QueryEventsArgs = {
   includeSoftDeleted?: InputMaybe<Scalars['Boolean']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
+  perDayLimit?: InputMaybe<Scalars['Int']['input']>;
   query?: InputMaybe<EventQueryConditionInput>;
 };
 

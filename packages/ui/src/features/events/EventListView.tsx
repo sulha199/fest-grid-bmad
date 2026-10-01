@@ -20,7 +20,7 @@ export function EventListView<TEvent extends EventListViewItem>({
 }: EventListViewProps<TEvent>) {
   if (status === 'loading') {
     return (
-      <GridContainer baseCols={2} colsStep={1} gap="gap-x-2 gap-y-6" className={className}>
+      <GridContainer baseCols={2} colsStep={1} gap="gap-x-2 gap-y-6" layout="masonry" className={className}>
         {Array.from({ length: skeletonCount }).map((_, i) => (
           <EventCard
             key={i}
@@ -53,8 +53,15 @@ export function EventListView<TEvent extends EventListViewItem>({
 
   if (status === 'success' && events.length > 0) {
     return (
-      <>
-        <GridContainer baseCols={2} colsStep={1} gap="gap-x-2 gap-y-6" className={className}>
+      // BUG-038: `display: contents` keeps this wrapper invisible to layout (children
+      // participate in the parent's flex/grid exactly as if this div weren't here), while
+      // `overflow-anchor: none` on it excludes the whole subtree (cards + sentinel) from CSS
+      // scroll-anchoring's anchor-node selection, since exclusion propagates down the DOM to
+      // the nearest scroll container (the page body here — there's no dedicated scroll div).
+      // This is stronger than excluding the sentinel alone: without it, the browser can anchor
+      // to whichever card sits nearest the bottom of the viewport, not just the sentinel.
+      <div className="contents [overflow-anchor:none]">
+        <GridContainer baseCols={2} colsStep={1} gap="gap-x-2 gap-y-6" layout="masonry" className={className}>
           {events.map((event) => {
             // Story 2.7 — prefer the next-upcoming schedule for display (falling
             // back to the main schedule, then the first schedule), instead of
@@ -75,6 +82,10 @@ export function EventListView<TEvent extends EventListViewItem>({
               endDate: displaySchedule?.eventEndDate ?? undefined,
               endTime: displaySchedule?.eventEndTime ?? null,
               imageUrl: event.imageUrl ?? undefined,
+              // BUG-042 (AC-IMG-1): the imageUrl -> imageFallbackUrl retry chain's second URL —
+              // this single derivation point also fixes the Archive page, which routes through
+              // this same EventListView/getCardProps composition (no separate Archive mapper).
+              imageFallbackUrl: event.durableImageUrl ?? undefined,
               locationName: event.location ?? undefined,
               categories: event.categories ?? [],
               types: event.types ?? [],
@@ -102,8 +113,19 @@ export function EventListView<TEvent extends EventListViewItem>({
           otherwise the browser's scroll-anchoring algorithm can jump when the element shrinks.
           Using min-h-16 ensures the sentinel is tall enough for either the spinner or the
           end-of-list message, preventing height collapse on page load.
+
+          BUG-038 fix: even with a stable sentinel height, the browser's native CSS
+          scroll-anchoring can still anchor to this bottom-of-DOM sentinel and, when a new
+          page's cards are inserted above it, pull the viewport down to the new bottom of the
+          list on every page load. See the `overflow-anchor: none` wrapper above (also
+          covers the cards, since an anchored last-card can cause the same jump) — the class
+          here is a belt-and-suspenders duplicate directly on the node most likely to be
+          picked as the anchor. Validated live against production (see BUG-038 backlog note).
         */}
-        <div ref={sentinelRef} className="min-h-16 py-4 flex justify-center items-center">
+        <div
+          ref={sentinelRef}
+          className="min-h-16 py-4 flex justify-center items-center [overflow-anchor:none]"
+        >
           {isFetchingNextPage && (
             <div className="flex items-center gap-2 text-muted-foreground">
               <span className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
@@ -116,7 +138,7 @@ export function EventListView<TEvent extends EventListViewItem>({
             </div>
           )}
         </div>
-      </>
+      </div>
     );
   }
 

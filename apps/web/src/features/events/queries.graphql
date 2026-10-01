@@ -134,13 +134,14 @@ query getEventForIcsExport($id: ID!) {
   }
 }
 
-query getEventsForCalendar($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
-  events(limit: $limit, offset: $offset, query: $query) {
+query getEventsForCalendar($limit: Int, $offset: Int, $perDayLimit: Int, $query: EventQueryConditionInput) {
+  events(limit: $limit, offset: $offset, perDayLimit: $perDayLimit, query: $query) {
     items {
       id
       eventName
       slug
       imageUrl
+      durableImageUrl
       location
       types
       categories
@@ -154,6 +155,12 @@ query getEventsForCalendar($limit: Int, $offset: Int, $query: EventQueryConditio
         eventStartTime
         eventEndTime
         ticketPrice
+        locationDetails {
+          coordinates {
+            lat
+            lng
+          }
+        }
       }
     }
     hasMore
@@ -168,6 +175,7 @@ query getEventsForMyCalendar($limit: Int, $offset: Int, $query: EventQueryCondit
       eventName
       slug
       imageUrl
+      durableImageUrl
       location
       types
       categories
@@ -182,6 +190,12 @@ query getEventsForMyCalendar($limit: Int, $offset: Int, $query: EventQueryCondit
         eventEndTime
         ticketPrice
         isAddedToCalendar
+        locationDetails {
+          coordinates {
+            lat
+            lng
+          }
+        }
       }
     }
     hasMore
@@ -196,6 +210,7 @@ query getArchivedEvents($limit: Int, $offset: Int) {
       slug
       eventName
       imageUrl
+      durableImageUrl
       location
       categories
       types

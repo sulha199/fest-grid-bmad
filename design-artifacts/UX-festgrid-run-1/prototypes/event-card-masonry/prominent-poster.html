@@ -41,7 +41,22 @@
      aspect-square sizing means it's larger at 230px than 175px, so there's if anything more clearance, not less.
      Title/venue text sized up (text-base/text-sm) to match the other masonry files' desktop-panel convention;
      TILL/favorite/radius/"Now" badges stay at text-[11px], unchanged from mobile -- the 12px-mobile/14px-desktop
-     TILL sizing rule was explicitly scoped to non-prominent cards only, not this one. -->
+     TILL sizing rule was explicitly scoped to non-prominent cards only, not this one.
+
+     REVISED 2026-09-27 (user feedback): venue/location line -- no icon (never had one in this
+     file), centered (`text-center`, was left-aligned by default), breaks mid-word if a single
+     long word overflows (`break-all` instead of `truncate`), stays a single line (`line-clamp-1`).
+     Identical rule to default-with-thumbnail.html's own same-dated change, now unified across
+     both prominentPoster states rather than VM1 keeping the old icon+truncate treatment.
+
+     SUPERSEDED, 2026-09-28 (TILL tag mechanism only -- round 7's `top-5`/`top-2` pill positioning above is
+     UNCHANGED and still correct): a same-day attempt to unify this file's TILL offset with the non-prominent
+     masonry file's `top-1.5` (nesting the tag INSIDE the date pill at that offset) covered most of the pill's
+     own text -- this pill is a short single-line chip with no vertical room above it, unlike the non-prominent
+     file's tall two-tier box. The real fix pulls the TILL tag entirely OUT of the pill: it's now its own
+     floating sibling `<span>` positioned directly against the POSTER's corner (`top-1 left-2`, not nested in
+     the pill, not `-top-3 -left-1.5` any more), landing in the gap the pill's still-`top-5` shift opens up
+     above it. Panels A and C below reflect this; Panels B/D (no TILL tag at all) are unaffected. -->
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
@@ -65,7 +80,7 @@
 
 <div class="p-6 bg-slate-100 min-h-screen flex flex-wrap items-start gap-8 justify-center">
   <div class="flex flex-col items-center gap-2">
-    <span class="text-xs font-mono text-slate-500 max-w-[175px]">Panel A -- HAS a TILL badge (ends tomorrow or later). Uniform p-2 padding on the date pill; TILL tag repositioned (-top-3) to clear the text; date+favorite pills both moved to top-5 to give the tag room.</span>
+    <span class="text-xs font-mono text-slate-500 max-w-[175px]">Panel A -- HAS a TILL badge (ends tomorrow or later). Uniform p-2 padding on the date pill; TILL tag is its own floating sibling against the poster's corner (top-1 left-2, not nested in the pill); date+favorite pills both stay at top-5 to give the tag room.</span>
     <div class="w-[175px] rounded-lg shadow-md bg-background overflow-hidden">
       <!-- event_card_masonry.image_prominent -- 1:1 square, changed from aspect-[2/3] -->
       <div class="relative w-full aspect-square bg-slate-900 overflow-hidden">
@@ -73,13 +88,19 @@
           <span class="text-xs font-bold tracking-tight">AI TECH</span>
           <span class="text-[11px] font-extrabold tracking-tight">SUMMIT</span>
         </div>
-        <!-- event_card_date_box.base (overlay, glassmorphism) -- moved to top-5 to give the repositioned TILL tag room to clear the poster's own edge; uniform p-2 padding, same as every other pill -->
+        <!-- event_card_date_box.base (overlay, glassmorphism) -- top-5 while a TILL tag exists elsewhere in this
+             poster, giving it clearance; uniform p-2 padding, same as every other pill -->
         <div class="absolute top-5 left-2 z-10 flex items-center gap-1 p-1 rounded-md bg-background/80 backdrop-blur-sm shadow-sm text-[12px] font-semibold text-foreground">
-          <!-- TILL tag: offset increased from the standard -top-1.5 to -top-3 -- position-only fix, no padding trick -- clears the pill's text with a small gap -->
-          <span class="absolute -top-3 -left-1.5 z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white font-semibold leading-none shadow-sm whitespace-nowrap">TILL</span>
           SEP 25
         </div>
-        <!-- favorite pill -- moved to top-5 to match the date pill's new position -->
+        <!-- TILL tag (2026-09-28): no longer nested inside the date pill -- it's its own floating sibling here,
+             positioned directly against the POSTER's corner (top-1 left-2), landing in the gap the pill's own
+             top-5 shift opens up above it. Nesting it inside the pill at a positive offset (an interim same-day
+             attempt) covered the pill's own short single-line text, since this pill has no vertical room to
+             spare above it (unlike VM2's tall two-tier box) -- see EVENT-CARD-DESIGN.md's event_card_till_badge
+             SUPERSEDED note for the full history. -->
+        <span class="absolute top-1 left-2 z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white text-[12px] font-semibold leading-none shadow-sm whitespace-nowrap">TILL</span>
+        <!-- favorite pill -- top-5 to match the date pill's position -->
         <div class="absolute top-5 right-2 z-10 flex items-center text-[12px]  gap-1 px-1.5 py-1 rounded-full bg-background/80 backdrop-blur-sm shadow-sm">
           <svg class="w-3 h-3 text-red-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.3-8.13C.6 9.9 1.4 6.4 4.3 5.1c2-.9 4.2-.2 5.7 1.5C11.5 4.9 13.7 4.2 15.7 5.1c2.9 1.3 3.7 4.8 1.6 7.77C18.7 16.65 12 21 12 21z"/></svg>
           <span class="text-[12px] font-semibold">2.1k</span>
@@ -95,7 +116,7 @@
           <span class="inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white">Now</span>
         </div>
         <div class="text-sm font-bold text-foreground leading-tight line-clamp-2">Quantum Leap Symposium: The Global Tour</div>
-        <div class="text-xs text-muted-foreground truncate">The Glass Atrium</div>
+        <div class="text-xs text-muted-foreground text-center break-all line-clamp-1">The Glass Atrium</div>
       </div>
     </div>
   </div>
@@ -127,13 +148,13 @@
           <span class="inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white">Now</span>
         </div>
         <div class="text-sm font-bold text-foreground leading-tight line-clamp-2">Jazz Night Live</div>
-        <div class="text-xs text-muted-foreground truncate">Rooftop Bar</div>
+        <div class="text-xs text-muted-foreground text-center break-all line-clamp-1">Rooftop Bar</div>
       </div>
     </div>
   </div>
 
   <div class="flex flex-col items-center gap-2">
-    <span class="text-xs font-mono text-slate-500 max-w-[230px]">Panel C -- desktop xl:5-col slot, card capped at max-w-230px. HAS a TILL badge -- same position fix as Panel A (uniform p-1 date-pill padding, TILL at -top-3, date+favorite pills at top-5); title/venue text sized up to match the other masonry files' desktop panels.</span>
+    <span class="text-xs font-mono text-slate-500 max-w-[230px]">Panel C -- desktop xl:5-col slot, card capped at max-w-230px. HAS a TILL badge -- same as Panel A (uniform p-1 date-pill padding, TILL as its own floating sibling at top-1 left-2, date+favorite pills at top-5); title/venue text sized up to match the other masonry files' desktop panels.</span>
     <!-- single wrapper div: width set to the real 269px slot, capped by max-width to 230px -- same pattern as default-with-thumbnail.html/default-thumbnail-fallback.html's own desktop panels -->
     <div class="w-[269px] max-w-[230px] bg-slate-50">
       <div class="rounded-lg shadow-md bg-background overflow-hidden">
@@ -143,9 +164,10 @@
             <span class="text-sm font-extrabold tracking-tight">SUMMIT</span>
           </div>
           <div class="absolute top-5 left-2 z-10 flex items-center gap-1 p-1 rounded-md bg-background/80 backdrop-blur-sm shadow-sm text-sm font-semibold text-foreground">
-            <span class="absolute -top-3 -left-1.5 z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white font-semibold leading-none shadow-sm whitespace-nowrap">TILL</span>
             SEP 25
           </div>
+          <!-- TILL tag (2026-09-28): own floating sibling against the poster's corner, not nested in the pill -- see Panel A's comment for the full history -->
+          <span class="absolute top-1 left-2 z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white text-sm font-semibold leading-none shadow-sm whitespace-nowrap">TILL</span>
           <div class="text-sm absolute top-5 right-2 z-10 flex items-center gap-1 px-1.5 py-1 rounded-full bg-background/80 backdrop-blur-sm shadow-sm">
             <svg class="w-3 h-3 text-red-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.3-8.13C.6 9.9 1.4 6.4 4.3 5.1c2-.9 4.2-.2 5.7 1.5C11.5 4.9 13.7 4.2 15.7 5.1c2.9 1.3 3.7 4.8 1.6 7.77C18.7 16.65 12 21 12 21z"/></svg>
             <span class="font-semibold">2.1k</span>
@@ -160,7 +182,7 @@
             <span class="inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white">Now</span>
           </div>
           <div class="text-base font-bold text-foreground leading-tight line-clamp-2">Quantum Leap Symposium: The Global Tour</div>
-          <div class="text-sm text-muted-foreground truncate">The Glass Atrium</div>
+          <div class="text-sm text-muted-foreground text-center break-all line-clamp-1">The Glass Atrium</div>
         </div>
       </div>
     </div>
@@ -192,7 +214,7 @@
             <span class="inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white">Now</span>
           </div>
           <div class="text-base font-bold text-foreground leading-tight line-clamp-2">Jazz Night Live</div>
-          <div class="text-sm text-muted-foreground truncate">Rooftop Bar</div>
+          <div class="text-sm text-muted-foreground text-center break-all line-clamp-1">Rooftop Bar</div>
         </div>
       </div>
     </div>

@@ -261,6 +261,17 @@
 <status>[ ] Done / [ ] N/A / [ ] Action-needed</status>
 </check-item>
 
+<check-item id="6.4a">
+<prompt>Verify backlog.yaml, if touched</prompt>
+<action>If this proposal added, edited, or skipped any backlog.yaml row, run
+`uv run --python 3.11 --with pyyaml scripts/backlog-check.py --quiet` before committing</action>
+<action>A check 15 failure means a `note` grew past one line — move the detail into a tier-1
+`backlog/&lt;ID&gt;-slug.md` file (or the linked story's Dev Notes, if promoted) and leave a
+one-line pointer, per `backlog-spec.md` §3/§9</action>
+<action>Do not commit a backlog.yaml change with any check failing</action>
+<status>[ ] Done / [ ] N/A / [ ] Action-needed</status>
+</check-item>
+
 <check-item id="6.5">
 <prompt>Confirm next steps and handoff plan</prompt>
 <action>Review handoff responsibilities with user</action>

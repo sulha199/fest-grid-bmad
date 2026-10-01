@@ -118,4 +118,65 @@ describe('buildFeedQueryCondition', () => {
       ],
     });
   });
+
+  it('forwards nearby into the manual-filter branch (no AI filter)', () => {
+    const result = buildFeedQueryCondition({
+      search: '',
+      types: [],
+      categories: [],
+      nearby: { locationPreferenceId: 'loc-1', radiusKm: 5 },
+    });
+
+    assert.deepEqual(result, {
+      operator: 'and',
+      conditions: [
+        { field: 'isFromSubscribedAccount', operator: 'eq', value: true },
+        { field: 'scheduleCoordinates', operator: 'withinRadius', value: { locationPreferenceId: 'loc-1', radiusKm: 5 } },
+      ],
+    });
+  });
+
+  it('forwards nearby alongside search/types/categories in the manual branch', () => {
+    const result = buildFeedQueryCondition({
+      search: 'jazz',
+      types: ['FESTIVAL'],
+      categories: [],
+      nearby: { latitude: -6.2, longitude: 106.8, radiusKm: 8 },
+    });
+
+    assert.deepEqual(result, {
+      operator: 'and',
+      conditions: [
+        { field: 'isFromSubscribedAccount', operator: 'eq', value: true },
+        {
+          operator: 'or',
+          conditions: [
+            { field: 'eventName', operator: 'contains', value: 'jazz' },
+            { field: 'performers', operator: 'contains', value: 'jazz' },
+            { field: 'location', operator: 'contains', value: 'jazz' },
+          ],
+        },
+        { field: 'types', operator: 'in', value: ['FESTIVAL'] },
+        { field: 'scheduleCoordinates', operator: 'withinRadius', value: { latitude: -6.2, longitude: 106.8, radiusKm: 8 } },
+      ],
+    });
+  });
+
+  it('ignores nearby when an AI filter is set (mutual exclusivity preserved)', () => {
+    const result = buildFeedQueryCondition({
+      search: '',
+      types: [],
+      categories: [],
+      nearby: { locationPreferenceId: 'loc-1', radiusKm: 5 },
+      filter: { types: ['FESTIVAL'] },
+    });
+
+    assert.deepEqual(result, {
+      operator: 'and',
+      conditions: [
+        { field: 'isFromSubscribedAccount', operator: 'eq', value: true },
+        { field: 'types', operator: 'in', value: ['FESTIVAL'] },
+      ],
+    });
+  });
 });

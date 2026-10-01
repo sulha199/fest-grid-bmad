@@ -14,10 +14,12 @@ export interface EventCardLabels {
   yesterday?: string;
   /** Status badge (masonry variant) — event has already ended. Default: "Ended". */
   statusEnded?: string;
-  /** Status badge (masonry variant) — event has started and does not end today. Default: "Happening Now". */
+  /** Status badge (masonry variant) — event has started and does not end today. Default: "Now" (shortened from "Happening Now" by Story 1.i1l, per DESIGN.md § event_card_status_badge). */
   statusHappeningNow?: string;
-  /** Status badge (masonry variant) — event has started and ends today. Default: "Ends Today". */
+  /** Status badge (masonry variant) — event has started, ends today, and no end time is known. Default: "Ends Today". */
   statusEndsToday?: string;
+  /** Status badge (masonry variant) — event has started, ends today, AND the end time is known. `{time}` is replaced with the formatted end time. Default: "Ends {time}". */
+  statusEndsAt?: string;
   /** Status badge (masonry variant) — event starts later today. `{n}` is replaced with the hour count. Default: "In {n} hour(s)". */
   statusInHours?: string;
   /** Status badge (masonry variant) — event starts 7-13 days out. `{n}` is replaced with the day count. Default: "In {n} days". */
@@ -26,13 +28,20 @@ export interface EventCardLabels {
   statusUpcoming?: string;
   /** TILL sub-badge (masonry variant) prefix, e.g. "till 6:00 PM" or bare "till". Default: "till". */
   tillLabel?: string;
-  /** Nearby badge (masonry variant) text, shown when `distanceKm <= 5`. Default: "Nearby". */
-  nearbyBadge?: string;
+  /**
+   * Nearby badge (masonry variant) text, rendered only when the caller-supplied distance is
+   * below `nearbyBadgeThreshold` (`DESIGN.md`'s corrected `< 8`km gate, Story 1.i1i). Resolver
+   * FUNCTION, not a static string (BUG-049, AC-NEARBY-1/2/3) — the distance is only known once
+   * `distanceKm` resolves, exactly like `moreLabel`/`multiDaySegmentLabel`. Defaults to
+   * `formatNearbyBadgeDistance` (`>=2km` → no decimal, e.g. "5 km"; `<2km` → 1 decimal, e.g.
+   * "1.2 km").
+   */
+  nearbyBadge?: (distanceKm: number) => string;
 }
 
 export interface EventCardProps {
   /** Optional layout variant */
-  variant?: 'standard' | 'masonry';
+  variant?: 'masonry';
 
   /** The name of the event (required) */
   eventName: string;
@@ -52,6 +61,14 @@ export interface EventCardProps {
   /** Optional URL for the event image */
   imageUrl?: string;
 
+  /**
+   * BUG-042 (AC-IMG-1): optional fallback URL (`durableImageUrl`) tried once, in order, after
+   * `imageUrl` is missing or errors — the same `imageUrl -> imageFallbackUrl -> reserved-blank`
+   * chain `EventImage.tsx` already implements. Omitted/null callers keep today's single-URL
+   * behavior (fails straight to the reserved-blank/favorite-badge fallback).
+   */
+  imageFallbackUrl?: string | null;
+
   /** Optional explicit alt text for the image. If not provided, it will be auto-derived from eventName */
   imageAlt?: string;
 
@@ -61,13 +78,16 @@ export interface EventCardProps {
   /** Optional location name to display */
   locationName?: string;
 
-  /** Optional list of categories to display as badges */
+  /** Accepted for backward compatibility, currently unused: FIND-053 removed `variant='standard'`
+   * (its only renderer) without removing the prop itself -- see the deferred-work entry. */
   categories?: string[];
 
-  /** Optional list of event types to display as badges */
+  /** Accepted for backward compatibility, currently unused: FIND-053 removed `variant='standard'`
+   * (its only renderer) without removing the prop itself -- see the deferred-work entry. */
   types?: string[];
 
-  /** Optional starting price to display */
+  /** Accepted for backward compatibility, currently unused: FIND-053 removed `variant='standard'`
+   * (its only renderer) without removing the prop itself -- see the deferred-work entry. */
   priceFrom?: string | number;
 
   /** Optional visual state for deferred unfavorite flows where removal is pending confirmation */
@@ -105,6 +125,9 @@ export interface EventCardProps {
   /** When true (masonry variant only), renders the enlarged/prominent poster treatment per PRD §3.16. Caller derives this from `durableImageUrl != null` — EventCard does not know about the opt-in concept itself. */
   prominentPoster?: boolean;
 
-  /** Caller-computed distance in kilometers from the viewer to this event (client-side geolocation math — EventCard performs no location/distance logic itself). A "Nearby" badge renders only when this is non-null and <= 5. Omit/null when the viewer has not granted location permission. */
+  /** Caller-computed distance in kilometers from the viewer to this event (client-side geolocation math — EventCard performs no location/distance logic itself). A "Nearby" badge renders only when this is non-null and < nearbyBadgeThreshold. Omit/null when the viewer has not granted location permission. */
   distanceKm?: number | null;
+
+  /** Distance threshold (km) below which the "Nearby" badge renders. Default: 8. Caller-supplied — EventCard reads no env vars itself (framework-agnostic package). */
+  nearbyBadgeThreshold?: number;
 }

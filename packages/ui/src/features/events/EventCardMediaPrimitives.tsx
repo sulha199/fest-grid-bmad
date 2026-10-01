@@ -1,5 +1,13 @@
 "use client"
 
+/** @jsxImportSource react */
+// The pragma above is a no-op for this package's own build (tsconfig already defaults JSX to
+// React's automatic runtime) -- it exists only so a *different* package's test tooling
+// (packages/visual-audit's `react-component` RenderSpec, which mounts these components through
+// Playwright's test transform) doesn't have this file's JSX default to Playwright's own internal
+// `playwright/jsx-runtime` (used for its reporter/attachment UI, an unrelated coincidental reuse
+// of the `jsx`/`jsxs` function names) instead of React's. Same fix as `count-badge.tsx`; see that
+// file's header for the direct repro this is based on.
 /**
  * EventCardMediaPrimitives.tsx
  *
@@ -9,33 +17,129 @@
  *    present+ok) and the large centered favorite control (image absent/errored).
  *  - `EventCardFavoriteBadge` — the favorite heart+count control at either `default`
  *    (small corner pill) or `large` (borderless, centered in an empty slot) scale.
- *  - `EventCardDateBox` — thin styled wrapper for the date box; the concrete `text-xs`
- *    font-size source the icon-scale token (AD-15) is calibrated against.
+ *  - `EventCardDateBox` — the two-tier stacked month/day date box (Story 1.i1k), sized
+ *    `'default'`/`'compact'`; its own `month`-line font-size is the icon-scale token's
+ *    (AD-15) recalibration source per size variant.
+ *  - `EventCardStatusBadge` / `EventCardNearbyBadge` — the status (`formatEventStatus`'s 8
+ *    states, with `DESIGN.md`'s one `happeningNow` emerald exception) and `<8km`-gated
+ *    nearby-distance badges (Story 1.i1i / AD-24). Unlike the primitives above, these two
+ *    ARE consumed by `EventCard.tsx`'s masonry branch as of Story 1.i1i; adoption by
+ *    `WeeklyCalendarView.tsx`'s compact row and `EventCardCalendarGridItem` is deferred to
+ *    Stories 1.i1j / 1.i1f.
  *
- * This file is build-only for Story 1.i1a: it is NOT wired into `EventCard.tsx` or
- * `WeeklyCalendarView.tsx`. Adoption is deliberately split into Stories 1.i1b–1.i1e.
+ * Story 1.i1a built the media primitives standalone; Stories 1.i1b–1.i1e adopted them.
  *
  * @see event-card-media-tokens.ts        — the icon-scale CSS-custom-property token family
  * @see EventCardMediaPrimitives.types.ts — exported prop interfaces
  */
 import React, { useState, useEffect } from 'react';
-import { Heart } from 'lucide-react';
+import { Heart, Navigation } from 'lucide-react';
 import {
-  EVENT_CARD_BADGE_FONT_SIZE,
-  EVENT_CARD_BADGE_FONT_SIZE_VAR,
   EVENT_CARD_BADGE_MIN_TOUCH_REM,
   eventCardBadgeIconSizeStyle,
+  badgeFontSizeStyleFor,
 } from './event-card-media-tokens';
 import type {
   EventCardMediaSlotProps,
   EventCardFavoriteBadgeProps,
   EventCardDateBoxProps,
+  EventCardStatusBadgeProps,
+  EventCardNearbyBadgeProps,
 } from './EventCardMediaPrimitives.types';
 
-/** Inline style declaring the shared badge-font-size custom property on a primitive root. */
-const badgeFontSizeStyle = {
-  [EVENT_CARD_BADGE_FONT_SIZE_VAR]: EVENT_CARD_BADGE_FONT_SIZE,
-} as React.CSSProperties & Record<string, string>;
+/**
+ * Responsive badge font-size pair shared by the TILL tag and the favorite pill
+ * (Story 1.i1l AC5/AC7, `DESIGN.md` § event_card_till_badge "FONT SIZE NO LONGER FIXED"
+ * and EXPERIENCE.md § Masonry EventCard Badge Row round 8).
+ *
+ * `text-xs` (12px) at the narrow card width, `text-sm` (14px) at the wide one — stepped by
+ * **the card's own width via a CSS container query**, never a viewport breakpoint. Once
+ * `event_card_masonry.max_width` caps every masonry card at 230px (AC1), the viewport stops
+ * predicting the card's rendered width: a 230px card on a wide desktop is the same width as
+ * a near-230px card on a narrow one, so a `sm:`/`md:` variant would grow the type on a card
+ * that did not actually get wider. 200px sits between the two real validated widths (the
+ * mobile 2-col slot's 175px and the capped desktop 230px).
+ *
+ * Written as a Tailwind arbitrary variant rather than via `@tailwindcss/container-queries`
+ * so this adds no dependency and no change to `apps/web/tailwind.config.ts` (the only
+ * consumer of `packages/ui`). Verified end-to-end during Story 1.i1l Task 7.1 — Tailwind
+ * 3.4 emits `@container(min-width:200px){…}` for this candidate, and Chromium applies it:
+ * 12px inside a 175px container, 14px inside a 230px one.
+ *
+ * A consumer with **no** `container-type` ancestor (the calendar compact row, which declares
+ * none) never matches the query and therefore renders a static `text-xs` — deliberately, and
+ * comfortably above EXPERIENCE.md's 11px legibility floor. The responsive pair is scoped to
+ * the three masonry states, which is exactly where round 8's harmonization applies.
+ */
+export const EVENT_CARD_BADGE_TEXT_SIZE_CLASS =
+  'text-xs [@container(min-width:200px)]:text-sm';
+
+/**
+ * Story 0.45 (Architecture Spine AD-27, AC8): the masonry card's title font-size, now stepped by
+ * the card's own rendered width via the SAME container-query mechanism as
+ * `EVENT_CARD_BADGE_TEXT_SIZE_CLASS` above — never a viewport breakpoint. Once `GridContainer`'s
+ * `layout="masonry"` engine replaces the old `max-w-[230px]` cap (AC7) with a card that fills its
+ * actual, JS-computed column width, the card's rendered width genuinely varies across the real
+ * masonry breakpoint range (as narrow as the mobile 2-col slot, as wide as the desktop 6-col
+ * slot) — so, unlike the removed fixed cap, the title now has real headroom to grow at wider
+ * columns instead of staying pinned at its narrowest-slot size.
+ *
+ * `text-sm` (14px, today's shipped value) below 200px, stepping to `text-base` (16px) at/above
+ * it — the same 200px threshold `EVENT_CARD_BADGE_TEXT_SIZE_CLASS` already uses (there is no
+ * DESIGN.md token for this pairing to derive a different threshold from; reusing the established
+ * one keeps every masonry-card container-query step consistent rather than inventing a second
+ * breakpoint).
+ */
+export const EVENT_CARD_TITLE_TEXT_SIZE_CLASS =
+  'text-sm [@container(min-width:200px)]:text-base';
+
+/**
+ * Marks an element as the query container the badge font-size steps against.
+ * Applied to `EventCard`'s own root (Story 1.i1l), so the card's width — not the
+ * viewport's — drives `EVENT_CARD_BADGE_TEXT_SIZE_CLASS`.
+ */
+export const EVENT_CARD_CONTAINER_CLASS = '[container-type:inline-size]';
+
+/**
+ * The TILL tag's chrome, keyed by the date-box context it anchors to (Story 1.i1l AC4).
+ *
+ * `DESIGN.md` § event_card_till_badge, "OFFSET DIFFERS BY CONTEXT": `-top-1.5` is the
+ * calendar-row default (`event_card_compact.date_box`), which carries enough vertical padding
+ * that the tag's overlap never reaches its text and whose row still has its own padding gutter
+ * (unclipped) for the tag to float into. `event_card_date_box.base` (`prominentPoster=true`) is
+ * the other floating-outside case, needing the larger `-top-3` to clear its shorter single-line
+ * chip's text. `event_card_date_box.base_default` (masonry `size='default'`) is the ONE INSIDE-
+ * THE-CARD exception (pixel-perfect pass, 2026-09-27, round 4) -- see that context's own note.
+ *
+ * Replaces the single frozen `EVENT_CARD_TILL_LABEL_CLASS` constant (Story 1.i1k Task 2.7),
+ * which could not express a per-context offset. Every call site goes through this helper so
+ * the contexts can never drift into hand-copied literals again.
+ */
+export function eventCardTillLabelClass(context: 'default' | 'compact' | 'prominent'): string {
+  // Pixel-perfect pass (2026-09-27, masonry-default prototype round 4): `'default'` (masonry
+  // size='default') sits INSIDE the card's own clipped edge (`top-1.5 left-1.5`, positive
+  // offset) instead of floating past it -- the card returned to `overflow-hidden`, so anything
+  // poking outside its bounds would otherwise be invisible.
+  //
+  // `'compact'` (calendar list row, size='compact') and `'prominent'` (masonry VM1) both keep
+  // the ORIGINAL floating-past-the-edge behavior (`'compact'` was briefly, unintentionally
+  // regressed to `'default'`'s new inside-the-card offset when this function only took
+  // 'default'|'prominent' and EventCardDateBox's tillLabel span hardcoded 'default' regardless
+  // of `size` -- fixed by giving `'compact'` its own context here, restoring `-top-1.5
+  // -left-1.5`; the calendar row has no `overflow-hidden` and keeps its own `p-2` padding
+  // gutter for the tag to float into, unlike masonry's card).
+  //
+  // User feedback (2026-09-27, later same-day): `'prominent'` (masonry VM1) now uses the SAME
+  // top offset as `'default'` (masonry VM2, VM1's own sibling composition) -- `top-1.5`, not
+  // `-top-3` -- "tillbox should have same top position to the tillbox position on masonry
+  // view-non prominent's". Horizontal offset stays `-left-1.5` (still anchors past the pill's
+  // own left edge, matching its established corner-tag identity) -- only the vertical position
+  // changed. The date-pill/favorite-pill's own `top-5` compensation (EventCard.tsx, when a TILL
+  // tag is present) is unchanged -- not part of this request.
+  const offset = context === 'compact' ? '-top-1.5' : 'top-1.5';
+  const horizontal = context === 'default' ? 'left-1.5' : '-left-1.5';
+  return `absolute ${offset} ${horizontal} z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white ${EVENT_CARD_BADGE_TEXT_SIZE_CLASS} font-semibold leading-none shadow-sm whitespace-nowrap`;
+}
 
 /**
  * The image/fallback slot. Owns image-slot dimensions (from the surrounding chrome,
@@ -43,6 +147,7 @@ const badgeFontSizeStyle = {
  */
 export function EventCardMediaSlot({
   imageUrl,
+  imageFallbackUrl,
   imageAlt,
   layout,
   isFavorited = false,
@@ -50,12 +155,47 @@ export function EventCardMediaSlot({
   onFavoriteToggle,
   labels,
   className = '',
+  size = 'default',
   hideFavoriteBadge = false,
   onImagePresenceChange,
+  collapseOnFallback = false,
 }: EventCardMediaSlotProps) {
-  // Same onError detection EventCard.tsx's existing `imgError` state uses (AC3).
+  // BUG-042 (AC-IMG-1): the same imageUrl -> imageFallbackUrl -> reserved-blank retry-once
+  // chain `EventImage.tsx` already implements — `onError` swaps to `imageFallbackUrl` once
+  // (`hasTriedFallback`), then sets the terminal `imgError` (no broken-image icon/placeholder
+  // ever rendered).
+  //
+  // Code-review fix (BUG-042 loopback): "on missing/onError, fall back" covers a `null`/
+  // `undefined` `imageUrl` from the first render too, not just a later `onError` — the original
+  // cut only wired the fallback into `onError`, so a schedule with no primary image at all never
+  // mounted an `<img>` to error and silently skipped `imageFallbackUrl`. `currentImgSrc` now
+  // starts at `imageUrl ?? imageFallbackUrl`, and `hasTriedFallback` starts `true` whenever that
+  // initial pick was already the fallback — an error on that starting image goes straight to the
+  // terminal state instead of re-"falling back" to the same URL. The `imageFallbackUrl !==
+  // currentImgSrc` guard below covers the sibling case where both URLs are identical: without it
+  // `setCurrentImgSrc` would be a no-op, `onError` would never refire, and the slot would be stuck
+  // on the browser's native broken-image icon instead of ever reaching the reserved-blank
+  // fallback.
   const [imgError, setImgError] = useState(false);
-  const imagePresent = !!imageUrl && !imgError;
+  const [currentImgSrc, setCurrentImgSrc] = useState<string | undefined>(imageUrl ?? imageFallbackUrl ?? undefined);
+  const [hasTriedFallback, setHasTriedFallback] = useState(!imageUrl && !!imageFallbackUrl);
+
+  useEffect(() => {
+    setCurrentImgSrc(imageUrl ?? imageFallbackUrl ?? undefined);
+    setHasTriedFallback(!imageUrl && !!imageFallbackUrl);
+    setImgError(false);
+  }, [imageUrl, imageFallbackUrl]);
+
+  const handleImageError = () => {
+    if (imageFallbackUrl && imageFallbackUrl !== currentImgSrc && !hasTriedFallback) {
+      setHasTriedFallback(true);
+      setCurrentImgSrc(imageFallbackUrl);
+    } else {
+      setImgError(true);
+    }
+  };
+
+  const imagePresent = !!currentImgSrc && !imgError;
 
   // Notify an external caller (only when one is supplied) of the local
   // image-presence state, including the initial mount value — Story 1.i1e uses
@@ -64,21 +204,51 @@ export function EventCardMediaSlot({
     onImagePresenceChange?.(imagePresent);
   }, [imagePresent, onImagePresenceChange]);
 
+  // Story 1.i1m AC1/AC3: opt-in, additive fork of this primitive's contract. Every
+  // existing consumer (masonry's two call sites) omits this prop and keeps today's exact
+  // reserved-blank behavior below, byte-for-byte. Only the calendar compact row passes
+  // `true`, per DESIGN.md `event_card_compact_thumbnail_fallback` ("no area for image at
+  // all … the image element is omitted from the DOM entirely"). Returning `null` here --
+  // rather than an empty reserved div -- is what removes the element from the DOM rather
+  // than merely emptying it, both on initial render (no imageUrl) and after `onError`
+  // fires post-mount (the `imagePresent` recompute above already covers both cases).
+  if (collapseOnFallback && !imagePresent) {
+    return null;
+  }
+
+  // Pixel-perfect pass (2026-09-27, masonry-default prototype round 3): `flex-fill` (the masonry
+  // default-thumbnail's only production consumer) drops `h-full`/`rounded-md` for an aspect-ratio-
+  // owned height and square corners instead -- `aspect-[5/6]` (portrait), square corners.
+  //
+  // User feedback (2026-09-27, later same-day): the `min-[1200px]:aspect-square` widening rule
+  // is REMOVED -- `flex-fill` now always renders a STATIC `aspect-[5/6]`, never changing on
+  // screen-size changes ("datebox should always have static aspect-ratio 5:6, dont change on
+  // screen size changes"). This also resolves the open question this pass had left unanswered
+  // (whether the old >=1200px breakpoint should key off viewport or card width) by removing the
+  // breakpoint behavior entirely.
+  //
+  // `fixed-square` (the calendar compact row's own thumbnail) is EXTENDED the same rule this
+  // pass (was `w-16 h-16 shrink-0 rounded-md`, a fixed square) -- "datebox should always have
+  // static aspect-ratio 5:6" applies to the calendar list row's thumbnail too, not just
+  // masonry's. `w-16` (fixed width) is kept so the row's own layout math is unaffected; height
+  // now derives from the aspect ratio instead of being pinned to match the width 1:1.
   const layoutClasses =
-    layout === 'flex-fill' ? 'flex-1 h-full min-w-0' : 'w-16 h-16 shrink-0';
+    layout === 'flex-fill'
+      ? 'flex-1 min-w-0 aspect-[5/6]'
+      : 'w-16 aspect-[5/6] shrink-0 rounded-md';
 
   return (
     <div
       data-event-card-media-slot=""
-      style={badgeFontSizeStyle}
-      className={`relative overflow-hidden rounded-md ${layoutClasses} ${className}`}
+      style={badgeFontSizeStyleFor(size)}
+      className={`relative overflow-hidden ${layoutClasses} ${className}`}
     >
       {imagePresent ? (
         <>
           <img
-            src={imageUrl}
+            src={currentImgSrc}
             alt={imageAlt ?? ''}
-            onError={() => setImgError(true)}
+            onError={handleImageError}
             className="object-cover w-full h-full"
           />
           {!hideFavoriteBadge && onFavoriteToggle && (
@@ -88,7 +258,18 @@ export function EventCardMediaSlot({
               favoriteCount={favoriteCount}
               onFavoriteToggle={onFavoriteToggle}
               labels={labels}
-              className="absolute top-1 right-1 z-10"
+              // User feedback (2026-09-27, "the favorite icon should be clickable to toggle
+              // favorite"): z-index bumped z-10 -> z-30, matching the same defensive bump applied
+              // to masonry's own favorite controls, so this badge unambiguously wins any
+              // z-index/DOM-order stacking tie against a sibling overlay.
+              className="absolute top-1 right-1 z-30"
+              // User feedback (2026-09-27): "on thumbnail-mode, the fav-icon font-size should be
+              // 12px" -- literal 12px, superseding the same-dated earlier fix that sized this
+              // badge relatively (`EVENT_CARD_BADGE_ICON_SCALE_COMPACT_WITH_IMAGE`, a ratio
+              // against `size='compact'`'s own badge-font-size basis). The user's own wording
+              // ("font-size") mirrors how this codebase already sizes icons off a font-size-like
+              // token elsewhere, but the literal value requested is fixed, not relative.
+              iconSizeStyle={size === 'compact' ? { width: '12px', height: '12px' } : undefined}
             />
           )}
         </>
@@ -133,6 +314,8 @@ export function EventCardFavoriteBadge({
   onFavoriteToggle,
   labels = {},
   className = '',
+  iconSizeStyle: iconSizeStyleOverride,
+  largeTextSizeClassName = 'text-sm',
 }: EventCardFavoriteBadgeProps) {
   // AC5 — match EventCard's existing labels/defaultLabels merge pattern exactly
   // (same key `favoriteToggle`, same default string), never a second labels shape.
@@ -144,7 +327,10 @@ export function EventCardFavoriteBadge({
     return null;
   }
 
-  const iconSizeStyle = eventCardBadgeIconSizeStyle(scale);
+  // Story 1.i1m AC5 — `iconSizeStyleOverride` lets the calendar compact row substitute its
+  // own continuous, container-width-driven growth for the ratio-derived default. Every
+  // other call site omits it and keeps today's exact sizing.
+  const iconSizeStyle = iconSizeStyleOverride ?? eventCardBadgeIconSizeStyle(scale);
   const isLarge = scale === 'large';
 
   return (
@@ -158,9 +344,9 @@ export function EventCardFavoriteBadge({
       }}
       className={
         isLarge
-          ? `flex flex-col items-center justify-center gap-0.5 min-h-11 min-w-11 text-sm font-medium text-foreground ${className}`
-          : `flex items-center justify-center rounded-full bg-background/80 backdrop-blur-sm shadow-sm hover:bg-background transition-colors ${
-              favoriteCount !== undefined ? 'px-2.5 py-1.5 gap-1.5' : 'p-2'
+          ? `flex flex-col items-center justify-center gap-0.5 min-h-11 min-w-11 ${largeTextSizeClassName} font-medium text-foreground ${className}`
+          : `flex items-center justify-center rounded-full bg-background/80 backdrop-blur-sm shadow-sm hover:bg-background transition-colors ${EVENT_CARD_BADGE_TEXT_SIZE_CLASS} ${
+              favoriteCount !== undefined ? 'px-1.5 py-1 gap-1.5' : 'p-2'
             } ${className}`
       }
     >
@@ -178,25 +364,240 @@ export function EventCardFavoriteBadge({
         fill={isFavorited ? 'currentColor' : 'none'}
       />
       {favoriteCount !== undefined && (
-        <span className="text-xs font-semibold select-none">{favoriteCount}</span>
+        <span className="font-semibold select-none">{favoriteCount}</span>
       )}
     </button>
   );
 }
 
 /**
- * Thin styled wrapper for the event-card date box. Takes already-formatted `children`
- * (no date/locale formatting is reimplemented here) and is the concrete `text-xs`
- * font-size source the icon-scale token keys off (`DESIGN.md` § event_card_date_box.base_default).
+ * Two-tier stacked month/day chrome for the event-card date box (Story 1.i1k). Takes
+ * structured, already-formatted `month`/`day` slots (no date/locale formatting is
+ * reimplemented here) plus an optional `tillLabel` slot rendered as the amber corner tag,
+ * and is the size-keyed font-size source the icon-scale token (AD-15) keys off
+ * (`DESIGN.md` § event_card_date_box.base_default / § event_card_compact.date_box).
  */
-export function EventCardDateBox({ children, className = '' }: EventCardDateBoxProps) {
+export function EventCardDateBox({ size, month, day, tillLabel, className = '' }: EventCardDateBoxProps) {
+  const paddingClasses = size === 'compact' ? 'px-3 py-2' : 'px-4 py-3';
+  // User feedback (2026-09-27): month/day looked pushed toward the right edge once masonry
+  // `size='default'`'s box grew much wider (flex-1, matching the thumbnail's own share of the
+  // row) -- the flex column's default cross-axis alignment (`align-items: stretch`) stretched
+  // the month/day spans to the box's full width without centering their text within it. `items-
+  // center` on the root span below (masonry `size='default'` only) makes both spans hug their
+  // own content and center in the box instead; `text-center` added to `monthClasses` for the
+  // same reason (`dayClasses` already had it for `size='default'` from AC-DATE-4).
+  // User feedback (2026-09-27): `text-center` extended to `size='compact'` too (the calendar
+  // list row) -- same centering fix as masonry `size='default'`, so the month text doesn't sit
+  // off-center against the day number below it.
+  const monthClasses =
+    size === 'compact'
+      ? 'text-sm font-bold uppercase tracking-wide text-center'
+      : 'text-lg font-bold uppercase tracking-wide text-center';
+  // BUG-047 (Event-Card family consolidation, AC-DATE-1): the day slot is numeric-only by
+  // construction now -- both content sources (`computeEventCardDateBoxParts`,
+  // `computeCalendarSegmentDateBoxContent`) only ever produce a 1-2 digit day-of-month, so the
+  // former `dayVariant='word'` sizing branch (Story 1.i1n/BUG-040, word-safe `text-sm`/`max-w-
+  // [96px]`) has no remaining caller and is deleted, not kept "just in case" (superseded, per
+  // backlog.yaml's BUG-040 note).
+  //
+  // AC-DATE-4: the day slot gets an explicit `tabular-nums` + `min-w-[2ch]` floor so the box's
+  // rendered width is identical whether the day is 1-digit ("3") or 2-digit ("23") -- previously
+  // nothing constrained this, so glyph width alone could shift the box's total width. Originally
+  // masonry `size='default'` only ("`size='compact'` explicitly unaffected... masonry-only, no
+  // cross-family invariant intended") -- EXTENDED to `size='compact'` (2026-09-27, user
+  // feedback: "width should always same when it's two or one digit") once the calendar list row
+  // needed the identical invariant.
+  const dayClasses =
+    size === 'compact'
+      ? 'inline-block text-center tabular-nums min-w-[2ch] text-3xl font-extrabold leading-none'
+      : 'inline-block text-center tabular-nums min-w-[2ch] text-5xl font-extrabold leading-none';
+
+  // AC-DATE-5 (masonry `size='default'` only): empirically confirmed (Playwright, real render)
+  // that the *wrapper* div `EventCard.tsx`'s `top_row_default` gives this component already
+  // stretches correctly to the sibling thumbnail's height (`flex items-stretch`) -- but this
+  // component's own root `<span>` has no size rule of its own, so it only fills its NATURAL
+  // content box inside that taller/wider wrapper, leaving the visible navy box visually smaller
+  // than the thumbnail beside it. `w-full h-full` on the span (masonry `size='default'` only)
+  // closes that gap.
+  //
+  // Pixel-perfect pass (2026-09-27, masonry-default prototype round 3): the date-box and
+  // thumbnail "shouldn't have border radius" and must be "identical width" -- `size='default'`
+  // drops `rounded-md`/`shrink-0` (its wrapper div in EventCard.tsx now carries `flex-1 min-w-0`
+  // instead) while `size='compact'` (calendar list row, unaffected by this pass) keeps both.
+  //
+  // User feedback (2026-09-27), calendar list row: "height should not expand ignoring the
+  // card's height growth" -- `size='compact'`'s date box is a flex child of a `flex items-
+  // stretch` row (WeeklyCalendarView.tsx's list-variant `<button>`), so as sibling content (the
+  // multi-day badge, favorite-count line) adds height to the row, the date box was stretching to
+  // match instead of keeping its own fixed, content-driven height. `self-start` overrides that
+  // stretch, keeping the box's own intrinsic height regardless of how tall its siblings grow.
+  const sizingClasses = size === 'default' ? 'w-full h-full' : 'shrink-0 self-start';
+  const roundingClass = size === 'compact' ? 'rounded-md' : '';
+  // User feedback (2026-09-27): `items-center` extended to `size='compact'` too, matching the
+  // `text-center` extension above -- centers month/day horizontally within the box.
+  const alignClasses = 'items-center';
+
   return (
     <span
-      style={badgeFontSizeStyle}
+      style={badgeFontSizeStyleFor(size)}
       data-event-card-date-box=""
-      className={`relative flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-800 text-white shadow-sm text-xs font-semibold shrink-0 ${className}`}
+      data-event-card-date-box-size={size}
+      className={[
+        'relative flex flex-col justify-center gap-0.5',
+        paddingClasses,
+        'bg-slate-800 text-white shadow-sm leading-none',
+        roundingClass,
+        sizingClasses,
+        alignClasses,
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
-      {children}
+      {tillLabel ? (
+        <span className={eventCardTillLabelClass(size === 'compact' ? 'compact' : 'default')}>{tillLabel}</span>
+      ) : null}
+      <span data-event-card-date-box-month="" className={monthClasses}>
+        {month}
+      </span>
+      <span data-event-card-date-box-day="" className={dayClasses}>
+        {day}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * The event/schedule status badge (`DESIGN.md` § event_card_status_badge, Story 1.i1i AC1).
+ * Takes the already-labeled `formatEventStatus` string (no date/locale logic is reimplemented
+ * here) and applies exactly one of that token's two shapes: the shared neutral `base` for the
+ * 7 non-`happeningNow` states, or `happening_now`'s solid emerald fill for `happeningNow` —
+ * the single deliberate per-state exception, never a general per-state styling mechanism.
+ *
+ * Exported standalone (AC5) so the future `EventCardRepeatBadge` (Story 1.3k) can be inserted
+ * between it and `EventCardNearbyBadge` inside the consumer's badge-row `<div>` without either
+ * component — or the row itself — being modified.
+ */
+const EVENT_CARD_STATUS_BADGE_VARIANT_CLASS: Record<
+  NonNullable<EventCardStatusBadgeProps['variant']>,
+  string
+> = {
+  default: 'bg-muted text-muted-foreground',
+  happeningNow: 'bg-emerald-600 text-white',
+  // "Ending soon" (statusEndsAt/statusEndsToday) — reuses the masonry TILL tag's own amber-700
+  // (verified ~5.03:1 contrast on white, DESIGN.md's event_card_till_badge note), so amber reads
+  // as one consistent "end-time" color across the card family.
+  endingSoon: 'bg-amber-700 text-white',
+  // "Starting soon" (statusInHours) — distinct from amber (ending) and emerald (live now);
+  // sky rather than indigo/violet since the calendar card's own chrome already uses violet-50/200.
+  startingSoon: 'bg-sky-600 text-white',
+};
+
+export function EventCardStatusBadge({
+  text,
+  variant = 'default',
+  className = '',
+}: EventCardStatusBadgeProps) {
+  return (
+    <span
+      data-event-card-status-badge=""
+      className={`inline-flex items-center text-xs px-2 py-0.5 rounded font-medium shrink-0 ${EVENT_CARD_STATUS_BADGE_VARIANT_CLASS[variant]} ${className}`}
+    >
+      {text}
+    </span>
+  );
+}
+
+/**
+ * BUG-049 (AC-NEARBY-1/2/3, `event-card-family-consolidated-acs.md` §2.4): shared default
+ * formatter for the nearby-badge's distance text. `distanceKm >= 2` renders with no decimal
+ * place ("5 km"); `distanceKm < 2` renders with one decimal place ("1.2 km"). Branch selection
+ * always uses the raw (un-rounded) `distanceKm` — so `1.95` stays in the `<2` branch and
+ * displays as `"2.0 km"` once `toFixed(1)` rounds the printed digit; the source value never
+ * actually crossed the 2km line, only its rendered text did. Exported so every call site
+ * (`EventCard.tsx`, `WeeklyCalendarView.tsx`, `EventCardCalendarGridItem.tsx`,
+ * `CalendarOverflowDialog.tsx`) shares one implementation of this rule instead of four.
+ */
+export function formatNearbyBadgeDistance(distanceKm: number): string {
+  return distanceKm >= 2 ? `${Math.round(distanceKm)} km` : `${distanceKm.toFixed(1)} km`;
+}
+
+/**
+ * Story 1.i1o (AC4, `project-context.md`'s Locale-Sensitive Data Rendering rule): locale-aware
+ * counterpart to `formatNearbyBadgeDistance` above — same `distanceKm >= 2` (0 fraction digits)
+ * / `< 2` (1 fraction digit) branching, but formatted via `Intl.NumberFormat(locale, ...)` instead
+ * of `Math.round`/`.toFixed(1)`, so the decimal separator itself follows the active locale (e.g.
+ * Indonesian's comma: `"1,2 km"` vs English's `"1.2 km"`). Every content/calendar page's
+ * `nearbyBadge` closure calls this with its own `useLocale()` value; `formatNearbyBadgeDistance`
+ * itself is left unchanged and stays the component's English-only internal safety-net default.
+ */
+export function formatLocalizedNearbyBadgeDistance(locale: string, distanceKm: number): string {
+  const fractionDigits = distanceKm >= 2 ? 0 : 1;
+  const formatted = formatLocalizedDistanceNumber(locale, fractionDigits).format(distanceKm);
+  return `${formatted} km`;
+}
+
+/**
+ * Story 1.i1o review patch: `Intl.NumberFormat` construction is non-trivial, and the nearby-badge
+ * closure above runs once per rendered card per render pass. Caching one formatter per
+ * (locale, fractionDigits) pair keeps the same output with zero per-call construction cost.
+ */
+const localizedDistanceFormatterCache = new Map<string, Intl.NumberFormat>();
+
+function formatLocalizedDistanceNumber(locale: string, fractionDigits: number): Intl.NumberFormat {
+  const cacheKey = `${locale}:${fractionDigits}`;
+  let formatter = localizedDistanceFormatterCache.get(cacheKey);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, {
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    });
+    localizedDistanceFormatterCache.set(cacheKey, formatter);
+  }
+  return formatter;
+}
+
+/**
+ * The nearby-distance badge (`DESIGN.md` § event_card_nearby_badge, Story 1.i1i AC1/AC2;
+ * BUG-049 AC-NEARBY-1/2/3). Self-gating (AC1, mirroring `EventCardFavoriteBadge`'s early-return
+ * convention): renders nothing unless the caller passes a known `distanceKm` below
+ * `thresholdKm` (default `8`), so no consumer needs to precompute a `showNearbyBadge` boolean
+ * or re-derive the threshold (Architecture Spine AD-24 Rule 2). Omitted entirely — never a
+ * disabled/placeholder state. This gating is unchanged by BUG-049 — only the badge's rendered
+ * CONTENT changed, from a static "Nearby" word to the actual computed distance.
+ *
+ * Exported standalone (AC5) rather than as part of a combined badge-row primitive.
+ */
+export function EventCardNearbyBadge({
+  distanceKm,
+  thresholdKm = 8,
+  labels = {},
+  className = '',
+}: EventCardNearbyBadgeProps) {
+  // AC3 — match EventCard's existing labels/defaultLabels merge pattern exactly (same key
+  // `nearbyBadge`), now a function-shaped label (BUG-049) rather than a bare string default.
+  // Nullish-coalescing, not spread-after-default: a caller-supplied `labels={{ nearbyBadge:
+  // undefined }}` (key present, value undefined) must still fall back to the default function,
+  // never silently resolve to `undefined` and crash `defaultLabels.nearbyBadge(distanceKm)`
+  // below (review finding, BUG-049 — a plain object spread would have let that through).
+  const defaultLabels = { nearbyBadge: labels.nearbyBadge ?? formatNearbyBadgeDistance };
+
+  // BUG-049 review finding: `distanceKm` reaching here as NaN/negative/non-finite (a caller-side
+  // geolocation bug, not this primitive's concern) used to be masked by the old static "Nearby"
+  // label -- rendering it through `formatNearbyBadgeDistance` would surface it as visible broken
+  // text ("NaN km", "-3.0 km"). Treat it exactly like an unknown distance (`== null`) and omit
+  // the badge, rather than widen what the `< thresholdKm` comparison itself means.
+  if (distanceKm == null || !Number.isFinite(distanceKm) || distanceKm < 0 || distanceKm >= thresholdKm) {
+    return null;
+  }
+
+  return (
+    <span
+      data-event-card-nearby-badge=""
+      className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground ${className}`}
+    >
+      <Navigation className="w-3 h-3" />
+      {defaultLabels.nearbyBadge(distanceKm)}
     </span>
   );
 }

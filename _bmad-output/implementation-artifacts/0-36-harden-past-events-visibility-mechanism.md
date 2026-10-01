@@ -127,6 +127,29 @@ All three gates were run fresh via subagent (no `epic-0-readiness.md`-equivalent
 - [Source: _bmad-output/implementation-artifacts/0-34-harden-eventcategory-eventtype-cross-source-consistency.md] (precedent: standalone backlog-sourced Epic 0 hardening story format, "why no epics.md section")
 - [Source: _bmad-output/planning-artifacts/epic-readiness/epic-0-readiness.md] (confirmed scoped only to Stories 0.1-0.19, not applicable here)
 
+### Backlog row history (FIND-029, verbatim, moved from backlog.yaml 2026-09-18)
+
+Deferred from: code review of 2-7-automatically-hide-past-events (2026-09-14). 4 findings, all
+pre-existing and not evidenced as currently live: (1) `getOrCreateUserSettings`'s post-insert
+re-select can return an empty array in a race/replica-lag scenario; the caller dereferences
+`.hidePastEventsAfterDays` with no null guard, which would throw rather than gracefully falling
+back to the anonymous default; (2) no unique/partial index enforces at most one
+`isMainSchedule=true` row per `eventId` in `schedules` — a future duplicate-main-schedule insert
+would fan out duplicate result rows via the `mainSchedulesOnly` join; (3) the "is this event
+past" threshold is independently re-derived with separate `now()` captures in three places —
+currently consistent per passing tests, but a future edit to one copy without the others would
+let them silently disagree; (4) Discovery's `page.tsx` is missing
+`export const dynamic = 'force-dynamic'`, unlike Feed/Favorites/Archive/My-Calendar's `page.tsx`
+files — verified `HomeContent` fetches entirely client-side so this doesn't appear to cause
+stale data, but the inconsistency was unexplained.
+
+**PROMOTED 2026-09-16 (bmad-create-story)** — all 4 findings bundled into this standalone Epic
+0 story (no formed epic exists for this row; matches the FIND-016/Story 0.34/0.35
+standalone-Epic-0 precedent). This story also adds a 5th AC (`isMainSchedule` ingestion-time
+normalization in `buildEventInsertValues`) surfaced only while scoping item (2)'s migration —
+see the rest of this story's Dev Notes for the full finding and its AskUserQuestion-confirmed
+resolution. Fully covered, no leftover chunk.
+
 ## Global Rules References
 
 - [x] `project-context.md` — Database & Performance rules (Drizzle-only DB access, indexing conventions); Code Organization rule (`packages/domain` React/DB/Node-dependency-free); Testing Rules (100% `packages/domain` unit coverage)

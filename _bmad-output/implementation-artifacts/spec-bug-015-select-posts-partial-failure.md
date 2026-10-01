@@ -64,3 +64,16 @@ context: []
 
 **Commands:**
 - `pnpm --filter backend test extraction.test.ts` -- expected: all pass including the new partial-failure case
+
+## Actually Implemented, 2026-09-18 (note: frontmatter/checkboxes above are stale)
+
+2 ritual-orchestrator quick-dev dispatches against this spec (bundled with 3 others, then
+bundled with FIND-020) both stalled at spec-only with zero implementation despite green
+lint/build/test. Implemented directly instead, reusing the 2nd session's precise spec above:
+`resolvers.ts`'s `selectPostsForExtraction` reworked to `Promise.allSettled`, returns `Post`s
+for succeeded postIds only, logs failures, preserves the existing GraphQLError mapping when all
+fail; new `extraction.test.ts` case using a real `isExtracted:true` post as the failure trigger,
+no mocking. Verified independently: full `extraction.test.ts` (18/18), `tsc --noEmit` clean,
+`pnpm --filter backend lint` exit 0. Triaged alongside FIND-034 (same ai-processing enqueue
+path) since the sibling IAM-grant fix made sends actually succeed, turning this from a
+theoretical risk into a live one.

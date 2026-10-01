@@ -278,9 +278,6 @@
     "gatedPersonalTooltip": "This account can't be tracked",
     "gatedPersonalTitle": "Personal Account",
     "gatedPersonalDescription": "This account can't be tracked due to user privacy and legitimate interest compliance.",
-    "gatedCuratorTooltip": "Tracking for this account type is coming soon",
-    "gatedCuratorTitle": "Curator Feed",
-    "gatedCuratorDescription": "Tracking for this account type is coming soon. Curator and local-guide accounts will be held back until a minimization pipeline exists.",
     "gatedAwaitingApprovalTooltip": "This account is pending review",
     "gatedAwaitingApprovalTitle": "Classification Pending",
     "gatedAwaitingApprovalDescription": "This account is pending moderation review.",
@@ -307,7 +304,8 @@
     "calendarMoreLabel": "{count, plural, =1 {# more event} other {# more events}}",
     "calendarMultiDaySegmentLabel": "Day {dayNumber} of {totalDays}",
     "calendarErrorState": "Failed to load calendar events.",
-    "calendarClosePopoverLabel": "Close popover"
+    "calendarClosePopoverLabel": "Close popover",
+    "calendarOverflowDialogTitleLabel": "Schedules for {day}"
   },
   "FeedPage": {
     "title": "My Feed",
@@ -397,6 +395,33 @@
     "CAREER": "Career",
     "AUTOMOTIVE": "Automotive",
     "OTHER": "Other"
+  },
+  "EventCard": {
+    "favoriteToggle": "Toggle favorite",
+    "tillLabel": "till",
+    "statusEnded": "Ended",
+    "statusHappeningNow": "Now",
+    "statusEndsToday": "Ends Today",
+    "statusEndsAt": "Ends {time}",
+    "statusInHours": "In {n} hour(s)",
+    "statusInDays": "In {n} days",
+    "statusUpcoming": "Upcoming",
+    "tomorrow": "Tomorrow"
+  },
+  "WeeklyCalendarView": {
+    "loadingText": "Loading calendar view...",
+    "favoriteToggleLabel": "Toggle favorite",
+    "favoritedBadgeLabel": "Favorited",
+    "addedToCalendarBadgeLabel": "Added to calendar",
+    "tillLabel": "till",
+    "statusEnded": "Ended",
+    "statusHappeningNow": "Now",
+    "statusEndsToday": "Ends Today",
+    "statusEndsAt": "Ends {time}",
+    "statusInHours": "In {n} hour(s)",
+    "statusInDays": "In {n} days",
+    "statusUpcoming": "Upcoming",
+    "tomorrow": "Tomorrow"
   },
   "ReportReason": {
     "cancelled": "Cancelled",
@@ -516,6 +541,12 @@
     "unavailableLabel": "Couldn't detect your location — showing all events.",
     "locationsErrorLabel": "Couldn't load your saved locations.",
     "noSavedLocationsHint": "Save a location in My Locations to filter by a specific place."
+  },
+  "AmbientLocationBanner": {
+    "message": "Enable your location to see how far away events are.",
+    "enableButtonLabel": "Enable nearby distances",
+    "notNowButtonLabel": "Not now",
+    "remindLaterButtonLabel": "Remind me in 2 weeks"
   },
   "UserMenu": {
     "profile": "Profile",

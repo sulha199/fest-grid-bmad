@@ -23,5 +23,33 @@ if (!env.databaseUrl) {
 // concurrent invocations blows through even at max: 1 per container. prepare: false
 // is required in transaction mode since prepared statements can't be reused across
 // the backend connections the pooler rotates between queries.
-const client = postgres(env.databaseUrl, { idle_timeout: 5, max: 1, prepare: false });
+const client = postgres(env.databaseUrl, { idle_timeout: 5, max: 1, prepare: false, debug });
+
+// --- Query-count instrumentation (Story 1.3j, AC8) ---
+// The backend suite has no prior instrumented query-count precedent, so this small hook is
+// added at the one place every resolver query funnels through (db/client.ts). It is inert in
+// production: `debugEnabled` starts false and is only turned on transiently by integration
+// tests that assert an O(1)-not-O(N) query count. postgres.js invokes the `debug` callback
+// (connection.js) once per executed query, so counting there gives an accurate round-trip count.
+let debugEnabled = false;
+let executedQueryCount = 0;
+
+function debug(): void {
+  if (debugEnabled) {
+    executedQueryCount++;
+  }
+}
+
+export function enableQueryDebug(enabled: boolean): void {
+  debugEnabled = enabled;
+}
+
+export function resetExecutedQueryCount(): void {
+  executedQueryCount = 0;
+}
+
+export function getExecutedQueryCount(): number {
+  return executedQueryCount;
+}
+
 export const db = drizzle(client, { schema });

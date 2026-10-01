@@ -32,7 +32,10 @@ even when present, another shape the eventual `locationName` fix needs to tolera
 
 ## Status
 
-`hashtags` extraction is fixed and shipped (see the BUG-032 doc). `locationName`/
-`ownerUsername` now have real confirming evidence in these files but are **not yet
-implemented** — `ownerDisplayName` still has no confirmed source field. Not fixed here;
-flagged for whoever picks this up next.
+`hashtags`, `locationName`, and `ownerUsername` extraction are fixed and shipped (see the
+BUG-032 doc). `ownerDisplayName` has no confirmed source field anywhere in these fixtures'
+key set (confirmed 2026-09-18, FIND-024) — not fixable without a different Bright Data
+dataset/API tier. These fixtures also evidence `content_type: "Carousel"` records whose
+top-level `photos` array lists every slide (Bright Data's equivalent of Apify's `childPosts`,
+just flat instead of nested) — that capture is fixed too, via `additionalImageUrls`
+(FIND-024, 2026-09-18).

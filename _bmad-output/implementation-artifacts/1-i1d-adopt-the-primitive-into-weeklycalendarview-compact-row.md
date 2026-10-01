@@ -125,6 +125,52 @@ Today, `CalendarCard`'s entire `variant='list'` row is **one** `<button>` (whole
 - [Source: apps/web/src/app/[locale]/[platformSlug]/[accountId]/account-content.tsx] (lines ~153-195, ~279-282 — existing `toggleFavorite`/session/login-modal instance reused by `AccountCalendarView.tsx`)
 - [Source: apps/web/src/app/[locale]/my-calendar/my-calendar-content.tsx] (no existing mutation instance — this story adds one, Task 4.7)
 
+### Backlog row history (IDEA-016, verbatim, moved from backlog.yaml 2026-09-18)
+
+Reported by user via `bmad-help` via two reference screenshots of a wide-row "calendar view"
+card — distinct from the masonry EventCard discussed under CC-019/IDEA-017 — showing: date box
++ title/venue + status/nearby badges on the left, and an event thumbnail with the existing
+heart+favorite-count overlay on the right. The second screenshot shows the same row with the
+image missing/expired: the thumbnail area is blank (no placeholder, see FIND-023) and the
+favorite heart icon renders noticeably larger and without its usual pill background. Verified
+this was genuinely new scope: neither DESIGN.md's `components.calendar.mobile_day_list`/
+`event_card_compact` tokens nor WeeklyCalendarView.tsx rendered any image at capture time —
+1-3g's AC14 only ever added a `favoriteCount` text line, no thumbnail.
+
+**FULLY SPEC'D (2026-09-11 bmad-ux pass):** row composition (date box + content column +
+thumbnail) tokenized as `event_card_compact`/`event_card_compact_thumbnail_fallback` in
+DESIGN.md, behavior in EXPERIENCE.md's "Calendar Row Card: Thumbnail and Fallback" section.
+Also resolved: this card's date box shows *till/end* info, not a redundant repeat of the start
+date the surrounding day/date container already conveys — so no separate
+`event_card_till_badge` on this surface. Still open at that point: which
+WeeklyCalendarView.tsx render path this attaches to — an architecture call for whoever picks
+this up via `bmad-create-story` against Story 1.3g.
+
+**PROMOTED (2026-09-13 via bmad-create-story, subject-match per backlog-spec.md §13 —
+epics.md's own Story 1.i1d cites this row by id):** the render-path question was resolved by
+epic-1-i1-readiness.md (attaches to `CalendarCard`'s `variant='list'` only) and this story
+delivers the thumbnail + reserved-blank fallback + enlarged favorite badge + the till/end date
+box on that surface. NOT covered by this story: the status/nearby badges this row's original
+two reference screenshots also showed in the title/venue column — epics.md's own AC set never
+required them (no distanceKm/status data is plumbed into WeeklyCalendarView), so this story's
+Out of Scope section explicitly excludes them rather than absorbing them unrequested. That
+uncovered remainder is carved into child row IDEA-025.
+
+**AMENDED (2026-09-14, bmad-png-to-html prototype pass, see CC-019's amendment note for the
+full session):** three corrections to this row's already-promoted spec, found only once actual
+HTML/Tailwind prototypes were built and screenshot-validated against the reference PNGs — (1)
+`event_card_compact.date_box` was mis-specified as a single-line text-xs box; the reference PNG
+always showed the same large two-tier stacked treatment (month/weekday line over a large bold
+day number) as the masonry card's own date box — corrected, plus a new explicit `till_label`
+sub-token for the amber corner tag. (2) Title now wraps up to 2 lines (was truncate); venue
+stays 1 line. (3) Missing-image fallback REVERSED from this row's original 2026-09-11
+resolution: no longer reserves a `w-16 h-16` slot — the image element is omitted from the DOM
+entirely, content expands to fill the freed width, and the favorite control sits at the row's
+end with no reserved wrapper (masonry keeps its own reserved-space convention; this row and the
+new grid-item card in IDEA-026 both drop it). Since this story already shipped the old
+single-line-date-box/reserved-slot-fallback version, both corrections needed a follow-up
+amendment before this drifted further from spec.
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — UI Components & Scalability rule (Domain Features → `packages/ui/src/features/<domain>/`, unchanged placement); State Management rule (Server State via React Query — `useToggleFavoriteMutation` wiring, Task 4, is Server State, not new Client Global State); Locale-Sensitive Data Rendering rule (till/end times formatted via `Intl`/`formatEventTime`, never raw-interpolated).

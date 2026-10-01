@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { GridContainer } from './grid-container';
 
@@ -131,5 +131,98 @@ describe('GridContainer', () => {
     );
 
     consoleSpy.mockRestore();
+  });
+
+  // ── Story 0.45 / Architecture Spine AD-27 — layout="masonry" (AC1/AC3/AC4/AC11) ──────────
+  describe('layout="masonry"', () => {
+    const setInnerWidth = (width: number) => {
+      Object.defineProperty(window, 'innerWidth', { value: width, writable: true, configurable: true });
+    };
+
+    afterEach(() => {
+      setInnerWidth(1024);
+    });
+
+    it('AC1 — defaults to css-grid when layout is omitted (unaffected by this story)', () => {
+      const { container } = render(
+        <GridContainer baseCols={1} colsStep={1}>
+          <div>Item 1</div>
+        </GridContainer>
+      );
+      const rootDiv = container.firstChild as HTMLElement;
+      expect(rootDiv.className).toContain('grid');
+      expect(rootDiv).not.toHaveAttribute('data-grid-container-layout');
+    });
+
+    it('AC3/AC4 — renders one equal-width flex column track per active breakpoint column count, not CSS Grid classes', () => {
+      setInnerWidth(768); // md breakpoint
+      const { container } = render(
+        <GridContainer baseCols={2} colsStep={1} layout="masonry">
+          <div>Item 1</div>
+          <div>Item 2</div>
+          <div>Item 3</div>
+        </GridContainer>
+      );
+
+      const root = container.firstChild as HTMLElement;
+      expect(root).toHaveAttribute('data-grid-container-layout', 'masonry');
+      expect(root.className).not.toContain('grid-cols');
+
+      // baseCols=2, colsStep=1 -> md = 2 + 1*1 = 3 columns (DESIGN.md's documented table, AC3).
+      const columns = container.querySelectorAll('[data-grid-container-column]');
+      expect(columns).toHaveLength(3);
+      columns.forEach((col) => {
+        expect(col).toHaveClass('flex-1');
+        expect(col).toHaveClass('min-w-0');
+      });
+    });
+
+    it('AC4/AC9 — renders every item exactly once, indexed for placement-order verification', () => {
+      // useMasonryLayout's own dedicated unit tests (useMasonryLayout.test.ts, AC11) exercise the
+      // round-robin-vs-shortest-column placement logic itself under controlled heights; jsdom's
+      // real refs all measure offsetHeight 0 (no layout engine), so this component-level test
+      // asserts the WIRING (every item renders exactly once, carrying its original index) rather
+      // than which column a 0-height jsdom node lands in (see EventCard.tsx's Task 2.3 comment
+      // for this codebase's established "assert the mechanism, not jsdom pixels" convention).
+      setInnerWidth(1536); // 2xl breakpoint
+      const { container } = render(
+        <GridContainer baseCols={2} colsStep={1} layout="masonry">
+          <div key="a">A</div>
+          <div key="b">B</div>
+          <div key="c">C</div>
+        </GridContainer>
+      );
+
+      const items = Array.from(container.querySelectorAll('[data-grid-container-item]'));
+      expect(items).toHaveLength(3);
+      expect(items.map((el) => el.getAttribute('data-grid-container-item-index')).sort()).toEqual(['0', '1', '2']);
+      expect(items.map((el) => el.textContent).sort()).toEqual(['A', 'B', 'C']);
+    });
+
+    it('AC1 — preserves the existing per-breakpoint out-of-range validation for masonry too', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      expect(() => {
+        render(
+          <GridContainer baseCols={5} colsStep={2} layout="masonry">
+            <div>Item 1</div>
+          </GridContainer>
+        );
+      }).toThrow(/Column count 9 at breakpoint 'lg'/);
+      consoleSpy.mockRestore();
+    });
+
+    it('translates the gap prop onto both the row (inter-column) and each column (inter-item) track', () => {
+      const { container } = render(
+        <GridContainer layout="masonry" gap="gap-x-2 gap-y-6">
+          <div>Item 1</div>
+        </GridContainer>
+      );
+      const root = container.firstChild as HTMLElement;
+      expect(root.className).toContain('gap-x-2');
+      expect(root.className).toContain('gap-y-6');
+      const column = container.querySelector('[data-grid-container-column]') as HTMLElement;
+      expect(column.className).toContain('gap-x-2');
+      expect(column.className).toContain('gap-y-6');
+    });
   });
 });

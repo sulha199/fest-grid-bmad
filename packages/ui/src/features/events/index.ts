@@ -26,3 +26,8 @@ export * from './EventCardMediaPrimitives';
 export * from './EventCardMediaPrimitives.types';
 export * from './event-card-media-tokens';
 
+export * from './EventCardCalendarGridItem';
+export * from './EventCardCalendarGridItem.types';
+export * from './CalendarOverflowDialog';
+export * from './CalendarOverflowDialog.types';
+

@@ -24,4 +24,14 @@ export interface GridContainerProps {
    * Optional additional class name to merge into the base grid classes.
    */
   className?: string;
+
+  /**
+   * Layout engine (Story 0.45 / Architecture Spine AD-27).
+   * - `'css-grid'` (default, unchanged): plain CSS Grid — every row's height is shared across
+   *   all columns (CSS Grid's row-locked height), fine for uniform-height content.
+   * - `'masonry'`: JS shortest-column placement (measure each item's rendered height, place
+   *   each next item into whichever column currently has the smallest accumulated height) —
+   *   true Pinterest-style independent per-column height flow, for variable-height cards.
+   */
+  layout?: 'css-grid' | 'masonry';
 }

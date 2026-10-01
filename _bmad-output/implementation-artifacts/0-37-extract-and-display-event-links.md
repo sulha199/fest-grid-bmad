@@ -302,6 +302,27 @@ the structured event fields.
 - [Source: _bmad-output/implementation-artifacts/0-36-harden-past-events-visibility-mechanism.md
   — standalone Epic 0 backlog-sourced-story precedent]
 
+### Backlog row history (IDEA-012, verbatim, moved from backlog.yaml 2026-09-18)
+
+Reported by user via `bmad-help`. Two parts: (1) extend the AI extraction schema/prompt to
+also return a `links: {url: string; label?: string}[]` field, threading it through
+storage/GraphQL alongside the existing `contactInfo` field; (2) render it in
+`EventDetailView.tsx` as a new "links" row styled identically to the existing Contact Info row
+— and, per the user's requirement, both rows should only render when their field is
+non-empty, matching `contactInfo`'s existing conditional pattern.
+
+**PROMOTED 2026-09-16 via bmad-create-story (row id named directly):** this story (0.37)
+covers extraction + storage + GraphQL + read-only display in full, mirroring the `contactInfo`
+pattern end-to-end (jsonb column, not `text()` — links is an array of objects) with zero new
+GraphQL resolver code (`buildOptimizedDrizzleSelect` passthrough). Manual link editing via the
+"Correct Data" dialog was intentionally left uncovered — carved into child row IDEA-036.
+
+**VERIFIED 2026-09-17 (ritual-orchestrator batch, pre-dispatch check):**
+`event-pages-remaining-backlog-plan.md`'s Cluster A checkbox for this row was still unchecked
+and a `bmad-create-story` dispatch was about to be run against it; caught before dispatch —
+this story already `review` in sprint-status.yaml. No new dispatch run. Plan doc checkbox
+corrected.
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — Code Organization (domain/ui package

@@ -425,7 +425,7 @@ describe('PostsSelectContent integration', () => {
     });
   });
 
-  it('displays state-specific warning/info banners and tab indicators for gated account types (AC3)', async () => {
+  it('displays state-specific warning/info banners and tab indicators for gated account types (AC3), and confirms confirmed CURATOR_GUIDE accounts are no longer gated (reverts the stale fd349bc gate now that Story 3.4o has shipped)', async () => {
     mockSubscriptions = [
       {
         id: 'sub-gated-1',
@@ -466,17 +466,17 @@ describe('PostsSelectContent integration', () => {
         },
       },
       {
-        id: 'sub-gated-3',
-        accountId: 'acc-gated-3',
+        id: 'sub-curator-1',
+        accountId: 'acc-curator-1',
         isNewlyAdded: false,
         isInactive: false,
         createdAt: '2026-08-01T00:00:00.000Z',
         pendingExtractionCount: 0,
         account: {
-          id: 'acc-gated-3',
+          id: 'acc-curator-1',
           platform: 'instagram',
-          displayName: 'Curator Excluded Account',
-          username: 'curator_excluded',
+          displayName: 'Curator Account',
+          username: 'curator_account',
           profileImageUrl: null,
           defaultLocation: null,
           hasPendingDefaultLocationReview: false,
@@ -504,15 +504,24 @@ describe('PostsSelectContent integration', () => {
     expect(titlePersonal).toBeInTheDocument();
     expect(descPersonal).toBeInTheDocument();
 
-    // 3. Switch to Curator Excluded Tab
-    const tabCurator = screen.getByText('Curator Excluded Account');
-    fireEvent.click(tabCurator);
+    // 3. Switch to the CURATOR_GUIDE tab. A prior fix (commit fd349bc) added a
+    // hard "coming soon" gate here pending Story 3.4o's minimization pipeline
+    // (no durable image storage, caption suppression for CURATOR_GUIDE posts).
+    // That pipeline has since shipped (3.4o, `review`) and the backend scrape
+    // gate already allows confirmed CURATOR_GUIDE accounts through -- so this
+    // reverts the frontend gate, which was left blocking everything regardless
+    // of pipeline readiness.
+    const tabCuratorButton = screen.getByText('Curator Account').closest('button');
+    expect(tabCuratorButton).not.toBeNull();
+    // No Ban icon in the tab row -- distinct from the content-area banner check
+    // below, since removing only one of the two gate sites would still regress.
+    expect(tabCuratorButton!.querySelector('.lucide-ban')).toBeNull();
+    fireEvent.click(tabCuratorButton!);
 
-    // Verify Curator Excluded Banners
-    const titleCurator = await screen.findByText('Curator Feed');
-    const descCurator = screen.getByText('Tracking for this account type is coming soon', { exact: false });
-    expect(titleCurator).toBeInTheDocument();
-    expect(descCurator).toBeInTheDocument();
+    // Renders normally, same as an unrestricted account -- no gated banner.
+    await screen.findByText('Post 1 content');
+    expect(screen.queryByText('Curator Feed')).not.toBeInTheDocument();
+    expect(screen.queryByText('Tracking for this account type is coming soon', { exact: false })).not.toBeInTheDocument();
   });
 
   describe('On-demand scraping trigger (Task 5.6)', () => {

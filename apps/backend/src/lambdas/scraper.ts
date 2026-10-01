@@ -3,7 +3,7 @@ import '../lib/scraper/register-adapters.js';
 import { getBatchScrapeTargets } from '../lib/scraper/get-scrape-targets.js';
 import { enqueueScrapeJob } from '../lib/scraper/enqueue-scrape-job.js';
 import { processScrapeJob } from '../lib/scraper/process-scrape-job.js';
-import { pollAndDrainQueue } from '../lib/aws/poll-and-drain-queue.js';
+import { pollAndDrainQueue, hasJobType } from '../lib/aws/poll-and-drain-queue.js';
 import { attemptBrightDataTrigger } from '../lib/scraper/trigger-brightdata-for-target.js';
 import { attemptApifyAsyncTrigger } from '../lib/scraper/trigger-apify-for-target.js';
 import { runStaleJobSweep } from '../lib/scraper/stale-job-sweep.js';
@@ -16,22 +16,20 @@ import {
   tallyScraperProviderResults,
   type ScraperTargetProviderMarker,
 } from '../lib/scraper/tally-scraper-provider-results.js';
+import { loadBackendEnv } from '../env.js';
+
+// FIND-035: fallback window for a target with no `newestPostPublishedAt` (i.e. no posts
+// yet -- its first-ever scrape). Mirrors the fallback branch already proven correct in
+// process-scrape-job.ts's SQS-fallback path.
+function lookbackFallback(days: number): string {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  return cutoff.toISOString();
+}
 
 type PollAndDrainEvent = { jobType: 'poll-and-drain' };
 type StaleJobSweepEvent = { jobType: 'stale-job-sweep' };
 type ScraperEvent = SQSEvent | EventBridgeEvent<string, unknown> | PollAndDrainEvent | StaleJobSweepEvent;
-
-// Dedicated type-guard functions (rather than inline `'jobType' in event && event.jobType ===
-// '...'` checks) so TypeScript's control-flow analysis can fully narrow `event` back down to
-// `SQSEvent | EventBridgeEvent<string, unknown>` in the code after these branches' `return`s --
-// a compound `&&` expression combining an `in` check with a literal-value comparison doesn't
-// get the same narrowing guarantee once more than one union member declares a `jobType` field.
-function isStaleJobSweepEvent(event: ScraperEvent): event is StaleJobSweepEvent {
-  return (event as { jobType?: unknown }).jobType === 'stale-job-sweep';
-}
-function isPollAndDrainEvent(event: ScraperEvent): event is PollAndDrainEvent {
-  return (event as { jobType?: unknown }).jobType === 'poll-and-drain';
-}
 
 export const handler = async (
   event: ScraperEvent,
@@ -40,7 +38,7 @@ export const handler = async (
   console.log('Scraper lambda invoked', JSON.stringify({ event }));
 
   // Check for stale job sweep EventBridge trigger
-  if (isStaleJobSweepEvent(event)) {
+  if (hasJobType(event, 'stale-job-sweep')) {
     console.log('Running stale job sweep');
     await runStaleJobSweep();
     return;
@@ -49,7 +47,7 @@ export const handler = async (
   // Prod-only (AC3): the EventBridge-scheduled poll-and-drain trigger, replacing the
   // continuous SqsEventSource poller. Mirrors the SQS-Records branch's per-message logic
   // exactly, just fed by pollAndDrainQueue's explicit receive/delete loop instead.
-  if (isPollAndDrainEvent(event)) {
+  if (hasJobType(event, 'poll-and-drain')) {
     console.log('Running poll-and-drain for scraping queue');
     await pollAndDrainQueue(process.env.SCRAPING_QUEUE_URL!, async (body) => {
       const target = JSON.parse(body);
@@ -86,9 +84,21 @@ export const handler = async (
       const targets = await getBatchScrapeTargets();
       console.log(`Found ${targets.length} distinct targets to scrape`);
 
+      // FIND-035: loaded once for the whole batch, not per-target inside the map below.
+      const env = loadBackendEnv();
+
       const results = await Promise.allSettled(
         targets.map(async (target): Promise<{ brightData: ScraperTargetProviderMarker; apify: ScraperTargetProviderMarker }> => {
-          const newerThan = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+          // FIND-035: incremental per-target window -- scrape from where we left off for
+          // this account (newestPostPublishedAt) instead of a hardcoded window re-requested
+          // by every account on every run. Only an account with no posts yet (first-ever
+          // scrape) falls back to the configured initial lookback.
+          const newerThan = target.newestPostPublishedAt?.toISOString()
+            ?? lookbackFallback(env.scrapeInitialLookbackDays);
+          // Observability for FIND-035: makes the actual per-account window visible in
+          // CloudWatch, so a regression back to a wide/hardcoded window is visible without
+          // needing to inspect vendor billing after the fact.
+          console.log(`Scraping ${target.username} for posts newer than ${newerThan}`);
 
           // Try Bright Data first for Instagram
           if (target.platform === 'instagram') {

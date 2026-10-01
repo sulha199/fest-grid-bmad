@@ -97,6 +97,34 @@ This is a **minimal, surgical fix confined to `EventCard.tsx`** (user-confirmed 
 - [Source: design-artifacts/UX-festgrid-run-1/DESIGN.md#event_card_masonry.thumbnail_default_fallback, #event_card_compact_thumbnail_fallback] ("the same detection `EventCard.tsx`'s existing `!imgError && imageUrl` branch already does" — confirms this branch is the correct, already-identified target)
 - [Source: design-artifacts/UX-festgrid-run-1/EXPERIENCE.md#Masonry EventCard Badge Row (Accessibility Floor)] ("Reserved space, not reflow" — AC1's no-reflow requirement)
 
+### Backlog row history (FIND-023, verbatim, moved from backlog.yaml 2026-09-18)
+
+Reported by user via `bmad-help` while checking whether the shipped card design matches two
+user-provided reference screenshots. `EventCard.tsx`'s existing fallback rendered a muted box
+with "No image available" text whenever the image is absent or fails to load. Per the user's
+explicit instruction: "for expired image, just display nothing (dont display image not
+available)" — no visible placeholder text/icon once the image is missing or its hotlinked URL
+has expired.
+
+**RESOLVED (2026-09-11 bmad-ux pass, see IDEA-016/IDEA-017):** reserved-but-blank confirmed,
+not collapsing — the image slot's dimensions come from the surrounding chrome (date box
+height / row height), never from the image itself, so nothing shifts when it fails. Tokenized
+for both surfaces: EventCard's masonry default state
+(`event_card_masonry.thumbnail_default_fallback`) and WeeklyCalendarView's new compact row
+(`event_card_compact_thumbnail_fallback`), both swapping the small corner favorite pill for the
+shared `event_card_favorite_count_badge_large` token.
+
+**PARTIALLY PROMOTED (2026-09-13, epic-1-i1 formation superseded the CC-018/3.7c framing):**
+this story (1.i1c) closes only the `web:events/EventCard` half — the placeholder text/icon
+removed, blank-and-correctly-sized fallback shipped, for every EventCard variant/
+`prominentPoster` state. Two things this finding also names are NOT closed by this story and
+were intentionally not carved into a new child row, since both are already tracked as their
+own backlog rows: (1) the masonry-specific "large centered favorite badge replaces the small
+corner pill in the blank slot" treatment is IDEA-017 → Story 1.i1e; (2) the
+`web:events/WeeklyCalendarView` half (no image at all) is IDEA-016 → Story 1.i1d. Re-open/
+re-triage this row only if either of those two rows is ever abandoned without covering this
+finding's WeeklyCalendarView/large-badge content.
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — UI Components & Scalability rule (Domain Features → `packages/ui/src/features/<domain>/`, unchanged); Locale-Sensitive Data Rendering rule (not applicable — no new user-facing text is added, one is removed).

@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useEffect } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { useInfiniteQuery, InfiniteData, useQueryClient } from "@tanstack/react-query";
-import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, AIFilterOverlay, BlockingLoader } from "@festgrid/ui";
+import { EventListView, useInfiniteScroll, EventDiscoveryPanel, PageContainer, AIFilterOverlay, BlockingLoader, formatLocalizedNearbyBadgeDistance } from "@festgrid/ui";
 import { EventCategory, EventType } from "@festgrid/shared-types";
 import { GetEventsDocument, GetEventsQuery, EventQueryConditionInput, useToggleFavoriteMutation, useGetMySubscriptionsQuery } from "@/generated/graphql";
 import { graphqlClient } from "@/lib/graphql-client";
@@ -16,6 +16,7 @@ import { buildFeedQueryCondition } from "@festgrid/domain/events";
 import { FeedCalendarView } from "./FeedCalendarView";
 import { SubscriptionPicker } from "@festgrid/ui";
 import { useAIFilter } from "@/features/events/use-ai-filter";
+import { useNearbyFilter } from "../use-nearby-filter";
 
 function buildEnumLabels(values: string[], translate: (key: string) => string) {
   return Object.fromEntries(
@@ -35,12 +36,15 @@ export function FeedContent() {
   const tType = useTranslations("EventType");
   const tFilterHub = useTranslations("FilterHub");
   const tNearby = useTranslations("NearbyFilter");
+  const tEventCard = useTranslations("EventCard");
+  const locale = useLocale();
   const posthog = usePostHog();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { session, isLoading } = useAuthSession();
   const queryClient = useQueryClient();
   const aiFilter = useAIFilter();
+  const nearbyFilter = useNearbyFilter();
 
   const [q, setQ] = useQueryState("q", parseAsString.withDefault(""));
   const [types] = useQueryState("types", parseAsArrayOf(parseAsString).withDefault([]));
@@ -116,15 +120,18 @@ export function FeedContent() {
     [categoryLabels]
   );
 
+  const resolvedNearby = nearbyFilter.resolvedFilter;
+
   const queryCondition = useMemo(() => {
     return buildFeedQueryCondition({
       search: q,
       types,
       categories,
       subscriptions: subscriptionsQuery,
+      nearby: resolvedNearby,
       filter: aiFilter.activeFilter ?? undefined,
     });
-  }, [q, types, categories, subscriptionsQuery, aiFilter.activeFilter]);
+  }, [q, types, categories, subscriptionsQuery, resolvedNearby, aiFilter.activeFilter]);
 
   const {
     data,
@@ -134,7 +141,7 @@ export function FeedContent() {
     status: listStatus,
     error,
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery, aiFilter: aiFilter.activeFilter }],
+    queryKey: ["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter }],
     queryFn: async ({ pageParam }) => {
       return graphqlClient.request<GetEventsQuery>(GetEventsDocument, {
         limit: 10,
@@ -143,6 +150,9 @@ export function FeedContent() {
       });
     },
     initialPageParam: 0,
+    // Story 1.3j (AC6, FIND-028) — cut refetch volume on remount/window-refocus without
+    // materially staling Feed data.
+    staleTime: 30_000,
     getNextPageParam: (lastPage, allPages) => {
       return lastPage.events.hasMore ? allPages.length * 10 : undefined;
     },
@@ -239,16 +249,17 @@ export function FeedContent() {
         filterLabels={filterLabels}
         types={typesOptions}
         categories={categoriesOptions}
-        isAuthenticated={false}
-        isLoadingLocations={false}
-        locationsError={false}
-        savedLocations={[]}
-        selectedValue="off"
-        radiusKm={10}
-        isCapturingCurrentLocation={false}
-        currentLocationError={null}
-        onSelectLocation={() => {}}
-        onRadiusChange={() => {}}
+        isAuthenticated={nearbyFilter.isAuthenticated}
+        isLoadingLocations={nearbyFilter.isLoadingLocations}
+        locationsError={nearbyFilter.locationsError}
+        savedLocations={nearbyFilter.savedLocations}
+        selectedValue={nearbyFilter.selectedValue}
+        radiusKm={nearbyFilter.radiusKm}
+        isCapturingCurrentLocation={nearbyFilter.isCapturingCurrentLocation}
+        currentLocationError={nearbyFilter.currentLocationError}
+        onSelectLocation={nearbyFilter.onSelectLocation}
+        onRadiusChange={nearbyFilter.onRadiusChange}
+        isSelectedLocationPending={nearbyFilter.isActiveFilterCoordPending}
         showAITrigger={aiFilter.filterHubProps.showAITrigger}
         onAITriggerClick={aiFilter.filterHubProps.onAITriggerClick}
         aiFilterSummary={aiFilter.filterHubProps.aiFilterSummary}
@@ -283,10 +294,25 @@ export function FeedContent() {
                   </div>
                 }
                 cardLabels={{
-                  favoriteToggle: t("favoriteButtonLabel") || "Toggle Favorite",
+                  // Deliberately NOT tEventCard("favoriteToggle")'s generic "Toggle favorite" --
+                  // every card on this page is by definition already favorited, so this page's
+                  // own "Remove from Favorites" ("Hapus dari Favorit") is the more accurate,
+                  // actionable label, especially for screen-reader users. User-directed exception
+                  // to Story 1.i1o's otherwise-uniform wording (2026-09-27).
+                  favoriteToggle: t("favoriteButtonLabel"),
                   priceFrom: t("priceFrom") || "From",
                   categoryLabels,
                   typeLabels,
+                  tillLabel: tEventCard("tillLabel"),
+                  statusEnded: tEventCard("statusEnded"),
+                  statusHappeningNow: tEventCard("statusHappeningNow"),
+                  statusEndsToday: tEventCard("statusEndsToday"),
+                  statusEndsAt: tEventCard.raw("statusEndsAt"),
+                  statusInHours: tEventCard.raw("statusInHours"),
+                  statusInDays: tEventCard.raw("statusInDays"),
+                  statusUpcoming: tEventCard("statusUpcoming"),
+                  tomorrow: tEventCard("tomorrow"),
+                  nearbyBadge: (distanceKm: number) => formatLocalizedNearbyBadgeDistance(locale, distanceKm),
                 }}
                 getCardProps={(event) => ({
                   isFavorited: event.isFavorited,

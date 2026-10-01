@@ -278,9 +278,6 @@
     "gatedPersonalTooltip": "Akun ini tidak dapat dilacak",
     "gatedPersonalTitle": "Akun Pribadi",
     "gatedPersonalDescription": "Akun ini tidak dapat dilacak demi kepatuhan terhadap privasi pengguna dan kepentingan sah.",
-    "gatedCuratorTooltip": "Pelacakan untuk jenis akun ini segera hadir",
-    "gatedCuratorTitle": "Umpan Kurator",
-    "gatedCuratorDescription": "Pelacakan untuk jenis akun ini segera hadir. Akun kurator dan panduan lokal akan ditahan hingga saluran minimisasi tersedia.",
     "gatedAwaitingApprovalTooltip": "Akun ini sedang ditinjau",
     "gatedAwaitingApprovalTitle": "Klasifikasi Tertunda",
     "gatedAwaitingApprovalDescription": "Akun ini sedang menunggu peninjauan moderasi.",
@@ -307,7 +304,8 @@
     "calendarMoreLabel": "{count, plural, =1 {# acara lainnya} other {# acara lainnya}}",
     "calendarMultiDaySegmentLabel": "Hari {dayNumber} dari {totalDays}",
     "calendarErrorState": "Gagal memuat acara kalender.",
-    "calendarClosePopoverLabel": "Tutup popover"
+    "calendarClosePopoverLabel": "Tutup popover",
+    "calendarOverflowDialogTitleLabel": "Jadwal untuk {day}"
   },
   "FeedPage": {
     "title": "Feed Saya",
@@ -397,6 +395,33 @@
     "CAREER": "Karier",
     "AUTOMOTIVE": "Otomotif",
     "OTHER": "Lainnya"
+  },
+  "EventCard": {
+    "favoriteToggle": "Alihkan favorit",
+    "tillLabel": "s.d.",
+    "statusEnded": "Berakhir",
+    "statusHappeningNow": "Hari ini",
+    "statusEndsToday": "Berakhir Hari Ini",
+    "statusEndsAt": "Berakhir {time}",
+    "statusInHours": "{n} jam lagi",
+    "statusInDays": "{n} hari lagi",
+    "statusUpcoming": "Akan Datang",
+    "tomorrow": "Besok"
+  },
+  "WeeklyCalendarView": {
+    "loadingText": "Memuat tampilan kalender...",
+    "favoriteToggleLabel": "Alihkan favorit",
+    "favoritedBadgeLabel": "Difavoritkan",
+    "addedToCalendarBadgeLabel": "Ditambahkan ke kalender",
+    "tillLabel": "s.d.",
+    "statusEnded": "Berakhir",
+    "statusHappeningNow": "Hari ini",
+    "statusEndsToday": "Berakhir Hari Ini",
+    "statusEndsAt": "Berakhir {time}",
+    "statusInHours": "{n} jam lagi",
+    "statusInDays": "{n} hari lagi",
+    "statusUpcoming": "Akan Datang",
+    "tomorrow": "Besok"
   },
   "ReportReason": {
     "cancelled": "Dibatalkan",
@@ -516,6 +541,12 @@
     "unavailableLabel": "Tidak dapat mendeteksi lokasi Anda — menampilkan semua acara.",
     "locationsErrorLabel": "Gagal memuat lokasi tersimpan Anda.",
     "noSavedLocationsHint": "Simpan lokasi di Lokasi Saya untuk memfilter berdasarkan tempat tertentu."
+  },
+  "AmbientLocationBanner": {
+    "message": "Aktifkan lokasi Anda untuk melihat seberapa jauh jarak acara.",
+    "enableButtonLabel": "Aktifkan jarak terdekat",
+    "notNowButtonLabel": "Nanti saja",
+    "remindLaterButtonLabel": "Ingatkan saya dalam 2 minggu"
   },
   "UserMenu": {
     "profile": "Profil",

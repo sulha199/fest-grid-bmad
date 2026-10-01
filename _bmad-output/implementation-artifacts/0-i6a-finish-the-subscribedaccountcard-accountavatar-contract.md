@@ -120,6 +120,22 @@ so that the card's contract is actually complete — not just on paper — befor
 - [Source: apps/web/locales/en.json, id.json#EventDetailsPage] (existing label keys and both locales' current parity, new key added alongside)
 - [Source: _bmad-output/implementation-artifacts/0-i6f-platform-icon-fallback-and-functional-subscribe-unsubscribe-toggle.md] (sibling story in the same epic; structural and Gate-documentation precedent followed here)
 
+### Backlog row history (BUG-005, verbatim, moved from backlog.yaml 2026-09-18)
+
+`DW-006, DW-010, DW-015`. `AccountAvatar`'s empty-`displayName` alt-text fallback and
+`SubscribedAccountCard`'s all-or-nothing render guard are both unreachable via real
+data/current callers today, but nothing guards them if that changes.
+
+**VERIFIED 2026-09-17 (ritual-orchestrator batch, pre-dispatch check):** actually already
+resolved by this story (epic-0-i6), whose epics.md AC and Dev Agent Record both cite BUG-005 by
+name — all 6 tasks complete, tests/lint/build green, status `review` in sprint-status.yaml.
+
+**Note (2026-09-18, note-bloat cleanup):** this row's `stories`/`status` fields had never
+actually been updated to reflect the above — still `triaged` with no `stories` field, exactly
+as the original note flagged ("flagging for a future bmad-help/backlog-sync pass to correct").
+Corrected in the same commit as this note's move: `stories: [0-i6a-...]`, `status: promoted`
+(not `done` — this story is `review`, not terminal, per backlog-spec.md §5).
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — Code Organization (`packages/ui/core` vs. `packages/domain` placement, confirmed above); i18n convention (`labels`-prop-with-English-default pattern, not direct `next-intl` in `packages/ui`)

@@ -31,6 +31,16 @@
      justify-center` so it centers within the row's full stretched height, and its own (possibly narrower)
      children center under/above each other rather than right-aligning to the row's edge.
 
+     REVISED 2026-09-27 (user feedback: "I should see the grid, make the card's bg color to have 50% opacity"):
+     fill opacity halved, `bg-violet-50` -> `bg-violet-50/50`, so the underlying weekly-grid lines stay visible
+     through the card.
+
+     REVISED 2026-09-28 (user feedback: "shows only statusInHours and statusEndsAt badge under locationName if
+     its applicable"): round 6's blanket "no status badge on this composition" is superseded -- a status badge
+     is back, but narrowed to ONLY the `inHours`/`endsAt` states (event_card_status_badge's `starting_soon`
+     sky/`ending_soon` amber variants), rendered directly under the venue/location line inside `content`,
+     not beside the favorite+nearby `side_stack`. Every other state (including `endsToday`) still shows none.
+
      Real-grid sizing: day_cell width computed the same way as this pass's earlier finding --
      content=1280-64=1216 (1280px viewport, sm:p-8/32px page padding), day_cell width=1216/7=174px. The spanning
      bar below covers a 3-day span = 3*174px = 522px (ignoring the ~1px divide-x borders between columns, which
@@ -62,8 +72,9 @@
     <div class="flex-1 text-xs text-center font-medium py-2 bg-gray-50 border-b border-r border-gray-200">Tue 13</div>
     <div class="flex-1 text-xs text-center font-medium py-2 bg-gray-50 border-b border-gray-200">Wed 14</div>
   </div>
-  <!-- event_card_calendar_grid_item spanning bar: width = N * day_cell_width, one continuous element -->
-  <div class="flex items-center gap-2 rounded-md shadow-sm p-2 bg-violet-50 border border-violet-200" style="width: 522px;">
+  <!-- event_card_calendar_grid_item spanning bar: width = N * day_cell_width, one continuous element.
+       bg-violet-50/50 (2026-09-27) -- was solid bg-violet-50, halved so the day-column gridlines above stay visible through the card. -->
+  <div class="flex items-center gap-2 rounded-md shadow-sm p-2 bg-violet-50/50 border border-violet-200" style="width: 522px;">
     <!-- event_card_calendar_grid_item.image: only rendered because this is multi-day + image OK. Wrapper spans
          the full row height (matching the title+venue column below) and centers the 1:1 square thumbnail within
          it, both axes. -->
@@ -78,8 +89,10 @@
     <div class="flex-1 min-w-0 flex flex-col gap-1 justify-center">
       <div class="text-sm font-bold text-foreground">BCA Auto Show 2026: International Edition, 3-Day Exhibition</div>
       <div class="text-xs text-muted-foreground line-clamp-2">Ambarrukmo Plaza Convention Center, Yogyakarta</div>
+      <!-- event_card_status_badge, re-added 2026-09-28, narrowed to inHours/endsAt only -- `ending_soon` amber variant shown here (endsAt: end time known). Rendered under venue, inside `content` -- never beside `side_stack`. -->
+      <span class="inline-flex items-center text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-amber-700 text-white">Ends 21:00</span>
     </div>
-    <!-- event_card_calendar_grid_item.side_stack -- no "Now" status badge on this composition -- centered both axes -->
+    <!-- event_card_calendar_grid_item.side_stack -- still no status badge here (moved under venue, inside `content`, 2026-09-28) -- centered both axes -->
     <div class="h-full flex flex-col items-center justify-center gap-1 shrink-0">
       <div class="flex flex-col items-center justify-center gap-0.5 min-h-11 min-w-11 text-sm font-medium text-foreground">
         <svg class="w-6 h-6 text-rose-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.3-8.13C.6 9.9 1.4 6.4 4.3 5.1c2-.9 4.2-.2 5.7 1.5C11.5 4.9 13.7 4.2 15.7 5.1c2.9 1.3 3.7 4.8 1.6 7.77C18.7 16.65 12 21 12 21z"/></svg>
@@ -94,7 +107,7 @@
   </div>
 
   <span class="text-xs font-mono text-slate-500 mt-4 max-w-[220px]">For comparison: a 1-day span at the same 174px day_cell width -- notice how much less room the title/venue area gets. This is the widest a single-day event's own composition needs to handle if it ever were multi-day, but single-day events never show a thumbnail at all (see thumbnail-fallback.html).</span>
-  <div class="flex items-center gap-2 rounded-md shadow-sm p-2 bg-violet-50 border border-violet-200" style="width: 174px;">
+  <div class="flex items-center gap-2 rounded-md shadow-sm p-2 bg-violet-50/50 border border-violet-200" style="width: 174px;">
     <div class="h-full w-14 flex items-center justify-center shrink-0">
       <div class="relative w-full aspect-square rounded-md overflow-hidden bg-gradient-to-br from-sky-300 to-sky-500">
         <div class="absolute inset-0 flex flex-col items-center justify-center text-white">

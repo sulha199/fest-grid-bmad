@@ -26,3 +26,11 @@ User request via `bmad-help` (2026-09-15). Two surfaces:
    account's location is **confirmed / has a good confidence score**
    (reusing IDEA-029's component semantics), and fall back to the accountId
    otherwise.
+
+## Carve detail (verbatim, moved from backlog.yaml 2026-09-18)
+
+Split per §6 of `planning-artifacts/event-pages-followthrough-plan.md` (Phase 0): this row's
+original capture bundled a second, unrelated surface — the Moderator Tools accounts-tab card's
+location edit/clear icons (Epic 4, Data Quality and Moderation) — which shares no mechanism
+with this row's reusable-element change (Epic 1/3, event pages). Split out as IDEA-034 so this
+row stays a clean member of the IDEA-029 location-link mechanism cluster.

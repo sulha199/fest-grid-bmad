@@ -31,6 +31,18 @@ If `{spec_file}` exists and contains a Tasks/Subtasks section, append a `### Rev
 
 Also append each `defer` finding to `{deferred_work_file}` under a heading `## Deferred from: code review ({date})`. If `{spec_file}` is set, include its basename in the heading (e.g., `code review of story-3.3 (2026-03-18)`). One bullet per finding with description.
 
+If `_bmad-output/implementation-artifacts/backlog.yaml` exists, every `deferred_work_file` section this step creates or appends to MUST also have at least one backlog.yaml row that cites `implementation-artifacts/deferred-work.md` in its `ref` and quotes the section heading **verbatim** in its `note` (`backlog-spec.md` §9 check 14 — a deferred-work.md section with no citing row is a mechanical failure, not just a style issue). If an existing row already covers this finding (e.g. a `FIND-`/`BUG-` row the review is closing out), add the citation there instead of creating a new row. Otherwise create a new row: `status: backlog`, a one-line `title`, `touches` from the registry, and a `note` that quotes the heading verbatim and stays under 300 chars (see the Check 15 rule below — write it short the first time, do not write a full paragraph and trim after).
+
+### Verify Backlog Board, If Touched
+
+If this step added, edited, or skipped any `backlog.yaml` row, run
+`uv run --python 3.11 --with pyyaml {project-root}/scripts/backlog-check.py --quiet` before
+committing. A check 15 failure means a `note` grew past one line — move the detail into a
+tier-1 `backlog/<ID>-slug.md` file (or the linked story's Dev Notes, if promoted) and leave a
+one-line pointer, per `backlog-spec.md` §3/§9. A check 14 failure means a deferred-work.md
+section's heading isn't quoted verbatim anywhere — fix the citing row's `note` rather than
+adding a new one. Do not commit a backlog.yaml change with any check failing.
+
 ### 3. Present summary
 
 Announce what was written:

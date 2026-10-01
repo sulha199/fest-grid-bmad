@@ -242,6 +242,148 @@ test('brightdata-record-mapper tests', async (t) => {
     assert.strictEqual(candidate.ownerUsername, undefined);
   });
 
+  await t.test('extracts additionalImageUrls from photos[1:] for a multi-photo carousel record (FIND-024)', async () => {
+    const record = {
+      url: 'https://www.instagram.com/p/carousel/',
+      description: 'A carousel post',
+      date_posted: '2026-09-18T00:00:00Z',
+      content_type: 'Carousel',
+      photos: [
+        'https://example.com/cover.jpg',
+        'https://example.com/slide2.jpg',
+        'https://example.com/slide3.jpg',
+      ],
+    };
+
+    const candidate = await mapBrightDataRecordToScrapedPost(record);
+
+    assert.ok(candidate);
+    assert.strictEqual(candidate.imageUrl, 'https://example.com/cover.jpg');
+    assert.deepStrictEqual(candidate.additionalImageUrls, [
+      'https://example.com/slide2.jpg',
+      'https://example.com/slide3.jpg',
+    ]);
+  });
+
+  await t.test('omits additionalImageUrls for a single-photo (non-carousel) record', async () => {
+    const record = {
+      url: 'https://www.instagram.com/p/single-photo/',
+      description: 'A single-photo post',
+      date_posted: '2026-09-18T00:00:00Z',
+      photos: ['https://example.com/only.jpg'],
+    };
+
+    const candidate = await mapBrightDataRecordToScrapedPost(record);
+
+    assert.ok(candidate);
+    assert.strictEqual(candidate.additionalImageUrls, undefined);
+  });
+
+  await t.test('omits additionalImageUrls when photos is absent (e.g. a Reel)', async () => {
+    const record = {
+      url: 'https://www.instagram.com/reel/no-photos/',
+      description: 'A reel with no photos array',
+      date_posted: '2026-09-18T00:00:00Z',
+      videos: ['https://example.com/video.mp4'],
+    };
+
+    const candidate = await mapBrightDataRecordToScrapedPost(record);
+
+    assert.ok(candidate);
+    assert.strictEqual(candidate.additionalImageUrls, undefined);
+  });
+
+  await t.test('drops non-string entries from photos[1:] defensively when extracting additionalImageUrls', async () => {
+    const record = {
+      url: 'https://www.instagram.com/p/malformed-carousel/',
+      description: 'A carousel post with a malformed slide entry',
+      date_posted: '2026-09-18T00:00:00Z',
+      photos: ['https://example.com/cover.jpg', 12345, 'https://example.com/slide3.jpg'],
+    };
+
+    const candidate = await mapBrightDataRecordToScrapedPost(record);
+
+    assert.ok(candidate);
+    assert.deepStrictEqual(candidate.additionalImageUrls, ['https://example.com/slide3.jpg']);
+  });
+
+  await t.test('extracts additionalImageUrls purely from photos.length, independent of content_type (no content_type field on this record)', async () => {
+    // Proves the extraction is not secretly gated on `content_type` -- deliberately omits that
+    // field so a future reader can't "fix" the mapper to require it without this test failing.
+    const record = {
+      url: 'https://www.instagram.com/p/carousel-no-content-type/',
+      description: 'A carousel post with no content_type field at all',
+      date_posted: '2026-09-18T00:00:00Z',
+      photos: ['https://example.com/cover.jpg', 'https://example.com/slide2.jpg'],
+    };
+
+    const candidate = await mapBrightDataRecordToScrapedPost(record);
+
+    assert.ok(candidate);
+    assert.deepStrictEqual(candidate.additionalImageUrls, ['https://example.com/slide2.jpg']);
+  });
+
+  await t.test('extracts all 18 slides for a large carousel (matches the largest real photos_number observed in fixtures)', async () => {
+    const slideUrls = Array.from({ length: 18 }, (_, i) => `https://example.com/slide${i}.jpg`);
+    const record = {
+      url: 'https://www.instagram.com/p/large-carousel/',
+      description: 'An 18-photo carousel post',
+      date_posted: '2026-09-18T00:00:00Z',
+      content_type: 'Carousel',
+      photos: slideUrls,
+    };
+
+    const candidate = await mapBrightDataRecordToScrapedPost(record);
+
+    assert.ok(candidate);
+    assert.strictEqual(candidate.imageUrl, slideUrls[0]);
+    assert.deepStrictEqual(candidate.additionalImageUrls, slideUrls.slice(1));
+    assert.strictEqual(candidate.additionalImageUrls!.length, 17);
+  });
+
+  await t.test('does not dedupe a repeated URL across photos -- imageUrl and additionalImageUrls[0] may be identical (documented, not a bug)', async () => {
+    const record = {
+      url: 'https://www.instagram.com/p/duplicate-photo/',
+      description: 'A carousel post where Bright Data repeats a slide URL',
+      date_posted: '2026-09-18T00:00:00Z',
+      photos: ['https://example.com/a.jpg', 'https://example.com/a.jpg', 'https://example.com/b.jpg'],
+    };
+
+    const candidate = await mapBrightDataRecordToScrapedPost(record);
+
+    assert.ok(candidate);
+    assert.strictEqual(candidate.imageUrl, 'https://example.com/a.jpg');
+    assert.deepStrictEqual(candidate.additionalImageUrls, ['https://example.com/a.jpg', 'https://example.com/b.jpg']);
+  });
+
+  await t.test('includes hashtags, locationName, ownerUsername, and additionalImageUrls together on one record (all four conditional-spread fields at once)', async () => {
+    const record = {
+      url: 'https://www.instagram.com/p/all-fields-carousel/',
+      description: 'Celebrating with everything at once',
+      date_posted: '2026-09-16T09:43:47.000Z',
+      content_type: 'Carousel',
+      photos: ['https://example.com/cover.jpg', 'https://example.com/slide2.jpg'],
+      hashtags: ['#SlemanCityHall', '#PavilionOfJogja'],
+      location_details: {
+        pk: '133922430614626',
+        name: 'Sleman City Hall',
+        lat: -7.7210177,
+        lng: 110.3613807,
+        profile_pic_url: null,
+        __typename: 'XDTLocationDict',
+      },
+      user_posted: 'slemancityhall',
+    };
+
+    const candidate = await mapBrightDataRecordToScrapedPost(record);
+
+    assert.ok(candidate);
+    assert.strictEqual(candidate.locationName, 'Sleman City Hall');
+    assert.strictEqual(candidate.ownerUsername, 'slemancityhall');
+    assert.deepStrictEqual(candidate.hashtags, ['slemancityhall', 'pavilionofjogja']);
+    assert.deepStrictEqual(candidate.additionalImageUrls, ['https://example.com/slide2.jpg']);
+  });
+
   await t.test('includes both locationName and ownerUsername when both present (full record)', async () => {
     const record = {
       url: 'https://www.instagram.com/p/DdV_eGuk6_Z/',

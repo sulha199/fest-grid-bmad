@@ -9,6 +9,7 @@ Per the project's rules, we follow the "Testing Trophy" approach:
 - **Vitest + MSW:** Used for unit and integration testing. This is the bulk of our testing layer. Integration tests run fast and mock external boundaries (HTTP) using MSW.
 - **Playwright:** Used **strictly** in `apps/web` for critical-path End-to-End (E2E) testing. Playwright and its heavy browser dependencies are never added to shared packages.
 - **packages/domain:** When this package is created, it will enforce a strict 100% unit-test coverage rule. It should use the `vitest-node` preset since it contains pure TypeScript logic.
+- **Meta-testing / tooling packages** (e.g. `packages/graphql-select`, `packages/visual-audit`): a package whose job is to verify *other* code rather than implement product/domain logic uses plain `tsx --test *.test.ts` for its own pure logic — no shared `testing-config` preset needed, since these packages have no DOM/bundler dependency to configure around. Coverage is judged qualitatively, not the 100% bar. See `project-context.md`'s "Meta-Testing / Tooling Packages" Testing Rules tier for the full rule, including how browser-automation/AST-analysis surfaces (which can't be meaningfully unit-tested without mocking away the thing being verified) are proved instead via the package's own example/proof manifests.
 
 ## Exports
 

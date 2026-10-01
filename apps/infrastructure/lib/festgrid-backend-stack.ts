@@ -276,8 +276,6 @@ export class FestgridBackendStack extends cdk.Stack {
         SCRAPE_INLINE_FALLBACK_ENABLED: process.env.SCRAPE_INLINE_FALLBACK_ENABLED,
         AI_PROCESSING_QUEUE_URL: aiProcessingQueue.queueUrl,
         AI_PROCESSING_INLINE_FALLBACK_ENABLED: process.env.AI_PROCESSING_INLINE_FALLBACK_ENABLED,
-        DATA_INGESTION_QUEUE_URL: dataIngestionQueue.queueUrl,
-        DATA_INGESTION_INLINE_FALLBACK_ENABLED: process.env.DATA_INGESTION_INLINE_FALLBACK_ENABLED,
         APIFY_API_TOKEN: apifyApiTokenSecret.secretValue.unsafeUnwrap(),
         SCRAPE_RESULTS_LIMIT: process.env.SCRAPE_RESULTS_LIMIT,
         SCRAPE_INITIAL_LOOKBACK_DAYS: process.env.SCRAPE_INITIAL_LOOKBACK_DAYS,
@@ -435,13 +433,19 @@ export class FestgridBackendStack extends cdk.Stack {
       }));
     }
 
+    // Unconditional (all stages, not just prod): the poll-and-drain handler branch in each
+    // Lambda (scraper.ts/ai-processor.ts/ingestor.ts) is compiled for every stage regardless
+    // of which stage's EventBridge rule actually invokes it with { jobType: 'poll-and-drain' }
+    // (prod only, below) -- so these env vars must exist everywhere that branch could be
+    // reached (e.g. a manual/ops test invocation against dev or staging), not just in prod.
+    // Mirrors grantConsumeMessages' own unconditional treatment below for the same reason.
+    aiProcessorLambda.addEnvironment('AI_PROCESSING_QUEUE_URL', aiProcessingQueue.queueUrl);
+    ingestorLambda.addEnvironment('DATA_INGESTION_QUEUE_URL', dataIngestionQueue.queueUrl);
+
     // Prod-only: replace the continuous ESM with a 5-minute EventBridge-scheduled
     // poll-and-drain per queue, mirroring staleJobSweepRule's exact Rule+Target+marker-
     // payload shape (already a 3-occurrence pattern before this addition).
     if (stageName === 'prod') {
-      aiProcessorLambda.addEnvironment('AI_PROCESSING_QUEUE_URL', aiProcessingQueue.queueUrl);
-      ingestorLambda.addEnvironment('DATA_INGESTION_QUEUE_URL', dataIngestionQueue.queueUrl);
-
       const scraperPollAndDrainRule = new events.Rule(this, `ScraperPollAndDrainRule-${stageName}`, {
         schedule: events.Schedule.rate(cdk.Duration.minutes(5)),
       });

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, cleanup } from "@testing-library/react";
-import { useCurrentLocationCapture } from "./useCurrentLocationCapture";
+import { useCurrentLocationCapture, GeolocationCaptureFailure, isGeolocationCaptureFailure } from "./useCurrentLocationCapture";
 
 describe("useCurrentLocationCapture", () => {
   const originalGeolocation = global.navigator?.geolocation;
@@ -148,5 +148,40 @@ describe("useCurrentLocationCapture", () => {
 
     expect(result.current.error).toBe("unavailable");
     expect(result.current.isCapturing).toBe(false);
+  });
+
+  // Story 1.i1f review finding 9 — the typed failure reason callers now read to
+  // tag analytics outcomes (previously every failure collapsed into 'denied').
+  describe("typed capture failures", () => {
+    it("rejects with a GeolocationCaptureFailure carrying the permission-denied code", async () => {
+      vi.stubGlobal("window", {
+        navigator: {
+          geolocation: {
+            getCurrentPosition: vi.fn((_success, error) =>
+              error({ code: 1, PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 })
+            ),
+          },
+        },
+      });
+
+      const { result } = renderHook(() => useCurrentLocationCapture());
+
+      let rejection: unknown;
+      await act(async () => {
+        rejection = await result.current.capture().catch((err) => err);
+      });
+
+      expect(rejection).toBeInstanceOf(GeolocationCaptureFailure);
+      expect(isGeolocationCaptureFailure(rejection)).toBe(true);
+      expect((rejection as GeolocationCaptureFailure).code).toBe("permission-denied");
+      // The message stays the bare code, so any existing message-based caller
+      // (`rejects.toThrow("permission-denied")`) keeps working.
+      expect((rejection as GeolocationCaptureFailure).message).toBe("permission-denied");
+    });
+
+    it("does not classify an unrelated rejection as a capture failure", () => {
+      expect(isGeolocationCaptureFailure(new Error("something else"))).toBe(false);
+      expect(isGeolocationCaptureFailure(undefined)).toBe(false);
+    });
   });
 });

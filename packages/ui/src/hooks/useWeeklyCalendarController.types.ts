@@ -7,6 +7,15 @@ export interface WeeklyCalendarControllerOptions<TEvent = any> {
   queryError: any;
   onNavigate?: (direction: 'previous' | 'next' | 'today' | 'select', newWeek: string) => void;
   errorStateLabel?: string;
+  /**
+   * Story 1.i1f AC13-14: the viewer's coordinate for computing each schedule's
+   * `distanceKm` (currently only the active nearby-filter's resolved coordinate,
+   * per Architecture Spine AD-22 — see `CalendarView.tsx`). Omitted entirely by
+   * `FeedCalendarView.tsx`/`AccountCalendarView.tsx`/`my-calendar-content.tsx`,
+   * which have no nearby-filter plumbing today; `distanceKm` simply stays
+   * `undefined` for their schedules.
+   */
+  viewerCoord?: { latitude: number; longitude: number };
 }
 
 export interface WeeklyCalendarControllerResult<TSchedule = any> {

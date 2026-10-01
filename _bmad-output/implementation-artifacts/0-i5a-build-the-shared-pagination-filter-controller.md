@@ -158,6 +158,26 @@ Not applicable. This story introduces no user-facing strings — it is a headles
 - [Source: apps/web/src/app/[locale]/moderator/tools/filter-panel.tsx] (the decorative, non-functional "Apply" button — onChange handlers already fire immediately, contradicting the button's implied semantics; the concrete cleanup target for AD-18 adoption in Story 0.i5c, not this story)
 - [Source: apps/web/src/app/[locale]/moderator/tools/unprocessed-payloads-content.tsx, unprocessed-payloads-hooks.ts] (existing hand-rolled `useState<cursor>` + manual `setCursor(undefined)` reset-on-filter-change — the exact pattern `useListPaginationController` generalizes so a future page can't forget the reset)
 
+### Backlog row history (IDEA-011, verbatim, moved from backlog.yaml 2026-09-18)
+
+Reported by user on `event-list-bug-fixes-pagination` branch, in the same session as
+BUG-018/019/020. Currently inconsistent across the app — e.g. moderator filter panels call
+`handleFilterChange` on every `onChange` (apply-on-change), and BUG-019 shows that pattern can
+cause append-instead-of-reload bugs; meanwhile no documented rule said whether a filter should
+take effect immediately on change or only after an explicit Apply action. Needed a
+cross-cutting decision (likely in `project-context.md` and/or a UX token/primitive) so all
+list, discovery, and moderation views behave the same way.
+
+**PROMOTED 2026-09-15 (bmad-create-story):** this story (0.i5a) settles this directly — new
+AD-18 (architecture spine) + `project-context.md` rule, confirmed against EXPERIENCE.md's
+Filter Hub spec ("updates in real-time with each selection") as codifying already-unanimous
+existing behavior. Per epics.md's own note on this story, this idea does not get a separate
+adoption story — this story's rule-writing task is its full implementation.
+
+**VERIFIED 2026-09-17 (ritual-orchestrator batch, pre-dispatch check):** same stale-checkbox
+situation as BUG-019 (its concrete-case row) — this story already `review` in
+sprint-status.yaml. No new dispatch run. Plan doc checkbox corrected.
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — UI Patterns & UX Invariants (new AD-18 bullet added here), State Management Architecture (AD-4 cross-check, see Dev Notes categorization), Code Organization (packages/domain applicability ruled out, see Dev Notes)

@@ -210,6 +210,51 @@ Four new locale keys required (AC10, Task 8): `temporalFilterTodayLabel`, `tempo
 - [Source: packages/ui/package.json, packages/ui/src/core/ui/tabs.tsx] (existing `@radix-ui/*` dependency/wrapper-style precedent for the new `radio-group.tsx`)
 - [Source: apps/web/locales/en.json, id.json#DiscoveryPage] (existing locale-key namespace this story adds to)
 
+### Backlog row history (IDEA-019, verbatim, moved from backlog.yaml 2026-09-18)
+
+Requested by user via `bmad-help`, who also flagged the existing filter row (`FilterHub.tsx`:
+Type, Category, Location-when-authenticated, AI-filter sparkle, all in one `flex flex-wrap`
+row) as already tight on mobile — echoes IDEA-011's related apply-timing note on the same row.
+No status/temporal filter existed on the events query at capture time; CC-019's status badges
+are display-only, not a filter. Suggested resolution: (1) format — a 3-way mutually-exclusive
+segmented toggle (Happening now / Upcoming / All), not a dropdown-select or a 4th
+facet-popover button; (2) position — its own row inside `EventDiscoveryPanel.tsx` between
+SearchBar and the FilterHub facet row, full-width on mobile, collapsing inline as the leading
+control in that row on desktop. Default to "All" to preserve current behavior. RULE
+(user-added 2026-09-11): applies to card view only — WeeklyCalendarView already expresses time
+structurally via its own date grid/day grouping.
+
+**RESOLVED (bmad-ux, 2026-09-17 + bmad-architecture AD-20, 2026-09-17):** the toggle renders
+inside EventDiscoveryPanel's own JSX (sibling of SearchBar/FilterHub), gating on
+`currentViewId==='card'` is a plain local conditional. UX: EXPERIENCE.md "Temporal Filter:
+Today / Upcoming / All (Card View Only)" — `role=radiogroup` segmented control
+(`components.temporal_filter`). Architecture: AD-20 — new `EventFilterInput.temporalFilter`
+enum (`TODAY | UPCOMING`), client-resolved literal instant (not SQL `NOW()`).
+
+**AMENDED same day (user-directed):** first bucket renamed "Happening now" → "Today" and
+redefined from `started&&!ended` to just `!ended`; second bucket "Upcoming" redefined from
+`!started` to `eventStartDate > todayISO`, keeping the two buckets a clean non-overlapping
+partition. This shrank AD-20's own mechanism: UPCOMING needs ZERO new backend code (fully
+expressible via the existing `scheduleDateRange.overlaps{from: tomorrowISO, to: null}`) — only
+TODAY's new `!ended` `drizzle-where.ts` check remains genuinely new.
+
+**OPEN RESEARCH ITEM, resolved 2026-09-17 via bmad-create-story:** `EXPLAIN ANALYZE` run
+against 30,000 synthetic events/48,030 synthetic schedules (throwaway scratch DB). Decisive
+result: the existing `schedule_event_date_idx` is sufficient (36.2-38.0ms baseline, Index Scan)
+— a candidate hand-tuned expression index measured ~10% SLOWER (40.3-43.5ms), so no new index
+migration was added. Full before/after plans in this story's own Task 4.
+
+**PROMOTED 2026-09-17 via bmad-create-story (row named directly by the user):** this story
+(0.i5d) implements the full `!ended` `drizzle-where.ts` mechanism, the
+`EventFilterInput.temporalFilter` schema field, the shared ended-cases fixture
+(`packages/domain`), and the `EventDiscoveryPanel`/`home-content.tsx` wiring — scoped to
+Discovery's card view only. Gate 2 flagged the UX spec's "roving tabindex" requirement,
+resolved directly in-story via a new Radix-backed radio-group primitive rather than deferred.
+Carved the one genuinely uncovered part — EXPERIENCE.md's mention of Feed/Favorites also
+owning a committed temporal-filter value via `useListPaginationController`, which neither page
+has adopted yet (BUG-025, still open) — into child row IDEA-038 rather than silently dropping
+it.
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — API & Data (GraphQL/DSL conventions), Database Indexing (Task 4's research obligation), UI Patterns & UX Invariants (AD-18 `useListPaginationController` adoption), State Management Architecture (AD-4, URL State categorization), Code Organization (`packages/ui`/`packages/domain` placement, see reusability check), Locale-Sensitive Data Rendering (AD-6)

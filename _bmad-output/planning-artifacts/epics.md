@@ -889,7 +889,234 @@ The project is set up with a solid foundation and CI/CD pipeline.
 *   **And** Story 1.i1k's own narrow, file-scoped `no-dynamic-tailwind-arbitrary-value` custom rule (added directly to `packages/ui/eslint.config.mjs` by that story, ahead of this one) continues to apply unchanged — this story extends that file's config, it does not replace or narrow it.
 *   **And** this story adds zero new application/business logic — it is a tooling/config-only change.
 
-**Note:** Split via a Gate 1 finding (`story-split-gate.md`) surfaced while drafting Story 1.i1k (`bmad-create-story`, 2026-09-18, backlog.yaml FIND-035): wiring 1.i1k's own FIND-025-finding-(2) lint guard required giving `packages/ui` its first-ever `lint` script, which revealed the package has never been linted in CI at all. Retroactively enabling `packages/ui`'s full standard ruleset is a real, unbounded-size infrastructure gap (unknown volume of pre-existing violations across the whole package) — a tooling/infrastructure gap reusable/foundational by nature, not a narrow wiring task belonging inside Story 1.i1k's own tightly-scoped restyle-and-guard work. Numbered as a new Epic 0 story per the tooling-gap numbering rule (sequential after Epic 0's then-highest story, 0.39; renumbered from 0.40 to 0.41 when merging with master, which independently landed its own Story 0.40 for FIND-034 first). Not a dependency of Story 1.i1k — 1.i1k's own guard is fully self-contained via its own minimal, narrowly-scoped config addition and does not require this story to land first.
+**Note:** Split via a Gate 1 finding (`story-split-gate.md`) surfaced while drafting Story 1.i1k (`bmad-create-story`, 2026-09-18, backlog.yaml FIND-036): wiring 1.i1k's own FIND-025-finding-(2) lint guard required giving `packages/ui` its first-ever `lint` script, which revealed the package has never been linted in CI at all. Retroactively enabling `packages/ui`'s full standard ruleset is a real, unbounded-size infrastructure gap (unknown volume of pre-existing violations across the whole package) — a tooling/infrastructure gap reusable/foundational by nature, not a narrow wiring task belonging inside Story 1.i1k's own tightly-scoped restyle-and-guard work. Numbered as a new Epic 0 story per the tooling-gap numbering rule (sequential after Epic 0's then-highest story, 0.39; renumbered from 0.40 to 0.41 when merging with master, which independently landed its own Story 0.40 for FIND-034 first). Not a dependency of Story 1.i1k — 1.i1k's own guard is fully self-contained via its own minimal, narrowly-scoped config addition and does not require this story to land first.
+
+### Story 0.42: Build the shared Ambient Capability Ask banner slot primitive
+
+**As a** developer,
+**I want** one shared, app-level "ambient capability ask" mount point and orchestration mechanism — implementing `DESIGN.md`'s `ambient_capability_banner` shared chrome tokens and `EXPERIENCE.md`'s "Ambient Capability Ask: Shared Banner Slot" rules (fixed priority order, exactly one ask visible at a time, dismissing one suppresses the slot for the rest of that session) — that any current or future ambient capability ask plugs into,
+**So that** Story 0.38's PWA install banner and Story 0.39's viewer-location consent banner (and any future ambient ask) share one real mechanism instead of each hardcoding its own placement, and never risk literally stacking two banners at once.
+
+**Acceptance Criteria:**
+
+*   **Given** `AppShell.tsx`'s `<main>` renders only `{children}` today, with no ambient-banner mount point anywhere in the codebase,
+*   **When** this story ships,
+*   **Then** `AppShell.tsx` gains a new optional prop (e.g. `ambientBanner?: ReactNode`) rendered as the **first child inside `<main>`** (immediately before `{children}`, below the global nav, across every route) — a pure, framework-agnostic slot; `AppShell`/`packages/ui` has no knowledge of what capability produced the node, no `next-intl`/`zustand` import, and remains fully usable with the prop omitted (default: nothing renders, matching `AppShell`'s existing "new optional prop defaults to hidden" precedent).
+*   **And** a new `apps/web`-only orchestration hook (e.g. `useAmbientCapabilityAskSlot()`) accepts an ordered list of participant descriptors — each `{ id: string; canShow: boolean }` at minimum — and returns the **single** winning participant's `id` (or `null`), applying, in order: (1) **fixed priority** — location consent (Story 0.39) before PWA install (Story 0.38), extensible for a future third participant by list position, never a per-participant configurable priority; (2) among `canShow: true` participants, the highest-priority one wins; (3) if the slot has already been dismissed once this session (any participant, any dismiss action), no participant wins for the rest of that session, even if a higher-priority one later becomes eligible.
+*   **And** "session" for rule (3) means the current page/tab lifetime — an in-memory (not `localStorage`-persisted) Client Global State Zustand store (`apps/web/src/lib/state/ambient-capability-ask-slot-store.ts`, AD-4-compliant, mirroring `pwa-install-store.ts`'s interface-driven shape) holds a single `dismissedThisSession: boolean` flag plus a `markDismissedThisSession()` action; a hard reload/new tab starts a fresh session (flag resets), matching EXPERIENCE.md's explicit "the next eligible ask only appears on a later session/page load" rule. **This flag is deliberately separate from each participant's own permanent/cooldown dismissal state** (Story 0.38a's `pwa-install-storage.ts`, Story 0.39's own equivalent) — those stay `localStorage`-persisted and participant-owned; this store only tracks "did the slot show something and get dismissed this session."
+*   **And** each participant's own "Not now"/"Remind me in 2 weeks" action is responsible for calling **both** its own persisted dismissal (existing/future per-participant logic) **and** this slot's `markDismissedThisSession()` — this story does not wire either real participant (that is Story 0.38's and Story 0.39's own job, each consuming this story's exports), but ships a minimal test harness / mock-participant test proving the priority + one-at-a-time + session-dismissal contract in isolation.
+*   **And** the `ambient_capability_banner` DESIGN.md tokens (`base`, `dismiss_permanent`, `dismiss_cooldown`) are exported as reusable style constants from a new `packages/ui/src/core/` module (e.g. `ambient-capability-banner-tokens.ts`) — a single source of truth for the shared chrome classes, consumed by each participant's own banner component (`PwaInstallBanner`, `AmbientLocationBanner`) rather than each restyling its own bar; this story does not itself render any banner content (icon/copy/primary-action stays participant-owned, per DESIGN.md's own "a capability-specific banner only supplies its own icon, copy, and primary action" note).
+*   **And** `AppShellWrapper.tsx` is updated to call the new orchestration hook with whatever participants exist **at the time this story ships** (initially: none real yet, since Stories 0.38/0.39 land after this one) and pass the resolved `ReactNode` (or `undefined`) into `AppShell`'s new `ambientBanner` prop — proving the real end-to-end wiring, not just the isolated hook/store.
+
+**Note:** Split via a Gate 2 finding (`story-split-gate.md`), surfaced during `bmad-create-story`'s Story 0.39 drafting (2026-09-19), confirmed via `AskUserQuestion` (user selected the recommended option). `EXPERIENCE.md`'s "Ambient Capability Ask: Shared Banner Slot" section (added via a `bmad-ux` pass, 2026-09-18 — one day after Story 0.38 was drafted) retroactively generalized the already-planned-but-unimplemented PWA install banner (Story 0.38, `ready-for-dev`) into the first of two participants in one shared mechanism, and `DESIGN.md` was updated the same pass to extract `ambient_capability_banner` as the base token both `pwa_install_banner` and the new `ambient_location_banner` (Story 0.39) now derive from — but neither consuming story's own drafted scope (0.38 predates the slot; 0.39 is being drafted now) builds the actual orchestration mechanism. Genuinely reused by >=2 structurally independent stories (not a single-story split), matching the `0.30-0.32` (`PageContainer`/`GridContainer`/`PageHeader`) reusable-primitive precedent more than the `1.3a/1.3b` single-story-split pattern — numbered as a new sequential Epic 0 story per the tooling/infrastructure numbering rule. **Story 0.38 is retroactively amended** (see its own Dev Notes) to depend on this story and consume its slot instead of mounting `PwaInstallBanner` directly as `AppShell`'s hardcoded child, since 0.38 has not yet been implemented. Story 0.39 depends on this story for its own `ambient_location_banner`'s mount point.
+
+### Story 0.43: Build the visual-fidelity audit engine (packages/visual-audit)
+
+**Depends on: Story 0.44** (`0-44-define-testing-standard-for-meta-testing-tooling-packages`) — `bmad-dev-story` must not start on this story until Story 0.44 reaches `done`. See this story's own Pre-Coding Approval Gate.
+
+**As a** developer,
+**I want** a new workspace package, `packages/visual-audit`, implementing Architecture Spine AD-26 — a reusable check engine that compares a live, isolated component render against either a validated design-reference prototype (reference-based mode) or a hand-encoded structural invariant with no golden reference (rule-based mode), plus the manifest file format a story's acceptance criteria can cite by name,
+**So that** a future story's AC can automate "does this match its prototype / does this satisfy this structural rule" instead of a developer eyeballing it or improvising a one-off Playwright script — the exact gap this session's own visual-fidelity audit of the event-card/calendar family hit (ad hoc Playwright screenshots + manual `getBoundingClientRect` measurement, no reusable artifact left behind, and a real production bug — `EventCardDateBox`'s day-slot overflow on word/time content, BUG-040 — that no test caught because no prototype ever depicted that content variant).
+
+**Acceptance Criteria:**
+
+1.  **Given** no `packages/visual-audit` package exists today, **When** this story ships, **Then** the package exists at `packages/visual-audit/` with `package.json`/`tsconfig.json` matching this repo's existing small-package boilerplate (`packages/graphql-select`'s pattern: `@festgrid/eslint-config`/`@festgrid/typescript-config` devDependencies, a `lint` script, `NodeNext` module resolution), and is wired into the pnpm workspace.
+2.  **Given** AD-26 Rule 1's "two audit modes, one check engine," **When** a manifest entry is authored, **Then** the engine exposes both a **reference-based** check (live render vs. a validated prototype HTML/PNG pair under `design-artifacts/UX-festgrid-run-1/prototypes/**` + `imports/**`) and a **rule-based** check (a hand-encoded expected structural value, no golden reference) — both resolving to the same underlying computed-style/DOM assertion primitives, proven by at least one working example of each mode against a real, already-validated prototype pair (reference-based) and one synthetic hand-authored rule (rule-based, since AD-27's real rule-based consumer is a future story).
+3.  **Given** AD-26 Rule 1a, **When** a manifest entry declares its render scope, **Then** the engine supports both **single-instance** (default) and **multi-instance** render, and Rule 5's sibling-dimension clustering (AC5) operates over whichever the manifest actually rendered — never hardcoded to assume single-instance only.
+4.  **Given** AD-26 Rule 3, **When** a component/variant/viewport is covered, **Then** exactly one manifest entry exists for that triple (`packages/visual-audit/manifests/<name>.ts`), declaring: its prototype/PNG reference (reference-based only), its fixture props, its target viewport(s), and its rule set — the engine rejects (throws a clear error) a second manifest entry declaring the same component/variant/viewport triple.
+5.  **Given** AD-26 Rule 4, **When** a manifest entry does not explicitly opt into live-route mode, **Then** it renders via **isolated-component-render** — Playwright 1.62's native stories/gallery component-testing model (`fixtures.mount()`, already implied by `apps/web`'s pinned `@playwright/test@1.62.0`), with fixture props only: no live Next.js server, no database, no auth. Live-route mode exists only as a documented escape hatch for genuinely route/data-dependent checks and is not exercised by this story's own example manifests.
+6.  **Given** AD-26 Rule 2, **When** a reference-based check runs, **Then** the primary signal is computed-style/DOM introspection (bounding rects + `getComputedStyle()` values, compared against resolved DESIGN.md/Tailwind token values) and the secondary/confirmatory signal is a pixel screenshot diff against the source PNG via Playwright's built-in `toHaveScreenshot()` — both signals are reported, and a failure in either fails the check.
+7.  **Given** AD-26 Rule 5's **sibling-dimension consistency** class, **When** elements are auto-clustered into rows/columns by bounding-box coordinate overlap (scoped per AC3), **Then** clustered siblings expected to share a dimension are checked at a configurable **absolute tolerance, default ≤2px**, overridable per rule in the manifest.
+8.  **Given** AD-26 Rule 5's **intra-box ratio consistency** class, **When** a named element pair is checked against an expected ratio, **Then** the check uses a configurable **relative tolerance, default ±8–10%**, overridable per rule in the manifest, and the expected ratio can be sourced either from an explicit DESIGN.md token or derived once from the referenced prototype's own rendered ratio.
+9.  **Given** AD-26 Rule 5's **overflow/clipping** class, **When** a manifest entry names a text/content slot and its backing formatting function, **Then** the engine derives that slot's content-variant catalog via **static analysis of the formatting function's branches** (using `ts-morph` to parse and enumerate the function's conditional/switch branches — a new devDependency, confirmed not already present anywhere in this monorepo), renders each enumerated variant, and flags `scrollWidth > clientWidth` or a bounding rect exceeding its ancestor's for any variant — including variants the source prototype never itself depicted.
+10. **Given** AD-26 Rule 6's **color fidelity** class, **When** an element's color is checked, **Then** the primary signal is an exact computed-value match against the element's resolved DESIGN.md/Tailwind token (e.g. `bg-slate-800`'s resolved RGB/OKLCH), and the fallback signal (used only when no token is declared for that element) is a perceptual pixel diff against the source PNG.
+11. **Given** this story builds the mechanism, not every manifest entry, **When** this story ships, **Then** it includes example/proof manifest entries for at most 1–2 already-validated prototypes (sufficient to prove AC2/AC6–AC10 end-to-end) — it does NOT retroactively author manifest entries for all 7 existing validated prototypes, does NOT fix BUG-040 (`EventCardDateBox` overflow), and does NOT build AD-27's masonry engine or its manifest entry; those remain separate, not-yet-created stories that consume this engine.
+12. **Given** the engine must be usable as a library, **When** a future story's own test file imports it, **Then** `packages/visual-audit` exports a documented, typed public API (at minimum: a function to run a named manifest entry and return a structured pass/fail result per rule class) usable from a `vitest`/`tsx --test` test file in another package the same way `packages/graphql-select`'s utilities are imported today — it is not CLI-only.
+13. **Given** the user chose to sequence Story 0.44 (define the testing standard for meta-testing/tooling packages) before this story rather than accept this story's original Escape Hatch (a self-declared scoped DoD, since retracted — see Dev Notes), **When** this story ships, **Then** its own Definition of Done for testing conforms to `project-context.md`'s "Meta-Testing / Tooling Packages" tier as defined by Story 0.44 (unit tests via `tsx --test` for the pure comparison/tolerance/clustering/branch-enumeration logic, no 100%-coverage requirement, and the example manifest entries themselves serving as this story's integration proof for its browser-automation/AST-analysis surfaces) — inheriting that project-wide rule rather than re-declaring its own.
+
+## Tasks / Subtasks
+
+- [ ] Task 1 — Package scaffold (AC1)
+  - [ ] Create `packages/visual-audit/package.json`, `tsconfig.json`, `eslint.config.mjs` matching `packages/graphql-select`'s boilerplate; add `@playwright/test` (pinned to `apps/web`'s `1.62.0`) and `ts-morph` as dependencies.
+  - [ ] Wire into pnpm workspace; confirm `pnpm install` resolves cleanly.
+- [ ] Task 2 — Manifest schema and registry (AC4, AC11, AC12)
+  - [ ] Define the manifest entry TypeScript type (component ref, variant, viewport(s), render scope, prototype/PNG reference optional, fixture props, rule set).
+  - [ ] Implement a manifest registry that rejects duplicate component/variant/viewport triples.
+  - [ ] Export a public `runManifestEntry(name)` (or equivalent) API.
+- [ ] Task 3 — Isolated-component-render harness (AC5)
+  - [ ] Set up Playwright 1.62's stories/gallery component-testing model (`fixtures.mount()`) inside `packages/visual-audit`, mounting components with fixture props, no server/DB/auth.
+  - [ ] Document the live-route-mode escape hatch (not exercised by this story's own examples).
+- [ ] Task 4 — Compare engine: computed-style + pixel diff (AC2, AC6)
+  - [ ] Implement computed-style/bounding-rect extraction via `page.evaluate()`/`getComputedStyle()`.
+  - [ ] Wire Playwright's built-in `toHaveScreenshot()` as the secondary pixel-diff signal.
+  - [ ] Implement the rule-based mode (hand-encoded expected value, no golden reference) sharing the same assertion primitives.
+- [ ] Task 5 — Sibling-dimension clustering rule (AC3, AC7)
+  - [ ] Implement bounding-box coordinate-overlap auto-clustering, scoped to whatever the manifest rendered (single- or multi-instance).
+  - [ ] Implement the ≤2px default absolute-tolerance check, overridable per rule.
+- [ ] Task 6 — Intra-box ratio rule (AC8)
+  - [ ] Implement named-pair ratio comparison with ±8–10% default relative tolerance, overridable per rule; support both DESIGN.md-token-sourced and prototype-derived expected ratios.
+- [ ] Task 7 — Overflow/content-variant rule via ts-morph (AC9)
+  - [ ] Implement branch enumeration over a named formatting function's source via `ts-morph`.
+  - [ ] Render each enumerated variant and assert no overflow/clipping.
+- [ ] Task 8 — Color fidelity rule (AC10)
+  - [ ] Implement token-exact-match-primary / pixel-diff-fallback color check.
+- [ ] Task 9 — Example manifest entries and proof (AC2, AC11)
+  - [ ] Author 1–2 example manifest entries against an already-validated `design-artifacts/UX-festgrid-run-1/prototypes/**` pair, exercising both audit modes and all five rule classes end-to-end.
+- [ ] Task 10 — Testing (AC13)
+  - [ ] Unit-test the pure comparison/tolerance/clustering/branch-enumeration logic (`tsx --test`, mirroring `packages/graphql-select`).
+  - [ ] Confirm the example manifest entries themselves pass, serving as this story's own integration proof.
+  - [ ] Confirm testing/DoD conforms to Story 0.44's "Meta-Testing / Tooling Packages" tier (inherited, not self-declared).
+
+## Dev Notes
+
+- This is a pure dev-tooling/testing package. It ships zero production UI, zero database/GraphQL surface, and is never bundled into `apps/web`'s production build — it sits in the same category as `packages/graphql-select`/`packages/testing-config`.
+- **Package boilerplate precedent:** `packages/graphql-select/package.json` (main/types/exports pointing at `dist/`, `build`/`test`/`lint` scripts, `@festgrid/eslint-config`+`@festgrid/typescript-config` devDependencies) and its `tsconfig.json` (`extends: "@festgrid/typescript-config/base.json"`, `module`/`moduleResolution: "NodeNext"`, `outDir: "dist"`) are the closest existing shape to copy. Its `test: "tsx --test *.test.ts"` script is the pattern this story's own unit tests should follow, since `packages/visual-audit` is not `packages/domain` and not an `apps/*` app.
+- **`apps/web/e2e/`** already carries `@playwright/test@1.62.0` as a devDependency and has an established Playwright config/spec-file pattern (`apps/web/e2e/*.spec.ts`, `global-setup.ts`). This story pins the same version in `packages/visual-audit` rather than introducing a second Playwright version or a second browser-automation library.
+- **Design-reference source of truth:** `design-artifacts/UX-festgrid-run-1/prototypes/**/*.html` + `imports/**/*.png` (currently 3 prototype families: `event-card-calendar-grid-item/`, `event-card-calendar-row/`, `event-card-masonry/`). `prototypes/validation-log.md` is the existing (informal, not schema-binding) precedent for how a "validated" prototype's own metadata is tracked — Gate 2 (Freya) suggests the manifest format could usefully capture similar fields (validated date, documented deviations, real-dimension check) for consistency, though this is a suggestion, not a hard requirement.
+- **Sequencing (per the user's explicit instruction):** this is the first of a 3-story sequence: this tool (Story 0.43) → AD-27's masonry engine story (not yet created, tracked as `IDEA-050`) → BUG-040's `EventCardDateBox` date-box fix story (not yet created, tracked as `BUG-040`). Story `1-3k-render-day-of-week-recurring-schedules-and-repeat-badge` (currently `ready-for-dev`, untouched by this story) shares files (`EventCardMediaPrimitives.tsx`, `EventCard.tsx`, `WeeklyCalendarView.tsx`) with the eventual BUG-040 fix story — the actual `epics.md` dependency amendment to Story 1.3k belongs to the BUG-040 fix story once it exists, not this one.
+- **Full decision trail:** `_bmad-output/planning-artifacts/architecture/architecture-festgrid-2026-09-22/.memlog.md` (21 entries) records the rejected alternatives behind every AD-26/AD-27 decision cited above (e.g. manifest-declared selectors vs. auto-clustering for sibling grouping; hand-authored vs. static-analysis content-variant catalogs; native CSS masonry ruled out as Safari-only in 2026).
+- **Web-verified technical choices (2026-09-22), cited per this session's own research, not training-data assumption:**
+  - **Isolated-component-render mechanism:** Playwright 1.62 (shipped 24 July 2026, patched to 1.62.1) introduced a native "stories and galleries" component-testing model built directly into plain `@playwright/test` — a `fixtures.mount()` fixture navigates to a gallery page and mounts a named story (component + fixture props), returning a `Locator` with `update()`/`unmount()`. This supersedes the older, separate `@playwright/experimental-ct-react` package for a codebase already on `@playwright/test@1.62.0` (as `apps/web` is) and is the mechanism this story should use — it satisfies "Playwright is already a devDependency ... reuse it, don't add a second browser-automation dependency" more literally than the older CT package would, since it's native to the version already pinned. [Source: github.com/microsoft/playwright releases v1.62.0; bug0.com "What's new in Playwright 1.62"]
+  - **Computed-style/DOM assertions:** current guidance favors `toHaveCSS()` for simple single-property retrying assertions, and `page.evaluate()`/`locator.evaluate()` wrapped in `expect.poll()` for multi-property `getComputedStyle()`/bounding-rect reads — no dedicated third-party assertion library is needed or commonly recommended over Playwright's own native APIs. [Source: qaskills.sh "How to Assert CSS Computed Style in Playwright Without Brittle Tests"; playwright.dev/docs/handles]
+  - **Pixel screenshot diffing:** Playwright's built-in `toHaveScreenshot()` (backed internally by `pixelmatch`) remains the current standard approach — no need for a separate diffing library. 2026 best practice: prefer component-level (not full-page) screenshots, mask dynamic content, disable animations before capture, and set per-component `threshold`/`maxDiffPixelRatio` rather than one global tolerance. [Source: playwright.dev/docs/test-snapshots; bug0.com "Playwright Visual Regression Testing: Built-In Guide 2026"]
+  - **Content-variant catalog via static analysis:** `ts-morph` (TypeScript Compiler API wrapper) is a live, actively documented library purpose-built for exactly this — traversing a function's AST (`forEachDescendant`, branch/traversal control) to enumerate its conditional/switch branches programmatically, rather than hand-authoring a fixture list. Confirmed as a sane, current choice for this repo's TS/monorepo context; not previously used anywhere in this codebase (new dependency). [Source: ts-morph.com; github.com/dsherret/ts-morph]
+
+### Architecture & UX Gate Findings
+
+- **Gate 1 (Winston, Architecture/Infrastructure Completeness): No gap found.** This package never enters `apps/web`'s production bundle; Playwright's `mount()`/`getComputedStyle()`/`toHaveScreenshot()` calls are test-time/CI-time tool invocations, not a production frontend-to-external-service call. No DB/ORM/domain reachthrough, no new backend API surface, no auth/secrets in frontend code, and `ts-morph`/Playwright's story-bundling are devDependency-tier additions with no deploy/IaC surface (the tool itself is never deployed anywhere).
+- **Gate 2 (Freya, UI Complexity & Reusability): No gap found.** Verified, not assumed: this story ships zero production React components/routes; its only "UI" is CLI/report output. The manifest schema and fixture-mounting helper are correctly scoped as this story's own deliverable (the primitive being built), not a UI primitive masking a missing shared piece. DESIGN.md is a token spec, not a manifest-format spec, so it imposes no binding schema here; `prototypes/validation-log.md` is informal precedent worth drawing on for consistency (see Dev Notes above), not a hard requirement.
+- **Gate 3 (Winston, Foundational/Cross-Cutting Dependency Completeness): Gap found.** `project-context.md`'s Testing Rules section is a closed two-tier partition (`packages/domain`: 100% unit coverage; `apps/*`: testing-trophy + E2E DoD) that a meta-testing/tooling package like `packages/visual-audit` fits neither. Since this story is the first of its kind and its own future adopters (AD-27's masonry story, BUG-040's fix story) will inherit whatever precedent it sets, left undecided this becomes an ad-hoc convention set by accident rather than a deliberate, project-wide rule. **Recorded as `FIND-047`, split into Story 0.44** (see `## Out of Scope` below) per the tooling/infrastructure numbering rule (new sequential Epic 0 story, since this is reusable/foundational by nature). Gate 3 also confirmed: zero GraphQL/codegen dependency in this story's scope; a `bmad-dev-story` workflow-wiring note (teaching it to execute a `packages/visual-audit` manifest check) is recorded as a Dev Note for whichever story first cites a manifest entry from its own AC, not a second foundational story; and Playwright's story/gallery bundling (Vite-based) is contained entirely within this package's own test execution, analogous to `apps/web`'s existing Vitest+`vite-tsconfig-paths` test-only bundling — not a second production build pipeline, so not cross-cutting on its own.
+  - **UPDATE 2026-09-22 (sequencing amendment):** the Escape Hatch clause originally cited here (proceed under a self-declared scoped DoD, AC13, without waiting for Story 0.44) was **rejected by the user**, who explicitly chose "0.44 first, then 0.43." AC13 now inherits Story 0.44's tier instead of self-declaring; a `Depends on: Story 0.44` note and a corresponding blocking item in the Pre-Coding Approval Gate were added to this story's file. Sprint-status.yaml keeps this story at `ready-for-dev` — the gate is enforced via the Pre-Coding Approval Gate note, checked at `bmad-dev-story` dispatch time, per this repo's convention (see `event-pages-dev-story-tracking.md`).
+
+### Data Type Compatibility & Migration Requirements
+
+- No mismatch found. This story introduces no database schema, no GraphQL types, and no new TypeScript models consumed across a DB/API/frontend boundary — its own manifest/rule-result types are internal to `packages/visual-audit` and its consumers' test files.
+
+### Project Structure Notes
+
+- New package at `packages/visual-audit/`, matching the flat top-level `packages/*` convention (alongside `graphql-select`, `domain`, `ui`, `database`, `shared-types`, `testing-config`).
+- No conflicts detected with the existing monorepo structure; no existing file needs to move.
+
+### References
+
+- [Source: _bmad-output/planning-artifacts/festgrid-architecture-spine.md#AD-26] — full rule set this story implements.
+- [Source: _bmad-output/planning-artifacts/festgrid-architecture-spine.md#AD-27] — adjacent future consumer; this story must not preclude it (Rule 1a exists for this reason).
+- [Source: _bmad-output/planning-artifacts/architecture/architecture-festgrid-2026-09-22/.memlog.md] — full decision trail and rejected alternatives.
+- [Source: _bmad-output/implementation-artifacts/backlog.yaml#IDEA-049] — originating backlog row.
+- [Source: _bmad-output/implementation-artifacts/backlog.yaml#BUG-040] — the production bug this tool exists to catch (not fixed by this story).
+- [Source: packages/graphql-select/package.json, packages/graphql-select/tsconfig.json] — package boilerplate precedent.
+- [Source: design-artifacts/UX-festgrid-run-1/prototypes/validation-log.md] — informal prototype-validation metadata precedent.
+
+## Global Rules References
+
+- [x] project-context.md — Code Organization (`packages/*` conventions), Testing Rules (Gate 3 finding applies, see above).
+- [x] story-content-structure.md — canonical section order followed.
+- [x] architecture spine — AD-26 (this story), AD-27 (adjacent, not in scope).
+- [x] infrastructure docs — not applicable (no AWS/infra surface introduced).
+
+## Implementation Plan (Rule-Compliant)
+
+- **File Change Plan:**
+  - New: `packages/visual-audit/package.json`, `tsconfig.json`, `eslint.config.mjs`
+  - New: `packages/visual-audit/src/index.ts` (public API)
+  - New: `packages/visual-audit/src/manifest.ts` (manifest type + registry)
+  - New: `packages/visual-audit/src/render.ts` (isolated-component-render harness via Playwright 1.62 stories/gallery)
+  - New: `packages/visual-audit/src/compare/computed-style.ts`, `pixel-diff.ts`
+  - New: `packages/visual-audit/src/rules/sibling-dimension.ts`, `intra-box-ratio.ts`, `overflow.ts`, `color.ts`
+  - New: `packages/visual-audit/src/content-variants.ts` (`ts-morph`-based branch enumeration)
+  - New: `packages/visual-audit/manifests/<example>.ts` (1–2 proof entries)
+  - New: `packages/visual-audit/*.test.ts` (unit tests, `tsx --test` pattern)
+- **Rule Mapping:** AC1→package scaffold; AC2/AC11→two-mode engine + example manifests; AC3→Rule 1a render-scope; AC4→manifest registry/dedup; AC5→isolated-render default; AC6→hybrid compare; AC7→sibling-dimension tolerance; AC8→intra-box ratio tolerance; AC9→ts-morph content-variant catalog; AC10→color fidelity; AC12→public library API; AC13→testing/DoD inherited from Story 0.44 (dependency, see Pre-Coding Approval Gate).
+- **Verification Plan:** `pnpm --filter @festgrid/visual-audit test` (unit tests for pure logic) + the example manifest entries themselves passing end-to-end (proving isolated-render, both audit modes, and all five rule classes against a real validated prototype); `pnpm --filter @festgrid/visual-audit lint` clean; `pnpm install` resolves the new `ts-morph`/`@playwright/test` dependencies without version conflicts against `apps/web`'s existing `@playwright/test@1.62.0`.
+
+## Pre-Coding Approval Gate
+
+- [ ] Scope confirmation
+- [ ] Architecture and boundary confirmation
+- [ ] Testing plan confirmation
+- [ ] Explicit human approval state (Default: pending approval)
+- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — **Gate 3's gap (FIND-047) is BLOCKING per the user's explicit sequencing decision (2026-09-22): Story 0.44 must reach `done` before this story's `bmad-dev-story` starts. The Escape Hatch (AC13's original self-declared scoped DoD) was considered and rejected in favor of proper sequencing. Do not begin implementation until Story 0.44's status is `done` in `sprint-status.yaml`.**
+
+## Testing Requirements
+
+- [ ] Unit tests for pure comparison/tolerance/clustering/branch-enumeration logic (`tsx --test`, `packages/graphql-select` pattern)
+- [ ] Integration proof via the example manifest entries themselves (isolated-render + both audit modes + all five rule classes, against a real validated prototype)
+
+## Deliverables Checklist
+
+- [ ] `packages/visual-audit` package scaffolded and wired into the pnpm workspace
+- [ ] Manifest schema + registry with duplicate-triple rejection
+- [ ] Isolated-component-render harness (Playwright 1.62 stories/gallery)
+- [ ] Hybrid compare engine (computed-style primary, pixel diff secondary)
+- [ ] All five rule classes implemented with their specified tolerance shapes
+- [ ] Public, documented, importable API
+- [ ] 1–2 example/proof manifest entries against a real validated prototype
+- [ ] Unit tests + testing/DoD conforming to Story 0.44's tier (AC13)
+
+## Out of Scope
+
+- Authoring manifest entries for the remaining validated prototypes (deferred to each adopting story).
+- Fixing BUG-040 (`EventCardDateBox` overflow) — a future story, though it should cite this tool's engine for its own AC once created.
+- Building AD-27's masonry engine or its manifest entry — a future story (`IDEA-050`).
+- **Gate 3 finding (FIND-047):** promoting a permanent testing-standard tier for meta-testing/tooling packages into `project-context.md` — split into **Story 0.44** (see below), not built as a byproduct of this story. **This is now a hard dependency, not a parallel/non-blocking item** — see `Depends on` note and Pre-Coding Approval Gate above.
+- Wiring `bmad-dev-story`'s own verification step to automatically execute a `packages/visual-audit` manifest check — deferred to whichever story first cites a manifest entry from its own AC.
+
+## Definition of Done
+
+- [ ] AC satisfaction (AC1–AC13)
+- [ ] Required tests passing (unit tests + example manifest entries)
+- [ ] Lint and type checks passing for `packages/visual-audit`
+
+## Completion Status
+
+- [ ] Not started
+
+## Dev Agent Record
+
+### Agent Model Used
+
+### Debug Log References
+
+### Completion Notes List
+
+### File List
+
+### Story 0.44: Define the testing standard for meta-testing/tooling packages
+
+**As a** developer,
+**I want** `project-context.md`'s Testing Rules section amended with an explicit third tier for a "meta-testing/tooling package" (a package whose job is to help verify *other* code, e.g. `packages/visual-audit`, rather than application logic itself),
+**So that** Story 0.43 and its future adopters (the AD-27 masonry engine story, the BUG-040 date-box fix story, and any later package in this same category) share one deliberate, project-wide testing/DoD convention instead of each inventing or silently copying whatever the first one happened to do.
+
+**Acceptance Criteria:**
+
+*   **Given** `project-context.md`'s Testing Rules section today only defines two tiers — `packages/domain` (100% unit coverage, "the *only* place unit tests should be written") and `apps/*` (testing-trophy + E2E DoD) — with no tier for a package like `packages/visual-audit` that is neither,
+*   **When** this story ships,
+*   **Then** `project-context.md` gains a third, explicitly named tier (e.g. "Meta-Testing / Tooling Packages") stating: what "done" testing looks like for such a package (e.g. unit tests for its pure logic, mirroring the existing non-`domain` small-package pattern such as `packages/graphql-select`'s `tsx --test`), whether the 100%-coverage rule applies (recommended: no, matching `graphql-select`'s own precedent, not `domain`'s), and how a proof/example artifact (e.g. `packages/visual-audit`'s own example manifest entries) counts toward its Definition of Done.
+*   **And** Story 0.43's own Dev Notes/Definition of Done (already shipped with a scoped, self-declared decision under this gap's Escape Hatch) are reconciled against the new rule — if they already match, no change needed to Story 0.43; if they diverge, a follow-up correction is noted, not silently ignored.
+
+**Note:** Split via a Gate 3 finding (`story-split-gate.md`, `FIND-047`), surfaced during `bmad-create-story`'s Story 0.43 drafting (2026-09-22, Winston persona): Story 0.43 is the first-of-a-kind dev-tooling/meta-testing package, and its own future adopters will inherit whatever testing convention it sets if this isn't promoted into a project-wide rule now. Numbered as a new sequential Epic 0 story per the tooling/infrastructure numbering rule (Epic 0's then-highest story was 0.43, the gap's own originating story). Not a hard prerequisite for Story 0.43 to be *implemented* — Story 0.43 AC13 requires it to document its own scoped decision in the meantime (Escape Hatch accepted, per its Pre-Coding Approval Gate checklist item).
+
+### Story 0.45: Replace GridContainer's masonry engine with JS shortest-column placement
+
+**As a** developer,
+**I want** `GridContainer`'s (`packages/ui/src/core/grid-container.tsx`) masonry consumer path replaced with a real JS shortest-column-placement algorithm (measure each card's rendered height, place each next item into whichever column is currently shortest) instead of its current plain-CSS-Grid implementation, and `EventCard.tsx`'s masonry variant's `max-w-[230px]` cap removed in favor of the card filling its actual column width with its internal elements/font-size scaling responsively,
+**So that** the Discovery masonry surface (`EventListView.tsx`) achieves true Pinterest-style independent per-column height flow instead of CSS Grid's row-locked height (Architecture Spine AD-27), and cards stop centering inside wide, mostly-empty grid cells on desktop viewports (user-reported, code-confirmed regression).
+
+**Acceptance Criteria:**
+
+1.  **Given** `GridContainer` today only implements plain CSS Grid, **When** this story ships, **Then** `GridContainer` gains a new `layout?: 'css-grid' | 'masonry'` prop, defaulting to `'css-grid'` — every existing non-masonry consumer is unaffected.
+2.  **Given** AD-27 Rule 1 (JS shortest-column placement), **When** `layout="masonry"` is set, **Then** a new hand-rolled hook `useMasonryLayout` (`packages/ui/src/hooks/`) measures each child's rendered height and assigns each item to whichever column currently has the shortest accumulated height — no third-party masonry library is added.
+3.  **Given** DESIGN.md's `components.grid.masonry` token documents `GridContainer(baseCols=2, colsStep=1)` as producing 2/3/4/5/6 columns across base/md/lg/xl/2xl, **When** `layout="masonry"` computes its column count, **Then** it derives the count from the same `baseCols`/`colsStep` formula already used by the `css-grid` path — no silent deviation from the validated token.
+4.  **Given** AD-27's rejection of CSS Grid's row-locked height and CSS multi-column's reading-order regression, **When** `layout="masonry"` renders, **Then** columns are equal-width flex tracks that vary independently in height, and item placement order approximates left-to-right reading order.
+5.  **Given** AD-27 Rule 2's required hydration/layout-shift strategy, **When** the component first renders server-side, **Then** `useMasonryLayout` places items round-robin as an estimated first pass, then reflows into true shortest-column placement post-hydration once `ResizeObserver`-backed measurement completes — also reflowing on breakpoint-driven column-count change and on any later height change of an already-placed item.
+6.  **Given** `EventListView.tsx`'s two `GridContainer` call sites (loading skeleton and success grid) both pass `baseCols={2} colsStep={1}`, **When** this story ships, **Then** both call sites add `layout="masonry"`.
+7.  **Given** `EventCard.tsx`'s masonry variant caps at `max-w-[230px]` regardless of actual grid-cell width (`EventCard.tsx:239`, plus its skeleton twin at line 146), **When** this story ships, **Then** both occurrences are removed so the card fills its actual column width.
+8.  **Given** the user wants the card's internal elements/font-size to scale responsively instead of a hard width cap, **When** column width grows, **Then** this reuses the existing CSS-container-query mechanism already established for the masonry card (`EVENT_CARD_CONTAINER_CLASS`/`EVENT_CARD_BADGE_TEXT_SIZE_CLASS`, Story 1.i1l) — not a second, viewport-breakpoint-based mechanism.
+9.  **Given** AD-27 Rule 3 ("verified by AD-26's rule-based audit mode, not a bespoke one-off test"), **When** this story ships, **Then** a new, real manifest entry is added at `packages/visual-audit/manifests/grid-container-masonry.ts`, mounting the real `GridContainer`(`layout="masonry"`)+`EventCard` components (not the existing synthetic proof-of-concept fixture) and encoding both the shared-column-width rule and the left-to-right placement-order rule.
+10. **Given** i18n applicability, **When** this story ships, **Then** no new user-facing strings are introduced (purely structural/layout/CSS work).
+11. **Given** the column-assignment logic is the most failure-prone part of this story, **When** this story ships, **Then** `useMasonryLayout` has dedicated unit tests, and `grid-container.test.tsx`/`EventCard.test.tsx` are updated for the new masonry path and the removed width cap respectively.
+
+**Note:** Promotes `IDEA-050` (Architecture Spine AD-27), whose 2026-09-25 scope-widening note folds in the user-reported/code-confirmed `EventCard` max-width sizing bug. Drafted via `bmad-create-story`, 2026-09-25 — full ACs, Dev Notes (including the library-vs-hand-rolled and hydration-strategy research decisions AD-27 deferred to this story), and gate findings in `_bmad-output/implementation-artifacts/0-45-replace-grid-containers-masonry-engine-with-shortest-column-placement.md`.
 
 ### Epic 1: Core App and Event Discovery
 
@@ -1177,7 +1404,27 @@ Users can discover and browse events.
 
 **Note:** This story implements IDEA-003's extended scope (originally "Mobile calendar multi-day-span rendering," resolved 2026-09-16/17 to cover `Schedule.applicableDaysOfWeek` day-of-week recurrence, per `EXPERIENCE.md`'s "Day-of-Week Recurring Schedules" section and Architecture Spine **AD-19**). Positioned as the next lettered suffix after 1.3j, immediately before Story 1.3, following this epic's established "discovery order, not alphabetical" placement convention. `epic-1-readiness.md`'s sweep (`swept: true`) predates this story's entire subject matter (BUG-026/AD-19 didn't exist until 2026-09-11/09-17), so Gates 1/2/3 were run fresh rather than cited from that report, matching the precedent already set by Stories 1.6e/0.36. Gate 1 found no gap (the DB/GraphQL field addition is the same additive-field class as Story 0.37's `Event.links`). Gate 2 found a real tooltip-trigger nesting hazard, resolved in-story (each card's own interactive root triggers the tooltip; the badge icon itself is never an independent focus stop). Gate 3 found a real gap — this story would otherwise triplicate `CalendarCard`'s existing hand-rolled hover+focus+Escape-dismiss tooltip state machine — resolved in-story via a scoped `useHoverFocusTooltip` hook extraction (not a full `packages/ui/src/core/` Tooltip design-system primitive, and not split into a new prerequisite story, since unlike the `PageContainer`/`GridContainer`/`PageHeader` precedent this story is what would *introduce* the duplication rather than cleaning up an already-systemic one). See the story file's Dev Notes for the full reasoning on all three gates.
 
-**Depends on:** Story 1.3b (`EventCard`), Story 1.3g (`WeeklyCalendarView`), Story 1.i1a-e (the shared `EventCardMediaPrimitives.tsx` primitives this story adds to).
+**Depends on:** Story 1.3b (`EventCard`), Story 1.3g (`WeeklyCalendarView`), Story 1.i1a-e (the shared `EventCardMediaPrimitives.tsx` primitives this story adds to), Story 1.i1n (amended 2026-09-25 — fixes `EventCardDateBox`'s day-slot overflow bug in the same shared primitive; should land and reach at least `review` before this story's `bmad-dev-story` is dispatched, so this story isn't built blind to a shared-primitive change landing underneath it).
+
+### Story 1.3l: Wire Feed and Favorites to real auth/location state and an AI filter instance
+
+**As a** signed-in user browsing the Feed or Favorites pages,
+**I want** the same Type/Category/Location/AI-filter controls that Discovery gives me, actually wired to my real saved locations and AI filter state,
+**So that** I get one consistent filtering experience across Discovery, Feed, and Favorites instead of two of the three surfaces silently hiding controls or rendering ones that do nothing (BUG-025).
+
+**Acceptance Criteria:**
+
+*   **Given** `feed-content.tsx` hardcodes `isAuthenticated={false}`/`savedLocations={[]}`/`onSelectLocation={() => {}}` on `EventDiscoveryPanel` today (while already correctly wiring `aiFilter.filterHubProps`), **when** this story ships, **then** `FeedContent` calls the existing `useNearbyFilter()` hook (already consumed by `home-content.tsx`) and passes its values straight through, matching Discovery's wiring exactly.
+*   **And** `buildFeedQueryCondition` (`packages/domain`) gains an optional `nearby` parameter, forwarded into `buildEventsQueryCondition` only in the manual-filter branch (never combined with an active AI filter, mirroring `buildEventsQueryCondition`'s existing mutual exclusivity) — so the location filter actually narrows Feed's results instead of rendering a functionally inert control.
+*   **And** Feed's `useInfiniteQuery` queryKey/queryFn include the resolved nearby filter so changing it triggers a refetch.
+*   **Given** `favorites-content.tsx` has neither `useNearbyFilter()` nor `useAIFilter()` wired at all today, **when** this story ships, **then** `FavoritesContent` calls both hooks and wires `EventDiscoveryPanel`'s location and AI-filter props, renders `<AIFilterOverlay>`/`<BlockingLoader>`, and adds the three missing AI-related `filterLabels` keys (sourced from already-existing translation keys, no new locale strings).
+*   **And** Favorites' local `buildFavoritesQueryCondition` helper gains the same `nearby`/`filter` branching as `buildFeedQueryCondition`, always AND-ing its mandatory `isFavorited: true` condition, applied consistently to both the favorited-ID snapshot query and the paginated results query so the two never disagree about which events match.
+*   **And** no new PostHog events are introduced — `useNearbyFilter()`'s existing instrumentation simply starts firing on Feed/Favorites the same way it already does on Discovery.
+*   **And** existing Feed/Favorites search/type/category/infinite-scroll/favoriting behavior is unchanged — zero visible regression.
+
+**Note:** Fixes BUG-025 (captured 2026-09-11 via `bmad-help`): Story 1.3e's retroactive `EventDiscoveryPanel` extraction carried Feed/Favorites' pre-existing hardcoded `isAuthenticated=false`/`savedLocations=[]` forward unchanged as an explicit "Zero visible behavior change," and Favorites never had `useAIFilter()` wired at all. Positioned as the next lettered suffix after 1.3k, immediately before Story 1.3, following this epic's established "discovery order, not alphabetical" placement convention. Gate 1/3 sourced from `epic-1-readiness.md` (`swept: true`) — this story's scope (reusing already-shipped hooks/components, extending an existing pure domain function) introduced nothing the sweep didn't anticipate. Gate 2 run fresh (`wds-agent-freya-ux` lens): no gap found — every UI element in scope is pre-existing/already-shipped (Stories 1.5/7.4/Discovery), and the query-builder changes are pure parameter-forwarding extensions of an existing pattern, not new reusable surfaces. This story is one of `IDEA-038`'s own two named blocking prerequisites (the other being Feed/Favorites' future `useListPaginationController` adoption, epic-0-i5) — it does not itself adopt that controller.
+
+**Depends on:** Story 1.3e (`EventDiscoveryPanel`, the component being wired correctly here).
 
 ### Story 1.3: Display a list of events on the main page
 
@@ -1604,7 +1851,7 @@ Note: Added 2026-08-01 at user request, scoped to Epic 1 (the only route it can 
 *   **When** this story ships,
 *   **Then** a new shared component (e.g. `EventCardStatusBadge`/`EventCardNearbyBadge`, or one combined component — exact naming is this story's own implementation decision) exists in `packages/ui/src/features/events/`, encoding: all 8 `formatEventStatus` states with DESIGN.md's neutral `bg-muted text-muted-foreground` base style, EXCEPT `happeningNow` which renders `bg-emerald-600 text-white`; and the nearby badge (`Navigation` icon + label) gated at `distanceKm < 8` (the corrected threshold, not the shipped `<= 5` bug), omitted entirely when `distanceKm` is null/undefined or `>= 8`.
 *   **And** `EventCard.tsx`'s masonry branch is migrated to consume this new shared component instead of its own inline computation/JSX, fixing the `<=5` → `<8` threshold bug and adding the `happeningNow` emerald treatment as a byproduct of the migration — not a separately-scoped bug fix.
-*   **And** the component accepts label props with the exact same defaults `EventCard.tsx`'s `defaultLabels` already uses (Ended/Happening Now/Ends Today/In {n} hour(s)/Tomorrow/In {n} days/Upcoming/Nearby) so no visual/text regression occurs for the existing consumer.
+*   **And** the component accepts label props with the exact same defaults `EventCard.tsx`'s `defaultLabels` already uses (Ended/Now/Ends Today/In {n} hour(s)/Tomorrow/In {n} days/Upcoming/Nearby) so no visual/text regression occurs for the existing consumer. **AMENDED 2026-09-21 (`bmad-create-story`, while drafting Story 1.i1l):** the `happeningNow` example above read "Happening Now" when this story shipped; Story 1.i1l shortens that default to "Now" across all three sites it lives at, per DESIGN.md `event_card_status_badge`'s 2026-09-14 user-directed label change. This AC's force is the *consistency invariant* between the shared component's defaults and `EventCard.tsx`'s — not the literal string — and changing all three in lockstep preserves it. The quote is updated here so this AC and Story 1.i1l do not read as contradicting each other.
 *   **And** this primitive is **not** wired into `WeeklyCalendarView.tsx` or the not-yet-built `EventCardCalendarGridItem` in this story — adoption is deferred to Story 1.i1j (compact row) and Story 1.i1f's `EventCardCalendarGridItem` (once implemented), matching this epic's own build-then-adopt precedent.
 
 **Depends on:** Story 1.i1a (the `EventCardMediaPrimitives` file/pattern this story extends).
@@ -1649,6 +1896,85 @@ Note: Added 2026-08-01 at user request, scoped to Epic 1 (the only route it can 
 
 **Note:** Split via Gate 2 (`bmad-create-story`, 2026-09-17) while drafting Story 1.i1j (backlog.yaml IDEA-025) — DESIGN.md's 2026-09-14 pass documents this gap twice (`event_card_date_box.base_default`'s own comment, and `event_card_compact.date_box`'s comment, which calls it "the same follow-up story"), explicitly deferring it as "doc-only pass, no code changed here... needs a follow-up story." No story anywhere in `epics.md`/`backlog.yaml` owned this before now. Not folded into Story 1.i1j since it changes the shared primitive's own shape (needed by both masonry and the compact row), not a local detail of the compact row's badge content — a shared-primitive fix has its own consumer set, independent of Story 1.i1j's unrelated content-column badge addition. Implements backlog.yaml `IDEA-042` (child of `IDEA-025`).
 
+### Story 1.i1l: Apply the six unowned 2026-09-14 prototype-fidelity rules
+
+**As a** developer,
+**I want** the six prototype-fidelity rules the 2026-09-14 `bmad-png-to-html` pass validated and wrote into `DESIGN.md`/`EXPERIENCE.md` but that no story and no board row ever owned — the masonry card's 230px width cap, the prominent poster's `aspect-square` crop, the `happeningNow` label shortened to "Now", the TILL-conditional date/favorite pill positions, the badge size floor and font/padding harmonization, and the calendar compact row's 2-line title — applied to the code,
+**So that** the three card families finally render what the validated prototypes show, and the two amendment notes that recorded this outstanding work (`IDEA-016`'s "3 prototyping corrections" and `IDEA-017`'s "7 prototyping refinements", both saying it was "never folded into a story amendment") are closed out in code rather than carried forward as prose.
+
+**Acceptance Criteria:**
+
+*   **Given** `EventCard.tsx`'s card root and skeleton both carry `w-full max-w-sm` unconditionally — a class that today also sizes the non-masonry `variant='standard'` card — **when** this story ships, **then** both render `max-w-[230px]` only when `variant === 'masonry'`, per DESIGN.md `event_card_masonry.max_width`; the skeleton is included per project-context.md's "Keep Skeletons in Sync With Their Real Component" rule, and `packages/ui/src/features/posts/PostCard.tsx`'s byte-identical literal is explicitly not touched.
+*   **And** the masonry prominent-poster branch renders `aspect-square` instead of `aspect-[2/3]`, per DESIGN.md `event_card_masonry.image_prominent`.
+*   **And** the `happeningNow` default label reads "Now" at all three sites it lives at today (`EventCard.tsx`, `WeeklyCalendarView.tsx`, and `formatEventStatus`'s own fallback in `format-event-date.ts`), changed in lockstep — noting that because `format-event-date.ts` is re-exported wholesale by the feature's `index.ts`, this is a package-level default, slightly broader than DESIGN.md's own card-family-scoped hedge; accepted, since the only two real consumers in the repo are the two card families this pass covers.
+*   **And** the shared TILL-label class becomes a context-keyed helper (`-top-1.5` default, `-top-3` for the `prominentPoster=true` single-line chip) with all three consumers migrated, and the prominent-poster date pill and favorite pill both move `top-2` → `top-5` together when a TILL badge is present, take their spec'd `left-2`/`right-2` horizontal offsets, and the date pill takes uniform `p-1` padding — all gated to `variant === 'masonry'`, leaving the `variant='standard'` overlay unchanged.
+*   **And** the 11px badge legibility floor is applied to **every** badge on the three card families, not only the four EXPERIENCE.md names (user decision, 2026-09-21) — bringing the TILL badge and the calendar row's multi-day badge up to it; the TILL and favorite badges take their `text-xs`/`text-sm` pair; the favorite corner pill's padding becomes `px-1.5 py-1` at **both** places the `px-2.5 py-1.5` literal lives (the primitive and the un-migrated inline duplicate in `EventCard.tsx`); and the favorite count text inherits its pill's size rather than pinning its own.
+*   **And** the calendar compact row's title wraps to 2 lines — including removing the **parent** span's own `truncate`, without which the change is a visual no-op — with its inline favorited/added-to-calendar icons pinned to the first line, and the `variant='grid'` desktop day-cell pill left untouched.
+*   **And** rule 5's two font steps are triggered by **the card's own width via a CSS container query**, not a viewport breakpoint (user decision, 2026-09-21) — because rule 1's 230px cap means the viewport no longer predicts the card's width — verified by asserting the generated CSS actually contains the `@container` rule, since Tailwind silently emits nothing for a class candidate it cannot parse.
+*   **And** Story 1.i1i's acceptance criterion below, which quotes "Happening Now" as the verbatim label example, is amended to quote "Now" with a dated supersede note — the AC's force is the consistency invariant between the shared component's defaults and `EventCard.tsx`'s, which changing all three in lockstep preserves.
+
+**Depends on:** Stories 1.i1a, 1.i1i, 1.i1j, 1.i1k (all `review`) — this story edits the chrome those four established.
+
+**Note:** Implements backlog.yaml `IDEA-046` (renumbered from `IDEA-043` on 2026-09-21; parent `CC-019`), rules 1-6 of its seven-residual table. Gates 1/3 cited from `epic-1-i1-readiness.md`'s sweep (pure `packages/ui` presentational work — no resolver, query, mutation or new API surface); the repo's first container query was assessed under the escape-hatch guard and judged not a Gate 1 finding, since `packages/ui` has exactly one consumer and the preferred mechanism adds no dependency. **Gate 2: split** — rule 7 (the calendar row's reserved-slot reversal) is carved into sibling Story 1.i1m below, because it forks a shared primitive's contract, contradicts Story 1.i1z's shipped AC3 and its two live CI ratchet tests, and needs a favorite-badge growth mechanism AD-15 cannot express. Two further residuals found while drafting (the compact row's missing venue line, and its `image_wrapper`/`favorite_badge` stack reversal) are carved to backlog `IDEA-048`, and the `validation-log.md` rounds 5-8 fidelity gap to `FIND-046`. Full record in this story's own Dev Notes (`_bmad-output/implementation-artifacts/1-i1l-apply-the-six-unowned-prototype-fidelity-rules.md`).
+
+### Story 1.i1m: Drop the calendar row's reserved image slot and let its content reflow
+
+**As a** developer,
+**I want** the calendar compact row to omit its image element from the DOM entirely when the image is absent or errored — content expanding to fill the freed width, and the favorite control sitting at the row's end with no reserved wrapper, growing into the space it gained —
+**So that** the row card stops following masonry's reserved-space convention, which the 2026-09-14 pass explicitly reversed for this card family by direct user direction, and which the row has been rendering against spec ever since Story 1.i1d shipped the pre-reversal version.
+
+**Acceptance Criteria:**
+
+*   **Given** `WeeklyCalendarView.tsx`'s `variant='list'` branch renders `EventCardMediaSlot layout="fixed-square"` unconditionally — always a `w-16 h-16 shrink-0` footprint, blank-but-reserved when there is no image — **when** this story ships, **then** the slot is omitted from the DOM entirely in the no-image/errored case, the content column expands into the freed width, and the favorite control renders at the row's end with no fixed-width wrapper, per DESIGN.md `event_card_compact_thumbnail_fallback` ("no area for image") and EXPERIENCE.md's "Reserved space, not reflow — masonry ONLY as of 2026-09-14".
+*   **And** masonry's own reserved-space convention (`event_card_masonry.thumbnail_default_fallback`) is **explicitly unchanged** — the two families diverge deliberately, and `EventCardMediaSlot`'s contract must carry that divergence rather than one family silently inheriting the other's behaviour.
+*   **And** the favorite control grows with the space it gains, per the validated prototype (a 36px icon at a 326px row, 56px at 655px) — which `EventCardFavoriteBadge`'s two fixed scales (ratios 2 and 5/3) cannot currently express, so this story owns choosing and justifying the mechanism.
+*   **And** the AD-15 inheritance loss is handled explicitly: removing the slot removes the element that declares `--event-card-badge-font-size`, so without a deliberate fix the favorite icon silently falls through to `eventCardBadgeIconSizeStyle`'s inline `0.75rem` fallback and **shrinks** from 28px to 24px.
+*   **And** Story 1.i1z's AC3 — which asserts that *every* card surface including the calendar compact row "renders reserved-but-blank on image error with no layout shift" — is **amended**, narrowed to masonry only, with a dated note recording that the 2026-09-14 user-directed reversal superseded it; and its two live ratchet tests in `WeeklyCalendarView.test.tsx` are **replaced with inverted ratchets** (no media slot in the row; content column and favorite control expand) rather than deleted, so the reversal is itself protected in CI.
+*   **And** the WCAG 2.4.3 reflow-predictability tradeoff is recorded in the story's Dev Notes as a deliberate, user-directed, accepted cost — EXPERIENCE.md frames it exactly that way, and without the record the next accessibility sweep reads the row as a regression and reverts it.
+
+**Depends on:** nothing hard. Sibling of Story 1.i1l, not a prerequisite either way — doing 1.i1l first is mildly convenient (the badge padding/size work settles before this row's badge starts growing), but neither blocks the other.
+
+**Note:** Split via Gate 2 (`bmad-create-story`, 2026-09-21) while drafting Story 1.i1l — rule 7 of backlog.yaml `IDEA-046`. Carved out rather than absorbed for three independent reasons, any one sufficient: it forks the contract of a shared primitive (`EventCardMediaSlot`, which masonry also depends on); it contradicts a shipped acceptance criterion and two live CI ratchet tests, which is governance work with its own reviewer rather than a line change reviewed alongside six Tailwind swaps; and its growth behaviour is not expressible in AD-15 today. Backlog row `IDEA-048` (the compact row's missing venue line and its `image_wrapper`/`favorite_badge` stack reversal — the with-image counterpart to this story's no-image composition) belongs with this story's restructure, not with 1.i1l's class-level fixes. Not yet drafted via its own `bmad-create-story` pass.
+
+### Story 1.i1n: Fix EventCardDateBox overflow on word/time content
+
+**As a** developer,
+**I want** `EventCardDateBox`'s day slot to render word/time content ("Today"/"Tomorrow"/"Yesterday"/a time string) without overflowing or clipping its card,
+**So that** the card stops overflowing/clipping in production for the relative-date states — confirmed by this session's own visual-fidelity audit to overflow the entire 175px mobile masonry card by ~107px for "Tomorrow" — a real production bug, not a cosmetic mismatch.
+
+**Acceptance Criteria:**
+
+*   **Given** `EventCardDateBoxProps` today only exposes `size`, with no signal of whether `day`'s content is a short number or a longer word/time string, **when** this story ships, **then** it gains an optional `dayVariant?: 'number' | 'word'` prop (default `'number'`, caller-supplied — the primitive still reimplements no date/locale formatting itself).
+*   **And** when `dayVariant === 'word'`, the day slot renders at a smaller, word-safe font-size fitting every real word/time content variant ("Today", "Tomorrow", "Yesterday", a locale-formatted time string) within the date box's real rendered width at the mobile masonry 175px slot and the compact row's width, with no overflow/clipping — verified via an extended `packages/visual-audit` (AD-26) overflow-rule manifest entry, not a manual screenshot.
+*   **And** when `dayVariant === 'number'` (default), rendered output is byte-for-byte unchanged from today.
+*   **And** both real consumers (`EventCard.tsx`, `WeeklyCalendarView.tsx`) pass `dayVariant` explicitly, computed from the same branch their existing formatter (`formatShortEventDateTimeParts`/`computeCalendarSegmentDateBoxContent`) already takes — no duplicated branch logic.
+*   **And** `packages/visual-audit/src/content-variants.ts`'s `ts-morph` branch enumerator is extended to also enumerate a ternary (`ConditionalExpression`) nested inside a branch's return expression — the exact shape `formatShortEventDateTimeParts`'s `hasTime ? ... : ...` uses — so the "time string" content variant is genuinely derived via static analysis, not hand-faked.
+*   **And** `festgrid-architecture-spine.md`'s AD-26 Rule 5 gains an "Enforced by" citation for the new manifest entry and the enumerator fix.
+
+**Depends on:** Story 1.i1a (the primitive this story extends), Story 0.43 (`packages/visual-audit`, `done` — this story's own verification mechanism).
+
+**Note:** Formed 2026-09-25 via `bmad-create-story` from backlog `BUG-040`, found by this session's own visual-fidelity audit (the same audit that motivated Story 0.43/AD-26). Not covered by `IDEA-046`/Stories 1.i1l/1.i1m (which fixed seven other prototype-fidelity gaps but never touched the day slot's `dayClasses`). Gates 1/3 cited from `epic-1-i1-readiness.md`'s sweep plus a fresh lightweight guard (no gap); Gate 2 run fresh (Freya persona, subagent) — verdict NO SPLIT (the new prop matches this epic's established explicit-prop pattern, e.g. Story 1.i1k's `size`, 1.i1m's `collapseOnFallback`; the missing DESIGN.md token for this content variant is a genuine void, not a missed-spec gap, since no prototype ever depicted it). Sequencing: Story 1.3k's own `Depends on:` line (below) is amended in this same pass to add this story, per `event-pages-dev-story-tracking.md`'s pre-flagged "Known conflicts" note — this story should reach at least `review` before 1.3k's `bmad-dev-story` is dispatched.
+
+### Story 1.i1o: Wire real next-intl label content into EventCard and WeeklyCalendarView
+
+**As a** user browsing FestDaily on the `/id` locale,
+**I want** the event card's TILL tag, 8-state status badge, favorite-toggle control, and nearby-distance badge — and their equivalents on the weekly calendar — to show real Indonesian text instead of the components' hardcoded English `defaultLabels`,
+**So that** switching to `/id` doesn't silently ship English microcopy across every page that renders an `EventCard` or `WeeklyCalendarView` (Discovery, Feed, Favorites, Archive, Account, My Calendar) — confirmed live on `/id` as 100% of this label surface today, not a partial gap.
+
+**Acceptance Criteria:**
+
+*   **Given** `home-content.tsx` and its sibling `*-content.tsx` files (`feed-content.tsx`, `favorites-content.tsx`, `archive-content.tsx`, `account-content.tsx`) already call `useTranslations()` for other page text but never build a `cardLabels` object covering `EventCard`'s `tillLabel`/8-state status badge/`favoriteToggle`/`nearbyBadge`, **when** this story ships, **then** each of these files adds a `useTranslations('EventCard')` call and merges its output into the `cardLabels` object literal each already passes to `EventListView`, so `EventCard`'s `defaultLabels` fallback is never reached on a live locale.
+*   **And** `CalendarView.tsx` (Discovery's calendar tab), `FeedCalendarView.tsx`, `AccountCalendarView.tsx`, and `my-calendar-content.tsx` each add a `useTranslations('WeeklyCalendarView')` call and merge its output into the `labels` object literal each already passes to `WeeklyCalendarView`, covering `loadingText`, `favoritedBadgeLabel`, `addedToCalendarBadgeLabel`, `favoriteToggleLabel`, `tillLabel`, all 7 named status states (`statusEnded`/`statusHappeningNow`/`statusEndsToday`/`statusInHours`/`statusInDays`/`statusUpcoming`/`tomorrow`), and `nearbyBadge` — the pre-existing `calendarPrevWeekLabel`/`calendarMoreLabel`-style keys these four files already wire from their own page namespace (`DiscoveryPage`/`FeedPage`/`AccountPage`/`MyCalendarPage`) are untouched, since they are already correctly translated.
+*   **And** two new shared top-level next-intl namespaces, `EventCard` and `WeeklyCalendarView` (mirroring the existing `EventCategory`/`EventType`/`NearbyFilter`/`FilterHub` shared-namespace precedent rather than the `calendarPrevWeekLabel`-style per-page duplication precedent — a real tradeoff surfaced to and resolved by the user during drafting, see this story's own Dev Notes), are added to both `apps/web/locales/en.json` and `apps/web/locales/id.json`, holding real, natural Indonesian content for every key — not machine-translated-without-review, not placeholder text.
+*   **And** `EventCardMediaPrimitives.tsx` gains a new exported, pure, locale-parameterized `formatLocalizedNearbyBadgeDistance(locale: string, distanceKm: number): string` helper (>=2km: 0 fraction digits; <2km: 1 fraction digit, via `Intl.NumberFormat(locale, ...)` per `project-context.md`'s Locale-Sensitive Data Rendering rule for numeric values) — every content/calendar file's `nearbyBadge` closure calls this helper with the page's own `useLocale()` value (the same bare-locale-string pattern `EventDetailWrapper.tsx` already establishes), so `/id` renders comma-decimal distances (e.g. "1,2 km") instead of English's decimal point. The existing English-only `formatNearbyBadgeDistance` (the component's own internal safety-net default when no `labels.nearbyBadge` is supplied at all) is unchanged.
+*   **And** `EventCardLabels`/`WeeklyCalendarViewLabels`' `today`/`yesterday` fields are explicitly left untranslated in this pass — their only consumer, `formatRelativeDayOrDate`, has no production call site anywhere in `apps/web`/`packages/ui` (verified by grep; test-only), so translating dead-code label keys is out of scope, matching this epic's own `FIND-053` precedent of not spending effort on unreachable branches.
+*   **And** `archive-content.tsx`'s existing `favoriteToggle: ""` placeholder (dead today — Archive never passes `onFavoriteToggle` to `EventListView`'s `getCardProps`, so the aria-label never renders) is replaced with the same `t('favoriteToggle')` every other page now uses, for consistency, with a one-line comment noting it is currently unreachable.
+*   **And** no visual, layout, or component-prop change occurs anywhere — every component this story touches (`EventCardStatusBadge`, `EventCardNearbyBadge`, `EventCardDateBox`, `EventCardFavoriteBadge`, `CalendarCard`) is unchanged; only the string values flowing into their already-shipped `labels` props change.
+
+**Depends on:** Stories 1.i1a, 1.i1i, 1.i1j (the shared badge/date-box primitives and the `EventCardLabels`/`WeeklyCalendarViewLabels` prop shapes this story wires real content into), Story 1.i1f (BUG-049's function-shaped `nearbyBadge` label contract).
+
+**Note:** Formed 2026-09-27 via `bmad-create-story` from backlog `BUG-044`, scoped against `event-card-family-consolidated-acs.md` §2.5 (AC-I18N-1). Gate 1/3: no gap — reasoned fresh rather than blindly cited from `epic-1-i1-readiness.md`'s 2026-09-13 sweep, since that sweep's own Gate 3 finding #4 explicitly concluded "no new text strings requiring i18n," which this story's very existence contradicts. Fresh reasoning: no DB/resolver/API surface is touched (pure `packages/ui`/`apps/web` presentational wiring, consistent with the sweep's conclusion for the rest of the epic), and per `story-split-gate.md`'s own Gate 3 definition, "anything beyond adding strings to an existing, already-set-up i18n system" is what triggers a foundational-dependency gap — next-intl (routing, message-file structure, provider wiring) is already fully established project-wide, so this story is squarely the excluded case, not a foundational gap needing its own Epic 0 story. Gate 2: run fresh (Freya persona, subagent) — verdict NO SPLIT: every component rendering these labels was already built and shipped by Stories 1.i1a–1.i1n; this story changes only string content flowing into already-existing `labels` props, with no new component, hook, or non-trivial reusable util (the one new function, `formatLocalizedNearbyBadgeDistance`, is a ~6-line pure locale-aware wrapper around an already-shipped formatting rule, not a new abstraction other components build on). Namespace design (shared `EventCard`/`WeeklyCalendarView` namespaces vs. duplicating into each of the 6 page namespaces, matching the `calendarPrevWeekLabel` precedent) was raised to the user as a real, non-mechanical tradeoff before drafting; the user chose the shared-namespace approach, reasoning that this epic's own consolidation effort (BUG-047/BUG-048/BUG-049) has been about eliminating divergent copies of the same component behavior/text across surfaces, so 6x-duplicating these same strings into every page namespace would directly contradict that effort's point, and that the pre-existing `calendarPrevWeekLabel`-style duplication looks like it predates this consolidation effort rather than being a deliberate pattern worth extending here.
+
 ### Story 1.i1z: Ratchet — no card surface sizes or falls back locally
 
 **As a** developer,
@@ -1661,7 +1987,7 @@ Note: Added 2026-08-01 at user request, scoped to Epic 1 (the only route it can 
 *   **When** the repo-wide sweep test runs in CI,
 *   **Then** it fails if any component under `packages/ui/src/features/events` renders an image slot, thumbnail, favorite icon or date badge with a hardcoded dimension class instead of an `event_card_*` token.
 *   **And** it fails if the literal "No image available", or any other placeholder text or icon, appears inside an image-fallback branch anywhere outside the shared primitive.
-*   **And** a test asserts every card surface — masonry default, masonry prominent, and the calendar compact row — renders reserved-but-blank on image error with no layout shift.
+*   **And** a test asserts every card surface — masonry default, masonry prominent — renders reserved-but-blank on image error with no layout shift. ***Amended 2026-09-21 (Story 1.i1m):*** *narrowed from "every card surface including the calendar compact row" to masonry only. The 2026-09-14 user-directed reversal (DESIGN.md `event_card_compact_thumbnail_fallback`, "no area for image at all") supersedes this AC for the calendar-compact row, which now omits its media element from the DOM entirely on image absence/error instead of rendering reserved-but-blank — the opposite of what this AC originally asserted for that surface. The two ratchet tests this AC cited in `WeeklyCalendarView.test.tsx` were replaced with inverted ratchets protecting the row's own (opposite) behavior, rather than deleted. Masonry's own reserved-but-blank guarantee, and this AC's force for masonry, are unchanged.*
 
 **Depends on:** Stories 1.i1a, 1.i1b, 1.i1c, 1.i1d, 1.i1e.
 
@@ -2845,6 +3171,86 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Depends on:** Story 3.6, Story 3.3e.
 
+**Cross-reference (2026-09-30, added via `bmad-correct-course`):** This story's `minScheduleCount`/`expectedScheduleNames` fields gain persistence into the new `extraction_audit_logs` table via Story 3.6p, for extraction-quality evaluation — no change to this story's own already-shipped/in-review log-only behavior.
+
+### Story 3.6m: Add hasFaceImage/faceImageCount self-reported fields to Gemini extraction schema
+
+**As a** system,
+**I want** the Gemini extraction response to self-report whether a post's image contains any
+people,
+**So that** a later face-detection/blur pass (Story 3.6n) can skip images that plainly have none,
+without paying for a separate detection call on every extracted image.
+
+**Acceptance Criteria:**
+
+*   **Given** `geminiExtractionResponseSchema` (`build-gemini-request.ts`) and `extractedEventSchema` (`extracted-event.schema.ts`), **when** this story ships, **then** both gain two new optional fields, added together in the same change (`extractedEventSchema`'s `additionalProperties: false` means a real Gemini response carrying these fields is silently dropped by AJV unless both files change together — the same load-bearing pattern Story 3.6l's `minScheduleCount`/`expectedScheduleNames` already established): `hasFaceImage` (boolean) and `faceImageCount` (number, advisory/logging-only — never trusted as an exact count).
+*   **And** the system prompt is amended with an explicit instruction to report both fields based on the same image(s) already provided for event extraction — no second image fetch, no second Gemini call.
+*   **And** `hasFaceImage`/`faceImageCount` are written to the new `extraction_audit_logs` table (Story 3.6p, Architecture Spine AD-29) — **never** to `posts`/`EventInfo`, and never exposed via GraphQL. They exist for offline extraction-quality evaluation only.
+*   **And** a regression test fixture covering an image with no people (e.g. a text-only graphic-design flyer) and an image with a clearly visible person confirms `hasFaceImage` reports the expected value and both are correctly written to the audit row.
+
+**Note (added via `bmad-correct-course`, Architecture Spine AD-28):** This field rides the extraction call that already runs on every post and already fetches the image bytes — image tokens are billed once regardless of what's asked about the image, so this adds only a handful of schema-definition and output tokens, not a new billable unit. Used exclusively as a pre-filter gate for Story 3.6n's face-detection pass; never itself used to decide whether to blur anything.
+
+**Cross-reference:** This story and Stories 3.6i/3.6j/3.6k/3.6l all edit `build-gemini-request.ts`'s prompt/response schema. Whichever lands last must rebase on the others' changes rather than silently conflicting.
+
+**Depends on:** Story 3.6, Story 3.6l, Story 3.6p.
+
+### Story 3.6n: Detect and blur faces in extracted post images, generating a consent-independent durable thumbnail
+
+**As a** subscriber,
+**I want** any bystander's face visible in an event's photo to be blurred in the app's card views,
+**So that** FestDaily doesn't display an identifiable photo of someone who never agreed to appear
+on the platform, regardless of whether the source account has opted into image re-hosting.
+
+**Acceptance Criteria:**
+
+*   **Given** a post's extraction reports `hasFaceImage = true` (Story 3.6m), **when** the AI Processor Lambda has finished extraction, **then** it runs `@vladmandic/face-api` (SSD MobileNetV1 detector) against the already-fetched original image bytes (no second fetch) to locate face bounding boxes.
+*   **And** a Gaussian blur is applied over each detected face's bounding box at the image's original resolution, **before** any resizing or cropping (processing order is correctness-critical — cropping first risks misaligned coordinates for a face partially outside the eventual crop).
+*   **And** the blurred image is then resized/cropped via `sharp.resize(480, 480, { fit: 'cover', withoutEnlargement: true })` and re-encoded as JPEG quality 80.
+*   **And** the resulting thumbnail is uploaded to the same private-S3-bucket-plus-CloudFront-OAC mechanism Architecture Spine AD-12 Rule 2 already established, with the resulting CloudFront URL written to a new `posts.durableThumbnailUrl` column — **independent of `isImageStorageOptedIn`** (populated for opted-in and non-opted-in accounts alike; distinct from and never conflated with `durableImageUrl`, which keeps its existing opted-in-only, unblurred, full-resolution behavior completely unchanged).
+*   **And** `event_card_masonry`'s `prominentPoster` trigger widens from `durableImageUrl != null` to `durableImageUrl != null || durableThumbnailUrl != null`; when both are present, `durableImageUrl` (sharp) is rendered in preference to `durableThumbnailUrl` (blurred); when neither is present, today's default non-prominent card state renders unchanged.
+*   **And** if detection, blur, resize, or upload fails at any step, the failure is caught and logged; `durableThumbnailUrl` stays null and extraction/ingestion proceeds unaffected (best-effort, matching Story 3.6e's existing precedent for `durableImageUrl`).
+*   **And** a regression test fixture covering a photo with a clearly visible face confirms the stored thumbnail's face region is visibly blurred, and a fixture with `hasFaceImage = false` confirms detection is skipped entirely (no face-api.js invocation).
+
+**Note (added via `bmad-correct-course`, Architecture Spine AD-28):** face-api.js was chosen over AWS Rekognition specifically to avoid a recurring per-image AWS fee, at the accepted cost of lower recall than Rekognition on small/angled/occluded/low-light faces — the profile of real event crowd photos. Some faces may go unblurred; this is a deliberate, recorded trade-off, not an oversight. Widening `prominentPoster` measurably changes PRD §3.16's framing of the prominent card as a binary "felt incentive to opt in" (see the accompanying PRD edit) — opt-in is now "sharp prominent" vs. "blurred prominent," not "prominent" vs. "nothing."
+
+**Depends on:** Story 3.6m, Story 3.6e (re-hosting/upload mechanism), Story 0.33 (media bucket).
+
+### Story 3.6o: Skip face-blur processing for events ending before their source image expires
+
+**As a** platform operator,
+**I want** to skip Story 3.6n's detection/blur/storage pipeline for events whose relevance window ends before their source image URL would have expired anyway,
+**So that** FestDaily doesn't spend compute, storage, and bystander-photo retention on a durable copy that could never actually be needed as a fallback.
+
+**Acceptance Criteria:**
+
+*   **Given** a post's extraction has produced one or more schedules (Story 3.6's pipeline) and `posts.imageUrlExpiresAt` is already populated (Story 3.6e, parsed at scrape time), **when** Story 3.6n's pipeline is about to run, **then** the event's latest schedule end (the max of `schedules[].eventEndDate`/`eventEndTime` across all extracted schedules; falls back to `eventStartDate` when no end is given) is compared against `imageUrlExpiresAt`.
+*   **And** if the event's latest schedule end is at or before `imageUrlExpiresAt`, Story 3.6n's detection/blur/resize/upload pipeline is skipped entirely — no face-api.js invocation, no S3 upload, `durableThumbnailUrl` stays null for that post.
+*   **And** if the event's latest schedule end is after `imageUrlExpiresAt` (or `imageUrlExpiresAt` is null, treated as "already expired" per AD-12 Rule 3's existing convention), Story 3.6n's pipeline runs exactly as that story implemented it, unchanged.
+*   **And** this comparison is explicitly documented (code comment) as distinct from `Event.isExpiredForCurrentUser`/`computePastEventThreshold` (a runtime, grace-period visibility check for an already-viewing user) — this is a one-time, build-time relevance check with no grace period.
+*   **And** a regression test fixture covering a short-lived event (ends same day, well before a multi-day image expiry) confirms the pipeline is skipped, and a fixture covering a long-running event (ends after the image's expiry) confirms it runs.
+
+**Note (added via `bmad-correct-course`, Architecture Spine AD-28 Rule 2):** This is a pure optimization layered on top of Story 3.6n, mirroring how Story 3.6h layered the opt-in consent gate on top of Story 3.6e's already-shipped unconditional re-hosting — Story 3.6n may ship and operate correctly without this gate; this story narrows its footprint afterward.
+
+**Depends on:** Story 3.6n.
+
+### Story 3.6p: Create extraction_audit_logs table and write path for Gemini self-reported extraction signals
+
+**As a** platform operator,
+**I want** every extraction's self-reported completeness/face signals stored alongside the ground truth they can be checked against,
+**So that** the AI extraction pipeline's accuracy can be evaluated over time instead of self-reported numbers only ever being logged and forgotten.
+
+**Acceptance Criteria:**
+
+*   **Given** the schema defined in Architecture Spine AD-29, **when** this story's migration runs, **then** it creates `extraction_audit_logs` (`postId` FK to `posts.id`, `geminiModel`, `isEvent`, `confidenceScore`, `minScheduleCount`, `expectedScheduleNames` (jsonb), `actualScheduleCount`, `hasFaceImage`, `faceImageCount`, `actualFaceDetectionCount`, `faceDetectionSkippedReason`, `createdAt`), indexed on `postId`.
+*   **And** `process-ai-job.ts` writes one row per extraction attempt immediately after Gemini's response is parsed, populating `minScheduleCount`/`expectedScheduleNames`/`hasFaceImage`/`faceImageCount` from the response and `actualScheduleCount` once schedules are persisted.
+*   **And** this is a **retrofit onto the already-in-review Story 3.6l** — `minScheduleCount`/`expectedScheduleNames` were shipped there as log-only fields; this story adds their persistence without changing 3.6l's own extraction/logging behavior.
+*   **And** once Story 3.6n/3.6o run, `actualFaceDetectionCount` and `faceDetectionSkippedReason` are back-filled on the same row (`'no_face_reported'` when Story 3.6m's `hasFaceImage = false` skipped detection, `'event_relevance_gate'` when Story 3.6o's expiry check skipped it, `null` with a real count when detection ran).
+*   **And** no resolver serving any client-facing GraphQL field ever queries this table (AD-29 Rule 5) — verified by a lint/review check that `extraction_audit_logs` has no import from `apps/backend/src/schema/resolvers.ts`'s hot-path fields.
+
+**Note (added via `bmad-correct-course`, Architecture Spine AD-29):** This table cannot measure `hasFaceImage`'s false-negative rate on its own — rows where it's `false` never get a ground-truth comparison, since Story 3.6n's face-api.js pipeline never runs on them. Closing that gap would require periodically sampling `hasFaceImage = false` rows through face-api.js anyway; left as an explicit future decision, not built here.
+
+**Depends on:** Story 3.6e, Story 3.6l.
+
 ### Story 3.7: Display extracted events to the user
 
 **As a** user,
@@ -3063,6 +3469,141 @@ Users can subscribe to social media accounts to import events into their feed.
 **Note:** Added 2026-08-24 via `bmad-correct-course` (`sprint-change-proposal-2026-08-24-ux-rework-batch.md` Section 4.2, items #4/#5 settings-IA restructuring), full ACs backfilled 2026-08-25 via `bmad-create-story` (this section did not exist yet despite `sprint-status.yaml` carrying a `3-12` entry since 2026-08-24 — a tracking gap in the same family as Stories 3.3d/3.4m/0.29's). A real, non-mechanical tab-switch state-loss tradeoff (not anticipated by the original proposal) was found during this story's creation and resolved directly with the user via `AskUserQuestion` — see the implementation-artifact story file's Dev Notes for the full analysis and the `keepMounted` design. `EXPERIENCE.md`'s two-shell IA rewrite, itself claimed complete by the 2026-08-24 proposal's own approved log but never actually applied, was corrected immediately before this story's creation in the same session (Component Patterns § Account Settings & Moderator Tools Shells is this story's authoritative UX source).
 
 **Depends on:** Story 0.29, Story 3.1b, Story 3.2, Story 3.9a, Story 5.1, Story 2.9, Story 2.8.
+
+### Story 3.13: Normalize Apify vendor coauthor/publisher roles during ingestion
+
+**As a** system,
+**I want** the ingestion pipeline to classify each Apify-sourced post's payload identities into the scraping-source, canonical-publisher, and coauthor axes using each vendor's explicit role-bearing fields — never producer-array order or position,
+**So that** a repost/native-collab post's actual publisher and coauthors are captured instead of being silently collapsed into the scraping-source account (FIND-022, CAP-1).
+
+**Acceptance Criteria:**
+
+*   **Given** a real `apify/instagram-post-scraper` payload with `ownerId`/`ownerUsername`/`ownerFullName` and a populated `coauthorProducers[]` array (verified evidence: `vendor-role-mapping.md`, runs `run-04`/`run-06`),
+*   **When** `mapApifyItemToScrapedPost` (`apps/backend/src/lib/scraper/instagram-adapter.ts`) processes it,
+*   **Then** the result carries a role-tagged canonical-publisher identity (from `ownerId`/`ownerUsername`/`ownerFullName`) distinct from each coauthor identity (from `coauthorProducers[]`) and from the triggering subscription/scraping-source account.
+*   **And** `taggedUsers[]` is never read as a coauthor source — confirmed a materially different (mentioned/tagged, not co-produced) relationship, per `vendor-role-mapping.md`.
+*   **And** a `coauthorProducers[]` entry missing a stable `id` is captured via the existing `persistUnprocessedPayload` mechanism (Story 3.4h) rather than silently dropped or defaulted.
+*   **And** Bright Data payloads are explicitly **not** touched by this story — `coauthor_producers`'s exact field shape is unverified (its cited fixture no longer exists on disk, per `vendor-role-mapping.md`); Bright Data-side role normalization is out of scope here and blocked on a fresh real-payload capture (see this story's Note).
+
+**Note:** Added 2026-09-18 via `bmad-correct-course` from FIND-022's spec (`_bmad-output/specs/spec-post-coauthor-attribution/`), CAP-1. Scoped to Apify only, matching the spec's own non-goal ("Verifying or re-deriving Bright Data's exact `coauthor_producers` field shape... Bright Data-side adapter work waits on a fresh real payload capture"). A follow-up Bright Data story should be raised once that capture exists — do not retrofit this story's Apify-derived role logic onto Bright Data's unverified shape by analogy.
+
+**Depends on:** Story 3.3c, Story 3.4d, Story 3.4h.
+
+### Story 3.14: Deduplicated, provenance-tracked subscribable profiles
+
+**As a** system,
+**I want** every publisher/coauthor identity with a stable platform account ID to get or reuse exactly one `SocialMediaAccountProfile` row (unique on `platform` + `accountId`), created unsubscribed by default and carrying `firstSeen`/`lastSeen`/`discoverySource` (PRD §4.5), while an identity with no stable accountId is retained only as an internal, non-public, non-subscribable, non-searchable provisional record,
+**So that** re-scraping the same coauthor across many posts never creates duplicate profiles, and a malformed/ambiguous identity is observable rather than silently discarded (FIND-022, CAP-2).
+
+**Acceptance Criteria:**
+
+*   **Given** Story 3.13's normalized publisher/coauthor identities for a post,
+*   **When** an identity with a stable `accountId` is processed,
+*   **Then** it gets-or-creates exactly one `social_media_account_profiles` row (Story 3.1a's lookup-or-create logic, extended) with `lastSeen` advanced to now and `firstSeen` left unchanged if the row already existed, or both set to now if newly created.
+*   **And** a newly created profile from this path defaults `isVerifiedForDiscovery: false` (PRD §4.5, wired into Story 3.17) and is unsubscribed by default — no `subscriptions` row is created for anyone.
+*   **And** `displayName` is populated via the existing `AccountProfileLookupResult` fallback chain (`item.fullName || item.displayName || item.name || item.username`, `instagram-adapter.ts`'s `lookupAccountProfile`) when Apify's `coauthorProducers` supplies no full name — never a null insert (PRD §4.5's `displayName` is `NOT NULL`).
+*   **And** an identity with no stable `accountId` (caption-only mention, or a malformed entry missing `id` per Story 3.13) never creates a public `social_media_account_profiles` row; it is retained only in the existing `persistUnprocessedPayload`/provisional-record path, backfillable into a real profile once a platform ID is later known.
+*   **And** `discoverySource` (`{ vendor, runId }`) is recorded on first creation and never overwritten by a later re-observation.
+
+**Note:** Added 2026-09-18 via `bmad-correct-course` from FIND-022's spec, CAP-2 (including the Pass-2 self-validate amendment folding in discovery provenance and observable-malformed-payload handling).
+
+**Depends on:** Story 3.13, Story 3.1a, Story 3.4h.
+
+### Story 3.15: Post-account association table + lossless migration
+
+**As a** system,
+**I want** a new `post_account_associations` table recording one row per (post, account) pair with an explicit role (`PUBLISHER`, `COAUTHOR`, `SCRAPING_SOURCE`, `PUBLISHER_UNKNOWN`) and provenance (PRD §4.7a), while `posts.accountId` stays unchanged for backward compatibility,
+**So that** a post's full set of verified identities is queryable for filtering (Story 3.18), moderation, and analytics — not collapsed into one column — without rewriting or reinterpreting any existing post's historical ownership (FIND-022, CAP-3).
+
+**Acceptance Criteria:**
+
+*   **Given** the `posts` table (Story 3.3a) and Story 3.14's deduplicated profiles,
+*   **When** the migration runs over existing production posts,
+*   **Then** it adds exactly one `SCRAPING_SOURCE`- or `PUBLISHER_UNKNOWN`-role association per existing row, derived only from `posts.accountId` — with zero data loss and no ownership rewritten or guessed from unavailable vendor evidence.
+*   **And** a newly ingested post (post-migration) gets exactly one `PUBLISHER` association plus N `COAUTHOR` associations matching Story 3.13/3.14's normalized identities, all independently queryable by role.
+*   **And** `posts.accountId` continues to be populated for new posts, but only from the verified canonical publisher after role normalization — never from producer-array order (unchanged behavior, now made explicit).
+*   **And** writing associations for a re-ingested post (matching `persistScrapedPost`'s existing dedupe-by-`postUrl` behavior) is idempotent — re-processing never appends duplicate role rows for the same (post, account, role).
+*   **And** association rows remain queryable independent of Story 3.18's filtering path, supporting moderation/analytics use.
+
+**Architecture note:** The table's exact uniqueness-constraint DDL (`post_id + account_id + role` vs. `post_id + account_id`) was deliberately left open by the spec, pending a `bmad-architecture` pass for this slice before `bmad-create-story` elaborates this story — see this Sprint Change Proposal's Section 5 (Implementation Handoff). Resolved below (Dev Notes).
+
+**Dev Notes:** Resolved via `bmad-architecture` (2026-09-18, Architecture Spine AD-25). Uniqueness is `UNIQUE(post_id, account_id, role)`, not `(post_id, account_id)` — the "`SCRAPING_SOURCE` may equal the publisher" cardinality rule above requires the same account to legitimately hold two rows on one post (`PUBLISHER` + `SCRAPING_SOURCE`); a `(post_id, account_id)` constraint would make that structurally impossible, and `(post_id, account_id, role)` is also exactly what this story's own AC above already names ("duplicate role rows for the same (post, account, role)"). That base constraint alone doesn't enforce "exactly one `PUBLISHER`-or-`PUBLISHER_UNKNOWN`" and "exactly one `SCRAPING_SOURCE`" per post — it's silent on two *different* accounts both claiming the same role — so two partial unique indexes do that work: `UNIQUE(post_id) WHERE role IN ('PUBLISHER','PUBLISHER_UNKNOWN')` and `UNIQUE(post_id) WHERE role = 'SCRAPING_SOURCE'`, the same shape as the existing `schedules.oneMainPerEventIdx` ("exactly one main schedule per event") precedent — including its known gotcha: drizzle-kit 0.21.4 drops the `WHERE` predicate from generated migration SQL, so the migration's actual partial-unique DDL must be hand-added, not trusted to `drizzle-kit generate`. Provenance is `scraperActorRunId: uuid references scraper_actor_runs.id` (nullable) — the same column/FK/graceful-`23503`-fallback pattern `posts.scraperActorRunId`/`persistScrapedPost` already use, not a denormalized `discoverySource` jsonb copy — so `vendor`/`runId` stay single-sourced (one join to `scraper_actor_runs`, itself unique on `vendor, runId`) rather than drifting from the FK-based representation `posts` already has. Story 3.18/CAP-6's feed-filter join is served by a composite `INDEX(account_id, post_id)` (leading column `account_id`, matching the filter's `WHERE account_id = ANY(...)` predicate) — satisfying `Query.events`'s per-row-cost discipline (Architecture Spine AD-17); no separate `post_id`-only index is needed since the base unique constraint's own index already leads on `post_id`, serving moderation/analytics "all associations for a post" lookups. `postId` FK is `onDelete: 'cascade'` (matches `schedules`/`favorites`/`calendarAdditions`); `accountId` FK carries no cascade override (matches `posts.accountId`/`subscriptions.accountId` — `socialMediaAccountProfiles` rows are never deleted). The table is exempt from AD-8's soft-delete convention, same grounds as `posts` itself and the append-only-log tables (`scraperBatchRuns`/`scraperProviderHealth`) — rows are only ever inserted, idempotently, never updated or deleted.
+Full resolved shape — columns: `id` (uuid, PK, `defaultRandom`), `postId` (uuid, FK → `posts.id`, `onDelete: 'cascade'`, not null), `accountId` (uuid, FK → `socialMediaAccountProfiles.id`, not null), `role` (new `postAccountRoleEnum`: `PUBLISHER` | `COAUTHOR` | `SCRAPING_SOURCE` | `PUBLISHER_UNKNOWN`, not null), `scraperActorRunId` (uuid, FK → `scraperActorRuns.id`, nullable), `createdAt`/`updatedAt` (standard `...timestamps`). Constraints/indexes: `UNIQUE(post_id, account_id, role)`; `UNIQUE(post_id) WHERE role IN ('PUBLISHER','PUBLISHER_UNKNOWN')`; `UNIQUE(post_id) WHERE role = 'SCRAPING_SOURCE'`; `INDEX(account_id, post_id)`. Note the two partial unique indexes are ceilings (at most one row per post in that slot), not floors — a `UNIQUE` index cannot force a row to exist. AC1's migration deliberately writes only one row per legacy post (either `SCRAPING_SOURCE` or `PUBLISHER_UNKNOWN`, singular — "exactly one... association per existing row"), so every migrated post has exactly one slot filled and the other genuinely empty; that is expected, not a constraint violation. Which single role value the migration backfill should use is a data-migration implementation choice for `bmad-create-story`/`bmad-dev-story` to make, not a DDL question — out of this architecture pass's scope.
+
+**Note:** Added 2026-09-18 via `bmad-correct-course` from FIND-022's spec, CAP-3. DDL resolved 2026-09-18 via `bmad-architecture` (AD-25).
+
+**Depends on:** Story 3.3a, Story 3.14.
+
+### Story 3.16: Immediate coauthor/publisher subscribability
+
+**As a** user,
+**I want** to subscribe to a coauthor or publisher profile with a stable accountId directly from event/post detail (or a direct account-ID lookup), through the existing subscription contract,
+**So that** I don't have to wait for someone to separately discover and scrape that account before I can subscribe to it (FIND-022, CAP-4).
+
+**Acceptance Criteria:**
+
+*   **Given** a coauthor profile created via Story 3.14, never itself directly scraped,
+*   **When** a user subscribes to it via the existing `subscribeToAccount` mutation (Story 3.1a/3.1),
+*   **Then** the subscription succeeds through the unmodified existing contract.
+*   **And** that coauthor's own feed begins populating through the existing initial-scrape/classification flow (Stories 3.4/3.4a), triggered the same way a directly-added subscription triggers it today.
+*   **And** this story stays cap-agnostic per the spec's constraint — it does not implement or hardcode `MAX_SUBSCRIBED_ACCOUNTS_FREE_USER` (IDEA-008's scope) but does surface IDEA-008's typed cap error, if returned, through the same error-handling path Story 3.2's subscribe action already uses — no new shared-component redesign needed when IDEA-008 ships.
+
+**Note:** Added 2026-09-18 via `bmad-correct-course` from FIND-022's spec, CAP-4.
+
+**Depends on:** Story 3.2, Story 3.14.
+
+### Story 3.17: Demand-gated discovery for scrape-discovered profiles
+
+**As a** user,
+**I want** broad account autocomplete/ranked-discovery surfaces to exclude a verified scrape-discovered profile until a subscribe or vote signals real demand for it,
+**So that** discovery surfaces aren't polluted by every coauthor incidentally surfaced by scraping, while that profile stays immediately subscribable in its originating context (FIND-022, CAP-5).
+
+**Acceptance Criteria:**
+
+*   **Given** a freshly created coauthor profile (`isVerifiedForDiscovery: false`, Story 3.14),
+*   **When** any broad account autocomplete/ranked-discovery surface queries candidate accounts,
+*   **Then** the profile is excluded until at least one subscribe (Story 3.16) or vote event exists for it, at which point `isVerifiedForDiscovery` flips to `true` and it becomes eligible.
+*   **And** this exclusion never blocks contextual subscription from the originating event/post detail surface (Story 3.16, Story 0.i6g) — the gate applies only to broad discovery, not direct/contextual access.
+*   **And** a profile a user subscribed to directly (the pre-existing, non-discovery-sourced path) defaults `isVerifiedForDiscovery: true` and is unaffected by this gate.
+
+**Note:** Added 2026-09-18 via `bmad-correct-course` from FIND-022's spec, CAP-5. Explicitly not a new moderation system (spec non-goal) — this is a visibility gate, not content review.
+
+**Depends on:** Story 3.14, Story 3.16.
+
+### Story 3.18: Union-of-associations account filtering
+
+**As a** user,
+**I want** account-based filtering (e.g. the subscribed-accounts feed filter, Story 3.7b) to match the union of a post's active `PUBLISHER`, `COAUTHOR`, and `SCRAPING_SOURCE` associations, not just the legacy `posts.accountId` column,
+**So that** I see a coauthor's posts in my filtered feed even when I'm subscribed only to that coauthor and never to the scraping-source account (FIND-022, CAP-6).
+
+**Acceptance Criteria:**
+
+*   **Given** a user subscribed only to a coauthor account (Story 3.16), never to the post's scraping-source account,
+*   **When** that user applies an account filter to their feed (Story 3.7b's existing filter),
+*   **Then** the coauthor's co-authored posts appear in the filtered results, matched via the post's `COAUTHOR` association (Story 3.15) rather than `posts.accountId`.
+*   **And** existing subscribed-feed behavior for `PUBLISHER`/`SCRAPING_SOURCE`-only posts (today's only case) is unchanged — this is a strict addition, not a behavior change for posts without coauthors.
+*   **And** `Query.events`/`getEvents`'s existing per-row-cost discipline (Architecture Spine AD-17, `project-context.md`) is preserved — the association join must not introduce a new unconditional per-row secondary query; batch/join per the `buildOptimizedDrizzleSelect` pattern.
+
+**Note:** Added 2026-09-18 via `bmad-correct-course` from FIND-022's spec, CAP-6.
+
+**Depends on:** Story 3.15, Story 3.7b.
+
+### Story 3.19: Sanitized subscription-toggle analytics
+
+**As a** system,
+**I want** Story 0.i6g's subscribe/unsubscribe toggle to emit PostHog `subscription_toggle_succeeded`/`subscription_toggle_failed` events carrying only `action`, `platform`, `source`, and (on failure) a sanitized backend `errorCode`,
+**So that** toggle usage is measurable without ever capturing raw handles, account IDs, captions, or post content (FIND-022, CAP-8).
+
+**Acceptance Criteria:**
+
+*   **Given** a user activates Story 0.i6g's subscribe/unsubscribe toggle,
+*   **When** the mutation resolves,
+*   **Then** exactly one `subscription_toggle_succeeded` (on success) or `subscription_toggle_failed` (on failure, with a sanitized `errorCode`) PostHog event is emitted.
+*   **And** a schema/allowlist test asserts the captured payload for either event name contains only the four allowed fields (`action`, `platform`, `source`, `errorCode`) — no raw handle, account ID, caption, or post content field is present, even accidentally via a spread.
+
+**Note:** Added 2026-09-18 via `bmad-correct-course` from FIND-022's spec, CAP-8.
+
+**Depends on:** Story 0.i6g.
 
 ### Epic 4: Data Quality and Moderation
 
@@ -3548,6 +4089,26 @@ Users are guided through the initial setup and can manually select posts for eve
 *   **And** the tab's content shows a warning message and a button to remove the inactive subscription, which calls the `removeSubscription` mutation (Story 3.2) — not a direct database write from `apps/web`.
 
 **Depends on:** Story 5.1a.
+
+### Story 5.4a: Distinguish inactive, in-progress, and never-scraped account states
+
+**As a** user,
+**I want** the Manual Post Selection screen to tell a genuinely-inactive account apart from one that has never been scraped yet or is being scraped right now,
+**So that** I'm never told to remove a subscription that simply hasn't had its first scrape completed, or that is actively being refreshed.
+
+**Acceptance Criteria:**
+
+*   **Given** the `Subscription.isInactive` resolver (Story 5.4/5.1a) currently returns `true` whenever an account has zero posts, regardless of whether a scrape has ever run,
+*   **When** the resolver is evaluated for an account whose `SocialMediaAccountProfile.lastScrapedAt` (Story 3.4) is `null` (no scrape has ever completed) or whose `SocialMediaAccountProfile.isScrapeInProgress` (Story 5.6) is `true`,
+*   **Then** `isInactive` returns `false` for that account — the existing 30-day-no-post rule only fires once at least one scrape has actually completed and none is currently in flight; no new GraphQL field is added, this is a resolver logic fix.
+*   **And** when a subscription's account has `isScrapeInProgress: true`, its tab shows a distinct in-progress badge (a neutral, non-alarming icon distinct from the existing `AlertCircle` "Inactive Account" and `Clock` "Pending Review" icons already used on this same tab bar) with a tooltip conveying a scrape is under way — this takes priority over the never-scraped state below when both would otherwise apply (e.g. right after a first scrape is triggered).
+*   **And** when a subscription's account has `lastScrapedAt: null` and is not currently `isScrapeInProgress`, its tab shows a distinct never-scraped badge (a different neutral icon from the in-progress badge and from every existing tab-badge icon) with a tooltip conveying no scrape has run yet.
+*   **And** neither the in-progress nor the never-scraped badge is accompanied by the "remove this inactive subscription" banner or CTA — that banner continues to render only when `isInactive` is `true` (unchanged condition, now correctly scoped by the fix above).
+*   **And** all new copy (both badge tooltips) is sourced through `next-intl`'s existing `ManualPostSelectionPage` namespace, present in both `en` and `id` — the in-progress badge reuses the existing `scrapeInProgressLabel` string (Story 5.6) rather than adding a duplicate key with identical meaning.
+
+**Note:** Sourced from backlog item `IDEA-010` ("Post Selection: distinguish genuinely-inactive account from scrape-run-in-progress or never-run"), disposed `promote` (standalone, `m` effort) by the 2026-09-11 epic-formation pass (`epic-formation/formation-2026-09-11.md` §2, §5) after being checked against IDEA-009 and found not to share a capability. Lettered `5.4a` (not a new whole-number story) because it is a direct correction/extension of Story 5.4's own `isInactive` computation, reusing Story 5.6's `isScrapeInProgress` mechanism (both already shipped) rather than adding any new backend capability — not a Gate-1/2/3-produced prerequisite; this story's own Gate 1/2/3 pass (run fresh via `bmad-create-story`, since Story 5.6 postdates `epic-5-readiness.md`'s 2026-08-12 sweep) found no gap on any of the three gates and confirmed the UI change builds inline into the existing `posts-select-content.tsx` tab bar, no new `packages/ui` component. The exact visual treatment of the two new badges (icon choice, whether either merits its own banner) was an open UX question with no existing `EXPERIENCE.md` precedent, resolved via `AskUserQuestion` during this story's own creation in favor of a fully distinct badge per state (see the story file's Dev Notes for the resolved design).
+
+**Depends on:** Story 5.1a, Story 5.4, Story 5.6.
 
 ### Story 5.5: Integrate manual post selection into the getting started wizard
 
@@ -4256,6 +4817,22 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Note:** Added 2026-09-11 as a **sweep** story (gate §5) — IDEA-019 shares this epic's FilterHub surface but is not epic-worthy on its own (criterion 5). It is new user-visible behaviour riding the epic's mechanism, not a violation of its invariant; the invariant and the other members are unchanged.
 
+### Story 0.i5e: Adopt the controller in Feed/Favorites
+
+**As a** developer,
+**I want** the Feed and Favorites event-list card views to use the shared controller,
+**So that** they gain the same filter-change-reset behavior Discovery has, `IDEA-038` (extending the Today/Upcoming/All temporal filter to Feed/Favorites) has a controller to attach its committed value to, and the epic's ratchet (Story 0.i5z) can eventually cover every list surface.
+
+**Acceptance Criteria:**
+
+*   **Given** the Feed and Favorites event-list card views,
+*   **When** they adopt the shared controller,
+*   **Then** their implicit, hand-assembled reset mechanism (relying on every filter field being remembered in the query key) is replaced by the canonical, structurally-guaranteed `resetToken` mechanism from the shared controller, matching the pattern established in Story 0.i5b for Discovery.
+
+**Depends on:** Story 0.i5a. Also depends in practice on Story 1.3l (BUG-025) landing first, since Feed/Favorites' current hardcoded `isAuthenticated=false`/missing location-AI-filter wiring must be fixed before the controller's filter-state plumbing has real `nearby`/`aiFilter` inputs to manage.
+
+**Note:** Surfaced 2026-09-19 via `bmad-create-story` while attempting to create `IDEA-038` (extend the temporal filter to Feed/Favorites) — `IDEA-038`'s own capture doc named "Feed/Favorites adopting `useListPaginationController`" as a blocking prerequisite, but no story in epic-0-i5 covered it (only Discovery `0.i5b` and moderator-tools `0.i5c` were scoped; `0.i5d`'s temporal-filter sweep is Discovery/card-view only). Added as a lettered suffix following the `0.i5b`/`0.i5c` "adopt the controller in X" precedent, positioned after `0.i5d` and before the `0.i5z` ratchet (which now also depends on this story, since its full-codebase sweep can't pass without Feed/Favorites in scope). EXPERIENCE.md's own Temporal Filter section already names `feed-content.tsx`/`favorites-content.tsx` as anticipated future `useListPaginationController` adopters, corroborating the gap.
+
 ### Story 0.i5z: Ratchet — no list surface manages pagination/filter state locally
 
 **As a** developer,
@@ -4270,9 +4847,9 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 *   **And** a regression test asserts a filter change resets pagination to page 1 (BUG-019's exact case).
 *   **And** the on-change-vs-Apply rule is applied identically across every adopting surface, verified by the controller's own test suite rather than by per-surface convention.
 
-**Depends on:** Stories 0.i5a, 0.i5b, 0.i5c, 0.i5d.
+**Depends on:** Stories 0.i5a, 0.i5b, 0.i5c, 0.i5d, 0.i5e.
 
-**Note:** Formed 2026-09-08 via `bmad-form-epics` from BUG-018, BUG-019, BUG-020, and IDEA-011 (member — see Story 0.i5a's note on its absorption). This is a mixed-type improvement epic: bugs drive it, so it stays `epic-0-i5` rather than becoming a feature epic — one `proposal`-type member does not flip an epic's kind (gate §2 governs what the epic's kind IS from its driving rows, not a requirement that every member share one type).
+**Note:** Formed 2026-09-08 via `bmad-form-epics` from BUG-018, BUG-019, BUG-020, and IDEA-011 (member — see Story 0.i5a's note on its absorption). This is a mixed-type improvement epic: bugs drive it, so it stays `epic-0-i5` rather than becoming a feature epic — one `proposal`-type member does not flip an epic's kind (gate §2 governs what the epic's kind IS from its driving rows, not a requirement that every member share one type). **Depends-on amended 2026-09-19** to add `0.i5e` (Feed/Favorites adoption) — the ratchet's full-codebase sweep cannot pass while Feed/Favorites still manage pagination state outside the controller.
 
 ---
 
@@ -4315,7 +4892,7 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 ### Story 0.i6c: Adopt the card into Subscribed Accounts settings, and settle the detail-surface variant
 
 **As a** developer,
-**I want** the Subscribed Accounts settings list to render through `SubscribedAccountCard` while keeping its shipped `SwipeToReveal`+`Trash2` delete affordance, and — if `SubscribedAccountCard` is also the component behind FIND-022's "shared-account-info" pattern on event/post detail — a context/variant prop so list context gets the swipe-to-reveal delete and detail context gets the subscribe/unsubscribe toggle,
+**I want** the Subscribed Accounts settings list to render through `SubscribedAccountCard` while keeping its shipped `SwipeToReveal`+`Trash2` delete affordance, plus a context/variant prop so list context gets the swipe-to-reveal delete and detail context gets the subscribe/unsubscribe toggle,
 **So that** the settings list's shipped convention is not disturbed, and the detail-surface convention (a separate, narrower question) is settled by a props decision rather than by picking one convention to win across both surfaces.
 
 **Acceptance Criteria:**
@@ -4323,7 +4900,9 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 *   **Given** the Subscribed Accounts settings list,
 *   **When** it adopts the card,
 *   **Then** it keeps the shipped `SwipeToReveal`+`Trash2` delete affordance — this is not in tension with anything and is not replaced.
-*   **And** if the event/post-detail "shared-account-info" surface (FIND-022) uses the same card, it does so via a context/variant prop selecting the subscribe/unsubscribe toggle, not the swipe-to-reveal delete.
+*   **And** the card exposes a context/variant prop selecting the subscribe/unsubscribe toggle instead of the swipe-to-reveal delete, consumed by Story 0.i6g's event/post-detail attribution surface.
+
+**Update 2026-09-18 (`bmad-correct-course`, FIND-022):** This story's own conditional framing ("if `SubscribedAccountCard` is also the component behind FIND-022's 'shared-account-info' pattern...") is now resolved: it is. `SubscribedAccountCard` is confirmed as the component Story 0.i6g adopts for event/post-detail coauthor attribution — this story's context/variant prop is a direct prerequisite for 0.i6g, not a speculative branch.
 
 **Depends on:** Story 0.i6a.
 
@@ -4379,6 +4958,26 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Depends on:** none (no code-level dependency on 0.i6a's narrowed remaining scope).
 
+### Story 0.i6g: Event/post-detail coauthor attribution UI with confirm-then-refetch toggle
+
+**As a** user,
+**I want** event/post detail to show the post's posted-at timestamp and render each coauthor below the original-post link as a `SubscribedAccountCard`, with a working subscribe/unsubscribe toggle for verified profiles,
+**So that** I can see and act on a post's actual coauthors, not just the account I happened to be subscribed to (FIND-022, CAP-7).
+
+**Acceptance Criteria:**
+
+*   **Given** an event/post detail view for a post with 2+ `COAUTHOR` associations (Story 3.15),
+*   **When** the page renders,
+*   **Then** it shows the post's posted-at timestamp via the existing locale-aware `Intl.DateTimeFormat` pattern (`project-context.md`'s Locale-Sensitive Data Rendering rule, `EventCard.tsx`'s `formattedDate`) — no new formatter.
+*   **And** each coauthor renders as a `SubscribedAccountCard` row below the original-post link, using the detail-context variant Story 0.i6c's context/variant prop provides (subscribe/unsubscribe toggle, not swipe-to-reveal delete).
+*   **And** a verified coauthor/publisher profile (Story 3.14) exposes an accessible subscribe/unsubscribe icon toggle that is **confirm-then-refetch**, not optimistic: confirming the mutation, refetching/invalidating authoritative state on success, and restoring prior state on failure — the scoped exception now ratified in `project-context.md`'s UI Patterns section (added by this same course-correction). This deviates deliberately from this app's default optimistic-mutation convention (e.g. `toggleFavorite`'s ±1 pattern, BUG-008/Story 2.i1a) for this toggle only.
+*   **And** a provisional identity (no stable accountId, Story 3.14) renders display-only — no toggle at all.
+*   **And** subscribing to a coauthor here calls Story 3.16's unmodified `subscribeToAccount` contract, not a duplicate mutation.
+
+**Note:** Added 2026-09-18 via `bmad-correct-course` from FIND-022's spec, CAP-7. Homed under Epic 0.i6 rather than Epic 3 or Epic 1 — this is an adoption of the shared card contract onto a new surface, the same class of change Stories 0.i6b/0.i6c/0.i6d/0.i6e/0.i6f already established as this epic's pattern, and epics.md's own prior note on Story 0.i6a anticipated exactly this landing spot. The confirm-then-refetch-vs-optimistic UI-convention conflict flagged as an open question in the spec is adjudicated by this same Sprint Change Proposal as a scoped exception (see `project-context.md`), not reopened as a broader convention change.
+
+**Depends on:** Story 0.i6c, Story 3.15, Story 3.16.
+
 ### Story 0.i6z: Ratchet — no display surface bypasses the card
 
 **As a** developer,
@@ -4389,13 +4988,13 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 *   **Given** the full codebase,
 *   **When** the repo-wide sweep test runs in CI,
-*   **Then** it fails if any file in post-selection, settings/account/subscriptions, or subscriptions renders raw account-avatar+name markup outside `SubscribedAccountCard`.
+*   **Then** it fails if any file in post-selection, settings/account/subscriptions, subscriptions, or event/post detail renders raw account-avatar+name markup outside `SubscribedAccountCard`.
 *   **And** a test asserts the card renders a defined fallback for degenerate input.
 *   **And** a test asserts the `size="lg"` variant scales its adjacent text.
 
-**Depends on:** Stories 0.i6a, 0.i6b, 0.i6c, 0.i6d, 0.i6e, 0.i6f.
+**Depends on:** Stories 0.i6a, 0.i6b, 0.i6c, 0.i6d, 0.i6e, 0.i6f, 0.i6g.
 
-**Note:** Formed 2026-09-08 via `bmad-form-epics` from FIND-011 (fractional, see Story 0.i6a), BUG-005, FIND-012. Internal only for all three — UI consistency, no PRD/spine interface change. Story 0.i6f added to this Depends-on list 2026-09-16 upon joining the epic (see its own Note).
+**Note:** Formed 2026-09-08 via `bmad-form-epics` from FIND-011 (fractional, see Story 0.i6a), BUG-005, FIND-012. Internal only for all three — UI consistency, no PRD/spine interface change. Story 0.i6f added to this Depends-on list 2026-09-16 upon joining the epic (see its own Note). Story 0.i6g (event/post-detail surface, FIND-022) added to this Depends-on list and to the sweep's covered-surfaces list 2026-09-18 via `bmad-correct-course`.
 
 ---
 

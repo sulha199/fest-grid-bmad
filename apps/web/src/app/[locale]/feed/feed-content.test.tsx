@@ -35,6 +35,12 @@ vi.mock('@/components/providers/auth-session-provider', () => ({
   }),
 }));
 
+// Feed wires useAIFilter (via EventDiscoveryPanel's showAITrigger). Mock the API-key
+// gate so the AI trigger actually renders under the same conditions Discovery's does.
+vi.mock('@/features/onboarding/use-has-api-key', () => ({
+  useApiKeyStatus: () => ({ hasApiKey: true, isLoading: false }),
+}));
+
 vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
@@ -80,6 +86,7 @@ vi.mock('nuqs', () => {
       return [state, setSharedState];
     },
     parseAsString: { withDefault: (val: any) => ({ defaultValue: val }) },
+    parseAsInteger: { withDefault: (val: any) => ({ defaultValue: val }) },
     parseAsArrayOf: () => ({ withDefault: (val: any) => ({ defaultValue: val }) }),
     parseAsStringLiteral: (allowed: any) => ({ withDefault: (val: any) => ({ defaultValue: val }) }),
   };
@@ -226,6 +233,11 @@ describe('FeedContent', () => {
 
     expect(mockRequestSpy).toHaveBeenCalled();
     expect(screen.getByText('My Feed')).toBeInTheDocument();
+
+    // AC#1/#2 wiring: the nearby-location popover trigger and the AI filter trigger now
+    // render in the authenticated feed (no longer permanently absent as before 1.3l).
+    expect(screen.getByText(/Nearby/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Filter with AI' })).toBeInTheDocument();
   });
 
   it('renders empty feed state with subscribe CTA when feed query returns no events', async () => {

@@ -27,6 +27,22 @@ implements both halves.
 DEPENDS ON Story 0.38a (split off THIS story by a Gate 2 finding during drafting — see
 Architecture & UX Gate Findings below): 0.38a must be done first. Both stories were
 authored together in the same bmad-create-story dispatch.
+
+**AMENDED 2026-09-19 (via bmad-create-story, while drafting Story 0.39):** this story now
+ALSO DEPENDS ON Story 0.42 (`0-42-build-the-shared-ambient-capability-ask-banner-slot-primitive`).
+EXPERIENCE.md's "Ambient Capability Ask: Shared Banner Slot" section (added 2026-09-18, one
+day after this story was originally drafted) retroactively generalized this story's own
+PWA install banner into the first of two participants in one shared slot mechanism (the
+second is Story 0.39's ambient viewer-location consent banner) -- DESIGN.md's
+`pwa_install_banner` token was updated the same pass to derive its `base`/dismiss classes
+from the new `ambient_capability_banner` token. Since this story had not yet been
+implemented (still `ready-for-dev`), AC10-AC12/Task 4 below are amended in place rather
+than left stale: `PwaInstallBanner` is no longer mounted directly as `AppShell.tsx`'s
+hardcoded first child -- it registers as a participant in Story 0.42's
+`useAmbientCapabilityAskSlot()` orchestration hook instead, and its `base`/`dismiss_permanent`/
+`dismiss_cooldown` classes are imported from Story 0.42's shared
+`ambient-capability-banner-tokens.ts` rather than hardcoded inline. See Story 0.42's own
+epics.md section and this story's own Architecture & UX Gate Findings for the full record.
 -->
 
 ## Story
@@ -140,34 +156,48 @@ non-intrusive path to install FestDaily as an app if I want to.
 ### PWA install banner (EXPERIENCE.md "PWA Install Prompt", DESIGN.md `pwa_install_banner`)
 
 10. Given Story 0.38a's `usePwaInstallPrompt()` hook (a **hard dependency** — do not begin
-    this section until 0.38a is done), when `canShow` is `true`, then a new
+    this section until 0.38a is done) and Story 0.42's shared slot primitive (**also a hard
+    dependency**, amended 2026-09-19 — see Dev Notes), when `canShow` is `true`, then a new
     `PwaInstallBanner` presentational component (`packages/ui/src/core/PwaInstallBanner.tsx`
     — a `core/` primitive per this codebase's established RouteLoader/PageContainer/
     GridContainer/PageHeader placement convention, since this banner is app-shell-level,
-    not tied to the `events` domain) renders as the **first child inside** `AppShell.tsx`'s
-    existing `<main>` element (i.e. immediately before `{children}`, so it sits below the
-    global nav and above all page content on every route, per EXPERIENCE.md's explicit
-    placement rule), implementing the `pwa_install_banner` DESIGN.md tokens exactly: `base`
-    styling, and — reading left to right — a permanent "Not now" button
-    (`dismiss_permanent`, `{components.button.secondary}`), then the lower-weight "Remind
-    me in 2 weeks" link (`dismiss_cooldown`) positioned **between** the two real buttons,
-    then the primary action button (`primary_action`, `{components.button.primary}`,
+    not tied to the `events` domain) implements the `pwa_install_banner` DESIGN.md tokens
+    exactly: `base` styling (imported from Story 0.42's shared
+    `ambient-capability-banner-tokens.ts`, not hardcoded inline), and — reading left to
+    right — a permanent "Not now" button (`dismiss_permanent`, `{components.button.secondary}`,
+    same shared-token import), then the lower-weight "Remind me in 2 weeks" link
+    (`dismiss_cooldown`, same shared-token import) positioned **between** the two real
+    buttons, then the primary action button (`primary_action`, `{components.button.primary}`,
     labeled "Install" on Android/Chrome or "How to install" on iOS) — matching DESIGN.md's
     explicit "deliberately lower visual weight than the two real buttons either side of it"
     ordering, not an arbitrary layout. `PwaInstallBanner` receives all copy strings,
     `platform`, and the three callbacks (`onInstallClick`, `onDismissPermanent`,
     `onRemindLater`) as plain props — no `next-intl`/`zustand` import inside
-    `packages/ui`, matching the existing `AppShell`/`AppShellWrapper` split.
+    `packages/ui`, matching the existing `AppShell`/`AppShellWrapper` split. **Amended
+    2026-09-19:** this component itself is no longer mounted as `AppShell.tsx`'s hardcoded
+    first child (superseded — see AC11); `AppShell.tsx`'s `<main>` mount point and its
+    `ambientBanner` prop are now owned by Story 0.42.
 11. Given `AppShellWrapper.tsx` (the `apps/web` owner of `AppShell`'s state, per the
-    existing split), when it renders `AppShell`, then it calls Story 0.38a's
-    `usePwaInstallPrompt()` and passes `canShow`/`platform` down, wiring
-    `onDismissPermanent`→`dismissPermanently()`, `onRemindLater`→`remindLater()`, and
-    `onInstallClick`→a handler that calls `promptInstall()` and, based on its resolved
+    existing split) and Story 0.42's `useAmbientCapabilityAskSlot()` orchestration hook,
+    when it renders `AppShell`, then it calls Story 0.38a's `usePwaInstallPrompt()`,
+    registers a `{ id: 'pwa-install', canShow }` participant descriptor with Story 0.42's
+    slot hook (lower priority than Story 0.39's `'location'` participant, per that story's
+    fixed ordering), and — only when this participant is the slot's winning `id` — renders
+    `PwaInstallBanner` as the `ReactNode` passed into `AppShell`'s new `ambientBanner` prop
+    (**amended 2026-09-19, supersedes the original "mounted directly as `AppShell`'s first
+    child" plan** — see Dev Notes), wiring `onDismissPermanent`→calls **both**
+    `dismissPermanently()` (this story's own persisted state, unchanged) **and** Story
+    0.42's `markDismissedThisSession()` (the shared slot's session-gating action — required
+    so a dismissed PWA banner doesn't leave the slot eligible to immediately show something
+    else the same session), `onRemindLater`→same dual-call pattern with `remindLater()`,
+    and `onInstallClick`→a handler that calls `promptInstall()` and, based on its resolved
     value (`'accepted' | 'dismissed' | 'ios-instructions' | 'unavailable'`), either does
     nothing further (`'accepted'`/`'dismissed'`, the native flow already completed) or
     opens `PwaInstallIosModal` (`'ios-instructions'`) — `'unavailable'` is a defensive
     no-op (should not occur if `canShow` gated the banner correctly, but must not throw
-    if it does).
+    if it does). Accepting/completing the native install flow (`'accepted'`) does **not**
+    call `markDismissedThisSession()` — that action only fires on an explicit dismiss, not
+    on a successful outcome, matching EXPERIENCE.md's "dismissing an ask" wording.
 12. Given the UX spec's explicit "not part of onboarding" rule (Chrome's own
     `beforeinstallprompt` engagement gate — click/tap + 30s dwell + this story's own
     AC1-AC4 fetch-handling service worker — would not be satisfied that early in the user
@@ -340,6 +370,18 @@ non-intrusive path to install FestDaily as an app if I want to.
   `usePwaInstallPrompt()`) until 0.38a's hook, store, and platform-detection helper exist
   and are tested. Tasks 1-3 (SW caching, preconnect, manifest/icons) have no dependency on
   0.38a and may be implemented first/in parallel.
+- **Amended 2026-09-19: also a hard dependency on Story 0.42** (the shared "Ambient
+  Capability Ask" banner slot primitive, split off during Story 0.39's `bmad-create-story`
+  drafting). Task 4.3/4.4 ("wire `PwaInstallBanner` into `AppShell.tsx` as the first child
+  of `<main>`") is **superseded** by AC10/AC11's amended text: `AppShell.tsx`'s `<main>`
+  mount point (`ambientBanner` prop) and the priority/one-at-a-time orchestration are now
+  owned by Story 0.42, not built here. Do not re-implement a bespoke mount/orchestration in
+  this story — register as a participant in Story 0.42's `useAmbientCapabilityAskSlot()`
+  hook instead, and import `pwa_install_banner`'s shared chrome classes from Story 0.42's
+  `ambient-capability-banner-tokens.ts` rather than hardcoding them. This story was
+  originally authored (2026-09-17) before EXPERIENCE.md's shared-slot design (2026-09-18)
+  existed; this amendment brings it in line without a full rewrite. See Story 0.42's own
+  epics.md section for the full rationale.
 - **Do not confuse the two `embed.js` files.** `apps/web/public/embed.js` is this
   project's own FestDaily widget-embedding script (Epic 6, `/widget/[id]` iframes) — a
   completely unrelated, same-origin static file. This story's caching target is Instagram's
@@ -410,7 +452,11 @@ non-intrusive path to install FestDaily as an app if I want to.
   **Split into Story 0.38a** (`0-38a-build-the-pwa-install-eligibility-hook.md`), following
   this codebase's existing 0.7/0.7a precedent for exactly this class of finding. This
   story's own scope was narrowed accordingly: it consumes 0.38a's hook rather than
-  building any capture/dismiss/platform-detection logic itself. Gate 2 additionally
+  building any capture/dismiss/platform-detection logic itself. **Amended 2026-09-19:** a
+  second Gate 2 gap, surfaced a day later by the `bmad-ux` pass that designed Story 0.39's
+  consent banner, generalized this story's own banner placement into a shared slot —
+  **split into Story 0.42** (see this story's Dev Notes amendment above and AC10/AC11).
+  Gate 2 additionally
   surfaced two UX-spec-vs-draft coverage gaps, both resolved directly in this story's ACs
   rather than deferred: (a) the iOS modal's Share-icon asset sourcing was unspecified in
   the original draft — resolved via AC13's explicit `lucide-react` icon choice; (b)
@@ -510,6 +556,108 @@ non-intrusive path to install FestDaily as an app if I want to.
 - [Source: web.dev, "Establish network connections early to improve perceived page speed"
   — preconnect/dns-prefetch semantics]
 
+### Backlog row history (IDEA-020, verbatim, moved from backlog.yaml 2026-09-18)
+
+Requested by user via `bmad-help`, as a 3-part improvement. Verified current architecture
+first: `apps/backend/src/lib/instagram-oembed/adapter.ts`'s `resolveInstagramOEmbed()` calls
+Meta's tokenless oEmbed endpoint server-side, cached 24h (`cache-store.ts`,
+`INSTAGRAM_OEMBED_CACHE_TTL_MS`), and returns the raw oEmbed `html` string over GraphQL;
+`packages/ui/src/features/events/InstagramEmbed.tsx` then `dangerouslySetInnerHTML`'s that HTML
+client-side and separately injects Instagram's own `//www.instagram.com/embed.js` widget script
+(`loadInstagramEmbedScript`), which is what actually replaces the blockquote with a real iframe
+(watched via MutationObserver, 4s fallback timeout per `EMBED_READY_FALLBACK_TIMEOUT_MS`). The
+perceived slowness is most likely embed.js's own script-load-then-iframe-fetch chain against
+Instagram's CDN, not primarily the backend GraphQL round trip.
+
+**(1) Frontend-generated embed code** — researched 2026-09-11 via `bmad-help`, conclusion:
+don't drop the backend call. Confirmed Instagram's manual-embed pattern
+(`blockquote.instagram-media` + `data-instgrm-permalink` + embed.js +
+`instgrm.Embeds.process()`) works without ever calling Meta's oEmbed API — this repo's own
+`apps/web/e2e/event-details-instagram-csp.spec.ts:43` already builds exactly that shape for its
+CSP test, so it's proven to render here. BUT confirmed embed.js exposes no error/failure
+callback for a deleted/private post — it just silently fails to hydrate, which is exactly the
+gap `InstagramEmbed.tsx`'s existing MutationObserver+4s-timeout heuristic already works around
+as a backup signal. Going fully client-side would make that heuristic the ONLY availability
+signal instead of a backup to a deterministic backend check, directly weakening the
+AVAILABLE/UNAVAILABLE branch that decides whether to show the embed, the `durableImageUrl`
+fallback, or the "no longer available" placeholder (`resolveInstagramEmbedResult.ts`). Verdict:
+keep the backend oEmbed call for its deterministic status; the actual fix for perceived
+slowness is (2) below, not eliminating this call.
+
+**(1b)** Real root cause found instead, and split out to its own ready-to-implement item — see
+IDEA-022 (superseded by IDEA-028).
+
+**(2) Caching embed.js + Instagram CDN images/reel video** per "Meta's best practice":
+whoever picks this up should default to standard patterns (stale-while-revalidate for embed.js
+itself, since it's a shared static script; cache-first with a bounded TTL for images/video,
+since Instagram CDN URLs are typically signed and expire — this codebase already has separate
+precedent for that exact problem via the durable-image re-hosting pipeline, see 3-6e/3-6f,
+which may be a more relevant model here than browser caching of an expiring URL).
+
+**AMENDED (2026-09-11, same session):** user supplied 3 citations (elfsight.com blog,
+bluehost.com blog, developers.facebook.com oEmbed docs) — not independently
+fetched/verified by this session, but cross-checked against this repo's actual code where a
+concrete claim was checkable. Two of the three claims describe things this codebase already
+does correctly, not gaps: (i) "short-lived HTML caching, TTL of a few hours to a day" —
+`adapter.ts`'s `INSTAGRAM_OEMBED_CACHE_TTL_MS` is already 24h, already compliant; (ii) "load
+embed.js exactly once on the frontend to render all active embeds" — `InstagramEmbed.tsx`'s
+`loadInstagramEmbedScript` already dedups via `INSTAGRAM_EMBED_SCRIPT_SELECTOR` before
+injecting a second copy, already compliant. The third claim IS a real, verified gap and was
+small/independent enough to spin out on its own — see IDEA-021 (done). The "Meta does not
+return thumbnail_url/author_name" claim is a documented oEmbed response-shape limitation, not
+something to fix here — only relevant if/when (1) above (frontend-generated markup) is
+attempted, since a hand-built blockquote can't source those fields from the endpoint either
+way.
+
+**(3) Service worker + PWA install button + iOS UX:** verified the repo already registers
+exactly one service worker today — `apps/web/public/firebase-messaging-sw.js`, registered by
+`apps/web/src/lib/push-notifications.ts:66`, scoped solely to Firebase Cloud Messaging push
+notifications, not general asset caching. No `apps/web/public/manifest.json` (web app manifest)
+existed at capture time, so the app was not installable as a PWA at all — new scope, not an
+extension of existing infra. iOS Safari has no `beforeinstallprompt` event and no native
+install-prompt UI, so the Android/Chrome install-button pattern doesn't transfer directly — the
+standard workaround is a custom in-app banner/instructions directing users to Share → Add to
+Home Screen, typically gated on `navigator.standalone`/the `display-mode: standalone` media
+query.
+
+Also flagged: `apps/web/next.config.ts` carries a narrow CSP (`frame-src`/`child-src`
+allowlisting `https://www.instagram.com` only) specifically for the current embed.js/iframe
+pattern, guarded by `e2e/event-details-instagram-csp.spec.ts` — any change to how/where
+embed.js or its iframe loads from must keep that test green.
+
+**ARCHITECTURE RESOLVED (bmad-architecture, 2026-09-17, Architecture Spine AD-21):**
+web-verified a page's service worker cannot intercept a cross-origin iframe's own internal
+fetches, so item (2)'s "cache Instagram CDN images/reel video" is infeasible for the current
+oEmbed+iframe approach — not a design gap, a hard platform limitation. Re-scoped: cache
+embed.js itself (stale-while-revalidate, since it IS fetched by our own page) + preconnect/
+dns-prefetch resource hints to Instagram's CDN origins for the otherwise-uncacheable
+iframe-internal fetch chain's connection latency. A separate dedicated service worker
+(user-directed) is registered at locale-scoped paths (`/en/events/`, `/id/events/`) to coexist
+with the existing root-scoped `firebase-messaging-sw.js`. PWA installability and iOS-specific
+install UX were explicitly excluded from AD-21 — needed their own `bmad-ux` pass.
+
+**UX RESOLVED (bmad-ux, 2026-09-17):** persistent dismissible banner at top of `<main>`, below
+nav, every route; two dismiss actions (permanent "Not now" / 2-week-cooldown "Remind me in 2
+weeks"), state in browser localStorage not a backend setting (installability is per-device);
+permanent "Install App" fallback added to the existing Notifications settings tab;
+Android/Chrome primary action calls the captured `beforeinstallprompt`'s `.prompt()` directly,
+iOS opens a step-by-step Share-then-Add-to-Home-Screen modal instead. Not part of onboarding —
+web-verified Chrome's own `beforeinstallprompt` engagement gate (click/tap + 30s dwell + a
+fetch-handling SW) wouldn't be met that early. See EXPERIENCE.md "PWA Install Prompt" and
+DESIGN.md `pwa_install_banner`/`pwa_install_ios_modal`.
+
+**PROMOTED (2026-09-17 via bmad-create-story):** Gates 1/2/3 all ran fresh. Gate 1/3 returned no
+gap (one placement correction: platform detection cannot live in `packages/domain` since it
+needs `navigator`, unavailable to `apps/backend`/Lambda). Gate 2 found a real gap — the
+`beforeinstallprompt`-capture + localStorage dismiss/cooldown + iOS-engagement-heuristic logic
+is a complex hook genuinely shared by two unrelated consumers (the app-shell banner and the
+Settings-tab fallback) — split into a prerequisite story per this repo's existing 0.7/0.7a
+precedent: 0-38a (the eligibility hook, no UI) and this story, 0-38 (depends on 0-38a). No child
+row carved out — every remaining actionable part of this item's original three-part scope is
+covered by these two stories (item (2)'s CDN-media-caching half stays permanently out of scope
+per AD-21's hard platform-limitation finding, not deferred; items (1)/(1b) were already
+resolved/superseded before this promotion via IDEA-021/IDEA-022/IDEA-028).
+
 ## Global Rules References
 
 - [ ] `_bmad-output/project-context.md` — UI Components & Scalability (`packages/ui/core`
@@ -570,15 +718,17 @@ non-intrusive path to install FestDaily as an app if I want to.
       Instagram CDN media caching inside the iframe (AD-21, infeasible) and any onboarding
       integration (EXPERIENCE.md, explicit non-requirement).
 - [ ] Architecture and boundary confirmation — Gate 1/3 returned "No gap found" (with one
-      placement correction folded into Story 0.38a); Gate 2 returned "Gap found," acted on
-      via the Story 0.38a split (see Architecture & UX Gate Findings).
+      placement correction folded into Story 0.38a); Gate 2 returned "Gap found" twice, acted
+      on via the Story 0.38a split (hook) and, amended 2026-09-19, the Story 0.42 split
+      (shared banner slot) — see Architecture & UX Gate Findings.
 - [ ] Testing plan confirmation — component tests (`packages/ui`), integration/header
       tests, the CSP e2e regression re-run, and a manual installability audit all agreed
       per Testing Requirements below.
 - [ ] Explicit human approval state — **pending approval.**
 - [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — **Story 0.38a must be
-      `done` before Tasks 4-6 of this story begin.** Confirm 0.38a's status before starting
-      implementation past Task 3.
+      `done` before Tasks 4-6 of this story begin; Story 0.42 must be `done` before Task
+      4.3/4.4's amended slot-registration work begins.** Confirm both stories' status before
+      starting implementation past Task 3.
 - [ ] iOS modal icon names (`Share`/`PlusSquare` or `SquarePlus`) confirmed against the
       installed `lucide-react` version before implementation (AC13's own caveat).
 

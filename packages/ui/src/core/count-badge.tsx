@@ -1,3 +1,13 @@
+/** @jsxImportSource react */
+// The pragma above is a no-op for this package's own build (tsconfig already defaults JSX to
+// React's automatic runtime) -- it exists only so a *different* package's test tooling
+// (packages/visual-audit's Review Follow-up item 1 react-component RenderSpec, which mounts this
+// component through Playwright's test transform) doesn't have this file's JSX default to
+// Playwright's own internal `playwright/jsx-runtime` (used for its reporter/attachment UI, an
+// unrelated coincidental reuse of the `jsx`/`jsxs` function names) instead of React's. Confirmed
+// via direct repro: without this pragma, `React.createElement`d/JSX-compiled elements from this
+// file come back as Playwright-tagged `{__pw_type: 'jsx', ...}` objects that `react-dom/server`
+// rejects ("Objects are not valid as a React child").
 import React from "react";
 
 export interface CountBadgeProps {

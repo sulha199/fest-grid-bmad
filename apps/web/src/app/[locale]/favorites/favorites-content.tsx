@@ -1,13 +1,16 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useTranslations } from "next-intl"
+import { useTranslations, useLocale } from "next-intl"
 import { useInfiniteQuery, useQuery, InfiniteData, useQueryClient } from "@tanstack/react-query"
 import {
   EventListView,
   useInfiniteScroll,
   EventDiscoveryPanel,
   PageContainer,
+  AIFilterOverlay,
+  BlockingLoader,
+  formatLocalizedNearbyBadgeDistance,
 } from "@festgrid/ui"
 import { EventCategory, EventType } from "@festgrid/shared-types"
 import {
@@ -25,7 +28,9 @@ import { usePostHog } from "@festgrid/analytics"
 import { useRouter } from "@/i18n/navigation"
 import { useSearchParams } from "next/navigation"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
-import { buildEventsQueryCondition } from "@festgrid/domain/events"
+import { buildEventsQueryCondition, EventFilterInput, NearbyFilterInput } from "@festgrid/domain/events"
+import { useAIFilter } from "@/features/events/use-ai-filter"
+import { useNearbyFilter } from "../use-nearby-filter"
 
 const PAGE_SIZE = 10
 
@@ -44,9 +49,13 @@ function buildEnumLabels(values: string[], translate: (key: string) => string) {
 function buildFavoritesQueryCondition(
   q: string,
   types: string[],
-  categories: string[]
+  categories: string[],
+  filter?: EventFilterInput | null,
+  nearby?: NearbyFilterInput
 ): EventQueryConditionInput {
-  const dynamicQuery = buildEventsQueryCondition({ search: q, types, categories }) as
+  const dynamicQuery = (filter
+    ? buildEventsQueryCondition({ filter })
+    : buildEventsQueryCondition({ search: q, types, categories, nearby })) as
     | EventQueryConditionInput
     | undefined
 
@@ -77,6 +86,8 @@ export function FavoritesContent() {
   const tType = useTranslations("EventType")
   const tFilterHub = useTranslations("FilterHub")
   const tNearby = useTranslations("NearbyFilter")
+  const tEventCard = useTranslations("EventCard")
+  const locale = useLocale()
   const [q, setQ] = useQueryState("q", parseAsString.withDefault(""))
   const [types] = useQueryState("types", parseAsArrayOf(parseAsString).withDefault([]))
   const [categories] = useQueryState("categories", parseAsArrayOf(parseAsString).withDefault([]))
@@ -84,6 +95,9 @@ export function FavoritesContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { session, isLoading } = useAuthSession()
+  const aiFilter = useAIFilter()
+  const nearbyFilter = useNearbyFilter()
+  const resolvedNearby = nearbyFilter.resolvedFilter
   const [unfavoritedIds, setUnfavoritedIds] = useState<Set<string>>(new Set())
   const { mutateAsync: toggleFavoriteAsync } = useToggleFavoriteMutation(graphqlClient)
   const queryClient = useQueryClient()
@@ -99,6 +113,9 @@ export function FavoritesContent() {
       typeLabel: tFilterHub("typeLabel"),
       categoryLabel: tFilterHub("categoryLabel"),
       clearLabel: tFilterHub("clearLabel"),
+      aiTriggerTooltip: tFilterHub("aiTriggerTooltip"),
+      aiClearLabel: tFilterHub("aiClearLabel"),
+      aiExpandLabel: tFilterHub("aiExpandLabel"),
       locationFilterLabels: {
         filterLabel: tNearby("filterLabel"),
         offOptionLabel: tNearby("offOptionLabel"),
@@ -134,8 +151,9 @@ export function FavoritesContent() {
   )
 
   const favoritesQuery = useMemo(
-    () => buildFavoritesQueryCondition(q, types, categories),
-    [q, types, categories]
+    () =>
+      buildFavoritesQueryCondition(q, types, categories, aiFilter.activeFilter ?? undefined, resolvedNearby),
+    [q, types, categories, aiFilter.activeFilter, resolvedNearby]
   )
 
   // AC1: do not fetch any data if user is unauthenticated.
@@ -146,8 +164,8 @@ export function FavoritesContent() {
   }, [isLoading, session, router])
 
   const snapshotQueryKey = useMemo(
-    () => JSON.stringify({ q, types, categories }),
-    [q, types, categories]
+    () => JSON.stringify({ q, types, categories, filter: aiFilter.activeFilter, nearby: resolvedNearby }),
+    [q, types, categories, aiFilter.activeFilter, resolvedNearby]
   )
   const previousSnapshotKeyRef = useRef(snapshotQueryKey)
 
@@ -165,7 +183,7 @@ export function FavoritesContent() {
     status: idSnapshotStatus,
     error: idSnapshotError,
   } = useQuery<GetFavoritedEventIdsQuery, Error>({
-    queryKey: ["favoriteIds", { q, types, categories }],
+    queryKey: ["favoriteIds", { q, types, categories, filter: aiFilter.activeFilter, nearby: resolvedNearby }],
     queryFn: async () => {
       return graphqlClient.request<GetFavoritedEventIdsQuery>(GetFavoritedEventIdsDocument, {
         query: favoritesQuery,
@@ -205,7 +223,7 @@ export function FavoritesContent() {
     status,
     error,
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ["favoriteEvents", { ids: frozenIds, q, types, categories }],
+    queryKey: ["favoriteEvents", { ids: frozenIds, q, types, categories, filter: aiFilter.activeFilter, nearby: resolvedNearby }],
     queryFn: async ({ pageParam }) => {
       const start = pageParam as number
       const batchIds = frozenIds.slice(start, start + PAGE_SIZE)
@@ -226,7 +244,9 @@ export function FavoritesContent() {
         value: batchIds,
       }]
 
-      const filterCondition = buildEventsQueryCondition({ search: q, types, categories }) as
+      const filterCondition = (aiFilter.activeFilter
+        ? buildEventsQueryCondition({ filter: aiFilter.activeFilter })
+        : buildEventsQueryCondition({ search: q, types, categories, nearby: resolvedNearby })) as
         | EventQueryConditionInput
         | undefined
 
@@ -260,6 +280,10 @@ export function FavoritesContent() {
       }
     },
     initialPageParam: 0,
+    // Story 1.3j (AC6, FIND-028) — cut refetch volume on remount/window-refocus without
+    // materially staling Favorites data. (The separate `GetFavoritedEventIdsQuery` hook above
+    // does not call GetEventsDocument, so it is intentionally left untouched.)
+    staleTime: 30_000,
     getNextPageParam: (_lastPage, allPages) => {
       const nextOffset = allPages.length * PAGE_SIZE
       return nextOffset < frozenIds.length ? nextOffset : undefined
@@ -311,16 +335,23 @@ export function FavoritesContent() {
         filterLabels={filterLabels}
         types={typesOptions}
         categories={categoriesOptions}
-        isAuthenticated={false}
-        isLoadingLocations={false}
-        locationsError={false}
-        savedLocations={[]}
-        selectedValue="off"
-        radiusKm={10}
-        isCapturingCurrentLocation={false}
-        currentLocationError={null}
-        onSelectLocation={() => {}}
-        onRadiusChange={() => {}}
+        isAuthenticated={nearbyFilter.isAuthenticated}
+        isLoadingLocations={nearbyFilter.isLoadingLocations}
+        locationsError={nearbyFilter.locationsError}
+        savedLocations={nearbyFilter.savedLocations}
+        selectedValue={nearbyFilter.selectedValue}
+        radiusKm={nearbyFilter.radiusKm}
+        isCapturingCurrentLocation={nearbyFilter.isCapturingCurrentLocation}
+        currentLocationError={nearbyFilter.currentLocationError}
+        onSelectLocation={nearbyFilter.onSelectLocation}
+        onRadiusChange={nearbyFilter.onRadiusChange}
+        isSelectedLocationPending={nearbyFilter.isActiveFilterCoordPending}
+        showAITrigger={aiFilter.filterHubProps.showAITrigger}
+        onAITriggerClick={aiFilter.filterHubProps.onAITriggerClick}
+        aiFilterSummary={aiFilter.filterHubProps.aiFilterSummary}
+        aiCaveatsText={aiFilter.filterHubProps.aiCaveatsText}
+        onAIClear={aiFilter.filterHubProps.onAIClear}
+        onAIExpand={aiFilter.filterHubProps.onAIExpand}
         views={[
           {
             id: "card",
@@ -339,10 +370,25 @@ export function FavoritesContent() {
                   </div>
                 }
                 cardLabels={{
+                  // Deliberately NOT tEventCard("favoriteToggle")'s generic "Toggle favorite" --
+                  // every card on this page is by definition already favorited, so this page's
+                  // own "Remove from Favorites" ("Hapus dari Favorit") is the more accurate,
+                  // actionable label, especially for screen-reader users. User-directed exception
+                  // to Story 1.i1o's otherwise-uniform wording (2026-09-27).
                   favoriteToggle: t("favoriteButtonLabel"),
                   priceFrom: t("priceFrom"),
                   categoryLabels,
                   typeLabels,
+                  tillLabel: tEventCard("tillLabel"),
+                  statusEnded: tEventCard("statusEnded"),
+                  statusHappeningNow: tEventCard("statusHappeningNow"),
+                  statusEndsToday: tEventCard("statusEndsToday"),
+                  statusEndsAt: tEventCard.raw("statusEndsAt"),
+                  statusInHours: tEventCard.raw("statusInHours"),
+                  statusInDays: tEventCard.raw("statusInDays"),
+                  statusUpcoming: tEventCard("statusUpcoming"),
+                  tomorrow: tEventCard("tomorrow"),
+                  nearbyBadge: (distanceKm: number) => formatLocalizedNearbyBadgeDistance(locale, distanceKm),
                 }}
                 getCardProps={(event) => {
                   const isOptimisticallyUnfavorited = unfavoritedIds.has(event.id)
@@ -468,6 +514,8 @@ export function FavoritesContent() {
         ]}
       />
 
+      <AIFilterOverlay {...aiFilter.overlayProps} />
+      <BlockingLoader active={aiFilter.isLoading} />
     </PageContainer>
   )
 }

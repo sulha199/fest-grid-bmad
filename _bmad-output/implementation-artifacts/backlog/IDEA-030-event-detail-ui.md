@@ -36,3 +36,9 @@ User request via `bmad-help` (2026-09-15). Batched event-detail-page UI changes:
   add-to-calendar actions are a separate concern (IDEA-033 item 2).
 - Depends on hashtag persistence (BUG-032) for item 3 to have data, and on the
   reusable location link component (IDEA-029) where location surfaces are shown.
+
+## Carved + Promoted, 2026-09-16 (bmad-create-story)
+
+Items 1, 2, 4, 5, 6, 7 promoted to Story 1.6f. Item 3 (hashtags) split out to child row
+IDEA-037 — blocked on BUG-032 (hashtag persistence), not yet landed at capture time — rather
+than bundled in or silently dropped.

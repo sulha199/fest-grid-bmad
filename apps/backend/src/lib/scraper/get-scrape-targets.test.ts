@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import { db } from '../../db/client.js';
-import { users, socialMediaAccountProfiles, subscriptions, brightdataPendingJobs } from '@festgrid/database';
+import { users, socialMediaAccountProfiles, subscriptions, brightdataPendingJobs, posts } from '@festgrid/database';
 import { getBatchScrapeTargets } from './get-scrape-targets.js';
 import { eq, inArray } from 'drizzle-orm';
 import './register-adapters.js';
@@ -11,6 +11,7 @@ test('get-scrape-targets batch targeting tests', async (t) => {
   let user2: any;
   const createdProfiles: string[] = [];
   const createdSubs: string[] = [];
+  const createdPosts: string[] = [];
 
   // Get two seeded users
   const seededUsers = await db.select().from(users).limit(2);
@@ -19,6 +20,10 @@ test('get-scrape-targets batch targeting tests', async (t) => {
   user2 = seededUsers[1];
 
   t.afterEach(async () => {
+    if (createdPosts.length > 0) {
+      await db.delete(posts).where(inArray(posts.id, createdPosts));
+      createdPosts.length = 0;
+    }
     if (createdSubs.length > 0) {
       await db.delete(subscriptions).where(inArray(subscriptions.id, createdSubs));
       createdSubs.length = 0;
@@ -364,6 +369,80 @@ test('get-scrape-targets batch targeting tests', async (t) => {
     assert.ok(
       targetIds.includes(p20h.id),
       'Account scraped exactly 20h ago (prod incident value) should now be INCLUDED with clear 8h safety margin under the new 12h threshold'
+    );
+  });
+
+  await t.test('FIND-035: attaches newestPostPublishedAt for incremental scraping', async () => {
+    // Profile with prior posts -- should surface its newest publishedAt, not the oldest.
+    const [pWithPosts] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'test-find035-with-posts-' + Date.now(),
+      platform: 'instagram',
+      displayName: 'Has Prior Posts',
+      username: 'find035_with_posts_' + Date.now(),
+    }).returning();
+    createdProfiles.push(pWithPosts.id);
+
+    // Profile with zero posts -- newestPostPublishedAt should be undefined so scraper.ts
+    // falls back to env.scrapeInitialLookbackDays.
+    const [pNoPosts] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'test-find035-no-posts-' + Date.now(),
+      platform: 'instagram',
+      displayName: 'No Posts Yet',
+      username: 'find035_no_posts_' + Date.now(),
+    }).returning();
+    createdProfiles.push(pNoPosts.id);
+
+    const [sWithPosts] = await db.insert(subscriptions).values({
+      userId: user1.id,
+      accountId: pWithPosts.id,
+    }).returning();
+    createdSubs.push(sWithPosts.id);
+
+    const [sNoPosts] = await db.insert(subscriptions).values({
+      userId: user1.id,
+      accountId: pNoPosts.id,
+    }).returning();
+    createdSubs.push(sNoPosts.id);
+
+    const olderPublishedAt = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    const newestPublishedAt = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000);
+
+    const [olderPost] = await db.insert(posts).values({
+      accountId: pWithPosts.id,
+      platform: 'instagram',
+      postUrl: 'https://instagram.com/p/find035-older-' + Date.now(),
+      publishedAt: olderPublishedAt,
+    }).returning();
+    createdPosts.push(olderPost.id);
+
+    const [newestPost] = await db.insert(posts).values({
+      accountId: pWithPosts.id,
+      platform: 'instagram',
+      postUrl: 'https://instagram.com/p/find035-newest-' + Date.now(),
+      publishedAt: newestPublishedAt,
+    }).returning();
+    createdPosts.push(newestPost.id);
+
+    const targets = await getBatchScrapeTargets();
+    const targetWithPosts = targets.find((t) => t.profileId === pWithPosts.id);
+    const targetNoPosts = targets.find((t) => t.profileId === pNoPosts.id);
+
+    assert.ok(targetWithPosts, 'Profile with prior posts should be a target');
+    assert.ok(
+      targetWithPosts!.newestPostPublishedAt,
+      'newestPostPublishedAt should be set for a profile with posts'
+    );
+    assert.strictEqual(
+      targetWithPosts!.newestPostPublishedAt!.toISOString(),
+      newestPublishedAt.toISOString(),
+      'newestPostPublishedAt should be the MOST RECENT publishedAt, not the oldest'
+    );
+
+    assert.ok(targetNoPosts, 'Profile with zero posts should still be a target');
+    assert.strictEqual(
+      targetNoPosts!.newestPostPublishedAt,
+      undefined,
+      'newestPostPublishedAt should be undefined for a profile with zero posts (first-ever scrape)'
     );
   });
 });

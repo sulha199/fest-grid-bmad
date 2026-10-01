@@ -1,15 +1,30 @@
 /// <reference types="@testing-library/jest-dom" />
 import React from 'react';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { EventCardMediaSlot, EventCardFavoriteBadge, EventCardDateBox } from './EventCardMediaPrimitives';
+import {
+  EventCardMediaSlot,
+  EventCardFavoriteBadge,
+  EventCardDateBox,
+  EventCardStatusBadge,
+  EventCardNearbyBadge,
+  eventCardTillLabelClass,
+  EVENT_CARD_BADGE_TEXT_SIZE_CLASS,
+  EVENT_CARD_CONTAINER_CLASS,
+  formatNearbyBadgeDistance,
+  formatLocalizedNearbyBadgeDistance,
+} from './EventCardMediaPrimitives';
 import {
   EVENT_CARD_BADGE_ICON_SCALE_LARGE,
   EVENT_CARD_BADGE_ICON_SCALE_DEFAULT,
   EVENT_CARD_BADGE_FONT_SIZE,
   EVENT_CARD_BADGE_FONT_SIZE_VAR,
+  EVENT_CARD_BADGE_FONT_SIZE_BY_SIZE,
   EVENT_CARD_BADGE_MIN_TOUCH_REM,
   eventCardBadgeIconSizeStyle,
+  eventCardRowFavoriteIconGrowingStyle,
+  EVENT_CARD_ROW_FAVORITE_ICON_MIN_PX,
+  EVENT_CARD_ROW_FAVORITE_ICON_MAX_PX,
 } from './event-card-media-tokens';
 
 // Built independently from the raw exported constants, not by calling
@@ -32,26 +47,46 @@ function slotRoot(container: HTMLElement): HTMLElement {
 describe('EventCardMediaSlot - AC1 (dimensions come from the surrounding chrome, never the image)', () => {
   afterEach(() => cleanup());
 
+  // Pixel-perfect pass (2026-09-27, masonry-default prototype round 3): `flex-fill`'s height is
+  // now aspect-ratio-owned instead of `h-full`-derived from the sibling date-box, and it carries
+  // no border radius (was `rounded-md` via the slot's own shared wrapper) to sit flush against
+  // the date-box's own squared edge.
+  //
+  // User feedback (2026-09-27, later same-day): the `min-[1200px]:aspect-square` widening rule
+  // is REMOVED -- the ratio is now a STATIC `aspect-[5/6]`, never changing on screen-size changes.
   it('renders the flex-fill (masonry) className shape when layout="flex-fill"', () => {
     const { container } = render(<EventCardMediaSlot layout="flex-fill" imageUrl="/a.jpg" />);
     const cls = slotRoot(container).className;
     expect(cls).toContain('flex-1');
-    expect(cls).toContain('h-full');
     expect(cls).toContain('min-w-0');
+    expect(cls).toContain('aspect-[5/6]');
+    expect(cls).not.toContain('min-[1200px]:aspect-square');
+    expect(cls).not.toContain('rounded-md');
   });
 
+  // User feedback (2026-09-27): "datebox should always have static aspect-ratio 5:6" extended to
+  // the calendar list row's thumbnail too -- was a fixed `w-16 h-16` square, now `w-16
+  // aspect-[5/6]` (width stays fixed, height derives from the ratio instead of being pinned 1:1).
   it('renders the fixed-square (compact) className shape when layout="fixed-square"', () => {
     const { container } = render(<EventCardMediaSlot layout="fixed-square" imageUrl="/a.jpg" />);
     const cls = slotRoot(container).className;
     expect(cls).toContain('w-16');
-    expect(cls).toContain('h-16');
+    expect(cls).toContain('aspect-[5/6]');
+    expect(cls).not.toContain('h-16');
     expect(cls).toContain('shrink-0');
   });
 
-  it('declares the shared badge-font-size custom property on the slot root', () => {
+  it('declares the size-keyed badge-font-size custom property on the slot root, defaulting to "default" when size is omitted', () => {
     const { container } = render(<EventCardMediaSlot layout="flex-fill" imageUrl="/a.jpg" />);
     expect(slotRoot(container).style.getPropertyValue('--event-card-badge-font-size')).toBe(
-      EVENT_CARD_BADGE_FONT_SIZE
+      EVENT_CARD_BADGE_FONT_SIZE_BY_SIZE.default
+    );
+  });
+
+  it('declares the "compact" size variant\'s badge-font-size value when size="compact" is passed', () => {
+    const { container } = render(<EventCardMediaSlot layout="fixed-square" size="compact" imageUrl="/a.jpg" />);
+    expect(slotRoot(container).style.getPropertyValue('--event-card-badge-font-size')).toBe(
+      EVENT_CARD_BADGE_FONT_SIZE_BY_SIZE.compact
     );
   });
 });
@@ -120,6 +155,83 @@ describe('EventCardMediaSlot fallback - AC3 (reserved blank, no placeholder icon
     const img = document.querySelector('img');
     expect(img).not.toBeNull();
     fireEvent.error(img as HTMLImageElement);
+    expect(document.querySelector('img')).toBeNull();
+    expect(screen.queryByText(/no image available/i)).toBeNull();
+    expect(screen.getByRole('button')).toBeInTheDocument();
+  });
+
+  // BUG-042 (AC-IMG-1): the imageUrl -> imageFallbackUrl -> reserved-blank retry-once chain.
+  it('renders imageUrl when it loads fine, even with an imageFallbackUrl also supplied', () => {
+    render(
+      <EventCardMediaSlot layout="flex-fill" imageUrl="/a.jpg" imageFallbackUrl="/fallback.jpg" />
+    );
+    const img = document.querySelector('img');
+    expect(img).toHaveAttribute('src', '/a.jpg');
+  });
+
+  // Code-review fix (BUG-042 loopback): the original cut only wired the fallback into
+  // `onError`, so a slot with no `imageUrl` at all from the first render never mounted an
+  // `<img>` to error and silently skipped `imageFallbackUrl`.
+  it('renders imageFallbackUrl directly when imageUrl is absent from the first render', () => {
+    render(
+      <EventCardMediaSlot layout="flex-fill" imageUrl={undefined} imageFallbackUrl="/fallback.jpg" />
+    );
+    const img = document.querySelector('img');
+    expect(img).toHaveAttribute('src', '/fallback.jpg');
+  });
+
+  it('falls through to the reserved-blank fallback if the imageUrl-absent fallback itself errors', () => {
+    render(
+      <EventCardMediaSlot
+        layout="flex-fill"
+        imageUrl={undefined}
+        imageFallbackUrl="/also-broken.jpg"
+        onFavoriteToggle={vi.fn()}
+      />
+    );
+    const img = document.querySelector('img');
+    fireEvent.error(img as HTMLImageElement);
+    expect(document.querySelector('img')).toBeNull();
+    expect(screen.getByRole('button')).toBeInTheDocument();
+  });
+
+  // Code-review fix (BUG-042 loopback): without the `imageFallbackUrl !== currentImgSrc` guard,
+  // an identical fallback URL would be a no-op `setState`, `onError` would never refire, and the
+  // slot would be stuck showing the browser's native broken-image icon forever.
+  it('goes straight to the terminal error state when imageFallbackUrl equals imageUrl, instead of getting stuck', () => {
+    render(
+      <EventCardMediaSlot layout="flex-fill" imageUrl="/same.jpg" imageFallbackUrl="/same.jpg" />
+    );
+    const img = document.querySelector('img');
+    fireEvent.error(img as HTMLImageElement);
+    expect(document.querySelector('img')).toBeNull();
+  });
+
+  it('swaps to imageFallbackUrl once when imageUrl errors, and renders it', () => {
+    render(
+      <EventCardMediaSlot layout="flex-fill" imageUrl="/broken.jpg" imageFallbackUrl="/fallback.jpg" />
+    );
+    const img = document.querySelector('img');
+    expect(img).not.toBeNull();
+    fireEvent.error(img as HTMLImageElement);
+    const swapped = document.querySelector('img');
+    expect(swapped).toHaveAttribute('src', '/fallback.jpg');
+  });
+
+  it('falls through to the reserved-blank fallback when both imageUrl and imageFallbackUrl error', () => {
+    render(
+      <EventCardMediaSlot
+        layout="flex-fill"
+        imageUrl="/broken.jpg"
+        imageFallbackUrl="/also-broken.jpg"
+        onFavoriteToggle={vi.fn()}
+      />
+    );
+    const img = document.querySelector('img');
+    fireEvent.error(img as HTMLImageElement);
+    const swapped = document.querySelector('img');
+    expect(swapped).not.toBeNull();
+    fireEvent.error(swapped as HTMLImageElement);
     expect(document.querySelector('img')).toBeNull();
     expect(screen.queryByText(/no image available/i)).toBeNull();
     expect(screen.getByRole('button')).toBeInTheDocument();
@@ -247,21 +359,568 @@ describe('EventCardMediaSlot additive props (Story 1.i1e)', () => {
   });
 });
 
-describe('EventCardDateBox', () => {
+describe('EventCardMediaSlot collapseOnFallback (Story 1.i1m AC1/AC3)', () => {
   afterEach(() => cleanup());
 
-  it('renders the caller already-formatted children unchanged (no locale re-formatting)', () => {
-    render(<EventCardDateBox>12 Oct</EventCardDateBox>);
-    expect(screen.getByText('12 Oct')).toBeInTheDocument();
+  it('defaults to false and preserves the exact reserved-blank fallback when omitted (masonry regression guard)', () => {
+    const { container } = render(
+      <EventCardMediaSlot layout="flex-fill" onFavoriteToggle={vi.fn()} />
+    );
+    // Today's exact reserved-blank behavior: the slot's own root element still mounts,
+    // reserving its footprint, with the large favorite badge centered inside it.
+    const slot = container.querySelector('[data-event-card-media-slot]');
+    expect(slot).not.toBeNull();
+    expect(within(slot as HTMLElement).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
   });
 
-  it('uses the text-xs shape and declares the badge-font-size source for the icon token', () => {
-    const { container } = render(<EventCardDateBox>12 Oct</EventCardDateBox>);
-    const box = container.querySelector('[data-event-card-date-box]') as HTMLElement;
-    expect(box).not.toBeNull();
-    expect(box.className).toContain('text-xs');
-    expect(box.style.getPropertyValue('--event-card-badge-font-size')).toBe(EVENT_CARD_BADGE_FONT_SIZE);
+  it('renders null (no slot element at all) when collapseOnFallback is true and no imageUrl is provided', () => {
+    const { container } = render(
+      <EventCardMediaSlot layout="fixed-square" onFavoriteToggle={vi.fn()} collapseOnFallback />
+    );
+    expect(container.querySelector('[data-event-card-media-slot]')).toBeNull();
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('removes the slot element entirely (not merely emptied) when collapseOnFallback is true and the image onError fires', () => {
+    const { container } = render(
+      <EventCardMediaSlot
+        layout="fixed-square"
+        imageUrl="/broken.jpg"
+        onFavoriteToggle={vi.fn()}
+        collapseOnFallback
+      />
+    );
+    const slotBeforeError = container.querySelector('[data-event-card-media-slot]');
+    expect(slotBeforeError).not.toBeNull();
+    const img = slotBeforeError?.querySelector('img');
+    expect(img).not.toBeNull();
+
+    fireEvent.error(img as HTMLImageElement);
+
+    expect(container.querySelector('[data-event-card-media-slot]')).toBeNull();
+  });
+
+  it('keeps the with-image branch byte-identical when collapseOnFallback is true (only the fallback branch changes)', () => {
+    const { container } = render(
+      <EventCardMediaSlot
+        layout="fixed-square"
+        imageUrl="/a.jpg"
+        onFavoriteToggle={vi.fn()}
+        collapseOnFallback
+      />
+    );
+    const slot = container.querySelector('[data-event-card-media-slot]');
+    expect(slot).not.toBeNull();
+    expect(slot?.querySelector('img')).toHaveAttribute('src', '/a.jpg');
+    expect(within(slot as HTMLElement).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
   });
 });
 
+describe('EventCardFavoriteBadge icon/text-size overrides (Story 1.i1m AC5)', () => {
+  afterEach(() => cleanup());
+
+  it('uses the ratio-derived default icon size and fixed text-sm when neither override is supplied (masonry/default regression guard)', () => {
+    render(<EventCardFavoriteBadge scale="large" onFavoriteToggle={vi.fn()} favoriteCount={3} />);
+    const button = screen.getByRole('button', { name: 'Toggle favorite' });
+    expect(button.className).toMatch(/\btext-sm\b/);
+    const heart = button.querySelector('svg');
+    const expected = expectedIconSize(EVENT_CARD_BADGE_ICON_SCALE_LARGE);
+    expect(heart?.style.width).toBe(expected);
+    expect(heart?.style.height).toBe(expected);
+  });
+
+  it('applies iconSizeStyle and largeTextSizeClassName overrides when supplied, replacing the ratio-derived default', () => {
+    // A plain px value proves the override-plumbing mechanism itself (this component passes
+    // `iconSizeStyle`/`largeTextSizeClassName` straight through, unconditionally replacing its
+    // own ratio-derived computation) without round-tripping a `cqi`/`clamp()` value through
+    // JSDOM's CSS parser, which — per this story's own AC7 — does not reliably represent
+    // container-query units. `eventCardRowFavoriteIconGrowingStyle()`'s own returned object is
+    // verified directly (no DOM involved) in the next test below.
+    const overrideStyle = { width: '42px', height: '42px' };
+    render(
+      <EventCardFavoriteBadge
+        scale="large"
+        onFavoriteToggle={vi.fn()}
+        favoriteCount={3}
+        iconSizeStyle={overrideStyle}
+        largeTextSizeClassName="text-sm [@container(min-width:490px)]:text-base"
+      />
+    );
+    const button = screen.getByRole('button', { name: 'Toggle favorite' });
+    expect(button.className).toMatch(/\[@container\(min-width:490px\)\]:text-base\b/);
+    const heart = button.querySelector('svg');
+    expect(heart?.style.width).toBe(overrideStyle.width);
+    expect(heart?.style.height).toBe(overrideStyle.height);
+    // Not the ratio-derived default this override replaces.
+    expect(heart?.style.width).not.toBe(expectedIconSize(EVENT_CARD_BADGE_ICON_SCALE_LARGE));
+  });
+
+  it("eventCardRowFavoriteIconGrowingStyle() returns the calibrated clamp()/cqi formula (Story 1.i1m AC5/AC7)", () => {
+    // Pure function, no DOM/JSDOM CSS parsing involved — proves the formula itself is
+    // calibrated to the two validated prototype points (36px @ 326px row, 56px @ 655px row)
+    // independently of whether JSDOM can represent the resulting string.
+    const style = eventCardRowFavoriteIconGrowingStyle();
+    const expected = `clamp(${EVENT_CARD_ROW_FAVORITE_ICON_MIN_PX}px, calc(16.2px + 6.08cqi), ${EVENT_CARD_ROW_FAVORITE_ICON_MAX_PX}px)`;
+    expect(style.width).toBe(expected);
+    expect(style.height).toBe(expected);
+    expect(EVENT_CARD_ROW_FAVORITE_ICON_MIN_PX).toBe(36);
+    expect(EVENT_CARD_ROW_FAVORITE_ICON_MAX_PX).toBe(56);
+  });
+});
+
+describe('EventCardDateBox (Story 1.i1k two-tier month/day chrome)', () => {
+  afterEach(() => cleanup());
+
+  it('renders the caller already-formatted month/day content in their own dedicated slots', () => {
+    const { container } = render(<EventCardDateBox size="default" month="Oct" day="12" />);
+    expect(container.querySelector('[data-event-card-date-box-month]')).toHaveTextContent('Oct');
+    expect(container.querySelector('[data-event-card-date-box-day]')).toHaveTextContent('12');
+  });
+
+  it.each(['default', 'compact'] as const)(
+    'declares the size-keyed badge-font-size value for size="%s" (AC5)',
+    (size) => {
+      const { container } = render(<EventCardDateBox size={size} month="Oct" day="12" />);
+      const box = container.querySelector('[data-event-card-date-box]') as HTMLElement;
+      expect(box).not.toBeNull();
+      expect(box.style.getPropertyValue('--event-card-badge-font-size')).toBe(
+        EVENT_CARD_BADGE_FONT_SIZE_BY_SIZE[size]
+      );
+    }
+  );
+
+  it('DESIGN.md AC1 default size classes: base_default padding/month/day literals', () => {
+    const { container } = render(<EventCardDateBox size="default" month="Oct" day="12" />);
+    const box = container.querySelector('[data-event-card-date-box]') as HTMLElement;
+    expect(box.className).toContain('px-4 py-3');
+    expect(box.className).toContain('bg-slate-800');
+    expect(container.querySelector('[data-event-card-date-box-month]')?.className).toContain('text-lg font-bold uppercase tracking-wide');
+    expect(container.querySelector('[data-event-card-date-box-day]')?.className).toContain('text-5xl font-extrabold leading-none');
+  });
+
+  it('DESIGN.md AC1 compact size classes: event_card_compact.date_box padding/month/day literals', () => {
+    const { container } = render(<EventCardDateBox size="compact" month="Oct" day="12" />);
+    const box = container.querySelector('[data-event-card-date-box]') as HTMLElement;
+    expect(box.className).toContain('px-3 py-2');
+    expect(box.className).toContain('bg-slate-800');
+    expect(container.querySelector('[data-event-card-date-box-month]')?.className).toContain('text-sm font-bold uppercase tracking-wide');
+    expect(container.querySelector('[data-event-card-date-box-day]')?.className).toContain('text-3xl font-extrabold leading-none');
+  });
+
+  it('renders the amber tillLabel corner tag when provided', () => {
+    const { container } = render(<EventCardDateBox size="default" month="Oct" day="12" tillLabel="till" />);
+    expect(container.querySelector('[data-event-card-date-box]')).toHaveTextContent('till');
+    expect(screen.getByText('till').className).toContain('bg-amber-700');
+  });
+
+  // Pixel-perfect pass (2026-09-27, round 5, user feedback): masonry `size='default'` centers
+  // month/day horizontally (`items-center` on the box, `text-center` on both spans) instead of
+  // stretching them to the box's now much-wider `flex-1` width, which looked pushed toward the
+  // right edge. Later same-day feedback extended `items-center`/`text-center` to `size='compact'`
+  // (the calendar list row) too, for the same centering reason.
+  it('centers month/day horizontally for both size="default" and size="compact"', () => {
+    const { container: defaultContainer } = render(
+      <EventCardDateBox size="default" month="Oct" day="12" />
+    );
+    const defaultBox = defaultContainer.querySelector('[data-event-card-date-box]') as HTMLElement;
+    expect(defaultBox.className).toContain('items-center');
+    expect(defaultContainer.querySelector('[data-event-card-date-box-month]')?.className).toContain('text-center');
+    expect(defaultContainer.querySelector('[data-event-card-date-box-day]')?.className).toContain('text-center');
+
+    const { container: compactContainer } = render(
+      <EventCardDateBox size="compact" month="Oct" day="12" />
+    );
+    const compactBox = compactContainer.querySelector('[data-event-card-date-box]') as HTMLElement;
+    expect(compactBox.className).toContain('items-center');
+    expect(compactContainer.querySelector('[data-event-card-date-box-month]')?.className).toContain('text-center');
+  });
+
+  it('renders no amber tag element at all when tillLabel is omitted', () => {
+    const { container } = render(<EventCardDateBox size="default" month="Oct" day="12" />);
+    expect(container.querySelector('.bg-amber-700')).toBeNull();
+  });
+
+  describe('day slot sizing (BUG-047 AC-DATE-4, replaces Story 1.i1n\'s dayVariant mechanism)', () => {
+    it('size="default": fixed-width classes (tabular-nums + min-w-[2ch]) so 1-digit/2-digit days render the same width', () => {
+      const { container } = render(<EventCardDateBox size="default" month="Oct" day="12" />);
+      expect(container.querySelector('[data-event-card-date-box-day]')?.className).toBe(
+        'inline-block text-center tabular-nums min-w-[2ch] text-5xl font-extrabold leading-none'
+      );
+    });
+
+    it('size="default" 1-digit day gets the identical class list (and therefore identical rendered width) as a 2-digit day', () => {
+      const { container: oneDigit } = render(<EventCardDateBox size="default" month="Oct" day="3" />);
+      const { container: twoDigit } = render(<EventCardDateBox size="default" month="Oct" day="23" />);
+      expect(oneDigit.querySelector('[data-event-card-date-box-day]')?.className).toBe(
+        twoDigit.querySelector('[data-event-card-date-box-day]')?.className
+      );
+    });
+
+    // User feedback (2026-09-27): "width should always same when it's two or one digit" extended
+    // to `size='compact'` too -- originally masonry-only, now the calendar list row gets the same
+    // `tabular-nums`/`min-w-[2ch]` width-invariant floor.
+    it('size="compact" (calendar list row) now gets the same width-fix classes as size="default"', () => {
+      const { container } = render(<EventCardDateBox size="compact" month="Oct" day="12" />);
+      expect(container.querySelector('[data-event-card-date-box-day]')?.className).toBe(
+        'inline-block text-center tabular-nums min-w-[2ch] text-3xl font-extrabold leading-none'
+      );
+    });
+  });
+});
+
+});
+
+// Story 1.i1i AC6 — both new badge primitives are presentation-only. These blocks pin the two
+// DESIGN.md status_badge shapes (neutral base + the single happening_now emerald exception), the
+// self-gating `<8km` nearby contract, and the non-interactive rule that keeps them from adding a
+// second focus stop to EventCard's poster/media link.
+describe('EventCardStatusBadge - AC1/AC6 (two DESIGN.md shapes, non-interactive)', () => {
+  afterEach(() => cleanup());
+
+  const NEUTRAL_STATES = [
+    'Ended',
+    'Ends Today',
+    'In 4 hour(s)',
+    'Tomorrow',
+    'Wednesday',
+    'In 7 days',
+    'Upcoming',
+  ];
+
+  it.each(NEUTRAL_STATES)('renders the "%s" state with the shared neutral base shape', (text) => {
+    const { container } = render(<EventCardStatusBadge text={text} />);
+    const badge = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveTextContent(text);
+    expect(badge).toHaveClass('bg-muted');
+    expect(badge).toHaveClass('text-muted-foreground');
+    expect(badge).not.toHaveClass('bg-emerald-600');
+    expect(badge).not.toHaveClass('text-white');
+  });
+
+  it('renders happeningNow with the emerald DESIGN.md exception instead of the neutral base', () => {
+    const { container } = render(<EventCardStatusBadge text="Happening Now" variant="happeningNow" />);
+    const badge = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
+    expect(badge).toHaveTextContent('Happening Now');
+    expect(badge).toHaveClass('bg-emerald-600');
+    expect(badge).toHaveClass('text-white');
+    expect(badge).not.toHaveClass('bg-muted');
+    expect(badge).not.toHaveClass('text-muted-foreground');
+  });
+
+  it('defaults variant to "default", so the neutral base needs no explicit prop', () => {
+    const { container } = render(<EventCardStatusBadge text="Upcoming" />);
+    const badge = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
+    expect(badge).toHaveClass('bg-muted');
+  });
+
+  it('keeps one shared geometry across both variants (only color differs per state)', () => {
+    // Strips only the four color utilities that distinguish the two DESIGN.md shapes, so any
+    // geometry drift between the neutral and emerald variants fails here.
+    const COLOR_CLASSES = ['bg-muted', 'text-muted-foreground', 'bg-emerald-600', 'text-white'];
+    const shapeOf = (className: string) => className.split(' ').filter((c) => !COLOR_CLASSES.includes(c));
+
+    const { container, rerender } = render(<EventCardStatusBadge text="Upcoming" />);
+    const neutral = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
+    const neutralShape = shapeOf(neutral.className);
+
+    rerender(<EventCardStatusBadge text="Happening Now" variant="happeningNow" />);
+    const happening = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
+    const happeningShape = shapeOf(happening.className);
+
+    expect(neutralShape).toEqual(happeningShape);
+    expect(neutralShape).toContain('text-xs');
+    expect(neutralShape).toContain('shrink-0');
+  });
+
+  it('stays non-interactive: no aria-label, no title/tooltip, no extra focus stop', () => {
+    const { container } = render(<EventCardStatusBadge text="Happening Now" variant="happeningNow" />);
+    const badge = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
+    expect(badge.tagName).toBe('SPAN');
+    expect(badge.getAttribute('aria-label')).toBeNull();
+    expect(badge.getAttribute('title')).toBeNull();
+    expect(badge.getAttribute('tabindex')).toBeNull();
+    expect(badge.getAttribute('role')).toBeNull();
+    expect(container.querySelectorAll('button, a, input, [tabindex]')).toHaveLength(0);
+  });
+});
+
+describe('EventCardNearbyBadge - AC1/AC2/AC6 (self-gating <8km, non-interactive)', () => {
+  afterEach(() => cleanup());
+
+  it('renders at 7.99km (just inside the corrected `<8km` gate) with the Navigation icon and the real distance (BUG-049)', () => {
+    const { container } = render(<EventCardNearbyBadge distanceKm={7.99} />);
+    const badge = container.querySelector('[data-event-card-nearby-badge]') as HTMLElement;
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveTextContent('8 km');
+    expect(badge).toHaveClass('bg-secondary');
+    expect(badge).toHaveClass('text-secondary-foreground');
+    expect(badge.querySelector('svg')).not.toBeNull();
+  });
+
+  it.each([8, 8.01, 25])('renders nothing at %skm (at or past the gate) - omitted, never a placeholder', (km) => {
+    const { container } = render(<EventCardNearbyBadge distanceKm={km} />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+    expect(container.textContent).toBe('');
+  });
+
+  it('renders nothing when the distance is unknown (null or omitted)', () => {
+    const { container, rerender } = render(<EventCardNearbyBadge distanceKm={null} />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+
+    rerender(<EventCardNearbyBadge />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+  });
+
+  it('renders nothing for a non-finite or negative distanceKm (BUG-049 review finding — a caller-side geolocation bug used to be masked by the static "Nearby" text; formatting it now would surface visibly broken text like "NaN km")', () => {
+    const { container, rerender } = render(<EventCardNearbyBadge distanceKm={NaN} />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+
+    rerender(<EventCardNearbyBadge distanceKm={Infinity} />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+
+    rerender(<EventCardNearbyBadge distanceKm={-Infinity} />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+
+    rerender(<EventCardNearbyBadge distanceKm={-3} />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+  });
+
+  it('falls back to the default formatter when labels.nearbyBadge is explicitly undefined (BUG-049 review finding — a plain object spread would let this crash instead of falling back)', () => {
+    const { container } = render(
+      <EventCardNearbyBadge distanceKm={1} labels={{ nearbyBadge: undefined }} />
+    );
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toHaveTextContent('1.0 km');
+  });
+
+  it('renders at 0km (the caller passes distance only - never a precomputed showNearbyBadge boolean), formatted with 1 decimal (BUG-049 AC-NEARBY-3)', () => {
+    const { container } = render(<EventCardNearbyBadge distanceKm={0} />);
+    const badge = container.querySelector('[data-event-card-nearby-badge]');
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveTextContent('0.0 km');
+  });
+
+  it('self-gates on its own default threshold; only a caller-level thresholdKm override changes it', () => {
+    const { container, rerender } = render(<EventCardNearbyBadge distanceKm={9} />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+
+    // EventCardProps.nearbyBadgeThreshold forwards through this one additive prop only.
+    rerender(<EventCardNearbyBadge distanceKm={9} thresholdKm={10} />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).not.toBeNull();
+
+    rerender(<EventCardNearbyBadge distanceKm={3} thresholdKm={2} />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toBeNull();
+  });
+
+  it('defaults the label to the formatted distance and accepts the EventCardLabels.nearbyBadge function override (BUG-049)', () => {
+    const { container, rerender } = render(<EventCardNearbyBadge distanceKm={1} />);
+    expect(container.querySelector('[data-event-card-nearby-badge]')).toHaveTextContent('1.0 km');
+
+    rerender(
+      <EventCardNearbyBadge distanceKm={1} labels={{ nearbyBadge: (km) => `Dekat ${km}` }} />
+    );
+    const badge = container.querySelector('[data-event-card-nearby-badge]') as HTMLElement;
+    expect(badge).toHaveTextContent('Dekat 1');
+    expect(badge).not.toHaveTextContent('1.0 km');
+  });
+
+  it('stays non-interactive: no aria-label, no title/tooltip, no extra focus stop', () => {
+    const { container } = render(<EventCardNearbyBadge distanceKm={1} />);
+    const badge = container.querySelector('[data-event-card-nearby-badge]') as HTMLElement;
+    expect(badge.tagName).toBe('SPAN');
+    expect(badge.getAttribute('aria-label')).toBeNull();
+    expect(badge.getAttribute('title')).toBeNull();
+    expect(badge.getAttribute('tabindex')).toBeNull();
+    expect(container.querySelectorAll('button, a, input, [tabindex]')).toHaveLength(0);
+  });
+});
+
+describe('formatNearbyBadgeDistance - BUG-049 AC-NEARBY-3 (decimal-precision boundary)', () => {
+  it('renders round numbers >= 2km with no decimal place', () => {
+    expect(formatNearbyBadgeDistance(5)).toBe('5 km');
+    expect(formatNearbyBadgeDistance(7.99)).toBe('8 km');
+  });
+
+  it('renders exactly 2.0km with no decimal place (the >=2 branch includes the boundary itself)', () => {
+    expect(formatNearbyBadgeDistance(2)).toBe('2 km');
+  });
+
+  it('renders sub-2km distances with exactly 1 decimal place', () => {
+    expect(formatNearbyBadgeDistance(1.2)).toBe('1.2 km');
+    expect(formatNearbyBadgeDistance(0)).toBe('0.0 km');
+  });
+
+  it('selects the branch off the RAW distance, not any rounded display value (1.95 stays <2, verified: JS float repr. makes (1.95).toFixed(1) === "1.9")', () => {
+    // 1.95 never reaches 2km -- it takes the <2 branch. Verified against real JS behavior
+    // (not assumed): 1.95 isn't exactly representable in IEEE-754 double, so it's actually
+    // stored fractionally below 1.95, and (1.95).toFixed(1) === '1.9', not '2.0'. The point of
+    // this test is the BRANCH choice (raw value, always <2 branch here), not a specific digit.
+    expect(formatNearbyBadgeDistance(1.95)).toBe('1.9 km');
+  });
+
+  it('selects the >=2 branch as soon as the raw distance reaches 2km, even fractionally', () => {
+    // 2.05 >= 2, so it takes the no-decimal branch; Math.round(2.05) still lands on 2.
+    expect(formatNearbyBadgeDistance(2.05)).toBe('2 km');
+  });
+});
+
+describe('formatLocalizedNearbyBadgeDistance - Story 1.i1o AC4 (locale-aware decimal separator)', () => {
+  it('formats Indonesian sub-2km distances with a comma decimal separator', () => {
+    expect(formatLocalizedNearbyBadgeDistance('id', 1.2)).toBe('1,2 km');
+  });
+
+  it('formats Indonesian >=2km distances with no decimal place', () => {
+    expect(formatLocalizedNearbyBadgeDistance('id', 5)).toBe('5 km');
+  });
+
+  it('formats English sub-2km distances with a period decimal separator', () => {
+    expect(formatLocalizedNearbyBadgeDistance('en', 1.2)).toBe('1.2 km');
+  });
+
+  it('formats English >=2km distances with no decimal place', () => {
+    expect(formatLocalizedNearbyBadgeDistance('en', 5)).toBe('5 km');
+  });
+});
+
+// ── Story 1.i1l ──────────────────────────────────────────────────────────────
+// Rules 4, 5 and 7 of backlog row IDEA-046. These are structural ratchets, not
+// rendered-size assertions: JSDOM implements neither container queries nor Tailwind,
+// so `getComputedStyle().fontSize` here would report the same value at every width and
+// prove nothing. What CAN be proven — and is what the rules actually require — is that
+// the two badges resolve from ONE shared token, and that the token is a complete
+// literal string Tailwind's content scanner can see.
+describe('Story 1.i1l — badge font-size harmonization and the TILL offset context', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('gives the TILL tag and the favorite pill the identical font-size token (favorite >= TILL at every width)', () => {
+    // EXPERIENCE.md § Masonry EventCard Badge Row: "Favorite badge font-size >= TILL badge
+    // font-size ... Verified at every real width across all three card families." Asserting
+    // both carry the SAME token makes the relation hold at every width by construction --
+    // strictly stronger than sampling two widths, and it cannot silently regress the way a
+    // pair of independently-declared sizes did before round 8.
+    const { container } = render(
+      <EventCardDateBox size="default" month="OCT" day="12" tillLabel="till" />
+    );
+    const till = screen.getByText('till');
+    expect(till.className).toContain(EVENT_CARD_BADGE_TEXT_SIZE_CLASS);
+    expect(container.querySelector('[data-event-card-date-box]')).not.toBeNull();
+
+    cleanup();
+
+    const { container: favContainer } = render(
+      <EventCardFavoriteBadge
+        scale="default"
+        isFavorited={false}
+        favoriteCount={12}
+        onFavoriteToggle={() => {}}
+      />
+    );
+    const pill = favContainer.querySelector('button') as HTMLElement;
+    expect(pill.className).toContain(EVENT_CARD_BADGE_TEXT_SIZE_CLASS);
+  });
+
+  it('keeps the favorite pill at the round-8 padding, not the looser value it removed', () => {
+    const { container } = render(
+      <EventCardFavoriteBadge
+        scale="default"
+        isFavorited={false}
+        favoriteCount={12}
+        onFavoriteToggle={() => {}}
+      />
+    );
+    const pill = container.querySelector('button') as HTMLElement;
+    // DESIGN.md § event_card_masonry.thumbnail_default.favorite_badge -- "was a looser
+    // `px-2.5 py-1.5` at the desktop real width before this pass."
+    expect(pill).toHaveClass('px-1.5');
+    expect(pill).toHaveClass('py-1');
+    expect(pill).not.toHaveClass('px-2.5');
+    expect(pill).not.toHaveClass('py-1.5');
+  });
+
+  it('lets the favorite count inherit the pill font-size instead of pinning its own', () => {
+    // DESIGN.md: the responsive size is "inherited by the count text". A hardcoded
+    // `text-xs` on the count would leave it at 12px while its pill grew to 14px.
+    const { container } = render(
+      <EventCardFavoriteBadge
+        scale="default"
+        isFavorited={false}
+        favoriteCount={12}
+        onFavoriteToggle={() => {}}
+      />
+    );
+    const count = screen.getByText('12');
+    expect(count.className).not.toContain('text-xs');
+    expect(count.className).not.toContain('text-sm');
+  });
+
+  // Pixel-perfect pass (2026-09-27, masonry-default prototype round 4): `'default'` (masonry
+  // size='default') moved from floating past the card's true corner (`-top-1.5 -left-1.5`) to
+  // sitting just INSIDE it (`top-1.5 left-1.5`, positive), since the card returned to
+  // `overflow-hidden` and anything outside it must not be visible. `'compact'` (calendar list
+  // row) was briefly, unintentionally regressed to `'default'`'s new offset (EventCardDateBox's
+  // tillLabel span hardcoded `eventCardTillLabelClass('default')` regardless of `size`) -- fixed
+  // by giving `'compact'` its own context, restoring the original floating-past-the-edge
+  // behavior the calendar row's own (unclipped, still-padded) chrome relies on.
+  //
+  // User feedback (2026-09-27, later same-day): `'prominent'` (masonry VM1) now uses the SAME
+  // top offset as `'default'` (VM1's own sibling composition, VM2) -- `top-1.5`, not `-top-3` --
+  // "tillbox should have same top position to the tillbox position on masonry view-non
+  // prominent's". Horizontal offset is unchanged (`-left-1.5`).
+  it('offsets the TILL tag by context: top-1.5/left-1.5 (inside the card) on masonry\'s two-tier pill AND the prominent chip (same top position, per user feedback), -top-1.5/-left-1.5 (floats past the row\'s edge, into its own padding) on the calendar row', () => {
+    // DESIGN.md § event_card_till_badge, "OFFSET DIFFERS BY CONTEXT". Asserted on the helper
+    // directly so all three contexts are covered even though only two render through
+    // EventCardDateBox (`'prominent'` is EventCard.tsx's own direct call site).
+    expect(eventCardTillLabelClass('default')).toContain('top-1.5');
+    expect(eventCardTillLabelClass('default')).toContain('left-1.5');
+    expect(eventCardTillLabelClass('default')).not.toContain('-top-1.5');
+    expect(eventCardTillLabelClass('default')).not.toContain('-left-1.5');
+    expect(eventCardTillLabelClass('compact')).toContain('-top-1.5');
+    expect(eventCardTillLabelClass('compact')).toContain('-left-1.5');
+    expect(eventCardTillLabelClass('prominent')).toContain('top-1.5');
+    expect(eventCardTillLabelClass('prominent')).not.toContain('-top-1.5');
+    expect(eventCardTillLabelClass('prominent')).not.toContain('-top-3');
+    expect(eventCardTillLabelClass('prominent')).toContain('-left-1.5');
+  });
+
+  it('EventCardDateBox routes its tillLabel span through the size-aware context (compact stays outside, default stays inside)', () => {
+    const { container: compactContainer } = render(
+      <EventCardDateBox size="compact" month="Oct" day="12" tillLabel="till" />
+    );
+    const compactTill = compactContainer.querySelector('.bg-amber-700');
+    expect(compactTill?.className).toContain('-top-1.5');
+    expect(compactTill?.className).toContain('-left-1.5');
+    cleanup();
+
+    const { container: defaultContainer } = render(
+      <EventCardDateBox size="default" month="Oct" day="12" tillLabel="till" />
+    );
+    const defaultTill = defaultContainer.querySelector('.bg-amber-700');
+    expect(defaultTill?.className).toContain('top-1.5');
+    expect(defaultTill?.className).not.toContain('-top-1.5');
+  });
+
+  it('clears the 11px legibility floor on every badge family the primitives own', () => {
+    // EXPERIENCE.md's floor rule. `text-xs` is 12px; the TILL tag's old `text-[10px]` was under it.
+    expect(eventCardTillLabelClass('default')).not.toContain('text-[10px]');
+    expect(EVENT_CARD_BADGE_TEXT_SIZE_CLASS.startsWith('text-xs')).toBe(true);
+
+    const { container } = render(<EventCardStatusBadge text="Now" variant="happeningNow" />);
+    expect(container.querySelector('[data-event-card-status-badge]')).toHaveClass('text-xs');
+
+    cleanup();
+    const { container: nearby } = render(<EventCardNearbyBadge distanceKm={1} />);
+    expect(nearby.querySelector('[data-event-card-nearby-badge]')).toHaveClass('text-xs');
+  });
+
+  it('keeps both class tokens complete literal strings Tailwind can statically see', () => {
+    // The FIND-025 / commit 7bf99260 failure mode: a class assembled by runtime
+    // interpolation is invisible to Tailwind's content scanner and emits NO CSS at all.
+    // `packages/ui`'s own `no-dynamic-tailwind-arbitrary-value` lint rule (Story 1.i1k)
+    // guards the `w-[${expr}]` shape; this pins the two tokens Story 1.i1l added, whose
+    // arbitrary variant would fail exactly the same way if it were ever interpolated.
+    expect(EVENT_CARD_BADGE_TEXT_SIZE_CLASS).toBe('text-xs [@container(min-width:200px)]:text-sm');
+    expect(EVENT_CARD_CONTAINER_CLASS).toBe('[container-type:inline-size]');
+  });
 });

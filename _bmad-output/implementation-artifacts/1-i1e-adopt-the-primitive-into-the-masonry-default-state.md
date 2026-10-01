@@ -137,6 +137,46 @@ Positioning math, since the sibling badge's `absolute` anchor is `<article>` (wh
 - [Source: packages/ui/src/features/events/EventCard.test.tsx] (existing masonry-default/TILL-badge/prominent-poster test blocks rewritten/extended by Task 4 — see exact line references in Task 4 above)
 - [Source: packages/ui/src/features/events/EventListView.tsx] (confirms `prominentPoster: event.durableImageUrl != null` and `variant="masonry"` are already live-wired from `apps/web` today — this story's change is user-visible immediately upon merge, not shipped dark)
 
+### Backlog row history (IDEA-017, verbatim, moved from backlog.yaml 2026-09-18)
+
+Surfaced via `bmad-ux` (2026-09-11) against 4 new reference screenshots that appeared to
+contradict CC-019/Story 1.3b's already-shipped "overlay-on-poster, both states" resolution.
+Resolved as a missing split, not a reversal: `prominentPoster=true` (opted-in accounts,
+`durableImageUrl`, never expires) keeps the shipped full-width-poster-with-overlaid-date-box
+treatment exactly as coded. `prominentPoster=false` (the common, hotlinked/scraped case, which
+CAN expire) gets a new composition: the date box moves out of the overlay and sits beside a
+small thumbnail sized to the date box's own height — so an expired image degrades gracefully
+(reserved space, no reflow, see FIND-023) instead of leaving a broken overlay on an empty
+poster. TILL badge (`event_card_till_badge`) also repositioned (bottom-edge-center →
+date box's top-left corner) and recolored (neutral inverted → new `bg-amber-700`/`text-white`,
+contrast-checked at ~5.03:1) in both `prominentPoster` states.
+
+**PROMOTED (2026-09-13 via bmad-create-story, deterministic match — epics.md's own Story
+1.i1e cites this row by id):** this story delivers the full scope this row describes — the
+`top_row_default` date-box-beside-thumbnail composition for `prominentPoster=false`, and the
+TILL-badge amber/corner restyle applied to BOTH `prominentPoster` states, confirmed via
+AskUserQuestion during story creation since epics.md's own AC wording read ambiguously as
+`prominentPoster=false`-only. No residual scope from this row left uncovered — no child row
+carved out.
+
+**AMENDED (2026-09-14, bmad-png-to-html prototype pass, see CC-019's amendment note for the
+full session — 8 feedback rounds plus a final class-string cleanup, commits
+70564a0/3fb9233/e3fe946):** further refinements found only once real HTML/Tailwind prototypes
+were built and validated at production grid dimensions, several of which post-date and go
+beyond this story's already-promoted scope — (1) the card's own max-width is now capped at
+230px (`event_card_masonry.max_width`); (2) title wraps up to 2 lines at a smaller font, venue
+stays single-line truncate; (3) the category/type badge is replaced by
+`event_card_nearby_badge` (distance, gated <8km, changed from AC16's original <=5km) — a
+general rule also applied to the calendar-row (IDEA-016) and grid-item (IDEA-026) cards; (4)
+`event_card_status_badge`'s happeningNow label shortened to "Now", gets a new solid-emerald
+`happening_now` color variant; (5) `prominentPoster=true`'s `image_prominent` crop changed from
+`aspect-[2/3]` to `aspect-square`, per explicit user instruction; (6) the TILL-badge/date-pill
+overlap on the prominent-poster state resolved via a position-only fix (TILL badge offset
+`-top-1.5` to `-top-3`); (7) TILL/favorite badge font and padding harmonized across all three
+masonry states. This story already shipped the pre-round-3 version of this card; none of the
+above 7 points were folded into a story file at note-capture time — needed a bmad-create-story
+amendment pass before further dev-story work on this surface.
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — UI Components & Scalability rule (Domain Features → `packages/ui/src/features/<domain>/`, unchanged placement); State Management rule (the new local `useState` is plain component state, not Server/URL/Global — explicitly categorized above, no `react-query`/`nuqs`/`zustand` involved); Locale-Sensitive Data Rendering rule (no date/time formatting logic changes — Task 3.2 explicitly preserves `formatEventTime`/`tillBadgeText` computation).

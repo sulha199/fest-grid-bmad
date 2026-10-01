@@ -55,3 +55,6 @@ pnpm-debug.log*
 .claude/settings.local.json
 .aider*
 __pycache__/
+
+# Local cache dir for apps/backend/scripts/poc-ingestion-preview.ts (holds scraped post JSON)
+apps/backend/scripts/.poc-cache/
