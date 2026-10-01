@@ -154,14 +154,17 @@ export class FestgridBackendStack extends cdk.Stack {
     });
 
     // Cache-Control is enforced centrally at the CDN layer (not left to whatever metadata a
-    // future uploader sets on PutObject) so the AD-12 guarantee ("Cache-Control: public,
-    // max-age=31536000, immutable" on every response, since each object is a unique, write-once
-    // file) holds regardless of upload-time behavior.
+    // future uploader sets on PutObject). Objects are content-versioned keys (AD-28 Rule 9,
+    // Story 3.6q) -- a changed or re-blurred image gets a brand-new key/URL rather than
+    // overwriting an existing object in place, so `immutable` stays safe to use. The TTL is
+    // 7 days (not 1 year) specifically to bound how long a deleted/replaced object can linger
+    // in a browser that never revisits the page, since deletion of a superseded key is only
+    // best-effort (AD-28 Rule 9).
     const postMediaCacheHeadersPolicy = new cloudfront.ResponseHeadersPolicy(this, `PostMediaCacheHeadersPolicy-${stageName}`, {
       responseHeadersPolicyName: `festgrid-post-media-cache-headers-${stageName}`,
       customHeadersBehavior: {
         customHeaders: [
-          { header: 'Cache-Control', value: 'public, max-age=31536000, immutable', override: true },
+          { header: 'Cache-Control', value: 'public, max-age=604800, immutable', override: true },
         ],
       },
     });
@@ -345,6 +348,7 @@ export class FestgridBackendStack extends cdk.Stack {
         GEOAPIFY_API_KEY: geoapifyApiKeySecret.secretValue.unsafeUnwrap(),
         POST_MEDIA_BUCKET_NAME: postMediaBucket.bucketName,
         POST_MEDIA_CDN_DOMAIN: postMediaDistribution.distributionDomainName,
+        POST_MEDIA_DISTRIBUTION_ID: postMediaDistribution.distributionId,
         SECRETS_SYNCED_AT: secretsSyncedAt,
       },
     });
@@ -499,11 +503,16 @@ export class FestgridBackendStack extends cdk.Stack {
     kmsKey.grantEncryptDecrypt(aiProcessorLambda);
     kmsKey.grantEncryptDecrypt(scraperLambda);
 
-    // Post Media Bucket: write-only, scoped exclusively to the AI-extraction Lambda (Story 0.33,
-    // Architecture Spine AD-12 Rule 1). No other Lambda receives any grant on this bucket — the
-    // only read path is CloudFront's OAC-backed origin access (auto-wired by
-    // S3BucketOrigin.withOriginAccessControl above).
+    // Post Media Bucket: write + delete, scoped exclusively to the AI-extraction Lambda (Story
+    // 0.33, Architecture Spine AD-12 Rule 1; delete grant added by Story 3.6q/AD-28 Rule 9 for
+    // best-effort cleanup of superseded content-versioned keys). No other Lambda receives any
+    // grant on this bucket — the only read path is CloudFront's OAC-backed origin access
+    // (auto-wired by S3BucketOrigin.withOriginAccessControl above). The AI-extraction Lambda
+    // also receives a CloudFront invalidation grant on the distribution (Story 3.6q) so it can
+    // invalidate a superseded key's cached edge responses after deleting the S3 object.
     postMediaBucket.grantPut(aiProcessorLambda);
+    postMediaBucket.grantDelete(aiProcessorLambda);
+    postMediaDistribution.grantCreateInvalidation(aiProcessorLambda);
 
     // SES Send Email Identity Grant
     emailIdentity.grantSendEmail(apiLambda);
@@ -626,6 +635,25 @@ export class FestgridBackendStack extends cdk.Stack {
       value: opsBackfillBucket.bucketName,
       description: 'S3 bucket for staging one-off ops/backfill input files',
       exportName: `festgrid-ops-backfill-bucket-${stageName}`,
+    });
+
+    // Outputs for the post-media bucket/CDN/distribution (Story 3.6q), so the
+    // "Backfill Post Media Keys" GitHub Actions workflow can resolve them without
+    // hardcoding stage-specific values.
+    new cdk.CfnOutput(this, `postMediaBucketNameOutput`, {
+      value: postMediaBucket.bucketName,
+      description: 'S3 bucket for durable post-media hosting (re-hosted images/thumbnails)',
+      exportName: `festgrid-post-media-bucket-${stageName}`,
+    });
+    new cdk.CfnOutput(this, `postMediaCdnDomainOutput`, {
+      value: postMediaDistribution.distributionDomainName,
+      description: 'CloudFront domain serving durable post-media',
+      exportName: `festgrid-post-media-cdn-domain-${stageName}`,
+    });
+    new cdk.CfnOutput(this, `postMediaDistributionIdOutput`, {
+      value: postMediaDistribution.distributionId,
+      description: 'CloudFront distribution ID for durable post-media (needed for invalidations)',
+      exportName: `festgrid-post-media-distribution-id-${stageName}`,
     });
 
     // Schedule Stale Job Sweep (hourly) - targets scraper Lambda with jobType payload
