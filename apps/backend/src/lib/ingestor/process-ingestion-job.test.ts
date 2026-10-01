@@ -13,10 +13,12 @@ test('processIngestionJob integration tests', async (t) => {
   const accountId = 'acc-ingest-' + Date.now();
   const postId1 = 'post-ingest-1-' + Date.now();
   const postId2 = 'post-ingest-2-' + Date.now();
+  const postId3 = 'post-ingest-3-' + Date.now();
 
   let profile: any;
   let seededPost1: any;
   let seededPost2: any;
+  let seededPost3: any;
 
   // Insert mock profile and posts to fulfill foreign key constraints
   const [insertedProfile] = await db
@@ -57,13 +59,30 @@ test('processIngestionJob integration tests', async (t) => {
 
   seededPost2 = post2;
 
+  // Story 3.7g — a third seeded post that carries platformPostId/platformPostType, so its
+  // ingested event resolves a platform-prefixed slug (AC1) instead of the legacy hex fallback.
+  const [post3] = await db
+    .insert(posts)
+    .values({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'A post with a resolvable platform identity',
+      postUrl: 'https://instagram.com/p/' + postId3,
+      publishedAt: new Date(),
+      platformPostId: 'Cx9uWttkSN',
+      platformPostType: 'p',
+    })
+    .returning();
+
+  seededPost3 = post3;
+
   // Cleanup: delete schedules, events, posts, profiles
   t.after(async () => {
     // delete all schedules linked to events we might have inserted
     const createdEvents = await db
       .select({ id: events.id })
       .from(events)
-      .where(inArray(events.postId, [seededPost1.id, seededPost2.id]));
+      .where(inArray(events.postId, [seededPost1.id, seededPost2.id, seededPost3.id]));
 
     const eventIds = createdEvents.map((e) => e.id);
     if (eventIds.length > 0) {
@@ -71,7 +90,7 @@ test('processIngestionJob integration tests', async (t) => {
       await db.delete(events).where(inArray(events.id, eventIds));
     }
 
-    await db.delete(posts).where(inArray(posts.id, [seededPost1.id, seededPost2.id]));
+    await db.delete(posts).where(inArray(posts.id, [seededPost1.id, seededPost2.id, seededPost3.id]));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
     setSendEventNotificationsSeam(originalSendEventNotificationsSeam);
   });
@@ -137,6 +156,9 @@ test('processIngestionJob integration tests', async (t) => {
     assert.strictEqual(insertedEvent.eventName, message.eventName);
     assert.strictEqual(insertedEvent.location, 'Chicago, IL');
     assert.strictEqual(insertedEvent.confidenceScore, 0.99);
+    // Story 3.7g AC2 — seededPost1 has no platformPostId/platformPostType, so the legacy hex
+    // fallback ($defaultFn) must have fired: unambiguous by shape, unchanged.
+    assert.match(insertedEvent.slug, /^[0-9a-f]{12}$/);
 
     // Verify schedules rows exist
     const insertedSchedules = await db
@@ -200,6 +222,8 @@ test('processIngestionJob integration tests', async (t) => {
 
     assert.ok(insertedEvent);
     assert.strictEqual(insertedEvent.location, 'Location not specified');
+    // Story 3.7g AC2 — seededPost2 also has no platformPostId/platformPostType.
+    assert.match(insertedEvent.slug, /^[0-9a-f]{12}$/);
 
     const insertedSchedules = await db
       .select()
@@ -207,5 +231,28 @@ test('processIngestionJob integration tests', async (t) => {
       .where(eq(schedules.eventId, insertedEvent.id));
 
     assert.strictEqual(insertedSchedules.length, 0);
+  });
+
+  await t.test('Story 3.7g: builds a platform-prefixed slug when the source post resolves', async () => {
+    const message: ExtractedEventMessage = {
+      postId: seededPost3.id,
+      sourceSocialMediaAccountId: accountId,
+      eventName: 'Platform Slug Event ' + Date.now(),
+      types: [EventType.OTHER],
+      categories: [EventCategory.OTHER],
+      confidenceScore: 0.85,
+      schedules: [],
+    };
+
+    const res = await processIngestionJob(message);
+    assert.strictEqual(res.inserted, true);
+
+    const [insertedEvent] = await db
+      .select()
+      .from(events)
+      .where(eq(events.postId, seededPost3.id));
+
+    assert.ok(insertedEvent);
+    assert.strictEqual(insertedEvent.slug, 'ig_p_Cx9uWttkSN');
   });
 });

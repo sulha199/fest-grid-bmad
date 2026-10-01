@@ -71,6 +71,17 @@ export interface ExtractedEventMessage {
   links?: EventLink[];
 }
 
+// Story 3.7g — a plain, DB/ORM-decoupled shape describing the fields of a `posts` row that
+// `buildEventInsertValues()` needs to derive a platform-prefixed slug. Deliberately NOT
+// `typeof posts.$inferSelect` (or any other Drizzle-derived type): packages/domain is imported
+// directly by apps/web as well as apps/backend, so per project-context.md's Code Organization
+// rule it must stay free of any dependency on @festgrid/database's Drizzle schema types.
+export interface EventSourcePostIdentity {
+  platform: string;
+  platformPostId: string | null;
+  platformPostType: string | null;
+}
+
 export interface EventInsertValues {
   postId: string;
   sourceSocialMediaAccountId: string;
@@ -84,6 +95,12 @@ export interface EventInsertValues {
   description?: string | null;
   confidenceScore?: number | null;
   links?: EventLink[] | null;
+  // Story 3.7g — present only when a platform-derivable slug was built from the source post's
+  // platformPostId/platformPostType (e.g. `ig_p_Cx9uWttkSN`); omitted otherwise so Drizzle's
+  // `events.slug` `$defaultFn` (legacy hex) fires on insert. Never set to `undefined` explicitly
+  // — the key must be physically absent for the fallback to engage (see
+  // build-event-insert-values.ts for why).
+  slug?: string;
 }
 
 export interface ScheduleInsertValues {

@@ -1,10 +1,14 @@
+---
+baseline_commit: df9de138c4dfe581adbe34c16ade6eea491541e7
+---
+
 # Story 3.7g: Build platform-prefixed event slugs at ingestion
 
 ## Story Details
 
 - Epic: 3
 - Story ID: 3.7g
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -24,27 +28,27 @@ so that links are readable and the embed can be resolved from the URL alone.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Domain types (AC: 1, 2, 4)
-  - [ ] In `packages/domain/src/events/types.ts`, add an `EventSourcePostIdentity` interface: `{ platform: string; platformPostId: string | null; platformPostType: string | null }` — a plain, DB/ORM-decoupled shape (deliberately **not** `typeof posts.$inferSelect`), with a comment explaining why (packages/domain must stay decoupled from `@festgrid/database`'s Drizzle types per project-context.md's Code Organization rule).
-  - [ ] Add `slug?: string` to `EventInsertValues` (optional — present only when a platform-derivable slug was built; omitted otherwise so Drizzle's existing `$defaultFn` fires, see Task 2).
-- [ ] Task 2 — Slug construction in `buildEventInsertValues()` (AC: 1, 2, 4)
-  - [ ] Add a private helper (e.g. `buildPlatformPrefixedSlug(sourcePost: EventSourcePostIdentity | null): string | undefined`) in `build-event-insert-values.ts` that: returns `undefined` when `sourcePost` is `null` or either `platformPostId`/`platformPostType` is `null`; otherwise resolves `getPlatformSlug(sourcePost.platform as ScrapablePlatform)` (`packages/domain/src/scraper/platform-registry.ts` — **never** a new platform-code mapping) and returns `undefined` if that lookup itself is falsy (unsupported/unrecognized platform value — never guess); otherwise returns `` `${platformSlug}_${sourcePost.platformPostType}_${sourcePost.platformPostId}` ``. No ordinal suffix (AC4) — this function only ever produces the ordinal-0 form.
-  - [ ] Change `buildEventInsertValues`'s signature to `buildEventInsertValues(message: ExtractedEventMessage, sourcePost: EventSourcePostIdentity | null)`. Compute `const slug = buildPlatformPrefixedSlug(sourcePost);` and **conditionally** add the `slug` key to the returned `event` object only `if (slug !== undefined)` — do **not** unconditionally write `slug: slug` into the object literal, since that would add an enumerable `slug: undefined` key even on the fallback path, which (a) breaks every existing test's `deepStrictEqual` comparison and (b) — more importantly — Drizzle's insert builder only triggers a column's `$defaultFn` when `value[fieldName] === undefined`, which is true whether the key is physically absent or present-with-`undefined`, so omitting the key is the correct, minimal way to delegate to the existing fallback (verified directly against the installed `drizzle-orm@0.30.10` dialect source, `pg-core/dialect.js` ~line 336: `if (colValue === void 0) { if (col.defaultFn !== void 0) { … } }`).
-- [ ] Task 3 — Thread the source post into the ingestion pipeline (AC: 1, 2)
-  - [ ] In `apps/backend/src/lib/ingestor/process-ingestion-job.ts`, inside the existing `db.transaction(async (tx) => { … })` callback, before building insert values: `const [sourcePost] = await tx.select({ platform: posts.platform, platformPostId: posts.platformPostId, platformPostType: posts.platformPostType }).from(posts).where(eq(posts.id, message.postId)).limit(1);` then call `buildEventInsertValues(message, sourcePost ?? null)` (moved inside the transaction callback, since it now depends on a DB read that must see a consistent view alongside the insert). Add the needed `posts` import from `@festgrid/database` (alongside the existing `events, schedules` import) and `eq` from `drizzle-orm`.
-  - [ ] Do **not** change `ProcessingJobMessage`, `ExtractedEventMessage`, `transformGeminiResponseToEventInfo`, or `processAiJob` — this story's data path is confined to `process-ingestion-job.ts` reading the `posts` row directly, per the user's explicit decision below (see Dev Notes "Design decision").
-- [ ] Task 4 — Schema comment only, no migration (AC: 1)
-  - [ ] In `packages/database/schema.ts`, update the comment above `events.slug` (currently referencing Story 3.7g in the `platformPostId`/`platformPostType` comment on `posts`) to also note, next to `events.slug`'s own definition, that `$defaultFn(generateSlug)` is now exercised only as the no-resolvable-platform-post fallback (Rule 4) — the primary, platform-derivable path is built by `buildEventInsertValues()` (Story 3.7g). Do **not** remove or modify `$defaultFn(generateSlug)` itself — Task 2 only ever omits the `slug` key for Drizzle to fall back to it unchanged, exactly as AC2/AD-16 Rule 4 ("unchanged, not new code") requires.
-  - [ ] Run `pnpm --filter @festgrid/database generate` and confirm it produces **no** new migration file (a comment-only TS change has zero DDL effect) — this is the verification that Task 4 stayed comment-only.
-- [ ] Task 5 — Unit tests, `packages/domain` (AC: 1, 2, 4) — 100%-coverage rule
-  - [ ] Update all existing `buildEventInsertValues(message)` calls in `build-event-insert-values.test.ts` to pass the new required second argument, `null`, for every case that isn't specifically testing slug behavior (these cases don't set `sourcePost`, so they must keep asserting no `slug` key appears in `result.event` — i.e. `assert.strictEqual('slug' in result.event, false)` or equivalent, not a `deepStrictEqual` that would need an explicit `slug: undefined`).
-  - [ ] Add new cases: (a) `sourcePost` with `platform: 'instagram', platformPostId: 'Cx9uWttkSN', platformPostType: 'p'` → `result.event.slug === 'ig_p_Cx9uWttkSN'`; (b) same with `platformPostType: 'reel'` → `'ig_reel_Cx9uWttkSN'` (verifies `reel`/`reels` are carried verbatim, never normalized, per AD-16 Rule 2); (c) `sourcePost` with `platformPostId: null` (URL unparseable at scrape time) → no `slug` key; (d) `sourcePost: null` (post row not found) → no `slug` key; (e) `sourcePost` with an unrecognized `platform` string (e.g. `'tiktok'`, not yet in `getPlatformSlug()`'s map) → no `slug` key, never a guessed value.
-- [ ] Task 6 — Integration tests, `apps/backend` (AC: 1, 2)
-  - [ ] In `process-ingestion-job.test.ts`, add a new seeded post that sets `platformPostId`/`platformPostType` (e.g. `platformPostId: 'Cx9uWttkSN', platformPostType: 'p'`) and assert the resulting `insertedEvent.slug === 'ig_p_Cx9uWttkSN'`.
-  - [ ] Strengthen the two existing happy-path cases (which seed posts without `platformPostId`/`platformPostType`, i.e. null) to explicitly assert the resulting `insertedEvent.slug` matches the legacy hex shape `/^[0-9a-f]{12}$/` — locks in AC2's "unambiguous by shape, unchanged" behavior, not just that *some* slug exists.
-  - [ ] Run this suite with `TZ=UTC` and a clean `seed:volume:clean` state first (per `cc-024-multi-event-wave-plan.md`'s "Test-gate facts learned while orchestrating Wave 2A" — unrelated pre-existing failures: a timezone-dependent fixture and a `.env`-dependent `system-key-adapter` suite — are expected and not caused by this story; do not chase them).
-- [ ] Task 7 — PRD verification (AC: 5)
-  - [ ] Re-read `prd.md` §4.1 (`EventInfo.slug`, lines ~420-433), §4.4 (`Schedule.slug`, lines ~635-641), and §8.2 (custom-slug premium feature, line ~1600). Confirm each already describes the platform-prefixed scheme / legacy-hex fallback correctly (already corrected 2026-10-01, commit `793e1f34` — verified during story creation, see Dev Notes). No edit expected; if drift is found, fix it and note it in Completion Notes.
+- [x] Task 1 — Domain types (AC: 1, 2, 4)
+  - [x] In `packages/domain/src/events/types.ts`, add an `EventSourcePostIdentity` interface: `{ platform: string; platformPostId: string | null; platformPostType: string | null }` — a plain, DB/ORM-decoupled shape (deliberately **not** `typeof posts.$inferSelect`), with a comment explaining why (packages/domain must stay decoupled from `@festgrid/database`'s Drizzle types per project-context.md's Code Organization rule).
+  - [x] Add `slug?: string` to `EventInsertValues` (optional — present only when a platform-derivable slug was built; omitted otherwise so Drizzle's existing `$defaultFn` fires, see Task 2).
+- [x] Task 2 — Slug construction in `buildEventInsertValues()` (AC: 1, 2, 4)
+  - [x] Add a private helper (e.g. `buildPlatformPrefixedSlug(sourcePost: EventSourcePostIdentity | null): string | undefined`) in `build-event-insert-values.ts` that: returns `undefined` when `sourcePost` is `null` or either `platformPostId`/`platformPostType` is `null`; otherwise resolves `getPlatformSlug(sourcePost.platform as ScrapablePlatform)` (`packages/domain/src/scraper/platform-registry.ts` — **never** a new platform-code mapping) and returns `undefined` if that lookup itself is falsy (unsupported/unrecognized platform value — never guess); otherwise returns `` `${platformSlug}_${sourcePost.platformPostType}_${sourcePost.platformPostId}` ``. No ordinal suffix (AC4) — this function only ever produces the ordinal-0 form.
+  - [x] Change `buildEventInsertValues`'s signature to `buildEventInsertValues(message: ExtractedEventMessage, sourcePost: EventSourcePostIdentity | null)`. Compute `const slug = buildPlatformPrefixedSlug(sourcePost);` and **conditionally** add the `slug` key to the returned `event` object only `if (slug !== undefined)` — do **not** unconditionally write `slug: slug` into the object literal, since that would add an enumerable `slug: undefined` key even on the fallback path, which (a) breaks every existing test's `deepStrictEqual` comparison and (b) — more importantly — Drizzle's insert builder only triggers a column's `$defaultFn` when `value[fieldName] === undefined`, which is true whether the key is physically absent or present-with-`undefined`, so omitting the key is the correct, minimal way to delegate to the existing fallback (verified directly against the installed `drizzle-orm@0.30.10` dialect source, `pg-core/dialect.js` ~line 336: `if (colValue === void 0) { if (col.defaultFn !== void 0) { … } }`).
+- [x] Task 3 — Thread the source post into the ingestion pipeline (AC: 1, 2)
+  - [x] In `apps/backend/src/lib/ingestor/process-ingestion-job.ts`, inside the existing `db.transaction(async (tx) => { … })` callback, before building insert values: `const [sourcePost] = await tx.select({ platform: posts.platform, platformPostId: posts.platformPostId, platformPostType: posts.platformPostType }).from(posts).where(eq(posts.id, message.postId)).limit(1);` then call `buildEventInsertValues(message, sourcePost ?? null)` (moved inside the transaction callback, since it now depends on a DB read that must see a consistent view alongside the insert). Add the needed `posts` import from `@festgrid/database` (alongside the existing `events, schedules` import) and `eq` from `drizzle-orm`.
+  - [x] Do **not** change `ProcessingJobMessage`, `ExtractedEventMessage`, `transformGeminiResponseToEventInfo`, or `processAiJob` — this story's data path is confined to `process-ingestion-job.ts` reading the `posts` row directly, per the user's explicit decision below (see Dev Notes "Design decision").
+- [x] Task 4 — Schema comment only, no migration (AC: 1)
+  - [x] In `packages/database/schema.ts`, update the comment above `events.slug` (currently referencing Story 3.7g in the `platformPostId`/`platformPostType` comment on `posts`) to also note, next to `events.slug`'s own definition, that `$defaultFn(generateSlug)` is now exercised only as the no-resolvable-platform-post fallback (Rule 4) — the primary, platform-derivable path is built by `buildEventInsertValues()` (Story 3.7g). Do **not** remove or modify `$defaultFn(generateSlug)` itself — Task 2 only ever omits the `slug` key for Drizzle to fall back to it unchanged, exactly as AC2/AD-16 Rule 4 ("unchanged, not new code") requires.
+  - [x] Run `pnpm --filter @festgrid/database generate` and confirm it produces **no** new migration file (a comment-only TS change has zero DDL effect) — this is the verification that Task 4 stayed comment-only.
+- [x] Task 5 — Unit tests, `packages/domain` (AC: 1, 2, 4) — 100%-coverage rule
+  - [x] Update all existing `buildEventInsertValues(message)` calls in `build-event-insert-values.test.ts` to pass the new required second argument, `null`, for every case that isn't specifically testing slug behavior (these cases don't set `sourcePost`, so they must keep asserting no `slug` key appears in `result.event` — i.e. `assert.strictEqual('slug' in result.event, false)` or equivalent, not a `deepStrictEqual` that would need an explicit `slug: undefined`).
+  - [x] Add new cases: (a) `sourcePost` with `platform: 'instagram', platformPostId: 'Cx9uWttkSN', platformPostType: 'p'` → `result.event.slug === 'ig_p_Cx9uWttkSN'`; (b) same with `platformPostType: 'reel'` → `'ig_reel_Cx9uWttkSN'` (verifies `reel`/`reels` are carried verbatim, never normalized, per AD-16 Rule 2); (c) `sourcePost` with `platformPostId: null` (URL unparseable at scrape time) → no `slug` key; (d) `sourcePost: null` (post row not found) → no `slug` key; (e) `sourcePost` with an unrecognized `platform` string (e.g. `'tiktok'`, not yet in `getPlatformSlug()`'s map) → no `slug` key, never a guessed value.
+- [x] Task 6 — Integration tests, `apps/backend` (AC: 1, 2)
+  - [x] In `process-ingestion-job.test.ts`, add a new seeded post that sets `platformPostId`/`platformPostType` (e.g. `platformPostId: 'Cx9uWttkSN', platformPostType: 'p'`) and assert the resulting `insertedEvent.slug === 'ig_p_Cx9uWttkSN'`.
+  - [x] Strengthen the two existing happy-path cases (which seed posts without `platformPostId`/`platformPostType`, i.e. null) to explicitly assert the resulting `insertedEvent.slug` matches the legacy hex shape `/^[0-9a-f]{12}$/` — locks in AC2's "unambiguous by shape, unchanged" behavior, not just that *some* slug exists.
+  - [x] Run this suite with `TZ=UTC` and a clean `seed:volume:clean` state first (per `cc-024-multi-event-wave-plan.md`'s "Test-gate facts learned while orchestrating Wave 2A" — unrelated pre-existing failures: a timezone-dependent fixture and a `.env`-dependent `system-key-adapter` suite — are expected and not caused by this story; do not chase them).
+- [x] Task 7 — PRD verification (AC: 5)
+  - [x] Re-read `prd.md` §4.1 (`EventInfo.slug`, lines ~420-433), §4.4 (`Schedule.slug`, lines ~635-641), and §8.2 (custom-slug premium feature, line ~1600). Confirm each already describes the platform-prefixed scheme / legacy-hex fallback correctly (already corrected 2026-10-01, commit `793e1f34` — verified during story creation, see Dev Notes). No edit expected; if drift is found, fix it and note it in Completion Notes.
 
 ## Dev Notes
 
@@ -122,27 +126,27 @@ so that links are readable and the embed can be resolved from the URL alone.
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — builds only the base (ordinal-0) platform-prefixed slug in `buildEventInsertValues()`; no ordinal suffix, no re-slug/alias logic (those are 3.6t/3.6v).
-- [ ] Architecture and boundary confirmation — `packages/domain` stays DB/ORM/Node-dependency-free (no `@festgrid/database` import, no `crypto`); the legacy hex fallback stays in `schema.ts`'s `$defaultFn`, unduplicated.
-- [ ] Testing plan confirmation — Tasks 5/6 cover unit (100% domain) and integration (real-DB) coverage of both the platform-derivable and fallback paths.
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1/3 cited from the CC-024 batch readiness report (no gap); Gate 2 run fresh this story (no gap); no prerequisite story needed.
+- [x] Scope confirmation — builds only the base (ordinal-0) platform-prefixed slug in `buildEventInsertValues()`; no ordinal suffix, no re-slug/alias logic (those are 3.6t/3.6v).
+- [x] Architecture and boundary confirmation — `packages/domain` stays DB/ORM/Node-dependency-free (no `@festgrid/database` import, no `crypto`); the legacy hex fallback stays in `schema.ts`'s `$defaultFn`, unduplicated.
+- [x] Testing plan confirmation — Tasks 5/6 cover unit (100% domain) and integration (real-DB) coverage of both the platform-derivable and fallback paths.
+- [x] Explicit human approval state — granted via the dev-story dispatch instruction (CC-024 Wave 2A), which restated and confirmed this exact scope/design (base-slug-only, no 3.6t/3.6v suffix/alias logic, the DB-lookup-in-transaction design) before coding began.
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1/3 cited from the CC-024 batch readiness report (no gap); Gate 2 run fresh this story (no gap); no prerequisite story needed.
 
 ## Testing Requirements
 
-- [ ] Unit tests (`packages/domain`, `tsx --test`, 100% coverage) — Task 5.
-- [ ] Integration tests (`apps/backend`, `tsx --test` against the real local Postgres) — Task 6.
-- [ ] E2E tests — N/A. No UI/user-facing flow changes; the only externally visible effect is the slug string embedded in a new event's existing, unmodified `/events/{slug}` route, which the existing event-detail E2E coverage does not assert a specific slug format against.
+- [x] Unit tests (`packages/domain`, `tsx --test`, 100% coverage) — Task 5.
+- [x] Integration tests (`apps/backend`, `tsx --test` against the real local Postgres) — Task 6.
+- [x] E2E tests — N/A. No UI/user-facing flow changes; the only externally visible effect is the slug string embedded in a new event's existing, unmodified `/events/{slug}` route, which the existing event-detail E2E coverage does not assert a specific slug format against.
 
 ## Deliverables Checklist
 
-- [ ] `EventSourcePostIdentity` type and `EventInsertValues.slug?` field added in `packages/domain/src/events/types.ts`.
-- [ ] `buildEventInsertValues()` builds the base platform-prefixed slug when resolvable, omits `slug` otherwise, and takes the new `sourcePost` second argument.
-- [ ] `process-ingestion-job.ts` looks up the source post's `platform`/`platformPostId`/`platformPostType` inside its existing transaction and passes them through.
-- [ ] All existing and 5 new domain unit tests pass with 100% coverage of the new logic.
-- [ ] New and strengthened `apps/backend` integration tests pass against the real local Postgres.
-- [ ] `schema.ts` comment updated; `drizzle-kit generate` confirmed to produce no new migration.
-- [ ] `prd.md` §4.1/§4.4/§8.2 re-verified correct (or fixed if drift found).
+- [x] `EventSourcePostIdentity` type and `EventInsertValues.slug?` field added in `packages/domain/src/events/types.ts`.
+- [x] `buildEventInsertValues()` builds the base platform-prefixed slug when resolvable, omits `slug` otherwise, and takes the new `sourcePost` second argument.
+- [x] `process-ingestion-job.ts` looks up the source post's `platform`/`platformPostId`/`platformPostType` inside its existing transaction and passes them through.
+- [x] All existing and 5 new domain unit tests pass with 100% coverage of the new logic.
+- [x] New and strengthened `apps/backend` integration tests pass against the real local Postgres.
+- [x] `schema.ts` comment updated; `drizzle-kit generate` confirmed to produce no new migration.
+- [x] `prd.md` §4.1/§4.4/§8.2 re-verified correct (or fixed if drift found).
 
 ## Out of Scope
 
@@ -153,22 +157,50 @@ so that links are readable and the embed can be resolved from the URL alone.
 
 ## Definition of Done
 
-- [ ] AC1-AC5 satisfied.
-- [ ] Required tests passing (Tasks 5/6; Testing Requirements above).
-- [ ] Lint and type checks passing for `packages/domain`, `packages/database`, and `apps/backend`.
+- [x] AC1-AC5 satisfied.
+- [x] Required tests passing (Tasks 5/6; Testing Requirements above).
+- [x] Lint and type checks passing for `packages/domain`, `packages/database`, and `apps/backend`.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — Status: review
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Sonnet 5 (claude-sonnet-5)
 
 ### Debug Log References
 
+- `pnpm --filter @festgrid/domain test` → 362/362 pass (20 suites), including the new `build-event-insert-values.test.ts` cases.
+- `pnpm --filter @festgrid/domain build` (tsc) → clean.
+- `pnpm --filter @festgrid/domain lint` (eslint, `--max-warnings 0`) → clean.
+- `pnpm --filter @festgrid/database generate` → "No schema changes, nothing to migrate" — confirms Task 4's `schema.ts` edit was comment-only, zero DDL effect.
+- `pnpm --filter @festgrid/database test` (vitest) → 10/10 pass (unaffected by this story; run to confirm no regression).
+- `pnpm --filter @festgrid/database seed:volume:clean` run before the backend test, per the dispatch instruction's known environment fact.
+- `TZ=UTC npx tsx --test src/lib/ingestor/process-ingestion-job.test.ts` (cwd `apps/backend`) → 5/5 pass (4 subtests under the parent test), including the new platform-prefixed-slug case and the two strengthened legacy-hex-shape assertions.
+- `pnpm lint` (repo root, unfiltered, all 8 packages) → 8/8 tasks pass (pre-existing `apps/web` `no-explicit-any`/unused-var warnings only, unrelated to this story, zero errors).
+- `pnpm build` (repo root, unfiltered, all 8 packages) → 8/8 tasks pass, exit 0.
+- Per the dispatch instruction, the repo-wide `pnpm test` (~10 min) was deliberately NOT run; verification was scoped to this story's own tests (`packages/domain`, `apps/backend` ingestion test, `packages/database`) plus the mandatory unfiltered repo-root `lint`/`build`.
+
 ### Completion Notes List
 
+- Implemented AD-16 Rules 1/3/4 platform-prefixed event slug construction exactly per the story's pre-decided design (Dev Notes "Design decision," option A): `process-ingestion-job.ts` looks up the `posts` row inside its existing `db.transaction` callback and passes a plain `EventSourcePostIdentity` into `buildEventInsertValues()`'s new second argument — `ExtractedEventMessage`/`transformGeminiResponseToEventInfo`/`processAiJob` were not touched.
+- `buildEventInsertValues()` is now a 2-argument function; the private `buildPlatformPrefixedSlug()` helper resolves `getPlatformSlug()` from the existing platform registry (never a new mapping) and returns `undefined` — never a guess — for every non-derivable case (no post row, null `platformPostId`/`platformPostType`, or an unrecognized platform). The `event.slug` key is only ever conditionally assigned (`if (slug !== undefined) event.slug = slug;`), never written as an explicit `slug: undefined`, so Drizzle's `$defaultFn` legacy-hex fallback fires unchanged on the omitted-key path (verified against the installed `drizzle-orm@0.30.10` dialect behavior cited in Task 2).
+- `EventSourcePostIdentity` is a new plain interface in `packages/domain/src/events/types.ts`, deliberately decoupled from any `@festgrid/database`/Drizzle type, per project-context.md's Code Organization rule (packages/domain is also imported by `apps/web`).
+- This story builds only the base (ordinal-0) slug — no `-{ordinal}`/`~{ordinal}` suffix and no re-slug/alias logic; those remain Stories 3.6t/3.6v's scope, confirmed untouched.
+- `schema.ts`'s `events.slug` column definition itself is unchanged; only a clarifying comment was added. `drizzle-kit generate` confirmed zero new migration file.
+- Found and fixed one incidental call site not listed in the story's File Change Plan: `apps/backend/scripts/poc-ingestion-preview.ts` calls `buildEventInsertValues()` directly and would have failed `tsc`/`pnpm build` against the new required second argument. Passed `null` (this dry-run preview script has no real `posts` row to look up — nothing is written to the DB), with a comment explaining why. This was necessary to keep `apps/backend`'s build green per the story's own Verification Plan and Definition of Done (lint/build passing for `apps/backend`), not a scope expansion of the story's actual feature.
+- Task 7 (PRD verification): re-read `prd.md` §4.1 (`EventInfo.slug`), §4.4 (`Schedule.slug`), and §8.2 (custom-slug premium feature). All three already correctly describe the platform-prefixed scheme and the legacy-hex fallback (no "Nano ID" language) — confirmed already corrected by the 2026-10-01 CC-024 update. No edit was needed or made.
+- Pre-Coding Approval Gate: explicit human approval was granted via the dev-story dispatch instruction itself, which restated and reconfirmed this story's exact scope and design decisions (base-slug-only; the DB-lookup-inside-the-transaction design) before any code was written.
+
 ### File List
+
+- `packages/domain/src/events/types.ts` — modified (added `EventSourcePostIdentity`; added `EventInsertValues.slug?: string`).
+- `packages/domain/src/events/build-event-insert-values.ts` — modified (added `buildPlatformPrefixedSlug()`; `buildEventInsertValues()` is now 2-argument; conditional `event.slug` assignment).
+- `packages/domain/src/events/build-event-insert-values.test.ts` — modified (all existing calls updated to pass `null`; added `'slug' in result.event` absence assertions; added 5 new slug-construction test cases).
+- `apps/backend/src/lib/ingestor/process-ingestion-job.ts` — modified (moved `buildEventInsertValues()` call inside the transaction; added `posts` row lookup; added `posts`/`eq` imports).
+- `apps/backend/src/lib/ingestor/process-ingestion-job.test.ts` — modified (added a third seeded post with `platformPostId`/`platformPostType`; added a platform-prefixed-slug integration test case; strengthened the two existing happy-path cases to assert the legacy hex slug shape).
+- `packages/database/schema.ts` — modified (comment-only update above `events.slug`; no column/DDL change, confirmed via `drizzle-kit generate`).
+- `apps/backend/scripts/poc-ingestion-preview.ts` — modified (updated its `buildEventInsertValues()` call site to pass `null` for the new required second argument, with an explanatory comment; required to keep `apps/backend`'s build green, not a story-feature change).

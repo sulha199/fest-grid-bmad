@@ -289,7 +289,11 @@ async function main() {
         resolvedScheduleLocations: new Map(),
         sourcePostText: scrapedPost.content,
       });
-      const { event, schedules } = buildEventInsertValues(extractedMessage);
+      // No real `posts` row exists for this one-off preview run (nothing is written to the DB),
+      // so there's no source post identity to derive a platform-prefixed slug from -- pass
+      // `null` and let the preview show the legacy-hex-fallback shape (no `slug` key), per
+      // Story 3.7g AC2.
+      const { event, schedules } = buildEventInsertValues(extractedMessage, null);
       console.log('events row:', JSON.stringify(event, null, 2));
       console.log(`schedules rows (${schedules.length}):`, JSON.stringify(schedules, null, 2));
       console.log(

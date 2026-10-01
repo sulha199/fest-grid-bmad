@@ -339,6 +339,12 @@ export const scraperActorRuns = pgTable('scraper_actor_runs', {
 
 export const events = pgTable('events', {
   id: uuid('id').defaultRandom().primaryKey(),
+  // $defaultFn(generateSlug) (legacy hex) is now exercised only as the no-resolvable-platform-
+  // post fallback (AD-16 Rule 4) -- the primary, platform-derivable slug (e.g. `ig_p_Cx9uWttkSN`)
+  // is built explicitly by buildEventInsertValues() (Story 3.7g) from the source post's
+  // platformPostId/platformPostType before insert, in which case Drizzle never calls this
+  // $defaultFn at all. Unchanged: still the only slug generator for events with no resolvable
+  // source post, and existing hex-slugged events are never backfilled (AC3).
   slug: text('slug').$defaultFn(generateSlug).unique().notNull(),
   eventName: text('event_name').notNull(),
   // Drizzle doesn't perfectly support enum arrays, so we use text arrays but expect values from eventTypeEnum

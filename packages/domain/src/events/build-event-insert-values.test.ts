@@ -40,7 +40,7 @@ test('buildEventInsertValues - maps fields correctly', () => {
     ],
   };
 
-  const result = buildEventInsertValues(message);
+  const result = buildEventInsertValues(message, null);
 
   assert.deepStrictEqual(result.event, {
     postId: 'post-1',
@@ -93,10 +93,11 @@ test('buildEventInsertValues - applies placeholder when location is absent', () 
     schedules: [],
   };
 
-  const result = buildEventInsertValues(message);
+  const result = buildEventInsertValues(message, null);
   assert.strictEqual(result.event.location, 'Location not specified');
   assert.strictEqual(result.event.hasPrivateContact, false);
   assert.deepStrictEqual(result.schedules, []);
+  assert.strictEqual('slug' in result.event, false);
 });
 
 test('buildEventInsertValues - maps hasPrivateContact: true through explicitly', () => {
@@ -111,9 +112,10 @@ test('buildEventInsertValues - maps hasPrivateContact: true through explicitly',
     schedules: [],
   };
 
-  const result = buildEventInsertValues(message);
+  const result = buildEventInsertValues(message, null);
   assert.strictEqual(result.event.hasPrivateContact, true);
   assert.strictEqual(result.event.contactInfo, null);
+  assert.strictEqual('slug' in result.event, false);
 });
 
 test('buildEventInsertValues - passes links through when present on the message', () => {
@@ -128,8 +130,9 @@ test('buildEventInsertValues - passes links through when present on the message'
     links: [{ url: 'https://example.com/tickets', label: 'Tickets' }],
   };
 
-  const result = buildEventInsertValues(message);
+  const result = buildEventInsertValues(message, null);
   assert.deepStrictEqual(result.event.links, [{ url: 'https://example.com/tickets', label: 'Tickets' }]);
+  assert.strictEqual('slug' in result.event, false);
 });
 
 test('buildEventInsertValues - defaults links to null when absent on the message', () => {
@@ -143,8 +146,9 @@ test('buildEventInsertValues - defaults links to null when absent on the message
     schedules: [],
   };
 
-  const result = buildEventInsertValues(message);
+  const result = buildEventInsertValues(message, null);
   assert.strictEqual(result.event.links, null);
+  assert.strictEqual('slug' in result.event, false);
 });
 
 test('buildEventInsertValues - handles absent coordinates and timezone fields', () => {
@@ -163,7 +167,7 @@ test('buildEventInsertValues - handles absent coordinates and timezone fields', 
     ],
   };
 
-  const result = buildEventInsertValues(message);
+  const result = buildEventInsertValues(message, null);
   assert.strictEqual(result.schedules[0].latitude, null);
   assert.strictEqual(result.schedules[0].longitude, null);
   assert.strictEqual(result.schedules[0].timezone, null);
@@ -190,7 +194,7 @@ test('buildEventInsertValues - isMainSchedule normalization: exactly one true st
     { isMainSchedule: false, eventStartDate: '2026-09-01' },
     { isMainSchedule: true, eventStartDate: '2026-09-02' },
     { isMainSchedule: false, eventStartDate: '2026-09-03' },
-  ]));
+  ]), null);
 
   assert.deepStrictEqual(result.schedules.map((s) => s.isMainSchedule), [false, true, false]);
 });
@@ -200,7 +204,7 @@ test('buildEventInsertValues - isMainSchedule normalization: multiple true keeps
     { isMainSchedule: true, eventStartDate: '2026-09-01' },
     { isMainSchedule: true, eventStartDate: '2026-09-02' },
     { isMainSchedule: true, eventStartDate: '2026-09-03' },
-  ]));
+  ]), null);
 
   assert.deepStrictEqual(result.schedules.map((s) => s.isMainSchedule), [true, false, false]);
 });
@@ -210,7 +214,7 @@ test('buildEventInsertValues - isMainSchedule normalization: zero true promotes 
     { isMainSchedule: false, eventStartDate: '2026-09-03' },
     { isMainSchedule: false, eventStartDate: '2026-09-01' },
     { isMainSchedule: false, eventStartDate: '2026-09-02' },
-  ]));
+  ]), null);
 
   assert.deepStrictEqual(result.schedules.map((s) => s.isMainSchedule), [false, true, false]);
 });
@@ -220,7 +224,7 @@ test('buildEventInsertValues - isMainSchedule normalization: zero true with a sa
     { isMainSchedule: false, eventStartDate: '2026-09-01', eventStartTime: '20:00:00' },
     { isMainSchedule: false, eventStartDate: '2026-09-01', eventStartTime: '10:00:00' },
     { isMainSchedule: false, eventStartDate: '2026-09-01', eventStartTime: '15:00:00' },
-  ]));
+  ]), null);
 
   assert.deepStrictEqual(result.schedules.map((s) => s.isMainSchedule), [false, true, false]);
 });
@@ -230,7 +234,7 @@ test('buildEventInsertValues - isMainSchedule normalization: zero true, all date
     { isMainSchedule: false, eventStartDate: '2026-09-01', eventStartTime: '10:00:00' },
     { isMainSchedule: false, eventStartDate: '2026-09-01', eventStartTime: '10:00:00' },
     { isMainSchedule: false, eventStartDate: '2026-09-01', eventStartTime: '10:00:00' },
-  ]));
+  ]), null);
 
   assert.deepStrictEqual(result.schedules.map((s) => s.isMainSchedule), [true, false, false]);
 });
@@ -239,7 +243,69 @@ test('buildEventInsertValues - isMainSchedule normalization: zero true, missing 
   const result = buildEventInsertValues(messageWithSchedules([
     { isMainSchedule: false, eventStartDate: '2026-09-01' },
     { isMainSchedule: false, eventStartDate: '2026-09-01', eventStartTime: '09:00:00' },
-  ]));
+  ]), null);
 
   assert.deepStrictEqual(result.schedules.map((s) => s.isMainSchedule), [false, true]);
+});
+
+// Story 3.7g — platform-prefixed event slug construction (AD-16 Rules 1/3/4). The base slug is
+// `{platformSlug}_{postType}_{platformPostId}`, built only when the source post is fully
+// resolvable; every other case must omit the `slug` key so Drizzle's own `events.slug`
+// `$defaultFn` (legacy hex) fires unchanged (AC2).
+function messageForSlugTests(): ExtractedEventMessage {
+  return {
+    postId: 'post-slug',
+    sourceSocialMediaAccountId: 'account-slug',
+    eventName: 'Slug Test Event',
+    types: [EventType.OTHER],
+    categories: [EventCategory.OTHER],
+    confidenceScore: 0.9,
+    schedules: [],
+  };
+}
+
+test('buildEventInsertValues - builds the platform-prefixed slug when the source post is fully resolvable', () => {
+  const result = buildEventInsertValues(messageForSlugTests(), {
+    platform: 'instagram',
+    platformPostId: 'Cx9uWttkSN',
+    platformPostType: 'p',
+  });
+
+  assert.strictEqual(result.event.slug, 'ig_p_Cx9uWttkSN');
+});
+
+test('buildEventInsertValues - carries platformPostType verbatim (e.g. "reel"), never normalized', () => {
+  const result = buildEventInsertValues(messageForSlugTests(), {
+    platform: 'instagram',
+    platformPostId: 'Cx9uWttkSN',
+    platformPostType: 'reel',
+  });
+
+  assert.strictEqual(result.event.slug, 'ig_reel_Cx9uWttkSN');
+});
+
+test('buildEventInsertValues - omits slug when platformPostId is null (unparseable at scrape time)', () => {
+  const result = buildEventInsertValues(messageForSlugTests(), {
+    platform: 'instagram',
+    platformPostId: null,
+    platformPostType: 'p',
+  });
+
+  assert.strictEqual('slug' in result.event, false);
+});
+
+test('buildEventInsertValues - omits slug when sourcePost is null (post row not found)', () => {
+  const result = buildEventInsertValues(messageForSlugTests(), null);
+
+  assert.strictEqual('slug' in result.event, false);
+});
+
+test('buildEventInsertValues - omits slug when the platform does not resolve via getPlatformSlug(), never guessing', () => {
+  const result = buildEventInsertValues(messageForSlugTests(), {
+    platform: 'tiktok',
+    platformPostId: 'Cx9uWttkSN',
+    platformPostType: 'p',
+  });
+
+  assert.strictEqual('slug' in result.event, false);
 });

@@ -1,14 +1,25 @@
+import { eq } from 'drizzle-orm';
 import { db } from '../../db/client.js';
-import { events, schedules } from '@festgrid/database';
+import { events, schedules, posts } from '@festgrid/database';
 import { ExtractedEventMessage, buildEventInsertValues } from '@festgrid/domain';
 import { sendEventNotificationsSeam } from '../notifications/send-event-notifications.js';
 
 export async function processIngestionJob(message: ExtractedEventMessage): Promise<{ inserted: boolean }> {
-  const { event, schedules: scheduleValues } = buildEventInsertValues(message);
-
   let insertedEvent: any = null;
 
   const result = await db.transaction(async (tx) => {
+    // Story 3.7g — look up the source post's platform identity inside this transaction (so it
+    // sees a consistent view alongside the insert below) and pass it into
+    // buildEventInsertValues() so it can derive a platform-prefixed slug (AD-16 Rules 1/3/4).
+    // Moved inside the transaction because buildEventInsertValues() now depends on this DB read.
+    const [sourcePost] = await tx
+      .select({ platform: posts.platform, platformPostId: posts.platformPostId, platformPostType: posts.platformPostType })
+      .from(posts)
+      .where(eq(posts.id, message.postId))
+      .limit(1);
+
+    const { event, schedules: scheduleValues } = buildEventInsertValues(message, sourcePost ?? null);
+
     const insertedEvents = await tx
       .insert(events)
       .values(event)

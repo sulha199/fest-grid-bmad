@@ -1,6 +1,17 @@
-import { ExtractedEventMessage, EventInsertValues, ScheduleInsertValues, ExtractedScheduleMessage } from './types.js';
+import {
+  ExtractedEventMessage,
+  EventInsertValues,
+  EventSourcePostIdentity,
+  ScheduleInsertValues,
+  ExtractedScheduleMessage,
+} from './types.js';
+import { getPlatformSlug } from '../scraper/platform-registry.js';
+import { ScrapablePlatform } from '../subscriptions/platforms.js';
 
-export function buildEventInsertValues(message: ExtractedEventMessage): {
+export function buildEventInsertValues(
+  message: ExtractedEventMessage,
+  sourcePost: EventSourcePostIdentity | null
+): {
   event: EventInsertValues;
   schedules: ScheduleInsertValues[];
 } {
@@ -18,6 +29,11 @@ export function buildEventInsertValues(message: ExtractedEventMessage): {
     confidenceScore: message.confidenceScore ?? null,
     links: message.links ?? null,
   };
+
+  const slug = buildPlatformPrefixedSlug(sourcePost);
+  if (slug !== undefined) {
+    event.slug = slug;
+  }
 
   const schedules: ScheduleInsertValues[] = (message.schedules || []).map((s: ExtractedScheduleMessage) => {
     return {
@@ -41,6 +57,34 @@ export function buildEventInsertValues(message: ExtractedEventMessage): {
   normalizeMainSchedule(schedules);
 
   return { event, schedules };
+}
+
+/**
+ * Builds the base (ordinal-0) platform-prefixed event slug (e.g. `ig_p_Cx9uWttkSN`) from the
+ * source post's identity, per Architecture Spine AD-16 Rules 1/3/4.
+ *
+ * Returns `undefined` — never a guessed/placeholder value — whenever the slug can't be derived:
+ * no source post row (`sourcePost` is `null`), the post's `platformPostId`/`platformPostType`
+ * are null (unparseable at scrape time, or pre-3.7f data), or the post's `platform` doesn't
+ * resolve via `getPlatformSlug()` (unsupported/unrecognized platform). The caller
+ * (`buildEventInsertValues`) treats `undefined` as "omit the `slug` key," which lets Drizzle's
+ * existing `events.slug` `$defaultFn` (legacy hex) fire unchanged (AC2).
+ *
+ * No ordinal suffix is ever appended here — this function only ever produces the ordinal-0
+ * form; the `-{ordinal}`/`~{ordinal}` suffix for further events from the same post is Story
+ * 3.6t's concern (AC4), not this one's.
+ */
+function buildPlatformPrefixedSlug(sourcePost: EventSourcePostIdentity | null): string | undefined {
+  if (sourcePost === null || sourcePost.platformPostId === null || sourcePost.platformPostType === null) {
+    return undefined;
+  }
+
+  const platformSlug = getPlatformSlug(sourcePost.platform as ScrapablePlatform);
+  if (!platformSlug) {
+    return undefined;
+  }
+
+  return `${platformSlug}_${sourcePost.platformPostType}_${sourcePost.platformPostId}`;
 }
 
 /**
