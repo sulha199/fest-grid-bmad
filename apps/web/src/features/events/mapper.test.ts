@@ -66,7 +66,6 @@ function buildEvent(
     isFavorited: false,
     favoriteCount: 0,
     isHiddenForCurrentUser: false,
-    instagramEmbed: null,
     links: null,
     sourceSocialMediaAccountProfile: null,
     schedules: [
@@ -295,5 +294,42 @@ describe('mapGraphQLEventToDetailViewProps accountLocation derivation (Story 0.i
     const event = buildEvent({}); // sourceSocialMediaAccountProfile: null per buildEvent's default fixture
     const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
     expect(props.accountLocation).toBeNull();
+  });
+});
+
+// Story 3.7i (AC1, AC2, AC3, AC4): the event-detail oEmbed result now arrives as the
+// mapper's new optional 6th parameter (resolved in EventDetailWrapper.tsx from two/three
+// parallel React Query hooks) instead of a field on the `event` object itself.
+describe('mapGraphQLEventToDetailViewProps instagramEmbed parameter (Story 3.7i)', () => {
+  it('maps all three instagramEmbed* fields to null when the parameter is omitted (regression: every pre-existing call site)', () => {
+    const event = buildEvent({});
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.instagramEmbedStatus).toBeNull();
+    expect(props.instagramEmbedHtml).toBeNull();
+    expect(props.instagramEmbedDurableImageUrl).toBeNull();
+  });
+
+  it('maps an AVAILABLE resolved embed through to the three output fields unchanged', () => {
+    const event = buildEvent({});
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k, {
+      status: 'AVAILABLE',
+      html: '<blockquote>...</blockquote>',
+      durableImageUrl: null,
+    });
+    expect(props.instagramEmbedStatus).toBe('AVAILABLE');
+    expect(props.instagramEmbedHtml).toBe('<blockquote>...</blockquote>');
+    expect(props.instagramEmbedDurableImageUrl).toBeNull();
+  });
+
+  it('maps an UNAVAILABLE resolved embed through to the three output fields unchanged', () => {
+    const event = buildEvent({});
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k, {
+      status: 'UNAVAILABLE',
+      html: null,
+      durableImageUrl: 'https://example.com/durable.jpg',
+    });
+    expect(props.instagramEmbedStatus).toBe('UNAVAILABLE');
+    expect(props.instagramEmbedHtml).toBeNull();
+    expect(props.instagramEmbedDurableImageUrl).toBe('https://example.com/durable.jpg');
   });
 });

@@ -8,7 +8,7 @@ baseline_commit: a363ffa2
 
 - Epic: 3
 - Story ID: 3.7i
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -27,9 +27,9 @@ so that the page is fast even when the embed is slow.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — GraphQL query documents, `apps/web` (AC: 1, 3)
-  - [ ] In `apps/web/src/features/events/queries.graphql`, remove the `instagramEmbed { status html durableImageUrl }` block (lines 58-62) from the `getEventBySlug` query.
-  - [ ] Add a new query document, placed near `getEventBySlug` for discoverability:
+- [x] Task 1 — GraphQL query documents, `apps/web` (AC: 1, 3)
+  - [x] In `apps/web/src/features/events/queries.graphql`, remove the `instagramEmbed { status html durableImageUrl }` block (lines 58-62) from the `getEventBySlug` query.
+  - [x] Add a new query document, placed near `getEventBySlug` for discoverability:
     ```graphql
     query getInstagramEmbedBySlug($slug: String!) {
       instagramEmbedBySlug(slug: $slug) {
@@ -39,7 +39,7 @@ so that the page is fast even when the embed is slow.
       }
     }
     ```
-  - [ ] Add a second new query document — the legacy-slug fallback, reusing the already-existing `Query.event(id)` field (the same field `getEventForIcsExport` already queries) and its already-shipped `instagramEmbed` resolver (Story 3.7e) — **no `apps/backend` change of any kind**:
+  - [x] Add a second new query document — the legacy-slug fallback, reusing the already-existing `Query.event(id)` field (the same field `getEventForIcsExport` already queries) and its already-shipped `instagramEmbed` resolver (Story 3.7e) — **no `apps/backend` change of any kind**:
     ```graphql
     query getInstagramEmbedForEvent($eventId: ID!) {
       event(id: $eventId) {
@@ -51,10 +51,10 @@ so that the page is fast even when the embed is slow.
       }
     }
     ```
-  - [ ] Run `pnpm --filter web codegen` to regenerate `apps/web/src/generated/graphql.ts`: confirms (a) `GetEventBySlugQuery['eventBySlug']`'s generated type loses the `instagramEmbed` field, (b) two new hooks are generated — `useGetInstagramEmbedBySlugQuery` (query key `['getInstagramEmbedBySlug', variables]`) and `useGetInstagramEmbedForEventQuery` (query key `['getInstagramEmbedForEvent', variables]`) — following the exact same `graphql-request`/React Query codegen shape as every other hook in that file (e.g. `useGetEventBySlugQuery`, `useGetEventForIcsExportQuery`).
+  - [x] Run `pnpm --filter web codegen` to regenerate `apps/web/src/generated/graphql.ts`: confirms (a) `GetEventBySlugQuery['eventBySlug']`'s generated type loses the `instagramEmbed` field, (b) two new hooks are generated — `useGetInstagramEmbedBySlugQuery` (query key `['getInstagramEmbedBySlug', variables]`) and `useGetInstagramEmbedForEventQuery` (query key `['getInstagramEmbedForEvent', variables]`) — following the exact same `graphql-request`/React Query codegen shape as every other hook in that file (e.g. `useGetEventBySlugQuery`, `useGetEventForIcsExportQuery`).
 
-- [ ] Task 2 — Wire the two new hooks + merge logic into `EventDetailWrapper.tsx` (AC: 1, 2, 3, 4)
-  - [ ] Immediately after the existing `useGetEventBySlugQuery` call (current lines 45-48), add the unconditional second hook:
+- [x] Task 2 — Wire the two new hooks + merge logic into `EventDetailWrapper.tsx` (AC: 1, 2, 3, 4)
+  - [x] Immediately after the existing `useGetEventBySlugQuery` call (current lines 45-48), add the unconditional second hook:
     ```ts
     const { data: embedBySlugData } = useGetInstagramEmbedBySlugQuery(
       graphqlClient,
@@ -62,7 +62,7 @@ so that the page is fast even when the embed is slow.
     )
     ```
     No `enabled` gate — it fires on mount in parallel with the primary query, exactly as AD-16 Rule 7 specifies. This is safe/cheap even for the overwhelmingly-common legacy-slug case: Story 3.7h's `NOT_RESOLVABLE_FROM_SLUG` branch does no DB lookup and no Meta call (pure string parsing), so firing it unconditionally does not reintroduce the cost this story chain exists to remove.
-  - [ ] Add the third, conditionally-enabled fallback hook, gated off the second hook's own resolved status and the eventId now known from the primary query's data — the exact same `enabled`-on-already-fetched-data idiom this same file already uses for `useGetMySubscriptionsQuery` (current lines 58-67):
+  - [x] Add the third, conditionally-enabled fallback hook, gated off the second hook's own resolved status and the eventId now known from the primary query's data — the exact same `enabled`-on-already-fetched-data idiom this same file already uses for `useGetMySubscriptionsQuery` (current lines 58-67):
     ```ts
     const { data: embedForEventData } = useGetInstagramEmbedForEventQuery(
       graphqlClient,
@@ -76,7 +76,7 @@ so that the page is fast even when the embed is slow.
       }
     )
     ```
-  - [ ] Add a small merge computation (inline in `EventDetailWrapper.tsx`, per this story's Gate 2 finding below — no dedicated hook file, single call site, modest logic) producing the one resolved embed result `mapGraphQLEventToDetailViewProps` needs:
+  - [x] Add a small merge computation (inline in `EventDetailWrapper.tsx`, per this story's Gate 2 finding below — no dedicated hook file, single call site, modest logic) producing the one resolved embed result `mapGraphQLEventToDetailViewProps` needs:
     ```ts
     const embedBySlugStatus = embedBySlugData?.instagramEmbedBySlug?.status
     const resolvedInstagramEmbed: ResolvedInstagramEmbed | null =
@@ -95,10 +95,10 @@ so that the page is fast even when the embed is slow.
           : null
     ```
     (`ResolvedInstagramEmbed` is the new exported type from Task 3 below.) A network error on either embed hook, or both hooks still pending, leaves `resolvedInstagramEmbed` as `null` — AC4's safe default, never a crash or a guessed value.
-  - [ ] Pass `resolvedInstagramEmbed` into the existing `mapGraphQLEventToDetailViewProps(...)` call (current line 534) as its new trailing argument.
+  - [x] Pass `resolvedInstagramEmbed` into the existing `mapGraphQLEventToDetailViewProps(...)` call (current line 534) as its new trailing argument.
 
-- [ ] Task 3 — Update `mapper.ts`'s signature (AC: 1, 2, 3, 4)
-  - [ ] Export a new type from `apps/web/src/features/events/mapper.ts`:
+- [x] Task 3 — Update `mapper.ts`'s signature (AC: 1, 2, 3, 4)
+  - [x] Export a new type from `apps/web/src/features/events/mapper.ts`:
     ```ts
     export interface ResolvedInstagramEmbed {
       status: 'AVAILABLE' | 'UNAVAILABLE'
@@ -106,7 +106,7 @@ so that the page is fast even when the embed is slow.
       durableImageUrl: string | null
     }
     ```
-  - [ ] Change `mapGraphQLEventToDetailViewProps`'s signature by **appending** a new optional 6th parameter — deliberately appended at the end, not inserted among the existing 5 positional parameters, so every existing call site in `mapper.test.ts` that does not pass it keeps compiling unchanged and keeps its current "no embed" expectation:
+  - [x] Change `mapGraphQLEventToDetailViewProps`'s signature by **appending** a new optional 6th parameter — deliberately appended at the end, not inserted among the existing 5 positional parameters, so every existing call site in `mapper.test.ts` that does not pass it keeps compiling unchanged and keeps its current "no embed" expectation:
     ```ts
     export function mapGraphQLEventToDetailViewProps(
       event: NonNullable<GetEventBySlugQuery['eventBySlug']>,
@@ -117,29 +117,29 @@ so that the page is fast even when the embed is slow.
       instagramEmbed?: ResolvedInstagramEmbed | null
     ): Omit<EventDetailViewProps, 'labels'> & { labels: EventDetailViewLabels }
     ```
-  - [ ] Change the three existing mapped lines (current lines 108-110) from reading `event.instagramEmbed?.status/html/durableImageUrl` (a field that no longer exists on `event`'s type once Task 1 ships) to reading the new `instagramEmbed` parameter instead:
+  - [x] Change the three existing mapped lines (current lines 108-110) from reading `event.instagramEmbed?.status/html/durableImageUrl` (a field that no longer exists on `event`'s type once Task 1 ships) to reading the new `instagramEmbed` parameter instead:
     ```ts
     instagramEmbedStatus: instagramEmbed?.status ?? null,
     instagramEmbedHtml: instagramEmbed?.html ?? null,
     instagramEmbedDurableImageUrl: instagramEmbed?.durableImageUrl ?? null,
     ```
 
-- [ ] Task 4 — Test updates, `apps/web` (AC: 1, 2, 3, 4)
-  - [ ] `mapper.test.ts`: remove the now-nonexistent `instagramEmbed: null` line from `buildEvent()`'s fixture (line 69) — it would otherwise be an excess/unknown property once `GetEventBySlugQuery['eventBySlug']` loses that field (Task 1). Add a new `describe('mapGraphQLEventToDetailViewProps instagramEmbed parameter (Story 3.7i)', ...)` block: (a) omitting the new 6th argument (every pre-existing call site) maps all three `instagramEmbed*` output fields to `null` — explicit regression proof for AC4; (b) passing `{ status: 'AVAILABLE', html: '<blockquote>...</blockquote>', durableImageUrl: null }` maps through to the three output fields unchanged; (c) passing `{ status: 'UNAVAILABLE', html: null, durableImageUrl: 'https://...' }` maps through unchanged.
-  - [ ] `EventDetailWrapper.test.tsx`: remove `instagramEmbed` from `currentMockEvent`'s type annotation (line 114) and both literal object assignments (lines 136-ish seed, 326). Add two new MSW handlers alongside the existing `getEventBySlug` handler (around line 133), backed by new controllable mock state (`currentMockEmbedBySlugResult`, `currentMockEmbedForEventResult`, reset in `beforeEach` to safe "pending/not resolvable" defaults):
+- [x] Task 4 — Test updates, `apps/web` (AC: 1, 2, 3, 4)
+  - [x] `mapper.test.ts`: remove the now-nonexistent `instagramEmbed: null` line from `buildEvent()`'s fixture (line 69) — it would otherwise be an excess/unknown property once `GetEventBySlugQuery['eventBySlug']` loses that field (Task 1). Add a new `describe('mapGraphQLEventToDetailViewProps instagramEmbed parameter (Story 3.7i)', ...)` block: (a) omitting the new 6th argument (every pre-existing call site) maps all three `instagramEmbed*` output fields to `null` — explicit regression proof for AC4; (b) passing `{ status: 'AVAILABLE', html: '<blockquote>...</blockquote>', durableImageUrl: null }` maps through to the three output fields unchanged; (c) passing `{ status: 'UNAVAILABLE', html: null, durableImageUrl: 'https://...' }` maps through unchanged.
+  - [x] `EventDetailWrapper.test.tsx`: remove `instagramEmbed` from `currentMockEvent`'s type annotation (line 114) and both literal object assignments (lines 136-ish seed, 326). Add two new MSW handlers alongside the existing `getEventBySlug` handler (around line 133), backed by new controllable mock state (`currentMockEmbedBySlugResult`, `currentMockEmbedForEventResult`, reset in `beforeEach` to safe "pending/not resolvable" defaults):
     ```ts
     api.query("getInstagramEmbedBySlug", () => HttpResponse.json({ data: { instagramEmbedBySlug: currentMockEmbedBySlugResult } })),
     api.query("getInstagramEmbedForEvent", () => HttpResponse.json({ data: { event: { instagramEmbed: currentMockEmbedForEventResult } } })),
     ```
-  - [ ] Rewrite the two existing instagramEmbed-specific tests (current lines 421-449) to drive the new two/three-hook flow instead of the retired embedded field:
+  - [x] Rewrite the two existing instagramEmbed-specific tests (current lines 421-449) to drive the new two/three-hook flow instead of the retired embedded field:
     - "renders the InstagramEmbed path when the slug-based query resolves AVAILABLE" — set `currentMockEmbedBySlugResult = { status: 'AVAILABLE', html: "<blockquote class='instagram-media'>post</blockquote>", durableImageUrl: null }`; render; assert the embed region appears; **and** assert the `getInstagramEmbedForEvent` handler is never hit (e.g. a `vi.fn()` spy wired into that handler, asserted with zero calls) — proving the legacy-fallback hook stays disabled on the happy path, mirroring Story 3.7h's own "AVAILABLE never joins" proof one layer up the stack.
-    - "renders the unchanged EventImage path when the slug-based query resolves UNAVAILABLE with no fallback" — set `currentMockEmbedBySlugResult = { status: 'UNAVAILABLE', html: null, durableImageUrl: null }`, `imageUrl` on `currentMockEvent` to a real URL; render; assert no embed region, the plain `<img>` renders.
-  - [ ] Add a new third test, the direct proof of this story's AC3/AC1 combination — the legacy-slug fallback path, and that primary content never waits on it: set `currentMockEmbedBySlugResult = { status: 'NOT_RESOLVABLE_FROM_SLUG', html: null, durableImageUrl: null }` and `currentMockEmbedForEventResult = { status: 'AVAILABLE', html: "<blockquote>fallback embed</blockquote>", durableImageUrl: null }`, with the `getInstagramEmbedForEvent` MSW handler given an artificial delay (e.g. `await delay(50)` before responding, `msw`'s own `delay` helper). Assert the `Test Event` heading (primary content) is visible **before** the delayed fallback response resolves (proves AC1 — primary content never gates on the fallback round trip), then assert the embed region eventually appears once it does resolve (proves AC3).
-  - [ ] Run `pnpm --filter web test`, `pnpm --filter web lint`.
+    - UNAVAILABLE case: deviated from the story's literal "assert no embed region" wording after discovering actual `EventDetailView.tsx` behavior — `instagramEmbedStatus ? <InstagramEmbed/> : <EventImage/>` treats `'UNAVAILABLE'` as truthy, so it renders `InstagramEmbed`'s own existing "content no longer available" region (Story 3.7d's unchanged state machine), not the plain `EventImage`. Rewrote this test to assert that actual, correct behavior instead, and added a separate new test for the real "unresolved embed falls back to plain EventImage" case (AC4) using the default `NOT_RESOLVABLE_FROM_SLUG`-with-no-fallback-data state.
+  - [x] Add a new third test, the direct proof of this story's AC3/AC1 combination — the legacy-slug fallback path, and that primary content never waits on it: set `currentMockEmbedBySlugResult = { status: 'NOT_RESOLVABLE_FROM_SLUG', html: null, durableImageUrl: null }` and `currentMockEmbedForEventResult = { status: 'AVAILABLE', html: "<blockquote>fallback embed</blockquote>", durableImageUrl: null }`, with the `getInstagramEmbedForEvent` MSW handler given an artificial delay (e.g. `await delay(50)` before responding, `msw`'s own `delay` helper). Assert the `Test Event` heading (primary content) is visible **before** the delayed fallback response resolves (proves AC1 — primary content never gates on the fallback round trip), then assert the embed region eventually appears once it does resolve (proves AC3).
+  - [x] Run `pnpm exec vitest run` on the two targeted files (`mapper.test.ts`, `EventDetailWrapper.test.tsx`) and `pnpm --filter web lint` — see Dev Agent Record for exact commands/results.
 
-- [ ] Task 5 — Confirm scope boundary (no `apps/backend`, no `packages/ui`, no `packages/domain` change)
-  - [ ] Confirm zero files under `apps/backend/`, `packages/ui/`, or `packages/domain/` are touched by this story — `Query.instagramEmbedBySlug` (3.7h) and `Query.event(id).instagramEmbed` (3.7e) are both already-shipped, unchanged backend fields; `InstagramEmbed.tsx`/`EventDetailView.tsx` (`packages/ui`) need no prop-shape change, since `instagramEmbedStatus`/`Html`/`DurableImageUrl` keep their exact existing shape — only their `apps/web`-side data source changes.
-  - [ ] Run `pnpm --filter web build` to confirm the codegen + mapper-signature changes type-check end-to-end; root `pnpm lint`/`pnpm test` for no cross-package regression (consistent with this story touching only `apps/web`).
+- [x] Task 5 — Confirm scope boundary (no `apps/backend`, no `packages/ui`, no `packages/domain` change)
+  - [x] Confirm zero files under `apps/backend/`, `packages/ui/`, or `packages/domain/` are touched by this story — `Query.instagramEmbedBySlug` (3.7h) and `Query.event(id).instagramEmbed` (3.7e) are both already-shipped, unchanged backend fields; `InstagramEmbed.tsx`/`EventDetailView.tsx` (`packages/ui`) need no prop-shape change, since `instagramEmbedStatus`/`Html`/`DurableImageUrl` keep their exact existing shape — only their `apps/web`-side data source changes.
+  - [x] Run `pnpm --filter web build` to confirm the codegen + mapper-signature changes type-check end-to-end — passed clean (see Dev Agent Record). Root `pnpm lint`/`pnpm test` deliberately NOT run (repo-wide `pnpm test` is ~10 min and out of this headless session's scope per its explicit instructions); `pnpm --filter web lint` (unfiltered within the package) passed with 0 errors.
 
 ## Dev Notes
 
@@ -236,26 +236,26 @@ No new PostHog event. Unchanged from Story 3.7d's own finding: embed load/failur
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — builds only the `apps/web`-side wiring (two new query documents, two new hooks, a merge computation, an additive mapper-signature change) against two already-shipped backend fields; no `apps/backend`/`packages/ui`/`packages/domain`/`packages/database` change.
-- [ ] Architecture and boundary confirmation — AD-16 Rule 7's "independent parallel hooks, primary content never gated" mechanism implemented exactly as specified; the legacy-slug fallback (AC3) reuses the already-shipped `Query.event(id).instagramEmbed` field with zero backend change.
-- [ ] Testing plan confirmation — Task 4 covers the three embed-result branches (AVAILABLE-no-fallback-call, UNAVAILABLE-no-fallback, NOT_RESOLVABLE_FROM_SLUG-with-fallback) plus the mapper's own omitted/present-parameter cases.
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1/3 cited from the CC-024 batch readiness report (no gap); Gate 2 run fresh this story (no gap — see Dev Notes); no prerequisite story needed. Prerequisites 3.7h (`review`, commit `f3e1bcac`), 3.7d (`review`), and 1.6c (`review`) are all complete per the standing project rule that a `review`-status prerequisite with tests/lint/build green is safe to build against.
+- [x] Scope confirmation — builds only the `apps/web`-side wiring (two new query documents, two new hooks, a merge computation, an additive mapper-signature change) against two already-shipped backend fields; no `apps/backend`/`packages/ui`/`packages/domain`/`packages/database` change.
+- [x] Architecture and boundary confirmation — AD-16 Rule 7's "independent parallel hooks, primary content never gated" mechanism implemented exactly as specified; the legacy-slug fallback (AC3) reuses the already-shipped `Query.event(id).instagramEmbed` field with zero backend change.
+- [x] Testing plan confirmation — Task 4 covers the three embed-result branches (AVAILABLE-no-fallback-call, UNAVAILABLE-resolved-state, NOT_RESOLVABLE_FROM_SLUG-with-fallback) plus the mapper's own omitted/present-parameter cases, plus a dedicated AC4 "unresolved embed" test added after discovering the UNAVAILABLE case doesn't map to "no embed region" (see Task 4 note).
+- [x] Explicit human approval state — this `bmad-dev-story` invocation's explicit instruction to "follow the story file" for the last story of a named batch (CC-024 Wave 2A), naming the two prerequisite stories already shipped and their exact query/result shape, is taken as approval to proceed per the same precedent Stories 3.7h/3.7g's own Dev Agent Records recorded for their headless `bmad-dev-story` invocations.
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1/3 cited from the CC-024 batch readiness report (no gap); Gate 2 run fresh this story (no gap — see Dev Notes); no prerequisite story needed. Prerequisites 3.7h (`review`, commit `f3e1bcac`), 3.7d (`review`), and 1.6c (`review`) are all complete per the standing project rule that a `review`-status prerequisite with tests/lint/build green is safe to build against.
 
 ## Testing Requirements
 
-- [ ] Unit tests (`mapper.test.ts`, Vitest) — the new `instagramEmbed` parameter's omitted/`AVAILABLE`/`UNAVAILABLE` mapping cases.
-- [ ] Integration tests (`EventDetailWrapper.test.tsx`, Vitest + MSW) — the three embed-result branches, including the delayed-fallback test proving primary content renders before the legacy fallback resolves.
-- [ ] E2E tests — N/A. No new user-facing flow; the existing embed-vs-image rendering behavior for a real event is unchanged from the user's perspective (only its network timing improves), already covered by this story's own integration tests.
+- [x] Unit tests (`mapper.test.ts`, Vitest) — the new `instagramEmbed` parameter's omitted/`AVAILABLE`/`UNAVAILABLE` mapping cases.
+- [x] Integration tests (`EventDetailWrapper.test.tsx`, Vitest + MSW) — the embed-result branches, including the delayed-fallback test proving primary content renders before the legacy fallback resolves.
+- [x] E2E tests — N/A. No new user-facing flow; the existing embed-vs-image rendering behavior for a real event is unchanged from the user's perspective (only its network timing improves), already covered by this story's own integration tests.
 
 ## Deliverables Checklist
 
-- [ ] `instagramEmbed` removed from `getEventBySlug.graphql`; `getInstagramEmbedBySlug` and `getInstagramEmbedForEvent` query documents added; codegen regenerated cleanly.
-- [ ] `EventDetailWrapper.tsx` fires `useGetInstagramEmbedBySlugQuery` unconditionally in parallel with `useGetEventBySlugQuery`, and `useGetInstagramEmbedForEventQuery` only when the first resolves `NOT_RESOLVABLE_FROM_SLUG` and `eventId` is known.
-- [ ] `mapper.ts`'s `mapGraphQLEventToDetailViewProps` gains the new optional `instagramEmbed` parameter (additive, all existing callers unaffected) and maps it onto the three existing `EventDetailViewProps` embed fields.
-- [ ] Primary event-detail content renders off `useGetEventBySlugQuery` alone in every case — proven by the delayed-fallback integration test.
-- [ ] `packages/ui`, `apps/backend`, `packages/domain`, `packages/database` are untouched.
-- [ ] All new/updated tests pass; lint and type checks pass for `apps/web`.
+- [x] `instagramEmbed` removed from `getEventBySlug.graphql`; `getInstagramEmbedBySlug` and `getInstagramEmbedForEvent` query documents added; codegen regenerated cleanly.
+- [x] `EventDetailWrapper.tsx` fires `useGetInstagramEmbedBySlugQuery` unconditionally in parallel with `useGetEventBySlugQuery`, and `useGetInstagramEmbedForEventQuery` only when the first resolves `NOT_RESOLVABLE_FROM_SLUG` and `eventId` is known.
+- [x] `mapper.ts`'s `mapGraphQLEventToDetailViewProps` gains the new optional `instagramEmbed` parameter (additive, all existing callers unaffected) and maps it onto the three existing `EventDetailViewProps` embed fields.
+- [x] Primary event-detail content renders off `useGetEventBySlugQuery` alone in every case — proven by the delayed-fallback integration test.
+- [x] `packages/ui`, `apps/backend`, `packages/domain`, `packages/database` are untouched.
+- [x] All new/updated tests pass; lint and type checks pass for `apps/web`.
 
 ## Out of Scope
 
@@ -267,20 +267,49 @@ No new PostHog event. Unchanged from Story 3.7d's own finding: embed load/failur
 
 ## Definition of Done
 
-- [ ] AC1-AC4 satisfied.
-- [ ] Required tests passing (Task 4; Testing Requirements above).
-- [ ] Lint and type checks passing for `apps/web`.
+- [x] AC1-AC4 satisfied.
+- [x] Required tests passing (Task 4; Testing Requirements above).
+- [x] Lint and type checks passing for `apps/web`.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — all tasks/subtasks done, all ACs satisfied, targeted tests/lint/build green.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
+Claude (bmad-dev-story, CC-024 Wave 2A, last story of the wave)
+
 ### Debug Log References
+
+- Codegen: `pnpm codegen` (cwd `apps/web`) — succeeded; regenerated `apps/web/src/generated/graphql.ts` with a clean, content-only diff (97 insertions, 6 deletions — one field removed from `getEventBySlug`, two new query documents + two new hooks/types added). `apps/backend/src/generated` untouched (confirmed via `git diff --stat`).
+- A first codegen attempt surfaced a pre-existing-pattern issue, not a story defect: graphql-codegen emits both an `enum InstagramEmbedBySlugStatus` and a duplicate `export type InstagramEmbedBySlugStatus =` union-type alias (the same class of duplicate the repo's own `apps/web/fix-codegen.js` already strips for `InstagramEmbedStatus`, `EventCategory`, etc. — a known codegen-preset quirk, not something this story's schema design caused). Added one new strip line to `fix-codegen.js` mirroring the existing `InstagramEmbedStatus` line, then re-ran `pnpm codegen` — clean, no duplicate declaration, both new hooks present at the expected query keys (`getInstagramEmbedBySlug`, `getInstagramEmbedForEvent`).
+- Targeted test run: `cd apps/web && pnpm exec vitest run src/features/events/mapper.test.ts` — 16/16 passed (1 file).
+- Targeted test run: `cd apps/web && pnpm exec vitest run src/features/events/EventDetailWrapper.test.tsx` — 41/41 passed (1 file) after fixing one test's wrong behavioral assumption (see Completion Notes).
+- Lint: `pnpm --filter web lint` (root) — exit 0, pre-existing `@typescript-eslint/no-explicit-any` warnings only, no errors, nothing new attributable to this story's files.
+- Build: `pnpm --filter web build` (root) — succeeded, all 39 static pages generated, no type errors (the mapper-signature change and the generated-type field removal both type-checked cleanly end-to-end).
+- Per this story's explicit session instructions (headless CC-024 Wave 2A batch), the repo-wide `pnpm test`/root `pnpm lint` were deliberately NOT run (~10 min, out of scope) — only `apps/web`'s targeted test files plus the package-level `lint`/`build` commands, consistent with this story touching only `apps/web`.
 
 ### Completion Notes List
 
+- Implemented Tasks 1-5 exactly per AD-16 Rule 7's "independent parallel hooks, primary content never gated" design: `getInstagramEmbedBySlug`/`getInstagramEmbedForEvent` query documents added to `queries.graphql`, `instagramEmbed` removed from `getEventBySlug`; two new hooks (`useGetInstagramEmbedBySlugQuery` unconditional, `useGetInstagramEmbedForEventQuery` gated on `NOT_RESOLVABLE_FROM_SLUG` + known `eventId`) wired into `EventDetailWrapper.tsx` immediately after the primary query, exactly mirroring the existing `useGetMySubscriptionsQuery` `enabled`-on-already-fetched-data idiom in the same file; the merge computation placed alongside the existing `eventId` derivation; `mapper.ts` gained the new exported `ResolvedInstagramEmbed` type and additive 6th parameter.
+- AC1: `instagramEmbed` field removed from `getEventBySlug.graphql`; `useGetInstagramEmbedBySlugQuery` fires with no `enabled` gate, in parallel with `useGetEventBySlugQuery`; primary content (`EventDetailView`'s props) is built from `data.eventBySlug` alone — the embed hooks only ever feed the new `instagramEmbed` mapper parameter, never gate `isPending`/`error`.
+- AC2: `InstagramEmbed.tsx` and `EventDetailView.tsx` were not touched at all (confirmed via File List / `git status`) — same import, same props shape, same `status ? <InstagramEmbed/> : <EventImage/>` branch. Both routes render the same `EventDetailWrapper.tsx` with zero route-file changes; the modal route still has no `loading.tsx` (not added).
+- AC3: the third hook fires exactly when `embedBySlugData?.instagramEmbedBySlug?.status === 'NOT_RESOLVABLE_FROM_SLUG'` and `eventId` is known — proven by the new "falls back to the legacy per-event embed query..." integration test, and proven NOT to fire on the AVAILABLE path by the `mockGetInstagramEmbedForEventHandler` zero-calls assertion in the rewritten AVAILABLE test.
+- AC4: `resolvedInstagramEmbed` is `null` whenever neither hook has resolved to `AVAILABLE`/`UNAVAILABLE` (both pending, an error, or `NOT_RESOLVABLE_FROM_SLUG` with no fallback data yet) — `mapGraphQLEventToDetailViewProps` never crashes or guesses a status in that case; proven by the new dedicated "renders the plain EventImage path when the merged embed result is unresolved (AC4 regression guard)" test and by `mapper.test.ts`'s "omitted parameter" case.
+- **Deviation from the story's literal Task 4 wording, caught during test authoring, not before:** the story's UNAVAILABLE test description said to assert "no embed region, the plain `<img>` renders." Running that assertion against the real `EventDetailView.tsx`/`InstagramEmbed.tsx` (both intentionally unchanged, AC2) showed it is false: `instagramEmbedStatus` is a truthy string for `'UNAVAILABLE'` too, so `EventDetailView`'s existing `instagramEmbedStatus ? <InstagramEmbed/> : <EventImage/>` branch (unchanged, correct, Story 3.7d's own design) renders `InstagramEmbed`'s own "content no longer available" region, not the plain image. Rewrote that test to assert the actual, correct DOM (the region appears with the "content no longer available" label) and added a new, separate test for the genuine "unresolved → plain EventImage" case (AC4's actual regression guard: null, not UNAVAILABLE) using the default pending/not-resolvable mock state. No production code or AC was affected by this — it was purely a test-assertion correction caught by running the test against the real component rather than trusting the story text's unverified claim about UNAVAILABLE's rendered DOM.
+- Codegen's duplicate-declaration issue (see Debug Log) required one small addition to `fix-codegen.js`, included in the File List — this is a one-line, same-pattern-as-existing maintenance fix to the repo's own codegen post-processing script (required for the schema change to compile at all), not new product scope.
+- Prerequisite stories 3.7h/3.7d/1.6c are all at sprint-status `review` (not `done`); per standing project rule, a prerequisite at `review` with tests/lint/build green is safe to build against without waiting for `bmad-code-review` — proceeded accordingly. The Pre-Coding Approval Gate's "Explicit human approval" item is satisfied the same way Stories 3.7g/3.7h's own Dev Agent Records recorded it: this `bmad-dev-story` invocation explicitly named this story, confirmed its prerequisites, and instructed implementation to proceed per the story file.
+
 ### File List
+
+- `apps/web/src/features/events/queries.graphql` (modified — removed `instagramEmbed` from `getEventBySlug`; added `getInstagramEmbedBySlug`, `getInstagramEmbedForEvent`)
+- `apps/web/src/generated/graphql.ts` (regenerated via `pnpm codegen`; content-only diff)
+- `apps/web/fix-codegen.js` (modified — added one strip line for the `InstagramEmbedBySlugStatus` duplicate-declaration codegen quirk, mirroring the existing `InstagramEmbedStatus` line)
+- `apps/web/src/features/events/EventDetailWrapper.tsx` (modified — two new hooks, merge computation, updated `mapGraphQLEventToDetailViewProps` call site)
+- `apps/web/src/features/events/mapper.ts` (modified — new `ResolvedInstagramEmbed` export, new optional 6th parameter, three mapped-field sources changed)
+- `apps/web/src/features/events/mapper.test.ts` (modified — removed stale fixture field; added new parameter-mapping test block, 3 cases)
+- `apps/web/src/features/events/EventDetailWrapper.test.tsx` (modified — removed stale fixture field/type annotation; added two new MSW handlers + mock state; rewrote two existing tests; added two new tests)
+- `_bmad-output/implementation-artifacts/3-7i-fetch-the-event-detail-oembed-in-parallel-with-the-event-query.md` (this story file — task checkboxes, Dev Agent Record, Status)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (status → review)

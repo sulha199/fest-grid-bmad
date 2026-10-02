@@ -1,12 +1,12 @@
 "use client"
 
 import React, { useEffect, useRef, useState } from "react"
-import { useGetEventBySlugQuery, useToggleFavoriteMutation, useToggleCalendarAdditionMutation, useResolveScheduleTimezoneMutation, useMeQuery, useGetMySubscriptionsQuery, useSubscribeToAccountMutation, useRemoveSubscriptionMutation, SoftDeleteAction } from "@/generated/graphql"
+import { useGetEventBySlugQuery, useGetInstagramEmbedBySlugQuery, useGetInstagramEmbedForEventQuery, useToggleFavoriteMutation, useToggleCalendarAdditionMutation, useResolveScheduleTimezoneMutation, useMeQuery, useGetMySubscriptionsQuery, useSubscribeToAccountMutation, useRemoveSubscriptionMutation, SoftDeleteAction } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
 import { useQueryClient } from "@tanstack/react-query"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
 import { EventDetailView, PageContainer } from "@festgrid/ui"
-import { mapGraphQLEventToDetailViewProps, useEventDetailViewLabels } from "./mapper"
+import { mapGraphQLEventToDetailViewProps, useEventDetailViewLabels, ResolvedInstagramEmbed } from "./mapper"
 import { useListNavigationForEvent } from "./navigation-hook"
 import { useRouter } from "@/i18n/navigation"
 import { useSearchParams } from "next/navigation"
@@ -45,6 +45,26 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
   const { data, isPending, error } = useGetEventBySlugQuery(
     graphqlClient,
     { slug }
+  )
+
+  // Story 3.7i (AC1, AD-16 Rule 7) -- fires unconditionally in parallel with the primary
+  // query above, no `enabled` gate. Cheap even for the overwhelmingly-common legacy-slug
+  // case: Story 3.7h's `NOT_RESOLVABLE_FROM_SLUG` branch does no DB lookup/Meta call.
+  const { data: embedBySlugData } = useGetInstagramEmbedBySlugQuery(
+    graphqlClient,
+    { slug }
+  )
+
+  // Story 3.7i (AC3) -- legacy-hex-slug fallback. Fires only once we know both the event's
+  // id (from the primary query) and that the slug-based lookup (Story 3.7h) could not
+  // resolve it -- never fired for a platform-prefixed slug, where the AVAILABLE/UNAVAILABLE
+  // result from embedBySlugData is already authoritative.
+  const { data: embedForEventData } = useGetInstagramEmbedForEventQuery(
+    graphqlClient,
+    { eventId: data?.eventBySlug?.id || "" },
+    {
+      enabled: !!data?.eventBySlug?.id && embedBySlugData?.instagramEmbedBySlug?.status === 'NOT_RESOLVABLE_FROM_SLUG',
+    }
   )
 
   const { data: meData } = useMeQuery(
@@ -312,6 +332,26 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
   const eventId = data?.eventBySlug?.id || ""
   const nav = useListNavigationForEvent(eventId, isModal)
 
+  // Story 3.7i (AC1, AC3, AC4) -- merge the two/three-hook embed result into the one
+  // resolved shape mapGraphQLEventToDetailViewProps needs. A network error on either embed
+  // hook, or both hooks still pending, leaves this `null` -- AC4's safe default, never a
+  // crash or a guessed value.
+  const embedBySlugStatus = embedBySlugData?.instagramEmbedBySlug?.status
+  const resolvedInstagramEmbed: ResolvedInstagramEmbed | null =
+    embedBySlugStatus === 'AVAILABLE' || embedBySlugStatus === 'UNAVAILABLE'
+      ? {
+          status: embedBySlugStatus,
+          html: embedBySlugData!.instagramEmbedBySlug.html,
+          durableImageUrl: embedBySlugData!.instagramEmbedBySlug.durableImageUrl,
+        }
+      : embedBySlugStatus === 'NOT_RESOLVABLE_FROM_SLUG' && embedForEventData?.event?.instagramEmbed
+        ? {
+            status: embedForEventData.event.instagramEmbed.status,
+            html: embedForEventData.event.instagramEmbed.html,
+            durableImageUrl: embedForEventData.event.instagramEmbed.durableImageUrl,
+          }
+        : null
+
   // Story 0.38 (AC1, AC2) — register the dedicated, locale-scoped Instagram
   // embed.js caching service worker. Deliberately NOT
   // `apps/web/public/firebase-messaging-sw.js` (stays root-scoped, unrelated
@@ -531,7 +571,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
 
   const mappedProps = data?.eventBySlug
     ? {
-        ...mapGraphQLEventToDetailViewProps(data.eventBySlug, labels, locale, tType, tCategory),
+        ...mapGraphQLEventToDetailViewProps(data.eventBySlug, labels, locale, tType, tCategory, resolvedInstagramEmbed),
         isAuthenticated: !!session,
         onFavoriteToggle: () => {
           if (!session) {

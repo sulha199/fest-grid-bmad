@@ -419,6 +419,19 @@ export type InstagramEmbed = {
   status: InstagramEmbedStatus;
 };
 
+export type InstagramEmbedBySlug = {
+  __typename?: 'InstagramEmbedBySlug';
+  durableImageUrl?: Maybe<Scalars['String']['output']>;
+  html?: Maybe<Scalars['String']['output']>;
+  status: InstagramEmbedBySlugStatus;
+};
+
+export enum InstagramEmbedBySlugStatus {
+  Available = 'AVAILABLE',
+  NotResolvableFromSlug = 'NOT_RESOLVABLE_FROM_SLUG',
+  Unavailable = 'UNAVAILABLE'
+}
+
 export enum InstagramEmbedStatus {
   Available = 'AVAILABLE',
   Unavailable = 'UNAVAILABLE'
@@ -865,6 +878,7 @@ export type Query = {
   eventBySlug?: Maybe<Event>;
   events: EventConnection;
   health: Scalars['Boolean']['output'];
+  instagramEmbedBySlug: InstagramEmbedBySlug;
   isOriginAllowedForWidget: Scalars['Boolean']['output'];
   me: Me;
   /**
@@ -933,6 +947,11 @@ export type QueryEventsArgs = {
   offset?: InputMaybe<Scalars['Int']['input']>;
   perDayLimit?: InputMaybe<Scalars['Int']['input']>;
   query?: InputMaybe<EventQueryConditionInput>;
+};
+
+
+export type QueryInstagramEmbedBySlugArgs = {
+  slug: Scalars['String']['input'];
 };
 
 
@@ -1386,6 +1405,7 @@ export enum WidgetTheme {
 
 
 
+
 export type QueryActorRunsQueryVariables = Exact<{
   filters?: ActorRunFilters | null | undefined;
   first?: number | null | undefined;
@@ -1528,7 +1548,21 @@ export type GetEventBySlugQueryVariables = Exact<{
 }>;
 
 
-export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, durableImageUrl: string | null, videoUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, publishedAt: string | null, organizerName: string | null, contactInfo: string | null, hasPrivateContact: boolean, isFavorited: boolean, favoriteCount: number, isHiddenForCurrentUser: boolean, instagramEmbed: { status: InstagramEmbedStatus, html: string | null, durableImageUrl: string | null } | null, links: Array<{ url: string, label: string | null }> | null, sourceSocialMediaAccountProfile: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null, accountType: string | null, defaultLocation: { placeName: string | null, formattedAddress: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null } | null, schedules: Array<{ id: string, isMainSchedule: boolean, title: string | null, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
+export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, durableImageUrl: string | null, videoUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, publishedAt: string | null, organizerName: string | null, contactInfo: string | null, hasPrivateContact: boolean, isFavorited: boolean, favoriteCount: number, isHiddenForCurrentUser: boolean, links: Array<{ url: string, label: string | null }> | null, sourceSocialMediaAccountProfile: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null, accountType: string | null, defaultLocation: { placeName: string | null, formattedAddress: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null } | null, schedules: Array<{ id: string, isMainSchedule: boolean, title: string | null, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
+
+export type GetInstagramEmbedBySlugQueryVariables = Exact<{
+  slug: string;
+}>;
+
+
+export type GetInstagramEmbedBySlugQuery = { instagramEmbedBySlug: { status: InstagramEmbedBySlugStatus, html: string | null, durableImageUrl: string | null } };
+
+export type GetInstagramEmbedForEventQueryVariables = Exact<{
+  eventId: string | number;
+}>;
+
+
+export type GetInstagramEmbedForEventQuery = { event: { instagramEmbed: { status: InstagramEmbedStatus, html: string | null, durableImageUrl: string | null } | null } | null };
 
 export type GetEventForIcsExportQueryVariables = Exact<{
   id: string | number;
@@ -2574,11 +2608,6 @@ export const GetEventBySlugDocument = new TypedDocumentString(`
     imageUrl
     durableImageUrl
     videoUrl
-    instagramEmbed {
-      status
-      html
-      durableImageUrl
-    }
     sourcePostUrl
     originalPostUrl
     publishedAt
@@ -2658,6 +2687,64 @@ export const useGetEventBySlugQuery = <
       {
     queryKey: ['getEventBySlug', variables],
     queryFn: fetcher<GetEventBySlugQuery, GetEventBySlugQueryVariables>(client, GetEventBySlugDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const GetInstagramEmbedBySlugDocument = new TypedDocumentString(`
+    query getInstagramEmbedBySlug($slug: String!) {
+  instagramEmbedBySlug(slug: $slug) {
+    status
+    html
+    durableImageUrl
+  }
+}
+    `);
+
+export const useGetInstagramEmbedBySlugQuery = <
+      TData = GetInstagramEmbedBySlugQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: GetInstagramEmbedBySlugQueryVariables,
+      options?: Omit<UseQueryOptions<GetInstagramEmbedBySlugQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetInstagramEmbedBySlugQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<GetInstagramEmbedBySlugQuery, TError, TData>(
+      {
+    queryKey: ['getInstagramEmbedBySlug', variables],
+    queryFn: fetcher<GetInstagramEmbedBySlugQuery, GetInstagramEmbedBySlugQueryVariables>(client, GetInstagramEmbedBySlugDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const GetInstagramEmbedForEventDocument = new TypedDocumentString(`
+    query getInstagramEmbedForEvent($eventId: ID!) {
+  event(id: $eventId) {
+    instagramEmbed {
+      status
+      html
+      durableImageUrl
+    }
+  }
+}
+    `);
+
+export const useGetInstagramEmbedForEventQuery = <
+      TData = GetInstagramEmbedForEventQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: GetInstagramEmbedForEventQueryVariables,
+      options?: Omit<UseQueryOptions<GetInstagramEmbedForEventQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetInstagramEmbedForEventQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<GetInstagramEmbedForEventQuery, TError, TData>(
+      {
+    queryKey: ['getInstagramEmbedForEvent', variables],
+    queryFn: fetcher<GetInstagramEmbedForEventQuery, GetInstagramEmbedForEventQueryVariables>(client, GetInstagramEmbedForEventDocument, variables, headers),
     ...options
   }
     )};

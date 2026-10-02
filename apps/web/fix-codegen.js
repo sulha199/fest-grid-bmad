@@ -80,6 +80,8 @@ content = content.replace(/export type ActorRunFilters = \{\r?\n\s+createdAfter\
 content = content.replace(/export type ScheduleTimezoneStatus =[\s\S]*?;\r?\n/g, '');
 // Replace duplicate InstagramEmbedStatus (Story 3.7d/3.7e)
 content = content.replace(/export type InstagramEmbedStatus =[\s\S]*?;\r?\n/g, '');
+// Replace duplicate InstagramEmbedBySlugStatus (Story 3.7i: union-type re-declaration of the enum above)
+content = content.replace(/export type InstagramEmbedBySlugStatus =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type UnprocessedPayloadFilters = \{\r?\n\s+createdAfter\?: unknown;[\s\S]*?export type UnprocessedPayloadSource =[\s\S]*?;\r?\n/g, '');
 
 // Replace duplicate ProposedEventCorrectionInput and ProposedScheduleCorrectionInput

@@ -48,12 +48,19 @@ export function useEventDetailViewLabels(): EventDetailViewLabels {
   };
 }
 
+export interface ResolvedInstagramEmbed {
+  status: 'AVAILABLE' | 'UNAVAILABLE'
+  html: string | null
+  durableImageUrl: string | null
+}
+
 export function mapGraphQLEventToDetailViewProps(
   event: NonNullable<GetEventBySlugQuery['eventBySlug']>,
   labels: EventDetailViewLabels,
   locale: string,
   tType: (key: string) => string,
-  tCategory: (key: string) => string
+  tCategory: (key: string) => string,
+  instagramEmbed?: ResolvedInstagramEmbed | null
 ): Omit<EventDetailViewProps, 'labels'> & { labels: EventDetailViewLabels } {
   const mappedSchedules: ScheduleDetail[] = (event.schedules || []).map((s) => {
     return {
@@ -105,9 +112,9 @@ export function mapGraphQLEventToDetailViewProps(
     imageUrl: event.imageUrl,
     imageFallbackUrl: event.durableImageUrl,
     imageAlt: event.eventName,
-    instagramEmbedStatus: event.instagramEmbed?.status ?? null,
-    instagramEmbedHtml: event.instagramEmbed?.html ?? null,
-    instagramEmbedDurableImageUrl: event.instagramEmbed?.durableImageUrl ?? null,
+    instagramEmbedStatus: instagramEmbed?.status ?? null,
+    instagramEmbedHtml: instagramEmbed?.html ?? null,
+    instagramEmbedDurableImageUrl: instagramEmbed?.durableImageUrl ?? null,
     videoUrl: event.videoUrl,
     videoAlt: event.eventName,
     originalPostUrl: event.originalPostUrl,

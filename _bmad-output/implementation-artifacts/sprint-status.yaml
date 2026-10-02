@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-02T01:04:21Z
+last_updated: 2026-10-02T01:16:59Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -1893,7 +1893,7 @@ development_status:
   3-7f-capture-each-posts-platform-post-id-and-permalink-type-at-scrape-time: review
   3-7g-build-platform-prefixed-event-slugs-at-ingestion: review
   3-7h-resolve-instagram-oembed-from-the-event-slug-without-a-database-lookup: review
-  3-7i-fetch-the-event-detail-oembed-in-parallel-with-the-event-query: ready-for-dev
+  3-7i-fetch-the-event-detail-oembed-in-parallel-with-the-event-query: review
   # 3.7f-3.7i added 2026-10-01 via bmad-correct-course (CC-024): IDEA-028 (platform-prefixed event
   # slugs, AD-16) split into stories. 3.7f+3.7g gate 3.6t; 3.7g+3.7h gate 3.6v.
   3-8-push-notifications-for-extracted-events: review

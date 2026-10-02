@@ -1,5 +1,5 @@
 import React from "react"
-import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react"
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest"
 import { EventDetailWrapper } from "./EventDetailWrapper"
 
@@ -32,7 +32,7 @@ Object.defineProperty(window, "matchMedia", {
 })
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { graphql, HttpResponse } from "msw"
+import { graphql, HttpResponse, delay } from "msw"
 import { setupServer } from "msw/node"
 import { NuqsTestingAdapter } from "nuqs/adapters/testing"
 
@@ -111,7 +111,6 @@ let currentMockEvent = {
   imageUrl: null as string | null,
   durableImageUrl: null as string | null,
   videoUrl: null as string | null,
-  instagramEmbed: null as { status: string; html: string | null; durableImageUrl: string | null } | null,
   sourcePostUrl: null,
   originalPostUrl: null,
   isFavorited: false,
@@ -127,6 +126,19 @@ let currentMockSubscriptions: { id: string; account: { accountId: string } }[] =
 // directly (AC3/BUG-008) rather than computing a local delta.
 let mockToggleFavoriteCount = 42
 
+// Story 3.7i -- the event-detail oEmbed result now arrives via two/three independent
+// GraphQL query documents instead of an embedded field on getEventBySlug. Defaults below
+// are the safe "pending/not resolvable" state so tests that don't care about the embed
+// path keep passing unmodified.
+let currentMockEmbedBySlugResult: { status: string; html: string | null; durableImageUrl: string | null } = {
+  status: "NOT_RESOLVABLE_FROM_SLUG",
+  html: null,
+  durableImageUrl: null,
+}
+let currentMockEmbedForEventResult: { status: string; html: string | null; durableImageUrl: string | null } | null = null
+let currentMockEmbedForEventDelayMs = 0
+const mockGetInstagramEmbedForEventHandler = vi.fn()
+
 const api = graphql.link("*/api/graphql")
 
 const handlers = [
@@ -135,6 +147,20 @@ const handlers = [
       data: {
         eventBySlug: { ...currentMockEvent },
       },
+    })
+  }),
+  api.query("getInstagramEmbedBySlug", () => {
+    return HttpResponse.json({
+      data: { instagramEmbedBySlug: { ...currentMockEmbedBySlugResult } },
+    })
+  }),
+  api.query("getInstagramEmbedForEvent", async () => {
+    mockGetInstagramEmbedForEventHandler()
+    if (currentMockEmbedForEventDelayMs > 0) {
+      await delay(currentMockEmbedForEventDelayMs)
+    }
+    return HttpResponse.json({
+      data: { event: { instagramEmbed: currentMockEmbedForEventResult } },
     })
   }),
   api.query("getEvents", ({ variables }) => {
@@ -312,6 +338,10 @@ describe("EventDetailWrapper", () => {
     currentMockSubscriptions = []
     mockSearchParams = new URLSearchParams()
     mockToggleFavoriteCount = 42
+    currentMockEmbedBySlugResult = { status: "NOT_RESOLVABLE_FROM_SLUG", html: null, durableImageUrl: null }
+    currentMockEmbedForEventResult = null
+    currentMockEmbedForEventDelayMs = 0
+    mockGetInstagramEmbedForEventHandler.mockClear()
     currentMockEvent = {
       id: "evt_1",
       eventName: "Test Event",
@@ -323,7 +353,6 @@ describe("EventDetailWrapper", () => {
       imageUrl: null,
       durableImageUrl: null,
       videoUrl: null,
-      instagramEmbed: null,
       sourcePostUrl: null,
       originalPostUrl: null,
       isFavorited: false,
@@ -418,27 +447,50 @@ describe("EventDetailWrapper", () => {
     expect(screen.getByText("EventDetailsPage.favoriteSuccessAnnouncement")).toBeInTheDocument()
   })
 
-  it("renders the InstagramEmbed path when getEventBySlug's response includes instagramEmbed", async () => {
-    currentMockEvent = {
-      ...currentMockEvent,
-      instagramEmbed: {
-        status: "AVAILABLE",
-        html: "<blockquote class='instagram-media'>post</blockquote>",
-        durableImageUrl: null,
-      },
+  it("renders the InstagramEmbed path when the slug-based query resolves AVAILABLE (Story 3.7i)", async () => {
+    currentMockEmbedBySlugResult = {
+      status: "AVAILABLE",
+      html: "<blockquote class='instagram-media'>post</blockquote>",
+      durableImageUrl: null,
     }
 
     renderComponent()
 
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
     expect(screen.getByRole("region", { name: "EventDetailsPage.embedRegionLabel" })).toBeInTheDocument()
+
+    // AC3 -- proves the legacy-fallback hook stays disabled on the happy path, mirroring
+    // Story 3.7h's own "AVAILABLE never joins" proof one layer up the stack.
+    expect(mockGetInstagramEmbedForEventHandler).not.toHaveBeenCalled()
   })
 
-  it("renders the unchanged EventImage path when getEventBySlug's response has no instagramEmbed", async () => {
+  it("renders InstagramEmbed's own unavailable state (not the plain EventImage) when the slug-based query resolves UNAVAILABLE with no fallback (Story 3.7i)", async () => {
+    // `instagramEmbedStatus` is still truthy ('UNAVAILABLE'), so EventDetailView's
+    // `instagramEmbedStatus ? <InstagramEmbed/> : <EventImage/>` branch (unchanged by this
+    // story, AC2) renders InstagramEmbed's own "content no longer available" region -- it
+    // is a resolved status, not the "no resolved embed" case AC4 governs (see the next test).
+    currentMockEmbedBySlugResult = { status: "UNAVAILABLE", html: null, durableImageUrl: null }
     currentMockEvent = {
       ...currentMockEvent,
       imageUrl: "https://example.com/evt.jpg",
-      instagramEmbed: null,
+    }
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+    const region = screen.getByRole("region", { name: "EventDetailsPage.embedRegionLabel" })
+    expect(region).toBeInTheDocument()
+    expect(within(region).getByText("EventDetailsPage.contentNoLongerAvailableLabel")).toBeInTheDocument()
+  })
+
+  it("renders the plain EventImage path when the merged embed result is unresolved (AC4 regression guard, Story 3.7i)", async () => {
+    // Default beforeEach state: embedBySlug resolves NOT_RESOLVABLE_FROM_SLUG and the
+    // fallback query resolves with no instagramEmbed data -- resolvedInstagramEmbed stays
+    // null, so mapGraphQLEventToDetailViewProps's new parameter must never crash or
+    // synthesize a guessed status (AC4), and the existing EventImage path renders unchanged.
+    currentMockEvent = {
+      ...currentMockEvent,
+      imageUrl: "https://example.com/evt.jpg",
     }
 
     renderComponent()
@@ -446,6 +498,22 @@ describe("EventDetailWrapper", () => {
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
     expect(screen.queryByRole("region", { name: "EventDetailsPage.embedRegionLabel" })).not.toBeInTheDocument()
     expect(screen.getByRole("img", { name: "Test Event" })).toHaveAttribute("src", "https://example.com/evt.jpg")
+  })
+
+  it("falls back to the legacy per-event embed query when the slug-based query resolves NOT_RESOLVABLE_FROM_SLUG, without gating primary content on it (Story 3.7i AC1/AC3)", async () => {
+    currentMockEmbedBySlugResult = { status: "NOT_RESOLVABLE_FROM_SLUG", html: null, durableImageUrl: null }
+    currentMockEmbedForEventResult = { status: "AVAILABLE", html: "<blockquote>fallback embed</blockquote>", durableImageUrl: null }
+    currentMockEmbedForEventDelayMs = 50
+
+    renderComponent()
+
+    // Primary content (the event heading) renders before the delayed fallback response
+    // resolves -- proves AC1: primary content never gates on the fallback round trip.
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+    expect(screen.queryByRole("region", { name: "EventDetailsPage.embedRegionLabel" })).not.toBeInTheDocument()
+
+    // The embed region eventually appears once the delayed fallback resolves -- proves AC3.
+    expect(await screen.findByRole("region", { name: "EventDetailsPage.embedRegionLabel" })).toBeInTheDocument()
   })
 
   it("patches list caches (events, events/feed, favoriteEvents) when toggle favorite succeeds, using the server-supplied favoriteCount directly (not double-counted, no local ± 1 arithmetic -- BUG-008)", async () => {

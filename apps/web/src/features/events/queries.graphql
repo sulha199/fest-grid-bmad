@@ -55,11 +55,6 @@ query getEventBySlug($slug: String!) {
     imageUrl
     durableImageUrl
     videoUrl
-    instagramEmbed {
-      status
-      html
-      durableImageUrl
-    }
     sourcePostUrl
     originalPostUrl
     publishedAt
@@ -120,6 +115,24 @@ query getEventBySlug($slug: String!) {
       ticketUrl
       registrationUrl
       applicableDaysOfWeek
+    }
+  }
+}
+
+query getInstagramEmbedBySlug($slug: String!) {
+  instagramEmbedBySlug(slug: $slug) {
+    status
+    html
+    durableImageUrl
+  }
+}
+
+query getInstagramEmbedForEvent($eventId: ID!) {
+  event(id: $eventId) {
+    instagramEmbed {
+      status
+      html
+      durableImageUrl
     }
   }
 }
