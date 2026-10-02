@@ -14,11 +14,13 @@ test('processIngestionJob integration tests', async (t) => {
   const postId1 = 'post-ingest-1-' + Date.now();
   const postId2 = 'post-ingest-2-' + Date.now();
   const postId3 = 'post-ingest-3-' + Date.now();
+  const postId4 = 'post-ingest-4-' + Date.now();
 
   let profile: any;
   let seededPost1: any;
   let seededPost2: any;
   let seededPost3: any;
+  let seededPost4: any;
 
   // Insert mock profile and posts to fulfill foreign key constraints
   const [insertedProfile] = await db
@@ -76,13 +78,28 @@ test('processIngestionJob integration tests', async (t) => {
 
   seededPost3 = post3;
 
+  // FIND-061 — a fourth seeded post, used only by the "does not resolve before the notification
+  // seam resolves" regression test below.
+  const [post4] = await db
+    .insert(posts)
+    .values({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'A post used to prove notification dispatch is awaited',
+      postUrl: 'https://instagram.com/p/' + postId4,
+      publishedAt: new Date(),
+    })
+    .returning();
+
+  seededPost4 = post4;
+
   // Cleanup: delete schedules, events, posts, profiles
   t.after(async () => {
     // delete all schedules linked to events we might have inserted
     const createdEvents = await db
       .select({ id: events.id })
       .from(events)
-      .where(inArray(events.postId, [seededPost1.id, seededPost2.id, seededPost3.id]));
+      .where(inArray(events.postId, [seededPost1.id, seededPost2.id, seededPost3.id, seededPost4.id]));
 
     const eventIds = createdEvents.map((e) => e.id);
     if (eventIds.length > 0) {
@@ -90,7 +107,7 @@ test('processIngestionJob integration tests', async (t) => {
       await db.delete(events).where(inArray(events.id, eventIds));
     }
 
-    await db.delete(posts).where(inArray(posts.id, [seededPost1.id, seededPost2.id, seededPost3.id]));
+    await db.delete(posts).where(inArray(posts.id, [seededPost1.id, seededPost2.id, seededPost3.id, seededPost4.id]));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
     setSendEventNotificationsSeam(originalSendEventNotificationsSeam);
   });
@@ -174,9 +191,8 @@ test('processIngestionJob integration tests', async (t) => {
     assert.strictEqual(sched.timezone, 'America/Chicago');
     assert.strictEqual(sched.timezoneStatus, 'RESOLVED');
 
-    // Wait a brief tick for the asynchronous non-blocking promise to execute
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
+    // FIND-061: processIngestionJob now awaits the notification seam internally before
+    // resolving, so no artificial tick is needed here to let it run.
     // Verify notifications was called with correct arguments
     assert.ok(sentEvent, 'Notification seam should have been invoked');
     assert.strictEqual(sentAccountId, message.sourceSocialMediaAccountId);
@@ -254,5 +270,40 @@ test('processIngestionJob integration tests', async (t) => {
 
     assert.ok(insertedEvent);
     assert.strictEqual(insertedEvent.slug, 'ig_p_Cx9uWttkSN');
+  });
+
+  await t.test('FIND-061: does not resolve until the notification seam has resolved', async (t) => {
+    let seamResolved = false;
+
+    setSendEventNotificationsSeam(async () => {
+      // Simulate real async work (the recipient DB query + FCM send) so that, if
+      // processIngestionJob ever regresses back to fire-and-forget, this flag would still be
+      // false by the time processIngestionJob's own await returns -- proving the ordering.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      seamResolved = true;
+    });
+
+    t.after(() => {
+      setSendEventNotificationsSeam(originalSendEventNotificationsSeam);
+    });
+
+    const message: ExtractedEventMessage = {
+      postId: seededPost4.id,
+      sourceSocialMediaAccountId: accountId,
+      eventName: 'Await Regression Event ' + Date.now(),
+      types: [EventType.OTHER],
+      categories: [EventCategory.OTHER],
+      confidenceScore: 0.9,
+      schedules: [],
+    };
+
+    const res = await processIngestionJob(message);
+
+    assert.strictEqual(res.inserted, true);
+    assert.strictEqual(
+      seamResolved,
+      true,
+      'processIngestionJob resolved before the notification seam finished -- notification dispatch is no longer awaited'
+    );
   });
 });

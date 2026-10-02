@@ -208,11 +208,17 @@ the same cloud-environment failures as Wave 2B, none new, and the Wave 2B regres
 - [x] **FIND-061** (no new-event push ever received): diagnosed 2026-10-02, bmad-quick-dev — all 3 leads
       (inner joins to `user_settings`/`fcm_tokens`, empty `sourceSocialMediaAccountId`,
       `pushNotificationsEnabled` default) traced end-to-end and refuted/unreproducible against current
-      code; recipient query verified correct via real-Postgres regression test (4/4 pass). No local root
-      cause confirmed, no code changed — remaining candidates (frontend FCM env config, backend FCM admin
-      creds) are production-only checks, see `backlog/FIND-061-no-new-event-push-notification-diagnosis.md`.
-      3.6z's "soft: FIND-061 diagnosed" prerequisite is satisfied; it is not a guarantee notifications work
-      in production.
+      code; recipient query verified correct via real-Postgres regression test (4/4 pass). **Fixed same
+      day** after the user ran this diagnosis's two outstanding production checks and reported back new
+      evidence (`fcm_tokens` has rows; prod recipient query returns rows), which narrowed
+      the failure to at/after FCM send time: `process-ingestion-job.ts` dispatched `sendEventNotifications`
+      fire-and-forget, so the deployed ingestor Lambda could freeze its execution environment before the
+      send ever completed — now awaited (+ same unawaited-notification pattern fixed in
+      `apply-default-location-change.ts`'s moderator email alerts), with a regression test proving the await.
+      See `backlog/FIND-061-no-new-event-push-notification-diagnosis.md`. Remaining open item: confirm
+      backend `FIREBASE_*` admin creds on the ingestor Lambda and check CloudWatch `[sendEventNotifications]`
+      logs after this deploys — this fix corrects a confirmed code bug but doesn't by itself prove prod
+      delivery end-to-end. 3.6z's "soft: FIND-061 diagnosed" prerequisite is satisfied.
 - [x] **BUG-053** (`getPostByUrl` fails against the live Apify actor): fix so the POC script and the by-URL
       resolver path work, and the 4 reference posts can be re-scraped for 3.6s fixtures
       (fixed 2026-10-02, bmad-quick-dev — code fix + unit test; live re-scrape of the 4 reference

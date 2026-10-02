@@ -1,6 +1,6 @@
 ---
 backlog_id: FIND-061
-title: "No new-event push notification has ever been received -- diagnosis"
+title: "No new-event push notification has ever been received -- diagnosis and fix"
 status: complete
 ---
 
@@ -180,12 +180,102 @@ production DB and environment access:
 
 ## Verdict
 
-**No code-confirmed, locally-reproducible root cause found.** The recipient query,
-join semantics, and default values all behave correctly against seeded data (see test
-run above) — none of the three original leads holds up as the active cause once traced
-through the full current codebase. The most likely explanations (missing frontend FCM
-env config → empty `fcm_tokens` table, or missing backend FCM Admin credentials →
-silently-swallowed send failures) are both environment/production-data questions that
-cannot be verified from this environment. No code or schema change has been applied as
-part of this pass — see the "Check" items above for what to run in production to
-narrow this further.
+**No code-confirmed, locally-reproducible root cause found in this original pass.** The
+recipient query, join semantics, and default values all behave correctly against seeded data
+(see test run above) — none of the three original leads held up as the active cause once traced
+through the full current codebase. The most likely explanations (missing frontend FCM env
+config → empty `fcm_tokens` table, or missing backend FCM Admin credentials →
+silently-swallowed send failures) were, at the time, both environment/production-data questions
+that could not be verified from this environment. No code or schema change was applied as part
+of this original pass — see the "Check" items above for what was run in production to narrow
+this further. **Superseded by the 2026-10-02 follow-up below, which found and fixed an actual
+code-level root cause.**
+
+## 2026-10-02 follow-up — new production evidence, root cause confirmed and fixed
+
+### New production evidence
+
+The user ran the two outstanding "Check" items against production:
+
+1. **`SELECT count(*) FROM fcm_tokens;`** → 4 rows across 2 users, most recently refreshed
+   2026-09-28. This **refutes** the "empty frontend Firebase config" explanation (production
+   check 1 above) outright — tokens exist and are being refreshed, so
+   `requestPushPermissionAndRegister()` is working and `NEXT_PUBLIC_FIREBASE_*` is configured.
+2. **The recipient-query shape from this diagnosis's § "Real-world condition overlap"**, run
+   against production for recent events' `sourceSocialMediaAccountId` values, **returns rows**.
+   Recipients resolve correctly against real production data — the join mechanics confirmed
+   locally in the original pass hold in production too. This narrows the failure to **at or
+   after FCM send time**, ruling out every data-shape explanation this diagnosis considered.
+
+### Root cause (confirmed by reading the code)
+
+`apps/backend/src/lib/ingestor/process-ingestion-job.ts` fired `sendEventNotificationsSeam(...)`
+as a **non-blocking, unawaited** promise ("Non-blocking trigger ... after transaction commits"),
+only `.catch()`-guarded against an unhandled rejection. In the deployed ingestor Lambda
+(`apps/backend/src/lambdas/ingestor.ts`), **both** invocation shapes — the poll-and-drain branch
+and the SQS-batch branch — `await processIngestionJob(message)` and then return (or push to
+`batchItemFailures` and continue the loop) without ever awaiting anything `processIngestionJob`
+itself left dangling.
+
+AWS Lambda freezes (or fully tears down) the execution environment once the handler's returned
+promise settles. Because `sendEventNotificationsSeam(...)` was never part of that returned
+promise chain, the handler could return — and the environment freeze — **before** the dangling
+promise's own work (the recipient DB query in `get-subscribers-for-notification.ts`, then
+`messaging.sendEachForMulticast()` in `send-event-notifications.ts`) ever ran to completion. The
+send silently never finishes: no error, no log, nothing — which matches "no push notification
+has ever been received" exactly, independent of whether `FIREBASE_*` admin credentials are even
+configured correctly on that Lambda.
+
+This is the same bug class the ingestion test harness never would have caught: the existing
+happy-path test (`process-ingestion-job.test.ts`) only asserted the seam was *invoked*, with a
+manual `setTimeout(..., 50)` tick to let the fire-and-forget promise settle before asserting on
+it — exactly the kind of unawaited background work that behaves fine under Node's event loop in
+a long-lived test process but is unsafe under Lambda's freeze-on-return semantics.
+
+### Fix
+
+`process-ingestion-job.ts` now `await`s `sendEventNotificationsSeam(...)` after the insert
+transaction commits, keeping the existing `.catch()` as a defensive backstop: `sendEventNotifications`
+already catches and reports all of its own errors internally (via `reportErrorSilently`), so this
+await cannot turn a committed ingestion into a failed SQS record on its own — the `.catch()` only
+guards against a notification-layer defect that somehow still throws past that internal handling.
+
+**Same pattern found and fixed on one other Lambda-reachable notification path:**
+`apps/backend/src/lib/accounts/apply-default-location-change.ts` fired its two moderator-alert
+email sends via an unawaited `Promise.allSettled(...).catch(...)` (note: `Promise.allSettled`
+never rejects, so that `.catch()` was already dead code). This helper is reachable both from the
+GraphQL resolver (API Lambda, `resolvers.ts:858`) and from
+`backfillAccountProfileAndInferDefaultLocation` in the AI-processor Lambda's post-processing path
+— the identical freeze-before-completion exposure, just for email instead of push. Both call
+sites now `await Promise.allSettled(...)` directly.
+
+**Explicitly left alone:** the inline ingestion fallback in
+`apps/backend/src/lib/ai-processor/process-ai-job.ts`
+(`processIngestionJob(eventMessage).catch(...)`) is gated behind
+`DATA_INGESTION_INLINE_FALLBACK_ENABLED` and documented as local-dev-only (no Lambda ever drains
+a queue in that mode) — it carries no Lambda-freeze exposure and is out of scope for this fix.
+
+### Regression test
+
+Added `process-ingestion-job.test.ts`'s `"FIND-061: does not resolve until the notification seam
+has resolved"` case: installs a seam (`setSendEventNotificationsSeam`) that awaits a real
+`setTimeout` before flipping a flag, then asserts the flag is already `true` immediately after
+`processIngestionJob(...)` resolves — proving the function's own returned promise cannot settle
+before the notification seam's does. This would fail against the pre-fix fire-and-forget code
+(the flag would still be `false` at that point).
+
+### Remaining production check (after deploy)
+
+This fix corrects a confirmed code-level bug, but **does not by itself prove production delivery
+end-to-end** — the diagnosis's original production checks 1 (frontend config) and the
+data-shape checks are now resolved by the new evidence above, but **production check 2 (backend
+FCM Admin credentials) is still open** and must be confirmed after this fix deploys:
+
+- Confirm `FIREBASE_PROJECT_ID` / `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY` are set on the
+  **ingestor Lambda's** environment in the deployed stack (not just the AI-processor or API
+  Lambda, if those differ), and whether `SYSTEM_ERROR_ALERT_EMAIL` is set.
+- After the next real ingestion run for an account with an active subscriber + token, check
+  CloudWatch logs for the ingestor Lambda filtered on `[sendEventNotifications]`
+  (success/failure path logging) and `Firebase Admin initialization failed` — the await fix
+  guarantees these logs now have a chance to run to completion before the environment freezes,
+  but the credentials themselves still need to be verified present and valid.

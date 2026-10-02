@@ -1746,12 +1746,12 @@ items:
      note: "Fixed 2026-10-02 via bmad-quick-dev (code + regression test, tsc clean); live re-scrape of the 4 CC-024 reference posts still owed on a machine with APIFY_API_TOKEN set. See ref for full root cause/verification."}
 
   FIND-061:
-    {type: finding, status: triaged, created: 2026-10-01, parent: CC-024,
+    {type: finding, status: done, created: 2026-10-01, parent: CC-024,
      impact: user-visible, effort: s,
      title: "No new-event push notification has ever been received -- diagnose before per-event notifications ship",
      ref: [backlog/FIND-061-no-new-event-push-notification-diagnosis.md],
      touches: [app:backend, cross:notifications],
-     note: "Diagnosed 2026-10-02, bmad-quick-dev: all 3 leads refuted/unreproducible in code; no local root cause confirmed, no code changed. Remaining candidates are production-only checks -- see ref."}
+     note: "Fixed 2026-10-02, bmad-quick-dev: process-ingestion-job.ts dispatched notifications fire-and-forget, so the ingestor Lambda froze before send completed; now awaited (+ same fix in apply-default-location-change.ts). Prod FCM admin creds still an open post-deploy check -- see ref."}
 
   IDEA-054:
     {type: idea, status: backlog, created: 2026-10-01, parent: CC-024,

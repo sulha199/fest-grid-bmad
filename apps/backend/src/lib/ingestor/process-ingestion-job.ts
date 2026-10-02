@@ -46,18 +46,29 @@ export async function processIngestionJob(message: ExtractedEventMessage): Promi
   });
 
   if (result.inserted && insertedEvent && message.sourceSocialMediaAccountId) {
-    // Non-blocking trigger of sendEventNotifications after transaction commits
-    sendEventNotificationsSeam(
-      {
-        id: insertedEvent.id,
-        slug: insertedEvent.slug,
-        name: insertedEvent.eventName,
-        description: insertedEvent.description || '',
-      },
-      message.sourceSocialMediaAccountId
-    ).catch((err) => {
-      console.error('[processIngestionJob] Notification background dispatch failed:', err);
-    });
+    // FIND-061: must be awaited, not fire-and-forget, after the transaction commits. The
+    // deployed ingestor Lambda (lambdas/ingestor.ts) awaits processIngestionJob() and then
+    // returns; a dangling (unawaited) promise here lets AWS freeze the execution environment
+    // before the recipient-query + FCM send ever completes, so notifications silently never
+    // go out. sendEventNotifications already catches and reports its own errors internally, so
+    // this await cannot turn a committed ingestion into a failure on its own -- the try/catch
+    // below is just a defensive backstop so a notification failure never fails the SQS record.
+    try {
+      await sendEventNotificationsSeam(
+        {
+          id: insertedEvent.id,
+          slug: insertedEvent.slug,
+          name: insertedEvent.eventName,
+          description: insertedEvent.description || '',
+        },
+        message.sourceSocialMediaAccountId
+      );
+    } catch (err) {
+      // Defensive backstop only -- sendEventNotifications already catches and reports its own
+      // errors internally. This also guards against a seam throwing synchronously (e.g. a test
+      // double), which a bare `.catch()` on the call expression would not catch.
+      console.error('[processIngestionJob] Notification dispatch failed:', err);
+    }
   }
 
   return { inserted: result.inserted };
