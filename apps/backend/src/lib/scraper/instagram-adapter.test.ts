@@ -300,7 +300,7 @@ test('instagram-adapter tests', async (t) => {
     // (3-4d-task1b-runs/run-03-...-getpostbyurl-valid.md).
     assert.deepStrictEqual(calledInput, {
       username: ['https://www.instagram.com/p/C_abc123/'],
-      dataDetailLevel: 'basicData',
+      dataDetailLevel: 'detailedData',
     });
     assert.ok(post);
     assert.strictEqual(post!.content, 'My first post!');

@@ -20,9 +20,12 @@ import { recordSyncActorRun } from './record-actor-run.js';
 // `run-04-...-invalid.md`, input `{"username": [postUrl], "dataDetailLevel": "basicData"}`.
 // `resultsLimit`/`onlyPostsNewerThan` are explicitly documented by the actor as not applying in
 // post-URL mode and must stay omitted (see that story's Dev Notes correction, 2026-08-14).
+// `detailedData`, not `basicData`: verified live 2026-10-02 that `basicData` omits `childPosts`
+// (carousel slides -> additionalImageUrls) and `locationName`, which multi-event extraction
+// (Story 3.6s's roundup fixture) depends on.
 interface GetPostByUrlActorInput {
   username: string[];
-  dataDetailLevel: 'basicData';
+  dataDetailLevel: 'detailedData';
 }
 
 interface LookupAccountProfileActorInput {
@@ -389,7 +392,7 @@ export const instagramScraperAdapter: ScraperAdapter = {
       try {
         const input: GetPostByUrlActorInput = {
           username: [url],
-          dataDetailLevel: 'basicData',
+          dataDetailLevel: 'detailedData',
         };
         const items = (await callApifyActor(GET_POST_BY_URL_ACTOR, input)) as GetPostByUrlActorOutput;
 

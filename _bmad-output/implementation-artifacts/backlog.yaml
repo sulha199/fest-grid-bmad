@@ -1743,7 +1743,7 @@ items:
      title: "getPostByUrl fails against the live apify/instagram-post-scraper actor (input.username now required)",
      ref: [implementation-artifacts/backlog/BUG-053-getpostbyurl-apify-actor-input.md],
      touches: [app:backend, cross:ai-extraction],
-     note: "Fixed 2026-10-02 via bmad-quick-dev (code + regression test, tsc clean); live re-scrape of the 4 CC-024 reference posts still owed on a machine with APIFY_API_TOKEN set. See ref for full root cause/verification."}
+     note: "Fixed 2026-10-02 via bmad-quick-dev (code + regression test). Verified live 2026-10-02: basicData dropped carousel slides and locationName, so the by-URL input now uses dataDetailLevel detailedData; the 4 CC-024 reference posts re-scraped into implementation-artifacts/cc-024-reference-posts/. See ref."}
 
   FIND-061:
     {type: finding, status: done, created: 2026-10-01, parent: CC-024,

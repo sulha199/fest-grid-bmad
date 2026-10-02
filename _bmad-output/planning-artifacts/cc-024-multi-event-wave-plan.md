@@ -221,8 +221,10 @@ the same cloud-environment failures as Wave 2B, none new, and the Wave 2B regres
       delivery end-to-end. 3.6z's "soft: FIND-061 diagnosed" prerequisite is satisfied.
 - [x] **BUG-053** (`getPostByUrl` fails against the live Apify actor): fix so the POC script and the by-URL
       resolver path work, and the 4 reference posts can be re-scraped for 3.6s fixtures
-      (fixed 2026-10-02, bmad-quick-dev — code fix + unit test; live re-scrape of the 4 reference
-      posts still owed on a machine with `APIFY_API_TOKEN` set, see backlog.yaml BUG-053 note)
+      (fixed 2026-10-02, bmad-quick-dev — code fix + unit test; verified live the same day, which showed
+      `basicData` dropped carousel slides and `locationName`, so the input now uses `detailedData`; the 4
+      reference posts are re-scraped into `implementation-artifacts/cc-024-reference-posts/` with their
+      expected groupings)
 
 ## Wave 3 — Core build (strictly sequential)
 
