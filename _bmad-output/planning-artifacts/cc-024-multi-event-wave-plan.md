@@ -182,8 +182,8 @@ Read this before trusting a red gate. None of these come from CC-024 stories.
   - [x] create  - [x] dev  - [ ] review
 - [ ] **3.14** Deduplicated, provenance-tracked subscribable profiles — *needs 3.13* (dev done 2026-10-02, status `review`; DB migration 0063 applied; new `onConflictDoUpdate` upsert pattern in `getOrCreateDiscoveredAccountProfile`, flagged for code review; 11 new tests, targeted domain 62/62 + backend 43/43 green, build/lint clean)
   - [x] create  - [x] dev  - [ ] review
-- [ ] **3.15** Post-account association table + lossless migration — *needs 3.13/3.14 outputs; AD-25 and AD-31 settle the DDL*
-  - [ ] create  - [ ] dev  - [ ] review
+- [ ] **3.15** Post-account association table + lossless migration — *needs 3.13/3.14 outputs; AD-25 and AD-31 settle the DDL* (dev done 2026-10-02, status `review`; DB migration 0064 applied, 81/81 legacy posts backfilled `PUBLISHER_UNKNOWN`; 11 new/extended tests, targeted 40/40 green, domain/database/backend build + lint clean)
+  - [x] create  - [x] dev  - [ ] review
 - [ ] Prerequisite stories **1.3j**, **1.6c**, **1.3k** are at `review`: standing rule is to build against
       `review`-status prerequisites, so no wait — confirm they reach `done` before 3.6u/3.6y close
 

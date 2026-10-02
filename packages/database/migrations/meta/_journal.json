@@ -449,6 +449,13 @@
       "when": 1790912691984,
       "tag": "0063_curvy_captain_cross",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "6",
+      "when": 1790921219905,
+      "tag": "0064_soft_snowbird",
+      "breakpoints": true
     }
   ]
 }

@@ -3,6 +3,7 @@ import { posts } from '@festgrid/database';
 import { eq, or } from 'drizzle-orm';
 import { parseImageUrlExpiry, parsePlatformPostIdentity } from '@festgrid/domain/scraper';
 import { getOrCreateDiscoveredAccountProfile } from '../accounts/get-or-create-discovered-account-profile.js';
+import { persistPostAccountAssociations } from './persist-post-account-associations.js';
 
 interface PersistScrapedPostParams {
   accountId: string;
@@ -31,13 +32,28 @@ interface PersistScrapedPostParams {
   discoverySourceVendor?: string;
 }
 
+interface ResolvedDiscoveredIdentities {
+  /** The resolved `social_media_account_profiles.id` of the publisher, if resolvable. */
+  publisherProfileId?: string;
+  /** The resolved `social_media_account_profiles.id`s of every coauthor that resolved successfully. */
+  coauthorProfileIds: string[];
+}
+
 /**
- * Processes publisher/coauthor identity discovery for the given post, non-blockingly
- * (Story 3.14 AC1/AC2/AC3/AC5). Runs on EVERY persistScrapedPost call -- not gated on
- * whether the post itself was newly inserted -- since lastSeen tracks "this identity
- * was observed again," not "this exact post object is new" (see Dev Notes).
+ * Resolves publisher/coauthor identity discovery for the given post (Story 3.14
+ * AC1/AC2/AC3/AC5, restructured by Story 3.15 to run before the existing-post-vs-new-post
+ * branch decision and to **return** its resolved ids instead of only firing side-effect
+ * writes). Runs on EVERY persistScrapedPost call -- not gated on whether the post itself
+ * was newly inserted -- since lastSeen tracks "this identity was observed again," not
+ * "this exact post object is new" (see Dev Notes).
+ *
+ * A no-op (both fields absent/empty) when neither `ownerId` nor `coauthors` is present.
+ * Each `getOrCreateDiscoveredAccountProfile` call is wrapped in its own try/catch -- on
+ * failure, that identity's id is simply omitted from the returned result, which is what
+ * makes Story 3.15 AC3's "or when publisher resolution itself fails" fallback work with
+ * zero extra branching at the call site.
  */
-async function processDiscoveredIdentities({
+async function resolveDiscoveredIdentities({
   platform,
   scraperActorRunId,
   ownerId,
@@ -53,9 +69,11 @@ async function processDiscoveredIdentities({
   ownerDisplayName?: string | null;
   coauthors?: { accountId: string; username?: string }[];
   discoverySourceVendor?: string;
-}): Promise<void> {
+}): Promise<ResolvedDiscoveredIdentities> {
+  const result: ResolvedDiscoveredIdentities = { coauthorProfileIds: [] };
+
   if (!ownerId && !(coauthors && coauthors.length > 0)) {
-    return;
+    return result;
   }
 
   if (!discoverySourceVendor) {
@@ -65,12 +83,12 @@ async function processDiscoveredIdentities({
     console.error(
       `persistScrapedPost: ownerId/coauthors present but discoverySourceVendor missing for platform ${platform}; skipping identity processing`
     );
-    return;
+    return result;
   }
 
   if (ownerId) {
     try {
-      await getOrCreateDiscoveredAccountProfile({
+      const profile = await getOrCreateDiscoveredAccountProfile({
         platform,
         accountId: ownerId,
         username: ownerUsername ?? undefined,
@@ -78,6 +96,7 @@ async function processDiscoveredIdentities({
         vendor: discoverySourceVendor,
         runId: scraperActorRunId,
       });
+      result.publisherProfileId = profile.id;
     } catch (err) {
       console.error(`Failed to get-or-create discovered account profile for publisher ${ownerId} on platform ${platform}`, err);
     }
@@ -86,18 +105,21 @@ async function processDiscoveredIdentities({
   if (coauthors && coauthors.length > 0) {
     for (const coauthor of coauthors) {
       try {
-        await getOrCreateDiscoveredAccountProfile({
+        const profile = await getOrCreateDiscoveredAccountProfile({
           platform,
           accountId: coauthor.accountId,
           username: coauthor.username,
           vendor: discoverySourceVendor,
           runId: scraperActorRunId,
         });
+        result.coauthorProfileIds.push(profile.id);
       } catch (err) {
         console.error(`Failed to get-or-create discovered account profile for coauthor ${coauthor.accountId} on platform ${platform}`, err);
       }
     }
   }
+
+  return result;
 }
 
 export async function persistScrapedPost({
@@ -119,6 +141,20 @@ export async function persistScrapedPost({
   coauthors,
   discoverySourceVendor,
 }: PersistScrapedPostParams) {
+  // Resolve publisher/coauthor identities once, before the existing-post-vs-new-post
+  // branch decision (Story 3.15) -- unlike Story 3.14's original placement, the
+  // new-post branch below now needs the resolved publisher profile id *before* its
+  // own INSERT runs (AC3: it is the FK target for posts.accountId).
+  const { publisherProfileId, coauthorProfileIds } = await resolveDiscoveredIdentities({
+    platform,
+    scraperActorRunId,
+    ownerId,
+    ownerUsername,
+    ownerDisplayName,
+    coauthors,
+    discoverySourceVendor,
+  });
+
   // 1. Try to find the existing post using the dual-lookup logic
   const conditions = originalPostUrl
     ? or(eq(posts.postUrl, postUrl), eq(posts.originalPostUrl, originalPostUrl))
@@ -150,14 +186,15 @@ export async function persistScrapedPost({
       post = updated;
     }
 
-    await processDiscoveredIdentities({
-      platform,
+    // Already-existed branch: post.accountId is never touched here (unchanged, matches
+    // AC3's "for new posts" framing and the existing backfillPatch mechanism's scope).
+    // The resolved identities are still written to the association table (AC2/AC4/AC5).
+    await persistPostAccountAssociations({
+      postId: post.id,
+      scrapingAccountId: accountId,
+      publisherAccountId: publisherProfileId,
+      coauthorAccountIds: coauthorProfileIds,
       scraperActorRunId,
-      ownerId,
-      ownerUsername,
-      ownerDisplayName,
-      coauthors,
-      discoverySourceVendor,
     });
 
     return {
@@ -170,8 +207,13 @@ export async function persistScrapedPost({
   const imageUrlExpiresAt = parseImageUrlExpiry(imageUrl);
   const { platformPostId, platformPostType } = parsePlatformPostIdentity({ postUrl, originalPostUrl });
 
+  // New-post branch only (AC3): posts.accountId resolves to the verified canonical
+  // publisher profile id when the vendor owner identity was present and resolved
+  // successfully, falling back to today's scraping-account value (the caller-supplied
+  // `accountId`) otherwise. `accountId` itself is left untouched -- it is still needed
+  // below as the SCRAPING_SOURCE association target regardless of what wins here.
   const insertValues = {
-    accountId,
+    accountId: publisherProfileId ?? accountId,
     platform,
     content,
     imageUrl,
@@ -232,14 +274,12 @@ export async function persistScrapedPost({
     .limit(1)
     .then((rows) => rows[0]);
 
-  await processDiscoveredIdentities({
-    platform,
+  await persistPostAccountAssociations({
+    postId: post.id,
+    scrapingAccountId: accountId,
+    publisherAccountId: publisherProfileId,
+    coauthorAccountIds: coauthorProfileIds,
     scraperActorRunId,
-    ownerId,
-    ownerUsername,
-    ownerDisplayName,
-    coauthors,
-    discoverySourceVendor,
   });
 
   return {

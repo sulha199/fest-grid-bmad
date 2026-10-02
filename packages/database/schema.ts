@@ -3,6 +3,7 @@ import { relations, sql } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
 import { LocationDetails, EventLink } from '@festgrid/shared-types';
 import type { ProposedEventCorrection } from '@festgrid/domain/events';
+import { POST_ACCOUNT_ROLES } from '@festgrid/domain/posts';
 
 const generateSlug = () => randomBytes(6).toString('hex');
 
@@ -88,6 +89,8 @@ export const imageStorageOptInSourceEnum = pgEnum('image_storage_opt_in_source',
 
 export const accountTypeEnum = pgEnum('account_type', ['ORGANIZER_VENUE_EVENT', 'PERSONAL', 'CURATOR_GUIDE']);
 export const accountTypeStatusEnum = pgEnum('account_type_status', ['CONFIRMED', 'AWAITING_APPROVAL']);
+
+export const postAccountRoleEnum = pgEnum('post_account_role', POST_ACCOUNT_ROLES);
 
 export const brightdataPendingJobs = pgTable('brightdata_pending_jobs', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -339,6 +342,27 @@ export const scraperActorRuns = pgTable('scraper_actor_runs', {
   profileIdIdx: index('idx_scraper_actor_runs_profile_id').on(t.profileId),
   vendorStatusIdx: index('idx_scraper_actor_runs_vendor_status').on(t.vendor, t.status),
   createdAtIdx: index('idx_scraper_actor_runs_created_at').on(t.createdAt),
+}));
+
+export const postAccountAssociations = pgTable('post_account_associations', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  postId: uuid('post_id').references(() => posts.id, { onDelete: 'cascade' }).notNull(),
+  accountId: uuid('account_id').references(() => socialMediaAccountProfiles.id).notNull(),
+  role: postAccountRoleEnum('role').notNull(),
+  scraperActorRunId: uuid('scraper_actor_run_id').references(() => scraperActorRuns.id),
+  ...timestamps,
+}, (t) => ({
+  postAccountRoleUnq: unique().on(t.postId, t.accountId, t.role),
+  // Partial unique indexes -- drizzle-kit 0.21.4 drops the WHERE predicate from generated
+  // migration SQL (same gap as schedules.oneMainPerEventIdx / AD-8 rule 3). These builder
+  // calls document intent only; the migration hand-adds the real DDL.
+  onePublisherPerPostIdx: uniqueIndex('idx_post_account_associations_one_publisher_per_post')
+    .on(t.postId)
+    .where(sql`role IN ('PUBLISHER', 'PUBLISHER_UNKNOWN')`),
+  oneScrapingSourcePerPostIdx: uniqueIndex('idx_post_account_associations_one_scraping_source_per_post')
+    .on(t.postId)
+    .where(sql`role = 'SCRAPING_SOURCE'`),
+  accountIdPostIdIdx: index('idx_post_account_associations_account_id_post_id').on(t.accountId, t.postId),
 }));
 
 export const events = pgTable('events', {
