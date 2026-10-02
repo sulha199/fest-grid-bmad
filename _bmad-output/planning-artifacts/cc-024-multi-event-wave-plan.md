@@ -201,6 +201,10 @@ self-review are in `deferred-work.md`.
 
 ## Wave 2C — Diagnostics (no CC-024 behavior change)
 
+**Batch-end gate (2026-10-02, cloud session, `TZ=UTC`):** lint 8/8 pass; build 8/8 pass; tests: 22 backend failures, all
+geolocation/location (`GEOAPIFY_API_KEY` unset) or the Bright Data `CAPACITY_EXHAUSTED` test (`.env.example` placeholders) —
+the same cloud-environment failures as Wave 2B, none new, and the Wave 2B regression stays fixed.
+
 - [x] **FIND-061** (no new-event push ever received): diagnosed 2026-10-02, bmad-quick-dev — all 3 leads
       (inner joins to `user_settings`/`fcm_tokens`, empty `sourceSocialMediaAccountId`,
       `pushNotificationsEnabled` default) traced end-to-end and refuted/unreproducible against current
