@@ -283,8 +283,14 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
     full detail. Next session: re-run the full suite with untruncated output, triage the 61
     failures, run lint/`tsc --noEmit`, then complete Task 6/9 and tick `dev`.
 - [ ] **3.6z** Automatically enqueue new scraped posts for extraction within quota — *needs 3.5, 3.6t (and 3.6s's inline guard);
-      soft: FIND-061 diagnosed*
-  - [ ] create  - [ ] dev  - [ ] review
+      soft: FIND-061 diagnosed* (story created 2026-10-02, status `ready-for-dev`; cites the batch readiness sweep for
+      Gates 1/3 (READY-WITH-CAVEAT, BUG-012/Finding 1 exposure, no AC change needed), Gate 2 run fresh — no gap, zero
+      frontend scope; two design decisions resolved with the user via `AskUserQuestion` across two rounds: (1) close
+      Story 3.5's accepted idempotency gap with a full TTL-reclaimable claim column on `posts.queued_for_extraction_at`
+      rather than a bare non-expiring flag (which would permanently strand a post whose extraction attempt exhausts
+      SQS's 3 retries into the DLQ) or leaving the gap as-is; (2) auto-enqueue applies to every `persistScrapedPost`
+      call site uniformly, including a new subscription's initial historical backfill, not just steady-state scrapes)
+  - [x] create  - [ ] dev  - [ ] review
 
 ## Wave 4B — Matching and enrichment
 
