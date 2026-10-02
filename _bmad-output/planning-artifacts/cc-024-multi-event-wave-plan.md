@@ -240,8 +240,8 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
       `process-ai-job.ts` defers/does-not-enqueue a multi-event post until 3.6t ships real per-event ordinal
       ingestion, and the 4 reference-post fixtures get a two-tier test strategy — a deterministic CI suite
       replaying a one-time-captured real Gemini response per fixture, plus an opt-in live test following the
-      existing `build-gemini-request.live-carousel.test.ts` precedent)
-  - [x] create  - [ ] dev  - [ ] review  - [x] fixtures stable across runs
+      existing `build-gemini-request.live-carousel.test.ts` precedent) (dev done, commit `c57b5c1d`, status `review`; live repeat test run 2026-10-02: all 4 posts matched on all 3 runs, 12 real Gemini calls, 5/5 pass)
+  - [x] create  - [x] dev  - [ ] review  - [x] fixtures stable across runs
 - [ ] **3.6t** Ingest multiple events per post, with per-event slugs and notifications — *needs 3.6r, 3.6s, 3.7f,
       3.7g; sweep correction: a queued message without `extractionOrdinal` defaults to ordinal 0*
   - [ ] create  - [ ] dev  - [ ] review  - [ ] re-run creates no duplicates
@@ -262,6 +262,10 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
 - [ ] **3.6v** Match new posts to existing events and enrich them in place — *needs 3.6t, 3.13–3.15, 3.4n, 3.7g,
       3.7h; sweep correction: the alias redirect is wired into both Next.js slug routes and
       `getEventBySlugCached` must not swallow a redirect signal*
+      **Note from 3.6s:** the extraction prompt sets `organizerHandle` to the *posting* account when no handle is tagged
+      for an item (by design, so the handle survives the curator caption being nulled). For roundup-sourced events that is the
+      curator, not the organizer: matching must discount `organizerHandle` when the post's grouping reason is `roundup`
+      or its account type is `CURATOR_GUIDE`.
   - [ ] create  - [ ] dev  - [ ] review  - [ ] promotion keeps favorites/calendar entries
 
 ## Wave 5 — Moderation, collection page, account filtering
