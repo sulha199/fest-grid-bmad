@@ -178,8 +178,8 @@ Read this before trusting a red gate. None of these come from CC-024 stories.
 
 ## Wave 2B — Coauthor and publisher roles (gates 3.6v)
 
-- [ ] **3.13** Normalize Apify vendor coauthor/publisher roles during ingestion
-  - [ ] create  - [ ] dev  - [ ] review
+- [ ] **3.13** Normalize Apify vendor coauthor/publisher roles during ingestion (dev done, commit `3d96426`, status `review`)
+  - [x] create  - [x] dev  - [ ] review
 - [ ] **3.14** Deduplicated, provenance-tracked subscribable profiles — *needs 3.13*
   - [ ] create  - [ ] dev  - [ ] review
 - [ ] **3.15** Post-account association table + lossless migration — *needs 3.13/3.14 outputs; AD-25 and AD-31 settle the DDL*
