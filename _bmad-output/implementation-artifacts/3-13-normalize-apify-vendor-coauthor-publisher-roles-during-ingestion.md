@@ -140,25 +140,25 @@ Two real, non-mechanical design choices were surfaced to the user before draftin
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — Apify-only `mapApifyItemToScrapedPost` + `ScrapedPost` type + AJV schema; explicitly not `persistScrapedPost`/enqueue/posts-table plumbing (that's Story 3.14) and not Bright Data (FIND-039)
-- [ ] Architecture and boundary confirmation — AD-25/AD-31 reviewed (context only, no DDL written here); coauthor-filtering logic stays inline in `instagram-adapter.ts` per local precedent, not extracted to `packages/domain`
-- [ ] Testing plan confirmation — Task 6's 6 test cases cover AC1-AC4 plus the two resolved design decisions
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gates 1/3 cited from `batch-cc-024-multi-event-readiness.md` (READY, no correction needed for 3.13); Gate 2 run fresh this session (No gap found)
+- [x] Scope confirmation — Apify-only `mapApifyItemToScrapedPost` + `ScrapedPost` type + AJV schema; explicitly not `persistScrapedPost`/enqueue/posts-table plumbing (that's Story 3.14) and not Bright Data (FIND-039). Confirmed true: File List shows exactly these files touched, nothing from the Out of Scope list.
+- [x] Architecture and boundary confirmation — AD-25/AD-31 reviewed (context only, no DDL written here); coauthor-filtering logic stays inline in `instagram-adapter.ts` per local precedent, not extracted to `packages/domain`. Confirmed true: commit `3d96426e` shows no DDL/migration file and the filtering loop lives inline in `mapApifyItemToScrapedPost`.
+- [x] Testing plan confirmation — Task 6's 6 test cases cover AC1-AC4 plus the two resolved design decisions. Confirmed true: `instagram-adapter.test.ts` diff in `3d96426e` carries the 6 named cases, and the foreground re-run above (`instagram-adapter.test.ts`, 32/32) exercises all of them green.
+- [x] Explicit human approval state (Default: pending approval) — granted. The orchestrator's 2026-10-02 instruction explicitly directed proceeding with Wave 2B (this story), and the two live design questions (flat-additive fields vs. nested identity object; reject-whole-post vs. skip-just-the-entry) were already resolved via `AskUserQuestion` before this story was drafted (see Dev Notes "Design Decisions" and AC3's resolution note) — recorded per this resume request's own explicit instruction to tick this item on that basis.
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gates 1/3 cited from `batch-cc-024-multi-event-readiness.md` (READY, no correction needed for 3.13); Gate 2 run fresh this session (No gap found). Confirmed true: this is a direct quote of the story's own "Architecture & UX Gate Findings" Dev Note, written before coding began.
 
 ## Testing Requirements
 
-- [ ] Integration tests — `apps/backend/src/lib/scraper/instagram-adapter.test.ts` (Task 6), `node:test` pattern, run via `npx tsx --test --test-concurrency=1`; the malformed-coauthor-entry test asserts against the real local Postgres `unprocessedScraperPayloads` table (no mocking of the DB layer, matching this file's existing convention)
-- [ ] E2E tests — not applicable; this is a backend-only data-mapping change with no user-facing flow to exercise end-to-end (per project-context.md's testing-trophy guidance, E2E is reserved for critical user flows)
+- [x] Integration tests — `apps/backend/src/lib/scraper/instagram-adapter.test.ts` (Task 6), `node:test` pattern, run via `npx tsx --test --test-concurrency=1`; the malformed-coauthor-entry test asserts against the real local Postgres `unprocessedScraperPayloads` table (no mocking of the DB layer, matching this file's existing convention). Confirmed true: re-run in the foreground this session, 32/32 passing (includes the real-DB assertion test).
+- [x] E2E tests — not applicable; this is a backend-only data-mapping change with no user-facing flow to exercise end-to-end (per project-context.md's testing-trophy guidance, E2E is reserved for critical user flows). Confirmed true by inspection: no `apps/web`/UI file is in the File List.
 
 ## Deliverables Checklist
 
-- [ ] `ScrapedPost` type extended with `ownerId`/`coauthors` (packages/domain)
-- [ ] `scrapedPostSchema` AJV schema updated to match (apps/backend)
-- [ ] `mapApifyItemToScrapedPost` captures `ownerId`, normalizes `coauthorProducers[]` into `coauthors[]`, filters and observably persists malformed entries without rejecting the whole post, never reads `taggedUsers[]`
-- [ ] `APIFY_PARSER_VERSION` bumped to `'3.13'`
-- [ ] 6 new/extended test cases in `instagram-adapter.test.ts`, all green alongside every pre-existing test in that file
-- [ ] Full `apps/backend` build + test suite green; lint clean on all 4 touched files
+- [x] `ScrapedPost` type extended with `ownerId`/`coauthors` (packages/domain) — confirmed in `3d96426e`, `packages/domain/src/scraper/types.ts`.
+- [x] `scrapedPostSchema` AJV schema updated to match (apps/backend) — confirmed in `3d96426e`, `apps/backend/src/validation/scraped-post.schema.ts`.
+- [x] `mapApifyItemToScrapedPost` captures `ownerId`, normalizes `coauthorProducers[]` into `coauthors[]`, filters and observably persists malformed entries without rejecting the whole post, never reads `taggedUsers[]` — confirmed in `3d96426e`, `instagram-adapter.ts`, and exercised by the foreground test re-run (32/32, including the AC2 `taggedUsers` regression guard and the AC3 malformed-entry-persists-and-post-still-ingests case).
+- [x] `APIFY_PARSER_VERSION` bumped to `'3.13'` — confirmed in `3d96426e`.
+- [x] 6 new/extended test cases in `instagram-adapter.test.ts`, all green alongside every pre-existing test in that file — confirmed: foreground re-run this session, 32/32 (26 pre-existing + 6 new/extended), 0 failures.
+- [ ] Full `apps/backend` build + test suite green; lint clean on all 4 touched files — **deferred to the batch-end gate** (the dev-story session already ran a clean targeted `pnpm --filter backend build` and lint on all 4 files with 0 new warnings/errors per the Dev Agent Record, but the full unfiltered `apps/backend` test suite and repo-wide lint are the orchestrator's batch-end responsibility, not re-run here).
 
 ## Out of Scope
 
@@ -170,14 +170,14 @@ Two real, non-mechanical design choices were surfaced to the user before draftin
 
 ## Definition of Done
 
-- [ ] AC1-AC4 satisfied exactly as resolved above (including the two `AskUserQuestion`-resolved design decisions)
-- [ ] All Task 6 tests passing, plus every pre-existing test in `instagram-adapter.test.ts` and the rest of the `apps/backend` suite (no regression)
-- [ ] `pnpm --filter backend build` (tsc) clean; `pnpm lint` clean on all 4 touched files
-- [ ] No file outside the File Change Plan touched
+- [x] AC1-AC4 satisfied exactly as resolved above (including the two `AskUserQuestion`-resolved design decisions)
+- [ ] All Task 6 tests passing, plus every pre-existing test in `instagram-adapter.test.ts` and the rest of the `apps/backend` suite (no regression) — `instagram-adapter.test.ts` verified 32/32 green (2026-10-02); the rest of the backend suite is **deferred to the batch-end gate**
+- [ ] `pnpm --filter backend build` (tsc) clean; `pnpm lint` clean on all 4 touched files — **deferred to the batch-end gate** (a clean targeted build and lint were run during dev)
+- [x] No file outside the File Change Plan touched
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Implemented and committed (`3d96426e`); status review. Batch-end gate (full backend suite, build, lint) pending for the three items marked deferred above.
 
 ## Dev Agent Record
 
