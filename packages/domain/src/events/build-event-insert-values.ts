@@ -4,13 +4,15 @@ import {
   EventSourcePostIdentity,
   ScheduleInsertValues,
   ExtractedScheduleMessage,
+  EventDetailLevel,
 } from './types.js';
 import { getPlatformSlug } from '../scraper/platform-registry.js';
 import { ScrapablePlatform } from '../subscriptions/platforms.js';
 
 export function buildEventInsertValues(
   message: ExtractedEventMessage,
-  sourcePost: EventSourcePostIdentity | null
+  sourcePost: EventSourcePostIdentity | null,
+  detailLevel?: EventDetailLevel
 ): {
   event: EventInsertValues;
   schedules: ScheduleInsertValues[];
@@ -30,7 +32,18 @@ export function buildEventInsertValues(
     links: message.links ?? null,
   };
 
-  const slug = buildPlatformPrefixedSlug(sourcePost);
+  // Story 3.6t — unconditional, unlike `slug`: insertEventWithPrimaryPost always recomputes and
+  // overwrites extractionOrdinal at its own DB-write boundary before the real insert, so passing
+  // `undefined` through here (a pre-deploy message, AC2) is harmless and needs no special-casing.
+  event.extractionOrdinal = message.extractionOrdinal;
+
+  // Story 3.6t — conditional, like `slug`: an omitted detailLevel must leave the key physically
+  // absent so Drizzle's events.detail_level DEFAULT 'full' fires, never an explicit 'full' write.
+  if (detailLevel !== undefined) {
+    event.detailLevel = detailLevel;
+  }
+
+  const slug = buildPlatformPrefixedSlug(sourcePost, message.extractionOrdinal);
   if (slug !== undefined) {
     event.slug = slug;
   }
@@ -51,6 +64,8 @@ export function buildEventInsertValues(
       longitude: s.locationDetails?.coordinates?.longitude ?? null,
       timezone: s.timezone || null,
       timezoneStatus: s.timezoneStatus || null,
+      // Story 3.6t (BUG-026) — mapped through from ExtractedScheduleMessage.applicableDaysOfWeek.
+      applicableDaysOfWeek: s.applicableDaysOfWeek ?? null,
     };
   });
 
@@ -60,21 +75,27 @@ export function buildEventInsertValues(
 }
 
 /**
- * Builds the base (ordinal-0) platform-prefixed event slug (e.g. `ig_p_Cx9uWttkSN`) from the
- * source post's identity, per Architecture Spine AD-16 Rules 1/3/4.
+ * Builds the platform-prefixed event slug (e.g. `ig_p_Cx9uWttkSN`, or `ig_p_Cx9uWttkSN~2` for
+ * ordinal 2) from the source post's identity, per Architecture Spine AD-16 Rules 1/3/4/8-9.
  *
  * Returns `undefined` — never a guessed/placeholder value — whenever the slug can't be derived:
  * no source post row (`sourcePost` is `null`), the post's `platformPostId`/`platformPostType`
  * are null (unparseable at scrape time, or pre-3.7f data), or the post's `platform` doesn't
  * resolve via `getPlatformSlug()` (unsupported/unrecognized platform). The caller
  * (`buildEventInsertValues`) treats `undefined` as "omit the `slug` key," which lets Drizzle's
- * existing `events.slug` `$defaultFn` (legacy hex) fire unchanged (AC2).
+ * existing `events.slug` `$defaultFn` (legacy hex) fire unchanged (AC2). The ordinal suffix never
+ * fires on top of this fallback path, since it is appended only when a base slug was built.
  *
- * No ordinal suffix is ever appended here — this function only ever produces the ordinal-0
- * form; the `-{ordinal}`/`~{ordinal}` suffix for further events from the same post is Story
- * 3.6t's concern (AC4), not this one's.
+ * Story 3.6t (AD-16 Rule 9, amended 2026-10-01): the ordinal suffix separator is `~`, not `-`.
+ * Instagram shortcodes are base64url and can themselves contain `-`, so a `-`-suffixed slug
+ * would be ambiguous between "post X, ordinal N" and "post X-N, ordinal 0" (e.g. `ig_p_Ddi9wU6RCRQ`
+ * vs. `ig_p_Ddi9wU6RCRQ~2`). `.` is unusable because `apps/web/src/middleware.ts`'s matcher skips
+ * any path containing a dot.
  */
-function buildPlatformPrefixedSlug(sourcePost: EventSourcePostIdentity | null): string | undefined {
+function buildPlatformPrefixedSlug(
+  sourcePost: EventSourcePostIdentity | null,
+  extractionOrdinal?: number
+): string | undefined {
   if (sourcePost === null || sourcePost.platformPostId === null || sourcePost.platformPostType === null) {
     return undefined;
   }
@@ -84,7 +105,8 @@ function buildPlatformPrefixedSlug(sourcePost: EventSourcePostIdentity | null): 
     return undefined;
   }
 
-  return `${platformSlug}_${sourcePost.platformPostType}_${sourcePost.platformPostId}`;
+  const base = `${platformSlug}_${sourcePost.platformPostType}_${sourcePost.platformPostId}`;
+  return extractionOrdinal !== undefined && extractionOrdinal > 0 ? `${base}~${extractionOrdinal}` : base;
 }
 
 /**

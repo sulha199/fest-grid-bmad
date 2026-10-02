@@ -111,6 +111,10 @@ export interface ExtractedEventMessage {
   // Story 3.6v's matching pass to read later. Not read by anything in this story. Mapping into
   // EventInsertValues is explicitly Story 3.6t's job, not this story's.
   organizerHandle?: string;
+  // Story 3.6t — optional for backward compatibility: a DataIngestionQueue message enqueued
+  // before this story's deploy has no such field at all. processIngestionJob/
+  // insertEventWithPrimaryPost already treat its absence as ordinal 0 (AC2).
+  extractionOrdinal?: number;
 }
 
 // Story 3.7g — a plain, DB/ORM-decoupled shape describing the fields of a `posts` row that
@@ -143,6 +147,14 @@ export interface EventInsertValues {
   // — the key must be physically absent for the fallback to engage (see
   // build-event-insert-values.ts for why).
   slug?: string;
+  // Story 3.6t — threaded through unconditionally from the message (never conditionally
+  // omitted like `slug`): insertEventWithPrimaryPost always recomputes/overwrites this at its
+  // own DB-write boundary, so the undefined-vs-absent-key distinction doesn't matter here.
+  extractionOrdinal?: number;
+  // Story 3.6t — present only when the caller (process-ingestion-job.ts) has already resolved
+  // the stub/full decision; omitted otherwise so the DB's own DEFAULT 'full' fires, mirroring
+  // the existing `slug?:` omit-the-key pattern.
+  detailLevel?: EventDetailLevel;
 }
 
 export interface ScheduleInsertValues {
@@ -161,6 +173,9 @@ export interface ScheduleInsertValues {
   longitude?: number | null;
   timezone?: string | null;
   timezoneStatus?: ScheduleTimezoneStatus | null;
+  // Story 3.6t — mapped through from ExtractedScheduleMessage.applicableDaysOfWeek (BUG-026,
+  // shipped on the message by Story 3.6s but explicitly left unmapped to this type until now).
+  applicableDaysOfWeek?: string[] | null;
 }
 
 export interface ProposedScheduleCorrection {
