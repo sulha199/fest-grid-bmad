@@ -79,19 +79,48 @@ export function buildDrizzleWhere(
       return notInArray(column, value);
     case "overlaps": {
       const { from, to } = value as { from: string; to: string | null };
-      const { table, eventIdCol, correlateCol, startCol, endCol } = column as {
+      const { table, eventIdCol, correlateCol, startCol, endCol, applicableDaysOfWeekCol } = column as {
         table: PgTable;
         eventIdCol: PgColumn;
         correlateCol: PgColumn;
         startCol: PgColumn;
         endCol: PgColumn;
+        applicableDaysOfWeekCol?: PgColumn;
       };
       const toSql = to === null ? sql`NULL` : sql`${to}::date`;
+      // Story 3.6y (AD-19 "single domain mechanism") -- when the fieldMap descriptor carries
+      // applicableDaysOfWeekCol, append a closed-form weekday-containment guard so a schedule
+      // narrowed to specific weekdays (e.g. `['MON']`) does not match a day-of-week/dateRange/
+      // temporal-filter query window that contains none of those weekdays, even though the
+      // schedule's raw [startCol, endCol] span overlaps the window. See drizzle-where.test.ts
+      // and this story's Dev Notes for the O(1)-per-row rationale (unnest over the schedule's
+      // own tiny array, never a per-day generate_series loop over the query's own range).
+      const weekdayGuard = applicableDaysOfWeekCol
+        ? sql`
+          AND (
+            ${applicableDaysOfWeekCol} IS NULL
+            OR cardinality(${applicableDaysOfWeekCol}) = 0
+            OR EXISTS (
+              SELECT 1 FROM unnest(${applicableDaysOfWeekCol}) AS aw(code)
+              WHERE MOD(
+                (CASE aw.code
+                  WHEN 'SUN' THEN 0 WHEN 'MON' THEN 1 WHEN 'TUE' THEN 2 WHEN 'WED' THEN 3
+                  WHEN 'THU' THEN 4 WHEN 'FRI' THEN 5 WHEN 'SAT' THEN 6 END)
+                - EXTRACT(DOW FROM GREATEST(${startCol}, ${from}::date))::int + 7, 7
+              ) <= (
+                LEAST(COALESCE(${endCol}, ${startCol}), COALESCE(${toSql}, COALESCE(${endCol}, ${startCol})))
+                - GREATEST(${startCol}, ${from}::date)
+              )
+            )
+          )
+        `
+        : sql``;
       return sql`EXISTS (
         SELECT 1 FROM ${table}
         WHERE ${eventIdCol} = ${correlateCol}
           AND daterange(${startCol}, COALESCE(${endCol}, ${startCol}), '[]')
               && daterange(${from}::date, ${toSql}, '[]')
+          ${weekdayGuard}
       )`;
     }
     case "notEnded": {

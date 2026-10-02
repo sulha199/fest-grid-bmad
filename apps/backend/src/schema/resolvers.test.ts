@@ -613,6 +613,127 @@ test('events resolver integration via Yoga', async (t) => {
     });
   });
 
+  await t.test('events - applicableDaysOfWeek narrows dayOfWeek/dateRange/TODAY/UPCOMING filtering (Story 3.6y)', async (t) => {
+    const createdEventIds: string[] = [];
+
+    async function createEventWithSchedule(opts: {
+      eventName: string;
+      scheduleStartDate: string;
+      scheduleEndDate?: string | null;
+      applicableDaysOfWeek?: string[] | null;
+    }) {
+      const [event] = await db.insert(events).values({
+        eventName: opts.eventName,
+        location: 'Test City',
+      }).returning();
+      createdEventIds.push(event.id);
+      await db.insert(schedules).values({
+        eventId: event.id,
+        eventStartDate: opts.scheduleStartDate,
+        eventEndDate: opts.scheduleEndDate ?? null,
+        applicableDaysOfWeek: opts.applicableDaysOfWeek ?? null,
+        isMainSchedule: true,
+      });
+      return event;
+    }
+
+    t.after(async () => {
+      mockNow = null;
+      await db.delete(events).where(inArray(events.id, createdEventIds));
+    });
+
+    // Mondays actually falling inside Sep 2030 (verified against Postgres's own EXTRACT(DOW),
+    // not assumed): 2030-09-02, 09, 16, 23, 30. Fridays: 06, 13, 20, 27.
+    const monEvent = await createEventWithSchedule({
+      eventName: '3.6y test - MON-only schedule',
+      scheduleStartDate: '2030-09-01',
+      scheduleEndDate: '2030-09-30',
+      applicableDaysOfWeek: ['MON'],
+    });
+    const controlEvent = await createEventWithSchedule({
+      eventName: '3.6y test - control, no applicableDaysOfWeek',
+      scheduleStartDate: '2030-09-01',
+      scheduleEndDate: '2030-09-30',
+      applicableDaysOfWeek: null,
+    });
+
+    async function queryEvents(args: { filter?: unknown; query?: unknown }) {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query Events($filter: EventFilterInput, $query: EventQueryConditionInput) {
+              events(filter: $filter, query: $query, limit: 1000) {
+                items { id }
+              }
+            }
+          `,
+          variables: args,
+        }),
+      });
+      const result = await response.json();
+      assert.ok(!result.errors, `GraphQL errors returned: ${JSON.stringify(result.errors)}`);
+      return new Set<string>(result.data.events.items.map((i: { id: string }) => i.id));
+    }
+
+    await t.test('AC1: dayOfWeek filter excludes a weekday not in applicableDaysOfWeek, matches one that is', async () => {
+      mockNow = new Date('2030-09-01T12:00:00Z');
+
+      const fridayIds = await queryEvents({
+        filter: { dateRange: { anchor: 'THIS_MONTH', offsetAmount: 0, offsetUnit: 'MONTH' }, dayOfWeek: 'FRI' },
+      });
+      assert.ok(!fridayIds.has(monEvent.id), 'MON-only schedule should NOT match a FRI filter');
+      assert.ok(fridayIds.has(controlEvent.id), 'control (no applicableDaysOfWeek) schedule should match a FRI filter');
+
+      const mondayIds = await queryEvents({
+        filter: { dateRange: { anchor: 'THIS_MONTH', offsetAmount: 0, offsetUnit: 'MONTH' }, dayOfWeek: 'MON' },
+      });
+      assert.ok(mondayIds.has(monEvent.id), 'MON-only schedule should match a MON filter');
+    });
+
+    await t.test('AC2: plain dateRange (no dayOfWeek) excludes a window with no matching weekday, matches one that has one', async () => {
+      // 2030-09-10/11/12 are Tue/Wed/Thu -- no Monday in this window (verified via EXTRACT(DOW)).
+      const noMondayIds = await queryEvents({
+        query: { field: 'scheduleDateRange', operator: 'overlaps', value: { from: '2030-09-10', to: '2030-09-12' } },
+      });
+      assert.ok(!noMondayIds.has(monEvent.id), 'a Tue-Thu window with no Monday should NOT match the MON-only schedule');
+      assert.ok(noMondayIds.has(controlEvent.id), 'control schedule should still match since its raw span overlaps');
+
+      // 2030-09-07..13 contains the Sep 9 Monday.
+      const withMondayIds = await queryEvents({
+        query: { field: 'scheduleDateRange', operator: 'overlaps', value: { from: '2030-09-07', to: '2030-09-13' } },
+      });
+      assert.ok(withMondayIds.has(monEvent.id), 'a window containing the Sep 9 Monday should match the MON-only schedule');
+      assert.ok(withMondayIds.has(controlEvent.id), 'control schedule should also match');
+    });
+
+    await t.test('AC3: TODAY excludes a non-applicable weekday, includes an applicable one', async () => {
+      mockNow = new Date('2030-09-10T12:00:00Z'); // Tuesday, inside the schedule span
+      const tuesdayIds = await queryEvents({ filter: { temporalFilter: 'TODAY' } });
+      assert.ok(!tuesdayIds.has(monEvent.id), 'MON-only schedule should NOT be in the TODAY bucket on a Tuesday');
+      assert.ok(tuesdayIds.has(controlEvent.id), 'control schedule should be in the TODAY bucket on a Tuesday');
+
+      mockNow = new Date('2030-09-09T12:00:00Z'); // Monday, inside the schedule span
+      const mondayIds = await queryEvents({ filter: { temporalFilter: 'TODAY' } });
+      assert.ok(mondayIds.has(monEvent.id), 'MON-only schedule should be in the TODAY bucket on a Monday');
+    });
+
+    await t.test('AC4: UPCOMING excludes a remaining span with zero matching weekdays, includes one with at least one', async () => {
+      const noMondayRemainingEvent = await createEventWithSchedule({
+        eventName: '3.6y test - UPCOMING, remaining span has no Monday',
+        scheduleStartDate: '2030-09-10',
+        scheduleEndDate: '2030-09-11',
+        applicableDaysOfWeek: ['MON'],
+      });
+
+      mockNow = new Date('2030-09-09T12:00:00Z'); // tomorrow = 2030-09-10
+      const ids = await queryEvents({ filter: { temporalFilter: 'UPCOMING' } });
+      assert.ok(!ids.has(noMondayRemainingEvent.id), 'a remaining Tue-Wed span with no Monday should be excluded from UPCOMING');
+      assert.ok(ids.has(monEvent.id), 'a remaining span that still contains a Monday (Sep 16/23/30) should be included in UPCOMING');
+    });
+  });
+
   await t.test('event - fetch single event by ID with schedules', async () => {
     const allReq = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',

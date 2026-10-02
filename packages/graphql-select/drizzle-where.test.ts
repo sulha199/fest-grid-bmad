@@ -17,6 +17,7 @@ const scheduleTestTable = pgTable('schedule_test_table', {
   eventEndTime: time('event_end_time'),
   latitude: doublePrecision('latitude'),
   longitude: doublePrecision('longitude'),
+  applicableDaysOfWeek: text('applicable_days_of_week').array(),
 });
 
 const fieldMap = {
@@ -24,6 +25,19 @@ const fieldMap = {
   types: testTable.types,
   unmapped: null,
   scheduleDateRange: {
+    table: scheduleTestTable,
+    eventIdCol: scheduleTestTable.eventId,
+    correlateCol: testTable.id,
+    startCol: scheduleTestTable.eventStartDate,
+    endCol: scheduleTestTable.eventEndDate,
+    // Story 3.6y: mirrors the real fieldMap's own shape (resolvers.ts's `scheduleDateRange`
+    // entry) so this field's tests exercise the production descriptor shape.
+    applicableDaysOfWeekCol: scheduleTestTable.applicableDaysOfWeek,
+  },
+  // Story 3.6y: a legacy-shaped descriptor (same keys as scheduleDateRange above, minus
+  // applicableDaysOfWeekCol) proving a caller that never adds the new column sees
+  // byte-for-byte the same SQL as before this story (the Task 3 regression case).
+  scheduleDateRangeLegacy: {
     table: scheduleTestTable,
     eventIdCol: scheduleTestTable.eventId,
     correlateCol: testTable.id,
@@ -243,6 +257,50 @@ test('buildDrizzleWhere', async (t) => {
     };
     const res = buildDrizzleWhere(condition, fieldMap);
     assert.ok(res !== undefined);
+  });
+
+  await t.test('overlaps with applicableDaysOfWeekCol present adds the weekday-containment guard (single day, Story 3.6y AC1/AC5)', () => {
+    const condition: QueryCondition = {
+      field: 'scheduleDateRange',
+      operator: 'overlaps',
+      value: { from: '2026-08-01', to: '2026-08-01' }
+    };
+    const res = buildDrizzleWhere(condition, fieldMap);
+    assert.ok(res !== undefined);
+    const dialect = new PgDialect();
+    const query = dialect.sqlToQuery(res!);
+    assert.match(query.sql, /unnest/);
+    assert.match(query.sql, /EXTRACT\(DOW/);
+    assert.match(query.sql, /applicable_days_of_week/);
+  });
+
+  await t.test('overlaps with applicableDaysOfWeekCol present and to: null still constructs cleanly (UPCOMING-shaped, Story 3.6y AC4)', () => {
+    const condition: QueryCondition = {
+      field: 'scheduleDateRange',
+      operator: 'overlaps',
+      value: { from: '2026-08-01', to: null }
+    };
+    const res = buildDrizzleWhere(condition, fieldMap);
+    assert.ok(res !== undefined);
+    const dialect = new PgDialect();
+    const query = dialect.sqlToQuery(res!);
+    assert.match(query.sql, /unnest/);
+    assert.match(query.sql, /EXTRACT\(DOW/);
+  });
+
+  await t.test('overlaps without applicableDaysOfWeekCol stays byte-identical to pre-3.6y SQL (regression)', () => {
+    const condition: QueryCondition = {
+      field: 'scheduleDateRangeLegacy',
+      operator: 'overlaps',
+      value: { from: '2026-08-01', to: '2026-08-07' }
+    };
+    const res = buildDrizzleWhere(condition, fieldMap);
+    assert.ok(res !== undefined);
+    const dialect = new PgDialect();
+    const query = dialect.sqlToQuery(res!);
+    assert.doesNotMatch(query.sql, /unnest/);
+    assert.doesNotMatch(query.sql, /EXTRACT\(DOW/);
+    assert.doesNotMatch(query.sql, /applicable_days_of_week/);
   });
 
   await t.test('handles notEnded operator on scheduleEndedBoundary field', () => {

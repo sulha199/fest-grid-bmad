@@ -271,6 +271,14 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
       `UPCOMING` — via one closed-form SQL guard in `drizzle-where.ts`, not a narrower single-day-only
       patch, directly closing the 2026-09-30 backlog finding against BUG-026/0.i5d)
   - [x] create  - [ ] dev  - [ ] review
+  - **2026-10-02 dev session: Tasks 1-5 implemented and individually verified green (SQL guard,
+    unit tests, integration tests AC1-4, AD-17 EXPLAIN gate — PASS). Task 6 (final full regression
+    pass) BLOCKED — not ticking `dev`.** A full `apps/backend` run returned 845/908 pass, 61 fail
+    (cause undetermined, output lost to `tail` truncation), then every further `pnpm`/`npx`/`node`/
+    `psql` invocation failed with a persistent `Tool permission request failed: AbortError: Stream
+    closed` (confirmed non-transient across repeated retries) — see the story file's Debug Log for
+    full detail. Next session: re-run the full suite with untruncated output, triage the 61
+    failures, run lint/`tsc --noEmit`, then complete Task 6/9 and tick `dev`.
 - [ ] **3.6z** Automatically enqueue new scraped posts for extraction within quota — *needs 3.5, 3.6t (and 3.6s's inline guard);
       soft: FIND-061 diagnosed*
   - [ ] create  - [ ] dev  - [ ] review
