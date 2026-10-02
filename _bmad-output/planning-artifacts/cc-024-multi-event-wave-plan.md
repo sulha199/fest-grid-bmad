@@ -176,7 +176,19 @@ Read this before trusting a red gate. None of these come from CC-024 stories.
 - [x] **3.6s carries a minimal inline guard instead** (`AbortController` timeout + output-size cap on the
       extraction call; amended in `epics.md` 2026-10-01). When 0.i2c lands it replaces the inline guard.
 
-## Wave 2B — Coauthor and publisher roles (gates 3.6v)
+## Wave 2B — Coauthor and publisher roles (BUILT 2026-10-02; code review pending; gates 3.6v)
+
+Run from a Claude Code cloud session (Linux, local Postgres via `scripts/cloud-db-setup.sh`), all-claude-medium preset.
+Decisions taken during the wave: 3.14 threads an explicit `vendor` parameter into `persistScrapedPost`; 3.15 sets new
+posts' `posts.accountId` to the canonical PUBLISHER (AC3 spec-literal), accepting that a subscribed account's
+reposts/collabs drop out of its subscribed-feed filter until **3.18** switches the filter to `post_account_associations`.
+
+**Batch-end gate (2026-10-02, `TZ=UTC`):** lint 8/8 pass; build 8/8 pass (one transient `web#build` failure with no
+diagnostic, clean on re-run and standalone); tests: 28 backend failures on the first run. 3 were a Wave 2B regression
+(3.15's FK broke 3.14 test cleanup) — fixed by quick-dev commit `7cf3b28`, the six affected files then 55/55 green.
+The other 25 are cloud-environment only, not Wave 2B: 24 geolocation/location tests need `GEOAPIFY_API_KEY`, and the
+Bright Data `CAPACITY_EXHAUSTED` test runs against `.env.example` placeholders. Polish findings from the quick-dev
+self-review are in `deferred-work.md`.
 
 - [ ] **3.13** Normalize Apify vendor coauthor/publisher roles during ingestion (dev done, commit `3d96426`, status `review`)
   - [x] create  - [x] dev  - [ ] review
