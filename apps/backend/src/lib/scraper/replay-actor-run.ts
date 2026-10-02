@@ -114,6 +114,9 @@ export async function replayActorRun(actorRunId: string): Promise<ReplayActorRun
             ownerDisplayName: post.ownerDisplayName || null,
             ownerUsername: post.ownerUsername || null,
             hashtags: post.hashtags || null,
+            ownerId: post.ownerId,
+            coauthors: post.coauthors,
+            discoverySourceVendor: 'apify',
           });
 
           if (!result.alreadyExisted) {

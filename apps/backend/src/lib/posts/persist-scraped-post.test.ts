@@ -3,7 +3,7 @@ import * as assert from 'node:assert';
 import { randomUUID } from 'node:crypto';
 import { db } from '../../db/client.js';
 import { posts, socialMediaAccountProfiles } from '@festgrid/database';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { persistScrapedPost } from './persist-scraped-post.js';
 
 test('persistScrapedPost integration tests', async (t) => {
@@ -507,6 +507,141 @@ test('persistScrapedPost integration tests', async (t) => {
     const expectedId = originalPostUrl.split('/p/')[1];
     assert.strictEqual(result.post.platformPostId, expectedId);
     assert.strictEqual(result.post.platformPostType, 'p');
+  });
+
+  await t.test('(r) ownerId/coauthors/discoverySourceVendor: creates a discovered profile for the publisher and one per coauthor (Story 3.14)', async () => {
+    const ownerId = 'discovered_owner_r_' + Date.now();
+    const coauthorId1 = 'discovered_coauthor_r1_' + Date.now();
+    const coauthorId2 = 'discovered_coauthor_r2_' + Date.now();
+    const postUrl = 'https://instagram.com/p/attribution_r_' + Date.now();
+
+    try {
+      const result = await persistScrapedPost({
+        accountId: profile.id,
+        platform: 'instagram',
+        content: 'Test content R',
+        postUrl,
+        publishedAt: new Date().toISOString(),
+        ownerId,
+        ownerUsername: 'owner_r_user',
+        ownerDisplayName: 'Owner R',
+        coauthors: [
+          { accountId: coauthorId1, username: 'coauthor_r1' },
+          { accountId: coauthorId2 },
+        ],
+        discoverySourceVendor: 'apify',
+        scraperActorRunId: undefined,
+      });
+      assert.strictEqual(result.alreadyExisted, false);
+
+      const ownerRow = await db
+        .select()
+        .from(socialMediaAccountProfiles)
+        .where(and(eq(socialMediaAccountProfiles.platform, 'instagram'), eq(socialMediaAccountProfiles.accountId, ownerId)))
+        .then((rows) => rows[0]);
+      assert.ok(ownerRow, 'publisher profile row should exist');
+      assert.strictEqual(ownerRow.displayName, 'Owner R');
+      assert.strictEqual(ownerRow.username, 'owner_r_user');
+      assert.strictEqual(ownerRow.isVerifiedForDiscovery, false);
+
+      const coauthorRow1 = await db
+        .select()
+        .from(socialMediaAccountProfiles)
+        .where(and(eq(socialMediaAccountProfiles.platform, 'instagram'), eq(socialMediaAccountProfiles.accountId, coauthorId1)))
+        .then((rows) => rows[0]);
+      assert.ok(coauthorRow1, 'coauthor 1 profile row should exist');
+      assert.strictEqual(coauthorRow1.username, 'coauthor_r1');
+      assert.strictEqual(coauthorRow1.displayName, 'coauthor_r1');
+
+      const coauthorRow2 = await db
+        .select()
+        .from(socialMediaAccountProfiles)
+        .where(and(eq(socialMediaAccountProfiles.platform, 'instagram'), eq(socialMediaAccountProfiles.accountId, coauthorId2)))
+        .then((rows) => rows[0]);
+      assert.ok(coauthorRow2, 'coauthor 2 profile row should exist');
+      assert.strictEqual(coauthorRow2.displayName, coauthorId2);
+      assert.strictEqual(coauthorRow2.username, coauthorId2);
+    } finally {
+      await db
+        .delete(socialMediaAccountProfiles)
+        .where(and(eq(socialMediaAccountProfiles.platform, 'instagram'), eq(socialMediaAccountProfiles.accountId, ownerId)));
+      await db
+        .delete(socialMediaAccountProfiles)
+        .where(and(eq(socialMediaAccountProfiles.platform, 'instagram'), eq(socialMediaAccountProfiles.accountId, coauthorId1)));
+      await db
+        .delete(socialMediaAccountProfiles)
+        .where(and(eq(socialMediaAccountProfiles.platform, 'instagram'), eq(socialMediaAccountProfiles.accountId, coauthorId2)));
+    }
+  });
+
+  await t.test('(s) omitting ownerId/coauthors/discoverySourceVendor (today\'s existing call shape) creates no extra profile rows', async () => {
+    const postUrl = 'https://instagram.com/p/no_attribution_s_' + Date.now();
+    const beforeCount = await db.select().from(socialMediaAccountProfiles).then((rows) => rows.length);
+
+    const result = await persistScrapedPost({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'Test content S',
+      postUrl,
+      publishedAt: new Date().toISOString(),
+    });
+    assert.strictEqual(result.alreadyExisted, false);
+
+    const afterCount = await db.select().from(socialMediaAccountProfiles).then((rows) => rows.length);
+    assert.strictEqual(afterCount, beforeCount, 'no new social_media_account_profiles row should be created');
+  });
+
+  await t.test('(t) a coauthor accountId colliding with an existing profile on a different platform does not corrupt that row (composite key sanity check)', async () => {
+    const sharedAccountIdString = 'collision_t_' + Date.now();
+    const postUrl = 'https://instagram.com/p/collision_t_' + Date.now();
+
+    // Pre-existing profile on a different platform, sharing the raw accountId string.
+    const [otherPlatformProfile] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({
+        accountId: sharedAccountIdString,
+        platform: 'twitter',
+        username: 'other_platform_user',
+        displayName: 'Other Platform User',
+      })
+      .returning();
+
+    try {
+      const result = await persistScrapedPost({
+        accountId: profile.id,
+        platform: 'instagram',
+        content: 'Test content T',
+        postUrl,
+        publishedAt: new Date().toISOString(),
+        coauthors: [{ accountId: sharedAccountIdString, username: 'instagram_side_user' }],
+        discoverySourceVendor: 'apify',
+      });
+      assert.strictEqual(result.alreadyExisted, false);
+
+      // The pre-existing twitter-platform row must be untouched.
+      const unchangedOtherPlatformProfile = await db
+        .select()
+        .from(socialMediaAccountProfiles)
+        .where(eq(socialMediaAccountProfiles.id, otherPlatformProfile.id))
+        .then((rows) => rows[0]);
+      assert.strictEqual(unchangedOtherPlatformProfile.username, 'other_platform_user');
+      assert.strictEqual(unchangedOtherPlatformProfile.displayName, 'Other Platform User');
+
+      // A distinct new row must exist for the instagram-platform coauthor.
+      const instagramSideProfile = await db
+        .select()
+        .from(socialMediaAccountProfiles)
+        .where(and(eq(socialMediaAccountProfiles.platform, 'instagram'), eq(socialMediaAccountProfiles.accountId, sharedAccountIdString)))
+        .then((rows) => rows[0]);
+      assert.ok(instagramSideProfile);
+      assert.notStrictEqual(instagramSideProfile.id, otherPlatformProfile.id);
+      assert.strictEqual(instagramSideProfile.username, 'instagram_side_user');
+    } finally {
+      await db
+        .delete(socialMediaAccountProfiles)
+        .where(and(eq(socialMediaAccountProfiles.platform, 'instagram'), eq(socialMediaAccountProfiles.accountId, sharedAccountIdString)));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, otherPlatformProfile.id));
+    }
   });
 
 });

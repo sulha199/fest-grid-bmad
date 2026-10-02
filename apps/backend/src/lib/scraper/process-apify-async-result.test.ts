@@ -22,10 +22,16 @@ test('process-apify-async-result tests', async (t) => {
     });
   });
 
+  let extraDiscoveredAccountIds: string[] = [];
+
   t.afterEach(async () => {
     await db.delete(posts).where(eq(posts.accountId, testProfileId));
     await db.delete(apifyPendingJobs).where(eq(apifyPendingJobs.profileId, testProfileId));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfileId));
+    for (const accountId of extraDiscoveredAccountIds) {
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.accountId, accountId));
+    }
+    extraDiscoveredAccountIds = [];
   });
 
   await t.test('persists posts and marks job completed', async () => {
@@ -220,5 +226,56 @@ test('process-apify-async-result tests', async (t) => {
       .where(eq(apifyPendingJobs.id, id));
 
     assert.strictEqual(job.status, 'COMPLETED');
+  });
+
+  await t.test('persists discovered social_media_account_profiles rows for a raw Apify item with ownerId+coauthorProducers populated (Story 3.14)', async () => {
+    const { id, webhookToken } = await createPendingJob({
+      profileId: testProfileId,
+      runId: 'run-attribution-' + Date.now(),
+      webhookToken: randomBytes(24).toString('hex'),
+    });
+
+    const pendingJob = {
+      id,
+      profileId: testProfileId,
+      runId: 'run-attribution',
+      webhookToken,
+      status: 'PENDING' as const,
+      expiresAt: new Date(Date.now() + 3600000),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const ownerId = 'discovered-owner-paar-' + Date.now();
+    const coauthorId = 'discovered-coauthor-paar-' + Date.now();
+    extraDiscoveredAccountIds.push(ownerId, coauthorId);
+
+    const items = [
+      {
+        url: 'https://www.instagram.com/p/attribution123/',
+        caption: 'Post with attribution',
+        timestamp: '2026-08-08T00:00:00Z',
+        displayUrl: 'https://example.com/img1.jpg',
+        ownerId,
+        ownerUsername: 'owner_paar_user',
+        coauthorProducers: [{ id: coauthorId, username: 'coauthor_paar_user' }],
+      },
+    ];
+
+    await processApifyAsyncResult(pendingJob, items);
+
+    const discoveredOwnerProfile = await db
+      .select()
+      .from(socialMediaAccountProfiles)
+      .where(eq(socialMediaAccountProfiles.accountId, ownerId))
+      .then((rows) => rows[0]);
+    assert.ok(discoveredOwnerProfile, 'publisher discovered profile row should exist');
+
+    const discoveredCoauthorProfile = await db
+      .select()
+      .from(socialMediaAccountProfiles)
+      .where(eq(socialMediaAccountProfiles.accountId, coauthorId))
+      .then((rows) => rows[0]);
+    assert.ok(discoveredCoauthorProfile, 'coauthor discovered profile row should exist');
   });
 });

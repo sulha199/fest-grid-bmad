@@ -34,6 +34,9 @@ export async function processApifyAsyncResult(
         ownerDisplayName: post.ownerDisplayName || null,
         ownerUsername: post.ownerUsername || null,
         hashtags: post.hashtags || null,
+        ownerId: post.ownerId,
+        coauthors: post.coauthors,
+        discoverySourceVendor: 'apify',
       });
     } catch (error) {
       console.error(`Failed to persist post from Apify item: ${item?.postUrl || item?.url}`, error);

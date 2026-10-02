@@ -4,7 +4,8 @@ import {
   computeProfileBackfillPatch,
   buildLocationInferenceRequest,
   parseLocationInferenceResponse,
-  locationInferenceResponseSchema
+  locationInferenceResponseSchema,
+  resolveDiscoveredIdentityNames
 } from "./account-enrichment.js";
 
 test("computeProfileBackfillPatch: returns patch when both fields differ and are scraped", () => {
@@ -144,4 +145,34 @@ test("parseLocationInferenceResponse: returns null when placeDescription is miss
 
   assert.equal(parseLocationInferenceResponse(rawText1), null);
   assert.equal(parseLocationInferenceResponse(rawText2), null);
+});
+
+test("resolveDiscoveredIdentityNames: full name and username present -> both returned as-is (trimmed)", () => {
+  const result = resolveDiscoveredIdentityNames({ accountId: "123", username: "  jdoe  ", displayName: "  John Doe  " });
+
+  assert.deepEqual(result, { displayName: "John Doe", username: "jdoe" });
+});
+
+test("resolveDiscoveredIdentityNames: only username present -> displayName falls back to username, username returned as-is", () => {
+  const result = resolveDiscoveredIdentityNames({ accountId: "123", username: "jdoe" });
+
+  assert.deepEqual(result, { displayName: "jdoe", username: "jdoe" });
+});
+
+test("resolveDiscoveredIdentityNames: neither username nor displayName present -> both fall back to accountId", () => {
+  const result = resolveDiscoveredIdentityNames({ accountId: "123" });
+
+  assert.deepEqual(result, { displayName: "123", username: "123" });
+});
+
+test("resolveDiscoveredIdentityNames: whitespace-only username/displayName treated as absent", () => {
+  const result = resolveDiscoveredIdentityNames({ accountId: "123", username: "   ", displayName: "   " });
+
+  assert.deepEqual(result, { displayName: "123", username: "123" });
+});
+
+test("resolveDiscoveredIdentityNames: whitespace-only displayName falls through to trimmed username", () => {
+  const result = resolveDiscoveredIdentityNames({ accountId: "123", username: "  jdoe  ", displayName: "   " });
+
+  assert.deepEqual(result, { displayName: "jdoe", username: "jdoe" });
 });

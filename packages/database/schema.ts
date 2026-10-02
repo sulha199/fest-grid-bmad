@@ -176,6 +176,10 @@ export const socialMediaAccountProfiles = pgTable('social_media_account_profiles
   accountTypeConfidenceScore: doublePrecision('account_type_confidence_score'),
   isImageStorageOptedIn: boolean('is_image_storage_opted_in').default(false).notNull(),
   imageStorageOptInSource: imageStorageOptInSourceEnum('image_storage_opt_in_source'),
+  firstSeen: timestamp('first_seen', { withTimezone: true }),
+  lastSeen: timestamp('last_seen', { withTimezone: true }),
+  discoverySource: jsonb('discovery_source').$type<{ vendor: string; runId?: string }>(),
+  isVerifiedForDiscovery: boolean('is_verified_for_discovery').default(true).notNull(),
   ...timestamps,
 }, (t) => ({
   platformAccountIdUnq: unique().on(t.platform, t.accountId),

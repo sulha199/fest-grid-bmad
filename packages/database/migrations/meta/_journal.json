@@ -442,6 +442,13 @@
       "when": 1790873361753,
       "tag": "0062_handy_ego",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "6",
+      "when": 1790912691984,
+      "tag": "0063_curvy_captain_cross",
+      "breakpoints": true
     }
   ]
 }
