@@ -62,14 +62,43 @@ the event-pages batch), and 3.16 / 3.17 / 3.19 (coauthor stories not on this wav
 
 ## Wave 1 — Hygiene, then the readiness sweep
 
-- [ ] Push `master` (local CC-024 commits) or move them to a branch + PR; the
-      `docs/cc-024-multi-event-posts-proposal` branch is stale at `1aca854e` — delete or fast-forward it
-- [ ] `epics.md`: add FR113 and FR114 to the requirements inventory and coverage map
-- [ ] PRD loose ends: do suggested matches count toward the moderator badge (§3.9.3)? Add
-      `publishedAt` to the `Post` interface (needed for the posted-at time in source-post entries)
+The readiness sweep is done; the remaining hygiene items live in the blocker checklist below.
+
 - [x] **Run `bmad-epic-readiness-check`, batch-scoped** (done 2026-10-01, commit `90c0c0cd`) over 3.6r, 3.6s, 3.6t, 3.6u, 3.6v, 3.6w,
       3.6x, 3.6y, 3.6z, 3.7f, 3.7g, 3.7h, 3.7i, 3.13, 3.14, 3.15, 3.18 (Gates 1 and 3) → `epic-readiness/batch-cc-024-multi-event-readiness.md` — **no new prerequisite stories; 3 AC corrections applied** (0.i2c, 3.6t, 3.6v)
 - [x] Fold any new prerequisite stories the sweep finds into `epics.md` and `sprint-status.yaml` — none needed
+
+## Open blockers and loose ends (checked against the files 2026-10-02)
+
+Tick as each is closed. Evidence for each line is in the file named beside it.
+
+**Solved**
+- [x] Readiness sweep (above)
+- [x] **3.15** (post–account association table) was "blocked pending architecture": AD-25 (2026-09-18) settled the DDL and
+      AD-31 the role semantics; `sprint-status.yaml` shows it as `backlog`, no longer `blocked`
+
+**Blocked on an architecture decision (does not gate CC-024)**
+- [ ] **Guarded vendor-call wrapper — write AD-32 via `bmad-architecture`.** The Architecture Spine ends at AD-31 and has no decision
+      for it. Then build **0.i2a** (build the guarded vendor call wrapper; carries the FIND-004 vendor-DPA compliance gate) →
+      **0.i2c** (adopt the wrapper in the async inference path; amended 2026-10-01 to cover `callGemini`) → **0.i2b** → **0.i2z**.
+      All four are `backlog` in `sprint-status.yaml`
+  - [ ] Vendor DPA confirmation decision (FIND-004) — needs your input, not only a code change
+- [ ] **Interim inline guard in Story 3.6s** (request timeout + output cap on the extraction call; AC amended in `epics.md`) —
+      built as part of 3.6s, not yet implemented; 0.i2c later deletes it
+
+**Documentation loose ends (small)**
+- [x] `epics.md`: FR113 and FR114 added to the requirements inventory, the FR coverage map and Epic 3's "FRs covered" (2026-10-02)
+- [ ] PRD §4.7: add `publishedAt` to the `Post` interface (3.6u's posted-at time needs it; `posts.published_at` already exists) — small `bmad-prd` pass
+- [ ] PRD §3.9.3: decide whether suggested matches count toward the moderator badge — needs your decision
+- [ ] PRD: confirm the auto-extraction (BUG-039) wording belongs in §3.7/§3.10 (the proposal cited §3.4/§3.5, which hold no extraction content)
+
+**Backlog hygiene**
+- [x] The three test-environment findings filed on the board (2026-10-02): FIND-062 (time-zone fixture), FIND-063 (`.env` key tests), FIND-064 (shared dev database)
+
+**Housekeeping**
+- [ ] `bmad-code-review` for 3.7f, 3.7g, 3.7h, 3.7i (all `review`; not blocking under the standing rule)
+- [ ] Push `master` (many local commits, nothing pushed) or move them to a branch + PR; the
+      `docs/cc-024-multi-event-posts-proposal` branch is stale at `1aca854e` — delete or fast-forward it
 
 ## Readiness sweep result (2026-10-01)
 
@@ -120,7 +149,7 @@ Read this before trusting a red gate. None of these come from CC-024 stories.
   background and ended its turn ("will continue once it finishes"), which ends the process and leaves the story
   half-recorded (3.7f first run, 3.7h first and second runs). Dev prompts now say: foreground-only tests, targeted
   test files only, never end a turn while anything runs, finish all bookkeeping before stopping.
-- **To file on the backlog (not yet filed):** (1) `isEventEnded` shared fixture is time-zone dependent;
+- **Filed 2026-10-02 as FIND-062, FIND-063, FIND-064:** (1) `isEventEnded` shared fixture is time-zone dependent;
   (2) `system-key-adapter` tests depend on `.env` lacking `SYSTEM_GEMINI_API_KEY`; (3) DB-backed backend
   integration tests share the developer database, so any extra data breaks them.
 

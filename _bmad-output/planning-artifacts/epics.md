@@ -123,6 +123,8 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - **FR102 (added 2026-08-29):** A user can save a resolved AI Event Filter from a dedicated "My AI Filters" list page and reload it into Discovery later; adjusting a FilterHub manual control after loading a saved filter changes only that browsing session's query state and never mutates the saved filter itself.
 - **FR103 (added 2026-08-29):** The AI filter prompt entry point (an icon-only trigger inside FilterHub, opening a prompt overlay that reuses the existing blocking full-screen-overlay pattern while resolving) is not shown at all to a user with no BYOK Gemini key on file, including an unauthenticated Discovery visitor — they see only FilterHub's manual controls.
 - **FR112 (added 2026-09-03):** When a scraped post has multiple images (a carousel/Sidecar post), the system persists all of its image URLs and the AI extraction pipeline includes up to a configurable number of the additional images — alongside the cover image, in a single extraction call — so schedule information appearing on a later slide rather than the cover image or caption is not missed.
+- **FR113 (added 2026-10-01):** A single post may advertise one event or several distinct ones. The AI extraction pipeline decides the grouping within the same single extraction call per post (quota and carousel handling unchanged) using ordered rules (strong signals, two weak signals, a bounded window, dependent stages), records the outcome as the post's grouping reason and event count, and handles roundup posts with guardrails (readable date and location required, a per-post event cap, no push notifications for roundup-sourced events).
+- **FR114 (added 2026-10-01):** The same real-world event advertised by several posts is one event. After extraction and before insert the system matches against existing events (organizer account, shared registration link, overlapping dates, similar name, venue): high confidence auto-links, mid confidence goes to moderator review; the primary post prefers an organizer-authored post over a roundup; enrichment happens in place without overwriting corrected fields or deleting calendar-referenced schedules; a moderator can merge duplicates with redirects; the slug follows the primary post; related events appear on the event detail and a post collection page; account feeds match any linked post's account.
 
 ### NonFunctional Requirements
 - **NFR1:** Event discovery page should load in under 2 seconds on a standard 4G connection.
@@ -288,6 +290,8 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - FR102: Epic 7 - AI Prompt-Based Custom Event Filter (added 2026-08-29)
 - FR103: Epic 7 - AI Prompt-Based Custom Event Filter (added 2026-08-29)
 - FR112: Epic 3 - Social Media Event Integration (Story 3.6l, multi-image carousel extraction; added 2026-09-03 via bmad-correct-course)
+- FR113: Epic 3 - Social Media Event Integration (Stories 3.6r schema, 3.6s multi-event extraction, 3.6t multi-event ingestion, 3.6y weekday-narrowed schedules; added 2026-10-01 via bmad-correct-course, CC-024)
+- FR114: Epic 3 - Social Media Event Integration (Stories 3.6u source posts and related events, 3.6v matching and enrichment, 3.6w merge, 3.6x post collection page, 3.18 account matching; added 2026-10-01 via bmad-correct-course, CC-024)
 - FR104: Epic 3 - Social Media Event Integration (Story 3.4n, account-type scraping filter; sprint-change-proposal-2026-09-02.md, added 2026-09-02)
 - FR105: Epic 3 - Social Media Event Integration (Story 3.6g, image-storage opt-in flag; sprint-change-proposal-2026-09-02.md, added 2026-09-02)
 - FR106: Epic 3 - Social Media Event Integration (Story 3.6h, gates Stories 3.6e/3.6f on the FR105 flag — closes a live consent gap in `master`; sprint-change-proposal-2026-09-02.md, added 2026-09-02)
@@ -2337,7 +2341,7 @@ Users can personalize their experience by saving favorite events and locations.
 ### Epic 3: Social Media Event Integration
 
 Users can subscribe to social media accounts to import events into their feed.
-**FRs covered:** FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25, FR26, FR27, FR28, FR29, FR30, FR31, FR32, FR33, FR34, FR35, FR36, FR37, FR66, FR112
+**FRs covered:** FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25, FR26, FR27, FR28, FR29, FR30, FR31, FR32, FR33, FR34, FR35, FR36, FR37, FR66, FR112, FR113, FR114
 
 ### Story 3.1a: Create social media account profiles table
 

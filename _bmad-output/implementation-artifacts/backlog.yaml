@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-01"
+last_updated: "2026-10-02"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -1755,3 +1755,28 @@ items:
      ref: [],
      touches: [cross:ai-extraction, app:backend],
      note: "Deferred from CC-024: mid-band matches go to moderator review first; add only if review volume is high."}
+
+  # ── 2026-10-02 (test-gate findings from the CC-024 Wave 2A batch) ───────────────────
+  FIND-062:
+    {type: finding, status: backlog, created: 2026-10-02,
+     impact: internal, effort: xs,
+     title: "isEventEnded shared-fixture tests (ended-cases.ts) fail in any non-UTC time zone",
+     ref: [planning-artifacts/cc-024-multi-event-wave-plan.md],
+     touches: [pkg:ui, pkg:domain],
+     note: "Passes under TZ=UTC, fails in Asia/Jakarta: endTime 18:00 with now 12:00Z reads 18:00 in the machine zone. Fix the fixture or pin TZ in the test script."}
+
+  FIND-063:
+    {type: finding, status: backlog, created: 2026-10-02,
+     impact: internal, effort: xs,
+     title: "system-key-adapter tests fail whenever .env defines SYSTEM_GEMINI_API_KEY",
+     ref: [planning-artifacts/cc-024-multi-event-wave-plan.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "The test deletes process.env.SYSTEM_GEMINI_API_KEY but loadBackendEnv() re-reads .env and restores it; 4 tests fail with a key configured."}
+
+  FIND-064:
+    {type: finding, status: backlog, created: 2026-10-02,
+     impact: internal, effort: s,
+     title: "DB-backed backend integration tests share the developer database, so extra rows break them",
+     ref: [planning-artifacts/cc-024-multi-event-wave-plan.md, packages/database/seed-volume.ts],
+     touches: [app:backend, pkg:database],
+     note: "With 30k synthetic volume rows loaded, 12 events/soft-delete/visibility tests failed and the run was ~7x slower; use a dedicated test database or per-test cleanup."}
