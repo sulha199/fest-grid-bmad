@@ -119,16 +119,18 @@ test('processAiJob orchestrator tests', async (t) => {
       return {
         text: JSON.stringify({
           isEvent: true,
-          eventName: 'Epic Concert',
-          types: ['PERFORMANCE'],
-          categories: ['MUSIC'],
-          schedules: [
+          events: [{
+            eventName: 'Epic Concert',
+            types: ['PERFORMANCE'],
+            categories: ['MUSIC'],
+            schedules: [
             {
               isMainSchedule: true,
               eventStartDate: '2026-08-15'
             }
           ],
-          confidenceScore: 0.95
+            confidenceScore: 0.95
+          }]
         })
       };
     });
@@ -175,16 +177,18 @@ test('processAiJob orchestrator tests', async (t) => {
       return {
         text: JSON.stringify({
           isEvent: true,
-          eventName: 'Epic Concert',
-          types: ['PERFORMANCE'],
-          categories: ['MUSIC'],
-          schedules: [
+          events: [{
+            eventName: 'Epic Concert',
+            types: ['PERFORMANCE'],
+            categories: ['MUSIC'],
+            schedules: [
             {
               isMainSchedule: true,
               eventStartDate: '2026-08-15'
             }
           ],
-          confidenceScore: 0.95
+            confidenceScore: 0.95
+          }]
         })
       };
     });
@@ -231,16 +235,18 @@ test('processAiJob orchestrator tests', async (t) => {
       return {
         text: JSON.stringify({
           isEvent: true,
-          eventName: 'Epic Concert',
-          types: ['PERFORMANCE'],
-          categories: ['MUSIC'],
-          schedules: [
+          events: [{
+            eventName: 'Epic Concert',
+            types: ['PERFORMANCE'],
+            categories: ['MUSIC'],
+            schedules: [
             {
               isMainSchedule: true,
               eventStartDate: '2026-08-15'
             }
           ],
-          confidenceScore: 0.95
+            confidenceScore: 0.95
+          }]
         })
       };
     });
@@ -278,11 +284,7 @@ test('processAiJob orchestrator tests', async (t) => {
       return {
         text: JSON.stringify({
           isEvent: false,
-          eventName: '',
-          types: [],
-          categories: [],
-          schedules: [],
-          confidenceScore: 0.99
+          events: []
         })
       };
     });
@@ -320,7 +322,7 @@ test('processAiJob orchestrator tests', async (t) => {
       return {
         text: JSON.stringify({
           isEvent: true,
-          // Missing required eventName, schedules, types, categories, confidenceScore
+          // Missing required 'events' array entirely (Story 3.6s shape)
         })
       };
     });
@@ -422,16 +424,18 @@ test('processAiJob orchestrator tests', async (t) => {
       return {
         text: JSON.stringify({
           isEvent: true,
-          eventName: 'Epic Concert',
-          types: ['PERFORMANCE'],
-          categories: ['MUSIC'],
-          schedules: [
+          events: [{
+            eventName: 'Epic Concert',
+            types: ['PERFORMANCE'],
+            categories: ['MUSIC'],
+            schedules: [
             {
               isMainSchedule: true,
               eventStartDate: '2026-08-15'
             }
           ],
-          confidenceScore: 0.95
+            confidenceScore: 0.95
+          }]
         })
       };
     });
@@ -473,16 +477,18 @@ test('processAiJob orchestrator tests', async (t) => {
       return {
         text: JSON.stringify({
           isEvent: true,
-          eventName: 'Epic Concert',
-          types: ['PERFORMANCE'],
-          categories: ['MUSIC'],
-          schedules: [
+          events: [{
+            eventName: 'Epic Concert',
+            types: ['PERFORMANCE'],
+            categories: ['MUSIC'],
+            schedules: [
             {
               isMainSchedule: true,
               eventStartDate: '2026-08-15'
             }
           ],
-          confidenceScore: 0.95
+            confidenceScore: 0.95
+          }]
         })
       };
     });
@@ -536,16 +542,18 @@ test('processAiJob orchestrator tests', async (t) => {
       return {
         text: JSON.stringify({
           isEvent: true,
-          eventName: 'Epic Concert',
-          types: ['PERFORMANCE'],
-          categories: ['MUSIC'],
-          schedules: [
+          events: [{
+            eventName: 'Epic Concert',
+            types: ['PERFORMANCE'],
+            categories: ['MUSIC'],
+            schedules: [
             {
               isMainSchedule: true,
               eventStartDate: '2026-08-15'
             }
           ],
-          confidenceScore: 0.95
+            confidenceScore: 0.95
+          }]
         })
       };
     });
@@ -602,11 +610,7 @@ test('processAiJob orchestrator tests', async (t) => {
       return {
         text: JSON.stringify({
           isEvent: false,
-          eventName: '',
-          types: [],
-          categories: [],
-          schedules: [],
-          confidenceScore: 0.99
+          events: []
         })
       };
     });
@@ -695,16 +699,18 @@ test('processAiJob orchestrator tests', async (t) => {
       return {
         text: JSON.stringify({
           isEvent: true,
-          eventName: 'Epic Concert J',
-          types: ['PERFORMANCE'],
-          categories: ['MUSIC'],
-          schedules: [
+          events: [{
+            eventName: 'Epic Concert J',
+            types: ['PERFORMANCE'],
+            categories: ['MUSIC'],
+            schedules: [
             {
               isMainSchedule: true,
               eventStartDate: '2026-08-15'
             }
           ],
-          confidenceScore: 0.99
+            confidenceScore: 0.99
+          }]
         })
       };
     });
@@ -761,16 +767,18 @@ test('processAiJob orchestrator tests', async (t) => {
       return {
         text: JSON.stringify({
           isEvent: true,
-          eventName: 'Epic Concert K',
-          types: ['PERFORMANCE'],
-          categories: ['MUSIC'],
-          schedules: [
+          events: [{
+            eventName: 'Epic Concert K',
+            types: ['PERFORMANCE'],
+            categories: ['MUSIC'],
+            schedules: [
             {
               isMainSchedule: true,
               eventStartDate: '2026-08-15'
             }
           ],
-          confidenceScore: 0.99
+            confidenceScore: 0.99
+          }]
         })
       };
     });
@@ -821,16 +829,18 @@ test('processAiJob orchestrator tests', async (t) => {
       return {
         text: JSON.stringify({
           isEvent: true,
-          eventName: 'Epic Concert L',
-          types: ['PERFORMANCE'],
-          categories: ['MUSIC'],
-          schedules: [
+          events: [{
+            eventName: 'Epic Concert L',
+            types: ['PERFORMANCE'],
+            categories: ['MUSIC'],
+            schedules: [
             {
               isMainSchedule: true,
               eventStartDate: '2026-08-15'
             }
           ],
-          confidenceScore: 0.99
+            confidenceScore: 0.99
+          }]
         })
       };
     });
@@ -924,16 +934,18 @@ test('processAiJob orchestrator tests', async (t) => {
       return {
         text: JSON.stringify({
           isEvent: true,
-          eventName: 'Curator Event',
-          types: ['PERFORMANCE'],
-          categories: ['MUSIC'],
-          schedules: [
+          events: [{
+            eventName: 'Curator Event',
+            types: ['PERFORMANCE'],
+            categories: ['MUSIC'],
+            schedules: [
             {
               isMainSchedule: true,
               eventStartDate: '2026-08-15'
             }
           ],
-          confidenceScore: 0.95
+            confidenceScore: 0.95
+          }]
         })
       };
     });
@@ -1024,16 +1036,18 @@ test('processAiJob orchestrator tests', async (t) => {
       return {
         text: JSON.stringify({
           isEvent: true,
-          eventName: 'Plain Event',
-          types: ['PERFORMANCE'],
-          categories: ['MUSIC'],
-          schedules: [
+          events: [{
+            eventName: 'Plain Event',
+            types: ['PERFORMANCE'],
+            categories: ['MUSIC'],
+            schedules: [
             {
               isMainSchedule: true,
               eventStartDate: '2026-08-15'
             }
           ],
-          confidenceScore: 0.95
+            confidenceScore: 0.95
+          }]
         })
       };
     });
@@ -1126,16 +1140,18 @@ test('processAiJob orchestrator tests', async (t) => {
       return {
         text: JSON.stringify({
           isEvent: true,
-          eventName: 'Curator Event',
-          types: ['PERFORMANCE'],
-          categories: ['MUSIC'],
-          schedules: [
+          events: [{
+            eventName: 'Curator Event',
+            types: ['PERFORMANCE'],
+            categories: ['MUSIC'],
+            schedules: [
             {
               isMainSchedule: true,
               eventStartDate: '2026-08-15'
             }
           ],
-          confidenceScore: 0.95
+            confidenceScore: 0.95
+          }]
         })
       };
     });
@@ -1227,11 +1243,7 @@ test('processAiJob orchestrator tests', async (t) => {
       return {
         text: JSON.stringify({
           isEvent: false,
-          eventName: '',
-          types: [],
-          categories: [],
-          schedules: [],
-          confidenceScore: 0.99
+          events: []
         })
       };
     });
@@ -1263,6 +1275,244 @@ test('processAiJob orchestrator tests', async (t) => {
       await db.delete(posts).where(eq(posts.id, testPost.id));
       await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, curatorProfile.id));
     }
+  });
+
+  await t.test('Case N: multi-event payload (AC8 interim deferral) results in no SQS send and no markPostExtracted call', async () => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-process-n',
+      accountId: profile.id,
+      content: 'Two separate events in one post',
+      postUrl: 'https://test.com/pn',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    let sendSqsMessageCalled = false;
+    let markPostExtractedCalled = false;
+
+    setCallGeminiSeam(async () => {
+      return {
+        text: JSON.stringify({
+          isEvent: true,
+          groupingReason: 'separate-events',
+          events: [
+            {
+              eventName: 'Event One',
+              types: ['PERFORMANCE'],
+              categories: ['MUSIC'],
+              schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-15' }],
+              confidenceScore: 0.9
+            },
+            {
+              eventName: 'Event Two',
+              types: ['PERFORMANCE'],
+              categories: ['MUSIC'],
+              schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-20' }],
+              confidenceScore: 0.9
+            }
+          ]
+        })
+      };
+    });
+
+    setSendSqsMessage(async () => {
+      sendSqsMessageCalled = true;
+    });
+
+    setMarkPostExtractedSeam(async () => {
+      markPostExtractedCalled = true;
+      return {} as any;
+    });
+
+    await processAiJob(message);
+
+    assert.strictEqual(sendSqsMessageCalled, false, 'Should NOT enqueue when more than one event is extracted (AC8)');
+    assert.strictEqual(markPostExtractedCalled, false, 'Should NOT mark post extracted when deferring (AC8)');
+  });
+
+  await t.test('Case O: a 15-event payload is truncated to the configured cap (10) before the per-event loop, and still defers', async () => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-process-o',
+      accountId: profile.id,
+      content: 'Fifteen-item roundup',
+      postUrl: 'https://test.com/po',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    let sendSqsMessageCalled = false;
+    let markPostExtractedCalled = false;
+
+    const fifteenEvents = Array.from({ length: 15 }, (_, i) => ({
+      eventName: `Roundup Event ${i + 1}`,
+      types: ['OTHER'],
+      categories: ['OTHER'],
+      schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-20' }],
+      confidenceScore: 0.8
+    }));
+
+    setCallGeminiSeam(async () => {
+      return {
+        text: JSON.stringify({
+          isEvent: true,
+          groupingReason: 'roundup',
+          events: fifteenEvents
+        })
+      };
+    });
+
+    setSendSqsMessage(async () => {
+      sendSqsMessageCalled = true;
+    });
+
+    setMarkPostExtractedSeam(async () => {
+      markPostExtractedCalled = true;
+      return {} as any;
+    });
+
+    await processAiJob(message);
+
+    // 15 > 10 (env default MAX_EXTRACTED_EVENTS_PER_POST) truncates to 10, which is still > 1,
+    // so the deferral branch (AC8) is taken -- no enqueue, no mark-extracted.
+    assert.strictEqual(sendSqsMessageCalled, false, 'Should NOT enqueue after truncation (still > 1 event)');
+    assert.strictEqual(markPostExtractedCalled, false, 'Should NOT mark post extracted after truncation (still deferred)');
+  });
+
+  await t.test('Case P: isEvent: true with an empty events array is treated like isEvent: false', async () => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-process-p',
+      accountId: profile.id,
+      content: 'Model reported true but found nothing',
+      postUrl: 'https://test.com/pp',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    let sendSqsMessageCalled = false;
+    let markPostExtractedCalled = false;
+
+    setCallGeminiSeam(async () => {
+      return {
+        text: JSON.stringify({
+          isEvent: true,
+          events: []
+        })
+      };
+    });
+
+    setSendSqsMessage(async () => {
+      sendSqsMessageCalled = true;
+    });
+
+    setMarkPostExtractedSeam(async (postId) => {
+      markPostExtractedCalled = true;
+      assert.strictEqual(postId, 'post-process-p');
+      return {} as any;
+    });
+
+    await processAiJob(message);
+
+    assert.strictEqual(sendSqsMessageCalled, false, 'Should NOT enqueue when events is empty');
+    assert.ok(markPostExtractedCalled, 'Should still mark post extracted, mirroring the isEvent: false path');
+  });
+
+  await t.test('Case Q: single-event payload still enqueues exactly one message carrying organizerHandle/applicableDaysOfWeek', async () => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-process-q',
+      accountId: profile.id,
+      content: 'Weekend Market',
+      postUrl: 'https://test.com/pq',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    let sqsBody: any = null;
+
+    setCallGeminiSeam(async () => {
+      return {
+        text: JSON.stringify({
+          isEvent: true,
+          groupingReason: 'single-event',
+          events: [
+            {
+              eventName: 'Weekend Market',
+              types: ['OTHER'],
+              categories: ['OTHER'],
+              schedules: [
+                {
+                  isMainSchedule: true,
+                  eventStartDate: '2026-08-15',
+                  eventEndDate: '2026-08-31',
+                  applicableDaysOfWeek: ['SAT', 'SUN']
+                }
+              ],
+              confidenceScore: 0.9,
+              organizerHandle: '@weekendmarket'
+            }
+          ]
+        })
+      };
+    });
+
+    setSendSqsMessage(async (_queueUrl, body) => {
+      sqsBody = JSON.parse(body);
+    });
+
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    await processAiJob(message);
+
+    assert.ok(sqsBody, 'Should enqueue exactly one message for a single-event payload');
+    assert.strictEqual(sqsBody.organizerHandle, '@weekendmarket');
+    assert.deepStrictEqual(sqsBody.schedules[0].applicableDaysOfWeek, ['SAT', 'SUN']);
+  });
+
+  await t.test('Case R (AC6/Task 10.1): exactly one Gemini call per processAiJob call regardless of final event count', async () => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-process-r',
+      accountId: profile.id,
+      content: 'Multi-event call-count check',
+      postUrl: 'https://test.com/pr',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    let callGeminiCallCount = 0;
+
+    setCallGeminiSeam(async () => {
+      callGeminiCallCount++;
+      return {
+        text: JSON.stringify({
+          isEvent: true,
+          groupingReason: 'separate-events',
+          events: [
+            {
+              eventName: 'Event One',
+              types: ['OTHER'],
+              categories: ['OTHER'],
+              schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-15' }],
+              confidenceScore: 0.9
+            },
+            {
+              eventName: 'Event Two',
+              types: ['OTHER'],
+              categories: ['OTHER'],
+              schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-16' }],
+              confidenceScore: 0.9
+            },
+            {
+              eventName: 'Event Three',
+              types: ['OTHER'],
+              categories: ['OTHER'],
+              schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-17' }],
+              confidenceScore: 0.9
+            }
+          ]
+        })
+      };
+    });
+
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    await processAiJob(message);
+
+    assert.strictEqual(callGeminiCallCount, 1, 'processAiJob must call Gemini exactly once per post, regardless of how many events come back (AD-13)');
   });
 });
 
