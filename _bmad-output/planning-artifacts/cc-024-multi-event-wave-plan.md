@@ -124,7 +124,9 @@ Read this before trusting a red gate. None of these come from CC-024 stories.
   (2) `system-key-adapter` tests depend on `.env` lacking `SYSTEM_GEMINI_API_KEY`; (3) DB-backed backend
   integration tests share the developer database, so any extra data breaks them.
 
-## Wave 2A — Slug foundation (orchestrate first)
+## Wave 2A — Slug foundation (BUILT 2026-10-02; code review pending)
+
+**Batch-end gate (2026-10-02, `TZ=UTC`, volume seed cleaned):** lint 8/8 pass; build 8/8 pass; tests: backend 807 run, 802 pass, 4 fail, 1 skipped (the 4 are the known `system-key-adapter` / `.env` `SYSTEM_GEMINI_API_KEY` failures), domain 372 pass, ui 816 pass, web 550 pass, database 10 pass, infrastructure 4 pass. No failure comes from Wave 2A.
 
 - [ ] **3.7f** Capture each post's platform post id and permalink type at scrape time — *gates 3.6t* (dev done, commit `90dae6d9`, status `review`)
   - [x] create  - [x] dev  - [ ] review
@@ -132,8 +134,8 @@ Read this before trusting a red gate. None of these come from CC-024 stories.
   - [x] create  - [x] dev  - [ ] review
 - [ ] **3.7h** Resolve Instagram oEmbed from the event slug without a database lookup — *needs 3.7g, 3.7e; gates 3.6v* (story created 2026-10-02, status `ready-for-dev`; Lazy-join design confirmed with user — opt-in/durable fallback join runs only on the UNAVAILABLE branch) (dev done, commit `f3e1bcac`, status `review`)
   - [x] create  - [x] dev  - [ ] review
-- [ ] **3.7i** Fetch the event-detail oEmbed in parallel with the event query — *needs 3.7h, 3.7d, 1.6c*
-  - [ ] create  - [ ] dev  - [ ] review
+- [ ] **3.7i** Fetch the event-detail oEmbed in parallel with the event query — *needs 3.7h, 3.7d, 1.6c* (story created 2026-10-02, status `ready-for-dev`; Gate 2 run fresh — no gap, hook logic kept inline in `EventDetailWrapper.tsx`, not extracted) (dev done, commit `ba6f33be`, status `review`)
+  - [x] create  - [x] dev  - [ ] review
 - [x] IDEA-028 (platform-prefixed event slugs) split into 3.7f–3.7i in `epics.md` / `sprint-status.yaml` (2026-10-01)
 
 ## Deferred track — Gemini call guard (does NOT gate this wave)
