@@ -1780,6 +1780,7 @@ test('events resolver integration via Yoga', async (t) => {
       const [ev] = await db.insert(events).values({
         eventName: 'Resolver Test Event',
         postId: testPost.id,
+        extractionOrdinal: 0,
         location: 'Test location',
       }).returning();
       testEvent = ev;
@@ -1883,6 +1884,7 @@ test('events resolver integration via Yoga', async (t) => {
       const [ev] = await db.insert(events).values({
         eventName: 'Resolver Test Event PublishedAt',
         postId: testPost.id,
+        extractionOrdinal: 0,
         location: 'Test location',
       }).returning();
       testEvent = ev;
@@ -2030,6 +2032,7 @@ test('events resolver integration via Yoga', async (t) => {
       const [ev] = await db.insert(events).values({
         eventName: 'Consent Test Event 1',
         postId: testPost.id,
+        extractionOrdinal: 0,
         location: 'Test location',
         slug: 'consent-test-event-1-' + uId,
       }).returning();
@@ -2091,6 +2094,7 @@ test('events resolver integration via Yoga', async (t) => {
       const [ev] = await db.insert(events).values({
         eventName: 'Consent Test Event 2',
         postId: testPost.id,
+        extractionOrdinal: 0,
         location: 'Test location',
         slug: 'consent-test-event-2-' + uId,
       }).returning();
@@ -2151,6 +2155,7 @@ test('events resolver integration via Yoga', async (t) => {
       const [ev] = await db.insert(events).values({
         eventName: 'Consent Test Event 3',
         postId: testPost.id,
+        extractionOrdinal: 0,
         location: 'Test location',
         slug: 'consent-test-event-3-' + uId,
       }).returning();
@@ -2235,6 +2240,7 @@ test('events resolver integration via Yoga', async (t) => {
       const [ev] = await db.insert(events).values({
         eventName: 'IG Embed Test Event',
         postId: testPost.id,
+        extractionOrdinal: 0,
         location: 'Test location',
         slug: 'ig-embed-test-event-' + uId,
       }).returning();
@@ -2423,6 +2429,7 @@ test('events resolver integration via Yoga', async (t) => {
       const [ev] = await db.insert(events).values({
         eventName: 'IG By-Slug Test Event',
         postId: testPost.id,
+        extractionOrdinal: 0,
         location: 'Test location',
         slug,
       }).returning();

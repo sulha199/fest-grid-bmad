@@ -72,16 +72,13 @@ test('ai-processor lambda poll-and-drain branch', async (t) => {
       callGeminiCalled = true;
       // isEvent: false takes processAiJob's early-return path -- no queue enqueue, no
       // image rehost -- just markPostExtractedSeam, keeping this test's side effects
-      // minimal. eventName/types/categories/schedules are still AJV-required regardless
-      // of isEvent's value, so minimal-but-valid values are supplied for each.
+      // minimal. Story 3.6s moved eventName/types/categories/schedules under the
+      // post-level `events` array; an empty array is valid (and expected) when isEvent
+      // is false.
       return {
         text: JSON.stringify({
           isEvent: false,
-          eventName: '',
-          types: [],
-          categories: [],
-          schedules: [],
-          confidenceScore: 0.1,
+          events: [],
         }),
       };
     });

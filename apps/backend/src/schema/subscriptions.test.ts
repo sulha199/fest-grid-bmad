@@ -562,6 +562,7 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
 
     const [event] = await db.insert(events).values({
       postId: post.id,
+      extractionOrdinal: 0,
       eventName: 'Subscribed Event 1',
       slug: 'subscribed-event-1',
       description: 'Test Event from Subscribed Account',
@@ -689,6 +690,7 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
 
     const [event] = await db.insert(events).values({
       postId: post.id,
+      extractionOrdinal: 0,
       eventName: 'Subscribed Event 2',
       slug: 'subscribed-event-2',
       description: 'Test Event from Subscribed Account 2',

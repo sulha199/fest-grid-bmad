@@ -604,3 +604,15 @@ This file tracks work deferred from development stories, code reviews, and plann
 - source_spec: `_bmad-output/implementation-artifacts/spec-find-061-fix-notification-dispatch-await.md`
   summary: `apply-default-location-change.ts`'s moderator-email `Promise.allSettled(...)` results are never inspected for rejections -- a systemic email-provider outage (e.g. bad SMTP credentials) still produces zero visible error after this fix, just awaited instead of fire-and-forget rather than surfaced.
   evidence: Surfaced by Blind Hunter. Pre-existing gap (the silent-failure behavior predates this fix, which only changed whether the attempt is awaited, not whether its outcome is checked); `sendEventNotifications`' own `reportErrorSilently` pattern would be the natural model to follow here, but extending it is a separate, scoped improvement.
+
+## Deferred from: code review of spec-cc-024-wave3-gate-test-fixes.md (2026-10-02, CC-024 Wave 3 batch-end gate, `bmad-quick-dev`)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-cc-024-wave3-gate-test-fixes.md`
+  summary: No test anywhere asserts that migration 0065's CHECK constraint (`events_post_id_extraction_ordinal_check`) actually rejects an insert with a `postId` and a null `extractionOrdinal` -- this fix only patches fixtures to avoid tripping it, with no negative test proving the constraint behaves as documented.
+  evidence: Surfaced by Blind Hunter. Pre-existing gap from Story 3.6r's own migration (which added the constraint but no negative DB-level test for it); out of scope for a test-only fixture fix.
+- source_spec: `_bmad-output/implementation-artifacts/spec-cc-024-wave3-gate-test-fixes.md`
+  summary: `resolvers.test.ts` and `subscriptions.test.ts` now hardcode `extractionOrdinal: 0` across 9 near-identical event-insert fixtures with no shared test-helper (e.g. `insertTestEvent(postId, overrides)`); a future constraint or column change on `events` would again require hand-editing every call site individually instead of one helper.
+  evidence: Surfaced by Blind Hunter. These files have no existing shared event-fixture helper to extend within this fix's scope; introducing one is a larger refactor than this gate-fix's blast radius warranted.
+- source_spec: `_bmad-output/implementation-artifacts/spec-cc-024-wave3-gate-test-fixes.md`
+  summary: None of the fixed Gemini stubs (`extraction.test.ts`, `ai-processor.test.ts`) exercise the new Story 3.6s multi-event/grouping fields (`groupingReason`, `groupingRationale`, `skippedItems`) or a multi-item `events[]` array -- these tests only prove the old flat-shape callers were migrated to the new envelope, not that 3.6s's actual grouping behavior is covered from these entry points.
+  evidence: Surfaced by Blind Hunter. Acceptable for a build-green fixture fix; Story 3.6s's own grouping behavior is covered elsewhere (e.g. `process-ai-job.cc024-grouping.test.ts`), but worth confirming during a future pass that no gap exists.
