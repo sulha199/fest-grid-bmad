@@ -54,6 +54,21 @@ export class GeminiTimeoutError extends Error {
   }
 }
 
+// Story 3.6s (Task 5.4) — the raw SDK call is its own swappable seam (same `let` + setter
+// pattern as `callGeminiGenerateContent` itself), exclusively so unit tests can exercise the
+// REAL AbortController timeout/maxOutputTokens wiring in `callGeminiGenerateContent` below
+// without making a real network call or needing module-level mocking of `@google/genai` (no
+// such mocking precedent exists elsewhere in this codebase). Production code never calls this
+// setter -- it always goes through the real `GoogleGenAI` SDK.
+export let generateContentSeam: (
+  ai: GoogleGenAI,
+  params: { model: string; contents: any; config: Record<string, any> }
+) => Promise<{ text?: string }> = (ai, params) => ai.models.generateContent(params);
+
+export function setGenerateContentSeam(fn: typeof generateContentSeam) {
+  generateContentSeam = fn;
+}
+
 export let callGeminiGenerateContent = async (
   apiKey: string,
   request: GeminiCallRequest
@@ -76,17 +91,21 @@ export let callGeminiGenerateContent = async (
     }, request.timeoutMs);
   }
 
+  const config: Record<string, any> = {
+    systemInstruction: request.systemInstruction,
+    responseSchema: request.responseSchema,
+    responseMimeType: request.responseMimeType,
+    maxOutputTokens: request.maxOutputTokens,
+  };
+  if (request.timeoutMs !== undefined) {
+    config.abortSignal = controller.signal;
+  }
+
   try {
-    const response = await ai.models.generateContent({
+    const response = await generateContentSeam(ai, {
       model: env.geminiModel,
       contents: request.contents,
-      config: {
-        systemInstruction: request.systemInstruction,
-        responseSchema: request.responseSchema,
-        responseMimeType: request.responseMimeType,
-        maxOutputTokens: request.maxOutputTokens,
-        ...(request.timeoutMs !== undefined ? { abortSignal: controller.signal } : {}),
-      },
+      config,
     });
 
     return {

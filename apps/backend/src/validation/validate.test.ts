@@ -54,9 +54,17 @@ describe('Runtime Schema Validation (AJV)', () => {
     assert.strictEqual(isValid, false);
     assert.notStrictEqual(validate.errors, null);
 
-    // Check specific errors exist
-    const errorPaths = validate.errors?.map(e => e.instancePath || e.params.missingProperty);
-    assert.ok(errorPaths?.includes('eventName')); // missing required property
+    // Check specific errors exist. Story 3.6s: eventName is now missing on a nested
+    // /events/0 item, so its error carries a non-empty instancePath ('/events/0') AND
+    // params.missingProperty ('eventName') -- check both explicitly rather than the old
+    // flat-schema `instancePath || missingProperty` shortcut, which only worked when a missing
+    // required property's instancePath was the schema root (empty string, falsy).
+    const missingEventName = validate.errors?.some(
+      (e) => e.keyword === 'required' && e.params.missingProperty === 'eventName' && e.instancePath === '/events/0'
+    );
+    assert.ok(missingEventName, 'expected a missing-required-property error for /events/0.eventName');
+
+    const errorPaths = validate.errors?.map(e => e.instancePath);
     assert.ok(errorPaths?.includes('/events/0/types')); // wrong type
     assert.ok(errorPaths?.includes('/events/0/confidenceScore')); // invalid range
   });

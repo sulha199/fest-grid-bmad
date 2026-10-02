@@ -5,7 +5,7 @@ import { apiKeys, users } from '@festgrid/database';
 import { eq, inArray } from 'drizzle-orm';
 import { callGemini, AiGatewayExhaustedError } from './adapter.js';
 import { setDecryptApiKey, decryptApiKey } from './kms.js';
-import { setCallGeminiGenerateContent, GeminiRateLimitedError, GeminiInvalidKeyError, callGeminiGenerateContent } from './gemini-client.js';
+import { setCallGeminiGenerateContent, GeminiRateLimitedError, GeminiInvalidKeyError, GeminiTimeoutError, callGeminiGenerateContent } from './gemini-client.js';
 
 test('AI Gateway Adapter - callGemini orchestration', async (t) => {
   const originalDecryptApiKey = decryptApiKey;
@@ -160,6 +160,36 @@ test('AI Gateway Adapter - callGemini orchestration', async (t) => {
         return err instanceof AiGatewayExhaustedError;
       }
     );
+  });
+
+  await t.test('5 (Story 3.6s, AC7, Task 5.4): GeminiTimeoutError propagates unretried/unexcluded, never caught by the key-retry loop', async () => {
+    let callCount = 0;
+    setCallGeminiGenerateContent(async (apiKey) => {
+      callCount++;
+      throw new GeminiTimeoutError(`Gemini extraction call timed out after 120000ms (key: ${apiKey})`);
+    });
+
+    await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 2 }).where(eq(apiKeys.id, dbKey1.id));
+    await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 5 }).where(eq(apiKeys.id, dbKey2.id));
+
+    await assert.rejects(
+      () =>
+        callGemini({
+          provider: 'gemini',
+          subscriberUserIds: [testUser.id],
+          contents: 'Hello',
+        }),
+      (err: any) => err instanceof GeminiTimeoutError
+    );
+
+    // Exactly ONE call -- a timeout must never trigger the "try another key" loop (unlike
+    // GeminiRateLimitedError/GeminiInvalidKeyError above), and must never increment
+    // invalidAttempts/exclude the key, since a timeout says nothing about key validity.
+    assert.equal(callCount, 1);
+
+    const [k1] = await db.select().from(apiKeys).where(eq(apiKeys.id, dbKey1.id));
+    assert.equal(k1.invalidAttempts, 0);
+    assert.equal(k1.isValid, true);
   });
 });
 

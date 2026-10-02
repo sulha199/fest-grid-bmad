@@ -118,7 +118,7 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
       result.request.contents,
       'Account Name Metadata: "Fest Daily Plaza"\nPost Content:\n"Event announcement!"'
     );
-    assert.ok(result.request.systemInstruction?.includes('8. Use the provided account name metadata (if present) to help disambiguate'));
+    assert.ok(result.request.systemInstruction?.includes('Use the provided account name metadata (if present) to help disambiguate'));
   });
 
   await t.test('Case F: uses ownerUsername as account name metadata fallback in prompt', async () => {
@@ -299,9 +299,53 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
   });
 
   await t.test('Case M: geminiExtractionResponseSchema declares the new fields but not as required (AC4)', async () => {
-    assert.ok('minScheduleCount' in geminiExtractionResponseSchema.properties);
-    assert.ok('expectedScheduleNames' in geminiExtractionResponseSchema.properties);
-    assert.ok(!geminiExtractionResponseSchema.required.includes('minScheduleCount'));
-    assert.ok(!geminiExtractionResponseSchema.required.includes('expectedScheduleNames'));
+    // Story 3.6s — minScheduleCount/expectedScheduleNames moved onto the nested per-event item
+    // schema (events.items.properties), not the post-level wrapper, since they are per-event
+    // self-reported completeness signals.
+    const eventItemSchema: any = (geminiExtractionResponseSchema.properties as any).events.items;
+    assert.ok('minScheduleCount' in eventItemSchema.properties);
+    assert.ok('expectedScheduleNames' in eventItemSchema.properties);
+    assert.ok(!eventItemSchema.required.includes('minScheduleCount'));
+    assert.ok(!eventItemSchema.required.includes('expectedScheduleNames'));
+  });
+
+  await t.test('Case N (Story 3.6s, AC1/AC2/AC3): geminiExtractionResponseSchema declares the events[] wrapper and post-level grouping fields', async () => {
+    const props: any = geminiExtractionResponseSchema.properties;
+    assert.ok('isEvent' in props);
+    assert.ok('events' in props);
+    assert.strictEqual(props.events.type, 'ARRAY');
+    assert.ok(!('maxItems' in props.events), 'events must NOT carry a JSON-schema maxItems (breaks the real Gemini API, see Dev Notes)');
+    assert.ok('groupingReason' in props);
+    assert.ok('groupingRationale' in props);
+    assert.ok('minEventCount' in props);
+    assert.ok('skippedItems' in props);
+    assert.deepStrictEqual(geminiExtractionResponseSchema.required, ['isEvent', 'events']);
+
+    const eventItemSchema: any = props.events.items;
+    assert.ok('organizerHandle' in eventItemSchema.properties);
+    const scheduleItemSchema: any = eventItemSchema.properties.schedules.items;
+    assert.ok('applicableDaysOfWeek' in scheduleItemSchema.properties);
+  });
+
+  await t.test('Case O (Story 3.6s, AC2): system prompt encodes the ordered grouping rules and roundup cap', async () => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-grouping',
+      accountId: 'account-grouping',
+      content: 'Multi-event grouping prompt check',
+      postUrl: 'https://test.com/post-grouping',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    const result = await buildGeminiExtractionRequest(message);
+    const prompt = result.request.systemInstruction ?? '';
+
+    assert.ok(prompt.includes('GROUPING DECISION'));
+    assert.ok(prompt.includes('program-lineup'));
+    assert.ok(prompt.includes('dependent-stages'));
+    assert.ok(prompt.includes('separate-events'));
+    assert.ok(prompt.includes('ROUNDUP HANDLING'));
+    assert.ok(prompt.includes('skippedItems'));
+    assert.ok(prompt.includes('organizerHandle'));
+    assert.ok(prompt.includes('applicableDaysOfWeek'));
   });
 });
