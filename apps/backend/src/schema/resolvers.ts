@@ -7,7 +7,7 @@ import { requireAuth, requireModerator } from '../lib/auth/context.js';
 import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, gte, lte, isNull, ilike } from 'drizzle-orm';
 import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
-import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile } from '@festgrid/domain/scraper';
+import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink } from '@festgrid/domain/scraper';
 import { selectApiKey } from '@festgrid/domain/ai-gateway';
 import { mapExtractionPayloadToProposedCorrection } from '@festgrid/domain/events';
 import { callGemini, AiGatewayExhaustedError } from '../lib/ai-gateway/adapter.js';
@@ -23,7 +23,7 @@ import { resolveLocation, getAddressPredictions, resolveAdminRegion } from '../l
 import { resolveInstagramOEmbed } from '../lib/instagram-oembed/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
-import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult, computePastEventThreshold } from '@festgrid/domain/events';
+import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult, computePastEventThreshold, parsePlatformPrefixedEventSlug } from '@festgrid/domain/events';
 import { transformGeminiResponseToEventFilter } from '@festgrid/domain/ai-event-filters';
 import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText } from '@festgrid/domain';
@@ -3787,6 +3787,42 @@ Constraints and Guidelines:
       }
 
       return row;
+    },
+    instagramEmbedBySlug: async (_: any, { slug }: { slug: string }) => {
+      const parsed = parsePlatformPrefixedEventSlug(slug);
+      if (!parsed || parsed.platform !== 'instagram') {
+        return { status: 'NOT_RESOLVABLE_FROM_SLUG', html: null, durableImageUrl: null };
+      }
+
+      const permalink = buildInstagramPermalink(parsed.platformPostType, parsed.platformPostId);
+      const adapterResult = await resolveInstagramOEmbed(permalink);
+
+      if (adapterResult.status === 'AVAILABLE') {
+        // Happy path stays lookup-free beyond the adapter's own cache check (user-confirmed
+        // "Lazy join" design, Dev Notes below) -- AVAILABLE never needs the opt-in/durable
+        // fallback data, so no posts/account join runs here.
+        return { status: 'AVAILABLE', html: adapterResult.html, durableImageUrl: null };
+      }
+
+      // UNAVAILABLE only: now fetch the opt-in-aware fallback data via the one join this
+      // story's design intentionally defers to this branch -- events.slug's existing unique
+      // index keeps this a single indexed lookup, not a scan.
+      const [row] = await db.select({
+        durableImageUrl: posts.durableImageUrl,
+        isImageStorageOptedIn: socialMediaAccountProfiles.isImageStorageOptedIn,
+      }).from(events)
+        .innerJoin(posts, eq(events.postId, posts.id))
+        .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
+        .where(eq(events.slug, slug))
+        .limit(1);
+
+      const resolved = resolveInstagramEmbedResult({
+        adapterResult,
+        isImageStorageOptedIn: row?.isImageStorageOptedIn === true,
+        durableImageUrl: row?.durableImageUrl ?? null,
+      });
+
+      return resolved ?? { status: 'UNAVAILABLE', html: null, durableImageUrl: null };
     },
     queryUnprocessedPayloads: async (_: any, { filters, first, after }: any, context: any) => {
       requireModerator(context);

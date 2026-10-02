@@ -11,6 +11,18 @@ type InstagramEmbed {
   durableImageUrl: String
 }
 
+enum InstagramEmbedBySlugStatus {
+  AVAILABLE
+  UNAVAILABLE
+  NOT_RESOLVABLE_FROM_SLUG
+}
+
+type InstagramEmbedBySlug {
+  status: InstagramEmbedBySlugStatus!
+  html: String
+  durableImageUrl: String
+}
+
 enum EventType {
   EXHIBITION
   COMPETITION
@@ -147,6 +159,7 @@ extend type Query {
   events(query: EventQueryConditionInput, filter: EventFilterInput, limit: Int, offset: Int, perDayLimit: Int, includeSoftDeleted: Boolean, includeMyArchived: Boolean): EventConnection!
   event(id: ID!, includeMyArchived: Boolean): Event
   eventBySlug(slug: String!, includeMyArchived: Boolean): Event
+  instagramEmbedBySlug(slug: String!): InstagramEmbedBySlug!
 }
 
 type ResolveScheduleTimezoneResult {

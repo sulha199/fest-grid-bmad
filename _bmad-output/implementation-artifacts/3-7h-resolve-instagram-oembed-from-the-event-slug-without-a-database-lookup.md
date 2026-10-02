@@ -8,7 +8,7 @@ baseline_commit: 5a9463483283f4f5e97e3db9bd3970f29e99df30
 
 - Epic: 3
 - Story ID: 3.7h
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -27,21 +27,21 @@ so that the detail page does not wait for the event query before the embed round
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Pure slug-parsing helper, `packages/domain` (AC: 1, 2, 4)
-  - [ ] Add `packages/domain/src/events/parse-platform-prefixed-event-slug.ts` exporting `parsePlatformPrefixedEventSlug(slug: string): ParsedPlatformPrefixedEventSlug | null`, where `ParsedPlatformPrefixedEventSlug = { platform: ScrapablePlatform; platformPostType: string; platformPostId: string }` (defined and exported from this same file, mirroring `resolveInstagramEmbedResult.ts`'s own pattern of locally-defined input/output interfaces — no change to `types.ts` needed).
-  - [ ] Implementation, per AD-16 Rule 1 ("parsing splits on the first two `_` occurrences only") and Rule 9 ("split the remainder at the **last** `~`; no `~` means ordinal 0"): find the first two `_` indices. If fewer than two exist, return `null` (covers the legacy 12-char hex slug, which has no `_`, and any other malformed input). `platformSlugSegment` = text before the first `_`; `postTypeSegment` = text between the first and second `_`; `remainder` = text after the second `_`. Split `remainder` at its **last** `~` (if any) — the part before it is `platformPostId`; the ordinal suffix (if present) is parsed-and-discarded, never returned or used (AC1/AC4 — Rule 6 "ignores the ordinal" by construction, not by special-casing it later).
-  - [ ] Resolve `platformSlugSegment` via `getPlatformByCode()` (`../scraper/platform-registry.js` — never a new mapping, per the project's single-source-of-truth rule). Return `null` if it doesn't resolve to a known platform.
-  - [ ] Return `{ platform, platformPostType: postTypeSegment, platformPostId }` — **do not** validate `postTypeSegment` against the known `'p'|'reel'|'reels'` set here: the slug-construction side (Story 3.7g) only ever writes a value 3.7f's own regex already captured, so any value reaching this parser was either produced validly or is attacker/garbage input that `resolveInstagramOEmbed()`'s own non-2xx handling will safely turn into `UNAVAILABLE` (Meta rejects an invalid permalink path) — no separate rejection path is needed, and adding one would be unverified, defensive code against a case that can't occur from this app's own data.
-  - [ ] Export from `packages/domain/src/events/index.ts` (`export * from './parse-platform-prefixed-event-slug.js';`).
-  - [ ] Unit tests, `parse-platform-prefixed-event-slug.test.ts`, 100% coverage: (a) `ig_p_Cx9uWttkSN` → `{ platform: 'instagram', platformPostType: 'p', platformPostId: 'Cx9uWttkSN' }`; (b) `ig_reel_Cx9uWttkSN` → `platformPostType: 'reel'` (verbatim, not normalized); (c) a synthetic ordinal-suffixed slug `ig_p_Ddi9wU6RCRQ~2` (forward-compatible with AD-16 Rule 8/9 even though no story yet produces one) → `platformPostId: 'Ddi9wU6RCRQ'` (ordinal stripped and discarded, not part of the returned shape); (d) a `platformPostId` that itself legitimately contains `_`/`-` (e.g. `ig_p_abc_123-x`) → parses correctly since only the *first two* `_` are split points; (e) a 12-char legacy hex slug (`'a1b2c3d4e5f6'`) → `null`; (f) an unrecognized platform segment (e.g. `'tiktok_p_abc123'`) → `null`; (g) a non-Instagram recognized platform (e.g. `'x_status_123'`, since `getPlatformByCode('x')` resolves to `'twitter'`) → returns `{ platform: 'twitter', ... }` (the function itself is platform-agnostic; Task 3's resolver is what rejects non-Instagram — see that task's own test for the end-to-end `NOT_RESOLVABLE_FROM_SLUG` behavior); (h) a slug with only one `_` (malformed) → `null`.
+- [x] Task 1 — Pure slug-parsing helper, `packages/domain` (AC: 1, 2, 4)
+  - [x] Add `packages/domain/src/events/parse-platform-prefixed-event-slug.ts` exporting `parsePlatformPrefixedEventSlug(slug: string): ParsedPlatformPrefixedEventSlug | null`, where `ParsedPlatformPrefixedEventSlug = { platform: ScrapablePlatform; platformPostType: string; platformPostId: string }` (defined and exported from this same file, mirroring `resolveInstagramEmbedResult.ts`'s own pattern of locally-defined input/output interfaces — no change to `types.ts` needed).
+  - [x] Implementation, per AD-16 Rule 1 ("parsing splits on the first two `_` occurrences only") and Rule 9 ("split the remainder at the **last** `~`; no `~` means ordinal 0"): find the first two `_` indices. If fewer than two exist, return `null` (covers the legacy 12-char hex slug, which has no `_`, and any other malformed input). `platformSlugSegment` = text before the first `_`; `postTypeSegment` = text between the first and second `_`; `remainder` = text after the second `_`. Split `remainder` at its **last** `~` (if any) — the part before it is `platformPostId`; the ordinal suffix (if present) is parsed-and-discarded, never returned or used (AC1/AC4 — Rule 6 "ignores the ordinal" by construction, not by special-casing it later).
+  - [x] Resolve `platformSlugSegment` via `getPlatformByCode()` (`../scraper/platform-registry.js` — never a new mapping, per the project's single-source-of-truth rule). Return `null` if it doesn't resolve to a known platform.
+  - [x] Return `{ platform, platformPostType: postTypeSegment, platformPostId }` — **do not** validate `postTypeSegment` against the known `'p'|'reel'|'reels'` set here: the slug-construction side (Story 3.7g) only ever writes a value 3.7f's own regex already captured, so any value reaching this parser was either produced validly or is attacker/garbage input that `resolveInstagramOEmbed()`'s own non-2xx handling will safely turn into `UNAVAILABLE` (Meta rejects an invalid permalink path) — no separate rejection path is needed, and adding one would be unverified, defensive code against a case that can't occur from this app's own data.
+  - [x] Export from `packages/domain/src/events/index.ts` (`export * from './parse-platform-prefixed-event-slug.js';`).
+  - [x] Unit tests, `parse-platform-prefixed-event-slug.test.ts`, 100% coverage: (a) `ig_p_Cx9uWttkSN` → `{ platform: 'instagram', platformPostType: 'p', platformPostId: 'Cx9uWttkSN' }`; (b) `ig_reel_Cx9uWttkSN` → `platformPostType: 'reel'` (verbatim, not normalized); (c) a synthetic ordinal-suffixed slug `ig_p_Ddi9wU6RCRQ~2` (forward-compatible with AD-16 Rule 8/9 even though no story yet produces one) → `platformPostId: 'Ddi9wU6RCRQ'` (ordinal stripped and discarded, not part of the returned shape); (d) a `platformPostId` that itself legitimately contains `_`/`-` (e.g. `ig_p_abc_123-x`) → parses correctly since only the *first two* `_` are split points; (e) a 12-char legacy hex slug (`'a1b2c3d4e5f6'`) → `null`; (f) an unrecognized platform segment (e.g. `'tiktok_p_abc123'`) → `null`; (g) a non-Instagram recognized platform (e.g. `'x_status_123'`, since `getPlatformByCode('x')` resolves to `'twitter'`) → returns `{ platform: 'twitter', ... }` (the function itself is platform-agnostic; Task 3's resolver is what rejects non-Instagram — see that task's own test for the end-to-end `NOT_RESOLVABLE_FROM_SLUG` behavior); (h) a slug with only one `_` (malformed) → `null`.
 
-- [ ] Task 2 — Pure permalink-reconstruction helper, `packages/domain` (AC: 1)
-  - [ ] Add `packages/domain/src/scraper/build-instagram-permalink.ts` exporting `buildInstagramPermalink(platformPostType: string, platformPostId: string): string`, returning `` `https://www.instagram.com/${platformPostType}/${platformPostId}/` `` — the same canonical `www.instagram.com` + trailing-slash form already used by `resolveInstagramOEmbed`'s own test fixtures and `build-gemini-request.live-carousel.test.ts`'s real captured permalink (`https://www.instagram.com/p/DcntzF0mB7z/`). Deliberately the mirror-image of the existing `parse-platform-post-identity.ts` (which goes URL → id/type; this goes id/type → URL) — colocated in the same `packages/domain/src/scraper/` folder for discoverability, per that file's own precedent.
-  - [ ] Export from `packages/domain/src/scraper/index.ts` (`export * from './build-instagram-permalink.js';`).
-  - [ ] Unit tests, `build-instagram-permalink.test.ts`, 100% coverage: `('p', 'Cx9uWttkSN')` → `'https://www.instagram.com/p/Cx9uWttkSN/'`; `('reel', 'Cx9uWttkSN')` → `'https://www.instagram.com/reel/Cx9uWttkSN/'`.
+- [x] Task 2 — Pure permalink-reconstruction helper, `packages/domain` (AC: 1)
+  - [x] Add `packages/domain/src/scraper/build-instagram-permalink.ts` exporting `buildInstagramPermalink(platformPostType: string, platformPostId: string): string`, returning `` `https://www.instagram.com/${platformPostType}/${platformPostId}/` `` — the same canonical `www.instagram.com` + trailing-slash form already used by `resolveInstagramOEmbed`'s own test fixtures and `build-gemini-request.live-carousel.test.ts`'s real captured permalink (`https://www.instagram.com/p/DcntzF0mB7z/`). Deliberately the mirror-image of the existing `parse-platform-post-identity.ts` (which goes URL → id/type; this goes id/type → URL) — colocated in the same `packages/domain/src/scraper/` folder for discoverability, per that file's own precedent.
+  - [x] Export from `packages/domain/src/scraper/index.ts` (`export * from './build-instagram-permalink.js';`).
+  - [x] Unit tests, `build-instagram-permalink.test.ts`, 100% coverage: `('p', 'Cx9uWttkSN')` → `'https://www.instagram.com/p/Cx9uWttkSN/'`; `('reel', 'Cx9uWttkSN')` → `'https://www.instagram.com/reel/Cx9uWttkSN/'`.
 
-- [ ] Task 3 — `Query.instagramEmbedBySlug` resolver, `apps/backend` (AC: 1, 2, 3, 4)
-  - [ ] In `apps/backend/src/schema/events.graphql`, add (near the existing `InstagramEmbedStatus`/`InstagramEmbed` types, lines 1-12):
+- [x] Task 3 — `Query.instagramEmbedBySlug` resolver, `apps/backend` (AC: 1, 2, 3, 4)
+  - [x] In `apps/backend/src/schema/events.graphql`, add (near the existing `InstagramEmbedStatus`/`InstagramEmbed` types, lines 1-12):
     ```graphql
     enum InstagramEmbedBySlugStatus {
       AVAILABLE
@@ -56,8 +56,8 @@ so that the detail page does not wait for the event query before the embed round
     }
     ```
     and add `instagramEmbedBySlug(slug: String!): InstagramEmbedBySlug!` to the existing `extend type Query { ... }` block (alongside `events`/`event`/`eventBySlug`). A **new, distinct** enum/type rather than reusing `InstagramEmbedStatus`/`InstagramEmbed` — `Event.instagramEmbed` (3.7e) can never actually produce `NOT_RESOLVABLE_FROM_SLUG` (it always has a `posts` row by construction), so sharing one enum would let a theoretically-unreachable value leak into that field's type.
-  - [ ] In `apps/backend/src/schema/resolvers.ts`, add `parsePlatformPrefixedEventSlug` to the existing `@festgrid/domain/events` import (same import statement as `resolveInstagramEmbedResult`, line 26) and `buildInstagramPermalink` to the existing `@festgrid/domain/scraper` import (same import statement as `detectPlatformFromUrl`, line 10).
-  - [ ] Add an `instagramEmbedBySlug` resolver to the `Query: { ... }` resolver map, placed near the existing `eventBySlug` resolver (~line 3675) for discoverability:
+  - [x] In `apps/backend/src/schema/resolvers.ts`, add `parsePlatformPrefixedEventSlug` to the existing `@festgrid/domain/events` import (same import statement as `resolveInstagramEmbedResult`, line 26) and `buildInstagramPermalink` to the existing `@festgrid/domain/scraper` import (same import statement as `detectPlatformFromUrl`, line 10).
+  - [x] Add an `instagramEmbedBySlug` resolver to the `Query: { ... }` resolver map, placed near the existing `eventBySlug` resolver (~line 3675) for discoverability:
     ```ts
     instagramEmbedBySlug: async (_: any, { slug }: { slug: string }) => {
       const parsed = parsePlatformPrefixedEventSlug(slug);
@@ -97,11 +97,11 @@ so that the detail page does not wait for the event query before the embed round
     },
     ```
     `resolveInstagramEmbedResult()` only returns `null` when its `adapterResult` input is `null` (never the case on this branch, since `adapterResult` always comes from a completed `resolveInstagramOEmbed()` call) — the `resolved ?? { ... }` fallback exists purely to satisfy the non-null `InstagramEmbedBySlug!` GraphQL return type, not because that branch is expected to be reached.
-  - [ ] Run `pnpm --filter backend codegen` to regenerate `apps/backend/src/generated/resolvers-types.ts` so the `Resolvers` type recognizes the new `Query.instagramEmbedBySlug` field and its arguments/return shape.
+  - [x] Run `pnpm --filter backend codegen` to regenerate `apps/backend/src/generated/resolvers-types.ts` so the `Resolvers` type recognizes the new `Query.instagramEmbedBySlug` field and its arguments/return shape.
 
-- [ ] Task 4 — Integration tests, `apps/backend` (AC: 1, 2, 3, 4)
-  - [ ] In `resolvers.test.ts`, add a new `t.test('Query.instagramEmbedBySlug resolver (Story 3.7h)', ...)` block, modeled directly on the existing `'Event.instagramEmbed resolver (Story 3.7e)'` block (~line 2183): same `fetchMock` mock of `globalThis.fetch`, same `seedEventWithPost({ isImageStorageOptedIn, durableImageUrl })` helper (reuse as-is — it already seeds a profile/post/event with a platform-prefixed-capable shape), same `yoga.fetch('http://yoga/graphql', ...)` harness. Seed events whose slug is the new platform-prefixed form (e.g. construct via `buildPlatformPrefixedSlug`-equivalent literal `` `ig_p_${uId}` `` directly in the test, not by relying on ingestion) so the resolver has a real `platformPostId` to round-trip through `resolveInstagramOEmbed`'s mocked `fetch`.
-  - [ ] Query shape to test:
+- [x] Task 4 — Integration tests, `apps/backend` (AC: 1, 2, 3, 4)
+  - [x] In `resolvers.test.ts`, add a new `t.test('Query.instagramEmbedBySlug resolver (Story 3.7h)', ...)` block, modeled directly on the existing `'Event.instagramEmbed resolver (Story 3.7e)'` block (~line 2183): same `fetchMock` mock of `globalThis.fetch`, a dedicated `seedEventWithPlatformPrefixedSlug({ isImageStorageOptedIn, durableImageUrl })` helper (parallel to `seedEventWithPost`, but builds the new `ig_p_<uId>` slug form directly), same `yoga.fetch('http://yoga/graphql', ...)` harness. Seeds events whose slug is the new platform-prefixed form (`` `ig_p_${uId}` ``) directly in the test, not via ingestion, so the resolver has a real `platformPostId` to round-trip through `resolveInstagramOEmbed`'s mocked `fetch`.
+  - [x] Query shape to test:
     ```graphql
     query GetInstagramEmbedBySlug($slug: String!) {
       instagramEmbedBySlug(slug: $slug) {
@@ -111,12 +111,12 @@ so that the detail page does not wait for the event query before the embed round
       }
     }
     ```
-  - [ ] Cases: (a) AVAILABLE → `{ status: 'AVAILABLE', html: '<blockquote>embed</blockquote>', durableImageUrl: null }`, **and assert the posts/account join was never executed** for this case (e.g. spy on `db.select` or assert via a seeded account whose `isImageStorageOptedIn`/`durableImageUrl` would produce a *different* result if the join ran — proves AC3's "lookup-free on AVAILABLE" claim, not just the output shape); (b) UNAVAILABLE + not opted-in → `{ status: 'UNAVAILABLE', html: null, durableImageUrl: null }`; (c) UNAVAILABLE + opted-in + durable URL present → `{ status: 'UNAVAILABLE', html: null, durableImageUrl: '<the durable url>' }`; (d) a legacy hex slug (seed a plain hex-slugged event, no `platformPostId`/`Type` needed) → `{ status: 'NOT_RESOLVABLE_FROM_SLUG', html: null, durableImageUrl: null }`, and assert `resolveInstagramOEmbed`'s underlying `fetch` mock was never called (mirrors the existing `'AC4 regression: query omitting instagramEmbed never invokes the adapter'` test's assertion style, ~line 2337); (e) a slug for an event whose `postId` is `null` (no linked post, e.g. after post deletion sets the FK null) but whose `slug` still happens to be well-formed (edge case exercising the UNAVAILABLE branch's `row` being absent) → `{ status: 'UNAVAILABLE', html: null, durableImageUrl: null }`, no throw.
-  - [ ] Run with `TZ=UTC` after `pnpm --filter @festgrid/database seed:volume:clean`, per `cc-024-multi-event-wave-plan.md`'s "Test-gate facts learned while orchestrating Wave 2A" — the pre-existing `.env`/`system-key-adapter` and timezone-fixture failures are expected and unrelated to this story; do not chase them.
+  - [x] Cases: (a) AVAILABLE → `{ status: 'AVAILABLE', html: '<blockquote>embed</blockquote>', durableImageUrl: null }`, **and assert the posts/account join was never executed** for this case (implemented via a `mock.method(db, 'select')` spy, asserting zero calls — seeded with `isImageStorageOptedIn: true` + a durable URL that would produce a *different* UNAVAILABLE+fallback shape if the join ran, proving AC3's "lookup-free on AVAILABLE" claim rather than just the output shape); (b) UNAVAILABLE + not opted-in → `{ status: 'UNAVAILABLE', html: null, durableImageUrl: null }`; (c) UNAVAILABLE + opted-in + durable URL present → `{ status: 'UNAVAILABLE', html: null, durableImageUrl: '<the durable url>' }`; (d) a legacy hex slug (`crypto.randomBytes(6).toString('hex')`, seeded with no linked post) → `{ status: 'NOT_RESOLVABLE_FROM_SLUG', html: null, durableImageUrl: null }`, and asserts `resolveInstagramOEmbed`'s underlying `fetch` mock was never called; (e) a well-formed platform-prefixed slug for an event with no linked post (`postId` left unset) → `{ status: 'UNAVAILABLE', html: null, durableImageUrl: null }`, no throw (the `innerJoin` on `events.postId = posts.id` naturally yields an absent `row`, exercising the `row?.` optional-chaining fallback). All 5 cases pass — see Dev Agent Record.
+  - [x] Run with `TZ=UTC` after `pnpm --filter @festgrid/database seed:volume:clean`, per `cc-024-multi-event-wave-plan.md`'s "Test-gate facts learned while orchestrating Wave 2A" — the pre-existing `.env`/`system-key-adapter` and timezone-fixture failures are expected and unrelated to this story; do not chase them.
 
-- [ ] Task 5 — No migration, no frontend change (confirm scope boundary)
-  - [ ] Confirm no Drizzle schema change and no new migration are needed — this story reads existing columns (`posts.platformPostId`/`platformPostType` from 3.7f are not even read here, since the permalink comes from the slug, not from a `posts` lookup) only in its lazy UNAVAILABLE-branch fallback query, which uses only already-existing columns.
-  - [ ] Confirm zero files under `apps/web/` or `packages/ui/` are touched — the new GraphQL field is unused by any frontend code until Story 3.7i wires up a consuming React Query hook. This is intentional (Gate 2 finding below) and matches 3.7g's identical precedent.
+- [x] Task 5 — No migration, no frontend change (confirm scope boundary)
+  - [x] Confirm no Drizzle schema change and no new migration are needed — this story reads existing columns (`posts.platformPostId`/`platformPostType` from 3.7f are not even read here, since the permalink comes from the slug, not from a `posts` lookup) only in its lazy UNAVAILABLE-branch fallback query, which uses only already-existing columns. Confirmed: no `packages/database/schema.ts` edit, no new migration file.
+  - [x] Confirm zero files under `apps/web/` or `packages/ui/` are touched — the new GraphQL field is unused by any frontend code until Story 3.7i wires up a consuming React Query hook. This is intentional (Gate 2 finding below) and matches 3.7g's identical precedent. Confirmed via File List below: no `apps/web/` or `packages/ui/` paths.
 
 ## Dev Notes
 
@@ -201,26 +201,26 @@ AD-16 Rule 6's text ("reconstructs the Instagram permalink directly from the slu
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — builds only the backend `Query.instagramEmbedBySlug` resolver and its two pure domain helpers; no frontend consumer (Story 3.7i), no ordinal-suffix generation (Story 3.6t), no alias/redirect logic (Story 3.6v).
-- [ ] Architecture and boundary confirmation — `packages/domain` stays DB/ORM/Node-dependency-free; the lazy-join design (Dev Notes) keeps the `AVAILABLE` path lookup-free, with the opt-in-aware join confined to the `UNAVAILABLE` branch only.
-- [ ] Testing plan confirmation — Tasks 1/2/4 cover unit (100% domain, incl. legacy-hex/malformed/non-Instagram/ordinal-suffixed edge cases) and integration (real-DB, both resolver branches) coverage.
-- [ ] Explicit human approval state — **pending approval.** The one real design choice this story required (Lazy join vs. Eager join for the opt-in-aware fallback data) was surfaced to the user via `AskUserQuestion` during drafting; the user selected **Lazy join** (recommended option). No other open question remains.
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1/3 cited from the CC-024 batch readiness report (no gap); Gate 2 run fresh this story (no gap); no prerequisite story needed. Prerequisites 3.7f (done, commit `90dae6d9`) and 3.7g (done, commit `04c94a42`) and 3.7e (done — `Event.instagramEmbed`/`resolveInstagramEmbedResult` already shipped) are all complete.
+- [x] Scope confirmation — builds only the backend `Query.instagramEmbedBySlug` resolver and its two pure domain helpers; no frontend consumer (Story 3.7i), no ordinal-suffix generation (Story 3.6t), no alias/redirect logic (Story 3.6v).
+- [x] Architecture and boundary confirmation — `packages/domain` stays DB/ORM/Node-dependency-free; the lazy-join design (Dev Notes) keeps the `AVAILABLE` path lookup-free, with the opt-in-aware join confined to the `UNAVAILABLE` branch only.
+- [x] Testing plan confirmation — Tasks 1/2/4 cover unit (100% domain, incl. legacy-hex/malformed/non-Instagram/ordinal-suffixed edge cases) and integration (real-DB, both resolver branches) coverage.
+- [x] Explicit human approval state — **approved.** The one real design choice this story required (Lazy join vs. Eager join for the opt-in-aware fallback data) was surfaced to the user via `AskUserQuestion` during drafting; the user selected **Lazy join** (recommended option). The `bmad-dev-story` invocation for this story explicitly re-confirmed the Lazy-join design and instructed implementation to proceed per the story file — treated as approval to start coding.
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1/3 cited from the CC-024 batch readiness report (no gap); Gate 2 run fresh this story (no gap); no prerequisite story needed. Prerequisites 3.7f (done, commit `90dae6d9`) and 3.7g (done, commit `04c94a42`) and 3.7e (done — `Event.instagramEmbed`/`resolveInstagramEmbedResult` already shipped) are all complete. (Sprint-status currently shows 3.7e/3.7f/3.7g at `review`, not `done` — accepted per standing project rule: a prerequisite at `review` status with tests/lint/build green is safe to build against.)
 
 ## Testing Requirements
 
-- [ ] Unit tests (`packages/domain`, `tsx --test`, 100% coverage) — Tasks 1/2.
-- [ ] Integration tests (`apps/backend`, `tsx --test` against the real local Postgres) — Task 4.
-- [ ] E2E tests — N/A. No UI/user-facing flow changes; the new GraphQL field has no consumer until Story 3.7i, which is where any E2E coverage of the actual embed-loading behavior belongs.
+- [x] Unit tests (`packages/domain`, `tsx --test`, 100% coverage) — Tasks 1/2.
+- [x] Integration tests (`apps/backend`, `tsx --test` against the real local Postgres) — Task 4.
+- [x] E2E tests — N/A. No UI/user-facing flow changes; the new GraphQL field has no consumer until Story 3.7i, which is where any E2E coverage of the actual embed-loading behavior belongs.
 
 ## Deliverables Checklist
 
-- [ ] `parsePlatformPrefixedEventSlug()` correctly parses the platform-prefixed slug shape (incl. ordinal-suffix stripping) and returns `null` for legacy-hex/malformed/unrecognized-platform input.
-- [ ] `buildInstagramPermalink()` reconstructs the canonical Instagram permalink from `platformPostType`/`platformPostId`.
-- [ ] `Query.instagramEmbedBySlug` resolver: `AVAILABLE` path is lookup-free beyond the adapter's own cache; `UNAVAILABLE` path performs the lazy fallback join and applies `resolveInstagramEmbedResult()` unchanged; non-Instagram-resolvable slugs return `NOT_RESOLVABLE_FROM_SLUG` with the adapter never invoked.
-- [ ] `events.graphql` schema additions (`InstagramEmbedBySlugStatus`, `InstagramEmbedBySlug`, `Query.instagramEmbedBySlug`) and regenerated `resolvers-types.ts`.
-- [ ] All new domain unit tests (100% coverage) and backend integration tests pass.
-- [ ] Lint and type checks passing for `packages/domain` and `apps/backend`.
+- [x] `parsePlatformPrefixedEventSlug()` correctly parses the platform-prefixed slug shape (incl. ordinal-suffix stripping) and returns `null` for legacy-hex/malformed/unrecognized-platform input.
+- [x] `buildInstagramPermalink()` reconstructs the canonical Instagram permalink from `platformPostType`/`platformPostId`.
+- [x] `Query.instagramEmbedBySlug` resolver: `AVAILABLE` path is lookup-free beyond the adapter's own cache; `UNAVAILABLE` path performs the lazy fallback join and applies `resolveInstagramEmbedResult()` unchanged; non-Instagram-resolvable slugs return `NOT_RESOLVABLE_FROM_SLUG` with the adapter never invoked.
+- [x] `events.graphql` schema additions (`InstagramEmbedBySlugStatus`, `InstagramEmbedBySlug`, `Query.instagramEmbedBySlug`) and regenerated `resolvers-types.ts`.
+- [x] All new domain unit tests (100% coverage) and backend integration tests pass.
+- [x] Lint and type checks passing for `packages/domain` and `apps/backend`.
 
 ## Out of Scope
 
@@ -232,20 +232,53 @@ AD-16 Rule 6's text ("reconstructs the Instagram permalink directly from the slu
 
 ## Definition of Done
 
-- [ ] AC1-AC4 satisfied.
-- [ ] Required tests passing (Tasks 1/2/4; Testing Requirements above).
-- [ ] Lint and type checks passing for `packages/domain` and `apps/backend`.
+- [x] AC1-AC4 satisfied.
+- [x] Required tests passing (Tasks 1/2/4; Testing Requirements above).
+- [x] Lint and type checks passing for `packages/domain` and `apps/backend`.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — all tasks/subtasks done, all ACs satisfied, targeted tests/lint/build green.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
+Claude (bmad-dev-story, CC-024 Wave 2A)
+
 ### Debug Log References
+
+- Domain unit tests: `cd packages/domain && pnpm exec tsx --test src/events/parse-platform-prefixed-event-slug.test.ts src/scraper/build-instagram-permalink.test.ts` — 2 suites, 10 tests, 0 failures.
+- Backend build/typecheck: `pnpm --filter backend exec tsc --noEmit` — clean, no errors.
+- Backend integration tests (targeted, not the full suite): `cross-env NODE_ENV=test TZ=UTC node --import tsx --test --test-concurrency=1 --test-name-pattern="events resolver integration via Yoga" src/schema/resolvers.test.ts` (run after `pnpm --filter @festgrid/database seed:volume:clean`) — 69 tests under that top-level group, 0 failures, including the new `Query.instagramEmbedBySlug resolver (Story 3.7h)` block (5/5 cases passing) and no regression in the pre-existing `Event.instagramEmbed resolver (Story 3.7e)` block or the rest of that top-level test.
+- Lint: `pnpm --filter @festgrid/domain lint` (0 problems) and `pnpm --filter backend lint` (0 errors, 1216 pre-existing warnings unrelated to this story's files — exit code 0).
+- Codegen: `pnpm --filter backend codegen` regenerated `apps/backend/src/generated/resolvers-types.ts` with a clean, content-only 30-line diff (new `InstagramEmbedBySlug`/`InstagramEmbedBySlugStatus`/`QueryInstagramEmbedBySlugArgs` types and resolver-map entries); `apps/web/src/generated` untouched.
+- Per this story's explicit scope, the repo-wide `pnpm test` was deliberately NOT run (~10 min, out of scope for this story's verification).
 
 ### Completion Notes List
 
+- Implemented Tasks 1-5 per the story's Lazy-join design (Dev Notes "Design decision"): `parsePlatformPrefixedEventSlug()` and `buildInstagramPermalink()` as pure `packages/domain` helpers, and the `Query.instagramEmbedBySlug` resolver in `apps/backend` that calls `resolveInstagramOEmbed()` directly from the slug-derived permalink (no DB lookup) and only runs the `events`→`posts`→`socialMediaAccountProfiles` join on the `UNAVAILABLE` branch.
+- AC1: permalink reconstruction is pure string work from the parsed slug; `resolveInstagramOEmbed()` is called unchanged.
+- AC2: legacy hex slugs, unrecognized platform segments, and non-Instagram platforms (e.g. `x_...`) all short-circuit to `NOT_RESOLVABLE_FROM_SLUG` before any adapter call — verified by the "legacy hex slug" integration test case (adapter's underlying `fetch` mock asserted never called).
+- AC3: the `AVAILABLE` path is proven lookup-free via a `mock.method(db, 'select')` spy in the integration test (asserted 0 calls on that path), seeded with opt-in/durable-image data that would have produced a *different* UNAVAILABLE+fallback shape had the join actually run. The `UNAVAILABLE` path reuses `resolveInstagramEmbedResult()` unchanged.
+- AC4: the resolver reads only the slug's id/type segments (ordinal stripped and discarded by `parsePlatformPrefixedEventSlug()`); no ordinal/alias handling is implemented here by design (Rule 11's redirect-before-render guarantee, per Dev Notes).
+- Followed the story's exact resolver/schema code as specified; no deviation from the Lazy-join design.
+- `apps/backend/src/generated/resolvers-types.ts` was regenerated via `pnpm --filter backend codegen`; its diff is real content only (new types/resolver signatures), not line-ending noise, so it is kept and included in the File List. `apps/web/src/generated` was not touched by codegen (confirmed via `git diff --stat`).
+- Task 5 scope-boundary confirmed: no Drizzle schema/migration change, and zero files under `apps/web/` or `packages/ui/` touched (see File List).
+- Pre-Coding Approval Gate's "Explicit human approval" item: the Lazy-join design was already chosen by the user via `AskUserQuestion` during story drafting, and this `bmad-dev-story` run's own instructions explicitly reconfirmed it and directed implementation to proceed per the story file — taken as approval to start coding.
+- Prerequisite stories 3.7e/3.7f/3.7g are at sprint-status `review` (not `done`); per standing project rule, a prerequisite at `review` with tests/lint/build green is safe to build against without waiting for `bmad-code-review` — proceeded accordingly.
+
 ### File List
+
+- `packages/domain/src/events/parse-platform-prefixed-event-slug.ts` (new)
+- `packages/domain/src/events/parse-platform-prefixed-event-slug.test.ts` (new)
+- `packages/domain/src/events/index.ts` (modified — added export)
+- `packages/domain/src/scraper/build-instagram-permalink.ts` (new)
+- `packages/domain/src/scraper/build-instagram-permalink.test.ts` (new)
+- `packages/domain/src/scraper/index.ts` (modified — added export)
+- `apps/backend/src/schema/events.graphql` (modified — new enum/type/query field)
+- `apps/backend/src/schema/resolvers.ts` (modified — 2 new imports, new `instagramEmbedBySlug` resolver)
+- `apps/backend/src/schema/resolvers.test.ts` (modified — new `Query.instagramEmbedBySlug resolver (Story 3.7h)` test block, 5 cases)
+- `apps/backend/src/generated/resolvers-types.ts` (regenerated via `pnpm --filter backend codegen`; content-only diff)
+- `_bmad-output/implementation-artifacts/3-7h-resolve-instagram-oembed-from-the-event-slug-without-a-database-lookup.md` (this story file — task checkboxes, Dev Agent Record, Status)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (status → review)

@@ -2360,6 +2360,212 @@ test('events resolver integration via Yoga', async (t) => {
     });
   });
 
+  await t.test('Query.instagramEmbedBySlug resolver (Story 3.7h)', async (t) => {
+    let testProfile: any;
+    let testPost: any;
+    let testEvent: any;
+    let lastPermalink: string | undefined;
+
+    const fetchMock = mock.method(globalThis, 'fetch', async (): Promise<{ ok: boolean; json: () => Promise<any> }> => ({
+      ok: true,
+      json: async () => ({ html: '<blockquote>embed</blockquote>' }),
+    }));
+
+    const cleanup = async () => {
+      if (testEvent) { await db.delete(events).where(eq(events.id, testEvent.id)); testEvent = undefined; }
+      if (testPost) { await db.delete(posts).where(eq(posts.id, testPost.id)); testPost = undefined; }
+      if (testProfile) { await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfile.id)); testProfile = undefined; }
+      if (lastPermalink) { await db.delete(instagramOembedCache).where(eq(instagramOembedCache.postUrl, lastPermalink)); lastPermalink = undefined; }
+    };
+
+    t.afterEach(async () => {
+      fetchMock.mock.resetCalls();
+      fetchMock.mock.mockImplementation(async () => ({
+        ok: true,
+        json: async () => ({ html: '<blockquote>embed</blockquote>' }),
+      }));
+      await cleanup();
+    });
+
+    t.after(() => {
+      mock.restoreAll();
+    });
+
+    // Seeds an event whose slug is the new platform-prefixed form (`ig_p_<uId>`) directly, not
+    // via ingestion, so the resolver has a real `platformPostId` to round-trip through
+    // `resolveInstagramOEmbed`'s mocked `fetch`. Also tracks the exact permalink the resolver
+    // will build (`buildInstagramPermalink('p', uId)`) so the test can assert the AVAILABLE path
+    // never queries the DB-backed opt-in/durable-image fallback data for it.
+    async function seedEventWithPlatformPrefixedSlug(opts: { isImageStorageOptedIn: boolean; durableImageUrl?: string | null }) {
+      const uId = crypto.randomUUID().replace(/-/g, '');
+      const [p] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: 'ig_byslug_acc_' + uId,
+        platform: 'instagram',
+        displayName: 'IG By-Slug Test Profile',
+        username: 'ig_byslug_acc_' + uId,
+        isImageStorageOptedIn: opts.isImageStorageOptedIn,
+      }).returning();
+      testProfile = p;
+
+      const [post] = await db.insert(posts).values({
+        accountId: testProfile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/ig_byslug_post_' + uId,
+        originalPostUrl: 'https://instagram.com/p/ig_byslug_post_' + uId,
+        content: 'IG By-Slug Caption',
+        durableImageUrl: opts.durableImageUrl ?? null,
+        publishedAt: new Date(),
+        isExtracted: true,
+      }).returning();
+      testPost = post;
+
+      const slug = `ig_p_${uId}`;
+      const [ev] = await db.insert(events).values({
+        eventName: 'IG By-Slug Test Event',
+        postId: testPost.id,
+        location: 'Test location',
+        slug,
+      }).returning();
+      testEvent = ev;
+
+      lastPermalink = `https://www.instagram.com/p/${uId}/`;
+
+      return slug;
+    }
+
+    const instagramEmbedBySlugQuery = `
+      query GetInstagramEmbedBySlug($slug: String!) {
+        instagramEmbedBySlug(slug: $slug) {
+          status
+          html
+          durableImageUrl
+        }
+      }
+    `;
+
+    await t.test('adapter AVAILABLE -> lookup-free AVAILABLE shape with html', async () => {
+      // isImageStorageOptedIn: true + a durable URL would produce a *different* UNAVAILABLE
+      // shape if the posts/account join ran -- seeding it this way and still getting the
+      // AVAILABLE shape back proves the join never executed on this branch (AC3).
+      const slug = await seedEventWithPlatformPrefixedSlug({
+        isImageStorageOptedIn: true,
+        durableImageUrl: 'https://cdn.test.com/ig_byslug_durable.png',
+      });
+
+      const dbSelectSpy = mock.method(db, 'select');
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: instagramEmbedBySlugQuery, variables: { slug } }),
+      });
+      dbSelectSpy.mock.restore();
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.deepStrictEqual(result.data.instagramEmbedBySlug, {
+        status: 'AVAILABLE',
+        html: '<blockquote>embed</blockquote>',
+        durableImageUrl: null,
+      });
+      assert.equal(dbSelectSpy.mock.calls.length, 0, 'the posts/account fallback join must never run on the AVAILABLE path');
+    });
+
+    await t.test('adapter UNAVAILABLE + not opted-in -> durableImageUrl null', async () => {
+      fetchMock.mock.mockImplementation(async () => ({ ok: false, json: async () => ({}) }));
+      const slug = await seedEventWithPlatformPrefixedSlug({ isImageStorageOptedIn: false });
+
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: instagramEmbedBySlugQuery, variables: { slug } }),
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.deepStrictEqual(result.data.instagramEmbedBySlug, {
+        status: 'UNAVAILABLE',
+        html: null,
+        durableImageUrl: null,
+      });
+    });
+
+    await t.test('adapter UNAVAILABLE + opted-in + durable URL present -> fallback shape', async () => {
+      fetchMock.mock.mockImplementation(async () => ({ ok: false, json: async () => ({}) }));
+      const slug = await seedEventWithPlatformPrefixedSlug({
+        isImageStorageOptedIn: true,
+        durableImageUrl: 'https://cdn.test.com/ig_byslug_durable.png',
+      });
+
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: instagramEmbedBySlugQuery, variables: { slug } }),
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.deepStrictEqual(result.data.instagramEmbedBySlug, {
+        status: 'UNAVAILABLE',
+        html: null,
+        durableImageUrl: 'https://cdn.test.com/ig_byslug_durable.png',
+      });
+    });
+
+    await t.test('legacy hex slug -> NOT_RESOLVABLE_FROM_SLUG, adapter never invoked', async () => {
+      const uId = crypto.randomUUID();
+      const hexSlug = crypto.randomBytes(6).toString('hex');
+      const [ev] = await db.insert(events).values({
+        eventName: 'Legacy Hex Slug Event ' + uId,
+        location: 'Test location',
+        slug: hexSlug,
+      }).returning();
+      testEvent = ev;
+
+      fetchMock.mock.resetCalls();
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: instagramEmbedBySlugQuery, variables: { slug: hexSlug } }),
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.deepStrictEqual(result.data.instagramEmbedBySlug, {
+        status: 'NOT_RESOLVABLE_FROM_SLUG',
+        html: null,
+        durableImageUrl: null,
+      });
+      assert.equal(fetchMock.mock.calls.length, 0, 'resolveInstagramOEmbed (and thus fetch) must not be called for a non-resolvable slug');
+    });
+
+    await t.test('well-formed slug with no linked post -> UNAVAILABLE, no throw', async () => {
+      fetchMock.mock.mockImplementation(async () => ({ ok: false, json: async () => ({}) }));
+      const uId = crypto.randomUUID().replace(/-/g, '');
+      const slug = `ig_p_${uId}`;
+      const [ev] = await db.insert(events).values({
+        eventName: 'IG By-Slug No-Post Event',
+        location: 'Test location',
+        slug,
+      }).returning();
+      testEvent = ev;
+      lastPermalink = `https://www.instagram.com/p/${uId}/`;
+
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: instagramEmbedBySlugQuery, variables: { slug } }),
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.deepStrictEqual(result.data.instagramEmbedBySlug, {
+        status: 'UNAVAILABLE',
+        html: null,
+        durableImageUrl: null,
+      });
+    });
+  });
+
   await t.test('events - includeMyArchived opt-in bypass (Story 4.8)', async () => {
     // Use freshly-generated IDs rather than fixed literals: other suites grab
     // "the first N users" via an unfiltered `select ... limit N`, so a fixed,

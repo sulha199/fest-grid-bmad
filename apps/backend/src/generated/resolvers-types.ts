@@ -398,6 +398,18 @@ export type InstagramEmbed = {
   status: InstagramEmbedStatus;
 };
 
+export type InstagramEmbedBySlug = {
+  __typename?: 'InstagramEmbedBySlug';
+  durableImageUrl?: Maybe<Scalars['String']['output']>;
+  html?: Maybe<Scalars['String']['output']>;
+  status: InstagramEmbedBySlugStatus;
+};
+
+export type InstagramEmbedBySlugStatus =
+  | 'AVAILABLE'
+  | 'NOT_RESOLVABLE_FROM_SLUG'
+  | 'UNAVAILABLE';
+
 export type InstagramEmbedStatus =
   | 'AVAILABLE'
   | 'UNAVAILABLE';
@@ -843,6 +855,7 @@ export type Query = {
   eventBySlug?: Maybe<Event>;
   events: EventConnection;
   health: Scalars['Boolean']['output'];
+  instagramEmbedBySlug: InstagramEmbedBySlug;
   isOriginAllowedForWidget: Scalars['Boolean']['output'];
   me: Me;
   /**
@@ -911,6 +924,11 @@ export type QueryEventsArgs = {
   offset?: InputMaybe<Scalars['Int']['input']>;
   perDayLimit?: InputMaybe<Scalars['Int']['input']>;
   query?: InputMaybe<EventQueryConditionInput>;
+};
+
+
+export type QueryInstagramEmbedBySlugArgs = {
+  slug: Scalars['String']['input'];
 };
 
 
@@ -1435,6 +1453,8 @@ export type ResolversTypes = ResolversObject<{
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
   ImageStorageOptInSource: ImageStorageOptInSource;
   InstagramEmbed: ResolverTypeWrapper<InstagramEmbed>;
+  InstagramEmbedBySlug: ResolverTypeWrapper<InstagramEmbedBySlug>;
+  InstagramEmbedBySlugStatus: InstagramEmbedBySlugStatus;
   InstagramEmbedStatus: InstagramEmbedStatus;
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
   JSON: ResolverTypeWrapper<Scalars['JSON']['output']>;
@@ -1532,6 +1552,7 @@ export type ResolversParentTypes = ResolversObject<{
   Float: Scalars['Float']['output'];
   ID: Scalars['ID']['output'];
   InstagramEmbed: InstagramEmbed;
+  InstagramEmbedBySlug: InstagramEmbedBySlug;
   Int: Scalars['Int']['output'];
   JSON: Scalars['JSON']['output'];
   LocationDetails: LocationDetails;
@@ -1785,6 +1806,13 @@ export type InstagramEmbedResolvers<ContextType = GraphQLContext, ParentType ext
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type InstagramEmbedBySlugResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['InstagramEmbedBySlug'] = ResolversParentTypes['InstagramEmbedBySlug']> = ResolversObject<{
+  durableImageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  html?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['InstagramEmbedBySlugStatus'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export interface JsonScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['JSON'], any> {
   name: 'JSON';
 }
@@ -1947,6 +1975,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   eventBySlug?: Resolver<Maybe<ResolversTypes['Event']>, ParentType, ContextType, RequireFields<QueryEventBySlugArgs, 'slug'>>;
   events?: Resolver<ResolversTypes['EventConnection'], ParentType, ContextType, Partial<QueryEventsArgs>>;
   health?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  instagramEmbedBySlug?: Resolver<ResolversTypes['InstagramEmbedBySlug'], ParentType, ContextType, RequireFields<QueryInstagramEmbedBySlugArgs, 'slug'>>;
   isOriginAllowedForWidget?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<QueryIsOriginAllowedForWidgetArgs, 'origin' | 'widgetId'>>;
   me?: Resolver<ResolversTypes['Me'], ParentType, ContextType>;
   moderatorPendingItemCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
@@ -2230,6 +2259,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   ExtractEventDataFromUrlResult?: ExtractEventDataFromUrlResultResolvers<ContextType>;
   ExtractionQuota?: ExtractionQuotaResolvers<ContextType>;
   InstagramEmbed?: InstagramEmbedResolvers<ContextType>;
+  InstagramEmbedBySlug?: InstagramEmbedBySlugResolvers<ContextType>;
   JSON?: GraphQLScalarType;
   LocationDetails?: LocationDetailsResolvers<ContextType>;
   LocationFilter?: LocationFilterResolvers<ContextType>;
