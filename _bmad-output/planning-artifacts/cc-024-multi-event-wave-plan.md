@@ -235,7 +235,13 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
   - [x] create  - [x] dev  - [ ] review  - [x] EXPLAIN evidence attached
 - [ ] **3.6s** Extract multiple events per post with grouping rules — *needs 3.6r; carries an inline Gemini timeout
       + output cap (see Deferred track); fixtures: the 4 reference posts, run repeatedly, grouping must match every run*
-  - [ ] create  - [ ] dev  - [ ] review  - [ ] fixtures stable across runs
+      (story created 2026-10-02, status `ready-for-dev`, commit `fe043fea`; cites the batch readiness sweep for
+      Gates 1/3, Gate 2 run fresh — no gap; two design decisions resolved with the user via `AskUserQuestion`:
+      `process-ai-job.ts` defers/does-not-enqueue a multi-event post until 3.6t ships real per-event ordinal
+      ingestion, and the 4 reference-post fixtures get a two-tier test strategy — a deterministic CI suite
+      replaying a one-time-captured real Gemini response per fixture, plus an opt-in live test following the
+      existing `build-gemini-request.live-carousel.test.ts` precedent)
+  - [x] create  - [ ] dev  - [ ] review  - [x] fixtures stable across runs
 - [ ] **3.6t** Ingest multiple events per post, with per-event slugs and notifications — *needs 3.6r, 3.6s, 3.7f,
       3.7g; sweep correction: a queued message without `extractionOrdinal` defaults to ordinal 0*
   - [ ] create  - [ ] dev  - [ ] review  - [ ] re-run creates no duplicates

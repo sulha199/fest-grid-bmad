@@ -96,6 +96,115 @@ describe('Runtime Schema Validation (AJV)', () => {
     const errorPaths = validate.errors?.map(e => e.instancePath);
     assert.ok(errorPaths?.includes('/events/0/types/0')); // invalid enum value
   });
+
+  // Story 3.6s, Task 3.4 — AJV schema restructure unit tests.
+  it('passes a valid multi-event payload (AC1/AC6)', () => {
+    const validate = compileValidator<GeminiExtractionPayload>(extractedEventSchema);
+    const payload: GeminiExtractionPayload = {
+      isEvent: true,
+      groupingReason: 'separate-events',
+      minEventCount: 2,
+      skippedItems: [],
+      events: [
+        {
+          eventName: 'Billiard Tournament',
+          types: ['COMPETITION'],
+          categories: ['SPORTS_AND_FITNESS'],
+          schedules: [{ isMainSchedule: true, eventStartDate: '2026-09-26' }],
+          confidenceScore: 0.95,
+          organizerHandle: '@vifation'
+        },
+        {
+          eventName: 'Futsal Tournament',
+          types: ['COMPETITION'],
+          categories: ['SPORTS_AND_FITNESS'],
+          schedules: [
+            {
+              isMainSchedule: true,
+              eventStartDate: '2026-10-24',
+              applicableDaysOfWeek: ['FRI', 'SAT']
+            }
+          ],
+          confidenceScore: 0.93
+        }
+      ]
+    };
+
+    const isValid = validate(payload);
+    assert.strictEqual(isValid, true, JSON.stringify(validate.errors));
+    assert.strictEqual(validate.errors, null);
+  });
+
+  it('fails a payload with an undeclared per-event property (additionalProperties: false, nested level)', () => {
+    const validate = compileValidator<GeminiExtractionPayload>(extractedEventSchema);
+    const payload = {
+      isEvent: true,
+      events: [
+        {
+          eventName: 'Mystery Field Event',
+          types: ['OTHER'],
+          categories: ['OTHER'],
+          schedules: [{ isMainSchedule: true, eventStartDate: '2026-09-26' }],
+          confidenceScore: 0.9,
+          thisFieldDoesNotExist: 'should fail'
+        }
+      ]
+    };
+
+    const isValid = validate(payload as any);
+    assert.strictEqual(isValid, false);
+    assert.ok(
+      validate.errors?.some((e) => e.keyword === 'additionalProperties'),
+      `expected an additionalProperties error, got: ${JSON.stringify(validate.errors)}`
+    );
+  });
+
+  it('a payload with more than 10 events still PASSES AJV (proves the deliberate no-maxItems decision, Task 3.2)', () => {
+    const validate = compileValidator<GeminiExtractionPayload>(extractedEventSchema);
+    const events = Array.from({ length: 15 }, (_, i) => ({
+      eventName: `Roundup Item ${i + 1}`,
+      types: ['OTHER'],
+      categories: ['OTHER'],
+      schedules: [{ isMainSchedule: true, eventStartDate: '2026-09-26' }],
+      confidenceScore: 0.8
+    }));
+    const payload: GeminiExtractionPayload = {
+      isEvent: true,
+      groupingReason: 'roundup',
+      events
+    };
+
+    const isValid = validate(payload);
+    assert.strictEqual(isValid, true, `AJV must NOT reject an events array > 10 entries: ${JSON.stringify(validate.errors)}`);
+    assert.strictEqual(payload.events.length, 15);
+  });
+
+  it('fails when a schedule.applicableDaysOfWeek value is outside the DayOfWeek enum (BUG-026)', () => {
+    const validate = compileValidator<GeminiExtractionPayload>(extractedEventSchema);
+    const payload = {
+      isEvent: true,
+      events: [
+        {
+          eventName: 'Weekly Market',
+          types: ['OTHER'],
+          categories: ['OTHER'],
+          schedules: [
+            {
+              isMainSchedule: true,
+              eventStartDate: '2026-09-26',
+              applicableDaysOfWeek: ['SATURDAY'] // invalid -- must be the short 'SAT' enum form
+            }
+          ],
+          confidenceScore: 0.9
+        }
+      ]
+    };
+
+    const isValid = validate(payload as any);
+    assert.strictEqual(isValid, false);
+    const errorPaths = validate.errors?.map((e) => e.instancePath);
+    assert.ok(errorPaths?.includes('/events/0/schedules/0/applicableDaysOfWeek/0'));
+  });
 });
 
 describe('scrapedPostSchema (AJV) for ScrapedPost', () => {
