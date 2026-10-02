@@ -211,29 +211,29 @@ So that multi-event posts (BUG-051) and cross-post matching (BUG-052) have a dat
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — a DB migration (two enums, two tables, six columns, one dropped + two new constraints, one hand-written `CHECK`, `pg_trgm`/trigram index) plus three small new backend modules (write helper, organizer-authored predicate, deletion-promotion function) plus routing the one existing `events`-insert call site through the new helper plus fixing two seed scripts plus an EXPLAIN re-run; explicitly not building any part of 3.6s/3.6t/3.6v, not exposing any new field via GraphQL, not wiring any caller for the promotion function (none exists yet).
-- [ ] Architecture and boundary confirmation — AD-30/AD-31 followed exactly as specified, including the user's explicit AD-30 Rule 7 scope decision (legs 1/3/4 only, leg 2 deferred to 3.6v); DB-coupled logic stays in `apps/backend`, plain literal types stay in `packages/domain`; no self-referencing-FK or composite-PK precedent existed before this story — both confirmed as standard, supported drizzle-kit features before relying on them.
-- [ ] Testing plan confirmation — four new test files (write helper, organizer-authored predicate, promotion function, source-scan ratchet) plus one extended existing test file plus the EXPLAIN comparison, covering every AC including the explicitly-scoped-out leg 2 boundary and the seed-script fix.
-- [ ] Explicit human approval state (Default: pending approval) — **pending**; this story has not yet been implemented.
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gates 1/3 cited from `batch-cc-024-multi-event-readiness.md` (READY, no correction needed for 3.6r); Gate 2 run fresh this session (No gap found, backend-only scope).
-- [ ] Design decisions confirmed — the AD-30 Rule 7 leg-2-omission decision (decided by the user in a prior turn, recorded in AC4 and Dev Notes, not re-asked); the `event_post_id_idx` drop-or-keep decision is explicitly left to Task 10.4's EXPLAIN evidence, not pre-decided here.
+- [x] Scope confirmation — a DB migration (two enums, two tables, six columns, one dropped + two new constraints, one hand-written `CHECK`, `pg_trgm`/trigram index) plus three small new backend modules (write helper, organizer-authored predicate, deletion-promotion function) plus routing the one existing `events`-insert call site through the new helper plus fixing two seed scripts plus an EXPLAIN re-run; explicitly not building any part of 3.6s/3.6t/3.6v, not exposing any new field via GraphQL, not wiring any caller for the promotion function (none exists yet).
+- [x] Architecture and boundary confirmation — AD-30/AD-31 followed exactly as specified, including the user's explicit AD-30 Rule 7 scope decision (legs 1/3/4 only, leg 2 deferred to 3.6v); DB-coupled logic stays in `apps/backend`, plain literal types stay in `packages/domain`; no self-referencing-FK or composite-PK precedent existed before this story — both confirmed as standard, supported drizzle-kit features before relying on them.
+- [x] Testing plan confirmation — four new test files (write helper, organizer-authored predicate, promotion function, source-scan ratchet) plus one extended existing test file plus the EXPLAIN comparison, covering every AC including the explicitly-scoped-out leg 2 boundary and the seed-script fix.
+- [x] Explicit human approval state (Default: pending approval) — **approved** — the user instructed the orchestrator on 2026-10-02 to continue the wave and build Wave 3; implemented in commit `afa618af`.
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gates 1/3 cited from `batch-cc-024-multi-event-readiness.md` (READY, no correction needed for 3.6r); Gate 2 run fresh this session (No gap found, backend-only scope).
+- [x] Design decisions confirmed — the AD-30 Rule 7 leg-2-omission decision (decided by the user in a prior turn, recorded in AC4 and Dev Notes, not re-asked); the `event_post_id_idx` drop-or-keep decision is explicitly left to Task 10.4's EXPLAIN evidence, not pre-decided here.
 
 ## Testing Requirements
 
-- [ ] Unit tests — none required for the two plain `packages/domain` literal-array/type additions (no branches, matching `POST_ACCOUNT_ROLES` precedent).
-- [ ] Integration tests — four new `node:test`-against-real-local-Postgres files (`set-event-primary-post.test.ts`, `is-organizer-authored-post.test.ts`, `promote-primary-post-before-deletion.test.ts`, `events-postid-write-ratchet.test.ts`) plus the extended `process-ingestion-job.test.ts`, all matching this codebase's existing no-DB-mocking convention.
-- [ ] E2E tests — not applicable; this is a backend-only schema/data-layer change with no user-facing flow to exercise end-to-end, per `project-context.md`'s testing-trophy guidance. The EXPLAIN re-run (Task 10) is this story's actual "does the real thing still work at scale" proof, run against the volume-seeded dataset rather than Playwright.
+- [x] Unit tests — none required for the two plain `packages/domain` literal-array/type additions (no branches, matching `POST_ACCOUNT_ROLES` precedent).
+- [x] Integration tests — four new `node:test`-against-real-local-Postgres files (`set-event-primary-post.test.ts`, `is-organizer-authored-post.test.ts`, `promote-primary-post-before-deletion.test.ts`, `events-postid-write-ratchet.test.ts`) plus the extended `process-ingestion-job.test.ts`, all matching this codebase's existing no-DB-mocking convention.
+- [x] E2E tests — not applicable; this is a backend-only schema/data-layer change with no user-facing flow to exercise end-to-end, per `project-context.md`'s testing-trophy guidance. The EXPLAIN re-run (Task 10) is this story's actual "does the real thing still work at scale" proof, run against the volume-seeded dataset rather than Playwright.
 
 ## Deliverables Checklist
 
-- [ ] Migration `0065_<generated>.sql` applied to the local dev DB; `event_posts`/`event_slug_aliases` exist; `events`/`posts` have all six new/changed columns; old `postId` unique dropped, new `(post_id, extraction_ordinal)` unique in place; `CHECK` constraint in place; `pg_trgm` installed and the trigram index built (verified locally; Supabase-specific `search_path` behavior flagged as unverified-on-Supabase in Dev Agent Record).
-- [ ] `insertEventWithPrimaryPost`/`setEventPrimaryPost` implemented and are the only two call sites writing `events.postId`, enforced by the passing (and negatively-verified) source-scan ratchet test.
-- [ ] `isOrganizerAuthoredPost` implemented and covered by its 6-case test.
-- [ ] `promotePrimaryPostBeforePostDeletion` implemented per AD-30 Rule 7 legs 1/3/4 and covered by its 6-case test.
-- [ ] `process-ingestion-job.ts` routed through the new helper; its existing test suite green plus the new `event_posts`-row assertion.
-- [ ] `seed.ts`/`seed-volume.ts` fixed and re-verified to run clean against the post-migration schema.
-- [ ] EXPLAIN re-run complete; comparison doc committed; `event_post_id_idx` drop-or-keep decision made and recorded with evidence.
-- [ ] `pnpm --filter database generate`/`migrate`, `pnpm --filter domain build`/`pnpm --filter backend build` (tsc), and lint on all touched files all clean.
+- [x] Migration `0065_<generated>.sql` applied to the local dev DB; `event_posts`/`event_slug_aliases` exist; `events`/`posts` have all six new/changed columns; old `postId` unique dropped, new `(post_id, extraction_ordinal)` unique in place; `CHECK` constraint in place; `pg_trgm` installed and the trigram index built (verified locally; Supabase-specific `search_path` behavior flagged as unverified-on-Supabase in Dev Agent Record).
+- [x] `insertEventWithPrimaryPost`/`setEventPrimaryPost` implemented and are the only two call sites writing `events.postId`, enforced by the passing (and negatively-verified) source-scan ratchet test.
+- [x] `isOrganizerAuthoredPost` implemented and covered by its 6-case test.
+- [x] `promotePrimaryPostBeforePostDeletion` implemented per AD-30 Rule 7 legs 1/3/4 and covered by its 6-case test.
+- [x] `process-ingestion-job.ts` routed through the new helper; its existing test suite green plus the new `event_posts`-row assertion.
+- [ ] `seed.ts`/`seed-volume.ts` fixed and re-verified to run clean against the post-migration schema. **Open:** `seed-volume.ts` was re-run clean against the post-migration schema on 2026-10-02 (30,000 events, then cleaned); `seed.ts` was NOT re-run because it is destructive to the local dev data — its fixtures all carry `extractionOrdinal` (13 of 13).
+- [x] EXPLAIN re-run complete; comparison doc committed; `event_post_id_idx` drop-or-keep decision made and recorded with evidence.
+- [x] `pnpm --filter database generate`/`migrate`, `pnpm --filter domain build`/`pnpm --filter backend build` (tsc), and lint on all touched files all clean.
 
 ## Out of Scope
 
@@ -247,11 +247,11 @@ So that multi-event posts (BUG-051) and cross-post matching (BUG-052) have a dat
 
 ## Definition of Done
 
-- [ ] AC1-AC6 satisfied exactly as specified above, including the AD-30 Rule 7 leg-2 scope boundary and the EXPLAIN-evidence-based `event_post_id_idx` decision.
-- [ ] All new test files passing, plus every pre-existing test in `process-ingestion-job.test.ts` and the broader `apps/backend`/`packages/database` suites (no regression from the schema change or the seed-script fix).
-- [ ] `pnpm --filter database generate`/`migrate` clean; `pnpm --filter domain build`/`pnpm --filter backend build` (tsc) clean; lint clean on all touched files.
-- [ ] EXPLAIN comparison doc committed with an explicit AC6 verdict and supporting evidence.
-- [ ] No file outside the File Change Plan touched.
+- [x] AC1-AC6 satisfied exactly as specified above, including the AD-30 Rule 7 leg-2 scope boundary and the EXPLAIN-evidence-based `event_post_id_idx` decision.
+- [x] All new test files passing, plus every pre-existing test in `process-ingestion-job.test.ts` and the broader `apps/backend`/`packages/database` suites (no regression from the schema change or the seed-script fix). (Wave 3 batch-end gate 2026-10-02: backend 897 of 903 pass, 2 skipped, only the 4 known `.env` system-key failures — FIND-063.)
+- [x] `pnpm --filter database generate`/`migrate` clean; `pnpm --filter domain build`/`pnpm --filter backend build` (tsc) clean; lint clean on all touched files. (gate: lint 8 of 8, build 8 of 8, migrations applied through 0065.)
+- [x] EXPLAIN comparison doc committed with an explicit AC6 verdict and supporting evidence.
+- [ ] No file outside the File Change Plan touched. **Open:** not independently re-checked against the File Change Plan by the orchestrator.
 
 ## Completion Status
 

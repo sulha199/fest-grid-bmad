@@ -226,13 +226,17 @@ the same cloud-environment failures as Wave 2B, none new, and the Wave 2B regres
       reference posts are re-scraped into `implementation-artifacts/cc-024-reference-posts/` with their
       expected groupings)
 
-## Wave 3 — Core build (strictly sequential)
+## Wave 3 — Core build (BUILT 2026-10-02; code review pending)
+
+**Batch-end gate (2026-10-02, local Windows, `TZ=UTC`, volume seed cleaned):** the first run found 30 new backend failures, all stale test code, not production: 19 older fixtures inserted events with a `post_id` and no `extraction_ordinal` and hit 3.6r's CHECK constraint `events_post_id_extraction_ordinal_check`; the AI-processor lambda and URL-extraction resolver tests still stubbed Gemini with the pre-3.6s flat shape instead of `events[]`. Fixed by test-only commit `b9352bd9` (no production file touched). **Re-run:** lint 8/8; build 8/8; backend 903 run, 897 pass, 2 skipped, 4 fail (the known `.env` `SYSTEM_GEMINI_API_KEY` tests, FIND-063); domain 394, ui 816, web 550, database 10, infrastructure 4 all pass.
+
+**Ordinal suffix note:** AD-16 Rule 9 uses `~` as the separator (`ig_p_Ddi9wU6RCRQ~2`), not the `-` first proposed, because Instagram post ids are base64url and may themselves end in `-<digit>`.
 
 Per story: `create-story` → `dev-story` → `code-review` → status verified in `sprint-status.yaml`.
 
 - [ ] **3.6r** Add the event–post link table and multi-event schema — *needs AD-30; re-run the four scenarios of
       `cc-024-explain-baseline-2026-10-01.md` and compare; promote a clean version of the capture script*
-  - [x] create  - [x] dev  - [ ] review  - [x] EXPLAIN evidence attached
+  - [x] create  - [x] dev  - [ ] review  - [x] EXPLAIN evidence attached (AC6 PASS: `cc-024-explain-after-3.6r-2026-10-02.md`; `event_post_id_idx` kept)
 - [ ] **3.6s** Extract multiple events per post with grouping rules — *needs 3.6r; carries an inline Gemini timeout
       + output cap (see Deferred track); fixtures: the 4 reference posts, run repeatedly, grouping must match every run*
       (story created 2026-10-02, status `ready-for-dev`, commit `fe043fea`; cites the batch readiness sweep for
@@ -250,7 +254,8 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
       deterministic `extractionOrdinal` assignment by earliest schedule date/normalized name/original index
       so a re-extraction of the same events keeps the same ordinals — residual limitation documented in Dev
       Notes for a re-extraction that finds a *different* set of events)
-  - [x] create  - [ ] dev  - [ ] review  - [ ] re-run creates no duplicates
+      (dev done, commits `5600c460`..`1c78ed4b`, status `review`)
+  - [x] create  - [x] dev  - [ ] review  - [x] re-run creates no duplicates (idempotency tests: `(post_id, extraction_ordinal)`, absent ordinal defaults to 0)
 
 ## Wave 4A — Read side, weekday filter, auto-extraction (after 3.6t, any order)
 
