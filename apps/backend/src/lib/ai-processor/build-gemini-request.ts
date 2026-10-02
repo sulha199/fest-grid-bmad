@@ -78,25 +78,34 @@ const geminiEventResponseSchema = {
   required: ['eventName', 'types', 'categories', 'schedules', 'confidenceScore']
 };
 
-// Story 3.6s — builds the Gemini-facing response schema with `events.maxItems` sourced from
-// the configured roundup cap (env.maxExtractedEventsPerPost), so the prompt/schema hint and the
-// enforced code-level truncation (process-ai-job.ts) can never drift. Built per-call (not a
-// module-level constant) so env.ts's dotenv load always happens inside a function body, matching
-// every other call site in this codebase (never at module-eval time).
-export function buildGeminiExtractionResponseSchema(maxExtractedEventsPerPost: number) {
+// Story 3.6s — builds the Gemini-facing response schema. Still a function (not a module-level
+// constant) for consistency with the rest of this file's env-lazy-loading convention, even
+// though the schema itself no longer varies by the roundup cap (see the `events` property's own
+// comment below for why `maxExtractedEventsPerPost` is NOT set as a JSON-schema `maxItems` here).
+export function buildGeminiExtractionResponseSchema() {
   return {
     type: 'OBJECT',
     properties: {
       isEvent: { type: 'BOOLEAN' },
-      // Story 3.6s — nests every per-event field under `events[]`. `maxItems` here is a
-      // model-facing hint only (reduces output size, helps AC7's response-size cap) — it is
-      // deliberately NOT mirrored as a hard cap in the AJV validation schema (see
-      // extracted-event.schema.ts for why a strict rejection would be worse than a code-level
-      // truncation in process-ai-job.ts).
+      // Story 3.6s — nests every per-event field under `events[]`. `maxExtractedEventsPerPost`
+      // is still threaded in (used by the system prompt text, see below) and is still the
+      // single source of truth the prompt and the code-level truncation (process-ai-job.ts)
+      // both read from -- but it is deliberately NOT set as a JSON-schema `maxItems` on this
+      // array. Verified live during this story's Task 9.1 fixture capture: adding `maxItems` to
+      // this array, combined with `geminiEventResponseSchema`'s nested object/array complexity,
+      // makes the real Gemini API reject the ENTIRE request with a 400 INVALID_ARGUMENT (the
+      // structured-output constrained decoder appears to unroll a bounded array up to its
+      // `maxItems` copies of the item schema internally, and this item schema is too large for
+      // that to stay within some internal limit) -- confirmed by bisection: the same `maxItems`
+      // value succeeds against a trivial item schema and fails only once the item schema grows
+      // to this story's actual per-event shape. The cap is enforced instead via the prompt text
+      // (which states the real number) and the code-level truncation backstop in
+      // process-ai-job.ts -- the AJV schema already deliberately has no `maxItems` either (see
+      // extracted-event.schema.ts), so this keeps both schemas consistent as "soft cap via
+      // prompt + hard cap via code", never a JSON-schema array bound on this field.
       events: {
         type: 'ARRAY',
-        items: geminiEventResponseSchema,
-        maxItems: maxExtractedEventsPerPost
+        items: geminiEventResponseSchema
       },
       // Story 3.6s (AD-30 Rule 5) — the post-level grouping decision, made once per post before
       // per-event extraction.
@@ -117,7 +126,7 @@ export function buildGeminiExtractionResponseSchema(maxExtractedEventsPerPost: n
 
 // Default-cap schema, for callers/tests that only need the shape (not a specific cap value).
 // buildGeminiExtractionRequest() below always builds its own copy from the live env value.
-export const geminiExtractionResponseSchema = buildGeminiExtractionResponseSchema(10);
+export const geminiExtractionResponseSchema = buildGeminiExtractionResponseSchema();
 
 export interface BuildGeminiExtractionRequestResult {
   request: GeminiCallRequest;
@@ -141,12 +150,12 @@ export async function buildGeminiExtractionRequest(
   const systemInstruction = `You are an expert event information extraction system. Your task is to analyze the social media post caption and/or image (such as an event poster) to determine whether it describes or advertises one or more specific events, and to extract structured information for each one.
 
 0. GROUPING DECISION (do this once per post, before extracting any individual event). Decide whether the post describes a single event or several distinct events, using these rules in order:
-   a. Strong signals that the post covers SEPARATE events: different event names with no shared umbrella title, different venues/locations for items that are not stages of one program, or explicitly distinct ticket/registration links per item.
+   a. Strong signals that the post covers SEPARATE events: different event names with no shared umbrella title, different venues/locations for items that are not stages of one program, explicitly distinct ticket/registration links per item, or -- the most common real-world case -- each item has its OWN independent registration/sign-up-to-outcome pipeline (its own registration window, its own technical meeting, its own match/final day), even when all items are marketed under one overarching tournament/brand name. For example, a tournament poster listing several separate competition categories (e.g. billiard, an esports title, futsal) where EACH category has its own full registration-through-match-day timeline is SEPARATE events (one per category), NOT one event with many schedules -- the shared brand name/poster is marketing packaging, not evidence of a single event. Contrast this with rule d below, which is reserved for a single category/discipline with exactly ONE registration-to-outcome pipeline.
    b. Two or more weak signals together (e.g. different dates more than ~7 days apart AND different performers/lineups) also indicate SEPARATE events, even without a strong signal.
-   c. Items within about 7 days of each other sharing one title/venue/umbrella program stay as ONE event with multiple schedules (groupingReason: "program-lineup").
-   d. Dependent stages of one process (e.g. qualifying round then final, or a registration/sign-up window followed by the event itself) stay as ONE event -- the registration or sign-up window becomes one of its schedules, not a separate event (groupingReason: "dependent-stages").
+   c. Items within about 7 days of each other sharing one title/venue/umbrella program stay as ONE event with MULTIPLE schedules (groupingReason: "program-lineup"). This applies whenever the post lists two or more distinct sub-items (sub-performances, sub-activities, separately-dated components) under one umbrella title/venue, where those sub-items are facets of the SAME occasion rather than independent competitions each with their own pipeline (see rule a) -- e.g. a multi-day anniversary/festival program listing several named segments (a headline performance on one date, a show on another, a closing event on a third) is "program-lineup", NOT "single-event", precisely because it has more than one schedule entry under the shared umbrella.
+   d. Dependent stages of ONE single process for ONE single discipline/category (e.g. one qualifying round then one final for the same competition, or one registration/sign-up window followed by that same event) stay as ONE event -- the registration or sign-up window becomes one of its schedules, not a separate event (groupingReason: "dependent-stages"). Do not use this rule when there are multiple parallel categories/disciplines each running their own such pipeline -- that is rule a (separate events), not this rule.
    e. A "roundup" post that lists several unrelated events from a curator/aggregator account is its own case (see ROUNDUP HANDLING below; groupingReason: "roundup").
-   f. Otherwise, treat the post as describing ONE event (groupingReason: "single-event").
+   f. Otherwise -- the post describes exactly ONE schedule/occurrence with no sub-items -- use groupingReason: "single-event". Reserve "single-event" strictly for a post whose event ends up with exactly one schedule entry; as soon as an event has two or more schedule entries grouped under one umbrella (rule c) or dependent stages (rule d), use that more specific reason instead, never the generic "single-event" fallback.
    Set the top-level isEvent to true if the post/image is indeed an event poster or event advertisement for at least one event, false otherwise. When isEvent is true, put one entry per identified event into the events array (at least one entry); when isEvent is false, events must be an empty array.
 
 ROUNDUP HANDLING: when the post is a roundup/aggregator listing (groupingReason: "roundup"), extract an item into events only when it has BOTH a readable date AND a readable location. If an item is missing either, do NOT guess -- instead add a short entry to the top-level skippedItems array describing the item and why it was skipped (e.g. "Jakarta Fun Run -- no date stated"). Do not extract more than ${maxEvents} events total for the post, even if more items are present in the source content.
@@ -258,9 +267,7 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
   const request: GeminiCallRequest = {
     contents,
     systemInstruction,
-    // Story 3.6s — built per-call from the live env value so the prompt text's stated cap
-    // (maxEvents above) and the schema's maxItems hint can never drift from each other.
-    responseSchema: buildGeminiExtractionResponseSchema(maxEvents),
+    responseSchema: buildGeminiExtractionResponseSchema(),
     responseMimeType: 'application/json',
     // Story 3.6s (AC3/AC7) — explicit response-size cap, a minimal inline stand-in for the
     // not-yet-built guarded vendor-call wrapper (0.i2a-0.i2c).

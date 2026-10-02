@@ -1,0 +1,59 @@
+{
+  "isEvent": true,
+  "events": [
+    {
+      "eventName": "Sleman City Hall 8th Anniversary: REBORN",
+      "types": [
+        "FESTIVAL",
+        "PERFORMANCE",
+        "WORKSHOP",
+        "COMPETITION",
+        "MARKET"
+      ],
+      "categories": [
+        "ARTS_AND_CULTURE",
+        "MUSIC",
+        "FOOD_AND_DRINK",
+        "FAMILY_AND_KIDS"
+      ],
+      "schedules": [
+        {
+          "isMainSchedule": true,
+          "eventStartDate": "2026-10-28",
+          "eventEndDate": "2026-11-01",
+          "location": "Atrium & Plaza Rama, Sleman City Hall",
+          "title": "Anniversary Program & Circus Entertainment"
+        },
+        {
+          "isMainSchedule": false,
+          "eventStartDate": "2026-10-28",
+          "eventEndDate": "2026-10-28",
+          "performers": [
+            "Pongki Barata"
+          ],
+          "title": "Special Performance by Pongki Barata"
+        },
+        {
+          "isMainSchedule": false,
+          "eventStartDate": "2026-11-01",
+          "eventEndDate": "2026-11-01",
+          "title": "Spectacular Fireworks Show"
+        }
+      ],
+      "confidenceScore": 0.95,
+      "contactInfo": "0274 2882686",
+      "description": "Celebrating 8th Anniversary Sleman City Hall: REBORN. Featuring special performance by Pongki Barata, circus entertainment, creative workshop, market, competition, and a spectacular fireworks show.",
+      "expectedScheduleNames": [
+        "Anniversary Program & Circus Entertainment",
+        "Special Performance by Pongki Barata",
+        "Spectacular Fireworks Show"
+      ],
+      "location": "Atrium & Plaza Rama, Sleman City Hall",
+      "minScheduleCount": 3,
+      "organizerHandle": "slemancityhall",
+      "organizerName": "Sleman City Hall"
+    }
+  ],
+  "groupingReason": "program-lineup",
+  "minEventCount": 1
+}

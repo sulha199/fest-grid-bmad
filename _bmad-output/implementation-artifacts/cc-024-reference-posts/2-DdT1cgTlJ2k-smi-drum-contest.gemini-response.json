@@ -1,0 +1,60 @@
+{
+  "isEvent": true,
+  "events": [
+    {
+      "eventName": "Lomba Drum SMI Yogyakarta",
+      "types": [
+        "COMPETITION"
+      ],
+      "categories": [
+        "MUSIC",
+        "SPORTS_AND_FITNESS",
+        "ARTS_AND_CULTURE"
+      ],
+      "schedules": [
+        {
+          "isMainSchedule": true,
+          "eventStartDate": "2026-09-05",
+          "eventEndDate": "2026-09-30",
+          "title": "Pembukaan Registrasi & Audisi Online"
+        },
+        {
+          "isMainSchedule": false,
+          "eventStartDate": "2026-10-07",
+          "title": "Pengumuman Lolos Audisi"
+        },
+        {
+          "isMainSchedule": false,
+          "eventStartDate": "2026-10-12",
+          "title": "Technical Meeting"
+        },
+        {
+          "isMainSchedule": false,
+          "eventStartDate": "2026-10-17",
+          "location": "Hotel Kotta Go Yogyakarta",
+          "title": "Final Competition On Site"
+        }
+      ],
+      "confidenceScore": 0.95,
+      "description": "Lomba Drum SMI Yogyakarta untuk umum usia 7-16 tahun. Terdiri dari registrasi dan audisi online, pengumuman, technical meeting, hingga final on site di Hotel Kotta Go Yogyakarta.",
+      "expectedScheduleNames": [
+        "Pembukaan Registrasi & Audisi Online",
+        "Pengumuman Lolos Audisi",
+        "Technical Meeting",
+        "Final Competition On Site"
+      ],
+      "links": [
+        {
+          "url": "https://forms.gle/HMdgZM3CrgNcwzmr9",
+          "label": "Daftar sekarang"
+        }
+      ],
+      "location": "Hotel Kotta Go Yogyakarta",
+      "minScheduleCount": 4,
+      "organizerName": "Sekolah Musik Indonesia (SMI) Yogyakarta"
+    }
+  ],
+  "groupingRationale": "The post describes dependent stages of a single drum competition event, including online audition registration, announcement, technical meeting, and final day.",
+  "groupingReason": "dependent-stages",
+  "minEventCount": 1
+}

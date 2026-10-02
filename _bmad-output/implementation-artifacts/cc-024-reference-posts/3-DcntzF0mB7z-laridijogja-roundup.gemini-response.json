@@ -1,0 +1,238 @@
+{
+  "isEvent": true,
+  "events": [
+    {
+      "eventName": "Fun Run With Bhipa",
+      "types": [
+        "COMPETITION"
+      ],
+      "categories": [
+        "SPORTS_AND_FITNESS"
+      ],
+      "schedules": [
+        {
+          "isMainSchedule": true,
+          "eventStartDate": "2026-09-05",
+          "location": "Kota Yogyakarta"
+        }
+      ],
+      "confidenceScore": 0.9,
+      "minScheduleCount": 1,
+      "organizerHandle": "laridijogja",
+      "organizerName": "Info Event Lari di Jogja"
+    },
+    {
+      "eventName": "Merbabu Trail Run 2026",
+      "types": [
+        "COMPETITION"
+      ],
+      "categories": [
+        "SPORTS_AND_FITNESS"
+      ],
+      "schedules": [
+        {
+          "isMainSchedule": true,
+          "eventStartDate": "2026-09-05",
+          "eventEndDate": "2026-09-06",
+          "location": "Magelang"
+        }
+      ],
+      "confidenceScore": 0.9,
+      "minScheduleCount": 1,
+      "organizerHandle": "laridijogja",
+      "organizerName": "Info Event Lari di Jogja"
+    },
+    {
+      "eventName": "IB RUN 2026",
+      "types": [
+        "COMPETITION"
+      ],
+      "categories": [
+        "SPORTS_AND_FITNESS"
+      ],
+      "schedules": [
+        {
+          "isMainSchedule": true,
+          "eventStartDate": "2026-09-05",
+          "location": "Sleman"
+        }
+      ],
+      "confidenceScore": 0.9,
+      "minScheduleCount": 1,
+      "organizerHandle": "laridijogja",
+      "organizerName": "Info Event Lari di Jogja"
+    },
+    {
+      "eventName": "TNI Run 2026",
+      "types": [
+        "COMPETITION"
+      ],
+      "categories": [
+        "SPORTS_AND_FITNESS"
+      ],
+      "schedules": [
+        {
+          "isMainSchedule": true,
+          "eventStartDate": "2026-09-06",
+          "location": "Kota Yogyakarta"
+        }
+      ],
+      "confidenceScore": 0.9,
+      "minScheduleCount": 1,
+      "organizerHandle": "laridijogja",
+      "organizerName": "Info Event Lari di Jogja"
+    },
+    {
+      "eventName": "ASEAN Fun Run",
+      "types": [
+        "COMPETITION"
+      ],
+      "categories": [
+        "SPORTS_AND_FITNESS"
+      ],
+      "schedules": [
+        {
+          "isMainSchedule": true,
+          "eventStartDate": "2026-09-06",
+          "location": "Sleman"
+        }
+      ],
+      "confidenceScore": 0.9,
+      "minScheduleCount": 1,
+      "organizerHandle": "laridijogja",
+      "organizerName": "Info Event Lari di Jogja"
+    },
+    {
+      "eventName": "Merapi Performance Training",
+      "types": [
+        "COMPETITION"
+      ],
+      "categories": [
+        "SPORTS_AND_FITNESS"
+      ],
+      "schedules": [
+        {
+          "isMainSchedule": true,
+          "eventStartDate": "2026-09-13",
+          "location": "Klaten"
+        }
+      ],
+      "confidenceScore": 0.9,
+      "organizerHandle": "merapiperformance",
+      "organizerName": "Merapi Performance"
+    },
+    {
+      "eventName": "SiBakul Jogja Sport Fest",
+      "types": [
+        "COMPETITION"
+      ],
+      "categories": [
+        "SPORTS_AND_FITNESS"
+      ],
+      "schedules": [
+        {
+          "isMainSchedule": true,
+          "eventStartDate": "2026-09-13",
+          "location": "Kota Yogyakarta"
+        }
+      ],
+      "confidenceScore": 0.9,
+      "minScheduleCount": 1,
+      "organizerHandle": "laridijogja",
+      "organizerName": "Info Event Lari di Jogja"
+    },
+    {
+      "eventName": "SewonderRun",
+      "types": [
+        "COMPETITION"
+      ],
+      "categories": [
+        "SPORTS_AND_FITNESS"
+      ],
+      "schedules": [
+        {
+          "isMainSchedule": true,
+          "eventStartDate": "2026-09-13",
+          "location": "Bantul"
+        }
+      ],
+      "confidenceScore": 0.9,
+      "minScheduleCount": 1,
+      "organizerHandle": "laridijogja",
+      "organizerName": "Info Event Lari di Jogja"
+    },
+    {
+      "eventName": "VET FUN RUN 2026",
+      "types": [
+        "COMPETITION"
+      ],
+      "categories": [
+        "SPORTS_AND_FITNESS"
+      ],
+      "schedules": [
+        {
+          "isMainSchedule": true,
+          "eventStartDate": "2026-09-13",
+          "location": "Sleman"
+        }
+      ],
+      "confidenceScore": 0.9,
+      "minScheduleCount": 1,
+      "organizerHandle": "laridijogja",
+      "organizerName": "Info Event Lari di Jogja"
+    },
+    {
+      "eventName": "Prambanan Color Run Festival 2026",
+      "types": [
+        "COMPETITION",
+        "FESTIVAL"
+      ],
+      "categories": [
+        "SPORTS_AND_FITNESS"
+      ],
+      "schedules": [
+        {
+          "isMainSchedule": true,
+          "eventStartDate": "2026-09-20",
+          "location": "Sleman"
+        }
+      ],
+      "confidenceScore": 0.9,
+      "organizerHandle": "colorrunfestivalid",
+      "organizerName": "Color Run Festival ID"
+    }
+  ],
+  "groupingReason": "roundup",
+  "minEventCount": 42,
+  "skippedItems": [
+    "Dewi Mlayu Ndeso 2026 -- truncated in roundup list",
+    "Fun Run FARMASI CUP 2026 -- truncated in roundup list",
+    "Jogja Run'nshine -- truncated in roundup list",
+    "UGM Trail Run 2026 -- truncated in roundup list",
+    "Kotabaru Run -- truncated in roundup list",
+    "Malyabhara Fun Run 2026 -- truncated in roundup list",
+    "Malioboro Run 2026 -- truncated in roundup list",
+    "PLN Electric Run 5K Series -- truncated in roundup list",
+    "RSIH Mlayu Mlayu -- truncated in roundup list",
+    "Biosferun 2026 -- truncated in roundup list",
+    "CHICKEN & EGG RUN 2026 -- truncated in roundup list",
+    "FMIPA FUN RUN 2026 -- truncated in roundup list",
+    "M Power Run 2026 -- truncated in roundup list",
+    "MINING RUN 2026 -- truncated in roundup list",
+    "Pink Ribborn Run 2026 -- truncated in roundup list",
+    "K24 Healthy Run -- truncated in roundup list",
+    "Erafone Run 2026 -- truncated in roundup list",
+    "HIMIKA Fun Run 2026 -- truncated in roundup list",
+    "Jungwok Sunset Run 2026 -- truncated in roundup list",
+    "Sembada RUN 2026 -- truncated in roundup list",
+    "Lari Lingkar Merapi -- truncated in roundup list",
+    "Borobudur Marathon -- truncated in roundup list",
+    "Mataram Legacy Run -- truncated in roundup list",
+    "FUN RUN 5K FACTION 2026 -- truncated in roundup list",
+    "UGM Run Fest 2026 -- truncated in roundup list",
+    "Kulon Progo Half-Marathon 2026 -- truncated in roundup list",
+    "Prambanan Heritage Run 2026 -- truncated in roundup list",
+    "Siksorogo Lawu Ultra -- truncated in roundup list",
+    "Yogyakarta City 10k Race 2027 -- truncated in roundup list"
+  ]
+}

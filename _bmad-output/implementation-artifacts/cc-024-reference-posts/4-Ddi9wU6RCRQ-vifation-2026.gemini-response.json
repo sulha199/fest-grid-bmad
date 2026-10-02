@@ -1,0 +1,139 @@
+{
+  "isEvent": true,
+  "events": [
+    {
+      "eventName": "Vifation 2026 - Billiard Tournament",
+      "types": [
+        "COMPETITION"
+      ],
+      "categories": [
+        "SPORTS_AND_FITNESS"
+      ],
+      "schedules": [
+        {
+          "isMainSchedule": false,
+          "eventStartDate": "2026-09-05",
+          "eventEndDate": "2026-09-20",
+          "title": "Registration"
+        },
+        {
+          "isMainSchedule": false,
+          "eventStartDate": "2026-09-24",
+          "title": "Technical Meeting"
+        },
+        {
+          "isMainSchedule": true,
+          "eventStartDate": "2026-09-26",
+          "title": "Match Day"
+        }
+      ],
+      "confidenceScore": 0.95,
+      "description": "Billiard Tournament as part of Vifation X Piala Gubernur DIY 2026.",
+      "expectedScheduleNames": [
+        "Registration",
+        "Technical Meeting",
+        "Match Day"
+      ],
+      "hasPrivateContact": true,
+      "links": [
+        {
+          "url": "https://linktr.ee/vifationhumman26",
+          "label": "FORM PENDAFTARAN & GUIDEBOOK"
+        }
+      ],
+      "organizerHandle": "vifationhumman26",
+      "organizerName": "HUMMAN UPNVYK"
+    },
+    {
+      "eventName": "Vifation 2026 - PES Tournament",
+      "types": [
+        "COMPETITION"
+      ],
+      "categories": [
+        "SPORTS_AND_FITNESS",
+        "TECHNOLOGY"
+      ],
+      "schedules": [
+        {
+          "isMainSchedule": false,
+          "eventStartDate": "2026-09-05",
+          "eventEndDate": "2026-10-05",
+          "title": "Registration"
+        },
+        {
+          "isMainSchedule": false,
+          "eventStartDate": "2026-10-08",
+          "title": "Technical Meeting"
+        },
+        {
+          "isMainSchedule": true,
+          "eventStartDate": "2026-10-10",
+          "title": "Match Day"
+        }
+      ],
+      "confidenceScore": 0.95,
+      "description": "PES Tournament as part of Vifation X Piala Gubernur DIY 2026.",
+      "expectedScheduleNames": [
+        "Registration",
+        "Technical Meeting",
+        "Match Day"
+      ],
+      "hasPrivateContact": true,
+      "links": [
+        {
+          "url": "https://linktr.ee/vifationhumman26",
+          "label": "FORM PENDAFTARAN & GUIDEBOOK"
+        }
+      ],
+      "organizerHandle": "vifationhumman26",
+      "organizerName": "HUMMAN UPNVYK"
+    },
+    {
+      "eventName": "Vifation 2026 - Futsal Tournament",
+      "types": [
+        "COMPETITION"
+      ],
+      "categories": [
+        "SPORTS_AND_FITNESS"
+      ],
+      "schedules": [
+        {
+          "isMainSchedule": false,
+          "eventStartDate": "2026-09-05",
+          "eventEndDate": "2026-10-18",
+          "title": "Registration"
+        },
+        {
+          "isMainSchedule": false,
+          "eventStartDate": "2026-10-22",
+          "title": "Technical Meeting"
+        },
+        {
+          "isMainSchedule": true,
+          "eventStartDate": "2026-10-24",
+          "eventEndDate": "2026-10-25",
+          "title": "Match Day"
+        }
+      ],
+      "confidenceScore": 0.95,
+      "description": "Futsal Tournament as part of Vifation X Piala Gubernur DIY 2026.",
+      "expectedScheduleNames": [
+        "Registration",
+        "Technical Meeting",
+        "Match Day"
+      ],
+      "hasPrivateContact": true,
+      "links": [
+        {
+          "url": "https://linktr.ee/vifationhumman26",
+          "label": "FORM PENDAFTARAN & GUIDEBOOK"
+        }
+      ],
+      "organizerHandle": "vifationhumman26",
+      "organizerName": "HUMMAN UPNVYK"
+    }
+  ],
+  "groupingReason": "separate-events",
+  "minEventCount": 3,
+  "skippedItems": []
+}
