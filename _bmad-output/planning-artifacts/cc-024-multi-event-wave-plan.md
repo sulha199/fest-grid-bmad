@@ -88,9 +88,9 @@ Tick as each is closed. Evidence for each line is in the file named beside it.
 
 **Documentation loose ends (small)**
 - [x] `epics.md`: FR113 and FR114 added to the requirements inventory, the FR coverage map and Epic 3's "FRs covered" (2026-10-02)
-- [ ] PRD §4.7: add `publishedAt` to the `Post` interface (3.6u's posted-at time needs it; `posts.published_at` already exists) — small `bmad-prd` pass
-- [ ] PRD §3.9.3: decide whether suggested matches count toward the moderator badge — needs your decision
-- [ ] PRD: confirm the auto-extraction (BUG-039) wording belongs in §3.7/§3.10 (the proposal cited §3.4/§3.5, which hold no extraction content)
+- [x] PRD §4.7: `publishedAt` added to the `Post` interface (commit `ca76e7e3`, 2026-10-02)
+- [x] PRD §3.9.3: decided 2026-10-02 — suggested matches DO count toward the moderator badge (commit `ca76e7e3`)
+- [x] PRD: auto-extraction (BUG-039) wording stays in §3.7/§3.10 — confirmed 2026-10-02
 
 **Backlog hygiene**
 - [x] The three test-environment findings filed on the board (2026-10-02): FIND-062 (time-zone fixture), FIND-063 (`.env` key tests), FIND-064 (shared dev database)
