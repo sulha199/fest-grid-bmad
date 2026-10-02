@@ -11,10 +11,18 @@ import { recordSyncActorRun } from './record-actor-run.js';
 // ACTOR INPUT TYPES
 // ============================================================================
 
+// BUG-053 (2026-10-01): `apify/instagram-post-scraper`'s by-URL mode does NOT accept
+// `directUrls`/`resultsType`/`resultsLimit` (that shape is `apify/instagram-api-scraper`'s,
+// carried over by mistake when Story 3.4d switched the sync path to this actor) -- live calls
+// fail with "Input is not valid: Field input.username is required". The actor takes the post
+// URL itself in `username` instead, confirmed empirically (not just the known workaround) by
+// Story 3.4d's Task 1b evidence: `3-4d-task1b-runs/run-03-...-getpostbyurl-valid.md` /
+// `run-04-...-invalid.md`, input `{"username": [postUrl], "dataDetailLevel": "basicData"}`.
+// `resultsLimit`/`onlyPostsNewerThan` are explicitly documented by the actor as not applying in
+// post-URL mode and must stay omitted (see that story's Dev Notes correction, 2026-08-14).
 interface GetPostByUrlActorInput {
-  directUrls: string[];
-  resultsType: 'posts';
-  resultsLimit: 1;
+  username: string[];
+  dataDetailLevel: 'basicData';
 }
 
 interface LookupAccountProfileActorInput {
@@ -380,9 +388,8 @@ export const instagramScraperAdapter: ScraperAdapter = {
     const runCall = async (): Promise<ScrapedPost | null> => {
       try {
         const input: GetPostByUrlActorInput = {
-          directUrls: [url],
-          resultsType: 'posts',
-          resultsLimit: 1,
+          username: [url],
+          dataDetailLevel: 'basicData',
         };
         const items = (await callApifyActor(GET_POST_BY_URL_ACTOR, input)) as GetPostByUrlActorOutput;
 

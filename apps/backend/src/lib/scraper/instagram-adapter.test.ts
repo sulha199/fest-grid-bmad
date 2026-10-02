@@ -275,6 +275,37 @@ test('instagram-adapter tests', async (t) => {
     assert.strictEqual(row.itemsUsedThisCycle, 1);
   });
 
+  await t.test('getPostByUrl builds the actor input as username+dataDetailLevel, not directUrls (BUG-053 regression guard)', async () => {
+    let calledInput: any = null;
+    let calledActor: string | undefined;
+
+    setCallApifyActor(async (actorId, input) => {
+      calledActor = actorId;
+      calledInput = input;
+      return [
+        {
+          url: 'https://www.instagram.com/p/C_abc123/',
+          caption: 'My first post!',
+          timestamp: '2026-08-08T00:00:00Z',
+        },
+      ];
+    });
+
+    const post = await instagramScraperAdapter.getPostByUrl('https://www.instagram.com/p/C_abc123/');
+
+    assert.strictEqual(calledActor, 'apify/instagram-post-scraper');
+    // The live actor rejects `directUrls`/`resultsType`/`resultsLimit` for this use case
+    // with "Field input.username is required" -- it expects the post URL itself in
+    // `username`, confirmed against real actor behavior in Story 3.4d's Task 1b evidence
+    // (3-4d-task1b-runs/run-03-...-getpostbyurl-valid.md).
+    assert.deepStrictEqual(calledInput, {
+      username: ['https://www.instagram.com/p/C_abc123/'],
+      dataDetailLevel: 'basicData',
+    });
+    assert.ok(post);
+    assert.strictEqual(post!.content, 'My first post!');
+  });
+
   await t.test('lookupAccountProfile maps details correctly and records usage', async () => {
     let calledInput: any = null;
     let calledActor: string | undefined;

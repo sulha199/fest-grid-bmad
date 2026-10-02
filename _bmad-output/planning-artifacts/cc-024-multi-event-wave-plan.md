@@ -204,8 +204,10 @@ self-review are in `deferred-work.md`.
 - [ ] **FIND-061** (no new-event push ever received): diagnose before 3.6t/3.6z ship per-event notifications.
       Leads: inner joins to `user_settings`/`fcm_tokens`, empty `sourceSocialMediaAccountId`,
       `pushNotificationsEnabled` default
-- [ ] **BUG-053** (`getPostByUrl` fails against the live Apify actor): fix so the POC script and the by-URL
+- [x] **BUG-053** (`getPostByUrl` fails against the live Apify actor): fix so the POC script and the by-URL
       resolver path work, and the 4 reference posts can be re-scraped for 3.6s fixtures
+      (fixed 2026-10-02, bmad-quick-dev — code fix + unit test; live re-scrape of the 4 reference
+      posts still owed on a machine with `APIFY_API_TOKEN` set, see backlog.yaml BUG-053 note)
 
 ## Wave 3 — Core build (strictly sequential)
 

@@ -1738,12 +1738,12 @@ items:
      note: "Adds Stories 3.6r-3.6z; folds BUG-051/052/026/039. Needs AD-30 + AD-31 (bmad-architecture) before 3.6r; IDEA-028 gates 3.6t/3.6v."}
 
   BUG-053:
-    {type: bug, status: backlog, created: 2026-10-01, parent: CC-024,
+    {type: bug, status: done, created: 2026-10-01, parent: CC-024,
      impact: user-visible, effort: s,
      title: "getPostByUrl fails against the live apify/instagram-post-scraper actor (input.username now required)",
-     ref: [],
+     ref: [implementation-artifacts/backlog/BUG-053-getpostbyurl-apify-actor-input.md],
      touches: [app:backend, cross:ai-extraction],
-     note: "Found 2026-10-01 running poc-ingestion-preview.ts; also hits the resolver's by-URL path. Workaround: pass the post URL as username."}
+     note: "Fixed 2026-10-02 via bmad-quick-dev (code + regression test, tsc clean); live re-scrape of the 4 CC-024 reference posts still owed on a machine with APIFY_API_TOKEN set. See ref for full root cause/verification."}
 
   FIND-061:
     {type: finding, status: backlog, created: 2026-10-01, parent: CC-024,
