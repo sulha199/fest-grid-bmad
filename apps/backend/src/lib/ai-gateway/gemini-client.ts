@@ -6,6 +6,14 @@ export interface GeminiCallRequest {
   systemInstruction?: string;
   responseSchema?: any;
   responseMimeType?: string;
+  // Story 3.6s (AC7) — explicit response-size cap, threaded into the SDK's `config` object.
+  maxOutputTokens?: number;
+  // Story 3.6s (AC7) — AbortController-based request timeout, in milliseconds. When set, the
+  // call is aborted and throws GeminiTimeoutError if it has not resolved within this window.
+  // Confirmed via the installed @google/genai@2.16.0 SDK's own TypeScript types
+  // (GenerateContentConfig.abortSignal) that generateContent's config accepts a real
+  // AbortSignal -- the request is genuinely cancelled client-side, not merely raced.
+  timeoutMs?: number;
 }
 
 export interface GeminiCallResult {
@@ -33,12 +41,40 @@ export class GeminiUnknownError extends Error {
   }
 }
 
+// Story 3.6s (AC7) — a timed-out extraction call. Deliberately NOT treated like
+// GeminiRateLimitedError/GeminiInvalidKeyError (callGemini's retry-and-exclude-key loop must
+// never catch this) -- a timeout says nothing about whether the *key* was bad, only that *this
+// specific call* took too long. It must propagate unretried out of callGemini/processAiJob,
+// surfacing as a natural, retryable SQS redelivery (the same unconditional re-throw path
+// GeminiUnknownError already takes in adapter.ts).
+export class GeminiTimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'GeminiTimeoutError';
+  }
+}
+
 export let callGeminiGenerateContent = async (
   apiKey: string,
   request: GeminiCallRequest
 ): Promise<GeminiCallResult> => {
   const env = loadBackendEnv();
   const ai = new GoogleGenAI({ apiKey });
+
+  // Story 3.6s (AC7) — minimal inline AbortController-based timeout guard, a temporary
+  // stand-in for Epic 0's not-yet-built guarded vendor-call wrapper (0.i2a-0.i2c). Confirmed the
+  // installed @google/genai SDK's GenerateContentConfig.abortSignal accepts a real AbortSignal
+  // (client-side cancellation of the underlying HTTP request), so no Promise.race fallback is
+  // needed here.
+  const controller = new AbortController();
+  let timedOut = false;
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  if (request.timeoutMs !== undefined) {
+    timeoutHandle = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, request.timeoutMs);
+  }
 
   try {
     const response = await ai.models.generateContent({
@@ -48,6 +84,8 @@ export let callGeminiGenerateContent = async (
         systemInstruction: request.systemInstruction,
         responseSchema: request.responseSchema,
         responseMimeType: request.responseMimeType,
+        maxOutputTokens: request.maxOutputTokens,
+        ...(request.timeoutMs !== undefined ? { abortSignal: controller.signal } : {}),
       },
     });
 
@@ -55,6 +93,12 @@ export let callGeminiGenerateContent = async (
       text: response.text || '',
     };
   } catch (error: any) {
+    if (timedOut) {
+      throw new GeminiTimeoutError(
+        `Gemini extraction call timed out after ${request.timeoutMs}ms`
+      );
+    }
+
     const message = error?.message || String(error);
     const status = error?.status || error?.statusCode || error?.status_code;
 
@@ -89,6 +133,10 @@ export let callGeminiGenerateContent = async (
     }
 
     throw new GeminiUnknownError(message, error);
+  } finally {
+    if (timeoutHandle !== undefined) {
+      clearTimeout(timeoutHandle);
+    }
   }
 };
 

@@ -1,11 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mapExtractionPayloadToProposedCorrection } from './map-extraction-payload-to-proposed-correction.js';
-import { GeminiExtractionPayload } from './types.js';
+import { GeminiEventPayload } from './types.js';
 
 test('mapExtractionPayloadToProposedCorrection - maps a full payload with multiple schedules correctly', () => {
-  const payload: GeminiExtractionPayload = {
-    isEvent: true,
+  const payload: GeminiEventPayload = {
     eventName: 'Sample Festival',
     types: ['CONCERT', 'FESTIVAL'],
     categories: ['MUSIC', 'COMMUNITY'],
@@ -72,8 +71,7 @@ test('mapExtractionPayloadToProposedCorrection - maps a full payload with multip
 });
 
 test('mapExtractionPayloadToProposedCorrection - discards contactInfo when hasPrivateContact is true (AC5, Task 7)', () => {
-  const payload: GeminiExtractionPayload = {
-    isEvent: true,
+  const payload: GeminiEventPayload = {
     eventName: 'Private Contact Preview Event',
     types: ['OTHER'],
     categories: ['OTHER'],

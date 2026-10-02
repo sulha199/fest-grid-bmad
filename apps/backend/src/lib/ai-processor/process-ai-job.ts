@@ -93,43 +93,102 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
     return;
   }
 
-  // 5.5. Incomplete-extraction logging signal (Story 3.6l, AC5/AC6). Only reached when
-  // isEvent === true. When the model self-reported a minScheduleCount and the parsed,
-  // AJV-validated schedules fall short of it, log a warning for moderator visibility.
-  // Logging signal only — no additional Gemini call, no automatic re-trigger, and the two
-  // new fields are never persisted anywhere (AD-13 rule 3).
-  if (payload.minScheduleCount !== undefined && payload.schedules.length < payload.minScheduleCount) {
+  // 5.5. Defensive edge case (Task 7.1): the model reported isEvent: true but returned zero
+  // events. Not expected in practice, but treated identically to isEvent === false since there
+  // is nothing to extract.
+  if (payload.events.length === 0) {
     console.warn(
-      `[processAiJob] Incomplete extraction for post ${message.postId}: ` +
-        `minScheduleCount=${payload.minScheduleCount}, actual schedules=${payload.schedules.length}, ` +
-        `expectedScheduleNames=${JSON.stringify(payload.expectedScheduleNames ?? [])}`
+      `[processAiJob] Gemini reported isEvent: true with zero events for post ${message.postId}; treating as a no-event post.`
+    );
+    if (isCuratorGuide) {
+      await db.update(posts).set({ content: null }).where(eq(posts.id, message.postId));
+    }
+    await markPostExtractedSeam(message.postId);
+    return;
+  }
+
+  // 5.6. Defensive truncation (Task 7.2/3.2/4.2): the AJV schema deliberately has no `maxItems`
+  // on `events` (see extracted-event.schema.ts) -- the actual cap enforcement point is here,
+  // keeping the first N entries and logging rather than discarding the whole payload.
+  let events = payload.events;
+  if (events.length > env.maxExtractedEventsPerPost) {
+    console.warn(
+      `[processAiJob] Post ${message.postId} returned ${events.length} events, ` +
+        `truncating to the configured cap of ${env.maxExtractedEventsPerPost}.`
+    );
+    events = events.slice(0, env.maxExtractedEventsPerPost);
+  }
+
+  // 6-7. Per-event loop (Task 7.3/7.4, AC4): resolveAccountAndLocations/resolveScheduleTimezones
+  // and transformGeminiResponseToEventInfo are unchanged functions -- calling them once per
+  // event, each with that event's own schedules/location, is what makes AC4's "per event"
+  // guards (timezone inference 3.6a, private-contact classification 3.6i, performer-leakage
+  // guard 3.6j) genuinely run per event. This loop always runs for every event, regardless of
+  // the final branch taken below (Task 7.5), so the guards are exercised and testable even for
+  // the deferred multi-event case.
+  const eventMessages: Awaited<ReturnType<typeof transformGeminiResponseToEventInfo>>[] = [];
+  let defaultLocationForBackfill: Awaited<ReturnType<typeof resolveAccountAndLocations>>['defaultLocation'];
+
+  for (let i = 0; i < events.length; i++) {
+    const event = events[i];
+
+    const {
+      sourceSocialMediaAccountId,
+      defaultLocation,
+      resolvedScheduleLocations
+    } = await resolveAccountAndLocations(message.accountId, event.schedules, event.location);
+
+    const scheduleTimezoneResolutions = await resolveScheduleTimezones(
+      event.schedules,
+      resolvedScheduleLocations,
+      subscriberUserIds
+    );
+
+    const eventMessage = transformGeminiResponseToEventInfo(event, {
+      postId: message.postId,
+      sourceSocialMediaAccountId,
+      defaultLocation,
+      resolvedScheduleLocations,
+      scheduleTimezoneResolutions,
+      sourcePostText: message.content
+    });
+    eventMessages.push(eventMessage);
+    defaultLocationForBackfill = defaultLocation;
+
+    // Per-event completeness logging signal (Story 3.6l, replaces the old single post-level
+    // check). Logging-only -- no additional Gemini call, no automatic re-trigger.
+    if (event.minScheduleCount !== undefined && event.schedules.length < event.minScheduleCount) {
+      console.warn(
+        `[processAiJob] Incomplete extraction for post ${message.postId}, event ${i}: ` +
+          `minScheduleCount=${event.minScheduleCount}, actual schedules=${event.schedules.length}, ` +
+          `expectedScheduleNames=${JSON.stringify(event.expectedScheduleNames ?? [])}`
+      );
+    }
+  }
+
+  // Post-level completeness logging signal (Task 7.4).
+  if (payload.minEventCount !== undefined && events.length < payload.minEventCount) {
+    console.warn(
+      `[processAiJob] Post ${message.postId} may be incompletely grouped: ` +
+        `minEventCount=${payload.minEventCount}, actual events=${events.length}`
     );
   }
 
-  // 6. Resolve account and locations
-  const {
-    sourceSocialMediaAccountId,
-    defaultLocation,
-    resolvedScheduleLocations
-  } = await resolveAccountAndLocations(message.accountId, payload.schedules, payload.location);
+  // 7.5. Branch on final event count (AC8, resolved interim-deferral design). Story 3.6t
+  // removes this branch and replaces it with real per-event ingestion (extractionOrdinal,
+  // one queue message per event).
+  if (eventMessages.length > 1) {
+    console.warn(
+      `[processAiJob] Deferring multi-event post pending Story 3.6t: post ${message.postId}, ` +
+        `groupingReason=${payload.groupingReason ?? 'unknown'}, eventCount=${eventMessages.length}`
+    );
+    return;
+  }
 
-  const scheduleTimezoneResolutions = await resolveScheduleTimezones(
-    payload.schedules,
-    resolvedScheduleLocations,
-    subscriberUserIds
-  );
+  const eventMessage = eventMessages[0];
+  const defaultLocation = defaultLocationForBackfill;
 
-  // 7. Transform Gemini response to ExtractedEventMessage
-  const eventMessage = transformGeminiResponseToEventInfo(payload, {
-    postId: message.postId,
-    sourceSocialMediaAccountId,
-    defaultLocation,
-    resolvedScheduleLocations,
-    scheduleTimezoneResolutions,
-    sourcePostText: message.content
-  });
-
-  // 7.5. Best-effort image rehosting to durable S3
+  // 7.5a. Best-effort image rehosting to durable S3 (single-event path only).
   const skipImageRehost = !isOptedIntoImageStorage;
   if (imageBytes && imageContentType && !skipImageRehost) {
     try {
@@ -182,7 +241,9 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
     }
   }
 
-  // 9. Mark post extracted on successful enqueue
+  // 9. Mark post extracted on successful enqueue (single-event path only, AC8 — a deferred
+  // multi-event post returns above without reaching here, and without nulling a CURATOR_GUIDE
+  // caption: Story 3.4o's nulling is meant to run only once extraction has actually completed).
   if (isCuratorGuide) {
     await db.update(posts).set({ content: null }).where(eq(posts.id, message.postId));
   }
