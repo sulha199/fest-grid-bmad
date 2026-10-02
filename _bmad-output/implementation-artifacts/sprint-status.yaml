@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-02T11:56:28Z
+last_updated: 2026-10-02T13:08:41Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -1780,7 +1780,7 @@ development_status:
   # 3.6q added 2026-10-01 (AD-28 Rule 9): versioned media keys + 7-day immutable HTTP cache,
   # HTTP cache only (no service worker). Must land before 3.6n.
   3-6r-add-the-event-post-link-table-and-multi-event-schema: review
-  3-6s-extract-multiple-events-per-post-with-grouping-rules: backlog
+  3-6s-extract-multiple-events-per-post-with-grouping-rules: ready-for-dev
   3-6t-ingest-multiple-events-per-post-with-per-event-slugs-and-notifications: backlog
   3-6u-show-all-source-posts-and-related-events-on-the-event-detail-page: backlog
   3-6v-match-new-posts-to-existing-events-and-enrich-them-in-place: backlog
