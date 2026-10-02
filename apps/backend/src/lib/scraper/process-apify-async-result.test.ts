@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, apifyPendingJobs, posts } from '@festgrid/database';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { processApifyAsyncResult } from './process-apify-async-result.js';
 import { createPendingJob } from './apify-pending-jobs-store.js';
 
@@ -23,8 +23,19 @@ test('process-apify-async-result tests', async (t) => {
   });
 
   let extraDiscoveredAccountIds: string[] = [];
+  // Story 3.15 added post_account_associations with an FK onto social_media_account_profiles,
+  // and resolves a new post's accountId to the discovered publisher profile when ownerId is
+  // present (AC3) -- so a post created by a Story 3.14 attribution test is NOT necessarily found
+  // by `posts.accountId = testProfileId` below. Track such posts by URL so they (and, via the
+  // postId cascade, their post_account_associations rows) are deleted before the discovered
+  // profile deletes below, mirroring persist-scraped-post.test.ts's Story 3.15 cleanup fix.
+  let extraPostUrls: string[] = [];
 
   t.afterEach(async () => {
+    if (extraPostUrls.length > 0) {
+      await db.delete(posts).where(inArray(posts.postUrl, extraPostUrls));
+      extraPostUrls = [];
+    }
     await db.delete(posts).where(eq(posts.accountId, testProfileId));
     await db.delete(apifyPendingJobs).where(eq(apifyPendingJobs.profileId, testProfileId));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfileId));
@@ -249,6 +260,7 @@ test('process-apify-async-result tests', async (t) => {
     const ownerId = 'discovered-owner-paar-' + Date.now();
     const coauthorId = 'discovered-coauthor-paar-' + Date.now();
     extraDiscoveredAccountIds.push(ownerId, coauthorId);
+    extraPostUrls.push('https://www.instagram.com/p/attribution123/');
 
     const items = [
       {
