@@ -263,7 +263,14 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
       coordinate with 0.i6g (coauthor attribution UI); 3.7h/3.7i recommended*
   - [ ] create  - [ ] dev  - [ ] review  - [ ] hot-path EXPLAIN unchanged
 - [ ] **3.6y** Respect weekday-narrowed schedules in day-of-week filtering — *needs 3.6r, 1.3k, 1.3j*
-  - [ ] create  - [ ] dev  - [ ] review
+      (story created 2026-10-02, status `ready-for-dev`; narrowed to the backend filter gap only —
+      1.3k already ships the column/calendar rendering; cites the batch readiness sweep for Gates 1/3
+      [READY, no correction], Gate 2 run fresh — no gap, zero frontend scope; one design decision
+      resolved with the user via `AskUserQuestion`: the fix is general across all four
+      `scheduleDateRange`/`overlaps` callers — `dayOfWeek` filter, plain `dateRange` filter, `TODAY`,
+      `UPCOMING` — via one closed-form SQL guard in `drizzle-where.ts`, not a narrower single-day-only
+      patch, directly closing the 2026-09-30 backlog finding against BUG-026/0.i5d)
+  - [x] create  - [ ] dev  - [ ] review
 - [ ] **3.6z** Automatically enqueue new scraped posts for extraction within quota — *needs 3.5, 3.6t (and 3.6s's inline guard);
       soft: FIND-061 diagnosed*
   - [ ] create  - [ ] dev  - [ ] review

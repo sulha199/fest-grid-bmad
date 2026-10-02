@@ -849,11 +849,13 @@ items:
 
   # ── 2026-09-11 (bmad-help event-extraction-recurrence-bug session) ──────────
   BUG-026:
-    {type: bug, status: triaged, created: 2026-09-11,
+    {type: bug, status: promoted, created: 2026-09-11,
      impact: user-visible, effort: m,
      title: "Recurring single-day-of-week schedules extract as one contiguous date span, silently matching every weekday inside it (not just the stated day)",
-     ref: [planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md, backlog/BUG-026-recurring-weekday-schedule-date-span.md, planning-artifacts/sprint-change-proposal-2026-10-01-multi-event-posts.md], touches: [cross:ai-extraction, cross:prd, app:backend, pkg:domain, web:events],
-     note: "PRD amended (Schedule.applicableDaysOfWeek) -- schema decision resolved; extraction-prompt population and query-matching correctness fix not yet built. Next: bmad-create-story. Full root-cause trace in backlog/BUG-026-recurring-weekday-schedule-date-span.md."}
+     ref: [planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md, backlog/BUG-026-recurring-weekday-schedule-date-span.md, planning-artifacts/sprint-change-proposal-2026-10-01-multi-event-posts.md],
+     stories: [3-6y-respect-weekday-narrowed-schedules-in-day-of-week-filtering],
+     touches: [cross:ai-extraction, cross:prd, app:backend, pkg:domain, web:events],
+     note: "Query-matching-correctness fix promoted to Story 3-6y (2026-10-02); AI-extraction-population half carved to BUG-054. See Story 3-6y's Dev Notes for the design-decision trail."}
 
   # ── 2026-09-11 (bmad-help instagram-embed-perf session) ─────────────────────
   IDEA-020:
@@ -1672,12 +1674,13 @@ items:
 
   # ── 2026-09-30 (batch-event-pages-wave-a-readiness.md) ──────────────────────
   FIND-060:
-    {type: finding, status: backlog, created: 2026-09-30, parent: BUG-026,
+    {type: finding, status: promoted, created: 2026-09-30, parent: BUG-026,
      impact: user-visible, effort: m,
      title: "Story 0.i5d's TODAY/UPCOMING temporal filter ignores Schedule.applicableDaysOfWeek, so a weekday-only recurring schedule matches every day inside its span",
      ref: [planning-artifacts/epic-readiness/batch-event-pages-wave-a-readiness.md, backlog/BUG-026-recurring-weekday-schedule-date-span.md],
+     stories: [3-6y-respect-weekday-narrowed-schedules-in-day-of-week-filtering],
      touches: [pkg:domain, app:backend, web:events],
-     note: "Found 2026-09-30 by the Wave A batch readiness sweep. Not a new gap: this is BUG-026's still-open filter-matching-correctness fix (buildEventsQueryCondition.ts / drizzle-where.ts) reaching the new temporalFilter path added by 0-i5d. Fold into BUG-026's matching fix (reuse the exported getDays(DayOfWeek[]) from 1-3k / AD-19) rather than a separate mechanism."}
+     note: "Found by the Wave A batch readiness sweep; fixed by Story 3-6y (2026-10-02), one mechanism (AD-19) covering dayOfWeek, dateRange, TODAY and UPCOMING alike."}
 
   IDEA-052:
     {type: idea, status: backlog, created: 2026-09-30,
@@ -1794,3 +1797,12 @@ items:
      ref: [planning-artifacts/cc-024-multi-event-wave-plan.md, packages/database/seed-volume.ts],
      touches: [app:backend, pkg:database],
      note: "With 30k synthetic volume rows loaded, 12 events/soft-delete/visibility tests failed and the run was ~7x slower; use a dedicated test database or per-test cleanup."}
+
+  # ── 2026-10-02 (Story 3-6y promotion carve-out) ──────────────────────────────
+  BUG-054:
+    {type: bug, status: backlog, created: 2026-10-02, parent: BUG-026,
+     impact: latent, effort: s,
+     title: "AI extraction never populates Schedule.applicableDaysOfWeek -- the field exists end-to-end but nothing sets it from scraped posters/captions",
+     ref: [planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md, backlog/BUG-026-recurring-weekday-schedule-date-span.md],
+     touches: [cross:ai-extraction, app:backend],
+     note: "Carved from BUG-026 (query-matching fix promoted to Story 3-6y). PRD Section 4.4's 'Weekday-Narrowed Recurring Schedules' already describes the expected extraction behavior."}
