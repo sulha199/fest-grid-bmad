@@ -116,6 +116,10 @@ Read this before trusting a red gate. None of these come from CC-024 stories.
   orchestrator's per-story `--checks test` is expensive. With these known failures the auto-dispatched
   quick-dev fix would chase environment problems, so Wave 2A dev stories run through the plain dispatch and
   the whole-repo gate runs once at the end (`TZ=UTC`, volume cleaned), tolerating the 4 key-test failures.
+- **Headless sessions cannot wait on background tasks:** twice a dev-story child started a long test run in the
+  background and ended its turn ("will continue once it finishes"), which ends the process and leaves the story
+  half-recorded (3.7f first run, 3.7h first and second runs). Dev prompts now say: foreground-only tests, targeted
+  test files only, never end a turn while anything runs, finish all bookkeeping before stopping.
 - **To file on the backlog (not yet filed):** (1) `isEventEnded` shared fixture is time-zone dependent;
   (2) `system-key-adapter` tests depend on `.env` lacking `SYSTEM_GEMINI_API_KEY`; (3) DB-backed backend
   integration tests share the developer database, so any extra data breaks them.
@@ -126,8 +130,8 @@ Read this before trusting a red gate. None of these come from CC-024 stories.
   - [x] create  - [x] dev  - [ ] review
 - [ ] **3.7g** Build platform-prefixed event slugs at ingestion — *needs 3.7f; gates 3.6t and 3.6v* (story created 2026-10-02, status `ready-for-dev`) (dev done, commit `04c94a42`, status `review`)
   - [x] create  - [x] dev  - [ ] review
-- [ ] **3.7h** Resolve Instagram oEmbed from the event slug without a database lookup — *needs 3.7g, 3.7e; gates 3.6v*
-  - [ ] create  - [ ] dev  - [ ] review
+- [ ] **3.7h** Resolve Instagram oEmbed from the event slug without a database lookup — *needs 3.7g, 3.7e; gates 3.6v* (story created 2026-10-02, status `ready-for-dev`; Lazy-join design confirmed with user — opt-in/durable fallback join runs only on the UNAVAILABLE branch) (dev done, commit `f3e1bcac`, status `review`)
+  - [x] create  - [x] dev  - [ ] review
 - [ ] **3.7i** Fetch the event-detail oEmbed in parallel with the event query — *needs 3.7h, 3.7d, 1.6c*
   - [ ] create  - [ ] dev  - [ ] review
 - [x] IDEA-028 (platform-prefixed event slugs) split into 3.7f–3.7i in `epics.md` / `sprint-status.yaml` (2026-10-01)
