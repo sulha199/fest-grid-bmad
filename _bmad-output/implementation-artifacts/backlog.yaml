@@ -1286,14 +1286,25 @@ items:
 
   # ── 2026-09-18 (bmad-correct-course, FIND-022's spec-post-coauthor-attribution) ──
   CC-022:
-    {type: proposal, status: triaged, created: 2026-09-18,
+    {type: proposal, status: promoted, created: 2026-09-18,
      title: "Land FIND-022's coauthor/publisher attribution spec as new stories in epic-3 and epic-0-i6",
+     ref: [backlog/FIND-022-coauthor-content-issues.md,
+           specs/spec-post-coauthor-attribution/SPEC.md,
+           planning-artifacts/sprint-change-proposal-2026-09-18.md],
+     stories: [3-13-normalize-apify-vendor-coauthor-publisher-roles-during-ingestion],
+     touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions, pkg:ui],
+     impact: user-visible, effort: l,
+     note: "Adds epics.md Stories 3.13-3.19 (CAP-1..6/8) + 0.i6g (CAP-7); amends 0.i6c/0.i6z. Story 3.15's DDL resolved by AD-25 (the above 'blocked' line is stale). Promoted 2026-10-02 on Story 3.13; remaining fan-out carved to CC-025."}
+
+  CC-025:
+    {type: proposal, status: triaged, created: 2026-10-02, parent: CC-022,
+     title: "Remaining FIND-022 coauthor/publisher stories not yet created (3.14-3.19, 0.i6g)",
      ref: [backlog/FIND-022-coauthor-content-issues.md,
            specs/spec-post-coauthor-attribution/SPEC.md,
            planning-artifacts/sprint-change-proposal-2026-09-18.md],
      touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions, pkg:ui],
      impact: user-visible, effort: l,
-     note: "Adds epics.md Stories 3.13-3.19 (CAP-1..6/8) + 0.i6g (CAP-7); amends 0.i6c/0.i6z; PRD Post.accountId comment fixed + new PostAccountAssociation interface. Story 3.15 blocked pending bmad-architecture (DDL). See FIND-039 for the carved-out Bright Data gap."}
+     note: "Partial-promotion carve-out from CC-022 (backlog-spec.md section 13): tracks the 7 of CC-022's original 8 stories not yet created (3.14-3.19, 0.i6g). sprint-status.yaml already carries backlog placeholders for all -- nothing orphaned."}
 
   FIND-039:
     {type: finding, status: backlog, created: 2026-09-18, parent: CC-022,

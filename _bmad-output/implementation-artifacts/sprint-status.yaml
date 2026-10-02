@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-02T01:16:59Z
+last_updated: 2026-10-02T02:21:18Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -1977,7 +1977,10 @@ development_status:
   # was blocked pending a bmad-architecture pass on the post_account_associations
   # table's uniqueness-constraint DDL -- resolved 2026-09-18 by AD-25 (unblocked to
   # backlog 2026-10-01; AD-31 adds role semantics only). See epics.md Story 3.15.
-  3-13-normalize-apify-vendor-coauthor-publisher-roles-during-ingestion: backlog
+  # (create-story 3.13, 2026-10-02: backlog -> ready-for-dev. Gates 1/3 cited from
+  # batch-cc-024-multi-event-readiness.md [READY]; Gate 2 run fresh, no gap. Two
+  # design decisions resolved via AskUserQuestion -- see story's Dev Notes.)
+  3-13-normalize-apify-vendor-coauthor-publisher-roles-during-ingestion: ready-for-dev
   3-14-deduplicated-provenance-tracked-subscribable-profiles: backlog
   3-15-post-account-association-table-lossless-migration: backlog
   3-16-immediate-coauthor-publisher-subscribability: backlog
