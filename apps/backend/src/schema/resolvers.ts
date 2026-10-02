@@ -3091,6 +3091,7 @@ Constraints and Guidelines:
           correlateCol: events.id,
           startCol: schedules.eventStartDate,
           endCol: schedules.eventEndDate,
+          applicableDaysOfWeekCol: schedules.applicableDaysOfWeek,
         },
         // Story 0.i5d (AD-20 Rule 2/4) -- the TODAY temporal-filter bucket's `!ended` boundary.
         // Extends the same fieldMap-descriptor-to-EXISTS-subquery pattern `scheduleDateRange`

@@ -270,10 +270,27 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
       `scheduleDateRange`/`overlaps` callers — `dayOfWeek` filter, plain `dateRange` filter, `TODAY`,
       `UPCOMING` — via one closed-form SQL guard in `drizzle-where.ts`, not a narrower single-day-only
       patch, directly closing the 2026-09-30 backlog finding against BUG-026/0.i5d)
-  - [x] create  - [ ] dev  - [ ] review
+      (dev done, commits `c5a2009`.., status `review`; Task 6 verified by the orchestrator: full suite no new
+      failures vs. the cloud-environment set, lint 0 errors, tsc clean; EXPLAIN AC6 PASS)
+  - [x] create  - [x] dev  - [ ] review
+  - **Resolved 2026-10-02 (orchestrator): the 61 failures were a DB still holding `seed:volume` rows; the clean re-run shows only the known 22 cloud-environment failures. The note below is history.**
+  - **2026-10-02 dev session: Tasks 1-5 implemented and individually verified green (SQL guard,
+    unit tests, integration tests AC1-4, AD-17 EXPLAIN gate — PASS). Task 6 (final full regression
+    pass) BLOCKED — not ticking `dev`.** A full `apps/backend` run returned 845/908 pass, 61 fail
+    (cause undetermined, output lost to `tail` truncation), then every further `pnpm`/`npx`/`node`/
+    `psql` invocation failed with a persistent `Tool permission request failed: AbortError: Stream
+    closed` (confirmed non-transient across repeated retries) — see the story file's Debug Log for
+    full detail. Next session: re-run the full suite with untruncated output, triage the 61
+    failures, run lint/`tsc --noEmit`, then complete Task 6/9 and tick `dev`.
 - [ ] **3.6z** Automatically enqueue new scraped posts for extraction within quota — *needs 3.5, 3.6t (and 3.6s's inline guard);
-      soft: FIND-061 diagnosed*
-  - [ ] create  - [ ] dev  - [ ] review
+      soft: FIND-061 diagnosed* (story created 2026-10-02, status `ready-for-dev`; cites the batch readiness sweep for
+      Gates 1/3 (READY-WITH-CAVEAT, BUG-012/Finding 1 exposure, no AC change needed), Gate 2 run fresh — no gap, zero
+      frontend scope; two design decisions resolved with the user via `AskUserQuestion` across two rounds: (1) close
+      Story 3.5's accepted idempotency gap with a full TTL-reclaimable claim column on `posts.queued_for_extraction_at`
+      rather than a bare non-expiring flag (which would permanently strand a post whose extraction attempt exhausts
+      SQS's 3 retries into the DLQ) or leaving the gap as-is; (2) auto-enqueue applies to every `persistScrapedPost`
+      call site uniformly, including a new subscription's initial historical backfill, not just steady-state scrapes)
+  - [x] create  - [ ] dev  - [ ] review
 
 ## Wave 4B — Matching and enrichment
 
