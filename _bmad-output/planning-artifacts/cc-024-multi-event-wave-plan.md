@@ -244,7 +244,13 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
   - [x] create  - [x] dev  - [ ] review  - [x] fixtures stable across runs
 - [ ] **3.6t** Ingest multiple events per post, with per-event slugs and notifications — *needs 3.6r, 3.6s, 3.7f,
       3.7g; sweep correction: a queued message without `extractionOrdinal` defaults to ordinal 0*
-  - [ ] create  - [ ] dev  - [ ] review  - [ ] re-run creates no duplicates
+      (story created 2026-10-02, status `ready-for-dev`; cites the batch readiness sweep for Gates 1/3
+      (Correction 2 folded into AC2), Gate 2 run fresh — no gap; two design decisions resolved with the user
+      via `AskUserQuestion`: best-effort enqueue with per-message retry on partial send failure, and
+      deterministic `extractionOrdinal` assignment by earliest schedule date/normalized name/original index
+      so a re-extraction of the same events keeps the same ordinals — residual limitation documented in Dev
+      Notes for a re-extraction that finds a *different* set of events)
+  - [x] create  - [ ] dev  - [ ] review  - [ ] re-run creates no duplicates
 
 ## Wave 4A — Read side, weekday filter, auto-extraction (after 3.6t, any order)
 
