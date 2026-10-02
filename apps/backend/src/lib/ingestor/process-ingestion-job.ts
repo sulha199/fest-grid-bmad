@@ -1,8 +1,9 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../../db/client.js';
-import { events, schedules, posts } from '@festgrid/database';
+import { schedules, posts } from '@festgrid/database';
 import { ExtractedEventMessage, buildEventInsertValues } from '@festgrid/domain';
 import { sendEventNotificationsSeam } from '../notifications/send-event-notifications.js';
+import { insertEventWithPrimaryPost } from '../events/set-event-primary-post.js';
 
 export async function processIngestionJob(message: ExtractedEventMessage): Promise<{ inserted: boolean }> {
   let insertedEvent: any = null;
@@ -20,18 +21,20 @@ export async function processIngestionJob(message: ExtractedEventMessage): Promi
 
     const { event, schedules: scheduleValues } = buildEventInsertValues(message, sourcePost ?? null);
 
-    const insertedEvents = await tx
-      .insert(events)
-      .values(event)
-      .onConflictDoNothing({ target: [events.postId] })
-      .returning();
+    // Story 3.6r / AD-30 Rule 2 — the only two call sites allowed to write `events.postId` are
+    // insertEventWithPrimaryPost and setEventPrimaryPost (set-event-primary-post.ts), enforced by
+    // events-postid-write-ratchet.test.ts. The conflict target is now the composite
+    // (postId, extractionOrdinal) unique rather than postId alone (AD-30 Rule 1/3); extractionOrdinal
+    // defaults to 0 at the helper's DB-write boundary, which is exactly correct for today's
+    // still-single-event-per-post ingestion (buildEventInsertValues() does not set it).
+    const insertedRow = await insertEventWithPrimaryPost(tx, event);
 
-    if (insertedEvents.length === 0) {
+    if (!insertedRow) {
       console.log(`Skipped duplicate ingestion for postId: ${message.postId}`);
       return { inserted: false };
     }
 
-    insertedEvent = insertedEvents[0];
+    insertedEvent = insertedRow;
 
     if (scheduleValues.length > 0) {
       const schedulesToInsert = scheduleValues.map((s) => ({

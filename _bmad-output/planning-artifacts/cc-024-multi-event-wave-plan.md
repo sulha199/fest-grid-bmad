@@ -232,7 +232,7 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
 
 - [ ] **3.6r** Add the event–post link table and multi-event schema — *needs AD-30; re-run the four scenarios of
       `cc-024-explain-baseline-2026-10-01.md` and compare; promote a clean version of the capture script*
-  - [x] create  - [ ] dev  - [ ] review  - [ ] EXPLAIN evidence attached
+  - [x] create  - [x] dev  - [ ] review  - [x] EXPLAIN evidence attached
 - [ ] **3.6s** Extract multiple events per post with grouping rules — *needs 3.6r; carries an inline Gemini timeout
       + output cap (see Deferred track); fixtures: the 4 reference posts, run repeatedly, grouping must match every run*
   - [ ] create  - [ ] dev  - [ ] review  - [ ] fixtures stable across runs

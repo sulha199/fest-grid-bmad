@@ -38,6 +38,15 @@ export function getTablesInDeleteOrder(excludeTableNames: string[] = []): PgTabl
       const bTable = fk.reference().foreignTable;
       const bName = getTableConfig(bTable as PgTable).name;
 
+      // Story 3.6r — events.mergedIntoEventId is a self-referencing FK (events -> events). A
+      // self-edge isn't a real ordering constraint (deleting any subset of a table's own rows
+      // doesn't require a particular row-order relative to the table itself -- Postgres enforces
+      // row-level FK checks, not table-level), but it WOULD otherwise make this topological sort
+      // see a cycle (indegree never reaches 0) and throw. Skip self-references.
+      if (aName === bName) {
+        continue;
+      }
+
       if (adj.has(aName) && adj.has(bName)) {
         if (!adj.get(aName)!.has(bName)) {
           adj.get(aName)!.add(bName);

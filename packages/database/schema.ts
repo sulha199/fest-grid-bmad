@@ -1,9 +1,11 @@
-import { pgTable, uuid, text, timestamp, boolean, date, time, jsonb, doublePrecision, integer, pgEnum, index, unique, uniqueIndex, customType as drizzleCustomType } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, boolean, date, time, jsonb, doublePrecision, integer, smallint, pgEnum, index, unique, uniqueIndex, primaryKey, customType as drizzleCustomType, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
 import { LocationDetails, EventLink } from '@festgrid/shared-types';
 import type { ProposedEventCorrection } from '@festgrid/domain/events';
 import { POST_ACCOUNT_ROLES } from '@festgrid/domain/posts';
+import { EVENT_DETAIL_LEVELS } from '@festgrid/domain/events';
+import { POST_GROUPING_REASONS } from '@festgrid/domain/posts';
 
 const generateSlug = () => randomBytes(6).toString('hex');
 
@@ -91,6 +93,10 @@ export const accountTypeEnum = pgEnum('account_type', ['ORGANIZER_VENUE_EVENT', 
 export const accountTypeStatusEnum = pgEnum('account_type_status', ['CONFIRMED', 'AWAITING_APPROVAL']);
 
 export const postAccountRoleEnum = pgEnum('post_account_role', POST_ACCOUNT_ROLES);
+
+// Story 3.6r / AD-30 Rule 1.
+export const eventDetailLevelEnum = pgEnum('event_detail_level', EVENT_DETAIL_LEVELS);
+export const postGroupingReasonEnum = pgEnum('post_grouping_reason', POST_GROUPING_REASONS);
 
 export const brightdataPendingJobs = pgTable('brightdata_pending_jobs', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -308,6 +314,11 @@ export const posts = pgTable('posts', {
   // input for Story 3.6l's multi-image AI request -- never displayed in any UI. No index: nothing
   // queries by this column.
   additionalImageUrls: jsonb('additional_image_urls').$type<string[]>(),
+  // Story 3.6r / AD-30 Rule 1 — post-level facts product UI reads, populated by Story 3.6s's
+  // multi-event extraction payload (groupingReason/extractedEventCount). groupingRationale is
+  // deliberately never persisted (AD-30 Rule 5).
+  groupingReason: postGroupingReasonEnum('grouping_reason'),
+  extractedEventCount: integer('extracted_event_count'),
   ...timestamps,
 }, (t) => ({
   accountIdIdx: index('account_id_idx').on(t.accountId),
@@ -392,7 +403,21 @@ export const events = pgTable('events', {
   // jsonb-array precedent below, not contactInfo's plain text() column.
   links: jsonb('links').$type<EventLink[]>(),
   sourceSocialMediaAccountId: text('source_social_media_account_id'),
+  // Story 3.6r / AD-30 — events.postId is kept as the PRIMARY-post pointer; it is no longer
+  // 1:1 with posts (its unique() below is dropped in favor of postIdExtractionOrdinalUnq).
+  // The canonical many-to-many link lives in eventPosts.
   postId: uuid('post_id').references(() => posts.id, { onDelete: 'set null' }),
+  // This event's index within its PRIMARY post's extraction (existing rows backfill to 0).
+  // Nullable so a null postId can carry a null ordinal (enforced together by the hand-written
+  // CHECK in the migration SQL -- see migrations/0065_*.sql).
+  extractionOrdinal: smallint('extraction_ordinal'),
+  detailLevel: eventDetailLevelEnum('detail_level').default('full').notNull(),
+  // Self-referencing FK -- requires the lazy, return-type-annotated callback form because a
+  // plain `references(() => events.id, ...)` would try to reference this very table object
+  // while it is still being constructed (TDZ/circular-reference issue, not a style choice).
+  mergedIntoEventId: uuid('merged_into_event_id').references((): AnyPgColumn => events.id, { onDelete: 'set null' }),
+  // AD-30 Rule 10 -- the single notification marker; set by one notify helper and nowhere else.
+  notifiedAt: timestamp('notified_at', { withTimezone: true }),
   deletedAt: timestamp('deleted_at', { withTimezone: true }), // Soft delete support
   ...timestamps,
 }, (t) => ({
@@ -400,10 +425,45 @@ export const events = pgTable('events', {
   typesIdx: index('event_types_idx').on(t.types).where(sql`deleted_at IS NULL`),
   categoriesIdx: index('event_categories_idx').on(t.categories).where(sql`deleted_at IS NULL`),
   locationIdx: index('event_location_idx').on(t.location).where(sql`deleted_at IS NULL`),
+  // AC6/Task 10 decides whether this stays once the new composite unique index below exists --
+  // left in place until the EXPLAIN evidence says otherwise.
   postIdIdx: index('event_post_id_idx').on(t.postId).where(sql`deleted_at IS NULL`),
-  // postIdUnq stays a full, unconditional uniqueness constraint deliberately for data integrity
-  postIdUnq: unique().on(t.postId),
+  // Story 3.6r / AD-30 Rule 1 -- replaces the old 1:1 postIdUnq. Full (non-partial, no
+  // `.where()`), unconditional on deletedAt (a soft-deleted event is not recreated by
+  // re-extraction) -- backs ingestion idempotency on (postId, extractionOrdinal).
+  postIdExtractionOrdinalUnq: unique().on(t.postId, t.extractionOrdinal),
 }));
+
+// Story 3.6r / AD-30 Rule 1 -- the many-to-many event<->post link table. events.postId stays
+// the PRIMARY-post pointer (see events table above); this table is the full link set, read by
+// the (not-yet-wired) account-feed union matching (AD-31 Rule 4) and Query.relatedEventIds
+// (AD-30 Rule 11), never by the Query.events/eventBySlug hot path (AD-30 Rule 4). This is this
+// file's first composite primary key -- no prior table has one to copy from.
+export const eventPosts = pgTable('event_posts', {
+  eventId: uuid('event_id').references(() => events.id, { onDelete: 'cascade' }).notNull(),
+  postId: uuid('post_id').references(() => posts.id, { onDelete: 'cascade' }).notNull(),
+  // Nullable -- a manually-created link (future feature, not built by this story) may carry a
+  // null ordinal; Postgres treats NULLs as distinct in the unique index below, so manual links
+  // never collide with each other or with an extraction-derived ordinal.
+  extractionOrdinal: smallint('extraction_ordinal'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.eventId, t.postId] }),
+  postIdEventIdIdx: index('idx_event_posts_post_id_event_id').on(t.postId, t.eventId),
+  postIdOrdinalUnq: unique().on(t.postId, t.extractionOrdinal),
+}));
+
+// Story 3.6r / AD-30 Rule 1 -- old slugs, so a primary-post change (Story 3.6v) can redirect
+// visitors from a stale slug to the event's current one. No index on eventId yet -- AD-30 Rule
+// 1 only specifies `slug unique, event_id FK cascade`; a lookup index is added when the actual
+// redirect/alias-write path (Story 3.6v) needs one (matching idx_favorites_event_id's
+// add-the-index-when-the-query-needs-it precedent).
+export const eventSlugAliases = pgTable('event_slug_aliases', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  slug: text('slug').notNull().unique(),
+  eventId: uuid('event_id').references(() => events.id, { onDelete: 'cascade' }).notNull(),
+  ...timestamps,
+});
 
 export const schedules = pgTable('schedules', {
   id: uuid('id').defaultRandom().primaryKey(),

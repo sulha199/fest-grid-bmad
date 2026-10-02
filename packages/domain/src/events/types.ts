@@ -1,5 +1,11 @@
 import { EventType, EventCategory, LocationDetails, EventLink } from '@festgrid/shared-types';
 
+// Closed set for events.detail_level (Architecture Spine AD-30 Rule 1, Story 3.6r). A 'stub'
+// event is created from a roundup item with no readable date/location (3.6s); every event
+// shipped before this story is 'full' (the column's own NOT NULL DEFAULT 'full').
+export const EVENT_DETAIL_LEVELS = ['stub', 'full'] as const;
+export type EventDetailLevel = (typeof EVENT_DETAIL_LEVELS)[number];
+
 export interface GeminiSchedulePayload {
   isMainSchedule: boolean;
   eventStartDate: string;

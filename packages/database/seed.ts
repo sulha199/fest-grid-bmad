@@ -3,6 +3,7 @@ import postgres from 'postgres';
 import {
   apiKeys,
   events,
+  eventPosts,
   posts,
   schedules,
   subscriptions,
@@ -773,6 +774,7 @@ const FIXTURE_EVENTS = [
     confidenceScore: 0.96,
     sourceSocialMediaAccountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[0].accountId,
     postId: FIXTURE_POSTS[0].id,
+    extractionOrdinal: 0,
   },
   {
     id: '40000000-0000-0000-0000-000000000002',
@@ -786,6 +788,7 @@ const FIXTURE_EVENTS = [
     confidenceScore: 0.91,
     sourceSocialMediaAccountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[0].accountId,
     postId: FIXTURE_POSTS[1].id,
+    extractionOrdinal: 0,
   },
   {
     id: '40000000-0000-0000-0000-000000000003',
@@ -799,6 +802,7 @@ const FIXTURE_EVENTS = [
     confidenceScore: 0.93,
     sourceSocialMediaAccountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[1].accountId,
     postId: FIXTURE_POSTS[2].id,
+    extractionOrdinal: 0,
   },
   {
     id: '40000000-0000-0000-0000-000000000004',
@@ -812,6 +816,7 @@ const FIXTURE_EVENTS = [
     confidenceScore: 0.99,
     sourceSocialMediaAccountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[0].accountId,
     postId: '60000000-0000-0000-0000-000000000004',
+    extractionOrdinal: 0,
   },
   // --- Event-Card manual investigation fixtures (2026-09-27) --- see FIXTURE_POSTS's own
   // matching comment block above for the full rationale. Each event below pairs with the
@@ -828,6 +833,7 @@ const FIXTURE_EVENTS = [
     confidenceScore: 0.95,
     sourceSocialMediaAccountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[2].accountId,
     postId: FIXTURE_POSTS[27].id,
+    extractionOrdinal: 0,
   },
   {
     id: '40000000-0000-0000-0000-000000000006',
@@ -841,6 +847,7 @@ const FIXTURE_EVENTS = [
     confidenceScore: 0.95,
     sourceSocialMediaAccountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[2].accountId,
     postId: FIXTURE_POSTS[28].id,
+    extractionOrdinal: 0,
   },
   {
     id: '40000000-0000-0000-0000-000000000007',
@@ -854,6 +861,7 @@ const FIXTURE_EVENTS = [
     confidenceScore: 0.95,
     sourceSocialMediaAccountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[2].accountId,
     postId: FIXTURE_POSTS[29].id,
+    extractionOrdinal: 0,
   },
   {
     id: '40000000-0000-0000-0000-000000000008',
@@ -867,6 +875,7 @@ const FIXTURE_EVENTS = [
     confidenceScore: 0.95,
     sourceSocialMediaAccountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[2].accountId,
     postId: FIXTURE_POSTS[30].id,
+    extractionOrdinal: 0,
   },
   {
     id: '40000000-0000-0000-0000-000000000009',
@@ -880,6 +889,7 @@ const FIXTURE_EVENTS = [
     confidenceScore: 0.95,
     sourceSocialMediaAccountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[2].accountId,
     postId: FIXTURE_POSTS[31].id,
+    extractionOrdinal: 0,
   },
   {
     id: '40000000-0000-0000-0000-000000000010',
@@ -893,6 +903,7 @@ const FIXTURE_EVENTS = [
     confidenceScore: 0.95,
     sourceSocialMediaAccountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[2].accountId,
     postId: FIXTURE_POSTS[32].id,
+    extractionOrdinal: 0,
   },
   {
     id: '40000000-0000-0000-0000-000000000011',
@@ -906,6 +917,7 @@ const FIXTURE_EVENTS = [
     confidenceScore: 0.95,
     sourceSocialMediaAccountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[2].accountId,
     postId: FIXTURE_POSTS[33].id,
+    extractionOrdinal: 0,
   },
   {
     id: '40000000-0000-0000-0000-000000000012',
@@ -919,8 +931,19 @@ const FIXTURE_EVENTS = [
     confidenceScore: 0.95,
     sourceSocialMediaAccountId: FIXTURE_SOCIAL_MEDIA_ACCOUNT_PROFILES[2].accountId,
     postId: FIXTURE_POSTS[34].id,
+    extractionOrdinal: 0,
   },
 ];
+
+// Story 3.6r / AD-30 Rule 1 — one event_posts row per FIXTURE_EVENTS entry that sets postId,
+// matching ordinal, keeping seeded data consistent with the same invariant real ingestion now
+// enforces (insertEventWithPrimaryPost's consistency check) rather than merely passing the new
+// CHECK constraint by accident.
+const FIXTURE_EVENT_POSTS = FIXTURE_EVENTS.filter((e) => e.postId).map((e) => ({
+  eventId: e.id,
+  postId: e.postId as string,
+  extractionOrdinal: e.extractionOrdinal,
+}));
 
 // Returns a 'YYYY-MM-DD' date offsetDays from the actual seed-run date (UTC), so the
 // Event-Card manual investigation fixtures below keep rendering their intended state
@@ -1291,6 +1314,7 @@ export async function seedDatabase(connectionString?: string): Promise<void> {
       await tx.insert(parserVersionRegistry).values([...FIXTURE_PARSER_VERSIONS]);
       await tx.insert(unprocessedScraperPayloads).values([...FIXTURE_UNPROCESSED_PAYLOADS]);
       await tx.insert(events).values([...FIXTURE_EVENTS]);
+      await tx.insert(eventPosts).values([...FIXTURE_EVENT_POSTS]);
       await tx.insert(schedules).values([...FIXTURE_SCHEDULES]);
       await tx.insert(reports).values([...FIXTURE_REPORTS]);
     });

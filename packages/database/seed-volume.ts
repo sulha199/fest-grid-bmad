@@ -38,6 +38,7 @@ import { inArray, like } from 'drizzle-orm';
 import {
   calendarAdditions,
   events,
+  eventPosts,
   favorites,
   posts,
   schedules,
@@ -147,6 +148,10 @@ export function buildVolumeFixtures(options: VolumeSeedOptions = {}) {
 
   const postRows: Array<typeof posts.$inferInsert> = [];
   const eventRows: Array<typeof events.$inferInsert> = [];
+  // Story 3.6r / AD-30 Rule 1 — one event_posts row per eventRows entry (ordinal 0, matching the
+  // single-event-per-post ingestion shape this synthetic data mirrors), keeping volume-seeded
+  // data consistent with the same invariant real ingestion now enforces.
+  const eventPostRows: Array<typeof eventPosts.$inferInsert> = [];
   const scheduleRows: Array<typeof schedules.$inferInsert> = [];
 
   for (let i = 0; i < eventCount; i++) {
@@ -196,7 +201,9 @@ export function buildVolumeFixtures(options: VolumeSeedOptions = {}) {
       confidenceScore: Math.round((0.6 + rnd() * 0.4) * 100) / 100,
       sourceSocialMediaAccountId: profile.accountId,
       postId,
+      extractionOrdinal: 0,
     });
+    eventPostRows.push({ eventId, postId, extractionOrdinal: 0 });
 
     const scheduleRoll = rnd();
     const scheduleCount = scheduleRoll < 0.7 ? 1 : scheduleRoll < 0.9 ? 2 : 3;
@@ -259,7 +266,7 @@ export function buildVolumeFixtures(options: VolumeSeedOptions = {}) {
     if (i % 33 === 0) calendarRows.push({ id: volumeId(NS.calendar, calendarRows.length + 1), userId: userA, eventId, scheduleId: mainScheduleByEvent.get(eventId) as string });
   });
 
-  return { profileRows, postRows, eventRows, scheduleRows, subscriptionRows, favoriteRows, calendarRows };
+  return { profileRows, postRows, eventRows, eventPostRows, scheduleRows, subscriptionRows, favoriteRows, calendarRows };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -315,6 +322,7 @@ export async function seedVolume(connectionString?: string, options: VolumeSeedO
       for (const c of chunk(rows.profileRows)) await tx.insert(socialMediaAccountProfiles).values(c);
       for (const c of chunk(rows.postRows)) await tx.insert(posts).values(c);
       for (const c of chunk(rows.eventRows)) await tx.insert(events).values(c);
+      for (const c of chunk(rows.eventPostRows)) await tx.insert(eventPosts).values(c);
       for (const c of chunk(rows.scheduleRows)) await tx.insert(schedules).values(c);
       if (hasFixtureUsers) {
         for (const c of chunk(rows.subscriptionRows)) await tx.insert(subscriptions).values(c);

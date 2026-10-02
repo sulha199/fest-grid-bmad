@@ -34,14 +34,30 @@ const client = postgres(env.databaseUrl, { idle_timeout: 5, max: 1, prepare: fal
 let debugEnabled = false;
 let executedQueryCount = 0;
 
-function debug(): void {
+// Story 3.6r / AC6 -- an optional SQL+params capture sink, additive to the counting behavior
+// above and off by default (production/every other test is unaffected). `explain-events-queries.ts`
+// is the only consumer: it needs the REAL SQL text executed by the real resolvers (via this
+// module's single `db` client, the one every resolver actually queries through) to re-run each
+// captured statement under `EXPLAIN (ANALYZE, BUFFERS)`. Deliberately NOT a second, separate
+// `postgres()` client -- a second connection would never see the queries the resolvers under
+// test actually issue through this module's client.
+let sqlCaptureSink: ((query: string, params: unknown[]) => void) | null = null;
+
+function debug(_connection: unknown, query: string, params: unknown[]): void {
   if (debugEnabled) {
     executedQueryCount++;
+  }
+  if (sqlCaptureSink) {
+    sqlCaptureSink(query, params);
   }
 }
 
 export function enableQueryDebug(enabled: boolean): void {
   debugEnabled = enabled;
+}
+
+export function setSqlCaptureSink(sink: ((query: string, params: unknown[]) => void) | null): void {
+  sqlCaptureSink = sink;
 }
 
 export function resetExecutedQueryCount(): void {

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import * as assert from 'node:assert';
 import { db } from '../../db/client.js';
-import { socialMediaAccountProfiles, posts, events, schedules } from '@festgrid/database';
+import { socialMediaAccountProfiles, posts, events, schedules, eventPosts } from '@festgrid/database';
 import { eq, inArray } from 'drizzle-orm';
 import { processIngestionJob } from './process-ingestion-job.js';
 import { ExtractedEventMessage } from '@festgrid/domain';
@@ -190,6 +190,16 @@ test('processIngestionJob integration tests', async (t) => {
     assert.strictEqual(sched.longitude, -87.6246);
     assert.strictEqual(sched.timezone, 'America/Chicago');
     assert.strictEqual(sched.timezoneStatus, 'RESOLVED');
+
+    // Story 3.6r (AC3/Task 6.2) — insertEventWithPrimaryPost must also create the matching
+    // event_posts link row alongside the inserted event.
+    const links = await db
+      .select()
+      .from(eventPosts)
+      .where(eq(eventPosts.eventId, insertedEvent.id));
+    assert.strictEqual(links.length, 1);
+    assert.strictEqual(links[0].postId, seededPost1.id);
+    assert.strictEqual(links[0].extractionOrdinal, 0);
 
     // FIND-061: processIngestionJob now awaits the notification seam internally before
     // resolving, so no artificial tick is needed here to let it run.
