@@ -18,6 +18,10 @@ cd "${CLAUDE_PROJECT_DIR:-$(dirname "$0")/..}"
 if [ ! -f .env ]; then
   cp .env.example .env
 fi
+# The backend env loader requires BACKEND_PORT, which .env.example doesn't define.
+if ! grep -q '^BACKEND_PORT=' .env; then
+  echo 'BACKEND_PORT="4000"' >> .env
+fi
 
 service postgresql start >/dev/null
 for _ in $(seq 1 30); do
