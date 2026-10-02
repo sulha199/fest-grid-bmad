@@ -1582,14 +1582,27 @@ Constraints and Guidelines:
         };
       }
 
-      if (payload.isEvent === false) {
+      // Story 3.6s — payload is now the post-level { isEvent, events[], groupingReason, ... }
+      // wrapper. This correction-preview flow (Story 4.2a) always targets exactly one existing
+      // event, so an empty/false extraction fails the same way as before, and a multi-event
+      // extraction (out of this story's AC scope to fully support) falls back to the first
+      // event with a warning rather than silently reading stale flat fields that no longer
+      // exist on the restructured payload.
+      if (payload.isEvent === false || !Array.isArray(payload.events) || payload.events.length === 0) {
         return {
           errorCode: 'EXTRACTION_FAILED',
           errorMessage: 'The linked post does not appear to describe an event.',
         };
       }
 
-      const data = mapExtractionPayloadToProposedCorrection(payload);
+      if (payload.events.length > 1) {
+        console.warn(
+          `[submitCorrectionPreview-style resolver] Gemini extraction returned ${payload.events.length} events ` +
+            `for a single-event correction preview; using the first event only.`
+        );
+      }
+
+      const data = mapExtractionPayloadToProposedCorrection(payload.events[0]);
       return { data };
     },
     submitReport: async (_: any, { eventId, reason, details }: any, context: any): Promise<any> => {

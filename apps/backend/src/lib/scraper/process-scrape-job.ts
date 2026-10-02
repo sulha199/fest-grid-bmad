@@ -35,6 +35,9 @@ async function persistScrapedPosts(job: ScrapeTarget, scrapedPosts: ScrapedPost[
       ownerUsername: post.ownerUsername || null,
       hashtags: post.hashtags || null,
       additionalImageUrls: post.additionalImageUrls || null,
+      ownerId: post.ownerId,
+      coauthors: post.coauthors,
+      discoverySourceVendor: 'apify',
     });
     persisted += 1;
   }

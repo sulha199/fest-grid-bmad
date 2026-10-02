@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, apifyPendingJobs, posts } from '@festgrid/database';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { processApifyAsyncResult } from './process-apify-async-result.js';
 import { createPendingJob } from './apify-pending-jobs-store.js';
 
@@ -22,10 +22,27 @@ test('process-apify-async-result tests', async (t) => {
     });
   });
 
+  let extraDiscoveredAccountIds: string[] = [];
+  // Story 3.15 added post_account_associations with an FK onto social_media_account_profiles,
+  // and resolves a new post's accountId to the discovered publisher profile when ownerId is
+  // present (AC3) -- so a post created by a Story 3.14 attribution test is NOT necessarily found
+  // by `posts.accountId = testProfileId` below. Track such posts by URL so they (and, via the
+  // postId cascade, their post_account_associations rows) are deleted before the discovered
+  // profile deletes below, mirroring persist-scraped-post.test.ts's Story 3.15 cleanup fix.
+  let extraPostUrls: string[] = [];
+
   t.afterEach(async () => {
+    if (extraPostUrls.length > 0) {
+      await db.delete(posts).where(inArray(posts.postUrl, extraPostUrls));
+      extraPostUrls = [];
+    }
     await db.delete(posts).where(eq(posts.accountId, testProfileId));
     await db.delete(apifyPendingJobs).where(eq(apifyPendingJobs.profileId, testProfileId));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfileId));
+    for (const accountId of extraDiscoveredAccountIds) {
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.accountId, accountId));
+    }
+    extraDiscoveredAccountIds = [];
   });
 
   await t.test('persists posts and marks job completed', async () => {
@@ -220,5 +237,57 @@ test('process-apify-async-result tests', async (t) => {
       .where(eq(apifyPendingJobs.id, id));
 
     assert.strictEqual(job.status, 'COMPLETED');
+  });
+
+  await t.test('persists discovered social_media_account_profiles rows for a raw Apify item with ownerId+coauthorProducers populated (Story 3.14)', async () => {
+    const { id, webhookToken } = await createPendingJob({
+      profileId: testProfileId,
+      runId: 'run-attribution-' + Date.now(),
+      webhookToken: randomBytes(24).toString('hex'),
+    });
+
+    const pendingJob = {
+      id,
+      profileId: testProfileId,
+      runId: 'run-attribution',
+      webhookToken,
+      status: 'PENDING' as const,
+      expiresAt: new Date(Date.now() + 3600000),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const ownerId = 'discovered-owner-paar-' + Date.now();
+    const coauthorId = 'discovered-coauthor-paar-' + Date.now();
+    extraDiscoveredAccountIds.push(ownerId, coauthorId);
+    extraPostUrls.push('https://www.instagram.com/p/attribution123/');
+
+    const items = [
+      {
+        url: 'https://www.instagram.com/p/attribution123/',
+        caption: 'Post with attribution',
+        timestamp: '2026-08-08T00:00:00Z',
+        displayUrl: 'https://example.com/img1.jpg',
+        ownerId,
+        ownerUsername: 'owner_paar_user',
+        coauthorProducers: [{ id: coauthorId, username: 'coauthor_paar_user' }],
+      },
+    ];
+
+    await processApifyAsyncResult(pendingJob, items);
+
+    const discoveredOwnerProfile = await db
+      .select()
+      .from(socialMediaAccountProfiles)
+      .where(eq(socialMediaAccountProfiles.accountId, ownerId))
+      .then((rows) => rows[0]);
+    assert.ok(discoveredOwnerProfile, 'publisher discovered profile row should exist');
+
+    const discoveredCoauthorProfile = await db
+      .select()
+      .from(socialMediaAccountProfiles)
+      .where(eq(socialMediaAccountProfiles.accountId, coauthorId))
+      .then((rows) => rows[0]);
+    assert.ok(discoveredCoauthorProfile, 'coauthor discovered profile row should exist');
   });
 });

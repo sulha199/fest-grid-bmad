@@ -21,6 +21,19 @@ export interface BackendEnv {
   // single extraction request, beyond the cover image (Story 3.6l). Keeps the AI Processor
   // Lambda inside its fixed 300s timeout (AD-13) and bounds per-request token usage.
   maxCarouselImages: number;
+  // Story 3.6s (AD-30 Rule 5) — roundup per-post event cap, default 10, configurable. Used both
+  // as the Gemini-facing schema's `events.maxItems` hint and as the code-level truncation
+  // backstop in process-ai-job.ts (never a hard AJV cap -- see extracted-event.schema.ts).
+  maxExtractedEventsPerPost: number;
+  // Story 3.6s (AC7, readiness-sweep correction 2026-10-01) — an explicit response-size cap on
+  // the Gemini extraction call (Epic 0's guarded vendor-call wrapper, 0.i2c, does not exist yet).
+  geminiMaxOutputTokens: number;
+  // Story 3.6s (AC7) — AbortController-based request timeout for the Gemini extraction call,
+  // in milliseconds. Default 120000ms leaves ~180s of headroom inside the AI Processor Lambda's
+  // fixed 300s timeout (apps/infrastructure/lib/festgrid-backend-stack.ts) for image fetching
+  // (before the call) and DB/enqueue work (after it). A timeout throws GeminiTimeoutError, which
+  // propagates unretried out of processAiJob as a retryable job failure (never a silent hang).
+  geminiExtractionTimeoutMs: number;
   scrapingQueueUrl?: string;
   scrapeInlineFallbackEnabled: boolean;
   aiProcessingQueueUrl?: string;
@@ -162,6 +175,12 @@ export function loadBackendEnv(): BackendEnv {
     scrapeResultsLimit: parseInt(process.env.SCRAPE_RESULTS_LIMIT || '30', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     maxCarouselImages: parseInt(process.env.MAX_CAROUSEL_IMAGES || '5', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    maxExtractedEventsPerPost: parseInt(process.env.MAX_EXTRACTED_EVENTS_PER_POST || '10', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    geminiMaxOutputTokens: parseInt(process.env.GEMINI_MAX_OUTPUT_TOKENS || '8192', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    geminiExtractionTimeoutMs: parseInt(process.env.GEMINI_EXTRACTION_TIMEOUT_MS || '120000', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     scrapeInitialLookbackDays: parseInt(process.env.SCRAPE_INITIAL_LOOKBACK_DAYS || '7', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars

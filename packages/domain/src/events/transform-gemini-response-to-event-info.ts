@@ -1,10 +1,15 @@
 import { EventType, EventCategory, LocationDetails } from '@festgrid/shared-types';
-import { GeminiExtractionPayload, ExtractedEventMessage, ExtractedScheduleMessage, ScheduleTimezoneResolution } from './types.js';
+import { GeminiEventPayload, ExtractedEventMessage, ExtractedScheduleMessage, ScheduleTimezoneResolution } from './types.js';
 import { matchesChildrensDataKeywordFilter } from './matches-childrens-data-keyword-filter.js';
 import { sanitizeEventLinks } from './sanitize-event-links.js';
 
+// Story 3.6s — retyped from GeminiExtractionPayload (now the post-level wrapper carrying
+// `events[]`) to GeminiEventPayload (one event's worth of fields). The caller
+// (process-ai-job.ts) now calls this function once per extracted event, which is what makes
+// AC4's "per event" guard requirement (timezone/private-contact/performer-leakage) hold -- this
+// function's own logic is otherwise unchanged (see Task 6.2's no-shared-mutable-state test).
 export function transformGeminiResponseToEventInfo(
-  payload: GeminiExtractionPayload,
+  payload: GeminiEventPayload,
   context: {
     postId: string;
     sourceSocialMediaAccountId: string;
@@ -50,6 +55,7 @@ export function transformGeminiResponseToEventInfo(
       performers: childrensDataMatch ? undefined : sch.performers,
       location: sch.location,
       ticketPrice: sch.ticketPrice,
+      applicableDaysOfWeek: sch.applicableDaysOfWeek,
       locationDetails,
       timezone: timezoneResolution?.timezone,
       timezoneStatus: timezoneResolution?.timezoneStatus
@@ -79,6 +85,7 @@ export function transformGeminiResponseToEventInfo(
     hasPrivateContact: payload.hasPrivateContact,
     description: payload.description,
     confidenceScore: payload.confidenceScore,
-    links
+    links,
+    organizerHandle: payload.organizerHandle
   };
 }

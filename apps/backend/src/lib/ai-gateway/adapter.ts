@@ -5,6 +5,7 @@ import {
   callGeminiGenerateContent,
   GeminiRateLimitedError,
   GeminiInvalidKeyError,
+  GeminiTimeoutError,
   GeminiCallRequest,
   GeminiCallResult,
 } from './gemini-client.js';
@@ -82,6 +83,17 @@ export async function callGemini(
         await recordInvalidAttempt(candidate.id, threshold);
         excludedKeys.add(candidate.id);
         continue;
+      }
+
+      // Story 3.6s (AC7) — GeminiTimeoutError must take the exact same unretried, unexcluded
+      // path as any other unknown error: a timeout says nothing about whether the *key* was
+      // bad, only that *this specific call* took too long. Retrying immediately with another
+      // key would not fix a genuinely oversized/slow request and would burn a second key's
+      // quota for no benefit. This explicit branch is a no-op (falls through to the same
+      // re-throw below) -- it exists only to make the "never retried-with-another-key" contract
+      // visible and protected against an accidental future regression.
+      if (error instanceof GeminiTimeoutError) {
+        throw error;
       }
 
       // Re-throw unknown errors

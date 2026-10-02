@@ -176,38 +176,86 @@ Read this before trusting a red gate. None of these come from CC-024 stories.
 - [x] **3.6s carries a minimal inline guard instead** (`AbortController` timeout + output-size cap on the
       extraction call; amended in `epics.md` 2026-10-01). When 0.i2c lands it replaces the inline guard.
 
-## Wave 2B — Coauthor and publisher roles (gates 3.6v)
+## Wave 2B — Coauthor and publisher roles (BUILT 2026-10-02; code review pending; gates 3.6v)
 
-- [ ] **3.13** Normalize Apify vendor coauthor/publisher roles during ingestion
-  - [ ] create  - [ ] dev  - [ ] review
-- [ ] **3.14** Deduplicated, provenance-tracked subscribable profiles — *needs 3.13*
-  - [ ] create  - [ ] dev  - [ ] review
-- [ ] **3.15** Post-account association table + lossless migration — *needs 3.13/3.14 outputs; AD-25 and AD-31 settle the DDL*
-  - [ ] create  - [ ] dev  - [ ] review
+Run from a Claude Code cloud session (Linux, local Postgres via `scripts/cloud-db-setup.sh`), all-claude-medium preset.
+Decisions taken during the wave: 3.14 threads an explicit `vendor` parameter into `persistScrapedPost`; 3.15 sets new
+posts' `posts.accountId` to the canonical PUBLISHER (AC3 spec-literal), accepting that a subscribed account's
+reposts/collabs drop out of its subscribed-feed filter until **3.18** switches the filter to `post_account_associations`.
+
+**Batch-end gate (2026-10-02, `TZ=UTC`):** lint 8/8 pass; build 8/8 pass (one transient `web#build` failure with no
+diagnostic, clean on re-run and standalone); tests: 28 backend failures on the first run. 3 were a Wave 2B regression
+(3.15's FK broke 3.14 test cleanup) — fixed by quick-dev commit `7cf3b28`, the six affected files then 55/55 green.
+The other 25 are cloud-environment only, not Wave 2B: 24 geolocation/location tests need `GEOAPIFY_API_KEY`, and the
+Bright Data `CAPACITY_EXHAUSTED` test runs against `.env.example` placeholders. Polish findings from the quick-dev
+self-review are in `deferred-work.md`.
+
+- [ ] **3.13** Normalize Apify vendor coauthor/publisher roles during ingestion (dev done, commit `3d96426`, status `review`)
+  - [x] create  - [x] dev  - [ ] review
+- [ ] **3.14** Deduplicated, provenance-tracked subscribable profiles — *needs 3.13* (dev done 2026-10-02, status `review`; DB migration 0063 applied; new `onConflictDoUpdate` upsert pattern in `getOrCreateDiscoveredAccountProfile`, flagged for code review; 11 new tests, targeted domain 62/62 + backend 43/43 green, build/lint clean)
+  - [x] create  - [x] dev  - [ ] review
+- [ ] **3.15** Post-account association table + lossless migration — *needs 3.13/3.14 outputs; AD-25 and AD-31 settle the DDL* (dev done 2026-10-02, status `review`; DB migration 0064 applied, 81/81 legacy posts backfilled `PUBLISHER_UNKNOWN`; 11 new/extended tests, targeted 40/40 green, domain/database/backend build + lint clean)
+  - [x] create  - [x] dev  - [ ] review
 - [ ] Prerequisite stories **1.3j**, **1.6c**, **1.3k** are at `review`: standing rule is to build against
       `review`-status prerequisites, so no wait — confirm they reach `done` before 3.6u/3.6y close
 
 ## Wave 2C — Diagnostics (no CC-024 behavior change)
 
-- [ ] **FIND-061** (no new-event push ever received): diagnose before 3.6t/3.6z ship per-event notifications.
-      Leads: inner joins to `user_settings`/`fcm_tokens`, empty `sourceSocialMediaAccountId`,
-      `pushNotificationsEnabled` default
-- [ ] **BUG-053** (`getPostByUrl` fails against the live Apify actor): fix so the POC script and the by-URL
-      resolver path work, and the 4 reference posts can be re-scraped for 3.6s fixtures
+**Batch-end gate (2026-10-02, cloud session, `TZ=UTC`):** lint 8/8 pass; build 8/8 pass; tests: 22 backend failures, all
+geolocation/location (`GEOAPIFY_API_KEY` unset) or the Bright Data `CAPACITY_EXHAUSTED` test (`.env.example` placeholders) —
+the same cloud-environment failures as Wave 2B, none new, and the Wave 2B regression stays fixed.
 
-## Wave 3 — Core build (strictly sequential)
+- [x] **FIND-061** (no new-event push ever received): diagnosed 2026-10-02, bmad-quick-dev — all 3 leads
+      (inner joins to `user_settings`/`fcm_tokens`, empty `sourceSocialMediaAccountId`,
+      `pushNotificationsEnabled` default) traced end-to-end and refuted/unreproducible against current
+      code; recipient query verified correct via real-Postgres regression test (4/4 pass). **Fixed same
+      day** after the user ran this diagnosis's two outstanding production checks and reported back new
+      evidence (`fcm_tokens` has rows; prod recipient query returns rows), which narrowed
+      the failure to at/after FCM send time: `process-ingestion-job.ts` dispatched `sendEventNotifications`
+      fire-and-forget, so the deployed ingestor Lambda could freeze its execution environment before the
+      send ever completed — now awaited (+ same unawaited-notification pattern fixed in
+      `apply-default-location-change.ts`'s moderator email alerts), with a regression test proving the await.
+      See `backlog/FIND-061-no-new-event-push-notification-diagnosis.md`. Remaining open item: confirm
+      backend `FIREBASE_*` admin creds on the ingestor Lambda and check CloudWatch `[sendEventNotifications]`
+      logs after this deploys — this fix corrects a confirmed code bug but doesn't by itself prove prod
+      delivery end-to-end. 3.6z's "soft: FIND-061 diagnosed" prerequisite is satisfied.
+- [x] **BUG-053** (`getPostByUrl` fails against the live Apify actor): fix so the POC script and the by-URL
+      resolver path work, and the 4 reference posts can be re-scraped for 3.6s fixtures
+      (fixed 2026-10-02, bmad-quick-dev — code fix + unit test; verified live the same day, which showed
+      `basicData` dropped carousel slides and `locationName`, so the input now uses `detailedData`; the 4
+      reference posts are re-scraped into `implementation-artifacts/cc-024-reference-posts/` with their
+      expected groupings)
+
+## Wave 3 — Core build (BUILT 2026-10-02; code review pending)
+
+**Batch-end gate (2026-10-02, local Windows, `TZ=UTC`, volume seed cleaned):** the first run found 30 new backend failures, all stale test code, not production: 19 older fixtures inserted events with a `post_id` and no `extraction_ordinal` and hit 3.6r's CHECK constraint `events_post_id_extraction_ordinal_check`; the AI-processor lambda and URL-extraction resolver tests still stubbed Gemini with the pre-3.6s flat shape instead of `events[]`. Fixed by test-only commit `b9352bd9` (no production file touched). **Re-run:** lint 8/8; build 8/8; backend 903 run, 897 pass, 2 skipped, 4 fail (the known `.env` `SYSTEM_GEMINI_API_KEY` tests, FIND-063); domain 394, ui 816, web 550, database 10, infrastructure 4 all pass.
+
+**Ordinal suffix note:** AD-16 Rule 9 uses `~` as the separator (`ig_p_Ddi9wU6RCRQ~2`), not the `-` first proposed, because Instagram post ids are base64url and may themselves end in `-<digit>`.
 
 Per story: `create-story` → `dev-story` → `code-review` → status verified in `sprint-status.yaml`.
 
 - [ ] **3.6r** Add the event–post link table and multi-event schema — *needs AD-30; re-run the four scenarios of
       `cc-024-explain-baseline-2026-10-01.md` and compare; promote a clean version of the capture script*
-  - [ ] create  - [ ] dev  - [ ] review  - [ ] EXPLAIN evidence attached
+  - [x] create  - [x] dev  - [ ] review  - [x] EXPLAIN evidence attached (AC6 PASS: `cc-024-explain-after-3.6r-2026-10-02.md`; `event_post_id_idx` kept)
 - [ ] **3.6s** Extract multiple events per post with grouping rules — *needs 3.6r; carries an inline Gemini timeout
       + output cap (see Deferred track); fixtures: the 4 reference posts, run repeatedly, grouping must match every run*
-  - [ ] create  - [ ] dev  - [ ] review  - [ ] fixtures stable across runs
+      (story created 2026-10-02, status `ready-for-dev`, commit `fe043fea`; cites the batch readiness sweep for
+      Gates 1/3, Gate 2 run fresh — no gap; two design decisions resolved with the user via `AskUserQuestion`:
+      `process-ai-job.ts` defers/does-not-enqueue a multi-event post until 3.6t ships real per-event ordinal
+      ingestion, and the 4 reference-post fixtures get a two-tier test strategy — a deterministic CI suite
+      replaying a one-time-captured real Gemini response per fixture, plus an opt-in live test following the
+      existing `build-gemini-request.live-carousel.test.ts` precedent) (dev done, commit `c57b5c1d`, status `review`; live repeat test run 2026-10-02: all 4 posts matched on all 3 runs, 12 real Gemini calls, 5/5 pass)
+  - [x] create  - [x] dev  - [ ] review  - [x] fixtures stable across runs
 - [ ] **3.6t** Ingest multiple events per post, with per-event slugs and notifications — *needs 3.6r, 3.6s, 3.7f,
       3.7g; sweep correction: a queued message without `extractionOrdinal` defaults to ordinal 0*
-  - [ ] create  - [ ] dev  - [ ] review  - [ ] re-run creates no duplicates
+      (story created 2026-10-02, status `ready-for-dev`; cites the batch readiness sweep for Gates 1/3
+      (Correction 2 folded into AC2), Gate 2 run fresh — no gap; two design decisions resolved with the user
+      via `AskUserQuestion`: best-effort enqueue with per-message retry on partial send failure, and
+      deterministic `extractionOrdinal` assignment by earliest schedule date/normalized name/original index
+      so a re-extraction of the same events keeps the same ordinals — residual limitation documented in Dev
+      Notes for a re-extraction that finds a *different* set of events)
+      (dev done, commits `5600c460`..`1c78ed4b`, status `review`)
+  - [x] create  - [x] dev  - [ ] review  - [x] re-run creates no duplicates (idempotency tests: `(post_id, extraction_ordinal)`, absent ordinal defaults to 0)
 
 ## Wave 4A — Read side, weekday filter, auto-extraction (after 3.6t, any order)
 
@@ -215,7 +263,14 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
       coordinate with 0.i6g (coauthor attribution UI); 3.7h/3.7i recommended*
   - [ ] create  - [ ] dev  - [ ] review  - [ ] hot-path EXPLAIN unchanged
 - [ ] **3.6y** Respect weekday-narrowed schedules in day-of-week filtering — *needs 3.6r, 1.3k, 1.3j*
-  - [ ] create  - [ ] dev  - [ ] review
+      (story created 2026-10-02, status `ready-for-dev`; narrowed to the backend filter gap only —
+      1.3k already ships the column/calendar rendering; cites the batch readiness sweep for Gates 1/3
+      [READY, no correction], Gate 2 run fresh — no gap, zero frontend scope; one design decision
+      resolved with the user via `AskUserQuestion`: the fix is general across all four
+      `scheduleDateRange`/`overlaps` callers — `dayOfWeek` filter, plain `dateRange` filter, `TODAY`,
+      `UPCOMING` — via one closed-form SQL guard in `drizzle-where.ts`, not a narrower single-day-only
+      patch, directly closing the 2026-09-30 backlog finding against BUG-026/0.i5d)
+  - [x] create  - [ ] dev  - [ ] review
 - [ ] **3.6z** Automatically enqueue new scraped posts for extraction within quota — *needs 3.5, 3.6t (and 3.6s's inline guard);
       soft: FIND-061 diagnosed*
   - [ ] create  - [ ] dev  - [ ] review
@@ -225,6 +280,10 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
 - [ ] **3.6v** Match new posts to existing events and enrich them in place — *needs 3.6t, 3.13–3.15, 3.4n, 3.7g,
       3.7h; sweep correction: the alias redirect is wired into both Next.js slug routes and
       `getEventBySlugCached` must not swallow a redirect signal*
+      **Note from 3.6s:** the extraction prompt sets `organizerHandle` to the *posting* account when no handle is tagged
+      for an item (by design, so the handle survives the curator caption being nulled). For roundup-sourced events that is the
+      curator, not the organizer: matching must discount `organizerHandle` when the post's grouping reason is `roundup`
+      or its account type is `CURATOR_GUIDE`.
   - [ ] create  - [ ] dev  - [ ] review  - [ ] promotion keeps favorites/calendar entries
 
 ## Wave 5 — Moderation, collection page, account filtering

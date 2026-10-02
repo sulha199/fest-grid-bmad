@@ -18,7 +18,13 @@
  *   pnpm --filter backend exec tsx scripts/poc-ingestion-preview.ts --url "https://www.instagram.com/p/XXXXXXXXX/"
  *
  * Options:
- *   --url <url>              Instagram post URL to scrape (required)
+ *   --url <url>              Instagram post URL to scrape (required unless --fixture is given;
+ *                            mutually exclusive with --fixture)
+ *   --fixture <path>         Read a committed CacheEntry-shaped JSON file directly (the exact
+ *                            shape cc-024-reference-posts/*.json already uses: { scrapedAt,
+ *                            imageUrlExpiresAt, scrapedPost }), bypassing the cache-key/scrape
+ *                            logic entirely for this run (Story 3.6s, Task 8.1). Mutually
+ *                            exclusive with --url.
  *   --apify-token <token>    Overrides APIFY_API_TOKEN for this run only (falls back to the
  *                            configured value via loadBackendEnv() if omitted). Prefer setting
  *                            this in .env instead of passing it here -- a CLI flag value lands
@@ -30,7 +36,7 @@
  *                            BYOK/KMS machinery. Use your own key via this flag if you'd
  *                            rather not touch the shared system key (same shell-history caveat
  *                            as --apify-token above -- prefer .env when possible).
- *   --force                  Bypass the cache and always re-scrape
+ *   --force                  Bypass the cache and always re-scrape (ignored with --fixture)
  *   --skip-validation        Skip the AJV schema check on Gemini's output (never blocks the
  *                            script either way -- this only silences the warning, useful once
  *                            you're intentionally trying a data structure that no longer
@@ -39,6 +45,9 @@
  *                            DRY RUN ONLY, nothing is ever written to the database. No-ops
  *                            with a message when Gemini reports isEvent: false, matching the
  *                            real pipeline (process-ai-job.ts), which inserts nothing then too.
+ *                            Since Story 3.6s, loops over every entry in `events[]` (one
+ *                            `--- Event N ---` section per event) and prints the post-level
+ *                            groupingReason/minEventCount/skippedItems summary first.
  *   --cache-dir <path>       Override the cache directory (default: scripts/.poc-cache)
  *   --help, -h               Print this usage text and exit
  *
@@ -85,12 +94,15 @@ interface CacheEntry {
 
 const USAGE = `Usage:
   pnpm --filter backend exec tsx scripts/poc-ingestion-preview.ts --url "<instagram-post-url>" [options]
+  pnpm --filter backend exec tsx scripts/poc-ingestion-preview.ts --fixture "<path-to-fixture.json>" [options]
 
 Options:
-  --url <url>              Instagram post URL to scrape (required)
+  --url <url>              Instagram post URL to scrape (mutually exclusive with --fixture)
+  --fixture <path>         Replay a committed CacheEntry-shaped JSON fixture file instead of
+                            scraping (mutually exclusive with --url; Story 3.6s, Task 8.1)
   --apify-token <token>    Overrides APIFY_API_TOKEN for this run only (prefer .env)
   --gemini-key <key>       Overrides SYSTEM_GEMINI_API_KEY for this run only (prefer .env)
-  --force                  Bypass the cache and always re-scrape
+  --force                  Bypass the cache and always re-scrape (ignored with --fixture)
   --skip-validation        Skip the AJV schema check on Gemini's output
   --preview-insert         Also print the events/schedules rows that WOULD be inserted (dry run)
   --cache-dir <path>       Override the cache directory (default: scripts/.poc-cache)
@@ -103,6 +115,7 @@ function parseCliArgs() {
     const { values } = parseArgs({
       options: {
         url: { type: 'string' },
+        fixture: { type: 'string' },
         'apify-token': { type: 'string' },
         'gemini-key': { type: 'string' },
         force: { type: 'boolean', default: false },
@@ -160,64 +173,92 @@ async function main() {
   }
 
   const url = args.url;
-  if (!url) {
-    console.error('Missing required --url <instagram-post-url>');
+  const fixturePath = args.fixture;
+
+  if (!url && !fixturePath) {
+    console.error('Missing required --url <instagram-post-url> or --fixture <path>');
+    console.error(`\n${USAGE}`);
+    process.exit(1);
+  }
+  if (url && fixturePath) {
+    console.error('--url and --fixture are mutually exclusive -- pass exactly one.');
     console.error(`\n${USAGE}`);
     process.exit(1);
   }
 
-  if (args['apify-token']) {
-    // eslint-disable-next-line turbo/no-undeclared-env-vars -- read by instagram-adapter.ts's own loadBackendEnv() call, not this file
-    process.env.APIFY_API_TOKEN = args['apify-token'];
-  }
-
-  const cacheDir = resolve(scriptDir, args['cache-dir'] || '.poc-cache');
-  mkdirSync(cacheDir, { recursive: true });
-  const cacheFile = resolve(cacheDir, `${cacheKeyFor(url)}.json`);
-
-  const platform = detectPlatformFromUrl(url);
-  if (!platform) {
-    console.error(`Unsupported platform for URL: ${url}`);
-    process.exit(1);
-  }
-
   let scrapedPost: ScrapedPost;
-  const cached = readCache(cacheFile);
-  const now = new Date();
 
-  if (!args.force && cached && cached.imageUrlExpiresAt && new Date(cached.imageUrlExpiresAt) > now) {
-    console.log(`[cache] Reusing scrape from ${cached.scrapedAt} (image expires ${cached.imageUrlExpiresAt}) -- pass --force to re-scrape anyway`);
-    scrapedPost = cached.scrapedPost;
-  } else {
-    if (args.force) {
-      console.log('[scrape] --force set, bypassing cache');
-    } else if (cached) {
-      console.log(`[scrape] Cached image expired at ${cached.imageUrlExpiresAt ?? '(no parseable expiry)'}, re-scraping`);
-    } else {
-      console.log('[scrape] No cache entry found, scraping fresh');
-    }
-
-    const adapter = getScraperAdapter(platform);
-    const result = await adapter.getPostByUrl(url);
-    if (!result) {
-      console.error('Scrape returned no post (could not retrieve content from this URL).');
+  if (fixturePath) {
+    // Story 3.6s (Task 8.1) -- replay a committed CacheEntry-shaped fixture directly, bypassing
+    // the cache-key/scrape logic entirely. This lets the four committed reference posts in
+    // cc-024-reference-posts/ be replayed without any network scrape call.
+    const resolvedFixturePath = resolve(process.cwd(), fixturePath);
+    if (!existsSync(resolvedFixturePath)) {
+      console.error(`Fixture file not found: ${resolvedFixturePath}`);
       process.exit(1);
     }
-    scrapedPost = result;
+    let fixtureEntry: CacheEntry;
+    try {
+      fixtureEntry = JSON.parse(readFileSync(resolvedFixturePath, 'utf-8')) as CacheEntry;
+    } catch (err) {
+      console.error(`Fixture file is not valid JSON: ${resolvedFixturePath}`, err);
+      process.exit(1);
+    }
+    console.log(`[fixture] Loaded ${resolvedFixturePath} (scraped ${fixtureEntry.scrapedAt}, image expires ${fixtureEntry.imageUrlExpiresAt ?? '(unknown)'})`);
+    scrapedPost = fixtureEntry.scrapedPost;
+  } else {
+    if (args['apify-token']) {
+      // eslint-disable-next-line turbo/no-undeclared-env-vars -- read by instagram-adapter.ts's own loadBackendEnv() call, not this file
+      process.env.APIFY_API_TOKEN = args['apify-token'];
+    }
 
-    const imageUrlExpiresAt = parseImageUrlExpiry(scrapedPost.imageUrl ?? null);
-    const entry: CacheEntry = {
-      scrapedAt: now.toISOString(),
-      imageUrlExpiresAt: imageUrlExpiresAt ? imageUrlExpiresAt.toISOString() : null,
-      scrapedPost,
-    };
-    writeFileSync(cacheFile, JSON.stringify(entry, null, 2));
-    console.log(
-      `[scrape] Cached to ${cacheFile}` +
-        (imageUrlExpiresAt
-          ? ` (image expires ${imageUrlExpiresAt.toISOString()})`
-          : ' (no parseable image expiry -- will re-scrape every run)')
-    );
+    const cacheDir = resolve(scriptDir, args['cache-dir'] || '.poc-cache');
+    mkdirSync(cacheDir, { recursive: true });
+    const cacheFile = resolve(cacheDir, `${cacheKeyFor(url!)}.json`);
+
+    const platform = detectPlatformFromUrl(url!);
+    if (!platform) {
+      console.error(`Unsupported platform for URL: ${url}`);
+      process.exit(1);
+    }
+
+    const cached = readCache(cacheFile);
+    const now = new Date();
+
+    if (!args.force && cached && cached.imageUrlExpiresAt && new Date(cached.imageUrlExpiresAt) > now) {
+      console.log(`[cache] Reusing scrape from ${cached.scrapedAt} (image expires ${cached.imageUrlExpiresAt}) -- pass --force to re-scrape anyway`);
+      scrapedPost = cached.scrapedPost;
+    } else {
+      if (args.force) {
+        console.log('[scrape] --force set, bypassing cache');
+      } else if (cached) {
+        console.log(`[scrape] Cached image expired at ${cached.imageUrlExpiresAt ?? '(no parseable expiry)'}, re-scraping`);
+      } else {
+        console.log('[scrape] No cache entry found, scraping fresh');
+      }
+
+      const adapter = getScraperAdapter(platform);
+      const result = await adapter.getPostByUrl(url!);
+      if (!result) {
+        console.error('Scrape returned no post (could not retrieve content from this URL).');
+        process.exit(1);
+      }
+      scrapedPost = result;
+
+      const imageUrlExpiresAt = parseImageUrlExpiry(scrapedPost.imageUrl ?? null);
+      const entry: CacheEntry = {
+        scrapedAt: now.toISOString(),
+        imageUrlExpiresAt: imageUrlExpiresAt ? imageUrlExpiresAt.toISOString() : null,
+        scrapedPost,
+      };
+      writeFileSync(cacheFile, JSON.stringify(entry, null, 2));
+      console.log(
+        `[scrape] Cached to ${cacheFile}` +
+          (imageUrlExpiresAt
+            ? ` (image expires ${imageUrlExpiresAt.toISOString()})`
+            : ' (no parseable image expiry -- will re-scrape every run)')
+      );
+    }
   }
 
   console.log('\n--- Scraped Post ---');
@@ -279,25 +320,57 @@ async function main() {
       // Matches process-ai-job.ts's real behavior: isEvent === false inserts nothing at all,
       // just marks the post extracted. Previewing an events row here would be fabricated.
       console.log('Gemini reported isEvent: false -- the real pipeline inserts nothing for this post (just marks it extracted). Nothing to preview.');
+    } else if (!payload.events || payload.events.length === 0) {
+      // Story 3.6s (Task 8.3) -- defensive edge case mirroring Task 7.1: isEvent: true with an
+      // empty events array. Not expected in practice, but handled gracefully rather than
+      // crashing a debugging tool.
+      console.log('Gemini reported isEvent: true but events is empty -- nothing to preview.');
     } else {
-      const extractedMessage = transformGeminiResponseToEventInfo(payload, {
-        postId: message.postId,
-        sourceSocialMediaAccountId: '',
-        // No defaultLocation: this script has no account context to source one from (it's a
-        // one-off URL, not a subscribed account), so the top-level location fallback branch
-        // in transformGeminiResponseToEventInfo is intentionally never exercised here.
-        resolvedScheduleLocations: new Map(),
-        sourcePostText: scrapedPost.content,
+      // Story 3.6s (Task 8.2) -- print the post-level grouping summary first, then one
+      // "--- Event N ---" section per event. Unlike process-ai-job.ts's production truncation
+      // (Task 7.2), this debugging script never silently drops events from the preview -- it
+      // warns if the cap was exceeded but still shows every returned event, since suppressing
+      // data from a human-inspected tool would defeat its purpose (Task 8.3).
+      const env2 = loadBackendEnv();
+      console.log('\n--- Grouping summary ---');
+      console.log(`groupingReason: ${payload.groupingReason ?? '(absent)'}`);
+      console.log(`minEventCount (self-reported): ${payload.minEventCount ?? '(absent)'}, actual events: ${payload.events.length}`);
+      console.log(`skippedItems: ${payload.skippedItems && payload.skippedItems.length ? JSON.stringify(payload.skippedItems, null, 2) : '(none)'}`);
+      if (payload.events.length > env2.maxExtractedEventsPerPost) {
+        console.warn(
+          `\n[warning] Gemini returned ${payload.events.length} events, exceeding the configured cap of ` +
+            `${env2.maxExtractedEventsPerPost} (MAX_EXTRACTED_EVENTS_PER_POST). The real pipeline ` +
+            `(process-ai-job.ts) would truncate to the first ${env2.maxExtractedEventsPerPost} -- showing all ` +
+            `${payload.events.length} here anyway since this is a debugging preview, not production insertion.`
+        );
+      }
+
+      payload.events.forEach((event, i) => {
+        console.log(`\n--- Event ${i} ---`);
+        const extractedMessage = transformGeminiResponseToEventInfo(event, {
+          postId: message.postId,
+          sourceSocialMediaAccountId: '',
+          // No defaultLocation: this script has no account context to source one from (it's a
+          // one-off URL, not a subscribed account), so the top-level location fallback branch
+          // in transformGeminiResponseToEventInfo is intentionally never exercised here.
+          resolvedScheduleLocations: new Map(),
+          sourcePostText: scrapedPost.content,
+        });
+        // No real `posts` row exists for this one-off preview run (nothing is written to the
+        // DB), so there's no source post identity to derive a platform-prefixed slug from --
+        // pass `null` and let the preview show the legacy-hex-fallback shape (no `slug` key),
+        // per Story 3.7g AC2.
+        const { event: eventRow, schedules } = buildEventInsertValues(extractedMessage, null);
+        console.log('events row:', JSON.stringify(eventRow, null, 2));
+        console.log(`schedules rows (${schedules.length}):`, JSON.stringify(schedules, null, 2));
       });
-      // No real `posts` row exists for this one-off preview run (nothing is written to the DB),
-      // so there's no source post identity to derive a platform-prefixed slug from -- pass
-      // `null` and let the preview show the legacy-hex-fallback shape (no `slug` key), per
-      // Story 3.7g AC2.
-      const { event, schedules } = buildEventInsertValues(extractedMessage, null);
-      console.log('events row:', JSON.stringify(event, null, 2));
-      console.log(`schedules rows (${schedules.length}):`, JSON.stringify(schedules, null, 2));
+
       console.log(
-        "\nNote: events.postId carries a strict DB-level UNIQUE constraint -- the real pipeline supports exactly one event per post today, not multiple."
+        '\nNote: events.post_id is no longer a bare UNIQUE constraint (Story 3.6r) -- the real ' +
+          'schema uses a composite UNIQUE on (post_id, extraction_ordinal), since one post may now ' +
+          'link to several events (AD-30). This story (3.6s) still enqueues at most one event per ' +
+          'post in production (AC8, pending Story 3.6t) -- this preview script is the only place ' +
+          'that shows what multiple events from one post would look like today.'
       );
     }
   }

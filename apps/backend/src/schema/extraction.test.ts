@@ -156,15 +156,19 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
       return {
         text: JSON.stringify({
           isEvent: true,
-          eventName: 'Existing Path Festival',
-          types: ['PERFORMANCE'],
-          categories: ['MUSIC'],
-          confidenceScore: 0.9,
-          schedules: [
+          events: [
             {
-              isMainSchedule: true,
-              eventStartDate: '2026-09-01',
-              title: 'Main stage'
+              eventName: 'Existing Path Festival',
+              types: ['PERFORMANCE'],
+              categories: ['MUSIC'],
+              confidenceScore: 0.9,
+              schedules: [
+                {
+                  isMainSchedule: true,
+                  eventStartDate: '2026-09-01',
+                  title: 'Main stage'
+                }
+              ]
             }
           ]
         })
@@ -250,15 +254,19 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
       return {
         text: JSON.stringify({
           isEvent: true,
-          eventName: 'New Pasted Event',
-          types: ['PERFORMANCE'],
-          categories: ['MUSIC'],
-          confidenceScore: 0.95,
-          schedules: [
+          events: [
             {
-              isMainSchedule: true,
-              eventStartDate: '2026-10-10',
-              title: 'Only Schedule'
+              eventName: 'New Pasted Event',
+              types: ['PERFORMANCE'],
+              categories: ['MUSIC'],
+              confidenceScore: 0.95,
+              schedules: [
+                {
+                  isMainSchedule: true,
+                  eventStartDate: '2026-10-10',
+                  title: 'Only Schedule'
+                }
+              ]
             }
           ]
         })
@@ -307,11 +315,7 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
       return {
         text: JSON.stringify({
           isEvent: false,
-          eventName: '',
-          types: [],
-          categories: [],
-          confidenceScore: 0.1,
-          schedules: []
+          events: []
         })
       };
     });

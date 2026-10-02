@@ -112,22 +112,26 @@ test('processAiJob carousel completeness logging tests', async (t) => {
     // Only 3 of the ~30 ground-truth events are returned, but the model self-reports 8 expected.
     const payload: GeminiExtractionPayload = {
       isEvent: true,
-      eventName: 'Kumpulan Event Lari Jogja',
-      types: ['PERFORMANCE'],
-      categories: ['SPORTS_AND_FITNESS'],
-      schedules: [
-        buildSchedule('Pink Ribbon Run 2026', '2026-10-25'),
-        buildSchedule('K24 Healthy Run', '2026-10-25'),
-        buildSchedule('Erafone Run 2026', '2026-10-31')
-      ],
-      location: 'Yogyakarta',
-      confidenceScore: 0.9,
-      minScheduleCount: 8,
-      expectedScheduleNames: GROUND_TRUTH_NAMES
+      events: [
+        {
+          eventName: 'Kumpulan Event Lari Jogja',
+          types: ['PERFORMANCE'],
+          categories: ['SPORTS_AND_FITNESS'],
+          schedules: [
+            buildSchedule('Pink Ribbon Run 2026', '2026-10-25'),
+            buildSchedule('K24 Healthy Run', '2026-10-25'),
+            buildSchedule('Erafone Run 2026', '2026-10-31')
+          ],
+          location: 'Yogyakarta',
+          confidenceScore: 0.9,
+          minScheduleCount: 8,
+          expectedScheduleNames: GROUND_TRUTH_NAMES
+        }
+      ]
     };
 
     const message: ProcessingJobMessage = {
-      postId: 'post-carousel-completeness-1',
+      postId: '00000000-0000-4000-8000-0000000000c1',
       accountId: profile.id,
       content: 'Rangkuman event lari di Jogja — schedule on later slides',
       postUrl: 'https://www.instagram.com/p/DcntzF0mB7z/',
@@ -154,7 +158,7 @@ test('processAiJob carousel completeness logging tests', async (t) => {
 
     assert.strictEqual(warnCalls.length, 1, 'Expected exactly one incomplete-extraction warning');
     const warnText = warnCalls[0].join(' ');
-    assert.ok(warnText.includes('post-carousel-completeness-1'), 'warning should include post id');
+    assert.ok(warnText.includes('00000000-0000-4000-8000-0000000000c1'), 'warning should include post id');
     assert.ok(warnText.includes('minScheduleCount=8'), 'warning should include minScheduleCount');
     assert.ok(warnText.includes('actual schedules=3'), 'warning should include actual schedules length');
     assert.ok(warnText.includes('Pink Ribbon Run 2026'), 'warning should include an expectedScheduleName');
@@ -166,17 +170,21 @@ test('processAiJob carousel completeness logging tests', async (t) => {
     assert.strictEqual(warnMock.mock.callCount(), 1, 'warn should have been called exactly once');
   });
 
-  await t.test('Case B: AJV accepts a payload carrying the two new optional fields (Task 4/AC5)', async () => {
+  await t.test('Case B: AJV accepts a payload carrying the two new optional per-event fields (Task 4/AC5)', async () => {
     const validate = compileValidator<GeminiExtractionPayload>(extractedEventSchema);
     const valid = validate({
       isEvent: true,
-      eventName: 'Single Event',
-      types: ['PERFORMANCE'],
-      categories: ['MUSIC'],
-      schedules: [{ isMainSchedule: true, eventStartDate: '2026-09-20' }],
-      confidenceScore: 0.92,
-      minScheduleCount: 1,
-      expectedScheduleNames: ['Single Event']
+      events: [
+        {
+          eventName: 'Single Event',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [{ isMainSchedule: true, eventStartDate: '2026-09-20' }],
+          confidenceScore: 0.92,
+          minScheduleCount: 1,
+          expectedScheduleNames: ['Single Event']
+        }
+      ]
     });
     assert.strictEqual(valid, true, 'payload with minScheduleCount/expectedScheduleNames must pass AJV');
   });
@@ -186,15 +194,19 @@ test('processAiJob carousel completeness logging tests', async (t) => {
 
     const payload: GeminiExtractionPayload = {
       isEvent: true,
-      eventName: 'Single Event',
-      types: ['PERFORMANCE'],
-      categories: ['MUSIC'],
-      schedules: [buildSchedule('Single Event', '2026-09-20')],
-      confidenceScore: 0.92
+      events: [
+        {
+          eventName: 'Single Event',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [buildSchedule('Single Event', '2026-09-20')],
+          confidenceScore: 0.92
+        }
+      ]
     };
 
     const message: ProcessingJobMessage = {
-      postId: 'post-carousel-completeness-2',
+      postId: '00000000-0000-4000-8000-0000000000c2',
       accountId: profile.id,
       content: 'Event announcement',
       postUrl: 'https://www.instagram.com/p/abc123/',
@@ -211,22 +223,17 @@ test('processAiJob carousel completeness logging tests', async (t) => {
     assert.strictEqual(warnCalls.length, 0, 'No warning when minScheduleCount is absent');
   });
 
-  await t.test('Case D: isEvent=false with minScheduleCount present -> no warning (AC6)', async (t) => {
+  await t.test('Case D: isEvent=false with minEventCount present -> no warning (AC6, the early-return branch runs before any minEventCount check)', async (t) => {
     const { warnCalls } = captureWarn(t);
 
     const payload: GeminiExtractionPayload = {
       isEvent: false,
-      eventName: '',
-      types: [],
-      categories: [],
-      schedules: [],
-      confidenceScore: 0.99,
-      minScheduleCount: 5,
-      expectedScheduleNames: ['Non-event garbage']
+      events: [],
+      minEventCount: 5
     };
 
     const message: ProcessingJobMessage = {
-      postId: 'post-carousel-completeness-3',
+      postId: '00000000-0000-4000-8000-0000000000c3',
       accountId: profile.id,
       content: 'Just a random non-event post',
       postUrl: 'https://www.instagram.com/p/xyz789/',
@@ -250,5 +257,50 @@ test('processAiJob carousel completeness logging tests', async (t) => {
     assert.strictEqual(warnCalls.length, 0, 'No warning when isEvent=false even if minScheduleCount present');
     assert.strictEqual(markPostExtractedCalled, true, 'non-event should be marked extracted');
     assert.strictEqual(sendSqsMessageCalled, false, 'non-event should not enqueue');
+  });
+
+  await t.test('Case E: post-level minEventCount exceeds the actual event count -> warning (Task 7.4), single event still enqueues', async (t) => {
+    const { warnCalls } = captureWarn(t);
+
+    // Model self-reports it believes the post describes 2 events but only extracted 1.
+    const payload: GeminiExtractionPayload = {
+      isEvent: true,
+      minEventCount: 2,
+      events: [
+        {
+          eventName: 'Single Event Of A Suspected Pair',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [buildSchedule('Single Event Of A Suspected Pair', '2026-09-20')],
+          confidenceScore: 0.9
+        }
+      ]
+    };
+
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-0000000000c4',
+      accountId: profile.id,
+      content: 'Possibly incomplete grouping',
+      postUrl: 'https://www.instagram.com/p/incomplete-grouping/',
+      publishedAt: '2026-08-29T10:24:17Z'
+    };
+
+    let sendSqsMessageCalled = false;
+
+    setCallGeminiSeam(async () => ({ text: JSON.stringify(payload) }));
+    setSendSqsMessage(async () => {
+      sendSqsMessageCalled = true;
+    });
+    setMarkPostExtractedSeam(async () => ({} as any));
+    setResolveLocationSeam(async () => ({ location: undefined }) as any);
+
+    await processAiJob(message);
+
+    assert.strictEqual(warnCalls.length, 1, 'Expected exactly one post-level minEventCount warning');
+    const warnText = warnCalls[0].join(' ');
+    assert.ok(warnText.includes('00000000-0000-4000-8000-0000000000c4'));
+    assert.ok(warnText.includes('minEventCount=2'));
+    assert.ok(warnText.includes('actual events=1'));
+    assert.ok(sendSqsMessageCalled, 'the single extracted event should still enqueue');
   });
 });

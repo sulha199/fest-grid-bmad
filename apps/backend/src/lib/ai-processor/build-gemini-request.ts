@@ -1,12 +1,15 @@
 import { EventType, EventCategory } from '@festgrid/shared-types';
-import { type ProcessingJobMessage } from '@festgrid/domain/posts';
+import { type ProcessingJobMessage, POST_GROUPING_REASONS } from '@festgrid/domain/posts';
+import { DayOfWeek } from '@festgrid/domain/events';
 import { type GeminiCallRequest } from '../ai-gateway/gemini-client.js';
 import { loadBackendEnv } from '../../env.js';
 
-export const geminiExtractionResponseSchema = {
+// Story 3.6s — per-event object nested under the post-level `events` array. Everything that
+// used to be flat on the response schema (pre-3.6s) now lives here, plus the new
+// `organizerHandle`/`applicableDaysOfWeek` fields (AD-30 Rule 5, BUG-026).
+const geminiEventResponseSchema = {
   type: 'OBJECT',
   properties: {
-    isEvent: { type: 'BOOLEAN' },
     eventName: { type: 'STRING' },
     types: {
       type: 'ARRAY',
@@ -32,7 +35,13 @@ export const geminiExtractionResponseSchema = {
             items: { type: 'STRING' }
           },
           location: { type: 'STRING' },
-          ticketPrice: { type: 'STRING' }
+          ticketPrice: { type: 'STRING' },
+          // Story 3.6s (BUG-026) — populated only when the source text states the schedule
+          // recurs on specific weekdays within a date span (Story 1.3k, PRD §4.4).
+          applicableDaysOfWeek: {
+            type: 'ARRAY',
+            items: { type: 'STRING', enum: Object.values(DayOfWeek) }
+          }
         },
         required: ['isMainSchedule', 'eventStartDate']
       }
@@ -61,10 +70,63 @@ export const geminiExtractionResponseSchema = {
     // schedules/events the caption + all provided images appear to describe; the producer of
     // the request only logs when the parsed schedules fall short of it.
     minScheduleCount: { type: 'NUMBER' },
-    expectedScheduleNames: { type: 'ARRAY', items: { type: 'STRING' } }
+    expectedScheduleNames: { type: 'ARRAY', items: { type: 'STRING' } },
+    // Story 3.6s (AD-30 Rule 5) — the @handle tagged for this specific item, captured at
+    // extraction time since a CURATOR_GUIDE post's caption is nulled after extraction (3.4o).
+    organizerHandle: { type: 'STRING' }
   },
-  required: ['isEvent', 'eventName', 'types', 'categories', 'schedules', 'confidenceScore']
+  required: ['eventName', 'types', 'categories', 'schedules', 'confidenceScore']
 };
+
+// Story 3.6s — builds the Gemini-facing response schema. Still a function (not a module-level
+// constant) for consistency with the rest of this file's env-lazy-loading convention, even
+// though the schema itself no longer varies by the roundup cap (see the `events` property's own
+// comment below for why `maxExtractedEventsPerPost` is NOT set as a JSON-schema `maxItems` here).
+export function buildGeminiExtractionResponseSchema() {
+  return {
+    type: 'OBJECT',
+    properties: {
+      isEvent: { type: 'BOOLEAN' },
+      // Story 3.6s — nests every per-event field under `events[]`. `maxExtractedEventsPerPost`
+      // is still threaded in (used by the system prompt text, see below) and is still the
+      // single source of truth the prompt and the code-level truncation (process-ai-job.ts)
+      // both read from -- but it is deliberately NOT set as a JSON-schema `maxItems` on this
+      // array. Verified live during this story's Task 9.1 fixture capture: adding `maxItems` to
+      // this array, combined with `geminiEventResponseSchema`'s nested object/array complexity,
+      // makes the real Gemini API reject the ENTIRE request with a 400 INVALID_ARGUMENT (the
+      // structured-output constrained decoder appears to unroll a bounded array up to its
+      // `maxItems` copies of the item schema internally, and this item schema is too large for
+      // that to stay within some internal limit) -- confirmed by bisection: the same `maxItems`
+      // value succeeds against a trivial item schema and fails only once the item schema grows
+      // to this story's actual per-event shape. The cap is enforced instead via the prompt text
+      // (which states the real number) and the code-level truncation backstop in
+      // process-ai-job.ts -- the AJV schema already deliberately has no `maxItems` either (see
+      // extracted-event.schema.ts), so this keeps both schemas consistent as "soft cap via
+      // prompt + hard cap via code", never a JSON-schema array bound on this field.
+      events: {
+        type: 'ARRAY',
+        items: geminiEventResponseSchema
+      },
+      // Story 3.6s (AD-30 Rule 5) — the post-level grouping decision, made once per post before
+      // per-event extraction.
+      groupingReason: { type: 'STRING', enum: [...POST_GROUPING_REASONS] },
+      // One-sentence model self-explanation of the grouping decision, for debugging only — never
+      // persisted (AD-30 Rule 5).
+      groupingRationale: { type: 'STRING' },
+      // Model's own best-effort count of distinct events it believes the content describes,
+      // mirroring minScheduleCount's existing self-report/logging-only pattern.
+      minEventCount: { type: 'NUMBER' },
+      // Brief human-readable reason per roundup item skipped for missing a readable date or
+      // location (e.g. "Jakarta Fun Run — no date stated").
+      skippedItems: { type: 'ARRAY', items: { type: 'STRING' } }
+    },
+    required: ['isEvent', 'events']
+  };
+}
+
+// Default-cap schema, for callers/tests that only need the shape (not a specific cap value).
+// buildGeminiExtractionRequest() below always builds its own copy from the live env value.
+export const geminiExtractionResponseSchema = buildGeminiExtractionResponseSchema();
 
 export interface BuildGeminiExtractionRequestResult {
   request: GeminiCallRequest;
@@ -81,22 +143,45 @@ export async function buildGeminiExtractionRequest(
 
   const publishDate = message.publishedAt.substring(0, 10);
 
-  const systemInstruction = `You are an expert event information extraction system. Your task is to analyze the social media post caption and/or image (such as an event poster) to:
-1. Determine if it describes or advertises a specific event (set isEvent to true if the post/image is indeed an event poster or event advertisement, false otherwise).
-2. Extract the eventName (required if isEvent is true).
-3. Select appropriate types from this allowed list: ${allowedTypes}.
-4. Select appropriate categories from this allowed list: ${allowedCategories}.
-5. Extract schedule(s) under schedules. For each schedule, isMainSchedule (boolean) and eventStartDate (YYYY-MM-DD) are required. Extract title, eventEndDate (YYYY-MM-DD), eventStartTime (HH:MM:SS), eventEndTime (HH:MM:SS), performers (array), location, and ticketPrice if available.
-6. Extract the top-level location, organizerName, contactInfo, and description if present.
-6a. Classify any contact information found: if it is business/official (a role-based email such as info@venue.com, or an official venue/PT office phone number), populate contactInfo as normal. If it is private/individual (a personal phone number, a personal email address, or a wa.me/<number> WhatsApp link), do NOT populate contactInfo with it -- instead set hasPrivateContact to true and leave contactInfo absent/empty for that value. Treat a wa.me link exactly like a raw personal phone number for this classification -- never describe it merely as "a link" or minimize it, since it directly encodes a reachable personal phone number. If no contact information is present at all, leave both contactInfo and hasPrivateContact absent.
-6b. Extract any explicit additional links mentioned in the caption or visible in the image under links (ticketing, RSVP, merch, linktree, or similar) as an array of {url, label}, where label is an optional short label taken directly from the source text when it names the link (e.g. "Tickets:", "RSVP here"). If no such links are present, leave links absent.
-7. Assign a confidenceScore between 0 and 1 indicating your confidence in the extraction.
-8. Use the provided account name metadata (if present) to help disambiguate ambiguous location or venue references in the post text.
-9. A performer's name must still be extracted normally into that schedule's performers array. However, any personal contact detail belonging to a specific performer (a phone number, an email address, or a booking/management link, including a wa.me link) or any photo/image reference or URL associated with a specific performer -- wherever it appears in the caption text or the image -- must never be copied into description, contactInfo, organizerName, or any schedule field (title, location, performers). If such a detail is present in the source, omit it entirely from the extraction rather than including it in any field.
-10. When more than one image is provided alongside the caption, the images are sequential slides (pages) of one social media post in their given order -- not independent posts. Schedule information may be split across multiple slides (for example, one slide may list dates while another lists details). Extract schedule information from across all provided images, and merge/attribute schedule entries that describe the same event into one combined entry in the schedules array rather than treating each image as a separate or competing event.
-11. Self-report your extraction completeness: set minScheduleCount to the best-effort count of distinct schedules/events the caption and all provided images together appear to describe (whether or not every field was extractable, and for the single-image case just the events apparent from the single image and caption). Set expectedScheduleNames to an array of the name/title text of the schedules you can identify, even when some of their other fields could not be extracted. Report a single number/count and names you are reasonably confident about; these are advisory only and are never required to be perfectly exhaustive.
+  const allowedGroupingReasons = POST_GROUPING_REASONS.join(', ');
+  const allowedDaysOfWeek = Object.values(DayOfWeek).join(', ');
+  const maxEvents = env.maxExtractedEventsPerPost;
 
-The social media post was published on ${publishDate}. Use this publish date as an explicit anchor for date and year inference:
+  const systemInstruction = `You are an expert event information extraction system. Your task is to analyze the social media post caption and/or image (such as an event poster) to determine whether it describes or advertises one or more specific events, and to extract structured information for each one.
+
+0. GROUPING DECISION (do this once per post, before extracting any individual event). Decide whether the post describes a single event or several distinct events, using these rules in order:
+   a. Strong signals that the post covers SEPARATE events: different event names with no shared umbrella title, different venues/locations for items that are not stages of one program, explicitly distinct ticket/registration links per item, or -- the most common real-world case -- each item has its OWN independent registration/sign-up-to-outcome pipeline (its own registration window, its own technical meeting, its own match/final day), even when all items are marketed under one overarching tournament/brand name. For example, a tournament poster listing several separate competition categories (e.g. billiard, an esports title, futsal) where EACH category has its own full registration-through-match-day timeline is SEPARATE events (one per category), NOT one event with many schedules -- the shared brand name/poster is marketing packaging, not evidence of a single event. Contrast this with rule d below, which is reserved for a single category/discipline with exactly ONE registration-to-outcome pipeline.
+   b. Two or more weak signals together (e.g. different dates more than ~7 days apart AND different performers/lineups) also indicate SEPARATE events, even without a strong signal.
+   c. Items within about 7 days of each other sharing one title/venue/umbrella program stay as ONE event with MULTIPLE schedules (groupingReason: "program-lineup"). This applies whenever the post lists two or more distinct sub-items (sub-performances, sub-activities, separately-dated components) under one umbrella title/venue, where those sub-items are facets of the SAME occasion rather than independent competitions each with their own pipeline (see rule a) -- e.g. a multi-day anniversary/festival program listing several named segments (a headline performance on one date, a show on another, a closing event on a third) is "program-lineup", NOT "single-event", precisely because it has more than one schedule entry under the shared umbrella.
+   d. Dependent stages of ONE single process for ONE single discipline/category (e.g. one qualifying round then one final for the same competition, or one registration/sign-up window followed by that same event) stay as ONE event -- the registration or sign-up window becomes one of its schedules, not a separate event (groupingReason: "dependent-stages"). Do not use this rule when there are multiple parallel categories/disciplines each running their own such pipeline -- that is rule a (separate events), not this rule.
+   e. A "roundup" post that lists several unrelated events from a curator/aggregator account is its own case (see ROUNDUP HANDLING below; groupingReason: "roundup").
+   f. Otherwise -- the post describes exactly ONE schedule/occurrence with no sub-items -- use groupingReason: "single-event". Reserve "single-event" strictly for a post whose event ends up with exactly one schedule entry; as soon as an event has two or more schedule entries grouped under one umbrella (rule c) or dependent stages (rule d), use that more specific reason instead, never the generic "single-event" fallback.
+   Set the top-level isEvent to true if the post/image is indeed an event poster or event advertisement for at least one event, false otherwise. When isEvent is true, put one entry per identified event into the events array (at least one entry); when isEvent is false, events must be an empty array.
+
+ROUNDUP HANDLING: when the post is a roundup/aggregator listing (groupingReason: "roundup"), extract an item into events only when it has BOTH a readable date AND a readable location. If an item is missing either, do NOT guess -- instead add a short entry to the top-level skippedItems array describing the item and why it was skipped (e.g. "Jakarta Fun Run -- no date stated"). Do not extract more than ${maxEvents} events total for the post, even if more items are present in the source content.
+
+For EACH identified event in the events array, extract:
+1. eventName (required).
+2. types: select appropriate values from this allowed list: ${allowedTypes}.
+3. categories: select appropriate values from this allowed list: ${allowedCategories}.
+4. schedules: for each schedule, isMainSchedule (boolean) and eventStartDate (YYYY-MM-DD) are required. Extract title, eventEndDate (YYYY-MM-DD), eventStartTime (HH:MM:SS), eventEndTime (HH:MM:SS), performers (array), location, ticketPrice, and applicableDaysOfWeek if available.
+   4a. Set a schedule's applicableDaysOfWeek only when the source text states that schedule recurs only on specific weekdays within a date span (e.g. "every Friday and Saturday, Oct 1-31") -- use values from this allowed list: ${allowedDaysOfWeek}. Leave it absent when the schedule is a single occurrence or the text does not state specific recurring weekdays.
+5. location, organizerName, contactInfo, and description for this specific event, if present.
+5a. Classify any contact information found: if it is business/official (a role-based email such as info@venue.com, or an official venue/PT office phone number), populate contactInfo as normal. If it is private/individual (a personal phone number, a personal email address, or a wa.me/<number> WhatsApp link), do NOT populate contactInfo with it -- instead set hasPrivateContact to true and leave contactInfo absent/empty for that value. Treat a wa.me link exactly like a raw personal phone number for this classification -- never describe it merely as "a link" or minimize it, since it directly encodes a reachable personal phone number. If no contact information is present at all, leave both contactInfo and hasPrivateContact absent.
+5b. Extract any explicit additional links mentioned in the caption or visible in the image for this event under links (ticketing, RSVP, merch, linktree, or similar) as an array of {url, label}, where label is an optional short label taken directly from the source text when it names the link (e.g. "Tickets:", "RSVP here"). If no such links are present, leave links absent.
+6. confidenceScore between 0 and 1 indicating your confidence in this event's extraction.
+7. Use the provided account name metadata (if present) to help disambiguate ambiguous location or venue references in the post text for this event.
+8. A performer's name must still be extracted normally into that schedule's performers array. However, any personal contact detail belonging to a specific performer (a phone number, an email address, or a booking/management link, including a wa.me link) or any photo/image reference or URL associated with a specific performer -- wherever it appears in the caption text or the image -- must never be copied into description, contactInfo, organizerName, or any schedule field (title, location, performers). If such a detail is present in the source, omit it entirely from the extraction rather than including it in any field.
+9. When more than one image is provided alongside the caption, the images are sequential slides (pages) of one social media post in their given order -- not independent posts. Schedule information for one event may be split across multiple slides (for example, one slide may list dates while another lists details). Extract schedule information from across all provided images, and merge/attribute schedule entries that describe the same event into one combined entry in that event's schedules array rather than treating each image as a separate or competing event (this is about schedules within one event -- it is independent of the post-level grouping decision above, which may still split the images' content into several distinct events).
+10. organizerHandle: the @-handle specifically associated with this item -- the account that posted it, or an explicitly @-tagged organizer in the caption for this item -- even when the post's own account is a curator/aggregator. Capture this now; it will not be re-derivable from the caption later.
+11. Self-report this event's extraction completeness: set minScheduleCount to the best-effort count of distinct schedules this event's caption/image content appears to describe (whether or not every field was extractable). Set expectedScheduleNames to an array of the name/title text of the schedules you can identify for this event, even when some of their other fields could not be extracted. Report a single number/count and names you are reasonably confident about; these are advisory only and are never required to be perfectly exhaustive.
+
+Also report, once for the whole post (not per event):
+- groupingReason: the exact value from this allowed list matching the rule you applied in the GROUPING DECISION above: ${allowedGroupingReasons}.
+- groupingRationale: one sentence explaining your grouping decision, for debugging only.
+- minEventCount: your own best-effort count of distinct events you believe the content describes overall (mirrors minScheduleCount's self-report pattern, advisory only).
+
+The social media post was published on ${publishDate}. Use this publish date as an explicit anchor for date and year inference, for every event:
 - When a schedule's date text (in the caption or image) does not state an explicit year, infer the year using this publish date as the anchor, assuming the event is happening at or after the publish date. Prefer the current or next real-world occurrence over defaulting to any other year, and never infer a year that would place the event further in the past than the publish date itself unless the source text explicitly states a past year.
 - If the schedule's source text explicitly states a year, you must respect and use that stated year and do not override it.
 
@@ -182,8 +267,12 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
   const request: GeminiCallRequest = {
     contents,
     systemInstruction,
-    responseSchema: geminiExtractionResponseSchema,
-    responseMimeType: 'application/json'
+    responseSchema: buildGeminiExtractionResponseSchema(),
+    responseMimeType: 'application/json',
+    // Story 3.6s (AC3/AC7) — explicit response-size cap, a minimal inline stand-in for the
+    // not-yet-built guarded vendor-call wrapper (0.i2a-0.i2c).
+    maxOutputTokens: env.geminiMaxOutputTokens,
+    timeoutMs: env.geminiExtractionTimeoutMs
   };
 
   return {

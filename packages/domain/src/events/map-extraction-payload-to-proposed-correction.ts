@@ -1,7 +1,14 @@
 import { EventType, EventCategory } from '@festgrid/shared-types';
-import { GeminiExtractionPayload, ProposedEventCorrection, ProposedScheduleCorrection } from './types.js';
+import { GeminiEventPayload, ProposedEventCorrection, ProposedScheduleCorrection } from './types.js';
 
-export function mapExtractionPayloadToProposedCorrection(payload: GeminiExtractionPayload): ProposedEventCorrection {
+// Story 3.6s — retyped from GeminiExtractionPayload (now the post-level `events[]` wrapper) to
+// GeminiEventPayload: this function always maps exactly one event into one correction preview
+// (Story 4.2a's on-demand AI-assisted correction flow targets exactly one existing event), so
+// its caller (apps/backend's submitCorrectionPreview-style resolver) is responsible for
+// selecting the single event to pass here -- see that call site for how a multi-event response
+// is handled (out of this story's AC scope, but required to keep the resolver compiling/working
+// against the restructured payload shape).
+export function mapExtractionPayloadToProposedCorrection(payload: GeminiEventPayload): ProposedEventCorrection {
   const schedules: ProposedScheduleCorrection[] = (payload.schedules || []).map((s) => ({
     id: undefined,
     isMainSchedule: s.isMainSchedule,

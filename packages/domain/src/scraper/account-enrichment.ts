@@ -109,3 +109,22 @@ export function parseLocationInferenceResponse(rawText: string): LocationInferen
   }
   return null;
 }
+
+/**
+ * Resolves the display name / username to persist for a discovered (publisher or
+ * coauthor) identity, per Story 3.14 AC3's fallback chain:
+ * - username: the identity's own username, or the raw accountId if absent/blank.
+ * - displayName: the identity's own displayName, else its username, else the raw
+ *   accountId -- Apify's coauthorProducers never supplies a full name, so coauthor
+ *   identities always fall through to username here.
+ * Whitespace-only values are treated as absent (trimmed to empty, falls through).
+ */
+export function resolveDiscoveredIdentityNames(identity: {
+  accountId: string;
+  username?: string;
+  displayName?: string;
+}): { displayName: string; username: string } {
+  const username = identity.username?.trim() || identity.accountId;
+  const displayName = identity.displayName?.trim() || identity.username?.trim() || identity.accountId;
+  return { displayName, username };
+}

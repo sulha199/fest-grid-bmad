@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { EventType, EventCategory, LocationDetails } from '@festgrid/shared-types';
 import { transformGeminiResponseToEventInfo } from './transform-gemini-response-to-event-info.js';
-import { GeminiExtractionPayload } from './types.js';
+import { GeminiEventPayload } from './types.js';
 
 describe('transformGeminiResponseToEventInfo', () => {
   const dummyContext = {
@@ -12,8 +12,7 @@ describe('transformGeminiResponseToEventInfo', () => {
   };
 
   it('should map values correctly on happy path', () => {
-    const payload: GeminiExtractionPayload = {
-      isEvent: true,
+    const payload: GeminiEventPayload = {
       eventName: 'Rock Concert',
       types: ['PERFORMANCE'],
       categories: ['MUSIC'],
@@ -41,8 +40,7 @@ describe('transformGeminiResponseToEventInfo', () => {
   });
 
   it('should filter invalid enum values and fallback to OTHER if empty', () => {
-    const payload: GeminiExtractionPayload = {
-      isEvent: true,
+    const payload: GeminiEventPayload = {
       eventName: 'Weird Festival',
       types: ['INVALID_TYPE', 'FESTIVAL'], // one invalid, one valid
       categories: ['HALLUCINATED_CATEGORY'], // all invalid
@@ -70,8 +68,7 @@ describe('transformGeminiResponseToEventInfo', () => {
       placeName: 'Default Place'
     };
 
-    const payload: GeminiExtractionPayload = {
-      isEvent: true,
+    const payload: GeminiEventPayload = {
       eventName: 'Event With Explicit Location',
       types: ['OTHER'],
       categories: ['OTHER'],
@@ -95,8 +92,7 @@ describe('transformGeminiResponseToEventInfo', () => {
       placeName: 'Default Place'
     };
 
-    const payload: GeminiExtractionPayload = {
-      isEvent: true,
+    const payload: GeminiEventPayload = {
       eventName: 'Event Without Explicit Location',
       types: ['OTHER'],
       categories: ['OTHER'],
@@ -126,8 +122,7 @@ describe('transformGeminiResponseToEventInfo', () => {
   });
 
   it('should resolve location: undefined when neither exists', () => {
-    const payload: GeminiExtractionPayload = {
-      isEvent: true,
+    const payload: GeminiEventPayload = {
       eventName: 'No Location Event',
       types: ['OTHER'],
       categories: ['OTHER'],
@@ -141,8 +136,7 @@ describe('transformGeminiResponseToEventInfo', () => {
   });
 
   it('should attach schedule locationDetails from resolvedScheduleLocations map', () => {
-    const payload: GeminiExtractionPayload = {
-      isEvent: true,
+    const payload: GeminiEventPayload = {
       eventName: 'Multi-Schedule Event',
       types: ['OTHER'],
       categories: ['OTHER'],
@@ -178,8 +172,7 @@ describe('transformGeminiResponseToEventInfo', () => {
   });
 
   it('should attach timezone and timezoneStatus when scheduleTimezoneResolutions map is present', () => {
-    const payload: GeminiExtractionPayload = {
-      isEvent: true,
+    const payload: GeminiEventPayload = {
       eventName: 'Timezone Event',
       types: ['OTHER'],
       categories: ['OTHER'],
@@ -212,8 +205,7 @@ describe('transformGeminiResponseToEventInfo', () => {
   });
 
   it('should leave timezone and timezoneStatus undefined when scheduleTimezoneResolutions map is omitted', () => {
-    const payload: GeminiExtractionPayload = {
-      isEvent: true,
+    const payload: GeminiEventPayload = {
       eventName: 'Timezone Omitted Event',
       types: ['OTHER'],
       categories: ['OTHER'],
@@ -234,7 +226,6 @@ describe('transformGeminiResponseToEventInfo', () => {
 
   describe('private-contact discard enforcement (AC2, Task 3)', () => {
     const basePayload = {
-      isEvent: true,
       eventName: 'Contact Test Event',
       types: ['OTHER'],
       categories: ['OTHER'],
@@ -243,7 +234,7 @@ describe('transformGeminiResponseToEventInfo', () => {
     };
 
     it('passes contactInfo through unchanged for a business-contact payload (hasPrivateContact: false)', () => {
-      const payload: GeminiExtractionPayload = {
+      const payload: GeminiEventPayload = {
         ...basePayload,
         hasPrivateContact: false,
         contactInfo: 'events@venue.com'
@@ -256,7 +247,7 @@ describe('transformGeminiResponseToEventInfo', () => {
     });
 
     it('discards contactInfo when hasPrivateContact is true even if contactInfo is populated (imperfect Gemini response)', () => {
-      const payload: GeminiExtractionPayload = {
+      const payload: GeminiEventPayload = {
         ...basePayload,
         hasPrivateContact: true,
         contactInfo: '0812-3456-7890'
@@ -269,7 +260,7 @@ describe('transformGeminiResponseToEventInfo', () => {
     });
 
     it('leaves both contactInfo and hasPrivateContact undefined/falsy when neither field is set', () => {
-      const payload: GeminiExtractionPayload = {
+      const payload: GeminiEventPayload = {
         ...basePayload
       };
 
@@ -282,7 +273,6 @@ describe('transformGeminiResponseToEventInfo', () => {
 
   describe('AC4: 6 classification-outcome categories (Task 9)', () => {
     const basePayload = {
-      isEvent: true,
       eventName: 'Classification Outcome Event',
       types: ['OTHER'],
       categories: ['OTHER'],
@@ -291,7 +281,7 @@ describe('transformGeminiResponseToEventInfo', () => {
     };
 
     it('1. business email passes through', () => {
-      const payload: GeminiExtractionPayload = {
+      const payload: GeminiEventPayload = {
         ...basePayload,
         hasPrivateContact: false,
         contactInfo: 'events@venue.com'
@@ -302,7 +292,7 @@ describe('transformGeminiResponseToEventInfo', () => {
     });
 
     it('2. official venue/PT phone passes through', () => {
-      const payload: GeminiExtractionPayload = {
+      const payload: GeminiEventPayload = {
         ...basePayload,
         hasPrivateContact: false,
         contactInfo: '(021) 555-0100'
@@ -313,7 +303,7 @@ describe('transformGeminiResponseToEventInfo', () => {
     });
 
     it('3. personal phone number is discarded', () => {
-      const payload: GeminiExtractionPayload = {
+      const payload: GeminiEventPayload = {
         ...basePayload,
         hasPrivateContact: true,
         contactInfo: '0812-3456-7890'
@@ -324,7 +314,7 @@ describe('transformGeminiResponseToEventInfo', () => {
     });
 
     it('4. personal email is discarded', () => {
-      const payload: GeminiExtractionPayload = {
+      const payload: GeminiEventPayload = {
         ...basePayload,
         hasPrivateContact: true,
         contactInfo: 'someone@gmail.com'
@@ -335,7 +325,7 @@ describe('transformGeminiResponseToEventInfo', () => {
     });
 
     it('5. wa.me link is discarded, same as a raw phone number', () => {
-      const payload: GeminiExtractionPayload = {
+      const payload: GeminiEventPayload = {
         ...basePayload,
         hasPrivateContact: true,
         contactInfo: 'https://wa.me/6281234567890'
@@ -346,7 +336,7 @@ describe('transformGeminiResponseToEventInfo', () => {
     });
 
     it('6. no contact info at all leaves both fields falsy/undefined', () => {
-      const payload: GeminiExtractionPayload = {
+      const payload: GeminiEventPayload = {
         ...basePayload
       };
       const result = transformGeminiResponseToEventInfo(payload, dummyContext);
@@ -363,8 +353,7 @@ describe('transformGeminiResponseToEventInfo', () => {
       // any field. This fixture proves the transform pipeline itself doesn't reintroduce the leak.
       const contactSentinel = '0812-3456-7890';
 
-      const payload: GeminiExtractionPayload = {
-        isEvent: true,
+      const payload: GeminiEventPayload = {
         eventName: 'Live Music Night',
         types: ['PERFORMANCE'],
         categories: ['MUSIC'],
@@ -408,8 +397,7 @@ describe('transformGeminiResponseToEventInfo', () => {
       // never lets one leak into a free-text field either.
       const photoUrlSentinel = 'https://instagram.com/p/abc123photo';
 
-      const payload: GeminiExtractionPayload = {
-        isEvent: true,
+      const payload: GeminiEventPayload = {
         eventName: 'Live Music Night',
         types: ['PERFORMANCE'],
         categories: ['MUSIC'],
@@ -446,8 +434,7 @@ describe('transformGeminiResponseToEventInfo', () => {
   });
 
   describe("children's-data keyword filter suppression (Story 3.6k, AC1, Task 2)", () => {
-    const multiScheduleMatchedPayload: GeminiExtractionPayload = {
-      isEvent: true,
+    const multiScheduleMatchedPayload: GeminiEventPayload = {
       eventName: 'Lomba Tari Anak Sanggar Melati',
       types: ['PERFORMANCE'],
       categories: ['ARTS_AND_CULTURE'],
@@ -513,7 +500,6 @@ describe('transformGeminiResponseToEventInfo', () => {
 
   describe('links sanitization (Story 0.37, AC2, Task 2)', () => {
     const basePayload = {
-      isEvent: true,
       eventName: 'Links Test Event',
       types: ['OTHER'],
       categories: ['OTHER'],
@@ -522,7 +508,7 @@ describe('transformGeminiResponseToEventInfo', () => {
     };
 
     it('threads sanitized links through when payload.links is a valid array', () => {
-      const payload: GeminiExtractionPayload = {
+      const payload: GeminiEventPayload = {
         ...basePayload,
         links: [
           { url: 'https://example.com/tickets', label: 'Tickets' },
@@ -536,7 +522,7 @@ describe('transformGeminiResponseToEventInfo', () => {
     });
 
     it('leaves links undefined when payload.links is absent', () => {
-      const payload: GeminiExtractionPayload = { ...basePayload };
+      const payload: GeminiEventPayload = { ...basePayload };
 
       const result = transformGeminiResponseToEventInfo(payload, dummyContext);
 
@@ -544,7 +530,7 @@ describe('transformGeminiResponseToEventInfo', () => {
     });
 
     it('leaves links undefined when payload.links contains only invalid entries', () => {
-      const payload: GeminiExtractionPayload = {
+      const payload: GeminiEventPayload = {
         ...basePayload,
         links: [{ url: 'not a url' }]
       };
@@ -552,6 +538,75 @@ describe('transformGeminiResponseToEventInfo', () => {
       const result = transformGeminiResponseToEventInfo(payload, dummyContext);
 
       assert.strictEqual(result.links, undefined);
+    });
+  });
+
+  describe('Story 3.6s — per-event fields and no-shared-mutable-state (Task 6.2)', () => {
+    it('threads organizerHandle and schedule.applicableDaysOfWeek through unchanged', () => {
+      const payload: GeminiEventPayload = {
+        eventName: 'Weekly Market',
+        types: ['OTHER'],
+        categories: ['OTHER'],
+        schedules: [
+          {
+            isMainSchedule: true,
+            eventStartDate: '2026-10-01',
+            eventEndDate: '2026-10-31',
+            applicableDaysOfWeek: ['FRI', 'SAT']
+          }
+        ],
+        confidenceScore: 0.9,
+        organizerHandle: '@weeklymarket'
+      };
+
+      const result = transformGeminiResponseToEventInfo(payload, dummyContext);
+
+      assert.strictEqual(result.organizerHandle, '@weeklymarket');
+      assert.deepStrictEqual(result.schedules[0].applicableDaysOfWeek, ['FRI', 'SAT']);
+    });
+
+    it('calling the function twice in sequence with different events never leaks state between calls', () => {
+      // Directly answers the wave plan's own pre-flagged concern ("confirm [per-event guards]
+      // are not shared mutable state across events") -- process-ai-job.ts's new per-event loop
+      // (Task 7.3) calls this function once per event in the same payload, so a shared-state bug
+      // here would silently cross-contaminate sibling events' private-contact/performer data.
+      const eventWithPrivateContact: GeminiEventPayload = {
+        eventName: 'Event A (private contact)',
+        types: ['OTHER'],
+        categories: ['OTHER'],
+        schedules: [{ isMainSchedule: true, eventStartDate: '2026-10-05', performers: ['DJ A'] }],
+        confidenceScore: 0.9,
+        hasPrivateContact: true,
+        contactInfo: '0812-0000-0000'
+      };
+
+      const eventWithoutPrivateContact: GeminiEventPayload = {
+        eventName: 'Event B (business contact)',
+        types: ['OTHER'],
+        categories: ['OTHER'],
+        schedules: [{ isMainSchedule: true, eventStartDate: '2026-10-06', performers: ['DJ B'] }],
+        confidenceScore: 0.9,
+        hasPrivateContact: false,
+        contactInfo: 'events@venueb.com'
+      };
+
+      const resultA = transformGeminiResponseToEventInfo(eventWithPrivateContact, dummyContext);
+      const resultB = transformGeminiResponseToEventInfo(eventWithoutPrivateContact, dummyContext);
+
+      // Each call's result reflects only its own input.
+      assert.strictEqual(resultA.contactInfo, undefined);
+      assert.strictEqual(resultA.hasPrivateContact, true);
+      assert.strictEqual(resultA.eventName, 'Event A (private contact)');
+      assert.deepStrictEqual(resultA.schedules[0].performers, ['DJ A']);
+
+      assert.strictEqual(resultB.contactInfo, 'events@venueb.com');
+      assert.strictEqual(resultB.hasPrivateContact, false);
+      assert.strictEqual(resultB.eventName, 'Event B (business contact)');
+      assert.deepStrictEqual(resultB.schedules[0].performers, ['DJ B']);
+
+      // Re-assert A is still unaffected after B ran (catches state leaking the other direction).
+      assert.strictEqual(resultA.contactInfo, undefined);
+      assert.deepStrictEqual(resultA.schedules[0].performers, ['DJ A']);
     });
   });
 });

@@ -55,6 +55,7 @@ test('buildEventInsertValues - maps fields correctly', () => {
     description: 'A great music festival',
     confidenceScore: 0.95,
     links: null,
+    extractionOrdinal: undefined,
   });
 
   assert.strictEqual(result.schedules.length, 1);
@@ -79,6 +80,7 @@ test('buildEventInsertValues - maps fields correctly', () => {
     longitude: -73.968285,
     timezone: 'America/New_York',
     timezoneStatus: 'RESOLVED',
+    applicableDaysOfWeek: null,
   });
 });
 
@@ -308,4 +310,83 @@ test('buildEventInsertValues - omits slug when the platform does not resolve via
   });
 
   assert.strictEqual('slug' in result.event, false);
+});
+
+// Story 3.6t — extractionOrdinal passthrough, the `~{ordinal}` slug suffix, conditional
+// detailLevel, and applicableDaysOfWeek mapping.
+
+test('buildEventInsertValues - extractionOrdinal is passed through unchanged onto event.extractionOrdinal, including undefined', () => {
+  const messageWithOrdinal: ExtractedEventMessage = { ...messageForSlugTests(), extractionOrdinal: 2 };
+  const resultWithOrdinal = buildEventInsertValues(messageWithOrdinal, null);
+  assert.strictEqual(resultWithOrdinal.event.extractionOrdinal, 2);
+
+  const messageWithoutOrdinal = messageForSlugTests();
+  const resultWithoutOrdinal = buildEventInsertValues(messageWithoutOrdinal, null);
+  assert.strictEqual(resultWithoutOrdinal.event.extractionOrdinal, undefined);
+});
+
+test('buildEventInsertValues - ordinal 0 with a resolvable sourcePost produces no ~ suffix', () => {
+  const message: ExtractedEventMessage = { ...messageForSlugTests(), extractionOrdinal: 0 };
+  const result = buildEventInsertValues(message, {
+    platform: 'instagram',
+    platformPostId: 'Cx9uWttkSN',
+    platformPostType: 'p',
+  });
+
+  assert.strictEqual(result.event.slug, 'ig_p_Cx9uWttkSN');
+});
+
+test('buildEventInsertValues - ordinal 2 with a resolvable sourcePost appends the ~2 suffix', () => {
+  const message: ExtractedEventMessage = { ...messageForSlugTests(), extractionOrdinal: 2 };
+  const result = buildEventInsertValues(message, {
+    platform: 'instagram',
+    platformPostId: 'Cx9uWttkSN',
+    platformPostType: 'p',
+  });
+
+  assert.strictEqual(result.event.slug, 'ig_p_Cx9uWttkSN~2');
+});
+
+test('buildEventInsertValues - ordinal undefined/0 with no resolvable sourcePost still omits the slug key entirely', () => {
+  const messageOrdinalUndefined = messageForSlugTests();
+  const resultUndefined = buildEventInsertValues(messageOrdinalUndefined, null);
+  assert.strictEqual('slug' in resultUndefined.event, false);
+
+  const messageOrdinalZero: ExtractedEventMessage = { ...messageForSlugTests(), extractionOrdinal: 0 };
+  const resultZero = buildEventInsertValues(messageOrdinalZero, null);
+  assert.strictEqual('slug' in resultZero.event, false);
+
+  // Also confirm the suffix never fires on top of the legacy-hex fallback path when the
+  // platform itself fails to resolve (sourcePost non-null but getPlatformSlug() returns falsy).
+  const messageOrdinalTwo: ExtractedEventMessage = { ...messageForSlugTests(), extractionOrdinal: 2 };
+  const resultUnresolvedPlatform = buildEventInsertValues(messageOrdinalTwo, {
+    platform: 'tiktok',
+    platformPostId: 'Cx9uWttkSN',
+    platformPostType: 'p',
+  });
+  assert.strictEqual('slug' in resultUnresolvedPlatform.event, false);
+});
+
+test('buildEventInsertValues - detailLevel "stub" passed through onto event.detailLevel', () => {
+  const result = buildEventInsertValues(messageForSlugTests(), null, 'stub');
+  assert.strictEqual(result.event.detailLevel, 'stub');
+});
+
+test('buildEventInsertValues - detailLevel omitted leaves the key physically absent so the DB default fires', () => {
+  const result = buildEventInsertValues(messageForSlugTests(), null);
+  assert.strictEqual('detailLevel' in result.event, false);
+});
+
+test('buildEventInsertValues - a schedule with applicableDaysOfWeek set is passed through onto the result', () => {
+  const message = messageWithSchedules([
+    { isMainSchedule: true, eventStartDate: '2026-09-01', applicableDaysOfWeek: ['SAT', 'SUN'] },
+  ]);
+  const result = buildEventInsertValues(message, null);
+  assert.deepStrictEqual(result.schedules[0].applicableDaysOfWeek, ['SAT', 'SUN']);
+});
+
+test('buildEventInsertValues - a schedule with applicableDaysOfWeek absent defaults to null', () => {
+  const message = messageWithSchedules([{ isMainSchedule: true, eventStartDate: '2026-09-01' }]);
+  const result = buildEventInsertValues(message, null);
+  assert.strictEqual(result.schedules[0].applicableDaysOfWeek, null);
 });

@@ -35,8 +35,16 @@ test('getTablesInDeleteOrder produces a valid FK deletion order', () => {
       const referencedTable = fk.reference().foreignTable;
       const referencedName = getTableConfig(referencedTable as PgTable).name;
 
+      // Story 3.6r -- events.mergedIntoEventId is a self-referencing FK (events -> events); a
+      // table trivially appears at its own index, so the "child before parent" ordering
+      // assertion below is meaningless for a self-edge (skip it, matching getTablesInDeleteOrder
+      // itself skipping self-edges when building the graph).
+      if (referencedName === config.name) {
+        continue;
+      }
+
       const referencedIndex = ordered.findIndex(t => getTableConfig(t).name === referencedName);
-      
+
       // The referencing table (child) must appear before the referenced table (parent)
       expect(i).toBeLessThan(referencedIndex);
     }

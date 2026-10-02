@@ -1,0 +1,16 @@
+{
+  "createdAt": "2026-10-02T10:37:56.460Z",
+  "mode": "stories",
+  "modeValue": [
+    "3.6r",
+    "3.6s",
+    "3.6t"
+  ],
+  "epicsFile": "/home/user/fest-grid-bmad/_bmad-output/planning-artifacts/epics.md",
+  "implementationArtifacts": "/home/user/fest-grid-bmad/_bmad-output/implementation-artifacts",
+  "order": [
+    "3.6r",
+    "3.6s",
+    "3.6t"
+  ]
+}

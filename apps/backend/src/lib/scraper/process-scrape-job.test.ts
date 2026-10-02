@@ -474,4 +474,79 @@ test('process-scrape-job integration tests', async (t) => {
     const [updatedProfile] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
     assert.ok(updatedProfile.lastScrapedAt);
   });
+
+  await t.test('persists discovered social_media_account_profiles rows for a ScrapedPost with ownerId+coauthors populated (Story 3.14)', async () => {
+    const mockPlatform = 'test-fake-platform-attribution' as any;
+    const ownerId = 'discovered-owner-psj-' + Date.now();
+    const coauthorId = 'discovered-coauthor-psj-' + Date.now();
+    const postUrl = `https://fake.com/p/attribution-${Date.now()}`;
+
+    const fakeAdapter: ScraperAdapter = {
+      supportsNewerThanAndLimitFiltering: true,
+      async getNewestPosts(): Promise<ScrapedPost[]> {
+        return [
+          {
+            content: 'Fake post with attribution',
+            postUrl,
+            publishedAt: '2026-08-08T12:00:00Z',
+            ownerId,
+            ownerUsername: 'owner_psj_user',
+            coauthors: [{ accountId: coauthorId, username: 'coauthor_psj_user' }],
+          },
+        ];
+      },
+      async lookupAccountProfile(): Promise<AccountProfileLookupResult | null> {
+        return null;
+      },
+      async getAccountClassificationProfile(username: string): Promise<any> {
+        return null;
+      },
+      async getPostByUrl(url: string): Promise<ScrapedPost | null> {
+        return null;
+      },
+    };
+
+    registerScraperAdapter(mockPlatform, fakeAdapter);
+
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'fake-acc-attribution-' + Date.now(),
+      platform: mockPlatform,
+      displayName: 'Fake Attribution Account',
+      username: 'fake_acc_attribution',
+    }).returning();
+    createdProfiles.push(profile.id);
+
+    const job = {
+      profileId: profile.id,
+      platform: mockPlatform,
+      accountId: profile.accountId,
+      username: profile.username,
+    };
+
+    await processScrapeJob(job);
+
+    // Story 3.15 (AC3) resolves a new post's accountId to the discovered publisher (ownerId)
+    // profile when ownerId is present and resolves successfully -- not to the scraping
+    // account's own profile.id as this Story 3.14 test originally assumed. Look the post up
+    // by its known postUrl instead, which is agnostic to that resolution.
+    const dbPosts = await db.select().from(posts).where(eq(posts.postUrl, postUrl));
+    assert.strictEqual(dbPosts.length, 1);
+    createdPosts.push(dbPosts[0].id);
+
+    const discoveredOwnerProfile = await db
+      .select()
+      .from(socialMediaAccountProfiles)
+      .where(eq(socialMediaAccountProfiles.accountId, ownerId))
+      .then((rows) => rows[0]);
+    assert.ok(discoveredOwnerProfile, 'publisher discovered profile row should exist');
+    createdProfiles.push(discoveredOwnerProfile.id);
+
+    const discoveredCoauthorProfile = await db
+      .select()
+      .from(socialMediaAccountProfiles)
+      .where(eq(socialMediaAccountProfiles.accountId, coauthorId))
+      .then((rows) => rows[0]);
+    assert.ok(discoveredCoauthorProfile, 'coauthor discovered profile row should exist');
+    createdProfiles.push(discoveredCoauthorProfile.id);
+  });
 });

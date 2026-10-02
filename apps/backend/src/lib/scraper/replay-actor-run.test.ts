@@ -94,4 +94,70 @@ test('replay-actor-run tests (Bright Data)', async (t) => {
     const context = unprocessed[0].context as any;
     assert.strictEqual(context.postUrl, 'https://www.instagram.com/p/bad-date-replay/');
   });
+
+  await t.test('Apify replay persists discovered social_media_account_profiles rows for ownerId/coauthorProducers (Story 3.14)', async () => {
+    const ownerId = 'discovered-owner-replay-' + Date.now();
+    const coauthorId = 'discovered-coauthor-replay-' + Date.now();
+    const postUrl = 'https://www.instagram.com/p/apify-replay-attribution/';
+
+    const rawOutput = [
+      {
+        url: 'https://www.instagram.com/p/apify-replay-attribution/',
+        caption: 'Apify replay with attribution',
+        timestamp: '2026-08-08T00:00:00Z',
+        displayUrl: 'https://example.com/img.jpg',
+        ownerId,
+        ownerUsername: 'owner_replay_user',
+        coauthorProducers: [{ id: coauthorId, username: 'coauthor_replay_user' }],
+      },
+    ];
+
+    const [run] = await db
+      .insert(scraperActorRuns)
+      .values({
+        vendor: 'APIFY',
+        triggerMode: 'SYNC',
+        profileId: testProfileId,
+        runId: randomUUID(),
+        status: 'SUCCEEDED',
+        rawInput: {},
+        rawOutput: rawOutput,
+        itemCount: 1,
+        startedAt: new Date(),
+        completedAt: new Date(),
+      })
+      .returning({ id: scraperActorRuns.id });
+
+    testRunId = run.id;
+
+    try {
+      const result = await replayActorRun(testRunId);
+
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.postsPersisted, 1);
+
+      const discoveredOwnerProfile = await db
+        .select()
+        .from(socialMediaAccountProfiles)
+        .where(eq(socialMediaAccountProfiles.accountId, ownerId))
+        .then((rows) => rows[0]);
+      assert.ok(discoveredOwnerProfile, 'publisher discovered profile row should exist');
+
+      const discoveredCoauthorProfile = await db
+        .select()
+        .from(socialMediaAccountProfiles)
+        .where(eq(socialMediaAccountProfiles.accountId, coauthorId))
+        .then((rows) => rows[0]);
+      assert.ok(discoveredCoauthorProfile, 'coauthor discovered profile row should exist');
+    } finally {
+      // Story 3.15 added post_account_associations with an FK onto social_media_account_profiles,
+      // and resolves this new post's accountId to the discovered publisher (ownerId) profile
+      // (AC3) -- deleting the post first (cascades its post_account_associations rows via the
+      // postId FK) before deleting the discovered profiles below avoids violating the new FK,
+      // mirroring persist-scraped-post.test.ts's Story 3.15 cleanup fix.
+      await db.delete(posts).where(eq(posts.postUrl, postUrl));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.accountId, ownerId));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.accountId, coauthorId));
+    }
+  });
 });

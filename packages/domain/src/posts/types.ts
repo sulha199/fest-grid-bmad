@@ -1,3 +1,18 @@
+/**
+ * Closed role vocabulary for `post_account_associations` rows (Story 3.15, PRD §4.7a,
+ * Architecture Spine AD-25/AD-31). Declared once per AD-31 Rule 2.
+ */
+export const POST_ACCOUNT_ROLES = ['PUBLISHER', 'COAUTHOR', 'SCRAPING_SOURCE', 'PUBLISHER_UNKNOWN'] as const;
+export type PostAccountRole = (typeof POST_ACCOUNT_ROLES)[number];
+
+/**
+ * Closed set for posts.grouping_reason (Architecture Spine AD-30 Rule 1/5, Story 3.6r). Set by
+ * the multi-event extraction payload's post-level `groupingReason` (Story 3.6s) -- this story
+ * only adds the persisted column/enum the field will eventually populate.
+ */
+export const POST_GROUPING_REASONS = ['single-event', 'program-lineup', 'dependent-stages', 'separate-events', 'roundup'] as const;
+export type PostGroupingReason = (typeof POST_GROUPING_REASONS)[number];
+
 export interface ProcessingJobMessage {
   postId: string;
   accountId: string;

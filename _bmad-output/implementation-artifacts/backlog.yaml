@@ -849,11 +849,13 @@ items:
 
   # ── 2026-09-11 (bmad-help event-extraction-recurrence-bug session) ──────────
   BUG-026:
-    {type: bug, status: triaged, created: 2026-09-11,
+    {type: bug, status: promoted, created: 2026-09-11,
      impact: user-visible, effort: m,
      title: "Recurring single-day-of-week schedules extract as one contiguous date span, silently matching every weekday inside it (not just the stated day)",
-     ref: [planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md, backlog/BUG-026-recurring-weekday-schedule-date-span.md, planning-artifacts/sprint-change-proposal-2026-10-01-multi-event-posts.md], touches: [cross:ai-extraction, cross:prd, app:backend, pkg:domain, web:events],
-     note: "PRD amended (Schedule.applicableDaysOfWeek) -- schema decision resolved; extraction-prompt population and query-matching correctness fix not yet built. Next: bmad-create-story. Full root-cause trace in backlog/BUG-026-recurring-weekday-schedule-date-span.md."}
+     ref: [planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md, backlog/BUG-026-recurring-weekday-schedule-date-span.md, planning-artifacts/sprint-change-proposal-2026-10-01-multi-event-posts.md],
+     stories: [3-6y-respect-weekday-narrowed-schedules-in-day-of-week-filtering],
+     touches: [cross:ai-extraction, cross:prd, app:backend, pkg:domain, web:events],
+     note: "Query-matching-correctness fix promoted to Story 3-6y (2026-10-02); AI-extraction-population half carved to BUG-054. See Story 3-6y's Dev Notes for the design-decision trail."}
 
   # ── 2026-09-11 (bmad-help instagram-embed-perf session) ─────────────────────
   IDEA-020:
@@ -1291,20 +1293,22 @@ items:
      ref: [backlog/FIND-022-coauthor-content-issues.md,
            specs/spec-post-coauthor-attribution/SPEC.md,
            planning-artifacts/sprint-change-proposal-2026-09-18.md],
-     stories: [3-13-normalize-apify-vendor-coauthor-publisher-roles-during-ingestion],
+     stories: [3-13-normalize-apify-vendor-coauthor-publisher-roles-during-ingestion,
+               3-14-deduplicated-provenance-tracked-subscribable-profiles,
+               3-15-post-account-association-table-lossless-migration],
      touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions, pkg:ui],
      impact: user-visible, effort: l,
-     note: "Adds epics.md Stories 3.13-3.19 (CAP-1..6/8) + 0.i6g (CAP-7); amends 0.i6c/0.i6z. Story 3.15's DDL resolved by AD-25 (the above 'blocked' line is stale). Promoted 2026-10-02 on Story 3.13; remaining fan-out carved to CC-025."}
+     note: "Adds epics.md Stories 3.13-3.19 (CAP-1..6/8) + 0.i6g (CAP-7); amends 0.i6c/0.i6z. Story 3.15's DDL resolved by AD-25 (the above 'blocked' line is stale). Promoted 2026-10-02 on Story 3.13, then 3.14, then 3.15; remaining fan-out carved to CC-025."}
 
   CC-025:
     {type: proposal, status: triaged, created: 2026-10-02, parent: CC-022,
-     title: "Remaining FIND-022 coauthor/publisher stories not yet created (3.14-3.19, 0.i6g)",
+     title: "Remaining FIND-022 coauthor/publisher stories not yet created (3.16-3.19, 0.i6g)",
      ref: [backlog/FIND-022-coauthor-content-issues.md,
            specs/spec-post-coauthor-attribution/SPEC.md,
            planning-artifacts/sprint-change-proposal-2026-09-18.md],
      touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions, pkg:ui],
      impact: user-visible, effort: l,
-     note: "Partial-promotion carve-out from CC-022 (backlog-spec.md section 13): tracks the 7 of CC-022's original 8 stories not yet created (3.14-3.19, 0.i6g). sprint-status.yaml already carries backlog placeholders for all -- nothing orphaned."}
+     note: "Partial-promotion carve-out from CC-022 (section 13): tracks CC-022's not-yet-created stories (3.16-3.19, 0.i6g) -- 3.14 and 3.15 created 2026-10-02, moved to CC-022. sprint-status.yaml carries backlog placeholders for all."}
 
   FIND-039:
     {type: finding, status: backlog, created: 2026-09-18, parent: CC-022,
@@ -1670,12 +1674,13 @@ items:
 
   # ── 2026-09-30 (batch-event-pages-wave-a-readiness.md) ──────────────────────
   FIND-060:
-    {type: finding, status: backlog, created: 2026-09-30, parent: BUG-026,
+    {type: finding, status: promoted, created: 2026-09-30, parent: BUG-026,
      impact: user-visible, effort: m,
      title: "Story 0.i5d's TODAY/UPCOMING temporal filter ignores Schedule.applicableDaysOfWeek, so a weekday-only recurring schedule matches every day inside its span",
      ref: [planning-artifacts/epic-readiness/batch-event-pages-wave-a-readiness.md, backlog/BUG-026-recurring-weekday-schedule-date-span.md],
+     stories: [3-6y-respect-weekday-narrowed-schedules-in-day-of-week-filtering],
      touches: [pkg:domain, app:backend, web:events],
-     note: "Found 2026-09-30 by the Wave A batch readiness sweep. Not a new gap: this is BUG-026's still-open filter-matching-correctness fix (buildEventsQueryCondition.ts / drizzle-where.ts) reaching the new temporalFilter path added by 0-i5d. Fold into BUG-026's matching fix (reuse the exported getDays(DayOfWeek[]) from 1-3k / AD-19) rather than a separate mechanism."}
+     note: "Found by the Wave A batch readiness sweep; fixed by Story 3-6y (2026-10-02), one mechanism (AD-19) covering dayOfWeek, dateRange, TODAY and UPCOMING alike."}
 
   IDEA-052:
     {type: idea, status: backlog, created: 2026-09-30,
@@ -1728,28 +1733,29 @@ items:
 
   # ── 2026-10-01 (bmad-correct-course: multi-event posts + cross-post matching) ─────────
   CC-024:
-    {type: proposal, status: triaged, created: 2026-10-01,
+    {type: proposal, status: promoted, created: 2026-10-01,
      impact: user-visible, effort: l,
      title: "Multi-event posts and cross-post event matching (Event<->Post many-to-many)",
      ref: [planning-artifacts/sprint-change-proposal-2026-10-01-multi-event-posts.md],
+     stories: [3-6r-add-the-event-post-link-table-and-multi-event-schema, 3-6s-extract-multiple-events-per-post-with-grouping-rules, 3-6t-ingest-multiple-events-per-post-with-per-event-slugs-and-notifications],
      touches: [app:backend, pkg:database, pkg:domain, web:events, web:moderation, web:posts, cross:ai-extraction, cross:notifications, cross:architecture, cross:prd],
-     note: "Adds Stories 3.6r-3.6z; folds BUG-051/052/026/039. Needs AD-30 + AD-31 (bmad-architecture) before 3.6r; IDEA-028 gates 3.6t/3.6v."}
+     note: "Adds Stories 3.6r-3.6z; folds BUG-051/052/026/039. Needs AD-30+AD-31 before 3.6r; IDEA-028 gates 3.6t/3.6v. 3.6r-3.6t created (2026-10-02, 3.6t ready-for-dev); rest tracked in sprint-status.yaml / cc-024-multi-event-wave-plan.md."}
 
   BUG-053:
-    {type: bug, status: backlog, created: 2026-10-01, parent: CC-024,
+    {type: bug, status: done, created: 2026-10-01, parent: CC-024,
      impact: user-visible, effort: s,
      title: "getPostByUrl fails against the live apify/instagram-post-scraper actor (input.username now required)",
-     ref: [],
+     ref: [implementation-artifacts/backlog/BUG-053-getpostbyurl-apify-actor-input.md],
      touches: [app:backend, cross:ai-extraction],
-     note: "Found 2026-10-01 running poc-ingestion-preview.ts; also hits the resolver's by-URL path. Workaround: pass the post URL as username."}
+     note: "Fixed and verified live 2026-10-02; by-URL input now uses detailedData (basicData dropped carousel slides). The 4 CC-024 reference posts are in implementation-artifacts/cc-024-reference-posts/."}
 
   FIND-061:
-    {type: finding, status: backlog, created: 2026-10-01, parent: CC-024,
+    {type: finding, status: done, created: 2026-10-01, parent: CC-024,
      impact: user-visible, effort: s,
      title: "No new-event push notification has ever been received -- diagnose before per-event notifications ship",
-     ref: [],
+     ref: [backlog/FIND-061-no-new-event-push-notification-diagnosis.md],
      touches: [app:backend, cross:notifications],
-     note: "Leads, unconfirmed: inner joins to user_settings/fcm_tokens yield zero tokens silently; empty sourceSocialMediaAccountId; pushNotificationsEnabled default."}
+     note: "Fixed 2026-10-02, bmad-quick-dev: process-ingestion-job.ts dispatched notifications fire-and-forget, so the ingestor Lambda froze before send completed; now awaited (+ same fix in apply-default-location-change.ts). Prod FCM admin creds still an open post-deploy check -- see ref."}
 
   IDEA-054:
     {type: idea, status: backlog, created: 2026-10-01, parent: CC-024,
@@ -1791,3 +1797,12 @@ items:
      ref: [planning-artifacts/cc-024-multi-event-wave-plan.md, packages/database/seed-volume.ts],
      touches: [app:backend, pkg:database],
      note: "With 30k synthetic volume rows loaded, 12 events/soft-delete/visibility tests failed and the run was ~7x slower; use a dedicated test database or per-test cleanup."}
+
+  # ── 2026-10-02 (Story 3-6y promotion carve-out) ──────────────────────────────
+  BUG-054:
+    {type: bug, status: backlog, created: 2026-10-02, parent: BUG-026,
+     impact: latent, effort: s,
+     title: "AI extraction never populates Schedule.applicableDaysOfWeek -- the field exists end-to-end but nothing sets it from scraped posters/captions",
+     ref: [planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md, backlog/BUG-026-recurring-weekday-schedule-date-span.md],
+     touches: [cross:ai-extraction, app:backend],
+     note: "Carved from BUG-026 (query-matching fix promoted to Story 3-6y). PRD Section 4.4's 'Weekday-Narrowed Recurring Schedules' already describes the expected extraction behavior."}
