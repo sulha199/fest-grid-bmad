@@ -1730,12 +1730,13 @@ items:
 
   # ── 2026-10-01 (bmad-correct-course: multi-event posts + cross-post matching) ─────────
   CC-024:
-    {type: proposal, status: triaged, created: 2026-10-01,
+    {type: proposal, status: promoted, created: 2026-10-01,
      impact: user-visible, effort: l,
      title: "Multi-event posts and cross-post event matching (Event<->Post many-to-many)",
      ref: [planning-artifacts/sprint-change-proposal-2026-10-01-multi-event-posts.md],
+     stories: [3-6r-add-the-event-post-link-table-and-multi-event-schema],
      touches: [app:backend, pkg:database, pkg:domain, web:events, web:moderation, web:posts, cross:ai-extraction, cross:notifications, cross:architecture, cross:prd],
-     note: "Adds Stories 3.6r-3.6z; folds BUG-051/052/026/039. Needs AD-30 + AD-31 (bmad-architecture) before 3.6r; IDEA-028 gates 3.6t/3.6v."}
+     note: "Adds Stories 3.6r-3.6z; folds BUG-051/052/026/039. Needs AD-30 + AD-31 (bmad-architecture) before 3.6r; IDEA-028 gates 3.6t/3.6v. 3.6r created 2026-10-02; 3.6s-3.6z tracked as backlog in sprint-status.yaml and cc-024-multi-event-wave-plan.md, to be appended here as each is created."}
 
   BUG-053:
     {type: bug, status: done, created: 2026-10-01, parent: CC-024,
