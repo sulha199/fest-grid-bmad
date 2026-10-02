@@ -7,7 +7,7 @@ status: "final"
 
 created: "2026-07-10T20:50:17Z"
 
-updated: "2026-10-01T00:00:00Z"
+updated: "2026-10-02T00:00:00Z"
 
 ---
 
@@ -192,7 +192,7 @@ A 'Report' button will be available for all events (whether from Social Media Ac
 
 *   **User Reports Page:** Authenticated users will have access to a dedicated 'Reports' page under their user menu, displaying the status and history of their submitted reports.
 *   **Moderator Tools:** For users with a 'moderator' access level, a 'Moderator Items' page will be available under the user menu. For the MVP, moderator access levels will be assigned manually via the database. In addition to user reports, this page surfaces pending "Default Location" changes (Section 3.7): post-hoc `PENDING_REVIEW` items to accept or revert, and pre-hoc `AWAITING_APPROVAL` items (low-confidence AI inferences awaiting a decision before they ever apply) to approve or reject, visually distinguished from each other. **(Added 2026-10-01, FR114)** It also surfaces suggested cross-post event matches (Section 3.7) for review, and offers a merge action for duplicate events — with confirmation and an undo window matching the existing soft-delete-with-undo pattern.
-*   **Moderator Pending-Item Badge (added 2026-08-28):** For users with moderator access, a numeric badge shows the combined count of items awaiting moderator action — pending reports above, and Default Location changes in `PENDING_REVIEW` or `AWAITING_APPROVAL` status (Section 3.7/4.14) — in two places: next to the "Moderator Items" entry inside the opened user menu, and on the user's avatar in the navbar when the menu is closed. The badge shows one combined total, not a per-category breakdown; opening Moderator Items itself provides that detail. The count is kept reasonably current (refreshed periodically or on relevant navigation), not necessarily instantaneous.
+*   **Moderator Pending-Item Badge (added 2026-08-28):** For users with moderator access, a numeric badge shows the combined count of items awaiting moderator action — pending reports above, and Default Location changes in `PENDING_REVIEW` or `AWAITING_APPROVAL` status (Section 3.7/4.14) — in two places: next to the "Moderator Items" entry inside the opened user menu, and on the user's avatar in the navbar when the menu is closed. **(Amended 2026-10-02, FR114)** Suggested cross-post event matches awaiting moderator review — the mid-confidence matches queued by Cross-Post Event Matching above (Section 3.7, FR114) for a moderator to approve or reject — also count toward this same combined total. The badge shows one combined total, not a per-category breakdown; opening Moderator Items itself provides that detail. The count is kept reasonably current (refreshed periodically or on relevant navigation), not necessarily instantaneous.
 
 ### 3.10 Manual Post Selection for Event Extraction
 
@@ -819,6 +819,12 @@ interface Post {
    * not every adapter can supply this for every post (Section 3.7).
    */
   originalPostUrl?: string;
+  /**
+   * The timestamp the post was published on the platform (added 2026-10-02; documents the
+   * pre-existing `posts.published_at` database column). The event-detail source-post entries
+   * (Section 3.3.3, FR114) use it to render each linked post's locale-aware posted-at time.
+   */
+  publishedAt: string;
   /**
    * True if the post has already been processed and an event has been extracted.
    */
