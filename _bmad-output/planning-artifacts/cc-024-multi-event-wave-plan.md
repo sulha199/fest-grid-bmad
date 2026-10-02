@@ -201,9 +201,14 @@ self-review are in `deferred-work.md`.
 
 ## Wave 2C — Diagnostics (no CC-024 behavior change)
 
-- [ ] **FIND-061** (no new-event push ever received): diagnose before 3.6t/3.6z ship per-event notifications.
-      Leads: inner joins to `user_settings`/`fcm_tokens`, empty `sourceSocialMediaAccountId`,
-      `pushNotificationsEnabled` default
+- [x] **FIND-061** (no new-event push ever received): diagnosed 2026-10-02, bmad-quick-dev — all 3 leads
+      (inner joins to `user_settings`/`fcm_tokens`, empty `sourceSocialMediaAccountId`,
+      `pushNotificationsEnabled` default) traced end-to-end and refuted/unreproducible against current
+      code; recipient query verified correct via real-Postgres regression test (4/4 pass). No local root
+      cause confirmed, no code changed — remaining candidates (frontend FCM env config, backend FCM admin
+      creds) are production-only checks, see `backlog/FIND-061-no-new-event-push-notification-diagnosis.md`.
+      3.6z's "soft: FIND-061 diagnosed" prerequisite is satisfied; it is not a guarantee notifications work
+      in production.
 - [x] **BUG-053** (`getPostByUrl` fails against the live Apify actor): fix so the POC script and the by-URL
       resolver path work, and the 4 reference posts can be re-scraped for 3.6s fixtures
       (fixed 2026-10-02, bmad-quick-dev — code fix + unit test; live re-scrape of the 4 reference
