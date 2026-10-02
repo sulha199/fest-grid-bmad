@@ -70,6 +70,11 @@ interface ApifyPostItem {
   locationName?: string;
   ownerFullName?: string;
   ownerUsername?: string;
+  ownerId?: string;
+  // Native coauthor-producer identities (vendor's own coauthor field — see vendor-role-mapping.md).
+  // `taggedUsers` is a materially different (mentioned/tagged, not co-produced) relationship and
+  // is deliberately NOT modeled on this interface — see AC2 in Story 3.13.
+  coauthorProducers?: { id?: string; username?: string; is_verified?: boolean; profile_pic_url?: string }[];
   hashtags?: string[];
   // Carousel (Sidecar) post marks: `type: 'Sidecar'` with childPosts[] holding every slide
   type?: string;
@@ -117,7 +122,7 @@ type ActorInputFor<T extends ActorId> = ActorRegistry[T]['input'];
 type ActorOutputFor<T extends ActorId> = ActorRegistry[T]['output'];
 
 // Parser version — increment when output types change (tracks data schema evolution)
-const APIFY_PARSER_VERSION = '3.3e';
+const APIFY_PARSER_VERSION = '3.13';
 
 const GET_POST_BY_URL_ACTOR = 'apify/instagram-post-scraper';
 const LOOKUP_ACCOUNT_PROFILE_ACTOR = 'apify/instagram-post-scraper';
@@ -240,6 +245,45 @@ export async function mapApifyItemToScrapedPost(item: any): Promise<ScrapedPost 
   const imageUrl = item.displayUrl || item.imageUrl;
   const originalPostUrl = item.url || item.postUrl;
 
+  // Role normalization (AC1/AC3): classify each coauthorProducers[] entry. A malformed entry
+  // (missing/empty/non-string `id`) is skipped from the resulting coauthors list and persisted
+  // via persistUnprocessedPayload for observability -- the rest of the post still ingests
+  // normally (this is a per-entry, non-blocking behavior, not the all-or-nothing "reject the
+  // whole item" shape every other persistUnprocessedPayload call site in this codebase uses).
+  let coauthors: { accountId: string; username?: string }[] | undefined;
+  if (Array.isArray(item.coauthorProducers) && item.coauthorProducers.length > 0) {
+    const accumulator: { accountId: string; username?: string }[] = [];
+    for (const entry of item.coauthorProducers) {
+      if (entry && typeof entry.id === 'string' && entry.id.length > 0) {
+        accumulator.push({
+          accountId: entry.id,
+          ...(entry.username && { username: entry.username }),
+        });
+      } else {
+        try {
+          await persistUnprocessedPayload({
+            rawPayload: entry,
+            validationError: { message: 'coauthorProducers entry missing a stable id', entry },
+            context: {
+              source: 'apify',
+              scraperVendor: 'instagram',
+              accountId: null,
+              postUrl,
+              timestamp: new Date().toISOString(),
+              parserVersion: APIFY_PARSER_VERSION,
+            },
+            scraperActorRunId: apifyAuditContext?.runId,
+          });
+        } catch (err) {
+          console.error('Failed to persist unprocessed Apify coauthorProducers entry:', err);
+        }
+      }
+    }
+    if (accumulator.length > 0) {
+      coauthors = accumulator;
+    }
+  }
+
   const candidate: ScrapedPost = {
     content: item.caption || item.text || item.description || '',
     postUrl,
@@ -251,6 +295,8 @@ export async function mapApifyItemToScrapedPost(item: any): Promise<ScrapedPost 
     ...(item.locationName && { locationName: item.locationName }),
     ...(item.ownerFullName && { ownerDisplayName: item.ownerFullName }),
     ...(item.ownerUsername && { ownerUsername: item.ownerUsername }),
+    ...(item.ownerId && { ownerId: item.ownerId }),
+    ...(coauthors && { coauthors }),
     // Lowercased for case-insensitive exact-match hashtag search (Sections 3.1/3.7) -- a hashtag
     // is functionally the same regardless of how a user or the source post cased it.
     ...(Array.isArray(item.hashtags) && item.hashtags.length > 0 && {

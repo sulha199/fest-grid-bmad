@@ -13,6 +13,20 @@ export const scrapedPostSchema: JSONSchemaType<ScrapedPost> = {
     locationName: { type: 'string', nullable: true },
     ownerDisplayName: { type: 'string', nullable: true },
     ownerUsername: { type: 'string', nullable: true },
+    ownerId: { type: 'string', nullable: true },
+    coauthors: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          accountId: { type: 'string' },
+          username: { type: 'string', nullable: true },
+        },
+        required: ['accountId'],
+        additionalProperties: false,
+      },
+      nullable: true,
+    },
     hashtags: { type: 'array', items: { type: 'string' }, nullable: true },
     additionalImageUrls: { type: 'array', items: { type: 'string' }, nullable: true }
   },

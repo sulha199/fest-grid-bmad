@@ -13,6 +13,23 @@ export interface ScrapedPost {
   locationName?: string;
   ownerDisplayName?: string;
   ownerUsername?: string;
+  /**
+   * The canonical publisher's stable platform account ID (Apify's `ownerId`), distinct from
+   * `ownerDisplayName`/`ownerUsername` (the publisher's name/handle, captured separately since
+   * before this field existed). Populated only for Apify-sourced posts today (Story 3.13,
+   * CAP-1) — Bright Data does not populate this yet (see `backlog.yaml` FIND-039).
+   */
+  ownerId?: string;
+  /**
+   * Zero or more coauthor identities read from the vendor's native coauthor field (Apify's
+   * `coauthorProducers[]`), each guaranteed to carry a stable `accountId` — a malformed entry
+   * (missing/empty `id`) is filtered out before this array is built and persisted separately via
+   * `persistUnprocessedPayload` for observability (Story 3.13, CAP-1). No `displayName` field
+   * here: Apify's `coauthorProducers[]` never supplies one — the fallback-chain `displayName`
+   * resolution is Story 3.14's job (CAP-2), not this field's. Populated only for Apify-sourced
+   * posts today — Bright Data does not populate this yet (see `backlog.yaml` FIND-039).
+   */
+  coauthors?: { accountId: string; username?: string }[];
   hashtags?: string[];
   /**
    * Image URLs of every slide in a multi-image (carousel/Sidecar) Instagram post, in slide order,

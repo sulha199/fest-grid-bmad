@@ -3,9 +3,9 @@ import assert from 'node:assert';
 import { ApifyApiError } from 'apify-client';
 import { instagramScraperAdapter, callApifyActor, setCallApifyActor, mapApifyItemToScrapedPost } from './instagram-adapter.js';
 import { db } from '../../db/client.js';
-import { scraperProviderUsage } from '@festgrid/database';
+import { scraperProviderUsage, unprocessedScraperPayloads } from '@festgrid/database';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError } from '@festgrid/domain';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { clearApifyProviderUsage, APIFY_TEST_PROVIDER } from './usage-store-test-helpers.js';
 
 test('instagram-adapter tests', async (t) => {
@@ -18,6 +18,7 @@ test('instagram-adapter tests', async (t) => {
       url: 'https://www.instagram.com/p/C_abc123/',
       caption: 'Test caption',
       displayUrl: 'https://www.instagram.com/p/C_abc123/img.jpg',
+      ownerId: '17841400000000000',
     };
 
     const result = await mapApifyItemToScrapedPost(item);
@@ -28,6 +29,104 @@ test('instagram-adapter tests', async (t) => {
     assert.strictEqual(result!.imageUrl, 'https://www.instagram.com/p/C_abc123/img.jpg');
     assert.strictEqual(result!.publishedAt, '2026-08-08T00:00:00Z');
     assert.strictEqual(result!.originalPostUrl, 'https://www.instagram.com/p/C_abc123/');
+    assert.strictEqual(result!.ownerId, '17841400000000000');
+  });
+
+  await t.test('mapApifyItemToScrapedPost omits ownerId when item.ownerId is absent (regression guard)', async () => {
+    const item = {
+      timestamp: '2026-08-08T00:00:00Z',
+      url: 'https://www.instagram.com/p/C_noowner/',
+      caption: 'No owner id',
+    };
+
+    const result = await mapApifyItemToScrapedPost(item);
+
+    assert.ok(result !== null);
+    assert.strictEqual('ownerId' in result!, false);
+  });
+
+  await t.test('mapApifyItemToScrapedPost normalizes a well-formed coauthorProducers[] array into coauthors (AC1)', async () => {
+    const item = {
+      timestamp: '2026-08-08T00:00:00Z',
+      url: 'https://www.instagram.com/p/C_coauthors_ok/',
+      caption: 'Collab post',
+      ownerId: '111',
+      ownerUsername: 'publisher_account',
+      coauthorProducers: [
+        { id: '222', username: 'coauthor_one', is_verified: true },
+        { id: '333', username: 'coauthor_two' },
+      ],
+    };
+
+    const result = await mapApifyItemToScrapedPost(item);
+
+    assert.ok(result !== null);
+    assert.deepStrictEqual(result!.coauthors, [
+      { accountId: '222', username: 'coauthor_one' },
+      { accountId: '333', username: 'coauthor_two' },
+    ]);
+    // publisher identity stays distinct from coauthor identities (AC1)
+    assert.strictEqual(result!.ownerId, '111');
+    assert.strictEqual(result!.ownerUsername, 'publisher_account');
+  });
+
+  await t.test('mapApifyItemToScrapedPost skips a malformed coauthorProducers[] entry (missing id), persists it, and still ingests the rest of the post (AC3)', async () => {
+    // Unique per run: this test asserts an exact row count for this postUrl in a real,
+    // un-truncated Postgres table, so a fixed URL would accumulate stray rows across repeat
+    // test runs and flake on the second run.
+    const postUrl = `https://www.instagram.com/p/C_coauthors_malformed_${Date.now()}_${Math.random().toString(36).slice(2)}/`;
+    const item = {
+      timestamp: '2026-08-08T00:00:00Z',
+      url: postUrl,
+      caption: 'Collab post with one bad coauthor entry',
+      coauthorProducers: [
+        { id: '444', username: 'good_coauthor' },
+        { username: 'no_id_here' }, // malformed: missing id
+      ],
+    };
+
+    const result = await mapApifyItemToScrapedPost(item);
+
+    assert.ok(result !== null, 'the rest of the post must still be returned');
+    assert.strictEqual(result!.content, 'Collab post with one bad coauthor entry');
+    assert.strictEqual(result!.postUrl, postUrl);
+    assert.deepStrictEqual(result!.coauthors, [{ accountId: '444', username: 'good_coauthor' }]);
+
+    // the malformed entry itself is persisted for observability (real-DB assertion, no mocking).
+    // postUrl lives inside the jsonb `context` column, not as its own column.
+    const rows = await db
+      .select()
+      .from(unprocessedScraperPayloads)
+      .where(sql`${unprocessedScraperPayloads.context}->>'postUrl' = ${postUrl}`);
+    assert.strictEqual(rows.length, 1);
+    assert.deepStrictEqual(rows[0].rawPayload, { username: 'no_id_here' });
+  });
+
+  await t.test('mapApifyItemToScrapedPost leaves coauthors structurally absent when coauthorProducers is entirely absent (omit-if-empty convention)', async () => {
+    const item = {
+      timestamp: '2026-08-08T00:00:00Z',
+      url: 'https://www.instagram.com/p/C_no_coauthors/',
+      caption: 'Solo post',
+    };
+
+    const result = await mapApifyItemToScrapedPost(item);
+
+    assert.ok(result !== null);
+    assert.strictEqual('coauthors' in result!, false);
+  });
+
+  await t.test('mapApifyItemToScrapedPost never reads taggedUsers as a coauthor source (AC2 regression guard)', async () => {
+    const item = {
+      timestamp: '2026-08-08T00:00:00Z',
+      url: 'https://www.instagram.com/p/C_tagged_only/',
+      caption: 'Post with only taggedUsers, no coauthorProducers',
+      taggedUsers: [{ full_name: 'Some Mentioned Account' }],
+    };
+
+    const result = await mapApifyItemToScrapedPost(item);
+
+    assert.ok(result !== null);
+    assert.strictEqual('coauthors' in result!, false);
   });
 
   await t.test('mapApifyItemToScrapedPost captures every slide URL of a Sidecar (carousel) item beyond the cover', async () => {
