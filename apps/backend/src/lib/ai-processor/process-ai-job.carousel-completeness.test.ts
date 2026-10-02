@@ -131,7 +131,7 @@ test('processAiJob carousel completeness logging tests', async (t) => {
     };
 
     const message: ProcessingJobMessage = {
-      postId: 'post-carousel-completeness-1',
+      postId: '00000000-0000-4000-8000-0000000000c1',
       accountId: profile.id,
       content: 'Rangkuman event lari di Jogja — schedule on later slides',
       postUrl: 'https://www.instagram.com/p/DcntzF0mB7z/',
@@ -158,7 +158,7 @@ test('processAiJob carousel completeness logging tests', async (t) => {
 
     assert.strictEqual(warnCalls.length, 1, 'Expected exactly one incomplete-extraction warning');
     const warnText = warnCalls[0].join(' ');
-    assert.ok(warnText.includes('post-carousel-completeness-1'), 'warning should include post id');
+    assert.ok(warnText.includes('00000000-0000-4000-8000-0000000000c1'), 'warning should include post id');
     assert.ok(warnText.includes('minScheduleCount=8'), 'warning should include minScheduleCount');
     assert.ok(warnText.includes('actual schedules=3'), 'warning should include actual schedules length');
     assert.ok(warnText.includes('Pink Ribbon Run 2026'), 'warning should include an expectedScheduleName');
@@ -206,7 +206,7 @@ test('processAiJob carousel completeness logging tests', async (t) => {
     };
 
     const message: ProcessingJobMessage = {
-      postId: 'post-carousel-completeness-2',
+      postId: '00000000-0000-4000-8000-0000000000c2',
       accountId: profile.id,
       content: 'Event announcement',
       postUrl: 'https://www.instagram.com/p/abc123/',
@@ -233,7 +233,7 @@ test('processAiJob carousel completeness logging tests', async (t) => {
     };
 
     const message: ProcessingJobMessage = {
-      postId: 'post-carousel-completeness-3',
+      postId: '00000000-0000-4000-8000-0000000000c3',
       accountId: profile.id,
       content: 'Just a random non-event post',
       postUrl: 'https://www.instagram.com/p/xyz789/',
@@ -278,7 +278,7 @@ test('processAiJob carousel completeness logging tests', async (t) => {
     };
 
     const message: ProcessingJobMessage = {
-      postId: 'post-carousel-completeness-4',
+      postId: '00000000-0000-4000-8000-0000000000c4',
       accountId: profile.id,
       content: 'Possibly incomplete grouping',
       postUrl: 'https://www.instagram.com/p/incomplete-grouping/',
@@ -298,7 +298,7 @@ test('processAiJob carousel completeness logging tests', async (t) => {
 
     assert.strictEqual(warnCalls.length, 1, 'Expected exactly one post-level minEventCount warning');
     const warnText = warnCalls[0].join(' ');
-    assert.ok(warnText.includes('post-carousel-completeness-4'));
+    assert.ok(warnText.includes('00000000-0000-4000-8000-0000000000c4'));
     assert.ok(warnText.includes('minEventCount=2'));
     assert.ok(warnText.includes('actual events=1'));
     assert.ok(sendSqsMessageCalled, 'the single extracted event should still enqueue');
