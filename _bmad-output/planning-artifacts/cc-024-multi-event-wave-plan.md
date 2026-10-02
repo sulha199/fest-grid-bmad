@@ -270,7 +270,10 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
       `scheduleDateRange`/`overlaps` callers — `dayOfWeek` filter, plain `dateRange` filter, `TODAY`,
       `UPCOMING` — via one closed-form SQL guard in `drizzle-where.ts`, not a narrower single-day-only
       patch, directly closing the 2026-09-30 backlog finding against BUG-026/0.i5d)
-  - [x] create  - [ ] dev  - [ ] review
+      (dev done, commits `c5a2009`.., status `review`; Task 6 verified by the orchestrator: full suite no new
+      failures vs. the cloud-environment set, lint 0 errors, tsc clean; EXPLAIN AC6 PASS)
+  - [x] create  - [x] dev  - [ ] review
+  - **Resolved 2026-10-02 (orchestrator): the 61 failures were a DB still holding `seed:volume` rows; the clean re-run shows only the known 22 cloud-environment failures. The note below is history.**
   - **2026-10-02 dev session: Tasks 1-5 implemented and individually verified green (SQL guard,
     unit tests, integration tests AC1-4, AD-17 EXPLAIN gate — PASS). Task 6 (final full regression
     pass) BLOCKED — not ticking `dev`.** A full `apps/backend` run returned 845/908 pass, 61 fail

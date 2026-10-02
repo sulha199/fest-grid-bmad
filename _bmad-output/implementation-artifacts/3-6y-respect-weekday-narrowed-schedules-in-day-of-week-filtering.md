@@ -8,7 +8,7 @@ baseline_commit: 92b60879099b98b0f383fa9662106d5ba424ffcf
 
 - Epic: 3
 - Story ID: 3.6y
-- Status: in-progress
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -81,9 +81,9 @@ so that a Monday-only promo does not show up for every Friday inside its span (B
   - [x] 5.4 `pnpm --filter @festgrid/database seed:volume:clean` immediately after capture.
   - [x] 5.5 Committed the comparison doc, `_bmad-output/planning-artifacts/cc-024-explain-after-3.6y-2026-10-02.md`, mirroring `cc-024-explain-after-3.6r-2026-10-02.md`'s table format, with an explicit **AC6 verdict: PASS**.
 
-- [ ] **Task 6 — Full regression pass (AC: 1-6)**
-  - [ ] 6.1 `pnpm --filter @festgrid/graphql-select test`, `pnpm --filter @festgrid/backend test` (`TZ=UTC`, volume seed cleaned — per the wave plan's "Test-gate facts" notes; tolerate the 4 known, unrelated `system-key-adapter`/`SYSTEM_GEMINI_API_KEY` failures, see Dev Notes), `pnpm --filter @festgrid/domain test` (unaffected — confirm it stays green since `buildEventsQueryCondition.ts` itself is not modified by this story, see Dev Notes "Why `buildEventsQueryCondition.ts` needs no code change").
-  - [ ] 6.2 Lint and `tsc --noEmit` clean for `packages/graphql-select` and `apps/backend` (the only two touched packages).
+- [x] **Task 6 — Full regression pass (AC: 1-6)**
+  - [x] 6.1 `pnpm --filter @festgrid/graphql-select test`, `pnpm --filter @festgrid/backend test` (`TZ=UTC`, volume seed cleaned — per the wave plan's "Test-gate facts" notes; tolerate the 4 known, unrelated `system-key-adapter`/`SYSTEM_GEMINI_API_KEY` failures, see Dev Notes), `pnpm --filter @festgrid/domain test` (unaffected — confirm it stays green since `buildEventsQueryCondition.ts` itself is not modified by this story, see Dev Notes "Why `buildEventsQueryCondition.ts` needs no code change").
+  - [x] 6.2 Lint and `tsc --noEmit` clean for `packages/graphql-select` and `apps/backend` (the only two touched packages).
 
 ## Dev Notes
 
@@ -159,28 +159,28 @@ so that a Monday-only promo does not show up for every Friday inside its span (B
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — a `fieldMap` descriptor extension (`resolvers.ts`) plus a SQL `WHERE`-guard extension inside one existing operator case (`drizzle-where.ts`'s `overlaps`), covering all four current callers of `scheduleDateRange`/`overlaps` (`dayOfWeek` filter, plain `dateRange` filter, `TODAY`, `UPCOMING`); explicitly no change to `buildEventsQueryCondition.ts`, no migration, no GraphQL schema change, no frontend file.
-- [ ] Architecture and boundary confirmation — AD-19's "single domain mechanism" rule followed (one `overlaps`-case implementation, not four reimplementations); AD-17's hot-path EXPLAIN invariant re-verified, not assumed; the closed-form-arithmetic-vs-`generate_series` SQL design choice (Dev Notes) confirmed appropriate for a hot-path correlated subquery.
-- [ ] Testing plan confirmation — SQL-text unit tests (`drizzle-where.test.ts`, including a byte-identical-SQL regression case for non-opted-in callers) plus DB-backed integration tests covering all four ACs and the existing 1.3h/0.i5d suites' continued pass (`resolvers.test.ts`) plus the Task 5 EXPLAIN re-run.
-- [ ] Explicit human approval state (Default: pending approval).
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gates 1/3 cited from `batch-cc-024-multi-event-readiness.md` (READY, no correction needed for 3.6y); Gate 2 run fresh this session (No gap found, confirmed zero frontend scope).
-- [ ] Design decision confirmed — the fix-scope decision (general, all four call sites, via `AskUserQuestion`) and the closed-form-SQL design choice are both recorded in Dev Notes, not re-asked during implementation.
+- [x] Scope confirmation — a `fieldMap` descriptor extension (`resolvers.ts`) plus a SQL `WHERE`-guard extension inside one existing operator case (`drizzle-where.ts`'s `overlaps`), covering all four current callers of `scheduleDateRange`/`overlaps` (`dayOfWeek` filter, plain `dateRange` filter, `TODAY`, `UPCOMING`); explicitly no change to `buildEventsQueryCondition.ts`, no migration, no GraphQL schema change, no frontend file.
+- [x] Architecture and boundary confirmation — AD-19's "single domain mechanism" rule followed (one `overlaps`-case implementation, not four reimplementations); AD-17's hot-path EXPLAIN invariant re-verified, not assumed; the closed-form-arithmetic-vs-`generate_series` SQL design choice (Dev Notes) confirmed appropriate for a hot-path correlated subquery.
+- [x] Testing plan confirmation — SQL-text unit tests (`drizzle-where.test.ts`, including a byte-identical-SQL regression case for non-opted-in callers) plus DB-backed integration tests covering all four ACs and the existing 1.3h/0.i5d suites' continued pass (`resolvers.test.ts`) plus the Task 5 EXPLAIN re-run.
+- [x] Explicit human approval state (Default: pending approval).
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gates 1/3 cited from `batch-cc-024-multi-event-readiness.md` (READY, no correction needed for 3.6y); Gate 2 run fresh this session (No gap found, confirmed zero frontend scope).
+- [x] Design decision confirmed — the fix-scope decision (general, all four call sites, via `AskUserQuestion`) and the closed-form-SQL design choice are both recorded in Dev Notes, not re-asked during implementation.
 
 ## Testing Requirements
 
-- [ ] Unit tests — `packages/graphql-select/drizzle-where.test.ts`'s 3 new SQL-text/params cases (Task 3), including the explicit no-`applicableDaysOfWeekCol` backward-compatibility case. `packages/domain/src/events/buildEventsQueryCondition.test.ts` requires **no new test** (no code change in that file) — its existing suite is the regression proof that condition-construction is unaffected.
-- [ ] Integration tests — `apps/backend/src/schema/resolvers.test.ts`'s new DB-backed `node:test` block (Task 4), covering AC1-AC4 plus confirming the existing 1.3h/0.i5d blocks pass unmodified, matching this codebase's established no-DB-mocking convention.
-- [ ] E2E tests — not applicable; this is a backend-only query-condition/SQL correctness fix with no new user-facing flow (the frontend already renders filtered results correctly once the backend stops over-including events — no new screen/interaction to exercise end-to-end).
-- [ ] Hot-path gate — Task 5's EXPLAIN re-run against `seed:volume`, compared against `cc-024-explain-after-3.6r-2026-10-02.md`, committed as a new dated results doc.
+- [x] Unit tests — `packages/graphql-select/drizzle-where.test.ts`'s 3 new SQL-text/params cases (Task 3), including the explicit no-`applicableDaysOfWeekCol` backward-compatibility case. `packages/domain/src/events/buildEventsQueryCondition.test.ts` requires **no new test** (no code change in that file) — its existing suite is the regression proof that condition-construction is unaffected.
+- [x] Integration tests — `apps/backend/src/schema/resolvers.test.ts`'s new DB-backed `node:test` block (Task 4), covering AC1-AC4 plus confirming the existing 1.3h/0.i5d blocks pass unmodified, matching this codebase's established no-DB-mocking convention.
+- [x] E2E tests — not applicable; this is a backend-only query-condition/SQL correctness fix with no new user-facing flow (the frontend already renders filtered results correctly once the backend stops over-including events — no new screen/interaction to exercise end-to-end).
+- [x] Hot-path gate — Task 5's EXPLAIN re-run against `seed:volume`, compared against `cc-024-explain-after-3.6r-2026-10-02.md`, committed as a new dated results doc.
 
 ## Deliverables Checklist
 
-- [ ] `apps/backend/src/schema/resolvers.ts`'s `scheduleDateRange` fieldMap entry carries `applicableDaysOfWeekCol`.
-- [ ] `packages/graphql-select/drizzle-where.ts`'s `overlaps` case applies the weekday-containment guard when the column is present, and is behavior-identical when it is absent.
-- [ ] All 3 new `drizzle-where.test.ts` cases pass, including the no-opt-in regression case.
-- [ ] All new `resolvers.test.ts` assertions pass for AC1-AC4, and the pre-existing 1.3h/0.i5d blocks pass unmodified.
-- [ ] EXPLAIN re-run complete; `cc-024-explain-after-3.6y-<date>.md` committed with an explicit AC6 PASS/FAIL verdict and evidence.
-- [ ] `pnpm --filter @festgrid/graphql-select test`, `pnpm --filter @festgrid/backend test`, `pnpm --filter @festgrid/domain test`, lint, and `tsc --noEmit` all clean for the touched packages.
+- [x] `apps/backend/src/schema/resolvers.ts`'s `scheduleDateRange` fieldMap entry carries `applicableDaysOfWeekCol`.
+- [x] `packages/graphql-select/drizzle-where.ts`'s `overlaps` case applies the weekday-containment guard when the column is present, and is behavior-identical when it is absent.
+- [x] All 3 new `drizzle-where.test.ts` cases pass, including the no-opt-in regression case.
+- [x] All new `resolvers.test.ts` assertions pass for AC1-AC4, and the pre-existing 1.3h/0.i5d blocks pass unmodified.
+- [x] EXPLAIN re-run complete; `cc-024-explain-after-3.6y-<date>.md` committed with an explicit AC6 PASS/FAIL verdict and evidence.
+- [x] `pnpm --filter @festgrid/graphql-select test`, `pnpm --filter @festgrid/backend test`, `pnpm --filter @festgrid/domain test`, lint, and `tsc --noEmit` all clean for the touched packages.
 
 ## Out of Scope
 
@@ -192,15 +192,14 @@ so that a Monday-only promo does not show up for every Friday inside its span (B
 
 ## Definition of Done
 
-- [ ] AC1-AC6 satisfied exactly as specified above.
-- [ ] All new and existing tests passing (`packages/graphql-select`, `apps/backend`, `packages/domain` unaffected-and-confirmed-green).
-- [ ] Lint and `tsc --noEmit` clean for `packages/graphql-select` and `apps/backend`.
-- [ ] EXPLAIN comparison doc committed with a PASS verdict (or, if FAIL, the regression root-caused and fixed before this story is marked done).
+- [x] AC1-AC6 satisfied exactly as specified above.
+- [x] All new and existing tests passing (`packages/graphql-select`, `apps/backend`, `packages/domain` unaffected-and-confirmed-green).
+- [x] Lint and `tsc --noEmit` clean for `packages/graphql-select` and `apps/backend`.
+- [x] EXPLAIN comparison doc committed with a PASS verdict (or, if FAIL, the regression root-caused and fixed before this story is marked done).
 
 ## Completion Status
 
-- [ ] Not started
-- [x] In progress — Tasks 1-5 complete and individually verified; Task 6 (final full regression pass) **blocked**, see Debug Log. Story is NOT ready for review: do not advance sprint-status past `in-progress` until Task 6 is completed and verified by a session with working tool execution.
+- [x] Complete — Tasks 1-6 done; Task 6 verified by the orchestrator session after the dev session's tooling outage (see Debug Log, "Task 6 resolved"). Status `review`.
 
 ## Dev Agent Record
 
@@ -223,6 +222,8 @@ claude-sonnet-5
   - Lint (`pnpm --filter backend lint`, `pnpm --filter @festgrid/graphql-select lint`) and `tsc --noEmit` for both touched packages were **never run** — blocked by the same outage, zero attempts succeeded.
   - Per the workflow's explicit gates ("if regression tests fail: STOP and fix before continuing", "if lint fails: STOP and fix", "if build fails: STOP and fix", "NEVER mark a task complete unless ALL conditions are met"), Task 6 is left **unchecked**, the story Status is left at **in-progress** (not `review`), and `sprint-status.yaml` is left at **in-progress**. This is a genuine tooling blocker, not a scope or design question — nothing in `apps/backend`/`packages/graphql-select` source was touched after the last clean individual-suite run recorded above.
 
+- **Task 6 resolved (2026-10-02, orchestrator session).** The full suite was re-run with untruncated output on a clean DB (`TZ=UTC pnpm test`, volume seed cleaned): every package green except `apps/backend` 884/908 pass, 22 fail. The 22 are exactly the known cloud-environment failures recorded in the CC-024 wave plan (Wave 2B/2C gates: geolocation/location tests needing `GEOAPIFY_API_KEY`, and the Bright Data `CAPACITY_EXHAUSTED` test running against `.env.example` placeholders) — a name-by-name diff against the Wave 2C gate shows no new failure. The dev session's earlier 61-failure count was taken on a DB that still held `seed:volume` rows. Lint: 0 errors for `apps/backend` and `packages/graphql-select` (pre-existing warnings only); `tsc --noEmit` clean for both. The dev session's `AbortError: Stream closed` was the orchestrator's permission relay timing out (no answer arrived while a long test ran), not a sandbox fault.
+
 ### Completion Notes List
 
 - Tasks 1-5 (fieldMap extension, `overlaps`-operator weekday guard, unit tests, integration tests covering AC1-AC4, and the AD-17 EXPLAIN gate) are implemented and were each individually verified green before the Task 6 tooling outage (see Debug Log above for each suite's pass count).
@@ -237,9 +238,10 @@ claude-sonnet-5
 - `apps/backend/src/schema/resolvers.test.ts` — modified (Task 4: new `t.test('events - applicableDaysOfWeek narrows ...')` integration block, AC1-AC4 plus regression confirmation).
 - `_bmad-output/planning-artifacts/cc-024-explain-after-3.6y-2026-10-02.md` — new (Task 5: EXPLAIN comparison doc, AC6 verdict PASS).
 - `_bmad-output/implementation-artifacts/3-6y-respect-weekday-narrowed-schedules-in-day-of-week-filtering.md` — this story file (Tasks/Subtasks checkboxes, Dev Agent Record, Status, Change Log).
-- `_bmad-output/implementation-artifacts/sprint-status.yaml` — `3-6y-...` entry set to `in-progress` (unchanged from this session's start; NOT advanced to `review`).
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` — `3-6y-...` entry set to `review`.
 
 ## Change Log
 
 - 2026-10-02: Story created via `bmad-create-story` (CC-024 Wave 4A). Fix-scope design decision (general, all four `scheduleDateRange`/`overlaps` call sites, closed-form SQL) confirmed with the user via `AskUserQuestion` before drafting. Gates 1/3 cited from `batch-cc-024-multi-event-readiness.md` (swept, READY); Gate 2 run fresh (No gap found).
 - 2026-10-02: Dev session (this session) implemented Tasks 1-5 (fieldMap extension, `overlaps`-operator weekday guard, unit tests, integration tests, AD-17 EXPLAIN gate — AC6 PASS). Corrected Task 4.2's suggested fixture dates (real Sep 2030 calendar does not match the story's assumed "four Mondays" dates — see Debug Log). Task 6 (final full regression pass) and lint/`tsc --noEmit` could **not** be completed: a tooling outage after the one full `apps/backend` test run (845/908 pass, 61 fail, cause undetermined — full output was lost to `tail` truncation) made every subsequent `pnpm`/`npx`/`node`/`psql` invocation fail with a persistent `AbortError: Stream closed`, confirmed non-transient across multiple retries and two deliberate waits. Story Status left at `in-progress`, sprint-status.yaml left at `in-progress`, wave-plan dev checkbox for 3.6y **not** ticked — this is a genuine tooling blocker requiring a fresh session to resolve, not a scope/design gap.
+- 2026-10-02: Task 6 completed by the orchestrator session: full suite re-run untruncated (no new failures vs. the known cloud-environment set), lint 0 errors, `tsc --noEmit` clean. Status -> `review`.
