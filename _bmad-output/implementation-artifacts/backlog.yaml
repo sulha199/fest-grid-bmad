@@ -1292,20 +1292,21 @@ items:
            specs/spec-post-coauthor-attribution/SPEC.md,
            planning-artifacts/sprint-change-proposal-2026-09-18.md],
      stories: [3-13-normalize-apify-vendor-coauthor-publisher-roles-during-ingestion,
-               3-14-deduplicated-provenance-tracked-subscribable-profiles],
+               3-14-deduplicated-provenance-tracked-subscribable-profiles,
+               3-15-post-account-association-table-lossless-migration],
      touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions, pkg:ui],
      impact: user-visible, effort: l,
-     note: "Adds epics.md Stories 3.13-3.19 (CAP-1..6/8) + 0.i6g (CAP-7); amends 0.i6c/0.i6z. Story 3.15's DDL resolved by AD-25 (the above 'blocked' line is stale). Promoted 2026-10-02 on Story 3.13, then 3.14; remaining fan-out carved to CC-025."}
+     note: "Adds epics.md Stories 3.13-3.19 (CAP-1..6/8) + 0.i6g (CAP-7); amends 0.i6c/0.i6z. Story 3.15's DDL resolved by AD-25 (the above 'blocked' line is stale). Promoted 2026-10-02 on Story 3.13, then 3.14, then 3.15; remaining fan-out carved to CC-025."}
 
   CC-025:
     {type: proposal, status: triaged, created: 2026-10-02, parent: CC-022,
-     title: "Remaining FIND-022 coauthor/publisher stories not yet created (3.15-3.19, 0.i6g)",
+     title: "Remaining FIND-022 coauthor/publisher stories not yet created (3.16-3.19, 0.i6g)",
      ref: [backlog/FIND-022-coauthor-content-issues.md,
            specs/spec-post-coauthor-attribution/SPEC.md,
            planning-artifacts/sprint-change-proposal-2026-09-18.md],
      touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions, pkg:ui],
      impact: user-visible, effort: l,
-     note: "Partial-promotion carve-out from CC-022 (section 13): tracks CC-022's not-yet-created stories (3.15-3.19, 0.i6g) -- 3.14 created 2026-10-02, moved to CC-022. sprint-status.yaml carries backlog placeholders for all."}
+     note: "Partial-promotion carve-out from CC-022 (section 13): tracks CC-022's not-yet-created stories (3.16-3.19, 0.i6g) -- 3.14 and 3.15 created 2026-10-02, moved to CC-022. sprint-status.yaml carries backlog placeholders for all."}
 
   FIND-039:
     {type: finding, status: backlog, created: 2026-09-18, parent: CC-022,

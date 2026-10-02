@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-02T03:57:34Z
+last_updated: 2026-10-02T06:01:49Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -1982,7 +1982,7 @@ development_status:
   # design decisions resolved via AskUserQuestion -- see story's Dev Notes.)
   3-13-normalize-apify-vendor-coauthor-publisher-roles-during-ingestion: review
   3-14-deduplicated-provenance-tracked-subscribable-profiles: review
-  3-15-post-account-association-table-lossless-migration: backlog
+  3-15-post-account-association-table-lossless-migration: ready-for-dev
   3-16-immediate-coauthor-publisher-subscribability: backlog
   3-17-demand-gated-discovery-for-scrape-discovered-profiles: backlog
   3-18-union-of-associations-account-filtering: backlog
