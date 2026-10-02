@@ -180,8 +180,8 @@ Read this before trusting a red gate. None of these come from CC-024 stories.
 
 - [ ] **3.13** Normalize Apify vendor coauthor/publisher roles during ingestion (dev done, commit `3d96426`, status `review`)
   - [x] create  - [x] dev  - [ ] review
-- [ ] **3.14** Deduplicated, provenance-tracked subscribable profiles — *needs 3.13*
-  - [ ] create  - [ ] dev  - [ ] review
+- [ ] **3.14** Deduplicated, provenance-tracked subscribable profiles — *needs 3.13* (story created 2026-10-02, status `ready-for-dev`; Gate 2 run fresh — no gap, backend-only; one design decision — explicit `discoverySourceVendor` parameter vs. implicit derivation — resolved via `AskUserQuestion`)
+  - [x] create  - [ ] dev  - [ ] review
 - [ ] **3.15** Post-account association table + lossless migration — *needs 3.13/3.14 outputs; AD-25 and AD-31 settle the DDL*
   - [ ] create  - [ ] dev  - [ ] review
 - [ ] Prerequisite stories **1.3j**, **1.6c**, **1.3k** are at `review`: standing rule is to build against
