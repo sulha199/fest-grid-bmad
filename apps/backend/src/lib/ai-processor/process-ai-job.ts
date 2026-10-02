@@ -8,7 +8,7 @@ import { type GeminiExtractionPayload, transformGeminiResponseToEventInfo, type 
 import { resolveAccountAndLocations } from './resolve-account-and-locations.js';
 import { resolveScheduleTimezones } from './resolve-schedule-timezones.js';
 import { markPostExtracted as defaultMarkPostExtracted } from '../posts/mark-post-extracted.js';
-import { sendSqsMessage } from '../aws/send-sqs-message.js';
+import { sendSqsMessageWithRetry } from '../aws/send-sqs-message-with-retry.js';
 import { processIngestionJob } from '../ingestor/process-ingestion-job.js';
 import { loadBackendEnv } from '../../env.js';
 import { rehostPostImage as defaultRehostPostImage } from './rehost-post-image.js';
@@ -16,6 +16,7 @@ import { backfillAccountProfileAndInferDefaultLocation } from '../accounts/backf
 import { db } from '../../db/client.js';
 import { eq } from 'drizzle-orm';
 import { socialMediaAccountProfiles, posts } from '@festgrid/database';
+import { assignExtractionOrdinals } from '@festgrid/domain';
 
 
 export let callGeminiSeam = defaultCallGemini;
@@ -174,21 +175,19 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
     );
   }
 
-  // 7.5. Branch on final event count (AC8, resolved interim-deferral design). Story 3.6t
-  // removes this branch and replaces it with real per-event ingestion (extractionOrdinal,
-  // one queue message per event).
-  if (eventMessages.length > 1) {
-    console.warn(
-      `[processAiJob] Deferring multi-event post pending Story 3.6t: post ${message.postId}, ` +
-        `groupingReason=${payload.groupingReason ?? 'unknown'}, eventCount=${eventMessages.length}`
-    );
-    return;
-  }
+  // 7.5. Persist post-level grouping facts (Task 5.1) -- the hidden prerequisite this story
+  // must also do: posts.grouping_reason/extracted_event_count have existed since Story 3.6r
+  // but nothing has written them until now. events.length here is the post-truncation count
+  // (events actually kept and about to be ingested), not the model's raw count.
+  await db
+    .update(posts)
+    .set({ groupingReason: payload.groupingReason ?? null, extractedEventCount: events.length })
+    .where(eq(posts.id, message.postId));
 
-  const eventMessage = eventMessages[0];
   const defaultLocation = defaultLocationForBackfill;
 
-  // 7.5a. Best-effort image rehosting to durable S3 (single-event path only).
+  // 7.5a. Best-effort image rehosting to durable S3 -- post-level (one cover image per post,
+  // Story 3.6e/3.6h/3.6l), runs unconditionally regardless of event count.
   const skipImageRehost = !isOptedIntoImageStorage;
   if (imageBytes && imageContentType && !skipImageRehost) {
     try {
@@ -201,24 +200,61 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
     }
   }
 
-  // 8. Enqueue to DataIngestionQueue (or process inline in local dev)
+  // 8. Assign deterministic extraction ordinals (Task 5.4/Task 2, AC7) -- by earliest schedule
+  // start date, then normalized event name, then original index, never raw model-response
+  // order, so a re-extraction that yields the same set of events produces the same ordinals.
+  const orderedEventMessages = assignExtractionOrdinals(eventMessages);
+
+  // 8.1. Enqueue to DataIngestionQueue (or process inline in local dev) -- one message per
+  // event (AC1). Best-effort (AC7): attempts every event's send even after one fails, retrying
+  // each failed send up to 2 more times with a short backoff before giving up on it, so a
+  // transient SQS error does not cost a second Gemini call. Only if a send still fails after
+  // its retries does this throw -- the post is NOT marked extracted below, and the whole post
+  // re-extracts on AIProcessingQueue redelivery (already-enqueued ordinals from the failed
+  // attempt are harmless idempotent no-ops next time, per AC1/AC6).
   if (env.dataIngestionQueueUrl) {
-    await sendSqsMessage(env.dataIngestionQueueUrl, JSON.stringify(eventMessage));
+    const enqueueErrors: unknown[] = [];
+    for (const eventMessage of orderedEventMessages) {
+      try {
+        await sendSqsMessageWithRetry(env.dataIngestionQueueUrl, JSON.stringify(eventMessage), {
+          onAttemptFailed: (attempt, maxAttempts, err) =>
+            console.warn(
+              `[processAiJob] Enqueue attempt ${attempt}/${maxAttempts} failed for post ${message.postId}, ` +
+                `ordinal ${eventMessage.extractionOrdinal}:`,
+              err
+            ),
+        });
+      } catch (err) {
+        enqueueErrors.push(err);
+      }
+    }
+    if (enqueueErrors.length > 0) {
+      throw new Error(
+        `[processAiJob] ${enqueueErrors.length}/${orderedEventMessages.length} event(s) failed to enqueue ` +
+          `(after retries) for post ${message.postId}`
+      );
+    }
   } else if (env.dataIngestionInlineFallbackEnabled) {
     // No queue configured and inline fallback explicitly opted into (local dev only,
     // via DATA_INGESTION_INLINE_FALLBACK_ENABLED in a personal .env): process ingestion
     // inline instead of enqueuing, since there's no Lambda locally to drain the queue.
-    // Fire-and-forget, mirroring the async decoupling of the real queue path below —
-    // the post is marked extracted on successful hand-off, not on ingestion outcome.
-    processIngestionJob(eventMessage).catch((err) => {
-      console.error(`Failed to process ingestion job inline for post ${message.postId}:`, err);
-    });
+    // Fire-and-forget per event, mirroring the async decoupling of the real queue path above —
+    // this is a local-dev-only convenience with no real queue to drain, not the production
+    // failure surface AC7 is about, so no retry/best-effort bookkeeping is added here.
+    for (const eventMessage of orderedEventMessages) {
+      processIngestionJob(eventMessage).catch((err) => {
+        console.error(
+          `Failed to process ingestion job inline for post ${message.postId}, ordinal ${eventMessage.extractionOrdinal}:`,
+          err
+        );
+      });
+    }
   } else {
     throw new Error('DATA_INGESTION_QUEUE_URL is not configured');
   }
 
   // 8.5. If resolved defaultLocation is falsy, trigger location inference.
-  // Runs after this post's own event was already enqueued/ingested at step 8 using the
+  // Runs after this post's events were already enqueued/ingested at step 8 using the
   // falsy defaultLocation resolved at step 6, so a successful inference here can only
   // benefit this account's *future* posts, never backfill the triggering event itself —
   // mirrors the same after-the-fact pattern already used in process-scrape-job.ts.
@@ -241,8 +277,8 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
     }
   }
 
-  // 9. Mark post extracted on successful enqueue (single-event path only, AC8 — a deferred
-  // multi-event post returns above without reaching here, and without nulling a CURATOR_GUIDE
+  // 9. Mark post extracted only after every event's message was successfully enqueued (AC7) --
+  // a thrown enqueue failure above skips this entirely (and skips nulling a CURATOR_GUIDE
   // caption: Story 3.4o's nulling is meant to run only once extraction has actually completed).
   if (isCuratorGuide) {
     await db.update(posts).set({ content: null }).where(eq(posts.id, message.postId));
