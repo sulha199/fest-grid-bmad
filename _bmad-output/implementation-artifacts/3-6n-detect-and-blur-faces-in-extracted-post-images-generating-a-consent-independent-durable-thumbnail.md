@@ -8,7 +8,7 @@ baseline_commit: 1160e08c
 
 - Epic: 3
 - Story ID: 3.6n
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -201,31 +201,31 @@ so that FestDaily has a safe, consent-independent copy of the photo to fall back
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — pipeline only (face detection/blur/resize/upload, `posts.durableThumbnailUrl` migration, once-per-post run point, timeout guard); the read path (GraphQL/resolvers/`resolveServedImageUrl`/mapper/codegen/`EventListView`) is explicitly out of scope, split to Story 3.6n2.
-- [ ] Architecture and boundary confirmation — all changes confined to `apps/backend` + `packages/database`; the new native/WASM-coupled module correctly stays out of `packages/domain`; AD-28's opt-in-independence and once-per-post rules are implemented as separate, non-nested gates from the existing opted-in-only `rehostPostImageSeam` call.
-- [ ] Testing plan confirmation — unit tests for the new detection/blur module; integration tests for the `process-ai-job.ts` wiring (opt-in independence, multi-event singularity, timeout-guard skip, failure non-propagation); full regression on the 33 pre-existing `processAiJob` call sites.
-- [ ] Explicit human approval state (Default: pending approval).
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1/3 cited from the swept `batch-cc-023-face-blur-audit-readiness.md` report; Gate 2 run fresh pre-split (no gap; two non-gating UX flags recorded) and re-confirmed trivially-clear for the post-split, pipeline-only scope. **Hard prerequisite Story 0.46 is `ready-for-dev`, not yet `done`** — this story's Task 2 (WASM backend wiring, model path, image-to-tensor bridging) cannot be finalized with full confidence until 0.46 actually ships; the dev agent must check 0.46's real status/File List before finalizing Task 2's specifics, not just at this story-creation time.
-- [ ] **Story 3.6p prerequisite** (added 2026-10-03 for AC9's backfill) confirmed done or its `writeExtractionAuditLog` id-return amendment applied as part of this story's own diff — this story's Task 4 needs `auditLogId` in scope; if 3.6p shipped with its original `Promise<void>` signature, add the `.returning({ id: ... })` change here rather than guessing past it.
-- [ ] Image-to-tensor bridging approach (Dev Notes' flagged technical risk) explicitly acknowledged and validated against Story 0.46's actual measurement harness (once built) before this story's Task 2 is considered complete — not guessed past.
+- [x] Scope confirmation — pipeline only (face detection/blur/resize/upload, `posts.durableThumbnailUrl` migration, once-per-post run point, timeout guard); the read path (GraphQL/resolvers/`resolveServedImageUrl`/mapper/codegen/`EventListView`) is explicitly out of scope, split to Story 3.6n2. **Plus one scope addition, relayed to and approved by the user via `AskUserQuestion` before coding began:** `apps/infrastructure` changes to wire the real face-api/tfjs import graph into `aiProcessorLambda`'s PRIMARY esbuild bundle (superseding Story 0.46's inert-probe/separate-esbuild-pass mechanism) and re-measure the final asset.
+- [x] Architecture and boundary confirmation — all changes confined to `apps/backend` + `packages/database` + the approved `apps/infrastructure` addition; the new native/WASM-coupled module correctly stays out of `packages/domain`; AD-28's opt-in-independence and once-per-post rules are implemented as separate, non-nested gates from the existing opted-in-only `rehostPostImageSeam` call.
+- [x] Testing plan confirmation — unit tests for the new detection/blur module; integration tests for the `process-ai-job.ts` wiring (opt-in independence, multi-event singularity, timeout-guard skip, failure non-propagation); full regression on the 33 pre-existing `processAiJob` call sites.
+- [x] Explicit human approval state — approved as scoped by the user (relayed via `AskUserQuestion`, including the infra scope addition), 2026-10-03.
+- [x] Gate 1/2/3 prerequisites confirmed done — Story 0.46 is `review` (built) as of this story's implementation; its actual File List/Dev Agent Record were read in full before finalizing Task 2 (model path, WASM backend wiring, image-to-tensor bridging approach — all reused as-shipped, not guessed past).
+- [x] **Story 3.6p prerequisite** confirmed done (`review` status) — `writeExtractionAuditLog` already returns `{ id }` as shipped; no amendment needed in this story's diff.
+- [x] Image-to-tensor bridging approach validated against Story 0.46's actual measurement harness/probe module (`sharp` raw-pixel decode → `tf.tensor3d` → `faceapi.detectAllFaces`) and reused as-is in `detect-and-blur-faces.ts`.
 
 ## Testing Requirements
 
-- [ ] Unit tests (`apps/backend`, `node:test` — the established convention for this package; **not Vitest** — `apps/backend` and `apps/infrastructure` both use `tsx --test`, only `apps/web` uses Vitest): `detect-and-blur-faces.ts` — face detected and blurred (fixture with a visible face); zero detections (fixture with no people).
-- [ ] Integration tests (real DB, `callGeminiSeam`/S3-client mocked, extending `process-ai-job.test.ts` or a new focused file): opt-in-independence (both `true`/`false` get a thumbnail when `hasFaceImage: true`); no-face skip (no S3 call); multi-event-post singularity (one thumbnail, not N); timeout-guard skip (injected low remaining time); failure non-propagation (detection/upload throws, `processAiJob` still completes).
-- [ ] Full regression: all 33 pre-existing direct `processAiJob(message)` call sites (no second argument) still pass unchanged.
-- [ ] No E2E/integration test beyond the above applies — this story has no API/GraphQL/UI surface (Story 3.6n2's scope).
-- [ ] `backfill-face-detection-audit-result.ts` unit tests + its four integration cases (f-i, Task 6) — AC9's AD-29 backfill ownership.
+- [x] Unit tests (`apps/backend`, `node:test`): `detect-and-blur-faces.ts` — face detected and blurred (fixture with a visible face, cropped from `@vladmandic/face-api`'s own bundled demo photo); zero detections (synthetic solid-color fixture with no people).
+- [x] Integration tests (real DB, `callGeminiSeam`/seams mocked, new `process-ai-job.face-blur.test.ts`): opt-in-independence (both `true`/`false` get a thumbnail when `hasFaceImage: true`); no-face skip (no detection/upload call); multi-event-post singularity (one thumbnail, not N); timeout-guard skip (injected low remaining time); failure non-propagation (detection/upload throws, `processAiJob` still completes).
+- [x] Full regression: all 33 pre-existing direct `processAiJob(message)` call sites (no second argument) still pass unchanged — confirmed via the full `apps/backend` suite run (see Dev Agent Record).
+- [x] No E2E/integration test beyond the above applies — this story has no API/GraphQL/UI surface (Story 3.6n2's scope).
+- [x] `backfill-face-detection-audit-result.ts` unit tests + its four integration cases (f-i, Task 6) — AC9's AD-29 backfill ownership. (A fifth case, J, was added beyond the story's literal text — see Dev Agent Record's AC9 design-decision note.)
 
 ## Deliverables Checklist
 
-- [ ] `posts.durableThumbnailUrl` column exists via a committed Drizzle migration.
-- [ ] This stage's own two `extraction_audit_logs` backfill outcomes (`'no_face_reported'`, real detected count) are written via `backfillFaceDetectionAuditResult`, independent of Story 3.6o.
-- [ ] `detect-and-blur-faces.ts` detects faces (WASM backend, no `node-canvas`), blurs at original resolution before resize, and the thumbnail is resized/encoded/uploaded per AD-28 Rule 5.
-- [ ] The new call site in `process-ai-job.ts` runs once per post, independent of `isImageStorageOptedIn`, with a working timeout guard threaded from the real Lambda `Context`.
-- [ ] Every failure path is caught; `durableThumbnailUrl` stays null on any failure without affecting extraction/ingestion.
-- [ ] Zero `.graphql`/`resolvers.ts`/`apps/web`/`packages/ui` changes anywhere in the diff.
-- [ ] Unit + integration tests (Task 6) passing; full existing `apps/backend` suite green.
+- [x] `posts.durableThumbnailUrl` column exists via a committed Drizzle migration (`0069_noisy_hairball.sql`).
+- [x] This stage's own two `extraction_audit_logs` backfill outcomes (`'no_face_reported'`, real detected count) are written via `backfillFaceDetectionAuditResult`, independent of Story 3.6o.
+- [x] `detect-and-blur-faces.ts` detects faces (WASM backend, no `node-canvas`), blurs at original resolution before resize, and the thumbnail is resized/encoded/uploaded per AD-28 Rule 5.
+- [x] The new call site in `process-ai-job.ts` runs once per post, independent of `isImageStorageOptedIn`, with a working timeout guard threaded from the real Lambda `Context`.
+- [x] Every failure path is caught; `durableThumbnailUrl` stays null on any failure without affecting extraction/ingestion.
+- [x] Zero `.graphql`/`resolvers.ts`/`apps/web`/`packages/ui` changes anywhere in the diff (confirmed via `git status`/`git diff`).
+- [x] Unit + integration tests (Task 6) passing; full existing `apps/backend` suite green (apart from 6 pre-existing, out-of-scope failures — see Dev Agent Record).
 
 ## Out of Scope
 
@@ -239,25 +239,68 @@ so that FestDaily has a safe, consent-independent copy of the photo to fall back
 
 ## Definition of Done
 
-- [ ] AC1-AC9 satisfied.
-- [ ] Task 6's unit and integration tests passing; full existing `apps/backend`/`packages/database` suites green, including all 33 pre-existing `processAiJob` call sites.
-- [ ] Lint and type checks passing for `apps/backend`, `packages/database`.
-- [ ] Migration applies cleanly to local Postgres; no other table/column affected.
-- [ ] Dev Notes record the actual image-to-tensor bridging approach used (confirmed against Story 0.46's real implementation if it has landed by then) and the `faceBlurMinRemainingTimeMs` value actually shipped (and whether it was tuned against 0.46's real measurements or left at the documented placeholder).
-- [ ] No regression in any other Lambda/queue behavior; `lambdas/ai-processor.ts`'s SQS-batch and `poll-and-drain` branches both still function identically apart from the new `Context`-threading.
+- [x] AC1-AC9 satisfied.
+- [x] Task 6's unit and integration tests passing; full existing `apps/backend`/`packages/database` suites green, including all 33 pre-existing `processAiJob` call sites.
+- [x] Lint and type checks passing for `apps/backend`, `packages/database`.
+- [x] Migration applies cleanly to local Postgres; no other table/column affected.
+- [x] Dev Notes record the actual image-to-tensor bridging approach used (reused as-shipped from Story 0.46's probe module) and the `faceBlurMinRemainingTimeMs` value actually shipped (left at the documented 60000ms placeholder — see Dev Agent Record).
+- [x] No regression in any other Lambda/queue behavior; `lambdas/ai-processor.ts`'s SQS-batch and `poll-and-drain` branches both still function identically apart from the new `Context`-threading.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Sonnet 5 (claude-sonnet-5)
 
 ### Debug Log References
 
+- Pre-coding approval relayed to the user via `AskUserQuestion`, including the scope addition (per the dispatch instructions) to touch `apps/infrastructure` and re-wire `aiProcessorLambda`'s bundling since 3.6n now wires the real detection code into the import graph that Story 0.46 deliberately kept it out of. User chose "Approve as proposed."
+- Prerequisites verified built (`review` status) before finalizing Task 2/Task 4: Story 0.46 (`aiProcessorLambda` memorySize 2048/X86_64, `sharp`/face-api/tfjs provisioned, WASM backend decision) and Story 3.6p (`writeExtractionAuditLog` already returns `{ id }`). Next migration confirmed as `0069` (0068 was already taken by Story 3.6p's own `extraction_audit_logs` table migration, landed first).
+- `detect-and-blur-faces.ts` reuses Story 0.46's probe module's exact bridging approach (`sharp` raw-pixel decode → `tf.tensor3d` → `faceapi.detectAllFaces` via `@vladmandic/face-api/dist/face-api.node-wasm.js`) but implements the PER-FACE regional blur (Task 2's explicit requirement — the probe blurred the whole image, which Task 2 explicitly forbids) via `sharp`'s extract/blur/composite pattern.
+- A real fixture with a visible face was needed for Task 6's unit tests (AC8). No such fixture existed in this repo. Found that `@vladmandic/face-api`'s own installed npm package ships demo photos (`demo/sample1.jpg`, a group photo) specifically for this purpose; cropped a 400x400 single-face region from it (`detect-and-blur-faces.ts`'s unit test confirmed 1 face detected) and committed it as `__fixtures__/face-visible.jpg` (25KB). The no-face fixture is a synthetic solid-color image generated with `sharp` (`__fixtures__/no-face.jpg`, 1.2KB) — no real photo needed for a true negative.
+- AC9 design decision (not fully spelled out by the story's illustrative Task 4 code sample, which composed detection+upload into one try/catch): split the call site into two explicit phases so the real detected face count is backfilled as soon as detection itself succeeds, even if the LATER resize/upload step then fails — matching AC9's literal wording ("even if a later resize/upload step then fails") rather than the sample code's comment (which would have left null/null for an upload-only failure too). Added a 5th integration test case (Case J) beyond the story's literal (f-i) list to specifically prove this distinction, plus added an outer try/catch around the upload-seam call (defense-in-depth matching AC6's wording) even though the production `uploadFaceBlurThumbnail` function is itself non-throwing by Task 3's own design.
+- Full `apps/backend` test suite run in 6 foreground chunks (`--test-concurrency=1`, `TZ=UTC`) rather than one unfiltered pass, since a single pass exceeded the 10-minute foreground cap. Two real regressions surfaced and were fixed before the final pass:
+  1. `ai-processor.test.ts`'s existing poll-and-drain test passes a bare `{} as any` Lambda `Context` with no `getRemainingTimeInMillis` — `context.getRemainingTimeInMillis.bind(context)` threw. Fixed with optional chaining (`context.getRemainingTimeInMillis?.bind(context)`).
+  2. `backfill-face-detection-audit-result.ts`'s null-`auditLogId` no-op originally logged via `console.warn`, which several pre-existing test files (e.g. `process-ai-job.carousel-completeness.test.ts`) capture and assert an EXACT count of for unrelated features — this no-op fires on any test using a synthetic postId with no matching `posts` row (very common), silently inflating those counts. Fixed by switching to `console.debug` (a channel those tests don't mock).
+  3. (Verified pre-existing/out-of-scope, not caused by this story) 4 `system-key-adapter` test failures (`.env` defines `SYSTEM_GEMINI_API_KEY`, FIND-063 — the documented known environment failure) and 2 `resolvers.test.ts` failures in an unrelated `applicableDaysOfWeek`/dayOfWeek date-filter test (`resolvers.ts`/`resolvers.test.ts` are untouched by this story's diff; confirmed via `git status`).
+- `apps/infrastructure` re-wiring: deleted the now-redundant inert probe module (`apps/backend/scripts/ai-processor-face-detection-probe.cjs`) and its separate esbuild-bundling pass in `bundle-ai-processor-face-detection-assets.cjs`, since `detect-and-blur-faces.ts` is now directly reachable from `ai-processor.ts`'s own import graph (via `process-ai-job.ts`) — CDK's PRIMARY esbuild bundling pass now inlines the real face-api/tfjs code into `index.js` itself (confirmed: `index.js` grew from well under 500KB pre-3.6n to 8.3MB raw / within the measured final numbers below), with no separate pass needed. The bundling script now only copies the SSD MobileNetV1 model weights and `tfjs-backend-wasm`'s `.wasm` binaries alongside `index.js`. Updated `festgrid-backend-stack.test.ts`'s AC2/AC3/AC6 asset test accordingly (anchors on `model/ssd_mobilenetv1_model.bin`'s presence instead of the now-removed `face-detection-runtime.js`).
+- **Final re-measured asset size** (real synthesized `aiProcessorLambda` asset, `cdk synth` on this dev machine, via `apps/infrastructure/scripts/measure-ai-processor-asset-size.mjs` + PowerShell `Compress-Archive`): **34.5 MB unzipped** (limit 250 MB) / **13.53 MB zipped** (limit 50 MB) — both comfortably within Lambda's deployment-package limits, and essentially identical to Story 0.46's own probe-based measurement (33 MB / 13.45 MB), confirming the real wiring produces the same footprint class as the probe it replaces.
+- `faceBlurMinRemainingTimeMs` left at the documented 60000ms (60s) placeholder default — Story 0.46's real measurement (worst-case stage ~1.1s locally, ~277x headroom against the 300s Lambda timeout/queue visibility timeout) confirms headroom is not thin, so no tighter tuning was needed; this guard is a cheap safety check, not a design driver, exactly as the dispatch instructions anticipated.
+- `pnpm --filter database seed:volume:clean` (mentioned in the batch plan's "Test-gate facts learned" section) was deliberately NOT run — all of this story's DB-backed tests passed cleanly against the local DB's existing state without it, and it is a destructive/wiping command on the user's real local Postgres instance; running it was not necessary to satisfy this story's own DoD.
+
 ### Completion Notes List
 
+- All 9 ACs implemented and verified: AC1-AC6 (detection/blur/resize/upload mechanism, opt-in independence, once-per-post, timeout guard, failure containment) via `detect-and-blur-faces.ts` + `upload-face-blur-thumbnail.ts` + the new `process-ai-job.ts` call site; AC7 (zero GraphQL/resolvers/apps/web/packages/ui changes) confirmed via `git status`; AC8 (regression fixtures) via `detect-and-blur-faces.test.ts`'s two real-detection cases; AC9 (AD-29 backfill ownership) via `backfill-face-detection-audit-result.ts` + its dedicated test file + `process-ai-job.face-blur.test.ts`'s Cases F-J.
+- `posts.durableThumbnailUrl` migration `0069_noisy_hairball.sql` generated via `pnpm --filter database generate` (drizzle-kit) and applied via `pnpm --filter database migrate` against the local native Windows Postgres instance (`.env`'s `DATABASE_URL`).
+- Scope addition (approved via `AskUserQuestion`): `apps/infrastructure`'s bundling re-wire, re-measuring the final deployed asset at 34.5 MB unzipped / 13.53 MB zipped — see Debug Log for the full mechanism change.
+- Verification commands actually run (all foreground, `TZ=UTC` where DB-backed): `pnpm --filter database generate && pnpm --filter database migrate`; `pnpm --filter backend build`; `pnpm --filter backend lint` (0 errors); `pnpm --filter backend test` (run in 6 foreground chunks covering all 114 test files — 988 passing, 6 pre-existing/out-of-scope failures, 0 regressions from this story's own changes after the two fixes above); `pnpm --filter database build` / `lint` (clean); `pnpm --filter infrastructure test` (6/6 passing, including the re-measured AC2/AC3/AC6 asset test).
+- Manual diff review (`git status`/`git diff`) confirms zero `.graphql`, `resolvers.ts`, `apps/web`, or `packages/domain`/`packages/ui` files touched anywhere in this story's diff (AC7) — all changes confined to `apps/backend`, `packages/database`, and the approved `apps/infrastructure` addition.
+
 ### File List
+
+- `packages/database/schema.ts` — modified: `posts` table gains `durableThumbnailUrl: text('durable_thumbnail_url')`.
+- `packages/database/migrations/0069_noisy_hairball.sql` — added: the `durableThumbnailUrl` column migration.
+- `packages/database/migrations/meta/_journal.json` — modified: drizzle-kit's migration journal, auto-updated by `pnpm --filter database generate`.
+- `packages/database/migrations/meta/0069_snapshot.json` — added: drizzle-kit's schema snapshot for migration 0069.
+- `apps/backend/src/lib/ai-processor/detect-and-blur-faces.ts` — added: real WASM-backed face detection + per-face regional Gaussian blur, reusing Story 0.46's probe-validated image-to-tensor bridging approach. Exports `detectAndBlurFaces`/`detectAndBlurFacesSeam`/`setDetectAndBlurFacesSeam`.
+- `apps/backend/src/lib/ai-processor/detect-and-blur-faces.test.ts` — added: unit tests (face detected+blurred on a real fixture; zero detections on a synthetic no-face fixture).
+- `apps/backend/src/lib/ai-processor/__fixtures__/face-visible.jpg` — added: 400x400 single-face crop of `@vladmandic/face-api`'s own bundled demo photo (25KB).
+- `apps/backend/src/lib/ai-processor/__fixtures__/no-face.jpg` — added: synthetic solid-color fixture (1.2KB), generated via `sharp`.
+- `apps/backend/src/lib/ai-processor/upload-face-blur-thumbnail.ts` — added: resize/re-encode/upload + `posts.durableThumbnailUrl` write, reusing `rehost-post-image.ts`'s S3-client seam and previous-key-cleanup pattern. Exports `uploadFaceBlurThumbnail`/`uploadFaceBlurThumbnailSeam`/`setUploadFaceBlurThumbnailSeam`.
+- `apps/backend/src/lib/ai-processor/upload-face-blur-thumbnail.test.ts` — added: unit/integration tests (happy path, key-replacement cleanup, S3 failure, missing config).
+- `apps/backend/src/lib/ai-processor/backfill-face-detection-audit-result.ts` — added: the AD-29 backfill helper (`'no_face_reported'`/real-count outcomes), reusable as-is by Story 3.6o. Exports `backfillFaceDetectionAuditResult`/`backfillFaceDetectionAuditResultSeam`/`setBackfillFaceDetectionAuditResultSeam`.
+- `apps/backend/src/lib/ai-processor/backfill-face-detection-audit-result.test.ts` — added: unit tests (real update, no-op on null id, thrown DB error caught).
+- `apps/backend/src/lib/ai-processor/process-ai-job.face-blur.test.ts` — added: integration tests for the new step-7.5b call site (Cases A/A2/B/C/D/E + AC9's Cases F/G/H/I/J).
+- `apps/backend/src/lib/ai-processor/process-ai-job.ts` — modified: new step-7.5b call site (detection → AC9 backfill → upload, each independently try/catch'd); new optional `ProcessAiJobDeps`/`deps` parameter threading `getRemainingTimeInMillis`.
+- `apps/backend/src/lib/ai-processor/rehost-post-image.test.ts` — modified: added the new `faceBlurMinRemainingTimeMs` field to its full `BackendEnv` literal (required by the type, unrelated to this file's own test logic).
+- `apps/backend/src/lambdas/ai-processor.ts` — modified: threads `context.getRemainingTimeInMillis?.bind(context)` into `processAiJob` from both the SQS-batch loop and the poll-and-drain branch.
+- `apps/backend/src/env.ts` — modified: new `faceBlurMinRemainingTimeMs` (`FACE_BLUR_MIN_REMAINING_TIME_MS`, default `60000`).
+- `apps/backend/scripts/ai-processor-face-detection-probe.cjs` — deleted: superseded by the real `detect-and-blur-faces.ts` module now wired into the handler's own import graph.
+- `apps/infrastructure/lib/festgrid-backend-stack.ts` — modified: updated `aiProcessorLambda`'s `bundling` comments to reflect the real wiring (no code/config change to `nodeModules`/`commandHooks` themselves — only the bundling script they invoke changed).
+- `apps/infrastructure/lib/festgrid-backend-stack.test.ts` — modified: AC2/AC3/AC6 asset test rewritten to anchor on `model/ssd_mobilenetv1_model.bin`'s presence (not the now-removed `face-detection-runtime.js`) and to assert `index.js` itself grew substantially (proving the real inlining).
+- `apps/infrastructure/scripts/bundle-ai-processor-face-detection-assets.cjs` — modified: removed the now-redundant separate esbuild pass over the deleted probe module; now only copies the SSD MobileNetV1 weights and `.wasm` binaries alongside `index.js`.
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` — modified: `3-6n-...` status `ready-for-dev` → `in-progress` → `review`.
