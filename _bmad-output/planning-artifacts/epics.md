@@ -4092,6 +4092,8 @@ Users can contribute to data quality by correcting event details and reporting i
 
 **Depends on:** Story 0.13, Story 0.17, Story 3.3a, Story 3.3c, Story 3.5, Story 3.6.
 
+**Amendment (2026-10-04, `bmad-create-story` at Story 3.20, FIND-068):** This story's synchronous, inline-in-the-API-Lambda extraction call is reworked to run through the AI Lambda instead, by Story 4.2b, so Story 3.20's pre-AI face blur covers this path too. See Story 4.2b.
+
 ### Story 4.2: AI-assisted event data correction
 
 **As a** user with a BYOK key,
@@ -4110,6 +4112,29 @@ Users can contribute to data quality by correcting event details and reporting i
 *   **And** I review the pre-filled data, make any necessary adjustments, and submit — approving calls the same `submitCorrection` mutation (Story 4.1a) used by Story 4.1, with `source: 'ai_assisted'` — it is not written directly to the database.
 
 **Depends on:** Story 0.13, Story 4.1, Story 4.1a, Story 4.1b, Story 4.2a.
+
+**Amendment (2026-10-04, `bmad-create-story` at Story 3.20, FIND-068):** The synchronous mutation call and its single-await, non-blocking-localized-spinner UX described above are reworked into a poll-based flow by Story 4.2b, so this path runs through the AI Lambda and gets Story 3.20's pre-AI face blur. See Story 4.2b.
+
+### Story 4.2b: Route AI-assisted correction extraction through the AI Lambda, so the pre-AI face blur covers it too
+
+**As a** bystander whose photo is the subject of a post someone manually extracts via Story 4.2's "AI-Assisted Correction" feature,
+**I want** that image to go through the same pre-AI face blur as the automated pipeline,
+**So that** FestDaily's blur-before-sending-to-Gemini protection (Story 3.20) isn't limited to the account-scraping pipeline while a second, manual path still sends my unblurred face to the AI vendor (FIND-068).
+
+**Acceptance Criteria:**
+
+*   **Given** Story 4.2a's `extractEventDataFromUrl` mutation today builds its Gemini request synchronously inline inside `apiLambda` (128 MB, 30 s, no `sharp`/WASM/model-weight bundling — confirmed by the CC-028 readiness sweep, `epic-readiness/batch-cc-028-blur-before-ai-readiness.md` Finding 1 — which cannot host Story 3.20's detect-and-blur stage), **when** this story ships, **then** the mutation no longer calls `buildGeminiExtractionRequest`/`callGemini` inline; instead it enqueues the job for the AI Lambda (`aiProcessorLambda`, which already hosts Story 3.20's blur stage) and returns immediately with a job reference the caller can poll, rather than the final `ProposedEventCorrectionData` in the same round trip.
+*   **And** a new status query (mirroring `scraperActorRuns`'s existing `PENDING`/`SUCCEEDED`/`FAILED` status-polling shape, `packages/database/schema.ts`) lets the frontend poll the job until it resolves, returning on success the same `ProposedEventCorrectionData` shape Story 4.2a's resolver returns today, and on failure one of the same `errorCode` values already defined by Story 4.2a's AC7 (`QUOTA_EXHAUSTED`/`UNSUPPORTED_PLATFORM`/`NO_API_KEY`/`SCRAPE_FAILED`/`EXTRACTION_FAILED`) — the frontend's existing per-`errorCode` inline-message handling (Story 4.2) is not required to change shape.
+*   **And** Story 4.2a's existing-post/new-post branch logic (the dual `postUrl`/`originalPostUrl` dedup lookup, the two-tier API-key selection, the new-post platform-detection + `ScraperAdapter.getPostByUrl` call) is preserved unchanged in behavior; only its execution context moves from the synchronous API-Lambda request into the async AI-Lambda job. The exact mechanism — a new `jobType` branch in `ai-processor.ts`'s existing dispatch (alongside its `poll-and-drain` branch), a dedicated handler function, or a new queue — is decided in the story, but must call the same `buildGeminiExtractionRequest` (with Story 3.20's `blurFacesBeforeAi` option populated) rather than duplicating its logic.
+*   **And**, because this request has no `posts.accountId` the way the queue pipeline does for an already-scraped post (Story 4.2a's new-post path never persists to `posts`), the owner-opt-in exception's PUBLISHER lookup (Story 3.20) does not apply here — decided in the story whether an unauthenticated requester's manual extraction is always blurred (no opt-in path), or whether the existing-post path's resolved `accountId` can reuse Story 3.20's opt-in read.
+*   **And** Story 4.2a's new-post path's existing 20-second scrape timeout (sized to leave headroom under the API Gateway/Lambda 30 s ceiling) is revisited now that this path runs inside the AI Lambda's 300 s timeout and Gemini's own 120 s call timeout instead — decided in the story whether the 20 s figure still applies or can relax.
+*   **And** Story 4.2's frontend panel (the "AI-Assisted Correction" button + inline panel in `CorrectionForm`) is reworked from a single awaited mutation call to a poll-based flow, reusing this codebase's existing polling precedent (`apps/web/src/app/[locale]/posts/select/posts-select-content.tsx`'s 3-second `setInterval` + refetch pattern) rather than inventing a new polling mechanism — the panel's existing non-blocking, localized-indicator UX rule (never a full-screen `BlockingLoader`, per `project-context.md`) is preserved, with an added "still processing" affordance for the now-longer wait.
+*   **And** this path, once routed through the AI Lambda, is subject to Story 3.20's blur-before-AI stage (including its fail-closed behavior) exactly as the queue pipeline is — no second, separate blur implementation for this path.
+*   **And** Story 4.2a's and Story 4.2's existing tests covering the synchronous contract are updated to the new async/poll contract, with no regression in the `errorCode` taxonomy exposed to the frontend.
+
+**Note:** Added 2026-10-04 via `bmad-create-story` at Story 3.20's creation. The CC-028 batch readiness sweep (`epic-readiness/batch-cc-028-blur-before-ai-readiness.md`, Finding 1) found that Story 3.20's blur-before-AI only covers the queue pipeline (`processAiJob`) and flagged Story 4.2a's manual-extraction path as a residual gap (FIND-068), reserving the choice between (a) accepting the gap, (b) giving the API Lambda its own image-processing runtime, or (c) routing manual extraction through the AI Lambda, for the user at Story 3.20's `bmad-create-story` run. The user chose (c). Per `story-split-gate.md`'s Gate 1 ("do not let a story quietly absorb a missing layer") and the readiness report's own sizing ("(b)/(c) are product-sized"), this is split into its own story rather than built inside 3.20 — a single-story architecture/UI split lettered off Story 4.2a, the one story whose execution model it rearchitects (`story-split-gate.md`'s numbering rule). Reopens two already-shipped/reviewed stories (4.2a `done`, 4.2 `review`); see the amendments added to both.
+
+**Depends on:** Story 3.20, Story 4.2a, Story 4.2, Story 0.13, Story 3.3c.
 
 ### Story 4.3a: Build the reports backend GraphQL API layer and personal-visibility filtering
 

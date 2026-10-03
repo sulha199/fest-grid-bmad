@@ -1846,12 +1846,13 @@ items:
 
   # ── 2026-10-04 (bmad-correct-course: blur faces before the AI call, CC-028) ──────────────
   CC-028:
-    {type: proposal, status: triaged, created: 2026-10-04,
+    {type: proposal, status: promoted, created: 2026-10-04,
      impact: compliance, effort: m,
      title: "Blur faces before images are sent to Gemini, configurable by env var (owner opt-in exception)",
      ref: [planning-artifacts/sprint-change-proposal-2026-10-04-blur-faces-before-ai.md],
      touches: [app:backend, app:infrastructure, pkg:domain, pkg:database, cross:ai-extraction, cross:architecture, cross:prd],
-     note: "Adds Stories 3.20 and 3.21 (backlog keys in sprint-status.yaml, no story files yet) and FR115; AD-28 Rule 10, AD-29 Rule 7; PRD 3.16, 4.5, Security."}
+     stories: [3-20-blur-faces-before-images-are-sent-to-the-ai-behind-blur-faces-before-ai],
+     note: "Also adds Story 3.21 (backlog key in sprint-status.yaml, no story file yet) and FR115; AD-28 Rule 10, AD-29 Rule 7; PRD 3.16, 4.5, Security. FIND-068 (child row) promoted separately to Story 4.2b."}
 
   FIND-066:
     {type: finding, status: backlog, created: 2026-10-04, parent: CC-028,
@@ -1870,12 +1871,13 @@ items:
      note: "CC-028 decision: any opt-in source counts. Existing opt-ins agreed to image storage only and are moderator-set today, so the consent scope widened after the fact; consider re-confirming wording or requiring the ACCOUNT_OWNER source."}
 
   FIND-068:
-    {type: finding, status: backlog, created: 2026-10-04, parent: CC-028,
+    {type: finding, status: promoted, created: 2026-10-04, parent: CC-028,
      impact: compliance, effort: m,
      title: "Manual extractEventDataFromUrl still sends the cover image to Gemini unblurred, from the API Lambda",
      ref: [planning-artifacts/epic-readiness/batch-cc-028-blur-before-ai-readiness.md],
      touches: [app:backend, app:infrastructure, cross:ai-extraction],
-     note: "Found by the CC-028 readiness sweep: resolvers.ts calls buildGeminiExtractionRequest at two sites (Story 4.2a, existing-post and new-post paths) inside the API Lambda (128 MB, 30 s, no WASM/model bundling), so Story 3.20's blur-before-AI covers only the queue pipeline. Options: (a) accept, document, rely on the requester's own key and the public post; (b) give the API Lambda the face-detection runtime (large); (c) route manual extraction through the AI Lambda. Decision reserved for the user at Story 3.20 create-story."}
+     stories: [4-2b-route-ai-assisted-correction-extraction-through-the-ai-lambda],
+     note: "User chose option (c) at Story 3.20 create-story (2026-10-04): route manual extraction through the AI Lambda, split into Story 4.2b. See epics.md Story 4.2b."}
 
   IDEA-057:
     {type: idea, status: backlog, created: 2026-10-04, parent: CC-028,
