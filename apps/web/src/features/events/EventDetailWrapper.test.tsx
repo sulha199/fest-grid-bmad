@@ -117,6 +117,7 @@ let currentMockEvent = {
   favoriteCount: 3,
   isHiddenForCurrentUser: false,
   sourceSocialMediaAccountProfile: null as { accountId: string; platform: string; username: string; displayName: string; profileImageUrl: string | null } | null,
+  coauthors: [] as { accountId: string; platform: string; username: string; displayName: string; profileImageUrl: string | null }[],
   schedules: [],
 }
 
@@ -359,6 +360,7 @@ describe("EventDetailWrapper", () => {
       favoriteCount: 3,
       isHiddenForCurrentUser: false,
       sourceSocialMediaAccountProfile: null,
+      coauthors: [],
       schedules: [
         {
           id: "sched_1",
@@ -1286,6 +1288,223 @@ describe("EventDetailWrapper", () => {
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
     await waitFor(() => {
       expect(mySubscriptionsSpy).toHaveBeenCalled()
+    })
+  })
+
+  describe("coauthor subscribe/unsubscribe toggles (Story 0.i6g)", () => {
+    const coauthorA = {
+      accountId: "coauthor-a",
+      platform: "instagram",
+      username: "coauthor_a",
+      displayName: "Coauthor A",
+      profileImageUrl: null,
+    }
+    const coauthorB = {
+      accountId: "coauthor-b",
+      platform: "instagram",
+      username: "coauthor_b",
+      displayName: "Coauthor B",
+      profileImageUrl: null,
+    }
+
+    it("renders two coauthors as two SubscribedAccountCards", async () => {
+      currentMockEvent.coauthors = [coauthorA, coauthorB]
+
+      renderComponent()
+
+      const list = await screen.findByRole("list", { name: "EventDetailsPage.coauthorsListAriaLabel" })
+      await waitFor(() => {
+        expect(within(list).getAllByTestId("subscribe-toggle")).toHaveLength(2)
+      })
+    })
+
+    it("subscribing to coauthor A calls subscribeToAccount with coauthor A's own platform/accountId/username/displayName, and on success flips only that row -- the other coauthor's and the source account's toggle state is unaffected", async () => {
+      currentMockEvent.sourceSocialMediaAccountProfile = {
+        accountId: "123",
+        platform: "instagram",
+        username: "org",
+        displayName: "Org",
+        profileImageUrl: null,
+      }
+      currentMockEvent.coauthors = [coauthorA, coauthorB]
+      currentMockSubscriptions = []
+
+      let capturedSubscribeInput: any = null
+      server.use(
+        api.mutation("SubscribeToAccount", ({ variables }) => {
+          const { input } = variables as any
+          capturedSubscribeInput = input
+          currentMockSubscriptions = [
+            ...currentMockSubscriptions,
+            { id: `sub_${input.accountId}`, account: { accountId: input.accountId } },
+          ]
+          return HttpResponse.json({
+            data: {
+              subscribeToAccount: { ...input },
+            },
+          })
+        })
+      )
+
+      renderComponent()
+
+      const list = await screen.findByRole("list", { name: "EventDetailsPage.coauthorsListAriaLabel" })
+      await waitFor(() => {
+        expect(within(list).getAllByTestId("subscribe-toggle")).toHaveLength(2)
+      })
+      const items = within(list).getAllByRole("listitem")
+      const toggleA = within(items[0]).getByTestId("subscribe-toggle")
+      const toggleB = within(items[1]).getByTestId("subscribe-toggle")
+
+      await waitFor(() => {
+        expect(toggleA).toHaveAttribute("aria-pressed", "false")
+        expect(toggleB).toHaveAttribute("aria-pressed", "false")
+      })
+
+      fireEvent.click(toggleA)
+
+      await waitFor(() => {
+        expect(capturedSubscribeInput).toEqual({
+          platform: "instagram",
+          accountId: "coauthor-a",
+          username: "coauthor_a",
+          displayName: "Coauthor A",
+        })
+      })
+
+      await waitFor(() => {
+        expect(within(items[0]).getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "true")
+      })
+      // Coauthor B and the source account toggle are unaffected.
+      expect(within(items[1]).getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "false")
+      const sourceToggle = screen.getAllByTestId("subscribe-toggle")[0]
+      expect(sourceToggle).toHaveAttribute("aria-pressed", "false")
+    })
+
+    it("unsubscribing calls removeSubscription with that coauthor's own matched subscription id", async () => {
+      currentMockEvent.coauthors = [coauthorA, coauthorB]
+      currentMockSubscriptions = [
+        { id: "sub_coauthor-a", account: { accountId: "coauthor-a" } },
+        { id: "sub_coauthor-b", account: { accountId: "coauthor-b" } },
+      ]
+
+      let capturedRemoveId: string | null = null
+      server.use(
+        api.mutation("removeSubscription", ({ variables }) => {
+          const { id } = variables as any
+          capturedRemoveId = id
+          currentMockSubscriptions = currentMockSubscriptions.filter((s) => s.id !== id)
+          return HttpResponse.json({ data: { removeSubscription: { id } } })
+        })
+      )
+
+      renderComponent()
+
+      const list = await screen.findByRole("list", { name: "EventDetailsPage.coauthorsListAriaLabel" })
+      const items = within(list).getAllByRole("listitem")
+      const toggleB = within(items[1]).getByTestId("subscribe-toggle")
+
+      await waitFor(() => {
+        expect(toggleB).toHaveAttribute("aria-pressed", "true")
+      })
+
+      fireEvent.click(toggleB)
+
+      await waitFor(() => {
+        expect(capturedRemoveId).toBe("sub_coauthor-b")
+      })
+      await waitFor(() => {
+        expect(within(items[1]).getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "false")
+      })
+    })
+
+    it("clicking coauthor A's toggle while coauthor B's mutation is still in flight shows A as busy and B unaffected (AC6)", async () => {
+      currentMockEvent.coauthors = [coauthorA, coauthorB]
+      currentMockSubscriptions = []
+
+      server.use(
+        api.mutation("SubscribeToAccount", async ({ variables }) => {
+          const { input } = variables as any
+          await delay(50)
+          currentMockSubscriptions = [
+            ...currentMockSubscriptions,
+            { id: `sub_${input.accountId}`, account: { accountId: input.accountId } },
+          ]
+          return HttpResponse.json({ data: { subscribeToAccount: { ...input } } })
+        })
+      )
+
+      renderComponent()
+
+      const list = await screen.findByRole("list", { name: "EventDetailsPage.coauthorsListAriaLabel" })
+      const items = within(list).getAllByRole("listitem")
+      const toggleA = within(items[0]).getByTestId("subscribe-toggle")
+      const toggleB = within(items[1]).getByTestId("subscribe-toggle")
+
+      await waitFor(() => {
+        expect(toggleA).toHaveAttribute("aria-pressed", "false")
+      })
+
+      fireEvent.click(toggleA)
+
+      // While A's mutation is in flight, A shows busy; B is unaffected (not busy).
+      await waitFor(() => {
+        expect(within(items[0]).getByTestId("subscribe-toggle")).toHaveAttribute("aria-busy", "true")
+      })
+      expect(within(items[1]).getByTestId("subscribe-toggle")).toHaveAttribute("aria-busy", "false")
+
+      await waitFor(() => {
+        expect(within(items[0]).getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "true")
+      })
+    })
+
+    it("never calls posthog.capture for a coauthor subscribe/unsubscribe (AC9), while the existing source-account account_subscribed/account_unsubscribed assertions remain unaffected", async () => {
+      currentMockEvent.coauthors = [coauthorA]
+      currentMockSubscriptions = []
+
+      renderComponent()
+
+      const list = await screen.findByRole("list", { name: "EventDetailsPage.coauthorsListAriaLabel" })
+      const toggle = within(list).getByTestId("subscribe-toggle")
+
+      await waitFor(() => {
+        expect(toggle).toHaveAttribute("aria-pressed", "false")
+      })
+
+      fireEvent.click(toggle)
+
+      await waitFor(() => {
+        expect(toggle).toHaveAttribute("aria-pressed", "true")
+      })
+
+      expect(mockPosthogCapture).not.toHaveBeenCalledWith("account_subscribed", expect.anything())
+      expect(mockPosthogCapture).not.toHaveBeenCalledWith("account_unsubscribed", expect.anything())
+
+      fireEvent.click(toggle)
+
+      await waitFor(() => {
+        expect(toggle).toHaveAttribute("aria-pressed", "false")
+      })
+
+      expect(mockPosthogCapture).not.toHaveBeenCalledWith("account_subscribed", expect.anything())
+      expect(mockPosthogCapture).not.toHaveBeenCalledWith("account_unsubscribed", expect.anything())
+    })
+
+    it("DOES invoke getMySubscriptions when the event has coauthors but no sourceSocialMediaAccountProfile (AC11)", async () => {
+      currentMockEvent.sourceSocialMediaAccountProfile = null
+      currentMockEvent.coauthors = [coauthorA]
+
+      const mySubscriptionsSpy = vi.fn(() =>
+        HttpResponse.json({ data: { mySubscriptions: currentMockSubscriptions } })
+      )
+      server.use(api.query("getMySubscriptions", mySubscriptionsSpy))
+
+      renderComponent()
+
+      expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+      await waitFor(() => {
+        expect(mySubscriptionsSpy).toHaveBeenCalled()
+      })
     })
   })
 

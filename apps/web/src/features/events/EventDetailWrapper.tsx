@@ -34,6 +34,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false)
   const [isHiddenAfterReport, setIsHiddenAfterReport] = useState(false)
   const [emblaApi, setEmblaApi] = useState<CarouselApi>()
+  const [pendingCoauthorAccountId, setPendingCoauthorAccountId] = useState<string | null>(null)
   const posthog = usePostHog()
   const t = useTranslations("EventDetailsPage")
   const labels = useEventDetailViewLabels()
@@ -82,7 +83,13 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
       // Story 1.6c (AC5, FIND-030) — narrowed from `!!session` alone: this query is only useful
       // when the event actually has a linked source account to subscribe to. Gating removes the
       // call entirely for the common case of an event with no linked account.
-      enabled: !!session && !!data?.eventBySlug?.sourceSocialMediaAccountProfile,
+      // Story 0.i6g (AC11) — widened to also fire when the event has 1+ coauthors, so a
+      // coauthor's subscription state is never silently stuck unresolved for an event with
+      // coauthors but no single source account.
+      enabled:
+        !!session &&
+        (!!data?.eventBySlug?.sourceSocialMediaAccountProfile ||
+          (data?.eventBySlug?.coauthors?.length ?? 0) > 0),
     }
   )
 
@@ -308,6 +315,58 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
       setLiveMessage(t("unsubscribeErrorAnnouncement"))
     }
   })
+
+  // Story 0.i6g (AC5, AC6, AC8, AC9) — a second, distinct mutation pair for coauthor toggles.
+  // Deliberately does not touch/reuse subscribeToAccount/unsubscribeFromAccount above, to keep
+  // that already-shipped, already-tested single-source-account code path completely unchanged.
+  // Confirm-then-refetch only (no onMutate optimistic flip) and no posthog.capture call (AC9) —
+  // all analytics for this toggle are Story 3.19's scope.
+  const { mutate: subscribeToCoauthor } = useSubscribeToAccountMutation(graphqlClient, {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["getMySubscriptions"] })
+      setLiveMessage(t("subscribeSuccessAnnouncement"))
+    },
+    onError: () => {
+      setLiveMessage(t("subscribeErrorAnnouncement"))
+    },
+    onSettled: () => {
+      setPendingCoauthorAccountId(null)
+    },
+  })
+
+  const { mutate: unsubscribeFromCoauthor } = useRemoveSubscriptionMutation(graphqlClient, {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["getMySubscriptions"] })
+      setLiveMessage(t("unsubscribeSuccessAnnouncement"))
+    },
+    onError: () => {
+      setLiveMessage(t("unsubscribeErrorAnnouncement"))
+    },
+    onSettled: () => {
+      setPendingCoauthorAccountId(null)
+    },
+  })
+
+  const handleSubscribeToCoauthor = (accountId: string) => {
+    const coauthor = data?.eventBySlug?.coauthors?.find((c) => c.accountId === accountId)
+    if (!coauthor?.platform || !coauthor.accountId || !coauthor.username || !coauthor.displayName) return
+    setPendingCoauthorAccountId(accountId)
+    subscribeToCoauthor({
+      input: {
+        platform: coauthor.platform,
+        accountId: coauthor.accountId,
+        username: coauthor.username,
+        displayName: coauthor.displayName,
+      },
+    })
+  }
+
+  const handleUnsubscribeFromCoauthor = (accountId: string) => {
+    const matched = subscriptionsData?.mySubscriptions?.find((s) => s.account.accountId === accountId)
+    if (!matched?.id) return
+    setPendingCoauthorAccountId(accountId)
+    unsubscribeFromCoauthor({ id: matched.id, action: SoftDeleteAction.Delete })
+  }
 
   const handleSubscribeToAccount = () => {
     if (!data?.eventBySlug?.sourceSocialMediaAccountProfile) return
@@ -571,7 +630,16 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
 
   const mappedProps = data?.eventBySlug
     ? {
-        ...mapGraphQLEventToDetailViewProps(data.eventBySlug, labels, locale, tType, tCategory, resolvedInstagramEmbed),
+        ...mapGraphQLEventToDetailViewProps(
+          data.eventBySlug,
+          labels,
+          locale,
+          tType,
+          tCategory,
+          resolvedInstagramEmbed,
+          subscriptionsData?.mySubscriptions,
+          pendingCoauthorAccountId
+        ),
         isAuthenticated: !!session,
         onFavoriteToggle: () => {
           if (!session) {
@@ -627,6 +695,20 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
             return
           }
           handleUnsubscribeFromAccount()
+        },
+        onSubscribeToCoauthor: (accountId: string) => {
+          if (!session) {
+            router.push("/login")
+            return
+          }
+          handleSubscribeToCoauthor(accountId)
+        },
+        onUnsubscribeFromCoauthor: (accountId: string) => {
+          if (!session) {
+            router.push("/login")
+            return
+          }
+          handleUnsubscribeFromCoauthor(accountId)
         },
       }
     : null

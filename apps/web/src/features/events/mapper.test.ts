@@ -68,6 +68,7 @@ function buildEvent(
     isHiddenForCurrentUser: false,
     links: null,
     sourceSocialMediaAccountProfile: null,
+    coauthors: [],
     schedules: [
       {
         id: 'schedule-1',
@@ -331,5 +332,73 @@ describe('mapGraphQLEventToDetailViewProps instagramEmbed parameter (Story 3.7i)
     expect(props.instagramEmbedStatus).toBe('UNAVAILABLE');
     expect(props.instagramEmbedHtml).toBeNull();
     expect(props.instagramEmbedDurableImageUrl).toBe('https://example.com/durable.jpg');
+  });
+});
+
+// Story 0.i6g Task 6: coauthors map to EventDetailViewCoauthor[], with isSubscribed/isTogglePending
+// derived from mySubscriptions/pendingCoauthorAccountId, and accountHref built the same way as
+// the existing source-account case (getPlatformSlug + accountId).
+describe('mapGraphQLEventToDetailViewProps coauthors mapping (Story 0.i6g)', () => {
+  it('maps empty/absent coauthors to []', () => {
+    const event = buildEvent({});
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.coauthors).toEqual([]);
+  });
+
+  it('maps each coauthor, deriving accountHref the same way as the existing source-account case', () => {
+    const event = {
+      ...buildEvent({}),
+      coauthors: [
+        {
+          accountId: 'coauthor-1',
+          platform: 'instagram',
+          username: 'coauthor_one',
+          displayName: 'Coauthor One',
+          profileImageUrl: 'https://example.com/coauthor-1.png',
+        },
+      ],
+    };
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.coauthors).toEqual([
+      {
+        accountId: 'coauthor-1',
+        platform: 'instagram',
+        username: 'coauthor_one',
+        displayName: 'Coauthor One',
+        profileImageUrl: 'https://example.com/coauthor-1.png',
+        accountHref: '/ig/coauthor-1',
+        isSubscribed: false,
+        isTogglePending: false,
+      },
+    ]);
+  });
+
+  it('derives isSubscribed from mySubscriptions matching by accountId', () => {
+    const event = {
+      ...buildEvent({}),
+      coauthors: [
+        { accountId: 'coauthor-1', platform: 'instagram', username: 'c1', displayName: 'C1', profileImageUrl: null },
+        { accountId: 'coauthor-2', platform: 'instagram', username: 'c2', displayName: 'C2', profileImageUrl: null },
+      ],
+    };
+    const mySubscriptions = [
+      { id: 'sub-1', account: { accountId: 'coauthor-1' } },
+    ] as unknown as NonNullable<Parameters<typeof mapGraphQLEventToDetailViewProps>[6]>;
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k, null, mySubscriptions);
+    expect(props.coauthors?.find((c) => c.accountId === 'coauthor-1')?.isSubscribed).toBe(true);
+    expect(props.coauthors?.find((c) => c.accountId === 'coauthor-2')?.isSubscribed).toBe(false);
+  });
+
+  it('derives isTogglePending from pendingCoauthorAccountId matching by accountId, independently per row', () => {
+    const event = {
+      ...buildEvent({}),
+      coauthors: [
+        { accountId: 'coauthor-1', platform: 'instagram', username: 'c1', displayName: 'C1', profileImageUrl: null },
+        { accountId: 'coauthor-2', platform: 'instagram', username: 'c2', displayName: 'C2', profileImageUrl: null },
+      ],
+    };
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k, null, null, 'coauthor-2');
+    expect(props.coauthors?.find((c) => c.accountId === 'coauthor-1')?.isTogglePending).toBe(false);
+    expect(props.coauthors?.find((c) => c.accountId === 'coauthor-2')?.isTogglePending).toBe(true);
   });
 });

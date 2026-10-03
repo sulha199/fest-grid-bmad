@@ -160,7 +160,8 @@
     "today": "Today",
     "tomorrow": "Tomorrow",
     "yesterday": "Yesterday",
-    "categoriesAndTypesAriaLabel": "Event categories and types"
+    "categoriesAndTypesAriaLabel": "Event categories and types",
+    "coauthorsListAriaLabel": "Co-authors"
   },
   "EventReportForm": {
     "dialogTitle": "Report Event",
