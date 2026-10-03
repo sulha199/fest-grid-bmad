@@ -19,23 +19,13 @@ import type {
 } from './WeeklyCalendarView.types';
 import { getWeekStart, getWeekEnd } from '../../hooks';
 import {
-  EventCardMediaSlot,
-  EventCardDateBox,
   EventCardStatusBadge,
-  EventCardNearbyBadge,
-  EventCardFavoriteBadge,
-  EventCardRepeatBadge,
-  EVENT_CARD_CONTAINER_CLASS,
   formatNearbyBadgeDistance,
 } from './EventCardMediaPrimitives';
 import { EventCardCalendarGridItem } from './EventCardCalendarGridItem';
+import { EventCardCompact } from './EventCardCompact';
 import { CalendarOverflowDialog } from './CalendarOverflowDialog';
 import { computeCalendarSegmentDateBoxContent, formatEventStatus, type EventStatusLabels } from './format-event-date';
-import {
-  badgeFontSizeStyleFor,
-  eventCardRowFavoriteIconGrowingStyle,
-  EVENT_CARD_ROW_FAVORITE_COUNT_TEXT_SIZE_CLASS,
-} from './event-card-media-tokens';
 
 // Design system styles from DESIGN.md
 const CALENDAR_BASE_CLASS = "border border-gray-200 rounded-lg";
@@ -66,9 +56,7 @@ const GRID_WEEKLY_CLASS_NO_DIVIDE = "grid grid-cols-7 relative isolate";
 const DAY_CELL_CLASS = "p-2 h-32 flex flex-col gap-1 overflow-hidden relative";
 const DAY_HEADER_CLASS = "text-sm text-center font-medium py-2 bg-gray-50 border-b border-gray-200";
 const MORE_LINK_CLASS = "text-xs text-center text-violet-600 hover:underline cursor-pointer bg-transparent border-none p-0 w-full mt-auto block focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-violet-500 rounded";
-const MULTI_DAY_EVENT_CLASS = "w-full bg-violet-50 border border-violet-200 p-1 relative text-left text-xs transition-colors hover:bg-violet-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:z-10";
 const HOVER_TOOLTIP_CLASS = "absolute z-30 p-2 text-sm bg-gray-800 text-white rounded-md shadow-lg pointer-events-auto max-w-xs break-words";
-const EVENT_CARD_COMPACT_CLASS = "rounded-md shadow-sm p-2 bg-violet-50 border border-violet-200 text-left text-xs transition-all hover:bg-violet-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:z-10";
 /**
  * Story 1.i1g (AC12) — the spanning bar's full-card schedule-click target. It is a real
  * `<button>` (Enter/Space activation, `focus-visible` ring, single linear Tab stop), hidden
@@ -1210,14 +1198,6 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
     enabled: true,
   });
 
-  // Story 1.i1m AC1/AC4 (`variant='list'` only) — seeded from the schedule's own `imageUrl`
-  // and kept current via `EventCardMediaSlot`'s `onImagePresenceChange`, mirroring
-  // `EventCard.tsx`'s identical masonry-side pattern. Local component state only, not
-  // Server/URL/Global (per this story's own Dev Notes categorization) — it derives from a
-  // prop already passed down and drives only this component's own render branch (whether
-  // the favorite control is composed externally, per AC4).
-  const [imagePresent, setImagePresent] = useState(!!schedule.imageUrl);
-
   const tooltipVisible = variant === 'grid' && interactionVisible;
 
   const tooltipText = useMemo(() => {
@@ -1249,45 +1229,18 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
     }
   };
 
-  // Story 1.3k (AC4) — per-RUN, not the schedule's raw date span (a day-of-week schedule's
-  // overall span can be multi-day while this specific segment's run is 1-day, and vice versa).
-  const isMultiDay = isMultiDayRunSegment(segment);
-
-  const repeatBadge = (
-    <EventCardRepeatBadge
-      daysOfWeek={schedule.applicableDaysOfWeek}
-      dayOfWeekLabels={dayOfWeekLabels}
-      repeatBadgeAriaLabel={repeatBadgeAriaLabel}
-      tooltipVisible={interactionVisible}
-    />
-  );
-
-  // Formatting styling class names
-  const weightClass = schedule.isMainSchedule
-    ? "font-bold"
-    : "font-normal";
-
-  // Rounded corners styling for multi day clamping segments.
-  //
-  // Story 1.i1g Task 5 (AC7): the grid-variant branch this used to hold (per-segment
-  // `rounded-l-md border-r-0` / `rounded-r-md border-l-0` / `rounded-none border-x-0` edge
-  // suppression) is gone — a multi-day schedule is now a single spanning bar (Task 2/4) and
-  // no longer renders as per-day grid-variant segments at all, so only the mobile list
-  // variant's `rounded-md` case remains reachable.
-  let multiDayRoundingClass = "";
-  if (isMultiDay && variant === 'list') {
-    multiDayRoundingClass = "rounded-md";
-  }
-
-  const baseButtonClass = isMultiDay ? MULTI_DAY_EVENT_CLASS : EVENT_CARD_COMPACT_CLASS;
   const elementId = cardIdx >= 0 ? `calendar-card-${dayIdx}-${cardIdx}` : undefined;
 
-  // Task 3 (Story 1.i1d AC1/AC2/AC4/AC5/AC6/AC7): the `variant === 'list'` (Mobile
-  // Vertical Day List) render path restructured into a non-interactive chrome div
-  // containing a sibling (event-schedule-click button + EventCardMediaSlot), so the
-  // primitive's internal favorite-toggle <button> is never nested inside the
-  // schedule-click <button> (AC7, mirrors EventCard.tsx's article > button + RootTag).
-  // The `variant === 'grid'` path below is deliberately untouched (AC8).
+  // Story 3.6ua (AC1) — the `variant === 'list'` (Mobile Vertical Day List) render path now
+  // delegates to the standalone, exported `EventCardCompact` primitive (`packages/ui`'s own
+  // `./EventCardCompact`), extracted verbatim from what used to be this branch's inline JSX.
+  // `CalendarCard` still owns every calendar-specific computation `EventCardCompact` doesn't
+  // know about (the date-box content via the existing, unchanged
+  // `computeCalendarSegmentDateBoxContent`, and the multi-day-run flag via the existing,
+  // unchanged `isMultiDayRunSegment`), then passes the already-resolved, flattened values
+  // through. Zero behavior change versus the pre-extraction branch (AC1/AC5) — the delegation
+  // passes through the exact same data this component already computed today. The
+  // `variant === 'grid'` path below is deliberately untouched (AC1).
   if (variant === 'list') {
     // Story 1.3k (AC5) — the run's own first/last occurrence day, never the schedule's overall
     // span; byte-identical to the pre-1.3k call for a legacy schedule (one run = the whole span).
@@ -1300,145 +1253,42 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
       tillLabel || 'till'
     );
 
-    // AC1 (Story 1.i1j) — same computation EventCard's masonry variant already uses; no new
-    // plumbing, computed per-card from fields WeeklyCalendarViewScheduleShape already carries
-    // (Architecture Spine AD-22 Rule 1).
-    const { text: statusText, variant: statusVariant } = formatEventStatus(
-      locale,
-      timezone,
-      new Date(),
-      schedule.eventStartDate,
-      schedule.eventStartTime,
-      schedule.eventEndDate,
-      schedule.eventEndTime,
-      statusLabels
-    );
+    // Story 1.3k (AC4) — per-RUN, not the schedule's raw date span (a day-of-week schedule's
+    // overall span can be multi-day while this specific segment's run is 1-day, and vice versa).
+    const isMultiDayRun = isMultiDayRunSegment(segment);
 
     return (
-      <div className="relative w-full">
-        {/* Story 1.i1m AC6/AC7/Task 3.2/4.1: this row is the CSS container-query root
-            (`EVENT_CARD_CONTAINER_CLASS`, reused from Story 1.i1l's masonry mechanism, not
-            redefined) for the favorite badge's continuous growth and stepped count text
-            (Task 4), and the AD-15 icon-scale custom property's declaration point
-            (`badgeFontSizeStyleFor('compact')`). Declaring it here — not on the media slot,
-            which may not exist in the DOM once the image is absent/errored (AC1) — is what
-            lets the externally-composed favorite badge below inherit both mechanisms via
-            ordinary CSS whether or not the slot is mounted. */}
-        <div
-          className={`${baseButtonClass} ${multiDayRoundingClass} relative w-full flex items-stretch gap-2 ${EVENT_CARD_CONTAINER_CLASS}`}
-          style={badgeFontSizeStyleFor('compact')}
-        >
-          <button
-            id={elementId}
-            type="button"
-            tabIndex={0}
-            className="min-w-0 flex-1 flex items-stretch gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:z-10 rounded-md"
-            onClick={() => onScheduleClick(schedule)}
-            onKeyDown={handleKeyDownLocal}
-            onFocus={handleFocus}
-            onBlur={tooltipHandlers.onBlur}
-            onPointerEnter={tooltipHandlers.onPointerEnter}
-            onPointerLeave={tooltipHandlers.onPointerLeave}
-          >
-            <EventCardDateBox
-              size="compact"
-              month={dateBoxContent.month}
-              day={dateBoxContent.day}
-              tillLabel={dateBoxContent.tillLabel}
-            />
-            <span className="flex min-w-0 w-full flex-col text-left">
-              {/* Rule 6 (Story 1.i1l, DESIGN.md § event_card_compact.title): the title wraps
-                  to 2 lines. The parent's own `truncate` is removed deliberately — leaving it
-                  clips the row to one line and makes the child's `line-clamp-2` a no-op — and
-                  `items-center` becomes `items-start` so the inline favorited /
-                  added-to-calendar icons pin to the first line rather than centring against a
-                  2-line block. The `variant='grid'` day-cell pill below keeps `truncate`. */}
-              <span className="flex items-start gap-1 w-full text-left">
-                {/* User feedback (2026-09-27): "should not have favorite icon+count on the
-                    event-title area" -- the isFavorited Heart icon that used to sit inline here
-                    is removed; favorite state is only shown via the real interactive favorite
-                    control (the thumbnail's own corner pill / large fallback icon below). */}
-                {schedule.isAddedToCalendar && (
-                  <CalendarPlus className="w-3 h-3 mt-0.5 text-emerald-600 shrink-0 inline" aria-label={addedToCalendarBadgeLabel || 'Added to calendar'} data-testid="calendar-plus-icon" />
-                )}
-                {/* Story 1.3k (AC7) — outside the title's own `line-clamp-2` span so it is never
-                    clipped; before the title text, beside the added-to-calendar icon. */}
-                {repeatBadge}
-                <span className={`${weightClass} line-clamp-2 block`}>{schedule.eventName}</span>
-              </span>
-              {/* User feedback (2026-09-27): "should show location-name in one line, break-word:
-                  all" -- new location line, single line (`line-clamp-1`) with mid-word breaking
-                  (`break-all`) if a single long word overflows, matching masonry's own
-                  locationName treatment (minus the centering, which wasn't asked for here). */}
-              {schedule.locationName && (
-                <span className="text-xs text-muted-foreground line-clamp-1 break-all mt-0.5">
-                  {schedule.locationName}
-                </span>
-              )}
-              {/* AC2/AC3/AC4 (Story 1.i1j) — status + nearby badges, appended as the content
-                  column's last child. Mirrors EventCard.tsx's masonry `badge_row` classes for
-                  visual family consistency (DESIGN.md gives no explicit ordering/gap sub-token
-                  of its own for this row — see Dev Notes). */}
-              <span className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                <EventCardStatusBadge text={statusText} variant={statusVariant} />
-                <EventCardNearbyBadge
-                  distanceKm={schedule.distanceKm}
-                  thresholdKm={nearbyBadgeThreshold}
-                  labels={{ nearbyBadge: nearbyBadgeLabel }}
-                />
-              </span>
-            </span>
-          </button>
-          <EventCardMediaSlot
-            layout="fixed-square"
-            size="compact"
-            imageUrl={schedule.imageUrl}
-            imageFallbackUrl={schedule.imageFallbackUrl}
-            imageAlt={schedule.eventName}
-            isFavorited={schedule.isFavorited}
-            favoriteCount={schedule.favoriteCount}
-            onFavoriteToggle={onFavoriteToggle ? () => onFavoriteToggle(schedule) : undefined}
-            labels={{ favoriteToggle: favoriteToggleLabel }}
-            collapseOnFallback
-            // The with-image favorite pill is composed externally below (card-corner position,
-            // like the TILL tag) -- the slot's own `overflow-hidden` would clip it here.
-            hideFavoriteBadge
-            onImagePresenceChange={setImagePresent}
-          />
-          {imagePresent && (
-            <EventCardFavoriteBadge
-              scale="default"
-              isFavorited={schedule.isFavorited}
-              favoriteCount={schedule.favoriteCount}
-              onFavoriteToggle={onFavoriteToggle ? () => onFavoriteToggle(schedule) : undefined}
-              labels={{ favoriteToggle: favoriteToggleLabel }}
-              // Mirrors the TILL tag's own `-top-1.5 -left-1.5` corner offset
-              // (`eventCardTillLabelClass('compact')`) on the opposite (top-right) corner of the
-              // card container, which is `relative` (above) and not `overflow-hidden`.
-              className="absolute -top-1.5 -right-1.5 z-30"
-              iconSizeStyle={{ width: '12px', height: '12px' }}
-            />
-          )}
-          {/* Story 1.i1m AC1/AC4: the favorite control, externally composed as a plain flex
-              sibling (not absolutely positioned — unlike masonry's `EventCard.tsx` overlay,
-              this row has no image to overlay when collapsed, so the badge is simply the
-              row's last flex child) whenever the media slot above has collapsed to `null`.
-              With an image present, the slot's own internal corner-pill badge renders
-              instead (unchanged), so this and the slot's internal badge are mutually
-              exclusive, never both. */}
-          {!imagePresent && (
-            <EventCardFavoriteBadge
-              scale="large"
-              isFavorited={schedule.isFavorited}
-              favoriteCount={schedule.favoriteCount}
-              onFavoriteToggle={onFavoriteToggle ? () => onFavoriteToggle(schedule) : undefined}
-              labels={{ favoriteToggle: favoriteToggleLabel }}
-              iconSizeStyle={eventCardRowFavoriteIconGrowingStyle()}
-              largeTextSizeClassName={EVENT_CARD_ROW_FAVORITE_COUNT_TEXT_SIZE_CLASS}
-            />
-          )}
-        </div>
-      </div>
+      <EventCardCompact
+        eventName={schedule.eventName}
+        isMainSchedule={schedule.isMainSchedule}
+        locationName={schedule.locationName}
+        dateBoxMonth={dateBoxContent.month}
+        dateBoxDay={dateBoxContent.day}
+        dateBoxTillLabel={dateBoxContent.tillLabel}
+        isMultiDayRun={isMultiDayRun}
+        eventStartDate={schedule.eventStartDate}
+        eventStartTime={schedule.eventStartTime}
+        eventEndDate={schedule.eventEndDate}
+        eventEndTime={schedule.eventEndTime}
+        statusLabels={statusLabels}
+        imageUrl={schedule.imageUrl}
+        imageFallbackUrl={schedule.imageFallbackUrl}
+        isFavorited={schedule.isFavorited}
+        favoriteCount={schedule.favoriteCount}
+        onFavoriteToggle={onFavoriteToggle ? () => onFavoriteToggle(schedule) : undefined}
+        favoriteToggleLabel={favoriteToggleLabel}
+        isAddedToCalendar={schedule.isAddedToCalendar}
+        addedToCalendarBadgeLabel={addedToCalendarBadgeLabel}
+        distanceKm={schedule.distanceKm}
+        nearbyBadgeLabel={nearbyBadgeLabel}
+        nearbyBadgeThreshold={nearbyBadgeThreshold}
+        applicableDaysOfWeek={schedule.applicableDaysOfWeek}
+        dayOfWeekLabels={dayOfWeekLabels}
+        repeatBadgeAriaLabel={repeatBadgeAriaLabel}
+        locale={locale}
+        timezone={timezone}
+        onClick={() => onScheduleClick(schedule)}
+      />
     );
   }
 

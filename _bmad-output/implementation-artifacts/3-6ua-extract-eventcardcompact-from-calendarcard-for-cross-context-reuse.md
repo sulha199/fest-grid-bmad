@@ -1,3 +1,7 @@
+---
+baseline_commit: b52ce6dbda4bf7891dd1781037f931ef5204f3e4
+---
+
 # Story 3.6ua: Extract EventCardCompact from CalendarCard for cross-context reuse
 
 ## Story Details
@@ -198,12 +202,12 @@ The immediately preceding story in sequence is **3.6u** (`3-6u-show-all-source-p
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmed: extract `CalendarCard`'s `variant === 'list'` rendering into a standalone, exported `EventCardCompact` in `packages/ui`, with `CalendarCard` delegating internally; zero behavior change to the weekly calendar; no backend/schema work.
-- [ ] Architecture confirmed: pure `packages/ui` presentational extraction, no cross-boundary import changes, no new workspace dependency; flattened non-generic props per Dev Notes § Props Contract.
-- [ ] Design decisions confirmed (see Dev Notes § Design Decisions): (1) date-box content pre-computed by the caller, with the `currentDayStr = today` guidance recorded for Story 3.6u's own future implementation; (2) status badge computed internally by `EventCardCompact`; (3) no new `packages/visual-audit` spec required — the existing, unmodified `WeeklyCalendarView.test.tsx` suite is the regression proof.
-- [ ] Testing plan confirmed: new `EventCardCompact.test.tsx` (Vitest + `@testing-library/react`, `@festgrid/testing-config/vitest-react`) plus the existing `WeeklyCalendarView.test.tsx` left unmodified and green — no new E2E, no new visual-audit spec.
-- [ ] Gate 1/2/3 findings acknowledged: Gate 1/3 cited from the swept `epic-readiness/epic-3-readiness.md` (Epic-Level Sweep Mode) plus the lightweight guard (no gap — pure extraction, no new backend/infra/cross-cutting dependency); Gate 2 run fresh (no further split warranted; props-contract ambiguity resolved via `AskUserQuestion`, see Design Decisions).
-- [ ] Explicit human approval state (Default: **pending approval**)
+- [x] Scope confirmed: extract `CalendarCard`'s `variant === 'list'` rendering into a standalone, exported `EventCardCompact` in `packages/ui`, with `CalendarCard` delegating internally; zero behavior change to the weekly calendar; no backend/schema work.
+- [x] Architecture confirmed: pure `packages/ui` presentational extraction, no cross-boundary import changes, no new workspace dependency; flattened non-generic props per Dev Notes § Props Contract.
+- [x] Design decisions confirmed (see Dev Notes § Design Decisions): (1) date-box content pre-computed by the caller, with the `currentDayStr = today` guidance recorded for Story 3.6u's own future implementation; (2) status badge computed internally by `EventCardCompact`; (3) no new `packages/visual-audit` spec required — the existing, unmodified `WeeklyCalendarView.test.tsx` suite is the regression proof.
+- [x] Testing plan confirmed: new `EventCardCompact.test.tsx` (Vitest + `@testing-library/react`, `@festgrid/testing-config/vitest-react`) plus the existing `WeeklyCalendarView.test.tsx` left unmodified and green — no new E2E, no new visual-audit spec.
+- [x] Gate 1/2/3 findings acknowledged: Gate 1/3 cited from the swept `epic-readiness/epic-3-readiness.md` (Epic-Level Sweep Mode) plus the lightweight guard (no gap — pure extraction, no new backend/infra/cross-cutting dependency); Gate 2 run fresh (no further split warranted; props-contract ambiguity resolved via `AskUserQuestion`, see Design Decisions).
+- [x] Explicit human approval state — **approved** (2026-10-03, via `AskUserQuestion` in this `bmad-dev-story` session)
 
 ## Testing Requirements
 
