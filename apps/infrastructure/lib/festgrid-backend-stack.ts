@@ -396,32 +396,37 @@ export class FestgridBackendStack extends cdk.Stack {
         // only deploys through CI (see AC2's one-off real-Lambda-runtime check below, which
         // validates the mechanism using a Docker-built Lambda container image directly,
         // sidestepping this exact local-host/Docker mismatch rather than fighting it).
-        // Listing these as `nodeModules` (not letting esbuild inline them) tells CDK to run a
-        // real `pnpm install` of exactly these packages (at the version pinned in
-        // pnpm-lock.yaml) into the bundled output's own node_modules, instead of esbuild
-        // statically bundling their JS. This is required for `sharp` (native .node binary,
-        // can't be bundled as JS) and is also what makes AC3's model weights and AC4's WASM
-        // binary land in the deployed asset for free: `@vladmandic/face-api`'s `model/`
-        // directory and `@tensorflow/tfjs-backend-wasm`'s `.wasm` files are part of those
-        // packages' own published file tree, so a real package install preserves them
-        // automatically at node_modules/@vladmandic/face-api/model and
-        // node_modules/@tensorflow/tfjs-backend-wasm/dist/*.wasm respectively -- no extra
-        // commandHooks copy step is needed (unlike apiLambda's .graphql schema files, which
-        // live under apps/backend/src and are never part of an npm package's own tree).
-        // `@tensorflow/tfjs-backend-wasm`'s Node build (dist/tf-backend-wasm.node.js) locates
-        // its .wasm file via `__dirname`-relative `fs.readFileSync`, so no `setWasmPaths` call
-        // or extra env var is needed at runtime either -- verified by inspecting that file.
-        nodeModules: ['sharp', '@vladmandic/face-api', '@tensorflow/tfjs', '@tensorflow/tfjs-backend-wasm'],
-        // AC6: the raw nodeModules install (above) measured at 345 MB unzipped -- over
-        // Lambda's 250 MB unzipped limit -- almost entirely because `@tensorflow/tfjs`'s
-        // full declared dependency tree (tfjs-layers/-converter/-backend-webgl/-backend-cpu/
-        // -data, ~95 MB) comes along for the ride even though nothing in this Lambda's
-        // runtime path reaches any of them (see Dev Notes for why those siblings can't be
-        // safely deleted post-install: @tensorflow/tfjs's own main entry unconditionally
-        // requires every one of them). This hook only prunes what IS safe to drop --
-        // @vladmandic/face-api's 6 unused model files (AC3 only needs SSD MobileNetV1) --
-        // and is not a fix for the 250 MB overage by itself; see Dev Notes for the AC6
-        // decision (Lambda container image) that actually resolves it.
+        // `sharp` ONLY in nodeModules: its native .node binary can't be bundled as JS, so
+        // this is CDK's real `pnpm install` mechanism (platform/arch-matched -- see the
+        // Docker-bundling note above), landing it at node_modules/sharp/... as normal.
+        //
+        // AC6 finding + fix: an earlier version of this story also listed
+        // `@vladmandic/face-api`, `@tensorflow/tfjs` and `@tensorflow/tfjs-backend-wasm`
+        // here, since a real `nodeModules` install preserves their `model/` directory and
+        // `.wasm` files "for free." That measured at 321-345 MB unzipped (depending on
+        // which model files were pruned) -- over Lambda's 250 MB unzipped limit -- because
+        // the INSTALLED package trees carry many unused pre-built variants (browser/esm/
+        // cjs/min) and multi-MB sourcemaps per package that a real npm/pnpm install always
+        // pulls down, dominated by `@tensorflow/tfjs` alone (141 MB installed, vs. its
+        // actual Node entry `dist/tf.node.js` at 1.3 MB). Tried and rejected: swapping
+        // `@tensorflow/tfjs` for a hand-written `@tensorflow/tfjs-core`-only shim -- broke
+        // at runtime (`TypeError: i.as3D is not a function`; the full `tfjs` package
+        // patches ~100 convenience methods onto Tensor.prototype that tfjs-core's own
+        // build doesn't carry, confirmed by extracting its real source). The fix that
+        // actually works, verified end-to-end (see Dev Notes): esbuild-BUNDLE the real,
+        // unmodified packages instead of npm-installing them -- esbuild only resolves and
+        // inlines the code paths actually `require()`d, dropping every unused variant and
+        // all sourcemaps, which brought the real bundle down to ~2.3 MB raw. Since
+        // `ai-processor.ts` (this Lambda's real entry) must NOT import these packages
+        // (AC7 -- no face-detection stage wired in yet), esbuild can't reach them from the
+        // primary bundling pass; `afterBundling` below runs a SEPARATE esbuild pass over a
+        // dedicated, inert probe module (`ai-processor-face-detection-probe.cjs`, never
+        // required by `ai-processor.ts`) into its own sibling file in the same output
+        // directory, then copies the SSD MobileNetV1 weights and the tfjs-backend-wasm
+        // `.wasm` binaries alongside it (see that script for the full mechanism, including
+        // why no `setWasmPaths` call is needed -- `__dirname`-relative resolution already
+        // matches once everything sits in the same directory as the Lambda's index.js).
+        nodeModules: ['sharp'],
         commandHooks: {
           beforeBundling(): string[] {
             return [];
@@ -431,7 +436,7 @@ export class FestgridBackendStack extends cdk.Stack {
           },
           afterBundling(inputDir: string, outputDir: string): string[] {
             return [
-              `node "${path.resolve(projectRoot, 'apps/infrastructure/scripts/prune-ai-processor-assets.cjs')}" "${inputDir}" "${outputDir}"`,
+              `node "${path.resolve(projectRoot, 'apps/infrastructure/scripts/bundle-ai-processor-face-detection-assets.cjs')}" "${inputDir}" "${outputDir}"`,
             ];
           },
         },
