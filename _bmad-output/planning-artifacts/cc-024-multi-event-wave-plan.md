@@ -68,19 +68,22 @@ per-epic). Gate 2 (UI) stays per story.
 - [x] **CC-023 × CC-024: one run per post, not per event (3.6n, 3.6o, 3.6p).** Settled by the CC-023 sweep: the
       post-level region of `process-ai-job.ts` (the image re-host step, before the per-event fan-out) is the run point.
       Written into 3.6n's amendment.
-- [ ] **`actualScheduleCount` ownership (3.6p) — USER DECISION at create-story.** Facts settled: the AI Processor does
-      not persist schedules; the ingestor does, per event and asynchronously. Options (extraction-time counts vs an
-      ingestor back-fill) are in 3.6p's corrections in `epics.md`. Also open: the per-event audit-row shape.
+- [x] **`actualScheduleCount` ownership and the audit-row shape (3.6p) — decided with the user 2026-10-03.** One audit
+      row per extraction attempt with a jsonb `eventsCompleteness` array (per-event `minScheduleCount`,
+      `expectedScheduleNames`, `confidenceScore`, `actualScheduleCount`); `actualScheduleCount` is the extraction-time
+      count written synchronously by `process-ai-job.ts`. AD-29 Rule 2 amended to say so. The sweep had missed that
+      `confidenceScore` is per-event too.
 - [x] **Thumbnail follows the primary post (3.6n × 3.6v).** Settled by design: it follows automatically when
       `durableThumbnailUrl` is projected from the same joined `posts` row via `events.post_id`, like `durableImageUrl`.
       Now an explicit 3.6n AC (the GraphQL/mapper/codegen read path).
-- [ ] **Refresh the 3.6m story file against the 3.6s shape before dispatch.** Confirmed stale: its Task 4 anchors on a
+- [x] **Refresh the 3.6m story file against the 3.6s shape before dispatch** (done 2026-10-03, commit `6620a9dc`). It was stale: its Task 4 anchors on a
       step 5.5 that is now the zero-events guard (and its proposed "step 5.6" collides with the event-cap truncation),
       and its Task 3 places the fields beside `minScheduleCount`, which now lives on `GeminiEventPayload`. The fields
       belong at the payload root.
-- [ ] **Two more user decisions the sweep reserved:** the TensorFlow.js backend (CPU / WASM / native; at create-story
-      of 0.46, may amend AD-28 Rule 3) and the served-URL precedence including the original-still-valid case (at
-      create-story of 3.6n; a privacy trade-off).
+- [x] **TensorFlow.js backend (0.46) — decided with the user 2026-10-03: WASM** (`tfjs-backend-wasm`). AD-28 Rule 3
+      amended to name it; the story must still measure latency, memory and bundle size on real fixtures.
+- [ ] **Served-URL precedence including the original-still-valid case (3.6n) — USER DECISION at create-story of 3.6n;
+      a privacy trade-off.**
 
 ## Wave 0 — Planning artifacts (done)
 
@@ -376,13 +379,15 @@ pre-flagged list can be settled against real code. Gate 2 stays per story (only 
 - [ ] **3.6p** Create the `extraction_audit_logs` table and write path — *needs 3.6e, 3.6l, 3.6m, 3.6r, 3.6s;
       **amended by CC-024:** the audit row also records `groupingReason`, event count and `minEventCount`* (`backlog`;
       sweep verdict READY-WITH-CORRECTION; per-event shape and `actualScheduleCount` ownership are user decisions at
-      create-story; an ingestor back-fill would also need 3.6t)
-  - [ ] create  - [ ] dev  - [ ] review
+      create-story; an ingestor back-fill would also need 3.6t) (story created 2026-10-03, commit `18e997ee`, status
+      `ready-for-dev`; decisions taken with the user: one row per attempt + jsonb array, extraction-time
+      `actualScheduleCount`; `confidenceScore` also per-event)
+  - [x] create  - [ ] dev  - [ ] review
 - [ ] **0.46** Provision the AI Processor Lambda's image-processing runtime (memory, native-binary bundling, model
       assets) — *new prerequisite found by the CC-023 sweep (Gate 1); hard prerequisite for 3.6n only; includes the
-      TensorFlow.js backend decision, the bundle-size check and the timeout/visibility headroom* (`backlog`, added
-      2026-10-03)
-  - [ ] create  - [ ] dev  - [ ] review
+      TensorFlow.js backend decision, the bundle-size check and the timeout/visibility headroom* (added 2026-10-03;
+      story created the same day, commit `b722e177`, status `ready-for-dev`; backend decided with the user: WASM)
+  - [x] create  - [ ] dev  - [ ] review
 - [ ] **3.6n** Detect and blur faces, generating a consent-independent durable thumbnail — *needs 3.6m, 3.6e, 0.33,
       3.6q, **0.46**; adds `posts.durableThumbnailUrl` and widens the `prominentPoster` trigger; the only Wave 4C
       story with frontend scope; AC corrections applied by the sweep: once-per-post run point, GraphQL read path,

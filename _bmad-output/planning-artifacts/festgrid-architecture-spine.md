@@ -1384,7 +1384,11 @@ This document defines the core architectural invariants for the FestDaily applic
         from `Event.isExpiredForCurrentUser`/`computePastEventThreshold` (a runtime, grace-period
         visibility check) — this is a one-time build-time relevance check.
     3.  **Detection:** for images passing both gates, run `@vladmandic/face-api` (TensorFlow.js,
-        pure npm, no native binaries) with the SSD MobileNetV1 detector — chosen over the Tiny
+        pure npm, no native binaries; **backend amended 2026-10-03: the WASM backend,
+        `tfjs-backend-wasm`** — the package's default Node entry `require`s the native
+        `@tensorflow/tfjs-node`, so the backend is chosen explicitly. The `.wasm` files are
+        platform-independent, not a compiled Node addon, and ship in the Lambda bundle like the
+        model weights; see Story 0.46) with the SSD MobileNetV1 detector — chosen over the Tiny
         Face Detector for better small/angled-face accuracy — directly against the image's
         *original* fetched bytes, never a pre-resized copy. The detector's own `inputSize`
         parameter (default 512) already downsamples internally for its forward pass and returns
@@ -1466,7 +1470,11 @@ This document defines the core architectural invariants for the FestDaily applic
         growing home instead of accumulating as ad hoc columns on `posts`/`events` each time a
         new self-reported field is added.
     2.  **Ground truth captured alongside self-report, wherever available:**
-        `actualScheduleCount` (the real persisted `schedules.length`) sits beside
+        `actualScheduleCount` (the real persisted `schedules.length`; **amended 2026-10-03:
+        recorded as the extraction-time count, `event.schedules.length` of the accepted Gemini
+        payload, written synchronously in the AI Processor, because persistence happens
+        asynchronously per event in the ingestor — it can differ from the persisted count after an
+        idempotent skip or a later merge**) sits beside
         `minScheduleCount`; `actualFaceDetectionCount` (face-api.js's real detected count) sits
         beside `faceImageCount`. A self-reported value with no ground-truth counterpart in the
         same row is only useful for manual spot review, not automated accuracy scoring.
