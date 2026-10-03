@@ -8,7 +8,7 @@ baseline_commit: eb5785ebae089e9e4edab0f213f12043235a1ba6
 
 - Epic: 0.i6 (SubscribedAccountCard improvement epic)
 - Story ID: 0.i6g
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -68,12 +68,12 @@ so that I can see and act on a post's actual coauthors, not just the one account
 - [x] **Task 9 — i18n** (AC: #10)
   - [x] Add `"coauthorsListAriaLabel": "Co-authors"` to `apps/web/locales/en.json`'s `EventDetailsPage` namespace (alongside the other `EventDetailsPage` keys).
   - [x] Add `"coauthorsListAriaLabel": "Rekan Penulis"` to `apps/web/locales/id.json`'s `EventDetailsPage` namespace.
-- [ ] **Task 10 — Verification** (AC: all)
-  - [ ] `pnpm --filter backend test` (targeted: `resolvers.test.ts`), `pnpm --filter backend build`/`tsc`, `pnpm --filter backend lint`.
-  - [ ] `pnpm --filter ui test` (targeted: `EventDetailView.test.tsx`), full suite green; `pnpm --filter ui lint`.
-  - [ ] `pnpm --filter web test` (targeted: `EventDetailWrapper.test.tsx`, `mapper.test.ts`), full suite green; `pnpm --filter web lint`; `pnpm --filter web build` (exercises the regenerated codegen output end to end).
-  - [ ] Root `pnpm build`/`pnpm lint` for no cross-package regressions.
-  - [ ] Manual sanity: open an event-detail page for a post with 2+ `COAUTHOR` associations (seed via `post_account_associations` if no such post exists yet in the dev DB), confirm each coauthor renders with a working, independently-toggleable subscribe/unsubscribe control below the original-post link, and the existing single-source-account toggle above is unaffected.
+- [x] **Task 10 — Verification** (AC: all)
+  - [x] `pnpm --filter backend test` (targeted: `resolvers.test.ts`), `pnpm --filter backend build`/`tsc`, `pnpm --filter backend lint`.
+  - [x] `pnpm --filter ui test` (targeted: `EventDetailView.test.tsx`), full suite green; `pnpm --filter ui lint`.
+  - [x] `pnpm --filter web test` (targeted: `EventDetailWrapper.test.tsx`, `mapper.test.ts`), full suite green; `pnpm --filter web lint`; `pnpm --filter web build` (exercises the regenerated codegen output end to end).
+  - [x] Root `pnpm build`/`pnpm lint` for no cross-package regressions.
+  - [x] Manual sanity: not performed as a live browser walkthrough (this `bmad-dev-story` run executes in a non-interactive, headless orchestrator session with no attached browser) — equivalent coverage instead comes from `resolvers.test.ts`'s real-DB `Event.coauthors resolver (Story 0.i6g)` block (seeds actual `post_account_associations` rows and asserts the GraphQL response) and `EventDetailWrapper.test.tsx`'s `coauthor subscribe/unsubscribe toggles (Story 0.i6g)` block (full MSW-backed render + click-through of the independently-toggleable subscribe/unsubscribe control, confirming the existing single-source-account toggle is unaffected). Flagged to the user as the one open item from this task.
 
 ## Dev Notes
 
@@ -190,26 +190,26 @@ No epic readiness report exists for Epic 0.i6 (`_bmad-output/planning-artifacts/
 
 ## Testing Requirements
 
-- [ ] Backend integration test — `apps/backend/src/schema/resolvers.test.ts`'s new `Event.coauthors resolver` block (real-DB, mirroring `Event.sourceSocialMediaAccountProfile resolver`'s existing pattern).
-- [ ] Unit tests — `packages/ui/src/features/events/EventDetailView.test.tsx`'s new `coauthors (Story 0.i6g)` block; existing suite unmodified and green.
-- [ ] Unit tests — `apps/web/src/features/events/mapper.test.ts`'s new coauthors-mapping block; existing suite unmodified and green.
-- [ ] Integration tests — `apps/web/src/features/events/EventDetailWrapper.test.tsx`'s new coauthor-toggle cases (independent pending state, correct mutation args, no analytics capture, widened `getMySubscriptions` gate); full existing suite unmodified and green (including the DW-009 neutral-state case and the existing single-source-account subscribe/unsubscribe/analytics assertions).
-- [ ] E2E tests — not required; this is a new consumer of already-e2e-exempt shared components (`SubscribedAccountCard` family, Story 0.i6a/0.i6c/0.i6f precedent) with no new critical user flow beyond the already-covered subscribe/unsubscribe action.
-- [ ] Migration verification — not applicable; no migration in this story (Data Type Compatibility & Migration Requirements).
-- [ ] Codegen verification — both `pnpm --filter backend codegen` and `pnpm --filter web codegen` succeed cleanly against the schema/query changes, with no hand-edits to generated output.
+- [x] Backend integration test — `apps/backend/src/schema/resolvers.test.ts`'s new `Event.coauthors resolver` block (real-DB, mirroring `Event.sourceSocialMediaAccountProfile resolver`'s existing pattern).
+- [x] Unit tests — `packages/ui/src/features/events/EventDetailView.test.tsx`'s new `coauthors (Story 0.i6g)` block; existing suite unmodified and green.
+- [x] Unit tests — `apps/web/src/features/events/mapper.test.ts`'s new coauthors-mapping block; existing suite unmodified and green.
+- [x] Integration tests — `apps/web/src/features/events/EventDetailWrapper.test.tsx`'s new coauthor-toggle cases (independent pending state, correct mutation args, no analytics capture, widened `getMySubscriptions` gate); full existing suite unmodified and green (including the DW-009 neutral-state case and the existing single-source-account subscribe/unsubscribe/analytics assertions).
+- [x] E2E tests — not required; this is a new consumer of already-e2e-exempt shared components (`SubscribedAccountCard` family, Story 0.i6a/0.i6c/0.i6f precedent) with no new critical user flow beyond the already-covered subscribe/unsubscribe action.
+- [x] Migration verification — not applicable; no migration in this story (Data Type Compatibility & Migration Requirements).
+- [x] Codegen verification — both `pnpm --filter backend codegen` and `pnpm --filter web codegen` succeed cleanly against the schema/query changes, with no hand-edits to generated output.
 
 ## Deliverables Checklist
 
-- [ ] `Event.coauthors: [SocialMediaAccountProfile!]!` field + resolver shipped, confined to the `getEventBySlug` query document only (AC1, AC2).
-- [ ] Each coauthor of the event's post renders as a `SubscribedAccountCard` (`variant="detail"`, `size="sm"`) below the existing original-post attribution link, with no empty-state placeholder when there are zero coauthors (AC3).
-- [ ] Posted-at timestamp in the existing Attributions section is unchanged (AC4).
-- [ ] Each coauthor's subscribe/unsubscribe toggle is confirm-then-refetch (non-optimistic), reusing Story 3.16's unmodified `subscribeToAccount`/`removeSubscription` contract (AC5, AC8).
-- [ ] Each coauthor's toggle pending/busy state is tracked independently — no cross-row misattribution (AC6).
-- [ ] A coauthor with no stable accountId (currently unreachable) renders display-only — defensive, type-guaranteed (AC7).
-- [ ] No PostHog analytics event fires from a coauthor toggle in this story — explicit regression test (AC9).
-- [ ] New `coauthorsListAriaLabel` i18n key added to both `en.json`/`id.json`; every other label reused verbatim (AC10).
-- [ ] `getMySubscriptions` fetch gate widened to fire for an event with coauthors but no single source account (AC11).
-- [ ] All Task 2, 5, 6, 8 test additions passing; no regression to any existing `EventDetailView`/`EventDetailWrapper`/`mapper`/`resolvers` test.
+- [x] `Event.coauthors: [SocialMediaAccountProfile!]!` field + resolver shipped, confined to the `getEventBySlug` query document only (AC1, AC2).
+- [x] Each coauthor of the event's post renders as a `SubscribedAccountCard` (`variant="detail"`, `size="sm"`) below the existing original-post attribution link, with no empty-state placeholder when there are zero coauthors (AC3).
+- [x] Posted-at timestamp in the existing Attributions section is unchanged (AC4).
+- [x] Each coauthor's subscribe/unsubscribe toggle is confirm-then-refetch (non-optimistic), reusing Story 3.16's unmodified `subscribeToAccount`/`removeSubscription` contract (AC5, AC8).
+- [x] Each coauthor's toggle pending/busy state is tracked independently — no cross-row misattribution (AC6).
+- [x] A coauthor with no stable accountId (currently unreachable) renders display-only — defensive, type-guaranteed (AC7).
+- [x] No PostHog analytics event fires from a coauthor toggle in this story — explicit regression test (AC9).
+- [x] New `coauthorsListAriaLabel` i18n key added to both `en.json`/`id.json`; every other label reused verbatim (AC10).
+- [x] `getMySubscriptions` fetch gate widened to fire for an event with coauthors but no single source account (AC11).
+- [x] All Task 2, 5, 6, 8 test additions passing; no regression to any existing `EventDetailView`/`EventDetailWrapper`/`mapper`/`resolvers` test.
 
 ## Out of Scope
 
@@ -223,15 +223,15 @@ No epic readiness report exists for Epic 0.i6 (`_bmad-output/planning-artifacts/
 
 ## Definition of Done
 
-- [ ] AC1-11 satisfied.
-- [ ] Required tests passing (Tasks 2, 5, 6, 8 + Testing Requirements).
-- [ ] Lint and type checks passing for `apps/backend`, `packages/ui`, `apps/web`.
-- [ ] Both `codegen` commands run clean, no hand-edited generated files.
-- [ ] Pre-Coding Approval Gate's explicit human approval state confirmed before this story is marked done.
+- [x] AC1-11 satisfied.
+- [x] Required tests passing (Tasks 2, 5, 6, 8 + Testing Requirements).
+- [x] Lint and type checks passing for `apps/backend`, `packages/ui`, `apps/web`.
+- [x] Both `codegen` commands run clean, no hand-edited generated files.
+- [x] Pre-Coding Approval Gate's explicit human approval state confirmed before this story is marked done.
 
 ## Completion Status
 
-- [ ] Not yet implemented — story created via `bmad-create-story`, ready for `bmad-dev-story`.
+- [x] Implemented — all 10 tasks complete, all ACs satisfied, verification run (see Completion Notes). Status set to `review`.
 
 ## Dev Agent Record
 
@@ -253,6 +253,8 @@ Claude Sonnet 5 (bmad-create-story, direct in-session story authoring).
 - Task 7: Added `pendingCoauthorAccountId` state, a second, fully distinct `useSubscribeToAccountMutation`/`useRemoveSubscriptionMutation` pair (no reuse of the existing single-source-account `subscribeToAccount`/`unsubscribeFromAccount` variables), `handleSubscribeToCoauthor`/`handleUnsubscribeFromCoauthor`, and widened the `useGetMySubscriptionsQuery` `enabled` gate (AC11) to `EventDetailWrapper.tsx`. Neither new mutation handler calls `posthog.capture` (AC9). Wired `coauthors`/`onSubscribeToCoauthor`/`onUnsubscribeFromCoauthor` through to `mapGraphQLEventToDetailViewProps`/`EventDetailView`.
 - Task 8: Extended the MSW `currentMockEvent` fixture with `coauthors`. New `describe('coauthor subscribe/unsubscribe toggles (Story 0.i6g)')` block (7 cases covering AC3/AC5/AC6/AC8/AC9/AC11). Targeted run: 47/47 pass in `EventDetailWrapper.test.tsx` (including the pre-existing DW-009 case and the single-source-account subscribe/unsubscribe/analytics cases, all unmodified and still green). Full `apps/web` suite (`npx vitest run`, unfiltered): 560/560 pass. `pnpm --filter web lint`: exit 0 (warnings only, all pre-existing). `pnpm --filter web build`: clean (Next.js build type-checks/bundles the real app successfully; a `tsc --noEmit` run against the whole repo tsconfig surfaces ~15 pre-existing, unrelated MSW/test-fixture type errors in other files untouched by this story — confirmed pre-existing and not part of this story's own build/lint gate, which is `pnpm --filter web build`/`lint`).
 - Task 9: Added `coauthorsListAriaLabel` to both `en.json` ("Co-authors") and `id.json` ("Rekan Penulis") `EventDetailsPage` namespaces.
+- Task 10 / final verification: Root `pnpm build` (via `run-check.ts --kind build`, unfiltered) — ALL 8 tasks passed. Root `pnpm lint` (via `run-check.ts --kind lint`, unfiltered) — ALL 8 tasks passed. Root `pnpm test` (via `run-check.ts --kind test`, unfiltered, `TZ=UTC`, one single run per the dispatch instruction not to run the full suite more than once) reported 6 failures, all in `apps/infrastructure/lib/festgrid-backend-stack.test.ts` — **pre-existing and out of scope for this story**: confirmed by running that file directly (`npx tsx --test lib/festgrid-backend-stack.test.ts` in `apps/infrastructure`), which shows only 1 real assertion failure (`FestgridBackendStack provisions correct resources`, a CDK-template/environment-config mismatch — `SCRAPE_SKIP_RECENT_HOURS` type, `ApiLambda` `Timeout`, a missing `Environment` block on a CDK-internal custom-resource handler) — turbo's summarizer lists all 6 test names in that one file as "failed" because the file's single assertion failure fails the whole `node:test` process, not 6 independent bugs. This story touches `apps/backend`, `apps/web`, and `packages/ui` only; `apps/infrastructure` was never read or modified. **Flagged to the user as a pre-existing, out-of-scope failure** rather than fixed here, per this project's standing rule to flag (not silently fix) pre-existing/out-of-scope failures discovered during a story's own verification gate. All of `apps/backend`'s, `apps/web`'s, and `packages/ui`'s own full suites were independently confirmed green earlier in this session (95/95, 560/560, 828/828 respectively).
+- Pre-Coding Approval Gate: all five checklist items confirmed/granted (see the gate's own entries above) before any code was written this session.
 
 ### File List
 
@@ -274,3 +276,4 @@ Claude Sonnet 5 (bmad-create-story, direct in-session story authoring).
 ## Change Log
 
 - 2026-10-03: Story created via `bmad-create-story`. Three decisions resolved with the user via `AskUserQuestion`: (1) `Event.coauthors` as a flat field scoped to today's single-primary-post model, not anticipating Story 3.6u's unbuilt future shape; (2) no PostHog analytics emitted by this story's coauthor toggle, deferring entirely to Story 3.19; (3) attach this story to backlog row CC-026 on completion. Gate 1/2/3 all run fresh (no epic readiness report covers Epic 0.i6) — all three no-gap.
+- 2026-10-03: Story implemented via `bmad-dev-story` (CC-024 Wave 4A dispatch). All 10 tasks complete: `Event.coauthors` GraphQL field + resolver + backend test; `coauthors` selection added to `getEventBySlug`; `EventDetailView` renders each coauthor as a `SubscribedAccountCard` below the existing Attributions section; `mapper.ts` derives per-coauthor `isSubscribed`/`isTogglePending`; `EventDetailWrapper.tsx` adds a second, fully distinct confirm-then-refetch mutation pair (no analytics, AC9) with independent per-row pending state (AC6) and a widened `getMySubscriptions` gate (AC11); i18n key added to both locales. Backend/`ui`/`web` full suites all green (95/95, 828/828, 560/560); root `pnpm build`/`pnpm lint` clean. One pre-existing, out-of-scope `apps/infrastructure` test failure (unrelated CDK/env-config mismatch, not touched by this story) surfaced during the root `pnpm test` run and is flagged to the user rather than fixed here. Status set to `review`.
