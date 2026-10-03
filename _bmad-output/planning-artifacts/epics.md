@@ -3406,6 +3406,23 @@ without paying for a separate detection call on every extracted image.
 
 **Depends on:** Story 3.6r, Story 3.6s, Stories 3.7f and 3.7g (platform post id capture; base platform-prefixed slug).
 
+### Story 3.6ua: Extract EventCardCompact from CalendarCard for cross-context reuse
+
+**As a** developer,
+**I want** `WeeklyCalendarView.tsx`'s mobile calendar row card (`{components.event_card_compact}`) extracted into its own standalone, exported `EventCardCompact` component in `packages/ui`,
+**So that** Story 3.6u's event-detail Related Events section can render the same mobile compact card the weekly calendar already uses, without either exporting a calendar-internal component with dummy plumbing or duplicating its markup/tokens a second time.
+
+**Acceptance Criteria:**
+
+*   **Given** `WeeklyCalendarView.tsx`'s existing, non-exported `CalendarCard` subcomponent and its `variant === 'list'` rendering path (the actual `{components.event_card_compact}` composition: `EVENT_CARD_COMPACT_CLASS`, `EventCardDateBox size="compact"`, `EventCardMediaSlot size="compact"`, `EventCardStatusBadge`, `EventCardNearbyBadge`, `EventCardRepeatBadge`), **when** this story ships, **then** that rendering is extracted into a new, standalone `EventCardCompact` component in `packages/ui/src/features/events/`, exported from `packages/ui/src/features/events/index.ts`, taking only the props the compact row actually needs (event fields + the badges/date-box/media-slot inputs) — no day-bucket, segment, popover, or `<TSchedule>` generic typing from `CalendarCard`'s own calendar-specific plumbing.
+*   **And** `CalendarCard`'s own `variant === 'list'` branch is rewritten to delegate to `EventCardCompact` internally, passing through the same data it already computes today — zero visual or behavioral change to `WeeklyCalendarView.tsx`'s mobile day-list rendering (regression-guarded by its existing test suite, unmodified and green).
+*   **And** `EventCardCompact` exposes its own loading/skeleton state matching `{components.event_card_compact}`'s shape (`project-context.md`'s Keep Skeletons in Sync With Their Real Component rule), for Story 3.6u's Related Events section to reuse while its lazy fetch is in flight.
+*   **And** `EventCardCompact` is documented/exported for reuse — its own dedicated unit test suite (render, loading-skeleton shape, missing-image fallback per `event_card_compact_thumbnail_fallback`) exists independent of `WeeklyCalendarView.test.tsx`.
+
+**Note:** Split off Story 3.6u's own planned scope at `bmad-create-story` time (2026-10-03) — flagged by a fresh Gate 2 (UI Complexity & Reusability) pass, run via the Freya/UX persona per `story-split-gate.md`: the AC's "mobile calendar compact event card" is not a standalone reusable component today, it is a non-exported subcomponent tightly coupled to `WeeklyCalendarView.tsx`'s own calendar-specific plumbing, and reusing it as-is in a second, unrelated context (event detail) would either require exporting it with dummy calendar props or folding an out-of-AC calendar-module refactor into Story 3.6u itself. Confirmed with the user via `AskUserQuestion`; follows this project's `1.3a`/`1.3b`/`1.6a` single-story-UI-split precedent (lettered suffix directly off the one story that needs it).
+
+**Depends on:** None — pure extraction/refactor of already-shipped code in `packages/ui`; no new backend/schema dependency. Is itself a hard prerequisite for Story 3.6u's Task 3/5 (consumes its exported `EventCardCompact`).
+
 ### Story 3.6u: Show all source posts and related events on the event detail page
 
 **As a** subscriber,
@@ -3421,6 +3438,8 @@ without paying for a separate detection call on every extracted image.
 *   **And** `Query.events` and `Query.eventBySlug` per-row cost is unchanged (AD-17).
 
 **Depends on:** Story 3.6r, Story 3.6t, Story 1.3j, Story 1.6c, Story 0.i6g (coordinate). Stories 3.7h/3.7i (DB-free embed) are recommended, not required: the existing `Event.instagramEmbed` path already follows `events.post_id`.
+
+**Amendment (2026-10-03, `bmad-create-story`, Gate 2 UI Complexity & Reusability):** Adds Story 3.6ua as a hard prerequisite — the "mobile calendar compact event card" named in this story's own AC is not yet a standalone reusable component; a fresh Gate 2 pass found it is a non-exported subcomponent of `WeeklyCalendarView.tsx`, and recommended (user-confirmed via `AskUserQuestion`) splitting its extraction into new Story 3.6ua rather than absorbing it here. See `3-6u-show-all-source-posts-and-related-events-on-the-event-detail-page.md`'s Dev Notes for the full gate findings.
 
 ### Story 3.6v: Match new posts to existing events and enrich them in place
 
