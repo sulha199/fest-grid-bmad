@@ -412,6 +412,29 @@ export class FestgridBackendStack extends cdk.Stack {
         // its .wasm file via `__dirname`-relative `fs.readFileSync`, so no `setWasmPaths` call
         // or extra env var is needed at runtime either -- verified by inspecting that file.
         nodeModules: ['sharp', '@vladmandic/face-api', '@tensorflow/tfjs', '@tensorflow/tfjs-backend-wasm'],
+        // AC6: the raw nodeModules install (above) measured at 345 MB unzipped -- over
+        // Lambda's 250 MB unzipped limit -- almost entirely because `@tensorflow/tfjs`'s
+        // full declared dependency tree (tfjs-layers/-converter/-backend-webgl/-backend-cpu/
+        // -data, ~95 MB) comes along for the ride even though nothing in this Lambda's
+        // runtime path reaches any of them (see Dev Notes for why those siblings can't be
+        // safely deleted post-install: @tensorflow/tfjs's own main entry unconditionally
+        // requires every one of them). This hook only prunes what IS safe to drop --
+        // @vladmandic/face-api's 6 unused model files (AC3 only needs SSD MobileNetV1) --
+        // and is not a fix for the 250 MB overage by itself; see Dev Notes for the AC6
+        // decision (Lambda container image) that actually resolves it.
+        commandHooks: {
+          beforeBundling(): string[] {
+            return [];
+          },
+          beforeInstall(): string[] {
+            return [];
+          },
+          afterBundling(inputDir: string, outputDir: string): string[] {
+            return [
+              `node "${path.resolve(projectRoot, 'apps/infrastructure/scripts/prune-ai-processor-assets.cjs')}" "${inputDir}" "${outputDir}"`,
+            ];
+          },
+        },
       },
       environment: {
         STAGE: stageName,
