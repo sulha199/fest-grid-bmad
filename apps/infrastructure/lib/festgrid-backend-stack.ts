@@ -348,9 +348,12 @@ export class FestgridBackendStack extends cdk.Stack {
 
     // L_AI
     //
-    // Story 0.46: provisions the image-processing runtime Story 3.6n's face-blur stage
-    // needs (memory, native-binary/WASM-binary/model-weight bundling) -- no face-detection
-    // stage is wired in yet (that is 3.6n's scope; this Lambda's handler logic is unchanged).
+    // Story 0.46 provisioned the image-processing runtime (memory, native-binary/WASM-binary/
+    // model-weight bundling) for Story 3.6n's face-blur stage, deliberately leaving it
+    // unreachable from `ai-processor.ts`'s real import graph (0.46's own AC7). Story 3.6n then
+    // wires the REAL detection module (`detect-and-blur-faces.ts`) directly into
+    // `process-ai-job.ts`, which `ai-processor.ts` imports -- so the handler's control flow now
+    // does include this stage (see that story's Dev Notes for the re-measured asset size).
     //
     // memorySize/architecture are measurement-backed (see
     // apps/backend/scripts/measure-ai-processor-runtime.cjs and this story's Dev Notes):
@@ -400,7 +403,7 @@ export class FestgridBackendStack extends cdk.Stack {
         // this is CDK's real `pnpm install` mechanism (platform/arch-matched -- see the
         // Docker-bundling note above), landing it at node_modules/sharp/... as normal.
         //
-        // AC6 finding + fix: an earlier version of this story also listed
+        // AC6 finding + fix (Story 0.46): an earlier version of that story also listed
         // `@vladmandic/face-api`, `@tensorflow/tfjs` and `@tensorflow/tfjs-backend-wasm`
         // here, since a real `nodeModules` install preserves their `model/` directory and
         // `.wasm` files "for free." That measured at 321-345 MB unzipped (depending on
@@ -413,19 +416,22 @@ export class FestgridBackendStack extends cdk.Stack {
         // at runtime (`TypeError: i.as3D is not a function`; the full `tfjs` package
         // patches ~100 convenience methods onto Tensor.prototype that tfjs-core's own
         // build doesn't carry, confirmed by extracting its real source). The fix that
-        // actually works, verified end-to-end (see Dev Notes): esbuild-BUNDLE the real,
-        // unmodified packages instead of npm-installing them -- esbuild only resolves and
-        // inlines the code paths actually `require()`d, dropping every unused variant and
-        // all sourcemaps, which brought the real bundle down to ~2.3 MB raw. Since
-        // `ai-processor.ts` (this Lambda's real entry) must NOT import these packages
-        // (AC7 -- no face-detection stage wired in yet), esbuild can't reach them from the
-        // primary bundling pass; `afterBundling` below runs a SEPARATE esbuild pass over a
-        // dedicated, inert probe module (`ai-processor-face-detection-probe.cjs`, never
-        // required by `ai-processor.ts`) into its own sibling file in the same output
-        // directory, then copies the SSD MobileNetV1 weights and the tfjs-backend-wasm
-        // `.wasm` binaries alongside it (see that script for the full mechanism, including
-        // why no `setWasmPaths` call is needed -- `__dirname`-relative resolution already
-        // matches once everything sits in the same directory as the Lambda's index.js).
+        // actually works, verified end-to-end: do NOT `nodeModules`-install these three
+        // packages at all -- leave them to esbuild's default bundling (same as any other
+        // ordinary dependency). esbuild only resolves and inlines the code paths actually
+        // `require()`d, dropping every unused variant and all sourcemaps.
+        //
+        // Story 0.46 initially achieved this via a SEPARATE esbuild pass (over a dedicated,
+        // inert probe module never required by `ai-processor.ts`, since that story's own AC7
+        // forbade wiring the real stage in yet) into a sibling `face-detection-runtime.js`
+        // file. Story 3.6n wires the REAL module (`detect-and-blur-faces.ts`) directly into
+        // `process-ai-job.ts` -- reachable from `ai-processor.ts`'s own import graph -- so
+        // CDK's PRIMARY esbuild bundling pass (the one producing index.js) now inlines that
+        // same code on its own, at the same size class (~2-3 MB), with no separate pass
+        // needed. `afterBundling` below now only copies the SSD MobileNetV1 weights and the
+        // tfjs-backend-wasm `.wasm` binaries alongside index.js (see that script for the full
+        // mechanism, including why no `setWasmPaths` call is needed -- `__dirname`-relative
+        // resolution already matches once everything sits in the same directory as index.js).
         nodeModules: ['sharp'],
         commandHooks: {
           beforeBundling(): string[] {

@@ -566,22 +566,27 @@ test('FestgridBackendStack: aiProcessorLambda has the measurement-backed MemoryS
   }
 });
 
-// Story 0.46 (AC2/AC3/AC6): the synthesized asset for aiProcessorLambda actually contains
-// sharp's native binary package (via `bundling.nodeModules`), plus a SEPARATE esbuild-bundled
-// `face-detection-runtime.js` (real @vladmandic/face-api + @tensorflow/tfjs +
-// @tensorflow/tfjs-backend-wasm code, reachable only via a dedicated, inert probe module --
-// NOT via `ai-processor.ts`, preserving AC7) with the SSD MobileNetV1 model weights and the
-// tfjs-backend-wasm `.wasm` binaries copied alongside it by the same
-// `bundling.commandHooks.afterBundling` step (see `bundle-ai-processor-face-detection-assets.cjs`
-// and the `bundling` comment on aiProcessorLambda in festgrid-backend-stack.ts for why --
-// an earlier `bundling.nodeModules`-only approach measured 321-345 MB unzipped, over Lambda's
-// 250 MB limit). Uses a controlled `outdir` (not the default random temp dir) so this test can
-// walk the synthesized asset directories on disk after `app.synth()`.
-test('FestgridBackendStack: aiProcessorLambda bundle contains sharp native binary, a bundled face-detection runtime, SSD MobileNetV1 weights, and .wasm files, all within Lambda zip limits (Story 0.46 AC2/AC3/AC6)', () => {
-  const outdir = fs.mkdtempSync(path.join(os.tmpdir(), 'cdk-story-0-46-asset-'));
+// Story 0.46 (AC2/AC3/AC6) + Story 3.6n (wires the real detection in, re-measures): the
+// synthesized asset for aiProcessorLambda actually contains sharp's native binary package (via
+// `bundling.nodeModules`), the REAL @vladmandic/face-api + @tensorflow/tfjs +
+// @tensorflow/tfjs-backend-wasm code now inlined directly into index.js (reachable from
+// `ai-processor.ts`'s own import graph via `process-ai-job.ts` -> `detect-and-blur-faces.ts`,
+// Story 3.6n), with the SSD MobileNetV1 model weights and the tfjs-backend-wasm `.wasm`
+// binaries copied alongside it by `bundling.commandHooks.afterBundling` (see
+// `bundle-ai-processor-face-detection-assets.cjs` and the `bundling` comment on
+// aiProcessorLambda in festgrid-backend-stack.ts for the full history -- an earlier
+// `bundling.nodeModules`-only approach measured 321-345 MB unzipped, over Lambda's 250 MB
+// limit; Story 0.46 originally proved the esbuild-inlining fix via a separate pass over an
+// inert probe module since its own AC7 forbade wiring the real stage in yet -- Story 3.6n's
+// real wiring now gets the same effect "for free" from CDK's own primary bundling pass, so
+// that separate pass and its probe module were removed). Uses a controlled `outdir` (not the
+// default random temp dir) so this test can walk the synthesized asset directories on disk
+// after `app.synth()`.
+test('FestgridBackendStack: aiProcessorLambda bundle contains sharp native binary, the real inlined face-detection code, SSD MobileNetV1 weights, and .wasm files, all within Lambda zip limits (Story 0.46 AC2/AC3/AC6, re-measured by Story 3.6n)', () => {
+  const outdir = fs.mkdtempSync(path.join(os.tmpdir(), 'cdk-story-3-6n-asset-'));
   try {
     const app = new cdk.App({ outdir });
-    const stack = new FestgridBackendStack(app, 'TestStack046Assets', {
+    const stack = new FestgridBackendStack(app, 'TestStack36nAssets', {
       stageName: 'dev',
     });
     // Force bundling to actually run and stage files under outdir.
@@ -590,12 +595,14 @@ test('FestgridBackendStack: aiProcessorLambda bundle contains sharp native binar
     const assetEntries = fs.readdirSync(outdir).filter((name) => name.startsWith('asset.'));
     assert.ok(assetEntries.length > 0, 'expected at least one staged asset directory under the synth outdir');
 
+    // aiProcessorLambda's bundle is identified by the model/ directory copied alongside its
+    // index.js (commandHooks.afterBundling) -- no other Lambda in this stack gets that asset.
     const aiProcessorAssetDir = assetEntries
       .map((name) => path.join(outdir, name))
-      .find((dir) => fs.existsSync(path.join(dir, 'face-detection-runtime.js')));
+      .find((dir) => fs.existsSync(path.join(dir, 'model', 'ssd_mobilenetv1_model.bin')));
     assert.ok(
       aiProcessorAssetDir,
-      'expected a staged asset directory containing face-detection-runtime.js (the aiProcessorLambda bundle)'
+      'expected a staged asset directory containing model/ssd_mobilenetv1_model.bin (the aiProcessorLambda bundle)'
     );
 
     // AC2: sharp's platform/arch-specific native binary package is present (name depends on
@@ -610,19 +617,23 @@ test('FestgridBackendStack: aiProcessorLambda bundle contains sharp native binar
       'expected at least one @img/sharp-<platform>-<arch> native binary package in the bundle'
     );
 
-    // AC2/AC4 (bundling half): the esbuild-bundled face-detection-runtime.js is non-trivial in
-    // size (proves it actually contains the real face-api/tfjs code, not an empty/stub file).
-    const runtimeBundlePath = path.join(aiProcessorAssetDir, 'face-detection-runtime.js');
-    const runtimeBundleBytes = fs.statSync(runtimeBundlePath).size;
+    // AC2/AC4 (bundling half) + Story 3.6n: index.js itself (ai-processor.ts's real entry) is
+    // now non-trivial in size, proving it actually contains the real, inlined face-api/tfjs
+    // code -- not just its own pre-existing handler logic. Pre-3.6n, this same entry measured
+    // well under 500KB (confirmed by re-running this assertion against main before this
+    // story's changes).
+    const indexPath = path.join(aiProcessorAssetDir, 'index.js');
+    assert.ok(fs.existsSync(indexPath), 'expected index.js (ai-processor.ts bundle) in the asset');
+    const indexBytes = fs.statSync(indexPath).size;
     assert.ok(
-      runtimeBundleBytes > 500_000,
-      `expected face-detection-runtime.js to be a substantial bundle (>500KB), got ${runtimeBundleBytes} bytes`
+      indexBytes > 500_000,
+      `expected index.js to be a substantial bundle after inlining the real face-api/tfjs code (>500KB), got ${indexBytes} bytes`
     );
 
     // AC3: SSD MobileNetV1 weights + manifest present at the documented runtime path (sibling
-    // to face-detection-runtime.js, i.e. a `model/` dir directly under the Lambda's deployment
-    // root -- resolvable at runtime via `path.join(__dirname, 'model')`, the same convention
-    // this story's probe module and measurement script use).
+    // to index.js, i.e. a `model/` dir directly under the Lambda's deployment root --
+    // resolvable at runtime via `path.join(process.env.LAMBDA_TASK_ROOT, 'model')`, the
+    // convention detect-and-blur-faces.ts's resolveModelDir() uses).
     const modelDir = path.join(aiProcessorAssetDir, 'model');
     assert.ok(
       fs.existsSync(path.join(modelDir, 'ssd_mobilenetv1_model.bin')),
@@ -633,17 +644,16 @@ test('FestgridBackendStack: aiProcessorLambda bundle contains sharp native binar
       'expected the SSD MobileNetV1 weights manifest in the bundled asset'
     );
 
-    // AC4 (bundling half): tfjs-backend-wasm's .wasm binaries present alongside
-    // face-detection-runtime.js (not nested under node_modules -- its own dist/tf-backend-
-    // wasm.node.js resolves them via __dirname-relative fs.readFileSync, verified by
-    // inspection, and __dirname for the bundled file IS this directory -- no setWasmPaths
-    // call needed).
+    // AC4 (bundling half): tfjs-backend-wasm's .wasm binaries present alongside index.js (not
+    // nested under node_modules -- its own dist/tf-backend-wasm.node.js resolves them via
+    // __dirname-relative fs.readFileSync, verified by inspection, and __dirname for the
+    // bundled index.js IS this directory -- no setWasmPaths call needed).
     const wasmFiles = fs.readdirSync(aiProcessorAssetDir).filter((name) => name.endsWith('.wasm'));
-    assert.ok(wasmFiles.length > 0, 'expected at least one .wasm file alongside face-detection-runtime.js');
+    assert.ok(wasmFiles.length > 0, 'expected at least one .wasm file alongside index.js');
 
     // AC6: the real synthesized asset's total on-disk (unzipped) size is comfortably within
     // Lambda's 250 MB unzipped deployment-package limit -- regression guard for the AC6 fix
-    // (esbuild-bundling the real packages instead of a raw `nodeModules` install, which
+    // (esbuild-inlining the real packages instead of a raw `nodeModules` install, which
     // measured 321-345 MB and would have failed this same check).
     function dirSizeBytes(dir: string): number {
       let total = 0;
