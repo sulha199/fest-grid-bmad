@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-03T15:59:31Z
+last_updated: 2026-10-03T16:30:33Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -389,7 +389,7 @@ development_status:
   0-i6f-platform-icon-fallback-and-functional-subscribe-unsubscribe-toggle: review
   # added 2026-09-18 via bmad-correct-course (FIND-022 spec CAP-7); depends on
   # 3-15/3-16 in epic-3, so cannot start before those land.
-  0-i6g-event-post-detail-coauthor-attribution-ui-with-confirm-then-refetch-toggle: backlog
+  0-i6g-event-post-detail-coauthor-attribution-ui-with-confirm-then-refetch-toggle: review
   0-i6z-ratchet-no-display-surface-bypasses-the-card: backlog
   epic-0-i7: in-progress
   0-i7a-carry-confidence-and-country-bias-through-every-geoapify-response-mapper: review
@@ -1790,7 +1790,12 @@ development_status:
   3-6r-add-the-event-post-link-table-and-multi-event-schema: review
   3-6s-extract-multiple-events-per-post-with-grouping-rules: review
   3-6t-ingest-multiple-events-per-post-with-per-event-slugs-and-notifications: review
-  3-6u-show-all-source-posts-and-related-events-on-the-event-detail-page: backlog
+  3-6ua-extract-eventcardcompact-from-calendarcard-for-cross-context-reuse: ready-for-dev
+  # 3.6ua added 2026-10-03 via bmad-create-story (Gate 2 UI Complexity & Reusability finding
+  # while creating 3.6u): extracts packages/ui's non-exported CalendarCard (variant='list')
+  # into a standalone EventCardCompact export, mirroring the 1.3a/1.3b split precedent. Hard
+  # prerequisite for 3.6u's Related Events section (Task 3/5) -- must reach review/done first.
+  3-6u-show-all-source-posts-and-related-events-on-the-event-detail-page: ready-for-dev
   3-6v-match-new-posts-to-existing-events-and-enrich-them-in-place: backlog
   3-6w-let-moderators-merge-duplicate-events-with-slug-redirects: backlog
   3-6x-show-all-events-from-a-post-on-a-post-collection-page: backlog

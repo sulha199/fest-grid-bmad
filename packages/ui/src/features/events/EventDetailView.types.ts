@@ -70,6 +70,22 @@ export interface EventDetailViewLabels {
   tomorrow?: string;
   yesterday?: string;
   categoriesAndTypesAriaLabel: string;
+  coauthorsListAriaLabel?: string;
+}
+
+/**
+ * A single coauthor of the event's post (Story 0.i6g), rendered below the
+ * existing original-post attribution link as its own SubscribedAccountCard row.
+ */
+export interface EventDetailViewCoauthor {
+  accountId: string;
+  platform?: string | null;
+  displayName?: string | null;
+  username?: string | null;
+  profileImageUrl?: string | null;
+  accountHref?: string | null;
+  isSubscribed: boolean;
+  isTogglePending: boolean;
 }
 
 /**
@@ -139,6 +155,11 @@ export interface EventDetailViewProps {
   isSubscriptionStatusLoading?: boolean;
   onUnsubscribeFromAccount?: () => void;
   isUnsubscribingFromAccount?: boolean;
+
+  // Coauthor attribution (Story 0.i6g)
+  coauthors?: EventDetailViewCoauthor[];
+  onSubscribeToCoauthor?: (accountId: string) => void;
+  onUnsubscribeFromCoauthor?: (accountId: string) => void;
 
   // State overrides
   loading?: boolean;

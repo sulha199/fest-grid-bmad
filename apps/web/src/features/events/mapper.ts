@@ -1,5 +1,5 @@
-import { GetEventBySlugQuery } from '@/generated/graphql';
-import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels } from '@festgrid/ui';
+import { GetEventBySlugQuery, GetMySubscriptionsQuery } from '@/generated/graphql';
+import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels, EventDetailViewCoauthor } from '@festgrid/ui';
 import { useTranslations } from 'next-intl';
 import { getPlatformSlug } from '@festgrid/domain/scraper';
 
@@ -45,6 +45,7 @@ export function useEventDetailViewLabels(): EventDetailViewLabels {
     tomorrow: t('tomorrow'),
     yesterday: t('yesterday'),
     categoriesAndTypesAriaLabel: t('categoriesAndTypesAriaLabel'),
+    coauthorsListAriaLabel: t('coauthorsListAriaLabel'),
   };
 }
 
@@ -60,7 +61,9 @@ export function mapGraphQLEventToDetailViewProps(
   locale: string,
   tType: (key: string) => string,
   tCategory: (key: string) => string,
-  instagramEmbed?: ResolvedInstagramEmbed | null
+  instagramEmbed?: ResolvedInstagramEmbed | null,
+  mySubscriptions?: GetMySubscriptionsQuery['mySubscriptions'] | null,
+  pendingCoauthorAccountId?: string | null
 ): Omit<EventDetailViewProps, 'labels'> & { labels: EventDetailViewLabels } {
   const mappedSchedules: ScheduleDetail[] = (event.schedules || []).map((s) => {
     return {
@@ -89,6 +92,17 @@ export function mapGraphQLEventToDetailViewProps(
         return t;
       }
     })(),
+  }));
+
+  const mappedCoauthors: EventDetailViewCoauthor[] = (event.coauthors || []).map((coauthor) => ({
+    accountId: coauthor.accountId,
+    platform: coauthor.platform,
+    displayName: coauthor.displayName,
+    username: coauthor.username,
+    profileImageUrl: coauthor.profileImageUrl,
+    accountHref: `/${getPlatformSlug(coauthor.platform as any)}/${coauthor.accountId}`,
+    isSubscribed: !!mySubscriptions?.find((s) => s.account.accountId === coauthor.accountId),
+    isTogglePending: pendingCoauthorAccountId === coauthor.accountId,
   }));
 
   const mappedCategories = event.categories?.map((c) => ({
@@ -150,6 +164,7 @@ export function mapGraphQLEventToDetailViewProps(
         matchType: defaultLocation.matchType ?? null,
       };
     })(),
+    coauthors: mappedCoauthors,
     locale,
     labels,
   };

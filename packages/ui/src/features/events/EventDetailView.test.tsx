@@ -1032,4 +1032,98 @@ describe('EventDetailView', () => {
     fireEvent.click(reportItem);
     expect(onReport).toHaveBeenCalledTimes(1);
   });
+
+  describe('coauthors (Story 0.i6g)', () => {
+    const coauthor1 = {
+      accountId: 'coauthor-1',
+      platform: 'instagram',
+      displayName: 'Coauthor One',
+      username: 'coauthor_one',
+      profileImageUrl: 'https://example.com/coauthor-1.png',
+      accountHref: '/instagram/coauthor_one',
+      isSubscribed: false,
+      isTogglePending: false,
+    };
+    const coauthor2 = {
+      accountId: 'coauthor-2',
+      platform: 'instagram',
+      displayName: 'Coauthor Two',
+      username: 'coauthor_two',
+      profileImageUrl: 'https://example.com/coauthor-2.png',
+      accountHref: '/instagram/coauthor_two',
+      isSubscribed: true,
+      isTogglePending: false,
+    };
+
+    it('renders one SubscribedAccountCard per coauthors entry below the Attributions section', () => {
+      render(
+        <EventDetailView
+          {...fullProps}
+          coauthors={[coauthor1, coauthor2]}
+          labels={{ ...fullProps.labels, coauthorsListAriaLabel: 'Co-authors' }}
+        />
+      );
+
+      const list = screen.getByRole('list', { name: 'Co-authors' });
+      const toggles = within(list).getAllByTestId('subscribe-toggle');
+      expect(toggles).toHaveLength(2);
+    });
+
+    it('renders nothing when coauthors is empty/absent (no empty-state placeholder)', () => {
+      render(<EventDetailView {...fullProps} coauthors={[]} />);
+      expect(screen.queryByRole('list', { name: /co-authors/i })).not.toBeInTheDocument();
+
+      cleanup();
+
+      render(<EventDetailView {...fullProps} />);
+      expect(screen.queryByRole('list', { name: /co-authors/i })).not.toBeInTheDocument();
+    });
+
+    it("reflects each row's own isSubscribed/isTogglePending independently", () => {
+      render(
+        <EventDetailView
+          {...fullProps}
+          coauthors={[coauthor1, { ...coauthor2, isTogglePending: true }]}
+          labels={{ ...fullProps.labels, coauthorsListAriaLabel: 'Co-authors' }}
+        />
+      );
+
+      const list = screen.getByRole('list', { name: 'Co-authors' });
+      const items = within(list).getAllByRole('listitem');
+      expect(items).toHaveLength(2);
+
+      const toggle1 = within(items[0]).getByTestId('subscribe-toggle');
+      const toggle2 = within(items[1]).getByTestId('subscribe-toggle');
+      expect(toggle1).toHaveAttribute('aria-busy', 'false');
+      expect(toggle2).toHaveAttribute('aria-busy', 'true');
+    });
+
+    it("calls onSubscribeToCoauthor/onUnsubscribeFromCoauthor with the clicked row's own accountId, not always the first", () => {
+      const onSubscribeToCoauthor = vi.fn();
+      const onUnsubscribeFromCoauthor = vi.fn();
+
+      render(
+        <EventDetailView
+          {...fullProps}
+          coauthors={[coauthor1, coauthor2]}
+          onSubscribeToCoauthor={onSubscribeToCoauthor}
+          onUnsubscribeFromCoauthor={onUnsubscribeFromCoauthor}
+          labels={{ ...fullProps.labels, coauthorsListAriaLabel: 'Co-authors' }}
+        />
+      );
+
+      const list = screen.getByRole('list', { name: 'Co-authors' });
+      const items = within(list).getAllByRole('listitem');
+
+      // coauthor1 is not subscribed -> its toggle subscribes.
+      fireEvent.click(within(items[0]).getByTestId('subscribe-toggle'));
+      expect(onSubscribeToCoauthor).toHaveBeenCalledWith('coauthor-1');
+      expect(onUnsubscribeFromCoauthor).not.toHaveBeenCalled();
+
+      // coauthor2 is already subscribed -> its toggle unsubscribes.
+      fireEvent.click(within(items[1]).getByTestId('subscribe-toggle'));
+      expect(onUnsubscribeFromCoauthor).toHaveBeenCalledWith('coauthor-2');
+      expect(onSubscribeToCoauthor).toHaveBeenCalledTimes(1);
+    });
+  });
 });

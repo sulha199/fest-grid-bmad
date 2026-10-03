@@ -251,6 +251,7 @@ export type EmbedDomain = {
 export type Event = {
   __typename?: 'Event';
   categories?: Maybe<Array<EventCategory>>;
+  coauthors: Array<SocialMediaAccountProfile>;
   contactInfo?: Maybe<Scalars['String']['output']>;
   createdAt: Scalars['String']['output'];
   deletedAt?: Maybe<Scalars['String']['output']>;
@@ -1727,6 +1728,7 @@ export type EmbedDomainResolvers<ContextType = GraphQLContext, ParentType extend
 
 export type EventResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Event'] = ResolversParentTypes['Event']> = ResolversObject<{
   categories?: Resolver<Maybe<Array<ResolversTypes['EventCategory']>>, ParentType, ContextType>;
+  coauthors?: Resolver<Array<ResolversTypes['SocialMediaAccountProfile']>, ParentType, ContextType>;
   contactInfo?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   deletedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
