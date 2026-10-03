@@ -189,6 +189,14 @@ export const socialMediaAccountProfiles = pgTable('social_media_account_profiles
   lastSeen: timestamp('last_seen', { withTimezone: true }),
   discoverySource: jsonb('discovery_source').$type<{ vendor: string; runId?: string }>(),
   isVerifiedForDiscovery: boolean('is_verified_for_discovery').default(true).notNull(),
+  // Story 3.16 -- atomic, TTL-bounded claim marking "a classify-then-maybe-trigger-scrape
+  // attempt is currently in flight for this account." Null means unclaimed. Mirrors
+  // posts.queuedForExtractionAt (Story 3.6z) exactly: set to now() on a successful claim,
+  // reclaimable after a TTL so a crashed/timed-out attempt doesn't permanently strand the
+  // account -- see claim-ttl.ts and subscribe-to-account.ts for the full design. No default,
+  // no backfill -- every existing row is correctly null/unclaimed. No index: every read/write
+  // is scoped by socialMediaAccountProfiles.id (primary key).
+  classificationClaimedAt: timestamp('classification_claimed_at', { withTimezone: true }),
   ...timestamps,
 }, (t) => ({
   platformAccountIdUnq: unique().on(t.platform, t.accountId),
