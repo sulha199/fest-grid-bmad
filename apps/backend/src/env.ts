@@ -87,6 +87,14 @@ export interface BackendEnv {
   // (social_media_account_profiles.classification_claimed_at). Same 30-minute default and
   // reclaim-after-TTL rationale as postExtractionClaimTtlMinutes (Story 3.6z) above.
   accountClassificationClaimTtlMinutes: number;
+  // Story 3.6n (AC5) — remaining-time floor (ms), read from the Lambda Context's
+  // getRemainingTimeInMillis() before starting face detection. Below this floor, the stage is
+  // skipped defensively rather than risking an AWS-enforced hard kill mid-stage. The 60000ms
+  // (60s) default is a conservative placeholder -- Story 0.46's real measurement (worst-case
+  // stage ~1.1s locally, ~277x headroom against the 300s Lambda timeout/queue visibility
+  // timeout) found headroom is NOT thin, so this guard is a cheap safety check, not a design
+  // driver, and the placeholder default was kept as-is rather than tuned tighter.
+  faceBlurMinRemainingTimeMs: number;
 }
 
 function parseNonNegativeInt(value: string | undefined, name: string, defaultValue: number): number {
@@ -252,6 +260,8 @@ export function loadBackendEnv(): BackendEnv {
     postMediaDistributionId: process.env.POST_MEDIA_DISTRIBUTION_ID,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     accountClassificationClaimTtlMinutes: parseInt(process.env.ACCOUNT_CLASSIFICATION_CLAIM_TTL_MINUTES || '30', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    faceBlurMinRemainingTimeMs: parseInt(process.env.FACE_BLUR_MIN_REMAINING_TIME_MS || '60000', 10),
   };
 
   // Ensure required Bright Data variables are present (webhook base URL is set post-deploy by CDK)

@@ -1,0 +1,1 @@
+ALTER TABLE "posts" ADD COLUMN "durable_thumbnail_url" text;

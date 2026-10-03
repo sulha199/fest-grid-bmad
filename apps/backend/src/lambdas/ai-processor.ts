@@ -18,7 +18,7 @@ export const handler = async (
     console.log('Running poll-and-drain for AI processing queue');
     await pollAndDrainQueue(process.env.AI_PROCESSING_QUEUE_URL!, async (body) => {
       const message: ProcessingJobMessage = JSON.parse(body);
-      await processAiJob(message);
+      await processAiJob(message, { getRemainingTimeInMillis: context.getRemainingTimeInMillis.bind(context) });
     });
     return;
   }
@@ -28,7 +28,7 @@ export const handler = async (
   for (const record of event.Records) {
     try {
       const message: ProcessingJobMessage = JSON.parse(record.body);
-      await processAiJob(message);
+      await processAiJob(message, { getRemainingTimeInMillis: context.getRemainingTimeInMillis.bind(context) });
     } catch (error) {
       console.error(
         `Error processing SQS record with messageId ${record.messageId}:`,

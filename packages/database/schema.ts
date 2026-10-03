@@ -316,6 +316,12 @@ export const posts = pgTable('posts', {
   ownerUsername: text('owner_username'),
   durableImageUrl: text('durable_image_url'),
   imageUrlExpiresAt: timestamp('image_url_expires_at', { withTimezone: true }),
+  // Story 3.6n / AD-28 -- face-blurred, consent-INDEPENDENT durable thumbnail. Populated for
+  // opted-in and non-opted-in accounts alike (unlike durableImageUrl above, which stays
+  // opted-in-only, unblurred, full-resolution and is completely unchanged by this column).
+  // No index: nothing queries this column directly, only ever read via the events->posts join
+  // Story 3.6n2 adds.
+  durableThumbnailUrl: text('durable_thumbnail_url'),
   // Hashtags from the scraper adapter (Instagram/Apify today); powers #-prefixed hashtag search (added 2026-08-28)
   hashtags: text('hashtags').array(),
   // Image URLs of every slide in a carousel/Sidecar post (excluding the cover in image_url).

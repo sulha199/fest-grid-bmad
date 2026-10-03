@@ -82,6 +82,7 @@ test('rehostPostImage integration/unit tests', async (t) => {
     dataIngestionInlineFallbackEnabled: false,
     postExtractionClaimTtlMinutes: 30,
     accountClassificationClaimTtlMinutes: 30,
+    faceBlurMinRemainingTimeMs: 60000,
   };
 
   await t.test('Case A: happy path - first upload with no prior durableImageUrl', async () => {
