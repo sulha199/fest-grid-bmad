@@ -184,7 +184,7 @@ depends on it. Wave labels below follow this order; stories inside a wave are li
 4. **Wave 3** — Core build: 3.6r → 3.6s → 3.6t
 5. **Wave 4A** — 3.6u, 3.6y, 3.6z (any order after 3.6t)
 6. **Wave 4B** — 3.6v (needs 3.13–3.15 and 3.7g/3.7h)
-7. **Wave 4C** — CC-023 tail: 3.6q (built) → 3.6m → 3.6p → **0.46** → 3.6n → 3.6o (0.46 may run in parallel with 3.6m/3.6p; independent of 4A/4B, may interleave; needs 3.6t)
+7. **Wave 4C** — CC-023 tail: 3.6q (built) → 3.6m → 3.6p → **0.46** → 3.6n → 3.6o and 3.6n2 (3.6n now also needs 3.6p; 3.6n2 is the read-path half split from 3.6n; 0.46 may run in parallel with 3.6m/3.6p; independent of 4A/4B, may interleave; needs 3.6t)
 8. **Wave 5** — 3.6w, 3.6x, 3.18
 
 **Per-story box legend:** `create` = `bmad-create-story` done (story file exists, status `ready-for-dev`);
@@ -413,8 +413,11 @@ pre-flagged list can be settled against real code. Gate 2 stays per story (only 
   - [ ] create  - [ ] dev  - [ ] review
 - [ ] **3.6o** Skip face-blur processing for events ending before their source image expires — *needs 3.6n;
       **amended by CC-024:** the relevance gate takes the latest schedule end across all events of the post*
-      (`backlog`)
-  - [ ] create  - [ ] dev  - [ ] review  - [ ] audit row shows `'event_relevance_gate'` on a skipped post
+      (story created 2026-10-03, commit `5660fdc7`, status `ready-for-dev`; owns ONLY the `'event_relevance_gate'`
+      audit outcome. **AD-29 backfill ownership decided with the user at this create-story:** each story writes its
+      own outcome, so 3.6n owns `'no_face_reported'` and the real face count, 3.6o owns the relevance-gate outcome;
+      3.6p's writer returns the inserted row id; 3.6n/3.6p story files and `epics.md` amended in the same commit)
+  - [x] create  - [ ] dev  - [ ] review  - [ ] audit row shows `'event_relevance_gate'` on a skipped post
 - [ ] **IDEA-051** (sample `hasFaceImage = false` posts through face-api.js to measure the pre-filter's false-negative
       rate) stays `backlog` as a deliberate future decision (AD-29 Rule 4), revisited in Wave 6
 
@@ -469,7 +472,7 @@ pre-flagged list can be settled against real code. Gate 2 stays per story (only 
 | 3.6m (CC-023) | 3.6, 3.6l, 3.6s |
 | 3.6p (CC-023; amended by CC-024) | 3.6e, 3.6l, 3.6m, 3.6r, 3.6s (3.6t only if the ingestor back-fills `actualScheduleCount`) |
 | 0.46 (found by the CC-023 sweep) | none (IaC; AD-28 Rule 3 may need an amendment) |
-| 3.6n (CC-023) | 3.6m, 3.6e, 0.33, 3.6q, 0.46 |
+| 3.6n (CC-023) | 3.6m, 3.6e, 0.33, 3.6q, 0.46, 3.6p (writes its own audit outcomes through 3.6p's writer) |
 | 3.6n2 (CC-023; split from 3.6n at create-story, 2026-10-03) | 3.6n |
 | 3.6o (CC-023; amended by CC-024) | 3.6n |
 

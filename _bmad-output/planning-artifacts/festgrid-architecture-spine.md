@@ -1425,7 +1425,12 @@ This document defines the core architectural invariants for the FestDaily applic
         (e.g. for an event Rule 2 skipped). This measurably dilutes PRD §3.16's framing of the
         prominent card as a binary "felt incentive to opt in" — opt-in is now "sharp prominent"
         vs. "blurred prominent," not "prominent" vs. "nothing." PRD wording updated accordingly
-        (Section 3.16).
+        (Section 3.16). **Served-URL clarification, 2026-10-03 (decided with the user):** this
+        governs the card's render preference only. In `resolveServedImageUrl`, the still-valid
+        original is served unchanged, unblurred, exactly as today; `durableThumbnailUrl` fills the
+        gap only once the original expires (a non-opted-in account gets the blurred thumbnail
+        instead of nothing). Consistent with Rule 2, which already assumes the hotlinked original
+        is acceptable for the event's whole display window. Delivered by Story 3.6n2.
     8.  **Accepted accuracy trade-off:** face-api.js has materially lower recall than Rekognition
         on small/angled/occluded/low-light faces — the profile of real event crowd photos — so
         some faces may go unblurred. Chosen deliberately to avoid a per-image AWS fee.
