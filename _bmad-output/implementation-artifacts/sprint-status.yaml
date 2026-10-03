@@ -330,6 +330,10 @@ development_status:
   # added 2026-09-25 via bmad-create-story: IDEA-050 (AD-27), GridContainer's masonry
   # engine + folded-in max-width/responsive-scaling gap (user-reported).
   0-45-replace-grid-containers-masonry-engine-with-shortest-column-placement: done
+  # added 2026-10-03 via bmad-epic-readiness-check (batch-cc-023-face-blur-audit-readiness.md)
+  # Gate 1 finding: AIProcessorLambda has no memory/native-bundling/model-asset provisioning
+  # for Story 3.6n's sharp + face-api stage. Hard prerequisite for 3-6n.
+  0-46-provision-the-ai-processor-lambdas-image-processing-runtime: backlog
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.

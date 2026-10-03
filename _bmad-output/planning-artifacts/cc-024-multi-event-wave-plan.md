@@ -65,18 +65,22 @@ per-epic). Gate 2 (UI) stays per story.
       both change `packages/database/schema.ts`.
 - [ ] **Per-event guards:** timezone inference (3.6a), private-contact and performer-leakage (3.6i,
       3.6j) must run per event — confirm they are not shared mutable state across events.
-- [ ] **CC-023 × CC-024: one run per post, not per event (3.6n, 3.6o, 3.6p).** The image belongs to the post, and 3.6t
-      fans out one queue message per event. Face detection/blur and the audit row must run once per post in the AI
-      Processor (`process-ai-job.ts`), before the fan-out, never in the per-event ingestor. Confirm at create-story.
-- [ ] **`actualScheduleCount` ownership (3.6p).** 3.6p writes it "once schedules are persisted", but persistence now
-      happens per event in the ingestor (3.6t). Decide whether the audit row records the extracted event/schedule count
-      at extraction time or is updated by the ingestor; the amendment also adds `groupingReason` and event count.
-- [ ] **Thumbnail follows the primary post (3.6n × 3.6v).** `durableThumbnailUrl` is a post-level column. When 3.6v
-      promotes an event to a new primary post, the masonry card's `prominentPoster` trigger must read the *new* primary
-      post's thumbnail. Confirm the field path used by `event_card_masonry`.
-- [ ] **Shared edits to `build-gemini-request.ts` / `extracted-event.schema.ts`.** 3.6s already restructured the
-      response to `events[]` and kept `hasFaceImage`/`faceImageCount` reserved at the payload root. The 3.6m story file
-      predates that restructure; refresh it against the as-built shape before dispatch.
+- [x] **CC-023 × CC-024: one run per post, not per event (3.6n, 3.6o, 3.6p).** Settled by the CC-023 sweep: the
+      post-level region of `process-ai-job.ts` (the image re-host step, before the per-event fan-out) is the run point.
+      Written into 3.6n's amendment.
+- [ ] **`actualScheduleCount` ownership (3.6p) — USER DECISION at create-story.** Facts settled: the AI Processor does
+      not persist schedules; the ingestor does, per event and asynchronously. Options (extraction-time counts vs an
+      ingestor back-fill) are in 3.6p's corrections in `epics.md`. Also open: the per-event audit-row shape.
+- [x] **Thumbnail follows the primary post (3.6n × 3.6v).** Settled by design: it follows automatically when
+      `durableThumbnailUrl` is projected from the same joined `posts` row via `events.post_id`, like `durableImageUrl`.
+      Now an explicit 3.6n AC (the GraphQL/mapper/codegen read path).
+- [ ] **Refresh the 3.6m story file against the 3.6s shape before dispatch.** Confirmed stale: its Task 4 anchors on a
+      step 5.5 that is now the zero-events guard (and its proposed "step 5.6" collides with the event-cap truncation),
+      and its Task 3 places the fields beside `minScheduleCount`, which now lives on `GeminiEventPayload`. The fields
+      belong at the payload root.
+- [ ] **Two more user decisions the sweep reserved:** the TensorFlow.js backend (CPU / WASM / native; at create-story
+      of 0.46, may amend AD-28 Rule 3) and the served-URL precedence including the original-still-valid case (at
+      create-story of 3.6n; a privacy trade-off).
 
 ## Wave 0 — Planning artifacts (done)
 
@@ -95,10 +99,10 @@ The readiness sweep is done; the remaining hygiene items live in the blocker che
 - [x] **Run `bmad-epic-readiness-check`, batch-scoped** (done 2026-10-01, commit `90c0c0cd`) over 3.6r, 3.6s, 3.6t, 3.6u, 3.6v, 3.6w,
       3.6x, 3.6y, 3.6z, 3.7f, 3.7g, 3.7h, 3.7i, 3.13, 3.14, 3.15, 3.18 (Gates 1 and 3) → `epic-readiness/batch-cc-024-multi-event-readiness.md` — **no new prerequisite stories; 3 AC corrections applied** (0.i2c, 3.6t, 3.6v)
 - [x] Fold any new prerequisite stories the sweep finds into `epics.md` and `sprint-status.yaml` — none needed
-- [ ] **Run `bmad-epic-readiness-check`, batch-scoped, over the CC-023 tail** (Gates 1 and 3): **3.6m, 3.6n, 3.6o,
-      3.6p** → `epic-readiness/batch-cc-023-face-blur-audit-readiness.md`. 3.6q is built (`review`) and needs no sweep.
-      Cover the four pre-flagged CC-023 × CC-024 items above, plus the new dependency `face-api` package size against
-      the AI Processor Lambda bundle limit.
+- [x] **Run `bmad-epic-readiness-check`, batch-scoped, over the CC-023 tail** (done 2026-10-03) over 3.6m, 3.6n, 3.6o,
+      3.6p (Gates 1 and 3) → `epic-readiness/batch-cc-023-face-blur-audit-readiness.md` — **one new prerequisite story
+      (0.46, the AI Processor Lambda's image-processing runtime); AC corrections applied to 3.6n and 3.6p, clarification
+      to 3.6o.** 3.6q is built (`review`) and was not swept. See "CC-023 readiness sweep result" below.
 
 ## Open blockers and loose ends (checked against the files 2026-10-02)
 
@@ -146,6 +150,17 @@ Next.js slug routes; `getEventBySlugCached` must not swallow a redirect signal).
 and 3.6z (the unguarded Gemini call, see the BUG-012 item below). Order to create stories: 3.7f → 3.7g → 3.7h →
 3.7i alongside 3.13 → 3.14 → 3.15, then 3.6r → 3.6s → 3.6t → 3.6u/3.6y/3.6z → 3.6v → 3.6w/3.6x/3.18.
 
+## CC-023 readiness sweep result (2026-10-03)
+
+Report: `epic-readiness/batch-cc-023-face-blur-audit-readiness.md`. Verdicts: **READY-WITH-CAVEAT** — 3.6m (refresh
+the story file against the 3.6s shape). **READY-WITH-CORRECTION** (applied) — 3.6p (add `minEventCount`; per-event shape and
+`actualScheduleCount` write point are decisions for create-story). **READY** — 3.6o (clarification applied). **NOT READY
+until 0.46** — 3.6n. New prerequisite: **0.46**, because `AIProcessorLambda` has the 128 MB default memory, no native-module
+bundling and no way to ship model weights, and `@vladmandic/face-api`'s default Node entry needs the native
+`@tensorflow/tfjs-node` (AD-28 Rule 3 assumed pure npm). Three user decisions are reserved for create-story: the
+TensorFlow.js backend (0.46), the served-URL precedence (3.6n), and the audit-row shape and `actualScheduleCount`
+write point (3.6p). Order to create stories: 3.6m → 3.6p → 0.46 → 3.6n → 3.6o.
+
 ## Order of work (from the readiness sweep, 2026-10-01)
 
 Create stories one at a time via `bmad-create-story`, building each (`bmad-dev-story`) before anything that
@@ -157,7 +172,7 @@ depends on it. Wave labels below follow this order; stories inside a wave are li
 4. **Wave 3** — Core build: 3.6r → 3.6s → 3.6t
 5. **Wave 4A** — 3.6u, 3.6y, 3.6z (any order after 3.6t)
 6. **Wave 4B** — 3.6v (needs 3.13–3.15 and 3.7g/3.7h)
-7. **Wave 4C** — CC-023 tail: 3.6q (built) → 3.6m → 3.6p → 3.6n → 3.6o (independent of 4A/4B, may interleave; needs 3.6t)
+7. **Wave 4C** — CC-023 tail: 3.6q (built) → 3.6m → 3.6p → **0.46** → 3.6n → 3.6o (0.46 may run in parallel with 3.6m/3.6p; independent of 4A/4B, may interleave; needs 3.6t)
 8. **Wave 5** — 3.6w, 3.6x, 3.18
 
 **Per-story box legend:** `create` = `bmad-create-story` done (story file exists, status `ready-for-dev`);
@@ -354,15 +369,23 @@ pre-flagged list can be settled against real code. Gate 2 stays per story (only 
   - [x] create  - [x] dev  - [ ] review
 - [ ] **3.6m** Add `hasFaceImage`/`faceImageCount` self-reported fields to the Gemini extraction schema — *needs 3.6l,
       3.6s; log-only, persistence is 3.6p* (story file exists, status `ready-for-dev`; **refresh against the 3.6s
-      `events[]` shape before dispatch**; the fields stay at the payload root)
+      `events[]` shape before dispatch**; the fields stay at the payload root) — sweep verdict READY-WITH-CAVEAT
   - [x] create  - [ ] dev  - [ ] review
-- [ ] **3.6p** Create the `extraction_audit_logs` table and write path — *needs 3.6e, 3.6l, 3.6m, 3.6r, 3.6t;
-      **amended by CC-024:** the audit row also records `groupingReason` and the extracted event count* (`backlog`;
-      settle `actualScheduleCount` ownership at create-story, see pre-flagged list)
+- [ ] **3.6p** Create the `extraction_audit_logs` table and write path — *needs 3.6e, 3.6l, 3.6m, 3.6r, 3.6s;
+      **amended by CC-024:** the audit row also records `groupingReason`, event count and `minEventCount`* (`backlog`;
+      sweep verdict READY-WITH-CORRECTION; per-event shape and `actualScheduleCount` ownership are user decisions at
+      create-story; an ingestor back-fill would also need 3.6t)
+  - [ ] create  - [ ] dev  - [ ] review
+- [ ] **0.46** Provision the AI Processor Lambda's image-processing runtime (memory, native-binary bundling, model
+      assets) — *new prerequisite found by the CC-023 sweep (Gate 1); hard prerequisite for 3.6n only; includes the
+      TensorFlow.js backend decision, the bundle-size check and the timeout/visibility headroom* (`backlog`, added
+      2026-10-03)
   - [ ] create  - [ ] dev  - [ ] review
 - [ ] **3.6n** Detect and blur faces, generating a consent-independent durable thumbnail — *needs 3.6m, 3.6e, 0.33,
-      3.6q; adds `posts.durableThumbnailUrl` and widens the `prominentPoster` trigger; the only Wave 4C story with
-      frontend scope* (`backlog`; confirm the post-level thumbnail follows the primary post after 3.6v promotion)
+      3.6q, **0.46**; adds `posts.durableThumbnailUrl` and widens the `prominentPoster` trigger; the only Wave 4C
+      story with frontend scope; AC corrections applied by the sweep: once-per-post run point, GraphQL read path,
+      served-URL precedence via `resolveServedImageUrl`, timeout guard* (`backlog`; sweep verdict NOT READY until 0.46;
+      create-story's size check may split the read path from the pipeline stage)
   - [ ] create  - [ ] dev  - [ ] review
 - [ ] **3.6o** Skip face-blur processing for events ending before their source image expires — *needs 3.6n;
       **amended by CC-024:** the relevance gate takes the latest schedule end across all events of the post*
@@ -420,8 +443,9 @@ pre-flagged list can be settled against real code. Gate 2 stays per story (only 
 | 3.18 | 3.15, 3.6r |
 | 3.6q (CC-023) | 3.6e, 0.33 (feeds 3.6n) |
 | 3.6m (CC-023) | 3.6, 3.6l, 3.6s |
-| 3.6p (CC-023; amended by CC-024) | 3.6e, 3.6l, 3.6m, 3.6r, 3.6t |
-| 3.6n (CC-023) | 3.6m, 3.6e, 0.33, 3.6q |
+| 3.6p (CC-023; amended by CC-024) | 3.6e, 3.6l, 3.6m, 3.6r, 3.6s (3.6t only if the ingestor back-fills `actualScheduleCount`) |
+| 0.46 (found by the CC-023 sweep) | none (IaC; AD-28 Rule 3 may need an amendment) |
+| 3.6n (CC-023) | 3.6m, 3.6e, 0.33, 3.6q, 0.46 |
 | 3.6o (CC-023; amended by CC-024) | 3.6n |
 
 ## Decision log (for reference)

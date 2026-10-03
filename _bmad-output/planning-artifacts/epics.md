@@ -1122,6 +1122,24 @@ The project is set up with a solid foundation and CI/CD pipeline.
 
 **Note:** Promotes `IDEA-050` (Architecture Spine AD-27), whose 2026-09-25 scope-widening note folds in the user-reported/code-confirmed `EventCard` max-width sizing bug. Drafted via `bmad-create-story`, 2026-09-25 — full ACs, Dev Notes (including the library-vs-hand-rolled and hydration-strategy research decisions AD-27 deferred to this story), and gate findings in `_bmad-output/implementation-artifacts/0-45-replace-grid-containers-masonry-engine-with-shortest-column-placement.md`.
 
+### Story 0.46: Provision the AI Processor Lambda's image-processing runtime (memory, native-binary bundling, model assets)
+
+**As a** developer,
+**I want** the AI Processor Lambda (`AIProcessorLambda` in `apps/infrastructure/lib/festgrid-backend-stack.ts`) to be able to run `sharp` image processing and a TensorFlow.js face-detection model from inside its deployed bundle, with the memory, native-binary packaging and model-weight files they need,
+**So that** Story 3.6n's detect/blur/resize stage is built against a runtime that actually exists, instead of discovering at deploy time that the Lambda has the 128 MB default memory, no native-module bundling and no way to ship model weights.
+
+**Acceptance Criteria:**
+
+1.  **Given** `AIProcessorLambda` today sets no `memorySize` (CDK default 128 MB) and no `architecture` (x86_64) (verified 2026-10-03; only `timeout: 300s` is set), **When** this story ships, **Then** it declares explicit `memorySize` and `architecture` values chosen from a measurement recorded in Dev Notes: peak memory of a face-detection pass (model load, inference, blur, resize) on at least one typical ~1080px source image and one large worst-case image, with the headroom stated. No other Lambda's configuration changes.
+2.  **Given** `sharp` is not a dependency of `apps/backend` (only `packages/visual-audit` uses it) and `AIProcessorLambda`'s `NodejsFunction` bundles with esbuild defaults (no `nodeModules`, no native-module handling), **When** this story ships, **Then** `sharp` is added to `apps/backend` and bundled with the native binary matching the declared Lambda architecture, proven by (a) an infra test asserting the built asset contains that binary and (b) a one-off check in the real Lambda runtime (non-prod stage or the Lambda container image) that `sharp` loads and resizes a fixture, with the result recorded in Dev Notes.
+3.  **Given** esbuild copies no non-JavaScript files, **When** this story ships, **Then** the SSD MobileNetV1 weights from `@vladmandic/face-api` (`ssd_mobilenetv1_model.bin` ~5.6 MB plus its manifest) ship inside the bundle (via `bundling.commandHooks` or an equivalent) and are loadable at runtime from a documented path (e.g. under `LAMBDA_TASK_ROOT`); an infra test asserts they are present in the asset.
+4.  **Given** `@vladmandic/face-api`'s default Node entry (`dist/face-api.node.js`, v1.7.15) `require`s the native `@tensorflow/tfjs-node`, which contradicts Architecture Spine AD-28 Rule 3's "pure npm, no native binaries", **When** this story ships, **Then** the TensorFlow.js backend is chosen explicitly and recorded: pure-JS CPU (`@tensorflow/tfjs` plus `tfjs-backend-cpu`; no native binary, slowest), WASM (`tfjs-backend-wasm`; the `.wasm` files must be shipped like the weights), or native `tfjs-node` (fastest; needs an AD-28 amendment and its own bundling). Cold start and per-image detection latency are measured on the same fixtures as AC1 for the chosen backend. If the choice departs from AD-28 Rule 3's wording, AD-28 is amended through `bmad-correct-course`/`bmad-architecture` rather than silently diverged from. The backend choice is made with the user at create-story.
+5.  **Given** `AIProcessorLambda`'s 300 s timeout equals `AIProcessingQueue`'s 300 s visibility timeout and `maxReceiveCount` is 3, **When** this story ships, **Then** the measured worst-case duration of the face-detection stage is compared against both and the headroom recorded. If the stage can approach either limit, the story states the guard Story 3.6n must adopt (e.g. a remaining-time check via `context.getRemainingTimeInMillis()`, or running the stage after the post is marked extracted) without implementing 3.6n's stage itself.
+6.  **Given** Lambda's deployment-package limits (50 MB zipped, 250 MB unzipped), **When** this story ships, **Then** the bundle's zipped and unzipped size with the new dependencies is recorded and within limits, or the story records the alternative taken (Lambda layer or container image) and why.
+7.  **Given** this story provisions the runtime only, **When** it ships, **Then** no face-detection stage is wired into `process-ai-job.ts` (that is Story 3.6n), existing `lambdas/ai-processor.ts` behavior is unchanged, and `festgrid-backend-stack.test.ts` gains assertions for the memory, architecture and asset checks above.
+
+**Note:** Gate 1 finding ("depends on infra that has no IaC/deploy story") from the CC-023 batch readiness sweep (`batch-cc-023-face-blur-audit-readiness.md`, 2026-10-03, Winston persona), surfaced while sweeping Story 3.6n. Numbered as a new sequential Epic 0 story per the tooling/infrastructure rule (Epic 0's then-highest story was 0.45), following the precedent of Story 0.27 (notifier Lambda infrastructure) and Story 0.33 (post-media bucket), which also put single-consumer Lambda/infra provisioning in Epic 0. **Hard prerequisite for Story 3.6n.** Not a prerequisite for 3.6m, 3.6o or 3.6p.
+
 ### Epic 1: Core App and Event Discovery
 
 Users can discover and browse events.
@@ -3231,7 +3249,13 @@ on the platform, regardless of whether the source account has opted into image r
 
 **Note (added via `bmad-correct-course`, Architecture Spine AD-28):** face-api.js was chosen over AWS Rekognition specifically to avoid a recurring per-image AWS fee, at the accepted cost of lower recall than Rekognition on small/angled/occluded/low-light faces — the profile of real event crowd photos. Some faces may go unblurred; this is a deliberate, recorded trade-off, not an oversight. Widening `prominentPoster` measurably changes PRD §3.16's framing of the prominent card as a binary "felt incentive to opt in" (see the accompanying PRD edit) — opt-in is now "sharp prominent" vs. "blurred prominent," not "prominent" vs. "nothing."
 
-**Depends on:** Story 3.6m, Story 3.6e (re-hosting/upload mechanism), Story 0.33 (media bucket), Story 3.6q (versioned keys).
+**Depends on:** Story 3.6m, Story 3.6e (re-hosting/upload mechanism), Story 0.33 (media bucket), Story 3.6q (versioned keys), Story 0.46 (the Lambda's image-processing runtime: memory, `sharp` and model-weight bundling, TensorFlow.js backend).
+
+**Amendment (2026-10-03, `bmad-epic-readiness-check`, `batch-cc-023-face-blur-audit-readiness.md`):** Four corrections, applied before create-story:
+*   **Where it runs, once per post.** The stage runs in `process-ai-job.ts` at the existing post-level image step (the best-effort re-host step, before the per-event fan-out to `DataIngestionQueue`), never in the per-event ingestor. A multi-event post (Story 3.6t) therefore gets one thumbnail, not one per event. A queue redelivery re-runs the stage; the content-versioned key (`thumb-{hash8}.jpg`) keeps that idempotent.
+*   **The read path is part of this story.** `durableThumbnailUrl` must be exposed end to end the same way `durableImageUrl` is: the `Event` GraphQL types in `events.graphql` that declare `durableImageUrl`, every `resolvers.ts` select that projects `posts.durableImageUrl`, the `Event` field resolver, the web mapper (`apps/web/src/features/events/mapper.ts`), codegen and `EventCard` types. Selecting it from the joined `posts` row via `events.post_id` means a thumbnail follows the primary post automatically when Story 3.6v promotes an event. `bmad-create-story`'s size check may split this read path from the pipeline stage.
+*   **Served-URL precedence must be stated and tested.** `resolveServedImageUrl` (`packages/domain/src/events/resolveServedImageUrl.ts`; used by `resolvers.ts`, `EventListView.tsx` and `seed.ts`) returns the original image while its expiry is in the future, and `null` for a non-opted-in account once it expires. AD-28 Rule 7 states the card's render preference but not what is served while the unblurred original is still valid. The story must extend this function (or add a sibling) with the precedence among original, `durableImageUrl` and `durableThumbnailUrl`, including that case. Decide the case with the user at create-story: it is a privacy trade-off.
+*   **Timeout guard.** Apply the guard Story 0.46 AC5 recommends so the stage cannot push the invocation past its timeout and trigger a full re-extraction.
 
 ### Story 3.6o: Skip face-blur processing for events ending before their source image expires
 
@@ -3253,6 +3277,8 @@ on the platform, regardless of whether the source account has opted into image r
 
 **Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** The relevance gate takes the latest schedule end across **all events** of the post, because the image belongs to the post and several events may share it.
 
+**Clarification (2026-10-03, `bmad-epic-readiness-check`, `batch-cc-023-face-blur-audit-readiness.md`):** "All events" means the events actually kept after `process-ai-job.ts`'s `maxExtractedEventsPerPost` truncation, since only those are ingested. `process-ai-job.ts` does not load `posts.imageUrlExpiresAt` today, so this story adds that one-row read.
+
 ### Story 3.6p: Create extraction_audit_logs table and write path for Gemini self-reported extraction signals
 
 **As a** platform operator,
@@ -3272,6 +3298,11 @@ on the platform, regardless of whether the source account has opted into image r
 **Depends on:** Story 3.6e, Story 3.6l, Story 3.6m (the `hasFaceImage`/`faceImageCount` fields must exist before they can be persisted).
 
 **Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** The audit row also records `groupingReason` and the extracted event count. `posts.grouping_reason`/`posts.extracted_event_count` (Story 3.6r) are product-facing and separate from this audit table.
+
+**Corrections (2026-10-03, `bmad-epic-readiness-check`, `batch-cc-023-face-blur-audit-readiness.md`):** The ACs above were written for a flat, one-event extraction and do not fit the as-built multi-event shape (Story 3.6s). Three corrections; the first is mechanical and the other two are design decisions to settle with the user at create-story:
+*   **Add `minEventCount`.** Architecture Spine AD-29 Rule 6 says the row records `minEventCount` and `actualEventCount`; the 2026-10-01 amendment above omitted `minEventCount`. `process-ai-job.ts` already reads `payload.minEventCount`. Also add Story 3.6s and Story 3.6r to **Depends on**.
+*   **Per-event completeness cannot use scalar columns.** `minScheduleCount` and `expectedScheduleNames` are now per-event fields (`GeminiEventPayload`), so the single `minScheduleCount`/`expectedScheduleNames` columns in the first AC cannot hold a multi-event post's values. The shape is open (AD-29 Rule 6 leaves it to this story): for example a jsonb array with one entry per event, or one audit row per event.
+*   **`actualScheduleCount` has no write point in the AI Processor.** The AC says it is populated "once schedules are persisted", but schedules are persisted per event by the ingestor Lambda (`process-ingestion-job.ts`), asynchronously after `process-ai-job.ts` has finished. Either record extraction-time counts in the audit row (simple, but it is the extracted count and not the persisted count AD-29 Rule 2 names) or have the ingestor back-fill the persisted count per event (true ground truth, but a new cross-Lambda write path that also depends on Story 3.6t).
 
 ### Story 3.6q: Version re-hosted media keys and set a 7-day immutable HTTP cache policy
 
