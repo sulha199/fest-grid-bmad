@@ -77,17 +77,17 @@ so that I don't have to wait for someone to separately discover and scrape that 
     Placed after Task 3.2's block and before the existing-subscription check, so the returned `accountProfile` always reflects the final `isVerifiedForDiscovery` value. A profile already `true` makes this a no-op (`WHERE ... = false` matches zero rows, `verified` stays undefined, `accountProfile` is left as-is) — cheap and idempotent on every repeat call.
   - [x] 3.6 No change to `SubscribeToAccountParams`'s shape, `subscriptions.graphql`'s `SubscribeToAccountInput`/`SubscribeToAccountResult`, or the resolver's `try { ... } catch (err) { if (err instanceof ScraperCapacityExceededError) {...} throw err; }` block in `apps/backend/src/schema/resolvers.ts` — confirm by inspection that `ScraperCapacityExceededError` thrown from the new Task 3.3 location still propagates through this unchanged catch block exactly as it does today for the brand-new-profile case (AC1, AC3).
 
-- [ ] **Task 4 — Tests (AC: 1, 2, 3, 4)**
-  - [ ] 4.1 `packages/domain/src/shared/claim-ttl.test.ts` — the relocated Story 3.6z test cases, unchanged assertions, 100%-branch coverage preserved (Task 2).
-  - [ ] 4.2 Extend `apps/backend/src/lib/subscriptions/subscribe-to-account.test.ts` with new cases:
+- [x] **Task 4 — Tests (AC: 1, 2, 3, 4)**
+  - [x] 4.1 `packages/domain/src/shared/claim-ttl.test.ts` — the relocated Story 3.6z test cases, unchanged assertions, 100%-branch coverage preserved (Task 2).
+  - [x] 4.2 Extend `apps/backend/src/lib/subscriptions/subscribe-to-account.test.ts` with new cases:
     - **(f) Pre-existing, never-classified profile gets classified and triggers scrape on first subscribe.** Directly `db.insert(socialMediaAccountProfiles)` a row with `accountTypeStatus: null`, `isVerifiedForDiscovery: false`, `discoverySource: { vendor: 'apify' }` (simulating Story 3.14's `getOrCreateDiscoveredAccountProfile` shape) **before** calling `subscribeToAccount` for that same `(platform, accountId)`. Mock classification to resolve `ORGANIZER_VENUE_EVENT`/`CONFIRMED`. Assert: `classifyAccountType`'s seams were invoked, `triggerApifyAsyncTrigger`/scrape was triggered, the subscription still succeeds, and the AC2 "triggered the same way... today" parity holds.
     - **(g) A second subscribe call to the same still-unclassified profile while a claim is in flight does not reclassify or re-trigger scrape.** Pre-seed `classificationClaimedAt: new Date()` (fresh, non-expired) on a `accountTypeStatus: null` row, then call `subscribeToAccount`; assert the classification/scrape seams are **not** invoked this call, and the subscription still succeeds (AC1 always succeeds; AC2's "at most once" guarantee).
     - **(h) A stale (TTL-expired) claim is reclaimable.** Pre-seed `classificationClaimedAt` to a timestamp older than `accountClassificationClaimTtlMinutes`, assert classification **does** run on this call (the claim is treated as abandoned, not permanently blocking).
     - **(i) `isVerifiedForDiscovery` flips from `false` to `true` on first subscribe to a discovery-sourced profile (AC4).** Pre-seed a row with `isVerifiedForDiscovery: false`; after `subscribeToAccount`, assert `result.profile.isVerifiedForDiscovery === true` and the DB row reflects it.
     - **(j) An already-verified, already-classified profile subscribed to again is a no-op on both new columns.** Regression guard: `isVerifiedForDiscovery` stays `true` (not re-written), `accountTypeStatus`/`classificationClaimedAt` are untouched, no classification seam invoked — matches today's "returns existing subscription if already subscribed" case, extended to assert the two new columns don't regress it.
     - Confirm the existing `(a)`–`(e)`-equivalent cases ("triggers Apify async...", "falls back to Bright Data...", "returns existing subscription...", the classification-gating `subT` block) still pass unmodified — the Task 3.1 relocation must not change their observable behavior.
-  - [ ] 4.3 If constructing a true scraper-capacity-exhausted fixture (`scraperProviderUsage` rows over both providers' budgets) proves impractical within this story's scope, it is acceptable to leave the capacity-exceeded-releases-the-claim path (Task 3.3) verified by code review rather than a dedicated integration test — the pre-existing brand-new-profile capacity-exceeded path was never integration-tested in this file either (confirmed: no `ScraperCapacityExceededError` test exists in `subscribe-to-account.test.ts` today); this is not a new gap introduced by this story.
-  - [ ] 4.4 Run `pnpm --filter @festgrid/domain build`, `pnpm --filter @festgrid/database generate`/`migrate`, then targeted tests: `TZ=UTC NODE_ENV=test npx tsx --test --test-concurrency=1 "src/lib/subscriptions/subscribe-to-account.test.ts"` (from `apps/backend`) and `packages/domain`'s `src/shared/claim-ttl.test.ts`. Then `pnpm --filter domain build`, `pnpm --filter backend build` (tsc), and lint on all touched files. Full `apps/backend` suite and repo-wide `pnpm test` deferred to the CC-024 batch-end gate, per this wave's established precedent (3.13/3.14/3.15).
+  - [x] 4.3 If constructing a true scraper-capacity-exhausted fixture (`scraperProviderUsage` rows over both providers' budgets) proves impractical within this story's scope, it is acceptable to leave the capacity-exceeded-releases-the-claim path (Task 3.3) verified by code review rather than a dedicated integration test — the pre-existing brand-new-profile capacity-exceeded path was never integration-tested in this file either (confirmed: no `ScraperCapacityExceededError` test exists in `subscribe-to-account.test.ts` today); this is not a new gap introduced by this story.
+  - [x] 4.4 Run `pnpm --filter @festgrid/domain build`, `pnpm --filter @festgrid/database generate`/`migrate`, then targeted tests: `TZ=UTC NODE_ENV=test npx tsx --test --test-concurrency=1 "src/lib/subscriptions/subscribe-to-account.test.ts"` (from `apps/backend`) and `packages/domain`'s `src/shared/claim-ttl.test.ts`. Then `pnpm --filter domain build`, `pnpm --filter backend build` (tsc), and lint on all touched files. Full `apps/backend` suite and repo-wide `pnpm test` deferred to the CC-024 batch-end gate, per this wave's established precedent (3.13/3.14/3.15).
 
 ## Dev Notes
 
@@ -181,18 +181,18 @@ No epic readiness report covers Story 3.16 — `cc-024-multi-event-wave-plan.md`
 
 ## Testing Requirements
 
-- [ ] Unit tests — `packages/domain/src/shared/claim-ttl.test.ts` (relocated, unchanged, 100% branch coverage per the `packages/domain` rule).
-- [ ] Integration tests — `apps/backend/src/lib/subscriptions/subscribe-to-account.test.ts` (extended, 6 new cases per Task 4.2), `node:test` against the real local Postgres DB, matching this directory's existing convention (no DB mocking).
-- [ ] E2E tests — not applicable; this is a backend-only change with no new user-facing flow to exercise end-to-end (Story 0.i6g owns the UI that will eventually call this mutation), per `project-context.md`'s testing-trophy guidance.
+- [x] Unit tests — `packages/domain/src/shared/claim-ttl.test.ts` (relocated, unchanged, 100% branch coverage per the `packages/domain` rule).
+- [x] Integration tests — `apps/backend/src/lib/subscriptions/subscribe-to-account.test.ts` (extended, 5 new cases per Task 4.2 — (f)-(j), the task list's own case lettering), `node:test` against the real local Postgres DB, matching this directory's existing convention (no DB mocking).
+- [x] E2E tests — not applicable; this is a backend-only change with no new user-facing flow to exercise end-to-end (Story 0.i6g owns the UI that will eventually call this mutation), per `project-context.md`'s testing-trophy guidance.
 
 ## Deliverables Checklist
 
-- [ ] `classification_claimed_at` column added to `social_media_account_profiles`, migration generated and applied.
-- [ ] `ACCOUNT_CLASSIFICATION_CLAIM_TTL_MINUTES` env var wired into `BackendEnv`.
-- [ ] `packages/domain/src/shared/claim-ttl.ts` holds the relocated, generalized TTL-claim helpers; `packages/domain/src/posts/claim-ttl.ts` is a one-line re-export shim; `enqueue-post-for-processing.ts` untouched.
-- [ ] `subscribeToAccount` restructured: classify-then-maybe-scrape cascade runs for any profile with `accountTypeStatus === null` (new or pre-existing), gated by the atomic TTL-reclaimable claim so it fires at most once per account under concurrent subscribers; `isVerifiedForDiscovery` flips `false → true` unconditionally on subscribe.
-- [ ] 6 new test cases in `subscribe-to-account.test.ts`, all green; existing cases unregressed.
-- [ ] `pnpm --filter database generate`/`migrate`, `pnpm --filter domain/backend build`, and lint on all touched files all clean.
+- [x] `classification_claimed_at` column added to `social_media_account_profiles`, migration generated and applied.
+- [x] `ACCOUNT_CLASSIFICATION_CLAIM_TTL_MINUTES` env var wired into `BackendEnv`.
+- [x] `packages/domain/src/shared/claim-ttl.ts` holds the relocated, generalized TTL-claim helpers; `packages/domain/src/posts/claim-ttl.ts` is a one-line re-export shim; `enqueue-post-for-processing.ts` untouched.
+- [x] `subscribeToAccount` restructured: classify-then-maybe-scrape cascade runs for any profile with `accountTypeStatus === null` (new or pre-existing), gated by the atomic TTL-reclaimable claim so it fires at most once per account under concurrent subscribers; `isVerifiedForDiscovery` flips `false → true` unconditionally on subscribe.
+- [x] 5 new test cases in `subscribe-to-account.test.ts`, all green; existing cases unregressed.
+- [x] `pnpm --filter database generate`/`migrate`, `pnpm --filter domain/backend build`, and lint on all touched files all clean.
 
 ## Out of Scope
 
@@ -205,33 +205,57 @@ No epic readiness report covers Story 3.16 — `cc-024-multi-event-wave-plan.md`
 
 ## Definition of Done
 
-- [ ] AC1-AC4 satisfied exactly as specified above.
-- [ ] All Task 4 tests passing, plus every pre-existing test in `subscribe-to-account.test.ts` and the relocated `claim-ttl.test.ts` (no regression).
-- [ ] `pnpm --filter database generate`/`migrate` clean; `pnpm --filter domain build`/`pnpm --filter backend build` (tsc) clean; `pnpm lint` clean on all touched files.
-- [ ] No file outside the File Change Plan touched.
+- [x] AC1-AC4 satisfied exactly as specified above.
+- [x] All Task 4 tests passing, plus every pre-existing test in `subscribe-to-account.test.ts` and the relocated `claim-ttl.test.ts` (no regression).
+- [x] `pnpm --filter database generate`/`migrate` clean; `pnpm --filter domain build`/`pnpm --filter backend build` (tsc) clean; lint clean on all touched files.
+- [x] No file outside the File Change Plan touched (the one incidental edit, `rehost-post-image.test.ts`, was required by Task 1.2's `BackendEnv` interface widening, not a scope expansion — see Completion Notes).
 
 ## Completion Status
 
-- [ ] Not yet implemented — story is `ready-for-dev`.
+- [x] Implemented — all tasks complete, all ACs satisfied, status set to `review`.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-_Not yet implemented._
+Claude Sonnet 5 (`claude-sonnet-5`), via `bmad-dev-story`.
 
 ### Debug Log References
 
-_Not yet implemented._
+- `pnpm --filter @festgrid/domain build` — clean.
+- `pnpm --filter @festgrid/database generate` — generated `migrations/0067_superb_expediter.sql`: `ALTER TABLE "social_media_account_profiles" ADD COLUMN "classification_claimed_at" timestamp with time zone;` (plain additive column, as expected).
+- `pnpm --filter @festgrid/database migrate` — applied cleanly; `psql \d social_media_account_profiles` confirmed `classification_claimed_at` nullable, no default.
+- `pnpm --filter backend build` (tsc) — clean (after adding the missing `accountClassificationClaimTtlMinutes` field to `rehost-post-image.test.ts`'s `mockEnv: BackendEnv` literal, required by the `BackendEnv` interface change).
+- `TZ=UTC NODE_ENV=test npx tsx --test --test-concurrency=1 "src/lib/subscriptions/subscribe-to-account.test.ts"` (from `apps/backend`) — 10/10 pass (5 pre-existing cases unregressed + 5 new Task 4.2 cases (f)-(j)).
+- `npx tsx --test src/shared/claim-ttl.test.ts` (from `packages/domain`) — 4/4 pass, relocated from `posts/claim-ttl.test.ts` unchanged.
+- `npx eslint` on all touched/new files — 0 errors, 0 new warnings (a handful of pre-existing warnings in `env.ts` and `rehost-post-image.test.ts`, unrelated to this story's diff, confirmed via `git diff` to predate this change).
+- Local DB had only fixture-scale data (117 posts, 47 account profiles) going in — not volume-seeded, so `seed:volume:clean` was not needed before the DB-touching test run.
 
 ### Completion Notes List
 
-_Not yet implemented._
+- Task 4.3's capacity-exceeded-releases-the-claim path (Task 3.3) was left verified by code review only, per the story's own explicit allowance — constructing a true `scraperProviderUsage`-over-budget fixture was out of scope, and this matches a pre-existing untested gap in this same file (no `ScraperCapacityExceededError` test existed here before this story either).
+- AC3 required zero code change (confirmed by inspection of `subscribe-account-dialog.tsx`/`onboarding-subscribe-step.tsx`, both already generic on `extensions.code`) — no new test needed beyond the existing resolver catch-block confirmation (Task 3.6).
+- All Definition-of-Done commands (`pnpm --filter database generate`/`migrate`, `pnpm --filter domain build`, `pnpm --filter backend build`, targeted test files, lint on touched files) were run and confirmed clean during implementation, not merely inferred from the code.
+- No file outside the story's own File Change Plan was touched, except the one pre-existing test (`rehost-post-image.test.ts`) that needed a one-line update to satisfy the now-wider `BackendEnv` interface — an unavoidable consequence of Task 1.2's interface change, not a scope expansion.
 
 ### File List
 
-_Not yet implemented._
+- `packages/database/schema.ts` (modified — `classificationClaimedAt` column)
+- `packages/database/migrations/0067_superb_expediter.sql` (new — generated migration)
+- `packages/database/migrations/meta/0067_snapshot.json` (new — generated)
+- `packages/database/migrations/meta/_journal.json` (modified — generated)
+- `apps/backend/src/env.ts` (modified — `accountClassificationClaimTtlMinutes`)
+- `apps/backend/src/lib/ai-processor/rehost-post-image.test.ts` (modified — added the new required `BackendEnv` field to its mock)
+- `packages/domain/src/shared/claim-ttl.ts` (new — relocated from `posts/`)
+- `packages/domain/src/shared/claim-ttl.test.ts` (new — relocated from `posts/`)
+- `packages/domain/src/shared/index.ts` (new)
+- `packages/domain/src/posts/claim-ttl.ts` (modified — now a one-line re-export shim)
+- `packages/domain/src/posts/claim-ttl.test.ts` (deleted — cases moved to `shared/claim-ttl.test.ts`)
+- `packages/domain/package.json` (modified — new `./shared` export entry)
+- `apps/backend/src/lib/subscriptions/subscribe-to-account.ts` (modified — restructured per Task 3)
+- `apps/backend/src/lib/subscriptions/subscribe-to-account.test.ts` (modified — extended with cases (f)-(j))
 
 ## Change Log
 
 - 2026-10-03 — Story created via `bmad-create-story`. Two design decisions resolved with the user via `AskUserQuestion` across two rounds (see Dev Notes "Design Decisions"): `isVerifiedForDiscovery` flip ownership (3.16, not deferred to 3.17), and the classify-once concurrency guard (a new TTL-reclaimable `classificationClaimedAt` claim column, mirroring Story 3.6z's precedent, after a naive `SELECT ... FOR UPDATE` lock was found to self-deadlock against `classifyAccountType`'s internal writes). All three Gate 1/2/3 checks run fresh (no epic readiness report covers this story) — no gap found on any gate.
+- 2026-10-03 — Implemented via `bmad-dev-story` (CC-024 Wave 4A). Pre-Coding Approval Gate approved via `AskUserQuestion` at activation. Task 1: added `classificationClaimedAt` column + migration 0067 + `accountClassificationClaimTtlMinutes` env var. Task 2: relocated Story 3.6z's TTL-claim helpers to `packages/domain/src/shared/claim-ttl.ts` (re-export shim left at the old `posts/` path). Task 3: restructured `subscribeToAccount` so the classify-then-maybe-scrape cascade runs for any never-classified profile (new or pre-existing) gated by the atomic claim, plus the unconditional `isVerifiedForDiscovery` flip (AC4). Task 4: added 5 new integration test cases (f)-(j); all pre-existing tests, domain build, backend build, and lint confirmed clean. Status set to `review`.
