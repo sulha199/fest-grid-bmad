@@ -1392,9 +1392,20 @@ describe('WeeklyCalendarView', () => {
       );
       const withImageSlot = withImageContainer.querySelector('[data-event-card-media-slot]');
       expect(withImageSlot).not.toBeNull();
-      const withImageBadgeButton = within(withImageSlot as HTMLElement).getByRole('button', { name: 'Toggle favorite' });
-      // Nearest ancestor declaring the custom property — the slot's own root, unchanged.
-      const withImageAncestor = (withImageBadgeButton.closest('[data-event-card-media-slot]') as HTMLElement) ?? undefined;
+      // User feedback (2026-10-03): the with-image favorite pill sits on the card container's
+      // top-right corner (like the TILL tag), composed outside the slot's `overflow-hidden`.
+      expect(within(withImageSlot as HTMLElement).queryByRole('button', { name: 'Toggle favorite' })).toBeNull();
+      const withImageBadgeButton = within(
+        rtlScreen.getByTestId('mobile-calendar-view')
+      ).getByRole('button', { name: 'Toggle favorite' });
+      expect(withImageBadgeButton).toHaveClass('absolute');
+      expect(withImageBadgeButton).toHaveClass('-top-1.5');
+      expect(withImageBadgeButton).toHaveClass('-right-1.5');
+      // Nearest ancestor declaring the custom property — the row's own container.
+      let withImageAncestor: HTMLElement | null = withImageBadgeButton.parentElement;
+      while (withImageAncestor && !withImageAncestor.style.getPropertyValue(EVENT_CARD_BADGE_FONT_SIZE_VAR)) {
+        withImageAncestor = withImageAncestor.parentElement;
+      }
       expect(withImageAncestor?.style.getPropertyValue(EVENT_CARD_BADGE_FONT_SIZE_VAR)).toBe(expectedValue);
       cleanup();
 

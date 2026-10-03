@@ -8,6 +8,7 @@ export interface BuildFeedQueryConditionInput {
   subscriptions?: string[];
   nearby?: NearbyFilterInput;
   filter?: EventFilterInput;
+  temporalFilter?: EventFilterInput['temporalFilter'];
 }
 
 export function buildFeedQueryCondition({
@@ -17,6 +18,7 @@ export function buildFeedQueryCondition({
   subscriptions,
   nearby,
   filter,
+  temporalFilter,
 }: BuildFeedQueryConditionInput): QueryCondition {
   const baseConditions: QueryCondition[] = [
     {
@@ -35,8 +37,8 @@ export function buildFeedQueryCondition({
   }
 
   const filterCondition = filter
-    ? buildEventsQueryCondition({ filter })
-    : buildEventsQueryCondition({ search, types, categories, nearby });
+    ? buildEventsQueryCondition({ filter: { ...filter, temporalFilter: temporalFilter ?? filter.temporalFilter } })
+    : buildEventsQueryCondition({ search, types, categories, nearby, temporalFilter });
 
   if (!filterCondition) {
     return {

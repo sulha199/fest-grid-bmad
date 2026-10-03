@@ -1325,7 +1325,7 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
             lets the externally-composed favorite badge below inherit both mechanisms via
             ordinary CSS whether or not the slot is mounted. */}
         <div
-          className={`${baseButtonClass} ${multiDayRoundingClass} w-full flex items-stretch gap-2 ${EVENT_CARD_CONTAINER_CLASS}`}
+          className={`${baseButtonClass} ${multiDayRoundingClass} relative w-full flex items-stretch gap-2 ${EVENT_CARD_CONTAINER_CLASS}`}
           style={badgeFontSizeStyleFor('compact')}
         >
           <button
@@ -1400,8 +1400,25 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
             onFavoriteToggle={onFavoriteToggle ? () => onFavoriteToggle(schedule) : undefined}
             labels={{ favoriteToggle: favoriteToggleLabel }}
             collapseOnFallback
+            // The with-image favorite pill is composed externally below (card-corner position,
+            // like the TILL tag) -- the slot's own `overflow-hidden` would clip it here.
+            hideFavoriteBadge
             onImagePresenceChange={setImagePresent}
           />
+          {imagePresent && (
+            <EventCardFavoriteBadge
+              scale="default"
+              isFavorited={schedule.isFavorited}
+              favoriteCount={schedule.favoriteCount}
+              onFavoriteToggle={onFavoriteToggle ? () => onFavoriteToggle(schedule) : undefined}
+              labels={{ favoriteToggle: favoriteToggleLabel }}
+              // Mirrors the TILL tag's own `-top-1.5 -left-1.5` corner offset
+              // (`eventCardTillLabelClass('compact')`) on the opposite (top-right) corner of the
+              // card container, which is `relative` (above) and not `overflow-hidden`.
+              className="absolute -top-1.5 -right-1.5 z-30"
+              iconSizeStyle={{ width: '12px', height: '12px' }}
+            />
+          )}
           {/* Story 1.i1m AC1/AC4: the favorite control, externally composed as a plain flex
               sibling (not absolutely positioned — unlike masonry's `EventCard.tsx` overlay,
               this row has no image to overlay when collapsed, so the badge is simply the

@@ -12,6 +12,7 @@ import { usePostHog } from "@festgrid/analytics";
 import { useRouter } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
 import { useAuthSession } from "@/components/providers/auth-session-provider";
+import { useTemporalFilter } from "@/features/events/use-temporal-filter";
 import { buildAccountEventsQueryCondition } from "@festgrid/domain/events";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { LoginContent } from "../../login/login-content";
@@ -123,14 +124,17 @@ export default function AccountContent({ platformSlug, accountId, profile }: Acc
     [categoryLabels]
   );
 
+  const { temporalFilter, panelProps: temporalFilterPanelProps } = useTemporalFilter();
+
   const queryCondition = useMemo(() => {
     return buildAccountEventsQueryCondition({
       search: q,
       types,
       categories,
       profileId: profile.id,
+      temporalFilter,
     });
-  }, [q, types, categories, profile.id]);
+  }, [q, types, categories, profile.id, temporalFilter]);
 
   const {
     data,
@@ -140,7 +144,7 @@ export default function AccountContent({ platformSlug, accountId, profile }: Acc
     status: listStatus,
     error,
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ["events", "account", { q, types, categories, profileId: profile.id }],
+    queryKey: ["events", "account", { q, types, categories, profileId: profile.id, temporalFilter }],
     queryFn: async ({ pageParam }) => {
       return graphqlClient.request<GetEventsQuery>(GetEventsDocument, {
         limit: 10,
@@ -248,6 +252,7 @@ export default function AccountContent({ platformSlug, accountId, profile }: Acc
       </div>
 
       <EventDiscoveryPanel
+        {...temporalFilterPanelProps}
         query={q}
         onSearchSubmit={handleSearchSubmit}
         searchPlaceholder={t("searchPlaceholder")}

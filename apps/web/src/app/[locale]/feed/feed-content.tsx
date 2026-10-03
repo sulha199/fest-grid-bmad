@@ -12,6 +12,7 @@ import { usePostHog } from "@festgrid/analytics";
 import { useRouter, Link } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
 import { useAuthSession } from "@/components/providers/auth-session-provider";
+import { useTemporalFilter } from "@/features/events/use-temporal-filter";
 import { buildFeedQueryCondition } from "@festgrid/domain/events";
 import { FeedCalendarView } from "./FeedCalendarView";
 import { SubscriptionPicker } from "@festgrid/ui";
@@ -130,6 +131,7 @@ export function FeedContent() {
   );
 
   const resolvedNearby = nearbyFilter.resolvedFilter;
+  const { temporalFilter, panelProps: temporalFilterPanelProps } = useTemporalFilter();
 
   const queryCondition = useMemo(() => {
     return buildFeedQueryCondition({
@@ -139,12 +141,13 @@ export function FeedContent() {
       subscriptions: subscriptionsQuery,
       nearby: resolvedNearby,
       filter: aiFilter.activeFilter ?? undefined,
+      temporalFilter,
     });
-  }, [q, types, categories, subscriptionsQuery, resolvedNearby, aiFilter.activeFilter]);
+  }, [q, types, categories, subscriptionsQuery, resolvedNearby, aiFilter.activeFilter, temporalFilter]);
 
   const prefersReducedMotion = usePrefersReducedMotion();
   const pagination = useListPaginationController({
-    filterKey: { q, types, categories, subscriptions: subscriptionsQuery, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter },
+    filterKey: { q, types, categories, subscriptions: subscriptionsQuery, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter, temporalFilter },
     initialCursor: 0,
     onReset: () => {
       if (typeof window !== 'undefined') {
@@ -161,7 +164,7 @@ export function FeedContent() {
     status: listStatus,
     error,
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter }, pagination.resetToken],
+    queryKey: ["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter, temporalFilter }, pagination.resetToken],
     queryFn: async ({ pageParam }) => {
       return graphqlClient.request<GetEventsQuery>(GetEventsDocument, {
         limit: 10,
@@ -277,6 +280,7 @@ export function FeedContent() {
       )}
 
       <EventDiscoveryPanel
+        {...temporalFilterPanelProps}
         query={q}
         onSearchSubmit={handleSearchSubmit}
         searchPlaceholder={t("searchPlaceholder")}

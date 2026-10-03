@@ -1,6 +1,12 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { isGroupCondition, QueryCondition } from '../query/queryDsl.js';
 import { buildFeedQueryCondition } from './buildFeedQueryCondition.js';
+
+function groupConditions(condition: QueryCondition): QueryCondition[] {
+  assert.ok(isGroupCondition(condition), 'expected a group condition');
+  return condition.conditions;
+}
 
 describe('buildFeedQueryCondition', () => {
   it('returns base condition only when no filters are provided', () => {
@@ -178,5 +184,41 @@ describe('buildFeedQueryCondition', () => {
         { field: 'types', operator: 'in', value: ['FESTIVAL'] },
       ],
     });
+  });
+
+  it('ANDs the UPCOMING temporal condition with the base condition', () => {
+    const result = buildFeedQueryCondition({
+      search: '',
+      types: [],
+      categories: [],
+      
+      temporalFilter: 'UPCOMING',
+    });
+
+    assert.deepEqual(groupConditions(result)[0], { field: 'isFromSubscribedAccount', operator: 'eq', value: true });
+    assert.ok(
+      JSON.stringify(groupConditions(result)).includes('"field":"scheduleDateRange"'),
+      'expected a scheduleDateRange condition'
+    );
+  });
+
+  it('adds no temporal condition when temporalFilter is null (All)', () => {
+    const result = buildFeedQueryCondition({
+      search: '',
+      types: [],
+      categories: [],
+      
+      temporalFilter: null,
+    });
+
+    assert.deepEqual(groupConditions(result), [{ field: 'isFromSubscribedAccount', operator: 'eq', value: true }]);
+  });
+
+  it('applies the temporal filter on top of an AI filter, falling back to the AI filter own value', () => {
+    const withToggle = buildFeedQueryCondition({ filter: { types: ['FESTIVAL'] }, temporalFilter: 'TODAY' });
+    assert.ok(JSON.stringify(withToggle).includes('scheduleEndedBoundary'));
+
+    const aiOnly = buildFeedQueryCondition({ filter: { types: ['FESTIVAL'], temporalFilter: 'TODAY' } });
+    assert.ok(JSON.stringify(aiOnly).includes('scheduleEndedBoundary'));
   });
 });

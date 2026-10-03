@@ -1,11 +1,12 @@
 import { QueryCondition, isGroupCondition } from '../query/queryDsl.js';
-import { buildEventsQueryCondition } from './buildEventsQueryCondition.js';
+import { buildEventsQueryCondition, EventFilterInput } from './buildEventsQueryCondition.js';
 
 export interface BuildAccountEventsQueryConditionInput {
   search: string;
   types: string[];
   categories: string[];
   profileId: string;
+  temporalFilter?: EventFilterInput['temporalFilter'];
 }
 
 export function buildAccountEventsQueryCondition({
@@ -13,6 +14,7 @@ export function buildAccountEventsQueryCondition({
   types,
   categories,
   profileId,
+  temporalFilter,
 }: BuildAccountEventsQueryConditionInput): QueryCondition {
   const baseConditions: QueryCondition[] = [
     {
@@ -22,7 +24,7 @@ export function buildAccountEventsQueryCondition({
     },
   ];
 
-  const filterCondition = buildEventsQueryCondition({ search, types, categories });
+  const filterCondition = buildEventsQueryCondition({ search, types, categories, temporalFilter });
 
   if (!filterCondition) {
     return {
