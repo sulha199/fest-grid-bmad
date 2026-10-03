@@ -384,7 +384,7 @@ sequential (3.6n2 is created and built later, after 3.6n). Plain dispatch with n
 failures; see "Test-gate facts"); whole-repo lint/build/test run once at the end with `TZ=UTC`. The Pre-Coding Approval Gate
 is **pre-approved by the user for all five** provided each proposed scope matches its story file; 0.46 still stops for AC2(b)
 (`sharp` in the real Lambda runtime), which needs a deployed non-prod stage and is never deployed by a child.
-Progress: 3.6m in progress (gate approved); 3.6p, 0.46, 3.6n, 3.6o pending.
+Progress: 3.6m done (`review`, commit `b7d6fb3a`); 3.6p in progress; 0.46, 3.6n, 3.6o pending.
 
 - [ ] **3.6q** Version re-hosted media keys and set a 7-day immutable HTTP cache policy — *feeds 3.6n (its key helper
       builds `thumb-{hash8}.jpg`); no CC-024 dependency* (built, status `review`; backfill workflow lives in
@@ -393,9 +393,10 @@ Progress: 3.6m in progress (gate approved); 3.6p, 0.46, 3.6n, 3.6o pending.
 - [ ] **3.6m** Add `hasFaceImage`/`faceImageCount` self-reported fields to the Gemini extraction schema — *needs 3.6l,
       3.6s; log-only, persistence is 3.6p* (story file exists, status `ready-for-dev`; **refresh against the 3.6s
       `events[]` shape before dispatch**; the fields stay at the payload root) — sweep verdict READY-WITH-CAVEAT
-      (story file refreshed 2026-10-03, commit `6620a9dc`; **dev in progress** 2026-10-03, sprint-status `in-progress`,
-      approval gate approved)
-  - [x] create  - [ ] dev  - [ ] review
+      (story file refreshed 2026-10-03, commit `6620a9dc`; **dev done** 2026-10-03, commit `b7d6fb3a`, status `review`;
+      targeted tests green: build-gemini-request 18/18, carousel-completeness 9/9, process-ai-job 30/30; domain and backend
+      lint clean; whole-repo gate deferred to batch end)
+  - [x] create  - [x] dev  - [ ] review
 - [ ] **3.6p** Create the `extraction_audit_logs` table and write path — *needs 3.6e, 3.6l, 3.6m, 3.6r, 3.6s;
       **amended by CC-024:** the audit row also records `groupingReason`, event count and `minEventCount`* (`backlog`;
       sweep verdict READY-WITH-CORRECTION; per-event shape and `actualScheduleCount` ownership are user decisions at
