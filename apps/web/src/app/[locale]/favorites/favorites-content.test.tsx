@@ -87,6 +87,7 @@ vi.mock('nuqs', () => {
 
       return [state, setSharedState];
     },
+    parseAsStringEnum: () => ({}),
     parseAsString: { withDefault: (val: any) => ({ defaultValue: val }) },
     parseAsInteger: { withDefault: (val: any) => ({ defaultValue: val }) },
     parseAsArrayOf: () => ({ withDefault: (val: any) => ({ defaultValue: val }) }),

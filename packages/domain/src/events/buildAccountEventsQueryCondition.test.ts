@@ -60,4 +60,32 @@ describe('buildAccountEventsQueryCondition', () => {
       ],
     });
   });
+
+  it('ANDs the UPCOMING temporal condition with the base condition', () => {
+    const result = buildAccountEventsQueryCondition({
+      search: '',
+      types: [],
+      categories: [],
+      profileId: 'acc-uuid-1',
+      temporalFilter: 'UPCOMING',
+    }) as any;
+
+    assert.deepEqual(result.conditions[0], { field: 'socialMediaAccountProfileId', operator: 'in', value: ['acc-uuid-1'] });
+    assert.ok(
+      JSON.stringify(result.conditions).includes('"field":"scheduleDateRange"'),
+      'expected a scheduleDateRange condition'
+    );
+  });
+
+  it('adds no temporal condition when temporalFilter is null (All)', () => {
+    const result = buildAccountEventsQueryCondition({
+      search: '',
+      types: [],
+      categories: [],
+      profileId: 'acc-uuid-1',
+      temporalFilter: null,
+    }) as any;
+
+    assert.deepEqual(result.conditions, [{ field: 'socialMediaAccountProfileId', operator: 'in', value: ['acc-uuid-1'] }]);
+  });
 });

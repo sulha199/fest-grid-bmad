@@ -89,19 +89,20 @@ export function EventDiscoveryPanel({
               clearLabel={searchClearLabel}
             />
 
-            {currentViewId === 'card' && temporalFilterLabels && onTemporalFilterChange && (
-              <TemporalFilterToggle
-                value={temporalFilter ?? null}
-                onChange={onTemporalFilterChange}
-                labels={temporalFilterLabels}
-              />
-            )}
-
             <FilterHub
               labels={filterLabels}
               types={types}
               categories={categories}
               onChange={onFilterChange}
+              leadingControl={
+                currentViewId === 'card' && temporalFilterLabels && onTemporalFilterChange ? (
+                  <TemporalFilterToggle
+                    value={temporalFilter ?? null}
+                    onChange={onTemporalFilterChange}
+                    labels={temporalFilterLabels}
+                  />
+                ) : undefined
+              }
               isAuthenticated={isAuthenticated}
               isLoadingLocations={isLoadingLocations}
               locationsError={locationsError}

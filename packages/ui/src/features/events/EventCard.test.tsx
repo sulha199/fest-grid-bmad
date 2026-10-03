@@ -474,7 +474,7 @@ describe('EventCard', () => {
     });
 
     describe('Masonry badge display behavior', () => {
-      it('Today WITH a startTime provided -> Clock icon still shows (unchanged trigger), but the date box shows real digits, never a bare time string (BUG-047 AC-DATE-1, supersedes the old time-string branch)', () => {
+      it('Today WITH a startTime provided -> no Clock icon (removed 2026-10-03), and the date box shows real digits, never a bare time string (BUG-047 AC-DATE-1, supersedes the old time-string branch)', () => {
         const today = new Date();
         const dateWithTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 18, 0, 0);
         const expectedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(dateWithTime);
@@ -494,7 +494,7 @@ describe('EventCard', () => {
         expect(screen.queryByText(expectedTime)).not.toBeInTheDocument();
         expect(container.querySelector('[data-event-card-date-box-day]')).toHaveTextContent(expectedDay);
         const clockIcon = container.querySelector('svg.lucide-clock');
-        expect(clockIcon).toBeInTheDocument();
+        expect(clockIcon).not.toBeInTheDocument();
       });
 
       it('Today with NO startTime provided (startTime omitted/null) -> date box shows real digits, no Clock icon', () => {
@@ -894,23 +894,21 @@ describe('EventCard', () => {
         />
       );
 
+      // User feedback (2026-10-03): VM1's TILL tag and date are ONE two-coloured inline pill --
+      // an amber TILL segment and the translucent date segment inside the same rounded-full
+      // container -- not a separately floating tag.
       const badge = screen.getByText('till');
       expect(badge).toHaveClass('bg-amber-700');
       expect(badge).toHaveClass('text-white');
-      // User feedback (2026-09-28): a same-day `top-1.5`-nested-inside-the-pill attempt (matching
-      // the masonry-default/VM2 pill's own offset literally) covered most of the pill's single
-      // line of date text -- VM1's pill is a small compact chip, not VM2's full-height date box,
-      // so there's no internal room for an overlaid badge. The tag is now its OWN floating
-      // sibling positioned directly against the poster's top-left corner (`top-1 left-2`), not
-      // nested inside the pill and not routed through `eventCardTillLabelClass` at all.
-      expect(badge).toHaveClass('top-1');
-      expect(badge).not.toHaveClass('top-1.5');
-      expect(badge).not.toHaveClass('-top-1.5');
-      expect(badge).not.toHaveClass('-top-3');
-      expect(badge).toHaveClass('left-2');
-      expect(badge).not.toHaveClass('-left-1.5');
-      expect(badge).not.toHaveClass('bg-foreground');
-      expect(badge).not.toHaveClass('-bottom-1.5');
+      expect(badge).not.toHaveClass('absolute');
+      const pill = badge.parentElement as HTMLElement;
+      expect(pill).toHaveClass('inline-flex');
+      expect(pill).toHaveClass('rounded-full');
+      expect(pill).toHaveClass('top-2');
+      expect(pill).toHaveClass('left-2');
+      const dateSegment = pill.querySelector('.bg-background\\/80') as HTMLElement;
+      expect(dateSegment).not.toBeNull();
+      expect(badge.nextElementSibling).toBe(dateSegment);
     });
 
     // Pixel-perfect pass (2026-09-27, masonry-default prototype round 2-4): BUG-041's `p-2`
@@ -1232,13 +1230,7 @@ describe('EventCard', () => {
     // date pill's own text down into the TILL tag's own space, covering the date ("the latest
     // changes make the tillbox move further down causing it covers the date"). Both pills now
     // stay at `top-2` always, regardless of TILL presence.
-    it('gives the masonry date and favorite pills top-5 clearance only when a TILL tag is present (2026-09-28 revert)', () => {
-      // User feedback (2026-09-28): a same-day attempt to flatten both pills to an unconditional
-      // `top-2` (removing their `top-5`-when-TILL-present clearance) made the TILL tag cover MORE
-      // of the date pill, not less ("rather than moving till-box down, you moved the datebox and
-      // fav-icon up which make the tillbox covering more datebox area") -- reverted. The TILL tag
-      // itself is now a floating sibling positioned against the poster's own corner (see the
-      // amber-treatment test above), landing in the gap this `top-5` shift opens up above the pill.
+    it('keeps the favorite pill and the date/TILL pill at top-2 whether or not a TILL segment is present (2026-10-03 single-pill redesign)', () => {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       const tomorrow = new Date();
@@ -1256,21 +1248,15 @@ describe('EventCard', () => {
           onFavoriteToggle={() => {}}
         />
       );
-      const favPill = container.querySelector('article > button') as HTMLElement;
-      expect(favPill).toHaveClass('top-5');
-      expect(favPill).not.toHaveClass('top-2');
-      expect(favPill).toHaveClass('right-2');
-      const datePill = container.querySelector('.rounded-md.bg-background\\/80') as HTMLElement;
-      expect(datePill).toHaveClass('top-5');
-      expect(datePill).not.toHaveClass('top-2');
-      expect(datePill).toHaveClass('left-2');
-      // Padding stays uniform -- the rejected asymmetric-padding mechanism must not return.
-      expect(datePill).toHaveClass('p-1');
-      expect(datePill).not.toHaveClass('px-2.5');
+      expect(container.querySelector('article > button')).toHaveClass('top-2');
+      expect(container.querySelector('article > button')).not.toHaveClass('top-5');
+      const pill = screen.getByText('till').parentElement as HTMLElement;
+      expect(pill).toHaveClass('top-2');
+      expect(pill).not.toHaveClass('top-5');
 
       cleanup();
 
-      // No TILL tag -> both pills fall back to the default top-2 (no clearance needed).
+      // No TILL tag -> the same pill renders with only its date segment.
       const longAgoStart = new Date();
       longAgoStart.setDate(longAgoStart.getDate() - 10);
       const longAgoEnd = new Date();
@@ -1288,9 +1274,10 @@ describe('EventCard', () => {
         />
       );
       expect(noTill.querySelector('article > button')).toHaveClass('top-2');
-      expect(noTill.querySelector('article > button')).not.toHaveClass('top-5');
-      expect(noTill.querySelector('.rounded-md.bg-background\\/80')).toHaveClass('top-2');
-      expect(noTill.querySelector('.rounded-md.bg-background\\/80')).not.toHaveClass('top-5');
+      expect(screen.queryByText('till')).not.toBeInTheDocument();
+      const datePill = noTill.querySelector('.inline-flex.rounded-full') as HTMLElement;
+      expect(datePill).toHaveClass('top-2');
+      expect(datePill.children).toHaveLength(1);
     });
   });
 

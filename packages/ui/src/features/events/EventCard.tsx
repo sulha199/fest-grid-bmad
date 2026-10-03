@@ -8,11 +8,10 @@
 // Same fix as `count-badge.tsx`/`EventCardMediaPrimitives.tsx`; see either file's header for the
 // direct repro this is based on.
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { Heart, Clock } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { useScopedLocale, useScopedTimezone, useHoverFocusTooltip } from '../../hooks';
 import type { EventCardProps } from './EventCard.types';
 import {
-  getEventDayDiff,
   computeEventCardDateBoxParts,
   formatEventCardDateBoxLine,
   formatEventStatus,
@@ -226,8 +225,6 @@ export function EventCard({
     );
   }
 
-  const hasTime = !!startTime;
-
   const dateObj = combineDateTime(startDate, startTime, activeTimezone);
 
   // DW-070 (BUG-013): `combineDateTime`'s own isNaN guard only covers its internal
@@ -237,8 +234,6 @@ export function EventCard({
   // internally) unguarded, or Intl formatting throws. Guard the downstream propagation
   // once here and degrade gracefully to a blank date instead.
   const dateIsValid = !isNaN(dateObj.getTime());
-
-  const dayDiff = dateIsValid ? getEventDayDiff(dateObj, activeTimezone) : NaN;
 
   // Single "now" read for this whole render (code-review finding, both Blind Hunter and Edge
   // Case Hunter independently flagged separate `new Date()`/`Date.now()` reads for the date-box,
@@ -350,7 +345,7 @@ export function EventCard({
           // the TILL tag cover MORE of the date pill, not less ("rather than moving till-box
           // down, you moved the datebox and fav-icon up"). The fix belongs entirely on the TILL
           // tag's own position (see below), not here.
-          className={`absolute ${tillBadgeText ? 'top-5' : 'top-2'} right-2 z-30 rounded-full bg-background/80 backdrop-blur-sm shadow-sm hover:bg-background transition-colors flex items-center justify-center ${EVENT_CARD_BADGE_TEXT_SIZE_CLASS} ${favoriteCount !== undefined ? 'px-1.5 py-1 gap-1.5' : 'p-2'}`}
+          className={`absolute top-2 right-2 z-30 rounded-full bg-background/80 backdrop-blur-sm shadow-sm hover:bg-background transition-colors flex items-center justify-center ${EVENT_CARD_BADGE_TEXT_SIZE_CLASS} ${favoriteCount !== undefined ? 'px-1.5 py-1 gap-1.5' : 'p-2'}`}
         >
           <Heart
             // lucide's own `size` prop would be silently overridden by this `style` --
@@ -463,12 +458,7 @@ export function EventCard({
             <div ref={dateBoxRef} className="flex-1 min-w-0">
               <EventCardDateBox
                 size="default"
-                month={
-                  <>
-                    {hasTime && dayDiff === 0 && <Clock className="w-3 h-3" />}
-                    {dateBoxParts.month}
-                  </>
-                }
+                month={dateBoxParts.month}
                 day={dateBoxParts.day}
                 tillLabel={tillBadgeText || undefined}
               />
@@ -493,32 +483,21 @@ export function EventCard({
             {statusBadge && (
               <div className="absolute top-2 right-2 z-10">{statusBadge}</div>
             )}
-            {
-              // Rule 4 (`DESIGN.md` § event_card_date_box.base): `top-2` by default, `top-5`
-              // when a TILL tag is present, restoring clearance for the tag's own floating
-              // sibling badge (below) against the poster's `overflow-hidden` edge. Padding stays
-              // uniform `p-1` — the token's own note records that an asymmetric-padding fix was
-              // tried and explicitly rejected by the user, position-only being the sanctioned
-              // mechanism.
-            }
+            {/* User feedback (2026-10-03): the date and TILL tag are one two-coloured inline pill
+                (TILL segment amber, date segment the existing translucent chip), replacing the
+                former separately-floating date chip + TILL tag. No clock icon. */}
             <div
-              className={`absolute ${tillBadgeText ? 'top-5' : 'top-2'} left-2 z-10 flex items-center gap-1 p-1 rounded-md bg-background/80 backdrop-blur-sm shadow-sm ${EVENT_CARD_BADGE_TEXT_SIZE_CLASS} font-semibold text-foreground`}
+              className={`absolute top-2 left-2 z-10 inline-flex items-stretch overflow-hidden rounded-full shadow-sm ${EVENT_CARD_BADGE_TEXT_SIZE_CLASS} font-semibold leading-none`}
             >
-              {hasTime && dayDiff === 0 && <Clock className="w-3 h-3" />}
-              {dateBoxLine}
-            </div>
-            {tillBadgeText && (
-              // User feedback (2026-09-28): nesting this INSIDE the date pill (`top-1.5`,
-              // matching VM2/masonry-default's own corner offset literally) covered most of the
-              // pill's single line of date text -- the pill is a small compact chip, not VM2's
-              // full-height date box, so there's no internal room for an overlaid badge. Floats
-              // instead as its own sibling directly against the poster's top-left corner (the
-              // same corner VM2's tag hangs from, just relative to the poster instead of the
-              // pill), landing in the gap the pill's own `top-5` shift (above) opens up above it.
-              <span className={`absolute top-1 left-2 z-20 px-1.5 py-0.5 rounded-full bg-amber-700 text-white ${EVENT_CARD_BADGE_TEXT_SIZE_CLASS} font-semibold leading-none shadow-sm whitespace-nowrap`}>
-                {tillBadgeText}
+              {tillBadgeText && (
+                <span className="flex items-center px-1.5 py-1 bg-amber-700 text-white whitespace-nowrap">
+                  {tillBadgeText}
+                </span>
+              )}
+              <span className="flex items-center px-1.5 py-1 bg-background/80 backdrop-blur-sm text-foreground whitespace-nowrap">
+                {dateBoxLine}
               </span>
-            )}
+            </div>
             {posterImagePresent ? (
               <img
                 src={posterImgSrc}

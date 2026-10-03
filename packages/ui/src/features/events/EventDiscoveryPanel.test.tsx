@@ -207,6 +207,18 @@ describe('EventDiscoveryPanel', () => {
       expect(screen.getByRole('radiogroup', { name: 'Filter events by time' })).toBeInTheDocument();
     });
 
+    it('places the toggle inside the facet-filter row: own full-width line on mobile, inline from sm up', () => {
+      render(<EventDiscoveryPanel {...defaultProps} />);
+      const toggle = screen.getByRole('radiogroup', { name: 'Filter events by time' });
+      const slot = toggle.parentElement as HTMLElement;
+      expect(slot).toHaveClass('w-full');
+      expect(slot).toHaveClass('sm:w-auto');
+      // Same wrapping flex row as the type/category facet buttons.
+      const row = slot.parentElement as HTMLElement;
+      expect(row).toHaveClass('flex-wrap');
+      expect(row).toContainElement(screen.getByRole('button', { name: /type/i }));
+    });
+
     it('does not render the temporal filter toggle when currentViewId === "calendar"', () => {
       const { fireEvent } = require('@testing-library/react');
       render(<EventDiscoveryPanel {...defaultProps} />);

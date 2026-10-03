@@ -32,6 +32,7 @@ import { useSearchParams } from "next/navigation"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
 import { buildEventsQueryCondition, EventFilterInput, NearbyFilterInput, DayOfWeek as DomainDayOfWeek } from "@festgrid/domain/events"
 import { useAIFilter } from "@/features/events/use-ai-filter"
+import { useTemporalFilter } from "@/features/events/use-temporal-filter"
 import { useNearbyFilter } from "../use-nearby-filter"
 import { mapDaysOfWeekToDomain } from "@/lib/day-of-week-mapping"
 
@@ -54,11 +55,12 @@ function buildFavoritesQueryCondition(
   types: string[],
   categories: string[],
   filter?: EventFilterInput | null,
-  nearby?: NearbyFilterInput
+  nearby?: NearbyFilterInput,
+  temporalFilter?: "TODAY" | "UPCOMING" | null
 ): EventQueryConditionInput {
   const dynamicQuery = (filter
-    ? buildEventsQueryCondition({ filter })
-    : buildEventsQueryCondition({ search: q, types, categories, nearby })) as
+    ? buildEventsQueryCondition({ filter: { ...filter, temporalFilter: temporalFilter ?? filter.temporalFilter } })
+    : buildEventsQueryCondition({ search: q, types, categories, nearby, temporalFilter })) as
     | EventQueryConditionInput
     | undefined
 
@@ -160,10 +162,12 @@ export function FavoritesContent() {
     [categoryLabels]
   )
 
+  const { temporalFilter, panelProps: temporalFilterPanelProps } = useTemporalFilter()
+
   const favoritesQuery = useMemo(
     () =>
-      buildFavoritesQueryCondition(q, types, categories, aiFilter.activeFilter ?? undefined, resolvedNearby),
-    [q, types, categories, aiFilter.activeFilter, resolvedNearby]
+      buildFavoritesQueryCondition(q, types, categories, aiFilter.activeFilter ?? undefined, resolvedNearby, temporalFilter),
+    [q, types, categories, aiFilter.activeFilter, resolvedNearby, temporalFilter]
   )
 
   // AC1: do not fetch any data if user is unauthenticated.
@@ -178,7 +182,7 @@ export function FavoritesContent() {
     // Deliberately keyed on the same {q, types, categories, nearby, aiFilter} snapshot
     // idSnapshotData itself uses, NOT on frozenIds (a derived value) -- see Dev Notes
     // "Why the controller's filterKey deliberately excludes frozenIds (Favorites)".
-    filterKey: { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter },
+    filterKey: { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter, temporalFilter },
     initialCursor: 0,
     onReset: () => {
       if (typeof window !== 'undefined') {
@@ -200,7 +204,7 @@ export function FavoritesContent() {
     status: idSnapshotStatus,
     error: idSnapshotError,
   } = useQuery<GetFavoritedEventIdsQuery, Error>({
-    queryKey: ["favoriteIds", { q, types, categories, filter: aiFilter.activeFilter, nearby: resolvedNearby }],
+    queryKey: ["favoriteIds", { q, types, categories, filter: aiFilter.activeFilter, nearby: resolvedNearby, temporalFilter }],
     queryFn: async () => {
       return graphqlClient.request<GetFavoritedEventIdsQuery>(GetFavoritedEventIdsDocument, {
         query: favoritesQuery,
@@ -240,7 +244,7 @@ export function FavoritesContent() {
     status,
     error,
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ["favoriteEvents", { ids: frozenIds, q, types, categories, filter: aiFilter.activeFilter, nearby: resolvedNearby }, pagination.resetToken],
+    queryKey: ["favoriteEvents", { ids: frozenIds, q, types, categories, filter: aiFilter.activeFilter, nearby: resolvedNearby, temporalFilter }, pagination.resetToken],
     queryFn: async ({ pageParam }) => {
       const start = pageParam as number
       const batchIds = frozenIds.slice(start, start + PAGE_SIZE)
@@ -262,8 +266,8 @@ export function FavoritesContent() {
       }]
 
       const filterCondition = (aiFilter.activeFilter
-        ? buildEventsQueryCondition({ filter: aiFilter.activeFilter })
-        : buildEventsQueryCondition({ search: q, types, categories, nearby: resolvedNearby })) as
+        ? buildEventsQueryCondition({ filter: { ...aiFilter.activeFilter, temporalFilter: temporalFilter ?? aiFilter.activeFilter.temporalFilter } })
+        : buildEventsQueryCondition({ search: q, types, categories, nearby: resolvedNearby, temporalFilter })) as
         | EventQueryConditionInput
         | undefined
 
@@ -354,6 +358,7 @@ export function FavoritesContent() {
       </div>
 
       <EventDiscoveryPanel
+        {...temporalFilterPanelProps}
         query={q}
         onSearchSubmit={handleSearchSubmit}
         searchPlaceholder={t("searchPlaceholder")}

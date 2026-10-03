@@ -29,6 +29,12 @@ export interface FilterHubProps extends Omit<LocationRadiusFilterProps, 'labels'
   categories: { value: string; label: string }[];
   onChange?: (types: string[], categories: string[]) => void;
   className?: string;
+  /**
+   * Optional leading control (the Today/Upcoming/All temporal toggle) rendered inside the same
+   * wrapping row as the facet buttons: inline with them from `sm` up, on its own full-width
+   * line on mobile.
+   */
+  leadingControl?: React.ReactNode;
   showAITrigger?: boolean;
   onAITriggerClick?: () => void;
   aiFilterSummary?: string;
@@ -46,6 +52,7 @@ export function FilterHub({
   categories,
   onChange,
   className = '',
+  leadingControl,
   isAuthenticated,
   isLoadingLocations,
   locationsError,
@@ -70,6 +77,7 @@ export function FilterHub({
   if (aiFilterSummary) {
     return (
       <div className={`flex flex-wrap items-center gap-3 py-1.5 px-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-100 dark:border-blue-900/50 text-sm ${className}`}>
+        {leadingControl && <div className="w-full sm:w-auto">{leadingControl}</div>}
         <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 font-medium mr-auto">
           <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 animate-pulse" />
           <span className="sr-only">AI Filter active:</span>
@@ -207,6 +215,7 @@ export function FilterHub({
 
   return (
     <div className={`flex flex-wrap items-center gap-2 ${className}`}>
+      {leadingControl && <div className="w-full sm:w-auto">{leadingControl}</div>}
       {renderFacet(labels.typeLabel, types, selectedTypes, handleTypeChange)}
       {renderFacet(labels.categoryLabel, categories, selectedCategories, handleCategoryChange)}
       {isAuthenticated && (

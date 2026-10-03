@@ -179,4 +179,40 @@ describe('buildFeedQueryCondition', () => {
       ],
     });
   });
+
+  it('ANDs the UPCOMING temporal condition with the base condition', () => {
+    const result = buildFeedQueryCondition({
+      search: '',
+      types: [],
+      categories: [],
+      
+      temporalFilter: 'UPCOMING',
+    }) as any;
+
+    assert.deepEqual(result.conditions[0], { field: 'isFromSubscribedAccount', operator: 'eq', value: true });
+    assert.ok(
+      JSON.stringify(result.conditions).includes('"field":"scheduleDateRange"'),
+      'expected a scheduleDateRange condition'
+    );
+  });
+
+  it('adds no temporal condition when temporalFilter is null (All)', () => {
+    const result = buildFeedQueryCondition({
+      search: '',
+      types: [],
+      categories: [],
+      
+      temporalFilter: null,
+    }) as any;
+
+    assert.deepEqual(result.conditions, [{ field: 'isFromSubscribedAccount', operator: 'eq', value: true }]);
+  });
+
+  it('applies the temporal filter on top of an AI filter, falling back to the AI filter own value', () => {
+    const withToggle = buildFeedQueryCondition({ filter: { types: ['FESTIVAL'] }, temporalFilter: 'TODAY' }) as any;
+    assert.ok(JSON.stringify(withToggle).includes('scheduleEndedBoundary'));
+
+    const aiOnly = buildFeedQueryCondition({ filter: { types: ['FESTIVAL'], temporalFilter: 'TODAY' } }) as any;
+    assert.ok(JSON.stringify(aiOnly).includes('scheduleEndedBoundary'));
+  });
 });
