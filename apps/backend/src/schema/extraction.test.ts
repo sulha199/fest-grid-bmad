@@ -386,6 +386,7 @@ test('manual post selection & extraction integration tests', async (t) => {
   let otherUser: any;
   let otherPost: any;
   let otherApiKey: any;
+  let partialFailureFirstPost: any;
   let partialFailureSecondPost: any;
   let partialFailureAlreadyExtractedPost: any;
 
@@ -447,6 +448,9 @@ test('manual post selection & extraction integration tests', async (t) => {
   });
 
   t.after(async () => {
+    if (partialFailureFirstPost) {
+      await db.delete(posts).where(eq(posts.id, partialFailureFirstPost.id));
+    }
     if (partialFailureSecondPost) {
       await db.delete(posts).where(eq(posts.id, partialFailureSecondPost.id));
     }
@@ -700,6 +704,20 @@ test('manual post selection & extraction integration tests', async (t) => {
   await t.test('selectPostsForExtraction returns Posts for the ones that succeed when one postId fails mid-loop (BUG-015)', async () => {
     mockUser = { userId: testUser.id, role: testUser.role };
 
+    // Story 3.6z (AC3): recentPost was already successfully enqueued by the previous test and
+    // now carries a non-stale claim (queuedForExtractionAt), so re-submitting it here would
+    // correctly throw PostAlreadyQueuedError -- that's the idempotency fix working as intended,
+    // not a regression. Use a fresh, never-enqueued post for this test's "succeeds" half instead,
+    // which is what BUG-015 actually needs: at least one post that succeeds alongside one that fails.
+    const [insertedFirstPost] = await db.insert(posts).values({
+      accountId: testProfile.id,
+      platform: 'instagram',
+      content: 'A first post to enqueue (BUG-015 partial-failure case)',
+      postUrl: `https://instagram.com/p/partial-first-${Date.now()}-${Math.random()}`,
+      publishedAt: new Date(),
+    }).returning();
+    partialFailureFirstPost = insertedFirstPost;
+
     const [insertedSecondPost] = await db.insert(posts).values({
       accountId: testProfile.id,
       platform: 'instagram',
@@ -730,7 +748,7 @@ test('manual post selection & extraction integration tests', async (t) => {
             }
           }
         `,
-        variables: { postIds: [recentPost.id, insertedSecondPost.id, insertedAlreadyExtractedPost.id] }
+        variables: { postIds: [insertedFirstPost.id, insertedSecondPost.id, insertedAlreadyExtractedPost.id] }
       })
     });
 
@@ -738,8 +756,43 @@ test('manual post selection & extraction integration tests', async (t) => {
     assert.ok(!result.errors, 'should not have errors -- partial success must not throw');
     const returnedIds = result.data.selectPostsForExtraction.map((p: any) => p.id);
     assert.strictEqual(returnedIds.length, 2, 'only the 2 non-extracted posts should be returned');
-    assert.ok(returnedIds.includes(recentPost.id));
+    assert.ok(returnedIds.includes(insertedFirstPost.id));
     assert.ok(returnedIds.includes(insertedSecondPost.id));
     assert.ok(!returnedIds.includes(insertedAlreadyExtractedPost.id));
+  });
+
+  await t.test('Story 3.6z (Task 11): selectPostsForExtraction surfaces PostAlreadyQueuedError as a clean CONFLICT GraphQL error', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    const [alreadyQueuedPost] = await db.insert(posts).values({
+      accountId: testProfile.id,
+      platform: 'instagram',
+      content: 'A post auto-enqueued moments ago',
+      postUrl: `https://instagram.com/p/already-queued-${Date.now()}-${Math.random()}`,
+      publishedAt: new Date(),
+      isExtracted: false,
+      queuedForExtractionAt: new Date(), // simulates a just-auto-enqueued, non-stale claim
+    }).returning();
+
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation SelectPosts($postIds: [ID!]!) {
+            selectPostsForExtraction(postIds: $postIds) {
+              id
+            }
+          }
+        `,
+        variables: { postIds: [alreadyQueuedPost.id] }
+      })
+    });
+
+    const result = await response.json();
+    assert.ok(result.errors, 'should return an error, not a 500-shaped unhandled rejection');
+    assert.strictEqual(result.errors[0].extensions?.code, 'CONFLICT');
+
+    await db.delete(posts).where(eq(posts.id, alreadyQueuedPost.id));
   });
 });

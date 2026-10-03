@@ -27,7 +27,7 @@ import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAU
 import { transformGeminiResponseToEventFilter } from '@festgrid/domain/ai-event-filters';
 import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText } from '@festgrid/domain';
-import { PostAlreadyExtractedError, PostNotFoundError } from '@festgrid/domain/posts';
+import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError } from '@festgrid/domain/posts';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
 import { triggerScrapeForAccount } from '../lib/scraper/trigger-scrape-for-account.js';
 import { decryptApiKey, encryptApiKey } from '../lib/ai-gateway/kms.js';
@@ -2061,6 +2061,9 @@ Constraints and Guidelines:
         }
         if (err instanceof PostNotFoundError) {
           throw new GraphQLError('Post not found', { extensions: { code: 'NOT_FOUND' } });
+        }
+        if (err instanceof PostAlreadyQueuedError) {
+          throw new GraphQLError('Post is already queued for extraction', { extensions: { code: 'CONFLICT' } });
         }
         throw err;
       }
