@@ -1,15 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import { db } from '../../db/client.js';
-import { socialMediaAccountProfiles, posts, users } from '@festgrid/database';
+import { socialMediaAccountProfiles, posts, users, apiKeys, subscriptions } from '@festgrid/database';
 import { registerScraperAdapter, ScraperAdapter, ScraperAccountRef, ScrapedPost, AccountProfileLookupResult } from '@festgrid/domain';
 import { processScrapeJob } from './process-scrape-job.js';
 import { eq, inArray } from 'drizzle-orm';
+import { setSendSqsMessage, sendSqsMessage } from '../aws/send-sqs-message.js';
 
 test('process-scrape-job integration tests', async (t) => {
   let testUser: any;
   const createdProfiles: string[] = [];
   const createdPosts: string[] = [];
+  const createdUsers: string[] = [];
+  const createdApiKeys: string[] = [];
+  const createdSubscriptions: string[] = [];
+
+  const originalSendSqsMessage = sendSqsMessage;
+  const originalAiProcessingQueueUrl = process.env.AI_PROCESSING_QUEUE_URL;
+  t.after(() => {
+    setSendSqsMessage(originalSendSqsMessage);
+    if (originalAiProcessingQueueUrl === undefined) {
+      delete process.env.AI_PROCESSING_QUEUE_URL;
+    } else {
+      process.env.AI_PROCESSING_QUEUE_URL = originalAiProcessingQueueUrl;
+    }
+  });
 
   // Get a seeded user
   const seededUsers = await db.select().from(users).limit(1);
@@ -17,6 +32,14 @@ test('process-scrape-job integration tests', async (t) => {
   testUser = seededUsers[0];
 
   t.afterEach(async () => {
+    if (createdSubscriptions.length > 0) {
+      await db.delete(subscriptions).where(inArray(subscriptions.id, createdSubscriptions));
+      createdSubscriptions.length = 0;
+    }
+    if (createdApiKeys.length > 0) {
+      await db.delete(apiKeys).where(inArray(apiKeys.id, createdApiKeys));
+      createdApiKeys.length = 0;
+    }
     if (createdProfiles.length > 0) {
       await db.delete(posts).where(inArray(posts.accountId, createdProfiles));
       await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, createdProfiles));
@@ -25,6 +48,10 @@ test('process-scrape-job integration tests', async (t) => {
     if (createdPosts.length > 0) {
       await db.delete(posts).where(inArray(posts.id, createdPosts));
       createdPosts.length = 0;
+    }
+    if (createdUsers.length > 0) {
+      await db.delete(users).where(inArray(users.id, createdUsers));
+      createdUsers.length = 0;
     }
   });
 
@@ -548,5 +575,330 @@ test('process-scrape-job integration tests', async (t) => {
       .then((rows) => rows[0]);
     assert.ok(discoveredCoauthorProfile, 'coauthor discovered profile row should exist');
     createdProfiles.push(discoveredCoauthorProfile.id);
+  });
+
+  await t.test('Story 3.6z: a new post with an available key gets auto-enqueued', async () => {
+    const mockPlatform = 'test-fake-platform-autoenqueue-available' as any;
+    const uniqueUrlBase = `https://fake.com/${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    const fakeAdapter: ScraperAdapter = {
+      supportsNewerThanAndLimitFiltering: true,
+      async getNewestPosts(): Promise<ScrapedPost[]> {
+        return [
+          {
+            content: 'Auto-enqueue available-key post',
+            postUrl: `${uniqueUrlBase}/p/1`,
+            publishedAt: '2026-08-08T12:00:00Z',
+          },
+        ];
+      },
+      async lookupAccountProfile(): Promise<AccountProfileLookupResult | null> {
+        return null;
+      },
+      async getAccountClassificationProfile(): Promise<any> {
+        return null;
+      },
+      async getPostByUrl(): Promise<ScrapedPost | null> {
+        return null;
+      },
+    };
+    registerScraperAdapter(mockPlatform, fakeAdapter);
+
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'fake-acc-autoenqueue-available-' + Date.now(),
+      platform: mockPlatform,
+      displayName: 'Fake Account Auto-Enqueue Available',
+      username: 'fake_acc_autoenqueue_available',
+    }).returning();
+    createdProfiles.push(profile.id);
+
+    const [subscribedUser] = await db.insert(users).values({
+      email: `autoenqueue-available-${Date.now()}-${Math.random()}@example.com`,
+      role: 'user',
+    }).returning();
+    createdUsers.push(subscribedUser.id);
+
+    const [sub] = await db.insert(subscriptions).values({ userId: subscribedUser.id, accountId: profile.id }).returning();
+    createdSubscriptions.push(sub.id);
+
+    const [key] = await db.insert(apiKeys).values({
+      userId: subscribedUser.id,
+      provider: 'gemini',
+      keyEncrypted: 'mock-encrypted-key',
+      keyLast4: '4321',
+      isValid: true,
+      invalidAttempts: 0,
+      usageCount: 0,
+      usageCycleResetAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+    }).returning();
+    createdApiKeys.push(key.id);
+
+    let sqsSendCount = 0;
+    let sentBody = '';
+    setSendSqsMessage(async (_queueUrl, body) => {
+      sqsSendCount++;
+      sentBody = body;
+    });
+    process.env.AI_PROCESSING_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/12345/AIProcessingQueue';
+
+    const job = {
+      profileId: profile.id,
+      platform: mockPlatform,
+      accountId: profile.accountId,
+      username: profile.username,
+    };
+
+    await processScrapeJob(job);
+
+    const dbPosts = await db.select().from(posts).where(eq(posts.accountId, profile.id));
+    assert.strictEqual(dbPosts.length, 1);
+    createdPosts.push(dbPosts[0].id);
+
+    assert.strictEqual(sqsSendCount, 1, 'a new post with an available key should be auto-enqueued exactly once');
+    const parsed = JSON.parse(sentBody);
+    assert.strictEqual(parsed.postId, dbPosts[0].id);
+
+    const [reloaded] = await db.select().from(posts).where(eq(posts.id, dbPosts[0].id));
+    assert.ok(reloaded.queuedForExtractionAt, 'the claimed post should carry a non-null queuedForExtractionAt');
+    assert.strictEqual(reloaded.isExtracted, false);
+  });
+
+  await t.test('Story 3.6z: a new post with no available key is not enqueued, no throw, job completes normally', async () => {
+    const mockPlatform = 'test-fake-platform-autoenqueue-unavailable' as any;
+    const uniqueUrlBase = `https://fake.com/${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    const fakeAdapter: ScraperAdapter = {
+      supportsNewerThanAndLimitFiltering: true,
+      async getNewestPosts(): Promise<ScrapedPost[]> {
+        return [
+          {
+            content: 'Auto-enqueue no-key post',
+            postUrl: `${uniqueUrlBase}/p/1`,
+            publishedAt: '2026-08-08T12:00:00Z',
+          },
+        ];
+      },
+      async lookupAccountProfile(): Promise<AccountProfileLookupResult | null> {
+        return null;
+      },
+      async getAccountClassificationProfile(): Promise<any> {
+        return null;
+      },
+      async getPostByUrl(): Promise<ScrapedPost | null> {
+        return null;
+      },
+    };
+    registerScraperAdapter(mockPlatform, fakeAdapter);
+
+    // No subscribers at all -> hasAvailableApiKeyForAccount returns false immediately.
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'fake-acc-autoenqueue-unavailable-' + Date.now(),
+      platform: mockPlatform,
+      displayName: 'Fake Account Auto-Enqueue Unavailable',
+      username: 'fake_acc_autoenqueue_unavailable',
+    }).returning();
+    createdProfiles.push(profile.id);
+
+    let sqsSendCount = 0;
+    setSendSqsMessage(async () => {
+      sqsSendCount++;
+    });
+    process.env.AI_PROCESSING_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/12345/AIProcessingQueue';
+
+    const job = {
+      profileId: profile.id,
+      platform: mockPlatform,
+      accountId: profile.accountId,
+      username: profile.username,
+    };
+
+    await assert.doesNotReject(async () => {
+      await processScrapeJob(job);
+    });
+
+    const dbPosts = await db.select().from(posts).where(eq(posts.accountId, profile.id));
+    assert.strictEqual(dbPosts.length, 1);
+    createdPosts.push(dbPosts[0].id);
+
+    assert.strictEqual(sqsSendCount, 0, 'a new post with no available key must not be auto-enqueued');
+    assert.strictEqual(dbPosts[0].isExtracted, false);
+    assert.strictEqual(dbPosts[0].queuedForExtractionAt, null);
+  });
+
+  await t.test('Story 3.6z: an already-existing post (alreadyExisted: true) never triggers a key check or enqueue attempt', async () => {
+    const mockPlatform = 'test-fake-platform-autoenqueue-existing' as any;
+    const postUrl = `https://fake.com/p/autoenqueue-existing-${Date.now()}`;
+
+    const fakeAdapter: ScraperAdapter = {
+      supportsNewerThanAndLimitFiltering: true,
+      async getNewestPosts(): Promise<ScrapedPost[]> {
+        return [
+          {
+            content: 'Re-scraped existing post, updated',
+            postUrl,
+            publishedAt: '2026-08-08T12:00:00Z',
+          },
+        ];
+      },
+      async lookupAccountProfile(): Promise<AccountProfileLookupResult | null> {
+        return null;
+      },
+      async getAccountClassificationProfile(): Promise<any> {
+        return null;
+      },
+      async getPostByUrl(): Promise<ScrapedPost | null> {
+        return null;
+      },
+    };
+    registerScraperAdapter(mockPlatform, fakeAdapter);
+
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'fake-acc-autoenqueue-existing-' + Date.now(),
+      platform: mockPlatform,
+      displayName: 'Fake Account Auto-Enqueue Existing',
+      username: 'fake_acc_autoenqueue_existing',
+    }).returning();
+    createdProfiles.push(profile.id);
+
+    // Pre-existing post with the same postUrl, with an available key subscriber -- if the
+    // already-existed branch incorrectly ran the key check/enqueue, this would get enqueued.
+    const [subscribedUser] = await db.insert(users).values({
+      email: `autoenqueue-existing-${Date.now()}-${Math.random()}@example.com`,
+      role: 'user',
+    }).returning();
+    createdUsers.push(subscribedUser.id);
+
+    const [sub] = await db.insert(subscriptions).values({ userId: subscribedUser.id, accountId: profile.id }).returning();
+    createdSubscriptions.push(sub.id);
+
+    const [key] = await db.insert(apiKeys).values({
+      userId: subscribedUser.id,
+      provider: 'gemini',
+      keyEncrypted: 'mock-encrypted-key',
+      keyLast4: '5678',
+      isValid: true,
+      invalidAttempts: 0,
+      usageCount: 0,
+      usageCycleResetAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+    }).returning();
+    createdApiKeys.push(key.id);
+
+    const [existingPost] = await db.insert(posts).values({
+      accountId: profile.id,
+      platform: mockPlatform,
+      content: 'Original content',
+      postUrl,
+      publishedAt: new Date('2026-08-08T12:00:00Z'),
+      isExtracted: false,
+    }).returning();
+    createdPosts.push(existingPost.id);
+
+    let sqsSendCount = 0;
+    setSendSqsMessage(async () => {
+      sqsSendCount++;
+    });
+    process.env.AI_PROCESSING_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/12345/AIProcessingQueue';
+
+    const job = {
+      profileId: profile.id,
+      platform: mockPlatform,
+      accountId: profile.accountId,
+      username: profile.username,
+    };
+
+    await processScrapeJob(job);
+
+    assert.strictEqual(sqsSendCount, 0, 'a re-scrape of an already-existing post must never trigger auto-enqueue');
+
+    const [reloaded] = await db.select().from(posts).where(eq(posts.id, existingPost.id));
+    assert.strictEqual(reloaded.queuedForExtractionAt, null);
+  });
+
+  await t.test('Story 3.6z: a thrown auto-enqueue error is caught and logged; the job still persists/attempts auto-enqueue for subsequent posts', async () => {
+    const mockPlatform = 'test-fake-platform-autoenqueue-partial-failure' as any;
+    const uniqueUrlBase = `https://fake.com/${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    const fakeAdapter: ScraperAdapter = {
+      supportsNewerThanAndLimitFiltering: true,
+      async getNewestPosts(): Promise<ScrapedPost[]> {
+        return [
+          {
+            content: 'First post, auto-enqueue will throw',
+            postUrl: `${uniqueUrlBase}/p/1`,
+            publishedAt: '2026-08-08T12:00:00Z',
+          },
+          {
+            content: 'Second post, auto-enqueue should still be attempted',
+            postUrl: `${uniqueUrlBase}/p/2`,
+            publishedAt: '2026-08-08T12:05:00Z',
+          },
+        ];
+      },
+      async lookupAccountProfile(): Promise<AccountProfileLookupResult | null> {
+        return null;
+      },
+      async getAccountClassificationProfile(): Promise<any> {
+        return null;
+      },
+      async getPostByUrl(): Promise<ScrapedPost | null> {
+        return null;
+      },
+    };
+    registerScraperAdapter(mockPlatform, fakeAdapter);
+
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'fake-acc-autoenqueue-partial-' + Date.now(),
+      platform: mockPlatform,
+      displayName: 'Fake Account Auto-Enqueue Partial Failure',
+      username: 'fake_acc_autoenqueue_partial',
+    }).returning();
+    createdProfiles.push(profile.id);
+
+    const [subscribedUser] = await db.insert(users).values({
+      email: `autoenqueue-partial-${Date.now()}-${Math.random()}@example.com`,
+      role: 'user',
+    }).returning();
+    createdUsers.push(subscribedUser.id);
+
+    const [sub] = await db.insert(subscriptions).values({ userId: subscribedUser.id, accountId: profile.id }).returning();
+    createdSubscriptions.push(sub.id);
+
+    const [key] = await db.insert(apiKeys).values({
+      userId: subscribedUser.id,
+      provider: 'gemini',
+      keyEncrypted: 'mock-encrypted-key',
+      keyLast4: '9012',
+      isValid: true,
+      invalidAttempts: 0,
+      usageCount: 0,
+      usageCycleResetAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+    }).returning();
+    createdApiKeys.push(key.id);
+
+    let sendCallCount = 0;
+    setSendSqsMessage(async () => {
+      sendCallCount++;
+      if (sendCallCount === 1) {
+        throw new Error('Simulated SQS send failure for first post');
+      }
+    });
+    process.env.AI_PROCESSING_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/12345/AIProcessingQueue';
+
+    const job = {
+      profileId: profile.id,
+      platform: mockPlatform,
+      accountId: profile.accountId,
+      username: profile.username,
+    };
+
+    await assert.doesNotReject(async () => {
+      await processScrapeJob(job);
+    });
+
+    const dbPosts = await db.select().from(posts).where(eq(posts.accountId, profile.id));
+    assert.strictEqual(dbPosts.length, 2, 'both posts should still be persisted despite the first auto-enqueue throwing');
+    createdPosts.push(...dbPosts.map((p) => p.id));
+
+    assert.strictEqual(sendCallCount, 2, 'auto-enqueue should still be attempted for the second post after the first one threw');
   });
 });

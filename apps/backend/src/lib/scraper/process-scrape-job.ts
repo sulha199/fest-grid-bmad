@@ -2,6 +2,8 @@ import { db } from '../../db/client.js';
 import { posts, socialMediaAccountProfiles } from '@festgrid/database';
 import { getScraperAdapter, ScrapedPost } from '@festgrid/domain';
 import { persistScrapedPost } from '../posts/persist-scraped-post.js';
+import { hasAvailableApiKeyForAccount } from '../posts/has-available-api-key-for-account.js';
+import { enqueuePostForProcessing } from '../posts/enqueue-post-for-processing.js';
 import { loadBackendEnv } from '../../env.js';
 import { eq, desc } from 'drizzle-orm';
 import { ScrapeTarget } from './get-scrape-targets.js';
@@ -20,7 +22,7 @@ const MAX_UNIQUE_NEW_POSTS = 10;
 async function persistScrapedPosts(job: ScrapeTarget, scrapedPosts: ScrapedPost[], scraperActorRunId?: string): Promise<number> {
   let persisted = 0;
   for (const post of scrapedPosts) {
-    await persistScrapedPost({
+    const { post: persistedPost, alreadyExisted } = await persistScrapedPost({
       accountId: job.profileId,
       platform: job.platform,
       content: post.content,
@@ -40,6 +42,30 @@ async function persistScrapedPosts(job: ScrapeTarget, scrapedPosts: ScrapedPost[
       discoverySourceVendor: 'apify',
     });
     persisted += 1;
+
+    // Story 3.6z (AC1) — automatically enqueue a genuinely new post for extraction, subject
+    // to a read-only pre-flight key-availability check. Applies uniformly to every
+    // persistScrapedPosts call site, including a brand-new subscription's initial historical
+    // backfill (explicit product decision, see this story's Dev Notes). One post's failure
+    // here must never stop the loop or fail the whole scrape job -- mirrors this file's own
+    // outer-catch isolation principle one level down, per post.
+    if (!alreadyExisted) {
+      try {
+        // Use the persisted row's resolved accountId (not job.profileId): persistScrapedPost
+        // can resolve a post's canonical publisher account differently from the scraping
+        // target for coauthor/repost cases (Stories 3.13/3.14), so the key-availability
+        // check must ask about the account the post actually ended up attributed to.
+        const hasKey = await hasAvailableApiKeyForAccount(persistedPost.accountId);
+        if (hasKey) {
+          await enqueuePostForProcessing(persistedPost.id);
+        }
+      } catch (autoEnqueueErr) {
+        console.error(
+          `[processScrapeJob] auto-enqueue failed for post ${persistedPost.id} (account ${persistedPost.accountId}):`,
+          autoEnqueueErr
+        );
+      }
+    }
   }
   return persisted;
 }
