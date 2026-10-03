@@ -1843,3 +1843,52 @@ items:
      ref: [planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md, backlog/BUG-026-recurring-weekday-schedule-date-span.md],
      touches: [cross:ai-extraction, app:backend],
      note: "Carved from BUG-026 (query-matching fix promoted to Story 3-6y). PRD Section 4.4's 'Weekday-Narrowed Recurring Schedules' already describes the expected extraction behavior."}
+
+  # ── 2026-10-04 (bmad-correct-course: blur faces before the AI call, CC-028) ──────────────
+  CC-028:
+    {type: proposal, status: triaged, created: 2026-10-04,
+     impact: compliance, effort: m,
+     title: "Blur faces before images are sent to Gemini, configurable by env var (owner opt-in exception)",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-04-blur-faces-before-ai.md],
+     touches: [app:backend, app:infrastructure, pkg:domain, pkg:database, cross:ai-extraction, cross:architecture, cross:prd],
+     note: "Adds Stories 3.20 and 3.21 (backlog keys in sprint-status.yaml, no story files yet) and FR115; AD-28 Rule 10, AD-29 Rule 7; PRD 3.16, 4.5, Security."}
+
+  FIND-066:
+    {type: finding, status: backlog, created: 2026-10-04, parent: CC-028,
+     impact: compliance, effort: s,
+     title: "Gemini key billing tier is never verified, so free-tier keys may let Google use submitted images",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-04-blur-faces-before-ai.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Google terms (2026-04-28): unpaid-tier content incl. images may be used for product improvement and human review; paid is not. CC-028 mitigates by blurring; verifying or requiring paid keys, or disclosing at key setup, stays open."}
+
+  FIND-067:
+    {type: finding, status: backlog, created: 2026-10-04, parent: CC-028,
+     impact: compliance, effort: s,
+     title: "Moderator-set opt-ins now also authorize sending an account's images unblurred to the AI vendor",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-04-blur-faces-before-ai.md],
+     touches: [cross:prd, app:backend],
+     note: "CC-028 decision: any opt-in source counts. Existing opt-ins agreed to image storage only and are moderator-set today, so the consent scope widened after the fact; consider re-confirming wording or requiring the ACCOUNT_OWNER source."}
+
+  IDEA-057:
+    {type: idea, status: backlog, created: 2026-10-04, parent: CC-028,
+     impact: internal, effort: l,
+     title: "Move face blur into its own queued stage ahead of the AI queue",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-04-blur-faces-before-ai.md],
+     touches: [app:backend, app:infrastructure, cross:architecture],
+     note: "Deferred by CC-028 (inline chosen): isolates retries and lets the AI Lambda shrink, but needs a new queue, Lambda, DLQ, temporary S3 copy and rework of 3.6z's claim logic; likely its own AD."}
+
+  IDEA-058:
+    {type: idea, status: backlog, created: 2026-10-04, parent: CC-028,
+     impact: internal, effort: s,
+     title: "Eyes-only face redaction for the AI input via the landmark model",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-04-blur-faces-before-ai.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Deferred by CC-028 pending Story 3.20's parity check; weaker de-identification; needs the 349 KB face_landmark_68 model bundled like the SSD weights (Story 0.46). Revisit only if extraction degradation is measured."}
+
+  IDEA-059:
+    {type: idea, status: backlog, created: 2026-10-04, parent: CC-028,
+     impact: compliance, effort: l,
+     title: "Evaluate Vertex AI (own data terms) as the extraction path instead of the Gemini Developer API",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-04-blur-faces-before-ai.md],
+     touches: [app:backend, cross:ai-extraction, cross:architecture, cross:prd],
+     note: "Raised during CC-028 analysis, not chosen now; would replace per-subscriber API keys with a project credential and change the BYOK model, so it needs a product decision first."}

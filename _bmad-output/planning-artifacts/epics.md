@@ -125,6 +125,7 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - **FR112 (added 2026-09-03):** When a scraped post has multiple images (a carousel/Sidecar post), the system persists all of its image URLs and the AI extraction pipeline includes up to a configurable number of the additional images — alongside the cover image, in a single extraction call — so schedule information appearing on a later slide rather than the cover image or caption is not missed.
 - **FR113 (added 2026-10-01):** A single post may advertise one event or several distinct ones. The AI extraction pipeline decides the grouping within the same single extraction call per post (quota and carousel handling unchanged) using ordered rules (strong signals, two weak signals, a bounded window, dependent stages), records the outcome as the post's grouping reason and event count, and handles roundup posts with guardrails (readable date and location required, a per-post event cap, no push notifications for roundup-sourced events).
 - **FR114 (added 2026-10-01):** The same real-world event advertised by several posts is one event. After extraction and before insert the system matches against existing events (organizer account, shared registration link, overlapping dates, similar name, venue): high confidence auto-links, mid confidence goes to moderator review; the primary post prefers an organizer-authored post over a roundup; enrichment happens in place without overwriting corrected fields or deleting calendar-referenced schedules; a moderator can merge duplicates with redirects; the slug follows the primary post; related events appear on the event detail and a post collection page; account feeds match any linked post's account.
+- **FR115 (added 2026-10-04):** Faces are blurred before an image is sent to the AI vendor, unless the post's owner opted in. When the backend setting `BLUR_FACES_BEFORE_AI` is on (the default), every image of a post, including each carousel slide, has detected faces blurred before it is sent to the AI vendor; a post whose owner (the publisher, never a co-author) has `isImageStorageOptedIn = true` sends its originals unchanged. If the blur cannot be completed for an image, that image is not sent (caption-only extraction). The owner's opt-in also grants this permission. See PRD Section 3.16 and Architecture Spine AD-28 Rule 10.
 
 ### NonFunctional Requirements
 - **NFR1:** Event discovery page should load in under 2 seconds on a standard 4G connection.
@@ -292,6 +293,7 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - FR112: Epic 3 - Social Media Event Integration (Story 3.6l, multi-image carousel extraction; added 2026-09-03 via bmad-correct-course)
 - FR113: Epic 3 - Social Media Event Integration (Stories 3.6r schema, 3.6s multi-event extraction, 3.6t multi-event ingestion, 3.6y weekday-narrowed schedules; added 2026-10-01 via bmad-correct-course, CC-024)
 - FR114: Epic 3 - Social Media Event Integration (Stories 3.6u source posts and related events, 3.6v matching and enrichment, 3.6w merge, 3.6x post collection page, 3.18 account matching; added 2026-10-01 via bmad-correct-course, CC-024)
+- FR115: Epic 3 - Social Media Event Integration (Stories 3.20 blur before the AI call behind `BLUR_FACES_BEFORE_AI`, 3.21 thumbnail reuse and audit; added 2026-10-04 via bmad-correct-course, CC-028)
 - FR104: Epic 3 - Social Media Event Integration (Story 3.4n, account-type scraping filter; sprint-change-proposal-2026-09-02.md, added 2026-09-02)
 - FR105: Epic 3 - Social Media Event Integration (Story 3.6g, image-storage opt-in flag; sprint-change-proposal-2026-09-02.md, added 2026-09-02)
 - FR106: Epic 3 - Social Media Event Integration (Story 3.6h, gates Stories 3.6e/3.6f on the FR105 flag — closes a live consent gap in `master`; sprint-change-proposal-2026-09-02.md, added 2026-09-02)
@@ -2359,7 +2361,7 @@ Users can personalize their experience by saving favorite events and locations.
 ### Epic 3: Social Media Event Integration
 
 Users can subscribe to social media accounts to import events into their feed.
-**FRs covered:** FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25, FR26, FR27, FR28, FR29, FR30, FR31, FR32, FR33, FR34, FR35, FR36, FR37, FR66, FR112, FR113, FR114
+**FRs covered:** FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25, FR26, FR27, FR28, FR29, FR30, FR31, FR32, FR33, FR34, FR35, FR36, FR37, FR66, FR112, FR113, FR114, FR115
 
 ### Story 3.1a: Create social media account profiles table
 
@@ -3267,6 +3269,8 @@ without paying for a separate detection call on every extracted image.
 *   **Explicitly out of scope (3.6o's own, narrower outcome):** this story adds no relevance/expiry comparison and writes no `'event_relevance_gate'` outcome — see Story 3.6o below, which inserts one additional nested condition into this same call site once it ships, reusing the helper this story creates.
 *   **Documented residual gap (not built here or in 3.6o):** the timeout-guard skip path (AC5) and an unexpected top-level failure inside `detectAndBlurFaces` itself (AC6) have no backfill call at all — `faceDetectionSkippedReason`'s enum (3.6p) has no value for either case, so both leave the row's two columns `null`/`null`, matching AD-29 Rule 4's own precedent of recording a known blind spot rather than solving every edge case inline. Revisit only if either path proves non-rare in practice.
 
+**Amendment (2026-10-04, `bmad-correct-course`, `sprint-change-proposal-2026-10-04-blur-faces-before-ai.md`, CC-028):** This stage is the *post-extraction* blur. When `BLUR_FACES_BEFORE_AI` is on (the default) and the post's owner has not opted in, detection and blur run earlier, before the AI call (Story 3.20), and Story 3.21 makes this stage reuse that result instead of detecting again. With the setting off, or for an opted-in owner, this story's behavior is unchanged.
+
 ### Story 3.6n2: Expose the face-blurred thumbnail through the read path and widen the prominent-card trigger
 
 **As a** subscriber,
@@ -3308,6 +3312,8 @@ without paying for a separate detection call on every extracted image.
 **Clarification (2026-10-03, `bmad-epic-readiness-check`, `batch-cc-023-face-blur-audit-readiness.md`):** "All events" means the events actually kept after `process-ai-job.ts`'s `maxExtractedEventsPerPost` truncation, since only those are ingested. `process-ai-job.ts` does not load `posts.imageUrlExpiresAt` today, so this story adds that one-row read.
 
 **Amendment (2026-10-03, `bmad-create-story`, AD-29 backfill-ownership gap closed, confirmed with the user via `AskUserQuestion`):** This story also owns the `extraction_audit_logs` backfill outcome its own gate produces — `faceDetectionSkippedReason: 'event_relevance_gate'` — by reusing the `backfillFaceDetectionAuditResult` helper Story 3.6n creates (same function signature, same row, targeted by the `auditLogId` Story 3.6p's `writeExtractionAuditLog` now returns). This story does **not** own the `'no_face_reported'` outcome or the real-count outcome when detection actually runs — those are Story 3.6n's own, produced inside its own call site, shipped whether or not this story exists yet (see Story 3.6n's own Correction above). Concretely: this story inserts one additional nested condition into Story 3.6n's existing `if (payload.hasFaceImage === true) { ... }` block, immediately after that check and before 3.6n's timeout-guard check — `if (!isStillRelevant) { backfillFaceDetectionAuditResult(auditLogId, { actualFaceDetectionCount: null, faceDetectionSkippedReason: 'event_relevance_gate' }); } else { /* 3.6n's existing timeout-guard + detection logic, unchanged */ }`.
+
+**Amendment (2026-10-04, `bmad-correct-course`, CC-028):** With `BLUR_FACES_BEFORE_AI` on, detection runs before extraction, when no dates exist, so this gate can no longer skip detection; it still skips the thumbnail's resize, upload and storage (Story 3.21).
 
 ### Story 3.6p: Create extraction_audit_logs table and write path for Gemini self-reported extraction signals
 
@@ -3943,6 +3949,44 @@ Full resolved shape — columns: `id` (uuid, PK, `defaultRandom`), `postId` (uui
 **Note:** Added 2026-09-18 via `bmad-correct-course` from FIND-022's spec, CAP-8.
 
 **Depends on:** Story 0.i6g.
+
+### Story 3.20: Blur faces before images are sent to the AI, behind `BLUR_FACES_BEFORE_AI`
+
+**As a** bystander who appears in a post's photo,
+**I want** my face blurred before the image leaves FestDaily for the AI vendor,
+**So that** an identifiable face is not exposed to a vendor that may use free-tier content for product improvement (the extraction keys include subscribers' own keys whose billing tier is not verified).
+
+**Acceptance Criteria:**
+
+*   **Given** a new backend setting `BLUR_FACES_BEFORE_AI` (boolean, **on by default**; only an explicit `false` or `0` turns it off; parsed in `apps/backend/src/env.ts` beside `faceBlurMinRemainingTimeMs`; set explicitly per stage in `aiProcessorLambda`'s environment in `festgrid-backend-stack.ts`, with an infra test asserting it), **when** the setting is on and the post's owner has not opted in, **then** every image sent to Gemini — the cover and each carousel slide, up to `MAX_CAROUSEL_IMAGES` — is passed through Story 3.6n's WASM detect-and-blur at original resolution first, **one image at a time**, and the *blurred* bytes replace the original bytes in the request's inline image parts.
+*   **And** the **owner opt-in exception** applies: the owner is the account with role `PUBLISHER` on the post (`posts.accountId`, AD-31), never a co-author; if that account has `isImageStorageOptedIn = true` (**any** `imageStorageOptInSource`, moderator-set or owner-set) the original image is sent unchanged and no pre-AI blur runs. A post whose publisher is unverified (`PUBLISHER_UNKNOWN`) counts as not opted in. How the role is read (the post's `post_account_associations` row) is decided in the story.
+*   **And** the stage **fails closed**: if detection or blur fails, times out, or the remaining-time budget (`FACE_BLUR_MIN_REMAINING_TIME_MS`) is too low before an image, that image is **not sent** — a failed carousel slide is dropped, a failed cover makes the request caption-text-only (the existing text-only path in `build-gemini-request.ts`) — and the original is never the fallback. Each failure is logged with the post id and image index.
+*   **And**, with the setting off or an opted-in owner, the Gemini request is **byte-for-byte what it is today** (regression test), and `imageBytes` returned for Story 3.6e's re-host stays the original.
+*   **And** the request builder also returns the blurred cover bytes and the cover's face count so Story 3.21 can reuse them (no second detection).
+*   **And** peak memory and total time are re-measured with a five-slide post against Story 0.46's 2 GB Lambda and the 300 s limit, and recorded in Dev Notes.
+*   **And** an **extraction parity check** runs six real posts through extraction twice, once with the original image and once blurred, and records any difference in event count, grouping, names and dates: the four CC-024 reference posts plus `https://www.instagram.com/suzurunberiman/p/Dd6SHRZzxI8/` and `https://www.instagram.com/merapiperformance/p/DdVwNyFATse/`. The two new posts have no recorded expected result, so their baseline is the extraction of the **original** image, which the user reviews and confirms as correct. The signed image links expire, so each run **re-scrapes the posts fresh** (`poc-ingestion-preview.ts --url <post-url> --force`). **No post image is committed** (they show real people's faces): only extraction outputs and the compared differences are recorded, in a new `cc-028-blur-parity-posts/` folder beside `cc-024-reference-posts/`, following the opt-in live-test pattern of `build-gemini-request.live-cc024-regression.test.ts`. A **material difference stops the dev** and is raised to the user (accept it, or revisit eyes-only redaction, IDEA-058); it is never a silent pass.
+*   **And** unit and integration tests cover: setting parsing (default, `true`, `false`, `0`), per-slide blur and the carousel cap, the opted-in-owner skip, a co-author's opt-in being ignored, an unverified publisher being blurred, fail-closed for a slide, for the cover and for the time budget, and that detection never runs on two images at once.
+
+**Note:** Added 2026-10-04 via `bmad-correct-course` (CC-028, `sprint-change-proposal-2026-10-04-blur-faces-before-ai.md`), Architecture Spine AD-28 Rule 10. Gemini's `hasFaceImage` now describes an already-blurred image in this mode; it is still requested and logged but is no longer a gate (AD-28 Rule 1 amendment). Whole-face blur was chosen over eyes-only (IDEA-058) for privacy strength; the parity check measures the extraction cost before that is revisited.
+
+**Depends on:** Story 3.6n, Story 3.6m, Story 3.6l, Story 3.6s, Story 3.15, Story 0.46.
+
+### Story 3.21: Reuse the pre-AI blur for the thumbnail and record what the AI saw
+
+**As a** platform operator,
+**I want** the face detection that runs before the AI call to also produce the stored thumbnail, and the audit log to record which image the AI saw,
+**So that** detection runs once per image and extraction-quality evaluation knows whether the AI saw a blurred or an original image.
+
+**Acceptance Criteria:**
+
+*   **Given** `BLUR_FACES_BEFORE_AI` is on and Story 3.20 produced a blurred cover, **when** Story 3.6n's thumbnail stage runs, **then** it resizes that already-blurred cover into the `thumb-{hash8}.jpg` upload and writes `posts.durableThumbnailUrl`, **without** running detection again. With the setting off, or for an opted-in owner, the stage behaves exactly as Story 3.6n built it (detection after extraction, gated by `hasFaceImage`).
+*   **And** with the setting on, Story 3.6o's relevance gate skips only the resize, upload and storage (detection already ran); `faceDetectionSkippedReason` is not used for that case because the face count is known.
+*   **And** a migration adds `extraction_audit_logs.ai_image_input` (`'blurred' | 'original_owner_opted_in' | 'original_mode_off' | 'text_only_fail_closed'`; existing rows set to `'original_mode_off'`, which is what the AI saw before this change) and `writeExtractionAuditLog` records it for every attempt; with the setting on, `actualFaceDetectionCount` is written at insert instead of being backfilled. No resolver ever reads this table (AD-29 Rule 5).
+*   **And** tests cover: thumbnail reuse (one detection for AI input and thumbnail), the unchanged mode-off path, the relevance gate with the setting on, and each `ai_image_input` value.
+
+**Note:** Added 2026-10-04 via `bmad-correct-course` (CC-028), Architecture Spine AD-28 Rule 10 and AD-29 Rule 7. It reworks how the built Stories 3.6n and 3.6o cooperate when the setting is on.
+
+**Depends on:** Story 3.20, Story 3.6n, Story 3.6o, Story 3.6p.
 
 ### Epic 4: Data Quality and Moderation
 
