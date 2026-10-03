@@ -279,6 +279,11 @@ export class FestgridBackendStack extends cdk.Stack {
         SCRAPE_INLINE_FALLBACK_ENABLED: process.env.SCRAPE_INLINE_FALLBACK_ENABLED,
         AI_PROCESSING_QUEUE_URL: aiProcessingQueue.queueUrl,
         AI_PROCESSING_INLINE_FALLBACK_ENABLED: process.env.AI_PROCESSING_INLINE_FALLBACK_ENABLED,
+        // Story 3.6z — enqueuePostForProcessing now reads this on every call (both apiLambda's
+        // existing selectPostsForExtraction caller and scraperLambda's new auto-enqueue
+        // caller); without it here, apiLambda would silently fall back to the hardcoded
+        // default with no way to tune it in a deployed environment.
+        POST_EXTRACTION_CLAIM_TTL_MINUTES: process.env.POST_EXTRACTION_CLAIM_TTL_MINUTES,
         APIFY_API_TOKEN: apifyApiTokenSecret.secretValue.unsafeUnwrap(),
         SCRAPE_RESULTS_LIMIT: process.env.SCRAPE_RESULTS_LIMIT,
         SCRAPE_INITIAL_LOOKBACK_DAYS: process.env.SCRAPE_INITIAL_LOOKBACK_DAYS,
@@ -329,6 +334,14 @@ export class FestgridBackendStack extends cdk.Stack {
         // cron cycle still catches up on everything posted since the last successful run,
         // instead of silently truncating to the newest N and losing older posts in between.
         SCRAPE_RESULTS_LIMIT: process.env.SCRAPE_RESULTS_LIMIT || '30',
+        // Story 3.6z — scraperLambda auto-enqueues newly scraped posts onto AIProcessingQueue
+        // (subject to a key-availability pre-check), mirroring apiLambda's existing
+        // selectPostsForExtraction caller. See the matching aiProcessingQueue.grantSendMessages
+        // grant below -- a queue-URL env var with no matching grant fails every call with SQS
+        // AccessDenied (confirmed only via CloudWatch, 2026-08-30 incident on apiLambda).
+        AI_PROCESSING_QUEUE_URL: aiProcessingQueue.queueUrl,
+        AI_PROCESSING_INLINE_FALLBACK_ENABLED: process.env.AI_PROCESSING_INLINE_FALLBACK_ENABLED || 'false',
+        POST_EXTRACTION_CLAIM_TTL_MINUTES: process.env.POST_EXTRACTION_CLAIM_TTL_MINUTES || '30',
         SECRETS_SYNCED_AT: secretsSyncedAt,
       },
     });
@@ -494,6 +507,11 @@ export class FestgridBackendStack extends cdk.Stack {
     // selectPostsForExtraction call failed with SQS AccessDenied (confirmed via CloudWatch).
     // Do not remove without confirming a replacement grant exists.
     aiProcessingQueue.grantSendMessages(apiLambda);
+
+    // Scraper needs to enqueue onto AIProcessingQueue too (Story 3.6z, automatic extraction
+    // on scrape) -- same prod-incident lesson as above: a queue-URL env var with no matching
+    // grant fails every call with SQS AccessDenied, confirmed only via CloudWatch.
+    aiProcessingQueue.grantSendMessages(scraperLambda);
 
     // AI Processor needs to enqueue onto DataIngestionQueue
     dataIngestionQueue.grantSendMessages(aiProcessorLambda);
