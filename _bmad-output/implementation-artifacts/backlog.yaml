@@ -1310,14 +1310,25 @@ items:
      note: "Adds epics.md Stories 3.13-3.19 (CAP-1..6/8) + 0.i6g (CAP-7); amends 0.i6c/0.i6z. Story 3.15's DDL resolved by AD-25 (the above 'blocked' line is stale). Promoted 2026-10-02 on Story 3.13, then 3.14, then 3.15; remaining fan-out carved to CC-025."}
 
   CC-025:
-    {type: proposal, status: triaged, created: 2026-10-02, parent: CC-022,
+    {type: proposal, status: promoted, created: 2026-10-02, parent: CC-022,
      title: "Remaining FIND-022 coauthor/publisher stories not yet created (3.16-3.19, 0.i6g)",
+     ref: [backlog/FIND-022-coauthor-content-issues.md,
+           specs/spec-post-coauthor-attribution/SPEC.md,
+           planning-artifacts/sprint-change-proposal-2026-09-18.md],
+     stories: [3-16-immediate-coauthor-publisher-subscribability],
+     touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions, pkg:ui],
+     impact: user-visible, effort: l,
+     note: "Partial-promotion carve-out from CC-022 (section 13): tracks CC-022's not-yet-created stories (3.16-3.19, 0.i6g) -- 3.14 and 3.15 created 2026-10-02, moved to CC-022. Promoted 2026-10-03 on Story 3.16; remaining fan-out (3.17-3.19, 0.i6g) carved to CC-026."}
+
+  CC-026:
+    {type: proposal, status: triaged, created: 2026-10-03, parent: CC-025,
+     title: "Remaining FIND-022 coauthor/publisher stories not yet created (3.17-3.19, 0.i6g)",
      ref: [backlog/FIND-022-coauthor-content-issues.md,
            specs/spec-post-coauthor-attribution/SPEC.md,
            planning-artifacts/sprint-change-proposal-2026-09-18.md],
      touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions, pkg:ui],
      impact: user-visible, effort: l,
-     note: "Partial-promotion carve-out from CC-022 (section 13): tracks CC-022's not-yet-created stories (3.16-3.19, 0.i6g) -- 3.14 and 3.15 created 2026-10-02, moved to CC-022. sprint-status.yaml carries backlog placeholders for all."}
+     note: "Carved from CC-025 (section 13) on Story 3.16's promotion: 3.16 covered only one of CC-025's five tracked stories. Tracks the still-not-created 3.17/3.18/3.19/0.i6g so they stay visible."}
 
   FIND-039:
     {type: finding, status: backlog, created: 2026-09-18, parent: CC-022,
