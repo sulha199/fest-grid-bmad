@@ -4,7 +4,12 @@ import { buildGeminiExtractionRequest } from './build-gemini-request.js';
 import { callGemini as defaultCallGemini } from '../ai-gateway/adapter.js';
 import { compileValidator } from '../../validation/validate.js';
 import { extractedEventSchema } from '../../validation/extracted-event.schema.js';
-import { type GeminiExtractionPayload, transformGeminiResponseToEventInfo, type ScrapedPost } from '@festgrid/domain';
+import {
+  type GeminiExtractionPayload,
+  transformGeminiResponseToEventInfo,
+  type ScrapedPost,
+  computeLatestScheduleEnd,
+} from '@festgrid/domain';
 import { resolveAccountAndLocations } from './resolve-account-and-locations.js';
 import { resolveScheduleTimezones } from './resolve-schedule-timezones.js';
 import { markPostExtracted as defaultMarkPostExtracted } from '../posts/mark-post-extracted.js';
@@ -304,45 +309,69 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   // per-event fan-out. Best-effort: any failure (including the timeout guard below) is caught,
   // logged, and leaves durableThumbnailUrl null without affecting extraction/ingestion.
   // AD-29 backfill ownership (AC9): this story owns the 'no_face_reported' and real-count
-  // outcomes below; Story 3.6o (once it ships) inserts one more nested condition right after
-  // the hasFaceImage check, before the timeout-guard check, for its own 'event_relevance_gate'
-  // outcome -- this story does not wait on or depend on it.
+  // outcomes below; Story 3.6o inserts one more nested condition right after the hasFaceImage
+  // check, before the timeout-guard check, for its own 'event_relevance_gate' outcome -- this
+  // story does not wait on or depend on it.
   if (imageBytes && imageContentType && payload.hasFaceImage === true) {
-    const remainingMs = deps?.getRemainingTimeInMillis ? deps.getRemainingTimeInMillis() : Infinity;
-    if (remainingMs < env.faceBlurMinRemainingTimeMs) {
-      console.warn(
-        `[processAiJob] Skipping face-blur thumbnail for post ${message.postId}: ` +
-          `only ${remainingMs}ms remaining (floor ${env.faceBlurMinRemainingTimeMs}ms).`
-      );
-      // No extraction_audit_logs backfill here -- documented residual gap, AC9.
+    // 7.5b (Story 3.6n, AD-28), continued -- Story 3.6o's relevance gate. Distinct from
+    // Event.isExpiredForCurrentUser/computePastEventThreshold (a runtime, grace-period
+    // visibility check re-evaluated per request for an already-viewing user, packages/domain) --
+    // this is a one-time, build-time relevance check computed once here, with no grace period.
+    const [postExpiryRow] = await db
+      .select({ imageUrlExpiresAt: posts.imageUrlExpiresAt })
+      .from(posts)
+      .where(eq(posts.id, message.postId))
+      .limit(1);
+    const imageUrlExpiresAt = postExpiryRow?.imageUrlExpiresAt ?? null;
+    const latestScheduleEnd = computeLatestScheduleEnd(events);
+    // AD-12 Rule 3's "null is already-expired" convention: a null imageUrlExpiresAt, or an
+    // unparseable/absent schedule end, can never prove the event is safe to skip -- fail open.
+    const isStillRelevant =
+      imageUrlExpiresAt === null || latestScheduleEnd === null || latestScheduleEnd > imageUrlExpiresAt;
+
+    if (!isStillRelevant) {
+      await backfillFaceDetectionAuditResultSeam(auditLogId, {
+        actualFaceDetectionCount: null,
+        faceDetectionSkippedReason: 'event_relevance_gate',
+      });
     } else {
-      // Detection (Task 2) and the resize/upload step (Task 3) are kept as two separate steps
-      // here, deliberately, so AC9's exact contract holds: the real detected face count is
-      // backfilled as soon as detection itself succeeds, even if the LATER resize/upload step
-      // then fails -- only a failure inside detection itself leaves both audit columns null
-      // (the documented, accepted gap).
-      let detectionResult: { buffer: Buffer; faceCount: number } | null = null;
-      try {
-        detectionResult = await detectAndBlurFacesSeam(imageBytes, imageContentType);
-      } catch (detectError) {
-        console.error(`Face detection failed for post ${message.postId}:`, detectError);
-        // No extraction_audit_logs backfill here -- documented residual gap, AC9 (an unexpected
-        // failure inside detection itself leaves both columns null/null).
-      }
-      if (detectionResult) {
-        await backfillFaceDetectionAuditResultSeam(auditLogId, {
-          actualFaceDetectionCount: detectionResult.faceCount,
-          faceDetectionSkippedReason: null,
-        });
-        // uploadFaceBlurThumbnailSeam is itself best-effort in production (its own try/catch,
-        // Task 3, never throws) -- this outer try/catch is defense-in-depth matching AC6's
-        // explicit wording ("if ... upload fails at any step ... the failure is caught"), so a
-        // failure here (production or a test double) never propagates out of processAiJob and
-        // never undoes the audit backfill already written above.
+      // --- Story 3.6n's existing timeout-guard + detection/upload logic, UNCHANGED below ---
+      const remainingMs = deps?.getRemainingTimeInMillis ? deps.getRemainingTimeInMillis() : Infinity;
+      if (remainingMs < env.faceBlurMinRemainingTimeMs) {
+        console.warn(
+          `[processAiJob] Skipping face-blur thumbnail for post ${message.postId}: ` +
+            `only ${remainingMs}ms remaining (floor ${env.faceBlurMinRemainingTimeMs}ms).`
+        );
+        // No extraction_audit_logs backfill here -- documented residual gap, AC9.
+      } else {
+        // Detection (Task 2) and the resize/upload step (Task 3) are kept as two separate steps
+        // here, deliberately, so AC9's exact contract holds: the real detected face count is
+        // backfilled as soon as detection itself succeeds, even if the LATER resize/upload step
+        // then fails -- only a failure inside detection itself leaves both audit columns null
+        // (the documented, accepted gap).
+        let detectionResult: { buffer: Buffer; faceCount: number } | null = null;
         try {
-          await uploadFaceBlurThumbnailSeam(message.postId, detectionResult.buffer, env);
-        } catch (uploadError) {
-          console.error(`Face-blur thumbnail upload failed for post ${message.postId}:`, uploadError);
+          detectionResult = await detectAndBlurFacesSeam(imageBytes, imageContentType);
+        } catch (detectError) {
+          console.error(`Face detection failed for post ${message.postId}:`, detectError);
+          // No extraction_audit_logs backfill here -- documented residual gap, AC9 (an unexpected
+          // failure inside detection itself leaves both columns null/null).
+        }
+        if (detectionResult) {
+          await backfillFaceDetectionAuditResultSeam(auditLogId, {
+            actualFaceDetectionCount: detectionResult.faceCount,
+            faceDetectionSkippedReason: null,
+          });
+          // uploadFaceBlurThumbnailSeam is itself best-effort in production (its own try/catch,
+          // Task 3, never throws) -- this outer try/catch is defense-in-depth matching AC6's
+          // explicit wording ("if ... upload fails at any step ... the failure is caught"), so a
+          // failure here (production or a test double) never propagates out of processAiJob and
+          // never undoes the audit backfill already written above.
+          try {
+            await uploadFaceBlurThumbnailSeam(message.postId, detectionResult.buffer, env);
+          } catch (uploadError) {
+            console.error(`Face-blur thumbnail upload failed for post ${message.postId}:`, uploadError);
+          }
         }
       }
     }
