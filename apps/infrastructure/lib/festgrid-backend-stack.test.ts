@@ -1,5 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import * as cdk from 'aws-cdk-lib';
 import { Template, Match } from 'aws-cdk-lib/assertions';
 import { FestgridBackendStack } from './festgrid-backend-stack.js';
@@ -514,5 +517,117 @@ test('FestgridBackendStack: prod stack replaces the ESM with scheduled poll-and-
     process.env.FIREBASE_CLIENT_EMAIL = originalEnv.FIREBASE_CLIENT_EMAIL;
     process.env.SES_FROM_EMAIL_ADDRESS = originalEnv.SES_FROM_EMAIL_ADDRESS;
     process.env.WEB_APP_BASE_URL = originalEnv.WEB_APP_BASE_URL;
+  }
+});
+
+// Story 0.46 (AC1): aiProcessorLambda gets an explicit, measurement-backed MemorySize and
+// Architectures (see this story's Dev Notes for the measured peak-RSS numbers behind 2048 MB
+// and the Docker-bundling-on-Windows finding behind choosing X86_64). Uses findLambdaByPrefix
+// (not a bare hasResourceProperties match) since aiProcessorLambda shares its 300s Timeout with
+// other batch Lambdas (Scraper/Ingestor) -- the same false-positive class flagged in the Story
+// 0.40 code-review comment above (test "prod stack replaces the ESM...").
+test('FestgridBackendStack: aiProcessorLambda has the measurement-backed MemorySize/Architecture (Story 0.46 AC1)', () => {
+  const app = new cdk.App();
+  const stack = new FestgridBackendStack(app, 'TestStack046Memory', {
+    stageName: 'dev',
+  });
+
+  const template = Template.fromStack(stack);
+  const lambdaFunctions = template.findResources('AWS::Lambda::Function');
+  const entry = Object.entries(lambdaFunctions).find(([logicalId]) => logicalId.startsWith('AIProcessorLambda'));
+  assert.ok(entry, 'expected an "AIProcessorLambda*" function in the synthesized template');
+  const props = entry[1].Properties as Record<string, unknown>;
+
+  assert.strictEqual(props.MemorySize, 2048, 'aiProcessorLambda MemorySize should be the measurement-backed 2048 MB');
+  assert.deepStrictEqual(props.Architectures, ['x86_64'], 'aiProcessorLambda Architectures should be x86_64');
+  assert.strictEqual(props.Timeout, 300, 'aiProcessorLambda Timeout should remain unchanged at 300s');
+
+  // Regression guard: no OTHER Lambda in the stack gained a MemorySize/Architectures override
+  // from this change (AC1: "No other Lambda's configuration changes").
+  for (const [logicalId, resource] of Object.entries(lambdaFunctions)) {
+    if (logicalId.startsWith('AIProcessorLambda')) continue;
+    // CDK's own internal Custom::S3AutoDeleteObjects singleton handler (an automatic side
+    // effect of postMediaBucket's autoDeleteObjects: true in non-prod stages, Story 0.33) --
+    // not an application Lambda this file defines, and CDK bakes its own MemorySize: 128
+    // default into it regardless of anything in this stack. Excluded for the same reason the
+    // "provisions correct resources" test's Lambda-count comment already excludes it.
+    if (logicalId.startsWith('CustomS3AutoDeleteObjectsCustomResourceProviderHandler')) continue;
+    const otherProps = resource.Properties as Record<string, unknown>;
+    assert.strictEqual(
+      otherProps.MemorySize,
+      undefined,
+      `expected "${logicalId}" to have no explicit MemorySize override (only aiProcessorLambda does, per AC1)`
+    );
+    assert.strictEqual(
+      otherProps.Architectures,
+      undefined,
+      `expected "${logicalId}" to have no explicit Architectures override (only aiProcessorLambda does, per AC1)`
+    );
+  }
+});
+
+// Story 0.46 (AC2/AC3): the synthesized asset for aiProcessorLambda actually contains sharp's
+// native binary package, face-api's SSD MobileNetV1 model weights, and tfjs-backend-wasm's
+// .wasm files -- not just referenced in package.json, but physically present on disk in the
+// bundled output, since `bundling.nodeModules` is CDK's mechanism for shipping exactly these
+// non-JS assets (see the `bundling` comment on aiProcessorLambda in festgrid-backend-stack.ts).
+// Uses a controlled `outdir` (not the default random temp dir) so this test can walk the
+// synthesized asset directories on disk after `app.synth()`.
+test('FestgridBackendStack: aiProcessorLambda bundle contains sharp native binary, face-api model weights, and tfjs-backend-wasm .wasm files (Story 0.46 AC2/AC3)', () => {
+  const outdir = fs.mkdtempSync(path.join(os.tmpdir(), 'cdk-story-0-46-asset-'));
+  try {
+    const app = new cdk.App({ outdir });
+    const stack = new FestgridBackendStack(app, 'TestStack046Assets', {
+      stageName: 'dev',
+    });
+    // Force bundling to actually run and stage files under outdir.
+    app.synth();
+
+    const assetEntries = fs.readdirSync(outdir).filter((name) => name.startsWith('asset.'));
+    assert.ok(assetEntries.length > 0, 'expected at least one staged asset directory under the synth outdir');
+
+    const aiProcessorAssetDir = assetEntries
+      .map((name) => path.join(outdir, name))
+      .find((dir) => fs.existsSync(path.join(dir, 'node_modules', 'sharp')));
+    assert.ok(
+      aiProcessorAssetDir,
+      'expected a staged asset directory containing node_modules/sharp (the aiProcessorLambda bundle)'
+    );
+
+    // AC2: sharp's platform/arch-specific native binary package is present (name depends on
+    // the host that ran this test -- e.g. @img/sharp-win32-x64 on Windows, @img/sharp-linux-x64
+    // on CI/Linux; this assertion is intentionally host-agnostic, see Dev Notes for the
+    // documented Windows-dev-machine-vs-CI architecture caveat).
+    const imgScopeDir = path.join(aiProcessorAssetDir, 'node_modules', '@img');
+    assert.ok(fs.existsSync(imgScopeDir), 'expected node_modules/@img (sharp native binary scope) in the bundle');
+    const sharpNativePackages = fs.readdirSync(imgScopeDir).filter((name) => name.startsWith('sharp-'));
+    assert.ok(
+      sharpNativePackages.length > 0,
+      'expected at least one @img/sharp-<platform>-<arch> native binary package in the bundle'
+    );
+
+    // AC3: SSD MobileNetV1 weights + manifest present at the documented runtime path
+    // (node_modules/@vladmandic/face-api/model, resolvable at runtime via
+    // require.resolve('@vladmandic/face-api/package.json') the same way this story's
+    // measurement script does).
+    const modelDir = path.join(aiProcessorAssetDir, 'node_modules', '@vladmandic', 'face-api', 'model');
+    assert.ok(
+      fs.existsSync(path.join(modelDir, 'ssd_mobilenetv1_model.bin')),
+      'expected ssd_mobilenetv1_model.bin in the bundled asset'
+    );
+    assert.ok(
+      fs.existsSync(path.join(modelDir, 'ssd_mobilenetv1_model-weights_manifest.json')),
+      'expected the SSD MobileNetV1 weights manifest in the bundled asset'
+    );
+
+    // AC4 (bundling half): tfjs-backend-wasm's .wasm binaries present alongside its Node entry,
+    // at the path its own dist/tf-backend-wasm.node.js resolves via __dirname-relative
+    // fs.readFileSync (verified by inspection -- no setWasmPaths call needed).
+    const wasmDistDir = path.join(aiProcessorAssetDir, 'node_modules', '@tensorflow', 'tfjs-backend-wasm', 'dist');
+    assert.ok(fs.existsSync(wasmDistDir), 'expected @tensorflow/tfjs-backend-wasm/dist in the bundled asset');
+    const wasmFiles = fs.readdirSync(wasmDistDir).filter((name) => name.endsWith('.wasm'));
+    assert.ok(wasmFiles.length > 0, 'expected at least one .wasm file in @tensorflow/tfjs-backend-wasm/dist');
+  } finally {
+    fs.rmSync(outdir, { recursive: true, force: true });
   }
 });
