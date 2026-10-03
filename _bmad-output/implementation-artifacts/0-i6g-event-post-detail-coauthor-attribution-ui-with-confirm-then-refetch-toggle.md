@@ -1,0 +1,250 @@
+---
+baseline_commit: eb5785ebae089e9e4edab0f213f12043235a1ba6
+---
+
+# Story 0.i6g: Event/post-detail coauthor attribution UI with confirm-then-refetch toggle
+
+## Story Details
+
+- Epic: 0.i6 (SubscribedAccountCard improvement epic)
+- Story ID: 0.i6g
+- Status: ready-for-dev
+
+<!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
+
+## Story
+
+As a user,
+I want event/post detail to show each coauthor of the post below the existing original-post attribution link, each rendered as a `SubscribedAccountCard` with a working subscribe/unsubscribe toggle for verified profiles,
+so that I can see and act on a post's actual coauthors, not just the one account I happened to already be subscribed to (FIND-022, CAP-7).
+
+## Acceptance Criteria
+
+1. **AC1 — New `Event.coauthors` GraphQL field (backend layer this story adds).** Given `apps/backend/src/schema/events.graphql`'s `Event` type, when this story ships, then it gains `coauthors: [SocialMediaAccountProfile!]!`, resolved in `apps/backend/src/schema/resolvers.ts`'s `Event` resolver map by joining `post_account_associations` (Story 3.15, built) `WHERE post_id = parent.postId AND role = 'COAUTHOR'` to `social_media_account_profiles`, ordered by `post_account_associations.created_at` ascending (stable, matches ingestion order). Given an event with no linked `postId`, the field resolves to `[]` (never `null`, never an error) — mirrors the existing `sourceSocialMediaAccountProfile` resolver's `if (!parent.postId) return null` guard, adapted to an empty-array return for a list field. This resolver follows the exact same architecture-spine-sanctioned pattern as the adjacent, already-shipped `Event.sourceSocialMediaAccountProfile` field resolver (same file, reuses `buildOptimizedDrizzleSelect`) — confirmed by a fresh Gate 1 pass (no gap) that this is normal full-stack scope through the existing GraphQL/backend layer, not a layer this story bypasses.
+2. **AC2 — Field confined to the event-detail query document (AD-17 traffic-safety parity).** `apps/web/src/features/events/queries.graphql`'s `getEventBySlug` document is the only query document in the repo that selects `coauthors`. No `Query.events`-based document (Discovery/Feed/Favorites/My-Calendar) selects it — this keeps the new per-row field resolver confined to the single-event-detail-page context, exactly matching `sourceSocialMediaAccountProfile`'s existing confinement, so it never becomes an `AD-17` list-context N+1.
+3. **AC3 — Coauthors render as `SubscribedAccountCard` rows below the original-post attribution link.** Given an event/post detail view (`packages/ui/src/features/events/EventDetailView.tsx`) for a post with 1+ coauthors, when the page renders, then each coauthor renders inside a new `<ul aria-label={labels.coauthorsListAriaLabel}>` section placed immediately below the existing `{/* Attributions */}` section (the original-post link / posted-at timestamp block, lines ~583-614) — not inside it, not replacing it — as a `<li>` wrapping a `SubscribedAccountCard` with `variant="detail"` (Story 0.i6c's context/variant prop) and `size="sm"`, matching the exact props pattern already used by the existing single-source-account card two sections above in the same file. Given an event with zero coauthors, the section renders nothing (no empty-state placeholder — matches this app's existing omit-rather-than-placeholder convention, e.g. the EXPERIENCE.md CC-024 "Related Events" zero-group rule).
+4. **AC4 — Posted-at timestamp unchanged (already shipped, regression guard only).** The post's posted-at timestamp in the existing Attributions section continues to render via the existing `formatShortEventDateTime` / `Intl.DateTimeFormat` locale-aware pattern (`project-context.md`'s Locale-Sensitive Data Rendering rule) — this story adds no new date formatter and must not alter this existing block's markup or behavior.
+5. **AC5 — Confirm-then-refetch (non-optimistic) toggle, scoped exception.** Each coauthor's subscribe/unsubscribe icon toggle is **confirm-then-refetch, not optimistic**: clicking fires the existing `subscribeToAccount`/`removeSubscription` mutations unmodified (Story 3.16's contract, confirmed unchanged), and only on mutation success does `queryClient.invalidateQueries({ queryKey: ["getMySubscriptions"] })` refetch authoritative subscription state — no `onMutate` optimistic flip. On failure, nothing was changed (state was never touched ahead of confirmation), so "restoring prior state" holds trivially — this is the exact same non-optimistic pattern the existing single-source-account toggle in `EventDetailWrapper.tsx` already implements (confirmed: no `onMutate`, invalidate-only `onSuccess`), generalized to N coauthors, per `project-context.md`'s ratified "Scoped Exception — Confirm-then-Refetch Toggle" rule. ("Confirm-then-refetch" here is this project's own data-flow-pattern terminology — await the mutation's real server confirmation before updating displayed state — not a user-facing "Are you sure?" dialog; EXPERIENCE.md's CC-024 section never describes one for this toggle, and Gate 2 confirmed this reading fresh.)
+6. **AC6 — Independent per-coauthor toggle state.** Clicking one coauthor's subscribe/unsubscribe toggle shows only that coauthor's card as busy (`isTogglePending`/`aria-busy`) — a concurrent or sequential action on a different coauthor's toggle is never misattributed to the wrong row. Implemented via a tracked `pendingCoauthorAccountId: string | null` piece of local state in `EventDetailWrapper.tsx` (set immediately before calling `.mutate()`, cleared in `onSettled`), not by relying on a single shared mutation-hook `isPending` boolean across N rows.
+7. **AC7 — Provisional identity (no stable accountId) renders display-only.** A coauthor with no stable accountId renders display-only, no toggle at all. This branch is **currently unreachable with today's persisted data** — Story 3.14's ingestion-time filtering excludes any accountId-less producer before a row is ever written to `social_media_account_profiles`/`post_account_associations` (confirmed: `persistPostAccountAssociations` only accepts resolved `coauthorAccountIds: string[]`), and `SocialMediaAccountProfile.accountId` is `String!` (non-null) in the GraphQL schema — so every item `Event.coauthors` returns always has a stable accountId today. This AC is satisfied by construction (a defensive, always-true guard), matching Story 3.14's own documented precedent ("this AC is a regression guard confirming no second path... is required"); no additional runtime branch is needed beyond the type system's own non-null guarantee, and no `isVerifiedForDiscovery`-style "provisional" flag needs to be added to the GraphQL schema for this story.
+8. **AC8 — Subscribing reuses Story 3.16's unmodified contract.** Subscribing to a coauthor calls the existing `subscribeToAccount(input: { platform, accountId, username, displayName })` mutation verbatim (Story 3.16's unmodified contract — no duplicate mutation, no new input shape); unsubscribing calls the existing `removeSubscription(id, action: DELETE)` mutation verbatim, using that coauthor's own matched `Subscription.id` from `mySubscriptions` (the same `.find()`-by-`accountId` pattern the existing single-source-account toggle already uses, applied per coauthor).
+9. **AC9 — No analytics capture added by this story (user-decided, see Dev Notes).** Neither the pre-existing `account_subscribed`/`account_unsubscribed` PostHog events nor Story 3.19's future sanitized `subscription_toggle_succeeded`/`subscription_toggle_failed` taxonomy are emitted by a coauthor toggle click in this story — a regression test asserts `posthog.capture` is never called from the new coauthor subscribe/unsubscribe handlers. All analytics for this toggle are Story 3.19's scope (already in `epics.md`, depends on this story).
+10. **AC10 — i18n.** The new `<ul>`'s `aria-label` is sourced from a new next-intl key (`EventDetailsPage.coauthorsListAriaLabel`, added to both `apps/web/locales/en.json` and `id.json`) via `useTranslations`/`EventDetailViewLabels` — no hardcoded user-facing string. Every other label the coauthor toggle needs (`subscribeButtonLabel`, `unsubscribeButtonLabel`, `checkingSubscriptionLabel`, `unknownAccountLabel`) is reused verbatim from the existing `EventDetailsPage` namespace — no duplicate/coauthor-specific copy of these four.
+11. **AC11 — `getMySubscriptions` fetch gate widened.** `useGetMySubscriptionsQuery`'s `enabled` gate (`apps/web/src/features/events/EventDetailWrapper.tsx`) widens from `!!session && !!data?.eventBySlug?.sourceSocialMediaAccountProfile` to also fire when the event has 1+ coauthors (`(data?.eventBySlug?.coauthors?.length ?? 0) > 0`), so a coauthor's subscribe state is never silently stuck in an unresolved/unloaded state for an event with coauthors but no single source account.
+
+## Tasks / Subtasks
+
+- [ ] **Task 1 — Add `Event.coauthors` to the GraphQL schema + resolver** (AC: #1, #2)
+  - [ ] `apps/backend/src/schema/events.graphql` — add `coauthors: [SocialMediaAccountProfile!]!` to the `Event` type, directly below `sourceSocialMediaAccountProfile`.
+  - [ ] `apps/backend/src/schema/resolvers.ts` — import `postAccountAssociations` from `@festgrid/database` (add to the existing destructured import on line 4); add an `Event.coauthors` resolver alongside the existing `Event.sourceSocialMediaAccountProfile` resolver: guard `if (!parent.postId) return [];`, then `db.select({ ...buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info), id: socialMediaAccountProfiles.id }).from(postAccountAssociations).innerJoin(socialMediaAccountProfiles, eq(postAccountAssociations.accountId, socialMediaAccountProfiles.id)).where(and(eq(postAccountAssociations.postId, parent.postId), eq(postAccountAssociations.role, 'COAUTHOR'))).orderBy(asc(postAccountAssociations.createdAt))` (`eq`, `and`, `asc` are already imported in this file).
+  - [ ] Run `pnpm --filter backend codegen` to regenerate `apps/backend/src/generated/resolvers-types.ts` — never hand-edit generated output. Watch for the known enum-declared-twice codegen quirk (`apps/backend` side doesn't use `fix-codegen.js`, that's `apps/web`-only; confirm this field, a type not an enum, doesn't trigger an analogous issue).
+- [ ] **Task 2 — Backend resolver test** (AC: #1)
+  - [ ] `apps/backend/src/schema/resolvers.test.ts` — new `describe`/`t.test('Event.coauthors resolver')` block mirroring the existing `Event.sourceSocialMediaAccountProfile resolver` block (~line 1873): seed a profile + post + 2 `post_account_associations` rows (one `COAUTHOR`, one `PUBLISHER` on a different profile) + event linked via `postId`; assert the query returns exactly the `COAUTHOR` row (not the `PUBLISHER` row), in insertion order; assert `[]` (not `null`, not an error) when the event has no linked `postId`; assert `[]` when the post has zero `COAUTHOR` associations. Clean up seeded rows in `t.after`.
+- [ ] **Task 3 — Add `coauthors` selection to the frontend query + regenerate codegen** (AC: #2)
+  - [ ] `apps/web/src/features/events/queries.graphql` — add `coauthors { accountId platform username displayName profileImageUrl }` to `getEventBySlug`'s `eventBySlug` selection, directly below the existing `sourceSocialMediaAccountProfile { ... }` block.
+  - [ ] Confirm no `Query.events`-based document anywhere in `apps/web` selects `coauthors` (AC2 regression guard) — grep `apps/web/src/**/*.graphql` for `coauthors` and confirm `getEventBySlug` is the only match.
+  - [ ] Run `pnpm --filter web codegen` to regenerate `apps/web/src/generated/graphql.ts` (runs `fix-codegen.js` automatically) — never hand-edit generated output.
+- [ ] **Task 4 — `EventDetailView` types + presentation** (AC: #3, #4, #6, #7, #10)
+  - [ ] `packages/ui/src/features/events/EventDetailView.types.ts` — add a new exported `EventDetailViewCoauthor` interface: `{ accountId: string; platform?: string | null; displayName?: string | null; username?: string | null; profileImageUrl?: string | null; accountHref?: string | null; isSubscribed: boolean; isTogglePending: boolean; }`. Add to `EventDetailViewProps`: `coauthors?: EventDetailViewCoauthor[]; onSubscribeToCoauthor?: (accountId: string) => void; onUnsubscribeFromCoauthor?: (accountId: string) => void;`. Reuse the existing `isSubscriptionStatusLoading` prop for coauthors too (same underlying `mySubscriptions` query backs both the source account and every coauthor) — no new loading prop.
+  - [ ] Add `coauthorsListAriaLabel` to `EventDetailViewLabels`.
+  - [ ] `EventDetailView.tsx` — directly below the existing `{/* Attributions */}` section (after its closing `)}`, before the column's closing `</div>`), add: `{coauthors && coauthors.length > 0 && (<ul className="flex flex-col gap-2" aria-label={labels.coauthorsListAriaLabel}>{coauthors.map((coauthor) => (<li key={coauthor.accountId}><SubscribedAccountCard account={{ accountId: coauthor.accountId, platform: coauthor.platform, username: coauthor.username, displayName: coauthor.displayName, profileImageUrl: coauthor.profileImageUrl }} accountHref={coauthor.accountHref} isSubscribed={coauthor.isSubscribed} onSubscribe={onSubscribeToCoauthor ? () => onSubscribeToCoauthor(coauthor.accountId) : undefined} onUnsubscribe={onUnsubscribeFromCoauthor ? () => onUnsubscribeFromCoauthor(coauthor.accountId) : undefined} isStatusLoading={isSubscriptionStatusLoading} isTogglePending={coauthor.isTogglePending} variant="detail" size="sm" labels={{ subscribeLabel: labels.subscribeButtonLabel, unsubscribeLabel: labels.unsubscribeButtonLabel, checkingSubscriptionLabel: labels.checkingSubscriptionLabel, unknownAccountLabel: labels.unknownAccountLabel }} /></li>))}</ul>)}`. Do not modify the existing Attributions section's own markup.
+  - [ ] Do **not** change `SubscribedAccountCard`'s hardcoded `data-testid="subscribe-toggle"` — keep the existing single-instance-per-page contract backward compatible (the one existing test asserting `screen.getByTestId("subscribe-toggle")` for the single source-account toggle must keep passing unmodified). For N coauthor rows on one page, tests scope lookups per `<li>` (`within(listItem).getByTestId('subscribe-toggle')`) or use `getAllByTestId('subscribe-toggle')` — not a shared-component change.
+- [ ] **Task 5 — `EventDetailView.types.ts`/`.test.tsx` updates** (AC: #3, #6, #7)
+  - [ ] `EventDetailView.test.tsx` — new `describe('coauthors (Story 0.i6g)')` block: renders one `SubscribedAccountCard` per `coauthors` entry below the Attributions section; renders nothing when `coauthors` is empty/absent (no empty-state placeholder); each row's toggle reflects its own `isSubscribed`/`isTogglePending` independently (two coauthors, one pending, assert only that one shows `aria-busy="true"`); `onSubscribeToCoauthor`/`onUnsubscribeFromCoauthor` are called with the clicked row's own `accountId`, not always the first.
+- [ ] **Task 6 — `apps/web` mapper: map `coauthors` + compute per-coauthor subscription state** (AC: #3, #6, #8, #11)
+  - [ ] `apps/web/src/features/events/mapper.ts` — `mapGraphQLEventToDetailViewProps` gains two new parameters (or an options object, matching this function's existing positional-parameter style) carrying `mySubscriptions` data and the pending-coauthor-accountId state, and maps `event.coauthors` into `EventDetailViewCoauthor[]`: `accountId`, `platform`, `username`, `displayName`, `profileImageUrl` passed through; `accountHref` built via `getPlatformSlug(coauthor.platform)` + `coauthor.accountId` (same helper/pattern as the existing `accountHref` derivation for the source account, lines ~134-136); `isSubscribed` from `mySubscriptions?.find(s => s.account.accountId === coauthor.accountId)`; `isTogglePending` from `pendingCoauthorAccountId === coauthor.accountId`.
+  - [ ] `useEventDetailViewLabels()` — add `coauthorsListAriaLabel: t('coauthorsListAriaLabel')`.
+  - [ ] `mapper.test.ts` — new `describe('mapGraphQLEventToDetailViewProps coauthors mapping (Story 0.i6g)')` block covering: empty/absent `coauthors` maps to `[]`/`undefined`; `isSubscribed`/`isTogglePending` derivation per coauthor; `accountHref` built the same way as the existing source-account case.
+- [ ] **Task 7 — `EventDetailWrapper.tsx`: second mutation pair + pending-state tracking for coauthors** (AC: #5, #6, #8, #9, #11)
+  - [ ] Add `const [pendingCoauthorAccountId, setPendingCoauthorAccountId] = useState<string | null>(null)`.
+  - [ ] Add a second `useSubscribeToAccountMutation`/`useRemoveSubscriptionMutation` pair (distinct hook instances from the existing single-source-account pair — do not touch or reuse the existing `subscribeToAccount`/`unsubscribeFromAccount` variables, to keep that already-shipped, already-tested code path untouched), with `onSuccess` invalidating `["getMySubscriptions"]` (same query key, same cache) and setting the existing `setLiveMessage` announcement (reuse `subscribeSuccessAnnouncement`/`unsubscribeSuccessAnnouncement`/`subscribeErrorAnnouncement`/`unsubscribeErrorAnnouncement` — no new announcement copy), `onSettled` clearing `pendingCoauthorAccountId`. **No `posthog.capture` call in either handler** (AC9).
+  - [ ] Add `handleSubscribeToCoauthor(accountId: string)` / `handleUnsubscribeFromCoauthor(accountId: string)`: look up the coauthor's full profile from `data?.eventBySlug?.coauthors` (for `platform`/`username`/`displayName`) or the matched subscription id (for unsubscribe), set `pendingCoauthorAccountId(accountId)` before calling `.mutate()`.
+  - [ ] Widen `useGetMySubscriptionsQuery`'s `enabled` gate per AC11.
+  - [ ] Pass `coauthors`, `onSubscribeToCoauthor={handleSubscribeToCoauthor}`, `onUnsubscribeFromCoauthor={handleUnsubscribeFromCoauthor}` through to `mapGraphQLEventToDetailViewProps`/`EventDetailView`.
+- [ ] **Task 8 — `EventDetailWrapper.test.tsx` integration tests** (AC: #3, #5, #6, #8, #9, #11)
+  - [ ] Extend the MSW `getEventBySlug` mock fixture to optionally carry `coauthors: [{ accountId, platform, username, displayName, profileImageUrl }]`.
+  - [ ] New cases: two coauthors render as two cards; subscribing to coauthor A calls `subscribeToAccount` with that coauthor's own `platform`/`accountId`/`username`/`displayName` and, on success, flips only that row to subscribed (the other coauthor's and the source account's toggle state is unaffected); unsubscribing calls `removeSubscription` with that coauthor's own matched subscription `id`; clicking coauthor A's toggle while coauthor B's mutation is still in flight shows A as busy and B unaffected (AC6); confirm `mockPosthogCapture` is never called for a coauthor subscribe/unsubscribe (AC9, explicit negative assertion) while the existing source-account assertions (`account_subscribed`/`account_unsubscribed` still firing for *that* toggle) remain unmodified and green; `getMySubscriptions` fires when the event has coauthors but no `sourceSocialMediaAccountProfile` (AC11).
+  - [ ] Run the full existing suite unmodified and confirm no regression (especially the DW-009 neutral-state case and the existing subscribe/unsubscribe cases for the single source account).
+- [ ] **Task 9 — i18n** (AC: #10)
+  - [ ] Add `"coauthorsListAriaLabel": "Co-authors"` to `apps/web/locales/en.json`'s `EventDetailsPage` namespace (alongside the other `EventDetailsPage` keys).
+  - [ ] Add `"coauthorsListAriaLabel": "Rekan Penulis"` to `apps/web/locales/id.json`'s `EventDetailsPage` namespace.
+- [ ] **Task 10 — Verification** (AC: all)
+  - [ ] `pnpm --filter backend test` (targeted: `resolvers.test.ts`), `pnpm --filter backend build`/`tsc`, `pnpm --filter backend lint`.
+  - [ ] `pnpm --filter ui test` (targeted: `EventDetailView.test.tsx`), full suite green; `pnpm --filter ui lint`.
+  - [ ] `pnpm --filter web test` (targeted: `EventDetailWrapper.test.tsx`, `mapper.test.ts`), full suite green; `pnpm --filter web lint`; `pnpm --filter web build` (exercises the regenerated codegen output end to end).
+  - [ ] Root `pnpm build`/`pnpm lint` for no cross-package regressions.
+  - [ ] Manual sanity: open an event-detail page for a post with 2+ `COAUTHOR` associations (seed via `post_account_associations` if no such post exists yet in the dev DB), confirm each coauthor renders with a working, independently-toggleable subscribe/unsubscribe control below the original-post link, and the existing single-source-account toggle above is unaffected.
+
+## Dev Notes
+
+### Design Decisions
+
+Two genuine, non-mechanical design questions were surfaced to the user via `AskUserQuestion` before finalizing this story, per this project's standing `bmad-create-story` rule:
+
+1. **GraphQL field shape for "coauthors of the event's current post."** No such field exists anywhere today (confirmed by full-codebase research: `extraction.graphql`'s `Post` type is unrelated — used only by Post Selection — and `Event` in `events.graphql` has no `post`/`coauthors` field). Since Story 3.6u (the future `Event.sourcePosts[]` multi-post field, AD-30 Rule 11) is explicitly **not** in this story's own `epics.md` "Depends on" list and is still `backlog` with no story file of its own yet, two options were presented: (a) a flat `Event.coauthors: [SocialMediaAccountProfile!]!` field, scoped to today's single-primary-post model, mirroring the existing `Event.sourceSocialMediaAccountProfile` field/resolver pattern exactly; or (b) pre-building a `Post`-shaped nested type anticipating 3.6u's not-yet-designed future shape. **Resolved: option (a)**, the recommended choice — minimal, consistent with an already-proven architectural pattern, and does not risk guessing 3.6u's real shape wrong before that story exists. When 3.6u lands, it reconciles this field then (most likely as a back-compat alias for the primary post's coauthors, the same way `sourceSocialMediaAccountProfile` itself will likely survive unchanged as the primary-post's single-account field).
+2. **Whether this story's new coauthor toggles should emit any analytics.** The existing single-source-account toggle already fires `account_subscribed`/`account_unsubscribed` PostHog events carrying the raw `accountId`. Story 3.19 (`backlog`, already in `epics.md`, explicitly depends on this story) is chartered to add a *sanitized* `subscription_toggle_succeeded`/`subscription_toggle_failed` taxonomy for this exact toggle that explicitly must never send raw account IDs (FIND-022 CAP-8). Two options were presented: (a) emit no analytics at all from this story's coauthor toggles, leaving 100% of analytics to Story 3.19; or (b) mirror the existing `account_subscribed`/`account_unsubscribed` pattern for consistency, deferring the CAP-8 privacy fix to 3.19's later cleanup. **Resolved: option (a)**, the recommended choice — avoids shipping an interim event that leaks a raw `accountId` on a surface CAP-8 exists specifically to protect (now potentially N coauthor accountIds per page view, not just one), which 3.19 would otherwise have to find and remove. AC9 and Task 7 implement this as an explicit no-capture requirement with a regression test.
+
+A third, non-technical decision (backlog-board attachment) was also confirmed with the user: this story attaches to backlog row **CC-026** on completion (see `on_complete` / Change Log), whose own note already names `0.i6g` directly as one of its tracked not-yet-created stories — not a title-similarity guess.
+
+### Architecture & UX Gate Findings
+
+No epic readiness report exists for Epic 0.i6 (`_bmad-output/planning-artifacts/epic-readiness/` has reports for Epics 0, 0.i7, 1, 1.i1, 2-7, but none for `epic-0-i6` — the same situation already documented by sibling Stories 0.i6a, 0.i6c, 0.i6e, 0.i6f, and by Story 3.16 for the adjacent FIND-022 slice). All three gates were run **fresh** this session via one-shot persona subagent dispatch, with all relevant source/evidence (current resolver code, schema files, `post_account_associations`' shape, DESIGN.md/EXPERIENCE.md excerpts) inlined directly into each prompt rather than having the subagent re-derive it cold.
+
+- **Gate 1 (Architecture/Infrastructure Completeness) — No gap found.** Verdict: adding `Event.coauthors` is a resolver added *through* the existing GraphQL/backend layer (mirroring the already-shipped `Event.sourceSocialMediaAccountProfile` pattern verbatim), not a case of the frontend bypassing that layer. No DB/ORM call from `apps/web`/`packages/ui`, no external/third-party service called from the frontend, no new auth/authorization/secrets logic (the reused `subscribeToAccount`/`removeSubscription` mutations are unmodified, already behind `requireAuth`), no new infra/IaC dependency. The resolver's query pattern (index-scan on `post_id`, filtered to `role = 'COAUTHOR'`) stays confined to the single-event-detail context (AC2), so it does not introduce a scaling/N+1 concern.
+- **Gate 2 (UI Complexity & Reusability) — No gap found.** `SubscribedAccountCard` is an already-shipped, already-adopted reusable component — this story is purely a new *consumer* of Story 0.i6c's `variant="detail"` contract, reusing the identical props pattern already proven two sections up in the same file. The new `<ul>` wrapper carries none of Gate 2's complexity markers (no variants/loading/empty/error states of its own — those live inside the card; its only new a11y surface is one `aria-label`), so extracting it into a dedicated component now, for a 3.6u dependency that is still `backlog` and explicitly not in this story's own "Depends on" list, would be premature abstraction. DESIGN.md (read in full) has no `subscribed_account_card_*`/list-wrapper token for this pattern — consistent with sibling Story 0.i6c's identical prior finding. EXPERIENCE.md's CC-024 section was checked and confirmed to describe only 3.6u's future multi-post wrapping (correctly out of scope here) plus this exact card/toggle reuse (in scope, matching the draft). The "confirm-then-refetch" terminology was confirmed (fresh, independent read) to mean the mutation/data-flow pattern already shipped for the single-account toggle, not a confirmation dialog — no `ConfirmDialog`/`AlertDialog` component is introduced or needed.
+- **Gate 3 (Foundational/Cross-Cutting Dependency Completeness) — No gap found.** No global app-shell/layout change (content added inside the existing `EventDetailView.tsx` tree only). No i18n foundation work — every label needed already exists in the `EventDetailsPage` namespace and is already exercised by the existing toggle; the one net-new key (`coauthorsListAriaLabel`) is additive string content in an already-established next-intl system. No analytics-foundation gap — PostHog is already fully wired, and the new taxonomy is deliberately, already-sequenced to Story 3.19 (not silently skipped). The GraphQL Code Generator pipeline predates this story and is used unchanged. The one named reusable utility touched (`buildOptimizedDrizzleSelect`, AD-17) already has an established home and an existing call-site pattern this story's resolver reuses verbatim — nothing new is minted. Architecture Spine AD-31 already explicitly names "0.i6g (coauthor toggle)" in its own binding list for `post_account_associations`' role semantics, and the `COAUTHOR` role plus its populating pipeline (Stories 3.14, 3.15) are already-shipped, `review`-status prerequisites, not implicit foundational asks this story would have to backfill.
+- **Lightweight guard — does this story's actual scope contain anything the above gates plausibly didn't anticipate?** No. No new external service, no new data entity (`post_account_associations` is a Story 3.15 table this story only reads), no new infra dependency.
+
+### Data Type Compatibility & Migration Requirements
+
+- **Compatibility finding: No DB migration required.** This story adds a new GraphQL field/resolver that reads an already-existing table (`post_account_associations`, Story 3.15) and an already-existing type (`SocialMediaAccountProfile`) — no schema column, enum, or constraint changes anywhere in `packages/database/schema.ts`.
+- **Impacted fields/contracts:** `apps/backend/src/schema/events.graphql`'s `Event` type gains `coauthors: [SocialMediaAccountProfile!]!` (new, additive, non-breaking — existing clients that don't select it are unaffected). `apps/web/src/features/events/queries.graphql`'s `getEventBySlug` document gains one new selection. `EventDetailViewProps`/`EventDetailViewLabels` (packages/ui) gain new optional fields (`coauthors`, `onSubscribeToCoauthor`, `onUnsubscribeFromCoauthor`, `coauthorsListAriaLabel`) — all additive, no existing field's type changes, and every existing caller of `EventDetailView` that omits them renders exactly as it does today (the new `<ul>` only renders when `coauthors` is a non-empty array).
+- **Required DB migration changes:** None.
+- **Required TypeScript type changes:** New `EventDetailViewCoauthor` interface (packages/ui); `apps/web/src/generated/graphql.ts`/`apps/backend/src/generated/resolvers-types.ts` regenerated via their respective `codegen` commands (Tasks 1, 3) — never hand-edited.
+- **Backward compatibility and rollout notes:** Purely additive at every layer (GraphQL schema, query document, component props, i18n keys). No feature flag needed. An event with zero coauthors (the overwhelming majority of events today, since multi-coauthor posts are a newer, less common case per Story 3.13/3.14's own scope) renders with no visible change at all — the new `<ul>` simply doesn't render (AC3's empty case).
+- **Verification checks:** Task 2's backend resolver test (real-DB integration, mirroring the existing `Event.sourceSocialMediaAccountProfile resolver` test); Task 5/6/8's frontend unit/mapper/integration tests; `tsc`/lint clean across `apps/backend`, `packages/ui`, `apps/web`; both `codegen` commands succeed cleanly against the new schema/query.
+
+### Project Structure Notes
+
+- **Reusable-component placement:** No new component is created. `SubscribedAccountCard` already lives in `packages/ui/src/features/subscriptions/` and is reused as-is (Gate 2: no gap). The new `<ul>` wrapper is inline JSX inside the existing `EventDetailView.tsx`, not extracted — per Gate 2's finding, extracting it now for 3.6u's not-yet-built benefit would be premature.
+- **Reusable-mechanism placement (`packages/domain`):** No new domain logic is introduced. The `COAUTHOR` role filter and the resolver's join pattern are backend-only (`apps/backend/src/schema/resolvers.ts`), following the existing `Event.sourceSocialMediaAccountProfile` resolver's own placement precedent exactly — not a candidate for `packages/domain` extraction (it's a thin Drizzle query, not portable business logic, matching how the sibling field was never extracted either).
+- **State management categorization:** Server State (React Query) only — `coauthors`/subscription status flow entirely through the existing `useGetEventBySlugQuery`/`useGetMySubscriptionsQuery`/`useSubscribeToAccountMutation`/`useRemoveSubscriptionMutation` hooks (GraphQL Code Generator-typed, per `project-context.md`'s State Management Architecture rule). The one new piece of local state (`pendingCoauthorAccountId`) is transient per-row UI state local to `EventDetailWrapper.tsx`, not a candidate for `zustand` (it doesn't cross component boundaries) or `nuqs` (not URL-shareable state).
+- **Async/loader categorization:** Non-blocking, localized — each coauthor's toggle shows its own busy/pending state via the card's existing `isTogglePending`/`aria-busy` treatment (the same already-established pattern from Story 0.i6f), never a full-screen blocking overlay. Matches `project-context.md`'s "Non-Blocking" loader rule; no new loader category introduced.
+- **No cloud/external service setup** — `SETUP_WALKTHROUGH.md` unaffected.
+- **No new npm dependency, no new workspace package.**
+- **Current code state (read in full before drafting this story):**
+  - `packages/ui/src/features/events/EventDetailView.tsx` (632 lines) — the Attributions section is lines 583-614; the existing single-source-account `SubscribedAccountCard` call site is lines 272-300 (header controls row, unaffected by this story beyond being the pattern this story's new call sites copy).
+  - `apps/web/src/features/events/EventDetailWrapper.tsx` (776 lines) — owns all data-fetching/mutations. The existing `subscribeToAccount`/`unsubscribeFromAccount` mutation pair (lines 284-324) and `matchedSubscription`/`isSubscribedToAccount` derivation (lines 326-330) are the pattern this story's new, separate coauthor-scoped mutation pair and per-coauthor derivation generalize — deliberately **not** touching or reusing those existing variables, to keep that already-shipped, already-tested code path completely unchanged (lowest-risk approach, consistent with sibling Story 0.i6c's own "pixel-identical existing call site" precedent).
+  - `apps/backend/src/schema/resolvers.ts` (~4100+ lines) — `Event.sourceSocialMediaAccountProfile` resolver at ~line 4109 is the exact pattern this story's new `Event.coauthors` resolver mirrors.
+  - `apps/backend/src/lib/posts/persist-post-account-associations.ts` — confirms `COAUTHOR` rows are written with always-resolved `accountId`s (no accountId-less rows ever reach this table), backing AC7's "unreachable today" finding.
+  - `packages/database/schema.ts`'s `postAccountAssociations` table (Story 3.15) — `postAccountRoleUnq: unique(postId, accountId, role)` already provides an efficient `WHERE postId = ?` lookup path (its leading column); no new index is introduced or needed, given this query only ever runs once per single event-detail page view, never per list row.
+  - `apps/web/locales/en.json`/`id.json`'s `EventDetailsPage` namespace already carries every label this story's toggle needs except the one new `coauthorsListAriaLabel` key.
+
+### References
+
+- [Source: _bmad-output/planning-artifacts/epics.md#Epic 0.i6, Story 0.i6g] — this story's AC text and the 2026-10-01 Amendment (unification with Story 3.6u, correctly deferred here)
+- [Source: _bmad-output/planning-artifacts/epics.md#Story 0.i6c, Story 3.15, Story 3.16, Story 3.17, Story 3.19] — direct prerequisites/dependents
+- [Source: _bmad-output/implementation-artifacts/backlog/FIND-022-coauthor-content-issues.md] — CAP-7 original forged outcome text ("Event detail and shared account UI")
+- [Source: _bmad-output/planning-artifacts/cc-024-multi-event-wave-plan.md] — Wave 4A sequencing: 0.i6c -> 3.16 -> 0.i6g -> 3.6u; confirms 3.6u is NOT a 0.i6g dependency
+- [Source: _bmad-output/planning-artifacts/festgrid-architecture-spine.md#AD-31] — binds "0.i6g (coauthor toggle)" directly; `post_account_associations.role` vocabulary and the `COAUTHOR` value
+- [Source: _bmad-output/planning-artifacts/festgrid-architecture-spine.md#AD-30 Rule 11] — confirms `Event.sourcePosts` is Story 3.6u's unbuilt future field, not this story's
+- [Source: _bmad-output/project-context.md#UI Patterns & UX Invariants — Scoped Exception] — the ratified confirm-then-refetch exception this story implements
+- [Source: design-artifacts/UX-festgrid-run-1/EXPERIENCE.md#Component Patterns > Multi-Event Posts and Cross-Post Event Matching (CC-024)] — full file outline read; this section read in full; no other EXPERIENCE.md section mentions coauthor attribution
+- [Source: design-artifacts/UX-festgrid-run-1/DESIGN.md] — full file read; no `subscribed_account_card_*`/list-wrapper token exists
+- [Source: _bmad-output/implementation-artifacts/0-i6c-adopt-the-card-into-subscribed-accounts-settings-and-settle-the-detail-surface-variant.md] — the `variant`/`showPlatformBadge` contract this story consumes; structural/Gate-documentation precedent followed here
+- [Source: _bmad-output/implementation-artifacts/3-16-immediate-coauthor-publisher-subscribability.md] — confirms `subscribeToAccount`'s contract is unmodified; confirms no epic readiness report covers this FIND-022 slice
+- [Source: packages/ui/src/features/subscriptions/SubscribedAccountCard.tsx, .types.ts, .test.tsx] — current card implementation, read in full
+- [Source: packages/ui/src/features/events/EventDetailView.tsx, EventDetailView.types.ts, EventDetailView.test.tsx] — read in full
+- [Source: apps/web/src/features/events/EventDetailWrapper.tsx, EventDetailWrapper.test.tsx, mapper.ts, mapper.test.ts, queries.graphql] — read in full / targeted ranges
+- [Source: apps/backend/src/schema/events.graphql, social-media-accounts.graphql, subscriptions.graphql, resolvers.ts, resolvers.test.ts] — read in full / targeted ranges
+- [Source: packages/database/schema.ts#postAccountAssociations, apps/backend/src/lib/posts/persist-post-account-associations.ts] — read in full
+- [Source: apps/web/locales/en.json, id.json#EventDetailsPage] — read in full for existing key inventory
+
+## Global Rules References
+
+- [x] `_bmad-output/project-context.md` — API Style (GraphQL; new field goes through the existing backend layer, never a frontend-to-DB call); End-to-End Type Safety (both `codegen` commands regenerate types, never hand-edited); UI Patterns & UX Invariants' Scoped Exception (confirm-then-refetch, implemented per AC5); State Management Architecture (Server State via React Query only; Project Structure Notes); Locale-Sensitive Data Rendering (no new raw string, AC10); Code Organization (no `packages/domain`/`packages/ui` misplacement, Project Structure Notes)
+- [x] `_bmad-output/planning-artifacts/story-content-structure.md` — this file's canonical section order/status vocabulary
+- [x] `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` — AD-31 (binds this story directly), AD-30 Rule 11 (confirms `sourcePosts`/3.6u out of scope), AD-17 (per-row-resolver traffic-safety confinement, AC2)
+- [x] `docs/infrastructure/index.md` — reviewed; this story adds a GraphQL field/resolver but no new infrastructure resource (no new queue, Lambda, or compute) — the `2-backend.md`/`3-database.md` shards were not independently re-read in full, matching the 3.16/0.i6c precedent for a no-new-infra, read-only-against-an-existing-table story
+- [x] `_bmad-output/planning-artifacts/story-split-gate.md` — all three gates run fresh this session (no epic readiness report covers Epic 0.i6); see Architecture & UX Gate Findings
+
+## Implementation Plan (Rule-Compliant)
+
+- **File Change Plan:**
+  1. `apps/backend/src/schema/events.graphql` — add `Event.coauthors: [SocialMediaAccountProfile!]!` (Task 1).
+  2. `apps/backend/src/schema/resolvers.ts` — add `Event.coauthors` resolver; import `postAccountAssociations` (Task 1).
+  3. `apps/backend/src/generated/resolvers-types.ts` — regenerated via `pnpm --filter backend codegen` (Task 1).
+  4. `apps/backend/src/schema/resolvers.test.ts` — new `Event.coauthors resolver` test block (Task 2).
+  5. `apps/web/src/features/events/queries.graphql` — add `coauthors { ... }` selection to `getEventBySlug` (Task 3).
+  6. `apps/web/src/generated/graphql.ts` — regenerated via `pnpm --filter web codegen` (Task 3).
+  7. `packages/ui/src/features/events/EventDetailView.types.ts` — new `EventDetailViewCoauthor` interface; new `EventDetailViewProps`/`EventDetailViewLabels` fields (Task 4).
+  8. `packages/ui/src/features/events/EventDetailView.tsx` — new coauthors `<ul>` section below Attributions (Task 4).
+  9. `packages/ui/src/features/events/EventDetailView.test.tsx` — new `coauthors (Story 0.i6g)` test block (Task 5).
+  10. `apps/web/src/features/events/mapper.ts` — map `coauthors`, derive per-coauthor `isSubscribed`/`isTogglePending`, add `coauthorsListAriaLabel` label (Task 6).
+  11. `apps/web/src/features/events/mapper.test.ts` — new coauthors-mapping test block (Task 6).
+  12. `apps/web/src/features/events/EventDetailWrapper.tsx` — second mutation pair, `pendingCoauthorAccountId` state, handlers, widened `getMySubscriptions` gate (Task 7).
+  13. `apps/web/src/features/events/EventDetailWrapper.test.tsx` — new coauthor-toggle integration test cases (Task 8).
+  14. `apps/web/locales/en.json`, `apps/web/locales/id.json` — new `coauthorsListAriaLabel` key (Task 9).
+- **Rule Mapping:**
+  - `story-split-gate.md` Gate 1/2/3 → run fresh (no epic readiness report for Epic 0.i6), all three no-gap (Architecture & UX Gate Findings).
+  - AD-31 → this story is directly bound (named in AD-31's own "Binds" list); role filter (`COAUTHOR`) and the shared-table read follow AD-31's closed role vocabulary exactly, no new role invented.
+  - AD-17 (per-row-resolver traffic safety) → AC2's query-document confinement, mirroring `sourceSocialMediaAccountProfile`'s existing confinement.
+  - `project-context.md`'s Scoped Exception (confirm-then-refetch) → AC5, Task 7's non-optimistic mutation pair.
+  - Data Type Compatibility rule (this workflow) → dedicated section above; no DB migration, additive GraphQL/TS types only.
+  - Reusable-component rule (this workflow) → Gate 2's "no gap" finding; no new `packages/ui`/`packages/domain` extraction warranted.
+- **Verification Plan:**
+  - `pnpm --filter backend test` (`resolvers.test.ts`'s new + existing `Event.sourceSocialMediaAccountProfile`/`Event.coauthors` blocks), `pnpm --filter backend build`/lint.
+  - `pnpm --filter ui test` (`EventDetailView.test.tsx` full suite, existing + new), `pnpm --filter ui lint`.
+  - `pnpm --filter web test` (`EventDetailWrapper.test.tsx`, `mapper.test.ts`, full suites), `pnpm --filter web lint`, `pnpm --filter web build`.
+  - Root `pnpm build`/`pnpm lint` for cross-package regressions.
+  - Manual sanity: event-detail page for a post with 2+ coauthors, confirm independent toggle behavior and no regression to the existing single-source-account toggle.
+
+## Pre-Coding Approval Gate
+
+- [ ] Scope confirmation — Tasks 1-10 match the two user-decided design questions (flat `Event.coauthors` field; no analytics in this story) plus the epics.md-specified AC text.
+- [ ] Architecture and boundary confirmation — new field/resolver goes through the existing backend/GraphQL layer only (no `packages/domain`/frontend-DB change); Gate 1/2/3 all no-gap (Architecture & UX Gate Findings).
+- [ ] Testing plan confirmation — Tasks 2, 5, 6, 8 cover the new resolver, presentation, mapping, and end-to-end wrapper integration, including the explicit AC6 (independent pending state) and AC9 (no analytics) regression guards.
+- [ ] **Explicit human approval state (Default: pending approval)** — scope questions (GraphQL field shape; analytics scope; backlog attachment) resolved during story creation via `AskUserQuestion`; full implementation approval still pending at `bmad-dev-story` time.
+- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three run fresh this session, all three no-gap, no prerequisite story needed.
+- [ ] Prerequisite stories 0.i6c, 3.15, 3.16 confirmed at `review` status (built) — per this project's standing rule to build against `review`-status prerequisites without waiting for `done`.
+
+## Testing Requirements
+
+- [ ] Backend integration test — `apps/backend/src/schema/resolvers.test.ts`'s new `Event.coauthors resolver` block (real-DB, mirroring `Event.sourceSocialMediaAccountProfile resolver`'s existing pattern).
+- [ ] Unit tests — `packages/ui/src/features/events/EventDetailView.test.tsx`'s new `coauthors (Story 0.i6g)` block; existing suite unmodified and green.
+- [ ] Unit tests — `apps/web/src/features/events/mapper.test.ts`'s new coauthors-mapping block; existing suite unmodified and green.
+- [ ] Integration tests — `apps/web/src/features/events/EventDetailWrapper.test.tsx`'s new coauthor-toggle cases (independent pending state, correct mutation args, no analytics capture, widened `getMySubscriptions` gate); full existing suite unmodified and green (including the DW-009 neutral-state case and the existing single-source-account subscribe/unsubscribe/analytics assertions).
+- [ ] E2E tests — not required; this is a new consumer of already-e2e-exempt shared components (`SubscribedAccountCard` family, Story 0.i6a/0.i6c/0.i6f precedent) with no new critical user flow beyond the already-covered subscribe/unsubscribe action.
+- [ ] Migration verification — not applicable; no migration in this story (Data Type Compatibility & Migration Requirements).
+- [ ] Codegen verification — both `pnpm --filter backend codegen` and `pnpm --filter web codegen` succeed cleanly against the schema/query changes, with no hand-edits to generated output.
+
+## Deliverables Checklist
+
+- [ ] `Event.coauthors: [SocialMediaAccountProfile!]!` field + resolver shipped, confined to the `getEventBySlug` query document only (AC1, AC2).
+- [ ] Each coauthor of the event's post renders as a `SubscribedAccountCard` (`variant="detail"`, `size="sm"`) below the existing original-post attribution link, with no empty-state placeholder when there are zero coauthors (AC3).
+- [ ] Posted-at timestamp in the existing Attributions section is unchanged (AC4).
+- [ ] Each coauthor's subscribe/unsubscribe toggle is confirm-then-refetch (non-optimistic), reusing Story 3.16's unmodified `subscribeToAccount`/`removeSubscription` contract (AC5, AC8).
+- [ ] Each coauthor's toggle pending/busy state is tracked independently — no cross-row misattribution (AC6).
+- [ ] A coauthor with no stable accountId (currently unreachable) renders display-only — defensive, type-guaranteed (AC7).
+- [ ] No PostHog analytics event fires from a coauthor toggle in this story — explicit regression test (AC9).
+- [ ] New `coauthorsListAriaLabel` i18n key added to both `en.json`/`id.json`; every other label reused verbatim (AC10).
+- [ ] `getMySubscriptions` fetch gate widened to fire for an event with coauthors but no single source account (AC11).
+- [ ] All Task 2, 5, 6, 8 test additions passing; no regression to any existing `EventDetailView`/`EventDetailWrapper`/`mapper`/`resolvers` test.
+
+## Out of Scope
+
+- **Story 3.6u (multi-post source area, `Event.sourcePosts[]`)** — not built here; this story targets today's single-primary-post model only, explicitly excluded from this story's own `epics.md` "Depends on" list. 3.6u will later reconcile/wrap this story's per-post coauthor list into its multi-post structure.
+- **Story 3.17 (demand-gated discovery)** — unaffected; this story's contextual subscription path is explicitly exempted from 3.17's discovery-visibility gate per 3.17's own AC2, and this story does not read/write `isVerifiedForDiscovery` at all.
+- **Story 3.18 (union-of-associations account filtering)** — unaffected; this story only reads `post_account_associations` for display/subscribe purposes, does not touch the account-filter/feed-matching logic.
+- **Story 3.19 (sanitized subscription-toggle analytics)** — deliberately not built here (user-decided, Design Decisions above); this story's toggle emits no analytics event at all, leaving the full `subscription_toggle_succeeded`/`subscription_toggle_failed` taxonomy to 3.19.
+- **`isVerifiedForDiscovery` GraphQL exposure** — not added; AC7's "provisional identity, no toggle" case is satisfied defensively/by construction without needing this field exposed (see AC7's Dev Notes rationale).
+- **Any `packages/domain` extraction of the coauthor-role-filter logic** — Gate 1/3 found no gap requiring this; the resolver stays a thin, backend-only Drizzle query following the existing `sourceSocialMediaAccountProfile` resolver's own placement.
+- **A dedicated `CoauthorList`/wrapper component extraction** — Gate 2 found no gap requiring this now; flagged as a one-line note for whoever picks up Story 3.6u to consider lifting this JSX into its own component at that point, once a second (multi-post) consumer actually exists.
+
+## Definition of Done
+
+- [ ] AC1-11 satisfied.
+- [ ] Required tests passing (Tasks 2, 5, 6, 8 + Testing Requirements).
+- [ ] Lint and type checks passing for `apps/backend`, `packages/ui`, `apps/web`.
+- [ ] Both `codegen` commands run clean, no hand-edited generated files.
+- [ ] Pre-Coding Approval Gate's explicit human approval state confirmed before this story is marked done.
+
+## Completion Status
+
+- [ ] Not yet implemented — story created via `bmad-create-story`, ready for `bmad-dev-story`.
+
+## Dev Agent Record
+
+### Agent Model Used
+
+Claude Sonnet 5 (bmad-create-story, direct in-session story authoring).
+
+### Debug Log References
+
+### Completion Notes List
+
+### File List
+
+## Change Log
+
+- 2026-10-03: Story created via `bmad-create-story`. Three decisions resolved with the user via `AskUserQuestion`: (1) `Event.coauthors` as a flat field scoped to today's single-primary-post model, not anticipating Story 3.6u's unbuilt future shape; (2) no PostHog analytics emitted by this story's coauthor toggle, deferring entirely to Story 3.19; (3) attach this story to backlog row CC-026 on completion. Gate 1/2/3 all run fresh (no epic readiness report covers Epic 0.i6) — all three no-gap.
