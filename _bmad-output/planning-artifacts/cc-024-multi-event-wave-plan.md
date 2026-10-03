@@ -384,7 +384,7 @@ sequential (3.6n2 is created and built later, after 3.6n). Plain dispatch with n
 failures; see "Test-gate facts"); whole-repo lint/build/test run once at the end with `TZ=UTC`. The Pre-Coding Approval Gate
 is **pre-approved by the user for all five** provided each proposed scope matches its story file; 0.46 still stops for AC2(b)
 (`sharp` in the real Lambda runtime), which needs a deployed non-prod stage and is never deployed by a child.
-Progress: 3.6m done (`review`, commit `b7d6fb3a`); 3.6p in progress; 0.46, 3.6n, 3.6o pending.
+Progress: 3.6m done (`review`, `b7d6fb3a`); 3.6p done (`review`, `af8bafe6`); 0.46 in progress; 3.6n, 3.6o pending.
 
 - [ ] **3.6q** Version re-hosted media keys and set a 7-day immutable HTTP cache policy — *feeds 3.6n (its key helper
       builds `thumb-{hash8}.jpg`); no CC-024 dependency* (built, status `review`; backfill workflow lives in
@@ -402,8 +402,11 @@ Progress: 3.6m done (`review`, commit `b7d6fb3a`); 3.6p in progress; 0.46, 3.6n,
       sweep verdict READY-WITH-CORRECTION; per-event shape and `actualScheduleCount` ownership are user decisions at
       create-story; an ingestor back-fill would also need 3.6t) (story created 2026-10-03, commit `18e997ee`, status
       `ready-for-dev`; decisions taken with the user: one row per attempt + jsonb array, extraction-time
-      `actualScheduleCount`; `confidenceScore` also per-event)
-  - [x] create  - [ ] dev  - [ ] review
+      `actualScheduleCount`; `confidenceScore` also per-event) (**dev done** 2026-10-03, commit `af8bafe6`, status
+      `review`; migration `0068_wandering_jack_murdock` generated with drizzle-kit and applied to the local DB;
+      `writeExtractionAuditLog` returns `{ id }`; targeted tests 56/56 across 7 files; backend lint 0 errors, domain/
+      database/backend builds clean; whole-repo gate deferred to batch end)
+  - [x] create  - [x] dev  - [ ] review
 - [ ] **0.46** Provision the AI Processor Lambda's image-processing runtime (memory, native-binary bundling, model
       assets) — *new prerequisite found by the CC-023 sweep (Gate 1); hard prerequisite for 3.6n only; includes the
       TensorFlow.js backend decision, the bundle-size check and the timeout/visibility headroom* (added 2026-10-03;
