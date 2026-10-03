@@ -38,6 +38,13 @@ export interface BackendEnv {
   scrapeInlineFallbackEnabled: boolean;
   aiProcessingQueueUrl?: string;
   aiProcessingInlineFallbackEnabled: boolean;
+  // Story 3.6z (AC3) — TTL (minutes) for enqueuePostForProcessing's atomic claim
+  // (posts.queued_for_extraction_at). Default derivation: AIProcessingQueue's visibility
+  // timeout (300s) x maxReceiveCount (3) = 900s (15 min) worst-case time from first claim to
+  // the message landing in its DLQ (apps/infrastructure/lib/festgrid-backend-stack.ts). 30
+  // minutes gives a safety margin above that so a legitimately-still-retrying message's claim
+  // is never prematurely reclaimed by another enqueue attempt on the same post.
+  postExtractionClaimTtlMinutes: number;
   dataIngestionQueueUrl?: string;
   dataIngestionInlineFallbackEnabled: boolean;
   apifyApiToken?: string;
@@ -165,6 +172,8 @@ export function loadBackendEnv(): BackendEnv {
     aiProcessingQueueUrl: process.env.AI_PROCESSING_QUEUE_URL,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     aiProcessingInlineFallbackEnabled: process.env.AI_PROCESSING_INLINE_FALLBACK_ENABLED === 'true',
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    postExtractionClaimTtlMinutes: parseInt(process.env.POST_EXTRACTION_CLAIM_TTL_MINUTES || '30', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     dataIngestionQueueUrl: process.env.DATA_INGESTION_QUEUE_URL,
     // eslint-disable-next-line turbo/no-undeclared-env-vars

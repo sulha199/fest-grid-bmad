@@ -44,3 +44,15 @@ export class PostAlreadyExtractedError extends Error {
     this.name = 'PostAlreadyExtractedError';
   }
 }
+
+/**
+ * Story 3.6z (AC3) — thrown by `enqueuePostForProcessing` when a non-stale claim
+ * (`posts.queued_for_extraction_at`, within its TTL) already exists for the post, meaning
+ * another in-flight attempt (manual or auto) has already claimed it.
+ */
+export class PostAlreadyQueuedError extends Error {
+  constructor(message?: string) {
+    super(message || 'Post is already queued for extraction');
+    this.name = 'PostAlreadyQueuedError';
+  }
+}

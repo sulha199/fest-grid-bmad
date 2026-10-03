@@ -1,7 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { selectApiKey } from './select-api-key.js';
+import { selectApiKey, determineSelectionTier } from './select-api-key.js';
 import { ApiKeyCandidate } from './types.js';
+
+test('determineSelectionTier - 0 subscribers -> TIER_2_SHARED_ROUND_ROBIN', () => {
+  assert.strictEqual(determineSelectionTier([]), 'TIER_2_SHARED_ROUND_ROBIN');
+});
+
+test('determineSelectionTier - 1 subscriber -> TIER_1_USER_SPECIFIC', () => {
+  assert.strictEqual(determineSelectionTier(['user-a']), 'TIER_1_USER_SPECIFIC');
+});
+
+test('determineSelectionTier - 2+ subscribers -> TIER_2_SHARED_ROUND_ROBIN', () => {
+  assert.strictEqual(determineSelectionTier(['user-a', 'user-b']), 'TIER_2_SHARED_ROUND_ROBIN');
+  assert.strictEqual(determineSelectionTier(['user-a', 'user-b', 'user-c']), 'TIER_2_SHARED_ROUND_ROBIN');
+});
 
 test('selectApiKey - Tier 1: single key', () => {
   const candidates: ApiKeyCandidate[] = [

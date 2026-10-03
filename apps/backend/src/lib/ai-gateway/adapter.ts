@@ -1,4 +1,4 @@
-import { selectApiKey, computeBackoffDelayMs } from '@festgrid/domain';
+import { selectApiKey, determineSelectionTier, computeBackoffDelayMs } from '@festgrid/domain';
 import { loadBackendEnv } from '../../env.js';
 import { decryptApiKey } from './kms.js';
 import {
@@ -34,7 +34,7 @@ export async function callGemini(
   const threshold = env.apiKeyInvalidAttemptsThreshold;
 
   const candidates = await fetchCandidateKeys('gemini', request.subscriberUserIds);
-  const tier = request.subscriberUserIds.length === 1 ? 'TIER_1_USER_SPECIFIC' : 'TIER_2_SHARED_ROUND_ROBIN';
+  const tier = determineSelectionTier(request.subscriberUserIds);
 
   const excludedKeys = new Set<string>();
   let attempt = 0;

@@ -1,27 +1,60 @@
 import { db } from "../../db/client.js";
 import { posts } from "@festgrid/database";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, lt, or } from "drizzle-orm";
 import { loadBackendEnv } from "../../env.js";
 import { sendSqsMessage } from "../aws/send-sqs-message.js";
 import { processAiJob } from "../ai-processor/process-ai-job.js";
-import { PostNotFoundError, PostAlreadyExtractedError, type ProcessingJobMessage } from "@festgrid/domain/posts";
+import {
+  PostNotFoundError,
+  PostAlreadyExtractedError,
+  PostAlreadyQueuedError,
+  computeClaimCutoff,
+  type ProcessingJobMessage,
+} from "@festgrid/domain/posts";
 
+/**
+ * Story 3.6z (AC3) — rewritten as an atomic, TTL-bounded claim so the same post is never
+ * enqueued twice while a prior attempt is still in flight (closing the Story 3.5 accepted gap
+ * now that two independent callers exist: manual `selectPostsForExtraction` and this story's
+ * auto-enqueue). See the story's Dev Notes "Design note: why the claim needs a TTL, not just a
+ * boolean" for why a non-expiring claim would be strictly worse than the gap it replaces.
+ */
 export async function enqueuePostForProcessing(postId: string): Promise<void> {
-  const [post] = await db
-    .select()
-    .from(posts)
-    .where(eq(posts.id, postId))
-    .limit(1);
+  const env = loadBackendEnv();
+  const now = new Date();
+  const cutoff = computeClaimCutoff(env.postExtractionClaimTtlMinutes, now);
+
+  // One atomic claim: only succeeds if the post is not yet extracted and has no non-stale
+  // claim already in flight. Mirrors the existing conditional-update-and-.returning() idiom
+  // already used by mark-post-extracted.ts/set-event-primary-post.ts in this codebase.
+  const [claimedPost] = await db
+    .update(posts)
+    .set({ queuedForExtractionAt: now })
+    .where(
+      and(
+        eq(posts.id, postId),
+        eq(posts.isExtracted, false),
+        // Unclaimed, or claimed but past its TTL (reclaimable).
+        or(isNull(posts.queuedForExtractionAt), lt(posts.queuedForExtractionAt, cutoff))
+      )
+    )
+    .returning();
+
+  let post = claimedPost;
 
   if (!post) {
-    throw new PostNotFoundError();
-  }
+    // The claim didn't land -- run a follow-up SELECT to distinguish why.
+    const [existing] = await db.select().from(posts).where(eq(posts.id, postId)).limit(1);
 
-  if (post.isExtracted) {
-    throw new PostAlreadyExtractedError();
+    if (!existing) {
+      throw new PostNotFoundError();
+    }
+    if (existing.isExtracted) {
+      throw new PostAlreadyExtractedError();
+    }
+    // Otherwise: a non-stale existing claim is already in flight.
+    throw new PostAlreadyQueuedError();
   }
-
-  const env = loadBackendEnv();
 
   const message: ProcessingJobMessage = {
     postId: post.id,
@@ -35,22 +68,33 @@ export async function enqueuePostForProcessing(postId: string): Promise<void> {
     additionalImageUrls: post.additionalImageUrls ?? undefined,
   };
 
-  if (env.aiProcessingQueueUrl) {
-    await sendSqsMessage(env.aiProcessingQueueUrl, JSON.stringify(message));
-    return;
-  }
+  try {
+    if (env.aiProcessingQueueUrl) {
+      await sendSqsMessage(env.aiProcessingQueueUrl, JSON.stringify(message));
+      return;
+    }
 
-  if (env.aiProcessingInlineFallbackEnabled) {
-    // No queue configured and inline fallback explicitly opted into (local dev only,
-    // via AI_PROCESSING_INLINE_FALLBACK_ENABLED in a personal .env): process the AI job
-    // inline instead of enqueuing, since there's no Lambda locally to drain the queue.
-    // Fire-and-forget, mirroring the async nature of the queue path and the equivalent
-    // scrape inline fallback in trigger-scrape-for-account.ts.
-    processAiJob(message).catch((err) => {
-      console.error(`Failed to process AI job inline for post ${post.id}:`, err);
-    });
-    return;
-  }
+    if (env.aiProcessingInlineFallbackEnabled) {
+      // No queue configured and inline fallback explicitly opted into (local dev only,
+      // via AI_PROCESSING_INLINE_FALLBACK_ENABLED in a personal .env): process the AI job
+      // inline instead of enqueuing, since there's no Lambda locally to drain the queue.
+      // Fire-and-forget, mirroring the async nature of the queue path and the equivalent
+      // scrape inline fallback in trigger-scrape-for-account.ts.
+      processAiJob(message).catch((err) => {
+        console.error(`Failed to process AI job inline for post ${post.id}:`, err);
+      });
+      return;
+    }
 
-  throw new Error("AI_PROCESSING_QUEUE_URL is not configured");
+    throw new Error("AI_PROCESSING_QUEUE_URL is not configured");
+  } catch (err) {
+    // A send-time failure (SQS error, or "queue not configured") is not a legitimate
+    // in-flight Gemini attempt -- release the claim before rethrowing so it doesn't hold
+    // the full TTL window for nothing. A failure *after* a successful send (inside
+    // processAiJob's own later Gemini-call/validation logic) deliberately does NOT go
+    // through this catch -- that class of failure legitimately holds the claim until the
+    // TTL expires or markPostExtracted flips isExtracted (see Dev Notes).
+    await db.update(posts).set({ queuedForExtractionAt: null }).where(eq(posts.id, postId));
+    throw err;
+  }
 }
