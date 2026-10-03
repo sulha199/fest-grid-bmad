@@ -206,6 +206,12 @@ Read this before trusting a red gate. None of these come from CC-024 stories.
 - **Synthetic volume pollutes the DB-backed tests:** with `seed:volume` rows present, 12 backend integration
   tests failed and the run took ~640 s; after `seed:volume:clean` only the 4 key tests failed. Always clean
   before running tests.
+- **Stale compiled packages after pulling (2026-10-03):** the backend imports `@festgrid/graphql-select` (and the other
+  workspace packages) from their gitignored `dist/`. A stale `packages/graphql-select/dist` (built before 3.6y) lacked the
+  weekday guard, so Story 3.6y's 4 tests (AC1-AC4; 6 reported incl. their parent suites) failed in `resolvers.test.ts`
+  even though the source was correct. `pnpm --filter @festgrid/graphql-select build` fixed it (91/91). After every pull,
+  run the packages' builds (`pnpm build`) as well as `pnpm install --frozen-lockfile`. Verified by running the file against
+  the pre-3.6n source (same failures) and again after the rebuild (none).
 - **Backend suite is slow:** ~570 s (800 tests) when clean; the gate's 1,200 s timeout is fine, but the
   orchestrator's per-story `--checks test` is expensive. With these known failures the auto-dispatched
   quick-dev fix would chase environment problems, so Wave 2A dev stories run through the plain dispatch and
@@ -384,7 +390,7 @@ sequential (3.6n2 is created and built later, after 3.6n). Plain dispatch with n
 failures; see "Test-gate facts"); whole-repo lint/build/test run once at the end with `TZ=UTC`. The Pre-Coding Approval Gate
 is **pre-approved by the user for all five** provided each proposed scope matches its story file; 0.46 still stops for AC2(b)
 (`sharp` in the real Lambda runtime), which needs a deployed non-prod stage and is never deployed by a child.
-Progress: 3.6m done (`review`, `b7d6fb3a`); 3.6p done (`review`, `af8bafe6`); 0.46 done (`review`, `c19ff31b`); 3.6n in progress; 3.6o pending.
+Progress: 3.6m done (`review`, `b7d6fb3a`); 3.6p done (`review`, `af8bafe6`); 0.46 done (`review`, `c19ff31b`); 3.6n done (`review`, `6672de14`); 3.6o in progress. 3.6n2 not yet created.
 
 - [ ] **3.6q** Version re-hosted media keys and set a 7-day immutable HTTP cache policy — *feeds 3.6n (its key helper
       builds `thumb-{hash8}.jpg`); no CC-024 dependency* (built, status `review`; backfill workflow lives in
@@ -429,8 +435,13 @@ Progress: 3.6m done (`review`, `b7d6fb3a`); 3.6p done (`review`, `af8bafe6`); 0.
       3.6q, **0.46**; adds `posts.durableThumbnailUrl`; pipeline only (detection/blur/resize/upload, migration,
       once-per-post run point, timeout guard)* (story created 2026-10-03, status `ready-for-dev`; **split at
       create-story** — the read path/UI moved to new **3.6n2** below, per the sweep's own "size check may split it"
-      flag, confirmed with the user via `AskUserQuestion`, mirroring the 1.3a/1.3b precedent)
-  - [x] create  - [ ] dev  - [ ] review
+      flag, confirmed with the user via `AskUserQuestion`, mirroring the 1.3a/1.3b precedent) (**dev done** 2026-10-03,
+      commits `bed5d628`, `9256179a`, `6672de14`, status `review`; migration `0069_noisy_hairball`; real WASM face
+      detection + per-face blur, thumbnail upload, the two AD-29 backfills it owns, once-per-post call site with a
+      timeout guard; user-approved scope addition: the real face-api/tfjs import graph is now in the Lambda's primary
+      esbuild bundle (0.46's inert probe pass removed), final asset 34.5 MB unzipped / 13.53 MB zipped; read path untouched;
+      infra tests 6/6; the child needed one resume because it ended a turn on a background task)
+  - [x] create  - [x] dev  - [ ] review
 - [ ] **3.6n2** Expose the thumbnail through the read path and widen `prominentPoster` — *needs 3.6n; GraphQL field +
       6 `resolvers.ts` select sites + `Event` field resolver, `resolveServedImageUrl`'s extended precedence
       (served-URL decision resolved with the user at 3.6n's create-story: "thumbnail fills the gap only" — original
