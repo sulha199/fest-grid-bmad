@@ -2,9 +2,10 @@ import test from "node:test";
 import * as assert from "node:assert";
 import { db } from "../../db/client.js";
 import { posts, socialMediaAccountProfiles } from "@festgrid/database";
+import { eq } from "drizzle-orm";
 import { setSendSqsMessage, sendSqsMessage } from "../aws/send-sqs-message.js";
 import { enqueuePostForProcessing } from "./enqueue-post-for-processing.js";
-import { PostNotFoundError, PostAlreadyExtractedError } from "@festgrid/domain/posts";
+import { PostNotFoundError, PostAlreadyExtractedError, PostAlreadyQueuedError } from "@festgrid/domain/posts";
 
 test("enqueuePostForProcessing integration tests", async (t) => {
   const originalSendSqsMessage = sendSqsMessage;
@@ -166,5 +167,104 @@ test("enqueuePostForProcessing integration tests", async (t) => {
 
     const parsed = JSON.parse(sentBody);
     assert.strictEqual(parsed.additionalImageUrls, undefined);
+  });
+
+  await t.test("(f) already-queued non-stale claim: rejects with PostAlreadyQueuedError, zero SQS sends", async () => {
+    let callCount = 0;
+    setSendSqsMessage(async () => {
+      callCount++;
+    });
+
+    process.env.AI_PROCESSING_QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/12345/AIProcessingQueue";
+
+    const [post] = await db
+      .insert(posts)
+      .values({
+        accountId: profile.id,
+        platform: 'instagram',
+        content: "Already-queued post content",
+        postUrl: "https://instagram.com/p/test_already_queued_" + Date.now(),
+        publishedAt: new Date(),
+        isExtracted: false,
+        queuedForExtractionAt: new Date(), // claimed just now -- well within the default 30-minute TTL
+      })
+      .returning();
+
+    await assert.rejects(
+      enqueuePostForProcessing(post.id),
+      (err: Error) => {
+        assert.ok(err instanceof PostAlreadyQueuedError);
+        return true;
+      }
+    );
+
+    assert.strictEqual(callCount, 0);
+  });
+
+  await t.test("(g) a stale claim (older than the TTL) succeeds, re-claims with a new timestamp, one SQS send", async () => {
+    let sentBody = "";
+    let callCount = 0;
+    setSendSqsMessage(async (_queueUrl, body) => {
+      callCount++;
+      sentBody = body;
+    });
+
+    process.env.AI_PROCESSING_QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/12345/AIProcessingQueue";
+
+    const staleClaimedAt = new Date(Date.now() - 31 * 60 * 1000); // 31 minutes ago, past the default 30-minute TTL
+
+    const [post] = await db
+      .insert(posts)
+      .values({
+        accountId: profile.id,
+        platform: 'instagram',
+        content: "Stale-claim post content",
+        postUrl: "https://instagram.com/p/test_stale_claim_" + Date.now(),
+        publishedAt: new Date(),
+        isExtracted: false,
+        queuedForExtractionAt: staleClaimedAt,
+      })
+      .returning();
+
+    await enqueuePostForProcessing(post.id);
+
+    assert.strictEqual(callCount, 1);
+    const parsed = JSON.parse(sentBody);
+    assert.strictEqual(parsed.postId, post.id);
+
+    const [reloaded] = await db.select().from(posts).where(eq(posts.id, post.id));
+    assert.ok(reloaded.queuedForExtractionAt);
+    assert.ok(reloaded.queuedForExtractionAt!.getTime() > staleClaimedAt.getTime(), "claim timestamp should be refreshed to now");
+  });
+
+  await t.test("(h) an SQS send failure releases the claim (queuedForExtractionAt back to null) and the original error propagates", async () => {
+    setSendSqsMessage(async () => {
+      throw new Error("Simulated SQS send failure");
+    });
+
+    process.env.AI_PROCESSING_QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/12345/AIProcessingQueue";
+
+    const [post] = await db
+      .insert(posts)
+      .values({
+        accountId: profile.id,
+        platform: 'instagram',
+        content: "Send-failure post content",
+        postUrl: "https://instagram.com/p/test_send_failure_" + Date.now(),
+        publishedAt: new Date(),
+        isExtracted: false,
+      })
+      .returning();
+
+    await assert.rejects(
+      enqueuePostForProcessing(post.id),
+      (err: Error) => {
+        assert.strictEqual(err.message, "Simulated SQS send failure");
+        return true;
+      }
+    );
+
+    const [reloaded] = await db.select().from(posts).where(eq(posts.id, post.id));
+    assert.strictEqual(reloaded.queuedForExtractionAt, null, "claim should be released on send failure");
   });
 });
