@@ -1,5 +1,15 @@
 import { ApiKeyCandidate, SelectionTier } from './types.js';
 
+/**
+ * Story 3.6z (Task 3) — extracted byte-for-byte from `apps/backend/src/lib/ai-gateway/adapter.ts`'s
+ * `callGemini` (no behavior change) so this story's pre-flight key-availability check
+ * (`hasAvailableApiKeyForAccount`) can reuse the exact same tier-derivation rule instead of
+ * risking the two call sites silently diverging later.
+ */
+export function determineSelectionTier(subscriberUserIds: string[]): SelectionTier {
+  return subscriberUserIds.length === 1 ? 'TIER_1_USER_SPECIFIC' : 'TIER_2_SHARED_ROUND_ROBIN';
+}
+
 export function selectApiKey(
   candidates: ApiKeyCandidate[],
   tier: SelectionTier,
