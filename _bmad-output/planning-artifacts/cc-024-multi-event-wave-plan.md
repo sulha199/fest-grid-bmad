@@ -37,8 +37,9 @@ per-epic). Gate 2 (UI) stays per story.
 - **1.3j / 1.6c / 1.3k** are built (`review`), so a Gate 1/3 pass over their planned ACs adds little. 1.6c and 1.3k
   were swept by the event-pages batch (`batch-event-pages-wave-a-readiness.md`); 1.3j appears there only as a
   prerequisite status, not as a swept story.
-- **3.16 / 3.17 / 3.19** (coauthor subscribability, demand-gated discovery, toggle analytics) are `backlog`, never
-  swept (added after the 2026-09-11 Epic 3 sweep), and no CC-024 story depends on them. Deferred, not covered.
+- **3.16 / 3.17 / 3.19** (coauthor subscribability, demand-gated discovery, toggle analytics) were never swept (added
+  after the 2026-09-11 Epic 3 sweep), and no CC-024 story depends on them. Deferred, not covered. As of 2026-10-03 3.16 is
+  built (`review`, merged from master); 3.17 and 3.19 are still `backlog`.
 - **3.6m–3.6q (CC-023)** were **not** swept either: CC-023 is a change proposal (it drafted the stories), not a
   readiness report. Because CC-024 amends 3.6o and 3.6p, they are now folded into this plan as **Wave 4C** and
   get their own batch-scoped sweep (see Wave 1).
