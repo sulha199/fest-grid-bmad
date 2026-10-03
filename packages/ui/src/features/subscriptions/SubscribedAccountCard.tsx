@@ -4,6 +4,7 @@ import { AccountAvatar } from '../../core/account-avatar';
 import { getAccountIdentityLabel } from '../../core/account-identity';
 import { LocationLink } from '../../core/LocationLink';
 import { isLocationTrustworthy } from '@festgrid/domain/geolocation';
+import { getPlatformDisplayName } from '@festgrid/domain/scraper';
 import type { SubscribedAccountCardProps } from './SubscribedAccountCard.types';
 
 export function SubscribedAccountCard({
@@ -18,6 +19,8 @@ export function SubscribedAccountCard({
   size,
   className = '',
   location,
+  variant = 'detail',
+  showPlatformBadge,
 }: SubscribedAccountCardProps) {
   const displayNameTextClass = size === 'lg' ? 'text-lg' : '';
   const usernameTextClass = size === 'lg' ? 'text-base' : 'text-sm';
@@ -51,7 +54,14 @@ export function SubscribedAccountCard({
         platform={account.platform}
       />
       <div className="flex flex-col min-w-0">
-        <span className={`truncate font-medium ${displayNameTextClass}`} title={primaryLabel}>{primaryLabel}</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`truncate font-medium ${displayNameTextClass}`} title={primaryLabel}>{primaryLabel}</span>
+          {showPlatformBadge && account.platform && (
+            <span className="text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full shrink-0">
+              {getPlatformDisplayName(account.platform as any)}
+            </span>
+          )}
+        </div>
         {location && isLocationTrustworthy(location) ? (
           <span className={`truncate text-gray-500 ${usernameTextClass}`}>
             <LocationLink
@@ -84,26 +94,28 @@ export function SubscribedAccountCard({
           {identityContent}
         </div>
       )}
-      <div className="ml-4 flex-shrink-0">
-        <button
-          type="button"
-          data-testid="subscribe-toggle"
-          onClick={handleClick}
-          disabled={isDisabled}
-          aria-busy={!!isStatusLoading || !!isTogglePending}
-          aria-pressed={isStatusLoading ? undefined : isSubscribed}
-          aria-label={ariaLabel}
-          className="rounded-full p-2 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        >
-          {isStatusLoading ? (
-            <UserPlus className="w-5 h-5 text-gray-400 opacity-40" aria-hidden="true" />
-          ) : isSubscribed ? (
-            <UserCheck className="w-5 h-5 text-primary" aria-hidden="true" />
-          ) : (
-            <UserPlus className="w-5 h-5 text-gray-400 hover:text-gray-600" aria-hidden="true" />
-          )}
-        </button>
-      </div>
+      {variant !== 'list' && (
+        <div className="ml-4 flex-shrink-0">
+          <button
+            type="button"
+            data-testid="subscribe-toggle"
+            onClick={handleClick}
+            disabled={isDisabled}
+            aria-busy={!!isStatusLoading || !!isTogglePending}
+            aria-pressed={isStatusLoading ? undefined : isSubscribed}
+            aria-label={ariaLabel}
+            className="rounded-full p-2 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            {isStatusLoading ? (
+              <UserPlus className="w-5 h-5 text-gray-400 opacity-40" aria-hidden="true" />
+            ) : isSubscribed ? (
+              <UserCheck className="w-5 h-5 text-primary" aria-hidden="true" />
+            ) : (
+              <UserPlus className="w-5 h-5 text-gray-400 hover:text-gray-600" aria-hidden="true" />
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

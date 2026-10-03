@@ -287,6 +287,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
                   isStatusLoading={isSubscriptionStatusLoading}
                   isTogglePending={isTogglePending}
                   location={accountLocation}
+                  variant="detail"
                   labels={{
                     subscribeLabel: labels.subscribeButtonLabel,
                     unsubscribeLabel: labels.unsubscribeButtonLabel,
