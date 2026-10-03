@@ -8,7 +8,7 @@ baseline_commit: a9b7c904bab4e74ef85590313789f950f2600ec9
 
 - Epic: 3
 - Story ID: 3.16
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -230,6 +230,8 @@ Claude Sonnet 5 (`claude-sonnet-5`), via `bmad-dev-story`.
 - `npx tsx --test src/shared/claim-ttl.test.ts` (from `packages/domain`) — 4/4 pass, relocated from `posts/claim-ttl.test.ts` unchanged.
 - `npx eslint` on all touched/new files — 0 errors, 0 new warnings (a handful of pre-existing warnings in `env.ts` and `rehost-post-image.test.ts`, unrelated to this story's diff, confirmed via `git diff` to predate this change).
 - Local DB had only fixture-scale data (117 posts, 47 account profiles) going in — not volume-seeded, so `seed:volume:clean` was not needed before the DB-touching test run.
+- Repo-wide `pnpm lint` — 0 errors (1285 pre-existing warnings, unrelated to this story). Repo-wide `pnpm build` — 8/8 workspace packages succeeded (web, backend, domain, database, etc.). Both run once, unfiltered, immediately before setting status to `review`.
+- Per this story's own explicit instruction (CC-024 Wave 4A batch convention, matching 3.13/3.14/3.15 precedent) and this run's explicit user instruction, the full `apps/backend` test suite and repo-wide `pnpm test` were deliberately deferred to the CC-024 batch-end gate and NOT run here — only targeted test files (`subscribe-to-account.test.ts`, `shared/claim-ttl.test.ts`) were run, each passing 100%.
 
 ### Completion Notes List
 
