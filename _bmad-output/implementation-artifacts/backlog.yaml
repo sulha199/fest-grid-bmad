@@ -1851,8 +1851,8 @@ items:
      title: "Blur faces before images are sent to Gemini, configurable by env var (owner opt-in exception)",
      ref: [planning-artifacts/sprint-change-proposal-2026-10-04-blur-faces-before-ai.md],
      touches: [app:backend, app:infrastructure, pkg:domain, pkg:database, cross:ai-extraction, cross:architecture, cross:prd],
-     stories: [3-20-blur-faces-before-images-are-sent-to-the-ai-behind-blur-faces-before-ai],
-     note: "Also adds Story 3.21 (backlog key in sprint-status.yaml, no story file yet) and FR115; AD-28 Rule 10, AD-29 Rule 7; PRD 3.16, 4.5, Security. FIND-068 (child row) promoted separately to Story 4.2b."}
+     stories: [3-20-blur-faces-before-images-are-sent-to-the-ai-behind-blur-faces-before-ai, 3-21-reuse-the-pre-ai-blur-for-the-thumbnail-and-record-what-the-ai-saw],
+     note: "Also adds FR115; AD-28 Rule 10, AD-29 Rule 7; PRD 3.16, 4.5, Security. FIND-068 (child row) promoted separately to Story 4.2b."}
 
   FIND-066:
     {type: finding, status: backlog, created: 2026-10-04, parent: CC-028,
