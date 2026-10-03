@@ -384,7 +384,7 @@ sequential (3.6n2 is created and built later, after 3.6n). Plain dispatch with n
 failures; see "Test-gate facts"); whole-repo lint/build/test run once at the end with `TZ=UTC`. The Pre-Coding Approval Gate
 is **pre-approved by the user for all five** provided each proposed scope matches its story file; 0.46 still stops for AC2(b)
 (`sharp` in the real Lambda runtime), which needs a deployed non-prod stage and is never deployed by a child.
-Progress: 3.6m done (`review`, `b7d6fb3a`); 3.6p done (`review`, `af8bafe6`); 0.46 in progress; 3.6n, 3.6o pending.
+Progress: 3.6m done (`review`, `b7d6fb3a`); 3.6p done (`review`, `af8bafe6`); 0.46 done (`review`); 3.6n, 3.6o pending.
 
 - [ ] **3.6q** Version re-hosted media keys and set a 7-day immutable HTTP cache policy — *feeds 3.6n (its key helper
       builds `thumb-{hash8}.jpg`); no CC-024 dependency* (built, status `review`; backfill workflow lives in
@@ -411,7 +411,20 @@ Progress: 3.6m done (`review`, `b7d6fb3a`); 3.6p done (`review`, `af8bafe6`); 0.
       assets) — *new prerequisite found by the CC-023 sweep (Gate 1); hard prerequisite for 3.6n only; includes the
       TensorFlow.js backend decision, the bundle-size check and the timeout/visibility headroom* (added 2026-10-03;
       story created the same day, commit `b722e177`, status `ready-for-dev`; backend decided with the user: WASM)
-  - [x] create  - [ ] dev  - [ ] review
+      (**dev done** 2026-10-03, status `review`; measured peak RSS 903 MB -> `memorySize: 2048`, `architecture: X86_64`;
+      stage total ~1.1s vs the 300s timeout/visibility budget (~277x headroom, no guard needed); AC2(b) `sharp`-in-
+      real-Lambda-runtime check done via a local Docker build of `public.ecr.aws/lambda/nodejs:22` + its RIE, never
+      deployed. AC6 package size needed real mid-story problem-solving: a `bundling.nodeModules` install of face-api/
+      tfjs/tfjs-backend-wasm measured 321-345 MB unzipped (over Lambda's 250 MB limit); a `tfjs-core`-only shim was
+      tried and rejected after it broke face-api's detector in a real test (`TypeError: i.as3D is not a function` --
+      the full `@tensorflow/tfjs` patches ~100 Tensor-prototype methods tfjs-core's build lacks); fixed by
+      esbuild-bundling the real, unmodified packages via a dedicated inert probe module never required by
+      `ai-processor.ts` -- final real asset: 33 MB unzipped / 13.45 MB zipped. Two `AskUserQuestion` round-trips used
+      for the AC6 pivot, both answered by the user/orchestrator; `ai-processor.ts`/`process-ai-job.ts` confirmed
+      unchanged since Story 0.40. Targeted tests: infra 6/6 green, backend `ai-processor.test.ts` 3/3 green; infra
+      has no lint script, `tsc --noEmit` clean; backend lint 0 errors, build clean; whole-repo gate deferred to batch
+      end.)
+  - [x] create  - [x] dev  - [ ] review
 - [ ] **3.6n** Detect and blur faces, generating a consent-independent durable thumbnail — *needs 3.6m, 3.6e, 0.33,
       3.6q, **0.46**; adds `posts.durableThumbnailUrl`; pipeline only (detection/blur/resize/upload, migration,
       once-per-post run point, timeout guard)* (story created 2026-10-03, status `ready-for-dev`; **split at
