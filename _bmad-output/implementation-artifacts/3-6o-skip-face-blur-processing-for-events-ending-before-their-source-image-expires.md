@@ -35,8 +35,8 @@ so that FestDaily doesn't spend compute, storage, and bystander-photo retention 
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC1, AC3, AC4): Add `computeLatestScheduleEnd` to `packages/domain`**
-  - [ ] New file `packages/domain/src/events/computeLatestScheduleEnd.ts`, exporting:
+- [x] **Task 1 (AC1, AC3, AC4): Add `computeLatestScheduleEnd` to `packages/domain`**
+  - [x] New file `packages/domain/src/events/computeLatestScheduleEnd.ts`, exporting:
     ```ts
     import type { GeminiEventPayload } from './types.js';
 
@@ -94,8 +94,8 @@ so that FestDaily doesn't spend compute, storage, and bystander-photo retention 
       return latest;
     }
     ```
-  - [ ] Add `export * from './computeLatestScheduleEnd.js';` to `packages/domain/src/events/index.ts` (alongside the existing `computePastEventThreshold.js` export line), so it is barrel-exported from `@festgrid/domain/events` the same way.
-  - [ ] **100% unit test coverage required** (`packages/domain`'s own testing rule, `project-context.md`), new `computeLatestScheduleEnd.test.ts`, `node:test` (this package's established runtime, matching `computePastEventThreshold.test.ts`'s own convention — confirm by reading that file's test harness before writing a different one). Required cases, each a distinct branch:
+  - [x] Add `export * from './computeLatestScheduleEnd.js';` to `packages/domain/src/events/index.ts` (alongside the existing `computePastEventThreshold.js` export line), so it is barrel-exported from `@festgrid/domain/events` the same way.
+  - [x] **100% unit test coverage required** (`packages/domain`'s own testing rule, `project-context.md`), new `computeLatestScheduleEnd.test.ts`, `node:test` (this package's established runtime, matching `computePastEventThreshold.test.ts`'s own convention — confirm by reading that file's test harness before writing a different one). Required cases, each a distinct branch:
     - Empty `events` array → `null`.
     - A single event whose only schedule has no `eventEndDate`/`eventEndTime` (only `eventStartDate`) → returns that start date at `23:59:59Z`.
     - A schedule with `eventEndDate` but no `eventEndTime` → that end date at `23:59:59Z`.
@@ -104,7 +104,7 @@ so that FestDaily doesn't spend compute, storage, and bystander-photo retention 
     - Multiple events, each with schedules → the true max across all of them wins (proves the "all events of the post" semantics, AD-28/the 2026-10-01 Amendment).
     - An event with an empty `schedules` array → contributes nothing (does not throw, does not become `0`/epoch).
     - A malformed date/time string (e.g. `eventEndDate: 'not-a-date'`) → skipped, does not throw, does not count toward the max (assert the function still returns the correct max from the *other*, valid schedules when one is mixed in, not just that it doesn't crash on an all-malformed input).
-  - [ ] Confirm `pnpm --filter domain test` reports 100% coverage for this new file specifically (not just "the suite is green") — this package's Testing Rule is a coverage requirement, not merely "has tests."
+  - [x] Confirm `pnpm --filter domain test` reports 100% coverage for this new file specifically (not just "the suite is green") — this package's Testing Rule is a coverage requirement, not merely "has tests."
 
 - [ ] **Task 2 (AC1, AC2, AC3, AC4): Wire the relevance gate into Story 3.6n's call site in `process-ai-job.ts`**
   - [ ] **Prerequisite check before starting this task:** confirm Story 3.6n has actually shipped with its own AC9 backfill-ownership scope (the `backfillFaceDetectionAuditResult`/`backfillFaceDetectionAuditResultSeam` helper, the `auditLogId` local variable threaded from Story 3.6p's write call site, and the `hasFaceImage === true` / `else` structure) — read `process-ai-job.ts` and `backfill-face-detection-audit-result.ts` directly rather than assuming the story-file text below is what actually shipped. If 3.6n shipped differently than its own story file describes, adapt this task to the real code, not to this description.
