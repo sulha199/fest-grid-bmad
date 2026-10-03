@@ -1,0 +1,1 @@
+ALTER TABLE "social_media_account_profiles" ADD COLUMN "classification_claimed_at" timestamp with time zone;

@@ -83,6 +83,10 @@ export interface BackendEnv {
   // Below this AI-inference confidence score (0.0-1.0), a Default Location change is held as
   // AWAITING_APPROVAL instead of applying immediately (added 2026-08-28)
   locationInferenceConfidenceThreshold: number;
+  // Story 3.16 — TTL (minutes) for subscribeToAccount's atomic classification claim
+  // (social_media_account_profiles.classification_claimed_at). Same 30-minute default and
+  // reclaim-after-TTL rationale as postExtractionClaimTtlMinutes (Story 3.6z) above.
+  accountClassificationClaimTtlMinutes: number;
 }
 
 function parseNonNegativeInt(value: string | undefined, name: string, defaultValue: number): number {
@@ -246,6 +250,8 @@ export function loadBackendEnv(): BackendEnv {
     postMediaCdnDomain: process.env.POST_MEDIA_CDN_DOMAIN,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     postMediaDistributionId: process.env.POST_MEDIA_DISTRIBUTION_ID,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    accountClassificationClaimTtlMinutes: parseInt(process.env.ACCOUNT_CLASSIFICATION_CLAIM_TTL_MINUTES || '30', 10),
   };
 
   // Ensure required Bright Data variables are present (webhook base URL is set post-deploy by CDK)

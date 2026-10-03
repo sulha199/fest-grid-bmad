@@ -191,6 +191,11 @@ describe('SubscriptionsContent', () => {
     // Verify edit Pencil action button is visible and Pending Review badge renders
     expect(screen.getByLabelText('Edit Default Location')).toBeInTheDocument();
     expect(screen.getByText('Pending Review')).toBeInTheDocument();
+
+    // Story 0.i6c: platform pill still visible after adopting SubscribedAccountCard
+    // (variant="list" showPlatformBadge) — zero information regression (AC3/AC4).
+    expect(screen.getByText('Instagram')).toBeInTheDocument();
+    expect(screen.getByText('Twitter/X')).toBeInTheDocument();
   });
 
   it('renders no-API-key prompt when user does not have an API key', async () => {

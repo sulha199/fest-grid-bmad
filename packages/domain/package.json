@@ -57,6 +57,10 @@
     "./users": {
       "types": "./dist/users/index.d.ts",
       "default": "./dist/users/index.js"
+    },
+    "./shared": {
+      "types": "./dist/shared/index.d.ts",
+      "default": "./dist/shared/index.js"
     }
   },
   "scripts": {
