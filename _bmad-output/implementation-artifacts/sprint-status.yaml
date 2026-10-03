@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-03T08:03:38Z
+last_updated: 2026-10-03T08:18:07Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -333,7 +333,7 @@ development_status:
   # added 2026-10-03 via bmad-epic-readiness-check (batch-cc-023-face-blur-audit-readiness.md)
   # Gate 1 finding: AIProcessorLambda has no memory/native-bundling/model-asset provisioning
   # for Story 3.6n's sharp + face-api stage. Hard prerequisite for 3-6n.
-  0-46-provision-the-ai-processor-lambdas-image-processing-runtime: backlog
+  0-46-provision-the-ai-processor-lambdas-image-processing-runtime: ready-for-dev
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.
