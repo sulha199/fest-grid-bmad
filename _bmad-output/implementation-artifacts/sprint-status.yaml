@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-02T23:15:05Z
+last_updated: 2026-10-03T03:00:03Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -1787,7 +1787,7 @@ development_status:
   3-6w-let-moderators-merge-duplicate-events-with-slug-redirects: backlog
   3-6x-show-all-events-from-a-post-on-a-post-collection-page: backlog
   3-6y-respect-weekday-narrowed-schedules-in-day-of-week-filtering: review
-  3-6z-automatically-enqueue-new-scraped-posts-for-extraction-within-quota: in-progress
+  3-6z-automatically-enqueue-new-scraped-posts-for-extraction-within-quota: review
   # 3.6r-3.6z added 2026-10-01 via bmad-correct-course
   # (sprint-change-proposal-2026-10-01-multi-event-posts.md, CC-024): multi-event posts
   # (BUG-051), cross-post matching (BUG-052), weekday-narrowed schedules (BUG-026) and

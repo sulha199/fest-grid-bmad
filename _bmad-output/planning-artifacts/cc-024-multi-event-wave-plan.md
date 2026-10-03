@@ -290,7 +290,9 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
       rather than a bare non-expiring flag (which would permanently strand a post whose extraction attempt exhausts
       SQS's 3 retries into the DLQ) or leaving the gap as-is; (2) auto-enqueue applies to every `persistScrapedPost`
       call site uniformly, including a new subscription's initial historical backfill, not just steady-state scrapes)
-  - [x] create  - [ ] dev  - [ ] review
+      (dev done, commits `b4315d0`..`399e67a`, status `review`; one genuine BUG-015 test regression found and fixed,
+      surfaced by the idempotency fix itself -- see story's Completion Notes)
+  - [x] create  - [x] dev  - [ ] review
 
 ## Wave 4B — Matching and enrichment
 
