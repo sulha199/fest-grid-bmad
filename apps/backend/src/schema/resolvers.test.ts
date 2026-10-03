@@ -7,7 +7,7 @@ import { resolvers, setEventsAuthProbe, eventsAuthProbe } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db, enableQueryDebug, resetExecutedQueryCount, getExecutedQueryCount } from '../db/client.js';
-import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, calendarAdditions, unprocessedScraperPayloads, instagramOembedCache, accountVotes } from '@festgrid/database';
+import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, calendarAdditions, unprocessedScraperPayloads, instagramOembedCache, accountVotes, postAccountAssociations } from '@festgrid/database';
 import { eq, inArray, count, sql } from 'drizzle-orm';
 import { ENDED_CASE_FIXTURES } from '@festgrid/domain/events';
 
@@ -1972,6 +1972,197 @@ test('events resolver integration via Yoga', async (t) => {
         assert.strictEqual(result.data.event.sourceSocialMediaAccountProfile, null);
       } finally {
         await db.delete(events).where(eq(events.id, noPostEvent.id));
+      }
+    });
+  });
+
+  await t.test('Event.coauthors resolver (Story 0.i6g)', async (t) => {
+    let publisherProfile: any;
+    let coauthorProfile: any;
+    let testPost: any;
+    let testEvent: any;
+    let publisherAssociation: any;
+    let coauthorAssociation: any;
+
+    t.before(async () => {
+      const [publisher] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: 'resolver_test_coauthors_publisher_1',
+        platform: 'instagram',
+        displayName: 'Resolver Test Publisher',
+        username: 'resolver_test_coauthors_publisher_1',
+      }).returning();
+      publisherProfile = publisher;
+
+      const [coauthor] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: 'resolver_test_coauthors_coauthor_1',
+        platform: 'instagram',
+        displayName: 'Resolver Test Coauthor',
+        username: 'resolver_test_coauthors_coauthor_1',
+      }).returning();
+      coauthorProfile = coauthor;
+
+      const [post] = await db.insert(posts).values({
+        accountId: publisherProfile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/resolver_test_coauthors_post_1',
+        originalPostUrl: 'https://instagram.com/p/resolver_test_coauthors_post_1',
+        content: 'This is a test post with a coauthor',
+        publishedAt: new Date(),
+        isExtracted: true,
+      }).returning();
+      testPost = post;
+
+      const [ev] = await db.insert(events).values({
+        eventName: 'Resolver Test Coauthors Event',
+        postId: testPost.id,
+        extractionOrdinal: 0,
+        location: 'Test location',
+      }).returning();
+      testEvent = ev;
+
+      const [pubAssoc] = await db.insert(postAccountAssociations).values({
+        postId: testPost.id,
+        accountId: publisherProfile.id,
+        role: 'PUBLISHER',
+      }).returning();
+      publisherAssociation = pubAssoc;
+
+      const [coAssoc] = await db.insert(postAccountAssociations).values({
+        postId: testPost.id,
+        accountId: coauthorProfile.id,
+        role: 'COAUTHOR',
+      }).returning();
+      coauthorAssociation = coAssoc;
+    });
+
+    t.after(async () => {
+      if (coauthorAssociation) await db.delete(postAccountAssociations).where(eq(postAccountAssociations.id, coauthorAssociation.id));
+      if (publisherAssociation) await db.delete(postAccountAssociations).where(eq(postAccountAssociations.id, publisherAssociation.id));
+      if (testEvent) await db.delete(events).where(eq(events.id, testEvent.id));
+      if (testPost) await db.delete(posts).where(eq(posts.id, testPost.id));
+      if (coauthorProfile) await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, coauthorProfile.id));
+      if (publisherProfile) await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, publisherProfile.id));
+    });
+
+    await t.test('returns exactly the COAUTHOR-associated profile, not the PUBLISHER one', async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetEventWithCoauthors($id: ID!) {
+              event(id: $id) {
+                id
+                coauthors {
+                  id
+                  accountId
+                  displayName
+                }
+              }
+            }
+          `,
+          variables: { id: testEvent.id }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.strictEqual(result.data.event.coauthors.length, 1);
+      assert.strictEqual(result.data.event.coauthors[0].id, coauthorProfile.id);
+      assert.strictEqual(result.data.event.coauthors[0].accountId, coauthorProfile.accountId);
+    });
+
+    await t.test('returns [] (not null, not an error) when the event has no linked postId', async () => {
+      const [noPostEvent] = await db.insert(events).values({
+        eventName: 'No Post Event Coauthors',
+        location: 'Test location',
+      }).returning();
+
+      try {
+        const response = await yoga.fetch('http://yoga/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: `
+              query GetEventWithCoauthors($id: ID!) {
+                event(id: $id) {
+                  id
+                  coauthors {
+                    id
+                  }
+                }
+              }
+            `,
+            variables: { id: noPostEvent.id }
+          })
+        });
+
+        const result = await response.json();
+        assert.ok(!result.errors, JSON.stringify(result.errors));
+        assert.deepStrictEqual(result.data.event.coauthors, []);
+      } finally {
+        await db.delete(events).where(eq(events.id, noPostEvent.id));
+      }
+    });
+
+    await t.test('returns [] when the post has zero COAUTHOR associations', async () => {
+      const [onlyPublisherProfile] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: 'resolver_test_coauthors_only_publisher_1',
+        platform: 'instagram',
+        displayName: 'Resolver Test Only Publisher',
+        username: 'resolver_test_coauthors_only_publisher_1',
+      }).returning();
+
+      const [onlyPublisherPost] = await db.insert(posts).values({
+        accountId: onlyPublisherProfile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/resolver_test_coauthors_only_publisher_post_1',
+        originalPostUrl: 'https://instagram.com/p/resolver_test_coauthors_only_publisher_post_1',
+        content: 'This is a test post with no coauthors',
+        publishedAt: new Date(),
+        isExtracted: true,
+      }).returning();
+
+      const [onlyPublisherEvent] = await db.insert(events).values({
+        eventName: 'Only Publisher Event',
+        postId: onlyPublisherPost.id,
+        extractionOrdinal: 0,
+        location: 'Test location',
+      }).returning();
+
+      const [onlyPublisherAssociation] = await db.insert(postAccountAssociations).values({
+        postId: onlyPublisherPost.id,
+        accountId: onlyPublisherProfile.id,
+        role: 'PUBLISHER',
+      }).returning();
+
+      try {
+        const response = await yoga.fetch('http://yoga/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: `
+              query GetEventWithCoauthors($id: ID!) {
+                event(id: $id) {
+                  id
+                  coauthors {
+                    id
+                  }
+                }
+              }
+            `,
+            variables: { id: onlyPublisherEvent.id }
+          })
+        });
+
+        const result = await response.json();
+        assert.ok(!result.errors, JSON.stringify(result.errors));
+        assert.deepStrictEqual(result.data.event.coauthors, []);
+      } finally {
+        await db.delete(postAccountAssociations).where(eq(postAccountAssociations.id, onlyPublisherAssociation.id));
+        await db.delete(events).where(eq(events.id, onlyPublisherEvent.id));
+        await db.delete(posts).where(eq(posts.id, onlyPublisherPost.id));
+        await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, onlyPublisherProfile.id));
       }
     });
   });

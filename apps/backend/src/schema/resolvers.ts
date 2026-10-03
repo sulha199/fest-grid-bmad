@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns, aiEventFilters, accountTypeClassificationReviews } from '@festgrid/database';
+import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns, aiEventFilters, accountTypeClassificationReviews, postAccountAssociations } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly, getRequestedFieldNames } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator } from '../lib/auth/context.js';
 import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, gte, lte, isNull, ilike } from 'drizzle-orm';
@@ -4120,6 +4120,21 @@ Constraints and Guidelines:
         .where(eq(posts.id, parent.postId));
 
       return (rows[0] as any) || null;
+    },
+    coauthors: async (parent: any, args: any, context: any, info: any) => {
+      if (!parent.postId) {
+        return [];
+      }
+      const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
+      const rows = await db.select({
+        ...requestedFields,
+        id: socialMediaAccountProfiles.id
+      }).from(postAccountAssociations)
+        .innerJoin(socialMediaAccountProfiles, eq(postAccountAssociations.accountId, socialMediaAccountProfiles.id))
+        .where(and(eq(postAccountAssociations.postId, parent.postId), eq(postAccountAssociations.role, 'COAUTHOR')))
+        .orderBy(asc(postAccountAssociations.createdAt));
+
+      return rows as any;
     },
     schedules: async (parent: any, args: any, context: any, info: any) => {
       // Story 1.i1h (Task 3.4) — windowed-mode short-circuit. `Query.events`' windowed

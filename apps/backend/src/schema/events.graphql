@@ -138,6 +138,7 @@ type Event {
   isAddedToCalendar: Boolean!
   isHiddenForCurrentUser: Boolean!
   sourceSocialMediaAccountProfile: SocialMediaAccountProfile
+  coauthors: [SocialMediaAccountProfile!]!
   deletedAt: String
   isExpiredForCurrentUser: Boolean!
 }
