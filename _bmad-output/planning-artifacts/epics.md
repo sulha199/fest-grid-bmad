@@ -3834,6 +3834,10 @@ Full resolved shape — columns: `id` (uuid, PK, `defaultRandom`), `postId` (uui
 
 **Depends on:** Story 3.2, Story 3.14.
 
+**Amendment (2026-10-03, `bmad-create-story`):** Two gaps/decisions surfaced during story creation, resolved with the user via `AskUserQuestion`:
+1. **New AC4:** subscribing to a profile whose `isVerifiedForDiscovery` is currently `false` (every Story 3.14-discovered profile) flips it to `true`. Story 3.17's own AC text names "a subscribe (Story 3.16)... event" as the flip trigger but never assigns which story writes it; resolved that 3.16 writes it now rather than deferring entirely to 3.17.
+2. **AC2 clarified:** the existing classify-then-maybe-trigger-scrape cascade (today gated on `if (!accountProfile)`, i.e. only a brand-new profile row) must also run for a *pre-existing*, never-classified profile (Story 3.14's discovery path) for AC2 to hold at all — this was always implied by AC2's "triggered the same way... today" wording, not a scope addition. Extending it to pre-existing rows meaningfully raises the odds of two concurrent subscribers double-classifying/double-scraping the same account; closed via a new TTL-reclaimable `classificationClaimedAt` claim column on `social_media_account_profiles`, mirroring Story 3.6z's `posts.queuedForExtractionAt` precedent (a `SELECT ... FOR UPDATE` row-lock was considered first but found to self-deadlock against `classifyAccountType`'s internal, non-transactional writes). See `3-16-immediate-coauthor-publisher-subscribability.md`'s Dev Notes for full detail.
+
 ### Story 3.17: Demand-gated discovery for scrape-discovered profiles
 
 **As a** user,

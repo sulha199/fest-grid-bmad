@@ -350,4 +350,73 @@ describe('SubscribedAccountCard', () => {
       expect(screen.queryByText('Boundary Venue')).not.toBeInTheDocument();
     });
   });
+
+  describe('variant prop (Story 0.i6c)', () => {
+    it('renders no subscribe-toggle element when variant="list", regardless of isSubscribed/onSubscribe/onUnsubscribe', () => {
+      const onSubscribeMock = vi.fn();
+      const onUnsubscribeMock = vi.fn();
+      render(
+        <SubscribedAccountCard
+          {...defaultProps}
+          variant="list"
+          isSubscribed={true}
+          onSubscribe={onSubscribeMock}
+          onUnsubscribe={onUnsubscribeMock}
+          isStatusLoading={false}
+          isTogglePending={false}
+        />
+      );
+
+      expect(screen.queryByTestId('subscribe-toggle')).not.toBeInTheDocument();
+      // Identity block still renders.
+      expect(screen.getByText('Test User')).toBeInTheDocument();
+    });
+
+    it('keeps the toggle rendering exactly as today when variant is omitted (default)', () => {
+      render(<SubscribedAccountCard {...defaultProps} onSubscribe={vi.fn()} />);
+
+      const button = screen.getByTestId('subscribe-toggle');
+      expect(button).toBeInTheDocument();
+      expect(button).toHaveAttribute('aria-label', 'Subscribe');
+    });
+
+    it('keeps the toggle rendering exactly as today when variant="detail" is passed explicitly', () => {
+      render(<SubscribedAccountCard {...defaultProps} variant="detail" onSubscribe={vi.fn()} />);
+
+      const button = screen.getByTestId('subscribe-toggle');
+      expect(button).toBeInTheDocument();
+      expect(button).toHaveAttribute('aria-label', 'Subscribe');
+    });
+  });
+
+  describe('showPlatformBadge prop (Story 0.i6c)', () => {
+    it('renders the platform display name pill when showPlatformBadge is true and account.platform is present', () => {
+      render(<SubscribedAccountCard {...defaultProps} showPlatformBadge />);
+
+      expect(screen.getByText('Instagram')).toBeInTheDocument();
+    });
+
+    it('renders no pill when showPlatformBadge is false or omitted, even with platform present', () => {
+      render(<SubscribedAccountCard {...defaultProps} />);
+
+      expect(screen.queryByText('Instagram')).not.toBeInTheDocument();
+    });
+
+    it('renders no pill (and does not crash) when showPlatformBadge is true but account.platform is absent', () => {
+      const props = {
+        ...defaultProps,
+        account: { ...defaultProps.account, platform: undefined },
+      };
+      render(<SubscribedAccountCard {...props} showPlatformBadge />);
+
+      expect(screen.queryByText('Instagram')).not.toBeInTheDocument();
+      expect(screen.getByText('Test User')).toBeInTheDocument();
+    });
+
+    it('keeps the truncate class on the primary label span when the pill is present (AC5 regression guard)', () => {
+      render(<SubscribedAccountCard {...defaultProps} showPlatformBadge />);
+
+      expect(screen.getByText('Test User')).toHaveClass('truncate');
+    });
+  });
 });

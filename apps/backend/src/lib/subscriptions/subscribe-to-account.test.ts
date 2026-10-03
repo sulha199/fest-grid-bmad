@@ -333,4 +333,226 @@ test('subscribe-to-account tests', async (t) => {
       await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, ids));
     }
   });
+
+  // Story 3.16 -- helper to delete a directly-seeded profile row (+ its classification review /
+  // subscription rows) at the end of a test, mirroring the gating test's cleanup pattern above.
+  async function cleanupSeededProfile(accountId: string) {
+    const profileRows = await db
+      .select({ id: socialMediaAccountProfiles.id })
+      .from(socialMediaAccountProfiles)
+      .where(and(eq(socialMediaAccountProfiles.platform, testPlatform), eq(socialMediaAccountProfiles.accountId, accountId)));
+    if (profileRows.length > 0) {
+      const ids = profileRows.map((r) => r.id);
+      await db.delete(accountTypeClassificationReviews).where(inArray(accountTypeClassificationReviews.accountId, ids));
+      await db.delete(subscriptions).where(inArray(subscriptions.accountId, ids));
+      await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, ids));
+    }
+  }
+
+  await t.test('(f) pre-existing, never-classified profile gets classified and triggers scrape on first subscribe (AC2)', async (subT) => {
+    const seededAccountId = `discovered-f-${ts}`;
+    subT.after(() => cleanupSeededProfile(seededAccountId));
+
+    // Simulate Story 3.14's getOrCreateDiscoveredAccountProfile shape: a row that exists but was
+    // never classified and never scraped.
+    await db.insert(socialMediaAccountProfiles).values({
+      accountId: seededAccountId,
+      platform: testPlatform,
+      username: 'discovered_f',
+      displayName: 'Discovered F',
+      accountTypeStatus: null,
+      isVerifiedForDiscovery: false,
+      discoverySource: { vendor: 'apify' },
+    });
+
+    let scrapeCalled = false;
+    setAttemptApifyAsyncTrigger(async () => {
+      scrapeCalled = true;
+      return { success: true };
+    });
+    mockOrganizerConfirmedClassification('discovered_f');
+
+    const result = await subscribeToAccount({
+      userId: testUserId,
+      platform: testPlatform,
+      accountId: seededAccountId,
+      profile: { displayName: 'Discovered F', username: 'discovered_f' },
+    });
+
+    assert.strictEqual(scrapeCalled, true, 'classification + scrape should run for a pre-existing never-classified profile');
+    assert.strictEqual(result.profile.accountTypeStatus, 'CONFIRMED');
+    assert.strictEqual(result.alreadySubscribed, false);
+  });
+
+  await t.test('(g) a second subscribe call while a claim is in flight does not reclassify or re-trigger scrape (AC2)', async (subT) => {
+    const seededAccountId = `discovered-g-${ts}`;
+    subT.after(() => cleanupSeededProfile(seededAccountId));
+
+    // Fresh, non-expired claim already in flight.
+    await db.insert(socialMediaAccountProfiles).values({
+      accountId: seededAccountId,
+      platform: testPlatform,
+      username: 'discovered_g',
+      displayName: 'Discovered G',
+      accountTypeStatus: null,
+      isVerifiedForDiscovery: false,
+      discoverySource: { vendor: 'apify' },
+      classificationClaimedAt: new Date(),
+    });
+
+    let scrapeCalled = false;
+    let classificationCalled = false;
+    setAttemptApifyAsyncTrigger(async () => {
+      scrapeCalled = true;
+      return { success: true };
+    });
+    setGetAccountClassificationProfileSeam(async () => {
+      classificationCalled = true;
+      return {
+        username: 'discovered_g',
+        displayName: 'Discovered G',
+        biography: 'Music Events',
+        businessCategoryName: 'Event',
+      };
+    });
+    setCallGeminiForAccountClassificationSeam(async () => ({
+      text: JSON.stringify({ accountType: 'ORGANIZER_VENUE_EVENT', confidenceScore: 0.9 }),
+    }));
+
+    const result = await subscribeToAccount({
+      userId: testUserId,
+      platform: testPlatform,
+      accountId: seededAccountId,
+      profile: { displayName: 'Discovered G', username: 'discovered_g' },
+    });
+
+    assert.strictEqual(classificationCalled, false, 'classification must not run while another claim is in flight');
+    assert.strictEqual(scrapeCalled, false, 'scrape must not be triggered while another claim is in flight');
+    assert.strictEqual(result.alreadySubscribed, false, 'AC1: subscription must still succeed even when the claim loses the race');
+  });
+
+  await t.test('(h) a stale (TTL-expired) claim is reclaimable (AC2)', async (subT) => {
+    const seededAccountId = `discovered-h-${ts}`;
+    subT.after(() => cleanupSeededProfile(seededAccountId));
+
+    // Older than the default 30-minute TTL -- treated as abandoned, not permanently blocking.
+    const staleClaim = new Date(Date.now() - 31 * 60 * 1000);
+    await db.insert(socialMediaAccountProfiles).values({
+      accountId: seededAccountId,
+      platform: testPlatform,
+      username: 'discovered_h',
+      displayName: 'Discovered H',
+      accountTypeStatus: null,
+      isVerifiedForDiscovery: false,
+      discoverySource: { vendor: 'apify' },
+      classificationClaimedAt: staleClaim,
+    });
+
+    let classificationCalled = false;
+    setAttemptApifyAsyncTrigger(async () => ({ success: true }));
+    setGetAccountClassificationProfileSeam(async () => {
+      classificationCalled = true;
+      return {
+        username: 'discovered_h',
+        displayName: 'Discovered H',
+        biography: 'Music Events',
+        businessCategoryName: 'Event',
+      };
+    });
+    setCallGeminiForAccountClassificationSeam(async () => ({
+      text: JSON.stringify({ accountType: 'ORGANIZER_VENUE_EVENT', confidenceScore: 0.9 }),
+    }));
+
+    const result = await subscribeToAccount({
+      userId: testUserId,
+      platform: testPlatform,
+      accountId: seededAccountId,
+      profile: { displayName: 'Discovered H', username: 'discovered_h' },
+    });
+
+    assert.strictEqual(classificationCalled, true, 'a stale claim must be reclaimable, not permanently blocking');
+    assert.strictEqual(result.profile.accountTypeStatus, 'CONFIRMED');
+  });
+
+  await t.test('(i) isVerifiedForDiscovery flips from false to true on first subscribe (AC4)', async (subT) => {
+    const seededAccountId = `discovered-i-${ts}`;
+    subT.after(() => cleanupSeededProfile(seededAccountId));
+
+    // Already classified (so the claim/classification cascade is a no-op here) -- isolates AC4's
+    // flip from the AC2 cascade behavior covered by (f)-(h).
+    await db.insert(socialMediaAccountProfiles).values({
+      accountId: seededAccountId,
+      platform: testPlatform,
+      username: 'discovered_i',
+      displayName: 'Discovered I',
+      accountType: 'PERSONAL',
+      accountTypeStatus: 'CONFIRMED',
+      isVerifiedForDiscovery: false,
+      discoverySource: { vendor: 'apify' },
+    });
+
+    const result = await subscribeToAccount({
+      userId: testUserId,
+      platform: testPlatform,
+      accountId: seededAccountId,
+      profile: { displayName: 'Discovered I', username: 'discovered_i' },
+    });
+
+    assert.strictEqual(result.profile.isVerifiedForDiscovery, true);
+
+    const [row] = await db
+      .select()
+      .from(socialMediaAccountProfiles)
+      .where(eq(socialMediaAccountProfiles.id, result.profile.id))
+      .limit(1);
+    assert.strictEqual(row.isVerifiedForDiscovery, true);
+  });
+
+  await t.test('(j) an already-verified, already-classified profile subscribed to again is a no-op on both new columns', async (subT) => {
+    const seededAccountId = `discovered-j-${ts}`;
+    subT.after(() => cleanupSeededProfile(seededAccountId));
+
+    await db.insert(socialMediaAccountProfiles).values({
+      accountId: seededAccountId,
+      platform: testPlatform,
+      username: 'discovered_j',
+      displayName: 'Discovered J',
+      accountType: 'PERSONAL',
+      accountTypeStatus: 'CONFIRMED',
+      isVerifiedForDiscovery: true,
+      discoverySource: { vendor: 'apify' },
+      classificationClaimedAt: null,
+    });
+
+    let classificationCalled = false;
+    setGetAccountClassificationProfileSeam(async () => {
+      classificationCalled = true;
+      return {
+        username: 'discovered_j',
+        displayName: 'Discovered J',
+        biography: 'n/a',
+        businessCategoryName: null,
+      };
+    });
+
+    const result = await subscribeToAccount({
+      userId: testUserId,
+      platform: testPlatform,
+      accountId: seededAccountId,
+      profile: { displayName: 'Discovered J', username: 'discovered_j' },
+    });
+
+    assert.strictEqual(classificationCalled, false, 'an already-classified profile must not be reclassified');
+    assert.strictEqual(result.profile.isVerifiedForDiscovery, true);
+    assert.strictEqual(result.profile.accountTypeStatus, 'CONFIRMED');
+
+    const [row] = await db
+      .select()
+      .from(socialMediaAccountProfiles)
+      .where(eq(socialMediaAccountProfiles.id, result.profile.id))
+      .limit(1);
+    assert.strictEqual(row.isVerifiedForDiscovery, true);
+    assert.strictEqual(row.accountTypeStatus, 'CONFIRMED');
+    assert.strictEqual(row.classificationClaimedAt, null);
+  });
 });

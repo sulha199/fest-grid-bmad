@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
-import { SwipeToReveal, useSoftDeleteWithUndo, PageContainer, PageHeader, AccountLocationField, AccountAvatar } from "@festgrid/ui"
+import { SwipeToReveal, useSoftDeleteWithUndo, PageContainer, PageHeader, AccountLocationField, SubscribedAccountCard } from "@festgrid/ui"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
 import { useRouter, Link } from "@/i18n/navigation"
 import { graphqlClient } from "@/lib/graphql-client"
 import { useGetMySubscriptionsQuery, useRemoveSubscriptionMutation, SoftDeleteAction } from "@/generated/graphql"
-import { getPlatformDisplayName, getPlatformSlug } from "@festgrid/domain/scraper"
+import { getPlatformSlug } from "@festgrid/domain/scraper"
 import { useApiKeyStatus } from "@/features/onboarding/use-has-api-key"
 import { SubscribeAccountDialog } from "./subscribe-account-dialog"
 import { SetDefaultLocationDialog } from "./set-default-location-dialog"
@@ -236,22 +236,20 @@ export function SubscriptionsContent() {
                   }`}
                 >
                   <div className="flex items-center gap-4 flex-1 min-w-0 pr-4">
-                    <AccountAvatar
-                      profileImageUrl={sub.account.profileImageUrl}
-                      displayName={sub.account.displayName}
-                      username={sub.account.username}
-                    />
-
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold truncate">{sub.account.displayName || sub.account.username}</h3>
-                        <span className="text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full shrink-0">
-                          {getPlatformDisplayName(sub.account.platform as any)}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground truncate">
-                        @{sub.account.username}
-                      </p>
+                      <SubscribedAccountCard
+                        account={{
+                          accountId: sub.account.accountId,
+                          platform: sub.account.platform,
+                          displayName: sub.account.displayName,
+                          username: sub.account.username,
+                          profileImageUrl: sub.account.profileImageUrl,
+                        }}
+                        isSubscribed={false}
+                        variant="list"
+                        showPlatformBadge
+                        size="sm"
+                      />
                       <div className="mt-1 text-xs">
                         {sub.account.defaultLocation ? (
                           <div onClick={(e) => e.stopPropagation()}>
