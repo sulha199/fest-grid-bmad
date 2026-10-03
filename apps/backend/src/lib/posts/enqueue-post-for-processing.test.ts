@@ -1,5 +1,7 @@
 import test from "node:test";
 import * as assert from "node:assert";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { db } from "../../db/client.js";
 import { posts, socialMediaAccountProfiles } from "@festgrid/database";
 import { eq } from "drizzle-orm";
@@ -266,5 +268,46 @@ test("enqueuePostForProcessing integration tests", async (t) => {
 
     const [reloaded] = await db.select().from(posts).where(eq(posts.id, post.id));
     assert.strictEqual(reloaded.queuedForExtractionAt, null, "claim should be released on send failure");
+  });
+
+  await t.test("(i) Story 3.6z (AC2/Task 10): the manual path (resolvers.ts) and the auto-enqueue path (process-scrape-job.ts) both call this exact enqueuePostForProcessing -- no second, parallel message-building/enqueue function exists", async () => {
+    // Static-source checks rather than a runtime double-call: both call sites are proven to
+    // import from this exact module, and this module is the only place in apps/backend that
+    // constructs a ProcessingJobMessage -- which is what makes AC2's "multi-event/roundup
+    // rules and CURATOR_GUIDE minimization apply unchanged to auto-extracted posts" true by
+    // construction rather than by assertion alone.
+    const resolversSource = fs.readFileSync(path.resolve(__dirname, "../../schema/resolvers.ts"), "utf8");
+    assert.match(
+      resolversSource,
+      /import\s*\{\s*enqueuePostForProcessing\s*\}\s*from\s*['"]\.\.\/lib\/posts\/enqueue-post-for-processing\.js['"]/,
+      "resolvers.ts (manual selectPostsForExtraction path) must import enqueuePostForProcessing from this module"
+    );
+
+    const scrapeJobSource = fs.readFileSync(path.resolve(__dirname, "../scraper/process-scrape-job.ts"), "utf8");
+    assert.match(
+      scrapeJobSource,
+      /import\s*\{\s*enqueuePostForProcessing\s*\}\s*from\s*['"]\.\.\/posts\/enqueue-post-for-processing\.js['"]/,
+      "process-scrape-job.ts (auto-enqueue path) must import enqueuePostForProcessing from this module"
+    );
+
+    // Confirm no second site anywhere in apps/backend builds its own ProcessingJobMessage
+    // object (which would mean a second, parallel enqueue/message-building path exists).
+    const backendSrcRoot = path.resolve(__dirname, "../..");
+    function findTsFiles(dir: string): string[] {
+      return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) return findTsFiles(fullPath);
+        if (entry.isFile() && entry.name.endsWith(".ts") && !entry.name.endsWith(".test.ts")) return [fullPath];
+        return [];
+      });
+    }
+    const messageBuilderSites = findTsFiles(backendSrcRoot).filter((file) =>
+      fs.readFileSync(file, "utf8").includes("ProcessingJobMessage = {")
+    );
+    assert.deepStrictEqual(
+      messageBuilderSites,
+      [path.resolve(__dirname, "enqueue-post-for-processing.ts")],
+      "exactly one ProcessingJobMessage-building site should exist (this file) -- a second site would mean a parallel enqueue path"
+    );
   });
 });
