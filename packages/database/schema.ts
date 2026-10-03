@@ -319,6 +319,13 @@ export const posts = pgTable('posts', {
   // deliberately never persisted (AD-30 Rule 5).
   groupingReason: postGroupingReasonEnum('grouping_reason'),
   extractedEventCount: integer('extracted_event_count'),
+  // Story 3.6z — atomic, TTL-bounded claim marking "an enqueuePostForProcessing attempt is
+  // currently in flight for this post." Null means unclaimed. Set to now() on a successful
+  // claim and cleared back to null only on a send-time failure (never on a downstream Gemini
+  // failure, which deliberately holds the claim until it expires -- see enqueue-post-for-processing.ts
+  // and claim-ttl.ts for the full design). No default, no backfill -- every existing row is
+  // correctly null/unclaimed. No index: every read/write is scoped by posts.id (primary key).
+  queuedForExtractionAt: timestamp('queued_for_extraction_at', { withTimezone: true }),
   ...timestamps,
 }, (t) => ({
   accountIdIdx: index('account_id_idx').on(t.accountId),

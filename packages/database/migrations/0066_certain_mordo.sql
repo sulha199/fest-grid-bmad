@@ -1,0 +1,1 @@
+ALTER TABLE "posts" ADD COLUMN "queued_for_extraction_at" timestamp with time zone;
