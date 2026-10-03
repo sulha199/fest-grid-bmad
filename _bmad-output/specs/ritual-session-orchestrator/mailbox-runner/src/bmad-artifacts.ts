@@ -63,7 +63,7 @@ export function findStatusEntry(devStatus: Record<string, string>, dottedKey: st
  *  handful still backlog -- fixed, not a design change.) */
 export function listStoryKeysForEpic(devStatus: Record<string, string>, epicNumber: string): string[] {
   const prefix = `${epicNumber}-`;
-  const storyKeyRe = /^\d+-i?\d+[a-z]?-/;
+  const storyKeyRe = /^\d+-i?\d+[a-z]?\d?-/;
   return Object.keys(devStatus).filter((k) => k.startsWith(prefix) && storyKeyRe.test(k) && devStatus[k] === "backlog");
 }
 
@@ -74,14 +74,16 @@ export interface EpicStorySection {
   bodyText: string; // full section text (heading to next heading), for --since-proposal matching
 }
 
+// A trailing digit (`[a-z]?\d?`, e.g. `3.6n2`, a split off an already-lettered story) is accepted
+// because the letter scheme has no room left to split a lettered story (2026-10-03).
 // Story-number component is `i?\d+[a-z]?` rather than plain `\d+[a-z]?` to also accept
 // bmad-form-epics' improvement-epic story keys ("0.i7a", "1.i1a", "2.i1z") alongside the
 // original numeric convention ("3.6h", "0.24") -- found broken on a real run against
 // epic-0-i7 (2026-09-13): every "### Story 0.i7a:" section silently failed to match.
-const STORY_HEADER_RE = /^#{2,4}\s+Story\s+(\d+\.i?\d+[a-z]?):\s*(.+)$/;
+const STORY_HEADER_RE = /^#{2,4}\s+Story\s+(\d+\.i?\d+[a-z]?\d?):\s*(.+)$/;
 const HEADING_RE = /^#{2,4}\s+/;
 const DEPENDS_ON_RE = /\*\*Depends on:\*\*\s*(.+)$/m;
-const STORY_REF_RE = /Story\s+((?:\d+\.i?\d+[a-z]?)(?:\/\d+\.i?\d+[a-z]?)*)/g;
+const STORY_REF_RE = /Story\s+((?:\d+\.i?\d+[a-z]?\d?)(?:\/\d+\.i?\d+[a-z]?\d?)*)/g;
 
 /**
  * Known limitation: dependency extraction is a regex match on the literal

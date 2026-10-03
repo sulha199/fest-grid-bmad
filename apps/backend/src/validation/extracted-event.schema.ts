@@ -105,7 +105,13 @@ export const extractedEventSchema: JSONSchemaType<GeminiExtractionPayload> = {
     groupingReason: { type: 'string', enum: [...POST_GROUPING_REASONS], nullable: true },
     groupingRationale: { type: 'string', nullable: true },
     minEventCount: { type: 'number', nullable: true },
-    skippedItems: { type: 'array', items: { type: 'string' }, nullable: true }
+    skippedItems: { type: 'array', items: { type: 'string' }, nullable: true },
+    // Story 3.6m (AD-28 Rule 1) — load-bearing: additionalProperties is false below, so a real
+    // Gemini response carrying these fields (once the prompt asks for them, build-gemini-
+    // request.ts) would fail AJV validation and be silently dropped unless this mirrors that
+    // schema's addition in the same change. Nullable/not required — logging-only in this story.
+    hasFaceImage: { type: 'boolean', nullable: true },
+    faceImageCount: { type: 'number', nullable: true }
   },
   required: ['isEvent', 'events'],
   additionalProperties: false

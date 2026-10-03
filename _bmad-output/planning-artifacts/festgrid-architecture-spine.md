@@ -1384,7 +1384,11 @@ This document defines the core architectural invariants for the FestDaily applic
         from `Event.isExpiredForCurrentUser`/`computePastEventThreshold` (a runtime, grace-period
         visibility check) — this is a one-time build-time relevance check.
     3.  **Detection:** for images passing both gates, run `@vladmandic/face-api` (TensorFlow.js,
-        pure npm, no native binaries) with the SSD MobileNetV1 detector — chosen over the Tiny
+        pure npm, no native binaries; **backend amended 2026-10-03: the WASM backend,
+        `tfjs-backend-wasm`** — the package's default Node entry `require`s the native
+        `@tensorflow/tfjs-node`, so the backend is chosen explicitly. The `.wasm` files are
+        platform-independent, not a compiled Node addon, and ship in the Lambda bundle like the
+        model weights; see Story 0.46) with the SSD MobileNetV1 detector — chosen over the Tiny
         Face Detector for better small/angled-face accuracy — directly against the image's
         *original* fetched bytes, never a pre-resized copy. The detector's own `inputSize`
         parameter (default 512) already downsamples internally for its forward pass and returns
@@ -1421,7 +1425,12 @@ This document defines the core architectural invariants for the FestDaily applic
         (e.g. for an event Rule 2 skipped). This measurably dilutes PRD §3.16's framing of the
         prominent card as a binary "felt incentive to opt in" — opt-in is now "sharp prominent"
         vs. "blurred prominent," not "prominent" vs. "nothing." PRD wording updated accordingly
-        (Section 3.16).
+        (Section 3.16). **Served-URL clarification, 2026-10-03 (decided with the user):** this
+        governs the card's render preference only. In `resolveServedImageUrl`, the still-valid
+        original is served unchanged, unblurred, exactly as today; `durableThumbnailUrl` fills the
+        gap only once the original expires (a non-opted-in account gets the blurred thumbnail
+        instead of nothing). Consistent with Rule 2, which already assumes the hotlinked original
+        is acceptable for the event's whole display window. Delivered by Story 3.6n2.
     8.  **Accepted accuracy trade-off:** face-api.js has materially lower recall than Rekognition
         on small/angled/occluded/low-light faces — the profile of real event crowd photos — so
         some faces may go unblurred. Chosen deliberately to avoid a per-image AWS fee.
@@ -1466,7 +1475,11 @@ This document defines the core architectural invariants for the FestDaily applic
         growing home instead of accumulating as ad hoc columns on `posts`/`events` each time a
         new self-reported field is added.
     2.  **Ground truth captured alongside self-report, wherever available:**
-        `actualScheduleCount` (the real persisted `schedules.length`) sits beside
+        `actualScheduleCount` (the real persisted `schedules.length`; **amended 2026-10-03:
+        recorded as the extraction-time count, `event.schedules.length` of the accepted Gemini
+        payload, written synchronously in the AI Processor, because persistence happens
+        asynchronously per event in the ingestor — it can differ from the persisted count after an
+        idempotent skip or a later merge**) sits beside
         `minScheduleCount`; `actualFaceDetectionCount` (face-api.js's real detected count) sits
         beside `faceImageCount`. A self-reported value with no ground-truth counterpart in the
         same row is only useful for manual spot review, not automated accuracy scoring.

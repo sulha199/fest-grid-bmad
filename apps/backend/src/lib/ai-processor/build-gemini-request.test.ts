@@ -348,4 +348,37 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.ok(prompt.includes('organizerHandle'));
     assert.ok(prompt.includes('applicableDaysOfWeek'));
   });
+
+  await t.test('Case P (Story 3.6m, AC1/AC2): geminiExtractionResponseSchema declares hasFaceImage/faceImageCount at the root, optional, and the prompt self-reports both in the once-per-post block', async () => {
+    const props: any = geminiExtractionResponseSchema.properties;
+    assert.ok('hasFaceImage' in props);
+    assert.ok('faceImageCount' in props);
+    assert.strictEqual(props.hasFaceImage.type, 'BOOLEAN');
+    assert.strictEqual(props.faceImageCount.type, 'NUMBER');
+    assert.deepStrictEqual(geminiExtractionResponseSchema.required, ['isEvent', 'events']);
+    assert.ok(!geminiExtractionResponseSchema.required.includes('hasFaceImage'));
+    assert.ok(!geminiExtractionResponseSchema.required.includes('faceImageCount'));
+
+    // Must NOT be nested per-event (that is where minScheduleCount/expectedScheduleNames live).
+    const eventItemSchema: any = props.events.items;
+    assert.ok(!('hasFaceImage' in eventItemSchema.properties));
+    assert.ok(!('faceImageCount' in eventItemSchema.properties));
+
+    const message: ProcessingJobMessage = {
+      postId: 'post-face-signal',
+      accountId: 'account-face-signal',
+      content: 'Face signal prompt check',
+      postUrl: 'https://test.com/post-face-signal',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    const result = await buildGeminiExtractionRequest(message);
+    const prompt = result.request.systemInstruction ?? '';
+
+    assert.ok(prompt.includes('hasFaceImage'));
+    assert.ok(prompt.includes('faceImageCount'));
+    // Belongs in the "once for the whole post" block, not the per-event numbered list.
+    const onceBlockIndex = prompt.indexOf('Also report, once for the whole post');
+    const hasFaceImageIndex = prompt.indexOf('hasFaceImage', onceBlockIndex);
+    assert.ok(onceBlockIndex !== -1 && hasFaceImageIndex > onceBlockIndex);
+  });
 });

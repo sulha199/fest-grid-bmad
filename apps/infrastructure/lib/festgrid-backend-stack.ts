@@ -347,11 +347,100 @@ export class FestgridBackendStack extends cdk.Stack {
     });
 
     // L_AI
+    //
+    // Story 0.46: provisions the image-processing runtime Story 3.6n's face-blur stage
+    // needs (memory, native-binary/WASM-binary/model-weight bundling) -- no face-detection
+    // stage is wired in yet (that is 3.6n's scope; this Lambda's handler logic is unchanged).
+    //
+    // memorySize/architecture are measurement-backed (see
+    // apps/backend/scripts/measure-ai-processor-runtime.cjs and this story's Dev Notes):
+    // the local-machine worst-case stage (model load + WASM-backed SSD MobileNetV1 detection
+    // + sharp Gaussian blur + resize) peaked at ~903 MB RSS on a 4000x3000 fixture. 2048 MB
+    // gives >2x headroom over that number, and Lambda bills CPU proportional to memory, which
+    // also buys this already comfortably-fast stage (~1s total, see Dev Notes) more CPU share
+    // without materially changing cost math (a handful of seconds of extra compute at a low
+    // invocation volume). architecture is X86_64: it must match whatever host builds the
+    // asset's `nodeModules` (sharp's native binary is platform/arch-specific, resolved via npm
+    // optionalDependencies against the BUILDING host, not the deploying target), and this
+    // repo's only real build/deploy path is CI (`.github/workflows/ci.yml`, `runs-on:
+    // ubuntu-latest`, i.e. Linux x64) -- X86_64 matches that exactly, with no Docker/QEMU
+    // cross-arch emulation required. See the `bundling` note below for why Docker-forced
+    // bundling (the originally-considered way to make this host-independent) was tried and
+    // reverted.
+    const aiProcessorLambdaMemoryMb = 2048;
+    const aiProcessorLambdaArchitecture = lambda.Architecture.X86_64;
+
     const aiProcessorLambda = new nodejs.NodejsFunction(this, `AIProcessorLambda-${stageName}`, {
       entry: path.resolve(projectRoot, 'apps/backend/src/lambdas/ai-processor.ts'),
       handler: 'handler',
       ...sharedLambdaProps,
       timeout: cdk.Duration.seconds(300),
+      memorySize: aiProcessorLambdaMemoryMb,
+      architecture: aiProcessorLambdaArchitecture,
+      bundling: {
+        format: nodejs.OutputFormat.CJS,
+        // NOT forceDockerBundling. Tried it first (to make the native-binary architecture
+        // match host-independent), but this repo's pnpm store lives outside the project
+        // directory (`pnpm config get store-dir`, confirmed 2026-10-03 at
+        // C:\Users\<user>\.local\share\pnpm\store on this dev machine) -- pnpm's node_modules
+        // are symlinks into that store, and Docker's bind mount only covers the project
+        // directory, so esbuild running inside the container can't resolve any symlinked
+        // workspace dependency (@festgrid/domain, drizzle-orm, ajv, dotenv, ...) and bundling
+        // fails outright. Reverted to the default (local esbuild, same as every other Lambda
+        // in this file): the `nodeModules` install below then runs on whatever host actually
+        // builds the asset. On this repo's real build path (CI, ubuntu-latest / Linux x64,
+        // matching `architecture` above) that produces the correct native binary with no
+        // Docker needed. The known residual gap: a `cdk synth`/`cdk deploy` run locally from a
+        // non-Linux-x64 dev machine (e.g. this Windows box, or a Mac) would bundle a
+        // wrong-platform `sharp` binary into a real deploy -- accepted because this project
+        // only deploys through CI (see AC2's one-off real-Lambda-runtime check below, which
+        // validates the mechanism using a Docker-built Lambda container image directly,
+        // sidestepping this exact local-host/Docker mismatch rather than fighting it).
+        // `sharp` ONLY in nodeModules: its native .node binary can't be bundled as JS, so
+        // this is CDK's real `pnpm install` mechanism (platform/arch-matched -- see the
+        // Docker-bundling note above), landing it at node_modules/sharp/... as normal.
+        //
+        // AC6 finding + fix: an earlier version of this story also listed
+        // `@vladmandic/face-api`, `@tensorflow/tfjs` and `@tensorflow/tfjs-backend-wasm`
+        // here, since a real `nodeModules` install preserves their `model/` directory and
+        // `.wasm` files "for free." That measured at 321-345 MB unzipped (depending on
+        // which model files were pruned) -- over Lambda's 250 MB unzipped limit -- because
+        // the INSTALLED package trees carry many unused pre-built variants (browser/esm/
+        // cjs/min) and multi-MB sourcemaps per package that a real npm/pnpm install always
+        // pulls down, dominated by `@tensorflow/tfjs` alone (141 MB installed, vs. its
+        // actual Node entry `dist/tf.node.js` at 1.3 MB). Tried and rejected: swapping
+        // `@tensorflow/tfjs` for a hand-written `@tensorflow/tfjs-core`-only shim -- broke
+        // at runtime (`TypeError: i.as3D is not a function`; the full `tfjs` package
+        // patches ~100 convenience methods onto Tensor.prototype that tfjs-core's own
+        // build doesn't carry, confirmed by extracting its real source). The fix that
+        // actually works, verified end-to-end (see Dev Notes): esbuild-BUNDLE the real,
+        // unmodified packages instead of npm-installing them -- esbuild only resolves and
+        // inlines the code paths actually `require()`d, dropping every unused variant and
+        // all sourcemaps, which brought the real bundle down to ~2.3 MB raw. Since
+        // `ai-processor.ts` (this Lambda's real entry) must NOT import these packages
+        // (AC7 -- no face-detection stage wired in yet), esbuild can't reach them from the
+        // primary bundling pass; `afterBundling` below runs a SEPARATE esbuild pass over a
+        // dedicated, inert probe module (`ai-processor-face-detection-probe.cjs`, never
+        // required by `ai-processor.ts`) into its own sibling file in the same output
+        // directory, then copies the SSD MobileNetV1 weights and the tfjs-backend-wasm
+        // `.wasm` binaries alongside it (see that script for the full mechanism, including
+        // why no `setWasmPaths` call is needed -- `__dirname`-relative resolution already
+        // matches once everything sits in the same directory as the Lambda's index.js).
+        nodeModules: ['sharp'],
+        commandHooks: {
+          beforeBundling(): string[] {
+            return [];
+          },
+          beforeInstall(): string[] {
+            return [];
+          },
+          afterBundling(inputDir: string, outputDir: string): string[] {
+            return [
+              `node "${path.resolve(projectRoot, 'apps/infrastructure/scripts/bundle-ai-processor-face-detection-assets.cjs')}" "${inputDir}" "${outputDir}"`,
+            ];
+          },
+        },
+      },
       environment: {
         STAGE: stageName,
         BACKEND_PORT: '4000',

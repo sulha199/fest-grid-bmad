@@ -66,7 +66,7 @@ function parseArgs(argv: string[]): Args {
   return { implementationArtifacts, epicsFile, snapshot, remaining };
 }
 
-const STORY_KEY_RE = /^\d+-\d+[a-z]?-/;
+const STORY_KEY_RE = /^\d+-\d+[a-z]?\d?-/;
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));

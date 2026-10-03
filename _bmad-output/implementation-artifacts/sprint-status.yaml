@@ -333,7 +333,7 @@ development_status:
   # added 2026-10-03 via bmad-epic-readiness-check (batch-cc-023-face-blur-audit-readiness.md)
   # Gate 1 finding: AIProcessorLambda has no memory/native-bundling/model-asset provisioning
   # for Story 3.6n's sharp + face-api stage. Hard prerequisite for 3-6n.
-  0-46-provision-the-ai-processor-lambdas-image-processing-runtime: backlog
+  0-46-provision-the-ai-processor-lambdas-image-processing-runtime: review
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.
@@ -1776,10 +1776,14 @@ development_status:
   # RPM/RPD *and* TPM bound, so batching is the quota-efficient choice.
   # Depends on Story 3.6, Story 3.3e. Coordinate merge order with in-flight
   # 3-6i/3-6j/3-6k (same build-gemini-request.ts prompt file).
-  3-6m-add-hasfaceimage-faceimagecount-self-reported-fields-to-gemini-extraction-schema: ready-for-dev
-  3-6n-detect-and-blur-faces-in-extracted-post-images-generating-a-consent-independent-durable-thumbnail: backlog
-  3-6o-skip-face-blur-processing-for-events-ending-before-their-source-image-expires: backlog
-  3-6p-create-extraction-audit-logs-table-and-write-path-for-gemini-self-reported-extraction-signals: backlog
+  3-6m-add-hasfaceimage-faceimagecount-self-reported-fields-to-gemini-extraction-schema: review
+  3-6n-detect-and-blur-faces-in-extracted-post-images-generating-a-consent-independent-durable-thumbnail: ready-for-dev
+  # 3.6n split at bmad-create-story (2026-10-03, size judgment confirmed with the user):
+  # pipeline only (detection/blur/resize/upload, migration, timeout guard). Read path moved
+  # to 3-6n2 below. See epics.md Story 3.6n's Correction block.
+  3-6n2-expose-the-face-blurred-thumbnail-through-the-read-path-and-widen-the-prominent-card-trigger: backlog
+  3-6o-skip-face-blur-processing-for-events-ending-before-their-source-image-expires: ready-for-dev
+  3-6p-create-extraction-audit-logs-table-and-write-path-for-gemini-self-reported-extraction-signals: review
   3-6q-version-re-hosted-media-keys-and-set-a-7-day-immutable-http-cache-policy: review
   # 3.6q added 2026-10-01 (AD-28 Rule 9): versioned media keys + 7-day immutable HTTP cache,
   # HTTP cache only (no service worker). Must land before 3.6n.

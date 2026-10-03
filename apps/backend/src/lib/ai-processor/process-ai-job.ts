@@ -17,6 +17,8 @@ import { db } from '../../db/client.js';
 import { eq } from 'drizzle-orm';
 import { socialMediaAccountProfiles, posts } from '@festgrid/database';
 import { assignExtractionOrdinals } from '@festgrid/domain';
+import { writeExtractionAuditLog } from './write-extraction-audit-log.js';
+import type { ExtractionAuditEventCompleteness } from '@festgrid/domain/events';
 
 
 export let callGeminiSeam = defaultCallGemini;
@@ -87,6 +89,24 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
 
   // 5. If not an event, mark extracted and return
   if (payload.isEvent === false) {
+    // Story 3.6p (AD-29) -- write the audit-log row for this attempt before this path's own
+    // terminal action (markPostExtractedSeam below). Defensive try/catch: a failure to write
+    // this purely-observational row must never fail the extraction attempt itself.
+    try {
+      await writeExtractionAuditLog({
+        postId: message.postId,
+        geminiModel: env.geminiModel,
+        isEvent: false,
+        hasFaceImage: payload.hasFaceImage ?? null,
+        faceImageCount: payload.faceImageCount ?? null,
+        minEventCount: payload.minEventCount ?? null,
+        actualEventCount: 0,
+        groupingReason: payload.groupingReason ?? null,
+        eventsCompleteness: [],
+      });
+    } catch (auditErr) {
+      console.error(`[processAiJob] Failed to write extraction_audit_logs row for post ${message.postId}:`, auditErr);
+    }
     if (isCuratorGuide) {
       await db.update(posts).set({ content: null }).where(eq(posts.id, message.postId));
     }
@@ -101,6 +121,22 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
     console.warn(
       `[processAiJob] Gemini reported isEvent: true with zero events for post ${message.postId}; treating as a no-event post.`
     );
+    // Story 3.6p (AD-29) -- same shape as the isEvent === false branch above, isEvent: true.
+    try {
+      await writeExtractionAuditLog({
+        postId: message.postId,
+        geminiModel: env.geminiModel,
+        isEvent: true,
+        hasFaceImage: payload.hasFaceImage ?? null,
+        faceImageCount: payload.faceImageCount ?? null,
+        minEventCount: payload.minEventCount ?? null,
+        actualEventCount: 0,
+        groupingReason: payload.groupingReason ?? null,
+        eventsCompleteness: [],
+      });
+    } catch (auditErr) {
+      console.error(`[processAiJob] Failed to write extraction_audit_logs row for post ${message.postId}:`, auditErr);
+    }
     if (isCuratorGuide) {
       await db.update(posts).set({ content: null }).where(eq(posts.id, message.postId));
     }
@@ -129,6 +165,9 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
   // the deferred multi-event case.
   const eventMessages: Awaited<ReturnType<typeof transformGeminiResponseToEventInfo>>[] = [];
   let defaultLocationForBackfill: Awaited<ReturnType<typeof resolveAccountAndLocations>>['defaultLocation'];
+  // Story 3.6p (AD-29 Rule 6) -- per-event completeness signals collected during this loop,
+  // written into the success-path extraction_audit_logs row's eventsCompleteness jsonb array.
+  const eventsCompleteness: ExtractionAuditEventCompleteness[] = [];
 
   for (let i = 0; i < events.length; i++) {
     const event = events[i];
@@ -165,6 +204,17 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
           `expectedScheduleNames=${JSON.stringify(event.expectedScheduleNames ?? [])}`
       );
     }
+
+    // Story 3.6p (AD-29) -- one eventsCompleteness entry per extracted event. actualScheduleCount
+    // is the extraction-time count (event.schedules.length in the AJV-accepted payload), not the
+    // later DB-persisted count (confirmed with the user, see Dev Notes "Design Decisions").
+    eventsCompleteness.push({
+      eventIndex: i,
+      minScheduleCount: event.minScheduleCount ?? null,
+      expectedScheduleNames: event.expectedScheduleNames ?? null,
+      confidenceScore: event.confidenceScore,
+      actualScheduleCount: event.schedules.length,
+    });
   }
 
   // Post-level completeness logging signal (Task 7.4).
@@ -173,6 +223,44 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
       `[processAiJob] Post ${message.postId} may be incompletely grouped: ` +
         `minEventCount=${payload.minEventCount}, actual events=${events.length}`
     );
+  }
+
+  // Story 3.6m (AD-28 Rule 1) — model self-reported face-signal, logged for correlation with
+  // Story 3.6n's eventual ground-truth comparison. This value is also now persisted into
+  // extraction_audit_logs below (Story 3.6p); this console.log is kept as-is (unchanged
+  // behavior, per this story's own scope) in addition to that persistence. Guarded on
+  // `!== undefined` (not truthiness) so a legitimate `hasFaceImage === false` result still
+  // logs (AC4 distinguishes "absent" from "present but false" — a plain
+  // `if (payload.hasFaceImage)` would incorrectly skip the false case).
+  if (payload.hasFaceImage !== undefined) {
+    console.log(
+      `[processAiJob] Post ${message.postId} face signal: ` +
+        `hasFaceImage=${payload.hasFaceImage}, faceImageCount=${payload.faceImageCount ?? null}`
+    );
+  }
+
+  // Story 3.6p (AD-29) -- success-path audit-log write, after the per-event loop (every
+  // eventsCompleteness entry is only knowable once that loop has run) and before step 7.5's
+  // db.update(posts) call, still well before step 8's DataIngestionQueue enqueue. actualEventCount
+  // is events.length (the post-truncation count), matching step 7.5's own extractedEventCount
+  // exactly. auditLogId captures the inserted row's id for Story 3.6n/3.6o's own later backfill
+  // call sites further down this same function body -- stays null if the write itself throws.
+  let auditLogId: string | null = null;
+  try {
+    const { id } = await writeExtractionAuditLog({
+      postId: message.postId,
+      geminiModel: env.geminiModel,
+      isEvent: true,
+      hasFaceImage: payload.hasFaceImage ?? null,
+      faceImageCount: payload.faceImageCount ?? null,
+      minEventCount: payload.minEventCount ?? null,
+      actualEventCount: events.length,
+      groupingReason: payload.groupingReason ?? null,
+      eventsCompleteness,
+    });
+    auditLogId = id;
+  } catch (auditErr) {
+    console.error(`[processAiJob] Failed to write extraction_audit_logs row for post ${message.postId}:`, auditErr);
   }
 
   // 7.5. Persist post-level grouping facts (Task 5.1) -- the hidden prerequisite this story

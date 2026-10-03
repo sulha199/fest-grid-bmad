@@ -37,8 +37,9 @@ per-epic). Gate 2 (UI) stays per story.
 - **1.3j / 1.6c / 1.3k** are built (`review`), so a Gate 1/3 pass over their planned ACs adds little. 1.6c and 1.3k
   were swept by the event-pages batch (`batch-event-pages-wave-a-readiness.md`); 1.3j appears there only as a
   prerequisite status, not as a swept story.
-- **3.16 / 3.17 / 3.19** (coauthor subscribability, demand-gated discovery, toggle analytics) are `backlog`, never
-  swept (added after the 2026-09-11 Epic 3 sweep), and no CC-024 story depends on them. Deferred, not covered.
+- **3.16 / 3.17 / 3.19** (coauthor subscribability, demand-gated discovery, toggle analytics) were never swept (added
+  after the 2026-09-11 Epic 3 sweep), and no CC-024 story depends on them. Deferred, not covered. As of 2026-10-03 3.16 is
+  built (`review`, merged from master); 3.17 and 3.19 are still `backlog`.
 - **3.6m–3.6q (CC-023)** were **not** swept either: CC-023 is a change proposal (it drafted the stories), not a
   readiness report. Because CC-024 amends 3.6o and 3.6p, they are now folded into this plan as **Wave 4C** and
   get their own batch-scoped sweep (see Wave 1).
@@ -68,19 +69,25 @@ per-epic). Gate 2 (UI) stays per story.
 - [x] **CC-023 × CC-024: one run per post, not per event (3.6n, 3.6o, 3.6p).** Settled by the CC-023 sweep: the
       post-level region of `process-ai-job.ts` (the image re-host step, before the per-event fan-out) is the run point.
       Written into 3.6n's amendment.
-- [ ] **`actualScheduleCount` ownership (3.6p) — USER DECISION at create-story.** Facts settled: the AI Processor does
-      not persist schedules; the ingestor does, per event and asynchronously. Options (extraction-time counts vs an
-      ingestor back-fill) are in 3.6p's corrections in `epics.md`. Also open: the per-event audit-row shape.
+- [x] **`actualScheduleCount` ownership and the audit-row shape (3.6p) — decided with the user 2026-10-03.** One audit
+      row per extraction attempt with a jsonb `eventsCompleteness` array (per-event `minScheduleCount`,
+      `expectedScheduleNames`, `confidenceScore`, `actualScheduleCount`); `actualScheduleCount` is the extraction-time
+      count written synchronously by `process-ai-job.ts`. AD-29 Rule 2 amended to say so. The sweep had missed that
+      `confidenceScore` is per-event too.
 - [x] **Thumbnail follows the primary post (3.6n × 3.6v).** Settled by design: it follows automatically when
       `durableThumbnailUrl` is projected from the same joined `posts` row via `events.post_id`, like `durableImageUrl`.
       Now an explicit 3.6n AC (the GraphQL/mapper/codegen read path).
-- [ ] **Refresh the 3.6m story file against the 3.6s shape before dispatch.** Confirmed stale: its Task 4 anchors on a
+- [x] **Refresh the 3.6m story file against the 3.6s shape before dispatch** (done 2026-10-03, commit `6620a9dc`). It was stale: its Task 4 anchors on a
       step 5.5 that is now the zero-events guard (and its proposed "step 5.6" collides with the event-cap truncation),
       and its Task 3 places the fields beside `minScheduleCount`, which now lives on `GeminiEventPayload`. The fields
       belong at the payload root.
-- [ ] **Two more user decisions the sweep reserved:** the TensorFlow.js backend (CPU / WASM / native; at create-story
-      of 0.46, may amend AD-28 Rule 3) and the served-URL precedence including the original-still-valid case (at
-      create-story of 3.6n; a privacy trade-off).
+- [x] **TensorFlow.js backend (0.46) — decided with the user 2026-10-03: WASM** (`tfjs-backend-wasm`). AD-28 Rule 3
+      amended to name it; the story must still measure latency, memory and bundle size on real fixtures.
+- [x] **Served-URL precedence including the original-still-valid case — decided with the user 2026-10-03 (3.6n's
+      create-story): "thumbnail fills the gap only."** The raw original keeps serving unchanged while still valid
+      (any opt-in status); once expired, opted-in still gets `durableImageUrl` as today; non-opted-in now gets
+      `durableThumbnailUrl` instead of `null`. Implemented in new Story **3.6n2** (the read-path split, below), not
+      3.6n itself.
 
 ## Wave 0 — Planning artifacts (done)
 
@@ -161,6 +168,11 @@ bundling and no way to ship model weights, and `@vladmandic/face-api`'s default 
 TensorFlow.js backend (0.46), the served-URL precedence (3.6n), and the audit-row shape and `actualScheduleCount`
 write point (3.6p). Order to create stories: 3.6m → 3.6p → 0.46 → 3.6n → 3.6o.
 
+**Update (2026-10-03, 3.6n's own create-story session):** the served-URL precedence was decided ("thumbnail fills
+the gap only," see above) and 3.6n was split on size — pipeline (3.6n, story file created) vs. read path/UI (new
+**3.6n2**, `backlog`, no story file yet). Revised order: 3.6m → 3.6p → 0.46 → 3.6n → 3.6n2 → 3.6o (3.6o only needs
+the pipeline, so it does not need to wait on 3.6n2).
+
 ## Order of work (from the readiness sweep, 2026-10-01)
 
 Create stories one at a time via `bmad-create-story`, building each (`bmad-dev-story`) before anything that
@@ -172,7 +184,7 @@ depends on it. Wave labels below follow this order; stories inside a wave are li
 4. **Wave 3** — Core build: 3.6r → 3.6s → 3.6t
 5. **Wave 4A** — 3.6u, 3.6y, 3.6z (any order after 3.6t)
 6. **Wave 4B** — 3.6v (needs 3.13–3.15 and 3.7g/3.7h)
-7. **Wave 4C** — CC-023 tail: 3.6q (built) → 3.6m → 3.6p → **0.46** → 3.6n → 3.6o (0.46 may run in parallel with 3.6m/3.6p; independent of 4A/4B, may interleave; needs 3.6t)
+7. **Wave 4C** — CC-023 tail: 3.6q (built) → 3.6m → 3.6p → **0.46** → 3.6n → 3.6o and 3.6n2 (3.6n now also needs 3.6p; 3.6n2 is the read-path half split from 3.6n; 0.46 may run in parallel with 3.6m/3.6p; independent of 4A/4B, may interleave; needs 3.6t)
 8. **Wave 5** — 3.6w, 3.6x, 3.18
 
 **Per-story box legend:** `create` = `bmad-create-story` done (story file exists, status `ready-for-dev`);
@@ -363,7 +375,16 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
 Source: `sprint-change-proposal-2026-09-30.md` (CC-023, approved), AD-28 and AD-29. Order is the proposal's own
 (3.6m before 3.6n; 3.6n before 3.6o; 3.6p alongside 3.6m) plus the CC-024 dependencies noted below. Statuses are from
 `sprint-status.yaml` on 2026-10-03. Needs 3.6t built (done, `review`) so the per-post/per-event questions in the
-pre-flagged list can be settled against real code. Gate 2 stays per story (only 3.6n has frontend scope).
+pre-flagged list can be settled against real code. Gate 2 stays per story (only 3.6n2, the read-path/UI split off
+3.6n at its create-story, 2026-10-03, has frontend scope — 3.6n itself is pipeline-only).
+
+**Dev batch (started 2026-10-03):** orchestrator state `.batch-state-cc023-wave4c-dev.json`
+(`_bmad-output/specs/ritual-session-orchestrator/mailbox-runner/`). Order **3.6m → 3.6p → 0.46 → 3.6n → 3.6o**, fully
+sequential (3.6n2 is created and built later, after 3.6n). Plain dispatch with no per-story check gate (known environment
+failures; see "Test-gate facts"); whole-repo lint/build/test run once at the end with `TZ=UTC`. The Pre-Coding Approval Gate
+is **pre-approved by the user for all five** provided each proposed scope matches its story file; 0.46 still stops for AC2(b)
+(`sharp` in the real Lambda runtime), which needs a deployed non-prod stage and is never deployed by a child.
+Progress: 3.6m done (`review`, `b7d6fb3a`); 3.6p done (`review`, `af8bafe6`); 0.46 done (`review`, `c19ff31b`); 3.6n in progress; 3.6o pending.
 
 - [ ] **3.6q** Version re-hosted media keys and set a 7-day immutable HTTP cache policy — *feeds 3.6n (its key helper
       builds `thumb-{hash8}.jpg`); no CC-024 dependency* (built, status `review`; backfill workflow lives in
@@ -372,27 +393,58 @@ pre-flagged list can be settled against real code. Gate 2 stays per story (only 
 - [ ] **3.6m** Add `hasFaceImage`/`faceImageCount` self-reported fields to the Gemini extraction schema — *needs 3.6l,
       3.6s; log-only, persistence is 3.6p* (story file exists, status `ready-for-dev`; **refresh against the 3.6s
       `events[]` shape before dispatch**; the fields stay at the payload root) — sweep verdict READY-WITH-CAVEAT
-  - [x] create  - [ ] dev  - [ ] review
+      (story file refreshed 2026-10-03, commit `6620a9dc`; **dev done** 2026-10-03, commit `b7d6fb3a`, status `review`;
+      targeted tests green: build-gemini-request 18/18, carousel-completeness 9/9, process-ai-job 30/30; domain and backend
+      lint clean; whole-repo gate deferred to batch end)
+  - [x] create  - [x] dev  - [ ] review
 - [ ] **3.6p** Create the `extraction_audit_logs` table and write path — *needs 3.6e, 3.6l, 3.6m, 3.6r, 3.6s;
       **amended by CC-024:** the audit row also records `groupingReason`, event count and `minEventCount`* (`backlog`;
       sweep verdict READY-WITH-CORRECTION; per-event shape and `actualScheduleCount` ownership are user decisions at
-      create-story; an ingestor back-fill would also need 3.6t)
-  - [ ] create  - [ ] dev  - [ ] review
+      create-story; an ingestor back-fill would also need 3.6t) (story created 2026-10-03, commit `18e997ee`, status
+      `ready-for-dev`; decisions taken with the user: one row per attempt + jsonb array, extraction-time
+      `actualScheduleCount`; `confidenceScore` also per-event) (**dev done** 2026-10-03, commit `af8bafe6`, status
+      `review`; migration `0068_wandering_jack_murdock` generated with drizzle-kit and applied to the local DB;
+      `writeExtractionAuditLog` returns `{ id }`; targeted tests 56/56 across 7 files; backend lint 0 errors, domain/
+      database/backend builds clean; whole-repo gate deferred to batch end)
+  - [x] create  - [x] dev  - [ ] review
 - [ ] **0.46** Provision the AI Processor Lambda's image-processing runtime (memory, native-binary bundling, model
       assets) — *new prerequisite found by the CC-023 sweep (Gate 1); hard prerequisite for 3.6n only; includes the
-      TensorFlow.js backend decision, the bundle-size check and the timeout/visibility headroom* (`backlog`, added
-      2026-10-03)
-  - [ ] create  - [ ] dev  - [ ] review
+      TensorFlow.js backend decision, the bundle-size check and the timeout/visibility headroom* (added 2026-10-03;
+      story created the same day, commit `b722e177`, status `ready-for-dev`; backend decided with the user: WASM)
+      (**dev done** 2026-10-03, status `review`; measured peak RSS 903 MB -> `memorySize: 2048`, `architecture: X86_64`;
+      stage total ~1.1s vs the 300s timeout/visibility budget (~277x headroom, no guard needed); AC2(b) `sharp`-in-
+      real-Lambda-runtime check done via a local Docker build of `public.ecr.aws/lambda/nodejs:22` + its RIE, never
+      deployed. AC6 package size needed real mid-story problem-solving: a `bundling.nodeModules` install of face-api/
+      tfjs/tfjs-backend-wasm measured 321-345 MB unzipped (over Lambda's 250 MB limit); a `tfjs-core`-only shim was
+      tried and rejected after it broke face-api's detector in a real test (`TypeError: i.as3D is not a function` --
+      the full `@tensorflow/tfjs` patches ~100 Tensor-prototype methods tfjs-core's build lacks); fixed by
+      esbuild-bundling the real, unmodified packages via a dedicated inert probe module never required by
+      `ai-processor.ts` -- final real asset: 33 MB unzipped / 13.45 MB zipped. Two `AskUserQuestion` round-trips used
+      for the AC6 pivot, both answered by the user/orchestrator; `ai-processor.ts` and `process-ai-job.ts` are untouched
+      by this story (independently verified from the commit diff; `process-ai-job.ts` was changed earlier by 3.6m and 3.6p). Targeted tests: infra 6/6 green, backend `ai-processor.test.ts` 3/3 green; infra
+      has no lint script, `tsc --noEmit` clean; backend lint 0 errors, build clean; whole-repo gate deferred to batch
+      end.)
+  - [x] create  - [x] dev  - [ ] review
 - [ ] **3.6n** Detect and blur faces, generating a consent-independent durable thumbnail — *needs 3.6m, 3.6e, 0.33,
-      3.6q, **0.46**; adds `posts.durableThumbnailUrl` and widens the `prominentPoster` trigger; the only Wave 4C
-      story with frontend scope; AC corrections applied by the sweep: once-per-post run point, GraphQL read path,
-      served-URL precedence via `resolveServedImageUrl`, timeout guard* (`backlog`; sweep verdict NOT READY until 0.46;
-      create-story's size check may split the read path from the pipeline stage)
+      3.6q, **0.46**; adds `posts.durableThumbnailUrl`; pipeline only (detection/blur/resize/upload, migration,
+      once-per-post run point, timeout guard)* (story created 2026-10-03, status `ready-for-dev`; **split at
+      create-story** — the read path/UI moved to new **3.6n2** below, per the sweep's own "size check may split it"
+      flag, confirmed with the user via `AskUserQuestion`, mirroring the 1.3a/1.3b precedent)
+  - [x] create  - [ ] dev  - [ ] review
+- [ ] **3.6n2** Expose the thumbnail through the read path and widen `prominentPoster` — *needs 3.6n; GraphQL field +
+      6 `resolvers.ts` select sites + `Event` field resolver, `resolveServedImageUrl`'s extended precedence
+      (served-URL decision resolved with the user at 3.6n's create-story: "thumbnail fills the gap only" — original
+      stays unchanged while valid; non-opted-in gets the blurred thumbnail instead of null only once it expires),
+      `apps/web` mapper/codegen, `EventListView.tsx` wiring; the only Wave 4C story with frontend scope* (added
+      2026-10-03, split from 3.6n; `backlog`, no story file yet)
   - [ ] create  - [ ] dev  - [ ] review
 - [ ] **3.6o** Skip face-blur processing for events ending before their source image expires — *needs 3.6n;
       **amended by CC-024:** the relevance gate takes the latest schedule end across all events of the post*
-      (`backlog`)
-  - [ ] create  - [ ] dev  - [ ] review  - [ ] audit row shows `'event_relevance_gate'` on a skipped post
+      (story created 2026-10-03, commit `5660fdc7`, status `ready-for-dev`; owns ONLY the `'event_relevance_gate'`
+      audit outcome. **AD-29 backfill ownership decided with the user at this create-story:** each story writes its
+      own outcome, so 3.6n owns `'no_face_reported'` and the real face count, 3.6o owns the relevance-gate outcome;
+      3.6p's writer returns the inserted row id; 3.6n/3.6p story files and `epics.md` amended in the same commit)
+  - [x] create  - [ ] dev  - [ ] review  - [ ] audit row shows `'event_relevance_gate'` on a skipped post
 - [ ] **IDEA-051** (sample `hasFaceImage = false` posts through face-api.js to measure the pre-filter's false-negative
       rate) stays `backlog` as a deliberate future decision (AD-29 Rule 4), revisited in Wave 6
 
@@ -447,7 +499,8 @@ pre-flagged list can be settled against real code. Gate 2 stays per story (only 
 | 3.6m (CC-023) | 3.6, 3.6l, 3.6s |
 | 3.6p (CC-023; amended by CC-024) | 3.6e, 3.6l, 3.6m, 3.6r, 3.6s (3.6t only if the ingestor back-fills `actualScheduleCount`) |
 | 0.46 (found by the CC-023 sweep) | none (IaC; AD-28 Rule 3 may need an amendment) |
-| 3.6n (CC-023) | 3.6m, 3.6e, 0.33, 3.6q, 0.46 |
+| 3.6n (CC-023) | 3.6m, 3.6e, 0.33, 3.6q, 0.46, 3.6p (writes its own audit outcomes through 3.6p's writer) |
+| 3.6n2 (CC-023; split from 3.6n at create-story, 2026-10-03) | 3.6n |
 | 3.6o (CC-023; amended by CC-024) | 3.6n |
 
 ## Decision log (for reference)
