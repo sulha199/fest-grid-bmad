@@ -83,8 +83,11 @@ per-epic). Gate 2 (UI) stays per story.
       belong at the payload root.
 - [x] **TensorFlow.js backend (0.46) — decided with the user 2026-10-03: WASM** (`tfjs-backend-wasm`). AD-28 Rule 3
       amended to name it; the story must still measure latency, memory and bundle size on real fixtures.
-- [ ] **Served-URL precedence including the original-still-valid case (3.6n) — USER DECISION at create-story of 3.6n;
-      a privacy trade-off.**
+- [x] **Served-URL precedence including the original-still-valid case — decided with the user 2026-10-03 (3.6n's
+      create-story): "thumbnail fills the gap only."** The raw original keeps serving unchanged while still valid
+      (any opt-in status); once expired, opted-in still gets `durableImageUrl` as today; non-opted-in now gets
+      `durableThumbnailUrl` instead of `null`. Implemented in new Story **3.6n2** (the read-path split, below), not
+      3.6n itself.
 
 ## Wave 0 — Planning artifacts (done)
 
@@ -164,6 +167,11 @@ bundling and no way to ship model weights, and `@vladmandic/face-api`'s default 
 `@tensorflow/tfjs-node` (AD-28 Rule 3 assumed pure npm). Three user decisions are reserved for create-story: the
 TensorFlow.js backend (0.46), the served-URL precedence (3.6n), and the audit-row shape and `actualScheduleCount`
 write point (3.6p). Order to create stories: 3.6m → 3.6p → 0.46 → 3.6n → 3.6o.
+
+**Update (2026-10-03, 3.6n's own create-story session):** the served-URL precedence was decided ("thumbnail fills
+the gap only," see above) and 3.6n was split on size — pipeline (3.6n, story file created) vs. read path/UI (new
+**3.6n2**, `backlog`, no story file yet). Revised order: 3.6m → 3.6p → 0.46 → 3.6n → 3.6n2 → 3.6o (3.6o only needs
+the pipeline, so it does not need to wait on 3.6n2).
 
 ## Order of work (from the readiness sweep, 2026-10-01)
 
@@ -367,7 +375,8 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
 Source: `sprint-change-proposal-2026-09-30.md` (CC-023, approved), AD-28 and AD-29. Order is the proposal's own
 (3.6m before 3.6n; 3.6n before 3.6o; 3.6p alongside 3.6m) plus the CC-024 dependencies noted below. Statuses are from
 `sprint-status.yaml` on 2026-10-03. Needs 3.6t built (done, `review`) so the per-post/per-event questions in the
-pre-flagged list can be settled against real code. Gate 2 stays per story (only 3.6n has frontend scope).
+pre-flagged list can be settled against real code. Gate 2 stays per story (only 3.6n2, the read-path/UI split off
+3.6n at its create-story, 2026-10-03, has frontend scope — 3.6n itself is pipeline-only).
 
 - [ ] **3.6q** Version re-hosted media keys and set a 7-day immutable HTTP cache policy — *feeds 3.6n (its key helper
       builds `thumb-{hash8}.jpg`); no CC-024 dependency* (built, status `review`; backfill workflow lives in
@@ -390,10 +399,17 @@ pre-flagged list can be settled against real code. Gate 2 stays per story (only 
       story created the same day, commit `b722e177`, status `ready-for-dev`; backend decided with the user: WASM)
   - [x] create  - [ ] dev  - [ ] review
 - [ ] **3.6n** Detect and blur faces, generating a consent-independent durable thumbnail — *needs 3.6m, 3.6e, 0.33,
-      3.6q, **0.46**; adds `posts.durableThumbnailUrl` and widens the `prominentPoster` trigger; the only Wave 4C
-      story with frontend scope; AC corrections applied by the sweep: once-per-post run point, GraphQL read path,
-      served-URL precedence via `resolveServedImageUrl`, timeout guard* (`backlog`; sweep verdict NOT READY until 0.46;
-      create-story's size check may split the read path from the pipeline stage)
+      3.6q, **0.46**; adds `posts.durableThumbnailUrl`; pipeline only (detection/blur/resize/upload, migration,
+      once-per-post run point, timeout guard)* (story created 2026-10-03, status `ready-for-dev`; **split at
+      create-story** — the read path/UI moved to new **3.6n2** below, per the sweep's own "size check may split it"
+      flag, confirmed with the user via `AskUserQuestion`, mirroring the 1.3a/1.3b precedent)
+  - [x] create  - [ ] dev  - [ ] review
+- [ ] **3.6n2** Expose the thumbnail through the read path and widen `prominentPoster` — *needs 3.6n; GraphQL field +
+      6 `resolvers.ts` select sites + `Event` field resolver, `resolveServedImageUrl`'s extended precedence
+      (served-URL decision resolved with the user at 3.6n's create-story: "thumbnail fills the gap only" — original
+      stays unchanged while valid; non-opted-in gets the blurred thumbnail instead of null only once it expires),
+      `apps/web` mapper/codegen, `EventListView.tsx` wiring; the only Wave 4C story with frontend scope* (added
+      2026-10-03, split from 3.6n; `backlog`, no story file yet)
   - [ ] create  - [ ] dev  - [ ] review
 - [ ] **3.6o** Skip face-blur processing for events ending before their source image expires — *needs 3.6n;
       **amended by CC-024:** the relevance gate takes the latest schedule end across all events of the post*
@@ -454,6 +470,7 @@ pre-flagged list can be settled against real code. Gate 2 stays per story (only 
 | 3.6p (CC-023; amended by CC-024) | 3.6e, 3.6l, 3.6m, 3.6r, 3.6s (3.6t only if the ingestor back-fills `actualScheduleCount`) |
 | 0.46 (found by the CC-023 sweep) | none (IaC; AD-28 Rule 3 may need an amendment) |
 | 3.6n (CC-023) | 3.6m, 3.6e, 0.33, 3.6q, 0.46 |
+| 3.6n2 (CC-023; split from 3.6n at create-story, 2026-10-03) | 3.6n |
 | 3.6o (CC-023; amended by CC-024) | 3.6n |
 
 ## Decision log (for reference)

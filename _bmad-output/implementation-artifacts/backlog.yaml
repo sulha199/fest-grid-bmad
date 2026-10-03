@@ -1718,6 +1718,7 @@ items:
      ref: [planning-artifacts/sprint-change-proposal-2026-09-30.md],
      stories: [3-6m-add-hasfaceimage-faceimagecount-self-reported-fields-to-gemini-extraction-schema,
                3-6n-detect-and-blur-faces-in-extracted-post-images-generating-a-consent-independent-durable-thumbnail,
+               3-6n2-expose-the-face-blurred-thumbnail-through-the-read-path-and-widen-the-prominent-card-trigger,
                3-6o-skip-face-blur-processing-for-events-ending-before-their-source-image-expires,
                3-6p-create-extraction-audit-logs-table-and-write-path-for-gemini-self-reported-extraction-signals,
                3-6q-version-re-hosted-media-keys-and-set-a-7-day-immutable-http-cache-policy],
