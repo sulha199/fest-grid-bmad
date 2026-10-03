@@ -1533,8 +1533,13 @@ This document defines the core architectural invariants for the FestDaily applic
         Stories 3.6s/3.6p — a story-level call, not an invariant.
     7.  **Blur-before-AI, 2026-10-04 (AD-28 Rule 10, CC-028):** the row also records which image
         the AI saw, as `aiImageInput` (`'blurred' | 'original_owner_opted_in' |
-        'original_mode_off' | 'text_only_fail_closed'`). With the mode on, detection precedes the
-        call, so `actualFaceDetectionCount` is known at insert (no backfill). No new
+        'original_mode_off' | 'text_only_fail_closed' | 'no_image_sent'`; the last, added by the
+        2026-10-04 readiness sweep, covers a request that carried no image at all, whether the post
+        has none or its fetch failed, so it is never mislabelled as an original or a fail-closed
+        drop). With the mode on, detection precedes the
+        call, so `actualFaceDetectionCount` is known at insert (no backfill); it is the **sum of
+        face counts across every image sent**, the only value comparable with the model's
+        all-slides `faceImageCount`. No new
         `faceDetectionSkippedReason` is needed: an opted-in owner's pipeline is identical to the
         mode-off pipeline.
 *   **Considered and rejected:** adding these fields directly as columns on `posts`/`events` —
