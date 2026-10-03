@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-02"
+last_updated: "2026-10-03"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -515,12 +515,21 @@ items:
      note: "DW-011, DW-014. Fixed 2026-09-15 (bmad-quick-dev): removed the unused postedByLabel field end-to-end (EventDetailViewLabels type, mapper.ts, both test fixtures, en/id.json); SubscribedAccountCard's size=\"lg\" now scales the adjacent displayName (text-lg) and username (text-base) text. The size=\"lg\" scaling is a fractional overlap with Story 0.i6a (still backlog) -- 0.i6a's remaining scope is BUG-005's degenerate-input fallback only."}
 
   FIND-012:
-    {type: finding, status: backlog, created: 2026-09-05,
+    {type: finding, status: promoted, created: 2026-09-05,
      impact: cosmetic, effort: s, epic: epic-0-i6,
      title: "SubscribedAccountCard still not wired into Post Selection or Subscribed Accounts settings",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     stories: [0-i6c-adopt-the-card-into-subscribed-accounts-settings-and-settle-the-detail-surface-variant],
      touches: [web:post-selection, web:settings, web:subscriptions, pkg:ui],
-     note: "DW-012, DW-013. Both pages still render their own inline account UI; Subscribed Accounts settings also has an open design question, since the card has no unsubscribe affordance at all."}
+     note: "DW-012, DW-013. Subscribed Accounts settings half promoted via Story 0.i6c; Post Selection half carved to FIND-065."}
+
+  FIND-065:
+    {type: finding, status: backlog, created: 2026-10-03, parent: FIND-012,
+     impact: cosmetic, effort: s,
+     title: "SubscribedAccountCard still not wired into Post Selection",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [web:post-selection, pkg:ui],
+     note: "DW-012. Carved from FIND-012 when only its Subscribed Accounts settings half was promoted (Story 0.i6c); Post Selection adoption is Story 0.i6b, not yet started."}
 
   FIND-013:
     {type: finding, status: done, created: 2026-09-05,
