@@ -390,7 +390,7 @@ sequential (3.6n2 is created and built later, after 3.6n). Plain dispatch with n
 failures; see "Test-gate facts"); whole-repo lint/build/test run once at the end with `TZ=UTC`. The Pre-Coding Approval Gate
 is **pre-approved by the user for all five** provided each proposed scope matches its story file; 0.46 still stops for AC2(b)
 (`sharp` in the real Lambda runtime), which needs a deployed non-prod stage and is never deployed by a child.
-Progress: 3.6m done (`review`, `b7d6fb3a`); 3.6p done (`review`, `af8bafe6`); 0.46 done (`review`, `c19ff31b`); 3.6n done (`review`, `6672de14`); 3.6o in progress. 3.6n2 not yet created.
+Progress: 3.6m done (`review`, `b7d6fb3a`); 3.6p done (`review`, `af8bafe6`); 0.46 done (`review`, `c19ff31b`); 3.6n done (`review`, `6672de14`); 3.6o done (`review`, `b9d19259`). 3.6n2 not yet created. Batch-end lint/build/test pass: running.
 
 - [ ] **3.6q** Version re-hosted media keys and set a 7-day immutable HTTP cache policy — *feeds 3.6n (its key helper
       builds `thumb-{hash8}.jpg`); no CC-024 dependency* (built, status `review`; backfill workflow lives in
@@ -455,7 +455,11 @@ Progress: 3.6m done (`review`, `b7d6fb3a`); 3.6p done (`review`, `af8bafe6`); 0.
       audit outcome. **AD-29 backfill ownership decided with the user at this create-story:** each story writes its
       own outcome, so 3.6n owns `'no_face_reported'` and the real face count, 3.6o owns the relevance-gate outcome;
       3.6p's writer returns the inserted row id; 3.6n/3.6p story files and `epics.md` amended in the same commit)
-  - [x] create  - [ ] dev  - [ ] review  - [ ] audit row shows `'event_relevance_gate'` on a skipped post
+      (**dev done** 2026-10-03, commits `5b64fa2a`..`b9d19259`, status `review`; pure `computeLatestScheduleEnd` in
+      `packages/domain` with 100% coverage, one fail-open gate around 3.6n's call site, 5 integration cases; domain
+      415/415, backend 963/969 (the 4 known FIND-063 key tests plus 2 stale-dist failures since fixed by rebuilding);
+      no schema, migration, read-path or UI file touched)
+  - [x] create  - [x] dev  - [ ] review  - [x] audit row shows `'event_relevance_gate'` on a skipped post (integration case K)
 - [ ] **IDEA-051** (sample `hasFaceImage = false` posts through face-api.js to measure the pre-filter's false-negative
       rate) stays `backlog` as a deliberate future decision (AD-29 Rule 4), revisited in Wave 6
 
