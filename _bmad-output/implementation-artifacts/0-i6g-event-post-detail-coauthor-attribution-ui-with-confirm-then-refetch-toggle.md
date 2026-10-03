@@ -40,10 +40,10 @@ so that I can see and act on a post's actual coauthors, not just the one account
   - [x] Run `pnpm --filter backend codegen` to regenerate `apps/backend/src/generated/resolvers-types.ts` — never hand-edit generated output. Watch for the known enum-declared-twice codegen quirk (`apps/backend` side doesn't use `fix-codegen.js`, that's `apps/web`-only; confirm this field, a type not an enum, doesn't trigger an analogous issue).
 - [x] **Task 2 — Backend resolver test** (AC: #1)
   - [x] `apps/backend/src/schema/resolvers.test.ts` — new `describe`/`t.test('Event.coauthors resolver')` block mirroring the existing `Event.sourceSocialMediaAccountProfile resolver` block (~line 1873): seed a profile + post + 2 `post_account_associations` rows (one `COAUTHOR`, one `PUBLISHER` on a different profile) + event linked via `postId`; assert the query returns exactly the `COAUTHOR` row (not the `PUBLISHER` row), in insertion order; assert `[]` (not `null`, not an error) when the event has no linked `postId`; assert `[]` when the post has zero `COAUTHOR` associations. Clean up seeded rows in `t.after`.
-- [ ] **Task 3 — Add `coauthors` selection to the frontend query + regenerate codegen** (AC: #2)
-  - [ ] `apps/web/src/features/events/queries.graphql` — add `coauthors { accountId platform username displayName profileImageUrl }` to `getEventBySlug`'s `eventBySlug` selection, directly below the existing `sourceSocialMediaAccountProfile { ... }` block.
-  - [ ] Confirm no `Query.events`-based document anywhere in `apps/web` selects `coauthors` (AC2 regression guard) — grep `apps/web/src/**/*.graphql` for `coauthors` and confirm `getEventBySlug` is the only match.
-  - [ ] Run `pnpm --filter web codegen` to regenerate `apps/web/src/generated/graphql.ts` (runs `fix-codegen.js` automatically) — never hand-edit generated output.
+- [x] **Task 3 — Add `coauthors` selection to the frontend query + regenerate codegen** (AC: #2)
+  - [x] `apps/web/src/features/events/queries.graphql` — add `coauthors { accountId platform username displayName profileImageUrl }` to `getEventBySlug`'s `eventBySlug` selection, directly below the existing `sourceSocialMediaAccountProfile { ... }` block.
+  - [x] Confirm no `Query.events`-based document anywhere in `apps/web` selects `coauthors` (AC2 regression guard) — grep `apps/web/src/**/*.graphql` for `coauthors` and confirm `getEventBySlug` is the only match.
+  - [x] Run `pnpm --filter web codegen` to regenerate `apps/web/src/generated/graphql.ts` (runs `fix-codegen.js` automatically) — never hand-edit generated output.
 - [ ] **Task 4 — `EventDetailView` types + presentation** (AC: #3, #4, #6, #7, #10)
   - [ ] `packages/ui/src/features/events/EventDetailView.types.ts` — add a new exported `EventDetailViewCoauthor` interface: `{ accountId: string; platform?: string | null; displayName?: string | null; username?: string | null; profileImageUrl?: string | null; accountHref?: string | null; isSubscribed: boolean; isTogglePending: boolean; }`. Add to `EventDetailViewProps`: `coauthors?: EventDetailViewCoauthor[]; onSubscribeToCoauthor?: (accountId: string) => void; onUnsubscribeFromCoauthor?: (accountId: string) => void;`. Reuse the existing `isSubscriptionStatusLoading` prop for coauthors too (same underlying `mySubscriptions` query backs both the source account and every coauthor) — no new loading prop.
   - [ ] Add `coauthorsListAriaLabel` to `EventDetailViewLabels`.
@@ -246,6 +246,7 @@ Claude Sonnet 5 (bmad-create-story, direct in-session story authoring).
 - Task 1: Added `Event.coauthors: [SocialMediaAccountProfile!]!` to `events.graphql` and its resolver in `resolvers.ts` (guard `!parent.postId -> []`, join `post_account_associations` -> `social_media_account_profiles` filtered to `role = 'COAUTHOR'`, ordered by `created_at` asc), mirroring `sourceSocialMediaAccountProfile` exactly. Ran `pnpm --filter backend codegen` — clean, no enum-duplication quirk (it's a type field, not an enum). `pnpm --filter backend build` passes.
 - Task 2: Added `Event.coauthors resolver (Story 0.i6g)` block to `resolvers.test.ts` (3 cases: COAUTHOR-only returned, not PUBLISHER; `[]` for no-postId event; `[]` for a post with zero COAUTHOR associations). Ran `TZ=UTC` targeted `resolvers.test.ts` (ran `seed:volume:clean` first per dispatch instructions) — all 95 tests pass (including the 3 new ones). `pnpm --filter backend build`/`lint` both clean (0 errors).
 - Pre-task: rebuilt `packages/domain` and `packages/database` (`pnpm --filter @festgrid/domain build`, `pnpm --filter @festgrid/database build`) per dispatch note that master was just merged to 270c8d7 — both clean.
+- Task 3: Added `coauthors { accountId platform username displayName profileImageUrl }` to `getEventBySlug` in `queries.graphql`, directly below `sourceSocialMediaAccountProfile`. Confirmed via grep that no other `.graphql` document in `apps/web` selects `coauthors`. Ran `pnpm --filter web codegen` (runs `fix-codegen.js`) — clean. Targeted `queries.graphql.test.ts` (Story 3.7c AC1 list-view guard) still passes — `coauthors`/`profileImageUrl` only reachable from `getEventBySlug`, not any list-view query.
 
 ### File List
 
@@ -253,6 +254,8 @@ Claude Sonnet 5 (bmad-create-story, direct in-session story authoring).
 - `apps/backend/src/schema/resolvers.ts` — added `postAccountAssociations` import; added `Event.coauthors` resolver.
 - `apps/backend/src/generated/resolvers-types.ts` — regenerated via `pnpm --filter backend codegen`.
 - `apps/backend/src/schema/resolvers.test.ts` — added `postAccountAssociations` import; added `Event.coauthors resolver (Story 0.i6g)` test block.
+- `apps/web/src/features/events/queries.graphql` — added `coauthors { ... }` selection to `getEventBySlug`.
+- `apps/web/src/generated/graphql.ts` — regenerated via `pnpm --filter web codegen`.
 
 ## Change Log
 
