@@ -8,7 +8,7 @@ baseline_commit: 81957a5411261abafef0f0f6944be1dc65aac4a9
 
 - Epic: 0.i6 (SubscribedAccountCard improvement epic)
 - Story ID: 0.i6c
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -148,28 +148,28 @@ so that the settings list's shipped convention is not disturbed, the detail-surf
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — Tasks 1-8 match the two user-decided mechanisms (optional `showPlatformBadge` presentational prop; FIND-012 promotion/carve handled at completion, see `on_complete`) plus the epics.md-specified `variant` prop.
-- [ ] Architecture and boundary confirmation — no `packages/domain`/`apps/backend` change (Project Structure Notes); Gate 1/2/3 all no-gap (Architecture & UX Gate Findings).
-- [ ] Testing plan confirmation — Tasks 5-7 cover the new `variant`/`showPlatformBadge` props, the Settings-list integration (including the new platform-pill assertion), and explicit regression coverage of the one existing detail-context call site.
+- [x] Scope confirmation — Tasks 1-8 match the two user-decided mechanisms (optional `showPlatformBadge` presentational prop; FIND-012 promotion/carve handled at completion, see `on_complete`) plus the epics.md-specified `variant` prop.
+- [x] Architecture and boundary confirmation — no `packages/domain`/`apps/backend` change (Project Structure Notes); Gate 1/2/3 all no-gap (Architecture & UX Gate Findings).
+- [x] Testing plan confirmation — Tasks 5-7 cover the new `variant`/`showPlatformBadge` props, the Settings-list integration (including the new platform-pill assertion), and explicit regression coverage of the one existing detail-context call site.
 - [x] **Explicit human approval state (Default: pending approval)** — scope questions were resolved during story creation (platform badge mechanism, FIND-012 promotion handling); approved by user at `bmad-dev-story` time on 2026-10-03.
 - [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three run fresh this session, all three no-gap.
 
 ## Testing Requirements
 
-- [ ] Unit tests — `packages/ui/src/features/subscriptions/SubscribedAccountCard.test.tsx` (new `variant`/`showPlatformBadge` cases; existing suite unmodified and green).
-- [ ] Unit tests — `packages/ui/src/features/events/EventDetailView.test.tsx` (unmodified, confirmed still green after Task 4).
-- [ ] Integration tests — `apps/web/src/app/[locale]/settings/account/subscriptions-content.test.tsx` (new platform-pill assertion; existing suite unmodified and green after adoption).
-- [ ] Integration/regression check — `apps/web/src/features/events/EventDetailWrapper.test.tsx` confirmed to pass unmodified.
-- [ ] E2E tests — not required; this is a presentational prop-addition + markup-consolidation story with no new user flow, matching this component family's existing E2E-not-required precedent (Story 0.i6a/0.i6f).
-- [ ] Migration verification — not applicable; no migration in this story.
+- [x] Unit tests — `packages/ui/src/features/subscriptions/SubscribedAccountCard.test.tsx` (new `variant`/`showPlatformBadge` cases; existing suite unmodified and green).
+- [x] Unit tests — `packages/ui/src/features/events/EventDetailView.test.tsx` (unmodified, confirmed still green after Task 4).
+- [x] Integration tests — `apps/web/src/app/[locale]/settings/account/subscriptions-content.test.tsx` (new platform-pill assertion; existing suite unmodified and green after adoption).
+- [x] Integration/regression check — `apps/web/src/features/events/EventDetailWrapper.test.tsx` confirmed to pass unmodified.
+- [x] E2E tests — not required; this is a presentational prop-addition + markup-consolidation story with no new user flow, matching this component family's existing E2E-not-required precedent (Story 0.i6a/0.i6f).
+- [x] Migration verification — not applicable; no migration in this story.
 
 ## Deliverables Checklist
 
-- [ ] `SubscribedAccountCard` exposes `variant?: 'detail' | 'list'` (default `'detail'`); `'list'` omits the subscribe/unsubscribe toggle from the DOM entirely.
-- [ ] `SubscribedAccountCard` exposes `showPlatformBadge?: boolean` (default off); when true + `account.platform` present, renders the existing platform pill next to the primary label with no truncation regression.
-- [ ] `subscriptions-content.tsx`'s per-row identity block renders through `SubscribedAccountCard` (`variant="list"`, `showPlatformBadge`) with zero information regression (AC4) and its shipped `SwipeToReveal`+`Trash2` delete affordance, `pendingExtractionCount` badge, and `AccountLocationField`/"Set Default Location" affordance all unchanged (AC1).
-- [ ] `EventDetailView.tsx`'s existing call site passes `variant="detail"` explicitly; its rendering remains pixel-identical to before (AC7).
-- [ ] All Task 5-7 test updates/additions passing; `EventDetailView.test.tsx`/`EventDetailWrapper.test.tsx` unmodified and still passing.
+- [x] `SubscribedAccountCard` exposes `variant?: 'detail' | 'list'` (default `'detail'`); `'list'` omits the subscribe/unsubscribe toggle from the DOM entirely.
+- [x] `SubscribedAccountCard` exposes `showPlatformBadge?: boolean` (default off); when true + `account.platform` present, renders the existing platform pill next to the primary label with no truncation regression.
+- [x] `subscriptions-content.tsx`'s per-row identity block renders through `SubscribedAccountCard` (`variant="list"`, `showPlatformBadge`) with zero information regression (AC4) and its shipped `SwipeToReveal`+`Trash2` delete affordance, `pendingExtractionCount` badge, and `AccountLocationField`/"Set Default Location" affordance all unchanged (AC1).
+- [x] `EventDetailView.tsx`'s existing call site passes `variant="detail"` explicitly; its rendering remains pixel-identical to before (AC7).
+- [x] All Task 5-7 test updates/additions passing; `EventDetailView.test.tsx`/`EventDetailWrapper.test.tsx` unmodified and still passing.
 
 ## Out of Scope
 
@@ -181,14 +181,14 @@ so that the settings list's shipped convention is not disturbed, the detail-surf
 
 ## Definition of Done
 
-- [ ] AC 1-7 satisfied.
-- [ ] Required tests passing (Task 5-7 + Testing Requirements).
-- [ ] Lint and type checks passing for `packages/ui` and `apps/web`.
-- [ ] Pre-Coding Approval Gate's explicit human approval state confirmed before this story is marked done.
+- [x] AC 1-7 satisfied.
+- [x] Required tests passing (Task 5-7 + Testing Requirements).
+- [x] Lint and type checks passing for `packages/ui` and `apps/web`.
+- [x] Pre-Coding Approval Gate's explicit human approval state confirmed before this story is marked done.
 
 ## Completion Status
 
-- [ ] Not started — story created and ready for `bmad-dev-story`.
+- [x] Implementation complete — all tasks/subtasks done, full `ui`/`web` suites green, lint/build clean. Status set to `review`.
 
 ## Dev Agent Record
 
