@@ -1,8 +1,10 @@
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, subscriptions } from '@festgrid/database';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull, lt, or } from 'drizzle-orm';
 import { activeOnly } from '@festgrid/graphql-select';
 import { ScraperCapacityExceededError, ScrapablePlatform } from '@festgrid/domain';
+import { computeClaimCutoff } from '@festgrid/domain/shared';
+import { loadBackendEnv } from '../../env.js';
 import { isProviderCapacityAvailable } from '../scraper/usage-store.js';
 import { triggerScrapeForAccount } from '../scraper/trigger-scrape-for-account.js';
 import { classifyAccountType } from '../accounts/classify-account-type.js';
@@ -40,16 +42,12 @@ export async function subscribeToAccount({
     .limit(1)
     .then((rows) => rows[0]);
 
-  // If absent, insert one and re-select safely (handling concurrent insertions)
+  // If absent, insert one and re-select safely (handling concurrent insertions). Story 3.16
+  // (Task 3.1): this branch is now find-or-create ONLY -- the capacity check and the
+  // classify-then-maybe-scrape cascade both moved out of here (see below), so they also cover a
+  // pre-existing, never-classified profile (e.g. one created by Story 3.14's
+  // getOrCreateDiscoveredAccountProfile), not just a profile this exact call just inserted.
   if (!accountProfile) {
-    // Check capacity: Apify first, then Bright Data fallback
-    const apifyAvailable = await isProviderCapacityAvailable('apify');
-    const brightDataAvailable = await isProviderCapacityAvailable('brightdata');
-
-    if (!apifyAvailable && !brightDataAvailable) {
-      throw new ScraperCapacityExceededError('Scraper capacity temporarily exceeded — new subscriptions are paused until next cycle.');
-    }
-
     await db
       .insert(socialMediaAccountProfiles)
       .values({
@@ -75,8 +73,53 @@ export async function subscribeToAccount({
       )
       .limit(1)
       .then((rows) => rows[0]);
+  }
 
-    if (accountProfile) {
+  // 1b. Classify-then-maybe-trigger-scrape cascade (AC2), gated by an atomic TTL-reclaimable
+  // claim so it runs at most once per account even when two subscribe requests for the same
+  // still-unclassified account race concurrently (Story 3.16, Task 3.2/3.3). Runs for ANY
+  // profile that has never been classified (accountTypeStatus === null) -- both a just-inserted
+  // row and a pre-existing row -- which is what closes the gap left by Story 3.14's
+  // getOrCreateDiscoveredAccountProfile (by design, never classifies, never scrapes).
+  if (accountProfile && accountProfile.accountTypeStatus === null) {
+    const env = loadBackendEnv();
+    const now = new Date();
+    const cutoff = computeClaimCutoff(env.accountClassificationClaimTtlMinutes, now);
+
+    const [claimed] = await db
+      .update(socialMediaAccountProfiles)
+      .set({ classificationClaimedAt: now })
+      .where(
+        and(
+          eq(socialMediaAccountProfiles.id, accountProfile.id),
+          isNull(socialMediaAccountProfiles.accountTypeStatus),
+          // Unclaimed, or claimed but past its TTL (reclaimable) -- mirrors
+          // enqueuePostForProcessing's identical idiom on posts.queuedForExtractionAt.
+          or(
+            isNull(socialMediaAccountProfiles.classificationClaimedAt),
+            lt(socialMediaAccountProfiles.classificationClaimedAt, cutoff)
+          )
+        )
+      )
+      .returning();
+
+    if (claimed) {
+      // This caller won the claim: check capacity (Apify first, then Bright Data fallback)
+      // before actually classifying/scraping.
+      const apifyAvailable = await isProviderCapacityAvailable('apify');
+      const brightDataAvailable = await isProviderCapacityAvailable('brightdata');
+
+      if (!apifyAvailable && !brightDataAvailable) {
+        // Release the claim before rethrowing -- a capacity failure is not a legitimate
+        // in-flight classification attempt, so it shouldn't hold the claim for the full TTL for
+        // nothing (mirrors enqueuePostForProcessing's send-time-failure release pattern).
+        await db
+          .update(socialMediaAccountProfiles)
+          .set({ classificationClaimedAt: null })
+          .where(eq(socialMediaAccountProfiles.id, accountProfile.id));
+        throw new ScraperCapacityExceededError('Scraper capacity temporarily exceeded — new subscriptions are paused until next cycle.');
+      }
+
       const classification = await classifyAccountType({
         accountId: accountProfile.id,
         username: accountProfile.username,
@@ -104,6 +147,33 @@ export async function subscribeToAccount({
         const newerThan = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
         await triggerScrapeForAccount(scrapeTarget, newerThan);
       }
+    }
+    // When `claimed` is falsy: another request already claimed or already finished classifying
+    // this exact profile. Do nothing -- no error, no retry. AC1 requires the subscription to
+    // always succeed; AC2 only requires the cascade to run once per account, not once per
+    // subscriber.
+  }
+
+  // 1c. Flip isVerifiedForDiscovery false -> true unconditionally on subscribe (AC4) -- the
+  // signal Story 3.17's demand-gated discovery read-path will later consume. Independent of the
+  // accountTypeStatus === null branch above: it must also apply to an already-classified profile
+  // subscribed to for the first time (e.g. a coauthor profile classified by a different path
+  // before anyone subscribed). Placed before the existing-subscription check so the returned
+  // accountProfile always reflects the final isVerifiedForDiscovery value. A profile already
+  // `true` makes this a no-op (WHERE ... = false matches zero rows) -- cheap and idempotent.
+  if (accountProfile) {
+    const [verified] = await db
+      .update(socialMediaAccountProfiles)
+      .set({ isVerifiedForDiscovery: true })
+      .where(
+        and(
+          eq(socialMediaAccountProfiles.id, accountProfile.id),
+          eq(socialMediaAccountProfiles.isVerifiedForDiscovery, false)
+        )
+      )
+      .returning();
+    if (verified) {
+      accountProfile = verified;
     }
   }
 
