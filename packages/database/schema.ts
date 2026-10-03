@@ -3,6 +3,7 @@ import { relations, sql } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
 import { LocationDetails, EventLink } from '@festgrid/shared-types';
 import type { ProposedEventCorrection } from '@festgrid/domain/events';
+import type { ExtractionAuditEventCompleteness } from '@festgrid/domain/events';
 import { POST_ACCOUNT_ROLES } from '@festgrid/domain/posts';
 import { EVENT_DETAIL_LEVELS } from '@festgrid/domain/events';
 import { POST_GROUPING_REASONS } from '@festgrid/domain/posts';
@@ -479,6 +480,56 @@ export const eventSlugAliases = pgTable('event_slug_aliases', {
   eventId: uuid('event_id').references(() => events.id, { onDelete: 'cascade' }).notNull(),
   ...timestamps,
 });
+
+// Story 3.6p / AD-29 Rule 3 -- records why actualFaceDetectionCount is null (Story 3.6n/3.6o's
+// eventual backfill), so a null is never misread as "detection ran and found zero faces."
+export const extractionAuditFaceDetectionSkippedReasonEnum = pgEnum('extraction_audit_face_detection_skipped_reason', [
+  'no_face_reported',
+  'event_relevance_gate',
+]);
+
+// Story 3.6p / AD-29 -- one row per Gemini extraction attempt (process-ai-job.ts), holding
+// every self-reported extraction-quality signal plus ground truth where available. Write-once
+// from process-ai-job.ts (this story); actualFaceDetectionCount/faceDetectionSkippedReason are
+// the only columns ever backfilled later, from the SAME Lambda invocation/extraction attempt
+// that inserted the row (never a second attempt) -- Story 3.6n backfills 'no_face_reported'
+// and the real count, Story 3.6o backfills 'event_relevance_gate' (ownership split confirmed
+// with the user 2026-10-03; this story never writes either column itself, only returns the
+// row's id -- see Task 2). Never joined into any client-facing resolver (AD-29 Rule 5) -- enforced by
+// extraction-audit-logs-no-hotpath-import.test.ts. One row per ATTEMPT, not per event
+// (AD-29 Rule 6's shape decision, confirmed with the user at this story's creation) --
+// eventsCompleteness holds the per-event data Story 3.6s moved off the payload root.
+export const extractionAuditLogs = pgTable('extraction_audit_logs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  postId: uuid('post_id').references(() => posts.id, { onDelete: 'cascade' }).notNull(),
+  geminiModel: text('gemini_model').notNull(),
+  isEvent: boolean('is_event').notNull(),
+  // Post-level self-reported face-signal pre-filter (Story 3.6m, AD-28 Rule 1). Null when
+  // absent from the Gemini response -- never coerced to false.
+  hasFaceImage: boolean('has_face_image'),
+  faceImageCount: integer('face_image_count'),
+  // Ground truth for the face pre-filter, backfilled by Story 3.6n/3.6o -- NOT written by
+  // this story. Null means "not backfilled yet," disambiguated from "ran, found zero" by the
+  // skip-reason column (AD-29 Rule 3).
+  actualFaceDetectionCount: integer('actual_face_detection_count'),
+  faceDetectionSkippedReason: extractionAuditFaceDetectionSkippedReasonEnum('face_detection_skipped_reason'),
+  // Post-level grouping self-report (Story 3.6s, AD-30 Rule 5). minEventCount is the model's
+  // own best-effort count; actualEventCount is the post-truncation count of events actually
+  // kept (events.length after Story 3.6s's cap) -- known synchronously within this same
+  // extraction attempt, unlike the face-detection pair above which is a genuine async backfill.
+  minEventCount: integer('min_event_count'),
+  actualEventCount: integer('actual_event_count').notNull(),
+  groupingReason: postGroupingReasonEnum('grouping_reason'),
+  // Per-event completeness (Story 3.6l's minScheduleCount/expectedScheduleNames, plus
+  // confidenceScore -- all three moved off the payload root onto GeminiEventPayload by Story
+  // 3.6s). AD-29 Rule 6 explicitly leaves this shape to this story; chosen shape is one jsonb
+  // array entry per extracted event (AskUserQuestion, this story's creation), empty for a
+  // non-event or zero-event attempt.
+  eventsCompleteness: jsonb('events_completeness').$type<ExtractionAuditEventCompleteness[]>().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  postIdIdx: index('idx_extraction_audit_logs_post_id').on(t.postId),
+}));
 
 export const schedules = pgTable('schedules', {
   id: uuid('id').defaultRandom().primaryKey(),

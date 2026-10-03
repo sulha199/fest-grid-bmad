@@ -76,6 +76,26 @@ export interface GeminiExtractionPayload {
   faceImageCount?: number;
 }
 
+// Story 3.6p — one entry per extracted event inside an extraction_audit_logs row's
+// eventsCompleteness jsonb array (AD-29 Rule 6's shape decision for this table).
+export interface ExtractionAuditEventCompleteness {
+  // Position of this event within THIS extraction attempt's raw events[] array (0-based,
+  // Gemini's own per-event response order, post-truncation) -- NOT the same value as the
+  // deterministic extractionOrdinal assigned later by assignExtractionOrdinals()/persisted
+  // as events.extraction_ordinal (Story 3.6t). Correlating an entry here back to its
+  // eventually-ingested events row by position is not reliable across the two orderings and
+  // is explicitly out of scope for this story -- see Dev Notes.
+  eventIndex: number;
+  minScheduleCount: number | null;
+  expectedScheduleNames: string[] | null;
+  confidenceScore: number;
+  // Extraction-time count (event.schedules.length in the AJV-accepted payload), NOT the
+  // DB-persisted count -- confirmed with the user at this story's creation; see Dev Notes
+  // "Design Decisions Confirmed With The User" for the two cases where this can diverge from
+  // the literal ground truth Architecture Spine AD-29 Rule 2 describes.
+  actualScheduleCount: number;
+}
+
 export type ScheduleTimezoneStatus = 'RESOLVED' | 'NEEDS_CLARIFICATION';
 
 export interface ScheduleTimezoneResolution {

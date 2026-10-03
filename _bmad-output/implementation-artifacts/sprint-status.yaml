@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-03T10:54:51Z
+last_updated: 2026-10-03T11:26:19Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -1783,7 +1783,7 @@ development_status:
   # to 3-6n2 below. See epics.md Story 3.6n's Correction block.
   3-6n2-expose-the-face-blurred-thumbnail-through-the-read-path-and-widen-the-prominent-card-trigger: backlog
   3-6o-skip-face-blur-processing-for-events-ending-before-their-source-image-expires: ready-for-dev
-  3-6p-create-extraction-audit-logs-table-and-write-path-for-gemini-self-reported-extraction-signals: ready-for-dev
+  3-6p-create-extraction-audit-logs-table-and-write-path-for-gemini-self-reported-extraction-signals: review
   3-6q-version-re-hosted-media-keys-and-set-a-7-day-immutable-http-cache-policy: review
   # 3.6q added 2026-10-01 (AD-28 Rule 9): versioned media keys + 7-day immutable HTTP cache,
   # HTTP cache only (no service worker). Must land before 3.6n.

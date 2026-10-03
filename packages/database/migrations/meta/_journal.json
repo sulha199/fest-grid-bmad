@@ -477,6 +477,13 @@
       "when": 1791016288825,
       "tag": "0067_superb_expediter",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "6",
+      "when": 1791026189171,
+      "tag": "0068_wandering_jack_murdock",
+      "breakpoints": true
     }
   ]
 }
