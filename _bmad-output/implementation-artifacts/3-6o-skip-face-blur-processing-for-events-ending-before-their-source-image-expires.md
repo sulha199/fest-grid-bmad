@@ -8,7 +8,7 @@ baseline_commit: 4b195a4c
 
 - Epic: 3
 - Story ID: 3.6o
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -35,8 +35,8 @@ so that FestDaily doesn't spend compute, storage, and bystander-photo retention 
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC1, AC3, AC4): Add `computeLatestScheduleEnd` to `packages/domain`**
-  - [ ] New file `packages/domain/src/events/computeLatestScheduleEnd.ts`, exporting:
+- [x] **Task 1 (AC1, AC3, AC4): Add `computeLatestScheduleEnd` to `packages/domain`**
+  - [x] New file `packages/domain/src/events/computeLatestScheduleEnd.ts`, exporting:
     ```ts
     import type { GeminiEventPayload } from './types.js';
 
@@ -94,8 +94,8 @@ so that FestDaily doesn't spend compute, storage, and bystander-photo retention 
       return latest;
     }
     ```
-  - [ ] Add `export * from './computeLatestScheduleEnd.js';` to `packages/domain/src/events/index.ts` (alongside the existing `computePastEventThreshold.js` export line), so it is barrel-exported from `@festgrid/domain/events` the same way.
-  - [ ] **100% unit test coverage required** (`packages/domain`'s own testing rule, `project-context.md`), new `computeLatestScheduleEnd.test.ts`, `node:test` (this package's established runtime, matching `computePastEventThreshold.test.ts`'s own convention — confirm by reading that file's test harness before writing a different one). Required cases, each a distinct branch:
+  - [x] Add `export * from './computeLatestScheduleEnd.js';` to `packages/domain/src/events/index.ts` (alongside the existing `computePastEventThreshold.js` export line), so it is barrel-exported from `@festgrid/domain/events` the same way.
+  - [x] **100% unit test coverage required** (`packages/domain`'s own testing rule, `project-context.md`), new `computeLatestScheduleEnd.test.ts`, `node:test` (this package's established runtime, matching `computePastEventThreshold.test.ts`'s own convention — confirm by reading that file's test harness before writing a different one). Required cases, each a distinct branch:
     - Empty `events` array → `null`.
     - A single event whose only schedule has no `eventEndDate`/`eventEndTime` (only `eventStartDate`) → returns that start date at `23:59:59Z`.
     - A schedule with `eventEndDate` but no `eventEndTime` → that end date at `23:59:59Z`.
@@ -104,11 +104,11 @@ so that FestDaily doesn't spend compute, storage, and bystander-photo retention 
     - Multiple events, each with schedules → the true max across all of them wins (proves the "all events of the post" semantics, AD-28/the 2026-10-01 Amendment).
     - An event with an empty `schedules` array → contributes nothing (does not throw, does not become `0`/epoch).
     - A malformed date/time string (e.g. `eventEndDate: 'not-a-date'`) → skipped, does not throw, does not count toward the max (assert the function still returns the correct max from the *other*, valid schedules when one is mixed in, not just that it doesn't crash on an all-malformed input).
-  - [ ] Confirm `pnpm --filter domain test` reports 100% coverage for this new file specifically (not just "the suite is green") — this package's Testing Rule is a coverage requirement, not merely "has tests."
+  - [x] Confirm `pnpm --filter domain test` reports 100% coverage for this new file specifically (not just "the suite is green") — this package's Testing Rule is a coverage requirement, not merely "has tests."
 
-- [ ] **Task 2 (AC1, AC2, AC3, AC4): Wire the relevance gate into Story 3.6n's call site in `process-ai-job.ts`**
-  - [ ] **Prerequisite check before starting this task:** confirm Story 3.6n has actually shipped with its own AC9 backfill-ownership scope (the `backfillFaceDetectionAuditResult`/`backfillFaceDetectionAuditResultSeam` helper, the `auditLogId` local variable threaded from Story 3.6p's write call site, and the `hasFaceImage === true` / `else` structure) — read `process-ai-job.ts` and `backfill-face-detection-audit-result.ts` directly rather than assuming the story-file text below is what actually shipped. If 3.6n shipped differently than its own story file describes, adapt this task to the real code, not to this description.
-  - [ ] Insert one additional nested condition into Story 3.6n's existing `if (imageBytes && imageContentType && payload.hasFaceImage === true) { ... }` block, immediately after that `if` and **before** 3.6n's timeout-guard check — do not reorder, duplicate, or remove any of 3.6n's existing logic inside the new `else` branch below:
+- [x] **Task 2 (AC1, AC2, AC3, AC4): Wire the relevance gate into Story 3.6n's call site in `process-ai-job.ts`**
+  - [x] **Prerequisite check before starting this task:** confirm Story 3.6n has actually shipped with its own AC9 backfill-ownership scope (the `backfillFaceDetectionAuditResult`/`backfillFaceDetectionAuditResultSeam` helper, the `auditLogId` local variable threaded from Story 3.6p's write call site, and the `hasFaceImage === true` / `else` structure) — read `process-ai-job.ts` and `backfill-face-detection-audit-result.ts` directly rather than assuming the story-file text below is what actually shipped. If 3.6n shipped differently than its own story file describes, adapt this task to the real code, not to this description.
+  - [x] Insert one additional nested condition into Story 3.6n's existing `if (imageBytes && imageContentType && payload.hasFaceImage === true) { ... }` block, immediately after that `if` and **before** 3.6n's timeout-guard check — do not reorder, duplicate, or remove any of 3.6n's existing logic inside the new `else` branch below:
     ```ts
     // 7.5b (Story 3.6n, AD-28), continued -- Story 3.6o's relevance gate. Distinct from
     // Event.isExpiredForCurrentUser/computePastEventThreshold (a runtime, grace-period
@@ -152,24 +152,24 @@ so that FestDaily doesn't spend compute, storage, and bystander-photo retention 
       }
     }
     ```
-  - [ ] Import `computeLatestScheduleEnd` from `@festgrid/domain` at the top of `process-ai-job.ts`, alongside the existing `@festgrid/domain` import.
-  - [ ] Do **not** move the `postExpiryRow` read earlier/unconditionally (e.g. alongside the top-of-function `accountRow` select) — it is deliberately placed inside the already-existing `hasFaceImage === true` branch so a post where detection was never going to run anyway (`hasFaceImage !== true`, handled entirely by Story 3.6n's own `else`) never pays for this extra read. This keeps the footprint minimal, matching this story's own "pure optimization" framing.
-  - [ ] `events` is the already-truncated `GeminiEventPayload[]` variable `process-ai-job.ts` builds at its existing step 5.6 (`maxExtractedEventsPerPost` cap) — confirmed in scope, unmutated, at this call site by direct read of the current file; do **not** recompute truncation here or use `payload.events` (the raw, pre-truncation array) — see Dev Notes.
+  - [x] Import `computeLatestScheduleEnd` from `@festgrid/domain` at the top of `process-ai-job.ts`, alongside the existing `@festgrid/domain` import.
+  - [x] Do **not** move the `postExpiryRow` read earlier/unconditionally (e.g. alongside the top-of-function `accountRow` select) — it is deliberately placed inside the already-existing `hasFaceImage === true` branch so a post where detection was never going to run anyway (`hasFaceImage !== true`, handled entirely by Story 3.6n's own `else`) never pays for this extra read. This keeps the footprint minimal, matching this story's own "pure optimization" framing.
+  - [x] `events` is the already-truncated `GeminiEventPayload[]` variable `process-ai-job.ts` builds at its existing step 5.6 (`maxExtractedEventsPerPost` cap) — confirmed in scope, unmutated, at this call site by direct read of the current file; do **not** recompute truncation here or use `payload.events` (the raw, pre-truncation array) — see Dev Notes.
 
-- [ ] **Task 3 (AC6): Regression tests**
-  - [ ] Extend `apps/backend/src/lib/ai-processor/process-ai-job.test.ts` (or the dedicated audit-log/face-blur integration file Story 3.6n/3.6p establish — dev agent's call, matching whichever file those two stories' own Task 6/Task 4 actually created; do not grow an unrelated large file further) with:
+- [x] **Task 3 (AC6): Regression tests**
+  - [x] Extend `apps/backend/src/lib/ai-processor/process-ai-job.test.ts` (or the dedicated audit-log/face-blur integration file Story 3.6n/3.6p establish — dev agent's call, matching whichever file those two stories' own Task 6/Task 4 actually created; do not grow an unrelated large file further) with:
     - **Short-lived event, image not yet expired:** a schedule ending same-day, well before a multi-day `imageUrlExpiresAt`. Assert: no S3 `PutObjectCommand`/no face-api invocation (mock/spy on the seam Story 3.6n exports); `posts.durableThumbnailUrl` stays null; the post's `extraction_audit_logs` row (Story 3.6p) has `faceDetectionSkippedReason: 'event_relevance_gate'`, `actualFaceDetectionCount: null`.
     - **Long-running event, image already expired by the time it ends:** a schedule ending after `imageUrlExpiresAt`. Assert: Story 3.6n's pipeline runs (its own seam is invoked); this story's gate makes no audit-log write of its own (3.6n's own backfill call — real count or `'no_face_reported'` — is what lands, per 3.6n's own tests, not asserted again here).
     - **`imageUrlExpiresAt: null`:** assert the pipeline runs (fail-open, AC3) — not skipped.
     - **No event has a parseable schedule date** (defensive/edge case: `computeLatestScheduleEnd` returns `null`): assert the pipeline runs (fail-open, AC3), proving the "unknown never means safe to skip" contract end-to-end, not just at the pure-function level (Task 1 already covers the function itself; this proves the wiring honors it).
     - **Multi-event post (Story 3.6t fixture shape), one event short-lived and one long-running:** assert the gate uses the **later** of the two ends (the 2026-10-01 Amendment's "all events" semantics) — the pipeline runs because at least one event's schedule extends past the expiry, even though the other alone would have triggered a skip.
-  - [ ] Confirm no regression in Story 3.6n's own existing test cases (its opt-in-independence, multi-event-singularity, timeout-guard, and failure-non-propagation cases from its own Task 6) — this story's inserted condition must not change any of their outcomes when `isStillRelevant` is `true` (the common case those tests already exercise).
+  - [x] Confirm no regression in Story 3.6n's own existing test cases (its opt-in-independence, multi-event-singularity, timeout-guard, and failure-non-propagation cases from its own Task 6) — this story's inserted condition must not change any of their outcomes when `isStillRelevant` is `true` (the common case those tests already exercise).
 
-- [ ] **Task 4: Full verification pass**
-  - [ ] `pnpm --filter domain test` — Task 1's new 100%-covered unit tests green, full existing `packages/domain` suite unaffected.
-  - [ ] `pnpm --filter backend test` (foreground, `TZ=UTC`) — Task 3's new integration cases green, full existing `apps/backend` suite (including Story 3.6n's and 3.6p's own tests) green.
-  - [ ] `pnpm --filter backend lint` / `pnpm --filter backend build` clean for `apps/backend`, `packages/domain`.
-  - [ ] Manually confirm (read the diff) that no `.graphql` SDL file, no `resolvers.ts`, no `apps/web`, and no `packages/ui` file is touched anywhere in this story's diff — Gate 2 confirmed zero frontend scope (see Dev Notes).
+- [x] **Task 4: Full verification pass**
+  - [x] `pnpm --filter domain test` — Task 1's new 100%-covered unit tests green, full existing `packages/domain` suite unaffected.
+  - [x] `pnpm --filter backend test` (foreground, `TZ=UTC`) — Task 3's new integration cases green, full existing `apps/backend` suite (including Story 3.6n's and 3.6p's own tests) green (963/969 pass; the 4 failures are the known, pre-existing FIND-063 system-key-adapter failures, confirmed unrelated by running that file in isolation).
+  - [x] `pnpm --filter backend lint` / `pnpm --filter backend build` clean for `apps/backend`, `packages/domain` (0 lint errors, only pre-existing warnings; build clean for both).
+  - [x] Manually confirm (read the diff) that no `.graphql` SDL file, no `resolvers.ts`, no `apps/web`, and no `packages/ui` file is touched anywhere in this story's diff — Gate 2 confirmed zero frontend scope (see Dev Notes). Confirmed via `git diff --stat` against this story's own commit range: only `packages/domain/src/events/*` and `apps/backend/src/lib/ai-processor/process-ai-job*.ts` touched.
 
 ## Dev Notes
 
@@ -255,27 +255,27 @@ so that FestDaily doesn't spend compute, storage, and bystander-photo retention 
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — a pure comparison function (`packages/domain`) plus one nested `if`/`else` and one DB read inserted into Story 3.6n's existing call site in `process-ai-job.ts`; this story owns only the `'event_relevance_gate'` audit-log outcome, not the `'no_face_reported'`/real-count outcomes (Story 3.6n's own, shipped independently).
-- [ ] Architecture and boundary confirmation — `computeLatestScheduleEnd` correctly stays pure/DB-free in `packages/domain`; the DB read and conditional wiring correctly stay in `apps/backend`; no `.graphql`/`resolvers.ts`/`apps/web`/`packages/ui` change anywhere.
-- [ ] Testing plan confirmation — `packages/domain`'s 100%-coverage rule satisfied for the new function (8 explicit branch cases, Task 1); five new backend integration cases (Task 3) plus confirmed no regression in Story 3.6n's own existing cases.
-- [ ] Explicit human approval state (Default: pending approval).
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1/3 cited from the swept `batch-cc-023-face-blur-audit-readiness.md` report ("3.6o | READY"); Gate 2 run fresh this session (no gap, Freya-persona one-shot pass). **Hard prerequisite Story 3.6n is `ready-for-dev`, not yet `done`** (and 3.6n itself depends on Story 3.6p and the new Epic 0 Story 0.46, neither `done` either) — this story's Task 2 cannot be finalized until 3.6n's real, as-shipped call site (including its AC9 backfill-ownership amendment) exists; the dev agent must read 3.6n's actual File List/code before finalizing Task 2's specifics, not just at this story-creation time (mirroring Story 3.6n's own Pre-Coding Gate language about its own prerequisite, Story 0.46).
-- [ ] **AD-29 backfill-ownership split** (Dev Notes) explicitly acknowledged: this story's Task 2 depends on Story 3.6p's `writeExtractionAuditLog` id-return amendment and Story 3.6n's `backfillFaceDetectionAuditResult` helper/AC9 amendment both actually being present in the real, as-shipped code — not assumed from story-file text alone.
+- [x] Scope confirmation — a pure comparison function (`packages/domain`) plus one nested `if`/`else` and one DB read inserted into Story 3.6n's existing call site in `process-ai-job.ts`; this story owns only the `'event_relevance_gate'` audit-log outcome, not the `'no_face_reported'`/real-count outcomes (Story 3.6n's own, shipped independently).
+- [x] Architecture and boundary confirmation — `computeLatestScheduleEnd` correctly stays pure/DB-free in `packages/domain`; the DB read and conditional wiring correctly stay in `apps/backend`; no `.graphql`/`resolvers.ts`/`apps/web`/`packages/ui` change anywhere.
+- [x] Testing plan confirmation — `packages/domain`'s 100%-coverage rule satisfied for the new function (8 explicit branch cases, Task 1); five new backend integration cases (Task 3) plus confirmed no regression in Story 3.6n's own existing cases.
+- [x] Explicit human approval state — approved by the user via `AskUserQuestion` at implementation start (2026-10-03), scope exactly as proposed.
+- [x] Gate 1/2/3 prerequisites confirmed done — Story 3.6n is `review` (commits bed5d628, 9256179a, 6672de14) with its own `backfillFaceDetectionAuditResult`/`backfillFaceDetectionAuditResultSeam` helper and AC9 amendment confirmed present in the real as-shipped `process-ai-job.ts` (read directly before starting Task 2); Story 3.6p is `review` with `writeExtractionAuditLog` already returning `{ id }`. Gate 1/3 cited from the swept `batch-cc-023-face-blur-audit-readiness.md` report ("3.6o | READY"); Gate 2 run fresh this session (no gap).
+- [x] **AD-29 backfill-ownership split** (Dev Notes) explicitly acknowledged and confirmed present in the real code: `backfillFaceDetectionAuditResultSeam`/`auditLogId` both already existed in `process-ai-job.ts` exactly as this story's Task 2 depends on — no additional fixing needed beyond this story's own diff.
 
 ## Testing Requirements
 
-- [ ] Unit tests (`packages/domain`, `node:test`): `computeLatestScheduleEnd.test.ts` — 8 explicit branch cases (Task 1), 100% coverage required for the new file.
-- [ ] Integration tests (`apps/backend`, real DB, extending `process-ai-job.test.ts` or Story 3.6n/3.6p's own dedicated file): short-lived/skip, long-running/run, null-expiry/run, unparseable-dates/run, multi-event-latest-wins (Task 3, five cases).
-- [ ] Regression: Story 3.6n's own existing test cases (opt-in-independence, multi-event-singularity, timeout-guard, failure-non-propagation) all still pass unchanged.
-- [ ] No E2E/integration test beyond the above applies — this story has no API/GraphQL/UI surface.
+- [x] Unit tests (`packages/domain`, `node:test`): `computeLatestScheduleEnd.test.ts` — 8 explicit branch cases (Task 1), 100% coverage required for the new file.
+- [x] Integration tests (`apps/backend`, real DB, extending Story 3.6n's dedicated `process-ai-job.face-blur.test.ts`): short-lived/skip, long-running/run, null-expiry/run, unparseable-dates/run, multi-event-latest-wins (Task 3, five cases — Cases K-O).
+- [x] Regression: Story 3.6n's own existing test cases (opt-in-independence, multi-event-singularity, timeout-guard, failure-non-propagation, AC9 Cases A-J) all still pass unchanged.
+- [x] No E2E/integration test beyond the above applies — this story has no API/GraphQL/UI surface.
 
 ## Deliverables Checklist
 
-- [ ] `computeLatestScheduleEnd` exists in `packages/domain`, barrel-exported, 100% unit-test coverage.
-- [ ] The relevance gate is wired into Story 3.6n's existing call site in `process-ai-job.ts` as one nested `if`/`else`, with the `else` branch running 3.6n's existing logic byte-for-byte unchanged.
-- [ ] A skipped event (AC2) produces no face-api.js invocation, no S3 upload, `durableThumbnailUrl` stays null, and the post's `extraction_audit_logs` row gets `faceDetectionSkippedReason: 'event_relevance_gate'`.
-- [ ] A non-skipped event (AC3, including null/unparseable fail-open cases) runs Story 3.6n's pipeline exactly as before, with no additional audit-log write from this story.
-- [ ] Five new integration test cases (Task 3) and eight new unit test cases (Task 1) passing; full existing `apps/backend`/`packages/domain` suites green, including Story 3.6n's and 3.6p's own tests.
+- [x] `computeLatestScheduleEnd` exists in `packages/domain`, barrel-exported, 100% unit-test coverage.
+- [x] The relevance gate is wired into Story 3.6n's existing call site in `process-ai-job.ts` as one nested `if`/`else`, with the `else` branch running 3.6n's existing logic byte-for-byte unchanged.
+- [x] A skipped event (AC2) produces no face-api.js invocation, no S3 upload, `durableThumbnailUrl` stays null, and the post's `extraction_audit_logs` row gets `faceDetectionSkippedReason: 'event_relevance_gate'` (Case K).
+- [x] A non-skipped event (AC3, including null/unparseable fail-open cases) runs Story 3.6n's pipeline exactly as before, with no additional audit-log write from this story (Cases L, M, N, O).
+- [x] Five new integration test cases (Task 3) and eight new unit test cases (Task 1) passing; full existing `apps/backend`/`packages/domain` suites green, including Story 3.6n's and 3.6p's own tests.
 
 ## Out of Scope
 
@@ -289,22 +289,50 @@ so that FestDaily doesn't spend compute, storage, and bystander-photo retention 
 
 ## Definition of Done
 
-- [ ] AC1-AC6 satisfied.
-- [ ] Task 1's 8 unit test cases (100% coverage) and Task 3's 5 integration test cases passing; full existing `apps/backend`/`packages/domain` suites green, including Story 3.6n's and 3.6p's own tests unaffected.
-- [ ] Lint and type checks passing for `apps/backend`, `packages/domain`.
-- [ ] No regression in Story 3.6n's own behavior when `isStillRelevant` is `true` (the pre-existing common case).
-- [ ] Dev Notes record which of Story 3.6n's/3.6p's amendments (the `auditLogId` capture, the `backfillFaceDetectionAuditResult` helper, the id-returning `writeExtractionAuditLog`) were already present in the real as-shipped code at implementation time versus needed finishing as part of this story's own diff.
+- [x] AC1-AC6 satisfied.
+- [x] Task 1's 8 unit test cases (100% coverage) and Task 3's 5 integration test cases passing; full existing `apps/backend`/`packages/domain` suites green, including Story 3.6n's and 3.6p's own tests unaffected (963/969 backend tests pass; the 4 failures are the known, pre-existing FIND-063 `system-key-adapter` failures, confirmed unrelated).
+- [x] Lint and type checks passing for `apps/backend`, `packages/domain` (0 errors; build clean for both).
+- [x] No regression in Story 3.6n's own behavior when `isStillRelevant` is `true` (the pre-existing common case) — confirmed via Cases A-J all still passing unchanged.
+- [x] Dev Notes record which of Story 3.6n's/3.6p's amendments (the `auditLogId` capture, the `backfillFaceDetectionAuditResult` helper, the id-returning `writeExtractionAuditLog`) were already present in the real as-shipped code at implementation time versus needed finishing as part of this story's own diff — see Dev Agent Record Completion Notes below: all were already present exactly as the story expected, so this story's diff needed no additional fixing of either sibling story's own scope.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete
+
+## Change Log
+
+- 2026-10-03: Implemented Story 3.6o (Tasks 1-4) — added `computeLatestScheduleEnd` pure function to `packages/domain` (100% unit-test coverage, 8 branch cases) and wired the relevance gate into Story 3.6n's existing step-7.5b call site in `process-ai-job.ts` as one nested `if`/`else`: when the post's latest schedule end (across all post-truncation-kept events) is at or before `posts.imageUrlExpiresAt`, Story 3.6n's detect/blur/upload pipeline is skipped and the shared `backfillFaceDetectionAuditResultSeam` helper is called with `faceDetectionSkippedReason: 'event_relevance_gate'`; otherwise (including null/unparseable fail-open cases) 3.6n's existing logic runs byte-for-byte unchanged inside the `else` branch. Added 5 new integration test cases (Cases K-O) to Story 3.6n's dedicated `process-ai-job.face-blur.test.ts`. All targeted tests (`packages/domain` full suite, `apps/backend` full suite), lint, and build pass; the only backend test failures are the 4 known, pre-existing FIND-063 `system-key-adapter` failures (confirmed unrelated by isolated run). Status set to review.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
+claude-sonnet-5 (Claude Agent SDK / Claude Code)
+
 ### Debug Log References
+
+- `pnpm --filter domain test` (TZ=UTC): 415/415 pass, including 8 new `computeLatestScheduleEnd` cases; 100% line/branch/func coverage confirmed for the new file via `tsx --test --experimental-test-coverage` targeted at `computeLatestScheduleEnd.test.ts`.
+- `pnpm --filter backend test` (TZ=UTC): 963/969 pass, 4 fail — the 4 failures isolated to `src/lib/ai-gateway/system-key-adapter.test.ts` (known FIND-063 environment failure, confirmed by running that file alone with identical 6-pass/4-fail outcome), unrelated to this story's diff.
+- Targeted re-run of `process-ai-job.face-blur.test.ts` alone: 16/16 pass (11 pre-existing Story 3.6n cases unaffected + 5 new Story 3.6o cases K-O).
+- Targeted re-run of all `process-ai-job*.test.ts` files sharing the modified call site (`process-ai-job.test.ts`, `.multi-subscriber-quota`, `.cc024-grouping`, `.carousel-completeness`, `.extraction-audit-log`): 53/53 pass, no regression.
+- `pnpm --filter backend lint`: 0 errors (pre-existing warnings only, none newly introduced). `pnpm --filter domain lint`: 0 errors/warnings (`--max-warnings 0`).
+- `pnpm --filter domain build` / `pnpm --filter backend build`: both clean.
+- Prerequisite check (Task 2): confirmed via `git log` and direct file read that Story 3.6n (commits bed5d628, 9256179a) and Story 3.6p (commit af8bafe6) are both already shipped in the real `process-ai-job.ts`/`backfill-face-detection-audit-result.ts` exactly as this story's Dev Notes describe — `auditLogId`, `backfillFaceDetectionAuditResultSeam`, and the `hasFaceImage === true`/`else` structure were all already present, requiring no additional fixing beyond this story's own diff.
 
 ### Completion Notes List
 
+- Pre-Coding Approval Gate relayed to the user via `AskUserQuestion` before any code was written; user approved the proposed scope as-is.
+- Confirmed Story 3.6n's actual as-shipped code (not just its story-file text) before starting Task 2, per the story's own prerequisite-check instruction — real code matched the story's Dev Notes description exactly, so Task 2 was implemented as specified with no adaptation needed.
+- `computeLatestScheduleEnd` (Task 1) implemented exactly as specified in the story file, with 100% test coverage confirmed via `node:test`'s `--experimental-test-coverage` flag targeted at the new file specifically (not just "suite is green").
+- The relevance gate (Task 2) was inserted as one nested `if`/`else` immediately after Story 3.6n's `hasFaceImage === true` check and before its timeout-guard check, exactly per AC1/AC4; Story 3.6n's existing logic was moved into the `else` branch unchanged (verified byte-for-byte via diff review — only indentation changed, no logic lines altered).
+- Five new integration test cases (Task 3, Cases K-O) added to Story 3.6n's own dedicated `process-ai-job.face-blur.test.ts` file (not a new file, matching the story's own file-reuse guidance) covering: short-lived/skip (AC2/AC5), long-running/run (AC3), null-expiry/run (AC3 fail-open), unparseable-date/run (AC3 fail-open), and multi-event-latest-wins (2026-10-01 Amendment).
+- This story made no audit-log write of its own in the "pipeline runs" cases (Cases L, M, N, O) — only Case K (the skip path) calls `backfillFaceDetectionAuditResultSeam` with `'event_relevance_gate'`, confirming AC5's exact ownership split.
+- No migration, no `.graphql`/`resolvers.ts`/`apps/web`/`packages/ui` change — confirmed via `git diff --stat` against this story's own commit range.
+
 ### File List
+
+- `packages/domain/src/events/computeLatestScheduleEnd.ts` (new)
+- `packages/domain/src/events/computeLatestScheduleEnd.test.ts` (new)
+- `packages/domain/src/events/index.ts` (modified — one new barrel-export line)
+- `apps/backend/src/lib/ai-processor/process-ai-job.ts` (modified — one new nested `if`/`else` inside Story 3.6n's existing call site, one new import, one new `db.select` read)
+- `apps/backend/src/lib/ai-processor/process-ai-job.face-blur.test.ts` (modified — 5 new integration test cases, Cases K-O, plus an `insertTestPost`/`buildScheduleWithEnd` helper extension)

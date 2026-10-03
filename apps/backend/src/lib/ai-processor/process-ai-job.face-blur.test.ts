@@ -119,7 +119,7 @@ test('processAiJob face-blur thumbnail stage (Story 3.6n)', async (t) => {
     restoreSeams();
   });
 
-  async function insertTestPost(accountId: string, postUrl: string): Promise<string> {
+  async function insertTestPost(accountId: string, postUrl: string, imageUrlExpiresAt?: Date | null): Promise<string> {
     const [row] = await db
       .insert(posts)
       .values({
@@ -127,9 +127,21 @@ test('processAiJob face-blur thumbnail stage (Story 3.6n)', async (t) => {
         platform: 'instagram',
         postUrl,
         publishedAt: new Date('2026-10-03T10:00:00Z'),
+        imageUrlExpiresAt: imageUrlExpiresAt ?? null,
       })
       .returning();
     return row.id;
+  }
+
+  // Story 3.6o — builds a schedule with an explicit end date/time (buildSchedule above only
+  // sets eventStartDate, insufficient for exercising the relevance-gate comparison itself).
+  function buildScheduleWithEnd(
+    title: string,
+    startDate: string,
+    endDate?: string,
+    endTime?: string
+  ) {
+    return { isMainSchedule: false, eventStartDate: startDate, eventEndDate: endDate, eventEndTime: endTime, title };
   }
 
   function mockImageFetch(t2: { after: (fn: () => void) => void }) {
@@ -498,4 +510,250 @@ test('processAiJob face-blur thumbnail stage (Story 3.6n)', async (t) => {
       assert.strictEqual(postRow.durableThumbnailUrl, null, 'durableThumbnailUrl stays null when the upload step fails');
     }
   );
+
+  // Story 3.6o (AC1-AC6) — the relevance gate inserted into this same call site, immediately
+  // after the hasFaceImage check and before the timeout guard. These cases exercise only the
+  // gate's own branching; Story 3.6n's own cases above already cover the unaffected
+  // (isStillRelevant === true, common) path for timeout-guard/failure/opt-in behavior.
+
+  await t.test('Case K (AC2, AC5): short-lived event, image not yet expired — pipeline skipped, audit log event_relevance_gate', async () => {
+    mockImageFetch(t);
+    const postId = await insertTestPost(
+      optedInProfile.id,
+      'https://www.instagram.com/p/face-blur-k/',
+      new Date('2026-12-01T00:00:00Z')
+    );
+    const payload: GeminiExtractionPayload = {
+      isEvent: true,
+      hasFaceImage: true,
+      events: [
+        {
+          eventName: 'Short-Lived Event',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [buildScheduleWithEnd('Day 1', '2026-11-01', '2026-11-01', '10:00:00')],
+          confidenceScore: 0.9
+        }
+      ]
+    };
+    setCallGeminiSeam(async () => ({ text: JSON.stringify(payload) }));
+    setRehostPostImageSeam(async () => 'https://cdn.test.com/posts/full-mock');
+    let detectCalled = false;
+    let uploadCalled = false;
+    setDetectAndBlurFacesSeam(async () => {
+      detectCalled = true;
+      return { buffer: Buffer.from('blurred-bytes'), faceCount: 1 };
+    });
+    setUploadFaceBlurThumbnailSeam(async () => {
+      uploadCalled = true;
+      return null;
+    });
+
+    const message: ProcessingJobMessage = {
+      postId,
+      accountId: optedInProfile.id,
+      content: 'Relevance gate: short-lived event',
+      imageUrl: 'https://test.com/img.jpg',
+      postUrl: 'https://www.instagram.com/p/face-blur-k/',
+      publishedAt: '2026-10-03T10:00:00Z'
+    };
+
+    await processAiJob(message);
+
+    assert.strictEqual(detectCalled, false, 'detectAndBlurFacesSeam must not be called when the gate skips the pipeline');
+    assert.strictEqual(uploadCalled, false, 'uploadFaceBlurThumbnailSeam must not be called when the gate skips the pipeline');
+    const [postRow] = await db.select().from(posts).where(eq(posts.id, postId));
+    assert.strictEqual(postRow.durableThumbnailUrl, null);
+    const [auditRow] = await db.select().from(extractionAuditLogs).where(eq(extractionAuditLogs.postId, postId));
+    assert.strictEqual(auditRow.faceDetectionSkippedReason, 'event_relevance_gate');
+    assert.strictEqual(auditRow.actualFaceDetectionCount, null);
+  });
+
+  await t.test('Case L (AC3): long-running event, image already expired by the time it ends — pipeline runs unchanged', async () => {
+    mockImageFetch(t);
+    const postId = await insertTestPost(
+      optedInProfile.id,
+      'https://www.instagram.com/p/face-blur-l/',
+      new Date('2026-11-01T00:00:00Z')
+    );
+    const payload: GeminiExtractionPayload = {
+      isEvent: true,
+      hasFaceImage: true,
+      events: [
+        {
+          eventName: 'Long-Running Event',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [buildScheduleWithEnd('Day 1', '2026-11-05', '2026-11-10', '18:00:00')],
+          confidenceScore: 0.9
+        }
+      ]
+    };
+    setCallGeminiSeam(async () => ({ text: JSON.stringify(payload) }));
+    setRehostPostImageSeam(async () => 'https://cdn.test.com/posts/full-mock');
+    let detectCalled = false;
+    setDetectAndBlurFacesSeam(async () => {
+      detectCalled = true;
+      return { buffer: Buffer.from('blurred-bytes'), faceCount: 2 };
+    });
+    setUploadFaceBlurThumbnailSeam(async (pid) => {
+      await db.update(posts).set({ durableThumbnailUrl: 'https://cdn.test.com/posts/thumb-mock-l' }).where(eq(posts.id, pid));
+      return 'https://cdn.test.com/posts/thumb-mock-l';
+    });
+
+    const message: ProcessingJobMessage = {
+      postId,
+      accountId: optedInProfile.id,
+      content: 'Relevance gate: long-running event',
+      imageUrl: 'https://test.com/img.jpg',
+      postUrl: 'https://www.instagram.com/p/face-blur-l/',
+      publishedAt: '2026-10-03T10:00:00Z'
+    };
+
+    await processAiJob(message);
+
+    assert.strictEqual(detectCalled, true, 'expected Story 3.6n pipeline to run when the latest schedule end is after imageUrlExpiresAt');
+    const [postRow] = await db.select().from(posts).where(eq(posts.id, postId));
+    assert.strictEqual(postRow.durableThumbnailUrl, 'https://cdn.test.com/posts/thumb-mock-l');
+  });
+
+  await t.test('Case M (AC3): imageUrlExpiresAt is null — pipeline runs (fail open)', async () => {
+    mockImageFetch(t);
+    const postId = await insertTestPost(optedInProfile.id, 'https://www.instagram.com/p/face-blur-m/', null);
+    const payload: GeminiExtractionPayload = {
+      isEvent: true,
+      hasFaceImage: true,
+      events: [
+        {
+          eventName: 'Null Expiry Event',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [buildScheduleWithEnd('Day 1', '2026-11-01', '2026-11-01', '10:00:00')],
+          confidenceScore: 0.9
+        }
+      ]
+    };
+    setCallGeminiSeam(async () => ({ text: JSON.stringify(payload) }));
+    setRehostPostImageSeam(async () => 'https://cdn.test.com/posts/full-mock');
+    let detectCalled = false;
+    setDetectAndBlurFacesSeam(async () => {
+      detectCalled = true;
+      return { buffer: Buffer.from('blurred-bytes'), faceCount: 1 };
+    });
+    setUploadFaceBlurThumbnailSeam(async () => 'https://cdn.test.com/posts/thumb-mock-m');
+
+    const message: ProcessingJobMessage = {
+      postId,
+      accountId: optedInProfile.id,
+      content: 'Relevance gate: null imageUrlExpiresAt',
+      imageUrl: 'https://test.com/img.jpg',
+      postUrl: 'https://www.instagram.com/p/face-blur-m/',
+      publishedAt: '2026-10-03T10:00:00Z'
+    };
+
+    await processAiJob(message);
+
+    assert.strictEqual(detectCalled, true, 'a null imageUrlExpiresAt must never prove it is safe to skip (fail open)');
+  });
+
+  await t.test('Case N (AC3): no event has a parseable schedule date — pipeline runs (fail open)', async () => {
+    mockImageFetch(t);
+    const postId = await insertTestPost(
+      optedInProfile.id,
+      'https://www.instagram.com/p/face-blur-n/',
+      new Date('2026-12-01T00:00:00Z')
+    );
+    const payload: GeminiExtractionPayload = {
+      isEvent: true,
+      hasFaceImage: true,
+      events: [
+        {
+          eventName: 'Unparseable Date Event',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [{ isMainSchedule: false, eventStartDate: 'not-a-date', title: 'Day 1' }],
+          confidenceScore: 0.9
+        }
+      ]
+    };
+    setCallGeminiSeam(async () => ({ text: JSON.stringify(payload) }));
+    setRehostPostImageSeam(async () => 'https://cdn.test.com/posts/full-mock');
+    let detectCalled = false;
+    setDetectAndBlurFacesSeam(async () => {
+      detectCalled = true;
+      return { buffer: Buffer.from('blurred-bytes'), faceCount: 1 };
+    });
+    setUploadFaceBlurThumbnailSeam(async () => 'https://cdn.test.com/posts/thumb-mock-n');
+
+    const message: ProcessingJobMessage = {
+      postId,
+      accountId: optedInProfile.id,
+      content: 'Relevance gate: unparseable schedule date',
+      imageUrl: 'https://test.com/img.jpg',
+      postUrl: 'https://www.instagram.com/p/face-blur-n/',
+      publishedAt: '2026-10-03T10:00:00Z'
+    };
+
+    await processAiJob(message);
+
+    assert.strictEqual(
+      detectCalled,
+      true,
+      'computeLatestScheduleEnd returning null (no parseable schedule) must never prove it is safe to skip (fail open)'
+    );
+  });
+
+  await t.test('Case O (2026-10-01 Amendment): multi-event post — gate uses the LATER of the two ends, pipeline runs', async () => {
+    mockImageFetch(t);
+    const postId = await insertTestPost(
+      optedInProfile.id,
+      'https://www.instagram.com/p/face-blur-o/',
+      new Date('2026-11-05T00:00:00Z')
+    );
+    const payload: GeminiExtractionPayload = {
+      isEvent: true,
+      hasFaceImage: true,
+      events: [
+        {
+          eventName: 'Short-Lived Sibling Event',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [buildScheduleWithEnd('Day 1', '2026-11-01', '2026-11-01', '10:00:00')],
+          confidenceScore: 0.9
+        },
+        {
+          eventName: 'Long-Running Sibling Event',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [buildScheduleWithEnd('Day 1', '2026-11-10', '2026-11-10', '18:00:00')],
+          confidenceScore: 0.85
+        }
+      ]
+    };
+    setCallGeminiSeam(async () => ({ text: JSON.stringify(payload) }));
+    setRehostPostImageSeam(async () => 'https://cdn.test.com/posts/full-mock');
+    let detectCalled = false;
+    setDetectAndBlurFacesSeam(async () => {
+      detectCalled = true;
+      return { buffer: Buffer.from('blurred-bytes'), faceCount: 1 };
+    });
+    setUploadFaceBlurThumbnailSeam(async () => 'https://cdn.test.com/posts/thumb-mock-o');
+
+    const message: ProcessingJobMessage = {
+      postId,
+      accountId: optedInProfile.id,
+      content: 'Relevance gate: multi-event, later end wins',
+      imageUrl: 'https://test.com/img.jpg',
+      postUrl: 'https://www.instagram.com/p/face-blur-o/',
+      publishedAt: '2026-10-03T10:00:00Z'
+    };
+
+    await processAiJob(message);
+
+    assert.strictEqual(
+      detectCalled,
+      true,
+      'expected the pipeline to run because the LATER sibling event extends past imageUrlExpiresAt, even though the shorter one alone would have triggered a skip'
+    );
+  });
 });
