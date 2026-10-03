@@ -1696,7 +1696,11 @@ items:
      impact: compliance, effort: m,
      title: "Face-blurred, consent-independent post thumbnails (AD-28) + extraction quality audit log (AD-29)",
      ref: [planning-artifacts/sprint-change-proposal-2026-09-30.md],
-     stories: [3-6m-add-hasfaceimage-faceimagecount-self-reported-fields-to-gemini-extraction-schema],
+     stories: [3-6m-add-hasfaceimage-faceimagecount-self-reported-fields-to-gemini-extraction-schema,
+               3-6n-detect-and-blur-faces-in-extracted-post-images-generating-a-consent-independent-durable-thumbnail,
+               3-6o-skip-face-blur-processing-for-events-ending-before-their-source-image-expires,
+               3-6p-create-extraction-audit-logs-table-and-write-path-for-gemini-self-reported-extraction-signals,
+               3-6q-version-re-hosted-media-keys-and-set-a-7-day-immutable-http-cache-policy],
      touches: [app:backend, pkg:database, web:events, web:posts, cross:ai-extraction, cross:architecture, cross:prd]}
 
   IDEA-051:

@@ -6,11 +6,20 @@ matching), the way `event-pages-closeout-wave-plan.md` tracked the event-pages t
 **Source of truth on conflict:** `sprint-status.yaml` (story state) and `backlog.yaml` (intake rows)
 always win over this file. If a box here disagrees with them, fix the box.
 
+**Scope note (2026-10-03):** this plan also tracks the **CC-023 tail** (face-blurred thumbnails and the
+extraction audit log: **3.6m, 3.6n, 3.6o, 3.6p, 3.6q**), because CC-024 amends two of those stories (3.6o, 3.6p)
+and both changes edit the same extraction code (`build-gemini-request.ts`, `process-ai-job.ts`). They run as
+**Wave 4C** below. CC-023's own proposal stays the source for *what* they build; this plan owns *when* and
+*in what order relative to CC-024*.
+
 **Inputs:** `sprint-change-proposal-2026-10-01-multi-event-posts.md` (the approved proposal),
 Architecture Spine **AD-30** (Event↔Post many-to-many), **AD-31** (post–account associations),
 the **AD-16** (platform-prefixed slugs) and **AD-17** (hot-path rules) amendments, PRD **FR113**
 (multi-event posts) and **FR114** (cross-post event matching), and the CC-024 section of
-`design-artifacts/UX-festgrid-run-1/EXPERIENCE.md`.
+`design-artifacts/UX-festgrid-run-1/EXPERIENCE.md`. For the CC-023 tail:
+`sprint-change-proposal-2026-09-30.md` (CC-023), Architecture Spine **AD-28** (face-blurred thumbnails,
+consent-independent, expiry-gated; Rule 9 = versioned media keys) and **AD-29** (extraction quality audit log),
+and PRD §3.16.
 
 ## Why a batch readiness sweep is worth it here
 
@@ -24,8 +33,15 @@ what Gate 1 and Gate 3 exist to catch *once* instead of per story. The repo alre
 it: `epic-readiness/batch-event-pages-wave-a-readiness.md` is a **batch-scoped** report (not
 per-epic). Gate 2 (UI) stays per story.
 
-**Not worth sweeping:** 3.6m–3.6q (covered by the CC-023 proposal), 1.3j / 1.6c / 1.3k (swept by
-the event-pages batch), and 3.16 / 3.17 / 3.19 (coauthor stories not on this wave's critical path).
+**Not swept in the 2026-10-01 batch (and why):**
+- **1.3j / 1.6c / 1.3k** are built (`review`), so a Gate 1/3 pass over their planned ACs adds little. 1.6c and 1.3k
+  were swept by the event-pages batch (`batch-event-pages-wave-a-readiness.md`); 1.3j appears there only as a
+  prerequisite status, not as a swept story.
+- **3.16 / 3.17 / 3.19** (coauthor subscribability, demand-gated discovery, toggle analytics) are `backlog`, never
+  swept (added after the 2026-09-11 Epic 3 sweep), and no CC-024 story depends on them. Deferred, not covered.
+- **3.6m–3.6q (CC-023)** were **not** swept either: CC-023 is a change proposal (it drafted the stories), not a
+  readiness report. Because CC-024 amends 3.6o and 3.6p, they are now folded into this plan as **Wave 4C** and
+  get their own batch-scoped sweep (see Wave 1).
 
 ### Things the sweep should verify (pre-flagged during planning)
 
@@ -49,6 +65,18 @@ the event-pages batch), and 3.16 / 3.17 / 3.19 (coauthor stories not on this wav
       both change `packages/database/schema.ts`.
 - [ ] **Per-event guards:** timezone inference (3.6a), private-contact and performer-leakage (3.6i,
       3.6j) must run per event — confirm they are not shared mutable state across events.
+- [ ] **CC-023 × CC-024: one run per post, not per event (3.6n, 3.6o, 3.6p).** The image belongs to the post, and 3.6t
+      fans out one queue message per event. Face detection/blur and the audit row must run once per post in the AI
+      Processor (`process-ai-job.ts`), before the fan-out, never in the per-event ingestor. Confirm at create-story.
+- [ ] **`actualScheduleCount` ownership (3.6p).** 3.6p writes it "once schedules are persisted", but persistence now
+      happens per event in the ingestor (3.6t). Decide whether the audit row records the extracted event/schedule count
+      at extraction time or is updated by the ingestor; the amendment also adds `groupingReason` and event count.
+- [ ] **Thumbnail follows the primary post (3.6n × 3.6v).** `durableThumbnailUrl` is a post-level column. When 3.6v
+      promotes an event to a new primary post, the masonry card's `prominentPoster` trigger must read the *new* primary
+      post's thumbnail. Confirm the field path used by `event_card_masonry`.
+- [ ] **Shared edits to `build-gemini-request.ts` / `extracted-event.schema.ts`.** 3.6s already restructured the
+      response to `events[]` and kept `hasFaceImage`/`faceImageCount` reserved at the payload root. The 3.6m story file
+      predates that restructure; refresh it against the as-built shape before dispatch.
 
 ## Wave 0 — Planning artifacts (done)
 
@@ -67,6 +95,10 @@ The readiness sweep is done; the remaining hygiene items live in the blocker che
 - [x] **Run `bmad-epic-readiness-check`, batch-scoped** (done 2026-10-01, commit `90c0c0cd`) over 3.6r, 3.6s, 3.6t, 3.6u, 3.6v, 3.6w,
       3.6x, 3.6y, 3.6z, 3.7f, 3.7g, 3.7h, 3.7i, 3.13, 3.14, 3.15, 3.18 (Gates 1 and 3) → `epic-readiness/batch-cc-024-multi-event-readiness.md` — **no new prerequisite stories; 3 AC corrections applied** (0.i2c, 3.6t, 3.6v)
 - [x] Fold any new prerequisite stories the sweep finds into `epics.md` and `sprint-status.yaml` — none needed
+- [ ] **Run `bmad-epic-readiness-check`, batch-scoped, over the CC-023 tail** (Gates 1 and 3): **3.6m, 3.6n, 3.6o,
+      3.6p** → `epic-readiness/batch-cc-023-face-blur-audit-readiness.md`. 3.6q is built (`review`) and needs no sweep.
+      Cover the four pre-flagged CC-023 × CC-024 items above, plus the new dependency `face-api` package size against
+      the AI Processor Lambda bundle limit.
 
 ## Open blockers and loose ends (checked against the files 2026-10-02)
 
@@ -95,8 +127,13 @@ Tick as each is closed. Evidence for each line is in the file named beside it.
 **Backlog hygiene**
 - [x] The three test-environment findings filed on the board (2026-10-02): FIND-062 (time-zone fixture), FIND-063 (`.env` key tests), FIND-064 (shared dev database)
 
+**Backlog hygiene (CC-023)**
+- [x] `backlog.yaml` row **CC-023** listed only `3-6m` under `stories:`; now lists 3.6m, 3.6n, 3.6o, 3.6p and 3.6q
+      (fixed 2026-10-03; 3.6q is also linked through IDEA-053)
+
 **Housekeeping**
 - [ ] `bmad-code-review` for 3.7f, 3.7g, 3.7h, 3.7i (all `review`; not blocking under the standing rule)
+- [ ] `bmad-code-review` for 3.6q (`review`; it is a prerequisite of 3.6n, so not blocking under the standing rule)
 - [ ] Push `master` (many local commits, nothing pushed) or move them to a branch + PR; the
       `docs/cc-024-multi-event-posts-proposal` branch is stale at `1aca854e` — delete or fast-forward it
 
@@ -120,7 +157,8 @@ depends on it. Wave labels below follow this order; stories inside a wave are li
 4. **Wave 3** — Core build: 3.6r → 3.6s → 3.6t
 5. **Wave 4A** — 3.6u, 3.6y, 3.6z (any order after 3.6t)
 6. **Wave 4B** — 3.6v (needs 3.13–3.15 and 3.7g/3.7h)
-7. **Wave 5** — 3.6w, 3.6x, 3.18
+7. **Wave 4C** — CC-023 tail: 3.6q (built) → 3.6m → 3.6p → 3.6n → 3.6o (independent of 4A/4B, may interleave; needs 3.6t)
+8. **Wave 5** — 3.6w, 3.6x, 3.18
 
 **Per-story box legend:** `create` = `bmad-create-story` done (story file exists, status `ready-for-dev`);
 `dev` = `bmad-dev-story` done (`review`); `review` = `bmad-code-review` done. Orchestrator batch state files
@@ -303,6 +341,36 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
       or its account type is `CURATOR_GUIDE`.
   - [ ] create  - [ ] dev  - [ ] review  - [ ] promotion keeps favorites/calendar entries
 
+## Wave 4C — Face-blurred thumbnails and extraction audit log (CC-023 tail, folded in 2026-10-03)
+
+Source: `sprint-change-proposal-2026-09-30.md` (CC-023, approved), AD-28 and AD-29. Order is the proposal's own
+(3.6m before 3.6n; 3.6n before 3.6o; 3.6p alongside 3.6m) plus the CC-024 dependencies noted below. Statuses are from
+`sprint-status.yaml` on 2026-10-03. Needs 3.6t built (done, `review`) so the per-post/per-event questions in the
+pre-flagged list can be settled against real code. Gate 2 stays per story (only 3.6n has frontend scope).
+
+- [ ] **3.6q** Version re-hosted media keys and set a 7-day immutable HTTP cache policy — *feeds 3.6n (its key helper
+      builds `thumb-{hash8}.jpg`); no CC-024 dependency* (built, status `review`; backfill workflow lives in
+      `.github/workflows`, boxes ticked on CI/prod evidence in commit `7c261503`)
+  - [x] create  - [x] dev  - [ ] review
+- [ ] **3.6m** Add `hasFaceImage`/`faceImageCount` self-reported fields to the Gemini extraction schema — *needs 3.6l,
+      3.6s; log-only, persistence is 3.6p* (story file exists, status `ready-for-dev`; **refresh against the 3.6s
+      `events[]` shape before dispatch**; the fields stay at the payload root)
+  - [x] create  - [ ] dev  - [ ] review
+- [ ] **3.6p** Create the `extraction_audit_logs` table and write path — *needs 3.6e, 3.6l, 3.6m, 3.6r, 3.6t;
+      **amended by CC-024:** the audit row also records `groupingReason` and the extracted event count* (`backlog`;
+      settle `actualScheduleCount` ownership at create-story, see pre-flagged list)
+  - [ ] create  - [ ] dev  - [ ] review
+- [ ] **3.6n** Detect and blur faces, generating a consent-independent durable thumbnail — *needs 3.6m, 3.6e, 0.33,
+      3.6q; adds `posts.durableThumbnailUrl` and widens the `prominentPoster` trigger; the only Wave 4C story with
+      frontend scope* (`backlog`; confirm the post-level thumbnail follows the primary post after 3.6v promotion)
+  - [ ] create  - [ ] dev  - [ ] review
+- [ ] **3.6o** Skip face-blur processing for events ending before their source image expires — *needs 3.6n;
+      **amended by CC-024:** the relevance gate takes the latest schedule end across all events of the post*
+      (`backlog`)
+  - [ ] create  - [ ] dev  - [ ] review  - [ ] audit row shows `'event_relevance_gate'` on a skipped post
+- [ ] **IDEA-051** (sample `hasFaceImage = false` posts through face-api.js to measure the pre-filter's false-negative
+      rate) stays `backlog` as a deliberate future decision (AD-29 Rule 4), revisited in Wave 6
+
 ## Wave 5 — Moderation, collection page, account filtering
 
 - [ ] **3.6w** Let moderators merge duplicate events, with slug redirects — *needs 3.6v, 4.7b*
@@ -325,8 +393,15 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
   - [ ] Calendar entries survive enrichment and merge
   - [ ] A weekday-narrowed schedule matches only its stated weekdays in day-of-week filtering
   - [ ] An event promoted from a roundup stays visible to the roundup account's subscribers
-- [ ] Update `backlog.yaml`: BUG-051, BUG-052, BUG-026, BUG-039 promoted/done as stories complete; CC-024 derived status
-- [ ] Deferred rows revisited: **IDEA-054** (notification burst throttling), **IDEA-056** (LLM tie-break for mid-confidence matches)
+- [ ] CC-023 success criteria (proposal §6), verified after Wave 4C:
+  - [ ] An extracted post's image is face-checked (unless the relevance gate skips it) and detected faces are blurred in
+        `durableThumbnailUrl`, whether or not the account opted into image storage
+  - [ ] `durableImageUrl` behavior is unchanged (opted-in only, unblurred, full resolution)
+  - [ ] `extraction_audit_logs` has one row per extraction attempt, ground-truth columns filled where the stage ran,
+        and includes `groupingReason` and event count (CC-024 amendment)
+  - [ ] A multi-event post produces one thumbnail and one audit row, not one per event
+- [ ] Update `backlog.yaml`: BUG-051, BUG-052, BUG-026, BUG-039 promoted/done as stories complete; CC-024 and CC-023 derived status
+- [ ] Deferred rows revisited: **IDEA-054** (notification burst throttling), **IDEA-056** (LLM tie-break for mid-confidence matches), **IDEA-051** (face-detection false-negative sampling)
 
 ## Dependency summary
 
@@ -343,6 +418,11 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
 | 3.6y | 3.6r, 1.3k, 1.3j |
 | 3.6z | 3.5, 3.6t |
 | 3.18 | 3.15, 3.6r |
+| 3.6q (CC-023) | 3.6e, 0.33 (feeds 3.6n) |
+| 3.6m (CC-023) | 3.6, 3.6l, 3.6s |
+| 3.6p (CC-023; amended by CC-024) | 3.6e, 3.6l, 3.6m, 3.6r, 3.6t |
+| 3.6n (CC-023) | 3.6m, 3.6e, 0.33, 3.6q |
+| 3.6o (CC-023; amended by CC-024) | 3.6n |
 
 ## Decision log (for reference)
 
@@ -351,3 +431,9 @@ post, re-slug + alias on primary change; rule-A grouping (strong signals, or two
 cap 10 with required date and location; roundup events don't notify; per-event notifications; high-score
 matches auto-link; account feeds match any linked post; auto-extraction for new posts within quota;
 related events are a lazy two-step load with a cap of 5 inline and a post collection page for more.
+
+CC-023 decisions carried into Wave 4C (full reasoning in `sprint-change-proposal-2026-09-30.md`): face-api.js over AWS
+Rekognition (no per-image fee, accepted lower recall); `durableThumbnailUrl` is consent-independent by design (a recorded
+divergence from AD-12 Rule 7); 480×480 JPEG thumbnail, blur before resize on the original bytes; relevance gate skips
+events that end before the source image expires; audit signals go to a separate `extraction_audit_logs` table, never
+into `posts`/`EventInfo` or GraphQL.
