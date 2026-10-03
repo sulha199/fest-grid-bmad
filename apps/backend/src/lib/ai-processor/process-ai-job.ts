@@ -175,6 +175,19 @@ export async function processAiJob(message: ProcessingJobMessage): Promise<void>
     );
   }
 
+  // Story 3.6m (AD-28 Rule 1) — model self-reported face-signal, logged for later correlation
+  // with Story 3.6n/3.6p's eventual ground-truth comparison. Log-only in this story:
+  // extraction_audit_logs (AD-29) does not exist yet (Story 3.6p, still backlog) — no DB write,
+  // no GraphQL exposure. Guarded on `!== undefined` (not truthiness) so a legitimate
+  // `hasFaceImage === false` result still logs (AC4 distinguishes "absent" from "present but
+  // false" — a plain `if (payload.hasFaceImage)` would incorrectly skip the false case).
+  if (payload.hasFaceImage !== undefined) {
+    console.log(
+      `[processAiJob] Post ${message.postId} face signal: ` +
+        `hasFaceImage=${payload.hasFaceImage}, faceImageCount=${payload.faceImageCount ?? null}`
+    );
+  }
+
   // 7.5. Persist post-level grouping facts (Task 5.1) -- the hidden prerequisite this story
   // must also do: posts.grouping_reason/extracted_event_count have existed since Story 3.6r
   // but nothing has written them until now. events.length here is the post-truncation count

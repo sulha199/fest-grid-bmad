@@ -118,7 +118,17 @@ export function buildGeminiExtractionResponseSchema() {
       minEventCount: { type: 'NUMBER' },
       // Brief human-readable reason per roundup item skipped for missing a readable date or
       // location (e.g. "Jakarta Fun Run — no date stated").
-      skippedItems: { type: 'ARRAY', items: { type: 'STRING' } }
+      skippedItems: { type: 'ARRAY', items: { type: 'STRING' } },
+      // Story 3.6m (AD-28 Rule 1) — model self-reported, once for the whole post (not per
+      // event), pre-filter signal for Story 3.6n's face-detection/blur pass: whether any of the
+      // already-provided image(s) show a visible person. Optional, never in `required`,
+      // logging-only in this story (processAiJob) — never persisted to posts/EventInfo, never
+      // exposed via GraphQL (actual persistence is Story 3.6p, AD-29).
+      hasFaceImage: { type: 'BOOLEAN' },
+      // Advisory/best-effort count of distinct people visible across the provided image(s) — not
+      // required to be exact, especially in dense/crowd scenes. Logging-only, same scope as
+      // hasFaceImage above.
+      faceImageCount: { type: 'NUMBER' }
     },
     required: ['isEvent', 'events']
   };
@@ -180,6 +190,7 @@ Also report, once for the whole post (not per event):
 - groupingReason: the exact value from this allowed list matching the rule you applied in the GROUPING DECISION above: ${allowedGroupingReasons}.
 - groupingRationale: one sentence explaining your grouping decision, for debugging only.
 - minEventCount: your own best-effort count of distinct events you believe the content describes overall (mirrors minScheduleCount's self-report pattern, advisory only).
+- hasFaceImage: based on the same image(s) already provided above (the single image or, for a multi-slide carousel, across all provided slides), whether any provided image contains a visible person/people (e.g. a performer, a crowd, or any human figure) as opposed to a text-only flyer/graphic-design poster with no people. Set faceImageCount to your best-effort approximate count of distinct people visible across the provided image(s) -- advisory only, not required to be exact, especially in dense/crowd scenes.
 
 The social media post was published on ${publishDate}. Use this publish date as an explicit anchor for date and year inference, for every event:
 - When a schedule's date text (in the caption or image) does not state an explicit year, infer the year using this publish date as the anchor, assuming the event is happening at or after the publish date. Prefer the current or next real-world occurrence over defaulting to any other year, and never infer a year that would place the event further in the past than the publish date itself unless the source text explicitly states a past year.

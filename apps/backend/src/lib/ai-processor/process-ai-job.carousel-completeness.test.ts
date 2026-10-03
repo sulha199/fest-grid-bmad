@@ -106,6 +106,16 @@ test('processAiJob carousel completeness logging tests', async (t) => {
     return { warnCalls, warnMock };
   };
 
+  // Story 3.6m — same console-mocking precedent as captureWarn above, for the log-only
+  // (not warning-level) face-signal line Task 4 adds.
+  const captureLog = (t: any) => {
+    const logCalls: any[][] = [];
+    const logMock = t.mock.method(console, 'log', (...args: any[]) => {
+      logCalls.push(args);
+    });
+    return { logCalls, logMock };
+  };
+
   await t.test('Case A: schedules fall short of a self-reported minScheduleCount -> warning + schedules flow to queue (AC5/AC8)', async (t) => {
     const { warnCalls, warnMock } = captureWarn(t);
 
@@ -302,5 +312,126 @@ test('processAiJob carousel completeness logging tests', async (t) => {
     assert.ok(warnText.includes('minEventCount=2'));
     assert.ok(warnText.includes('actual events=1'));
     assert.ok(sendSqsMessageCalled, 'the single extracted event should still enqueue');
+  });
+
+  await t.test('Case F (Story 3.6m, AC3/AC5): hasFaceImage=false (text-only flyer) -> AJV accepts, log line fires with post id and values', async (t) => {
+    const { logCalls } = captureLog(t);
+
+    const payload: GeminiExtractionPayload = {
+      isEvent: true,
+      hasFaceImage: false,
+      faceImageCount: 0,
+      events: [
+        {
+          eventName: 'Text-Only Flyer Event',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [buildSchedule('Text-Only Flyer Event', '2026-09-20')],
+          confidenceScore: 0.9
+        }
+      ]
+    };
+
+    // AJV acceptance check (plumbing proof, AC5) — mirrors Case B's precedent.
+    const validate = compileValidator<GeminiExtractionPayload>(extractedEventSchema);
+    assert.strictEqual(validate(payload), true, 'payload with hasFaceImage=false/faceImageCount=0 must pass AJV');
+
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-0000000000c5',
+      accountId: profile.id,
+      content: 'Text-only flyer, no people',
+      postUrl: 'https://www.instagram.com/p/face-signal-false/',
+      publishedAt: '2026-08-29T10:24:17Z'
+    };
+
+    setCallGeminiSeam(async () => ({ text: JSON.stringify(payload) }));
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+    setResolveLocationSeam(async () => ({ location: undefined }) as any);
+
+    await processAiJob(message);
+
+    assert.strictEqual(logCalls.length, 1, 'Expected exactly one face-signal log line');
+    const logText = logCalls[0].join(' ');
+    assert.ok(logText.includes('00000000-0000-4000-8000-0000000000c5'), 'log should include post id');
+    assert.ok(logText.includes('hasFaceImage=false'), 'log should include hasFaceImage=false');
+    assert.ok(logText.includes('faceImageCount=0'), 'log should include faceImageCount=0');
+  });
+
+  await t.test('Case G (Story 3.6m, AC3/AC5): hasFaceImage=true with faceImageCount -> AJV accepts, log line fires with post id and values', async (t) => {
+    const { logCalls } = captureLog(t);
+
+    const payload: GeminiExtractionPayload = {
+      isEvent: true,
+      hasFaceImage: true,
+      faceImageCount: 3,
+      events: [
+        {
+          eventName: 'Clearly Visible Person Event',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [buildSchedule('Clearly Visible Person Event', '2026-09-21')],
+          confidenceScore: 0.9
+        }
+      ]
+    };
+
+    const validate = compileValidator<GeminiExtractionPayload>(extractedEventSchema);
+    assert.strictEqual(validate(payload), true, 'payload with hasFaceImage=true/faceImageCount=3 must pass AJV');
+
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-0000000000c6',
+      accountId: profile.id,
+      content: 'A clearly visible performer photo',
+      postUrl: 'https://www.instagram.com/p/face-signal-true/',
+      publishedAt: '2026-08-29T10:24:17Z'
+    };
+
+    setCallGeminiSeam(async () => ({ text: JSON.stringify(payload) }));
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+    setResolveLocationSeam(async () => ({ location: undefined }) as any);
+
+    await processAiJob(message);
+
+    assert.strictEqual(logCalls.length, 1, 'Expected exactly one face-signal log line');
+    const logText = logCalls[0].join(' ');
+    assert.ok(logText.includes('00000000-0000-4000-8000-0000000000c6'), 'log should include post id');
+    assert.ok(logText.includes('hasFaceImage=true'), 'log should include hasFaceImage=true');
+    assert.ok(logText.includes('faceImageCount=3'), 'log should include faceImageCount=3');
+  });
+
+  await t.test('Case H (Story 3.6m, AC4): hasFaceImage/faceImageCount absent -> no face-signal log line (distinguishes absent from present-but-false, Case F)', async (t) => {
+    const { logCalls } = captureLog(t);
+
+    const payload: GeminiExtractionPayload = {
+      isEvent: true,
+      events: [
+        {
+          eventName: 'No Face Signal Reported Event',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [buildSchedule('No Face Signal Reported Event', '2026-09-22')],
+          confidenceScore: 0.9
+        }
+      ]
+    };
+
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-0000000000c7',
+      accountId: profile.id,
+      content: 'Event with no face-signal self-report at all',
+      postUrl: 'https://www.instagram.com/p/face-signal-absent/',
+      publishedAt: '2026-08-29T10:24:17Z'
+    };
+
+    setCallGeminiSeam(async () => ({ text: JSON.stringify(payload) }));
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+    setResolveLocationSeam(async () => ({ location: undefined }) as any);
+
+    await processAiJob(message);
+
+    assert.strictEqual(logCalls.length, 0, 'No face-signal log line when hasFaceImage is absent from the payload');
   });
 });

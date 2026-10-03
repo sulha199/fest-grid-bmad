@@ -65,6 +65,15 @@ export interface GeminiExtractionPayload {
   // Story 3.6s — brief human-readable reason per roundup item skipped for missing a readable
   // date or location (e.g. "Jakarta Fun Run — no date stated"). Logging-only.
   skippedItems?: string[];
+  // Story 3.6m (AD-28 Rule 1) — model self-reported, once for the whole post, pre-filter signal
+  // for Story 3.6n's face-detection/blur pass: whether any provided image shows a visible
+  // person. Logging-only in this story (processAiJob) — never added to ExtractedEventMessage,
+  // EventInsertValues, or any other DB-facing/persisted type, and never exposed via GraphQL.
+  // Actual persistence into extraction_audit_logs is Story 3.6p's scope (AD-29).
+  hasFaceImage?: boolean;
+  // Story 3.6m — advisory/best-effort count of distinct people visible across the provided
+  // image(s), never trusted as an exact count. Same logging-only scope as hasFaceImage above.
+  faceImageCount?: number;
 }
 
 export type ScheduleTimezoneStatus = 'RESOLVED' | 'NEEDS_CLARIFICATION';
