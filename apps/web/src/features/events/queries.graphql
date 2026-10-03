@@ -86,6 +86,13 @@ query getEventBySlug($slug: String!) {
         matchType
       }
     }
+    coauthors {
+      accountId
+      platform
+      username
+      displayName
+      profileImageUrl
+    }
     schedules {
       id
       isMainSchedule

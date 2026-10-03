@@ -160,7 +160,8 @@
     "today": "Hari ini",
     "tomorrow": "Besok",
     "yesterday": "Kemarin",
-    "categoriesAndTypesAriaLabel": "Kategori dan jenis acara"
+    "categoriesAndTypesAriaLabel": "Kategori dan jenis acara",
+    "coauthorsListAriaLabel": "Rekan Penulis"
   },
   "EventReportForm": {
     "dialogTitle": "Laporkan Acara",

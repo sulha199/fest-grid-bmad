@@ -1321,14 +1321,25 @@ items:
      note: "Partial-promotion carve-out from CC-022 (section 13): tracks CC-022's not-yet-created stories (3.16-3.19, 0.i6g) -- 3.14 and 3.15 created 2026-10-02, moved to CC-022. Promoted 2026-10-03 on Story 3.16; remaining fan-out (3.17-3.19, 0.i6g) carved to CC-026."}
 
   CC-026:
-    {type: proposal, status: triaged, created: 2026-10-03, parent: CC-025,
+    {type: proposal, status: promoted, created: 2026-10-03, parent: CC-025,
      title: "Remaining FIND-022 coauthor/publisher stories not yet created (3.17-3.19, 0.i6g)",
+     ref: [backlog/FIND-022-coauthor-content-issues.md,
+           specs/spec-post-coauthor-attribution/SPEC.md,
+           planning-artifacts/sprint-change-proposal-2026-09-18.md],
+     stories: [0-i6g-event-post-detail-coauthor-attribution-ui-with-confirm-then-refetch-toggle],
+     touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions, pkg:ui],
+     impact: user-visible, effort: l,
+     note: "Carved from CC-025 (section 13) on Story 3.16's promotion: 3.16 covered only one of CC-025's five tracked stories. Tracks the still-not-created 3.17/3.18/3.19/0.i6g so they stay visible. Promoted 2026-10-03 on Story 0.i6g; remaining fan-out (3.17-3.19) carved to CC-027."}
+
+  CC-027:
+    {type: proposal, status: triaged, created: 2026-10-03, parent: CC-026,
+     title: "Remaining FIND-022 coauthor/publisher stories not yet created (3.17-3.19)",
      ref: [backlog/FIND-022-coauthor-content-issues.md,
            specs/spec-post-coauthor-attribution/SPEC.md,
            planning-artifacts/sprint-change-proposal-2026-09-18.md],
      touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions, pkg:ui],
      impact: user-visible, effort: l,
-     note: "Carved from CC-025 (section 13) on Story 3.16's promotion: 3.16 covered only one of CC-025's five tracked stories. Tracks the still-not-created 3.17/3.18/3.19/0.i6g so they stay visible."}
+     note: "Partial-promotion carve-out from CC-026 (section 13): CC-026 covered only 0.i6g of its four tracked stories. Tracks the still-not-created 3.17 (demand-gated discovery), 3.18 (union-of-associations account filtering), 3.19 (sanitized subscription-toggle analytics) so they stay visible."}
 
   FIND-039:
     {type: finding, status: backlog, created: 2026-09-18, parent: CC-022,
@@ -1763,9 +1774,9 @@ items:
      impact: user-visible, effort: l,
      title: "Multi-event posts and cross-post event matching (Event<->Post many-to-many)",
      ref: [planning-artifacts/sprint-change-proposal-2026-10-01-multi-event-posts.md],
-     stories: [3-6r-add-the-event-post-link-table-and-multi-event-schema, 3-6s-extract-multiple-events-per-post-with-grouping-rules, 3-6t-ingest-multiple-events-per-post-with-per-event-slugs-and-notifications],
+     stories: [3-6r-add-the-event-post-link-table-and-multi-event-schema, 3-6s-extract-multiple-events-per-post-with-grouping-rules, 3-6t-ingest-multiple-events-per-post-with-per-event-slugs-and-notifications, 3-6u-show-all-source-posts-and-related-events-on-the-event-detail-page],
      touches: [app:backend, pkg:database, pkg:domain, web:events, web:moderation, web:posts, cross:ai-extraction, cross:notifications, cross:architecture, cross:prd],
-     note: "Adds Stories 3.6r-3.6z; folds BUG-051/052/026/039. Needs AD-30+AD-31 before 3.6r; IDEA-028 gates 3.6t/3.6v. 3.6r-3.6t created (2026-10-02, 3.6t ready-for-dev); rest tracked in sprint-status.yaml / cc-024-multi-event-wave-plan.md."}
+     note: "Adds Stories 3.6r-3.6z; folds BUG-051/052/026/039. 3.6r-3.6u created (2026-10-03, 3.6u ready-for-dev); rest tracked in sprint-status.yaml / cc-024-multi-event-wave-plan.md. See 3-6u's own story file for the Gate-2 prerequisite (3.6ua, not a backlog row)."}
 
   BUG-053:
     {type: bug, status: done, created: 2026-10-01, parent: CC-024,

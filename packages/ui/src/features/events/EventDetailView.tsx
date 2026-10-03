@@ -1,7 +1,7 @@
 import React from 'react';
 import { MapPin, CalendarDays, CalendarPlus, ExternalLink, Heart, User, DollarSign, MoreVertical, AlertCircle, Instagram, Phone, Link as LinkIcon } from 'lucide-react';
 import { detectPlatformFromUrl } from '@festgrid/domain';
-import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels } from './EventDetailView.types';
+import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels, EventDetailViewCoauthor } from './EventDetailView.types';
 import { EventImage } from './EventImage';
 import { InstagramEmbed } from './InstagramEmbed';
 import { SubscribedAccountCard } from '../subscriptions';
@@ -54,6 +54,9 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   isSubscriptionStatusLoading,
   onUnsubscribeFromAccount,
   isUnsubscribingFromAccount,
+  coauthors,
+  onSubscribeToCoauthor,
+  onUnsubscribeFromCoauthor,
   loading = false,
   error = null,
   locale = 'en-US',
@@ -611,6 +614,38 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
             )}
           </div>
         </section>
+      )}
+
+      {coauthors && coauthors.length > 0 && (
+        <ul className="flex flex-col gap-2" aria-label={labels.coauthorsListAriaLabel}>
+          {coauthors.map((coauthor: EventDetailViewCoauthor) => (
+            <li key={coauthor.accountId}>
+              <SubscribedAccountCard
+                account={{
+                  accountId: coauthor.accountId,
+                  platform: coauthor.platform,
+                  username: coauthor.username,
+                  displayName: coauthor.displayName,
+                  profileImageUrl: coauthor.profileImageUrl,
+                }}
+                accountHref={coauthor.accountHref}
+                isSubscribed={coauthor.isSubscribed}
+                onSubscribe={onSubscribeToCoauthor ? () => onSubscribeToCoauthor(coauthor.accountId) : undefined}
+                onUnsubscribe={onUnsubscribeFromCoauthor ? () => onUnsubscribeFromCoauthor(coauthor.accountId) : undefined}
+                isStatusLoading={isSubscriptionStatusLoading}
+                isTogglePending={coauthor.isTogglePending}
+                variant="detail"
+                size="sm"
+                labels={{
+                  subscribeLabel: labels.subscribeButtonLabel,
+                  unsubscribeLabel: labels.unsubscribeButtonLabel,
+                  checkingSubscriptionLabel: labels.checkingSubscriptionLabel,
+                  unknownAccountLabel: labels.unknownAccountLabel,
+                }}
+              />
+            </li>
+          ))}
+        </ul>
       )}
         </div>
       </div>
