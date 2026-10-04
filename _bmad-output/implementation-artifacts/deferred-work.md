@@ -14,6 +14,15 @@ This file tracks work deferred from development stories, code reviews, and plann
   summary: `computeApifyCost`'s `totalChargeUsd === 0` case (a legitimate free run) is reported identically to "vendor hasn't billed yet" (`total: null`/"unavailable"), understating cost-data availability in the comparison table.
   evidence: Surfaced by the Edge Case Hunter review pass. Low real-world likelihood for a paid actor run; not fixed.
 
+## Deferred from: bmad-quick-dev fix-lambda-sharp-lazy-load review (2026-10-04)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-fix-lambda-sharp-lazy-load.md`
+  summary: `apps/infrastructure/lib/lambda-sharp-isolation.test.ts`'s esbuild-metafile checks only inspect static bundle-graph membership (`metafile.inputs`), never actually `require()`/execute the built output to confirm sharp/face-api/tfjs are not eagerly loaded at module-require time -- a future esbuild/target/format change that altered how dynamic `import()` lowers to CJS could in principle still pass this test while reintroducing eager execution.
+  evidence: Surfaced by the Edge Case Hunter review pass. Closing this fully would mean writing the bundle to a temp file and requiring it with `sharp`/`@vladmandic/face-api`/`@tensorflow/tfjs` monkey-patched to throw, which is meaningfully more invasive test infrastructure than this hotfix's scope justified; the metafile check plus the source-text static/dynamic-import guard tests already give high confidence for the actual code paths in this diff.
+- source_spec: `_bmad-output/implementation-artifacts/spec-fix-lambda-sharp-lazy-load.md`
+  summary: The same test file's `esbuild.build()` calls use a hand-picked option set (`bundle`, `platform: 'node'`, `format: 'cjs'`, `target: 'node22'`, `external`) rather than the exact options `aws-cdk-lib`'s `NodejsFunction` passes to esbuild internally (which also include `tsconfig`, `mainFields`/`conditions`, `banner`, `depsLockFilePath`-driven resolution, and the `commandHooks` apiLambda/aiProcessorLambda define) -- a drift between the two could let the test pass while the real CDK-synthesized bundle behaves differently, or vice versa.
+  evidence: Surfaced by the Edge Case Hunter review pass. `aws-cdk-lib`'s internal bundling invocation isn't exposed as a reusable public API, so fully mirroring it would require either forking that logic or running a real (slow) `cdk synth` per test case; the existing `festgrid-backend-stack.test.ts` already exercises the real CDK synth path (including asserting aiProcessorLambda's actual deployed asset contains the real sharp binary/model weights/wasm files) and continues to pass unchanged, which is the closest existing safety net for this gap.
+
 ## Deferred from: full `pnpm test` gate during bmad-quick-dev FIND-017 (2026-09-18)
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-find-017-fk-cascade-and-iam-grant-walker.md`
@@ -616,3 +625,11 @@ This file tracks work deferred from development stories, code reviews, and plann
 - source_spec: `_bmad-output/implementation-artifacts/spec-cc-024-wave3-gate-test-fixes.md`
   summary: None of the fixed Gemini stubs (`extraction.test.ts`, `ai-processor.test.ts`) exercise the new Story 3.6s multi-event/grouping fields (`groupingReason`, `groupingRationale`, `skippedItems`) or a multi-item `events[]` array -- these tests only prove the old flat-shape callers were migrated to the new envelope, not that 3.6s's actual grouping behavior is covered from these entry points.
   evidence: Surfaced by Blind Hunter. Acceptable for a build-green fixture fix; Story 3.6s's own grouping behavior is covered elsewhere (e.g. `process-ai-job.cc024-grouping.test.ts`), but worth confirming during a future pass that no gap exists.
+
+## Deferred from: code review of stories 3-20 and 3-21 (2026-10-04, CC-028 blur-before-AI)
+
+- Thumbnail upload in the 'blurred' branch has no remaining-time guard (legacy path checks `faceBlurMinRemainingTimeMs` before uploading) [process-ai-job.ts]
+- `detectAndBlurFaces` returns the original bytes with `faceCount > 0` when every detected box is degenerate/out of bounds (box entirely off-image, so no visible face is sent) [detect-and-blur-faces.ts:140] — pre-existing Story 3.6n code
+- Cover blur failure drops all slides (outer catch -> text-only) instead of blurring slides independently; slide drops/blur failures and fetch-vs-no-image are not distinguishable in `ai_image_input` [build-gemini-request.ts]
+- CDK passes `process.env.BLUR_FACES_BEFORE_AI || 'true'` through unnormalised (deploy-shell dependent) and the infra test asserts presence only, not the value [festgrid-backend-stack.ts:489]
+- Test weaknesses: no multi-slide byte-for-byte test for off/opted-in modes (3.20 Task 5.1); live parity test counts a fail-closed text-only run as a blurred run and records cover face count only; benchmark script re-implements the blur on a synthetic fixture that detects zero faces; source-regex resolver guard is cwd/shape dependent

@@ -1821,20 +1821,21 @@ items:
 
   # ── 2026-10-02 (test-gate findings from the CC-024 Wave 2A batch) ───────────────────
   FIND-062:
-    {type: finding, status: backlog, created: 2026-10-02,
+    {type: finding, status: done, created: 2026-10-02, fixed: 2026-10-04,
      impact: internal, effort: xs,
      title: "isEventEnded shared-fixture tests (ended-cases.ts) fail in any non-UTC time zone",
      ref: [planning-artifacts/cc-024-multi-event-wave-plan.md],
      touches: [pkg:ui, pkg:domain],
-     note: "Passes under TZ=UTC, fails in Asia/Jakarta: endTime 18:00 with now 12:00Z reads 18:00 in the machine zone. Fix the fixture or pin TZ in the test script."}
+     note: "Fixed incidentally during Story 3.20's dev-story run (unrelated repo-wide test-gate failure, fixed per the user's explicit instruction rather than deferred). Pinned TZ: 'UTC' in packages/ui/vitest.config.ts's test.env (FIND-062's own suggested fix) rather than changing isEventEnded's production behavior, which 0-i5d's Dev Notes document as deliberate (mirrors the SQL side's naive/no-timezone-conversion comparison). Confirmed failing before the fix on this machine's local (non-UTC) timezone, passing after."}
 
   FIND-063:
-    {type: finding, status: backlog, created: 2026-10-02,
+    {type: finding, status: done, created: 2026-10-02,
      impact: internal, effort: xs,
      title: "system-key-adapter tests fail whenever .env defines SYSTEM_GEMINI_API_KEY",
      ref: [planning-artifacts/cc-024-multi-event-wave-plan.md],
      touches: [app:backend, cross:ai-extraction],
-     note: "The test deletes process.env.SYSTEM_GEMINI_API_KEY but loadBackendEnv() re-reads .env and restores it; 4 tests fail with a key configured."}
+     note: "The test deletes process.env.SYSTEM_GEMINI_API_KEY but loadBackendEnv() re-reads .env and restores it; 4 tests fail with a key configured.
+     Fixed 2026-10-04 (orchestrator batch-end test-fix pass): set the var to '' instead of deleting it in both affected system-key-adapter.test.ts blocks -- an empty string is still 'defined' in process.env, so loadBackendEnv()'s per-call dotenv.config() leaves it alone instead of refilling it from the repo's real .env."}
 
   FIND-064:
     {type: finding, status: backlog, created: 2026-10-02,
@@ -1852,3 +1853,70 @@ items:
      ref: [planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md, backlog/BUG-026-recurring-weekday-schedule-date-span.md],
      touches: [cross:ai-extraction, app:backend],
      note: "Carved from BUG-026 (query-matching fix promoted to Story 3-6y). PRD Section 4.4's 'Weekday-Narrowed Recurring Schedules' already describes the expected extraction behavior."}
+
+  # ── 2026-10-04 (bmad-correct-course: blur faces before the AI call, CC-028) ──────────────
+  CC-028:
+    {type: proposal, status: promoted, created: 2026-10-04,
+     impact: compliance, effort: m,
+     title: "Blur faces before images are sent to Gemini, configurable by env var (owner opt-in exception)",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-04-blur-faces-before-ai.md],
+     touches: [app:backend, app:infrastructure, pkg:domain, pkg:database, cross:ai-extraction, cross:architecture, cross:prd],
+     stories: [3-20-blur-faces-before-images-are-sent-to-the-ai-behind-blur-faces-before-ai, 3-21-reuse-the-pre-ai-blur-for-the-thumbnail-and-record-what-the-ai-saw],
+     note: "Also adds FR115; AD-28 Rule 10, AD-29 Rule 7; PRD 3.16, 4.5, Security. FIND-068 (child row) promoted separately to Story 4.2b."}
+
+  FIND-066:
+    {type: finding, status: backlog, created: 2026-10-04, parent: CC-028,
+     impact: compliance, effort: s,
+     title: "Gemini key billing tier is never verified, so free-tier keys may let Google use submitted images",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-04-blur-faces-before-ai.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Google terms (2026-04-28): unpaid-tier content incl. images may be used for product improvement and human review; paid is not. CC-028 mitigates by blurring; verifying or requiring paid keys, or disclosing at key setup, stays open."}
+
+  FIND-067:
+    {type: finding, status: backlog, created: 2026-10-04, parent: CC-028,
+     impact: compliance, effort: s,
+     title: "Moderator-set opt-ins now also authorize sending an account's images unblurred to the AI vendor",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-04-blur-faces-before-ai.md],
+     touches: [cross:prd, app:backend],
+     note: "CC-028 decision: any opt-in source counts. Existing opt-ins agreed to image storage only and are moderator-set today, so the consent scope widened after the fact; consider re-confirming wording or requiring the ACCOUNT_OWNER source."}
+
+  FIND-068:
+    {type: finding, status: promoted, created: 2026-10-04, parent: CC-028,
+     impact: compliance, effort: m,
+     title: "Manual extractEventDataFromUrl still sends the cover image to Gemini unblurred, from the API Lambda",
+     ref: [planning-artifacts/epic-readiness/batch-cc-028-blur-before-ai-readiness.md],
+     touches: [app:backend, app:infrastructure, cross:ai-extraction],
+     stories: [4-2b-route-ai-assisted-correction-extraction-through-the-ai-lambda],
+     note: "User chose option (c) at Story 3.20 create-story (2026-10-04): route manual extraction through the AI Lambda, split into Story 4.2b. See epics.md Story 4.2b."}
+
+  IDEA-057:
+    {type: idea, status: backlog, created: 2026-10-04, parent: CC-028,
+     impact: internal, effort: l,
+     title: "Move face blur into its own queued stage ahead of the AI queue",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-04-blur-faces-before-ai.md],
+     touches: [app:backend, app:infrastructure, cross:architecture],
+     note: "Deferred by CC-028 (inline chosen): isolates retries and lets the AI Lambda shrink, but needs a new queue, Lambda, DLQ, temporary S3 copy and rework of 3.6z's claim logic; likely its own AD."}
+
+  IDEA-058:
+    {type: idea, status: backlog, created: 2026-10-04, parent: CC-028,
+     impact: internal, effort: s,
+     title: "Eyes-only face redaction for the AI input via the landmark model",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-04-blur-faces-before-ai.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Deferred by CC-028 pending Story 3.20's parity check; weaker de-identification; needs the 349 KB face_landmark_68 model bundled like the SSD weights (Story 0.46). Revisit only if extraction degradation is measured."}
+
+  IDEA-059:
+    {type: idea, status: backlog, created: 2026-10-04, parent: CC-028,
+     impact: compliance, effort: l,
+     title: "Evaluate Vertex AI (own data terms) as the extraction path instead of the Gemini Developer API",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-04-blur-faces-before-ai.md],
+     touches: [app:backend, cross:ai-extraction, cross:architecture, cross:prd],
+     note: "Raised during CC-028 analysis, not chosen now; would replace per-subscriber API keys with a project credential and change the BYOK model, so it needs a product decision first."}
+
+  FIND-069:
+    {type: finding, status: backlog, created: 2026-10-04,
+     impact: internal, effort: s,
+     title: "CC-028 review leftovers: blurred-branch upload time guard, audit-label granularity, CDK env normalisation, test gaps",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend, app:infrastructure, cross:ai-extraction],
+     note: "Deferred from: code review of stories 3-20 and 3-21 (2026-10-04, CC-028 blur-before-AI). 5 findings."}

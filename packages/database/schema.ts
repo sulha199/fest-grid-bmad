@@ -6,7 +6,8 @@ import type { ProposedEventCorrection } from '@festgrid/domain/events';
 import type { ExtractionAuditEventCompleteness } from '@festgrid/domain/events';
 import { POST_ACCOUNT_ROLES } from '@festgrid/domain/posts';
 import { EVENT_DETAIL_LEVELS } from '@festgrid/domain/events';
-import { POST_GROUPING_REASONS } from '@festgrid/domain/posts';
+import { POST_GROUPING_REASONS, AI_IMAGE_INPUT_VALUES, MANUAL_EXTRACTION_JOB_STATUSES } from '@festgrid/domain/posts';
+import type { ManualExtractionRequestPayload } from '@festgrid/domain/posts';
 
 const generateSlug = () => randomBytes(6).toString('hex');
 
@@ -87,6 +88,9 @@ export const scraperRunTriggerModeEnum = pgEnum('scraper_run_trigger_mode', ['SY
 
 export const parserVersionSourceEnum = pgEnum('parser_version_source', ['APIFY', 'BRIGHTDATA', 'GEMINI']);
 export const scraperRunStatusEnum = pgEnum('scraper_run_status', ['PENDING', 'SUCCEEDED', 'FAILED', 'TIMED_OUT', 'ABORTED']);
+
+// Story 4.2b -- values come from the closed domain vocabulary (same pattern as ai_image_input).
+export const manualExtractionJobStatusEnum = pgEnum('manual_extraction_job_status', MANUAL_EXTRACTION_JOB_STATUSES);
 
 export const imageStorageOptInSourceEnum = pgEnum('image_storage_opt_in_source', ['MODERATOR', 'ACCOUNT_OWNER']);
 
@@ -521,6 +525,12 @@ export const extractionAuditFaceDetectionSkippedReasonEnum = pgEnum('extraction_
   'event_relevance_gate',
 ]);
 
+// Story 3.21 / AD-29 Rule 7 -- which image shape the AI actually received for this attempt.
+// Existing rows (inserted before this column existed) default to 'original_mode_off', an
+// accurate description of what those rows' extraction attempts actually saw (the pre-AI blur
+// feature did not exist yet).
+export const extractionAuditAiImageInputEnum = pgEnum('extraction_audit_ai_image_input', AI_IMAGE_INPUT_VALUES);
+
 // Story 3.6p / AD-29 -- one row per Gemini extraction attempt (process-ai-job.ts), holding
 // every self-reported extraction-quality signal plus ground truth where available. Write-once
 // from process-ai-job.ts (this story); actualFaceDetectionCount/faceDetectionSkippedReason are
@@ -546,6 +556,10 @@ export const extractionAuditLogs = pgTable('extraction_audit_logs', {
   // skip-reason column (AD-29 Rule 3).
   actualFaceDetectionCount: integer('actual_face_detection_count'),
   faceDetectionSkippedReason: extractionAuditFaceDetectionSkippedReasonEnum('face_detection_skipped_reason'),
+  // Story 3.21 / AD-29 Rule 7 -- which image shape the AI actually saw for this attempt. Known
+  // at insert time (unlike actualFaceDetectionCount/faceDetectionSkippedReason above, which are
+  // genuine async backfills) -- always written by writeExtractionAuditLog, never backfilled.
+  aiImageInput: extractionAuditAiImageInputEnum('ai_image_input').notNull().default('original_mode_off'),
   // Post-level grouping self-report (Story 3.6s, AD-30 Rule 5). minEventCount is the model's
   // own best-effort count; actualEventCount is the post-truncation count of events actually
   // kept (events.length after Story 3.6s's cap) -- known synchronously within this same
@@ -999,4 +1013,24 @@ export const aiEventFiltersRelations = relations(aiEventFilters, ({ one }) => ({
     fields: [aiEventFilters.ownerUserId],
     references: [users.id],
   }),
+}));
+
+// Story 4.2b -- one row per manual ("AI-Assisted Correction") extraction request. Created by the
+// API Lambda after its synchronous pre-checks, claimed + completed by the AI Lambda, polled by the
+// requesting user via `Query.extractionJob`. No `posts`/`events` rows are ever written for it.
+export const manualExtractionJobs = pgTable('manual_extraction_jobs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  requestedByUserId: uuid('requested_by_user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  sourceUrl: text('source_url').notNull(),
+  requestPayload: jsonb('request_payload').$type<ManualExtractionRequestPayload>().notNull(),
+  status: manualExtractionJobStatusEnum('status').default('PENDING').notNull(),
+  resultData: jsonb('result_data'),
+  // Stored as text (not a PG enum) so a new GraphQL ExtractionErrorCode never needs a migration.
+  errorCode: text('error_code'),
+  errorMessage: text('error_message'),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  ...timestamps,
+}, (t) => ({
+  userCreatedAtIdx: index('idx_manual_extraction_jobs_user_created_at').on(t.requestedByUserId, t.createdAt),
+  statusCreatedAtIdx: index('idx_manual_extraction_jobs_status_created_at').on(t.status, t.createdAt),
 }));

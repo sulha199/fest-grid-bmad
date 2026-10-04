@@ -1,8 +1,15 @@
 import { EventType, EventCategory } from '@festgrid/shared-types';
-import { type ProcessingJobMessage, POST_GROUPING_REASONS } from '@festgrid/domain/posts';
+import { type ProcessingJobMessage, POST_GROUPING_REASONS, type AiImageInput } from '@festgrid/domain/posts';
 import { DayOfWeek } from '@festgrid/domain/events';
 import { type GeminiCallRequest } from '../ai-gateway/gemini-client.js';
 import { loadBackendEnv } from '../../env.js';
+// Story 3.20 (Task 3.6) -- detect-and-blur-faces.ts imports `@tensorflow/tfjs`/
+// `tfjs-backend-wasm`/`sharp`/`@vladmandic/face-api` at module top level. Fixed 2026-10-04
+// (prod incident): this is deliberately NOT a static import -- see `blurImageForRequest`
+// below, which dynamic-imports it instead, only on the branch real callers gate behind
+// `options.blurFacesBeforeAi`. A static import here was reachable from `resolvers.ts`'s
+// `extractEventDataFromUrl` (apiLambda) even though that resolver never passes the option,
+// crashing apiLambda at cold start since it has no sharp native binary.
 
 // Story 3.6s — per-event object nested under the post-level `events` array. Everything that
 // used to be flat on the response schema (pre-3.6s) now lives here, plus the new
@@ -140,12 +147,49 @@ export const geminiExtractionResponseSchema = buildGeminiExtractionResponseSchem
 
 export interface BuildGeminiExtractionRequestResult {
   request: GeminiCallRequest;
+  // Always the ORIGINAL, unblurred cover bytes (AC4) -- Story 3.6e's re-host reads this
+  // unconditionally, regardless of whether blurFacesBeforeAiOptions below ran.
   imageBytes?: Buffer;
   imageContentType?: string;
+  // Story 3.20 (AC5) -- additive, optional fields populated only when the cover was actually
+  // routed through detectAndBlurFacesSeam (i.e. blurFacesBeforeAi was on and the owner was not
+  // opted in), regardless of whether a face was found (detectAndBlurFaces already returns the
+  // original bytes with faceCount: 0 when none is found -- these fields are still meaningful).
+  // Never required/consumed by this story's own callers -- Story 3.21 reuses them to avoid a
+  // second detection for the Story 3.6n thumbnail stage.
+  blurredCoverImageBytes?: Buffer;
+  coverFaceCount?: number;
+  // Story 3.21 (AC1/AC3) -- always set, every branch: which image shape the AI actually
+  // received for this attempt. See this function's own derivation logic below for the exact
+  // precedence (no image sent; cover fetch failed; mode off; owner opted in; cover blur
+  // failed closed; cover blurred successfully).
+  aiImageInput: AiImageInput;
+  // Story 3.21 (AC3, AD-29 Rule 7) -- present ONLY when aiImageInput === 'blurred'. The sum of
+  // detectAndBlurFacesSeam's own faceCount across every image actually sent (cover + every
+  // surviving slide) -- never just the cover alone, and never 0 when detection didn't run.
+  totalFaceDetectionCount?: number;
+}
+
+export interface BuildGeminiExtractionRequestOptions {
+  // Story 3.20 (AC1/AC2) -- when present and isOwnerOptedIn is false, every image sent to
+  // Gemini (cover + each carousel slide) is blurred before being inlined into the request.
+  // Absent, or isOwnerOptedIn: true, leaves every one of this function's four call sites'
+  // existing byte-for-byte behavior completely unchanged (AC4) -- this is a structural property
+  // of the signature (an optional second argument no other caller passes), not a runtime branch
+  // that could drift.
+  blurFacesBeforeAi?: {
+    isOwnerOptedIn: boolean;
+    // Lambda Context's getRemainingTimeInMillis, threaded through from the same
+    // ProcessAiJobDeps.getRemainingTimeInMillis Story 3.6n already added to processAiJob -- no
+    // second Lambda-context plumbing path. Absent (e.g. no Lambda context, as in a script/test)
+    // is treated as unlimited remaining time (Infinity), never as "time's up".
+    getRemainingTimeInMillis?: () => number;
+  };
 }
 
 export async function buildGeminiExtractionRequest(
-  message: ProcessingJobMessage
+  message: ProcessingJobMessage,
+  options?: BuildGeminiExtractionRequestOptions
 ): Promise<BuildGeminiExtractionRequestResult> {
   const env = loadBackendEnv();
   const allowedTypes = Object.values(EventType).join(', ');
@@ -206,6 +250,51 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
   let contents: any = captionWithAccountContext;
   let imageBytes: Buffer | undefined;
   let imageContentType: string | undefined;
+  let blurredCoverImageBytes: Buffer | undefined;
+  let coverFaceCount: number | undefined;
+  // Story 3.21 (AC3) -- defaults to 'no_image_sent' and is only ever advanced forward below,
+  // never reset backward by the outer catch: a cover-fetch failure (never reaches past the
+  // fetch) leaves this at its default; a cover blur failure (reaches past the fetch, throws
+  // inside blurImageForRequest) is tagged 'text_only_fail_closed' BEFORE the throw, so the
+  // outer catch's text-only fallback does not need to -- and must not -- touch this value.
+  let aiImageInput: AiImageInput = 'no_image_sent';
+  let totalFaceDetectionCount: number | undefined;
+
+  // Story 3.20 (AC1/AC2) -- only active when the caller passed the option AND the post's
+  // PUBLISHER has not opted in to image storage. Both conditions collapse to false (skip all
+  // blur calls, AC4) when options.blurFacesBeforeAi is absent (the three other callers) or
+  // isOwnerOptedIn is true.
+  const blurGate = options?.blurFacesBeforeAi;
+  const shouldBlur = blurGate !== undefined && !blurGate.isOwnerOptedIn;
+
+  // Story 3.20 (Task 3.2/3.3) -- blurs imageBuffer in place of the original before it is
+  // base64-inlined. Fails closed: throws (never returns the original) when the remaining-time
+  // budget is too low, or when detectAndBlurFacesSeam itself throws -- letting the caller's own
+  // try/catch decide what "drop this image" means (text-only fallback for the cover, `continue`
+  // for a slide), so the original is NEVER the fallback (AC3).
+  async function blurImageForRequest(imageBuffer: Buffer, contentType: string): Promise<{ data: string; blurred: Buffer; faceCount: number }> {
+    const remainingMs = blurGate?.getRemainingTimeInMillis?.() ?? Infinity;
+    if (remainingMs < env.faceBlurMinRemainingTimeMs) {
+      throw new Error(
+        `Face-blur time budget too low for post ${message.postId}: ${remainingMs}ms remaining, need at least ${env.faceBlurMinRemainingTimeMs}ms`
+      );
+    }
+    // Dynamic import, deliberately only here (see this file's top-of-file comment) -- only
+    // reached when `shouldBlur` is true, i.e. a caller passed `blurFacesBeforeAi` AND the owner
+    // isn't opted in. A test that overrides the seam via `setDetectAndBlurFacesSeam` before
+    // calling into this file still works: that override mutates the SAME module binding this
+    // dynamic import resolves to. This import() runs AFTER the remainingMs budget check above,
+    // but that's not a time-budget leak for the one real caller (processAiJob): process-ai-job.ts
+    // keeps its OWN import of detect-and-blur-faces.ts static and deliberately so (see that
+    // file's top comment) -- by the time processAiJob ever calls into this function, Node has
+    // already loaded/cached this exact module at that earlier static import, so this is a cache
+    // hit, not fresh module-load cost (raised and verified during this fix's own review).
+    const { detectAndBlurFacesSeam } = await import('./detect-and-blur-faces.js');
+    // Sequential by construction (AD-28 Rule 10, Task 3.3) -- every call site below awaits this
+    // one image at a time, cover first then each slide in order, never concurrently.
+    const result = await detectAndBlurFacesSeam(imageBuffer, contentType);
+    return { data: result.buffer.toString('base64'), blurred: result.buffer, faceCount: result.faceCount };
+  }
 
   if (message.imageUrl) {
     try {
@@ -219,17 +308,43 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
       }
       const arrayBuffer = await response.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
-      const base64Data = buffer.toString('base64');
 
+      // AC4: imageBytes always carries the ORIGINAL, unblurred cover bytes, unconditionally --
+      // set here, before any blur attempt, and never reassigned below.
       imageBytes = buffer;
       imageContentType = contentType;
+
+      let coverDataForRequest = buffer.toString('base64');
+      if (shouldBlur) {
+        // Story 3.21 (AC3, Task 2.2e) -- tentatively tag as the fail-closed outcome BEFORE
+        // calling the seam: if blurImageForRequest throws (budget too low, or
+        // detectAndBlurFacesSeam itself failing), execution jumps straight to this function's
+        // outer catch below (which falls back to text-only and never reaches the carousel loop
+        // for the cover's own failure, Task 3.2) -- leaving aiImageInput at this tagged value,
+        // never back at the 'no_image_sent' default. Overwritten to 'blurred' only once the
+        // seam call below actually returns successfully.
+        aiImageInput = 'text_only_fail_closed';
+        const blurResult = await blurImageForRequest(buffer, contentType);
+        coverDataForRequest = blurResult.data;
+        blurredCoverImageBytes = blurResult.blurred;
+        coverFaceCount = blurResult.faceCount;
+        // Story 3.21 (AC3, Task 2.2f/2.3) -- the cover's own detection succeeded: this attempt's
+        // aiImageInput is 'blurred', and the running sum (AD-29 Rule 7: across every image sent)
+        // starts from the cover's own count.
+        aiImageInput = 'blurred';
+        totalFaceDetectionCount = blurResult.faceCount;
+      } else {
+        // Story 3.21 (AC3, Task 2.2c/2.2d) -- cover fetched OK, no blur attempted: disambiguate
+        // "the option was never passed" (mode off) from "passed, but this owner opted in".
+        aiImageInput = blurGate === undefined ? 'original_mode_off' : 'original_owner_opted_in';
+      }
 
       contents = [
         { text: captionWithAccountContext },
         {
           inlineData: {
             mimeType: contentType,
-            data: base64Data
+            data: coverDataForRequest
           }
         }
       ];
@@ -241,36 +356,54 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
       // otherwise wipe out the already-succeeded cover image and switch to text-only).
       if (message.additionalImageUrls?.length) {
         const slidesToFetch = message.additionalImageUrls.slice(0, env.maxCarouselImages);
-        for (const slideUrl of slidesToFetch) {
+        for (const [slideIndex, slideUrl] of slidesToFetch.entries()) {
           try {
             const slideResponse = await fetch(slideUrl);
             if (!slideResponse.ok) {
-              console.error(`Carousel slide-fetch failed for post ${message.postId} (status ${slideResponse.status}); skipping slide`, slideUrl);
+              console.error(`Carousel slide-fetch failed for post ${message.postId} (image index ${slideIndex + 1}, status ${slideResponse.status}); skipping slide`, slideUrl);
               continue;
             }
             const slideContentType = slideResponse.headers.get('content-type') || 'image/jpeg';
             if (!slideContentType.startsWith('image/')) {
-              console.error(`Carousel slide content-type is not an image: ${slideContentType}; skipping slide for post ${message.postId}`, slideUrl);
+              console.error(`Carousel slide content-type is not an image: ${slideContentType}; skipping slide for post ${message.postId} (image index ${slideIndex + 1})`, slideUrl);
               continue;
             }
             const slideArrayBuffer = await slideResponse.arrayBuffer();
             const slideBuffer = Buffer.from(slideArrayBuffer);
+
+            // Story 3.20 (Task 3.3/7.2) -- blurImageForRequest's own time-budget check (above)
+            // throws BEFORE ever calling detectAndBlurFacesSeam when the floor isn't met, so the
+            // catch below drops this slide without having invoked the seam for it -- the same
+            // fail-closed outcome as the seam itself throwing, no separate pre-check needed.
+            let slideDataForRequest = slideBuffer.toString('base64');
+            if (shouldBlur) {
+              const blurResult = await blurImageForRequest(slideBuffer, slideContentType);
+              slideDataForRequest = blurResult.data;
+              // Story 3.21 (AC3, Task 2.3, AD-29 Rule 7) -- add this slide's own faceCount into
+              // the running total. Reached only when the cover already succeeded (a cover
+              // failure jumps straight to the outer catch before this loop ever runs), so
+              // aiImageInput is already 'blurred' and totalFaceDetectionCount already seeded
+              // from the cover by this point.
+              totalFaceDetectionCount = (totalFaceDetectionCount ?? 0) + blurResult.faceCount;
+            }
+
             contents.push({
               inlineData: {
                 mimeType: slideContentType,
-                data: slideBuffer.toString('base64')
+                data: slideDataForRequest
               }
             });
           } catch (error) {
-            // Best-effort: skip only this slide; the cover and all other successfully-fetched
-            // slides remain in the request (AC2).
-            console.error(`Carousel slide-fetch threw for post ${message.postId}; skipping slide`, slideUrl, error);
+            // Best-effort: skip only this slide (whether the failure was the fetch or the blur);
+            // the cover and all other successfully-processed slides remain in the request (AC2/AC3).
+            console.error(`Carousel slide-fetch/blur failed for post ${message.postId} (image index ${slideIndex + 1}); skipping slide`, slideUrl, error);
           }
         }
       }
     } catch (error) {
-      console.error(`Multimodal extraction image-fetch failed for post ${message.postId}:`, error);
-      // Fallback to text-only caption extraction
+      console.error(`Multimodal extraction image processing failed for post ${message.postId} (image index 0, cover):`, error);
+      // Fallback to text-only caption extraction. Never the original, unblurred cover bytes
+      // (AC3) -- `contents` is reset to the caption text only.
       contents = captionWithAccountContext;
     }
   }
@@ -289,6 +422,10 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
   return {
     request,
     imageBytes,
-    imageContentType
+    imageContentType,
+    blurredCoverImageBytes,
+    coverFaceCount,
+    aiImageInput,
+    totalFaceDetectionCount
   };
 }

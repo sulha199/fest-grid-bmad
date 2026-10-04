@@ -2,12 +2,21 @@ import test from 'node:test';
 import * as assert from 'node:assert';
 import { buildGeminiExtractionRequest, geminiExtractionResponseSchema } from './build-gemini-request.js';
 import { type ProcessingJobMessage } from '@festgrid/domain/posts';
+import { setDetectAndBlurFacesSeam, detectAndBlurFacesSeam } from './detect-and-blur-faces.js';
+
+// Story 3.20 (Task 6.1) -- BLUR_FACES_BEFORE_AI now defaults ON (env.ts), but this file's tests
+// never pass options.blurFacesBeforeAi UNLESS a case below opts in explicitly (per Task 6.2),
+// so the default-on env var is irrelevant here: shouldBlur in build-gemini-request.ts is gated
+// on the OPTIONS argument being present, never on the env var directly (the env var only decides
+// whether process-ai-job.ts passes the option at all -- see process-ai-job.face-blur-before-ai.test.ts).
 
 test('buildGeminiExtractionRequest unit tests', async (t) => {
   const originalFetch = globalThis.fetch;
+  const originalDetectAndBlurFacesSeam = detectAndBlurFacesSeam;
 
   t.afterEach(() => {
     globalThis.fetch = originalFetch;
+    setDetectAndBlurFacesSeam(originalDetectAndBlurFacesSeam);
   });
 
   await t.test('Case A: image-absent path uses text-only contents', async () => {
@@ -380,5 +389,382 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     const onceBlockIndex = prompt.indexOf('Also report, once for the whole post');
     const hasFaceImageIndex = prompt.indexOf('hasFaceImage', onceBlockIndex);
     assert.ok(onceBlockIndex !== -1 && hasFaceImageIndex > onceBlockIndex);
+  });
+
+  // Story 3.20 -- options.blurFacesBeforeAi tests (AC1/AC3/AC4/AC5/AC8).
+
+  await t.test('Case Q: isOwnerOptedIn true -> detectAndBlurFacesSeam never called, byte-for-byte identical to no-options call (AC4)', async () => {
+    let detectCalled = false;
+    setDetectAndBlurFacesSeam(async () => {
+      detectCalled = true;
+      return { buffer: Buffer.from('should-never-be-used'), faceCount: 9 };
+    });
+
+    const message: ProcessingJobMessage = {
+      postId: 'post-blur-optedin',
+      accountId: 'account-blur-optedin',
+      content: 'Opted-in owner caption',
+      imageUrl: 'https://test.com/poster.png',
+      postUrl: 'https://test.com/post-blur-optedin',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    globalThis.fetch = async () =>
+      ({
+        ok: true,
+        headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'image/png' : null) },
+        arrayBuffer: async () => Buffer.from('fake-image-bytes')
+      }) as any;
+
+    const withoutOptions = await buildGeminiExtractionRequest(message);
+    const withOptedInOption = await buildGeminiExtractionRequest(message, { blurFacesBeforeAi: { isOwnerOptedIn: true } });
+
+    assert.strictEqual(detectCalled, false);
+    assert.deepStrictEqual(withOptedInOption.request.contents, withoutOptions.request.contents);
+    assert.deepStrictEqual(withOptedInOption.imageBytes, withoutOptions.imageBytes);
+    assert.strictEqual(withOptedInOption.blurredCoverImageBytes, undefined);
+    assert.strictEqual(withOptedInOption.coverFaceCount, undefined);
+  });
+
+  await t.test('Case R: isOwnerOptedIn false -> cover is blurred, blurred bytes used in the request, original bytes still in imageBytes (AC1/AC5)', async () => {
+    setDetectAndBlurFacesSeam(async (buffer: Buffer) => {
+      assert.deepStrictEqual(buffer, Buffer.from('fake-image-bytes'));
+      return { buffer: Buffer.from('blurred-cover-bytes'), faceCount: 2 };
+    });
+
+    const message: ProcessingJobMessage = {
+      postId: 'post-blur-cover',
+      accountId: 'account-blur-cover',
+      content: 'Cover blur caption',
+      imageUrl: 'https://test.com/poster.png',
+      postUrl: 'https://test.com/post-blur-cover',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    globalThis.fetch = async () =>
+      ({
+        ok: true,
+        headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'image/png' : null) },
+        arrayBuffer: async () => Buffer.from('fake-image-bytes')
+      }) as any;
+
+    const result = await buildGeminiExtractionRequest(message, { blurFacesBeforeAi: { isOwnerOptedIn: false } });
+
+    assert.strictEqual(result.request.contents[1].inlineData.data, Buffer.from('blurred-cover-bytes').toString('base64'));
+    // AC4: imageBytes always carries the ORIGINAL, unblurred bytes, even when blur ran.
+    assert.deepStrictEqual(result.imageBytes, Buffer.from('fake-image-bytes'));
+    assert.deepStrictEqual(result.blurredCoverImageBytes, Buffer.from('blurred-cover-bytes'));
+    assert.strictEqual(result.coverFaceCount, 2);
+  });
+
+  await t.test('Case S: cover blur throws -> fails closed to text-only, never the original bytes (AC3)', async () => {
+    setDetectAndBlurFacesSeam(async () => {
+      throw new Error('blur failed');
+    });
+
+    const message: ProcessingJobMessage = {
+      postId: 'post-blur-cover-fail',
+      accountId: 'account-blur-cover-fail',
+      content: 'Cover blur failure caption',
+      imageUrl: 'https://test.com/poster.png',
+      postUrl: 'https://test.com/post-blur-cover-fail',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    globalThis.fetch = async () =>
+      ({
+        ok: true,
+        headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'image/png' : null) },
+        arrayBuffer: async () => Buffer.from('fake-image-bytes')
+      }) as any;
+
+    const result = await buildGeminiExtractionRequest(message, { blurFacesBeforeAi: { isOwnerOptedIn: false } });
+
+    assert.strictEqual(result.request.contents, message.content);
+    assert.strictEqual(result.blurredCoverImageBytes, undefined);
+    assert.strictEqual(result.coverFaceCount, undefined);
+  });
+
+  await t.test('Case T: remaining time below the floor before the cover -> fails closed to text-only without calling the seam (AC3)', async () => {
+    let detectCalled = false;
+    setDetectAndBlurFacesSeam(async () => {
+      detectCalled = true;
+      return { buffer: Buffer.from('should-never-be-used'), faceCount: 1 };
+    });
+
+    const message: ProcessingJobMessage = {
+      postId: 'post-blur-budget',
+      accountId: 'account-blur-budget',
+      content: 'Low time budget caption',
+      imageUrl: 'https://test.com/poster.png',
+      postUrl: 'https://test.com/post-blur-budget',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    globalThis.fetch = async () =>
+      ({
+        ok: true,
+        headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'image/png' : null) },
+        arrayBuffer: async () => Buffer.from('fake-image-bytes')
+      }) as any;
+
+    const result = await buildGeminiExtractionRequest(message, {
+      blurFacesBeforeAi: { isOwnerOptedIn: false, getRemainingTimeInMillis: () => 1000 } // below the 60000ms default floor
+    });
+
+    assert.strictEqual(detectCalled, false);
+    assert.strictEqual(result.request.contents, message.content);
+  });
+
+  await t.test('Case U: per-slide blur applied up to the carousel cap, sequentially (AC1/AC8)', async () => {
+    installOrderedFetchMock();
+    const msg = multiImageMessage([slide1Url, slide2Url]);
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const blurredDataByOriginal = new Map<string, string>();
+    setDetectAndBlurFacesSeam(async (buffer: Buffer) => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      inFlight--;
+      const blurredTag = `blurred-${buffer.toString()}`;
+      blurredDataByOriginal.set(buffer.toString(), blurredTag);
+      return { buffer: Buffer.from(blurredTag), faceCount: 1 };
+    });
+
+    const result = await buildGeminiExtractionRequest(msg, { blurFacesBeforeAi: { isOwnerOptedIn: false } });
+
+    // text + cover + slide1 + slide2, all blurred -- AC8: detection never runs on two images at
+    // once (sequential, not parallel).
+    assert.strictEqual(result.request.contents.length, 4);
+    assert.strictEqual(maxInFlight, 1, 'expected detectAndBlurFacesSeam to never overlap across images');
+    assert.strictEqual(result.request.contents[1].inlineData.data, Buffer.from('blurred-carousel-bytes-0').toString('base64'));
+    assert.strictEqual(result.request.contents[2].inlineData.data, Buffer.from('blurred-carousel-bytes-1').toString('base64'));
+    assert.strictEqual(result.request.contents[3].inlineData.data, Buffer.from('blurred-carousel-bytes-2').toString('base64'));
+    assert.deepStrictEqual(result.imageBytes, Buffer.from('carousel-bytes-0'));
+    assert.deepStrictEqual(result.blurredCoverImageBytes, Buffer.from('blurred-carousel-bytes-0'));
+  });
+
+  await t.test('Case U2: six-image post is blurred strictly sequentially; the carousel cap bounds blur calls (AC1/AC6/AC8)', async () => {
+    const originalMax = process.env.MAX_CAROUSEL_IMAGES;
+    try {
+      process.env.MAX_CAROUSEL_IMAGES = '5';
+      installOrderedFetchMock();
+      const fiveSlides = [1, 2, 3, 4, 5, 6, 7].map((i) => `https://test.com/u2-slide-${i}.jpg`);
+      let inFlight = 0;
+      let maxInFlight = 0;
+      let blurCalls = 0;
+      setDetectAndBlurFacesSeam(async (buffer: Buffer) => {
+        blurCalls++;
+        inFlight++;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        inFlight--;
+        return { buffer: Buffer.from(`blurred-${buffer.toString()}`), faceCount: 1 };
+      });
+
+      const result = await buildGeminiExtractionRequest(multiImageMessage(fiveSlides), {
+        blurFacesBeforeAi: { isOwnerOptedIn: false }
+      });
+
+      // cover + 5 capped slides = 6 images (+ text part); slides 6-7 never fetched or blurred.
+      assert.strictEqual(result.request.contents.length, 7);
+      assert.strictEqual(blurCalls, 6);
+      assert.strictEqual(maxInFlight, 1, 'detection must never overlap across the six images');
+      assert.strictEqual(result.totalFaceDetectionCount, 6);
+    } finally {
+      if (originalMax === undefined) delete process.env.MAX_CAROUSEL_IMAGES;
+      else process.env.MAX_CAROUSEL_IMAGES = originalMax;
+    }
+  });
+
+  await t.test('Case V: a slide blur failure drops only that slide, cover and other slides survive (AC3)', async () => {
+    installOrderedFetchMock();
+    const msg = multiImageMessage([slide1Url, slide2Url]);
+    // cover=index0 bytes "carousel-bytes-0", slide1=index1 "carousel-bytes-1", slide2=index2 "carousel-bytes-2"
+    setDetectAndBlurFacesSeam(async (buffer: Buffer) => {
+      if (buffer.toString() === 'carousel-bytes-1') {
+        throw new Error('slide blur failed');
+      }
+      return { buffer: Buffer.from(`blurred-${buffer.toString()}`), faceCount: 0 };
+    });
+
+    const result = await buildGeminiExtractionRequest(msg, { blurFacesBeforeAi: { isOwnerOptedIn: false } });
+
+    // text + cover + slide2 (slide1 dropped); NOT text-only
+    assert.strictEqual(result.request.contents.length, 3);
+    assert.strictEqual(result.request.contents[1].inlineData.data, Buffer.from('blurred-carousel-bytes-0').toString('base64'));
+    assert.strictEqual(result.request.contents[2].inlineData.data, Buffer.from('blurred-carousel-bytes-2').toString('base64'));
+  });
+
+  await t.test('Case W: remaining time below the floor before a slide -> that slide is dropped without calling the seam for it (AC3)', async () => {
+    installOrderedFetchMock();
+    const msg = multiImageMessage([slide1Url, slide2Url]);
+    const seamCallArgs: string[] = [];
+    setDetectAndBlurFacesSeam(async (buffer: Buffer) => {
+      seamCallArgs.push(buffer.toString());
+      return { buffer: Buffer.from(`blurred-${buffer.toString()}`), faceCount: 0 };
+    });
+
+    // Budget allows the cover (call 1) but drops below the floor for every image after it.
+    let remaining = 70000;
+    const result = await buildGeminiExtractionRequest(msg, {
+      blurFacesBeforeAi: {
+        isOwnerOptedIn: false,
+        getRemainingTimeInMillis: () => {
+          const current = remaining;
+          remaining -= 65000;
+          return current;
+        }
+      }
+    });
+
+    // Cover blurred; both slides dropped due to the time floor, never reaching the seam for them.
+    assert.strictEqual(result.request.contents.length, 2);
+    assert.deepStrictEqual(seamCallArgs, ['carousel-bytes-0']);
+    assert.strictEqual(result.request.contents[1].inlineData.data, Buffer.from('blurred-carousel-bytes-0').toString('base64'));
+  });
+
+  // ---- Story 3.21 (AC1/AC3): aiImageInput/totalFaceDetectionCount derivation -------------
+
+  await t.test('Case X: no imageUrl at all -> aiImageInput is no_image_sent, totalFaceDetectionCount undefined', async () => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-aii-no-image',
+      accountId: 'account-aii-no-image',
+      content: 'No image here',
+      postUrl: 'https://test.com/post-aii-no-image',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    const result = await buildGeminiExtractionRequest(message);
+
+    assert.strictEqual(result.aiImageInput, 'no_image_sent');
+    assert.strictEqual(result.totalFaceDetectionCount, undefined);
+  });
+
+  await t.test('Case Y: cover fetch fails -> aiImageInput is no_image_sent (not text_only_fail_closed)', async () => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-aii-fetch-fail',
+      accountId: 'account-aii-fetch-fail',
+      content: 'Cover fetch fails',
+      imageUrl: 'https://test.com/broken.png',
+      postUrl: 'https://test.com/post-aii-fetch-fail',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    globalThis.fetch = async () => ({ ok: false, status: 404 }) as any;
+
+    const result = await buildGeminiExtractionRequest(message, { blurFacesBeforeAi: { isOwnerOptedIn: false } });
+
+    assert.strictEqual(result.aiImageInput, 'no_image_sent');
+    assert.strictEqual(result.totalFaceDetectionCount, undefined);
+  });
+
+  await t.test('Case Z: options.blurFacesBeforeAi absent (mode off) -> aiImageInput is original_mode_off', async () => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-aii-mode-off',
+      accountId: 'account-aii-mode-off',
+      content: 'Mode off',
+      imageUrl: 'https://test.com/poster.png',
+      postUrl: 'https://test.com/post-aii-mode-off',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    globalThis.fetch = async () =>
+      ({
+        ok: true,
+        headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'image/png' : null) },
+        arrayBuffer: async () => Buffer.from('fake-image-bytes')
+      }) as any;
+
+    const result = await buildGeminiExtractionRequest(message);
+
+    assert.strictEqual(result.aiImageInput, 'original_mode_off');
+    assert.strictEqual(result.totalFaceDetectionCount, undefined);
+  });
+
+  await t.test('Case AA: isOwnerOptedIn true -> aiImageInput is original_owner_opted_in', async () => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-aii-opted-in',
+      accountId: 'account-aii-opted-in',
+      content: 'Owner opted in',
+      imageUrl: 'https://test.com/poster.png',
+      postUrl: 'https://test.com/post-aii-opted-in',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    globalThis.fetch = async () =>
+      ({
+        ok: true,
+        headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'image/png' : null) },
+        arrayBuffer: async () => Buffer.from('fake-image-bytes')
+      }) as any;
+
+    const result = await buildGeminiExtractionRequest(message, { blurFacesBeforeAi: { isOwnerOptedIn: true } });
+
+    assert.strictEqual(result.aiImageInput, 'original_owner_opted_in');
+    assert.strictEqual(result.totalFaceDetectionCount, undefined);
+  });
+
+  await t.test('Case AB: cover blur throws -> aiImageInput is text_only_fail_closed, totalFaceDetectionCount undefined', async () => {
+    setDetectAndBlurFacesSeam(async () => {
+      throw new Error('blur failed');
+    });
+    const message: ProcessingJobMessage = {
+      postId: 'post-aii-fail-closed',
+      accountId: 'account-aii-fail-closed',
+      content: 'Cover blur fails',
+      imageUrl: 'https://test.com/poster.png',
+      postUrl: 'https://test.com/post-aii-fail-closed',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    globalThis.fetch = async () =>
+      ({
+        ok: true,
+        headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'image/png' : null) },
+        arrayBuffer: async () => Buffer.from('fake-image-bytes')
+      }) as any;
+
+    const result = await buildGeminiExtractionRequest(message, { blurFacesBeforeAi: { isOwnerOptedIn: false } });
+
+    assert.strictEqual(result.aiImageInput, 'text_only_fail_closed');
+    assert.strictEqual(result.totalFaceDetectionCount, undefined);
+  });
+
+  await t.test('Case AC: cover blurred successfully with zero faces -> aiImageInput blurred, totalFaceDetectionCount 0 (never undefined)', async () => {
+    setDetectAndBlurFacesSeam(async () => ({ buffer: Buffer.from('blurred-cover-bytes'), faceCount: 0 }));
+    const message: ProcessingJobMessage = {
+      postId: 'post-aii-blurred-zero',
+      accountId: 'account-aii-blurred-zero',
+      content: 'Cover blurred, zero faces',
+      imageUrl: 'https://test.com/poster.png',
+      postUrl: 'https://test.com/post-aii-blurred-zero',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    globalThis.fetch = async () =>
+      ({
+        ok: true,
+        headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'image/png' : null) },
+        arrayBuffer: async () => Buffer.from('fake-image-bytes')
+      }) as any;
+
+    const result = await buildGeminiExtractionRequest(message, { blurFacesBeforeAi: { isOwnerOptedIn: false } });
+
+    assert.strictEqual(result.aiImageInput, 'blurred');
+    assert.strictEqual(result.totalFaceDetectionCount, 0);
+    assert.strictEqual(result.coverFaceCount, 0);
+  });
+
+  await t.test('Case AD: cover + slides blurred -> totalFaceDetectionCount sums across all surviving images, excluding a dropped slide', async () => {
+    installOrderedFetchMock({ failIndex: 2 }); // cover=0 ok, slide1(idx1) ok, slide2(idx2) fails
+    const msg = multiImageMessage([slide1Url, slide2Url]);
+    const faceCountByOriginal = new Map<string, number>([
+      ['carousel-bytes-0', 3], // cover
+      ['carousel-bytes-1', 2] // slide1 (slide2 never reaches the seam -- its fetch fails)
+    ]);
+    setDetectAndBlurFacesSeam(async (buffer: Buffer) => {
+      const key = buffer.toString();
+      return { buffer: Buffer.from(`blurred-${key}`), faceCount: faceCountByOriginal.get(key) ?? 0 };
+    });
+
+    const result = await buildGeminiExtractionRequest(msg, { blurFacesBeforeAi: { isOwnerOptedIn: false } });
+
+    assert.strictEqual(result.aiImageInput, 'blurred');
+    // cover (3) + slide1 (2) = 5; slide2 dropped at fetch, contributes nothing.
+    assert.strictEqual(result.totalFaceDetectionCount, 5);
+    assert.strictEqual(result.coverFaceCount, 3);
   });
 });

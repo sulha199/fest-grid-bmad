@@ -76,7 +76,12 @@ test('system-key-adapter - callGeminiForLocationInference orchestration', async 
       throw new AiGatewayExhaustedError('Gateway exhausted');
     });
 
-    delete process.env.SYSTEM_GEMINI_API_KEY;
+    // Use '' rather than `delete` here: loadBackendEnv() calls dotenv.config() on every
+    // invocation, and dotenv only fills in vars that are `undefined` in process.env. A real
+    // SYSTEM_GEMINI_API_KEY lives in the repo's .env, so deleting the var lets dotenv silently
+    // refill it from disk before this assertion runs, flipping the "not configured" case into
+    // the "configured" one. An empty string is still a defined value, so dotenv leaves it alone.
+    process.env.SYSTEM_GEMINI_API_KEY = '';
 
     let contentCallCount = 0;
     setCallGeminiGenerateContent(async () => {
@@ -193,7 +198,10 @@ test('system-key-adapter - callGeminiForAccountClassification orchestration', as
       throw new AiGatewayExhaustedError('Gateway exhausted');
     });
 
-    delete process.env.SYSTEM_GEMINI_API_KEY;
+    // See the matching comment in the location-inference block above: '' (not `delete`)
+    // prevents loadBackendEnv()'s per-call dotenv.config() from refilling this from the
+    // repo's real .env, which contains a live SYSTEM_GEMINI_API_KEY.
+    process.env.SYSTEM_GEMINI_API_KEY = '';
 
     let contentCallCount = 0;
     setCallGeminiGenerateContent(async () => {

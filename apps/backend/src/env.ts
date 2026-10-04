@@ -37,6 +37,8 @@ export interface BackendEnv {
   scrapingQueueUrl?: string;
   scrapeInlineFallbackEnabled: boolean;
   aiProcessingQueueUrl?: string;
+  // Story 4.2b -- AI Lambda function name the API Lambda async-invokes for manual extraction.
+  aiProcessorFunctionName?: string;
   aiProcessingInlineFallbackEnabled: boolean;
   // Story 3.6z (AC3) — TTL (minutes) for enqueuePostForProcessing's atomic claim
   // (posts.queued_for_extraction_at). Default derivation: AIProcessingQueue's visibility
@@ -95,6 +97,12 @@ export interface BackendEnv {
   // timeout) found headroom is NOT thin, so this guard is a cheap safety check, not a design
   // driver, and the placeholder default was kept as-is rather than tuned tighter.
   faceBlurMinRemainingTimeMs: number;
+  // Story 3.20 (AD-28 Rule 10) — default-ON gate for blurring every image (cover + carousel
+  // slides) before it is sent to Gemini, unless the post's PUBLISHER account has opted in to
+  // image storage. This is the first default-on boolean env var in this file -- see
+  // parseBooleanDefaultOn below for why it needs its own parser (all other booleans here are
+  // default-off, `=== 'true'`).
+  blurFacesBeforeAi: boolean;
 }
 
 function parseNonNegativeInt(value: string | undefined, name: string, defaultValue: number): number {
@@ -103,6 +111,25 @@ function parseNonNegativeInt(value: string | undefined, name: string, defaultVal
     throw new Error(`${name} must be a non-negative integer.`);
   }
   return parsed;
+}
+
+// Story 3.20 (Task 1.1) -- unlike this file's other boolean env vars (all default OFF via a
+// plain `=== 'true'` check), BLUR_FACES_BEFORE_AI defaults ON: unset -> true; only an explicit
+// 'false'/'0' (case-insensitive, trimmed) turns it off; any other value -> true.
+export function parseBooleanDefaultOn(value: string | undefined, name: string): boolean {
+  if (value === undefined) {
+    return true;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'false' || normalized === '0') {
+    return false;
+  }
+  if (normalized !== 'true' && normalized !== '1' && normalized !== '') {
+    // Fail-safe stays ON, but an operator who typed 'off'/'no' during an incident must not be
+    // silently ignored.
+    console.warn(`${name}="${value}" is not a recognised boolean; treating as ON. Use 'false' or '0' to disable.`);
+  }
+  return true;
 }
 
 /** Validate that required Bright Data vars are present */
@@ -183,6 +210,8 @@ export function loadBackendEnv(): BackendEnv {
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     aiProcessingQueueUrl: process.env.AI_PROCESSING_QUEUE_URL,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
+    aiProcessorFunctionName: process.env.AI_PROCESSOR_FUNCTION_NAME,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
     aiProcessingInlineFallbackEnabled: process.env.AI_PROCESSING_INLINE_FALLBACK_ENABLED === 'true',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     postExtractionClaimTtlMinutes: parseInt(process.env.POST_EXTRACTION_CLAIM_TTL_MINUTES || '30', 10),
@@ -261,7 +290,9 @@ export function loadBackendEnv(): BackendEnv {
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     accountClassificationClaimTtlMinutes: parseInt(process.env.ACCOUNT_CLASSIFICATION_CLAIM_TTL_MINUTES || '30', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
-    faceBlurMinRemainingTimeMs: parseInt(process.env.FACE_BLUR_MIN_REMAINING_TIME_MS || '60000', 10),
+    faceBlurMinRemainingTimeMs: parseNonNegativeInt(process.env.FACE_BLUR_MIN_REMAINING_TIME_MS, 'FACE_BLUR_MIN_REMAINING_TIME_MS', 60000),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    blurFacesBeforeAi: parseBooleanDefaultOn(process.env.BLUR_FACES_BEFORE_AI, 'BLUR_FACES_BEFORE_AI'),
   };
 
   // Ensure required Bright Data variables are present (webhook base URL is set post-deploy by CDK)

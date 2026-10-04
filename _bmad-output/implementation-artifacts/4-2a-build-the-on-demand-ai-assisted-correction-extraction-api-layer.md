@@ -275,3 +275,5 @@ This resolver compiles its own `compileValidator<GeminiExtractionPayload>(extrac
 ### Completion Notes List
 
 ### File List
+
+> **Amended 2026-10-04 (Story 4.2b):** the synchronous inline Gemini call described in this story now runs asynchronously in the AI Lambda (so Story 3.20's pre-AI face blur covers it); the mutation returns a `jobId` and the result is polled via `Query.extractionJob`. Pre-check behavior and `errorCode` values are unchanged. See `4-2b-route-ai-assisted-correction-extraction-through-the-ai-lambda.md`.

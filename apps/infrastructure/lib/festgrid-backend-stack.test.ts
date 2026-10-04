@@ -674,3 +674,74 @@ test('FestgridBackendStack: aiProcessorLambda bundle contains sharp native binar
     fs.rmSync(outdir, { recursive: true, force: true });
   }
 });
+
+// Story 3.20 (Task 1.3/1.4, AC1): BLUR_FACES_BEFORE_AI is set explicitly in aiProcessorLambda's
+// environment block, and ONLY there -- it is the sole caller of buildGeminiExtractionRequest with
+// the image-processing runtime needed to run the pre-AI blur. Scoped by logical ID prefix (not an
+// unscoped hasResourceProperties match), matching this file's own established precedent (see the
+// AC7 comment above on aiProcessorEnvVars/ingestorEnvVars) for exactly this class of false
+// positive.
+test('FestgridBackendStack: aiProcessorLambda has BLUR_FACES_BEFORE_AI in its environment, and no other Lambda does (Story 3.20 AC1)', () => {
+  const app = new cdk.App();
+  const stack = new FestgridBackendStack(app, 'TestStack320BlurEnv', {
+    stageName: 'dev',
+  });
+
+  const template = Template.fromStack(stack);
+  const lambdaFunctions = template.findResources('AWS::Lambda::Function');
+
+  const aiProcessorEntry = Object.entries(lambdaFunctions).find(([logicalId]) => logicalId.startsWith('AIProcessorLambda'));
+  assert.ok(aiProcessorEntry, 'expected an "AIProcessorLambda*" function in the synthesized template');
+  const aiProcessorEnvVars = (aiProcessorEntry[1].Properties as Record<string, { Variables: Record<string, unknown> }>)
+    .Environment.Variables;
+  assert.ok('BLUR_FACES_BEFORE_AI' in aiProcessorEnvVars, 'aiProcessorLambda should have BLUR_FACES_BEFORE_AI set');
+
+  for (const [logicalId, resource] of Object.entries(lambdaFunctions)) {
+    if (logicalId.startsWith('AIProcessorLambda')) continue;
+    const props = resource.Properties as Record<string, { Variables?: Record<string, unknown> } | undefined>;
+    const envVars = props.Environment?.Variables;
+    if (!envVars) continue;
+    assert.ok(
+      !('BLUR_FACES_BEFORE_AI' in envVars),
+      `expected "${logicalId}" to NOT have BLUR_FACES_BEFORE_AI (only aiProcessorLambda does, per AC1)`
+    );
+  }
+});
+
+// Story 4.2b (AC7): the API Lambda async-invokes the AI Lambda for manual "AI-Assisted
+// Correction" extraction. It needs (a) the AI Lambda's function name in its environment, (b) an
+// IAM grant for lambda:InvokeFunction scoped to that function, and (c) no automatic async retry
+// on the AI Lambda (the job-claim step makes retries pointless and a retry would double-spend a
+// Gemini key). Walks the synthesized template by logical ID prefix, per this file's precedent.
+test('FestgridBackendStack: apiLambda can async-invoke aiProcessorLambda with retries disabled (Story 4.2b AC7)', () => {
+  const app = new cdk.App();
+  const stack = new FestgridBackendStack(app, 'TestStack42bInvoke', { stageName: 'dev' });
+  const template = Template.fromStack(stack);
+
+  const lambdaFunctions = template.findResources('AWS::Lambda::Function');
+  const aiEntry = Object.entries(lambdaFunctions).find(([id]) => id.startsWith('AIProcessorLambda'));
+  const apiEntry = Object.entries(lambdaFunctions).find(([id]) => id.startsWith('ApiLambda'));
+  assert.ok(aiEntry && apiEntry, 'expected AIProcessorLambda* and ApiLambda* in the template');
+  const [aiLogicalId] = aiEntry;
+
+  // (a) env var is a direct Ref to the AI Lambda (its function name)
+  const apiEnv = (apiEntry[1].Properties as { Environment: { Variables: Record<string, unknown> } }).Environment.Variables;
+  assert.deepStrictEqual(apiEnv.AI_PROCESSOR_FUNCTION_NAME, { Ref: aiLogicalId });
+
+  // (b) a policy on the API Lambda's role grants lambda:InvokeFunction on the AI Lambda's ARN
+  const policies = template.findResources('AWS::IAM::Policy');
+  const grants = Object.values(policies).flatMap((p) => {
+    const statements = (p.Properties as { PolicyDocument: { Statement: any[] } }).PolicyDocument.Statement;
+    return statements.filter((st) => {
+      const actions = ([] as string[]).concat(st.Action);
+      return actions.includes('lambda:InvokeFunction') && JSON.stringify(st.Resource).includes(aiLogicalId);
+    });
+  });
+  assert.ok(grants.length > 0, 'expected an IAM statement granting lambda:InvokeFunction on the AI Lambda');
+
+  // (c) async invoke config: no retries, targeting the AI Lambda
+  template.hasResourceProperties('AWS::Lambda::EventInvokeConfig', {
+    FunctionName: { Ref: aiLogicalId },
+    MaximumRetryAttempts: 0,
+  });
+});

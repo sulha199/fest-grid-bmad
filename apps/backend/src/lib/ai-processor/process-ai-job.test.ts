@@ -23,6 +23,11 @@ import { AiGatewayExhaustedError } from '../ai-gateway/adapter.js';
 // processAiJob throwing when DATA_INGESTION_QUEUE_URL is unset, which the
 // local-dev inline-fallback path would otherwise swallow.
 process.env.DATA_INGESTION_INLINE_FALLBACK_ENABLED = 'false';
+// Story 3.20 (Task 6.1): BLUR_FACES_BEFORE_AI now defaults ON. This file's cases drive
+// buildGeminiExtractionRequest with fake imageUrls/bytes via mocked fetch; with the setting on,
+// resolvePostPublisherOptIn would also run a real DB query per call. Pinned off so every existing
+// case here keeps exercising today's pre-3.20 behavior, unaffected by this story's new default.
+process.env.BLUR_FACES_BEFORE_AI = 'false';
 
 test('processAiJob orchestrator tests', async (t) => {
   const originalEnvQueueUrl = process.env.DATA_INGESTION_QUEUE_URL;

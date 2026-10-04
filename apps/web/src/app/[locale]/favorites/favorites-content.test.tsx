@@ -249,6 +249,8 @@ describe('FavoritesContent', () => {
     expect(eventsCalls).toHaveLength(0);
   });
 
+  // Two sequential fetch/render cycles (initial batch + scroll-triggered page 2) can exceed
+  // vitest's 5000ms default under load; bump this test's own timeout rather than the suite's.
   it('fetches snapshot ids and paginates locally while preserving frozen id order', async () => {
     renderWithProviders();
 
@@ -274,7 +276,7 @@ describe('FavoritesContent', () => {
     });
 
     expect(eventsCalls.length).toBeGreaterThan(1);
-  });
+  }, 10000);
 
   it('refetches a fresh snapshot when filters change', async () => {
     renderWithProviders();

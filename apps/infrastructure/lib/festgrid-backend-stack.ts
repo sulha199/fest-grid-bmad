@@ -21,6 +21,29 @@ export interface FestgridBackendStackProps extends cdk.StackProps {
   stageName: 'dev' | 'staging' | 'prod';
 }
 
+// 2026-10-04 prod incident: apiLambda/scraperLambda crashed at cold start with "Could not load
+// the sharp module using the linux-x64 runtime" -- their esbuild bundles contained sharp's JS
+// wrapper (pulled in by apps/backend/src/lib/ai-processor/detect-and-blur-faces.ts and
+// upload-face-blur-thumbnail.ts, reachable at the time via a static import chain) but, unlike
+// aiProcessorLambda below, neither Lambda installs sharp's native binary. The backend-side fix
+// (making those imports `await import(...)`, confined to branches that never run for apiLambda/
+// scraperLambda) only defers WHEN the `require` executes -- esbuild still inlines a dynamically
+// imported module's full dependency graph into the bundle unless the package is marked
+// `external` (verified directly: a throwaway dynamic-import-behind-an-always-false-branch test
+// still showed the target package in esbuild's metafile inputs). Marking these three packages
+// external on apiLambda/scraperLambda's bundling is therefore required, not cosmetic: it is both
+// the belt to the backend fix's suspenders (a reverted-to-static import would fail loudly with
+// "Cannot find module" instead of the current silent-at-cold-start crash) and the thing that lets
+// a metafile-based regression test assert these Lambdas never reach sharp/face-api/tfjs.
+// aiProcessorLambda's own bundling (below) is deliberately NOT given this list -- it still needs
+// sharp (via `nodeModules`) and face-api/tfjs (via esbuild's default bundling) for real.
+export const LAMBDA_IMAGE_PROCESSING_EXTERNAL_MODULES = [
+  'sharp',
+  '@vladmandic/face-api',
+  '@tensorflow/tfjs',
+  '@tensorflow/tfjs-backend-wasm',
+];
+
 // Lambda enforces a hard 4KB cap on total environment variable bytes. Omitting a key
 // whose value would just re-bake apps/backend/src/env.ts's own runtime default is a
 // no-op behaviorally (the backend applies the identical fallback when the var is
@@ -217,6 +240,7 @@ export class FestgridBackendStack extends cdk.Stack {
       depsLockFilePath: path.resolve(projectRoot, 'pnpm-lock.yaml'),
       bundling: {
         format: nodejs.OutputFormat.CJS,
+        externalModules: LAMBDA_IMAGE_PROCESSING_EXTERNAL_MODULES,
       },
       // Increased timeout to avoid default 3‑second limit causing failures
       timeout: cdk.Duration.seconds(30),
@@ -240,6 +264,7 @@ export class FestgridBackendStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(25),
       bundling: {
         format: nodejs.OutputFormat.CJS,
+        externalModules: LAMBDA_IMAGE_PROCESSING_EXTERNAL_MODULES,
         commandHooks: {
           beforeBundling(): string[] {
             return [];
@@ -458,6 +483,10 @@ export class FestgridBackendStack extends cdk.Stack {
         POST_MEDIA_CDN_DOMAIN: postMediaDistribution.distributionDomainName,
         POST_MEDIA_DISTRIBUTION_ID: postMediaDistribution.distributionId,
         SECRETS_SYNCED_AT: secretsSyncedAt,
+        // Story 3.20 (AD-28 Rule 10) -- default-on pre-AI face blur gate. Only this Lambda's
+        // environment block gets it: it's the only caller of buildGeminiExtractionRequest with
+        // the image-processing runtime (sharp/WASM/model weights) needed to run the blur.
+        BLUR_FACES_BEFORE_AI: process.env.BLUR_FACES_BEFORE_AI || 'true',
       },
     });
 
@@ -602,6 +631,18 @@ export class FestgridBackendStack extends cdk.Stack {
     // selectPostsForExtraction call failed with SQS AccessDenied (confirmed via CloudWatch).
     // Do not remove without confirming a replacement grant exists.
     aiProcessingQueue.grantSendMessages(apiLambda);
+
+    // Story 4.2b -- manual "AI-Assisted Correction" extraction: the API Lambda async-invokes the AI
+    // Lambda directly (InvocationType 'Event') instead of enqueueing on AIProcessingQueue, because
+    // prod's AI Lambda only drains that queue every 5 minutes (poll-and-drain), far too slow for a
+    // user waiting on a spinner. A scoped exception to the three-queue rule: this job writes no
+    // posts/events rows and is not pipeline work. The function name is attached with
+    // addEnvironment (not the construct props) so apiLambda's definition order is unaffected.
+    aiProcessorLambda.grantInvoke(apiLambda);
+    apiLambda.addEnvironment('AI_PROCESSOR_FUNCTION_NAME', aiProcessorLambda.functionName);
+    // No automatic retry: processManualExtractionJob claims the job row atomically, and a retry
+    // after a mid-run failure would otherwise spend a second Gemini key call for the same job.
+    aiProcessorLambda.configureAsyncInvoke({ retryAttempts: 0 });
 
     // Scraper needs to enqueue onto AIProcessingQueue too (Story 3.6z, automatic extraction
     // on scrape) -- same prod-incident lesson as above: a queue-URL env var with no matching

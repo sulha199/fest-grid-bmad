@@ -24,9 +24,23 @@ import { socialMediaAccountProfiles, posts } from '@festgrid/database';
 import { assignExtractionOrdinals } from '@festgrid/domain';
 import { writeExtractionAuditLog } from './write-extraction-audit-log.js';
 import type { ExtractionAuditEventCompleteness } from '@festgrid/domain/events';
+// 2026-10-04 prod incident -- these stay a STATIC import, deliberately, unlike the edges cut in
+// enqueue-post-for-processing.ts/build-gemini-request.ts. This file is only ever reachable from
+// apiLambda/scraperLambda via enqueue-post-for-processing.ts's own `await import('./process-ai-job.js')`
+// (local-dev-only inline-fallback branch) -- cutting THAT one edge already keeps this file, and
+// everything it statically imports, out of both Lambdas' cold-start path entirely (confirmed:
+// esbuild still bundles this file's code as part of that dynamic import's target, but never
+// EXECUTES it unless the branch runs, which it never does in prod). Making these two imports
+// dynamic as well would buy nothing for apiLambda/scraperLambda, but WOULD regress
+// aiProcessorLambda (the Lambda that actually calls this code on every invocation): it would
+// shift sharp/tfjs/face-api's module-load cost from Lambda init (its own separate, unmetered
+// budget) to the first real invocation reaching this branch, and would turn a genuine future
+// bundling regression there from a loud cold-start crash into a silently-caught error inside the
+// try/catch below -- caught during this fix's own review (Edge Case Hunter + Blind Hunter).
 import { detectAndBlurFacesSeam } from './detect-and-blur-faces.js';
 import { uploadFaceBlurThumbnailSeam } from './upload-face-blur-thumbnail.js';
 import { backfillFaceDetectionAuditResultSeam } from './backfill-face-detection-audit-result.js';
+import { resolvePostPublisherOptIn } from '../posts/resolve-post-publisher-opt-in.js';
 
 
 export let callGeminiSeam = defaultCallGemini;
@@ -75,8 +89,25 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   const isCuratorGuide = accountRow?.accountType === 'CURATOR_GUIDE';
   const isOptedIntoImageStorage = accountRow?.isImageStorageOptedIn === true;
 
+  // Story 3.20 (AC2, Task 4.1) -- a fresh, dedicated read of the post's PUBLISHER opt-in,
+  // deliberately NOT the isOptedIntoImageStorage value above (that one is sourced from
+  // message.accountId = posts.accountId, which is not reliably the PUBLISHER -- see
+  // resolve-post-publisher-opt-in.ts's own module comment). Only queried when the setting is on,
+  // since the result would otherwise be unused.
+  const isPublisherOptedIn = env.blurFacesBeforeAi ? await resolvePostPublisherOptIn(message.postId) : false;
+
   // 2. Build Gemini extraction request
-  const { request, imageBytes, imageContentType } = await buildGeminiExtractionRequest(message);
+  const { request, imageBytes, imageContentType, blurredCoverImageBytes, aiImageInput, totalFaceDetectionCount } = await buildGeminiExtractionRequest(
+    message,
+    env.blurFacesBeforeAi
+      ? {
+          blurFacesBeforeAi: {
+            isOwnerOptedIn: isPublisherOptedIn,
+            getRemainingTimeInMillis: deps?.getRemainingTimeInMillis,
+          },
+        }
+      : undefined
+  );
 
   // 3. Call Gemini via AI Gateway
   const result = await callGeminiSeam({
@@ -119,6 +150,8 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
         actualEventCount: 0,
         groupingReason: payload.groupingReason ?? null,
         eventsCompleteness: [],
+        aiImageInput,
+        actualFaceDetectionCount: aiImageInput === 'blurred' ? (totalFaceDetectionCount ?? 0) : null,
       });
     } catch (auditErr) {
       console.error(`[processAiJob] Failed to write extraction_audit_logs row for post ${message.postId}:`, auditErr);
@@ -149,6 +182,8 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
         actualEventCount: 0,
         groupingReason: payload.groupingReason ?? null,
         eventsCompleteness: [],
+        aiImageInput,
+        actualFaceDetectionCount: aiImageInput === 'blurred' ? (totalFaceDetectionCount ?? 0) : null,
       });
     } catch (auditErr) {
       console.error(`[processAiJob] Failed to write extraction_audit_logs row for post ${message.postId}:`, auditErr);
@@ -273,6 +308,8 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
       actualEventCount: events.length,
       groupingReason: payload.groupingReason ?? null,
       eventsCompleteness,
+      aiImageInput,
+      actualFaceDetectionCount: aiImageInput === 'blurred' ? (totalFaceDetectionCount ?? 0) : null,
     });
     auditLogId = id;
   } catch (auditErr) {
@@ -309,10 +346,16 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   // per-event fan-out. Best-effort: any failure (including the timeout guard below) is caught,
   // logged, and leaves durableThumbnailUrl null without affecting extraction/ingestion.
   // AD-29 backfill ownership (AC9): this story owns the 'no_face_reported' and real-count
-  // outcomes below; Story 3.6o inserts one more nested condition right after the hasFaceImage
-  // check, before the timeout-guard check, for its own 'event_relevance_gate' outcome -- this
-  // story does not wait on or depend on it.
-  if (imageBytes && imageContentType && payload.hasFaceImage === true) {
+  // outcomes below; Story 3.6o's 'event_relevance_gate' outcome is one more nested condition
+  // (now present in both the 'blurred' branch and the legacy branch below).
+  // Story 3.21 (AC1/AC2, Task 6) -- three branches, checked in this order:
+  //   a. aiImageInput === 'blurred': pre-AI detection (Story 3.20) already ran on the cover
+  //      before the Gemini call -- reuse its result, never call detectAndBlurFacesSeam again.
+  //   b. aiImageInput === 'text_only_fail_closed': the cover's own pre-AI blur failed/timed out
+  //      -- do nothing, no retry against the original bytes (the same failure would repeat).
+  //   c. otherwise ('original_mode_off' | 'original_owner_opted_in' | 'no_image_sent'): the
+  //      existing Story 3.6n/3.6o pipeline, completely unchanged.
+  if (aiImageInput === 'blurred') {
     // 7.5b (Story 3.6n, AD-28), continued -- Story 3.6o's relevance gate. Distinct from
     // Event.isExpiredForCurrentUser/computePastEventThreshold (a runtime, grace-period
     // visibility check re-evaluated per request for an already-viewing user, packages/domain) --
@@ -329,13 +372,52 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     const isStillRelevant =
       imageUrlExpiresAt === null || latestScheduleEnd === null || latestScheduleEnd > imageUrlExpiresAt;
 
+    // AC2: the face count is already known either way (detection already ran pre-AI), so
+    // faceDetectionSkippedReason is never 'event_relevance_gate' for this branch -- only the
+    // resize/upload/storage step is skipped when not relevant. The count is the whole-request
+    // total (AD-29 Rule 7: cover + every surviving slide), the same value already written at
+    // insert -- never the cover-only coverFaceCount, which would overwrite it for a carousel.
+    await backfillFaceDetectionAuditResultSeam(auditLogId, {
+      actualFaceDetectionCount: totalFaceDetectionCount ?? 0,
+      faceDetectionSkippedReason: null,
+    });
+
+    if (isStillRelevant && blurredCoverImageBytes) {
+      // Reuse the ALREADY-BLURRED cover bytes (Story 3.20) for the thumbnail -- never call
+      // detectAndBlurFacesSeam again (AC1: one detection pass per image, not two).
+      try {
+        await uploadFaceBlurThumbnailSeam(message.postId, blurredCoverImageBytes, env);
+      } catch (uploadError) {
+        console.error(`Face-blur thumbnail upload failed for post ${message.postId}:`, uploadError);
+      }
+    }
+  } else if (aiImageInput === 'text_only_fail_closed') {
+    // The cover's own pre-AI blur failed or timed out (Story 3.20) -- no backfill, no
+    // thumbnail upload, and explicitly no retry against the original imageBytes: the same
+    // failure would repeat, and a timeout fallback would burn the budget again.
+    console.warn(
+      `[processAiJob] Skipping face-blur thumbnail for post ${message.postId}: ` +
+        `the pre-AI cover blur failed closed (aiImageInput=text_only_fail_closed); not retrying.`
+    );
+  } else if (imageBytes && imageContentType && payload.hasFaceImage === true) {
+    // --- Story 3.6n/3.6o's existing pipeline, UNCHANGED below (aiImageInput is
+    // 'original_mode_off', 'original_owner_opted_in', or 'no_image_sent' here) ---
+    const [postExpiryRow] = await db
+      .select({ imageUrlExpiresAt: posts.imageUrlExpiresAt })
+      .from(posts)
+      .where(eq(posts.id, message.postId))
+      .limit(1);
+    const imageUrlExpiresAt = postExpiryRow?.imageUrlExpiresAt ?? null;
+    const latestScheduleEnd = computeLatestScheduleEnd(events);
+    const isStillRelevant =
+      imageUrlExpiresAt === null || latestScheduleEnd === null || latestScheduleEnd > imageUrlExpiresAt;
+
     if (!isStillRelevant) {
       await backfillFaceDetectionAuditResultSeam(auditLogId, {
         actualFaceDetectionCount: null,
         faceDetectionSkippedReason: 'event_relevance_gate',
       });
     } else {
-      // --- Story 3.6n's existing timeout-guard + detection/upload logic, UNCHANGED below ---
       const remainingMs = deps?.getRemainingTimeInMillis ? deps.getRemainingTimeInMillis() : Infinity;
       if (remainingMs < env.faceBlurMinRemainingTimeMs) {
         console.warn(

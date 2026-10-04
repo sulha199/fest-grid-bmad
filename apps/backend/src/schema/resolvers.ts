@@ -11,12 +11,9 @@ import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink } from '@festgrid/domain/scraper';
 import { selectApiKey } from '@festgrid/domain/ai-gateway';
-import { mapExtractionPayloadToProposedCorrection } from '@festgrid/domain/events';
 import { callGemini, AiGatewayExhaustedError } from '../lib/ai-gateway/adapter.js';
 import { fetchCandidateKeys } from '../lib/ai-gateway/usage-store.js';
-import { buildGeminiExtractionRequest } from '../lib/ai-processor/build-gemini-request.js';
-import { extractedEventSchema } from '../validation/extracted-event.schema.js';
-import { getActiveSubscriberUserIds } from '../lib/subscriptions/get-active-subscriber-user-ids.js';
+import { startManualExtractionJob, getManualExtractionJobStatus } from '../lib/extraction/manual-extraction-job.js';
 import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
 import { validateHidePastEventsAfterDays, InvalidUserSettingsInputError } from '@festgrid/domain/user-settings';
 import { isValidIanaTimezone } from '@festgrid/domain/users';
@@ -46,7 +43,6 @@ import { applyDefaultLocationChange } from '../lib/accounts/apply-default-locati
 
 const validateReportSystemError = compileValidator<any>(reportSystemErrorSchema);
 const validateProposedEventCorrection = compileValidator<ProposedEventCorrection>(proposedEventCorrectionSchema);
-const validateExtractedEvent = compileValidator<any>(extractedEventSchema);
 
 /**
  * Story 2.7 — seam for the `Query.events` silent-auth probe. The resolver probes
@@ -1438,14 +1434,16 @@ Constraints and Guidelines:
     extractEventDataFromUrl: async (_: any, { url }: any, context: any) => {
       const authUser = requireAuth(context);
 
+      // Story 4.2b -- only the synchronous pre-checks run here (same branching, same error codes
+      // as Story 4.2a). The Gemini call -- and the pre-AI face blur that must precede it -- runs
+      // in the AI Lambda (process-manual-extraction-job.ts), which this mutation hands off to.
+
       // 1. Dual-lookup posts table
       const existingPostRows = await db
         .select()
         .from(posts)
         .where(or(eq(posts.postUrl, url), eq(posts.originalPostUrl, url)))
         .limit(1);
-
-      let resultText: string;
 
       if (existingPostRows.length > 0) {
         // Existing-post path
@@ -1456,156 +1454,66 @@ Constraints and Guidelines:
             errorMessage: 'The source post content has been removed for privacy compliance.',
           };
         }
-        const message = {
-          postId: post.id,
-          accountId: post.accountId,
-          content: post.content,
-          imageUrl: post.imageUrl ?? undefined,
-          postUrl: post.postUrl,
-          publishedAt: post.publishedAt.toISOString(),
+        return startManualExtractionJob(authUser.userId, url, {
+          message: {
+            postId: post.id,
+            accountId: post.accountId,
+            content: post.content,
+            imageUrl: post.imageUrl ?? undefined,
+            postUrl: post.postUrl,
+            publishedAt: post.publishedAt.toISOString(),
+          },
+          existingPostAccountId: post.accountId,
+        });
+      }
+
+      // New-post path
+      const platform = detectPlatformFromUrl(url);
+      if (!platform) {
+        return {
+          errorCode: 'UNSUPPORTED_PLATFORM',
+          errorMessage: 'This URL is not from a supported platform.',
         };
+      }
 
-        const { request } = await buildGeminiExtractionRequest(message);
+      // NO_API_KEY Pre-Check
+      const candidates = await fetchCandidateKeys('gemini', [authUser.userId]);
+      const chosenKey = selectApiKey(candidates, 'TIER_1_USER_SPECIFIC');
+      if (!chosenKey) {
+        return {
+          errorCode: 'NO_API_KEY',
+          errorMessage: 'Contribute your own Gemini API key to use this feature.',
+        };
+      }
 
-        try {
-          const result = await callGemini({
-            ...request,
-            provider: 'gemini',
-            subscriberUserIds: [authUser.userId],
-          });
-          resultText = result.text;
-        } catch (err: any) {
-          if (err instanceof AiGatewayExhaustedError) {
-            // TIER_2 Shared Round Robin Fallback
-            const subscriberUserIds = await getActiveSubscriberUserIds(post.accountId);
-            try {
-              const result = await callGemini({
-                ...request,
-                provider: 'gemini',
-                subscriberUserIds,
-              });
-              resultText = result.text;
-            } catch (fallbackErr: any) {
-              if (fallbackErr instanceof AiGatewayExhaustedError) {
-                return {
-                  errorCode: 'QUOTA_EXHAUSTED',
-                  errorMessage: 'No available Gemini API key to perform this extraction.',
-                };
-              }
-              throw fallbackErr;
-            }
-          } else {
-            throw err;
-          }
-        }
-      } else {
-        // New-post path
-        const platform = detectPlatformFromUrl(url);
-        if (!platform) {
-          return {
-            errorCode: 'UNSUPPORTED_PLATFORM',
-            errorMessage: 'This URL is not from a supported platform.',
-          };
-        }
-
-        // NO_API_KEY Pre-Check
-        const candidates = await fetchCandidateKeys('gemini', [authUser.userId]);
-        const chosenKey = selectApiKey(candidates, 'TIER_1_USER_SPECIFIC');
-        if (!chosenKey) {
-          return {
-            errorCode: 'NO_API_KEY',
-            errorMessage: 'Contribute your own Gemini API key to use this feature.',
-          };
-        }
-
-        const adapter = getScraperAdapter(platform);
-        let scrapedPost;
-        try {
-          scrapedPost = await adapter.getPostByUrl(url);
-          if (!scrapedPost) {
-            return {
-              errorCode: 'SCRAPE_FAILED',
-              errorMessage: 'Could not retrieve content from the provided URL.',
-            };
-          }
-        } catch (err) {
-          console.error(`Failed to scrape post from URL ${url}:`, err);
+      const adapter = getScraperAdapter(platform);
+      let scrapedPost;
+      try {
+        scrapedPost = await adapter.getPostByUrl(url);
+        if (!scrapedPost) {
           return {
             errorCode: 'SCRAPE_FAILED',
             errorMessage: 'Could not retrieve content from the provided URL.',
           };
         }
+      } catch (err) {
+        console.error(`Failed to scrape post from URL ${url}:`, err);
+        return {
+          errorCode: 'SCRAPE_FAILED',
+          errorMessage: 'Could not retrieve content from the provided URL.',
+        };
+      }
 
-        const message = {
+      return startManualExtractionJob(authUser.userId, url, {
+        message: {
           postId: randomUUID(),
           accountId: '',
           content: scrapedPost.content,
           imageUrl: scrapedPost.imageUrl ?? undefined,
           postUrl: scrapedPost.postUrl,
           publishedAt: scrapedPost.publishedAt,
-        };
-
-        const { request } = await buildGeminiExtractionRequest(message);
-
-        try {
-          const result = await callGemini({
-            ...request,
-            provider: 'gemini',
-            subscriberUserIds: [authUser.userId],
-          });
-          resultText = result.text;
-        } catch (err: any) {
-          if (err instanceof AiGatewayExhaustedError) {
-            return {
-              errorCode: 'QUOTA_EXHAUSTED',
-              errorMessage: 'No available Gemini API key to perform this extraction.',
-            };
-          }
-          throw err;
-        }
-      }
-
-      // Shared response handling
-      let payload: any;
-      try {
-        payload = JSON.parse(resultText);
-      } catch {
-        return {
-          errorCode: 'EXTRACTION_FAILED',
-          errorMessage: 'The extracted content could not be validated.',
-        };
-      }
-
-      const valid = validateExtractedEvent(payload);
-      if (!valid) {
-        return {
-          errorCode: 'EXTRACTION_FAILED',
-          errorMessage: 'The extracted content could not be validated.',
-        };
-      }
-
-      // Story 3.6s — payload is now the post-level { isEvent, events[], groupingReason, ... }
-      // wrapper. This correction-preview flow (Story 4.2a) always targets exactly one existing
-      // event, so an empty/false extraction fails the same way as before, and a multi-event
-      // extraction (out of this story's AC scope to fully support) falls back to the first
-      // event with a warning rather than silently reading stale flat fields that no longer
-      // exist on the restructured payload.
-      if (payload.isEvent === false || !Array.isArray(payload.events) || payload.events.length === 0) {
-        return {
-          errorCode: 'EXTRACTION_FAILED',
-          errorMessage: 'The linked post does not appear to describe an event.',
-        };
-      }
-
-      if (payload.events.length > 1) {
-        console.warn(
-          `[submitCorrectionPreview-style resolver] Gemini extraction returned ${payload.events.length} events ` +
-            `for a single-event correction preview; using the first event only.`
-        );
-      }
-
-      const data = mapExtractionPayloadToProposedCorrection(payload.events[0]);
-      return { data };
+        },
+      });
     },
     submitReport: async (_: any, { eventId, reason, details }: any, context: any): Promise<any> => {
       const authUser = requireAuth(context);
@@ -2604,6 +2512,14 @@ Constraints and Guidelines:
         nextCursor,
         hasMore
       };
+    },
+    extractionJob: async (_: any, { id }: any, context: any): Promise<any> => {
+      const authUser = requireAuth(context);
+      const job = await getManualExtractionJobStatus(id, authUser.userId);
+      if (!job) {
+        throw new GraphQLError('Extraction job not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+      return job;
     },
     myExtractionQuota: async (_: any, __: any, context: any) => {
       const authUser = requireAuth(context);

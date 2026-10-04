@@ -1,5 +1,5 @@
 {
-  "id": "070296ff-92bd-4d2d-ab44-9e6410d2c7db",
+  "id": "a825fea2-f0ee-44fe-b3a3-b93bd50cc739",
   "prevId": "37d38860-7299-4d5c-8115-a67e8df75707",
   "version": "6",
   "dialect": "postgresql",
@@ -1048,118 +1048,6 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
-    "public.event_match_candidates": {
-      "name": "event_match_candidates",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "event_id": {
-          "name": "event_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "candidate_event_id": {
-          "name": "candidate_event_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "score": {
-          "name": "score",
-          "type": "double precision",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "post_id": {
-          "name": "post_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "idx_event_match_candidates_candidate_event_id": {
-          "name": "idx_event_match_candidates_candidate_event_id",
-          "columns": [
-            "candidate_event_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "event_match_candidates_event_id_events_id_fk": {
-          "name": "event_match_candidates_event_id_events_id_fk",
-          "tableFrom": "event_match_candidates",
-          "tableTo": "events",
-          "columnsFrom": [
-            "event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "event_match_candidates_candidate_event_id_events_id_fk": {
-          "name": "event_match_candidates_candidate_event_id_events_id_fk",
-          "tableFrom": "event_match_candidates",
-          "tableTo": "events",
-          "columnsFrom": [
-            "candidate_event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "event_match_candidates_post_id_posts_id_fk": {
-          "name": "event_match_candidates_post_id_posts_id_fk",
-          "tableFrom": "event_match_candidates",
-          "tableTo": "posts",
-          "columnsFrom": [
-            "post_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "event_match_candidates_event_id_candidate_event_id_unique": {
-          "name": "event_match_candidates_event_id_candidate_event_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "event_id",
-            "candidate_event_id"
-          ]
-        }
-      }
-    },
     "public.event_posts": {
       "name": "event_posts",
       "schema": "",
@@ -1286,15 +1174,7 @@
           "default": "now()"
         }
       },
-      "indexes": {
-        "idx_event_slug_aliases_event_id": {
-          "name": "idx_event_slug_aliases_event_id",
-          "columns": [
-            "event_id"
-          ],
-          "isUnique": false
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "event_slug_aliases_event_id_events_id_fk": {
           "name": "event_slug_aliases_event_id_events_id_fk",
@@ -1595,6 +1475,14 @@
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": false
+        },
+        "ai_image_input": {
+          "name": "ai_image_input",
+          "type": "extraction_audit_ai_image_input",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'original_mode_off'"
         },
         "min_event_count": {
           "name": "min_event_count",
@@ -3887,6 +3775,17 @@
         "FUNDRAISER",
         "CIVIC",
         "OTHER"
+      ]
+    },
+    "public.extraction_audit_ai_image_input": {
+      "name": "extraction_audit_ai_image_input",
+      "schema": "public",
+      "values": [
+        "blurred",
+        "original_owner_opted_in",
+        "original_mode_off",
+        "text_only_fail_closed",
+        "no_image_sent"
       ]
     },
     "public.extraction_audit_face_detection_skipped_reason": {

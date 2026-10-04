@@ -56,13 +56,27 @@ test.describe("Event Correction E2E", () => {
       const request = route.request();
       const postData = request.postDataJSON();
 
+      // Story 4.2b -- two-step contract: the mutation starts a job, then extractionJob is polled.
       if (postData && postData.query && postData.query.includes("extractEventDataFromUrl")) {
         return route.fulfill({
           status: 200,
           contentType: "application/json",
           body: JSON.stringify({
             data: {
-              extractEventDataFromUrl: {
+              extractEventDataFromUrl: { jobId: "e2e-job-1", data: null, errorCode: null, errorMessage: null },
+            },
+          }),
+        });
+      }
+
+      if (postData && postData.query && postData.query.includes("extractionJob")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            data: {
+              extractionJob: {
+                status: "SUCCEEDED",
                 data: {
                   eventName: "AI Extracted Event",
                   types: ["FESTIVAL"],

@@ -402,6 +402,7 @@ export type ExtractEventDataFromUrlResult = {
   data?: Maybe<ProposedEventCorrectionData>;
   errorCode?: Maybe<ExtractionErrorCode>;
   errorMessage?: Maybe<Scalars['String']['output']>;
+  jobId?: Maybe<Scalars['ID']['output']>;
 };
 
 export enum ExtractionErrorCode {
@@ -412,6 +413,21 @@ export enum ExtractionErrorCode {
   ScrapeFailed = 'SCRAPE_FAILED',
   UnsupportedPlatform = 'UNSUPPORTED_PLATFORM'
 }
+
+export enum ExtractionJobState {
+  Failed = 'FAILED',
+  Pending = 'PENDING',
+  Processing = 'PROCESSING',
+  Succeeded = 'SUCCEEDED'
+}
+
+export type ExtractionJobStatus = {
+  __typename?: 'ExtractionJobStatus';
+  data?: Maybe<ProposedEventCorrectionData>;
+  errorCode?: Maybe<ExtractionErrorCode>;
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  status: ExtractionJobState;
+};
 
 export type ExtractionQuota = {
   __typename?: 'ExtractionQuota';
@@ -902,6 +918,7 @@ export type Query = {
   event?: Maybe<Event>;
   eventBySlug?: Maybe<Event>;
   events: EventConnection;
+  extractionJob: ExtractionJobStatus;
   health: Scalars['Boolean']['output'];
   instagramEmbedBySlug: InstagramEmbedBySlug;
   isOriginAllowedForWidget: Scalars['Boolean']['output'];
@@ -973,6 +990,11 @@ export type QueryEventsArgs = {
   offset?: InputMaybe<Scalars['Int']['input']>;
   perDayLimit?: InputMaybe<Scalars['Int']['input']>;
   query?: InputMaybe<EventQueryConditionInput>;
+};
+
+
+export type QueryExtractionJobArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -1444,6 +1466,7 @@ export enum WidgetTheme {
 
 
 
+
 export type QueryActorRunsQueryVariables = Exact<{
   filters?: ActorRunFilters | null | undefined;
   first?: number | null | undefined;
@@ -1517,7 +1540,14 @@ export type ExtractEventDataFromUrlMutationVariables = Exact<{
 }>;
 
 
-export type ExtractEventDataFromUrlMutation = { extractEventDataFromUrl: { errorCode: ExtractionErrorCode | null, errorMessage: string | null, data: { eventName: string, types: Array<EventType>, categories: Array<EventCategory>, location: string, organizerName: string | null, contactInfo: string | null, description: string | null, schedules: Array<{ isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, title: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null }> } | null } };
+export type ExtractEventDataFromUrlMutation = { extractEventDataFromUrl: { jobId: string | null, errorCode: ExtractionErrorCode | null, errorMessage: string | null, data: { eventName: string, types: Array<EventType>, categories: Array<EventCategory>, location: string, organizerName: string | null, contactInfo: string | null, description: string | null, schedules: Array<{ isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, title: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null }> } | null } };
+
+export type ExtractionJobQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type ExtractionJobQuery = { extractionJob: { status: ExtractionJobState, errorCode: ExtractionErrorCode | null, errorMessage: string | null, data: { eventName: string, types: Array<EventType>, categories: Array<EventCategory>, location: string, organizerName: string | null, contactInfo: string | null, description: string | null, schedules: Array<{ isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, title: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null }> } | null } };
 
 export type ToggleFavoriteMutationVariables = Exact<{
   eventId: string | number;
@@ -2307,6 +2337,7 @@ export const useSubmitCorrectionMutation = <
 export const ExtractEventDataFromUrlDocument = new TypedDocumentString(`
     mutation extractEventDataFromUrl($url: String!) {
   extractEventDataFromUrl(url: $url) {
+    jobId
     data {
       eventName
       types
@@ -2346,6 +2377,54 @@ export const useExtractEventDataFromUrlMutation = <
       {
     mutationKey: ['extractEventDataFromUrl'],
     mutationFn: (variables?: ExtractEventDataFromUrlMutationVariables) => fetcher<ExtractEventDataFromUrlMutation, ExtractEventDataFromUrlMutationVariables>(client, ExtractEventDataFromUrlDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const ExtractionJobDocument = new TypedDocumentString(`
+    query extractionJob($id: ID!) {
+  extractionJob(id: $id) {
+    status
+    data {
+      eventName
+      types
+      categories
+      location
+      organizerName
+      contactInfo
+      description
+      schedules {
+        isMainSchedule
+        eventStartDate
+        eventEndDate
+        eventStartTime
+        eventEndTime
+        title
+        performers
+        location
+        ticketPrice
+      }
+    }
+    errorCode
+    errorMessage
+  }
+}
+    `);
+
+export const useExtractionJobQuery = <
+      TData = ExtractionJobQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: ExtractionJobQueryVariables,
+      options?: Omit<UseQueryOptions<ExtractionJobQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ExtractionJobQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<ExtractionJobQuery, TError, TData>(
+      {
+    queryKey: ['extractionJob', variables],
+    queryFn: fetcher<ExtractionJobQuery, ExtractionJobQueryVariables>(client, ExtractionJobDocument, variables, headers),
     ...options
   }
     )};

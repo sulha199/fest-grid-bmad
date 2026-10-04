@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { postGroupingReasonToGraphQL, POST_GROUPING_REASONS } from './types.js';
+import {
+  postGroupingReasonToGraphQL,
+  POST_GROUPING_REASONS,
+  MANUAL_EXTRACTION_JOB_STATUSES,
+  isManualExtractionJobTerminal,
+} from './types.js';
 
 test('postGroupingReasonToGraphQL - maps every DB grouping reason to its GraphQL enum member (Story 3.6u)', () => {
   assert.equal(postGroupingReasonToGraphQL('single-event'), 'SINGLE_EVENT');
@@ -16,4 +21,11 @@ test('postGroupingReasonToGraphQL - covers every member of the closed POST_GROUP
     assert.equal(typeof mapped, 'string');
     assert.ok(mapped.length > 0);
   }
+});
+
+test('isManualExtractionJobTerminal - only SUCCEEDED and FAILED are terminal (Story 4.2b)', () => {
+  const terminal = MANUAL_EXTRACTION_JOB_STATUSES.filter(isManualExtractionJobTerminal);
+  assert.deepEqual(terminal, ['SUCCEEDED', 'FAILED']);
+  assert.equal(isManualExtractionJobTerminal('PENDING'), false);
+  assert.equal(isManualExtractionJobTerminal('PROCESSING'), false);
 });

@@ -1374,7 +1374,11 @@ This document defines the core architectural invariants for the FestDaily applic
         and captured into `extraction_audit_logs` (AD-29) for evaluation — never written to
         `posts`/`EventInfo`, never GraphQL-exposed. `faceImageCount` is advisory/logging-only —
         general vision-language models are unreliable at precise counting in dense scenes and this
-        is never trusted for a hard cutoff.
+        is never trusted for a hard cutoff. **Amended 2026-10-04 (CC-028, Rule 10):** this
+        pre-filter applies only while blur-before-AI is off. When it is on, our own detection has
+        already run on every image before the call, so `hasFaceImage` is no longer a gate; it is
+        still requested and logged, but it describes an already-blurred image and must not be read
+        as a false-negative signal (IDEA-051).
     2.  **Relevance gate:** before running detection, compare the event's latest schedule end
         (max of `schedules[].eventEndDate`/`eventEndTime` across all extracted schedules, from
         this same Gemini response) against `posts.imageUrlExpiresAt` (AD-12 Rule 3, already
@@ -1382,7 +1386,10 @@ This document defines the core architectural invariants for the FestDaily applic
         itself expires, skip detection, blur, thumbnail generation, and storage entirely — the
         hotlinked original stays valid for the event's entire relevant display window. Distinct
         from `Event.isExpiredForCurrentUser`/`computePastEventThreshold` (a runtime, grace-period
-        visibility check) — this is a one-time build-time relevance check.
+        visibility check) — this is a one-time build-time relevance check. **Amended 2026-10-04
+        (CC-028, Rule 10):** with blur-before-AI on, detection runs before extraction, when no
+        dates exist yet, so this gate cannot skip detection; it still skips the thumbnail's
+        resize, upload and storage.
     3.  **Detection:** for images passing both gates, run `@vladmandic/face-api` (TensorFlow.js,
         pure npm, no native binaries; **backend amended 2026-10-03: the WASM backend,
         `tfjs-backend-wasm`** — the package's default Node entry `require`s the native
@@ -1452,6 +1459,30 @@ This document defines the core architectural invariants for the FestDaily applic
         response handling and custom expiry code, and Safari caps script-writable storage at 7
         days for non-installed sites, negating a 7-day SW ceiling there). Revisit only if offline
         image viewing becomes a requirement.
+    10. **Blur-before-AI — configurable (added 2026-10-04, CC-028; amends Rules 1-2 for the
+        mode-on case).** Google's Gemini API terms let it use content submitted through *unpaid*
+        keys, including images, to improve its products (with possible human review); paid keys
+        are not used that way. Extraction keys include subscribers' own keys whose billing tier is
+        not verified, so by default the vendor must not receive an unblurred face. A backend env
+        var `BLUR_FACES_BEFORE_AI` (boolean, **default on**; only an explicit `false` or `0` turns
+        it off, set explicitly per stage in the AI Lambda's IaC) decides whether the blur of Rules
+        3-4 runs **before** the extraction call. When on: (a) every image sent to Gemini — the
+        cover and each carousel slide, up to `MAX_CAROUSEL_IMAGES` — is detected and blurred at
+        original resolution first, one image at a time (peak memory stays that of one image), and
+        the *blurred* bytes are what go into the request; (b) **owner opt-in exception:** when the
+        post's owner — the account with role `PUBLISHER` on the post (`posts.accountId`, AD-31),
+        never a co-author — has `isImageStorageOptedIn = true` (any `imageStorageOptInSource`), the
+        original is sent unchanged and no pre-AI blur runs; a post whose publisher is unverified
+        (`PUBLISHER_UNKNOWN`) is not opted in; (c) **fail closed:** if detection or blur fails,
+        times out, or the remaining-time budget (`FACE_BLUR_MIN_REMAINING_TIME_MS`) is too low for
+        an image, that image is not sent — a failed slide is dropped and a failed cover sends the
+        caption text only (the existing text-only extraction path) — the original is never the
+        fallback; (d) the one detection pass is reused: the blurred cover bytes are what Rule 5
+        resizes into `durableThumbnailUrl`, so detection never runs twice for one image. When off,
+        or for an opted-in owner, the request is exactly what it was before this Rule. The opt-in
+        flag's meaning widens accordingly (PRD §4.5). A queued blur stage ahead of the AI queue was
+        considered and deferred (IDEA-057); eyes-only redaction was considered and deferred
+        (IDEA-058) — it is a much weaker de-identification and its extraction benefit is unmeasured.
 *   **Considered and rejected:** AWS Rekognition `DetectFaces` per-image (higher accuracy, ongoing
     per-image fee); batching multiple thumbnails into one Rekognition call (foreign buffering
     stage, risks a face silently escaping detection past the API's per-call face-count cap).
@@ -1500,6 +1531,17 @@ This document defines the core architectural invariants for the FestDaily applic
         also records `minEventCount` and `actualEventCount`. The shape of per-event completeness
         data (per-event `minScheduleCount`/`expectedScheduleNames` vs. persisted counts) is left to
         Stories 3.6s/3.6p — a story-level call, not an invariant.
+    7.  **Blur-before-AI, 2026-10-04 (AD-28 Rule 10, CC-028):** the row also records which image
+        the AI saw, as `aiImageInput` (`'blurred' | 'original_owner_opted_in' |
+        'original_mode_off' | 'text_only_fail_closed' | 'no_image_sent'`; the last, added by the
+        2026-10-04 readiness sweep, covers a request that carried no image at all, whether the post
+        has none or its fetch failed, so it is never mislabelled as an original or a fail-closed
+        drop). With the mode on, detection precedes the
+        call, so `actualFaceDetectionCount` is known at insert (no backfill); it is the **sum of
+        face counts across every image sent**, the only value comparable with the model's
+        all-slides `faceImageCount`. No new
+        `faceDetectionSkippedReason` is needed: an opted-in owner's pipeline is identical to the
+        mode-off pipeline.
 *   **Considered and rejected:** adding these fields directly as columns on `posts`/`events` —
     rejected once the audit requirement was raised, since no product surface consumes them and
     there would be no natural home for the ground-truth comparison columns this table exists to
