@@ -328,7 +328,7 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
       (dev done, commits `5600c460`..`1c78ed4b`, status `review`)
   - [x] create  - [x] dev  - [ ] review  - [x] re-run creates no duplicates (idempotency tests: `(post_id, extraction_ordinal)`, absent ordinal defaults to 0)
 
-## Wave 4A — Read side, weekday filter, auto-extraction (BUILT 2026-10-04; code review pending; batch-end gate in progress)
+## Wave 4A — Read side, weekday filter, auto-extraction (BUILT 2026-10-04; code review pending; batch-end gate run 2026-10-04, no new failures)
 
 **Dev batch (2026-10-02 to 2026-10-04):** orchestrator state `.batch-state-cc024-wave4a.json`
 (`_bmad-output/specs/ritual-session-orchestrator/mailbox-runner/`). Dispatch order **3.6y → 3.6z → 0.i6c → 3.16 → 0.i6g →
@@ -365,10 +365,26 @@ needs `--env-mode=loose` in this sandbox (the `next/font` Google Fonts fetch fai
 been emptied (0 users, 0 events) before the gate, which makes ~100 backend tests fail with "Should have at least 2 users"; the
 fix is `pnpm --filter @festgrid/database seed`, then re-run.
 
-**Batch-end gate (2026-10-04, `TZ=UTC`):** in progress. Whole-repo lint passed (exit 0). First test run: domain 417,
-visual-audit 41, graphql-select 41, database 10, analytics 2, ai-dev-orchestrator 68, UI 859 and web 568 all green;
-infrastructure 6/6 failed (the known `FestgridBackendStack` set); backend showed 106 of 880 failing before the database was
-re-seeded. The re-run after seeding, and the web build, are being recorded here once they finish.
+**Batch-end gate (2026-10-04, `TZ=UTC`, sandbox, after re-seeding the database):** **no new failure from Wave 4A.**
+- **Lint:** whole repo passes.
+- **Build:** the web app builds (`next build`, compile, type check and lint, 39/39 pages). The whole-repo `turbo build` still
+  stops on two sandbox-only items, neither caused by this wave: `next/font` cannot fetch Google Fonts under turbo's strict
+  env mode (it works once the proxy variables are passed through), and `@festgrid/ai-dev-orchestrator` shows TypeScript errors
+  in `src/core/node-context.test.ts` on a cache miss (this branch does not touch that package; it built on the first run,
+  from cache). Treat a clean whole-repo build as **not yet shown in this sandbox**; confirm it on the Windows machine.
+- **Tests (all green):** domain 417/417, UI 859/859, web 568/568, database 10/10, graphql-select 41/41, visual-audit 41/41,
+  analytics 2/2, ai-dev-orchestrator 68/68.
+- **Backend, run alone:** 979 tests, 955 pass, **22 fail, all known**: 17 geolocation/location tests that need
+  `GEOAPIFY_API_KEY`, the Bright Data `CAPACITY_EXHAUSTED` test (it runs against `.env.example` placeholders), and their 5
+  parent subtests. This is the same 22 recorded in Waves 2B and 4A's 3.6y.
+- **Infrastructure:** 5/6 pass; `FestgridBackendStack provisions correct resources` fails (a CDK assertion expects the number
+  `12` where the template holds the string `"12"`, Story 3.4p). Nothing under `apps/infrastructure` changed on this branch.
+- **Two environment traps hit while gating (both are test-environment, not code):** (1) the sandbox database had been emptied
+  (0 users), which made ~100 backend tests fail with "Should have at least 2 users" until `pnpm --filter @festgrid/database
+  seed` was run; (2) running the whole suite through turbo runs packages in parallel against the one shared database, which
+  made nine scraper tests fail with "Invalid time value" (they pass 13/15 run alone, only `CAPACITY_EXHAUSTED` fails). That is
+  FIND-064 again; run the backend suite on its own for a trustworthy count.
+- **Not yet confirmed:** the 3.6u hot-path EXPLAIN comparison (see the caveat above), and the whole-repo build on Windows.
 
 - [x] **3.6u** Show all source posts and related events on the event detail page — *needs 3.6r, 3.6t, 1.3j, 1.6c;
       coordinate with 0.i6g (coauthor attribution UI); 3.7h/3.7i recommended*
