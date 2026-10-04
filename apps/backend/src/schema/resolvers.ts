@@ -4183,6 +4183,8 @@ Constraints and Guidelines:
         originalPostUrl: posts.originalPostUrl,
         groupingReason: posts.groupingReason,
         extractedEventCount: posts.extractedEventCount,
+        platformPostId: posts.platformPostId,
+        postType: posts.platformPostType,
         accountId: socialMediaAccountProfiles.id,
         accountIdentifier: socialMediaAccountProfiles.accountId,
         accountPlatform: socialMediaAccountProfiles.platform,
@@ -4247,6 +4249,8 @@ Constraints and Guidelines:
         postedAt: row.postedAt instanceof Date ? row.postedAt.toISOString() : (row.postedAt || null),
         sourcePostUrl: row.sourcePostUrl || null,
         originalPostUrl: row.originalPostUrl || null,
+        platformPostId: row.platformPostId || null,
+        postType: row.postType || null,
         account: row.accountId ? {
           id: row.accountId,
           accountId: row.accountIdentifier,

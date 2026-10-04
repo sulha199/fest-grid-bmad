@@ -358,7 +358,9 @@ export type EventSourcePost = {
   groupingReason?: Maybe<PostGroupingReason>;
   isPrimary: Scalars['Boolean']['output'];
   originalPostUrl?: Maybe<Scalars['String']['output']>;
+  platformPostId?: Maybe<Scalars['String']['output']>;
   postId: Scalars['ID']['output'];
+  postType?: Maybe<Scalars['String']['output']>;
   postedAt?: Maybe<Scalars['String']['output']>;
   sourcePostUrl?: Maybe<Scalars['String']['output']>;
 };
@@ -1833,7 +1835,9 @@ export type EventSourcePostResolvers<ContextType = GraphQLContext, ParentType ex
   groupingReason?: Resolver<Maybe<ResolversTypes['PostGroupingReason']>, ParentType, ContextType>;
   isPrimary?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   originalPostUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  platformPostId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   postId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  postType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   postedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   sourcePostUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;

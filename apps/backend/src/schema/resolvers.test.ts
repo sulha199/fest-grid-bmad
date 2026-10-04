@@ -2213,6 +2213,8 @@ test('events resolver integration via Yoga', async (t) => {
         isExtracted: true,
         groupingReason: 'single-event',
         extractedEventCount: 1,
+        platformPostId: 'resolver_test_source_posts_primary',
+        platformPostType: 'p',
       }).returning();
       primaryPost = primary;
 
@@ -2316,6 +2318,8 @@ test('events resolver integration via Yoga', async (t) => {
                   isPrimary
                   groupingReason
                   extractedEventCount
+                  platformPostId
+                  postType
                   coauthors {
                     id
                     accountId
@@ -2335,6 +2339,8 @@ test('events resolver integration via Yoga', async (t) => {
 
       // Primary first.
       assert.strictEqual(sourcePosts[0].postId, primaryPost.id);
+      assert.strictEqual(sourcePosts[0].platformPostId, 'resolver_test_source_posts_primary');
+      assert.strictEqual(sourcePosts[0].postType, 'p');
       assert.strictEqual(sourcePosts[0].isPrimary, true);
       assert.strictEqual(sourcePosts[0].groupingReason, 'SINGLE_EVENT');
       assert.strictEqual(sourcePosts[0].extractedEventCount, 1);

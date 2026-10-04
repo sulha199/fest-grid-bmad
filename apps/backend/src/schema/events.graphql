@@ -162,6 +162,12 @@ type EventSourcePost {
   originalPostUrl: String
   account: SocialMediaAccountProfile
   coauthors: [SocialMediaAccountProfile!]!
+  # AC6's "See all N events" link (/posts/{platformSlug}/{postType}/{platformPostId}/events,
+  # AD-16's existing slug-segment convention) needs these two alongside account.platform --
+  # mirrors AD-16's own posts.platformPostId/platformPostType columns, parsed once at scrape
+  # time (parsePlatformPostIdentity), never re-derived here.
+  platformPostId: String
+  postType: String
 }
 
 type RelatedEventGroup {
