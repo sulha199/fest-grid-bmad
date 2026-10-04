@@ -15,6 +15,8 @@ export * from './TemporalFilterToggle';
 export * from './TemporalFilterToggle.types';
 export * from './WeeklyCalendarView';
 export * from './WeeklyCalendarView.types';
+export * from './EventCardCompact';
+export * from './EventCardCompact.types';
 export * from './LocationRadiusFilter';
 export * from './LocationRadiusFilter.types';
 export * from './CorrectionForm';

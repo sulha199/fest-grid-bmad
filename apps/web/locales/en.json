@@ -161,7 +161,11 @@
     "tomorrow": "Tomorrow",
     "yesterday": "Yesterday",
     "categoriesAndTypesAriaLabel": "Event categories and types",
-    "coauthorsListAriaLabel": "Co-authors"
+    "coauthorsListAriaLabel": "Co-authors",
+    "sourcePostsPrimaryLabel": "Primary",
+    "relatedEventsGroupLabel": "Events from {account}",
+    "relatedEventsSeeAllLabel": "See all {count} events",
+    "relatedEventsSectionAriaLabel": "Related events"
   },
   "EventReportForm": {
     "dialogTitle": "Report Event",

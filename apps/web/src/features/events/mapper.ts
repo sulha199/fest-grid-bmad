@@ -1,5 +1,5 @@
 import { GetEventBySlugQuery, GetMySubscriptionsQuery } from '@/generated/graphql';
-import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels, EventDetailViewCoauthor } from '@festgrid/ui';
+import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels, EventDetailViewCoauthor, EventDetailViewSourcePost } from '@festgrid/ui';
 import { useTranslations } from 'next-intl';
 import { getPlatformSlug } from '@festgrid/domain/scraper';
 
@@ -46,6 +46,9 @@ export function useEventDetailViewLabels(): EventDetailViewLabels {
     yesterday: t('yesterday'),
     categoriesAndTypesAriaLabel: t('categoriesAndTypesAriaLabel'),
     coauthorsListAriaLabel: t('coauthorsListAriaLabel'),
+    sourcePostsPrimaryLabel: t('sourcePostsPrimaryLabel'),
+    relatedEventsSeeAllLabel: (count: number) => t('relatedEventsSeeAllLabel', { count }),
+    relatedEventsSectionAriaLabel: t('relatedEventsSectionAriaLabel'),
   };
 }
 
@@ -103,6 +106,39 @@ export function mapGraphQLEventToDetailViewProps(
     accountHref: `/${getPlatformSlug(coauthor.platform as any)}/${coauthor.accountId}`,
     isSubscribed: !!mySubscriptions?.find((s) => s.account.accountId === coauthor.accountId),
     isTogglePending: pendingCoauthorAccountId === coauthor.accountId,
+  }));
+
+  // Story 3.6u (AC1/AC2/AC5) — supersedes the flat `coauthors` field for the multi-post
+  // rendering branch (Design Decision #1); every linked post, including the primary, maps its
+  // own `coauthors` here rather than ever reading the flat field for that branch.
+  const mappedSourcePosts: EventDetailViewSourcePost[] = (event.sourcePosts || []).map((sourcePost) => ({
+    postId: sourcePost.postId,
+    isPrimary: sourcePost.isPrimary,
+    groupingReason: sourcePost.groupingReason,
+    extractedEventCount: sourcePost.extractedEventCount,
+    postedAt: sourcePost.postedAt,
+    sourcePostUrl: sourcePost.sourcePostUrl,
+    originalPostUrl: sourcePost.originalPostUrl,
+    account: sourcePost.account
+      ? {
+          accountId: sourcePost.account.accountId,
+          platform: sourcePost.account.platform,
+          username: sourcePost.account.username,
+          displayName: sourcePost.account.displayName,
+          profileImageUrl: sourcePost.account.profileImageUrl,
+          accountHref: `/${getPlatformSlug(sourcePost.account.platform as any)}/${sourcePost.account.accountId}`,
+        }
+      : null,
+    coauthors: (sourcePost.coauthors || []).map((coauthor) => ({
+      accountId: coauthor.accountId,
+      platform: coauthor.platform,
+      displayName: coauthor.displayName,
+      username: coauthor.username,
+      profileImageUrl: coauthor.profileImageUrl,
+      accountHref: `/${getPlatformSlug(coauthor.platform as any)}/${coauthor.accountId}`,
+      isSubscribed: !!mySubscriptions?.find((s) => s.account.accountId === coauthor.accountId),
+      isTogglePending: pendingCoauthorAccountId === coauthor.accountId,
+    })),
   }));
 
   const mappedCategories = event.categories?.map((c) => ({
@@ -165,6 +201,7 @@ export function mapGraphQLEventToDetailViewProps(
       };
     })(),
     coauthors: mappedCoauthors,
+    sourcePosts: mappedSourcePosts,
     locale,
     labels,
   };

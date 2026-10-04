@@ -10,10 +10,24 @@ class MockResizeObserver {
 }
 global.ResizeObserver = MockResizeObserver;
 
+// Story 3.6u (Task 6) -- `intersectionObserverInstances` lets tests manually fire the
+// `useVisibleOnce` sentinel's intersection callback (the real hook, from `@festgrid/ui`, is left
+// unmocked -- only `EventDetailView` itself is wrapped below). `observe`/`unobserve`/`disconnect`
+// stay no-ops, matching every other pre-existing test in this file that never cares about
+// visibility.
+const intersectionObserverInstances: MockIntersectionObserver[] = []
 class MockIntersectionObserver {
+  callback: IntersectionObserverCallback
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback
+    intersectionObserverInstances.push(this)
+  }
   observe() {}
   unobserve() {}
   disconnect() {}
+  trigger(isIntersecting: boolean) {
+    this.callback([{ isIntersecting } as IntersectionObserverEntry], this as unknown as IntersectionObserver)
+  }
 }
 global.IntersectionObserver = MockIntersectionObserver as any;
 
@@ -118,10 +132,16 @@ let currentMockEvent = {
   isHiddenForCurrentUser: false,
   sourceSocialMediaAccountProfile: null as { accountId: string; platform: string; username: string; displayName: string; profileImageUrl: string | null } | null,
   coauthors: [] as { accountId: string; platform: string; username: string; displayName: string; profileImageUrl: string | null }[],
+  sourcePosts: [] as any[],
   schedules: [],
 }
 
 let currentMockSubscriptions: { id: string; account: { accountId: string } }[] = []
+
+// Story 3.6u (Task 6, AC6) -- `Query.relatedEventIds` mock result, configurable per test.
+let currentMockRelatedEventGroups: { postId: string; eventIds: string[] }[] = []
+let currentMockRelatedEventIdsDelayMs = 0
+const mockGetRelatedEventIdsHandler = vi.fn()
 
 // Deliberately not "old ± 1" -- proves the UI reads this server-supplied value
 // directly (AC3/BUG-008) rather than computing a local delta.
@@ -199,6 +219,15 @@ const handlers = [
           totalCount: rows.length,
         },
       },
+    })
+  }),
+  api.query("getRelatedEventIds", async () => {
+    mockGetRelatedEventIdsHandler()
+    if (currentMockRelatedEventIdsDelayMs > 0) {
+      await delay(currentMockRelatedEventIdsDelayMs)
+    }
+    return HttpResponse.json({
+      data: { relatedEventIds: currentMockRelatedEventGroups },
     })
   }),
   api.query("getMySubscriptions", () => {
@@ -343,6 +372,10 @@ describe("EventDetailWrapper", () => {
     currentMockEmbedForEventResult = null
     currentMockEmbedForEventDelayMs = 0
     mockGetInstagramEmbedForEventHandler.mockClear()
+    currentMockRelatedEventGroups = []
+    currentMockRelatedEventIdsDelayMs = 0
+    mockGetRelatedEventIdsHandler.mockClear()
+    intersectionObserverInstances.length = 0
     currentMockEvent = {
       id: "evt_1",
       eventName: "Test Event",
@@ -361,6 +394,7 @@ describe("EventDetailWrapper", () => {
       isHiddenForCurrentUser: false,
       sourceSocialMediaAccountProfile: null,
       coauthors: [],
+      sourcePosts: [],
       schedules: [
         {
           id: "sched_1",
@@ -1547,5 +1581,129 @@ describe("EventDetailWrapper", () => {
     if (originalDescriptor) {
       Object.defineProperty(navigator, "serviceWorker", originalDescriptor)
     }
+  })
+
+  describe("related events lazy load (Story 3.6u)", () => {
+    const triggerSentinelVisible = () => {
+      const observer = intersectionObserverInstances[intersectionObserverInstances.length - 1]
+      observer.trigger(true)
+    }
+
+    it("never fires relatedEventIds/events before the sentinel reports visible, then fires once it does", async () => {
+      currentMockEvent.sourcePosts = [
+        {
+          postId: "post-1",
+          isPrimary: true,
+          account: { accountId: "acct-1", platform: "instagram", username: "acct_one", displayName: "Acct One", profileImageUrl: null },
+        },
+      ]
+      currentMockRelatedEventGroups = [{ postId: "post-1", eventIds: ["evt_2"] }]
+
+      renderComponent()
+
+      expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+      // Not visible yet -- never fired.
+      expect(mockGetRelatedEventIdsHandler).not.toHaveBeenCalled()
+      expect(capturedEventDetailViewProps.relatedEventGroups).toBeUndefined()
+
+      triggerSentinelVisible()
+
+      await waitFor(() => {
+        expect(mockGetRelatedEventIdsHandler).toHaveBeenCalled()
+      })
+      await waitFor(() => {
+        expect(capturedEventDetailViewProps.relatedEventGroups).toEqual([
+          expect.objectContaining({ postId: "post-1", totalCount: 1 }),
+        ])
+      })
+      expect(capturedEventDetailViewProps.relatedEventGroups[0].events).toEqual([
+        expect.objectContaining({ id: "evt_2", slug: "second-event" }),
+      ])
+    })
+
+    it("never delays or blocks the primary eventBySlug render while the related-events queries are pending", async () => {
+      currentMockEvent.sourcePosts = [
+        {
+          postId: "post-1",
+          isPrimary: true,
+          account: { accountId: "acct-1", platform: "instagram", username: "acct_one", displayName: "Acct One", profileImageUrl: null },
+        },
+      ]
+      currentMockRelatedEventGroups = [{ postId: "post-1", eventIds: ["evt_2"] }]
+      currentMockRelatedEventIdsDelayMs = 50
+
+      renderComponent()
+
+      // The primary heading renders immediately, well before the (delayed) related-events
+      // fetch would ever resolve -- it is never awaited/gated on.
+      expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+      triggerSentinelVisible()
+
+      await waitFor(() => {
+        expect(capturedEventDetailViewProps.isRelatedEventsLoading).toBe(true)
+      })
+      // The primary content is already fully rendered -- isRelatedEventsLoading only governs
+      // the Related Events section's own skeleton, never the rest of the page.
+      expect(screen.getByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+      await waitFor(() => {
+        expect(capturedEventDetailViewProps.isRelatedEventsLoading).toBe(false)
+      })
+    })
+
+    it("labels each group from the already-loaded sourcePosts account data (no second account fetch) and builds the See-all href", async () => {
+      currentMockEvent.sourcePosts = [
+        {
+          postId: "post-1",
+          isPrimary: true,
+          platformPostId: "ig-post-1",
+          postType: "post",
+          account: { accountId: "acct-1", platform: "instagram", username: "acct_one", displayName: "Acct One", profileImageUrl: null },
+        },
+      ]
+      currentMockRelatedEventGroups = [{ postId: "post-1", eventIds: ["evt_2", "evt_3"] }]
+
+      renderComponent()
+      expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+      triggerSentinelVisible()
+
+      await waitFor(() => {
+        expect(capturedEventDetailViewProps.relatedEventGroups?.[0]?.events).toHaveLength(2)
+      })
+
+      const group = capturedEventDetailViewProps.relatedEventGroups[0]
+      expect(group.accountLabel).toBe("EventDetailsPage.relatedEventsGroupLabel")
+      expect(group.seeAllHref).toBe("/posts/ig/post/ig-post-1/events")
+      expect(group.totalCount).toBe(2)
+
+      // No second account-resolving query was ever registered for this flow -- `getEvents`
+      // (the only query the second step fires) never selects account/sourcePosts fields, and
+      // this test's handler list has no separate per-account query the label could come from.
+      expect(group.events.map((e: any) => e.id).sort()).toEqual(["evt_2", "evt_3"])
+    })
+
+    it("hides the section entirely when relatedEventIds resolves to no groups", async () => {
+      currentMockEvent.sourcePosts = []
+      currentMockRelatedEventGroups = []
+
+      renderComponent()
+      expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+      triggerSentinelVisible()
+
+      await waitFor(() => {
+        expect(mockGetRelatedEventIdsHandler).toHaveBeenCalled()
+      })
+      await waitFor(() => {
+        expect(capturedEventDetailViewProps.relatedEventGroups).toEqual([])
+      })
+      // The sentinel wrapper itself always renders (so `useVisibleOnce` has something to
+      // observe before any data exists, per EventDetailView's own design), but with zero
+      // groups there is nothing to render inside it -- no empty-state placeholder (AC6).
+      expect(screen.queryByText("EventDetailsPage.relatedEventsGroupLabel")).not.toBeInTheDocument()
+    })
   })
 })

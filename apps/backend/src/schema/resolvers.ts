@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import { alias } from 'drizzle-orm/pg-core';
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns, aiEventFilters, accountTypeClassificationReviews, postAccountAssociations } from '@festgrid/database';
+import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns, aiEventFilters, accountTypeClassificationReviews, postAccountAssociations, eventPosts } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly, getRequestedFieldNames } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator } from '../lib/auth/context.js';
 import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, gte, lte, isNull, ilike } from 'drizzle-orm';
@@ -27,7 +28,7 @@ import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAU
 import { transformGeminiResponseToEventFilter } from '@festgrid/domain/ai-event-filters';
 import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText } from '@festgrid/domain';
-import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError } from '@festgrid/domain/posts';
+import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError, postGroupingReasonToGraphQL } from '@festgrid/domain/posts';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
 import { triggerScrapeForAccount } from '../lib/scraper/trigger-scrape-for-account.js';
 import { decryptApiKey, encryptApiKey } from '../lib/ai-gateway/kms.js';
@@ -3805,6 +3806,35 @@ Constraints and Guidelines:
 
       return row;
     },
+    // Story 3.6u (AC3, AD-30 Rule 11) — a standalone, index-driven read of `event_posts`
+    // self-joined on `post_id`, excluding the subject event itself and any soft-deleted/merged
+    // candidate, grouped by `post_id` in JS. No new `Query.events` filter, no per-row field
+    // resolver (confirmed scoped by the batch readiness report) -- this is an ordinary top-level
+    // query reusing the existing `event_posts` PK/index.
+    relatedEventIds: async (_: any, { eventId }: { eventId: string }) => {
+      const ep1 = alias(eventPosts, 'ep1');
+      const rows = await db.select({
+        postId: eventPosts.postId,
+        eventId: eventPosts.eventId,
+      }).from(ep1)
+        .innerJoin(eventPosts, eq(eventPosts.postId, ep1.postId))
+        .innerJoin(events, eq(events.id, eventPosts.eventId))
+        .where(and(
+          eq(ep1.eventId, eventId),
+          ne(eventPosts.eventId, eventId),
+          isNull(events.deletedAt),
+          isNull(events.mergedIntoEventId)
+        ));
+
+      const groups = new Map<string, string[]>();
+      for (const row of rows as any[]) {
+        const list = groups.get(row.postId) ?? [];
+        list.push(row.eventId);
+        groups.set(row.postId, list);
+      }
+
+      return [...groups.entries()].map(([postId, eventIds]) => ({ postId, eventIds })) as any;
+    },
     instagramEmbedBySlug: async (_: any, { slug }: { slug: string }) => {
       const parsed = parsePlatformPrefixedEventSlug(slug);
       if (!parsed || parsed.platform !== 'instagram') {
@@ -4135,6 +4165,102 @@ Constraints and Guidelines:
         .orderBy(asc(postAccountAssociations.createdAt));
 
       return rows as any;
+    },
+    // Story 3.6u (AC1, AD-30 Rule 11) — every post linked to this event (not just the primary
+    // post), primary-first-then-link-order. Follows `batchScheduleRowsForEvents`'s batched-`IN`
+    // idiom (AD-17): one query over `event_posts`/`posts` keyed by `inArray(eventPosts.eventId,
+    // ...)` (a singleton array here since this field is confined to `getEventBySlug`'s singular
+    // lookup, AC1), grouped in JS, plus one batched-`IN` follow-up query for every linked post's
+    // own `coauthors` (keyed by `postId`, mirroring `Event.coauthors` above but per-post) --
+    // never a per-post-per-field N+1.
+    sourcePosts: async (parent: any, args: any, context: any, info: any) => {
+      const linkRows = await db.select({
+        postId: eventPosts.postId,
+        extractionOrdinal: eventPosts.extractionOrdinal,
+        linkCreatedAt: eventPosts.createdAt,
+        postedAt: posts.publishedAt,
+        sourcePostUrl: posts.postUrl,
+        originalPostUrl: posts.originalPostUrl,
+        groupingReason: posts.groupingReason,
+        extractedEventCount: posts.extractedEventCount,
+        platformPostId: posts.platformPostId,
+        postType: posts.platformPostType,
+        accountId: socialMediaAccountProfiles.id,
+        accountIdentifier: socialMediaAccountProfiles.accountId,
+        accountPlatform: socialMediaAccountProfiles.platform,
+        accountDisplayName: socialMediaAccountProfiles.displayName,
+        accountUsername: socialMediaAccountProfiles.username,
+        accountProfileImageUrl: socialMediaAccountProfiles.profileImageUrl,
+      }).from(eventPosts)
+        .innerJoin(posts, eq(eventPosts.postId, posts.id))
+        .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
+        .where(inArray(eventPosts.eventId, [parent.id]));
+
+      if (linkRows.length === 0) {
+        return [];
+      }
+
+      const postIds = linkRows.map((row: any) => row.postId);
+      const coauthorRows = await db.select({
+        postId: postAccountAssociations.postId,
+        id: socialMediaAccountProfiles.id,
+        accountId: socialMediaAccountProfiles.accountId,
+        platform: socialMediaAccountProfiles.platform,
+        displayName: socialMediaAccountProfiles.displayName,
+        username: socialMediaAccountProfiles.username,
+        profileImageUrl: socialMediaAccountProfiles.profileImageUrl,
+        createdAt: postAccountAssociations.createdAt,
+      }).from(postAccountAssociations)
+        .innerJoin(socialMediaAccountProfiles, eq(postAccountAssociations.accountId, socialMediaAccountProfiles.id))
+        .where(and(inArray(postAccountAssociations.postId, postIds), eq(postAccountAssociations.role, 'COAUTHOR')))
+        .orderBy(asc(postAccountAssociations.createdAt));
+
+      const coauthorsByPost = new Map<string, any[]>();
+      for (const row of coauthorRows as any[]) {
+        const list = coauthorsByPost.get(row.postId) ?? [];
+        list.push({
+          id: row.id,
+          accountId: row.accountId,
+          platform: row.platform,
+          displayName: row.displayName,
+          username: row.username,
+          profileImageUrl: row.profileImageUrl,
+        });
+        coauthorsByPost.set(row.postId, list);
+      }
+
+      const primaryFirst = (row: any) => (row.postId === parent.postId ? 0 : 1);
+      const sorted = [...linkRows].sort((a: any, b: any) => {
+        const primaryDiff = primaryFirst(a) - primaryFirst(b);
+        if (primaryDiff !== 0) return primaryDiff;
+        const ordinalA = a.extractionOrdinal ?? Number.MAX_SAFE_INTEGER;
+        const ordinalB = b.extractionOrdinal ?? Number.MAX_SAFE_INTEGER;
+        if (ordinalA !== ordinalB) return ordinalA - ordinalB;
+        const createdAtA = a.linkCreatedAt instanceof Date ? a.linkCreatedAt.getTime() : 0;
+        const createdAtB = b.linkCreatedAt instanceof Date ? b.linkCreatedAt.getTime() : 0;
+        return createdAtA - createdAtB;
+      });
+
+      return sorted.map((row: any) => ({
+        postId: row.postId,
+        isPrimary: row.postId === parent.postId,
+        groupingReason: row.groupingReason ? postGroupingReasonToGraphQL(row.groupingReason) : null,
+        extractedEventCount: row.extractedEventCount ?? null,
+        postedAt: row.postedAt instanceof Date ? row.postedAt.toISOString() : (row.postedAt || null),
+        sourcePostUrl: row.sourcePostUrl || null,
+        originalPostUrl: row.originalPostUrl || null,
+        platformPostId: row.platformPostId || null,
+        postType: row.postType || null,
+        account: row.accountId ? {
+          id: row.accountId,
+          accountId: row.accountIdentifier,
+          platform: row.accountPlatform,
+          displayName: row.accountDisplayName,
+          username: row.accountUsername,
+          profileImageUrl: row.accountProfileImageUrl,
+        } : null,
+        coauthors: coauthorsByPost.get(row.postId) ?? [],
+      })) as any;
     },
     schedules: async (parent: any, args: any, context: any, info: any) => {
       // Story 1.i1h (Task 3.4) — windowed-mode short-circuit. `Query.events`' windowed

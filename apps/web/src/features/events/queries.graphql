@@ -93,6 +93,31 @@ query getEventBySlug($slug: String!) {
       displayName
       profileImageUrl
     }
+    sourcePosts {
+      postId
+      isPrimary
+      groupingReason
+      extractedEventCount
+      postedAt
+      sourcePostUrl
+      originalPostUrl
+      platformPostId
+      postType
+      account {
+        accountId
+        platform
+        username
+        displayName
+        profileImageUrl
+      }
+      coauthors {
+        accountId
+        platform
+        username
+        displayName
+        profileImageUrl
+      }
+    }
     schedules {
       id
       isMainSchedule
@@ -123,6 +148,13 @@ query getEventBySlug($slug: String!) {
       registrationUrl
       applicableDaysOfWeek
     }
+  }
+}
+
+query getRelatedEventIds($eventId: ID!) {
+  relatedEventIds(eventId: $eventId) {
+    postId
+    eventIds
   }
 }
 
