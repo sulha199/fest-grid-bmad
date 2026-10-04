@@ -5,6 +5,7 @@ import { db } from '../db/client.js';
 import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns, aiEventFilters, accountTypeClassificationReviews, postAccountAssociations, eventPosts } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly, getRequestedFieldNames } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator } from '../lib/auth/context.js';
+import { buildEventAccountMatchCondition } from '../lib/events/event-account-match.js';
 import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, gte, lte, isNull, ilike } from 'drizzle-orm';
 import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
@@ -3084,7 +3085,16 @@ Constraints and Guidelines:
         categories: events.categories,
         sourceSocialMediaAccountId: events.sourceSocialMediaAccountId,
         postId: events.postId,
-        socialMediaAccountProfileId: posts.accountId,
+        // Story 3.6v (AD-31 Rule 4) -- routed through the shared account-match helper instead of
+        // a bare `posts.accountId` column comparison, so a filter by account matches an event
+        // linked to that account via ANY of its posts (`event_posts`), not only its current
+        // primary post -- required so an event promoted from a roundup stays matched against the
+        // account that originally posted about it. See drizzle-where.ts's `matchCondition`
+        // descriptor handling and `event-account-match.ts`.
+        socialMediaAccountProfileId: {
+          matchCondition: (accountIds: unknown[]) =>
+            or(...(accountIds as string[]).map((id) => buildEventAccountMatchCondition(id))) ?? sql`false`,
+        },
         hashtags: posts.hashtags, // mapped to joined table, #-prefixed search (added 2026-08-28)
         performers: schedules.performers, // mapped to joined table
         scheduleLocation: schedules.location, // to support filtering by schedule location
@@ -3134,14 +3144,17 @@ Constraints and Guidelines:
               activeOnly(calendarAdditions)
             ))
         ) : sql`false`,
+        // Story 3.6v (AD-31 Rule 4) -- routed through the shared account-match helper instead of
+        // a bare innerJoin on `posts.accountId` scoped to `events.postId` (the primary post
+        // only). The helper checks every post linked via `event_posts`, so an event promoted
+        // from a roundup account stays visible to the roundup account's subscribers.
         isFromSubscribedAccount: userId ? exists(
           db.select({ id: subscriptions.id })
             .from(subscriptions)
-            .innerJoin(posts, eq(subscriptions.accountId, posts.accountId))
             .where(and(
-              eq(posts.id, events.postId),
               eq(subscriptions.userId, userId),
-              activeOnly(subscriptions)
+              activeOnly(subscriptions),
+              buildEventAccountMatchCondition(subscriptions.accountId)
             ))
         ) : sql`false`,
         isReportedByCurrentUser: userId ? exists(
