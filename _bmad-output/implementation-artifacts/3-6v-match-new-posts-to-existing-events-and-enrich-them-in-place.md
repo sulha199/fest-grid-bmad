@@ -1,3 +1,7 @@
+---
+baseline_commit: abc934adecc1c2f57a5af022d2dc573d6d0c3691
+---
+
 # Story 3.6v: Match new posts to existing events and enrich them in place
 
 ## Story Details
@@ -32,7 +36,7 @@ So that a thin roundup entry becomes the detailed event when the organizer posts
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC1, AC5) — Schema: the suggested-match table and the deferred alias index.** In `packages/database/schema.ts`:
+- [x] **Task 1 (AC1, AC5) — Schema: the suggested-match table and the deferred alias index.** In `packages/database/schema.ts`:
   - Add `eventMatchCandidates` (table name `event_match_candidates`): `id: uuid().defaultRandom().primaryKey()`, `eventId: uuid('event_id').references(() => events.id, { onDelete: 'cascade' }).notNull()` (the newly-inserted, mid-confidence event), `candidateEventId: uuid('candidate_event_id').references(() => events.id, { onDelete: 'cascade' }).notNull()` (the existing event it may duplicate), `score: doublePrecision('score').notNull()`, `postId: uuid('post_id').references(() => posts.id, { onDelete: 'cascade' }).notNull()` (the post that produced the match, for moderator context), `...timestamps`. Indexes: `unique().on(t.eventId, t.candidateEventId)` (AC8 — idempotent re-run never duplicates a suggestion row) and `index(...).on(t.candidateEventId)` (Story 3.6w's future moderator-facing read path will list suggestions by candidate/target event). No `relations()` helper, matching the `eventPosts`/`postAccountAssociations` precedent. This table is written only by this story; it is **not** exposed via GraphQL here — reading/approving/rejecting it is Story 3.6w's own scope (see Out of Scope).
   - Add the index on `event_slug_aliases.eventId` explicitly deferred by Story 3.6r's own doc comment ("added when the actual redirect/alias-write path needs one"): `index('idx_event_slug_aliases_event_id').on(t.eventId)` — needed by this story's re-slug-on-promotion path to look up "does this event already have alias rows" (e.g. for the R→O→R reclaim case, AD-16 Rule 10's exception).
   - Generate (`pnpm --filter @festgrid/database generate`) and apply (`pnpm --filter @festgrid/database migrate`) locally; check the generated SQL into the repo (next sequential migration after `0069_noisy_hairball.sql`).

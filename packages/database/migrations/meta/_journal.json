@@ -491,6 +491,13 @@
       "when": 1791037283321,
       "tag": "0069_noisy_hairball",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "6",
+      "when": 1791089971715,
+      "tag": "0070_hot_captain_marvel",
+      "breakpoints": true
     }
   ]
 }
