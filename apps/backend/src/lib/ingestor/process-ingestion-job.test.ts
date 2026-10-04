@@ -1,8 +1,8 @@
 import test from 'node:test';
 import * as assert from 'node:assert';
 import { db } from '../../db/client.js';
-import { socialMediaAccountProfiles, posts, events, schedules, eventPosts } from '@festgrid/database';
-import { eq, inArray } from 'drizzle-orm';
+import { socialMediaAccountProfiles, posts, events, schedules, eventPosts, eventMatchCandidates, eventSlugAliases } from '@festgrid/database';
+import { and, eq, inArray } from 'drizzle-orm';
 import { processIngestionJob } from './process-ingestion-job.js';
 import { ExtractedEventMessage } from '@festgrid/domain';
 import { EventType, EventCategory } from '@festgrid/shared-types';
@@ -210,6 +210,63 @@ test('processIngestionJob integration tests', async (t) => {
     .returning();
   const seededPost10 = post10;
 
+  // Story 3.6v (AC1) — an eleventh/twelfth seeded post pair used for the high-score match test:
+  // post11 seeds the event, post12's extraction should enrich it in place instead of inserting.
+  const postId11 = 'post-ingest-11-' + Date.now();
+  const [post11] = await db
+    .insert(posts)
+    .values({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'A post used to seed the high-score match target',
+      postUrl: 'https://instagram.com/p/' + postId11,
+      publishedAt: new Date('2026-01-01T00:00:00Z'),
+    })
+    .returning();
+  const seededPost11 = post11;
+
+  const postId12 = 'post-ingest-12-' + Date.now();
+  const [post12] = await db
+    .insert(posts)
+    .values({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'A post whose extraction should high-score-match post11\'s event',
+      postUrl: 'https://instagram.com/p/' + postId12,
+      publishedAt: new Date('2026-01-01T01:00:00Z'),
+    })
+    .returning();
+  const seededPost12 = post12;
+
+  // Story 3.6v (AC1) — a thirteenth/fourteenth seeded post pair used for the mid-score match
+  // test: post14's extraction should insert its OWN new event, plus one event_match_candidates
+  // suggestion row pointing at post13's event.
+  const postId13 = 'post-ingest-13-' + Date.now();
+  const [post13] = await db
+    .insert(posts)
+    .values({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'A post used to seed the mid-score match target',
+      postUrl: 'https://instagram.com/p/' + postId13,
+      publishedAt: new Date('2026-01-01T00:00:00Z'),
+    })
+    .returning();
+  const seededPost13 = post13;
+
+  const postId14 = 'post-ingest-14-' + Date.now();
+  const [post14] = await db
+    .insert(posts)
+    .values({
+      accountId: profile.id,
+      platform: 'instagram',
+      content: 'A post whose extraction should mid-score-match post13\'s event',
+      postUrl: 'https://instagram.com/p/' + postId14,
+      publishedAt: new Date('2026-01-01T01:00:00Z'),
+    })
+    .returning();
+  const seededPost14 = post14;
+
   // Cleanup: delete schedules, events, posts, profiles
   t.after(async () => {
     const allSeededPostIds = [
@@ -223,6 +280,10 @@ test('processIngestionJob integration tests', async (t) => {
       seededPost8.id,
       seededPost9.id,
       seededPost10.id,
+      seededPost11.id,
+      seededPost12.id,
+      seededPost13.id,
+      seededPost14.id,
     ];
 
     // delete all schedules/event_posts linked to events we might have inserted
@@ -233,6 +294,9 @@ test('processIngestionJob integration tests', async (t) => {
 
     const eventIds = createdEvents.map((e) => e.id);
     if (eventIds.length > 0) {
+      await db.delete(eventMatchCandidates).where(inArray(eventMatchCandidates.eventId, eventIds));
+      await db.delete(eventMatchCandidates).where(inArray(eventMatchCandidates.candidateEventId, eventIds));
+      await db.delete(eventSlugAliases).where(inArray(eventSlugAliases.eventId, eventIds));
       await db.delete(schedules).where(inArray(schedules.eventId, eventIds));
       await db.delete(eventPosts).where(inArray(eventPosts.eventId, eventIds));
       await db.delete(events).where(inArray(events.id, eventIds));
@@ -609,5 +673,143 @@ test('processIngestionJob integration tests', async (t) => {
     assert.strictEqual(insertedEvent.detailLevel, 'full');
     assert.ok(insertedEvent.notifiedAt, 'notifiedAt should be non-null after a successful notify');
     assert.strictEqual(notifyCallCount, 1, 'A normal post should trigger exactly one notification send');
+  });
+
+  await t.test('Story 3.6v (AC1): a high-score match enriches the existing event in place instead of inserting a new row', async () => {
+    const sharedSuffix = Date.now();
+    const seedMessage = baseExtractedEventMessage({
+      postId: seededPost11.id,
+      sourceSocialMediaAccountId: accountId,
+      eventName: 'High Score Match Event ' + sharedSuffix,
+      location: 'Original Location',
+      links: [{ url: 'https://tickets.example.com/high-' + sharedSuffix }],
+      schedules: [{ isMainSchedule: true, eventStartDate: '2026-09-01', location: 'Shared Venue' }],
+    });
+
+    const seedRes = await processIngestionJob(seedMessage);
+    assert.strictEqual(seedRes.inserted, true);
+    const [seedEvent] = await db.select().from(events).where(eq(events.postId, seededPost11.id));
+    assert.ok(seedEvent);
+
+    // Same name, same date, same shared link, same venue -- organizer (0.40) + sharedLink
+    // (0.20) + dateNameSimilarity (~0.25) + venue (0.15) is at or near the maximum score, well
+    // above the 0.75 high threshold regardless of exact trigram-similarity rounding.
+    const matchMessage = baseExtractedEventMessage({
+      postId: seededPost12.id,
+      sourceSocialMediaAccountId: accountId,
+      eventName: 'High Score Match Event ' + sharedSuffix,
+      location: 'Enriched Location',
+      links: [{ url: 'HTTPS://TICKETS.EXAMPLE.COM/high-' + sharedSuffix + '/' }],
+      schedules: [{ isMainSchedule: true, eventStartDate: '2026-09-01', location: 'shared venue' }],
+    });
+
+    const matchRes = await processIngestionJob(matchMessage);
+    assert.strictEqual(matchRes.inserted, true);
+
+    // No new event row for post12 -- only the one seeded event exists for this pair.
+    const allEventsForPair = await db
+      .select()
+      .from(events)
+      .where(inArray(events.postId, [seededPost11.id, seededPost12.id]));
+    assert.strictEqual(allEventsForPair.length, 1);
+    assert.strictEqual(allEventsForPair[0].id, seedEvent.id);
+
+    // Enrichment applied in place.
+    assert.strictEqual(allEventsForPair[0].location, 'Enriched Location');
+
+    // event_posts gains the new post's link (2 rows total for the one event: post11 + post12).
+    const links = await db.select().from(eventPosts).where(eq(eventPosts.eventId, seedEvent.id));
+    assert.strictEqual(links.length, 2);
+    assert.ok(links.some((l) => l.postId === seededPost11.id));
+    assert.ok(links.some((l) => l.postId === seededPost12.id));
+
+    // AC8: re-sending the exact same (postId, extractionOrdinal) a second time is an idempotent
+    // skip -- no duplicate event, link, or suggestion row.
+    const rerunRes = await processIngestionJob(matchMessage);
+    assert.strictEqual(rerunRes.inserted, false);
+
+    const linksAfterRerun = await db.select().from(eventPosts).where(eq(eventPosts.eventId, seedEvent.id));
+    assert.strictEqual(linksAfterRerun.length, 2, 'Resending the matched message must not duplicate the event_posts link');
+
+    const allEventsAfterRerun = await db
+      .select()
+      .from(events)
+      .where(inArray(events.postId, [seededPost11.id, seededPost12.id]));
+    assert.strictEqual(allEventsAfterRerun.length, 1, 'Resending the matched message must not create a duplicate event');
+  });
+
+  await t.test('Story 3.6v (AC1): a mid-score match inserts a new event AND writes exactly one event_match_candidates row', async () => {
+    const midSuffix = Date.now();
+    const seedMessage = baseExtractedEventMessage({
+      postId: seededPost13.id,
+      sourceSocialMediaAccountId: accountId,
+      eventName: 'Mid Score Seed Event ' + midSuffix,
+      schedules: [{ isMainSchedule: true, eventStartDate: '2026-10-01' }],
+    });
+    const seedRes = await processIngestionJob(seedMessage);
+    assert.strictEqual(seedRes.inserted, true);
+    const [seedEvent] = await db.select().from(events).where(eq(events.postId, seededPost13.id));
+    assert.ok(seedEvent);
+
+    // Same account (organizerMatch 0.40) and the IDENTICAL name (nameSim exactly 1.0, removing
+    // any trigram-threshold flakiness) but a date 1 day apart (dateProximity 0.5) -- no shared
+    // link, no venue match -- caps the composite score at 0.4 + 0.25*avg(1, 0.5) = 0.5875,
+    // squarely inside the 0.45-0.75 mid band and well below the 0.75 high threshold.
+    const midMessage = baseExtractedEventMessage({
+      postId: seededPost14.id,
+      sourceSocialMediaAccountId: accountId,
+      eventName: 'Mid Score Seed Event ' + midSuffix,
+      schedules: [{ isMainSchedule: true, eventStartDate: '2026-10-02' }], // 1 day apart
+    });
+
+    const midRes = await processIngestionJob(midMessage);
+    assert.strictEqual(midRes.inserted, true);
+
+    // A NEW event row was inserted for post14 (not an enrichment of post13's event).
+    const [midEvent] = await db.select().from(events).where(eq(events.postId, seededPost14.id));
+    assert.ok(midEvent);
+    assert.notStrictEqual(midEvent.id, seedEvent.id);
+
+    // Exactly one suggestion row, pointing the new event at the seed candidate.
+    const suggestions = await db
+      .select()
+      .from(eventMatchCandidates)
+      .where(and(eq(eventMatchCandidates.eventId, midEvent.id), eq(eventMatchCandidates.candidateEventId, seedEvent.id)));
+    assert.strictEqual(suggestions.length, 1);
+    assert.ok(suggestions[0].score >= 0.45 && suggestions[0].score < 0.75, `expected a mid-tier score, got ${suggestions[0].score}`);
+
+    // AC8: re-sending the same message a second time writes no duplicate suggestion row.
+    await processIngestionJob(midMessage);
+    const suggestionsAfterRerun = await db
+      .select()
+      .from(eventMatchCandidates)
+      .where(and(eq(eventMatchCandidates.eventId, midEvent.id), eq(eventMatchCandidates.candidateEventId, seedEvent.id)));
+    assert.strictEqual(suggestionsAfterRerun.length, 1, 'Resending the same message must not duplicate the suggestion row');
+  });
+
+  await t.test('Story 3.6v (AC1): a low-score/no-candidate case is unchanged from pre-story behavior', async () => {
+    // A wholly unique name/date with nothing else in the suite sharing it -- no SQL candidate
+    // passes the trigram pre-filter at all, so findMatchingEvent returns null and the plain
+    // insert path (identical to pre-story behavior) is taken.
+    const message = baseExtractedEventMessage({
+      postId: seededPost10.id, // reuses an already-ingested post; extractionOrdinal defaults to 0
+      sourceSocialMediaAccountId: accountId,
+      eventName: 'Zzyx Qvwk No Candidate Event ' + Date.now(),
+      extractionOrdinal: 7,
+      schedules: [{ isMainSchedule: true, eventStartDate: '2026-11-15' }],
+    });
+
+    const res = await processIngestionJob(message);
+    assert.strictEqual(res.inserted, true);
+
+    const [insertedEvent] = await db
+      .select()
+      .from(events)
+      .where(and(eq(events.postId, seededPost10.id), eq(events.extractionOrdinal, 7)));
+    assert.ok(insertedEvent);
+    assert.strictEqual(insertedEvent.eventName, message.eventName);
+
+    const matchCandidateRows = await db.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.eventId, insertedEvent.id));
+    assert.strictEqual(matchCandidateRows.length, 0, 'No suggestion row should be written for a low/no-candidate insert');
   });
 });

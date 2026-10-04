@@ -1,23 +1,45 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '../../db/client.js';
-import { schedules, posts } from '@festgrid/database';
+import { schedules, posts, eventPosts, eventMatchCandidates } from '@festgrid/database';
 import { ExtractedEventMessage, buildEventInsertValues } from '@festgrid/domain';
-import { insertEventWithPrimaryPost } from '../events/set-event-primary-post.js';
+import { insertEventWithPrimaryPost, enrichAndPromoteEvent } from '../events/set-event-primary-post.js';
 import { notifyNewEvent } from '../events/notify-new-event.js';
 import { isOrganizerAuthoredPost } from '../posts/is-organizer-authored-post.js';
+import { findMatchingEvent } from '../events/match-event-to-existing.js';
 
 export async function processIngestionJob(message: ExtractedEventMessage): Promise<{ inserted: boolean }> {
   let insertedEvent: any = null;
   let shouldNotify = false;
 
   const result = await db.transaction(async (tx) => {
+    const extractionOrdinal = message.extractionOrdinal ?? 0;
+
+    // Story 3.6v (AC1) -- the idempotency lookup runs BEFORE matching, on the exact same key
+    // insertEventWithPrimaryPost's own onConflictDoNothing already enforces
+    // ((postId, extractionOrdinal)) -- a hit means this exact item is already represented, and
+    // matching must never re-run redundantly on a redelivery (SQS at-least-once). This is purely
+    // an early-exit optimization: the observed outcome for an already-covered redelivery is
+    // identical to before this story (an idempotent skip), only reached one query sooner.
+    const [existingLink] = await tx
+      .select({ eventId: eventPosts.eventId })
+      .from(eventPosts)
+      .where(and(eq(eventPosts.postId, message.postId), eq(eventPosts.extractionOrdinal, extractionOrdinal)))
+      .limit(1);
+
+    if (existingLink) {
+      console.log(`Skipped duplicate ingestion for postId: ${message.postId}, extractionOrdinal: ${extractionOrdinal}`);
+      return { inserted: false };
+    }
+
     // Story 3.7g — look up the source post's platform identity inside this transaction (so it
     // sees a consistent view alongside the insert below) and pass it into
     // buildEventInsertValues() so it can derive a platform-prefixed slug (AD-16 Rules 1/3/4).
     // Moved inside the transaction because buildEventInsertValues() now depends on this DB read.
     // Story 3.6t — also select groupingReason, needed for the stub/notify decision below.
+    // Story 3.6v — also select accountId, needed as the matching pass's organizer-match input.
     const [sourcePost] = await tx
       .select({
+        accountId: posts.accountId,
         platform: posts.platform,
         platformPostId: posts.platformPostId,
         platformPostType: posts.platformPostType,
@@ -38,6 +60,41 @@ export async function processIngestionJob(message: ExtractedEventMessage): Promi
 
     const { event, schedules: scheduleValues } = buildEventInsertValues(message, sourcePost ?? null, isStub ? 'stub' : undefined);
 
+    // Story 3.6v (AC1, Amendment) — organizerHandle defaults to the *posting* account for a
+    // roundup/curator-sourced item (Story 3.6s's extraction prompt), which would falsely
+    // inflate a match score against an unrelated event the curator/aggregator also covered.
+    // Discount it to `undefined` in exactly that case -- reusing isRoundupSourced/isCuratorSourced
+    // already computed above, never re-derived.
+    const organizerHandleForMatching = isRoundupSourced || isCuratorSourced ? undefined : message.organizerHandle;
+
+    const match = sourcePost
+      ? await findMatchingEvent(
+          tx,
+          event,
+          scheduleValues,
+          { accountId: sourcePost.accountId, groupingReason: sourcePost.groupingReason },
+          organizerHandleForMatching
+        )
+      : null;
+
+    if (match && match.tier === 'high') {
+      // Story 3.6v (AC1, AC2, AC4, AC5, AC7) — enrich the matched event in place and promote the
+      // new post to primary if it wins AD-30 Rule 7's ordering; no new `events` row.
+      const { event: enrichedEvent, becameOrganizerAuthored } = await enrichAndPromoteEvent(
+        tx,
+        match.candidate,
+        event,
+        scheduleValues,
+        message.postId,
+        extractionOrdinal
+      );
+
+      insertedEvent = enrichedEvent;
+      shouldNotify = becameOrganizerAuthored;
+
+      return { inserted: true };
+    }
+
     // Story 3.6r / AD-30 Rule 2 — the only two call sites allowed to write `events.postId` are
     // insertEventWithPrimaryPost and setEventPrimaryPost (set-event-primary-post.ts), enforced by
     // events-postid-write-ratchet.test.ts. The conflict target is now the composite
@@ -46,7 +103,7 @@ export async function processIngestionJob(message: ExtractedEventMessage): Promi
     const insertedRow = await insertEventWithPrimaryPost(tx, event);
 
     if (!insertedRow) {
-      console.log(`Skipped duplicate ingestion for postId: ${message.postId}, extractionOrdinal: ${message.extractionOrdinal ?? 0}`);
+      console.log(`Skipped duplicate ingestion for postId: ${message.postId}, extractionOrdinal: ${extractionOrdinal}`);
       return { inserted: false };
     }
 
@@ -60,6 +117,20 @@ export async function processIngestionJob(message: ExtractedEventMessage): Promi
       }));
 
       await tx.insert(schedules).values(schedulesToInsert);
+    }
+
+    if (match && match.tier === 'mid') {
+      // Story 3.6v (AC1, AC8) — queue a suggested-match record for moderator review (Story
+      // 3.6w's own scope to read it); idempotent on (eventId, candidateEventId) re-run.
+      await tx
+        .insert(eventMatchCandidates)
+        .values({
+          eventId: insertedEvent.id,
+          candidateEventId: match.candidate.id,
+          score: match.score,
+          postId: message.postId,
+        })
+        .onConflictDoNothing({ target: [eventMatchCandidates.eventId, eventMatchCandidates.candidateEventId] });
     }
 
     return { inserted: true };
