@@ -7,7 +7,7 @@ import { resolvers, setEventsAuthProbe, eventsAuthProbe } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db, enableQueryDebug, resetExecutedQueryCount, getExecutedQueryCount } from '../db/client.js';
-import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, calendarAdditions, unprocessedScraperPayloads, instagramOembedCache, accountVotes, postAccountAssociations, eventPosts } from '@festgrid/database';
+import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, calendarAdditions, unprocessedScraperPayloads, instagramOembedCache, accountVotes, postAccountAssociations, eventPosts, eventSlugAliases } from '@festgrid/database';
 import { eq, inArray, count, sql } from 'drizzle-orm';
 import { ENDED_CASE_FIXTURES } from '@festgrid/domain/events';
 
@@ -4288,4 +4288,73 @@ test('Schedule.applicableDaysOfWeek round-trips via the existing buildOptimizedD
   assert.ok(matchingItem, 'seeded event should appear in the events() connection');
   const matchingSchedule = matchingItem.schedules.find((s: any) => s.id === schedule.id);
   assert.deepStrictEqual(matchingSchedule?.applicableDaysOfWeek, ['MON'], 'applicableDaysOfWeek should round-trip through the events() batched schedules path with no new resolver code');
+});
+
+test('eventBySlug - event_slug_aliases fallback (Story 3.6v, AC5/AC6)', async (t) => {
+  mockUser = null;
+
+  const [event] = await db.insert(events).values({
+    eventName: '3.6v alias-fallback event',
+    location: 'Test City',
+  }).returning();
+
+  const aliasSlug = 'old-slug-' + crypto.randomUUID();
+  await db.insert(eventSlugAliases).values({ slug: aliasSlug, eventId: event.id });
+
+  t.after(async () => {
+    await db.delete(eventSlugAliases).where(eq(eventSlugAliases.eventId, event.id));
+    await db.delete(events).where(eq(events.id, event.id));
+    enableQueryDebug(false);
+    mockUser = null;
+  });
+
+  const query = `
+    query GetEventBySlug($slug: String!) {
+      eventBySlug(slug: $slug) {
+        id
+        slug
+      }
+    }
+  `;
+
+  async function runEventBySlugQuery(slug: string) {
+    enableQueryDebug(true);
+    resetExecutedQueryCount();
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, variables: { slug } }),
+    });
+    const count = getExecutedQueryCount();
+    enableQueryDebug(false);
+    const result = await response.json();
+    return { result, count };
+  }
+
+  // A direct canonical-slug hit never touches event_slug_aliases at all.
+  const direct = await runEventBySlugQuery(event.slug);
+  assert.ok(!direct.result.errors, `GraphQL errors returned: ${JSON.stringify(direct.result.errors)}`);
+  assert.strictEqual(direct.result.data.eventBySlug.id, event.id);
+  assert.strictEqual(direct.result.data.eventBySlug.slug, event.slug);
+
+  // A slug miss that hits an alias returns the SAME canonical event, transparently -- same
+  // shape as a direct hit, with its own (different) slug intact. Two extra queries versus the
+  // direct-hit path above: the initial (failed) slug select still runs once, then the alias
+  // lookup, then the second select keyed on the alias's eventId.
+  const viaAlias = await runEventBySlugQuery(aliasSlug);
+  assert.ok(!viaAlias.result.errors, `GraphQL errors returned: ${JSON.stringify(viaAlias.result.errors)}`);
+  assert.ok(viaAlias.result.data.eventBySlug, 'alias hit should resolve to the canonical event, not null');
+  assert.strictEqual(viaAlias.result.data.eventBySlug.id, event.id);
+  assert.strictEqual(viaAlias.result.data.eventBySlug.slug, event.slug);
+  assert.notStrictEqual(
+    viaAlias.result.data.eventBySlug.slug,
+    aliasSlug,
+    'the returned slug must disagree with the requested (alias) slug -- this disagreement is the redirect signal Task 7 detects'
+  );
+  assert.strictEqual(viaAlias.count, direct.count + 2, 'an alias hit costs exactly two extra queries versus a direct hit (the alias lookup plus the second select)');
+
+  // A slug miss that ALSO misses as an alias still returns null, unchanged from today.
+  const missBoth = await runEventBySlugQuery('neither-a-slug-nor-an-alias-' + crypto.randomUUID());
+  assert.ok(!missBoth.result.errors, `GraphQL errors returned: ${JSON.stringify(missBoth.result.errors)}`);
+  assert.strictEqual(missBoth.result.data.eventBySlug, null);
 });
