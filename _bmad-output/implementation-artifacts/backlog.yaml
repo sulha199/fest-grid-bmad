@@ -1760,12 +1760,21 @@ items:
      note: "Addressed by CC-024 (stories 3.6r-3.6t, 3.6u-3.6x); needs AD-30 (bmad-architecture) before 3.6r, then bmad-create-story."}
 
   BUG-052:
-    {type: bug, status: backlog, created: 2026-09-30,
+    {type: bug, status: promoted, created: 2026-09-30,
      impact: user-visible, effort: l,
      title: "No duplicate-event detection across posts/accounts",
      ref: [planning-artifacts/sprint-change-proposal-2026-10-01-multi-event-posts.md],
+     stories: [3-6v-match-new-posts-to-existing-events-and-enrich-them-in-place],
      touches: [cross:ai-extraction, app:backend, cross:architecture],
-     note: "Addressed by CC-024 (stories 3.6v matching/enrichment, 3.6w merge); needs AD-30 and Stories 3.13-3.15 first."}
+     note: "Matching/scoring/auto-link/enrichment-in-place promoted to Story 3.6v (ready-for-dev). Moderator merge/undo half carved out as BUG-055 (Story 3.6w, not yet created)."}
+
+  BUG-055:
+    {type: bug, status: backlog, created: 2026-10-04, parent: BUG-052,
+     impact: user-visible, effort: m,
+     title: "No moderator merge/undo action for mid-confidence duplicate-event matches",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-01-multi-event-posts.md],
+     touches: [cross:ai-extraction, app:backend, web:moderation, cross:architecture],
+     note: "Carved from BUG-052 at Story 3.6v's bmad-create-story time: 3.6v only writes mid-confidence suggestions (event_match_candidates, no UI); the merge/undo review action is Story 3.6w (depends on 3.6v, 4.7b), not yet created."}
 
 
   # ── 2026-10-01 (bmad-correct-course: multi-event posts + cross-post matching) ─────────

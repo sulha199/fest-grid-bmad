@@ -3460,6 +3460,8 @@ without paying for a separate detection call on every extracted image.
 
 **Depends on:** Story 3.6t, Stories 3.13–3.15 (roles), Story 3.4n, Stories 3.7g and 3.7h (slug builder and DB-free embed, which a re-slug must keep correct).
 
+**Amendment (2026-10-04, `bmad-create-story`, CC-024 Wave 4B):** The first AC's organizer-account scoring signal is narrowed: `organizerHandle` must be **discounted/ignored** when the new item's source post is roundup-sourced (`posts.grouping_reason = 'roundup'`) or curator-sourced (posting account `accountType = 'CURATOR_GUIDE'`). Story 3.6s's extraction prompt sets `organizerHandle` to the *posting* account when no handle is explicitly tagged on an item (by design, so the handle survives the curator caption being nulled by Story 3.4o) — for a roundup/curator-sourced item that is the curator/aggregator, not the real organizer, and must not be allowed to falsely inflate a match score. Both signals the discount needs (`posts.grouping_reason`, and the curator check underlying `isOrganizerAuthoredPost`) are already computed by `processIngestionJob` (Story 3.6t) and are reused, not re-derived. See `3-6v-match-new-posts-to-existing-events-and-enrich-them-in-place.md` for the full as-built design (candidate query/scoring, the AD-31 Rule 4 helper, promotion/enrichment, and the `eventBySlug`/Next.js redirect wiring).
+
 ### Story 3.6w: Let moderators merge duplicate events, with slug redirects
 
 **As a** moderator,
