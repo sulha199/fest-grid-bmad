@@ -1,13 +1,19 @@
 import React from 'react';
 import { MapPin, CalendarDays, CalendarPlus, ExternalLink, Heart, User, DollarSign, MoreVertical, AlertCircle, Instagram, Phone, Link as LinkIcon } from 'lucide-react';
 import { detectPlatformFromUrl } from '@festgrid/domain';
-import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels, EventDetailViewCoauthor } from './EventDetailView.types';
+import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels, EventDetailViewCoauthor, EventDetailViewSourcePost, EventDetailViewRelatedEventGroup, EventDetailViewRelatedEvent } from './EventDetailView.types';
 import { EventImage } from './EventImage';
 import { InstagramEmbed } from './InstagramEmbed';
 import { SubscribedAccountCard } from '../subscriptions';
 import { PlatformIcon } from '../../core/platform-icon';
 import { LocationLink } from '../../core/LocationLink';
-import { formatShortEventDateTime } from './format-event-date';
+import { formatShortEventDateTime, computeCalendarSegmentDateBoxContent } from './format-event-date';
+import { EventCardCompact } from './EventCardCompact';
+
+/** Story 3.6u (AC6) — how many events render inline per Related Events group before the
+ * "See all N" link takes over. Not a prop: EXPERIENCE.md §3 fixes this at 5, same as the
+ * server-side cap documented in AC6's own text. */
+const RELATED_EVENTS_INLINE_CAP = 5;
 
 /**
  * EventDetailView is a reusable, presentation-only component that displays
@@ -57,6 +63,11 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   coauthors,
   onSubscribeToCoauthor,
   onUnsubscribeFromCoauthor,
+  sourcePosts,
+  relatedEventGroups,
+  isRelatedEventsLoading = false,
+  relatedEventsSentinelRef,
+  onRelatedEventClick,
   loading = false,
   error = null,
   locale = 'en-US',
@@ -79,6 +90,17 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   const menuTriggerRef = React.useRef<HTMLButtonElement>(null);
 
   const [timezoneStates, setTimezoneStates] = React.useState<Record<string, { value: string }>>({})
+
+  // Story 3.6u (AC6) — this is not a calendar surface (no "currently visible week" concept), so
+  // `computeCalendarSegmentDateBoxContent`'s `currentDayStr` is always just today, computed the
+  // same way every other `todayStr` call site in this codebase already does
+  // (`new Date().toISOString().split('T')[0]`, e.g. `CalendarView.tsx`/`FeedCalendarView.tsx`).
+  // Hoisted above the `loading`/`error` early returns below (Rules of Hooks — a hook may never
+  // sit after a conditional return, since the same mounted `EventDetailView` instance transitions
+  // between `loading`/`error`/data on every real page load, e.g. via `EventDetailWrapper`; this
+  // used to live just above its one usage site, which crashed with "Rendered more hooks than
+  // during the previous render" the moment a real query actually resolved).
+  const relatedEventsTodayStr = React.useMemo(() => new Date().toISOString().split('T')[0], []);
 
   const handleTriggerClick = () => {
     if (!isAuthenticated && onAddToCalendar) {
@@ -233,6 +255,12 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   const canActOnSubscription = !!(accountPlatform && accountUsername);
   const hasTags = (types && types.length > 0) || (categories && categories.length > 0);
   const hasSourceAttribution = originalPostUrl || sourcePostUrl;
+
+  // Story 3.6u (AC4/AC5, Design Decision #1) — `sourcePosts.length > 1` is the only gate.
+  // `<= 1` (including `sourcePosts` absent entirely, e.g. an older cached response or a caller
+  // that never passes it) falls through to the exact existing Attributions + flat-`coauthors`
+  // branch below, byte-identical to today.
+  const hasMultiplePosts = !!sourcePosts && sourcePosts.length > 1;
 
   return (
     <article className="flex flex-col gap-6">
@@ -583,69 +611,206 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
         )}
       </section>
 
-      {/* Attributions */}
-      {hasSourceAttribution && (
-        <section className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-3 text-sm text-gray-500">
-          <div className="flex items-center gap-4 flex-wrap">
-            {hasSourceAttribution && publishedAt && (
-              <span className="flex items-center gap-1">
-                <span className="sr-only">{labels.publishedLabel} </span>
-                {formatShortEventDateTime(locale, undefined, new Date(publishedAt), false, {
-                  today: labels.today,
-                  tomorrow: labels.tomorrow,
-                  yesterday: labels.yesterday,
-                })}
-                <span aria-hidden="true"> · </span>
-              </span>
-            )}
-            {originalPostUrl && (
-              <a href={originalPostUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline text-primary">
-                <PlatformIcon
-                  platform={accountPlatform || detectPlatformFromUrl(originalPostUrl || sourcePostUrl || '') || 'instagram'}
-                  className="w-3 h-3 text-pink-600 dark:text-pink-400"
-                />
-                {labels.viewOriginalPostLabel} <ExternalLink className="w-3 h-3" />
-              </a>
-            )}
-            {sourcePostUrl && !(originalPostUrl && detectPlatformFromUrl(sourcePostUrl) === 'instagram') && (
-              <a href={sourcePostUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline text-primary">
-                {labels.viewSourceLabel} <ExternalLink className="w-3 h-3" />
-              </a>
-            )}
-          </div>
-        </section>
+      {/* Attributions (Story 3.6u AC4) — single-/no-linked-post regression branch, completely
+          unchanged from pre-3.6u markup/data source (EventDetailViewProps.coauthors, not
+          sourcePosts). */}
+      {!hasMultiplePosts && (
+        <>
+          {hasSourceAttribution && (
+            <section className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-3 text-sm text-gray-500">
+              <div className="flex items-center gap-4 flex-wrap">
+                {hasSourceAttribution && publishedAt && (
+                  <span className="flex items-center gap-1">
+                    <span className="sr-only">{labels.publishedLabel} </span>
+                    {formatShortEventDateTime(locale, undefined, new Date(publishedAt), false, {
+                      today: labels.today,
+                      tomorrow: labels.tomorrow,
+                      yesterday: labels.yesterday,
+                    })}
+                    <span aria-hidden="true"> · </span>
+                  </span>
+                )}
+                {originalPostUrl && (
+                  <a href={originalPostUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline text-primary">
+                    <PlatformIcon
+                      platform={accountPlatform || detectPlatformFromUrl(originalPostUrl || sourcePostUrl || '') || 'instagram'}
+                      className="w-3 h-3 text-pink-600 dark:text-pink-400"
+                    />
+                    {labels.viewOriginalPostLabel} <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+                {sourcePostUrl && !(originalPostUrl && detectPlatformFromUrl(sourcePostUrl) === 'instagram') && (
+                  <a href={sourcePostUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline text-primary">
+                    {labels.viewSourceLabel} <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </div>
+            </section>
+          )}
+
+          {coauthors && coauthors.length > 0 && (
+            <ul className="flex flex-col gap-2" aria-label={labels.coauthorsListAriaLabel}>
+              {coauthors.map((coauthor: EventDetailViewCoauthor) => (
+                <li key={coauthor.accountId}>
+                  <SubscribedAccountCard
+                    account={{
+                      accountId: coauthor.accountId,
+                      platform: coauthor.platform,
+                      username: coauthor.username,
+                      displayName: coauthor.displayName,
+                      profileImageUrl: coauthor.profileImageUrl,
+                    }}
+                    accountHref={coauthor.accountHref}
+                    isSubscribed={coauthor.isSubscribed}
+                    onSubscribe={onSubscribeToCoauthor ? () => onSubscribeToCoauthor(coauthor.accountId) : undefined}
+                    onUnsubscribe={onUnsubscribeFromCoauthor ? () => onUnsubscribeFromCoauthor(coauthor.accountId) : undefined}
+                    isStatusLoading={isSubscriptionStatusLoading}
+                    isTogglePending={coauthor.isTogglePending}
+                    variant="detail"
+                    size="sm"
+                    labels={{
+                      subscribeLabel: labels.subscribeButtonLabel,
+                      unsubscribeLabel: labels.unsubscribeButtonLabel,
+                      checkingSubscriptionLabel: labels.checkingSubscriptionLabel,
+                      unknownAccountLabel: labels.unknownAccountLabel,
+                    }}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
 
-      {coauthors && coauthors.length > 0 && (
-        <ul className="flex flex-col gap-2" aria-label={labels.coauthorsListAriaLabel}>
-          {coauthors.map((coauthor: EventDetailViewCoauthor) => (
-            <li key={coauthor.accountId}>
-              <SubscribedAccountCard
-                account={{
-                  accountId: coauthor.accountId,
-                  platform: coauthor.platform,
-                  username: coauthor.username,
-                  displayName: coauthor.displayName,
-                  profileImageUrl: coauthor.profileImageUrl,
-                }}
-                accountHref={coauthor.accountHref}
-                isSubscribed={coauthor.isSubscribed}
-                onSubscribe={onSubscribeToCoauthor ? () => onSubscribeToCoauthor(coauthor.accountId) : undefined}
-                onUnsubscribe={onUnsubscribeFromCoauthor ? () => onUnsubscribeFromCoauthor(coauthor.accountId) : undefined}
-                isStatusLoading={isSubscriptionStatusLoading}
-                isTogglePending={coauthor.isTogglePending}
-                variant="detail"
-                size="sm"
-                labels={{
-                  subscribeLabel: labels.subscribeButtonLabel,
-                  unsubscribeLabel: labels.unsubscribeButtonLabel,
-                  checkingSubscriptionLabel: labels.checkingSubscriptionLabel,
-                  unknownAccountLabel: labels.unknownAccountLabel,
-                }}
-              />
-            </li>
-          ))}
-        </ul>
+      {/* Source Posts list (Story 3.6u, AC5) — one entry per linked post, in `sourcePosts`' own
+          primary-first-then-link-order (rendered as given, not re-sorted here). Replaces the
+          Attributions block + flat-coauthors `<ul>` above entirely once there is more than one
+          linked post. `<ol>` (not `<ul>`) because list position carries meaning here (primary
+          first) — unlike the coauthors `<ul>` above, which has no meaningful order. */}
+      {hasMultiplePosts && (
+        <ol className="flex flex-col gap-4 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+          {(sourcePosts as EventDetailViewSourcePost[]).map((sourcePost) => {
+            const postHasAttribution = sourcePost.originalPostUrl || sourcePost.sourcePostUrl;
+            return (
+              <li key={sourcePost.postId} className="flex flex-col gap-3 text-sm text-gray-500">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {sourcePost.isPrimary && (
+                    <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium">
+                      {labels.sourcePostsPrimaryLabel}
+                    </span>
+                  )}
+                  {sourcePost.account?.displayName && (
+                    <span className="font-medium text-gray-900 dark:text-gray-100">
+                      {sourcePost.account.displayName}
+                    </span>
+                  )}
+                  {sourcePost.postedAt && (
+                    <span className="flex items-center gap-1">
+                      {formatShortEventDateTime(locale, undefined, new Date(sourcePost.postedAt), false, {
+                        today: labels.today,
+                        tomorrow: labels.tomorrow,
+                        yesterday: labels.yesterday,
+                      })}
+                    </span>
+                  )}
+                  {postHasAttribution && (
+                    <a
+                      href={sourcePost.originalPostUrl || sourcePost.sourcePostUrl || undefined}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 hover:underline text-primary"
+                    >
+                      <PlatformIcon
+                        platform={sourcePost.account?.platform || detectPlatformFromUrl(sourcePost.originalPostUrl || sourcePost.sourcePostUrl || '') || 'instagram'}
+                        className="w-3 h-3 text-pink-600 dark:text-pink-400"
+                      />
+                      {sourcePost.originalPostUrl ? labels.viewOriginalPostLabel : labels.viewSourceLabel} <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+
+                {sourcePost.coauthors.length > 0 && (
+                  <ul className="flex flex-col gap-2" aria-label={labels.coauthorsListAriaLabel}>
+                    {sourcePost.coauthors.map((coauthor) => (
+                      <li key={coauthor.accountId}>
+                        <SubscribedAccountCard
+                          account={{
+                            accountId: coauthor.accountId,
+                            platform: coauthor.platform,
+                            username: coauthor.username,
+                            displayName: coauthor.displayName,
+                            profileImageUrl: coauthor.profileImageUrl,
+                          }}
+                          accountHref={coauthor.accountHref}
+                          isSubscribed={coauthor.isSubscribed}
+                          onSubscribe={onSubscribeToCoauthor ? () => onSubscribeToCoauthor(coauthor.accountId) : undefined}
+                          onUnsubscribe={onUnsubscribeFromCoauthor ? () => onUnsubscribeFromCoauthor(coauthor.accountId) : undefined}
+                          isStatusLoading={isSubscriptionStatusLoading}
+                          isTogglePending={coauthor.isTogglePending}
+                          variant="detail"
+                          size="sm"
+                          labels={{
+                            subscribeLabel: labels.subscribeButtonLabel,
+                            unsubscribeLabel: labels.unsubscribeButtonLabel,
+                            checkingSubscriptionLabel: labels.checkingSubscriptionLabel,
+                            unknownAccountLabel: labels.unknownAccountLabel,
+                          }}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      )}
+
+      {/* Related Events (Story 3.6u, AC6) — always rendered (even with no groups yet) so the
+          caller's `useVisibleOnce` sentinel, attached via `relatedEventsSentinelRef`, has
+          something to observe before any data exists. Lazy-loaded by the caller; this component
+          never gates on it, it just renders whatever has been handed to it so far. */}
+      {(relatedEventsSentinelRef || isRelatedEventsLoading || (relatedEventGroups && relatedEventGroups.length > 0)) && (
+        <div
+          ref={relatedEventsSentinelRef}
+          aria-label={labels.relatedEventsSectionAriaLabel}
+          aria-busy={isRelatedEventsLoading ? 'true' : undefined}
+          className="flex flex-col gap-4 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800"
+        >
+          {isRelatedEventsLoading ? (
+            <ol className="flex flex-col gap-2" aria-hidden="true">
+              {[0, 1].map((i) => (
+                <li key={i}>
+                  <EventCardCompact
+                    eventName=""
+                    isMainSchedule={false}
+                    dateBoxMonth=""
+                    dateBoxDay=""
+                    dateBoxTillLabel=""
+                    eventStartDate=""
+                    locale={locale}
+                    timezone={undefined}
+                    onClick={() => {}}
+                    loading
+                  />
+                </li>
+              ))}
+            </ol>
+          ) : (
+            relatedEventGroups
+              ?.filter((group) => group.isLoading || group.events.length > 0)
+              .map((group) => (
+                <RelatedEventsGroupSection
+                  key={group.postId}
+                  group={group}
+                  locale={locale}
+                  todayStr={relatedEventsTodayStr}
+                  seeAllLabel={labels.relatedEventsSeeAllLabel}
+                  onRelatedEventClick={onRelatedEventClick}
+                />
+              ))
+          )}
+        </div>
       )}
         </div>
       </div>
@@ -663,6 +828,104 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
         />
       )}
     </article>
+  );
+};
+
+interface RelatedEventsGroupSectionProps {
+  group: EventDetailViewRelatedEventGroup;
+  locale: string;
+  todayStr: string;
+  seeAllLabel?: (count: number) => string;
+  onRelatedEventClick?: (event: EventDetailViewRelatedEvent) => void;
+}
+
+/**
+ * Story 3.6u (AC6) — one Related Events group: a heading naming the shared post/account
+ * (`group.accountLabel`, already resolved by the caller), up to `RELATED_EVENTS_INLINE_CAP`
+ * events rendered inline as `EventCardCompact` (Story 3.6ua), and a "See all N events" link
+ * beyond that cap. A zero-event, non-loading group never reaches this component at all (the
+ * caller filters it out) -- no empty-state placeholder, matching this app's existing
+ * omit-rather-than-placeholder convention.
+ */
+const RelatedEventsGroupSection: React.FC<RelatedEventsGroupSectionProps> = ({
+  group,
+  locale,
+  todayStr,
+  seeAllLabel,
+  onRelatedEventClick,
+}) => {
+  const visibleEvents = group.events.slice(0, RELATED_EVENTS_INLINE_CAP);
+  const hasOverflow = !group.isLoading && group.totalCount > RELATED_EVENTS_INLINE_CAP && !!group.seeAllHref;
+
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">{group.accountLabel}</h2>
+      <ol className="flex flex-col gap-2">
+        {group.isLoading
+          ? [0, 1].map((i) => (
+              <li key={i}>
+                <EventCardCompact
+                  eventName=""
+                  isMainSchedule={false}
+                  dateBoxMonth=""
+                  dateBoxDay=""
+                  dateBoxTillLabel=""
+                  eventStartDate=""
+                  locale={locale}
+                  timezone={undefined}
+                  onClick={() => {}}
+                  loading
+                />
+              </li>
+            ))
+          : visibleEvents.map((event) => {
+              const dateBoxContent = computeCalendarSegmentDateBoxContent(
+                locale,
+                undefined,
+                todayStr,
+                event.eventStartDate,
+                event.eventEndDate,
+                'till'
+              );
+              const isMultiDayRun = (event.eventEndDate ?? event.eventStartDate) !== event.eventStartDate;
+
+              return (
+                <li key={event.id}>
+                  <EventCardCompact
+                    eventName={event.eventName}
+                    isMainSchedule={event.isMainSchedule}
+                    locationName={event.locationName || undefined}
+                    dateBoxMonth={dateBoxContent.month}
+                    dateBoxDay={dateBoxContent.day}
+                    dateBoxTillLabel={dateBoxContent.tillLabel}
+                    isMultiDayRun={isMultiDayRun}
+                    eventStartDate={event.eventStartDate}
+                    eventStartTime={event.eventStartTime}
+                    eventEndDate={event.eventEndDate}
+                    eventEndTime={event.eventEndTime}
+                    imageUrl={event.imageUrl || undefined}
+                    imageFallbackUrl={event.imageFallbackUrl}
+                    isFavorited={event.isFavorited}
+                    favoriteCount={event.favoriteCount}
+                    isAddedToCalendar={event.isAddedToCalendar}
+                    applicableDaysOfWeek={event.applicableDaysOfWeek}
+                    locale={locale}
+                    timezone={undefined}
+                    onClick={() => onRelatedEventClick?.(event)}
+                  />
+                </li>
+              );
+            })}
+      </ol>
+      {hasOverflow && (
+        <a
+          href={group.seeAllHref || undefined}
+          className="text-sm font-medium text-primary hover:underline self-start"
+        >
+          {seeAllLabel?.(group.totalCount) ?? `${group.totalCount}`}
+        </a>
+      )}
+    </section>
   );
 };
 

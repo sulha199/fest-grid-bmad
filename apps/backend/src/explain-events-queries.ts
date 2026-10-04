@@ -27,10 +27,10 @@ import { join, resolve } from 'path';
 import { createSchema } from 'graphql-yoga';
 import { graphql, parse, print, type OperationDefinitionNode } from 'graphql';
 import postgres from 'postgres';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, like } from 'drizzle-orm';
 import { resolvers } from './schema/resolvers.js';
 import { db, setSqlCaptureSink } from './db/client.js';
-import { users, subscriptions, socialMediaAccountProfiles, events } from '@festgrid/database';
+import { users, subscriptions, socialMediaAccountProfiles, events, eventPosts } from '@festgrid/database';
 import { activeOnly } from '@festgrid/graphql-select';
 import { buildEventsQueryCondition } from '@festgrid/domain/events';
 import { loadBackendEnv } from './env.js';
@@ -144,14 +144,21 @@ async function runGetEventsScenario(
   };
 }
 
-async function runEventBySlugScenario(
+/** Story 3.6u (Task 7) -- generalizes the original `eventBySlug`-only scenario (name was
+ * hardcoded) into a reusable "capture every SELECT, EXPLAIN each, take the max ms / union the
+ * Seq Scan relations" shape, since `Event.sourcePosts` (reached via the same `getEventBySlug`
+ * document, just pointed at a multi-post-linked event) and `Query.relatedEventIds` (its own
+ * standalone top-level query) both fit this exact evaluation shape -- no per-scenario
+ * main-select-vs-totalCount split like `runGetEventsScenario` needs. */
+async function runGenericCapturedScenario(
   schema: ReturnType<typeof buildSchema>,
   context: GraphQLContext,
   sqlClient: ReturnType<typeof postgres>,
+  name: string,
   source: string,
   variableValues: Record<string, unknown>
 ): Promise<ScenarioResult> {
-  const captured = await runScenario(schema, context, 'eventBySlug (mid-table event)', source, variableValues);
+  const captured = await runScenario(schema, context, name, source, variableValues);
   const selects = captured.filter((s) => /^select/i.test(s.sql.trim()));
 
   let maxMs = 0;
@@ -163,7 +170,7 @@ async function runEventBySlugScenario(
   }
 
   return {
-    name: 'eventBySlug (mid-table event)',
+    name,
     statementCount: selects.length,
     mainSelectMs: maxMs,
     totalCountMs: null,
@@ -216,6 +223,40 @@ async function main(): Promise<void> {
 
   const getEventsQuery = extractWebClientOperation('getEvents');
   const getEventBySlugQuery = extractWebClientOperation('getEventBySlug');
+  const getRelatedEventIdsQuery = extractWebClientOperation('getRelatedEventIds');
+
+  // Story 3.6u (Task 7, AC7) -- `seed:volume` seeds no multi-post-linked events at all (every
+  // event gets exactly one 1:1 `event_posts` row per AD-30 Rule 1's primary link, confirmed by
+  // reading `seed-volume.ts` directly), so the two new scenarios below have nothing real to
+  // EXPLAIN against without this. Reuses three already-seeded volume events/posts and adds two
+  // small manual `event_posts` links on top -- both new rows' FKs point at volume events/posts,
+  // so `seed:volume:clean`'s cascade delete removes them too; no separate cleanup needed here.
+  const [primaryEvent, secondEvent, thirdEvent] = await db
+    .select({ id: events.id, slug: events.slug, postId: events.postId })
+    .from(events)
+    .where(like(events.slug, 'vol-event-%'))
+    .limit(3);
+
+  let multiPostEventSlug: string | null = null;
+  let sharedPostEventId: string | null = null;
+  if (primaryEvent?.postId && secondEvent?.postId && thirdEvent) {
+    // Gives `primaryEvent` a second linked post (AC1's `Event.sourcePosts` -- its own primary
+    // post, plus `secondEvent`'s primary post as a manual secondary link).
+    await db
+      .insert(eventPosts)
+      .values({ eventId: primaryEvent.id, postId: secondEvent.postId, extractionOrdinal: null })
+      .onConflictDoNothing();
+    // Shares `primaryEvent`'s own primary post with a third, otherwise-unrelated event (AC3's
+    // `Query.relatedEventIds` -- the group this produces for `primaryEvent.id` isn't empty).
+    await db
+      .insert(eventPosts)
+      .values({ eventId: thirdEvent.id, postId: primaryEvent.postId, extractionOrdinal: null })
+      .onConflictDoNothing();
+    multiPostEventSlug = primaryEvent.slug;
+    sharedPostEventId = primaryEvent.id;
+  } else {
+    console.warn('[explain-events-queries] Fewer than 3 volume events found -- skipping sourcePosts/relatedEventIds scenarios. Run `pnpm --filter @festgrid/database seed:volume` first.');
+  }
 
   const results: ScenarioResult[] = [];
 
@@ -245,9 +286,34 @@ async function main(): Promise<void> {
   );
 
   if (midEvent) {
-    results.push(await runEventBySlugScenario(schema, context, explainClient, getEventBySlugQuery, { slug: midEvent.slug }));
+    results.push(
+      await runGenericCapturedScenario(schema, context, explainClient, 'eventBySlug (mid-table event)', getEventBySlugQuery, {
+        slug: midEvent.slug,
+      })
+    );
   } else {
     console.warn('[explain-events-queries] No events found -- skipping eventBySlug scenario.');
+  }
+
+  // Story 3.6u (Task 7, AC7) -- first-time baseline for the two new queries this story adds,
+  // verifying AD-30 Rule 11's own claim that `relatedEventIds` is "index-driven" (nothing had
+  // verified that before this). `Event.sourcePosts` is reached via the same `getEventBySlug`
+  // document (it already selects `sourcePosts`, AC1/Task 3) -- just pointed at the multi-post
+  // event seeded above instead of an arbitrary mid-table one, so its batched-IN query actually
+  // executes against 2+ linked posts.
+  if (multiPostEventSlug) {
+    results.push(
+      await runGenericCapturedScenario(schema, context, explainClient, 'Event.sourcePosts (multi-post event)', getEventBySlugQuery, {
+        slug: multiPostEventSlug,
+      })
+    );
+  }
+  if (sharedPostEventId) {
+    results.push(
+      await runGenericCapturedScenario(schema, context, explainClient, 'Query.relatedEventIds', getRelatedEventIdsQuery, {
+        eventId: sharedPostEventId,
+      })
+    );
   }
 
   const table = renderTable(results);

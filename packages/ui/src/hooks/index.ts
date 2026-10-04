@@ -1,5 +1,6 @@
 export * from './useInfiniteScroll';
 export * from './useInfiniteScroll.types';
+export * from './useVisibleOnce';
 export * from './useScopedLocale';
 export * from './useDebounce';
 export * from './useContextAwareListNavigation';
