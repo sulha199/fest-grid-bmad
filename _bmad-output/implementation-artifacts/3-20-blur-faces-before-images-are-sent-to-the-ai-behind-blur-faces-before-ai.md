@@ -8,7 +8,7 @@ baseline_commit: 75911c861a7f6a23d540ac51576fb4a9a704580a
 
 - Epic: 3
 - Story ID: 3.20
-- Status: review
+- Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -86,6 +86,23 @@ so that an identifiable face is not exposed to a vendor that may use free-tier c
 - [x] **Task 10: Architecture/UX gate documentation (this story's own Dev Notes)**
   - [x] 10.1 Cite the CC-028 batch readiness report's Gate 1/3 findings (already applied to this story's ACs above) rather than re-running those gates — see Dev Notes "Architecture & UX Gate Findings."
   - [x] 10.2 Confirm Gate 2 (UI) has no applicable scope (zero `apps/web`/`packages/ui` files touched).
+
+### Review Findings
+
+_bmad-code-review 2026-10-04 (Blind Hunter + Edge Case Hunter + Acceptance Auditor). 0 decision-needed; findings below._
+
+- [x] [Review][Patch] Failure logs now carry the image index (AC3 'post id and image index') [build-gemini-request.ts]
+- [x] [Review][Patch] `resolvePostPublisherOptIn` now logs the swallowed query error (still fails safe to blur) [resolve-post-publisher-opt-in.ts]
+- [x] [Review][Patch] `FACE_BLUR_MIN_REMAINING_TIME_MS` parsed with `parseNonNegativeInt` (a non-numeric value gave NaN, which silently disabled the fail-closed time check) [env.ts]
+- [x] [Review][Patch] `parseBooleanDefaultOn` warns on an unrecognised value such as `off`/`no` (stays ON, fail-safe, but no longer silent) [env.ts]
+- [x] [Review][Patch] Added Case U2: six-image post, strictly sequential, cap bounds blur calls with blur ON (Task 7.3 / AC8) [build-gemini-request.test.ts]
+- [x] [Review][Defer] Thumbnail upload in the 'blurred' branch has no remaining-time guard (legacy path checks `faceBlurMinRemainingTimeMs` before uploading) [process-ai-job.ts] — deferred, see deferred-work.md
+- [x] [Review][Defer] `detectAndBlurFaces` returns the original bytes with `faceCount > 0` when every detected box is degenerate/out of bounds (box entirely off-image, so no visible face is sent) [detect-and-blur-faces.ts:140] — pre-existing Story 3.6n code — deferred, see deferred-work.md
+- [x] [Review][Defer] Cover blur failure drops all slides (outer catch -> text-only) instead of blurring slides independently; slide drops/blur failures and fetch-vs-no-image are not distinguishable in `ai_image_input` [build-gemini-request.ts] — deferred, see deferred-work.md
+- [x] [Review][Defer] CDK passes `process.env.BLUR_FACES_BEFORE_AI || 'true'` through unnormalised (deploy-shell dependent) and the infra test asserts presence only, not the value [festgrid-backend-stack.ts:489] — deferred, see deferred-work.md
+- [x] [Review][Defer] Test weaknesses: no multi-slide byte-for-byte test for off/opted-in modes (3.20 Task 5.1); live parity test counts a fail-closed text-only run as a blurred run and records cover face count only; benchmark script re-implements the blur on a synthetic fixture that detects zero faces; source-regex resolver guard is cwd/shape dependent — deferred, see deferred-work.md
+
+Dismissed as noise/by design: `hasFaceImage` no longer gating the 'blurred' branch (intended, AD-28 amendment), migration DEFAULT for historical rows, unguarded backfill (same pattern as the legacy branch), outer-catch stale 'blurred' state (unreachable: nothing after the tag can throw), static-import bundle concern (superseded by d57cf2b lazy imports).
 
 ## Dev Notes
 

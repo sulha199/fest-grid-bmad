@@ -30,6 +30,38 @@ export const AI_IMAGE_INPUT_VALUES = [
 export type AiImageInput = (typeof AI_IMAGE_INPUT_VALUES)[number];
 
 /**
+ * Story 4.2b -- lifecycle of a manual ("AI-Assisted Correction") extraction job, tracked in
+ * `manual_extraction_jobs`. `PENDING` -> `PROCESSING` (claimed by the AI Lambda) -> `SUCCEEDED` |
+ * `FAILED`. The GraphQL `ExtractionJobStatus` enum mirrors these values 1:1.
+ */
+export const MANUAL_EXTRACTION_JOB_STATUSES = ['PENDING', 'PROCESSING', 'SUCCEEDED', 'FAILED'] as const;
+export type ManualExtractionJobStatus = (typeof MANUAL_EXTRACTION_JOB_STATUSES)[number];
+
+export function isManualExtractionJobTerminal(status: ManualExtractionJobStatus): boolean {
+  return status === 'SUCCEEDED' || status === 'FAILED';
+}
+
+/** Story 4.2b -- a job older than this without reaching a terminal status is reported FAILED. */
+export const MANUAL_EXTRACTION_JOB_STALE_AFTER_MS = 5 * 60 * 1000;
+
+/** Story 4.2b -- the asynchronous-invoke payload the API Lambda sends the AI Lambda. */
+export interface ManualExtractionInvokePayload {
+  jobType: 'manual-extraction';
+  jobId: string;
+}
+
+/**
+ * Story 4.2b -- what the API Lambda persists in `manual_extraction_jobs.request_payload` after its
+ * synchronous pre-checks: the `ProcessingJobMessage`-shaped input for the Gemini request plus the
+ * branch facts the AI Lambda needs. `existingPostAccountId` is set only for the existing-post
+ * branch (TIER_2 shared-key fallback keys off that account's subscribers).
+ */
+export interface ManualExtractionRequestPayload {
+  message: ProcessingJobMessage;
+  existingPostAccountId?: string;
+}
+
+/**
  * GraphQL-safe representation of `PostGroupingReason` (Story 3.6u, AD-30 Rule 11). The DB enum's
  * hyphenated values are not legal GraphQL enum literals, so this mapping function translates each
  * one to its `events.graphql` `PostGroupingReason` enum member. Used by `Event.sourcePosts`'s

@@ -130,6 +130,7 @@ export function CorrectionDialog({ isOpen, onClose, event }: CorrectionDialogPro
     urlInputPlaceholder: tAi("urlInputPlaceholder") || "Paste link here...",
     extractButtonLabel: tAi("extractButtonLabel") || "Extract",
     extractingAnnouncement: tAi("extractingAnnouncement") || "Extracting...",
+    stillProcessing: tAi("stillProcessing") || "Still working on it...",
     errorNotFound: tAi("errorNotFound") || "Not found",
     errorUnsupportedPlatform: tAi("errorUnsupportedPlatform") || "Unsupported platform",
     errorNoApiKey: tAi.rich("errorNoApiKey", {

@@ -1903,3 +1903,11 @@ items:
      ref: [planning-artifacts/sprint-change-proposal-2026-10-04-blur-faces-before-ai.md],
      touches: [app:backend, cross:ai-extraction, cross:architecture, cross:prd],
      note: "Raised during CC-028 analysis, not chosen now; would replace per-subscriber API keys with a project credential and change the BYOK model, so it needs a product decision first."}
+
+  FIND-069:
+    {type: finding, status: backlog, created: 2026-10-04,
+     impact: internal, effort: s,
+     title: "CC-028 review leftovers: blurred-branch upload time guard, audit-label granularity, CDK env normalisation, test gaps",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend, app:infrastructure, cross:ai-extraction],
+     note: "Deferred from: code review of stories 3-20 and 3-21 (2026-10-04, CC-028 blur-before-AI). 5 findings."}

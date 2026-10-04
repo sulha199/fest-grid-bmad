@@ -356,16 +356,16 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
       // otherwise wipe out the already-succeeded cover image and switch to text-only).
       if (message.additionalImageUrls?.length) {
         const slidesToFetch = message.additionalImageUrls.slice(0, env.maxCarouselImages);
-        for (const slideUrl of slidesToFetch) {
+        for (const [slideIndex, slideUrl] of slidesToFetch.entries()) {
           try {
             const slideResponse = await fetch(slideUrl);
             if (!slideResponse.ok) {
-              console.error(`Carousel slide-fetch failed for post ${message.postId} (status ${slideResponse.status}); skipping slide`, slideUrl);
+              console.error(`Carousel slide-fetch failed for post ${message.postId} (image index ${slideIndex + 1}, status ${slideResponse.status}); skipping slide`, slideUrl);
               continue;
             }
             const slideContentType = slideResponse.headers.get('content-type') || 'image/jpeg';
             if (!slideContentType.startsWith('image/')) {
-              console.error(`Carousel slide content-type is not an image: ${slideContentType}; skipping slide for post ${message.postId}`, slideUrl);
+              console.error(`Carousel slide content-type is not an image: ${slideContentType}; skipping slide for post ${message.postId} (image index ${slideIndex + 1})`, slideUrl);
               continue;
             }
             const slideArrayBuffer = await slideResponse.arrayBuffer();
@@ -396,12 +396,12 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
           } catch (error) {
             // Best-effort: skip only this slide (whether the failure was the fetch or the blur);
             // the cover and all other successfully-processed slides remain in the request (AC2/AC3).
-            console.error(`Carousel slide-fetch/blur failed for post ${message.postId}; skipping slide`, slideUrl, error);
+            console.error(`Carousel slide-fetch/blur failed for post ${message.postId} (image index ${slideIndex + 1}); skipping slide`, slideUrl, error);
           }
         }
       }
     } catch (error) {
-      console.error(`Multimodal extraction image processing failed for post ${message.postId}:`, error);
+      console.error(`Multimodal extraction image processing failed for post ${message.postId} (image index 0, cover):`, error);
       // Fallback to text-only caption extraction. Never the original, unblurred cover bytes
       // (AC3) -- `contents` is reset to the caption text only.
       contents = captionWithAccountContext;

@@ -58,6 +58,7 @@ content = content.replace(/export type ReportSystemErrorInput = \{\r?\n\s+contex
 content = content.replace(/export type CorrectionSource =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type CorrectionStatus =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type ExtractionErrorCode =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type ExtractionJobState =[\s\S]*?;\r?\n/g, '');
 
 // Replace duplicate ImageStorageOptInSource and ModeratorAccountProfileFilters
 content = content.replace(/export type ImageStorageOptInSource =[\s\S]*?;\r?\n/g, '');

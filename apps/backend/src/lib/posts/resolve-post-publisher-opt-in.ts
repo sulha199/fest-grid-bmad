@@ -35,7 +35,10 @@ export async function resolvePostPublisherOptIn(postId: string, executor: DbExec
       .limit(1);
 
     return row?.isImageStorageOptedIn ?? false;
-  } catch {
+  } catch (error) {
+    // Fail safe (blur) but never silently: a persistent DB fault would otherwise blur every
+    // post, including opted-in publishers', with no operator signal.
+    console.error(`[resolvePostPublisherOptIn] opt-in lookup failed for post ${postId}; treating as not opted in:`, error);
     return false;
   }
 }

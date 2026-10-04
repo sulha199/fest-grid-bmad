@@ -384,6 +384,7 @@ export type ExtractEventDataFromUrlResult = {
   data?: Maybe<ProposedEventCorrectionData>;
   errorCode?: Maybe<ExtractionErrorCode>;
   errorMessage?: Maybe<Scalars['String']['output']>;
+  jobId?: Maybe<Scalars['ID']['output']>;
 };
 
 export type ExtractionErrorCode =
@@ -393,6 +394,20 @@ export type ExtractionErrorCode =
   | 'QUOTA_EXHAUSTED'
   | 'SCRAPE_FAILED'
   | 'UNSUPPORTED_PLATFORM';
+
+export type ExtractionJobState =
+  | 'FAILED'
+  | 'PENDING'
+  | 'PROCESSING'
+  | 'SUCCEEDED';
+
+export type ExtractionJobStatus = {
+  __typename?: 'ExtractionJobStatus';
+  data?: Maybe<ProposedEventCorrectionData>;
+  errorCode?: Maybe<ExtractionErrorCode>;
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  status: ExtractionJobState;
+};
 
 export type ExtractionQuota = {
   __typename?: 'ExtractionQuota';
@@ -878,6 +893,7 @@ export type Query = {
   event?: Maybe<Event>;
   eventBySlug?: Maybe<Event>;
   events: EventConnection;
+  extractionJob: ExtractionJobStatus;
   health: Scalars['Boolean']['output'];
   instagramEmbedBySlug: InstagramEmbedBySlug;
   isOriginAllowedForWidget: Scalars['Boolean']['output'];
@@ -949,6 +965,11 @@ export type QueryEventsArgs = {
   offset?: InputMaybe<Scalars['Int']['input']>;
   perDayLimit?: InputMaybe<Scalars['Int']['input']>;
   query?: InputMaybe<EventQueryConditionInput>;
+};
+
+
+export type QueryExtractionJobArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -1484,6 +1505,8 @@ export type ResolversTypes = ResolversObject<{
   EventType: EventType;
   ExtractEventDataFromUrlResult: ResolverTypeWrapper<ExtractEventDataFromUrlResult>;
   ExtractionErrorCode: ExtractionErrorCode;
+  ExtractionJobState: ExtractionJobState;
+  ExtractionJobStatus: ResolverTypeWrapper<ExtractionJobStatus>;
   ExtractionQuota: ResolverTypeWrapper<ExtractionQuota>;
   Float: ResolverTypeWrapper<Scalars['Float']['output']>;
   GeolocationProvider: GeolocationProvider;
@@ -1588,6 +1611,7 @@ export type ResolversParentTypes = ResolversObject<{
   EventQueryConditionInput: EventQueryConditionInput;
   EventSourcePost: EventSourcePost;
   ExtractEventDataFromUrlResult: ExtractEventDataFromUrlResult;
+  ExtractionJobStatus: ExtractionJobStatus;
   ExtractionQuota: ExtractionQuota;
   Float: Scalars['Float']['output'];
   ID: Scalars['ID']['output'];
@@ -1847,6 +1871,15 @@ export type ExtractEventDataFromUrlResultResolvers<ContextType = GraphQLContext,
   data?: Resolver<Maybe<ResolversTypes['ProposedEventCorrectionData']>, ParentType, ContextType>;
   errorCode?: Resolver<Maybe<ResolversTypes['ExtractionErrorCode']>, ParentType, ContextType>;
   errorMessage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  jobId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ExtractionJobStatusResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ExtractionJobStatus'] = ResolversParentTypes['ExtractionJobStatus']> = ResolversObject<{
+  data?: Resolver<Maybe<ResolversTypes['ProposedEventCorrectionData']>, ParentType, ContextType>;
+  errorCode?: Resolver<Maybe<ResolversTypes['ExtractionErrorCode']>, ParentType, ContextType>;
+  errorMessage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['ExtractionJobState'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -2032,6 +2065,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   event?: Resolver<Maybe<ResolversTypes['Event']>, ParentType, ContextType, RequireFields<QueryEventArgs, 'id'>>;
   eventBySlug?: Resolver<Maybe<ResolversTypes['Event']>, ParentType, ContextType, RequireFields<QueryEventBySlugArgs, 'slug'>>;
   events?: Resolver<ResolversTypes['EventConnection'], ParentType, ContextType, Partial<QueryEventsArgs>>;
+  extractionJob?: Resolver<ResolversTypes['ExtractionJobStatus'], ParentType, ContextType, RequireFields<QueryExtractionJobArgs, 'id'>>;
   health?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   instagramEmbedBySlug?: Resolver<ResolversTypes['InstagramEmbedBySlug'], ParentType, ContextType, RequireFields<QueryInstagramEmbedBySlugArgs, 'slug'>>;
   isOriginAllowedForWidget?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<QueryIsOriginAllowedForWidgetArgs, 'origin' | 'widgetId'>>;
@@ -2323,6 +2357,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   EventLink?: EventLinkResolvers<ContextType>;
   EventSourcePost?: EventSourcePostResolvers<ContextType>;
   ExtractEventDataFromUrlResult?: ExtractEventDataFromUrlResultResolvers<ContextType>;
+  ExtractionJobStatus?: ExtractionJobStatusResolvers<ContextType>;
   ExtractionQuota?: ExtractionQuotaResolvers<ContextType>;
   InstagramEmbed?: InstagramEmbedResolvers<ContextType>;
   InstagramEmbedBySlug?: InstagramEmbedBySlugResolvers<ContextType>;

@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import { randomUUID } from 'node:crypto';
+import { eq } from 'drizzle-orm';
+import { manualExtractionJobs, users } from '@festgrid/database';
+import { db } from '../db/client.js';
+import {
+  setCallGeminiForManualExtractionSeam,
+  callGeminiForManualExtractionSeam,
+} from '../lib/ai-processor/process-manual-extraction-job.js';
 import { handler } from './ai-processor.js';
 import {
   receiveSqsMessages,
@@ -109,5 +116,53 @@ test('ai-processor lambda poll-and-drain branch', async (t) => {
     const result = await handler({ jobType: 'poll-and-drain' } as any, {} as any);
 
     assert.strictEqual(result, undefined);
+  });
+});
+
+// Story 4.2b -- the asynchronous direct-invoke branch used by the API Lambda for manual
+// "AI-Assisted Correction" extraction. Proves the handler routes `{ jobType: 'manual-extraction' }`
+// to processManualExtractionJob (job gets claimed and completed) and never into the SQS-batch
+// branch (which would throw on the missing `Records`).
+test('ai-processor lambda manual-extraction branch (Story 4.2b)', async (t) => {
+  const originalSeam = callGeminiForManualExtractionSeam;
+
+  const [user] = await db.select().from(users).limit(1);
+  assert.ok(user, 'Must have at least one seeded user');
+  const [job] = await db
+    .insert(manualExtractionJobs)
+    .values({
+      requestedByUserId: user.id,
+      sourceUrl: 'https://www.instagram.com/p/handler-4-2b/',
+      requestPayload: {
+        message: {
+          postId: randomUUID(),
+          accountId: '',
+          content: 'caption',
+          postUrl: 'https://www.instagram.com/p/handler-4-2b/',
+          publishedAt: '2026-08-29T10:24:17Z',
+        },
+      },
+    })
+    .returning();
+
+  t.after(async () => {
+    setCallGeminiForManualExtractionSeam(originalSeam);
+    await db.delete(manualExtractionJobs).where(eq(manualExtractionJobs.id, job.id));
+  });
+
+  await t.test('routes to processManualExtractionJob and returns void', async () => {
+    let called = false;
+    setCallGeminiForManualExtractionSeam(async () => {
+      called = true;
+      return { text: JSON.stringify({ isEvent: false, events: [] }) } as any;
+    });
+
+    const result = await handler({ jobType: 'manual-extraction', jobId: job.id } as any, {} as any);
+
+    assert.strictEqual(result, undefined);
+    assert.ok(called, 'the manual extraction processor should have run');
+    const [row] = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.id, job.id));
+    assert.strictEqual(row.status, 'FAILED'); // isEvent:false -> EXTRACTION_FAILED, proving it ran to a terminal state
+    assert.strictEqual(row.errorCode, 'EXTRACTION_FAILED');
   });
 });
