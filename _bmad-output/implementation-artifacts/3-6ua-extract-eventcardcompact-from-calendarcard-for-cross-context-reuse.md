@@ -8,7 +8,7 @@ baseline_commit: b52ce6dbda4bf7891dd1781037f931ef5204f3e4
 
 - Epic: 3
 - Story ID: 3.6ua
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -31,19 +31,19 @@ so that Story 3.6u's event-detail Related Events section can render the same mob
 
 ## Tasks / Subtasks
 
-- [ ] 1. Create `packages/ui/src/features/events/EventCardCompact.types.ts` defining `EventCardCompactProps` per AC2's flattened shape (see Dev Notes § Props Contract for the exact field list) (AC2).
-- [ ] 2. Create `packages/ui/src/features/events/EventCardCompact.tsx`:
-  - [ ] 2a. Move the `EVENT_CARD_COMPACT_CLASS`/`MULTI_DAY_EVENT_CLASS` constants out of `WeeklyCalendarView.tsx` into this new file (their only other usage in `WeeklyCalendarView.tsx` is this same list-variant branch — confirmed via grep, no other consumer) (AC1).
-  - [ ] 2b. Port the `variant === 'list'` JSX verbatim, rewired to the new flattened props: `useHoverFocusTooltip({ enabled: true })` for the repeat-badge hover/focus tooltip (kept — needed even though the grid-only time-range tooltip itself is dropped), local `imagePresent` state seeded from `!!imageUrl`, the `isMultiDayRun`-driven chrome/rounding selection, the title/location/status-badge/nearby-badge column, `EventCardMediaSlot` + the two mutually-exclusive `EventCardFavoriteBadge` placements (AC1, AC2).
-  - [ ] 2c. Compute the status badge internally via `formatEventStatus(locale, timezone, new Date(), eventStartDate, eventStartTime, eventEndDate, eventEndTime, statusLabels)` (AC2).
-  - [ ] 2d. Add the `/** @jsxImportSource react */` header pragma + comment, matching every other file in this folder mounted by `packages/visual-audit`'s `react-component` RenderSpec (`EventCard.tsx`/`EventCardCalendarGridItem.tsx`/`EventCardMediaPrimitives.tsx` all carry it) (housekeeping, not a new AC).
-  - [ ] 2e. Implement the `loading` skeleton branch, laid out to match the real card's date-box/content/thumbnail zones (AC3).
-  - [ ] 2f. Add TSDoc to the component and `EventCardCompactProps` (AC4).
-- [ ] 3. Rewrite `WeeklyCalendarView.tsx`'s `CalendarCard`'s `variant === 'list'` branch to delegate to `EventCardCompact`: compute `dateBoxMonth`/`dateBoxDay`/`dateBoxTillLabel` via the existing, unchanged `computeCalendarSegmentDateBoxContent(locale, timezone, currentDayStr || '', segment.runStartDate, segment.runEndDate, tillLabel || 'till')` call (moved to the call site, not removed), compute `isMultiDayRun` via the existing `isMultiDayRunSegment(segment)`, and pass every other prop straight from `schedule`/already-threaded callback props. Remove the now-dead `baseButtonClass`/`multiDayRoundingClass`/`dateBoxContent`/status-badge-for-list local variables that move into `EventCardCompact`. The `variant === 'grid'` branch and everything above the `if (variant === 'list')` check that it still shares (e.g. `weightClass`, `repeatBadge`, `isMultiDay` used by the grid math below) stays untouched if still referenced there — verify before deleting anything shared (AC1).
-- [ ] 4. Export `EventCardCompact`/`EventCardCompactProps` from `packages/ui/src/features/events/index.ts` (barrel already re-exports `./WeeklyCalendarView`/`./EventCardMediaPrimitives` the same way — add alongside) (AC4).
-- [ ] 5. Write `packages/ui/src/features/events/EventCardCompact.test.tsx` (Vitest + `@testing-library/react`, `@festgrid/testing-config/vitest-react`) covering: full-data render (title, location, status badge, nearby badge at `distanceKm<=threshold`, repeat badge when `applicableDaysOfWeek` present), minimal-data render (only guaranteed fields), loading skeleton (`aria-busy="true"`, no partial content rendered), image-present favorite-badge placement (`scale="default"`, corner pill) vs. image-absent/collapsed favorite-badge placement (`scale="large"`, growing icon style) per `event_card_compact_thumbnail_fallback`'s no-reserved-space rule, multi-day chrome (`isMultiDayRun=true` → `MULTI_DAY_EVENT_CLASS`/rounded corners), favorite-toggle click firing `onFavoriteToggle`, schedule-click firing `onClick` (AC2, AC3, AC4).
-- [ ] 6. Run `pnpm --filter @festgrid/ui test` and confirm `WeeklyCalendarView.test.tsx` (unmodified) is 100% green alongside the new `EventCardCompact.test.tsx` suite (AC5).
-- [ ] 7. Run `pnpm --filter @festgrid/ui lint` and TypeScript strict-mode build/typecheck for `packages/ui` (Definition of Done).
+- [x] 1. Create `packages/ui/src/features/events/EventCardCompact.types.ts` defining `EventCardCompactProps` per AC2's flattened shape (see Dev Notes § Props Contract for the exact field list) (AC2).
+- [x] 2. Create `packages/ui/src/features/events/EventCardCompact.tsx`:
+  - [x] 2a. Move the `EVENT_CARD_COMPACT_CLASS`/`MULTI_DAY_EVENT_CLASS` constants out of `WeeklyCalendarView.tsx` into this new file (their only other usage in `WeeklyCalendarView.tsx` is this same list-variant branch — confirmed via grep, no other consumer) (AC1).
+  - [x] 2b. Port the `variant === 'list'` JSX verbatim, rewired to the new flattened props: `useHoverFocusTooltip({ enabled: true })` for the repeat-badge hover/focus tooltip (kept — needed even though the grid-only time-range tooltip itself is dropped), local `imagePresent` state seeded from `!!imageUrl`, the `isMultiDayRun`-driven chrome/rounding selection, the title/location/status-badge/nearby-badge column, `EventCardMediaSlot` + the two mutually-exclusive `EventCardFavoriteBadge` placements (AC1, AC2).
+  - [x] 2c. Compute the status badge internally via `formatEventStatus(locale, timezone, new Date(), eventStartDate, eventStartTime, eventEndDate, eventEndTime, statusLabels)` (AC2).
+  - [x] 2d. Add the `/** @jsxImportSource react */` header pragma + comment, matching every other file in this folder mounted by `packages/visual-audit`'s `react-component` RenderSpec (`EventCard.tsx`/`EventCardCalendarGridItem.tsx`/`EventCardMediaPrimitives.tsx` all carry it) (housekeeping, not a new AC).
+  - [x] 2e. Implement the `loading` skeleton branch, laid out to match the real card's date-box/content/thumbnail zones (AC3).
+  - [x] 2f. Add TSDoc to the component and `EventCardCompactProps` (AC4).
+- [x] 3. Rewrite `WeeklyCalendarView.tsx`'s `CalendarCard`'s `variant === 'list'` branch to delegate to `EventCardCompact`: compute `dateBoxMonth`/`dateBoxDay`/`dateBoxTillLabel` via the existing, unchanged `computeCalendarSegmentDateBoxContent(locale, timezone, currentDayStr || '', segment.runStartDate, segment.runEndDate, tillLabel || 'till')` call (moved to the call site, not removed), compute `isMultiDayRun` via the existing `isMultiDayRunSegment(segment)`, and pass every other prop straight from `schedule`/already-threaded callback props. Remove the now-dead `baseButtonClass`/`multiDayRoundingClass`/`dateBoxContent`/status-badge-for-list local variables that move into `EventCardCompact`. The `variant === 'grid'` branch and everything above the `if (variant === 'list')` check that it still shares (e.g. `weightClass`, `repeatBadge`, `isMultiDay` used by the grid math below) stays untouched if still referenced there — verify before deleting anything shared (AC1).
+- [x] 4. Export `EventCardCompact`/`EventCardCompactProps` from `packages/ui/src/features/events/index.ts` (barrel already re-exports `./WeeklyCalendarView`/`./EventCardMediaPrimitives` the same way — add alongside) (AC4).
+- [x] 5. Write `packages/ui/src/features/events/EventCardCompact.test.tsx` (Vitest + `@testing-library/react`, `@festgrid/testing-config/vitest-react`) covering: full-data render (title, location, status badge, nearby badge at `distanceKm<=threshold`, repeat badge when `applicableDaysOfWeek` present), minimal-data render (only guaranteed fields), loading skeleton (`aria-busy="true"`, no partial content rendered), image-present favorite-badge placement (`scale="default"`, corner pill) vs. image-absent/collapsed favorite-badge placement (`scale="large"`, growing icon style) per `event_card_compact_thumbnail_fallback`'s no-reserved-space rule, multi-day chrome (`isMultiDayRun=true` → `MULTI_DAY_EVENT_CLASS`/rounded corners), favorite-toggle click firing `onFavoriteToggle`, schedule-click firing `onClick` (AC2, AC3, AC4).
+- [x] 6. Run `pnpm --filter @festgrid/ui test` and confirm `WeeklyCalendarView.test.tsx` (unmodified) is 100% green alongside the new `EventCardCompact.test.tsx` suite (AC5).
+- [x] 7. Run `pnpm --filter @festgrid/ui lint` and TypeScript strict-mode build/typecheck for `packages/ui` (Definition of Done).
 
 ## Dev Notes
 
@@ -211,20 +211,20 @@ The immediately preceding story in sequence is **3.6u** (`3-6u-show-all-source-p
 
 ## Testing Requirements
 
-- [ ] New `EventCardCompact.test.tsx` component tests (Vitest + `@testing-library/react`, `@festgrid/testing-config/vitest-react`): full-data render, minimal-data render, loading skeleton (`aria-busy`), image-present vs. image-absent favorite-badge placement, multi-day chrome, favorite-toggle/click interaction callbacks (AC2–AC4).
-- [ ] `WeeklyCalendarView.test.tsx` left unmodified and run to confirm 100% pass — this is the regression proof for AC1/AC5, not a new test file.
-- [ ] No E2E test required for this story (no live page wiring changes; 3.6u's own future E2E coverage, if any, is out of scope here).
-- [ ] 100% coverage is not mandated here — that requirement is scoped to `packages/domain` only per `project-context.md`; `packages/ui` follows the "testing trophy" integration-style approach.
+- [x] New `EventCardCompact.test.tsx` component tests (Vitest + `@testing-library/react`, `@festgrid/testing-config/vitest-react`): full-data render, minimal-data render, loading skeleton (`aria-busy`), image-present vs. image-absent favorite-badge placement, multi-day chrome, favorite-toggle/click interaction callbacks (AC2–AC4).
+- [x] `WeeklyCalendarView.test.tsx` left unmodified and run to confirm 100% pass — this is the regression proof for AC1/AC5, not a new test file.
+- [x] No E2E test required for this story (no live page wiring changes; 3.6u's own future E2E coverage, if any, is out of scope here).
+- [x] 100% coverage is not mandated here — that requirement is scoped to `packages/domain` only per `project-context.md`; `packages/ui` follows the "testing trophy" integration-style approach.
 
 ## Deliverables Checklist
 
-- [ ] `EventCardCompact` component implemented in `packages/ui/src/features/events/EventCardCompact.tsx`.
-- [ ] Strictly-typed `EventCardCompactProps` (`EventCardCompact.types.ts`) per Dev Notes § Props Contract.
-- [ ] `CalendarCard`'s `variant === 'list'` branch rewritten to delegate to `EventCardCompact`, zero behavior change.
-- [ ] Loading/skeleton state with `aria-busy` (AC3).
-- [ ] Exported from `packages/ui`'s public entry point with TSDoc.
-- [ ] Dedicated `EventCardCompact.test.tsx` suite written and passing.
-- [ ] `WeeklyCalendarView.test.tsx` unmodified, confirmed 100% green.
+- [x] `EventCardCompact` component implemented in `packages/ui/src/features/events/EventCardCompact.tsx`.
+- [x] Strictly-typed `EventCardCompactProps` (`EventCardCompact.types.ts`) per Dev Notes § Props Contract.
+- [x] `CalendarCard`'s `variant === 'list'` branch rewritten to delegate to `EventCardCompact`, zero behavior change.
+- [x] Loading/skeleton state with `aria-busy` (AC3).
+- [x] Exported from `packages/ui`'s public entry point with TSDoc.
+- [x] Dedicated `EventCardCompact.test.tsx` suite written and passing.
+- [x] `WeeklyCalendarView.test.tsx` unmodified, confirmed 100% green.
 
 ## Out of Scope
 
@@ -236,31 +236,54 @@ The immediately preceding story in sequence is **3.6u** (`3-6u-show-all-source-p
 
 ## Definition of Done
 
-- [ ] All Acceptance Criteria (AC1–AC5) are met.
-- [ ] `WeeklyCalendarView.test.tsx` passes unmodified, 100% green.
-- [ ] New `EventCardCompact.test.tsx` suite written and passing.
-- [ ] Lint and TypeScript strict-mode checks pass for `packages/ui`.
-- [ ] `EventCardCompact` is exported from `packages/ui`'s public entry point and documented with TSDoc.
-- [ ] Pre-Coding Approval Gate has moved from pending to explicitly approved before implementation began.
+- [x] All Acceptance Criteria (AC1–AC5) are met.
+- [x] `WeeklyCalendarView.test.tsx` passes unmodified, 100% green.
+- [x] New `EventCardCompact.test.tsx` suite written and passing.
+- [x] Lint and TypeScript strict-mode checks pass for `packages/ui`.
+- [x] `EventCardCompact` is exported from `packages/ui`'s public entry point and documented with TSDoc.
+- [x] Pre-Coding Approval Gate has moved from pending to explicitly approved before implementation began.
 
 ## Completion Status
 
-ready-for-dev — Ultimate context engine analysis completed - comprehensive developer guide created. Not yet implemented.
+review — all tasks complete, all ACs satisfied, full `@festgrid/ui` test suite green, lint clean, no new TypeScript errors introduced.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-(to be filled in by `bmad-dev-story`)
+claude-sonnet-5 (Claude Sonnet 5, Claude Code)
 
 ### Debug Log References
 
-N/A — not yet implemented.
+- This dev-story session resumed a prior session that was cut off mid-task (WIP captured in commit `70b9526`, before its final verification pass completed). Rather than redoing the extraction, this session reviewed the existing WIP against every AC/task, found it already complete and correct, then ran the verification suite that the prior session never got to finish:
+  - `pnpm --filter @festgrid/ui test` (scoped to `EventCardCompact`/`WeeklyCalendarView`): 2 files, 74 tests passed.
+  - `pnpm --filter @festgrid/ui test` (full, unfiltered): 65 files, 840 tests passed — confirms no regressions anywhere else in `packages/ui`.
+  - `pnpm --filter @festgrid/ui lint`: clean, zero warnings/errors.
+  - `npx tsc --noEmit` on `packages/ui`'s own `tsconfig.json`: the repo's pre-existing `tsconfig.json` `baseUrl` deprecation setting makes a bare `tsc --noEmit` exit before checking files; re-ran with `--ignoreDeprecations 6.0` as a diagnostic workaround (not a tsconfig edit) to see past it. Found 64 pre-existing type errors, all in `EventDetailView.test.tsx`/`EventDetailView.types.ts` (an unrelated, separate in-progress story's own WIP — `git log` shows those files last touched by commit `cd07a4c`, "wip(story-0.i6g)..."), and zero errors in `EventCardCompact.tsx`/`EventCardCompact.types.ts`/`WeeklyCalendarView.tsx`. This story introduces no new type errors.
+  - Did not run whole-repo build/lint — per this orchestration run's explicit instruction, the batch-end orchestrator owns that check.
 
 ### Completion Notes List
 
-N/A — not yet implemented.
+- Verified the extraction already present in `packages/ui/src/features/events/EventCardCompact.tsx`/`.types.ts`/`.test.tsx` against every AC: AC1 (verbatim port, `CalendarCard`'s `variant === 'list'` branch now delegates, `variant === 'grid'` untouched), AC2 (flattened `EventCardCompactProps`, no `Segment<TSchedule>`/roving-tabindex/grid tooltip plumbing, date-box pre-computed by caller, status badge computed internally, `isMultiDayRun` boolean), AC3 (skeleton with `aria-busy="true"`, matching layout zones, no partial content underneath), AC4 (exported from `packages/ui/src/features/events/index.ts`, TSDoc on both the component and props interface, independent `EventCardCompact.test.tsx` suite), AC5 (`WeeklyCalendarView.test.tsx` left byte-for-byte unmodified, confirmed 100% green).
+- No gaps found — the prior session's WIP was functionally complete; this session's work was verification, documentation (story file completion), and status/commit finalization, not new implementation.
+- Full `@festgrid/ui` suite (840 tests across 65 files) passes with zero regressions; `WeeklyCalendarView.test.tsx`'s existing assertions (classNames, `data-testid`s, DOM structure) are unmodified and green, serving as the AC5 regression proof.
+- Lint is clean at zero warnings. TypeScript strict-mode shows no new errors in any file this story touches; the 64 errors visible under a deprecation-bypassed `tsc --noEmit` run are pre-existing and confined to a different, unrelated in-progress story's WIP file (`EventDetailView.test.tsx`), not introduced by this story.
+- Per this orchestration run's explicit instruction, whole-repo build/lint was intentionally not run here — the batch-end orchestrator runs that check across all stories in the batch.
 
 ### File List
 
-N/A — not yet implemented.
+- `packages/ui/src/features/events/EventCardCompact.tsx` (new)
+- `packages/ui/src/features/events/EventCardCompact.types.ts` (new)
+- `packages/ui/src/features/events/EventCardCompact.test.tsx` (new)
+- `packages/ui/src/features/events/WeeklyCalendarView.tsx` (modified — `CalendarCard`'s `variant === 'list'` branch rewritten to delegate to `EventCardCompact`; `EVENT_CARD_COMPACT_CLASS`/`MULTI_DAY_EVENT_CLASS` constants moved out)
+- `packages/ui/src/features/events/index.ts` (modified — barrel export additions for `EventCardCompact`/`EventCardCompact.types`)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified — status tracking)
+- `_bmad-output/implementation-artifacts/3-6ua-extract-eventcardcompact-from-calendarcard-for-cross-context-reuse.md` (this file — task checkboxes, Dev Agent Record, File List, Change Log, Status)
+
+## Change Log
+
+| Date | Change | Author |
+|---|---|---|
+| 2026-10-03 | Story drafted, Pre-Coding Approval Gate approved via `AskUserQuestion`. | bmad-create-story / bmad-dev-story |
+| 2026-10-03 | Extraction implemented (`EventCardCompact.tsx`/`.types.ts`/`.test.tsx` created, `WeeklyCalendarView.tsx` delegation wired, barrel export added). Session interrupted before final verification; WIP committed as `70b9526`. | bmad-dev-story (interrupted session) |
+| 2026-10-04 | Resumed session: reviewed existing WIP against all ACs (no gaps found), ran full verification (`@festgrid/ui` test — 840/840 passing across 65 files, including the new `EventCardCompact.test.tsx` and unmodified `WeeklyCalendarView.test.tsx`; lint clean; tsc shows no new errors), completed Dev Agent Record/File List/Change Log, set story Status to `review`. | bmad-dev-story |
