@@ -3,7 +3,6 @@ import { posts } from "@festgrid/database";
 import { and, eq, isNull, lt, or } from "drizzle-orm";
 import { loadBackendEnv } from "../../env.js";
 import { sendSqsMessage } from "../aws/send-sqs-message.js";
-import { processAiJob } from "../ai-processor/process-ai-job.js";
 import {
   PostNotFoundError,
   PostAlreadyExtractedError,
@@ -80,9 +79,23 @@ export async function enqueuePostForProcessing(postId: string): Promise<void> {
       // inline instead of enqueuing, since there's no Lambda locally to drain the queue.
       // Fire-and-forget, mirroring the async nature of the queue path and the equivalent
       // scrape inline fallback in trigger-scrape-for-account.ts.
-      processAiJob(message).catch((err) => {
-        console.error(`Failed to process AI job inline for post ${post.id}:`, err);
-      });
+      //
+      // `processAiJob` is imported dynamically, ONLY here, deliberately -- 2026-10-04 prod
+      // incident: a static top-level import of process-ai-job.js pulls in its own static
+      // imports of detect-and-blur-faces.ts/upload-face-blur-thumbnail.ts, which `require`
+      // sharp/@tensorflow/tfjs/@vladmandic/face-api at module load. apiLambda/scraperLambda
+      // bundle that JS but never get sharp's native binary (only aiProcessorLambda does), so a
+      // static import here crashed BOTH Lambdas at cold start the instant this branch's module
+      // was reachable -- regardless of whether this branch ever ran, since `env.aiProcessingQueueUrl`
+      // is always set in prod. Deferring to a dynamic import means the `require` only happens if
+      // this branch actually executes, which it never does in prod (see Architecture Spine /
+      // festgrid-backend-stack.ts's `externalModules` for the matching bundling-side half of
+      // this fix).
+      import("../ai-processor/process-ai-job.js")
+        .then(({ processAiJob }) => processAiJob(message))
+        .catch((err) => {
+          console.error(`Failed to process AI job inline for post ${post.id}:`, err);
+        });
       return;
     }
 

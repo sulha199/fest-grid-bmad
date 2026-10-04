@@ -24,6 +24,19 @@ import { socialMediaAccountProfiles, posts } from '@festgrid/database';
 import { assignExtractionOrdinals } from '@festgrid/domain';
 import { writeExtractionAuditLog } from './write-extraction-audit-log.js';
 import type { ExtractionAuditEventCompleteness } from '@festgrid/domain/events';
+// 2026-10-04 prod incident -- these stay a STATIC import, deliberately, unlike the edges cut in
+// enqueue-post-for-processing.ts/build-gemini-request.ts. This file is only ever reachable from
+// apiLambda/scraperLambda via enqueue-post-for-processing.ts's own `await import('./process-ai-job.js')`
+// (local-dev-only inline-fallback branch) -- cutting THAT one edge already keeps this file, and
+// everything it statically imports, out of both Lambdas' cold-start path entirely (confirmed:
+// esbuild still bundles this file's code as part of that dynamic import's target, but never
+// EXECUTES it unless the branch runs, which it never does in prod). Making these two imports
+// dynamic as well would buy nothing for apiLambda/scraperLambda, but WOULD regress
+// aiProcessorLambda (the Lambda that actually calls this code on every invocation): it would
+// shift sharp/tfjs/face-api's module-load cost from Lambda init (its own separate, unmetered
+// budget) to the first real invocation reaching this branch, and would turn a genuine future
+// bundling regression there from a loud cold-start crash into a silently-caught error inside the
+// try/catch below -- caught during this fix's own review (Edge Case Hunter + Blind Hunter).
 import { detectAndBlurFacesSeam } from './detect-and-blur-faces.js';
 import { uploadFaceBlurThumbnailSeam } from './upload-face-blur-thumbnail.js';
 import { backfillFaceDetectionAuditResultSeam } from './backfill-face-detection-audit-result.js';

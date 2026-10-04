@@ -4,10 +4,12 @@ import { DayOfWeek } from '@festgrid/domain/events';
 import { type GeminiCallRequest } from '../ai-gateway/gemini-client.js';
 import { loadBackendEnv } from '../../env.js';
 // Story 3.20 (Task 3.6) -- detect-and-blur-faces.ts imports `@tensorflow/tfjs`/
-// `tfjs-backend-wasm` at module top level (confirmed by the CC-028 readiness sweep), so this
-// static import pulls that into every test of THIS file unless the test mocks the seam via
-// `setDetectAndBlurFacesSeam` (matching process-ai-job.face-blur.test.ts's existing convention).
-import { detectAndBlurFacesSeam } from './detect-and-blur-faces.js';
+// `tfjs-backend-wasm`/`sharp`/`@vladmandic/face-api` at module top level. Fixed 2026-10-04
+// (prod incident): this is deliberately NOT a static import -- see `blurImageForRequest`
+// below, which dynamic-imports it instead, only on the branch real callers gate behind
+// `options.blurFacesBeforeAi`. A static import here was reachable from `resolvers.ts`'s
+// `extractEventDataFromUrl` (apiLambda) even though that resolver never passes the option,
+// crashing apiLambda at cold start since it has no sharp native binary.
 
 // Story 3.6s — per-event object nested under the post-level `events` array. Everything that
 // used to be flat on the response schema (pre-3.6s) now lives here, plus the new
@@ -261,6 +263,17 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
         `Face-blur time budget too low for post ${message.postId}: ${remainingMs}ms remaining, need at least ${env.faceBlurMinRemainingTimeMs}ms`
       );
     }
+    // Dynamic import, deliberately only here (see this file's top-of-file comment) -- only
+    // reached when `shouldBlur` is true, i.e. a caller passed `blurFacesBeforeAi` AND the owner
+    // isn't opted in. A test that overrides the seam via `setDetectAndBlurFacesSeam` before
+    // calling into this file still works: that override mutates the SAME module binding this
+    // dynamic import resolves to. This import() runs AFTER the remainingMs budget check above,
+    // but that's not a time-budget leak for the one real caller (processAiJob): process-ai-job.ts
+    // keeps its OWN import of detect-and-blur-faces.ts static and deliberately so (see that
+    // file's top comment) -- by the time processAiJob ever calls into this function, Node has
+    // already loaded/cached this exact module at that earlier static import, so this is a cache
+    // hit, not fresh module-load cost (raised and verified during this fix's own review).
+    const { detectAndBlurFacesSeam } = await import('./detect-and-blur-faces.js');
     // Sequential by construction (AD-28 Rule 10, Task 3.3) -- every call site below awaits this
     // one image at a time, cover first then each slide in order, never concurrently.
     const result = await detectAndBlurFacesSeam(imageBuffer, contentType);
