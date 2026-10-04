@@ -97,7 +97,7 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   const isPublisherOptedIn = env.blurFacesBeforeAi ? await resolvePostPublisherOptIn(message.postId) : false;
 
   // 2. Build Gemini extraction request
-  const { request, imageBytes, imageContentType } = await buildGeminiExtractionRequest(
+  const { request, imageBytes, imageContentType, blurredCoverImageBytes, coverFaceCount, aiImageInput, totalFaceDetectionCount } = await buildGeminiExtractionRequest(
     message,
     env.blurFacesBeforeAi
       ? {
@@ -150,6 +150,8 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
         actualEventCount: 0,
         groupingReason: payload.groupingReason ?? null,
         eventsCompleteness: [],
+        aiImageInput,
+        actualFaceDetectionCount: aiImageInput === 'blurred' ? (totalFaceDetectionCount ?? 0) : null,
       });
     } catch (auditErr) {
       console.error(`[processAiJob] Failed to write extraction_audit_logs row for post ${message.postId}:`, auditErr);
@@ -180,6 +182,8 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
         actualEventCount: 0,
         groupingReason: payload.groupingReason ?? null,
         eventsCompleteness: [],
+        aiImageInput,
+        actualFaceDetectionCount: aiImageInput === 'blurred' ? (totalFaceDetectionCount ?? 0) : null,
       });
     } catch (auditErr) {
       console.error(`[processAiJob] Failed to write extraction_audit_logs row for post ${message.postId}:`, auditErr);
@@ -304,6 +308,8 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
       actualEventCount: events.length,
       groupingReason: payload.groupingReason ?? null,
       eventsCompleteness,
+      aiImageInput,
+      actualFaceDetectionCount: aiImageInput === 'blurred' ? (totalFaceDetectionCount ?? 0) : null,
     });
     auditLogId = id;
   } catch (auditErr) {
@@ -343,7 +349,14 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   // outcomes below; Story 3.6o inserts one more nested condition right after the hasFaceImage
   // check, before the timeout-guard check, for its own 'event_relevance_gate' outcome -- this
   // story does not wait on or depend on it.
-  if (imageBytes && imageContentType && payload.hasFaceImage === true) {
+  // Story 3.21 (AC1/AC2, Task 6) -- three branches, checked in this order:
+  //   a. aiImageInput === 'blurred': pre-AI detection (Story 3.20) already ran on the cover
+  //      before the Gemini call -- reuse its result, never call detectAndBlurFacesSeam again.
+  //   b. aiImageInput === 'text_only_fail_closed': the cover's own pre-AI blur failed/timed out
+  //      -- do nothing, no retry against the original bytes (the same failure would repeat).
+  //   c. otherwise ('original_mode_off' | 'original_owner_opted_in' | 'no_image_sent'): the
+  //      existing Story 3.6n/3.6o pipeline, completely unchanged.
+  if (aiImageInput === 'blurred') {
     // 7.5b (Story 3.6n, AD-28), continued -- Story 3.6o's relevance gate. Distinct from
     // Event.isExpiredForCurrentUser/computePastEventThreshold (a runtime, grace-period
     // visibility check re-evaluated per request for an already-viewing user, packages/domain) --
@@ -360,13 +373,50 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     const isStillRelevant =
       imageUrlExpiresAt === null || latestScheduleEnd === null || latestScheduleEnd > imageUrlExpiresAt;
 
+    // AC2: the face count is already known either way (detection already ran pre-AI), so
+    // faceDetectionSkippedReason is never 'event_relevance_gate' for this branch -- only the
+    // resize/upload/storage step is skipped when not relevant.
+    await backfillFaceDetectionAuditResultSeam(auditLogId, {
+      actualFaceDetectionCount: coverFaceCount ?? 0,
+      faceDetectionSkippedReason: null,
+    });
+
+    if (isStillRelevant && blurredCoverImageBytes) {
+      // Reuse the ALREADY-BLURRED cover bytes (Story 3.20) for the thumbnail -- never call
+      // detectAndBlurFacesSeam again (AC1: one detection pass per image, not two).
+      try {
+        await uploadFaceBlurThumbnailSeam(message.postId, blurredCoverImageBytes, env);
+      } catch (uploadError) {
+        console.error(`Face-blur thumbnail upload failed for post ${message.postId}:`, uploadError);
+      }
+    }
+  } else if (aiImageInput === 'text_only_fail_closed') {
+    // The cover's own pre-AI blur failed or timed out (Story 3.20) -- no backfill, no
+    // thumbnail upload, and explicitly no retry against the original imageBytes: the same
+    // failure would repeat, and a timeout fallback would burn the budget again.
+    console.warn(
+      `[processAiJob] Skipping face-blur thumbnail for post ${message.postId}: ` +
+        `the pre-AI cover blur failed closed (aiImageInput=text_only_fail_closed); not retrying.`
+    );
+  } else if (imageBytes && imageContentType && payload.hasFaceImage === true) {
+    // --- Story 3.6n/3.6o's existing pipeline, UNCHANGED below (aiImageInput is
+    // 'original_mode_off', 'original_owner_opted_in', or 'no_image_sent' here) ---
+    const [postExpiryRow] = await db
+      .select({ imageUrlExpiresAt: posts.imageUrlExpiresAt })
+      .from(posts)
+      .where(eq(posts.id, message.postId))
+      .limit(1);
+    const imageUrlExpiresAt = postExpiryRow?.imageUrlExpiresAt ?? null;
+    const latestScheduleEnd = computeLatestScheduleEnd(events);
+    const isStillRelevant =
+      imageUrlExpiresAt === null || latestScheduleEnd === null || latestScheduleEnd > imageUrlExpiresAt;
+
     if (!isStillRelevant) {
       await backfillFaceDetectionAuditResultSeam(auditLogId, {
         actualFaceDetectionCount: null,
         faceDetectionSkippedReason: 'event_relevance_gate',
       });
     } else {
-      // --- Story 3.6n's existing timeout-guard + detection/upload logic, UNCHANGED below ---
       const remainingMs = deps?.getRemainingTimeInMillis ? deps.getRemainingTimeInMillis() : Infinity;
       if (remainingMs < env.faceBlurMinRemainingTimeMs) {
         console.warn(

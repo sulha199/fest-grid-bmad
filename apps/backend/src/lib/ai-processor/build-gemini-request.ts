@@ -1,5 +1,5 @@
 import { EventType, EventCategory } from '@festgrid/shared-types';
-import { type ProcessingJobMessage, POST_GROUPING_REASONS } from '@festgrid/domain/posts';
+import { type ProcessingJobMessage, POST_GROUPING_REASONS, type AiImageInput } from '@festgrid/domain/posts';
 import { DayOfWeek } from '@festgrid/domain/events';
 import { type GeminiCallRequest } from '../ai-gateway/gemini-client.js';
 import { loadBackendEnv } from '../../env.js';
@@ -159,6 +159,15 @@ export interface BuildGeminiExtractionRequestResult {
   // second detection for the Story 3.6n thumbnail stage.
   blurredCoverImageBytes?: Buffer;
   coverFaceCount?: number;
+  // Story 3.21 (AC1/AC3) -- always set, every branch: which image shape the AI actually
+  // received for this attempt. See this function's own derivation logic below for the exact
+  // precedence (no image sent; cover fetch failed; mode off; owner opted in; cover blur
+  // failed closed; cover blurred successfully).
+  aiImageInput: AiImageInput;
+  // Story 3.21 (AC3, AD-29 Rule 7) -- present ONLY when aiImageInput === 'blurred'. The sum of
+  // detectAndBlurFacesSeam's own faceCount across every image actually sent (cover + every
+  // surviving slide) -- never just the cover alone, and never 0 when detection didn't run.
+  totalFaceDetectionCount?: number;
 }
 
 export interface BuildGeminiExtractionRequestOptions {
@@ -243,6 +252,13 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
   let imageContentType: string | undefined;
   let blurredCoverImageBytes: Buffer | undefined;
   let coverFaceCount: number | undefined;
+  // Story 3.21 (AC3) -- defaults to 'no_image_sent' and is only ever advanced forward below,
+  // never reset backward by the outer catch: a cover-fetch failure (never reaches past the
+  // fetch) leaves this at its default; a cover blur failure (reaches past the fetch, throws
+  // inside blurImageForRequest) is tagged 'text_only_fail_closed' BEFORE the throw, so the
+  // outer catch's text-only fallback does not need to -- and must not -- touch this value.
+  let aiImageInput: AiImageInput = 'no_image_sent';
+  let totalFaceDetectionCount: number | undefined;
 
   // Story 3.20 (AC1/AC2) -- only active when the caller passed the option AND the post's
   // PUBLISHER has not opted in to image storage. Both conditions collapse to false (skip all
@@ -300,13 +316,27 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
 
       let coverDataForRequest = buffer.toString('base64');
       if (shouldBlur) {
-        // A thrown error here (budget too low, or detectAndBlurFacesSeam itself failing) is
-        // caught by this function's own outer catch below -- which already falls back to
-        // text-only and never reaches the carousel loop for the cover's own failure (Task 3.2).
+        // Story 3.21 (AC3, Task 2.2e) -- tentatively tag as the fail-closed outcome BEFORE
+        // calling the seam: if blurImageForRequest throws (budget too low, or
+        // detectAndBlurFacesSeam itself failing), execution jumps straight to this function's
+        // outer catch below (which falls back to text-only and never reaches the carousel loop
+        // for the cover's own failure, Task 3.2) -- leaving aiImageInput at this tagged value,
+        // never back at the 'no_image_sent' default. Overwritten to 'blurred' only once the
+        // seam call below actually returns successfully.
+        aiImageInput = 'text_only_fail_closed';
         const blurResult = await blurImageForRequest(buffer, contentType);
         coverDataForRequest = blurResult.data;
         blurredCoverImageBytes = blurResult.blurred;
         coverFaceCount = blurResult.faceCount;
+        // Story 3.21 (AC3, Task 2.2f/2.3) -- the cover's own detection succeeded: this attempt's
+        // aiImageInput is 'blurred', and the running sum (AD-29 Rule 7: across every image sent)
+        // starts from the cover's own count.
+        aiImageInput = 'blurred';
+        totalFaceDetectionCount = blurResult.faceCount;
+      } else {
+        // Story 3.21 (AC3, Task 2.2c/2.2d) -- cover fetched OK, no blur attempted: disambiguate
+        // "the option was never passed" (mode off) from "passed, but this owner opted in".
+        aiImageInput = blurGate === undefined ? 'original_mode_off' : 'original_owner_opted_in';
       }
 
       contents = [
@@ -349,6 +379,12 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
             if (shouldBlur) {
               const blurResult = await blurImageForRequest(slideBuffer, slideContentType);
               slideDataForRequest = blurResult.data;
+              // Story 3.21 (AC3, Task 2.3, AD-29 Rule 7) -- add this slide's own faceCount into
+              // the running total. Reached only when the cover already succeeded (a cover
+              // failure jumps straight to the outer catch before this loop ever runs), so
+              // aiImageInput is already 'blurred' and totalFaceDetectionCount already seeded
+              // from the cover by this point.
+              totalFaceDetectionCount = (totalFaceDetectionCount ?? 0) + blurResult.faceCount;
             }
 
             contents.push({
@@ -388,6 +424,8 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
     imageBytes,
     imageContentType,
     blurredCoverImageBytes,
-    coverFaceCount
+    coverFaceCount,
+    aiImageInput,
+    totalFaceDetectionCount
   };
 }

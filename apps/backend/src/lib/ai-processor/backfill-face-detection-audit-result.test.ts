@@ -43,6 +43,7 @@ test('backfillFaceDetectionAuditResult unit tests', async (t) => {
       actualEventCount: 1,
       groupingReason: null,
       eventsCompleteness: [],
+      aiImageInput: 'original_mode_off',
     });
 
     await backfillFaceDetectionAuditResult(auditLogId, { actualFaceDetectionCount: 5, faceDetectionSkippedReason: null });
@@ -63,6 +64,7 @@ test('backfillFaceDetectionAuditResult unit tests', async (t) => {
       actualEventCount: 1,
       groupingReason: null,
       eventsCompleteness: [],
+      aiImageInput: 'original_mode_off',
     });
 
     await backfillFaceDetectionAuditResult(auditLogId, { actualFaceDetectionCount: null, faceDetectionSkippedReason: 'no_face_reported' });

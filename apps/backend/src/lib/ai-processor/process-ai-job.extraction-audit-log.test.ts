@@ -16,6 +16,8 @@ import {
 } from './process-ai-job.js';
 import { setResolveLocationSeam, resolveLocationSeam } from './resolve-account-and-locations.js';
 import { setSendSqsMessage, sendSqsMessage } from '../aws/send-sqs-message.js';
+import { setDetectAndBlurFacesSeam, detectAndBlurFacesSeam } from './detect-and-blur-faces.js';
+import { setUploadFaceBlurThumbnailSeam, uploadFaceBlurThumbnailSeam } from './upload-face-blur-thumbnail.js';
 import { type GeminiExtractionPayload } from '@festgrid/domain';
 import { type ProcessingJobMessage } from '@festgrid/domain/posts';
 import { loadBackendEnv } from '../../env.js';
@@ -54,6 +56,10 @@ test('processAiJob extraction_audit_logs write-path tests', async (t) => {
   const originalBackfillAccountProfileAndInferDefaultLocationSeam = backfillAccountProfileAndInferDefaultLocationSeam;
   const originalResolveLocationSeam = resolveLocationSeam;
   const originalSendSqsMessage = sendSqsMessage;
+  const originalDetectAndBlurFacesSeam = detectAndBlurFacesSeam;
+  const originalUploadFaceBlurThumbnailSeam = uploadFaceBlurThumbnailSeam;
+  const originalFetch = globalThis.fetch;
+  const originalBlurSetting = process.env.BLUR_FACES_BEFORE_AI;
 
   setBackfillAccountProfileAndInferDefaultLocationSeam(async () => {});
 
@@ -90,6 +96,11 @@ test('processAiJob extraction_audit_logs write-path tests', async (t) => {
     );
     setResolveLocationSeam(originalResolveLocationSeam);
     setSendSqsMessage(originalSendSqsMessage);
+    setDetectAndBlurFacesSeam(originalDetectAndBlurFacesSeam);
+    setUploadFaceBlurThumbnailSeam(originalUploadFaceBlurThumbnailSeam);
+    globalThis.fetch = originalFetch;
+    if (originalBlurSetting === undefined) delete process.env.BLUR_FACES_BEFORE_AI;
+    else process.env.BLUR_FACES_BEFORE_AI = originalBlurSetting;
   };
 
   t.after(async () => {
@@ -363,5 +374,192 @@ test('processAiJob extraction_audit_logs write-path tests', async (t) => {
 
     const rows = await db.select().from(extractionAuditLogs).where(eq(extractionAuditLogs.postId, unknownPostId));
     assert.strictEqual(rows.length, 0, 'No row should have been persisted, since the FK violation aborted the insert');
+  });
+
+  // ---- Story 3.21 (Task 5.3): aiImageInput/actualFaceDetectionCount wiring at all 3 insert paths ----
+
+  function installImageFetchMock() {
+    globalThis.fetch = (async () => ({
+      ok: true,
+      headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'image/jpeg' : null) },
+      arrayBuffer: async () => Buffer.from('audit-log-wiring-original-bytes'),
+    })) as any;
+    // Never attempt a real S3 upload in these wiring tests -- only the inserted row's
+    // aiImageInput/actualFaceDetectionCount columns are asserted here (Task 5.3). The test
+    // profile has isImageStorageOptedIn: true (set above), so step 7.5a's rehost would also
+    // otherwise run for real -- mock it too.
+    setUploadFaceBlurThumbnailSeam(async () => null);
+    setRehostPostImageSeam(async () => 'https://cdn.test.com/posts/audit-log-wiring-mock');
+  }
+
+  await t.test('Case G: isEvent=false path, mode off -> aiImageInput=original_mode_off, actualFaceDetectionCount null', async () => {
+    process.env.BLUR_FACES_BEFORE_AI = 'false';
+    installImageFetchMock();
+    const postId = await insertTestPost(profile.id, 'https://www.instagram.com/p/audit-case-g/');
+    const payload: GeminiExtractionPayload = { isEvent: false, events: [] };
+    const message: ProcessingJobMessage = {
+      postId,
+      accountId: profile.id,
+      content: 'Mode off, no event',
+      imageUrl: 'https://test.com/audit-case-g.jpg',
+      postUrl: 'https://www.instagram.com/p/audit-case-g/',
+      publishedAt: '2026-08-29T10:24:17Z'
+    };
+    setCallGeminiSeam(async () => ({ text: JSON.stringify(payload) }));
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    await processAiJob(message);
+
+    const [row] = await db.select().from(extractionAuditLogs).where(eq(extractionAuditLogs.postId, postId));
+    assert.strictEqual(row.aiImageInput, 'original_mode_off');
+    assert.strictEqual(row.actualFaceDetectionCount, null);
+  });
+
+  await t.test('Case H: isEvent=true zero-events path, mode off -> aiImageInput=original_mode_off, actualFaceDetectionCount null', async () => {
+    process.env.BLUR_FACES_BEFORE_AI = 'false';
+    installImageFetchMock();
+    const postId = await insertTestPost(profile.id, 'https://www.instagram.com/p/audit-case-h/');
+    const payload: GeminiExtractionPayload = { isEvent: true, events: [] };
+    const message: ProcessingJobMessage = {
+      postId,
+      accountId: profile.id,
+      content: 'Mode off, zero events',
+      imageUrl: 'https://test.com/audit-case-h.jpg',
+      postUrl: 'https://www.instagram.com/p/audit-case-h/',
+      publishedAt: '2026-08-29T10:24:17Z'
+    };
+    setCallGeminiSeam(async () => ({ text: JSON.stringify(payload) }));
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    await processAiJob(message);
+
+    const [row] = await db.select().from(extractionAuditLogs).where(eq(extractionAuditLogs.postId, postId));
+    assert.strictEqual(row.aiImageInput, 'original_mode_off');
+    assert.strictEqual(row.actualFaceDetectionCount, null);
+  });
+
+  await t.test('Case I: success path, mode off -> aiImageInput=original_mode_off, actualFaceDetectionCount null', async () => {
+    process.env.BLUR_FACES_BEFORE_AI = 'false';
+    installImageFetchMock();
+    const postId = await insertTestPost(profile.id, 'https://www.instagram.com/p/audit-case-i/');
+    const payload: GeminiExtractionPayload = {
+      isEvent: true,
+      events: [
+        {
+          eventName: 'Mode Off Success Event',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [buildSchedule('Day 1', '2026-10-25')],
+          confidenceScore: 0.9
+        }
+      ]
+    };
+    const message: ProcessingJobMessage = {
+      postId,
+      accountId: profile.id,
+      content: 'Mode off, success',
+      imageUrl: 'https://test.com/audit-case-i.jpg',
+      postUrl: 'https://www.instagram.com/p/audit-case-i/',
+      publishedAt: '2026-08-29T10:24:17Z'
+    };
+    setCallGeminiSeam(async () => ({ text: JSON.stringify(payload) }));
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+    setResolveLocationSeam(async () => ({ location: undefined }) as any);
+
+    await processAiJob(message);
+
+    const [row] = await db.select().from(extractionAuditLogs).where(eq(extractionAuditLogs.postId, postId));
+    assert.strictEqual(row.aiImageInput, 'original_mode_off');
+    assert.strictEqual(row.actualFaceDetectionCount, null);
+  });
+
+  await t.test('Case J: isEvent=false path, mode on + not opted in -> aiImageInput=blurred, actualFaceDetectionCount is the real count', async () => {
+    process.env.BLUR_FACES_BEFORE_AI = 'true';
+    installImageFetchMock();
+    setDetectAndBlurFacesSeam(async () => ({ buffer: Buffer.from('blurred-bytes'), faceCount: 3 }));
+    const postId = await insertTestPost(profile.id, 'https://www.instagram.com/p/audit-case-j/');
+    const payload: GeminiExtractionPayload = { isEvent: false, events: [] };
+    const message: ProcessingJobMessage = {
+      postId,
+      accountId: profile.id,
+      content: 'Blurred, no event',
+      imageUrl: 'https://test.com/audit-case-j.jpg',
+      postUrl: 'https://www.instagram.com/p/audit-case-j/',
+      publishedAt: '2026-08-29T10:24:17Z'
+    };
+    setCallGeminiSeam(async () => ({ text: JSON.stringify(payload) }));
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    await processAiJob(message);
+
+    const [row] = await db.select().from(extractionAuditLogs).where(eq(extractionAuditLogs.postId, postId));
+    assert.strictEqual(row.aiImageInput, 'blurred');
+    assert.strictEqual(row.actualFaceDetectionCount, 3);
+  });
+
+  await t.test('Case K: isEvent=true zero-events path, mode on + not opted in -> aiImageInput=blurred, actualFaceDetectionCount is the real count', async () => {
+    process.env.BLUR_FACES_BEFORE_AI = 'true';
+    installImageFetchMock();
+    setDetectAndBlurFacesSeam(async () => ({ buffer: Buffer.from('blurred-bytes'), faceCount: 4 }));
+    const postId = await insertTestPost(profile.id, 'https://www.instagram.com/p/audit-case-k/');
+    const payload: GeminiExtractionPayload = { isEvent: true, events: [] };
+    const message: ProcessingJobMessage = {
+      postId,
+      accountId: profile.id,
+      content: 'Blurred, zero events',
+      imageUrl: 'https://test.com/audit-case-k.jpg',
+      postUrl: 'https://www.instagram.com/p/audit-case-k/',
+      publishedAt: '2026-08-29T10:24:17Z'
+    };
+    setCallGeminiSeam(async () => ({ text: JSON.stringify(payload) }));
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    await processAiJob(message);
+
+    const [row] = await db.select().from(extractionAuditLogs).where(eq(extractionAuditLogs.postId, postId));
+    assert.strictEqual(row.aiImageInput, 'blurred');
+    assert.strictEqual(row.actualFaceDetectionCount, 4);
+  });
+
+  await t.test('Case L: success path, mode on + not opted in -> aiImageInput=blurred, actualFaceDetectionCount is the real count', async () => {
+    process.env.BLUR_FACES_BEFORE_AI = 'true';
+    installImageFetchMock();
+    setDetectAndBlurFacesSeam(async () => ({ buffer: Buffer.from('blurred-bytes'), faceCount: 5 }));
+    const postId = await insertTestPost(profile.id, 'https://www.instagram.com/p/audit-case-l/');
+    const payload: GeminiExtractionPayload = {
+      isEvent: true,
+      events: [
+        {
+          eventName: 'Blurred Success Event',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [buildSchedule('Day 1', '2026-10-25')],
+          confidenceScore: 0.9
+        }
+      ]
+    };
+    const message: ProcessingJobMessage = {
+      postId,
+      accountId: profile.id,
+      content: 'Blurred, success',
+      imageUrl: 'https://test.com/audit-case-l.jpg',
+      postUrl: 'https://www.instagram.com/p/audit-case-l/',
+      publishedAt: '2026-08-29T10:24:17Z'
+    };
+    setCallGeminiSeam(async () => ({ text: JSON.stringify(payload) }));
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+    setResolveLocationSeam(async () => ({ location: undefined }) as any);
+
+    await processAiJob(message);
+
+    const [row] = await db.select().from(extractionAuditLogs).where(eq(extractionAuditLogs.postId, postId));
+    assert.strictEqual(row.aiImageInput, 'blurred');
+    assert.strictEqual(row.actualFaceDetectionCount, 5);
   });
 });

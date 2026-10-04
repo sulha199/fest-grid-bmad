@@ -1,7 +1,7 @@
 import { db } from '../../db/client.js';
 import { extractionAuditLogs } from '@festgrid/database';
 import type { ExtractionAuditEventCompleteness } from '@festgrid/domain/events';
-import type { PostGroupingReason } from '@festgrid/domain/posts';
+import type { PostGroupingReason, AiImageInput } from '@festgrid/domain/posts';
 
 export interface WriteExtractionAuditLogParams {
   postId: string;
@@ -13,6 +13,13 @@ export interface WriteExtractionAuditLogParams {
   actualEventCount: number;
   groupingReason: PostGroupingReason | null;
   eventsCompleteness: ExtractionAuditEventCompleteness[];
+  // Story 3.21 (AC3) -- required: which image shape the AI actually saw for this attempt. All
+  // 3 call sites in process-ai-job.ts must supply it.
+  aiImageInput: AiImageInput;
+  // Story 3.21 (AC3) -- optional ground-truth value known at insert time (distinct from the
+  // later async backfill backfillFaceDetectionAuditResultSeam performs for the event-path-only
+  // case). Omitted keeps the column's existing null/"not yet backfilled" behavior.
+  actualFaceDetectionCount?: number | null;
 }
 
 // AD-29 -- one row per extraction attempt. DB-coupled (imports the Drizzle table), so this

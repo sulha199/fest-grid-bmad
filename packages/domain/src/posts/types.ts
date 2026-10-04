@@ -14,6 +14,22 @@ export const POST_GROUPING_REASONS = ['single-event', 'program-lineup', 'depende
 export type PostGroupingReason = (typeof POST_GROUPING_REASONS)[number];
 
 /**
+ * Closed set describing which image shape the AI actually saw for a given extraction attempt
+ * (Story 3.21, Architecture Spine AD-29 Rule 7). Computed once per attempt by
+ * `buildGeminiExtractionRequest` and persisted on `extraction_audit_logs.ai_image_input` by
+ * `writeExtractionAuditLog` -- see that function's own call sites in `process-ai-job.ts` for the
+ * exact precedence used to derive it.
+ */
+export const AI_IMAGE_INPUT_VALUES = [
+  'blurred',
+  'original_owner_opted_in',
+  'original_mode_off',
+  'text_only_fail_closed',
+  'no_image_sent',
+] as const;
+export type AiImageInput = (typeof AI_IMAGE_INPUT_VALUES)[number];
+
+/**
  * GraphQL-safe representation of `PostGroupingReason` (Story 3.6u, AD-30 Rule 11). The DB enum's
  * hyphenated values are not legal GraphQL enum literals, so this mapping function translates each
  * one to its `events.graphql` `PostGroupingReason` enum member. Used by `Event.sourcePosts`'s

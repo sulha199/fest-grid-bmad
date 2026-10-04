@@ -30,6 +30,7 @@ import {
 } from './backfill-face-detection-audit-result.js';
 import { type GeminiExtractionPayload } from '@festgrid/domain';
 import { type ProcessingJobMessage } from '@festgrid/domain/posts';
+import { extractionAuditLogs } from '@festgrid/database';
 
 // Story 3.20 (Task 5.2, Task 7.4) -- end-to-end wiring tests for the NEW pre-AI blur gate (step 2
 // of processAiJob, inside buildGeminiExtractionRequest), distinct from process-ai-job.face-blur.test.ts
@@ -100,7 +101,7 @@ test('processAiJob pre-AI face-blur gate (Story 3.20)', async (t) => {
     return profile;
   }
 
-  async function insertTestPost(accountId: string): Promise<string> {
+  async function insertTestPost(accountId: string, imageUrlExpiresAt?: Date | null): Promise<string> {
     const suffix = Date.now() + '-' + Math.random().toString(36).slice(2);
     const [row] = await db
       .insert(posts)
@@ -109,10 +110,18 @@ test('processAiJob pre-AI face-blur gate (Story 3.20)', async (t) => {
         platform: 'instagram',
         postUrl: 'https://www.instagram.com/p/preai-blur-' + suffix + '/',
         publishedAt: new Date('2026-10-03T10:00:00Z'),
+        imageUrlExpiresAt: imageUrlExpiresAt ?? null,
       })
       .returning();
     postIds.push(row.id);
     return row.id;
+  }
+
+  // Story 3.21 (Task 7) — builds a schedule with an explicit end date/time, mirroring
+  // process-ai-job.face-blur.test.ts's own identical helper, needed to exercise the relevance
+  // gate (Story 3.6o) now reused inside this story's 'blurred' thumbnail-stage branch.
+  function buildScheduleWithEnd(title: string, startDate: string, endDate?: string, endTime?: string) {
+    return { isMainSchedule: false, eventStartDate: startDate, eventEndDate: endDate, eventEndTime: endTime, title };
   }
 
   async function associate(postId: string, accountId: string, role: 'PUBLISHER' | 'COAUTHOR' | 'PUBLISHER_UNKNOWN') {
@@ -311,5 +320,148 @@ test('processAiJob pre-AI face-blur gate (Story 3.20)', async (t) => {
       if (originalBlurSetting === undefined) delete process.env.BLUR_FACES_BEFORE_AI;
       else process.env.BLUR_FACES_BEFORE_AI = originalBlurSetting;
     }
+  });
+
+  // ---- Story 3.21 (Task 7, AC1/AC2): step 7.5b's restructured thumbnail-stage branches ----
+
+  await t.test('Thumbnail reuse (AC1): aiImageInput=blurred -> detectAndBlurFacesSeam called exactly once (inside the builder), never again from processAiJob itself', async () => {
+    const publisher = await makeProfile(false);
+    const postId = await insertTestPost(publisher.id);
+    await associate(postId, publisher.id, 'PUBLISHER');
+
+    let detectCallCount = 0;
+    setDetectAndBlurFacesSeam(async () => {
+      detectCallCount++;
+      return { buffer: Buffer.from('preai-blurred-bytes'), faceCount: 2 };
+    });
+    let uploadCalledWith: Buffer | undefined;
+    setUploadFaceBlurThumbnailSeam(async (_postId: string, buf: Buffer) => {
+      uploadCalledWith = buf;
+      return 'https://cdn.test.com/posts/thumb-mock.jpg';
+    });
+    let backfillArgs: { actualFaceDetectionCount: number | null; faceDetectionSkippedReason: string | null } | undefined;
+    setBackfillFaceDetectionAuditResultSeam(async (_id, args) => {
+      backfillArgs = args as any;
+    });
+    setCallGeminiSeam(async () => ({ text: JSON.stringify(singleEventPayload()) }));
+
+    const message: ProcessingJobMessage = {
+      postId,
+      accountId: publisher.id,
+      content: 'Thumbnail reuse test',
+      imageUrl: 'https://test.com/img.jpg',
+      postUrl: 'https://www.instagram.com/p/preai-blur-reuse/',
+      publishedAt: '2026-10-03T10:00:00Z'
+    };
+
+    await processAiJob(message);
+
+    // Called exactly once -- inside buildGeminiExtractionRequest (step 2), never a second time
+    // from processAiJob's own step 7.5b (that is this story's whole point, AC1).
+    assert.strictEqual(detectCallCount, 1);
+    // The REUSED (already-blurred) cover bytes are what gets uploaded, not a fresh detection.
+    assert.deepStrictEqual(uploadCalledWith, Buffer.from('preai-blurred-bytes'));
+    assert.deepStrictEqual(backfillArgs, { actualFaceDetectionCount: 2, faceDetectionSkippedReason: null });
+  });
+
+  await t.test('Relevance gate with the setting on (AC2): not relevant -> uploadFaceBlurThumbnailSeam never called, backfill still real count with faceDetectionSkippedReason null', async () => {
+    const publisher = await makeProfile(false);
+    // imageUrlExpiresAt before the event's own schedule end -> NOT relevant (image already expired
+    // by the time the event ends is "relevant"; here the image expires AFTER a short-lived event
+    // ends, i.e. the schedule end is BEFORE imageUrlExpiresAt -> isStillRelevant === false).
+    const postId = await insertTestPost(publisher.id, new Date('2026-12-01T00:00:00Z'));
+    await associate(postId, publisher.id, 'PUBLISHER');
+
+    let detectCallCount = 0;
+    setDetectAndBlurFacesSeam(async () => {
+      detectCallCount++;
+      return { buffer: Buffer.from('preai-blurred-bytes'), faceCount: 3 };
+    });
+    let uploadCalled = false;
+    setUploadFaceBlurThumbnailSeam(async () => {
+      uploadCalled = true;
+      return null;
+    });
+    let backfillArgs: { actualFaceDetectionCount: number | null; faceDetectionSkippedReason: string | null } | undefined;
+    setBackfillFaceDetectionAuditResultSeam(async (_id, args) => {
+      backfillArgs = args as any;
+    });
+
+    const payload: GeminiExtractionPayload = {
+      isEvent: true,
+      hasFaceImage: false,
+      events: [
+        {
+          eventName: 'Short-Lived Event',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [buildScheduleWithEnd('Day 1', '2026-11-01', '2026-11-01', '10:00:00')],
+          confidenceScore: 0.9
+        }
+      ]
+    };
+    setCallGeminiSeam(async () => ({ text: JSON.stringify(payload) }));
+
+    const message: ProcessingJobMessage = {
+      postId,
+      accountId: publisher.id,
+      content: 'Relevance gate, setting on',
+      imageUrl: 'https://test.com/img.jpg',
+      postUrl: 'https://www.instagram.com/p/preai-blur-gate/',
+      publishedAt: '2026-10-03T10:00:00Z'
+    };
+
+    await processAiJob(message);
+
+    // Detection already ran once, pre-AI (inside the builder) -- never again here, and the
+    // resize/upload/storage step is the ONLY thing skipped by the gate (AC2).
+    assert.strictEqual(detectCallCount, 1);
+    assert.strictEqual(uploadCalled, false, 'uploadFaceBlurThumbnailSeam must not be called when not relevant');
+    // AC2: faceDetectionSkippedReason is NEVER 'event_relevance_gate' for the blurred branch --
+    // the face count is already known either way.
+    assert.deepStrictEqual(backfillArgs, { actualFaceDetectionCount: 3, faceDetectionSkippedReason: null });
+  });
+
+  await t.test('Cover-failure-no-retry (AC3): aiImageInput=text_only_fail_closed -> detectAndBlurFacesSeam/uploadFaceBlurThumbnailSeam/backfill never called, durableThumbnailUrl stays null', async () => {
+    const publisher = await makeProfile(false);
+    const postId = await insertTestPost(publisher.id);
+    await associate(postId, publisher.id, 'PUBLISHER');
+
+    let detectCallCount = 0;
+    setDetectAndBlurFacesSeam(async () => {
+      detectCallCount++;
+      throw new Error('simulated pre-AI cover blur failure');
+    });
+    let uploadCalled = false;
+    setUploadFaceBlurThumbnailSeam(async () => {
+      uploadCalled = true;
+      return null;
+    });
+    let backfillCalled = false;
+    setBackfillFaceDetectionAuditResultSeam(async () => {
+      backfillCalled = true;
+    });
+    setCallGeminiSeam(async () => ({ text: JSON.stringify(singleEventPayload()) }));
+
+    const message: ProcessingJobMessage = {
+      postId,
+      accountId: publisher.id,
+      content: 'Cover blur fails closed, no retry',
+      imageUrl: 'https://test.com/img.jpg',
+      postUrl: 'https://www.instagram.com/p/preai-blur-noretry/',
+      publishedAt: '2026-10-03T10:00:00Z'
+    };
+
+    await processAiJob(message);
+
+    // The cover's own pre-AI blur attempt happens exactly once (inside the builder) and is
+    // never retried against the original bytes from processAiJob's own step 7.5b.
+    assert.strictEqual(detectCallCount, 1);
+    assert.strictEqual(uploadCalled, false);
+    assert.strictEqual(backfillCalled, false);
+    const [postRow] = await db.select().from(posts).where(eq(posts.id, postId));
+    assert.strictEqual(postRow.durableThumbnailUrl, null);
+    const [auditRow] = await db.select().from(extractionAuditLogs).where(eq(extractionAuditLogs.postId, postId));
+    assert.strictEqual(auditRow.aiImageInput, 'text_only_fail_closed');
   });
 });

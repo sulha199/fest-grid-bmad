@@ -6,7 +6,7 @@ import type { ProposedEventCorrection } from '@festgrid/domain/events';
 import type { ExtractionAuditEventCompleteness } from '@festgrid/domain/events';
 import { POST_ACCOUNT_ROLES } from '@festgrid/domain/posts';
 import { EVENT_DETAIL_LEVELS } from '@festgrid/domain/events';
-import { POST_GROUPING_REASONS } from '@festgrid/domain/posts';
+import { POST_GROUPING_REASONS, AI_IMAGE_INPUT_VALUES } from '@festgrid/domain/posts';
 
 const generateSlug = () => randomBytes(6).toString('hex');
 
@@ -494,6 +494,12 @@ export const extractionAuditFaceDetectionSkippedReasonEnum = pgEnum('extraction_
   'event_relevance_gate',
 ]);
 
+// Story 3.21 / AD-29 Rule 7 -- which image shape the AI actually received for this attempt.
+// Existing rows (inserted before this column existed) default to 'original_mode_off', an
+// accurate description of what those rows' extraction attempts actually saw (the pre-AI blur
+// feature did not exist yet).
+export const extractionAuditAiImageInputEnum = pgEnum('extraction_audit_ai_image_input', AI_IMAGE_INPUT_VALUES);
+
 // Story 3.6p / AD-29 -- one row per Gemini extraction attempt (process-ai-job.ts), holding
 // every self-reported extraction-quality signal plus ground truth where available. Write-once
 // from process-ai-job.ts (this story); actualFaceDetectionCount/faceDetectionSkippedReason are
@@ -519,6 +525,10 @@ export const extractionAuditLogs = pgTable('extraction_audit_logs', {
   // skip-reason column (AD-29 Rule 3).
   actualFaceDetectionCount: integer('actual_face_detection_count'),
   faceDetectionSkippedReason: extractionAuditFaceDetectionSkippedReasonEnum('face_detection_skipped_reason'),
+  // Story 3.21 / AD-29 Rule 7 -- which image shape the AI actually saw for this attempt. Known
+  // at insert time (unlike actualFaceDetectionCount/faceDetectionSkippedReason above, which are
+  // genuine async backfills) -- always written by writeExtractionAuditLog, never backfilled.
+  aiImageInput: extractionAuditAiImageInputEnum('ai_image_input').notNull().default('original_mode_off'),
   // Post-level grouping self-report (Story 3.6s, AD-30 Rule 5). minEventCount is the model's
   // own best-effort count; actualEventCount is the post-truncation count of events actually
   // kept (events.length after Story 3.6s's cap) -- known synchronously within this same
