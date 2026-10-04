@@ -4136,6 +4136,8 @@ Users can contribute to data quality by correcting event details and reporting i
 
 **Depends on:** Story 3.20, Story 4.2a, Story 4.2, Story 0.13, Story 3.3c.
 
+**Decisions (2026-10-04, user, at `bmad-create-story`):** (1) Transport: the API Lambda **async-invokes the AI Lambda directly** and tracks the job in a new `manual_extraction_jobs` table — not `AIProcessingQueue`, because prod's AI Lambda only polls every 5 minutes (EventBridge poll-and-drain). (2) Manual extraction is **always blurred** (no publisher opt-in path), subject to the global `BLUR_FACES_BEFORE_AI` switch. (3) The new-post scrape stays in the **API Lambda** (20 s timeout kept; pre-check errors stay synchronous). (4) Full story: backend + web. See the story file for the resulting ACs.
+
 ### Story 4.3a: Build the reports backend GraphQL API layer and personal-visibility filtering
 
 **As a** developer,
