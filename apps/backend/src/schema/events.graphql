@@ -139,8 +139,34 @@ type Event {
   isHiddenForCurrentUser: Boolean!
   sourceSocialMediaAccountProfile: SocialMediaAccountProfile
   coauthors: [SocialMediaAccountProfile!]!
+  sourcePosts: [EventSourcePost!]!
   deletedAt: String
   isExpiredForCurrentUser: Boolean!
+}
+
+enum PostGroupingReason {
+  SINGLE_EVENT
+  PROGRAM_LINEUP
+  DEPENDENT_STAGES
+  SEPARATE_EVENTS
+  ROUNDUP
+}
+
+type EventSourcePost {
+  postId: ID!
+  isPrimary: Boolean!
+  groupingReason: PostGroupingReason
+  extractedEventCount: Int
+  postedAt: String
+  sourcePostUrl: String
+  originalPostUrl: String
+  account: SocialMediaAccountProfile
+  coauthors: [SocialMediaAccountProfile!]!
+}
+
+type RelatedEventGroup {
+  postId: ID!
+  eventIds: [ID!]!
 }
 
 type EventConnection {
@@ -161,6 +187,7 @@ extend type Query {
   event(id: ID!, includeMyArchived: Boolean): Event
   eventBySlug(slug: String!, includeMyArchived: Boolean): Event
   instagramEmbedBySlug(slug: String!): InstagramEmbedBySlug!
+  relatedEventIds(eventId: ID!): [RelatedEventGroup!]!
 }
 
 type ResolveScheduleTimezoneResult {

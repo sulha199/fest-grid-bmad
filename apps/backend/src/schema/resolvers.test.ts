@@ -7,7 +7,7 @@ import { resolvers, setEventsAuthProbe, eventsAuthProbe } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db, enableQueryDebug, resetExecutedQueryCount, getExecutedQueryCount } from '../db/client.js';
-import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, calendarAdditions, unprocessedScraperPayloads, instagramOembedCache, accountVotes, postAccountAssociations } from '@festgrid/database';
+import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, calendarAdditions, unprocessedScraperPayloads, instagramOembedCache, accountVotes, postAccountAssociations, eventPosts } from '@festgrid/database';
 import { eq, inArray, count, sql } from 'drizzle-orm';
 import { ENDED_CASE_FIXTURES } from '@festgrid/domain/events';
 
@@ -2164,6 +2164,361 @@ test('events resolver integration via Yoga', async (t) => {
         await db.delete(posts).where(eq(posts.id, onlyPublisherPost.id));
         await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, onlyPublisherProfile.id));
       }
+    });
+  });
+
+  await t.test('Event.sourcePosts resolver (Story 3.6u)', async (t) => {
+    let publisherProfile: any;
+    let coauthorAProfile: any;
+    let coauthorBProfile: any;
+    let primaryPost: any;
+    let manualPostEarly: any;
+    let manualPostLate: any;
+    let testEvent: any;
+    const associationIds: string[] = [];
+    const linkRows: Array<{ eventId: string; postId: string }> = [];
+
+    t.before(async () => {
+      const [publisher] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: 'resolver_test_source_posts_publisher_1',
+        platform: 'instagram',
+        displayName: 'Resolver Test Source Posts Publisher',
+        username: 'resolver_test_source_posts_publisher_1',
+      }).returning();
+      publisherProfile = publisher;
+
+      const [coauthorA] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: 'resolver_test_source_posts_coauthor_a',
+        platform: 'instagram',
+        displayName: 'Resolver Test Source Posts Coauthor A',
+        username: 'resolver_test_source_posts_coauthor_a',
+      }).returning();
+      coauthorAProfile = coauthorA;
+
+      const [coauthorB] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: 'resolver_test_source_posts_coauthor_b',
+        platform: 'instagram',
+        displayName: 'Resolver Test Source Posts Coauthor B',
+        username: 'resolver_test_source_posts_coauthor_b',
+      }).returning();
+      coauthorBProfile = coauthorB;
+
+      const [primary] = await db.insert(posts).values({
+        accountId: publisherProfile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/resolver_test_source_posts_primary',
+        originalPostUrl: 'https://instagram.com/p/resolver_test_source_posts_primary',
+        content: 'Primary post',
+        publishedAt: new Date(),
+        isExtracted: true,
+        groupingReason: 'single-event',
+        extractedEventCount: 1,
+      }).returning();
+      primaryPost = primary;
+
+      const [manualEarly] = await db.insert(posts).values({
+        accountId: publisherProfile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/resolver_test_source_posts_manual_early',
+        originalPostUrl: 'https://instagram.com/p/resolver_test_source_posts_manual_early',
+        content: 'Manual early post',
+        publishedAt: new Date(),
+        isExtracted: true,
+        groupingReason: 'program-lineup',
+        extractedEventCount: 3,
+      }).returning();
+      manualPostEarly = manualEarly;
+
+      const [manualLate] = await db.insert(posts).values({
+        accountId: publisherProfile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/resolver_test_source_posts_manual_late',
+        originalPostUrl: 'https://instagram.com/p/resolver_test_source_posts_manual_late',
+        content: 'Manual late post',
+        publishedAt: new Date(),
+        isExtracted: true,
+        groupingReason: 'roundup',
+        extractedEventCount: null,
+      }).returning();
+      manualPostLate = manualLate;
+
+      const [ev] = await db.insert(events).values({
+        eventName: 'Resolver Test Source Posts Event',
+        postId: primaryPost.id,
+        extractionOrdinal: 0,
+        location: 'Test location',
+      }).returning();
+      testEvent = ev;
+
+      // Link rows seeded in mixed order (late ordinal first, then early, then the primary's own
+      // link last) to confirm the resolver re-sorts rather than trusting insertion order.
+      const [lateLink] = await db.insert(eventPosts).values({
+        eventId: testEvent.id,
+        postId: manualPostLate.id,
+        extractionOrdinal: 2,
+      }).returning();
+      linkRows.push({ eventId: lateLink.eventId, postId: lateLink.postId });
+
+      const [earlyLink] = await db.insert(eventPosts).values({
+        eventId: testEvent.id,
+        postId: manualPostEarly.id,
+        extractionOrdinal: 1,
+      }).returning();
+      linkRows.push({ eventId: earlyLink.eventId, postId: earlyLink.postId });
+
+      const [primaryLink] = await db.insert(eventPosts).values({
+        eventId: testEvent.id,
+        postId: primaryPost.id,
+        extractionOrdinal: 0,
+      }).returning();
+      linkRows.push({ eventId: primaryLink.eventId, postId: primaryLink.postId });
+
+      const [assocA] = await db.insert(postAccountAssociations).values({
+        postId: primaryPost.id,
+        accountId: coauthorAProfile.id,
+        role: 'COAUTHOR',
+      }).returning();
+      associationIds.push(assocA.id);
+
+      const [assocB] = await db.insert(postAccountAssociations).values({
+        postId: manualPostEarly.id,
+        accountId: coauthorBProfile.id,
+        role: 'COAUTHOR',
+      }).returning();
+      associationIds.push(assocB.id);
+    });
+
+    t.after(async () => {
+      for (const id of associationIds) {
+        await db.delete(postAccountAssociations).where(eq(postAccountAssociations.id, id));
+      }
+      if (testEvent) await db.delete(eventPosts).where(eq(eventPosts.eventId, testEvent.id));
+      if (testEvent) await db.delete(events).where(eq(events.id, testEvent.id));
+      for (const post of [primaryPost, manualPostEarly, manualPostLate]) {
+        if (post) await db.delete(posts).where(eq(posts.id, post.id));
+      }
+      for (const profile of [publisherProfile, coauthorAProfile, coauthorBProfile]) {
+        if (profile) await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+      }
+    });
+
+    await t.test('returns every linked post primary-first-then-extraction-ordinal, with per-post groupingReason/extractedEventCount/coauthors', async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetEventWithSourcePosts($id: ID!) {
+              event(id: $id) {
+                id
+                sourcePosts {
+                  postId
+                  isPrimary
+                  groupingReason
+                  extractedEventCount
+                  coauthors {
+                    id
+                    accountId
+                  }
+                }
+              }
+            }
+          `,
+          variables: { id: testEvent.id }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      const sourcePosts = result.data.event.sourcePosts;
+      assert.strictEqual(sourcePosts.length, 3);
+
+      // Primary first.
+      assert.strictEqual(sourcePosts[0].postId, primaryPost.id);
+      assert.strictEqual(sourcePosts[0].isPrimary, true);
+      assert.strictEqual(sourcePosts[0].groupingReason, 'SINGLE_EVENT');
+      assert.strictEqual(sourcePosts[0].extractedEventCount, 1);
+      assert.strictEqual(sourcePosts[0].coauthors.length, 1);
+      assert.strictEqual(sourcePosts[0].coauthors[0].id, coauthorAProfile.id);
+
+      // Then link order by extraction ordinal (1 before 2), not insertion order.
+      assert.strictEqual(sourcePosts[1].postId, manualPostEarly.id);
+      assert.strictEqual(sourcePosts[1].isPrimary, false);
+      assert.strictEqual(sourcePosts[1].groupingReason, 'PROGRAM_LINEUP');
+      assert.strictEqual(sourcePosts[1].extractedEventCount, 3);
+      assert.strictEqual(sourcePosts[1].coauthors.length, 1);
+      assert.strictEqual(sourcePosts[1].coauthors[0].id, coauthorBProfile.id);
+
+      assert.strictEqual(sourcePosts[2].postId, manualPostLate.id);
+      assert.strictEqual(sourcePosts[2].isPrimary, false);
+      assert.strictEqual(sourcePosts[2].groupingReason, 'ROUNDUP');
+      assert.strictEqual(sourcePosts[2].extractedEventCount, null);
+      assert.deepStrictEqual(sourcePosts[2].coauthors, []);
+    });
+
+    await t.test('returns [] for an event with zero linked posts', async () => {
+      const [noLinksEvent] = await db.insert(events).values({
+        eventName: 'No Links Event',
+        location: 'Test location',
+      }).returning();
+
+      try {
+        const response = await yoga.fetch('http://yoga/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: `
+              query GetEventWithSourcePosts($id: ID!) {
+                event(id: $id) {
+                  id
+                  sourcePosts {
+                    postId
+                  }
+                }
+              }
+            `,
+            variables: { id: noLinksEvent.id }
+          })
+        });
+
+        const result = await response.json();
+        assert.ok(!result.errors, JSON.stringify(result.errors));
+        assert.deepStrictEqual(result.data.event.sourcePosts, []);
+      } finally {
+        await db.delete(events).where(eq(events.id, noLinksEvent.id));
+      }
+    });
+  });
+
+  await t.test('Query.relatedEventIds resolver (Story 3.6u)', async (t) => {
+    let sharedPost: any;
+    let subjectEvent: any;
+    let relatedEvent: any;
+    let unrelatedEvent: any;
+    let softDeletedEvent: any;
+    let mergedEvent: any;
+    const createdEventIds: string[] = [];
+
+    t.before(async () => {
+      const [profile] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: 'resolver_test_related_event_ids_publisher_1',
+        platform: 'instagram',
+        displayName: 'Resolver Test Related Event Ids Publisher',
+        username: 'resolver_test_related_event_ids_publisher_1',
+      }).returning();
+
+      const [post] = await db.insert(posts).values({
+        accountId: profile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/resolver_test_related_event_ids_post_1',
+        originalPostUrl: 'https://instagram.com/p/resolver_test_related_event_ids_post_1',
+        content: 'Shared post',
+        publishedAt: new Date(),
+        isExtracted: true,
+      }).returning();
+      sharedPost = post;
+
+      const [unrelatedPost] = await db.insert(posts).values({
+        accountId: profile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/resolver_test_related_event_ids_unrelated_post',
+        originalPostUrl: 'https://instagram.com/p/resolver_test_related_event_ids_unrelated_post',
+        content: 'Unrelated post',
+        publishedAt: new Date(),
+        isExtracted: true,
+      }).returning();
+
+      const [subject] = await db.insert(events).values({
+        eventName: 'Subject Event', postId: sharedPost.id, extractionOrdinal: 0, location: 'Test location',
+      }).returning();
+      subjectEvent = subject;
+      createdEventIds.push(subject.id);
+
+      const [related] = await db.insert(events).values({
+        eventName: 'Related Event', postId: sharedPost.id, extractionOrdinal: 1, location: 'Test location',
+      }).returning();
+      relatedEvent = related;
+      createdEventIds.push(related.id);
+
+      const [unrelated] = await db.insert(events).values({
+        eventName: 'Unrelated Event', postId: unrelatedPost.id, extractionOrdinal: 0, location: 'Test location',
+      }).returning();
+      unrelatedEvent = unrelated;
+      createdEventIds.push(unrelated.id);
+
+      const [softDeleted] = await db.insert(events).values({
+        eventName: 'Soft Deleted Related Event', postId: sharedPost.id, extractionOrdinal: 2, location: 'Test location', deletedAt: new Date(),
+      }).returning();
+      softDeletedEvent = softDeleted;
+      createdEventIds.push(softDeleted.id);
+
+      const [merged] = await db.insert(events).values({
+        eventName: 'Merged-Away Related Event', postId: sharedPost.id, extractionOrdinal: 3, location: 'Test location', mergedIntoEventId: relatedEvent.id,
+      }).returning();
+      mergedEvent = merged;
+      createdEventIds.push(merged.id);
+
+      await db.insert(eventPosts).values([
+        { eventId: subjectEvent.id, postId: sharedPost.id, extractionOrdinal: 0 },
+        { eventId: relatedEvent.id, postId: sharedPost.id, extractionOrdinal: 1 },
+        { eventId: softDeletedEvent.id, postId: sharedPost.id, extractionOrdinal: 2 },
+        { eventId: mergedEvent.id, postId: sharedPost.id, extractionOrdinal: 3 },
+        { eventId: unrelatedEvent.id, postId: unrelatedPost.id, extractionOrdinal: 0 },
+      ]);
+
+      t.after(async () => {
+        await db.delete(eventPosts).where(inArray(eventPosts.eventId, createdEventIds));
+        await db.delete(events).where(inArray(events.id, createdEventIds));
+        await db.delete(posts).where(inArray(posts.id, [sharedPost.id, unrelatedPost.id]));
+        await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+      });
+    });
+
+    await t.test('groups by shared post, including the other event but excluding the subject event itself, the soft-deleted event, and the merged-away event', async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetRelatedEventIds($eventId: ID!) {
+              relatedEventIds(eventId: $eventId) {
+                postId
+                eventIds
+              }
+            }
+          `,
+          variables: { eventId: subjectEvent.id }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      const groups = result.data.relatedEventIds;
+      assert.strictEqual(groups.length, 1);
+      assert.strictEqual(groups[0].postId, sharedPost.id);
+      assert.deepStrictEqual([...groups[0].eventIds].sort(), [relatedEvent.id].sort());
+    });
+
+    await t.test('returns [] when the subject event has no co-linked posts', async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetRelatedEventIds($eventId: ID!) {
+              relatedEventIds(eventId: $eventId) {
+                postId
+                eventIds
+              }
+            }
+          `,
+          variables: { eventId: unrelatedEvent.id }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.deepStrictEqual(result.data.relatedEventIds, []);
     });
   });
 

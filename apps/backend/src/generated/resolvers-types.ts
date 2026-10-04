@@ -276,6 +276,7 @@ export type Event = {
   schedules: Array<Schedule>;
   slug: Scalars['String']['output'];
   sourcePostUrl?: Maybe<Scalars['String']['output']>;
+  sourcePosts: Array<EventSourcePost>;
   sourceSocialMediaAccountId?: Maybe<Scalars['ID']['output']>;
   sourceSocialMediaAccountProfile?: Maybe<SocialMediaAccountProfile>;
   types?: Maybe<Array<EventType>>;
@@ -347,6 +348,19 @@ export type EventQueryConditionInput = {
   field?: InputMaybe<Scalars['String']['input']>;
   operator?: InputMaybe<Scalars['String']['input']>;
   value?: InputMaybe<Scalars['JSON']['input']>;
+};
+
+export type EventSourcePost = {
+  __typename?: 'EventSourcePost';
+  account?: Maybe<SocialMediaAccountProfile>;
+  coauthors: Array<SocialMediaAccountProfile>;
+  extractedEventCount?: Maybe<Scalars['Int']['output']>;
+  groupingReason?: Maybe<PostGroupingReason>;
+  isPrimary: Scalars['Boolean']['output'];
+  originalPostUrl?: Maybe<Scalars['String']['output']>;
+  postId: Scalars['ID']['output'];
+  postedAt?: Maybe<Scalars['String']['output']>;
+  sourcePostUrl?: Maybe<Scalars['String']['output']>;
 };
 
 export type EventType =
@@ -798,6 +812,13 @@ export type PostConnection = {
   nextCursor?: Maybe<Scalars['String']['output']>;
 };
 
+export type PostGroupingReason =
+  | 'DEPENDENT_STAGES'
+  | 'PROGRAM_LINEUP'
+  | 'ROUNDUP'
+  | 'SEPARATE_EVENTS'
+  | 'SINGLE_EVENT';
+
 export type ProposedEventCorrectionData = {
   __typename?: 'ProposedEventCorrectionData';
   categories: Array<EventCategory>;
@@ -887,6 +908,7 @@ export type Query = {
   queryModeratorAccountProfiles: SocialMediaAccountProfileConnection;
   queryUnprocessedPayloads: UnprocessedPayloadConnection;
   rankedVoteAccounts: Array<RankedAccountVote>;
+  relatedEventIds: Array<RelatedEventGroup>;
   reportedEvents: Array<Report>;
   socialMediaAccountProfileByAccountId?: Maybe<SocialMediaAccountProfile>;
   voteRegionBreakdown: Array<RegionVoteBucket>;
@@ -986,6 +1008,11 @@ export type QueryRankedVoteAccountsArgs = {
 };
 
 
+export type QueryRelatedEventIdsArgs = {
+  eventId: Scalars['ID']['input'];
+};
+
+
 export type QueryReportedEventsArgs = {
   reason?: InputMaybe<ReportReason>;
   status?: InputMaybe<ReportStatus>;
@@ -1023,6 +1050,12 @@ export type RegionVoteBucket = {
   __typename?: 'RegionVoteBucket';
   label: Scalars['String']['output'];
   voterCount: Scalars['Int']['output'];
+};
+
+export type RelatedEventGroup = {
+  __typename?: 'RelatedEventGroup';
+  eventIds: Array<Scalars['ID']['output']>;
+  postId: Scalars['ID']['output'];
 };
 
 export type ReplayActorRunResult = {
@@ -1445,6 +1478,7 @@ export type ResolversTypes = ResolversObject<{
   EventFilterInput: EventFilterInput;
   EventLink: ResolverTypeWrapper<EventLink>;
   EventQueryConditionInput: EventQueryConditionInput;
+  EventSourcePost: ResolverTypeWrapper<EventSourcePost>;
   EventType: EventType;
   ExtractEventDataFromUrlResult: ResolverTypeWrapper<ExtractEventDataFromUrlResult>;
   ExtractionErrorCode: ExtractionErrorCode;
@@ -1470,6 +1504,7 @@ export type ResolversTypes = ResolversObject<{
   PayloadContext: ResolverTypeWrapper<PayloadContext>;
   Post: ResolverTypeWrapper<Post>;
   PostConnection: ResolverTypeWrapper<PostConnection>;
+  PostGroupingReason: PostGroupingReason;
   ProposedEventCorrectionData: ResolverTypeWrapper<ProposedEventCorrectionData>;
   ProposedEventCorrectionInput: ProposedEventCorrectionInput;
   ProposedScheduleCorrectionData: ResolverTypeWrapper<ProposedScheduleCorrectionData>;
@@ -1477,6 +1512,7 @@ export type ResolversTypes = ResolversObject<{
   Query: ResolverTypeWrapper<{}>;
   RankedAccountVote: ResolverTypeWrapper<RankedAccountVote>;
   RegionVoteBucket: ResolverTypeWrapper<RegionVoteBucket>;
+  RelatedEventGroup: ResolverTypeWrapper<RelatedEventGroup>;
   ReplayActorRunResult: ResolverTypeWrapper<ReplayActorRunResult>;
   Report: ResolverTypeWrapper<Report>;
   ReportOutcome: ReportOutcome;
@@ -1548,6 +1584,7 @@ export type ResolversParentTypes = ResolversObject<{
   EventFilterInput: EventFilterInput;
   EventLink: EventLink;
   EventQueryConditionInput: EventQueryConditionInput;
+  EventSourcePost: EventSourcePost;
   ExtractEventDataFromUrlResult: ExtractEventDataFromUrlResult;
   ExtractionQuota: ExtractionQuota;
   Float: Scalars['Float']['output'];
@@ -1574,6 +1611,7 @@ export type ResolversParentTypes = ResolversObject<{
   Query: {};
   RankedAccountVote: RankedAccountVote;
   RegionVoteBucket: RegionVoteBucket;
+  RelatedEventGroup: RelatedEventGroup;
   ReplayActorRunResult: ReplayActorRunResult;
   Report: Report;
   ReportSystemErrorInput: ReportSystemErrorInput;
@@ -1753,6 +1791,7 @@ export type EventResolvers<ContextType = GraphQLContext, ParentType extends Reso
   schedules?: Resolver<Array<ResolversTypes['Schedule']>, ParentType, ContextType>;
   slug?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   sourcePostUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  sourcePosts?: Resolver<Array<ResolversTypes['EventSourcePost']>, ParentType, ContextType>;
   sourceSocialMediaAccountId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
   sourceSocialMediaAccountProfile?: Resolver<Maybe<ResolversTypes['SocialMediaAccountProfile']>, ParentType, ContextType>;
   types?: Resolver<Maybe<Array<ResolversTypes['EventType']>>, ParentType, ContextType>;
@@ -1784,6 +1823,19 @@ export type EventFilterResolvers<ContextType = GraphQLContext, ParentType extend
 export type EventLinkResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['EventLink'] = ResolversParentTypes['EventLink']> = ResolversObject<{
   label?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   url?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type EventSourcePostResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['EventSourcePost'] = ResolversParentTypes['EventSourcePost']> = ResolversObject<{
+  account?: Resolver<Maybe<ResolversTypes['SocialMediaAccountProfile']>, ParentType, ContextType>;
+  coauthors?: Resolver<Array<ResolversTypes['SocialMediaAccountProfile']>, ParentType, ContextType>;
+  extractedEventCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  groupingReason?: Resolver<Maybe<ResolversTypes['PostGroupingReason']>, ParentType, ContextType>;
+  isPrimary?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  originalPostUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  postId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  postedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  sourcePostUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1998,6 +2050,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   queryModeratorAccountProfiles?: Resolver<ResolversTypes['SocialMediaAccountProfileConnection'], ParentType, ContextType, Partial<QueryQueryModeratorAccountProfilesArgs>>;
   queryUnprocessedPayloads?: Resolver<ResolversTypes['UnprocessedPayloadConnection'], ParentType, ContextType, Partial<QueryQueryUnprocessedPayloadsArgs>>;
   rankedVoteAccounts?: Resolver<Array<ResolversTypes['RankedAccountVote']>, ParentType, ContextType, Partial<QueryRankedVoteAccountsArgs>>;
+  relatedEventIds?: Resolver<Array<ResolversTypes['RelatedEventGroup']>, ParentType, ContextType, RequireFields<QueryRelatedEventIdsArgs, 'eventId'>>;
   reportedEvents?: Resolver<Array<ResolversTypes['Report']>, ParentType, ContextType, Partial<QueryReportedEventsArgs>>;
   socialMediaAccountProfileByAccountId?: Resolver<Maybe<ResolversTypes['SocialMediaAccountProfile']>, ParentType, ContextType, RequireFields<QuerySocialMediaAccountProfileByAccountIdArgs, 'accountId' | 'platform'>>;
   voteRegionBreakdown?: Resolver<Array<ResolversTypes['RegionVoteBucket']>, ParentType, ContextType, RequireFields<QueryVoteRegionBreakdownArgs, 'accountId'>>;
@@ -2015,6 +2068,12 @@ export type RankedAccountVoteResolvers<ContextType = GraphQLContext, ParentType 
 export type RegionVoteBucketResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['RegionVoteBucket'] = ResolversParentTypes['RegionVoteBucket']> = ResolversObject<{
   label?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   voterCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type RelatedEventGroupResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['RelatedEventGroup'] = ResolversParentTypes['RelatedEventGroup']> = ResolversObject<{
+  eventIds?: Resolver<Array<ResolversTypes['ID']>, ParentType, ContextType>;
+  postId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -2258,6 +2317,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   EventConnection?: EventConnectionResolvers<ContextType>;
   EventFilter?: EventFilterResolvers<ContextType>;
   EventLink?: EventLinkResolvers<ContextType>;
+  EventSourcePost?: EventSourcePostResolvers<ContextType>;
   ExtractEventDataFromUrlResult?: ExtractEventDataFromUrlResultResolvers<ContextType>;
   ExtractionQuota?: ExtractionQuotaResolvers<ContextType>;
   InstagramEmbed?: InstagramEmbedResolvers<ContextType>;
@@ -2277,6 +2337,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   Query?: QueryResolvers<ContextType>;
   RankedAccountVote?: RankedAccountVoteResolvers<ContextType>;
   RegionVoteBucket?: RegionVoteBucketResolvers<ContextType>;
+  RelatedEventGroup?: RelatedEventGroupResolvers<ContextType>;
   ReplayActorRunResult?: ReplayActorRunResultResolvers<ContextType>;
   Report?: ReportResolvers<ContextType>;
   ReprocessResult?: ReprocessResultResolvers<ContextType>;
