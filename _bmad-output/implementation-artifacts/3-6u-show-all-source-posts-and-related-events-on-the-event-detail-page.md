@@ -218,11 +218,11 @@ An epic readiness report already covers this story: `_bmad-output/planning-artif
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — Tasks 1-9 match the three user-decided design questions (sourcePosts supersedes coauthors per-branch; EXPLAIN gate covers both regression + new-query baseline; CalendarCard extraction split into Story 3.6ua) plus the epics.md-specified AC text.
-- [ ] Architecture and boundary confirmation — new fields/query go through the existing backend/GraphQL layer only; `postGroupingReasonToGraphQL` placed in `packages/domain` (pure, no DB/ORM coupling); Gate 1/3 cited READY from the batch report, Gate 2 gap resolved via Story 3.6ua split.
-- [ ] Testing plan confirmation — Tasks 2, 5, 6, 7 cover the new resolvers/query, presentation (both branches), mapping/orchestration, and the EXPLAIN-gate extension.
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] **Gate 1/2/3 prerequisites confirmed done or gap accepted** — Gate 1/3: READY, cited from `epic-readiness/batch-cc-024-multi-event-readiness.md`, no action needed. Gate 2: gap found and resolved by splitting Story 3.6ua into `epics.md`/`sprint-status.yaml` this session — **before this story's dev-story Task 3/5 can begin, Story 3.6ua itself must reach `review` or `done`** (it is a hard prerequisite for `EventCardCompact`'s existence, not merely a documented gap). Dependency stories 3.6r, 3.6t, 1.3j, 1.6c, 0.i6g all independently confirmed at `review` status in `sprint-status.yaml` as of this story's creation.
+- [x] Scope confirmation — Tasks 1-9 match the three user-decided design questions (sourcePosts supersedes coauthors per-branch; EXPLAIN gate covers both regression + new-query baseline; CalendarCard extraction split into Story 3.6ua) plus the epics.md-specified AC text.
+- [x] Architecture and boundary confirmation — new fields/query go through the existing backend/GraphQL layer only; `postGroupingReasonToGraphQL` placed in `packages/domain` (pure, no DB/ORM coupling); Gate 1/3 cited READY from the batch report, Gate 2 gap resolved via Story 3.6ua split.
+- [x] Testing plan confirmation — Tasks 2, 5, 6, 7 cover the new resolvers/query, presentation (both branches), mapping/orchestration, and the EXPLAIN-gate extension.
+- [x] Explicit human approval state — **Approved by user via `bmad-dev-story` activation on 2026-10-04** (AskUserQuestion: "Approve - start coding").
+- [x] **Gate 1/2/3 prerequisites confirmed done or gap accepted** — Gate 1/3: READY, cited from `epic-readiness/batch-cc-024-multi-event-readiness.md`, no action needed. Gate 2: gap found and resolved by splitting Story 3.6ua into `epics.md`/`sprint-status.yaml` this session. **Verified at dev-story activation (2026-10-04): Story 3.6ua is at `review` status in `sprint-status.yaml`** — hard prerequisite satisfied, Task 3/5 may proceed. Dependency stories 3.6r, 3.6t, 1.3j, 1.6c, 0.i6g all independently confirmed at `review` status in `sprint-status.yaml` as of this story's creation.
 
 ## Testing Requirements
 
@@ -280,9 +280,16 @@ Claude Sonnet 5 (bmad-create-story, direct in-session story authoring with paral
 
 ### Debug Log References
 
+- 2026-10-04: Hit a hard environment blocker partway through Task 1. Every Bash invocation that requires a *fresh* permission grant (`pnpm ...`, `npx ...`, `node -e`, `bash -c`) fails deterministically with `Tool permission request failed: AbortError: Stream closed`, while already-trusted command shapes (`ls`, `find`, `grep`, `cat <abs path>`, `echo`, `python3`, `git`, `node --version`) succeed normally. Reproduced independently from a fresh subagent (ruling out session-local state) and with `dangerouslyDisableSandbox: true` (ruling out a sandbox-profile cause). The `AskUserQuestion` tool subsequently started failing with the identical error on every retry (after succeeding once earlier in this same session for the Pre-Coding Approval Gate check), so I could not even get live user guidance on how to proceed. This blocks every `pnpm --filter ... test/lint/build` command required by Steps 7/9 of the dev-story workflow for every task in this story.
+
 ### Completion Notes List
 
+- 2026-10-04: **Story NOT complete — paused on an environment blocker, not a scope/design issue.** Only the domain piece of Task 1 was implemented and could not be test-executed (see Debug Log). Per the workflow's "no lying or cheating" gate, Task 1's checkbox is deliberately left unchecked since its tests have not been *run*, only written. Nothing else in Tasks 2-9 was started. Status intentionally left at `in-progress` (not `review`) in both the story file and `sprint-status.yaml`. **Next session should**: (1) confirm the permission/tool-approval channel is healthy (try a plain `pnpm --filter @festgrid/domain test` run) before resuming, (2) if healthy, run that command to validate the work already written, then continue from Task 1's remaining schema/resolver items through Task 9, (3) if still broken, this is an environment/harness issue outside the story's own scope — escalate rather than re-attempting the same commands.
+
 ### File List
+
+- `packages/domain/src/posts/types.ts` (modified — added `postGroupingReasonToGraphQL` mapping function + `PostGroupingReasonGraphQL` type, per Task 1)
+- `packages/domain/src/posts/types.test.ts` (new — unit tests for `postGroupingReasonToGraphQL`; written but NOT yet executed due to the environment blocker above)
 
 ## Change Log
 

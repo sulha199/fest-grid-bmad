@@ -13,6 +13,26 @@ export type PostAccountRole = (typeof POST_ACCOUNT_ROLES)[number];
 export const POST_GROUPING_REASONS = ['single-event', 'program-lineup', 'dependent-stages', 'separate-events', 'roundup'] as const;
 export type PostGroupingReason = (typeof POST_GROUPING_REASONS)[number];
 
+/**
+ * GraphQL-safe representation of `PostGroupingReason` (Story 3.6u, AD-30 Rule 11). The DB enum's
+ * hyphenated values are not legal GraphQL enum literals, so this mapping function translates each
+ * one to its `events.graphql` `PostGroupingReason` enum member. Used by `Event.sourcePosts`'s
+ * resolver -- the only consumer of `posts.groupingReason` outside this package.
+ */
+export type PostGroupingReasonGraphQL = 'SINGLE_EVENT' | 'PROGRAM_LINEUP' | 'DEPENDENT_STAGES' | 'SEPARATE_EVENTS' | 'ROUNDUP';
+
+const POST_GROUPING_REASON_TO_GRAPHQL: Record<PostGroupingReason, PostGroupingReasonGraphQL> = {
+  'single-event': 'SINGLE_EVENT',
+  'program-lineup': 'PROGRAM_LINEUP',
+  'dependent-stages': 'DEPENDENT_STAGES',
+  'separate-events': 'SEPARATE_EVENTS',
+  roundup: 'ROUNDUP',
+};
+
+export function postGroupingReasonToGraphQL(reason: PostGroupingReason): PostGroupingReasonGraphQL {
+  return POST_GROUPING_REASON_TO_GRAPHQL[reason];
+}
+
 export interface ProcessingJobMessage {
   postId: string;
   accountId: string;
