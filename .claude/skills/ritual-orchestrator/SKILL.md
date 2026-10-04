@@ -77,13 +77,13 @@ For each target story, in resolved order:
 
    ```
    cd "_bmad-output/specs/ritual-session-orchestrator/mailbox-runner" && \
-       npx tsx src/launch-detached.ts --mailbox <mailbox-dir> --label "<story-id>/<skill>" --cwd <repo-root> -- \
+       npx tsx src/launch-detached.ts --mailbox <mailbox-dir> --label "<story-id>/<skill>" -- \
        npx tsx src/<run-act-with-checks.ts|dispatch-ritual.ts> --skill <skill> --story <id> \
        --mailbox <mailbox-dir> --cwd <repo-root> [--config <preset>] [--checks test] [--prompt "/<skill> <story>
 
 <context>"]
    ```
-   Everything after the lone `--` is the child command, passed verbatim (quotes and newlines in `--prompt` are safe). Its combined output goes to `<mailbox-dir>/logs/<label>.log`, ending with an `[exit code N]` line. Launching a label whose child is still alive is refused, so a re-issued launch cannot double-dispatch a story. (Include `--prompt` only when this (story, skill) has a matching `context` entry; `--checks test` only for a `run-act-with-checks.ts`/`bmad-dev-story` dispatch.)
+   Everything after the lone `--` is the child command, passed verbatim (it runs from the `mailbox-runner` directory, so its `src/...` paths resolve; do **not** give `launch-detached.ts` the repo root as `--cwd`, the repo root is the child's own `--cwd`) (quotes and newlines in `--prompt` are safe). Its combined output goes to `<mailbox-dir>/logs/<label>.log`, ending with an `[exit code N]` line. Launching a label whose child is still alive is refused, so a re-issued launch cannot double-dispatch a story. (Include `--prompt` only when this (story, skill) has a matching `context` entry; `--checks test` only for a `run-act-with-checks.ts`/`bmad-dev-story` dispatch.)
 
    Then watch it with `Monitor` (`timeout_ms` 1800000, the maximum):
 
