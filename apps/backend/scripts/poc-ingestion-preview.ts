@@ -105,6 +105,13 @@ Options:
   --force                  Bypass the cache and always re-scrape (ignored with --fixture)
   --skip-validation        Skip the AJV schema check on Gemini's output
   --preview-insert         Also print the events/schedules rows that WOULD be inserted (dry run)
+  --blur-before-ai         Story 3.20 (Task 9.1): route the cover/slides through the pre-AI blur
+                            gate before sending to Gemini, as if the post's PUBLISHER were NOT
+                            opted in to image storage ({ blurFacesBeforeAi: { isOwnerOptedIn:
+                            false } }). Used for this story's Task 9 extraction parity check
+                            (original vs. blurred). Omitted (default): behavior is
+                            byte-for-byte unchanged from before this story (no options argument
+                            passed at all).
   --cache-dir <path>       Override the cache directory (default: scripts/.poc-cache)
   --help, -h               Print this usage text and exit
 
@@ -121,6 +128,7 @@ function parseCliArgs() {
         force: { type: 'boolean', default: false },
         'skip-validation': { type: 'boolean', default: false },
         'preview-insert': { type: 'boolean', default: false },
+        'blur-before-ai': { type: 'boolean', default: false },
         'cache-dir': { type: 'string' },
         help: { type: 'boolean', short: 'h', default: false },
       },
@@ -284,7 +292,16 @@ async function main() {
   };
 
   console.log('\n--- Building Gemini extraction request (edit build-gemini-request.ts to iterate on the prompt/schema) ---');
-  const { request } = await buildGeminiExtractionRequest(message);
+  // Story 3.20 (Task 9.1) -- --blur-before-ai simulates a non-opted-in PUBLISHER, routing every
+  // image through the pre-AI blur gate before it's sent to Gemini. Omitted: no options argument
+  // at all, preserving this script's pre-3.20 byte-for-byte behavior (AC4).
+  if (args['blur-before-ai']) {
+    console.log('[blur-before-ai] Pre-AI face-blur gate ENABLED for this run (simulating a non-opted-in PUBLISHER).');
+  }
+  const { request } = await buildGeminiExtractionRequest(
+    message,
+    args['blur-before-ai'] ? { blurFacesBeforeAi: { isOwnerOptedIn: false } } : undefined
+  );
 
   console.log('--- Calling Gemini ---');
   const result = await callGeminiGenerateContent(geminiKey, request);

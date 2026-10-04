@@ -27,6 +27,7 @@ import type { ExtractionAuditEventCompleteness } from '@festgrid/domain/events';
 import { detectAndBlurFacesSeam } from './detect-and-blur-faces.js';
 import { uploadFaceBlurThumbnailSeam } from './upload-face-blur-thumbnail.js';
 import { backfillFaceDetectionAuditResultSeam } from './backfill-face-detection-audit-result.js';
+import { resolvePostPublisherOptIn } from '../posts/resolve-post-publisher-opt-in.js';
 
 
 export let callGeminiSeam = defaultCallGemini;
@@ -75,8 +76,25 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   const isCuratorGuide = accountRow?.accountType === 'CURATOR_GUIDE';
   const isOptedIntoImageStorage = accountRow?.isImageStorageOptedIn === true;
 
+  // Story 3.20 (AC2, Task 4.1) -- a fresh, dedicated read of the post's PUBLISHER opt-in,
+  // deliberately NOT the isOptedIntoImageStorage value above (that one is sourced from
+  // message.accountId = posts.accountId, which is not reliably the PUBLISHER -- see
+  // resolve-post-publisher-opt-in.ts's own module comment). Only queried when the setting is on,
+  // since the result would otherwise be unused.
+  const isPublisherOptedIn = env.blurFacesBeforeAi ? await resolvePostPublisherOptIn(message.postId) : false;
+
   // 2. Build Gemini extraction request
-  const { request, imageBytes, imageContentType } = await buildGeminiExtractionRequest(message);
+  const { request, imageBytes, imageContentType } = await buildGeminiExtractionRequest(
+    message,
+    env.blurFacesBeforeAi
+      ? {
+          blurFacesBeforeAi: {
+            isOwnerOptedIn: isPublisherOptedIn,
+            getRemainingTimeInMillis: deps?.getRemainingTimeInMillis,
+          },
+        }
+      : undefined
+  );
 
   // 3. Call Gemini via AI Gateway
   const result = await callGeminiSeam({

@@ -38,6 +38,13 @@ import { type ProcessingJobMessage } from '@festgrid/domain/posts';
 // detectAndBlurFacesSeam/uploadFaceBlurThumbnailSeam mocked -- matching this file family's
 // existing convention of mocking rehostPostImageSeam at this level (process-ai-job.test.ts).
 process.env.DATA_INGESTION_INLINE_FALLBACK_ENABLED = 'false';
+// Story 3.20 (Task 6.1): BLUR_FACES_BEFORE_AI now defaults ON, which would make
+// buildGeminiExtractionRequest run its own pre-AI blur against this file's fake image bytes via
+// the REAL detectAndBlurFacesSeam (this file only mocks the seam AFTER processAiJob's own call,
+// for the step-7.5b thumbnail stage below -- see the module-level mock installed per-test).
+// Pinned off so this file's existing Story 3.6n wiring assertions stay unaffected by this story's
+// new default.
+process.env.BLUR_FACES_BEFORE_AI = 'false';
 
 function buildSchedule(title: string, date: string) {
   return { isMainSchedule: false, eventStartDate: date, title };

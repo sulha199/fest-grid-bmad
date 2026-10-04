@@ -674,3 +674,36 @@ test('FestgridBackendStack: aiProcessorLambda bundle contains sharp native binar
     fs.rmSync(outdir, { recursive: true, force: true });
   }
 });
+
+// Story 3.20 (Task 1.3/1.4, AC1): BLUR_FACES_BEFORE_AI is set explicitly in aiProcessorLambda's
+// environment block, and ONLY there -- it is the sole caller of buildGeminiExtractionRequest with
+// the image-processing runtime needed to run the pre-AI blur. Scoped by logical ID prefix (not an
+// unscoped hasResourceProperties match), matching this file's own established precedent (see the
+// AC7 comment above on aiProcessorEnvVars/ingestorEnvVars) for exactly this class of false
+// positive.
+test('FestgridBackendStack: aiProcessorLambda has BLUR_FACES_BEFORE_AI in its environment, and no other Lambda does (Story 3.20 AC1)', () => {
+  const app = new cdk.App();
+  const stack = new FestgridBackendStack(app, 'TestStack320BlurEnv', {
+    stageName: 'dev',
+  });
+
+  const template = Template.fromStack(stack);
+  const lambdaFunctions = template.findResources('AWS::Lambda::Function');
+
+  const aiProcessorEntry = Object.entries(lambdaFunctions).find(([logicalId]) => logicalId.startsWith('AIProcessorLambda'));
+  assert.ok(aiProcessorEntry, 'expected an "AIProcessorLambda*" function in the synthesized template');
+  const aiProcessorEnvVars = (aiProcessorEntry[1].Properties as Record<string, { Variables: Record<string, unknown> }>)
+    .Environment.Variables;
+  assert.ok('BLUR_FACES_BEFORE_AI' in aiProcessorEnvVars, 'aiProcessorLambda should have BLUR_FACES_BEFORE_AI set');
+
+  for (const [logicalId, resource] of Object.entries(lambdaFunctions)) {
+    if (logicalId.startsWith('AIProcessorLambda')) continue;
+    const props = resource.Properties as Record<string, { Variables?: Record<string, unknown> } | undefined>;
+    const envVars = props.Environment?.Variables;
+    if (!envVars) continue;
+    assert.ok(
+      !('BLUR_FACES_BEFORE_AI' in envVars),
+      `expected "${logicalId}" to NOT have BLUR_FACES_BEFORE_AI (only aiProcessorLambda does, per AC1)`
+    );
+  }
+});

@@ -84,6 +84,70 @@ async function detectOnce(jpegBuffer) {
   }
 }
 
+// Story 3.20 (Task 8) -- emulates detect-and-blur-faces.ts's REAL `detectAndBlurFaces` stage
+// end-to-end (detect, then composite a Gaussian blur over each detected box back onto the
+// original-resolution image), not just raw detection, since that is what this story's pre-AI
+// blur stage actually runs once per image (cover + up to 5 carousel slides = 6 worst case,
+// `additionalImageUrls` excludes the cover -- see Dev Notes "Image-count correction"). The
+// synthetic fixture's circle may or may not trigger a real detection; either outcome is a valid
+// measurement here (same rationale as this script's existing fixtures -- compute cost is a
+// function of pixel dimensions, not content).
+async function detectAndBlurOnce(jpegBuffer) {
+  const t0 = Date.now();
+  const { data, info } = await sharp(jpegBuffer).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  const tensor = tf.tensor3d(new Uint8Array(data), [info.height, info.width, info.channels]);
+  let detections;
+  try {
+    detections = await faceapi.detectAllFaces(tensor, new faceapi.SsdMobilenetv1Options());
+  } finally {
+    tensor.dispose();
+  }
+
+  const composites = [];
+  for (const detection of detections) {
+    const box = detection.box;
+    const left = Math.max(0, Math.round(box.x));
+    const top = Math.max(0, Math.round(box.y));
+    const width = Math.min(info.width - left, Math.round(box.width));
+    const height = Math.min(info.height - top, Math.round(box.height));
+    if (width <= 0 || height <= 0) continue;
+    const blurredRegion = await sharp(jpegBuffer).extract({ left, top, width, height }).blur(15).toBuffer();
+    composites.push({ input: blurredRegion, top, left });
+  }
+  if (composites.length > 0) {
+    await sharp(jpegBuffer).composite(composites).toBuffer();
+  }
+
+  return { ms: Date.now() - t0, faceCount: detections.length };
+}
+
+// Story 3.20 (Task 8.1/8.2) -- six sequential images (one cover + five carousel slides, the
+// worst case per Dev Notes' "Image-count correction"), measuring total stage time, peak RSS, and
+// whether RSS trends upward call-over-call (a WASM-heap-growth signal Story 0.46's own
+// single-image measurement could not surface, since it never ran more than one detection per
+// process lifetime).
+async function measureSixImageSequential() {
+  const sixImages = [];
+  for (let i = 0; i < 6; i++) {
+    sixImages.push(await makeFixture(1080, 1080, `six-image stage, image ${i + 1}/6`));
+  }
+
+  const tracker = peakTracker();
+  const tStageStart = Date.now();
+  const rssAfterEach = [];
+  const perImageMs = [];
+  for (const [i, jpegBuffer] of sixImages.entries()) {
+    const result = await detectAndBlurOnce(jpegBuffer);
+    perImageMs.push(result.ms);
+    rssAfterEach.push(process.memoryUsage().rss);
+    console.log(`  [six-image] image ${i + 1}/6: ${result.ms} ms (faces=${result.faceCount}), RSS now ${(rssAfterEach[i] / 1024 / 1024).toFixed(1)} MB`);
+  }
+  const totalMs = Date.now() - tStageStart;
+  const peakRss = tracker.stop();
+
+  return { perImageMs, rssAfterEach, totalMs, peakRss };
+}
+
 async function run() {
   await tf.setBackend('wasm');
   await tf.ready();
@@ -134,6 +198,28 @@ async function run() {
   }
   const overallPeak = Math.max(memAfterLoad, ...results.map((r) => r.peakRss));
   console.log(`\nOverall peak RSS (model load + both fixtures): ${(overallPeak / 1024 / 1024).toFixed(1)} MB`);
+
+  // Story 3.20 (Task 8) -- six-image (cover + 5 slides) sequential re-measurement.
+  console.log('\n=== Story 3.20 (Task 8) six-image sequential measurement ===');
+  const sixImage = await measureSixImageSequential();
+  console.log(`Six-image stage total time: ${sixImage.totalMs} ms`);
+  console.log(`Per-image detect+blur times (ms): ${sixImage.perImageMs.join(', ')}`);
+  console.log(`Peak RSS during six-image stage: ${(sixImage.peakRss / 1024 / 1024).toFixed(1)} MB`);
+  console.log(
+    `RSS after each image (MB): ${sixImage.rssAfterEach.map((r) => (r / 1024 / 1024).toFixed(1)).join(', ')}`
+  );
+  const firstRss = sixImage.rssAfterEach[0];
+  const lastRss = sixImage.rssAfterEach[sixImage.rssAfterEach.length - 1];
+  const growthMb = (lastRss - firstRss) / 1024 / 1024;
+  console.log(
+    `RSS growth from image 1 to image 6: ${growthMb.toFixed(1)} MB` +
+      (growthMb > 50 ? ' (WARNING: trending upward, possible WASM-heap-growth leak)' : ' (no significant upward trend)')
+  );
+  const sixImageOverallPeak = Math.max(overallPeak, sixImage.peakRss);
+  console.log(
+    `\nOverall peak RSS including six-image stage: ${(sixImageOverallPeak / 1024 / 1024).toFixed(1)} MB ` +
+      `(headroom check: Lambda limit for this story's provisioned size, see Story 0.46)`
+  );
 }
 
 run().catch((err) => {

@@ -458,6 +458,10 @@ export class FestgridBackendStack extends cdk.Stack {
         POST_MEDIA_CDN_DOMAIN: postMediaDistribution.distributionDomainName,
         POST_MEDIA_DISTRIBUTION_ID: postMediaDistribution.distributionId,
         SECRETS_SYNCED_AT: secretsSyncedAt,
+        // Story 3.20 (AD-28 Rule 10) -- default-on pre-AI face blur gate. Only this Lambda's
+        // environment block gets it: it's the only caller of buildGeminiExtractionRequest with
+        // the image-processing runtime (sharp/WASM/model weights) needed to run the blur.
+        BLUR_FACES_BEFORE_AI: process.env.BLUR_FACES_BEFORE_AI || 'true',
       },
     });
 
