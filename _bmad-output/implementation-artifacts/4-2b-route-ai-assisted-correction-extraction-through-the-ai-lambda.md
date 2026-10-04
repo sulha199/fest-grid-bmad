@@ -8,7 +8,7 @@ baseline_commit: 7725770ad90e1f7edf68543c33ef17837b4a5afe
 
 - Epic: 4
 - Story ID: 4.2b
-- Status: in-progress
+- Status: review
 - Backlog: FIND-068 (child of CC-028)
 - Amends: Story 4.2a (`done`) and Story 4.2 (`review`)
 
@@ -32,30 +32,30 @@ so that Story 3.20's blur-before-sending-to-Gemini protection is not limited to 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Data model (AC: 1, 3, 4, 6)
-  - [ ] 1.1 `packages/database/schema.ts`: `manualExtractionJobStatusEnum` (`PENDING`,`PROCESSING`,`SUCCEEDED`,`FAILED`) and `manualExtractionJobs` table (`id` uuid pk, `requestedByUserId` FK users cascade, `sourceUrl` text, `requestPayload` jsonb notnull — the `ProcessingJobMessage`-shaped message plus `accountId`/`isExistingPost` flag, `status` default `PENDING`, `resultData` jsonb null, `errorCode` text null, `errorMessage` text null, `startedAt`/`completedAt`, `...timestamps`); indexes on `(requestedByUserId, createdAt)` and `(status, createdAt)`.
-  - [ ] 1.2 Generate migration `0071` with drizzle-kit; verify the SQL follows the 0068/0069/0070 enum-guard shape; commit snapshot + journal.
-- [ ] Task 2: Domain types (AC: 3, 4)
-  - [ ] 2.1 Add `ManualExtractionJobStatus` and the `{ jobType: 'manual-extraction', jobId }` payload type to `packages/domain/src/posts` (pure types only, no DB imports; keep 100% coverage if any logic is added).
-- [ ] Task 3: AI-Lambda job processor (AC: 4, 5, 6)
-  - [ ] 3.1 New `apps/backend/src/lib/ai-processor/process-manual-extraction-job.ts` with seams for Gemini/key lookup like `process-ai-job.ts`; move 4.2a's Gemini-call + tier fallback + parse/validate/map logic here from `resolvers.ts` (do not duplicate it).
-  - [ ] 3.2 `lambdas/ai-processor.ts`: `hasJobType(event, 'manual-extraction')` branch passing `getRemainingTimeInMillis`; widen the handler's event union.
-  - [ ] 3.3 Tests (DB-backed, seams for Gemini/blur): claim idempotency, success, `QUOTA_EXHAUSTED` incl. TIER_2 fallback, invalid JSON/`isEvent:false` → `EXTRACTION_FAILED`, blur option passed with `isOwnerOptedIn:false`, env flag off → no blur option, unexpected throw → `FAILED`.
-- [ ] Task 4: API layer (AC: 1, 2, 3, 6)
-  - [ ] 4.1 `extraction.graphql`: add `jobId: ID` to `ExtractEventDataFromUrlResult`; add `ExtractionJobStatus` type/enum and `extractionJob` query. Run backend codegen; commit `resolvers-types.ts` only if it truly differs (line-ending noise otherwise).
-  - [ ] 4.2 New `apps/backend/src/lib/aws/invoke-ai-processor.ts` (reassignable function + `setInvokeAiProcessor` seam, like `send-sqs-message.ts`) using `@aws-sdk/client-lambda` (add dependency to `apps/backend`; lazy-import inside the function so cold start of unrelated paths is unaffected).
-  - [ ] 4.3 `resolvers.ts`: strip the inline Gemini branches from `extractEventDataFromUrl`; keep pre-checks; insert job; invoke; handle invoke failure. Add `extractionJob` resolver with ownership check and the lazy 5-minute stale sweep.
-  - [ ] 4.4 Update `extraction.test.ts` to the async contract; replace `extract-event-data-no-blur-option.test.ts` per AC9.
-- [ ] Task 5: Infrastructure (AC: 7)
-  - [ ] 5.1 `festgrid-backend-stack.ts`: `grantInvoke`, `AI_PROCESSOR_FUNCTION_NAME` (set via `addEnvironment` to avoid construct-order coupling), `configureAsyncInvoke({ retryAttempts: 0 })`; infra tests; confirm `lambda-sharp-isolation.test.ts` still green; `cdk synth` if available.
-  - [ ] 5.2 If any new IAM/infra step is user-visible, update the relevant `docs/infrastructure/2-backend.md` shard (not `SETUP_WALKTHROUGH.md` unless a manual step appears — none expected).
-- [ ] Task 6: Frontend (AC: 8)
-  - [ ] 6.1 `corrections.graphql`: add `jobId` to the mutation selection and an `extractionJob` query; run `pnpm --filter web codegen`.
-  - [ ] 6.2 Rework `ai-assisted-correction-trigger.tsx` to the poll flow (state category: **Server State, React Query**; loader category: **Non-Blocking, localized**); add `stillProcessing` label + en/id locale keys wired through `correction-dialog.tsx`.
-  - [ ] 6.3 Update `ai-assisted-correction-trigger.test.tsx`, `correction-dialog.test.tsx` (msw) and `e2e/event-correction.spec.ts` stubs to the two-step contract; add unhappy-path tests (job `FAILED` per `errorCode`, poll network error, unmount stops polling).
-- [ ] Task 7: Verification & bookkeeping
-  - [ ] 7.1 Run backend (DB-backed), infra and web test suites touched; lint; typecheck; record what could not run.
-  - [ ] 7.2 Amend Story 4.2a/4.2 files' Dev Notes with a pointer to this story; update `epics.md` 4.2b with the decisions below; `sprint-status.yaml` → `review` when done.
+- [x] Task 1: Data model (AC: 1, 3, 4, 6)
+  - [x] 1.1 `packages/database/schema.ts`: `manualExtractionJobStatusEnum` (`PENDING`,`PROCESSING`,`SUCCEEDED`,`FAILED`) and `manualExtractionJobs` table (`id` uuid pk, `requestedByUserId` FK users cascade, `sourceUrl` text, `requestPayload` jsonb notnull — the `ProcessingJobMessage`-shaped message plus `accountId`/`isExistingPost` flag, `status` default `PENDING`, `resultData` jsonb null, `errorCode` text null, `errorMessage` text null, `startedAt`/`completedAt`, `...timestamps`); indexes on `(requestedByUserId, createdAt)` and `(status, createdAt)`.
+  - [x] 1.2 Generate migration `0071` with drizzle-kit; verify the SQL follows the 0068/0069/0070 enum-guard shape; commit snapshot + journal.
+- [x] Task 2: Domain types (AC: 3, 4)
+  - [x] 2.1 Add `ManualExtractionJobStatus` and the `{ jobType: 'manual-extraction', jobId }` payload type to `packages/domain/src/posts` (pure types only, no DB imports; keep 100% coverage if any logic is added).
+- [x] Task 3: AI-Lambda job processor (AC: 4, 5, 6)
+  - [x] 3.1 New `apps/backend/src/lib/ai-processor/process-manual-extraction-job.ts` with seams for Gemini/key lookup like `process-ai-job.ts`; move 4.2a's Gemini-call + tier fallback + parse/validate/map logic here from `resolvers.ts` (do not duplicate it).
+  - [x] 3.2 `lambdas/ai-processor.ts`: `hasJobType(event, 'manual-extraction')` branch passing `getRemainingTimeInMillis`; widen the handler's event union.
+  - [x] 3.3 Tests (DB-backed, seams for Gemini/blur): claim idempotency, success, `QUOTA_EXHAUSTED` incl. TIER_2 fallback, invalid JSON/`isEvent:false` → `EXTRACTION_FAILED`, blur option passed with `isOwnerOptedIn:false`, env flag off → no blur option, unexpected throw → `FAILED`.
+- [x] Task 4: API layer (AC: 1, 2, 3, 6)
+  - [x] 4.1 `extraction.graphql`: add `jobId: ID` to `ExtractEventDataFromUrlResult`; add `ExtractionJobStatus` type/enum and `extractionJob` query. Run backend codegen; commit `resolvers-types.ts` only if it truly differs (line-ending noise otherwise).
+  - [x] 4.2 New `apps/backend/src/lib/aws/invoke-ai-processor.ts` (reassignable function + `setInvokeAiProcessor` seam, like `send-sqs-message.ts`) using `@aws-sdk/client-lambda` (add dependency to `apps/backend`; lazy-import inside the function so cold start of unrelated paths is unaffected).
+  - [x] 4.3 `resolvers.ts`: strip the inline Gemini branches from `extractEventDataFromUrl`; keep pre-checks; insert job; invoke; handle invoke failure. Add `extractionJob` resolver with ownership check and the lazy 5-minute stale sweep.
+  - [x] 4.4 Update `extraction.test.ts` to the async contract; replace `extract-event-data-no-blur-option.test.ts` per AC9.
+- [x] Task 5: Infrastructure (AC: 7)
+  - [x] 5.1 `festgrid-backend-stack.ts`: `grantInvoke`, `AI_PROCESSOR_FUNCTION_NAME` (set via `addEnvironment` to avoid construct-order coupling), `configureAsyncInvoke({ retryAttempts: 0 })`; infra tests; confirm `lambda-sharp-isolation.test.ts` still green; `cdk synth` if available.
+  - [x] 5.2 If any new IAM/infra step is user-visible, update the relevant `docs/infrastructure/2-backend.md` shard (not `SETUP_WALKTHROUGH.md` unless a manual step appears — none expected).
+- [x] Task 6: Frontend (AC: 8)
+  - [x] 6.1 `corrections.graphql`: add `jobId` to the mutation selection and an `extractionJob` query; run `pnpm --filter web codegen`.
+  - [x] 6.2 Rework `ai-assisted-correction-trigger.tsx` to the poll flow (state category: **Server State, React Query**; loader category: **Non-Blocking, localized**); add `stillProcessing` label + en/id locale keys wired through `correction-dialog.tsx`.
+  - [x] 6.3 Update `ai-assisted-correction-trigger.test.tsx`, `correction-dialog.test.tsx` (msw) and `e2e/event-correction.spec.ts` stubs to the two-step contract; add unhappy-path tests (job `FAILED` per `errorCode`, poll network error, unmount stops polling).
+- [x] Task 7: Verification & bookkeeping
+  - [x] 7.1 Run backend (DB-backed), infra and web test suites touched; lint; typecheck; record what could not run.
+  - [x] 7.2 Amend Story 4.2a/4.2 files' Dev Notes with a pointer to this story; update `epics.md` 4.2b with the decisions below; `sprint-status.yaml` → `review` when done.
 
 ## Dev Notes
 
@@ -120,15 +120,15 @@ so that Story 3.20's blur-before-sending-to-Gemini protection is not limited to 
 
 - [x] Scope confirmation (user answered the four design questions, 2026-10-04)
 - [x] Architecture and boundary confirmation (direct-invoke exception documented above)
-- [ ] Testing plan confirmation
+- [x] Testing plan confirmation
 - [x] Explicit human approval state: approved by user via `AskUserQuestion`, 2026-10-04 (design decisions); implementation request given in the session brief
 - [x] Gate 1/2/3 prerequisites confirmed done or gap accepted (Stories 3.20, 3.21 `done`; no new prerequisite stories)
 
 ## Testing Requirements
 
-- [ ] Integration tests (backend processor/resolver; web msw)
-- [ ] Unhappy-path tests (invoke failure, claim race, `FAILED` per `errorCode`, stale sweep, poll error)
-- [ ] E2E: stubs updated to the two-step contract (Playwright run only if the environment supports it)
+- [x] Integration tests (backend processor/resolver; web msw)
+- [x] Unhappy-path tests (invoke failure, claim race, `FAILED` per `errorCode`, stale sweep, poll error)
+- [x] E2E: stubs updated to the two-step contract (Playwright spec not executed in this session — needs an authenticated storage state and a running app; see Completion Notes)
 
 ## Out of Scope
 
@@ -139,21 +139,58 @@ so that Story 3.20's blur-before-sending-to-Gemini protection is not limited to 
 
 ## Definition of Done
 
-- [ ] All ACs and tasks complete; tests listed above pass (state what could not run).
-- [ ] Lint and type checks pass for touched packages.
-- [ ] Migration verified against the 0068–0070 precedent shape.
-- [ ] Sprint status moved `ready-for-dev` → `in-progress` → `review`.
+- [x] All ACs and tasks complete; tests listed above pass (state what could not run).
+- [x] Lint and type checks pass for touched packages.
+- [x] Migration verified against the 0068–0070 precedent shape.
+- [x] Sprint status moved `ready-for-dev` → `in-progress` → `review`.
 
 ## Completion Status
 
-- [ ] Ultimate context engine analysis completed - comprehensive developer guide created (status: ready-for-dev)
+- [x] Implemented; status moved `ready-for-dev` → `in-progress` → `review`.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
+Claude (Sonnet 5.5), 2026-10-04.
+
 ### Debug Log References
+
+- Local Postgres was reachable but unseeded: ran `packages/database/seed.ts` (localhost DB only) so the DB-backed backend tests could run.
+- `pnpm codegen` in `apps/web` produced a duplicate enum/type for `ExtractionJobState`; fixed by adding it to `apps/web/fix-codegen.js`'s dedupe list, like every earlier enum.
+- Full `turbo` test/build runs fail in this sandbox for environmental reasons only (see Completion Notes).
 
 ### Completion Notes List
 
+- **Design (user decisions, 2026-10-04):** direct async Lambda invoke + `manual_extraction_jobs` (not `AIProcessingQueue`: prod AI Lambda only drains it every 5 min); always blur, no opt-in; scrape stays in the API Lambda; full backend + web.
+- **Backend:** migration `0071_whole_spyke.sql` (new enum + table, generated, only the intended DDL); domain types/helpers in `packages/domain/src/posts/types.ts` (+ test); `process-manual-extraction-job.ts` (atomic PENDING→PROCESSING claim, same `buildGeminiExtractionRequest` with `blurFacesBeforeAi: { isOwnerOptedIn: false }` when `BLUR_FACES_BEFORE_AI` is on, TIER_1/TIER_2 key logic moved out of the resolver, first-event mapping, every failure recorded as `FAILED`); `ai-processor.ts` `manual-extraction` branch; API side `lib/extraction/manual-extraction-job.ts` (job insert, invoke, owner-scoped status read with lazy 5-minute stale sweep) and `lib/aws/invoke-ai-processor.ts` (lazy-imported `@aws-sdk/client-lambda`, new dependency approved by the story); `extractEventDataFromUrl` now only runs the synchronous pre-checks and `extractionJob` query added. `resolvers.ts` no longer imports `build-gemini-request`.
+- **Infra:** `aiProcessorLambda.grantInvoke(apiLambda)`, `AI_PROCESSOR_FUNCTION_NAME` on the API Lambda, `configureAsyncInvoke({ retryAttempts: 0 })`; `docs/infrastructure/2-backend.md` documents the scoped exception. No `SETUP_WALKTHROUGH.md` change (no manual step).
+- **Web:** `AiAssistedCorrectionTrigger` is a two-step poll flow (React Query `refetchInterval` 2 s; stops on terminal status/unmount; 2 retries then `EXTRACTION_FAILED`; "still processing" label after 15 s; panel disabled while a job is in flight); `stillProcessing` i18n key (en/id); codegen regenerated.
+- **Tests added/updated:** `process-manual-extraction-job.test.ts` (12), `ai-processor.test.ts` manual branch, `extraction.test.ts` (24 incl. invoke failure, missing function name, ownership/NOT_FOUND, stale sweep, fresh job), `extract-event-data-routes-through-ai-lambda.test.ts` (replaces the Story 3.20 guard, cwd-independent), infra test for the invoke grant/env/retry, web trigger test (10), `correction-dialog.test.tsx`, e2e stub.
+- **Verification actually run (this session):**
+  - `domain` types test, backend `tsc --noEmit` clean, `pnpm lint` (turbo, all 8 tasks) passed.
+  - Backend full suite (direct, DB seeded): 1046 tests, 1021 pass, 3 skipped, 22 fail. All 22 are outside this story's code: 21 geolocation tests (`GEOAPIFY_API_KEY is not configured` in this sandbox) and 1 pre-existing `trigger-brightdata-for-target` test that inserts a non-UUID profile id (`lib/scraper`, untouched by this story). The 4 known local-data failures did not occur here.
+  - Web suite (direct): 72 files / 574 tests pass. Web `tsc`: no new errors vs the baseline (the existing test-file type errors are unchanged).
+  - Infrastructure suite (direct, with proxy CA): 14/14 pass incl. `lambda-sharp-isolation`.
+  - Build: turbo `pnpm build` fails only on `web#build`'s Google Fonts fetch (sandbox TLS interception; turbo strips the CA env var); `NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt pnpm build` in `apps/web` succeeds, and the other 7 packages built under turbo.
+  - Turbo-wide `pnpm test` could not complete: infrastructure's bundling tests need the npm registry and fail on the same TLS issue under turbo (they pass directly), and turbo then cancelled the remaining tasks, so backend/web were re-run directly as above.
+- **Not verified:** Playwright e2e (`event-correction.spec.ts`, needs auth storage state + running app); a real deploy (invoke permission, `AI_PROCESSOR_FUNCTION_NAME`, a real Gemini/blur run through the AI Lambda) — recommend one manual manual-extraction request after deploy, together with the pending prod API Lambda cold-start check.
+- **Lockfile:** adding `@aws-sdk/client-lambda` made pnpm re-resolve a few `@aws-sdk/*`/`@smithy/*` patch versions in `pnpm-lock.yaml`.
+
+### Change Log
+
+- 2026-10-04: Implemented Story 4.2b (backend, infra, web, tests, docs); status → review.
+
 ### File List
+
+- `packages/domain/src/posts/types.ts`, `packages/domain/src/posts/types.test.ts`
+- `packages/database/schema.ts`, `packages/database/migrations/0071_whole_spyke.sql`, `packages/database/migrations/meta/0071_snapshot.json`, `packages/database/migrations/meta/_journal.json`
+- `apps/backend/package.json`, `pnpm-lock.yaml`, `apps/backend/src/env.ts`
+- `apps/backend/src/lib/ai-processor/process-manual-extraction-job.ts` (+ `.test.ts`)
+- `apps/backend/src/lib/extraction/manual-extraction-job.ts`, `apps/backend/src/lib/aws/invoke-ai-processor.ts`
+- `apps/backend/src/lambdas/ai-processor.ts`, `apps/backend/src/lambdas/ai-processor.test.ts`
+- `apps/backend/src/schema/extraction.graphql`, `apps/backend/src/schema/resolvers.ts`, `apps/backend/src/schema/extraction.test.ts`, `apps/backend/src/generated/resolvers-types.ts`
+- `apps/backend/src/schema/extract-event-data-no-blur-option.test.ts` (deleted) → `apps/backend/src/schema/extract-event-data-routes-through-ai-lambda.test.ts`
+- `apps/infrastructure/lib/festgrid-backend-stack.ts`, `apps/infrastructure/lib/festgrid-backend-stack.test.ts`, `docs/infrastructure/2-backend.md`
+- `apps/web/src/features/events/{ai-assisted-correction-trigger.tsx,ai-assisted-correction-trigger.test.tsx,correction-dialog.tsx,correction-dialog.test.tsx,corrections.graphql}`, `apps/web/src/generated/graphql.ts`, `apps/web/fix-codegen.js`, `apps/web/locales/en.json`, `apps/web/locales/id.json`, `apps/web/e2e/event-correction.spec.ts`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`, this story file
