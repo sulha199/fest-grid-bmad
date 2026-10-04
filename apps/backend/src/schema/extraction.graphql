@@ -31,7 +31,26 @@ type ProposedEventCorrectionData {
   schedules: [ProposedScheduleCorrectionData!]!
 }
 
+# Story 4.2b -- the mutation no longer returns the extraction itself. After its synchronous
+# pre-checks it returns `jobId` (poll `extractionJob`), or `errorCode`/`errorMessage` for a
+# pre-check failure / failure to start. `data` is kept (always null) so the result shape stays a
+# superset of Story 4.2a's.
 type ExtractEventDataFromUrlResult {
+  jobId: ID
+  data: ProposedEventCorrectionData
+  errorCode: ExtractionErrorCode
+  errorMessage: String
+}
+
+enum ExtractionJobState {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+}
+
+type ExtractionJobStatus {
+  status: ExtractionJobState!
   data: ProposedEventCorrectionData
   errorCode: ExtractionErrorCode
   errorMessage: String
@@ -63,6 +82,7 @@ type ExtractionQuota {
 extend type Query {
   postsByAccount(accountId: ID!, cursor: String, limit: Int): PostConnection!
   myExtractionQuota: ExtractionQuota!
+  extractionJob(id: ID!): ExtractionJobStatus!
 }
 
 extend type Mutation {

@@ -21,4 +21,8 @@ The backend is built entirely with TypeScript on a serverless architecture using
     *   **Service:** **Amazon EventBridge**
     *   **Description:** EventBridge will be used to trigger the scraping Lambda function on a recurring schedule.
     *   **Reasoning:** EventBridge is a reliable and flexible service for scheduling events and has a free tier that will cover the project's needs.
-
+
+*   **Direct Lambda Invoke (scoped exception to the three-queue rule) — manual "AI-Assisted Correction" extraction (Story 4.2b):**
+    *   **Service:** **AWS Lambda asynchronous invoke** (`InvocationType: 'Event'`) from the API Lambda to the AI Lambda, tracked in the `manual_extraction_jobs` table (polled via `Query.extractionJob`).
+    *   **Description:** After its synchronous pre-checks, `extractEventDataFromUrl` inserts a job row and async-invokes the AI Lambda with `{ jobType: 'manual-extraction', jobId }`. The AI Lambda (the only Lambda bundling the image-processing runtime for the pre-AI face blur, Story 3.20) claims the row atomically, builds the Gemini request with the blur, and writes the result. IaC: `aiProcessorLambda.grantInvoke(apiLambda)`, `AI_PROCESSOR_FUNCTION_NAME` on the API Lambda, and `configureAsyncInvoke({ retryAttempts: 0 })` on the AI Lambda.
+    *   **Reasoning:** In prod the AI Lambda has no SQS trigger (only a 5-minute EventBridge poll-and-drain), so routing a user-attended request through `AIProcessingQueue` would mean up to ~5 minutes of waiting (more behind a bulk-scrape backlog). The job writes no `posts`/`events` rows and is not pipeline work, so this is **not** a precedent for pipeline work, which must still go through the queues. A non-terminal job older than 5 minutes is reported `FAILED` lazily when polled; no sweep cron is needed.

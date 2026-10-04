@@ -5,13 +5,15 @@ import { resolvers } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
-import { users, posts, apiKeys, socialMediaAccountProfiles, subscriptions } from '@festgrid/database';
-import { eq } from 'drizzle-orm';
+import { users, posts, apiKeys, socialMediaAccountProfiles, subscriptions, manualExtractionJobs } from '@festgrid/database';
+import { eq, desc } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import '../lib/scraper/register-adapters.js';
 import { callGeminiGenerateContent, setCallGeminiGenerateContent } from '../lib/ai-gateway/gemini-client.js';
 import { callApifyActor, setCallApifyActor } from '../lib/scraper/instagram-adapter.js';
 import { sendSqsMessage, setSendSqsMessage } from '../lib/aws/send-sqs-message.js';
+import { invokeAiProcessor, setInvokeAiProcessor } from '../lib/aws/invoke-ai-processor.js';
+import { processManualExtractionJob } from '../lib/ai-processor/process-manual-extraction-job.js';
 import { clearApifyProviderUsage } from '../lib/scraper/usage-store-test-helpers.js';
 
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
@@ -41,6 +43,36 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
   const originalCallGeminiGenerateContent = callGeminiGenerateContent;
   const originalCallApifyActor = callApifyActor;
   const originalSendSqsMessage = sendSqsMessage;
+  const originalInvokeAiProcessor = invokeAiProcessor;
+  const originalAiProcessorFunctionName = process.env.AI_PROCESSOR_FUNCTION_NAME;
+
+  // Story 4.2b -- the mutation hands off to the AI Lambda via an async invoke; capture it here
+  // and run the AI-Lambda half (processManualExtractionJob) explicitly, so each test exercises
+  // enqueue -> process -> poll end to end against the real DB.
+  process.env.AI_PROCESSOR_FUNCTION_NAME = 'mock-ai-processor-fn';
+  const invokedJobIds: string[] = [];
+  setInvokeAiProcessor(async (_fn, payload) => {
+    invokedJobIds.push(payload.jobId);
+  });
+
+  const POLL_QUERY = `
+    query ExtractionJob($id: ID!) {
+      extractionJob(id: $id) {
+        status
+        data { eventName types categories schedules { id isMainSchedule eventStartDate title } }
+        errorCode
+        errorMessage
+      }
+    }
+  `;
+  async function pollJob(jobId: string) {
+    const res = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: POLL_QUERY, variables: { id: jobId } }),
+    });
+    return res.json();
+  }
 
   let testUser: any;
   let existingPost: any;
@@ -119,6 +151,10 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
     setCallGeminiGenerateContent(originalCallGeminiGenerateContent);
     setCallApifyActor(originalCallApifyActor);
     setSendSqsMessage(originalSendSqsMessage);
+    setInvokeAiProcessor(originalInvokeAiProcessor);
+    if (originalAiProcessorFunctionName === undefined) delete process.env.AI_PROCESSOR_FUNCTION_NAME;
+    else process.env.AI_PROCESSOR_FUNCTION_NAME = originalAiProcessorFunctionName;
+    await db.delete(manualExtractionJobs).where(eq(manualExtractionJobs.requestedByUserId, testUser?.id ?? randomUUID()));
   });
 
   await t.test('extractEventDataFromUrl - unauthenticated rejected', async () => {
@@ -182,6 +218,7 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
         query: `
           mutation ExtractEventDataFromUrl($url: String!) {
             extractEventDataFromUrl(url: $url) {
+              jobId
               data {
                 eventName
                 types
@@ -205,11 +242,26 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
     });
 
     const result = await response.json();
-    console.log('EXISTING PATH RESOLVER RESULT:', JSON.stringify(result, null, 2));
     assert.ok(!result.errors, 'should not have errors');
-    assert.ok(result.data?.extractEventDataFromUrl?.data, 'should have extracted data');
-    assert.strictEqual(result.data.extractEventDataFromUrl.data.eventName, 'Existing Path Festival');
-    assert.strictEqual(result.data.extractEventDataFromUrl.data.schedules[0].id, null);
+    const started = result.data.extractEventDataFromUrl;
+    assert.ok(started.jobId, 'mutation should return a jobId');
+    assert.strictEqual(started.data, null, 'the extraction itself is no longer returned inline (Story 4.2b)');
+    assert.strictEqual(started.errorCode, null);
+    assert.deepStrictEqual(invokedJobIds.slice(-1), [started.jobId], 'the AI Lambda should have been async-invoked once for this job');
+
+    // Before the AI Lambda runs the job is PENDING; the stored payload carries the TIER_2 fallback account.
+    const pending = await pollJob(started.jobId);
+    assert.strictEqual(pending.data.extractionJob.status, 'PENDING');
+    const [jobRow] = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.id, started.jobId));
+    assert.strictEqual(jobRow.requestPayload.existingPostAccountId, existingPost.accountId);
+    assert.strictEqual(jobRow.requestPayload.message.postId, existingPost.id);
+
+    await processManualExtractionJob(started.jobId);
+    const done = await pollJob(started.jobId);
+    assert.ok(!done.errors, 'should not have errors');
+    assert.strictEqual(done.data.extractionJob.status, 'SUCCEEDED');
+    assert.strictEqual(done.data.extractionJob.data.eventName, 'Existing Path Festival');
+    assert.strictEqual(done.data.extractionJob.data.schedules[0].id, null);
   });
 
   await t.test('extractEventDataFromUrl - new post path unrecognized platform returns UNSUPPORTED_PLATFORM', async () => {
@@ -280,6 +332,7 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
         query: `
           mutation ExtractEventDataFromUrl($url: String!) {
             extractEventDataFromUrl(url: $url) {
+              jobId
               data {
                 eventName
                 types
@@ -302,10 +355,17 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
     });
 
     const result = await response.json();
-    console.log('NEW PATH RESOLVER RESULT:', JSON.stringify(result, null, 2));
     assert.ok(!result.errors, 'should not have errors');
-    assert.ok(result.data?.extractEventDataFromUrl?.data, 'should have extracted data');
-    assert.strictEqual(result.data.extractEventDataFromUrl.data.eventName, 'New Pasted Event');
+    const started = result.data.extractEventDataFromUrl;
+    assert.ok(started.jobId, 'mutation should return a jobId');
+    const [jobRow] = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.id, started.jobId));
+    assert.strictEqual(jobRow.requestPayload.existingPostAccountId, undefined, 'new-post jobs have no TIER_2 fallback account');
+    assert.strictEqual(jobRow.requestPayload.message.content, 'Brand new event announced on instagram!');
+
+    await processManualExtractionJob(started.jobId);
+    const done = await pollJob(started.jobId);
+    assert.strictEqual(done.data.extractionJob.status, 'SUCCEEDED');
+    assert.strictEqual(done.data.extractionJob.data.eventName, 'New Pasted Event');
   });
 
   await t.test('extractEventDataFromUrl - isEvent false returns EXTRACTION_FAILED', async () => {
@@ -327,6 +387,7 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
         query: `
           mutation ExtractEventDataFromUrl($url: String!) {
             extractEventDataFromUrl(url: $url) {
+              jobId
               errorCode
               errorMessage
             }
@@ -339,8 +400,13 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
     });
 
     const result = await response.json();
-    assert.strictEqual(result.data.extractEventDataFromUrl.errorCode, 'EXTRACTION_FAILED');
-    assert.strictEqual(result.data.extractEventDataFromUrl.errorMessage, 'The linked post does not appear to describe an event.');
+    const started = result.data.extractEventDataFromUrl;
+    assert.ok(started.jobId, 'the failure is discovered asynchronously, so the mutation still returns a jobId');
+    await processManualExtractionJob(started.jobId);
+    const done = await pollJob(started.jobId);
+    assert.strictEqual(done.data.extractionJob.status, 'FAILED');
+    assert.strictEqual(done.data.extractionJob.errorCode, 'EXTRACTION_FAILED');
+    assert.strictEqual(done.data.extractionJob.errorMessage, 'The linked post does not appear to describe an event.');
   });
 
   await t.test('extractEventDataFromUrl - existing post with null content returns EXTRACTION_FAILED', async () => {
@@ -373,6 +439,123 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
     } finally {
       await db.update(posts).set({ content: 'This is a mock post with event details for existing path.' }).where(eq(posts.id, existingPost.id));
     }
+  });
+
+  // ---- Story 4.2b: job lifecycle unhappy paths ----
+
+  const START_MUTATION = `
+    mutation ($url: String!) {
+      extractEventDataFromUrl(url: $url) { jobId errorCode errorMessage data { eventName } }
+    }
+  `;
+  async function startExtraction(url: string) {
+    const res = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: START_MUTATION, variables: { url } }),
+    });
+    return res.json();
+  }
+
+  await t.test('extractEventDataFromUrl - a failing async invoke returns EXTRACTION_FAILED and marks the job FAILED', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+    setInvokeAiProcessor(async () => {
+      throw new Error('lambda:InvokeFunction denied');
+    });
+    try {
+      const result = await startExtraction('https://instagram.com/p/existing123');
+      const started = result.data.extractEventDataFromUrl;
+      assert.strictEqual(started.jobId, null);
+      assert.strictEqual(started.errorCode, 'EXTRACTION_FAILED');
+      const [row] = await db
+        .select()
+        .from(manualExtractionJobs)
+        .where(eq(manualExtractionJobs.requestedByUserId, testUser.id))
+        .orderBy(desc(manualExtractionJobs.createdAt))
+        .limit(1);
+      assert.strictEqual(row.status, 'FAILED');
+      assert.strictEqual(row.errorCode, 'EXTRACTION_FAILED');
+    } finally {
+      setInvokeAiProcessor(async (_fn, payload) => {
+        invokedJobIds.push(payload.jobId);
+      });
+    }
+  });
+
+  await t.test('extractEventDataFromUrl - missing AI_PROCESSOR_FUNCTION_NAME fails closed, no invoke attempted', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+    const saved = process.env.AI_PROCESSOR_FUNCTION_NAME;
+    delete process.env.AI_PROCESSOR_FUNCTION_NAME;
+    const before = invokedJobIds.length;
+    try {
+      const result = await startExtraction('https://instagram.com/p/existing123');
+      assert.strictEqual(result.data.extractEventDataFromUrl.errorCode, 'EXTRACTION_FAILED');
+      assert.strictEqual(invokedJobIds.length, before);
+    } finally {
+      process.env.AI_PROCESSOR_FUNCTION_NAME = saved;
+    }
+  });
+
+  await t.test('extractionJob - unauthenticated rejected; another user\'s job and unknown ids are NOT_FOUND', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+    const started = (await startExtraction('https://instagram.com/p/existing123')).data.extractEventDataFromUrl;
+
+    const [otherUser] = await db.insert(users).values({
+      email: `extraction-other-${Date.now()}-${Math.random()}@example.com`,
+      role: 'user',
+    }).returning();
+    try {
+      mockUser = { userId: otherUser.id, role: otherUser.role };
+      const foreign = await pollJob(started.jobId);
+      assert.strictEqual(foreign.errors[0].extensions?.code, 'NOT_FOUND');
+      const unknown = await pollJob(randomUUID());
+      assert.strictEqual(unknown.errors[0].extensions?.code, 'NOT_FOUND');
+
+      mockUser = null;
+      const anon = await pollJob(started.jobId);
+      assert.strictEqual(anon.errors[0].extensions?.code, 'UNAUTHENTICATED');
+    } finally {
+      await db.delete(users).where(eq(users.id, otherUser.id));
+    }
+  });
+
+  await t.test('extractionJob - a PENDING or PROCESSING job older than 5 minutes is reported FAILED (no stuck spinner)', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+    const stale = new Date(Date.now() - 6 * 60 * 1000);
+    for (const status of ['PENDING', 'PROCESSING'] as const) {
+      const [job] = await db.insert(manualExtractionJobs).values({
+        requestedByUserId: testUser.id,
+        sourceUrl: 'https://instagram.com/p/stale',
+        requestPayload: { message: { postId: randomUUID(), accountId: '', content: 'x', postUrl: 'https://instagram.com/p/stale', publishedAt: '2026-08-29T10:24:17Z' } },
+        status,
+        createdAt: stale,
+      }).returning();
+      const result = await pollJob(job.id);
+      assert.strictEqual(result.data.extractionJob.status, 'FAILED', status);
+      assert.strictEqual(result.data.extractionJob.errorCode, 'EXTRACTION_FAILED', status);
+    }
+  });
+
+  await t.test('extractionJob - a fresh PENDING job stays PENDING, and a finished job is never overwritten by the sweep', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+    const mk = (status: 'PENDING' | 'SUCCEEDED', createdAt?: Date) =>
+      db.insert(manualExtractionJobs).values({
+        requestedByUserId: testUser.id,
+        sourceUrl: 'https://instagram.com/p/fresh',
+        requestPayload: { message: { postId: randomUUID(), accountId: '', content: 'x', postUrl: 'https://instagram.com/p/fresh', publishedAt: '2026-08-29T10:24:17Z' } },
+        status,
+        resultData:
+          status === 'SUCCEEDED'
+            ? { eventName: 'Done Long Ago', types: ['PERFORMANCE'], categories: ['MUSIC'], location: 'Somewhere', schedules: [{ isMainSchedule: true, eventStartDate: '2026-10-10' }] }
+            : null,
+        ...(createdAt ? { createdAt } : {}),
+      }).returning();
+    const [fresh] = await mk('PENDING');
+    assert.strictEqual((await pollJob(fresh.id)).data.extractionJob.status, 'PENDING');
+    const [oldDone] = await mk('SUCCEEDED', new Date(Date.now() - 60 * 60 * 1000));
+    const done = await pollJob(oldDone.id);
+    assert.strictEqual(done.data.extractionJob.status, 'SUCCEEDED');
+    assert.strictEqual(done.data.extractionJob.data.eventName, 'Done Long Ago');
   });
 });
 

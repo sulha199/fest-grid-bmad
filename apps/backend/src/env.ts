@@ -37,6 +37,8 @@ export interface BackendEnv {
   scrapingQueueUrl?: string;
   scrapeInlineFallbackEnabled: boolean;
   aiProcessingQueueUrl?: string;
+  // Story 4.2b -- AI Lambda function name the API Lambda async-invokes for manual extraction.
+  aiProcessorFunctionName?: string;
   aiProcessingInlineFallbackEnabled: boolean;
   // Story 3.6z (AC3) — TTL (minutes) for enqueuePostForProcessing's atomic claim
   // (posts.queued_for_extraction_at). Default derivation: AIProcessingQueue's visibility
@@ -207,6 +209,8 @@ export function loadBackendEnv(): BackendEnv {
     scrapeInlineFallbackEnabled: process.env.SCRAPE_INLINE_FALLBACK_ENABLED === 'true',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     aiProcessingQueueUrl: process.env.AI_PROCESSING_QUEUE_URL,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    aiProcessorFunctionName: process.env.AI_PROCESSOR_FUNCTION_NAME,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     aiProcessingInlineFallbackEnabled: process.env.AI_PROCESSING_INLINE_FALLBACK_ENABLED === 'true',
     // eslint-disable-next-line turbo/no-undeclared-env-vars

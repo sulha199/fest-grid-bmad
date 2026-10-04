@@ -719,6 +719,7 @@
     "urlInputPlaceholder": "Tempel tautan di sini...",
     "extractButtonLabel": "Ekstrak",
     "extractingAnnouncement": "Mengekstrak...",
+    "stillProcessing": "Masih diproses — ini bisa memakan waktu hingga satu menit…",
     "errorNotFound": "Postingan tidak dapat ditemukan.",
     "errorUnsupportedPlatform": "Platform media sosial ini tidak didukung.",
     "errorNoApiKey": "Kunci API tidak dikonfigurasi. Silakan atur di <link>Pengaturan Kunci API</link>.",

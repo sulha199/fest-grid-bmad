@@ -1,10 +1,14 @@
+---
+baseline_commit: 7725770ad90e1f7edf68543c33ef17837b4a5afe
+---
+
 # Story 4.2b: Route AI-assisted correction extraction through the AI Lambda, so the pre-AI face blur covers it too
 
 ## Story Details
 
 - Epic: 4
 - Story ID: 4.2b
-- Status: ready-for-dev
+- Status: in-progress
 - Backlog: FIND-068 (child of CC-028)
 - Amends: Story 4.2a (`done`) and Story 4.2 (`review`)
 

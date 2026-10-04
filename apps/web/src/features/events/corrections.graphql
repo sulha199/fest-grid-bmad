@@ -12,6 +12,35 @@ mutation submitCorrection($eventId: ID!, $proposedData: ProposedEventCorrectionI
 
 mutation extractEventDataFromUrl($url: String!) {
   extractEventDataFromUrl(url: $url) {
+    jobId
+    data {
+      eventName
+      types
+      categories
+      location
+      organizerName
+      contactInfo
+      description
+      schedules {
+        isMainSchedule
+        eventStartDate
+        eventEndDate
+        eventStartTime
+        eventEndTime
+        title
+        performers
+        location
+        ticketPrice
+      }
+    }
+    errorCode
+    errorMessage
+  }
+}
+
+query extractionJob($id: ID!) {
+  extractionJob(id: $id) {
+    status
     data {
       eventName
       types

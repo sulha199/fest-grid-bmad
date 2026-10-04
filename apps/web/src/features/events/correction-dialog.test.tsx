@@ -243,39 +243,39 @@ describe("CorrectionDialog", () => {
   });
 
   it("handles successful AI extraction, overwrites fields except main schedule id, and submits with source: 'ai_assisted'", async () => {
-    const mockExtractionData = {
-      extractEventDataFromUrl: {
-        data: {
-          eventName: "Extracted Event Name",
-          types: ["CONCERT"],
-          categories: ["MUSIC"],
-          location: "Extracted Location",
-          organizerName: "Extracted Org",
-          contactInfo: "extracted@org.com",
-          description: "Extracted Desc",
-          schedules: [
-            {
-              isMainSchedule: true,
-              eventStartDate: "2026-11-20",
-              eventEndDate: "2026-11-22",
-              eventStartTime: "12:00",
-              eventEndTime: "21:00",
-              title: "Extracted Stage",
-              performers: ["Extracted Artist"],
-              location: "Extracted Sched Loc",
-              ticketPrice: "$99",
-            },
-          ],
+    // Story 4.2b -- two-step contract: the mutation starts a job, extractionJob is polled.
+    const mockExtractedData = {
+      eventName: "Extracted Event Name",
+      types: ["CONCERT"],
+      categories: ["MUSIC"],
+      location: "Extracted Location",
+      organizerName: "Extracted Org",
+      contactInfo: "extracted@org.com",
+      description: "Extracted Desc",
+      schedules: [
+        {
+          isMainSchedule: true,
+          eventStartDate: "2026-11-20",
+          eventEndDate: "2026-11-22",
+          eventStartTime: "12:00",
+          eventEndTime: "21:00",
+          title: "Extracted Stage",
+          performers: ["Extracted Artist"],
+          location: "Extracted Sched Loc",
+          ticketPrice: "$99",
         },
-        errorCode: null,
-        errorMessage: null,
-      },
+      ],
     };
 
     server.use(
       api.mutation("extractEventDataFromUrl", () => {
         return HttpResponse.json({
-          data: mockExtractionData,
+          data: { extractEventDataFromUrl: { jobId: "job-dialog-1", data: null, errorCode: null, errorMessage: null } },
+        });
+      }),
+      api.query("extractionJob", () => {
+        return HttpResponse.json({
+          data: { extractionJob: { status: "SUCCEEDED", data: mockExtractedData, errorCode: null, errorMessage: null } },
         });
       })
     );

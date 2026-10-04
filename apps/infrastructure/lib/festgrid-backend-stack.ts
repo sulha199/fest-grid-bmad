@@ -632,6 +632,18 @@ export class FestgridBackendStack extends cdk.Stack {
     // Do not remove without confirming a replacement grant exists.
     aiProcessingQueue.grantSendMessages(apiLambda);
 
+    // Story 4.2b -- manual "AI-Assisted Correction" extraction: the API Lambda async-invokes the AI
+    // Lambda directly (InvocationType 'Event') instead of enqueueing on AIProcessingQueue, because
+    // prod's AI Lambda only drains that queue every 5 minutes (poll-and-drain), far too slow for a
+    // user waiting on a spinner. A scoped exception to the three-queue rule: this job writes no
+    // posts/events rows and is not pipeline work. The function name is attached with
+    // addEnvironment (not the construct props) so apiLambda's definition order is unaffected.
+    aiProcessorLambda.grantInvoke(apiLambda);
+    apiLambda.addEnvironment('AI_PROCESSOR_FUNCTION_NAME', aiProcessorLambda.functionName);
+    // No automatic retry: processManualExtractionJob claims the job row atomically, and a retry
+    // after a mid-run failure would otherwise spend a second Gemini key call for the same job.
+    aiProcessorLambda.configureAsyncInvoke({ retryAttempts: 0 });
+
     // Scraper needs to enqueue onto AIProcessingQueue too (Story 3.6z, automatic extraction
     // on scrape) -- same prod-incident lesson as above: a queue-URL env var with no matching
     // grant fails every call with SQS AccessDenied, confirmed only via CloudWatch.
