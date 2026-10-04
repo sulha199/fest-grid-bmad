@@ -91,6 +91,17 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
 
   const [timezoneStates, setTimezoneStates] = React.useState<Record<string, { value: string }>>({})
 
+  // Story 3.6u (AC6) — this is not a calendar surface (no "currently visible week" concept), so
+  // `computeCalendarSegmentDateBoxContent`'s `currentDayStr` is always just today, computed the
+  // same way every other `todayStr` call site in this codebase already does
+  // (`new Date().toISOString().split('T')[0]`, e.g. `CalendarView.tsx`/`FeedCalendarView.tsx`).
+  // Hoisted above the `loading`/`error` early returns below (Rules of Hooks — a hook may never
+  // sit after a conditional return, since the same mounted `EventDetailView` instance transitions
+  // between `loading`/`error`/data on every real page load, e.g. via `EventDetailWrapper`; this
+  // used to live just above its one usage site, which crashed with "Rendered more hooks than
+  // during the previous render" the moment a real query actually resolved).
+  const relatedEventsTodayStr = React.useMemo(() => new Date().toISOString().split('T')[0], []);
+
   const handleTriggerClick = () => {
     if (!isAuthenticated && onAddToCalendar) {
       onAddToCalendar([]);
@@ -250,12 +261,6 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   // that never passes it) falls through to the exact existing Attributions + flat-`coauthors`
   // branch below, byte-identical to today.
   const hasMultiplePosts = !!sourcePosts && sourcePosts.length > 1;
-
-  // Story 3.6u (AC6) — this is not a calendar surface (no "currently visible week" concept), so
-  // `computeCalendarSegmentDateBoxContent`'s `currentDayStr` is always just today, computed the
-  // same way every other `todayStr` call site in this codebase already does
-  // (`new Date().toISOString().split('T')[0]`, e.g. `CalendarView.tsx`/`FeedCalendarView.tsx`).
-  const relatedEventsTodayStr = React.useMemo(() => new Date().toISOString().split('T')[0], []);
 
   return (
     <article className="flex flex-col gap-6">
