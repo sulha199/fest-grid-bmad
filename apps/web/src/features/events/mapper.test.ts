@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { mapGraphQLEventToDetailViewProps } from './mapper';
-import { GetEventBySlugQuery } from '@/generated/graphql';
+import { GetEventBySlugQuery, PostGroupingReason } from '@/generated/graphql';
 import { EventDetailViewLabels } from '@festgrid/ui';
 
 /**
@@ -422,7 +422,7 @@ describe('mapGraphQLEventToDetailViewProps sourcePosts mapping (Story 3.6u)', ()
         {
           postId: 'post-1',
           isPrimary: true,
-          groupingReason: 'SINGLE_EVENT',
+          groupingReason: PostGroupingReason.SingleEvent,
           extractedEventCount: 1,
           postedAt: '2026-08-09T10:00:00Z',
           sourcePostUrl: 'https://imginn.com/p/post-1',
