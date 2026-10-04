@@ -1812,12 +1812,12 @@ items:
 
   # ── 2026-10-02 (test-gate findings from the CC-024 Wave 2A batch) ───────────────────
   FIND-062:
-    {type: finding, status: backlog, created: 2026-10-02,
+    {type: finding, status: done, created: 2026-10-02, fixed: 2026-10-04,
      impact: internal, effort: xs,
      title: "isEventEnded shared-fixture tests (ended-cases.ts) fail in any non-UTC time zone",
      ref: [planning-artifacts/cc-024-multi-event-wave-plan.md],
      touches: [pkg:ui, pkg:domain],
-     note: "Passes under TZ=UTC, fails in Asia/Jakarta: endTime 18:00 with now 12:00Z reads 18:00 in the machine zone. Fix the fixture or pin TZ in the test script."}
+     note: "Fixed incidentally during Story 3.20's dev-story run (unrelated repo-wide test-gate failure, fixed per the user's explicit instruction rather than deferred). Pinned TZ: 'UTC' in packages/ui/vitest.config.ts's test.env (FIND-062's own suggested fix) rather than changing isEventEnded's production behavior, which 0-i5d's Dev Notes document as deliberate (mirrors the SQL side's naive/no-timezone-conversion comparison). Confirmed failing before the fix on this machine's local (non-UTC) timezone, passing after."}
 
   FIND-063:
     {type: finding, status: backlog, created: 2026-10-02,
