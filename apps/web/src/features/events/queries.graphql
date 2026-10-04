@@ -101,6 +101,8 @@ query getEventBySlug($slug: String!) {
       postedAt
       sourcePostUrl
       originalPostUrl
+      platformPostId
+      postType
       account {
         accountId
         platform

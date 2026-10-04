@@ -69,6 +69,7 @@ function buildEvent(
     links: null,
     sourceSocialMediaAccountProfile: null,
     coauthors: [],
+    sourcePosts: [],
     schedules: [
       {
         id: 'schedule-1',
@@ -400,5 +401,127 @@ describe('mapGraphQLEventToDetailViewProps coauthors mapping (Story 0.i6g)', () 
     const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k, null, null, 'coauthor-2');
     expect(props.coauthors?.find((c) => c.accountId === 'coauthor-1')?.isTogglePending).toBe(false);
     expect(props.coauthors?.find((c) => c.accountId === 'coauthor-2')?.isTogglePending).toBe(true);
+  });
+});
+
+// Story 3.6u Task 6: sourcePosts maps to EventDetailViewSourcePost[], with per-post account
+// (accountHref derived the same way as the existing source-account/coauthor cases) and per-post
+// coauthors (isSubscribed/isTogglePending derived independently per entry, same mechanism as the
+// flat coauthors mapping above -- this is a parallel, not a reuse of, that mapping).
+describe('mapGraphQLEventToDetailViewProps sourcePosts mapping (Story 3.6u)', () => {
+  it('maps empty/absent sourcePosts to []', () => {
+    const event = buildEvent({});
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.sourcePosts).toEqual([]);
+  });
+
+  it('maps each linked post, deriving account.accountHref and passing groupingReason/extractedEventCount/postedAt/urls through verbatim', () => {
+    const event = {
+      ...buildEvent({}),
+      sourcePosts: [
+        {
+          postId: 'post-1',
+          isPrimary: true,
+          groupingReason: 'SINGLE_EVENT',
+          extractedEventCount: 1,
+          postedAt: '2026-08-09T10:00:00Z',
+          sourcePostUrl: 'https://imginn.com/p/post-1',
+          originalPostUrl: 'https://instagram.com/p/post-1',
+          account: {
+            accountId: 'acct-1',
+            platform: 'instagram',
+            username: 'acct_one',
+            displayName: 'Acct One',
+            profileImageUrl: 'https://example.com/acct-1.png',
+          },
+          coauthors: [],
+        },
+      ],
+    };
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.sourcePosts).toEqual([
+      {
+        postId: 'post-1',
+        isPrimary: true,
+        groupingReason: 'SINGLE_EVENT',
+        extractedEventCount: 1,
+        postedAt: '2026-08-09T10:00:00Z',
+        sourcePostUrl: 'https://imginn.com/p/post-1',
+        originalPostUrl: 'https://instagram.com/p/post-1',
+        account: {
+          accountId: 'acct-1',
+          platform: 'instagram',
+          username: 'acct_one',
+          displayName: 'Acct One',
+          profileImageUrl: 'https://example.com/acct-1.png',
+          accountHref: '/ig/acct-1',
+        },
+        coauthors: [],
+      },
+    ]);
+  });
+
+  it('maps account to null when a post has no linked account', () => {
+    const event = {
+      ...buildEvent({}),
+      sourcePosts: [
+        {
+          postId: 'post-1',
+          isPrimary: true,
+          groupingReason: null,
+          extractedEventCount: null,
+          postedAt: null,
+          sourcePostUrl: null,
+          originalPostUrl: null,
+          account: null,
+          coauthors: [],
+        },
+      ],
+    };
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.sourcePosts?.[0].account).toBeNull();
+  });
+
+  it("maps each post's own coauthors independently, deriving isSubscribed/isTogglePending per entry (not the flat coauthors mapping)", () => {
+    const event = {
+      ...buildEvent({}),
+      sourcePosts: [
+        {
+          postId: 'post-1',
+          isPrimary: true,
+          groupingReason: null,
+          extractedEventCount: null,
+          postedAt: null,
+          sourcePostUrl: null,
+          originalPostUrl: null,
+          account: null,
+          coauthors: [
+            { accountId: 'coauthor-1', platform: 'instagram', username: 'c1', displayName: 'C1', profileImageUrl: null },
+          ],
+        },
+        {
+          postId: 'post-2',
+          isPrimary: false,
+          groupingReason: null,
+          extractedEventCount: null,
+          postedAt: null,
+          sourcePostUrl: null,
+          originalPostUrl: null,
+          account: null,
+          coauthors: [
+            { accountId: 'coauthor-2', platform: 'instagram', username: 'c2', displayName: 'C2', profileImageUrl: null },
+          ],
+        },
+      ],
+    };
+    const mySubscriptions = [
+      { id: 'sub-1', account: { accountId: 'coauthor-1' } },
+    ] as unknown as NonNullable<Parameters<typeof mapGraphQLEventToDetailViewProps>[6]>;
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k, null, mySubscriptions, 'coauthor-2');
+
+    expect(props.sourcePosts?.[0].coauthors[0].isSubscribed).toBe(true);
+    expect(props.sourcePosts?.[0].coauthors[0].isTogglePending).toBe(false);
+    expect(props.sourcePosts?.[1].coauthors[0].isSubscribed).toBe(false);
+    expect(props.sourcePosts?.[1].coauthors[0].isTogglePending).toBe(true);
   });
 });
