@@ -122,6 +122,11 @@ export function parseBooleanDefaultOn(value: string | undefined, name: string): 
   if (normalized === 'false' || normalized === '0') {
     return false;
   }
+  if (normalized !== 'true' && normalized !== '1' && normalized !== '') {
+    // Fail-safe stays ON, but an operator who typed 'off'/'no' during an incident must not be
+    // silently ignored.
+    console.warn(`${name}="${value}" is not a recognised boolean; treating as ON. Use 'false' or '0' to disable.`);
+  }
   return true;
 }
 
@@ -281,7 +286,7 @@ export function loadBackendEnv(): BackendEnv {
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     accountClassificationClaimTtlMinutes: parseInt(process.env.ACCOUNT_CLASSIFICATION_CLAIM_TTL_MINUTES || '30', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
-    faceBlurMinRemainingTimeMs: parseInt(process.env.FACE_BLUR_MIN_REMAINING_TIME_MS || '60000', 10),
+    faceBlurMinRemainingTimeMs: parseNonNegativeInt(process.env.FACE_BLUR_MIN_REMAINING_TIME_MS, 'FACE_BLUR_MIN_REMAINING_TIME_MS', 60000),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     blurFacesBeforeAi: parseBooleanDefaultOn(process.env.BLUR_FACES_BEFORE_AI, 'BLUR_FACES_BEFORE_AI'),
   };

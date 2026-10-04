@@ -562,4 +562,42 @@ test('processAiJob extraction_audit_logs write-path tests', async (t) => {
     assert.strictEqual(row.aiImageInput, 'blurred');
     assert.strictEqual(row.actualFaceDetectionCount, 5);
   });
+  await t.test('Case M: carousel, mode on -> actualFaceDetectionCount is the sum across cover + slides, not the cover alone (AD-29 Rule 7)', async () => {
+    process.env.BLUR_FACES_BEFORE_AI = 'true';
+    installImageFetchMock();
+    // Every image (cover + 2 slides) reports 2 faces -> total 6, cover alone 2.
+    setDetectAndBlurFacesSeam(async () => ({ buffer: Buffer.from('blurred-bytes'), faceCount: 2 }));
+    const postId = await insertTestPost(profile.id, 'https://www.instagram.com/p/audit-case-m/');
+    const payload: GeminiExtractionPayload = {
+      isEvent: true,
+      events: [
+        {
+          eventName: 'Carousel Blurred Event',
+          types: ['PERFORMANCE'],
+          categories: ['MUSIC'],
+          schedules: [buildSchedule('Day 1', '2026-10-25')],
+          confidenceScore: 0.9
+        }
+      ]
+    };
+    const message: ProcessingJobMessage = {
+      postId,
+      accountId: profile.id,
+      content: 'Blurred, carousel',
+      imageUrl: 'https://test.com/audit-case-m.jpg',
+      additionalImageUrls: ['https://test.com/audit-case-m-s1.jpg', 'https://test.com/audit-case-m-s2.jpg'],
+      postUrl: 'https://www.instagram.com/p/audit-case-m/',
+      publishedAt: '2026-08-29T10:24:17Z'
+    };
+    setCallGeminiSeam(async () => ({ text: JSON.stringify(payload) }));
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+    setResolveLocationSeam(async () => ({ location: undefined }) as any);
+
+    await processAiJob(message);
+
+    const [row] = await db.select().from(extractionAuditLogs).where(eq(extractionAuditLogs.postId, postId));
+    assert.strictEqual(row.aiImageInput, 'blurred');
+    assert.strictEqual(row.actualFaceDetectionCount, 6);
+  });
 });

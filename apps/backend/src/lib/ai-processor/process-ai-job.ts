@@ -97,7 +97,7 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   const isPublisherOptedIn = env.blurFacesBeforeAi ? await resolvePostPublisherOptIn(message.postId) : false;
 
   // 2. Build Gemini extraction request
-  const { request, imageBytes, imageContentType, blurredCoverImageBytes, coverFaceCount, aiImageInput, totalFaceDetectionCount } = await buildGeminiExtractionRequest(
+  const { request, imageBytes, imageContentType, blurredCoverImageBytes, aiImageInput, totalFaceDetectionCount } = await buildGeminiExtractionRequest(
     message,
     env.blurFacesBeforeAi
       ? {
@@ -346,9 +346,8 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   // per-event fan-out. Best-effort: any failure (including the timeout guard below) is caught,
   // logged, and leaves durableThumbnailUrl null without affecting extraction/ingestion.
   // AD-29 backfill ownership (AC9): this story owns the 'no_face_reported' and real-count
-  // outcomes below; Story 3.6o inserts one more nested condition right after the hasFaceImage
-  // check, before the timeout-guard check, for its own 'event_relevance_gate' outcome -- this
-  // story does not wait on or depend on it.
+  // outcomes below; Story 3.6o's 'event_relevance_gate' outcome is one more nested condition
+  // (now present in both the 'blurred' branch and the legacy branch below).
   // Story 3.21 (AC1/AC2, Task 6) -- three branches, checked in this order:
   //   a. aiImageInput === 'blurred': pre-AI detection (Story 3.20) already ran on the cover
   //      before the Gemini call -- reuse its result, never call detectAndBlurFacesSeam again.
@@ -375,9 +374,11 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
 
     // AC2: the face count is already known either way (detection already ran pre-AI), so
     // faceDetectionSkippedReason is never 'event_relevance_gate' for this branch -- only the
-    // resize/upload/storage step is skipped when not relevant.
+    // resize/upload/storage step is skipped when not relevant. The count is the whole-request
+    // total (AD-29 Rule 7: cover + every surviving slide), the same value already written at
+    // insert -- never the cover-only coverFaceCount, which would overwrite it for a carousel.
     await backfillFaceDetectionAuditResultSeam(auditLogId, {
-      actualFaceDetectionCount: coverFaceCount ?? 0,
+      actualFaceDetectionCount: totalFaceDetectionCount ?? 0,
       faceDetectionSkippedReason: null,
     });
 

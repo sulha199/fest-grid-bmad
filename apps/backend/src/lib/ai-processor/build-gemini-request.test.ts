@@ -541,6 +541,39 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.deepStrictEqual(result.blurredCoverImageBytes, Buffer.from('blurred-carousel-bytes-0'));
   });
 
+  await t.test('Case U2: six-image post is blurred strictly sequentially; the carousel cap bounds blur calls (AC1/AC6/AC8)', async () => {
+    const originalMax = process.env.MAX_CAROUSEL_IMAGES;
+    try {
+      process.env.MAX_CAROUSEL_IMAGES = '5';
+      installOrderedFetchMock();
+      const fiveSlides = [1, 2, 3, 4, 5, 6, 7].map((i) => `https://test.com/u2-slide-${i}.jpg`);
+      let inFlight = 0;
+      let maxInFlight = 0;
+      let blurCalls = 0;
+      setDetectAndBlurFacesSeam(async (buffer: Buffer) => {
+        blurCalls++;
+        inFlight++;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        inFlight--;
+        return { buffer: Buffer.from(`blurred-${buffer.toString()}`), faceCount: 1 };
+      });
+
+      const result = await buildGeminiExtractionRequest(multiImageMessage(fiveSlides), {
+        blurFacesBeforeAi: { isOwnerOptedIn: false }
+      });
+
+      // cover + 5 capped slides = 6 images (+ text part); slides 6-7 never fetched or blurred.
+      assert.strictEqual(result.request.contents.length, 7);
+      assert.strictEqual(blurCalls, 6);
+      assert.strictEqual(maxInFlight, 1, 'detection must never overlap across the six images');
+      assert.strictEqual(result.totalFaceDetectionCount, 6);
+    } finally {
+      if (originalMax === undefined) delete process.env.MAX_CAROUSEL_IMAGES;
+      else process.env.MAX_CAROUSEL_IMAGES = originalMax;
+    }
+  });
+
   await t.test('Case V: a slide blur failure drops only that slide, cover and other slides survive (AC3)', async () => {
     installOrderedFetchMock();
     const msg = multiImageMessage([slide1Url, slide2Url]);
