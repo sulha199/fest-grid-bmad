@@ -1,11 +1,11 @@
 "use client"
 
-import React, { useEffect, useRef, useState } from "react"
-import { useGetEventBySlugQuery, useGetInstagramEmbedBySlugQuery, useGetInstagramEmbedForEventQuery, useToggleFavoriteMutation, useToggleCalendarAdditionMutation, useResolveScheduleTimezoneMutation, useMeQuery, useGetMySubscriptionsQuery, useSubscribeToAccountMutation, useRemoveSubscriptionMutation, SoftDeleteAction } from "@/generated/graphql"
+import React, { useEffect, useMemo, useRef, useState } from "react"
+import { useGetEventBySlugQuery, useGetInstagramEmbedBySlugQuery, useGetInstagramEmbedForEventQuery, useGetRelatedEventIdsQuery, useGetEventsQuery, useToggleFavoriteMutation, useToggleCalendarAdditionMutation, useResolveScheduleTimezoneMutation, useMeQuery, useGetMySubscriptionsQuery, useSubscribeToAccountMutation, useRemoveSubscriptionMutation, SoftDeleteAction } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
 import { useQueryClient } from "@tanstack/react-query"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
-import { EventDetailView, PageContainer } from "@festgrid/ui"
+import { EventDetailView, PageContainer, useVisibleOnce, type EventDetailViewRelatedEvent, type EventDetailViewRelatedEventGroup } from "@festgrid/ui"
 import { mapGraphQLEventToDetailViewProps, useEventDetailViewLabels, ResolvedInstagramEmbed } from "./mapper"
 import { useListNavigationForEvent } from "./navigation-hook"
 import { useRouter } from "@/i18n/navigation"
@@ -18,6 +18,8 @@ import { CorrectionDialog } from "./correction-dialog"
 import { ReportDialog } from "./report-dialog"
 import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, type CarouselApi } from "@/components/ui/carousel"
 import { EventPreviewCard } from "./event-preview-card"
+import { getPlatformSlug } from "@festgrid/domain/scraper"
+import { mapDaysOfWeekToDomain } from "@/lib/day-of-week-mapping"
 
 interface EventDetailWrapperProps {
   slug: string
@@ -66,6 +68,43 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     {
       enabled: !!data?.eventBySlug?.id && embedBySlugData?.instagramEmbedBySlug?.status === 'NOT_RESOLVABLE_FROM_SLUG',
     }
+  )
+
+  // Story 3.6u (Task 6, AC6) — Related Events, lazy-loaded near viewport. `sentinelRef` is
+  // attached to EventDetailView's own Related Events section wrapper (always rendered, even
+  // with no data yet, per that component's own comment) so this fires once the section nears
+  // the viewport; never gates the primary `useGetEventBySlugQuery` above (AD-16 Rule 7, matching
+  // the unconditional `useGetInstagramEmbedBySlugQuery` precedent just above).
+  const { sentinelRef: relatedEventsSentinelRef, isVisible: isRelatedEventsSectionVisible } = useVisibleOnce()
+
+  const relatedEventsSubjectEventId = data?.eventBySlug?.id || ""
+
+  const { data: relatedEventIdsData, isPending: isRelatedEventIdsPending } = useGetRelatedEventIdsQuery(
+    graphqlClient,
+    { eventId: relatedEventsSubjectEventId },
+    { enabled: isRelatedEventsSectionVisible && !!relatedEventsSubjectEventId }
+  )
+
+  const relatedEventIdGroups = relatedEventIdsData?.relatedEventIds ?? []
+
+  // Flattened, deduplicated across every group -- a second step read reusing the existing
+  // `Query.events({ filter: { id: { in: [...] } } })` DSL (AC6), not a new query/document.
+  const allRelatedEventIds = useMemo(
+    () => Array.from(new Set(relatedEventIdGroups.flatMap((group) => group.eventIds))),
+    [relatedEventIdGroups]
+  )
+
+  const { data: relatedEventsListData, isPending: isRelatedEventsListPending } = useGetEventsQuery(
+    graphqlClient,
+    {
+      limit: allRelatedEventIds.length,
+      offset: 0,
+      query: {
+        operator: 'and',
+        conditions: [{ field: 'id', operator: 'in', value: allRelatedEventIds }],
+      },
+    },
+    { enabled: allRelatedEventIds.length > 0 }
   )
 
   const { data: meData } = useMeQuery(
@@ -628,6 +667,60 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     toast.success(t("addToCalendarSuccessAnnouncement"))
   }
 
+  // Story 3.6u (Task 6, AC6) — groups built from the already-loaded `sourcePosts` account data
+  // (no second account fetch): each group's label is resolved by matching its `postId` back to
+  // the matching `sourcePosts[i].account`, and the "See all N" href is built from that same
+  // entry's `platformPostId`/`postType`/`account.platform` (AC6's documented future route).
+  const relatedEventGroups: EventDetailViewRelatedEventGroup[] | undefined = isRelatedEventsSectionVisible
+    ? relatedEventIdGroups.map((group) => {
+        const sourcePost = data?.eventBySlug?.sourcePosts?.find((sp) => sp.postId === group.postId)
+        const accountName = sourcePost?.account?.displayName || sourcePost?.account?.username || null
+        const accountLabel = accountName
+          ? t("relatedEventsGroupLabel", { account: accountName })
+          : labels.unknownAccountLabel ?? ""
+
+        const platformSlug = sourcePost?.account?.platform
+          ? getPlatformSlug(sourcePost.account.platform as any)
+          : null
+        const seeAllHref =
+          platformSlug && sourcePost?.postType && sourcePost?.platformPostId
+            ? `/posts/${platformSlug}/${sourcePost.postType}/${sourcePost.platformPostId}/events`
+            : null
+
+        const events: EventDetailViewRelatedEvent[] = group.eventIds
+          .map((id) => relatedEventsListData?.events.items.find((e) => e.id === id))
+          .filter((e): e is NonNullable<typeof e> => !!e)
+          .map((e) => {
+            const mainSchedule = e.schedules.find((s) => s.isMainSchedule) ?? e.schedules[0]
+            return {
+              id: e.id,
+              slug: e.slug,
+              eventName: e.eventName,
+              locationName: e.location || null,
+              imageUrl: e.imageUrl,
+              imageFallbackUrl: e.durableImageUrl,
+              isFavorited: e.isFavorited,
+              favoriteCount: e.favoriteCount,
+              isMainSchedule: mainSchedule?.isMainSchedule ?? false,
+              eventStartDate: mainSchedule?.eventStartDate ?? "",
+              eventStartTime: mainSchedule?.eventStartTime,
+              eventEndDate: mainSchedule?.eventEndDate,
+              eventEndTime: mainSchedule?.eventEndTime,
+              applicableDaysOfWeek: mapDaysOfWeekToDomain(mainSchedule?.applicableDaysOfWeek),
+            }
+          })
+
+        return {
+          postId: group.postId,
+          accountLabel,
+          events,
+          totalCount: group.eventIds.length,
+          seeAllHref,
+          isLoading: isRelatedEventsListPending,
+        }
+      })
+    : undefined
+
   const mappedProps = data?.eventBySlug
     ? {
         ...mapGraphQLEventToDetailViewProps(
@@ -709,6 +802,12 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
             return
           }
           handleUnsubscribeFromCoauthor(accountId)
+        },
+        relatedEventsSentinelRef,
+        isRelatedEventsLoading: isRelatedEventsSectionVisible && isRelatedEventIdsPending,
+        relatedEventGroups,
+        onRelatedEventClick: (relatedEvent: EventDetailViewRelatedEvent) => {
+          router.push(`/events/${relatedEvent.slug}`)
         },
       }
     : null

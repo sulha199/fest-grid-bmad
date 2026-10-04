@@ -161,7 +161,11 @@
     "tomorrow": "Besok",
     "yesterday": "Kemarin",
     "categoriesAndTypesAriaLabel": "Kategori dan jenis acara",
-    "coauthorsListAriaLabel": "Rekan Penulis"
+    "coauthorsListAriaLabel": "Rekan Penulis",
+    "sourcePostsPrimaryLabel": "Utama",
+    "relatedEventsGroupLabel": "Acara dari {account}",
+    "relatedEventsSeeAllLabel": "Lihat semua {count} acara",
+    "relatedEventsSectionAriaLabel": "Acara terkait"
   },
   "EventReportForm": {
     "dialogTitle": "Laporkan Acara",

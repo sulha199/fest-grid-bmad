@@ -427,6 +427,8 @@ describe('mapGraphQLEventToDetailViewProps sourcePosts mapping (Story 3.6u)', ()
           postedAt: '2026-08-09T10:00:00Z',
           sourcePostUrl: 'https://imginn.com/p/post-1',
           originalPostUrl: 'https://instagram.com/p/post-1',
+          platformPostId: 'post-1-platform-id',
+          postType: 'post',
           account: {
             accountId: 'acct-1',
             platform: 'instagram',
@@ -473,6 +475,8 @@ describe('mapGraphQLEventToDetailViewProps sourcePosts mapping (Story 3.6u)', ()
           postedAt: null,
           sourcePostUrl: null,
           originalPostUrl: null,
+          platformPostId: null,
+          postType: null,
           account: null,
           coauthors: [],
         },
@@ -494,6 +498,8 @@ describe('mapGraphQLEventToDetailViewProps sourcePosts mapping (Story 3.6u)', ()
           postedAt: null,
           sourcePostUrl: null,
           originalPostUrl: null,
+          platformPostId: null,
+          postType: null,
           account: null,
           coauthors: [
             { accountId: 'coauthor-1', platform: 'instagram', username: 'c1', displayName: 'C1', profileImageUrl: null },
@@ -507,6 +513,8 @@ describe('mapGraphQLEventToDetailViewProps sourcePosts mapping (Story 3.6u)', ()
           postedAt: null,
           sourcePostUrl: null,
           originalPostUrl: null,
+          platformPostId: null,
+          postType: null,
           account: null,
           coauthors: [
             { accountId: 'coauthor-2', platform: 'instagram', username: 'c2', displayName: 'C2', profileImageUrl: null },
