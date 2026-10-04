@@ -85,7 +85,10 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     { enabled: isRelatedEventsSectionVisible && !!relatedEventsSubjectEventId }
   )
 
-  const relatedEventIdGroups = relatedEventIdsData?.relatedEventIds ?? []
+  const relatedEventIdGroups = useMemo(
+    () => relatedEventIdsData?.relatedEventIds ?? [],
+    [relatedEventIdsData]
+  )
 
   // Flattened, deduplicated across every group -- a second step read reusing the existing
   // `Query.events({ filter: { id: { in: [...] } } })` DSL (AC6), not a new query/document.
