@@ -1126,4 +1126,260 @@ describe('EventDetailView', () => {
       expect(onSubscribeToCoauthor).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('sourcePosts (Story 3.6u)', () => {
+    const primaryCoauthor = {
+      accountId: 'coauthor-primary',
+      platform: 'instagram',
+      displayName: 'Primary Coauthor',
+      username: 'primary_coauthor',
+      profileImageUrl: 'https://example.com/coauthor-primary.png',
+      accountHref: '/instagram/primary_coauthor',
+      isSubscribed: false,
+      isTogglePending: false,
+    };
+    const otherCoauthor = {
+      accountId: 'coauthor-other',
+      platform: 'instagram',
+      displayName: 'Other Coauthor',
+      username: 'other_coauthor',
+      profileImageUrl: 'https://example.com/coauthor-other.png',
+      accountHref: '/instagram/other_coauthor',
+      isSubscribed: true,
+      isTogglePending: false,
+    };
+
+    const primaryPost = {
+      postId: 'post-primary',
+      isPrimary: true,
+      groupingReason: 'SINGLE_EVENT',
+      extractedEventCount: 1,
+      postedAt: '2026-08-09T10:00:00Z',
+      sourcePostUrl: 'https://imginn.com/p/primary',
+      originalPostUrl: 'https://instagram.com/p/primary',
+      account: {
+        accountId: 'acct-primary',
+        platform: 'instagram',
+        username: 'primary_account',
+        displayName: 'Primary Account',
+        profileImageUrl: 'https://example.com/acct-primary.png',
+        accountHref: '/instagram/primary_account',
+      },
+      coauthors: [primaryCoauthor],
+    };
+    const manualPostEarly = {
+      postId: 'post-manual-early',
+      isPrimary: false,
+      groupingReason: 'PROGRAM_LINEUP',
+      extractedEventCount: 3,
+      postedAt: '2026-08-08T10:00:00Z',
+      sourcePostUrl: 'https://imginn.com/p/manual-early',
+      originalPostUrl: 'https://instagram.com/p/manual-early',
+      account: {
+        accountId: 'acct-early',
+        platform: 'instagram',
+        username: 'early_account',
+        displayName: 'Early Account',
+        profileImageUrl: null,
+        accountHref: '/instagram/early_account',
+      },
+      coauthors: [otherCoauthor],
+    };
+    const manualPostLate = {
+      postId: 'post-manual-late',
+      isPrimary: false,
+      groupingReason: 'ROUNDUP',
+      extractedEventCount: null,
+      postedAt: '2026-08-07T10:00:00Z',
+      sourcePostUrl: 'https://imginn.com/p/manual-late',
+      originalPostUrl: null,
+      account: null,
+      coauthors: [],
+    };
+
+    it('1-post case renders exactly the existing Attributions + flat-coauthors branch (regression, AC4)', () => {
+      render(
+        <EventDetailView
+          {...fullProps}
+          sourcePosts={[primaryPost]}
+          coauthors={[primaryCoauthor]}
+          labels={{ ...fullProps.labels, coauthorsListAriaLabel: 'Co-authors' }}
+        />
+      );
+
+      // The existing single-post Attributions link is present (fullProps' own originalPostUrl).
+      expect(screen.getByText('View original post')).toBeInTheDocument();
+      // The flat coauthors list renders, not a per-post structure.
+      const list = screen.getByRole('list', { name: 'Co-authors' });
+      expect(within(list).getAllByTestId('subscribe-toggle')).toHaveLength(1);
+      // No "Primary" label in the single-post branch (EXPERIENCE.md §1).
+      expect(screen.queryByText('Primary')).not.toBeInTheDocument();
+    });
+
+    it('does not render the multi-post branch at all when sourcePosts is absent (AC4 default path)', () => {
+      render(<EventDetailView {...fullProps} />);
+      expect(screen.queryByText('Primary')).not.toBeInTheDocument();
+    });
+
+    it('3-post case renders 3 entries in primary-first order with "Primary" on exactly one (AC5)', () => {
+      render(
+        <EventDetailView
+          {...fullProps}
+          sourcePosts={[primaryPost, manualPostEarly, manualPostLate]}
+          labels={{ ...fullProps.labels, coauthorsListAriaLabel: 'Co-authors', sourcePostsPrimaryLabel: 'Primary' }}
+        />
+      );
+
+      // Primary label renders exactly once.
+      expect(screen.getAllByText('Primary')).toHaveLength(1);
+
+      // Each post's account name renders.
+      expect(screen.getByText('Primary Account')).toBeInTheDocument();
+      expect(screen.getByText('Early Account')).toBeInTheDocument();
+
+      // Order: primary-first-then-link-order, as given in the `sourcePosts` array --
+      // Primary Account's markup appears before Early Account's in document order.
+      const html = document.body.innerHTML;
+      expect(html.indexOf('Primary Account')).toBeLessThan(html.indexOf('Early Account'));
+    });
+
+    it("each entry's own coauthors render independently, not the flat coauthors prop", () => {
+      render(
+        <EventDetailView
+          {...fullProps}
+          sourcePosts={[primaryPost, manualPostEarly, manualPostLate]}
+          coauthors={[]}
+          labels={{ ...fullProps.labels, coauthorsListAriaLabel: 'Co-authors', sourcePostsPrimaryLabel: 'Primary' }}
+        />
+      );
+
+      // Two coauthor lists (primary's + early's); manualPostLate has none and renders no list.
+      const lists = screen.getAllByRole('list', { name: 'Co-authors' });
+      expect(lists).toHaveLength(2);
+      expect(within(lists[0]).getAllByTestId('subscribe-toggle')).toHaveLength(1);
+      expect(within(lists[1]).getAllByTestId('subscribe-toggle')).toHaveLength(1);
+    });
+
+    it('replaces the single-post Attributions block entirely once sourcePosts.length > 1', () => {
+      render(
+        <EventDetailView
+          {...fullProps}
+          sourcePosts={[primaryPost, manualPostEarly]}
+          labels={{ ...fullProps.labels, coauthorsListAriaLabel: 'Co-authors', sourcePostsPrimaryLabel: 'Primary' }}
+        />
+      );
+
+      // The old single flat-coauthors list (keyed off fullProps' own coauthors prop,
+      // which this test doesn't pass) must not appear as a second, separate list.
+      const lists = screen.getAllByRole('list', { name: 'Co-authors' });
+      // Only the per-post lists (one per post that has coauthors) -- not a 3rd, extra
+      // flat-coauthors list layered on top.
+      expect(lists).toHaveLength(2);
+    });
+  });
+
+  describe('related events (Story 3.6u, AC6)', () => {
+    const relatedLabels = {
+      ...fullProps.labels,
+      relatedEventsSectionAriaLabel: 'Related events',
+      relatedEventsSeeAllLabel: (count: number) => `See all ${count} events`,
+    };
+
+    const makeEvent = (id: string, eventName: string) => ({
+      id,
+      slug: `slug-${id}`,
+      eventName,
+      locationName: 'Some Venue',
+      isMainSchedule: true,
+      eventStartDate: '2026-08-15',
+      eventStartTime: '18:00',
+      eventEndDate: null,
+      eventEndTime: null,
+    });
+
+    it('renders nothing visible for a zero-event group (no empty-state placeholder)', () => {
+      render(
+        <EventDetailView
+          {...fullProps}
+          relatedEventGroups={[{ postId: 'p1', accountLabel: 'Events from Acme', events: [], totalCount: 0 }]}
+          labels={relatedLabels}
+        />
+      );
+      expect(screen.queryByText('Events from Acme')).not.toBeInTheDocument();
+    });
+
+    it('renders up to 5 events inline per group, with "See all N" beyond that', () => {
+      const events = Array.from({ length: 7 }, (_, i) => makeEvent(`ev-${i}`, `Event ${i}`));
+      render(
+        <EventDetailView
+          {...fullProps}
+          relatedEventGroups={[{
+            postId: 'p1',
+            accountLabel: 'Events from Acme',
+            events,
+            totalCount: 7,
+            seeAllHref: '/posts/instagram/image/abc/events',
+          }]}
+          labels={relatedLabels}
+        />
+      );
+
+      expect(screen.getByText('Events from Acme')).toBeInTheDocument();
+      expect(screen.getByText('Event 0')).toBeInTheDocument();
+      expect(screen.getByText('Event 4')).toBeInTheDocument();
+      expect(screen.queryByText('Event 5')).not.toBeInTheDocument();
+
+      const seeAllLink = screen.getByText('See all 7 events');
+      expect(seeAllLink.closest('a')).toHaveAttribute('href', '/posts/instagram/image/abc/events');
+    });
+
+    it('does not render a "See all" link when totalCount is within the inline cap', () => {
+      const events = Array.from({ length: 3 }, (_, i) => makeEvent(`ev-${i}`, `Event ${i}`));
+      render(
+        <EventDetailView
+          {...fullProps}
+          relatedEventGroups={[{
+            postId: 'p1',
+            accountLabel: 'Events from Acme',
+            events,
+            totalCount: 3,
+            seeAllHref: '/posts/instagram/image/abc/events',
+          }]}
+          labels={relatedLabels}
+        />
+      );
+
+      expect(screen.queryByText(/See all/)).not.toBeInTheDocument();
+    });
+
+    it('renders a loading skeleton with aria-busy="true" and no groups while isRelatedEventsLoading', () => {
+      render(
+        <EventDetailView
+          {...fullProps}
+          isRelatedEventsLoading={true}
+          labels={relatedLabels}
+        />
+      );
+
+      const region = screen.getByLabelText('Related events');
+      expect(region).toHaveAttribute('aria-busy', 'true');
+      expect(screen.queryByText('Events from Acme')).not.toBeInTheDocument();
+    });
+
+    it('calls onRelatedEventClick with the clicked event, not always the first', () => {
+      const onRelatedEventClick = vi.fn();
+      const events = [makeEvent('ev-a', 'Event A'), makeEvent('ev-b', 'Event B')];
+      render(
+        <EventDetailView
+          {...fullProps}
+          relatedEventGroups={[{ postId: 'p1', accountLabel: 'Events from Acme', events, totalCount: 2 }]}
+          onRelatedEventClick={onRelatedEventClick}
+          labels={relatedLabels}
+        />
+      );
+
+      fireEvent.click(screen.getByText('Event B'));
+      expect(onRelatedEventClick).toHaveBeenCalledWith(expect.objectContaining({ id: 'ev-b' }));
+    });
+  });
 });
