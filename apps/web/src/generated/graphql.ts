@@ -298,6 +298,7 @@ export type Event = {
   schedules: Array<Schedule>;
   slug: Scalars['String']['output'];
   sourcePostUrl?: Maybe<Scalars['String']['output']>;
+  sourcePosts: Array<EventSourcePost>;
   sourceSocialMediaAccountId?: Maybe<Scalars['ID']['output']>;
   sourceSocialMediaAccountProfile?: Maybe<SocialMediaAccountProfile>;
   types?: Maybe<Array<EventType>>;
@@ -365,6 +366,19 @@ export type EventLink = {
   url: Scalars['String']['output'];
 };
 
+
+export type EventSourcePost = {
+  __typename?: 'EventSourcePost';
+  account?: Maybe<SocialMediaAccountProfile>;
+  coauthors: Array<SocialMediaAccountProfile>;
+  extractedEventCount?: Maybe<Scalars['Int']['output']>;
+  groupingReason?: Maybe<PostGroupingReason>;
+  isPrimary: Scalars['Boolean']['output'];
+  originalPostUrl?: Maybe<Scalars['String']['output']>;
+  postId: Scalars['ID']['output'];
+  postedAt?: Maybe<Scalars['String']['output']>;
+  sourcePostUrl?: Maybe<Scalars['String']['output']>;
+};
 
 export enum EventType {
   Civic = 'CIVIC',
@@ -821,6 +835,14 @@ export type PostConnection = {
   nextCursor?: Maybe<Scalars['String']['output']>;
 };
 
+export enum PostGroupingReason {
+  DependentStages = 'DEPENDENT_STAGES',
+  ProgramLineup = 'PROGRAM_LINEUP',
+  Roundup = 'ROUNDUP',
+  SeparateEvents = 'SEPARATE_EVENTS',
+  SingleEvent = 'SINGLE_EVENT'
+}
+
 export type ProposedEventCorrectionData = {
   __typename?: 'ProposedEventCorrectionData';
   categories: Array<EventCategory>;
@@ -910,6 +932,7 @@ export type Query = {
   queryModeratorAccountProfiles: SocialMediaAccountProfileConnection;
   queryUnprocessedPayloads: UnprocessedPayloadConnection;
   rankedVoteAccounts: Array<RankedAccountVote>;
+  relatedEventIds: Array<RelatedEventGroup>;
   reportedEvents: Array<Report>;
   socialMediaAccountProfileByAccountId?: Maybe<SocialMediaAccountProfile>;
   voteRegionBreakdown: Array<RegionVoteBucket>;
@@ -1009,6 +1032,11 @@ export type QueryRankedVoteAccountsArgs = {
 };
 
 
+export type QueryRelatedEventIdsArgs = {
+  eventId: Scalars['ID']['input'];
+};
+
+
 export type QueryReportedEventsArgs = {
   reason?: InputMaybe<ReportReason>;
   status?: InputMaybe<ReportStatus>;
@@ -1046,6 +1074,12 @@ export type RegionVoteBucket = {
   __typename?: 'RegionVoteBucket';
   label: Scalars['String']['output'];
   voterCount: Scalars['Int']['output'];
+};
+
+export type RelatedEventGroup = {
+  __typename?: 'RelatedEventGroup';
+  eventIds: Array<Scalars['ID']['output']>;
+  postId: Scalars['ID']['output'];
 };
 
 export type ReplayActorRunResult = {
@@ -1407,6 +1441,7 @@ export enum WidgetTheme {
 
 
 
+
 export type QueryActorRunsQueryVariables = Exact<{
   filters?: ActorRunFilters | null | undefined;
   first?: number | null | undefined;
@@ -1549,7 +1584,14 @@ export type GetEventBySlugQueryVariables = Exact<{
 }>;
 
 
-export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, durableImageUrl: string | null, videoUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, publishedAt: string | null, organizerName: string | null, contactInfo: string | null, hasPrivateContact: boolean, isFavorited: boolean, favoriteCount: number, isHiddenForCurrentUser: boolean, links: Array<{ url: string, label: string | null }> | null, sourceSocialMediaAccountProfile: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null, accountType: string | null, defaultLocation: { placeName: string | null, formattedAddress: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null } | null, coauthors: Array<{ accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null }>, schedules: Array<{ id: string, isMainSchedule: boolean, title: string | null, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
+export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, durableImageUrl: string | null, videoUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, publishedAt: string | null, organizerName: string | null, contactInfo: string | null, hasPrivateContact: boolean, isFavorited: boolean, favoriteCount: number, isHiddenForCurrentUser: boolean, links: Array<{ url: string, label: string | null }> | null, sourceSocialMediaAccountProfile: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null, accountType: string | null, defaultLocation: { placeName: string | null, formattedAddress: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null } | null, coauthors: Array<{ accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null }>, sourcePosts: Array<{ postId: string, isPrimary: boolean, groupingReason: PostGroupingReason | null, extractedEventCount: number | null, postedAt: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, account: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null } | null, coauthors: Array<{ accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null }> }>, schedules: Array<{ id: string, isMainSchedule: boolean, title: string | null, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
+
+export type GetRelatedEventIdsQueryVariables = Exact<{
+  eventId: string | number;
+}>;
+
+
+export type GetRelatedEventIdsQuery = { relatedEventIds: Array<{ postId: string, eventIds: Array<string> }> };
 
 export type GetInstagramEmbedBySlugQueryVariables = Exact<{
   slug: string;
@@ -2647,6 +2689,29 @@ export const GetEventBySlugDocument = new TypedDocumentString(`
       displayName
       profileImageUrl
     }
+    sourcePosts {
+      postId
+      isPrimary
+      groupingReason
+      extractedEventCount
+      postedAt
+      sourcePostUrl
+      originalPostUrl
+      account {
+        accountId
+        platform
+        username
+        displayName
+        profileImageUrl
+      }
+      coauthors {
+        accountId
+        platform
+        username
+        displayName
+        profileImageUrl
+      }
+    }
     schedules {
       id
       isMainSchedule
@@ -2695,6 +2760,33 @@ export const useGetEventBySlugQuery = <
       {
     queryKey: ['getEventBySlug', variables],
     queryFn: fetcher<GetEventBySlugQuery, GetEventBySlugQueryVariables>(client, GetEventBySlugDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const GetRelatedEventIdsDocument = new TypedDocumentString(`
+    query getRelatedEventIds($eventId: ID!) {
+  relatedEventIds(eventId: $eventId) {
+    postId
+    eventIds
+  }
+}
+    `);
+
+export const useGetRelatedEventIdsQuery = <
+      TData = GetRelatedEventIdsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: GetRelatedEventIdsQueryVariables,
+      options?: Omit<UseQueryOptions<GetRelatedEventIdsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetRelatedEventIdsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<GetRelatedEventIdsQuery, TError, TData>(
+      {
+    queryKey: ['getRelatedEventIds', variables],
+    queryFn: fetcher<GetRelatedEventIdsQuery, GetRelatedEventIdsQueryVariables>(client, GetRelatedEventIdsDocument, variables, headers),
     ...options
   }
     )};
