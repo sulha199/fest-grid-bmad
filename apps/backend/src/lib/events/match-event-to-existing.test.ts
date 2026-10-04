@@ -6,6 +6,11 @@ import { socialMediaAccountProfiles, posts, events, eventPosts, schedules } from
 import type { EventInsertValues, ScheduleInsertValues } from '@festgrid/domain/events';
 import { insertEventWithPrimaryPost } from './set-event-primary-post.js';
 import { findMatchingEvent } from './match-event-to-existing.js';
+import { randomUUID } from 'node:crypto';
+
+// A syntactically valid uuid that no post row carries: findMatchingEvent only uses it to exclude
+// candidates already linked to the new item's own post (the same-post sibling guard).
+const UNRELATED_POST_ID = randomUUID();
 
 test('findMatchingEvent integration tests', async (t) => {
   const suffix = Date.now();
@@ -123,7 +128,7 @@ test('findMatchingEvent integration tests', async (t) => {
   }
 
   await t.test('no usable date on the new item -> null, no query run', async () => {
-    const result = await findMatchingEvent(db, newEvent(), [], { accountId: matchingAccount.id, groupingReason: null }, undefined);
+    const result = await findMatchingEvent(db, newEvent(), [], { postId: UNRELATED_POST_ID, accountId: matchingAccount.id, groupingReason: null }, undefined);
     assert.strictEqual(result, null);
   });
 
@@ -140,7 +145,7 @@ test('findMatchingEvent integration tests', async (t) => {
       db,
       newEvent({ links: [{ url: 'https://tickets.example.com/jjn' }] }),
       [newSchedule('2026-06-15')],
-      { accountId: matchingAccount.id, groupingReason: null },
+      { postId: UNRELATED_POST_ID, accountId: matchingAccount.id, groupingReason: null },
       undefined
     );
 
@@ -169,7 +174,7 @@ test('findMatchingEvent integration tests', async (t) => {
       db,
       newEvent({ eventName: newName }),
       [newSchedule('2026-06-20')],
-      { accountId: matchingAccount.id, groupingReason: null },
+      { postId: UNRELATED_POST_ID, accountId: matchingAccount.id, groupingReason: null },
       undefined
     );
 
@@ -195,7 +200,7 @@ test('findMatchingEvent integration tests', async (t) => {
       db,
       newEvent({ eventName: 'Jakarta Jazz Night Boundary ' + suffix }),
       [newSchedule('2026-07-15')],
-      { accountId: otherAccount.id, groupingReason: null },
+      { postId: UNRELATED_POST_ID, accountId: otherAccount.id, groupingReason: null },
       undefined
     );
 
@@ -216,7 +221,7 @@ test('findMatchingEvent integration tests', async (t) => {
       db,
       newEvent({ eventName: 'Jakarta Jazz Night Deleted ' + suffix }),
       [newSchedule('2026-08-01')],
-      { accountId: matchingAccount.id, groupingReason: null },
+      { postId: UNRELATED_POST_ID, accountId: matchingAccount.id, groupingReason: null },
       undefined
     );
 
@@ -242,7 +247,7 @@ test('findMatchingEvent integration tests', async (t) => {
       db,
       newEvent({ eventName: 'Jakarta Jazz Night Merged Source ' + suffix }),
       [newSchedule('2026-08-05')],
-      { accountId: matchingAccount.id, groupingReason: null },
+      { postId: UNRELATED_POST_ID, accountId: matchingAccount.id, groupingReason: null },
       undefined
     );
 
@@ -264,7 +269,7 @@ test('findMatchingEvent integration tests', async (t) => {
       db,
       newEvent({ eventName: 'Jakarta Jazz Night Handle ' + suffix }),
       [newSchedule('2026-09-01')],
-      { accountId: matchingAccount.id, groupingReason: null },
+      { postId: UNRELATED_POST_ID, accountId: matchingAccount.id, groupingReason: null },
       '@' + otherAccount.username.toUpperCase()
     );
 
@@ -293,7 +298,7 @@ test('findMatchingEvent integration tests', async (t) => {
         links: [{ url: 'HTTPS://TICKETS.EXAMPLE.COM/jazz/' }],
       }),
       [newSchedule('2026-09-10', { location: 'senayan hall' })],
-      { accountId: matchingAccount.id, groupingReason: null }, // no organizer overlap
+      { postId: UNRELATED_POST_ID, accountId: matchingAccount.id, groupingReason: null }, // no organizer overlap
       undefined
     );
 
@@ -301,5 +306,38 @@ test('findMatchingEvent integration tests', async (t) => {
     assert.strictEqual(result!.candidate.id, candidate.id);
     // organizer (0.40) absent; shared link (0.20) + date/name (~0.25) + venue (0.15) = mid/high
     assert.notStrictEqual(result!.tier, 'low');
+  });
+
+  await t.test('a sibling event already linked to the SAME postId is never returned as a candidate, even when it would otherwise score high', async () => {
+    // Story 3.6s's multi-event-per-post feature extracts several genuinely distinct events
+    // from ONE post at different extractionOrdinals, all sharing the same postId. Without this
+    // exclusion, ingesting the second item could "match" the first item's own
+    // already-inserted sibling event purely because they share a post/account/date -- silently
+    // undoing 3.6s's own deliberate split. This is NOT the (postId, extractionOrdinal)
+    // idempotency case (that is a different ordinal from the SAME post, not a redelivery).
+    const siblingPost = await makePost(matchingAccount.id, 'sibling-post');
+    const { event: sibling } = await makeCandidateEvent({
+      accountId: matchingAccount.id,
+      postIdSuffix: 'sibling-ordinal-0',
+      eventName: 'Sibling Event Shared Post ' + suffix,
+      eventStartDate: '2026-12-01',
+      links: [{ url: 'https://tickets.example.com/sibling' }],
+    });
+    // Re-point the sibling event's own event_posts link onto siblingPost (simulating ordinal 0
+    // of siblingPost), so the "new item" below (ordinal 1 of the SAME siblingPost) is excluded.
+    await db.insert(eventPosts).values({ eventId: sibling.id, postId: siblingPost.id, extractionOrdinal: 0 }).onConflictDoNothing();
+
+    const result = await findMatchingEvent(
+      db,
+      // Identical name/date/link to `sibling` -- would score 'high' (organizer + sharedLink +
+      // dateNameSimilarity) against any OTHER candidate, proving the exclusion is what's doing
+      // the work here, not a coincidentally low score.
+      newEvent({ eventName: 'Sibling Event Shared Post ' + suffix, links: [{ url: 'https://tickets.example.com/sibling' }] }),
+      [newSchedule('2026-12-01')],
+      { postId: siblingPost.id, accountId: matchingAccount.id, groupingReason: null },
+      undefined
+    );
+
+    assert.strictEqual(result, null, 'the same-postId sibling must never be returned as a candidate');
   });
 });

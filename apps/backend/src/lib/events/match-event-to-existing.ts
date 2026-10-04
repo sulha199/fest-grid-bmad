@@ -26,6 +26,8 @@ const NAME_SIMILARITY_FLOOR = 0.3;
 const DATE_WINDOW_DAYS = 2;
 
 export interface MatchSourcePost {
+  /** The new item's own `postId` -- excluded from candidates below (see Dev Note). */
+  postId: string;
   accountId: string;
   groupingReason: string | null;
 }
@@ -101,7 +103,20 @@ export async function findMatchingEvent(
         isNull(events.mergedIntoEventId),
         sql`${events.eventName} % ${newEvent.eventName}`,
         sql`similarity(${events.eventName}, ${newEvent.eventName}) > ${NAME_SIMILARITY_FLOOR}`,
-        or(...dateConditions)
+        or(...dateConditions),
+        // Dev Note (discovered during this story's own weight/threshold validation against the
+        // CC-024 reference posts) -- a multi-event post (Story 3.6s) extracts several genuinely
+        // distinct events sharing the SAME postId at different extractionOrdinals. Without this
+        // exclusion, processing a later ordinal could find an earlier ordinal's
+        // already-inserted sibling event as a "candidate" and merge two deliberately-split
+        // events back together -- undermining 3.6s's own grouping decision. AC1's idempotency
+        // lookup only catches a redelivery of the EXACT same (postId, ordinal) pair; it does not
+        // guard this sibling-ordinal case, so it is guarded here instead: never match against an
+        // event already linked (via event_posts) to this same new item's postId.
+        sql`NOT EXISTS (
+          SELECT 1 FROM event_posts ep_self
+          WHERE ep_self.event_id = ${events.id} AND ep_self.post_id = ${sourcePost.postId}
+        )`
       )
     )
     .orderBy(desc(sql`similarity(${events.eventName}, ${newEvent.eventName})`))

@@ -72,7 +72,7 @@ export async function processIngestionJob(message: ExtractedEventMessage): Promi
           tx,
           event,
           scheduleValues,
-          { accountId: sourcePost.accountId, groupingReason: sourcePost.groupingReason },
+          { postId: message.postId, accountId: sourcePost.accountId, groupingReason: sourcePost.groupingReason },
           organizerHandleForMatching
         )
       : null;
