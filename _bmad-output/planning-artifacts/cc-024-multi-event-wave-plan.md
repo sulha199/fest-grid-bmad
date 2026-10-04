@@ -182,7 +182,7 @@ depends on it. Wave labels below follow this order; stories inside a wave are li
 2. **Wave 2B** — Coauthor/publisher roles: 3.13 → 3.14 → 3.15 (independent of 2A; may interleave)
 3. **Wave 2C** — Diagnostics: FIND-061, BUG-053
 4. **Wave 3** — Core build: 3.6r → 3.6s → 3.6t
-5. **Wave 4A** — 3.6u, 3.6y, 3.6z (any order after 3.6t)
+5. **Wave 4A** — 3.6y, 3.6z, 0.i6c, 3.16, 0.i6g, 3.6ua, 3.6u (built 2026-10-04, all `review`; 3.6ua is the prerequisite found while creating 3.6u, and 3.6u runs last)
 6. **Wave 4B** — 3.6v (needs 3.13–3.15 and 3.7g/3.7h)
 7. **Wave 4C** — CC-023 tail: 3.6q (built) → 3.6m → 3.6p → **0.46** → 3.6n → 3.6o and 3.6n2 (3.6n now also needs 3.6p; 3.6n2 is the read-path half split from 3.6n; 0.46 may run in parallel with 3.6m/3.6p; independent of 4A/4B, may interleave; needs 3.6t)
 8. **Wave 5** — 3.6w, 3.6x, 3.18
@@ -328,11 +328,51 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
       (dev done, commits `5600c460`..`1c78ed4b`, status `review`)
   - [x] create  - [x] dev  - [ ] review  - [x] re-run creates no duplicates (idempotency tests: `(post_id, extraction_ordinal)`, absent ordinal defaults to 0)
 
-## Wave 4A — Read side, weekday filter, auto-extraction (after 3.6t, any order)
+## Wave 4A — Read side, weekday filter, auto-extraction (BUILT 2026-10-04; code review pending; batch-end gate in progress)
 
-- [ ] **3.6u** Show all source posts and related events on the event detail page — *needs 3.6r, 3.6t, 1.3j, 1.6c;
+**Dev batch (2026-10-02 to 2026-10-04):** orchestrator state `.batch-state-cc024-wave4a.json`
+(`_bmad-output/specs/ritual-session-orchestrator/mailbox-runner/`). Dispatch order **3.6y → 3.6z → 0.i6c → 3.16 → 0.i6g →
+3.6ua (new prerequisite, added by 3.6u's create-story) → 3.6u**, fully sequential, `all-claude-medium` config. All seven are
+in `review`; none has been code-reviewed yet.
+
+| Story | Status | Last commit / note |
+|---|---|---|
+| 3.6y | `review` | `f60218a` bookkeeping; weekday guard in `drizzle-where.ts` |
+| 3.6z | `review` | `b4315d0`..`399e67a`; TTL-reclaimable claim on `posts.queued_for_extraction_at` |
+| 0.i6c | `review` | `a9b7c90`; `SubscribedAccountCard` adopted into settings |
+| 3.16 | `review` | `eb5785e`; `classification_claimed_at` TTL claim, claim-gated cascade |
+| 0.i6g | `review` | `18afb77`; coauthor attribution UI, confirm-then-refetch toggle |
+| 3.6ua | `review` | `21958ee`; `EventCardCompact` extracted from `CalendarCard` (tests UI 859/859 after 3.6u) |
+| 3.6u | `review` | `a983767`; 9 tasks, 74 of 75 boxes ticked (the 75th is the root build/lint/test bullet, deferred to the gate below) |
+
+**3.6ua decision (Gate 2, create-story of 3.6u):** the caller pre-computes the date-box strings
+(`dateBoxMonth`/`dateBoxDay`/`dateBoxTillLabel`); the status badge is computed inside the component. Non-calendar callers
+(3.6u's Related Events) pass **today's date as `currentDayStr`**. 3.6u shipped this way.
+
+**3.6u results:** backend `resolvers.test.ts` 96/96 (new `Event.sourcePosts` and `Query.relatedEventIds` blocks), domain
+2/2, UI 859/859, web 568/568. EXPLAIN gate (`cc-024-explain-after-3.6u-2026-10-04.md`): `relatedEventIds` is fully
+index-driven with no Seq Scan (first real check of AD-30 Rule 11); `Event.sourcePosts` shows only the same `favorites`
+Seq Scan as the `eventBySlug` baseline. **Caveat:** the two older hot-path queries (`getEvents`, `eventBySlug`) show
+statement-count and Seq-Scan drift against the 3.6y baseline; traced to other Wave 4A stories landed since that capture,
+documented but not fixed (out of 3.6u's scope), so "hot-path unchanged" is **not** confirmed. Two findings during the
+build: AC6's "See all N events" link needed `platformPostId`/`postType` on `EventSourcePost` (added, commit `20164d1`),
+and a Rules-of-Hooks crash in `EventDetailView` introduced by 3.6u's own Task 5 (fixed, `df5effa`).
+
+**Orchestration notes (for the next batch):** (1) the runner's `--resume-label` saves the *orchestrator's* session id, so it
+can never resume a dev child; recovery is a fresh dispatch from a WIP commit. (2) A monitor expiring at 30 minutes kills its
+child; ask children to commit after every task. (3) Turbo's strict env mode strips proxy and CA variables, so the web build
+needs `--env-mode=loose` in this sandbox (the `next/font` Google Fonts fetch fails otherwise). (4) The sandbox database had
+been emptied (0 users, 0 events) before the gate, which makes ~100 backend tests fail with "Should have at least 2 users"; the
+fix is `pnpm --filter @festgrid/database seed`, then re-run.
+
+**Batch-end gate (2026-10-04, `TZ=UTC`):** in progress. Whole-repo lint passed (exit 0). First test run: domain 417,
+visual-audit 41, graphql-select 41, database 10, analytics 2, ai-dev-orchestrator 68, UI 859 and web 568 all green;
+infrastructure 6/6 failed (the known `FestgridBackendStack` set); backend showed 106 of 880 failing before the database was
+re-seeded. The re-run after seeding, and the web build, are being recorded here once they finish.
+
+- [x] **3.6u** Show all source posts and related events on the event detail page — *needs 3.6r, 3.6t, 1.3j, 1.6c;
       coordinate with 0.i6g (coauthor attribution UI); 3.7h/3.7i recommended*
-  - [ ] create  - [ ] dev  - [ ] review  - [ ] hot-path EXPLAIN unchanged
+  - [x] create  - [x] dev  - [ ] review  - [ ] hot-path EXPLAIN unchanged (drift on `getEvents`/`eventBySlug` vs the 3.6y baseline; see caveat above)
 - [ ] **3.6y** Respect weekday-narrowed schedules in day-of-week filtering — *needs 3.6r, 1.3k, 1.3j*
       (story created 2026-10-02, status `ready-for-dev`; narrowed to the backend filter gap only —
       1.3k already ships the column/calendar rendering; cites the batch readiness sweep for Gates 1/3
