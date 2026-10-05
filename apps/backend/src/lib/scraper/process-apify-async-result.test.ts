@@ -6,6 +6,8 @@ import { socialMediaAccountProfiles, apifyPendingJobs, posts } from '@festgrid/d
 import { eq, inArray } from 'drizzle-orm';
 import { processApifyAsyncResult } from './process-apify-async-result.js';
 import { createPendingJob } from './apify-pending-jobs-store.js';
+import { seedSubscriberWithGeminiKey, captureAiQueueSends } from '../posts/auto-enqueue-test-helpers.js';
+import { setSendSqsMessage } from '../aws/send-sqs-message.js';
 
 test('process-apify-async-result tests', async (t) => {
   let testProfileId: string;
@@ -289,5 +291,145 @@ test('process-apify-async-result tests', async (t) => {
       .where(eq(socialMediaAccountProfiles.accountId, coauthorId))
       .then((rows) => rows[0]);
     assert.ok(discoveredCoauthorProfile, 'coauthor discovered profile row should exist');
+  });
+
+  // Story 3.6z follow-up: the Apify async webhook path (and the stale-job sweep reusing it)
+  // persisted posts but never enqueued them.
+  await t.test('auto-enqueues a new post when the account has a key, and not again on re-delivery', async () => {
+    const cleanupSeed = await seedSubscriberWithGeminiKey(testProfileId);
+    const sends = captureAiQueueSends();
+    try {
+      const { id, webhookToken } = await createPendingJob({
+        profileId: testProfileId,
+        runId: 'run-autoenqueue-' + Date.now(),
+        webhookToken: randomBytes(24).toString('hex'),
+      });
+      const pendingJob = {
+        id,
+        profileId: testProfileId,
+        runId: 'run-autoenqueue',
+        webhookToken,
+        status: 'PENDING' as const,
+        expiresAt: new Date(Date.now() + 3600000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      const items = [
+        {
+          url: 'https://www.instagram.com/p/auto-enqueue-apify/',
+          caption: 'Auto-enqueue Apify post',
+          timestamp: '2026-08-08T00:00:00Z',
+          displayUrl: 'https://example.com/img1.jpg',
+        },
+      ];
+
+      await processApifyAsyncResult(pendingJob, items);
+
+      const [post] = await db.select().from(posts).where(eq(posts.accountId, testProfileId));
+      assert.strictEqual(sends.bodies.length, 1, 'a new post with an available key should be auto-enqueued once');
+      assert.strictEqual(JSON.parse(sends.bodies[0]).postId, post.id);
+
+      await processApifyAsyncResult(pendingJob, items);
+      assert.strictEqual(sends.bodies.length, 1, 're-delivered post must not be enqueued again');
+    } finally {
+      sends.restore();
+      await db.delete(posts).where(eq(posts.accountId, testProfileId));
+      await cleanupSeed();
+    }
+  });
+
+  await t.test('does not enqueue a new post when the account has no key', async () => {
+    const sends = captureAiQueueSends();
+    try {
+      const { id, webhookToken } = await createPendingJob({
+        profileId: testProfileId,
+        runId: 'run-nokey-' + Date.now(),
+        webhookToken: randomBytes(24).toString('hex'),
+      });
+      const pendingJob = {
+        id,
+        profileId: testProfileId,
+        runId: 'run-nokey',
+        webhookToken,
+        status: 'PENDING' as const,
+        expiresAt: new Date(Date.now() + 3600000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      await processApifyAsyncResult(pendingJob, [
+        {
+          url: 'https://www.instagram.com/p/no-key-apify/',
+          caption: 'No-key Apify post',
+          timestamp: '2026-08-08T00:00:00Z',
+          displayUrl: 'https://example.com/img1.jpg',
+        },
+      ]);
+
+      const persisted = await db.select().from(posts).where(eq(posts.accountId, testProfileId));
+      assert.strictEqual(persisted.length, 1);
+      assert.strictEqual(persisted[0].isExtracted, false);
+      assert.strictEqual(sends.bodies.length, 0);
+    } finally {
+      sends.restore();
+    }
+  });
+
+  await t.test('an enqueue failure on one post does not stop the rest of the batch or the job completing', async (st) => {
+    const cleanupSeed = await seedSubscriberWithGeminiKey(testProfileId);
+    const sends = captureAiQueueSends();
+    st.mock.method(console, 'error', () => {});
+    try {
+      const { id, webhookToken } = await createPendingJob({
+        profileId: testProfileId,
+        runId: 'run-partial-failure-' + Date.now(),
+        webhookToken: randomBytes(24).toString('hex'),
+      });
+      const pendingJob = {
+        id,
+        profileId: testProfileId,
+        runId: 'run-partial-failure',
+        webhookToken,
+        status: 'PENDING' as const,
+        expiresAt: new Date(Date.now() + 3600000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      let sendAttempts = 0;
+      const delivered: string[] = [];
+      setSendSqsMessage(async (_queueUrl, body) => {
+        sendAttempts++;
+        if (sendAttempts === 1) throw new Error('SQS throttled');
+        delivered.push(body);
+      });
+
+      await processApifyAsyncResult(pendingJob, [
+        {
+          url: 'https://www.instagram.com/p/partial-failure-apify-1/',
+          caption: 'First post, enqueue will fail',
+          timestamp: '2026-08-08T00:00:00Z',
+          displayUrl: 'https://example.com/img1.jpg',
+        },
+        {
+          url: 'https://www.instagram.com/p/partial-failure-apify-2/',
+          caption: 'Second post, enqueue should still be attempted',
+          timestamp: '2026-08-09T00:00:00Z',
+          displayUrl: 'https://example.com/img2.jpg',
+        },
+      ]);
+
+      const persisted = await db.select().from(posts).where(eq(posts.accountId, testProfileId));
+      assert.strictEqual(persisted.length, 2, 'both posts persist despite the first enqueue failing');
+      assert.strictEqual(sendAttempts, 2, 'enqueue is still attempted for the second post');
+      assert.strictEqual(delivered.length, 1);
+
+      const [job] = await db.select().from(apifyPendingJobs).where(eq(apifyPendingJobs.id, id));
+      assert.strictEqual(job.status, 'COMPLETED', 'job still completes');
+    } finally {
+      sends.restore();
+      await db.delete(posts).where(eq(posts.accountId, testProfileId));
+      await cleanupSeed();
+    }
   });
 });

@@ -1954,3 +1954,11 @@ items:
      ref: [backlog/IDEA-060-z-index-layering-tiers.md],
      touches: [pkg:ui, web:system, cross:ux-tokens, cross:architecture],
      note: "~70 raw z-* classes, 17 at z-50 for unrelated things, and no documented layering rule; needs bmad-architecture (tier model) first. Inventory and routing in the ref."}
+
+  FIND-072:
+    {type: finding, status: backlog, created: 2026-10-05,
+     impact: user-visible, effort: m,
+     title: "Async-scrape auto-enqueue only fires on a post's first delivery; a timeout or transient failure leaves it unextracted, and webhook Lambdas have no timeout headroom",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend, app:infrastructure, cross:ai-extraction],
+     note: "Deferred from: Deferred from: quick-dev of async scrape results auto-enqueue (2026-10-05, `bmad-quick-dev`). 2 findings."}

@@ -78,6 +78,25 @@ test('scraperLambda entry (lambdas/scraper.ts) never bundles sharp/face-api/tfjs
   );
 });
 
+// Story 3.6z follow-up: the Bright Data / Apify webhook Lambdas now reach
+// enqueue-post-for-processing.ts (via auto-enqueue-new-post.ts), the same edge that crashed
+// apiLambda/scraperLambda on 2026-10-04. They share sharedLambdaProps' externalModules, so the
+// same bundling guard must hold for them.
+for (const entry of ['lambdas/webhook.ts', 'lambdas/apify-webhook.ts']) {
+  test(`webhook Lambda entry (${entry}) never bundles sharp/face-api/tfjs`, async () => {
+    const inputs = await bundleInputs(
+      path.resolve(backendSrc, entry),
+      LAMBDA_IMAGE_PROCESSING_EXTERNAL_MODULES
+    );
+    const offenders = inputs.filter((p) => IMAGE_PROCESSING_PATH_PATTERN.test(p));
+    assert.deepStrictEqual(
+      offenders,
+      [],
+      `${entry}'s bundle must never reach sharp/@vladmandic/face-api/@tensorflow/tfjs, found: ${offenders.join(', ')}`
+    );
+  });
+}
+
 test('aiProcessorLambda entry (lambdas/ai-processor.ts) still DOES reach face-api/tfjs (sanity: proves the above isn\'t a false pass)', async () => {
   // No externalModules override here, deliberately -- aiProcessorLambda's real bundling config
   // (festgrid-backend-stack.ts) only externalizes `sharp` (via `nodeModules`, for its native

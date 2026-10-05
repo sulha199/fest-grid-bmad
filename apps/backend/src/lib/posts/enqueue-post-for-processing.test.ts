@@ -283,12 +283,29 @@ test("enqueuePostForProcessing integration tests", async (t) => {
       "resolvers.ts (manual selectPostsForExtraction path) must import enqueuePostForProcessing from this module"
     );
 
-    const scrapeJobSource = fs.readFileSync(path.resolve(__dirname, "../scraper/process-scrape-job.ts"), "utf8");
+    // The auto-enqueue path goes through the shared helper (auto-enqueue-new-post.ts), which is
+    // the one place that imports enqueuePostForProcessing for scrape results. Every scrape-result
+    // persister must route through that helper -- the Bright Data/Apify async processors were
+    // once missed, which left most new posts unextracted in prod.
+    const autoEnqueueHelperSource = fs.readFileSync(path.resolve(__dirname, "auto-enqueue-new-post.ts"), "utf8");
     assert.match(
-      scrapeJobSource,
-      /import\s*\{\s*enqueuePostForProcessing\s*\}\s*from\s*['"]\.\.\/posts\/enqueue-post-for-processing\.js['"]/,
-      "process-scrape-job.ts (auto-enqueue path) must import enqueuePostForProcessing from this module"
+      autoEnqueueHelperSource,
+      /import\s*\{\s*enqueuePostForProcessing\s*\}\s*from\s*['"]\.\/enqueue-post-for-processing\.js['"]/,
+      "auto-enqueue-new-post.ts (auto-enqueue path) must import enqueuePostForProcessing from this module"
     );
+    for (const persister of ["process-scrape-job.ts", "process-brightdata-result.ts", "process-apify-async-result.ts"]) {
+      const persisterSource = fs.readFileSync(path.resolve(__dirname, "../scraper", persister), "utf8");
+      assert.match(
+        persisterSource,
+        /import\s*\{\s*autoEnqueueNewPostForExtraction\s*\}\s*from\s*['"]\.\.\/posts\/auto-enqueue-new-post\.js['"]/,
+        `${persister} must auto-enqueue new posts through the shared helper`
+      );
+      assert.match(
+        persisterSource,
+        /autoEnqueueNewPostForExtraction\(/,
+        `${persister} must actually call the shared auto-enqueue helper`
+      );
+    }
 
     // Confirm no second site anywhere in apps/backend builds its own ProcessingJobMessage
     // object (which would mean a second, parallel enqueue/message-building path exists).

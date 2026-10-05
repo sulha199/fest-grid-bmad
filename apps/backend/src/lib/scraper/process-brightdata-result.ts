@@ -2,6 +2,7 @@ import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import { persistScrapedPost } from '../posts/persist-scraped-post.js';
+import { autoEnqueueNewPostForExtraction } from '../posts/auto-enqueue-new-post.js';
 import { markPendingJobCompleted } from './brightdata-pending-jobs-store.js';
 import type { BrightdataPendingJob } from './brightdata-pending-jobs-store.js';
 import { mapBrightDataRecordToScrapedPost } from './brightdata-record-mapper.js';
@@ -17,7 +18,7 @@ export async function processBrightDataResult(
     if (!candidate) continue;
 
     try {
-      await persistScrapedPost({
+      const persistResult = await persistScrapedPost({
         accountId: pendingJob.profileId,
         platform: 'instagram', // Bright Data adapter only handles Instagram today
         postUrl: candidate.postUrl,
@@ -33,6 +34,12 @@ export async function processBrightDataResult(
         hashtags: candidate.hashtags || null,
         additionalImageUrls: candidate.additionalImageUrls || null,
       });
+
+      // Story 3.6z (AC1) -- auto-enqueue a genuinely new post for extraction. This async path
+      // was missed when 3.6z wired only processScrapeJob, so posts persisted via the Bright Data
+      // webhook (and the stale-job sweep, which reuses this function) were never extracted.
+      // The helper never throws, so it cannot disturb this loop or markPendingJobCompleted.
+      await autoEnqueueNewPostForExtraction(persistResult, 'processBrightDataResult');
     } catch (error) {
       console.error(`Failed to persist post from Bright Data: ${candidate.postUrl}`, error);
       // Continue processing other records

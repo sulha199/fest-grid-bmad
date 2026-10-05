@@ -739,11 +739,19 @@ export class FestgridBackendStack extends cdk.Stack {
         STAGE: stageName,
         BACKEND_PORT: '4000',
         DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
+        // Story 3.6z follow-up -- this webhook auto-enqueues newly persisted posts onto
+        // AIProcessingQueue (processBrightDataResult/processApifyAsyncResult), same as
+        // scraperLambda. See the matching aiProcessingQueue.grantSendMessages below -- a
+        // queue-URL env var with no matching grant fails every call with SQS AccessDenied.
+        AI_PROCESSING_QUEUE_URL: aiProcessingQueue.queueUrl,
+        AI_PROCESSING_INLINE_FALLBACK_ENABLED: 'false',
+        POST_EXTRACTION_CLAIM_TTL_MINUTES: process.env.POST_EXTRACTION_CLAIM_TTL_MINUTES || '30',
         SECRETS_SYNCED_AT: secretsSyncedAt,
       },
     });
 
     dbUrlSecret.grantRead(webhookLambda);
+    aiProcessingQueue.grantSendMessages(webhookLambda);
 
     const apifyWebhookLambda = new nodejs.NodejsFunction(this, `ApifyWebhook-${stageName}`, {
       entry: path.resolve(projectRoot, 'apps/backend/src/lambdas/apify-webhook.ts'),
@@ -754,11 +762,19 @@ export class FestgridBackendStack extends cdk.Stack {
         BACKEND_PORT: '4000',
         DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
         APIFY_API_TOKEN: apifyApiTokenSecret.secretValue.unsafeUnwrap(),
+        // Story 3.6z follow-up -- this webhook auto-enqueues newly persisted posts onto
+        // AIProcessingQueue (processBrightDataResult/processApifyAsyncResult), same as
+        // scraperLambda. See the matching aiProcessingQueue.grantSendMessages below -- a
+        // queue-URL env var with no matching grant fails every call with SQS AccessDenied.
+        AI_PROCESSING_QUEUE_URL: aiProcessingQueue.queueUrl,
+        AI_PROCESSING_INLINE_FALLBACK_ENABLED: 'false',
+        POST_EXTRACTION_CLAIM_TTL_MINUTES: process.env.POST_EXTRACTION_CLAIM_TTL_MINUTES || '30',
         SECRETS_SYNCED_AT: secretsSyncedAt,
       },
     });
 
     dbUrlSecret.grantRead(apifyWebhookLambda);
+    aiProcessingQueue.grantSendMessages(apifyWebhookLambda);
     apifyApiTokenSecret.grantRead(apifyWebhookLambda);
 
     // Create webhooks resource and add webhook endpoints

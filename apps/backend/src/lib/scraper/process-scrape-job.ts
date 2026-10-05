@@ -2,8 +2,7 @@ import { db } from '../../db/client.js';
 import { posts, socialMediaAccountProfiles } from '@festgrid/database';
 import { getScraperAdapter, ScrapedPost } from '@festgrid/domain';
 import { persistScrapedPost } from '../posts/persist-scraped-post.js';
-import { hasAvailableApiKeyForAccount } from '../posts/has-available-api-key-for-account.js';
-import { enqueuePostForProcessing } from '../posts/enqueue-post-for-processing.js';
+import { autoEnqueueNewPostForExtraction } from '../posts/auto-enqueue-new-post.js';
 import { loadBackendEnv } from '../../env.js';
 import { eq, desc } from 'drizzle-orm';
 import { ScrapeTarget } from './get-scrape-targets.js';
@@ -49,23 +48,7 @@ async function persistScrapedPosts(job: ScrapeTarget, scrapedPosts: ScrapedPost[
     // backfill (explicit product decision, see this story's Dev Notes). One post's failure
     // here must never stop the loop or fail the whole scrape job -- mirrors this file's own
     // outer-catch isolation principle one level down, per post.
-    if (!alreadyExisted) {
-      try {
-        // Use the persisted row's resolved accountId (not job.profileId): persistScrapedPost
-        // can resolve a post's canonical publisher account differently from the scraping
-        // target for coauthor/repost cases (Stories 3.13/3.14), so the key-availability
-        // check must ask about the account the post actually ended up attributed to.
-        const hasKey = await hasAvailableApiKeyForAccount(persistedPost.accountId);
-        if (hasKey) {
-          await enqueuePostForProcessing(persistedPost.id);
-        }
-      } catch (autoEnqueueErr) {
-        console.error(
-          `[processScrapeJob] auto-enqueue failed for post ${persistedPost.id} (account ${persistedPost.accountId}):`,
-          autoEnqueueErr
-        );
-      }
-    }
+    await autoEnqueueNewPostForExtraction({ post: persistedPost, alreadyExisted }, 'processScrapeJob');
   }
   return persisted;
 }
