@@ -209,7 +209,8 @@ Run these with `ritual-orchestrator`; each needs `create` then `dev`. Order matt
   - **3.6w** merge duplicate events with slug redirects. Needs 3.6v and 4.7b (both `review`).
   - **3.6x** post collection page. Needs 3.6u (`review`); reuses the existing event-list UI.
   - **3.18** union-of-associations account filtering. Needs 3.15 and 3.6r (both `review`).
-  - [ ] 3.6w create  - [ ] 3.6w dev  - [x] 3.6x create (`e40ca88`, `ready-for-dev`, 2026-10-05)  - [ ] 3.6x dev  - [x] 3.18 create (`a7756e3`, `ready-for-dev`, 2026-10-05)  - [ ] 3.18 dev
+  - [x] 3.6w create (`625571b`, `ready-for-dev`, 2026-10-05)  - [ ] 3.6w dev  - [x] 3.6x create (`e40ca88`, `ready-for-dev`, 2026-10-05)  - [ ] 3.6x dev  - [x] 3.18 create (`a7756e3`, `ready-for-dev`, 2026-10-05)  - [ ] 3.18 dev
+  - **3.6w create decisions (user, 2026-10-05):** review list is a new tab on `/moderator/tools` (the child counts it as the fourth tab, since Story 3.6g already added one); manual free-form merge is out of scope (backlog **IDEA-061**); the merge confirm dialog is split into new prerequisite **Story 0.47** (reusable `ConfirmActionDialog`, `backlog` in sprint-status although its file says `ready-for-dev`; 3.6w dev needs it built first). The child also found `apps/web/src/components/ui/dialog.tsx` is already Radix-backed, contrary to the premise in the question put to the user; see 0.47's Dev Notes.
   - **3.6x create decisions (user, 2026-10-05):** partial unique index on `posts(platform, platform_post_type, platform_post_id)` with a mandatory pre-migration dedupe check; Next/Previous nav context frozen into a URL param (mirrors the favorites branch). Gate 2 ran fresh, no split needed.
   - **3.18 create decisions (user, 2026-10-05):** remove the legacy `posts.accountId` leg (association-only); add the missing 3.6v AC3 ratchet test; extend the fix to `Query.event`/`eventBySlug` `includeMyArchived`. Backlog: CC-027 promoted, 3.17/3.19 carved to new CC-029.
   - **Prompt:**
@@ -296,3 +297,4 @@ Decide each: skip (`skipped` with a `cost:`/`value:` note), `bmad-create-story`,
 | 2026-10-05 | Step 6: Story 3.6n2 create + dev via ritual-orchestrator (`all-claude-medium`) | Built, `review`; backend suite has 24 database-state failures, none from the story (see Step 6) | `19f90438`..`196d9182` |
 | 2026-10-05 | Step 8: Story 3.18 create via ritual-orchestrator (`all-claude-medium`, cloud session) | `ready-for-dev`, 236-line story, verify-story PASS, no new stories | `a7756e3` |
 | 2026-10-05 | Step 8: Story 3.6x create via ritual-orchestrator (`all-claude-medium`) | `ready-for-dev`, 268-line story, verify-story PASS, no new stories | `e40ca88` |
+| 2026-10-05 | Step 8: Story 3.6w create via ritual-orchestrator (`all-claude-medium`) | `ready-for-dev`, 263-line story; new prerequisite Story 0.47 (172-line file, sprint-status `backlog`); IDEA-061 filed; verify-story PASS | `625571b` |
