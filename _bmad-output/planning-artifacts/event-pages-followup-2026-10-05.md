@@ -147,8 +147,20 @@ Run these with `ritual-orchestrator`; each needs `create` then `dev`. Order matt
       **FIND-070**, same work; CC-023 tail)
   - **Needs:** 3.6n (`review`). The only Wave 4C story left, and the only one with frontend scope.
     Served-URL rule already decided: "thumbnail fills the gap only".
-  - [ ] create  - [ ] dev
-  - **Prompt:**
+  - [x] create (`19f90438`)  - [x] dev (`2b3e9451`..`196d9182`, status `review`, 2026-10-05)
+  - **Result:** lint 8/8, build 8/8 (build probably cache-served), forced uncached tests with `TZ=UTC`:
+    domain, ui, web all pass; backend 1087 run, 1060 pass, **24 fail, none from this story**
+    (its own Case 4 integration test and `resolveServedImageUrl` cases pass). Causes of the 24, from
+    the raw log: the dev database has not had migrations 0071/0072 applied (`manual_extraction_jobs`
+    and `event_match_candidates` do not exist, 12 failures); leftover rows collide on
+    `events_slug_unique` (3); two seed posts now carry real CloudFront durable image URLs, which the
+    `eventBySlug`/Yoga test assumes are null (2); a 3.6z source-shape test expects
+    `process-scrape-job.ts` to import `enqueuePostForProcessing` directly (1, file touched only by
+    another session's commit `282a1e3c`); one moderator-accounts test (1); the rest are parent suites.
+    All are FIND-064-style database state, not the read path.
+  - **Open:** apply migrations to the dev DB and clean leftover rows, then re-run the backend suite
+    to confirm the 24 clear. Not done: it changes the shared dev database.
+  - **Prompt (original, for reference):**
     ```
     /ritual-orchestrator Dispatch bmad-create-story for 3-6n2-expose-the-face-blurred-thumbnail-through-the-read-path-and-widen-the-prominent-card-trigger
     (backlog row FIND-070, CC-023 tail), then bmad-dev-story for it. Inputs: _bmad-output/planning-artifacts/cc-024-multi-event-wave-plan.md
@@ -257,4 +269,5 @@ Decide each: skip (`skipped` with a `cost:`/`value:` note), `bmad-create-story`,
 | Date | Step | Result | Commit |
 |---|---|---|---|
 | 2026-10-05 | Reconcile five plans | Done; IDEA-038/048/FIND-053 found already shipped | `6f9a5d04` |
-| 2026-10-05 | Board fixes + IDEA-060 + this tracker | Done; dead-branch deletion deferred to Step 5 | staged, not yet committed |
+| 2026-10-05 | Board fixes + IDEA-060 + this tracker | Done; dead-branch deletion deferred to Step 5 | `d68218c2` |
+| 2026-10-05 | Step 6: Story 3.6n2 create + dev via ritual-orchestrator (`all-claude-medium`) | Built, `review`; backend suite has 24 database-state failures, none from the story (see Step 6) | `19f90438`..`196d9182` |

@@ -550,8 +550,10 @@ Progress: 3.6m done (`review`, `b7d6fb3a`); 3.6p done (`review`, `af8bafe6`); 0.
       (served-URL decision resolved with the user at 3.6n's create-story: "thumbnail fills the gap only" — original
       stays unchanged while valid; non-opted-in gets the blurred thumbnail instead of null only once it expires),
       `apps/web` mapper/codegen, `EventListView.tsx` wiring; the only Wave 4C story with frontend scope* (added
-      2026-10-03, split from 3.6n; `backlog`, no story file yet)
-  - [ ] create  - [ ] dev  - [ ] review
+      2026-10-03, split from 3.6n) (**built 2026-10-05**: story created `19f90438`, dev `2b3e9451`..`196d9182`,
+      status `review`; backlog row FIND-070 promoted; domain/ui/web tests pass uncached, backend suite's 24
+      failures are dev-database state, none from this story — see `event-pages-followup-2026-10-05.md` Step 6)
+  - [x] create  - [x] dev  - [ ] review
 - [ ] **3.6o** Skip face-blur processing for events ending before their source image expires — *needs 3.6n;
       **amended by CC-024:** the relevance gate takes the latest schedule end across all events of the post*
       (story created 2026-10-03, commit `5660fdc7`, status `ready-for-dev`; owns ONLY the `'event_relevance_gate'`
