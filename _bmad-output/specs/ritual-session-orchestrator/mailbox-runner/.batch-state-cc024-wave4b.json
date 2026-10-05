@@ -1,0 +1,17 @@
+{
+  "createdAt": "2026-10-04T04:33:27.603Z",
+  "mode": "stories",
+  "modeValue": [
+    "3.6v"
+  ],
+  "epicsFile": "/home/user/fest-grid-bmad/_bmad-output/planning-artifacts/epics.md",
+  "implementationArtifacts": "/home/user/fest-grid-bmad/_bmad-output/implementation-artifacts",
+  "order": [
+    "3.6v"
+  ],
+  "context": {
+    "3.6v": {
+      "bmad-create-story": "WAVE 4B CONTEXT (from the CC-024 wave plan, binding):\n1. Dependencies are all built (status review): 3.6t, 3.13-3.15, 3.4n, 3.7g, 3.7h. Wave 4A (3.6u, 3.6y, 3.6z, 3.6ua, 0.i6c, 3.16, 0.i6g) is also built; read their story files for the real as-built shape (event_posts link table from 3.6r, per-event slugs from 3.6t, the claim columns from 3.6z/3.16).\n2. Sweep correction: the alias redirect is wired into BOTH Next.js slug routes, and getEventBySlugCached must NOT swallow a redirect signal.\n3. Note from 3.6s: the extraction prompt sets organizerHandle to the POSTING account when no handle is tagged for an item (by design, so the handle survives the curator caption being nulled). For roundup-sourced events that is the curator, not the organizer: matching must DISCOUNT organizerHandle when the post's grouping reason is 'roundup' or its account type is CURATOR_GUIDE.\n4. Required acceptance property from the plan: promotion keeps favorites and calendar entries (a matched/merged event must not drop a user's favorite or calendar entry).\n5. Run the Gate 1/2/3 sweeps fresh against the as-built code; put any design decision that is genuinely the user's to AskUserQuestion. If a prerequisite story surfaces, create it as a separate story file and add it to epics.md and sprint-status.yaml as bmad-create-story normally does.\n6. Test-environment facts learned in Wave 4A (put them in the story's test notes): run the backend suite ALONE (turbo runs packages in parallel against one shared database and causes false failures, FIND-064); the sandbox database may need 'pnpm --filter @festgrid/database seed' first; use TZ=UTC; geolocation/location tests need GEOAPIFY_API_KEY and fail in the cloud sandbox (known 22)."
+    }
+  }
+}

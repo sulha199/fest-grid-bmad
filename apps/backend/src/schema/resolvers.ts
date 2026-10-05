@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { alias } from 'drizzle-orm/pg-core';
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns, aiEventFilters, accountTypeClassificationReviews, postAccountAssociations, eventPosts } from '@festgrid/database';
+import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns, aiEventFilters, accountTypeClassificationReviews, postAccountAssociations, eventPosts, eventSlugAliases } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly, getRequestedFieldNames } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator } from '../lib/auth/context.js';
+import { buildEventAccountMatchCondition } from '../lib/events/event-account-match.js';
 import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, gte, lte, isNull, ilike } from 'drizzle-orm';
 import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
@@ -3000,7 +3001,16 @@ Constraints and Guidelines:
         categories: events.categories,
         sourceSocialMediaAccountId: events.sourceSocialMediaAccountId,
         postId: events.postId,
-        socialMediaAccountProfileId: posts.accountId,
+        // Story 3.6v (AD-31 Rule 4) -- routed through the shared account-match helper instead of
+        // a bare `posts.accountId` column comparison, so a filter by account matches an event
+        // linked to that account via ANY of its posts (`event_posts`), not only its current
+        // primary post -- required so an event promoted from a roundup stays matched against the
+        // account that originally posted about it. See drizzle-where.ts's `matchCondition`
+        // descriptor handling and `event-account-match.ts`.
+        socialMediaAccountProfileId: {
+          matchCondition: (accountIds: unknown[]) =>
+            or(...(accountIds as string[]).map((id) => buildEventAccountMatchCondition(id))) ?? sql`false`,
+        },
         hashtags: posts.hashtags, // mapped to joined table, #-prefixed search (added 2026-08-28)
         performers: schedules.performers, // mapped to joined table
         scheduleLocation: schedules.location, // to support filtering by schedule location
@@ -3050,14 +3060,17 @@ Constraints and Guidelines:
               activeOnly(calendarAdditions)
             ))
         ) : sql`false`,
+        // Story 3.6v (AD-31 Rule 4) -- routed through the shared account-match helper instead of
+        // a bare innerJoin on `posts.accountId` scoped to `events.postId` (the primary post
+        // only). The helper checks every post linked via `event_posts`, so an event promoted
+        // from a roundup account stays visible to the roundup account's subscribers.
         isFromSubscribedAccount: userId ? exists(
           db.select({ id: subscriptions.id })
             .from(subscriptions)
-            .innerJoin(posts, eq(subscriptions.accountId, posts.accountId))
             .where(and(
-              eq(posts.id, events.postId),
               eq(subscriptions.userId, userId),
-              activeOnly(subscriptions)
+              activeOnly(subscriptions),
+              buildEventAccountMatchCondition(subscriptions.accountId)
             ))
         ) : sql`false`,
         isReportedByCurrentUser: userId ? exists(
@@ -3610,83 +3623,112 @@ Constraints and Guidelines:
       const requestedFields = buildOptimizedDrizzleSelect(events, info);
       const isModerator = context.user?.role === 'moderator';
 
-      let condition;
-      if (isModerator) {
-        condition = eq(events.slug, slug);
-      } else if (includeMyArchived === true) {
-        const authUser = requireAuth(context);
-        const userId = authUser.userId;
-        const personalConnectionCheck = or(
-          exists(
-            db.select({ id: favorites.id })
-              .from(favorites)
-              .where(and(
-                eq(favorites.userId, userId),
-                eq(favorites.eventId, events.id),
-                activeOnly(favorites)
-              ))
-          ),
-          exists(
-            db.select({ id: calendarAdditions.id })
-              .from(calendarAdditions)
-              .where(and(
-                eq(calendarAdditions.userId, userId),
-                eq(calendarAdditions.eventId, events.id),
-                activeOnly(calendarAdditions)
-              ))
-          ),
-          exists(
-            db.select({ id: subscriptions.id })
-              .from(subscriptions)
-              .innerJoin(posts, eq(subscriptions.accountId, posts.accountId))
-              .where(and(
-                eq(posts.id, events.postId),
-                eq(subscriptions.userId, userId),
-                activeOnly(subscriptions)
-              ))
-          ),
-          exists(
-            db.select({ id: reports.id })
-              .from(reports)
-              .where(and(
-                eq(reports.reporterUserId, userId),
-                eq(reports.eventId, events.id)
-              ))
-          )
-        );
-        condition = and(
-          eq(events.slug, slug),
-          or(
-            activeOnly(events),
-            and(
-              sql`${events.deletedAt} IS NOT NULL`,
-              personalConnectionCheck
+      // Story 3.6v (AC5/AC6) — factored out of the original inline `condition`/select so the
+      // alias fallback below (on a slug-lookup miss) can re-run the EXACT same
+      // moderator/includeMyArchived/visibility logic keyed on `events.id` instead of
+      // `events.slug`, with zero duplicated logic between the two call sites.
+      async function selectEventRow(matchClause: any) {
+        let condition;
+        if (isModerator) {
+          condition = matchClause;
+        } else if (includeMyArchived === true) {
+          const authUser = requireAuth(context);
+          const userId = authUser.userId;
+          const personalConnectionCheck = or(
+            exists(
+              db.select({ id: favorites.id })
+                .from(favorites)
+                .where(and(
+                  eq(favorites.userId, userId),
+                  eq(favorites.eventId, events.id),
+                  activeOnly(favorites)
+                ))
+            ),
+            exists(
+              db.select({ id: calendarAdditions.id })
+                .from(calendarAdditions)
+                .where(and(
+                  eq(calendarAdditions.userId, userId),
+                  eq(calendarAdditions.eventId, events.id),
+                  activeOnly(calendarAdditions)
+                ))
+            ),
+            exists(
+              db.select({ id: subscriptions.id })
+                .from(subscriptions)
+                .innerJoin(posts, eq(subscriptions.accountId, posts.accountId))
+                .where(and(
+                  eq(posts.id, events.postId),
+                  eq(subscriptions.userId, userId),
+                  activeOnly(subscriptions)
+                ))
+            ),
+            exists(
+              db.select({ id: reports.id })
+                .from(reports)
+                .where(and(
+                  eq(reports.reporterUserId, userId),
+                  eq(reports.eventId, events.id)
+                ))
             )
-          )
-        );
-      } else {
-        condition = and(eq(events.slug, slug), activeOnly(events));
+          );
+          condition = and(
+            matchClause,
+            or(
+              activeOnly(events),
+              and(
+                sql`${events.deletedAt} IS NOT NULL`,
+                personalConnectionCheck
+              )
+            )
+          );
+        } else {
+          condition = and(matchClause, activeOnly(events));
+        }
+
+        const rows = await db.select({
+          ...requestedFields,
+          id: events.id,
+          postId: events.postId,
+          slug: events.slug,
+          imageUrl: posts.imageUrl,
+          durableImageUrl: posts.durableImageUrl,
+          imageUrlExpiresAt: posts.imageUrlExpiresAt,
+          videoUrl: posts.videoUrl,
+          sourcePostUrl: posts.postUrl,
+          originalPostUrl: posts.originalPostUrl,
+          publishedAt: posts.publishedAt,
+          isImageStorageOptedIn: socialMediaAccountProfiles.isImageStorageOptedIn,
+        }).from(events)
+          .leftJoin(posts, eq(events.postId, posts.id))
+          .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
+          .where(condition);
+
+        return (rows[0] as any) || null;
       }
 
-      const rows = await db.select({
-        ...requestedFields,
-        id: events.id,
-        postId: events.postId,
-        slug: events.slug,
-        imageUrl: posts.imageUrl,
-        durableImageUrl: posts.durableImageUrl,
-        imageUrlExpiresAt: posts.imageUrlExpiresAt,
-        videoUrl: posts.videoUrl,
-        sourcePostUrl: posts.postUrl,
-        originalPostUrl: posts.originalPostUrl,
-        publishedAt: posts.publishedAt,
-        isImageStorageOptedIn: socialMediaAccountProfiles.isImageStorageOptedIn,
-      }).from(events)
-        .leftJoin(posts, eq(events.postId, posts.id))
-        .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
-        .where(condition);
+      let row = await selectEventRow(eq(events.slug, slug));
 
-      const row = (rows[0] as any) || null;
+      // Story 3.6v (AC5/AC6, Design Decision 1 "Chosen redirect-signal mechanism") — on a direct
+      // slug miss, consult `event_slug_aliases` before giving up. A hit re-runs the identical
+      // select keyed on the alias's `eventId`, returning the exact same `Event` shape the direct
+      // hit above would have returned -- with its own (canonical, different) `slug` field intact.
+      // No new GraphQL field, no thrown/caught signal: the caller (Task 7's two route files)
+      // detects "this was a redirect" structurally, by the returned event's `slug` disagreeing
+      // with the slug it requested. A genuine not-found (alias also misses, or resolves to a row
+      // visibility excludes) still returns `null`, unchanged from today. Zero extra query cost
+      // on the common direct-hit path -- this only runs when `row` is already null.
+      if (!row) {
+        const [aliasRow] = await db
+          .select({ eventId: eventSlugAliases.eventId })
+          .from(eventSlugAliases)
+          .where(eq(eventSlugAliases.slug, slug))
+          .limit(1);
+
+        if (aliasRow) {
+          row = await selectEventRow(eq(events.id, aliasRow.eventId));
+        }
+      }
 
       // Story 1.6c (AC1, AC6) — see the identical `event` resolver comment above; this is the
       // same shared batched-schedules code path, reused verbatim for the slug lookup.

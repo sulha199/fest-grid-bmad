@@ -183,7 +183,7 @@ depends on it. Wave labels below follow this order; stories inside a wave are li
 3. **Wave 2C** — Diagnostics: FIND-061, BUG-053
 4. **Wave 3** — Core build: 3.6r → 3.6s → 3.6t
 5. **Wave 4A** — 3.6y, 3.6z, 0.i6c, 3.16, 0.i6g, 3.6ua, 3.6u (built 2026-10-04, all `review`; 3.6ua is the prerequisite found while creating 3.6u, and 3.6u runs last)
-6. **Wave 4B** — 3.6v (needs 3.13–3.15 and 3.7g/3.7h)
+6. **Wave 4B** — 3.6v (needs 3.13–3.15 and 3.7g/3.7h; built 2026-10-04, `review`, code review pending)
 7. **Wave 4C** — CC-023 tail: 3.6q (built) → 3.6m → 3.6p → **0.46** → 3.6n → 3.6o and 3.6n2 (3.6n now also needs 3.6p; 3.6n2 is the read-path half split from 3.6n; 0.46 may run in parallel with 3.6m/3.6p; independent of 4A/4B, may interleave; needs 3.6t)
 8. **Wave 5** — 3.6w, 3.6x, 3.18
 
@@ -328,7 +328,7 @@ Per story: `create-story` → `dev-story` → `code-review` → status verified 
       (dev done, commits `5600c460`..`1c78ed4b`, status `review`)
   - [x] create  - [x] dev  - [ ] review  - [x] re-run creates no duplicates (idempotency tests: `(post_id, extraction_ordinal)`, absent ordinal defaults to 0)
 
-## Wave 4A — Read side, weekday filter, auto-extraction (BUILT 2026-10-04; code review pending; batch-end gate in progress)
+## Wave 4A — Read side, weekday filter, auto-extraction (BUILT 2026-10-04; code review pending; batch-end gate run 2026-10-04, no new failures)
 
 **Dev batch (2026-10-02 to 2026-10-04):** orchestrator state `.batch-state-cc024-wave4a.json`
 (`_bmad-output/specs/ritual-session-orchestrator/mailbox-runner/`). Dispatch order **3.6y → 3.6z → 0.i6c → 3.16 → 0.i6g →
@@ -365,10 +365,26 @@ needs `--env-mode=loose` in this sandbox (the `next/font` Google Fonts fetch fai
 been emptied (0 users, 0 events) before the gate, which makes ~100 backend tests fail with "Should have at least 2 users"; the
 fix is `pnpm --filter @festgrid/database seed`, then re-run.
 
-**Batch-end gate (2026-10-04, `TZ=UTC`):** in progress. Whole-repo lint passed (exit 0). First test run: domain 417,
-visual-audit 41, graphql-select 41, database 10, analytics 2, ai-dev-orchestrator 68, UI 859 and web 568 all green;
-infrastructure 6/6 failed (the known `FestgridBackendStack` set); backend showed 106 of 880 failing before the database was
-re-seeded. The re-run after seeding, and the web build, are being recorded here once they finish.
+**Batch-end gate (2026-10-04, `TZ=UTC`, sandbox, after re-seeding the database):** **no new failure from Wave 4A.**
+- **Lint:** whole repo passes.
+- **Build:** the web app builds (`next build`, compile, type check and lint, 39/39 pages). The whole-repo `turbo build` still
+  stops on two sandbox-only items, neither caused by this wave: `next/font` cannot fetch Google Fonts under turbo's strict
+  env mode (it works once the proxy variables are passed through), and `@festgrid/ai-dev-orchestrator` shows TypeScript errors
+  in `src/core/node-context.test.ts` on a cache miss (this branch does not touch that package; it built on the first run,
+  from cache). Treat a clean whole-repo build as **not yet shown in this sandbox**; confirm it on the Windows machine.
+- **Tests (all green):** domain 417/417, UI 859/859, web 568/568, database 10/10, graphql-select 41/41, visual-audit 41/41,
+  analytics 2/2, ai-dev-orchestrator 68/68.
+- **Backend, run alone:** 979 tests, 955 pass, **22 fail, all known**: 17 geolocation/location tests that need
+  `GEOAPIFY_API_KEY`, the Bright Data `CAPACITY_EXHAUSTED` test (it runs against `.env.example` placeholders), and their 5
+  parent subtests. This is the same 22 recorded in Waves 2B and 4A's 3.6y.
+- **Infrastructure:** 5/6 pass; `FestgridBackendStack provisions correct resources` fails (a CDK assertion expects the number
+  `12` where the template holds the string `"12"`, Story 3.4p). Nothing under `apps/infrastructure` changed on this branch.
+- **Two environment traps hit while gating (both are test-environment, not code):** (1) the sandbox database had been emptied
+  (0 users), which made ~100 backend tests fail with "Should have at least 2 users" until `pnpm --filter @festgrid/database
+  seed` was run; (2) running the whole suite through turbo runs packages in parallel against the one shared database, which
+  made nine scraper tests fail with "Invalid time value" (they pass 13/15 run alone, only `CAPACITY_EXHAUSTED` fails). That is
+  FIND-064 again; run the backend suite on its own for a trustworthy count.
+- **Not yet confirmed:** the 3.6u hot-path EXPLAIN comparison (see the caveat above), and the whole-repo build on Windows.
 
 - [x] **3.6u** Show all source posts and related events on the event detail page — *needs 3.6r, 3.6t, 1.3j, 1.6c;
       coordinate with 0.i6g (coauthor attribution UI); 3.7h/3.7i recommended*
@@ -405,16 +421,54 @@ re-seeded. The re-run after seeding, and the web build, are being recorded here 
       surfaced by the idempotency fix itself -- see story's Completion Notes)
   - [x] create  - [x] dev  - [ ] review
 
-## Wave 4B — Matching and enrichment
+## Wave 4B — Matching and enrichment (BUILT 2026-10-04; code review pending; batch-end gate run 2026-10-04, no new failures)
 
-- [ ] **3.6v** Match new posts to existing events and enrich them in place — *needs 3.6t, 3.13–3.15, 3.4n, 3.7g,
+- [x] **3.6v** Match new posts to existing events and enrich them in place — *needs 3.6t, 3.13–3.15, 3.4n, 3.7g,
       3.7h; sweep correction: the alias redirect is wired into both Next.js slug routes and
       `getEventBySlugCached` must not swallow a redirect signal*
       **Note from 3.6s:** the extraction prompt sets `organizerHandle` to the *posting* account when no handle is tagged
       for an item (by design, so the handle survives the curator caption being nulled). For roundup-sourced events that is the
       curator, not the organizer: matching must discount `organizerHandle` when the post's grouping reason is `roundup`
       or its account type is `CURATOR_GUIDE`.
-  - [ ] create  - [ ] dev  - [ ] review  - [ ] promotion keeps favorites/calendar entries
+  - [x] create  - [x] dev (`review`; commits `9e01109`..`fb497ba`, merged with master in `9c3eb86`)  - [ ] review
+  - [x] promotion keeps favorites/calendar entries (AC9; dedicated regression test in `set-event-primary-post.test.ts`,
+        re-fetched through the normal resolvers, passing)
+
+**What was built:** `event_match_candidates` table + `event_slug_aliases.eventId` index (Task 1); the AD-31 Rule 4 account-match
+helper wired into both resolver call sites (Task 2); the pure `match-scoring.ts` in `packages/domain` plus the candidate query
+`findMatchingEvent` (Task 3); matching inside `processIngestionJob` with an idempotency lookup first, a `high` branch that
+enriches in place, a `mid` branch that queues one suggestion row, and `low` unchanged (Task 4); `enrichAndPromoteEvent` with
+primary-post selection, field-level enrichment, re-slug and permanent alias (Task 5); the `eventBySlug` alias fallback
+(Task 6); the redirect in both Next.js slug routes (Task 7).
+
+**Found while validating the weights against the four CC-024 reference posts:** events extracted from one post (Story 3.6s)
+could match each other (Vifation 2026's three sub-events), which would merge events that 3.6s split on purpose. Fixed by
+excluding candidates already linked to the new item's own post. The first version of that fix used a non-uuid placeholder in its
+test fixtures, so 8 of its 10 tests failed against Postgres; it was caught and fixed at the orchestrator step (10/10 now).
+
+**Migration renumbered:** master gained `0070_lovely_chat` (3.21) and `0071_whole_spyke` (4.2b), colliding with 3.6v's own 0070.
+Took master's journal and snapshots, dropped 3.6v's migration, regenerated it as `0072_heavy_bloodstorm`. The SQL is byte-identical
+to the old one; only the number moved. A sandbox database that had already applied the old 0070 skips `0070_lovely_chat`
+(Drizzle picks migrations by timestamp), which left `extraction_audit_logs.ai_image_input` missing and failed 26 extra backend
+tests; applying that SQL by hand fixed it. **If the old 0070 was ever applied to another database, check that column exists.**
+
+**Orchestration notes (Wave 4B):** (1) `--resume-label` resumed the right child this time (the 2026-10-04 fix held), including after a
+container restart that killed the child. (2) The dev child exited with code 0 twice without finishing: first because it said it
+would "resume when the background suite finishes" (nothing wakes a one-shot run), then because its Bash permission channel dropped
+(`AbortError: Stream closed`, zero mailbox requests). Both were caught by checking the log's final text and `git status`, not the
+exit code. (3) A child that leaves temp files in the repo (`tsconfig.tmp-*.json`, `*.tsbuildinfo`) is a commit hazard; always
+check `git status` before pushing a child's work.
+
+**Batch-end gate (2026-10-04, `TZ=UTC`, sandbox, database seeded):** **no new failure from Wave 4B.**
+- **Backend, run alone:** 1073 tests, 1048 pass, **22 fail, all known** (geolocation/location tests that need `GEOAPIFY_API_KEY`,
+  the Bright Data `CAPACITY_EXHAUSTED` test, and their parent subtests): the same 22 recorded in Waves 2B and 4A.
+- **Tests (all green):** domain 466/466, UI 859/859, web 580/580, database 10/10, graphql-select 41/41, visual-audit 41/41,
+  analytics 2/2, ai-dev-orchestrator 68/68, infrastructure 14/14 (the earlier `12` vs `"12"` failure no longer reproduces).
+- **Build:** the web app builds (`NODE_USE_ENV_PROXY=1 next build`). A clean whole-repo `turbo build` is still **not shown in this
+  sandbox** (Google Fonts under turbo's strict env mode); confirm on the Windows machine.
+- **Lint:** 0 errors in every touched package. The whole-repo run reports **1 error in `@festgrid/ai-dev-orchestrator`**
+  (`ai-dev-orchestrator/src/cli.ts:7`, unused `_ctx`): the file is identical to master and no Wave 4B commit touches it, so it is
+  not from this wave; it should be looked at separately.
 
 ## Wave 4C — Face-blurred thumbnails and extraction audit log (CC-023 tail, folded in 2026-10-03)
 

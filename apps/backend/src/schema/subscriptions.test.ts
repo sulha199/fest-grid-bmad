@@ -5,7 +5,7 @@ import { resolvers } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
-import { users, apiKeys, subscriptions, socialMediaAccountProfiles, posts, events, schedules, accountTypeClassificationReviews } from '@festgrid/database';
+import { users, apiKeys, subscriptions, socialMediaAccountProfiles, posts, events, eventPosts, schedules, accountTypeClassificationReviews } from '@festgrid/database';
 import { eq, inArray } from 'drizzle-orm';
 import { setCallGeminiGenerateContent, callGeminiGenerateContent } from '../lib/ai-gateway/gemini-client.js';
 
@@ -532,6 +532,7 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
       if (existingPosts.length > 0) {
         const postIds = existingPosts.map(p => p.id);
         for (const pid of postIds) {
+          await db.delete(eventPosts).where(eq(eventPosts.postId, pid));
           await db.delete(events).where(eq(events.postId, pid));
         }
       }
@@ -570,6 +571,13 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
       types: ['FESTIVAL'],
       categories: ['MUSIC'],
     }).returning();
+
+    // Story 3.6v (AD-31 Rule 4) -- isFromSubscribedAccount/socialMediaAccountProfileId now
+    // match via event_posts (so a promoted event stays matched against every account that
+    // posted about it), not a bare events.postId/posts.accountId join. This fixture writes
+    // events.postId directly (bypassing insertEventWithPrimaryPost), so the matching
+    // event_posts row must be inserted explicitly to keep the AD-30 Rule 2 invariant intact.
+    await db.insert(eventPosts).values({ eventId: event.id, postId: post.id, extractionOrdinal: 0 });
 
     const [schedule] = await db.insert(schedules).values({
       eventId: event.id,
@@ -639,6 +647,7 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
     assert.strictEqual(bodyUnauth.data.events.items.length, 0);
 
     await db.delete(schedules).where(eq(schedules.id, schedule.id));
+    await db.delete(eventPosts).where(eq(eventPosts.eventId, event.id));
     await db.delete(events).where(eq(events.id, event.id));
     await db.delete(posts).where(eq(posts.id, post.id));
     await db.delete(subscriptions).where(eq(subscriptions.id, sub.id));
@@ -660,6 +669,7 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
       if (existingPosts.length > 0) {
         const postIds = existingPosts.map(p => p.id);
         for (const pid of postIds) {
+          await db.delete(eventPosts).where(eq(eventPosts.postId, pid));
           await db.delete(events).where(eq(events.postId, pid));
         }
       }
@@ -698,6 +708,9 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
       types: ['FESTIVAL'],
       categories: ['MUSIC'],
     }).returning();
+
+    // Story 3.6v (AD-31 Rule 4) -- see the matching comment on test 12 above.
+    await db.insert(eventPosts).values({ eventId: event.id, postId: post.id, extractionOrdinal: 0 });
 
     const [schedule] = await db.insert(schedules).values({
       eventId: event.id,
@@ -770,6 +783,7 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
     assert.strictEqual(bodyQueryIn.data.events.items[0].id, event.id);
 
     await db.delete(schedules).where(eq(schedules.id, schedule.id));
+    await db.delete(eventPosts).where(eq(eventPosts.eventId, event.id));
     await db.delete(events).where(eq(events.id, event.id));
     await db.delete(posts).where(eq(posts.id, post.id));
     await db.delete(subscriptions).where(eq(subscriptions.id, sub.id));

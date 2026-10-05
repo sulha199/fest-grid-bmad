@@ -39,6 +39,31 @@ export function buildDrizzleWhere(
     return undefined;
   }
 
+  // Story 3.6v -- a "match condition" descriptor: used when a field's membership test can't be
+  // expressed as a direct column comparison (e.g. the AD-31 Rule 4 account-match helper, which
+  // must OR across two link tables rather than compare one column). The descriptor's callback
+  // receives the normalized value list and returns the ready SQL boolean; this keeps this
+  // generic DSL file free of any app-specific join knowledge -- the callback is supplied by the
+  // caller's own fieldMap, same dependency-injection shape the table/column descriptors below
+  // (scheduleDateRange, withinRadius) already use, just made operator-agnostic.
+  if (column && typeof column === "object" && typeof (column as { matchCondition?: unknown }).matchCondition === "function") {
+    const matchCondition = (column as { matchCondition: (values: unknown[]) => SQL }).matchCondition;
+    switch (operator) {
+      case "eq":
+        return value === null ? sql`false` : matchCondition([value]);
+      case "ne":
+        return value === null ? sql`true` : sql`NOT ${matchCondition([value])}`;
+      case "in":
+        if (!Array.isArray(value) || value.length === 0) return sql`false`;
+        return matchCondition(value);
+      case "notIn":
+        if (!Array.isArray(value) || value.length === 0) return sql`true`;
+        return sql`NOT ${matchCondition(value)}`;
+      default:
+        return undefined;
+    }
+  }
+
   // Special handling for array columns vs scalar columns when using "in" or "contains"
   // If the column is an array column (like text[] for types/categories), we need to handle "in" properly.
   // Actually, Drizzle array contains is `arrayContains(col, [val])`

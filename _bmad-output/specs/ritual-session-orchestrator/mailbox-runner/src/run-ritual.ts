@@ -37,6 +37,7 @@ import { query } from "@anthropic-ai/claude-agent-sdk";
 import { ensureMailboxDirs, writePendingRequest, pollForAnswer, markResolved } from "./mailbox.js";
 import { getSkillConfig, knownSkills, setConfigOverride, activeConfigPath, type ClaudeEffort } from "./skill-config.js";
 import { loadDotEnv } from "./load-env.js";
+import { assertNotParentSession, childProcessEnv } from "./child-env.js";
 
 interface Args {
   prompt: string;
@@ -107,6 +108,7 @@ async function loadSessionId(mailboxDir: string, label: string): Promise<string>
     throw new Error(`No saved session found for --resume-label "${label}" (expected ${filePath}). Use --resume <session-id> directly if you have it from the run's own log output.`);
   });
   const { sessionId } = JSON.parse(raw) as { sessionId: string };
+  assertNotParentSession(sessionId, `Saved session file ${filePath}`);
   return sessionId;
 }
 
@@ -121,10 +123,24 @@ async function main() {
   await ensureMailboxDirs(args.mailbox);
 
   const resumeSessionId = args.resume ?? (args.resumeLabel ? await loadSessionId(args.mailbox, args.resumeLabel) : undefined);
+  // A fresh run names its own session id up front. Left to auto-generate, a child spawned from inside a
+  // Claude Code session reports the ORCHESTRATOR's id (verified 2026-10-04: dropping the env var is not
+  // enough, an explicit sessionId is) -- see child-env.ts. Knowing the id in advance also lets it be
+  // saved before the child does any work.
+  const freshSessionId = resumeSessionId ? undefined : randomUUID();
 
   console.log(`[run-ritual] label="${args.label}" model=${args.model ?? "(session default)"} effort=${args.effort ?? "(default)"} cwd=${args.cwd}`);
-  console.log(`[run-ritual] prompt: ${args.prompt}`);
+  // First line only: a long multi-line prompt echoed in full also trips any grep-based
+  // watcher on words like "Error" that merely appear in the prompt's own context text.
+  const promptLines = args.prompt.split("\n");
+  console.log(`[run-ritual] prompt: ${promptLines[0]}${promptLines.length > 1 ? ` (+${promptLines.length - 1} more lines, ${args.prompt.length} chars)` : ""}`);
   if (resumeSessionId) console.log(`[run-ritual] resuming session_id=${resumeSessionId}`);
+
+  if (freshSessionId) {
+    assertNotParentSession(freshSessionId, "The generated session id");
+    await saveSessionId(args.mailbox, args.label, freshSessionId);
+    console.log(`[run-ritual] session_id=${freshSessionId} (saved for --resume-label "${args.label}")`);
+  }
 
   let sessionId: string | undefined;
   let finalText = "";
@@ -135,9 +151,11 @@ async function main() {
       prompt: args.prompt,
       options: {
         cwd: args.cwd,
+        // The child must mint its own session id; see child-env.ts.
+        env: childProcessEnv(),
         ...(args.model ? { model: args.model } : {}),
         ...(args.effort ? { effort: args.effort } : {}),
-        ...(resumeSessionId ? { resume: resumeSessionId } : {}),
+        ...(resumeSessionId ? { resume: resumeSessionId } : { sessionId: freshSessionId }),
         permissionMode: "acceptEdits",
         canUseTool: async (toolName, input) => {
           const requestId = randomUUID();
@@ -177,8 +195,12 @@ async function main() {
       // late to have saved anything.
       if (message.type === "system" && message.subtype === "init" && !sessionId) {
         sessionId = message.session_id;
-        console.log(`[run-ritual] session_id=${sessionId} (saved for --resume-label "${args.label}")`);
-        await saveSessionId(args.mailbox, args.label, sessionId);
+        assertNotParentSession(sessionId, "The child's init message");
+        const expected = freshSessionId ?? resumeSessionId;
+        if (expected && sessionId !== expected) {
+          throw new Error(`The child's init message reports session ${sessionId}, expected ${expected}; refusing to save a mismatched id.`);
+        }
+        if (!freshSessionId) console.log(`[run-ritual] session_id=${sessionId} (resumed)`);
       }
       if (message.type === "result") {
         sessionId = message.session_id;

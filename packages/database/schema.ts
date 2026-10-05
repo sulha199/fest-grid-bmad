@@ -489,7 +489,34 @@ export const eventSlugAliases = pgTable('event_slug_aliases', {
   slug: text('slug').notNull().unique(),
   eventId: uuid('event_id').references(() => events.id, { onDelete: 'cascade' }).notNull(),
   ...timestamps,
-});
+}, (t) => ({
+  // Story 3.6v -- the lookup index this table's own prior doc comment deferred to "when the
+  // actual redirect/alias-write path needs one." Needed by the re-slug-on-promotion path to
+  // check "does this event already have alias rows" (the AD-16 Rule 10 R-O-R reclaim case).
+  eventIdIdx: index('idx_event_slug_aliases_event_id').on(t.eventId),
+}));
+
+// Story 3.6v / AD-30 Rule 7 -- mid-confidence match suggestions queued for moderator review
+// (Story 3.6w's own scope to read/approve/reject). One row per (eventId, candidateEventId) pair,
+// matching the eventPosts/postAccountAssociations link-table precedent -- not folded into an
+// existing table, since a "mid"-confidence event is a real, fully-formed event row in its own
+// right, and this row is metadata about a relationship between two existing events.
+export const eventMatchCandidates = pgTable('event_match_candidates', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  // The newly-inserted, mid-confidence event.
+  eventId: uuid('event_id').references(() => events.id, { onDelete: 'cascade' }).notNull(),
+  // The existing event it may duplicate.
+  candidateEventId: uuid('candidate_event_id').references(() => events.id, { onDelete: 'cascade' }).notNull(),
+  score: doublePrecision('score').notNull(),
+  // The post that produced the match, for moderator context (Story 3.6w).
+  postId: uuid('post_id').references(() => posts.id, { onDelete: 'cascade' }).notNull(),
+  ...timestamps,
+}, (t) => ({
+  // AC8 -- idempotent re-run (SQS redelivery) never duplicates a suggestion row.
+  eventCandidateUnq: unique().on(t.eventId, t.candidateEventId),
+  // Story 3.6w's future moderator-facing read path lists suggestions by candidate/target event.
+  candidateEventIdIdx: index('idx_event_match_candidates_candidate_event_id').on(t.candidateEventId),
+}));
 
 // Story 3.6p / AD-29 Rule 3 -- records why actualFaceDetectionCount is null (Story 3.6n/3.6o's
 // eventual backfill), so a null is never misread as "detection ran and found zero faces."
