@@ -538,7 +538,40 @@ This file tracks work deferred from development stories, code reviews, and plann
 ## Deferred from: code review of story 0.45 (2026-09-26)
 - Masonry reflow remount churn + focus loss (Story 0.45 review): GridContainer wrappers are key={itemIndex} under per-column parents, so any placement change unmounts/remounts items crossing columns (ref null->reattach churn, 2 extra renders + forced reflows per moved item, keyboard focus lost inside moved cards). User accepted react-masonry-css-style behavior for now; a mount-stable engine (absolute-positioned items under one parent) is the eventual fix. [implementation-artifacts/deferred-work.md]
 
-## Deferred from: code review of spec-bug-045-masonry-horizontal-overflow (2026-09-26)
+### FIND-052 investigation (bmad-quick-dev, 2026-10-05)
+
+Investigation-only follow-up (no production code touched). New repro suite:
+`packages/ui/src/core/grid-container.find052.investigation.test.tsx` — renders the REAL
+`GridContainer(layout="masonry")` + REAL `useMasonryLayout` (RTL `render`, mocked
+`ResizeObserver`, a controllable `HTMLElement.prototype.offsetHeight` override keyed by each
+item's own `data-grid-container-item-index` attribute so the real greedy-placement algorithm runs
+against deterministic, differentiated heights instead of jsdom's uniform `0`). Each item renders
+a real focusable `<input>` and an effect-based mount/unmount counter so column reassignment,
+remounting, and keyboard-focus survival can all be measured directly, not inferred.
+
+Measured results (6 items, `baseCols=2 colsStep=1`; `grid-container.find052.investigation.test.tsx`, 2026-10-05, 5/5 green):
+
+| Scenario | Items that changed column | Of those, remounted | Focused item moved column | Focused item remounted | Focus survived |
+|---|---|---|---|---|---|
+| (a) window resize, breakpoint unchanged (500px→700px, still 2 cols) | 0/6 | 0 | false | false | **true** |
+| (b) column-count-changing breakpoint resize (700px→900px, 2 cols→3 cols) | 4/6 | 4 (100%) | true | true | **false** |
+| (c) image-load height change of item 0 (50px→500px, 3 cols fixed) | 3/6 | 3 (100%) | true | true | **false** |
+| (d) append a new page of 4 items (infinite scroll, 3 cols fixed) | 0/6 (original items) | 0 | false | false | **true** |
+
+Findings:
+- **Every item whose column assignment changes remounts — 100% in both triggered scenarios.** This is structural, not probabilistic: `grid-container.tsx`'s masonry path keys each item `key={itemIndex}` under a *per-column* `<div>` parent, and React key-stability is scoped to one parent — a key moving to a different parent is unconditionally an unmount+mount, never a reconciled move, regardless of engine tuning.
+- **A column-count-changing resize (b) and a single earlier item's height change (c) both reflow the majority of the list** (4/6 and 3/6 respectively) and both **lose keyboard focus** on this run's focused item. (c) in particular confirms the cascade risk already called out in `useMasonryLayout.ts`'s own header comment: one item's height changing (e.g. an async `EventCard` thumbnail load) recomputes greedy placement for every later item from scratch, so an edit to item 0 alone moved items with indices well past it.
+- **Resize-without-breakpoint-change (a) and infinite-scroll append (d) are genuinely churn-free** (0/6 changed, 0 remounts, focus survives) — confirming `useMasonryLayout.ts`'s documented design intent for these two cases already holds at the real-component level, not just in the hook's own isolated unit tests.
+- On Discovery's real masonry surface (`EventListView.tsx`), both churn-triggering cases are routine, not edge cases: a viewport resize crossing 768/1024/1280/1536px happens on any device rotation/window resize/devtools-panel-toggle, and `EventCard`'s async-loading thumbnail image is the normal path for every card on every page load — so FIND-052 is a live, frequently-triggered UX defect (keyboard users lose their place while browsing), not a rare corner case.
+
+**Recommendation: build the mount-stable engine, not "keep deferred."** The evidence shows the deferred issue is both structural (100% remount rate on any reassignment, not reducible by tuning the current keying scheme) and routinely triggered in production (breakpoint resize, async image load) — "keep deferred" would mean accepting a confirmed, frequent keyboard-accessibility regression indefinitely. Proposed design (not implemented by this investigation):
+- **Single parent, items in index order.** Render every item as a direct child of ONE container (not grouped under N per-column `<div>` parents), each keyed `key={itemIndex}` at that one level — a React key is now stable across every reflow, since it never crosses parents again. This alone eliminates the unmount/remount class of churn; an item whose column assignment changes is a pure style update on the same DOM node.
+- **Transform-positioned.** Each item gets `position: absolute; transform: translate(x, y)` (not `top`/`left`, to stay on the GPU-compositing path and avoid layout thrash) computed from `useMasonryLayout`'s column assignment (`x = columnIndex * (columnWidth + gap)`) and running vertical offset within that column (`y` = the accumulated height of items placed earlier in the same column). `useMasonryLayout`'s `columnAssignments`/`columns` output already carries everything needed to derive both; this is a consumption change in `grid-container.tsx`, not a hook-contract change.
+- **Container height from the tallest column.** The outer container (currently sized implicitly by flex-row height) needs an explicit `height` set to `Math.max(...colHeights)` (the per-column accumulated height `useMasonryLayout`'s placement loop already computes internally but doesn't currently return) — `UseMasonryLayoutResult` would need a new field (e.g. `columnHeights: number[]`) to expose it, since absolutely-positioned children no longer contribute to their parent's natural height.
+- **Tab-order effect (flag for explicit sign-off, not silently absorbed):** today's per-column-parent DOM order makes native Tab order column-major (down column 1, then column 2, …) within the row-major *visual* placement AC4 established. A single flat parent in `key={itemIndex}` order makes native Tab order index-major instead — matching reading order (desirable), but it is a real, user-visible behavior change for keyboard/screen-reader users already relying on today's column-major tab order, and should be called out as an explicit AC in whatever story picks this up rather than treated as an invisible implementation detail.
+
+Not implemented here per this investigation's explicit scope (investigation only, no production code changes).
+
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-bug-045-masonry-horizontal-overflow.md`
   summary: `PageContainer`'s `fullWidth={false}` (`contained`) variant still has a bare `lg:min-w-[768px]` floor, the same unguarded-against-`AppShell`-nav-rail-inset pattern BUG-045 just fixed on the `fullWidth` variant, left untouched because it doesn't currently overflow.
