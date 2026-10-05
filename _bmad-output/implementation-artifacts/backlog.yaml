@@ -1575,12 +1575,13 @@ items:
      SUPERSEDED 2026-09-27 (see design-artifacts/UX-festgrid-run-1/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md item 1): the pixel-perfect masonry pass removed this p-2 padding again -- the date-box+thumbnail row is flush against the card's edges once more, and the TILL/favorite badges moved from negative (floating-past-edge) to positive (just-inside-edge) offsets instead, with the outer card's overflow-hidden restored. Do NOT re-add p-2 padding to fix a cropped till badge -- that's this closed bug's fix, now reversed on purpose."}
 
   FIND-052:
-    {type: finding, status: backlog, created: 2026-09-26,
+    {type: finding, status: promoted, created: 2026-09-26,
      impact: user-visible, effort: s,
      title: "Masonry reflow remounts items crossing columns — ref churn + keyboard focus loss",
      ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/0-45-replace-grid-containers-masonry-engine-with-shortest-column-placement.md],
+     stories: [0-48-mount-stable-masonry-engine-fix-reflow-remount-and-focus-loss],
      touches: [pkg:ui],
-     note: "Deferred from: 'Deferred from: code review of story 0.45 (2026-09-26)'. 1 finding. Wrappers keyed by itemIndex under per-column column parents remount on any placement change (react-masonry-css-style); fix = mount-stable engine, deferred per user decision."}
+     note: "Deferred from: code review of story 0.45 (2026-09-26); investigated 2026-10-05 (bmad-quick-dev): confirmed structural/routine, not rare. Story 0.48 is the full fix; no residual scope carved out."}
 
   # ── 2026-09-26 (live production audit, https://fest-grid.vercel.app/id) ──────
   BUG-042:

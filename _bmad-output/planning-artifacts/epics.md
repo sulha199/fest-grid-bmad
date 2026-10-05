@@ -1160,6 +1160,30 @@ The project is set up with a solid foundation and CI/CD pipeline.
 
 **Note:** Gate 2 (UI Complexity & Reusability) finding surfaced while creating Story 3.6w (2026-10-05, `bmad-create-story`) — `EXPERIENCE.md`'s merge-confirmation step specifies true focus-trap/focus-return semantics no existing primitive provides (`packages/ui`'s only "modal," `PwaInstallIosModal`, is non-trapping; `apps/web`'s own Radix-backed `components/ui/dialog.tsx` is real but `apps/web`-local, so Story 3.6w cannot import it without inverting the package-dependency direction). User confirmed via `AskUserQuestion`: split into its own reusable primitive rather than build it inline inside Story 3.6w, matching the Story 0.18/0.19/3.6ua split precedent. Numbered as a new sequential Epic 0 story (Epic 0's then-highest story was 0.46). **Hard prerequisite for Story 3.6w.**
 
+### Story 0.48: Mount-stable masonry engine — eliminate reflow remount + keyboard focus loss (FIND-052)
+
+**As a** developer,
+**I want** `GridContainer`'s `layout="masonry"` render path rebuilt on a mount-stable DOM structure — one flat parent with every item keyed `key={itemIndex}` directly under it (never regrouped under a per-column parent), positioned via `position: absolute; transform: translate(x, y)` once real heights are known, with the container's own height sourced from new `columnHeights`/`itemOffsets` fields `useMasonryLayout` exposes — instead of today's per-column `<div>` parents that force React to unmount+remount any item whose column assignment changes,
+**So that** a column-count-changing viewport resize or an earlier item's async image-load height change (both routine, frequently-triggered events on Discovery's real masonry surface, not edge cases) stop unmounting/remounting the majority of the list and silently dropping a keyboard user's focus out from under them.
+
+**Acceptance Criteria:**
+
+1. The masonry render path uses one flat parent, every item a direct `key={itemIndex}` child — no per-column wrapper `<div>` — so a column reassignment is always an in-place update, never an unmount+mount.
+2. Two-phase render: Phase 1 (`!hasMeasured`, covers SSR output) keeps items in real, in-flow CSS Grid placement (`gridColumn` per item, native auto-row stacking, no explicit container height) so the browser computes a genuine non-zero height with zero JS/measurement dependency — avoiding the Cumulative-Layout-Shift regression a naive always-absolute-position design would introduce. Phase 2 (`hasMeasured`) switches each item to `position: absolute` + `transform: translateY(...)` (keeping `gridColumn` so horizontal position/width is still resolved by native CSS Grid, not JS pixel math) and sets the container's explicit height from `columnHeights`.
+3. `useMasonryLayout` exposes two new fields derived from its existing placement loop: `columnHeights: number[]` (final per-column accumulated height) and `itemOffsets: number[]` (each item's own accumulated-height-before-it, for its `translateY`).
+4. Native keyboard Tab order changes from column-major (today) to index-major (matching visual/reading order) in both phases — called out as its own explicit, user-visible behavior change, not silently absorbed into the remount fix.
+5. The `baseCols`/`colsStep`-derived column-count formula (2/3/4/5/6 across breakpoints) is completely unchanged.
+6. Re-running the FIND-052 investigation's four scenarios against the new engine shows zero remounts and full focus-survival among items that change column (previously 4/6 and 3/6 remounted with focus lost in two of the four scenarios).
+7. A new regression scenario proves the Phase 1→Phase 2 transition itself causes zero remounts of any already-mounted item.
+8. The investigation test (`grid-container.find052.investigation.test.tsx`) is promoted into a permanent, renamed regression suite with its documenting-only assertions rewritten into hard pass/fail proof.
+9. All DOM-selector-dependent test/tooling consumers (`grid-container.test.tsx`, `EventListView.test.tsx`, `packages/visual-audit`'s manifest + Playwright proof) are updated for the new per-item column-index attribute and continue passing.
+10. The `packages/visual-audit` manifest (the only harness that exercises the real, un-hydrated SSR/Phase-1 render) gains an explicit non-collapsed-height assertion proving AC2's CLS-avoidance holds in real browser layout, not just jsdom.
+11. The default `css-grid` layout path is completely unaffected.
+12. No new user-facing strings (i18n N/A).
+13. DESIGN.md's `components.grid.masonry` token comment is reconciled to describe the new mechanism while preserving documented column-count/equal-width semantics.
+
+**Note:** Promotes backlog row `FIND-052` (deferred from Story 0.45's code review, 2026-09-26; investigated by `bmad-quick-dev` 2026-10-05, see `deferred-work.md`). Drafted via `bmad-create-story`, 2026-10-05 — all three Story Split Gates run fresh (no gap found; Gate 2's two findings incorporated as AC4/AC13). The two-phase render design (AC2) was resolved via `AskUserQuestion`: the investigation's own proposed design (transform-positioned absolute items from the start) left a CLS/SSR-collapse gap it didn't address; the user chose the two-phase mitigation over shipping that gap or a cruder estimated-height fallback. Full ACs, Dev Notes, and gate findings in `_bmad-output/implementation-artifacts/0-48-mount-stable-masonry-engine-fix-reflow-remount-and-focus-loss.md`.
+
 ### Epic 1: Core App and Event Discovery
 
 Users can discover and browse events.
