@@ -123,17 +123,23 @@ after each dispatch and at the end).
 
 ## Full row checklist (verification — every row must end up ticked)
 
-- [x] BUG-030 — Story 1.3j (`review` as of 2026-09-22, was `ready-for-dev`)
-- [x] BUG-033 — Story 1.6c (`ready-for-dev`)
-- [x] BUG-034 — Story 1.3j (`review` as of 2026-09-22, was `ready-for-dev`)
-- [x] BUG-035 — Story 1.6c (`ready-for-dev`)
-- [x] FIND-027 — Story 1.3j (`review` as of 2026-09-22, was `ready-for-dev`)
-- [x] FIND-028 — Story 1.3j (`review` as of 2026-09-22, was `ready-for-dev`)
-- [x] FIND-030 — Story 1.6c (`ready-for-dev`)
-- [x] IDEA-029 — Story 1.6d (`ready-for-dev`)
-- [x] IDEA-032 (post-carve, Epic 1/3 half) — Story 0.i6e (`ready-for-dev`)
-- [ ] IDEA-034 (carved-out Epic 4 half — separate follow-up, not tracked further in this plan)
-- [x] IDEA-033 — Story 1.6e (`ready-for-dev`)
+**Reconciled 2026-10-05:** all five stories (1.3j, 1.6c, 1.6d, 1.6e, 0.i6e) are `review` in
+`sprint-status.yaml`; implementation landed. This plan is complete except IDEA-034. One drift to
+fix on the board: `backlog.yaml` still shows CC-020 and CC-021 as `triaged`, although their stories
+exist and are built (their derived status should read `promoted`).
+
+- [x] BUG-030 — Story 1.3j (`review`)
+- [x] BUG-033 — Story 1.6c (`review`)
+- [x] BUG-034 — Story 1.3j (`review`)
+- [x] BUG-035 — Story 1.6c (`review`)
+- [x] FIND-027 — Story 1.3j (`review`)
+- [x] FIND-028 — Story 1.3j (`review`)
+- [x] FIND-030 — Story 1.6c (`review`)
+- [x] IDEA-029 — Story 1.6d (`review`)
+- [x] IDEA-032 (post-carve, Epic 1/3 half) — Story 0.i6e (`review`)
+- [ ] IDEA-034 (carved-out Epic 4 half — `backlog.yaml` `triaged`, no story; Moderator Tools
+      accounts-tab location edit/clear. Still pending, tracked here only so it is not lost)
+- [x] IDEA-033 — Story 1.6e (`review`)
 
 ## Explicitly out of scope for this plan (tracked elsewhere / no epic action needed)
 

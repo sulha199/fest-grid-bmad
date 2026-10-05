@@ -7,6 +7,21 @@ This doc picks up everything else that same 2026-09-15 triage identified as even
 event-list-related but explicitly out of that plan's scope. Same rule applies: update
 checkboxes live, don't let this drift from `backlog.yaml`'s real state.
 
+## Reconciliation, 2026-10-05
+
+Re-checked against `sprint-status.yaml` and `backlog.yaml` (the sources of truth) and `git log`.
+Superseded by `event-pages-closeout-wave-plan.md` for what is still pending; this doc is now
+history plus the one open row below.
+
+- **Now `review` (were `ready-for-dev` here):** 1.3k (IDEA-003), 0.i5d (IDEA-019), 0.38 (IDEA-020),
+  0.i5e, 1.6d/1.6c/1.6e/0.i6e. **`done`:** 1.i1f (was `review` here), 1.i1n, 1.i1o.
+- **BUG-018 closed** (`backlog.yaml` `done`, 2026-09-30, re-verified live alongside BUG-043).
+- **IDEA-038 is already implemented** (commit `d3414728`, 2026-10-03, out-of-band: temporal filter
+  wired into Feed, Favorites and Account). No story needed; the row is still `backlog` in
+  `backlog.yaml` and should be closed. Nothing in this doc is left open.
+- Not in this doc but moved on since: FIND-053 shipped (commit `f214f4e4`, 2026-09-26), see the
+  closeout plan.
+
 ## Why these are split from the other plan
 
 Unlike the Epic-1 cluster, these rows don't share one mechanism or one epic-routing question.
@@ -345,9 +360,7 @@ short of an actual story file.
   FIND-025's still-open finding (2), a lint guard, must fold into this story too. Independent of
   1.i1i/1.i1j — no blocker.
 
-- [ ] IDEA-038 story — still blocked; its two prerequisites are now themselves storied and
-      `ready-for-dev` (Story 1.3l for BUG-025, Story 0.i5e for the controller adoption) — see
-      `event-pages-dev-story-tracking.md` for the dispatch order
+- [x] IDEA-038 story — not needed: shipped out-of-band 2026-10-03, commit `d3414728`
 - [x] IDEA-039 story (Story 1.i1g) — created 2026-09-19 (`ritual-orchestrator` batch,
       `all-claude-medium`), now `review` (implementation landed, verified 2026-09-22). Gate raised
       3 design questions (spanning-bar banner layout, overlap stacking, keyboard nav), all resolved
@@ -386,9 +399,9 @@ short of an actual story file.
 - [x] BUG-007 — Story 2.i1a (`review`)
 - [x] BUG-008 — Story 2.i1a (`review`)
 - [x] BUG-009
-- [ ] BUG-018 — fix applied 2026-09-17 alongside BUG-031 (shared root cause, `min-h-16` sentinel
-      fix), but per Cluster B's own standing caution, not yet independently re-verified against
-      BUG-018's exact original repro steps — left unchecked until that verification runs
+- [x] BUG-018 — fix applied 2026-09-17 alongside BUG-031; independently re-verified 2026-09-30
+      (8 consecutive scroll-to-bottom calls, no manual correction; see closeout plan), `backlog.yaml`
+      `done`
 - [x] BUG-019 — Story 0.i5b (`review`)
 - [x] BUG-031 — root cause confirmed and fixed 2026-09-17 (see Cluster B above): collapsing
       infinite-scroll sentinel triggered native scroll-anchoring; fixed via `min-h-16` + end-of-list
@@ -409,12 +422,11 @@ short of an actual story file.
 - [x] FIND-026 — Story 1.i1h (created 2026-09-19, same story as BUG-036; now `review` as of
       2026-09-22)
 - [x] FIND-029 — bundled into Story 0.36 (`review`), created 2026-09-16
-- [x] IDEA-003 — Story 1.3k (`ready-for-dev`)
+- [x] IDEA-003 — Story 1.3k (`review` as of 2026-10-05)
 - [x] IDEA-011 — Story 0.i5a (`review`)
 - [x] IDEA-012 — Story 0.37 (`review`)
-- [x] IDEA-019 — Story 0.i5d (`ready-for-dev`); child row IDEA-038 carved for Feed/Favorites
-- [x] IDEA-020 — Story 0.38a now `review` (implementation landed), Story 0.38 still `ready-for-dev`
-      (blocked on 0.38a + 0.42, latter now also `review`)
+- [x] IDEA-019 — Story 0.i5d (`review` as of 2026-10-05); child row IDEA-038 carved for Feed/Favorites
+- [x] IDEA-020 — Stories 0.38a, 0.42 and 0.38 all `review` as of 2026-10-05
 - [x] IDEA-025 — Story 1.i1j (now `review`, implementation landed 2026-09-22, commit `d1b135b8` —
       prerequisites 1.i1f + 1.i1i both reached `review` first); child rows IDEA-041/IDEA-042 carved
       (Stories 1.i1i/1.i1k, both now `review` as of 2026-09-22)
@@ -423,9 +435,8 @@ short of an actual story file.
       1.i1g/1.i1h/0.39, all now `review` as of 2026-09-22)
 - [x] IDEA-030 — Story 1.6f (`review`); see corrected note in Cluster A above
 - [x] IDEA-031 — Story 0.i6f (2026-09-16)
-- [ ] IDEA-038 (Story 0.i5d's own child, Cluster F) — still blocked, not yet story-created;
-      prerequisite Story 1.3l (BUG-025) now `review` (implementation landed), Story 0.i5e still
-      `ready-for-dev` — both still short of `done`, so still blocked (verified 2026-09-22)
+- [x] IDEA-038 (Story 0.i5d's own child, Cluster F) — implemented out-of-band, commit `d3414728`
+      (2026-10-03); no story file. Close the `backlog.yaml` row
 - [x] IDEA-039 (Story 1.i1f's own child, Cluster F) — Story 1.i1g (created 2026-09-19, now
       `review` as of 2026-09-22)
 - [x] IDEA-040 (Story 1.i1f's own child, Cluster F) — Story 0.39 (created 2026-09-19, now `review`

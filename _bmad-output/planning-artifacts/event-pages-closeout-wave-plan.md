@@ -11,6 +11,26 @@ during a 2026-09-29/30 spec-conflict audit that never made it into any of the th
 Same rule as its predecessors: update checkboxes live, don't let this drift from `backlog.yaml`'s
 real state.
 
+## Reconciliation, 2026-10-05
+
+This is the live plan for the event-pages tail; the three older docs now defer to it.
+Verified against `sprint-status.yaml`, `backlog.yaml` and the code:
+
+- **Waves A and B are fully built** (all 8 stories `review`, as ticked). Nothing left to dispatch.
+- **FIND-053 was already shipped** on 2026-09-26 (commit `f214f4e4`, before this plan was written),
+  so the Wave 1 entry was stale. Ticked below. Its `backlog.yaml` row is still `triaged`: stale, fix
+  the row.
+- **IDEA-038 and IDEA-048 are already shipped** (commit `d3414728`, 2026-10-03, out-of-band); my
+  first 2026-10-05 pass wrongly listed them as pending. Corrected in Wave C / Wave 3 below.
+- **Wave 0 doc fix still pending:** `EVENT-CARD-DESIGN.md` line 277 still carries the
+  `max-w-[230px]` token that Story 0.45 removed.
+- **Still pending, no commit references them:** FIND-059, FIND-054, FIND-052, FIND-031, FIND-032,
+  IDEA-035. (IDEA-028 and IDEA-048: see below, both shipped.)
+- **IDEA-028 is already built**, not a pending Wave 4: `backlog.yaml` is `promoted` with stories
+  3.7f–3.7i, all `review` (tracked in `cc-024-multi-event-wave-plan.md`). The entry below is
+  superseded; only code review is left.
+- FIND-064 (shared dev database in tests) is still open in `backlog.yaml`.
+
 ## Why this doc exists
 
 A 2026-09-29 audit (prompted by the user asking whether the backlog still matched the finalized
@@ -61,7 +81,12 @@ least `review`.
 
 ## Wave C — re-invoke create-story (only after 0.i5e **and 0.i5d** reach at least `review`)
 
-- [ ] **IDEA-038** — Re-run `bmad-create-story IDEA-038` (extend the Today/Upcoming/All temporal
+- [x] **IDEA-038** — **SHIPPED out-of-band 2026-10-03, commit `d3414728`** (not via create-story; found
+      2026-10-05): `useTemporalFilter` + `temporalFilter` wired into Feed, Favorites and Account;
+      `buildFeedQueryCondition`/`buildAccountEventsQueryCondition` accept it. Do NOT run
+      `bmad-create-story IDEA-038`. Open: `backlog.yaml` row still `backlog`; no story file or
+      `sprint-status.yaml` entry records it. Original entry kept below for history —
+      Re-run `bmad-create-story IDEA-038` (extend the Today/Upcoming/All temporal
       filter to Feed/Favorites). Its prior dispatch (2026-09-19) declined and carved 0.i5e as a
       missing prerequisite instead — see `event-pages-dev-story-tracking.md`'s own "IDEA-038's own
       unblock chain" section for the full history. IDEA-038 extends 0.i5d's `TemporalFilterToggle` /
@@ -76,8 +101,8 @@ least `review`.
 
 ## Wave 1 — trivial, independent cleanup (`bmad-quick-dev`, bundle in one pass)
 
-- [ ] **FIND-053** — `EventCard.tsx`'s `variant='standard'` branch is dead code; delete it and its
-      dedicated tests.
+- [x] **FIND-053** — `EventCard.tsx`'s `variant='standard'` branch is dead code; delete it and its
+      dedicated tests. **Already shipped 2026-09-26, commit `f214f4e4`** (found stale 2026-10-05).
 - [ ] **FIND-059** — Story 1.i1o code review: card-list page `/id` integration tests only assert
       `favoriteToggle`, missing till/status/nearby assertions.
 - [ ] **FIND-054** — `PageContainer`'s `fullWidth=false` variant has the same latent
@@ -96,7 +121,13 @@ least `review`.
       `EventDetailViewLabels`) and `en.json`/`id.json`.
 - [ ] **IDEA-035** — Formalize scroll-to-top-on-filter-reset as a cross-surface EXPERIENCE.md
       convention (currently a single-surface Discovery-only implementation).
-- [ ] **IDEA-048** — Mobile Vertical Day List's favorite pill still corner-overlays the thumbnail
+- [x] **IDEA-048** — **SHIPPED out-of-band 2026-10-03, commit `d3414728`** (found 2026-10-05):
+      `EventCardCompact.tsx:246-260` and `WeeklyCalendarView.tsx`'s `CalendarCard` pass
+      `hideFavoriteBadge` and render the pill externally at `absolute -top-1.5 -right-1.5 z-30`,
+      exactly the user-directed fix below. Residual: the slot's own with-image branch
+      (`EventCardMediaPrimitives.tsx:255-266`) is now unreachable in production (both callers hide
+      it) and a Story 1.i1m comment still describes it as live. Original entry, for history:
+      Mobile Vertical Day List's favorite pill still corner-overlays the thumbnail
       (`EventCardMediaPrimitives.tsx:265`, `absolute top-1 right-1`); user-directed fix (2026-09-29)
       mirrors the till badge's floating-corner treatment onto the opposite corner
       (`-top-1.5 -right-1.5`) — will need the same "pull out of the clipped `EventCardMediaSlot`"
@@ -105,9 +136,10 @@ least `review`.
 
 ## Wave 4 — large standalone feature (own wave, likely splits into multiple stories)
 
-- [ ] **IDEA-028** — Platform-prefixed event slugs (Architecture Spine AD-16), DB-free
-      truly-parallel Instagram oEmbed resolution for the event-detail page. Architecture already
-      done; ready for `bmad-create-story` directly.
+- [x] **IDEA-028** — Platform-prefixed event slugs (Architecture Spine AD-16), DB-free
+      truly-parallel Instagram oEmbed resolution for the event-detail page. **Built 2026-10-02 as
+      Stories 3.7f–3.7i (all `review`), tracked in `cc-024-multi-event-wave-plan.md` Wave 2A.**
+      Only `bmad-code-review` remains (skipped here).
 
 ## Resolved during this audit (no dispatch needed — recorded here for the checklist trail)
 

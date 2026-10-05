@@ -12,6 +12,15 @@ and both changes edit the same extraction code (`build-gemini-request.ts`, `proc
 **Wave 4C** below. CC-023's own proposal stays the source for *what* they build; this plan owns *when* and
 *in what order relative to CC-024*.
 
+**Reconciliation (2026-10-05):** checked against `sprint-status.yaml`. Waves 2A, 2B, 2C, 3, 4A, 4B
+and the built part of 4C match the file: every story ticked `dev` is `review`. **Still pending
+(no story file yet, all `backlog`):** 3.6n2 (Wave 4C), 3.6w, 3.6x, 3.18 (Wave 5), 3.17 and 3.19
+(the deferred, unswept ones). **Pending, blocked on an architecture decision:** AD-32 and
+0.i2a/0.i2c/0.i2b/0.i2z (all `backlog`). **Pending, nothing built:** Wave 6 closeout.
+Not in this plan but landed alongside it: Stories 3.20 and 3.21 (blur before the AI, both `done`),
+0.40 (`done`) and 4.2b (`review`). `backlog.yaml` drift: CC-024's `stories:` lists only 3.6r–3.6u,
+and BUG-051 is still `backlog`, though both are covered by built stories.
+
 **Inputs:** `sprint-change-proposal-2026-10-01-multi-event-posts.md` (the approved proposal),
 Architecture Spine **AD-30** (Event↔Post many-to-many), **AD-31** (post–account associations),
 the **AD-16** (platform-prefixed slugs) and **AD-17** (hot-path rules) amendments, PRD **FR113**

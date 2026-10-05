@@ -9,6 +9,18 @@ dispatch order for the resulting `ready-for-dev` queue, the real dependency grap
 today), and current status. Update checkboxes/status live as `bmad-dev-story` runs land — don't
 let this drift the way the other two docs did.
 
+## Reconciliation, 2026-10-05
+
+Checked against `sprint-status.yaml`: **every story in the `ready-for-dev` queue below has since
+been built and is at `review`** (the 2026-09-30 Wave A/B batch). Nothing here is left to dispatch to
+`bmad-dev-story`. The checkboxes and status table below are updated; the only open items are:
+
+- **IDEA-038** — already implemented out-of-band (commit `d3414728`, 2026-10-03, Feed/Favorites/
+  Account). No `bmad-create-story` needed.
+- **Story 0.43** (visual-fidelity audit tool) and **Story 0.44** (its testing standard) are both
+  `done` — the 0.44 -> 0.43 block described near the end of this doc is closed.
+- Story **1.i1f** is `done` (was `review`). 1.i1n and 1.i1o are `done` too.
+
 ## Why this doc exists
 
 Both source plans are now past `bmad-create-story`. What's left is execution order: 19 stories
@@ -65,8 +77,8 @@ another story in this set.
 
 **Wave 1 — prerequisites (dispatch first, unlocks the most/heaviest downstream work):**
 
-- [x] 1.i1f (m)
-- [ ] 1.6d (s)
+- [x] 1.i1f (m) — `done`
+- [x] 1.6d (s) — `review` (2026-10-05)
 - [x] 0.42 (m)
 - [x] 1.3l (s) — BUG-025
 - [x] 1.3j (m)
@@ -75,23 +87,23 @@ another story in this set.
 
 **Wave 2 — standalone (no dependents waiting; slot anywhere, including interleaved with Wave 1 on business priority):**
 
-- [ ] 1.3k (m)
-- [ ] 0.i5d (—)
+- [x] 1.3k (m) — `review`
+- [x] 0.i5d (—) — `review`
 - [x] 1.i1k (—) — verified 2026-09-22 via `sprint-status.yaml`, now `review` (commit `c80cd9bd`)
 
 **Wave 3 — dependents (only after their own prerequisite lands):**
 
-- [ ] 1.6c — needs 1.3j (1.3j now `review`, implementation landed — prerequisite satisfied)
-- [ ] 1.6e — needs 1.6d
-- [ ] 0.i6e — needs 1.6d
+- [x] 1.6c (`review`) — needs 1.3j (1.3j now `review`, implementation landed — prerequisite satisfied)
+- [x] 1.6e (`review`) — needs 1.6d
+- [x] 0.i6e (`review`) — needs 1.6d
 - [x] 1.i1g — needs 1.i1f; verified 2026-09-22 via `sprint-status.yaml`, now `review`
 - [x] 1.i1h — needs 1.i1f; verified 2026-09-22 via `sprint-status.yaml`, now `review`
 - [x] 1.i1j — needs 1.i1f + 1.i1i; verified 2026-09-22 via `sprint-status.yaml`, now `review`
       (commit `d1b135b8`)
 - [x] 0.39 — needs 0.42 (epics.md gap, see above — verified via the story's own file)
-- [ ] 0.38 — needs 0.38a + 0.42 (its own Tasks 1-3 have no prerequisite and could start early,
+- [x] 0.38 (`review`) — needs 0.38a + 0.42 (its own Tasks 1-3 have no prerequisite and could start early,
       but treat as gated since dispatch is whole-story)
-- [ ] 0.i5e — needs 0.i5a (already `review`, shipped) + 1.3l
+- [x] 0.i5e (`review`) — needs 0.i5a (already `review`, shipped) + 1.3l
 
 ## IDEA-038's own unblock chain (tracked separately — not yet story-created)
 
@@ -100,11 +112,11 @@ IDEA-038 (extend the Today/Upcoming/All temporal filter to Feed/Favorites) stays
 declined to draft it yet (per `AskUserQuestion`, "create the missing prerequisite story first")
 and instead carved **Story 0.i5e** as a new prerequisite. Full chain:
 
-1. [ ] Story 1.3l (BUG-025) reaches at least `review` — wires Feed/Favorites to real
+1. [x] Story 1.3l (BUG-025) reaches at least `review` — wires Feed/Favorites to real
        auth/location/AI-filter state
-2. [ ] Story 0.i5e reaches at least `review` — adopts `useListPaginationController` in Feed/Favorites
+2. [x] Story 0.i5e reaches at least `review` — adopts `useListPaginationController` in Feed/Favorites
        (depends on 1.3l per its own epics.md `Depends on:` line, plus already-shipped 0.i5a)
-3. [ ] Story 0.i5d reaches at least `review` — builds `TemporalFilterToggle` /
+3. [x] Story 0.i5d reaches at least `review` — builds `TemporalFilterToggle` /
        `EventFilterInput.temporalFilter`, which IDEA-038 extends to Feed/Favorites (added
        2026-09-30, batch readiness report; standalone, no dependency on the two above)
 4. [ ] Re-invoke `bmad-create-story` for IDEA-038 once all three are at least `review` — only then
@@ -117,13 +129,13 @@ and instead carved **Story 0.i5e** as a new prerequisite. Full chain:
 | Story | Backlog row(s) | Status | Notes |
 |---|---|---|---|
 | 1.3j | BUG-030, FIND-027, BUG-034, FIND-028 | `review` | implementation landed (`8879447`); batch resumed 2026-09-20 with bookkeeping fix-up — run `code-review` before `done` |
-| 1.6c | BUG-033, BUG-035, FIND-030 | `ready-for-dev` | needs 1.3j (now `review` — prerequisite satisfied) |
-| 1.6d | IDEA-029 | `ready-for-dev` | |
-| 1.6e | IDEA-033 | `ready-for-dev` | needs 1.6d |
-| 0.i6e | IDEA-032 | `ready-for-dev` | needs 1.6d |
-| 1.3k | IDEA-003 (day-of-week extension) | `ready-for-dev` | standalone |
-| 0.i5d | IDEA-019 | `ready-for-dev` | standalone |
-| 1.i1f | IDEA-026 | `review` | standalone, highest fan-out — implementation landed |
+| 1.6c | BUG-033, BUG-035, FIND-030 | `review` | needs 1.3j (now `review` — prerequisite satisfied) |
+| 1.6d | IDEA-029 | `review` | |
+| 1.6e | IDEA-033 | `review` | needs 1.6d |
+| 0.i6e | IDEA-032 | `review` | needs 1.6d |
+| 1.3k | IDEA-003 (day-of-week extension) | `review` | standalone |
+| 0.i5d | IDEA-019 | `review` | standalone |
+| 1.i1f | IDEA-026 | `done` | standalone, highest fan-out — implementation landed |
 | 1.i1i | IDEA-041 | `review` | standalone — implementation landed (verified 2026-09-22) |
 | 1.i1j | IDEA-025 | `review` | needs 1.i1f + 1.i1i — implementation landed, commit `d1b135b8` (verified 2026-09-22) |
 | 1.i1k | IDEA-042 | `review` | standalone — implementation landed, commit `c80cd9bd` (verified 2026-09-22) |
@@ -132,9 +144,9 @@ and instead carved **Story 0.i5e** as a new prerequisite. Full chain:
 | 0.39 | IDEA-040 | `review` | needs 0.42 (epics.md gap) — prerequisite satisfied, implementation landed |
 | 0.42 | (carved from IDEA-040's create-story) | `review` | standalone — implementation landed |
 | 0.38a | (carved from IDEA-020) | `review` | standalone — implementation landed |
-| 0.38 | IDEA-020 | `ready-for-dev` | needs 0.38a + 0.42 |
+| 0.38 | IDEA-020 | `review` | needs 0.38a + 0.42 |
 | 1.3l | BUG-025 | `review` | standalone — implementation landed |
-| 0.i5e | (carved from IDEA-038's create-story) | `ready-for-dev` | needs 1.3l |
+| 0.i5e | (carved from IDEA-038's create-story) | `review` | needs 1.3l |
 | — | IDEA-038 | `backlog` (not yet storied) | blocked on 1.3l + 0.i5e + 0.i5d reaching at least `review` |
 
 ## Prototype coverage — 2026-09-14 UX pass (audited 2026-09-20)
@@ -273,10 +285,10 @@ was drafted.
 
 ## Story 0.44 -> Story 0.43 dependency (packages/visual-audit)
 
-**Story 0.43** (`0-43-visual-fidelity-audit-tool`, `ready-for-dev`) — the new `packages/visual-audit`
+**Story 0.43** (`0-43-visual-fidelity-audit-tool`, now `done`) — the new `packages/visual-audit`
 tool (Architecture Spine AD-26) this session's own audit findings above (the `EventCardDateBox`
 overflow bug) motivated — is now **blocked on Story 0.44**
-(`0-44-define-testing-standard-for-meta-testing-tooling-packages`, `ready-for-dev`) reaching `done`.
+(`0-44-define-testing-standard-for-meta-testing-tooling-packages`, now `done`) reaching `done`. **CLOSED 2026-10-05: both stories are `done`; the block below is history.**
 
 0.43's own Gate 3 pass found `project-context.md`'s Testing Rules section has no tier for a
 meta-testing/tooling package (neither `packages/domain`'s 100%-unit tier nor `apps/*`'s
