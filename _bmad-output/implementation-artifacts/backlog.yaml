@@ -1338,14 +1338,25 @@ items:
      note: "Carved from CC-025 (section 13) on Story 3.16's promotion: 3.16 covered only one of CC-025's five tracked stories. Tracks the still-not-created 3.17/3.18/3.19/0.i6g so they stay visible. Promoted 2026-10-03 on Story 0.i6g; remaining fan-out (3.17-3.19) carved to CC-027."}
 
   CC-027:
-    {type: proposal, status: triaged, created: 2026-10-03, parent: CC-026,
+    {type: proposal, status: promoted, created: 2026-10-03, parent: CC-026,
      title: "Remaining FIND-022 coauthor/publisher stories not yet created (3.17-3.19)",
      ref: [backlog/FIND-022-coauthor-content-issues.md,
            specs/spec-post-coauthor-attribution/SPEC.md,
            planning-artifacts/sprint-change-proposal-2026-09-18.md],
      touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions, pkg:ui],
      impact: user-visible, effort: l,
-     note: "Partial-promotion carve-out from CC-026 (section 13): CC-026 covered only 0.i6g of its four tracked stories. Tracks the still-not-created 3.17 (demand-gated discovery), 3.18 (union-of-associations account filtering), 3.19 (sanitized subscription-toggle analytics) so they stay visible."}
+     stories: [3-18-union-of-associations-account-filtering],
+     note: "Partial-promotion carve-out from CC-026 (section 13): tracked 3.17, 3.18, 3.19. Promoted 2026-10-05 on Story 3.18; remaining fan-out (3.17, 3.19) carved to CC-029."}
+
+  CC-029:
+    {type: proposal, status: triaged, created: 2026-10-05, parent: CC-027,
+     title: "Remaining FIND-022 coauthor/publisher stories not yet created (3.17, 3.19)",
+     ref: [backlog/FIND-022-coauthor-content-issues.md,
+           specs/spec-post-coauthor-attribution/SPEC.md,
+           planning-artifacts/sprint-change-proposal-2026-09-18.md],
+     touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions],
+     impact: user-visible, effort: m,
+     note: "Partial-promotion carve-out from CC-027 (section 13): CC-027 covered only 3.18 of its three tracked stories. Tracks the still-not-created 3.17 (demand-gated discovery for scrape-discovered profiles) and 3.19 (sanitized subscription-toggle analytics) so they stay visible."}
 
   FIND-039:
     {type: finding, status: backlog, created: 2026-09-18, parent: CC-022,
