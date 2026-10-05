@@ -1382,4 +1382,30 @@ describe('EventDetailView', () => {
       expect(onRelatedEventClick).toHaveBeenCalledWith(expect.objectContaining({ id: 'ev-b' }));
     });
   });
+
+  describe('schedule date/time formatting (venue wall-clock values from the DB)', () => {
+    const base = minimalProps;
+    const renderWith = (schedule: Record<string, unknown>) =>
+      render(<EventDetailView {...base} schedules={[{ id: 's1', ...schedule } as any]} />);
+
+    it('shows the start and end time of a same-day schedule from date + HH:MM:SS strings', () => {
+      renderWith({ eventStartDate: '2026-10-12', eventStartTime: '19:00:00', eventEndDate: '2026-10-12', eventEndTime: '21:30:00' });
+      expect(screen.getByText('Mon, Oct 12, 2026, 7:00 PM - 9:30 PM')).toBeInTheDocument();
+    });
+
+    it('shows start time only when there is no end time', () => {
+      renderWith({ eventStartDate: '2026-10-12', eventStartTime: '09:15:00', eventEndDate: null, eventEndTime: null });
+      expect(screen.getByText('Mon, Oct 12, 2026, 9:15 AM')).toBeInTheDocument();
+    });
+
+    it('shows each end of a multi-day schedule with its own time', () => {
+      renderWith({ eventStartDate: '2026-10-12', eventStartTime: '10:00:00', eventEndDate: '2026-10-14', eventEndTime: '18:00:00' });
+      expect(screen.getByText('Mon, Oct 12, 2026, 10:00 AM - Wed, Oct 14, 2026, 6:00 PM')).toBeInTheDocument();
+    });
+
+    it('shows no time of day for a date-only schedule', () => {
+      renderWith({ eventStartDate: '2026-10-12', eventStartTime: null, eventEndDate: null, eventEndTime: null });
+      expect(screen.getByText('Mon, Oct 12, 2026')).toBeInTheDocument();
+    });
+  });
 });

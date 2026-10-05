@@ -216,33 +216,40 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
     );
   }
 
+  // Schedule dates/times are venue wall-clock values (`date` / `time` columns, e.g. "2026-10-12"
+  // and "19:00:00"), not instants. They are combined into one UTC-anchored Date and formatted
+  // with `timeZone: 'UTC'` so the browser's own timezone can neither shift the day nor invent a
+  // time of day for a date-only value.
   const formatScheduleDate = (schedule: ScheduleDetail) => {
     try {
-      const options: Intl.DateTimeFormatOptions = {
+      const wallClockTime = /^(\d{1,2}):(\d{2})(?::\d{2})?$/;
+      const toWallClockDate = (date: string, time?: string | null): Date => {
+        const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(date) ? `${date}T00:00:00Z` : date);
+        const m = time ? wallClockTime.exec(time.trim()) : null;
+        if (m) {
+          d.setUTCHours(Number(m[1]), Number(m[2]), 0, 0);
+        }
+        return d;
+      };
+      const hasStartTime = !!schedule.eventStartTime && wallClockTime.test(schedule.eventStartTime.trim());
+      const hasEndTime = !!schedule.eventEndTime && wallClockTime.test(schedule.eventEndTime.trim());
+      const dateOptions: Intl.DateTimeFormatOptions = {
         weekday: 'short',
         year: 'numeric',
         month: 'short',
         day: 'numeric',
-        hour: schedule.eventStartTime ? 'numeric' : undefined,
-        minute: schedule.eventStartTime ? '2-digit' : undefined,
+        timeZone: 'UTC',
       };
-      
-      const startDate = new Date(schedule.eventStartDate);
-      let dateString = new Intl.DateTimeFormat(locale, options).format(startDate);
-      
-      // If we only have an end time but no end date, or end date is the same
+      const timeOptions: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' };
+
+      const startDate = toWallClockDate(schedule.eventStartDate, schedule.eventStartTime);
+      let dateString = new Intl.DateTimeFormat(locale, hasStartTime ? { ...dateOptions, ...timeOptions } : dateOptions).format(startDate);
+
       if (schedule.eventEndDate && schedule.eventEndDate !== schedule.eventStartDate) {
-        const endDateOptions: Intl.DateTimeFormatOptions = {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-        };
-        const endDate = new Date(schedule.eventEndDate);
-        dateString += ` - ${new Intl.DateTimeFormat(locale, endDateOptions).format(endDate)}`;
-      } else if (schedule.eventEndTime && schedule.eventStartTime) {
-          // just append time
-          dateString += ` - ${schedule.eventEndTime}`;
+        const endDate = toWallClockDate(schedule.eventEndDate, schedule.eventEndTime);
+        dateString += ` - ${new Intl.DateTimeFormat(locale, hasEndTime ? { ...dateOptions, ...timeOptions } : dateOptions).format(endDate)}`;
+      } else if (hasEndTime && hasStartTime) {
+        dateString += ` - ${new Intl.DateTimeFormat(locale, timeOptions).format(toWallClockDate(schedule.eventStartDate, schedule.eventEndTime))}`;
       }
       return dateString;
     } catch (e) {

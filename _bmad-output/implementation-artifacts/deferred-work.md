@@ -633,3 +633,12 @@ This file tracks work deferred from development stories, code reviews, and plann
 - Cover blur failure drops all slides (outer catch -> text-only) instead of blurring slides independently; slide drops/blur failures and fetch-vs-no-image are not distinguishable in `ai_image_input` [build-gemini-request.ts]
 - CDK passes `process.env.BLUR_FACES_BEFORE_AI || 'true'` through unnormalised (deploy-shell dependent) and the infra test asserts presence only, not the value [festgrid-backend-stack.ts:489]
 - Test weaknesses: no multi-slide byte-for-byte test for off/opted-in modes (3.20 Task 5.1); live parity test counts a fail-closed text-only run as a blurred run and records cover face count only; benchmark script re-implements the blur on a synthetic fixture that detects zero faces; source-regex resolver guard is cwd/shape dependent
+
+## Deferred from: quick-dev of event detail schedule display and ingestion slug identity (2026-10-05, `bmad-quick-dev`)
+
+- source_spec: none
+  summary: The frontend event list never shows `posts.durable_thumbnail_url` -- the GraphQL field, resolver select sites, `resolveServedImageUrl` three-way precedence, web mapper/codegen and `EventListView`'s `prominentPoster` widening (Story 3.6n2, still `backlog` in sprint-status) were never built, so the face-blurred thumbnail the pipeline writes is unreachable from the UI.
+  evidence: Split from this run's intent by the user at the multi-goal check (`[S]`): bugs 2 and 3 first. Story 3.6n's own AC7/Dev Notes already record the precedence decision ("thumbnail fills the gap only") -- feature-sized, not a bug fix.
+- source_spec: none
+  summary: Events already ingested with a legacy 12-hex slug (because their post had null `platform_post_id`/`platform_post_type`) keep that slug after this fix -- the fix only affects events ingested from now on. Healing them needs a posts-identity backfill (migration 0062 added the columns with none) plus a slug re-key through the Story 3.6v `event_slug_aliases` redirect so old URLs (e.g. `/en/events/ea98b320ba01`) keep working.
+  evidence: Re-keying published slugs is a data migration with URL-compatibility consequences beyond this fix's blast radius; also left unchanged on purpose: `persistScrapedPost`'s dedupe branch still never backfills identity (its test (p) records that as a deliberate decision), so the fix derives identity at ingestion time instead.

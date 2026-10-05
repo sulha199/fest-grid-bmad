@@ -27,6 +27,7 @@ test('processIngestionJob integration tests', async (t) => {
   const postId3 = 'post-ingest-3-' + Date.now();
   const postId4 = 'post-ingest-4-' + Date.now();
 
+  const extraSeededPostIds: string[] = [];
   let profile: any;
   let seededPost1: any;
   let seededPost2: any;
@@ -284,6 +285,7 @@ test('processIngestionJob integration tests', async (t) => {
       seededPost12.id,
       seededPost13.id,
       seededPost14.id,
+      ...extraSeededPostIds,
     ];
 
     // delete all schedules/event_posts linked to events we might have inserted
@@ -369,9 +371,12 @@ test('processIngestionJob integration tests', async (t) => {
     assert.strictEqual(insertedEvent.eventName, message.eventName);
     assert.strictEqual(insertedEvent.location, 'Chicago, IL');
     assert.strictEqual(insertedEvent.confidenceScore, 0.99);
-    // Story 3.7g AC2 — seededPost1 has no platformPostId/platformPostType, so the legacy hex
-    // fallback ($defaultFn) must have fired: unambiguous by shape, unchanged.
-    assert.match(insertedEvent.slug, /^[0-9a-f]{12}$/);
+    // seededPost1 has null platformPostId/platformPostType but a parseable permalink postUrl, so
+    // ingestion derives the identity from the URL (not the legacy hex fallback) and heals the row.
+    assert.strictEqual(insertedEvent.slug, `ig_p_${postId1}`);
+    const [healedPost1] = await db.select().from(posts).where(eq(posts.id, seededPost1.id));
+    assert.strictEqual(healedPost1.platformPostId, postId1);
+    assert.strictEqual(healedPost1.platformPostType, 'p');
 
     // Verify schedules rows exist
     const insertedSchedules = await db
@@ -444,8 +449,8 @@ test('processIngestionJob integration tests', async (t) => {
 
     assert.ok(insertedEvent);
     assert.strictEqual(insertedEvent.location, 'Location not specified');
-    // Story 3.7g AC2 — seededPost2 also has no platformPostId/platformPostType.
-    assert.match(insertedEvent.slug, /^[0-9a-f]{12}$/);
+    // seededPost2 also has null identity columns but a parseable postUrl.
+    assert.strictEqual(insertedEvent.slug, `ig_p_${postId2}`);
 
     const insertedSchedules = await db
       .select()
@@ -476,6 +481,31 @@ test('processIngestionJob integration tests', async (t) => {
 
     assert.ok(insertedEvent);
     assert.strictEqual(insertedEvent.slug, 'ig_p_Cx9uWttkSN');
+  });
+
+  await t.test('Story 3.7g AC2: a post whose URLs carry no parseable permalink keeps the legacy hex slug and stays null', async () => {
+    const [unparseablePost] = await db
+      .insert(posts)
+      .values({
+        accountId: profile.id,
+        platform: 'instagram',
+        content: 'A post with no permalink-shaped URL',
+        postUrl: 'https://example.com/story/unparseable-' + Date.now(),
+        publishedAt: new Date(),
+      })
+      .returning();
+    extraSeededPostIds.push(unparseablePost.id);
+
+    const res = await processIngestionJob(
+      baseExtractedEventMessage({ postId: unparseablePost.id, sourceSocialMediaAccountId: accountId })
+    );
+    assert.strictEqual(res.inserted, true);
+
+    const [insertedEvent] = await db.select().from(events).where(eq(events.postId, unparseablePost.id));
+    assert.match(insertedEvent.slug, /^[0-9a-f]{12}$/);
+    const [unchangedPost] = await db.select().from(posts).where(eq(posts.id, unparseablePost.id));
+    assert.strictEqual(unchangedPost.platformPostId, null);
+    assert.strictEqual(unchangedPost.platformPostType, null);
   });
 
   await t.test('FIND-061: does not resolve until the notification seam has resolved', async (t) => {
@@ -572,9 +602,9 @@ test('processIngestionJob integration tests', async (t) => {
     const [insertedEvent] = await db.select().from(events).where(eq(events.postId, seededPost6.id));
     assert.ok(insertedEvent);
     assert.strictEqual(insertedEvent.extractionOrdinal, 0);
-    // seededPost6 has no platformPostId/platformPostType, so this is the legacy hex fallback --
-    // unsuffixed either way, but confirms the ordinal-0 default didn't throw a validation error.
-    assert.match(insertedEvent.slug, /^[0-9a-f]{12}$/);
+    // seededPost6 has null identity columns but a parseable postUrl, so the slug is derived and
+    // unsuffixed -- confirms the ordinal-0 default didn't throw a validation error.
+    assert.strictEqual(insertedEvent.slug, `ig_p_${postId6}`);
   });
 
   await t.test('Story 3.6t (Task 9.3, AC6): re-sending the same (postId, extractionOrdinal) pair a second time is an idempotent skip', async () => {

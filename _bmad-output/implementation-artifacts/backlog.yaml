@@ -1920,3 +1920,19 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      touches: [app:backend, app:infrastructure, cross:ai-extraction],
      note: "Deferred from: code review of stories 3-20 and 3-21 (2026-10-04, CC-028 blur-before-AI). 5 findings."}
+
+  FIND-070:
+    {type: bug, status: backlog, created: 2026-10-05,
+     impact: user-visible, effort: m,
+     title: "Frontend event list never loads durable_thumbnail_url (Story 3.6n2 read path unbuilt)",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend, web:events, pkg:ui, pkg:domain],
+     note: "Deferred from: quick-dev of event detail schedule display and ingestion slug identity (2026-10-05, `bmad-quick-dev`). Same work as sprint-status 3-6n2-expose-the-face-blurred-thumbnail-through-the-read-path-and-widen-the-prominent-card-trigger (backlog)."}
+
+  FIND-071:
+    {type: finding, status: backlog, created: 2026-10-05,
+     impact: user-visible, effort: m,
+     title: "Already-ingested events keep legacy hex slugs; backfill post identity and re-key slugs via aliases",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend, pkg:database, web:events],
+     note: "Deferred from: quick-dev of event detail schedule display and ingestion slug identity (2026-10-05, `bmad-quick-dev`). Forward path fixed in process-ingestion-job.ts; existing rows are not healed."}

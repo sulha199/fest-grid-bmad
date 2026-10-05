@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '../../db/client.js';
 import { schedules, posts, eventPosts, eventMatchCandidates } from '@festgrid/database';
 import { ExtractedEventMessage, buildEventInsertValues } from '@festgrid/domain';
+import { parsePlatformPostIdentity } from '@festgrid/domain/scraper';
 import { insertEventWithPrimaryPost, enrichAndPromoteEvent } from '../events/set-event-primary-post.js';
 import { notifyNewEvent } from '../events/notify-new-event.js';
 import { isOrganizerAuthoredPost } from '../posts/is-organizer-authored-post.js';
@@ -43,11 +44,34 @@ export async function processIngestionJob(message: ExtractedEventMessage): Promi
         platform: posts.platform,
         platformPostId: posts.platformPostId,
         platformPostType: posts.platformPostType,
+        postUrl: posts.postUrl,
+        originalPostUrl: posts.originalPostUrl,
         groupingReason: posts.groupingReason,
       })
       .from(posts)
       .where(eq(posts.id, message.postId))
       .limit(1);
+
+    // A post scraped before platform identity was captured at scrape time (migration 0062 added
+    // the columns with no backfill) -- or re-found by persistScrapedPost's already-existed branch,
+    // which never wrote them -- has null identity here even though its URLs are perfectly
+    // parseable. Derive it from the stored URLs (same parser the scrape path uses) so the event
+    // still gets its platform-prefixed slug, and persist it so the post is healed for good. A
+    // genuinely unparseable URL stays null and keeps the legacy hex-slug fallback.
+    if (sourcePost && (sourcePost.platformPostId === null || sourcePost.platformPostType === null)) {
+      const derived = parsePlatformPostIdentity({
+        postUrl: sourcePost.postUrl,
+        originalPostUrl: sourcePost.originalPostUrl,
+      });
+      if (derived.platformPostId !== null && derived.platformPostType !== null) {
+        sourcePost.platformPostId = derived.platformPostId;
+        sourcePost.platformPostType = derived.platformPostType;
+        await tx
+          .update(posts)
+          .set({ platformPostId: derived.platformPostId, platformPostType: derived.platformPostType })
+          .where(eq(posts.id, message.postId));
+      }
+    }
 
     // Story 3.6t (AC3/AC5) — an event is a stub (never notifies) when its primary post's
     // grouping_reason is 'roundup' OR its primary post is curator-sourced (AD-31 Rule 3,
