@@ -160,7 +160,7 @@ export function mapGraphQLEventToDetailViewProps(
     types: mappedTypes,
     categories: mappedCategories,
     imageUrl: event.imageUrl,
-    imageFallbackUrl: event.durableImageUrl,
+    imageFallbackUrl: event.durableImageUrl || event.durableThumbnailUrl,
     imageAlt: event.eventName,
     instagramEmbedStatus: instagramEmbed?.status ?? null,
     instagramEmbedHtml: instagramEmbed?.html ?? null,

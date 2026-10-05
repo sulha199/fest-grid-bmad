@@ -9,6 +9,7 @@ query getEvents($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
       favoriteCount
       imageUrl
       durableImageUrl
+      durableThumbnailUrl
       location
       types
       categories
@@ -54,6 +55,7 @@ query getEventBySlug($slug: String!) {
     categories
     imageUrl
     durableImageUrl
+    durableThumbnailUrl
     videoUrl
     sourcePostUrl
     originalPostUrl
@@ -206,6 +208,7 @@ query getEventsForCalendar($limit: Int, $offset: Int, $perDayLimit: Int, $query:
       slug
       imageUrl
       durableImageUrl
+      durableThumbnailUrl
       location
       types
       categories
@@ -241,6 +244,7 @@ query getEventsForMyCalendar($limit: Int, $offset: Int, $query: EventQueryCondit
       slug
       imageUrl
       durableImageUrl
+      durableThumbnailUrl
       location
       types
       categories
@@ -277,6 +281,7 @@ query getArchivedEvents($limit: Int, $offset: Int) {
       eventName
       imageUrl
       durableImageUrl
+      durableThumbnailUrl
       location
       categories
       types

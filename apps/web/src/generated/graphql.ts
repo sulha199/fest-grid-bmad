@@ -279,6 +279,7 @@ export type Event = {
   deletedAt?: Maybe<Scalars['String']['output']>;
   description?: Maybe<Scalars['String']['output']>;
   durableImageUrl?: Maybe<Scalars['String']['output']>;
+  durableThumbnailUrl?: Maybe<Scalars['String']['output']>;
   eventName: Scalars['String']['output'];
   favoriteCount: Scalars['Int']['output'];
   hasPrivateContact: Scalars['Boolean']['output'];
@@ -1602,7 +1603,7 @@ export type GetEventsQueryVariables = Exact<{
 }>;
 
 
-export type GetEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, isFavorited: boolean, favoriteCount: number, imageUrl: string | null, durableImageUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventStartTime: string | null, eventEndDate: string | null, eventEndTime: string | null, ticketPrice: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
+export type GetEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, isFavorited: boolean, favoriteCount: number, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventStartTime: string | null, eventEndDate: string | null, eventEndTime: string | null, ticketPrice: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
 
 export type GetFavoritedEventIdsQueryVariables = Exact<{
   query?: EventQueryConditionInput | null | undefined;
@@ -1616,7 +1617,7 @@ export type GetEventBySlugQueryVariables = Exact<{
 }>;
 
 
-export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, durableImageUrl: string | null, videoUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, publishedAt: string | null, organizerName: string | null, contactInfo: string | null, hasPrivateContact: boolean, isFavorited: boolean, favoriteCount: number, isHiddenForCurrentUser: boolean, links: Array<{ url: string, label: string | null }> | null, sourceSocialMediaAccountProfile: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null, accountType: string | null, defaultLocation: { placeName: string | null, formattedAddress: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null } | null, coauthors: Array<{ accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null }>, sourcePosts: Array<{ postId: string, isPrimary: boolean, groupingReason: PostGroupingReason | null, extractedEventCount: number | null, postedAt: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, platformPostId: string | null, postType: string | null, account: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null } | null, coauthors: Array<{ accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null }> }>, schedules: Array<{ id: string, isMainSchedule: boolean, title: string | null, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
+export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, videoUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, publishedAt: string | null, organizerName: string | null, contactInfo: string | null, hasPrivateContact: boolean, isFavorited: boolean, favoriteCount: number, isHiddenForCurrentUser: boolean, links: Array<{ url: string, label: string | null }> | null, sourceSocialMediaAccountProfile: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null, accountType: string | null, defaultLocation: { placeName: string | null, formattedAddress: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null } | null, coauthors: Array<{ accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null }>, sourcePosts: Array<{ postId: string, isPrimary: boolean, groupingReason: PostGroupingReason | null, extractedEventCount: number | null, postedAt: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, platformPostId: string | null, postType: string | null, account: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null } | null, coauthors: Array<{ accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null }> }>, schedules: Array<{ id: string, isMainSchedule: boolean, title: string | null, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
 
 export type GetRelatedEventIdsQueryVariables = Exact<{
   eventId: string | number;
@@ -1654,7 +1655,7 @@ export type GetEventsForCalendarQueryVariables = Exact<{
 }>;
 
 
-export type GetEventsForCalendarQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, durableImageUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, isFavorited: boolean, favoriteCount: number, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, ticketPrice: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
+export type GetEventsForCalendarQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, isFavorited: boolean, favoriteCount: number, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, ticketPrice: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
 
 export type GetEventsForMyCalendarQueryVariables = Exact<{
   limit?: number | null | undefined;
@@ -1663,7 +1664,7 @@ export type GetEventsForMyCalendarQueryVariables = Exact<{
 }>;
 
 
-export type GetEventsForMyCalendarQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, durableImageUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, isFavorited: boolean, favoriteCount: number, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, ticketPrice: string | null, isAddedToCalendar: boolean, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
+export type GetEventsForMyCalendarQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, isFavorited: boolean, favoriteCount: number, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, ticketPrice: string | null, isAddedToCalendar: boolean, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
 
 export type GetArchivedEventsQueryVariables = Exact<{
   limit?: number | null | undefined;
@@ -1671,7 +1672,7 @@ export type GetArchivedEventsQueryVariables = Exact<{
 }>;
 
 
-export type GetArchivedEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, slug: string, eventName: string, imageUrl: string | null, durableImageUrl: string | null, location: string | null, categories: Array<EventCategory> | null, types: Array<EventType> | null, deletedAt: string | null, isHiddenForCurrentUser: boolean, isExpiredForCurrentUser: boolean, schedules: Array<{ isMainSchedule: boolean, eventStartDate: string, ticketPrice: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null }> }> } };
+export type GetArchivedEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, slug: string, eventName: string, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, location: string | null, categories: Array<EventCategory> | null, types: Array<EventType> | null, deletedAt: string | null, isHiddenForCurrentUser: boolean, isExpiredForCurrentUser: boolean, schedules: Array<{ isMainSchedule: boolean, eventStartDate: string, ticketPrice: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null }> }> } };
 
 export type GetMyAiEventFiltersQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -2646,6 +2647,7 @@ export const GetEventsDocument = new TypedDocumentString(`
       favoriteCount
       imageUrl
       durableImageUrl
+      durableThumbnailUrl
       location
       types
       categories
@@ -2731,6 +2733,7 @@ export const GetEventBySlugDocument = new TypedDocumentString(`
     categories
     imageUrl
     durableImageUrl
+    durableThumbnailUrl
     videoUrl
     sourcePostUrl
     originalPostUrl
@@ -2983,6 +2986,7 @@ export const GetEventsForCalendarDocument = new TypedDocumentString(`
       slug
       imageUrl
       durableImageUrl
+      durableThumbnailUrl
       location
       types
       categories
@@ -3038,6 +3042,7 @@ export const GetEventsForMyCalendarDocument = new TypedDocumentString(`
       slug
       imageUrl
       durableImageUrl
+      durableThumbnailUrl
       location
       types
       categories
@@ -3094,6 +3099,7 @@ export const GetArchivedEventsDocument = new TypedDocumentString(`
       eventName
       imageUrl
       durableImageUrl
+      durableThumbnailUrl
       location
       categories
       types
