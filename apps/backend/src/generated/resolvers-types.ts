@@ -257,6 +257,7 @@ export type Event = {
   deletedAt?: Maybe<Scalars['String']['output']>;
   description?: Maybe<Scalars['String']['output']>;
   durableImageUrl?: Maybe<Scalars['String']['output']>;
+  durableThumbnailUrl?: Maybe<Scalars['String']['output']>;
   eventName: Scalars['String']['output'];
   favoriteCount: Scalars['Int']['output'];
   hasPrivateContact: Scalars['Boolean']['output'];
@@ -1798,6 +1799,7 @@ export type EventResolvers<ContextType = GraphQLContext, ParentType extends Reso
   deletedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   durableImageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  durableThumbnailUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   eventName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   favoriteCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   hasPrivateContact?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;

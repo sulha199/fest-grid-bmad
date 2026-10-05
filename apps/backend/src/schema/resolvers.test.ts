@@ -2856,6 +2856,71 @@ test('events resolver integration via Yoga', async (t) => {
       assert.ok(!result.errors, JSON.stringify(result.errors));
       assert.strictEqual(result.data.eventBySlug.imageUrl, 'https://instagram.com/p/original_img_3.png', 'Should return original imageUrl for non-opted-in still-valid event');
     });
+
+    await t.test('Case 4: account isImageStorageOptedIn: false, expired original, durableImageUrl null, durableThumbnailUrl present -> resolves durableThumbnailUrl (Story 3.6n2 AC2/AC3)', async () => {
+      if (testEvent) await db.delete(events).where(eq(events.id, testEvent.id));
+      if (testPost) await db.delete(posts).where(eq(posts.id, testPost.id));
+      if (testProfile) await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfile.id));
+
+      const uId = crypto.randomUUID();
+      const [p] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: 'consent_acc_4_' + uId,
+        platform: 'instagram',
+        displayName: 'Non-Opted-In Profile (thumbnail only)',
+        username: 'consent_acc_4_' + uId,
+        isImageStorageOptedIn: false,
+      }).returning();
+      testProfile = p;
+
+      const [post] = await db.insert(posts).values({
+        accountId: testProfile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/consent_post_4_' + uId,
+        originalPostUrl: 'https://instagram.com/p/consent_post_4_' + uId,
+        content: 'Original Caption',
+        imageUrl: 'https://instagram.com/p/original_img_4.png',
+        durableImageUrl: null,
+        durableThumbnailUrl: 'https://cdn.test.com/posts/durable_thumbnail_4.png',
+        imageUrlExpiresAt: expiredDate,
+        publishedAt: new Date(),
+        isExtracted: true,
+      }).returning();
+      testPost = post;
+
+      const [ev] = await db.insert(events).values({
+        eventName: 'Consent Test Event 4',
+        postId: testPost.id,
+        extractionOrdinal: 0,
+        location: 'Test location',
+        slug: 'consent-test-event-4-' + uId,
+      }).returning();
+      testEvent = ev;
+
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetEventBySlug($slug: String!) {
+              eventBySlug(slug: $slug) {
+                id
+                eventName
+                imageUrl
+                durableImageUrl
+                durableThumbnailUrl
+              }
+            }
+          `,
+          variables: { slug: testEvent.slug }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.strictEqual(result.data.eventBySlug.durableThumbnailUrl, 'https://cdn.test.com/posts/durable_thumbnail_4.png', 'durableThumbnailUrl should resolve the raw stored value (AC1/AC2)');
+      assert.strictEqual(result.data.eventBySlug.imageUrl, 'https://cdn.test.com/posts/durable_thumbnail_4.png', 'imageUrl should resolve to the thumbnail when not opted-in, original expired, and no durableImageUrl (AC3 new branch)');
+      assert.strictEqual(result.data.eventBySlug.durableImageUrl, null, 'durableImageUrl remains null -- only the thumbnail fills the gap');
+    });
   });
 
   await t.test('Event.instagramEmbed resolver (Story 3.7e)', async (t) => {

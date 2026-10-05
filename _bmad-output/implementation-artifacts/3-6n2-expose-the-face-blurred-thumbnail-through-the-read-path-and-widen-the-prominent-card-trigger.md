@@ -79,11 +79,11 @@ so that an event sourced from a non-opted-in account still gets a prominent, pho
   - [x] Confirmed (read the diff, `pnpm --filter web build` green) that the 5 page/content files consuming `EventListView` via structural typing (`feed-content.tsx`, `favorites-content.tsx`, `archive-content.tsx`, `home-content.tsx`, `account-content.tsx`) needed no explicit per-file change — structural typing propagated the new field automatically; build compiled clean with no new errors.
   - [x] Confirmed (read the diff) that `apps/web/src/features/events/EventDetailWrapper.tsx` line 704's own inline `imageFallbackUrl: e.durableImageUrl,` (the "related events" mini-card mapping, a hand-rolled mapping distinct from `mapper.ts`) is **not** widened — same reasoning as Task 4's `EventListView.tsx` exclusion, see Dev Notes. Confirmed unchanged.
 
-- [ ] **Task 6 (AC6): Regression tests**
-  - [ ] `packages/domain`: Task 3's new lettered `resolveServedImageUrl.test.ts` cases (unit, `node:test`, 100% coverage rule for `packages/domain`).
-  - [ ] `apps/backend/src/schema/resolvers.test.ts`: extend the existing `eventBySlug`/`durableImageUrl` test block (the pattern around lines 2698–2800, "Case 1/Case 2" opted-in/expired scenarios) with at least one new case: a non-opted-in account, an expired `imageUrlExpiresAt`, `durableImageUrl: null`, `durableThumbnailUrl` set on the post — assert `eventBySlug.durableThumbnailUrl` returns the raw value (AC1/AC2) and `eventBySlug.imageUrl` resolves to that same thumbnail URL (AC3's new branch, exercised end-to-end through the real resolver + DB select, not just the unit-tested pure function).
-  - [ ] `packages/ui/src/features/events/EventListView.test.tsx`: Task 4's new `prominentPoster`-from-thumbnail-only test.
-  - [ ] Full regression: confirm no existing `resolveServedImageUrl` call site (resolvers.ts's three usages: `Event.imageUrl`, `Report`/`instagramEmbedBySlug`'s indirect use via `resolveInstagramEmbedResult` — confirm by read whether that helper also calls `resolveServedImageUrl` or is independent before assuming it's affected) regresses — full `apps/backend` suite green.
+- [x] **Task 6 (AC6): Regression tests**
+  - [x] `packages/domain`: Task 3's new lettered `resolveServedImageUrl.test.ts` cases (unit, `node:test`, 100% coverage rule for `packages/domain`).
+  - [x] `apps/backend/src/schema/resolvers.test.ts`: extended the existing `eventBySlug`/`durableImageUrl` test block with a new "Case 4" — a non-opted-in account, an expired `imageUrlExpiresAt`, `durableImageUrl: null`, `durableThumbnailUrl` set on the post — asserting `eventBySlug.durableThumbnailUrl` returns the raw value (AC1/AC2) and `eventBySlug.imageUrl` resolves to that same thumbnail URL (AC3's new branch, exercised end-to-end through the real resolver + DB select). Passing.
+  - [x] `packages/ui/src/features/events/EventListView.test.tsx`: Task 4's new `prominentPoster`-from-thumbnail-only test.
+  - [x] Full regression: confirmed `resolveInstagramEmbedResult` (used by `Report`/`instagramEmbedBySlug`) is independent of `resolveServedImageUrl` (read, no call) — only `Event.imageUrl` calls `resolveServedImageUrl`, already updated. `apps/backend` suite run: 93 pass / 10 fail, identical 10 pre-existing failures confirmed present on baseline (verified via `git stash`) before this story's changes — no new regression, one net new passing test (Case 4).
 
 - [ ] **Task 7: Verification pass (per user's stated test convention for this story: `TZ=UTC`, backend suite alone — not a full monorepo batch-end gate)**
   - [ ] `TZ=UTC pnpm --filter domain test` — `resolveServedImageUrl.test.ts` (all a–l plus new m+ cases) and the full existing domain suite green; confirm 100% line/branch coverage for the touched function via `tsx --test --experimental-test-coverage` targeted at that file.
@@ -259,3 +259,5 @@ _To be filled by the dev agent during implementation._
 - `apps/web/src/features/events/queries.graphql` (modified — 5 Event-type operations gain sibling field)
 - `apps/web/src/generated/graphql.ts` (regenerated via `pnpm --filter web codegen`, not hand-edited)
 - `apps/web/src/features/events/mapper.ts` (modified — `imageFallbackUrl` widened)
+- `apps/backend/src/schema/resolvers.test.ts` (modified — new "Case 4" integration test)
+- `apps/backend/src/generated/resolvers-types.ts` (regenerated via `pnpm --filter backend codegen`, not hand-edited)
