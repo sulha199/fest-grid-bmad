@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-05T07:10:00Z
+last_updated: 2026-10-05T08:20:28Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -336,7 +336,7 @@ development_status:
   0-46-provision-the-ai-processor-lambdas-image-processing-runtime: review
   # Gate 2 finding (UI Complexity & Reusability), surfaced creating Story 3-6w: no reusable
   # focus-trapping confirmation-dialog primitive exists. Hard prerequisite for 3-6w.
-  0-47-build-the-reusable-confirmactiondialog-primitive: backlog
+  0-47-build-the-reusable-confirmactiondialog-primitive: ready-for-dev
   # Promotes FIND-052 (deferred from Story 0.45 code review, 2026-09-26; investigated
   # 2026-10-05, see deferred-work.md). Created via bmad-create-story, 2026-10-05.
   0-48-mount-stable-masonry-engine-fix-reflow-remount-and-focus-loss: ready-for-dev

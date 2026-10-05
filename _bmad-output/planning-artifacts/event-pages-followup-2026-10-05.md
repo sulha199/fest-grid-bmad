@@ -109,7 +109,8 @@ at `review`.
     deferred" or a mount-stable engine design. Do not change production code.
     ```
   - **Step 3b (the recommendation is "fix"):** `/bmad-create-story FIND-052`.
-    - [ ] create  - [ ] dev
+    - [x] create (Story 0.48, `7df5a60`, `ready-for-dev`, 2026-10-05)  - [ ] dev
+    - **Decision (user, 2026-10-05):** two-phase render (CSS-grid flow until the first measurement, then absolute + transform) to avoid the SSR/CLS height collapse; tab-order change is AC4. Story 0.47 was set to `ready-for-dev` in sprint-status at the user's call.
 
 - [ ] **Step 4 — IDEA-060: z-index layering tiers** (architecture first, then one story)
   - **Inputs:** `backlog/IDEA-060-z-index-layering-tiers.md` (inventory, open questions, proposal).
@@ -298,3 +299,4 @@ Decide each: skip (`skipped` with a `cost:`/`value:` note), `bmad-create-story`,
 | 2026-10-05 | Step 8: Story 3.18 create via ritual-orchestrator (`all-claude-medium`, cloud session) | `ready-for-dev`, 236-line story, verify-story PASS, no new stories | `a7756e3` |
 | 2026-10-05 | Step 8: Story 3.6x create via ritual-orchestrator (`all-claude-medium`) | `ready-for-dev`, 268-line story, verify-story PASS, no new stories | `e40ca88` |
 | 2026-10-05 | Step 8: Story 3.6w create via ritual-orchestrator (`all-claude-medium`) | `ready-for-dev`, 263-line story; new prerequisite Story 0.47 (172-line file, sprint-status `backlog`); IDEA-061 filed; verify-story PASS | `625571b` |
+| 2026-10-05 | Step 3b: FIND-052 create via ritual-orchestrator (`all-claude-medium`; child killed by a container restart mid-question and resumed from its saved session) | Story 0.48 `ready-for-dev`, 209-line story, verify-story PASS; Story 0.47 set `ready-for-dev` | `7df5a60` + this commit |
