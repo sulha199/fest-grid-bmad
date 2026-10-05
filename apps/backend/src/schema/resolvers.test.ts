@@ -7,7 +7,7 @@ import { resolvers, setEventsAuthProbe, eventsAuthProbe } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db, enableQueryDebug, resetExecutedQueryCount, getExecutedQueryCount } from '../db/client.js';
-import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, calendarAdditions, unprocessedScraperPayloads, instagramOembedCache, accountVotes, postAccountAssociations, eventPosts, eventSlugAliases } from '@festgrid/database';
+import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, calendarAdditions, unprocessedScraperPayloads, instagramOembedCache, accountVotes, postAccountAssociations, eventPosts, eventSlugAliases, subscriptions } from '@festgrid/database';
 import { eq, inArray, count, sql } from 'drizzle-orm';
 import { ENDED_CASE_FIXTURES } from '@festgrid/domain/events';
 
@@ -3473,6 +3473,152 @@ test('events resolver integration via Yoga', async (t) => {
       await db.delete(events).where(inArray(events.id, [softDeletedEventId, activeEventId, pastEventId]));
       await db.delete(accountVotes).where(inArray(accountVotes.userId, [userId, otherUserId]));
       await db.delete(users).where(inArray(users.id, [userId, otherUserId]));
+    }
+  });
+
+  await t.test('events - Query.event/Query.eventBySlug includeMyArchived personal connection via a coauthor-only subscription (Story 3.18, AC4)', async () => {
+    const coauthorUserId = crypto.randomUUID();
+    const unrelatedUserId = crypto.randomUUID();
+
+    await db.delete(users).where(inArray(users.id, [coauthorUserId, unrelatedUserId]));
+    await db.insert(users).values([
+      { id: coauthorUserId, email: 'coauthor-conn@test.com', role: 'user' },
+      { id: unrelatedUserId, email: 'unrelated-conn@test.com', role: 'user' },
+    ]);
+
+    const suffix = Date.now();
+
+    const [publisherProfile] = await db.insert(socialMediaAccountProfiles).values({
+      platform: 'instagram',
+      accountId: 'acc-conn-publisher-' + suffix,
+      username: 'conn_publisher_' + suffix,
+      displayName: 'Conn Publisher',
+    }).returning();
+
+    const [coauthorProfile] = await db.insert(socialMediaAccountProfiles).values({
+      platform: 'instagram',
+      accountId: 'acc-conn-coauthor-' + suffix,
+      username: 'conn_coauthor_' + suffix,
+      displayName: 'Conn Coauthor',
+    }).returning();
+
+    // Primary post's bare posts.accountId is the publisher (account X) -- NOT the coauthor
+    // (account Y) the test user is subscribed to. Only a COAUTHOR association row names Y.
+    const [post] = await db.insert(posts).values({
+      accountId: publisherProfile.id,
+      platform: 'instagram',
+      postUrl: 'https://instagram.com/p/conn-archived-' + suffix,
+      publishedAt: new Date('2026-01-01T00:00:00Z'),
+    }).returning();
+
+    const [association] = await db.insert(postAccountAssociations).values({
+      postId: post.id,
+      accountId: coauthorProfile.id,
+      role: 'COAUTHOR',
+    }).returning();
+
+    const eventId = crypto.randomUUID();
+    const eventSlug = 'conn-archived-event-' + suffix;
+    await db.insert(events).values({
+      id: eventId,
+      eventName: 'Coauthor Connection Archived Event',
+      slug: eventSlug,
+      location: 'Test Location',
+      postId: post.id,
+      extractionOrdinal: 0,
+      deletedAt: new Date(), // moderator-archived
+    });
+    await db.insert(eventPosts).values({ eventId, postId: post.id, extractionOrdinal: 0 });
+
+    const [sub] = await db.insert(subscriptions).values({
+      userId: coauthorUserId,
+      accountId: coauthorProfile.id,
+    }).returning();
+
+    try {
+      // The coauthor-only subscriber sees the archived event via Query.event...
+      mockUser = { userId: coauthorUserId, role: 'user' };
+      const resEvent = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              event(id: "${eventId}", includeMyArchived: true) {
+                id
+                eventName
+              }
+            }
+          `
+        })
+      });
+      const resultEvent = await resEvent.json();
+      assert.ok(!resultEvent.errors, JSON.stringify(resultEvent.errors));
+      assert.strictEqual(resultEvent.data.event?.id, eventId);
+
+      // ...and via Query.eventBySlug.
+      const resSlug = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              eventBySlug(slug: "${eventSlug}", includeMyArchived: true) {
+                id
+                eventName
+              }
+            }
+          `
+        })
+      });
+      const resultSlug = await resSlug.json();
+      assert.ok(!resultSlug.errors, JSON.stringify(resultSlug.errors));
+      assert.strictEqual(resultSlug.data.eventBySlug?.id, eventId);
+
+      // An unrelated third user (no subscription to the publisher or the coauthor) still gets
+      // null/not-found for both queries -- unaffected by the fix.
+      mockUser = { userId: unrelatedUserId, role: 'user' };
+      const resEventUnrelated = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              event(id: "${eventId}", includeMyArchived: true) {
+                id
+              }
+            }
+          `
+        })
+      });
+      const resultEventUnrelated = await resEventUnrelated.json();
+      assert.ok(!resultEventUnrelated.errors, JSON.stringify(resultEventUnrelated.errors));
+      assert.strictEqual(resultEventUnrelated.data.event, null);
+
+      const resSlugUnrelated = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              eventBySlug(slug: "${eventSlug}", includeMyArchived: true) {
+                id
+              }
+            }
+          `
+        })
+      });
+      const resultSlugUnrelated = await resSlugUnrelated.json();
+      assert.ok(!resultSlugUnrelated.errors, JSON.stringify(resultSlugUnrelated.errors));
+      assert.strictEqual(resultSlugUnrelated.data.eventBySlug, null);
+    } finally {
+      await db.delete(subscriptions).where(eq(subscriptions.id, sub.id));
+      await db.delete(eventPosts).where(eq(eventPosts.eventId, eventId));
+      await db.delete(events).where(eq(events.id, eventId));
+      await db.delete(postAccountAssociations).where(eq(postAccountAssociations.id, association.id));
+      await db.delete(posts).where(eq(posts.id, post.id));
+      await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, [publisherProfile.id, coauthorProfile.id]));
+      await db.delete(users).where(inArray(users.id, [coauthorUserId, unrelatedUserId]));
     }
   });
 });

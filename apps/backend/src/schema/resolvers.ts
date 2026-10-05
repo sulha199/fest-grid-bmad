@@ -3530,14 +3530,18 @@ Constraints and Guidelines:
                 activeOnly(calendarAdditions)
               ))
           ),
+          // Story 3.18 (AD-31 Rule 4) -- routed through the shared account-match helper instead
+          // of a bare innerJoin on `posts.accountId` scoped to `events.postId` (the primary post
+          // only). The helper checks every post linked via `event_posts` and any of the four
+          // `post_account_associations` roles, so a user subscribed only to a coauthor account
+          // keeps their personal connection to a moderator-archived event.
           exists(
             db.select({ id: subscriptions.id })
               .from(subscriptions)
-              .innerJoin(posts, eq(subscriptions.accountId, posts.accountId))
               .where(and(
-                eq(posts.id, events.postId),
                 eq(subscriptions.userId, userId),
-                activeOnly(subscriptions)
+                activeOnly(subscriptions),
+                buildEventAccountMatchCondition(subscriptions.accountId)
               ))
           ),
           exists(
@@ -3657,14 +3661,18 @@ Constraints and Guidelines:
                   activeOnly(calendarAdditions)
                 ))
             ),
+            // Story 3.18 (AD-31 Rule 4) -- routed through the shared account-match helper
+            // instead of a bare innerJoin on `posts.accountId` scoped to `events.postId` (the
+            // primary post only). The helper checks every post linked via `event_posts` and any
+            // of the four `post_account_associations` roles, so a user subscribed only to a
+            // coauthor account keeps their personal connection to a moderator-archived event.
             exists(
               db.select({ id: subscriptions.id })
                 .from(subscriptions)
-                .innerJoin(posts, eq(subscriptions.accountId, posts.accountId))
                 .where(and(
-                  eq(posts.id, events.postId),
                   eq(subscriptions.userId, userId),
-                  activeOnly(subscriptions)
+                  activeOnly(subscriptions),
+                  buildEventAccountMatchCondition(subscriptions.accountId)
                 ))
             ),
             exists(

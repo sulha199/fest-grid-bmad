@@ -5,7 +5,7 @@ import { resolvers } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
-import { users, apiKeys, subscriptions, socialMediaAccountProfiles, posts, events, eventPosts, schedules, accountTypeClassificationReviews } from '@festgrid/database';
+import { users, apiKeys, subscriptions, socialMediaAccountProfiles, posts, events, eventPosts, schedules, accountTypeClassificationReviews, postAccountAssociations } from '@festgrid/database';
 import { eq, inArray } from 'drizzle-orm';
 import { setCallGeminiGenerateContent, callGeminiGenerateContent } from '../lib/ai-gateway/gemini-client.js';
 
@@ -534,6 +534,7 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
         for (const pid of postIds) {
           await db.delete(eventPosts).where(eq(eventPosts.postId, pid));
           await db.delete(events).where(eq(events.postId, pid));
+          await db.delete(postAccountAssociations).where(eq(postAccountAssociations.postId, pid));
         }
       }
       await db.delete(posts).where(eq(posts.accountId, profileId));
@@ -578,6 +579,14 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
     // events.postId directly (bypassing insertEventWithPrimaryPost), so the matching
     // event_posts row must be inserted explicitly to keep the AD-30 Rule 2 invariant intact.
     await db.insert(eventPosts).values({ eventId: event.id, postId: post.id, extractionOrdinal: 0 });
+
+    // Story 3.18 (AD-31 Rule 4) -- the legacy posts.accountId matching leg is removed, so this
+    // fixture must write a real post_account_associations row for the match to work.
+    const [association] = await db.insert(postAccountAssociations).values({
+      postId: post.id,
+      accountId: profile.id,
+      role: 'PUBLISHER',
+    }).returning();
 
     const [schedule] = await db.insert(schedules).values({
       eventId: event.id,
@@ -649,6 +658,7 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
     await db.delete(schedules).where(eq(schedules.id, schedule.id));
     await db.delete(eventPosts).where(eq(eventPosts.eventId, event.id));
     await db.delete(events).where(eq(events.id, event.id));
+    await db.delete(postAccountAssociations).where(eq(postAccountAssociations.id, association.id));
     await db.delete(posts).where(eq(posts.id, post.id));
     await db.delete(subscriptions).where(eq(subscriptions.id, sub.id));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
@@ -671,6 +681,7 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
         for (const pid of postIds) {
           await db.delete(eventPosts).where(eq(eventPosts.postId, pid));
           await db.delete(events).where(eq(events.postId, pid));
+          await db.delete(postAccountAssociations).where(eq(postAccountAssociations.postId, pid));
         }
       }
       await db.delete(posts).where(eq(posts.accountId, profileId));
@@ -711,6 +722,15 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
 
     // Story 3.6v (AD-31 Rule 4) -- see the matching comment on test 12 above.
     await db.insert(eventPosts).values({ eventId: event.id, postId: post.id, extractionOrdinal: 0 });
+
+    // Story 3.18 (AD-31 Rule 4) -- see the matching comment on test 12 above: the legacy
+    // posts.accountId matching leg is removed, so this fixture must write a real
+    // post_account_associations row for the match to work.
+    const [association] = await db.insert(postAccountAssociations).values({
+      postId: post.id,
+      accountId: profile.id,
+      role: 'PUBLISHER',
+    }).returning();
 
     const [schedule] = await db.insert(schedules).values({
       eventId: event.id,
@@ -785,6 +805,7 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
     await db.delete(schedules).where(eq(schedules.id, schedule.id));
     await db.delete(eventPosts).where(eq(eventPosts.eventId, event.id));
     await db.delete(events).where(eq(events.id, event.id));
+    await db.delete(postAccountAssociations).where(eq(postAccountAssociations.id, association.id));
     await db.delete(posts).where(eq(posts.id, post.id));
     await db.delete(subscriptions).where(eq(subscriptions.id, sub.id));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));

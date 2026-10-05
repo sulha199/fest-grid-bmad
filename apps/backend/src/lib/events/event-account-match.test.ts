@@ -39,6 +39,26 @@ test('buildEventAccountMatchCondition integration tests', async (t) => {
     })
     .returning();
 
+  const [coauthorAccount] = await db
+    .insert(socialMediaAccountProfiles)
+    .values({
+      accountId: 'acc-eam-coauthor-' + suffix,
+      platform: 'instagram',
+      displayName: 'EAM Coauthor',
+      username: 'eam_coauthor_' + suffix,
+    })
+    .returning();
+
+  const [scrapingSourceAccount] = await db
+    .insert(socialMediaAccountProfiles)
+    .values({
+      accountId: 'acc-eam-scraping-source-' + suffix,
+      platform: 'instagram',
+      displayName: 'EAM Scraping Source',
+      username: 'eam_scraping_source_' + suffix,
+    })
+    .returning();
+
   // postPrimary carries a PUBLISHER association (the "real" post-3.15 signal).
   const [postPrimary] = await db
     .insert(posts)
@@ -51,7 +71,8 @@ test('buildEventAccountMatchCondition integration tests', async (t) => {
     .returning();
   await db.insert(postAccountAssociations).values({ postId: postPrimary.id, accountId: publisherAccount.id, role: 'PUBLISHER' });
 
-  // postSecondary carries no association row at all -- only the legacy posts.accountId leg.
+  // postSecondary carries no association row at all -- only the legacy posts.accountId leg,
+  // which this story (3.18) removes as a matching leg entirely.
   const [postSecondary] = await db
     .insert(posts)
     .values({
@@ -62,7 +83,36 @@ test('buildEventAccountMatchCondition integration tests', async (t) => {
     })
     .returning();
 
-  const postIds = [postPrimary.id, postSecondary.id];
+  // postCoauthored carries a COAUTHOR association specifically -- this story's headline scenario
+  // (AC1): posts.accountId points at an unrelated/legacy account, but coauthorAccount is matched
+  // via the COAUTHOR association row.
+  const [postCoauthored] = await db
+    .insert(posts)
+    .values({
+      accountId: legacyAccount.id,
+      platform: 'instagram',
+      postUrl: 'https://instagram.com/p/eam-coauthored-' + suffix,
+      publishedAt: new Date('2026-01-03T00:00:00Z'),
+    })
+    .returning();
+  await db.insert(postAccountAssociations).values({ postId: postCoauthored.id, accountId: coauthorAccount.id, role: 'COAUTHOR' });
+
+  // postScrapingSource's posts.accountId is deliberately a DIFFERENT account than its
+  // SCRAPING_SOURCE association row's account (simulating the publisher-resolved case) -- directly
+  // proving AC3's safety argument: the SCRAPING_SOURCE account matches via the association leg
+  // even though it is not posts.accountId.
+  const [postScrapingSource] = await db
+    .insert(posts)
+    .values({
+      accountId: legacyAccount.id,
+      platform: 'instagram',
+      postUrl: 'https://instagram.com/p/eam-scraping-source-' + suffix,
+      publishedAt: new Date('2026-01-04T00:00:00Z'),
+    })
+    .returning();
+  await db.insert(postAccountAssociations).values({ postId: postScrapingSource.id, accountId: scrapingSourceAccount.id, role: 'SCRAPING_SOURCE' });
+
+  const postIds = [postPrimary.id, postSecondary.id, postCoauthored.id, postScrapingSource.id];
   const createdEventIds: string[] = [];
 
   t.after(async () => {
@@ -73,7 +123,13 @@ test('buildEventAccountMatchCondition integration tests', async (t) => {
     await db.delete(postAccountAssociations).where(inArray(postAccountAssociations.postId, postIds));
     await db.delete(posts).where(inArray(posts.id, postIds));
     await db.delete(socialMediaAccountProfiles).where(
-      inArray(socialMediaAccountProfiles.id, [publisherAccount.id, legacyAccount.id, unrelatedAccount.id])
+      inArray(socialMediaAccountProfiles.id, [
+        publisherAccount.id,
+        legacyAccount.id,
+        unrelatedAccount.id,
+        coauthorAccount.id,
+        scrapingSourceAccount.id,
+      ])
     );
   });
 
@@ -92,6 +148,12 @@ test('buildEventAccountMatchCondition integration tests', async (t) => {
   // event_posts, not just the event's current primary postId).
   await setEventPrimaryPost(db, { eventId: inserted!.id, postId: postSecondary.id, extractionOrdinal: 1 });
 
+  // Link postCoauthored and postScrapingSource onto the same event via event_posts directly
+  // (not via setEventPrimaryPost, which would also move the primary pointer and disturb the
+  // "matches via a secondary post" assertion below that depends on postSecondary being primary).
+  await db.insert(eventPosts).values({ eventId: inserted!.id, postId: postCoauthored.id, extractionOrdinal: 2 });
+  await db.insert(eventPosts).values({ eventId: inserted!.id, postId: postScrapingSource.id, extractionOrdinal: 3 });
+
   async function matches(accountId: string): Promise<boolean> {
     const rows = await db
       .select({ id: events.id })
@@ -104,8 +166,18 @@ test('buildEventAccountMatchCondition integration tests', async (t) => {
     assert.strictEqual(await matches(publisherAccount.id), true);
   });
 
-  await t.test('legacy-leg match: legacyAccount has no association row, only bare posts.account_id', async () => {
-    assert.strictEqual(await matches(legacyAccount.id), true);
+  await t.test('legacy leg removed: an account with only bare posts.account_id and no association row no longer matches', async () => {
+    assert.strictEqual(await matches(legacyAccount.id), false);
+  });
+
+  await t.test('COAUTHOR association match: coauthorAccount has a COAUTHOR row, posts.accountId points elsewhere', async () => {
+    assert.strictEqual(await matches(coauthorAccount.id), true);
+  });
+
+  await t.test('SCRAPING_SOURCE association match: scrapingSourceAccount has a SCRAPING_SOURCE row distinct from posts.accountId', async () => {
+    // Proves AC3's safety argument directly: the SCRAPING_SOURCE account matches via the
+    // association leg even though it is not the post's bare posts.accountId value.
+    assert.strictEqual(await matches(scrapingSourceAccount.id), true);
   });
 
   await t.test('no match: an account with neither leg returns false', async () => {
