@@ -431,6 +431,45 @@ describe('EventListView', () => {
       expect(container).toBeInTheDocument();
     });
 
+    it('derives prominentPoster=true when only durableThumbnailUrl is present (Story 3.6n2), and neither alone is required for a non-prominent card', () => {
+      const withThumbnailOnly: EventListViewItem = {
+        id: 'thumbnail-only',
+        slug: 'thumbnail-only',
+        eventName: 'Thumbnail Only Poster',
+        durableThumbnailUrl: 'http://example.com/thumbnail.jpg',
+        schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-16T18:00:00Z' }],
+      };
+      const withNeither: EventListViewItem = {
+        id: 'neither',
+        slug: 'neither',
+        eventName: 'Neither Poster',
+        schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-16T18:00:00Z' }],
+      };
+
+      render(
+        <EventListView
+          status="success"
+          events={[withThumbnailOnly, withNeither]}
+          emptyState={<div>Empty</div>}
+          getCardProps={() => ({})}
+          sentinelRef={vi.fn()}
+          isFetchingNextPage={false}
+          loadingMoreLabel="Loading more..."
+        />
+      );
+
+      const thumbnailCard = screen.getByText('Thumbnail Only Poster').closest('article');
+      const neitherCard = screen.getByText('Neither Poster').closest('article');
+
+      // Story 1.i1l rule 2: the prominent poster's crop is `aspect-square`.
+      expect(thumbnailCard?.querySelector('.aspect-square')).toBeInTheDocument();
+
+      // Neither durableImageUrl nor durableThumbnailUrl present -> not prominent (top_row_default
+      // flex-fill thumbnail slot, Story 1.i1e AC1/AC2), confirming neither field alone is required.
+      expect(neitherCard?.querySelector('[data-event-card-media-slot]')).toBeInTheDocument();
+      expect(neitherCard?.querySelector('.aspect-square')).not.toBeInTheDocument();
+    });
+
     it('passes a getCardProps-supplied distanceKm through unmodified (EventListView performs no distance computation itself, AC18), rendered as the real distance (BUG-049)', () => {
       render(
         <EventListView

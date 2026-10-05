@@ -95,10 +95,12 @@ export function EventListView<TEvent extends EventListViewItem>({
                 undefined,
               // Story 1.3k (AC6) — passed through to `EventCard`'s repeat badge.
               applicableDaysOfWeek: displaySchedule?.applicableDaysOfWeek ?? undefined,
-              // A durable copy always selects the prominent card (an empty string is "no copy").
-              // Which image it shows is the server's call (`resolveServedImageUrl`: the original
-              // while unexpired, else the durable copy) with `imageFallbackUrl` as the retry.
-              prominentPoster: !!event.durableImageUrl,
+              // A durable copy (sharp) or a face-blurred durable thumbnail (Story 3.6n2) always
+              // selects the prominent card (an empty string is "no copy"). Which image it shows
+              // is the server's call (`resolveServedImageUrl`: the original while unexpired, else
+              // durableImageUrl when opted-in, else durableThumbnailUrl) with `imageFallbackUrl`
+              // as the retry.
+              prominentPoster: !!(event.durableImageUrl || event.durableThumbnailUrl),
               labels: cardLabels,
               variant: 'masonry' as const,
             };

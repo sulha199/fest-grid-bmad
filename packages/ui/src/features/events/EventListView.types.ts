@@ -24,6 +24,7 @@ export interface EventListViewItem {
   eventName: string;
   imageUrl?: string | null;
   durableImageUrl?: string | null;
+  durableThumbnailUrl?: string | null;
   location?: string | null;
   categories?: string[] | null;
   types?: string[] | null;
