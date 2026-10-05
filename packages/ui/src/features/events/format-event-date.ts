@@ -629,6 +629,66 @@ export function formatEventCardDateBoxLine(
 }
 
 /**
+ * Event-detail Related Events cards: the `now`-based date box + TILL tag, mirroring the masonry
+ * `EventCard.tsx` rule (BUG-047 AC-DATE-3 for month/day, AC14 for the tag) rather than the
+ * calendar-day-context `computeCalendarSegmentDateBoxContent`. `tillLabel` is `''` (no tag)
+ * unless the event has started AND its end day is after today -- on the end day itself the
+ * status badge already says "Ends ...", and before start / after end a "till" tag is wrong.
+ */
+export function computeRelatedEventDateBox(
+  locale: string,
+  timezone: string | undefined,
+  now: Date,
+  startDate: string,
+  startTime: string | null | undefined,
+  endDate: string | null | undefined,
+  endTime: string | null | undefined,
+  tillLabel: string
+): { month: string; day: string; tillLabel: string } {
+  const startDateTime = combineDateTime(startDate, startTime, timezone);
+  const endDateTime = combineDateTime(endDate ?? startDate, endTime, timezone);
+  const { month, day } = computeEventCardDateBoxParts(locale, timezone, now, startDateTime, endDateTime, endTime);
+  const started = now.getTime() >= startDateTime.getTime();
+  const endDayDiff = getCalendarDayDifference(
+    getLocalDateInTimezone(now, timezone),
+    getLocalDateInTimezone(endDateTime, timezone)
+  );
+  return { month, day, tillLabel: started && endDayDiff > 0 ? tillLabel : '' };
+}
+
+interface RelatedEventSchedule {
+  eventStartDate: string;
+  eventStartTime?: string | null;
+  eventEndDate?: string | null;
+  eventEndTime?: string | null;
+}
+
+/**
+ * Event-detail Related Events ordering: drops ended events (end day before today -- the same
+ * day-granularity the event list's `isPastEvent` filter uses), then lists events happening now
+ * by earliest end first, followed by upcoming events by earliest start first.
+ */
+export function selectAndSortRelatedEvents<T extends RelatedEventSchedule>(
+  events: T[],
+  now: Date,
+  timezone: string | undefined
+): T[] {
+  const today = getLocalDateInTimezone(now, timezone);
+  const rows = events
+    .map((event) => {
+      const start = combineDateTime(event.eventStartDate, event.eventStartTime, timezone);
+      const end = combineDateTime(event.eventEndDate ?? event.eventStartDate, event.eventEndTime, timezone);
+      const ended = getCalendarDayDifference(today, getLocalDateInTimezone(end, timezone)) < 0;
+      const happening = !ended && now.getTime() >= start.getTime();
+      return { event, start: start.getTime(), end: end.getTime(), ended, happening };
+    })
+    .filter((row) => !row.ended);
+  const happening = rows.filter((r) => r.happening).sort((a, b) => a.end - b.end);
+  const upcoming = rows.filter((r) => !r.happening).sort((a, b) => a.start - b.start);
+  return [...happening, ...upcoming].map((r) => r.event);
+}
+
+/**
  * Computes the WeeklyCalendarView list-variant date box's structured `month`/`day`/`tillLabel`
  * content (Story 1.i1k AC4, rewritten by BUG-047/AC-DATE-3 to replace the till-repurposing "last/
  * only day" branch below). Same `started && notYetEnded` -> show-end-date rule as

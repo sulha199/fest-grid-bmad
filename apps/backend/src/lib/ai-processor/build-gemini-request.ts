@@ -120,6 +120,8 @@ export function buildGeminiExtractionResponseSchema() {
       // One-sentence model self-explanation of the grouping decision, for debugging only — never
       // persisted (AD-30 Rule 5).
       groupingRationale: { type: 'STRING' },
+      // Short post-level headline/title, persisted to posts.title (not required).
+      postTitle: { type: 'STRING' },
       // Model's own best-effort count of distinct events it believes the content describes,
       // mirroring minScheduleCount's existing self-report/logging-only pattern.
       minEventCount: { type: 'NUMBER' },
@@ -232,6 +234,7 @@ For EACH identified event in the events array, extract:
 
 Also report, once for the whole post (not per event):
 - groupingReason: the exact value from this allowed list matching the rule you applied in the GROUPING DECISION above: ${allowedGroupingReasons}.
+- postTitle: a short headline/title for the post as a whole (at most about 80 characters), preferring a title the post states itself (e.g. "Weekend Event Roundup in Jakarta"); otherwise write a brief descriptive one. Omit it if no sensible title exists.
 - groupingRationale: one sentence explaining your grouping decision, for debugging only.
 - minEventCount: your own best-effort count of distinct events you believe the content describes overall (mirrors minScheduleCount's self-report pattern, advisory only).
 - hasFaceImage: based on the same image(s) already provided above (the single image or, for a multi-slide carousel, across all provided slides), whether any provided image contains a visible person/people (e.g. a performer, a crowd, or any human figure) as opposed to a text-only flyer/graphic-design poster with no people. Set faceImageCount to your best-effort approximate count of distinct people visible across the provided image(s) -- advisory only, not required to be exact, especially in dense/crowd scenes.

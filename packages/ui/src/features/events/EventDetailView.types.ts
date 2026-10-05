@@ -163,9 +163,9 @@ export interface EventDetailViewRelatedEvent {
 
 /**
  * One Related Events group (Story 3.6u, AC6) -- one per post this event shares with other
- * events. `accountLabel` arrives already-resolved (the caller interpolates the
- * `relatedEventsGroupLabel` next-intl template with the account name it already has from
- * `sourcePosts`, matched by `postId` -- never a second account fetch); `EventDetailView` just
+ * events. `accountLabel` (the group heading) arrives already-resolved: the caller interpolates the
+ * post-title template (`Events from {title}`) from `sourcePosts[].title`, falling back to the
+ * account-name template when the post has no title -- never a second account fetch; `EventDetailView` just
  * renders it verbatim, since it has no next-intl/ICU interpolation of its own.
  */
 export interface EventDetailViewRelatedEventGroup {

@@ -337,6 +337,9 @@ export const posts = pgTable('posts', {
   // multi-event extraction payload (groupingReason/extractedEventCount). groupingRationale is
   // deliberately never persisted (AD-30 Rule 5).
   groupingReason: postGroupingReasonEnum('grouping_reason'),
+  // AI-extracted short post headline/title (esp. roundup posts); heads the event-detail
+  // Related Events group. Null when none extracted. Insert/update at extraction only, no backfill.
+  title: text('title'),
   extractedEventCount: integer('extracted_event_count'),
   // Story 3.6z — atomic, TTL-bounded claim marking "an enqueuePostForProcessing attempt is
   // currently in flight for this post." Null means unclaimed. Set to now() on a successful

@@ -205,7 +205,7 @@ describe('EventDetailView', () => {
       expect(row.querySelectorAll('svg').length).toBe(2);
     });
 
-    it('renders plain text with the static MapPin icon (no link) when schedule.location is blank but the event-level location is not', () => {
+    it('renders a LocationLink (search icon, name-only map query) when schedule.location is blank but the event-level location is not', () => {
       const testProps = {
         ...fullProps,
         schedules: [
@@ -218,10 +218,10 @@ describe('EventDetailView', () => {
         ],
       };
       render(<EventDetailView {...testProps} />);
-      expect(screen.queryByRole('link', { name: /Test Location/i })).not.toBeInTheDocument();
-      const label = screen.getByText('Test Location');
-      const row = label.closest('address')!;
-      expect(row.querySelectorAll('svg').length).toBe(1);
+      const link = screen.getByRole('link', { name: /Test Location/i });
+      expect(link).toHaveAttribute('href', 'https://www.google.com/maps/search/?api=1&query=Test%20Location');
+      // MapPin + trailing Search icon (no coordinates, so never the confirmed-pin ExternalLink)
+      expect(link.querySelectorAll('svg').length).toBe(2);
     });
 
     it('renders no location block at all when both schedule.location and event-level location are blank', () => {
@@ -749,7 +749,9 @@ describe('EventDetailView', () => {
 
     it('renders nothing when links is an empty array', () => {
       render(<EventDetailView {...minimalProps} links={[]} />);
-      expect(screen.queryAllByRole('link')).toHaveLength(0);
+      // The schedule's own location renders as a Google Maps LocationLink -- not an extra link.
+      const nonMapLinks = screen.queryAllByRole('link').filter((a) => !a.getAttribute('href')?.includes('google.com/maps'));
+      expect(nonMapLinks).toHaveLength(0);
     });
 
     it('renders one row for a single link with a label', () => {
@@ -1285,13 +1287,20 @@ describe('EventDetailView', () => {
       relatedEventsSeeAllLabel: (count: number) => `See all ${count} events`,
     };
 
+    // Related events ended before today are hidden, so fixtures are dated relative to now.
+    const futureDate = (offsetDays: number) => {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() + offsetDays);
+      return d.toISOString().split('T')[0];
+    };
+
     const makeEvent = (id: string, eventName: string) => ({
       id,
       slug: `slug-${id}`,
       eventName,
       locationName: 'Some Venue',
       isMainSchedule: true,
-      eventStartDate: '2026-08-15',
+      eventStartDate: futureDate(10),
       eventStartTime: '18:00',
       eventEndDate: null,
       eventEndTime: null,
@@ -1331,6 +1340,72 @@ describe('EventDetailView', () => {
 
       const seeAllLink = screen.getByText('See all 7 events');
       expect(seeAllLink.closest('a')).toHaveAttribute('href', '/posts/instagram/image/abc/events');
+    });
+
+    it('hides ended events and drops a group whose events have all ended', () => {
+      const ended = { ...makeEvent('ev-old', 'Old Event'), eventStartDate: futureDate(-5), eventEndDate: futureDate(-4) };
+      render(
+        <EventDetailView
+          {...fullProps}
+          relatedEventGroups={[
+            { postId: 'p1', accountLabel: 'Events from Mixed', events: [ended, makeEvent('ev-new', 'New Event')], totalCount: 2 },
+            { postId: 'p2', accountLabel: 'Events from AllEnded', events: [ended], totalCount: 1 },
+          ]}
+          labels={relatedLabels}
+        />
+      );
+      expect(screen.getByText('New Event')).toBeInTheDocument();
+      expect(screen.queryByText('Old Event')).not.toBeInTheDocument();
+      expect(screen.queryByText('Events from AllEnded')).not.toBeInTheDocument();
+    });
+
+    it('orders happening-now by earliest end, then upcoming by earliest start', () => {
+      const ev = (id: string, start: number, end: number | null) => ({
+        ...makeEvent(id, id),
+        eventStartDate: futureDate(start),
+        eventEndDate: end === null ? null : futureDate(end),
+      });
+      const events = [
+        ev('Upcoming-late', 9, null),
+        ev('Live-ends-later', -2, 6),
+        ev('Upcoming-early', 3, null),
+        ev('Live-ends-sooner', -1, 2),
+      ];
+      render(
+        <EventDetailView
+          {...fullProps}
+          relatedEventGroups={[{ postId: 'p1', accountLabel: 'Events from Acme', events, totalCount: 4 }]}
+          labels={relatedLabels}
+        />
+      );
+      const names = screen.getAllByTestId('event-card-compact').map((el) => el.textContent ?? '');
+      const order = ['Live-ends-sooner', 'Live-ends-later', 'Upcoming-early', 'Upcoming-late'];
+      expect(order.map((n) => names.findIndex((t) => t.includes(n)))).toEqual([0, 1, 2, 3]);
+    });
+
+    it('shows the till tag only for events that have started and end after today', () => {
+      const ev = (id: string, start: number, end: number) => ({
+        ...makeEvent(id, id),
+        eventStartDate: futureDate(start),
+        eventEndDate: futureDate(end),
+      });
+      render(
+        <EventDetailView
+          {...fullProps}
+          relatedEventGroups={[{
+            postId: 'p1',
+            accountLabel: 'Events from Acme',
+            events: [ev('Live', -1, 3), ev('Upcoming', 2, 4), ev('EndsToday', -1, 0)],
+            totalCount: 3,
+          }]}
+          labels={relatedLabels}
+        />
+      );
+      const cards = screen.getAllByTestId('event-card-compact');
+      const card = (name: string) => cards.find((c) => (c.textContent ?? '').includes(name))!;
+      expect(card('Live').textContent).toContain('till');
+      expect(card('Upcoming').textContent).not.toMatch(/\btill\b/);
+      expect(card('EndsToday').textContent).not.toMatch(/\btill\b/);
     });
 
     it('does not render a "See all" link when totalCount is within the inline cap', () => {

@@ -164,6 +164,7 @@
     "coauthorsListAriaLabel": "Rekan Penulis",
     "sourcePostsPrimaryLabel": "Utama",
     "relatedEventsGroupLabel": "Acara dari {account}",
+    "relatedEventsGroupTitleLabel": "Acara dari {title}",
     "relatedEventsSeeAllLabel": "Lihat semua {count} acara",
     "relatedEventsSectionAriaLabel": "Acara terkait"
   },

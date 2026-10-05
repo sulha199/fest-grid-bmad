@@ -1446,7 +1446,7 @@ test('processAiJob orchestrator tests', async (t) => {
     assert.strictEqual(byName['September Event'], 2, '2026-09-01 is latest, gets ordinal 2, not the model response order 0');
   });
 
-  await t.test('Case N3: posts.groupingReason/extractedEventCount are persisted after a successful multi-event extraction', async () => {
+  await t.test('Case N3: posts.groupingReason/extractedEventCount/title are persisted after a successful multi-event extraction', async () => {
     const message: ProcessingJobMessage = {
       postId: '00000000-0000-4000-8000-0000000000d3',
       accountId: profile.id,
@@ -1472,6 +1472,7 @@ test('processAiJob orchestrator tests', async (t) => {
         text: JSON.stringify({
           isEvent: true,
           groupingReason: 'roundup',
+          postTitle: '  Weekend Jazz Roundup  ',
           events: [
             {
               eventName: 'Roundup A',
@@ -1501,6 +1502,7 @@ test('processAiJob orchestrator tests', async (t) => {
       const [updatedPost] = await db.select().from(posts).where(eq(posts.id, testPost.id)).limit(1);
       assert.strictEqual(updatedPost.groupingReason, 'roundup');
       assert.strictEqual(updatedPost.extractedEventCount, 2);
+      assert.strictEqual(updatedPost.title, 'Weekend Jazz Roundup');
     } finally {
       await db.delete(posts).where(eq(posts.id, testPost.id));
     }
