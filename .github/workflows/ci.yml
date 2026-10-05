@@ -169,4 +169,5 @@ jobs:
           SES_FROM_EMAIL_ADDRESS: ${{ vars.SES_FROM_EMAIL_ADDRESS }}
           SYSTEM_ERROR_ALERT_EMAIL: ${{ vars.SYSTEM_ERROR_ALERT_EMAIL }}
           WEB_APP_BASE_URL: ${{ vars.WEB_APP_BASE_URL }}
+          API_KEY_USAGE_CYCLE_DAYS: ${{ vars.API_KEY_USAGE_CYCLE_DAYS }}
         run: pnpm --filter infrastructure exec cdk deploy FestgridBackendStack-prod --require-approval never

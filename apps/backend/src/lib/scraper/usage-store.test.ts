@@ -53,6 +53,9 @@ test('usage-store scraper capacity tracking', async (t) => {
     const [row] = await db.select().from(scraperProviderUsage).where(eq(scraperProviderUsage.provider, provider));
     assert.strictEqual(row.itemsUsedThisCycle, 20);
     assert.ok(row.usageCycleResetAt.getTime() > backdated.getTime());
+    // usageCycleResetAt is the new cycle's START, not a future "next reset" (which would make
+    // the following cycle last 2x cycleDays).
+    assert.ok(row.usageCycleResetAt.getTime() <= Date.now());
   });
 
   await t.test('capacity check respects threshold boundaries', async () => {

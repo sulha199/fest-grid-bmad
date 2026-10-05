@@ -227,6 +227,7 @@ Claude 3.5 Sonnet
 - Updated `SETUP_WALKTHROUGH.md` and `.env.example`.
 - All integration and unit tests pass successfully.
 - Note: A full real-Gemini + real-KMS round trip is explicitly deferred pending Story 0.14 as agreed in Dev Notes.
+- **Post-ship correction (2026-10-05) — cycle-length bug:** `usage-store.ts`'s `recordSuccessfulUsage` originally wrote `nextCycleReset(now, cycleDays)` (a *future* timestamp) into `usage_cycle_reset_at`, but `isCycleElapsed` reads that column as the cycle **start** (`now - resetAt >= cycleDays`). Every cycle after a key's first therefore lasted `2 × API_KEY_USAGE_CYCLE_DAYS`. Fixed: the elapsed branch now stores `now` (the new cycle's start); `adapter.test.ts`'s "Billing cycle reset" case now asserts the stored value is ~now rather than a future date. `nextCycleReset` is no longer called by any application code (its doc comment now warns about the mismatch). Rows already rolled over before the fix still hold a future value and self-correct after one extra stretch. See also Story 3.9 (quota test) and Story 0.25 (prod deploy never passed `API_KEY_USAGE_CYCLE_DAYS`).
 
 ### File List
 - `_bmad-output/implementation-artifacts/0-13-set-up-ai-gateway-adapter-layer-for-gemini.md`

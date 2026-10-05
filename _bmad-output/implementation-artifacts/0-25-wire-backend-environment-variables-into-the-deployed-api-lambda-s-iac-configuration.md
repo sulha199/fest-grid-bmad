@@ -221,6 +221,7 @@ Folding `FestgridEmailStack` into `FestgridBackendStack` (AC3) is safe with no l
 - Added strict CDK integration/infrastructure assertions to `festgrid-backend-stack.test.ts`.
 - Updated `SETUP_WALKTHROUGH.md` with secrets classifications and manual setup steps.
 - Validated via `cdk synth` and unit tests successfully passing.
+- **Post-ship gap found (2026-10-05) — prod deploy never supplied `API_KEY_USAGE_CYCLE_DAYS`:** the stack forwards `process.env.API_KEY_USAGE_CYCLE_DAYS` into `L_API` at synth time, but `.github/workflows/ci.yml`'s "Deploy CDK Stack (Prod)" step has no root `.env` and did not pass it, so the var was undefined and prod silently used the code default (30) regardless of the developer's `.env`. Fixed by adding `API_KEY_USAGE_CYCLE_DAYS: ${{ vars.API_KEY_USAGE_CYCLE_DAYS }}` to that step; the value itself must be set as a GitHub `production`-environment variable. **Still unwired in the same step** (code defaults apply in prod): `GEMINI_MODEL`, `API_KEY_INVALID_ATTEMPTS_THRESHOLD`, `GEMINI_POSTS_PER_KEY_PER_CYCLE`, `SCRAPE_*`/`SCRAPER_*` tunables, `POST_EXTRACTION_CLAIM_TTL_MINUTES`, `SCRAPE_INLINE_FALLBACK_ENABLED`, `AI_PROCESSING_INLINE_FALLBACK_ENABLED`.
 
 ### File List
 

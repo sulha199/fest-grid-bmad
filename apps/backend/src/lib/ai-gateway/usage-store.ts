@@ -1,7 +1,7 @@
 import { db } from '../../db/client.js';
 import { apiKeys } from '@festgrid/database';
 import { activeOnly } from '@festgrid/graphql-select';
-import { isCycleElapsed, nextCycleReset, ApiKeyCandidate } from '@festgrid/domain';
+import { isCycleElapsed, ApiKeyCandidate } from '@festgrid/domain';
 import { and, eq, inArray } from 'drizzle-orm';
 import { loadBackendEnv } from '../../env.js';
 
@@ -50,10 +50,11 @@ export async function recordSuccessfulUsage(keyId: string): Promise<void> {
 
   const isElapsed = isCycleElapsed(key.usageCycleResetAt.toISOString(), cycleDays, now);
   if (isElapsed) {
-    const nextReset = nextCycleReset(now, cycleDays);
+    // usageCycleResetAt is the cycle START (isCycleElapsed compares now - start against cycleDays);
+    // storing a future "next reset" here would make every cycle after the first last 2x cycleDays.
     await db.update(apiKeys).set({
       usageCount: 1,
-      usageCycleResetAt: new Date(nextReset),
+      usageCycleResetAt: now,
       updatedAt: now,
     }).where(eq(apiKeys.id, keyId));
   } else {

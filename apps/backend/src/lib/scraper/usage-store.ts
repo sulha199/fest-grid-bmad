@@ -1,6 +1,6 @@
 import { db } from '../../db/client.js';
 import { scraperProviderUsage } from '@festgrid/database';
-import { isCycleElapsed, nextCycleReset, ScraperCapacityExceededError } from '@festgrid/domain';
+import { isCycleElapsed, ScraperCapacityExceededError } from '@festgrid/domain';
 import { eq } from 'drizzle-orm';
 import { loadBackendEnv } from '../../env.js';
 
@@ -26,22 +26,22 @@ export async function recordProviderUsage(provider: string, itemCount: number): 
 
   const [row] = await db.select().from(scraperProviderUsage).where(eq(scraperProviderUsage.provider, provider));
 
+  // usageCycleResetAt is the cycle START (isCycleElapsed compares now - start against cycleDays);
+  // storing a future "next reset" here would make every cycle last 2x cycleDays.
   if (!row) {
-    const nextReset = nextCycleReset(now, cycleDays);
     await db.insert(scraperProviderUsage).values({
       provider,
       itemsUsedThisCycle: itemCount,
-      usageCycleResetAt: new Date(nextReset),
+      usageCycleResetAt: now,
       createdAt: now,
       updatedAt: now,
     });
   } else {
     const isElapsed = isCycleElapsed(row.usageCycleResetAt.toISOString(), cycleDays, now);
     if (isElapsed) {
-      const nextReset = nextCycleReset(now, cycleDays);
       await db.update(scraperProviderUsage).set({
         itemsUsedThisCycle: itemCount,
-        usageCycleResetAt: new Date(nextReset),
+        usageCycleResetAt: now,
         updatedAt: now,
       }).where(eq(scraperProviderUsage.provider, provider));
     } else {

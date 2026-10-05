@@ -274,6 +274,7 @@ Claude 3.5 Sonnet
 - Implemented real Apify concrete adapter for Instagram with date and limit cutoffs, capacity budget checks, stubs for Twitter/X, and the shared capacity-tracker store in DB.
 - Integrated capacity block and async on-demand trigger into the account subscribe flow.
 - Added comprehensive unit and integration tests covering target resolution, SQS enqueues, item mapping, capacity-block and error-propagation rules.
+- **Post-ship correction (2026-10-05) — cycle-length bug:** Task 4's `recordProviderUsage` inherited Story 0.13's mistake of writing `nextCycleReset(now, cycleDays)` (a future timestamp) into `scraper_provider_usage.usage_cycle_reset_at`, while `isCycleElapsed`/`isProviderCapacityAvailable` read it as the cycle **start**, so every scraper budget cycle lasted `2 × SCRAPER_USAGE_CYCLE_DAYS` (budget counters reset half as often as configured). Fixed in `apps/backend/src/lib/scraper/usage-store.ts`: both the first-insert and the elapsed-reset branches now store `now`; `usage-store.test.ts` asserts the stored value is not in the future. Existing rows self-correct after one extra stretch. Also noted: the prod CI deploy step does not pass `SCRAPER_USAGE_CYCLE_DAYS` (or the other `SCRAPER_*` tunables) either, so prod uses the code defaults — not changed here.
 
 ### File List
 - `packages/domain/src/scraper/types.ts`

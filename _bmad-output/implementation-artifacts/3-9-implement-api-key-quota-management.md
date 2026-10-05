@@ -182,4 +182,6 @@ baseline_commit: 6f0256417732c9cb585b9df8177e46e43783ad21
 
 ### Completion Notes List
 
+- **Post-ship correction (2026-10-05):** Task 2's real-DB cycle-reset test asserted `usageCycleResetAt` is "bumped forward to a new future date" — that encoded a bug (see Story 0.13's post-ship note): `recordSuccessfulUsage` stored a future timestamp while `isCycleElapsed` reads the column as the cycle start, so cycles after the first lasted `2 × API_KEY_USAGE_CYCLE_DAYS`. `usage-store.ts` now stores `now`, and `adapter.test.ts`'s case asserts the persisted value is ~now (between call start and assertion time), not in the future. Also: prod never received `API_KEY_USAGE_CYCLE_DAYS` from CI (fixed in `.github/workflows/ci.yml`, see Story 0.25).
+
 ### File List

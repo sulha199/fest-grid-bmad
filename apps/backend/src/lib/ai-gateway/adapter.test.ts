@@ -349,6 +349,7 @@ test('AI Gateway Adapter - Tier 2 and Billing Cycle Reset', async (t) => {
       usageCycleResetAt: pastDate,
     }).where(eq(apiKeys.id, dbKeyA.id));
 
+    const beforeCall = Date.now();
     const result = await callGemini({
       provider: 'gemini',
       subscriberUserIds: [userA.id],
@@ -359,8 +360,10 @@ test('AI Gateway Adapter - Tier 2 and Billing Cycle Reset', async (t) => {
 
     const [updatedKeyA] = await db.select().from(apiKeys).where(eq(apiKeys.id, dbKeyA.id));
     assert.equal(updatedKeyA.usageCount, 1);
-    
-    // Asserts usageCycleResetAt has been bumped to a future date
-    assert.ok(updatedKeyA.usageCycleResetAt.getTime() > Date.now());
+
+    // usageCycleResetAt is the new cycle's START: it must be bumped to ~now, not to a future
+    // "next reset" time (which would make the following cycle last 2x cycleDays).
+    assert.ok(updatedKeyA.usageCycleResetAt.getTime() >= beforeCall);
+    assert.ok(updatedKeyA.usageCycleResetAt.getTime() <= Date.now());
   });
 });
