@@ -38,6 +38,22 @@ vi.mock('@/components/providers/auth-session-provider', () => ({
   }),
 }));
 
+// FIND-059: supports the nearby-badge i18n assertion below. Mirrors nearby.test.tsx's own
+// `mockCoordinate` pattern (the ambient-fallback path -- no `nearby` query param is ever set in
+// this file, so `useNearbyFilter`'s `activeFilterCoord` resolves straight to this coordinate).
+// Defaults to `null` so every other test in this file (no coordinate, no event location) is
+// unaffected -- `home-content.tsx`'s `getCardProps` only computes a non-null `distanceKm` when
+// both this coordinate AND the event's own schedule coordinates are present.
+let mockCoordinate: { latitude: number; longitude: number } | null = null;
+vi.mock('@/lib/hooks/useViewerLocation', () => ({
+  useViewerLocation: () => ({
+    coordinate: mockCoordinate,
+    isCapturing: false,
+    error: null,
+    captureExplicit: vi.fn(),
+  }),
+}));
+
 vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
@@ -184,6 +200,7 @@ afterEach(() => {
     },
   ];
   mockHasMore = false;
+  mockCoordinate = null;
   mockRequestSpy.mockClear();
   if ((global as any).__resetNuqsStore) {
     (global as any).__resetNuqsStore();
@@ -424,6 +441,122 @@ describe('HomeContent - Story 1.i1o (EventCard label i18n)', () => {
     });
 
     expect(screen.getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
+  });
+
+  // FIND-059 (review finding on this story): the above only ever asserted `favoriteToggle`,
+  // leaving the TILL tag, status badge, and nearby-distance badge -- three more of the four
+  // label groups this story wires -- unverified on a card-list page. English's translated
+  // content happens to equal EventCard's own hardcoded `defaultLabels` for every key below, so
+  // only the `id` locale (real, distinct Indonesian content) can actually distinguish "wired
+  // through next-intl" from "silently fell through to the English default".
+  it('renders the translated TILL tag and "happening now" status badge under the id locale', async () => {
+    const now = Date.now();
+    mockEventsItems = [
+      {
+        id: 'evt-till',
+        eventName: 'Till Event',
+        slug: 'event-till',
+        isFavorited: false,
+        imageUrl: null,
+        location: 'Location Till',
+        types: ['FESTIVAL'],
+        categories: ['MUSIC'],
+        schedules: [
+          {
+            id: 'evt-till-schedule',
+            isMainSchedule: true,
+            // Started yesterday, ends 3 days from now -- `started && endDayDiff > 0`, the one
+            // state that produces both a TILL tag (EventCard.tsx) and a "happening now" status
+            // badge (formatEventStatus) from the same schedule.
+            eventStartDate: new Date(now - 24 * 60 * 60 * 1000).toISOString(),
+            eventEndDate: new Date(now + 3 * 24 * 60 * 60 * 1000).toISOString(),
+            ticketPrice: '100',
+          },
+        ],
+      },
+    ];
+
+    renderWithProviders('id');
+
+    await waitFor(() => {
+      expect(screen.getByText('Till Event')).toBeInTheDocument();
+    });
+
+    // id.json EventCard.tillLabel / statusHappeningNow -- not the English "till"/"Now" default.
+    expect(screen.getByText('s.d.')).toBeInTheDocument();
+    expect(screen.getByText('Hari ini')).toBeInTheDocument();
+  });
+
+  it('renders the translated "upcoming" status badge under the id locale', async () => {
+    const now = Date.now();
+    mockEventsItems = [
+      {
+        id: 'evt-upcoming',
+        eventName: 'Upcoming Event',
+        slug: 'event-upcoming',
+        isFavorited: false,
+        imageUrl: null,
+        location: 'Location Upcoming',
+        types: ['FESTIVAL'],
+        categories: ['MUSIC'],
+        schedules: [
+          {
+            id: 'evt-upcoming-schedule',
+            isMainSchedule: true,
+            // Starts 20 days from now -- `startDayDiff >= 14`, the `statusUpcoming` branch.
+            eventStartDate: new Date(now + 20 * 24 * 60 * 60 * 1000).toISOString(),
+            ticketPrice: '100',
+          },
+        ],
+      },
+    ];
+
+    renderWithProviders('id');
+
+    await waitFor(() => {
+      expect(screen.getByText('Upcoming Event')).toBeInTheDocument();
+    });
+
+    // id.json EventCard.statusUpcoming -- not the English "Upcoming" default.
+    expect(screen.getByText('Akan Datang')).toBeInTheDocument();
+  });
+
+  it('renders the translated (locale-formatted) nearby-distance badge under the id locale', async () => {
+    // Ambient-fallback coordinate (no `nearby` filter selected) -- same mechanism nearby.test.tsx
+    // already exercises in English; here it also proves the id-locale comma-decimal formatting
+    // (`formatLocalizedNearbyBadgeDistance`, AC4) flows through on a card-list page.
+    mockCoordinate = { latitude: -6.2, longitude: 106.8 };
+    mockEventsItems = [
+      {
+        id: 'evt-nearby',
+        eventName: 'Nearby Event',
+        slug: 'event-nearby',
+        isFavorited: false,
+        imageUrl: null,
+        location: 'Location Nearby',
+        types: ['FESTIVAL'],
+        categories: ['MUSIC'],
+        schedules: [
+          {
+            id: 'evt-nearby-schedule',
+            isMainSchedule: true,
+            eventStartDate: new Date('2026-08-12T12:00:00Z').toISOString(),
+            ticketPrice: '100',
+            // Same coordinates as the viewer's ambient location -- 0km away.
+            locationDetails: { coordinates: { lat: -6.2, lng: 106.8 } },
+          },
+        ],
+      },
+    ];
+
+    renderWithProviders('id');
+
+    await waitFor(() => {
+      expect(screen.getByText('Nearby Event')).toBeInTheDocument();
+    });
+
+    // Indonesian comma-decimal separator (vs English's "0.0 km", asserted in nearby.test.tsx).
+    expect(screen.getByText('0,0 km')).toBeInTheDocument();
   });
 });
 
