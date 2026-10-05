@@ -1688,12 +1688,13 @@ items:
      CLOSED 2026-10-05: already shipped 2026-09-26 by commit f214f4e4 (the branch and its tests were removed); this row was never updated."}
 
   FIND-054:
-    {type: finding, status: backlog, created: 2026-09-26,
+    {type: finding, status: done, created: 2026-09-26,
      impact: internal, effort: s,
      title: "PageContainer's contained (fullWidth=false) variant has the same unguarded min-w-floor-vs-nav-rail-inset pattern BUG-045 fixed, latent not active",
      ref: [implementation-artifacts/deferred-work.md],
      touches: [pkg:ui],
-     note: "Deferred from: code review of spec-bug-045-masonry-horizontal-overflow (2026-09-26). 1 finding."}
+     note: "Deferred from: code review of spec-bug-045-masonry-horizontal-overflow (2026-09-26). 1 finding.
+     CLOSED 2026-10-05: doesn't reproduce -- lg:768px floor never exceeds available width (>=960px) at any viewport; no code change, matches BUG-045 spec's own confirmation."}
 
   FIND-056:
     {type: finding, status: backlog, created: 2026-09-26,
