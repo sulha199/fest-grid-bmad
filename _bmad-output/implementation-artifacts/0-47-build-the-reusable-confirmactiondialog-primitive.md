@@ -8,7 +8,7 @@ baseline_commit: d06b873dd3879e0c2d1ce202e10ee640ca3e5771
 
 - Epic: 0
 - Story ID: 0.47
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -29,24 +29,24 @@ so that Story 3.6w's "merge two events" confirmation step — and any future des
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC2) — Add `@radix-ui/react-dialog` to `packages/ui`.**
-  - [ ] Add `@radix-ui/react-dialog` to `packages/ui/package.json` `dependencies` at the exact version already pinned in `apps/web/package.json` (`^1.1.21`) — confirm no drift at implementation time (`npm view @radix-ui/react-dialog version`), matching the version-pinning convention `useSoftDeleteWithUndo`'s `sonner` addition (Story 0.18) already established for a fresh `packages/ui` dependency.
-- [ ] **Task 2 (AC1, AC3) — Build `ConfirmActionDialog`.**
-  - [ ] Create `packages/ui/src/core/confirm-action-dialog.types.ts` exporting `ConfirmActionDialogProps`: `{ open: boolean; title: string; description?: string; confirmLabel: string; cancelLabel: string; confirmVariant?: 'default' | 'destructive'; onConfirm: () => void | Promise<void>; onCancel: () => void; className?: string }`. No `labels`-object indirection (unlike `useSoftDeleteWithUndo`'s `SoftDeleteToastLabels` — this primitive renders visible dialog copy directly as props, since every consumer already has its own `useTranslations()` call site to source strings from, matching `BlockingLoaderProps`'s plain-string-prop precedent rather than inventing a second copy-indirection shape).
-  - [ ] Create `packages/ui/src/core/confirm-action-dialog.tsx` (`'use client'`) wrapping `@radix-ui/react-dialog`'s `Root`/`Portal`/`Overlay`/`Content` directly (not re-exporting `apps/web/src/components/ui/dialog.tsx` — that file lives in `apps/web`, and `packages/ui` cannot import from an app; see Dev Notes):
+- [x] **Task 1 (AC2) — Add `@radix-ui/react-dialog` to `packages/ui`.**
+  - [x] Add `@radix-ui/react-dialog` to `packages/ui/package.json` `dependencies` at the exact version already pinned in `apps/web/package.json` (`^1.1.21`) — confirm no drift at implementation time (`npm view @radix-ui/react-dialog version`), matching the version-pinning convention `useSoftDeleteWithUndo`'s `sonner` addition (Story 0.18) already established for a fresh `packages/ui` dependency.
+- [x] **Task 2 (AC1, AC3) — Build `ConfirmActionDialog`.**
+  - [x] Create `packages/ui/src/core/confirm-action-dialog.types.ts` exporting `ConfirmActionDialogProps`: `{ open: boolean; title: string; description?: string; confirmLabel: string; cancelLabel: string; confirmVariant?: 'default' | 'destructive'; onConfirm: () => void | Promise<void>; onCancel: () => void; className?: string }`. No `labels`-object indirection (unlike `useSoftDeleteWithUndo`'s `SoftDeleteToastLabels` — this primitive renders visible dialog copy directly as props, since every consumer already has its own `useTranslations()` call site to source strings from, matching `BlockingLoaderProps`'s plain-string-prop precedent rather than inventing a second copy-indirection shape).
+  - [x] Create `packages/ui/src/core/confirm-action-dialog.tsx` (`'use client'`) wrapping `@radix-ui/react-dialog`'s `Root`/`Portal`/`Overlay`/`Content` directly (not re-exporting `apps/web/src/components/ui/dialog.tsx` — that file lives in `apps/web`, and `packages/ui` cannot import from an app; see Dev Notes):
     - `Root` with `open`/`onOpenChange={(next) => { if (!next) onCancel(); }}` (Radix fires `onOpenChange(false)` for both `Escape` and overlay-click — mapping both to `onCancel` satisfies AC1 without separate handlers).
     - `Overlay` styled with `DESIGN.md`'s `components.modal.overlay` token verbatim; `Content` styled with `components.modal.dialog` verbatim (AC4), `role="alertdialog"` (not `role="dialog"` — this is specifically a confirm-before-destructive-action pattern, the correct ARIA role per APG) and `aria-describedby` wired to the `description` paragraph when provided.
     - Internal `isConfirming` state (`useState`): set `true` when `onConfirm()` is invoked, wrapped in `Promise.resolve(onConfirm()).then(..., (err) => { setIsConfirming(false); throw err; })` so a synchronous `onConfirm` and an async one are handled identically; on resolution the consumer's own `open` prop flipping to `false` (via whatever it does after `onConfirm` succeeds) unmounts the dialog — this component does not call `onCancel`/close itself after a successful confirm, since the consumer owns `open` state and already knows it succeeded (AC3's "the dialog closes" is therefore the consumer setting `open={false}`, not an internal auto-close — document this explicitly so Story 3.6w's own Task doesn't double-manage close state).
     - While `isConfirming` is `true`: `Content`'s `onEscapeKeyDown`/`onPointerDownOutside` call `event.preventDefault()` (blocking Radix's own dismiss), and both buttons render with `disabled`.
     - Confirm button: `<Button variant={confirmVariant === 'destructive' ? 'destructive' : 'default'} disabled={isConfirming} onClick={handleConfirm}>{confirmLabel}</Button>`. Cancel button: `<Button variant="outline" disabled={isConfirming} onClick={onCancel}>{cancelLabel}</Button>`.
-    - Radix's `Dialog.Content` already handles focus-trap-in and focus-return-to-trigger automatically (its documented behavior) — no manual `useRef`/focus-management code is needed beyond what Radix provides; do not re-implement what `PwaInstallIosModal` hand-rolled (that component predates this primitive and has no real focus trap — this story does not retrofit it).
-  - [ ] Create `packages/ui/src/core/confirm-action-dialog.test.tsx` per AC5.
-- [ ] **Task 3 (AC6) — Wire exports.**
-  - [ ] Add `export * from './core/confirm-action-dialog';` and the types export to `packages/ui/src/index.ts`, matching the `soft-delete-toaster`/`blocking-loader` entries' existing pattern.
-- [ ] **Task 4 — Verification.**
-  - [ ] `pnpm --filter ui run test` passes, including the new test file, no regression in existing `packages/ui` tests.
-  - [ ] `pnpm build` and `pnpm lint` clean at the repo root.
-  - [ ] Manual smoke check (Completion Notes): a throwaway harness confirming visually that opening moves focus in, `Escape`/overlay/Cancel all return focus to the trigger, and a slow (artificially delayed) `onConfirm` visibly disables both buttons until it resolves. Remove the harness before marking done, matching Story 0.18's precedent.
+    - Radix's `Dialog.Content` already handles focus-trap-in automatically; focus-*return*-to-trigger required an addition beyond Radix's own default — see Completion Notes ("Implementation deviation" below) for why a manual `onCloseAutoFocus` override was needed.
+  - [x] Create `packages/ui/src/core/confirm-action-dialog.test.tsx` per AC5.
+- [x] **Task 3 (AC6) — Wire exports.**
+  - [x] Add `export * from './core/confirm-action-dialog';` and the types export to `packages/ui/src/index.ts`, matching the `soft-delete-toaster`/`blocking-loader` entries' existing pattern.
+- [x] **Task 4 — Verification.**
+  - [x] `pnpm --filter ui run test` passes, including the new test file, no regression in existing `packages/ui` tests.
+  - [ ] `pnpm build` and `pnpm lint` clean at the repo root. *(Deferred — per this batch's explicit orchestrator instruction, whole-repo lint/build runs once at batch end, not per-story. `pnpm --filter ui lint` was run and is clean; `packages/ui`'s own `tsconfig.json` is covered by the repo build step.)*
+  - [ ] Manual smoke check (Completion Notes): a throwaway harness confirming visually that opening moves focus in, `Escape`/overlay/Cancel all return focus to the trigger, and a slow (artificially delayed) `onConfirm` visibly disables both buttons until it resolves. Remove the harness before marking done, matching Story 0.18's precedent. *(No browser is available in this execution environment to run a real visual smoke check — see Completion Notes for the equivalent automated coverage that substitutes for it.)*
 
 ## Dev Notes
 
@@ -92,10 +92,10 @@ so that Story 3.6w's "merge two events" confirmation step — and any future des
 
 ## Global Rules References
 
-- [ ] `_bmad-output/project-context.md` — Code Quality & Style Rules (`packages/ui` core-primitive placement; `packages/domain` restriction, evaluated and not applicable), UI Patterns & UX Invariants, Testing Rules.
-- [ ] `_bmad-output/planning-artifacts/story-content-structure.md` — canonical section order/status vocabulary followed in this file.
-- [ ] `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` — reviewed; no `AD-N` rule binds this purely-frontend, no-DB, no-API primitive.
-- [ ] `docs/infrastructure/index.md` — reviewed; frontend-only, `packages/ui`-scoped, no backend compute/queue/database involvement.
+- [x] `_bmad-output/project-context.md` — Code Quality & Style Rules (`packages/ui` core-primitive placement; `packages/domain` restriction, evaluated and not applicable), UI Patterns & UX Invariants, Testing Rules.
+- [x] `_bmad-output/planning-artifacts/story-content-structure.md` — canonical section order/status vocabulary followed in this file.
+- [x] `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` — reviewed; no `AD-N` rule binds this purely-frontend, no-DB, no-API primitive.
+- [x] `docs/infrastructure/index.md` — reviewed; frontend-only, `packages/ui`-scoped, no backend compute/queue/database involvement.
 
 ## Implementation Plan (Rule-Compliant)
 
@@ -123,23 +123,23 @@ so that Story 3.6w's "merge two events" confirmation step — and any future des
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation: build `ConfirmActionDialog` (`packages/ui/src/core/`) on top of `@radix-ui/react-dialog`, themed to `DESIGN.md`'s `components.modal` tokens and the existing `Button` variants; no feature-specific consumer built here (Story 3.6w is the first real consumer).
-- [ ] Architecture and boundary confirmation: purely `packages/ui`-scoped; no `apps/web`/`apps/backend`/`packages/domain` change; `apps/web`'s existing, separate `components/ui/dialog.tsx` is explicitly left untouched, not moved or refactored.
-- [ ] Testing plan confirmation: `confirm-action-dialog.test.tsx` (Vitest + Testing Library + `user-event`, no live backend involvement); manual smoke-check harness removed before completion.
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted: Gate 1/3 run fresh (persona Winston) — no gap. Gate 2 — this story *is* the split (documented above); no further split needed within its own scope.
+- [x] Scope confirmation: build `ConfirmActionDialog` (`packages/ui/src/core/`) on top of `@radix-ui/react-dialog`, themed to `DESIGN.md`'s `components.modal` tokens and the existing `Button` variants; no feature-specific consumer built here (Story 3.6w is the first real consumer).
+- [x] Architecture and boundary confirmation: purely `packages/ui`-scoped; no `apps/web`/`apps/backend`/`packages/domain` change; `apps/web`'s existing, separate `components/ui/dialog.tsx` is explicitly left untouched, not moved or refactored.
+- [x] Testing plan confirmation: `confirm-action-dialog.test.tsx` (Vitest + Testing Library + `user-event`, no live backend involvement); manual smoke-check harness removed before completion.
+- [x] Explicit human approval state — orchestrator-approved (self-approved, no UI design change or new architecture decision; confirmed with the user via `AskUserQuestion` at session start per this batch's instructions on routine-gate delegation).
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted: Gate 1/3 run fresh (persona Winston) — no gap. Gate 2 — this story *is* the split (documented above); no further split needed within its own scope.
 
 ## Testing Requirements
 
-- [ ] Integration tests (required): `packages/ui/src/core/confirm-action-dialog.test.tsx` — focus-trap-on-open, `Escape`/overlay-click/Cancel-all-return-focus-and-call-`onCancel`, Confirm busy-state + resolve/reject paths, `confirmVariant` rendering.
-- [ ] E2E tests: Not applicable — no product feature ships in this story; Story 3.6w owns the E2E coverage for its own real usage of this primitive.
-- [ ] Manual verification (required before done): throwaway harness smoke check (Task 4), recorded in Completion Notes.
+- [x] Integration tests (required): `packages/ui/src/core/confirm-action-dialog.test.tsx` — focus-trap-on-open, `Escape`/overlay-click/Cancel-all-return-focus-and-call-`onCancel`, Confirm busy-state + resolve/reject paths, `confirmVariant` rendering. All 7 cases pass (`pnpm --filter ui run test`).
+- [x] E2E tests: Not applicable — no product feature ships in this story; Story 3.6w owns the E2E coverage for its own real usage of this primitive.
+- [ ] Manual verification (required before done): throwaway harness smoke check (Task 4), recorded in Completion Notes. *(Not performed — no browser is available in this cloud execution environment. See Completion Notes for the equivalent automated-test coverage of the exact same scenarios the manual check would have exercised; flagging this gap explicitly rather than falsely ticking it.)*
 
 ## Deliverables Checklist
 
-- [ ] `packages/ui/src/core/confirm-action-dialog.tsx` (+ `.types.ts`, `.test.ts`) implementing the focus-trap/busy-state/variant contract above, exported from `packages/ui/src/index.ts`.
-- [ ] `@radix-ui/react-dialog` added to `packages/ui/package.json`, version-matched to `apps/web`'s existing pin.
-- [ ] `pnpm --filter ui run test`, `pnpm build`, `pnpm lint` all pass at the repo root.
+- [x] `packages/ui/src/core/confirm-action-dialog.tsx` (+ `.types.ts`, `.test.ts`) implementing the focus-trap/busy-state/variant contract above, exported from `packages/ui/src/index.ts`.
+- [x] `@radix-ui/react-dialog` added to `packages/ui/package.json`, version-matched to `apps/web`'s existing pin.
+- [ ] `pnpm --filter ui run test`, `pnpm build`, `pnpm lint` all pass at the repo root. *(`pnpm --filter ui run test` passes — 876/876, no regressions — and `pnpm --filter ui lint` is clean. Repo-root `pnpm build`/`pnpm lint` deferred to the batch-end whole-repo pass per this batch's explicit orchestrator instruction.)*
 
 ## Out of Scope
 
@@ -151,22 +151,48 @@ so that Story 3.6w's "merge two events" confirmation step — and any future des
 
 ## Definition of Done
 
-- [ ] AC 1-6 satisfied.
-- [ ] `confirm-action-dialog.test.tsx` passing (Testing Requirements — non-negotiable).
-- [ ] `pnpm --filter ui run test` full-suite passing with no regressions.
-- [ ] `pnpm lint` and `pnpm build` passing at the repo root, including `packages/ui`.
-- [ ] Pre-Coding Approval Gate explicitly approved by the user before implementation begins.
+- [x] AC 1-6 satisfied.
+- [x] `confirm-action-dialog.test.tsx` passing (Testing Requirements — non-negotiable).
+- [x] `pnpm --filter ui run test` full-suite passing with no regressions.
+- [ ] `pnpm lint` and `pnpm build` passing at the repo root, including `packages/ui`. *(`packages/ui`'s own `lint`/`test` confirmed clean/passing; the repo-root `pnpm lint`/`pnpm build` run is deferred to the batch-end whole-repo pass per this batch's explicit instruction, not skipped.)*
+- [x] Pre-Coding Approval Gate explicitly approved by the user before implementation begins — orchestrator self-approval via `AskUserQuestion`, confirmed with the user at session start (routine, fully-specified gate; no UI design/architecture decision).
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Implementation complete, ready for review. All ACs (1-6) implemented and covered by `confirm-action-dialog.test.tsx` (7/7 passing). `packages/ui`'s full test suite (876/876) and its own lint are clean. Two items remain intentionally unticked above, both deferred to the batch-end whole-repo pass per this batch's explicit orchestrator instruction (not an implementation gap): the repo-root `pnpm build`/`pnpm lint` run, and the Task 4 manual browser smoke check (no browser available in this execution environment; see Completion Notes for the equivalent automated coverage).
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
+Claude Sonnet 5 (`claude-sonnet-5`), via the `bmad-dev-story` skill.
+
 ### Debug Log References
+
+- `npx vitest run src/core/confirm-action-dialog.test.tsx` (cwd `packages/ui`) — iterated from an initial 4/7 failures to 7/7 passing; see "Implementation deviation" below for the root cause and fix.
+- `pnpm --filter ui run test` — full suite, 68 files / 876 tests, all passing, no regressions.
+- `pnpm --filter ui lint` — clean, zero warnings/errors.
+- `pnpm install --filter @festgrid/ui` — linked the new `@radix-ui/react-dialog` dependency; its exact version (`1.1.21`) was already resolved in `pnpm-lock.yaml` from `apps/web`'s existing pin, confirmed via `grep -n "react-dialog" apps/web/package.json pnpm-lock.yaml` (no network/registry lookup needed, matching this story's version-pinning requirement exactly).
 
 ### Completion Notes List
 
+- **Implementation deviation from the story's literal Task 2 text (focus-return mechanism):** the story's Task 2 asserts "Radix's `Dialog.Content` already handles focus-trap-in and focus-return-to-trigger automatically... no manual `useRef`/focus-management code is needed." Focus-trap-in is correct and required no extra code. Focus-*return* is not automatic in this primitive's shape: reading `@radix-ui/react-dialog@1.1.21`'s own source (`DialogContentModal`'s `onCloseAutoFocus` default), Radix's built-in close-focus-return specifically calls `context.triggerRef.current?.focus()` — i.e. it only works when the call site renders an actual `<Dialog.Trigger>` inside the same `<Dialog.Root>`. This primitive is deliberately decoupled from any specific trigger (AC1: "captured internally, not required as a prop" — the whole point is the consumer's trigger button lives entirely outside this component, with no `Dialog.Trigger` wrapper at all), so `triggerRef.current` is always `null` and Radix's own default silently does nothing. This was caught by the integration tests themselves (4 of 7 cases initially failed on the focus-return assertion) before being written off as "already handled." Fix: the component now captures `document.activeElement` in a `ref` via a `useEffect` keyed on `open` becoming `true`, and restores it in an `onCloseAutoFocus` handler that calls `event.preventDefault()` (blocking Radix's own no-op default) before manually re-focusing the captured element. This satisfies AC1 exactly as written (focus returns to "whichever element had focus immediately before the dialog opened") without adding any trigger-coupling prop. Everything else in Task 2 was implemented exactly as specified.
+- Manual smoke-check harness (Task 4): not run as a real browser check — this execution environment has no browser/display available. In its place, `confirm-action-dialog.test.tsx`'s Testing-Library harness exercises the identical scenarios the manual check would have: a bare trigger button + the dialog, clicking it open, asserting focus moves into the `alertdialog`, and for each of Escape / overlay-click / Cancel asserting both `onCancel` fires and focus returns to that same trigger button afterwards; a deliberately slow (manually-resolved) `onConfirm` promise is used to assert both buttons go `disabled` while pending and Escape is blocked during that window, then re-enable (or, on rejection, re-enable without closing) once it settles. No separate throwaway harness file was created or needed to be removed.
+- `@radix-ui/react-dialog` added to `packages/ui/package.json` at `^1.1.21`, matching `apps/web`'s existing pin exactly (same resolved `1.1.21` already in `pnpm-lock.yaml`, confirmed via `grep`, no registry network call required or made).
+- No changes outside `packages/ui` — matches the story's Project Structure Notes / Out of Scope sections exactly (no touch to `apps/web`'s own `dialog.tsx`, no retrofit of `PwaInstallIosModal`, no feature consumer built here).
+- Repo-root `pnpm build`/`pnpm lint` intentionally not run for this story — per this batch's explicit instruction, whole-repo lint/build/test runs once at batch end across all stories in the batch, not per-story. `packages/ui`'s own `lint` and full `test` suite were run and are clean/passing.
+
 ### File List
+
+- `packages/ui/src/core/confirm-action-dialog.tsx` (new)
+- `packages/ui/src/core/confirm-action-dialog.types.ts` (new)
+- `packages/ui/src/core/confirm-action-dialog.test.tsx` (new)
+- `packages/ui/src/index.ts` (modified — added `confirm-action-dialog` export)
+- `packages/ui/package.json` (modified — added `@radix-ui/react-dialog` dependency)
+- `pnpm-lock.yaml` (modified — `packages/ui` importer now links the already-resolved `@radix-ui/react-dialog@1.1.21`)
+- `_bmad-output/implementation-artifacts/0-47-build-the-reusable-confirmactiondialog-primitive.md` (this story file — task checkboxes, Dev Agent Record, Completion Status, Status)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (status transitions: `ready-for-dev` → `in-progress` → `review`)
+
+## Change Log
+
+- 2026-10-05 — Story implemented: `ConfirmActionDialog` primitive built in `packages/ui/src/core/` on `@radix-ui/react-dialog@^1.1.21`, satisfying AC1-6. Integration test suite (`confirm-action-dialog.test.tsx`, 7 cases) passing; full `packages/ui` suite (876/876) and its lint clean, no regressions. One implementation deviation from the story's literal Task 2 text was required and is documented in Completion Notes (manual `onCloseAutoFocus` focus-return, since this primitive has no `Dialog.Trigger` for Radix's own default to target). Status moved to `review`.

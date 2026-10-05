@@ -21,6 +21,7 @@ export * from './core/PwaInstallIosModal';
 export * from './core/WeekPicker';
 export * from './core/LocationLink';
 export * from './core/soft-delete-toaster';
+export * from './core/confirm-action-dialog';
 export * from './core/swipe-to-reveal';
 export * from './core/tabbed-shell';
 export * from './core/wizard';
