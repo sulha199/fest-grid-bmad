@@ -7,7 +7,8 @@ import { GeminiSchedulePayload, ScheduleTimezoneResolution } from '@festgrid/dom
 export async function resolveScheduleTimezones(
   schedules: GeminiSchedulePayload[],
   resolvedScheduleLocations: Map<number, LocationDetails>,
-  subscriberUserIds: string[]
+  subscriberUserIds: string[],
+  accountTimezone?: string | null
 ): Promise<Map<number, ScheduleTimezoneResolution>> {
   const resolutions = new Map<number, ScheduleTimezoneResolution>();
   
@@ -24,7 +25,18 @@ export async function resolveScheduleTimezones(
       continue;
     }
 
-    // Try Tier 2 if we have exactly 1 subscriber
+    // Tier 2: the source account's own timezone (its default location's IANA timezone). The
+    // event's organizer is the best available proxy for where the event happens, and unlike the
+    // subscriber tier it is available for every post, so viewers are never asked to supply it.
+    if (accountTimezone) {
+      resolutions.set(i, {
+        timezone: accountTimezone,
+        timezoneStatus: 'RESOLVED',
+      });
+      continue;
+    }
+
+    // Tier 3: if we have exactly 1 subscriber
     if (subscriberUserIds.length === 1) {
       const subscriberId = subscriberUserIds[0];
       
@@ -56,7 +68,7 @@ export async function resolveScheduleTimezones(
       }
     }
 
-    // Fall back to Tier 3 (NEEDS_CLARIFICATION)
+    // Fall back to Tier 4 (NEEDS_CLARIFICATION, resolvable by a moderator only)
     resolutions.set(i, {
       timezone: undefined,
       timezoneStatus: 'NEEDS_CLARIFICATION',

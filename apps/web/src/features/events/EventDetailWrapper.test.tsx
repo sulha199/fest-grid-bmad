@@ -136,6 +136,7 @@ let currentMockEvent = {
   schedules: [],
 }
 
+let currentMockMeRole: "user" | "moderator" = "user"
 let currentMockSubscriptions: { id: string; account: { accountId: string } }[] = []
 
 // Story 3.6u (Task 6, AC6) -- `Query.relatedEventIds` mock result, configurable per test.
@@ -343,7 +344,7 @@ const handlers = [
         me: {
           id: "u_1",
           email: "test@example.com",
-          role: "user",
+          role: currentMockMeRole,
         },
       },
     })
@@ -366,6 +367,7 @@ describe("EventDetailWrapper", () => {
     capturedEventDetailViewProps = null
     mockSession = { user: { id: "u_1" } } // Default authenticated
     currentMockSubscriptions = []
+    currentMockMeRole = "user"
     mockSearchParams = new URLSearchParams()
     mockToggleFavoriteCount = 42
     currentMockEmbedBySlugResult = { status: "NOT_RESOLVABLE_FROM_SLUG", html: null, durableImageUrl: null }
@@ -1036,6 +1038,7 @@ describe("EventDetailWrapper", () => {
   })
 
   it("renders timezone clarification indicator for NEEDS_CLARIFICATION schedule", async () => {
+    currentMockMeRole = "moderator"
     renderComponent()
 
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
@@ -1046,6 +1049,7 @@ describe("EventDetailWrapper", () => {
   })
 
   it("does not render timezone clarification indicator for RESOLVED schedule", async () => {
+    currentMockMeRole = "moderator"
     renderComponent()
 
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
@@ -1055,23 +1059,15 @@ describe("EventDetailWrapper", () => {
     expect(clarificationLabels).toHaveLength(1) // Only first schedule
   })
 
-  it("unauthenticated timezone submit redirects to /login", async () => {
-    mockSession = null // Unauthenticated
+  it("never shows the timezone prompt to a non-moderator (user or anonymous)", async () => {
     renderComponent()
-
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
-
-    const timezoneInput = await screen.findByPlaceholderText("EventDetailsPage.timezoneSelectPlaceholder") as HTMLInputElement
-    fireEvent.change(timezoneInput, { target: { value: "America/New_York" } })
-
-    const submitButton = await screen.findByRole("button", { name: "EventDetailsPage.timezoneSubmitLabel" })
-    fireEvent.click(submitButton)
-
-    // Should redirect to login, not call mutation
-    expect(mockRouterPush).toHaveBeenCalledWith("/login")
+    expect(screen.queryByText("EventDetailsPage.timezoneClarificationLabel")).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText("EventDetailsPage.timezoneSelectPlaceholder")).not.toBeInTheDocument()
   })
 
   it("authenticated timezone submit calls mutation and shows success message", async () => {
+    currentMockMeRole = "moderator"
     renderComponent()
 
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
@@ -1090,6 +1086,7 @@ describe("EventDetailWrapper", () => {
   })
 
   it("timezone submit failure shows error message and rolls back optimistic update", async () => {
+    currentMockMeRole = "moderator"
     // Override handler for this test to return error
     server.use(
       graphql.link("*/api/graphql").mutation("resolveScheduleTimezone", () => {

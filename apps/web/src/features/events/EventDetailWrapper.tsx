@@ -753,13 +753,14 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
         onTypeClick: (value: string) => {
           router.push(`/?types=${encodeURIComponent(value)}`)
         },
-        onResolveScheduleTimezone: (scheduleId: string, timezone: string) => {
-          if (!session) {
-            router.push("/login")
-            return
-          }
-          resolveScheduleTimezone({ scheduleId, timezone })
-        },
+        // Moderator-only: the timezone is inferred at ingestion (schedule location, then the
+        // account's timezone); a still-unresolved schedule is a data issue for moderators to fix,
+        // never a prompt shown to ordinary viewers.
+        onResolveScheduleTimezone: isModerator
+          ? (scheduleId: string, timezone: string) => {
+              resolveScheduleTimezone({ scheduleId, timezone })
+            }
+          : undefined,
         onCorrectData: () => {
           if (!session) {
             router.push("/login")

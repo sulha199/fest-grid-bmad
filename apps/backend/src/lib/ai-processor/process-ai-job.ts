@@ -232,7 +232,8 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     const scheduleTimezoneResolutions = await resolveScheduleTimezones(
       event.schedules,
       resolvedScheduleLocations,
-      subscriberUserIds
+      subscriberUserIds,
+      defaultLocation?.timezone
     );
 
     const eventMessage = transformGeminiResponseToEventInfo(event, {

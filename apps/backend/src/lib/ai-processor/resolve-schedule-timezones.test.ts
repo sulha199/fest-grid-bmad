@@ -105,6 +105,27 @@ test('resolveScheduleTimezones integration tests', async (t) => {
     assert.strictEqual(res.timezoneStatus, 'NEEDS_CLARIFICATION');
   });
 
+  await t.test("Account timezone resolves a schedule with no location timezone, ahead of the subscriber tier", async () => {
+    await db.update(users).set({ timezone: 'Europe/London' }).where(eq(users.id, user1.id));
+    const schedules: GeminiSchedulePayload[] = [{ isMainSchedule: true, eventStartDate: '2026-08-10' }];
+
+    const result = await resolveScheduleTimezones(schedules, new Map(), [user1.id], 'Asia/Jakarta');
+
+    assert.strictEqual(result.get(0)?.timezone, 'Asia/Jakarta');
+    assert.strictEqual(result.get(0)?.timezoneStatus, 'RESOLVED');
+  });
+
+  await t.test("Schedule location timezone still wins over the account timezone", async () => {
+    const schedules: GeminiSchedulePayload[] = [{ isMainSchedule: true, eventStartDate: '2026-08-10' }];
+    const resolvedLocations = new Map<number, LocationDetails>([
+      [0, { coordinates: { latitude: 41.8781, longitude: -87.6298 }, timezone: 'America/Chicago' }]
+    ]);
+
+    const result = await resolveScheduleTimezones(schedules, resolvedLocations, [], 'Asia/Jakarta');
+
+    assert.strictEqual(result.get(0)?.timezone, 'America/Chicago');
+  });
+
   await t.test('Multiple schedules resolve consistently with memoization', async () => {
     await db.update(users).set({ timezone: 'Europe/London' }).where(eq(users.id, user1.id));
 
