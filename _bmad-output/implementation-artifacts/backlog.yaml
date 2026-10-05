@@ -1790,12 +1790,13 @@ items:
      note: "Matching/scoring/auto-link/enrichment-in-place promoted to Story 3.6v (ready-for-dev). Moderator merge/undo half carved out as BUG-055 (Story 3.6w, not yet created)."}
 
   BUG-055:
-    {type: bug, status: backlog, created: 2026-10-04, parent: BUG-052,
+    {type: bug, status: promoted, created: 2026-10-04, parent: BUG-052,
      impact: user-visible, effort: m,
      title: "No moderator merge/undo action for mid-confidence duplicate-event matches",
      ref: [planning-artifacts/sprint-change-proposal-2026-10-01-multi-event-posts.md],
+     stories: [3-6w-let-moderators-merge-duplicate-events-with-slug-redirects],
      touches: [cross:ai-extraction, app:backend, web:moderation, cross:architecture],
-     note: "Carved from BUG-052 at Story 3.6v's bmad-create-story time: 3.6v only writes mid-confidence suggestions (event_match_candidates, no UI); the merge/undo review action is Story 3.6w (depends on 3.6v, 4.7b), not yet created."}
+     note: "Carved from BUG-052 at Story 3.6v's bmad-create-story time. Covered by Story 3.6w (created 2026-10-05); see that story's Dev Notes for the merge/undo design and its own 0.47 prerequisite."}
 
 
   # ── 2026-10-01 (bmad-correct-course: multi-event posts + cross-post matching) ─────────
@@ -1975,3 +1976,11 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      touches: [app:backend, app:infrastructure, cross:ai-extraction],
      note: "Deferred from: Deferred from: quick-dev of async scrape results auto-enqueue (2026-10-05, `bmad-quick-dev`). 2 findings."}
+
+  IDEA-061:
+    {type: idea, status: backlog, created: 2026-10-05, parent: BUG-052,
+     impact: user-visible, effort: m,
+     title: "Let a moderator manually pick any two arbitrary events to merge, not only matcher-flagged suggestions",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-01-multi-event-posts.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
+     touches: [app:backend, web:moderation],
+     note: "Deferred from Story 3.6w's bmad-create-story (2026-10-05, AskUserQuestion): out-of-scope manual merge trigger. See 3.6w's Dev Notes/Out of Scope for the reusable mergeEvents() internal function a future story here would expose directly."}

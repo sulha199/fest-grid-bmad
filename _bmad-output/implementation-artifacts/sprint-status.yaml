@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-05T06:21:05Z
+last_updated: 2026-10-05T06:46:59Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -334,6 +334,9 @@ development_status:
   # Gate 1 finding: AIProcessorLambda has no memory/native-bundling/model-asset provisioning
   # for Story 3.6n's sharp + face-api stage. Hard prerequisite for 3-6n.
   0-46-provision-the-ai-processor-lambdas-image-processing-runtime: review
+  # Gate 2 finding (UI Complexity & Reusability), surfaced creating Story 3-6w: no reusable
+  # focus-trapping confirmation-dialog primitive exists. Hard prerequisite for 3-6w.
+  0-47-build-the-reusable-confirmactiondialog-primitive: backlog
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.
@@ -1797,7 +1800,7 @@ development_status:
   # prerequisite for 3.6u's Related Events section (Task 3/5) -- must reach review/done first.
   3-6u-show-all-source-posts-and-related-events-on-the-event-detail-page: review
   3-6v-match-new-posts-to-existing-events-and-enrich-them-in-place: review
-  3-6w-let-moderators-merge-duplicate-events-with-slug-redirects: backlog
+  3-6w-let-moderators-merge-duplicate-events-with-slug-redirects: ready-for-dev
   3-6x-show-all-events-from-a-post-on-a-post-collection-page: ready-for-dev
   3-6y-respect-weekday-narrowed-schedules-in-day-of-week-filtering: review
   3-6z-automatically-enqueue-new-scraped-posts-for-extraction-within-quota: review

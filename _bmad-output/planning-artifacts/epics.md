@@ -1142,6 +1142,24 @@ The project is set up with a solid foundation and CI/CD pipeline.
 
 **Note:** Gate 1 finding ("depends on infra that has no IaC/deploy story") from the CC-023 batch readiness sweep (`batch-cc-023-face-blur-audit-readiness.md`, 2026-10-03, Winston persona), surfaced while sweeping Story 3.6n. Numbered as a new sequential Epic 0 story per the tooling/infrastructure rule (Epic 0's then-highest story was 0.45), following the precedent of Story 0.27 (notifier Lambda infrastructure) and Story 0.33 (post-media bucket), which also put single-consumer Lambda/infra provisioning in Epic 0. **Hard prerequisite for Story 3.6n.** Not a prerequisite for 3.6m, 3.6o or 3.6p.
 
+### Story 0.47: Build the reusable ConfirmActionDialog primitive
+
+**As a** developer,
+**I want** a reusable, generic focus-trapping confirmation dialog primitive (`ConfirmActionDialog`, `packages/ui/src/core/`) implementing `EXPERIENCE.md`'s merge-confirmation contract (opening moves focus into the dialog; Cancel returns focus to the triggering control with no further action; Confirm commits, closes, and returns focus to the triggering control),
+**So that** Story 3.6w's "merge two events" confirmation step — and any future destructive moderator/user action that needs an explicit confirm-before-commit step — can reuse one accessible, tested dialog instead of each feature hand-rolling its own focus-trap logic.
+
+**Acceptance Criteria:**
+
+*   **Given** `EXPERIENCE.md`'s CC-024 "Moderator tools" entry's confirmation-step paragraph, **when** a consuming feature renders `<ConfirmActionDialog open title description confirmLabel cancelLabel onConfirm onCancel />`, **then** opening it traps focus inside the dialog, `Escape`/overlay-click behave identically to Cancel, and closing by either path returns focus to the element that had focus immediately before the dialog opened.
+*   **And** it is built on `@radix-ui/react-dialog` (already pinned in `apps/web`, `^1.1.21`, added fresh to `packages/ui` at the same version) rather than hand-rolled focus-trap logic.
+*   **And** `onConfirm` may return a `Promise`; while pending, Confirm/Cancel/`Escape`/overlay-dismiss are all disabled; on rejection the dialog stays open and re-enables; on resolution the consumer closes it (the primitive does not auto-close on success).
+*   **And** it reuses `DESIGN.md`'s existing `components.modal` overlay/dialog tokens and the existing `Button` component's `default`/`destructive`/`outline` variants — no new modal chrome or button styling.
+*   **And** it ships its own integration test suite covering focus-trap-in, `Escape`/overlay/Cancel-all-return-focus, the Confirm busy-state resolve/reject paths, and variant rendering.
+
+**Depends on:** None.
+
+**Note:** Gate 2 (UI Complexity & Reusability) finding surfaced while creating Story 3.6w (2026-10-05, `bmad-create-story`) — `EXPERIENCE.md`'s merge-confirmation step specifies true focus-trap/focus-return semantics no existing primitive provides (`packages/ui`'s only "modal," `PwaInstallIosModal`, is non-trapping; `apps/web`'s own Radix-backed `components/ui/dialog.tsx` is real but `apps/web`-local, so Story 3.6w cannot import it without inverting the package-dependency direction). User confirmed via `AskUserQuestion`: split into its own reusable primitive rather than build it inline inside Story 3.6w, matching the Story 0.18/0.19/3.6ua split precedent. Numbered as a new sequential Epic 0 story (Epic 0's then-highest story was 0.46). **Hard prerequisite for Story 3.6w.**
+
 ### Epic 1: Core App and Event Discovery
 
 Users can discover and browse events.
@@ -3480,7 +3498,14 @@ without paying for a separate detection call on every extracted image.
 *   **And** a suggested-match review list (mid-confidence matches from Story 3.6v) lets a moderator accept or reject; an undo window matches the soft-delete undo pattern.
 *   **And** old links redirect to the survivor through Story 3.6v's alias mechanism.
 
-**Depends on:** Story 3.6v, Story 4.7b.
+**Depends on:** Story 3.6v, Story 4.7b, Story 0.47 (new — ConfirmActionDialog primitive).
+
+**Amendment (2026-10-05, `bmad-create-story`, CC-024 Wave 5):** Gate 2 surfaced two UI-architecture decisions and one scope question, all resolved with the user via `AskUserQuestion` (recommended option chosen in each case):
+1. **IA placement.** `EXPERIENCE.md`'s CC-024 pass calls this "two additions to the Moderator Tools tabbed shell," but that document's earlier Shell B entry listed only two tabs. Resolved: the suggested-match review list and merge action live as a **new fourth tab, "Duplicate Events,"** on the existing `/moderator/tools` `TabbedShell` (after Actor Runs, Unprocessed Payloads, Accounts) — matching the direct precedent already set by Story 3.6g's own "Accounts" tab extension of this same shell. `EXPERIENCE.md`'s Shell B entry is stale and needs a future `bmad-ux` pass to list all four tabs (recorded in this story's own Dev Notes in the meantime).
+2. **Confirmation dialog.** The merge confirmation needs true focus-trap/focus-return semantics no existing primitive in this codebase provides. Resolved: split into new prerequisite **Story 0.47** ("Build the reusable ConfirmActionDialog primitive," `packages/ui`), rather than building it inline.
+3. **Manual/direct merge flow out of scope.** `EXPERIENCE.md`'s passing mention of a "direct duplicate-cleanup flow" (picking any two arbitrary events to merge, not just approving a matcher-flagged suggestion) is not described by this story's own AC text above and has no UI spec. Resolved: out of scope for this story; tracked forward as backlog idea **IDEA-061**.
+
+Beyond the literal AC text above, this story's creation also added (per this workflow's "leave the system working end-to-end" mandate, not a new user-facing feature): extending `Query.moderatorPendingItemCount` (the Moderator Pending-Item Badge) to also count pending suggested matches — already required by the PRD's own 2026-10-02 FR114 amendment to that badge, but not yet implemented by any story since no suggestion rows existed before Story 3.6v and no moderator-facing read of them existed before this story; and guarding the existing `restoreEvent(action: RESTORE)` mutation against a merged event (it would otherwise "restore" an event with none of its favorites/calendar entries/links, all already repointed to the merge winner, into a reachable but broken active state). See `3-6w-let-moderators-merge-duplicate-events-with-slug-redirects.md` for the full as-designed merge/undo mechanics (the `event_merges` journal table, `mergeEvents`/`undoEventMerge`).
 
 ### Story 3.6x: Show all events from a post on a post collection page
 
