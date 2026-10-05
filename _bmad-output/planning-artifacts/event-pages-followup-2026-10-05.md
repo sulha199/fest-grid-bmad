@@ -209,7 +209,8 @@ Run these with `ritual-orchestrator`; each needs `create` then `dev`. Order matt
   - **3.6w** merge duplicate events with slug redirects. Needs 3.6v and 4.7b (both `review`).
   - **3.6x** post collection page. Needs 3.6u (`review`); reuses the existing event-list UI.
   - **3.18** union-of-associations account filtering. Needs 3.15 and 3.6r (both `review`).
-  - [ ] 3.6w create  - [ ] 3.6w dev  - [ ] 3.6x create  - [ ] 3.6x dev  - [x] 3.18 create (`a7756e3`, `ready-for-dev`, 2026-10-05)  - [ ] 3.18 dev
+  - [ ] 3.6w create  - [ ] 3.6w dev  - [x] 3.6x create (`e40ca88`, `ready-for-dev`, 2026-10-05)  - [ ] 3.6x dev  - [x] 3.18 create (`a7756e3`, `ready-for-dev`, 2026-10-05)  - [ ] 3.18 dev
+  - **3.6x create decisions (user, 2026-10-05):** partial unique index on `posts(platform, platform_post_type, platform_post_id)` with a mandatory pre-migration dedupe check; Next/Previous nav context frozen into a URL param (mirrors the favorites branch). Gate 2 ran fresh, no split needed.
   - **3.18 create decisions (user, 2026-10-05):** remove the legacy `posts.accountId` leg (association-only); add the missing 3.6v AC3 ratchet test; extend the fix to `Query.event`/`eventBySlug` `includeMyArchived`. Backlog: CC-027 promoted, 3.17/3.19 carved to new CC-029.
   - **Prompt:**
     ```
@@ -294,3 +295,4 @@ Decide each: skip (`skipped` with a `cost:`/`value:` note), `bmad-create-story`,
 | 2026-10-05 | Steps 1, 2, 3 (quick-dev children) | Done; Step 3 recommends building the mount-stable masonry engine | `b11fc620`, `19788ae9`..`4c78d7e0`, `9d140826` |
 | 2026-10-05 | Step 6: Story 3.6n2 create + dev via ritual-orchestrator (`all-claude-medium`) | Built, `review`; backend suite has 24 database-state failures, none from the story (see Step 6) | `19f90438`..`196d9182` |
 | 2026-10-05 | Step 8: Story 3.18 create via ritual-orchestrator (`all-claude-medium`, cloud session) | `ready-for-dev`, 236-line story, verify-story PASS, no new stories | `a7756e3` |
+| 2026-10-05 | Step 8: Story 3.6x create via ritual-orchestrator (`all-claude-medium`) | `ready-for-dev`, 268-line story, verify-story PASS, no new stories | `e40ca88` |
