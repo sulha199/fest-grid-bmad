@@ -1954,11 +1954,12 @@ items:
      note: "Deferred from: quick-dev of event detail schedule display and ingestion slug identity (2026-10-05, `bmad-quick-dev`). Promoted -- Story 3.6n2 covers this row fully."}
 
   FIND-071:
-    {type: finding, status: backlog, created: 2026-10-05,
+    {type: finding, status: promoted, created: 2026-10-05,
      impact: user-visible, effort: m,
      title: "Already-ingested events keep legacy hex slugs; backfill post identity and re-key slugs via aliases",
      ref: [implementation-artifacts/deferred-work.md],
      touches: [app:backend, pkg:database, web:events],
+     stories: [3-22-backfill-legacy-event-slugs-and-post-identity],
      note: "Deferred from: quick-dev of event detail schedule display and ingestion slug identity (2026-10-05, `bmad-quick-dev`). Forward path fixed in process-ingestion-job.ts; existing rows are not healed."}
 
   # ── 2026-10-05 ───────────────────────────────────────────────────────────────

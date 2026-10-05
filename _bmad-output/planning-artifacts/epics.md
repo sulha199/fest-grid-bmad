@@ -4054,6 +4054,24 @@ Full resolved shape — columns: `id` (uuid, PK, `defaultRandom`), `postId` (uui
 *   **Cover failure means no thumbnail, no retry.** If the pre-AI blur of the cover failed, there are no blurred cover bytes, so `durableThumbnailUrl` stays null. The thumbnail stage must **not** re-run detection on the original as a fallback: the same failure would repeat, and a timeout fallback would burn the budget again.
 *   **Migration shape.** `ai_image_input` is a new pgEnum (matching `extractionAuditFaceDetectionSkippedReasonEnum`), added with `NOT NULL DEFAULT 'original_mode_off'` so existing rows are filled by the default (metadata-only on PG 11+); inspect the generated migration SQL (drizzle-kit 0.21 is known to drop partial-index predicates; confirm it emits the enum and the default). Local DB per `DATABASE_URL` in `.env`.
 
+### Story 3.22: Backfill legacy event slugs and post identity
+
+**As a** subscriber,
+**I want** an event that was ingested before its post's platform identity was correctly captured to get the same readable, platform-prefixed URL as events ingested today,
+**So that** I'm not left with an unreadable legacy hex link just because of when the event happened to be scraped — and so that link, if I already bookmarked/shared it, keeps working.
+
+**Acceptance Criteria:**
+
+*   **Given** a `posts` row with null `platformPostId`/`platformPostType` whose `postUrl`/`originalPostUrl` is actually parseable, **when** a one-shot backfill script's identity-healing pass runs with `--apply`, **then** that post's identity columns are derived and persisted — the same derivation `processIngestionJob`'s 2026-10-05 lazy-heal fix already performs inline for a post touched by a *new* extraction job, reaching here every post that will never get one.
+*   **And** an event with a legacy hex slug whose primary post now has resolvable identity is re-keyed: its new platform-prefixed slug (via the now-exported `buildPlatformPrefixedSlug()`, Story 3.7g) is written, its old slug becomes a permanent `event_slug_aliases` entry, reusing Story 3.6v's existing re-slug+alias-write logic (extracted into one shared helper, never duplicated) and its existing, unmodified `eventBySlug` alias-fallback/route-redirect mechanism — zero resolver or route changes.
+*   **And** an event whose post still has no resolvable identity is left with its hex slug unchanged, forever (AD-16 Rules 4/5/12); an event with no primary post is never touched.
+*   **And** the script is idempotent, safe on a live table (small per-row/batch transactions, never one giant transaction), ships a read-only `sizing` dry-run mode plus a `backfill [--apply]` mode (dry-run by default), and is dispatched manually via a dedicated `workflow_dispatch`-only GitHub Actions workflow — matching this codebase's own established backfill-script convention (`backfill-post-media-keys.ts`). No scheduled/cron trickle mechanism.
+*   **And** no DDL change — every column/table already exists; a `drizzle-kit generate` no-op proves this before any other work.
+
+**Note:** Promotes backlog row `FIND-071` (deferred from the 2026-10-05 `bmad-quick-dev` session that fixed the forward-path bug in `process-ingestion-job.ts`; see `deferred-work.md`). Drafted via `bmad-create-story`, 2026-10-05 — Gate 1 and Gate 3 run fresh via subagent (no blocking gap; two implementation requirements folded directly into the story's tasks: extract the shared re-slug+alias-write helper rather than duplicate it, and re-read-inside-transaction concurrency handling for the rare race against a live promotion), Gate 2 reasoned directly (no UI surface, no gap — the only user-visible effect is served entirely by Story 3.6v's already-shipped, unmodified redirect mechanism). The healing-mechanism design (a one-shot backfill script vs. a lazy/trickled cron-based re-key) was resolved via `AskUserQuestion`: the user chose the one-shot script, following Gate 1's own recommendation (zero new infrastructure, a clear completion signal, matches this codebase's established precedent). Full ACs, Dev Notes, and gate findings in `_bmad-output/implementation-artifacts/3-22-backfill-legacy-event-slugs-and-post-identity.md`.
+
+**Depends on:** Story 3.7g, Story 3.6v, Story 3.7f (all status `review` — building against `review`-status prerequisites is this codebase's standing rule, no wait required).
+
 ### Epic 4: Data Quality and Moderation
 
 Users can contribute to data quality by correcting event details and reporting issues.
