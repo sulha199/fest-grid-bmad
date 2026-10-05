@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-03"
+last_updated: "2026-10-05"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -847,14 +847,15 @@ items:
      note: "Story 0.i5d implements the Today/Upcoming toggle (card view only) + EventFilterInput.temporalFilter (AD-20). Feed/Favorites temporal-filter gap carved to IDEA-038. Full design/perf research in Story 0.i5d's Dev Notes."}
 
   IDEA-038:
-    {type: idea, status: backlog, created: 2026-09-17, parent: IDEA-019,
+    {type: idea, status: done, created: 2026-09-17, parent: IDEA-019,
      impact: user-visible, effort: m,
      title: "Extend the Today/Upcoming/All temporal filter to Feed and Favorites once they adopt useListPaginationController",
      ref: [backlog/IDEA-038-feed-favorites-temporal-filter-adoption.md], touches: [web:events, pkg:ui],
      note: "AMENDED 2026-09-19: missing prerequisite carved to Story 0-i5e (ready-for-dev); still blocked on 0-i5e + 1-3l both landing. Full detail in backlog/IDEA-038-feed-favorites-temporal-filter-adoption.md.
      AMENDED 2026-09-30 (batch-event-pages-wave-a-readiness.md): also depends on Story 0-i5d -- it builds TemporalFilterToggle / EventFilterInput.temporalFilter, which this row extends to Feed/Favorites. Unblock chain is 1-3l + 0-i5e + 0-i5d, each at least `review`.
      AMENDED 2026-09-30 (Story 0-i5e completion): 0-i5e's own scope (Feed/Favorites adopting useListPaginationController) is now landed -- that prerequisite in the unblock chain is closed. Remaining blockers: 0-i5d and 1-3l, each still needing to reach at least `review`.
-     UPDATED 2026-09-30 (after Wave A batch): 0-i5d, 1-3l and 0-i5e are now all at `review` -- the unblock chain is satisfied; this row is ready for `bmad-create-story IDEA-038`."}
+     UPDATED 2026-09-30 (after Wave A batch): 0-i5d, 1-3l and 0-i5e are now all at `review` -- the unblock chain is satisfied; this row is ready for `bmad-create-story IDEA-038`.
+     CLOSED 2026-10-05: already implemented out-of-band by commit d3414728 (2026-10-03) -- `useTemporalFilter` + `temporalFilter` wired into Feed, Favorites and Account, and `buildFeedQueryCondition`/`buildAccountEventsQueryCondition` accept it. No story was ever created; do not run create-story."}
 
   # ── 2026-09-11 (bmad-help event-extraction-recurrence-bug session) ──────────
   BUG-026:
@@ -1191,7 +1192,9 @@ items:
 
   # ── 2026-09-15 (bmad-correct-course, event-pages follow-through Phase 2a) ───
   CC-020:
-    {type: proposal, status: triaged, created: 2026-09-15,
+    {type: proposal, status: promoted, created: 2026-09-15,
+     stories: [1-3j-batch-computed-event-fields-and-gate-totalcount-staletime,
+               1-6c-batch-isaddedtocalendar-dedupe-eventbyslug-fetch-and-gate-subscriptions-query],
      impact: user-visible, effort: m,
      title: "getEvents/eventBySlug performance hardening — batch computed fields, dedupe eventBySlug fetch, gate totalCount/staleTime/subscriptions query (AD-17)",
      ref: [planning-artifacts/event-pages-followthrough-plan.md,
@@ -1201,7 +1204,10 @@ items:
      note: "Amends Epic 1 (epics.md) with two sequenced stories, both now promoted (2026-09-19): 1.3j (Query.events batching) and 1.6c (eventBySlug/event-detail hardening) — per AD-17's mechanism. See BUG-030/FIND-027/BUG-034/FIND-028 (1.3j) and BUG-033/BUG-035/FIND-030 (1.6c) rows for detail."}
 
   CC-021:
-    {type: proposal, status: triaged, created: 2026-09-15,
+    {type: proposal, status: promoted, created: 2026-09-15,
+     stories: [1-6d-build-the-reusable-locationlink-component,
+               1-6e-event-detail-schedule-refinements-smaller-name-bigger-add-to-calendar-action-location-link,
+               0-i6e-replace-the-cards-raw-account-identifier-line-with-a-location-link-when-confirmed],
      impact: user-visible, effort: s,
      title: "Reusable LocationLink component + adoption in event-detail schedule and SubscribedAccountCard",
      ref: [planning-artifacts/event-pages-followthrough-plan.md,
@@ -1454,14 +1460,15 @@ items:
 
   # ── 2026-09-21 (bmad-create-story, IDEA-046 promotion carve-outs) ───────────
   IDEA-048:
-    {type: idea, status: backlog, epic: epic-1-i1, created: 2026-09-21, parent: IDEA-046,
+    {type: idea, status: done, epic: epic-1-i1, created: 2026-09-21, parent: IDEA-046,
      impact: user-visible, effort: xs,
      title: "Calendar compact row (Mobile Vertical Day List): favorite pill still corner-overlays the thumbnail instead of mirroring the till badge's floating-corner treatment on the opposite side",
      ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md, design-artifacts/UX-festgrid-run-1/EVENT-CARD-DESIGN.md,
            implementation-artifacts/1-i1l-apply-the-six-unowned-prototype-fidelity-rules.md],
      touches: [pkg:ui, web:events/WeeklyCalendarView, cross:ux-tokens],
      note: "Found 2026-09-21 drafting Story 1.i1l: two residuals in the same event_card_compact token block as IDEA-046 rules 6/7. The with-image counterpart to rule 7, originally expected to land with Story 1.i1m -- it didn't (1.i1m only touched the no-image branch).
-     RESCOPED 2026-09-29 after direct code verification: this IS the Mobile Vertical Day List's per-schedule card (`WeeklyCalendarView.tsx`'s `variant === 'list'` path, confirmed rendered inside `data-testid=\"mobile-day-row\"` -- mobile only, not the desktop grid). (a) Venue line gap CLOSED -- `WeeklyCalendarView.tsx:1245-1249` now renders `schedule.locationName` (shipped in a 2026-09-27 session commit), title narrowed to just the remaining gap. (b) Favorite-pill corner-overlay CONFIRMED still present: `EventCardMediaPrimitives.tsx:265`'s with-image branch still renders `className=\"absolute top-1 right-1 z-30\"` (positive, inset) for `size='compact'` same as masonry. User-directed fix (2026-09-29): mirror the till badge's floating-corner treatment (`eventCardTillLabelClass('compact')` = `-top-1.5 -left-1.5`, floating past the thumbnail's own corner into the row's unclipped padding gutter) onto the favorite pill's OPPOSITE corner (`-top-1.5 -right-1.5`). Implementation note: the till badge achieves this by living in a different component (`EventCardDateBox`, not clipped) -- the favorite pill currently lives inside `EventCardMediaSlot`'s own `overflow-hidden` wrapper (`EventCardMediaPrimitives.tsx:244`), so a naive negative-offset class would get clipped. Will need the same treatment masonry VM1's till tag got (pulled out as an external floating sibling positioned against the thumbnail's own corner, not nested inside the clipped slot) -- scope this at pickup, not a one-line class swap."}
+     RESCOPED 2026-09-29 after direct code verification: this IS the Mobile Vertical Day List's per-schedule card (`WeeklyCalendarView.tsx`'s `variant === 'list'` path, confirmed rendered inside `data-testid=\"mobile-day-row\"` -- mobile only, not the desktop grid). (a) Venue line gap CLOSED -- `WeeklyCalendarView.tsx:1245-1249` now renders `schedule.locationName` (shipped in a 2026-09-27 session commit), title narrowed to just the remaining gap. (b) Favorite-pill corner-overlay CONFIRMED still present: `EventCardMediaPrimitives.tsx:265`'s with-image branch still renders `className=\"absolute top-1 right-1 z-30\"` (positive, inset) for `size='compact'` same as masonry. User-directed fix (2026-09-29): mirror the till badge's floating-corner treatment (`eventCardTillLabelClass('compact')` = `-top-1.5 -left-1.5`, floating past the thumbnail's own corner into the row's unclipped padding gutter) onto the favorite pill's OPPOSITE corner (`-top-1.5 -right-1.5`). Implementation note: the till badge achieves this by living in a different component (`EventCardDateBox`, not clipped) -- the favorite pill currently lives inside `EventCardMediaSlot`'s own `overflow-hidden` wrapper (`EventCardMediaPrimitives.tsx:244`), so a naive negative-offset class would get clipped. Will need the same treatment masonry VM1's till tag got (pulled out as an external floating sibling positioned against the thumbnail's own corner, not nested inside the clipped slot) -- scope this at pickup, not a one-line class swap.
+     CLOSED 2026-10-05: already shipped out-of-band by commit d3414728 (2026-10-03) -- `EventCardCompact.tsx` and `WeeklyCalendarView.tsx`'s `CalendarCard` pass `hideFavoriteBadge` and render the pill externally at `absolute -top-1.5 -right-1.5 z-30`. The slot's own internal badge branches are now unused by production callers but still tested; removal is a separate step in planning-artifacts/event-pages-followup-2026-10-05.md."}
 
   FIND-046:
     {type: finding, status: backlog, created: 2026-09-21, parent: IDEA-046,
@@ -1672,12 +1679,13 @@ items:
      CROSS-REFERENCE 2026-09-28 (not a reopen): design-artifacts/UX-festgrid-run-1/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md item 7 fixes a related but distinct symptom of the same 'grid should stay visible under cards' goal -- EventCardCalendarGridItem's own bg-violet-50 fill halved to bg-violet-50/50, since a fully opaque card fill hides the gridlines regardless of the divide-x cause this bug fixed. Both fixes are complementary, not overlapping."}
 
   FIND-053:
-    {type: finding, status: triaged, created: 2026-09-26,
+    {type: finding, status: done, created: 2026-09-26,
      impact: internal, effort: xs,
      title: "EventCard.tsx's variant='standard' branch is dead code -- no production call site reaches it",
      ref: [planning-artifacts/event-card-family-consolidated-acs.md],
      touches: [pkg:ui, web:events/EventCard],
-     note: "Confirmed 2026-09-26: EventListView.tsx (the only production <EventCard> call site) always passes variant=\"masonry\" explicitly; variant='standard' has no DESIGN.md/EVENT-CARD-DESIGN.md token and appears nowhere in apps/web outside EventCard.tsx's own default parameter and its test fixtures. Delete the branch and its dedicated tests rather than carry it forward or spend further AC-consolidation effort on it."}
+     note: "Confirmed 2026-09-26: EventListView.tsx (the only production <EventCard> call site) always passes variant=\"masonry\" explicitly; variant='standard' has no DESIGN.md/EVENT-CARD-DESIGN.md token and appears nowhere in apps/web outside EventCard.tsx's own default parameter and its test fixtures. Delete the branch and its dedicated tests rather than carry it forward or spend further AC-consolidation effort on it.
+     CLOSED 2026-10-05: already shipped 2026-09-26 by commit f214f4e4 (the branch and its tests were removed); this row was never updated."}
 
   FIND-054:
     {type: finding, status: backlog, created: 2026-09-26,
@@ -1936,3 +1944,12 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      touches: [app:backend, pkg:database, web:events],
      note: "Deferred from: quick-dev of event detail schedule display and ingestion slug identity (2026-10-05, `bmad-quick-dev`). Forward path fixed in process-ingestion-job.ts; existing rows are not healed."}
+
+  # ── 2026-10-05 ───────────────────────────────────────────────────────────────
+  IDEA-060:
+    {type: idea, status: backlog, created: 2026-10-05,
+     impact: internal, effort: m,
+     title: "Consolidate z-index into named layering tiers: one documented scale, theme tokens, and a ratchet against raw z-values",
+     ref: [backlog/IDEA-060-z-index-layering-tiers.md],
+     touches: [pkg:ui, web:system, cross:ux-tokens, cross:architecture],
+     note: "~70 raw z-* classes, 17 at z-50 for unrelated things, and no documented layering rule; needs bmad-architecture (tier model) first. Inventory and routing in the ref."}

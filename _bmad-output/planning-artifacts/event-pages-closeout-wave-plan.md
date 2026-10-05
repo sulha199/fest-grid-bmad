@@ -124,9 +124,10 @@ least `review`.
 - [x] **IDEA-048** — **SHIPPED out-of-band 2026-10-03, commit `d3414728`** (found 2026-10-05):
       `EventCardCompact.tsx:246-260` and `WeeklyCalendarView.tsx`'s `CalendarCard` pass
       `hideFavoriteBadge` and render the pill externally at `absolute -top-1.5 -right-1.5 z-30`,
-      exactly the user-directed fix below. Residual: the slot's own with-image branch
-      (`EventCardMediaPrimitives.tsx:255-266`) is now unreachable in production (both callers hide
-      it) and a Story 1.i1m comment still describes it as live. Original entry, for history:
+      exactly the user-directed fix below. Residual: the slot's own internal badge branches
+      (`EventCardMediaPrimitives.tsx:255-266` with-image, `:281` fallback) are now unused by
+      production callers (both hide them) but are a tested contract (AC4, Story 1.i1e), so removal is
+      tracked as step 5 of `event-pages-followup-2026-10-05.md`, not done. The stale comment was fixed. Original entry, for history:
       Mobile Vertical Day List's favorite pill still corner-overlays the thumbnail
       (`EventCardMediaPrimitives.tsx:265`, `absolute top-1 right-1`); user-directed fix (2026-09-29)
       mirrors the till badge's floating-corner treatment onto the opposite corner
