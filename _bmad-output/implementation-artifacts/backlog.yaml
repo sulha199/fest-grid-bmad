@@ -1964,3 +1964,11 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      touches: [app:backend, app:infrastructure, cross:ai-extraction],
      note: "Deferred from: Deferred from: quick-dev of async scrape results auto-enqueue (2026-10-05, `bmad-quick-dev`). 2 findings."}
+
+  IDEA-061:
+    {type: idea, status: done, created: 2026-10-05,
+     impact: user-visible, effort: m,
+     title: "Roundup event detail: post-title group heading, masonry-rule compact cards, ended-hidden sort, schedule location link",
+     ref: [implementation-artifacts/spec-event-detail-roundup-improvements.md],
+     touches: [app:backend, pkg:database, pkg:ui, web:events, cross:ai-extraction, cross:i18n],
+     note: "Landed via PR #50 (quick-dev); migration 0073 adds posts.title. No headline backfill: existing posts keep the account-name label."}
