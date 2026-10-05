@@ -158,6 +158,8 @@ type EventSourcePost {
   isPrimary: Boolean!
   groupingReason: PostGroupingReason
   extractedEventCount: Int
+  # AI-extracted post headline/title; null when none was extracted.
+  title: String
   postedAt: String
   sourcePostUrl: String
   originalPostUrl: String

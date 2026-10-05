@@ -14,6 +14,8 @@ import {
   computeCalendarSegmentDateBoxContent,
   computeEventCardDateBoxParts,
   formatEventCardDateBoxLine,
+  computeRelatedEventDateBox,
+  selectAndSortRelatedEvents,
 } from './format-event-date';
 import { ENDED_CASE_FIXTURES } from '@festgrid/domain/events';
 
@@ -571,4 +573,46 @@ describe('isEventEnded (shared ended-cases fixture, Story 0.i5d Task 3/AC5/AC9)'
       ).toBe(fixture.expectedEnded);
     });
   }
+});
+
+describe('computeRelatedEventDateBox', () => {
+  const now = new Date('2026-10-05T12:00:00Z');
+  const box = (start: string, end: string | null) =>
+    computeRelatedEventDateBox('en', 'UTC', now, start, null, end, null, 'till');
+
+  it('started and ending after today: end date + till tag', () => {
+    expect(box('2026-10-03', '2026-10-09')).toEqual({ month: 'Oct', day: '9', tillLabel: 'till' });
+  });
+  it('upcoming: start date, no till tag', () => {
+    expect(box('2026-10-08', '2026-10-10')).toEqual({ month: 'Oct', day: '8', tillLabel: '' });
+  });
+  it('ends today: end date, no till tag', () => {
+    expect(box('2026-10-03', '2026-10-05')).toEqual({ month: 'Oct', day: '5', tillLabel: '' });
+  });
+  it('already ended: start date, no till tag', () => {
+    expect(box('2026-10-01', '2026-10-02')).toEqual({ month: 'Oct', day: '1', tillLabel: '' });
+  });
+});
+
+describe('selectAndSortRelatedEvents', () => {
+  const now = new Date('2026-10-05T12:00:00Z');
+  const e = (id: string, start: string, end: string | null = null) => ({ id, eventStartDate: start, eventEndDate: end });
+
+  it('hides ended, lists happening by earliest end then upcoming by earliest start', () => {
+    const result = selectAndSortRelatedEvents(
+      [
+        e('upcoming-late', '2026-10-12'),
+        e('live-later', '2026-10-03', '2026-10-11'),
+        e('ended', '2026-10-01', '2026-10-04'),
+        e('upcoming-early', '2026-10-07'),
+        e('live-sooner', '2026-10-04', '2026-10-06'),
+      ],
+      now,
+      'UTC'
+    );
+    expect(result.map((r) => r.id)).toEqual(['live-sooner', 'live-later', 'upcoming-early', 'upcoming-late']);
+  });
+  it('keeps an event that ends today', () => {
+    expect(selectAndSortRelatedEvents([e('today', '2026-10-05')], now, 'UTC')).toHaveLength(1);
+  });
 });

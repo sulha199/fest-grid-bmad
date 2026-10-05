@@ -1682,6 +1682,29 @@ describe("EventDetailWrapper", () => {
       expect(group.events.map((e: any) => e.id).sort()).toEqual(["evt_2", "evt_3"])
     })
 
+    it("heads the group with the post title when the source post has one, falling back to the account label otherwise", async () => {
+      currentMockEvent.sourcePosts = [
+        {
+          postId: "post-1",
+          isPrimary: true,
+          title: "Weekend Jazz Roundup",
+          platformPostId: "ig-post-1",
+          postType: "post",
+          account: { accountId: "acct-1", platform: "instagram", username: "acct_one", displayName: "Acct One", profileImageUrl: null },
+        },
+      ]
+      currentMockRelatedEventGroups = [{ postId: "post-1", eventIds: ["evt_2"] }]
+
+      renderComponent()
+      expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+      triggerSentinelVisible()
+
+      await waitFor(() => {
+        expect(capturedEventDetailViewProps.relatedEventGroups?.[0]?.events).toHaveLength(1)
+      })
+      expect(capturedEventDetailViewProps.relatedEventGroups[0].accountLabel).toBe("EventDetailsPage.relatedEventsGroupTitleLabel")
+    })
+
     it("hides the section entirely when relatedEventIds resolves to no groups", async () => {
       currentMockEvent.sourcePosts = []
       currentMockRelatedEventGroups = []

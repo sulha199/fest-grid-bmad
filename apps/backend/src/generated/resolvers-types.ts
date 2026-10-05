@@ -364,6 +364,7 @@ export type EventSourcePost = {
   postType?: Maybe<Scalars['String']['output']>;
   postedAt?: Maybe<Scalars['String']['output']>;
   sourcePostUrl?: Maybe<Scalars['String']['output']>;
+  title?: Maybe<Scalars['String']['output']>;
 };
 
 export type EventType =
@@ -1866,6 +1867,7 @@ export type EventSourcePostResolvers<ContextType = GraphQLContext, ParentType ex
   postType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   postedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   sourcePostUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 

@@ -678,9 +678,12 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     ? relatedEventIdGroups.map((group) => {
         const sourcePost = data?.eventBySlug?.sourcePosts?.find((sp) => sp.postId === group.postId)
         const accountName = sourcePost?.account?.displayName || sourcePost?.account?.username || null
-        const accountLabel = accountName
-          ? t("relatedEventsGroupLabel", { account: accountName })
-          : labels.unknownAccountLabel ?? ""
+        const postTitle = sourcePost?.title?.trim()
+        const accountLabel = postTitle
+          ? t("relatedEventsGroupTitleLabel", { title: postTitle })
+          : accountName
+            ? t("relatedEventsGroupLabel", { account: accountName })
+            : labels.unknownAccountLabel ?? ""
 
         const platformSlug = sourcePost?.account?.platform
           ? getPlatformSlug(sourcePost.account.platform as any)
