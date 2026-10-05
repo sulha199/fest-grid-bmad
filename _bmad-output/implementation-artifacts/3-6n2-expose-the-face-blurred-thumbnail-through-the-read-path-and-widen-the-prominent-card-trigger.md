@@ -8,7 +8,7 @@ baseline_commit: 19f9043871496861bb8ca072d43433b21edf35ea
 
 - Epic: 3
 - Story ID: 3.6n2
-- Status: in-progress
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -85,16 +85,16 @@ so that an event sourced from a non-opted-in account still gets a prominent, pho
   - [x] `packages/ui/src/features/events/EventListView.test.tsx`: Task 4's new `prominentPoster`-from-thumbnail-only test.
   - [x] Full regression: confirmed `resolveInstagramEmbedResult` (used by `Report`/`instagramEmbedBySlug`) is independent of `resolveServedImageUrl` (read, no call) — only `Event.imageUrl` calls `resolveServedImageUrl`, already updated. `apps/backend` suite run: 93 pass / 10 fail, identical 10 pre-existing failures confirmed present on baseline (verified via `git stash`) before this story's changes — no new regression, one net new passing test (Case 4).
 
-- [ ] **Task 7: Verification pass (per user's stated test convention for this story: `TZ=UTC`, backend suite alone — not a full monorepo batch-end gate)**
-  - [ ] `TZ=UTC pnpm --filter domain test` — `resolveServedImageUrl.test.ts` (all a–l plus new m+ cases) and the full existing domain suite green; confirm 100% line/branch coverage for the touched function via `tsx --test --experimental-test-coverage` targeted at that file.
-  - [ ] `TZ=UTC pnpm --filter backend test` — Task 6's new integration case(s) plus the full existing `apps/backend` suite green (expect the same pre-existing, out-of-scope FIND-063 `system-key-adapter` failures already documented by Stories 3.6n/3.6o; confirm no *new* failures).
-  - [ ] `pnpm --filter ui test` — `EventListView.test.tsx`'s new case plus the full existing `packages/ui` suite green.
-  - [ ] `pnpm --filter web codegen` (Task 5) regenerates cleanly with no diff beyond the expected new field; `pnpm --filter web build` and any `apps/web` lint/typecheck for touched files clean.
-  - [ ] `pnpm --filter backend lint` / `pnpm --filter domain lint` / `pnpm --filter ui lint` clean for touched files; `tsc`/build clean for `apps/backend`, `packages/domain`, `packages/ui`.
-  - [ ] Manually confirm (read the diff) that no change lands in `apps/backend/src/lib/ai-processor/**` or `packages/database/schema.ts`/migrations — this story is read-path-only, Story 3.6n's pipeline is untouched.
+- [x] **Task 7: Verification pass (per user's stated test convention for this story: `TZ=UTC`, backend suite alone — not a full monorepo batch-end gate)**
+  - [x] `TZ=UTC pnpm --filter domain test` — `resolveServedImageUrl.test.ts` (all a–l plus new m–s cases) green; 100% line/branch/function coverage for the touched function confirmed via `tsx --test --experimental-test-coverage`; full existing domain suite also run and green (473/473).
+  - [x] Backend: per this dev-story session's explicit execution rules (targeted test files only, foreground, `TZ=UTC`, no whole-`apps/backend`-suite or whole-repo gate -- the orchestrator runs that once afterwards), ran the targeted `apps/backend/src/schema/resolvers.test.ts` file directly via `tsx --test` rather than `pnpm --filter backend test`: 93 pass / 10 fail (was 92/10 on baseline, confirmed via `git stash` before/after comparison) -- Task 6's new Case 4 is the one net-new pass; the 10 failures are pre-existing and unchanged (date/seed-data-dependent fixtures and `queryModeratorAccountProfiles`, unrelated to this story's scope).
+  - [x] Ran the targeted `packages/ui/src/features/events/EventListView.test.tsx` file directly (same reasoning -- targeted file, not whole `packages/ui` suite): 18/18 passing, including Task 4's new case.
+  - [x] `pnpm --filter web codegen` (Task 5) regenerated cleanly with no diff beyond the expected new field (confirmed via `git diff`); `pnpm --filter backend codegen` likewise regenerated `resolvers-types.ts` cleanly. `pnpm --filter web build` green (Next.js build + lint + typecheck, only pre-existing `any`-type warnings, no errors).
+  - [x] `pnpm --filter backend lint` / `pnpm --filter @festgrid/domain lint` / `pnpm --filter @festgrid/ui lint` — all clean (0 errors; backend has pre-existing warnings only). `tsc`/build: `packages/domain` builds clean; `apps/backend tsc --noEmit` has one pre-existing, unrelated error (`@aws-sdk/client-lambda` genuinely not installed, in `src/lib/aws/invoke-ai-processor.ts`, untouched by this story, confirmed via `node_modules` check); `packages/ui tsc --noEmit` has one pre-existing, unrelated `tsconfig.json` `baseUrl`-deprecation error (confirmed pre-existing via `git log` on that file, unmodified by this story); neither blocks this story's own changes, which compile and pass their own test/build/lint gates.
+  - [x] Manually confirmed (read the diff) that no change lands in `apps/backend/src/lib/ai-processor/**` or `packages/database/schema.ts`/migrations — this story is read-path-only, Story 3.6n's pipeline is untouched.
 
-- [ ] **Task 8 (optional, non-blocking — manual QA aid, not required for AC satisfaction): Seed fixture for the blurred-thumbnail-prominent state**
-  - [ ] Consider adding one `packages/database/seed.ts` fixture (mirroring the existing `EVENT-CARD FIXTURE: masonry prominentPoster (VM1)` entries ~lines 533–551) for a non-opted-in account whose post has `durableThumbnailUrl` set, `durableImageUrl: null`, and an already-expired `imageUrlExpiresAt` — so the new blurred-thumbnail prominent-card state is visually inspectable in local dev without a real pipeline run. Not an AC; skip if time-constrained.
+- [x] **Task 8 (optional, non-blocking — manual QA aid, not required for AC satisfaction): Seed fixture for the blurred-thumbnail-prominent state**
+  - [x] Skipped — explicitly optional/non-blocking per the story's own framing ("not required for AC satisfaction... skip if time-constrained"). Not needed for DoD; the new state is already covered end-to-end by Task 6's backend integration test and Task 4's component test.
 
 ## Dev Notes
 
@@ -193,21 +193,21 @@ so that an event sourced from a non-opted-in account still gets a prominent, pho
 
 ## Testing Requirements
 
-- [ ] Unit tests (`packages/domain`, `node:test`, `TZ=UTC`): `resolveServedImageUrl.test.ts` — extend the existing 12-case (a–l) suite with new lettered cases (m+) covering every branch of the new 3-way precedence, including both opted-in sub-cases (durableImageUrl present vs. null) to confirm the thumbnail is never consulted on that branch.
-- [ ] Integration tests (`apps/backend`, real DB, `TZ=UTC`): extend `resolvers.test.ts`'s existing `eventBySlug`/`durableImageUrl` test block with a non-opted-in + expired + thumbnail-only case, confirming both `durableThumbnailUrl` (raw) and `imageUrl` (resolved) return correctly end-to-end.
-- [ ] Component test (`packages/ui`, Vitest): extend `EventListView.test.tsx` with a case confirming `prominentPoster` derives `true` from `durableThumbnailUrl` alone.
-- [ ] Full regression: the existing `apps/backend`, `packages/domain`, and `packages/ui` suites stay green (per the user's test convention for this story: verify via `TZ=UTC`, scoped to these packages rather than a full monorepo batch-end gate).
-- [ ] No E2E test required beyond the above — this is a data-plumbing change through already-covered UI surfaces, not a new user flow.
+- [x] Unit tests (`packages/domain`, `node:test`, `TZ=UTC`): `resolveServedImageUrl.test.ts` — extended the existing 12-case (a–l) suite with new lettered cases (m–s) covering every branch of the new 3-way precedence, including both opted-in sub-cases (durableImageUrl present vs. null) to confirm the thumbnail is never consulted on that branch. 20/20 passing, 100% coverage.
+- [x] Integration tests (`apps/backend`, real DB, `TZ=UTC`): extended `resolvers.test.ts`'s existing `eventBySlug`/`durableImageUrl` test block with a non-opted-in + expired + thumbnail-only "Case 4," confirming both `durableThumbnailUrl` (raw) and `imageUrl` (resolved) return correctly end-to-end. Passing.
+- [x] Component test (`packages/ui`, Vitest): extended `EventListView.test.tsx` with a case confirming `prominentPoster` derives `true` from `durableThumbnailUrl` alone. 18/18 passing.
+- [x] Full regression: the touched `apps/backend` file shows no new failures vs. baseline (verified via `git stash` before/after, 10 pre-existing failures unchanged, 1 net-new pass); `packages/domain` full suite green (473/473); `packages/ui` targeted file green (18/18).
+- [x] No E2E test required beyond the above — this is a data-plumbing change through already-covered UI surfaces, not a new user flow. Confirmed, none added.
 
 ## Deliverables Checklist
 
-- [ ] `events.graphql`'s `Event` type exposes `durableThumbnailUrl: String`, resolved correctly.
-- [ ] All 6 confirmed `resolvers.ts` select sites project `posts.durableThumbnailUrl`.
-- [ ] `resolveServedImageUrl` implements and tests the full 3-branch precedence (AC3), including both opted-in sub-cases.
-- [ ] `EventListView.tsx`'s `prominentPoster` widens to include `durableThumbnailUrl`; `EventListView.types.ts` updated; new test added.
-- [ ] `apps/web`'s 5 confirmed GraphQL operations select `durableThumbnailUrl`; codegen regenerated; `mapper.ts`'s `imageFallbackUrl` widened.
-- [ ] Regression tests (domain, backend, ui) passing; no existing `resolveServedImageUrl` call site/test regresses.
-- [ ] `git diff` confirms no file outside this story's File Change Plan is touched.
+- [x] `events.graphql`'s `Event` type exposes `durableThumbnailUrl: String`, resolved correctly.
+- [x] All 6 confirmed `resolvers.ts` select sites project `posts.durableThumbnailUrl`.
+- [x] `resolveServedImageUrl` implements and tests the full 3-branch precedence (AC3), including both opted-in sub-cases.
+- [x] `EventListView.tsx`'s `prominentPoster` widens to include `durableThumbnailUrl`; `EventListView.types.ts` updated; new test added.
+- [x] `apps/web`'s 5 confirmed GraphQL operations select `durableThumbnailUrl`; codegen regenerated; `mapper.ts`'s `imageFallbackUrl` widened.
+- [x] Regression tests (domain, backend, ui) passing; no existing `resolveServedImageUrl` call site/test regresses.
+- [x] `git diff` confirms no file outside this story's File Change Plan is touched (verified against baseline commit 19f90438).
 
 ## Out of Scope
 
@@ -221,31 +221,46 @@ so that an event sourced from a non-opted-in account still gets a prominent, pho
 
 ## Definition of Done
 
-- [ ] AC1–AC6 satisfied.
-- [ ] Task 6's unit, integration, and component tests passing; full existing `packages/domain`, `apps/backend`, and `packages/ui` suites green (per this story's stated test convention — `TZ=UTC`, scoped to these packages).
-- [ ] Lint and type checks passing for `apps/backend`, `packages/domain`, `packages/ui`, and the touched `apps/web` files.
-- [ ] `pnpm --filter web codegen` regenerates cleanly with the expected new field, no unexpected diff.
-- [ ] No regression in any of the 12 pre-existing `resolveServedImageUrl` call sites/tests.
-- [ ] Dev Notes record the actual precedence implementation as shipped (confirming it matches AC3's 3-branch spec exactly) and any deviation explained.
-- [ ] No file outside this story's File Change Plan touched (confirmed via `git diff`).
+- [x] AC1–AC6 satisfied.
+- [x] Task 6's unit, integration, and component tests passing; `packages/domain` full suite green (473/473); touched `apps/backend`/`packages/ui` test files green with no new regressions vs. baseline (verified via `git stash`) — per this dev-story session's explicit execution rules, the whole `apps/backend` suite run is deferred to the orchestrator's end-of-batch pass rather than re-run here.
+- [x] Lint and type checks passing for `apps/backend`, `packages/domain`, `packages/ui`, and the touched `apps/web` files (0 errors in all; two pre-existing, unrelated errors identified and confirmed out of scope — see Task 7).
+- [x] `pnpm --filter web codegen` regenerates cleanly with the expected new field, no unexpected diff. (`pnpm --filter backend codegen` likewise.)
+- [x] No regression in any of the 12 pre-existing `resolveServedImageUrl` call sites/tests — all a–l cases still pass unchanged.
+- [x] Dev Notes record the actual precedence implementation as shipped (confirming it matches AC3's 3-branch spec exactly) and any deviation explained — see Dev Agent Record → Completion Notes below; no deviation from AC3's spec.
+- [x] No file outside this story's File Change Plan touched (confirmed via `git diff` against baseline commit 19f90438).
 
 ## Completion Status
 
-- [ ] In progress
+- [x] Complete
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-_To be filled by the dev agent during implementation._
+Claude Sonnet 5 (claude-sonnet-5), via `bmad-dev-story`.
 
 ### Debug Log References
 
-_To be filled by the dev agent during implementation._
+- `TZ=UTC npx tsx --test --experimental-test-coverage src/events/resolveServedImageUrl.test.ts` (packages/domain): 20/20 pass, 100% line/branch/function coverage.
+- `TZ=UTC pnpm --filter backend exec tsx --test src/schema/resolvers.test.ts`: 93/103 pass (10 pre-existing failures, confirmed identical on baseline via `git stash` before/after comparison; 1 net-new pass, "Case 4").
+- `TZ=UTC pnpm --filter @festgrid/ui exec vitest run src/features/events/EventListView.test.tsx`: 18/18 pass.
+- `pnpm --filter web codegen` / `pnpm --filter backend codegen`: both regenerated cleanly, diffs confirmed minimal via `git diff`.
+- `pnpm --filter web build`: green (Next.js build, lint, typecheck all pass; pre-existing `any`-type warnings only, no errors).
+- `pnpm --filter backend lint` / `pnpm --filter @festgrid/domain lint` / `pnpm --filter @festgrid/ui lint`: all 0 errors.
+- `pnpm --filter @festgrid/domain build` (tsc): clean.
+- `pnpm --filter backend exec tsc --noEmit`: one pre-existing, unrelated error (`@aws-sdk/client-lambda` missing from `node_modules`, in untouched `src/lib/aws/invoke-ai-processor.ts`).
+- `pnpm --filter @festgrid/ui exec tsc --noEmit`: one pre-existing, unrelated error (`tsconfig.json` `baseUrl` deprecation warning-as-error, confirmed unmodified by this story via `git log`).
 
 ### Completion Notes
 
-_To be filled by the dev agent during implementation._
+- Implemented all 8 tasks (Task 8 explicitly skipped — optional, non-blocking, per its own story text).
+- `resolveServedImageUrl`'s shipped precedence matches AC3's 3-branch spec exactly: (a) valid original always wins regardless of opt-in; (b) opted-in → `durableImageUrl || imageUrl || null` (thumbnail never consulted on this branch, even when `durableImageUrl` is null — confirmed by dedicated case (s)); (c) not opted-in and original expired/no-expiry → `durableThumbnailUrl || null` (was unconditional `null` before this story). No deviation from the AC.
+- Also updated the existing `Event.imageUrl` field resolver (`resolvers.ts` ~line 4257) to thread `parent.durableThumbnailUrl` into its `resolveServedImageUrl(...)` call — not called out as a separate story task line, but necessary for AC3's new precedence branch to actually take effect end-to-end (confirmed necessary by Task 6's integration test, which would otherwise fail).
+- All 6 confirmed select sites and the out-of-scope 7th (`instagramEmbedBySlug`) verified by direct grep before and after.
+- `apps/web`'s 5 page/content files consuming `EventListView` needed no per-file change — structural typing propagated the new field automatically, confirmed by a green `pnpm --filter web build`.
+- Encountered one unrelated pre-existing issue while verifying `apps/backend`'s tsc: `@festgrid/database`'s compiled `dist/` output was stale (missing `manualExtractionJobs`/`eventMatchCandidates` exports that exist in its source `schema.ts`). Rebuilt `packages/database` (`pnpm --filter @festgrid/database build`) to pick up current exports — this is a build-output staleness fix, not a source-code change, and is not part of this story's File Change Plan (no file diff results from it, it's a regenerated dist/ artifact outside version control's normal diff surface... actually dist/ may be gitignored; confirmed no new tracked file appeared in `git status` from this rebuild).
+- Noted but did not touch: several unrelated uncommitted changes already present in the working tree at session start (`apps/backend/src/lib/scraper/process-apify-async-result.ts` and siblings, `apps/infrastructure/lib/festgrid-backend-stack.ts`, new `apps/backend/src/lib/posts/auto-enqueue-new-post.ts` files) — these belong to a different, apparently-concurrent piece of work (an "auto-enqueue async scrape results" spec) and were never staged or committed by this session.
+- The 10 pre-existing `apps/backend/src/schema/resolvers.test.ts` failures (date/seed-data/timezone-dependent fixtures and one `queryModeratorAccountProfiles` assertion) were confirmed present on the baseline commit via `git stash` before this story's changes were applied, and are unrelated to this story's scope — not introduced or worsened by this work.
 
 ### File List
 
@@ -261,3 +276,14 @@ _To be filled by the dev agent during implementation._
 - `apps/web/src/features/events/mapper.ts` (modified — `imageFallbackUrl` widened)
 - `apps/backend/src/schema/resolvers.test.ts` (modified — new "Case 4" integration test)
 - `apps/backend/src/generated/resolvers-types.ts` (regenerated via `pnpm --filter backend codegen`, not hand-edited)
+
+## Change Log
+
+| Date | Change | Author |
+|---|---|---|
+| 2026-10-05 | Pre-coding approval gate approved (AskUserQuestion); implementation started. | Dev Agent (Claude Sonnet 5) |
+| 2026-10-05 | Tasks 1–3: added `Event.durableThumbnailUrl` GraphQL field + resolver, 6 `resolvers.ts` select-site additions, extended `resolveServedImageUrl`'s precedence to a 3-branch form (new cases m–s), threaded `durableThumbnailUrl` into the existing `Event.imageUrl` resolver call. | Dev Agent (Claude Sonnet 5) |
+| 2026-10-05 | Task 4: widened `EventListView.tsx`'s `prominentPoster` derivation to include `durableThumbnailUrl`; added `EventListViewItem.durableThumbnailUrl?`; new component test. | Dev Agent (Claude Sonnet 5) |
+| 2026-10-05 | Task 5: added `durableThumbnailUrl` to `apps/web`'s 5 Event-type GraphQL operations, regenerated codegen, widened `mapper.ts`'s `imageFallbackUrl`. | Dev Agent (Claude Sonnet 5) |
+| 2026-10-05 | Task 6: added backend integration test (Case 4) confirming the field and the new precedence branch resolve end-to-end; regenerated backend codegen. Confirmed no regression vs. baseline via `git stash` comparison. | Dev Agent (Claude Sonnet 5) |
+| 2026-10-05 | Task 7 verification pass completed (domain full suite, targeted backend/ui test files, web build, lint/tsc for touched packages); Task 8 skipped (optional, non-blocking). Story marked `review`. | Dev Agent (Claude Sonnet 5) |
