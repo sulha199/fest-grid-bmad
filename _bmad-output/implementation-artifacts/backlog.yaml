@@ -1705,12 +1705,13 @@ items:
      PARTIALLY SUPERSEDED 2026-09-28: finding 2 (date-vs-till-tag mismatch for an event rendered on a calendar day after it already ended, via computeCalendarSegmentTillText's `<` vs the date-box's widened `<=`) is now moot -- computeCalendarSegmentTillText was removed entirely on 2026-09-27 (see design-artifacts/UX-festgrid-run-1/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md item 3: the TILL badge no longer shows at all when the end date is today, the status badge covers that case instead). Finding 1 (min-w-[2ch] Latin-numeral-glyph-width assumption, still present at EventCardMediaPrimitives.tsx) is untouched and still open."}
 
   FIND-059:
-    {type: finding, status: backlog, created: 2026-09-27,
+    {type: finding, status: done, created: 2026-09-27,
      impact: internal, effort: xs,
      title: "Story 1.i1o code review: card-list-page /id integration tests only assert favoriteToggle -- no till/status/nearby assertions on a card-list page",
      ref: [implementation-artifacts/deferred-work.md],
      touches: [web:events/EventCard, pkg:ui],
-     note: "Deferred from: code review of 1-i1o-wire-eventcard-and-weeklycalendarview-labels-to-nextintl.md (2026-09-27). 1 finding."}
+     note: "Deferred from: code review of 1-i1o-wire-eventcard-and-weeklycalendarview-labels-to-nextintl.md (2026-09-27). 1 finding.
+     CLOSED 2026-10-05: reproduced; added till/statusHappeningNow/statusUpcoming/nearby-badge id-locale assertions to home-content.test.tsx."}
 
   # ── 2026-09-30 (batch-event-pages-wave-a-readiness.md) ──────────────────────
   FIND-060:
