@@ -121,6 +121,7 @@ type Event {
   postId: ID
   imageUrl: String
   durableImageUrl: String
+  durableThumbnailUrl: String
   videoUrl: String
   instagramEmbed: InstagramEmbed
   sourcePostUrl: String

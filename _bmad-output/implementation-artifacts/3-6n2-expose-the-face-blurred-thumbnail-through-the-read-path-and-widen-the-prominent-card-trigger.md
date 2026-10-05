@@ -1,10 +1,14 @@
+---
+baseline_commit: 19f9043871496861bb8ca072d43433b21edf35ea
+---
+
 # Story 3.6n2: Expose the face-blurred thumbnail through the read path and widen the prominent-card trigger
 
 ## Story Details
 
 - Epic: 3
 - Story ID: 3.6n2
-- Status: ready-for-dev
+- Status: in-progress
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -33,22 +37,22 @@ so that an event sourced from a non-opted-in account still gets a prominent, pho
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC1): Add the `Event.durableThumbnailUrl` GraphQL field**
-  - [ ] `apps/backend/src/schema/events.graphql`: add `durableThumbnailUrl: String` on the `Event` type, directly beside `durableImageUrl: String` (line 123).
-  - [ ] `apps/backend/src/schema/resolvers.ts`: add a new `Event.durableThumbnailUrl` field resolver beside the existing `durableImageUrl` one (~line 4257): `durableThumbnailUrl: (parent: any) => parent.durableThumbnailUrl || null,`.
+- [x] **Task 1 (AC1): Add the `Event.durableThumbnailUrl` GraphQL field**
+  - [x] `apps/backend/src/schema/events.graphql`: add `durableThumbnailUrl: String` on the `Event` type, directly beside `durableImageUrl: String` (line 123).
+  - [x] `apps/backend/src/schema/resolvers.ts`: add a new `Event.durableThumbnailUrl` field resolver beside the existing `durableImageUrl` one (~line 4257): `durableThumbnailUrl: (parent: any) => parent.durableThumbnailUrl || null,`. Also threaded `parent.durableThumbnailUrl` into the existing `Event.imageUrl` resolver's `resolveServedImageUrl(...)` call (necessary for AC3's new precedence branch to actually take effect end-to-end; implied by AC3/AC6's integration test, not a separate story task line).
 
-- [ ] **Task 2 (AC2): Select `posts.durableThumbnailUrl` at all 6 existing `durableImageUrl` select sites**
-  - [ ] `Mutation.restoreEvent` (~line 1695): add `durableThumbnailUrl: posts.durableThumbnailUrl,` beside `durableImageUrl: posts.durableImageUrl,`.
-  - [ ] `Query.events`'s windowed/`perDayLimit` branch (~line 3273): same addition.
-  - [ ] `Query.events`'s flat-items branch (~line 3361): same addition.
-  - [ ] `Query.event` (~line 3568): same addition.
-  - [ ] `Query.eventBySlug`'s shared `selectEventRow` helper (~line 3695) — covers both the direct slug hit and the alias-redirect fallback (Story 3.6v) in one place: same addition.
-  - [ ] `Report.event` (~line 4083): same addition.
-  - [ ] Confirm (read the diff) that `Query.instagramEmbedBySlug`'s own `durableImageUrl` select (~line 3816, feeds `InstagramEmbedBySlugStatus.durableImageUrl` / `resolveInstagramEmbedResult`, a structurally different field on a different GraphQL type) is **not** touched — it is out of scope (AC2 parenthetical, Out of Scope).
+- [x] **Task 2 (AC2): Select `posts.durableThumbnailUrl` at all 6 existing `durableImageUrl` select sites**
+  - [x] `Mutation.restoreEvent` (~line 1695): add `durableThumbnailUrl: posts.durableThumbnailUrl,` beside `durableImageUrl: posts.durableImageUrl,`.
+  - [x] `Query.events`'s windowed/`perDayLimit` branch (~line 3273): same addition.
+  - [x] `Query.events`'s flat-items branch (~line 3361): same addition.
+  - [x] `Query.event` (~line 3568): same addition.
+  - [x] `Query.eventBySlug`'s shared `selectEventRow` helper (~line 3695) — covers both the direct slug hit and the alias-redirect fallback (Story 3.6v) in one place: same addition.
+  - [x] `Report.event` (~line 4083): same addition.
+  - [x] Confirm (read the diff) that `Query.instagramEmbedBySlug`'s own `durableImageUrl` select (~line 3816, feeds `InstagramEmbedBySlugStatus.durableImageUrl` / `resolveInstagramEmbedResult`, a structurally different field on a different GraphQL type) is **not** touched — it is out of scope (AC2 parenthetical, Out of Scope). Confirmed by grep: line is unchanged.
 
-- [ ] **Task 3 (AC3): Extend `resolveServedImageUrl`'s precedence**
-  - [ ] `packages/domain/src/events/resolveServedImageUrl.ts`: add `durableThumbnailUrl?: string | null` to `ResolveServedImageUrlInput`, destructured with a default of `durableThumbnailUrl = null` (mirroring `now = new Date()`'s existing optional-with-default pattern) so every one of the 12 existing call sites/tests that don't pass it keep compiling and behaving identically.
-  - [ ] Rewrite the function body to the 3-branch precedence AC3 specifies — functionally:
+- [x] **Task 3 (AC3): Extend `resolveServedImageUrl`'s precedence**
+  - [x] `packages/domain/src/events/resolveServedImageUrl.ts`: add `durableThumbnailUrl?: string | null` to `ResolveServedImageUrlInput`, destructured with a default of `durableThumbnailUrl = null` (mirroring `now = new Date()`'s existing optional-with-default pattern) so every one of the 12 existing call sites/tests that don't pass it keep compiling and behaving identically.
+  - [x] Rewrite the function body to the 3-branch precedence AC3 specifies — functionally:
     ```ts
     const isOriginalStillValid = imageUrlExpiresAt != null && now < imageUrlExpiresAt;
     if (isOriginalStillValid && imageUrl) {
@@ -60,7 +64,7 @@ so that an event sourced from a non-opted-in account still gets a prominent, pho
     return durableThumbnailUrl || null;
     ```
     Confirm this produces byte-identical results to today's implementation for every existing lettered case (a)–(l) before adding new cases (the `isImageStorageOptedIn` branch's behavior is unchanged; only the final `else` arm changes from a bare `return null` to `return durableThumbnailUrl || null`).
-  - [ ] Extend `resolveServedImageUrl.test.ts` with new lettered cases continuing from `(m)`, covering (non-exhaustive — dev agent may add more): NOT opted-in + expired original + thumbnail present → thumbnail (was null pre-this-story); NOT opted-in + expired + thumbnail null → null (unchanged); NOT opted-in + no expiry + thumbnail present → thumbnail; NOT opted-in + no expiry + thumbnail null → null; NOT opted-in + original still valid + thumbnail present → original wins (thumbnail never overrides a valid original); opted-in + expired + durableImageUrl present + thumbnail also present → durableImageUrl wins, thumbnail never consulted; opted-in + durableImageUrl null + thumbnail present → falls through to bare `imageUrl` (not thumbnail) — confirms thumbnail is genuinely gated on `!isImageStorageOptedIn`, not merely on `durableImageUrl` being absent.
+  - [x] Extend `resolveServedImageUrl.test.ts` with new lettered cases continuing from `(m)`, covering (non-exhaustive — dev agent may add more): NOT opted-in + expired original + thumbnail present → thumbnail (was null pre-this-story); NOT opted-in + expired + thumbnail null → null (unchanged); NOT opted-in + no expiry + thumbnail present → thumbnail; NOT opted-in + no expiry + thumbnail null → null; NOT opted-in + original still valid + thumbnail present → original wins (thumbnail never overrides a valid original); opted-in + expired + durableImageUrl present + thumbnail also present → durableImageUrl wins, thumbnail never consulted; opted-in + durableImageUrl null + thumbnail present → falls through to bare `imageUrl` (not thumbnail) — confirms thumbnail is genuinely gated on `!isImageStorageOptedIn`, not merely on `durableImageUrl` being absent. Added cases (m)–(s), 8 new cases; all a–l unchanged and passing; 100% line/branch/function coverage confirmed via `tsx --test --experimental-test-coverage`.
 
 - [ ] **Task 4 (AC4): Widen `prominentPoster` in `EventListView.tsx`**
   - [ ] `packages/ui/src/features/events/EventListView.types.ts`: add `durableThumbnailUrl?: string | null;` to `EventListViewItem`, beside `durableImageUrl`.
@@ -180,12 +184,12 @@ so that an event sourced from a non-opted-in account still gets a prominent, pho
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — read-path only: GraphQL field + 6 resolver select sites + `Event` field resolver, `resolveServedImageUrl`'s extended precedence, `apps/web`'s mapper/codegen, `EventListView.tsx`'s `prominentPoster` widening. No pipeline, no DB migration, no new component, no new EventCard prop.
-- [ ] Architecture and boundary confirmation — all changes confined to `apps/backend` (schema/resolvers), `packages/domain` (pure function extension), `packages/ui` (existing shared component), `apps/web` (query documents/mapper/codegen); no package-boundary violation introduced.
-- [ ] Testing plan confirmation — unit tests for the new `resolveServedImageUrl` precedence branches; an integration test confirming the GraphQL field resolves end-to-end; a component-level test confirming `prominentPoster` widening; full regression on the pre-existing 12 `resolveServedImageUrl` call sites/tests.
-- [ ] Explicit human approval state — **pending.** Default state for a newly created story per `story-content-structure.md`; the served-URL precedence itself was already approved at Story 3.6n's creation (2026-10-03) and is not being re-asked here, but this story's own scope/plan has not yet been presented to the user for sign-off.
-- [ ] Gate 1/2/3 prerequisites confirmed — Gate 1/3 cited from the swept batch readiness report (no gap); Gate 2 run fresh this session via `runSubagent` (no gap, two non-gating observations recorded). Story 3.6n (hard dependency) confirmed `review` status — built, its column populated — before this story was drafted.
-- [ ] Dependency confirmed done — Story 3.6n is `review` (not yet `done`, but per this project's standing rule — "Accept review-status prereqs" — a prerequisite at `review` with green tests/lint/build is safe to build against without waiting for `bmad-code-review`).
+- [x] Scope confirmation — read-path only: GraphQL field + 6 resolver select sites + `Event` field resolver, `resolveServedImageUrl`'s extended precedence, `apps/web`'s mapper/codegen, `EventListView.tsx`'s `prominentPoster` widening. No pipeline, no DB migration, no new component, no new EventCard prop.
+- [x] Architecture and boundary confirmation — all changes confined to `apps/backend` (schema/resolvers), `packages/domain` (pure function extension), `packages/ui` (existing shared component), `apps/web` (query documents/mapper/codegen); no package-boundary violation introduced.
+- [x] Testing plan confirmation — unit tests for the new `resolveServedImageUrl` precedence branches; an integration test confirming the GraphQL field resolves end-to-end; a component-level test confirming `prominentPoster` widening; full regression on the pre-existing 12 `resolveServedImageUrl` call sites/tests.
+- [x] Explicit human approval state — **approved** (AskUserQuestion, 2026-10-05, dev-story session). The served-URL precedence itself was already approved at Story 3.6n's creation (2026-10-03) and was not re-asked here; this story's own scope/plan was presented and approved before coding started.
+- [x] Gate 1/2/3 prerequisites confirmed — Gate 1/3 cited from the swept batch readiness report (no gap); Gate 2 run fresh this session via `runSubagent` (no gap, two non-gating observations recorded). Story 3.6n (hard dependency) confirmed `review` status — built, its column populated — before this story was drafted.
+- [x] Dependency confirmed done — Story 3.6n is `review` (not yet `done`, but per this project's standing rule — "Accept review-status prereqs" — a prerequisite at `review` with green tests/lint/build is safe to build against without waiting for `bmad-code-review`).
 
 ## Testing Requirements
 
@@ -227,7 +231,7 @@ so that an event sourced from a non-opted-in account still gets a prominent, pho
 
 ## Completion Status
 
-- [ ] Not started
+- [ ] In progress
 
 ## Dev Agent Record
 
@@ -245,4 +249,7 @@ _To be filled by the dev agent during implementation._
 
 ### File List
 
-_To be filled by the dev agent during implementation._
+- `apps/backend/src/schema/events.graphql` (modified — `Event.durableThumbnailUrl: String`)
+- `apps/backend/src/schema/resolvers.ts` (modified — new field resolver, 6 select-site additions, `Event.imageUrl` resolver now passes `durableThumbnailUrl` through)
+- `packages/domain/src/events/resolveServedImageUrl.ts` (modified — new optional input, new 3-branch precedence)
+- `packages/domain/src/events/resolveServedImageUrl.test.ts` (modified — new lettered cases (m)–(s))

@@ -162,4 +162,102 @@ test('resolveServedImageUrl', async (t) => {
       null
     );
   });
+
+  await t.test('(m) NOT opted-in + expired original + thumbnail present -> serves thumbnail (was null pre-3.6n2)', () => {
+    assert.strictEqual(
+      resolveServedImageUrl({
+        imageUrl: 'original-url',
+        durableImageUrl: null,
+        durableThumbnailUrl: 'thumbnail-url',
+        imageUrlExpiresAt: pastExpiry,
+        isImageStorageOptedIn: false,
+        now,
+      }),
+      'thumbnail-url'
+    );
+  });
+
+  await t.test('(n) NOT opted-in + expired original + thumbnail null -> null (unchanged)', () => {
+    assert.strictEqual(
+      resolveServedImageUrl({
+        imageUrl: 'original-url',
+        durableImageUrl: null,
+        durableThumbnailUrl: null,
+        imageUrlExpiresAt: pastExpiry,
+        isImageStorageOptedIn: false,
+        now,
+      }),
+      null
+    );
+  });
+
+  await t.test('(o) NOT opted-in + no expiry + thumbnail present -> serves thumbnail', () => {
+    assert.strictEqual(
+      resolveServedImageUrl({
+        imageUrl: 'original-url',
+        durableImageUrl: null,
+        durableThumbnailUrl: 'thumbnail-url',
+        imageUrlExpiresAt: null,
+        isImageStorageOptedIn: false,
+        now,
+      }),
+      'thumbnail-url'
+    );
+  });
+
+  await t.test('(p) NOT opted-in + no expiry + thumbnail null -> null', () => {
+    assert.strictEqual(
+      resolveServedImageUrl({
+        imageUrl: 'original-url',
+        durableImageUrl: null,
+        durableThumbnailUrl: null,
+        imageUrlExpiresAt: null,
+        isImageStorageOptedIn: false,
+        now,
+      }),
+      null
+    );
+  });
+
+  await t.test('(q) NOT opted-in + original still valid + thumbnail present -> original wins (thumbnail never overrides a valid original)', () => {
+    assert.strictEqual(
+      resolveServedImageUrl({
+        imageUrl: 'original-url',
+        durableImageUrl: null,
+        durableThumbnailUrl: 'thumbnail-url',
+        imageUrlExpiresAt: futureExpiry,
+        isImageStorageOptedIn: false,
+        now,
+      }),
+      'original-url'
+    );
+  });
+
+  await t.test('(r) opted-in + expired + durableImageUrl present + thumbnail also present -> durableImageUrl wins, thumbnail never consulted', () => {
+    assert.strictEqual(
+      resolveServedImageUrl({
+        imageUrl: 'original-url',
+        durableImageUrl: 'durable-url',
+        durableThumbnailUrl: 'thumbnail-url',
+        imageUrlExpiresAt: pastExpiry,
+        isImageStorageOptedIn: true,
+        now,
+      }),
+      'durable-url'
+    );
+  });
+
+  await t.test('(s) opted-in + durableImageUrl null + thumbnail present -> falls through to bare imageUrl, not thumbnail (thumbnail is gated on NOT opted-in, not merely on durableImageUrl absence)', () => {
+    assert.strictEqual(
+      resolveServedImageUrl({
+        imageUrl: 'original-url',
+        durableImageUrl: null,
+        durableThumbnailUrl: 'thumbnail-url',
+        imageUrlExpiresAt: pastExpiry,
+        isImageStorageOptedIn: true,
+        now,
+      }),
+      'original-url'
+    );
+  });
 });
