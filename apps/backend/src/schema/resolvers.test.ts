@@ -2528,6 +2528,330 @@ test('events resolver integration via Yoga', async (t) => {
     });
   });
 
+  await t.test('Query.relatedEventIds resolver (postId variant, Story 3.6x)', async (t) => {
+    let sharedPost: any;
+    let liveEvent: any;
+    let softDeletedEvent: any;
+    let mergeTargetEvent: any;
+    let mergedEvent: any;
+    let unrelatedEvent: any;
+    let noLinksPost: any;
+    const createdEventIds: string[] = [];
+
+    t.before(async () => {
+      const [profile] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: 'resolver_test_related_event_ids_by_post_publisher_1',
+        platform: 'instagram',
+        displayName: 'Resolver Test Related Event Ids By Post Publisher',
+        username: 'resolver_test_related_event_ids_by_post_publisher_1',
+      }).returning();
+
+      const [post] = await db.insert(posts).values({
+        accountId: profile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/resolver_test_related_event_ids_by_post_1',
+        originalPostUrl: 'https://instagram.com/p/resolver_test_related_event_ids_by_post_1',
+        content: 'Shared post (postId variant)',
+        publishedAt: new Date(),
+        isExtracted: true,
+      }).returning();
+      sharedPost = post;
+
+      const [noLinks] = await db.insert(posts).values({
+        accountId: profile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/resolver_test_related_event_ids_by_post_no_links',
+        originalPostUrl: 'https://instagram.com/p/resolver_test_related_event_ids_by_post_no_links',
+        content: 'Post with no linked events',
+        publishedAt: new Date(),
+        isExtracted: true,
+      }).returning();
+      noLinksPost = noLinks;
+
+      const [unrelatedPost] = await db.insert(posts).values({
+        accountId: profile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/resolver_test_related_event_ids_by_post_unrelated',
+        originalPostUrl: 'https://instagram.com/p/resolver_test_related_event_ids_by_post_unrelated',
+        content: 'Unrelated post',
+        publishedAt: new Date(),
+        isExtracted: true,
+      }).returning();
+
+      const [live] = await db.insert(events).values({
+        eventName: 'Live Event', postId: sharedPost.id, extractionOrdinal: 0, location: 'Test location',
+      }).returning();
+      liveEvent = live;
+      createdEventIds.push(live.id);
+
+      const [softDeleted] = await db.insert(events).values({
+        eventName: 'Soft Deleted Event', postId: sharedPost.id, extractionOrdinal: 1, location: 'Test location', deletedAt: new Date(),
+      }).returning();
+      softDeletedEvent = softDeleted;
+      createdEventIds.push(softDeleted.id);
+
+      const [mergeTarget] = await db.insert(events).values({
+        eventName: 'Merge Target Event', postId: sharedPost.id, extractionOrdinal: 2, location: 'Test location',
+      }).returning();
+      mergeTargetEvent = mergeTarget;
+      createdEventIds.push(mergeTarget.id);
+
+      const [merged] = await db.insert(events).values({
+        eventName: 'Merged-Away Event', postId: sharedPost.id, extractionOrdinal: 3, location: 'Test location', mergedIntoEventId: mergeTarget.id,
+      }).returning();
+      mergedEvent = merged;
+      createdEventIds.push(merged.id);
+
+      const [unrelated] = await db.insert(events).values({
+        eventName: 'Unrelated Event', postId: unrelatedPost.id, extractionOrdinal: 0, location: 'Test location',
+      }).returning();
+      unrelatedEvent = unrelated;
+      createdEventIds.push(unrelated.id);
+
+      await db.insert(eventPosts).values([
+        { eventId: liveEvent.id, postId: sharedPost.id, extractionOrdinal: 0 },
+        { eventId: softDeletedEvent.id, postId: sharedPost.id, extractionOrdinal: 1 },
+        { eventId: mergeTargetEvent.id, postId: sharedPost.id, extractionOrdinal: 2 },
+        { eventId: mergedEvent.id, postId: sharedPost.id, extractionOrdinal: 3 },
+        { eventId: unrelatedEvent.id, postId: unrelatedPost.id, extractionOrdinal: 0 },
+      ]);
+
+      t.after(async () => {
+        await db.delete(eventPosts).where(inArray(eventPosts.eventId, createdEventIds));
+        await db.delete(events).where(inArray(events.id, createdEventIds));
+        await db.delete(posts).where(inArray(posts.id, [sharedPost.id, noLinksPost.id, unrelatedPost.id]));
+        await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+      });
+    });
+
+    await t.test('returns a singleton group containing only the live, non-merged event linked to the post', async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetRelatedEventIdsByPost($postId: ID!) {
+              relatedEventIds(postId: $postId) {
+                postId
+                eventIds
+              }
+            }
+          `,
+          variables: { postId: sharedPost.id }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      const groups = result.data.relatedEventIds;
+      assert.strictEqual(groups.length, 1);
+      assert.strictEqual(groups[0].postId, sharedPost.id);
+      assert.deepStrictEqual([...groups[0].eventIds].sort(), [liveEvent.id, mergeTargetEvent.id].sort());
+    });
+
+    await t.test('returns [] for a post with no linked events', async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetRelatedEventIdsByPost($postId: ID!) {
+              relatedEventIds(postId: $postId) {
+                postId
+                eventIds
+              }
+            }
+          `,
+          variables: { postId: noLinksPost.id }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.deepStrictEqual(result.data.relatedEventIds, []);
+    });
+
+    await t.test('throws a BAD_REQUEST error when neither eventId nor postId is provided', async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetRelatedEventIdsNeither {
+              relatedEventIds {
+                postId
+                eventIds
+              }
+            }
+          `,
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(result.errors, 'expected a GraphQL error');
+      assert.match(result.errors[0].message, /Exactly one of eventId or postId must be provided/);
+      assert.strictEqual(result.errors[0].extensions?.code, 'BAD_REQUEST');
+    });
+
+    await t.test('throws a BAD_REQUEST error when both eventId and postId are provided', async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetRelatedEventIdsBoth($eventId: ID!, $postId: ID!) {
+              relatedEventIds(eventId: $eventId, postId: $postId) {
+                postId
+                eventIds
+              }
+            }
+          `,
+          variables: { eventId: liveEvent.id, postId: sharedPost.id }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(result.errors, 'expected a GraphQL error');
+      assert.match(result.errors[0].message, /Exactly one of eventId or postId must be provided/);
+      assert.strictEqual(result.errors[0].extensions?.code, 'BAD_REQUEST');
+    });
+  });
+
+  await t.test('Query.postByPlatformIdentifiers resolver (Story 3.6x)', async (t) => {
+    let profile: any;
+    let matchingPost: any;
+    let otherPlatformPost: any;
+
+    t.before(async () => {
+      const [p] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: 'resolver_test_post_by_platform_identifiers_publisher_1',
+        platform: 'instagram',
+        displayName: 'Resolver Test Post By Platform Identifiers Publisher',
+        username: 'resolver_test_post_by_platform_identifiers_publisher_1',
+      }).returning();
+      profile = p;
+
+      const [match] = await db.insert(posts).values({
+        accountId: profile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/resolver_test_post_by_platform_identifiers_match',
+        originalPostUrl: 'https://instagram.com/p/resolver_test_post_by_platform_identifiers_match',
+        content: 'Matching post',
+        publishedAt: new Date(),
+        isExtracted: true,
+        groupingReason: 'roundup',
+        extractedEventCount: 4,
+        platformPostId: 'resolver_test_post_by_platform_identifiers_triple',
+        platformPostType: 'p',
+      }).returning();
+      matchingPost = match;
+
+      // Same postType + platformPostId, different platform -- must resolve to null for this
+      // platform's lookup, not accidentally match across platforms (platform-discrimination).
+      const [otherPlatform] = await db.insert(posts).values({
+        accountId: profile.id,
+        platform: 'tiktok',
+        postUrl: 'https://tiktok.com/@resolver_test/video/resolver_test_post_by_platform_identifiers_triple',
+        originalPostUrl: 'https://tiktok.com/@resolver_test/video/resolver_test_post_by_platform_identifiers_triple',
+        content: 'Same triple, different platform',
+        publishedAt: new Date(),
+        isExtracted: true,
+        groupingReason: 'single-event',
+        extractedEventCount: 1,
+        platformPostId: 'resolver_test_post_by_platform_identifiers_triple',
+        platformPostType: 'p',
+      }).returning();
+      otherPlatformPost = otherPlatform;
+    });
+
+    t.after(async () => {
+      for (const post of [matchingPost, otherPlatformPost]) {
+        if (post) await db.delete(posts).where(eq(posts.id, post.id));
+      }
+      if (profile) await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+    });
+
+    await t.test('resolves a seeded post with its account/groupingReason/extractedEventCount', async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetPostByPlatformIdentifiers($platform: String!, $postType: String!, $platformPostId: String!) {
+              postByPlatformIdentifiers(platform: $platform, postType: $postType, platformPostId: $platformPostId) {
+                postId
+                groupingReason
+                extractedEventCount
+                platformPostId
+                postType
+                account {
+                  id
+                  accountId
+                  platform
+                }
+              }
+            }
+          `,
+          variables: { platform: 'instagram', postType: 'p', platformPostId: 'resolver_test_post_by_platform_identifiers_triple' }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      const post = result.data.postByPlatformIdentifiers;
+      assert.ok(post);
+      assert.strictEqual(post.postId, matchingPost.id);
+      assert.strictEqual(post.groupingReason, 'ROUNDUP');
+      assert.strictEqual(post.extractedEventCount, 4);
+      assert.strictEqual(post.platformPostId, 'resolver_test_post_by_platform_identifiers_triple');
+      assert.strictEqual(post.postType, 'p');
+      assert.strictEqual(post.account.id, profile.id);
+    });
+
+    await t.test('returns null for a non-matching triple', async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetPostByPlatformIdentifiers($platform: String!, $postType: String!, $platformPostId: String!) {
+              postByPlatformIdentifiers(platform: $platform, postType: $postType, platformPostId: $platformPostId) {
+                postId
+              }
+            }
+          `,
+          variables: { platform: 'instagram', postType: 'p', platformPostId: 'resolver_test_post_by_platform_identifiers_does_not_exist' }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.strictEqual(result.data.postByPlatformIdentifiers, null);
+    });
+
+    await t.test('discriminates by platform: same postType+platformPostId, different platform resolves to a different post', async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetPostByPlatformIdentifiers($platform: String!, $postType: String!, $platformPostId: String!) {
+              postByPlatformIdentifiers(platform: $platform, postType: $postType, platformPostId: $platformPostId) {
+                postId
+              }
+            }
+          `,
+          variables: { platform: 'tiktok', postType: 'p', platformPostId: 'resolver_test_post_by_platform_identifiers_triple' }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.ok(result.data.postByPlatformIdentifiers);
+      assert.strictEqual(result.data.postByPlatformIdentifiers.postId, otherPlatformPost.id);
+    });
+  });
+
   await t.test('Event.publishedAt resolver (Story 1.6f)', async (t) => {
     let testProfile: any;
     let testPost: any;

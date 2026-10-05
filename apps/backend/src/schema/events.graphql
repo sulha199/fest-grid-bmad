@@ -194,7 +194,13 @@ extend type Query {
   event(id: ID!, includeMyArchived: Boolean): Event
   eventBySlug(slug: String!, includeMyArchived: Boolean): Event
   instagramEmbedBySlug(slug: String!): InstagramEmbedBySlug!
-  relatedEventIds(eventId: ID!): [RelatedEventGroup!]!
+  # Story 3.6x / AD-30 Rule 11 -- widened to accept a post-keyed variant alongside the existing
+  # event-keyed one. Exactly one of eventId/postId must be supplied (enforced in the resolver).
+  relatedEventIds(eventId: ID, postId: ID): [RelatedEventGroup!]!
+  # Story 3.6x -- backend-only lookup powering the Post Collection Page route
+  # (/posts/{platformSlug}/{postType}/{platformPostId}/events). Reuses EventSourcePost's existing
+  # shape; isPrimary/coauthors are hardcoded on the resolver since this page never selects them.
+  postByPlatformIdentifiers(platform: String!, postType: String!, platformPostId: String!): EventSourcePost
 }
 
 type ResolveScheduleTimezoneResult {

@@ -8,7 +8,7 @@ baseline_commit: 5633bc47880a2c30aed343b7f6f628c06330e542 (set at bmad-create-st
 
 - Epic: 3 (CC-024 — Multi-event posts and cross-post event matching, Wave 5)
 - Story ID: 3.6x
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -62,43 +62,43 @@ so that I can browse a roundup or multi-event post's events when there are more 
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — DB migration: partial unique index on the post-identity triple** (AC: #8)
-  - [ ] Run the dedupe check query (AC8) against the local database; if it returns any rows, stop and report the finding rather than proceeding — do not silently dedupe.
-  - [ ] `packages/database/schema.ts` — add the documentation-only `.unique()`/`.index().where(...)` builder call on `posts` (`platform`, `platformPostType`, `platformPostId`), matching the `hashtagsIdx` comment-the-gap style.
-  - [ ] Generate the migration (`pnpm --filter @festgrid/database generate`), then hand-edit the generated `.sql` file to add the real `WHERE`-qualified `CREATE UNIQUE INDEX` statement (AC8) — drizzle-kit 0.21 drops the predicate, per AD-30 Rule 1's established workaround.
-  - [ ] Apply the migration locally (`pnpm --filter @festgrid/database migrate`); confirm it applies cleanly (no violation).
-- [ ] **Task 2 — Backend schema + resolvers** (AC: #1, #2)
-  - [ ] `apps/backend/src/schema/events.graphql` — widen `relatedEventIds(eventId: ID!)` to `relatedEventIds(eventId: ID, postId: ID)`; add `postByPlatformIdentifiers(platform: String!, postType: String!, platformPostId: String!): EventSourcePost` to `extend type Query`.
-  - [ ] `apps/backend/src/schema/resolvers.ts` — add the `eventId`/`postId` exclusivity check + new `postId` branch to `relatedEventIds` (AC2's exact query); add the new `postByPlatformIdentifiers` resolver (AC1's exact query/shape).
-  - [ ] Run `pnpm --filter backend codegen` — regenerate `apps/backend/src/generated/resolvers-types.ts`; never hand-edit.
-- [ ] **Task 3 — Backend resolver tests** (AC: #1, #2)
-  - [ ] `apps/backend/src/schema/resolvers.test.ts` — new `Query.relatedEventIds (postId variant, Story 3.6x)` block: seed a post linked to 2 events (one soft-deleted, one merged into another) plus an unrelated event on a different post; assert the result is a singleton group containing only the live, non-merged event; assert `[]` for a post with no linked events; assert the exclusivity-check error for both the neither-arg and both-args cases.
-  - [ ] New `Query.postByPlatformIdentifiers (Story 3.6x)` block: assert a seeded post resolves with its account/groupingReason/extractedEventCount; assert `null` for a non-matching triple; assert platform-discrimination (same `postType`+`platformPostId`, different `platform`, resolve to different posts / `null` as appropriate).
-  - [ ] A real-DB migration test (or extend an existing migration-safety suite) asserting the new partial unique index rejects a duplicate non-null triple and allows multiple NULL rows.
-- [ ] **Task 4 — EXPLAIN gate** (AC: #7)
-  - [ ] Extend `apps/backend/src/explain-events-queries.ts` with 2 new scenarios (`relatedEventIds`'s `postId` branch, `postByPlatformIdentifiers`); run against `seed:volume` plus the small manual links Story 3.6u's own extension already seeds; capture via the existing SQL-capture-sink mechanism; run both under `EXPLAIN (ANALYZE, BUFFERS)`.
-  - [ ] Write `_bmad-output/planning-artifacts/cc-024-explain-after-3.6x-<date>.md` (same format as the `...-after-3.6u-...` doc): both new queries **PASS**, index-driven, no Seq Scan.
-  - [ ] `pnpm --filter @festgrid/database seed:volume:clean` after capture.
-- [ ] **Task 5 — Frontend GraphQL documents + codegen** (AC: #1, #2, #4)
-  - [ ] `apps/web/src/features/events/queries.graphql` — add `getPostByPlatformIdentifiers($platform: String!, $postType: String!, $platformPostId: String!)` (selecting `postId`, `account { accountId platform username displayName profileImageUrl }`, `groupingReason`, `extractedEventCount`) and `getRelatedEventIdsByPost($postId: ID!)` (`relatedEventIds(postId: $postId) { postId eventIds }`) as **new** documents — the existing `getRelatedEventIds($eventId: ID!)` document (Story 3.6u) is left untouched.
-  - [ ] Confirm via grep that no existing list-view document selects `EventSourcePost`'s event-detail-only fields unnecessarily from the new query (mirrors prior confinement guards).
-  - [ ] Run `pnpm --filter web codegen` (`fix-codegen.js`) — regenerate `apps/web/src/generated/graphql.ts`.
-- [ ] **Task 6 — Post Collection Page route** (AC: #3, #4, #6)
-  - [ ] `apps/web/src/app/[locale]/posts/[platformSlug]/[postType]/[platformPostId]/events/page.tsx` — `generateMetadata` (platform resolution + `postByPlatformIdentifiers` + `notFound()` on either miss, `buildPageMetadata` with the new `Metadata` keys) and the default export (same resolution, `<Suspense fallback={<RouteLoader/>}>`), mirroring `apps/web/src/app/[locale]/[platformSlug]/[accountId]/page.tsx`'s exact structure.
-  - [ ] `.../events/post-events-content.tsx` — the client component per AC4 (`useListPaginationController`, `useInfiniteScroll`, `PageContainer`/`PageHeader`/`EventListView`, frozen-postEventIds navigation wiring per AC5).
-  - [ ] `post-events-content.test.tsx`, `page.test.tsx` (or equivalent) — render/loading/empty/error states; pagination batch-fetch over frozen ids; `notFound()` triggers for an unresolvable platform or a missing post.
-- [ ] **Task 7 — Context-aware Next/Previous navigation** (AC: #5)
-  - [ ] `apps/web/src/features/events/navigation-hook.ts` — add the `'post'` `fromList` branch (AC5's exact `frozenPostEventIds`/`useInfiniteQuery` pattern, mirroring the existing `favoriteIds` branch) to `useListNavigationForEvent`.
-  - [ ] `navigation-hook.test.ts` (or wherever its existing coverage lives) — new tests for the `'post'` branch: context detected only when `fromList=post` **and** `postEventIds` is non-empty; Next/Previous paginates correctly over the frozen ids; no interference with the existing `'favorites'`/generic-filter branches.
-- [ ] **Task 8 — i18n** (AC: #9)
-  - [ ] Add `postCollectionPageTitle`, `postCollectionPageDescription` to `apps/web/locales/en.json`/`id.json`'s `Metadata` namespace.
-  - [ ] Add `errorState`, `emptyState`, `loadingMore` to a new `PostCollectionPage` namespace in both locale files.
-- [ ] **Task 9 — Verification** (AC: all)
-  - [ ] `pnpm --filter backend test` (targeted: `resolvers.test.ts`), `build`/`tsc`, `lint`; confirm `backend codegen` re-run is byte-identical.
-  - [ ] `pnpm --filter database test`/migration check (the new unique-index test from Task 3).
-  - [ ] `pnpm --filter web test` (targeted: `post-events-content.test.tsx`, `navigation-hook.test.ts`/equivalent), full `apps/web` suite green, `lint`, `build`.
-  - [ ] Root `pnpm build`/`pnpm lint`/`pnpm test` once (`TZ=UTC`, volume seed cleaned) for cross-package regressions; triage any failure against this wave's already-known pre-existing failures (geolocation/`.env`/CDK-template — see `cc-024-multi-event-wave-plan.md`'s "Test-gate facts" section) before assuming a new regression.
-  - [ ] Manual sanity: open a seeded multi-event/roundup post's collection page directly by URL; confirm the "See all N events" link from Story 3.6u's Related Events Area lands here with a matching event list; confirm Next/Previous from an event opened off this page pages through the same list, not a generic/empty context.
+- [x] **Task 1 — DB migration: partial unique index on the post-identity triple** (AC: #8)
+  - [x] Run the dedupe check query (AC8) against the local database; if it returns any rows, stop and report the finding rather than proceeding — do not silently dedupe. (0 rows — no duplicates found.)
+  - [x] `packages/database/schema.ts` — add the documentation-only `.unique()`/`.index().where(...)` builder call on `posts` (`platform`, `platformPostType`, `platformPostId`), matching the `hashtagsIdx` comment-the-gap style.
+  - [x] Generate the migration (`pnpm --filter @festgrid/database generate`), then hand-edit the generated `.sql` file to add the real `WHERE`-qualified `CREATE UNIQUE INDEX` statement (AC8) — drizzle-kit 0.21 drops the predicate, per AD-30 Rule 1's established workaround. (`migrations/0073_living_silver_sable.sql`.)
+  - [x] Apply the migration locally (`pnpm --filter @festgrid/database migrate`); confirm it applies cleanly (no violation).
+- [x] **Task 2 — Backend schema + resolvers** (AC: #1, #2)
+  - [x] `apps/backend/src/schema/events.graphql` — widen `relatedEventIds(eventId: ID!)` to `relatedEventIds(eventId: ID, postId: ID)`; add `postByPlatformIdentifiers(platform: String!, postType: String!, platformPostId: String!): EventSourcePost` to `extend type Query`.
+  - [x] `apps/backend/src/schema/resolvers.ts` — add the `eventId`/`postId` exclusivity check + new `postId` branch to `relatedEventIds` (AC2's exact query); add the new `postByPlatformIdentifiers` resolver (AC1's exact query/shape).
+  - [x] Run `pnpm --filter backend codegen` — regenerate `apps/backend/src/generated/resolvers-types.ts`; never hand-edit.
+- [x] **Task 3 — Backend resolver tests** (AC: #1, #2)
+  - [x] `apps/backend/src/schema/resolvers.test.ts` — new `Query.relatedEventIds (postId variant, Story 3.6x)` block: seed a post linked to 2 events (one soft-deleted, one merged into another) plus an unrelated event on a different post; assert the result is a singleton group containing only the live, non-merged event; assert `[]` for a post with no linked events; assert the exclusivity-check error for both the neither-arg and both-args cases.
+  - [x] New `Query.postByPlatformIdentifiers (Story 3.6x)` block: assert a seeded post resolves with its account/groupingReason/extractedEventCount; assert `null` for a non-matching triple; assert platform-discrimination (same `postType`+`platformPostId`, different `platform`, resolve to different posts / `null` as appropriate).
+  - [x] A real-DB migration test (`packages/database/unique-index.test.ts`, new) asserting the new partial unique index rejects a duplicate non-null triple (real Postgres `23505` unique_violation) and allows multiple NULL rows.
+- [x] **Task 4 — EXPLAIN gate** (AC: #7)
+  - [x] Extend `apps/backend/src/explain-events-queries.ts` with 2 new scenarios (`relatedEventIds`'s `postId` branch, `postByPlatformIdentifiers`); run against `seed:volume` plus the small manual links Story 3.6u's own extension already seeds; capture via the existing SQL-capture-sink mechanism; run both under `EXPLAIN (ANALYZE, BUFFERS)`.
+  - [x] Write `_bmad-output/planning-artifacts/cc-024-explain-after-3.6x-2026-10-05.md` (same format as the `...-after-3.6u-...` doc): both new queries **PASS**, index-driven, no Seq Scan.
+  - [x] `pnpm --filter @festgrid/database seed:volume:clean` after capture. (Confirmed posts/events counts back to 35/12 baseline; no residual `explain-probe-*` rows.)
+- [x] **Task 5 — Frontend GraphQL documents + codegen** (AC: #1, #2, #4)
+  - [x] `apps/web/src/features/events/queries.graphql` — add `getPostByPlatformIdentifiers($platform: String!, $postType: String!, $platformPostId: String!)` (selecting `postId`, `account { accountId platform username displayName profileImageUrl }`, `groupingReason`, `extractedEventCount`) and `getRelatedEventIdsByPost($postId: ID!)` (`relatedEventIds(postId: $postId) { postId eventIds }`) as **new** documents — the existing `getRelatedEventIds($eventId: ID!)` document (Story 3.6u) is left untouched.
+  - [x] Confirm via grep that no existing list-view document selects `EventSourcePost`'s event-detail-only fields unnecessarily from the new query (mirrors prior confinement guards). (`isPrimary`/`coauthors`/`sourcePostUrl`/`originalPostUrl` only appear in `getEventBySlug`'s own `sourcePosts` selection.)
+  - [x] Run `pnpm --filter web codegen` (`fix-codegen.js`) — regenerate `apps/web/src/generated/graphql.ts`.
+- [x] **Task 6 — Post Collection Page route** (AC: #3, #4, #6)
+  - [x] `apps/web/src/app/[locale]/posts/[platformSlug]/[postType]/[platformPostId]/events/page.tsx` — `generateMetadata` (platform resolution + `postByPlatformIdentifiers` + `notFound()` on either miss, `buildPageMetadata` with the new `Metadata` keys) and the default export (same resolution, `<Suspense fallback={<RouteLoader/>}>`), mirroring `apps/web/src/app/[locale]/[platformSlug]/[accountId]/page.tsx`'s exact structure.
+  - [x] `.../events/post-events-content.tsx` — the client component per AC4 (`useListPaginationController`, `useInfiniteScroll`, `PageContainer`/`PageHeader`/`EventListView`, frozen-postEventIds navigation wiring per AC5).
+  - [x] `post-events-content.test.tsx`, `page.test.tsx` (or equivalent) — render/loading/empty/error states; pagination batch-fetch over frozen ids; `notFound()` triggers for an unresolvable platform or a missing post.
+- [x] **Task 7 — Context-aware Next/Previous navigation** (AC: #5)
+  - [x] `apps/web/src/features/events/navigation-hook.ts` — add the `'post'` `fromList` branch (AC5's exact `frozenPostEventIds`/`useInfiniteQuery` pattern, mirroring the existing `favoriteIds` branch) to `useListNavigationForEvent`.
+  - [x] `navigation-hook.test.ts` (new, dedicated `renderHook` coverage) — new tests for the `'post'` branch: context detected only when `fromList=post` **and** `postEventIds` is non-empty; Next/Previous paginates correctly over the frozen ids; no interference with the existing `'favorites'`/generic-filter branches.
+- [x] **Task 8 — i18n** (AC: #9)
+  - [x] Add `postCollectionPageTitle`, `postCollectionPageDescription` to `apps/web/locales/en.json`/`id.json`'s `Metadata` namespace.
+  - [x] Add `errorState`, `emptyState`, `loadingMore` to a new `PostCollectionPage` namespace in both locale files.
+- [x] **Task 9 — Verification** (AC: all)
+  - [x] `apps/backend`: targeted `TZ=UTC NODE_ENV=test npx tsx --test src/schema/resolvers.test.ts` (113/113 pass, including the 24 new assertions for this story), `pnpm --filter backend build` (tsc, clean), `pnpm --filter backend lint` (0 errors, pre-existing warnings only); `pnpm --filter backend codegen` re-run confirmed the generated types diff is exactly this story's own additive change (no unrelated drift).
+  - [x] `packages/database`: targeted `TZ=UTC NODE_ENV=test npx tsx --test unique-index.test.ts` (1/1 pass — new partial-unique-index migration-safety test), `pnpm --filter @festgrid/database build` (tsc, clean), `pnpm --filter @festgrid/database lint` (0 errors/0 warnings, `--max-warnings 0` enforced).
+  - [x] `apps/web`: targeted `npx vitest run` on `post-events-content.test.tsx`, `page.test.tsx`, `navigation-hook.test.ts` (19/19 pass), `pnpm --filter web lint` (0 errors, pre-existing warnings only), `NODE_USE_ENV_PROXY=1 pnpm --filter web build` (clean; new route `/[locale]/posts/[platformSlug]/[postType]/[platformPostId]/events` appears in the build's route manifest as `ƒ` dynamic, coexisting with the existing `/[locale]/posts/select` static route with no conflict). Per this session's explicit testing instructions, only targeted test files were run (no full backend/web suite, no whole-repo build/lint/test) — `pnpm lint`/`pnpm build` at the repo root were explicitly denied by this environment's own guardrail in favor of the per-package scoped commands above, which were run instead and are the commands actually executed and recorded here.
+  - [x] Database state verified clean after every ad-hoc/test run: dedupe check (Task 1) was read-only; `unique-index.test.ts`'s own fixture rows were deleted in its `finally` block (confirmed via direct `psql` count = 0 post-run); `seed:volume`/`seed:volume:clean` (Task 4's EXPLAIN capture) returned posts/events to the 35/12 baseline with no residual `explain-probe-*` rows. No ad-hoc SQL write was left applied outside the reviewed migration itself.
+  - [x] Manual sanity (verified by direct inspection rather than a live browser session in this environment): the "See all N events" href Story 3.6u's `EventDetailWrapper.tsx` already builds (`/posts/${platformSlug}/${postType}/${platformPostId}/events`) matches this story's new route's own dynamic segments exactly; `post-events-content.test.tsx` confirms the page's own event list and its card `onClick` wiring (`fromList=post&postEventIds=...`); `navigation-hook.test.ts` confirms Next/Previous from an event opened off this page's frozen ids pages through that same list and not a generic/empty context.
 
 ## Dev Notes
 
@@ -209,11 +209,11 @@ An epic readiness report already covers this story: `_bmad-output/planning-artif
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — Tasks 1-9 match the two user-decided design questions (partial unique index with mandatory dedupe check; frozen-ids-via-URL navigation context) plus the epics.md-specified AC text and the Gate-2-surfaced PageHeader heading-copy addition.
-- [ ] Architecture and boundary confirmation — new/widened fields and the new lookup go through the existing backend/GraphQL layer only; no new `packages/domain`/`packages/ui` surface (pure consumer); Gate 1/3 cited READY from the batch report, Gate 2 run fresh with no gap.
-- [ ] Testing plan confirmation — Tasks 3, 4, 6, 7 cover the new/widened resolvers, the EXPLAIN-gate extension, the new route/component, and the navigation-hook branch.
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] **Gate 1/2/3 prerequisites confirmed done or gap accepted** — Gate 1/3: READY, cited from `epic-readiness/batch-cc-024-multi-event-readiness.md`, no action needed. Gate 2: no gap found this session. **Dependency confirmation:** Story 3.6u is at `review` status in `sprint-status.yaml` as of this story's creation — the standing rule (build against `review`-status prerequisites) applies, so no wait is required before `dev-story` begins.
+- [x] Scope confirmation — Tasks 1-9 match the two user-decided design questions (partial unique index with mandatory dedupe check; frozen-ids-via-URL navigation context) plus the epics.md-specified AC text and the Gate-2-surfaced PageHeader heading-copy addition.
+- [x] Architecture and boundary confirmation — new/widened fields and the new lookup go through the existing backend/GraphQL layer only; no new `packages/domain`/`packages/ui` surface (pure consumer); Gate 1/3 cited READY from the batch report, Gate 2 run fresh with no gap.
+- [x] Testing plan confirmation — Tasks 3, 4, 6, 7 cover the new/widened resolvers, the EXPLAIN-gate extension, the new route/component, and the navigation-hook branch.
+- [x] Explicit human approval state — approved by user via `AskUserQuestion` on 2026-10-05 (schema migration + UI design scope, per this project's Pre-Coding Approval Gate escalation rule).
+- [x] **Gate 1/2/3 prerequisites confirmed done or gap accepted** — Gate 1/3: READY, cited from `epic-readiness/batch-cc-024-multi-event-readiness.md`, no action needed. Gate 2: no gap found this session. **Dependency confirmation:** Story 3.6u is at `review` status in `sprint-status.yaml` as of this story's creation — the standing rule (build against `review`-status prerequisites) applies, so no wait is required before `dev-story` begins.
 
 ## Testing Requirements
 
@@ -255,14 +255,58 @@ An epic readiness report already covers this story: `_bmad-output/planning-artif
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-sonnet-5 (Claude Agent SDK, bmad-dev-story skill)
 
 ### Debug Log References
 
+- Pre-migration dedupe check (AC8/Task 1): `SELECT platform, platform_post_type, platform_post_id, count(*) FROM posts WHERE platform_post_id IS NOT NULL AND platform_post_type IS NOT NULL GROUP BY 1,2,3 HAVING count(*) > 1;` against the local dev DB returned **0 rows** — no blocking finding; migration proceeded.
+- Migration generated via `pnpm --filter @festgrid/database generate` as the next sequential file, `migrations/0073_living_silver_sable.sql`; hand-edited only to add the `WHERE "platform_post_id" IS NOT NULL AND "platform_post_type" IS NOT NULL` predicate drizzle-kit 0.21.4 drops (AD-8 Rule 3/AD-30 Rule 1 precedent). Applied via `pnpm --filter @festgrid/database migrate`; confirmed via `psql \d posts` that the index carries the correct partial-index definition.
+- Backend targeted test run: `cd apps/backend && TZ=UTC NODE_ENV=test npx tsx --test src/schema/resolvers.test.ts` → 113/113 pass (24 new assertions across the two new `Query.relatedEventIds (postId variant, Story 3.6x)`/`Query.postByPlatformIdentifiers (Story 3.6x)` blocks), 0 regressions.
+- Database targeted test run: `cd packages/database && TZ=UTC NODE_ENV=test npx tsx --test unique-index.test.ts` → 1/1 pass (real Postgres `23505` unique_violation on a duplicate triple; multiple NULL-triple rows allowed). Fixture rows self-deleted in a `finally` block; confirmed via direct `psql` count = 0 afterward.
+- Web targeted test runs (vitest): `post-events-content.test.tsx` (5/5), `page.test.tsx` (8/8), `navigation-hook.test.ts` (6/6) — all green, run individually and combined.
+- EXPLAIN gate (Task 4): `seed:volume` → extended `explain-events-queries.ts` run → `seed:volume:clean`, chained in one step per this environment's own guardrail (seed:volume is denied unless cleaned in the same step). Both new queries (`Query.relatedEventIds` postId variant, `Query.postByPlatformIdentifiers`) resolved in 0.1ms with **no Seq Scan**. Confirmed posts/events counts returned to the 35/12 seed baseline afterward, no residual `explain-probe-*` rows. Doc written: `_bmad-output/planning-artifacts/cc-024-explain-after-3.6x-2026-10-05.md`.
+- Builds/lint run per-package (whole-repo `pnpm lint`/`pnpm build` denied by this environment's guardrail in favor of scoped commands): `pnpm --filter @festgrid/database build/lint` (clean, 0 warnings — package enforces `--max-warnings 0`), `pnpm --filter backend build/lint` (clean, pre-existing warnings only), `pnpm --filter web lint` (clean, pre-existing warnings only) and `NODE_USE_ENV_PROXY=1 pnpm --filter web build` (clean; new route appears in the build's own route manifest, no conflict with the existing `posts/select` route).
+- Backend/web `codegen` re-runs both succeeded; diffs confirmed additive-only (new `postByPlatformIdentifiers`/widened `relatedEventIds` on the backend side; new `GetRelatedEventIdsByPostDocument`/`GetPostByPlatformIdentifiersDocument` hooks on the web side) — no hand-edits to either generated file.
+
 ### Completion Notes List
 
+- AC1/AC2 (backend): added `Query.postByPlatformIdentifiers` resolver and widened `Query.relatedEventIds` with a new `postId` branch + `eventId`/`postId` exclusivity check (`GraphQLError`, `BAD_REQUEST`), per the exact queries/shapes specified. Existing `eventId` branch left byte-for-byte unchanged.
+- AC8 (migration): partial unique index `posts_platform_post_identity_idx` added via drizzle-kit-generated migration 0073, hand-edited to restore the `WHERE` predicate, preceded by the mandatory dedupe check (0 duplicates found — proceeded as specified). `schema.ts` documentation-only builder call added matching the `hashtagsIdx` comment style.
+- AC3/AC4/AC6 (frontend route): new `page.tsx` (`generateMetadata` + default export, mirrors the Account page's `notFound()`/`buildPageMetadata` structure exactly) and `post-events-content.tsx` (frozen-ids-then-batch-fetch via `useListPaginationController`/`useInfiniteScroll`/`EventListView`/`PageHeader`, reusing `EventDetailsPage.relatedEventsGroupLabel` verbatim for the heading per the Gate-2-surfaced AC4/AC6 addition). No search/filter chrome, no new copy string for the heading.
+- AC5 (navigation): new `'post'` `fromList` branch on `useListNavigationForEvent`, a structural sibling of the existing `'favorites'` branch — `frozenPostEventIds`/`postEventIds` URL param, independent `useInfiniteQuery` batching `events(id in [...])`, `hasListContext = isPostContext && frozenPostEventIds.length > 0 && nav.hasContext`. The pre-existing `'favorites'`/generic branches are untouched (confirmed by dedicated non-interference tests).
+- AC7 (EXPLAIN gate): both new/widened queries confirmed index-driven, no Seq Scan, sub-millisecond — see Debug Log References and the new dated doc.
+- AC9 (i18n): `Metadata.postCollectionPageTitle`/`postCollectionPageDescription` and a new `PostCollectionPage` namespace (`errorState`/`emptyState`/`loadingMore`) added to both `en.json`/`id.json`. The on-page heading intentionally reuses `EventDetailsPage.relatedEventsGroupLabel`, not a new key (per AC4/AC9's explicit text).
+- Both of the user's create-story decisions were implemented exactly as recorded: (a) partial unique index **with** the mandatory pre-migration duplicate check (ran clean, 0 duplicates); (b) Next/Previous nav context frozen into a `postEventIds` URL param mirroring the `favorites` branch structurally.
+- Pre-Coding Approval Gate: this story carries both a schema migration (AC8) and new UI (AC3-AC5), so per this session's explicit instruction the gate was escalated to the user via `AskUserQuestion` (not self-approved by the orchestrator) — approved before any coding began.
+- No new npm dependency, no new workspace package, no `packages/domain`/`packages/ui` surface added — confirmed pure-consumer scope per the story's own Project Structure Notes.
+- Dev database left clean: the dedupe check was read-only; the new migration-safety test's fixture rows and the EXPLAIN gate's volume seed were both fully cleaned up and verified via direct `psql` counts (0 residual rows in both cases).
+
 ### File List
+
+- `packages/database/schema.ts` — modified (documentation-only partial unique index builder call on `posts`).
+- `packages/database/migrations/0073_living_silver_sable.sql` — new (drizzle-kit generated, hand-edited to restore the `WHERE` predicate).
+- `packages/database/migrations/meta/0073_snapshot.json` — new (drizzle-kit generated).
+- `packages/database/migrations/meta/_journal.json` — modified (drizzle-kit generated).
+- `packages/database/unique-index.test.ts` — new (real-DB migration-safety test for the new partial unique index).
+- `apps/backend/src/schema/events.graphql` — modified (widened `relatedEventIds`; new `postByPlatformIdentifiers`).
+- `apps/backend/src/schema/resolvers.ts` — modified (new `postId` branch + exclusivity check on `relatedEventIds`; new `postByPlatformIdentifiers` resolver).
+- `apps/backend/src/schema/resolvers.test.ts` — modified (new `Query.relatedEventIds (postId variant, Story 3.6x)` and `Query.postByPlatformIdentifiers (Story 3.6x)` test blocks).
+- `apps/backend/src/generated/resolvers-types.ts` — modified (codegen regenerated).
+- `apps/backend/src/explain-events-queries.ts` — modified (2 new EXPLAIN scenarios for this story's queries).
+- `_bmad-output/planning-artifacts/cc-024-explain-after-3.6x-2026-10-05.md` — new (EXPLAIN-gate doc, Task 4).
+- `apps/web/src/features/events/queries.graphql` — modified (new `getRelatedEventIdsByPost`/`getPostByPlatformIdentifiers` documents).
+- `apps/web/src/generated/graphql.ts` — modified (codegen regenerated).
+- `apps/web/src/app/[locale]/posts/[platformSlug]/[postType]/[platformPostId]/events/page.tsx` — new (route: `generateMetadata` + default export).
+- `apps/web/src/app/[locale]/posts/[platformSlug]/[postType]/[platformPostId]/events/post-events-content.tsx` — new (client content component).
+- `apps/web/src/app/[locale]/posts/[platformSlug]/[postType]/[platformPostId]/events/page.test.tsx` — new.
+- `apps/web/src/app/[locale]/posts/[platformSlug]/[postType]/[platformPostId]/events/post-events-content.test.tsx` — new.
+- `apps/web/src/features/events/navigation-hook.ts` — modified (new `'post'` `fromList` branch).
+- `apps/web/src/features/events/navigation-hook.test.ts` — new (dedicated `renderHook` coverage for the new branch and non-interference with existing branches).
+- `apps/web/locales/en.json` — modified (new `Metadata`/`PostCollectionPage` keys).
+- `apps/web/locales/id.json` — modified (new `Metadata`/`PostCollectionPage` keys).
+- `apps/web/tsconfig.tsbuildinfo` — modified (build artifact, regenerated by `tsc`).
 
 ## Change Log
 
 - 2026-10-05 — Story created via `bmad-create-story` (CC-024 Wave 5). Two design decisions resolved with the user via `AskUserQuestion` (partial unique index + mandatory dedupe check for the new post-identity lookup; frozen-ids-via-URL navigation context mirroring the existing `favoriteIds` pattern). Gate 1/3 cited from the swept `epic-readiness/batch-cc-024-multi-event-readiness.md` (READY, no gap); Gate 2 run fresh via `runSubagent` (no gap; one AC-wording addition — the `PageHeader` heading-copy convention — folded into AC4/AC6 directly rather than left as a silent drafting gap).
+- 2026-10-05 — Story implemented via `bmad-dev-story` (all 9 tasks, AC1-AC9). Pre-Coding Approval Gate escalated to the user (schema migration + UI scope) and approved before coding began. Backend: new `Query.postByPlatformIdentifiers` resolver, widened `Query.relatedEventIds` with a `postId` branch. Database: partial unique index `posts_platform_post_identity_idx` (migration 0073), preceded by a clean (0-duplicate) mandatory dedupe check. Frontend: new Post Collection Page route reusing `EventListView`/`PageContainer`/`PageHeader`/pagination/infinite-scroll wholesale; new `'post'` navigation-context branch on `useListNavigationForEvent` mirroring `'favorites'`. EXPLAIN gate: both new queries confirmed index-driven, no Seq Scan (`cc-024-explain-after-3.6x-2026-10-05.md`). i18n keys added for both locales. All targeted tests pass (113 backend + 1 database + 19 web = 133 total, including this story's new coverage); scoped builds/lints clean for all three touched packages; dev database left clean (no residual ad-hoc rows). Status moved to `review`.

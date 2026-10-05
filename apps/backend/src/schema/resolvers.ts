@@ -3782,7 +3782,34 @@ Constraints and Guidelines:
     // candidate, grouped by `post_id` in JS. No new `Query.events` filter, no per-row field
     // resolver (confirmed scoped by the batch readiness report) -- this is an ordinary top-level
     // query reusing the existing `event_posts` PK/index.
-    relatedEventIds: async (_: any, { eventId }: { eventId: string }) => {
+    // Story 3.6x (AC2, AD-30 Rule 11) — widened to accept a `postId`-keyed variant alongside the
+    // original `eventId`-keyed one (unchanged below). Exactly one of the two must be supplied.
+    relatedEventIds: async (_: any, { eventId, postId }: { eventId?: string | null; postId?: string | null }) => {
+      if ((!eventId && !postId) || (eventId && postId)) {
+        throw new GraphQLError('Exactly one of eventId or postId must be provided', { extensions: { code: 'BAD_REQUEST' } });
+      }
+
+      if (postId) {
+        // Simpler, non-self-joined read: no "self" to exclude for a post-keyed lookup, and no
+        // grouping-by-post step needed since every row already belongs to the one requested
+        // post. Returned as a singleton array (or [] if the post has no linked events).
+        const rows = await db.select({
+          eventId: eventPosts.eventId,
+        }).from(eventPosts)
+          .innerJoin(events, eq(events.id, eventPosts.eventId))
+          .where(and(
+            eq(eventPosts.postId, postId),
+            isNull(events.deletedAt),
+            isNull(events.mergedIntoEventId)
+          ));
+
+        if (rows.length === 0) {
+          return [];
+        }
+
+        return [{ postId, eventIds: rows.map((row: any) => row.eventId) }] as any;
+      }
+
       const ep1 = alias(eventPosts, 'ep1');
       const rows = await db.select({
         postId: eventPosts.postId,
@@ -3791,8 +3818,8 @@ Constraints and Guidelines:
         .innerJoin(eventPosts, eq(eventPosts.postId, ep1.postId))
         .innerJoin(events, eq(events.id, eventPosts.eventId))
         .where(and(
-          eq(ep1.eventId, eventId),
-          ne(eventPosts.eventId, eventId),
+          eq(ep1.eventId, eventId!),
+          ne(eventPosts.eventId, eventId!),
           isNull(events.deletedAt),
           isNull(events.mergedIntoEventId)
         ));
@@ -3805,6 +3832,61 @@ Constraints and Guidelines:
       }
 
       return [...groups.entries()].map(([postId, eventIds]) => ({ postId, eventIds })) as any;
+    },
+    // Story 3.6x (AC1) — backend-only lookup powering the Post Collection Page route's
+    // generateMetadata/content fetch. Reuses the existing EventSourcePost type (Story 3.6u);
+    // isPrimary/coauthors are hardcoded (meaningless/unused outside an event's own post list) for
+    // type-shape completeness only, costing nothing since GraphQL never evaluates an unselected
+    // field.
+    postByPlatformIdentifiers: async (_: any, { platform, postType, platformPostId }: { platform: string; postType: string; platformPostId: string }) => {
+      const [row] = await db.select({
+        postId: posts.id,
+        groupingReason: posts.groupingReason,
+        extractedEventCount: posts.extractedEventCount,
+        postedAt: posts.publishedAt,
+        sourcePostUrl: posts.postUrl,
+        originalPostUrl: posts.originalPostUrl,
+        platformPostId: posts.platformPostId,
+        postType: posts.platformPostType,
+        accountId: socialMediaAccountProfiles.id,
+        accountIdentifier: socialMediaAccountProfiles.accountId,
+        accountPlatform: socialMediaAccountProfiles.platform,
+        accountDisplayName: socialMediaAccountProfiles.displayName,
+        accountUsername: socialMediaAccountProfiles.username,
+        accountProfileImageUrl: socialMediaAccountProfiles.profileImageUrl,
+      }).from(posts)
+        .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
+        .where(and(
+          eq(posts.platform, platform),
+          eq(posts.platformPostType, postType),
+          eq(posts.platformPostId, platformPostId)
+        ))
+        .limit(1);
+
+      if (!row) {
+        return null;
+      }
+
+      return {
+        postId: row.postId,
+        isPrimary: false,
+        groupingReason: row.groupingReason ? postGroupingReasonToGraphQL(row.groupingReason) : null,
+        extractedEventCount: row.extractedEventCount ?? null,
+        postedAt: row.postedAt instanceof Date ? row.postedAt.toISOString() : (row.postedAt || null),
+        sourcePostUrl: row.sourcePostUrl || null,
+        originalPostUrl: row.originalPostUrl || null,
+        platformPostId: row.platformPostId || null,
+        postType: row.postType || null,
+        account: row.accountId ? {
+          id: row.accountId,
+          accountId: row.accountIdentifier,
+          platform: row.accountPlatform,
+          displayName: row.accountDisplayName,
+          username: row.accountUsername,
+          profileImageUrl: row.accountProfileImageUrl,
+        } : null,
+        coauthors: [],
+      } as any;
     },
     instagramEmbedBySlug: async (_: any, { slug }: { slug: string }) => {
       const parsed = parsePlatformPrefixedEventSlug(slug);

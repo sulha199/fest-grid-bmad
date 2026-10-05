@@ -512,6 +512,13 @@
       "when": 1791110659893,
       "tag": "0072_heavy_bloodstorm",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "6",
+      "when": 1791199985878,
+      "tag": "0073_living_silver_sable",
+      "breakpoints": true
     }
   ]
 }

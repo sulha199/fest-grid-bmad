@@ -47,6 +47,8 @@
     "wizardOnboardingNotificationsDescription": "Aktifkan notifikasi push untuk mendapatkan informasi terbaru tentang jadwal acara.",
     "accountPageTitle": "{displayName} | FestDaily",
     "accountPageDescription": "Jelajahi acara dari {displayName} di FestDaily.",
+    "postCollectionPageTitle": "Acara dari {displayName} | FestDaily",
+    "postCollectionPageDescription": "Jelajahi semua acara dari postingan {displayName} di FestDaily.",
     "moderatorItemsTitle": "Item Moderator | FestDaily",
     "moderatorItemsDescription": "Tinjau acara yang dilaporkan dan perubahan lokasi default yang tertunda.",
     "manualPostSelectionTitle": "Ekstrak Acara | FestDaily",
@@ -98,6 +100,11 @@
     "calendarMultiDaySegmentLabel": "Hari {dayNumber} dari {totalDays}",
     "calendarErrorState": "Gagal memuat acara kalender.",
     "calendarClosePopoverLabel": "Tutup popover"
+  },
+  "PostCollectionPage": {
+    "errorState": "Gagal memuat acara. Silakan coba lagi nanti.",
+    "emptyState": "Semua acara dari postingan ini telah dihapus atau digabungkan.",
+    "loadingMore": "Memuat lebih banyak acara..."
   },
   "WizardChrome": {
     "previousStepLabel": "Langkah Sebelumnya",

@@ -357,6 +357,15 @@ export const posts = pgTable('posts', {
   // migration hand-adds `USING gin`; this builder call only documents intent for drizzle-orm's
   // own runtime/type-checking, it does not by itself produce the GIN index.
   hashtagsIdx: index('post_hashtags_idx').on(t.hashtags).using(sql`gin`),
+  // Story 3.6x / AD-30 Rule 11 -- partial unique index enforcing that (platform, platformPostType,
+  // platformPostId) identifies at most one post. NULLs are distinct in Postgres, so the
+  // overwhelming majority of pre-AD-16 historical rows (never backfilled) never collide. Same
+  // drizzle-kit (0.21.4) WHERE-clause-drop gap as AD-8 rule 3/hashtagsIdx's GIN gap above -- this
+  // builder call only documents intent for drizzle-orm's own runtime/type-checking; the actual
+  // partial-unique-index SQL is hand-added to the generated migration file.
+  platformPostIdentityIdx: uniqueIndex('posts_platform_post_identity_idx')
+    .on(t.platform, t.platformPostType, t.platformPostId)
+    .where(sql`platform_post_id IS NOT NULL AND platform_post_type IS NOT NULL`),
 }));
 
 export const scraperActorRuns = pgTable('scraper_actor_runs', {

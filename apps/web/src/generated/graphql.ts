@@ -946,6 +946,7 @@ export type Query = {
   parserVersions: Array<ParserVersion>;
   pendingAccountTypeClassificationReviews: Array<AccountTypeClassificationReview>;
   pendingDefaultLocationChanges: Array<DefaultLocationChangeRequest>;
+  postByPlatformIdentifiers?: Maybe<EventSourcePost>;
   postsByAccount: PostConnection;
   previewLocation: LocationDetails;
   queryActorRuns: ActorRunConnection;
@@ -1016,6 +1017,13 @@ export type QueryParserVersionsArgs = {
 };
 
 
+export type QueryPostByPlatformIdentifiersArgs = {
+  platform: Scalars['String']['input'];
+  platformPostId: Scalars['String']['input'];
+  postType: Scalars['String']['input'];
+};
+
+
 export type QueryPostsByAccountArgs = {
   accountId: Scalars['ID']['input'];
   cursor?: InputMaybe<Scalars['String']['input']>;
@@ -1058,7 +1066,8 @@ export type QueryRankedVoteAccountsArgs = {
 
 
 export type QueryRelatedEventIdsArgs = {
-  eventId: Scalars['ID']['input'];
+  eventId?: InputMaybe<Scalars['ID']['input']>;
+  postId?: InputMaybe<Scalars['ID']['input']>;
 };
 
 
@@ -1625,6 +1634,22 @@ export type GetRelatedEventIdsQueryVariables = Exact<{
 
 
 export type GetRelatedEventIdsQuery = { relatedEventIds: Array<{ postId: string, eventIds: Array<string> }> };
+
+export type GetRelatedEventIdsByPostQueryVariables = Exact<{
+  postId: string | number;
+}>;
+
+
+export type GetRelatedEventIdsByPostQuery = { relatedEventIds: Array<{ postId: string, eventIds: Array<string> }> };
+
+export type GetPostByPlatformIdentifiersQueryVariables = Exact<{
+  platform: string;
+  postType: string;
+  platformPostId: string;
+}>;
+
+
+export type GetPostByPlatformIdentifiersQuery = { postByPlatformIdentifiers: { postId: string, groupingReason: PostGroupingReason | null, extractedEventCount: number | null, account: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null } | null } | null };
 
 export type GetInstagramEmbedBySlugQueryVariables = Exact<{
   slug: string;
@@ -2873,6 +2898,72 @@ export const useGetRelatedEventIdsQuery = <
       {
     queryKey: ['getRelatedEventIds', variables],
     queryFn: fetcher<GetRelatedEventIdsQuery, GetRelatedEventIdsQueryVariables>(client, GetRelatedEventIdsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const GetRelatedEventIdsByPostDocument = new TypedDocumentString(`
+    query getRelatedEventIdsByPost($postId: ID!) {
+  relatedEventIds(postId: $postId) {
+    postId
+    eventIds
+  }
+}
+    `);
+
+export const useGetRelatedEventIdsByPostQuery = <
+      TData = GetRelatedEventIdsByPostQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: GetRelatedEventIdsByPostQueryVariables,
+      options?: Omit<UseQueryOptions<GetRelatedEventIdsByPostQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetRelatedEventIdsByPostQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<GetRelatedEventIdsByPostQuery, TError, TData>(
+      {
+    queryKey: ['getRelatedEventIdsByPost', variables],
+    queryFn: fetcher<GetRelatedEventIdsByPostQuery, GetRelatedEventIdsByPostQueryVariables>(client, GetRelatedEventIdsByPostDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const GetPostByPlatformIdentifiersDocument = new TypedDocumentString(`
+    query getPostByPlatformIdentifiers($platform: String!, $postType: String!, $platformPostId: String!) {
+  postByPlatformIdentifiers(
+    platform: $platform
+    postType: $postType
+    platformPostId: $platformPostId
+  ) {
+    postId
+    account {
+      accountId
+      platform
+      username
+      displayName
+      profileImageUrl
+    }
+    groupingReason
+    extractedEventCount
+  }
+}
+    `);
+
+export const useGetPostByPlatformIdentifiersQuery = <
+      TData = GetPostByPlatformIdentifiersQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: GetPostByPlatformIdentifiersQueryVariables,
+      options?: Omit<UseQueryOptions<GetPostByPlatformIdentifiersQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetPostByPlatformIdentifiersQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<GetPostByPlatformIdentifiersQuery, TError, TData>(
+      {
+    queryKey: ['getPostByPlatformIdentifiers', variables],
+    queryFn: fetcher<GetPostByPlatformIdentifiersQuery, GetPostByPlatformIdentifiersQueryVariables>(client, GetPostByPlatformIdentifiersDocument, variables, headers),
     ...options
   }
     )};

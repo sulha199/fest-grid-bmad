@@ -921,6 +921,7 @@ export type Query = {
   parserVersions: Array<ParserVersion>;
   pendingAccountTypeClassificationReviews: Array<AccountTypeClassificationReview>;
   pendingDefaultLocationChanges: Array<DefaultLocationChangeRequest>;
+  postByPlatformIdentifiers?: Maybe<EventSourcePost>;
   postsByAccount: PostConnection;
   previewLocation: LocationDetails;
   queryActorRuns: ActorRunConnection;
@@ -991,6 +992,13 @@ export type QueryParserVersionsArgs = {
 };
 
 
+export type QueryPostByPlatformIdentifiersArgs = {
+  platform: Scalars['String']['input'];
+  platformPostId: Scalars['String']['input'];
+  postType: Scalars['String']['input'];
+};
+
+
 export type QueryPostsByAccountArgs = {
   accountId: Scalars['ID']['input'];
   cursor?: InputMaybe<Scalars['String']['input']>;
@@ -1033,7 +1041,8 @@ export type QueryRankedVoteAccountsArgs = {
 
 
 export type QueryRelatedEventIdsArgs = {
-  eventId: Scalars['ID']['input'];
+  eventId?: InputMaybe<Scalars['ID']['input']>;
+  postId?: InputMaybe<Scalars['ID']['input']>;
 };
 
 
@@ -2084,13 +2093,14 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   parserVersions?: Resolver<Array<ResolversTypes['ParserVersion']>, ParentType, ContextType, Partial<QueryParserVersionsArgs>>;
   pendingAccountTypeClassificationReviews?: Resolver<Array<ResolversTypes['AccountTypeClassificationReview']>, ParentType, ContextType>;
   pendingDefaultLocationChanges?: Resolver<Array<ResolversTypes['DefaultLocationChangeRequest']>, ParentType, ContextType>;
+  postByPlatformIdentifiers?: Resolver<Maybe<ResolversTypes['EventSourcePost']>, ParentType, ContextType, RequireFields<QueryPostByPlatformIdentifiersArgs, 'platform' | 'platformPostId' | 'postType'>>;
   postsByAccount?: Resolver<ResolversTypes['PostConnection'], ParentType, ContextType, RequireFields<QueryPostsByAccountArgs, 'accountId'>>;
   previewLocation?: Resolver<ResolversTypes['LocationDetails'], ParentType, ContextType, Partial<QueryPreviewLocationArgs>>;
   queryActorRuns?: Resolver<ResolversTypes['ActorRunConnection'], ParentType, ContextType, Partial<QueryQueryActorRunsArgs>>;
   queryModeratorAccountProfiles?: Resolver<ResolversTypes['SocialMediaAccountProfileConnection'], ParentType, ContextType, Partial<QueryQueryModeratorAccountProfilesArgs>>;
   queryUnprocessedPayloads?: Resolver<ResolversTypes['UnprocessedPayloadConnection'], ParentType, ContextType, Partial<QueryQueryUnprocessedPayloadsArgs>>;
   rankedVoteAccounts?: Resolver<Array<ResolversTypes['RankedAccountVote']>, ParentType, ContextType, Partial<QueryRankedVoteAccountsArgs>>;
-  relatedEventIds?: Resolver<Array<ResolversTypes['RelatedEventGroup']>, ParentType, ContextType, RequireFields<QueryRelatedEventIdsArgs, 'eventId'>>;
+  relatedEventIds?: Resolver<Array<ResolversTypes['RelatedEventGroup']>, ParentType, ContextType, Partial<QueryRelatedEventIdsArgs>>;
   reportedEvents?: Resolver<Array<ResolversTypes['Report']>, ParentType, ContextType, Partial<QueryReportedEventsArgs>>;
   socialMediaAccountProfileByAccountId?: Resolver<Maybe<ResolversTypes['SocialMediaAccountProfile']>, ParentType, ContextType, RequireFields<QuerySocialMediaAccountProfileByAccountIdArgs, 'accountId' | 'platform'>>;
   voteRegionBreakdown?: Resolver<Array<ResolversTypes['RegionVoteBucket']>, ParentType, ContextType, RequireFields<QueryVoteRegionBreakdownArgs, 'accountId'>>;

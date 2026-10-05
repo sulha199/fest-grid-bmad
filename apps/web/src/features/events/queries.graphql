@@ -160,6 +160,36 @@ query getRelatedEventIds($eventId: ID!) {
   }
 }
 
+# Story 3.6x (AC4) -- the post-keyed sibling of getRelatedEventIds above, for the Post Collection
+# Page's own content fetch. getRelatedEventIds (above) is left untouched -- a separate document,
+# not a reused one with an optional variable, mirrors AD-30 Rule 11's eventId|postId split.
+query getRelatedEventIdsByPost($postId: ID!) {
+  relatedEventIds(postId: $postId) {
+    postId
+    eventIds
+  }
+}
+
+# Story 3.6x (AC1, AC3) -- backend-only lookup resolving the Post Collection Page route's three
+# platform-identifier URL segments into a real postId, for generateMetadata and the page's own
+# fetch. Selects only what the route/PageHeader needs -- not EventSourcePost's event-detail-only
+# fields (isPrimary/coauthors/sourcePostUrl/originalPostUrl), confined per the project's existing
+# list-view selection-confinement convention.
+query getPostByPlatformIdentifiers($platform: String!, $postType: String!, $platformPostId: String!) {
+  postByPlatformIdentifiers(platform: $platform, postType: $postType, platformPostId: $platformPostId) {
+    postId
+    account {
+      accountId
+      platform
+      username
+      displayName
+      profileImageUrl
+    }
+    groupingReason
+    extractedEventCount
+  }
+}
+
 query getInstagramEmbedBySlug($slug: String!) {
   instagramEmbedBySlug(slug: $slug) {
     status

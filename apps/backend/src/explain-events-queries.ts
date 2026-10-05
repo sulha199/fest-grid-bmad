@@ -30,7 +30,7 @@ import postgres from 'postgres';
 import { eq, and, sql, like } from 'drizzle-orm';
 import { resolvers } from './schema/resolvers.js';
 import { db, setSqlCaptureSink } from './db/client.js';
-import { users, subscriptions, socialMediaAccountProfiles, events, eventPosts } from '@festgrid/database';
+import { users, subscriptions, socialMediaAccountProfiles, events, eventPosts, posts } from '@festgrid/database';
 import { activeOnly } from '@festgrid/graphql-select';
 import { buildEventsQueryCondition } from '@festgrid/domain/events';
 import { loadBackendEnv } from './env.js';
@@ -224,6 +224,9 @@ async function main(): Promise<void> {
   const getEventsQuery = extractWebClientOperation('getEvents');
   const getEventBySlugQuery = extractWebClientOperation('getEventBySlug');
   const getRelatedEventIdsQuery = extractWebClientOperation('getRelatedEventIds');
+  // Story 3.6x (AC7, Task 4) -- this story's own two new queries.
+  const getRelatedEventIdsByPostQuery = extractWebClientOperation('getRelatedEventIdsByPost');
+  const getPostByPlatformIdentifiersQuery = extractWebClientOperation('getPostByPlatformIdentifiers');
 
   // Story 3.6u (Task 7, AC7) -- `seed:volume` seeds no multi-post-linked events at all (every
   // event gets exactly one 1:1 `event_posts` row per AD-30 Rule 1's primary link, confirmed by
@@ -239,6 +242,15 @@ async function main(): Promise<void> {
 
   let multiPostEventSlug: string | null = null;
   let sharedPostEventId: string | null = null;
+  // Story 3.6x (AC7, Task 4) -- reuses this same seeded shape (not a separate seed step):
+  // `sharedPostEventId`'s own primary post already has a third event linked to it below, so
+  // `Query.relatedEventIds(postId)` has the exact same non-empty group to probe as the existing
+  // `eventId`-keyed scenario. `postByPlatformIdentifiers` additionally needs a real, non-null
+  // (platform, platformPostType, platformPostId) triple -- `seed:volume` sets none (confirmed by
+  // reading `seed-volume.ts` directly) -- so this probe sets one directly on `primaryEvent`'s own
+  // post, a plain column UPDATE (no new row), wiped by `seed:volume:clean`'s cascade delete same
+  // as every other volume row.
+  let probePlatformPostIdentifiers: { platform: string; postType: string; platformPostId: string } | null = null;
   if (primaryEvent?.postId && secondEvent?.postId && thirdEvent) {
     // Gives `primaryEvent` a second linked post (AC1's `Event.sourcePosts` -- its own primary
     // post, plus `secondEvent`'s primary post as a manual secondary link).
@@ -254,8 +266,18 @@ async function main(): Promise<void> {
       .onConflictDoNothing();
     multiPostEventSlug = primaryEvent.slug;
     sharedPostEventId = primaryEvent.id;
+
+    probePlatformPostIdentifiers = {
+      platform: 'instagram',
+      postType: 'p',
+      platformPostId: `explain-probe-${primaryEvent.postId}`,
+    };
+    await db
+      .update(posts)
+      .set({ platformPostId: probePlatformPostIdentifiers.platformPostId, platformPostType: probePlatformPostIdentifiers.postType })
+      .where(eq(posts.id, primaryEvent.postId));
   } else {
-    console.warn('[explain-events-queries] Fewer than 3 volume events found -- skipping sourcePosts/relatedEventIds scenarios. Run `pnpm --filter @festgrid/database seed:volume` first.');
+    console.warn('[explain-events-queries] Fewer than 3 volume events found -- skipping sourcePosts/relatedEventIds/postByPlatformIdentifiers scenarios. Run `pnpm --filter @festgrid/database seed:volume` first.');
   }
 
   const results: ScenarioResult[] = [];
@@ -312,6 +334,26 @@ async function main(): Promise<void> {
     results.push(
       await runGenericCapturedScenario(schema, context, explainClient, 'Query.relatedEventIds', getRelatedEventIdsQuery, {
         eventId: sharedPostEventId,
+      })
+    );
+  }
+
+  // Story 3.6x (AC7, Task 4) -- first-time baseline for this story's own two new/widened
+  // queries, confirming both are index-driven (the new partial unique index from AC8, and
+  // event_posts' existing (post_id, event_id) index/PK) with no Seq Scan.
+  if (primaryEvent?.postId) {
+    results.push(
+      await runGenericCapturedScenario(schema, context, explainClient, 'Query.relatedEventIds (postId variant)', getRelatedEventIdsByPostQuery, {
+        postId: primaryEvent.postId,
+      })
+    );
+  }
+  if (probePlatformPostIdentifiers) {
+    results.push(
+      await runGenericCapturedScenario(schema, context, explainClient, 'Query.postByPlatformIdentifiers', getPostByPlatformIdentifiersQuery, {
+        platform: probePlatformPostIdentifiers.platform,
+        postType: probePlatformPostIdentifiers.postType,
+        platformPostId: probePlatformPostIdentifiers.platformPostId,
       })
     );
   }
