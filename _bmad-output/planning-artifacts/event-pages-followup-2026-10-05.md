@@ -196,7 +196,8 @@ Run these with `ritual-orchestrator`; each needs `create` then `dev`. Order matt
     keep legacy slugs. Needs an AD-16 / alias-aware migration; check 3.6v's `event_slug_aliases`
     machinery and its migration-number collision note in the CC-024 plan first (SQL must go through
     drizzle-kit, next sequential number).
-  - [ ] create  - [ ] dev
+  - [x] create (Story 3.22, `ebbaa09`, `ready-for-dev`, 2026-10-05)  - [ ] dev
+  - **Create decision (user, 2026-10-05):** one-shot backfill script (sizing dry-run, then batched `--apply`, plus a manual `workflow_dispatch` workflow), not a scheduled lazy re-key. No DDL needed (Task 1 proves it with `generate`), so no migration; old-slug redirects reuse Story 3.6v's `event_slug_aliases` unchanged.
   - **Prompt:**
     ```
     /bmad-create-story FIND-071 (backlog.yaml): already-ingested events keep legacy hex slugs; backfill post
@@ -300,3 +301,4 @@ Decide each: skip (`skipped` with a `cost:`/`value:` note), `bmad-create-story`,
 | 2026-10-05 | Step 8: Story 3.6x create via ritual-orchestrator (`all-claude-medium`) | `ready-for-dev`, 268-line story, verify-story PASS, no new stories | `e40ca88` |
 | 2026-10-05 | Step 8: Story 3.6w create via ritual-orchestrator (`all-claude-medium`) | `ready-for-dev`, 263-line story; new prerequisite Story 0.47 (172-line file, sprint-status `backlog`); IDEA-061 filed; verify-story PASS | `625571b` |
 | 2026-10-05 | Step 3b: FIND-052 create via ritual-orchestrator (`all-claude-medium`; child killed by a container restart mid-question and resumed from its saved session) | Story 0.48 `ready-for-dev`, 209-line story, verify-story PASS; Story 0.47 set `ready-for-dev` | `7df5a60` + this commit |
+| 2026-10-05 | Step 7: FIND-071 create via ritual-orchestrator (`all-claude-medium`; child hit a usage limit mid-run and was resumed after the reset) | Story 3.22 `ready-for-dev`, 218-line story, verify-story PASS. **Section A (create-story chain) complete: 3.18, 3.6x, 3.6w (+0.47), FIND-052 (0.48), FIND-071 (3.22). Stopped before any dev-story, awaiting the user.** | `ebbaa09` + this commit |
