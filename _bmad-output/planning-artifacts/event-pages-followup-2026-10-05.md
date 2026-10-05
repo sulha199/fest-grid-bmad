@@ -47,7 +47,7 @@ at `review`.
 
 ### Group 1 — small, independent cleanups (`bmad-quick-dev`)
 
-- [ ] **Step 1 — Fix the stale `max_width` token in `EVENT-CARD-DESIGN.md`** (closeout Wave 0)
+- [x] **Step 1 — Fix the stale `max_width` token in `EVENT-CARD-DESIGN.md`** (closeout Wave 0) — DONE 2026-10-05, commit `b11fc620` (also fixed the same claim in `EXPERIENCE.md`; `DESIGN.md` was already clean)
   - **Why:** line 277 still says every masonry card is capped at `max-w-[230px]`; Story 0.45 (done)
     removed it (its AC7).
   - **Done when:** the token and comment describe the shipped behavior (card fills its column),
@@ -62,7 +62,7 @@ at `review`.
     source code. Read _bmad-output/project-context.md and the PRD first as CLAUDE.md requires.
     ```
 
-- [ ] **Step 2 — FIND-059 + FIND-054 together** (closeout Wave 1)
+- [x] **Step 2 — FIND-059 + FIND-054 together** (closeout Wave 1) — DONE 2026-10-05: FIND-059 reproduced and fixed with 3 new `home-content` tests (`19788ae9`, row closed `4a3365fd`); FIND-054 does not reproduce (the BUG-045 spec shows the contained variant cannot overflow; re-derived by the child, not independently re-checked), closed `4c78d7e0`
   - **FIND-059 (Story 1.i1o review: card-list `/id` tests only assert `favoriteToggle`):** add the
     missing till / status / nearby assertions to the card-list page integration tests.
   - **FIND-054 (`PageContainer` `fullWidth=false` overflow):** the contained variant has the same
@@ -81,7 +81,16 @@ at `review`.
 
 ### Group 2 — decisions and design-doc work
 
-- [ ] **Step 3 — FIND-052: decide keep-deferred or fix** (masonry reflow remounts items)
+- [x] **Step 3 — FIND-052: decide keep-deferred or fix** (masonry reflow remounts items)
+  - **DONE 2026-10-05 (commit `9d140826`): recommendation is FIX, build the mount-stable engine.**
+    New repro `packages/ui/src/core/grid-container.find052.investigation.test.tsx` (5/5, real
+    `GridContainer` + `useMasonryLayout`, mocked `ResizeObserver`). Every column reassignment remounts
+    the item (100%, structural). Results: (a) same-breakpoint resize 0/6 moved, focus kept; (b)
+    column-count change 4/6 moved and remounted, **focus lost**; (c) an earlier item's image-load height
+    change 3/6 moved and remounted, **focus lost**; (d) infinite-scroll page append 0/6 moved, focus kept.
+    Design is appended to `deferred-work.md`: one flat parent, `key={itemIndex}`, transform-positioned,
+    container height from a new `columnHeights` field on `useMasonryLayout`, and the tab-order change
+    (column-major to index-major) must be its own AC. Next: `bmad-create-story FIND-052` (Step 3b).
   - **State:** deliberate deferral from the Story 0.45 review. Cause: `grid-container.tsx` renders
     `key={itemIndex}` wrappers under one parent per column, so an item that changes column
     unmounts/remounts (ref churn, keyboard focus lost inside the moved card).
@@ -99,7 +108,8 @@ at `review`.
     and records whether keyboard focus is lost when it does. Report the numbers and recommend either "keep
     deferred" or a mount-stable engine design. Do not change production code.
     ```
-  - **If the recommendation is "fix":** run `/bmad-create-story FIND-052` next and add its box here.
+  - **Step 3b (the recommendation is "fix"):** `/bmad-create-story FIND-052`.
+    - [ ] create  - [ ] dev
 
 - [ ] **Step 4 — IDEA-060: z-index layering tiers** (architecture first, then one story)
   - **Inputs:** `backlog/IDEA-060-z-index-layering-tiers.md` (inventory, open questions, proposal).
@@ -158,8 +168,18 @@ Run these with `ritual-orchestrator`; each needs `create` then `dev`. Order matt
     `process-scrape-job.ts` to import `enqueuePostForProcessing` directly (1, file touched only by
     another session's commit `282a1e3c`); one moderator-accounts test (1); the rest are parent suites.
     All are FIND-064-style database state, not the read path.
-  - **Open:** apply migrations to the dev DB and clean leftover rows, then re-run the backend suite
-    to confirm the 24 clear. Not done: it changes the shared dev database.
+  - **Follow-up, 2026-10-05:** migrations 0071/0072 turned out to be applied by then (all tables
+    exist, 73 of 73). Re-running the backend suite alone: 1088 run, 1078 pass, **7 fail** (4 leaf).
+    The slug collisions (3.7g, 3.6t) were **38 debris events from my own three earlier test runs**
+    (names ending in a 13-digit timestamp, created 11:18/11:23/11:27): the first run aborted its
+    cleanup on the then-missing tables and later runs collided with the fixed slugs. Deleted exactly
+    those 38 (all dependents cascade); `process-ingestion-job.test.ts` then passes 16/16 and leaves the
+    event count unchanged at 13, so the tests do clean up after themselves.
+  - **Still failing, not this story, left alone:** `eventBySlug` / `events resolver integration via
+    Yoga` (the two seed posts `60000000-...-0033`/`-0034` carry real CloudFront durable image URLs
+    and the test asserts null for seed data) and `queryModeratorAccountProfiles - Happy Path` (335
+    account profiles in the dev DB push the seeded account off the first page). Both are dev-DB state
+    (FIND-064); the fix is test isolation, not data surgery.
   - **Prompt (original, for reference):**
     ```
     /ritual-orchestrator Dispatch bmad-create-story for 3-6n2-expose-the-face-blurred-thumbnail-through-the-read-path-and-widen-the-prominent-card-trigger
@@ -270,4 +290,5 @@ Decide each: skip (`skipped` with a `cost:`/`value:` note), `bmad-create-story`,
 |---|---|---|---|
 | 2026-10-05 | Reconcile five plans | Done; IDEA-038/048/FIND-053 found already shipped | `6f9a5d04` |
 | 2026-10-05 | Board fixes + IDEA-060 + this tracker | Done; dead-branch deletion deferred to Step 5 | `d68218c2` |
+| 2026-10-05 | Steps 1, 2, 3 (quick-dev children) | Done; Step 3 recommends building the mount-stable masonry engine | `b11fc620`, `19788ae9`..`4c78d7e0`, `9d140826` |
 | 2026-10-05 | Step 6: Story 3.6n2 create + dev via ritual-orchestrator (`all-claude-medium`) | Built, `review`; backend suite has 24 database-state failures, none from the story (see Step 6) | `19f90438`..`196d9182` |
