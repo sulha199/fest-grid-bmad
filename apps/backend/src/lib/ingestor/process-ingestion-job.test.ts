@@ -1,7 +1,7 @@
 import test from 'node:test';
 import * as assert from 'node:assert';
 import { db } from '../../db/client.js';
-import { socialMediaAccountProfiles, posts, events, schedules, eventPosts, eventMatchCandidates, eventSlugAliases } from '@festgrid/database';
+import { socialMediaAccountProfiles, posts, events, schedules, eventPosts, eventMatchCandidates, eventSlugAliases, postAccountAssociations } from '@festgrid/database';
 import { and, eq, inArray } from 'drizzle-orm';
 import { processIngestionJob } from './process-ingestion-job.js';
 import { ExtractedEventMessage } from '@festgrid/domain';
@@ -268,6 +268,18 @@ test('processIngestionJob integration tests', async (t) => {
     .returning();
   const seededPost14 = post14;
 
+  // Story 3.18 made buildEventAccountMatchCondition association-table-only (the legacy
+  // posts.account_id leg is gone), so fixture posts need the PUBLISHER association row
+  // persistPostAccountAssociations writes in production -- otherwise the organizer-match signal
+  // these Story 3.6v match-tier tests rely on never fires.
+  const seededPostsForAssociations = [
+    seededPost1, seededPost2, seededPost3, seededPost4, seededPost5, seededPost6, seededPost7,
+    seededPost8, seededPost9, seededPost10, seededPost11, seededPost12, seededPost13, seededPost14,
+  ];
+  await db.insert(postAccountAssociations).values(
+    seededPostsForAssociations.map((p) => ({ postId: p.id, accountId: p.accountId, role: 'PUBLISHER' as const })),
+  );
+
   // Cleanup: delete schedules, events, posts, profiles
   t.after(async () => {
     const allSeededPostIds = [
@@ -304,6 +316,7 @@ test('processIngestionJob integration tests', async (t) => {
       await db.delete(events).where(inArray(events.id, eventIds));
     }
 
+    await db.delete(postAccountAssociations).where(inArray(postAccountAssociations.postId, allSeededPostIds));
     await db.delete(posts).where(inArray(posts.id, allSeededPostIds));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, curatorProfile.id));
