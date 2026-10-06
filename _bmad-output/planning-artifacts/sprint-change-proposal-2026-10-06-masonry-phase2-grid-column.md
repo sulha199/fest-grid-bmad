@@ -1,5 +1,6 @@
 ---
-status: proposed
+backlog_id: CC-030
+status: approved
 ---
 
 # Sprint Change Proposal — Masonry Phase 2 layout defects (full-width items, missing vertical gap)

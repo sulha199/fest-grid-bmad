@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-05"
+last_updated: "2026-10-06"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -1994,3 +1994,20 @@ items:
      ref: [planning-artifacts/sprint-change-proposal-2026-10-01-multi-event-posts.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
      touches: [app:backend, web:moderation],
      note: "Deferred from Story 3.6w's bmad-create-story (2026-10-05, AskUserQuestion): out-of-scope manual merge trigger. See 3.6w's Dev Notes/Out of Scope for the reusable mergeEvents() internal function a future story here would expose directly."}
+
+  # ── 2026-10-06 ──────────────────────────────────────────────────────────────
+  CC-030:
+    {type: proposal, status: triaged, created: 2026-10-06,
+     impact: user-visible, effort: s,
+     title: "Masonry Phase 2 layout defects: full-width column-0 items overlapping column 1, and no vertical gap",
+     ref: [implementation-artifacts/0-48-mount-stable-masonry-engine-fix-reflow-remount-and-focus-loss.md,
+           planning-artifacts/sprint-change-proposal-2026-10-06-masonry-phase2-grid-column.md],
+     touches: [pkg:ui, pkg:visual-audit, cross:architecture],
+     note: "Code fixes already on branch ccr-b2f1dfd2-re35x8; remaining work is the sibling-gap rule, Phase 2 real-browser manifest, tests, Story 0.48 AC2/AC14 and AD-27 wording."}
+
+  IDEA-063:
+    {type: idea, status: skipped, created: 2026-10-06, parent: CC-030,
+     title: "Retarget masonry-column-width-invariant.ts from its synthetic flex row to the real mounted GridContainer",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-06-masonry-phase2-grid-column.md],
+     touches: [pkg:visual-audit],
+     note: "value: low, the synthetic row stays as the rule-engine proof it was written to be; the new Phase 2 manifest entry covers the real component."}
