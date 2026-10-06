@@ -20,6 +20,15 @@ const config = {
       },
     },
     extend: {
+      // Architecture Spine AD-33 (Z-Index Layering Tiers), Rule 1: the four named Overlay/Chrome
+      // tiers. The Local tier stays Tailwind's built-in bare scale (z-0/z-10/z-20/z-30) -- no
+      // token added for it, per AD-33 Rule 1.
+      zIndex: {
+        chrome: '40',
+        'overlay-sticky': '45',
+        'overlay-modal': '50',
+        'overlay-blocking': '60',
+      },
       fontFamily: {
         sans: ['var(--font-inter)'],
       },
