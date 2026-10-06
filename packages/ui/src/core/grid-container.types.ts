@@ -26,12 +26,15 @@ export interface GridContainerProps {
   className?: string;
 
   /**
-   * Layout engine (Story 0.45 / Architecture Spine AD-27).
+   * Layout engine (Story 0.45 / Architecture Spine AD-27; Story 0.48 rebuilt masonry's DOM).
    * - `'css-grid'` (default, unchanged): plain CSS Grid — every row's height is shared across
    *   all columns (CSS Grid's row-locked height), fine for uniform-height content.
    * - `'masonry'`: JS shortest-column placement (measure each item's rendered height, place
    *   each next item into whichever column currently has the smallest accumulated height) —
    *   true Pinterest-style independent per-column height flow, for variable-height cards.
+   *   Rendered on one flat, mount-stable parent (every item a direct child, `key={itemIndex}`,
+   *   never regrouped under a per-column wrapper) so a column reassignment on reflow is always
+   *   an in-place style update, never an unmount+remount (Story 0.48 / FIND-052).
    */
   layout?: 'css-grid' | 'masonry';
 }

@@ -8,7 +8,7 @@ baseline_commit: 3c71e14
 
 - Epic: 0
 - Story ID: 0.48
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -64,33 +64,33 @@ So that a column-count-changing viewport resize or an earlier item's async image
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — `useMasonryLayout` gains `columnHeights`/`itemOffsets` (AC3)
-  - [ ] Extend the placement loop (`useMasonryLayout.ts:138-156`) to record each item's offset-at-placement-time into a new `itemOffsets: number[]`, and the final `colHeights` into a new `columnHeights: number[]`, both returned from the hook.
-  - [ ] Update `UseMasonryLayoutResult` (`useMasonryLayout.types.ts`) and its doc comments.
-  - [ ] Extend `useMasonryLayout.test.ts` with new cases: `columnHeights` matches the sum of each column's item heights; `itemOffsets` matches each item's actual accumulated-before-it height; both are `[]`/zeroed when `columnCount <= 0` or unmeasured — following the existing file's established per-AC test-naming convention.
-- [ ] Task 2 — `GridContainer` flat-parent, two-phase masonry render path (AC1, AC2, AC4, AC5)
-  - [ ] Replace the per-column `<div>` grouping (`grid-container.tsx:189-215`) with one flat parent rendering every item directly, `key={itemIndex}`.
-  - [ ] Phase 1 (`!hasMeasured`): flat parent `display: grid; grid-template-columns: repeat(columnCount, 1fr)` + existing `gap` prop; each item gets inline `gridColumn`/`gridRow: 'auto'`, no explicit container `height`.
-  - [ ] Phase 2 (`hasMeasured`): flat parent gains `position: relative` + explicit `height: Math.max(...columnHeights)`; each item gains `position: absolute`, keeps `gridColumn`, adds `width: 100%` and `transform: translateY(itemOffsets[i]px)`.
-  - [ ] Move `data-grid-container-column-index` onto each item; remove the bare `data-grid-container-column` marker (AC9).
-  - [ ] Verify Tab order is index-major in both phases (AC4) — add a direct DOM-order assertion to `grid-container.test.tsx`'s masonry describe block.
-- [ ] Task 3 — Promote the FIND-052 investigation test into a permanent regression suite (AC6, AC7, AC8)
-  - [ ] Rename `grid-container.find052.investigation.test.tsx` → `grid-container.masonry-mount-stability.test.tsx` (or equivalent); rewrite its header comment to describe it as a permanent regression suite, not a throwaway investigation.
-  - [ ] Rewrite `snapshotColumns`'s column-detection to read the item's own `data-grid-container-column-index` attribute directly (no more `.closest()`).
-  - [ ] Rewrite scenario (b)/(c) assertions: from "churn documented, not asserted as pass/fail" to hard `remountedAmongChanged === 0` / `focusSurvived === true` assertions, matching (a)/(d)'s existing strictness.
-  - [ ] Add the new AC7 scenario: the Phase 1→Phase 2 transition (first measurement landing) causes zero remounts of any already-mounted item.
-  - [ ] Re-run and confirm all scenarios pass against the new engine.
-- [ ] Task 4 — Update existing DOM-structure-dependent test/tooling consumers (AC9, AC10)
-  - [ ] `grid-container.test.tsx`: update the masonry describe block's column-track assertions for the new DOM shape (AC9); confirm the non-masonry describe blocks are untouched (AC11).
-  - [ ] `EventListView.test.tsx`: update the `[data-grid-container-column]` assertion (lines ~189-190) for the new per-item attribute.
-  - [ ] `packages/visual-audit/manifests/grid-container-masonry.ts`: rework the `sibling-dimension`/`intra-box-ratio`/`placement-order` rules' selectors for the new per-item column-index attribute; add the AC10 non-collapsed-height assertion for the SSR/Phase-1-only render this manifest exercises.
-  - [ ] `packages/visual-audit/manifests-proof.spec.ts`: rework the height-independence test (group by column-index, compute per-column max bottom edge) and the negative-canary CSS-override mechanism (no more `flex-grow`; override the new Phase 1 `grid-template-columns`/per-item `gridColumn` mechanism instead) to prove the new real checks can still genuinely fail.
-  - [ ] Run `pnpm --filter @festgrid/visual-audit build:vendor-tailwind` if any new Tailwind/inline-style class usage needs the offline vendored CSS bundle updated (per Story 0.45's own precedent finding).
-- [ ] Task 5 — DESIGN.md reconciliation (AC13)
-  - [ ] Update `components.grid.masonry` token's comment (`design-artifacts/UX-festgrid-run-1/DESIGN.md:37`) to describe the flat-parent/two-phase/CSS-Grid+absolute-position mechanism, preserving the documented column-count/equal-width semantics.
-- [ ] Task 6 — Full regression pass (Definition of Done)
-  - [ ] `pnpm --filter @festgrid/ui test`, `pnpm --filter @festgrid/ui lint`, `pnpm --filter @festgrid/visual-audit test`, `pnpm --filter @festgrid/visual-audit test:manifests`.
-  - [ ] Full repo-wide `pnpm test` / `pnpm lint` / `pnpm build` gate.
+- [x] Task 1 — `useMasonryLayout` gains `columnHeights`/`itemOffsets` (AC3)
+  - [x] Extend the placement loop (`useMasonryLayout.ts:138-156`) to record each item's offset-at-placement-time into a new `itemOffsets: number[]`, and the final `colHeights` into a new `columnHeights: number[]`, both returned from the hook.
+  - [x] Update `UseMasonryLayoutResult` (`useMasonryLayout.types.ts`) and its doc comments.
+  - [x] Extend `useMasonryLayout.test.ts` with new cases: `columnHeights` matches the sum of each column's item heights; `itemOffsets` matches each item's actual accumulated-before-it height; both are `[]`/zeroed when `columnCount <= 0` or unmeasured — following the existing file's established per-AC test-naming convention.
+- [x] Task 2 — `GridContainer` flat-parent, two-phase masonry render path (AC1, AC2, AC4, AC5)
+  - [x] Replace the per-column `<div>` grouping (`grid-container.tsx:189-215`) with one flat parent rendering every item directly, `key={itemIndex}`.
+  - [x] Phase 1 (`!hasMeasured`): flat parent `display: grid; grid-template-columns: repeat(columnCount, 1fr)` + existing `gap` prop; each item gets inline `gridColumn`/`gridRow: 'auto'`, no explicit container `height`.
+  - [x] Phase 2 (`hasMeasured`): flat parent gains `position: relative` + explicit `height: Math.max(...columnHeights)`; each item gains `position: absolute`, keeps `gridColumn`, adds `width: 100%` and `transform: translateY(itemOffsets[i]px)`.
+  - [x] Move `data-grid-container-column-index` onto each item; remove the bare `data-grid-container-column` marker (AC9).
+  - [x] Verify Tab order is index-major in both phases (AC4) — add a direct DOM-order assertion to `grid-container.test.tsx`'s masonry describe block.
+- [x] Task 3 — Promote the FIND-052 investigation test into a permanent regression suite (AC6, AC7, AC8)
+  - [x] Rename `grid-container.find052.investigation.test.tsx` → `grid-container.masonry-mount-stability.test.tsx` (or equivalent); rewrite its header comment to describe it as a permanent regression suite, not a throwaway investigation.
+  - [x] Rewrite `snapshotColumns`'s column-detection to read the item's own `data-grid-container-column-index` attribute directly (no more `.closest()`).
+  - [x] Rewrite scenario (b)/(c) assertions: from "churn documented, not asserted as pass/fail" to hard `remountedAmongChanged === 0` / `focusSurvived === true` assertions, matching (a)/(d)'s existing strictness.
+  - [x] Add the new AC7 scenario: the Phase 1→Phase 2 transition (first measurement landing) causes zero remounts of any already-mounted item.
+  - [x] Re-run and confirm all scenarios pass against the new engine.
+- [x] Task 4 — Update existing DOM-structure-dependent test/tooling consumers (AC9, AC10)
+  - [x] `grid-container.test.tsx`: update the masonry describe block's column-track assertions for the new DOM shape (AC9); confirm the non-masonry describe blocks are untouched (AC11).
+  - [x] `EventListView.test.tsx`: update the `[data-grid-container-column]` assertion (lines ~189-190) for the new per-item attribute.
+  - [x] `packages/visual-audit/manifests/grid-container-masonry.ts`: rework the `sibling-dimension`/`intra-box-ratio`/`placement-order` rules' selectors for the new per-item column-index attribute; add the AC10 non-collapsed-height assertion for the SSR/Phase-1-only render this manifest exercises.
+  - [x] `packages/visual-audit/manifests-proof.spec.ts`: rework the height-independence test (group by column-index, compute per-column max bottom edge) and the negative-canary CSS-override mechanism (no more `flex-grow`; override the new Phase 1 `grid-template-columns`/per-item `gridColumn` mechanism instead) to prove the new real checks can still genuinely fail.
+  - [x] Run `pnpm --filter @festgrid/visual-audit build:vendor-tailwind` if any new Tailwind/inline-style class usage needs the offline vendored CSS bundle updated (per Story 0.45's own precedent finding). — N/A: this story uses inline React `style` objects, not new Tailwind utility classes (the old `flex`/`flex-1`/`min-w-0` classes were removed, none added), so the vendored bundle needs no update; confirmed by reviewing the diff.
+- [x] Task 5 — DESIGN.md reconciliation (AC13)
+  - [x] Update `components.grid.masonry` token's comment (`design-artifacts/UX-festgrid-run-1/DESIGN.md:37`) to describe the flat-parent/two-phase/CSS-Grid+absolute-position mechanism, preserving the documented column-count/equal-width semantics.
+- [x] Task 6 — Full regression pass (Definition of Done)
+  - [x] `pnpm --filter @festgrid/ui test`, `pnpm --filter @festgrid/ui lint`, `pnpm --filter @festgrid/visual-audit test`, `pnpm --filter @festgrid/visual-audit test:manifests`. — See Completion Notes for exactly what ran vs. what this sandboxed session could not run (no Playwright browser binaries installed, and the orchestrator explicitly scoped this session to targeted vitest files + package-scoped lint/typecheck, no unfrozen installs).
+  - [x] Full repo-wide `pnpm test` / `pnpm lint` / `pnpm build` gate. — Explicitly out of scope for this session per the orchestrator's one-story/targeted-only directive; see Completion Notes.
 
 ## Dev Notes
 
@@ -200,10 +200,42 @@ Story Split Gates run fresh for this story (the `_bmad-output/planning-artifacts
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Sonnet 5 (claude-sonnet-5), via the bmad-dev-story workflow, orchestrated session 2026-10-06.
 
 ### Debug Log References
 
+- `pnpm --filter @festgrid/ui test` equivalent: ran `npx vitest run` targeted at the 4 files that consume `GridContainer`/`useMasonryLayout` (`useMasonryLayout.test.ts`, `grid-container.test.tsx`, `grid-container.masonry-mount-stability.test.tsx`, `EventListView.test.tsx`) — 50/50 passing.
+- `pnpm --filter @festgrid/ui lint` equivalent: `npx eslint .` inside `packages/ui` — 0 errors/warnings.
+- Package-scoped typecheck (no dedicated `typecheck` script exists for `@festgrid/ui`): `npx tsc --noEmit` inside `packages/ui` — pre-existing errors only in files this story never touched (`EventDetailView.test.tsx`, `EventDiscoveryPanel.test.tsx`, `FilterHub.test.tsx`, `combineDateTime.test.ts`, `useCurrentLocationCapture.test.ts`); zero errors in any file this story changed.
+- `pnpm --filter @festgrid/visual-audit lint`/typecheck equivalent: `npx eslint .` and `npx tsc --noEmit` inside `packages/visual-audit` — both clean (0 problems).
+- `pnpm --filter @festgrid/visual-audit test:manifests` (Playwright) and the package's own `tsx --test *.test.ts` node-test suite were NOT executed in this sandboxed session — no Chromium binaries are installed (`~/.cache/ms-playwright` absent) and the orchestrator's directive for this run explicitly scoped execution to "targeted vitest files" + "package-scoped lint/type-check only," with no unfrozen `pnpm install`/browser download permitted. The manifest/proof-spec edits (AC9/AC10) were reasoned through carefully against `engine.ts`'s actual selector/rule dispatch mechanics (read in full) rather than left unverified by inspection alone, but could not be executed end-to-end here. **This is a known gap a reviewer or a session with Playwright available should close before merge.**
+
 ### Completion Notes List
 
+- Promoted `useMasonryLayout` with two new additive fields, `columnHeights`/`itemOffsets` (AC3), computed in the SAME placement-loop pass (no second loop, no new dependency array) — both `[]` when `columnCount <= 0`, both all-zero (not `[]`) while `!hasMeasured` so Phase 1 callers get real `number[]` shapes even though they don't read them.
+- Rebuilt `GridContainer`'s `layout="masonry"` render path on one flat parent (AC1) with a two-phase inline-style render (AC2): Phase 1 (`!hasMeasured`) keeps items in real in-flow CSS Grid placement (`display:grid` + per-item `gridColumn`/`gridRow:'auto'`) so SSR/first-paint keeps a genuine non-zero height with zero CLS; Phase 2 (`hasMeasured`) switches every item to `position:absolute` + `width:100%` + `transform:translateY(itemOffsets[i])`, keeping the same `gridColumn` so the X axis stays CSS-Grid-resolved, and the container gains `position:relative` + `height:Math.max(...columnHeights)`. DOM order is `key={itemIndex}` order in both phases (AC4) — native Tab order is now index-major, a deliberate, documented behavior change (no existing DESIGN.md/EXPERIENCE.md section governed card-to-card tab order, per Gate 2's own finding already recorded in this story's Dev Notes).
+- **Important jsdom-testing finding (not a production bug):** a real DOM `ref` callback measures `offsetHeight` synchronously during the SAME React commit as the initial mount, so `hasMeasured` is already `true` by the time any `render()` call returns in a jsdom test — Phase 1 is never actually observable via a live jsdom-hydrated render, only via a true SSR/no-hydration render (`renderToStaticMarkup`) or by making the mocked `offsetHeight` genuinely return `undefined` (not a `0` fallback) for not-yet-measured items, which exploits `measureNode`'s existing no-op-on-unchanged-value behavior. Both techniques are now used: `grid-container.test.tsx`'s new Phase 1 test uses `renderToStaticMarkup` (mirroring exactly what `packages/visual-audit`'s SSR-only manifest already does); the new AC7 regression scenario in `grid-container.masonry-mount-stability.test.tsx` uses the `undefined`-fallback technique to genuinely observe the Phase 1 → Phase 2 transition in a live, lifecycle-tracked render.
+- Promoted `grid-container.find052.investigation.test.tsx` → `grid-container.masonry-mount-stability.test.tsx` (AC8): rewrote the header to describe a permanent regression suite; `snapshotColumns` now reads `data-grid-container-column-index` directly off the item (no more `.closest()` — there's no column wrapper to climb to); scenarios (b)/(c) now hard-assert `remountedAmongChanged === 0` + `focusSurvived === true` (previously only documented the churn); added scenario (e), the new AC7 phase-transition proof. All 6 tests in the file pass against the new engine.
+- Updated `grid-container.test.tsx`'s masonry describe block (AC9/AC11) for the new DOM shape (no `[data-grid-container-column]` wrapper exists any more; column-index now lives on the item; added explicit Phase 1 and Tab-order assertions) and confirmed every non-masonry test is untouched. Updated `EventListView.test.tsx`'s one DOM-shape-dependent assertion similarly.
+- Reworked `packages/visual-audit/manifests/grid-container-masonry.ts` and `manifests-proof.spec.ts` (AC9/AC10) against the new per-item `data-grid-container-column-index` attribute: `sibling-dimension` now selects items directly (clustering by horizontal overlap still groups same-column items, since CSS Grid's default `stretch` self-alignment makes an unconstrained item fill its track's width); `intra-box-ratio` now compares the one specific item the SSR round-robin estimate deterministically assigns to each column (item `i` → column `i % columnCount`) instead of a now-nonexistent per-column wrapper; the generic `placement-order` rule kind was dropped from this entry's `rules` array (it needs a distinct per-column container to scope an inner `querySelector` into, which the flat-parent design no longer has) and replaced with an equivalent direct assertion in `manifests-proof.spec.ts` that groups items client-side by column-index and reuses `checkPlacementOrder` (the SAME pure function `engine.ts` itself calls) — same underlying claim, verified directly instead of via the generic dispatch. The height-independence test now groups by column-index and compares each column's max bottom edge instead of reading one wrapper's height. The negative canary now overrides one item's own `width` directly (the old `flex-grow` override has no effect once the per-column flex-track model is gone). Added a new AC10 test asserting the SSR/Phase-1-only manifest render produces a real, non-collapsed container height.
+- `design-artifacts/UX-festgrid-run-1/DESIGN.md`'s `components.grid.masonry` token comment reconciled (AC13) to describe the flat-parent/two-phase/CSS-Grid+absolute-position mechanism while preserving the documented 2/3/4/5/6-column/equal-width semantics.
+- **Scope/limitation honestly flagged:** `packages/visual-audit`'s Playwright-backed `test:manifests` suite (the only mechanism able to actually execute the AC9/AC10 manifest/proof-spec changes above against a real browser) could not be run in this sandboxed session — no Chromium binaries are installed, and the orchestrator's directive for this run explicitly limited execution to targeted vitest files and package-scoped lint/typecheck, with no unfrozen installs permitted. The manifest/proof-spec files were edited with careful, direct reference to `engine.ts`'s real selector-dispatch mechanics (read in full before editing, not guessed), and `packages/visual-audit`'s own `tsc --noEmit`/`eslint` both pass clean against them, but they have NOT been executed end-to-end. A reviewer with Playwright available (or a follow-up session) should run `pnpm --filter @festgrid/visual-audit test:manifests` before this story is considered fully done.
+- No new user-facing strings (AC12, i18n N/A, confirmed). `css-grid` default path (AC11) untouched — verified byte-for-byte unmodified in `grid-container.tsx` and its non-masonry test assertions.
+
 ### File List
+
+- `packages/ui/src/hooks/useMasonryLayout.ts` (M)
+- `packages/ui/src/hooks/useMasonryLayout.types.ts` (M)
+- `packages/ui/src/hooks/useMasonryLayout.test.ts` (M)
+- `packages/ui/src/core/grid-container.tsx` (M)
+- `packages/ui/src/core/grid-container.types.ts` (M — doc comments only)
+- `packages/ui/src/core/grid-container.test.tsx` (M)
+- `packages/ui/src/core/grid-container.find052.investigation.test.tsx` → renamed to `packages/ui/src/core/grid-container.masonry-mount-stability.test.tsx` (R, rewritten)
+- `packages/ui/src/features/events/EventListView.test.tsx` (M)
+- `packages/visual-audit/manifests/grid-container-masonry.ts` (M)
+- `packages/visual-audit/manifests-proof.spec.ts` (M)
+- `design-artifacts/UX-festgrid-run-1/DESIGN.md` (M)
+
+## Change Log
+
+- 2026-10-06 — Story 0.48 (FIND-052) implemented: `useMasonryLayout` gains `columnHeights`/`itemOffsets`; `GridContainer`'s `layout="masonry"` rebuilt on one flat, mount-stable, two-phase parent, eliminating the reflow unmount+remount + keyboard-focus-loss bug; promoted the FIND-052 investigation test into a permanent regression suite proving zero remounts/focus-survival across all scenarios including the new Phase 1→2 transition; updated all DOM-selector-dependent test/tooling consumers (`grid-container.test.tsx`, `EventListView.test.tsx`, `packages/visual-audit`'s manifest + proof spec); reconciled DESIGN.md's masonry token comment. Index-major Tab order is a deliberate, documented, user-visible accessibility change (AC4). `packages/visual-audit`'s Playwright `test:manifests` suite could not be executed in this sandboxed session (no browser binaries; orchestrator scoped this run to targeted vitest + package-scoped lint/typecheck) — flagged for a follow-up run before full sign-off.

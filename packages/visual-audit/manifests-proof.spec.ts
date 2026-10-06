@@ -19,6 +19,7 @@ import './manifests/index.js';
 import { runManifestEntry } from './src/engine.js';
 import { defaultRegistry, registerManifestEntry, type ManifestEntry } from './src/manifest.js';
 import { MOBILE_PANEL_HTML } from './manifests/event-card-masonry-thumbnail-fallback.js';
+import { checkPlacementOrder } from './src/rules/placement-order.js';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
@@ -248,40 +249,82 @@ test.describe('rule-based example: GridContainer masonry-real-eventcard (Story 0
     }
     expect(result.pass).toBe(true);
 
+    // Story 0.48: no `placement-order` rule entry any more (the generic rule kind needs a
+    // distinct per-column container element to scope `querySelector` into, which the flat-parent
+    // design no longer has — see the manifest file's own header). Just the two width signals now.
     const kinds = result.ruleResults.map((r) => r.kind);
-    expect(kinds).toEqual(['sibling-dimension', 'intra-box-ratio', 'intra-box-ratio', 'placement-order']);
+    expect(kinds).toEqual(['sibling-dimension', 'intra-box-ratio', 'intra-box-ratio']);
 
-    // AC9(b)'s real signal: the first N items (N = column count) land one-per-column, left to
-    // right, in index order -- the SSR/first-paint round-robin estimate this static server render
-    // always exercises (no client hydration runs in this harness — see the manifest file's own
-    // header for why that's the correct, deterministic thing to check here).
-    const placementResult = result.ruleResults.find((r) => r.kind === 'placement-order');
-    const details = placementResult?.details as { actualLeadingIndices: number[] } | undefined;
-    expect(details?.actualLeadingIndices).toEqual([0, 1, 2]);
+    // AC9(b)'s real signal, verified directly here instead of via the generic rule: group items
+    // client-side by their own `data-grid-container-column-index` value, find each column's
+    // topmost (lowest-item-index) item, and reuse `checkPlacementOrder` (the same pure function
+    // `engine.ts`'s `placement-order` rule kind itself calls) against that grouping — proving
+    // the first N items (N = column count) land one-per-column, left to right, in index order —
+    // the SSR/first-paint round-robin estimate this static server render always exercises (no
+    // client hydration runs in this harness — see the manifest file's own header for why that's
+    // the correct, deterministic thing to check here).
+    const leadingIndicesByColumn = await page.$$eval('[data-grid-container-item]', (items) => {
+      const byColumn = new Map<number, number>();
+      for (const item of items) {
+        const col = Number(item.getAttribute('data-grid-container-column-index'));
+        const idx = Number(item.getAttribute('data-grid-container-item-index'));
+        const current = byColumn.get(col);
+        if (current === undefined || idx < current) {
+          byColumn.set(col, idx);
+        }
+      }
+      return Array.from(byColumn.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([, leadingIndex]) => leadingIndex);
+    });
+    const placementResult = checkPlacementOrder(leadingIndicesByColumn);
+    expect(placementResult.pass, placementResult.message).toBe(true);
+    expect(leadingIndicesByColumn).toEqual([0, 1, 2]);
   });
 
   test('AD-27 Rule 1 — columns actually vary in HEIGHT independently (not CSS Grid row-locked)', async ({ page }) => {
     // The two width checks above prove the tracks are structurally equal-width columns; this
-    // test proves the other half of AD-27's actual regression: unlike plain CSS Grid (which
-    // shares row height across every column), each `[data-grid-container-column]` here is its
-    // own independent flex-col box, so genuinely different card content (varying eventName
-    // length / locationName presence, per FIXTURE_CARDS) produces genuinely different column
-    // heights — not one row height shared/stretched across all three.
+    // test proves the other half of AD-27's actual regression: unlike plain CSS Grid's row-locked
+    // height sharing, native auto-placement stacks each column's own items into their own
+    // sequential rows, so genuinely different card content (varying eventName length /
+    // locationName presence, per FIXTURE_CARDS) produces genuinely different column heights —
+    // not one row height shared/stretched across all three.
+    //
+    // Story 0.48: there is no longer one wrapper element per column to read `.height` from
+    // directly — this groups items client-side by their own `data-grid-container-column-index`
+    // and computes each column's own max bottom edge instead (every column's first/topmost item
+    // starts at the same `top`, since Phase 1's native grid auto-placement puts every column's
+    // first item in the SAME first row, so comparing bottoms alone is equivalent to comparing
+    // heights here).
     await runManifestEntry(page, NAME, { repoRoot: REPO_ROOT });
-    const heights: number[] = await page.$$eval('[data-grid-container-column]', (cols) =>
-      cols.map((c) => c.getBoundingClientRect().height)
-    );
-    expect(heights).toHaveLength(3);
-    const distinctHeights = new Set(heights.map((h) => Math.round(h)));
+    const columnBottoms: number[] = await page.$$eval('[data-grid-container-item]', (items) => {
+      const byColumn = new Map<number, number>();
+      for (const item of items) {
+        const col = Number(item.getAttribute('data-grid-container-column-index'));
+        const bottom = item.getBoundingClientRect().bottom;
+        const current = byColumn.get(col);
+        if (current === undefined || bottom > current) {
+          byColumn.set(col, bottom);
+        }
+      }
+      return Array.from(byColumn.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([, bottom]) => bottom);
+    });
+    expect(columnBottoms).toHaveLength(3);
+    const distinctHeights = new Set(columnBottoms.map((h) => Math.round(h)));
     // At least two of the three columns must differ by more than a rounding artifact --
     // proving real independent per-column height flow, not three uniformly-stretched boxes.
     expect(distinctHeights.size).toBeGreaterThan(1);
   });
 
-  test('negative canary: a deliberately mismatched column width fails the intra-box-ratio check', async ({ page }) => {
+  test('negative canary: a deliberately mismatched item width fails the intra-box-ratio check', async ({ page }) => {
     // Proves the real load-bearing width check can actually fail (see the manifest file's own
-    // comment on why the sibling-dimension rule alone cannot): mutate one column's width class
-    // in the live render so it clearly diverges from its siblings, and confirm the check catches it.
+    // comment on why the sibling-dimension rule alone cannot): force one item's own rendered
+    // width to diverge from its siblings. Story 0.48: there is no more `flex-grow`/per-column
+    // flex track to override (removed along with the per-column wrapper) — instead this
+    // overrides the SPECIFIC item (`data-grid-container-item-index="0"`) the width checks above
+    // compare, directly, against Phase 1's `gridColumn`-placed-but-otherwise-unconstrained width.
     const CANARY_NAME = 'grid-container:masonry-real-eventcard-canary:900x700';
     if (!defaultRegistry.has(CANARY_NAME)) {
       const baseEntry = defaultRegistry.get(NAME);
@@ -290,14 +333,15 @@ test.describe('rule-based example: GridContainer masonry-real-eventcard (Story 0
         variant: 'masonry-real-eventcard-canary',
         render: {
           kind: 'react-component',
-          // Reuses the real fixture, but wraps it so column 0 gets forced to double width via
-          // an inline style injected after render -- a targeted DOM mutation, not a hand-typed
-          // markup replica, kept minimal by post-processing the real render's own HTML.
+          // Reuses the real fixture, but wraps it so item 0 gets forced to a fixed, clearly
+          // mismatched width via an inline style injected after render -- a targeted DOM
+          // mutation, not a hand-typed markup replica, kept minimal by post-processing the real
+          // render's own HTML.
           render: baseEntry.render.kind === 'react-component' ? baseEntry.render.render : () => { throw new Error('unreachable'); },
           documentTemplate: (bodyHtml: string) => `
 <script src="https://cdn.tailwindcss.com"></script>
 <style>body{font-family:Inter,sans-serif; margin:0;}
-[data-grid-container-column-index="0"] { flex-grow: 4 !important; }
+[data-grid-container-item-index="0"] { width: 400px !important; }
 </style>
 <div class="p-6 bg-slate-100">${bodyHtml}</div>
 `,
@@ -310,5 +354,22 @@ test.describe('rule-based example: GridContainer masonry-real-eventcard (Story 0
     expect(result.pass).toBe(false);
     const ratioResults = result.ruleResults.filter((r) => r.kind === 'intra-box-ratio');
     expect(ratioResults.some((r) => !r.pass)).toBe(true);
+  });
+
+  test('AC10 — Phase 1 (SSR/first-paint, the only phase this manifest ever exercises) produces a real, non-collapsed container height', async ({ page }) => {
+    // AC2's whole reason for Phase 1 existing: absolutely-positioned children (Phase 2) never
+    // contribute to a parent's intrinsic size, so if items were abspos from the very first
+    // render the container would collapse to ~0px until real measurements arrive — a genuine
+    // CLS regression. This manifest's render mechanism (`renderToStaticMarkup`, no hydration,
+    // per the manifest file's own header) always exercises exactly that unmeasurable SSR state,
+    // making it this project's only real-browser-layout proof that Phase 1's in-flow CSS Grid
+    // placement actually gives the browser a genuine non-zero height from real content alone —
+    // jsdom-based component tests have no real CSS layout engine to verify this with.
+    await runManifestEntry(page, NAME, { repoRoot: REPO_ROOT });
+    const containerHeight = await page.$eval(
+      '[data-grid-container-layout="masonry"]',
+      (el) => el.getBoundingClientRect().height
+    );
+    expect(containerHeight).toBeGreaterThan(0);
   });
 });

@@ -115,10 +115,18 @@ export function useMasonryLayout({ itemCount, columnCount }: UseMasonryLayoutOpt
 
   const hasMeasured = useMemo(() => Object.keys(heights).length > 0, [heights]);
 
-  const columnAssignments = useMemo<number[]>(() => {
+  // Story 0.48 AC3: the placement loop already accumulates each column's running height
+  // (`colHeights`) and, for the shortest-column branch, each item's offset-at-placement-time --
+  // this just captures both into the hook's return value (`columnHeights`/`itemOffsets`) instead
+  // of discarding them, in the SAME pass (no second loop, no new dependency array).
+  const { columnAssignments, columnHeights, itemOffsets } = useMemo<{
+    columnAssignments: number[];
+    columnHeights: number[];
+    itemOffsets: number[];
+  }>(() => {
     const assignments = new Array(itemCount).fill(0);
     if (columnCount <= 0) {
-      return assignments;
+      return { columnAssignments: assignments, columnHeights: [], itemOffsets: [] };
     }
 
     if (!hasMeasured) {
@@ -126,7 +134,11 @@ export function useMasonryLayout({ itemCount, columnCount }: UseMasonryLayoutOpt
       for (let i = 0; i < itemCount; i += 1) {
         assignments[i] = i % columnCount;
       }
-      return assignments;
+      return {
+        columnAssignments: assignments,
+        columnHeights: new Array(columnCount).fill(0),
+        itemOffsets: new Array(itemCount).fill(0),
+      };
     }
 
     // True shortest-column placement (AC2/AC4): an item with a known height goes into whichever
@@ -136,11 +148,14 @@ export function useMasonryLayout({ itemCount, columnCount }: UseMasonryLayoutOpt
     // the single currently-shortest column and clump); it contributes its 0 estimate to column
     // heights, so it still reflows to true placement once its own height lands.
     const colHeights = new Array(columnCount).fill(0);
+    const offsets = new Array(itemCount).fill(0);
     let unmeasuredCursor = 0;
     for (let i = 0; i < itemCount; i += 1) {
       const height = heights[i];
       if (height === undefined) {
-        assignments[i] = unmeasuredCursor % columnCount;
+        const col = unmeasuredCursor % columnCount;
+        assignments[i] = col;
+        offsets[i] = colHeights[col];
         unmeasuredCursor += 1;
         continue;
       }
@@ -151,9 +166,10 @@ export function useMasonryLayout({ itemCount, columnCount }: UseMasonryLayoutOpt
         }
       }
       assignments[i] = shortest;
+      offsets[i] = colHeights[shortest];
       colHeights[shortest] += height;
     }
-    return assignments;
+    return { columnAssignments: assignments, columnHeights: colHeights, itemOffsets: offsets };
   }, [itemCount, columnCount, heights, hasMeasured]);
 
   const columns = useMemo<number[][]>(() => {
@@ -164,5 +180,5 @@ export function useMasonryLayout({ itemCount, columnCount }: UseMasonryLayoutOpt
     return cols;
   }, [columnAssignments, columnCount]);
 
-  return { columnAssignments, columns, registerItemRef, hasMeasured };
+  return { columnAssignments, columns, registerItemRef, hasMeasured, columnHeights, itemOffsets };
 }

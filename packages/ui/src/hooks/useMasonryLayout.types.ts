@@ -44,4 +44,22 @@ export interface UseMasonryLayoutResult {
    * estimate until it is).
    */
   hasMeasured: boolean;
+
+  /**
+   * Story 0.48 AC3: final accumulated height per column (`0..columnCount-1`), i.e. the same
+   * `colHeights` the placement loop already tracks internally, exposed here as the source for
+   * `GridContainer`'s Phase 2 (`hasMeasured === true`) container `height` (`Math.max(...columnHeights)`).
+   * `[]` when `columnCount <= 0`; all-zero (length `columnCount`) while `!hasMeasured` (the
+   * SSR/first-paint round-robin estimate carries no real heights yet).
+   */
+  columnHeights: number[];
+
+  /**
+   * Story 0.48 AC3: parallel-indexed to `columnAssignments` (`0..itemCount-1`) — each item's own
+   * accumulated-height-so-far-in-its-column AT THE MOMENT it was placed (i.e.
+   * `columnHeights[columnAssignments[i]]` immediately before this item's own height was added to
+   * it). The source for `GridContainer`'s Phase 2 per-item `transform: translateY(itemOffsets[i])`.
+   * `[]` when `columnCount <= 0`; all-zero (length `itemCount`) while `!hasMeasured`.
+   */
+  itemOffsets: number[];
 }
