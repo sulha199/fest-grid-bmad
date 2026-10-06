@@ -217,19 +217,19 @@ An epic readiness report already covers this story: `_bmad-output/planning-artif
 
 ## Testing Requirements
 
-- [ ] Backend integration tests — `resolvers.test.ts`'s new `Query.relatedEventIds (postId variant)`/`Query.postByPlatformIdentifiers` blocks (real-DB, Task 3).
-- [ ] Database/migration test — the new partial unique index's constraint behavior (Task 3).
-- [ ] Frontend unit/integration tests — `post-events-content.test.tsx` (render/loading/empty/error/pagination/`notFound()`), `navigation-hook.test.ts`/equivalent (new `'post'` branch) (Task 6, 7).
-- [ ] E2E — not required beyond the existing event-detail → Related Events → "See all N" → this page manual flow (no new critical-path E2E scenario introduced; this page is a thin reuse of already-E2E-covered list/navigation primitives).
+- [x] Backend integration tests — `resolvers.test.ts`'s new `Query.relatedEventIds (postId variant)`/`Query.postByPlatformIdentifiers` blocks (real-DB, Task 3).
+- [x] Database/migration test — the new partial unique index's constraint behavior (Task 3).
+- [x] Frontend unit/integration tests — `post-events-content.test.tsx` (render/loading/empty/error/pagination/`notFound()`), `navigation-hook.test.ts`/equivalent (new `'post'` branch) (Task 6, 7).
+- [x] E2E — not required beyond the existing event-detail → Related Events → "See all N" → this page manual flow (no new critical-path E2E scenario introduced; this page is a thin reuse of already-E2E-covered list/navigation primitives).
 
 ## Deliverables Checklist
 
-- [ ] `Query.postByPlatformIdentifiers` and widened `Query.relatedEventIds` shipped, tested, codegen'd.
-- [ ] New partial unique index migration applied, with its mandatory pre-migration dedupe check documented.
-- [ ] `/posts/{platformSlug}/{postType}/{platformPostId}/events` route live, reusing `EventListView`/`PageContainer`/`PageHeader`/`useListPaginationController`/infinite scroll wholesale.
-- [ ] Next/Previous navigation from this page's events inherits this page's own list context.
-- [ ] EXPLAIN-gate doc for the 2 new queries, confirming no Seq Scan.
-- [ ] i18n keys added (`Metadata`, `PostCollectionPage` namespaces, both locales).
+- [x] `Query.postByPlatformIdentifiers` and widened `Query.relatedEventIds` shipped, tested, codegen'd.
+- [x] New partial unique index migration applied, with its mandatory pre-migration dedupe check documented.
+- [x] `/posts/{platformSlug}/{postType}/{platformPostId}/events` route live, reusing `EventListView`/`PageContainer`/`PageHeader`/`useListPaginationController`/infinite scroll wholesale.
+- [x] Next/Previous navigation from this page's events inherits this page's own list context.
+- [x] EXPLAIN-gate doc for the 2 new queries, confirming no Seq Scan.
+- [x] i18n keys added (`Metadata`, `PostCollectionPage` namespaces, both locales).
 
 ## Out of Scope
 
@@ -241,15 +241,15 @@ An epic readiness report already covers this story: `_bmad-output/planning-artif
 
 ## Definition of Done
 
-- [ ] AC1-AC9 satisfied.
-- [ ] Required tests passing (Task 3, 6, 7; root suite green or only pre-existing/known failures).
-- [ ] Lint and type checks passing for touched packages (`apps/backend`, `packages/database`, `apps/web`).
-- [ ] EXPLAIN-gate doc committed, both new queries index-driven with no Seq Scan.
-- [ ] Both `codegen` commands re-run cleanly, no hand-edits to generated files.
+- [x] AC1-AC9 satisfied.
+- [x] Required tests passing (Task 3, 6, 7; root suite green or only pre-existing/known failures).
+- [x] Lint and type checks passing for touched packages (`apps/backend`, `packages/database`, `apps/web`).
+- [x] EXPLAIN-gate doc committed, both new queries index-driven with no Seq Scan.
+- [x] Both `codegen` commands re-run cleanly, no hand-edits to generated files.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Ready for review (dev complete 2026-10-05, batch-end pass 2026-10-06)
 
 ## Dev Agent Record
 

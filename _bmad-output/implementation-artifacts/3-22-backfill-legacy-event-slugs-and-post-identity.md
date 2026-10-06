@@ -152,28 +152,28 @@ Epic 3's last full sweep (`epic-3-readiness.md`, 2026-09-11) and the CC-024 batc
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — a one-shot, idempotent backfill script (Option A, user-confirmed via `AskUserQuestion`) healing post identity and re-keying legacy-hex event slugs through the existing `event_slug_aliases`/`eventBySlug` mechanism; zero changes to the resolver or route files; zero DDL.
-- [ ] Architecture and boundary confirmation — all new write logic stays in `apps/backend`; the exported slug builder stays pure in `packages/domain`; no new GraphQL/schema surface (Gate 2: no gap); no new infra (Gate 3: no gap, follows the existing backfill-script + `workflow_dispatch` convention).
-- [ ] Testing plan confirmation — real local-Postgres integration tests for every branch (healing, re-keying, skip conditions, idempotent re-run, the alias-fallback-after-backfill regression, the Task 2 refactor's unmodified-behavior proof) are understood as the full testing bar for this story.
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three gates run (1/3 fresh, 2 reasoned directly) during this story's creation; no gap found beyond the two implementation requirements already folded into Tasks 2/4; no prerequisite story was created.
-- [ ] Explicit human approval state (Default: pending approval)
+- [x] Scope confirmation — a one-shot, idempotent backfill script (Option A, user-confirmed via `AskUserQuestion`) healing post identity and re-keying legacy-hex event slugs through the existing `event_slug_aliases`/`eventBySlug` mechanism; zero changes to the resolver or route files; zero DDL.
+- [x] Architecture and boundary confirmation — all new write logic stays in `apps/backend`; the exported slug builder stays pure in `packages/domain`; no new GraphQL/schema surface (Gate 2: no gap); no new infra (Gate 3: no gap, follows the existing backfill-script + `workflow_dispatch` convention).
+- [x] Testing plan confirmation — real local-Postgres integration tests for every branch (healing, re-keying, skip conditions, idempotent re-run, the alias-fallback-after-backfill regression, the Task 2 refactor's unmodified-behavior proof) are understood as the full testing bar for this story.
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three gates run (1/3 fresh, 2 reasoned directly) during this story's creation; no gap found beyond the two implementation requirements already folded into Tasks 2/4; no prerequisite story was created.
+- [x] Explicit human approval state (Default: pending approval)
 
 ## Testing Requirements
 
-- [ ] `packages/domain`: confirm `build-event-insert-values.test.ts`'s existing 100%-covered cases are unaffected by the Task 2 export change.
-- [ ] `apps/backend` integration tests (real local Postgres, no live AWS/vendor calls): `backfill-legacy-event-slugs-support.test.ts` (identity healing — resolvable/unresolvable/already-healed branches; event re-key — resolvable/unresolvable/`postId IS NULL`/soft-deleted/merged/already-platform-prefixed branches, including a non-zero-`extractionOrdinal` case proving the `~N` suffix carries through); `backfill-legacy-event-slugs.test.ts` (`runSizing`/`runBackfill(apply)` dispatch); `set-event-primary-post.test.ts` (existing re-slug/R-O-R cases, unmodified, still green after Task 2's extraction); `resolvers.test.ts` (Task 6's new `eventBySlug`-alias-fallback-after-backfill regression test).
-- [ ] No new `apps/web` test required — Story 3.6v's existing route-level redirect tests already cover an alias-hit against a manually-inserted `event_slug_aliases` row, structurally indistinguishable from one this story's script inserts (cited, not re-derived, in Task 6).
-- [ ] No E2E test required — this story's only user-facing surface (an old link now redirecting instead of 404ing, or simply continuing to resolve) is adequately covered by the integration tests above; the live production backfill run itself is an operational step, not a code path a Playwright spec could usefully exercise ahead of time.
+- [x] `packages/domain`: confirm `build-event-insert-values.test.ts`'s existing 100%-covered cases are unaffected by the Task 2 export change.
+- [x] `apps/backend` integration tests (real local Postgres, no live AWS/vendor calls): `backfill-legacy-event-slugs-support.test.ts` (identity healing — resolvable/unresolvable/already-healed branches; event re-key — resolvable/unresolvable/`postId IS NULL`/soft-deleted/merged/already-platform-prefixed branches, including a non-zero-`extractionOrdinal` case proving the `~N` suffix carries through); `backfill-legacy-event-slugs.test.ts` (`runSizing`/`runBackfill(apply)` dispatch); `set-event-primary-post.test.ts` (existing re-slug/R-O-R cases, unmodified, still green after Task 2's extraction); `resolvers.test.ts` (Task 6's new `eventBySlug`-alias-fallback-after-backfill regression test).
+- [x] No new `apps/web` test required — Story 3.6v's existing route-level redirect tests already cover an alias-hit against a manually-inserted `event_slug_aliases` row, structurally indistinguishable from one this story's script inserts (cited, not re-derived, in Task 6).
+- [x] No E2E test required — this story's only user-facing surface (an old link now redirecting instead of 404ing, or simply continuing to resolve) is adequately covered by the integration tests above; the live production backfill run itself is an operational step, not a code path a Playwright spec could usefully exercise ahead of time.
 
 ## Deliverables Checklist
 
-- [ ] Task 1's zero-DDL proof run and recorded.
-- [ ] `buildPlatformPrefixedSlug` exported; `reslugEventAndRecordAlias` extracted and both call sites (promotion, backfill) routed through it.
-- [ ] `healPostPlatformIdentity` and `reslugLegacyEvents` implemented, batched, idempotent, and fully tested.
-- [ ] `backfill-legacy-event-slugs.ts` (`sizing`/`backfill [--apply]`) implemented and tested, mirroring the established script convention.
-- [ ] `.github/workflows/backfill-legacy-event-slugs.yml` added (`workflow_dispatch`, `environment: production`, concurrency guard, `apply` input).
-- [ ] Task 6's alias-fallback-after-backfill regression test green.
-- [ ] All targeted tests green; lint/build clean for `domain` and `backend`.
+- [x] Task 1's zero-DDL proof run and recorded.
+- [x] `buildPlatformPrefixedSlug` exported; `reslugEventAndRecordAlias` extracted and both call sites (promotion, backfill) routed through it.
+- [x] `healPostPlatformIdentity` and `reslugLegacyEvents` implemented, batched, idempotent, and fully tested.
+- [x] `backfill-legacy-event-slugs.ts` (`sizing`/`backfill [--apply]`) implemented and tested, mirroring the established script convention.
+- [x] `.github/workflows/backfill-legacy-event-slugs.yml` added (`workflow_dispatch`, `environment: production`, concurrency guard, `apply` input).
+- [x] Task 6's alias-fallback-after-backfill regression test green.
+- [x] All targeted tests green; lint/build clean for `domain` and `backend`.
 
 ## Out of Scope
 
@@ -186,10 +186,10 @@ Epic 3's last full sweep (`epic-3-readiness.md`, 2026-09-11) and the CC-024 batc
 
 ## Definition of Done
 
-- [ ] AC1-AC8 satisfied.
-- [ ] Required tests passing (Tasks 6/7; Testing Requirements above).
-- [ ] Lint and type checks passing for `packages/domain` and `apps/backend`.
-- [ ] No regression in Story 3.6v's `set-event-primary-post.test.ts`/`resolvers.test.ts` coverage, or Story 3.7g's `build-event-insert-values.test.ts` coverage.
+- [x] AC1-AC8 satisfied.
+- [x] Required tests passing (Tasks 6/7; Testing Requirements above).
+- [x] Lint and type checks passing for `packages/domain` and `apps/backend`.
+- [x] No regression in Story 3.6v's `set-event-primary-post.test.ts`/`resolvers.test.ts` coverage, or Story 3.7g's `build-event-insert-values.test.ts` coverage.
 
 ## Completion Status
 

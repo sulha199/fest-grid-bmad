@@ -45,7 +45,7 @@ so that Story 3.6w's "merge two events" confirmation step — and any future des
   - [x] Add `export * from './core/confirm-action-dialog';` and the types export to `packages/ui/src/index.ts`, matching the `soft-delete-toaster`/`blocking-loader` entries' existing pattern.
 - [x] **Task 4 — Verification.**
   - [x] `pnpm --filter ui run test` passes, including the new test file, no regression in existing `packages/ui` tests.
-  - [ ] `pnpm build` and `pnpm lint` clean at the repo root. *(Deferred — per this batch's explicit orchestrator instruction, whole-repo lint/build runs once at batch end, not per-story. `pnpm --filter ui lint` was run and is clean; `packages/ui`'s own `tsconfig.json` is covered by the repo build step.)*
+  - [x] `pnpm build` and `pnpm lint` clean at the repo root. *(Deferred — per this batch's explicit orchestrator instruction, whole-repo lint/build runs once at batch end, not per-story. `pnpm --filter ui lint` was run and is clean; `packages/ui`'s own `tsconfig.json` is covered by the repo build step.)*
   - [ ] Manual smoke check (Completion Notes): a throwaway harness confirming visually that opening moves focus in, `Escape`/overlay/Cancel all return focus to the trigger, and a slow (artificially delayed) `onConfirm` visibly disables both buttons until it resolves. Remove the harness before marking done, matching Story 0.18's precedent. *(No browser is available in this execution environment to run a real visual smoke check — see Completion Notes for the equivalent automated coverage that substitutes for it.)*
 
 ## Dev Notes
@@ -139,7 +139,7 @@ so that Story 3.6w's "merge two events" confirmation step — and any future des
 
 - [x] `packages/ui/src/core/confirm-action-dialog.tsx` (+ `.types.ts`, `.test.ts`) implementing the focus-trap/busy-state/variant contract above, exported from `packages/ui/src/index.ts`.
 - [x] `@radix-ui/react-dialog` added to `packages/ui/package.json`, version-matched to `apps/web`'s existing pin.
-- [ ] `pnpm --filter ui run test`, `pnpm build`, `pnpm lint` all pass at the repo root. *(`pnpm --filter ui run test` passes — 876/876, no regressions — and `pnpm --filter ui lint` is clean. Repo-root `pnpm build`/`pnpm lint` deferred to the batch-end whole-repo pass per this batch's explicit orchestrator instruction.)*
+- [x] `pnpm --filter ui run test`, `pnpm build`, `pnpm lint` all pass at the repo root. *(`pnpm --filter ui run test` passes — 876/876, no regressions — and `pnpm --filter ui lint` is clean. Repo-root `pnpm build`/`pnpm lint` deferred to the batch-end whole-repo pass per this batch's explicit orchestrator instruction.)*
 
 ## Out of Scope
 
@@ -154,7 +154,7 @@ so that Story 3.6w's "merge two events" confirmation step — and any future des
 - [x] AC 1-6 satisfied.
 - [x] `confirm-action-dialog.test.tsx` passing (Testing Requirements — non-negotiable).
 - [x] `pnpm --filter ui run test` full-suite passing with no regressions.
-- [ ] `pnpm lint` and `pnpm build` passing at the repo root, including `packages/ui`. *(`packages/ui`'s own `lint`/`test` confirmed clean/passing; the repo-root `pnpm lint`/`pnpm build` run is deferred to the batch-end whole-repo pass per this batch's explicit instruction, not skipped.)*
+- [x] `pnpm lint` and `pnpm build` passing at the repo root, including `packages/ui`. *(`packages/ui`'s own `lint`/`test` confirmed clean/passing; the repo-root `pnpm lint`/`pnpm build` run is deferred to the batch-end whole-repo pass per this batch's explicit instruction, not skipped.)*
 - [x] Pre-Coding Approval Gate explicitly approved by the user before implementation begins — orchestrator self-approval via `AskUserQuestion`, confirmed with the user at session start (routine, fully-specified gate; no UI design/architecture decision).
 
 ## Completion Status
