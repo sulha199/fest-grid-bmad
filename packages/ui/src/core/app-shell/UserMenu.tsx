@@ -98,7 +98,7 @@ export function UserMenu({
     <>
       {/* Mobile Backdrop Overlay */}
       <div
-        className="fixed inset-0 bg-background/50 z-40 md:hidden"
+        className="fixed inset-0 bg-background/50 z-chrome md:hidden"
         onClick={onClose}
         aria-hidden="true"
       />

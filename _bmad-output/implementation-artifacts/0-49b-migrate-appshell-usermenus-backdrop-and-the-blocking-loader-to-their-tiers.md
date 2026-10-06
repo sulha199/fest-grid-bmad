@@ -1,10 +1,14 @@
+---
+baseline_commit: ebdc960898e9ff717e6c0473499a70ed5bce6595
+---
+
 # Story 0.49b: Migrate AppShell, UserMenu's backdrop, and the blocking loader to their named tiers
 
 ## Story Details
 
 - Epic: 0
 - Story ID: 0.49b
-- Status: backlog
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -24,17 +28,17 @@ so that the app's permanent navigation chrome and its one full-screen blocking s
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — `AppShell.tsx` (AC1)
-  - [ ] 1.1 Line 129 (mobile tab bar): replace `z-40` with `z-chrome` inside the existing class string — no other class changes.
-  - [ ] 1.2 Line 162 (desktop sidenav rail): same substitution.
-- [ ] Task 2 — `UserMenu.tsx`'s backdrop only (AC2)
-  - [ ] 2.1 Line 101 (mobile backdrop `<div>`): replace `z-40` with `z-chrome`. **Do not touch line 109** (the menu container) — that site belongs to Story 0.49c.
-- [ ] Task 3 — `blocking-loader.tsx` (AC3)
-  - [ ] 3.1 Line 82: replace `z-[60]` with `z-overlay-blocking`.
-- [ ] Task 4 — Verification (AC4, AC5)
-  - [ ] 4.1 `pnpm --filter @festgrid/ui lint && pnpm --filter @festgrid/ui exec tsc --noEmit` (or project standard) — 0 new errors.
-  - [ ] 4.2 Run every existing test suite exercising `AppShell.test.tsx`, `UserMenu.test.tsx` (if present), and any `BlockingLoader`/`blocking-loader` test — confirm unmodified pass.
-  - [ ] 4.3 Manual visual smoke check: confirm the mobile tab bar, desktop sidenav rail, the mobile backdrop behind an open `UserMenu`, and the blocking loader all render identically to before (same stacking relative to page content).
+- [x] Task 1 — `AppShell.tsx` (AC1)
+  - [x] 1.1 Line 129 (mobile tab bar): replace `z-40` with `z-chrome` inside the existing class string — no other class changes.
+  - [x] 1.2 Line 162 (desktop sidenav rail): same substitution.
+- [x] Task 2 — `UserMenu.tsx`'s backdrop only (AC2)
+  - [x] 2.1 Line 101 (mobile backdrop `<div>`): replace `z-40` with `z-chrome`. **Do not touch line 109** (the menu container) — that site belongs to Story 0.49c.
+- [x] Task 3 — `blocking-loader.tsx` (AC3)
+  - [x] 3.1 Line 82: replace `z-[60]` with `z-overlay-blocking`.
+- [x] Task 4 — Verification (AC4, AC5)
+  - [x] 4.1 `pnpm --filter @festgrid/ui lint && pnpm --filter @festgrid/ui exec tsc --noEmit` (or project standard) — 0 new errors. Lint: 0 errors/warnings. `tsc --noEmit`: fails, but only on a pre-existing, unrelated `TS5101` ("Option 'baseUrl' is deprecated") config-level error in `packages/ui/tsconfig.json` — not caused by this story's edits (no tsconfig/type changes made; verified via `git diff --stat`, which shows only the story's own className/test edits). Flagged as pre-existing/out of scope rather than fixed, per scope guard.
+  - [x] 4.2 Run every existing test suite exercising `AppShell.test.tsx`, `UserMenu.test.tsx` (if present), and any `BlockingLoader`/`blocking-loader` test — confirm unmodified pass. **Correction to AC5's premise:** `blocking-loader.test.tsx` DID assert on the literal `'z-[60]'` className (the AC5 grep claim during story creation was inaccurate for this one test). Updated that single assertion to `'z-overlay-blocking'` (tracking the sanctioned rename, same resolved value per AC4) — all 15 tests across the 3 suites pass.
+  - [x] 4.3 Manual visual smoke check: confirm the mobile tab bar, desktop sidenav rail, the mobile backdrop behind an open `UserMenu`, and the blocking loader all render identically to before (same stacking relative to page content). Confirmed via source inspection: all 4 sites now read the correct named token class; `UserMenu.tsx` line 109 (`z-50`) verified untouched. No value change (AD-33 tokens: chrome=40, overlay-blocking=60, matching prior literals).
 
 ## Dev Notes
 
@@ -135,8 +139,35 @@ so that the app's permanent navigation chrome and its one full-screen blocking s
 
 ### Agent Model Used
 
+Claude Sonnet 5 (claude-sonnet-5)
+
 ### Debug Log References
+
+- Pre-coding approval: user explicitly approved via AskUserQuestion on 2026-10-06 (Pre-Coding Approval Gate checklist itself not edited, per story-edit permission scope).
+- Verified dependency Story 0.49 (`0-49-add-z-index-layering-tier-tokens-and-the-overlay-modal-z-constant`) was `review` in sprint-status.yaml, and confirmed the `chrome`/`overlay-blocking` zIndex tokens exist in `apps/web/tailwind.config.ts` (`chrome: '40'`, `overlay-blocking: '60'`) before coding.
+- `pnpm --filter @festgrid/ui exec vitest run src/core/blocking-loader.test.tsx src/core/app-shell/AppShell.test.tsx src/core/app-shell/UserMenu.test.tsx` — 15/15 passed after the test-assertion fix below.
+- `pnpm --filter @festgrid/ui lint` — 0 errors/warnings.
+- `pnpm --filter @festgrid/ui exec tsc --noEmit` — fails on pre-existing `TS5101` ("Option 'baseUrl' is deprecated") in `packages/ui/tsconfig.json`, unrelated to this story's edits (no tsconfig/type files touched; confirmed via `git diff --stat`). Flagged as pre-existing/out of scope, not fixed.
 
 ### Completion Notes List
 
+- Replaced `z-40` → `z-chrome` at `AppShell.tsx` lines 129 and 162 (mobile tab bar, desktop sidenav rail).
+- Replaced `z-40` → `z-chrome` at `UserMenu.tsx` line 101 (mobile backdrop only); confirmed line 109 (menu container, `z-50`) left untouched.
+- Replaced `z-[60]` → `z-overlay-blocking` at `blocking-loader.tsx` line 82.
+- **AC5 discrepancy found and corrected:** the story's AC5 claimed no existing test asserts on the literal `z-40`/`z-[60]` className string, but `blocking-loader.test.tsx` did assert `toHaveClass('fixed', 'inset-0', 'z-[60]')`. Updated that one assertion to `'z-overlay-blocking'` to track the sanctioned rename (AC4: same resolved value, class-name-only change). This is the only test file modified; no other test content changed.
+- All three target files verified by direct grep post-edit: no remaining `z-40`/`z-[60]` literals in any of the three components; the explicitly-excluded `UserMenu.tsx` line 109 and all of `NavRailItem.tsx` are untouched.
+- Verification commands actually executed and their results are recorded above (Debug Log References) per the Verification Plan: vitest (targeted files) green, lint green, tsc pre-existing failure flagged as out of scope.
+- Ran package-scoped commands only (`pnpm --filter @festgrid/ui ...`); no whole-repo lint/build/test, no backend suite, no DB touched, no unfrozen install.
+
 ### File List
+
+- Modified: `packages/ui/src/core/app-shell/AppShell.tsx`
+- Modified: `packages/ui/src/core/app-shell/UserMenu.tsx`
+- Modified: `packages/ui/src/core/blocking-loader.tsx`
+- Modified: `packages/ui/src/core/blocking-loader.test.tsx` (one stale literal-string assertion updated to track the sanctioned rename — see Completion Notes)
+- Modified: `_bmad-output/implementation-artifacts/sprint-status.yaml` (status transitions for this story key)
+- Modified: `_bmad-output/implementation-artifacts/0-49b-migrate-appshell-usermenus-backdrop-and-the-blocking-loader-to-their-tiers.md` (this story file: frontmatter, Tasks/Subtasks, Dev Agent Record, Change Log, Status)
+
+### Change Log
+
+- 2026-10-06: Implemented Story 0.49b — migrated AppShell's two chrome sites and UserMenu's mobile backdrop to `z-chrome`, and blocking-loader's overlay to `z-overlay-blocking`. Fixed one stale test assertion in `blocking-loader.test.tsx` that the story's AC5 had missed (asserted literal `z-[60]`). All targeted tests pass (15/15); lint clean; `tsc --noEmit` blocked by a pre-existing, unrelated tsconfig `TS5101` error, flagged as out of scope. Status moved ready-for-dev → in-progress → review.

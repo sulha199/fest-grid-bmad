@@ -19,7 +19,7 @@ describe('BlockingLoader', () => {
     const overlay = screen.getByRole('status').parentElement?.parentElement;
     expect(overlay).toBeInTheDocument();
     expect(overlay).toHaveAttribute('aria-busy', 'true');
-    expect(overlay).toHaveClass('fixed', 'inset-0', 'z-[60]');
+    expect(overlay).toHaveClass('fixed', 'inset-0', 'z-overlay-blocking');
   });
 
   it('renders supplied label content', () => {
