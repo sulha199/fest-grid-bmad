@@ -1784,8 +1784,8 @@ This document defines the core architectural invariants for the FestDaily applic
 
 ### AD-32: Guarded Vendor-Call Wrapper — Per-Credential Lock, Timeout, Transient-Retry, Vendor-DPA Gate
 
-*   **Binds:** The sole chokepoint for every outbound Gemini call and the only sanctioned place a
-    vendor SDK may be invoked from. Concretely: `callGemini`'s candidate-exclusion loop
+*   **Binds:** The sole chokepoint every caller must pass through before an outbound Gemini call
+    can be made. Concretely: `callGemini`'s candidate-exclusion loop
     (`apps/backend/src/lib/ai-gateway/adapter.ts`), `verifyGeminiApiKey`
     (`gemini-client.ts:168`, invoked from `createApiKey`, `resolvers.ts:526` — BUG-012/DW-069's
     named victim), and `system-key-adapter.ts`'s `callGeminiForLocationInference`/
@@ -1800,7 +1800,17 @@ This document defines the core architectural invariants for the FestDaily applic
     amendment note, rather than stacking a second timeout on top. Resolves BUG-012 (no
     request-level timeout) and FIND-004 (Apify/Bright Data DPA confirmation, scope below).
 *   **Prevents:** A future call site reaching `@google/genai` (or, once Apify/Bright Data adopt
-    this, their SDKs) directly instead of through the wrapper. Two of today's three entry points
+    this, their SDKs) directly instead of through the wrapper — enforced as two separate
+    properties, not one: the SDK import itself stays confined to its existing vendor-specific
+    adapter file (`gemini-client.ts` — already, verified, the only `@google/genai` importer
+    today), and every *caller* of that adapter's raw SDK-calling export
+    (`callGeminiGenerateContent`) is a named, source-scanned allowlist (`adapter.ts`,
+    `gemini-client.ts`'s own `verifyGeminiApiKey`, `system-key-adapter.ts`'s fallback — the same
+    three Binds above, no others), same ratchet style as AD-14/AD-30's existing source-scan tests —
+    0.i2z's "any file outside the wrapper module imports the SDK directly" AC is the first property;
+    this second one is what actually stops a new caller from reaching
+    `callGeminiGenerateContent` directly while still technically importing nothing itself. Two of
+    today's three entry points
     silently staying unguarded while only `callGemini` gets the new mechanism — exactly the gap
     0.i2z's ratchet exists to catch. A rate-limit/invalid-key/timeout error being retried
     in-place by the wrapper on the same credential when it should propagate to the caller's own
