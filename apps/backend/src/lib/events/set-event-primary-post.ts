@@ -322,6 +322,54 @@ async function mergeSchedules(
 }
 
 /**
+ * Re-keys `event` from its current `slug` to `newSlug`, recording the old slug as a permanent
+ * `event_slug_aliases` row so an already-shared/bookmarked old link keeps resolving (AD-16 Rule
+ * 10/AD-30 Rule 2). Extracted (Story 3.22, Task 2) out of `enrichAndPromoteEvent`'s inline
+ * primary-post-promotion re-slug block so this exact "record an alias, handle the R-O-R
+ * exception, swap the canonical slug" write logic has exactly one implementation -- Story 3.22's
+ * legacy-event-slugs backfill script is the second caller, re-keying events for a different
+ * trigger (identity healing of an old post, not a new primary-post promotion) but needing the
+ * identical write behavior. Behavior-preserving: `enrichAndPromoteEvent`'s own re-slug/R-O-R test
+ * cases in `set-event-primary-post.test.ts` are unchanged and must stay green.
+ *
+ * Takes the minimal `{ id, slug }` shape (not the full `EventRow`) so a caller with a narrower
+ * select (e.g. the backfill script's own event query) doesn't need to fetch every `events` column
+ * just to call this.
+ */
+export async function reslugEventAndRecordAlias(
+  executor: DbExecutor,
+  event: { id: string; slug: string },
+  newSlug: string
+): Promise<void> {
+  // Normal step: record the event's current (pre-change) slug as a permanent alias -- skip
+  // only if that exact row somehow already exists (a plain duplicate-insert guard, distinct
+  // from the R-O-R exception below, which concerns the NEW slug, not this one).
+  const [existingAliasForOldSlug] = await executor
+    .select()
+    .from(eventSlugAliases)
+    .where(eq(eventSlugAliases.slug, event.slug))
+    .limit(1);
+  if (!existingAliasForOldSlug) {
+    await executor.insert(eventSlugAliases).values({ slug: event.slug, eventId: event.id });
+  }
+
+  // AD-16 Rule 10 R-O-R exception: the slug we're moving TO already exists as an alias
+  // pointing at THIS same event (a primary reverting to a post it held before) -- that
+  // alias row is now redundant (the slug is becoming canonical/primary again), so delete it
+  // instead of leaving a stale alias that points an already-canonical slug at itself.
+  const [existingAliasForNewSlug] = await executor
+    .select()
+    .from(eventSlugAliases)
+    .where(eq(eventSlugAliases.slug, newSlug))
+    .limit(1);
+  if (existingAliasForNewSlug && existingAliasForNewSlug.eventId === event.id) {
+    await executor.delete(eventSlugAliases).where(eq(eventSlugAliases.id, existingAliasForNewSlug.id));
+  }
+
+  await executor.update(events).set({ slug: newSlug }).where(eq(events.id, event.id));
+}
+
+/**
  * AC2/AC4/AC5/AC7/AC9 -- the full promotion + enrichment-in-place write, extending
  * `setEventPrimaryPost` above into the work its own doc comment deferred to this story. Called
  * by `processIngestionJob` (Task 4) on a 'high'-confidence match instead of
@@ -375,32 +423,7 @@ export async function enrichAndPromoteEvent(
     // Re-slug + alias (AC5) -- only on an actual primary-post change, and only in the same
     // transaction as the pointer change below.
     if (newEvent.slug && newEvent.slug !== candidateEvent.slug) {
-      // Normal step: record the event's current (pre-change) slug as a permanent alias -- skip
-      // only if that exact row somehow already exists (a plain duplicate-insert guard, distinct
-      // from the R-O-R exception below, which concerns the NEW slug, not this one).
-      const [existingAliasForOldSlug] = await executor
-        .select()
-        .from(eventSlugAliases)
-        .where(eq(eventSlugAliases.slug, candidateEvent.slug))
-        .limit(1);
-      if (!existingAliasForOldSlug) {
-        await executor.insert(eventSlugAliases).values({ slug: candidateEvent.slug, eventId: candidateEvent.id });
-      }
-
-      // AD-16 Rule 10 R-O-R exception: the slug we're moving TO already exists as an alias
-      // pointing at THIS same event (a primary reverting to a post it held before) -- that
-      // alias row is now redundant (the slug is becoming canonical/primary again), so delete it
-      // instead of leaving a stale alias that points an already-canonical slug at itself.
-      const [existingAliasForNewSlug] = await executor
-        .select()
-        .from(eventSlugAliases)
-        .where(eq(eventSlugAliases.slug, newEvent.slug))
-        .limit(1);
-      if (existingAliasForNewSlug && existingAliasForNewSlug.eventId === candidateEvent.id) {
-        await executor.delete(eventSlugAliases).where(eq(eventSlugAliases.id, existingAliasForNewSlug.id));
-      }
-
-      await executor.update(events).set({ slug: newEvent.slug }).where(eq(events.id, candidateEvent.id));
+      await reslugEventAndRecordAlias(executor, candidateEvent, newEvent.slug);
     }
 
     // The same transaction as the pointer change (AD-30 Rule 2's single-writer primitive).

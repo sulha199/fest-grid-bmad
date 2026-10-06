@@ -10,6 +10,7 @@ import { db, enableQueryDebug, resetExecutedQueryCount, getExecutedQueryCount } 
 import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, calendarAdditions, unprocessedScraperPayloads, instagramOembedCache, accountVotes, postAccountAssociations, eventPosts, eventSlugAliases, subscriptions } from '@festgrid/database';
 import { eq, inArray, count, sql } from 'drizzle-orm';
 import { ENDED_CASE_FIXTURES } from '@festgrid/domain/events';
+import { healPostPlatformIdentity, reslugLegacyEvents } from '../lib/events/backfill-legacy-event-slugs-support.js';
 
 // read the generated schema for the yoga server
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
@@ -4892,4 +4893,86 @@ test('eventBySlug - event_slug_aliases fallback (Story 3.6v, AC5/AC6)', async (t
   const missBoth = await runEventBySlugQuery('neither-a-slug-nor-an-alias-' + crypto.randomUUID());
   assert.ok(!missBoth.result.errors, `GraphQL errors returned: ${JSON.stringify(missBoth.result.errors)}`);
   assert.strictEqual(missBoth.result.data.eventBySlug, null);
+});
+
+// Story 3.22 (FIND-071), Task 6/AC5 -- proves old links keep working with ZERO resolver/route
+// changes once an event is re-keyed by the legacy-event-slugs backfill script: a request for
+// the event's OLD hex slug is still served correctly by Story 3.6v's already-built, unmodified
+// `eventBySlug` canonical-lookup-then-alias-fallback mechanism (exercised directly above by its
+// own dedicated test) -- this test only proves a *backfill-script-written* alias row is served
+// identically to a promotion-written one. `apps/web`'s route-level redirect-on-slug-mismatch
+// behavior for an alias hit is already covered by Story 3.6v's own page.test.tsx/@modal test
+// files against a manually-inserted alias row, which is structurally indistinguishable from one
+// this story's script inserts -- no new web-level test is required by this story.
+test('eventBySlug - resolves a Story 3.22 backfill-written alias after healing+re-keying (AC5)', async (t) => {
+  mockUser = null;
+  const suffix = Date.now().toString();
+
+  const [profile] = await db.insert(socialMediaAccountProfiles).values({
+    accountId: 'acc-3-22-' + suffix,
+    platform: 'instagram',
+    displayName: '3.22 Alias Test Account',
+    username: '3_22_alias_test_' + suffix,
+  }).returning();
+
+  // Parseable URL, null identity -- exactly the bug this story's Task 3 heals (pre-3.7f data,
+  // or a post that will never get another extraction job).
+  const [post] = await db.insert(posts).values({
+    accountId: profile.id,
+    platform: 'instagram',
+    postUrl: `https://instagram.com/p/story-3-22-${suffix}`,
+    publishedAt: new Date('2026-01-01T00:00:00Z'),
+  }).returning();
+
+  // A legacy hex slug (same shape `events.slug`'s own $defaultFn(generateSlug) produces),
+  // pointing at the still-unhealed post above.
+  const legacyHexSlug = crypto.createHash('md5').update('story-3-22-' + suffix).digest('hex').slice(0, 12);
+  const [event] = await db.insert(events).values({
+    eventName: '3.22 backfill alias-fallback event',
+    slug: legacyHexSlug,
+    location: 'Test City',
+    postId: post.id,
+    extractionOrdinal: 0,
+  }).returning();
+
+  t.after(async () => {
+    await db.delete(eventSlugAliases).where(eq(eventSlugAliases.eventId, event.id));
+    await db.delete(events).where(eq(events.id, event.id));
+    await db.delete(posts).where(eq(posts.id, post.id));
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+    mockUser = null;
+  });
+
+  // Run the actual Task 3/4 functions (real writes -- this is the Task 6 integration proof,
+  // not a dry run) -- the exact same functions the backfill script's `--apply` mode calls.
+  const healResult = await healPostPlatformIdentity(db);
+  assert.ok(healResult.healed >= 1);
+  const reslugResult = await reslugLegacyEvents(db);
+  assert.ok(reslugResult.reslugged >= 1);
+
+  const [reslugged] = await db.select().from(events).where(eq(events.id, event.id));
+  assert.strictEqual(reslugged.slug, `ig_p_story-3-22-${suffix}`, 'event was re-keyed to its platform-prefixed slug');
+  assert.notStrictEqual(reslugged.slug, legacyHexSlug);
+
+  // The proof: fetch by the OLD hex slug via the resolver directly -- Story 3.6v's unmodified
+  // alias-fallback mechanism must serve the SAME canonical event, now carrying its NEW slug,
+  // not a 404 and not a redirect loop.
+  const query = `
+    query GetEventBySlug($slug: String!) {
+      eventBySlug(slug: $slug) {
+        id
+        slug
+      }
+    }
+  `;
+  const response = await yoga.fetch('http://yoga/graphql', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, variables: { slug: legacyHexSlug } }),
+  });
+  const result = await response.json();
+  assert.ok(!result.errors, `GraphQL errors returned: ${JSON.stringify(result.errors)}`);
+  assert.ok(result.data.eventBySlug, 'a backfill-written alias row must resolve, not 404');
+  assert.strictEqual(result.data.eventBySlug.id, event.id);
+  assert.strictEqual(result.data.eventBySlug.slug, reslugged.slug, 'the resolver returns the event\'s canonical (new) slug, proving the old-slug alias fallback correctly served a backfill-script-written row');
 });
