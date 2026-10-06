@@ -7,7 +7,7 @@ baseline_commit: 600f6133ab027f5890744c54e5c88f847b7896cd
 
 - Epic: 0.i2 (Guarded outbound vendor calls)
 - Story ID: 0.i2a
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -32,32 +32,32 @@ so that no call site can bypass locking, hang indefinitely, retry without backof
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: Add the `vendor_call_locks` table** (AC: 8)
-  - [ ] In `packages/database/schema.ts`, add `export const vendorCallLocks = pgTable('vendor_call_locks', { lockKey: text('lock_key').primaryKey(), lockedUntil: timestamp('locked_until', { withTimezone: true }).notNull() });` — deliberately minimal per AD-32 Rule 2's literal shape: no `id`/`uuid`, no `timestamps`, no soft delete (this is a lease row, not a domain entity).
-  - [ ] Immediately before generating the migration, run `git fetch origin master` and confirm the latest file in `packages/database/migrations/` on `origin/master` is still the expected next-after number (`0075_fat_mariko_yashida.sql` was the latest as of this story's creation on 2026-10-06 — re-verify, do not assume it still is). If a newer migration landed since, pull/rebase first so drizzle-kit's auto-incremented number (expected `0076` or later) doesn't collide with one another branch already claimed.
-  - [ ] Run the repo's drizzle-kit generate command (`pnpm --filter database run generate` or equivalent — check `packages/database/package.json` scripts) to produce the migration file. **Never hand-author or hand-number the migration file** — let drizzle-kit name it from its own journal sequence.
-  - [ ] Run the repo's local migration script (`pnpm --filter database run migrate`, matching this session's own startup-hook output) to apply it locally before writing tests against it.
-- [ ] **Task 2: Build `apps/backend/src/lib/vendor-gateway/guarded-call.ts`** (AC: 1, 2, 3, 4, 5, 6, 7, 9)
-  - [ ] Define and export: `export type VendorName = 'gemini' | 'apify' | 'brightdata';`, `export class VendorKeyBusyError extends Error`, `export class VendorDpaNotConfirmedError extends Error`, `export class VendorCallTimeoutError extends Error` (each setting `this.name` to its own class name, mirroring `gemini-client.ts`'s existing error-class pattern).
-  - [ ] Define `export interface CallVendorOptions<T> { lockKey?: string; timeoutMs: number; maxAttempts?: number; lockTtlMs?: number; isTransient: (error: unknown) => boolean; call: (signal: AbortSignal) => Promise<T>; }` and `export async function callVendor<T>(vendor: VendorName, opts: CallVendorOptions<T>): Promise<T>`.
-  - [ ] Implement the per-attempt sequence exactly as AD-32 Rule 1 orders it, repeated by the outer retry loop (bounded by `opts.maxAttempts ?? 3`): (a) if `vendor !== 'gemini'`, run the DPA-gate check (AC7) — throw `VendorDpaNotConfirmedError` and return immediately (no retry, no lock claim) on failure; (b) if `opts.lockKey` is set, claim the lock (AC2) — throw `VendorKeyBusyError` and return immediately (no retry) on a busy lock; (c) create a fresh `AbortController` for this attempt and race `opts.call(controller.signal)` against a `setTimeout`-based timer of `opts.timeoutMs` — on expiry, call `controller.abort()` then throw `VendorCallTimeoutError` (AC5); this bounds every call even if the thunk ignores the signal, while a signal-aware thunk gets real cancellation; (d) release the lock in a `finally`, if claimed (AC3); (e) on any thrown error from (a)-(c) other than the two immediate-throw cases, if `opts.isTransient(error)` is `true` and attempts remain, `await` `computeBackoffDelayMs(attempt, ...)` (imported from `@festgrid/domain`, same as `adapter.ts` already does) then loop; otherwise rethrow.
-  - [ ] Lock claim (step b) implementation: use Drizzle's idiomatic `.insert(vendorCallLocks).values({ lockKey, lockedUntil: sql`now() + interval '${ttlSeconds} seconds'` }).onConflictDoUpdate({ target: vendorCallLocks.lockKey, set: { lockedUntil: sql`now() + interval '${ttlSeconds} seconds'` }, where: sql`${vendorCallLocks.lockedUntil} < now()` }).returning()` against the existing `db` client (`apps/backend/src/db/client.ts`) — zero returned rows means busy. Confirm Drizzle's conditional `onConflictDoUpdate({ where })` support against the installed `drizzle-orm@^0.30.10` before relying on it; if unsupported at that version, fall back to a single raw `db.execute(sql\`...\`)` statement using AD-32's literal SQL (acceptable exception to "always use the query builder" here, since this one statement's atomicity is the entire safety property AD-32 Rule 2 depends on — document the fallback choice in Completion Notes if taken).
-  - [ ] TTL (`lockTtlMs`) default: do **not** hardcode one global constant. Default to `Math.max(opts.timeoutMs * 2, 60_000)` (floor of 60s) when `opts.lockTtlMs` is omitted — ties the crash-safety-net window to whatever timeout the specific call declares (a short verification call gets a short TTL; a long extraction call gets a longer one) rather than guessing one number for every future vendor/call shape. Callers may override via `opts.lockTtlMs` once real timing evidence (AD-32's own deferred item) justifies a different formula.
-  - [ ] DPA gate (step a) implementation: `vendor === 'apify' ? parseBooleanDefaultOn(env.apifyScrapingConfirmed... )` — see Task 3 for the actual env var wiring; this task just wires the lookup into `guarded-call.ts`'s control flow. Gemini must have **zero** branches referencing any DPA flag — not even a no-op check — per AC7's "does not branch on Gemini at all."
-- [ ] **Task 3: Add the two new DPA-gate env vars** (AC: 7)
-  - [ ] In `apps/backend/src/env.ts`'s `BackendEnv` interface, add `apifyScrapingConfirmed: boolean;` and `brightdataScrapingConfirmed: boolean;`, each with a comment mirroring `blurFacesBeforeAi`'s existing comment style (default-ON rationale, kill-switch framing, cite FIND-004/AD-32).
-  - [ ] In `loadBackendEnv()`, add `apifyScrapingConfirmed: parseBooleanDefaultOn(process.env.APIFY_SCRAPING_CONFIRMED, 'APIFY_SCRAPING_CONFIRMED'),` and the Bright Data equivalent — reuse the existing exported `parseBooleanDefaultOn` function verbatim (already exported from this same file for `BLUR_FACES_BEFORE_AI`); do not write a second boolean parser.
-  - [ ] Add `APIFY_SCRAPING_CONFIRMED=` and `BRIGHTDATA_SCRAPING_CONFIRMED=` to root `.env.example`, each commented as a default-true kill switch (set to `false` to disable that vendor's calls pending DPA reconfirmation), under the existing Apify/Bright Data env var sections.
-- [ ] **Task 4: Tests** (AC: 10)
-  - [ ] Create `apps/backend/src/lib/vendor-gateway/guarded-call.test.ts` using `node:test` + `node:assert/strict` against the real local `db` client — mirror `apps/backend/src/lib/geolocation/cache-store.test.ts`'s shape (delete any pre-existing row for the test's `lockKey` before each sub-test; assert both the thrown/returned value and, where relevant, the raw `vendor_call_locks` row state via a direct `db.select()`).
-  - [ ] Cover every scenario listed in AC10. For the timeout case, use a `call(signal)` thunk that never resolves (`new Promise(() => {})`) against a short `timeoutMs` (e.g. `50`) so the test stays fast — do not rely on a real slow network call. Additionally assert the thunk's received `signal` is aborted after the timeout fires (e.g. attach `signal.addEventListener('abort', ...)` inside the thunk and assert it fired, or poll `signal.aborted`).
-  - [ ] For the busy-lock case, pre-insert a row with `lockedUntil` in the future for the same `lockKey` before calling `callVendor`, and assert `VendorKeyBusyError` is thrown without the thunk ever being invoked (spy/counter on `call`).
-  - [ ] For the expired-lock case, pre-insert a row with `lockedUntil` in the past, and assert the claim succeeds (the `WHERE locked_until < now()` branch of the upsert).
-- [ ] **Task 5: Verification** (AC: 1-10)
-  - [ ] `pnpm --filter database run generate` produced exactly one new migration file, correctly numbered (Task 1).
-  - [ ] `pnpm --filter backend exec tsx --test src/lib/vendor-gateway/guarded-call.test.ts` passes.
-  - [ ] `pnpm build` and `pnpm lint` are clean at the repo root for `packages/database` and `apps/backend`.
-  - [ ] Confirm via `git grep` that no file under `apps/backend/src/lib/ai-gateway/` or `apps/backend/src/lib/scraper/` was modified by this story (AC9) — this story is additive-only.
+- [x] **Task 1: Add the `vendor_call_locks` table** (AC: 8)
+  - [x] In `packages/database/schema.ts`, add `export const vendorCallLocks = pgTable('vendor_call_locks', { lockKey: text('lock_key').primaryKey(), lockedUntil: timestamp('locked_until', { withTimezone: true }).notNull() });` — deliberately minimal per AD-32 Rule 2's literal shape: no `id`/`uuid`, no `timestamps`, no soft delete (this is a lease row, not a domain entity).
+  - [x] Immediately before generating the migration, run `git fetch origin master` and confirm the latest file in `packages/database/migrations/` on `origin/master` is still the expected next-after number (`0075_fat_mariko_yashida.sql` was the latest as of this story's creation on 2026-10-06 — re-verify, do not assume it still is). If a newer migration landed since, pull/rebase first so drizzle-kit's auto-incremented number (expected `0076` or later) doesn't collide with one another branch already claimed.
+  - [x] Run the repo's drizzle-kit generate command (`pnpm --filter database run generate` or equivalent — check `packages/database/package.json` scripts) to produce the migration file. **Never hand-author or hand-number the migration file** — let drizzle-kit name it from its own journal sequence.
+  - [x] Run the repo's local migration script (`pnpm --filter database run migrate`, matching this session's own startup-hook output) to apply it locally before writing tests against it.
+- [x] **Task 2: Build `apps/backend/src/lib/vendor-gateway/guarded-call.ts`** (AC: 1, 2, 3, 4, 5, 6, 7, 9)
+  - [x] Define and export: `export type VendorName = 'gemini' | 'apify' | 'brightdata';`, `export class VendorKeyBusyError extends Error`, `export class VendorDpaNotConfirmedError extends Error`, `export class VendorCallTimeoutError extends Error` (each setting `this.name` to its own class name, mirroring `gemini-client.ts`'s existing error-class pattern).
+  - [x] Define `export interface CallVendorOptions<T> { lockKey?: string; timeoutMs: number; maxAttempts?: number; lockTtlMs?: number; isTransient: (error: unknown) => boolean; call: (signal: AbortSignal) => Promise<T>; }` and `export async function callVendor<T>(vendor: VendorName, opts: CallVendorOptions<T>): Promise<T>`.
+  - [x] Implement the per-attempt sequence exactly as AD-32 Rule 1 orders it, repeated by the outer retry loop (bounded by `opts.maxAttempts ?? 3`): (a) if `vendor !== 'gemini'`, run the DPA-gate check (AC7) — throw `VendorDpaNotConfirmedError` and return immediately (no retry, no lock claim) on failure; (b) if `opts.lockKey` is set, claim the lock (AC2) — throw `VendorKeyBusyError` and return immediately (no retry) on a busy lock; (c) create a fresh `AbortController` for this attempt and race `opts.call(controller.signal)` against a `setTimeout`-based timer of `opts.timeoutMs` — on expiry, call `controller.abort()` then throw `VendorCallTimeoutError` (AC5); this bounds every call even if the thunk ignores the signal, while a signal-aware thunk gets real cancellation; (d) release the lock in a `finally`, if claimed (AC3); (e) on any thrown error from (a)-(c) other than the two immediate-throw cases, if `opts.isTransient(error)` is `true` and attempts remain, `await` `computeBackoffDelayMs(attempt, ...)` (imported from `@festgrid/domain`, same as `adapter.ts` already does) then loop; otherwise rethrow.
+  - [x] Lock claim (step b) implementation: used Drizzle's idiomatic `.insert(vendorCallLocks).values(...).onConflictDoUpdate({ target: vendorCallLocks.lockKey, set: {...}, setWhere: sql\`${vendorCallLocks.lockedUntil} < now()\` }).returning()` against the existing `db` client (`apps/backend/src/db/client.ts`) — zero returned rows means busy. Confirmed Drizzle `0.30.10`'s `onConflictDoUpdate` config shape exposes `setWhere` (the UPDATE...WHERE clause) distinct from the deprecated `where`/`targetWhere` (which govern the conflict-target's own partial-index predicate) — `setWhere` is the one that reproduces AD-32's literal `DO UPDATE ... WHERE locked_until < now()` semantics exactly (verified by reading the installed package's `.d.ts`), so no raw-SQL fallback was needed.
+  - [x] TTL (`lockTtlMs`) default: implemented as `Math.max(opts.timeoutMs * 2, 60_000)` (floor of 60s) when `opts.lockTtlMs` is omitted.
+  - [x] DPA gate (step a) implementation: `vendor === 'apify' ? env.apifyScrapingConfirmed : env.brightdataScrapingConfirmed`, both via `loadBackendEnv()`/`parseBooleanDefaultOn` (Task 3). Gemini branch returns immediately with zero DPA-flag reads, per AC7.
+- [x] **Task 3: Add the two new DPA-gate env vars** (AC: 7)
+  - [x] In `apps/backend/src/env.ts`'s `BackendEnv` interface, added `apifyScrapingConfirmed: boolean;` and `brightdataScrapingConfirmed: boolean;`, each commented mirroring `blurFacesBeforeAi`'s style (default-ON rationale, kill-switch framing, cites FIND-004/AD-32).
+  - [x] In `loadBackendEnv()`, added `apifyScrapingConfirmed: parseBooleanDefaultOn(process.env.APIFY_SCRAPING_CONFIRMED, 'APIFY_SCRAPING_CONFIRMED'),` and the Bright Data equivalent, reusing the existing exported `parseBooleanDefaultOn` verbatim.
+  - [x] Added `APIFY_SCRAPING_CONFIRMED=` and `BRIGHTDATA_SCRAPING_CONFIRMED=` to root `.env.example`, each commented as a default-true kill switch, under the existing Apify/Bright Data env var sections.
+- [x] **Task 4: Tests** (AC: 10)
+  - [x] Created `apps/backend/src/lib/vendor-gateway/guarded-call.test.ts` using `node:test` + `node:assert/strict` against the real local `db` client — mirrors `cache-store.test.ts`'s shape (deletes any pre-existing row for each test's `lockKey` before/after; asserts both thrown/returned values and, where relevant, raw `vendor_call_locks` row state via `db.select()`).
+  - [x] Covers every scenario in AC10, including the timeout case (`new Promise(() => {})` against `timeoutMs: 50`) and, per the Pre-Coding Gate amendment, a dedicated case asserting the thunk's received `AbortSignal` fires its `abort` event when the timeout elapses.
+  - [x] Busy-lock case: pre-inserts a row with `lockedUntil` in the future, asserts `VendorKeyBusyError` with a `callInvoked` flag proving the thunk never ran.
+  - [x] Expired-lock case: pre-inserts a row with `lockedUntil` in the past, asserts the claim succeeds.
+- [x] **Task 5: Verification** (AC: 1-10)
+  - [x] `pnpm --filter @festgrid/database generate` produced exactly one new migration file, `0076_abandoned_wendell_rand.sql`, re-verified against `origin/master` (still `0075` latest) immediately before generation.
+  - [x] `cd apps/backend && TZ=UTC NODE_ENV=test npx tsx --test src/lib/vendor-gateway/guarded-call.test.ts` passes (16/16, 0 leftover `vendor_call_locks` rows after the run, confirmed via `psql`).
+  - [x] `pnpm --filter backend build`/`pnpm --filter backend lint` and `pnpm --filter @festgrid/database build`/`lint` are clean (0 errors; backend lint's pre-existing warning set is unaffected). Two pre-existing test fixtures (`rehost-post-image.test.ts`, `upload-face-blur-thumbnail.test.ts`) that construct a literal `BackendEnv` object needed the two new required fields added to stay type-correct — a direct, necessary consequence of this story's additive interface change, not a scope expansion. `@festgrid/graphql-select` (an unrelated, previously-unbuilt workspace package several backend files import) was also built so the backend `tsc` build could resolve its types — a one-time prerequisite build, no source changes to that package.
+  - [x] Confirmed via `git grep`/`git diff --stat` against the story's `baseline_commit` that no file under `apps/backend/src/lib/ai-gateway/` or `apps/backend/src/lib/scraper/` was modified by this story (AC9) — additive-only.
 
 ## Dev Notes
 
@@ -149,19 +149,19 @@ so that no call site can bypass locking, hang indefinitely, retry without backof
 
 ## Testing Requirements
 
-- [ ] Integration tests (required, real local DB, no mocks): `apps/backend/src/lib/vendor-gateway/guarded-call.test.ts` — every scenario in AC10.
-- [ ] Unit tests: Not applicable in the `packages/domain` 100%-coverage sense — this module lives in `apps/backend` and is covered by the integration suite above per the testing-trophy philosophy.
-- [ ] E2E tests: Not applicable — no UI, no adopted call site yet.
-- [ ] Manual verification (deferred, tracked): real end-to-end behavior against a live Gemini/Apify/Bright Data call is only observable once Stories 0.i2b/0.i2c/0.i2d adopt `callVendor` — this story's own verification is necessarily limited to the wrapper's internal behavior against a real DB and a fake `call()` thunk.
+- [x] Integration tests (required, real local DB, no mocks): `apps/backend/src/lib/vendor-gateway/guarded-call.test.ts` — every scenario in AC10, 16/16 passing.
+- [x] Unit tests: Not applicable in the `packages/domain` 100%-coverage sense — this module lives in `apps/backend` and is covered by the integration suite above per the testing-trophy philosophy.
+- [x] E2E tests: Not applicable — no UI, no adopted call site yet.
+- [x] Manual verification (deferred, tracked): real end-to-end behavior against a live Gemini/Apify/Bright Data call is only observable once Stories 0.i2b/0.i2c/0.i2d adopt `callVendor` — this story's own verification is necessarily limited to the wrapper's internal behavior against a real DB and a fake `call()` thunk. Tracked, not a gap in this story's own DoD.
 
 ## Deliverables Checklist
 
-- [ ] `apps/backend/src/lib/vendor-gateway/guarded-call.ts` exporting `callVendor`, `VendorName`, `CallVendorOptions<T>`, `VendorKeyBusyError`, `VendorDpaNotConfirmedError`, `VendorCallTimeoutError`.
-- [ ] `vendor_call_locks` table in `packages/database/schema.ts` + a drizzle-kit-generated migration applied locally.
-- [ ] `apps/backend/src/env.ts`/`.env.example` document `APIFY_SCRAPING_CONFIRMED`/`BRIGHTDATA_SCRAPING_CONFIRMED`.
-- [ ] `guarded-call.test.ts` passing, covering every AC10 scenario against the real migrated table.
-- [ ] `pnpm build`/`pnpm lint` pass for `packages/database`, `apps/backend`.
-- [ ] `epics.md`/`sprint-status.yaml`/`backlog.yaml` already carry Story 0.i2d and the BUG-012/FIND-004 promotion (done during this story's creation — confirm still present, do not re-do).
+- [x] `apps/backend/src/lib/vendor-gateway/guarded-call.ts` exporting `callVendor`, `VendorName`, `CallVendorOptions<T>`, `VendorKeyBusyError`, `VendorDpaNotConfirmedError`, `VendorCallTimeoutError`.
+- [x] `vendor_call_locks` table in `packages/database/schema.ts` + a drizzle-kit-generated migration applied locally.
+- [x] `apps/backend/src/env.ts`/`.env.example` document `APIFY_SCRAPING_CONFIRMED`/`BRIGHTDATA_SCRAPING_CONFIRMED`.
+- [x] `guarded-call.test.ts` passing, covering every AC10 scenario against the real migrated table.
+- [x] `pnpm build`/`pnpm lint` pass for `packages/database`, `apps/backend`.
+- [x] `epics.md`/`sprint-status.yaml`/`backlog.yaml` already carry Story 0.i2d and the BUG-012/FIND-004 promotion (confirmed still present; not re-done).
 
 ## Out of Scope
 
@@ -175,25 +175,62 @@ so that no call site can bypass locking, hang indefinitely, retry without backof
 
 ## Definition of Done
 
-- [ ] AC 1-10 satisfied.
-- [ ] `guarded-call.test.ts` passing against the real migrated table (Testing Requirements).
-- [ ] `pnpm lint` and `pnpm build` passing for `packages/database`, `apps/backend`.
-- [ ] Migration generated with a correct, non-colliding number (re-verified against `origin/master` immediately before generation/commit) and applied locally.
-- [ ] `git grep` confirms no modification to any `ai-gateway/`/`scraper/` file (additive-only).
-- [ ] Pre-Coding Approval Gate explicitly approved by the user before implementation begins, including the timeout-design, lock-TTL-formula, and `maxAttempts`-default acceptances.
+- [x] AC 1-10 satisfied.
+- [x] `guarded-call.test.ts` passing against the real migrated table (Testing Requirements).
+- [x] `pnpm lint` and `pnpm build` passing for `packages/database`, `apps/backend`.
+- [x] Migration generated with a correct, non-colliding number (re-verified against `origin/master` immediately before generation/commit) and applied locally.
+- [x] `git grep` confirms no modification to any `ai-gateway/`/`scraper/` file (additive-only).
+- [x] Pre-Coding Approval Gate explicitly approved by the user before implementation begins, including the timeout-design (approved with the AbortSignal amendment), lock-TTL-formula, and `maxAttempts`-default acceptances.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — all tasks/subtasks checked, all ACs satisfied, tests/lint/build green. Status set to "review".
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Sonnet 5 (claude-sonnet-5)
 
 ### Debug Log References
 
+- `pnpm --filter @festgrid/domain build` / `pnpm --filter @festgrid/database generate` → `0076_abandoned_wendell_rand.sql` (origin/master re-checked immediately before, still `0075` latest).
+- `pnpm --filter @festgrid/database run migrate` → applied cleanly (`drizzle`/`__drizzle_migrations` NOTICEs only, no errors).
+- `pnpm --filter @festgrid/database build` → clean.
+- `cd apps/backend && TZ=UTC NODE_ENV=test npx tsx --test src/lib/vendor-gateway/guarded-call.test.ts` → 16/16 pass; `psql` confirms 0 leftover `vendor_call_locks` rows afterward.
+- `pnpm --filter @festgrid/graphql-select build` → one-time prerequisite build (pre-existing unbuilt workspace dependency several backend files import; no source change to that package).
+- `pnpm --filter backend build` → initially failed with 2 pre-existing-file type errors (`rehost-post-image.test.ts`, `upload-face-blur-thumbnail.test.ts`) caused by this story's additive `BackendEnv` fields; fixed by adding the two new fields to both fixtures; re-run clean.
+- `pnpm --filter backend lint` → 0 errors (1570 pre-existing warnings, unrelated to this story's files).
+- `cd apps/backend && TZ=UTC NODE_ENV=test npx tsx --test src/lib/ai-processor/rehost-post-image.test.ts` and `.../upload-face-blur-thumbnail.test.ts` → both still pass after the `BackendEnv` fixture fix.
+- `git grep`/`git diff --stat <baseline_commit> HEAD -- apps/backend/src/lib/ai-gateway apps/backend/src/lib/scraper` → empty (AC9 confirmed).
+
 ### Completion Notes List
 
+- Implemented `callVendor` exactly per AD-32 Rules 1-6, with the Pre-Coding Approval Gate's one amendment: `callVendor` now owns a per-attempt `AbortController`, passes `controller.signal` into `opts.call(signal)`, and calls `controller.abort()` on timeout — so a signal-aware thunk gets real cancellation on top of the `Promise.race` wrapper-level bound. AC5, Task 2, Task 4, and the relevant Dev Notes rationale were updated in this file to record the amendment before coding began.
+- Lock claim uses Drizzle's `onConflictDoUpdate({ setWhere: ... })` (not the deprecated `where`, not `targetWhere`) — confirmed by reading the installed `drizzle-orm@0.30.10` `.d.ts` that `setWhere` is the clause governing the `DO UPDATE ... WHERE` predicate AD-32 Rule 2 specifies; no raw-SQL fallback was needed.
+- `vendor_call_locks` ships via drizzle-kit migration `0076_abandoned_wendell_rand.sql`, generated only after re-confirming `origin/master`'s latest migration was still `0075`.
+- Two new env vars (`apifyScrapingConfirmed`/`brightdataScrapingConfirmed`) were added to `BackendEnv` additively; this required updating two pre-existing test fixtures (`rehost-post-image.test.ts`, `upload-face-blur-thumbnail.test.ts`) that construct a literal `BackendEnv` object, and a one-time build of the previously-unbuilt `@festgrid/graphql-select` workspace package so `pnpm --filter backend build` could resolve its types — both are direct, necessary consequences of this story's own change, not scope creep.
+- Confirmed zero rows left behind in `vendor_call_locks` after the full test run (manual `psql` check) and zero modification to `ai-gateway/`/`scraper/` (AC9, `git diff --stat` against `baseline_commit`).
+- Per the user's lane rules, no git commit/push was made by this agent (the orchestrator handles commits); `bmad-code-review` was not run; the follow-up tracker file was not edited.
+
 ### File List
+
+- **New:**
+  - `apps/backend/src/lib/vendor-gateway/guarded-call.ts`
+  - `apps/backend/src/lib/vendor-gateway/guarded-call.test.ts`
+  - `packages/database/migrations/0076_abandoned_wendell_rand.sql`
+  - `packages/database/migrations/meta/0076_snapshot.json`
+- **Modified:**
+  - `packages/database/schema.ts` (new `vendorCallLocks` table)
+  - `packages/database/migrations/meta/_journal.json` (new entry for 0076)
+  - `apps/backend/src/env.ts` (`apifyScrapingConfirmed`/`brightdataScrapingConfirmed` fields + loaders)
+  - `.env.example` (`APIFY_SCRAPING_CONFIRMED`/`BRIGHTDATA_SCRAPING_CONFIRMED`)
+  - `apps/backend/src/lib/ai-processor/rehost-post-image.test.ts` (added the two new required `BackendEnv` fields to its mock env fixture)
+  - `apps/backend/src/lib/ai-processor/upload-face-blur-thumbnail.test.ts` (same fixture fix)
+  - `_bmad-output/implementation-artifacts/0-i2a-build-the-guarded-vendor-call-wrapper.md` (this story file — Pre-Coding Gate amendment, task checkboxes, Dev Agent Record, Status)
+  - `_bmad-output/implementation-artifacts/sprint-status.yaml` (status: ready-for-dev → in-progress → review)
+
+### Change Log
+
+- 2026-10-06: Pre-Coding Approval Gate approved with one amendment (user decision): `callVendor` now creates a per-attempt `AbortController` and passes its signal into `opts.call(signal)`, aborting on timeout, in addition to the `Promise.race` wrapper-level bound. AC5, Task 2, Task 4, and Dev Notes updated accordingly before implementation began.
+- 2026-10-06: Implemented Tasks 1-5 (schema/migration, `guarded-call.ts`, env vars, tests, verification). All 10 ACs satisfied. `guarded-call.test.ts` 16/16 passing against the real local DB. `pnpm build`/`pnpm lint` clean for `@festgrid/database` and `backend`. Fixed two pre-existing `BackendEnv` test fixtures made incomplete by this story's additive interface change. Status set to "review".
