@@ -1,5 +1,5 @@
 # generated: 2026-07-29T02:58:30Z
-# last_updated: 2026-09-21T00:00:00Z
+# last_updated: 2026-10-06T00:00:00Z
 # project: festgrid
 # project_key: NOKEY
 # tracking_system: file-system
@@ -340,6 +340,19 @@ development_status:
   # Promotes FIND-052 (deferred from Story 0.45 code review, 2026-09-26; investigated
   # 2026-10-05, see deferred-work.md). Created via bmad-create-story, 2026-10-05.
   0-48-mount-stable-masonry-engine-fix-reflow-remount-and-focus-loss: review
+  # added 2026-10-06 via bmad-create-story: IDEA-060 (Architecture Spine AD-33, Z-Index
+  # Layering Tiers). A single backlog row, not a bmad-form-epics cluster (fails
+  # epic-formation-gate.md's >=3-row criterion 1), so this is a plain Epic 0
+  # sequential-number + lettered-suffix split (0.7/0.7a, 0.15/0.15a precedent), not a new
+  # epic-N.i<k>, per user decision via AskUserQuestion. 0.49 is the mechanism (Tailwind
+  # zIndex tokens + OVERLAY_MODAL_Z); 0.49a-0.49d are adoption, grouped by consumer area
+  # per user decision; 0.49e is the Vitest ratchet (ships last, depends on 0.49a-0.49d).
+  0-49-add-z-index-layering-tier-tokens-and-the-overlay-modal-z-constant: ready-for-dev
+  0-49a-migrate-the-radix-ui-wrappers-to-the-overlay-modal-tier: ready-for-dev
+  0-49b-migrate-appshell-usermenus-backdrop-and-the-blocking-loader-to-their-tiers: ready-for-dev
+  0-49c-migrate-the-events-feature-overlay-menu-tooltip-sites-and-the-summary-bar: ready-for-dev
+  0-49d-migrate-the-location-and-subscribe-account-suggestion-dropdowns-to-overlay-modal: ready-for-dev
+  0-49e-ratchet-no-raw-tier-value-class-or-inlined-overlay-modal-literal: ready-for-dev
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.
