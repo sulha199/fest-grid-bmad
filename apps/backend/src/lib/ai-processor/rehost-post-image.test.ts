@@ -84,6 +84,8 @@ test('rehostPostImage integration/unit tests', async (t) => {
     accountClassificationClaimTtlMinutes: 30,
     faceBlurMinRemainingTimeMs: 60000,
     blurFacesBeforeAi: false,
+    apifyScrapingConfirmed: true,
+    brightdataScrapingConfirmed: true,
   };
 
   await t.test('Case A: happy path - first upload with no prior durableImageUrl', async () => {
