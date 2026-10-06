@@ -6,8 +6,9 @@ import { TabbedShell } from "@festgrid/ui"
 import { ActorRunsContent } from "./actor-runs-content"
 import { UnprocessedPayloadsContent } from "./unprocessed-payloads-content"
 import { ModeratorAccountsContent } from "./moderator-accounts-content"
+import { DuplicateEventsContent } from "./duplicate-events-content"
 
-const tabEnum = parseAsStringEnum(['actor-runs', 'unprocessed-payloads', 'accounts']).withDefault('actor-runs')
+const tabEnum = parseAsStringEnum(['actor-runs', 'unprocessed-payloads', 'accounts', 'duplicate-events']).withDefault('actor-runs')
 
 export function ModeratorToolsContent() {
   const t = useTranslations("ModeratorToolsPage")
@@ -28,6 +29,11 @@ export function ModeratorToolsContent() {
       key: "accounts",
       label: t("accountsTabLabel"),
       Component: ModeratorAccountsContent,
+    },
+    {
+      key: "duplicate-events",
+      label: t("duplicateEventsTabLabel"),
+      Component: DuplicateEventsContent,
     },
   ]
 

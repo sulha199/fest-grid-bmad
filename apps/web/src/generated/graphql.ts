@@ -541,6 +541,13 @@ export type Mutation = {
   resolveReport: Report;
   resolveReportsForEvent: Array<Report>;
   resolveScheduleTimezone: ResolveScheduleTimezoneResult;
+  /**
+   * Accepts or rejects a suggested event match (Story 3.6w AC1/AC3). ACCEPT merges the suggestion's
+   * `eventId` (the newly-ingested event) into its `candidateEventId` (the existing event), via
+   * `mergeEvents`, and returns the resulting merge id. REJECT performs no merge -- a recorded
+   * dismissal only.
+   */
+  resolveSuggestedEventMatch: SuggestedEventMatchResolution;
   restoreEvent: Event;
   saveAIEventFilter: AiEventFilter;
   selectPostsForExtraction: Array<Post>;
@@ -552,6 +559,12 @@ export type Mutation = {
   toggleCalendarAddition: ToggleCalendarAdditionResult;
   toggleFavorite: ToggleFavoriteResult;
   triggerAccountScrape: TriggerAccountScrapeResult;
+  /**
+   * Reverses a merge's full repoint set (links, favorites, calendar entries, reports, slug aliases,
+   * notifiedAt) exactly, via the journal `mergeEvents` wrote (Story 3.6w AC7). Returns the restored
+   * (un-merged) event.
+   */
+  undoEventMerge: Event;
   unregisterFcmToken: Scalars['Boolean']['output'];
   updateUserLocation: UserLocation;
   updateUserSettings: UserSettings;
@@ -710,6 +723,12 @@ export type MutationResolveScheduleTimezoneArgs = {
 };
 
 
+export type MutationResolveSuggestedEventMatchArgs = {
+  action: SuggestedEventMatchAction;
+  id: Scalars['ID']['input'];
+};
+
+
 export type MutationRestoreEventArgs = {
   action: SoftDeleteAction;
   id: Scalars['ID']['input'];
@@ -772,6 +791,11 @@ export type MutationToggleFavoriteArgs = {
 
 export type MutationTriggerAccountScrapeArgs = {
   accountId: Scalars['ID']['input'];
+};
+
+
+export type MutationUndoEventMergeArgs = {
+  mergeId: Scalars['ID']['input'];
 };
 
 
@@ -928,7 +952,10 @@ export type Query = {
    * Combined count of items awaiting moderator action across Moderator Items
    * (Section 3.9.3): pending Reports plus Default Location changes in
    * PENDING_REVIEW or AWAITING_APPROVAL status (Section 3.7/4.14), plus pending
-   * AccountTypeClassificationReview rows (reviewedAt IS NULL, Story 4.7c).
+   * AccountTypeClassificationReview rows (reviewedAt IS NULL, Story 4.7c), plus
+   * pending suggested event-match rows (event_match_candidates.status = 'pending',
+   * Story 3.6w, PRD amendment 2026-10-02) awaiting review on the "Duplicate
+   * Events" Moderator Tools tab.
    * Powers the Moderator Pending-Item Badge (added 2026-08-28). Moderator-gated like every
    * other Moderator Items query -- the frontend must already know to only call
    * this for a moderator (the same `me.role` check that gates the nav entry
@@ -956,6 +983,12 @@ export type Query = {
   relatedEventIds: Array<RelatedEventGroup>;
   reportedEvents: Array<Report>;
   socialMediaAccountProfileByAccountId?: Maybe<SocialMediaAccountProfile>;
+  /**
+   * Pending suggested event-match rows awaiting moderator review (Story 3.6w AC1/AC5), oldest-
+   * queued-first. Always filtered to status: PENDING -- there is no current need to list
+   * already-accepted/rejected suggestions anywhere in the UI.
+   */
+  suggestedEventMatches: SuggestedEventMatchConnection;
   voteRegionBreakdown: Array<RegionVoteBucket>;
   votedAccountSuggestions: Array<RankedAccountVote>;
   widgetById?: Maybe<Widget>;
@@ -1080,6 +1113,12 @@ export type QueryReportedEventsArgs = {
 export type QuerySocialMediaAccountProfileByAccountIdArgs = {
   accountId: Scalars['String']['input'];
   platform: Scalars['String']['input'];
+};
+
+
+export type QuerySuggestedEventMatchesArgs = {
+  after?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
 };
 
 
@@ -1297,6 +1336,45 @@ export type Subscription = {
   pendingExtractionCount: Scalars['Int']['output'];
 };
 
+export type SuggestedEventMatch = {
+  __typename?: 'SuggestedEventMatch';
+  candidateEvent: Event;
+  createdAt: Scalars['String']['output'];
+  event: Event;
+  id: Scalars['ID']['output'];
+  score: Scalars['Float']['output'];
+  status: SuggestedEventMatchStatus;
+};
+
+export enum SuggestedEventMatchAction {
+  Accept = 'ACCEPT',
+  Reject = 'REJECT'
+}
+
+export type SuggestedEventMatchConnection = {
+  __typename?: 'SuggestedEventMatchConnection';
+  edges: Array<SuggestedEventMatchEdge>;
+  pageInfo: PageInfo;
+};
+
+export type SuggestedEventMatchEdge = {
+  __typename?: 'SuggestedEventMatchEdge';
+  cursor: Scalars['String']['output'];
+  node: SuggestedEventMatch;
+};
+
+export type SuggestedEventMatchResolution = {
+  __typename?: 'SuggestedEventMatchResolution';
+  mergeId?: Maybe<Scalars['ID']['output']>;
+  suggestion: SuggestedEventMatch;
+};
+
+export enum SuggestedEventMatchStatus {
+  Accepted = 'accepted',
+  Pending = 'pending',
+  Rejected = 'rejected'
+}
+
 export enum TemporalFilter {
   Today = 'TODAY',
   Upcoming = 'UPCOMING'
@@ -1477,6 +1555,8 @@ export enum WidgetTheme {
 
 
 
+
+
 export type QueryActorRunsQueryVariables = Exact<{
   filters?: ActorRunFilters | null | undefined;
   first?: number | null | undefined;
@@ -1492,6 +1572,29 @@ export type ReplayActorRunMutationVariables = Exact<{
 
 
 export type ReplayActorRunMutation = { replayActorRun: { success: boolean, postsPersisted: number, message: string } };
+
+export type QuerySuggestedEventMatchesQueryVariables = Exact<{
+  first?: number | null | undefined;
+  after?: string | null | undefined;
+}>;
+
+
+export type QuerySuggestedEventMatchesQuery = { suggestedEventMatches: { edges: Array<{ cursor: string, node: { id: string, score: number, status: SuggestedEventMatchStatus, event: { id: string, slug: string, eventName: string, location: string | null, imageUrl: string | null, durableImageUrl: string | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null }> }, candidateEvent: { id: string, slug: string, eventName: string, location: string | null, imageUrl: string | null, durableImageUrl: string | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null }> } } }>, pageInfo: { hasNextPage: boolean, endCursor: string | null } } };
+
+export type ResolveSuggestedEventMatchMutationVariables = Exact<{
+  id: string | number;
+  action: SuggestedEventMatchAction;
+}>;
+
+
+export type ResolveSuggestedEventMatchMutation = { resolveSuggestedEventMatch: { mergeId: string | null, suggestion: { id: string, status: SuggestedEventMatchStatus } } };
+
+export type UndoEventMergeMutationVariables = Exact<{
+  mergeId: string | number;
+}>;
+
+
+export type UndoEventMergeMutation = { undoEventMerge: { id: string } };
 
 export type QueryModeratorAccountProfilesQueryVariables = Exact<{
   filters?: ModeratorAccountProfileFilters | null | undefined;
@@ -2144,6 +2247,131 @@ export const useReplayActorRunMutation = <
       {
     mutationKey: ['replayActorRun'],
     mutationFn: (variables?: ReplayActorRunMutationVariables) => fetcher<ReplayActorRunMutation, ReplayActorRunMutationVariables>(client, ReplayActorRunDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const QuerySuggestedEventMatchesDocument = new TypedDocumentString(`
+    query QuerySuggestedEventMatches($first: Int, $after: String) {
+  suggestedEventMatches(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        score
+        status
+        event {
+          id
+          slug
+          eventName
+          location
+          imageUrl
+          durableImageUrl
+          schedules {
+            id
+            isMainSchedule
+            eventStartDate
+            eventEndDate
+            eventStartTime
+            eventEndTime
+            timezone
+          }
+        }
+        candidateEvent {
+          id
+          slug
+          eventName
+          location
+          imageUrl
+          durableImageUrl
+          schedules {
+            id
+            isMainSchedule
+            eventStartDate
+            eventEndDate
+            eventStartTime
+            eventEndTime
+            timezone
+          }
+        }
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+  }
+}
+    `);
+
+export const useQuerySuggestedEventMatchesQuery = <
+      TData = QuerySuggestedEventMatchesQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: QuerySuggestedEventMatchesQueryVariables,
+      options?: Omit<UseQueryOptions<QuerySuggestedEventMatchesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<QuerySuggestedEventMatchesQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<QuerySuggestedEventMatchesQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['QuerySuggestedEventMatches'] : ['QuerySuggestedEventMatches', variables],
+    queryFn: fetcher<QuerySuggestedEventMatchesQuery, QuerySuggestedEventMatchesQueryVariables>(client, QuerySuggestedEventMatchesDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const ResolveSuggestedEventMatchDocument = new TypedDocumentString(`
+    mutation ResolveSuggestedEventMatch($id: ID!, $action: SuggestedEventMatchAction!) {
+  resolveSuggestedEventMatch(id: $id, action: $action) {
+    mergeId
+    suggestion {
+      id
+      status
+    }
+  }
+}
+    `);
+
+export const useResolveSuggestedEventMatchMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ResolveSuggestedEventMatchMutation, TError, ResolveSuggestedEventMatchMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ResolveSuggestedEventMatchMutation, TError, ResolveSuggestedEventMatchMutationVariables, TContext>(
+      {
+    mutationKey: ['ResolveSuggestedEventMatch'],
+    mutationFn: (variables?: ResolveSuggestedEventMatchMutationVariables) => fetcher<ResolveSuggestedEventMatchMutation, ResolveSuggestedEventMatchMutationVariables>(client, ResolveSuggestedEventMatchDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const UndoEventMergeDocument = new TypedDocumentString(`
+    mutation UndoEventMerge($mergeId: ID!) {
+  undoEventMerge(mergeId: $mergeId) {
+    id
+  }
+}
+    `);
+
+export const useUndoEventMergeMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<UndoEventMergeMutation, TError, UndoEventMergeMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<UndoEventMergeMutation, TError, UndoEventMergeMutationVariables, TContext>(
+      {
+    mutationKey: ['UndoEventMerge'],
+    mutationFn: (variables?: UndoEventMergeMutationVariables) => fetcher<UndoEventMergeMutation, UndoEventMergeMutationVariables>(client, UndoEventMergeDocument, variables, headers)(),
     ...options
   }
     )};

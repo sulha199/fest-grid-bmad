@@ -4,6 +4,7 @@ import { db } from '../../db/client.js';
 import type { EventInsertValues, ScheduleInsertValues, ProposedEventCorrection } from '@festgrid/domain/events';
 import { isOrganizerAuthoredPost } from '../posts/is-organizer-authored-post.js';
 import { activeOnly } from '@festgrid/graphql-select';
+import { findScheduleByStartDate } from './schedule-date-match.js';
 
 /**
  * AD-30 Rule 2's "drift guard" -- a single backend module owns every write to `events.postId`.
@@ -261,7 +262,7 @@ async function mergeSchedules(
   const matchedCurrentIds = new Set<string>();
 
   for (const newSchedule of newSchedules) {
-    const match = currentSchedules.find((s) => s.eventStartDate === newSchedule.eventStartDate && !matchedCurrentIds.has(s.id));
+    const match = findScheduleByStartDate(currentSchedules, newSchedule.eventStartDate, matchedCurrentIds);
 
     if (!match) {
       // A brand-new schedule inserted during enrichment is never auto-promoted to main --

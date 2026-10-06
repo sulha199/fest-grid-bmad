@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-05T23:20:21Z
+last_updated: 2026-10-06T05:02:48Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -1803,7 +1803,7 @@ development_status:
   # prerequisite for 3.6u's Related Events section (Task 3/5) -- must reach review/done first.
   3-6u-show-all-source-posts-and-related-events-on-the-event-detail-page: review
   3-6v-match-new-posts-to-existing-events-and-enrich-them-in-place: review
-  3-6w-let-moderators-merge-duplicate-events-with-slug-redirects: ready-for-dev
+  3-6w-let-moderators-merge-duplicate-events-with-slug-redirects: review
   3-6x-show-all-events-from-a-post-on-a-post-collection-page: review
   3-6y-respect-weekday-narrowed-schedules-in-day-of-week-filtering: review
   3-6z-automatically-enqueue-new-scraped-posts-for-extraction-within-quota: review

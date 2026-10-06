@@ -1,0 +1,65 @@
+enum SuggestedEventMatchStatus {
+  pending
+  accepted
+  rejected
+}
+
+enum SuggestedEventMatchAction {
+  ACCEPT
+  REJECT
+}
+
+# Story 3.6w (AC1, AC5) -- a mid-confidence match suggestion (Story 3.6v's event_match_candidates
+# row) awaiting moderator review. Reuses the existing Event type verbatim for both sides -- the
+# moderator UI needs the same eventName/location/schedules/image fields Query.events already
+# exposes, not a slim duplicate type.
+type SuggestedEventMatch {
+  id: ID!
+  event: Event!
+  candidateEvent: Event!
+  score: Float!
+  status: SuggestedEventMatchStatus!
+  createdAt: String!
+}
+
+type SuggestedEventMatchEdge {
+  node: SuggestedEventMatch!
+  cursor: String!
+}
+
+type SuggestedEventMatchConnection {
+  edges: [SuggestedEventMatchEdge!]!
+  pageInfo: PageInfo!
+}
+
+# `mergeId` is present only when `action: ACCEPT` committed a merge; null on REJECT.
+type SuggestedEventMatchResolution {
+  suggestion: SuggestedEventMatch!
+  mergeId: ID
+}
+
+extend type Query {
+  """
+  Pending suggested event-match rows awaiting moderator review (Story 3.6w AC1/AC5), oldest-
+  queued-first. Always filtered to status: PENDING -- there is no current need to list
+  already-accepted/rejected suggestions anywhere in the UI.
+  """
+  suggestedEventMatches(first: Int, after: String): SuggestedEventMatchConnection!
+}
+
+extend type Mutation {
+  """
+  Accepts or rejects a suggested event match (Story 3.6w AC1/AC3). ACCEPT merges the suggestion's
+  `eventId` (the newly-ingested event) into its `candidateEventId` (the existing event), via
+  `mergeEvents`, and returns the resulting merge id. REJECT performs no merge -- a recorded
+  dismissal only.
+  """
+  resolveSuggestedEventMatch(id: ID!, action: SuggestedEventMatchAction!): SuggestedEventMatchResolution!
+
+  """
+  Reverses a merge's full repoint set (links, favorites, calendar entries, reports, slug aliases,
+  notifiedAt) exactly, via the journal `mergeEvents` wrote (Story 3.6w AC7). Returns the restored
+  (un-merged) event.
+  """
+  undoEventMerge(mergeId: ID!): Event!
+}

@@ -1,0 +1,66 @@
+query QuerySuggestedEventMatches($first: Int, $after: String) {
+  suggestedEventMatches(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        score
+        status
+        event {
+          id
+          slug
+          eventName
+          location
+          imageUrl
+          durableImageUrl
+          schedules {
+            id
+            isMainSchedule
+            eventStartDate
+            eventEndDate
+            eventStartTime
+            eventEndTime
+            timezone
+          }
+        }
+        candidateEvent {
+          id
+          slug
+          eventName
+          location
+          imageUrl
+          durableImageUrl
+          schedules {
+            id
+            isMainSchedule
+            eventStartDate
+            eventEndDate
+            eventStartTime
+            eventEndTime
+            timezone
+          }
+        }
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+  }
+}
+
+mutation ResolveSuggestedEventMatch($id: ID!, $action: SuggestedEventMatchAction!) {
+  resolveSuggestedEventMatch(id: $id, action: $action) {
+    mergeId
+    suggestion {
+      id
+      status
+    }
+  }
+}
+
+mutation UndoEventMerge($mergeId: ID!) {
+  undoEventMerge(mergeId: $mergeId) {
+    id
+  }
+}

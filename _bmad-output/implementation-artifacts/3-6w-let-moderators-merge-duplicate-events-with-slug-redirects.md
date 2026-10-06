@@ -8,7 +8,7 @@ baseline_commit: d06b873dd3879e0c2d1ce202e10ee640ca3e5771
 
 - Epic: 3
 - Story ID: 3.6w
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -35,13 +35,13 @@ so that users keep their favorites and calendar entries and old links still work
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 (AC1, AC2) — Schema: suggestion status/resolution columns, and the merge journal table.** In `packages/database/schema.ts`:
+- [x] **Task 1 (AC1, AC2) — Schema: suggestion status/resolution columns, and the merge journal table.** In `packages/database/schema.ts`:
   - Add `suggestedEventMatchStatusEnum = pgEnum('suggested_event_match_status', ['pending', 'accepted', 'rejected'])`, declared once per the closed-enum-vocabulary convention (`correctionStatusEnum`/`reportStatusEnum` precedent).
   - Extend `eventMatchCandidates` with: `status: suggestedEventMatchStatusEnum('status').default('pending').notNull()`, `resolvedAt: timestamp('resolved_at', { withTimezone: true })`, `resolvedByModeratorId: uuid('resolved_by_moderator_id').references(() => users.id)` — mirroring the `reports`/`defaultLocationChangeRequests` resolved-row precedent exactly (same three-column shape, same semantics). Add `index('idx_event_match_candidates_status').on(t.status)` scoped to the moderator list's own read pattern (AC5's `suggestedEventMatches` query always filters `status = 'pending'`; a plain btree on `status` is sufficient at this table's expected low row volume — no partial-index precedent to match here, since `eventMatchCandidates` has no `deletedAt` column to scope against).
   - Add `eventMerges` (table name `event_merges`): `id: uuid().defaultRandom().primaryKey()`, `winnerEventId: uuid('winner_event_id').references(() => events.id, { onDelete: 'cascade' }).notNull()`, `loserEventId: uuid('loser_event_id').references(() => events.id, { onDelete: 'cascade' }).notNull()`, `suggestionId: uuid('suggestion_id').references(() => eventMatchCandidates.id, { onDelete: 'set null' })` (nullable — null for a future direct/manual merge, per AC10; always set for this story's own suggested-match-driven path), `performedByModeratorId: uuid('performed_by_moderator_id').references(() => users.id).notNull()`, `loserPriorSlug: text('loser_prior_slug').notNull()`, `winnerNotifiedAtChanged: boolean('winner_notified_at_changed').default(false).notNull()`, `winnerPriorNotifiedAt: timestamp('winner_prior_notified_at', { withTimezone: true })`, `loserPriorNotifiedAt: timestamp('loser_prior_notified_at', { withTimezone: true })`, `repointedFavoriteIds: jsonb('repointed_favorite_ids').$type<string[]>().default([]).notNull()`, `dedupedFavoriteIds: jsonb('deduped_favorite_ids').$type<string[]>().default([]).notNull()`, `repointedCalendarAdditionIds: jsonb('repointed_calendar_addition_ids').$type<Array<{ id: string; previousScheduleId: string }>>().default([]).notNull()`, `dedupedCalendarAdditionIds: jsonb('deduped_calendar_addition_ids').$type<string[]>().default([]).notNull()`, `repointedReportIds: jsonb('repointed_report_ids').$type<string[]>().default([]).notNull()`, `repointedEventPostIds: jsonb('repointed_event_post_ids').$type<string[]>().default([]).notNull()` (the `post_id`s whose `event_posts` row moved loser→winner), `repointedAliasIds: jsonb('repointed_alias_ids').$type<string[]>().default([]).notNull()`, `...timestamps`, `undoneAt: timestamp('undone_at', { withTimezone: true })`. No `relations()` helper, matching the `eventPosts`/`eventMatchCandidates` precedent (link/journal tables in this schema don't get one).
   - Generate (`pnpm --filter @festgrid/database generate`) and apply (`pnpm --filter @festgrid/database migrate`) locally; check the generated SQL into the repo (next sequential migration after Story 3.6v's `0070_hot_captain_marvel.sql`).
 
-- [ ] **Task 2 (AC1, AC2, AC9) — Backend: the merge + undo write module.** New `apps/backend/src/lib/events/merge-events.ts`:
+- [x] **Task 2 (AC1, AC2, AC9) — Backend: the merge + undo write module.** New `apps/backend/src/lib/events/merge-events.ts`:
   - `export async function mergeEvents(executor: DbExecutor, winnerId: string, loserId: string, moderatorId: string, suggestionId: string | null): Promise<{ merge: EventMergeRow; winner: EventRow }>` — reject if `winnerId === loserId`, if either event is already soft-deleted/merged, or if `loserId === <some event already pointing mergedIntoEventId at winnerId's own merged target>` (a merged event is never itself a valid winner or loser again — the "winner must not itself be merged" rule, AD-30 Rule 9). Inside one `executor.transaction`-composable sequence (this function takes an injected `executor`/`tx`, same `DbExecutor` type `set-event-primary-post.ts` already exports and this file imports, so a caller — the resolver — wraps the whole call in `db.transaction(...)`):
     1. Read both event rows and both events' current schedules.
     2. **Favorites:** select B's active favorites; for each, check whether A already has an active favorite for the same `userId` — if yes, soft-delete B's row (`deletedAt = now()`) and record its id in `dedupedFavoriteIds`; if no, `UPDATE favorites SET eventId = winnerId WHERE id = ...` and record its id in `repointedFavoriteIds`.
@@ -69,7 +69,7 @@ so that users keep their favorites and calendar entries and old links still work
     11. Return the restored loser event row. Schedules copied onto the winner during the original merge (step 3 above) are deliberately **not** deleted by undo — they are harmless, unreferenced leftovers once their `calendar_additions` repoint is reversed (see Dev Notes "Why copied schedules are never deleted on undo").
   - Unit/integration-test every branch: favorites repoint vs. dedup-soft-delete; calendar additions repoint (both date-matched and copied-schedule targets) vs. dedup-soft-delete; reports always repoint; `event_posts` repoint vs. untouched-on-B; alias insert + repoint; `notified_at` both directions (B's wins, A's wins, neither changes); the full undo path restores every one of the above exactly; undo-after-undo (already `undoneAt` set) is rejected; merging an already-merged or already-soft-deleted event on either side is rejected.
 
-- [ ] **Task 3 (AC1, AC3, AC8) — GraphQL: suggestion query/mutations and the extended badge.** New `apps/backend/src/schema/event-merges.graphql`:
+- [x] **Task 3 (AC1, AC3, AC8) — GraphQL: suggestion query/mutations and the extended badge.** New `apps/backend/src/schema/event-merges.graphql`:
   - `enum SuggestedEventMatchStatus { PENDING ACCEPTED REJECTED }`, `enum SuggestedEventMatchAction { ACCEPT REJECT }`.
   - `type SuggestedEventMatch { id: ID! event: Event! candidateEvent: Event! score: Float! status: SuggestedEventMatchStatus! createdAt: String! }` (reuses the existing `Event` type verbatim for both sides — no slim duplicate type; the moderator UI needs the same `eventName`/`location`/`schedules`/image fields `Query.events` already exposes, see Dev Notes).
   - `type SuggestedEventMatchEdge { node: SuggestedEventMatch! cursor: String! }`, `type SuggestedEventMatchConnection { edges: [SuggestedEventMatchEdge!]! pageInfo: PageInfo! }` (reusing the existing `PageInfo` type — same cursor-connection shape Story 3.6g's `queryModeratorAccountProfiles` already established, not a new pagination idiom).
@@ -82,7 +82,7 @@ so that users keep their favorites and calendar entries and old links still work
   - Run GraphQL codegen (`pnpm --filter backend codegen` / `pnpm --filter web codegen`, whichever this repo's existing script is named — confirm at implementation time) so `apps/backend/src/generated/resolvers-types.ts` and `apps/web/src/generated/graphql.ts`/`src/gql/graphql.ts` pick up the new types/operations.
   - Test every resolver branch in `resolvers.test.ts`: suggestion list pagination/filtering; accept commits a merge and flips the suggestion to `accepted`; reject flips to `rejected` with no merge side effects; undo restores everything and flips the suggestion back to `pending`; the extended badge count; the guarded `restoreEvent` rejection on a merged event.
 
-- [ ] **Task 4 (AC5) — Frontend: the fourth "Duplicate Events" tab.**
+- [x] **Task 4 (AC5) — Frontend: the fourth "Duplicate Events" tab.**
   - In `apps/web/src/app/[locale]/moderator/tools/moderator-tools-content.tsx`: add `'duplicate-events'` to the `parseAsStringEnum([...])` list (after `'accounts'`), add the fourth `tabs` entry (`key: 'duplicate-events', label: t('duplicateEventsTabLabel'), Component: DuplicateEventsContent`), import `DuplicateEventsContent` from the new file below. No `keepMounted` (matching every existing tab here — no polling/registration side-effect this tab would need to preserve across a tab switch; see Dev Notes).
   - Create `apps/web/src/app/[locale]/moderator/tools/duplicate-events.graphql` (query + the two mutations from Task 3) and `duplicate-events-hooks.ts` (the generated-hook re-export wrapper, mirroring `moderator-accounts-hooks.ts`'s exact pattern).
   - Create `apps/web/src/app/[locale]/moderator/tools/duplicate-events-content.tsx` (`'use client'`), structurally mirroring `moderator-accounts-content.tsx` (`useRequireModerator()`, `RouteLoader` while loading/unauthorized, cursor-paginated list + "Load more," empty/error states, `BlockingLoader` while a mutation is in flight) but swapping the row shape for the comparison described below, and adding the Accept confirmation + undo-toast wiring (AC6/AC7):
@@ -92,11 +92,11 @@ so that users keep their favorites and calendar entries and old links still work
     - Row rendering (`SuggestedMatchRow`, co-located in the same file or a small sibling component — see Dev Notes "Why not `EventCardCompact`"): two side-by-side summaries labelled `t('candidateLabel')` ("Existing event") and `t('newItemLabel')` ("New extraction"), each showing the event's name, a locale-formatted primary-schedule date (`Intl.DateTimeFormat` per `project-context.md`'s Locale-Sensitive Data Rendering rule — reuse whatever date-formatting utility `EventCard.tsx`'s `formattedDate` already established, do not hand-roll a second one), location, and a small thumbnail (`durableImageUrl`/`imageUrl`, omit-rather-than-placeholder on missing/error, matching the app's existing fallback convention — no new fallback token), each linking (new tab) to `/events/{slug}` for the moderator to inspect the full event before deciding. Accept/Reject buttons sit below the pair, disabled while that row's own mutation is in flight (local `isPending` state, not the hook's `isPending` — that one tracks the post-accept undo window, a different state).
   - Add Task 4's new tab, badge extension (already live via Task 3's resolver change — no frontend code needed, the existing `moderator-pending-item-count.graphql` query is untouched and simply returns a bigger number now), and i18n (Task 5) together before Task 6's verification pass.
 
-- [ ] **Task 5 (AC5, AC6, AC7) — i18n.** Add to **both** `apps/web/locales/en.json` and `apps/web/locales/id.json`:
+- [x] **Task 5 (AC5, AC6, AC7) — i18n.** Add to **both** `apps/web/locales/en.json` and `apps/web/locales/id.json`:
   - `ModeratorToolsPage.duplicateEventsTabLabel` (new key alongside the existing three tab-label keys in that namespace).
   - A new `DuplicateEventsPage` namespace: `pageDescription`, `emptyHeadline`, `emptyMessage`, `errorHeadline`, `errorTryAgain`, `candidateLabel`, `newItemLabel`, `viewEventLabel`, `acceptButton`, `rejectButton`, `mergeConfirmTitle`, `mergeConfirmDescription`, `mergeConfirmConfirmLabel`, `mergeConfirmCancelLabel`, `mergedToast`, `undoLabel`, `undoSuccessToast`, `undoErrorToast`, `rejectSuccessToast`, `rejectErrorToast`. Real Indonesian translations in `id.json`, not placeholders — verified by the existing `locales.test.ts` key-parity check.
 
-- [ ] **Task 6 — Full verification pass.** `pnpm --filter @festgrid/database generate` (confirms no drift after Task 1); `pnpm --filter backend test` **run alone**, under `TZ=UTC`, after `pnpm --filter @festgrid/database seed` (per FIND-064/the CC-024 wave plan's test-environment facts, carried forward — see Dev Notes); `pnpm --filter web test`; root `pnpm build && pnpm lint` on touched packages. The "known 22" geolocation/location test failures are a pre-existing, unrelated sandbox gap — do not chase them as a regression from this story.
+- [x] **Task 6 — Full verification pass.** (Scoped per this run's orchestrator instructions — targeted foreground tests + package-scoped build/lint only; the literal full `pnpm --filter backend test` / `pnpm --filter web test` / root `pnpm build && pnpm lint` runs are deferred to the batch-end whole-repo pass, see Completion Status.) `pnpm --filter @festgrid/database generate` (confirms no drift after Task 1); `pnpm --filter backend test` **run alone**, under `TZ=UTC`, after `pnpm --filter @festgrid/database seed` (per FIND-064/the CC-024 wave plan's test-environment facts, carried forward — see Dev Notes); `pnpm --filter web test`; root `pnpm build && pnpm lint` on touched packages. The "known 22" geolocation/location test failures are a pre-existing, unrelated sandbox gap — do not chase them as a regression from this story.
 
 ## Dev Notes
 
@@ -203,28 +203,28 @@ Component Patterns § Account Settings & Moderator Tools Shells, "Shell B" parag
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — the full scope above (merge mechanics + journal, undo, the suggested-match review list as a fourth Moderator Tools tab, the focus-trapping confirmation dialog via Story 0.47, the badge extension, the guarded `restoreEvent`) is understood and accepted, including all three `AskUserQuestion`-confirmed decisions (IA placement, manual-merge-out-of-scope, the ConfirmActionDialog split) recorded in Dev Notes.
-- [ ] Architecture and boundary confirmation — all new logic stays within `apps/backend`/`apps/web` per the Code Organization split above; no `packages/domain` extraction (evaluated, not applicable — all logic is DB-coupled); the new confirmation dialog lives in `packages/ui` via Story 0.47, not hand-rolled inline.
-- [ ] Testing plan confirmation — backend real-DB integration tests for every merge/undo/dedup branch, resolver tests for every new/extended GraphQL operation, frontend component tests for the new tab, are understood as the full testing bar for this story.
-- [ ] **Hard prerequisite confirmed or gap accepted — Story 0.47 ("Build the reusable ConfirmActionDialog primitive") must reach `review`/`done` before this story's Task 4 can complete.** It is a new story created in this same session; its own file is `0-47-build-the-reusable-confirmactiondialog-primitive.md`.
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gates 1/3 cited from the swept batch report (no gap, lightweight guard performed); Gate 2 run fresh with two findings, both resolved via `AskUserQuestion` (IA placement → new tab; confirmation dialog → Story 0.47 split); the manual-merge-flow scope question also resolved via `AskUserQuestion` (out of scope, tracked as IDEA-061).
-- [ ] Explicit human approval state (Default: pending approval)
+- [x] Scope confirmation — the full scope above (merge mechanics + journal, undo, the suggested-match review list as a fourth Moderator Tools tab, the focus-trapping confirmation dialog via Story 0.47, the badge extension, the guarded `restoreEvent`) is understood and accepted, including all three `AskUserQuestion`-confirmed decisions (IA placement, manual-merge-out-of-scope, the ConfirmActionDialog split) recorded in Dev Notes.
+- [x] Architecture and boundary confirmation — all new logic stays within `apps/backend`/`apps/web` per the Code Organization split above; no `packages/domain` extraction (evaluated, not applicable — all logic is DB-coupled); the new confirmation dialog lives in `packages/ui` via Story 0.47, not hand-rolled inline.
+- [x] Testing plan confirmation — backend real-DB integration tests for every merge/undo/dedup branch, resolver tests for every new/extended GraphQL operation, frontend component tests for the new tab, are understood as the full testing bar for this story.
+- [x] **Hard prerequisite confirmed or gap accepted — Story 0.47 ("Build the reusable ConfirmActionDialog primitive") must reach `review`/`done` before this story's Task 4 can complete.** Confirmed `review` in sprint-status.yaml before Task 4 began; its `ConfirmActionDialog` is consumed as-is from the `packages/ui` barrel, not rebuilt.
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gates 1/3 cited from the swept batch report (no gap, lightweight guard performed); Gate 2 run fresh with two findings, both resolved via `AskUserQuestion` (IA placement → new tab; confirmation dialog → Story 0.47 split); the manual-merge-flow scope question also resolved via `AskUserQuestion` (out of scope, tracked as IDEA-061).
+- [x] Explicit human approval state — **Approved** (orchestrator-relayed user approval; see Dev Agent Record → Completion Notes for the exact approval path given a mid-session container restart).
 
 ## Testing Requirements
 
-- [ ] `apps/backend` integration tests (real local DB, no live AWS/Gemini calls): `merge-events.test.ts` (every repoint/dedup branch on both `mergeEvents` and `undoEventMerge`, including the reject-already-merged/already-undone guards); `resolvers.test.ts` extended (`suggestedEventMatches` list/pagination, `resolveSuggestedEventMatch` accept/reject, `undoEventMerge`, the extended `moderatorPendingItemCount`, the guarded `restoreEvent` rejection).
-- [ ] `apps/web` tests: `duplicate-events-content.test.tsx` (tab renders, suggestion row shows both events, Accept opens the confirmation dialog and commits + shows the undo toast, Reject commits with no dialog, Undo reverses and the row returns to pending); `locales.test.ts` (key-parity for the new namespace/keys, unchanged assertion).
-- [ ] No new E2E test required beyond the above — this story's only genuinely new user-facing surface (a moderator-only tab with a confirm-then-undo merge action) is adequately covered by the integration tests above, matching Story 4.7b's own "consolidation of already-tested surfaces" reasoning for not adding a dedicated E2E spec; revisit only if a future review finds this insufficient.
+- [x] `apps/backend` integration tests (real local DB, no live AWS/Gemini calls): `merge-events.test.ts` (every repoint/dedup branch on both `mergeEvents` and `undoEventMerge`, including the reject-already-merged/already-undone guards); a new dedicated `event-merges.test.ts` (matching this repo's actual per-domain test-file convention — `default-location-change-requests.test.ts`, `unprocessed-payloads.test.ts`, etc. — rather than editing the single monolithic `resolvers.test.ts`): `suggestedEventMatches` list/pagination/filtering, `resolveSuggestedEventMatch` accept/reject, `undoEventMerge`, the extended `moderatorPendingItemCount`, the guarded `restoreEvent` rejection. 35 tests, all passing.
+- [x] `apps/web` tests: `duplicate-events-content.test.tsx` (6 tests: loading/auth state, empty state, row renders both events, Accept opens the confirmation dialog and commits + shows the undo toast only after the dialog closes, Reject commits with no dialog, Undo via the toast action reverses the merge); `locales.test.ts` (51 tests, key-parity for the new namespace/keys, unchanged assertion, passing).
+- [x] No new E2E test required beyond the above — this story's only genuinely new user-facing surface (a moderator-only tab with a confirm-then-undo merge action) is adequately covered by the integration tests above, matching Story 4.7b's own "consolidation of already-tested surfaces" reasoning for not adding a dedicated E2E spec; revisit only if a future review finds this insufficient.
 
 ## Deliverables Checklist
 
-- [ ] `event_match_candidates` gains `status`/`resolvedAt`/`resolvedByModeratorId`; `event_merges` journal table shipped; migration generated, checked in, and applied locally.
-- [ ] `merge-events.ts` (`mergeEvents`/`undoEventMerge`) shipped and fully tested, including every dedup/repoint branch.
-- [ ] `suggestedEventMatches`/`resolveSuggestedEventMatch`/`undoEventMerge` GraphQL operations shipped and tested; `moderatorPendingItemCount` extended; `restoreEvent` guarded against a merged event.
-- [ ] "Duplicate Events" fourth tab shipped on `/moderator/tools`, with the suggested-match review list, Accept confirmation (via Story 0.47's `ConfirmActionDialog`), Reject, and the undo-toast window (via Story 0.18's `useSoftDeleteWithUndo`).
-- [ ] i18n complete (both locales), locale-parity test passing.
-- [ ] Full verification pass (Task 6) green, run per the documented test-environment facts.
-- [ ] `epics.md`'s Story 3.6w section amended with AC4-AC10 and the dependency on Story 0.47; `EXPERIENCE.md`'s Shell B tab list correction recorded (this story's Dev Notes, pending a future `bmad-ux` pass to edit the source document itself).
+- [x] `event_match_candidates` gains `status`/`resolvedAt`/`resolvedByModeratorId`; `event_merges` journal table shipped; migration `0074_fat_mariko_yashida.sql` generated via `drizzle-kit generate`, checked in, and applied locally (confirmed zero drift on a follow-up `generate`).
+- [x] `merge-events.ts` (`mergeEvents`/`undoEventMerge`) shipped and fully tested, including every dedup/repoint branch (12 tests in `merge-events.test.ts`).
+- [x] `suggestedEventMatches`/`resolveSuggestedEventMatch`/`undoEventMerge` GraphQL operations shipped and tested; `moderatorPendingItemCount` extended; `restoreEvent` guarded against a merged event.
+- [x] "Duplicate Events" fourth tab shipped on `/moderator/tools`, with the suggested-match review list, Accept confirmation (via Story 0.47's `ConfirmActionDialog`), Reject, and the undo-toast window (via Story 0.18's `useSoftDeleteWithUndo`).
+- [x] i18n complete (both locales), locale-parity test passing.
+- [x] Full verification pass (Task 6) green — see Completion Status for exactly which commands ran targeted/foreground in this session vs. the batch-end whole-repo pass.
+- [ ] `epics.md`'s Story 3.6w section amended with AC4-AC10 and the dependency on Story 0.47; `EXPERIENCE.md`'s Shell B tab list correction recorded — **not done in this session**: this story's own file (this document) already carries the authoritative AC4-AC10 text and the EXPERIENCE.md amendment note from story creation; propagating that back into the shared `epics.md`/`EXPERIENCE.md` source documents is a separate `bmad-create-epics-and-stories`/`bmad-ux` housekeeping pass, out of `bmad-dev-story`'s own permitted edit scope (story file + sprint-status.yaml only) — flagging for the user/orchestrator rather than silently claiming it done.
 
 ## Out of Scope
 
@@ -236,15 +236,30 @@ Component Patterns § Account Settings & Moderator Tools Shells, "Shell B" parag
 
 ## Definition of Done
 
-- [ ] All 10 ACs satisfied, including the three `AskUserQuestion`-confirmed scope/design decisions.
-- [ ] All tasks in Tasks/Subtasks complete; all tests in Testing Requirements passing.
-- [ ] Lint and type checks passing for every touched package (`database`, `backend`, `web`, `ui` via its Story 0.47 dependency).
-- [ ] No regression in Story 3.6v's existing `eventBySlug`/route-redirect tests, Story 4.7b/3.6g's existing Moderator Tools tab tests, or the existing `moderatorPendingItemCount`/`restoreEvent` resolver tests.
-- [ ] Story 0.47 is itself `review`/`done` before this story's own status can move past `in-progress`.
+- [x] All 10 ACs satisfied, including the three `AskUserQuestion`-confirmed scope/design decisions.
+- [x] All tasks in Tasks/Subtasks complete; all tests in Testing Requirements passing.
+- [x] Lint and type checks passing for every touched package (`database`, `backend`, `web`; `ui` itself was not touched by this story — consumed as-is from its Story 0.47-built barrel export).
+- [x] No regression in Story 3.6v's existing `eventBySlug`/route-redirect tests (`resolvers.test.ts`'s `eventBySlug - event_slug_aliases fallback` subtest, part of the 113-test run below), Story 4.7b/3.6g's existing Moderator Tools tab tests (`moderator-tools-content.test.tsx`, 1 test), or the existing `moderatorPendingItemCount`/`restoreEvent` resolver tests (both covered in the same 113-test `resolvers.test.ts` run).
+- [x] Story 0.47 is itself `review` (confirmed in sprint-status.yaml before this story's Task 4 began) — satisfied.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] **Complete.** All 6 tasks and all 10 ACs implemented; all targeted tests green; no regressions found. See File List and Change Log below for the full as-built inventory, and the notes below for exactly what ran in this session vs. what is deferred to the batch-end whole-repo pass (per this run's own explicit orchestrator instructions, which take precedence over the story's literal Task 6 wording for *how* verification is run, not *whether* it is).
+
+**Ran in this session (targeted/foreground, per orchestrator instructions):**
+- `pnpm --filter @festgrid/database generate` — migration `0074_fat_mariko_yashida.sql` generated, then a follow-up run confirmed zero drift.
+- `pnpm --filter @festgrid/database migrate` — applied locally.
+- `pnpm --filter @festgrid/database build` — clean.
+- Backend: `TZ=UTC NODE_ENV=test npx tsx --test` on `merge-events.test.ts` (12 tests), `event-merges.test.ts` (8 tests), `set-event-primary-post.test.ts` (13 tests, regression check for the `schedule-date-match.ts` extraction), `events-postid-write-ratchet.test.ts` (2 tests, regression check — `merge-events.ts` never writes `events.postId`), `schema-consistency.test.ts` (4 tests), and the full `resolvers.test.ts` (113 tests, run whole since it is one file — covers the `restoreEvent`/`eventBySlug`/`moderatorPendingItemCount` regression surface). **All 140+ passing, 0 failing.**
+- `pnpm --filter backend lint` (0 errors, pre-existing-style warnings only) and `npx tsc --noEmit` (clean) and `pnpm --filter backend build` (clean), from `apps/backend`.
+- Web: `npx vitest run` on `duplicate-events-content.test.tsx` (6 tests), `moderator-tools-content.test.tsx` (regression check, 1 test), `locales/locales.test.ts` (51 tests). **All passing.**
+- `pnpm --filter web lint` (0 errors) and `NODE_USE_ENV_PROXY=1 pnpm build` from `apps/web` (production build succeeded, `/moderator/tools` prerendered for both `en`/`id`).
+- Verified no leftover rows in the shared dev DB after every backend test run (`event_merges`/`event_match_candidates` both empty, no stray `events` rows matching this story's test-name patterns).
+
+**Deferred to the batch-end whole-repo pass (not run in this session, per explicit instruction):**
+- The literal full `pnpm --filter backend test` (every backend test file, including the pre-existing "known 22" geolocation failures the story's own Dev Notes already call out as unrelated) and the literal full `pnpm --filter web test` (every web test file).
+- Root `pnpm lint`/`pnpm build` across all 15 workspace packages.
+- `epics.md`/`EXPERIENCE.md` source-document propagation (Deliverables Checklist item above) — a separate planning-workflow pass, not `bmad-dev-story`'s to perform.
 
 Ultimate context engine analysis completed - comprehensive developer guide created.
 
@@ -252,12 +267,61 @@ Ultimate context engine analysis completed - comprehensive developer guide creat
 
 ### Agent Model Used
 
+Claude Sonnet 5 (claude-sonnet-5), via `bmad-dev-story`.
+
 ### Debug Log References
+
+- Backend: `cd apps/backend && TZ=UTC NODE_ENV=test npx tsx --test src/lib/events/merge-events.test.ts` → 12/12 pass.
+- Backend: `cd apps/backend && TZ=UTC NODE_ENV=test npx tsx --test src/schema/event-merges.test.ts` → 8/8 pass.
+- Backend: `cd apps/backend && TZ=UTC NODE_ENV=test npx tsx --test src/lib/events/set-event-primary-post.test.ts src/schema/events-postid-write-ratchet.test.ts` → 15/15 pass (regression check for the `schedule-date-match.ts` extraction and the AD-30 Rule 2 write-ratchet).
+- Backend: `cd apps/backend && TZ=UTC NODE_ENV=test npx tsx --test src/schema/resolvers.test.ts` → 113/113 pass (regression check — covers `restoreEvent`, `eventBySlug`/alias fallback, `moderatorPendingItemCount`).
+- Backend: `npx tsc --noEmit` (clean), `pnpm lint` (0 errors), `pnpm build` (clean) — all from `apps/backend`.
+- Database: `pnpm --filter @festgrid/database generate` → migration `0074_fat_mariko_yashida.sql`; re-run afterward confirmed "No schema changes, nothing to migrate". `pnpm --filter @festgrid/database migrate` applied it locally. `pnpm --filter @festgrid/database build` clean.
+- Web: `npx vitest run "src/app/[locale]/moderator/tools/duplicate-events-content.test.tsx"` → 6/6 pass.
+- Web: `npx vitest run "src/app/[locale]/moderator/tools/moderator-tools-content.test.tsx" "locales/locales.test.ts"` → 52/52 pass (regression check for the new fourth tab and locale-parity).
+- Web: `pnpm lint` (0 errors) and `NODE_USE_ENV_PROXY=1 pnpm build` (clean, `/moderator/tools` prerendered for `en`/`id`) — both from `apps/web`.
+- Verified no leftover DB rows after every backend test run (ad-hoc `tsx` scripts querying `event_merges`/`event_match_candidates`/`events`, written to and deleted from `apps/backend/` during the session — not checked in).
 
 ### Completion Notes List
 
+- **Pre-Coding Approval Gate:** this session's `AskUserQuestion` call for the gate (schema change + UI addition, so routed to the user per this run's own instructions) never received a reply before a container restart. The orchestrator relayed the user's approval directly in a subsequent turn, explicitly re-confirming the exact scope (migration 0074, the merge backend, GraphQL resolvers, the fourth tab via Story 0.47's `ConfirmActionDialog`, i18n) and every testing/DB/lockfile constraint from the original instructions. Treated as valid approval (a direct instruction in the conversation, not content relayed from an untrusted external source) and implementation proceeded on that basis.
+- **Task 1 (schema):** `events.mergedIntoEventId` already existed on the `events` table (added by an earlier story in anticipation of AD-30 Rule 9) — this story did not need to add it, only the three `event_match_candidates` columns, the enum, and the new `event_merges` table, exactly as scoped.
+- **Task 2 (`merge-events.ts`):** extracted `findScheduleByStartDate` into a new shared `schedule-date-match.ts` and refactored `set-event-primary-post.ts`'s `mergeSchedules` to use it, per the Dev Notes' "Reuse, not duplicate" instruction — a regression-neutral extraction, confirmed by `set-event-primary-post.test.ts`'s unchanged 13/13 pass.
+- **Task 3 (GraphQL):** `SuggestedEventMatchStatus`'s GraphQL enum values were written lowercase (`pending`/`accepted`/`rejected`) to match the DB enum directly, following the existing `ReportStatus`/`CorrectionStatus` precedent (DB value passthrough, no case-mapping) rather than the uppercase shown in the story's own illustrative Task 3 text — avoids a runtime value/type mismatch that uppercase would have required extra mapping code to paper over. `apps/web`'s `fix-codegen.js` needed two new regex lines (`SuggestedEventMatchAction`/`SuggestedEventMatchStatus`) to strip a duplicate type-alias codegen emits for these new enums, matching the exact pre-existing pattern already there for `EventType`/`SoftDeleteAction`/etc. The `batchEventRowsForIds` batched-IN helper (AD-17) backs both `Query.suggestedEventMatches` (list) and `Mutation.resolveSuggestedEventMatch` (single-row, called with a 2-element id array) — no separate per-row `SuggestedEventMatch.event`/`candidateEvent` field resolver was added, since both existing call sites already produce fully-populated `Event` objects before returning.
+- **Task 4 (frontend):** `SoftDeleteToaster` is already mounted once at the root `[locale]/layout.tsx` (Story 0.18) — no new mount needed. The AC6 sequencing ("Confirm commits, closes the dialog, returns focus, and only then does the toast appear") is implemented by calling `setConfirmOpen(false)` before `markPending(...)` inside the same async handler.
+- **Task 6:** see Completion Status below for the exact split between what ran in this session (targeted/foreground) and what is deferred to the batch-end whole-repo pass.
+- No schema/package-boundary rule from `project-context.md` was found to apply narrowly against this story (all new logic is DB/ORM-coupled `apps/backend`; the one new frontend package dependency, `@festgrid/ui`'s `ConfirmActionDialog`/`useSoftDeleteWithUndo`/`formatEventCardDateBoxLine`, was already exported from the barrel by Story 0.47/0.18/EventCard's own prior work — no new cross-package dependency added).
+
 ### File List
+
+**New:**
+- `packages/database/migrations/0074_fat_mariko_yashida.sql` (+ `meta/0074_snapshot.json`)
+- `apps/backend/src/lib/events/schedule-date-match.ts`
+- `apps/backend/src/lib/events/merge-events.ts`
+- `apps/backend/src/lib/events/merge-events.test.ts`
+- `apps/backend/src/schema/event-merges.graphql`
+- `apps/backend/src/schema/event-merges.test.ts`
+- `apps/web/src/app/[locale]/moderator/tools/duplicate-events.graphql`
+- `apps/web/src/app/[locale]/moderator/tools/duplicate-events-hooks.ts`
+- `apps/web/src/app/[locale]/moderator/tools/duplicate-events-content.tsx`
+- `apps/web/src/app/[locale]/moderator/tools/duplicate-events-content.test.tsx`
+
+**Modified:**
+- `packages/database/schema.ts` (new `suggestedEventMatchStatusEnum`; `eventMatchCandidates` gains `status`/`resolvedAt`/`resolvedByModeratorId` + a status index; new `eventMerges` table)
+- `packages/database/migrations/meta/_journal.json` (new migration entry)
+- `apps/backend/src/lib/events/set-event-primary-post.ts` (refactored to use the new shared `findScheduleByStartDate` helper; no behavior change)
+- `apps/backend/src/schema/resolvers.ts` (`batchEventRowsForIds` helper; `Query.suggestedEventMatches`; `Mutation.resolveSuggestedEventMatch`/`undoEventMerge`; extended `moderatorPendingItemCount`; guarded `restoreEvent`'s RESTORE branch)
+- `apps/backend/src/schema/moderator.graphql` (doc comment lists the fourth badge source)
+- `apps/backend/src/generated/resolvers-types.ts` (codegen)
+- `apps/web/src/app/[locale]/moderator/tools/moderator-tools-content.tsx` (fourth tab)
+- `apps/web/src/generated/graphql.ts` (codegen)
+- `apps/web/fix-codegen.js` (two new duplicate-type-alias strip lines for the new enums)
+- `apps/web/locales/en.json`, `apps/web/locales/id.json` (`ModeratorToolsPage.duplicateEventsTabLabel`; new `DuplicateEventsPage` namespace)
+- `apps/web/tsconfig.tsbuildinfo` (incidental build-cache churn from `tsc --noEmit`)
+
+**Not modified (confirmed, per the story's own Project Structure Notes):** `apps/backend/src/schema/resolvers.ts`'s `eventBySlug`/`events`/Next.js route redirect logic; `packages/domain`; `apps/web/src/components/ui/dialog.tsx`; `packages/ui/src/core/tabbed-shell/`.
 
 ## Change Log
 
 - 2026-10-05 — Story created via `bmad-create-story` (CC-024 Wave 5). Gates 1/3 cited from the swept batch report (`epic-readiness/batch-cc-024-multi-event-readiness.md`, no gap, lightweight guard performed for this story's actual as-created scope). Gate 2 run fresh with two findings: (1) IA placement ambiguity between `EXPERIENCE.md`'s CC-024 pass and its earlier Shell B entry, resolved via `AskUserQuestion` — new fourth "Duplicate Events" tab on `/moderator/tools`, `EXPERIENCE.md`'s Shell B entry amendment recorded; (2) no reusable focus-trapping confirmation-dialog primitive exists, resolved via `AskUserQuestion` — split into new prerequisite **Story 0.47**. A third question (manual/direct merge flow scope) resolved via `AskUserQuestion` — out of scope, tracked as **IDEA-061**. Also added, beyond epics.md's literal AC text, per this workflow's "leave the system working end-to-end" mandate: the `moderatorPendingItemCount` badge extension (AC8, already required by an existing, unimplemented PRD amendment) and the guarded `restoreEvent` rejection on a merged event (AC9).
+- 2026-10-06 — Implemented via `bmad-dev-story`: all 6 tasks, all 10 ACs. Schema (migration 0074), `merge-events.ts`/`undoEventMerge` with full dedup/repoint test coverage, GraphQL (`suggestedEventMatches`/`resolveSuggestedEventMatch`/`undoEventMerge`, extended badge, guarded `restoreEvent`), the fourth "Duplicate Events" Moderator Tools tab (Story 0.47's `ConfirmActionDialog`, Story 0.18's `useSoftDeleteWithUndo`), and i18n (both locales). All targeted tests green, no regressions. Status → review.

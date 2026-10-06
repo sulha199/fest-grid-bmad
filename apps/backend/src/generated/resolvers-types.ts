@@ -517,6 +517,13 @@ export type Mutation = {
   resolveReport: Report;
   resolveReportsForEvent: Array<Report>;
   resolveScheduleTimezone: ResolveScheduleTimezoneResult;
+  /**
+   * Accepts or rejects a suggested event match (Story 3.6w AC1/AC3). ACCEPT merges the suggestion's
+   * `eventId` (the newly-ingested event) into its `candidateEventId` (the existing event), via
+   * `mergeEvents`, and returns the resulting merge id. REJECT performs no merge -- a recorded
+   * dismissal only.
+   */
+  resolveSuggestedEventMatch: SuggestedEventMatchResolution;
   restoreEvent: Event;
   saveAIEventFilter: AiEventFilter;
   selectPostsForExtraction: Array<Post>;
@@ -528,6 +535,12 @@ export type Mutation = {
   toggleCalendarAddition: ToggleCalendarAdditionResult;
   toggleFavorite: ToggleFavoriteResult;
   triggerAccountScrape: TriggerAccountScrapeResult;
+  /**
+   * Reverses a merge's full repoint set (links, favorites, calendar entries, reports, slug aliases,
+   * notifiedAt) exactly, via the journal `mergeEvents` wrote (Story 3.6w AC7). Returns the restored
+   * (un-merged) event.
+   */
+  undoEventMerge: Event;
   unregisterFcmToken: Scalars['Boolean']['output'];
   updateUserLocation: UserLocation;
   updateUserSettings: UserSettings;
@@ -686,6 +699,12 @@ export type MutationResolveScheduleTimezoneArgs = {
 };
 
 
+export type MutationResolveSuggestedEventMatchArgs = {
+  action: SuggestedEventMatchAction;
+  id: Scalars['ID']['input'];
+};
+
+
 export type MutationRestoreEventArgs = {
   action: SoftDeleteAction;
   id: Scalars['ID']['input'];
@@ -748,6 +767,11 @@ export type MutationToggleFavoriteArgs = {
 
 export type MutationTriggerAccountScrapeArgs = {
   accountId: Scalars['ID']['input'];
+};
+
+
+export type MutationUndoEventMergeArgs = {
+  mergeId: Scalars['ID']['input'];
 };
 
 
@@ -903,7 +927,10 @@ export type Query = {
    * Combined count of items awaiting moderator action across Moderator Items
    * (Section 3.9.3): pending Reports plus Default Location changes in
    * PENDING_REVIEW or AWAITING_APPROVAL status (Section 3.7/4.14), plus pending
-   * AccountTypeClassificationReview rows (reviewedAt IS NULL, Story 4.7c).
+   * AccountTypeClassificationReview rows (reviewedAt IS NULL, Story 4.7c), plus
+   * pending suggested event-match rows (event_match_candidates.status = 'pending',
+   * Story 3.6w, PRD amendment 2026-10-02) awaiting review on the "Duplicate
+   * Events" Moderator Tools tab.
    * Powers the Moderator Pending-Item Badge (added 2026-08-28). Moderator-gated like every
    * other Moderator Items query -- the frontend must already know to only call
    * this for a moderator (the same `me.role` check that gates the nav entry
@@ -931,6 +958,12 @@ export type Query = {
   relatedEventIds: Array<RelatedEventGroup>;
   reportedEvents: Array<Report>;
   socialMediaAccountProfileByAccountId?: Maybe<SocialMediaAccountProfile>;
+  /**
+   * Pending suggested event-match rows awaiting moderator review (Story 3.6w AC1/AC5), oldest-
+   * queued-first. Always filtered to status: PENDING -- there is no current need to list
+   * already-accepted/rejected suggestions anywhere in the UI.
+   */
+  suggestedEventMatches: SuggestedEventMatchConnection;
   voteRegionBreakdown: Array<RegionVoteBucket>;
   votedAccountSuggestions: Array<RankedAccountVote>;
   widgetById?: Maybe<Widget>;
@@ -1055,6 +1088,12 @@ export type QueryReportedEventsArgs = {
 export type QuerySocialMediaAccountProfileByAccountIdArgs = {
   accountId: Scalars['String']['input'];
   platform: Scalars['String']['input'];
+};
+
+
+export type QuerySuggestedEventMatchesArgs = {
+  after?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
 };
 
 
@@ -1266,6 +1305,43 @@ export type Subscription = {
   isNewlyAdded: Scalars['Boolean']['output'];
   pendingExtractionCount: Scalars['Int']['output'];
 };
+
+export type SuggestedEventMatch = {
+  __typename?: 'SuggestedEventMatch';
+  candidateEvent: Event;
+  createdAt: Scalars['String']['output'];
+  event: Event;
+  id: Scalars['ID']['output'];
+  score: Scalars['Float']['output'];
+  status: SuggestedEventMatchStatus;
+};
+
+export type SuggestedEventMatchAction =
+  | 'ACCEPT'
+  | 'REJECT';
+
+export type SuggestedEventMatchConnection = {
+  __typename?: 'SuggestedEventMatchConnection';
+  edges: Array<SuggestedEventMatchEdge>;
+  pageInfo: PageInfo;
+};
+
+export type SuggestedEventMatchEdge = {
+  __typename?: 'SuggestedEventMatchEdge';
+  cursor: Scalars['String']['output'];
+  node: SuggestedEventMatch;
+};
+
+export type SuggestedEventMatchResolution = {
+  __typename?: 'SuggestedEventMatchResolution';
+  mergeId?: Maybe<Scalars['ID']['output']>;
+  suggestion: SuggestedEventMatch;
+};
+
+export type SuggestedEventMatchStatus =
+  | 'accepted'
+  | 'pending'
+  | 'rejected';
 
 export type TemporalFilter =
   | 'TODAY'
@@ -1569,6 +1645,12 @@ export type ResolversTypes = ResolversObject<{
   SubscribeToAccountInput: SubscribeToAccountInput;
   SubscribeToAccountResult: ResolverTypeWrapper<SubscribeToAccountResult>;
   Subscription: ResolverTypeWrapper<{}>;
+  SuggestedEventMatch: ResolverTypeWrapper<SuggestedEventMatch>;
+  SuggestedEventMatchAction: SuggestedEventMatchAction;
+  SuggestedEventMatchConnection: ResolverTypeWrapper<SuggestedEventMatchConnection>;
+  SuggestedEventMatchEdge: ResolverTypeWrapper<SuggestedEventMatchEdge>;
+  SuggestedEventMatchResolution: ResolverTypeWrapper<SuggestedEventMatchResolution>;
+  SuggestedEventMatchStatus: SuggestedEventMatchStatus;
   TemporalFilter: TemporalFilter;
   ToggleCalendarAdditionResult: ResolverTypeWrapper<ToggleCalendarAdditionResult>;
   ToggleFavoriteResult: ResolverTypeWrapper<ToggleFavoriteResult>;
@@ -1664,6 +1746,10 @@ export type ResolversParentTypes = ResolversObject<{
   SubscribeToAccountInput: SubscribeToAccountInput;
   SubscribeToAccountResult: SubscribeToAccountResult;
   Subscription: {};
+  SuggestedEventMatch: SuggestedEventMatch;
+  SuggestedEventMatchConnection: SuggestedEventMatchConnection;
+  SuggestedEventMatchEdge: SuggestedEventMatchEdge;
+  SuggestedEventMatchResolution: SuggestedEventMatchResolution;
   ToggleCalendarAdditionResult: ToggleCalendarAdditionResult;
   ToggleFavoriteResult: ToggleFavoriteResult;
   TriggerAccountScrapeResult: TriggerAccountScrapeResult;
@@ -1978,6 +2064,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   resolveReport?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationResolveReportArgs, 'id' | 'outcome'>>;
   resolveReportsForEvent?: Resolver<Array<ResolversTypes['Report']>, ParentType, ContextType, RequireFields<MutationResolveReportsForEventArgs, 'eventId'>>;
   resolveScheduleTimezone?: Resolver<ResolversTypes['ResolveScheduleTimezoneResult'], ParentType, ContextType, RequireFields<MutationResolveScheduleTimezoneArgs, 'scheduleId' | 'timezone'>>;
+  resolveSuggestedEventMatch?: Resolver<ResolversTypes['SuggestedEventMatchResolution'], ParentType, ContextType, RequireFields<MutationResolveSuggestedEventMatchArgs, 'action' | 'id'>>;
   restoreEvent?: Resolver<ResolversTypes['Event'], ParentType, ContextType, RequireFields<MutationRestoreEventArgs, 'action' | 'id'>>;
   saveAIEventFilter?: Resolver<ResolversTypes['AIEventFilter'], ParentType, ContextType, RequireFields<MutationSaveAiEventFilterArgs, 'prompt' | 'resolvedFilter'>>;
   selectPostsForExtraction?: Resolver<Array<ResolversTypes['Post']>, ParentType, ContextType, RequireFields<MutationSelectPostsForExtractionArgs, 'postIds'>>;
@@ -1989,6 +2076,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   toggleCalendarAddition?: Resolver<ResolversTypes['ToggleCalendarAdditionResult'], ParentType, ContextType, RequireFields<MutationToggleCalendarAdditionArgs, 'eventId' | 'scheduleId'>>;
   toggleFavorite?: Resolver<ResolversTypes['ToggleFavoriteResult'], ParentType, ContextType, RequireFields<MutationToggleFavoriteArgs, 'eventId'>>;
   triggerAccountScrape?: Resolver<ResolversTypes['TriggerAccountScrapeResult'], ParentType, ContextType, RequireFields<MutationTriggerAccountScrapeArgs, 'accountId'>>;
+  undoEventMerge?: Resolver<ResolversTypes['Event'], ParentType, ContextType, RequireFields<MutationUndoEventMergeArgs, 'mergeId'>>;
   unregisterFcmToken?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationUnregisterFcmTokenArgs, 'token'>>;
   updateUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationUpdateUserLocationArgs, 'id' | 'input'>>;
   updateUserSettings?: Resolver<ResolversTypes['UserSettings'], ParentType, ContextType, RequireFields<MutationUpdateUserSettingsArgs, 'input'>>;
@@ -2103,6 +2191,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   relatedEventIds?: Resolver<Array<ResolversTypes['RelatedEventGroup']>, ParentType, ContextType, Partial<QueryRelatedEventIdsArgs>>;
   reportedEvents?: Resolver<Array<ResolversTypes['Report']>, ParentType, ContextType, Partial<QueryReportedEventsArgs>>;
   socialMediaAccountProfileByAccountId?: Resolver<Maybe<ResolversTypes['SocialMediaAccountProfile']>, ParentType, ContextType, RequireFields<QuerySocialMediaAccountProfileByAccountIdArgs, 'accountId' | 'platform'>>;
+  suggestedEventMatches?: Resolver<ResolversTypes['SuggestedEventMatchConnection'], ParentType, ContextType, Partial<QuerySuggestedEventMatchesArgs>>;
   voteRegionBreakdown?: Resolver<Array<ResolversTypes['RegionVoteBucket']>, ParentType, ContextType, RequireFields<QueryVoteRegionBreakdownArgs, 'accountId'>>;
   votedAccountSuggestions?: Resolver<Array<ResolversTypes['RankedAccountVote']>, ParentType, ContextType, Partial<QueryVotedAccountSuggestionsArgs>>;
   widgetById?: Resolver<Maybe<ResolversTypes['Widget']>, ParentType, ContextType, RequireFields<QueryWidgetByIdArgs, 'id'>>;
@@ -2261,6 +2350,34 @@ export type SubscriptionResolvers<ContextType = GraphQLContext, ParentType exten
   pendingExtractionCount?: SubscriptionResolver<ResolversTypes['Int'], "pendingExtractionCount", ParentType, ContextType>;
 }>;
 
+export type SuggestedEventMatchResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['SuggestedEventMatch'] = ResolversParentTypes['SuggestedEventMatch']> = ResolversObject<{
+  candidateEvent?: Resolver<ResolversTypes['Event'], ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  event?: Resolver<ResolversTypes['Event'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  score?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['SuggestedEventMatchStatus'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type SuggestedEventMatchConnectionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['SuggestedEventMatchConnection'] = ResolversParentTypes['SuggestedEventMatchConnection']> = ResolversObject<{
+  edges?: Resolver<Array<ResolversTypes['SuggestedEventMatchEdge']>, ParentType, ContextType>;
+  pageInfo?: Resolver<ResolversTypes['PageInfo'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type SuggestedEventMatchEdgeResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['SuggestedEventMatchEdge'] = ResolversParentTypes['SuggestedEventMatchEdge']> = ResolversObject<{
+  cursor?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  node?: Resolver<ResolversTypes['SuggestedEventMatch'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type SuggestedEventMatchResolutionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['SuggestedEventMatchResolution'] = ResolversParentTypes['SuggestedEventMatchResolution']> = ResolversObject<{
+  mergeId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
+  suggestion?: Resolver<ResolversTypes['SuggestedEventMatch'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type ToggleCalendarAdditionResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ToggleCalendarAdditionResult'] = ResolversParentTypes['ToggleCalendarAdditionResult']> = ResolversObject<{
   eventId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   isAddedToCalendar?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
@@ -2401,6 +2518,10 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   SocialMediaAccountProfileEdge?: SocialMediaAccountProfileEdgeResolvers<ContextType>;
   SubscribeToAccountResult?: SubscribeToAccountResultResolvers<ContextType>;
   Subscription?: SubscriptionResolvers<ContextType>;
+  SuggestedEventMatch?: SuggestedEventMatchResolvers<ContextType>;
+  SuggestedEventMatchConnection?: SuggestedEventMatchConnectionResolvers<ContextType>;
+  SuggestedEventMatchEdge?: SuggestedEventMatchEdgeResolvers<ContextType>;
+  SuggestedEventMatchResolution?: SuggestedEventMatchResolutionResolvers<ContextType>;
   ToggleCalendarAdditionResult?: ToggleCalendarAdditionResultResolvers<ContextType>;
   ToggleFavoriteResult?: ToggleFavoriteResultResolvers<ContextType>;
   TriggerAccountScrapeResult?: TriggerAccountScrapeResultResolvers<ContextType>;
