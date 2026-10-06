@@ -173,11 +173,13 @@ test('guarded-call: callVendor', async (t) => {
         callVendor('gemini', {
           timeoutMs: 50,
           isTransient: NEVER_TRANSIENT,
+          // Deliberately never settles itself -- only records the abort event -- so the
+          // wrapper's own timeout promise is what wins the race, and this assertion is purely
+          // about whether the signal was aborted, not about who wins the Promise.race.
           call: (signal) =>
-            new Promise((_resolve, reject) => {
+            new Promise(() => {
               signal.addEventListener('abort', () => {
                 abortedViaEvent = true;
-                reject(new Error('aborted'));
               });
             }),
         }),
