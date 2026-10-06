@@ -1861,12 +1861,13 @@ items:
      Fixed 2026-10-04 (orchestrator batch-end test-fix pass): set the var to '' instead of deleting it in both affected system-key-adapter.test.ts blocks -- an empty string is still 'defined' in process.env, so loadBackendEnv()'s per-call dotenv.config() leaves it alone instead of refilling it from the repo's real .env."}
 
   FIND-064:
-    {type: finding, status: backlog, created: 2026-10-02,
+    {type: finding, status: promoted, created: 2026-10-02,
      impact: internal, effort: s,
-     title: "DB-backed backend integration tests share the developer database, so extra rows break them",
+     title: "4 backend integration test files leak rows into the shared dev DB (no dedicated test DB -- see note)",
      ref: [planning-artifacts/cc-024-multi-event-wave-plan.md, packages/database/seed-volume.ts],
+     stories: [0-49-close-backend-test-row-leaks-and-add-a-permanent-row-count-ratchet],
      touches: [app:backend, pkg:database],
-     note: "With 30k synthetic volume rows loaded, 12 events/soft-delete/visibility tests failed and the run was ~7x slower; use a dedicated test database or per-test cleanup."}
+     note: "Dedicated-test-DB/schema/template-copy idea REJECTED by user 2026-10-06 (AskUserQuestion during bmad-create-story) -- parallel sessions already use separate local Postgres, not the real risk. Re-scoped to: fix 4 named leaking files + add a permanent row-count ratchet. See Story 0.49."}
 
   # ── 2026-10-02 (Story 3-6y promotion carve-out) ──────────────────────────────
   BUG-054:

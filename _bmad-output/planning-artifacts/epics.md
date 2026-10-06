@@ -1184,6 +1184,22 @@ The project is set up with a solid foundation and CI/CD pipeline.
 
 **Note:** Promotes backlog row `FIND-052` (deferred from Story 0.45's code review, 2026-09-26; investigated by `bmad-quick-dev` 2026-10-05, see `deferred-work.md`). Drafted via `bmad-create-story`, 2026-10-05 — all three Story Split Gates run fresh (no gap found; Gate 2's two findings incorporated as AC4/AC13). The two-phase render design (AC2) was resolved via `AskUserQuestion`: the investigation's own proposed design (transform-positioned absolute items from the start) left a CLS/SSR-collapse gap it didn't address; the user chose the two-phase mitigation over shipping that gap or a cruder estimated-height fallback. Full ACs, Dev Notes, and gate findings in `_bmad-output/implementation-artifacts/0-48-mount-stable-masonry-engine-fix-reflow-remount-and-focus-loss.md`.
 
+### Story 0.49: Close backend integration test row leaks and add a permanent row-count ratchet
+
+**As a** developer,
+**I want** FestGrid's backend integration test suite (`apps/backend/src/**/*.test.ts`, run via `tsx --test`/node:test) to stop leaving extra rows behind in whichever Postgres database `DATABASE_URL` points at, and a permanent automated check that fails the run the instant any test regresses on this,
+**So that** running the backend suite — repeatedly, against a developer's own persistent local dev DB, or against CI's own ephemeral one — never again silently accumulates rows that later break or slow down tests, as happened today (dev DB held 72 `posts` rows vs. the known 35-row fixture-seed baseline) and as happened separately when a 30k-row volume-seed pollution incident failed 12 tests and ran the suite ~7x slower.
+
+**Acceptance Criteria:**
+
+1. Four specific backend test files under `apps/backend/src/lib/posts/` (`persist-post-account-associations.test.ts`, `mark-post-extracted.test.ts`, `enqueue-post-for-processing.test.ts`, `persist-unprocessed-payload.test.ts`) each gain FK-safe, targeted row cleanup matching the explicit `t.after`/`t.afterEach` convention already used by ~95 of their ~99 DB-touching sibling test files — not a new abstraction.
+2. `packages/database/index.ts` re-exports the existing `getTablesInDeleteOrder()` FK-safe table helper (`delete-order.ts`), reused by a new permanent guard script rather than a second FK-walk implementation.
+3. `apps/backend` gains a new wrapper script that snapshots every table's row count before and after the real test command runs, failing the run (even if every individual test passed) if any table holds more rows afterward — wired in as the new `"test"` npm script.
+4. CI (`.github/workflows/ci.yml`, `turbo.json`) needs zero edits — it already delegates to this same per-package `test` script via `turbo run test`, so it inherits the guard automatically.
+5. No dedicated test database, schema, per-run template copy, or new environment variable is introduced for test-target selection.
+
+**Note:** Promotes backlog row `FIND-064`, re-scoped via `AskUserQuestion` during `bmad-create-story` drafting (2026-10-06) — the row originally proposed "a dedicated test database or per-test cleanup"; the user rejected the dedicated-database/schema/template-copy direction (parallel sessions already use separate local Postgres instances, so cross-session collision was never the real risk) and re-scoped to exactly this story's AC1-5: fix the specific leaking files found, and add a permanent automated regression guard. All three Story Split Gates run fresh (no gap found — `epic-0-readiness.md`'s sweep only covers Stories 0.1-0.19 and predates this story's subject). Full ACs, Dev Notes (including the full audit evidence table and the rejected-alternatives rationale), and gate findings in `_bmad-output/implementation-artifacts/0-49-close-backend-test-row-leaks-and-add-a-permanent-row-count-ratchet.md`.
+
 ### Epic 1: Core App and Event Discovery
 
 Users can discover and browse events.
