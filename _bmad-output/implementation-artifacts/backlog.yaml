@@ -1338,14 +1338,25 @@ items:
      note: "Carved from CC-025 (section 13) on Story 3.16's promotion: 3.16 covered only one of CC-025's five tracked stories. Tracks the still-not-created 3.17/3.18/3.19/0.i6g so they stay visible. Promoted 2026-10-03 on Story 0.i6g; remaining fan-out (3.17-3.19) carved to CC-027."}
 
   CC-027:
-    {type: proposal, status: triaged, created: 2026-10-03, parent: CC-026,
+    {type: proposal, status: promoted, created: 2026-10-03, parent: CC-026,
      title: "Remaining FIND-022 coauthor/publisher stories not yet created (3.17-3.19)",
      ref: [backlog/FIND-022-coauthor-content-issues.md,
            specs/spec-post-coauthor-attribution/SPEC.md,
            planning-artifacts/sprint-change-proposal-2026-09-18.md],
      touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions, pkg:ui],
      impact: user-visible, effort: l,
-     note: "Partial-promotion carve-out from CC-026 (section 13): CC-026 covered only 0.i6g of its four tracked stories. Tracks the still-not-created 3.17 (demand-gated discovery), 3.18 (union-of-associations account filtering), 3.19 (sanitized subscription-toggle analytics) so they stay visible."}
+     stories: [3-18-union-of-associations-account-filtering],
+     note: "Partial-promotion carve-out from CC-026 (section 13): tracked 3.17, 3.18, 3.19. Promoted 2026-10-05 on Story 3.18; remaining fan-out (3.17, 3.19) carved to CC-029."}
+
+  CC-029:
+    {type: proposal, status: triaged, created: 2026-10-05, parent: CC-027,
+     title: "Remaining FIND-022 coauthor/publisher stories not yet created (3.17, 3.19)",
+     ref: [backlog/FIND-022-coauthor-content-issues.md,
+           specs/spec-post-coauthor-attribution/SPEC.md,
+           planning-artifacts/sprint-change-proposal-2026-09-18.md],
+     touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions],
+     impact: user-visible, effort: m,
+     note: "Partial-promotion carve-out from CC-027 (section 13): CC-027 covered only 3.18 of its three tracked stories. Tracks the still-not-created 3.17 (demand-gated discovery for scrape-discovered profiles) and 3.19 (sanitized subscription-toggle analytics) so they stay visible."}
 
   FIND-039:
     {type: finding, status: backlog, created: 2026-09-18, parent: CC-022,
@@ -1564,12 +1575,13 @@ items:
      SUPERSEDED 2026-09-27 (see design-artifacts/UX-festgrid-run-1/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md item 1): the pixel-perfect masonry pass removed this p-2 padding again -- the date-box+thumbnail row is flush against the card's edges once more, and the TILL/favorite badges moved from negative (floating-past-edge) to positive (just-inside-edge) offsets instead, with the outer card's overflow-hidden restored. Do NOT re-add p-2 padding to fix a cropped till badge -- that's this closed bug's fix, now reversed on purpose."}
 
   FIND-052:
-    {type: finding, status: backlog, created: 2026-09-26,
+    {type: finding, status: promoted, created: 2026-09-26,
      impact: user-visible, effort: s,
      title: "Masonry reflow remounts items crossing columns — ref churn + keyboard focus loss",
      ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/0-45-replace-grid-containers-masonry-engine-with-shortest-column-placement.md],
+     stories: [0-48-mount-stable-masonry-engine-fix-reflow-remount-and-focus-loss],
      touches: [pkg:ui],
-     note: "Deferred from: 'Deferred from: code review of story 0.45 (2026-09-26)'. 1 finding. Wrappers keyed by itemIndex under per-column column parents remount on any placement change (react-masonry-css-style); fix = mount-stable engine, deferred per user decision."}
+     note: "Deferred from: code review of story 0.45 (2026-09-26); investigated 2026-10-05 (bmad-quick-dev): confirmed structural/routine, not rare. Story 0.48 is the full fix; no residual scope carved out."}
 
   # ── 2026-09-26 (live production audit, https://fest-grid.vercel.app/id) ──────
   BUG-042:
@@ -1779,12 +1791,13 @@ items:
      note: "Matching/scoring/auto-link/enrichment-in-place promoted to Story 3.6v (ready-for-dev). Moderator merge/undo half carved out as BUG-055 (Story 3.6w, not yet created)."}
 
   BUG-055:
-    {type: bug, status: backlog, created: 2026-10-04, parent: BUG-052,
+    {type: bug, status: promoted, created: 2026-10-04, parent: BUG-052,
      impact: user-visible, effort: m,
      title: "No moderator merge/undo action for mid-confidence duplicate-event matches",
      ref: [planning-artifacts/sprint-change-proposal-2026-10-01-multi-event-posts.md],
+     stories: [3-6w-let-moderators-merge-duplicate-events-with-slug-redirects],
      touches: [cross:ai-extraction, app:backend, web:moderation, cross:architecture],
-     note: "Carved from BUG-052 at Story 3.6v's bmad-create-story time: 3.6v only writes mid-confidence suggestions (event_match_candidates, no UI); the merge/undo review action is Story 3.6w (depends on 3.6v, 4.7b), not yet created."}
+     note: "Carved from BUG-052 at Story 3.6v's bmad-create-story time. Covered by Story 3.6w (created 2026-10-05); see that story's Dev Notes for the merge/undo design and its own 0.47 prerequisite."}
 
 
   # ── 2026-10-01 (bmad-correct-course: multi-event posts + cross-post matching) ─────────
@@ -1793,9 +1806,9 @@ items:
      impact: user-visible, effort: l,
      title: "Multi-event posts and cross-post event matching (Event<->Post many-to-many)",
      ref: [planning-artifacts/sprint-change-proposal-2026-10-01-multi-event-posts.md],
-     stories: [3-6r-add-the-event-post-link-table-and-multi-event-schema, 3-6s-extract-multiple-events-per-post-with-grouping-rules, 3-6t-ingest-multiple-events-per-post-with-per-event-slugs-and-notifications, 3-6u-show-all-source-posts-and-related-events-on-the-event-detail-page],
+     stories: [3-6r-add-the-event-post-link-table-and-multi-event-schema, 3-6s-extract-multiple-events-per-post-with-grouping-rules, 3-6t-ingest-multiple-events-per-post-with-per-event-slugs-and-notifications, 3-6u-show-all-source-posts-and-related-events-on-the-event-detail-page, 3-6x-show-all-events-from-a-post-on-a-post-collection-page],
      touches: [app:backend, pkg:database, pkg:domain, web:events, web:moderation, web:posts, cross:ai-extraction, cross:notifications, cross:architecture, cross:prd],
-     note: "Adds Stories 3.6r-3.6z; folds BUG-051/052/026/039. 3.6r-3.6u created (2026-10-03, 3.6u ready-for-dev); rest tracked in sprint-status.yaml / cc-024-multi-event-wave-plan.md. See 3-6u's own story file for the Gate-2 prerequisite (3.6ua, not a backlog row)."}
+     note: "Adds Stories 3.6r-3.6z; folds BUG-051/052/026/039. 3.6r-3.6u created (2026-10-03, 3.6u ready-for-dev); 3.6x created (2026-10-05, ready-for-dev). Rest tracked in sprint-status.yaml / cc-024-multi-event-wave-plan.md. See 3-6u's own story file for the Gate-2 prerequisite (3.6ua, not a backlog row)."}
 
   BUG-053:
     {type: bug, status: done, created: 2026-10-01, parent: CC-024,
@@ -1941,11 +1954,12 @@ items:
      note: "Deferred from: quick-dev of event detail schedule display and ingestion slug identity (2026-10-05, `bmad-quick-dev`). Promoted -- Story 3.6n2 covers this row fully."}
 
   FIND-071:
-    {type: finding, status: backlog, created: 2026-10-05,
+    {type: finding, status: promoted, created: 2026-10-05,
      impact: user-visible, effort: m,
      title: "Already-ingested events keep legacy hex slugs; backfill post identity and re-key slugs via aliases",
      ref: [implementation-artifacts/deferred-work.md],
      touches: [app:backend, pkg:database, web:events],
+     stories: [3-22-backfill-legacy-event-slugs-and-post-identity],
      note: "Deferred from: quick-dev of event detail schedule display and ingestion slug identity (2026-10-05, `bmad-quick-dev`). Forward path fixed in process-ingestion-job.ts; existing rows are not healed."}
 
   # ── 2026-10-05 ───────────────────────────────────────────────────────────────
@@ -1972,3 +1986,11 @@ items:
      ref: [implementation-artifacts/spec-event-detail-roundup-improvements.md],
      touches: [app:backend, pkg:database, pkg:ui, web:events, cross:ai-extraction, cross:i18n],
      note: "Landed via PR #50 (quick-dev); migration 0073 adds posts.title. No headline backfill: existing posts keep the account-name label."}
+
+  IDEA-062:
+    {type: idea, status: backlog, created: 2026-10-05, parent: BUG-052,
+     impact: user-visible, effort: m,
+     title: "Let a moderator manually pick any two arbitrary events to merge, not only matcher-flagged suggestions",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-01-multi-event-posts.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
+     touches: [app:backend, web:moderation],
+     note: "Deferred from Story 3.6w's bmad-create-story (2026-10-05, AskUserQuestion): out-of-scope manual merge trigger. See 3.6w's Dev Notes/Out of Scope for the reusable mergeEvents() internal function a future story here would expose directly."}

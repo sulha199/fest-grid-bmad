@@ -1142,6 +1142,48 @@ The project is set up with a solid foundation and CI/CD pipeline.
 
 **Note:** Gate 1 finding ("depends on infra that has no IaC/deploy story") from the CC-023 batch readiness sweep (`batch-cc-023-face-blur-audit-readiness.md`, 2026-10-03, Winston persona), surfaced while sweeping Story 3.6n. Numbered as a new sequential Epic 0 story per the tooling/infrastructure rule (Epic 0's then-highest story was 0.45), following the precedent of Story 0.27 (notifier Lambda infrastructure) and Story 0.33 (post-media bucket), which also put single-consumer Lambda/infra provisioning in Epic 0. **Hard prerequisite for Story 3.6n.** Not a prerequisite for 3.6m, 3.6o or 3.6p.
 
+### Story 0.47: Build the reusable ConfirmActionDialog primitive
+
+**As a** developer,
+**I want** a reusable, generic focus-trapping confirmation dialog primitive (`ConfirmActionDialog`, `packages/ui/src/core/`) implementing `EXPERIENCE.md`'s merge-confirmation contract (opening moves focus into the dialog; Cancel returns focus to the triggering control with no further action; Confirm commits, closes, and returns focus to the triggering control),
+**So that** Story 3.6w's "merge two events" confirmation step — and any future destructive moderator/user action that needs an explicit confirm-before-commit step — can reuse one accessible, tested dialog instead of each feature hand-rolling its own focus-trap logic.
+
+**Acceptance Criteria:**
+
+*   **Given** `EXPERIENCE.md`'s CC-024 "Moderator tools" entry's confirmation-step paragraph, **when** a consuming feature renders `<ConfirmActionDialog open title description confirmLabel cancelLabel onConfirm onCancel />`, **then** opening it traps focus inside the dialog, `Escape`/overlay-click behave identically to Cancel, and closing by either path returns focus to the element that had focus immediately before the dialog opened.
+*   **And** it is built on `@radix-ui/react-dialog` (already pinned in `apps/web`, `^1.1.21`, added fresh to `packages/ui` at the same version) rather than hand-rolled focus-trap logic.
+*   **And** `onConfirm` may return a `Promise`; while pending, Confirm/Cancel/`Escape`/overlay-dismiss are all disabled; on rejection the dialog stays open and re-enables; on resolution the consumer closes it (the primitive does not auto-close on success).
+*   **And** it reuses `DESIGN.md`'s existing `components.modal` overlay/dialog tokens and the existing `Button` component's `default`/`destructive`/`outline` variants — no new modal chrome or button styling.
+*   **And** it ships its own integration test suite covering focus-trap-in, `Escape`/overlay/Cancel-all-return-focus, the Confirm busy-state resolve/reject paths, and variant rendering.
+
+**Depends on:** None.
+
+**Note:** Gate 2 (UI Complexity & Reusability) finding surfaced while creating Story 3.6w (2026-10-05, `bmad-create-story`) — `EXPERIENCE.md`'s merge-confirmation step specifies true focus-trap/focus-return semantics no existing primitive provides (`packages/ui`'s only "modal," `PwaInstallIosModal`, is non-trapping; `apps/web`'s own Radix-backed `components/ui/dialog.tsx` is real but `apps/web`-local, so Story 3.6w cannot import it without inverting the package-dependency direction). User confirmed via `AskUserQuestion`: split into its own reusable primitive rather than build it inline inside Story 3.6w, matching the Story 0.18/0.19/3.6ua split precedent. Numbered as a new sequential Epic 0 story (Epic 0's then-highest story was 0.46). **Hard prerequisite for Story 3.6w.**
+
+### Story 0.48: Mount-stable masonry engine — eliminate reflow remount + keyboard focus loss (FIND-052)
+
+**As a** developer,
+**I want** `GridContainer`'s `layout="masonry"` render path rebuilt on a mount-stable DOM structure — one flat parent with every item keyed `key={itemIndex}` directly under it (never regrouped under a per-column parent), positioned via `position: absolute; transform: translate(x, y)` once real heights are known, with the container's own height sourced from new `columnHeights`/`itemOffsets` fields `useMasonryLayout` exposes — instead of today's per-column `<div>` parents that force React to unmount+remount any item whose column assignment changes,
+**So that** a column-count-changing viewport resize or an earlier item's async image-load height change (both routine, frequently-triggered events on Discovery's real masonry surface, not edge cases) stop unmounting/remounting the majority of the list and silently dropping a keyboard user's focus out from under them.
+
+**Acceptance Criteria:**
+
+1. The masonry render path uses one flat parent, every item a direct `key={itemIndex}` child — no per-column wrapper `<div>` — so a column reassignment is always an in-place update, never an unmount+mount.
+2. Two-phase render: Phase 1 (`!hasMeasured`, covers SSR output) keeps items in real, in-flow CSS Grid placement (`gridColumn` per item, native auto-row stacking, no explicit container height) so the browser computes a genuine non-zero height with zero JS/measurement dependency — avoiding the Cumulative-Layout-Shift regression a naive always-absolute-position design would introduce. Phase 2 (`hasMeasured`) switches each item to `position: absolute` + `transform: translateY(...)` (keeping `gridColumn` so horizontal position/width is still resolved by native CSS Grid, not JS pixel math) and sets the container's explicit height from `columnHeights`.
+3. `useMasonryLayout` exposes two new fields derived from its existing placement loop: `columnHeights: number[]` (final per-column accumulated height) and `itemOffsets: number[]` (each item's own accumulated-height-before-it, for its `translateY`).
+4. Native keyboard Tab order changes from column-major (today) to index-major (matching visual/reading order) in both phases — called out as its own explicit, user-visible behavior change, not silently absorbed into the remount fix.
+5. The `baseCols`/`colsStep`-derived column-count formula (2/3/4/5/6 across breakpoints) is completely unchanged.
+6. Re-running the FIND-052 investigation's four scenarios against the new engine shows zero remounts and full focus-survival among items that change column (previously 4/6 and 3/6 remounted with focus lost in two of the four scenarios).
+7. A new regression scenario proves the Phase 1→Phase 2 transition itself causes zero remounts of any already-mounted item.
+8. The investigation test (`grid-container.find052.investigation.test.tsx`) is promoted into a permanent, renamed regression suite with its documenting-only assertions rewritten into hard pass/fail proof.
+9. All DOM-selector-dependent test/tooling consumers (`grid-container.test.tsx`, `EventListView.test.tsx`, `packages/visual-audit`'s manifest + Playwright proof) are updated for the new per-item column-index attribute and continue passing.
+10. The `packages/visual-audit` manifest (the only harness that exercises the real, un-hydrated SSR/Phase-1 render) gains an explicit non-collapsed-height assertion proving AC2's CLS-avoidance holds in real browser layout, not just jsdom.
+11. The default `css-grid` layout path is completely unaffected.
+12. No new user-facing strings (i18n N/A).
+13. DESIGN.md's `components.grid.masonry` token comment is reconciled to describe the new mechanism while preserving documented column-count/equal-width semantics.
+
+**Note:** Promotes backlog row `FIND-052` (deferred from Story 0.45's code review, 2026-09-26; investigated by `bmad-quick-dev` 2026-10-05, see `deferred-work.md`). Drafted via `bmad-create-story`, 2026-10-05 — all three Story Split Gates run fresh (no gap found; Gate 2's two findings incorporated as AC4/AC13). The two-phase render design (AC2) was resolved via `AskUserQuestion`: the investigation's own proposed design (transform-positioned absolute items from the start) left a CLS/SSR-collapse gap it didn't address; the user chose the two-phase mitigation over shipping that gap or a cruder estimated-height fallback. Full ACs, Dev Notes, and gate findings in `_bmad-output/implementation-artifacts/0-48-mount-stable-masonry-engine-fix-reflow-remount-and-focus-loss.md`.
+
 ### Epic 1: Core App and Event Discovery
 
 Users can discover and browse events.
@@ -3480,7 +3522,14 @@ without paying for a separate detection call on every extracted image.
 *   **And** a suggested-match review list (mid-confidence matches from Story 3.6v) lets a moderator accept or reject; an undo window matches the soft-delete undo pattern.
 *   **And** old links redirect to the survivor through Story 3.6v's alias mechanism.
 
-**Depends on:** Story 3.6v, Story 4.7b.
+**Depends on:** Story 3.6v, Story 4.7b, Story 0.47 (new — ConfirmActionDialog primitive).
+
+**Amendment (2026-10-05, `bmad-create-story`, CC-024 Wave 5):** Gate 2 surfaced two UI-architecture decisions and one scope question, all resolved with the user via `AskUserQuestion` (recommended option chosen in each case):
+1. **IA placement.** `EXPERIENCE.md`'s CC-024 pass calls this "two additions to the Moderator Tools tabbed shell," but that document's earlier Shell B entry listed only two tabs. Resolved: the suggested-match review list and merge action live as a **new fourth tab, "Duplicate Events,"** on the existing `/moderator/tools` `TabbedShell` (after Actor Runs, Unprocessed Payloads, Accounts) — matching the direct precedent already set by Story 3.6g's own "Accounts" tab extension of this same shell. `EXPERIENCE.md`'s Shell B entry is stale and needs a future `bmad-ux` pass to list all four tabs (recorded in this story's own Dev Notes in the meantime).
+2. **Confirmation dialog.** The merge confirmation needs true focus-trap/focus-return semantics no existing primitive in this codebase provides. Resolved: split into new prerequisite **Story 0.47** ("Build the reusable ConfirmActionDialog primitive," `packages/ui`), rather than building it inline.
+3. **Manual/direct merge flow out of scope.** `EXPERIENCE.md`'s passing mention of a "direct duplicate-cleanup flow" (picking any two arbitrary events to merge, not just approving a matcher-flagged suggestion) is not described by this story's own AC text above and has no UI spec. Resolved: out of scope for this story; tracked forward as backlog idea **IDEA-062**.
+
+Beyond the literal AC text above, this story's creation also added (per this workflow's "leave the system working end-to-end" mandate, not a new user-facing feature): extending `Query.moderatorPendingItemCount` (the Moderator Pending-Item Badge) to also count pending suggested matches — already required by the PRD's own 2026-10-02 FR114 amendment to that badge, but not yet implemented by any story since no suggestion rows existed before Story 3.6v and no moderator-facing read of them existed before this story; and guarding the existing `restoreEvent(action: RESTORE)` mutation against a merged event (it would otherwise "restore" an event with none of its favorites/calendar entries/links, all already repointed to the merge winner, into a reachable but broken active state). See `3-6w-let-moderators-merge-duplicate-events-with-slug-redirects.md` for the full as-designed merge/undo mechanics (the `event_merges` journal table, `mergeEvents`/`undoEventMerge`).
 
 ### Story 3.6x: Show all events from a post on a post collection page
 
@@ -4004,6 +4053,24 @@ Full resolved shape — columns: `id` (uuid, PK, `defaultRandom`), `postId` (uui
 *   **Count semantics.** With the setting on, `actualFaceDetectionCount` is the **sum across every image sent** (cover and slides). The model's `faceImageCount` covers all slides, while Story 3.6n's backfill counts the cover only; the sum is the only comparable ground truth. State it in the code comment and test it.
 *   **Cover failure means no thumbnail, no retry.** If the pre-AI blur of the cover failed, there are no blurred cover bytes, so `durableThumbnailUrl` stays null. The thumbnail stage must **not** re-run detection on the original as a fallback: the same failure would repeat, and a timeout fallback would burn the budget again.
 *   **Migration shape.** `ai_image_input` is a new pgEnum (matching `extractionAuditFaceDetectionSkippedReasonEnum`), added with `NOT NULL DEFAULT 'original_mode_off'` so existing rows are filled by the default (metadata-only on PG 11+); inspect the generated migration SQL (drizzle-kit 0.21 is known to drop partial-index predicates; confirm it emits the enum and the default). Local DB per `DATABASE_URL` in `.env`.
+
+### Story 3.22: Backfill legacy event slugs and post identity
+
+**As a** subscriber,
+**I want** an event that was ingested before its post's platform identity was correctly captured to get the same readable, platform-prefixed URL as events ingested today,
+**So that** I'm not left with an unreadable legacy hex link just because of when the event happened to be scraped — and so that link, if I already bookmarked/shared it, keeps working.
+
+**Acceptance Criteria:**
+
+*   **Given** a `posts` row with null `platformPostId`/`platformPostType` whose `postUrl`/`originalPostUrl` is actually parseable, **when** a one-shot backfill script's identity-healing pass runs with `--apply`, **then** that post's identity columns are derived and persisted — the same derivation `processIngestionJob`'s 2026-10-05 lazy-heal fix already performs inline for a post touched by a *new* extraction job, reaching here every post that will never get one.
+*   **And** an event with a legacy hex slug whose primary post now has resolvable identity is re-keyed: its new platform-prefixed slug (via the now-exported `buildPlatformPrefixedSlug()`, Story 3.7g) is written, its old slug becomes a permanent `event_slug_aliases` entry, reusing Story 3.6v's existing re-slug+alias-write logic (extracted into one shared helper, never duplicated) and its existing, unmodified `eventBySlug` alias-fallback/route-redirect mechanism — zero resolver or route changes.
+*   **And** an event whose post still has no resolvable identity is left with its hex slug unchanged, forever (AD-16 Rules 4/5/12); an event with no primary post is never touched.
+*   **And** the script is idempotent, safe on a live table (small per-row/batch transactions, never one giant transaction), ships a read-only `sizing` dry-run mode plus a `backfill [--apply]` mode (dry-run by default), and is dispatched manually via a dedicated `workflow_dispatch`-only GitHub Actions workflow — matching this codebase's own established backfill-script convention (`backfill-post-media-keys.ts`). No scheduled/cron trickle mechanism.
+*   **And** no DDL change — every column/table already exists; a `drizzle-kit generate` no-op proves this before any other work.
+
+**Note:** Promotes backlog row `FIND-071` (deferred from the 2026-10-05 `bmad-quick-dev` session that fixed the forward-path bug in `process-ingestion-job.ts`; see `deferred-work.md`). Drafted via `bmad-create-story`, 2026-10-05 — Gate 1 and Gate 3 run fresh via subagent (no blocking gap; two implementation requirements folded directly into the story's tasks: extract the shared re-slug+alias-write helper rather than duplicate it, and re-read-inside-transaction concurrency handling for the rare race against a live promotion), Gate 2 reasoned directly (no UI surface, no gap — the only user-visible effect is served entirely by Story 3.6v's already-shipped, unmodified redirect mechanism). The healing-mechanism design (a one-shot backfill script vs. a lazy/trickled cron-based re-key) was resolved via `AskUserQuestion`: the user chose the one-shot script, following Gate 1's own recommendation (zero new infrastructure, a clear completion signal, matches this codebase's established precedent). Full ACs, Dev Notes, and gate findings in `_bmad-output/implementation-artifacts/3-22-backfill-legacy-event-slugs-and-post-identity.md`.
+
+**Depends on:** Story 3.7g, Story 3.6v, Story 3.7f (all status `review` — building against `review`-status prerequisites is this codebase's standing rule, no wait required).
 
 ### Epic 4: Data Quality and Moderation
 

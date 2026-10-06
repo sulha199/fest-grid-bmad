@@ -47,6 +47,8 @@
     "wizardOnboardingNotificationsDescription": "Enable push notifications to stay updated on event schedules.",
     "accountPageTitle": "{displayName} | FestDaily",
     "accountPageDescription": "Browse events from {displayName} on FestDaily.",
+    "postCollectionPageTitle": "Events from {displayName} | FestDaily",
+    "postCollectionPageDescription": "Browse all events from {displayName}'s post on FestDaily.",
     "moderatorItemsTitle": "Moderator Items | FestDaily",
     "moderatorItemsDescription": "Review reported events and pending location changes.",
     "manualPostSelectionTitle": "Extract Events | FestDaily",
@@ -58,8 +60,33 @@
     "actorRunsTabLabel": "Actor Runs",
     "unprocessedPayloadsTabLabel": "Unprocessed Payloads",
     "accountsTabLabel": "Accounts",
+    "duplicateEventsTabLabel": "Duplicate Events",
     "pageHeading": "Moderator Tools",
     "pageDescription": "Manage scraper operations, runs, and payloads"
+  },
+  "DuplicateEventsPage": {
+    "pageDescription": "Review suggested duplicate events and merge them, keeping users' favorites and calendar entries and redirecting old links to the survivor.",
+    "emptyHeadline": "No duplicate suggestions",
+    "emptyMessage": "There are no suggested event matches awaiting review right now.",
+    "errorHeadline": "Something went wrong",
+    "errorTryAgain": "Try again",
+    "candidateLabel": "Existing event",
+    "newItemLabel": "New extraction",
+    "viewEventLabel": "View event",
+    "acceptButton": "Accept",
+    "rejectButton": "Reject",
+    "loadMoreButton": "Load more",
+    "mergeConfirmTitle": "Merge these events?",
+    "mergeConfirmDescription": "The new extraction will be merged into the existing event. Favorites, calendar entries, and reports move to the existing event, and old links will redirect to it. You can undo this for a short time after confirming.",
+    "mergeConfirmConfirmLabel": "Merge",
+    "mergeConfirmCancelLabel": "Cancel",
+    "mergedToast": "Events merged",
+    "undoLabel": "Undo",
+    "mergeErrorToast": "Failed to merge these events",
+    "undoSuccessToast": "Merge undone",
+    "undoErrorToast": "Failed to undo this merge",
+    "rejectSuccessToast": "Suggestion dismissed",
+    "rejectErrorToast": "Failed to dismiss this suggestion"
   },
   "ModeratorAccountsPage": {
     "pageHeading": "Accounts Management",
@@ -98,6 +125,11 @@
     "calendarMultiDaySegmentLabel": "Day {dayNumber} of {totalDays}",
     "calendarErrorState": "Failed to load calendar events.",
     "calendarClosePopoverLabel": "Close popover"
+  },
+  "PostCollectionPage": {
+    "errorState": "Failed to load events. Please try again later.",
+    "emptyState": "Every event from this post has since been removed or merged.",
+    "loadingMore": "Loading more events..."
   },
   "WizardChrome": {
     "previousStepLabel": "Previous Step",

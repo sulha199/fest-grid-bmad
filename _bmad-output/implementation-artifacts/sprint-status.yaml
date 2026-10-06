@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-05T04:14:47Z
+last_updated: 2026-10-06T06:44:25Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -334,6 +334,12 @@ development_status:
   # Gate 1 finding: AIProcessorLambda has no memory/native-bundling/model-asset provisioning
   # for Story 3.6n's sharp + face-api stage. Hard prerequisite for 3-6n.
   0-46-provision-the-ai-processor-lambdas-image-processing-runtime: review
+  # Gate 2 finding (UI Complexity & Reusability), surfaced creating Story 3-6w: no reusable
+  # focus-trapping confirmation-dialog primitive exists. Hard prerequisite for 3-6w.
+  0-47-build-the-reusable-confirmactiondialog-primitive: review
+  # Promotes FIND-052 (deferred from Story 0.45 code review, 2026-09-26; investigated
+  # 2026-10-05, see deferred-work.md). Created via bmad-create-story, 2026-10-05.
+  0-48-mount-stable-masonry-engine-fix-reflow-remount-and-focus-loss: review
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.
@@ -1797,8 +1803,8 @@ development_status:
   # prerequisite for 3.6u's Related Events section (Task 3/5) -- must reach review/done first.
   3-6u-show-all-source-posts-and-related-events-on-the-event-detail-page: review
   3-6v-match-new-posts-to-existing-events-and-enrich-them-in-place: review
-  3-6w-let-moderators-merge-duplicate-events-with-slug-redirects: backlog
-  3-6x-show-all-events-from-a-post-on-a-post-collection-page: backlog
+  3-6w-let-moderators-merge-duplicate-events-with-slug-redirects: review
+  3-6x-show-all-events-from-a-post-on-a-post-collection-page: review
   3-6y-respect-weekday-narrowed-schedules-in-day-of-week-filtering: review
   3-6z-automatically-enqueue-new-scraped-posts-for-extraction-within-quota: review
   # 3.6r-3.6z added 2026-10-01 via bmad-correct-course
@@ -1998,12 +2004,16 @@ development_status:
   3-15-post-account-association-table-lossless-migration: review
   3-16-immediate-coauthor-publisher-subscribability: review
   3-17-demand-gated-discovery-for-scrape-discovered-profiles: backlog
-  3-18-union-of-associations-account-filtering: backlog
+  3-18-union-of-associations-account-filtering: review
   3-19-sanitized-subscription-toggle-analytics: backlog
   # added 2026-10-04 via bmad-correct-course (CC-028): blur faces before images are sent to the AI,
   # configurable by BLUR_FACES_BEFORE_AI (AD-28 Rule 10, AD-29 Rule 7, FR115).
   3-20-blur-faces-before-images-are-sent-to-the-ai-behind-blur-faces-before-ai: done
   3-21-reuse-the-pre-ai-blur-for-the-thumbnail-and-record-what-the-ai-saw: done
+  # added 2026-10-05 via bmad-create-story, promoting backlog.yaml FIND-071 (legacy hex
+  # slugs / post identity backfill). See the story file's Dev Notes for Gate 1/3 findings
+  # and the user's AskUserQuestion choice (one-shot backfill script over a lazy re-key).
+  3-22-backfill-legacy-event-slugs-and-post-identity: review
   epic-3-retrospective: optional
   epic-4: in-progress
   # regenerated 2026-08-11 via bmad-create-story: full context engine pass. Gate 1/3

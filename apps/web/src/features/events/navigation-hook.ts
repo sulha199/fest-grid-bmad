@@ -8,6 +8,10 @@ import { useMemo } from "react"
 import { buildEventsQueryCondition } from "@festgrid/domain/events"
 
 const FAVORITES_PAGE_SIZE = 10;
+// Story 3.6x (AC5) -- same page size convention as the favorites branch; the Post Collection
+// Page's own event-count cap (AD-30 Rule 5, default 10) means this frozen list almost always fits
+// in a single batch anyway.
+const POST_PAGE_SIZE = 10;
 
 export function useListNavigationForEvent(currentEventId: string, isModal: boolean) {
   const searchParams = useSearchParams()
@@ -16,6 +20,11 @@ export function useListNavigationForEvent(currentEventId: string, isModal: boole
   const [categories] = useQueryState('categories', parseAsArrayOf(parseAsString).withDefault([]))
   const fromList = searchParams.get('fromList');
   const isFavoritesContext = fromList === 'favorites';
+  // Story 3.6x (AC5) -- structural sibling of the 'favorites' branch above: the Post Collection
+  // Page freezes its already-fetched event ids into a `postEventIds` URL param (mirroring
+  // `favoriteIds`), so Next/Previous here re-batches over the exact same frozen list rather than
+  // re-resolving the post's identity and re-running `relatedEventIds(postId) -> events` itself.
+  const isPostContext = fromList === 'post';
 
   const frozenFavoriteIds = useMemo(() => {
     const value = searchParams.get('favoriteIds');
@@ -25,14 +34,23 @@ export function useListNavigationForEvent(currentEventId: string, isModal: boole
     return value.split(',').map((id) => id.trim()).filter(Boolean);
   }, [searchParams]);
 
+  const frozenPostEventIds = useMemo(() => {
+    const value = searchParams.get('postEventIds');
+    if (!value) {
+      return [] as string[];
+    }
+    return value.split(',').map((id) => id.trim()).filter(Boolean);
+  }, [searchParams]);
+
   // URL context explicitly requires actual filter parameters, not just any query string (like tracking params)
   const hasUrlFilters = searchParams.has('q') || searchParams.has('types') || searchParams.has('categories');
-  
+
   // We only fetch if we are actually requesting list context on a full-page load.
-  // (In the modal, the underlying list already fetches, so we don't strictly need to enable this query, 
+  // (In the modal, the underlying list already fetches, so we don't strictly need to enable this query,
   // but it's safe to do so. We disable it on full-page loads without filters to avoid unnecessary fetches.)
   const shouldFetchList = isModal || hasUrlFilters;
   const shouldFetchFavoritesList = isFavoritesContext && frozenFavoriteIds.length > 0;
+  const shouldFetchPostList = isPostContext && frozenPostEventIds.length > 0;
 
   const {
     data,
@@ -109,24 +127,86 @@ export function useListNavigationForEvent(currentEventId: string, isModal: boole
     enabled: shouldFetchFavoritesList,
   })
 
+  // Story 3.6x (AC5) -- structural sibling of the `favoritesData` query above, batching over
+  // `frozenPostEventIds` instead of `frozenFavoriteIds`.
+  const {
+    data: postData,
+    fetchNextPage: fetchNextPostPage,
+    hasNextPage: hasNextPostPage,
+    isFetchingNextPage: isFetchingNextPostPage,
+  } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
+    queryKey: ['post-navigation-events', { ids: frozenPostEventIds }],
+    queryFn: async ({ pageParam }) => {
+      const offset = pageParam as number;
+      const batchIds = frozenPostEventIds.slice(offset, offset + POST_PAGE_SIZE);
+
+      if (batchIds.length === 0) {
+        return {
+          events: {
+            items: [],
+            hasMore: false,
+            totalCount: frozenPostEventIds.length,
+          },
+        } as GetEventsQuery;
+      }
+
+      const response = await graphqlClient.request<GetEventsQuery>(GetEventsDocument, {
+        limit: batchIds.length,
+        offset: 0,
+        query: {
+          operator: 'and',
+          conditions: [{ field: 'id', operator: 'in', value: batchIds }],
+        },
+      });
+
+      const indexMap = new Map(batchIds.map((id, index) => [id, index]));
+      const orderedItems = [...response.events.items].sort((a, b) => {
+        const aIndex = indexMap.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+        const bIndex = indexMap.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+        return aIndex - bIndex;
+      });
+
+      return {
+        events: {
+          ...response.events,
+          items: orderedItems,
+          hasMore: offset + POST_PAGE_SIZE < frozenPostEventIds.length,
+          totalCount: frozenPostEventIds.length,
+        },
+      };
+    },
+    initialPageParam: 0,
+    getNextPageParam: (_lastPage, allPages) => {
+      const nextOffset = allPages.length * POST_PAGE_SIZE;
+      return nextOffset < frozenPostEventIds.length ? nextOffset : undefined;
+    },
+    enabled: shouldFetchPostList,
+  })
+
   type EventItem = GetEventsQuery['events']['items'][number];
   const items: EventItem[] = isFavoritesContext
     ? (favoritesData?.pages || []).flatMap((page: GetEventsQuery) => page.events.items) ?? []
+    : isPostContext
+    ? (postData?.pages || []).flatMap((page: GetEventsQuery) => page.events.items) ?? []
     : (data?.pages || []).flatMap((page: GetEventsQuery) => page.events.items) ?? []
 
   const nav = useContextAwareListNavigation({
     items,
     currentId: currentEventId,
-    hasNextPage: isFavoritesContext ? !!hasNextFavoritePage : !!hasNextPage,
-    isFetchingNextPage: isFavoritesContext ? isFetchingNextFavoritePage : isFetchingNextPage,
-    fetchNextPage: isFavoritesContext ? fetchNextFavoritePage : fetchNextPage,
+    hasNextPage: isFavoritesContext ? !!hasNextFavoritePage : isPostContext ? !!hasNextPostPage : !!hasNextPage,
+    isFetchingNextPage: isFavoritesContext ? isFetchingNextFavoritePage : isPostContext ? isFetchingNextPostPage : isFetchingNextPage,
+    fetchNextPage: isFavoritesContext ? fetchNextFavoritePage : isPostContext ? fetchNextPostPage : fetchNextPage,
   })
 
   // We explicitly declare list context exists ONLY if:
   // 1. We are in the modal (always has list context) OR the URL carries filter context
   // AND
   // 2. The item was actually found in the list (nav.hasContext)
-  const isContextValidForRoute = isFavoritesContext ? frozenFavoriteIds.length > 0 : (isModal || hasUrlFilters);
+  const isContextValidForRoute = isFavoritesContext
+    ? frozenFavoriteIds.length > 0
+    : isPostContext
+    ? frozenPostEventIds.length > 0
+    : (isModal || hasUrlFilters);
 
   return {
     ...nav,

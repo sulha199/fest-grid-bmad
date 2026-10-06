@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { alias } from 'drizzle-orm/pg-core';
 import { Resolvers } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
-import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns, aiEventFilters, accountTypeClassificationReviews, postAccountAssociations, eventPosts, eventSlugAliases } from '@festgrid/database';
+import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns, aiEventFilters, accountTypeClassificationReviews, postAccountAssociations, eventPosts, eventSlugAliases, eventMatchCandidates, eventMerges } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly, getRequestedFieldNames } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator } from '../lib/auth/context.js';
 import { buildEventAccountMatchCondition } from '../lib/events/event-account-match.js';
@@ -40,6 +40,7 @@ import { sendDangerousReportModeratorAlerts } from '../lib/notifications/send-da
 import { enqueuePostForProcessing } from '../lib/posts/enqueue-post-for-processing.js';
 import { replayActorRun } from '../lib/scraper/replay-actor-run.js';
 import { applyDefaultLocationChange } from '../lib/accounts/apply-default-location-change.js';
+import { mergeEvents, undoEventMerge as undoEventMergeWrite, EventMergeInvalidStateError, EventMergeNotFoundError, EventMergeAlreadyUndoneError } from '../lib/events/merge-events.js';
 
 const validateReportSystemError = compileValidator<any>(reportSystemErrorSchema);
 const validateProposedEventCorrection = compileValidator<ProposedEventCorrection>(proposedEventCorrectionSchema);
@@ -150,6 +151,45 @@ async function batchScheduleRowsForEvents({
     schedulesByEvent.set(eventId, list);
   }
   return schedulesByEvent;
+}
+
+// Story 3.6w (AC1) -- `Query.suggestedEventMatches`'s own batched-IN idiom (AD-17): one join
+// query over `events`/`posts`/`socialMediaAccountProfiles` keyed by `inArray(events.id, ...)`
+// across every `eventId`/`candidateEventId` on the current page, grouped by id in JS, and
+// attached to each edge's `event`/`candidateEvent` below -- never a per-row field resolver.
+// Mirrors `Report.event`/`restoreEvent`'s own select shape (the same image/post join fields
+// `Event.imageUrl` etc. read from their parent) rather than a fresh ad-hoc one.
+async function batchEventRowsForIds(eventIds: string[], info: any, paths: Array<string | string[]>): Promise<Map<string, any>> {
+  if (eventIds.length === 0) return new Map();
+
+  const requestedFields = paths.reduce(
+    (acc, path) => ({ ...acc, ...buildOptimizedDrizzleSelect(events, info, { path }) }),
+    {} as Record<string, any>
+  );
+
+  const rows = await db.select({
+    ...requestedFields,
+    id: events.id,
+    postId: events.postId,
+    slug: events.slug,
+    imageUrl: posts.imageUrl,
+    durableImageUrl: posts.durableImageUrl,
+    durableThumbnailUrl: posts.durableThumbnailUrl,
+    imageUrlExpiresAt: posts.imageUrlExpiresAt,
+    videoUrl: posts.videoUrl,
+    sourcePostUrl: posts.postUrl,
+    originalPostUrl: posts.originalPostUrl,
+    isImageStorageOptedIn: socialMediaAccountProfiles.isImageStorageOptedIn,
+  }).from(events)
+    .leftJoin(posts, eq(events.postId, posts.id))
+    .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
+    .where(inArray(events.id, eventIds));
+
+  const byId = new Map<string, any>();
+  for (const row of rows) {
+    byId.set((row as any).id, row);
+  }
+  return byId;
 }
 
 
@@ -1679,6 +1719,15 @@ Constraints and Guidelines:
         if (existing.deletedAt === null) {
           throw new GraphQLError('Event is already active', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
         }
+        // Story 3.6w (AC9) -- a merged event's restore path is not a plain soft-delete: every
+        // favorite/calendar entry/link already repointed to the winner, so un-deleting it
+        // through this generic mutation would leave it "active" but empty. Direct the caller to
+        // undoEventMerge instead, which reverses the full repoint set.
+        if (existing.mergedIntoEventId !== null) {
+          throw new GraphQLError('This event was merged into another event. Use undoEventMerge to restore it.', {
+            extensions: { code: 'INVALID_STATE_TRANSITION' },
+          });
+        }
         await db.update(events)
           .set({ deletedAt: null, updatedAt: new Date() })
           .where(eq(events.id, id));
@@ -1705,6 +1754,107 @@ Constraints and Guidelines:
         .where(eq(events.id, id));
 
       return (rows[0] as any) || null;
+    },
+    // Story 3.6w (AC1, AC3) -- the suggested-match list's Accept/Reject action. ACCEPT merges
+    // the suggestion's eventId (the newly-ingested event, the loser) into its candidateEventId
+    // (the existing event, the winner) via mergeEvents, inside one transaction so the merge and
+    // the suggestion's own status flip commit together. REJECT needs no transaction -- it is a
+    // recorded dismissal with no merge side effects (AC3).
+    resolveSuggestedEventMatch: async (_: any, { id, action }: any, context: any, info: any) => {
+      const moderator = requireModerator(context);
+
+      const [suggestion] = await db.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.id, id));
+      if (!suggestion) {
+        throw new GraphQLError('Suggested event match not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+      if (suggestion.status !== 'pending') {
+        throw new GraphQLError('This suggestion has already been resolved', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+      }
+
+      let mergeId: string | null = null;
+      if (action === 'ACCEPT') {
+        try {
+          const { merge } = await db.transaction((tx) =>
+            mergeEvents(tx, suggestion.candidateEventId, suggestion.eventId, moderator.userId, suggestion.id)
+          );
+          mergeId = merge.id;
+        } catch (err) {
+          if (err instanceof EventMergeInvalidStateError) {
+            throw new GraphQLError(err.message, { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+          }
+          throw err;
+        }
+      } else if (action === 'REJECT') {
+        await db
+          .update(eventMatchCandidates)
+          .set({ status: 'rejected', resolvedAt: new Date(), resolvedByModeratorId: moderator.userId })
+          .where(eq(eventMatchCandidates.id, id));
+      } else {
+        throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
+      }
+
+      const [updatedSuggestion] = await db.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.id, id));
+      const eventsById = await batchEventRowsForIds(
+        [updatedSuggestion.eventId, updatedSuggestion.candidateEventId],
+        info,
+        [
+          ['suggestion', 'event'],
+          ['suggestion', 'candidateEvent'],
+        ]
+      );
+
+      return {
+        suggestion: {
+          id: updatedSuggestion.id,
+          event: eventsById.get(updatedSuggestion.eventId) ?? null,
+          candidateEvent: eventsById.get(updatedSuggestion.candidateEventId) ?? null,
+          score: updatedSuggestion.score,
+          status: updatedSuggestion.status,
+          createdAt: updatedSuggestion.createdAt.toISOString(),
+        },
+        mergeId,
+      };
+    },
+    // Story 3.6w (AC7) -- reverses a merge's full repoint set exactly, via the journal
+    // mergeEvents wrote.
+    undoEventMerge: async (_: any, { mergeId }: any, context: any, info: any) => {
+      const moderator = requireModerator(context);
+
+      let restoredEventId: string;
+      try {
+        restoredEventId = await db.transaction(async (tx) => {
+          const restored = await undoEventMergeWrite(tx, mergeId, moderator.userId);
+          return restored.id;
+        });
+      } catch (err) {
+        if (err instanceof EventMergeNotFoundError) {
+          throw new GraphQLError(err.message, { extensions: { code: 'NOT_FOUND' } });
+        }
+        if (err instanceof EventMergeAlreadyUndoneError) {
+          throw new GraphQLError(err.message, { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+        }
+        throw err;
+      }
+
+      const requestedFields = buildOptimizedDrizzleSelect(events, info);
+      const [restoredRow] = await db.select({
+        ...requestedFields,
+        id: events.id,
+        postId: events.postId,
+        imageUrl: posts.imageUrl,
+        durableImageUrl: posts.durableImageUrl,
+        durableThumbnailUrl: posts.durableThumbnailUrl,
+        imageUrlExpiresAt: posts.imageUrlExpiresAt,
+        videoUrl: posts.videoUrl,
+        sourcePostUrl: posts.postUrl,
+        originalPostUrl: posts.originalPostUrl,
+        isImageStorageOptedIn: socialMediaAccountProfiles.isImageStorageOptedIn,
+      }).from(events)
+        .leftJoin(posts, eq(events.postId, posts.id))
+        .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
+        .where(eq(events.id, restoredEventId));
+
+      return (restoredRow as any) || null;
     },
     deleteEventPermanently: async (_: any, { id }: any, context: any) => {
       requireModerator(context);
@@ -2415,7 +2565,7 @@ Constraints and Guidelines:
     },
     moderatorPendingItemCount: async (_: any, __: any, context: any): Promise<number> => {
       requireModerator(context);
-      const [[{ pendingReportCount }], [{ pendingLocationChangeCount }], [{ pendingClassificationCount }]] = await Promise.all([
+      const [[{ pendingReportCount }], [{ pendingLocationChangeCount }], [{ pendingClassificationCount }], [{ pendingSuggestionCount }]] = await Promise.all([
         db.select({ pendingReportCount: count() })
           .from(reports)
           .where(eq(reports.status, 'pending')),
@@ -2425,8 +2575,13 @@ Constraints and Guidelines:
         db.select({ pendingClassificationCount: count() })
           .from(accountTypeClassificationReviews)
           .where(isNull(accountTypeClassificationReviews.reviewedAt)),
+        // Story 3.6w (AC8, PRD amendment 2026-10-02) -- pending suggested event-match rows
+        // (the "Duplicate Events" tab's own list) count toward this same combined total.
+        db.select({ pendingSuggestionCount: count() })
+          .from(eventMatchCandidates)
+          .where(eq(eventMatchCandidates.status, 'pending')),
       ]);
-      return Number(pendingReportCount) + Number(pendingLocationChangeCount) + Number(pendingClassificationCount);
+      return Number(pendingReportCount) + Number(pendingLocationChangeCount) + Number(pendingClassificationCount) + Number(pendingSuggestionCount);
     },
     pendingDefaultLocationChanges: async (_: any, __: any, context: any): Promise<any> => {
       requireModerator(context);
@@ -3530,14 +3685,18 @@ Constraints and Guidelines:
                 activeOnly(calendarAdditions)
               ))
           ),
+          // Story 3.18 (AD-31 Rule 4) -- routed through the shared account-match helper instead
+          // of a bare innerJoin on `posts.accountId` scoped to `events.postId` (the primary post
+          // only). The helper checks every post linked via `event_posts` and any of the four
+          // `post_account_associations` roles, so a user subscribed only to a coauthor account
+          // keeps their personal connection to a moderator-archived event.
           exists(
             db.select({ id: subscriptions.id })
               .from(subscriptions)
-              .innerJoin(posts, eq(subscriptions.accountId, posts.accountId))
               .where(and(
-                eq(posts.id, events.postId),
                 eq(subscriptions.userId, userId),
-                activeOnly(subscriptions)
+                activeOnly(subscriptions),
+                buildEventAccountMatchCondition(subscriptions.accountId)
               ))
           ),
           exists(
@@ -3657,14 +3816,18 @@ Constraints and Guidelines:
                   activeOnly(calendarAdditions)
                 ))
             ),
+            // Story 3.18 (AD-31 Rule 4) -- routed through the shared account-match helper
+            // instead of a bare innerJoin on `posts.accountId` scoped to `events.postId` (the
+            // primary post only). The helper checks every post linked via `event_posts` and any
+            // of the four `post_account_associations` roles, so a user subscribed only to a
+            // coauthor account keeps their personal connection to a moderator-archived event.
             exists(
               db.select({ id: subscriptions.id })
                 .from(subscriptions)
-                .innerJoin(posts, eq(subscriptions.accountId, posts.accountId))
                 .where(and(
-                  eq(posts.id, events.postId),
                   eq(subscriptions.userId, userId),
-                  activeOnly(subscriptions)
+                  activeOnly(subscriptions),
+                  buildEventAccountMatchCondition(subscriptions.accountId)
                 ))
             ),
             exists(
@@ -3774,7 +3937,34 @@ Constraints and Guidelines:
     // candidate, grouped by `post_id` in JS. No new `Query.events` filter, no per-row field
     // resolver (confirmed scoped by the batch readiness report) -- this is an ordinary top-level
     // query reusing the existing `event_posts` PK/index.
-    relatedEventIds: async (_: any, { eventId }: { eventId: string }) => {
+    // Story 3.6x (AC2, AD-30 Rule 11) — widened to accept a `postId`-keyed variant alongside the
+    // original `eventId`-keyed one (unchanged below). Exactly one of the two must be supplied.
+    relatedEventIds: async (_: any, { eventId, postId }: { eventId?: string | null; postId?: string | null }) => {
+      if ((!eventId && !postId) || (eventId && postId)) {
+        throw new GraphQLError('Exactly one of eventId or postId must be provided', { extensions: { code: 'BAD_REQUEST' } });
+      }
+
+      if (postId) {
+        // Simpler, non-self-joined read: no "self" to exclude for a post-keyed lookup, and no
+        // grouping-by-post step needed since every row already belongs to the one requested
+        // post. Returned as a singleton array (or [] if the post has no linked events).
+        const rows = await db.select({
+          eventId: eventPosts.eventId,
+        }).from(eventPosts)
+          .innerJoin(events, eq(events.id, eventPosts.eventId))
+          .where(and(
+            eq(eventPosts.postId, postId),
+            isNull(events.deletedAt),
+            isNull(events.mergedIntoEventId)
+          ));
+
+        if (rows.length === 0) {
+          return [];
+        }
+
+        return [{ postId, eventIds: rows.map((row: any) => row.eventId) }] as any;
+      }
+
       const ep1 = alias(eventPosts, 'ep1');
       const rows = await db.select({
         postId: eventPosts.postId,
@@ -3783,8 +3973,8 @@ Constraints and Guidelines:
         .innerJoin(eventPosts, eq(eventPosts.postId, ep1.postId))
         .innerJoin(events, eq(events.id, eventPosts.eventId))
         .where(and(
-          eq(ep1.eventId, eventId),
-          ne(eventPosts.eventId, eventId),
+          eq(ep1.eventId, eventId!),
+          ne(eventPosts.eventId, eventId!),
           isNull(events.deletedAt),
           isNull(events.mergedIntoEventId)
         ));
@@ -3797,6 +3987,61 @@ Constraints and Guidelines:
       }
 
       return [...groups.entries()].map(([postId, eventIds]) => ({ postId, eventIds })) as any;
+    },
+    // Story 3.6x (AC1) — backend-only lookup powering the Post Collection Page route's
+    // generateMetadata/content fetch. Reuses the existing EventSourcePost type (Story 3.6u);
+    // isPrimary/coauthors are hardcoded (meaningless/unused outside an event's own post list) for
+    // type-shape completeness only, costing nothing since GraphQL never evaluates an unselected
+    // field.
+    postByPlatformIdentifiers: async (_: any, { platform, postType, platformPostId }: { platform: string; postType: string; platformPostId: string }) => {
+      const [row] = await db.select({
+        postId: posts.id,
+        groupingReason: posts.groupingReason,
+        extractedEventCount: posts.extractedEventCount,
+        postedAt: posts.publishedAt,
+        sourcePostUrl: posts.postUrl,
+        originalPostUrl: posts.originalPostUrl,
+        platformPostId: posts.platformPostId,
+        postType: posts.platformPostType,
+        accountId: socialMediaAccountProfiles.id,
+        accountIdentifier: socialMediaAccountProfiles.accountId,
+        accountPlatform: socialMediaAccountProfiles.platform,
+        accountDisplayName: socialMediaAccountProfiles.displayName,
+        accountUsername: socialMediaAccountProfiles.username,
+        accountProfileImageUrl: socialMediaAccountProfiles.profileImageUrl,
+      }).from(posts)
+        .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
+        .where(and(
+          eq(posts.platform, platform),
+          eq(posts.platformPostType, postType),
+          eq(posts.platformPostId, platformPostId)
+        ))
+        .limit(1);
+
+      if (!row) {
+        return null;
+      }
+
+      return {
+        postId: row.postId,
+        isPrimary: false,
+        groupingReason: row.groupingReason ? postGroupingReasonToGraphQL(row.groupingReason) : null,
+        extractedEventCount: row.extractedEventCount ?? null,
+        postedAt: row.postedAt instanceof Date ? row.postedAt.toISOString() : (row.postedAt || null),
+        sourcePostUrl: row.sourcePostUrl || null,
+        originalPostUrl: row.originalPostUrl || null,
+        platformPostId: row.platformPostId || null,
+        postType: row.postType || null,
+        account: row.accountId ? {
+          id: row.accountId,
+          accountId: row.accountIdentifier,
+          platform: row.accountPlatform,
+          displayName: row.accountDisplayName,
+          username: row.accountUsername,
+          profileImageUrl: row.accountProfileImageUrl,
+        } : null,
+        coauthors: [],
+      } as any;
     },
     instagramEmbedBySlug: async (_: any, { slug }: { slug: string }) => {
       const parsed = parsePlatformPrefixedEventSlug(slug);
@@ -4013,7 +4258,54 @@ Constraints and Guidelines:
         pageInfo: { hasNextPage, endCursor },
         totalCount: totalCountRows[0]?.count || 0,
       };
-    }
+    },
+    // Story 3.6w (AC1, AC5) -- the "Duplicate Events" tab's own list. Always filtered to
+    // status: 'pending', oldest-queued-first (matching pendingDefaultLocationChanges's own
+    // ordering) -- there is no current need to list already-accepted/rejected suggestions.
+    suggestedEventMatches: async (_: any, { first, after }: any, context: any, info: any) => {
+      requireModerator(context);
+
+      const limit = (first || 10) + 1; // +1 to detect hasNextPage
+      const offset = decodeActorRunCursor(after);
+
+      const rows = await db
+        .select()
+        .from(eventMatchCandidates)
+        .where(eq(eventMatchCandidates.status, 'pending'))
+        .orderBy(asc(eventMatchCandidates.createdAt))
+        .limit(limit)
+        .offset(offset);
+
+      const hasNextPage = rows.length > (first || 10);
+      const pageRows = rows.slice(0, first || 10);
+
+      // Batched-IN event load (AD-17) -- one join query over both eventId/candidateEventId
+      // across the whole page, never a per-row field resolver.
+      const allEventIds = Array.from(new Set(pageRows.flatMap((r) => [r.eventId, r.candidateEventId])));
+      const eventsById = await batchEventRowsForIds(allEventIds, info, [
+        ['edges', 'node', 'event'],
+        ['edges', 'node', 'candidateEvent'],
+      ]);
+
+      const edges = pageRows.map((row, idx) => ({
+        node: {
+          id: row.id,
+          event: eventsById.get(row.eventId) ?? null,
+          candidateEvent: eventsById.get(row.candidateEventId) ?? null,
+          score: row.score,
+          status: row.status,
+          createdAt: row.createdAt.toISOString(),
+        },
+        cursor: Buffer.from((offset + idx).toString()).toString('base64'),
+      }));
+
+      const endCursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
+
+      return {
+        edges,
+        pageInfo: { hasNextPage, endCursor },
+      };
+    },
   },
   RankedAccountVote: {
     profile: async (parent: any, _: any, context: any, info: any) => {

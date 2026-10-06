@@ -193,5 +193,67 @@ describe('useMasonryLayout', () => {
 
     expect(result.current.columns).toEqual([]);
     expect(result.current.columnAssignments).toEqual([0, 0, 0]);
+    expect(result.current.columnHeights).toEqual([]);
+    expect(result.current.itemOffsets).toEqual([]);
+  });
+
+  // ── Story 0.48 AC3 — columnHeights/itemOffsets ────────────────────────────────────────────
+  it('AC3 — columnHeights/itemOffsets are all-zero (not []) while unmeasured (SSR/first-paint)', () => {
+    const { result } = setup({ itemCount: 4, columnCount: 2 });
+
+    expect(result.current.hasMeasured).toBe(false);
+    expect(result.current.columnHeights).toEqual([0, 0]);
+    expect(result.current.itemOffsets).toEqual([0, 0, 0, 0]);
+  });
+
+  it('AC3 — columnHeights matches the sum of each column\'s item heights', () => {
+    const { result } = setup({ itemCount: 4, columnCount: 2 });
+
+    act(() => {
+      // Heights: 100, 50, 30, 20 — same fixture as the shortest-column selection test above.
+      // col0 gets item0 (100); col1 gets items 1,2,3 (50+30+20=100).
+      result.current.registerItemRef(0)(makeNode(100));
+      result.current.registerItemRef(1)(makeNode(50));
+      result.current.registerItemRef(2)(makeNode(30));
+      result.current.registerItemRef(3)(makeNode(20));
+    });
+
+    expect(result.current.columnAssignments).toEqual([0, 1, 1, 1]);
+    expect(result.current.columnHeights).toEqual([100, 100]);
+  });
+
+  it('AC3 — itemOffsets matches each item\'s actual accumulated-before-it height within its column', () => {
+    const { result } = setup({ itemCount: 4, columnCount: 2 });
+
+    act(() => {
+      result.current.registerItemRef(0)(makeNode(100));
+      result.current.registerItemRef(1)(makeNode(50));
+      result.current.registerItemRef(2)(makeNode(30));
+      result.current.registerItemRef(3)(makeNode(20));
+    });
+
+    // item0 is alone in col0 -> offset 0. item1 is first in col1 -> offset 0. item2 follows
+    // item1 (height 50) in col1 -> offset 50. item3 follows items 1+2 (50+30=80) -> offset 80.
+    expect(result.current.columnAssignments).toEqual([0, 1, 1, 1]);
+    expect(result.current.itemOffsets).toEqual([0, 0, 50, 80]);
+  });
+
+  it('AC3 — an unmeasured item placed round-robin reports its column\'s current accumulated height as its offset', () => {
+    const { result, rerender } = setup({ itemCount: 2, columnCount: 2 });
+
+    act(() => {
+      result.current.registerItemRef(0)(makeNode(100));
+      result.current.registerItemRef(1)(makeNode(10));
+    });
+    expect(result.current.hasMeasured).toBe(true);
+
+    // Append an unmeasured item 2 (not yet registered) -- placed round-robin into col0 (the
+    // review-fix rule for unmeasured items), whose current accumulated height is 100.
+    rerender({ itemCount: 3, columnCount: 2 });
+
+    expect(result.current.columnAssignments).toEqual([0, 1, 0]);
+    expect(result.current.itemOffsets[2]).toBe(100);
+    // The unmeasured item's 0-height estimate does not change column 0's accumulated height.
+    expect(result.current.columnHeights).toEqual([100, 10]);
   });
 });

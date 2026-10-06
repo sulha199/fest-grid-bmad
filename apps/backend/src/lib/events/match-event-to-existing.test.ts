@@ -2,7 +2,7 @@ import test from 'node:test';
 import * as assert from 'node:assert';
 import { eq, inArray } from 'drizzle-orm';
 import { db } from '../../db/client.js';
-import { socialMediaAccountProfiles, posts, events, eventPosts, schedules } from '@festgrid/database';
+import { socialMediaAccountProfiles, posts, events, eventPosts, schedules, postAccountAssociations } from '@festgrid/database';
 import type { EventInsertValues, ScheduleInsertValues } from '@festgrid/domain/events';
 import { insertEventWithPrimaryPost } from './set-event-primary-post.js';
 import { findMatchingEvent } from './match-event-to-existing.js';
@@ -45,7 +45,10 @@ test('findMatchingEvent integration tests', async (t) => {
       await db.delete(eventPosts).where(inArray(eventPosts.eventId, eventIds));
       await db.delete(events).where(inArray(events.id, eventIds));
     }
-    if (postIds.length > 0) await db.delete(posts).where(inArray(posts.id, postIds));
+    if (postIds.length > 0) {
+      await db.delete(postAccountAssociations).where(inArray(postAccountAssociations.postId, postIds));
+      await db.delete(posts).where(inArray(posts.id, postIds));
+    }
     await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, [matchingAccount.id, otherAccount.id]));
   });
 
@@ -60,6 +63,9 @@ test('findMatchingEvent integration tests', async (t) => {
       })
       .returning();
     postIds.push(post.id);
+    // Story 3.18 made buildEventAccountMatchCondition association-table-only, so a fixture post
+    // needs the same PUBLISHER association row persistPostAccountAssociations writes in production.
+    await db.insert(postAccountAssociations).values({ postId: post.id, accountId, role: 'PUBLISHER' });
     return post;
   }
 

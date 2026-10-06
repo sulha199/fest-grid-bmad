@@ -181,13 +181,18 @@ describe('EventListView', () => {
 
       // Story 0.45: EventListView's grid now uses GridContainer's layout="masonry" JS
       // shortest-column engine (Architecture Spine AD-27), not plain CSS Grid classes — the same
-      // baseCols=2/colsStep=1 breakpoint table still applies, just via `useMasonryLayout`'s flex
-      // column tracks instead of `grid-cols-*` classes (AC1/AC3/AC6).
+      // baseCols=2/colsStep=1 breakpoint table still applies. Story 0.48 rebuilt the masonry
+      // render path on one flat, mount-stable parent (AC1/AC9) — there is no longer a per-column
+      // wrapper `<div>` to count; each item now carries its own column-index attribute directly.
       const grid = container.querySelector('[data-grid-container-layout="masonry"]');
       expect(grid).toBeInTheDocument();
       expect(grid?.className).not.toContain('grid-cols');
-      const columns = container.querySelectorAll('[data-grid-container-column]');
-      expect(columns.length).toBeGreaterThan(0);
+      const distinctColumnIndices = new Set(
+        Array.from(container.querySelectorAll('[data-grid-container-column-index]')).map((el) =>
+          el.getAttribute('data-grid-container-column-index')
+        )
+      );
+      expect(distinctColumnIndices.size).toBeGreaterThan(0);
 
       const cardTitle = screen.getByText('Summer Fest');
       const cardContainer = cardTitle.closest('.p-3');

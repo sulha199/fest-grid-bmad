@@ -3,7 +3,10 @@ extend type Query {
   Combined count of items awaiting moderator action across Moderator Items
   (Section 3.9.3): pending Reports plus Default Location changes in
   PENDING_REVIEW or AWAITING_APPROVAL status (Section 3.7/4.14), plus pending
-  AccountTypeClassificationReview rows (reviewedAt IS NULL, Story 4.7c).
+  AccountTypeClassificationReview rows (reviewedAt IS NULL, Story 4.7c), plus
+  pending suggested event-match rows (event_match_candidates.status = 'pending',
+  Story 3.6w, PRD amendment 2026-10-02) awaiting review on the "Duplicate
+  Events" Moderator Tools tab.
   Powers the Moderator Pending-Item Badge (added 2026-08-28). Moderator-gated like every
   other Moderator Items query -- the frontend must already know to only call
   this for a moderator (the same `me.role` check that gates the nav entry

@@ -1,0 +1,64 @@
+name: Backfill Legacy Event Slugs
+
+# Manual-only, dedicated workflow -- never runs on push/pull_request, and is separate from
+# ci.yml so a manual trigger only ever runs this backfill, not the full CI/CD pipeline.
+# Heals legacy-null posts.platformPostId/platformPostType and re-keys events still on their
+# legacy hex slug to the platform-prefixed slug, through event_slug_aliases so old links keep
+# working (Story 3.22, FIND-071, AD-16 Rule 10 / AD-30 Rule 2).
+#
+# Unlike "Backfill Post Media Keys", this backfill never touches S3 -- it reads/writes only the
+# posts/events/event_slug_aliases tables via DATABASE_URL, so no AWS credentials step is needed.
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Commit changes (unchecked = dry run, writes nothing)'
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  backfill-legacy-event-slugs:
+    name: Backfill Legacy Event Slugs (manual)
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: backfill-legacy-event-slugs
+      cancel-in-progress: false
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'package.json'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Workspace packages (@festgrid/database, @festgrid/domain) resolve to their gitignored
+      # dist/ output, so they must be built before the backfill script can import them.
+      - name: Build workspace packages
+        run: pnpm run build
+
+      - name: Run backfill
+        env:
+          # loadBackendEnv() (run at import time by db/client.ts) requires this; the backfill
+          # never binds a port, so any valid number works.
+          BACKEND_PORT: '4001'
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          cd apps/backend
+          if [ "${{ inputs.apply }}" = "true" ]; then
+            npx tsx src/backfill-legacy-event-slugs.ts backfill --apply
+          else
+            echo "::notice::Running in DRY RUN mode -- nothing will be written. Re-run with 'apply: true' to commit."
+            npx tsx src/backfill-legacy-event-slugs.ts backfill
+          fi

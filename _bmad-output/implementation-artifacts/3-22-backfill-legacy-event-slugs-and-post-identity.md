@@ -1,0 +1,318 @@
+---
+baseline_commit: 8320a81
+---
+
+# Story 3.22: Backfill legacy event slugs and post identity
+
+## Story Details
+
+- Epic: 3
+- Story ID: 3.22
+- Status: review
+
+<!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
+
+## Story
+
+As a subscriber,
+I want an event that was ingested before its post's platform identity was correctly captured to get the same readable, platform-prefixed URL as events ingested today,
+So that I'm not left with an unreadable legacy hex link (e.g. `/en/events/ea98b320ba01`) just because of when the event happened to be scraped — and so that link, if I already bookmarked/shared it, keeps working.
+
+## Acceptance Criteria
+
+1. **Given** a `posts` row with `platformPostId IS NULL OR platformPostType IS NULL` whose `postUrl`/`originalPostUrl` *is* actually parseable by `packages/domain/src/scraper/parse-platform-post-identity.ts`'s `parsePlatformPostIdentity()`, **when** the backfill script's identity-healing pass runs with `--apply`, **then** that post's `platformPostId`/`platformPostType` columns are updated to the derived values — identical derivation and identical outcome to the lazy, per-post healing `processIngestionJob` already performs inline (commit `8320a81`, 2026-10-05) when a *new* extraction job happens to touch that post; this story's script is what reaches every post that doesn't get a new extraction job.
+2. **And** a post whose URL is genuinely unparseable (neither `postUrl` nor `originalPostUrl` matches the `/p//reel//reels/` permalink shape) is left untouched — never a guessed value — exactly as `parsePlatformPostIdentity()` already contracts.
+3. **Given** an `events` row with `deletedAt IS NULL`, `mergedIntoEventId IS NULL`, `postId IS NOT NULL`, and a `slug` matching the legacy shape `^[0-9a-f]{12}$`, **when** that event's primary post (via `events.postId`) has — after AC1's healing step — a resolvable `platform`/`platformPostId`/`platformPostType`, **then** the script computes the event's platform-prefixed slug via the *exported* `buildPlatformPrefixedSlug()` (Story 3.7g's helper, `packages/domain/src/events/build-event-insert-values.ts`), passing the event's own already-stored `extractionOrdinal` — never recomputed, never re-implemented — and, with `--apply`, re-keys the event: the event's current (hex) slug is recorded as a permanent entry in `event_slug_aliases` (Story 3.6v's table), and `events.slug` is updated to the new platform-prefixed value, using the exact same re-slug+alias-write logic Story 3.6v's `enrichAndPromoteEvent` already uses for its own (different-trigger) re-slug case — extracted into one shared, exported helper (Task 2) so there is never a second, independently-maintained implementation of this write.
+4. **And** an event whose primary post still has no resolvable identity after AC1 (URL genuinely unparseable, or the post's `platform` doesn't resolve via `getPlatformSlug()`) is left with its current hex slug, unchanged, forever — matching AD-16 Rules 4/5/12's existing fallback contract. This story never guesses a slug and never touches an event with `postId IS NULL` (AD-16 Rule 12).
+5. **And** old links keep working with zero resolver/route changes: once an event is re-keyed (AC3), a request for its old hex slug is still served correctly by Story 3.6v's already-built, unmodified mechanism — `eventBySlug`'s canonical-lookup-then-alias-fallback (`apps/backend/src/schema/resolvers.ts`) and both Next.js event-detail routes' redirect-on-slug-mismatch (`apps/web/src/app/[locale]/events/[slug]/page.tsx` and its `@modal` sibling) — proven by a regression test that fetches the backfilled event by its *old* slug and gets the canonical event/a redirect back, not a 404.
+6. **And** the script is safe to run against a live table: every post-identity write and every event re-key happens in its own small transaction (never one transaction for the whole run), the script is idempotent (a post already carrying identity, or an event whose slug no longer matches the legacy hex shape, is skipped with zero writes on a re-run), and — matching this codebase's own established backfill convention (`backfill-post-media-keys.ts`, `backfill-scraper-actor-runs.ts`) — the script ships a read-only `sizing` mode (reports counts: posts needing identity healing, events eligible for re-keying, and events that will remain permanently hex because their post has no resolvable identity) and a `backfill` mode that is dry-run by default and writes only with an explicit `--apply` flag.
+7. **And** the script is run manually, once per environment, via a dedicated `workflow_dispatch`-only GitHub Actions workflow (`environment: production`, an `apply` checkbox input defaulting to unchecked/dry-run, a `concurrency` guard preventing two runs overlapping) — matching `.github/workflows/backfill-post-media-keys.yml`'s exact shape — never a new scheduled/cron-triggered mechanism (explicitly rejected by the user, see Dev Notes "Design decision").
+8. **And** this story performs no DDL change. Every column/table it writes to (`posts.platformPostId`/`platformPostType`, `events.slug`, `event_slug_aliases`) already exists. Task 1 explicitly proves this by running `pnpm --filter @festgrid/database generate` before any other work and confirming it produces no new migration file — if it unexpectedly does (schema drift unrelated to this story), that generated file must be used as-is (next sequential number, currently `0074`) and investigated, never hand-edited, and work pauses until that drift is understood (see Dev Notes).
+
+**Depends on:** Story 3.7g (`buildPlatformPrefixedSlug()`, slug shape — status `review`), Story 3.6v (`event_slug_aliases` table, `eventBySlug` alias fallback, both route redirects, and `enrichAndPromoteEvent`'s re-slug block being extracted into a shared helper — status `review`), Story 3.7f (`posts.platformPostId`/`platformPostType` columns, `parsePlatformPostIdentity()` — status `review`). Per this codebase's standing rule, building against `review`-status prerequisites is allowed (no wait) — all three are implemented and merged, only their formal review sign-off is pending.
+
+**Note:** Promotes backlog row `FIND-071` (`backlog.yaml`, deferred from the 2026-10-05 `bmad-quick-dev` session that fixed the forward-path bug in `process-ingestion-job.ts`; see `deferred-work.md`'s "Deferred from: quick-dev of event detail schedule display and ingestion slug identity (2026-10-05)" entry).
+
+## Tasks / Subtasks
+
+- [x] **Task 1 (AC8) — Confirm zero DDL impact before any other work.** Run `pnpm --filter @festgrid/database generate`. Confirm it reports "No schema changes, nothing to migrate" (every column/table this story needs — `posts.platformPostId`/`platformPostType` from migration `0062`, `events.slug`/`extractionOrdinal`/`postId`/`deletedAt`/`mergedIntoEventId` from the original schema plus Story 3.6r's AD-30 migration, `event_slug_aliases` from Story 3.6r/3.6v — already exists). If it unexpectedly generates a migration file, stop and investigate before proceeding (do not hand-edit it; if it does turn out to be legitimately needed, it must be the next sequential number, currently `0074` unless a newer migration has landed since this story was drafted — re-run `ls packages/database/migrations/ | sort -V | tail -1` to confirm the current highest number first).
+
+- [x] **Task 2 (AC3) — Export the slug builder; extract the shared re-slug+alias-write helper.** Two small, surgical changes to reuse existing logic rather than duplicate it (the exact drift class AD-16 already guards against for the platform-code mapping):
+  - In `packages/domain/src/events/build-event-insert-values.ts`, change `function buildPlatformPrefixedSlug(...)` to `export function buildPlatformPrefixedSlug(...)` (no behavior change — it's already picked up by `packages/domain/src/events/index.ts`'s `export *` from this file, so no barrel-file edit is needed). Update its doc comment to note it now has a second caller (this story's backfill script).
+  - In `apps/backend/src/lib/events/set-event-primary-post.ts`, extract lines ~376-402 of `enrichAndPromoteEvent` (the `if (newEvent.slug && newEvent.slug !== candidateEvent.slug) { ... }` block: old-slug-alias insert with its duplicate-row guard, the AD-16 Rule 10 R→O→R new-slug-alias-deletion exception, and the final `events.slug` update) into a new exported function `reslugEventAndRecordAlias(executor: DbExecutor, event: { id: string; slug: string }, newSlug: string): Promise<void>` in the same file. Replace the inline block in `enrichAndPromoteEvent` with a call to it (`if (newEvent.slug && newEvent.slug !== candidateEvent.slug) { await reslugEventAndRecordAlias(executor, candidateEvent, newEvent.slug); }`) — behavior-preserving refactor, proven by `set-event-primary-post.test.ts`'s existing re-slug/R-O-R test cases continuing to pass unmodified.
+  - This is the single piece of shared, DB-coupled write logic this story's backfill script and Story 3.6v's promotion path both now call — never two independently-maintained implementations of "record an alias, handle R-O-R, update the slug."
+
+- [x] **Task 3 (AC1, AC2) — Post-identity healing pass.** New function `healPostPlatformIdentity(executor: DbExecutor): Promise<{ healed: number; stillUnresolvable: number }>` in a new file `apps/backend/src/lib/events/backfill-legacy-event-slugs-support.ts` (shared by the sizing and backfill modes below): selects `posts` rows where `platformPostId IS NULL OR platformPostType IS NULL`, paginated by a cursor on `posts.id` (e.g. batches of 500, looping until exhausted — never one unbounded `SELECT *`). For each row, calls `parsePlatformPostIdentity({ postUrl, originalPostUrl })` (reuse, never re-implement). When both fields resolve, update that one post's `platformPostId`/`platformPostType` in its own small transaction; when they don't, leave it and count it. This is the exact same derivation `processIngestionJob`'s inline healing already performs (apps/backend/src/lib/ingestor/process-ingestion-job.ts, commit `8320a81`) — intentionally duplicated as a batch-oriented variant here (not extracted into a shared function) because the two call sites have genuinely different shapes: one is "heal the one post this ingestion job just touched, inline, no batching," the other is "scan and heal every unhealed post in the table." Document this as a deliberate, reasoned non-duplication in a code comment, not an oversight.
+
+- [x] **Task 4 (AC3, AC4) — Event re-key pass.** New function `reslugLegacyEvents(executor: DbExecutor): Promise<{ reslugged: number; stillUnresolvable: number }>` in the same support file: selects `events` rows where `deletedAt IS NULL AND mergedIntoEventId IS NULL AND postId IS NOT NULL AND slug ~ '^[0-9a-f]{12}$'`, paginated the same way as Task 3. For each, joins/looks up its primary post's (post-Task-3) `platform`/`platformPostId`/`platformPostType`. When resolvable, computes `buildPlatformPrefixedSlug({ platform, platformPostId, platformPostType }, event.extractionOrdinal)` (the now-exported Task 2 helper) and, if it returns a defined value, wraps the read-compute-write in its own `db.transaction`, re-reading the event's current `slug` inside that transaction (not reusing the batch-query's possibly-stale value) and calling `reslugEventAndRecordAlias(tx, event, newSlug)` (Task 2) — this re-read-inside-the-transaction is this story's concurrency safeguard: it guarantees the alias written is always for whatever slug is canonical *at write time*, so a vanishingly-rare concurrent `enrichAndPromoteEvent` promotion racing the same event either commits first (this transaction then correctly aliases the *post-promotion* slug, not a stale one) or second (this transaction's alias/slug write simply becomes the new current state, and `enrichAndPromoteEvent`'s own prior alias write for its own old-slug is untouched and still a valid redirect) — in neither ordering does any `event_slug_aliases` row become incorrect or a user-visible link break, because every write this story or 3.6v's promotion path ever makes is append-an-alias-then-swap-canonical, never a destructive edit. Document this reasoning in a code comment on `reslugLegacyEvents` so a future reader doesn't mistake the lack of an explicit row lock for an oversight. When the post has no resolvable identity, count it (AC4) and move on.
+
+- [x] **Task 5 (AC6, AC7) — The script itself and its CI workflow.** New `apps/backend/src/backfill-legacy-event-slugs.ts`, mirroring `backfill-post-media-keys.ts`'s exact shape:
+  - `runSizing()`: read-only. Counts (a) posts needing identity healing that *are* resolvable, (b) posts needing healing that are *not* resolvable, (c) events eligible for re-keying whose post identity is (after a dry simulation) resolvable, (d) events that would remain permanently hex. Prints a report; writes nothing.
+  - `runBackfill(apply: boolean)`: without `--apply`, calls Task 3/4's functions in a mode that logs what it *would* do (every post it would heal, every event it would re-key with its old→new slug) and writes nothing (wrap the whole dry-run pass in a transaction that is always rolled back at the end — the same "run the real logic, then discard" technique giving the dry run perfect fidelity with zero duplicate logic, rather than hand-maintaining a separate "preview" code path). With `--apply`, runs Task 3 to completion, then Task 4 to completion, both for real (each still internally batched/per-row-transactional per Tasks 3/4 — the outer `apply`/no-`apply` switch only controls whether the *outermost* wrapping transaction commits or rolls back for the dry-run case; the real `--apply` run has no single outermost transaction, exactly matching Tasks 3/4's own per-row/per-batch transaction design).
+  - `main()`: `sizing` / `backfill [--apply]` argv dispatch, identical convention to `backfill-post-media-keys.ts`.
+  - New `.github/workflows/backfill-legacy-event-slugs.yml`: `workflow_dispatch` only, one `apply: boolean` input (default `false`), `environment: production`, `concurrency: { group: backfill-legacy-event-slugs, cancel-in-progress: false }`, checkout/pnpm/node/install/build steps copied verbatim from `backfill-post-media-keys.yml`, then a "Run backfill" step with only `DATABASE_URL: ${{ secrets.DATABASE_URL }}` in `env` (no AWS/S3 steps needed — this script never touches S3, unlike its model) running `npx tsx src/backfill-legacy-event-slugs.ts backfill --apply` or (no `apply`) `backfill` with the same dry-run notice pattern.
+
+- [x] **Task 6 (AC5) — Prove old links keep working, with zero resolver/route changes.** Add one integration test (real local Postgres, `apps/backend`) that: seeds a post with a parseable-but-null-identity URL and an event with a legacy hex slug pointing at it; runs `healPostPlatformIdentity` + `reslugLegacyEvents` with `apply`-equivalent behavior; then calls the `eventBySlug` resolver directly with the *original* hex slug and asserts it returns the same event, now carrying its *new* canonical slug (proving the alias fallback — Story 3.6v's existing, unmodified code — correctly serves a backfill-written alias row exactly as it serves its own promotion-written ones). Cite in a code comment that `apps/web`'s route-level redirect behavior for an alias hit is already covered by Story 3.6v's own `page.test.tsx`/`@modal` test files against a manually-inserted alias row, which is structurally indistinguishable from one this story's script inserts — no new web-level test required by this story.
+
+- [x] **Task 7 (AC1-AC6) — Full test suite.** `packages/domain`: no new tests needed beyond confirming `buildPlatformPrefixedSlug`'s existing 100%-covered test cases (Story 3.7g) are unaffected by the `export` keyword change (Task 2) — run `pnpm --filter @festgrid/domain test` to confirm. `apps/backend` (real local Postgres, `TZ=UTC`, run alone per FIND-064 — never inside a whole-repo `turbo`/parallel invocation): `backfill-legacy-event-slugs-support.test.ts` covering `healPostPlatformIdentity` (resolvable post healed; unparseable post untouched and counted; already-healed post skipped/no-op on re-run) and `reslugLegacyEvents` (hex-slugged event with resolvable post re-keyed, old slug becomes an alias, `extractionOrdinal` carried through correctly including a non-zero-ordinal case with the `~N` suffix; event with unresolvable post left unchanged and counted; event with `postId IS NULL` skipped entirely; soft-deleted/merged-away event skipped entirely; already-platform-prefixed-slug event skipped/no-op on re-run — AC6's idempotency); `set-event-primary-post.test.ts`'s existing re-slug/R-O-R cases re-run unmodified and still green after Task 2's extraction (regression proof the refactor is behavior-preserving); Task 6's `eventBySlug`-alias-fallback-after-backfill test. `backfill-legacy-event-slugs.test.ts` for the script's own `runSizing`/`runBackfill(apply)` dispatch logic (mirroring `backfill-post-media-keys.test.ts`'s convention — this sandbox *does* have a real local Postgres available, unlike that story's S3 constraint, so this story's integration tests are not deferred to a later dev-stage pass). Lint/build clean for `domain`, `database` (unaffected, but confirm), and `backend`.
+
+## Dev Notes
+
+### Design decision (resolved with the user before this story was drafted)
+
+Two shapes were possible for the healing mechanism itself: (A) a one-shot backfill script, run once per environment via a manual GitHub Actions `workflow_dispatch`, mirroring this codebase's own established convention (`backfill-post-media-keys.ts`, `backfill-scraper-actor-runs.ts`); or (B) a lazy/trickled re-key via a new small EventBridge-cron-triggered job healing a bounded number of rows per tick until none remain.
+
+**The user chose (A), via `AskUserQuestion`**, following this story's own Gate 1 review (below), which recommended it: Option A needs zero new infrastructure (no new Lambda, EventBridge rule, or IaC) for what is fundamentally a one-time data-repair task, finishes the debt in one pass with a clear completion signal (the `sizing` mode's count reaching zero), and matches the codebase's own repeated precedent for this exact problem shape. Option B was assessed as disproportionate (new deploy artifact for one-time work) and open-ended (no clean "done" signal, an indefinite tail of un-healed legacy slugs). Do not revisit this without re-reading this note; Tasks 1-7 implement (A) only.
+
+### Architecture & UX Gate Findings
+
+Epic 3's last full sweep (`epic-3-readiness.md`, 2026-09-11) and the CC-024 batch sweep (`batch-cc-024-multi-event-readiness.md`, 2026-10-01, `stories_covered` through 3.18) both predate this finding (surfaced 2026-10-05) and cover a different kind of scope (the forward-path slug/matching mechanism, not a live-table data-repair script) — per this workflow's lightweight escape-hatch guard, both gates were run **fresh** for this story rather than cited from either sweep.
+
+- **Gate 1 (Architecture/Infra Completeness, Winston persona) — run fresh. Verdict: no blocking gap**, with two concrete implementation requirements folded directly into Tasks 2/4 rather than left as open risk:
+  - **AD-16 Rule 5 ("no backfill, ever") is not contradicted.** Rule 5 was written before `event_slug_aliases` existed, reasoning about regenerating slugs *without* a redirect path ("would break every shared URL"). This story targets only the bug-caused subset (parseable URL, but identity columns stayed null) and re-keys *through* the alias table — old URLs redirect instead of breaking. AD-16 Rule 10/AD-30 Rule 2 already establish this exact "re-slug + permanent alias" mechanism for a different trigger (primary-post promotion, `enrichAndPromoteEvent`); this story is the same mechanism, second trigger — a legitimate, narrow, redirect-safe exception to Rule 5's general stance, not a silent reversal of it. (A corresponding one-line amendment to AD-16 Rule 5's text, noting this second trigger, is a reasonable follow-up for a future `bmad-architecture` pass — not required to unblock this story, since no new mechanism is introduced.)
+  - **Avoid a second, independently-maintained re-slug+alias-write implementation.** `enrichAndPromoteEvent`'s inline re-slug block (`set-event-primary-post.ts` lines ~376-402) must be extracted into one shared, exported helper used by both that function and this story's backfill script — folded into Task 2, not left as a drift risk.
+  - **Migration safety on a live table:** no DDL is needed (both Tasks touch only already-existing columns/tables — Task 1 proves this). Required discipline: a read-only sizing/dry-run pass first (production row counts are genuinely unknown — the local sandbox DB currently has 0 hex-slugged events and 35/35 posts with null identity, far too small a sample to extrapolate from); per-row/small-batch transactions, never one giant transaction, to avoid long lock waits on `posts`/`events`; idempotency (skip already-healed/already-re-keyed rows on a re-run). A live ingestion job can touch the same `posts` row or `events` row the backfill is healing/re-keying concurrently; see Task 3/4's handling — the identity-healing race is self-correcting (same derivation, same result either way), and the event re-slug race is handled by re-reading the event's current slug inside the per-event write transaction rather than trusting a possibly-stale batch-query value (documented in Task 4).
+  - **Old-slug redirects are already fully sufficient as-is.** `eventBySlug`'s canonical-lookup-then-alias-fallback and both Next.js routes' redirect-on-mismatch (Story 3.6v) need zero changes — confirmed directly against `resolvers.ts` and both `page.tsx` files; Task 6 proves this with a regression test rather than just asserting it.
+- **Gate 2 (UI Complexity & Reusability, Freya/Sally persona) — not run as a subagent pass; reasoned directly, no gap possible.** This story has zero `apps/web`/`packages/ui` surface: no new component, hook, page, or design token. The only end-user-visible effect (a transparent redirect for an aliased slug) is served entirely by Story 3.6v's already-shipped, unmodified UI/route code, which that story's own Gate 2 pass (run fresh, 2026-10-04) already confirmed has no UI gap for this exact redirect mechanism. Re-running the subagent pass here would re-derive the identical "no UI surface exists" conclusion at full cost for zero new information.
+- **Gate 3 (Foundational/Cross-Cutting Dependency Completeness, Winston persona) — run fresh. Verdict: no gap found.** No app-shell/i18n/analytics/GraphQL-codegen dependency (zero UI/schema surface). `buildPlatformPrefixedSlug()` is not one of `project-context.md`'s explicitly-named mandated cross-cutting utilities (unlike `buildOptimizedDrizzleSelect`) — it already has a home in `packages/domain`; exporting it for a second caller is an ordinary story-scoped detail (Task 2), not a foundational-utility gap. No dependency referenced in `project-context.md`/the architecture spine that this story needs is missing a story anywhere in `epics.md` — `event_slug_aliases`, the alias-fallback query, and the redirect routes were all delivered by Story 3.6v and already exist in code. The "run a backfill against a live environment" workflow is itself an already-established, repeatable pattern in this codebase (dry-run-by-default + `--apply`, paired with a manual `workflow_dispatch` GitHub Actions job scoped to `environment: production` with a concurrency guard) — this story follows that pattern (Task 5) rather than treating it as a gap to split into its own prerequisite story.
+
+### Current-code facts this story's implementation depends on (verified directly against source, 2026-10-05)
+
+- `apps/backend/src/lib/ingestor/process-ingestion-job.ts` (post-`8320a81`) already derives and persists post identity lazily, inline, whenever a *new* extraction job touches a post with null `platformPostId`/`platformPostType` but a parseable URL — using the exact same `parsePlatformPostIdentity()` call this story's Task 3 reuses. This story's script is the only way to reach a post that will never get a new extraction job again.
+- `buildPlatformPrefixedSlug()` (`packages/domain/src/events/build-event-insert-values.ts`) is currently a private, unexported function with exactly one caller (`buildEventInsertValues()`). It already correctly handles the `~{ordinal}` suffix (AD-16 Rule 9) via its existing `extractionOrdinal` parameter — this story's Task 4 passes the event's own stored `extractionOrdinal` through unchanged, never recomputing it.
+- `eventSlugAliases` table (`packages/database/schema.ts`): `slug unique().notNull()`, `eventId` FK cascade, an index on `eventId` (added by Story 3.6v). `enrichAndPromoteEvent`'s existing re-slug block (to be extracted, Task 2) already handles the duplicate-alias-row guard and the AD-16 Rule 10 R→O→R exception — this story's script inherits that handling for free via the shared helper, no new logic needed for those cases.
+- `events` table relevant columns: `slug: text().unique().notNull()`, `postId: uuid().references(() => posts.id, { onDelete: 'set null' })`, `extractionOrdinal: smallint()` (nullable), `deletedAt`/`mergedIntoEventId` (soft-delete/merge, AD-8/AD-30). `posts` table: `platform`, `platformPostId`, `platformPostType` (all already present).
+- `eventBySlug` (`apps/backend/src/schema/resolvers.ts`, ~line 3626) already looks up the canonical slug first, then `event_slug_aliases` on a miss, returning the canonical `Event` row transparently — zero changes needed, verified by direct read.
+- Local sandbox DB snapshot at story-drafting time (not representative of production, included only to show the `sizing` mode's purpose): 12 total events (0 hex-slugged), 35 posts (35 with null platform identity, i.e. 100% of the local seed data predates/never received identity capture). Production scale is unknown — this is exactly why AC6 mandates a `sizing` dry-run first.
+- The codebase's existing backfill-script precedent, confirmed by direct read: `apps/backend/src/backfill-post-media-keys.ts` + `.github/workflows/backfill-post-media-keys.yml` (sizing/dry-run + `--apply`, `workflow_dispatch`, `environment: production`, concurrency guard — the exact shape Task 5 copies, minus the AWS/S3-specific steps this story doesn't need) and `packages/database/backfill-scraper-actor-runs.ts` (sizing/backfill mode split, same convention).
+
+### Data Type Compatibility & Migration Requirements
+
+- **Compatibility finding:** no new/changed/incompatible type anywhere. This story writes existing nullable columns (`posts.platformPostId`/`platformPostType`) to their already-correct type (`text | null`) and existing `events.slug`/`event_slug_aliases` rows via already-existing, already-typed write paths (the Task 2 shared helper, the Task 2 exported slug builder).
+- **Impacted fields/contracts:** none at the schema level. `buildPlatformPrefixedSlug` gains a second caller (no signature change — Task 2 only adds the `export` keyword). `reslugEventAndRecordAlias` is a new exported function with a narrower parameter shape (`{ id, slug }`) than the full `EventRow` its one existing call site already has in hand, deliberately decoupled so the backfill script's own more minimal event-select query doesn't need to fetch every `events` column.
+- **Required DB migration changes:** none (AC8, Task 1 proves this explicitly before any other work).
+- **Required TypeScript type changes:** none beyond the two Task 2 export/extraction changes and the new files listed in Tasks 3-5.
+- **Backward compatibility and rollout notes:** purely additive/corrective — every event this script could possibly touch either gets a new canonical slug with its old one preserved as a working alias (AC3/AC5), or is left exactly as it was (AC4). No existing code path (resolver, route, GraphQL type) changes behavior as a *result* of this story; they only ever see more `event_slug_aliases` rows and some `events.slug` values changing from hex to platform-prefixed, both already-handled cases.
+- **Verification checks:** Task 1's `drizzle-kit generate` no-op proof; Task 7's full domain/backend test suite (identity-healing branches, re-key branches including the `~N` ordinal suffix, skip conditions, idempotent re-run, the Task 6 alias-fallback-after-backfill regression test, `set-event-primary-post.test.ts`'s unmodified-behavior proof for Task 2's refactor).
+
+### Project Structure Notes
+
+- **New:** `apps/backend/src/lib/events/backfill-legacy-event-slugs-support.ts` (+ `.test.ts`) — `healPostPlatformIdentity`, `reslugLegacyEvents`; `apps/backend/src/backfill-legacy-event-slugs.ts` (+ `.test.ts`) — `runSizing`, `runBackfill`, CLI dispatch; `.github/workflows/backfill-legacy-event-slugs.yml`.
+- **Modified:** `packages/domain/src/events/build-event-insert-values.ts` (export `buildPlatformPrefixedSlug`, comment update only — Task 2); `apps/backend/src/lib/events/set-event-primary-post.ts` + `.test.ts` (extract `reslugEventAndRecordAlias`, Task 2 — behavior-preserving, existing tests must stay green unmodified); `apps/backend/src/schema/resolvers.test.ts` (Task 6's new alias-fallback-after-backfill regression test, extending the existing `eventBySlug` test file rather than creating a new one, matching Story 3.6v's own convention of extending that file).
+- **Not modified:** `apps/backend/src/schema/resolvers.ts` (`eventBySlug` itself — AC5, zero changes needed); `apps/web/src/app/[locale]/events/[slug]/page.tsx` and its `@modal` sibling (AC5, zero changes needed — already correct per Story 3.6v); `apps/backend/src/lib/ingestor/process-ingestion-job.ts` (the 2026-10-05 forward-path fix is already correct and untouched by this story); `packages/database/schema.ts` (no DDL, AC8); any `.graphql` schema file.
+- **Reusable mechanism check (packages/domain):** `buildPlatformPrefixedSlug` is pure, dependency-free domain logic with no DB/ORM/Node-only dependency — it already correctly lives in `packages/domain/src/events/`; exporting it is not a new placement decision.
+- **Backend-only placement (packages/domain restriction):** `healPostPlatformIdentity`, `reslugLegacyEvents`, `reslugEventAndRecordAlias`, and the script itself are all Drizzle/DB-coupled (direct `executor.select/update/transaction` calls) and correctly stay in `apps/backend`, never `packages/domain`, per `project-context.md`'s Code Organization rule (domain packages must stay DB/ORM/Node-dependency-free; `packages/domain` is also imported by `apps/web`).
+- **Not applicable to this story:** reusable UI component (`packages/ui`) — no UI surface; cloud/external-service setup (`SETUP_WALKTHROUGH.md`) — no new vendor, only Postgres via the already-documented `DATABASE_URL` secret; analytics (AD-5) — no tracked user interaction; i18n (AD-6) — no user-facing string; AD-1/AD-2 Unified Query DSL — this is an internal one-off write-path script, never a public collection query (the same scoping precedent Story 3.6r's `pg_trgm` write-path-only index already established); state management/loader categorization — no frontend state.
+
+### References
+
+- [Source: _bmad-output/implementation-artifacts/backlog.yaml#FIND-071] — the promoted backlog row.
+- [Source: _bmad-output/implementation-artifacts/deferred-work.md#"Deferred from: quick-dev of event detail schedule display and ingestion slug identity (2026-10-05, `bmad-quick-dev`)"] — the exact gap this story closes.
+- [Source: _bmad-output/planning-artifacts/festgrid-architecture-spine.md#AD-16: Platform-Prefixed Event Slugs & Parallel oEmbed Resolution] (lines 496-627) — Rules 1/4/5/9/10/11/12 directly govern this story.
+- [Source: _bmad-output/planning-artifacts/festgrid-architecture-spine.md#AD-30: Event↔Post Is Many-to-Many] (lines 1553+) — Rule 2 (single-writer drift guard, scoped to `postId`, not `slug` — confirmed no existing ratchet covers `events.slug` writes; this story's Task 2 extraction is the closest analog, not an enforced ratchet), Rule 9 (soft-delete/merge exclusion, mirrored in Task 4's event-selection predicate).
+- [Source: _bmad-output/implementation-artifacts/3-7g-build-platform-prefixed-event-slugs-at-ingestion.md] — `buildPlatformPrefixedSlug()`'s as-built shape and its own explicit "no backfill" scoping (this story is the deliberate, narrow exception).
+- [Source: _bmad-output/implementation-artifacts/3-6v-match-new-posts-to-existing-events-and-enrich-them-in-place.md] — `event_slug_aliases`, `eventBySlug` alias fallback, both route redirects, and the inline re-slug block (Task 2's extraction source) as-built.
+- [Source: _bmad-output/implementation-artifacts/3-7f-capture-each-posts-platform-post-id-and-permalink-type-at-scrape-time.md] — `posts.platformPostId`/`platformPostType`, `parsePlatformPostIdentity()` as-built; its own epics.md note's "existing rows are not backfilled (fix-going-forward only)" framing, which this story narrowly amends for the bug-caused subset only.
+- [Source: apps/backend/src/lib/ingestor/process-ingestion-job.ts] (commit `8320a81`, 2026-10-05) — the forward-path lazy-heal fix this story's Task 3 mirrors in batch form.
+- [Source: apps/backend/src/backfill-post-media-keys.ts, apps/backend/src/backfill-post-media-keys.test.ts, .github/workflows/backfill-post-media-keys.yml] — the backfill-script/CI-workflow convention Task 5 copies.
+- [Source: packages/database/backfill-scraper-actor-runs.ts] — the sizing/backfill mode-split precedent.
+- [Source: _bmad-output/project-context.md#Database & Performance, #Code Organization (Domain vs UI)] — Drizzle-only access, domain/backend placement split.
+- [Source: _bmad-output/planning-artifacts/cc-024-multi-event-wave-plan.md] — the migration-number-collision note (confirms migration numbering discipline; not directly applicable since this story generates no migration, AC8).
+- [Source: _bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md] §4.1, §4.4, §8.2 — already-correct platform-prefixed slug description (Story 3.7g verified this 2026-10-01); re-checked during this story's drafting, no drift found, no edit needed.
+
+## Global Rules References
+
+- [x] `_bmad-output/project-context.md` — Database & Performance (Drizzle-only access, no raw Supabase client); Code Organization (Domain vs UI — the new support functions stay in `apps/backend`, never `packages/domain`, since they're DB-coupled; the exported `buildPlatformPrefixedSlug` stays pure/domain-correct).
+- [x] `_bmad-output/planning-artifacts/story-content-structure.md` — canonical section order followed.
+- [x] `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` — AD-16 (Rules 1/4/5/9/10/11/12), AD-30 (Rule 2's scope, Rule 9).
+- [x] `docs/infrastructure/2-backend.md` / `index.md` — read; this story adds no new infra primitive (a manual `workflow_dispatch` GitHub Actions job, matching the existing backfill-script convention — not a new Lambda/queue/EventBridge rule).
+
+## Implementation Plan (Rule-Compliant)
+
+- **File Change Plan:**
+  - `packages/domain/src/events/build-event-insert-values.ts` — export `buildPlatformPrefixedSlug`; comment update.
+  - `apps/backend/src/lib/events/set-event-primary-post.ts` + `.test.ts` — extract `reslugEventAndRecordAlias`.
+  - `apps/backend/src/lib/events/backfill-legacy-event-slugs-support.ts` + `.test.ts` — new, `healPostPlatformIdentity` + `reslugLegacyEvents`.
+  - `apps/backend/src/backfill-legacy-event-slugs.ts` + `.test.ts` — new, the script itself.
+  - `.github/workflows/backfill-legacy-event-slugs.yml` — new.
+  - `apps/backend/src/schema/resolvers.test.ts` — extended with Task 6's alias-fallback-after-backfill test.
+- **Rule Mapping:**
+  - AD-16 Rules 1/4/9 (slug shape, fallback, ordinal suffix) → Task 4's use of the exported `buildPlatformPrefixedSlug`.
+  - AD-16 Rules 5/10/12 (no-backfill-general-case exception, re-slug+alias, null-postId-keeps-slug-forever) → Task 4's selection predicate and Dev Notes "AD-16 Rule 5 is not contradicted."
+  - AD-30 Rule 9 (soft-delete/merge convention) → Task 4's `deletedAt`/`mergedIntoEventId` exclusion.
+  - Project-context.md Code Organization (domain vs backend DB-coupling split) → Task 3/4's placement in `apps/backend`, not `packages/domain`.
+  - "Avoid a second, independently-maintained implementation" (AD-16's own stated principle, applied by Gate 1) → Task 2's extraction of `reslugEventAndRecordAlias`.
+  - Testing Rules (testing-trophy for `apps/*`, real-DB integration-test convention already established by Stories 3.6v/3.7g) → Task 7.
+- **Verification Plan:**
+  - `pnpm --filter @festgrid/database generate` — confirms zero DDL impact (Task 1, AC8).
+  - `pnpm --filter @festgrid/domain build && pnpm --filter @festgrid/domain test` — confirms the Task 2 export change doesn't regress `build-event-insert-values.test.ts`.
+  - `apps/backend` test suite, run **alone** (FIND-064), `TZ=UTC`, against the real local Postgres (confirmed available in this sandbox) — Tasks 3/4/5/6's new test files plus `set-event-primary-post.test.ts`'s and `resolvers.test.ts`'s existing/extended cases.
+  - `pnpm --filter backend lint` / `pnpm --filter domain lint` — clean.
+  - Manual: run the script's `sizing` mode against the local dev DB and sanity-check its reported counts against a direct `psql` query, before relying on it for the eventual production run (which is this story's operational follow-up, not part of `dev-story`'s own Definition of Done — see Out of Scope).
+
+## Pre-Coding Approval Gate
+
+- [x] Scope confirmation — a one-shot, idempotent backfill script (Option A, user-confirmed via `AskUserQuestion`) healing post identity and re-keying legacy-hex event slugs through the existing `event_slug_aliases`/`eventBySlug` mechanism; zero changes to the resolver or route files; zero DDL.
+- [x] Architecture and boundary confirmation — all new write logic stays in `apps/backend`; the exported slug builder stays pure in `packages/domain`; no new GraphQL/schema surface (Gate 2: no gap); no new infra (Gate 3: no gap, follows the existing backfill-script + `workflow_dispatch` convention).
+- [x] Testing plan confirmation — real local-Postgres integration tests for every branch (healing, re-keying, skip conditions, idempotent re-run, the alias-fallback-after-backfill regression, the Task 2 refactor's unmodified-behavior proof) are understood as the full testing bar for this story.
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three gates run (1/3 fresh, 2 reasoned directly) during this story's creation; no gap found beyond the two implementation requirements already folded into Tasks 2/4; no prerequisite story was created.
+- [x] Explicit human approval state (Default: pending approval)
+
+## Testing Requirements
+
+- [x] `packages/domain`: confirm `build-event-insert-values.test.ts`'s existing 100%-covered cases are unaffected by the Task 2 export change.
+- [x] `apps/backend` integration tests (real local Postgres, no live AWS/vendor calls): `backfill-legacy-event-slugs-support.test.ts` (identity healing — resolvable/unresolvable/already-healed branches; event re-key — resolvable/unresolvable/`postId IS NULL`/soft-deleted/merged/already-platform-prefixed branches, including a non-zero-`extractionOrdinal` case proving the `~N` suffix carries through); `backfill-legacy-event-slugs.test.ts` (`runSizing`/`runBackfill(apply)` dispatch); `set-event-primary-post.test.ts` (existing re-slug/R-O-R cases, unmodified, still green after Task 2's extraction); `resolvers.test.ts` (Task 6's new `eventBySlug`-alias-fallback-after-backfill regression test).
+- [x] No new `apps/web` test required — Story 3.6v's existing route-level redirect tests already cover an alias-hit against a manually-inserted `event_slug_aliases` row, structurally indistinguishable from one this story's script inserts (cited, not re-derived, in Task 6).
+- [x] No E2E test required — this story's only user-facing surface (an old link now redirecting instead of 404ing, or simply continuing to resolve) is adequately covered by the integration tests above; the live production backfill run itself is an operational step, not a code path a Playwright spec could usefully exercise ahead of time.
+
+## Deliverables Checklist
+
+- [x] Task 1's zero-DDL proof run and recorded.
+- [x] `buildPlatformPrefixedSlug` exported; `reslugEventAndRecordAlias` extracted and both call sites (promotion, backfill) routed through it.
+- [x] `healPostPlatformIdentity` and `reslugLegacyEvents` implemented, batched, idempotent, and fully tested.
+- [x] `backfill-legacy-event-slugs.ts` (`sizing`/`backfill [--apply]`) implemented and tested, mirroring the established script convention.
+- [x] `.github/workflows/backfill-legacy-event-slugs.yml` added (`workflow_dispatch`, `environment: production`, concurrency guard, `apply` input).
+- [x] Task 6's alias-fallback-after-backfill regression test green.
+- [x] All targeted tests green; lint/build clean for `domain` and `backend`.
+
+## Out of Scope
+
+- **Running the script against the actual production database.** This story delivers the script, its tests, and its CI workflow — dispatching the `workflow_dispatch` run with `apply: true` against production is an operational step for whoever owns that environment, after this story reaches `done` and ideally after a `sizing` dry-run confirms the expected blast radius.
+- **The lazy/trickled re-key mechanism (Option B).** Explicitly rejected by the user (Dev Notes "Design decision").
+- **Backfilling the general, pre-AD-16 legacy-slug population** (events whose post genuinely has no resolvable platform identity — not this bug, just a source/URL that never had one). Those remain permanently hex per AD-16 Rules 4/5/12, exactly as designed; this story only targets the bug-caused subset.
+- **Any change to `eventBySlug`, the Next.js route files, or `process-ingestion-job.ts`'s forward-path fix.** All already correct and sufficient (AC5, Dev Notes).
+- **A formal `bmad-architecture` amendment to AD-16 Rule 5's text.** Flagged as a reasonable future follow-up (Gate 1 finding) but not required to unblock this story, since no new mechanism is introduced beyond Rule 10/11's existing one.
+- **`persistScrapedPost`'s dedupe branch** (still never backfills identity for a re-scraped already-existing post, per Story 3.15's own recorded deliberate decision) — unrelated and unaffected; any post it touches gets healed by this story's one-time pass regardless, and by `process-ingestion-job.ts`'s own lazy heal on its next real extraction.
+
+## Definition of Done
+
+- [x] AC1-AC8 satisfied.
+- [x] Required tests passing (Tasks 6/7; Testing Requirements above).
+- [x] Lint and type checks passing for `packages/domain` and `apps/backend`.
+- [x] No regression in Story 3.6v's `set-event-primary-post.test.ts`/`resolvers.test.ts` coverage, or Story 3.7g's `build-event-insert-values.test.ts` coverage.
+
+## Completion Status
+
+- [x] Complete — all 7 tasks implemented and tested; story moved to `review`.
+
+## Dev Agent Record
+
+### Agent Model Used
+
+Claude Sonnet 5 (claude-sonnet-5)
+
+### Debug Log References
+
+- Task 1 (AC8, zero-DDL proof): `pnpm --filter @festgrid/database generate` is hard-blocked by a
+  permission hook in this session ("this story is data-only with NO DDL, so migration generation
+  is out of scope and could create a stray migration file... stop and ask via AskUserQuestion if
+  you believe the schema must change"). Since no schema change is believed needed (the opposite
+  of what would trigger that escalation), zero-DDL was instead verified by: (a) `git status
+  --short -- packages/database/schema.ts` showing zero uncommitted diff throughout this story's
+  work; (b) confirming the two migrations that landed since this story was drafted (`0074`
+  "posts_platform_post_identity_idx" partial unique index, Story 3.6x; `0075` event-merges table,
+  Story 3.6w) are both unrelated to this story's columns/tables and are already applied (per this
+  session's startup migration log); (c) every column/table this story reads or writes
+  (`posts.platformPostId`/`platformPostType`, `events.slug`/`extractionOrdinal`/`postId`/
+  `deletedAt`/`mergedIntoEventId`, `event_slug_aliases`) already existed before this story's
+  changes and none of this story's code adds a new column/table. AC8 is satisfied by this
+  alternative verification; the literal `generate` command itself could not be run in this
+  session.
+- Discovered mid-implementation (not called out in the story's own Dev Notes, which predate
+  migration `0074`): `0074` added `posts_platform_post_identity_idx`, a partial UNIQUE index on
+  `(platform, platformPostType, platformPostId) WHERE platformPostId IS NOT NULL AND
+  platformPostType IS NOT NULL`. A `healPostPlatformIdentity` write that derives an identity
+  already held by another post (a genuine, rare duplicate-scrape-row case) now hits that
+  constraint (Postgres `23505`). Handled defensively: that exact unique-violation is caught per-
+  row and the row is counted `stillUnresolvable` rather than crashing the whole batch (same
+  convention `packages/database/unique-index.integration.test.ts` already establishes for this index) — see
+  the code comment on `healPostPlatformIdentity`.
+- `tx.rollback()` (drizzle-orm postgres-js) always rejects the transaction promise with
+  `TransactionRollbackError` by design -- `backfill-legacy-event-slugs.ts`'s `simulate()` (shared
+  by `runSizing` and `runBackfill`'s dry-run mode) catches exactly that error class and discards
+  it, re-throwing anything else.
+- `require.main === module` (not `import.meta.url`, which `tsc`'s CommonJS/`NodeNext` output for
+  this package rejects) guards `backfill-legacy-event-slugs.ts`'s `main()` call so the script's
+  own test file can import `runSizing`/`runBackfill` directly without triggering a live CLI run
+  at import time (`backfill-post-media-keys.ts`'s own test file instead avoids importing that
+  script at all to dodge this same class of problem — this story's script needed the import, so
+  it needed the guard instead).
+- Local dev DB baseline (35 posts / 12 events) confirmed unchanged after every test run in this
+  story via a short ad-hoc count script (written under `apps/backend/src/`, deleted immediately
+  after each check — never left behind).
+
+### Completion Notes List
+
+- Task 1 (AC8): Zero-DDL impact confirmed via the alternative method described above (the
+  literal verification command was blocked by a permission hook in this session) — no new
+  migration file exists, `schema.ts` has zero uncommitted changes, and every column/table this
+  story touches already existed.
+- Task 2 (AC3): `buildPlatformPrefixedSlug` exported from `packages/domain/src/events/build-
+  event-insert-values.ts` (doc comment updated, zero behavior change — confirmed by its existing
+  100%-covered test file staying green unmodified). `reslugEventAndRecordAlias` extracted out of
+  `enrichAndPromoteEvent`'s inline re-slug block in `apps/backend/src/lib/events/set-event-
+  primary-post.ts`; `enrichAndPromoteEvent` now calls it. Behavior-preserving, confirmed by
+  `set-event-primary-post.test.ts`'s existing re-slug/R-O-R test cases passing unmodified.
+- Task 3 (AC1, AC2): `healPostPlatformIdentity` added to the new `apps/backend/src/lib/events/
+  backfill-legacy-event-slugs-support.ts`. Cursor-paginated (batches of 500), reuses
+  `parsePlatformPostIdentity()`, each row's write in its own transaction, defensively handles the
+  migration-`0074` unique-index collision case (see Debug Log). Deliberately NOT unified with
+  `processIngestionJob`'s inline healing — documented as a reasoned non-duplication in a code
+  comment, per the story's own Task 3 instruction.
+- Task 4 (AC3, AC4): `reslugLegacyEvents` added to the same support file. Selection predicate
+  matches AC3/AC4 exactly (`activeOnly(events)` for `deletedAt IS NULL` per AD-8 rule 2,
+  `mergedIntoEventId IS NULL`, `postId IS NOT NULL`, `slug ~ '^[0-9a-f]{12}$'`), cursor-paginated
+  the same way. Computes the new slug via the now-exported `buildPlatformPrefixedSlug`, re-reads
+  the event's current slug inside the per-event write transaction (the documented concurrency
+  safeguard), and calls `reslugEventAndRecordAlias` (Task 2) — never a second implementation of
+  that write.
+- Task 5 (AC6, AC7): `apps/backend/src/backfill-legacy-event-slugs.ts` added (`sizing` /
+  `backfill [--apply]` dispatch, mirroring `backfill-post-media-keys.ts`'s shape exactly — the
+  dry-run mode runs the real logic inside one outer transaction always rolled back at the end, so
+  it can never drift from a real `--apply` run). `.github/workflows/backfill-legacy-event-
+  slugs.yml` added (`workflow_dispatch` only, `environment: production`, concurrency guard,
+  `apply` boolean input, no AWS/S3 steps needed — this script never touches S3).
+- Task 6 (AC5): New test in `apps/backend/src/schema/resolvers.test.ts` (`eventBySlug - resolves
+  a Story 3.22 backfill-written alias after healing+re-keying (AC5)`) seeds a post+legacy-hex-
+  slug event, runs the real `healPostPlatformIdentity`/`reslugLegacyEvents` functions, then
+  fetches the event via `eventBySlug` by its OLD hex slug and asserts the canonical (new) slug
+  comes back — proving Story 3.6v's unmodified alias-fallback mechanism serves a backfill-
+  script-written alias row exactly as it serves its own promotion-written ones. No new `apps/web`
+  test added (cited, not re-derived, per the story's own Task 6 instruction — Story 3.6v's
+  existing route-level tests already cover this structurally).
+- Task 7: All targeted test files run green (see Debug Log / commands below); `domain`,
+  `database`, and `backend` all lint/build clean (package-scoped, per this story's orchestrator
+  constraints — no whole-repo lint/build was run, matching this story's own Task 7 note that a
+  change in one package can still break another's, which is why lint/build themselves are never
+  filtered -- confirmed individually per package here instead of via one unfiltered root command).
+- DB baseline (35 posts / 12 events) confirmed unchanged after every test run; no scratch files
+  left behind; no DDL executed; all ad-hoc verification was read-only or ran inside test-owned
+  transactions with explicit cleanup.
+
+### File List
+
+- `packages/domain/src/events/build-event-insert-values.ts` (modified — exported
+  `buildPlatformPrefixedSlug`, doc comment update)
+- `apps/backend/src/lib/events/set-event-primary-post.ts` (modified — extracted
+  `reslugEventAndRecordAlias`)
+- `apps/backend/src/lib/events/backfill-legacy-event-slugs-support.ts` (new —
+  `healPostPlatformIdentity`, `reslugLegacyEvents`)
+- `apps/backend/src/lib/events/backfill-legacy-event-slugs-support.test.ts` (new)
+- `apps/backend/src/backfill-legacy-event-slugs.ts` (new — the script itself)
+- `apps/backend/src/backfill-legacy-event-slugs.test.ts` (new)
+- `.github/workflows/backfill-legacy-event-slugs.yml` (new)
+- `apps/backend/src/schema/resolvers.test.ts` (modified — Task 6's alias-fallback-after-backfill
+  regression test)
+
+## Change Log
+
+- 2026-10-05 — Story created via `bmad-create-story`, promoting backlog row `FIND-071`. Read AD-16/AD-30 (architecture spine), Story 3.7g and Story 3.6v in full, `deferred-work.md`'s 2026-10-05 entry, and `cc-024-multi-event-wave-plan.md`'s migration-number-collision note (confirmed current highest migration is `0072_heavy_bloodstorm.sql`, next sequential `0074` — not needed by this story, AC8). Gate 1 and Gate 3 run fresh via subagent (Winston persona) — no blocking gap, two implementation requirements folded into Tasks 2/4 (extract the shared re-slug+alias-write helper; re-read-inside-transaction concurrency handling). Gate 2 reasoned directly — no UI surface, no gap. User chose the one-shot backfill-script design (Option A) over a lazy/trickled cron-based re-key (Option B) via `AskUserQuestion`, following Gate 1's recommendation.
+- 2026-10-06 — `bmad-dev-story`: implemented Tasks 1-7. Task 1's literal verification command
+  (`pnpm --filter @festgrid/database generate`) was blocked by a session permission hook; AC8
+  was instead verified by confirming zero uncommitted `schema.ts` changes and that the two
+  migrations landed since drafting (`0074`, `0075`) are unrelated to this story. Discovered and
+  defensively handled a migration-`0074` interaction not anticipated in the story's own Dev Notes
+  (a partial unique index on posts' platform identity triple, now live) inside
+  `healPostPlatformIdentity`. All 7 tasks complete, all targeted tests green, `domain`/
+  `database`/`backend` lint and build clean (package-scoped). Local dev DB baseline (35 posts /
+  12 events) unchanged. Status moved to `review`.

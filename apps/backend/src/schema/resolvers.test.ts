@@ -7,9 +7,10 @@ import { resolvers, setEventsAuthProbe, eventsAuthProbe } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db, enableQueryDebug, resetExecutedQueryCount, getExecutedQueryCount } from '../db/client.js';
-import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, calendarAdditions, unprocessedScraperPayloads, instagramOembedCache, accountVotes, postAccountAssociations, eventPosts, eventSlugAliases } from '@festgrid/database';
+import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, calendarAdditions, unprocessedScraperPayloads, instagramOembedCache, accountVotes, postAccountAssociations, eventPosts, eventSlugAliases, subscriptions } from '@festgrid/database';
 import { eq, inArray, count, sql } from 'drizzle-orm';
 import { ENDED_CASE_FIXTURES } from '@festgrid/domain/events';
+import { healPostPlatformIdentity, reslugLegacyEvents } from '../lib/events/backfill-legacy-event-slugs-support.js';
 
 // read the generated schema for the yoga server
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
@@ -2528,6 +2529,330 @@ test('events resolver integration via Yoga', async (t) => {
     });
   });
 
+  await t.test('Query.relatedEventIds resolver (postId variant, Story 3.6x)', async (t) => {
+    let sharedPost: any;
+    let liveEvent: any;
+    let softDeletedEvent: any;
+    let mergeTargetEvent: any;
+    let mergedEvent: any;
+    let unrelatedEvent: any;
+    let noLinksPost: any;
+    const createdEventIds: string[] = [];
+
+    t.before(async () => {
+      const [profile] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: 'resolver_test_related_event_ids_by_post_publisher_1',
+        platform: 'instagram',
+        displayName: 'Resolver Test Related Event Ids By Post Publisher',
+        username: 'resolver_test_related_event_ids_by_post_publisher_1',
+      }).returning();
+
+      const [post] = await db.insert(posts).values({
+        accountId: profile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/resolver_test_related_event_ids_by_post_1',
+        originalPostUrl: 'https://instagram.com/p/resolver_test_related_event_ids_by_post_1',
+        content: 'Shared post (postId variant)',
+        publishedAt: new Date(),
+        isExtracted: true,
+      }).returning();
+      sharedPost = post;
+
+      const [noLinks] = await db.insert(posts).values({
+        accountId: profile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/resolver_test_related_event_ids_by_post_no_links',
+        originalPostUrl: 'https://instagram.com/p/resolver_test_related_event_ids_by_post_no_links',
+        content: 'Post with no linked events',
+        publishedAt: new Date(),
+        isExtracted: true,
+      }).returning();
+      noLinksPost = noLinks;
+
+      const [unrelatedPost] = await db.insert(posts).values({
+        accountId: profile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/resolver_test_related_event_ids_by_post_unrelated',
+        originalPostUrl: 'https://instagram.com/p/resolver_test_related_event_ids_by_post_unrelated',
+        content: 'Unrelated post',
+        publishedAt: new Date(),
+        isExtracted: true,
+      }).returning();
+
+      const [live] = await db.insert(events).values({
+        eventName: 'Live Event', postId: sharedPost.id, extractionOrdinal: 0, location: 'Test location',
+      }).returning();
+      liveEvent = live;
+      createdEventIds.push(live.id);
+
+      const [softDeleted] = await db.insert(events).values({
+        eventName: 'Soft Deleted Event', postId: sharedPost.id, extractionOrdinal: 1, location: 'Test location', deletedAt: new Date(),
+      }).returning();
+      softDeletedEvent = softDeleted;
+      createdEventIds.push(softDeleted.id);
+
+      const [mergeTarget] = await db.insert(events).values({
+        eventName: 'Merge Target Event', postId: sharedPost.id, extractionOrdinal: 2, location: 'Test location',
+      }).returning();
+      mergeTargetEvent = mergeTarget;
+      createdEventIds.push(mergeTarget.id);
+
+      const [merged] = await db.insert(events).values({
+        eventName: 'Merged-Away Event', postId: sharedPost.id, extractionOrdinal: 3, location: 'Test location', mergedIntoEventId: mergeTarget.id,
+      }).returning();
+      mergedEvent = merged;
+      createdEventIds.push(merged.id);
+
+      const [unrelated] = await db.insert(events).values({
+        eventName: 'Unrelated Event', postId: unrelatedPost.id, extractionOrdinal: 0, location: 'Test location',
+      }).returning();
+      unrelatedEvent = unrelated;
+      createdEventIds.push(unrelated.id);
+
+      await db.insert(eventPosts).values([
+        { eventId: liveEvent.id, postId: sharedPost.id, extractionOrdinal: 0 },
+        { eventId: softDeletedEvent.id, postId: sharedPost.id, extractionOrdinal: 1 },
+        { eventId: mergeTargetEvent.id, postId: sharedPost.id, extractionOrdinal: 2 },
+        { eventId: mergedEvent.id, postId: sharedPost.id, extractionOrdinal: 3 },
+        { eventId: unrelatedEvent.id, postId: unrelatedPost.id, extractionOrdinal: 0 },
+      ]);
+
+      t.after(async () => {
+        await db.delete(eventPosts).where(inArray(eventPosts.eventId, createdEventIds));
+        await db.delete(events).where(inArray(events.id, createdEventIds));
+        await db.delete(posts).where(inArray(posts.id, [sharedPost.id, noLinksPost.id, unrelatedPost.id]));
+        await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+      });
+    });
+
+    await t.test('returns a singleton group containing only the live, non-merged event linked to the post', async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetRelatedEventIdsByPost($postId: ID!) {
+              relatedEventIds(postId: $postId) {
+                postId
+                eventIds
+              }
+            }
+          `,
+          variables: { postId: sharedPost.id }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      const groups = result.data.relatedEventIds;
+      assert.strictEqual(groups.length, 1);
+      assert.strictEqual(groups[0].postId, sharedPost.id);
+      assert.deepStrictEqual([...groups[0].eventIds].sort(), [liveEvent.id, mergeTargetEvent.id].sort());
+    });
+
+    await t.test('returns [] for a post with no linked events', async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetRelatedEventIdsByPost($postId: ID!) {
+              relatedEventIds(postId: $postId) {
+                postId
+                eventIds
+              }
+            }
+          `,
+          variables: { postId: noLinksPost.id }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.deepStrictEqual(result.data.relatedEventIds, []);
+    });
+
+    await t.test('throws a BAD_REQUEST error when neither eventId nor postId is provided', async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetRelatedEventIdsNeither {
+              relatedEventIds {
+                postId
+                eventIds
+              }
+            }
+          `,
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(result.errors, 'expected a GraphQL error');
+      assert.match(result.errors[0].message, /Exactly one of eventId or postId must be provided/);
+      assert.strictEqual(result.errors[0].extensions?.code, 'BAD_REQUEST');
+    });
+
+    await t.test('throws a BAD_REQUEST error when both eventId and postId are provided', async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetRelatedEventIdsBoth($eventId: ID!, $postId: ID!) {
+              relatedEventIds(eventId: $eventId, postId: $postId) {
+                postId
+                eventIds
+              }
+            }
+          `,
+          variables: { eventId: liveEvent.id, postId: sharedPost.id }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(result.errors, 'expected a GraphQL error');
+      assert.match(result.errors[0].message, /Exactly one of eventId or postId must be provided/);
+      assert.strictEqual(result.errors[0].extensions?.code, 'BAD_REQUEST');
+    });
+  });
+
+  await t.test('Query.postByPlatformIdentifiers resolver (Story 3.6x)', async (t) => {
+    let profile: any;
+    let matchingPost: any;
+    let otherPlatformPost: any;
+
+    t.before(async () => {
+      const [p] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: 'resolver_test_post_by_platform_identifiers_publisher_1',
+        platform: 'instagram',
+        displayName: 'Resolver Test Post By Platform Identifiers Publisher',
+        username: 'resolver_test_post_by_platform_identifiers_publisher_1',
+      }).returning();
+      profile = p;
+
+      const [match] = await db.insert(posts).values({
+        accountId: profile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/resolver_test_post_by_platform_identifiers_match',
+        originalPostUrl: 'https://instagram.com/p/resolver_test_post_by_platform_identifiers_match',
+        content: 'Matching post',
+        publishedAt: new Date(),
+        isExtracted: true,
+        groupingReason: 'roundup',
+        extractedEventCount: 4,
+        platformPostId: 'resolver_test_post_by_platform_identifiers_triple',
+        platformPostType: 'p',
+      }).returning();
+      matchingPost = match;
+
+      // Same postType + platformPostId, different platform -- must resolve to null for this
+      // platform's lookup, not accidentally match across platforms (platform-discrimination).
+      const [otherPlatform] = await db.insert(posts).values({
+        accountId: profile.id,
+        platform: 'tiktok',
+        postUrl: 'https://tiktok.com/@resolver_test/video/resolver_test_post_by_platform_identifiers_triple',
+        originalPostUrl: 'https://tiktok.com/@resolver_test/video/resolver_test_post_by_platform_identifiers_triple',
+        content: 'Same triple, different platform',
+        publishedAt: new Date(),
+        isExtracted: true,
+        groupingReason: 'single-event',
+        extractedEventCount: 1,
+        platformPostId: 'resolver_test_post_by_platform_identifiers_triple',
+        platformPostType: 'p',
+      }).returning();
+      otherPlatformPost = otherPlatform;
+    });
+
+    t.after(async () => {
+      for (const post of [matchingPost, otherPlatformPost]) {
+        if (post) await db.delete(posts).where(eq(posts.id, post.id));
+      }
+      if (profile) await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+    });
+
+    await t.test('resolves a seeded post with its account/groupingReason/extractedEventCount', async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetPostByPlatformIdentifiers($platform: String!, $postType: String!, $platformPostId: String!) {
+              postByPlatformIdentifiers(platform: $platform, postType: $postType, platformPostId: $platformPostId) {
+                postId
+                groupingReason
+                extractedEventCount
+                platformPostId
+                postType
+                account {
+                  id
+                  accountId
+                  platform
+                }
+              }
+            }
+          `,
+          variables: { platform: 'instagram', postType: 'p', platformPostId: 'resolver_test_post_by_platform_identifiers_triple' }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      const post = result.data.postByPlatformIdentifiers;
+      assert.ok(post);
+      assert.strictEqual(post.postId, matchingPost.id);
+      assert.strictEqual(post.groupingReason, 'ROUNDUP');
+      assert.strictEqual(post.extractedEventCount, 4);
+      assert.strictEqual(post.platformPostId, 'resolver_test_post_by_platform_identifiers_triple');
+      assert.strictEqual(post.postType, 'p');
+      assert.strictEqual(post.account.id, profile.id);
+    });
+
+    await t.test('returns null for a non-matching triple', async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetPostByPlatformIdentifiers($platform: String!, $postType: String!, $platformPostId: String!) {
+              postByPlatformIdentifiers(platform: $platform, postType: $postType, platformPostId: $platformPostId) {
+                postId
+              }
+            }
+          `,
+          variables: { platform: 'instagram', postType: 'p', platformPostId: 'resolver_test_post_by_platform_identifiers_does_not_exist' }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.strictEqual(result.data.postByPlatformIdentifiers, null);
+    });
+
+    await t.test('discriminates by platform: same postType+platformPostId, different platform resolves to a different post', async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetPostByPlatformIdentifiers($platform: String!, $postType: String!, $platformPostId: String!) {
+              postByPlatformIdentifiers(platform: $platform, postType: $postType, platformPostId: $platformPostId) {
+                postId
+              }
+            }
+          `,
+          variables: { platform: 'tiktok', postType: 'p', platformPostId: 'resolver_test_post_by_platform_identifiers_triple' }
+        })
+      });
+
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.ok(result.data.postByPlatformIdentifiers);
+      assert.strictEqual(result.data.postByPlatformIdentifiers.postId, otherPlatformPost.id);
+    });
+  });
+
   await t.test('Event.publishedAt resolver (Story 1.6f)', async (t) => {
     let testProfile: any;
     let testPost: any;
@@ -3473,6 +3798,152 @@ test('events resolver integration via Yoga', async (t) => {
       await db.delete(events).where(inArray(events.id, [softDeletedEventId, activeEventId, pastEventId]));
       await db.delete(accountVotes).where(inArray(accountVotes.userId, [userId, otherUserId]));
       await db.delete(users).where(inArray(users.id, [userId, otherUserId]));
+    }
+  });
+
+  await t.test('events - Query.event/Query.eventBySlug includeMyArchived personal connection via a coauthor-only subscription (Story 3.18, AC4)', async () => {
+    const coauthorUserId = crypto.randomUUID();
+    const unrelatedUserId = crypto.randomUUID();
+
+    await db.delete(users).where(inArray(users.id, [coauthorUserId, unrelatedUserId]));
+    await db.insert(users).values([
+      { id: coauthorUserId, email: 'coauthor-conn@test.com', role: 'user' },
+      { id: unrelatedUserId, email: 'unrelated-conn@test.com', role: 'user' },
+    ]);
+
+    const suffix = Date.now();
+
+    const [publisherProfile] = await db.insert(socialMediaAccountProfiles).values({
+      platform: 'instagram',
+      accountId: 'acc-conn-publisher-' + suffix,
+      username: 'conn_publisher_' + suffix,
+      displayName: 'Conn Publisher',
+    }).returning();
+
+    const [coauthorProfile] = await db.insert(socialMediaAccountProfiles).values({
+      platform: 'instagram',
+      accountId: 'acc-conn-coauthor-' + suffix,
+      username: 'conn_coauthor_' + suffix,
+      displayName: 'Conn Coauthor',
+    }).returning();
+
+    // Primary post's bare posts.accountId is the publisher (account X) -- NOT the coauthor
+    // (account Y) the test user is subscribed to. Only a COAUTHOR association row names Y.
+    const [post] = await db.insert(posts).values({
+      accountId: publisherProfile.id,
+      platform: 'instagram',
+      postUrl: 'https://instagram.com/p/conn-archived-' + suffix,
+      publishedAt: new Date('2026-01-01T00:00:00Z'),
+    }).returning();
+
+    const [association] = await db.insert(postAccountAssociations).values({
+      postId: post.id,
+      accountId: coauthorProfile.id,
+      role: 'COAUTHOR',
+    }).returning();
+
+    const eventId = crypto.randomUUID();
+    const eventSlug = 'conn-archived-event-' + suffix;
+    await db.insert(events).values({
+      id: eventId,
+      eventName: 'Coauthor Connection Archived Event',
+      slug: eventSlug,
+      location: 'Test Location',
+      postId: post.id,
+      extractionOrdinal: 0,
+      deletedAt: new Date(), // moderator-archived
+    });
+    await db.insert(eventPosts).values({ eventId, postId: post.id, extractionOrdinal: 0 });
+
+    const [sub] = await db.insert(subscriptions).values({
+      userId: coauthorUserId,
+      accountId: coauthorProfile.id,
+    }).returning();
+
+    try {
+      // The coauthor-only subscriber sees the archived event via Query.event...
+      mockUser = { userId: coauthorUserId, role: 'user' };
+      const resEvent = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              event(id: "${eventId}", includeMyArchived: true) {
+                id
+                eventName
+              }
+            }
+          `
+        })
+      });
+      const resultEvent = await resEvent.json();
+      assert.ok(!resultEvent.errors, JSON.stringify(resultEvent.errors));
+      assert.strictEqual(resultEvent.data.event?.id, eventId);
+
+      // ...and via Query.eventBySlug.
+      const resSlug = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              eventBySlug(slug: "${eventSlug}", includeMyArchived: true) {
+                id
+                eventName
+              }
+            }
+          `
+        })
+      });
+      const resultSlug = await resSlug.json();
+      assert.ok(!resultSlug.errors, JSON.stringify(resultSlug.errors));
+      assert.strictEqual(resultSlug.data.eventBySlug?.id, eventId);
+
+      // An unrelated third user (no subscription to the publisher or the coauthor) still gets
+      // null/not-found for both queries -- unaffected by the fix.
+      mockUser = { userId: unrelatedUserId, role: 'user' };
+      const resEventUnrelated = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              event(id: "${eventId}", includeMyArchived: true) {
+                id
+              }
+            }
+          `
+        })
+      });
+      const resultEventUnrelated = await resEventUnrelated.json();
+      assert.ok(!resultEventUnrelated.errors, JSON.stringify(resultEventUnrelated.errors));
+      assert.strictEqual(resultEventUnrelated.data.event, null);
+
+      const resSlugUnrelated = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query {
+              eventBySlug(slug: "${eventSlug}", includeMyArchived: true) {
+                id
+              }
+            }
+          `
+        })
+      });
+      const resultSlugUnrelated = await resSlugUnrelated.json();
+      assert.ok(!resultSlugUnrelated.errors, JSON.stringify(resultSlugUnrelated.errors));
+      assert.strictEqual(resultSlugUnrelated.data.eventBySlug, null);
+    } finally {
+      await db.delete(subscriptions).where(eq(subscriptions.id, sub.id));
+      await db.delete(eventPosts).where(eq(eventPosts.eventId, eventId));
+      await db.delete(events).where(eq(events.id, eventId));
+      await db.delete(postAccountAssociations).where(eq(postAccountAssociations.id, association.id));
+      await db.delete(posts).where(eq(posts.id, post.id));
+      await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, [publisherProfile.id, coauthorProfile.id]));
+      await db.delete(users).where(inArray(users.id, [coauthorUserId, unrelatedUserId]));
     }
   });
 });
@@ -4422,4 +4893,86 @@ test('eventBySlug - event_slug_aliases fallback (Story 3.6v, AC5/AC6)', async (t
   const missBoth = await runEventBySlugQuery('neither-a-slug-nor-an-alias-' + crypto.randomUUID());
   assert.ok(!missBoth.result.errors, `GraphQL errors returned: ${JSON.stringify(missBoth.result.errors)}`);
   assert.strictEqual(missBoth.result.data.eventBySlug, null);
+});
+
+// Story 3.22 (FIND-071), Task 6/AC5 -- proves old links keep working with ZERO resolver/route
+// changes once an event is re-keyed by the legacy-event-slugs backfill script: a request for
+// the event's OLD hex slug is still served correctly by Story 3.6v's already-built, unmodified
+// `eventBySlug` canonical-lookup-then-alias-fallback mechanism (exercised directly above by its
+// own dedicated test) -- this test only proves a *backfill-script-written* alias row is served
+// identically to a promotion-written one. `apps/web`'s route-level redirect-on-slug-mismatch
+// behavior for an alias hit is already covered by Story 3.6v's own page.test.tsx/@modal test
+// files against a manually-inserted alias row, which is structurally indistinguishable from one
+// this story's script inserts -- no new web-level test is required by this story.
+test('eventBySlug - resolves a Story 3.22 backfill-written alias after healing+re-keying (AC5)', async (t) => {
+  mockUser = null;
+  const suffix = Date.now().toString();
+
+  const [profile] = await db.insert(socialMediaAccountProfiles).values({
+    accountId: 'acc-3-22-' + suffix,
+    platform: 'instagram',
+    displayName: '3.22 Alias Test Account',
+    username: '3_22_alias_test_' + suffix,
+  }).returning();
+
+  // Parseable URL, null identity -- exactly the bug this story's Task 3 heals (pre-3.7f data,
+  // or a post that will never get another extraction job).
+  const [post] = await db.insert(posts).values({
+    accountId: profile.id,
+    platform: 'instagram',
+    postUrl: `https://instagram.com/p/story-3-22-${suffix}`,
+    publishedAt: new Date('2026-01-01T00:00:00Z'),
+  }).returning();
+
+  // A legacy hex slug (same shape `events.slug`'s own $defaultFn(generateSlug) produces),
+  // pointing at the still-unhealed post above.
+  const legacyHexSlug = crypto.createHash('md5').update('story-3-22-' + suffix).digest('hex').slice(0, 12);
+  const [event] = await db.insert(events).values({
+    eventName: '3.22 backfill alias-fallback event',
+    slug: legacyHexSlug,
+    location: 'Test City',
+    postId: post.id,
+    extractionOrdinal: 0,
+  }).returning();
+
+  t.after(async () => {
+    await db.delete(eventSlugAliases).where(eq(eventSlugAliases.eventId, event.id));
+    await db.delete(events).where(eq(events.id, event.id));
+    await db.delete(posts).where(eq(posts.id, post.id));
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+    mockUser = null;
+  });
+
+  // Run the actual Task 3/4 functions (real writes -- this is the Task 6 integration proof,
+  // not a dry run) -- the exact same functions the backfill script's `--apply` mode calls.
+  const healResult = await healPostPlatformIdentity(db);
+  assert.ok(healResult.healed >= 1);
+  const reslugResult = await reslugLegacyEvents(db);
+  assert.ok(reslugResult.reslugged >= 1);
+
+  const [reslugged] = await db.select().from(events).where(eq(events.id, event.id));
+  assert.strictEqual(reslugged.slug, `ig_p_story-3-22-${suffix}`, 'event was re-keyed to its platform-prefixed slug');
+  assert.notStrictEqual(reslugged.slug, legacyHexSlug);
+
+  // The proof: fetch by the OLD hex slug via the resolver directly -- Story 3.6v's unmodified
+  // alias-fallback mechanism must serve the SAME canonical event, now carrying its NEW slug,
+  // not a 404 and not a redirect loop.
+  const query = `
+    query GetEventBySlug($slug: String!) {
+      eventBySlug(slug: $slug) {
+        id
+        slug
+      }
+    }
+  `;
+  const response = await yoga.fetch('http://yoga/graphql', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, variables: { slug: legacyHexSlug } }),
+  });
+  const result = await response.json();
+  assert.ok(!result.errors, `GraphQL errors returned: ${JSON.stringify(result.errors)}`);
+  assert.ok(result.data.eventBySlug, 'a backfill-written alias row must resolve, not 404');
+  assert.strictEqual(result.data.eventBySlug.id, event.id);
+  assert.strictEqual(result.data.eventBySlug.slug, reslugged.slug, 'the resolver returns the event\'s canonical (new) slug, proving the old-slug alias fallback correctly served a backfill-script-written row');
 });

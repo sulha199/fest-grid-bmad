@@ -91,8 +91,13 @@ export function buildEventInsertValues(
  * would be ambiguous between "post X, ordinal N" and "post X-N, ordinal 0" (e.g. `ig_p_Ddi9wU6RCRQ`
  * vs. `ig_p_Ddi9wU6RCRQ~2`). `.` is unusable because `apps/web/src/middleware.ts`'s matcher skips
  * any path containing a dot.
+ *
+ * Story 3.22 — exported (previously private, single-caller) so the legacy-event-slugs backfill
+ * script's `reslugLegacyEvents` can compute the exact same slug for an already-stored event
+ * being re-keyed, passing that event's own already-stored `extractionOrdinal` through unchanged.
+ * Second caller, zero behavior change.
  */
-function buildPlatformPrefixedSlug(
+export function buildPlatformPrefixedSlug(
   sourcePost: EventSourcePostIdentity | null,
   extractionOrdinal?: number
 ): string | undefined {

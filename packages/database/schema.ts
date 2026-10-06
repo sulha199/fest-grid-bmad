@@ -360,6 +360,15 @@ export const posts = pgTable('posts', {
   // migration hand-adds `USING gin`; this builder call only documents intent for drizzle-orm's
   // own runtime/type-checking, it does not by itself produce the GIN index.
   hashtagsIdx: index('post_hashtags_idx').on(t.hashtags).using(sql`gin`),
+  // Story 3.6x / AD-30 Rule 11 -- partial unique index enforcing that (platform, platformPostType,
+  // platformPostId) identifies at most one post. NULLs are distinct in Postgres, so the
+  // overwhelming majority of pre-AD-16 historical rows (never backfilled) never collide. Same
+  // drizzle-kit (0.21.4) WHERE-clause-drop gap as AD-8 rule 3/hashtagsIdx's GIN gap above -- this
+  // builder call only documents intent for drizzle-orm's own runtime/type-checking; the actual
+  // partial-unique-index SQL is hand-added to the generated migration file.
+  platformPostIdentityIdx: uniqueIndex('posts_platform_post_identity_idx')
+    .on(t.platform, t.platformPostType, t.platformPostId)
+    .where(sql`platform_post_id IS NOT NULL AND platform_post_type IS NOT NULL`),
 }));
 
 export const scraperActorRuns = pgTable('scraper_actor_runs', {
@@ -499,6 +508,10 @@ export const eventSlugAliases = pgTable('event_slug_aliases', {
   eventIdIdx: index('idx_event_slug_aliases_event_id').on(t.eventId),
 }));
 
+// Story 3.6w -- the suggestion's own review lifecycle. Closed vocabulary, declared once per the
+// correctionStatusEnum/reportStatusEnum convention.
+export const suggestedEventMatchStatusEnum = pgEnum('suggested_event_match_status', ['pending', 'accepted', 'rejected']);
+
 // Story 3.6v / AD-30 Rule 7 -- mid-confidence match suggestions queued for moderator review
 // (Story 3.6w's own scope to read/approve/reject). One row per (eventId, candidateEventId) pair,
 // matching the eventPosts/postAccountAssociations link-table precedent -- not folded into an
@@ -513,13 +526,49 @@ export const eventMatchCandidates = pgTable('event_match_candidates', {
   score: doublePrecision('score').notNull(),
   // The post that produced the match, for moderator context (Story 3.6w).
   postId: uuid('post_id').references(() => posts.id, { onDelete: 'cascade' }).notNull(),
+  // Story 3.6w -- mirrors the reports/defaultLocationChangeRequests resolved-row precedent
+  // exactly (same three-column shape, same semantics).
+  status: suggestedEventMatchStatusEnum('status').default('pending').notNull(),
+  resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+  resolvedByModeratorId: uuid('resolved_by_moderator_id').references(() => users.id),
   ...timestamps,
 }, (t) => ({
   // AC8 -- idempotent re-run (SQS redelivery) never duplicates a suggestion row.
   eventCandidateUnq: unique().on(t.eventId, t.candidateEventId),
   // Story 3.6w's future moderator-facing read path lists suggestions by candidate/target event.
   candidateEventIdIdx: index('idx_event_match_candidates_candidate_event_id').on(t.candidateEventId),
+  // Story 3.6w (AC5) -- the moderator list's own read pattern always filters `status = 'pending'`.
+  // A plain btree is sufficient at this table's expected low row volume -- no partial-index
+  // precedent to match here, since eventMatchCandidates has no deletedAt column to scope against.
+  statusIdx: index('idx_event_match_candidates_status').on(t.status),
 }));
+
+// Story 3.6w / AD-30 Rule 9 -- the merge journal: every repointed/deduplicated row id a merge
+// touches, plus enough of each side's prior state to reverse it (AC2/AC7's undo window). `
+// suggestionId` is nullable -- null for a future direct/manual merge (AC10/IDEA-061), always set
+// for this story's own suggested-match-driven path. No `relations()` helper, matching the
+// eventPosts/eventMatchCandidates link/journal-table precedent.
+export const eventMerges = pgTable('event_merges', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  winnerEventId: uuid('winner_event_id').references(() => events.id, { onDelete: 'cascade' }).notNull(),
+  loserEventId: uuid('loser_event_id').references(() => events.id, { onDelete: 'cascade' }).notNull(),
+  suggestionId: uuid('suggestion_id').references(() => eventMatchCandidates.id, { onDelete: 'set null' }),
+  performedByModeratorId: uuid('performed_by_moderator_id').references(() => users.id).notNull(),
+  loserPriorSlug: text('loser_prior_slug').notNull(),
+  winnerNotifiedAtChanged: boolean('winner_notified_at_changed').default(false).notNull(),
+  winnerPriorNotifiedAt: timestamp('winner_prior_notified_at', { withTimezone: true }),
+  loserPriorNotifiedAt: timestamp('loser_prior_notified_at', { withTimezone: true }),
+  repointedFavoriteIds: jsonb('repointed_favorite_ids').$type<string[]>().default([]).notNull(),
+  dedupedFavoriteIds: jsonb('deduped_favorite_ids').$type<string[]>().default([]).notNull(),
+  repointedCalendarAdditionIds: jsonb('repointed_calendar_addition_ids')
+    .$type<Array<{ id: string; previousScheduleId: string }>>().default([]).notNull(),
+  dedupedCalendarAdditionIds: jsonb('deduped_calendar_addition_ids').$type<string[]>().default([]).notNull(),
+  repointedReportIds: jsonb('repointed_report_ids').$type<string[]>().default([]).notNull(),
+  repointedEventPostIds: jsonb('repointed_event_post_ids').$type<string[]>().default([]).notNull(),
+  repointedAliasIds: jsonb('repointed_alias_ids').$type<string[]>().default([]).notNull(),
+  ...timestamps,
+  undoneAt: timestamp('undone_at', { withTimezone: true }),
+});
 
 // Story 3.6p / AD-29 Rule 3 -- records why actualFaceDetectionCount is null (Story 3.6n/3.6o's
 // eventual backfill), so a null is never misread as "detection ran and found zero faces."

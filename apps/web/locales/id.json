@@ -47,6 +47,8 @@
     "wizardOnboardingNotificationsDescription": "Aktifkan notifikasi push untuk mendapatkan informasi terbaru tentang jadwal acara.",
     "accountPageTitle": "{displayName} | FestDaily",
     "accountPageDescription": "Jelajahi acara dari {displayName} di FestDaily.",
+    "postCollectionPageTitle": "Acara dari {displayName} | FestDaily",
+    "postCollectionPageDescription": "Jelajahi semua acara dari postingan {displayName} di FestDaily.",
     "moderatorItemsTitle": "Item Moderator | FestDaily",
     "moderatorItemsDescription": "Tinjau acara yang dilaporkan dan perubahan lokasi default yang tertunda.",
     "manualPostSelectionTitle": "Ekstrak Acara | FestDaily",
@@ -58,8 +60,33 @@
     "actorRunsTabLabel": "Jalankan Scraper",
     "unprocessedPayloadsTabLabel": "Payload Belum Diproses",
     "accountsTabLabel": "Akun",
+    "duplicateEventsTabLabel": "Acara Duplikat",
     "pageHeading": "Alat Moderator",
     "pageDescription": "Kelola operasi scraper, jalankan scraper, dan payload"
+  },
+  "DuplicateEventsPage": {
+    "pageDescription": "Tinjau saran acara duplikat dan gabungkan, sambil tetap menyimpan favorit dan entri kalender pengguna serta mengalihkan tautan lama ke acara yang dipertahankan.",
+    "emptyHeadline": "Tidak ada saran duplikat",
+    "emptyMessage": "Saat ini tidak ada saran kecocokan acara yang menunggu tinjauan.",
+    "errorHeadline": "Terjadi kesalahan",
+    "errorTryAgain": "Coba lagi",
+    "candidateLabel": "Acara yang sudah ada",
+    "newItemLabel": "Ekstraksi baru",
+    "viewEventLabel": "Lihat acara",
+    "acceptButton": "Terima",
+    "rejectButton": "Tolak",
+    "loadMoreButton": "Muat lebih banyak",
+    "mergeConfirmTitle": "Gabungkan acara ini?",
+    "mergeConfirmDescription": "Ekstraksi baru akan digabungkan ke acara yang sudah ada. Favorit, entri kalender, dan laporan akan dipindahkan ke acara yang sudah ada, dan tautan lama akan dialihkan ke sana. Anda dapat membatalkan ini untuk waktu singkat setelah mengonfirmasi.",
+    "mergeConfirmConfirmLabel": "Gabungkan",
+    "mergeConfirmCancelLabel": "Batal",
+    "mergedToast": "Acara telah digabungkan",
+    "undoLabel": "Batalkan",
+    "mergeErrorToast": "Gagal menggabungkan acara ini",
+    "undoSuccessToast": "Penggabungan dibatalkan",
+    "undoErrorToast": "Gagal membatalkan penggabungan ini",
+    "rejectSuccessToast": "Saran ditolak",
+    "rejectErrorToast": "Gagal menolak saran ini"
   },
   "ModeratorAccountsPage": {
     "pageHeading": "Manajemen Akun",
@@ -98,6 +125,11 @@
     "calendarMultiDaySegmentLabel": "Hari {dayNumber} dari {totalDays}",
     "calendarErrorState": "Gagal memuat acara kalender.",
     "calendarClosePopoverLabel": "Tutup popover"
+  },
+  "PostCollectionPage": {
+    "errorState": "Gagal memuat acara. Silakan coba lagi nanti.",
+    "emptyState": "Semua acara dari postingan ini telah dihapus atau digabungkan.",
+    "loadingMore": "Memuat lebih banyak acara..."
   },
   "WizardChrome": {
     "previousStepLabel": "Langkah Sebelumnya",

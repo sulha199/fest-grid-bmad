@@ -181,36 +181,74 @@ export function GridContainer({
   const items = useMemo(() => React.Children.toArray(children), [children]);
 
   const activeColumnCount = useActiveColumnCount(counts, isMasonry);
-  const { columns, registerItemRef } = useMasonryLayout({
+  const { columnAssignments, registerItemRef, hasMeasured, columnHeights, itemOffsets } = useMasonryLayout({
     itemCount: isMasonry ? items.length : 0,
     columnCount: activeColumnCount,
   });
 
   if (isMasonry) {
+    // Story 0.48 (FIND-052) mount-stable rebuild: every item is a direct child of exactly ONE
+    // flat parent, keyed `key={itemIndex}` -- a key that, by construction, can never cross a
+    // parent boundary on reflow, so React treats any column reassignment as an in-place
+    // prop/style update on the same DOM node, never an unmount+mount (AC1). DOM order is
+    // `itemIndex` order in BOTH phases below, making native Tab order index-major (AC4).
+    //
+    // Two-phase render (AC2, user-directed design decision -- see this story's own Dev Notes):
+    // Phase 1 (`!hasMeasured`, SSR + the imperceptibly-brief pre-first-measurement window) keeps
+    // every item in real, in-flow CSS Grid placement (explicit `gridColumn` + `gridRow: 'auto'`,
+    // native auto-placement stacks same-column items into rows) so the browser computes a
+    // genuine non-zero height from real content alone -- zero CLS regression vs. the old
+    // per-column design. Phase 2 (`hasMeasured`) switches every item to `position: absolute` +
+    // `transform: translateY(itemOffsets[i])`, KEEPING its `gridColumn` so the horizontal
+    // axis is still resolved by native CSS Grid geometry (no JS pixel/gap math needed for X).
+    // The container stays `display: grid` with the SAME `grid-template-columns` in both phases
+    // -- only `position`/explicit `height` are added in Phase 2 -- so switching phases is a pure
+    // style update on already-mounted nodes, never a remount (AC2's last bullet, AC7).
+    const columnTemplate = `repeat(${Math.max(activeColumnCount, 0)}, 1fr)`;
+    const containerStyle: React.CSSProperties = hasMeasured
+      ? {
+          display: 'grid',
+          gridTemplateColumns: columnTemplate,
+          position: 'relative',
+          height: columnHeights.length > 0 ? Math.max(...columnHeights) : 0,
+        }
+      : {
+          display: 'grid',
+          gridTemplateColumns: columnTemplate,
+        };
+
     return (
       <div
-        className={cn('flex items-start', gap, className)}
+        className={cn(gap, className)}
         data-grid-container-layout="masonry"
+        style={containerStyle}
       >
-        {columns.map((itemIndices, colIndex) => (
-          <div
-            key={colIndex}
-            className={cn('flex-1 min-w-0 flex flex-col', gap)}
-            data-grid-container-column=""
-            data-grid-container-column-index={colIndex}
-          >
-            {itemIndices.map((itemIndex) => (
-              <div
-                key={itemIndex}
-                ref={registerItemRef(itemIndex)}
-                data-grid-container-item=""
-                data-grid-container-item-index={itemIndex}
-              >
-                {items[itemIndex]}
-              </div>
-            ))}
-          </div>
-        ))}
+        {items.map((item, itemIndex) => {
+          const colIndex = columnAssignments[itemIndex] ?? 0;
+          const itemStyle: React.CSSProperties = hasMeasured
+            ? {
+                gridColumn: colIndex + 1,
+                position: 'absolute',
+                width: '100%',
+                transform: `translateY(${itemOffsets[itemIndex] ?? 0}px)`,
+              }
+            : {
+                gridColumn: colIndex + 1,
+                gridRow: 'auto',
+              };
+          return (
+            <div
+              key={itemIndex}
+              ref={registerItemRef(itemIndex)}
+              data-grid-container-item=""
+              data-grid-container-item-index={itemIndex}
+              data-grid-container-column-index={colIndex}
+              style={itemStyle}
+            >
+              {item}
+            </div>
+          );
+        })}
       </div>
     );
   }
