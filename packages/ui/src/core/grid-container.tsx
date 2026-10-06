@@ -227,7 +227,7 @@ export function GridContainer({
           const colIndex = columnAssignments[itemIndex] ?? 0;
           const itemStyle: React.CSSProperties = hasMeasured
             ? {
-                gridColumn: colIndex + 1,
+                gridColumn: `${colIndex + 1} / ${colIndex + 2}`,
                 position: 'absolute',
                 width: '100%',
                 transform: `translateY(${itemOffsets[itemIndex] ?? 0}px)`,
