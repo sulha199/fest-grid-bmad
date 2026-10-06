@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-06T17:06:18Z
+last_updated: 2026-10-06T17:24:58Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -2336,6 +2336,10 @@ development_status:
   # page's owner), not off 3-4n. See epics.md Story 4.7c.
   4-7c-review-queue-for-pending-account-type-classifications: review
   4-8-view-archived-hidden-personal-events: done
+  # Added 2026-10-06 via bmad-create-story from backlog.yaml IDEA-034 (carved
+  # 2026-09-15 from IDEA-032 S6). Gate 1/2/3 run fresh (epic-4 readiness sweep
+  # predates this row): no gap on any gate. See epics.md Story 4.9.
+  4-9-moderator-accounts-tab-location-info-and-edit-clear-actions: ready-for-dev
   epic-4-retrospective: optional
   epic-5: in-progress
   5-1a-build-the-manual-post-selection-and-extraction-graphql-api-layer: review
