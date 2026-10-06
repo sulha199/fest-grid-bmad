@@ -1,10 +1,14 @@
+---
+baseline_commit: d0e01c85635d4dd1ad80bf294bcc719e781e93b0
+---
+
 # Story 1.i1p: Remove EventCardMediaSlot's unused internal favorite-badge rendering
 
 ## Story Details
 
 - Epic: 1.i1 (One card primitive for every event-card image slot and badge)
 - Story ID: 1.i1p
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -30,50 +34,50 @@ so that the primitive's contract matches what both production callers actually n
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Delete the dead branches and their props from `EventCardMediaSlot` (AC1, AC2)
-  - [ ] 1.1 In `EventCardMediaPrimitives.tsx`, remove `isFavorited`, `favoriteCount`, `onFavoriteToggle`, `labels`, `hideFavoriteBadge` from `EventCardMediaSlot`'s destructured parameters.
-  - [ ] 1.2 Delete the with-image branch's conditional `EventCardFavoriteBadge scale="default"` render (the `{!hideFavoriteBadge && onFavoriteToggle && (...)}` block inside the `imagePresent ? (<>...` fragment) — the fragment's `<img>` is now the branch's only content; simplify `imagePresent ? (<>...<img/>...</>) : (...)` to `imagePresent && (<img .../>)`, since there is nothing left in the `imagePresent` branch beyond the `<img>` and nothing left in the else-branch at all.
-  - [ ] 1.3 Delete the reserved-blank fallback branch's conditional `EventCardFavoriteBadge scale="large"` render entirely (the `!hideFavoriteBadge && onFavoriteToggle && (<div>...<EventCardFavoriteBadge scale="large" .../></div>)` block) — per 1.2, nothing replaces it; the outer `<div data-event-card-media-slot>` still mounts unconditionally (preserving the reserved footprint), simply with no children when `imagePresent` is `false`.
-  - [ ] 1.4 Remove the now-unused `EVENT_CARD_BADGE_MIN_TOUCH_REM` import from `event-card-media-tokens` at the top of `EventCardMediaPrimitives.tsx` (its only use in this file was the deleted fallback branch's `minHeight` style; it stays exported from `event-card-media-tokens.ts` and stays imported/used by `EventCard.tsx`, which has its own, unrelated use of it for its external favorite-badge wrapper).
-  - [ ] 1.5 Update `EventCardMediaPrimitives.types.ts`: remove the `isFavorited`, `favoriteCount`, `onFavoriteToggle`, `labels`, `hideFavoriteBadge` fields (and their doc comments) from `EventCardMediaSlotProps`. Do **not** touch `EventCardFavoriteBadgeProps` or `EventCardFavoriteBadgeLabels` — both stay exactly as they are (still imported/used by `EventCardFavoriteBadgeProps.labels`).
-  - [ ] 1.6 Update `EventCardMediaPrimitives.tsx`'s file-header doc comment and `EventCardMediaSlotProps`'/`EventCardMediaSlot`'s own doc comments to describe the new, narrower contract (image-or-nothing, no favorite rendering of its own) instead of the retired "switches between a small corner favorite pill ... and the large centered favorite control" description.
+- [x] Task 1 — Delete the dead branches and their props from `EventCardMediaSlot` (AC1, AC2)
+  - [x] 1.1 In `EventCardMediaPrimitives.tsx`, remove `isFavorited`, `favoriteCount`, `onFavoriteToggle`, `labels`, `hideFavoriteBadge` from `EventCardMediaSlot`'s destructured parameters.
+  - [x] 1.2 Delete the with-image branch's conditional `EventCardFavoriteBadge scale="default"` render (the `{!hideFavoriteBadge && onFavoriteToggle && (...)}` block inside the `imagePresent ? (<>...` fragment) — the fragment's `<img>` is now the branch's only content; simplify `imagePresent ? (<>...<img/>...</>) : (...)` to `imagePresent && (<img .../>)`, since there is nothing left in the `imagePresent` branch beyond the `<img>` and nothing left in the else-branch at all.
+  - [x] 1.3 Delete the reserved-blank fallback branch's conditional `EventCardFavoriteBadge scale="large"` render entirely (the `!hideFavoriteBadge && onFavoriteToggle && (<div>...<EventCardFavoriteBadge scale="large" .../></div>)` block) — per 1.2, nothing replaces it; the outer `<div data-event-card-media-slot>` still mounts unconditionally (preserving the reserved footprint), simply with no children when `imagePresent` is `false`.
+  - [x] 1.4 Remove the now-unused `EVENT_CARD_BADGE_MIN_TOUCH_REM` import from `event-card-media-tokens` at the top of `EventCardMediaPrimitives.tsx` (its only use in this file was the deleted fallback branch's `minHeight` style; it stays exported from `event-card-media-tokens.ts` and stays imported/used by `EventCard.tsx`, which has its own, unrelated use of it for its external favorite-badge wrapper).
+  - [x] 1.5 Update `EventCardMediaPrimitives.types.ts`: remove the `isFavorited`, `favoriteCount`, `onFavoriteToggle`, `labels`, `hideFavoriteBadge` fields (and their doc comments) from `EventCardMediaSlotProps`. Do **not** touch `EventCardFavoriteBadgeProps` or `EventCardFavoriteBadgeLabels` — both stay exactly as they are (still imported/used by `EventCardFavoriteBadgeProps.labels`).
+  - [x] 1.6 Update `EventCardMediaPrimitives.tsx`'s file-header doc comment and `EventCardMediaSlotProps`'/`EventCardMediaSlot`'s own doc comments to describe the new, narrower contract (image-or-nothing, no favorite rendering of its own) instead of the retired "switches between a small corner favorite pill ... and the large centered favorite control" description.
 
-- [ ] Task 2 — Update both call sites (AC3)
-  - [ ] 2.1 `EventCard.tsx`: remove the `hideFavoriteBadge` prop from its one `<EventCardMediaSlot>` call (masonry-default composition) — no other change to this file; the externally-composed `EventCardFavoriteBadge` sibling (lines ~372-440) is untouched.
-  - [ ] 2.2 `EventCardCompact.tsx`: remove `isFavorited`, `favoriteCount`, `onFavoriteToggle`, `labels`, `hideFavoriteBadge` from its one `<EventCardMediaSlot>` call — keep `layout`, `size`, `imageUrl`, `imageFallbackUrl`, `imageAlt`, `collapseOnFallback`, `onImagePresenceChange` unchanged. Update the inline comment above this call (currently explaining why the slot's own badge is hidden) and the longer comment above the `!imagePresent && <EventCardFavoriteBadge scale="large" .../>` block further down (currently citing `planning-artifacts/event-pages-followup-2026-10-05.md, step 5` as where the removal is tracked) to state plainly that the slot renders no favorite control of its own at all now — not citing a still-open tracker item, since this story is that item landing.
-  - [ ] 2.3 Confirm via `pnpm --filter @festgrid/ui build` (or `tsc --noEmit` on `packages/ui`) that both files compile clean against the narrowed `EventCardMediaSlotProps`.
+- [x] Task 2 — Update both call sites (AC3)
+  - [x] 2.1 `EventCard.tsx`: remove the `hideFavoriteBadge` prop from its one `<EventCardMediaSlot>` call (masonry-default composition) — no other change to this file; the externally-composed `EventCardFavoriteBadge` sibling (lines ~372-440) is untouched.
+  - [x] 2.2 `EventCardCompact.tsx`: remove `isFavorited`, `favoriteCount`, `onFavoriteToggle`, `labels`, `hideFavoriteBadge` from its one `<EventCardMediaSlot>` call — keep `layout`, `size`, `imageUrl`, `imageFallbackUrl`, `imageAlt`, `collapseOnFallback`, `onImagePresenceChange` unchanged. Update the inline comment above this call (currently explaining why the slot's own badge is hidden) and the longer comment above the `!imagePresent && <EventCardFavoriteBadge scale="large" .../>` block further down (currently citing `planning-artifacts/event-pages-followup-2026-10-05.md, step 5` as where the removal is tracked) to state plainly that the slot renders no favorite control of its own at all now — not citing a still-open tracker item, since this story is that item landing.
+  - [x] 2.3 Confirm via `pnpm --filter @festgrid/ui build` (or `tsc --noEmit` on `packages/ui`) that both files compile clean against the narrowed `EventCardMediaSlotProps`. (`tsc --noEmit` fails repo-wide on a pre-existing, unrelated `TS5101` baseUrl-deprecation error, confirmed present identically on the pre-story baseline commit via `git stash`; used `pnpm --filter @festgrid/ui lint` plus the full Vitest suite as the compile-clean proof instead — see Completion Notes.)
 
-- [ ] Task 3 — Rewrite/trim `EventCardMediaPrimitives.test.tsx` (AC4)
-  - [ ] 3.1 `EventCardFavoriteBadge - AC2` block: rewrite the one sub-test currently mounting via `<EventCardMediaSlot layout="flex-fill" onFavoriteToggle={vi.fn()} />` to instead render `<EventCardFavoriteBadge scale="large" onFavoriteToggle={vi.fn()} />` directly — same assertions (icon inline-style size), different mounting vehicle.
-  - [ ] 3.2 `EventCardMediaSlot fallback - AC3` block: for every test that currently passes `onFavoriteToggle={vi.fn()}` purely to get a button to assert against (the "no image" test, the "both absent" test, the "onError switch" test, and the two BUG-042 fallback-chain tests that end in a button assertion), drop `onFavoriteToggle` and replace the button assertion with a check that the slot's own root element (`[data-event-card-media-slot]`) is still mounted (and, where it reads more naturally, empty via `toBeEmptyDOMElement()`). The "no image, no placeholder" test and the "both imageUrl and onFavoriteToggle absent" test can be merged into one test now that `onFavoriteToggle` no longer exists as a slot prop — see the Reference Implementation below for the exact merged test. Every assertion about `<img>` absence/presence and placeholder-text absence is unchanged.
-  - [ ] 3.3 Delete the entire `EventCardMediaSlot - AC4 (one live favorite-toggle control, adequate tap target, no extra focus stop)` describe block (its 4 tests are all about the slot's own, now-removed, internal control). Replace it with a short comment (see Reference Implementation) explaining the retirement and pointing at where the equivalent guarantee is proven today (`EventCard.test.tsx`, `EventCardCompact.test.tsx`).
-  - [ ] 3.4 `EventCardMediaSlot additive props (Story 1.i1e)` block: delete the two `hideFavoriteBadge` tests entirely; keep the two `onImagePresenceChange` tests, dropping `onFavoriteToggle` from each render call (that prop played no role in either assertion). Rename the describe block to `EventCardMediaSlot additive props (onImagePresenceChange, Story 1.i1e)` and add a one-line comment noting `hideFavoriteBadge` was retired by this story.
-  - [ ] 3.5 `EventCardMediaSlot collapseOnFallback (Story 1.i1m AC1/AC3)` block: drop `onFavoriteToggle` from all four tests. For the first test ("defaults to false and preserves the exact reserved-blank fallback when omitted"), replace the `within(slot).getByRole('button', ...)` assertion with `expect(slot).toBeEmptyDOMElement()`. For the second and third tests (collapse-to-null tests), no assertion needs to change beyond dropping the now-nonexistent prop. For the fourth test ("keeps the with-image branch byte-identical..."), drop the trailing button assertion — the `<img>` src assertion already fully proves the with-image branch is unaffected.
-  - [ ] 3.6 Remove the now-unused `EVENT_CARD_BADGE_MIN_TOUCH_REM` import (used only by the deleted AC4 block) and the now-unused `within` import (used only by the two collapseOnFallback assertions rewritten in 3.5) from the top of the test file.
-  - [ ] 3.7 Run `pnpm --filter @festgrid/ui exec vitest run src/features/events/EventCardMediaPrimitives.test.tsx` and confirm the full file passes (this story's own dev-agent dry run confirmed 84/84 passing against the exact diff in the Reference Implementation below — re-verify, don't assume).
+- [x] Task 3 — Rewrite/trim `EventCardMediaPrimitives.test.tsx` (AC4)
+  - [x] 3.1 `EventCardFavoriteBadge - AC2` block: rewrite the one sub-test currently mounting via `<EventCardMediaSlot layout="flex-fill" onFavoriteToggle={vi.fn()} />` to instead render `<EventCardFavoriteBadge scale="large" onFavoriteToggle={vi.fn()} />` directly — same assertions (icon inline-style size), different mounting vehicle.
+  - [x] 3.2 `EventCardMediaSlot fallback - AC3` block: for every test that currently passes `onFavoriteToggle={vi.fn()}` purely to get a button to assert against (the "no image" test, the "both absent" test, the "onError switch" test, and the two BUG-042 fallback-chain tests that end in a button assertion), drop `onFavoriteToggle` and replace the button assertion with a check that the slot's own root element (`[data-event-card-media-slot]`) is still mounted (and, where it reads more naturally, empty via `toBeEmptyDOMElement()`). The "no image, no placeholder" test and the "both imageUrl and onFavoriteToggle absent" test can be merged into one test now that `onFavoriteToggle` no longer exists as a slot prop — see the Reference Implementation below for the exact merged test. Every assertion about `<img>` absence/presence and placeholder-text absence is unchanged.
+  - [x] 3.3 Delete the entire `EventCardMediaSlot - AC4 (one live favorite-toggle control, adequate tap target, no extra focus stop)` describe block (its 4 tests are all about the slot's own, now-removed, internal control). Replace it with a short comment (see Reference Implementation) explaining the retirement and pointing at where the equivalent guarantee is proven today (`EventCard.test.tsx`, `EventCardCompact.test.tsx`).
+  - [x] 3.4 `EventCardMediaSlot additive props (Story 1.i1e)` block: delete the two `hideFavoriteBadge` tests entirely; keep the two `onImagePresenceChange` tests, dropping `onFavoriteToggle` from each render call (that prop played no role in either assertion). Rename the describe block to `EventCardMediaSlot additive props (onImagePresenceChange, Story 1.i1e)` and add a one-line comment noting `hideFavoriteBadge` was retired by this story.
+  - [x] 3.5 `EventCardMediaSlot collapseOnFallback (Story 1.i1m AC1/AC3)` block: drop `onFavoriteToggle` from all four tests. For the first test ("defaults to false and preserves the exact reserved-blank fallback when omitted"), replace the `within(slot).getByRole('button', ...)` assertion with `expect(slot).toBeEmptyDOMElement()`. For the second and third tests (collapse-to-null tests), no assertion needs to change beyond dropping the now-nonexistent prop. For the fourth test ("keeps the with-image branch byte-identical..."), drop the trailing button assertion — the `<img>` src assertion already fully proves the with-image branch is unaffected.
+  - [x] 3.6 Remove the now-unused `EVENT_CARD_BADGE_MIN_TOUCH_REM` import (used only by the deleted AC4 block) and the now-unused `within` import (used only by the two collapseOnFallback assertions rewritten in 3.5) from the top of the test file.
+  - [x] 3.7 Run `pnpm --filter @festgrid/ui exec vitest run src/features/events/EventCardMediaPrimitives.test.tsx` and confirm the full file passes (this story's own dev-agent dry run confirmed 84/84 passing against the exact diff in the Reference Implementation below — re-verify, don't assume). **Re-verified: 84/84 passing.**
 
-- [ ] Task 4 — Fix the stale visual-audit manifest comment (AC5)
-  - [ ] 4.1 In `packages/visual-audit/manifests/event-card-date-box-sizing.ts`, correct the `FIXTURE_IMAGE_DATA_URI` header comment's clause naming `hideFavoriteBadge` — see Reference Implementation for the exact replacement wording. No other line in this file changes.
-  - [ ] 4.2 Confirm (read-through, no new run required — the manifest's registered entries/render specs/rules are untouched) that this is comment-only and changes no registered `ManifestEntry`.
+- [x] Task 4 — Fix the stale visual-audit manifest comment (AC5)
+  - [x] 4.1 In `packages/visual-audit/manifests/event-card-date-box-sizing.ts`, correct the `FIXTURE_IMAGE_DATA_URI` header comment's clause naming `hideFavoriteBadge` — see Reference Implementation for the exact replacement wording. No other line in this file changes.
+  - [x] 4.2 Confirm (read-through, no new run required — the manifest's registered entries/render specs/rules are untouched) that this is comment-only and changes no registered `ManifestEntry`.
 
-- [ ] Task 5 — Amend Stories 1.i1a / 1.i1e / 1.i1m's shipped ACs (AC6, AC7, AC8)
-  - [ ] 5.1 **`epics.md` check first, do not skip:** this story's own creation pass read `epics.md`'s condensed entries for Stories 1.i1a, 1.i1e, and 1.i1m and found none of the three's condensed bullets actually contain the specific claims AC6/AC7/AC8 amend (epics.md's bullets are a terse paraphrase, not the full story files' numbered AC text) — e.g. 1.i1a's epics.md bullet is just "a missing or hotlink-expired image renders reserved-but-blank space — no placeholder text, no icon," which remains fully true after this story; it never claimed the favorite badge renders inside that blank space. **No `epics.md` edit is needed for 1.i1a/1.i1e/1.i1m's existing entries** — only their own full story files (5.2/5.3/5.4 below) carry the specific language AC6-AC8 amend. Re-verify this finding at implementation time (re-read the three entries) rather than trusting it blindly — if `epics.md` has drifted since this story's creation and now does carry the contradicted language, amend it there too, matching the annotation style below.
-  - [ ] 5.2 In `_bmad-output/implementation-artifacts/1-i1a-extend-the-shared-event-card-primitive-to-own-thumbnail-sizing-and-fallback.md`, apply the AC3/AC4/AC5 annotations (exact wording below) to that story's own `## Acceptance Criteria` section.
-  - [ ] 5.3 In `_bmad-output/implementation-artifacts/1-i1e-adopt-the-primitive-into-the-masonry-default-state.md`, apply the AC4 annotation (exact wording below).
-  - [ ] 5.4 In `_bmad-output/implementation-artifacts/1-i1m-drop-the-calendar-rows-reserved-image-slot.md`, apply the AC4 annotation (exact wording below).
+- [x] Task 5 — Amend Stories 1.i1a / 1.i1e / 1.i1m's shipped ACs (AC6, AC7, AC8)
+  - [x] 5.1 **`epics.md` check first, do not skip:** re-verified at implementation time per this subtask's own instruction — `epics.md`'s condensed entries for Stories 1.i1a, 1.i1e, and 1.i1m (and this story's own already-present `epics.md` section) still carry no favorite-badge-ownership language needing amendment; no drift since story creation. No `epics.md` edit made.
+  - [x] 5.2 Verified `_bmad-output/implementation-artifacts/1-i1a-extend-the-shared-event-card-primitive-to-own-thumbnail-sizing-and-fallback.md` already carries the exact AC3/AC4/AC5 annotations specified below, word-for-word (pre-existing in the baseline commit — confirmed via `git status`/`git diff` showing no pending changes to this file). No edit needed.
+  - [x] 5.3 Verified `_bmad-output/implementation-artifacts/1-i1e-adopt-the-primitive-into-the-masonry-default-state.md` already carries the exact AC4 annotation specified below, word-for-word. No edit needed.
+  - [x] 5.4 Verified `_bmad-output/implementation-artifacts/1-i1m-drop-the-calendar-rows-reserved-image-slot.md` already carries the exact AC4 annotation specified below, word-for-word. No edit needed.
 
-- [ ] Task 6 — Amend Architecture Spine AD-15 Rule 4 (AC9)
-  - [ ] 6.1 In `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`, reword AD-15 Rule 4 to state the "one live control" guarantee is now proven at the consumer level, and repoint its "Enforced by" line per AC9's exact citation.
+- [x] Task 6 — Amend Architecture Spine AD-15 Rule 4 (AC9)
+  - [x] 6.1 Verified `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`'s AD-15 Rule 4 already carries the exact reworded text and re-pointed "Enforced by" citation specified below, word-for-word. No edit needed.
 
-- [ ] Task 7 — Add Story 1.i1z's Change Log entry (AC10)
-  - [ ] 7.1 Append a new, dated entry to `_bmad-output/implementation-artifacts/1-i1z-ratchet-no-card-surface-sizes-or-falls-back-locally.md`'s existing `## Change Log` section, per AC10.
+- [x] Task 7 — Add Story 1.i1z's Change Log entry (AC10)
+  - [x] 7.1 Verified `_bmad-output/implementation-artifacts/1-i1z-ratchet-no-card-surface-sizes-or-falls-back-locally.md`'s `## Change Log` section already carries the exact new, dated entry specified below, word-for-word. No edit needed.
 
-- [ ] Task 8 — Verification (all ACs)
-  - [ ] 8.1 `pnpm --filter @festgrid/ui exec vitest run src/features/events/EventCardMediaPrimitives.test.tsx` — full pass, no regressions.
-  - [ ] 8.2 `pnpm --filter @festgrid/ui exec vitest run src/features/events/EventCard.test.tsx src/features/events/EventCardCompact.test.tsx` — full pass, unmodified (proves AC3's "byte-for-byte identical output" claim).
-  - [ ] 8.3 `pnpm --filter @festgrid/ui lint` and `pnpm --filter @festgrid/ui exec tsc --noEmit` — 0 errors in every changed file.
-  - [ ] 8.4 `pnpm --filter @festgrid/visual-audit` equivalent build/lint check for the one comment-only manifest edit (no behavior to re-verify, confirm it still parses/compiles).
-  - [ ] 8.5 Confirm no file outside `packages/ui`, `packages/visual-audit`, and the `_bmad-output/` planning/implementation docs listed above was touched.
+- [x] Task 8 — Verification (all ACs)
+  - [x] 8.1 `pnpm --filter @festgrid/ui exec vitest run src/features/events/EventCardMediaPrimitives.test.tsx` — 84/84 passing, no regressions.
+  - [x] 8.2 `pnpm --filter @festgrid/ui exec vitest run src/features/events/EventCard.test.tsx src/features/events/EventCardCompact.test.tsx` — 87/87 passing, files unmodified (proves AC3's "byte-for-byte identical output" claim). Required building `packages/domain` first (`pnpm --filter @festgrid/domain build`, pre-existing missing-`dist` issue unrelated to this story — confirmed via `git stash`) for Vite to resolve `@festgrid/domain/geolocation`.
+  - [x] 8.3 `pnpm --filter @festgrid/ui lint` — 0 errors. `tsc --noEmit` fails repo-wide (pre-existing `TS5101` baseUrl-deprecation error, confirmed on the pre-story baseline too) — not a regression introduced by this story; lint + the full test suite serve as this story's compile-clean proof.
+  - [x] 8.4 `pnpm --filter @festgrid/visual-audit lint` — 0 errors; the one comment-only manifest edit parses/compiles clean.
+  - [x] 8.5 Confirmed via `git diff --stat` — only files under `packages/ui`, `packages/visual-audit`, and this story's own `_bmad-output/implementation-artifacts` file (plus `sprint-status.yaml`'s status field) were touched; no edit was needed in any of the Task 5-7 target docs since all were already amended in the baseline.
 
 ## Dev Notes
 
@@ -431,14 +435,40 @@ Append as a new, third bullet under Story 1.i1z's existing `## Change Log` secti
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Implementation complete, ready for review
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
+Claude Sonnet 5 (`claude-sonnet-5`)
+
 ### Debug Log References
+
+- `pnpm --filter @festgrid/ui exec vitest run src/features/events/EventCardMediaPrimitives.test.tsx` → 84/84 passing.
+- `pnpm --filter @festgrid/ui exec vitest run src/features/events/EventCard.test.tsx src/features/events/EventCardCompact.test.tsx` → 87/87 passing (files unmodified).
+- `pnpm --filter @festgrid/ui lint` → 0 errors.
+- `pnpm --filter @festgrid/visual-audit lint` → 0 errors.
+- `pnpm --filter @festgrid/ui exec tsc --noEmit` → fails with a pre-existing, unrelated `TS5101` ("Option 'baseUrl' is deprecated") error before any file-level type checking runs; confirmed identical on the pre-story baseline commit (`d0e01c8`) via `git stash`/`git stash pop`, so this is environment noise, not a regression from this story's changes.
+- `pnpm --filter @festgrid/ui exec vitest run ...EventCard.test.tsx ...EventCardCompact.test.tsx` initially failed on an unrelated pre-existing issue (`@festgrid/domain` had no built `dist/`, so Vite couldn't resolve `@festgrid/domain/geolocation`); fixed by running `pnpm --filter @festgrid/domain build` once (also reproduced on the pre-story baseline via `git stash`, confirming it's not caused by this story).
 
 ### Completion Notes List
 
+- Deleted `EventCardMediaSlot`'s two dead favorite-badge branches (with-image corner pill, reserved-blank large fallback) and the five now-unused props (`isFavorited`, `favoriteCount`, `onFavoriteToggle`, `labels`, `hideFavoriteBadge`) from both `EventCardMediaPrimitives.tsx` and `EventCardMediaPrimitives.types.ts`, per the story's Reference Implementation (AC1, AC2).
+- Updated both production call sites (`EventCard.tsx`, `EventCardCompact.tsx`) to stop passing the removed props, and updated `EventCardCompact.tsx`'s two inline comments to describe the new reality instead of citing the now-landed tracker item (AC3). `EventCard.test.tsx`/`EventCardCompact.test.tsx` re-run unmodified, 87/87 passing — confirms byte-for-byte identical rendered output at both call sites.
+- Rewrote/trimmed `EventCardMediaPrimitives.test.tsx` exactly per the story's Reference Implementation: dropped the `within`/`EVENT_CARD_BADGE_MIN_TOUCH_REM` imports, re-pointed the one AC2 sub-test at `EventCardFavoriteBadge` directly, merged/rewrote the AC3 fallback-block tests to assert on the slot's own root element instead of a button, deleted the entire slot-owned "AC4" describe block (replaced with a retirement comment), trimmed the `hideFavoriteBadge` tests out of the `additive props` block (renamed to `additive props (onImagePresenceChange, Story 1.i1e)`), and dropped `onFavoriteToggle` from all four `collapseOnFallback` tests. Full file re-verified at 84/84 passing (AC4). One care point during this edit: the pre-existing file has a documented brace-nesting quirk where the `EventCardMediaSlot fallback - AC3` describe block's own closing brace never appears until much later in the file (it's left open through what used to be the AC4/AC5/additive-props/collapseOnFallback/EventCardDateBox blocks) — verified with a small Node brace-counting script against both the original and edited file that this story's edit preserves the exact same (pre-existing, harmless) nesting shape rather than introducing a new imbalance.
+- Fixed the one stale `hideFavoriteBadge`-naming comment in `packages/visual-audit/manifests/event-card-date-box-sizing.ts`'s `FIXTURE_IMAGE_DATA_URI` header (AC5); confirmed comment-only via read-through and `pnpm --filter @festgrid/visual-audit lint`.
+- Task 5/6/7 (amending Stories 1.i1a/1.i1e/1.i1m's ACs, Architecture Spine AD-15 Rule 4, and Story 1.i1z's Change Log) required **no edits**: re-reading every target file at implementation time found all of the specified annotations/rewording/Change Log entry already present, word-for-word matching the story's own "exact wording" blocks, with `git status`/`git diff` confirming zero pending changes to any of them. This is recorded here rather than silently skipped, per this workflow's "no silent drift" principle — the docs were evidently already brought current (by an earlier pass of this same story's own authoring/validation work) before this dev-story session began.
+- Verification (Task 8): full target-file vitest run (84/84), both consumer test files unmodified (87/87), `@festgrid/ui` lint clean, `@festgrid/visual-audit` lint clean. `tsc --noEmit` could not be used as specified (pre-existing, unrelated environment failure — see Debug Log); lint + the full test suite serve as this story's compile-clean proof instead, and are explicitly noted as such rather than silently substituted.
+- No file outside `packages/ui`, `packages/visual-audit`, and this story's own tracking files was touched (AC11, DoD, Task 8.5).
+
 ### File List
+
+- Modified: `packages/ui/src/features/events/EventCardMediaPrimitives.tsx`
+- Modified: `packages/ui/src/features/events/EventCardMediaPrimitives.types.ts`
+- Modified: `packages/ui/src/features/events/EventCard.tsx`
+- Modified: `packages/ui/src/features/events/EventCardCompact.tsx`
+- Modified: `packages/ui/src/features/events/EventCardMediaPrimitives.test.tsx`
+- Modified: `packages/visual-audit/manifests/event-card-date-box-sizing.ts`
+- Modified: `_bmad-output/implementation-artifacts/1-i1p-remove-eventcardmediaslots-unused-internal-favorite-badge.md` (this story file — frontmatter `baseline_commit`, Tasks/Subtasks, Dev Agent Record, Status)
+- Modified: `_bmad-output/implementation-artifacts/sprint-status.yaml` (status transitions: ready-for-dev → in-progress → review)

@@ -13,8 +13,10 @@
  *
  * The shared `event_card_*` media primitives (Epic 1.i1 / Story 1.i1a):
  *  - `EventCardMediaSlot`  — the image/fallback slot that owns its dimensions and the
- *    reserved-blank fallback, switching between a small corner favorite pill (image
- *    present+ok) and the large centered favorite control (image absent/errored).
+ *    reserved-blank fallback (image present+ok → `<img>`; image absent/errored → an
+ *    empty reserved footprint). It owns no favorite-control rendering of its own (Story
+ *    1.i1p removed that internal rendering once both real consumers were found to always
+ *    suppress it) — every caller composes `EventCardFavoriteBadge` externally instead.
  *  - `EventCardFavoriteBadge` — the favorite heart+count control at either `default`
  *    (small corner pill) or `large` (borderless, centered in an empty slot) scale.
  *  - `EventCardDateBox` — the two-tier stacked month/day date box (Story 1.i1k), sized
@@ -35,7 +37,6 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, Navigation, Repeat } from 'lucide-react';
 import {
-  EVENT_CARD_BADGE_MIN_TOUCH_REM,
   eventCardBadgeIconSizeStyle,
   badgeFontSizeStyleFor,
 } from './event-card-media-tokens';
@@ -151,13 +152,8 @@ export function EventCardMediaSlot({
   imageFallbackUrl,
   imageAlt,
   layout,
-  isFavorited = false,
-  favoriteCount,
-  onFavoriteToggle,
-  labels,
   className = '',
   size = 'default',
-  hideFavoriteBadge = false,
   onImagePresenceChange,
   collapseOnFallback = false,
 }: EventCardMediaSlotProps) {
@@ -244,62 +240,23 @@ export function EventCardMediaSlot({
       style={badgeFontSizeStyleFor(size)}
       className={`relative overflow-hidden ${layoutClasses} ${className}`}
     >
-      {imagePresent ? (
-        <>
+      {
+        // Reserved-blank fallback (AC3, Story 1.i1a): no image, no placeholder icon, no
+        // placeholder text, and — as of Story 1.i1p — no favorite control either. The slot
+        // keeps its exact AC1 footprint (this outer `<div>` always mounts, unless
+        // `collapseOnFallback` short-circuited the whole component above) regardless of
+        // whether an image is present; favorite-control composition is entirely the
+        // caller's responsibility (`EventCard.tsx`/`EventCardCompact.tsx` each compose
+        // `EventCardFavoriteBadge` as an external sibling — see this file's header comment).
+        imagePresent && (
           <img
             src={currentImgSrc}
             alt={imageAlt ?? ''}
             onError={handleImageError}
             className="object-cover w-full h-full"
           />
-          {!hideFavoriteBadge && onFavoriteToggle && (
-            <EventCardFavoriteBadge
-              scale="default"
-              isFavorited={isFavorited}
-              favoriteCount={favoriteCount}
-              onFavoriteToggle={onFavoriteToggle}
-              labels={labels}
-              // User feedback (2026-09-27, "the favorite icon should be clickable to toggle
-              // favorite"): z-index bumped z-10 -> z-30, matching the same defensive bump applied
-              // to masonry's own favorite controls, so this badge unambiguously wins any
-              // z-index/DOM-order stacking tie against a sibling overlay.
-              className="absolute top-1 right-1 z-30"
-              // User feedback (2026-09-27): "on thumbnail-mode, the fav-icon font-size should be
-              // 12px" -- literal 12px, superseding the same-dated earlier fix that sized this
-              // badge relatively (`EVENT_CARD_BADGE_ICON_SCALE_COMPACT_WITH_IMAGE`, a ratio
-              // against `size='compact'`'s own badge-font-size basis). The user's own wording
-              // ("font-size") mirrors how this codebase already sizes icons off a font-size-like
-              // token elsewhere, but the literal value requested is fixed, not relative.
-              iconSizeStyle={size === 'compact' ? { width: '12px', height: '12px' } : undefined}
-            />
-          )}
-        </>
-      ) : (
-        // Reserved-blank fallback (AC3): no image, no placeholder icon, no placeholder
-        // text — the slot keeps its exact AC1 footprint and only the large, centered
-        // favorite badge renders (AC2/AC4).
-        !hideFavoriteBadge &&
-        onFavoriteToggle && (
-          // min-height guards this the same way EventCard.tsx's own sibling-badge
-          // wrapper does: a `layout="flex-fill"` slot inherits a short height from
-          // whatever row it's stretched to match (e.g. a short date box), which is
-          // shorter than the `large` badge's own min-h-11 touch target below --
-          // without this, the badge overflows and gets clipped by this slot's own
-          // `overflow-hidden` (see event-card-media-tokens.ts EVENT_CARD_BADGE_MIN_TOUCH_REM).
-          <div
-            className="flex items-center justify-center w-full h-full"
-            style={{ minHeight: `${EVENT_CARD_BADGE_MIN_TOUCH_REM}rem` }}
-          >
-            <EventCardFavoriteBadge
-              scale="large"
-              isFavorited={isFavorited}
-              favoriteCount={favoriteCount}
-              onFavoriteToggle={onFavoriteToggle}
-              labels={labels}
-            />
-          </div>
         )
-      )}
+      }
     </div>
   );
 }
