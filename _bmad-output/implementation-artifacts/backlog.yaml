@@ -1217,12 +1217,22 @@ items:
 
   # ── 2026-09-15 (Cluster A batch, ritual-orchestrator) ────────────────────────
   FIND-032:
-    {type: finding, status: backlog, created: 2026-09-15,
+    {type: finding, status: promoted, created: 2026-09-15,
      impact: internal, effort: s,
      title: "No lint/test guardrail enforces key parity between label interfaces (e.g. EventDetailViewLabels) and en.json/id.json locale files",
      ref: [implementation-artifacts/deferred-work.md],
+     stories: [0-50-add-a-locale-parity-ratchet-for-eventdetailviewlabels],
      touches: [pkg:ui, cross:i18n],
-     note: "Deferred from: find-011-cruft-cleanup (2026-09-15). 1 finding. A future prop removal/addition on any such label interface can silently desync from the translation files, caught only by manual diligence today (as in FIND-011's own postedByLabel removal)."}
+     note: "Deferred from: find-011-cruft-cleanup (2026-09-15). A future prop removal/addition on any such label interface can silently desync from the translation files. Promoted 2026-10-06 via Story 0.50 (EventDetailViewLabels only; see child FIND-073)."}
+
+  # ── 2026-10-06 (bmad-create-story, Story 0.50) ───────────────────────────────
+  FIND-073:
+    {type: finding, status: backlog, created: 2026-10-06, parent: FIND-032,
+     impact: internal, effort: m,
+     title: "Widen the EventDetailViewLabels locale-parity ratchet (Story 0.50) to the ~19 other *Labels interfaces across packages/ui, packages/domain, and apps/web",
+     ref: [implementation-artifacts/0-50-add-a-locale-parity-ratchet-for-eventdetailviewlabels.md],
+     touches: [pkg:ui, pkg:domain, web:events, cross:i18n],
+     note: "Carved out of FIND-032 during Story 0.50's drafting (2026-10-06): ~19 other *Labels interfaces exist with non-uniform namespace mappings (renamed keys, nested paths, no dedicated namespace); widening the ratchet to them is unbounded for an effort:s story. See Story 0.50's Dev Notes."}
 
   # ── 2026-09-15 (bmad-create-story, Story 0.i5b) ──────────────────────────────
   IDEA-035:
