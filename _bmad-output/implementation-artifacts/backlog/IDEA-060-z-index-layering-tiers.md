@@ -47,14 +47,28 @@ ratchet that rejects raw `z-[n]` values. The ratchet should be a Vitest test, no
 `packages/ui` has no ESLint config yet (Story 0.41 / FIND-036), and the repo already ratchets card
 sizing with CI tests (Story 1.i1z).
 
-## Open questions
+## Open questions — resolved via `bmad-architecture`, 2026-10-06
 
-- What are `EventDetailView.tsx:354` and `:1062` at `z-50`: sticky bars or overlays?
-- Should portaled overlays (Radix) get their tier from a shared wrapper instead of per-component
-  classes?
-- Is a Tailwind theme extension enough, or should tiers also be CSS variables for non-Tailwind code?
+- **What are `EventDetailView.tsx`'s two z-50 sites?** Neither is a sticky bar. Site 1 (~line 344)
+  is a hand-rolled "more actions" kebab dropdown with no `isolate` ancestor — classified
+  Overlay-modal (user-directed via `AskUserQuestion`), not demoted to Local, since without
+  `isolate` it competes at the page root exactly like a Radix popover. Site 2 (~line 1056) is the
+  "Add to Calendar" schedule picker — an unambiguous `fixed inset-0`/`aria-modal` dialog, also
+  Overlay-modal.
+- **Should portaled overlays (Radix) get their tier from a shared wrapper instead of per-component
+  classes?** Yes — one shared, imported `OVERLAY_MODAL_Z` constant (user-directed), widened during
+  review to cover every Overlay-modal consumer (Radix-portaled or hand-rolled, e.g. the kebab
+  dropdown above), not Radix wrappers only.
+- **Is a Tailwind theme extension enough, or should tiers also be CSS variables for non-Tailwind
+  code?** Tailwind `theme.extend.zIndex` tokens only, no CSS variables (user-directed) — confirmed
+  zero inline-style/non-Tailwind z-index usage exists anywhere in `packages/ui` or `apps/web`.
 
-## Routing
+Full tier model (5 tiers: Local/Chrome/Overlay-sticky/Overlay-modal/Overlay-blocking), the
+migration rule, and the Vitest ratchet design are recorded as **Architecture Spine AD-33**
+(`_bmad-output/planning-artifacts/festgrid-architecture-spine.md`).
 
-`bmad-architecture` (decide the tier model, record as an AD), then `bmad-create-story`. Roughly
-25 files to migrate, so check `epic-formation-gate.md` before creating more than one story.
+## Promoted
+
+Architecture decision recorded (AD-33); no story created yet. Routes to `bmad-create-story` next
+for the ~25-file migration + the new Vitest ratchet test. Check `epic-formation-gate.md` before
+creating more than one story.

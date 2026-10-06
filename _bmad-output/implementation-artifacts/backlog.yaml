@@ -1964,12 +1964,12 @@ items:
 
   # ── 2026-10-05 ───────────────────────────────────────────────────────────────
   IDEA-060:
-    {type: idea, status: backlog, created: 2026-10-05,
+    {type: idea, status: triaged, created: 2026-10-05,
      impact: internal, effort: m,
      title: "Consolidate z-index into named layering tiers: one documented scale, theme tokens, and a ratchet against raw z-values",
      ref: [backlog/IDEA-060-z-index-layering-tiers.md],
      touches: [pkg:ui, web:system, cross:ux-tokens, cross:architecture],
-     note: "~70 raw z-* classes, 17 at z-50 for unrelated things, and no documented layering rule; needs bmad-architecture (tier model) first. Inventory and routing in the ref."}
+     note: "Tier model decided via bmad-architecture, recorded as Architecture Spine AD-33 (2026-10-06). No story yet -- next is bmad-create-story for the ~25-file migration + the new Vitest ratchet. Inventory and resolved open questions in the ref."}
 
   FIND-072:
     {type: finding, status: backlog, created: 2026-10-05,
