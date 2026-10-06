@@ -1994,3 +1994,12 @@ items:
      ref: [planning-artifacts/sprint-change-proposal-2026-10-01-multi-event-posts.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
      touches: [app:backend, web:moderation],
      note: "Deferred from Story 3.6w's bmad-create-story (2026-10-05, AskUserQuestion): out-of-scope manual merge trigger. See 3.6w's Dev Notes/Out of Scope for the reusable mergeEvents() internal function a future story here would expose directly."}
+
+  # ── 2026-10-06 ──────────────────────────────────────────────────────────────
+  FIND-073:
+    {type: finding, status: backlog, created: 2026-10-06, parent: FIND-004,
+     impact: compliance, effort: s,
+     title: "Public-accounts-only scope is not enforced: subscribe path never checks whether an Instagram account is private",
+     ref: [planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Found 2026-10-06 scoping AD-32. subscribeToAccount and the Instagram adapter never check for a private account (only Apify not_found); the PRD section 5 scope note is intent only."}
