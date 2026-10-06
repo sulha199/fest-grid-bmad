@@ -19,6 +19,7 @@
     "seed:volume:clean": "tsx seed-volume.ts --clean",
     "backfill-scraper-actor-runs": "tsx backfill-scraper-actor-runs.ts",
     "test:seed": "tsx --test seed.integration.test.ts",
+    "test:unique-index": "tsx --test unique-index.integration.test.ts",
     "migrate:prod": "node dist/migrate.js",
     "studio": "drizzle-kit studio",
     "lint": "eslint . --report-unused-disable-directives --max-warnings 0",

@@ -225,7 +225,7 @@ Claude Sonnet 5 (claude-sonnet-5)
   already held by another post (a genuine, rare duplicate-scrape-row case) now hits that
   constraint (Postgres `23505`). Handled defensively: that exact unique-violation is caught per-
   row and the row is counted `stillUnresolvable` rather than crashing the whole batch (same
-  convention `packages/database/unique-index.test.ts` already establishes for this index) — see
+  convention `packages/database/unique-index.integration.test.ts` already establishes for this index) — see
   the code comment on `healPostPlatformIdentity`.
 - `tx.rollback()` (drizzle-orm postgres-js) always rejects the transaction promise with
   `TransactionRollbackError` by design -- `backfill-legacy-event-slugs.ts`'s `simulate()` (shared
