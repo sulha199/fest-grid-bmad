@@ -52,7 +52,7 @@ new queries already used). `seed:volume:clean` run immediately after capture in 
 - **`Query.postByPlatformIdentifiers`**: 1 statement, **0.1 ms**, **Seq Scans: none**. This is the
   new query this story's AC8 migration exists to make index-driven: a `WHERE platform = $1 AND
   platform_post_type = $2 AND platform_post_id = $3` lookup against `posts`, left-joined to
-  `social_media_account_profiles` on its primary key. Before migration 0073's new partial unique
+  `social_media_account_profiles` on its primary key. Before migration 0074's new partial unique
   index (`posts_platform_post_identity_idx` on `(platform, platform_post_type, platform_post_id)
   WHERE platform_post_id IS NOT NULL AND platform_post_type IS NOT NULL`), this exact `WHERE`
   shape had no supporting index and would have required a full-table Seq Scan on `posts`; with

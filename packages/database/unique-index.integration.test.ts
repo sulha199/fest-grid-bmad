@@ -7,7 +7,7 @@ import { createSqlClient } from './seed';
 import { loadDatabaseEnv } from './env';
 
 // Story 3.6x / AD-30 Rule 11 -- real-DB migration-safety test for the new partial unique index
-// `posts_platform_post_identity_idx` (migration 0073) on posts(platform, platformPostType,
+// `posts_platform_post_identity_idx` (migration 0074) on posts(platform, platformPostType,
 // platformPostId) WHERE platformPostId IS NOT NULL AND platformPostType IS NOT NULL. Asserts the
 // index actually rejects a duplicate non-null triple and allows multiple NULL rows (NULLs are
 // distinct in Postgres, so the overwhelming majority of pre-AD-16 historical rows never collide).

@@ -326,6 +326,8 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.ok(!('maxItems' in props.events), 'events must NOT carry a JSON-schema maxItems (breaks the real Gemini API, see Dev Notes)');
     assert.ok('groupingReason' in props);
     assert.ok('groupingRationale' in props);
+    assert.ok('postTitle' in props, 'post-level headline persisted to posts.title');
+    assert.ok(!geminiExtractionResponseSchema.required.includes('postTitle'));
     assert.ok('minEventCount' in props);
     assert.ok('skippedItems' in props);
     assert.deepStrictEqual(geminiExtractionResponseSchema.required, ['isEvent', 'events']);

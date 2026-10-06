@@ -38,7 +38,7 @@ function isUniqueViolation(err: unknown): boolean {
  * run). A row already healed, or genuinely unparseable, is left alone (idempotent re-run, AC2).
  *
  * Story 3.6x / AD-30 Rule 11's partial unique index on `posts (platform, platformPostType,
- * platformPostId)` (migration 0073) now covers any row with non-null identity. A healing write
+ * platformPostId)` (migration 0074) now covers any row with non-null identity. A healing write
  * that would resolve to an identity another post already carries hits that constraint -- a
  * genuine (if rare) duplicate-scrape-row case, not a bug in this script. Never force it through:
  * catch exactly that unique-violation (Postgres code 23505) and count the row unresolvable,

@@ -55,6 +55,8 @@ export interface GeminiExtractionPayload {
   // here: posts.grouping_reason (Story 3.6r) is populated by a later story's ingestion step,
   // not by this payload type directly.
   groupingReason?: PostGroupingReason;
+  /** Short post-level headline/title (best-effort; roundup posts especially). */
+  postTitle?: string | null;
   // Story 3.6s — one-sentence model self-explanation of the grouping decision, for debugging
   // only. Deliberately never read by any downstream code in this story and never persisted —
   // do not add it to ExtractedEventMessage or any DB-facing type (AD-30 Rule 5).

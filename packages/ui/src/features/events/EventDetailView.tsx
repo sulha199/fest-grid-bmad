@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, CalendarDays, CalendarPlus, ExternalLink, Heart, User, DollarSign, MoreVertical, AlertCircle, Instagram, Phone, Link as LinkIcon } from 'lucide-react';
+import { CalendarDays, CalendarPlus, ExternalLink, Heart, User, DollarSign, MoreVertical, AlertCircle, Instagram, Phone, Link as LinkIcon } from 'lucide-react';
 import { detectPlatformFromUrl } from '@festgrid/domain';
 import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels, EventDetailViewCoauthor, EventDetailViewSourcePost, EventDetailViewRelatedEventGroup, EventDetailViewRelatedEvent } from './EventDetailView.types';
 import { EventImage } from './EventImage';
@@ -7,7 +7,7 @@ import { InstagramEmbed } from './InstagramEmbed';
 import { SubscribedAccountCard } from '../subscriptions';
 import { PlatformIcon } from '../../core/platform-icon';
 import { LocationLink } from '../../core/LocationLink';
-import { formatShortEventDateTime, computeCalendarSegmentDateBoxContent } from './format-event-date';
+import { formatShortEventDateTime, computeRelatedEventDateBox, selectAndSortRelatedEvents } from './format-event-date';
 import { EventCardCompact } from './EventCardCompact';
 
 /** Story 3.6u (AC6) — how many events render inline per Related Events group before the
@@ -91,16 +91,6 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
 
   const [timezoneStates, setTimezoneStates] = React.useState<Record<string, { value: string }>>({})
 
-  // Story 3.6u (AC6) — this is not a calendar surface (no "currently visible week" concept), so
-  // `computeCalendarSegmentDateBoxContent`'s `currentDayStr` is always just today, computed the
-  // same way every other `todayStr` call site in this codebase already does
-  // (`new Date().toISOString().split('T')[0]`, e.g. `CalendarView.tsx`/`FeedCalendarView.tsx`).
-  // Hoisted above the `loading`/`error` early returns below (Rules of Hooks — a hook may never
-  // sit after a conditional return, since the same mounted `EventDetailView` instance transitions
-  // between `loading`/`error`/data on every real page load, e.g. via `EventDetailWrapper`; this
-  // used to live just above its one usage site, which crashed with "Rendered more hooks than
-  // during the previous render" the moment a real query actually resolved).
-  const relatedEventsTodayStr = React.useMemo(() => new Date().toISOString().split('T')[0], []);
 
   const handleTriggerClick = () => {
     if (!isAuthenticated && onAddToCalendar) {
@@ -581,11 +571,8 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
                       </address>
                     ) : location ? (
                       <address className="not-italic flex items-start gap-2">
-                        <MapPin className="w-4 h-4 shrink-0 mt-0.5" />
-                        <div>
-                          <span className="sr-only">{labels.locationLabel}:</span>
-                          <span>{location}</span>
-                        </div>
+                        <span className="sr-only">{labels.locationLabel}:</span>
+                        <LocationLink name={location} />
                       </address>
                     ) : null}
 
@@ -811,7 +798,6 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
                   key={group.postId}
                   group={group}
                   locale={locale}
-                  todayStr={relatedEventsTodayStr}
                   seeAllLabel={labels.relatedEventsSeeAllLabel}
                   onRelatedEventClick={onRelatedEventClick}
                 />
@@ -841,7 +827,6 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
 interface RelatedEventsGroupSectionProps {
   group: EventDetailViewRelatedEventGroup;
   locale: string;
-  todayStr: string;
   seeAllLabel?: (count: number) => string;
   onRelatedEventClick?: (event: EventDetailViewRelatedEvent) => void;
 }
@@ -857,12 +842,19 @@ interface RelatedEventsGroupSectionProps {
 const RelatedEventsGroupSection: React.FC<RelatedEventsGroupSectionProps> = ({
   group,
   locale,
-  todayStr,
   seeAllLabel,
   onRelatedEventClick,
 }) => {
-  const visibleEvents = group.events.slice(0, RELATED_EVENTS_INLINE_CAP);
-  const hasOverflow = !group.isLoading && group.totalCount > RELATED_EVENTS_INLINE_CAP && !!group.seeAllHref;
+  // Ended events are hidden and the rest ordered happening-now-first (see
+  // selectAndSortRelatedEvents). The overflow decision and its "See all N" count use the
+  // filtered list, so hidden ended events never inflate the count.
+  const now = React.useMemo(() => new Date(), []);
+  const sortedEvents = selectAndSortRelatedEvents(group.events, now, undefined);
+  const visibleEvents = sortedEvents.slice(0, RELATED_EVENTS_INLINE_CAP);
+  const hasOverflow = !group.isLoading && sortedEvents.length > RELATED_EVENTS_INLINE_CAP && !!group.seeAllHref;
+
+  // Every event in the group has ended: omit the section (same omit-rather-than-placeholder rule).
+  if (!group.isLoading && visibleEvents.length === 0) return null;
 
   return (
     <section className="flex flex-col gap-2">
@@ -886,12 +878,14 @@ const RelatedEventsGroupSection: React.FC<RelatedEventsGroupSectionProps> = ({
               </li>
             ))
           : visibleEvents.map((event) => {
-              const dateBoxContent = computeCalendarSegmentDateBoxContent(
+              const dateBoxContent = computeRelatedEventDateBox(
                 locale,
                 undefined,
-                todayStr,
+                now,
                 event.eventStartDate,
+                event.eventStartTime,
                 event.eventEndDate,
+                event.eventEndTime,
                 'till'
               );
               const isMultiDayRun = (event.eventEndDate ?? event.eventStartDate) !== event.eventStartDate;
@@ -929,7 +923,7 @@ const RelatedEventsGroupSection: React.FC<RelatedEventsGroupSectionProps> = ({
           href={group.seeAllHref || undefined}
           className="text-sm font-medium text-primary hover:underline self-start"
         >
-          {seeAllLabel?.(group.totalCount) ?? `${group.totalCount}`}
+          {seeAllLabel?.(sortedEvents.length) ?? `${sortedEvents.length}`}
         </a>
       )}
     </section>

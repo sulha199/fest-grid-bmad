@@ -27,7 +27,7 @@ So that I'm not left with an unreadable legacy hex link (e.g. `/en/events/ea98b3
 5. **And** old links keep working with zero resolver/route changes: once an event is re-keyed (AC3), a request for its old hex slug is still served correctly by Story 3.6v's already-built, unmodified mechanism — `eventBySlug`'s canonical-lookup-then-alias-fallback (`apps/backend/src/schema/resolvers.ts`) and both Next.js event-detail routes' redirect-on-slug-mismatch (`apps/web/src/app/[locale]/events/[slug]/page.tsx` and its `@modal` sibling) — proven by a regression test that fetches the backfilled event by its *old* slug and gets the canonical event/a redirect back, not a 404.
 6. **And** the script is safe to run against a live table: every post-identity write and every event re-key happens in its own small transaction (never one transaction for the whole run), the script is idempotent (a post already carrying identity, or an event whose slug no longer matches the legacy hex shape, is skipped with zero writes on a re-run), and — matching this codebase's own established backfill convention (`backfill-post-media-keys.ts`, `backfill-scraper-actor-runs.ts`) — the script ships a read-only `sizing` mode (reports counts: posts needing identity healing, events eligible for re-keying, and events that will remain permanently hex because their post has no resolvable identity) and a `backfill` mode that is dry-run by default and writes only with an explicit `--apply` flag.
 7. **And** the script is run manually, once per environment, via a dedicated `workflow_dispatch`-only GitHub Actions workflow (`environment: production`, an `apply` checkbox input defaulting to unchecked/dry-run, a `concurrency` guard preventing two runs overlapping) — matching `.github/workflows/backfill-post-media-keys.yml`'s exact shape — never a new scheduled/cron-triggered mechanism (explicitly rejected by the user, see Dev Notes "Design decision").
-8. **And** this story performs no DDL change. Every column/table it writes to (`posts.platformPostId`/`platformPostType`, `events.slug`, `event_slug_aliases`) already exists. Task 1 explicitly proves this by running `pnpm --filter @festgrid/database generate` before any other work and confirming it produces no new migration file — if it unexpectedly does (schema drift unrelated to this story), that generated file must be used as-is (next sequential number, currently `0073`) and investigated, never hand-edited, and work pauses until that drift is understood (see Dev Notes).
+8. **And** this story performs no DDL change. Every column/table it writes to (`posts.platformPostId`/`platformPostType`, `events.slug`, `event_slug_aliases`) already exists. Task 1 explicitly proves this by running `pnpm --filter @festgrid/database generate` before any other work and confirming it produces no new migration file — if it unexpectedly does (schema drift unrelated to this story), that generated file must be used as-is (next sequential number, currently `0074`) and investigated, never hand-edited, and work pauses until that drift is understood (see Dev Notes).
 
 **Depends on:** Story 3.7g (`buildPlatformPrefixedSlug()`, slug shape — status `review`), Story 3.6v (`event_slug_aliases` table, `eventBySlug` alias fallback, both route redirects, and `enrichAndPromoteEvent`'s re-slug block being extracted into a shared helper — status `review`), Story 3.7f (`posts.platformPostId`/`platformPostType` columns, `parsePlatformPostIdentity()` — status `review`). Per this codebase's standing rule, building against `review`-status prerequisites is allowed (no wait) — all three are implemented and merged, only their formal review sign-off is pending.
 
@@ -35,7 +35,7 @@ So that I'm not left with an unreadable legacy hex link (e.g. `/en/events/ea98b3
 
 ## Tasks / Subtasks
 
-- [x] **Task 1 (AC8) — Confirm zero DDL impact before any other work.** Run `pnpm --filter @festgrid/database generate`. Confirm it reports "No schema changes, nothing to migrate" (every column/table this story needs — `posts.platformPostId`/`platformPostType` from migration `0062`, `events.slug`/`extractionOrdinal`/`postId`/`deletedAt`/`mergedIntoEventId` from the original schema plus Story 3.6r's AD-30 migration, `event_slug_aliases` from Story 3.6r/3.6v — already exists). If it unexpectedly generates a migration file, stop and investigate before proceeding (do not hand-edit it; if it does turn out to be legitimately needed, it must be the next sequential number, currently `0073` unless a newer migration has landed since this story was drafted — re-run `ls packages/database/migrations/ | sort -V | tail -1` to confirm the current highest number first).
+- [x] **Task 1 (AC8) — Confirm zero DDL impact before any other work.** Run `pnpm --filter @festgrid/database generate`. Confirm it reports "No schema changes, nothing to migrate" (every column/table this story needs — `posts.platformPostId`/`platformPostType` from migration `0062`, `events.slug`/`extractionOrdinal`/`postId`/`deletedAt`/`mergedIntoEventId` from the original schema plus Story 3.6r's AD-30 migration, `event_slug_aliases` from Story 3.6r/3.6v — already exists). If it unexpectedly generates a migration file, stop and investigate before proceeding (do not hand-edit it; if it does turn out to be legitimately needed, it must be the next sequential number, currently `0074` unless a newer migration has landed since this story was drafted — re-run `ls packages/database/migrations/ | sort -V | tail -1` to confirm the current highest number first).
 
 - [x] **Task 2 (AC3) — Export the slug builder; extract the shared re-slug+alias-write helper.** Two small, surgical changes to reuse existing logic rather than duplicate it (the exact drift class AD-16 already guards against for the platform-code mapping):
   - In `packages/domain/src/events/build-event-insert-values.ts`, change `function buildPlatformPrefixedSlug(...)` to `export function buildPlatformPrefixedSlug(...)` (no behavior change — it's already picked up by `packages/domain/src/events/index.ts`'s `export *` from this file, so no barrel-file edit is needed). Update its doc comment to note it now has a second caller (this story's backfill script).
@@ -209,8 +209,8 @@ Claude Sonnet 5 (claude-sonnet-5)
   you believe the schema must change"). Since no schema change is believed needed (the opposite
   of what would trigger that escalation), zero-DDL was instead verified by: (a) `git status
   --short -- packages/database/schema.ts` showing zero uncommitted diff throughout this story's
-  work; (b) confirming the two migrations that landed since this story was drafted (`0073`
-  "posts_platform_post_identity_idx" partial unique index, Story 3.6x; `0074` event-merges table,
+  work; (b) confirming the two migrations that landed since this story was drafted (`0074`
+  "posts_platform_post_identity_idx" partial unique index, Story 3.6x; `0075` event-merges table,
   Story 3.6w) are both unrelated to this story's columns/tables and are already applied (per this
   session's startup migration log); (c) every column/table this story reads or writes
   (`posts.platformPostId`/`platformPostType`, `events.slug`/`extractionOrdinal`/`postId`/
@@ -219,7 +219,7 @@ Claude Sonnet 5 (claude-sonnet-5)
   alternative verification; the literal `generate` command itself could not be run in this
   session.
 - Discovered mid-implementation (not called out in the story's own Dev Notes, which predate
-  migration `0073`): `0073` added `posts_platform_post_identity_idx`, a partial UNIQUE index on
+  migration `0074`): `0074` added `posts_platform_post_identity_idx`, a partial UNIQUE index on
   `(platform, platformPostType, platformPostId) WHERE platformPostId IS NOT NULL AND
   platformPostType IS NOT NULL`. A `healPostPlatformIdentity` write that derives an identity
   already held by another post (a genuine, rare duplicate-scrape-row case) now hits that
@@ -256,7 +256,7 @@ Claude Sonnet 5 (claude-sonnet-5)
 - Task 3 (AC1, AC2): `healPostPlatformIdentity` added to the new `apps/backend/src/lib/events/
   backfill-legacy-event-slugs-support.ts`. Cursor-paginated (batches of 500), reuses
   `parsePlatformPostIdentity()`, each row's write in its own transaction, defensively handles the
-  migration-`0073` unique-index collision case (see Debug Log). Deliberately NOT unified with
+  migration-`0074` unique-index collision case (see Debug Log). Deliberately NOT unified with
   `processIngestionJob`'s inline healing — documented as a reasoned non-duplication in a code
   comment, per the story's own Task 3 instruction.
 - Task 4 (AC3, AC4): `reslugLegacyEvents` added to the same support file. Selection predicate
@@ -306,12 +306,12 @@ Claude Sonnet 5 (claude-sonnet-5)
 
 ## Change Log
 
-- 2026-10-05 — Story created via `bmad-create-story`, promoting backlog row `FIND-071`. Read AD-16/AD-30 (architecture spine), Story 3.7g and Story 3.6v in full, `deferred-work.md`'s 2026-10-05 entry, and `cc-024-multi-event-wave-plan.md`'s migration-number-collision note (confirmed current highest migration is `0072_heavy_bloodstorm.sql`, next sequential `0073` — not needed by this story, AC8). Gate 1 and Gate 3 run fresh via subagent (Winston persona) — no blocking gap, two implementation requirements folded into Tasks 2/4 (extract the shared re-slug+alias-write helper; re-read-inside-transaction concurrency handling). Gate 2 reasoned directly — no UI surface, no gap. User chose the one-shot backfill-script design (Option A) over a lazy/trickled cron-based re-key (Option B) via `AskUserQuestion`, following Gate 1's recommendation.
+- 2026-10-05 — Story created via `bmad-create-story`, promoting backlog row `FIND-071`. Read AD-16/AD-30 (architecture spine), Story 3.7g and Story 3.6v in full, `deferred-work.md`'s 2026-10-05 entry, and `cc-024-multi-event-wave-plan.md`'s migration-number-collision note (confirmed current highest migration is `0072_heavy_bloodstorm.sql`, next sequential `0074` — not needed by this story, AC8). Gate 1 and Gate 3 run fresh via subagent (Winston persona) — no blocking gap, two implementation requirements folded into Tasks 2/4 (extract the shared re-slug+alias-write helper; re-read-inside-transaction concurrency handling). Gate 2 reasoned directly — no UI surface, no gap. User chose the one-shot backfill-script design (Option A) over a lazy/trickled cron-based re-key (Option B) via `AskUserQuestion`, following Gate 1's recommendation.
 - 2026-10-06 — `bmad-dev-story`: implemented Tasks 1-7. Task 1's literal verification command
   (`pnpm --filter @festgrid/database generate`) was blocked by a session permission hook; AC8
   was instead verified by confirming zero uncommitted `schema.ts` changes and that the two
-  migrations landed since drafting (`0073`, `0074`) are unrelated to this story. Discovered and
-  defensively handled a migration-`0073` interaction not anticipated in the story's own Dev Notes
+  migrations landed since drafting (`0074`, `0075`) are unrelated to this story. Discovered and
+  defensively handled a migration-`0074` interaction not anticipated in the story's own Dev Notes
   (a partial unique index on posts' platform identity triple, now live) inside
   `healPostPlatformIdentity`. All 7 tasks complete, all targeted tests green, `domain`/
   `database`/`backend` lint and build clean (package-scoped). Local dev DB baseline (35 posts /

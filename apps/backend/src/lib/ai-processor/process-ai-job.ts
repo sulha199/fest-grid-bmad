@@ -323,7 +323,11 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   // (events actually kept and about to be ingested), not the model's raw count.
   await db
     .update(posts)
-    .set({ groupingReason: payload.groupingReason ?? null, extractedEventCount: events.length })
+    .set({
+      groupingReason: payload.groupingReason ?? null,
+      extractedEventCount: events.length,
+      title: payload.postTitle?.trim().slice(0, 200) || null,
+    })
     .where(eq(posts.id, message.postId));
 
   const defaultLocation = defaultLocationForBackfill;

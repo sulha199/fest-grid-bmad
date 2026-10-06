@@ -1,6 +1,6 @@
 {
-  "id": "c3f20995-1372-4e1e-9709-ecb5542d1d16",
-  "prevId": "2465e200-676e-417a-816c-88149a754147",
+  "id": "2465e200-676e-417a-816c-88149a754147",
+  "prevId": "0db3da5a-7742-4153-8645-dade25b40b5a",
   "version": "6",
   "dialect": "postgresql",
   "tables": {
@@ -1083,26 +1083,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "status": {
-          "name": "status",
-          "type": "suggested_event_match_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'pending'"
-        },
-        "resolved_at": {
-          "name": "resolved_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "resolved_by_moderator_id": {
-          "name": "resolved_by_moderator_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1123,13 +1103,6 @@
           "name": "idx_event_match_candidates_candidate_event_id",
           "columns": [
             "candidate_event_id"
-          ],
-          "isUnique": false
-        },
-        "idx_event_match_candidates_status": {
-          "name": "idx_event_match_candidates_status",
-          "columns": [
-            "status"
           ],
           "isUnique": false
         }
@@ -1173,19 +1146,6 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
-        },
-        "event_match_candidates_resolved_by_moderator_id_users_id_fk": {
-          "name": "event_match_candidates_resolved_by_moderator_id_users_id_fk",
-          "tableFrom": "event_match_candidates",
-          "tableTo": "users",
-          "columnsFrom": [
-            "resolved_by_moderator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1199,194 +1159,6 @@
           ]
         }
       }
-    },
-    "public.event_merges": {
-      "name": "event_merges",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "winner_event_id": {
-          "name": "winner_event_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "loser_event_id": {
-          "name": "loser_event_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "suggestion_id": {
-          "name": "suggestion_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "performed_by_moderator_id": {
-          "name": "performed_by_moderator_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "loser_prior_slug": {
-          "name": "loser_prior_slug",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "winner_notified_at_changed": {
-          "name": "winner_notified_at_changed",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "winner_prior_notified_at": {
-          "name": "winner_prior_notified_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "loser_prior_notified_at": {
-          "name": "loser_prior_notified_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "repointed_favorite_ids": {
-          "name": "repointed_favorite_ids",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "deduped_favorite_ids": {
-          "name": "deduped_favorite_ids",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "repointed_calendar_addition_ids": {
-          "name": "repointed_calendar_addition_ids",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "deduped_calendar_addition_ids": {
-          "name": "deduped_calendar_addition_ids",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "repointed_report_ids": {
-          "name": "repointed_report_ids",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "repointed_event_post_ids": {
-          "name": "repointed_event_post_ids",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "repointed_alias_ids": {
-          "name": "repointed_alias_ids",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "undone_at": {
-          "name": "undone_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "event_merges_winner_event_id_events_id_fk": {
-          "name": "event_merges_winner_event_id_events_id_fk",
-          "tableFrom": "event_merges",
-          "tableTo": "events",
-          "columnsFrom": [
-            "winner_event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "event_merges_loser_event_id_events_id_fk": {
-          "name": "event_merges_loser_event_id_events_id_fk",
-          "tableFrom": "event_merges",
-          "tableTo": "events",
-          "columnsFrom": [
-            "loser_event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "event_merges_suggestion_id_event_match_candidates_id_fk": {
-          "name": "event_merges_suggestion_id_event_match_candidates_id_fk",
-          "tableFrom": "event_merges",
-          "tableTo": "event_match_candidates",
-          "columnsFrom": [
-            "suggestion_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "event_merges_performed_by_moderator_id_users_id_fk": {
-          "name": "event_merges_performed_by_moderator_id_users_id_fk",
-          "tableFrom": "event_merges",
-          "tableTo": "users",
-          "columnsFrom": [
-            "performed_by_moderator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
     },
     "public.event_posts": {
       "name": "event_posts",
@@ -2672,6 +2444,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -4381,15 +4159,6 @@
       "values": [
         "APIFY",
         "BRIGHTDATA"
-      ]
-    },
-    "public.suggested_event_match_status": {
-      "name": "suggested_event_match_status",
-      "schema": "public",
-      "values": [
-        "pending",
-        "accepted",
-        "rejected"
       ]
     },
     "public.user_role": {

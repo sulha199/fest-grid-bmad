@@ -196,6 +196,7 @@
     "coauthorsListAriaLabel": "Co-authors",
     "sourcePostsPrimaryLabel": "Primary",
     "relatedEventsGroupLabel": "Events from {account}",
+    "relatedEventsGroupTitleLabel": "Events from {title}",
     "relatedEventsSeeAllLabel": "See all {count} events",
     "relatedEventsSectionAriaLabel": "Related events"
   },

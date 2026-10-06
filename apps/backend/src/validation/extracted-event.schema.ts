@@ -104,6 +104,8 @@ export const extractedEventSchema: JSONSchemaType<GeminiExtractionPayload> = {
     // classification on a non-event post (isEvent: false) has no value.
     groupingReason: { type: 'string', enum: [...POST_GROUPING_REASONS], nullable: true },
     groupingRationale: { type: 'string', nullable: true },
+    // Short post-level headline/title (persisted to posts.title; heads the Related Events group).
+    postTitle: { type: 'string', nullable: true },
     minEventCount: { type: 'number', nullable: true },
     skippedItems: { type: 'array', items: { type: 'string' }, nullable: true },
     // Story 3.6m (AD-28 Rule 1) — load-bearing: additionalProperties is false below, so a real
