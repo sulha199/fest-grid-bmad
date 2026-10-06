@@ -5090,6 +5090,25 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Depends on:** Story 0.i2a.
 
+### Story 0.i2d: Adopt the wrapper in the Apify/Bright Data scraper call sites
+
+**As a** developer,
+**I want** `trigger-apify-for-target.ts` (and `instagram-adapter.ts`'s `getApifyClient()` it calls) and `brightdata-client.ts`'s direct `fetch()` calls to Bright Data's HTTP API to go through the guarded wrapper,
+**So that** Apify/Bright Data calls get the same per-credential lock, timeout, and retry-backoff Gemini gets via 0.i2b/0.i2c, and FIND-004's DPA-confirmation gate (built generically by Story 0.i2a) actually runs before any Apify/Bright Data network call is made, not just in principle.
+
+**Acceptance Criteria:**
+
+*   **Given** a scrape trigger for an Apify or Bright Data target,
+*   **When** the call is made,
+*   **Then** it goes through `callVendor`, which checks that vendor's `APIFY_SCRAPING_CONFIRMED`/`BRIGHTDATA_SCRAPING_CONFIRMED` gate first, serializes the call per credential, and retries with backoff on a transient failure per that vendor's own `isTransient` classification.
+*   **Given** `trigger-apify-for-target.ts`'s current direct use of `getApifyClient()` (`instagram-adapter.ts`) and `brightdata-client.ts`'s current direct `fetch()` calls to Bright Data's API,
+*   **When** this story lands,
+*   **Then** neither file (nor any other scraper call site) reaches the Apify or Bright Data SDK/API directly outside of `callVendor`'s own module.
+
+**Note:** Formed 2026-10-06 via `bmad-create-story` (Gate 3 finding while scoping Story 0.i2a/AD-32). AD-32 rule 6 built `callVendor` and the DPA gate generically for all three vendors but explicitly flagged that no `epics.md` story adopts it for Apify/Bright Data, even though Story 0.i2z's own ratchet AC ("fails if any file outside the wrapper module imports the Gemini, Apify, or Bright Data SDK directly") already presumes that adoption exists. This story closes that gap. Depends only on 0.i2a (the wrapper itself); independent of 0.i2b/0.i2c, which are Gemini-only and touch unrelated call sites.
+
+**Depends on:** Story 0.i2a.
+
 ### Story 0.i2z: Ratchet — no vendor call bypasses the wrapper
 
 **As a** developer,
@@ -5104,7 +5123,7 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 *   **And** a test simulating a hung vendor call asserts the wrapper times out with a typed error rather than blocking.
 *   **And** a test asserts a call attempted without a recorded DPA confirmation for that vendor is rejected before any network call.
 
-**Depends on:** Stories 0.i2a, 0.i2b, 0.i2c.
+**Depends on:** Stories 0.i2a, 0.i2b, 0.i2c, 0.i2d.
 
 **Note:** Formed 2026-09-08 via `bmad-form-epics` from BUG-011, BUG-012, FIND-004. FIND-017 (capacity-heuristic sub-issue), FIND-018 (quota sub-issue), and IDEA-009 (quota-aware auto-extract trigger) are not members — each is a multi-cause or feature row that would need an "and also" to justify direct membership — but each carries `reprice_on: epic-0-i2` pending this epic's `a` story (see formation report).
 
