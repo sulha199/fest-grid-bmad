@@ -103,6 +103,15 @@ export interface BackendEnv {
   // parseBooleanDefaultOn below for why it needs its own parser (all other booleans here are
   // default-off, `=== 'true'`).
   blurFacesBeforeAi: boolean;
+  // Story 0.i2a (AD-32 Rule 5, FIND-004) — default-ON DPA kill switch for the Apify vendor's
+  // outbound scraping calls, checked by the guarded vendor-call wrapper
+  // (apps/backend/src/lib/vendor-gateway/guarded-call.ts) before any lock claim or network call.
+  // Unset -> calls proceed (DPA presumed confirmed); an explicit 'false'/'0' disables Apify calls
+  // pending DPA reconfirmation, without a code deploy. Never read for `vendor: 'gemini'`.
+  apifyScrapingConfirmed: boolean;
+  // Story 0.i2a (AD-32 Rule 5, FIND-004) — same default-ON DPA kill switch as
+  // apifyScrapingConfirmed above, for the Bright Data vendor.
+  brightdataScrapingConfirmed: boolean;
 }
 
 function parseNonNegativeInt(value: string | undefined, name: string, defaultValue: number): number {
@@ -293,6 +302,10 @@ export function loadBackendEnv(): BackendEnv {
     faceBlurMinRemainingTimeMs: parseNonNegativeInt(process.env.FACE_BLUR_MIN_REMAINING_TIME_MS, 'FACE_BLUR_MIN_REMAINING_TIME_MS', 60000),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     blurFacesBeforeAi: parseBooleanDefaultOn(process.env.BLUR_FACES_BEFORE_AI, 'BLUR_FACES_BEFORE_AI'),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    apifyScrapingConfirmed: parseBooleanDefaultOn(process.env.APIFY_SCRAPING_CONFIRMED, 'APIFY_SCRAPING_CONFIRMED'),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    brightdataScrapingConfirmed: parseBooleanDefaultOn(process.env.BRIGHTDATA_SCRAPING_CONFIRMED, 'BRIGHTDATA_SCRAPING_CONFIRMED'),
   };
 
   // Ensure required Bright Data variables are present (webhook base URL is set post-deploy by CDK)
