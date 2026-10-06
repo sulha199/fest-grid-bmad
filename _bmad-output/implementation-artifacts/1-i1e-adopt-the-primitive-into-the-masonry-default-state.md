@@ -28,7 +28,7 @@
 
 4. **Given** `prominentPoster=false` and a favorite-toggle handler is provided,
    **When** the card renders,
-   **Then** exactly one live, focusable favorite-toggle control exists on the card (`EventCardMediaSlot`'s corner or large-fallback badge, per Story 1.i1a) — the card's separate outer top-right favorite button (used by `standard` and `prominentPoster=true`) is **not** rendered for this state, satisfying AD-15 Rule 4 ("the favorite badge is always one live control... never an extra independent focus stop").
+   **Then** exactly one live, focusable favorite-toggle control exists on the card (`EventCardMediaSlot`'s corner or large-fallback badge, per Story 1.i1a) — the card's separate outer top-right favorite button (used by `standard` and `prominentPoster=true`) is **not** rendered for this state, satisfying AD-15 Rule 4 ("the favorite badge is always one live control... never an extra independent focus stop"). ***Amended 2026-10-06 (Story 1.i1p):*** *the parenthetical "(`EventCardMediaSlot`'s corner or large-fallback badge, per Story 1.i1a)" is corrected — the live control was already, and remains, the externally-composed `EventCardFavoriteBadge` sibling of `RootTag` this story's own Task 2.3/Dev Notes describe; `EventCardMediaSlot` itself never owns it after Story 1.i1p removed that capability entirely.*
 
 5. **Given** `prominentPoster=false`,
    **When** a user tabs through the card,

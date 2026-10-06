@@ -489,7 +489,20 @@ This document defines the core architectural invariants for the FestDaily applic
         label, never an extra independent focus stop. The `large` fallback variant keeps a `min-h-11
         min-w-11` (≥44px) tap target per `components.nav.item_hit_area`'s convention and
         EXPERIENCE.md's reachable-control rule.
-        - **Enforced by:** the same test file's AC4 suite (single-focusable + min hit area).
+
+        **Narrowed to a consumer-level guarantee, 2026-10-06 (Story 1.i1p).** This rule used to be
+        enforced *inside* `EventCardMediaSlot` itself (the primitive rendered the control directly).
+        Story 1.i1p removed that internal rendering once both real consumers were found to always
+        suppress it in favor of composing `EventCardFavoriteBadge` externally — `EventCard.tsx`'s
+        masonry-default state and `EventCardCompact.tsx`'s row each already proved this invariant for
+        their own composition before this story, and continue to. The rule's substance is unchanged;
+        only who is responsible for upholding it moved from the primitive to each consumer.
+        - **Enforced by:** `EventCardFavoriteBadge`'s own AC5 suite (`EventCardMediaPrimitives.test.tsx`
+          — single accessible name, `min-h-11 min-w-11` tap target, unchanged by Story 1.i1p) plus each
+          consumer's own single-control proof: `EventCard.test.tsx`'s
+          `renders exactly one focusable favorite-toggle control (outer top-right button suppressed) when onFavoriteToggle is provided`
+          and `EventCardCompact.test.tsx`'s `Image-present vs. image-absent favorite-badge placement`
+          describe block.
 
 ---
 

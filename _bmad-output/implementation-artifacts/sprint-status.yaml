@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-06T06:44:25Z
+last_updated: 2026-10-06T07:15:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -559,6 +559,10 @@ development_status:
   # `labels` props, no new component/hook). Full record in epics.md/this story's own
   # Dev Notes.
   1-i1o-wire-eventcard-and-weeklycalendarview-labels-to-nextintl: done
+  # Formed 2026-10-06 via bmad-create-story: dead-code removal carved from IDEA-048's
+  # 2026-10-05 close-out (backlog FIND-073). Amends shipped ACs in Stories
+  # 1.i1a/1.i1e/1.i1m and Story 1.i1z's Change Log, plus Architecture Spine AD-15 Rule 4.
+  1-i1p-remove-eventcardmediaslots-unused-internal-favorite-badge: ready-for-dev
   1-i1z-ratchet-no-card-surface-sizes-or-falls-back-locally: review
   epic-1: in-progress
   1-1-create-initial-database-tables: done

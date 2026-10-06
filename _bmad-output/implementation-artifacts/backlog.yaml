@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-05"
+last_updated: "2026-10-06"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -1994,3 +1994,13 @@ items:
      ref: [planning-artifacts/sprint-change-proposal-2026-10-01-multi-event-posts.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
      touches: [app:backend, web:moderation],
      note: "Deferred from Story 3.6w's bmad-create-story (2026-10-05, AskUserQuestion): out-of-scope manual merge trigger. See 3.6w's Dev Notes/Out of Scope for the reusable mergeEvents() internal function a future story here would expose directly."}
+
+  # ── 2026-10-06 (bmad-create-story, Story 1.i1p) ─────────────────────────────
+  FIND-073:
+    {type: finding, status: promoted, created: 2026-10-06,
+     impact: internal, effort: xs,
+     stories: [1-i1p-remove-eventcardmediaslots-unused-internal-favorite-badge],
+     title: "EventCardMediaSlot's internal favorite-badge branches (corner pill + large fallback) are dead code now both production callers pass hideFavoriteBadge",
+     ref: [planning-artifacts/event-pages-followup-2026-10-05.md, packages/ui/src/features/events/EventCardMediaPrimitives.tsx],
+     touches: [pkg:ui, web:events],
+     note: "Carved from IDEA-048's 2026-10-05 close-out (Step 5 of the followup tracker). Promoted directly to Story 1.i1p via bmad-create-story -- both branches unreachable since EventCard.tsx/EventCardCompact.tsx already compose EventCardFavoriteBadge externally."}
