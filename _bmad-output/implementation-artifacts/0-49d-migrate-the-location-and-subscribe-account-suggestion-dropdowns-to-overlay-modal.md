@@ -1,10 +1,14 @@
+---
+baseline_commit: 58069bf53eea37b9991d75c1e4a8960fe1841a76
+---
+
 # Story 0.49d: Migrate the location-picker and subscribe-account suggestion dropdowns to Overlay-modal
 
 ## Story Details
 
 - Epic: 0
 - Story ID: 0.49d
-- Status: backlog
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -24,20 +28,20 @@ so that these address/account-suggestion popovers — none of which AD-33's text
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — `LocationPickerField.tsx` (AC1)
-  - [ ] 1.1 Add `import { OVERLAY_MODAL_Z } from '../../core/overlay-z';`.
-  - [ ] 1.2 Line 141: substitute `OVERLAY_MODAL_Z` for the literal `z-50`.
-- [ ] Task 2 — `LocationPickerMapPanel.tsx` (AC2)
-  - [ ] 2.1 Add the same `overlay-z` import.
-  - [ ] 2.2 The "Suggestions Dropdown" `<div>` (around line 72): substitute `OVERLAY_MODAL_Z` for the literal `z-50`. **Do not touch** the separate `z-10` "Search Overlay" wrapper (line 59) — Local tier, out of scope.
-- [ ] Task 3 — `subscribe-account-dialog.tsx` (AC3)
-  - [ ] 3.1 Add `import { OVERLAY_MODAL_Z } from "@festgrid/ui";` to this file's existing import block (it already imports `BlockingLoader`/`useDebounce` from `@festgrid/ui`, so this is a one-name addition to that existing import).
-  - [ ] 3.2 Line 135: substitute `OVERLAY_MODAL_Z` for the literal `z-50`.
-- [ ] Task 4 — Verification (AC4, AC5)
-  - [ ] 4.1 `pnpm --filter @festgrid/ui lint && pnpm --filter @festgrid/ui exec tsc --noEmit` — 0 new errors.
-  - [ ] 4.2 `pnpm --filter @festgrid/web lint && pnpm --filter @festgrid/web exec tsc --noEmit` — 0 new errors.
-  - [ ] 4.3 Run every existing test suite for `LocationPickerField`, `LocationPickerMapPanel`, `SubscribeAccountDialog` — confirm unmodified pass.
-  - [ ] 4.4 Manual visual smoke check: open the location-picker address suggestions in both components, and the subscribe-account-dialog's account-handle suggestions, and confirm each still renders above surrounding content exactly as before.
+- [x] Task 1 — `LocationPickerField.tsx` (AC1)
+  - [x] 1.1 Add `import { OVERLAY_MODAL_Z } from '../../core/overlay-z';`.
+  - [x] 1.2 Line 141: substitute `OVERLAY_MODAL_Z` for the literal `z-50`.
+- [x] Task 2 — `LocationPickerMapPanel.tsx` (AC2)
+  - [x] 2.1 Add the same `overlay-z` import.
+  - [x] 2.2 The "Suggestions Dropdown" `<div>` (around line 72): substitute `OVERLAY_MODAL_Z` for the literal `z-50`. **Do not touch** the separate `z-10` "Search Overlay" wrapper (line 59) — Local tier, out of scope.
+- [x] Task 3 — `subscribe-account-dialog.tsx` (AC3)
+  - [x] 3.1 Add `import { OVERLAY_MODAL_Z } from "@festgrid/ui";` to this file's existing import block (it already imports `BlockingLoader`/`useDebounce` from `@festgrid/ui`, so this is a one-name addition to that existing import).
+  - [x] 3.2 Line 135: substitute `OVERLAY_MODAL_Z` for the literal `z-50`.
+- [x] Task 4 — Verification (AC4, AC5)
+  - [x] 4.1 `pnpm --filter @festgrid/ui lint && pnpm --filter @festgrid/ui exec tsc --noEmit` — 0 new errors.
+  - [x] 4.2 `pnpm --filter web lint && pnpm --filter web exec tsc --noEmit` — 0 new errors (package is named `web`, not `@festgrid/web`, in `apps/web/package.json`).
+  - [x] 4.3 Run every existing test suite for `LocationPickerField`, `LocationPickerMapPanel`, `SubscribeAccountDialog` — confirm unmodified pass.
+  - [x] 4.4 Manual visual smoke check: open the location-picker address suggestions in both components, and the subscribe-account-dialog's account-handle suggestions, and confirm each still renders above surrounding content exactly as before.
 
 ## Dev Notes
 
@@ -135,8 +139,39 @@ so that these address/account-suggestion popovers — none of which AD-33's text
 
 ### Agent Model Used
 
+Claude Sonnet 5 (`claude-sonnet-5`), via `bmad-dev-story`.
+
 ### Debug Log References
+
+- Pre-coding gate: Pre-Coding Approval Gate was unchecked (default "pending approval"). Dependency Story 0.49 is at sprint status `review` (not `done`), but its `OVERLAY_MODAL_Z` constant was already confirmed present and correctly exported (`packages/ui/src/core/overlay-z.ts` → `export const OVERLAY_MODAL_Z = 'z-overlay-modal'`, re-exported from `packages/ui/src/index.ts`). Asked the user via AskUserQuestion; they chose "Approve and proceed" — same review-not-done dependency gap already accepted in Stories 0.49b/0.49c. Proceeded with implementation on that basis.
+- Confirmed via grep that no test in `LocationPickerField.test.tsx`, `LocationPickerMapPanel.test.tsx`, or `subscribe-account-dialog.test.tsx` asserts on the literal `z-50` className (AC5's premise held — no test fix needed, unlike Story 0.49c).
+- `pnpm --filter @festgrid/ui lint` — 0 errors/warnings (`--max-warnings 0`).
+- `pnpm --filter @festgrid/ui exec tsc --noEmit` — fails with the same pre-existing `TS5101` (`tsconfig.json`'s deprecated `baseUrl`), before compiling any source file. Confirmed pre-existing/unrelated: `git log -1 -- packages/ui/tsconfig.json` shows it was last touched by unrelated commit `5660fdc7`, and `git diff --stat` for this story touches no tsconfig/type files. Same condition already flagged in Stories 0.49b/0.49c.
+- `pnpm --filter web lint` (package is named `web`, not `@festgrid/web`, per `apps/web/package.json`) — exit 0; only pre-existing warnings elsewhere in the repo plus one pre-existing `no-explicit-any` warning in `subscribe-account-dialog.tsx` itself at line 145 (unrelated to this story's line-135 edit).
+- `pnpm --filter web exec tsc --noEmit` — fails with many pre-existing errors across unrelated test/mapper/provider files; confirmed via grep that none reference `subscribe-account-dialog.tsx`. Pre-existing/out-of-scope, not caused by this story.
+- Vitest, run in the foreground on only the three touched components' existing test files (never the whole package suite):
+  - `packages/ui`: `pnpm --filter @festgrid/ui exec vitest run src/features/locations/LocationPickerField.test.tsx src/features/locations/LocationPickerMapPanel.test.tsx` — 2 files / 20 tests, all passing unmodified.
+  - `apps/web`: `pnpm exec vitest run "src/app/[locale]/settings/account/subscribe-account-dialog.test.tsx"` (run from `apps/web`) — 1 file / 3 tests, all passing unmodified.
+- Manual visual smoke check (Task 4.4) performed via code/Tailwind-config inspection rather than a live browser session, matching Story 0.49c's precedent: `apps/web/tailwind.config.ts` defines `zIndex['overlay-modal'] = '50'`, the exact same resolved numeric value as the original `z-50` literal at all three sites — confirming AC4 (no visual/stacking regression; pure token-name substitution).
 
 ### Completion Notes List
 
+- All 3 `z-50` literal → `OVERLAY_MODAL_Z` substitutions implemented exactly as scoped across the 3 files (AC1–AC3); no resolved value changed (AC4) — pure token-name substitution, matching Story 0.49's own `zIndex['overlay-modal'] = '50'` token.
+- `LocationPickerMapPanel.tsx`'s separate `z-10` "Search Overlay" wrapper was explicitly left untouched, as scoped (out of scope — Local tier).
+- No existing test asserted on the literal `z-50` className for any of the three touched components (AC5's premise held exactly, confirmed by grep before and after) — no test changes were needed, unlike Story 0.49c which had to fix one such assertion.
+- No new tests added, per Dev Notes ("no new tests — non-behavioral token substitution").
+- Package-scoped lint is green (0 errors/warnings) for both `@festgrid/ui` and `web`. Package-scoped `tsc --noEmit` has pre-existing, out-of-scope failures in both packages (confirmed present before this story, unrelated to any file this story touches) — documented above rather than fixed, since fixing them is outside this story's scope.
+- This story's command rules capped verification to package-scoped lint/type-check/build and foreground vitest on specific files only (UI lane; no backend suite, no whole-repo lint/test/build); no Next.js production build was run for `apps/web`.
+- Manual AC4 visual/stacking-regression check performed via code/Tailwind-config inspection (reasoned walkthrough, not a live browser render) and recorded above — all three sites resolve to the identical pre-existing numeric value (50).
+
 ### File List
+
+- Modified: `packages/ui/src/features/locations/LocationPickerField.tsx`
+- Modified: `packages/ui/src/features/locations/LocationPickerMapPanel.tsx`
+- Modified: `apps/web/src/app/[locale]/settings/account/subscribe-account-dialog.tsx`
+- Modified: `_bmad-output/implementation-artifacts/sprint-status.yaml` (status transitions for this story)
+- Modified: `_bmad-output/implementation-artifacts/0-49d-migrate-the-location-and-subscribe-account-suggestion-dropdowns-to-overlay-modal.md` (this story file — frontmatter, task checkboxes, Dev Agent Record, Status)
+
+## Change Log
+
+- 2026-10-07: Implemented Story 0.49d — migrated the three hand-rolled suggestion-dropdown sites in `LocationPickerField.tsx`, `LocationPickerMapPanel.tsx`, and `subscribe-account-dialog.tsx` from the literal `z-50` className to the shared `OVERLAY_MODAL_Z` constant. Pure token-name substitution, zero resolved-value change. All 4 tasks complete; lint/targeted-vitest green across both packages; `tsc --noEmit` pre-existing/out-of-scope failures documented. Status moved to `review`.
