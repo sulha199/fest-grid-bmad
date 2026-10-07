@@ -746,11 +746,12 @@ items:
 
   # ── 2026-09-16 (bmad-create-story, carved from IDEA-012) ────────────────────
   IDEA-036:
-    {type: idea, status: backlog, parent: IDEA-012, created: 2026-09-16,
+    {type: idea, status: promoted, parent: IDEA-012, created: 2026-09-16,
      impact: user-visible, effort: m,
      title: "Extend the \"Correct Data\" dialog to support manual add/edit of event links",
      ref: [backlog/IDEA-036-correct-data-dialog-link-editing.md], touches: [cross:ai-extraction, app:backend, web:events, pkg:ui],
-     note: "Needs a UX pass (Gate 2) for the repeatable url+label input pattern before story creation -- none exists in the app yet for an array-of-objects form field. Full scope in backlog/IDEA-036-correct-data-dialog-link-editing.md."}
+     stories: [4-10-add-manual-link-editing-to-the-correct-data-dialog],
+     note: "Promoted to Story 4.10 (2026-10-07): covers the full row scope end-to-end -- Gate 2 UX pass, CorrectionForm.tsx/correction-dialog.tsx, links threaded through ProposedEventCorrection for both manual and AI-assisted paths. No child row carved."}
 
   IDEA-037:
     {type: idea, status: promoted, parent: IDEA-030, created: 2026-09-16,

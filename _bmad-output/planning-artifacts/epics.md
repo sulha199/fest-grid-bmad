@@ -4520,6 +4520,26 @@ Users can contribute to data quality by correcting event details and reporting i
 
 **Depends on:** Story 4.7b (Moderator Tools tabbed shell, done — hosts the Accounts tab), the existing `setAccountDefaultLocation`/`editAccountDefaultLocation` mutations (Story 3.3b/AD-11, done).
 
+### Story 4.10: Add manual link editing to the Correct Data dialog
+
+**As a** user correcting an event's data,
+**I want** to add, edit, and remove the event's extra links (tickets, RSVP, merch, etc.) directly in the "Correct Data" dialog, the same way I can already correct the event name, location, or schedule,
+**So that** I can fix or supplement an event's links myself instead of only ever seeing whatever AI extraction originally found (or nothing, if extraction found none) with no way to correct it.
+
+**Acceptance Criteria:**
+
+*   **Given** `ProposedEventCorrection` (Story 4.1a's shape), **when** this story ships, **then** it gains a new optional `links?: EventLink[]` field, threaded through the AJV schema (backend), the Zod schema (frontend), a new `EventLinkInput` GraphQL input type on `ProposedEventCorrectionInput`, and the `submitCorrection` resolver's event update — persisting via the already-existing, already-tested `sanitizeEventLinks()` (Story 0.37) as a final defense-in-depth pass.
+*   **And** an invalid or non-http(s) link URL is rejected with an inline per-row validation error (field key `links[N].url`, same convention as every other field), not silently dropped — reusing one newly-exported `isAllowedHttpUrl()` helper (from `sanitize-event-links.ts`) as the single source of truth for the check on both the frontend Zod schema and the backend consistency-check function, rather than two independently-maintained protocol checks.
+*   **And** `CorrectionForm.tsx` (packages/ui, Story 4.1b) gains a new repeatable "Links" field — an inline row (url input + optional label input + remove button, stacking on mobile) per row, capped at 10 rows with "Add link" disabled at the cap, decisive add/remove focus-management rules, and `fieldset`/`legend` + visible per-row `<label>` text for accessibility — designed fresh via a Gate 2 (Freya) UX pass, since no repeatable/array-of-objects form field exists anywhere in this codebase today. Kept local to `CorrectionForm.tsx`, not extracted as a generic reusable primitive (no second consumer exists yet).
+*   **And** `correction-dialog.tsx` seeds the field from the event's existing `links` (already selected by `getEventBySlug`, Story 0.37), submits the full resulting array (or omits it entirely when empty, clearing any previously-set links), and patches the `eventBySlug` query-cache on success exactly like every other field this dialog already patches.
+*   **And** the AI-assisted-correction-preview path (Story 4.2a's `mapExtractionPayloadToProposedCorrection`, which has silently dropped `payload.links` since Story 0.37) is fixed to map `links` through too, and `ProposedEventCorrectionData`'s GraphQL type plus `extraction.graphql`'s two client operations are extended to carry it end to end — so the dialog's "AI-Assisted Correction" extract button also pre-fills links, closing both halves of this backlog row's stated scope ("manual user edits and AI-assisted re-extraction correction previews").
+*   **And** both `apps/web/locales/en.json` and `id.json` gain matching new keys under the existing `EventCorrectionForm` namespace for the new field's labels/copy, added together per the locale-parity ratchet (Story 0.50).
+*   **And** `pnpm --filter backend codegen` and `pnpm --filter web codegen` are both re-run, with diffs limited to the new additions.
+
+**Note:** Carved from `backlog.yaml` row IDEA-036 (itself carved 2026-09-16 from IDEA-012's own capture, after Story 0.37 shipped AI-extraction + read-only display of `links` only) on 2026-10-07. The row explicitly called for a Gate 2 UX pass before story creation, since the repeatable url+label input is a new array-of-objects form-field pattern with no existing precedent in this app — Freya's pass (run fresh this session) produced the inline-row/cap/focus-management design folded into the ACs above. Four real design choices (row layout, cap-enforcement timing, invalid-URL handling, and reusable-primitive-vs-local) were confirmed with the user via `AskUserQuestion` rather than silently decided. Gate 1/3 were deliberately **not** rerun fresh — this story introduces no new external service, data entity, or infra dependency (it threads an already-existing `events.links` column, migration 0058, through an already-existing mutation and component), so the epic-4 readiness sweep's gap in coverage (it predates this row, covering only 4.1a-4.8) is immaterial here. No DB migration — confirmed before writing this story that `events.links` already exists.
+
+**Depends on:** Story 4.1a (`ProposedEventCorrection`/`submitCorrection`), Story 4.1b (`CorrectionForm`), Story 4.2a (the AI-assisted-correction-preview mapper this story also fixes), Story 0.37 (`sanitizeEventLinks`, `events.links`, done).
+
 ### Epic 5: Onboarding and Manual Event Extraction
 
 Users are guided through the initial setup and can manually select posts for event extraction.
