@@ -256,4 +256,34 @@ describe('useMasonryLayout', () => {
     // The unmeasured item's 0-height estimate does not change column 0's accumulated height.
     expect(result.current.columnHeights).toEqual([100, 10]);
   });
+  it('AC14 — rowGap is added after each placed item, so stacked offsets and column heights include the gap', () => {
+    const { result } = setup({ itemCount: 4, columnCount: 2, rowGap: 16 });
+
+    act(() => {
+      result.current.registerItemRef(0)(makeNode(100));
+      result.current.registerItemRef(1)(makeNode(50));
+      result.current.registerItemRef(2)(makeNode(30));
+      result.current.registerItemRef(3)(makeNode(20));
+    });
+
+    // Same fixture as the no-gap test above: item0 -> col0; items 1,2,3 -> col1.
+    expect(result.current.columnAssignments).toEqual([0, 1, 1, 1]);
+    // item2 follows item1 (50) + one gap; item3 follows items 1+2 (80) + two gaps.
+    expect(result.current.itemOffsets).toEqual([0, 0, 66, 112]);
+    // Each column's height carries one trailing gap per item (GridContainer drops the last one).
+    expect(result.current.columnHeights).toEqual([116, 148]);
+  });
+
+  it('AC14 — rowGap defaults to 0 (offsets identical to the pre-CC-030 behavior)', () => {
+    const { result } = setup({ itemCount: 4, columnCount: 2 });
+
+    act(() => {
+      result.current.registerItemRef(0)(makeNode(100));
+      result.current.registerItemRef(1)(makeNode(50));
+      result.current.registerItemRef(2)(makeNode(30));
+      result.current.registerItemRef(3)(makeNode(20));
+    });
+
+    expect(result.current.itemOffsets).toEqual([0, 0, 50, 80]);
+  });
 });

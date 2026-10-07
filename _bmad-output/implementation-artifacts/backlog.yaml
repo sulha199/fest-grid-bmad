@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-06"
+last_updated: "2026-10-07"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -2011,3 +2011,11 @@ items:
      ref: [planning-artifacts/sprint-change-proposal-2026-10-06-masonry-phase2-grid-column.md],
      touches: [pkg:visual-audit],
      note: "value: low, the synthetic row stays as the rule-engine proof it was written to be; the new Phase 2 manifest entry covers the real component."}
+
+  FIND-073:
+    {type: finding, status: backlog, created: 2026-10-07, parent: CC-030,
+     impact: cosmetic, effort: xs,
+     title: "EventCard masonry date-box status text clips at 80px for the happeningNow / In {n} hour(s) variants",
+     ref: [implementation-artifacts/0-48-mount-stable-masonry-engine-fix-reflow-remount-and-focus-loss.md],
+     touches: [pkg:ui, pkg:visual-audit],
+     note: "Found by the first real run of manifests-proof.spec.ts (EventCardMasonry default-thumbnail-fallback overflow rule: scrollWidth 92 > clientWidth 80); fails on the pre-CC-030 code too, so unrelated to the grid."}

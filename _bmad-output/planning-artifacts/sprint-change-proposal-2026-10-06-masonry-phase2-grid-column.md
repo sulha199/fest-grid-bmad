@@ -72,7 +72,7 @@ NEW: "KEEPS its column placement as a two-line `gridColumn: 'N / N+1'` ..., beca
 
 Also add:
 - **New AC14:** In Phase 2, every item's computed width equals one column track width (within 2px), items in adjacent columns do not overlap horizontally, and vertically stacked items in a column are separated by exactly the container's `row-gap`.
-- **New Task 6:** apply 4.1, update the Dev Notes' CSS-spec claim (line ~107), and add a Change Log entry referencing this proposal.
+- **New Task 7** (Task 6 already exists in the story, the full regression pass): apply 4.1, update the Dev Notes' CSS-spec claim (line ~107), and add a Change Log entry referencing this proposal.
 
 ### 4.3 Tests
 
