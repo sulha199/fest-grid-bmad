@@ -5,7 +5,7 @@ import { db } from '../../db/client.js';
 import { loadBackendEnv } from '../../env.js';
 import { compileValidator } from '../../validation/validate.js';
 import { extractedEventSchema } from '../../validation/extracted-event.schema.js';
-import { callGemini as defaultCallGemini, AiGatewayExhaustedError } from '../ai-gateway/adapter.js';
+import { callGemini as defaultCallGemini, AiGatewayExhaustedError, AiGatewayBusyError } from '../ai-gateway/adapter.js';
 import { getActiveSubscriberUserIds } from '../subscriptions/get-active-subscriber-user-ids.js';
 import { buildGeminiExtractionRequest } from './build-gemini-request.js';
 
@@ -88,6 +88,11 @@ export async function processManualExtractionJob(jobId: string, deps?: ProcessMa
         })
       ).text;
     } catch (err) {
+      // Temporary key contention is not quota exhaustion: report it truthfully so the user knows
+      // to simply retry (manual jobs deliberately have no automatic retry -- see the stack).
+      if (err instanceof AiGatewayBusyError) {
+        throw new ManualExtractionFailure('EXTRACTION_FAILED', 'Gemini is temporarily busy with other requests. Please try again in a moment.');
+      }
       if (!(err instanceof AiGatewayExhaustedError)) throw err;
       if (!existingPostAccountId) {
         throw new ManualExtractionFailure('QUOTA_EXHAUSTED', 'No available Gemini API key to perform this extraction.');
@@ -99,6 +104,9 @@ export async function processManualExtractionJob(jobId: string, deps?: ProcessMa
           await callGeminiForManualExtractionSeam({ ...request, provider: 'gemini', subscriberUserIds })
         ).text;
       } catch (fallbackErr) {
+        if (fallbackErr instanceof AiGatewayBusyError) {
+          throw new ManualExtractionFailure('EXTRACTION_FAILED', 'Gemini is temporarily busy with other requests. Please try again in a moment.');
+        }
         if (fallbackErr instanceof AiGatewayExhaustedError) {
           throw new ManualExtractionFailure('QUOTA_EXHAUSTED', 'No available Gemini API key to perform this extraction.');
         }

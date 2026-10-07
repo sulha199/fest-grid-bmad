@@ -9,7 +9,7 @@ import {
   setCallGeminiForManualExtractionSeam,
   callGeminiForManualExtractionSeam,
 } from './process-manual-extraction-job.js';
-import { AiGatewayExhaustedError } from '../ai-gateway/adapter.js';
+import { AiGatewayExhaustedError, AiGatewayBusyError } from '../ai-gateway/adapter.js';
 import { setDetectAndBlurFacesSeam, detectAndBlurFacesSeam } from './detect-and-blur-faces.js';
 
 // Story 4.2b -- real-DB tests (local Postgres, seeded user) for the AI-Lambda half of the manual
@@ -196,6 +196,39 @@ test('processManualExtractionJob (Story 4.2b)', async (t) => {
     await processManualExtractionJob(id);
     assert.strictEqual(calls, 2);
     assert.strictEqual((await readJob(id)).status, 'SUCCEEDED');
+  });
+
+  await t.test('PR #57 review: temporary key contention is NOT reported as QUOTA_EXHAUSTED', async () => {
+    let calls = 0;
+    setCallGeminiForManualExtractionSeam(async () => {
+      calls++;
+      throw new AiGatewayBusyError('all keys busy');
+    });
+    const id = await insertJob({ message: baseMessage() });
+    await processManualExtractionJob(id);
+    const row = await readJob(id);
+    assert.strictEqual(row.status, 'FAILED');
+    assert.notStrictEqual(row.errorCode, 'QUOTA_EXHAUSTED');
+    assert.strictEqual(row.errorCode, 'EXTRACTION_FAILED');
+    assert.match(String(row.errorMessage), /temporarily busy/i);
+    assert.strictEqual(calls, 1, 'no fallback attempt on the shared tier for a busy outcome on the first tier of a new post');
+  });
+
+  await t.test('PR #57 review: busy on the TIER_2 fallback is also reported truthfully', async () => {
+    let calls = 0;
+    setCallGeminiForManualExtractionSeam(async () => {
+      calls++;
+      if (calls === 1) throw new AiGatewayExhaustedError('tier1 empty');
+      throw new AiGatewayBusyError('tier2 keys busy');
+    });
+    const id = await insertJob({
+      message: baseMessage(),
+      existingPostAccountId: '00000000-0000-4000-8000-0000000000aa',
+    });
+    await processManualExtractionJob(id);
+    const row = await readJob(id);
+    assert.strictEqual(row.errorCode, 'EXTRACTION_FAILED');
+    assert.match(String(row.errorMessage), /temporarily busy/i);
   });
 
   await t.test('TIER_2 exhausted too -> QUOTA_EXHAUSTED', async () => {

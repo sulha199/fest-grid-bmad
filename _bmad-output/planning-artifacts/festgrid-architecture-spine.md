@@ -1866,9 +1866,13 @@ This document defines the core architectural invariants for the FestDaily applic
         INTO vendor_call_locks (lock_key, locked_until) VALUES ($1, now() + $2) ON CONFLICT
         (lock_key) DO UPDATE SET locked_until = EXCLUDED.locked_until WHERE
         vendor_call_locks.locked_until < now() RETURNING *` — zero rows back means busy elsewhere,
-        thrown as `VendorKeyBusyError` (see rule 4). Release is one `UPDATE … SET locked_until =
-        now()` in a `finally`; the TTL (sizing deferred to the building story, needs real timing
-        evidence) is the crash-safety net when release never runs. `lock_key` is a plain string,
+        thrown as `VendorKeyBusyError` (see rule 4). The claim returns an **ownership token** (the
+        claimed `locked_until` as exact epoch text); release is one `UPDATE … SET locked_until =
+        now() WHERE lock_key = $1 AND <locked_until matches the token>` in a `finally`, so a lease
+        that expired mid-call and was reclaimed by another caller is never cleared by the original
+        caller (`[AMENDED, PR #57 review, 2026-10-07]`). A `lockTtlMs` that does not exceed the
+        attempt's `timeoutMs` is rejected up front (a lease must outlive the attempt it protects).
+        The TTL (default `max(2 × timeoutMs, 60s)`) is the crash-safety net when release never runs. `lock_key` is a plain string,
         not an FK, so it covers identities with no DB row at all: `gemini:key:<apiKeys.id>` for
         pool keys, `gemini:system` for the AD-10 system-key fallback, future
         `apify:<credential-id>` / `brightdata:<credential-id>`.
@@ -1888,9 +1892,23 @@ This document defines the core architectural invariants for the FestDaily applic
         `GeminiRateLimitedError`, `GeminiInvalidKeyError`, and `GeminiTimeoutError` are never
         transient — they propagate out of `callVendor` unretried, unchanged from today's contract.
         New `VendorKeyBusyError` (rule 2's zero-rows case) is a **required new catch branch** in
-        `callGemini`'s loop — treated like this-key-only exhaustion (`excludedKeys.add`,
-        `continue`), not left to fall into the generic re-throw-unknown-errors branch, else a
-        merely-busy key aborts the whole call instead of trying the next candidate.
+        `callGemini`'s loop — the busy key is excluded and the next candidate tried, not left to
+        fall into the generic re-throw-unknown-errors branch. `[AMENDED, PR #57 review,
+        2026-10-07]` Busy keys are tracked **separately** from genuinely exhausted ones: when no
+        candidate is selectable but busy keys exist, `callGemini` waits (bounded, `computeBackoffDelayMs`,
+        3 rounds) and retries them; if they are still all busy it throws the distinct
+        **`AiGatewayBusyError`** — never `AiGatewayExhaustedError`, because contention is not
+        quota exhaustion. Consumers map it truthfully (manual extraction job: `EXTRACTION_FAILED`
+        with a "temporarily busy" message, since manual jobs deliberately have no automatic retry;
+        `resolvePromptToEventFilter`: `TEMPORARILY_BUSY`; the AD-10 system-key fallback converts a
+        busy `gemini:system` lease the same way; the SQS-driven AI job simply rethrows and is
+        redelivered). **Overall deadline:** `callVendor` accepts `overallTimeoutMs` covering all
+        attempts *and* backoff; each attempt is capped to what remains and no retry starts unless
+        backoff plus a minimal attempt still fits. Call sites derive it as `2 × timeoutMs`
+        (verification 20s inside the API Lambda's 25s limit; extraction 240s inside the AI
+        Processor's 300s limit), so a Lambda is never killed mid-retry before the typed error and
+        lease cleanup run. A timeout is rejected *before* its `AbortSignal` is aborted, so a thunk
+        that rejects from its own abort listener can never mask `VendorCallTimeoutError`.
     5.  **DPA gate is Apify/Bright Data only — Gemini is not in it.** `[ADOPTED, user-directed,
         2026-10-06]` Gemini's data-use posture is a separate, not-yet-resolved item (FIND-066) —
         conflating it here would misname what this flag means. For `apify`/`brightdata`,

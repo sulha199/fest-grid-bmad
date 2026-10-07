@@ -164,6 +164,9 @@ export async function verifyGeminiApiKey(apiKey: string): Promise<boolean> {
     await callVendor('gemini', {
       lockKey: undefined,
       timeoutMs: env.geminiVerificationTimeoutMs,
+      // Two full attempts' worth (20s with the 10s default): keeps attempts + backoff inside the
+      // API Lambda's 25s limit so createApiKey gets a typed error, not a killed invocation.
+      overallTimeoutMs: env.geminiVerificationTimeoutMs * 2,
       isTransient: isGeminiErrorTransient,
       call: (signal) => callGeminiGenerateContent(apiKey, { contents: 'ping' }, signal),
     });

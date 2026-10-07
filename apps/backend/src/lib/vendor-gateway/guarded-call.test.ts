@@ -319,4 +319,113 @@ test('guarded-call: callVendor', async (t) => {
     });
     assert.equal(result, 'gemini-unaffected');
   });
+
+  // ── Review-hardening regressions (PR #57 review) ────────────────────────────────────────────
+
+  await t.test('timeout wins even when the thunk rejects from inside its own abort listener', async () => {
+    // Abort listeners run synchronously. Before the fix, aborting first let this rejection win
+    // Promise.race, surfacing a retryable error instead of VendorCallTimeoutError.
+    let attempts = 0;
+    await assert.rejects(
+      () =>
+        callVendor('gemini', {
+          timeoutMs: 50,
+          isTransient: ALWAYS_TRANSIENT,
+          call: (signal) =>
+            new Promise<never>((_resolve, reject) => {
+              attempts++;
+              signal.addEventListener('abort', () => reject(new Error('rejected from abort listener')));
+            }),
+        }),
+      (err: unknown) => err instanceof VendorCallTimeoutError
+    );
+    assert.equal(attempts, 1, 'a timeout must never be retried');
+  });
+
+  await t.test('release is ownership-checked: an expired-then-reclaimed lease is not cleared by the original caller', async () => {
+    const lockKey = 'test-guarded-call-ownership';
+    await deleteLockRow(lockKey);
+
+    await callVendor('gemini', {
+      lockKey,
+      timeoutMs: 1000,
+      isTransient: NEVER_TRANSIENT,
+      call: async () => {
+        // Simulate: our lease expired mid-call and another caller reclaimed the key, writing a
+        // different live lease (a different lockedUntil value) into the same row.
+        await db
+          .update(vendorCallLocks)
+          .set({ lockedUntil: new Date(Date.now() + 900_000) })
+          .where(eq(vendorCallLocks.lockKey, lockKey));
+        return 'ok';
+      },
+    });
+
+    const [row] = await db.select().from(vendorCallLocks).where(eq(vendorCallLocks.lockKey, lockKey));
+    assert.ok(
+      row.lockedUntil.getTime() > Date.now() + 800_000,
+      "the other caller's live lease must survive our release"
+    );
+    await deleteLockRow(lockKey);
+  });
+
+  await t.test('rejects a lockTtlMs that cannot outlive the attempt it protects', async () => {
+    let invoked = false;
+    await assert.rejects(
+      () =>
+        callVendor('gemini', {
+          lockKey: 'test-guarded-call-ttl-validation',
+          timeoutMs: 3000,
+          lockTtlMs: 1000,
+          isTransient: NEVER_TRANSIENT,
+          call: async () => {
+            invoked = true;
+            return 'never';
+          },
+        }),
+      (err: unknown) => err instanceof RangeError
+    );
+    assert.equal(invoked, false);
+    const rows = await db
+      .select()
+      .from(vendorCallLocks)
+      .where(eq(vendorCallLocks.lockKey, 'test-guarded-call-ttl-validation'));
+    assert.equal(rows.length, 0, 'validation happens before any lease is written');
+  });
+
+  await t.test('overall deadline caps a hanging attempt below its own per-attempt timeout', async () => {
+    const startedAt = Date.now();
+    await assert.rejects(
+      () =>
+        callVendor('gemini', {
+          timeoutMs: 5000,
+          overallTimeoutMs: 300,
+          isTransient: ALWAYS_TRANSIENT,
+          call: () => new Promise<never>(() => {}),
+        }),
+      (err: unknown) => err instanceof VendorCallTimeoutError
+    );
+    assert.ok(Date.now() - startedAt < 2000, 'must stop near the 300ms overall budget, not the 5s attempt timeout');
+  });
+
+  await t.test('overall deadline stops retrying when backoff plus a minimal attempt no longer fits', async () => {
+    let attempts = 0;
+    const startedAt = Date.now();
+    await assert.rejects(
+      () =>
+        callVendor('gemini', {
+          timeoutMs: 1000,
+          overallTimeoutMs: 1500,
+          maxAttempts: 5,
+          isTransient: ALWAYS_TRANSIENT,
+          call: async () => {
+            attempts++;
+            throw new Error('503 upstream');
+          },
+        }),
+      /503 upstream/
+    );
+    assert.equal(attempts, 1, 'the retry (>=800ms backoff + 1s minimum attempt) cannot fit in 1.5s, so it must not start');
+    assert.ok(Date.now() - startedAt < 1000, 'the real error surfaces immediately, leaving time for cleanup');
+  });
 });

@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { db } from '../../db/client.js';
 import { apiKeys, users, vendorCallLocks } from '@festgrid/database';
 import { eq, inArray } from 'drizzle-orm';
-import { callGemini, AiGatewayExhaustedError } from './adapter.js';
+import { callGemini, AiGatewayExhaustedError, AiGatewayBusyError, setSleepForTest, sleepSeam } from './adapter.js';
 import { setDecryptApiKey, decryptApiKey } from './kms.js';
 import { setCallGeminiGenerateContent, GeminiRateLimitedError, GeminiInvalidKeyError, callGeminiGenerateContent } from './gemini-client.js';
 import { VendorCallTimeoutError } from '../vendor-gateway/guarded-call.js';
@@ -250,6 +250,83 @@ test('AI Gateway Adapter - callGemini orchestration', async (t) => {
       assert.equal(k1.isValid, true);
     } finally {
       await deleteLockRow(lockKey);
+    }
+  });
+
+  await t.test('7 (PR #57 review): every usable key busy -> bounded waits then AiGatewayBusyError, NOT AiGatewayExhaustedError', async () => {
+    const lockKey1 = `gemini:key:${dbKey1.id}`;
+    const lockKey2 = `gemini:key:${dbKey2.id}`;
+    await deleteLockRow(lockKey1);
+    await deleteLockRow(lockKey2);
+    await db.insert(vendorCallLocks).values([
+      { lockKey: lockKey1, lockedUntil: new Date(Date.now() + 60_000) },
+      { lockKey: lockKey2, lockedUntil: new Date(Date.now() + 60_000) },
+    ]);
+    await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 2 }).where(eq(apiKeys.id, dbKey1.id));
+    await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 5 }).where(eq(apiKeys.id, dbKey2.id));
+
+    const originalSleep = sleepSeam;
+    const sleeps: number[] = [];
+    setSleepForTest(async (ms) => {
+      sleeps.push(ms);
+    });
+    let thunkInvoked = false;
+    setCallGeminiGenerateContent(async () => {
+      thunkInvoked = true;
+      return { text: 'should not run' };
+    });
+
+    try {
+      await assert.rejects(
+        () => callGemini({ provider: 'gemini', subscriberUserIds: [testUser.id], contents: 'Hello' }),
+        (err: unknown) => err instanceof AiGatewayBusyError && !(err instanceof AiGatewayExhaustedError)
+      );
+      assert.equal(sleeps.length, 3, 'waits a bounded number of times (3) before giving up');
+      assert.equal(thunkInvoked, false, 'no vendor call is made while every lease is held');
+      const [k1] = await db.select().from(apiKeys).where(eq(apiKeys.id, dbKey1.id));
+      assert.equal(k1.invalidAttempts, 0, 'contention never counts against key validity');
+      assert.equal(k1.isValid, true);
+    } finally {
+      setSleepForTest(originalSleep);
+      await deleteLockRow(lockKey1);
+      await deleteLockRow(lockKey2);
+    }
+  });
+
+  await t.test('8 (PR #57 review): a busy key that frees up during the bounded wait is used, no error', async () => {
+    const lockKey1 = `gemini:key:${dbKey1.id}`;
+    const lockKey2 = `gemini:key:${dbKey2.id}`;
+    await deleteLockRow(lockKey1);
+    await deleteLockRow(lockKey2);
+    await db.insert(vendorCallLocks).values([
+      { lockKey: lockKey1, lockedUntil: new Date(Date.now() + 60_000) },
+      { lockKey: lockKey2, lockedUntil: new Date(Date.now() + 60_000) },
+    ]);
+    await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 2 }).where(eq(apiKeys.id, dbKey1.id));
+    await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 5 }).where(eq(apiKeys.id, dbKey2.id));
+
+    const originalSleep = sleepSeam;
+    // The first wait "lets the other call finish": release key 1's lease.
+    setSleepForTest(async () => {
+      await db
+        .update(vendorCallLocks)
+        .set({ lockedUntil: new Date(Date.now() - 1000) })
+        .where(eq(vendorCallLocks.lockKey, lockKey1));
+    });
+    const invokedKeys: string[] = [];
+    setCallGeminiGenerateContent(async (apiKey) => {
+      invokedKeys.push(apiKey);
+      return { text: 'freed-key response' };
+    });
+
+    try {
+      const result = await callGemini({ provider: 'gemini', subscriberUserIds: [testUser.id], contents: 'Hello' });
+      assert.equal(result.text, 'freed-key response');
+      assert.deepEqual(invokedKeys, ['key-1-secret']);
+    } finally {
+      setSleepForTest(originalSleep);
+      await deleteLockRow(lockKey1);
+      await deleteLockRow(lockKey2);
     }
   });
 });

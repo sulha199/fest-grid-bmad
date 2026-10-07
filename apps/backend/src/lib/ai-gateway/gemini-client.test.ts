@@ -63,24 +63,25 @@ test('verifyGeminiApiKey unit tests', async (t) => {
   // are ever written by this call path, for both a successful and a failing verification
   // attempt (real local DB, matching guarded-call.test.ts's own convention).
   await t.test('routes through callVendor with lockKey undefined -- writes zero vendor_call_locks rows', async () => {
-    const rowsBeforeSuccess = await db.select().from(vendorCallLocks);
-    assert.strictEqual(rowsBeforeSuccess.length, 0, 'precondition: no leftover vendor_call_locks rows');
+    // Released leases legitimately persist as rows (release is an UPDATE, not a DELETE), so a
+    // previously used dev DB may already hold rows. Compare ordered before/after snapshots
+    // rather than requiring an empty table: this tolerates existing rows AND detects any
+    // insert, delete or lease change that a bare row-count comparison would miss.
+    const snapshot = async () =>
+      (await db.select().from(vendorCallLocks)).map((r) => `${r.lockKey}|${r.lockedUntil.toISOString()}`).sort();
+    const before = await snapshot();
 
     setCallGeminiGenerateContent(async () => ({ text: 'ok' }));
     const successResult = await verifyGeminiApiKey('valid-key-for-lock-check');
     assert.strictEqual(successResult, true);
-
-    const rowsAfterSuccess = await db.select().from(vendorCallLocks);
-    assert.strictEqual(rowsAfterSuccess.length, 0, 'a successful verification must not write a vendor_call_locks row');
+    assert.deepStrictEqual(await snapshot(), before, 'a successful verification must not touch vendor_call_locks');
 
     setCallGeminiGenerateContent(async () => {
       throw new GeminiInvalidKeyError('API key not valid');
     });
     const failureResult = await verifyGeminiApiKey('invalid-key-for-lock-check');
     assert.strictEqual(failureResult, false);
-
-    const rowsAfterFailure = await db.select().from(vendorCallLocks);
-    assert.strictEqual(rowsAfterFailure.length, 0, 'a failing verification must not write a vendor_call_locks row either');
+    assert.deepStrictEqual(await snapshot(), before, 'a failing verification must not touch vendor_call_locks either');
   });
 });
 

@@ -9,9 +9,8 @@ import {
   setCallGemini,
   callGeminiRef
 } from './system-key-adapter.js';
-import { AiGatewayExhaustedError } from './adapter.js';
+import { AiGatewayExhaustedError, AiGatewayBusyError } from './adapter.js';
 import { setCallGeminiGenerateContent, callGeminiGenerateContent } from './gemini-client.js';
-import { VendorKeyBusyError } from '../vendor-gateway/guarded-call.js';
 
 const SYSTEM_LOCK_KEY = 'gemini:system';
 
@@ -187,7 +186,7 @@ test('system-key-adapter - callGeminiForLocationInference orchestration', async 
     }
   });
 
-  await t.test('6 (Story 0.i2c): a pre-held gemini:system lease causes VendorKeyBusyError rather than invoking the SDK', async () => {
+  await t.test('6 (Story 0.i2c): a pre-held gemini:system lease surfaces as AiGatewayBusyError (PR #57 review) rather than invoking the SDK', async () => {
     setCallGemini(async () => {
       throw new AiGatewayExhaustedError('Gateway exhausted');
     });
@@ -212,7 +211,7 @@ test('system-key-adapter - callGeminiForLocationInference orchestration', async 
             subscriberUserIds: ['user-1'],
             contents: 'Hello',
           }),
-        VendorKeyBusyError
+        (err: unknown) => err instanceof AiGatewayBusyError && !(err instanceof AiGatewayExhaustedError)
       );
       assert.equal(contentCallCount, 0);
     } finally {
@@ -383,7 +382,7 @@ test('system-key-adapter - callGeminiForAccountClassification orchestration', as
     }
   });
 
-  await t.test('6 (Story 0.i2c): a pre-held gemini:system lease causes VendorKeyBusyError rather than invoking the SDK', async () => {
+  await t.test('6 (Story 0.i2c): a pre-held gemini:system lease surfaces as AiGatewayBusyError (PR #57 review) rather than invoking the SDK', async () => {
     setCallGemini(async () => {
       throw new AiGatewayExhaustedError('Gateway exhausted');
     });
@@ -408,7 +407,7 @@ test('system-key-adapter - callGeminiForAccountClassification orchestration', as
             subscriberUserIds: ['user-1'],
             contents: 'Hello',
           }),
-        VendorKeyBusyError
+        (err: unknown) => err instanceof AiGatewayBusyError && !(err instanceof AiGatewayExhaustedError)
       );
       assert.equal(contentCallCount, 0);
     } finally {

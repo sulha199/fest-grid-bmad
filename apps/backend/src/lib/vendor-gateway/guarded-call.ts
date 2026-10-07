@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { computeBackoffDelayMs } from '@festgrid/domain';
 import { vendorCallLocks } from '@festgrid/database';
 import { db } from '../../db/client.js';
@@ -40,6 +40,11 @@ export interface CallVendorOptions<T> {
   // Wrapper-level bound (AC5). Applies even if `call`'s thunk ignores the AbortSignal it is
   // handed -- a thunk that *does* honor it gets real cancellation on top of the bound.
   timeoutMs: number;
+  // Overall execution budget across ALL attempts and backoff delays (optional). Each attempt's
+  // timeout is capped to what remains of this budget, and no retry starts unless backoff plus a
+  // minimal attempt still fits -- so a caller bounded by a Lambda timeout can set this below
+  // that limit and get a typed error (and lease cleanup) instead of being killed mid-retry.
+  overallTimeoutMs?: number;
   // Total attempts, including the first. Default 3 (Dev Notes: bounds retry storms, matches
   // this codebase's existing small-retry-count convention).
   maxAttempts?: number;
@@ -58,6 +63,8 @@ export interface CallVendorOptions<T> {
 
 const DEFAULT_MAX_ATTEMPTS = 3;
 const MIN_LOCK_TTL_MS = 60_000;
+// A retry is only worth starting if at least this much of the overall budget is left after backoff.
+const MIN_RETRY_ATTEMPT_MS = 1_000;
 
 function assertDpaConfirmed(vendor: VendorName): void {
   // Gemini must have zero branches referencing any DPA flag -- not even a no-op check (AC7).
@@ -74,9 +81,10 @@ function assertDpaConfirmed(vendor: VendorName): void {
 }
 
 // Atomically claims the lease row for `lockKey`, extending `lockedUntil` by `ttlMs` from now.
-// Returns true iff this call claimed/renewed the lock (no row, or an already-expired row);
-// returns false iff another, still-live lease already holds the key.
-async function claimLock(lockKey: string, ttlMs: number): Promise<boolean> {
+// Returns an ownership token (the claimed `lockedUntil` as exact epoch text) iff this call
+// claimed/renewed the lock (no row, or an already-expired row); returns null iff another,
+// still-live lease already holds the key. The token lets release prove it still owns the lease.
+async function claimLock(lockKey: string, ttlMs: number): Promise<string | null> {
   const ttlSeconds = Math.max(1, Math.ceil(ttlMs / 1000));
   const rows = await db
     .insert(vendorCallLocks)
@@ -91,17 +99,24 @@ async function claimLock(lockKey: string, ttlMs: number): Promise<boolean> {
       },
       setWhere: sql`${vendorCallLocks.lockedUntil} < now()`,
     })
-    .returning();
-  return rows.length > 0;
+    .returning({ token: sql<string>`extract(epoch from ${vendorCallLocks.lockedUntil})::text` });
+  return rows.length > 0 ? rows[0].token : null;
 }
 
 // Releases a claimed lease immediately by setting `lockedUntil` to now() -- making the key
-// claimable again right away, rather than waiting out the full TTL.
-async function releaseLock(lockKey: string): Promise<void> {
+// claimable again right away, rather than waiting out the full TTL. Conditional on the claim
+// token: if this lease expired mid-call and another caller has since reclaimed the key, that
+// caller's live lease is left untouched (the token no longer matches).
+async function releaseLock(lockKey: string, token: string): Promise<void> {
   await db
     .update(vendorCallLocks)
     .set({ lockedUntil: sql`now()` })
-    .where(eq(vendorCallLocks.lockKey, lockKey));
+    .where(
+      and(
+        eq(vendorCallLocks.lockKey, lockKey),
+        sql`extract(epoch from ${vendorCallLocks.lockedUntil})::text = ${token}`
+      )
+    );
 }
 
 // Races `call(signal)` against a `timeoutMs` timer. On expiry, aborts `signal` and throws
@@ -113,8 +128,11 @@ async function callWithTimeout<T>(call: (signal: AbortSignal) => Promise<T>, tim
 
   const timeoutPromise = new Promise<never>((_resolve, reject) => {
     timeoutHandle = setTimeout(() => {
-      controller.abort();
+      // Reject BEFORE aborting: abort listeners run synchronously, and a thunk that rejects from
+      // its own abort listener would otherwise win the race and surface its error (possibly a
+      // retryable one) instead of VendorCallTimeoutError.
       reject(new VendorCallTimeoutError(`Vendor call timed out after ${timeoutMs}ms`));
+      controller.abort();
     }, timeoutMs);
   });
 
@@ -131,22 +149,42 @@ export async function callVendor<T>(vendor: VendorName, opts: CallVendorOptions<
   const maxAttempts = opts.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
   const lockTtlMs = opts.lockTtlMs ?? Math.max(opts.timeoutMs * 2, MIN_LOCK_TTL_MS);
 
+  // A lease that can expire while its own attempt is still running would let a second caller
+  // claim the key concurrently -- defeating the lock. Reject that configuration up front.
+  if (opts.lockKey !== undefined && lockTtlMs <= opts.timeoutMs) {
+    throw new RangeError(
+      `callVendor: lockTtlMs (${lockTtlMs}) must exceed timeoutMs (${opts.timeoutMs}) so the lease outlives the attempt it protects.`
+    );
+  }
+
+  const deadlineAt = opts.overallTimeoutMs !== undefined ? Date.now() + opts.overallTimeoutMs : undefined;
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     // (a) DPA gate -- before anything else, never retried, never touches the lock table.
     assertDpaConfirmed(vendor);
 
+    // Cap this attempt to the remaining overall budget (never longer than the per-attempt bound).
+    let attemptTimeoutMs = opts.timeoutMs;
+    if (deadlineAt !== undefined) {
+      const remainingMs = deadlineAt - Date.now();
+      if (remainingMs <= 0) {
+        throw new VendorCallTimeoutError(`Vendor call exceeded its overall ${opts.overallTimeoutMs}ms budget`);
+      }
+      attemptTimeoutMs = Math.min(opts.timeoutMs, remainingMs);
+    }
+
     // (b) Lock claim -- never retried on a busy key.
-    let lockClaimed = false;
+    let lockToken: string | null = null;
     if (opts.lockKey !== undefined) {
-      lockClaimed = await claimLock(opts.lockKey, lockTtlMs);
-      if (!lockClaimed) {
+      lockToken = await claimLock(opts.lockKey, lockTtlMs);
+      if (lockToken === null) {
         throw new VendorKeyBusyError(`Vendor call lock busy for key "${opts.lockKey}"`);
       }
     }
 
     try {
       // (c) Timed, abortable call.
-      return await callWithTimeout(opts.call, opts.timeoutMs);
+      return await callWithTimeout(opts.call, attemptTimeoutMs);
     } catch (error) {
       // VendorCallTimeoutError is always immediate and unretried (AC5/AC6).
       if (error instanceof VendorCallTimeoutError) {
@@ -156,15 +194,20 @@ export async function callVendor<T>(vendor: VendorName, opts: CallVendorOptions<
       const attemptsRemain = attempt < maxAttempts;
       if (attemptsRemain && opts.isTransient(error)) {
         const delayMs = computeBackoffDelayMs(attempt);
+        // Do not start a retry that cannot finish inside the overall budget: surface the real
+        // error now, while there is still time for lease cleanup.
+        if (deadlineAt !== undefined && Date.now() + delayMs + MIN_RETRY_ATTEMPT_MS > deadlineAt) {
+          throw error;
+        }
         await new Promise((resolve) => setTimeout(resolve, delayMs));
         continue;
       }
 
       throw error;
     } finally {
-      // (d) Release the lock in a finally -- guaranteed on every exit path.
-      if (lockClaimed && opts.lockKey !== undefined) {
-        await releaseLock(opts.lockKey);
+      // (d) Release the lock in a finally -- guaranteed on every exit path, ownership-checked.
+      if (lockToken !== null && opts.lockKey !== undefined) {
+        await releaseLock(opts.lockKey, lockToken);
       }
     }
   }

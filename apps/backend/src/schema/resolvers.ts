@@ -11,7 +11,7 @@ import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink } from '@festgrid/domain/scraper';
 import { selectApiKey } from '@festgrid/domain/ai-gateway';
-import { callGemini, AiGatewayExhaustedError } from '../lib/ai-gateway/adapter.js';
+import { callGemini, AiGatewayExhaustedError, AiGatewayBusyError } from '../lib/ai-gateway/adapter.js';
 import { fetchCandidateKeys } from '../lib/ai-gateway/usage-store.js';
 import { startManualExtractionJob, getManualExtractionJobStatus } from '../lib/extraction/manual-extraction-job.js';
 import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
@@ -431,6 +431,12 @@ Constraints and Guidelines:
         if (err instanceof AiGatewayExhaustedError) {
           throw new GraphQLError('No available Gemini API key or quota exceeded.', {
             extensions: { code: 'QUOTA_EXHAUSTED' }
+          });
+        }
+        // Temporary key contention, not exhausted quota: a distinct, retryable code.
+        if (err instanceof AiGatewayBusyError) {
+          throw new GraphQLError('Gemini is temporarily busy. Please try again in a moment.', {
+            extensions: { code: 'TEMPORARILY_BUSY' }
           });
         }
         throw err;
