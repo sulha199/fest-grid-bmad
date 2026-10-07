@@ -122,6 +122,24 @@ The feeling of using FestDaily should be one of exciting discovery. Microcopy sh
   - **Focus ring:** every item gets a visible focus indicator (`{components.nav.focus_ring}`) rendered in a color distinct from the active-bar accent, so "focused" and "active/current page" never collapse into one signal.
   - **Profile item (auth-dependent):** Story 0.7's shell renders this slot's trigger only (icon/state, `/login` navigation when unauthenticated, invoking Story 2.8's User Menu when authenticated) — the User Menu itself (ARIA pattern, focus behavior, dismiss/close affordances, icon-only-rail tap handling, item registry) is Story 2.8's scope; see Information Architecture § Profile item — authentication states.
 
+### Scroll-to-Top on Filter Reset
+
+*Formalized 2026-10-07 (IDEA-035, documentation-only), promoting a behavior already shipped identically on all three current `useListPaginationController` adopters — Discovery (`home-content.tsx`, Story 0.i5b, 2026-09-15), Feed (`feed-content.tsx`) and Favorites (`favorites-content.tsx`), both added by Story 0.i5e, 2026-09-30. Previously tracked only as backlog idea IDEA-035, not as a binding rule; this entry is that promotion. Binding on any current or future `useListPaginationController` consumer, not just these three.*
+
+When a filter change drives `useListPaginationController` to reset its list (its `onReset` callback fires), the surface scrolls the window back to top:
+
+```ts
+onReset: () => {
+  if (typeof window !== 'undefined') {
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+  }
+},
+```
+
+- **Why:** a filter change replaces the list's contents from the top; leaving the viewport scrolled partway down shows stale-looking items from the old result set until the user scrolls up themselves.
+- **Reduced motion:** `behavior` follows the same `prefersReducedMotion`-aware convention already established by `useCollapseHeaderOnScroll.ts`'s `expand()` (Component Patterns § Global Navigation context) — `'auto'` (instant) under `prefers-reduced-motion`, `'smooth'` otherwise. Never a separate, divergent reduced-motion check.
+- **Scope:** fires only from the controller's `onReset` (a filter-driven reset), not from pagination (`fetchNextPage`) or the initial mount.
+
 ### Mobile Multi-Day Calendar Spanning
 
 *Added via a targeted `bmad-ux` pass, 2026-08-24 — resolves the deferred half of `ux-rework-2026-08-24.md` item #11 (`sprint-change-proposal-2026-08-24-ux-rework-batch.md` Section 4.8: vertical/skip-empty-days was already scoped for the mobile breakpoint; multi-day-span rendering inside that layout had no design until this pass). Applies to `WeeklyCalendarView` (Story 1.3g) at both its consumers (Discovery's Calendar View, Story 1.3f; "My Calendar", Story 2.6).*
