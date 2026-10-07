@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-07T01:45:52Z
+last_updated: 2026-10-07T07:31:45Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -352,7 +352,7 @@ development_status:
   0-49b-migrate-appshell-usermenus-backdrop-and-the-blocking-loader-to-their-tiers: review
   0-49c-migrate-the-events-feature-overlay-menu-tooltip-sites-and-the-summary-bar: review
   0-49d-migrate-the-location-and-subscribe-account-suggestion-dropdowns-to-overlay-modal: review
-  0-49e-ratchet-no-raw-tier-value-class-or-inlined-overlay-modal-literal: ready-for-dev
+  0-49e-ratchet-no-raw-tier-value-class-or-inlined-overlay-modal-literal: review
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.

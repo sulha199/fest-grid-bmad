@@ -1,10 +1,14 @@
+---
+baseline_commit: dfe45a056b333bd6efa206ef37777134e25c43bf
+---
+
 # Story 0.49e: Ratchet — no raw tier-value class, and no inlined Overlay-modal literal
 
 ## Story Details
 
 - Epic: 0
 - Story ID: 0.49e
-- Status: backlog
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -25,20 +29,20 @@ so that a sixth file cannot reintroduce the exact defensive-bump/magic-number pa
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Write the ratchet test (AC1–AC4, AC6)
-  - [ ] 1.1 Create `packages/ui/src/__tests__/ad33-z-index-layering.ratchet.test.ts` (new directory; confirm no existing `__tests__` convention conflicts — `packages/ui`'s existing tests are colocated `*.test.tsx` files, so note this is a repo-wide sweep test, same genre as `grid-container.masonry-mount-stability.test.tsx`, and name/locate it so it's obviously not a per-component test).
-  - [ ] 1.2 Implement a small recursive file walker (plain `fs.readdirSync`/`fs.readFileSync`, no new dependency) over two roots resolved relative to the test file's own location via `path.resolve(__dirname, ...)` (do not hardcode an absolute path or rely on `process.cwd()`, which varies by how Vitest is invoked):
+- [x] Task 1 — Write the ratchet test (AC1–AC4, AC6)
+  - [x] 1.1 Create `packages/ui/src/__tests__/ad33-z-index-layering.ratchet.test.ts` (new directory; confirm no existing `__tests__` convention conflicts — `packages/ui`'s existing tests are colocated `*.test.tsx` files, so note this is a repo-wide sweep test, same genre as `grid-container.masonry-mount-stability.test.tsx`, and name/locate it so it's obviously not a per-component test).
+  - [x] 1.2 Implement a small recursive file walker (plain `fs.readdirSync`/`fs.readFileSync`, no new dependency) over two roots resolved relative to the test file's own location via `path.resolve(__dirname, ...)` (do not hardcode an absolute path or rely on `process.cwd()`, which varies by how Vitest is invoked):
      - `packages/ui/src` (this package's own source — the walker's `__dirname` is already inside it, so this is a short climb, e.g. `path.resolve(__dirname, '..')` back up to `src`).
      - `apps/web/src` (climb from `packages/ui/src/__tests__` up to the repo root, then down into `apps/web/src` — verify the exact number of `..` segments empirically with a one-off `console.log` + `fs.existsSync` check before trusting it, rather than assuming the directory depth).
-  - [ ] 1.3 Exclude from the walk: any path segment matching `__tests__`, `.test.`, `.spec.`, `.stories.`, `generated`, or `node_modules`; any non-`.ts`/`.tsx` file.
-  - [ ] 1.4 **Assertion 1** (AC1): for each remaining file, regex-test its raw text for a whole-token match of `z-40`, `z-45`, `z-50`, `z-60`, `z-[40]`, `z-[45]`, `z-[50]`, `z-[60]` (e.g. a pattern like `` /(? <![\w-])z-(?:40|45|50|60|\[40\]|\[45\]|\[50\]|\[60\])(?![\w-])/ `` — a word-boundary-safe match that won't fire on `z-400` or a longer identifier). Collect every `{file, match}` hit; the test fails (with all hits listed in the failure message, not just the first) if the collected list is non-empty.
-  - [ ] 1.5 **Assertion 2** (AC2, AC3): for each file except `packages/ui/src/core/overlay-z.ts`, regex-test for the literal string `'z-overlay-modal'` or `"z-overlay-modal"` (either quote style) written as a hardcoded string. Fail with all hits listed if non-empty.
-  - [ ] 1.6 Write both assertions as separate `it(...)` blocks inside one `describe('AD-33 z-index layering ratchet', ...)`, each with a clear failure message naming every offending file/line so a future violator gets an actionable error, not just "test failed."
-- [ ] Task 2 — Run it against the post-migration tree and confirm green (AC5)
-  - [ ] 2.1 **This task only makes sense once Stories 0.49-0.49d are done.** Sequence this story last. Run `pnpm --filter @festgrid/ui exec vitest run src/__tests__/ad33-z-index-layering.ratchet.test.ts` and confirm 0 failures.
-  - [ ] 2.2 As a deliberate regression check, temporarily reintroduce one raw `z-50` into any already-migrated file (e.g. revert one line of Story 0.49a's `dialog.tsx` change in a scratch/local-only edit), re-run the test, confirm it fails with that exact file/line named, then revert the scratch edit. Do not commit this step's temporary edit.
-- [ ] Task 3 — Confirm no new CI wiring is needed (AC6)
-  - [ ] 3.1 Confirm the new test file is picked up automatically by whatever script already runs `packages/ui`'s Vitest suite in CI (it will be, by Vitest's default test-file discovery glob) — no `package.json`/CI config edit expected. If the repo's CI config explicitly lists test paths rather than globbing, update it; otherwise make no CI config change.
+  - [x] 1.3 Exclude from the walk: any path segment matching `__tests__`, `.test.`, `.spec.`, `.stories.`, `generated`, or `node_modules`; any non-`.ts`/`.tsx` file.
+  - [x] 1.4 **Assertion 1** (AC1): for each remaining file, regex-test its raw text for a whole-token match of `z-40`, `z-45`, `z-50`, `z-60`, `z-[40]`, `z-[45]`, `z-[50]`, `z-[60]` (e.g. a pattern like `` /(? <![\w-])z-(?:40|45|50|60|\[40\]|\[45\]|\[50\]|\[60\])(?![\w-])/ `` — a word-boundary-safe match that won't fire on `z-400` or a longer identifier). Collect every `{file, match}` hit; the test fails (with all hits listed in the failure message, not just the first) if the collected list is non-empty.
+  - [x] 1.5 **Assertion 2** (AC2, AC3): for each file except `packages/ui/src/core/overlay-z.ts`, regex-test for the literal string `'z-overlay-modal'` or `"z-overlay-modal"` (either quote style) written as a hardcoded string. Fail with all hits listed if non-empty.
+  - [x] 1.6 Write both assertions as separate `it(...)` blocks inside one `describe('AD-33 z-index layering ratchet', ...)`, each with a clear failure message naming every offending file/line so a future violator gets an actionable error, not just "test failed."
+- [x] Task 2 — Run it against the post-migration tree and confirm green (AC5)
+  - [x] 2.1 **This task only makes sense once Stories 0.49-0.49d are done.** Sequence this story last. Run `pnpm --filter @festgrid/ui exec vitest run src/__tests__/ad33-z-index-layering.ratchet.test.ts` and confirm 0 failures.
+  - [x] 2.2 As a deliberate regression check, temporarily reintroduce one raw `z-50` into any already-migrated file (e.g. revert one line of Story 0.49a's `dialog.tsx` change in a scratch/local-only edit), re-run the test, confirm it fails with that exact file/line named, then revert the scratch edit. Do not commit this step's temporary edit.
+- [x] Task 3 — Confirm no new CI wiring is needed (AC6)
+  - [x] 3.1 Confirm the new test file is picked up automatically by whatever script already runs `packages/ui`'s Vitest suite in CI (it will be, by Vitest's default test-file discovery glob) — no `package.json`/CI config edit expected. If the repo's CI config explicitly lists test paths rather than globbing, update it; otherwise make no CI config change.
 
 ## Dev Notes
 
@@ -130,8 +134,28 @@ so that a sixth file cannot reintroduce the exact defensive-bump/magic-number pa
 
 ### Agent Model Used
 
+Claude Sonnet 5.5 (claude-sonnet-5)
+
 ### Debug Log References
+
+- First run of the new test flagged 2 false-positive hits for Assertion 1 (`z-50`) inside existing JSDoc comments: `packages/ui/src/core/overlay-z.ts:4` (its own doc-comment explaining the anti-pattern it prevents) and `packages/ui/src/features/events/CalendarOverflowDialog.tsx:33` (a transcription of a `DESIGN.md` token's source value inside a doc comment). Both files' actual code already correctly imports/uses `OVERLAY_MODAL_Z`; the matches were against comment prose, not real Tailwind class usage. Added a `stripComments` pass (blanks `/* */` and `//` comment content, preserving newlines/line numbers) before applying both regexes, which resolved both false positives without narrowing the regexes themselves. Re-ran clean (2/2 passing) — `pnpm exec vitest run src/__tests__/ad33-z-index-layering.ratchet.test.ts` from `packages/ui`.
+- Task 2.2 regression probe: temporarily replaced `${OVERLAY_MODAL_Z}` with `z-50` on `apps/web/src/components/ui/dialog.tsx:25` (scratch, uncommitted). Re-ran the test: Assertion 1 failed, naming `../../apps/web/src/components/ui/dialog.tsx:25 -> \`z-50\`` exactly. Reverted the file from a pre-edit backup; `git status --short` on the file showed no diff afterward, and the test suite re-ran green (2/2).
+- Package-scoped lint: `pnpm --filter @festgrid/ui lint` (eslint, `--max-warnings 0`) — 0 errors/warnings.
+- No build/type-check script exists in `packages/ui/package.json` (only `test` and `lint`); none was skipped, none applies.
+- Confirmed `.github/workflows/ci.yml`'s test job runs `pnpm run test` (repo-wide, relying on Vitest's default test-file discovery glob), not an explicit list of test paths — no CI config edit needed (Task 3.1 / AC6).
 
 ### Completion Notes List
 
+- Implemented both AD-33 Rule 4 assertions as a single new Vitest source-scan test file, `packages/ui/src/__tests__/ad33-z-index-layering.ratchet.test.ts`: Assertion 1 (AC1) walks `packages/ui/src` and `apps/web/src` for a whole-token match of the four reserved z-index tier values (`z-40/45/50/60`, bare or `z-[N]`); Assertion 2 (AC2/AC3) scans the same files (excluding `packages/ui/src/core/overlay-z.ts`) for a hardcoded `'z-overlay-modal'`/`"z-overlay-modal"` literal. Neither assertion touches `z-0/10/20/30` (AC4 — Local tier stays a code-review convention, not scanned at all).
+- No production code was modified — this story's only deliverable is the test file itself, per its Implementation Plan and Out of Scope section.
+- Verification Plan executed and confirmed, not just implemented-to-match: Task 2.1's green run against the current (post-0.49/a/b/c/d) tree passed 2/2 with zero failures; Task 2.2's deliberate regression probe (reintroduce raw `z-50` in `apps/web/src/components/ui/dialog.tsx`, confirm the test names that exact file/line, then revert) was performed and confirmed, and the scratch edit was reverted before this commit (`git status --short` on the file is clean).
+- Prerequisite check: Stories 0.49, 0.49a, 0.49b, 0.49c, 0.49d are all at sprint-status `review` (not yet `done`), but their migration code is already committed on this branch (commits `6b8e3b87`, `ebdc9608`, `58069bf5`, `dfe45a05`, and `fc90333b`/`e07295f9` for 0.49b) — i.e. the "post-migration tree" AC5 requires already exists. User explicitly approved proceeding on this basis (Pre-Coding Approval Gate) rather than blocking on those stories' sprint-status reaching `done`.
+- Package-scoped lint (`pnpm --filter @festgrid/ui lint`) passes with zero errors/warnings. `packages/ui` has no build/type-check script to run. No whole-repo lint/build/test was run, per this story's UI-lane scope.
+
 ### File List
+
+- `packages/ui/src/__tests__/ad33-z-index-layering.ratchet.test.ts` (new)
+
+## Change Log
+
+- 2026-10-07: Implemented AD-33 Rule 4 ratchet test (both assertions), confirmed green against the post-0.49/a/b/c/d tree, and confirmed the regression probe catches a reintroduced raw `z-50` (reverted before commit). Status moved to review.
