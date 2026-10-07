@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert';
+import { vendorCallLocks } from '@festgrid/database';
+import { db } from '../../db/client.js';
 import {
   verifyGeminiApiKey,
   callGeminiGenerateContent,
@@ -54,6 +56,31 @@ test('verifyGeminiApiKey unit tests', async (t) => {
         return true;
       }
     );
+  });
+
+  // Story 0.i2b — verifyGeminiApiKey now routes through callVendor with lockKey: undefined
+  // (AD-32 Rule 3's named exception to per-key locking). Confirms zero vendor_call_locks rows
+  // are ever written by this call path, for both a successful and a failing verification
+  // attempt (real local DB, matching guarded-call.test.ts's own convention).
+  await t.test('routes through callVendor with lockKey undefined -- writes zero vendor_call_locks rows', async () => {
+    const rowsBeforeSuccess = await db.select().from(vendorCallLocks);
+    assert.strictEqual(rowsBeforeSuccess.length, 0, 'precondition: no leftover vendor_call_locks rows');
+
+    setCallGeminiGenerateContent(async () => ({ text: 'ok' }));
+    const successResult = await verifyGeminiApiKey('valid-key-for-lock-check');
+    assert.strictEqual(successResult, true);
+
+    const rowsAfterSuccess = await db.select().from(vendorCallLocks);
+    assert.strictEqual(rowsAfterSuccess.length, 0, 'a successful verification must not write a vendor_call_locks row');
+
+    setCallGeminiGenerateContent(async () => {
+      throw new GeminiInvalidKeyError('API key not valid');
+    });
+    const failureResult = await verifyGeminiApiKey('invalid-key-for-lock-check');
+    assert.strictEqual(failureResult, false);
+
+    const rowsAfterFailure = await db.select().from(vendorCallLocks);
+    assert.strictEqual(rowsAfterFailure.length, 0, 'a failing verification must not write a vendor_call_locks row either');
   });
 });
 

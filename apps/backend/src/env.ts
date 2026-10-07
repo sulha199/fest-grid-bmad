@@ -35,6 +35,15 @@ export interface BackendEnv {
   // DB/enqueue work (after it). A timeout throws VendorCallTimeoutError, which propagates
   // unretried out of processAiJob/the resolvers as a retryable job failure (never a silent hang).
   geminiExtractionTimeoutMs: number;
+  // Story 0.i2b (AD-32 Rule 3) — callVendor's opts.timeoutMs bound for verifyGeminiApiKey's
+  // synchronous, user-facing createApiKey verification call only (never the extraction
+  // pipeline, which uses geminiExtractionTimeoutMs above). Default 10000ms (10s) is
+  // deliberately short and distinct from geminiExtractionTimeoutMs's 120000ms: a minimal
+  // { contents: 'ping' } call typically returns in well under a second, so 10s gives generous
+  // margin above normal latency while still failing a hung verification call roughly 12x
+  // faster than the extraction timeout would, directly addressing BUG-012's "blocks the caller
+  // indefinitely" complaint for this synchronous mutation.
+  geminiVerificationTimeoutMs: number;
   scrapingQueueUrl?: string;
   scrapeInlineFallbackEnabled: boolean;
   aiProcessingQueueUrl?: string;
@@ -241,6 +250,8 @@ export function loadBackendEnv(): BackendEnv {
     geminiMaxOutputTokens: parseInt(process.env.GEMINI_MAX_OUTPUT_TOKENS || '8192', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     geminiExtractionTimeoutMs: parseInt(process.env.GEMINI_EXTRACTION_TIMEOUT_MS || '120000', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    geminiVerificationTimeoutMs: parseInt(process.env.GEMINI_VERIFICATION_TIMEOUT_MS || '10000', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     scrapeInitialLookbackDays: parseInt(process.env.SCRAPE_INITIAL_LOOKBACK_DAYS || '7', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars

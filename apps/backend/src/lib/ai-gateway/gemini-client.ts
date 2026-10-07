@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { loadBackendEnv } from '../../env.js';
+import { callVendor } from '../vendor-gateway/guarded-call.js';
 
 export interface GeminiCallRequest {
   contents: string | any;
@@ -150,9 +151,22 @@ export function setCallGeminiGenerateContent(fn: typeof callGeminiGenerateConten
   callGeminiGenerateContent = fn;
 }
 
+// Story 0.i2b (AD-32 Rule 3) — the last of the three AD-32-named callGeminiGenerateContent
+// entry points to adopt the guarded callVendor wrapper. lockKey is explicitly undefined: this
+// is a named exception to per-key locking (0.i2a AC4) because the key under verification has
+// no apiKeys.id yet (createApiKey calls this before insert), and nothing else can concurrently
+// bill against a key not yet in the candidate pool. isGeminiErrorTransient/the signal-aware
+// callGeminiGenerateContent third parameter are both reused as-is from Story 0.i2c -- no new
+// classifier is introduced here.
 export async function verifyGeminiApiKey(apiKey: string): Promise<boolean> {
+  const env = loadBackendEnv();
   try {
-    await callGeminiGenerateContent(apiKey, { contents: 'ping' });
+    await callVendor('gemini', {
+      lockKey: undefined,
+      timeoutMs: env.geminiVerificationTimeoutMs,
+      isTransient: isGeminiErrorTransient,
+      call: (signal) => callGeminiGenerateContent(apiKey, { contents: 'ping' }, signal),
+    });
     return true;
   } catch (error) {
     if (error instanceof GeminiInvalidKeyError) {

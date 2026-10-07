@@ -356,7 +356,7 @@ test('api keys resolvers integration', async (t) => {
     assert.strictEqual(keysAfter.length, keysBefore.length, 'rejected key should not be inserted in db');
   });
 
-  await t.test('createApiKey proceeds and persists when verification throws a non-invalid-key error (fail-open)', async () => {
+  await t.test('createApiKey rejects with VERIFICATION_FAILED when verification throws an unclassified error (fail-closed)', async () => {
     setCallGeminiGenerateContent(async (apiKey) => {
       if (apiKey === 'transient-error-key') {
         throw new Error('Some DNS timeout error');
@@ -365,6 +365,8 @@ test('api keys resolvers integration', async (t) => {
     });
 
     mockUser = { userId: testUser.id, role: testUser.role };
+
+    const keysBefore = await db.select().from(apiKeys).where(eq(apiKeys.userId, testUser.id));
 
     const res = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',
@@ -382,16 +384,53 @@ test('api keys resolvers integration', async (t) => {
       })
     });
     const result = await res.json();
-    assert.ok(!result.errors, 'should not fail because we fail open on transient errors: ' + JSON.stringify(result.errors));
-    assert.strictEqual(result.data.createApiKey.maskedKey, '••••-key');
-    assert.strictEqual(result.data.createApiKey.isValid, true);
+    assert.ok(result.errors, 'should fail closed on an unclassified verification error: ' + JSON.stringify(result));
+    assert.strictEqual(result.errors[0].extensions?.code, 'VERIFICATION_FAILED');
 
-    // Confirm it exists in DB
-    const [dbRow] = await db.select().from(apiKeys).where(eq(apiKeys.id, result.data.createApiKey.id));
-    assert.ok(dbRow);
-    assert.strictEqual(dbRow.keyLast4, '-key'); // 'transient-error-key'.slice(-4) => '-key'
+    // Confirm no row was inserted for this user (count-based, Story 0.i2b's fail-closed fix)
+    const keysAfter = await db.select().from(apiKeys).where(eq(apiKeys.userId, testUser.id));
+    assert.strictEqual(keysAfter.length, keysBefore.length, 'unclassified verification error must not persist the key');
+  });
 
-    // Cleanup
-    await db.delete(apiKeys).where(eq(apiKeys.id, dbRow.id));
+  await t.test('createApiKey rejects with VERIFICATION_TIMEOUT when the vendor call hangs', async () => {
+    const originalTimeoutEnv = process.env.GEMINI_VERIFICATION_TIMEOUT_MS;
+    process.env.GEMINI_VERIFICATION_TIMEOUT_MS = '50';
+
+    setCallGeminiGenerateContent(() => new Promise(() => {
+      /* never resolves -- simulates a hung vendor call */
+    }));
+
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    const keysBefore = await db.select().from(apiKeys).where(eq(apiKeys.userId, testUser.id));
+
+    try {
+      const res = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation {
+              createApiKey(input: { provider: "gemini", key: "hung-verify-key" }) {
+                id
+              }
+            }
+          `
+        })
+      });
+      const result = await res.json();
+      assert.ok(result.errors, 'should fail closed on a hung verification call: ' + JSON.stringify(result));
+      assert.strictEqual(result.errors[0].extensions?.code, 'VERIFICATION_TIMEOUT');
+
+      const keysAfter = await db.select().from(apiKeys).where(eq(apiKeys.userId, testUser.id));
+      assert.strictEqual(keysAfter.length, keysBefore.length, 'timed-out verification must not persist the key');
+    } finally {
+      // loadBackendEnv() is not memoized -- restoring process.env is sufficient, no cache to bust.
+      if (originalTimeoutEnv === undefined) {
+        delete process.env.GEMINI_VERIFICATION_TIMEOUT_MS;
+      } else {
+        process.env.GEMINI_VERIFICATION_TIMEOUT_MS = originalTimeoutEnv;
+      }
+    }
   });
 });

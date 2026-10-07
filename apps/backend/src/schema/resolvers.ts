@@ -31,6 +31,7 @@ import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions
 import { triggerScrapeForAccount } from '../lib/scraper/trigger-scrape-for-account.js';
 import { decryptApiKey, encryptApiKey } from '../lib/ai-gateway/kms.js';
 import { verifyGeminiApiKey } from '../lib/ai-gateway/gemini-client.js';
+import { VendorCallTimeoutError } from '../lib/vendor-gateway/guarded-call.js';
 import { compileValidator } from '../validation/validate.js';
 import { reportSystemErrorSchema } from '../validation/report-system-error.schema.js';
 import { proposedEventCorrectionSchema } from '../validation/proposed-event-correction.schema.js';
@@ -531,7 +532,14 @@ Constraints and Guidelines:
         if (err instanceof GraphQLError && err.extensions?.code === 'INVALID_API_KEY') {
           throw err;
         }
-        console.warn('[createApiKey] Transient error verifying key, failing open:', err);
+        if (err instanceof VendorCallTimeoutError) {
+          throw new GraphQLError('Unable to verify API key: the request timed out. Please try again.', {
+            extensions: { code: 'VERIFICATION_TIMEOUT' },
+          });
+        }
+        throw new GraphQLError('Unable to verify API key. Please try again later.', {
+          extensions: { code: 'VERIFICATION_FAILED' },
+        });
       }
 
       const keyEncrypted = await encryptApiKey(normalizedKey);
