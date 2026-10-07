@@ -22,3 +22,43 @@ Low priority relative to BUG-032/033/034; bundled as one item since all three ar
 event-detail-page client-side polish, not separate root causes.
 
 Not yet scoped into a story.
+
+## Resolution (2026-10-07, `bmad-quick-dev`, implemented directly — no story)
+
+User-decided scope: memoize the mapper, and adopt `next/image` on the hero and
+carousel-peek images. Before touching code, checked `_bmad-output/project-context.md`
+and the PRD per this workflow's mandatory references; the project-context check
+surfaced a blocker not visible from the finding alone, so scope was narrowed via
+`AskUserQuestion` (twice) rather than guessed:
+
+1. **Mapper memoized.** `EventDetailWrapper.tsx`'s `mapGraphQLEventToDetailViewProps(...)`
+   call is now wrapped in `useMemo`, keyed on its actual inputs
+   (`data?.eventBySlug`, `labels`, `locale`, `tType`, `tCategory`, `resolvedInstagramEmbed`,
+   `subscriptionsData?.mySubscriptions`, `pendingCoauthorAccountId`). Declared above the
+   component's early returns (hidden-for-current-user / not-found views) — a hook placed
+   after those conditional `return`s would violate the Rules of Hooks (confirmed by a
+   "Rendered fewer hooks than expected" failure on first attempt, fixed by moving it up
+   next to the component's other top-level hooks).
+
+2. **Carousel-peek → `next/image`.** `event-preview-card.tsx` lives in `apps/web` (not
+   `packages/ui`), so no framework-agnosticism concern. Converted to `next/image` with
+   `fill` (container is already `relative` + sized) and `unoptimized`: `imageUrl` is a
+   hotlinked URL from whatever arbitrary scraped-platform CDN the source post lived on,
+   and `next.config.js` deliberately has no `images.remotePatterns` configured (its own
+   `img-src` CSP comment explains why that host set can't be statically enumerated) — a
+   plain optimized `next/image` would throw at runtime for real data. `unoptimized` still
+   gets native lazy-loading (addressing the finding's `loading="lazy"` sub-note) without
+   requiring a remote-host allowlist.
+
+3. **Hero → NOT converted, carved out as [FIND-075].** `EventImage.tsx` lives in
+   `packages/ui`, which `project-context.md` requires to stay decoupled from
+   Next.js-specific APIs (the same principle documented for `useScopedLocale`/
+   `useScopedTimezone` vs. `next-intl`) — zero `next/image` precedent anywhere in
+   `packages/ui`, and the component's video/unknown-until-load-aspect-ratio design
+   doesn't fit `next/image`'s `width`/`height` contract anyway. Confirmed via
+   `AskUserQuestion`: keep the raw `<img>` rather than coupling the shared package to
+   Next.js or building a new wrapper abstraction outside this row's `xs` effort scope.
+
+Verified: `pnpm --filter web test -- event-preview-card EventDetailWrapper mapper.test`
+(84 passed) and `pnpm --filter web lint` (0 errors; pre-existing warnings only, none in
+the touched files) — both scoped to the touched package, no whole-repo run.
