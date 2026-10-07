@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-06"
+last_updated: "2026-10-07"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -1975,7 +1975,7 @@ items:
      title: "Consolidate z-index into named layering tiers: one documented scale, theme tokens, and a ratchet against raw z-values",
      ref: [backlog/IDEA-060-z-index-layering-tiers.md],
      touches: [pkg:ui, web:system, cross:ux-tokens, cross:architecture],
-     note: "Tier model: Architecture Spine AD-33. Promoted via bmad-create-story 2026-10-06 to Stories 0.49/0.49a-0.49e (plain Epic 0 split, not a bmad-form-epics epic -- see 0.49's Dev Notes). Full scope covered; no child row. Adjacent Gate 3 finding tracked separately as FIND-074."}
+     note: "Tier model: Architecture Spine AD-33. Promoted via bmad-create-story 2026-10-06 to Stories 0.49/0.49a-0.49e (plain Epic 0 split, not a bmad-form-epics epic -- see 0.49's Dev Notes). Full scope covered; no child row. Adjacent Gate 3 finding tracked separately as FIND-077."}
 
   FIND-072:
     {type: finding, status: backlog, created: 2026-10-05,
@@ -2001,8 +2001,33 @@ items:
      touches: [app:backend, web:moderation],
      note: "Deferred from Story 3.6w's bmad-create-story (2026-10-05, AskUserQuestion): out-of-scope manual merge trigger. See 3.6w's Dev Notes/Out of Scope for the reusable mergeEvents() internal function a future story here would expose directly."}
 
-  # ── 2026-10-06 (bmad-create-story, Story 1.i1p) ─────────────────────────────
+  # ── 2026-10-06 ──────────────────────────────────────────────────────────────
+  CC-030:
+    {type: proposal, status: triaged, created: 2026-10-06,
+     impact: user-visible, effort: s,
+     title: "Masonry Phase 2 layout defects: full-width column-0 items overlapping column 1, and no vertical gap",
+     ref: [implementation-artifacts/0-48-mount-stable-masonry-engine-fix-reflow-remount-and-focus-loss.md,
+           planning-artifacts/sprint-change-proposal-2026-10-06-masonry-phase2-grid-column.md],
+     touches: [pkg:ui, pkg:visual-audit, cross:architecture],
+     note: "Code fixes already on branch ccr-b2f1dfd2-re35x8; remaining work is the sibling-gap rule, Phase 2 real-browser manifest, tests, Story 0.48 AC2/AC14 and AD-27 wording."}
+
+  IDEA-063:
+    {type: idea, status: skipped, created: 2026-10-06, parent: CC-030,
+     title: "Retarget masonry-column-width-invariant.ts from its synthetic flex row to the real mounted GridContainer",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-06-masonry-phase2-grid-column.md],
+     touches: [pkg:visual-audit],
+     note: "value: low, the synthetic row stays as the rule-engine proof it was written to be; the new Phase 2 manifest entry covers the real component."}
+
   FIND-073:
+    {type: finding, status: backlog, created: 2026-10-07, parent: CC-030,
+     impact: cosmetic, effort: xs,
+     title: "EventCard masonry date-box status text clips at 80px for the happeningNow / In {n} hour(s) variants",
+     ref: [implementation-artifacts/0-48-mount-stable-masonry-engine-fix-reflow-remount-and-focus-loss.md],
+     touches: [pkg:ui, pkg:visual-audit],
+     note: "Found by the first real run of manifests-proof.spec.ts (EventCardMasonry default-thumbnail-fallback overflow rule: scrollWidth 92 > clientWidth 80); fails on the pre-CC-030 code too, so unrelated to the grid."}
+
+  # ── 2026-10-06 (bmad-create-story, Story 1.i1p) ─────────────────────────────
+  FIND-076:
     {type: finding, status: promoted, created: 2026-10-06,
      impact: internal, effort: xs,
      stories: [1-i1p-remove-eventcardmediaslots-unused-internal-favorite-badge],
@@ -2012,7 +2037,7 @@ items:
      note: "Carved from IDEA-048's 2026-10-05 close-out (Step 5 of the followup tracker). Promoted directly to Story 1.i1p via bmad-create-story -- both branches unreachable since EventCard.tsx/EventCardCompact.tsx already compose EventCardFavoriteBadge externally."}
 
   # ── 2026-10-06 (bmad-create-story, IDEA-060 / Story 0.49) ────────────────────
-  FIND-074:
+  FIND-077:
     {type: finding, status: backlog, created: 2026-10-06,
      impact: internal, effort: s,
      title: "packages/visual-audit's vendor Tailwind config is a second, hand-maintained theme with nothing that checks it stays in sync with apps/web/tailwind.config.ts",

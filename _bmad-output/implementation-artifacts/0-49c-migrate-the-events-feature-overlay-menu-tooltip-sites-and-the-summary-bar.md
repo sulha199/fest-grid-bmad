@@ -68,7 +68,7 @@ so that every hand-rolled "competes with arbitrary page content" overlay in the 
 
 - **Gate 1 — No gap found.** Fresh for this story. Pure className substitution (plus two intentional, AD-33-sanctioned value changes) across existing shared UI components; no backend/API/infra.
 - **Gate 2 — This story's scope is itself the result of a Gate 2 finding.** Run during this story set's creation against the original draft grouping (which had bundled `UserMenu.tsx`/`NavRailItem.tsx` wholesale into the Chrome-tier adoption story), Gate 2 found that a file-level (not class-level) migration would wrongly collapse `UserMenu`'s menu panel and `NavRailItem`'s tooltip from 50 to 40 — a real stacking regression. This story's AC5 is that correction, applied directly rather than deferred further.
-- **Gate 3 — No gap found** beyond Story 0.49's own finding (already recorded/accepted there as `FIND-074`). None of this story's six files is in `packages/visual-audit`'s current content globs (confirmed during Story 0.49's creation), so no additional mirror is needed here.
+- **Gate 3 — No gap found** beyond Story 0.49's own finding (already recorded/accepted there as `FIND-077`). None of this story's six files is in `packages/visual-audit`'s current content globs (confirmed during Story 0.49's creation), so no additional mirror is needed here.
 
 ### Data Type Compatibility & Migration Requirements
 

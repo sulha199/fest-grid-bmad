@@ -47,7 +47,24 @@ export interface ReactComponentRender {
   documentTemplate?: (bodyHtml: string) => string;
 }
 
-export type RenderSpec = IsolatedRender | LiveRouteRender | ReactComponentRender;
+/**
+ * Client-mounted render (CC-030): bundles a browser entry module with esbuild and runs it in the
+ * page, so a component's CLIENT-ONLY behavior (refs, effects, measurement-driven re-renders) is
+ * audited in a real browser. `react-component` cannot reach it -- `renderToStaticMarkup` never runs
+ * effects or ref callbacks, so e.g. `GridContainer`'s measured Phase 2 never happens there.
+ *
+ * `entryFile` is relative to this package's root. `beforeScript` (optional) runs before the bundle.
+ * `waitForSelector` must match once the entry considers the component ready for auditing.
+ */
+export interface ClientBundleRender {
+  kind: 'client-bundle';
+  entryFile: string;
+  waitForSelector: string;
+  beforeScript?: string;
+  documentTemplate?: (bodyHtml: string) => string;
+}
+
+export type RenderSpec = IsolatedRender | LiveRouteRender | ReactComponentRender | ClientBundleRender;
 
 /** AD-26 Rule 5, sibling-dimension consistency: default absolute tolerance <=2px. */
 export interface SiblingDimensionRule {
@@ -55,6 +72,17 @@ export interface SiblingDimensionRule {
   /** Selector matching every element in the candidate sibling set to auto-cluster (Rule 5). */
   selector: string;
   dimension: 'width' | 'height';
+  toleranceAbsolutePx?: number;
+}
+
+/**
+ * CC-030: vertical-gap consistency between stacked siblings. Items are clustered into columns by
+ * horizontal overlap; each column's consecutive items (by top edge) must be `expectedPx` apart.
+ */
+export interface SiblingGapRule {
+  kind: 'sibling-gap';
+  selector: string;
+  expectedPx: number;
   toleranceAbsolutePx?: number;
 }
 
@@ -118,7 +146,7 @@ export interface PlacementOrderRule {
   itemIndexAttribute: string;
 }
 
-export type Rule = SiblingDimensionRule | IntraBoxRatioRule | OverflowRule | ColorRule | PlacementOrderRule;
+export type Rule = SiblingDimensionRule | SiblingGapRule | IntraBoxRatioRule | OverflowRule | ColorRule | PlacementOrderRule;
 
 export interface ReferenceSource {
   /** Path to the validated prototype HTML, relative to the repo root. */

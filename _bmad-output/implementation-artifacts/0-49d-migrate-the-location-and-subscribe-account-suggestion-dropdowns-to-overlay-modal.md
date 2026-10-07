@@ -55,7 +55,7 @@ so that these address/account-suggestion popovers — none of which AD-33's text
 
 - **Gate 1 — No gap found.** Fresh for this story. Pure className substitution; no backend/API/infra.
 - **Gate 2 — No gap found.** No new component design, no new states/variants/a11y surface — all three dropdowns already exist and already render the same way; this story only changes which class produces their (unchanged) z-index.
-- **Gate 3 — No gap found** beyond Story 0.49's own finding (already recorded/accepted there as `FIND-074`). None of this story's three files is in `packages/visual-audit`'s current content globs.
+- **Gate 3 — No gap found** beyond Story 0.49's own finding (already recorded/accepted there as `FIND-077`). None of this story's three files is in `packages/visual-audit`'s current content globs.
 
 ### Data Type Compatibility & Migration Requirements
 
@@ -107,7 +107,7 @@ so that these address/account-suggestion popovers — none of which AD-33's text
 - [ ] Architecture and boundary confirmation — `packages/ui`/`apps/web` only; depends on Story 0.49.
 - [ ] Testing plan confirmation — existing tests unmodified + green; manual visual smoke check.
 - [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gates 1-3: no gap for this story specifically (Story 0.49's own Gate 3 finding/FIND-074 already accepted there).
+- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gates 1-3: no gap for this story specifically (Story 0.49's own Gate 3 finding/FIND-077 already accepted there).
 
 ## Testing Requirements
 

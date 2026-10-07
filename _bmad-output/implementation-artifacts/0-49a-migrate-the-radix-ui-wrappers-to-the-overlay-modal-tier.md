@@ -65,7 +65,7 @@ so that every dialog/sheet/select/popover in the app is provably on the same nam
 
 - **Gate 1 — No gap found.** Fresh for this story (stale `epic-0-readiness.md` doesn't cover this scope). Pure className substitution in existing shared UI wrapper components; no backend/API/infra touched.
 - **Gate 2 — No gap found.** This story performs no new component design — it renames an existing, already-shipped class on four files that already exist and are already shared/reused across the app. No new states/variants/a11y surface is introduced.
-- **Gate 3 — No gap found** (beyond the one already surfaced and handled in Story 0.49 — see that story's Gate 3 finding and `FIND-074`; not re-raised here since this story only consumes `OVERLAY_MODAL_Z`, it does not redefine the mechanism).
+- **Gate 3 — No gap found** (beyond the one already surfaced and handled in Story 0.49 — see that story's Gate 3 finding and `FIND-077`; not re-raised here since this story only consumes `OVERLAY_MODAL_Z`, it does not redefine the mechanism).
 
 ### Data Type Compatibility & Migration Requirements
 
@@ -120,7 +120,7 @@ so that every dialog/sheet/select/popover in the app is provably on the same nam
 - [ ] Architecture and boundary confirmation — `apps/web`/`packages/ui` only; depends on Story 0.49 being done first.
 - [ ] Testing plan confirmation — existing test suites unmodified + green; manual visual smoke check.
 - [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gates 1-3: no gap for this story specifically (Story 0.49's own Gate 3 finding/FIND-074 already accepted there).
+- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gates 1-3: no gap for this story specifically (Story 0.49's own Gate 3 finding/FIND-077 already accepted there).
 
 ## Testing Requirements
 

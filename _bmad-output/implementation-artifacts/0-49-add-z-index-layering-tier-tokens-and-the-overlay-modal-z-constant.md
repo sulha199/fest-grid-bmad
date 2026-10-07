@@ -65,7 +65,7 @@ so that Stories 0.49a–0.49d have one real mechanism to adopt instead of each i
 
 - **Gate 1 (Architecture/Infra Completeness) — No gap found.** Run fresh during this story's creation (the stale `epic-0-readiness.md` sweep, dated 2026-08-03, only covers Stories 0.1-0.19 and predates all of this scope, so it was not trusted — see this story's creation-time lightweight guard). This story adds `theme.extend.zIndex` tokens and exports a string constant; it calls no database/ORM/domain package, no external service, introduces no API surface, adds no auth/secrets/business-rule, and depends on no un-provisioned infra. Scope stays entirely in `apps/web`, `packages/ui`, `packages/visual-audit`.
 - **Gate 2 (UI Complexity & Reusability) — No gap found.** `OVERLAY_MODAL_Z` is a single exported string constant with no props, variants, states, or a11y surface of its own — it fails Gate 2's complexity trigger (non-trivial states/variants/a11y) and correctly belongs with this mechanism story rather than getting its own dedicated refinement story.
-- **Gate 3 (Foundational/Cross-Cutting Dependency Completeness) — GAP FOUND, addressed in this story, general debt deferred (see FIND-074).** `packages/visual-audit/vendor/tailwind.config.cjs` is a second, hand-maintained Tailwind theme (its own header comment already calls manual color-token sync "an established burden") that does not automatically inherit `apps/web/tailwind.config.ts`'s new tokens. Verified by direct file read during this story's creation: as of today, **none** of Stories 0.49a-0.49d's target files (the Radix wrappers, AppShell/NavRailItem/UserMenu, blocking-loader, the events-feature overlay consumers, summary-bar, the location/subscribe-account dropdowns) appear in `vendor/tailwind.config.cjs`'s `content` globs — only `count-badge.tsx`, `EventCardMediaPrimitives.tsx`, `grid-container.tsx`, and `EventCard.tsx` are globbed, and none of those four files contain a `z-40`/`z-50`/`z-[60]` site (all their z-index usage is Local-tier, untouched by AD-33's migration). So nothing is live-broken today. This story's AC4/Task 3 adds the defensive mirror anyway, at near-zero cost, so the *next* file added to visual-audit's content globs doesn't silently lose a tier class. The **general** problem — two independently-maintained Tailwind configs with nothing that checks they stay in sync — is real, pre-existing (predates AD-33/IDEA-060 entirely), and is **not** fully solved by this one mirror. It is recorded as a new backlog finding, **FIND-074** (`type: finding`, `status: backlog`), rather than spun into a mandatory new Epic 0 story blocking this work, because: (a) nothing in this epic's actual scope is currently affected (verified above), and (b) the fix this story applies (the mirror) removes the immediate risk for this epic's own files. A future story against FIND-074 should build a real sync check (e.g. a script/test asserting the two configs' token sets match, or generating the vendor config's theme from the real one) rather than relying on each unrelated story to remember to hand-mirror its own tokens.
+- **Gate 3 (Foundational/Cross-Cutting Dependency Completeness) — GAP FOUND, addressed in this story, general debt deferred (see FIND-077).** `packages/visual-audit/vendor/tailwind.config.cjs` is a second, hand-maintained Tailwind theme (its own header comment already calls manual color-token sync "an established burden") that does not automatically inherit `apps/web/tailwind.config.ts`'s new tokens. Verified by direct file read during this story's creation: as of today, **none** of Stories 0.49a-0.49d's target files (the Radix wrappers, AppShell/NavRailItem/UserMenu, blocking-loader, the events-feature overlay consumers, summary-bar, the location/subscribe-account dropdowns) appear in `vendor/tailwind.config.cjs`'s `content` globs — only `count-badge.tsx`, `EventCardMediaPrimitives.tsx`, `grid-container.tsx`, and `EventCard.tsx` are globbed, and none of those four files contain a `z-40`/`z-50`/`z-[60]` site (all their z-index usage is Local-tier, untouched by AD-33's migration). So nothing is live-broken today. This story's AC4/Task 3 adds the defensive mirror anyway, at near-zero cost, so the *next* file added to visual-audit's content globs doesn't silently lose a tier class. The **general** problem — two independently-maintained Tailwind configs with nothing that checks they stay in sync — is real, pre-existing (predates AD-33/IDEA-060 entirely), and is **not** fully solved by this one mirror. It is recorded as a new backlog finding, **FIND-077** (`type: finding`, `status: backlog`), rather than spun into a mandatory new Epic 0 story blocking this work, because: (a) nothing in this epic's actual scope is currently affected (verified above), and (b) the fix this story applies (the mirror) removes the immediate risk for this epic's own files. A future story against FIND-077 should build a real sync check (e.g. a script/test asserting the two configs' token sets match, or generating the vendor config's theme from the real one) rather than relying on each unrelated story to remember to hand-mirror its own tokens.
 
 ### Data Type Compatibility & Migration Requirements
 
@@ -87,7 +87,7 @@ so that Stories 0.49a–0.49d have one real mechanism to adopt instead of each i
 
 - [Source: _bmad-output/planning-artifacts/festgrid-architecture-spine.md#AD-33] (Rules 1, 3, 5 — this story's scope; Rules 2, 4 explicitly deferred to 0.49a-0.49e)
 - [Source: _bmad-output/implementation-artifacts/backlog/IDEA-060-z-index-layering-tiers.md] (triggering backlog row)
-- [Source: _bmad-output/implementation-artifacts/backlog.yaml#IDEA-060, #FIND-074]
+- [Source: _bmad-output/implementation-artifacts/backlog.yaml#IDEA-060, #FIND-077]
 - [Source: _bmad-output/project-context.md#Layering (z-index tiers)] (already written by the architecture pass; cited, not edited)
 - [Source: apps/web/tailwind.config.ts] (read in full)
 - [Source: packages/ui/src/index.ts] (read in full — confirmed barrel-export pattern)
@@ -109,11 +109,11 @@ so that Stories 0.49a–0.49d have one real mechanism to adopt instead of each i
   - Modified: `packages/ui/src/index.ts` (one new export line — Task 2.2)
   - Modified: `packages/visual-audit/vendor/tailwind.config.cjs` (mirror `zIndex` tokens — Task 3.1)
   - Modified (generated): `packages/visual-audit/vendor/tailwind.generated.css` (regenerated — Task 3.2)
-  - Modified: `_bmad-output/implementation-artifacts/backlog.yaml` (new `FIND-074` row)
+  - Modified: `_bmad-output/implementation-artifacts/backlog.yaml` (new `FIND-077` row)
   - **Not touched:** any `apps/backend`/`packages/database` file; `project-context.md`; `DESIGN.md`; any of Stories 0.49a-0.49d's actual adoption target files.
 - **Rule Mapping:**
   - AD-33 Rules 1/3/5 → Tasks 1, 2.
-  - Gate 3 finding (FIND-074) → Task 3's defensive mirror, plus the new backlog row for the general sync-debt.
+  - Gate 3 finding (FIND-077) → Task 3's defensive mirror, plus the new backlog row for the general sync-debt.
   - UI-lane-only constraint → all changes confined to `apps/web`, `packages/ui`, `packages/visual-audit`.
 - **Verification Plan:**
   - `pnpm --filter @festgrid/web build` / scratch-class probe (Task 1.2).
@@ -127,7 +127,7 @@ so that Stories 0.49a–0.49d have one real mechanism to adopt instead of each i
 - [ ] Architecture and boundary confirmation — `apps/web`, `packages/ui`, `packages/visual-audit` only; no backend/DB.
 - [ ] Testing plan confirmation — build/lint/typecheck clean; visual-audit's existing fixture suite stays green after the vendor-config regen.
 - [x] Explicit human approval state (approved by shulha via chat on 2026-10-06)
-- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1/2: no gap. Gate 3: gap found and mitigated in this story's own Task 3 (defensive mirror); the general cross-cutting sync-debt is **explicitly accepted as non-blocking** and deferred to new backlog row `FIND-074`, since no file in this epic's scope is currently affected (verified by direct read of `vendor/tailwind.config.cjs`'s content globs during story creation).
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1/2: no gap. Gate 3: gap found and mitigated in this story's own Task 3 (defensive mirror); the general cross-cutting sync-debt is **explicitly accepted as non-blocking** and deferred to new backlog row `FIND-077`, since no file in this epic's scope is currently affected (verified by direct read of `vendor/tailwind.config.cjs`'s content globs during story creation).
 
 ## Testing Requirements
 
@@ -139,20 +139,20 @@ so that Stories 0.49a–0.49d have one real mechanism to adopt instead of each i
 - [x] `apps/web/tailwind.config.ts`'s `theme.extend.zIndex` with `chrome`/`overlay-sticky`/`overlay-modal`/`overlay-blocking`
 - [x] `packages/ui/src/core/overlay-z.ts` exporting `OVERLAY_MODAL_Z`, re-exported from `packages/ui/src/index.ts`
 - [x] `packages/visual-audit/vendor/tailwind.config.cjs` mirrored with the same 4 tokens; `vendor/tailwind.generated.css` regenerated
-- [x] `FIND-074` added to `backlog.yaml`
+- [x] `FIND-077` added to `backlog.yaml`
 
 ## Out of Scope
 
 - The actual migration of any existing `z-40`/`z-50`/`z-[60]` site to its tier token — Stories 0.49a, 0.49b, 0.49c, 0.49d.
 - The Vitest ratchet test — Story 0.49e.
-- A general, automated sync mechanism between `apps/web/tailwind.config.ts` and `packages/visual-audit/vendor/tailwind.config.cjs` — deferred to `FIND-074` (not promoted to a story yet; this story's Task 3 is a one-time defensive mirror, not a standing mechanism).
+- A general, automated sync mechanism between `apps/web/tailwind.config.ts` and `packages/visual-audit/vendor/tailwind.config.cjs` — deferred to `FIND-077` (not promoted to a story yet; this story's Task 3 is a one-time defensive mirror, not a standing mechanism).
 - Any edit to `project-context.md` or `DESIGN.md` — already correct from the architecture pass.
 
 ## Definition of Done
 
 - [x] AC1–AC6 satisfied.
 - [x] Build/lint/typecheck passing for `apps/web`, `packages/ui`, `packages/visual-audit`.
-- [x] `FIND-074` recorded in `backlog.yaml` (added during story creation; verified present, unchanged).
+- [x] `FIND-077` recorded in `backlog.yaml` (added during story creation; verified present, unchanged).
 
 ## Completion Status
 
@@ -173,7 +173,7 @@ Claude Sonnet 5 (claude-sonnet-5)
 - `pnpm --filter @festgrid/visual-audit build:vendor-tailwind` — regenerated `vendor/tailwind.generated.css`. Diffed selector sets against the pre-change file: no `.z-chrome`/`.z-overlay-sticky`/`.z-overlay-modal`/`.z-overlay-blocking` rule appears in the output (confirms AC4's expectation that nothing in the current `content` globs uses the new tier classes yet, so this is a no-visual-diff defensive mirror). Noted unrelated pre-existing drift in the committed `tailwind.generated.css` (a handful of spacing/utility classes differ from what current source would generate) that predates this story — not touched further, out of scope (Task 3.2).
 - `pnpm --filter @festgrid/visual-audit test` — 41/41 tests pass, 0 failures (Task 3.3).
 - Confirmed via `git status`/`git diff` that `_bmad-output/project-context.md` and both `DESIGN.md` files are untouched (Task 4.3).
-- Confirmed `FIND-074` already present in `backlog.yaml` (added during story creation) — left unchanged.
+- Confirmed `FIND-077` already present in `backlog.yaml` (added during story creation) — left unchanged.
 
 ### Completion Notes List
 

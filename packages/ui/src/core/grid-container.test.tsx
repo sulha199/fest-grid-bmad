@@ -142,6 +142,7 @@ describe('GridContainer', () => {
 
     afterEach(() => {
       setInnerWidth(1024);
+      vi.restoreAllMocks();
     });
 
     it('AC1 — defaults to css-grid when layout is omitted (unaffected by this story)', () => {
@@ -212,6 +213,56 @@ describe('GridContainer', () => {
         expect(item.style.gridRow).toBe('auto');
         expect(item.style.gridColumn).not.toBe('');
       });
+    });
+
+    it('AC14 — Phase 2 items carry a definite two-line gridColumn (N / N+1), never a bare N whose auto end line stretches an absolutely positioned item to the container edge', () => {
+      const { container } = render(
+        <GridContainer baseCols={2} colsStep={1} layout="masonry">
+          <div>Item 1</div>
+          <div>Item 2</div>
+          <div>Item 3</div>
+        </GridContainer>
+      );
+
+      const items = Array.from(container.querySelectorAll('[data-grid-container-item]')) as HTMLElement[];
+      expect(items).toHaveLength(3);
+      items.forEach((item) => {
+        // jsdom measures synchronously during commit, so the render is already in Phase 2.
+        expect(item.style.position).toBe('absolute');
+        const col = Number(item.getAttribute('data-grid-container-column-index'));
+        expect(item.style.gridColumn).toBe(`${col + 1} / ${col + 2}`);
+      });
+    });
+
+    it('AC14 — the container height drops the trailing row gap and Phase 2 offsets include the computed row-gap', () => {
+      setInnerWidth(500); // below `md`: exactly baseCols (2) columns
+      const original = window.getComputedStyle;
+      vi.spyOn(window, 'getComputedStyle').mockImplementation((el: Element, pseudo?: string | null) => {
+        const real = original(el, pseudo);
+        if ((el as HTMLElement).getAttribute?.('data-grid-container-layout') === 'masonry') {
+          return new Proxy(real, { get: (t, k) => (k === 'rowGap' ? '16px' : Reflect.get(t, k)) });
+        }
+        return real;
+      });
+      const heights: Record<string, number> = { A: 100, B: 100, C: 40 };
+      vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
+        return heights[this.textContent ?? ''] ?? 0;
+      });
+
+      const { container } = render(
+        <GridContainer baseCols={2} colsStep={1} layout="masonry">
+          <div>A</div>
+          <div>B</div>
+          <div>C</div>
+        </GridContainer>
+      );
+
+      const root = container.querySelector('[data-grid-container-layout="masonry"]') as HTMLElement;
+      const items = Array.from(container.querySelectorAll('[data-grid-container-item]')) as HTMLElement[];
+      // A -> col0 @0, B -> col1 @0, C -> shortest column (col0, tie -> first) @ 100 + 16.
+      expect(items[2].style.transform).toBe('translateY(116px)');
+      // tallest column = 100 + 16 + 40 + 16 = 172, minus the trailing gap = 156.
+      expect(root.style.height).toBe('156px');
     });
 
     it('AC4 — index-major Tab/DOM order: items appear in the flat parent in itemIndex order, not grouped by column', () => {

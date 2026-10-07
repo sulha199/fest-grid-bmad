@@ -32,7 +32,7 @@ import type { UseMasonryLayoutOptions, UseMasonryLayoutResult } from './useMason
  * contributes a `0` height estimate until it measures in (see `columnAssignments` below) — its
  * column reflows once it does, but the rest of the list doesn't visibly reshuffle.
  */
-export function useMasonryLayout({ itemCount, columnCount }: UseMasonryLayoutOptions): UseMasonryLayoutResult {
+export function useMasonryLayout({ itemCount, columnCount, rowGap = 0 }: UseMasonryLayoutOptions): UseMasonryLayoutResult {
   const nodesRef = useRef<Map<number, HTMLElement>>(new Map());
   const observerRef = useRef<ResizeObserver | null>(null);
   const [heights, setHeights] = useState<Record<number, number>>({});
@@ -167,10 +167,10 @@ export function useMasonryLayout({ itemCount, columnCount }: UseMasonryLayoutOpt
       }
       assignments[i] = shortest;
       offsets[i] = colHeights[shortest];
-      colHeights[shortest] += height;
+      colHeights[shortest] += height + rowGap;
     }
     return { columnAssignments: assignments, columnHeights: colHeights, itemOffsets: offsets };
-  }, [itemCount, columnCount, heights, hasMeasured]);
+  }, [itemCount, columnCount, heights, hasMeasured, rowGap]);
 
   const columns = useMemo<number[][]>(() => {
     const cols: number[][] = Array.from({ length: Math.max(columnCount, 0) }, () => []);

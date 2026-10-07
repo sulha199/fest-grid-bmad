@@ -573,7 +573,7 @@ development_status:
   # Dev Notes.
   1-i1o-wire-eventcard-and-weeklycalendarview-labels-to-nextintl: done
   # Formed 2026-10-06 via bmad-create-story: dead-code removal carved from IDEA-048's
-  # 2026-10-05 close-out (backlog FIND-073). Amends shipped ACs in Stories
+  # 2026-10-05 close-out (backlog FIND-076). Amends shipped ACs in Stories
   # 1.i1a/1.i1e/1.i1m and Story 1.i1z's Change Log, plus Architecture Spine AD-15 Rule 4.
   1-i1p-remove-eventcardmediaslots-unused-internal-favorite-badge: review
   1-i1z-ratchet-no-card-surface-sizes-or-falls-back-locally: review

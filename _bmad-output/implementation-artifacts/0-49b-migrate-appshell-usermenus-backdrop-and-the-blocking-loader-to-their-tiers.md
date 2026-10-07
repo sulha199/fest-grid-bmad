@@ -53,7 +53,7 @@ so that the app's permanent navigation chrome and its one full-screen blocking s
 
 - **Gate 1 — No gap found.** Fresh for this story. Pure className substitution in existing shared `packages/ui` components; no backend/API/infra.
 - **Gate 2 — Finding incorporated into this story's scope (not a split-off story).** Gate 2, run during this story set's creation against the original draft (which had bundled all of `AppShell`/`NavRailItem`/`UserMenu` into one "chrome" adoption story), found that a blanket file-level conversion would wrongly drop `UserMenu`'s menu panel and `NavRailItem`'s tooltip from 50 to 40 — a real stacking regression, not a pure rename (both are hand-rolled, no-`isolate` overlays that must compete with arbitrary page content, matching AD-33's own Overlay-modal classification of the structurally identical `EventDetailView` kebab dropdown). This story's AC2 explicitly carves the menu-panel site out to Story 0.49c instead of absorbing Gate 2's correction silently.
-- **Gate 3 — No gap found** beyond Story 0.49's own finding (already recorded/accepted there as `FIND-074`).
+- **Gate 3 — No gap found** beyond Story 0.49's own finding (already recorded/accepted there as `FIND-077`).
 
 ### Data Type Compatibility & Migration Requirements
 

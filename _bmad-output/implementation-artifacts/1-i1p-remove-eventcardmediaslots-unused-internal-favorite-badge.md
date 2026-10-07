@@ -345,7 +345,7 @@ Append as a new, third bullet under Story 1.i1z's existing `## Change Log` secti
 
 - [Source: _bmad-output/implementation-artifacts/backlog.yaml#IDEA-048] (closed 2026-10-05; this story is the carved-out "removal is a separate step" item from its own close-out note)
 - [Source: _bmad-output/planning-artifacts/event-pages-followup-2026-10-05.md] (Step 5 — cited, not edited, per `backlog-spec.md` §8's citation/owned-artifact distinction; this story is that step landing)
-- [Source: _bmad-output/implementation-artifacts/backlog-spec.md §4, §8, §13] (ID freshness rule; citation vs. owned-artifact ref rule; promotion-intake mechanics for FIND-073)
+- [Source: _bmad-output/implementation-artifacts/backlog-spec.md §4, §8, §13] (ID freshness rule; citation vs. owned-artifact ref rule; promotion-intake mechanics for FIND-076)
 - [Source: _bmad-output/planning-artifacts/epic-readiness/epic-1-i1-readiness.md] (Gate 1 + Gate 3 sweep, swept: true)
 - [Source: _bmad-output/planning-artifacts/story-split-gate.md] (Gate 2 run fresh; Epic-Level Sweep Mode for Gate 1/3)
 - [Source: packages/ui/src/features/events/EventCardMediaPrimitives.tsx] (read in full — confirmed both dead branches' exact gating and line positions)
