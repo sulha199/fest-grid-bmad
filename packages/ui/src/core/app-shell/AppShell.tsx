@@ -126,7 +126,7 @@ export function AppShell({
       */}
       <nav aria-label="Main">
         {/* Mobile Bottom Tab Bar (< 768px) */}
-        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t bg-background md:hidden py-1 h-14 [&_a]:flex-col [&_button]:flex-col [&_a]:gap-0.5 [&_button]:gap-0.5 [&_a_span.hidden]:inline [&_button_span.hidden]:inline [&_a_span.hidden]:text-[10px] [&_button_span.hidden]:text-[10px] [&_a]:h-full [&_button]:h-full [&_a]:w-full [&_button]:w-full [&_a]:justify-center [&_button]:justify-center">
+        <div className="fixed inset-x-0 bottom-0 z-chrome flex items-center justify-around border-t bg-background md:hidden py-1 h-14 [&_a]:flex-col [&_button]:flex-col [&_a]:gap-0.5 [&_button]:gap-0.5 [&_a_span.hidden]:inline [&_button_span.hidden]:inline [&_a_span.hidden]:text-[10px] [&_button_span.hidden]:text-[10px] [&_a]:h-full [&_button]:h-full [&_a]:w-full [&_button]:w-full [&_a]:justify-center [&_button]:justify-center">
           {navEntries.map((entry) => {
             const IconComponent = entry.icon;
             return (
@@ -159,7 +159,7 @@ export function AppShell({
         />
 
         {/* Sidenav Rail (Tablet md:flex 768-1279px, Desktop xl:flex >= 1280px) */}
-        <div className="fixed inset-y-0 start-0 z-40 hidden md:flex md:flex-col md:items-center xl:items-stretch w-16 xl:w-56 border-e bg-background py-4 gap-6">
+        <div className="fixed inset-y-0 start-0 z-chrome hidden md:flex md:flex-col md:items-center xl:items-stretch w-16 xl:w-56 border-e bg-background py-4 gap-6">
           {/* Logo (Top pinned) */}
           <div className="flex h-12 items-center justify-center xl:justify-start px-4">
             <Logo />

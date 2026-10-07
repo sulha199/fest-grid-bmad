@@ -1964,12 +1964,18 @@ items:
 
   # ── 2026-10-05 ───────────────────────────────────────────────────────────────
   IDEA-060:
-    {type: idea, status: backlog, created: 2026-10-05,
+    {type: idea, status: promoted, created: 2026-10-05,
      impact: internal, effort: m,
+     stories: [0-49-add-z-index-layering-tier-tokens-and-the-overlay-modal-z-constant,
+               0-49a-migrate-the-radix-ui-wrappers-to-the-overlay-modal-tier,
+               0-49b-migrate-appshell-usermenus-backdrop-and-the-blocking-loader-to-their-tiers,
+               0-49c-migrate-the-events-feature-overlay-menu-tooltip-sites-and-the-summary-bar,
+               0-49d-migrate-the-location-and-subscribe-account-suggestion-dropdowns-to-overlay-modal,
+               0-49e-ratchet-no-raw-tier-value-class-or-inlined-overlay-modal-literal],
      title: "Consolidate z-index into named layering tiers: one documented scale, theme tokens, and a ratchet against raw z-values",
      ref: [backlog/IDEA-060-z-index-layering-tiers.md],
      touches: [pkg:ui, web:system, cross:ux-tokens, cross:architecture],
-     note: "~70 raw z-* classes, 17 at z-50 for unrelated things, and no documented layering rule; needs bmad-architecture (tier model) first. Inventory and routing in the ref."}
+     note: "Tier model: Architecture Spine AD-33. Promoted via bmad-create-story 2026-10-06 to Stories 0.49/0.49a-0.49e (plain Epic 0 split, not a bmad-form-epics epic -- see 0.49's Dev Notes). Full scope covered; no child row. Adjacent Gate 3 finding tracked separately as FIND-077."}
 
   FIND-072:
     {type: finding, status: backlog, created: 2026-10-05,
@@ -2019,3 +2025,22 @@ items:
      ref: [implementation-artifacts/0-48-mount-stable-masonry-engine-fix-reflow-remount-and-focus-loss.md],
      touches: [pkg:ui, pkg:visual-audit],
      note: "Found by the first real run of manifests-proof.spec.ts (EventCardMasonry default-thumbnail-fallback overflow rule: scrollWidth 92 > clientWidth 80); fails on the pre-CC-030 code too, so unrelated to the grid."}
+
+  # ── 2026-10-06 (bmad-create-story, Story 1.i1p) ─────────────────────────────
+  FIND-076:
+    {type: finding, status: promoted, created: 2026-10-06,
+     impact: internal, effort: xs,
+     stories: [1-i1p-remove-eventcardmediaslots-unused-internal-favorite-badge],
+     title: "EventCardMediaSlot's internal favorite-badge branches (corner pill + large fallback) are dead code now both production callers pass hideFavoriteBadge",
+     ref: [planning-artifacts/event-pages-followup-2026-10-05.md, packages/ui/src/features/events/EventCardMediaPrimitives.tsx],
+     touches: [pkg:ui, web:events],
+     note: "Carved from IDEA-048's 2026-10-05 close-out (Step 5 of the followup tracker). Promoted directly to Story 1.i1p via bmad-create-story -- both branches unreachable since EventCard.tsx/EventCardCompact.tsx already compose EventCardFavoriteBadge externally."}
+
+  # ── 2026-10-06 (bmad-create-story, IDEA-060 / Story 0.49) ────────────────────
+  FIND-077:
+    {type: finding, status: backlog, created: 2026-10-06,
+     impact: internal, effort: s,
+     title: "packages/visual-audit's vendor Tailwind config is a second, hand-maintained theme with nothing that checks it stays in sync with apps/web/tailwind.config.ts",
+     ref: [packages/visual-audit/vendor/tailwind.config.cjs, _bmad-output/implementation-artifacts/0-49-add-z-index-layering-tier-tokens-and-the-overlay-modal-z-constant.md],
+     touches: [pkg:visual-audit, cross:architecture],
+     note: "Gate 3 finding from Story 0.49's creation. Mitigated there via a one-time defensive token mirror (Task 3); no fixture currently affected. Not yet promoted -- needs a real sync check, not per-story hand-mirroring. See Story 0.49's Dev Notes."}

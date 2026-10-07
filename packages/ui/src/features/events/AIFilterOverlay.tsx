@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { X, Sparkles } from 'lucide-react';
 import { Button } from '../../core/ui/button';
+import { OVERLAY_MODAL_Z } from '../../core/overlay-z';
 
 export interface AIFilterOverlayProps {
   isOpen: boolean;
@@ -118,7 +119,7 @@ export function AIFilterOverlay({
       role="dialog"
       aria-modal="true"
       aria-labelledby="ai-overlay-title"
-      className="fixed inset-0 z-50 flex flex-col bg-background p-6 md:p-10 outline-none overflow-y-auto"
+      className={`fixed inset-0 ${OVERLAY_MODAL_Z} flex flex-col bg-background p-6 md:p-10 outline-none overflow-y-auto`}
     >
       <div className="mx-auto w-full max-w-3xl flex flex-col min-h-full justify-between">
         <div className="flex justify-end mb-6">

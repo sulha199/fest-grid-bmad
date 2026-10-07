@@ -79,7 +79,7 @@ export function BlockingLoader({
       ref={containerRef}
       tabIndex={-1}
       aria-busy="true"
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 outline-none"
+      className="fixed inset-0 z-overlay-blocking flex items-center justify-center bg-black/50 outline-none"
     >
       <div className="flex flex-col items-center gap-4 text-white">
         <Loader2 className="animate-spin h-10 w-10 text-white" aria-hidden="true" />

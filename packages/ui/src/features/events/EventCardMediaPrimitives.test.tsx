@@ -1,6 +1,6 @@
 /// <reference types="@testing-library/jest-dom" />
 import React from 'react';
-import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
   EventCardMediaSlot,
@@ -21,7 +21,6 @@ import {
   EVENT_CARD_BADGE_FONT_SIZE,
   EVENT_CARD_BADGE_FONT_SIZE_VAR,
   EVENT_CARD_BADGE_FONT_SIZE_BY_SIZE,
-  EVENT_CARD_BADGE_MIN_TOUCH_REM,
   eventCardBadgeIconSizeStyle,
   eventCardRowFavoriteIconGrowingStyle,
   EVENT_CARD_ROW_FAVORITE_ICON_MIN_PX,
@@ -122,7 +121,7 @@ describe('EventCardFavoriteBadge - AC2 (icon size derives from the shared token,
   // SVG element (not just that a class string contains the right substring) is what would
   // have caught that.
   it('renders a large badge whose icon carries the calibrated size as an inline style', () => {
-    render(<EventCardMediaSlot layout="flex-fill" onFavoriteToggle={vi.fn()} />);
+    render(<EventCardFavoriteBadge scale="large" onFavoriteToggle={vi.fn()} />);
     const heart = screen.getByRole('button').querySelector('svg');
     expect(heart).not.toBeNull();
     const expected = expectedIconSize(EVENT_CARD_BADGE_ICON_SCALE_LARGE);
@@ -137,28 +136,23 @@ describe('EventCardFavoriteBadge - AC2 (icon size derives from the shared token,
 describe('EventCardMediaSlot fallback - AC3 (reserved blank, no placeholder icon/text)', () => {
   afterEach(() => cleanup());
 
-  it('renders no image, no placeholder text, and no filler in the slot when imageUrl is absent', () => {
-    render(<EventCardMediaSlot layout="flex-fill" onFavoriteToggle={vi.fn()} />);
-    expect(document.querySelector('img')).toBeNull();
-    expect(screen.queryByText(/no image available/i)).toBeNull();
-    expect(screen.getByRole('button')).toBeInTheDocument();
-  });
-
-  it('renders nothing at all in the slot when both imageUrl and onFavoriteToggle are absent', () => {
+  it('renders no image, no placeholder text, and no favorite control when imageUrl is absent (the slot owns no favorite rendering of its own, Story 1.i1p)', () => {
     const { container } = render(<EventCardMediaSlot layout="flex-fill" />);
     expect(container.querySelector('img')).toBeNull();
     expect(container.querySelector('button')).toBeNull();
     expect(screen.queryByText(/no image available/i)).toBeNull();
+    // The slot's own root element still mounts, preserving its AC1 reserved footprint.
+    expect(slotRoot(container)).not.toBeNull();
   });
 
   it('switches to the reserved-blank fallback when the image onError fires', () => {
-    render(<EventCardMediaSlot layout="flex-fill" imageUrl="/broken.jpg" onFavoriteToggle={vi.fn()} />);
+    const { container } = render(<EventCardMediaSlot layout="flex-fill" imageUrl="/broken.jpg" />);
     const img = document.querySelector('img');
     expect(img).not.toBeNull();
     fireEvent.error(img as HTMLImageElement);
     expect(document.querySelector('img')).toBeNull();
     expect(screen.queryByText(/no image available/i)).toBeNull();
-    expect(screen.getByRole('button')).toBeInTheDocument();
+    expect(slotRoot(container)).not.toBeNull();
   });
 
   // BUG-042 (AC-IMG-1): the imageUrl -> imageFallbackUrl -> reserved-blank retry-once chain.
@@ -182,18 +176,17 @@ describe('EventCardMediaSlot fallback - AC3 (reserved blank, no placeholder icon
   });
 
   it('falls through to the reserved-blank fallback if the imageUrl-absent fallback itself errors', () => {
-    render(
+    const { container } = render(
       <EventCardMediaSlot
         layout="flex-fill"
         imageUrl={undefined}
         imageFallbackUrl="/also-broken.jpg"
-        onFavoriteToggle={vi.fn()}
       />
     );
     const img = document.querySelector('img');
     fireEvent.error(img as HTMLImageElement);
     expect(document.querySelector('img')).toBeNull();
-    expect(screen.getByRole('button')).toBeInTheDocument();
+    expect(slotRoot(container)).not.toBeNull();
   });
 
   // Code-review fix (BUG-042 loopback): without the `imageFallbackUrl !== currentImgSrc` guard,
@@ -220,12 +213,11 @@ describe('EventCardMediaSlot fallback - AC3 (reserved blank, no placeholder icon
   });
 
   it('falls through to the reserved-blank fallback when both imageUrl and imageFallbackUrl error', () => {
-    render(
+    const { container } = render(
       <EventCardMediaSlot
         layout="flex-fill"
         imageUrl="/broken.jpg"
         imageFallbackUrl="/also-broken.jpg"
-        onFavoriteToggle={vi.fn()}
       />
     );
     const img = document.querySelector('img');
@@ -235,56 +227,20 @@ describe('EventCardMediaSlot fallback - AC3 (reserved blank, no placeholder icon
     fireEvent.error(swapped as HTMLImageElement);
     expect(document.querySelector('img')).toBeNull();
     expect(screen.queryByText(/no image available/i)).toBeNull();
-    expect(screen.getByRole('button')).toBeInTheDocument();
+    expect(slotRoot(container)).not.toBeNull();
   });
 
-describe('EventCardMediaSlot - AC4 (one live favorite-toggle control, adequate tap target, no extra focus stop)', () => {
-  afterEach(() => cleanup());
-
-  it('renders exactly one focusable element per slot regardless of layout/error state', () => {
-    const { container, rerender } = render(
-      <EventCardMediaSlot layout="flex-fill" imageUrl="/a.jpg" onFavoriteToggle={vi.fn()} />
-    );
-    expect(container.querySelectorAll('button')).toHaveLength(1);
-    expect(container.querySelectorAll('button, a, input, [tabindex]')).toHaveLength(1);
-
-    rerender(<EventCardMediaSlot layout="fixed-square" onFavoriteToggle={vi.fn()} />);
-    expect(container.querySelectorAll('button')).toHaveLength(1);
-    expect(container.querySelectorAll('button, a, input, [tabindex]')).toHaveLength(1);
-  });
-
-  it('gives the large fallback badge a real min-h-11 min-w-11 (>=44px) tap target', () => {
-    const { container } = render(<EventCardMediaSlot layout="flex-fill" onFavoriteToggle={vi.fn()} />);
-    const badge = container.querySelector('button');
-    expect(badge?.className).toContain('min-h-11');
-    expect(badge?.className).toContain('min-w-11');
-  });
-
-  // Regression test: a `layout="flex-fill"` slot inherits its height from whatever row
-  // it's stretched to match (e.g. a short date box), which can be shorter than the badge's
-  // own min-h-11 above -- without a minHeight floor on this wrapper, the badge overflows
-  // and gets clipped by the slot's own overflow-hidden (`slotRoot`'s className).
-  it('never lets the large-badge wrapper be shorter than the badge\'s own min-h-11 touch target', () => {
-    const { container } = render(<EventCardMediaSlot layout="flex-fill" onFavoriteToggle={vi.fn()} />);
-    const badge = container.querySelector('button');
-    const wrapper = badge?.parentElement as HTMLElement;
-    expect(wrapper.style.minHeight).toBe(`${EVENT_CARD_BADGE_MIN_TOUCH_REM}rem`);
-  });
-
-  it('keeps the large badge the same reachable favorite-toggle control as the small one', () => {
-    const { container, rerender } = render(
-      <EventCardMediaSlot layout="flex-fill" imageUrl="/a.jpg" onFavoriteToggle={vi.fn()} isFavorited />
-    );
-    const smallBadge = container.querySelector('button');
-    expect(smallBadge).not.toBeNull();
-    expect(smallBadge?.getAttribute('aria-label')).toBe('Toggle favorite');
-
-    rerender(<EventCardMediaSlot layout="flex-fill" onFavoriteToggle={vi.fn()} />);
-    const largeBadge = container.querySelector('button');
-    expect(largeBadge).not.toBeNull();
-    expect(largeBadge?.getAttribute('aria-label')).toBe('Toggle favorite');
-  });
-});
+// Story 1.i1a's original "AC4" (one live favorite-toggle control owned by the slot itself,
+// adequate tap target, no extra focus stop) is retired: Story 1.i1p removed EventCardMediaSlot's
+// internal favorite-badge rendering entirely, once both production callers (EventCard.tsx,
+// EventCardCompact.tsx) were found to always suppress it via the since-removed
+// `hideFavoriteBadge` prop. That invariant now lives entirely at the consumer level instead --
+// see EventCard.test.tsx's "renders exactly one focusable favorite-toggle control (outer
+// top-right button suppressed) when onFavoriteToggle is provided" and
+// EventCardCompact.test.tsx's "Image-present vs. image-absent favorite-badge placement"
+// describe block, each of which proves it for their own composed `EventCardFavoriteBadge`
+// sibling. `EventCardFavoriteBadge` itself keeps its own min-h-11/min-w-11 tap-target and
+// single-accessible-name guarantees -- see its own "AC5" describe block below.
 
 describe('EventCardFavoriteBadge - AC5 (i18n label plumbing matching EventCard convention)', () => {
   afterEach(() => cleanup());
@@ -306,28 +262,11 @@ describe('EventCardFavoriteBadge - AC5 (i18n label plumbing matching EventCard c
   });
 });
 
-describe('EventCardMediaSlot additive props (Story 1.i1e)', () => {
+// `hideFavoriteBadge` was retired by Story 1.i1p along with the internal rendering it used to
+// suppress; only the `onImagePresenceChange` prop/tests below remain from this describe block's
+// original scope.
+describe('EventCardMediaSlot additive props (onImagePresenceChange, Story 1.i1e)', () => {
   afterEach(() => cleanup());
-
-  it('hideFavoriteBadge suppresses the internal badge in both branches even when onFavoriteToggle is provided', () => {
-    const { container: imagePresentContainer } = render(
-      <EventCardMediaSlot layout="flex-fill" imageUrl="/a.jpg" onFavoriteToggle={vi.fn()} hideFavoriteBadge />
-    );
-    expect(imagePresentContainer.querySelector('button')).toBeNull();
-
-    const { container: fallbackContainer } = render(
-      <EventCardMediaSlot layout="flex-fill" onFavoriteToggle={vi.fn()} hideFavoriteBadge />
-    );
-    expect(fallbackContainer.querySelector('button')).toBeNull();
-    expect(fallbackContainer.querySelector('img')).toBeNull();
-  });
-
-  it('renders the internal badge normally when hideFavoriteBadge is omitted (defaults falsy)', () => {
-    const { container } = render(
-      <EventCardMediaSlot layout="flex-fill" imageUrl="/a.jpg" onFavoriteToggle={vi.fn()} />
-    );
-    expect(container.querySelectorAll('button')).toHaveLength(1);
-  });
 
   it('fires onImagePresenceChange(true) on mount with a valid imageUrl, then false after the img onError fires', () => {
     const onImagePresenceChange = vi.fn();
@@ -335,7 +274,6 @@ describe('EventCardMediaSlot additive props (Story 1.i1e)', () => {
       <EventCardMediaSlot
         layout="flex-fill"
         imageUrl="/a.jpg"
-        onFavoriteToggle={vi.fn()}
         onImagePresenceChange={onImagePresenceChange}
       />
     );
@@ -352,7 +290,6 @@ describe('EventCardMediaSlot additive props (Story 1.i1e)', () => {
     render(
       <EventCardMediaSlot
         layout="flex-fill"
-        onFavoriteToggle={vi.fn()}
         onImagePresenceChange={onImagePresenceChange}
       />
     );
@@ -365,18 +302,18 @@ describe('EventCardMediaSlot collapseOnFallback (Story 1.i1m AC1/AC3)', () => {
 
   it('defaults to false and preserves the exact reserved-blank fallback when omitted (masonry regression guard)', () => {
     const { container } = render(
-      <EventCardMediaSlot layout="flex-fill" onFavoriteToggle={vi.fn()} />
+      <EventCardMediaSlot layout="flex-fill" />
     );
     // Today's exact reserved-blank behavior: the slot's own root element still mounts,
-    // reserving its footprint, with the large favorite badge centered inside it.
+    // reserving its footprint, with no favorite control of its own (Story 1.i1p).
     const slot = container.querySelector('[data-event-card-media-slot]');
     expect(slot).not.toBeNull();
-    expect(within(slot as HTMLElement).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
+    expect(slot).toBeEmptyDOMElement();
   });
 
   it('renders null (no slot element at all) when collapseOnFallback is true and no imageUrl is provided', () => {
     const { container } = render(
-      <EventCardMediaSlot layout="fixed-square" onFavoriteToggle={vi.fn()} collapseOnFallback />
+      <EventCardMediaSlot layout="fixed-square" collapseOnFallback />
     );
     expect(container.querySelector('[data-event-card-media-slot]')).toBeNull();
     expect(container.firstChild).toBeNull();
@@ -387,7 +324,6 @@ describe('EventCardMediaSlot collapseOnFallback (Story 1.i1m AC1/AC3)', () => {
       <EventCardMediaSlot
         layout="fixed-square"
         imageUrl="/broken.jpg"
-        onFavoriteToggle={vi.fn()}
         collapseOnFallback
       />
     );
@@ -406,14 +342,12 @@ describe('EventCardMediaSlot collapseOnFallback (Story 1.i1m AC1/AC3)', () => {
       <EventCardMediaSlot
         layout="fixed-square"
         imageUrl="/a.jpg"
-        onFavoriteToggle={vi.fn()}
         collapseOnFallback
       />
     );
     const slot = container.querySelector('[data-event-card-media-slot]');
     expect(slot).not.toBeNull();
     expect(slot?.querySelector('img')).toHaveAttribute('src', '/a.jpg');
-    expect(within(slot as HTMLElement).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
   });
 });
 
