@@ -60,6 +60,7 @@ test('uploadFaceBlurThumbnail integration/unit tests', async (t) => {
     maxExtractedEventsPerPost: 10,
     geminiMaxOutputTokens: 8192,
     geminiExtractionTimeoutMs: 120000,
+    geminiVerificationTimeoutMs: 10000,
     scrapeInitialLookbackDays: 7,
     scrapeSkipRecentHours: 20,
     scraperMonthlyBudgetUsd: 5.0,
