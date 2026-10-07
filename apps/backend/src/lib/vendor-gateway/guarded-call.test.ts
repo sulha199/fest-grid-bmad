@@ -154,6 +154,8 @@ test('guarded-call: callVendor', async (t) => {
     assert.equal(attempts, 3);
   });
 
+  // Story 0.i2z AC4 ratchet — this test is the enforcement for the hung-call-times-out
+  // guarantee; do not duplicate it in the new ratchet file.
   await t.test('wrapper-level timeout fires VendorCallTimeoutError on a thunk that never resolves', async () => {
     await assert.rejects(
       () =>
@@ -166,6 +168,8 @@ test('guarded-call: callVendor', async (t) => {
     );
   });
 
+  // Story 0.i2z AC4 ratchet — this test is the enforcement for the hung-call-times-out
+  // guarantee; do not duplicate it in the new ratchet file.
   await t.test('timeout aborts the AbortSignal passed into the thunk', async () => {
     let abortedViaEvent = false;
     await assert.rejects(
@@ -206,6 +210,7 @@ test('guarded-call: callVendor', async (t) => {
     assert.equal(attempts, 1);
   });
 
+  // Story 0.i2z AC5 ratchet.
   await t.test('DPA gate: apify rejects when APIFY_SCRAPING_CONFIRMED="false"', async (st) => {
     const original = process.env.APIFY_SCRAPING_CONFIRMED;
     process.env.APIFY_SCRAPING_CONFIRMED = 'false';
