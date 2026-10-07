@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-07T07:31:45Z
+last_updated: 2026-10-07T11:00:17Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -373,7 +373,7 @@ development_status:
   0-i1z-ratchet-no-moderator-notification-bypasses-the-helper: backlog
   epic-0-i2: backlog
   0-i2a-build-the-guarded-vendor-call-wrapper: review
-  0-i2b-adopt-the-wrapper-in-the-gemini-synchronous-verification-path: backlog
+  0-i2b-adopt-the-wrapper-in-the-gemini-synchronous-verification-path: ready-for-dev
   0-i2c-adopt-the-wrapper-in-the-async-inference-path: review
   # added 2026-10-06 via bmad-create-story (Gate 3 finding scoping Story 0.i2a/AD-32):
   # AD-32 flagged no epics.md story adopts the wrapper for Apify/Bright Data; this
