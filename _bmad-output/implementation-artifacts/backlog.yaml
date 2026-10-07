@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-05"
+last_updated: "2026-10-07"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -1225,10 +1225,10 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      stories: [0-50-add-a-locale-parity-ratchet-for-eventdetailviewlabels],
      touches: [pkg:ui, cross:i18n],
-     note: "Deferred from: find-011-cruft-cleanup (2026-09-15). A future prop removal/addition on any such label interface can silently desync from the translation files. Promoted 2026-10-06 via Story 0.50 (EventDetailViewLabels only; see child FIND-073)."}
+     note: "Deferred from: find-011-cruft-cleanup (2026-09-15). A future prop removal/addition on any such label interface can silently desync from the translation files. Promoted 2026-10-06 via Story 0.50 (EventDetailViewLabels only; see child FIND-076)."}
 
   # ── 2026-10-06 (bmad-create-story, Story 0.50) ───────────────────────────────
-  FIND-073:
+  FIND-076:
     {type: finding, status: backlog, created: 2026-10-06, parent: FIND-032,
      impact: internal, effort: m,
      title: "Widen the EventDetailViewLabels locale-parity ratchet (Story 0.50) to the ~19 other *Labels interfaces across packages/ui, packages/domain, and apps/web",
@@ -1242,7 +1242,7 @@ items:
      impact: internal, effort: xs,
      title: "Formalize scroll-to-top-on-filter-reset as a cross-surface EXPERIENCE.md convention",
      ref: [implementation-artifacts/0-i5b-adopt-the-controller-in-discovery-event-list-surfaces.md,
-           design-artifacts/UX-festgrid-run-1/EXPERIENCE.md#scroll-to-top-on-filter-reset],
+           design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
      touches: [pkg:ui, web:events, cross:ux-tokens],
      note: "Surfaced during Story 0.i5b (bmad-create-story, 2026-09-15): Gate 2 found neither DESIGN.md nor EXPERIENCE.md addresses whether a filter change should scroll a list view back to top. User chose (via AskUserQuestion) to add this behavior to Discovery's home-content.tsx now — window.scrollTo({top:0}) fired from useListPaginationController's onReset, reusing useCollapseHeaderOnScroll.ts's existing reduced-motion-aware convention — but explicitly as a single-surface implementation, not a binding EXPERIENCE.md rule. This idea tracks formalizing it into a documented cross-surface convention if/when Feed/Favorites or other useListPaginationController adopters need the same treatment. Not promoted to a story; no adoption story references it yet.
      UPDATED 2026-09-30 (Story 0-i5e): Feed (feed-content.tsx) and Favorites (favorites-content.tsx) now also implement scroll-to-top-on-filter-reset the same way, via AskUserQuestion during Story 0.i5e's creation. All 3 current useListPaginationController adopters (Discovery, Feed, Favorites) now implement this behavior — still recorded here as a documented convention, not promoted to a binding EXPERIENCE.md rule by this story.
@@ -1371,9 +1371,9 @@ items:
      stories: [3-17-demand-gated-discovery-for-scrape-discovered-profiles],
      touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions],
      impact: user-visible, effort: m,
-     note: "Partial-promotion carve-out from CC-027 (section 13): tracked 3.17, 3.19. Promoted 2026-10-07 on Story 3.17; remaining fan-out (3.19) carved to CC-030."}
+     note: "Partial-promotion carve-out from CC-027 (section 13): tracked 3.17, 3.19. Promoted 2026-10-07 on Story 3.17; remaining fan-out (3.19) carved to CC-031."}
 
-  CC-030:
+  CC-031:
     {type: proposal, status: promoted, created: 2026-10-07, parent: CC-029,
      title: "Remaining FIND-022 coauthor/publisher story not yet created (3.19)",
      ref: [backlog/FIND-022-coauthor-content-issues.md,
@@ -2030,3 +2030,28 @@ items:
      title: "Hero event image (EventImage.tsx) stays raw <img>, not next/image -- packages/ui must remain framework-agnostic",
      ref: [backlog/FIND-031-event-detail-client-side-hygiene.md], touches: [pkg:ui],
      note: "cost: carved out of FIND-031 (AskUserQuestion, 2026-10-07) -- packages/ui must stay decoupled from Next.js APIs, no next/image precedent there. Reopens if a framework-agnostic image adapter lands for packages/ui. Full detail in backlog/FIND-031-event-detail-client-side-hygiene.md."}
+
+  # ── 2026-10-06 ──────────────────────────────────────────────────────────────
+  CC-030:
+    {type: proposal, status: triaged, created: 2026-10-06,
+     impact: user-visible, effort: s,
+     title: "Masonry Phase 2 layout defects: full-width column-0 items overlapping column 1, and no vertical gap",
+     ref: [implementation-artifacts/0-48-mount-stable-masonry-engine-fix-reflow-remount-and-focus-loss.md,
+           planning-artifacts/sprint-change-proposal-2026-10-06-masonry-phase2-grid-column.md],
+     touches: [pkg:ui, pkg:visual-audit, cross:architecture],
+     note: "Code fixes already on branch ccr-b2f1dfd2-re35x8; remaining work is the sibling-gap rule, Phase 2 real-browser manifest, tests, Story 0.48 AC2/AC14 and AD-27 wording."}
+
+  IDEA-063:
+    {type: idea, status: skipped, created: 2026-10-06, parent: CC-030,
+     title: "Retarget masonry-column-width-invariant.ts from its synthetic flex row to the real mounted GridContainer",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-06-masonry-phase2-grid-column.md],
+     touches: [pkg:visual-audit],
+     note: "value: low, the synthetic row stays as the rule-engine proof it was written to be; the new Phase 2 manifest entry covers the real component."}
+
+  FIND-073:
+    {type: finding, status: backlog, created: 2026-10-07, parent: CC-030,
+     impact: cosmetic, effort: xs,
+     title: "EventCard masonry date-box status text clips at 80px for the happeningNow / In {n} hour(s) variants",
+     ref: [implementation-artifacts/0-48-mount-stable-masonry-engine-fix-reflow-remount-and-focus-loss.md],
+     touches: [pkg:ui, pkg:visual-audit],
+     note: "Found by the first real run of manifests-proof.spec.ts (EventCardMasonry default-thumbnail-fallback overflow rule: scrollWidth 92 > clientWidth 80); fails on the pre-CC-030 code too, so unrelated to the grid."}

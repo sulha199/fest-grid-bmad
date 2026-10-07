@@ -7,6 +7,7 @@ import './count-badge-react-mount.js';
 import './event-card-date-box-react-mount.js';
 import './event-card-date-box-sizing.js';
 import './grid-container-masonry.js';
+import './grid-container-masonry-phase2.js';
 
 export { entry as eventCardMasonryThumbnailFallback } from './event-card-masonry-thumbnail-fallback.js';
 export { entry as masonryColumnWidthInvariant } from './masonry-column-width-invariant.js';
@@ -19,3 +20,4 @@ export { entry as eventCardDateBoxReactMount } from './event-card-date-box-react
 // code review after the width/height fixes were found to be under-guarded).
 export { widthEntry as eventCardDateBoxWidthConsistency, heightEntry as eventCardDateBoxHeightMatchesThumbnail } from './event-card-date-box-sizing.js';
 export { entry as gridContainerMasonry } from './grid-container-masonry.js';
+export { entry as gridContainerMasonryPhase2 } from './grid-container-masonry-phase2.js';

@@ -8,7 +8,7 @@
 // Same fix as `count-badge.tsx`/`EventCardMediaPrimitives.tsx`; see either file's header for the
 // direct repro this is based on.
 import * as React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 import { GridContainerProps } from './grid-container.types';
 import { useMasonryLayout } from '../hooks/useMasonryLayout';
@@ -156,6 +156,35 @@ function useActiveColumnCount(counts: GridContainerColumnCounts, enabled: boolea
   return enabled ? columnCount : counts.base;
 }
 
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
+/**
+ * Phase 2 masonry items are `position: absolute`, so the grid's native `row-gap` (from the `gap`
+ * Tailwind class) never separates them vertically. Reads the container's computed `row-gap` (px)
+ * so the placement hook can add it between stacked items; re-reads on resize because gap classes
+ * may be responsive. Returns 0 until measured / when disabled.
+ */
+function useContainerRowGap(ref: React.RefObject<HTMLElement | null>, enabled: boolean, gapClass: string): number {
+  const [rowGap, setRowGap] = useState(0);
+
+  useIsomorphicLayoutEffect(() => {
+    if (!enabled || typeof window === 'undefined') {
+      return;
+    }
+    const read = () => {
+      const el = ref.current;
+      if (!el) return;
+      const parsed = parseFloat(window.getComputedStyle(el).rowGap);
+      setRowGap(Number.isFinite(parsed) ? parsed : 0);
+    };
+    read();
+    window.addEventListener('resize', read);
+    return () => window.removeEventListener('resize', read);
+  }, [ref, enabled, gapClass]);
+
+  return enabled ? rowGap : 0;
+}
+
 /**
  * GridContainer is a shared, presentational card-grid container component.
  * It manages responsive column layout from numeric baseCols and colsStep props,
@@ -181,9 +210,12 @@ export function GridContainer({
   const items = useMemo(() => React.Children.toArray(children), [children]);
 
   const activeColumnCount = useActiveColumnCount(counts, isMasonry);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const rowGap = useContainerRowGap(containerRef, isMasonry, gap);
   const { columnAssignments, registerItemRef, hasMeasured, columnHeights, itemOffsets } = useMasonryLayout({
     itemCount: isMasonry ? items.length : 0,
     columnCount: activeColumnCount,
+    rowGap,
   });
 
   if (isMasonry) {
@@ -210,7 +242,8 @@ export function GridContainer({
           display: 'grid',
           gridTemplateColumns: columnTemplate,
           position: 'relative',
-          height: columnHeights.length > 0 ? Math.max(...columnHeights) : 0,
+          // Each column's height includes a trailing row gap after its last item; drop it.
+          height: columnHeights.length > 0 ? Math.max(0, Math.max(...columnHeights) - rowGap) : 0,
         }
       : {
           display: 'grid',
@@ -219,6 +252,7 @@ export function GridContainer({
 
     return (
       <div
+        ref={containerRef}
         className={cn(gap, className)}
         data-grid-container-layout="masonry"
         style={containerStyle}
@@ -227,7 +261,7 @@ export function GridContainer({
           const colIndex = columnAssignments[itemIndex] ?? 0;
           const itemStyle: React.CSSProperties = hasMeasured
             ? {
-                gridColumn: colIndex + 1,
+                gridColumn: `${colIndex + 1} / ${colIndex + 2}`,
                 position: 'absolute',
                 width: '100%',
                 transform: `translateY(${itemOffsets[itemIndex] ?? 0}px)`,

@@ -11,9 +11,11 @@ export type {
   Viewport,
   RenderSpec,
   IsolatedRender,
+  ClientBundleRender,
   LiveRouteRender,
   Rule,
   SiblingDimensionRule,
+  SiblingGapRule,
   IntraBoxRatioRule,
   OverflowRule,
   ColorRule,
@@ -39,6 +41,8 @@ export {
   type BoundingBox,
   type SiblingDimensionCheckResult,
 } from './rules/sibling-dimension.js';
+
+export { checkSiblingGap, type SiblingGapCheckResult } from './rules/sibling-gap.js';
 
 export { checkIntraBoxRatio, deriveRatioFromReference, DEFAULT_RATIO_TOLERANCE_RELATIVE, type IntraBoxRatioCheckResult } from './rules/intra-box-ratio.js';
 
