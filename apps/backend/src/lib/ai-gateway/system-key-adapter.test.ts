@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert';
+import { db } from '../../db/client.js';
+import { vendorCallLocks } from '@festgrid/database';
+import { eq } from 'drizzle-orm';
 import {
   callGeminiForLocationInference,
   callGeminiForAccountClassification,
@@ -8,12 +11,19 @@ import {
 } from './system-key-adapter.js';
 import { AiGatewayExhaustedError } from './adapter.js';
 import { setCallGeminiGenerateContent, callGeminiGenerateContent } from './gemini-client.js';
+import { VendorKeyBusyError } from '../vendor-gateway/guarded-call.js';
+
+const SYSTEM_LOCK_KEY = 'gemini:system';
+
+async function deleteSystemLockRow(): Promise<void> {
+  await db.delete(vendorCallLocks).where(eq(vendorCallLocks.lockKey, SYSTEM_LOCK_KEY));
+}
 
 test('system-key-adapter - callGeminiForLocationInference orchestration', async (t) => {
   const originalSystemKey = process.env.SYSTEM_GEMINI_API_KEY;
   const originalCallGeminiGenerateContent = callGeminiGenerateContent;
 
-  t.after(() => {
+  t.after(async () => {
     // Restore original dependencies & environment
     setCallGemini(callGeminiRef);
     setCallGeminiGenerateContent(originalCallGeminiGenerateContent);
@@ -22,6 +32,9 @@ test('system-key-adapter - callGeminiForLocationInference orchestration', async 
     } else {
       delete process.env.SYSTEM_GEMINI_API_KEY;
     }
+    // Story 0.i2c: the fallback now goes through callVendor, which claims/releases a
+    // vendor_call_locks row for 'gemini:system' -- clean up any leftover row.
+    await deleteSystemLockRow();
   });
 
   await t.test('1. Succeeds on standard Tier 1/2 call without system key fallback', async () => {
@@ -131,13 +144,88 @@ test('system-key-adapter - callGeminiForLocationInference orchestration', async 
     );
     assert.equal(contentCallCount, 0);
   });
+
+  await t.test('5 (Story 0.i2c): claims the gemini:system lease during the fallback call and releases it after', async () => {
+    setCallGemini(async () => {
+      throw new AiGatewayExhaustedError('Gateway exhausted');
+    });
+    process.env.SYSTEM_GEMINI_API_KEY = 'system-secret-key';
+    await deleteSystemLockRow();
+
+    let resolveInFlight: (() => void) | undefined;
+    const callStarted = new Promise<void>((resolveStarted) => {
+      setCallGeminiGenerateContent(async () => {
+        resolveStarted();
+        await new Promise<void>((resolve) => {
+          resolveInFlight = resolve;
+        });
+        return { text: 'system-key-success' };
+      });
+    });
+
+    try {
+      const resultPromise = callGeminiForLocationInference({
+        provider: 'gemini',
+        subscriberUserIds: ['user-1'],
+        contents: 'Hello',
+      });
+
+      await callStarted;
+      const rowsWhileInFlight = await db.select().from(vendorCallLocks).where(eq(vendorCallLocks.lockKey, SYSTEM_LOCK_KEY));
+      assert.equal(rowsWhileInFlight.length, 1);
+      assert.ok(rowsWhileInFlight[0].lockedUntil.getTime() > Date.now());
+
+      resolveInFlight?.();
+      const result = await resultPromise;
+      assert.equal(result.text, 'system-key-success');
+
+      const rowsAfter = await db.select().from(vendorCallLocks).where(eq(vendorCallLocks.lockKey, SYSTEM_LOCK_KEY));
+      assert.equal(rowsAfter.length, 1);
+      assert.ok(rowsAfter[0].lockedUntil.getTime() <= Date.now() + 1000);
+    } finally {
+      await deleteSystemLockRow();
+    }
+  });
+
+  await t.test('6 (Story 0.i2c): a pre-held gemini:system lease causes VendorKeyBusyError rather than invoking the SDK', async () => {
+    setCallGemini(async () => {
+      throw new AiGatewayExhaustedError('Gateway exhausted');
+    });
+    process.env.SYSTEM_GEMINI_API_KEY = 'system-secret-key';
+    await deleteSystemLockRow();
+    await db.insert(vendorCallLocks).values({
+      lockKey: SYSTEM_LOCK_KEY,
+      lockedUntil: new Date(Date.now() + 60_000),
+    });
+
+    let contentCallCount = 0;
+    setCallGeminiGenerateContent(async () => {
+      contentCallCount++;
+      return { text: 'should-not-reach' };
+    });
+
+    try {
+      await assert.rejects(
+        () =>
+          callGeminiForLocationInference({
+            provider: 'gemini',
+            subscriberUserIds: ['user-1'],
+            contents: 'Hello',
+          }),
+        VendorKeyBusyError
+      );
+      assert.equal(contentCallCount, 0);
+    } finally {
+      await deleteSystemLockRow();
+    }
+  });
 });
 
 test('system-key-adapter - callGeminiForAccountClassification orchestration', async (t) => {
   const originalSystemKey = process.env.SYSTEM_GEMINI_API_KEY;
   const originalCallGeminiGenerateContent = callGeminiGenerateContent;
 
-  t.after(() => {
+  t.after(async () => {
     setCallGemini(callGeminiRef);
     setCallGeminiGenerateContent(originalCallGeminiGenerateContent);
     if (originalSystemKey !== undefined) {
@@ -145,6 +233,7 @@ test('system-key-adapter - callGeminiForAccountClassification orchestration', as
     } else {
       delete process.env.SYSTEM_GEMINI_API_KEY;
     }
+    await deleteSystemLockRow();
   });
 
   await t.test('1. Succeeds on standard Tier 1/2 call without system key fallback', async () => {
@@ -250,5 +339,80 @@ test('system-key-adapter - callGeminiForAccountClassification orchestration', as
       }
     );
     assert.equal(contentCallCount, 0);
+  });
+
+  await t.test('5 (Story 0.i2c): claims the gemini:system lease during the fallback call and releases it after', async () => {
+    setCallGemini(async () => {
+      throw new AiGatewayExhaustedError('Gateway exhausted');
+    });
+    process.env.SYSTEM_GEMINI_API_KEY = 'system-secret-key';
+    await deleteSystemLockRow();
+
+    let resolveInFlight: (() => void) | undefined;
+    const callStarted = new Promise<void>((resolveStarted) => {
+      setCallGeminiGenerateContent(async () => {
+        resolveStarted();
+        await new Promise<void>((resolve) => {
+          resolveInFlight = resolve;
+        });
+        return { text: 'system-key-success' };
+      });
+    });
+
+    try {
+      const resultPromise = callGeminiForAccountClassification({
+        provider: 'gemini',
+        subscriberUserIds: ['user-1'],
+        contents: 'Hello',
+      });
+
+      await callStarted;
+      const rowsWhileInFlight = await db.select().from(vendorCallLocks).where(eq(vendorCallLocks.lockKey, SYSTEM_LOCK_KEY));
+      assert.equal(rowsWhileInFlight.length, 1);
+      assert.ok(rowsWhileInFlight[0].lockedUntil.getTime() > Date.now());
+
+      resolveInFlight?.();
+      const result = await resultPromise;
+      assert.equal(result.text, 'system-key-success');
+
+      const rowsAfter = await db.select().from(vendorCallLocks).where(eq(vendorCallLocks.lockKey, SYSTEM_LOCK_KEY));
+      assert.equal(rowsAfter.length, 1);
+      assert.ok(rowsAfter[0].lockedUntil.getTime() <= Date.now() + 1000);
+    } finally {
+      await deleteSystemLockRow();
+    }
+  });
+
+  await t.test('6 (Story 0.i2c): a pre-held gemini:system lease causes VendorKeyBusyError rather than invoking the SDK', async () => {
+    setCallGemini(async () => {
+      throw new AiGatewayExhaustedError('Gateway exhausted');
+    });
+    process.env.SYSTEM_GEMINI_API_KEY = 'system-secret-key';
+    await deleteSystemLockRow();
+    await db.insert(vendorCallLocks).values({
+      lockKey: SYSTEM_LOCK_KEY,
+      lockedUntil: new Date(Date.now() + 60_000),
+    });
+
+    let contentCallCount = 0;
+    setCallGeminiGenerateContent(async () => {
+      contentCallCount++;
+      return { text: 'should-not-reach' };
+    });
+
+    try {
+      await assert.rejects(
+        () =>
+          callGeminiForAccountClassification({
+            provider: 'gemini',
+            subscriberUserIds: ['user-1'],
+            contents: 'Hello',
+          }),
+        VendorKeyBusyError
+      );
+      assert.equal(contentCallCount, 0);
+    } finally {
+      await deleteSystemLockRow();
+    }
   });
 });
