@@ -922,6 +922,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
               statusLabels={statusLabels}
               dayOfWeekLabels={labels.dayOfWeekLabels}
               repeatBadgeAriaLabel={labels.repeatBadgeAriaLabel}
+              addedToCalendarBadgeLabel={defaultLabels.addedToCalendarBadgeLabel}
             />
           ))}
         </div>
@@ -1425,6 +1426,11 @@ interface MultiDaySpanningBarProps<TSchedule extends WeeklyCalendarViewScheduleS
   dayOfWeekLabels?: Record<string, string>;
   /** Story 1.3k (AC6/AC8) — repeat badge aria-label/tooltip text resolver. */
   repeatBadgeAriaLabel?: (dayLabels: string[]) => string;
+  /**
+   * FIND-058: aria-label for the decorative `isAddedToCalendar` corner icon, mirroring the
+   * single-day grid card's own `addedToCalendarBadgeLabel` (`CalendarCard`, above).
+   */
+  addedToCalendarBadgeLabel?: string;
 }
 
 /**
@@ -1466,6 +1472,7 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
   runEndDate,
   dayOfWeekLabels,
   repeatBadgeAriaLabel,
+  addedToCalendarBadgeLabel,
 }: MultiDaySpanningBarProps<TSchedule>) {
   // Story 1.3k Task 4 (AC11) — same shared hook as `CalendarCard`'s grid variant, replacing this
   // component's own hand-rolled `isHovered`/`isFocused`/`isDismissed` state (the mandatory second
@@ -1556,6 +1563,22 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
           repeatBadgeAriaLabel={repeatBadgeAriaLabel}
           repeatBadgeTooltipVisible={tooltipVisible}
         />
+        {/* FIND-058: `isAddedToCalendar` has no slot in the shared `EventCardCalendarGridItem`
+            primitive (same gap as the single-day grid cell's own note above), so it stays a
+            small decorative icon composed directly here — copied verbatim from the single-day
+            card's own top-left corner treatment. This bar always receives an `onFavoriteToggle`
+            handler, so the primitive's internal favorite control renders instead of a decorative
+            heart, leaving this corner free (no competing decorative-favorite icon to collide
+            with, unlike the single-day cell). Positioned with a *negative* offset so it sits
+            outside the card's own `p-2` padding box (a corner badge over the border, not the
+            content) — same reasoning as the single-day card's comment above. */}
+        {schedule.isAddedToCalendar && (
+          <CalendarPlus
+            className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 text-emerald-600 bg-white/90 rounded-full p-0.5 shadow-sm"
+            aria-label={addedToCalendarBadgeLabel || 'Added to calendar'}
+            data-testid="calendar-plus-icon"
+          />
+        )}
       </div>
 
       {/* Hover+Focus accessible tooltip (AC11) — same element/behavior as the day-cell cards. */}
