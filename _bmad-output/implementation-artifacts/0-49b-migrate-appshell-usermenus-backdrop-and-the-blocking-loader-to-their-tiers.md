@@ -148,6 +148,7 @@ Claude Sonnet 5 (claude-sonnet-5)
 - `pnpm --filter @festgrid/ui exec vitest run src/core/blocking-loader.test.tsx src/core/app-shell/AppShell.test.tsx src/core/app-shell/UserMenu.test.tsx` — 15/15 passed after the test-assertion fix below.
 - `pnpm --filter @festgrid/ui lint` — 0 errors/warnings.
 - `pnpm --filter @festgrid/ui exec tsc --noEmit` — fails on pre-existing `TS5101` ("Option 'baseUrl' is deprecated") in `packages/ui/tsconfig.json`, unrelated to this story's edits (no tsconfig/type files touched; confirmed via `git diff --stat`). Flagged as pre-existing/out of scope, not fixed.
+- Session resumed 2026-10-07 after a usage-limit interruption (source edits were already committed as WIP in `e07295f9`; not redone). Re-ran `pnpm --filter @festgrid/ui lint` (0 errors/warnings, fresh) and `pnpm --filter @festgrid/ui exec tsc --noEmit` (same pre-existing `TS5101` failure, confirmed unrelated via `git log -1 -- packages/ui/tsconfig.json` showing last touched in unrelated commit `5660fdc7`, and clean `git status --short`/no `tsbuildinfo` artifacts). Targeted vitest (3 files, 15/15) had already been confirmed by the orchestrator before the interruption and was not re-run redundantly.
 
 ### Completion Notes List
 
