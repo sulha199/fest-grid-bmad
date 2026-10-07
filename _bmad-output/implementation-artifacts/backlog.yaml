@@ -1120,11 +1120,11 @@ items:
      note: "Fix: gated the query on the event having a sourceSocialMediaAccountProfile (not lifted to shell-level, since no other route needs it warmed). Full trace in backlog/FIND-030-unconditional-subscriptions-query-on-event-detail.md."}
 
   FIND-031:
-    {type: finding, status: triaged, created: 2026-09-15,
+    {type: finding, status: done, created: 2026-09-15,
      impact: cosmetic, effort: xs,
      title: "Event-detail page client-side hygiene: unmemoized prop mapper, raw <img> instead of next/image on hero and carousel-peek images",
      ref: [backlog/FIND-031-event-detail-client-side-hygiene.md], touches: [web:events/EventDetailWrapper, pkg:ui],
-     note: "Low priority relative to BUG-032/033/034; bundled as one item (unmemoized mapper, raw <img> on hero/carousel-peek). Not yet scoped into a story. Full detail in backlog/FIND-031-event-detail-client-side-hygiene.md."}
+     note: "Done 2026-10-07, implemented directly via bmad-quick-dev (no story): mapper memoized, carousel-peek moved to next/image (unoptimized). Hero image intentionally not converted -- carved out as FIND-075. Full detail in backlog/FIND-031-event-detail-client-side-hygiene.md."}
 
   # ── 2026-09-15 (bmad-help backlog capture) ──────────────────────────────────
   BUG-032:
@@ -2020,3 +2020,11 @@ items:
      ref: [planning-artifacts/sprint-change-proposal-2026-10-01-multi-event-posts.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
      touches: [app:backend, web:moderation],
      note: "Deferred from Story 3.6w's bmad-create-story (2026-10-05, AskUserQuestion): out-of-scope manual merge trigger. See 3.6w's Dev Notes/Out of Scope for the reusable mergeEvents() internal function a future story here would expose directly."}
+
+  # ── 2026-10-07 (bmad-quick-dev FIND-031 partial-promotion carve-out) ────────
+  FIND-075:
+    {type: finding, status: skipped, created: 2026-10-07, parent: FIND-031,
+     impact: cosmetic, effort: xs,
+     title: "Hero event image (EventImage.tsx) stays raw <img>, not next/image -- packages/ui must remain framework-agnostic",
+     ref: [backlog/FIND-031-event-detail-client-side-hygiene.md], touches: [pkg:ui],
+     note: "cost: carved out of FIND-031 (AskUserQuestion, 2026-10-07) -- packages/ui must stay decoupled from Next.js APIs, no next/image precedent there. Reopens if a framework-agnostic image adapter lands for packages/ui. Full detail in backlog/FIND-031-event-detail-client-side-hygiene.md."}

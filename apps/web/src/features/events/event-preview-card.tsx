@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState } from "react"
+import Image from "next/image"
 import { cn } from "@/lib/utils"
 
 interface EventPreviewCardProps {
@@ -38,11 +39,17 @@ export const EventPreviewCard: React.FC<EventPreviewCardProps> = ({ imageUrl, im
           capped at max-h-[70vh] to match the real component's outer bound. */}
       <div className="relative w-full aspect-video max-h-[70vh] rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
         {!imgError && imageUrl && (
-          <img
+          // unoptimized: imageUrl is a hotlinked scraped-platform CDN URL whose host can't be
+          // statically enumerated (see next.config.js's img-src CSP comment) -- Next's image
+          // optimizer rejects unconfigured remote hosts, so this bypasses the optimizer/allowlist
+          // entirely while still getting next/image's native lazy-loading. FIND-031.
+          <Image
             src={imageUrl}
             alt={imageAlt}
+            fill
+            unoptimized
             onError={() => setImgError(true)}
-            className="w-full h-full object-contain"
+            className="object-contain"
           />
         )}
       </div>
