@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-07T12:40:00Z
+last_updated: 2026-10-07T12:47:31Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -379,7 +379,7 @@ development_status:
   # AD-32 flagged no epics.md story adopts the wrapper for Apify/Bright Data; this
   # closes that gap. See epics.md Story 0.i2d.
   0-i2d-adopt-the-wrapper-in-the-apify-bright-data-scraper-call-sites: backlog
-  0-i2z-ratchet-no-vendor-call-bypasses-the-wrapper: ready-for-dev
+  0-i2z-ratchet-no-vendor-call-bypasses-the-wrapper: review
   epic-0-i3: backlog
   0-i3a-set-up-the-invariant-sweep-check-suite-and-restore-the-lint-gate: backlog
   0-i3b-add-the-lambda-timeout-check: backlog
