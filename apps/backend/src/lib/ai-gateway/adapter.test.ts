@@ -1,11 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import { db } from '../../db/client.js';
-import { apiKeys, users } from '@festgrid/database';
+import { apiKeys, users, vendorCallLocks } from '@festgrid/database';
 import { eq, inArray } from 'drizzle-orm';
 import { callGemini, AiGatewayExhaustedError } from './adapter.js';
 import { setDecryptApiKey, decryptApiKey } from './kms.js';
-import { setCallGeminiGenerateContent, GeminiRateLimitedError, GeminiInvalidKeyError, GeminiTimeoutError, callGeminiGenerateContent } from './gemini-client.js';
+import { setCallGeminiGenerateContent, GeminiRateLimitedError, GeminiInvalidKeyError, callGeminiGenerateContent } from './gemini-client.js';
+import { VendorCallTimeoutError } from '../vendor-gateway/guarded-call.js';
+
+async function deleteLockRow(lockKey: string): Promise<void> {
+  await db.delete(vendorCallLocks).where(eq(vendorCallLocks.lockKey, lockKey));
+}
 
 test('AI Gateway Adapter - callGemini orchestration', async (t) => {
   const originalDecryptApiKey = decryptApiKey;
@@ -44,6 +49,12 @@ test('AI Gateway Adapter - callGemini orchestration', async (t) => {
   t.after(async () => {
     setDecryptApiKey(originalDecryptApiKey);
     setCallGeminiGenerateContent(originalCallGeminiGenerateContent);
+    // Story 0.i2c: callGemini now goes through callVendor, which claims/releases a
+    // vendor_call_locks row (by lockKey, never deleted -- only lockedUntil is reset) for every
+    // candidate key attempted above. Clean those up too, matching guarded-call.test.ts's own
+    // precedent of zero leftover rows after the suite.
+    await deleteLockRow(`gemini:key:${dbKey1.id}`);
+    await deleteLockRow(`gemini:key:${dbKey2.id}`);
     await db.delete(apiKeys).where(inArray(apiKeys.id, [dbKey1.id, dbKey2.id]));
     await db.delete(users).where(eq(users.id, testUser.id));
   });
@@ -162,34 +173,84 @@ test('AI Gateway Adapter - callGemini orchestration', async (t) => {
     );
   });
 
-  await t.test('5 (Story 3.6s, AC7, Task 5.4): GeminiTimeoutError propagates unretried/unexcluded, never caught by the key-retry loop', async () => {
+  await t.test('5 (Story 0.i2c): VendorCallTimeoutError propagates unretried/unexcluded, never caught by the key-retry loop', async () => {
+    const originalTimeoutMs = process.env.GEMINI_EXTRACTION_TIMEOUT_MS;
+    process.env.GEMINI_EXTRACTION_TIMEOUT_MS = '50';
+
     let callCount = 0;
-    setCallGeminiGenerateContent(async (apiKey) => {
+    setCallGeminiGenerateContent(async () => {
       callCount++;
-      throw new GeminiTimeoutError(`Gemini extraction call timed out after 120000ms (key: ${apiKey})`);
+      // Never resolves -- callVendor's own wrapper-level timeout (50ms above) is what fires.
+      return new Promise(() => {});
     });
 
     await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 2 }).where(eq(apiKeys.id, dbKey1.id));
     await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 5 }).where(eq(apiKeys.id, dbKey2.id));
 
-    await assert.rejects(
-      () =>
-        callGemini({
-          provider: 'gemini',
-          subscriberUserIds: [testUser.id],
-          contents: 'Hello',
-        }),
-      (err: any) => err instanceof GeminiTimeoutError
-    );
+    try {
+      await assert.rejects(
+        () =>
+          callGemini({
+            provider: 'gemini',
+            subscriberUserIds: [testUser.id],
+            contents: 'Hello',
+          }),
+        (err: any) => err instanceof VendorCallTimeoutError
+      );
 
-    // Exactly ONE call -- a timeout must never trigger the "try another key" loop (unlike
-    // GeminiRateLimitedError/GeminiInvalidKeyError above), and must never increment
-    // invalidAttempts/exclude the key, since a timeout says nothing about key validity.
-    assert.equal(callCount, 1);
+      // Exactly ONE call -- a timeout must never trigger the "try another key" loop (unlike
+      // GeminiRateLimitedError/GeminiInvalidKeyError above), and must never increment
+      // invalidAttempts/exclude the key, since a timeout says nothing about key validity.
+      assert.equal(callCount, 1);
 
-    const [k1] = await db.select().from(apiKeys).where(eq(apiKeys.id, dbKey1.id));
-    assert.equal(k1.invalidAttempts, 0);
-    assert.equal(k1.isValid, true);
+      const [k1] = await db.select().from(apiKeys).where(eq(apiKeys.id, dbKey1.id));
+      assert.equal(k1.invalidAttempts, 0);
+      assert.equal(k1.isValid, true);
+    } finally {
+      if (originalTimeoutMs === undefined) {
+        delete process.env.GEMINI_EXTRACTION_TIMEOUT_MS;
+      } else {
+        process.env.GEMINI_EXTRACTION_TIMEOUT_MS = originalTimeoutMs;
+      }
+      await deleteLockRow(`gemini:key:${dbKey1.id}`);
+    }
+  });
+
+  await t.test('6 (Story 0.i2c): a busy vendor_call_locks lease for one candidate key excludes it and falls through to the next, succeeding', async () => {
+    const lockKey = `gemini:key:${dbKey1.id}`;
+    await deleteLockRow(lockKey);
+    await db.insert(vendorCallLocks).values({
+      lockKey,
+      lockedUntil: new Date(Date.now() + 60_000),
+    });
+
+    await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 2 }).where(eq(apiKeys.id, dbKey1.id));
+    await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 5 }).where(eq(apiKeys.id, dbKey2.id));
+
+    const invokedKeys: string[] = [];
+    setCallGeminiGenerateContent(async (apiKey) => {
+      invokedKeys.push(apiKey);
+      return { text: 'Key 2 success response' };
+    });
+
+    try {
+      const result = await callGemini({
+        provider: 'gemini',
+        subscriberUserIds: [testUser.id],
+        contents: 'Hello',
+      });
+
+      assert.equal(result.text, 'Key 2 success response');
+      // dbKey1's callGeminiGenerateContent was never invoked -- VendorKeyBusyError was thrown
+      // before the thunk ran, and callGemini excluded it without calling recordInvalidAttempt.
+      assert.deepEqual(invokedKeys, ['key-2-secret']);
+
+      const [k1] = await db.select().from(apiKeys).where(eq(apiKeys.id, dbKey1.id));
+      assert.equal(k1.invalidAttempts, 0);
+      assert.equal(k1.isValid, true);
+    } finally {
+      await deleteLockRow(lockKey);
+    }
   });
 });
 
@@ -226,6 +287,8 @@ test('AI Gateway Adapter - Tier 2 and Billing Cycle Reset', async (t) => {
   }).returning();
 
   t.after(async () => {
+    await deleteLockRow(`gemini:key:${dbKeyA.id}`);
+    await deleteLockRow(`gemini:key:${dbKeyB.id}`);
     await db.delete(apiKeys).where(inArray(apiKeys.id, [dbKeyA.id, dbKeyB.id]));
     await db.delete(users).where(inArray(users.id, [userA.id, userB.id]));
   });
