@@ -1,6 +1,7 @@
 import { callGemini, AiGatewayExhaustedError } from './adapter.js';
-import { callGeminiGenerateContent, GeminiCallRequest, GeminiCallResult } from './gemini-client.js';
+import { callGeminiGenerateContent, GeminiCallRequest, GeminiCallResult, isGeminiErrorTransient } from './gemini-client.js';
 import { loadBackendEnv } from '../../env.js';
+import { callVendor } from '../vendor-gateway/guarded-call.js';
 
 export let callGeminiRef = callGemini;
 
@@ -19,7 +20,12 @@ export async function callGeminiForLocationInference(
       if (!env.systemGeminiApiKey) {
         throw error;
       }
-      return await callGeminiGenerateContent(env.systemGeminiApiKey, request);
+      return await callVendor('gemini', {
+        lockKey: 'gemini:system',
+        timeoutMs: env.geminiExtractionTimeoutMs,
+        isTransient: isGeminiErrorTransient,
+        call: (signal) => callGeminiGenerateContent(env.systemGeminiApiKey as string, request, signal),
+      });
     }
     throw error;
   }
@@ -36,7 +42,12 @@ export async function callGeminiForAccountClassification(
       if (!env.systemGeminiApiKey) {
         throw error;
       }
-      return await callGeminiGenerateContent(env.systemGeminiApiKey, request);
+      return await callVendor('gemini', {
+        lockKey: 'gemini:system',
+        timeoutMs: env.geminiExtractionTimeoutMs,
+        isTransient: isGeminiErrorTransient,
+        call: (signal) => callGeminiGenerateContent(env.systemGeminiApiKey as string, request, signal),
+      });
     }
     throw error;
   }

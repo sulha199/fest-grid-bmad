@@ -5,9 +5,9 @@ import {
   callGeminiGenerateContent,
   GeminiRateLimitedError,
   GeminiInvalidKeyError,
-  GeminiTimeoutError,
   GeminiCallRequest,
   GeminiCallResult,
+  isGeminiErrorTransient,
 } from './gemini-client.js';
 import {
   fetchCandidateKeys,
@@ -17,6 +17,7 @@ import {
 import { db } from '../../db/client.js';
 import { apiKeys } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
+import { callVendor, VendorKeyBusyError } from '../vendor-gateway/guarded-call.js';
 
 export class AiGatewayExhaustedError extends Error {
   constructor(message: string) {
@@ -64,8 +65,13 @@ export async function callGemini(
         await sleep(delay);
       }
 
-      const result = await callGeminiGenerateContent(plaintextKey, request);
-      
+      const result = await callVendor('gemini', {
+        lockKey: `gemini:key:${candidate.id}`,
+        timeoutMs: env.geminiExtractionTimeoutMs,
+        isTransient: isGeminiErrorTransient,
+        call: (signal) => callGeminiGenerateContent(plaintextKey, request, signal),
+      });
+
       // On success, record usage
       await recordSuccessfulUsage(candidate.id);
       return result;
@@ -85,16 +91,22 @@ export async function callGemini(
         continue;
       }
 
-      // Story 3.6s (AC7) — GeminiTimeoutError must take the exact same unretried, unexcluded
-      // path as any other unknown error: a timeout says nothing about whether the *key* was
-      // bad, only that *this specific call* took too long. Retrying immediately with another
-      // key would not fix a genuinely oversized/slow request and would burn a second key's
-      // quota for no benefit. This explicit branch is a no-op (falls through to the same
-      // re-throw below) -- it exists only to make the "never retried-with-another-key" contract
-      // visible and protected against an accidental future regression.
-      if (error instanceof GeminiTimeoutError) {
-        throw error;
+      // Story 0.i2c (AD-32 Rule 4) — VendorKeyBusyError means another concurrent call already
+      // holds this key's lease. Treated exactly like this-key-only exhaustion: exclude and try
+      // the next candidate immediately. A busy lock says nothing about key validity, so it is
+      // never recorded via recordInvalidAttempt.
+      if (error instanceof VendorKeyBusyError) {
+        excludedKeys.add(candidate.id);
+        continue;
       }
+
+      // Story 0.i2c (AD-32 Binds) — VendorCallTimeoutError (the wrapper's own bound elapsing),
+      // and any other error callVendor itself throws before/around the call() thunk (e.g. a
+      // non-transient GeminiUnknownError that exhausted callVendor's own retry budget), must
+      // take the exact same unretried, unexcluded path as any other unknown error: it says
+      // nothing about whether the *key* was bad, only that *this specific call* failed. No
+      // dedicated instanceof branch is needed -- the generic re-throw below already does this,
+      // exactly as GeminiUnknownError's catch-all always has.
 
       // Re-throw unknown errors
       throw error;

@@ -150,7 +150,7 @@ so that unlocked duplicate-billable calls, missing retry backoff, and the missin
 - [x] Testing plan confirmation — real-local-Postgres `node:test` integration/unit tests (Task 6) covering every AC11 scenario, including the new `VendorKeyBusyError` exclude-and-continue path and both `system-key-adapter.ts` fallback functions' lock lifecycle; no mocked DB for lock-table assertions; the `packages/domain` 100%-coverage rule does not apply (these modules live in `apps/backend`).
 - [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three gates run fresh during this story's creation (no `epic-0-i2-readiness.md` sweep report exists); **no gap found** by any of the three; no new prerequisite story was created.
 - [x] **`isGeminiErrorTransient` classification scope — resolved via `AskUserQuestion`, 2026-10-06:** user selected classifying a narrow, evidence-based slice of `GeminiUnknownError` (5xx status or connection-level error codes) as transient, rather than leaving `isTransient` unconditionally `false` for Gemini. AC7, Task 1, and Task 6's new test cases reflect this choice.
-- [ ] Explicit human approval state (Default: pending approval) — the one real design tradeoff in this story (`isGeminiErrorTransient`'s scope) was raised and resolved via `AskUserQuestion` above; a full holistic sign-off on the complete implementation plan (Tasks 1-7 as drafted) has not yet been separately requested from the user and defaults to pending per `story-content-structure.md`.
+- [x] Explicit human approval state — approved by the user via `AskUserQuestion` (2026-10-07): holistic sign-off on the complete implementation plan (Tasks 1-7 as drafted) granted before implementation began.
 
 ## Testing Requirements
 

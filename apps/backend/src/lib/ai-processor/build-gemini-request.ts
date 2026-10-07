@@ -416,10 +416,8 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
     systemInstruction,
     responseSchema: buildGeminiExtractionResponseSchema(),
     responseMimeType: 'application/json',
-    // Story 3.6s (AC3/AC7) — explicit response-size cap, a minimal inline stand-in for the
-    // not-yet-built guarded vendor-call wrapper (0.i2a-0.i2c).
+    // Story 3.6s (AC3) — explicit response-size cap.
     maxOutputTokens: env.geminiMaxOutputTokens,
-    timeoutMs: env.geminiExtractionTimeoutMs
   };
 
   return {
