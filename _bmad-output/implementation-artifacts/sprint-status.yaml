@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-06T17:24:58Z
+last_updated: 2026-10-06T17:41:37Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -909,6 +909,17 @@ development_status:
   # 1.6 family, immediately before Story 1.6, matching the 1.6c/1.6d/1.6e
   # placement convention.
   1-6f-event-detail-page-ui-refinements: review
+  # Added 2026-10-06 (bmad-create-story) -- promotes IDEA-037 (child of
+  # IDEA-030, carved out by Story 1.6f, blocked on BUG-032 until now done).
+  # Display a post's hashtags at the bottom of event-main-content, above the
+  # view-original link; clicking navigates to Discovery with the hashtag via
+  # the existing #-prefix search (q param) -- no new search mechanism.
+  # Gates 1/2/3 ran fresh (epic-1-readiness.md predates this story); all
+  # three "no gap". backlog.yaml: IDEA-037 promoted (parent IDEA-030 stays
+  # promoted, no new child carved -- IDEA-037 is itself a leaf row). Full
+  # epics.md section added (Story 1.6g), positioned as the next lettered
+  # suffix in the 1.6 family, immediately before Story 1.6.
+  1-6g-event-detail-hashtags: ready-for-dev
   1-6-view-event-details: review
   1-7a-build-the-reusable-blockingloader-component: review
   1-7-user-signup-and-login-with-google: review

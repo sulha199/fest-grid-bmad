@@ -1690,6 +1690,25 @@ Users can discover and browse events.
 
 **Depends on:** Story 1.6a (`EventDetailView`, amended in place).
 
+### Story 1.6g: Event detail hashtags — display at bottom of event-main-content, click-to-Discovery
+
+**As a** user,
+**I want** to see the hashtags from an event's source post at the bottom of the event-detail page, and be able to tap one to find more events with that hashtag,
+**So that** I can discover related events through the same tagging the original poster used, without having to type the hashtag myself.
+
+**Acceptance Criteria:**
+
+1.  **Given** the `event`/`eventBySlug` resolvers' already-existing `posts` left-join, **when** `type Event` is extended with an additive `hashtags: [String!]` field (nullable, matching `publishedAt`/`sourcePostUrl`'s existing nullability), **then** both resolvers' flat selects return `posts.hashtags` verbatim — no new join, no new query, no new resolver.
+2.  **Given** the event has a linked post whose `posts.hashtags` is a non-empty array, **when** `EventDetailView.tsx`'s "event-main-content" details column renders, **then** a new hashtags block renders immediately after the schedules section and before the Attributions/"View Original" section — above that link regardless of single- or multi-post attribution — displaying each hashtag as `#<hashtag>` reusing the existing category/type badge's pill styling verbatim.
+3.  **Given** `hashtags` is `null` or empty, **when** `EventDetailView.tsx` renders, **then** the hashtags block does not render at all.
+4.  **Given** a hashtag pill, **when** `onHashtagClick` is provided, **then** it renders as a clickable button calling `onHashtagClick(hashtag)` with the raw, un-prefixed value; **when** not provided, **then** it renders as plain text — the same optional-affordance convention already used for the category/type badges.
+5.  **Given** the new `onHashtagClick` handler, **when** a hashtag pill is clicked, **then** the app navigates to Discovery (`/`) with exactly `?q=<url-encoded, #-prefixed hashtag>` — a clean single-facet reset of the `q` param only — which Discovery's pre-existing, unmodified `#`-prefix hashtag-search logic then resolves into an exact match. No new search mechanism is introduced.
+6.  **And** no new user-facing text is introduced beyond one new aria-label, resolved through `next-intl`.
+
+**Note:** Promotes `IDEA-037` (child of `IDEA-030`, carved out by Story 1.6f because it had no data to render yet — blocked on `BUG-032`, hashtag persistence, now `done`). Reuses Discovery's existing `#`-prefixed hashtag search (`packages/domain/src/events/buildEventsQueryCondition.ts`) rather than inventing a new one, and mirrors Story 1.6f's `Event.publishedAt` additive-field pattern and its `onCategoryClick`/`onTypeClick` badge-click-to-Discovery navigation pattern exactly. Gates 1/2/3 (`story-split-gate.md`) ran fresh via subagent dispatch — `epic-1-readiness.md` is `swept: true` but its `stories_covered` list predates Stories 1.6b-f and this one, so it was not cited (same reasoning as Stories 0.36/1.6f). All three returned **no gap**: Gate 1 confirmed `Event.hashtags` is the same additive-field-on-an-already-joined-query class as `Event.publishedAt`/`Event.links`; Gate 2 confirmed the hashtag pills reuse — not duplicate as a new shared component — the category/type badges' existing inline styling, logged as "watch, not split" (same precedent as Story 1.6f's own badges), and confirmed neither `DESIGN.md` nor `EXPERIENCE.md` covers hashtags or this component's bottom-of-column content; Gate 3 confirmed every mechanism consumed (the resolver join/select pattern, GraphQL codegen, i18n, Discovery's hashtag search) already exists and nothing new/shared is being introduced. No `AskUserQuestion` was required — every real decision point (single-facet reset, no `EventSourcePost` field, no pill-component extraction, no new analytics event) had a directly-on-point, already-confirmed precedent from Story 1.6f within the same `IDEA-030` family.
+
+**Depends on:** Story 1.6a (`EventDetailView`, amended in place), Story 1.6f (`onCategoryClick`/`onTypeClick` navigation pattern, `Event.publishedAt` precedent).
+
 ### Story 1.6: View event details
 
 **As a** user,

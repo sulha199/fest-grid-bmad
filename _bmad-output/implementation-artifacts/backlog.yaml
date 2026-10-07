@@ -753,12 +753,12 @@ items:
      note: "Needs a UX pass (Gate 2) for the repeatable url+label input pattern before story creation -- none exists in the app yet for an array-of-objects form field. Full scope in backlog/IDEA-036-correct-data-dialog-link-editing.md."}
 
   IDEA-037:
-    {type: idea, status: backlog, parent: IDEA-030, created: 2026-09-16,
-     impact: user-visible, effort: s,
+    {type: idea, status: promoted, parent: IDEA-030, created: 2026-09-16,
      title: "Event-detail hashtags: display at bottom of event-main-content, clicking to Discovery",
      ref: [backlog/IDEA-030-event-detail-ui.md],
      touches: [web:events, web:posts, cross:ai-extraction],
-     note: "Carved out of IDEA-030 by bmad-create-story (Story 1.6f) — item 3 of that row's original capture note (full detail there): display the post's hashtags at the bottom of `event-main-content`, above the view-original link; clicking a hashtag opens Discovery with the clicked hashtag as an additional `search-text` param. Kept out of Story 1.6f (which covers IDEA-030's other 6 items) because it has no data to render yet — blocked on BUG-032 (hashtags not persisted into the posts table), which is in a separate, not-yet-started backlog cluster. Re-eligible for `bmad-create-story` once BUG-032 lands."}
+     stories: [1-6g-event-detail-hashtags],
+     note: "Promoted to Story 1.6g, now unblocked (BUG-032 done). Full carve-out detail in backlog/IDEA-030-event-detail-ui.md and Story 1.6f Out of Scope."}
 
   # ── 2026-09-11 (bmad-help scraper-ops session) ──────────────────────────────
   IDEA-013:
