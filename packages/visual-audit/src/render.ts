@@ -126,6 +126,32 @@ async function renderReactComponentToHtml(
   return documentTemplate(bodyHtml);
 }
 
+const bundleCache = new Map<string, string>();
+
+/** Bundles a `client-bundle` entry file for the browser with esbuild (cached per path). esbuild is
+ * a repo-root devDependency (also used by `tsx`), resolved here via workspace hoisting. */
+async function bundleClientEntry(entryFile: string): Promise<string> {
+  const entryPath = path.resolve(process.cwd(), entryFile);
+  const cached = bundleCache.get(entryPath);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const { build } = await import('esbuild');
+  const result = await build({
+    entryPoints: [entryPath],
+    bundle: true,
+    write: false,
+    format: 'iife',
+    platform: 'browser',
+    jsx: 'automatic',
+    define: { 'process.env.NODE_ENV': '"development"' },
+    logLevel: 'silent',
+  });
+  const code = result.outputFiles[0].text;
+  bundleCache.set(entryPath, code);
+  return code;
+}
+
 /** Renders a manifest entry's declared `render` spec into `page`, applying its viewport. */
 export async function mountManifestEntry(page: Page, entry: ManifestEntry): Promise<MountedRender> {
   await page.setViewportSize({ width: entry.viewport.width, height: entry.viewport.height });
@@ -134,6 +160,16 @@ export async function mountManifestEntry(page: Page, entry: ManifestEntry): Prom
   if (entry.render.kind === 'live-route') {
     // Documented escape hatch (AD-26 Rule 4) -- not exercised by this story's own examples.
     await page.goto(entry.render.url);
+  } else if (entry.render.kind === 'client-bundle') {
+    const render = entry.render;
+    const code = await bundleClientEntry(render.entryFile);
+    const documentTemplate = render.documentTemplate ?? wrapBodyHtml;
+    await page.setContent(documentTemplate('<div id="root"></div>'), { waitUntil: 'load' });
+    if (render.beforeScript) {
+      await page.addScriptTag({ content: render.beforeScript });
+    }
+    await page.addScriptTag({ content: code });
+    await page.waitForSelector(render.waitForSelector, { state: 'attached' });
   } else if (entry.render.kind === 'react-component') {
     const html = await renderReactComponentToHtml(entry.render, entry.fixtureProps ?? {});
     await page.setContent(html, { waitUntil: 'load' });

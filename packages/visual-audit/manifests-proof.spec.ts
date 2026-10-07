@@ -20,6 +20,7 @@ import { runManifestEntry } from './src/engine.js';
 import { defaultRegistry, registerManifestEntry, type ManifestEntry } from './src/manifest.js';
 import { MOBILE_PANEL_HTML } from './manifests/event-card-masonry-thumbnail-fallback.js';
 import { checkPlacementOrder } from './src/rules/placement-order.js';
+import { PHASE2_ENTRY_NAME, buildPhase2CanaryEntry } from './manifests/grid-container-masonry-phase2.js';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
@@ -282,21 +283,17 @@ test.describe('rule-based example: GridContainer masonry-real-eventcard (Story 0
     expect(leadingIndicesByColumn).toEqual([0, 1, 2]);
   });
 
-  test('AD-27 Rule 1 — columns actually vary in HEIGHT independently (not CSS Grid row-locked)', async ({ page }) => {
-    // The two width checks above prove the tracks are structurally equal-width columns; this
-    // test proves the other half of AD-27's actual regression: unlike plain CSS Grid's row-locked
-    // height sharing, native auto-placement stacks each column's own items into their own
-    // sequential rows, so genuinely different card content (varying eventName length /
-    // locationName presence, per FIXTURE_CARDS) produces genuinely different column heights —
-    // not one row height shared/stretched across all three.
-    //
-    // Story 0.48: there is no longer one wrapper element per column to read `.height` from
-    // directly — this groups items client-side by their own `data-grid-container-column-index`
-    // and computes each column's own max bottom edge instead (every column's first/topmost item
-    // starts at the same `top`, since Phase 1's native grid auto-placement puts every column's
-    // first item in the SAME first row, so comparing bottoms alone is equivalent to comparing
-    // heights here).
-    await runManifestEntry(page, NAME, { repoRoot: REPO_ROOT });
+  test('AD-27 Rule 1 — columns actually vary in HEIGHT independently (not CSS Grid row-locked), in the measured Phase 2', async ({ page }) => {
+    // AD-27's actual regression: unlike plain CSS Grid's row-locked height sharing, masonry
+    // columns stack independently, so genuinely different card heights produce genuinely
+    // different column heights. CC-030 correction: this used to run against the server-rendered
+    // Phase 1 manifest, where the premise is false by construction -- Phase 1 items are in-flow
+    // CSS Grid items, and grid ROWS ARE SHARED across columns (a deliberate first-paint estimate,
+    // see `grid-container.tsx`), so every column bottom was identical and the test could never
+    // pass. Independent column heights only exist once the measured Phase 2 runs, which needs
+    // the client-mounted manifest. Groups items by their own `data-grid-container-column-index`
+    // and compares each column's max bottom edge.
+    await runManifestEntry(page, PHASE2_ENTRY_NAME, { repoRoot: REPO_ROOT });
     const columnBottoms: number[] = await page.$$eval('[data-grid-container-item]', (items) => {
       const byColumn = new Map<number, number>();
       for (const item of items) {
@@ -311,11 +308,10 @@ test.describe('rule-based example: GridContainer masonry-real-eventcard (Story 0
         .sort((a, b) => a[0] - b[0])
         .map(([, bottom]) => bottom);
     });
-    expect(columnBottoms).toHaveLength(3);
-    const distinctHeights = new Set(columnBottoms.map((h) => Math.round(h)));
-    // At least two of the three columns must differ by more than a rounding artifact --
-    // proving real independent per-column height flow, not three uniformly-stretched boxes.
-    expect(distinctHeights.size).toBeGreaterThan(1);
+    expect(columnBottoms).toHaveLength(2);
+    // Fixed card heights [150, 90, 120, 200, 80, 140] + 16px gaps place to bottoms 366 vs 478
+    // (relative), so the two columns must differ by well over a rounding artifact.
+    expect(Math.abs(columnBottoms[0] - columnBottoms[1])).toBeGreaterThan(20);
   });
 
   test('negative canary: a deliberately mismatched item width fails the intra-box-ratio check', async ({ page }) => {
@@ -372,4 +368,58 @@ test.describe('rule-based example: GridContainer masonry-real-eventcard (Story 0
     );
     expect(containerHeight).toBeGreaterThan(0);
   });
+});
+
+test.describe('rule-based example: GridContainer masonry Phase 2, client-mounted (CC-030 / Story 0.48 AC14)', () => {
+  test('manifest entry mounts the real GridContainer client-side (client-bundle), not a server render', () => {
+    const entry = defaultRegistry.get(PHASE2_ENTRY_NAME);
+    expect(entry.render.kind).toBe('client-bundle');
+    expect(entry.mode).toBe('rule');
+  });
+
+  test('Phase 2 is reached, items share one column width, never intersect, and stacked cards are exactly the gap apart', async ({ page }) => {
+    const result = await runManifestEntry(page, PHASE2_ENTRY_NAME, { repoRoot: REPO_ROOT });
+    for (const ruleResult of result.ruleResults) {
+      expect(ruleResult.pass, `${ruleResult.kind}: ${ruleResult.message}`).toBe(true);
+    }
+    expect(result.ruleResults.map((r) => r.kind)).toEqual(['sibling-dimension', 'sibling-gap']);
+
+    // Proof Phase 2 (absolute positioning) really ran, and the geometry is a true two-column grid.
+    const geometry = await page.$$eval('[data-grid-container-item]', (items) =>
+      items.map((el) => {
+        const r = el.getBoundingClientRect();
+        return { position: getComputedStyle(el).position, x: r.x, y: r.y, width: r.width, height: r.height };
+      })
+    );
+    expect(geometry).toHaveLength(6);
+    expect(geometry.every((g) => g.position === 'absolute')).toBe(true);
+    const distinctXs = new Set(geometry.map((g) => Math.round(g.x)));
+    expect(distinctXs.size).toBe(2);
+    // The two columns together must fit inside the viewport (a full-width item would not).
+    expect(Math.max(...geometry.map((g) => g.x + g.width))).toBeLessThanOrEqual(412);
+    for (let i = 0; i < geometry.length; i += 1) {
+      for (let j = i + 1; j < geometry.length; j += 1) {
+        const a = geometry[i];
+        const b = geometry[j];
+        const intersects = a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+        expect(intersects, `items ${i} and ${j} must not intersect`).toBe(false);
+      }
+    }
+  });
+
+  for (const [canary, failingRule] of [
+    ['single-line-gridcolumn', 'sibling-dimension'],
+    ['no-row-gap', 'sibling-gap'],
+  ] as const) {
+    test(`negative canary '${canary}': re-creating the CC-030 defect makes ${failingRule} fail`, async ({ page }) => {
+      const name = `grid-container:masonry-phase2-canary-${canary}:412x900`;
+      if (!defaultRegistry.has(name)) {
+        registerManifestEntry(name, buildPhase2CanaryEntry(canary));
+      }
+      const result = await runManifestEntry(page, name, { repoRoot: REPO_ROOT });
+      const failing = result.ruleResults.find((r) => r.kind === failingRule);
+      expect(failing?.pass, `${failingRule} should fail under canary '${canary}': ${failing?.message}`).toBe(false);
+      expect(result.pass).toBe(false);
+    });
+  }
 });

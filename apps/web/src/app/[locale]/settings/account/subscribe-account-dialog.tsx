@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { BlockingLoader, useDebounce } from "@festgrid/ui"
+import { BlockingLoader, OVERLAY_MODAL_Z, useDebounce } from "@festgrid/ui"
 import { usePostHog } from "@festgrid/analytics"
 import { SUPPORTED_PLATFORMS, parseSocialMediaAccountHandle } from "@festgrid/domain/subscriptions"
 import { getPlatformDisplayName } from "@festgrid/domain/scraper"
@@ -132,7 +132,7 @@ export function SubscribeAccountDialog({ isOpen, onClose }: SubscribeAccountDial
                 />
 
                 {isSuggestionsOpen && handleInput.trim().length >= 2 && (
-                  <div className="absolute z-50 w-full rounded-md border border-input bg-background shadow-md max-h-60 overflow-y-auto mt-1 p-1">
+                  <div className={`absolute ${OVERLAY_MODAL_Z} w-full rounded-md border border-input bg-background shadow-md max-h-60 overflow-y-auto mt-1 p-1`}>
                     {isSuggestionsLoading ? (
                       <div className="text-xs text-muted-foreground p-3 text-center animate-pulse">
                         Searching suggestions...

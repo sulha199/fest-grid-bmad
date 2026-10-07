@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Search } from 'lucide-react';
+import { OVERLAY_MODAL_Z } from '../../core/overlay-z';
 import type { LocationPickerFieldProps } from './LocationPickerField.types';
 
 export function LocationPickerField({
@@ -138,7 +139,7 @@ export function LocationPickerField({
 
       {/* Suggestions Dropdown */}
       {isDropdownOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-popover text-popover-foreground border rounded-md shadow-md max-h-60 overflow-y-auto py-1">
+        <div className={`absolute ${OVERLAY_MODAL_Z} w-full mt-1 bg-popover text-popover-foreground border rounded-md shadow-md max-h-60 overflow-y-auto py-1`}>
           {isSuggestionsLoading && (
             <div className="flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground">
               <span className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full" />

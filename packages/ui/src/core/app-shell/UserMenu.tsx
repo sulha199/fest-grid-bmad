@@ -4,6 +4,7 @@ import * as React from 'react';
 import { LogOut, X } from 'lucide-react';
 import { profileMenuEntries, ProfileMenuEntry } from './profile-menu-entries';
 import { CountBadge } from '../count-badge';
+import { OVERLAY_MODAL_Z } from '../overlay-z';
 
 export interface UserMenuProps {
   isOpen: boolean;
@@ -98,7 +99,7 @@ export function UserMenu({
     <>
       {/* Mobile Backdrop Overlay */}
       <div
-        className="fixed inset-0 bg-background/50 z-40 md:hidden"
+        className="fixed inset-0 bg-background/50 z-chrome md:hidden"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -106,7 +107,7 @@ export function UserMenu({
       {/* Main Menu Container */}
       <div
         ref={menuRef}
-        className="fixed inset-x-0 bottom-0 max-h-[80vh] bg-popover text-popover-foreground rounded-t-xl shadow-2xl border-t border-border z-50 flex flex-col md:absolute md:inset-auto md:bottom-14 md:start-16 xl:start-4 xl:bottom-16 md:w-64 md:rounded-lg md:border md:py-2 md:shadow-lg transition-transform duration-200"
+        className={`fixed inset-x-0 bottom-0 max-h-[80vh] bg-popover text-popover-foreground rounded-t-xl shadow-2xl border-t border-border ${OVERLAY_MODAL_Z} flex flex-col md:absolute md:inset-auto md:bottom-14 md:start-16 xl:start-4 xl:bottom-16 md:w-64 md:rounded-lg md:border md:py-2 md:shadow-lg transition-transform duration-200`}
       >
         {/* Mobile Header (with Close Button) */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border md:hidden">

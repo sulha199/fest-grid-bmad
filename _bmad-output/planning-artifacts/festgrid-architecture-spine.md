@@ -489,7 +489,20 @@ This document defines the core architectural invariants for the FestDaily applic
         label, never an extra independent focus stop. The `large` fallback variant keeps a `min-h-11
         min-w-11` (≥44px) tap target per `components.nav.item_hit_area`'s convention and
         EXPERIENCE.md's reachable-control rule.
-        - **Enforced by:** the same test file's AC4 suite (single-focusable + min hit area).
+
+        **Narrowed to a consumer-level guarantee, 2026-10-06 (Story 1.i1p).** This rule used to be
+        enforced *inside* `EventCardMediaSlot` itself (the primitive rendered the control directly).
+        Story 1.i1p removed that internal rendering once both real consumers were found to always
+        suppress it in favor of composing `EventCardFavoriteBadge` externally — `EventCard.tsx`'s
+        masonry-default state and `EventCardCompact.tsx`'s row each already proved this invariant for
+        their own composition before this story, and continue to. The rule's substance is unchanged;
+        only who is responsible for upholding it moved from the primitive to each consumer.
+        - **Enforced by:** `EventCardFavoriteBadge`'s own AC5 suite (`EventCardMediaPrimitives.test.tsx`
+          — single accessible name, `min-h-11 min-w-11` tap target, unchanged by Story 1.i1p) plus each
+          consumer's own single-control proof: `EventCard.test.tsx`'s
+          `renders exactly one focusable favorite-toggle control (outer top-right button suppressed) when onFavoriteToggle is provided`
+          and `EventCardCompact.test.tsx`'s `Image-present vs. image-absent favorite-badge placement`
+          describe block.
 
 ---
 
@@ -1346,6 +1359,15 @@ This document defines the core architectural invariants for the FestDaily applic
         entry for `GridContainer`'s masonry variant encodes "columns share one width; cards within
         a column vary height independently; placement order approximates left-to-right" as its
         rule set.
+    4.  **Measured-phase (Phase 2) layout invariants** (CC-030, 2026-10-06): items placed with
+        `position: absolute` + `translateY` must (a) use a **definite two-line `grid-column`**
+        (`N / N+1`) — a bare `grid-column: N` leaves the end line `auto`, which for an absolutely
+        positioned grid child resolves to the container's padding edge and stretches the item
+        across the full width; and (b) get their vertical gap from the container's **computed
+        `row-gap`** added to each Y offset — absolutely positioned items ignore the grid's
+        `row-gap`. Neither is observable in jsdom or in a server-rendered (`renderToStaticMarkup`)
+        audit, so both are verified by a **client-mounted** manifest (`client-bundle` render) using
+        the `sibling-dimension` and `sibling-gap` rules.
 *   **Deferred:** the specific library-vs-hand-rolled-hook choice for the shortest-column algorithm
     itself, and the exact hydration/layout-shift strategy (Rule 2) — left to the implementing
     story's own research, not decided here.
@@ -1902,6 +1924,106 @@ This document defines the core architectural invariants for the FestDaily applic
     FIND-004's own "effort: s" sizing and without precedent elsewhere in this codebase's
     config-flag conventions. Gating Gemini under the same DPA flag "for uniformity" — rejected by
     the user; it would misclassify a separate, unresolved concern (FIND-066) as settled.
+
+### AD-33: Z-Index Layering Tiers
+
+*   **Binds:** Every `z-*`-stacking element in `packages/ui/src` and `apps/web/src` (~66 sites at
+    capture: IDEA-060's inventory — card/badge/calendar overlays, `AppShell`/`NavRailItem`/
+    `UserMenu`, the post-selection `summary-bar`, every Radix `Dialog`/`Sheet`/`Select`/`Popover`
+    Content/Overlay, `EventDetailView`'s "more actions" kebab menu and "Add to Calendar" modal,
+    `CalendarOverflowDialog`, the AI filter overlay, and the one full-screen blocking loader).
+*   **Prevents:** A new component picking a `z-*` number that "works locally" against whatever
+    happens to be on screen when it was built — the defensive-bump pattern that produced the
+    `z-30` comments in `EventCard.tsx`/`EventCardMediaPrimitives.tsx` and left 17 unrelated things
+    tied at a single shared `z-50`, with DOM/portal order silently deciding the winner; a
+    non-Tailwind-scale literal (`z-[60]`) standing in for a tier that has no name; each Radix
+    wrapper (`dialog.tsx`, `select.tsx`, `sheet.tsx`, `popover.tsx`) independently re-asserting its
+    own copy of "which number is the overlay level," so a future re-tiering requires finding and
+    editing every copy instead of one.
+*   **Rule:**
+    1.  **Five tiers, ascending, each a `theme.extend.zIndex` token in `apps/web/tailwind.config.ts`**
+        (Tailwind theme tokens only — no backing CSS custom properties; every existing `z-*` site in
+        the codebase is a Tailwind utility class, none is inline-style/non-Tailwind, so this adds no
+        indirection colors/`border-radius` need only for dark-mode runtime switching):
+        - **Local** — bare, unnamed Tailwind `z-0`/`z-10`/`z-20`/`z-30`, unchanged. Legal **only** on
+          a component whose own root carries `isolate` — not merely "some ancestor, anywhere, has
+          one." Two unrelated components sharing one distant ancestor's `isolate` (e.g. a page
+          shell's) would each think they own a private stacking context and collide exactly like the
+          17-at-`z-50` problem, one tier down; requiring `isolate` on the component's own root keeps
+          each Local-tier numeral scoped to that one component's subtree. Without an owning
+          `isolate`, the value escapes to the page's root stacking context and can collide with
+          anything else on the page. `WeeklyCalendarView.tsx`'s existing `isolate` + `z-10`
+          click-target-under-`z-20` visual-layer pattern is the reference instance — left as-is, not
+          renamed. Caveat shared by every tier below, not just Local: an ancestor that incidentally
+          forms its own stacking context (a `transform`, `filter`, or `opacity < 1`) silently resets
+          comparison to that local context — no tier numbering can out-rank a sibling across that
+          boundary, so an animated/transformed wrapper must never sit between a tiered element and
+          the tier it needs to beat. Not solvable by a flat numeric scale; treat it as a review
+          convention, same as the `isolate` placement rule.
+        - **Chrome** — `z-chrome` = `40`. `AppShell`, `NavRailItem`, `UserMenu`.
+        - **Overlay-sticky** — `z-overlay-sticky` = `45`. Sticky action/summary bars that must clear
+          chrome but never contest a true overlay (e.g. the post-selection `summary-bar.tsx`).
+        - **Overlay-modal** — `z-overlay-modal` = `50`. Every dialog/sheet/popover/select/menu: all
+          four Radix wrappers, `CalendarOverflowDialog`, the AI filter overlay, and both
+          `EventDetailView` sites — the kebab "more actions" dropdown (no `isolate` ancestor, so it
+          must out-rank arbitrary page content exactly like a Radix popover despite being
+          hand-rolled) and the "Add to Calendar" schedule picker (a true `fixed inset-0`/
+          `aria-modal`/backdrop dialog).
+        - **Overlay-blocking** — `z-overlay-blocking` = `60`. The one full-screen blocking loader;
+          replaces the sole non-Tailwind-scale `z-[60]` literal with a named tier instead of a magic
+          number.
+    2.  **Migration, one pass:** every raw `z-40`, `z-50`, and `z-[60]` class across
+        `packages/ui/src`/`apps/web/src` is replaced by its tier token. Bare `z-0`/`z-10`/`z-20`/
+        `z-30` are left untouched (Local tier stays unnamed, scoped by the `isolate` convention, not
+        by value). One misclassification surfaces in the same sweep: `CalendarOverflowDialog`'s
+        backdrop sits at `z-40` (Chrome) despite being a modal overlay — it migrates to
+        `z-overlay-modal`, not `z-chrome`.
+    3.  **Every Overlay-modal-tier consumer — Radix-portaled or hand-rolled — takes its tier from
+        one shared, imported constant, never an inlined class string.** `packages/ui` exports a
+        single `OVERLAY_MODAL_Z` class-name constant; every Radix `Portal`-rendered `Content`/
+        `Overlay` (today: `dialog.tsx`, `select.tsx`, `sheet.tsx`, `popover.tsx`) **and** every
+        non-portaled Overlay-modal element (today: `EventDetailView`'s kebab dropdown) imports and
+        uses it instead of writing `'z-overlay-modal'` or `'z-50'` literally in its own `className`.
+        Scoping this to "Radix portals" only would leave the kebab dropdown — explicitly placed in
+        this same tier by Rule 1 — free to inline its own literal, defeating the one-file-edit
+        guarantee below. A future re-tiering of the overlay level is a one-file edit, not a
+        grep-and-replace across every consumer.
+    4.  **Ratchet is a Vitest test, not an ESLint rule.** `packages/ui`'s only ESLint config
+        (`eslint.config.mjs`, added Story 1.i1k Task 6.2) is deliberately narrow — `files`-scoped
+        to `src/features/events/**` with one existing rule, not the full ruleset every sibling
+        package extends (that parity gap is tracked separately as FIND-036 / Story 0.41) — and it
+        registers nothing for `apps/web/src`, which this ratchet must also cover. A fresh,
+        cross-package static-analysis rule is out of scope for that narrow config, so a Vitest
+        test does the job instead. Two assertions, both source-text static checks (the same
+        "test as static analysis"
+        shape as AD-30 Rule 2's/AD-31 Rule 4's source-scan ratchets):
+        - **No raw tier values.** A test fails if any file under `packages/ui/src` or
+          `apps/web/src` (excluding tests/stories/generated output) contains a bare `z-<N>` or
+          `z-[<N>]` class where `N` is `40`, `45`, `50`, or `60` and is not spelled as its named
+          tier token — i.e. the check is "does this numeral match an approved tier's *value*,"
+          not a fixed string list of today's two offending literals (`z-40`/`z-50`), so it also
+          catches a future `z-45`/`z-60` written directly instead of `z-overlay-sticky`/
+          `z-overlay-blocking`. `z-0`/`z-10`/`z-20`/`z-30` are deliberately **not** ratcheted —
+          there is no reliable static check for "does this component's own root carry `isolate`,"
+          so Local-tier correctness stays a code-review convention, not a CI gate.
+        - **No inlined overlay-modal class.** A test fails if any Overlay-modal-tier consumer file
+          (Radix `Portal`-using wrapper, or a hand-rolled one like the kebab dropdown) contains a
+          literal `'z-overlay-modal'`/`'z-50'` string in its own source instead of importing
+          `OVERLAY_MODAL_Z` (Rule 3).
+    5.  **Documentation.** The five tiers, their token names/values, and the `isolate` contract for
+        Local are recorded as a new "Layering" section in `project-context.md`, cross-referenced
+        from `DESIGN.md` — neither currently has one (IDEA-060's capture finding).
+*   **Considered and rejected:** demoting the `EventDetailView` kebab dropdown to Local tier — it
+    has no `isolate` ancestor, so a lower value would still escape to the page root and could still
+    lose a stacking fight against unrelated page content, the exact bug class this AD exists to
+    close; keeping each Radix wrapper's `z-50` as an independently-edited literal (just renamed to
+    a token string) — still duplicates the one fact ("which number is the overlay level") across
+    four files instead of one; CSS custom properties for the tiers — no non-Tailwind consumer exists
+    today, and none of the `isolate`/dark-mode reasons that justify colors/`border-radius` using
+    variables apply to a static layering scale.
+*   **Enforced by:** the Vitest ratchet in Rule 4, to be added by the story that performs the Rule 2
+    migration (not built in this architecture pass — planning/architecture work does not modify
+    source or test code; see routing).
 
 ---
 

@@ -469,7 +469,6 @@ export function EventCard({
               imageUrl={imageUrl}
               imageFallbackUrl={imageFallbackUrl}
               imageAlt={finalImageAlt}
-              hideFavoriteBadge
               onImagePresenceChange={setDefaultThumbnailImagePresent}
             />
             {statusBadge && (

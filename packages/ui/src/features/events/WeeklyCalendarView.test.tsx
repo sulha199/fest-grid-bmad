@@ -868,6 +868,58 @@ describe('WeeklyCalendarView', () => {
     expect(noneCard?.querySelector('[data-testid="calendar-plus-icon"]')).not.toBeInTheDocument();
   });
 
+  it('FIND-058: renders the added-to-calendar badge on the multi-day spanning bar, matching the single-day grid card', () => {
+    const multiDayAdded = [
+      {
+        id: 'md-added',
+        eventSlug: 'multi-added-fest',
+        eventName: 'Multi Added Fest',
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+        eventEndDate: '2026-08-07',
+        isAddedToCalendar: true,
+      },
+    ];
+    const multiDayNotAdded = [
+      {
+        id: 'md-not-added',
+        eventSlug: 'multi-plain-fest',
+        eventName: 'Multi Plain Fest',
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+        eventEndDate: '2026-08-07',
+      },
+    ];
+
+    render(
+      <WeeklyCalendarView
+        {...defaultProps}
+        schedules={multiDayAdded}
+        locale="en-US"
+        onFavoriteToggle={vi.fn()}
+      />
+    );
+
+    const addedBar = rtlScreen.getByTestId('multi-day-spanning-bar');
+    const addedIcon = addedBar.querySelector('[data-testid="calendar-plus-icon"]');
+    expect(addedIcon).toBeInTheDocument();
+    expect(addedIcon).toHaveAttribute('aria-label', 'Added to calendar');
+
+    cleanup();
+
+    render(
+      <WeeklyCalendarView
+        {...defaultProps}
+        schedules={multiDayNotAdded}
+        locale="en-US"
+        onFavoriteToggle={vi.fn()}
+      />
+    );
+
+    const plainBar = rtlScreen.getByTestId('multi-day-spanning-bar');
+    expect(plainBar.querySelector('[data-testid="calendar-plus-icon"]')).not.toBeInTheDocument();
+  });
+
   it('renders favoriteCount conditionally when greater than 0', () => {
     const customizedSchedules = [
       {

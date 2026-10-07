@@ -3,6 +3,7 @@
 import React from 'react';
 import { useNavRailItemInteraction } from '../../hooks/useNavRailItemInteraction';
 import { NavRailItemProps } from './NavRailItem.types';
+import { OVERLAY_MODAL_Z } from '../overlay-z';
 
 export function NavRailItem(props: NavRailItemProps) {
   const { variant, icon, label, className = '' } = props;
@@ -49,7 +50,7 @@ export function NavRailItem(props: NavRailItemProps) {
 
   const renderedTooltip = (tooltipVisible || isFlashing) && (
     <span
-      className={`absolute start-16 z-50 rounded bg-popover text-popover-foreground px-2 py-1 text-xs border shadow-md pointer-events-none transition-opacity ${tooltipClass}`}
+      className={`absolute start-16 ${OVERLAY_MODAL_Z} rounded bg-popover text-popover-foreground px-2 py-1 text-xs border shadow-md pointer-events-none transition-opacity ${tooltipClass}`}
       role="tooltip"
     >
       {label}

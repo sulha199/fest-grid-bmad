@@ -14,6 +14,7 @@ import { defaultRegistry } from './manifest.js';
 import { mountManifestEntry, mountPrototypeFile } from './render.js';
 import { getElementSnapshots, getElementSnapshot } from './compare/computed-style.js';
 import { clusterByRowOverlap, clusterByColumnOverlap, checkSiblingDimension } from './rules/sibling-dimension.js';
+import { checkSiblingGap } from './rules/sibling-gap.js';
 import { checkIntraBoxRatio, deriveRatioFromReference } from './rules/intra-box-ratio.js';
 import { checkColorToken } from './rules/color.js';
 import { runOverflowRule } from './rules/overflow.js';
@@ -62,6 +63,19 @@ export async function runManifestEntry(page: Page, name: string, options: RunMan
         pass,
         message: clusterResults.map((r) => r.message).join('; '),
         details: { clusters: clusterResults },
+      });
+    } else if (rule.kind === 'sibling-gap') {
+      const snapshots = await getElementSnapshots(page, rule.selector);
+      const clusters = clusterByColumnOverlap(snapshots.map((s) => s.boundingBox));
+      const clusterResults = clusters.map((cluster) => checkSiblingGap(cluster, rule.expectedPx, rule.toleranceAbsolutePx));
+      const pairCount = clusterResults.reduce((sum, r) => sum + r.pairCount, 0);
+      // A gap rule that measured zero stacked pairs proved nothing -- fail rather than pass vacuously.
+      const pass = pairCount > 0 && clusterResults.every((r) => r.pass);
+      ruleResults.push({
+        kind: rule.kind,
+        pass,
+        message: pairCount === 0 ? `sibling-gap measured no stacked pairs for ${rule.selector}` : clusterResults.map((r) => r.message).join('; '),
+        details: clusterResults,
       });
     } else if (rule.kind === 'intra-box-ratio') {
       const cssProps = rule.dimension === 'fontSize' ? ['font-size'] : [];

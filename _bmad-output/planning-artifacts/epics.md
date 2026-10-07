@@ -1184,6 +1184,124 @@ The project is set up with a solid foundation and CI/CD pipeline.
 
 **Note:** Promotes backlog row `FIND-052` (deferred from Story 0.45's code review, 2026-09-26; investigated by `bmad-quick-dev` 2026-10-05, see `deferred-work.md`). Drafted via `bmad-create-story`, 2026-10-05 — all three Story Split Gates run fresh (no gap found; Gate 2's two findings incorporated as AC4/AC13). The two-phase render design (AC2) was resolved via `AskUserQuestion`: the investigation's own proposed design (transform-positioned absolute items from the start) left a CLS/SSR-collapse gap it didn't address; the user chose the two-phase mitigation over shipping that gap or a cruder estimated-height fallback. Full ACs, Dev Notes, and gate findings in `_bmad-output/implementation-artifacts/0-48-mount-stable-masonry-engine-fix-reflow-remount-and-focus-loss.md`.
 
+### Story 0.49: Add z-index layering tier tokens and the OVERLAY_MODAL_Z constant
+
+**As a** developer,
+**I want** the five z-index layering tiers Architecture Spine AD-33 defines expressed as named `theme.extend.zIndex` tokens in `apps/web/tailwind.config.ts`, mirrored into `packages/visual-audit/vendor/tailwind.config.cjs`'s offline theme, and a single shared `OVERLAY_MODAL_Z` class-name constant exported from `packages/ui`,
+**So that** Stories 0.49a–0.49d have one real mechanism to adopt instead of each independently inventing its own tier class.
+
+**Acceptance Criteria:**
+
+1. `apps/web/tailwind.config.ts` gains `theme.extend.zIndex: { chrome: '40', 'overlay-sticky': '45', 'overlay-modal': '50', 'overlay-blocking': '60' }`. Local tier (`z-0`/`z-10`/`z-20`/`z-30`) stays Tailwind's bare scale, no token added.
+2. No CSS custom property is added for any of the four values — Tailwind-config-only, per AD-33's "Considered and rejected."
+3. A new `packages/ui/src/core/overlay-z.ts` exports `OVERLAY_MODAL_Z = 'z-overlay-modal'`, re-exported from `packages/ui/src/index.ts`.
+4. The same four tokens are mirrored into `packages/visual-audit/vendor/tailwind.config.cjs`'s `theme.extend`, and `pnpm --filter @festgrid/visual-audit build:vendor-tailwind` is re-run — a defensive measure; no current visual-audit fixture is affected (confirmed by content-glob audit at story-creation time).
+5. No snapshot/screenshot/rendered-output test changes — a pure build-config/constant-definition story.
+6. `project-context.md`'s "Layering" rule and `DESIGN.md`'s cross-reference comment (already written by the `bmad-architecture` pass) are not re-edited.
+
+**Note:** Routes IDEA-060 (Architecture Spine AD-33) into code. Drafted via `bmad-create-story`, 2026-10-06. Gate 3 found that `packages/visual-audit`'s vendor Tailwind config is a second, hand-maintained theme that won't automatically inherit AD-33's new tokens; mitigated here with a defensive mirror (AC4), with the general two-config sync-debt recorded as backlog finding `FIND-077` rather than blocking this story (nothing in this epic's scope is currently affected). Full ACs, Dev Notes, and gate findings in `_bmad-output/implementation-artifacts/0-49-add-z-index-layering-tier-tokens-and-the-overlay-modal-z-constant.md`.
+
+### Story 0.49a: Migrate the Radix UI wrappers to the Overlay-modal tier
+
+**As a** developer,
+**I want** `dialog.tsx`, `select.tsx`, `sheet.tsx` (`apps/web`) and `popover.tsx` (`packages/ui`) to source their `z-50` stacking class from `OVERLAY_MODAL_Z` instead of each inlining its own literal,
+**So that** every dialog/sheet/select/popover is provably on the same named tier, and a future re-tiering is a one-file edit.
+
+**Acceptance Criteria:**
+
+1. `dialog.tsx`'s `DialogOverlay`/`DialogContent` both use `OVERLAY_MODAL_Z` in place of their literal `z-50`.
+2. `select.tsx`'s `SelectContent` does the same.
+3. `sheet.tsx`'s `SheetOverlay` and `sheetVariants`'s base class do the same.
+4. `popover.tsx`'s `PopoverContent` does the same (relative import, not the `@festgrid/ui` barrel, to avoid a self-import cycle).
+5. No resolved z-index value changes anywhere (all four stay at 50) — a pure token-name substitution.
+6. Every existing test exercising any of the four components passes unmodified.
+
+**Note:** Depends on Story 0.49. Drafted via `bmad-create-story`, 2026-10-06. Full ACs, Dev Notes, and current-code references in `_bmad-output/implementation-artifacts/0-49a-migrate-the-radix-ui-wrappers-to-the-overlay-modal-tier.md`.
+
+### Story 0.49b: Migrate AppShell, UserMenu's backdrop, and the blocking loader to their named tiers
+
+**As a** developer,
+**I want** `AppShell.tsx`'s two chrome sites and `UserMenu.tsx`'s mobile backdrop to use `z-chrome`, and `blocking-loader.tsx` to use `z-overlay-blocking`,
+**So that** the app's permanent chrome and its one full-screen blocking state are each on their correctly-named tier instead of a raw `z-40`/`z-[60]` literal.
+
+**Acceptance Criteria:**
+
+1. `AppShell.tsx`'s mobile tab bar and desktop sidenav rail both move from `z-40` to `z-chrome`.
+2. `UserMenu.tsx`'s mobile backdrop (only) moves from `z-40` to `z-chrome`. Its "Main Menu Container" (`z-50`) is explicitly excluded — Gate 2 found it is a hand-rolled, no-`isolate` menu that belongs on the Overlay-modal tier instead; it migrates in Story 0.49c, alongside `NavRailItem.tsx`'s tooltip (same reclassification).
+3. `blocking-loader.tsx` moves from the non-Tailwind-scale `z-[60]` literal to `z-overlay-blocking`.
+4. No resolved value changes (40, 40, 60 unchanged) — pure token-name substitutions.
+5. Every existing `AppShell`/`UserMenu`/`BlockingLoader` test passes unmodified.
+
+**Note:** Depends on Story 0.49. Drafted via `bmad-create-story`, 2026-10-06. Gate 2 (run against the original draft, which had bundled all of AppShell/NavRailItem/UserMenu into one "chrome" story) found a file-level conversion would wrongly drop UserMenu's menu panel and NavRailItem's tooltip from 50 to 40 — a real stacking regression; AC2 carves that out to Story 0.49c instead. Full ACs and Dev Notes in `_bmad-output/implementation-artifacts/0-49b-migrate-appshell-usermenus-backdrop-and-the-blocking-loader-to-their-tiers.md`.
+
+### Story 0.49c: Migrate the events-feature overlay/menu/tooltip sites and the post-selection summary bar
+
+**As a** developer,
+**I want** `CalendarOverflowDialog.tsx`, `AIFilterOverlay.tsx`, `EventDetailView.tsx`'s two overlay sites, `UserMenu.tsx`'s menu panel, and `NavRailItem.tsx`'s tooltip to use `OVERLAY_MODAL_Z`, and `summary-bar.tsx` to move onto `z-overlay-sticky`,
+**So that** every hand-rolled overlay is on the provably-correct tier, and the sticky action bar stops tying with true overlays at a shared `z-50`.
+
+**Acceptance Criteria:**
+
+1. `CalendarOverflowDialog.tsx`'s `OVERLAY_CLASS` (the one AD-33 Rule 2 explicitly names as misclassified) moves from `z-40` to `OVERLAY_MODAL_Z` — a real value change (40→50).
+2. The same file's `DIALOG_SURFACE_CLASS` moves from its literal `z-50` to `OVERLAY_MODAL_Z` — value unchanged.
+3. `AIFilterOverlay.tsx`'s one overlay moves to `OVERLAY_MODAL_Z`.
+4. `EventDetailView.tsx`'s kebab dropdown and "Add to Calendar" dialog both move to `OVERLAY_MODAL_Z`.
+5. `UserMenu.tsx`'s menu panel and `NavRailItem.tsx`'s tooltip both move to `OVERLAY_MODAL_Z` (reclassified from Chrome by Gate 2; value unchanged at 50).
+6. `summary-bar.tsx` moves from `z-50` to `z-overlay-sticky` — a real value change (50→45), fixing IDEA-060's own capture finding (17 things tied at `z-50`, DOM order silently deciding).
+7. A manual smoke check confirms both value changes behave correctly — specifically that an open Dialog/Sheet/Select/Popover now always covers the summary bar, which did not reliably hold before.
+8. Every existing test for the six touched components passes unmodified.
+
+**Note:** Depends on Story 0.49; shares `UserMenu.tsx` with Story 0.49b (different line — sequencing only, not a logical dependency). Drafted via `bmad-create-story`, 2026-10-06, as the direct result of Gate 2's finding described in Story 0.49b's Note. Full ACs and Dev Notes in `_bmad-output/implementation-artifacts/0-49c-migrate-the-events-feature-overlay-menu-tooltip-sites-and-the-summary-bar.md`.
+
+### Story 0.49d: Migrate the location-picker and subscribe-account suggestion dropdowns to Overlay-modal
+
+**As a** developer,
+**I want** the hand-rolled suggestion dropdowns in `LocationPickerField.tsx`, `LocationPickerMapPanel.tsx`, and `subscribe-account-dialog.tsx` to use `OVERLAY_MODAL_Z`,
+**So that** every hand-rolled, no-`isolate` overlay — not just the ones AD-33's text names individually — is covered by AD-33 Rule 2's blanket migration scope.
+
+**Acceptance Criteria:**
+
+1. `LocationPickerField.tsx`'s suggestions dropdown moves to `OVERLAY_MODAL_Z`.
+2. `LocationPickerMapPanel.tsx`'s suggestions dropdown does the same (its separate `z-10` Search Overlay wrapper is Local tier, untouched).
+3. `subscribe-account-dialog.tsx`'s inline suggestions dropdown does the same, importing from the `@festgrid/ui` barrel (this file is in `apps/web`).
+4. No resolved value changes (all three stay at 50).
+5. Every existing test for the three touched components passes unmodified.
+
+**Note:** Depends on Story 0.49. None of these three sites is individually named in AD-33's text — they surfaced from a full repo grep during story creation and fall under Rule 2's blanket scope. Drafted via `bmad-create-story`, 2026-10-06. Full ACs and Dev Notes in `_bmad-output/implementation-artifacts/0-49d-migrate-the-location-and-subscribe-account-suggestion-dropdowns-to-overlay-modal.md`.
+
+### Story 0.49e: Ratchet — no raw tier-value class, and no inlined Overlay-modal literal
+
+**As a** developer,
+**I want** an enforced Vitest test that fails if any file under `packages/ui/src` or `apps/web/src` contains a raw z-40/45/50/60 class instead of its named token, or inlines `'z-overlay-modal'`/`'z-50'` instead of importing `OVERLAY_MODAL_Z`,
+**So that** a sixth file cannot reintroduce the defensive-bump/magic-number pattern AD-33 exists to close.
+
+**Acceptance Criteria:**
+
+1. A new Vitest test scans `packages/ui/src` and `apps/web/src` (excluding tests/stories/generated) and fails on any whole-token `z-40`/`z-45`/`z-50`/`z-60`/`z-[40]`/`z-[45]`/`z-[50]`/`z-[60]` match.
+2. `packages/ui/src/core/overlay-z.ts` is exempted from the second assertion only (it must contain the literal `'z-overlay-modal'` to define the constant).
+3. The test also fails if any other file inlines the literal `'z-overlay-modal'` string instead of importing `OVERLAY_MODAL_Z`.
+4. `z-0`/`z-10`/`z-20`/`z-30` (Local tier) are never flagged — no reliable static check for `isolate` correctness exists (AD-33 Rule 4); that stays a code-review convention.
+5. The test passes cleanly (0 failures) once run against the tree produced by Stories 0.49-0.49d.
+6. Implemented as a plain Vitest source-scan test — no ESLint rule, no new CI job (AD-33 Rule 4's explicit mandate, since `packages/ui`'s only ESLint config doesn't cover `apps/web/src`).
+
+**Note:** Depends on Stories 0.49-0.49d (its own pass/fail check requires their migration to be done); sequenced last. Drafted via `bmad-create-story`, 2026-10-06. Full ACs, test design, and the deliberate regression-probe verification step in `_bmad-output/implementation-artifacts/0-49e-ratchet-no-raw-tier-value-class-or-inlined-overlay-modal-literal.md`.
+
+### Story 0.51: Close backend integration test row leaks and add a permanent row-count ratchet
+
+**As a** developer,
+**I want** FestGrid's backend integration test suite (`apps/backend/src/**/*.test.ts`, run via `tsx --test`/node:test) to stop leaving extra rows behind in whichever Postgres database `DATABASE_URL` points at, and a permanent automated check that fails the run the instant any test regresses on this,
+**So that** running the backend suite — repeatedly, against a developer's own persistent local dev DB, or against CI's own ephemeral one — never again silently accumulates rows that later break or slow down tests, as happened today (dev DB held 72 `posts` rows vs. the known 35-row fixture-seed baseline) and as happened separately when a 30k-row volume-seed pollution incident failed 12 tests and ran the suite ~7x slower.
+
+**Acceptance Criteria:**
+
+1. Four specific backend test files under `apps/backend/src/lib/posts/` (`persist-post-account-associations.test.ts`, `mark-post-extracted.test.ts`, `enqueue-post-for-processing.test.ts`, `persist-unprocessed-payload.test.ts`) each gain FK-safe, targeted row cleanup matching the explicit `t.after`/`t.afterEach` convention already used by ~95 of their ~99 DB-touching sibling test files — not a new abstraction.
+2. `packages/database/index.ts` re-exports the existing `getTablesInDeleteOrder()` FK-safe table helper (`delete-order.ts`), reused by a new permanent guard script rather than a second FK-walk implementation.
+3. `apps/backend` gains a new wrapper script that snapshots every table's row count before and after the real test command runs, failing the run (even if every individual test passed) if any table holds more rows afterward — wired in as the new `"test"` npm script.
+4. CI (`.github/workflows/ci.yml`, `turbo.json`) needs zero edits — it already delegates to this same per-package `test` script via `turbo run test`, so it inherits the guard automatically.
+5. No dedicated test database, schema, per-run template copy, or new environment variable is introduced for test-target selection.
+
+**Note:** Promotes backlog row `FIND-064`, re-scoped via `AskUserQuestion` during `bmad-create-story` drafting (2026-10-06) — the row originally proposed "a dedicated test database or per-test cleanup"; the user rejected the dedicated-database/schema/template-copy direction (parallel sessions already use separate local Postgres instances, so cross-session collision was never the real risk) and re-scoped to exactly this story's AC1-5: fix the specific leaking files found, and add a permanent automated regression guard. All three Story Split Gates run fresh (no gap found — `epic-0-readiness.md`'s sweep only covers Stories 0.1-0.19 and predates this story's subject). Full ACs, Dev Notes (including the full audit evidence table and the rejected-alternatives rationale), and gate findings in `_bmad-output/implementation-artifacts/0-49-close-backend-test-row-leaks-and-add-a-permanent-row-count-ratchet.md`.
+
 ### Epic 1: Core App and Event Discovery
 
 Users can discover and browse events.
@@ -1674,6 +1792,25 @@ Users can discover and browse events.
 
 **Depends on:** Story 1.6a (`EventDetailView`, amended in place).
 
+### Story 1.6g: Event detail hashtags — display at bottom of event-main-content, click-to-Discovery
+
+**As a** user,
+**I want** to see the hashtags from an event's source post at the bottom of the event-detail page, and be able to tap one to find more events with that hashtag,
+**So that** I can discover related events through the same tagging the original poster used, without having to type the hashtag myself.
+
+**Acceptance Criteria:**
+
+1.  **Given** the `event`/`eventBySlug` resolvers' already-existing `posts` left-join, **when** `type Event` is extended with an additive `hashtags: [String!]` field (nullable, matching `publishedAt`/`sourcePostUrl`'s existing nullability), **then** both resolvers' flat selects return `posts.hashtags` verbatim — no new join, no new query, no new resolver.
+2.  **Given** the event has a linked post whose `posts.hashtags` is a non-empty array, **when** `EventDetailView.tsx`'s "event-main-content" details column renders, **then** a new hashtags block renders immediately after the schedules section and before the Attributions/"View Original" section — above that link regardless of single- or multi-post attribution — displaying each hashtag as `#<hashtag>` reusing the existing category/type badge's pill styling verbatim.
+3.  **Given** `hashtags` is `null` or empty, **when** `EventDetailView.tsx` renders, **then** the hashtags block does not render at all.
+4.  **Given** a hashtag pill, **when** `onHashtagClick` is provided, **then** it renders as a clickable button calling `onHashtagClick(hashtag)` with the raw, un-prefixed value; **when** not provided, **then** it renders as plain text — the same optional-affordance convention already used for the category/type badges.
+5.  **Given** the new `onHashtagClick` handler, **when** a hashtag pill is clicked, **then** the app navigates to Discovery (`/`) with exactly `?q=<url-encoded, #-prefixed hashtag>` — a clean single-facet reset of the `q` param only — which Discovery's pre-existing, unmodified `#`-prefix hashtag-search logic then resolves into an exact match. No new search mechanism is introduced.
+6.  **And** no new user-facing text is introduced beyond one new aria-label, resolved through `next-intl`.
+
+**Note:** Promotes `IDEA-037` (child of `IDEA-030`, carved out by Story 1.6f because it had no data to render yet — blocked on `BUG-032`, hashtag persistence, now `done`). Reuses Discovery's existing `#`-prefixed hashtag search (`packages/domain/src/events/buildEventsQueryCondition.ts`) rather than inventing a new one, and mirrors Story 1.6f's `Event.publishedAt` additive-field pattern and its `onCategoryClick`/`onTypeClick` badge-click-to-Discovery navigation pattern exactly. Gates 1/2/3 (`story-split-gate.md`) ran fresh via subagent dispatch — `epic-1-readiness.md` is `swept: true` but its `stories_covered` list predates Stories 1.6b-f and this one, so it was not cited (same reasoning as Stories 0.36/1.6f). All three returned **no gap**: Gate 1 confirmed `Event.hashtags` is the same additive-field-on-an-already-joined-query class as `Event.publishedAt`/`Event.links`; Gate 2 confirmed the hashtag pills reuse — not duplicate as a new shared component — the category/type badges' existing inline styling, logged as "watch, not split" (same precedent as Story 1.6f's own badges), and confirmed neither `DESIGN.md` nor `EXPERIENCE.md` covers hashtags or this component's bottom-of-column content; Gate 3 confirmed every mechanism consumed (the resolver join/select pattern, GraphQL codegen, i18n, Discovery's hashtag search) already exists and nothing new/shared is being introduced. No `AskUserQuestion` was required — every real decision point (single-facet reset, no `EventSourcePost` field, no pill-component extraction, no new analytics event) had a directly-on-point, already-confirmed precedent from Story 1.6f within the same `IDEA-030` family.
+
+**Depends on:** Story 1.6a (`EventDetailView`, amended in place), Story 1.6f (`onCategoryClick`/`onTypeClick` navigation pattern, `Event.publishedAt` precedent).
+
 ### Story 1.6: View event details
 
 **As a** user,
@@ -2040,6 +2177,24 @@ Note: Added 2026-08-01 at user request, scoped to Epic 1 (the only route it can 
 **Depends on:** Stories 1.i1a, 1.i1i, 1.i1j (the shared badge/date-box primitives and the `EventCardLabels`/`WeeklyCalendarViewLabels` prop shapes this story wires real content into), Story 1.i1f (BUG-049's function-shaped `nearbyBadge` label contract).
 
 **Note:** Formed 2026-09-27 via `bmad-create-story` from backlog `BUG-044`, scoped against `event-card-family-consolidated-acs.md` §2.5 (AC-I18N-1). Gate 1/3: no gap — reasoned fresh rather than blindly cited from `epic-1-i1-readiness.md`'s 2026-09-13 sweep, since that sweep's own Gate 3 finding #4 explicitly concluded "no new text strings requiring i18n," which this story's very existence contradicts. Fresh reasoning: no DB/resolver/API surface is touched (pure `packages/ui`/`apps/web` presentational wiring, consistent with the sweep's conclusion for the rest of the epic), and per `story-split-gate.md`'s own Gate 3 definition, "anything beyond adding strings to an existing, already-set-up i18n system" is what triggers a foundational-dependency gap — next-intl (routing, message-file structure, provider wiring) is already fully established project-wide, so this story is squarely the excluded case, not a foundational gap needing its own Epic 0 story. Gate 2: run fresh (Freya persona, subagent) — verdict NO SPLIT: every component rendering these labels was already built and shipped by Stories 1.i1a–1.i1n; this story changes only string content flowing into already-existing `labels` props, with no new component, hook, or non-trivial reusable util (the one new function, `formatLocalizedNearbyBadgeDistance`, is a ~6-line pure locale-aware wrapper around an already-shipped formatting rule, not a new abstraction other components build on). Namespace design (shared `EventCard`/`WeeklyCalendarView` namespaces vs. duplicating into each of the 6 page namespaces, matching the `calendarPrevWeekLabel` precedent) was raised to the user as a real, non-mechanical tradeoff before drafting; the user chose the shared-namespace approach, reasoning that this epic's own consolidation effort (BUG-047/BUG-048/BUG-049) has been about eliminating divergent copies of the same component behavior/text across surfaces, so 6x-duplicating these same strings into every page namespace would directly contradict that effort's point, and that the pre-existing `calendarPrevWeekLabel`-style duplication looks like it predates this consolidation effort rather than being a deliberate pattern worth extending here.
+
+### Story 1.i1p: Remove EventCardMediaSlot's unused internal favorite-badge rendering
+
+**As a** developer,
+**I want** `EventCardMediaSlot` to stop owning its own internal favorite-badge rendering (the with-image corner-pill branch and the reserved-blank large-fallback branch), along with the props only those branches use,
+**So that** the primitive's contract matches what both production callers actually need — a pure image/fallback slot — instead of carrying a dead, still-tested code path that both callers have unconditionally suppressed since Stories 1.i1e/1.i1m.
+
+**Acceptance Criteria:**
+
+*   **Given** both of `EventCardMediaSlot`'s internal favorite-badge branches (with-image corner pill, reserved-blank large fallback) are gated behind `!hideFavoriteBadge && onFavoriteToggle`, and both real production callers (`EventCard.tsx`, `EventCardCompact.tsx`) already unconditionally suppress them via `hideFavoriteBadge` while composing their own `EventCardFavoriteBadge` externally, **when** this story ships, **then** both branches are deleted — the slot renders only the `<img>` when an image is present, and nothing otherwise, while still mounting its own reserved-footprint root element.
+*   **And** `isFavorited`, `favoriteCount`, `onFavoriteToggle`, `labels`, and `hideFavoriteBadge` are removed from `EventCardMediaSlotProps`, with both call sites updated to compile clean and render byte-for-byte identical output — `EventCardFavoriteBadge`'s own prop surface is untouched.
+*   **And** every test that mounted the slot's now-removed favorite control (across `EventCardMediaPrimitives.test.tsx`'s AC2/AC3/AC4 blocks, the Story 1.i1e `hideFavoriteBadge` tests, and two Story 1.i1m `collapseOnFallback` sub-tests) is rewritten or removed with no loss of coverage for any invariant that still applies.
+*   **And** Stories 1.i1a (AC3/AC4/AC5), 1.i1e (AC4), and 1.i1m (AC4) — whose own full story files describe or name the now-removed capability — are amended with dated, inline annotations, and Architecture Spine AD-15 Rule 4 is reworded to state the "one live favorite control" guarantee is now proven at the consumer level, not the primitive's.
+*   **And** Story 1.i1z's ratchet-marked `EventCardMediaSlot fallback - AC3` test block loses only its favorite-badge-dependent sub-assertions (its placeholder-text/reserved-footprint assertions survive unchanged), recorded as a new, dated Change Log entry per that story's own AC5.
+
+**Depends on:** Story 1.i1a (the primitive this story narrows), Story 1.i1e (added the `hideFavoriteBadge` prop this story removes), Story 1.i1m (the other real caller of `hideFavoriteBadge`).
+
+**Note:** Formed 2026-10-06 via `bmad-create-story`, carved out of backlog `IDEA-048`'s 2026-10-05 close-out (that note explicitly flagged this removal as "a separate step," tracked as Step 5 of `planning-artifacts/event-pages-followup-2026-10-05.md`). Backlog row `FIND-076` tracks this item. Gate 1/3: no gap (cited from the swept `epic-1-i1-readiness.md`, plus a fresh lightweight guard — this story's scope is a strict narrowing of what the sweep already covers). Gate 2: run fresh (Freya-persona one-shot analysis) — verdict NO SPLIT, nothing reusable is being introduced, only dead code removed. The amendment scope (which of Stories 1.i1a/1.i1e/1.i1m/1.i1z and Architecture Spine AD-15 needed correcting, and whether to reword AD-15 Rule 4 itself vs. just its citation) was surfaced to the user via `AskUserQuestion` before drafting, per this workflow's Gate 3 requirement; user approved the full amendment scope. Full record in this story's own Dev Notes.
 
 ### Story 1.i1z: Ratchet — no card surface sizes or falls back locally
 
@@ -4460,6 +4615,50 @@ Users can contribute to data quality by correcting event details and reporting i
 **Note:** Added 2026-08-06 during Story 2.7's creation, at the user's explicit request. Story 2.7 introduces the platform's first default event-visibility-hiding mechanism (built extensible for Story 4.3a/4.4a's later rules) and broadens "hide past events" from personal-lists-only to a global default across every event view, which makes a dedicated escape hatch necessary so users don't lose access to their own favorited/calendar-added/subscribed events entirely. Positioned as Epic 4's final story — after 4.3a/4.4a, which supply two of this page's three hide-reasons, and after Epic 3 (subscription data) — rather than Epic 2, since it depends on hide-reasons and subscription data neither Epic 2 nor Epic 0 have. Full UX/interaction design (empty state, "why hidden" iconography/copy, whether any unhide/restore action exists) is intentionally left to this story's own future `bmad-create-story` pass, not specified here.
 
 **Depends on:** Story 2.7, Story 3.1a, Story 4.3a, Story 4.3c, Story 4.4a.
+
+### Story 4.9: Moderator accounts-tab card: default location display, edit, and clear
+
+**As a** moderator,
+**I want** each account card on the Moderator Tools "Accounts" tab (`/moderator/tools?tab=accounts`) to show the account's current default location (or a "Set Location" prompt when unset), an edit-location action, and a new clear-location action,
+**So that** I can review and correct an account's default location directly from the accounts list I already use for scraper/consent settings, instead of only being able to act on it reactively from `/moderator/items` when a change happens to be pending review, and so I can reset a wrong location to empty when no corrected value is known yet.
+
+**Acceptance Criteria:**
+
+*   **Given** the Accounts tab's `queryModeratorAccountProfiles` query is extended to request `defaultLocation` (`formattedAddress`/`placeName`) and `hasPendingDefaultLocationReview`,
+*   **When** an account card renders and `defaultLocation` is set, **then** it shows the location text and a `pendingReview` badge when `hasPendingDefaultLocationReview` is true, via the existing shared `AccountLocationField` (`packages/ui`, already used by `/settings/subscriptions` and `/moderator/items`) — not a new bespoke rendering.
+*   **And when** `defaultLocation` is unset, **then** the card shows a plain-text "Set Location" trigger instead (matching `subscriptions-content.tsx`'s existing empty-state pattern byte-for-byte), which opens `SetDefaultLocationDialog` in `mode="set"`.
+*   **And** clicking the edit (Pencil) icon on a set location opens the existing, already-generic `SetDefaultLocationDialog` in `mode="edit"` with `initialLocation` populated from the account's current `defaultLocation`; both the "Set" and "Edit" paths pass `asModeratorCorrection={true}` (this page is moderator-only route-guarded via `useRequireModerator`, matching `/moderator/items`'s existing wiring, per Architecture Spine AD-11's "additive auth, page decides" precedent) — the write self-resolves immediately via `changeSource: 'MODERATOR'`, no pending-review state is created for the moderator's own edit.
+*   **And** `AccountLocationField` gains a new optional `onClear?: () => void` prop and an optional `clearLabel` in its `labels` object (purely additive — both existing consumers, `/settings/subscriptions` and `/moderator/items`, omit it and render byte-for-byte unchanged). When provided, a second icon-button renders beside the existing Pencil button using lucide-react's `MapPinOff` icon, `text-muted-foreground hover:text-destructive` at rest (matching the Pencil button's own hover-reveal convention — not a baseline destructive color, so it doesn't read as "delete this account" the way `Trash2` would, per Gate 2 finding below), `aria-label={labels.clearLabel}`.
+*   **And** clicking the clear icon opens the reusable `ConfirmActionDialog` primitive (`packages/ui`, Story 0.47 — the same primitive already used by `duplicate-events-content.tsx` in this exact directory) with `confirmVariant="destructive"` and copy that says "Clear location", not "Delete"/"Remove" (per Gate 2 finding below); only the Accounts-tab card passes `onClear` — `/settings/subscriptions` and `/moderator/items` do not gain a clear affordance by this story.
+*   **And** confirming calls a new `clearAccountDefaultLocation(accountId: ID!): SocialMediaAccountProfile!` mutation (`social-media-accounts.graphql`/`resolvers.ts`) that: requires `requireModerator(context)` (no subscriber path — this action has no subscriber-facing equivalent anywhere in the product); throws `NOT_FOUND` if the account profile doesn't exist; throws `INVALID_STATE_TRANSITION` if `defaultLocation` is already null (mirroring `setAccountDefaultLocation`'s existing symmetric check); otherwise, inside one `db.transaction`, sets `defaultLocation = null` and marks every still-open (`PENDING_REVIEW`/`AWAITING_APPROVAL`) `defaultLocationChangeRequests` row for that `accountId` as `SUPERSEDED` (mirroring `applyDefaultLocationChange`'s existing superseding logic and Architecture Spine AD-11 rule 3's "any successful write supersedes stale pending requests," generalized here to the clear action).
+*   **And** the clear mutation does **not** call `applyDefaultLocationChange()` and does **not** insert a new `defaultLocationChangeRequests` audit row for the clear itself — `newLocation` on that table is `NOT NULL` and a clear has no new location value to log; this was a user-confirmed simplicity-over-audit-parity tradeoff during story creation (Gate 1 found no architectural issue with it — closed rows are inert history, nothing reads them expecting consistency with current state).
+*   **And** `SetDefaultLocationDialog` gains a new optional `onSaved?: () => void` callback, fired only after a successful save (its existing `onClose` fires on cancel/dismiss too, so it can't be reused for this) — purely additive, zero behavior change for its existing callers (`/settings/subscriptions`, `/moderator/items`) — used by the new Accounts-tab call site to fire its own correctly-named PostHog events (`moderator_accounts_tab_default_location_set`/`moderator_accounts_tab_default_location_edited`) instead of relying on the dialog's internal, subscription-scoped `subscription_default_location_set`/`subscription_default_location_edited` events, which would otherwise mislabel a moderator-tools-initiated edit. (The dialog's internal events keep firing unchanged too — this adds a second, accurately-scoped event on top, it does not remove or rename the existing ones, so `/moderator/items`'s pre-existing identical mislabeling is left as-is, out of scope here.)
+*   **And** the clear action fires its own `moderator_accounts_tab_default_location_cleared` PostHog event (`{ accountId }` payload) on confirm.
+*   **And** both `apps/web/locales/en.json` and `id.json` gain matching new keys under `ModeratorAccountsPage` for: the set/edit/clear labels, the pending-review badge label (or reuse of an existing shared key if one already fits), the clear-confirmation dialog's title/description/confirm/cancel copy, and success/error toasts for set, edit, and clear — added to both locale files together, per this project's locale-parity ratchet (Story 0.50).
+
+**Note:** Carved from `backlog.yaml` row IDEA-034 (itself carved 2026-09-15 from IDEA-032 §6) on 2026-10-06. Gate 1 (architecture/infra), Gate 2 (UI reusability), and Gate 3 (foundational/cross-cutting) were all run fresh for this story specifically (the Epic 4 readiness report, swept 2026-08-11, covers only Stories 4.1a-4.8 and predates this backlog row) — all three reported **no gap**, with two refinements folded into the ACs above: Gate 1 required wrapping the new mutation's two writes in a `db.transaction`; Gate 2 flagged that a resting `Trash2`/`text-destructive` icon would misread as "delete this account" one file over from `subscriptions-content.tsx`'s actual delete-subscription action, recommending `MapPinOff` with a hover-reveal-only destructive color instead, and confirmed the new `onClear`/`onSaved` additions to `AccountLocationField`/`SetDefaultLocationDialog` are small, purely additive changes that don't warrant splitting into a prerequisite foundational story. Two design choices (the mutation's audit-trail scope, and extending `AccountLocationField` vs. bespoke local markup for the clear icon) were confirmed with the user via `AskUserQuestion` during story creation rather than silently decided.
+
+**Depends on:** Story 4.7b (Moderator Tools tabbed shell, done — hosts the Accounts tab), the existing `setAccountDefaultLocation`/`editAccountDefaultLocation` mutations (Story 3.3b/AD-11, done).
+
+### Story 4.10: Add manual link editing to the Correct Data dialog
+
+**As a** user correcting an event's data,
+**I want** to add, edit, and remove the event's extra links (tickets, RSVP, merch, etc.) directly in the "Correct Data" dialog, the same way I can already correct the event name, location, or schedule,
+**So that** I can fix or supplement an event's links myself instead of only ever seeing whatever AI extraction originally found (or nothing, if extraction found none) with no way to correct it.
+
+**Acceptance Criteria:**
+
+*   **Given** `ProposedEventCorrection` (Story 4.1a's shape), **when** this story ships, **then** it gains a new optional `links?: EventLink[]` field, threaded through the AJV schema (backend), the Zod schema (frontend), a new `EventLinkInput` GraphQL input type on `ProposedEventCorrectionInput`, and the `submitCorrection` resolver's event update — persisting via the already-existing, already-tested `sanitizeEventLinks()` (Story 0.37) as a final defense-in-depth pass.
+*   **And** an invalid or non-http(s) link URL is rejected with an inline per-row validation error (field key `links[N].url`, same convention as every other field), not silently dropped — reusing one newly-exported `isAllowedHttpUrl()` helper (from `sanitize-event-links.ts`) as the single source of truth for the check on both the frontend Zod schema and the backend consistency-check function, rather than two independently-maintained protocol checks.
+*   **And** `CorrectionForm.tsx` (packages/ui, Story 4.1b) gains a new repeatable "Links" field — an inline row (url input + optional label input + remove button, stacking on mobile) per row, capped at 10 rows with "Add link" disabled at the cap, decisive add/remove focus-management rules, and `fieldset`/`legend` + visible per-row `<label>` text for accessibility — designed fresh via a Gate 2 (Freya) UX pass, since no repeatable/array-of-objects form field exists anywhere in this codebase today. Kept local to `CorrectionForm.tsx`, not extracted as a generic reusable primitive (no second consumer exists yet).
+*   **And** `correction-dialog.tsx` seeds the field from the event's existing `links` (already selected by `getEventBySlug`, Story 0.37), submits the full resulting array (or omits it entirely when empty, clearing any previously-set links), and patches the `eventBySlug` query-cache on success exactly like every other field this dialog already patches.
+*   **And** the AI-assisted-correction-preview path (Story 4.2a's `mapExtractionPayloadToProposedCorrection`, which has silently dropped `payload.links` since Story 0.37) is fixed to map `links` through too, and `ProposedEventCorrectionData`'s GraphQL type plus `extraction.graphql`'s two client operations are extended to carry it end to end — so the dialog's "AI-Assisted Correction" extract button also pre-fills links, closing both halves of this backlog row's stated scope ("manual user edits and AI-assisted re-extraction correction previews").
+*   **And** both `apps/web/locales/en.json` and `id.json` gain matching new keys under the existing `EventCorrectionForm` namespace for the new field's labels/copy, added together per the locale-parity ratchet (Story 0.50).
+*   **And** `pnpm --filter backend codegen` and `pnpm --filter web codegen` are both re-run, with diffs limited to the new additions.
+
+**Note:** Carved from `backlog.yaml` row IDEA-036 (itself carved 2026-09-16 from IDEA-012's own capture, after Story 0.37 shipped AI-extraction + read-only display of `links` only) on 2026-10-07. The row explicitly called for a Gate 2 UX pass before story creation, since the repeatable url+label input is a new array-of-objects form-field pattern with no existing precedent in this app — Freya's pass (run fresh this session) produced the inline-row/cap/focus-management design folded into the ACs above. Four real design choices (row layout, cap-enforcement timing, invalid-URL handling, and reusable-primitive-vs-local) were confirmed with the user via `AskUserQuestion` rather than silently decided. Gate 1/3 were deliberately **not** rerun fresh — this story introduces no new external service, data entity, or infra dependency (it threads an already-existing `events.links` column, migration 0058, through an already-existing mutation and component), so the epic-4 readiness sweep's gap in coverage (it predates this row, covering only 4.1a-4.8) is immaterial here. No DB migration — confirmed before writing this story that `events.links` already exists.
+
+**Depends on:** Story 4.1a (`ProposedEventCorrection`/`submitCorrection`), Story 4.1b (`CorrectionForm`), Story 4.2a (the AI-assisted-correction-preview mapper this story also fixes), Story 0.37 (`sanitizeEventLinks`, `events.links`, done).
 
 ### Epic 5: Onboarding and Manual Event Extraction
 

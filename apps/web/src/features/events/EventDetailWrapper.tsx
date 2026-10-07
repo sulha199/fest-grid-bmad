@@ -453,6 +453,37 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
           }
         : null
 
+  // mapGraphQLEventToDetailViewProps is a pure mapping of GraphQL data to view props (schedules
+  // array, labels, etc.) — memoized so it only recomputes when its own inputs change, not on
+  // every re-render (dialog open/close, liveMessage updates). Declared here (above this
+  // component's early returns for the hidden/not-found views) rather than next to its usage,
+  // since a hook called after a conditional `return` would violate the Rules of Hooks. FIND-031.
+  const mappedEventDetailProps = useMemo(
+    () =>
+      data?.eventBySlug
+        ? mapGraphQLEventToDetailViewProps(
+            data.eventBySlug,
+            labels,
+            locale,
+            tType,
+            tCategory,
+            resolvedInstagramEmbed,
+            subscriptionsData?.mySubscriptions,
+            pendingCoauthorAccountId
+          )
+        : null,
+    [
+      data?.eventBySlug,
+      labels,
+      locale,
+      tType,
+      tCategory,
+      resolvedInstagramEmbed,
+      subscriptionsData?.mySubscriptions,
+      pendingCoauthorAccountId,
+    ]
+  )
+
   // Story 0.38 (AC1, AC2) — register the dedicated, locale-scoped Instagram
   // embed.js caching service worker. Deliberately NOT
   // `apps/web/public/firebase-messaging-sw.js` (stays root-scoped, unrelated
@@ -727,18 +758,9 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
       })
     : undefined
 
-  const mappedProps = data?.eventBySlug
+  const mappedProps = mappedEventDetailProps
     ? {
-        ...mapGraphQLEventToDetailViewProps(
-          data.eventBySlug,
-          labels,
-          locale,
-          tType,
-          tCategory,
-          resolvedInstagramEmbed,
-          subscriptionsData?.mySubscriptions,
-          pendingCoauthorAccountId
-        ),
+        ...mappedEventDetailProps,
         isAuthenticated: !!session,
         onFavoriteToggle: () => {
           if (!session) {

@@ -11,15 +11,26 @@ export type EventCardFavoriteBadgeScale = 'default' | 'large';
 
 /**
  * The media/thumbnail slot of the shared event-card primitive. It owns image-slot
- * dimensions, the reserved-blank fallback, and the badge scale — it does NOT own
- * any date/locale formatting.
+ * dimensions and the reserved-blank fallback — it does NOT own any date/locale
+ * formatting, and (as of Story 1.i1p) it does NOT own any favorite-control rendering
+ * either.
  *
  * `EventCardMediaSlot` internally tracks an `onError` state identical to
  * `EventCard`'s existing `imgError` detection and switches between:
- *  - image present + ok → `<img>` (object-cover filling the reserved footprint) with
- *    a small corner favorite badge overlaid
- *  - image absent/errored → nothing rendered in the slot except the large, centered
- *    favorite badge (per `DESIGN.md` § thumbnail_default_fallback / § event_card_compact_thumbnail_fallback)
+ *  - image present + ok → `<img>` (object-cover filling the reserved footprint)
+ *  - image absent/errored → nothing rendered in the slot (the slot's own root
+ *    element still mounts, preserving its AC1 footprint — see `collapseOnFallback`
+ *    below for the one opt-in exception) — per `DESIGN.md` § thumbnail_default_fallback
+ *    / § event_card_compact_thumbnail_fallback
+ *
+ * Favorite-badge composition is entirely the caller's responsibility in both branches:
+ * every real consumer (`EventCard.tsx`'s masonry-default state, `EventCardCompact.tsx`'s
+ * row) renders `EventCardFavoriteBadge` as an external sibling of this slot, not through
+ * it. Story 1.i1a originally gave this slot its own internal favorite-badge rendering
+ * (suppressible via a `hideFavoriteBadge` prop added by Story 1.i1e); Story 1.i1p removed
+ * that internal rendering and the `hideFavoriteBadge`/`isFavorited`/`favoriteCount`/
+ * `onFavoriteToggle`/`labels` props entirely once both production callers were found to
+ * always suppress it.
  */
 export interface EventCardMediaSlotProps {
   /** Optional URL for the event image. Absent (or an `onError` firing) renders the reserved-blank fallback. */
@@ -40,14 +51,6 @@ export interface EventCardMediaSlotProps {
    * - `fixed-square` → calendar-compact's `w-16 h-16 shrink-0`
    */
   layout: 'flex-fill' | 'fixed-square';
-  /** Reserved favorite state, forwarded to the badge. */
-  isFavorited?: boolean;
-  /** Optional count of favorites rendered next to the heart. */
-  favoriteCount?: number;
-  /** Callback when the favorite button is toggled. Must be provided to render the favorite control. */
-  onFavoriteToggle?: MouseEventHandler<HTMLButtonElement>;
-  /** Optional label overrides for internally-rendered microcopy (i18n-readiness). */
-  labels?: EventCardFavoriteBadgeLabels;
   /** Extra classes appended to the slot root (e.g. margin in a composed row). */
   className?: string;
   /**
@@ -58,14 +61,6 @@ export interface EventCardMediaSlotProps {
    * sites pass it explicitly.
    */
   size?: EventCardDateBoxSize;
-  /**
-   * When true, suppress the slot's own internal favorite badge in BOTH branches
-   * (the image-present corner pill and the reserved-blank large fallback), so a
-   * caller can compose an external favorite control instead (e.g. a
-   * `RootTag`-external sibling, per Story 1.i1e's nested-button-avoidance design).
-   * Defaults to `false` — omitted callers keep today's exact behavior.
-   */
-  hideFavoriteBadge?: boolean;
   /**
    * Optional callback fired with the current image-presence state
    * (`true` = a valid image is present and not errored, `false` = absent or

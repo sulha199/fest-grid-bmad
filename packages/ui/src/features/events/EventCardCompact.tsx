@@ -236,14 +236,10 @@ export function EventCardCompact({
           imageUrl={imageUrl}
           imageFallbackUrl={imageFallbackUrl}
           imageAlt={eventName}
-          isFavorited={isFavorited}
-          favoriteCount={favoriteCount}
-          onFavoriteToggle={onFavoriteToggle ? () => onFavoriteToggle() : undefined}
-          labels={{ favoriteToggle: favoriteToggleLabel }}
           collapseOnFallback
           // The with-image favorite pill is composed externally below (card-corner position,
-          // like the TILL tag) -- the slot's own `overflow-hidden` would clip it here.
-          hideFavoriteBadge
+          // like the TILL tag) -- the slot itself renders no favorite control at all (Story
+          // 1.i1p removed that capability once every real caller was found to suppress it).
           onImagePresenceChange={setImagePresent}
         />
         {imagePresent && (
@@ -265,9 +261,8 @@ export function EventCardCompact({
             this row has no image to overlay when collapsed, so the badge is simply the
             row's last flex child) whenever the media slot above has collapsed to `null`.
             With an image present, the externally composed corner pill above renders
-            instead (the slot's own badge is suppressed via `hideFavoriteBadge` — its
-            internal badge branches are unused by production callers; removal is tracked in
-            planning-artifacts/event-pages-followup-2026-10-05.md, step 5), so this and
+            instead (the slot itself never renders a favorite control of its own — Story
+            1.i1p removed that capability from `EventCardMediaSlot` entirely), so this and
             that pill are mutually exclusive, never both. */}
         {!imagePresent && (
           <EventCardFavoriteBadge

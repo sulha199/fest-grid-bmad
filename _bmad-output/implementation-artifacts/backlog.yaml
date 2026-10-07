@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-05"
+last_updated: "2026-10-07"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -752,19 +752,20 @@ items:
 
   # ── 2026-09-16 (bmad-create-story, carved from IDEA-012) ────────────────────
   IDEA-036:
-    {type: idea, status: backlog, parent: IDEA-012, created: 2026-09-16,
+    {type: idea, status: promoted, parent: IDEA-012, created: 2026-09-16,
      impact: user-visible, effort: m,
      title: "Extend the \"Correct Data\" dialog to support manual add/edit of event links",
      ref: [backlog/IDEA-036-correct-data-dialog-link-editing.md], touches: [cross:ai-extraction, app:backend, web:events, pkg:ui],
-     note: "Needs a UX pass (Gate 2) for the repeatable url+label input pattern before story creation -- none exists in the app yet for an array-of-objects form field. Full scope in backlog/IDEA-036-correct-data-dialog-link-editing.md."}
+     stories: [4-10-add-manual-link-editing-to-the-correct-data-dialog],
+     note: "Promoted to Story 4.10 (2026-10-07): covers the full row scope end-to-end -- Gate 2 UX pass, CorrectionForm.tsx/correction-dialog.tsx, links threaded through ProposedEventCorrection for both manual and AI-assisted paths. No child row carved."}
 
   IDEA-037:
-    {type: idea, status: backlog, parent: IDEA-030, created: 2026-09-16,
-     impact: user-visible, effort: s,
+    {type: idea, status: promoted, parent: IDEA-030, created: 2026-09-16,
      title: "Event-detail hashtags: display at bottom of event-main-content, clicking to Discovery",
      ref: [backlog/IDEA-030-event-detail-ui.md],
      touches: [web:events, web:posts, cross:ai-extraction],
-     note: "Carved out of IDEA-030 by bmad-create-story (Story 1.6f) — item 3 of that row's original capture note (full detail there): display the post's hashtags at the bottom of `event-main-content`, above the view-original link; clicking a hashtag opens Discovery with the clicked hashtag as an additional `search-text` param. Kept out of Story 1.6f (which covers IDEA-030's other 6 items) because it has no data to render yet — blocked on BUG-032 (hashtags not persisted into the posts table), which is in a separate, not-yet-started backlog cluster. Re-eligible for `bmad-create-story` once BUG-032 lands."}
+     stories: [1-6g-event-detail-hashtags],
+     note: "Promoted to Story 1.6g, now unblocked (BUG-032 done). Full carve-out detail in backlog/IDEA-030-event-detail-ui.md and Story 1.6f Out of Scope."}
 
   # ── 2026-09-11 (bmad-help scraper-ops session) ──────────────────────────────
   IDEA-013:
@@ -1125,11 +1126,11 @@ items:
      note: "Fix: gated the query on the event having a sourceSocialMediaAccountProfile (not lifted to shell-level, since no other route needs it warmed). Full trace in backlog/FIND-030-unconditional-subscriptions-query-on-event-detail.md."}
 
   FIND-031:
-    {type: finding, status: triaged, created: 2026-09-15,
+    {type: finding, status: done, created: 2026-09-15,
      impact: cosmetic, effort: xs,
      title: "Event-detail page client-side hygiene: unmemoized prop mapper, raw <img> instead of next/image on hero and carousel-peek images",
      ref: [backlog/FIND-031-event-detail-client-side-hygiene.md], touches: [web:events/EventDetailWrapper, pkg:ui],
-     note: "Low priority relative to BUG-032/033/034; bundled as one item (unmemoized mapper, raw <img> on hero/carousel-peek). Not yet scoped into a story. Full detail in backlog/FIND-031-event-detail-client-side-hygiene.md."}
+     note: "Done 2026-10-07, implemented directly via bmad-quick-dev (no story): mapper memoized, carousel-peek moved to next/image (unoptimized). Hero image intentionally not converted -- carved out as FIND-075. Full detail in backlog/FIND-031-event-detail-client-side-hygiene.md."}
 
   # ── 2026-09-15 (bmad-help backlog capture) ──────────────────────────────────
   BUG-032:
@@ -1179,12 +1180,13 @@ items:
      note: "Carved 2026-09-15, cluster member of IDEA-029. Full detail in backlog/IDEA-032-platform-account.md. Promoted 2026-09-19 to Story 0.i6e (blocked on Story 1.6d)."}
 
   IDEA-034:
-    {type: idea, status: triaged, created: 2026-09-15, parent: IDEA-032,
+    {type: idea, status: promoted, created: 2026-09-15, parent: IDEA-032,
      impact: user-visible, effort: s,
      title: "Moderator Tools accounts-tab card: add location info + edit/clear-location icons",
      ref: [backlog/IDEA-032-platform-account.md],
+     stories: [4-9-moderator-accounts-tab-location-info-and-edit-clear-actions],
      touches: [web:moderation, web:accounts, web:locations, pkg:ui],
-     note: "Carved 2026-09-15 from IDEA-032 (§6) — that row's original capture bundled two unrelated surfaces. Moderator Tools accounts tab (moderator/tools?tab=accounts) account card gains location info plus an edit-location icon (opens a select-location popup) and a clear-location icon (opens a confirmation to set the account location to empty). Epic 4 (Data Quality and Moderation) surface, distinct from IDEA-032's now-narrowed Epic 1/3 reusable-account-element scope — not part of the IDEA-029 location-link mechanism cluster."}
+     note: "Carved 2026-09-15 from IDEA-032 (§6) — that row's original capture bundled two unrelated surfaces. Moderator Tools accounts tab (moderator/tools?tab=accounts) account card gains location info plus an edit-location icon (opens a select-location popup) and a clear-location icon (opens a confirmation to set the account location to empty). Epic 4 (Data Quality and Moderation) surface, distinct from IDEA-032's now-narrowed Epic 1/3 reusable-account-element scope — not part of the IDEA-029 location-link mechanism cluster. Promoted 2026-10-06 to Story 4.9 -- full row scope covered by that one story, no child row carved out."}
 
   IDEA-033:
     {type: idea, status: promoted, created: 2026-09-15,
@@ -1223,22 +1225,34 @@ items:
 
   # ── 2026-09-15 (Cluster A batch, ritual-orchestrator) ────────────────────────
   FIND-032:
-    {type: finding, status: backlog, created: 2026-09-15,
+    {type: finding, status: promoted, created: 2026-09-15,
      impact: internal, effort: s,
      title: "No lint/test guardrail enforces key parity between label interfaces (e.g. EventDetailViewLabels) and en.json/id.json locale files",
      ref: [implementation-artifacts/deferred-work.md],
+     stories: [0-50-add-a-locale-parity-ratchet-for-eventdetailviewlabels],
      touches: [pkg:ui, cross:i18n],
-     note: "Deferred from: find-011-cruft-cleanup (2026-09-15). 1 finding. A future prop removal/addition on any such label interface can silently desync from the translation files, caught only by manual diligence today (as in FIND-011's own postedByLabel removal)."}
+     note: "Deferred from: find-011-cruft-cleanup (2026-09-15). A future prop removal/addition on any such label interface can silently desync from the translation files. Promoted 2026-10-06 via Story 0.50 (EventDetailViewLabels only; see child FIND-078)."}
+
+  # ── 2026-10-06 (bmad-create-story, Story 0.50) ───────────────────────────────
+  FIND-078:
+    {type: finding, status: backlog, created: 2026-10-06, parent: FIND-032,
+     impact: internal, effort: m,
+     title: "Widen the EventDetailViewLabels locale-parity ratchet (Story 0.50) to the ~19 other *Labels interfaces across packages/ui, packages/domain, and apps/web",
+     ref: [implementation-artifacts/0-50-add-a-locale-parity-ratchet-for-eventdetailviewlabels.md],
+     touches: [pkg:ui, pkg:domain, web:events, cross:i18n],
+     note: "Carved out of FIND-032 during Story 0.50's drafting (2026-10-06): ~19 other *Labels interfaces exist with non-uniform namespace mappings (renamed keys, nested paths, no dedicated namespace); widening the ratchet to them is unbounded for an effort:s story. See Story 0.50's Dev Notes."}
 
   # ── 2026-09-15 (bmad-create-story, Story 0.i5b) ──────────────────────────────
   IDEA-035:
-    {type: idea, status: triaged, created: 2026-09-15, epic: epic-0-i5,
+    {type: idea, status: done, created: 2026-09-15, closed: 2026-10-07, epic: epic-0-i5,
      impact: internal, effort: xs,
      title: "Formalize scroll-to-top-on-filter-reset as a cross-surface EXPERIENCE.md convention",
-     ref: [implementation-artifacts/0-i5b-adopt-the-controller-in-discovery-event-list-surfaces.md],
+     ref: [implementation-artifacts/0-i5b-adopt-the-controller-in-discovery-event-list-surfaces.md,
+           design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
      touches: [pkg:ui, web:events, cross:ux-tokens],
      note: "Surfaced during Story 0.i5b (bmad-create-story, 2026-09-15): Gate 2 found neither DESIGN.md nor EXPERIENCE.md addresses whether a filter change should scroll a list view back to top. User chose (via AskUserQuestion) to add this behavior to Discovery's home-content.tsx now — window.scrollTo({top:0}) fired from useListPaginationController's onReset, reusing useCollapseHeaderOnScroll.ts's existing reduced-motion-aware convention — but explicitly as a single-surface implementation, not a binding EXPERIENCE.md rule. This idea tracks formalizing it into a documented cross-surface convention if/when Feed/Favorites or other useListPaginationController adopters need the same treatment. Not promoted to a story; no adoption story references it yet.
-     UPDATED 2026-09-30 (Story 0-i5e): Feed (feed-content.tsx) and Favorites (favorites-content.tsx) now also implement scroll-to-top-on-filter-reset the same way, via AskUserQuestion during Story 0.i5e's creation. All 3 current useListPaginationController adopters (Discovery, Feed, Favorites) now implement this behavior — still recorded here as a documented convention, not promoted to a binding EXPERIENCE.md rule by this story."}
+     UPDATED 2026-09-30 (Story 0-i5e): Feed (feed-content.tsx) and Favorites (favorites-content.tsx) now also implement scroll-to-top-on-filter-reset the same way, via AskUserQuestion during Story 0.i5e's creation. All 3 current useListPaginationController adopters (Discovery, Feed, Favorites) now implement this behavior — still recorded here as a documented convention, not promoted to a binding EXPERIENCE.md rule by this story.
+     CLOSED 2026-10-07 (bmad-quick-dev, documentation-only): formalized as a new 'Scroll-to-Top on Filter Reset' subsection under EXPERIENCE.md's Component Patterns, documenting the onReset snippet and its reuse of useCollapseHeaderOnScroll.ts's reduced-motion convention. No application code touched — the three existing adopters already matched the documented behavior exactly."}
 
   # ── 2026-09-17 (direct AWS CLI investigation) ────────────────────────────────
   FIND-034:
@@ -1355,14 +1369,26 @@ items:
      note: "Partial-promotion carve-out from CC-026 (section 13): tracked 3.17, 3.18, 3.19. Promoted 2026-10-05 on Story 3.18; remaining fan-out (3.17, 3.19) carved to CC-029."}
 
   CC-029:
-    {type: proposal, status: triaged, created: 2026-10-05, parent: CC-027,
+    {type: proposal, status: promoted, created: 2026-10-05, parent: CC-027,
      title: "Remaining FIND-022 coauthor/publisher stories not yet created (3.17, 3.19)",
      ref: [backlog/FIND-022-coauthor-content-issues.md,
            specs/spec-post-coauthor-attribution/SPEC.md,
            planning-artifacts/sprint-change-proposal-2026-09-18.md],
+     stories: [3-17-demand-gated-discovery-for-scrape-discovered-profiles],
      touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions],
      impact: user-visible, effort: m,
-     note: "Partial-promotion carve-out from CC-027 (section 13): CC-027 covered only 3.18 of its three tracked stories. Tracks the still-not-created 3.17 (demand-gated discovery for scrape-discovered profiles) and 3.19 (sanitized subscription-toggle analytics) so they stay visible."}
+     note: "Partial-promotion carve-out from CC-027 (section 13): tracked 3.17, 3.19. Promoted 2026-10-07 on Story 3.17; remaining fan-out (3.19) carved to CC-031."}
+
+  CC-031:
+    {type: proposal, status: promoted, created: 2026-10-07, parent: CC-029,
+     title: "Remaining FIND-022 coauthor/publisher story not yet created (3.19)",
+     ref: [backlog/FIND-022-coauthor-content-issues.md,
+           specs/spec-post-coauthor-attribution/SPEC.md,
+           planning-artifacts/sprint-change-proposal-2026-09-18.md],
+     stories: [3-19-sanitized-subscription-toggle-analytics],
+     touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions],
+     impact: user-visible, effort: s,
+     note: "Partial-promotion carve-out from CC-029 (section 13): CC-029 covered only 3.17 of its two tracked stories. Tracks the still-not-created 3.19 (sanitized subscription-toggle analytics) so it stays visible."}
 
   FIND-039:
     {type: finding, status: backlog, created: 2026-09-18, parent: CC-022,
@@ -1676,7 +1702,8 @@ items:
      touches: [pkg:ui, web:events/WeeklyCalendarView],
      note: "Deferred from: code review of spec-bug-048-eventcardcalendargriditem-single-day-adoption.md (2026-09-26). 3 findings (plus FIND-057, tracked separately).
      VERIFIED 2026-09-29 against live code: nearbyBadgeLabel is now wired and rendering with an estimated-distance value (user-confirmed live; matches AC-NEARBY-1/2/3, BUG-049) -- that part of this finding is CLOSED. `isAddedToCalendar` treatment is CONFIRMED still missing from `MultiDaySpanningBar` (`WeeklyCalendarView.tsx:1556-1570` -- `EventCardCalendarGridItem`'s `labels` prop only forwards `favoriteToggle`, no isAddedToCalendar slot exists in the shared primitive at all, same as the day-cell's own comment at :1325-1327 already notes). LAYOUT PROPOSAL (2026-09-29, user asked for one): reuse the sibling single-day grid card's own already-shipped pattern verbatim -- `WeeklyCalendarView.tsx:1373-1379` renders a decorative `CalendarPlus` icon at `absolute -top-1.5 -left-1.5` (white/90 rounded bg, shadow-sm) as a sibling of `EventCardCalendarGridItem` inside `SPANNING_BAR_VISUAL_CLASS`, floating outside the card's own `p-2` padding box over the border corner -- mirroring the same corner's decorative favorited-Heart icon (`-top-1.5 -right-1.5`, only shown when `!onFavoriteToggle`). MultiDaySpanningBar has the identical outer structure (`SPANNING_BAR_VISUAL_CLASS` wrapper, no competing decorative-favorite icon since `onFavoriteToggle` is always supplied there) -- the top-left corner is free, so the exact same `schedule.isAddedToCalendar && <CalendarPlus className=\"absolute -top-1.5 -left-1.5 ...\" />` block can be copied in unchanged. Screenshot/visual-audit-check sub-finding remains open, unaddressed.
-     SCOPE WIDENED, DEFERRED 2026-09-30 (user observation, verified): this isn't MultiDaySpanningBar-only -- `EventCard.tsx` (masonry family) has ZERO references to `isAddedToCalendar` anywhere (grep confirmed), so the masonry card doesn't show this indicator at all either, unlike the calendar single-day grid card and the mobile compact row (both of which already have a CalendarPlus treatment). The 2026-09-29 layout proposal above still holds for MultiDaySpanningBar specifically, but shipping it there alone would make the badge's presence/absence inconsistent across the three card families with no product decision behind that inconsistency. User-directed: DEFER isAddedToCalendar work entirely (both the MultiDaySpanningBar fix and any masonry addition) until a cross-family decision is made on which card families should show it at all -- do not dispatch this row's remaining scope as-is."}
+     SCOPE WIDENED, DEFERRED 2026-09-30 (user observation, verified): this isn't MultiDaySpanningBar-only -- `EventCard.tsx` (masonry family) has ZERO references to `isAddedToCalendar` anywhere (grep confirmed), so the masonry card doesn't show this indicator at all either, unlike the calendar single-day grid card and the mobile compact row (both of which already have a CalendarPlus treatment). The 2026-09-29 layout proposal above still holds for MultiDaySpanningBar specifically, but shipping it there alone would make the badge's presence/absence inconsistent across the three card families with no product decision behind that inconsistency. User-directed: DEFER isAddedToCalendar work entirely (both the MultiDaySpanningBar fix and any masonry addition) until a cross-family decision is made on which card families should show it at all -- do not dispatch this row's remaining scope as-is.
+     FIXED (MultiDaySpanningBar sub-scope only) 2026-10-07 (bmad-quick-dev, user-directed re-scope: ships the MultiDaySpanningBar corner icon now, independent of the 2026-09-30 cross-family deferral, which still stands for the masonry `EventCard` addition): copied the 2026-09-29 layout proposal verbatim -- `MultiDaySpanningBar` (`WeeklyCalendarView.tsx`) now renders `schedule.isAddedToCalendar && <CalendarPlus ... data-testid=\"calendar-plus-icon\">` at `absolute -top-1.5 -left-1.5`, byte-identical styling to the single-day grid card's own corner icon, with a new `addedToCalendarBadgeLabel` prop threaded through from the same `defaultLabels.addedToCalendarBadgeLabel` the single-day card already uses. Test coverage added in `WeeklyCalendarView.test.tsx`. Playwright visual audit NOT run (no browser binaries available in this environment) -- screenshot/visual-audit-check sub-finding stays open. Masonry `EventCard` isAddedToCalendar addition remains deferred pending the cross-family product decision (2026-09-30 entry, unchanged) -- row stays `backlog` for that remaining scope."}
 
   BUG-049:
     {type: bug, status: done, created: 2026-09-26, parent: CC-019,
@@ -1867,12 +1894,13 @@ items:
      Fixed 2026-10-04 (orchestrator batch-end test-fix pass): set the var to '' instead of deleting it in both affected system-key-adapter.test.ts blocks -- an empty string is still 'defined' in process.env, so loadBackendEnv()'s per-call dotenv.config() leaves it alone instead of refilling it from the repo's real .env."}
 
   FIND-064:
-    {type: finding, status: backlog, created: 2026-10-02,
+    {type: finding, status: promoted, created: 2026-10-02,
      impact: internal, effort: s,
-     title: "DB-backed backend integration tests share the developer database, so extra rows break them",
+     title: "4 backend integration test files leak rows into the shared dev DB (no dedicated test DB -- see note)",
      ref: [planning-artifacts/cc-024-multi-event-wave-plan.md, packages/database/seed-volume.ts],
+     stories: [0-51-close-backend-test-row-leaks-and-add-a-permanent-row-count-ratchet],
      touches: [app:backend, pkg:database],
-     note: "With 30k synthetic volume rows loaded, 12 events/soft-delete/visibility tests failed and the run was ~7x slower; use a dedicated test database or per-test cleanup."}
+     note: "Dedicated-test-DB/schema/template-copy idea REJECTED by user 2026-10-06 (AskUserQuestion during bmad-create-story) -- parallel sessions already use separate local Postgres, not the real risk. Re-scoped to: fix 4 named leaking files + add a permanent row-count ratchet. See Story 0.49."}
 
   # ── 2026-10-02 (Story 3-6y promotion carve-out) ──────────────────────────────
   BUG-054:
@@ -1970,12 +1998,18 @@ items:
 
   # ── 2026-10-05 ───────────────────────────────────────────────────────────────
   IDEA-060:
-    {type: idea, status: backlog, created: 2026-10-05,
+    {type: idea, status: promoted, created: 2026-10-05,
      impact: internal, effort: m,
+     stories: [0-49-add-z-index-layering-tier-tokens-and-the-overlay-modal-z-constant,
+               0-49a-migrate-the-radix-ui-wrappers-to-the-overlay-modal-tier,
+               0-49b-migrate-appshell-usermenus-backdrop-and-the-blocking-loader-to-their-tiers,
+               0-49c-migrate-the-events-feature-overlay-menu-tooltip-sites-and-the-summary-bar,
+               0-49d-migrate-the-location-and-subscribe-account-suggestion-dropdowns-to-overlay-modal,
+               0-49e-ratchet-no-raw-tier-value-class-or-inlined-overlay-modal-literal],
      title: "Consolidate z-index into named layering tiers: one documented scale, theme tokens, and a ratchet against raw z-values",
      ref: [backlog/IDEA-060-z-index-layering-tiers.md],
      touches: [pkg:ui, web:system, cross:ux-tokens, cross:architecture],
-     note: "~70 raw z-* classes, 17 at z-50 for unrelated things, and no documented layering rule; needs bmad-architecture (tier model) first. Inventory and routing in the ref."}
+     note: "Tier model: Architecture Spine AD-33. Promoted via bmad-create-story 2026-10-06 to Stories 0.49/0.49a-0.49e (plain Epic 0 split, not a bmad-form-epics epic -- see 0.49's Dev Notes). Full scope covered; no child row. Adjacent Gate 3 finding tracked separately as FIND-077."}
 
   FIND-072:
     {type: finding, status: backlog, created: 2026-10-05,
@@ -2002,10 +2036,62 @@ items:
      note: "Deferred from Story 3.6w's bmad-create-story (2026-10-05, AskUserQuestion): out-of-scope manual merge trigger. See 3.6w's Dev Notes/Out of Scope for the reusable mergeEvents() internal function a future story here would expose directly."}
 
   # ── 2026-10-06 ──────────────────────────────────────────────────────────────
-  FIND-073:
+  FIND-079:
     {type: finding, status: backlog, created: 2026-10-06, parent: FIND-004,
      impact: compliance, effort: s,
      title: "Public-accounts-only scope is not enforced: subscribe path never checks whether an Instagram account is private",
      ref: [planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md],
      touches: [app:backend, cross:ai-extraction],
      note: "Found 2026-10-06 scoping AD-32. subscribeToAccount and the Instagram adapter never check for a private account (only Apify not_found); the PRD section 5 scope note is intent only."}
+
+  # ── 2026-10-07 (bmad-quick-dev FIND-031 partial-promotion carve-out) ────────
+  FIND-075:
+    {type: finding, status: skipped, created: 2026-10-07, parent: FIND-031,
+     impact: cosmetic, effort: xs,
+     title: "Hero event image (EventImage.tsx) stays raw <img>, not next/image -- packages/ui must remain framework-agnostic",
+     ref: [backlog/FIND-031-event-detail-client-side-hygiene.md], touches: [pkg:ui],
+     note: "cost: carved out of FIND-031 (AskUserQuestion, 2026-10-07) -- packages/ui must stay decoupled from Next.js APIs, no next/image precedent there. Reopens if a framework-agnostic image adapter lands for packages/ui. Full detail in backlog/FIND-031-event-detail-client-side-hygiene.md."}
+
+  # ── 2026-10-06 ──────────────────────────────────────────────────────────────
+  CC-030:
+    {type: proposal, status: triaged, created: 2026-10-06,
+     impact: user-visible, effort: s,
+     title: "Masonry Phase 2 layout defects: full-width column-0 items overlapping column 1, and no vertical gap",
+     ref: [implementation-artifacts/0-48-mount-stable-masonry-engine-fix-reflow-remount-and-focus-loss.md,
+           planning-artifacts/sprint-change-proposal-2026-10-06-masonry-phase2-grid-column.md],
+     touches: [pkg:ui, pkg:visual-audit, cross:architecture],
+     note: "Code fixes already on branch ccr-b2f1dfd2-re35x8; remaining work is the sibling-gap rule, Phase 2 real-browser manifest, tests, Story 0.48 AC2/AC14 and AD-27 wording."}
+
+  IDEA-063:
+    {type: idea, status: skipped, created: 2026-10-06, parent: CC-030,
+     title: "Retarget masonry-column-width-invariant.ts from its synthetic flex row to the real mounted GridContainer",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-06-masonry-phase2-grid-column.md],
+     touches: [pkg:visual-audit],
+     note: "value: low, the synthetic row stays as the rule-engine proof it was written to be; the new Phase 2 manifest entry covers the real component."}
+
+  FIND-073:
+    {type: finding, status: backlog, created: 2026-10-07, parent: CC-030,
+     impact: cosmetic, effort: xs,
+     title: "EventCard masonry date-box status text clips at 80px for the happeningNow / In {n} hour(s) variants",
+     ref: [implementation-artifacts/0-48-mount-stable-masonry-engine-fix-reflow-remount-and-focus-loss.md],
+     touches: [pkg:ui, pkg:visual-audit],
+     note: "Found by the first real run of manifests-proof.spec.ts (EventCardMasonry default-thumbnail-fallback overflow rule: scrollWidth 92 > clientWidth 80); fails on the pre-CC-030 code too, so unrelated to the grid."}
+
+  # ── 2026-10-06 (bmad-create-story, Story 1.i1p) ─────────────────────────────
+  FIND-076:
+    {type: finding, status: promoted, created: 2026-10-06,
+     impact: internal, effort: xs,
+     stories: [1-i1p-remove-eventcardmediaslots-unused-internal-favorite-badge],
+     title: "EventCardMediaSlot's internal favorite-badge branches (corner pill + large fallback) are dead code now both production callers pass hideFavoriteBadge",
+     ref: [planning-artifacts/event-pages-followup-2026-10-05.md, packages/ui/src/features/events/EventCardMediaPrimitives.tsx],
+     touches: [pkg:ui, web:events],
+     note: "Carved from IDEA-048's 2026-10-05 close-out (Step 5 of the followup tracker). Promoted directly to Story 1.i1p via bmad-create-story -- both branches unreachable since EventCard.tsx/EventCardCompact.tsx already compose EventCardFavoriteBadge externally."}
+
+  # ── 2026-10-06 (bmad-create-story, IDEA-060 / Story 0.49) ────────────────────
+  FIND-077:
+    {type: finding, status: backlog, created: 2026-10-06,
+     impact: internal, effort: s,
+     title: "packages/visual-audit's vendor Tailwind config is a second, hand-maintained theme with nothing that checks it stays in sync with apps/web/tailwind.config.ts",
+     ref: [packages/visual-audit/vendor/tailwind.config.cjs, _bmad-output/implementation-artifacts/0-49-add-z-index-layering-tier-tokens-and-the-overlay-modal-z-constant.md],
+     touches: [pkg:visual-audit, cross:architecture],
+     note: "Gate 3 finding from Story 0.49's creation. Mitigated there via a one-time defensive token mirror (Task 3); no fixture currently affected. Not yet promoted -- needs a real sync check, not per-story hand-mirroring. See Story 0.49's Dev Notes."}
