@@ -21,6 +21,7 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { useInfiniteScroll } from '../../hooks';
 import { EventCardCalendarGridItem } from './EventCardCalendarGridItem';
 import { formatNearbyBadgeDistance } from './EventCardMediaPrimitives';
+import { OVERLAY_MODAL_Z } from '../../core/overlay-z';
 import type {
   CalendarOverflowDialogItemShape,
   CalendarOverflowDialogProps,
@@ -42,9 +43,9 @@ import type {
  * therefore re-expressed as `md:`-scoped overrides of the mobile token's classes, and the
  * overlay reuses `components.modal.overlay` verbatim.
  */
-const OVERLAY_CLASS = "fixed inset-0 z-40 bg-black bg-opacity-50";
+const OVERLAY_CLASS = `fixed inset-0 ${OVERLAY_MODAL_Z} bg-black bg-opacity-50`;
 const DIALOG_SURFACE_CLASS =
-  "fixed inset-x-0 bottom-0 z-50 max-h-[85vh] rounded-t-xl bg-white shadow-xl flex flex-col " +
+  `fixed inset-x-0 bottom-0 ${OVERLAY_MODAL_Z} max-h-[85vh] rounded-t-xl bg-white shadow-xl flex flex-col ` +
   "md:inset-x-auto md:bottom-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 " +
   "md:w-full md:max-w-md md:max-h-[70vh] md:rounded-lg md:p-6";
 const SCROLL_REGION_CLASS = "flex-1 overflow-y-auto flex flex-col gap-2 p-3";

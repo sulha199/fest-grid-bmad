@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-07T01:26:15Z
+last_updated: 2026-10-07T01:36:23Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -350,7 +350,7 @@ development_status:
   0-49-add-z-index-layering-tier-tokens-and-the-overlay-modal-z-constant: review
   0-49a-migrate-the-radix-ui-wrappers-to-the-overlay-modal-tier: review
   0-49b-migrate-appshell-usermenus-backdrop-and-the-blocking-loader-to-their-tiers: review
-  0-49c-migrate-the-events-feature-overlay-menu-tooltip-sites-and-the-summary-bar: ready-for-dev
+  0-49c-migrate-the-events-feature-overlay-menu-tooltip-sites-and-the-summary-bar: review
   0-49d-migrate-the-location-and-subscribe-account-suggestion-dropdowns-to-overlay-modal: ready-for-dev
   0-49e-ratchet-no-raw-tier-value-class-or-inlined-overlay-modal-literal: ready-for-dev
   epic-0-retrospective: optional

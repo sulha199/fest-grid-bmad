@@ -1,10 +1,14 @@
+---
+baseline_commit: fc90333ba7a1d12679bfa78e5c43ea123a1d126c
+---
+
 # Story 0.49c: Migrate the events-feature overlay/menu/tooltip sites and the post-selection summary bar
 
 ## Story Details
 
 - Epic: 0
 - Story ID: 0.49c
-- Status: backlog
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -27,30 +31,30 @@ so that every hand-rolled "competes with arbitrary page content" overlay in the 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — `CalendarOverflowDialog.tsx` (AC1, AC2)
-  - [ ] 1.1 Add `import { OVERLAY_MODAL_Z } from '../../core/overlay-z';` (this file is `packages/ui/src/features/events/CalendarOverflowDialog.tsx`; `overlay-z.ts` is `packages/ui/src/core/overlay-z.ts` — two directories up, then into `core/`).
-  - [ ] 1.2 `OVERLAY_CLASS`: change `const OVERLAY_CLASS = "fixed inset-0 z-40 bg-black bg-opacity-50";` to a template literal using `OVERLAY_MODAL_Z` in place of `z-40`. **This is the one real value change in this task** (40→50, per AD-33 Rule 2's explicit misclassification fix).
-  - [ ] 1.3 `DIALOG_SURFACE_CLASS`: substitute `OVERLAY_MODAL_Z` for its existing `z-50`, value unchanged.
-- [ ] Task 2 — `AIFilterOverlay.tsx` (AC3)
-  - [ ] 2.1 Add `import { OVERLAY_MODAL_Z } from '../../core/overlay-z';`.
-  - [ ] 2.2 Line 121: substitute `OVERLAY_MODAL_Z` for the literal `z-50`.
-- [ ] Task 3 — `EventDetailView.tsx` (AC4)
-  - [ ] 3.1 Add the same `overlay-z` import (confirm this file's existing relative-import depth to `packages/ui/src/core/` and match it).
-  - [ ] 3.2 Kebab dropdown (line 344): substitute `OVERLAY_MODAL_Z` for the literal `z-50`.
-  - [ ] 3.3 "Add to Calendar" dialog (line 1056): same substitution.
-- [ ] Task 4 — `UserMenu.tsx` line 109 only (AC5)
-  - [ ] 4.1 Add `import { OVERLAY_MODAL_Z } from '../overlay-z';` (`UserMenu.tsx` is `packages/ui/src/core/app-shell/UserMenu.tsx`, one directory up to `core/`). **Do not touch line 101** (the backdrop) — that site shipped in Story 0.49b.
-  - [ ] 4.2 "Main Menu Container" (line 109): substitute `OVERLAY_MODAL_Z` for the literal `z-50`.
-- [ ] Task 5 — `NavRailItem.tsx` (AC5)
-  - [ ] 5.1 Add the same `overlay-z` import, relative path `'../overlay-z'` (`NavRailItem.tsx` is also `packages/ui/src/core/app-shell/NavRailItem.tsx`).
-  - [ ] 5.2 Line 52 (tooltip): substitute `OVERLAY_MODAL_Z` for the literal `z-50` inside the existing template literal.
-- [ ] Task 6 — `summary-bar.tsx` (AC6)
-  - [ ] 6.1 Line 14: replace the literal `z-50` with the Tailwind token `z-overlay-sticky` (plain class-name swap, no import needed — this is a Tailwind token, not a JS constant, since `summary-bar.tsx` is a one-off `apps/web` component, not a shared `packages/ui` wrapper that needs the cross-package `OVERLAY_MODAL_Z` indirection). **This is a real value change** (50→45).
-- [ ] Task 7 — Verification (AC7, AC8)
-  - [ ] 7.1 `pnpm --filter @festgrid/ui lint && pnpm --filter @festgrid/ui exec tsc --noEmit` — 0 new errors.
-  - [ ] 7.2 `pnpm --filter @festgrid/web lint` (for `summary-bar.tsx`) — 0 new errors.
-  - [ ] 7.3 Run every existing test suite for the six touched components — confirm unmodified pass.
-  - [ ] 7.4 Manual smoke check per AC7(a) and AC7(b) — specifically verify the summary bar no longer wins a stacking tie against an open Dialog/Sheet/Select/Popover.
+- [x] Task 1 — `CalendarOverflowDialog.tsx` (AC1, AC2)
+  - [x] 1.1 Add `import { OVERLAY_MODAL_Z } from '../../core/overlay-z';` (this file is `packages/ui/src/features/events/CalendarOverflowDialog.tsx`; `overlay-z.ts` is `packages/ui/src/core/overlay-z.ts` — two directories up, then into `core/`).
+  - [x] 1.2 `OVERLAY_CLASS`: change `const OVERLAY_CLASS = "fixed inset-0 z-40 bg-black bg-opacity-50";` to a template literal using `OVERLAY_MODAL_Z` in place of `z-40`. **This is the one real value change in this task** (40→50, per AD-33 Rule 2's explicit misclassification fix).
+  - [x] 1.3 `DIALOG_SURFACE_CLASS`: substitute `OVERLAY_MODAL_Z` for its existing `z-50`, value unchanged.
+- [x] Task 2 — `AIFilterOverlay.tsx` (AC3)
+  - [x] 2.1 Add `import { OVERLAY_MODAL_Z } from '../../core/overlay-z';`.
+  - [x] 2.2 Line 121: substitute `OVERLAY_MODAL_Z` for the literal `z-50`.
+- [x] Task 3 — `EventDetailView.tsx` (AC4)
+  - [x] 3.1 Add the same `overlay-z` import (confirm this file's existing relative-import depth to `packages/ui/src/core/` and match it).
+  - [x] 3.2 Kebab dropdown (line 344): substitute `OVERLAY_MODAL_Z` for the literal `z-50`.
+  - [x] 3.3 "Add to Calendar" dialog (line 1056): same substitution.
+- [x] Task 4 — `UserMenu.tsx` line 109 only (AC5)
+  - [x] 4.1 Add `import { OVERLAY_MODAL_Z } from '../overlay-z';` (`UserMenu.tsx` is `packages/ui/src/core/app-shell/UserMenu.tsx`, one directory up to `core/`). **Do not touch line 101** (the backdrop) — that site shipped in Story 0.49b.
+  - [x] 4.2 "Main Menu Container" (line 109): substitute `OVERLAY_MODAL_Z` for the literal `z-50`.
+- [x] Task 5 — `NavRailItem.tsx` (AC5)
+  - [x] 5.1 Add the same `overlay-z` import, relative path `'../overlay-z'` (`NavRailItem.tsx` is also `packages/ui/src/core/app-shell/NavRailItem.tsx`).
+  - [x] 5.2 Line 52 (tooltip): substitute `OVERLAY_MODAL_Z` for the literal `z-50` inside the existing template literal.
+- [x] Task 6 — `summary-bar.tsx` (AC6)
+  - [x] 6.1 Line 14: replace the literal `z-50` with the Tailwind token `z-overlay-sticky` (plain class-name swap, no import needed — this is a Tailwind token, not a JS constant, since `summary-bar.tsx` is a one-off `apps/web` component, not a shared `packages/ui` wrapper that needs the cross-package `OVERLAY_MODAL_Z` indirection). **This is a real value change** (50→45).
+- [x] Task 7 — Verification (AC7, AC8)
+  - [x] 7.1 `pnpm --filter @festgrid/ui lint && pnpm --filter @festgrid/ui exec tsc --noEmit` — 0 new errors.
+  - [x] 7.2 `pnpm --filter @festgrid/web lint` (for `summary-bar.tsx`) — 0 new errors.
+  - [x] 7.3 Run every existing test suite for the six touched components — confirm unmodified pass.
+  - [x] 7.4 Manual smoke check per AC7(a) and AC7(b) — specifically verify the summary bar no longer wins a stacking tie against an open Dialog/Sheet/Select/Popover.
 
 ## Dev Notes
 
@@ -163,8 +167,40 @@ so that every hand-rolled "competes with arbitrary page content" overlay in the 
 
 ### Agent Model Used
 
+Claude Sonnet 5 (`claude-sonnet-5`), via `bmad-dev-story`.
+
 ### Debug Log References
+
+- Pre-coding gate: Pre-Coding Approval Gate was unchecked (default "pending approval") and prerequisite Story 0.49 was at sprint status `review` (not `done`). Confirmed via direct source read that `OVERLAY_MODAL_Z` (`packages/ui/src/core/overlay-z.ts`) and the `chrome`/`overlay-sticky`/`overlay-modal`/`overlay-blocking` Tailwind `zIndex` tokens (`apps/web/tailwind.config.ts`) already exist and match what this story needs. Asked the user via AskUserQuestion; they chose "Approve and proceed" — accepting the review-not-done status gap since the underlying code is already present. Proceeded with implementation on that basis.
+- `pnpm --filter @festgrid/ui lint` — 0 errors.
+- `pnpm --filter @festgrid/ui exec tsc --noEmit` — fails with `TS5101` on `tsconfig.json`'s `baseUrl` option (deprecated in this TS version), before compiling any source file. Confirmed pre-existing and unrelated to this story: `git show HEAD:packages/ui/tsconfig.json` shows the same `baseUrl` option already present at the story's baseline commit (last touched by an unrelated commit, `5660fdc7`), and the error is config-level (fails before touching any changed file). 0 *new* errors introduced by this story — pre-existing/out-of-scope condition, flagged here per instruction rather than fixed (fixing the shared `tsconfig.json` deprecation is out of this story's scope).
+- `pnpm --filter web lint` (covers `summary-bar.tsx`) — exit 0, 0 errors (pre-existing warnings only, none in `summary-bar.tsx`).
+- `pnpm --filter web exec tsc --noEmit` (extra check beyond the story's own Verification Plan, which only requires `@festgrid/ui` lint/tsc + `web` lint) — fails with many pre-existing errors across unrelated test/mapper files; confirmed none reference `summary-bar.tsx` (`grep -i summary-bar` on the output returned no matches). Pre-existing/out-of-scope, not caused by this story.
+- A full `pnpm --filter web build` (Next.js production build) was attempted per this environment's general build-verification habit but was explicitly denied by a sandbox policy for this session, which directed skipping it since "the Tailwind token classes were already proven to compile in Story 0.49" and recording lint/tsc/targeted-vitest evidence instead — done above.
+- Vitest, run in the foreground on the six touched components' existing test files only (never the whole package suite):
+  - `packages/ui`: `AIFilterOverlay.test.tsx`, `EventDetailView.test.tsx`, `CalendarOverflowDialog.test.tsx`, `NavRailItem.test.tsx`, `UserMenu.test.tsx` — initial run: 1 failure in `CalendarOverflowDialog.test.tsx` ("applies both DESIGN.md responsive surfaces to the single dialog element"), asserting the literal `z-50` class on `DIALOG_SURFACE_CLASS` via `toHaveClass`. This contradicts AC8's premise ("no test asserts on any of these six components' literal z-index className string") — the premise was wrong for this one assertion. Fixed by updating the assertion to expect `z-overlay-modal` instead of the literal `z-50` (same resolved Tailwind value, now sourced from the named token per AC2 — a test-correctness fix, not a scope expansion). Re-run: 5 files / 128 tests, all passing.
+  - `apps/web`: `summary-bar.test.tsx` — 1 file / 5 tests, all passing unmodified (no changes needed).
+- Manual stacking-order smoke check (AC7a/AC7b, Task 7.4) — performed by code/config inspection rather than a live browser session (a full Next.js dev/build run was out of scope per the sandbox denial above):
+  - (a) `CalendarOverflowDialog`'s `OVERLAY_CLASS` (backdrop) and `DIALOG_SURFACE_CLASS` (surface) both now resolve to `OVERLAY_MODAL_Z` = `z-overlay-modal` = `50` (`apps/web/tailwind.config.ts`), same as every other Overlay-modal-tier element (`Select`, `Dialog`, `Sheet`, `Popover`, `AIFilterOverlay`, `EventDetailView`'s two sites, `UserMenu`, `NavRailItem`'s tooltip). All ties among Overlay-modal elements are unchanged from before this story (they were already all at the numeric value 50, aside from `CalendarOverflowDialog`'s backdrop, which moves from 40→50 and now also ties correctly) — DOM order continues to decide ties exactly as it did pre-story, confirmed by reading `CalendarOverflowDialog.tsx`'s render order (overlay element before surface element, unchanged).
+  - (b) `summary-bar.tsx` now resolves to `z-overlay-sticky` = `45`, strictly between `z-chrome` = `40` (`AppShell`) and `z-overlay-modal` = `50` (every true overlay). Per CSS stacking-context rules, a `fixed`/`absolute` element's resolved `z-index` is compared numerically against sibling stacking contexts regardless of DOM/mount order once both are positioned — 45 < 50 guarantees any Dialog/Sheet/Select/Popover/the AI filter overlay/`CalendarOverflowDialog` (all 50) now reliably paints above the summary bar (45), and 45 > 40 guarantees it still reliably paints above `AppShell` chrome — resolving the pre-story tie (both at 50, DOM-order-dependent) described in Dev Notes/IDEA-060.
 
 ### Completion Notes List
 
+- All 8 `z-40`/`z-50` → `OVERLAY_MODAL_Z`/`z-overlay-sticky` substitutions implemented exactly as scoped across the 6 files (AC1–AC6); the two intentional value changes (`CalendarOverflowDialog` backdrop 40→50, `summary-bar` 50→45) match AD-33's own sanctioned fixes verbatim.
+- Found and fixed one pre-existing test (`CalendarOverflowDialog.test.tsx`) that asserted the literal `z-50` string AC8 claimed didn't exist for these six components — updated it to assert the token class instead of the resolved numeric value, preserving test intent.
+- No new tests added, per Dev Notes ("no new tests" — this is a pure className/token substitution with a documented, AD-33-sanctioned manual smoke check in place of new automated coverage).
+- Package-scoped lint is green for both `@festgrid/ui` and `web`. Package-scoped `tsc --noEmit` has pre-existing, out-of-scope failures in both packages (confirmed present before this story and unrelated to any file this story touches) — documented above rather than fixed, since fixing them is outside this story's scope.
+- A full Next.js production build of `apps/web` was not run, per explicit sandbox policy for this session (UI-lane dev-story command rules capped verification to package-scoped lint/tsc/targeted-vitest; a build attempt was denied with guidance to rely on Story 0.49's own prior build verification of the Tailwind tokens instead).
+- Manual AC7 stacking-order smoke check performed via code/Tailwind-config inspection (reasoned walkthrough, not a live browser render) and recorded above — both value changes behave as intended.
+
 ### File List
+
+- Modified: `packages/ui/src/features/events/CalendarOverflowDialog.tsx`
+- Modified: `packages/ui/src/features/events/CalendarOverflowDialog.test.tsx` (test-correctness fix: literal `z-50` assertion → `z-overlay-modal`)
+- Modified: `packages/ui/src/features/events/AIFilterOverlay.tsx`
+- Modified: `packages/ui/src/features/events/EventDetailView.tsx`
+- Modified: `packages/ui/src/core/app-shell/UserMenu.tsx`
+- Modified: `packages/ui/src/core/app-shell/NavRailItem.tsx`
+- Modified: `apps/web/src/features/post-selection/components/summary-bar.tsx`
+- Modified: `_bmad-output/implementation-artifacts/sprint-status.yaml` (status transitions for this story)
+- Modified: `_bmad-output/implementation-artifacts/0-49c-migrate-the-events-feature-overlay-menu-tooltip-sites-and-the-summary-bar.md` (this story file — frontmatter, task checkboxes, Dev Agent Record, Status)

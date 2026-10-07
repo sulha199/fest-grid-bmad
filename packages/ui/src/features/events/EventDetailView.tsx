@@ -9,6 +9,7 @@ import { PlatformIcon } from '../../core/platform-icon';
 import { LocationLink } from '../../core/LocationLink';
 import { formatShortEventDateTime, computeRelatedEventDateBox, selectAndSortRelatedEvents } from './format-event-date';
 import { EventCardCompact } from './EventCardCompact';
+import { OVERLAY_MODAL_Z } from '../../core/overlay-z';
 
 /** Story 3.6u (AC6) — how many events render inline per Related Events group before the
  * "See all N" link takes over. Not a prop: EXPERIENCE.md §3 fixes this at 5, same as the
@@ -341,7 +342,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
                   </button>
                   {isMenuOpen && (
                     <div
-                      className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-md shadow-lg py-1 z-50 focus:outline-none"
+                      className={`absolute right-0 mt-1 w-48 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-md shadow-lg py-1 ${OVERLAY_MODAL_Z} focus:outline-none`}
                       role="menu"
                       aria-orientation="vertical"
                     >
@@ -1053,7 +1054,7 @@ const AddToCalendarDialog: React.FC<AddToCalendarDialogProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+    <div className={`fixed inset-0 ${OVERLAY_MODAL_Z} flex items-center justify-center bg-black/50 p-4`} role="dialog" aria-modal="true" aria-labelledby="dialog-title">
       <div
         ref={containerRef}
         tabIndex={-1}
