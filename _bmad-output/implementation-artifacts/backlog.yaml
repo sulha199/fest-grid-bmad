@@ -1361,14 +1361,25 @@ items:
      note: "Partial-promotion carve-out from CC-026 (section 13): tracked 3.17, 3.18, 3.19. Promoted 2026-10-05 on Story 3.18; remaining fan-out (3.17, 3.19) carved to CC-029."}
 
   CC-029:
-    {type: proposal, status: triaged, created: 2026-10-05, parent: CC-027,
+    {type: proposal, status: promoted, created: 2026-10-05, parent: CC-027,
      title: "Remaining FIND-022 coauthor/publisher stories not yet created (3.17, 3.19)",
      ref: [backlog/FIND-022-coauthor-content-issues.md,
            specs/spec-post-coauthor-attribution/SPEC.md,
            planning-artifacts/sprint-change-proposal-2026-09-18.md],
+     stories: [3-17-demand-gated-discovery-for-scrape-discovered-profiles],
      touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions],
      impact: user-visible, effort: m,
-     note: "Partial-promotion carve-out from CC-027 (section 13): CC-027 covered only 3.18 of its three tracked stories. Tracks the still-not-created 3.17 (demand-gated discovery for scrape-discovered profiles) and 3.19 (sanitized subscription-toggle analytics) so they stay visible."}
+     note: "Partial-promotion carve-out from CC-027 (section 13): tracked 3.17, 3.19. Promoted 2026-10-07 on Story 3.17; remaining fan-out (3.19) carved to CC-030."}
+
+  CC-030:
+    {type: proposal, status: triaged, created: 2026-10-07, parent: CC-029,
+     title: "Remaining FIND-022 coauthor/publisher story not yet created (3.19)",
+     ref: [backlog/FIND-022-coauthor-content-issues.md,
+           specs/spec-post-coauthor-attribution/SPEC.md,
+           planning-artifacts/sprint-change-proposal-2026-09-18.md],
+     touches: [app:backend, cross:ai-extraction, web:accounts, web:events, web:subscriptions],
+     impact: user-visible, effort: s,
+     note: "Partial-promotion carve-out from CC-029 (section 13): CC-029 covered only 3.17 of its two tracked stories. Tracks the still-not-created 3.19 (sanitized subscription-toggle analytics) so it stays visible."}
 
   FIND-039:
     {type: finding, status: backlog, created: 2026-09-18, parent: CC-022,
