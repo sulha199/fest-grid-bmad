@@ -12,6 +12,13 @@ export interface UseMasonryLayoutOptions {
    * to the value changing, re-running placement (Story 0.45 AC3/AC5).
    */
   columnCount: number;
+
+  /**
+   * Vertical gap (px) between stacked items in a column. Phase 2 items are absolutely positioned,
+   * so the grid's native `row-gap` never applies to them; the caller passes the container's
+   * computed row gap and it is added after each item when accumulating offsets. Defaults to 0.
+   */
+  rowGap?: number;
 }
 
 export interface UseMasonryLayoutResult {

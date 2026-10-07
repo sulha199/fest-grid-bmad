@@ -1346,6 +1346,15 @@ This document defines the core architectural invariants for the FestDaily applic
         entry for `GridContainer`'s masonry variant encodes "columns share one width; cards within
         a column vary height independently; placement order approximates left-to-right" as its
         rule set.
+    4.  **Measured-phase (Phase 2) layout invariants** (CC-030, 2026-10-06): items placed with
+        `position: absolute` + `translateY` must (a) use a **definite two-line `grid-column`**
+        (`N / N+1`) — a bare `grid-column: N` leaves the end line `auto`, which for an absolutely
+        positioned grid child resolves to the container's padding edge and stretches the item
+        across the full width; and (b) get their vertical gap from the container's **computed
+        `row-gap`** added to each Y offset — absolutely positioned items ignore the grid's
+        `row-gap`. Neither is observable in jsdom or in a server-rendered (`renderToStaticMarkup`)
+        audit, so both are verified by a **client-mounted** manifest (`client-bundle` render) using
+        the `sibling-dimension` and `sibling-gap` rules.
 *   **Deferred:** the specific library-vs-hand-rolled-hook choice for the shortest-column algorithm
     itself, and the exact hydration/layout-shift strategy (Rule 2) — left to the implementing
     story's own research, not decided here.
