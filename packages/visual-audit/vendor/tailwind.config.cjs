@@ -30,6 +30,15 @@ module.exports = {
   ],
   theme: {
     extend: {
+      // Architecture Spine AD-33 (Z-Index Layering Tiers), Rule 1/Story 0.49 Task 3: mirrors
+      // apps/web/tailwind.config.ts's zIndex tokens into this independently-maintained offline
+      // build so a future content-glob addition doesn't silently lose a tier class.
+      zIndex: {
+        chrome: '40',
+        'overlay-sticky': '45',
+        'overlay-modal': '50',
+        'overlay-blocking': '60',
+      },
       colors: {
         background: 'hsl(210 20% 98%)',
         foreground: 'hsl(221 39% 11%)',

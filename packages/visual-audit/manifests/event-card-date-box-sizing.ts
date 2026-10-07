@@ -28,8 +28,9 @@ import { registerManifestEntry, type ManifestEntry } from '../src/manifest.js';
  * offline-deterministic), but still a real `<img>` with a real (1:1) intrinsic aspect ratio, so
  * `object-cover w-full h-full`'s sizing math has real content to size against -- an omitted
  * `imageUrl` would render the reserved-blank fallback instead (no `<img>` at all in the masonry
- * default composition, since `hideFavoriteBadge` is set and no `onFavoriteToggle` is passed at
- * this call site), which would trivially "pass" this check for the wrong reason (both siblings
+ * default composition -- `EventCardMediaSlot` never renders a favorite control of its own as of
+ * Story 1.i1p, so there's nothing else in that slot to size against either), which would
+ * trivially "pass" this check for the wrong reason (both siblings
  * collapsing to the date-box's own small natural height instead of a real thumbnail's height). */
 const FIXTURE_IMAGE_DATA_URI = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 

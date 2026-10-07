@@ -2,12 +2,12 @@
 baseline_commit: 658c5875c9f4f6fcc7dacaa319ad979184977530
 ---
 
-# Story 0.49: Close backend integration test row leaks and add a permanent row-count ratchet (FIND-064)
+# Story 0.51: Close backend integration test row leaks and add a permanent row-count ratchet (FIND-064)
 
 ## Story Details
 
 - Epic: 0
-- Story ID: 0.49
+- Story ID: 0.51
 - Status: ready-for-dev
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->

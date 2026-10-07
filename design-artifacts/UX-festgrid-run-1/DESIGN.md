@@ -6,6 +6,11 @@ updated: "2026-09-18T00:00:00Z"
 sources:
   - "_bmad-output/planning-artifacts/prfaq-festgrid.md"
   - "_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md"
+# Layering (z-index): see _bmad-output/project-context.md's "Layering (z-index tiers)" rule for
+# the authoritative 5-tier model (Local/Chrome/Overlay-sticky/Overlay-modal/Overlay-blocking) and
+# Architecture Spine AD-33 (added 2026-10-06, IDEA-060). Existing `z-50`/`z-40` literals in this
+# file's component tokens below (e.g. sheet_mobile, profile_menu, profile_sheet) predate AD-33 and
+# migrate to the named tokens as part of IDEA-060's follow-up story — not yet updated here.
 colors:
   primary: "#1E293B"
   secondary: "#6366F1"

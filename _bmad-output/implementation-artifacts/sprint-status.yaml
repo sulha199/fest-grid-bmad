@@ -1,5 +1,5 @@
 # generated: 2026-07-29T02:58:30Z
-# last_updated: 2026-09-21T00:00:00Z
+# last_updated: 2026-10-06T00:00:00Z
 # project: festgrid
 # project_key: NOKEY
 # tracking_system: file-system
@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-07T03:48:10Z
+last_updated: 2026-10-07T07:31:45Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -340,15 +340,28 @@ development_status:
   # Promotes FIND-052 (deferred from Story 0.45 code review, 2026-09-26; investigated
   # 2026-10-05, see deferred-work.md). Created via bmad-create-story, 2026-10-05.
   0-48-mount-stable-masonry-engine-fix-reflow-remount-and-focus-loss: review
+  # added 2026-10-06 via bmad-create-story: IDEA-060 (Architecture Spine AD-33, Z-Index
+  # Layering Tiers). A single backlog row, not a bmad-form-epics cluster (fails
+  # epic-formation-gate.md's >=3-row criterion 1), so this is a plain Epic 0
+  # sequential-number + lettered-suffix split (0.7/0.7a, 0.15/0.15a precedent), not a new
+  # epic-N.i<k>, per user decision via AskUserQuestion. 0.49 is the mechanism (Tailwind
+  # zIndex tokens + OVERLAY_MODAL_Z); 0.49a-0.49d are adoption, grouped by consumer area
+  # per user decision; 0.49e is the Vitest ratchet (ships last, depends on 0.49a-0.49d).
+  0-49-add-z-index-layering-tier-tokens-and-the-overlay-modal-z-constant: review
+  0-49a-migrate-the-radix-ui-wrappers-to-the-overlay-modal-tier: review
+  0-49b-migrate-appshell-usermenus-backdrop-and-the-blocking-loader-to-their-tiers: review
+  0-49c-migrate-the-events-feature-overlay-menu-tooltip-sites-and-the-summary-bar: review
+  0-49d-migrate-the-location-and-subscribe-account-suggestion-dropdowns-to-overlay-modal: review
+  0-49e-ratchet-no-raw-tier-value-class-or-inlined-overlay-modal-literal: review
+  # Promotes FIND-032. Scoped via AskUserQuestion during bmad-create-story drafting
+  # (2026-10-06) to EventDetailViewLabels only (widening to ~19 other *Labels interfaces
+  # carved out as child finding FIND-078); test lives in apps/web's mapper.test.ts, not
+  # packages/ui (dependency-direction finding). All three Story Split Gates run fresh.
+  0-50-add-a-locale-parity-ratchet-for-eventdetailviewlabels: ready-for-dev
   # Promotes FIND-064, re-scoped via AskUserQuestion during bmad-create-story drafting
   # (2026-10-06): dedicated-test-DB idea rejected, scoped to fixing 4 leaking test files
   # + a permanent row-count ratchet instead. All three Story Split Gates run fresh.
-  0-49-close-backend-test-row-leaks-and-add-a-permanent-row-count-ratchet: ready-for-dev
-  # Promotes FIND-032. Scoped via AskUserQuestion during bmad-create-story drafting
-  # (2026-10-06) to EventDetailViewLabels only (widening to ~19 other *Labels interfaces
-  # carved out as child finding FIND-076); test lives in apps/web's mapper.test.ts, not
-  # packages/ui (dependency-direction finding). All three Story Split Gates run fresh.
-  0-50-add-a-locale-parity-ratchet-for-eventdetailviewlabels: ready-for-dev
+  0-51-close-backend-test-row-leaks-and-add-a-permanent-row-count-ratchet: ready-for-dev
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.
@@ -568,6 +581,10 @@ development_status:
   # `labels` props, no new component/hook). Full record in epics.md/this story's own
   # Dev Notes.
   1-i1o-wire-eventcard-and-weeklycalendarview-labels-to-nextintl: done
+  # Formed 2026-10-06 via bmad-create-story: dead-code removal carved from IDEA-048's
+  # 2026-10-05 close-out (backlog FIND-076). Amends shipped ACs in Stories
+  # 1.i1a/1.i1e/1.i1m and Story 1.i1z's Change Log, plus Architecture Spine AD-15 Rule 4.
+  1-i1p-remove-eventcardmediaslots-unused-internal-favorite-badge: review
   1-i1z-ratchet-no-card-surface-sizes-or-falls-back-locally: review
   epic-1: in-progress
   1-1-create-initial-database-tables: done

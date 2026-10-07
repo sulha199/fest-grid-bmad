@@ -124,9 +124,10 @@ describe('CalendarOverflowDialog (Story 1.i1h Task 6)', () => {
     render(<CalendarOverflowDialog {...defaultProps} />);
     const dialog = getDialog();
 
-    // components.calendar_overflow_dialog.sheet_mobile, verbatim.
+    // components.calendar_overflow_dialog.sheet_mobile, verbatim (z-index sourced from the
+    // shared OVERLAY_MODAL_Z constant — AD-33/Story 0.49c — resolving to the same `z-50` value).
     expect(dialog).toHaveClass(
-      'fixed', 'inset-x-0', 'bottom-0', 'z-50', 'max-h-[85vh]',
+      'fixed', 'inset-x-0', 'bottom-0', 'z-overlay-modal', 'max-h-[85vh]',
       'rounded-t-xl', 'bg-white', 'shadow-xl', 'flex', 'flex-col'
     );
     // components.calendar_overflow_dialog.dialog_desktop (= components.modal.dialog), verbatim
