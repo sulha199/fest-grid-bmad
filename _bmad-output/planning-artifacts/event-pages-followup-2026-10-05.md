@@ -1,6 +1,7 @@
 # Event Pages & CC-024 — Follow-up Tracker (2026-10-05)
 
 **Created:** 2026-10-05
+**Last reconciled against `sprint-status.yaml` / `backlog.yaml` / master:** 2026-10-07 (after PRs #52, #53, #54, #55)
 **Status:** working doc. The single place to see what is still open after the 2026-10-05
 reconciliation of the five event-pages / CC-024 plans, with a step-by-step order and a prompt for each
 step. Tick boxes live. **Source of truth on conflict:** `sprint-status.yaml` (story state) and
@@ -40,8 +41,8 @@ at `review`.
       `backlog/IDEA-060-z-index-layering-tiers.md`. Checker: no new failures.
 - [x] Fixed the stale Story 1.i1m comment in `EventCardCompact.tsx`.
 - [x] **Done in step 5 (2026-10-07, PR #54):** deleting the favorite-badge branches inside `EventCardMediaSlot`.
-      They are unused by production callers but are a tested contract (AC4 and Story 1.i1e's
-      additive props, a `visual-audit` manifest), so deleting them needs the tests and ACs amended.
+      They were unused by production callers but a tested contract (AC4 and Story 1.i1e's
+      additive props, a `visual-audit` manifest), so the delete amended those tests and ACs (see step 5).
 
 ## Steps (suggested order)
 
@@ -110,6 +111,7 @@ at `review`.
     ```
   - **Step 3b (the recommendation is "fix"):** `/bmad-create-story FIND-052`.
     - [x] create (Story 0.48, `7df5a60`, `ready-for-dev`, 2026-10-05)  - [x] dev (`9348909` + `d292b75`, `review`, 2026-10-06)
+    - **Reconciled 2026-10-07:** Stories 0.47 and 0.48 are both `review` in sprint-status (0.47 was `backlog` when this was written). Backlog row **CC-030** (`triaged`, from PR #53) is the follow-up for Phase 2 layout defects found by a real-browser run; its note still lists remaining work (sibling-gap rule, Phase 2 manifest, 0.48 AC2/AC14, AD-27 wording), so the 0.48 browser proof is **not** closed by the backlog yet, whatever the earlier log row says.
     - **Decision (user, 2026-10-05):** two-phase render (CSS-grid flow until the first measurement, then absolute + transform) to avoid the SSR/CLS height collapse; tab-order change is AC4. Story 0.47 was set to `ready-for-dev` in sprint-status at the user's call.
 
 - [x] **Step 4 — IDEA-060: z-index layering tiers** (architecture first, then one story) — DONE 2026-10-07 via PR #54 (merged): **AD-33** + Stories 0.49, 0.49a-0.49e, all at `review`
@@ -165,8 +167,8 @@ at `review`.
 
 Run these with `ritual-orchestrator`; each needs `create` then `dev`. Order matters where noted.
 
-- [ ] **Step 6 — Story 3.6n2: expose the face-blurred thumbnail through the read path** (backlog row
-      **FIND-070**, same work; CC-023 tail)
+- [x] **Step 6 — Story 3.6n2: expose the face-blurred thumbnail through the read path** (backlog row
+      **FIND-070**, same work; CC-023 tail) — BUILT 2026-10-05, `review` (sprint-status), FIND-070 `promoted`
   - **Needs:** 3.6n (`review`). The only Wave 4C story left, and the only one with frontend scope.
     Served-URL rule already decided: "thumbnail fills the gap only".
   - [x] create (`19f90438`)  - [x] dev (`2b3e9451`..`196d9182`, status `review`, 2026-10-05)
@@ -202,7 +204,7 @@ Run these with `ritual-orchestrator`; each needs `create` then `dev`. Order matt
     batch state file after each item.
     ```
 
-- [ ] **Step 7 — FIND-071: backfill post identity and re-key legacy hex slugs via aliases**
+- [x] **Step 7 — FIND-071: backfill post identity and re-key legacy hex slugs via aliases** — BUILT 2026-10-06, Story 3.22 `review` (sprint-status), FIND-071 `promoted`; the backfill itself has not been run anywhere
   - **State:** forward path fixed 2026-10-05 (`process-ingestion-job.ts`); already-ingested events
     keep legacy slugs. Needs an AD-16 / alias-aware migration; check 3.6v's `event_slug_aliases`
     machinery and its migration-number collision note in the CC-024 plan first (SQL must go through
@@ -218,7 +220,7 @@ Run these with `ritual-orchestrator`; each needs `create` then `dev`. Order matt
     before choosing between a one-shot migration and a lazy re-key.
     ```
 
-- [ ] **Step 8 — Wave 5: Stories 3.6w, 3.6x, 3.18** (all `backlog`, no story file yet)
+- [x] **Step 8 — Wave 5: Stories 3.6w, 3.6x, 3.18** — BUILT 2026-10-05/06, all three plus prerequisite 0.47 are `review` (sprint-status); they were `backlog` with no story file when this step was written
   - **3.6w** merge duplicate events with slug redirects. Needs 3.6v and 4.7b (both `review`).
   - **3.6x** post collection page. Needs 3.6u (`review`); reuses the existing event-list UI.
   - **3.18** union-of-associations account filtering. Needs 3.15 and 3.6r (both `review`).
@@ -238,6 +240,7 @@ Run these with `ritual-orchestrator`; each needs `create` then `dev`. Order matt
 ### Group 4 — blocked on a decision from you
 
 - [ ] **Step 9 — AD-32 guarded vendor-call wrapper, then 0.i2a → 0.i2c → 0.i2b → 0.i2z** (all `backlog`)
+  - **Reconciled 2026-10-07:** nothing here is done. Stories 0.i2a/b/c/z are `backlog`, FIND-004 `backlog`, BUG-012 `triaged`. **AD-32 is not on master**: its draft lives only on lane B's branch `claude/backend-lane-ad32-vendor-wrapper` (not merged). The spine on master now reads AD-31 then **AD-33** (the UI lane's z-index AD, Step 4), so the prompt's "currently ends at AD-31" is stale: AD-32 is a reserved gap, write it as AD-32 anyway.
   - **Also:** FIND-004 vendor-DPA confirmation is your decision, not only a code change. BUG-012
     (Gemini request timeout) is covered by 0.i2c; Story 3.6s's inline guard is deleted when 0.i2c lands.
   - [ ] AD-32 written  - [ ] FIND-004 decision recorded  - [ ] 0.i2a  - [ ] 0.i2c  - [ ] 0.i2b  - [ ] 0.i2z
@@ -267,6 +270,10 @@ Decide each: skip (`skipped` with a `cost:`/`value:` note), `bmad-create-story`,
       readiness-swept
 - [x] **FIND-064** — backend integration tests share the developer database (explains most — **DECIDED 2026-10-06 (user): create a story for a dedicated test database (dev DB leaked to 72 posts vs 35 baseline on 2026-10-06).**
       "red gate" noise; worth fixing before the next big batch)
+- **Outcome of the Group 5 decisions, reconciled 2026-10-07 from sprint-status / backlog:**
+  - IDEA-034 → Story **4.9**; IDEA-036 → Story **4.10**; IDEA-037 → Story **1.6g**; FIND-032 → Story **0.50**; FIND-036 → Story **0.41**; FIND-064 → Story **0.51** (renumbered from 0.49, which the UI lane took for AD-33); FIND-022 CAP-5 → Story **3.17** (backlog **CC-029**); FIND-022 CAP-8 → Story **3.19** (backlog **CC-031**). All eight are `ready-for-dev`; their rows are `promoted`.
+  - FIND-031 (`2abbcffe`) and IDEA-035 (`dcbe7873`, EXPERIENCE.md convention) are `done` in backlog.
+  - **FIND-058 is still `backlog`** in backlog.yaml although its spanning-bar quick-dev shipped (`f9bd91f`): the row's treatment of the other card families stays deferred. The row, not this box, is the source of truth; close or re-scope it in backlog.yaml if you consider it finished.
 - **Prompt (one at a time, replace the ID):**
   ```
   /bmad-help I need a decision on backlog row <ID> (see _bmad-output/implementation-artifacts/backlog.yaml). Read the row and its
@@ -327,3 +334,4 @@ Decide each: skip (`skipped` with a `cost:`/`value:` note), `bmad-create-story`,
 | 2026-10-07 | **PR #54 merged** (lane A: Steps 5 and 4). Master was merged into the lane first (conflicts only in `backlog.yaml` and `sprint-status.yaml`; master's FIND-073 kept, this lane's rows renumbered FIND-076/FIND-077, AD-33 unique in the spine). `backlog-check.py` stays at the 16-line baseline. **Still open:** `bmad-code-review` for all seven stories; a browser look at the two 0.49c stacking changes; the dev-DB debris check above. | n/a | `1bda4d28`, PR `f8f84558` |
 | 2026-10-07 | Group 5 create-story chain via ritual-orchestrator (`all-claude-medium`): Stories 0.41, 0.51 (renumbered from 0.49 on 2026-10-07, the UI lane took 0.49 for AD-33 z-index tiers), 0.50, 4.9, 1.6g, 4.10, 3.17, 3.19 all `ready-for-dev`, verify-story PASS. 3.17 questions answered by the user (shared helper refactoring both call sites; backfill deferred and documented). 3.19 `source`/`errorCode` vocabulary chosen by the orchestrator (toggle-instance label; `'unknown'` fallback). Dev for these is not started. | `ready-for-dev` | `658c587`..`ac80dd7` |
 | 2026-10-07 | Group 5 quick-devs via ritual-orchestrator (`all-claude-medium`), one at a time: **FIND-058** (CalendarPlus corner icon on `MultiDaySpanningBar`; Playwright audit not run, no browser binaries; masonry `EventCard` stays deferred) `f9bd91f`; **FIND-031** (mapper memoized, carousel-peek on `next/image` with `unoptimized`; hero `EventImage` stays raw `<img>` because `packages/ui` must stay framework-agnostic, carved out as **FIND-075**, skipped; the child first filed it as FIND-074, which collides with the UI lane branch, so it was renumbered) `2abbcff`; **IDEA-035** (scroll-to-top-on-filter-reset convention added to `EXPERIENCE.md`, docs only) `dcbe787`. FIND-031 was interrupted once by a usage limit and resumed from its saved session. | done | `f9bd91f`, `2abbcff`, `dcbe787` |
+| 2026-10-07 | **Tracker reconciled against master** (PRs #52-#55 merged; one conflict, in this file's progress log, kept both sides in order). Ticked Steps 6, 7 and 8 (built, `review` per sprint-status); fixed Step 8's stale "all `backlog`" header; added the Group 5 outcome (stories 4.9, 4.10, 1.6g, 0.50, 0.41, 0.51, 3.17, 3.19 all `ready-for-dev`; FIND-031 and IDEA-035 `done`; FIND-058 still `backlog`); noted in Step 9 that AD-32 is not on master and the spine now reads AD-31 then AD-33; noted in Step 3b that CC-030 keeps the 0.48 browser proof open. Merged tree checked: no duplicate backlog IDs, sprint-status keys, story numbers, AD headings or epics.md headings; AD-33 ratchet passes on master's new UI changes; `backlog-check.py` stays at the 16-line baseline. | n/a | `56941455` + this commit |
