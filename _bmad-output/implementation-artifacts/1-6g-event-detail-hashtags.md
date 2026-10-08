@@ -32,21 +32,21 @@ so that I can discover related events through the same tagging the original post
 
 - [ ] Task 1 — Backend: additive `Event.hashtags` field (AC: #1)
   - [ ] `apps/backend/src/schema/events.graphql`: add `hashtags: [String!]` to `type Event` (~line 129, immediately after `publishedAt: String`).
-  - [ ] `apps/backend/src/schema/resolvers.ts`: add `hashtags: posts.hashtags,` to the `event(id)` resolver's flat `db.select({...})` object (~line 3736, alongside `publishedAt: posts.publishedAt,`).
-  - [ ] `apps/backend/src/schema/resolvers.ts`: add `hashtags: posts.hashtags,` to the `eventBySlug(slug)` resolver's `selectEventRow` flat `db.select({...})` object (~line 3866, same pattern — `eventBySlug` builds its select via an inner `selectEventRow` helper shared by its direct-slug and redirect-follow paths; adding the column there covers both).
+  - [ ] `apps/backend/src/schema/resolvers.ts`: add `hashtags: posts.hashtags,` to the `event(id)` resolver's flat `db.select({...})` object (~line 3750 on master, alongside `publishedAt: posts.publishedAt,`).
+  - [ ] `apps/backend/src/schema/resolvers.ts`: add `hashtags: posts.hashtags,` to the `eventBySlug(slug)` resolver's `selectEventRow` flat `db.select({...})` object (~line 3883 on master, same pattern — `eventBySlug` builds its select via an inner `selectEventRow` helper shared by its direct-slug and redirect-follow paths; adding the column there covers both).
   - [ ] Add a backend resolver test asserting `event`/`eventBySlug` return `hashtags` as the raw array for an event with a linked post that has hashtags, an empty array when the linked post has none, and `null` for an event with no linked post at all (mirrors the `publishedAt` null-case test added by Story 1.6f).
 
 - [ ] Task 2 — Frontend: thread `hashtags` through to the component (AC: #1, #6)
   - [ ] `apps/web/src/features/events/queries.graphql`: add `hashtags` to the `getEventBySlug` query document (~line 62, alongside `publishedAt`).
-  - [ ] Regenerate codegen: `pnpm --filter web codegen` (real regen diff against `apps/web/src/generated/graphql.ts`, per this project's established convention — never hand-edit generated types).
+  - [ ] Regenerate codegen: `pnpm --filter backend codegen` (the `events.graphql` change alters the committed `apps/backend/src/generated/resolvers-types.ts`) **and** `pnpm --filter web codegen` (real regen diff against `apps/web/src/generated/graphql.ts`, per this project's established convention — never hand-edit generated types).
   - [ ] `packages/ui/src/features/events/EventDetailView.types.ts`: add `hashtags?: string[] | null;` to `EventDetailViewProps` (near `originalPostUrl`/`sourcePostUrl`/`publishedAt`, ~lines 209-211); add `onHashtagClick?: (hashtag: string) => void;` alongside the existing `onTypeClick`/`onCategoryClick` (~lines 195-196); add `hashtagsListAriaLabel: string;` to `EventDetailViewLabels` (near `categoriesAndTypesAriaLabel`).
   - [ ] `apps/web/src/features/events/mapper.ts`: map `hashtags: event.hashtags,` through in `mapGraphQLEventToDetailViewProps`'s return object (near `publishedAt: event.publishedAt,`, ~line 172).
   - [ ] `apps/web/src/features/events/mapper.ts`'s `useEventDetailViewLabels()`: wire `hashtagsListAriaLabel: t('hashtagsListAriaLabel')`.
   - [ ] `apps/web/locales/en.json` and `apps/web/locales/id.json`, `EventDetailsPage` namespace: add `"hashtagsListAriaLabel": "Hashtags"` / Indonesian equivalent (e.g. `"Tagar"` — confirm against the project's established Indonesian terminology at implementation time), placed alongside `categoriesAndTypesAriaLabel`/`coauthorsListAriaLabel` (~lines 195-196 in both files).
 
 - [ ] Task 3 — Render hashtag pills in `EventDetailView.tsx` (AC: #2, #3, #4)
-  - [ ] `packages/ui/src/features/events/EventDetailView.tsx`: compute `const hasHashtags = hashtags && hashtags.length > 0;` alongside the existing `hasTags`/`hasSourceAttribution` computed booleans (~lines 253-254).
-  - [ ] Insert a new conditionally-rendered block at line 607 — between the schedules section's closing `</section>` (line 606) and the Attributions comment (line 608) — deliberately **outside** the `{!hasMultiplePosts && (...)}` wrapper that starts at line 611, so the hashtags block always sits above the View Original link / Attributions section regardless of single- vs multi-post attribution:
+  - [ ] `packages/ui/src/features/events/EventDetailView.tsx`: compute `const hasHashtags = hashtags && hashtags.length > 0;` alongside the existing `hasTags`/`hasSourceAttribution` computed booleans (~lines 254-255 on master).
+  - [ ] Insert a new conditionally-rendered block at line 608 on master (re-confirm at dev time) — between the schedules section's closing `</section>` (line 607) and the Attributions comment (line 609) — deliberately **outside** the `{!hasMultiplePosts && (...)}` wrapper that starts at line 612, so the hashtags block always sits above the View Original link / Attributions section regardless of single- vs multi-post attribution:
     ```tsx
     {hasHashtags && (
       <ul className="flex flex-wrap gap-2" aria-label={labels.hashtagsListAriaLabel}>
@@ -73,7 +73,7 @@ so that I can discover related events through the same tagging the original post
     This is an exact copy of the existing category/type badge button/span pattern (~lines 391-401) — same classNames verbatim, only the label text (`#{tag}` vs `{category.label}`) and click payload (raw `tag` vs `category.value`) differ.
 
 - [ ] Task 4 — Wire `onHashtagClick` to Discovery navigation (AC: #5)
-  - [ ] `apps/web/src/features/events/EventDetailWrapper.tsx`: add `onHashtagClick: (hashtag: string) => { router.push(\`/?q=${encodeURIComponent('#' + hashtag)}\`) },` to `mappedProps`, alongside the existing `onCategoryClick`/`onTypeClick` entries (~lines 753-758), using the same already-imported `useRouter` from `@/i18n/navigation`. Deliberately does not merge existing `searchParams` (clean single-facet reset, matching the `onCategoryClick`/`onTypeClick` precedent).
+  - [ ] `apps/web/src/features/events/EventDetailWrapper.tsx`: add `onHashtagClick: (hashtag: string) => { router.push(\`/?q=${encodeURIComponent('#' + hashtag)}\`) },` to `mappedProps`, alongside the existing `onCategoryClick`/`onTypeClick` entries (~lines 775-780 on master), using the same already-imported `useRouter` from `@/i18n/navigation`. Deliberately does not merge existing `searchParams` (clean single-facet reset, matching the `onCategoryClick`/`onTypeClick` precedent).
 
 - [ ] Task 5 — Tests for the new behavior (AC: #1, #2, #3, #4, #5, #6)
   - [ ] `EventDetailView.test.tsx`: hashtags block renders when `hashtags` is a non-empty array; does not render when `hashtags` is `null`/`undefined`/`[]`; a hashtag pill renders as a button and fires `onHashtagClick` with the raw (un-prefixed) tag value when the handler is provided; renders as plain, non-interactive text (`#<tag>`) when no handler is passed; `aria-label` on the hashtags `<ul>` resolves from `labels.hashtagsListAriaLabel`.
@@ -90,6 +90,13 @@ so that I can discover related events through the same tagging the original post
   - `posts.hashtags` (`text('hashtags').array()`, `packages/database/schema.ts:330`, GIN-indexed at line 362) is a real, already-populated column — confirmed via `BUG-032` (status `done`), which fixed the one gap that existed (the Bright Data scrape path wasn't extracting/persisting hashtags; the Apify path always worked). Both paths now persist bare, lowercase hashtags with no leading `#`.
   - `posts.hashtags` is already consumed server-side today, but **only** as a WHERE-filter `fieldMap` entry in the `Query.events` resolver's DSL (`resolvers.ts:3170`, `hashtags: posts.hashtags, // mapped to joined table, #-prefixed search (added 2026-08-28)`) — it has never been selected/returned as an output field on `Event`. This story is the first to expose it for *display*.
   - Discovery's `#`-prefix hashtag search (`packages/domain/src/events/buildEventsQueryCondition.ts:187-201`, the non-filter `search` branch used by Discovery's own `q` param) is fully built, already shipped, and is **not modified by this story** — `trimmed.startsWith('#')` strips the `#`, lowercases, and matches `hashtags IN (tag)` exactly. Discovery's `q` param (`apps/web/src/app/[locale]/home-content.tsx:75`, `useQueryState('q', parseAsString.withDefault(''))`) is passed straight through as `search` to `buildEventsQueryCondition` (line 233) — nothing server-side or in `home-content.tsx` needs to change for this story's navigation to work.
+
+### Readiness sweep note (2026-10-08, `batch-group5-readiness.md`)
+
+- Line numbers in Tasks 1/2/3/4 were re-found on master `ffeced6` and corrected in place; Wave A stories 1.6d/1.6e/0.i6e shifted `EventDetailView.tsx` by +1 line. Re-confirm before editing.
+- **Backend codegen was missing from this story's plan.** `Event.hashtags` is added to `events.graphql`, so `apps/backend/src/generated/resolvers-types.ts` (committed) must be regenerated with `pnpm --filter backend codegen`, in addition to `pnpm --filter web codegen`. Add `apps/backend/src/generated/resolvers-types.ts` to the File Change Plan. `apps/web/src/gql/graphql.ts` is a one-line re-export and never changes.
+- **Sequencing with Story 3.19 (same file):** land 3.19 first (narrow, no codegen). The two edit disjoint regions of `EventDetailWrapper.tsx`/`.test.tsx`; no shared type dependency. After rebasing, re-run both codegens — never hand-merge generated files.
+- `events` list resolvers (lines ~1762, 1863, 3447, 3536) do not select `posts.hashtags`, so `Event.hashtags` is `null` outside `event`/`eventBySlug`, matching `publishedAt`'s existing behavior. No AD-17 impact.
 
 ### Architecture & UX Gate Findings
 
@@ -155,6 +162,7 @@ Gates 1/2/3 (`story-split-gate.md`) ran **fresh via subagent dispatch**, not cit
   - `apps/backend/src/schema/resolvers.test.ts` (modified — new `hashtags` passthrough/null-case test)
   - `apps/web/src/features/events/queries.graphql` (modified — add `hashtags` to `getEventBySlug`)
   - `apps/web/src/generated/graphql.ts` (codegen-regenerated, not hand-edited)
+  - `apps/backend/src/generated/resolvers-types.ts` (codegen-regenerated via `pnpm --filter backend codegen`, not hand-edited)
   - `packages/ui/src/features/events/EventDetailView.types.ts` (modified — new props/labels)
   - `packages/ui/src/features/events/EventDetailView.tsx` (modified — hashtags block)
   - `packages/ui/src/features/events/EventDetailView.test.tsx` (modified)

@@ -2095,3 +2095,28 @@ items:
      ref: [packages/visual-audit/vendor/tailwind.config.cjs, _bmad-output/implementation-artifacts/0-49-add-z-index-layering-tier-tokens-and-the-overlay-modal-z-constant.md],
      touches: [pkg:visual-audit, cross:architecture],
      note: "Gate 3 finding from Story 0.49's creation. Mitigated there via a one-time defensive token mirror (Task 3); no fixture currently affected. Not yet promoted -- needs a real sync check, not per-story hand-mirroring. See Story 0.49's Dev Notes."}
+
+  # ── 2026-10-08 (bmad-epic-readiness-check, batch-group5-readiness.md) ────────
+  FIND-080:
+    {type: finding, status: backlog, created: 2026-10-08,
+     impact: user-visible, effort: xs, blocks: [IDEA-034],
+     title: "ConfirmActionDialog never resets isConfirming after a successful or consumer-handled confirm, so a reopened dialog is stuck disabled",
+     ref: [packages/ui/src/core/confirm-action-dialog.tsx, planning-artifacts/epic-readiness/batch-group5-readiness.md],
+     touches: [pkg:ui, web:moderation],
+     note: "Reproduced 2026-10-08 with a scratch Vitest run: reopen after success leaves Confirm disabled; a consumer that toasts and does not rethrow leaves Cancel disabled. Live in duplicate-events-content.tsx; blocks Story 4.9 AC7/AC12."}
+
+  FIND-081:
+    {type: finding, status: backlog, created: 2026-10-08, parent: FIND-080,
+     impact: user-visible, effort: xs,
+     title: "ConfirmActionDialog's Overlay and Content carry no AD-33 z-tier, so they paint under the z-chrome nav rail; the ratchet cannot catch an absent tier",
+     ref: [packages/ui/src/core/confirm-action-dialog.tsx, packages/ui/src/__tests__/ad33-z-index-layering.ratchet.test.ts],
+     touches: [pkg:ui, cross:architecture],
+     note: "AD-33 Rule 3 lists four Radix Portal wrappers and missed this fifth one. Fix with FIND-080 (OVERLAY_MODAL_Z on both) and consider a ratchet assertion that every Radix Portal-using file imports OVERLAY_MODAL_Z."}
+
+  IDEA-064:
+    {type: idea, status: backlog, created: 2026-10-08,
+     impact: latent, effort: s,
+     title: "Backfill isVerifiedForDiscovery=true for profiles that already have active votes from before Story 3.17's castVote flip",
+     ref: [implementation-artifacts/3-17-demand-gated-discovery-for-scrape-discovered-profiles.md],
+     touches: [app:backend, web:votes],
+     note: "Tracks Story 3.17's user-confirmed deferred gap (not a reopening). Do only if real data shows it matters; reuse the backfill-post-media-keys.ts dry-run/workflow_dispatch pattern."}
