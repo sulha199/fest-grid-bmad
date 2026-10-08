@@ -1196,32 +1196,58 @@ describe('WeeklyCalendarView', () => {
       expect(within(mobileView).queryByTestId('mobile-day-load-more')).not.toBeInTheDocument();
     });
 
-    it('exempts multi-day segments from mobile paging', () => {
-      // 12 single-day occurrences plus 2 multi-day ones: only singles are paged (10 shown); the
-      // multi-day ones always render inline — the same exemption principle desktop applies.
-      const schedules = [
-        ...Array.from({ length: 12 }, (_, i) => ({
-          id: `single-${i + 1}`,
-          eventName: `Single ${i + 1}`,
-          isMainSchedule: true,
-          eventStartDate: '2026-08-05',
-        })),
-        { id: 'md-1', eventName: 'Expo One', isMainSchedule: true, eventStartDate: '2026-08-05', eventEndDate: '2026-08-07' },
-        { id: 'md-2', eventName: 'Expo Two', isMainSchedule: true, eventStartDate: '2026-08-05', eventEndDate: '2026-08-06' },
-      ];
+    it('pages multi-day segments too: a day full of long-running schedules is not rendered at once', () => {
+      const multiDay = Array.from({ length: 25 }, (_, i) => ({
+        id: `md-${i + 1}`,
+        eventName: `Long Run ${i + 1}`,
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+        eventEndDate: '2026-08-09',
+      }));
 
       render(
         <ScopedLocaleProvider locale="en-US">
-          <WeeklyCalendarView {...defaultProps} schedules={schedules} />
+          <WeeklyCalendarView {...defaultProps} schedules={multiDay} />
         </ScopedLocaleProvider>
       );
 
       const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
-      expect(within(mobileView).getByText('Single 10')).toBeInTheDocument();
-      expect(within(mobileView).queryByText('Single 11')).not.toBeInTheDocument();
-      expect(within(mobileView).getAllByText('Expo One').length).toBeGreaterThan(0);
-      expect(within(mobileView).getAllByText('Expo Two').length).toBeGreaterThan(0);
-      expect(within(mobileView).getByTestId('mobile-day-load-more')).toBeInTheDocument();
+      expect(within(mobileView).getByText('Long Run 10')).toBeInTheDocument();
+      expect(within(mobileView).queryByText('Long Run 11')).not.toBeInTheDocument();
+      fireEvent.click(within(mobileView).getByRole('button', { name: 'Load more' }));
+      expect(within(mobileView).getByText('Long Run 20')).toBeInTheDocument();
+      expect(within(mobileView).queryByText('Long Run 21')).not.toBeInTheDocument();
+    });
+
+    it('pages the desktop multi-day banner 10 rows at a time and resets on week change', () => {
+      const multiDay = Array.from({ length: 25 }, (_, i) => ({
+        id: `bar-${i + 1}`,
+        eventName: `Bar ${String(i + 1).padStart(2, '0')}`,
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+        eventEndDate: '2026-08-09',
+      }));
+      const ui = (weekStart: string) => (
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...defaultProps} weekStart={weekStart} schedules={multiDay} />
+        </ScopedLocaleProvider>
+      );
+      const { rerender } = render(ui('2026-08-05'));
+      const desktop = rtlScreen.getByTestId('desktop-calendar-view');
+
+      expect(within(desktop).getAllByTestId('multi-day-spanning-bar')).toHaveLength(10);
+      const more = within(desktop).getByTestId('multi-day-banner-load-more');
+      expect(more).toHaveTextContent('15 more');
+
+      fireEvent.click(more);
+      expect(within(desktop).getAllByTestId('multi-day-spanning-bar')).toHaveLength(20);
+      fireEvent.click(within(desktop).getByTestId('multi-day-banner-load-more'));
+      expect(within(desktop).getAllByTestId('multi-day-spanning-bar')).toHaveLength(25);
+      expect(within(desktop).queryByTestId('multi-day-banner-load-more')).not.toBeInTheDocument();
+
+      // Another week with the same schedules starts again at the first page.
+      rerender(ui('2026-08-03'));
+      expect(within(rtlScreen.getByTestId('desktop-calendar-view')).getAllByTestId('multi-day-spanning-bar')).toHaveLength(10);
     });
 
     it('renders the new date box (till text) and favorite count, with no redundant time-range-inline in list-variant', () => {

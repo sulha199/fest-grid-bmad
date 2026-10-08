@@ -61,6 +61,11 @@ export interface WeeklyCalendarViewLabels {
   dayTabsLabel?: string;
   /** Message shown in the mobile panel when the selected day has no schedules */
   noSchedulesLabel?: string;
+  /**
+   * Desktop multi-day banner "show more" button text, invoked with the count still hidden. A
+   * resolver FUNCTION (ICU plural in the caller). Falls back to an English default if omitted.
+   */
+  moreMultiDayLabel?: (count: number) => string;
   /** Mobile selected-day list "load more" button text */
   loadMoreLabel?: string;
   /** Mobile selected-day list text while the next page is being fetched */

@@ -299,6 +299,7 @@ export function CalendarView({ q, types, categories, nearby, viewerCoord, nearby
     selectWeekLabel: t('calendarSelectWeekLabel'),
     chooseWeekLabel: t('calendarChooseWeekLabel'),
     moreLabel: (count: number) => t('calendarMoreLabel', { count }),
+    moreMultiDayLabel: (count: number) => t('calendarMoreMultiDayLabel', { count }),
     loadMoreLabel: t('calendarLoadMoreLabel'),
     loadingMoreLabel: t('calendarLoadingMoreLabel'),
     multiDaySegmentLabel: (dayNumber: number, totalDays: number) => t('calendarMultiDaySegmentLabel', { dayNumber, totalDays }),

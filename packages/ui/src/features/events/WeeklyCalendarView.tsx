@@ -95,10 +95,16 @@ const SPANNING_BAR_VISUAL_CLASS = "relative z-20 pointer-events-none [&_button]:
  * a time (infinite scroll + a "Load more" button), then continues through the caller's day-scoped
  * query once the already-fetched ones are exhausted. This replaces Story 1.i1h's flat inline cap of
  * 20 + "+N more" dialog, which was unreachable on mobile: the week fetch's `perDayLimit` is also 20,
- * so the hidden count was always 0. Multi-day segments are exempt and always render inline
- * (`isMultiDayRunSegment` below, Story 1.3k).
+ * so the hidden count was always 0. Multi-day segments are paged like any other (they used to be
+ * exempt, which let ~90 long-running schedules render at once).
  */
 const MOBILE_PAGE_SIZE = 10;
+/**
+ * Desktop multi-day spanning banner paging: the banner used to render one row per multi-day schedule
+ * with no bound, so a week with ~90 long-running schedules produced a ~6000px-tall block above the
+ * day cells. It now shows this many rows first and reveals `DESKTOP_BANNER_PAGE_SIZE` more per click.
+ */
+const DESKTOP_BANNER_PAGE_SIZE = 10;
 /** Stable no-op for the not-yet-supplied `overflowDialogData` case (keeps `useInfiniteScroll`'s effect graph stable when omitted). */
 const NOOP = () => {};
 /**
@@ -788,6 +794,11 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   const [daySelection, setDaySelection] = useState<{ weekKey: string; idx: number } | null>(null);
   const selectedDayIdx = daySelection?.weekKey === weekKey ? daySelection.idx : defaultDayIdx;
   const dayTabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  // Desktop banner paging, keyed by week so navigating weeks starts over at the first page.
+  const [bannerPage, setBannerPage] = useState<{ weekKey: string; count: number } | null>(null);
+  const bannerVisibleCount = bannerPage?.weekKey === weekKey ? bannerPage.count : DESKTOP_BANNER_PAGE_SIZE;
+  const bannerHiddenCount = Math.max(0, spanningSchedules.length - bannerVisibleCount);
+
   // Mobile selected-day pagination. Local paging reveals `MOBILE_PAGE_SIZE` more of the schedules the
   // week fetch already returned; once those are exhausted and the day hit the fetch's per-day budget,
   // the caller's day-scoped query (`overflowDialogData`) supplies the rest page by page.
@@ -820,12 +831,11 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     return [...bucket, ...extra];
   }, [dayBuckets, selectedDayIdx, continuationActive, overflowDialogData, scheduleRunsById, selectedDayISO]);
 
-  const mobileSingleDayCount = mobileDaySegments.filter((seg) => !isMultiDayRunSegment(seg)).length;
-  const localSingleDayCount = (dayBuckets[selectedDayIdx] ?? []).filter((seg) => !isMultiDayRunSegment(seg)).length;
-  const hasMoreLocal = mobileSingleDayCount > mobileVisibleCount;
+  const localDayCount = (dayBuckets[selectedDayIdx] ?? []).length;
+  const hasMoreLocal = mobileDaySegments.length > mobileVisibleCount;
   const dayMayHaveMoreRemote =
     dayFetchLimit !== undefined &&
-    localSingleDayCount >= dayFetchLimit &&
+    localDayCount >= dayFetchLimit &&
     (!continuationActive || (overflowDialogData?.hasNextPage ?? false));
   const mobileCanLoadMore = hasMoreLocal || dayMayHaveMoreRemote;
   const mobileIsFetchingMore = continuationActive && (overflowDialogData?.isFetchingNextPage ?? false);
@@ -1029,7 +1039,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
       {spanningSchedules.length > 0 && (
         <div className={`${GRID_WEEKLY_CLASS_NO_DIVIDE} bg-white`} data-testid="multi-day-spanning-banner">
           <GridColumnGuides />
-          {spanningSchedules.map((entry, rowIdx) => (
+          {spanningSchedules.slice(0, bannerVisibleCount).map((entry, rowIdx) => (
             <MultiDaySpanningBar
               // Story 1.3k — a schedule can now produce MULTIPLE bars (one per visible run), so
               // the schedule id alone is no longer a unique key; the run's own start date makes
@@ -1053,6 +1063,20 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
               addedToCalendarBadgeLabel={defaultLabels.addedToCalendarBadgeLabel}
             />
           ))}
+        </div>
+      )}
+      {bannerHiddenCount > 0 && (
+        <div className="flex justify-center border-b border-gray-200 bg-white py-2">
+          <button
+            type="button"
+            data-testid="multi-day-banner-load-more"
+            className={MORE_LINK_CLASS}
+            onClick={() => setBannerPage({ weekKey, count: bannerVisibleCount + DESKTOP_BANNER_PAGE_SIZE })}
+          >
+            {labels.moreMultiDayLabel
+              ? labels.moreMultiDayLabel(bannerHiddenCount)
+              : `Show more multi-day events (${bannerHiddenCount} more)`}
+          </button>
         </div>
       )}
 
@@ -1174,18 +1198,8 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
         const bucket = mobileDaySegments;
         const dateISO = toISODateString(visibleDays[dayIdx]);
 
-        // Multi-day segments are exempt from paging and always render inline (EXPERIENCE.md's
-        // exemption rule, the same principle desktop's `day_cell` applies by filtering multi-day
-        // schedules into the spanning banner). Iterating the bucket preserves chronological order.
-        //
-        // Story 1.3k (AC4): the exemption is decided per RUN (`isMultiDayRunSegment`), not by the
-        // schedule's raw date span.
-        let singleDaySeen = 0;
-        const mobileVisibleSegments = mobileDaySegments.filter((seg) => {
-          if (isMultiDayRunSegment(seg)) return true;
-          singleDaySeen += 1;
-          return singleDaySeen <= mobileVisibleCount;
-        });
+        // Every segment (single- and multi-day) is paged: the day shows `mobileVisibleCount` rows.
+        const mobileVisibleSegments = mobileDaySegments.slice(0, mobileVisibleCount);
 
         return (
           <div
