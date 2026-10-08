@@ -78,6 +78,11 @@ Two genuine, non-mechanical design questions were surfaced to the user via `AskU
 
 A third, mechanical (not escalated) implementation decision, resolved directly against Gate 2/3's fresh findings rather than via `AskUserQuestion`: the shared 4-field payload shape is a **local, un-exported** TypeScript type inside `EventDetailWrapper.tsx` (Task 1) — not a new export from `@festgrid/analytics`. Both Gate 2 and Gate 3 (run fresh this session, see below) independently confirmed no second consumer exists anywhere in `epics.md`/`sprint-status.yaml`/`backlog.yaml` today, so a package-level export would be speculative generality with zero current second caller; the two call sites needing the shape both live in this one file already.
 
+### Readiness sweep note (2026-10-08, `batch-group5-readiness.md`)
+
+- Line citations re-checked on master `ffeced6`: the source-account pair is at `EventDetailWrapper.tsx` 333-359 and the coauthor pair at 366-390 — still accurate. Also update the stale code comment above the coauthor pair (line ~362-365, "no posthog.capture call (AC9) — all analytics for this toggle are Story 3.19's scope") as part of Task 3, since it stops being true.
+- **Sequencing with Story 1.6g (same file):** the two stories edit disjoint regions of `EventDetailWrapper.tsx` (this one: the import line + mutation hooks at 333-390; 1.6g: the `mappedProps` object at ~775-780) and disjoint regions of `EventDetailWrapper.test.tsx`. No shared type or GraphQL dependency (this story needs no codegen; 1.6g regenerates `generated/graphql.ts`). Land this story first; 1.6g then rebases trivially and re-runs codegen.
+
 ### Architecture & UX Gate Findings
 
 No epic readiness report covers Epic 3 as a whole for this specific slice (the FIND-022/CAP-8 analytics cleanup is its own narrow concern, not swept by any existing `epic-readiness/epic-3-readiness.md` pass). All three gates were run **fresh** this session via one-shot persona subagent dispatch, with the actual current code (`EventDetailWrapper.tsx` lines 333-429, read directly) and the relevant Architecture Spine AD-5 excerpt inlined into each prompt.
