@@ -34,6 +34,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   categories,
   onTypeClick,
   onCategoryClick,
+  onHashtagClick,
   imageUrl,
   imageAlt,
   videoUrl,
@@ -45,6 +46,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   originalPostUrl,
   sourcePostUrl,
   publishedAt,
+  hashtags,
   contactInfo,
   hasPrivateContact,
   links,
@@ -253,6 +255,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   const canActOnSubscription = !!(accountPlatform && accountUsername);
   const hasTags = (types && types.length > 0) || (categories && categories.length > 0);
   const hasSourceAttribution = originalPostUrl || sourcePostUrl;
+  const hasHashtags = hashtags && hashtags.length > 0;
 
   // Story 3.6u (AC4/AC5, Design Decision #1) — `sourcePosts.length > 1` is the only gate.
   // `<= 1` (including `sourcePosts` absent entirely, e.g. an older cached response or a caller
@@ -605,6 +608,31 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
           <p className="text-gray-500 italic">{labels.noSchedulesLabel}</p>
         )}
       </section>
+
+      {/* Hashtags (Story 1.6g) — the linked post's extracted hashtags, rendered above the
+          Attributions/View Original section regardless of whether the single-linked-post or
+          multi-post (sourcePosts) attribution branch is active below. */}
+      {hasHashtags && (
+        <ul className="flex flex-wrap gap-2" aria-label={labels.hashtagsListAriaLabel}>
+          {hashtags!.map((tag, idx) => (
+            <li key={`hashtag-${idx}`}>
+              {onHashtagClick ? (
+                <button
+                  type="button"
+                  onClick={() => onHashtagClick(tag)}
+                  className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium hover:bg-primary/20 transition-colors"
+                >
+                  #{tag}
+                </button>
+              ) : (
+                <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium inline-block">
+                  #{tag}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {/* Attributions (Story 3.6u AC4) — single-/no-linked-post regression branch, completely
           unchanged from pre-3.6u markup/data source (EventDetailViewProps.coauthors, not

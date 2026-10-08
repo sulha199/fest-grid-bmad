@@ -202,4 +202,65 @@ describe('validateCorrectionConsistency', () => {
     const errors = validateCorrectionConsistency(data);
     assert.equal(errors.length, 4); // schedules count (main schedule error) + 3 schedule-specific errors
   });
+
+  // Story 4.10 (AC2) — links URL-protocol consistency check
+  it('passes a valid https:// link with no error', () => {
+    const data: ProposedEventCorrection = {
+      ...baseValidCorrection,
+      links: [{ url: 'https://tickets.example.com/event' }],
+    };
+    const errors = validateCorrectionConsistency(data);
+    assert.equal(errors.length, 0);
+  });
+
+  it('flags an invalid-protocol link URL (javascript:)', () => {
+    const data: ProposedEventCorrection = {
+      ...baseValidCorrection,
+      links: [{ url: 'javascript:alert(1)' }],
+    };
+    const errors = validateCorrectionConsistency(data);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].field, 'links[0].url');
+    assert.equal(errors[0].message, 'Link URL must be a valid http(s) web address');
+  });
+
+  it('flags an invalid-protocol link URL (ftp://)', () => {
+    const data: ProposedEventCorrection = {
+      ...baseValidCorrection,
+      links: [{ url: 'ftp://example.com/file' }],
+    };
+    const errors = validateCorrectionConsistency(data);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].field, 'links[0].url');
+  });
+
+  it('flags a malformed link URL', () => {
+    const data: ProposedEventCorrection = {
+      ...baseValidCorrection,
+      links: [{ url: 'not a url' }],
+    };
+    const errors = validateCorrectionConsistency(data);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].field, 'links[0].url');
+  });
+
+  it('gives each invalid link its own indexed field across multiple links', () => {
+    const data: ProposedEventCorrection = {
+      ...baseValidCorrection,
+      links: [
+        { url: 'https://valid.example.com' },
+        { url: 'javascript:alert(1)' },
+        { url: 'ftp://bad.example.com' },
+      ],
+    };
+    const errors = validateCorrectionConsistency(data);
+    assert.equal(errors.length, 2);
+    assert.equal(errors[0].field, 'links[1].url');
+    assert.equal(errors[1].field, 'links[2].url');
+  });
+
+  it('does not flag links when omitted', () => {
+    const errors = validateCorrectionConsistency(baseValidCorrection);
+    assert.equal(errors.length, 0);
+  });
 });

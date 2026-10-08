@@ -283,6 +283,7 @@ export type Event = {
   eventName: Scalars['String']['output'];
   favoriteCount: Scalars['Int']['output'];
   hasPrivateContact: Scalars['Boolean']['output'];
+  hashtags?: Maybe<Array<Scalars['String']['output']>>;
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
   instagramEmbed?: Maybe<InstagramEmbed>;
@@ -365,6 +366,11 @@ export type EventLink = {
   __typename?: 'EventLink';
   label?: Maybe<Scalars['String']['output']>;
   url: Scalars['String']['output'];
+};
+
+export type EventLinkInput = {
+  label?: InputMaybe<Scalars['String']['input']>;
+  url: Scalars['String']['input'];
 };
 
 
@@ -516,6 +522,7 @@ export type ModeratorAccountProfileFilters = {
 export type Mutation = {
   __typename?: 'Mutation';
   castVote: AccountVote;
+  clearAccountDefaultLocation: SocialMediaAccountProfile;
   createApiKey: ApiKey;
   createUserLocation: UserLocation;
   createWidget: Widget;
@@ -577,6 +584,11 @@ export type Mutation = {
 
 export type MutationCastVoteArgs = {
   input: CastVoteInput;
+};
+
+
+export type MutationClearAccountDefaultLocationArgs = {
+  accountId: Scalars['ID']['input'];
 };
 
 
@@ -749,6 +761,7 @@ export type MutationSelectPostsForExtractionArgs = {
 
 export type MutationSetAccountDefaultLocationArgs = {
   accountId: Scalars['ID']['input'];
+  asModeratorCorrection?: InputMaybe<Scalars['Boolean']['input']>;
   input: SetAccountDefaultLocationInput;
 };
 
@@ -893,6 +906,7 @@ export type ProposedEventCorrectionData = {
   contactInfo?: Maybe<Scalars['String']['output']>;
   description?: Maybe<Scalars['String']['output']>;
   eventName: Scalars['String']['output'];
+  links?: Maybe<Array<EventLink>>;
   location: Scalars['String']['output'];
   organizerName?: Maybe<Scalars['String']['output']>;
   schedules: Array<ProposedScheduleCorrectionData>;
@@ -904,6 +918,7 @@ export type ProposedEventCorrectionInput = {
   contactInfo?: InputMaybe<Scalars['String']['input']>;
   description?: InputMaybe<Scalars['String']['input']>;
   eventName: Scalars['String']['input'];
+  links?: InputMaybe<Array<EventLinkInput>>;
   location: Scalars['String']['input'];
   organizerName?: InputMaybe<Scalars['String']['input']>;
   schedules: Array<ProposedScheduleCorrectionInput>;
@@ -1558,6 +1573,7 @@ export enum WidgetTheme {
 
 
 
+
 export type QueryActorRunsQueryVariables = Exact<{
   filters?: ActorRunFilters | null | undefined;
   first?: number | null | undefined;
@@ -1604,7 +1620,7 @@ export type QueryModeratorAccountProfilesQueryVariables = Exact<{
 }>;
 
 
-export type QueryModeratorAccountProfilesQuery = { queryModeratorAccountProfiles: { totalCount: number, edges: Array<{ cursor: string, node: { id: string, accountId: string, platform: string, displayName: string, username: string, isImageStorageOptedIn: boolean } }>, pageInfo: { hasNextPage: boolean, endCursor: string | null } } };
+export type QueryModeratorAccountProfilesQuery = { queryModeratorAccountProfiles: { totalCount: number, edges: Array<{ cursor: string, node: { id: string, accountId: string, platform: string, displayName: string, username: string, isImageStorageOptedIn: boolean, hasPendingDefaultLocationReview: boolean, defaultLocation: { formattedAddress: string | null, placeName: string | null } | null } }>, pageInfo: { hasNextPage: boolean, endCursor: string | null } } };
 
 export type SetImageStorageOptInMutationVariables = Exact<{
   accountId: string | number;
@@ -1613,6 +1629,13 @@ export type SetImageStorageOptInMutationVariables = Exact<{
 
 
 export type SetImageStorageOptInMutation = { setImageStorageOptIn: { id: string, accountId: string, isImageStorageOptedIn: boolean, imageStorageOptInSource: ImageStorageOptInSource | null } };
+
+export type ClearAccountDefaultLocationMutationVariables = Exact<{
+  accountId: string | number;
+}>;
+
+
+export type ClearAccountDefaultLocationMutation = { clearAccountDefaultLocation: { id: string, accountId: string, defaultLocation: { formattedAddress: string | null, placeName: string | null } | null } };
 
 export type ModeratorPendingItemCountQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -1654,14 +1677,14 @@ export type ExtractEventDataFromUrlMutationVariables = Exact<{
 }>;
 
 
-export type ExtractEventDataFromUrlMutation = { extractEventDataFromUrl: { jobId: string | null, errorCode: ExtractionErrorCode | null, errorMessage: string | null, data: { eventName: string, types: Array<EventType>, categories: Array<EventCategory>, location: string, organizerName: string | null, contactInfo: string | null, description: string | null, schedules: Array<{ isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, title: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null }> } | null } };
+export type ExtractEventDataFromUrlMutation = { extractEventDataFromUrl: { jobId: string | null, errorCode: ExtractionErrorCode | null, errorMessage: string | null, data: { eventName: string, types: Array<EventType>, categories: Array<EventCategory>, location: string, organizerName: string | null, contactInfo: string | null, description: string | null, schedules: Array<{ isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, title: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null }>, links: Array<{ url: string, label: string | null }> | null } | null } };
 
 export type ExtractionJobQueryVariables = Exact<{
   id: string | number;
 }>;
 
 
-export type ExtractionJobQuery = { extractionJob: { status: ExtractionJobState, errorCode: ExtractionErrorCode | null, errorMessage: string | null, data: { eventName: string, types: Array<EventType>, categories: Array<EventCategory>, location: string, organizerName: string | null, contactInfo: string | null, description: string | null, schedules: Array<{ isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, title: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null }> } | null } };
+export type ExtractionJobQuery = { extractionJob: { status: ExtractionJobState, errorCode: ExtractionErrorCode | null, errorMessage: string | null, data: { eventName: string, types: Array<EventType>, categories: Array<EventCategory>, location: string, organizerName: string | null, contactInfo: string | null, description: string | null, schedules: Array<{ isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, title: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null }>, links: Array<{ url: string, label: string | null }> | null } | null } };
 
 export type ToggleFavoriteMutationVariables = Exact<{
   eventId: string | number;
@@ -1730,7 +1753,7 @@ export type GetEventBySlugQueryVariables = Exact<{
 }>;
 
 
-export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, videoUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, publishedAt: string | null, organizerName: string | null, contactInfo: string | null, hasPrivateContact: boolean, isFavorited: boolean, favoriteCount: number, isHiddenForCurrentUser: boolean, links: Array<{ url: string, label: string | null }> | null, sourceSocialMediaAccountProfile: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null, accountType: string | null, defaultLocation: { placeName: string | null, formattedAddress: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null } | null, coauthors: Array<{ accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null }>, sourcePosts: Array<{ postId: string, isPrimary: boolean, groupingReason: PostGroupingReason | null, extractedEventCount: number | null, title: string | null, postedAt: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, platformPostId: string | null, postType: string | null, account: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null } | null, coauthors: Array<{ accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null }> }>, schedules: Array<{ id: string, isMainSchedule: boolean, title: string | null, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
+export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, videoUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, publishedAt: string | null, hashtags: Array<string> | null, organizerName: string | null, contactInfo: string | null, hasPrivateContact: boolean, isFavorited: boolean, favoriteCount: number, isHiddenForCurrentUser: boolean, links: Array<{ url: string, label: string | null }> | null, sourceSocialMediaAccountProfile: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null, accountType: string | null, defaultLocation: { placeName: string | null, formattedAddress: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null } | null, coauthors: Array<{ accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null }>, sourcePosts: Array<{ postId: string, isPrimary: boolean, groupingReason: PostGroupingReason | null, extractedEventCount: number | null, title: string | null, postedAt: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, platformPostId: string | null, postType: string | null, account: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null } | null, coauthors: Array<{ accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null }> }>, schedules: Array<{ id: string, isMainSchedule: boolean, title: string | null, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
 
 export type GetRelatedEventIdsQueryVariables = Exact<{
   eventId: string | number;
@@ -2030,6 +2053,7 @@ export type RemoveSubscriptionMutation = { removeSubscription: { id: string } };
 export type SetAccountDefaultLocationMutationVariables = Exact<{
   accountId: string | number;
   input: SetAccountDefaultLocationInput;
+  asModeratorCorrection?: boolean | null | undefined;
 }>;
 
 
@@ -2388,6 +2412,11 @@ export const QueryModeratorAccountProfilesDocument = new TypedDocumentString(`
         displayName
         username
         isImageStorageOptedIn
+        defaultLocation {
+          formattedAddress
+          placeName
+        }
+        hasPendingDefaultLocationReview
       }
       cursor
     }
@@ -2442,6 +2471,36 @@ export const useSetImageStorageOptInMutation = <
       {
     mutationKey: ['SetImageStorageOptIn'],
     mutationFn: (variables?: SetImageStorageOptInMutationVariables) => fetcher<SetImageStorageOptInMutation, SetImageStorageOptInMutationVariables>(client, SetImageStorageOptInDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const ClearAccountDefaultLocationDocument = new TypedDocumentString(`
+    mutation ClearAccountDefaultLocation($accountId: ID!) {
+  clearAccountDefaultLocation(accountId: $accountId) {
+    id
+    accountId
+    defaultLocation {
+      formattedAddress
+      placeName
+    }
+  }
+}
+    `);
+
+export const useClearAccountDefaultLocationMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ClearAccountDefaultLocationMutation, TError, ClearAccountDefaultLocationMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ClearAccountDefaultLocationMutation, TError, ClearAccountDefaultLocationMutationVariables, TContext>(
+      {
+    mutationKey: ['ClearAccountDefaultLocation'],
+    mutationFn: (variables?: ClearAccountDefaultLocationMutationVariables) => fetcher<ClearAccountDefaultLocationMutation, ClearAccountDefaultLocationMutationVariables>(client, ClearAccountDefaultLocationDocument, variables, headers)(),
     ...options
   }
     )};
@@ -2612,6 +2671,10 @@ export const ExtractEventDataFromUrlDocument = new TypedDocumentString(`
         location
         ticketPrice
       }
+      links {
+        url
+        label
+      }
     }
     errorCode
     errorMessage
@@ -2658,6 +2721,10 @@ export const ExtractionJobDocument = new TypedDocumentString(`
         performers
         location
         ticketPrice
+      }
+      links {
+        url
+        label
       }
     }
     errorCode
@@ -2992,6 +3059,7 @@ export const GetEventBySlugDocument = new TypedDocumentString(`
     sourcePostUrl
     originalPostUrl
     publishedAt
+    hashtags
     organizerName
     contactInfo
     hasPrivateContact
@@ -4482,8 +4550,12 @@ export const useRemoveSubscriptionMutation = <
     )};
 
 export const SetAccountDefaultLocationDocument = new TypedDocumentString(`
-    mutation setAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!) {
-  setAccountDefaultLocation(accountId: $accountId, input: $input) {
+    mutation setAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!, $asModeratorCorrection: Boolean) {
+  setAccountDefaultLocation(
+    accountId: $accountId
+    input: $input
+    asModeratorCorrection: $asModeratorCorrection
+  ) {
     id
     defaultLocation {
       coordinates {

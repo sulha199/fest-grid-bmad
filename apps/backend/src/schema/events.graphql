@@ -127,6 +127,7 @@ type Event {
   sourcePostUrl: String
   originalPostUrl: String
   publishedAt: String
+  hashtags: [String!]
   organizerName: String
   contactInfo: String
   hasPrivateContact: Boolean!

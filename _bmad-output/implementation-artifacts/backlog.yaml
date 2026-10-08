@@ -2098,7 +2098,7 @@ items:
 
   # ── 2026-10-08 (bmad-epic-readiness-check, batch-group5-readiness.md) ────────
   FIND-080:
-    {type: finding, status: backlog, created: 2026-10-08,
+    {type: finding, status: done, created: 2026-10-08,
      impact: user-visible, effort: xs, blocks: [IDEA-034],
      title: "ConfirmActionDialog never resets isConfirming after a successful or consumer-handled confirm, so a reopened dialog is stuck disabled",
      ref: [packages/ui/src/core/confirm-action-dialog.tsx, planning-artifacts/epic-readiness/batch-group5-readiness.md],
@@ -2106,7 +2106,7 @@ items:
      note: "Reproduced 2026-10-08 with a scratch Vitest run: reopen after success leaves Confirm disabled; a consumer that toasts and does not rethrow leaves Cancel disabled. Live in duplicate-events-content.tsx; blocks Story 4.9 AC7/AC12."}
 
   FIND-081:
-    {type: finding, status: backlog, created: 2026-10-08, parent: FIND-080,
+    {type: finding, status: done, created: 2026-10-08, parent: FIND-080,
      impact: user-visible, effort: xs,
      title: "ConfirmActionDialog's Overlay and Content carry no AD-33 z-tier, so they paint under the z-chrome nav rail; the ratchet cannot catch an absent tier",
      ref: [packages/ui/src/core/confirm-action-dialog.tsx, packages/ui/src/__tests__/ad33-z-index-layering.ratchet.test.ts],

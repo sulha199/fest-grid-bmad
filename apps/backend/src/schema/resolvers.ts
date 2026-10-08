@@ -6,7 +6,7 @@ import { events, schedules, posts, users, favorites, calendarAdditions, userLoca
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly, getRequestedFieldNames } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator } from '../lib/auth/context.js';
 import { buildEventAccountMatchCondition } from '../lib/events/event-account-match.js';
-import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, gte, lte, isNull, ilike } from 'drizzle-orm';
+import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, gte, lte, isNull, isNotNull, ilike } from 'drizzle-orm';
 import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink } from '@festgrid/domain/scraper';
@@ -22,12 +22,13 @@ import { resolveLocation, getAddressPredictions, resolveAdminRegion } from '../l
 import { resolveInstagramOEmbed } from '../lib/instagram-oembed/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
-import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult, computePastEventThreshold, parsePlatformPrefixedEventSlug } from '@festgrid/domain/events';
+import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult, computePastEventThreshold, parsePlatformPrefixedEventSlug, sanitizeEventLinks } from '@festgrid/domain/events';
 import { transformGeminiResponseToEventFilter } from '@festgrid/domain/ai-event-filters';
 import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText } from '@festgrid/domain';
 import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError, postGroupingReasonToGraphQL } from '@festgrid/domain/posts';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
+import { verifyAccountProfileForDiscovery } from '../lib/accounts/verify-account-profile-for-discovery.js';
 import { triggerScrapeForAccount } from '../lib/scraper/trigger-scrape-for-account.js';
 import { decryptApiKey, encryptApiKey } from '../lib/ai-gateway/kms.js';
 import { verifyGeminiApiKey } from '../lib/ai-gateway/gemini-client.js';
@@ -762,23 +763,30 @@ Constraints and Guidelines:
         isInitialScrape,
       };
     },
-    setAccountDefaultLocation: async (_: any, { accountId, input }: any, context: any, info: any) => {
+    setAccountDefaultLocation: async (_: any, { accountId, input, asModeratorCorrection }: any, context: any, info: any) => {
       try {
         const authUser = requireAuth(context);
+        // AC15: mirrors editAccountDefaultLocation's AD-11 additive-auth shape exactly --
+        // the calling page decides via the explicit asModeratorCorrection intent flag, not
+        // an ambient role check. A non-moderator passing the flag still needs the
+        // subscription (defense in depth).
+        const isModerator = authUser.role === 'moderator' && asModeratorCorrection === true;
 
-        // 1. Look up caller's active subscription to accountId
-        const activeSubRows = await db.select()
-          .from(subscriptions)
-          .where(
-            and(
-              eq(subscriptions.userId, authUser.userId),
-              eq(subscriptions.accountId, accountId),
-              activeOnly(subscriptions)
-            )
-          );
+        // 1. Look up caller's active subscription to accountId only if not a moderator
+        if (!isModerator) {
+          const activeSubRows = await db.select()
+            .from(subscriptions)
+            .where(
+              and(
+                eq(subscriptions.userId, authUser.userId),
+                eq(subscriptions.accountId, accountId),
+                activeOnly(subscriptions)
+              )
+            );
 
-        if (activeSubRows.length === 0) {
-          throw new GraphQLError('Subscription not found', { extensions: { code: 'NOT_FOUND' } });
+          if (activeSubRows.length === 0) {
+            throw new GraphQLError('Subscription not found', { extensions: { code: 'NOT_FOUND' } });
+          }
         }
 
         // 2. Look up the social_media_account_profiles row by id = accountId
@@ -942,6 +950,80 @@ Constraints and Guidelines:
         }
         throw err;
       }
+    },
+    clearAccountDefaultLocation: async (_: any, { accountId }: any, context: any, info: any) => {
+      // Moderator-only, no subscriber path -- clearing has no subscriber-facing equivalent
+      // anywhere in the product (see Story 4.9 Dev Notes). Mirrors setImageStorageOptIn's shape.
+      requireModerator(context);
+
+      // 1. Look up the social_media_account_profiles row by id = accountId
+      const profileRows = await db.select()
+        .from(socialMediaAccountProfiles)
+        .where(eq(socialMediaAccountProfiles.id, accountId));
+
+      if (profileRows.length === 0) {
+        throw new GraphQLError('Account profile not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      const profile = profileRows[0];
+
+      // 2. If defaultLocation is already null, throw INVALID_STATE_TRANSITION -- mirrors
+      // setAccountDefaultLocation's own symmetric check (its mirror-image).
+      if (profile.defaultLocation === null || profile.defaultLocation === undefined) {
+        throw new GraphQLError('No default location set yet', {
+          extensions: { code: 'INVALID_STATE_TRANSITION' },
+        });
+      }
+
+      // 3. Inside one transaction: null the defaultLocation and supersede every still-open
+      // defaultLocationChangeRequests row for this account -- mirroring
+      // applyDefaultLocationChange's own superseding-transaction pattern (AD-11 rule 3,
+      // generalized here to the clear action). Deliberately does NOT call
+      // applyDefaultLocationChange() and does NOT insert a new defaultLocationChangeRequests
+      // row for the clear itself -- that table's newLocation column is NOT NULL and a clear
+      // has no new location value to log (user-confirmed tradeoff, see Story 4.9 Dev Notes).
+      await db.transaction(async (tx) => {
+        // Conditional on the location still being set: the non-null check above ran outside this
+        // transaction, so a concurrent clear (or an edit landing in between) must not be
+        // silently overwritten -- no row back means the state changed under us.
+        const cleared = await tx.update(socialMediaAccountProfiles)
+          .set({ defaultLocation: null, updatedAt: new Date() })
+          .where(and(
+            eq(socialMediaAccountProfiles.id, accountId),
+            isNotNull(socialMediaAccountProfiles.defaultLocation)
+          ))
+          .returning({ id: socialMediaAccountProfiles.id });
+
+        if (cleared.length === 0) {
+          throw new GraphQLError('No default location set yet', {
+            extensions: { code: 'INVALID_STATE_TRANSITION' },
+          });
+        }
+
+        await tx.update(defaultLocationChangeRequests)
+          .set({ status: 'SUPERSEDED' as any })
+          .where(
+            and(
+              eq(defaultLocationChangeRequests.accountId, accountId),
+              inArray(defaultLocationChangeRequests.status, ['PENDING_REVIEW', 'AWAITING_APPROVAL'])
+            )
+          );
+      });
+
+      // 4. Return the updated profile with defaultLocation formatted via formatLocationDetails
+      const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
+      const rows = await db.select({
+        ...requestedFields,
+        id: socialMediaAccountProfiles.id,
+      }).from(socialMediaAccountProfiles)
+        .where(eq(socialMediaAccountProfiles.id, accountId));
+
+      const updatedProfile = rows[0] as any;
+      if (updatedProfile && updatedProfile.defaultLocation) {
+        updatedProfile.defaultLocation = formatLocationDetails(updatedProfile.defaultLocation);
+      }
+
+      return updatedProfile;
     },
     setImageStorageOptIn: async (_: any, { accountId, optedIn }: any, context: any, info: any) => {
       requireModerator(context);
@@ -1430,6 +1512,10 @@ Constraints and Guidelines:
             organizerName: proposedData.organizerName || null,
             contactInfo: proposedData.contactInfo || null,
             description: proposedData.description || null,
+            // Story 4.10 (AC5): three-state semantics — omitted `links` leaves the column
+            // unchanged (protects AI-extracted links from a stale client); `[]` sanitizes to
+            // `undefined` and `?? null` clears the column; a non-empty array fully replaces it.
+            ...(proposedData.links !== undefined && { links: sanitizeEventLinks(proposedData.links) ?? null }),
             updatedAt: new Date(),
           })
           .where(eq(events.id, eventId));
@@ -2207,6 +2293,7 @@ Constraints and Guidelines:
       const existingVote = await db.select().from(accountVotes)
         .where(and(eq(accountVotes.userId, authUser.userId), eq(accountVotes.accountId, accountId)));
 
+      let voteResult;
       if (existingVote.length > 0) {
         const vote = existingVote[0];
         if (vote.deletedAt !== null) {
@@ -2214,19 +2301,30 @@ Constraints and Guidelines:
             .set({ deletedAt: null, createdAt: new Date() })
             .where(eq(accountVotes.id, vote.id))
             .returning();
-          return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: null };
+          voteResult = { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: null };
+        } else {
+          voteResult = { ...vote, createdAt: vote.createdAt.toISOString(), deletedAt: null };
         }
-        return { ...vote, createdAt: vote.createdAt.toISOString(), deletedAt: null };
+      } else {
+        const [newVote] = await db.insert(accountVotes)
+          .values({
+            userId: authUser.userId,
+            accountId: accountId,
+          })
+          .returning();
+        voteResult = { ...newVote, createdAt: newVote.createdAt.toISOString(), deletedAt: null };
       }
 
-      const [newVote] = await db.insert(accountVotes)
-        .values({
-          userId: authUser.userId,
-          accountId: accountId,
-        })
-        .returning();
+      // Casting a vote is a "real demand" signal for discovery (Story 3.17, AC1) -- flip
+      // isVerifiedForDiscovery false -> true via the same shared helper subscribeToAccount uses
+      // (Story 3.16, AC4). Runs once, after the vote write and on all three outcomes (new vote /
+      // reactivated vote / idempotent no-op): the flip is one-way, so it must never be committed
+      // for a vote that failed to land. If this call fails after the vote persisted, a retry
+      // takes the no-op branch above and re-runs it. The return value isn't needed here
+      // (castVote returns the vote row, not the profile).
+      await verifyAccountProfileForDiscovery(accountId);
 
-      return { ...newVote, createdAt: newVote.createdAt.toISOString(), deletedAt: null };
+      return voteResult;
     },
     withdrawVote: async (_: any, { id, action }: any, context: any) => {
       const authUser = requireAuth(context);
@@ -2876,7 +2974,9 @@ Constraints and Guidelines:
       const result = [];
       for (const row of rows) {
         const [profile] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, row.accountId));
-        if (profile) {
+        // Demand-gated discovery (Story 3.17, AC1): exclude a profile that hasn't yet earned
+        // isVerifiedForDiscovery from this broad ranked-discovery surface.
+        if (profile && profile.isVerifiedForDiscovery) {
           if (profile.defaultLocation) {
             profile.defaultLocation = formatLocationDetails(profile.defaultLocation);
           }
@@ -2946,7 +3046,7 @@ Constraints and Guidelines:
         .where(isNull(subscriptions.deletedAt));
       const excludedAccountIds = activeSubs.map(s => s.accountId);
 
-      const conditions = [isNull(accountVotes.deletedAt)];
+      const conditions = [isNull(accountVotes.deletedAt), eq(socialMediaAccountProfiles.isVerifiedForDiscovery, true)];
       if (excludedAccountIds.length > 0) {
         conditions.push(notInArray(accountVotes.accountId, excludedAccountIds));
       }
@@ -3748,6 +3848,7 @@ Constraints and Guidelines:
         sourcePostUrl: posts.postUrl,
         originalPostUrl: posts.originalPostUrl,
         publishedAt: posts.publishedAt,
+        hashtags: posts.hashtags,
         isImageStorageOptedIn: socialMediaAccountProfiles.isImageStorageOptedIn,
       }).from(events)
         .leftJoin(posts, eq(events.postId, posts.id))
@@ -3880,6 +3981,7 @@ Constraints and Guidelines:
           sourcePostUrl: posts.postUrl,
           originalPostUrl: posts.originalPostUrl,
           publishedAt: posts.publishedAt,
+          hashtags: posts.hashtags,
           isImageStorageOptedIn: socialMediaAccountProfiles.isImageStorageOptedIn,
         }).from(events)
           .leftJoin(posts, eq(events.postId, posts.id))
@@ -4222,6 +4324,9 @@ Constraints and Guidelines:
       };
     },
     queryModeratorAccountProfiles: async (_: any, { filters, first, after }: any, context: any, info: any) => {
+      // Deliberately NOT gated on isVerifiedForDiscovery (Story 3.17): moderators need full
+      // visibility into unverified/scrape-discovered profiles, unlike rankedVoteAccounts /
+      // votedAccountSuggestions. Do not "fix" this as an oversight.
       requireModerator(context);
 
       const limit = (first || 10) + 1; // +1 to detect hasNextPage

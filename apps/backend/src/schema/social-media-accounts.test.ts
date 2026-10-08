@@ -315,6 +315,123 @@ test('setAccountDefaultLocation mutation resolver integration', async (t) => {
     assert.equal(body.data.setAccountDefaultLocation.id, accountProfile1.id);
   });
 
+  await t.test('7. AC15: moderator with asModeratorCorrection=true and no subscription succeeds', async () => {
+    // Fresh profile with no default location and no subscription for anotherUser.
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.accountId, 'test_profile_ac15_1'));
+    const [p] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'test_profile_ac15_1',
+      platform: 'instagram',
+      displayName: 'AC15 Profile 1',
+      username: 'test_profile_ac15_1',
+      defaultLocation: null,
+    }).returning();
+
+    mockUser = { userId: anotherUser.id, role: 'moderator' };
+
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation SetAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!, $asModeratorCorrection: Boolean) {
+            setAccountDefaultLocation(accountId: $accountId, input: $input, asModeratorCorrection: $asModeratorCorrection) {
+              id
+              defaultLocation { formattedAddress }
+            }
+          }
+        `,
+        variables: {
+          accountId: p.id,
+          input: { placeId: 'ac15-place-id' },
+          asModeratorCorrection: true,
+        },
+      }),
+    });
+
+    const body = await response.json();
+    assert.ok(!body.errors, JSON.stringify(body.errors));
+    assert.ok(body.data.setAccountDefaultLocation.defaultLocation, 'Should return defaultLocation');
+
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.accountId, 'test_profile_ac15_1'));
+  });
+
+  await t.test('8. AC15: same moderator without the flag gets NOT_FOUND', async () => {
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.accountId, 'test_profile_ac15_2'));
+    const [p] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'test_profile_ac15_2',
+      platform: 'instagram',
+      displayName: 'AC15 Profile 2',
+      username: 'test_profile_ac15_2',
+      defaultLocation: null,
+    }).returning();
+
+    mockUser = { userId: anotherUser.id, role: 'moderator' };
+
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation SetAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!) {
+            setAccountDefaultLocation(accountId: $accountId, input: $input) {
+              id
+            }
+          }
+        `,
+        variables: {
+          accountId: p.id,
+          input: { placeId: 'ac15-place-id-no-flag' },
+        },
+      }),
+    });
+
+    const body = await response.json();
+    assert.ok(body.errors, 'Should have error');
+    assert.equal(body.errors[0].extensions?.code, 'NOT_FOUND');
+    assert.equal(body.errors[0].message, 'Subscription not found');
+
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.accountId, 'test_profile_ac15_2'));
+  });
+
+  await t.test('9. AC15: non-moderator passing the flag without a subscription still gets NOT_FOUND', async () => {
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.accountId, 'test_profile_ac15_3'));
+    const [p] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'test_profile_ac15_3',
+      platform: 'instagram',
+      displayName: 'AC15 Profile 3',
+      username: 'test_profile_ac15_3',
+      defaultLocation: null,
+    }).returning();
+
+    mockUser = { userId: anotherUser.id, role: 'user' };
+
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation SetAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!, $asModeratorCorrection: Boolean) {
+            setAccountDefaultLocation(accountId: $accountId, input: $input, asModeratorCorrection: $asModeratorCorrection) {
+              id
+            }
+          }
+        `,
+        variables: {
+          accountId: p.id,
+          input: { placeId: 'ac15-place-id-non-moderator' },
+          asModeratorCorrection: true,
+        },
+      }),
+    });
+
+    const body = await response.json();
+    assert.ok(body.errors, 'Should have error');
+    assert.equal(body.errors[0].extensions?.code, 'NOT_FOUND');
+    assert.equal(body.errors[0].message, 'Subscription not found');
+
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.accountId, 'test_profile_ac15_3'));
+  });
+
   await t.test('cleanup - delete all created test data', async () => {
     await db.delete(subscriptions).where(eq(subscriptions.userId, testUser.id));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.accountId, 'test_profile_1'));
@@ -693,5 +810,155 @@ test('editAccountDefaultLocation mutation resolver integration', async (t) => {
     await db.delete(subscriptions).where(eq(subscriptions.userId, testUser.id));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.accountId, 'edit_test_profile_1'));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.accountId, 'edit_test_profile_2'));
+  });
+});
+
+test('clearAccountDefaultLocation mutation resolver integration', async (t) => {
+  let testUser: any;
+  let nonModeratorUser: any;
+  let accountProfileWithLocation: any;
+  let accountProfileNoLocation: any;
+
+  await t.test('setup - get test users and create account profiles', async () => {
+    const seededUsers = await db.select().from(users).limit(2);
+    assert.ok(seededUsers.length >= 2, 'Should have at least 2 users');
+    testUser = seededUsers[0];
+    nonModeratorUser = seededUsers[1];
+
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.accountId, 'clear_test_profile_1'));
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.accountId, 'clear_test_profile_2'));
+
+    const [p1] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'clear_test_profile_1',
+      platform: 'instagram',
+      displayName: 'Clear Profile With Location',
+      username: 'clear_test_profile_1',
+      defaultLocation: {
+        placeName: 'Clearable Place',
+        formattedAddress: 'Clearable Address',
+        coordinates: { lat: -6.2, lng: 106.8 },
+      } as any,
+    }).returning();
+    accountProfileWithLocation = p1;
+
+    const [p2] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'clear_test_profile_2',
+      platform: 'instagram',
+      displayName: 'Clear Profile No Location',
+      username: 'clear_test_profile_2',
+      defaultLocation: null,
+    }).returning();
+    accountProfileNoLocation = p2;
+  });
+
+  await t.test('1. requires moderator role (FORBIDDEN for a non-moderator)', async () => {
+    mockUser = { userId: nonModeratorUser.id, role: 'user' };
+
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation ClearAccountDefaultLocation($accountId: ID!) {
+            clearAccountDefaultLocation(accountId: $accountId) { id }
+          }
+        `,
+        variables: { accountId: accountProfileWithLocation.id },
+      }),
+    });
+
+    const body = await response.json();
+    assert.ok(body.errors, 'Should have error');
+    assert.equal(body.errors[0].extensions?.code, 'FORBIDDEN');
+  });
+
+  await t.test('2. rejects with NOT_FOUND for a non-existent accountId', async () => {
+    mockUser = { userId: testUser.id, role: 'moderator' };
+
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation ClearAccountDefaultLocation($accountId: ID!) {
+            clearAccountDefaultLocation(accountId: $accountId) { id }
+          }
+        `,
+        variables: { accountId: '99999999-9999-9999-9999-999999999999' },
+      }),
+    });
+
+    const body = await response.json();
+    assert.ok(body.errors, 'Should have error');
+    assert.equal(body.errors[0].extensions?.code, 'NOT_FOUND');
+  });
+
+  await t.test('3. rejects with INVALID_STATE_TRANSITION when defaultLocation is already null', async () => {
+    mockUser = { userId: testUser.id, role: 'moderator' };
+
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation ClearAccountDefaultLocation($accountId: ID!) {
+            clearAccountDefaultLocation(accountId: $accountId) { id }
+          }
+        `,
+        variables: { accountId: accountProfileNoLocation.id },
+      }),
+    });
+
+    const body = await response.json();
+    assert.ok(body.errors, 'Should have error');
+    assert.equal(body.errors[0].extensions?.code, 'INVALID_STATE_TRANSITION');
+  });
+
+  await t.test('4. success: clears a set location, returns defaultLocation: null, and supersedes an open change request', async () => {
+    mockUser = { userId: testUser.id, role: 'moderator' };
+
+    // Seed an open PENDING_REVIEW change request for this account to prove it gets superseded.
+    await db.delete(defaultLocationChangeRequests).where(eq(defaultLocationChangeRequests.accountId, accountProfileWithLocation.id));
+    const [openRequest] = await db.insert(defaultLocationChangeRequests).values({
+      accountId: accountProfileWithLocation.id,
+      changedByUserId: testUser.id,
+      previousLocation: null,
+      newLocation: { placeName: 'Pending New Place', formattedAddress: 'Pending New Address', coordinates: { lat: -6.3, lng: 106.9 } } as any,
+      status: 'PENDING_REVIEW' as any,
+      changeSource: 'USER' as any,
+    }).returning();
+
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation ClearAccountDefaultLocation($accountId: ID!) {
+            clearAccountDefaultLocation(accountId: $accountId) {
+              id
+              defaultLocation { formattedAddress placeName }
+            }
+          }
+        `,
+        variables: { accountId: accountProfileWithLocation.id },
+      }),
+    });
+
+    const body = await response.json();
+    assert.ok(!body.errors, JSON.stringify(body.errors));
+    assert.equal(body.data.clearAccountDefaultLocation.id, accountProfileWithLocation.id);
+    assert.equal(body.data.clearAccountDefaultLocation.defaultLocation, null);
+
+    const [refreshed] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, accountProfileWithLocation.id));
+    assert.equal(refreshed.defaultLocation, null);
+
+    const [supersededRow] = await db.select().from(defaultLocationChangeRequests).where(eq(defaultLocationChangeRequests.id, openRequest.id));
+    assert.equal(supersededRow.status, 'SUPERSEDED');
+  });
+
+  await t.test('cleanup - delete all created test data', async () => {
+    await db.delete(defaultLocationChangeRequests).where(eq(defaultLocationChangeRequests.accountId, accountProfileWithLocation.id));
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.accountId, 'clear_test_profile_1'));
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.accountId, 'clear_test_profile_2'));
   });
 });

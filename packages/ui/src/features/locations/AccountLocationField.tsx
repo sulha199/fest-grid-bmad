@@ -1,5 +1,5 @@
 import React from "react";
-import { Pencil } from "lucide-react";
+import { Pencil, MapPinOff } from "lucide-react";
 import { StatusBadge } from "../../core/status-badge";
 import type { AccountLocationFieldProps } from "./AccountLocationField.types";
 
@@ -7,6 +7,7 @@ export function AccountLocationField({
   location,
   isPendingReview = false,
   onEdit,
+  onClear,
   labels,
 }: AccountLocationFieldProps) {
   if (!location) return null;
@@ -27,6 +28,16 @@ export function AccountLocationField({
       >
         <Pencil className="h-3.5 w-3.5" />
       </button>
+      {onClear && (
+        <button
+          type="button"
+          onClick={onClear}
+          className="text-muted-foreground hover:text-destructive transition-colors p-1 hover:bg-accent/50 rounded flex items-center justify-center h-6 w-6 shrink-0"
+          aria-label={labels.clearLabel}
+        >
+          <MapPinOff className="h-3.5 w-3.5" />
+        </button>
+      )}
     </div>
   );
 }

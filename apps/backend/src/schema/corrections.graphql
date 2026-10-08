@@ -23,6 +23,11 @@ input ProposedScheduleCorrectionInput {
   ticketPrice: String
 }
 
+input EventLinkInput {
+  url: String!
+  label: String
+}
+
 input ProposedEventCorrectionInput {
   eventName: String!
   types: [EventType!]!
@@ -32,6 +37,7 @@ input ProposedEventCorrectionInput {
   contactInfo: String
   description: String
   schedules: [ProposedScheduleCorrectionInput!]!
+  links: [EventLinkInput!]
 }
 
 type ValidationError {

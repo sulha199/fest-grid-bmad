@@ -23,15 +23,33 @@ interface SetDefaultLocationDialogProps {
   isOpen: boolean
   onClose: () => void
   mode?: "set" | "edit"
-  initialLocation?: LocationDetails
   /**
-   * Only the moderator review page (/moderator/items) passes true. This is the signal
-   * that decides editAccountDefaultLocation's write semantics (self-resolved vs.
-   * pending review) -- deciding it by the calling page, not the viewer's role alone,
-   * so a moderator editing their own subscription from /settings/subscriptions still
-   * goes through the ordinary review flow.
+   * `coordinates` is optional here (unlike the base `LocationDetails` type) because the
+   * Moderator Tools Accounts-tab card's query (Story 4.9, AC1) deliberately selects only
+   * `formattedAddress`/`placeName` for its list view -- not `coordinates` -- so that call
+   * site cannot populate it. When absent, the edit-mode init below pre-fills only the
+   * address text for reference and leaves pendingCoords/mapViewState unset, requiring the
+   * moderator to search/pick a location afresh before Save enables (existing callers that
+   * always pass full coordinates are unaffected).
+   */
+  initialLocation?: Omit<LocationDetails, "coordinates"> & { coordinates?: Coordinates }
+  /**
+   * Passed by every moderator-only call site (/moderator/items, and -- as of Story 4.9 --
+   * the Moderator Tools Accounts tab). This is the signal that decides
+   * setAccountDefaultLocation/editAccountDefaultLocation's write semantics (self-resolved
+   * vs. pending review, or bypassing the subscription check) -- deciding it by the calling
+   * page, not the viewer's role alone, so a moderator editing their own subscription from
+   * /settings/subscriptions still goes through the ordinary review flow.
    */
   asModeratorCorrection?: boolean
+  /**
+   * Invoked only after a successful setAccountDefaultLocation/editAccountDefaultLocation
+   * call, immediately before the existing queryClient.invalidateQueries/onClose() calls.
+   * Additive and optional -- existing callers that omit it are unaffected. onClose is
+   * unsuitable for this because it already fires on cancel/backdrop-dismiss as well as on
+   * a successful save.
+   */
+  onSaved?: () => void
 }
 
 const DEFAULT_CENTER: Coordinates = {
@@ -39,7 +57,7 @@ const DEFAULT_CENTER: Coordinates = {
   longitude: 106.8456,
 }
 
-export function SetDefaultLocationDialog({ accountId, isOpen, onClose, mode = "set", initialLocation, asModeratorCorrection }: SetDefaultLocationDialogProps) {
+export function SetDefaultLocationDialog({ accountId, isOpen, onClose, mode = "set", initialLocation, asModeratorCorrection, onSaved }: SetDefaultLocationDialogProps) {
   const t = useTranslations("SubscriptionsPage")
   const queryClient = useQueryClient()
   const posthog = usePostHog()
@@ -106,16 +124,21 @@ export function SetDefaultLocationDialog({ accountId, isOpen, onClose, mode = "s
       if (mode === "edit" && initialLocation) {
         setAddressSearch(initialLocation.formattedAddress || initialLocation.placeName || "")
         setSelectedPlaceId(initialLocation.placeId || null)
-        const coords = {
-          latitude: initialLocation.coordinates.latitude,
-          longitude: initialLocation.coordinates.longitude,
+        if (initialLocation.coordinates) {
+          const coords = {
+            latitude: initialLocation.coordinates.latitude,
+            longitude: initialLocation.coordinates.longitude,
+          }
+          setPendingCoords(coords)
+          setMapViewState({
+            center: coords,
+            zoom: 15,
+            marker: coords,
+          })
+        } else {
+          setPendingCoords(null)
+          setMapViewState(null)
         }
-        setPendingCoords(coords)
-        setMapViewState({
-          center: coords,
-          zoom: 15,
-          marker: coords,
-        })
       } else {
         setAddressSearch("")
         setSelectedPlaceId(null)
@@ -269,7 +292,7 @@ export function SetDefaultLocationDialog({ accountId, isOpen, onClose, mode = "s
 
       if (mode === "edit") {
         await editAccountDefaultLocation({ accountId, input, asModeratorCorrection })
-        
+
         // Fire PostHog analytics event
         posthog.capture("subscription_default_location_edited", {
           accountId,
@@ -277,7 +300,7 @@ export function SetDefaultLocationDialog({ accountId, isOpen, onClose, mode = "s
 
         toast.success(t("defaultLocationEditedToast") || "Default location edited successfully, pending moderator review")
       } else {
-        await setAccountDefaultLocation({ accountId, input })
+        await setAccountDefaultLocation({ accountId, input, asModeratorCorrection })
 
         // Fire PostHog analytics event
         posthog.capture("subscription_default_location_set", {
@@ -286,6 +309,8 @@ export function SetDefaultLocationDialog({ accountId, isOpen, onClose, mode = "s
 
         toast.success(t("defaultLocationSetToast") || "Default location set successfully")
       }
+
+      onSaved?.()
 
       // Invalidate the getMySubscriptions cache
       queryClient.invalidateQueries({ queryKey: ["getMySubscriptions"] })

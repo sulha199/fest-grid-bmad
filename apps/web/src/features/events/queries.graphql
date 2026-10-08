@@ -60,6 +60,7 @@ query getEventBySlug($slug: String!) {
     sourcePostUrl
     originalPostUrl
     publishedAt
+    hashtags
     organizerName
     contactInfo
     hasPrivateContact

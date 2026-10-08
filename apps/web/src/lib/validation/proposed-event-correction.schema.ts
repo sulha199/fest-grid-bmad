@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isAllowedHttpUrl } from '@festgrid/domain/events';
 
 export const proposedScheduleCorrectionSchema = z.object({
   id: z.string().optional(),
@@ -39,6 +40,11 @@ export const proposedScheduleCorrectionSchema = z.object({
   }
 });
 
+export const proposedEventLinkCorrectionSchema = z.object({
+  url: z.string().min(1, { message: "Link URL is required" }).refine(isAllowedHttpUrl, { message: "Link URL must be a valid http(s) web address" }),
+  label: z.string().optional(),
+});
+
 export const proposedEventCorrectionSchema = z.object({
   eventName: z.string().min(1, { message: "Event name is required" }),
   types: z.array(z.any()).min(1, { message: "At least one event type is required" }),
@@ -48,6 +54,7 @@ export const proposedEventCorrectionSchema = z.object({
   contactInfo: z.string().optional(),
   description: z.string().optional(),
   schedules: z.array(proposedScheduleCorrectionSchema).min(1, { message: "At least one schedule is required" }),
+  links: z.array(proposedEventLinkCorrectionSchema).max(10, { message: "A maximum of 10 links is allowed" }).optional(),
 });
 
 export function mapZodIssueToValidationError(issue: z.ZodIssue): { field: string; message: string } {

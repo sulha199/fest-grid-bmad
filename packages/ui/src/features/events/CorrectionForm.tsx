@@ -1,11 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
-import { EventType, EventCategory } from "@festgrid/shared-types";
+import React, { useEffect, useRef, useState } from "react";
+import { Plus, Trash2 } from "lucide-react";
+import { EventType, EventCategory, EventLink } from "@festgrid/shared-types";
 import { ProposedEventCorrection, ProposedScheduleCorrection } from "@festgrid/domain/events";
 import { MultiSelect } from "../../core/multi-select";
 import { Checkbox } from "../../core/checkbox";
 import { CorrectionFormProps } from "./CorrectionForm.types";
+
+const MAX_LINKS = 10;
+const LINK_FIELD_PATTERN = /^links\[\d+\]\.(url|label)$/;
 
 export function CorrectionForm({
   initialValues,
@@ -47,6 +51,58 @@ export function CorrectionForm({
   const [scheduleLocation, setScheduleLocation] = useState(mainSchedule.location || "");
   const [scheduleTicketPrice, setScheduleTicketPrice] = useState(mainSchedule.ticketPrice || "");
 
+  // Story 4.10 (AC9) — the repeatable "Links" field. Local useState, same as every other
+  // field in this component (see Dev Notes "State Management Categorization").
+  const [links, setLinks] = useState<EventLink[]>(initialValues.links || []);
+  const linkUrlInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const addLinkButtonRef = useRef<HTMLButtonElement | null>(null);
+  const pendingLinkFocusRef = useRef<{ type: "url"; index: number } | { type: "add" } | null>(null);
+  const atLinksCap = links.length >= MAX_LINKS;
+
+  useEffect(() => {
+    const pending = pendingLinkFocusRef.current;
+    if (!pending) return;
+    pendingLinkFocusRef.current = null;
+    if (pending.type === "add") {
+      addLinkButtonRef.current?.focus();
+    } else {
+      linkUrlInputRefs.current[pending.index]?.focus();
+    }
+  }, [links]);
+
+  const handleAddLink = () => {
+    if (atLinksCap) return;
+    setLinks((prev) => {
+      const next = [...prev, { url: "", label: "" }];
+      pendingLinkFocusRef.current = { type: "url", index: next.length - 1 };
+      return next;
+    });
+  };
+
+  const handleRemoveLink = (index: number) => {
+    setLinks((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      if (next.length === 0) {
+        pendingLinkFocusRef.current = { type: "add" };
+      } else if (index < next.length) {
+        // The row that shifted up now occupies this same index.
+        pendingLinkFocusRef.current = { type: "url", index };
+      } else {
+        // The removed row was last -- focus the previous row.
+        pendingLinkFocusRef.current = { type: "url", index: next.length - 1 };
+      }
+      return next;
+    });
+  };
+
+  const handleLinkUrlChange = (index: number, value: string) => {
+    setLinks((prev) => prev.map((l, i) => (i === index ? { ...l, url: value } : l)));
+  };
+
+  const handleLinkLabelChange = (index: number, value: string) => {
+    setLinks((prev) => prev.map((l, i) => (i === index ? { ...l, label: value } : l)));
+  };
+
   // Guardian-permission declaration checkbox (Story 3.6k, AC5). Nothing else in this
   // form is externally controlled either, so fall back to internal local state when
   // the caller doesn't pass the controlled prop pair.
@@ -87,7 +143,9 @@ export function CorrectionForm({
   ];
 
   const isMatchedField = (field: string): boolean => {
-    return matchedFields.includes(field);
+    // Story 4.10 (AC9) — links[0].url / links[0].label can't be enumerated ahead of time
+    // like every other field above, since row count is dynamic.
+    return matchedFields.includes(field) || LINK_FIELD_PATTERN.test(field);
   };
 
   const getFieldError = (fieldNames: string[]) => {
@@ -154,6 +212,16 @@ export function CorrectionForm({
     }
     if (description) {
       payload.description = description;
+    }
+
+    // Story 4.10 (AC9) — differs from the omit-when-empty convention above: a non-empty
+    // links list is sent in full; an explicit clear (seeded with links, now empty) must still
+    // send `links: []` so the backend's three-state rule (AC5) can distinguish "the user
+    // cleared every link" from "this submission never touched links at all".
+    if (links.length > 0) {
+      payload.links = links;
+    } else if ((initialValues.links?.length ?? 0) > 0) {
+      payload.links = [];
     }
 
     onSubmit(payload, guardianPermissionConfirmed);
@@ -304,6 +372,78 @@ export function CorrectionForm({
               </span>
             )}
           </div>
+
+          {/* Links section (Story 4.10, AC9) */}
+          <fieldset className="flex flex-col gap-3">
+            <legend className="text-sm font-medium">{labels.linksLabel}</legend>
+
+            {links.map((link, index) => (
+              <div
+                key={index}
+                className="flex flex-col md:flex-row gap-2 md:items-start rounded-md border border-input p-3"
+              >
+                <div className="flex flex-col gap-1.5 flex-1">
+                  <label htmlFor={`links-url-${index}`} className="text-sm font-medium">
+                    {labels.linkUrlLabel(index + 1)}
+                  </label>
+                  <input
+                    id={`links-url-${index}`}
+                    type="text"
+                    value={link.url}
+                    ref={(el) => {
+                      linkUrlInputRefs.current[index] = el;
+                    }}
+                    onChange={(e) => handleLinkUrlChange(index, e.target.value)}
+                    className={inputClass}
+                  />
+                  {getFieldError([`links[${index}].url`]) && (
+                    <span className="text-xs text-destructive mt-1 block font-medium" role="alert">
+                      {getFieldError([`links[${index}].url`])}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-1.5 w-full md:w-56">
+                  <label htmlFor={`links-label-${index}`} className="text-sm font-medium">
+                    {labels.linkLabelLabel(index + 1)}
+                  </label>
+                  <input
+                    id={`links-label-${index}`}
+                    type="text"
+                    value={link.label ?? ""}
+                    onChange={(e) => handleLinkLabelChange(index, e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  aria-label={labels.removeLinkLabel(index + 1)}
+                  onClick={() => handleRemoveLink(index)}
+                  className="text-muted-foreground hover:text-destructive transition-colors self-end md:self-start md:mt-6 h-10 w-10 flex items-center justify-center"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+
+            <div className="flex flex-col gap-1.5 items-start">
+              <button
+                type="button"
+                ref={addLinkButtonRef}
+                onClick={handleAddLink}
+                aria-disabled={atLinksCap}
+                disabled={atLinksCap}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-input rounded-md bg-background hover:bg-accent hover:text-accent-foreground transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Plus className="h-4 w-4" />
+                {labels.addLinkButtonLabel}
+              </button>
+              {atLinksCap && (
+                <span className="text-xs text-muted-foreground">{labels.maxLinksReachedLabel}</span>
+              )}
+            </div>
+          </fieldset>
         </div>
 
         {/* Divider */}
