@@ -130,6 +130,12 @@ describe('WeeklyCalendarView', () => {
     status: 'success' as const,
   };
 
+  const selectMobileDay = (name: string) => {
+    const tab = within(rtlScreen.getByTestId('mobile-calendar-view')).getByRole('tab', { name });
+    fireEvent.click(tab);
+    return tab;
+  };
+
   it('renders a 7-column weekly grid with day headers and week date-range label', () => {
     render(
       <ScopedLocaleProvider locale="en-US">
@@ -210,7 +216,7 @@ describe('WeeklyCalendarView', () => {
       );
 
       fireEvent.click(screen.getByRole('button', { name: 'Select week' }));
-      fireEvent.click(screen.getAllByText('10')[0]);
+      fireEvent.click(within(rtlScreen.getByRole('dialog')).getAllByText('10')[0]);
 
       expect(onSelectWeek).toHaveBeenCalledWith('2026-08-10');
     } finally {
@@ -985,7 +991,7 @@ describe('WeeklyCalendarView', () => {
       vi.useRealTimers();
     });
 
-    it('renders one row per non-empty day and omits empty days entirely', () => {
+    it('renders 7 day tabs and only the selected day\'s schedules, with an empty-day message when none', () => {
       render(
         <ScopedLocaleProvider locale="en-US">
           <WeeklyCalendarView {...defaultProps} />
@@ -993,12 +999,19 @@ describe('WeeklyCalendarView', () => {
       );
 
       const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
-      const rows = within(mobileView).getAllByTestId('mobile-day-row');
-      expect(rows).toHaveLength(3);
-      expect(within(mobileView).getByText('5 Wed')).toBeInTheDocument();
-      expect(within(mobileView).getByText('6 Thu')).toBeInTheDocument();
-      expect(within(mobileView).getByText('7 Fri')).toBeInTheDocument();
-      expect(within(mobileView).queryByText('8 Sat')).not.toBeInTheDocument();
+      expect(within(mobileView).getAllByRole('tab')).toHaveLength(7);
+      // Single panel, not one row per day.
+      expect(within(mobileView).getAllByTestId('mobile-day-row')).toHaveLength(1);
+
+      // Saturday has no schedules: the tab is still selectable and shows the empty message.
+      selectMobileDay('8 Sat');
+      expect(within(mobileView).getByTestId('mobile-day-empty')).toBeInTheDocument();
+      expect(within(mobileView).getByRole('tab', { name: '8 Sat' })).toHaveAttribute('aria-selected', 'true');
+
+      // A day with schedules shows them and no empty message.
+      selectMobileDay('7 Fri');
+      expect(within(mobileView).queryByTestId('mobile-day-empty')).not.toBeInTheDocument();
+      expect(within(mobileView).getAllByRole('button').length).toBeGreaterThan(0);
     });
 
     // User feedback (2026-09-27): "don't show 'day 3 of 3'" -- the mobile list view's per-day
@@ -1704,17 +1717,20 @@ describe('WeeklyCalendarView', () => {
         // no longer renders a status badge at all (BUG-048's AC-STATUS-1 amendment was reversed,
         // 2026-09-27, user feedback: "don't show the now/ending_at badge"), so this scoping is
         // now belt-and-suspenders rather than load-bearing, but kept for clarity.
-        const badges = rtlScreen
-          .getByTestId('mobile-calendar-view')
-          .querySelectorAll('[data-event-card-status-badge]');
-        // AC5 — three day-segments (Aug 5/6/7), each independently computing status from the
-        // same schedule-level start/end fields against the same real "now", so all three show
-        // the identical happeningNow state.
-        expect(badges).toHaveLength(3);
-        badges.forEach((badge) => {
-          expect(badge).toHaveTextContent('Now');
-          expect(badge).toHaveClass('bg-emerald-600');
-          expect(badge).toHaveClass('text-white');
+        // AC5 — three day-segments (Aug 5/6/7), one visible per selected tab, each independently
+        // computing status from the same schedule-level start/end fields against the same real
+        // "now", so all three show the identical happeningNow state.
+        ['5 Wed', '6 Thu', '7 Fri'].forEach((dayName) => {
+          selectMobileDay(dayName);
+          const badges = rtlScreen
+            .getByTestId('mobile-calendar-view')
+            .querySelectorAll('[data-event-card-status-badge]');
+          expect(badges).toHaveLength(1);
+          badges.forEach((badge) => {
+            expect(badge).toHaveTextContent('Now');
+            expect(badge).toHaveClass('bg-emerald-600');
+            expect(badge).toHaveClass('text-white');
+          });
         });
       });
 
@@ -1767,6 +1783,7 @@ describe('WeeklyCalendarView', () => {
           </ScopedLocaleProvider>
         );
 
+        selectMobileDay('10 Mon');
         const badge = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
         expect(badge).not.toBeNull();
         expect(badge).toHaveTextContent('Upcoming');
@@ -1808,21 +1825,25 @@ describe('WeeklyCalendarView', () => {
         );
 
         const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
-        const nearCard = within(mobileView).getByText('Near Festival').closest('[data-testid="mobile-day-row"]') as HTMLElement;
-        const boundaryCard = within(mobileView).getByText('Boundary Festival').closest('[data-testid="mobile-day-row"]') as HTMLElement;
-        const unknownCard = within(mobileView).getByText('Unknown Distance Festival').closest('[data-testid="mobile-day-row"]') as HTMLElement;
+        const panelFor = (dayName: string, title: string) => {
+          selectMobileDay(dayName);
+          return within(mobileView).getByText(title).closest('[data-testid="mobile-day-row"]') as HTMLElement;
+        };
 
+        const nearCard = panelFor('5 Wed', 'Near Festival');
         expect(nearCard.querySelector('[data-event-card-nearby-badge]')).not.toBeNull();
         // BUG-049: badge shows the real distance, not a static word (7.9 rounds to "8 km").
         expect(nearCard.querySelector('[data-event-card-nearby-badge]')).toHaveTextContent('8 km');
-        expect(boundaryCard.querySelector('[data-event-card-nearby-badge]')).toBeNull();
-        expect(unknownCard.querySelector('[data-event-card-nearby-badge]')).toBeNull();
-        // BUG-048: "today" (Aug 4) is before the visible week, so mobile day rows default
-        // expanded — the same single-day schedules also render on the desktop grid, which now
-        // renders the nearby badge too (`EventCardCalendarGridItem`'s existing gate, reachable
-        // from the grid variant as of this fix). So "Near Festival" renders the badge twice
-        // (once per surface); "Boundary"/"Unknown" render it nowhere, on either surface.
-        expect(container.querySelectorAll('[data-event-card-nearby-badge]')).toHaveLength(2);
+        expect(panelFor('6 Thu', 'Boundary Festival').querySelector('[data-event-card-nearby-badge]')).toBeNull();
+        expect(panelFor('7 Fri', 'Unknown Distance Festival').querySelector('[data-event-card-nearby-badge]')).toBeNull();
+
+        // The same single-day schedules also render on the desktop grid (the grid variant renders
+        // the nearby badge too). "Near Festival" renders the badge on desktop; "Boundary"/"Unknown"
+        // render it nowhere. Mobile shows only the selected day (Fri), which has no badge.
+        expect(
+          within(rtlScreen.getByTestId('desktop-calendar-view')).getAllByText('Near Festival')
+        ).not.toHaveLength(0);
+        expect(container.querySelectorAll('[data-event-card-nearby-badge]')).toHaveLength(1);
       });
 
       it('appends the badge row as the content column\'s last child (AC4)', () => {
@@ -1911,53 +1932,95 @@ describe('WeeklyCalendarView', () => {
       });
     });
   });
-  describe('Mobile Day Collapse State', () => {
+  describe('Mobile day tabs', () => {
     beforeAll(() => {
       vi.useFakeTimers();
-      // "Today" is 2026-08-06.
-      // 2026-08-05 is past (default collapsed).
-      // 2026-08-06 is today (default expanded).
-      // 2026-08-07 is future (default expanded).
+      // "Today" is 2026-08-06 (Thu), inside the default 2026-08-05 week.
       vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
     });
-    
+
     afterAll(() => {
       vi.useRealTimers();
     });
 
-    it('defaults past days to collapsed and today/future to expanded, and allows toggling', () => {
+    it('defaults to today, switches day on click without navigating or refetching', () => {
+      const props = { ...defaultProps, timezone: 'UTC', onNextWeek: vi.fn(), onPrevWeek: vi.fn(), onSelectWeek: vi.fn(), onToday: vi.fn() };
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...props} />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      expect(within(mobileView).getByRole('tab', { name: '6 Thu' })).toHaveAttribute('aria-selected', 'true');
+      expect(within(mobileView).getByRole('tab', { name: '6 Thu' })).toHaveAttribute('data-today', 'true');
+      expect(within(mobileView).getByText('Gallery Tour')).toBeInTheDocument();
+      expect(within(mobileView).queryByText('Main Stage Concert')).not.toBeInTheDocument();
+
+      selectMobileDay('5 Wed');
+      expect(within(mobileView).getByText('Main Stage Concert')).toBeInTheDocument();
+      expect(within(mobileView).queryByText('Gallery Tour')).not.toBeInTheDocument();
+
+      expect(props.onNextWeek).not.toHaveBeenCalled();
+      expect(props.onPrevWeek).not.toHaveBeenCalled();
+      expect(props.onSelectWeek).not.toHaveBeenCalled();
+      expect(props.onToday).not.toHaveBeenCalled();
+    });
+
+    it('falls back to the first day when today is not in the visible week, and resets on week change', () => {
+      const { rerender } = render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...defaultProps} weekStart="2026-08-12" schedules={[]} timezone="UTC" />
+        </ScopedLocaleProvider>
+      );
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      expect(within(mobileView).getAllByRole('tab')[0]).toHaveAttribute('aria-selected', 'true');
+      selectMobileDay('15 Sat');
+      expect(within(mobileView).getByRole('tab', { name: '15 Sat' })).toHaveAttribute('aria-selected', 'true');
+
+      // Back to the week containing today: selection resets to today (Thu Aug 6).
+      rerender(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...defaultProps} weekStart="2026-08-05" schedules={[]} timezone="UTC" />
+        </ScopedLocaleProvider>
+      );
+      expect(within(mobileView).getByRole('tab', { name: '6 Thu' })).toHaveAttribute('aria-selected', 'true');
+    });
+
+    it('supports roving tabindex and arrow/Home/End keyboard navigation', () => {
       render(
         <ScopedLocaleProvider locale="en-US">
           <WeeklyCalendarView {...defaultProps} timezone="UTC" />
         </ScopedLocaleProvider>
       );
-
       const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
-      
-      // 2026-08-05 (past) -> collapsed
-      const pastHeader = within(mobileView).getByText('5 Wed').closest('button')!;
-      expect(pastHeader).toHaveAttribute('aria-expanded', 'false');
-      expect(within(mobileView).queryByText('Main Stage Concert')).not.toBeInTheDocument();
+      const tabs = within(mobileView).getAllByRole('tab');
+      expect(tabs.filter((t) => t.getAttribute('tabindex') === '0')).toHaveLength(1);
 
-      // 2026-08-06 (today) -> expanded
-      const todayHeader = within(mobileView).getByText('6 Thu').closest('button')!;
-      expect(todayHeader).toHaveAttribute('aria-expanded', 'true');
-      expect(within(mobileView).getByText('Gallery Tour')).toBeInTheDocument();
+      tabs[1].focus();
+      fireEvent.keyDown(tabs[1], { key: 'ArrowRight' });
+      expect(tabs[2]).toHaveAttribute('aria-selected', 'true');
+      expect(tabs[2]).toHaveFocus();
+      fireEvent.keyDown(tabs[2], { key: 'End' });
+      expect(tabs[6]).toHaveAttribute('aria-selected', 'true');
+      fireEvent.keyDown(tabs[6], { key: 'ArrowRight' });
+      expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
+      fireEvent.keyDown(tabs[0], { key: 'ArrowLeft' });
+      expect(tabs[6]).toHaveAttribute('aria-selected', 'true');
+    });
 
-      // 2026-08-07 (future) -> expanded
-      const futureHeader = within(mobileView).getByText('7 Fri').closest('button')!;
-      expect(futureHeader).toHaveAttribute('aria-expanded', 'true');
-      expect(within(mobileView).getAllByText('Tech Workshop').length).toBeGreaterThan(0);
-
-      // Toggle past open
-      fireEvent.click(pastHeader);
-      expect(pastHeader).toHaveAttribute('aria-expanded', 'true');
-      expect(within(mobileView).getByText('Main Stage Concert')).toBeInTheDocument();
-
-      // Toggle today closed
-      fireEvent.click(todayHeader);
-      expect(todayHeader).toHaveAttribute('aria-expanded', 'false');
-      expect(within(mobileView).queryByText('Gallery Tour')).not.toBeInTheDocument();
+    it('keeps the day headers / tab strip sticky inside an isolate wrapper', () => {
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...defaultProps} />
+        </ScopedLocaleProvider>
+      );
+      const desktopHeaders = rtlScreen.getByTestId('desktop-day-headers');
+      expect(desktopHeaders).toHaveClass('sticky', 'top-0');
+      expect(rtlScreen.getByTestId('desktop-calendar-view')).toHaveClass('isolate');
+      const tabs = rtlScreen.getByTestId('mobile-day-tabs');
+      expect(tabs).toHaveClass('sticky', 'top-0');
+      expect(rtlScreen.getByTestId('mobile-calendar-view')).toHaveClass('isolate');
     });
   });
   describe('Story 1.i1l — compact-row title wrap and the 11px floor (rule 6, rule 5)', () => {
