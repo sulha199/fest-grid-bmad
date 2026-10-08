@@ -1794,7 +1794,12 @@ This document defines the core architectural invariants for the FestDaily applic
         **Enforced by** the same source-scan ratchet style as AD-30 Rule 2: a test fails if the
         account `fieldMap` entry or `isFromSubscribedAccount` is built without the helper.
         Serving indexes are AD-25's `(account_id, post_id)` and AD-30's `event_posts` PK and
-        `(post_id, event_id)`; **EXPLAIN gate** as in AD-30 Rule 6.
+        `(post_id, event_id)`; **EXPLAIN gate** as in AD-30 Rule 6. **Input contract (BUG-056):**
+        the helper's `accountId` binds against a `uuid` column, so the `Query.events` account
+        `fieldMap` entry drops any non-UUID value before it reaches SQL (a non-UUID can never equal
+        an account id; a Postgres cast error would otherwise 500 the whole list, e.g. Favorites +
+        an AI-filter `accountId`). No valid id left ⇒ `false`, no subquery emitted; a valid UUID
+        emits the unchanged `EXISTS`, so the serving index and EXPLAIN gate are unaffected.
     5.  **Migration independence.** `event_posts` (3.6r) and `post_account_associations` (3.15) are
         independent tables with no FK between them and may land in either order; both edit
         `schema.ts`, so each ships as its own self-contained migration.
