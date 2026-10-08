@@ -256,6 +256,18 @@ export class FestgridBackendStack extends cdk.Stack {
     // diff on every deploy, forcing all dynamic references to re-resolve.
     const secretsSyncedAt = new Date().toISOString();
 
+    // Cycle lengths for the two usage trackers (ai-gateway/usage-store.ts for per-key AI quota,
+    // scraper/usage-store.ts for scraper provider budget). Every Lambda that reads OR writes
+    // either tracker must see the same value: the unset default is 30 days, so a Lambda left
+    // out of this block silently disagrees with the others (e.g. apiLambda reading usage with a
+    // 1-day window while aiProcessorLambda writes it with a 30-day one, which never rolls
+    // usage_cycle_reset_at). Spread this into any new Lambda that imports either usage-store.
+    // GEMINI_POSTS_PER_KEY_PER_CYCLE is deliberately NOT here: only apiLambda's resolvers read it.
+    const usageCycleEnv = definedEnv({
+      API_KEY_USAGE_CYCLE_DAYS: process.env.API_KEY_USAGE_CYCLE_DAYS,
+      SCRAPER_USAGE_CYCLE_DAYS: process.env.SCRAPER_USAGE_CYCLE_DAYS,
+    });
+
     // L_API
     const apiLambda = new nodejs.NodejsFunction(this, `ApiLambda-${stageName}`, {
       entry: path.resolve(projectRoot, 'apps/backend/src/lambdas/api.ts'),
@@ -298,7 +310,7 @@ export class FestgridBackendStack extends cdk.Stack {
         GEMINI_MODEL: process.env.GEMINI_MODEL,
         API_KEY_INVALID_ATTEMPTS_THRESHOLD: process.env.API_KEY_INVALID_ATTEMPTS_THRESHOLD,
         GEMINI_POSTS_PER_KEY_PER_CYCLE: process.env.GEMINI_POSTS_PER_KEY_PER_CYCLE,
-        API_KEY_USAGE_CYCLE_DAYS: process.env.API_KEY_USAGE_CYCLE_DAYS,
+        ...usageCycleEnv,
         WEB_APP_BASE_URL: process.env.WEB_APP_BASE_URL || 'http://localhost:3000',
         SCRAPING_QUEUE_URL: scrapingQueue.queueUrl,
         SCRAPE_INLINE_FALLBACK_ENABLED: process.env.SCRAPE_INLINE_FALLBACK_ENABLED,
@@ -316,7 +328,6 @@ export class FestgridBackendStack extends cdk.Stack {
         SCRAPER_MONTHLY_BUDGET_USD: process.env.SCRAPER_MONTHLY_BUDGET_USD,
         SCRAPER_PRICE_PER_1000_ITEMS_USD: process.env.SCRAPER_PRICE_PER_1000_ITEMS_USD,
         SCRAPER_CAPACITY_THRESHOLD_RATIO: process.env.SCRAPER_CAPACITY_THRESHOLD_RATIO,
-        SCRAPER_USAGE_CYCLE_DAYS: process.env.SCRAPER_USAGE_CYCLE_DAYS,
         QUEUE_NOTIFICATION_THRESHOLD_DAYS: process.env.QUEUE_NOTIFICATION_THRESHOLD_DAYS,
         QUEUE_NOTIFICATION_THRESHOLD_COUNT: process.env.QUEUE_NOTIFICATION_THRESHOLD_COUNT,
         QUEUE_NOTIFICATION_COOLDOWN_DAYS: process.env.QUEUE_NOTIFICATION_COOLDOWN_DAYS,
@@ -367,6 +378,7 @@ export class FestgridBackendStack extends cdk.Stack {
         AI_PROCESSING_QUEUE_URL: aiProcessingQueue.queueUrl,
         AI_PROCESSING_INLINE_FALLBACK_ENABLED: process.env.AI_PROCESSING_INLINE_FALLBACK_ENABLED || 'false',
         POST_EXTRACTION_CLAIM_TTL_MINUTES: process.env.POST_EXTRACTION_CLAIM_TTL_MINUTES || '30',
+        ...usageCycleEnv,
         SECRETS_SYNCED_AT: secretsSyncedAt,
       },
     });
@@ -482,6 +494,7 @@ export class FestgridBackendStack extends cdk.Stack {
         POST_MEDIA_BUCKET_NAME: postMediaBucket.bucketName,
         POST_MEDIA_CDN_DOMAIN: postMediaDistribution.distributionDomainName,
         POST_MEDIA_DISTRIBUTION_ID: postMediaDistribution.distributionId,
+        ...usageCycleEnv,
         SECRETS_SYNCED_AT: secretsSyncedAt,
         // Story 3.20 (AD-28 Rule 10) -- default-on pre-AI face blur gate. Only this Lambda's
         // environment block gets it: it's the only caller of buildGeminiExtractionRequest with
@@ -746,6 +759,7 @@ export class FestgridBackendStack extends cdk.Stack {
         AI_PROCESSING_QUEUE_URL: aiProcessingQueue.queueUrl,
         AI_PROCESSING_INLINE_FALLBACK_ENABLED: 'false',
         POST_EXTRACTION_CLAIM_TTL_MINUTES: process.env.POST_EXTRACTION_CLAIM_TTL_MINUTES || '30',
+        ...usageCycleEnv,
         SECRETS_SYNCED_AT: secretsSyncedAt,
       },
     });
@@ -769,6 +783,7 @@ export class FestgridBackendStack extends cdk.Stack {
         AI_PROCESSING_QUEUE_URL: aiProcessingQueue.queueUrl,
         AI_PROCESSING_INLINE_FALLBACK_ENABLED: 'false',
         POST_EXTRACTION_CLAIM_TTL_MINUTES: process.env.POST_EXTRACTION_CLAIM_TTL_MINUTES || '30',
+        ...usageCycleEnv,
         SECRETS_SYNCED_AT: secretsSyncedAt,
       },
     });
