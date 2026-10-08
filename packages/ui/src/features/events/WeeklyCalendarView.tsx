@@ -11,7 +11,7 @@ import React, { useState, useRef, useEffect, useMemo, useId } from 'react';
 import { ChevronLeft, ChevronRight, Heart, CalendarPlus } from 'lucide-react';
 import { getDays } from '@festgrid/domain/events';
 import { WeekPicker } from '../../core/WeekPicker';
-import { useScopedLocale, useScopedTimezone, useHoverFocusTooltip } from '../../hooks';
+import { useScopedLocale, useScopedTimezone, useHoverFocusTooltip, useInfiniteScroll } from '../../hooks';
 import type {
   WeeklyCalendarViewProps,
   WeeklyCalendarViewScheduleShape,
@@ -91,14 +91,14 @@ const SPANNING_BAR_CLICK_CLASS = "absolute inset-0 z-10 w-full rounded-md focus-
 // otherwise re-suppress pointer events on the primitive's own favorite-toggle button.
 const SPANNING_BAR_VISUAL_CLASS = "relative z-20 pointer-events-none [&_button]:!pointer-events-auto";
 /**
- * Story 1.i1h Task 7.2 / AC4 — mobile's new flat inline bound on single-day/isolated occurrences
- * per day (EXPERIENCE.md's sanctioned practical fallback, replacing the previous
- * uncapped-always-render rule). Deliberately a flat constant and NOT a `ResizeObserver`-measured
- * dynamic size: the precise per-render measurement technique is explicitly deferred by AC7.
- * Multi-day segments are exempt from this count entirely and always render inline
+ * Mobile selected-day list page size: the list reveals this many single-day/isolated occurrences at
+ * a time (infinite scroll + a "Load more" button), then continues through the caller's day-scoped
+ * query once the already-fetched ones are exhausted. This replaces Story 1.i1h's flat inline cap of
+ * 20 + "+N more" dialog, which was unreachable on mobile: the week fetch's `perDayLimit` is also 20,
+ * so the hidden count was always 0. Multi-day segments are exempt and always render inline
  * (`isMultiDayRunSegment` below, Story 1.3k).
  */
-const MOBILE_INLINE_CAP = 20;
+const MOBILE_PAGE_SIZE = 10;
 /** Stable no-op for the not-yet-supplied `overflowDialogData` case (keeps `useInfiniteScroll`'s effect graph stable when omitted). */
 const NOOP = () => {};
 /**
@@ -445,6 +445,8 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   onOverflowRequested,
   onOverflowClosed,
   overflowDialogData,
+  dayFetchLimit,
+  onDayContinuationRequested,
   className = '',
 }: WeeklyCalendarViewProps<TSchedule>) {
   // Provide default getWeekRange if not supplied
@@ -485,6 +487,8 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     tomorrow: 'Tomorrow',
     dayTabsLabel: 'Days of the week',
     noSchedulesLabel: 'No schedules on this day',
+    loadMoreLabel: 'Load more',
+    loadingMoreLabel: 'Loading more…',
     ...labels,
     // BUG-049 review finding: set after the spread with `??`, not spread-after-default, so an
     // explicit `labels={{ nearbyBadge: undefined }}` still falls back to the formatter instead
@@ -784,6 +788,70 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   const [daySelection, setDaySelection] = useState<{ weekKey: string; idx: number } | null>(null);
   const selectedDayIdx = daySelection?.weekKey === weekKey ? daySelection.idx : defaultDayIdx;
   const dayTabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  // Mobile selected-day pagination. Local paging reveals `MOBILE_PAGE_SIZE` more of the schedules the
+  // week fetch already returned; once those are exhausted and the day hit the fetch's per-day budget,
+  // the caller's day-scoped query (`overflowDialogData`) supplies the rest page by page.
+  const selectedDayISO = toISODateString(visibleDays[selectedDayIdx]);
+  const [pageState, setPageState] = useState<{ dayISO: string; count: number } | null>(null);
+  const [continuationDayISO, setContinuationDayISO] = useState<string | null>(null);
+  const mobileVisibleCount = pageState?.dayISO === selectedDayISO ? pageState.count : MOBILE_PAGE_SIZE;
+  const continuationActive = continuationDayISO === selectedDayISO;
+
+  const mobileDaySegments = useMemo(() => {
+    const bucket = dayBuckets[selectedDayIdx] ?? [];
+    if (!continuationActive || !overflowDialogData) return bucket;
+    const seen = new Set(bucket.map((seg) => String(seg.schedule.id)));
+    const extra: Segment<TSchedule>[] = [];
+    overflowDialogData.items.forEach((schedule) => {
+      if (seen.has(String(schedule.id))) return;
+      seen.add(String(schedule.id));
+      const run = (scheduleRunsById.get(String(schedule.id)) ?? computeScheduleRuns(schedule)).find(
+        (r) => r.start <= selectedDayISO && r.end >= selectedDayISO
+      );
+      if (!run) return;
+      extra.push({
+        schedule,
+        isFirstSegment: selectedDayISO === run.start,
+        isLastSegment: selectedDayISO === run.end,
+        runStartDate: run.start,
+        runEndDate: run.end,
+      });
+    });
+    return [...bucket, ...extra];
+  }, [dayBuckets, selectedDayIdx, continuationActive, overflowDialogData, scheduleRunsById, selectedDayISO]);
+
+  const mobileSingleDayCount = mobileDaySegments.filter((seg) => !isMultiDayRunSegment(seg)).length;
+  const localSingleDayCount = (dayBuckets[selectedDayIdx] ?? []).filter((seg) => !isMultiDayRunSegment(seg)).length;
+  const hasMoreLocal = mobileSingleDayCount > mobileVisibleCount;
+  const dayMayHaveMoreRemote =
+    dayFetchLimit !== undefined &&
+    localSingleDayCount >= dayFetchLimit &&
+    (!continuationActive || (overflowDialogData?.hasNextPage ?? false));
+  const mobileCanLoadMore = hasMoreLocal || dayMayHaveMoreRemote;
+  const mobileIsFetchingMore = continuationActive && (overflowDialogData?.isFetchingNextPage ?? false);
+
+  const loadMoreMobileDay = () => {
+    // Reveal already-fetched rows first; only go to the server once none are left to show.
+    if (hasMoreLocal) {
+      setPageState({ dayISO: selectedDayISO, count: mobileVisibleCount + MOBILE_PAGE_SIZE });
+      return;
+    }
+    if (!dayMayHaveMoreRemote) return;
+    if (!continuationActive) {
+      setContinuationDayISO(selectedDayISO);
+      onDayContinuationRequested?.(selectedDayISO);
+    } else if (!mobileIsFetchingMore) {
+      overflowDialogData?.fetchNextPage();
+    }
+    // Rows arriving from the server are revealed as soon as they land.
+    setPageState({ dayISO: selectedDayISO, count: mobileVisibleCount + MOBILE_PAGE_SIZE });
+  };
+  const { sentinelRef: mobileSentinelRef } = useInfiniteScroll({
+    fetchNextPage: loadMoreMobileDay,
+    hasNextPage: mobileCanLoadMore,
+    isFetchingNextPage: mobileIsFetchingMore,
+  });
+
   const handleDayTabKeyDown = (e: React.KeyboardEvent, idx: number) => {
     let target: number | null = null;
     if (e.key === 'ArrowRight') target = (idx + 1) % DAYS_PER_WEEK;
@@ -1103,24 +1171,21 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
       </div>
       {(() => {
         const dayIdx = selectedDayIdx;
-        const bucket = dayBuckets[dayIdx] ?? [];
+        const bucket = mobileDaySegments;
         const dateISO = toISODateString(visibleDays[dayIdx]);
 
-        // Task 7.2 / AC4 — mobile's flat inline bound. Only single-day/isolated occurrences
-        // count toward it; multi-day segments are exempt and always render inline regardless of
-        // how many there are (EXPERIENCE.md's exemption rule, the same principle desktop's
-        // `day_cell` already applies by filtering multi-day schedules into the spanning banner).
-        // Iterating the bucket itself preserves the existing chronological order.
+        // Multi-day segments are exempt from paging and always render inline (EXPERIENCE.md's
+        // exemption rule, the same principle desktop's `day_cell` applies by filtering multi-day
+        // schedules into the spanning banner). Iterating the bucket preserves chronological order.
         //
-        // Story 1.3k (AC4): the exemption is decided per RUN (`isMultiDayRunSegment`, `segment
-        // belongs to a run of >=2 days`), not by the schedule's raw date span.
+        // Story 1.3k (AC4): the exemption is decided per RUN (`isMultiDayRunSegment`), not by the
+        // schedule's raw date span.
         let singleDaySeen = 0;
-        const mobileVisibleSegments = bucket.filter((seg) => {
+        const mobileVisibleSegments = mobileDaySegments.filter((seg) => {
           if (isMultiDayRunSegment(seg)) return true;
           singleDaySeen += 1;
-          return singleDaySeen <= MOBILE_INLINE_CAP;
+          return singleDaySeen <= mobileVisibleCount;
         });
-        const mobileHiddenCount = bucket.length - mobileVisibleSegments.length;
 
         return (
           <div
@@ -1160,21 +1225,18 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
               />
             ))}
 
-            {/* Task 7.2 — mobile's "+N more" affordance, opening the same shared dialog as desktop's. */}
-            {mobileHiddenCount > 0 && (
-              <button
-                type="button"
-                data-testid="calendar-overflow-trigger-mobile"
-                ref={(el) => {
-                  mobileOverflowTriggerRefs.current[dayIdx] = el;
-                }}
-                className={MORE_LINK_CLASS}
-                onClick={() => handleOpenOverflow(dayIdx, 'mobile', mobileHiddenCount)}
-                aria-expanded={openOverflow?.surface === 'mobile' && overflowDayIdx === dayIdx}
-                aria-haspopup="dialog"
-              >
-                {labels.moreLabel ? labels.moreLabel(mobileHiddenCount) : `+${mobileHiddenCount} more`}
-              </button>
+            {/* Infinite-scroll sentinel + explicit fallback button for the selected day's list. */}
+            {mobileCanLoadMore && (
+              <div ref={mobileSentinelRef} className="flex justify-center py-2" data-testid="mobile-day-load-more">
+                <button
+                  type="button"
+                  className={MORE_LINK_CLASS}
+                  onClick={loadMoreMobileDay}
+                  disabled={mobileIsFetchingMore}
+                >
+                  {mobileIsFetchingMore ? defaultLabels.loadingMoreLabel : defaultLabels.loadMoreLabel}
+                </button>
+              </div>
             )}
           </div>
         );

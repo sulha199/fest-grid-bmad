@@ -299,6 +299,8 @@ export function CalendarView({ q, types, categories, nearby, viewerCoord, nearby
     selectWeekLabel: t('calendarSelectWeekLabel'),
     chooseWeekLabel: t('calendarChooseWeekLabel'),
     moreLabel: (count: number) => t('calendarMoreLabel', { count }),
+    loadMoreLabel: t('calendarLoadMoreLabel'),
+    loadingMoreLabel: t('calendarLoadingMoreLabel'),
     multiDaySegmentLabel: (dayNumber: number, totalDays: number) => t('calendarMultiDaySegmentLabel', { dayNumber, totalDays }),
     closePopoverLabel: t('calendarClosePopoverLabel'),
     overflowDialogTitleLabel: (dayLabel: string) => t('calendarOverflowDialogTitleLabel', { day: dayLabel }),
@@ -340,6 +342,10 @@ export function CalendarView({ q, types, categories, nearby, viewerCoord, nearby
       onScheduleClick={handleScheduleClick}
       nearbyBadgeThreshold={nearbyBadgeThreshold}
       onOverflowRequested={handleOverflowRequested}
+      // Mobile selected-day infinite scroll continues past the week fetch's per-day window through
+      // the same day-scoped query (no dialog / analytics event).
+      dayFetchLimit={CALENDAR_PER_DAY_LIMIT}
+      onDayContinuationRequested={setOpenOverflowDate}
       onOverflowClosed={handleOverflowClose}
       // Task 8.3 — the day-scoped pagination result, threaded down as plain props so
       // `WeeklyCalendarView`/`CalendarOverflowDialog` stay free of React Query.

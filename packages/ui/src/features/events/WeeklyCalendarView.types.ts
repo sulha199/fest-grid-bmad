@@ -61,6 +61,10 @@ export interface WeeklyCalendarViewLabels {
   dayTabsLabel?: string;
   /** Message shown in the mobile panel when the selected day has no schedules */
   noSchedulesLabel?: string;
+  /** Mobile selected-day list "load more" button text */
+  loadMoreLabel?: string;
+  /** Mobile selected-day list text while the next page is being fetched */
+  loadingMoreLabel?: string;
   /**
    * "+N more" affordance text, invoked once per over-capacity day cell with
    * that day's own hidden-schedule count. A resolver FUNCTION, not a static
@@ -217,5 +221,19 @@ export interface WeeklyCalendarViewProps<TSchedule extends WeeklyCalendarViewSch
    * unaffected.
    */
   overflowDialogData?: WeeklyCalendarViewOverflowDialogData<TSchedule>;
+  /**
+   * The per-day budget the caller's week fetch used (`perDayLimit`). On mobile, once every
+   * already-fetched schedule of the selected day is shown and that day had at least this many, the
+   * day may have more on the server, so the list continues through `onDayContinuationRequested` +
+   * `overflowDialogData` (the same day-scoped query the desktop dialog uses). Omit when the week
+   * fetch is not windowed: the mobile list then only pages through what it already has.
+   */
+  dayFetchLimit?: number;
+  /**
+   * Mobile only: fired when the selected day's list needs the caller's day-scoped query (so the
+   * caller sets its `openOverflowDate`) — without opening the overflow dialog or its analytics.
+   * Subsequent pages come from `overflowDialogData.fetchNextPage`.
+   */
+  onDayContinuationRequested?: (date: string) => void;
   className?: string;
 }
