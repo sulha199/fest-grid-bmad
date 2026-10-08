@@ -1,6 +1,6 @@
 /// <reference types="@testing-library/jest-dom" />
 import React from 'react';
-import { render, screen as rtlScreen, fireEvent, cleanup, within } from '@testing-library/react';
+import { render, screen as rtlScreen, fireEvent, cleanup, within, act } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach, beforeAll, afterAll } from 'vitest';
 import { WeeklyCalendarView } from './WeeklyCalendarView';
 import { ScopedLocaleProvider } from '../../hooks/useScopedLocale';
@@ -67,6 +67,8 @@ const screen = {
     return rtlScreen.queryByLabelText(text, options);
   },
 };
+
+const observerCallbacks: IntersectionObserverCallback[] = [];
 
 describe('WeeklyCalendarView', () => {
   afterEach(() => {
@@ -983,12 +985,26 @@ describe('WeeklyCalendarView', () => {
 
   describe('Mobile Vertical List View (AC15)', () => {
     beforeAll(() => {
+      // jsdom ships no IntersectionObserver; capture callbacks so tests can fire the sentinel.
+      vi.stubGlobal(
+        'IntersectionObserver',
+        class {
+          constructor(cb: IntersectionObserverCallback) {
+            observerCallbacks.push(cb);
+          }
+          observe() {}
+          unobserve() {}
+          disconnect() {}
+          takeRecords() { return []; }
+        }
+      );
       vi.useFakeTimers();
       vi.setSystemTime(new Date('2026-08-04T12:00:00Z'));
     });
     
     afterAll(() => {
       vi.useRealTimers();
+      vi.unstubAllGlobals();
     });
 
     it('renders 7 day tabs and only the selected day\'s schedules, with an empty-day message when none', () => {
@@ -1074,11 +1090,11 @@ describe('WeeklyCalendarView', () => {
       expect(within(mobileView).getByText('Event 1')).toBeInTheDocument();
       expect(within(mobileView).getByText('Event 2')).toBeInTheDocument();
       expect(within(mobileView).getByText('Event 3')).toBeInTheDocument();
-      // Well under the new flat-20 single-day bound, so mobile shows no overflow trigger at all.
-      expect(within(mobileView).queryByTestId('calendar-overflow-trigger-mobile')).not.toBeInTheDocument();
+      // Under one page, so there is nothing to load.
+      expect(within(mobileView).queryByTestId('mobile-day-load-more')).not.toBeInTheDocument();
     });
 
-    it('caps at a flat 20 single-day occurrences and opens the shared dialog (Task 7.2)', () => {
+    it('pages the selected day locally, 10 at a time, via the Load more button', () => {
       const twentyFive = Array.from({ length: 25 }, (_, i) => ({
         id: `m-${i + 1}`,
         eventName: `Mobile Event ${i + 1}`,
@@ -1086,68 +1102,152 @@ describe('WeeklyCalendarView', () => {
         eventStartDate: '2026-08-05',
       }));
 
-      const onOverflowRequested = vi.fn();
-
       render(
         <ScopedLocaleProvider locale="en-US">
-          <WeeklyCalendarView
-            {...defaultProps}
-            schedules={twentyFive}
-            onOverflowRequested={onOverflowRequested}
-            overflowDialogData={{
-              items: twentyFive.slice(20),
-              fetchNextPage: vi.fn(),
-              hasNextPage: false,
-              isFetchingNextPage: false,
-            }}
-          />
+          <WeeklyCalendarView {...defaultProps} schedules={twentyFive} />
         </ScopedLocaleProvider>
       );
 
       const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
-      // 20 render inline; the remaining 5 sit behind mobile's brand-new "+N more" affordance.
+      expect(within(mobileView).getByText('Mobile Event 10')).toBeInTheDocument();
+      expect(within(mobileView).queryByText('Mobile Event 11')).not.toBeInTheDocument();
+      // The old unreachable "+N more" dialog trigger is gone from mobile.
+      expect(within(mobileView).queryByTestId('calendar-overflow-trigger-mobile')).not.toBeInTheDocument();
+
+      fireEvent.click(within(mobileView).getByRole('button', { name: 'Load more' }));
       expect(within(mobileView).getByText('Mobile Event 20')).toBeInTheDocument();
       expect(within(mobileView).queryByText('Mobile Event 21')).not.toBeInTheDocument();
 
-      const trigger = within(mobileView).getByTestId('calendar-overflow-trigger-mobile');
-      expect(trigger).toHaveTextContent('+5 more');
-
-      fireEvent.click(trigger);
-      expect(onOverflowRequested).toHaveBeenCalledWith('2026-08-05', 'mobile', 5);
-
-      const dialog = rtlScreen.getByRole('dialog', { name: /Schedules for/i });
-      expect(within(dialog).getByRole('heading', { name: 'Mobile Event 21' })).toBeInTheDocument();
+      fireEvent.click(within(mobileView).getByRole('button', { name: 'Load more' }));
+      expect(within(mobileView).getByText('Mobile Event 25')).toBeInTheDocument();
+      // Everything shown and no fetch budget supplied: nothing more to load.
+      expect(within(mobileView).queryByTestId('mobile-day-load-more')).not.toBeInTheDocument();
     });
 
-    it('exempts multi-day segments from the mobile single-day cap (Task 7.2)', () => {
-      // Exactly 20 single-day occurrences plus 2 multi-day ones: because multi-day segments are
-      // never counted, all 22 render inline and no trigger appears — the same exemption principle
-      // desktop's `day_cell` already applies.
-      const schedules = [
-        ...Array.from({ length: 20 }, (_, i) => ({
-          id: `single-${i + 1}`,
-          eventName: `Single ${i + 1}`,
-          isMainSchedule: true,
-          eventStartDate: '2026-08-05',
-        })),
-        { id: 'md-1', eventName: 'Expo One', isMainSchedule: true, eventStartDate: '2026-08-05', eventEndDate: '2026-08-07' },
-        { id: 'md-2', eventName: 'Expo Two', isMainSchedule: true, eventStartDate: '2026-08-05', eventEndDate: '2026-08-06' },
-      ];
+    it('loads more when the infinite-scroll sentinel intersects', () => {
+      const twelve = Array.from({ length: 12 }, (_, i) => ({
+        id: `s-${i + 1}`,
+        eventName: `Scroll Event ${i + 1}`,
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+      }));
 
       render(
         <ScopedLocaleProvider locale="en-US">
-          <WeeklyCalendarView {...defaultProps} schedules={schedules} />
+          <WeeklyCalendarView {...defaultProps} schedules={twelve} />
         </ScopedLocaleProvider>
       );
 
       const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
-      expect(within(mobileView).getByText('Single 1')).toBeInTheDocument();
-      expect(within(mobileView).getByText('Single 20')).toBeInTheDocument();
-      // Multi-day segments render day-by-day on mobile, so each appears once per covered day —
-      // the assertion is simply that they are present inline and never counted toward the cap.
-      expect(within(mobileView).getAllByText('Expo One').length).toBeGreaterThan(0);
-      expect(within(mobileView).getAllByText('Expo Two').length).toBeGreaterThan(0);
-      expect(within(mobileView).queryByTestId('calendar-overflow-trigger-mobile')).not.toBeInTheDocument();
+      expect(within(mobileView).queryByText('Scroll Event 11')).not.toBeInTheDocument();
+      act(() => {
+        observerCallbacks.at(-1)?.([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver);
+      });
+      expect(within(mobileView).getByText('Scroll Event 12')).toBeInTheDocument();
+    });
+
+    it('continues past the week fetch window through the day-scoped query once local rows are exhausted', () => {
+      const twenty = Array.from({ length: 20 }, (_, i) => ({
+        id: `w-${i + 1}`,
+        eventName: `Windowed ${i + 1}`,
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+      }));
+      const serverExtra = { id: 'w-21', eventName: 'Windowed 21', isMainSchedule: true, eventStartDate: '2026-08-05' };
+      const onDayContinuationRequested = vi.fn();
+      const fetchNextPage = vi.fn();
+      const onOverflowRequested = vi.fn();
+
+      const renderView = (items: typeof twenty, hasNextPage: boolean) => (
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView
+            {...defaultProps}
+            schedules={twenty}
+            dayFetchLimit={20}
+            onDayContinuationRequested={onDayContinuationRequested}
+            onOverflowRequested={onOverflowRequested}
+            overflowDialogData={{ items, fetchNextPage, hasNextPage, isFetchingNextPage: false }}
+          />
+        </ScopedLocaleProvider>
+      );
+      const { rerender } = render(renderView(twenty, true));
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+
+      // 10 -> 20 are revealed locally with no server call.
+      fireEvent.click(within(mobileView).getByRole('button', { name: 'Load more' }));
+      expect(onDayContinuationRequested).not.toHaveBeenCalled();
+      expect(within(mobileView).getByText('Windowed 20')).toBeInTheDocument();
+
+      // Local rows exhausted and the day hit the 20-per-day window: ask the caller for the day query.
+      fireEvent.click(within(mobileView).getByRole('button', { name: 'Load more' }));
+      expect(onDayContinuationRequested).toHaveBeenCalledWith('2026-08-05');
+      // No dialog and no dialog analytics for the mobile continuation.
+      expect(onOverflowRequested).not.toHaveBeenCalled();
+      expect(rtlScreen.queryByRole('dialog')).not.toBeInTheDocument();
+
+      // The caller's merged items arrive: the extra server row renders inline, and more pages remain.
+      rerender(renderView([...twenty, serverExtra] as typeof twenty, true));
+      expect(within(mobileView).getByText('Windowed 21')).toBeInTheDocument();
+      fireEvent.click(within(mobileView).getByRole('button', { name: 'Load more' }));
+      expect(fetchNextPage).toHaveBeenCalledTimes(1);
+
+      // Last page reached: the control disappears.
+      rerender(renderView([...twenty, serverExtra] as typeof twenty, false));
+      expect(within(mobileView).queryByTestId('mobile-day-load-more')).not.toBeInTheDocument();
+    });
+
+    it('pages multi-day segments too: a day full of long-running schedules is not rendered at once', () => {
+      const multiDay = Array.from({ length: 25 }, (_, i) => ({
+        id: `md-${i + 1}`,
+        eventName: `Long Run ${i + 1}`,
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+        eventEndDate: '2026-08-09',
+      }));
+
+      render(
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...defaultProps} schedules={multiDay} />
+        </ScopedLocaleProvider>
+      );
+
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      expect(within(mobileView).getByText('Long Run 10')).toBeInTheDocument();
+      expect(within(mobileView).queryByText('Long Run 11')).not.toBeInTheDocument();
+      fireEvent.click(within(mobileView).getByRole('button', { name: 'Load more' }));
+      expect(within(mobileView).getByText('Long Run 20')).toBeInTheDocument();
+      expect(within(mobileView).queryByText('Long Run 21')).not.toBeInTheDocument();
+    });
+
+    it('pages the desktop multi-day banner 10 rows at a time and resets on week change', () => {
+      const multiDay = Array.from({ length: 25 }, (_, i) => ({
+        id: `bar-${i + 1}`,
+        eventName: `Bar ${String(i + 1).padStart(2, '0')}`,
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+        eventEndDate: '2026-08-09',
+      }));
+      const ui = (weekStart: string) => (
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...defaultProps} weekStart={weekStart} schedules={multiDay} />
+        </ScopedLocaleProvider>
+      );
+      const { rerender } = render(ui('2026-08-05'));
+      const desktop = rtlScreen.getByTestId('desktop-calendar-view');
+
+      expect(within(desktop).getAllByTestId('multi-day-spanning-bar')).toHaveLength(10);
+      const more = within(desktop).getByTestId('multi-day-banner-load-more');
+      expect(more).toHaveTextContent('15 more');
+
+      fireEvent.click(more);
+      expect(within(desktop).getAllByTestId('multi-day-spanning-bar')).toHaveLength(20);
+      fireEvent.click(within(desktop).getByTestId('multi-day-banner-load-more'));
+      expect(within(desktop).getAllByTestId('multi-day-spanning-bar')).toHaveLength(25);
+      expect(within(desktop).queryByTestId('multi-day-banner-load-more')).not.toBeInTheDocument();
+
+      // Another week with the same schedules starts again at the first page.
+      rerender(ui('2026-08-03'));
+      expect(within(rtlScreen.getByTestId('desktop-calendar-view')).getAllByTestId('multi-day-spanning-bar')).toHaveLength(10);
     });
 
     it('renders the new date box (till text) and favorite count, with no redundant time-range-inline in list-variant', () => {
