@@ -1804,6 +1804,145 @@ This document defines the core architectural invariants for the FestDaily applic
 
 ---
 
+### AD-32: Guarded Vendor-Call Wrapper — Per-Credential Lock, Timeout, Transient-Retry, Vendor-DPA Gate
+
+*   **Binds:** The sole chokepoint every caller must pass through before an outbound Gemini call
+    can be made. Concretely: `callGemini`'s candidate-exclusion loop
+    (`apps/backend/src/lib/ai-gateway/adapter.ts`), `verifyGeminiApiKey`
+    (`gemini-client.ts:168`, invoked from `createApiKey`, `resolvers.ts:526` — BUG-012/DW-069's
+    named victim), and `system-key-adapter.ts`'s `callGeminiForLocationInference`/
+    `callGeminiForAccountClassification` AD-10 system-key fallback — today three independent
+    paths into `callGeminiGenerateContent`, not one. Downstream of `callGemini`, this transitively
+    covers `process-ai-job.ts` (the extraction pipeline), `resolvers.ts`'s
+    `resolvePromptToEventFilter`, and `backfill-account-profile-and-infer-location.ts` with no
+    separate adoption needed. Stories 0.i2a (build), 0.i2b (adopt: synchronous verification),
+    0.i2c (adopt: `callGemini` + every async inference path), 0.i2z (ratchet). Supersedes Story
+    3.6s's inline `AbortController` timeout guard (`build-gemini-request.ts`'s `timeoutMs` comment,
+    `gemini-client.ts`'s own `AbortController` block) — 0.i2c deletes it, per that story's own
+    amendment note, rather than stacking a second timeout on top. Resolves BUG-012 (no
+    request-level timeout) and FIND-004 (Apify/Bright Data DPA confirmation, scope below).
+*   **Prevents:** A future call site reaching `@google/genai` (or, once Apify/Bright Data adopt
+    this, their SDKs) directly instead of through the wrapper — enforced as two separate
+    properties, not one: the SDK import itself stays confined to its existing vendor-specific
+    adapter file (`gemini-client.ts` — already, verified, the only `@google/genai` importer
+    today), and every *caller* of that adapter's raw SDK-calling export
+    (`callGeminiGenerateContent`) is a named, source-scanned allowlist (`adapter.ts`,
+    `gemini-client.ts`'s own `verifyGeminiApiKey`, `system-key-adapter.ts`'s fallback — the same
+    three Binds above, no others), same ratchet style as AD-14/AD-30's existing source-scan tests —
+    0.i2z's "any file outside the wrapper module imports the SDK directly" AC is the first property;
+    this second one is what actually stops a new caller from reaching
+    `callGeminiGenerateContent` directly while still technically importing nothing itself. Two of
+    today's three entry points
+    silently staying unguarded while only `callGemini` gets the new mechanism — exactly the gap
+    0.i2z's ratchet exists to catch. A rate-limit/invalid-key/timeout error being retried
+    in-place by the wrapper on the same credential when it should propagate to the caller's own
+    key-selection logic — breaking the existing, deliberately-protected contract that
+    `GeminiTimeoutError` (and the other two) are never retried, only reported. An in-process lock
+    that looks correct in a single test run but cannot serialize concurrent *Lambda containers* at
+    all. A Postgres advisory lock that silently breaks under this project's own already-mandated
+    Supabase transaction-mode pooler. The DPA gate being applied to a vendor it was never meant to
+    cover, or becoming a second, drifting definition of "confirmed" per call site.
+*   **Rule:**
+    1.  **One function, one new module.** `callVendor(vendor, opts)` in a new
+        `apps/backend/src/lib/vendor-gateway/guarded-call.ts` (sibling to `lib/ai-gateway` and
+        `lib/scraper`, not folded into either — the epic's own invariant spans Gemini *and*
+        Apify/Bright Data, which live in different directories today). It wraps exactly **one**
+        attempt against **one** already-identified credential: DPA-gate check → lock claim →
+        caller's `call()` thunk → lock release (`finally`) → on failure, `isTransient(error)`
+        decides same-credential retry-with-backoff vs. propagate. It does **not** do
+        multi-credential selection — `callGemini`'s existing tiered candidate/exclusion loop
+        (AD-10) is unchanged and sits *above* it, calling it once per attempt instead of calling
+        `callGeminiGenerateContent` directly at its current line 67.
+    2.  **Per-credential lock — a lease row, not an advisory lock.** Verified: production
+        `DATABASE_URL` is Supabase's transaction-mode pooler (`db/client.ts`, port `6543`,
+        `prepare:false`, `max:1`/container — a documented incident fix, 2026-08-27). A
+        session-scoped `pg_advisory_lock`/`unlock` pair is unsafe there (no guarantee the unlock
+        runs on the same backend connection the pooler handed out for the lock); holding an open
+        transaction for `pg_advisory_xact_lock` across a slow external HTTP call, repeated across
+        many concurrent Lambda containers, reproduces the same connection-exhaustion shape that
+        incident already happened once. An in-process `Map` mutex cannot serialize across
+        containers at all. Instead: new table `vendor_call_locks(lock_key TEXT PRIMARY KEY,
+        locked_until TIMESTAMPTZ NOT NULL)`. Claim is one atomic, pooler-safe statement — `INSERT
+        INTO vendor_call_locks (lock_key, locked_until) VALUES ($1, now() + $2) ON CONFLICT
+        (lock_key) DO UPDATE SET locked_until = EXCLUDED.locked_until WHERE
+        vendor_call_locks.locked_until < now() RETURNING *` — zero rows back means busy elsewhere,
+        thrown as `VendorKeyBusyError` (see rule 4). The claim returns an **ownership token** (the
+        claimed `locked_until` as exact epoch text); release is one `UPDATE … SET locked_until =
+        now() WHERE lock_key = $1 AND <locked_until matches the token>` in a `finally`, so a lease
+        that expired mid-call and was reclaimed by another caller is never cleared by the original
+        caller (`[AMENDED, PR #57 review, 2026-10-07]`). A `lockTtlMs` that does not exceed the
+        attempt's `timeoutMs` is rejected up front (a lease must outlive the attempt it protects).
+        The TTL (default `max(2 × timeoutMs, 60s)`) is the crash-safety net when release never runs. `lock_key` is a plain string,
+        not an FK, so it covers identities with no DB row at all: `gemini:key:<apiKeys.id>` for
+        pool keys, `gemini:system` for the AD-10 system-key fallback, future
+        `apify:<credential-id>` / `brightdata:<credential-id>`.
+    3.  **`verifyGeminiApiKey` is an explicit, named exception to locking**, not an oversight: the
+        key under verification has no `apiKeys.id` yet (`createApiKey` calls it *before* insert),
+        and nothing else can concurrently bill against a key not yet in the candidate pool. Calls
+        `callVendor` with no `lockKey` (claim/release skipped entirely) rather than inventing a
+        plaintext-hash identity. It still gets the timeout, via a **new**, deliberately short
+        `GEMINI_VERIFICATION_TIMEOUT_MS` — distinct from `env.geminiExtractionTimeoutMs`, since a
+        synchronous `createApiKey` mutation must fail fast on a hung key (BUG-012's actual
+        complaint), not wait as long as a real multi-image extraction call would. Gemini never
+        passes through the DPA gate (rule 5) on this or any path.
+    4.  **Retry scope is same-credential and narrow.** `callVendor`'s own backoff-retry fires only
+        when the vendor adapter's `isTransient(error)` predicate says so (network-level failures —
+        connection errors, 5xx — not yet distinguished anywhere in this codebase today) and reuses
+        the existing `computeBackoffDelayMs` (`@festgrid/domain`) rather than a second formula.
+        `GeminiRateLimitedError`, `GeminiInvalidKeyError`, and `GeminiTimeoutError` are never
+        transient — they propagate out of `callVendor` unretried, unchanged from today's contract.
+        New `VendorKeyBusyError` (rule 2's zero-rows case) is a **required new catch branch** in
+        `callGemini`'s loop — the busy key is excluded and the next candidate tried, not left to
+        fall into the generic re-throw-unknown-errors branch. `[AMENDED, PR #57 review,
+        2026-10-07]` Busy keys are tracked **separately** from genuinely exhausted ones: when no
+        candidate is selectable but busy keys exist, `callGemini` waits (bounded, `computeBackoffDelayMs`,
+        3 rounds) and retries them; if they are still all busy it throws the distinct
+        **`AiGatewayBusyError`** — never `AiGatewayExhaustedError`, because contention is not
+        quota exhaustion. Consumers map it truthfully (manual extraction job: `EXTRACTION_FAILED`
+        with a "temporarily busy" message, since manual jobs deliberately have no automatic retry;
+        `resolvePromptToEventFilter`: `TEMPORARILY_BUSY`; the AD-10 system-key fallback converts a
+        busy `gemini:system` lease the same way; the SQS-driven AI job simply rethrows and is
+        redelivered). **Overall deadline:** `callVendor` accepts `overallTimeoutMs` covering all
+        attempts *and* backoff; each attempt is capped to what remains and no retry starts unless
+        backoff plus a minimal attempt still fits. Call sites derive it as `2 × timeoutMs`
+        (verification 20s inside the API Lambda's 25s limit; extraction 240s inside the AI
+        Processor's 300s limit), so a Lambda is never killed mid-retry before the typed error and
+        lease cleanup run. A timeout is rejected *before* its `AbortSignal` is aborted, so a thunk
+        that rejects from its own abort listener can never mask `VendorCallTimeoutError`.
+    5.  **DPA gate is Apify/Bright Data only — Gemini is not in it.** `[ADOPTED, user-directed,
+        2026-10-06]` Gemini's data-use posture is a separate, not-yet-resolved item (FIND-066) —
+        conflating it here would misname what this flag means. For `apify`/`brightdata`,
+        `callVendor` checks one boolean **before** the lock claim and before any network call:
+        `APIFY_SCRAPING_CONFIRMED` / `BRIGHTDATA_SCRAPING_CONFIRMED`, read through the same
+        `parseBooleanDefaultOn()` helper `env.ts` already uses for `BLUR_FACES_BEFORE_AI` —
+        **default `true` when unset**; setting either to `false` is a kill switch, not the
+        starting state. This inverts FIND-004's original "starts false, needs a confirmation
+        action" framing: the user's own determination (recorded here as the evidentiary basis,
+        not independently re-verified by this architecture pass) is that FIND-004 is **already
+        satisfied** — Apify's and Bright Data's own public documentation states their Instagram
+        scrapers read public, logged-out data only (no login/cookies), consistent with *Meta v.
+        Bright Data* (N.D. Cal., Jan 2024: scraping publicly available, logged-out data does not
+        violate Meta's terms). A failed check throws `VendorDpaNotConfirmedError` — always
+        propagates, never retried, never excludes a key (it is a vendor-level refusal, not a
+        per-credential one). No DB table, no runtime admin toggle — flipping a flag is a deploy,
+        same posture as every other compliance-adjacent env var in this codebase.
+    6.  **Apify/Bright Data adoption is not this pass's scope.** `0.i2a`/`0.i2z` are the only
+        epics.md stories naming all three vendors; `0.i2b`/`0.i2c` are Gemini-only, and no story
+        yet wires `callVendor` into the scraper call sites (`lib/scraper/brightdata-client.ts`,
+        `trigger-apify-for-target.ts`, etc.) even though `0.i2z`'s own ratchet AC presumes they
+        already do. This AD fixes the wrapper's and the DPA gate's shape so that adoption is a
+        drop-in later; it does not add the missing story. Flagged to the user as an `epics.md` gap
+        (not written in this pass — out of this run's scope).
+*   **Considered and rejected:** Wrapping only `callGemini` and leaving `verifyGeminiApiKey`/the
+    AD-10 system-key fallback as direct SDK calls — rejected, it's precisely the gap BUG-012/DW-069
+    and 0.i2z's ratchet already name. A session-scoped or transaction-scoped Postgres advisory lock
+    — rejected against this project's own documented transaction-pooler constraint and prior
+    connection-exhaustion incident. A DB-backed `vendor_confirmations` table with audit metadata
+    (confirmed-by/at/evidence) for the DPA gate — rejected by the user as disproportionate to
+    FIND-004's own "effort: s" sizing and without precedent elsewhere in this codebase's
+    config-flag conventions. Gating Gemini under the same DPA flag "for uniformity" — rejected by
+    the user; it would misclassify a separate, unresolved concern (FIND-066) as settled.
+
 ### AD-33: Z-Index Layering Tiers
 
 *   **Binds:** Every `z-*`-stacking element in `packages/ui/src` and `apps/web/src` (~66 sites at

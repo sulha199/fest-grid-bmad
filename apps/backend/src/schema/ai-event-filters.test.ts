@@ -5,10 +5,11 @@ import { resolvers } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
-import { users, apiKeys, aiEventFilters } from '@festgrid/database';
+import { users, apiKeys, aiEventFilters, vendorCallLocks } from '@festgrid/database';
 import { eq, and } from 'drizzle-orm';
 import { setCallGeminiGenerateContent, callGeminiGenerateContent, GeminiInvalidKeyError } from '../lib/ai-gateway/gemini-client.js';
 import { setDecryptApiKey } from '../lib/ai-gateway/kms.js';
+import { setSleepForTest, sleepSeam } from '../lib/ai-gateway/adapter.js';
 
 // Read all required schema fragments dynamically from the schema directory
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
@@ -38,6 +39,9 @@ test('ai event filters resolvers integration', async (t) => {
   t.after(async () => {
     setCallGeminiGenerateContent(originalCall);
     if (testApiKey) {
+      // callGemini now runs through the real callVendor lease; a released lease persists as a row
+      // (release is an UPDATE), so delete this key's row along with the key itself.
+      await db.delete(vendorCallLocks).where(eq(vendorCallLocks.lockKey, `gemini:key:${testApiKey.id}`));
       await db.delete(apiKeys).where(eq(apiKeys.id, testApiKey.id));
     }
     if (testUser) {
@@ -150,6 +154,39 @@ test('ai event filters resolvers integration', async (t) => {
     assert.deepStrictEqual(result.data.resolvePromptToEventFilter.resolvedFilter.types, ['PERFORMANCE']);
     assert.deepStrictEqual(result.data.resolvePromptToEventFilter.resolvedFilter.categories, ['MUSIC']);
     assert.deepStrictEqual(result.data.resolvePromptToEventFilter.caveats, ['ignoring price filter']);
+  });
+
+  await t.test('resolvePromptToEventFilter reports temporary key contention as TEMPORARILY_BUSY, not QUOTA_EXHAUSTED (PR #57 review)', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+    const lockKey = `gemini:key:${testApiKey.id}`;
+    await db.delete(vendorCallLocks).where(eq(vendorCallLocks.lockKey, lockKey));
+    await db.insert(vendorCallLocks).values({ lockKey, lockedUntil: new Date(Date.now() + 60_000) });
+
+    const originalSleep = sleepSeam;
+    setSleepForTest(async () => {});
+    let thunkInvoked = false;
+    setCallGeminiGenerateContent(async () => {
+      thunkInvoked = true;
+      return { text: '{}' };
+    });
+
+    try {
+      const res = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `mutation { resolvePromptToEventFilter(prompt: "jazz in Yogyakarta") { caveats } }`,
+        }),
+      });
+      const result = await res.json();
+      assert.ok(result.errors, 'busy keys must surface an error');
+      assert.strictEqual(result.errors[0].extensions?.code, 'TEMPORARILY_BUSY');
+      assert.notStrictEqual(result.errors[0].extensions?.code, 'QUOTA_EXHAUSTED');
+      assert.strictEqual(thunkInvoked, false);
+    } finally {
+      setSleepForTest(originalSleep);
+      await db.delete(vendorCallLocks).where(eq(vendorCallLocks.lockKey, lockKey));
+    }
   });
 
   await t.test('saveAIEventFilter, myAIEventFilters, and deleteAIEventFilter flow', async () => {

@@ -1086,3 +1086,14 @@ export const manualExtractionJobs = pgTable('manual_extraction_jobs', {
   userCreatedAtIdx: index('idx_manual_extraction_jobs_user_created_at').on(t.requestedByUserId, t.createdAt),
   statusCreatedAtIdx: index('idx_manual_extraction_jobs_status_created_at').on(t.status, t.createdAt),
 }));
+
+// Story 0.i2a (AD-32 Rule 2) -- a per-credential lease row for the guarded vendor-call wrapper
+// (apps/backend/src/lib/vendor-gateway/guarded-call.ts). Deliberately minimal: no id/uuid, no
+// timestamps(), no soft delete -- this is a lease row, not a domain entity. A Postgres advisory
+// lock is NOT used here (unsafe under this project's mandated Supabase transaction-mode pooler,
+// see incident 2026-08-27 / docs/infrastructure/3-database.md) -- this table + an atomic
+// INSERT ... ON CONFLICT DO UPDATE ... WHERE locked_until < now() is the safe substitute.
+export const vendorCallLocks = pgTable('vendor_call_locks', {
+  lockKey: text('lock_key').primaryKey(),
+  lockedUntil: timestamp('locked_until', { withTimezone: true }).notNull(),
+});

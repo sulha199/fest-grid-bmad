@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-07T07:31:45Z
+last_updated: 2026-10-07T12:47:31Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -371,11 +371,15 @@ development_status:
   0-i1b-send-the-missing-awaiting-approval-location-change-notification: backlog
   0-i1c-route-the-scraper-audit-trail-alert-through-the-shared-helper: backlog
   0-i1z-ratchet-no-moderator-notification-bypasses-the-helper: backlog
-  epic-0-i2: backlog
-  0-i2a-build-the-guarded-vendor-call-wrapper: backlog
-  0-i2b-adopt-the-wrapper-in-the-gemini-synchronous-verification-path: backlog
-  0-i2c-adopt-the-wrapper-in-the-async-inference-path: backlog
-  0-i2z-ratchet-no-vendor-call-bypasses-the-wrapper: backlog
+  epic-0-i2: in-progress
+  0-i2a-build-the-guarded-vendor-call-wrapper: review
+  0-i2b-adopt-the-wrapper-in-the-gemini-synchronous-verification-path: review
+  0-i2c-adopt-the-wrapper-in-the-async-inference-path: review
+  # added 2026-10-06 via bmad-create-story (Gate 3 finding scoping Story 0.i2a/AD-32):
+  # AD-32 flagged no epics.md story adopts the wrapper for Apify/Bright Data; this
+  # closes that gap. See epics.md Story 0.i2d.
+  0-i2d-adopt-the-wrapper-in-the-apify-bright-data-scraper-call-sites: backlog
+  0-i2z-ratchet-no-vendor-call-bypasses-the-wrapper: review
   epic-0-i3: backlog
   0-i3a-set-up-the-invariant-sweep-check-suite-and-restore-the-lint-gate: backlog
   0-i3b-add-the-lambda-timeout-check: backlog

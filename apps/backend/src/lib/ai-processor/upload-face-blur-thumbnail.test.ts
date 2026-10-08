@@ -60,6 +60,7 @@ test('uploadFaceBlurThumbnail integration/unit tests', async (t) => {
     maxExtractedEventsPerPost: 10,
     geminiMaxOutputTokens: 8192,
     geminiExtractionTimeoutMs: 120000,
+    geminiVerificationTimeoutMs: 10000,
     scrapeInitialLookbackDays: 7,
     scrapeSkipRecentHours: 20,
     scraperMonthlyBudgetUsd: 5.0,
@@ -78,6 +79,8 @@ test('uploadFaceBlurThumbnail integration/unit tests', async (t) => {
     accountClassificationClaimTtlMinutes: 30,
     faceBlurMinRemainingTimeMs: 60000,
     blurFacesBeforeAi: false,
+    apifyScrapingConfirmed: true,
+    brightdataScrapingConfirmed: true,
   };
 
   await t.test('Case A: happy path -- resizes/re-encodes, uploads to the thumb key, writes durableThumbnailUrl', async () => {

@@ -11,7 +11,7 @@ import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink } from '@festgrid/domain/scraper';
 import { selectApiKey } from '@festgrid/domain/ai-gateway';
-import { callGemini, AiGatewayExhaustedError } from '../lib/ai-gateway/adapter.js';
+import { callGemini, AiGatewayExhaustedError, AiGatewayBusyError } from '../lib/ai-gateway/adapter.js';
 import { fetchCandidateKeys } from '../lib/ai-gateway/usage-store.js';
 import { startManualExtractionJob, getManualExtractionJobStatus } from '../lib/extraction/manual-extraction-job.js';
 import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
@@ -31,6 +31,7 @@ import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions
 import { triggerScrapeForAccount } from '../lib/scraper/trigger-scrape-for-account.js';
 import { decryptApiKey, encryptApiKey } from '../lib/ai-gateway/kms.js';
 import { verifyGeminiApiKey } from '../lib/ai-gateway/gemini-client.js';
+import { VendorCallTimeoutError } from '../lib/vendor-gateway/guarded-call.js';
 import { compileValidator } from '../validation/validate.js';
 import { reportSystemErrorSchema } from '../validation/report-system-error.schema.js';
 import { proposedEventCorrectionSchema } from '../validation/proposed-event-correction.schema.js';
@@ -432,6 +433,12 @@ Constraints and Guidelines:
             extensions: { code: 'QUOTA_EXHAUSTED' }
           });
         }
+        // Temporary key contention, not exhausted quota: a distinct, retryable code.
+        if (err instanceof AiGatewayBusyError) {
+          throw new GraphQLError('Gemini is temporarily busy. Please try again in a moment.', {
+            extensions: { code: 'TEMPORARILY_BUSY' }
+          });
+        }
         throw err;
       }
     },
@@ -531,7 +538,14 @@ Constraints and Guidelines:
         if (err instanceof GraphQLError && err.extensions?.code === 'INVALID_API_KEY') {
           throw err;
         }
-        console.warn('[createApiKey] Transient error verifying key, failing open:', err);
+        if (err instanceof VendorCallTimeoutError) {
+          throw new GraphQLError('Unable to verify API key: the request timed out. Please try again.', {
+            extensions: { code: 'VERIFICATION_TIMEOUT' },
+          });
+        }
+        throw new GraphQLError('Unable to verify API key. Please try again later.', {
+          extensions: { code: 'VERIFICATION_FAILED' },
+        });
       }
 
       const keyEncrypted = await encryptApiKey(normalizedKey);

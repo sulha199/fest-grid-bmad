@@ -25,15 +25,25 @@ export interface BackendEnv {
   // as the Gemini-facing schema's `events.maxItems` hint and as the code-level truncation
   // backstop in process-ai-job.ts (never a hard AJV cap -- see extracted-event.schema.ts).
   maxExtractedEventsPerPost: number;
-  // Story 3.6s (AC7, readiness-sweep correction 2026-10-01) — an explicit response-size cap on
-  // the Gemini extraction call (Epic 0's guarded vendor-call wrapper, 0.i2c, does not exist yet).
+  // Story 3.6s (AC7) — an explicit response-size cap on the Gemini extraction call.
   geminiMaxOutputTokens: number;
-  // Story 3.6s (AC7) — AbortController-based request timeout for the Gemini extraction call,
-  // in milliseconds. Default 120000ms leaves ~180s of headroom inside the AI Processor Lambda's
-  // fixed 300s timeout (apps/infrastructure/lib/festgrid-backend-stack.ts) for image fetching
-  // (before the call) and DB/enqueue work (after it). A timeout throws GeminiTimeoutError, which
-  // propagates unretried out of processAiJob as a retryable job failure (never a silent hang).
+  // Story 0.i2c — callVendor's (apps/backend/src/lib/vendor-gateway/guarded-call.ts)
+  // opts.timeoutMs bound, consumed by both adapter.ts's callGemini (per-key-candidate attempts)
+  // and system-key-adapter.ts's AD-10 system-key fallback. Default 120000ms leaves ~180s of
+  // headroom inside the AI Processor Lambda's fixed 300s timeout
+  // (apps/infrastructure/lib/festgrid-backend-stack.ts) for image fetching (before the call) and
+  // DB/enqueue work (after it). A timeout throws VendorCallTimeoutError, which propagates
+  // unretried out of processAiJob/the resolvers as a retryable job failure (never a silent hang).
   geminiExtractionTimeoutMs: number;
+  // Story 0.i2b (AD-32 Rule 3) — callVendor's opts.timeoutMs bound for verifyGeminiApiKey's
+  // synchronous, user-facing createApiKey verification call only (never the extraction
+  // pipeline, which uses geminiExtractionTimeoutMs above). Default 10000ms (10s) is
+  // deliberately short and distinct from geminiExtractionTimeoutMs's 120000ms: a minimal
+  // { contents: 'ping' } call typically returns in well under a second, so 10s gives generous
+  // margin above normal latency while still failing a hung verification call roughly 12x
+  // faster than the extraction timeout would, directly addressing BUG-012's "blocks the caller
+  // indefinitely" complaint for this synchronous mutation.
+  geminiVerificationTimeoutMs: number;
   scrapingQueueUrl?: string;
   scrapeInlineFallbackEnabled: boolean;
   aiProcessingQueueUrl?: string;
@@ -103,6 +113,15 @@ export interface BackendEnv {
   // parseBooleanDefaultOn below for why it needs its own parser (all other booleans here are
   // default-off, `=== 'true'`).
   blurFacesBeforeAi: boolean;
+  // Story 0.i2a (AD-32 Rule 5, FIND-004) — default-ON DPA kill switch for the Apify vendor's
+  // outbound scraping calls, checked by the guarded vendor-call wrapper
+  // (apps/backend/src/lib/vendor-gateway/guarded-call.ts) before any lock claim or network call.
+  // Unset -> calls proceed (DPA presumed confirmed); an explicit 'false'/'0' disables Apify calls
+  // pending DPA reconfirmation, without a code deploy. Never read for `vendor: 'gemini'`.
+  apifyScrapingConfirmed: boolean;
+  // Story 0.i2a (AD-32 Rule 5, FIND-004) — same default-ON DPA kill switch as
+  // apifyScrapingConfirmed above, for the Bright Data vendor.
+  brightdataScrapingConfirmed: boolean;
 }
 
 function parseNonNegativeInt(value: string | undefined, name: string, defaultValue: number): number {
@@ -232,6 +251,8 @@ export function loadBackendEnv(): BackendEnv {
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     geminiExtractionTimeoutMs: parseInt(process.env.GEMINI_EXTRACTION_TIMEOUT_MS || '120000', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
+    geminiVerificationTimeoutMs: parseInt(process.env.GEMINI_VERIFICATION_TIMEOUT_MS || '10000', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
     scrapeInitialLookbackDays: parseInt(process.env.SCRAPE_INITIAL_LOOKBACK_DAYS || '7', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     scrapeSkipRecentHours: parseInt(process.env.SCRAPE_SKIP_RECENT_HOURS || '12', 10),
@@ -293,6 +314,10 @@ export function loadBackendEnv(): BackendEnv {
     faceBlurMinRemainingTimeMs: parseNonNegativeInt(process.env.FACE_BLUR_MIN_REMAINING_TIME_MS, 'FACE_BLUR_MIN_REMAINING_TIME_MS', 60000),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     blurFacesBeforeAi: parseBooleanDefaultOn(process.env.BLUR_FACES_BEFORE_AI, 'BLUR_FACES_BEFORE_AI'),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    apifyScrapingConfirmed: parseBooleanDefaultOn(process.env.APIFY_SCRAPING_CONFIRMED, 'APIFY_SCRAPING_CONFIRMED'),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    brightdataScrapingConfirmed: parseBooleanDefaultOn(process.env.BRIGHTDATA_SCRAPING_CONFIRMED, 'BRIGHTDATA_SCRAPING_CONFIRMED'),
   };
 
   // Ensure required Bright Data variables are present (webhook base URL is set post-deploy by CDK)

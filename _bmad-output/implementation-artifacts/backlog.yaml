@@ -322,11 +322,14 @@ items:
      note: "Resolved via PRD 3.17 (bio-code-challenge claim/verify flow, 24h window, moderator REVOKE, silent EXPIRE). epics.md's Epic 8 placeholder still needs bmad-create-epics-and-stories. Full detail in backlog/IDEA-006-account-claim-and-verification.md."}
 
   FIND-004:
-    {type: finding, status: backlog, created: 2026-09-02, parent: CC-018,
+    {type: finding, status: promoted, created: 2026-09-02, parent: CC-018,
      impact: compliance, effort: s, epic: epic-0-i2,
      title: "Apify / Bright Data vendor DPA confirmation not enforced anywhere in the pipeline",
-     ref: [], touches: [cross:ai-extraction, app:backend],
-     note: "Named as an open build item in the PRD 5 Security text itself."}
+     ref: [],
+     stories: [0-i2a-build-the-guarded-vendor-call-wrapper,
+               0-i2d-adopt-the-wrapper-in-the-apify-bright-data-scraper-call-sites],
+     touches: [cross:ai-extraction, app:backend],
+     note: "Named as an open build item in the PRD 5 Security text itself. FIND-073 (child row) is separate, not resolved by 0-i2a/0-i2d."}
 
   # ── 2026-09-04 ──────────────────────────────────────────────────────────────
   CC-019:
@@ -423,10 +426,13 @@ items:
      note: "DW-066, DW-067, DW-068, DW-082. Covers backfillAccountProfileAndInferDefaultLocation's unlocked duplicate-billable-call risk, no retry backoff on failed inference, createApiKey's fail-open trust in the error-shape classifier, and resolvePromptToEventFilter's missing rate limit."}
 
   BUG-012:
-    {type: bug, status: triaged, created: 2026-09-05,
+    {type: bug, status: promoted, created: 2026-09-05,
      impact: user-visible, effort: s, epic: epic-0-i2,
      title: "No request-level timeout in the Gemini adapter; a hung call blocks the caller indefinitely",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     stories: [0-i2a-build-the-guarded-vendor-call-wrapper,
+               0-i2b-adopt-the-wrapper-in-the-gemini-synchronous-verification-path,
+               0-i2c-adopt-the-wrapper-in-the-async-inference-path],
      touches: [app:backend, cross:ai-extraction],
      note: "DW-069. Affects verifyGeminiApiKey's synchronous createApiKey path directly, not just background jobs."}
 
@@ -2028,6 +2034,15 @@ items:
      ref: [planning-artifacts/sprint-change-proposal-2026-10-01-multi-event-posts.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
      touches: [app:backend, web:moderation],
      note: "Deferred from Story 3.6w's bmad-create-story (2026-10-05, AskUserQuestion): out-of-scope manual merge trigger. See 3.6w's Dev Notes/Out of Scope for the reusable mergeEvents() internal function a future story here would expose directly."}
+
+  # ── 2026-10-06 ──────────────────────────────────────────────────────────────
+  FIND-079:
+    {type: finding, status: backlog, created: 2026-10-06, parent: FIND-004,
+     impact: compliance, effort: s,
+     title: "Public-accounts-only scope is not enforced: subscribe path never checks whether an Instagram account is private",
+     ref: [planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Found 2026-10-06 scoping AD-32. subscribeToAccount and the Instagram adapter never check for a private account (only Apify not_found); the PRD section 5 scope note is intent only."}
 
   # ── 2026-10-07 (bmad-quick-dev FIND-031 partial-promotion carve-out) ────────
   FIND-075:

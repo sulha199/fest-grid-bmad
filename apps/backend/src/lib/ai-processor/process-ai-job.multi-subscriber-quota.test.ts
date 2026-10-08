@@ -1,7 +1,7 @@
 import test from 'node:test';
 import * as assert from 'node:assert';
 import { db } from '../../db/client.js';
-import { socialMediaAccountProfiles, subscriptions, users, apiKeys } from '@festgrid/database';
+import { socialMediaAccountProfiles, subscriptions, users, apiKeys, vendorCallLocks } from '@festgrid/database';
 import { eq, inArray } from 'drizzle-orm';
 import { getActiveSubscriberUserIds } from '../subscriptions/get-active-subscriber-user-ids.js';
 import { callGemini } from '../ai-gateway/adapter.js';
@@ -79,6 +79,10 @@ test('processAiJob Multi-Subscriber Quota Integration Test', async (t) => {
     setDecryptApiKey(originalDecryptApiKey);
     setCallGeminiGenerateContent(originalCallGeminiGenerateContent);
     // Cleanup database rows
+    // Story 0.i2c: callGemini now goes through callVendor, which claims/releases a
+    // vendor_call_locks row (by lockKey, never deleted -- only lockedUntil is reset) for each
+    // candidate key attempted above. Clean those up too so the shared dev DB table stays empty.
+    await db.delete(vendorCallLocks).where(inArray(vendorCallLocks.lockKey, [`gemini:key:${dbKeyA.id}`, `gemini:key:${dbKeyB.id}`]));
     await db.delete(apiKeys).where(inArray(apiKeys.id, [dbKeyA.id, dbKeyB.id]));
     await db.delete(subscriptions).where(eq(subscriptions.accountId, profile.id));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));

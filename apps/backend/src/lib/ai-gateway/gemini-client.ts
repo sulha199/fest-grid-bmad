@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { loadBackendEnv } from '../../env.js';
+import { callVendor } from '../vendor-gateway/guarded-call.js';
 
 export interface GeminiCallRequest {
   contents: string | any;
@@ -8,12 +9,6 @@ export interface GeminiCallRequest {
   responseMimeType?: string;
   // Story 3.6s (AC7) — explicit response-size cap, threaded into the SDK's `config` object.
   maxOutputTokens?: number;
-  // Story 3.6s (AC7) — AbortController-based request timeout, in milliseconds. When set, the
-  // call is aborted and throws GeminiTimeoutError if it has not resolved within this window.
-  // Confirmed via the installed @google/genai@2.16.0 SDK's own TypeScript types
-  // (GenerateContentConfig.abortSignal) that generateContent's config accepts a real
-  // AbortSignal -- the request is genuinely cancelled client-side, not merely raced.
-  timeoutMs?: number;
 }
 
 export interface GeminiCallResult {
@@ -41,19 +36,6 @@ export class GeminiUnknownError extends Error {
   }
 }
 
-// Story 3.6s (AC7) — a timed-out extraction call. Deliberately NOT treated like
-// GeminiRateLimitedError/GeminiInvalidKeyError (callGemini's retry-and-exclude-key loop must
-// never catch this) -- a timeout says nothing about whether the *key* was bad, only that *this
-// specific call* took too long. It must propagate unretried out of callGemini/processAiJob,
-// surfacing as a natural, retryable SQS redelivery (the same unconditional re-throw path
-// GeminiUnknownError already takes in adapter.ts).
-export class GeminiTimeoutError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'GeminiTimeoutError';
-  }
-}
-
 // Story 3.6s (Task 5.4) — the raw SDK call is its own swappable seam (same `let` + setter
 // pattern as `callGeminiGenerateContent` itself), exclusively so unit tests can exercise the
 // REAL AbortController timeout/maxOutputTokens wiring in `callGeminiGenerateContent` below
@@ -71,25 +53,11 @@ export function setGenerateContentSeam(fn: typeof generateContentSeam) {
 
 export let callGeminiGenerateContent = async (
   apiKey: string,
-  request: GeminiCallRequest
+  request: GeminiCallRequest,
+  signal?: AbortSignal
 ): Promise<GeminiCallResult> => {
   const env = loadBackendEnv();
   const ai = new GoogleGenAI({ apiKey });
-
-  // Story 3.6s (AC7) — minimal inline AbortController-based timeout guard, a temporary
-  // stand-in for Epic 0's not-yet-built guarded vendor-call wrapper (0.i2a-0.i2c). Confirmed the
-  // installed @google/genai SDK's GenerateContentConfig.abortSignal accepts a real AbortSignal
-  // (client-side cancellation of the underlying HTTP request), so no Promise.race fallback is
-  // needed here.
-  const controller = new AbortController();
-  let timedOut = false;
-  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-  if (request.timeoutMs !== undefined) {
-    timeoutHandle = setTimeout(() => {
-      timedOut = true;
-      controller.abort();
-    }, request.timeoutMs);
-  }
 
   const config: Record<string, any> = {
     systemInstruction: request.systemInstruction,
@@ -97,8 +65,8 @@ export let callGeminiGenerateContent = async (
     responseMimeType: request.responseMimeType,
     maxOutputTokens: request.maxOutputTokens,
   };
-  if (request.timeoutMs !== undefined) {
-    config.abortSignal = controller.signal;
+  if (signal !== undefined) {
+    config.abortSignal = signal;
   }
 
   try {
@@ -112,12 +80,6 @@ export let callGeminiGenerateContent = async (
       text: response.text || '',
     };
   } catch (error: any) {
-    if (timedOut) {
-      throw new GeminiTimeoutError(
-        `Gemini extraction call timed out after ${request.timeoutMs}ms`
-      );
-    }
-
     const message = error?.message || String(error);
     const status = error?.status || error?.statusCode || error?.status_code;
 
@@ -152,20 +114,62 @@ export let callGeminiGenerateContent = async (
     }
 
     throw new GeminiUnknownError(message, error);
-  } finally {
-    if (timeoutHandle !== undefined) {
-      clearTimeout(timeoutHandle);
-    }
   }
 };
+
+// Story 0.i2c (AD-32 Rule 4) — transient-failure classification is the vendor adapter's
+// responsibility, not callVendor's. Narrow and evidence-based (user-decided, 2026-10-06):
+// only a GeminiUnknownError whose originalError looks like a network/5xx failure is transient.
+// GeminiRateLimitedError/GeminiInvalidKeyError are never transient -- callGemini's own
+// cross-key exclusion loop handles those exclusively, unchanged.
+const TRANSIENT_CONNECTION_CODES = new Set(['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'EAI_AGAIN']);
+
+export function isGeminiErrorTransient(error: unknown): boolean {
+  if (error instanceof GeminiRateLimitedError || error instanceof GeminiInvalidKeyError) {
+    return false;
+  }
+
+  if (!(error instanceof GeminiUnknownError)) {
+    return false;
+  }
+
+  const originalError: any = error.originalError;
+  const status = originalError?.status ?? originalError?.statusCode ?? originalError?.status_code;
+  if (typeof status === 'number' && status >= 500 && status <= 599) {
+    return true;
+  }
+
+  const code = originalError?.code ?? originalError?.cause?.code;
+  if (typeof code === 'string' && TRANSIENT_CONNECTION_CODES.has(code)) {
+    return true;
+  }
+
+  return false;
+}
 
 export function setCallGeminiGenerateContent(fn: typeof callGeminiGenerateContent) {
   callGeminiGenerateContent = fn;
 }
 
+// Story 0.i2b (AD-32 Rule 3) — the last of the three AD-32-named callGeminiGenerateContent
+// entry points to adopt the guarded callVendor wrapper. lockKey is explicitly undefined: this
+// is a named exception to per-key locking (0.i2a AC4) because the key under verification has
+// no apiKeys.id yet (createApiKey calls this before insert), and nothing else can concurrently
+// bill against a key not yet in the candidate pool. isGeminiErrorTransient/the signal-aware
+// callGeminiGenerateContent third parameter are both reused as-is from Story 0.i2c -- no new
+// classifier is introduced here.
 export async function verifyGeminiApiKey(apiKey: string): Promise<boolean> {
+  const env = loadBackendEnv();
   try {
-    await callGeminiGenerateContent(apiKey, { contents: 'ping' });
+    await callVendor('gemini', {
+      lockKey: undefined,
+      timeoutMs: env.geminiVerificationTimeoutMs,
+      // Two full attempts' worth (20s with the 10s default): keeps attempts + backoff inside the
+      // API Lambda's 25s limit so createApiKey gets a typed error, not a killed invocation.
+      overallTimeoutMs: env.geminiVerificationTimeoutMs * 2,
+      isTransient: isGeminiErrorTransient,
+      call: (signal) => callGeminiGenerateContent(apiKey, { contents: 'ping' }, signal),
+    });
     return true;
   } catch (error) {
     if (error instanceof GeminiInvalidKeyError) {
