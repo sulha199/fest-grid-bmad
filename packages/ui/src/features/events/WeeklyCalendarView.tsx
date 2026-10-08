@@ -8,7 +8,7 @@
 // applied to EventCardMediaPrimitives.tsx/count-badge.tsx for the identical reason -- see that
 // file's header comment for the full root-cause writeup.
 import React, { useState, useRef, useEffect, useMemo, useId } from 'react';
-import { ChevronLeft, ChevronRight, Heart, CalendarPlus, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Heart, CalendarPlus } from 'lucide-react';
 import { getDays } from '@festgrid/domain/events';
 import { WeekPicker } from '../../core/WeekPicker';
 import { useScopedLocale, useScopedTimezone, useHoverFocusTooltip } from '../../hooks';
@@ -29,9 +29,21 @@ import { computeCalendarSegmentDateBoxContent, formatEventStatus, type EventStat
 
 // Design system styles from DESIGN.md
 const CALENDAR_BASE_CLASS = "border border-gray-200 rounded-lg";
-const HEADER_CLASS = "flex items-center justify-between p-4 border-b border-gray-200";
+const HEADER_CLASS = "flex flex-col gap-3 p-4 border-b border-gray-200 md:flex-row md:items-center md:justify-between";
 const DATE_RANGE_CLASS = "text-lg font-semibold";
-const NAV_BUTTON_CLASS = "py-1 px-3 rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors";
+const NAV_BUTTON_CLASS = "inline-flex items-center justify-center min-h-11 min-w-11 py-1 px-3 rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors md:min-h-0 md:min-w-0";
+/** Mobile nav row: prev / picker / Today / next share the width evenly on narrow screens. */
+const NAV_ROW_CLASS = "flex items-center justify-between gap-2 md:justify-start";
+/**
+ * Sticky day-header row (desktop) / day-tab strip (mobile). AD-33 Local tier: bare `z-10`, legal only
+ * because each of the two wrappers that own it (`desktop-calendar-view` / `mobile-calendar-view`)
+ * carries `isolate`, so the numeral never escapes into the page's stacking context and stays below
+ * `z-chrome` (the nav rail). `isolate` is deliberately NOT on the component root: the shared
+ * `CalendarOverflowDialog` is a non-portaled `fixed` overlay at `OVERLAY_MODAL_Z` and must stay in
+ * the page's root context to out-rank chrome.
+ */
+const STICKY_HEADER_CLASS = "sticky top-0 z-10";
+const DAY_TAB_CLASS = "flex flex-col items-center justify-center min-h-11 py-1 text-xs font-medium border-b-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-inset";
 /**
  * Single source of truth for "a week has 7 days" — shared by `visibleDays`' construction loop and
  * `GridColumnGuides`' marker count (BUG-050 review finding: these were two independent hardcoded
@@ -225,6 +237,29 @@ function formatDayHeader(
       return new Intl.DateTimeFormat('en-US', options).format(date);
     }
   }
+}
+
+/**
+ * Short weekday + day-of-month parts for a day-tab button, with the same graceful degradation as
+ * `formatDayHeader`.
+ */
+function formatDayTabParts(
+  locale: string,
+  timezone: string | undefined,
+  date: Date
+): { weekday: string; day: string } {
+  const format = (opts: Intl.DateTimeFormatOptions) => {
+    try {
+      return new Intl.DateTimeFormat(locale, { ...opts, ...(timezone ? { timeZone: timezone } : {}) }).format(date);
+    } catch {
+      try {
+        return new Intl.DateTimeFormat(locale, opts).format(date);
+      } catch {
+        return new Intl.DateTimeFormat('en-US', opts).format(date);
+      }
+    }
+  };
+  return { weekday: format({ weekday: 'short' }), day: format({ day: 'numeric' }) };
 }
 
 /**
@@ -448,6 +483,8 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     statusInDays: 'In {n} days',
     statusUpcoming: 'Upcoming',
     tomorrow: 'Tomorrow',
+    dayTabsLabel: 'Days of the week',
+    noSchedulesLabel: 'No schedules on this day',
     ...labels,
     // BUG-049 review finding: set after the spread with `??`, not spread-after-default, so an
     // explicit `labels={{ nearbyBadge: undefined }}` still falls back to the formatter instead
@@ -732,9 +769,32 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     dayIdx: number;
     surface: WeeklyCalendarViewOverflowSurface;
   } | null>(null);
-  const [dayOverrides, setDayOverrides] = useState<Record<string, boolean>>({});
   const todayISO = getTodayISOInTimezone(activeTimezone);
   const mobileDayContentIdPrefix = useId();
+
+  // Mobile day-tab selection. Purely local: switching tabs only filters the already-fetched week
+  // (`dayBuckets`), it never navigates or refetches. The selection is stored together with the week
+  // it was made in, so a `weekStart` change (next/prev/Today/picker) falls back to the default —
+  // today if it is in the visible week, else the first day — with no effect/extra render.
+  const weekKey = toISODateString(visibleDays[0]);
+  const defaultDayIdx = Math.max(
+    0,
+    visibleDays.findIndex((d) => toISODateString(d) === todayISO)
+  );
+  const [daySelection, setDaySelection] = useState<{ weekKey: string; idx: number } | null>(null);
+  const selectedDayIdx = daySelection?.weekKey === weekKey ? daySelection.idx : defaultDayIdx;
+  const dayTabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const handleDayTabKeyDown = (e: React.KeyboardEvent, idx: number) => {
+    let target: number | null = null;
+    if (e.key === 'ArrowRight') target = (idx + 1) % DAYS_PER_WEEK;
+    else if (e.key === 'ArrowLeft') target = (idx + DAYS_PER_WEEK - 1) % DAYS_PER_WEEK;
+    else if (e.key === 'Home') target = 0;
+    else if (e.key === 'End') target = DAYS_PER_WEEK - 1;
+    if (target === null) return;
+    e.preventDefault();
+    setDaySelection({ weekKey, idx: target });
+    dayTabRefs.current[target]?.focus();
+  };
   /**
    * Trigger refs, kept in two per-surface arrays indexed by day because desktop and mobile live in
    * separate `hidden md:block` / `md:hidden` trees — only one is ever mounted. `openOverflowTriggerRef`
@@ -840,7 +900,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
       {/* Header Controls */}
       <div className={HEADER_CLASS}>
         <span className={DATE_RANGE_CLASS}>{dateRangeText}</span>
-        <div className="flex items-center gap-2">
+        <div className={NAV_ROW_CLASS}>
           <button
             type="button"
             className={`${NAV_BUTTON_CLASS} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-100`}
@@ -879,9 +939,9 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
       </div>
 
       {/* Desktop layout */}
-      <div className="hidden md:block" data-testid="desktop-calendar-view">
-        {/* Day Headers */}
-        <div className={GRID_WEEKLY_CLASS}>
+      <div className="hidden md:block isolate" data-testid="desktop-calendar-view">
+        {/* Day Headers (sticky) */}
+        <div className={`${GRID_WEEKLY_CLASS} ${STICKY_HEADER_CLASS} bg-gray-50`} data-testid="desktop-day-headers">
         {visibleDays.map((day, idx) => {
           const headerStr = formatDayHeader(activeLocale, activeTimezone, day);
           return (
@@ -993,97 +1053,132 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
       </div>
     </div>
 
-    {/* Mobile Vertical Day List (AC15) */}
-    <div className="md:hidden flex flex-col divide-y divide-gray-200 p-4" data-testid="mobile-calendar-view">
-      {dayBuckets
-        .map((bucket, dayIdx) => ({ bucket, dayIdx, dayDate: visibleDays[dayIdx] }))
-        .filter(({ bucket }) => bucket.length > 0)
-        .map(({ bucket, dayIdx, dayDate }) => {
-          const headerStr = formatDayHeader(activeLocale, activeTimezone, dayDate);
-          const dateISO = toISODateString(dayDate);
-          const isCollapsed = dayOverrides[dateISO] ?? (dateISO < todayISO);
-
-          // Task 7.2 / AC4 — mobile's NEW flat inline bound. Only single-day/isolated occurrences
-          // count toward it; multi-day segments are exempt and always render inline regardless of
-          // how many there are (EXPERIENCE.md's exemption rule, the same principle desktop's
-          // `day_cell` already applies by filtering multi-day schedules into the spanning banner).
-          // Iterating the bucket itself (rather than concatenating two filtered arrays) preserves
-          // the existing chronological order of the rendered list.
-          //
-          // Story 1.3k (AC4): the exemption is decided per RUN (`isMultiDayRunSegment`, `segment
-          // belongs to a run of >=2 days`), not by the schedule's raw date span — a day-of-week
-          // schedule whose overall span is long but whose runs are all 1-day gets no exemption.
-          let singleDaySeen = 0;
-          const mobileVisibleSegments = bucket.filter((seg) => {
-            if (isMultiDayRunSegment(seg)) return true;
-            singleDaySeen += 1;
-            return singleDaySeen <= MOBILE_INLINE_CAP;
-          });
-          const mobileHiddenCount = bucket.length - mobileVisibleSegments.length;
-
+    {/* Mobile day tabs + selected-day list (AC15). The tab strip mirrors the desktop header's
+        7 equal columns; selecting a tab only filters the already-fetched week. */}
+    <div className="md:hidden isolate" data-testid="mobile-calendar-view">
+      <div
+        role="tablist"
+        aria-label={defaultLabels.dayTabsLabel}
+        data-testid="mobile-day-tabs"
+        className={`${GRID_WEEKLY_CLASS} ${STICKY_HEADER_CLASS} bg-gray-50 border-b border-gray-200`}
+      >
+        {visibleDays.map((day, idx) => {
+          const dateISO = toISODateString(day);
+          const isSelected = idx === selectedDayIdx;
+          const isToday = dateISO === todayISO;
+          const { weekday, day: dayNum } = formatDayTabParts(activeLocale, activeTimezone, day);
           return (
-            <div key={dayIdx} className="flex flex-col gap-1 py-3" data-testid="mobile-day-row">
-              <button
-                type="button"
-                data-testid="mobile-day-toggle"
-                aria-expanded={!isCollapsed}
-                aria-controls={`${mobileDayContentIdPrefix}-mobile-day-content-${dayIdx}`}
-                aria-label={`${headerStr} — ${isCollapsed ? (labels?.expandDayLabel || 'Expand day') : (labels?.collapseDayLabel || 'Collapse day')}`}
-                className="flex items-center justify-between text-sm font-medium text-left px-1 mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded"
-                onClick={() => setDayOverrides(prev => ({ ...prev, [dateISO]: !isCollapsed }))}
+            <button
+              key={dateISO}
+              type="button"
+              role="tab"
+              id={`${mobileDayContentIdPrefix}-mobile-day-tab-${idx}`}
+              data-testid="mobile-day-tab"
+              data-today={isToday ? 'true' : undefined}
+              aria-selected={isSelected}
+              aria-controls={`${mobileDayContentIdPrefix}-mobile-day-content`}
+              aria-label={formatDayHeader(activeLocale, activeTimezone, day)}
+              tabIndex={isSelected ? 0 : -1}
+              ref={(el) => {
+                dayTabRefs.current[idx] = el;
+              }}
+              onClick={() => setDaySelection({ weekKey, idx })}
+              onKeyDown={(e) => handleDayTabKeyDown(e, idx)}
+              className={`${DAY_TAB_CLASS} ${
+                isSelected
+                  ? 'border-violet-600 text-violet-700 bg-white'
+                  : 'border-transparent text-gray-600'
+              }`}
+            >
+              <span aria-hidden="true">{weekday}</span>
+              <span
+                aria-hidden="true"
+                className={`text-sm ${isToday ? 'font-bold underline underline-offset-2' : ''}`}
               >
-                {headerStr}
-                <ChevronDown className={`w-4 h-4 text-gray-500 shrink-0 transition-transform ${!isCollapsed ? 'rotate-180' : ''}`} />
-              </button>
-              {!isCollapsed && (
-                <div id={`${mobileDayContentIdPrefix}-mobile-day-content-${dayIdx}`} className="flex flex-col gap-2 px-1">
-                  {mobileVisibleSegments.map((seg) => (
-                    <CalendarCard
-                      key={seg.schedule.id}
-                      segment={seg}
-                      dayIdx={dayIdx}
-                      cardIdx={-1} // Non-grid / plain Tab stop
-                      isRovingActive={false}
-                      locale={activeLocale}
-                      timezone={activeTimezone}
-                      onScheduleClick={onScheduleClick}
-                      onFavoriteToggle={onFavoriteToggle}
-                      favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
-                      tillLabel={defaultLabels.tillLabel}
-                      variant="list"
-                      currentDayStr={dateISO}
-                      favoritedBadgeLabel={defaultLabels.favoritedBadgeLabel}
-                      addedToCalendarBadgeLabel={defaultLabels.addedToCalendarBadgeLabel}
-                      statusLabels={statusLabels}
-                      nearbyBadgeLabel={defaultLabels.nearbyBadge}
-                      nearbyBadgeThreshold={nearbyBadgeThreshold}
-                      dayOfWeekLabels={labels.dayOfWeekLabels}
-                      repeatBadgeAriaLabel={labels.repeatBadgeAriaLabel}
-                    />
-                  ))}
-
-                  {/* Task 7.2 — mobile's brand-new "+N more" affordance (mobile had none before),
-                      opening the very same shared dialog as desktop's. */}
-                  {mobileHiddenCount > 0 && (
-                    <button
-                      type="button"
-                      data-testid="calendar-overflow-trigger-mobile"
-                      ref={(el) => {
-                        mobileOverflowTriggerRefs.current[dayIdx] = el;
-                      }}
-                      className={MORE_LINK_CLASS}
-                      onClick={() => handleOpenOverflow(dayIdx, 'mobile', mobileHiddenCount)}
-                      aria-expanded={openOverflow?.surface === 'mobile' && overflowDayIdx === dayIdx}
-                      aria-haspopup="dialog"
-                    >
-                      {labels.moreLabel ? labels.moreLabel(mobileHiddenCount) : `+${mobileHiddenCount} more`}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
+                {dayNum}
+              </span>
+            </button>
           );
         })}
+      </div>
+      {(() => {
+        const dayIdx = selectedDayIdx;
+        const bucket = dayBuckets[dayIdx] ?? [];
+        const dateISO = toISODateString(visibleDays[dayIdx]);
+
+        // Task 7.2 / AC4 — mobile's flat inline bound. Only single-day/isolated occurrences
+        // count toward it; multi-day segments are exempt and always render inline regardless of
+        // how many there are (EXPERIENCE.md's exemption rule, the same principle desktop's
+        // `day_cell` already applies by filtering multi-day schedules into the spanning banner).
+        // Iterating the bucket itself preserves the existing chronological order.
+        //
+        // Story 1.3k (AC4): the exemption is decided per RUN (`isMultiDayRunSegment`, `segment
+        // belongs to a run of >=2 days`), not by the schedule's raw date span.
+        let singleDaySeen = 0;
+        const mobileVisibleSegments = bucket.filter((seg) => {
+          if (isMultiDayRunSegment(seg)) return true;
+          singleDaySeen += 1;
+          return singleDaySeen <= MOBILE_INLINE_CAP;
+        });
+        const mobileHiddenCount = bucket.length - mobileVisibleSegments.length;
+
+        return (
+          <div
+            role="tabpanel"
+            id={`${mobileDayContentIdPrefix}-mobile-day-content`}
+            aria-labelledby={`${mobileDayContentIdPrefix}-mobile-day-tab-${dayIdx}`}
+            className="flex flex-col gap-2 p-4"
+            data-testid="mobile-day-row"
+          >
+            {bucket.length === 0 && (
+              <p className="text-sm text-gray-500 text-center py-6" data-testid="mobile-day-empty">
+                {defaultLabels.noSchedulesLabel}
+              </p>
+            )}
+            {mobileVisibleSegments.map((seg) => (
+              <CalendarCard
+                key={seg.schedule.id}
+                segment={seg}
+                dayIdx={dayIdx}
+                cardIdx={-1} // Non-grid / plain Tab stop
+                isRovingActive={false}
+                locale={activeLocale}
+                timezone={activeTimezone}
+                onScheduleClick={onScheduleClick}
+                onFavoriteToggle={onFavoriteToggle}
+                favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
+                tillLabel={defaultLabels.tillLabel}
+                variant="list"
+                currentDayStr={dateISO}
+                favoritedBadgeLabel={defaultLabels.favoritedBadgeLabel}
+                addedToCalendarBadgeLabel={defaultLabels.addedToCalendarBadgeLabel}
+                statusLabels={statusLabels}
+                nearbyBadgeLabel={defaultLabels.nearbyBadge}
+                nearbyBadgeThreshold={nearbyBadgeThreshold}
+                dayOfWeekLabels={labels.dayOfWeekLabels}
+                repeatBadgeAriaLabel={labels.repeatBadgeAriaLabel}
+              />
+            ))}
+
+            {/* Task 7.2 — mobile's "+N more" affordance, opening the same shared dialog as desktop's. */}
+            {mobileHiddenCount > 0 && (
+              <button
+                type="button"
+                data-testid="calendar-overflow-trigger-mobile"
+                ref={(el) => {
+                  mobileOverflowTriggerRefs.current[dayIdx] = el;
+                }}
+                className={MORE_LINK_CLASS}
+                onClick={() => handleOpenOverflow(dayIdx, 'mobile', mobileHiddenCount)}
+                aria-expanded={openOverflow?.surface === 'mobile' && overflowDayIdx === dayIdx}
+                aria-haspopup="dialog"
+              >
+                {labels.moreLabel ? labels.moreLabel(mobileHiddenCount) : `+${mobileHiddenCount} more`}
+              </button>
+            )}
+          </div>
+        );
+      })()}
     </div>
 
     {/* Shared overflow dialog (Story 1.i1h Task 7.3) — rendered exactly ONCE at the root, never

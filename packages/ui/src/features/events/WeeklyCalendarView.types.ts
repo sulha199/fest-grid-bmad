@@ -57,10 +57,10 @@ export interface WeeklyCalendarViewLabels {
   favoritedBadgeLabel?: string;
   /** aria-label for the added to calendar badge */
   addedToCalendarBadgeLabel?: string;
-  /** aria-label for the expand day button */
-  expandDayLabel?: string;
-  /** aria-label for the collapse day button */
-  collapseDayLabel?: string;
+  /** aria-label for the mobile day-tab strip (`role="tablist"`) */
+  dayTabsLabel?: string;
+  /** Message shown in the mobile panel when the selected day has no schedules */
+  noSchedulesLabel?: string;
   /**
    * "+N more" affordance text, invoked once per over-capacity day cell with
    * that day's own hidden-schedule count. A resolver FUNCTION, not a static
