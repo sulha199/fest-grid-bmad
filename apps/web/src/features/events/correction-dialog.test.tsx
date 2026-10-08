@@ -399,4 +399,58 @@ describe("CorrectionDialog", () => {
       expect(mainSchedule.performers).toBeNull();
     });
   });
+
+  describe("links (Story 4.10)", () => {
+    it("round-trips links through handleSubmit's built proposedData and the applied-path cache patch", async () => {
+      const eventWithLinks = {
+        ...mockEvent,
+        links: [{ url: "https://existing.example.com", label: "Existing" }],
+      };
+
+      const queryKey = ["getEventBySlug", { slug: "test-event" }];
+      queryClient.setQueryData(queryKey, {
+        eventBySlug: {
+          eventName: mockEvent.eventName,
+          types: mockEvent.types,
+          categories: mockEvent.categories,
+          location: mockEvent.location,
+          organizerName: mockEvent.organizerName,
+          contactInfo: mockEvent.contactInfo,
+          description: mockEvent.description,
+          schedules: mockEvent.schedules,
+          links: eventWithLinks.links,
+        },
+      });
+
+      render(
+        <QueryClientProvider client={queryClient}>
+          <CorrectionDialog isOpen={true} onClose={handleClose} event={eventWithLinks as any} />
+        </QueryClientProvider>
+      );
+
+      expect(await screen.findByRole("heading", { name: "EventCorrectionForm.dialogTitle" })).toBeInTheDocument();
+
+      // Pre-filled from event.links (AC10).
+      expect(document.getElementById("links-url-0")).toHaveValue("https://existing.example.com");
+      expect(document.getElementById("links-label-0")).toHaveValue("Existing");
+
+      const form = document.querySelector("form") as HTMLFormElement;
+      fireEvent.submit(form);
+
+      await waitFor(() => {
+        expect(handleClose).toHaveBeenCalled();
+      });
+
+      // Round-trips through handleSubmit's built proposedData sent as mutation variables.
+      expect(capturedMutationVariables?.proposedData?.links).toEqual([
+        { url: "https://existing.example.com", label: "Existing" },
+      ]);
+
+      // The "applied"-path cache patch reflects the submitted links.
+      const patched = queryClient.getQueryData<any>(queryKey);
+      expect(patched.eventBySlug.links).toEqual([
+        { url: "https://existing.example.com", label: "Existing" },
+      ]);
+    });
+  });
 });

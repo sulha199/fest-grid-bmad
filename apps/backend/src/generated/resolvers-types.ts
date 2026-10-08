@@ -261,6 +261,7 @@ export type Event = {
   eventName: Scalars['String']['output'];
   favoriteCount: Scalars['Int']['output'];
   hasPrivateContact: Scalars['Boolean']['output'];
+  hashtags?: Maybe<Array<Scalars['String']['output']>>;
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
   instagramEmbed?: Maybe<InstagramEmbed>;
@@ -342,6 +343,11 @@ export type EventLink = {
   __typename?: 'EventLink';
   label?: Maybe<Scalars['String']['output']>;
   url: Scalars['String']['output'];
+};
+
+export type EventLinkInput = {
+  label?: InputMaybe<Scalars['String']['input']>;
+  url: Scalars['String']['input'];
 };
 
 export type EventQueryConditionInput = {
@@ -492,6 +498,7 @@ export type ModeratorAccountProfileFilters = {
 export type Mutation = {
   __typename?: 'Mutation';
   castVote: AccountVote;
+  clearAccountDefaultLocation: SocialMediaAccountProfile;
   createApiKey: ApiKey;
   createUserLocation: UserLocation;
   createWidget: Widget;
@@ -553,6 +560,11 @@ export type Mutation = {
 
 export type MutationCastVoteArgs = {
   input: CastVoteInput;
+};
+
+
+export type MutationClearAccountDefaultLocationArgs = {
+  accountId: Scalars['ID']['input'];
 };
 
 
@@ -725,6 +737,7 @@ export type MutationSelectPostsForExtractionArgs = {
 
 export type MutationSetAccountDefaultLocationArgs = {
   accountId: Scalars['ID']['input'];
+  asModeratorCorrection?: InputMaybe<Scalars['Boolean']['input']>;
   input: SetAccountDefaultLocationInput;
 };
 
@@ -868,6 +881,7 @@ export type ProposedEventCorrectionData = {
   contactInfo?: Maybe<Scalars['String']['output']>;
   description?: Maybe<Scalars['String']['output']>;
   eventName: Scalars['String']['output'];
+  links?: Maybe<Array<EventLink>>;
   location: Scalars['String']['output'];
   organizerName?: Maybe<Scalars['String']['output']>;
   schedules: Array<ProposedScheduleCorrectionData>;
@@ -879,6 +893,7 @@ export type ProposedEventCorrectionInput = {
   contactInfo?: InputMaybe<Scalars['String']['input']>;
   description?: InputMaybe<Scalars['String']['input']>;
   eventName: Scalars['String']['input'];
+  links?: InputMaybe<Array<EventLinkInput>>;
   location: Scalars['String']['input'];
   organizerName?: InputMaybe<Scalars['String']['input']>;
   schedules: Array<ProposedScheduleCorrectionInput>;
@@ -1587,6 +1602,7 @@ export type ResolversTypes = ResolversObject<{
   EventFilter: ResolverTypeWrapper<EventFilter>;
   EventFilterInput: EventFilterInput;
   EventLink: ResolverTypeWrapper<EventLink>;
+  EventLinkInput: EventLinkInput;
   EventQueryConditionInput: EventQueryConditionInput;
   EventSourcePost: ResolverTypeWrapper<EventSourcePost>;
   EventType: EventType;
@@ -1701,6 +1717,7 @@ export type ResolversParentTypes = ResolversObject<{
   EventFilter: EventFilter;
   EventFilterInput: EventFilterInput;
   EventLink: EventLink;
+  EventLinkInput: EventLinkInput;
   EventQueryConditionInput: EventQueryConditionInput;
   EventSourcePost: EventSourcePost;
   ExtractEventDataFromUrlResult: ExtractEventDataFromUrlResult;
@@ -1899,6 +1916,7 @@ export type EventResolvers<ContextType = GraphQLContext, ParentType extends Reso
   eventName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   favoriteCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   hasPrivateContact?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  hashtags?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   imageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   instagramEmbed?: Resolver<Maybe<ResolversTypes['InstagramEmbed']>, ParentType, ContextType>;
@@ -2040,6 +2058,7 @@ export type MeResolvers<ContextType = GraphQLContext, ParentType extends Resolve
 
 export type MutationResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = ResolversObject<{
   castVote?: Resolver<ResolversTypes['AccountVote'], ParentType, ContextType, RequireFields<MutationCastVoteArgs, 'input'>>;
+  clearAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationClearAccountDefaultLocationArgs, 'accountId'>>;
   createApiKey?: Resolver<ResolversTypes['ApiKey'], ParentType, ContextType, RequireFields<MutationCreateApiKeyArgs, 'input'>>;
   createUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationCreateUserLocationArgs, 'input'>>;
   createWidget?: Resolver<ResolversTypes['Widget'], ParentType, ContextType, RequireFields<MutationCreateWidgetArgs, 'input'>>;
@@ -2139,6 +2158,7 @@ export type ProposedEventCorrectionDataResolvers<ContextType = GraphQLContext, P
   contactInfo?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   eventName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  links?: Resolver<Maybe<Array<ResolversTypes['EventLink']>>, ParentType, ContextType>;
   location?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   organizerName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   schedules?: Resolver<Array<ResolversTypes['ProposedScheduleCorrectionData']>, ParentType, ContextType>;

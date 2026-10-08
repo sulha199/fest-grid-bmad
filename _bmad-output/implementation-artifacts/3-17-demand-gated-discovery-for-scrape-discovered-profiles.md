@@ -8,7 +8,7 @@ baseline_commit: a9b7c904bab4e74ef85590313789f950f2600ec9
 
 - Epic: 3
 - Story ID: 3.17
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -26,28 +26,28 @@ so that discovery surfaces aren't polluted by every coauthor incidentally surfac
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Extract a shared `verifyAccountProfileForDiscovery` helper (AC: 1)**
-  - [ ] 1.1 Create `apps/backend/src/lib/accounts/verify-account-profile-for-discovery.ts`, exporting `verifyAccountProfileForDiscovery(profileId: string)`. Body is the exact `db.update(socialMediaAccountProfiles).set({ isVerifiedForDiscovery: true }).where(and(eq(socialMediaAccountProfiles.id, profileId), eq(socialMediaAccountProfiles.isVerifiedForDiscovery, false))).returning()` idiom already shipped inline in `subscribe-to-account.ts:164-178` (step "1c"; its comment block starts at line 157) — relocated, not reimplemented. Returns the updated row, or `undefined` if the profile was already `true` (idempotent no-op; the `WHERE ... = false` clause matches zero rows). Doc comment states: shared by `subscribeToAccount` (Story 3.16, AC4) and `castVote` (this story); the flip is one-way — nothing in this codebase ever sets `isVerifiedForDiscovery` back to `false`.
-  - [ ] 1.2 Add `apps/backend/src/lib/accounts/verify-account-profile-for-discovery.test.ts` (plain `node:test` against the real local dev DB, matching this directory's existing convention — e.g. `classify-account-type.test.ts`): (a) a `false` profile flips to `true` and the update is returned; (b) an already-`true` profile is untouched and the function returns `undefined`; (c) a non-existent id returns `undefined` without throwing.
-  - [ ] 1.3 Refactor `apps/backend/src/lib/subscriptions/subscribe-to-account.ts`: replace the inline block at lines 164-178 (step "1c") with `const verified = await verifyAccountProfileForDiscovery(accountProfile.id); if (verified) { accountProfile = verified; }`, importing the new helper (`import { verifyAccountProfileForDiscovery } from '../accounts/verify-account-profile-for-discovery.js';`). This is a pure relocation — no behavior change. Confirm `subscribe-to-account.test.ts`'s existing cases (i) ("`isVerifiedForDiscovery` flips from `false` to `true` on first subscribe") and (j) ("already-verified... no-op") still pass unmodified.
+- [x] **Task 1 — Extract a shared `verifyAccountProfileForDiscovery` helper (AC: 1)**
+  - [x] 1.1 Create `apps/backend/src/lib/accounts/verify-account-profile-for-discovery.ts`, exporting `verifyAccountProfileForDiscovery(profileId: string)`. Body is the exact `db.update(socialMediaAccountProfiles).set({ isVerifiedForDiscovery: true }).where(and(eq(socialMediaAccountProfiles.id, profileId), eq(socialMediaAccountProfiles.isVerifiedForDiscovery, false))).returning()` idiom already shipped inline in `subscribe-to-account.ts:164-178` (step "1c"; its comment block starts at line 157) — relocated, not reimplemented. Returns the updated row, or `undefined` if the profile was already `true` (idempotent no-op; the `WHERE ... = false` clause matches zero rows). Doc comment states: shared by `subscribeToAccount` (Story 3.16, AC4) and `castVote` (this story); the flip is one-way — nothing in this codebase ever sets `isVerifiedForDiscovery` back to `false`.
+  - [x] 1.2 Add `apps/backend/src/lib/accounts/verify-account-profile-for-discovery.test.ts` (plain `node:test` against the real local dev DB, matching this directory's existing convention — e.g. `classify-account-type.test.ts`): (a) a `false` profile flips to `true` and the update is returned; (b) an already-`true` profile is untouched and the function returns `undefined`; (c) a non-existent id returns `undefined` without throwing.
+  - [x] 1.3 Refactor `apps/backend/src/lib/subscriptions/subscribe-to-account.ts`: replace the inline block at lines 164-178 (step "1c") with `const verified = await verifyAccountProfileForDiscovery(accountProfile.id); if (verified) { accountProfile = verified; }`, importing the new helper (`import { verifyAccountProfileForDiscovery } from '../accounts/verify-account-profile-for-discovery.js';`). This is a pure relocation — no behavior change. Confirm `subscribe-to-account.test.ts`'s existing cases (i) ("`isVerifiedForDiscovery` flips from `false` to `true` on first subscribe") and (j) ("already-verified... no-op") still pass unmodified.
 
-- [ ] **Task 2 — Wire the vote-event flip into `castVote` (AC: 1)**
-  - [ ] 2.1 In `apps/backend/src/schema/resolvers.ts`'s `castVote` resolver, import `verifyAccountProfileForDiscovery` from `../lib/accounts/verify-account-profile-for-discovery.js` and call `await verifyAccountProfileForDiscovery(accountId);` immediately after `accountId` is resolved to a definite profile id (i.e. right after the `if (!accountId) { ... } else { ... }` block closes, around line 2205 on master as of the 2026-10-08 readiness sweep — before the existing-vote lookup at line 2207). Calling it unconditionally at this single point, before branching on new-vote/reactivate-withdrawn-vote/idempotent-no-op, correctly covers all three `castVote` outcomes with one call, exactly mirroring how `subscribeToAccount` places its flip independent of its own branches. The return value is not needed here (`castVote` returns the vote row, not the profile), so the call is fire-and-forget (`await` only, no reassignment).
-  - [ ] 2.2 Extend `apps/backend/src/schema/account-votes.test.ts` with new cases: (a) casting a first-ever vote for a profile seeded with `isVerifiedForDiscovery: false` flips it to `true` (assert via a follow-up `db.select()` on `socialMediaAccountProfiles`); (b) casting a vote for an already-`isVerifiedForDiscovery: true` profile is a no-op on that column (regression guard); (c) withdrawing a vote (`withdrawVote`) and re-casting it re-confirms `true` (idempotent — exercises the "reactivate a soft-deleted vote" branch of `castVote`, lines ~2212-2220).
+- [x] **Task 2 — Wire the vote-event flip into `castVote` (AC: 1)**
+  - [x] 2.1 In `apps/backend/src/schema/resolvers.ts`'s `castVote` resolver, import `verifyAccountProfileForDiscovery` from `../lib/accounts/verify-account-profile-for-discovery.js` and call `await verifyAccountProfileForDiscovery(accountId);` immediately after `accountId` is resolved to a definite profile id (i.e. right after the `if (!accountId) { ... } else { ... }` block closes, around line 2205 on master as of the 2026-10-08 readiness sweep — before the existing-vote lookup at line 2207). Calling it unconditionally at this single point, before branching on new-vote/reactivate-withdrawn-vote/idempotent-no-op, correctly covers all three `castVote` outcomes with one call, exactly mirroring how `subscribeToAccount` places its flip independent of its own branches. The return value is not needed here (`castVote` returns the vote row, not the profile), so the call is fire-and-forget (`await` only, no reassignment).
+  - [x] 2.2 Extend `apps/backend/src/schema/account-votes.test.ts` with new cases: (a) casting a first-ever vote for a profile seeded with `isVerifiedForDiscovery: false` flips it to `true` (assert via a follow-up `db.select()` on `socialMediaAccountProfiles`); (b) casting a vote for an already-`isVerifiedForDiscovery: true` profile is a no-op on that column (regression guard); (c) withdrawing a vote (`withdrawVote`) and re-casting it re-confirms `true` (idempotent — exercises the "reactivate a soft-deleted vote" branch of `castVote`, lines ~2212-2220).
 
-- [ ] **Task 3 — Gate `rankedVoteAccounts` and `votedAccountSuggestions` on `isVerifiedForDiscovery` (AC: 1)**
-  - [ ] 3.1 `votedAccountSuggestions` (`resolvers.ts:2941-2998`): this resolver already `.innerJoin(socialMediaAccountProfiles, eq(accountVotes.accountId, socialMediaAccountProfiles.id))` inside its aggregate query. Push `eq(socialMediaAccountProfiles.isVerifiedForDiscovery, true)` into the existing `conditions` array (alongside `isNull(accountVotes.deletedAt)`) so it participates in the same `and(...conditions, ...profileConditions)` call — a one-line, already-joined addition.
-  - [ ] 3.2 `rankedVoteAccounts` (`resolvers.ts:2804-2891`): this resolver does NOT join `socialMediaAccountProfiles` in its aggregate query (`accountVotes`-only, both the `nearMe` and non-`nearMe` branches) — it fetches each ranked account's profile afterward, one row at a time, in the existing `for (const row of rows) { const [profile] = await db.select()...; if (profile) { ...push... } }` loop (lines 2876-2889; the `if (profile) {` guard is at line 2879). Change the loop's existing `if (profile) {` guard to `if (profile && profile.isVerifiedForDiscovery) {` — deliberately NOT restructuring this resolver to join profiles into the SQL aggregate (Gate 1 confirmed: this resolver is outside AD-17's scope, operates at trivial scale today, and already has this same per-row-refetch shape independent of this story — matching its existing style is lower-risk than a structural rework this story doesn't need).
-  - [ ] 3.3 Add a short code comment at `queryModeratorAccountProfiles` (`resolvers.ts`, moderator-only browse resolver) noting it is deliberately NOT gated on `isVerifiedForDiscovery` — moderators need full visibility into unverified rows, confirmed by Gate 1 — so a future reader doesn't "fix" this as an oversight.
-  - [ ] 3.4 Extend `account-votes.test.ts`: (a) a profile with `isVerifiedForDiscovery: false` that has an active vote is excluded from both `rankedVoteAccounts` and `votedAccountSuggestions` results (covers the known transitional gap — see Dev Notes — and any future edge case); (b) a profile with `isVerifiedForDiscovery: true` and an active vote appears normally in both (regression guard against the new filter over-excluding); (c) confirm `queryModeratorAccountProfiles` is unaffected (still returns a seeded `isVerifiedForDiscovery: false` profile) — one assertion, not a new test file.
+- [x] **Task 3 — Gate `rankedVoteAccounts` and `votedAccountSuggestions` on `isVerifiedForDiscovery` (AC: 1)**
+  - [x] 3.1 `votedAccountSuggestions` (`resolvers.ts:2941-2998`): this resolver already `.innerJoin(socialMediaAccountProfiles, eq(accountVotes.accountId, socialMediaAccountProfiles.id))` inside its aggregate query. Push `eq(socialMediaAccountProfiles.isVerifiedForDiscovery, true)` into the existing `conditions` array (alongside `isNull(accountVotes.deletedAt)`) so it participates in the same `and(...conditions, ...profileConditions)` call — a one-line, already-joined addition.
+  - [x] 3.2 `rankedVoteAccounts` (`resolvers.ts:2804-2891`): this resolver does NOT join `socialMediaAccountProfiles` in its aggregate query (`accountVotes`-only, both the `nearMe` and non-`nearMe` branches) — it fetches each ranked account's profile afterward, one row at a time, in the existing `for (const row of rows) { const [profile] = await db.select()...; if (profile) { ...push... } }` loop (lines 2876-2889; the `if (profile) {` guard is at line 2879). Change the loop's existing `if (profile) {` guard to `if (profile && profile.isVerifiedForDiscovery) {` — deliberately NOT restructuring this resolver to join profiles into the SQL aggregate (Gate 1 confirmed: this resolver is outside AD-17's scope, operates at trivial scale today, and already has this same per-row-refetch shape independent of this story — matching its existing style is lower-risk than a structural rework this story doesn't need).
+  - [x] 3.3 Add a short code comment at `queryModeratorAccountProfiles` (`resolvers.ts`, moderator-only browse resolver) noting it is deliberately NOT gated on `isVerifiedForDiscovery` — moderators need full visibility into unverified rows, confirmed by Gate 1 — so a future reader doesn't "fix" this as an oversight.
+  - [x] 3.4 Extend `account-votes.test.ts`: (a) a profile with `isVerifiedForDiscovery: false` that has an active vote is excluded from both `rankedVoteAccounts` and `votedAccountSuggestions` results (covers the known transitional gap — see Dev Notes — and any future edge case); (b) a profile with `isVerifiedForDiscovery: true` and an active vote appears normally in both (regression guard against the new filter over-excluding); (c) confirm `queryModeratorAccountProfiles` is unaffected (still returns a seeded `isVerifiedForDiscovery: false` profile) — one assertion, not a new test file.
 
-- [ ] **Task 4 — Confirm AC2/AC3 need no code change, by inspection (AC: 2, 3)**
-  - [ ] 4.1 Confirm (already done during story creation, re-confirm during dev) that Story 3.16's `subscribeToAccount` and Story 0.i6g's event/post-detail subscribe-toggle UI never call `rankedVoteAccounts`/`votedAccountSuggestions` — contextual/direct subscription is entirely unaffected by Task 3's read-side filters (AC2).
-  - [ ] 4.2 Confirm the `social_media_account_profiles.isVerifiedForDiscovery` column's DB-level default (`true`) is unchanged and no insert path besides `getOrCreateDiscoveredAccountProfile` (Story 3.14, untouched by this story) explicitly sets it `false` (AC3). No code change; record the confirmation in Dev Agent Record.
+- [x] **Task 4 — Confirm AC2/AC3 need no code change, by inspection (AC: 2, 3)**
+  - [x] 4.1 Confirm (already done during story creation, re-confirm during dev) that Story 3.16's `subscribeToAccount` and Story 0.i6g's event/post-detail subscribe-toggle UI never call `rankedVoteAccounts`/`votedAccountSuggestions` — contextual/direct subscription is entirely unaffected by Task 3's read-side filters (AC2).
+  - [x] 4.2 Confirm the `social_media_account_profiles.isVerifiedForDiscovery` column's DB-level default (`true`) is unchanged and no insert path besides `getOrCreateDiscoveredAccountProfile` (Story 3.14, untouched by this story) explicitly sets it `false` (AC3). No code change; record the confirmation in Dev Agent Record.
 
-- [ ] **Task 5 — Run targeted, package-scoped tests and lint (AC: 1, 2, 3)**
-  - [ ] 5.1 From `apps/backend`: `TZ=UTC NODE_ENV=test npx tsx --test --test-concurrency=1 "src/lib/accounts/verify-account-profile-for-discovery.test.ts" "src/lib/subscriptions/subscribe-to-account.test.ts" "src/schema/account-votes.test.ts"`.
-  - [ ] 5.2 `pnpm --filter backend build` (tsc) and `eslint` on every touched/new file only. Full `apps/backend` suite and repo-wide `pnpm test`/`pnpm lint` are deliberately out of scope for this targeted pass (per this session's explicit instruction) — leave for `bmad-dev-story`'s own Definition-of-Done gate.
+- [x] **Task 5 — Run targeted, package-scoped tests and lint (AC: 1, 2, 3)**
+  - [x] 5.1 From `apps/backend`: `TZ=UTC NODE_ENV=test npx tsx --test --test-concurrency=1 "src/lib/accounts/verify-account-profile-for-discovery.test.ts" "src/lib/subscriptions/subscribe-to-account.test.ts" "src/schema/account-votes.test.ts"`.
+  - [x] 5.2 `pnpm --filter backend build` (tsc) and `eslint` on every touched/new file only. Full `apps/backend` suite and repo-wide `pnpm test`/`pnpm lint` are deliberately out of scope for this targeted pass (per this session's explicit instruction) — leave for `bmad-dev-story`'s own Definition-of-Done gate.
 
 ## Dev Notes
 
@@ -138,19 +138,19 @@ Story 3.16 (`3-16-immediate-coauthor-publisher-subscribability.md`, status `revi
 
 ## Testing Requirements
 
-- [ ] Unit tests — not applicable in the `packages/domain` 100%-coverage sense (the new helper is DB-coupled and lives in `apps/backend`, which follows the testing-trophy convention below instead).
-- [ ] Integration tests — `apps/backend/src/lib/accounts/verify-account-profile-for-discovery.test.ts` (new, `node:test` against the real local Postgres DB), `apps/backend/src/lib/subscriptions/subscribe-to-account.test.ts` (existing cases re-verified unmodified), `apps/backend/src/schema/account-votes.test.ts` (extended with the new flip and read-filter cases) — all matching this codebase's existing no-DB-mocking integration convention.
-- [ ] E2E tests — not applicable; backend-only change with no new user-facing flow (the existing vote-list/subscribe-dialog UI is unmodified), per `project-context.md`'s testing-trophy guidance.
+- [x] Unit tests — not applicable in the `packages/domain` 100%-coverage sense (the new helper is DB-coupled and lives in `apps/backend`, which follows the testing-trophy convention below instead).
+- [x] Integration tests — `apps/backend/src/lib/accounts/verify-account-profile-for-discovery.test.ts` (new, `node:test` against the real local Postgres DB), `apps/backend/src/lib/subscriptions/subscribe-to-account.test.ts` (existing cases re-verified unmodified), `apps/backend/src/schema/account-votes.test.ts` (extended with the new flip and read-filter cases) — all matching this codebase's existing no-DB-mocking integration convention.
+- [x] E2E tests — not applicable; backend-only change with no new user-facing flow (the existing vote-list/subscribe-dialog UI is unmodified), per `project-context.md`'s testing-trophy guidance.
 
 ## Deliverables Checklist
 
-- [ ] `verifyAccountProfileForDiscovery` helper created in `apps/backend/src/lib/accounts/`, with its own tests.
-- [ ] `subscribeToAccount` refactored to call the shared helper (no behavior change; existing tests pass unmodified).
-- [ ] `castVote` flips `isVerifiedForDiscovery` `false → true` via the same shared helper.
-- [ ] `rankedVoteAccounts` and `votedAccountSuggestions` exclude any `isVerifiedForDiscovery: false` profile; `queryModeratorAccountProfiles` explicitly left ungated, with a comment explaining why.
-- [ ] All new/extended test cases green; no regression in `subscribe-to-account.test.ts`'s or `account-votes.test.ts`'s pre-existing cases.
-- [ ] `pnpm --filter backend build` (tsc) and lint on all touched/new files clean.
-- [ ] No database migration added.
+- [x] `verifyAccountProfileForDiscovery` helper created in `apps/backend/src/lib/accounts/`, with its own tests.
+- [x] `subscribeToAccount` refactored to call the shared helper (no behavior change; existing tests pass unmodified).
+- [x] `castVote` flips `isVerifiedForDiscovery` `false → true` via the same shared helper.
+- [x] `rankedVoteAccounts` and `votedAccountSuggestions` exclude any `isVerifiedForDiscovery: false` profile; `queryModeratorAccountProfiles` explicitly left ungated, with a comment explaining why.
+- [x] All new/extended test cases green; no regression in `subscribe-to-account.test.ts`'s or `account-votes.test.ts`'s pre-existing cases.
+- [x] `pnpm --filter backend build` (tsc) and lint on all touched/new files clean.
+- [x] No database migration added.
 
 ## Out of Scope
 
@@ -164,33 +164,47 @@ Story 3.16 (`3-16-immediate-coauthor-publisher-subscribability.md`, status `revi
 
 ## Definition of Done
 
-- [ ] AC1-AC3 satisfied exactly as specified above.
-- [ ] All Task 1.2/2.2/3.4 tests passing, plus every pre-existing test in `subscribe-to-account.test.ts` and `account-votes.test.ts` (no regression).
-- [ ] `pnpm --filter backend build` (tsc) clean; lint clean on all touched/new files.
-- [ ] No file outside the File Change Plan touched; no migration added; no `packages/domain`/`packages/database` schema file modified.
+- [x] AC1-AC3 satisfied exactly as specified above.
+- [x] All Task 1.2/2.2/3.4 tests passing, plus every pre-existing test in `subscribe-to-account.test.ts` and `account-votes.test.ts` (no regression).
+- [x] `pnpm --filter backend build` (tsc) clean; lint clean on all touched/new files.
+- [x] No file outside the File Change Plan touched; no migration added; no `packages/domain`/`packages/database` schema file modified.
 
 ## Completion Status
 
-- [ ] Not yet implemented — story is `ready-for-dev`; awaiting a `bmad-dev-story` pass.
+- [x] Implemented — all tasks/subtasks complete, all ACs satisfied, story is `review`.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-_Not yet started — to be filled in by `bmad-dev-story`._
+Claude Sonnet 5 (`claude-sonnet-5`), via `bmad-dev-story`.
 
 ### Debug Log References
 
-_Not yet started._
+- Pre-coding: checked Story 3.16 (direct predecessor, same column/flip idiom) status in `sprint-status.yaml` — found `review`, not `done`. Per this project's dev-story customization rule, paused and asked the user how to proceed; user chose "proceed with the gap" (3.16's code is already merged into the working tree, confirmed by this story's own line-number citations matching the actual file). Proceeded.
+- All line numbers cited in the story (`subscribe-to-account.ts:164-178`, `resolvers.ts` `castVote`/`rankedVoteAccounts`/`votedAccountSuggestions`/`queryModeratorAccountProfiles`) were re-confirmed against the actual working tree before editing — all matched exactly as documented.
+- `@festgrid/database`, `@festgrid/graphql-select`, and `@festgrid/domain` workspace packages needed a local `tsc` build (their `dist/` was missing/stale) before `apps/backend`'s tests could resolve them — ran `pnpm --filter @festgrid/database build`, `pnpm --filter @festgrid/graphql-select build`, `pnpm --filter @festgrid/domain build`.
+- Task 2.2/3.4's new test cases in `account-votes.test.ts` are self-contained (seed their own two local `users` rows, `demandUserA`/`demandUserB`) rather than depending on the file's own pre-existing `setup` subtest's `testUser`/`anotherUser` — the local dev DB initially had 0 rows in `users`, which failed that pre-existing setup subtest's `assert.ok(seededUsers.length >= 2, ...)`. This is a pre-existing environment/seed-data gap in the file's own unmodified setup code, not something this story's changes caused; reseeding the DB was out of scope per this run's explicit "do not run DDL or reseed the DB" instruction. On the final full run, the pre-existing `setup`/`castVote...`/`withdrawVote...` subtests also passed, because by then this story's own newly-seeded test users satisfied that `>= 2` check as a side effect — all 25 cases in `account-votes.test.ts` pass green on the final run.
+- `pnpm build`/`pnpm lint` repo-wide were blocked by this session's orchestrator guardrail ("the orchestrator does ONE whole-repo lint/build/test pass at the very end") — used `pnpm --filter backend build` and `pnpm --filter backend lint` instead, both clean (0 errors; `lint` reports only pre-existing `@typescript-eslint/no-explicit-any`/`turbo/no-undeclared-env-vars` warnings already present across the package, none introduced by this story's files).
 
 ### Completion Notes List
 
-_Not yet started._
+- Task 1: Created `verifyAccountProfileForDiscovery(profileId)` in `apps/backend/src/lib/accounts/verify-account-profile-for-discovery.ts`, relocating the exact `UPDATE ... WHERE id = x AND isVerifiedForDiscovery = false` idiom previously inline in `subscribe-to-account.ts`. Added 3 new unit-style tests (`verify-account-profile-for-discovery.test.ts`: flip, already-true no-op, non-existent id). Refactored `subscribe-to-account.ts`'s step "1c" to call the shared helper — pure relocation, confirmed by `subscribe-to-account.test.ts`'s pre-existing cases (i)/(j) passing unmodified (14/14 tests pass in that file).
+- Task 2: Wired `verifyAccountProfileForDiscovery(accountId)` into `castVote` (`resolvers.ts`), called once unconditionally before the new-vote/reactivate/no-op branches, covering all three outcomes with one call. Added 3 new cases to `account-votes.test.ts` (2.2a/b/c): first-vote flip, already-verified no-op, withdraw-then-recast re-confirmation.
+- Task 3: Added `eq(socialMediaAccountProfiles.isVerifiedForDiscovery, true)` to `votedAccountSuggestions`'s existing joined `conditions` array (one-line addition); changed `rankedVoteAccounts`'s per-row loop guard from `if (profile)` to `if (profile && profile.isVerifiedForDiscovery)` (no structural rework, matching the resolver's existing per-row-refetch shape per Gate 1's explicit guidance). Added an explanatory comment at `queryModeratorAccountProfiles` noting it is deliberately ungated. Added 3 new cases to `account-votes.test.ts` (3.4a/b/c): excluded-when-false (both surfaces), included-when-true (both surfaces, regression guard), and moderator view unaffected.
+- Task 4: Confirmed by inspection (no code change) — `subscribeToAccount` and the Story 0.i6g subscribe-toggle UI never call `rankedVoteAccounts`/`votedAccountSuggestions` (grep across `apps/backend/src/lib/subscriptions/` and `apps/web/src/components/`/`apps/web/src/app/` found zero such calls outside the two gated resolvers' own frontend consumers, `RankedVoteList.tsx`/`CastVoteForm.tsx`/`subscribe-account-dialog.tsx`, which is expected — AC2). Confirmed the `isVerifiedForDiscovery` column's DB-level default is still `true` (`packages/database/schema.ts:196`) and the only insert path setting it `false` is `get-or-create-discovered-account-profile.ts` (AC3).
+- Task 5: Ran the three targeted test files (25/25 pass on the final run — see Debug Log for the one pre-existing/unrelated seed-data wrinkle along the way); `pnpm --filter backend build` (tsc) clean; `eslint` on all 5 touched/new files clean (0 errors).
+- AC1/AC2/AC3 all satisfied exactly as specified. No database migration added (confirmed: `git status` shows no new file under `packages/database/migrations/`). No file outside the story's own File Change Plan touched.
 
 ### File List
 
-_Not yet started._
+- `apps/backend/src/lib/accounts/verify-account-profile-for-discovery.ts` (new)
+- `apps/backend/src/lib/accounts/verify-account-profile-for-discovery.test.ts` (new)
+- `apps/backend/src/lib/subscriptions/subscribe-to-account.ts` (modified)
+- `apps/backend/src/schema/resolvers.ts` (modified)
+- `apps/backend/src/schema/account-votes.test.ts` (modified)
 
 ## Change Log
 
 - 2026-10-07 — Story created via `bmad-create-story` (FIND-022 CAP-5). Gates 1/2/3 run fresh (epic-3-readiness.md predates this story, confirmed). Two design decisions resolved directly by the user before finalizing: (1) extract a shared `verifyAccountProfileForDiscovery` helper used by both `castVote` and a refactored `subscribeToAccount`; (2) defer the pre-existing-vote-rows backfill to a separate follow-up, documented as an accepted transitional gap. No new migration.
+- 2026-10-08 — Implemented via `bmad-dev-story`: extracted `verifyAccountProfileForDiscovery` shared helper (Task 1), wired the vote-event flip into `castVote` (Task 2), gated `rankedVoteAccounts`/`votedAccountSuggestions` on `isVerifiedForDiscovery` with `queryModeratorAccountProfiles` explicitly left ungated (Task 3), confirmed AC2/AC3 need no code change (Task 4). All 25 targeted tests pass; `pnpm --filter backend build`/`lint` clean. Status moved `in-progress` -> `review`.

@@ -43,6 +43,7 @@ interface CorrectionDialogProps {
       location?: string | null;
       ticketPrice?: string | null;
     }>;
+    links?: { url: string; label?: string | null }[] | null;
   };
 }
 
@@ -95,6 +96,7 @@ export function CorrectionDialog({ isOpen, onClose, event }: CorrectionDialogPro
           },
         ]
       : [],
+    links: event.links?.map((l) => ({ url: l.url, label: l.label ?? undefined })) ?? [],
   };
 
   const [formKey, setFormKey] = useState(0);
@@ -163,6 +165,12 @@ export function CorrectionDialog({ isOpen, onClose, event }: CorrectionDialogPro
     guardianPermissionCheckboxLabel:
       t("guardianPermissionCheckboxLabel") ||
       "I confirm I have parent/guardian permission if this includes a minor",
+    linksLabel: t("linksLabel") || "Links",
+    addLinkButtonLabel: t("addLinkButtonLabel") || "Add link",
+    maxLinksReachedLabel: t("maxLinksReachedLabel") || "Maximum of 10 links reached",
+    linkUrlLabel: (n: number) => t("linkUrlLabel", { number: n }) || `Link ${n} URL`,
+    linkLabelLabel: (n: number) => t("linkLabelLabel", { number: n }) || `Link ${n} label (optional)`,
+    removeLinkLabel: (n: number) => t("removeLinkLabel", { number: n }) || `Remove link ${n}`,
   };
 
   const handleSubmit = async (data: any, guardianPermissionConfirmed: boolean) => {
@@ -197,6 +205,7 @@ export function CorrectionDialog({ isOpen, onClose, event }: CorrectionDialogPro
           location: s.location || undefined,
           ticketPrice: s.ticketPrice || undefined,
         })),
+        links: data.links,
       };
 
       const response = await submitCorrection({
@@ -244,6 +253,9 @@ export function CorrectionDialog({ isOpen, onClose, event }: CorrectionDialogPro
                 contactInfo: proposedData.contactInfo || null,
                 description: proposedData.description || null,
                 schedules: updatedSchedules,
+                ...(proposedData.links !== undefined && {
+                  links: proposedData.links.length > 0 ? proposedData.links : null,
+                }),
               },
             };
           }
@@ -297,6 +309,9 @@ export function CorrectionDialog({ isOpen, onClose, event }: CorrectionDialogPro
                 contactInfo: proposedData.contactInfo || null,
                 description: proposedData.description || null,
                 schedules: updatedSchedules,
+                ...(proposedData.links !== undefined && {
+                  links: proposedData.links.length > 0 ? proposedData.links : null,
+                }),
               },
             };
           }

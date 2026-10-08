@@ -1,5 +1,5 @@
 # generated: 2026-07-29T02:58:30Z
-# last_updated: 2026-10-06T00:00:00Z
+# last_updated: 2026-10-08T00:00:00Z
 # project: festgrid
 # project_key: NOKEY
 # tracking_system: file-system
@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-07T12:47:31Z
+last_updated: 2026-10-08T08:05:08Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -940,7 +940,7 @@ development_status:
   # promoted, no new child carved -- IDEA-037 is itself a leaf row). Full
   # epics.md section added (Story 1.6g), positioned as the next lettered
   # suffix in the 1.6 family, immediately before Story 1.6.
-  1-6g-event-detail-hashtags: ready-for-dev
+  1-6g-event-detail-hashtags: review
   1-6-view-event-details: review
   1-7a-build-the-reusable-blockingloader-component: review
   1-7-user-signup-and-login-with-google: review
@@ -2044,9 +2044,9 @@ development_status:
   3-14-deduplicated-provenance-tracked-subscribable-profiles: review
   3-15-post-account-association-table-lossless-migration: review
   3-16-immediate-coauthor-publisher-subscribability: review
-  3-17-demand-gated-discovery-for-scrape-discovered-profiles: ready-for-dev
+  3-17-demand-gated-discovery-for-scrape-discovered-profiles: review
   3-18-union-of-associations-account-filtering: review
-  3-19-sanitized-subscription-toggle-analytics: ready-for-dev
+  3-19-sanitized-subscription-toggle-analytics: review
   # added 2026-10-04 via bmad-correct-course (CC-028): blur faces before images are sent to the AI,
   # configurable by BLUR_FACES_BEFORE_AI (AD-28 Rule 10, AD-29 Rule 7, FR115).
   3-20-blur-faces-before-images-are-sent-to-the-ai-behind-blur-faces-before-ai: done
@@ -2371,12 +2371,12 @@ development_status:
   # Added 2026-10-06 via bmad-create-story from backlog.yaml IDEA-034 (carved
   # 2026-09-15 from IDEA-032 S6). Gate 1/2/3 run fresh (epic-4 readiness sweep
   # predates this row): no gap on any gate. See epics.md Story 4.9.
-  4-9-moderator-accounts-tab-location-info-and-edit-clear-actions: ready-for-dev
+  4-9-moderator-accounts-tab-location-info-and-edit-clear-actions: review
   # Added 2026-10-07 via bmad-create-story from backlog.yaml IDEA-036 (carved
   # 2026-09-16 from IDEA-012). Gate 2 (Freya) run fresh for the new repeatable
   # url+label field pattern; Gate 1/3 not rerun (no new service/entity/infra).
   # See epics.md Story 4.10.
-  4-10-add-manual-link-editing-to-the-correct-data-dialog: ready-for-dev
+  4-10-add-manual-link-editing-to-the-correct-data-dialog: review
   epic-4-retrospective: optional
   epic-5: in-progress
   5-1a-build-the-manual-post-selection-and-extraction-graphql-api-layer: review

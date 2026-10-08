@@ -104,7 +104,19 @@
     "toggleErrorToast": "Failed to update image storage opt-in status for {name}",
     "errorHeadline": "Something went wrong",
     "errorTryAgain": "Try again",
-    "unknownError": "An unknown error occurred"
+    "unknownError": "An unknown error occurred",
+    "setDefaultLocationLabel": "Set Default Location",
+    "editDefaultLocationLabel": "Edit Default Location",
+    "clearDefaultLocationLabel": "Clear location",
+    "pendingReviewBadgeLabel": "Pending Review",
+    "clearLocationConfirmTitle": "Clear location",
+    "clearLocationConfirmDescription": "This will remove the default location for this account. The moderator or scraper will need to set it again when a new location is known.",
+    "clearLocationConfirmLabel": "Clear location",
+    "clearLocationCancelLabel": "Cancel",
+    "defaultLocationSetToast": "Default location set successfully",
+    "defaultLocationEditedToast": "Default location edited successfully",
+    "defaultLocationClearedToast": "Default location cleared successfully",
+    "defaultLocationClearErrorToast": "Failed to clear default location"
   },
   "AccountPage": {
     "errorState": "Failed to load events. Please try again later.",
@@ -194,6 +206,7 @@
     "yesterday": "Yesterday",
     "categoriesAndTypesAriaLabel": "Event categories and types",
     "coauthorsListAriaLabel": "Co-authors",
+    "hashtagsListAriaLabel": "Hashtags",
     "sourcePostsPrimaryLabel": "Primary",
     "relatedEventsGroupLabel": "Events from {account}",
     "relatedEventsGroupTitleLabel": "Events from {title}",
@@ -245,7 +258,14 @@
     "endDateBeforeStartDateError": "Event end date must not be earlier than start date",
     "endTimeBeforeStartTimeError": "Event end time must be later than start time",
     "guardianPermissionCheckboxLabel": "I confirm I have parent/guardian permission if this includes a minor",
-    "awaitingVerificationToast": "Correction saved, but performer names were withheld pending guardian verification."
+    "awaitingVerificationToast": "Correction saved, but performer names were withheld pending guardian verification.",
+    "linksLabel": "Links",
+    "linkUrlLabel": "Link {number} URL",
+    "linkLabelLabel": "Link {number} label (optional)",
+    "removeLinkLabel": "Remove link {number}",
+    "addLinkButtonLabel": "Add link",
+    "maxLinksReachedLabel": "Maximum of 10 links reached",
+    "invalidLinkUrlError": "Link URL must be a valid web address"
   },
   "FilterHub": {
     "typeLabel": "Type",

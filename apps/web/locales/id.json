@@ -104,7 +104,19 @@
     "toggleErrorToast": "Gagal memperbarui status persetujuan penyimpanan gambar untuk {name}",
     "errorHeadline": "Terjadi kesalahan",
     "errorTryAgain": "Coba lagi",
-    "unknownError": "Terjadi kesalahan yang tidak diketahui"
+    "unknownError": "Terjadi kesalahan yang tidak diketahui",
+    "setDefaultLocationLabel": "Atur Lokasi Utama",
+    "editDefaultLocationLabel": "Ubah Lokasi Utama",
+    "clearDefaultLocationLabel": "Hapus lokasi",
+    "pendingReviewBadgeLabel": "Menunggu Tinjauan",
+    "clearLocationConfirmTitle": "Hapus lokasi",
+    "clearLocationConfirmDescription": "Tindakan ini akan menghapus lokasi utama untuk akun ini. Moderator atau scraper perlu mengaturnya kembali saat lokasi baru diketahui.",
+    "clearLocationConfirmLabel": "Hapus lokasi",
+    "clearLocationCancelLabel": "Batal",
+    "defaultLocationSetToast": "Lokasi utama berhasil diatur",
+    "defaultLocationEditedToast": "Lokasi utama berhasil diubah",
+    "defaultLocationClearedToast": "Lokasi utama berhasil dihapus",
+    "defaultLocationClearErrorToast": "Gagal menghapus lokasi utama"
   },
   "AccountPage": {
     "errorState": "Gagal memuat acara. Silakan coba lagi nanti.",
@@ -194,6 +206,7 @@
     "yesterday": "Kemarin",
     "categoriesAndTypesAriaLabel": "Kategori dan jenis acara",
     "coauthorsListAriaLabel": "Rekan Penulis",
+    "hashtagsListAriaLabel": "Tagar",
     "sourcePostsPrimaryLabel": "Utama",
     "relatedEventsGroupLabel": "Acara dari {account}",
     "relatedEventsGroupTitleLabel": "Acara dari {title}",
@@ -245,7 +258,14 @@
     "endDateBeforeStartDateError": "Tanggal selesai acara tidak boleh lebih awal dari tanggal mulai",
     "endTimeBeforeStartTimeError": "Waktu selesai acara harus lebih lambat dari waktu mulai",
     "guardianPermissionCheckboxLabel": "Saya menyatakan memiliki izin orang tua/wali jika ini melibatkan anak di bawah umur",
-    "awaitingVerificationToast": "Koreksi telah disimpan, tetapi nama pengisi acara ditahan sementara menunggu verifikasi izin orang tua/wali."
+    "awaitingVerificationToast": "Koreksi telah disimpan, tetapi nama pengisi acara ditahan sementara menunggu verifikasi izin orang tua/wali.",
+    "linksLabel": "Tautan",
+    "linkUrlLabel": "URL Tautan {number}",
+    "linkLabelLabel": "Label Tautan {number} (opsional)",
+    "removeLinkLabel": "Hapus tautan {number}",
+    "addLinkButtonLabel": "Tambah tautan",
+    "maxLinksReachedLabel": "Maksimum 10 tautan telah tercapai",
+    "invalidLinkUrlError": "URL tautan harus berupa alamat web yang valid"
   },
   "FilterHub": {
     "typeLabel": "Tipe",

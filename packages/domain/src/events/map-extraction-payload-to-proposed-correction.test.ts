@@ -86,3 +86,38 @@ test('mapExtractionPayloadToProposedCorrection - discards contactInfo when hasPr
 
   assert.equal(result.contactInfo, undefined);
 });
+
+// Story 4.10 (AC6) — payload.links was previously silently dropped; now sanitized and mapped.
+test('mapExtractionPayloadToProposedCorrection - sanitizes and maps payload.links', () => {
+  const payload: GeminiEventPayload = {
+    eventName: 'Event With Links',
+    types: ['OTHER'],
+    categories: ['OTHER'],
+    location: 'Somewhere',
+    confidenceScore: 0.9,
+    schedules: [],
+    links: [
+      { url: 'https://tickets.example.com', label: '  Tickets  ' },
+      { url: 'javascript:alert(1)' },
+    ],
+  };
+
+  const result = mapExtractionPayloadToProposedCorrection(payload);
+
+  assert.deepEqual(result.links, [{ url: 'https://tickets.example.com', label: 'Tickets' }]);
+});
+
+test('mapExtractionPayloadToProposedCorrection - omits links when payload has none', () => {
+  const payload: GeminiEventPayload = {
+    eventName: 'Event Without Links',
+    types: ['OTHER'],
+    categories: ['OTHER'],
+    location: 'Somewhere',
+    confidenceScore: 0.9,
+    schedules: [],
+  };
+
+  const result = mapExtractionPayloadToProposedCorrection(payload);
+
+  assert.equal(result.links, undefined);
+});

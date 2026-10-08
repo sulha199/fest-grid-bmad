@@ -13,6 +13,11 @@
  *      (40/45/50/60, bare or `z-[N]`) instead of its named token (AC1).
  *   2. A hardcoded `'z-overlay-modal'` literal instead of importing `OVERLAY_MODAL_Z`,
  *      outside the one file that is allowed to define it (AC2, AC3).
+ *   3. A file that renders a `@radix-ui/*` `Portal` (every such portal is an overlay --
+ *      dialog/sheet/popover/select/menu -- per AD-33 Rule 3's own enumeration) without also
+ *      importing `OVERLAY_MODAL_Z` (FIND-081: a fifth Radix Portal wrapper,
+ *      `confirm-action-dialog.tsx`, was missed by Rule 3's four-wrapper list and Assertions 1/2
+ *      above cannot catch an *absent* tier, only a wrong or inlined one).
  *
  * `z-0`/`z-10`/`z-20`/`z-30` (Local tier) are deliberately never scanned (AC4) — AD-33 Rule 4
  * states there's no reliable static check for "does this component's root carry `isolate`,"
@@ -109,6 +114,15 @@ const RAW_TIER_VALUE_PATTERN = /(?<![\w-])z-(?:40|45|50|60|\[40\]|\[45\]|\[50\]|
 /** Hardcoded `'z-overlay-modal'` string literal, either quote style. */
 const OVERLAY_MODAL_LITERAL_PATTERN = /['"]z-overlay-modal['"]/g;
 
+/** A `from '@radix-ui/...'` / `from "@radix-ui/..."` import (any quote style). */
+const RADIX_IMPORT_PATTERN = /from\s+['"]@radix-ui\//;
+
+/** Use of a Radix primitive's `Portal` (e.g. `Dialog.Portal`, `SheetPrimitive.Portal`). */
+const RADIX_PORTAL_USAGE_PATTERN = /\.Portal\b/;
+
+/** An `OVERLAY_MODAL_Z` import or reference anywhere in the file. */
+const OVERLAY_MODAL_Z_REFERENCE_PATTERN = /OVERLAY_MODAL_Z/;
+
 /**
  * Blanks out comment content (block `/* ... *\/` and line `// ...`) before scanning, so a
  * comment that merely *mentions* a tier-value class or the overlay-modal literal in prose
@@ -166,6 +180,26 @@ describe('AD-33 z-index layering ratchet', () => {
       hits,
       `Found hardcoded 'z-overlay-modal' literal(s). Import OVERLAY_MODAL_Z from ` +
         `packages/ui/src/core/overlay-z.ts instead of inlining the class name:\n${formatHits(hits)}`
+    ).toHaveLength(0);
+  });
+
+  it('every file using a Radix Portal imports OVERLAY_MODAL_Z (FIND-081)', () => {
+    const files = collectFiles().filter((file) => file !== OVERLAY_Z_DEFINITION_FILE);
+    const offenders: string[] = [];
+
+    for (const file of files) {
+      const text = stripComments(fs.readFileSync(file, 'utf8'));
+      const usesRadixPortal = RADIX_IMPORT_PATTERN.test(text) && RADIX_PORTAL_USAGE_PATTERN.test(text);
+      if (usesRadixPortal && !OVERLAY_MODAL_Z_REFERENCE_PATTERN.test(text)) {
+        offenders.push(path.relative(process.cwd(), file));
+      }
+    }
+
+    expect(
+      offenders,
+      `Found Radix Portal-using file(s) with no OVERLAY_MODAL_Z import. Every dialog/sheet/` +
+        `popover/select/menu built on a Radix Portal must use the shared AD-33 tier token:\n` +
+        offenders.map((f) => `  ${f}`).join('\n')
     ).toHaveLength(0);
   });
 });

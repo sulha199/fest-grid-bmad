@@ -56,6 +56,9 @@ content = content.replace(/export type SetAccountDefaultLocationInput = \{\r?\n\
 // Replace duplicate ReportSystemErrorInput
 content = content.replace(/export type ReportSystemErrorInput = \{\r?\n\s+context\?\: string[\s\S]*?\};\r?\n/g, '');
 
+// Replace duplicate EventLinkInput (Story 4.10: operations-plugin re-declaration of the schema input above)
+content = content.replace(/export type EventLinkInput = \{\r?\n\s+label\?\: string \| null \| undefined[\s\S]*?\};\r?\n/g, '');
+
 // Replace duplicate CorrectionSource and CorrectionStatus
 content = content.replace(/export type CorrectionSource =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type CorrectionStatus =[\s\S]*?;\r?\n/g, '');

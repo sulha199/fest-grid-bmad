@@ -20,6 +20,36 @@ import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext
 import { EventPreviewCard } from "./event-preview-card"
 import { getPlatformSlug } from "@festgrid/domain/scraper"
 import { mapDaysOfWeekToDomain } from "@/lib/day-of-week-mapping"
+import { ClientError } from "graphql-request"
+
+// Story 3.19 (AC1-4) -- shared sanitized payload shape for both subscribe/unsubscribe toggle
+// instances in this file. Deliberately local/un-exported (see Dev Notes' Gate 2/3 findings --
+// no second consumer exists yet): every posthog.capture(...) call for these two event names is
+// built from one of these two interfaces' named fields, never a spread of a larger
+// account/coauthor/subscription object, which is what makes AC2's "even accidentally via a
+// spread" guarantee hold at the type level.
+type SubscriptionToggleAction = "subscribe" | "unsubscribe"
+type SubscriptionToggleSource = "event_detail_source_account" | "event_detail_coauthor"
+interface SubscriptionToggleSucceededPayload {
+  action: SubscriptionToggleAction
+  platform: string
+  source: SubscriptionToggleSource
+}
+interface SubscriptionToggleFailedPayload extends SubscriptionToggleSucceededPayload {
+  errorCode: string
+}
+
+// Story 3.19 (AC4) -- mirrors the established ClientError/extensions.code extraction pattern
+// already used in subscribe-account-dialog.tsx/report-dialog.tsx/onboarding-subscribe-step.tsx.
+// Falls back to the literal string "unknown" for any non-ClientError failure shape (e.g. a
+// network-level failure with no GraphQL response), matching AppShellWrapper.tsx's existing
+// identical fallback convention. Never returns the raw err.message.
+function getSanitizedSubscriptionErrorCode(err: unknown): string {
+  if (err instanceof ClientError) {
+    return String(err.response?.errors?.[0]?.extensions?.code ?? "unknown")
+  }
+  return "unknown"
+}
 
 interface EventDetailWrapperProps {
   slug: string
@@ -331,16 +361,25 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
   })
 
   const { mutate: subscribeToAccount, isPending: isSubscribingToAccount } = useSubscribeToAccountMutation(graphqlClient, {
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["getMySubscriptions"] })
       setLiveMessage(t("subscribeSuccessAnnouncement"))
-      posthog.capture("account_subscribed", {
-        eventId,
-        accountId: data?.eventBySlug?.sourceSocialMediaAccountProfile?.accountId,
-      })
+      const payload: SubscriptionToggleSucceededPayload = {
+        action: "subscribe",
+        platform: variables.input.platform,
+        source: "event_detail_source_account",
+      }
+      posthog.capture("subscription_toggle_succeeded", payload)
     },
-    onError: () => {
+    onError: (err, variables) => {
       setLiveMessage(t("subscribeErrorAnnouncement"))
+      const payload: SubscriptionToggleFailedPayload = {
+        action: "subscribe",
+        platform: variables.input.platform,
+        source: "event_detail_source_account",
+        errorCode: getSanitizedSubscriptionErrorCode(err),
+      }
+      posthog.capture("subscription_toggle_failed", payload)
     }
   })
 
@@ -348,41 +387,91 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["getMySubscriptions"] })
       setLiveMessage(t("unsubscribeSuccessAnnouncement"))
-      posthog.capture("account_unsubscribed", {
-        eventId,
-        accountId: data?.eventBySlug?.sourceSocialMediaAccountProfile?.accountId,
-      })
+      const payload: SubscriptionToggleSucceededPayload = {
+        action: "unsubscribe",
+        platform: data?.eventBySlug?.sourceSocialMediaAccountProfile?.platform ?? "",
+        source: "event_detail_source_account",
+      }
+      posthog.capture("subscription_toggle_succeeded", payload)
     },
-    onError: () => {
+    onError: (err) => {
       setLiveMessage(t("unsubscribeErrorAnnouncement"))
+      const payload: SubscriptionToggleFailedPayload = {
+        action: "unsubscribe",
+        platform: data?.eventBySlug?.sourceSocialMediaAccountProfile?.platform ?? "",
+        source: "event_detail_source_account",
+        errorCode: getSanitizedSubscriptionErrorCode(err),
+      }
+      posthog.capture("subscription_toggle_failed", payload)
     }
   })
 
   // Story 0.i6g (AC5, AC6, AC8, AC9) — a second, distinct mutation pair for coauthor toggles.
   // Deliberately does not touch/reuse subscribeToAccount/unsubscribeFromAccount above, to keep
   // that already-shipped, already-tested single-source-account code path completely unchanged.
-  // Confirm-then-refetch only (no onMutate optimistic flip) and no posthog.capture call (AC9) —
-  // all analytics for this toggle are Story 3.19's scope.
+  // Confirm-then-refetch only (no onMutate optimistic flip). Story 3.19 (AC1, AC6) adds the
+  // sanitized subscription_toggle_succeeded/failed analytics this pair previously emitted none of.
   const { mutate: subscribeToCoauthor } = useSubscribeToAccountMutation(graphqlClient, {
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["getMySubscriptions"] })
       setLiveMessage(t("subscribeSuccessAnnouncement"))
+      const payload: SubscriptionToggleSucceededPayload = {
+        action: "subscribe",
+        platform: variables.input.platform,
+        source: "event_detail_coauthor",
+      }
+      posthog.capture("subscription_toggle_succeeded", payload)
     },
-    onError: () => {
+    onError: (err, variables) => {
       setLiveMessage(t("subscribeErrorAnnouncement"))
+      const payload: SubscriptionToggleFailedPayload = {
+        action: "subscribe",
+        // From this mutation's own variables, not shared pending state: another coauthor toggle
+        // may be in flight and would otherwise overwrite pendingCoauthorAccountId (AC6).
+        platform: variables.input.platform,
+        source: "event_detail_coauthor",
+        errorCode: getSanitizedSubscriptionErrorCode(err),
+      }
+      posthog.capture("subscription_toggle_failed", payload)
     },
     onSettled: () => {
       setPendingCoauthorAccountId(null)
     },
   })
 
+  // The remove mutation's variables carry only the subscription id; resolve the platform from it
+  // (not from shared pending state, which a second in-flight coauthor toggle can overwrite).
+  const platformForSubscriptionId = (id: string | number) => {
+    const subscription = subscriptionsData?.mySubscriptions?.find((s) => String(s.id) === String(id))
+    if (!subscription) return ""
+    return (
+      data?.eventBySlug?.coauthors?.find((c) => c.accountId === subscription.account.accountId)?.platform ??
+      subscription.account.platform ??
+      ""
+    )
+  }
+
   const { mutate: unsubscribeFromCoauthor } = useRemoveSubscriptionMutation(graphqlClient, {
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      const platform = platformForSubscriptionId(variables.id)
       queryClient.invalidateQueries({ queryKey: ["getMySubscriptions"] })
       setLiveMessage(t("unsubscribeSuccessAnnouncement"))
+      const payload: SubscriptionToggleSucceededPayload = {
+        action: "unsubscribe",
+        platform,
+        source: "event_detail_coauthor",
+      }
+      posthog.capture("subscription_toggle_succeeded", payload)
     },
-    onError: () => {
+    onError: (err, variables) => {
       setLiveMessage(t("unsubscribeErrorAnnouncement"))
+      const payload: SubscriptionToggleFailedPayload = {
+        action: "unsubscribe",
+        platform: platformForSubscriptionId(variables.id),
+        source: "event_detail_coauthor",
+        errorCode: getSanitizedSubscriptionErrorCode(err),
+      }
+      posthog.capture("subscription_toggle_failed", payload)
     },
     onSettled: () => {
       setPendingCoauthorAccountId(null)
@@ -777,6 +866,9 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
         },
         onTypeClick: (value: string) => {
           router.push(`/?types=${encodeURIComponent(value)}`)
+        },
+        onHashtagClick: (hashtag: string) => {
+          router.push(`/?q=${encodeURIComponent('#' + hashtag)}`)
         },
         // Moderator-only: the timezone is inferred at ingestion (schedule location, then the
         // account's timezone); a still-unresolved schedule is a data issue for moderators to fix,

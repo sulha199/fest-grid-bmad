@@ -4,8 +4,8 @@ mutation removeSubscription($id: ID!, $action: SoftDeleteAction!) {
   }
 }
 
-mutation setAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!) {
-  setAccountDefaultLocation(accountId: $accountId, input: $input) {
+mutation setAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!, $asModeratorCorrection: Boolean) {
+  setAccountDefaultLocation(accountId: $accountId, input: $input, asModeratorCorrection: $asModeratorCorrection) {
     id
     defaultLocation {
       coordinates {

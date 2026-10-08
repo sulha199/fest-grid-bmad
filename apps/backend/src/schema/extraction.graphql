@@ -29,6 +29,7 @@ type ProposedEventCorrectionData {
   contactInfo: String
   description: String
   schedules: [ProposedScheduleCorrectionData!]!
+  links: [EventLink!]
 }
 
 # Story 4.2b -- the mutation no longer returns the extraction itself. After its synchronous

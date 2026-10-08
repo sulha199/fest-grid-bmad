@@ -152,4 +152,232 @@ test('account votes resolvers integration', async (t) => {
     const entry = resultRanked.data.rankedVoteAccounts.find((e: any) => e.profile.id === testProfile.id);
     assert.strictEqual(entry, undefined, 'withdrawn vote should not appear in ranked list');
   });
+
+  // Story 3.17's new coverage below (Task 2.2/3.4) is self-contained -- it seeds its own users
+  // rather than relying on the outer `testUser`/`anotherUser` from the "setup" subtest above,
+  // since that setup reads pre-existing seeded rows from `users` that may not be present in
+  // every environment this story runs in.
+  let demandUserA: any;
+  let demandUserB: any;
+
+  await t.test('(3.17 setup) seed two local users for the demand-gated discovery tests', async () => {
+    const [a] = await db.insert(users).values({
+      email: `demand-gate-a-${suffix}@example.test`,
+      name: 'Demand Gate A',
+      role: 'user',
+    }).returning();
+    demandUserA = a;
+
+    const [b] = await db.insert(users).values({
+      email: `demand-gate-b-${suffix}@example.test`,
+      name: 'Demand Gate B',
+      role: 'user',
+    }).returning();
+    demandUserB = b;
+  });
+
+  await t.test('(2.2a) castVote flips isVerifiedForDiscovery false -> true on a first-ever vote (Story 3.17, AC1)', async () => {
+    const [unverified] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'acc-unverified-a-' + suffix,
+      platform: 'instagram',
+      username: 'test_unverified_a_' + suffix,
+      displayName: 'Test Unverified A ' + suffix,
+      isVerifiedForDiscovery: false,
+    }).returning();
+
+    mockUser = { userId: demandUserA.id, role: demandUserA.role };
+    const res = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `mutation { castVote(input: { accountId: "${unverified.id}" }) { id accountId } }`
+      })
+    });
+    const result = await res.json();
+    assert.ok(!result.errors, 'castVote failed: ' + JSON.stringify(result.errors));
+
+    const [row] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, unverified.id));
+    assert.strictEqual(row.isVerifiedForDiscovery, true, 'first vote must flip isVerifiedForDiscovery to true');
+  });
+
+  await t.test('(2.2b) castVote on an already-verified profile is a no-op on isVerifiedForDiscovery (regression guard)', async () => {
+    const [verifiedProfile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'acc-already-verified-b-' + suffix,
+      platform: 'instagram',
+      username: 'test_already_verified_b_' + suffix,
+      displayName: 'Test Already Verified B ' + suffix,
+      isVerifiedForDiscovery: true,
+    }).returning();
+
+    mockUser = { userId: demandUserB.id, role: demandUserB.role };
+    const res = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `mutation { castVote(input: { accountId: "${verifiedProfile.id}" }) { id accountId } }`
+      })
+    });
+    const result = await res.json();
+    assert.ok(!result.errors, 'castVote failed: ' + JSON.stringify(result.errors));
+
+    const [row] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, verifiedProfile.id));
+    assert.strictEqual(row.isVerifiedForDiscovery, true, 'already-true profile stays true');
+  });
+
+  await t.test('(2.2c) withdrawing then re-casting a vote re-confirms isVerifiedForDiscovery (idempotent)', async () => {
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'acc-unverified-c-' + suffix,
+      platform: 'instagram',
+      username: 'test_unverified_c_' + suffix,
+      displayName: 'Test Unverified C ' + suffix,
+      isVerifiedForDiscovery: false,
+    }).returning();
+
+    mockUser = { userId: demandUserA.id, role: demandUserA.role };
+
+    const cast1 = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `mutation { castVote(input: { accountId: "${profile.id}" }) { id accountId } }`
+      })
+    });
+    const cast1Result = await cast1.json();
+    assert.ok(!cast1Result.errors);
+    const voteId = cast1Result.data.castVote.id;
+
+    const withdraw = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `mutation { withdrawVote(id: "${voteId}", action: DELETE) { id deletedAt } }`
+      })
+    });
+    const withdrawResult = await withdraw.json();
+    assert.ok(!withdrawResult.errors, 'withdraw failed: ' + JSON.stringify(withdrawResult.errors));
+
+    const recast = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `mutation { castVote(input: { accountId: "${profile.id}" }) { id accountId deletedAt } }`
+      })
+    });
+    const recastResult = await recast.json();
+    assert.ok(!recastResult.errors, 'recast failed: ' + JSON.stringify(recastResult.errors));
+
+    const [row] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+    assert.strictEqual(row.isVerifiedForDiscovery, true, 'reactivated vote re-confirms isVerifiedForDiscovery');
+  });
+
+  await t.test('(3.4a) a profile with isVerifiedForDiscovery: false and an active vote is excluded from rankedVoteAccounts and votedAccountSuggestions (transitional gap coverage)', async () => {
+    // Simulates the accepted transitional gap: a vote exists but isVerifiedForDiscovery was
+    // never flipped (e.g. a pre-existing vote row from before this story's castVote flip
+    // existed). Seed the vote directly rather than via castVote, which would flip the column.
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'acc-gap-' + suffix,
+      platform: 'instagram',
+      username: 'test_gap_' + suffix,
+      displayName: 'Test Gap ' + suffix,
+      isVerifiedForDiscovery: false,
+    }).returning();
+
+    await db.insert(accountVotes).values({
+      userId: demandUserA.id,
+      accountId: profile.id,
+    });
+
+    mockUser = { userId: demandUserA.id, role: demandUserA.role };
+
+    const resRanked = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: `{ rankedVoteAccounts { profile { id } } }` })
+    });
+    const rankedResult = await resRanked.json();
+    assert.ok(!rankedResult.errors);
+    assert.strictEqual(
+      rankedResult.data.rankedVoteAccounts.some((e: any) => e.profile.id === profile.id),
+      false,
+      'unverified profile must not appear in rankedVoteAccounts'
+    );
+
+    const resSuggestions = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: `{ votedAccountSuggestions(query: "Gap") { profile { id } } }` })
+    });
+    const suggestionsResult = await resSuggestions.json();
+    assert.ok(!suggestionsResult.errors);
+    assert.strictEqual(
+      suggestionsResult.data.votedAccountSuggestions.some((e: any) => e.profile.id === profile.id),
+      false,
+      'unverified profile must not appear in votedAccountSuggestions'
+    );
+  });
+
+  await t.test('(3.4b) a profile with isVerifiedForDiscovery: true and an active vote appears normally in both (regression guard)', async () => {
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'acc-verified-' + suffix,
+      platform: 'instagram',
+      username: 'test_verified_' + suffix,
+      displayName: 'Test Verified ' + suffix,
+      isVerifiedForDiscovery: true,
+    }).returning();
+
+    await db.insert(accountVotes).values({
+      userId: demandUserA.id,
+      accountId: profile.id,
+    });
+
+    mockUser = { userId: demandUserA.id, role: demandUserA.role };
+
+    const resRanked = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: `{ rankedVoteAccounts { profile { id } } }` })
+    });
+    const rankedResult = await resRanked.json();
+    assert.ok(!rankedResult.errors);
+    assert.ok(
+      rankedResult.data.rankedVoteAccounts.some((e: any) => e.profile.id === profile.id),
+      'verified profile should appear in rankedVoteAccounts'
+    );
+
+    const resSuggestions = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: `{ votedAccountSuggestions(query: "Verified") { profile { id } } }` })
+    });
+    const suggestionsResult = await resSuggestions.json();
+    assert.ok(!suggestionsResult.errors);
+    assert.ok(
+      suggestionsResult.data.votedAccountSuggestions.some((e: any) => e.profile.id === profile.id),
+      'verified profile should appear in votedAccountSuggestions'
+    );
+  });
+
+  await t.test('(3.4c) queryModeratorAccountProfiles is unaffected by the gate -- still returns an isVerifiedForDiscovery: false profile', async () => {
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'acc-moderator-view-' + suffix,
+      platform: 'instagram',
+      username: 'test_moderator_view_' + suffix,
+      displayName: 'Test Moderator View ' + suffix,
+      isVerifiedForDiscovery: false,
+    }).returning();
+
+    mockUser = { userId: demandUserA.id, role: 'moderator' };
+
+    const res = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `{ queryModeratorAccountProfiles(filters: { search: "Test Moderator View" }) { edges { node { id } } } }`
+      })
+    });
+    const result = await res.json();
+    assert.ok(!result.errors, 'queryModeratorAccountProfiles failed: ' + JSON.stringify(result.errors));
+    const nodes = result.data.queryModeratorAccountProfiles.edges.map((e: any) => e.node);
+    assert.ok(nodes.some((n: any) => n.id === profile.id), 'moderator view must still show the unverified profile');
+  });
 });

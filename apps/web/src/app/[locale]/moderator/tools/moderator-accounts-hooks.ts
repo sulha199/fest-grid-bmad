@@ -1,6 +1,6 @@
 'use client';
 
-import { useQueryModeratorAccountProfilesQuery, useSetImageStorageOptInMutation as useGeneratedSetImageStorageOptInMutation } from '@/generated/graphql';
+import { useQueryModeratorAccountProfilesQuery, useSetImageStorageOptInMutation as useGeneratedSetImageStorageOptInMutation, useClearAccountDefaultLocationMutation as useGeneratedClearAccountDefaultLocationMutation } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
 import type { ModeratorAccountProfileFilters } from '@/gql/graphql';
 
@@ -24,6 +24,18 @@ export function useSetImageStorageOptInMutation() {
     mutateAsync: async ({ accountId, optedIn }: { accountId: string; optedIn: boolean }) => {
       const result = await mutation.mutateAsync({ accountId, optedIn });
       return result.setImageStorageOptIn;
+    },
+    isPending: mutation.isPending,
+  };
+}
+
+export function useClearAccountDefaultLocationMutation() {
+  const mutation = useGeneratedClearAccountDefaultLocationMutation(graphqlClient);
+
+  return {
+    mutateAsync: async ({ accountId }: { accountId: string }) => {
+      const result = await mutation.mutateAsync({ accountId });
+      return result.clearAccountDefaultLocation;
     },
     isPending: mutation.isPending,
   };
