@@ -6,7 +6,7 @@ import { events, schedules, posts, users, favorites, calendarAdditions, userLoca
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly, getRequestedFieldNames } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator } from '../lib/auth/context.js';
 import { buildEventAccountMatchCondition } from '../lib/events/event-account-match.js';
-import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, gte, lte, isNull, ilike } from 'drizzle-orm';
+import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, gte, lte, isNull, isNotNull, ilike } from 'drizzle-orm';
 import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink } from '@festgrid/domain/scraper';
@@ -983,9 +983,22 @@ Constraints and Guidelines:
       // row for the clear itself -- that table's newLocation column is NOT NULL and a clear
       // has no new location value to log (user-confirmed tradeoff, see Story 4.9 Dev Notes).
       await db.transaction(async (tx) => {
-        await tx.update(socialMediaAccountProfiles)
+        // Conditional on the location still being set: the non-null check above ran outside this
+        // transaction, so a concurrent clear (or an edit landing in between) must not be
+        // silently overwritten -- no row back means the state changed under us.
+        const cleared = await tx.update(socialMediaAccountProfiles)
           .set({ defaultLocation: null, updatedAt: new Date() })
-          .where(eq(socialMediaAccountProfiles.id, accountId));
+          .where(and(
+            eq(socialMediaAccountProfiles.id, accountId),
+            isNotNull(socialMediaAccountProfiles.defaultLocation)
+          ))
+          .returning({ id: socialMediaAccountProfiles.id });
+
+        if (cleared.length === 0) {
+          throw new GraphQLError('No default location set yet', {
+            extensions: { code: 'INVALID_STATE_TRANSITION' },
+          });
+        }
 
         await tx.update(defaultLocationChangeRequests)
           .set({ status: 'SUPERSEDED' as any })
@@ -2277,17 +2290,10 @@ Constraints and Guidelines:
         }
       }
       
-      // Casting a vote is a "real demand" signal for discovery (Story 3.17, AC1) -- flip
-      // isVerifiedForDiscovery false -> true via the same shared helper subscribeToAccount uses
-      // (Story 3.16, AC4). Placed once, unconditionally, before branching on new-vote /
-      // reactivate-withdrawn-vote / idempotent-no-op below, so all three castVote outcomes are
-      // covered by this single call. The return value isn't needed here (castVote returns the
-      // vote row, not the profile), so this is fire-and-forget.
-      await verifyAccountProfileForDiscovery(accountId);
-
       const existingVote = await db.select().from(accountVotes)
         .where(and(eq(accountVotes.userId, authUser.userId), eq(accountVotes.accountId, accountId)));
 
+      let voteResult;
       if (existingVote.length > 0) {
         const vote = existingVote[0];
         if (vote.deletedAt !== null) {
@@ -2295,19 +2301,30 @@ Constraints and Guidelines:
             .set({ deletedAt: null, createdAt: new Date() })
             .where(eq(accountVotes.id, vote.id))
             .returning();
-          return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: null };
+          voteResult = { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: null };
+        } else {
+          voteResult = { ...vote, createdAt: vote.createdAt.toISOString(), deletedAt: null };
         }
-        return { ...vote, createdAt: vote.createdAt.toISOString(), deletedAt: null };
+      } else {
+        const [newVote] = await db.insert(accountVotes)
+          .values({
+            userId: authUser.userId,
+            accountId: accountId,
+          })
+          .returning();
+        voteResult = { ...newVote, createdAt: newVote.createdAt.toISOString(), deletedAt: null };
       }
 
-      const [newVote] = await db.insert(accountVotes)
-        .values({
-          userId: authUser.userId,
-          accountId: accountId,
-        })
-        .returning();
+      // Casting a vote is a "real demand" signal for discovery (Story 3.17, AC1) -- flip
+      // isVerifiedForDiscovery false -> true via the same shared helper subscribeToAccount uses
+      // (Story 3.16, AC4). Runs once, after the vote write and on all three outcomes (new vote /
+      // reactivated vote / idempotent no-op): the flip is one-way, so it must never be committed
+      // for a vote that failed to land. If this call fails after the vote persisted, a retry
+      // takes the no-op branch above and re-runs it. The return value isn't needed here
+      // (castVote returns the vote row, not the profile).
+      await verifyAccountProfileForDiscovery(accountId);
 
-      return { ...newVote, createdAt: newVote.createdAt.toISOString(), deletedAt: null };
+      return voteResult;
     },
     withdrawVote: async (_: any, { id, action }: any, context: any) => {
       const authUser = requireAuth(context);

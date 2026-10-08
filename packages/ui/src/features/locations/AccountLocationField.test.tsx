@@ -70,4 +70,20 @@ describe('AccountLocationField Component', () => {
     fireEvent.click(clearBtn);
     expect(onClear).toHaveBeenCalledTimes(1);
   });
+
+  it('types: onClear requires labels.clearLabel (icon-only button needs an accessible name)', () => {
+    // Compile-time check (enforced by tsc, not vitest): the @ts-expect-error below fails the
+    // type check if `onClear` ever becomes valid without a `clearLabel`.
+    // @ts-expect-error -- onClear without labels.clearLabel
+    const bad = <AccountLocationField {...defaultProps} onClear={vi.fn()} />;
+    const good = (
+      <AccountLocationField
+        {...defaultProps}
+        onClear={vi.fn()}
+        labels={{ ...defaultProps.labels, clearLabel: 'Clear location' }}
+      />
+    );
+    expect(bad).toBeDefined();
+    expect(good).toBeDefined();
+  });
 });

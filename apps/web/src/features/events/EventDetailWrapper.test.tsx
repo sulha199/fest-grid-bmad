@@ -1746,6 +1746,43 @@ describe("EventDetailWrapper", () => {
       })
     })
 
+    it("Story 3.19 (AC6, review): two overlapping coauthor subscribe failures each report their own platform, not the last-clicked one", async () => {
+      currentMockEvent.coauthors = [coauthorA, { ...coauthorB, platform: "twitter" }]
+      currentMockSubscriptions = []
+
+      server.use(
+        api.mutation("SubscribeToAccount", () => {
+          return HttpResponse.json({
+            errors: [{ message: "Scraper at capacity", extensions: { code: "SCRAPER_CAPACITY_EXCEEDED" } }],
+          })
+        })
+      )
+
+      renderComponent()
+
+      const list = await screen.findByRole("list", { name: "EventDetailsPage.coauthorsListAriaLabel" })
+      await waitFor(() => {
+        expect(within(list).getAllByTestId("subscribe-toggle")).toHaveLength(2)
+      })
+      const [toggleA, toggleB] = within(list).getAllByTestId("subscribe-toggle")
+
+      // Both clicks land before either failure callback runs, so shared pending-account state
+      // would already point at B when A's onError fires.
+      fireEvent.click(toggleA)
+      fireEvent.click(toggleB)
+
+      await waitFor(() => {
+        const failed = mockPosthogCapture.mock.calls.filter(([name]) => name === "subscription_toggle_failed")
+        expect(failed).toHaveLength(2)
+      })
+
+      const platforms = mockPosthogCapture.mock.calls
+        .filter(([name]) => name === "subscription_toggle_failed")
+        .map(([, payload]) => (payload as { platform: string }).platform)
+        .sort()
+      expect(platforms).toEqual(["instagram", "twitter"])
+    })
+
     it("Story 3.19 (AC4): a coauthor subscribe failure with a non-GraphQL network-level error emits subscription_toggle_failed with errorCode 'unknown'", async () => {
       currentMockEvent.coauthors = [coauthorA]
       currentMockSubscriptions = []

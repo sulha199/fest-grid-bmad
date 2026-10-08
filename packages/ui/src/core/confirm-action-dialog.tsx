@@ -57,7 +57,16 @@ export function ConfirmActionDialog({
 
   const handleConfirm = () => {
     setIsConfirming(true);
-    Promise.resolve(onConfirm()).then(
+    let result: void | Promise<void>;
+    try {
+      result = onConfirm();
+    } catch {
+      // A synchronous throw never reaches the promise handlers below; treat it as a failed
+      // confirm so Cancel/Escape are not left disabled.
+      setIsConfirming(false);
+      return;
+    }
+    Promise.resolve(result).then(
       () => {
         // Consumer owns `open` state; it is responsible for flipping it to
         // `false` once it knows the confirm succeeded (see Dev Notes). Either

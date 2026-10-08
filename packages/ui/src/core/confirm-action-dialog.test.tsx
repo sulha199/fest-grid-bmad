@@ -285,6 +285,48 @@ describe('ConfirmActionDialog (Story 0.47)', () => {
     await waitFor(() => expect(document.activeElement).toBe(trigger));
   });
 
+  it('FIND-080 (review): a synchronous throw from onConfirm re-enables Cancel and Escape', async () => {
+    const user = userEvent.setup();
+    const onCancel = vi.fn();
+    // Not async: throws before any promise exists, so only a try/catch around the call can see it.
+    const onConfirm = vi.fn(() => {
+      throw new Error('sync failure before any promise');
+    });
+
+    function SyncThrowHarness() {
+      const [open, setOpen] = React.useState(false);
+      return (
+        <div>
+          <button onClick={() => setOpen(true)} data-testid="trigger">
+            Open
+          </button>
+          <ConfirmActionDialog
+            open={open}
+            title="Merge events?"
+            confirmLabel="Confirm"
+            cancelLabel="Cancel"
+            onConfirm={onConfirm}
+            onCancel={() => {
+              onCancel();
+              setOpen(false);
+            }}
+          />
+        </div>
+      );
+    }
+    render(<SyncThrowHarness />);
+
+    await user.click(screen.getByTestId('trigger'));
+    await waitFor(() => expect(screen.getByRole('alertdialog')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: 'Confirm' }));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' })).not.toBeDisabled());
+    await user.keyboard('{Escape}');
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
   it('FIND-081: Overlay and Content carry the AD-33 OVERLAY_MODAL_Z tier class', async () => {
     const user = userEvent.setup();
     render(<Harness onConfirm={vi.fn()} onCancel={vi.fn()} />);

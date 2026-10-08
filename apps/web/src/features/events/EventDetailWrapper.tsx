@@ -422,11 +422,13 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
       }
       posthog.capture("subscription_toggle_succeeded", payload)
     },
-    onError: (err) => {
+    onError: (err, variables) => {
       setLiveMessage(t("subscribeErrorAnnouncement"))
       const payload: SubscriptionToggleFailedPayload = {
         action: "subscribe",
-        platform: data?.eventBySlug?.coauthors?.find((c) => c.accountId === pendingCoauthorAccountId)?.platform ?? "",
+        // From this mutation's own variables, not shared pending state: another coauthor toggle
+        // may be in flight and would otherwise overwrite pendingCoauthorAccountId (AC6).
+        platform: variables.input.platform,
         source: "event_detail_coauthor",
         errorCode: getSanitizedSubscriptionErrorCode(err),
       }
@@ -437,22 +439,35 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     },
   })
 
+  // The remove mutation's variables carry only the subscription id; resolve the platform from it
+  // (not from shared pending state, which a second in-flight coauthor toggle can overwrite).
+  const platformForSubscriptionId = (id: string | number) => {
+    const subscription = subscriptionsData?.mySubscriptions?.find((s) => String(s.id) === String(id))
+    if (!subscription) return ""
+    return (
+      data?.eventBySlug?.coauthors?.find((c) => c.accountId === subscription.account.accountId)?.platform ??
+      subscription.account.platform ??
+      ""
+    )
+  }
+
   const { mutate: unsubscribeFromCoauthor } = useRemoveSubscriptionMutation(graphqlClient, {
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      const platform = platformForSubscriptionId(variables.id)
       queryClient.invalidateQueries({ queryKey: ["getMySubscriptions"] })
       setLiveMessage(t("unsubscribeSuccessAnnouncement"))
       const payload: SubscriptionToggleSucceededPayload = {
         action: "unsubscribe",
-        platform: data?.eventBySlug?.coauthors?.find((c) => c.accountId === pendingCoauthorAccountId)?.platform ?? "",
+        platform,
         source: "event_detail_coauthor",
       }
       posthog.capture("subscription_toggle_succeeded", payload)
     },
-    onError: (err) => {
+    onError: (err, variables) => {
       setLiveMessage(t("unsubscribeErrorAnnouncement"))
       const payload: SubscriptionToggleFailedPayload = {
         action: "unsubscribe",
-        platform: data?.eventBySlug?.coauthors?.find((c) => c.accountId === pendingCoauthorAccountId)?.platform ?? "",
+        platform: platformForSubscriptionId(variables.id),
         source: "event_detail_coauthor",
         errorCode: getSanitizedSubscriptionErrorCode(err),
       }
