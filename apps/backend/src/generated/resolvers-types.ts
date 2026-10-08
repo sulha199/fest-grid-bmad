@@ -261,6 +261,7 @@ export type Event = {
   eventName: Scalars['String']['output'];
   favoriteCount: Scalars['Int']['output'];
   hasPrivateContact: Scalars['Boolean']['output'];
+  hashtags?: Maybe<Array<Scalars['String']['output']>>;
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
   instagramEmbed?: Maybe<InstagramEmbed>;
@@ -1899,6 +1900,7 @@ export type EventResolvers<ContextType = GraphQLContext, ParentType extends Reso
   eventName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   favoriteCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   hasPrivateContact?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  hashtags?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   imageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   instagramEmbed?: Resolver<Maybe<ResolversTypes['InstagramEmbed']>, ParentType, ContextType>;

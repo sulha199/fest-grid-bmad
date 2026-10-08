@@ -194,6 +194,7 @@
     "yesterday": "Yesterday",
     "categoriesAndTypesAriaLabel": "Event categories and types",
     "coauthorsListAriaLabel": "Co-authors",
+    "hashtagsListAriaLabel": "Hashtags",
     "sourcePostsPrimaryLabel": "Primary",
     "relatedEventsGroupLabel": "Events from {account}",
     "relatedEventsGroupTitleLabel": "Events from {title}",

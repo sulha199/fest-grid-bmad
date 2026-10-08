@@ -127,6 +127,7 @@ let currentMockEvent = {
   videoUrl: null as string | null,
   sourcePostUrl: null,
   originalPostUrl: null,
+  hashtags: null as string[] | null,
   isFavorited: false,
   favoriteCount: 3,
   isHiddenForCurrentUser: false,
@@ -391,6 +392,7 @@ describe("EventDetailWrapper", () => {
       videoUrl: null,
       sourcePostUrl: null,
       originalPostUrl: null,
+      hashtags: null,
       isFavorited: false,
       favoriteCount: 3,
       isHiddenForCurrentUser: false,
@@ -927,6 +929,23 @@ describe("EventDetailWrapper", () => {
     fireEvent.click(typeBtn)
 
     expect(mockRouterPush).toHaveBeenCalledWith("/?types=FESTIVAL")
+    expect(mockRouterPush).toHaveBeenCalledTimes(1)
+  })
+
+  // Story 1.6g (AC5) — hashtag-pill click navigates to Discovery with a `#`-prefixed, URL-encoded
+  // `q` param, a clean single-facet reset -- no existing searchParams carried over, mirroring the
+  // onCategoryClick/onTypeClick tests above.
+  it("clicking a hashtag pill calls router.push with exactly /?q=%23<tag>, not carrying over existing searchParams", async () => {
+    currentMockEvent.hashtags = ["frcc2026"]
+    mockSearchParams = new URLSearchParams("q=some-search&types=WORKSHOP")
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    const hashtagBtn = await screen.findByRole("button", { name: "#frcc2026" })
+    fireEvent.click(hashtagBtn)
+
+    expect(mockRouterPush).toHaveBeenCalledWith("/?q=%23frcc2026")
     expect(mockRouterPush).toHaveBeenCalledTimes(1)
   })
 

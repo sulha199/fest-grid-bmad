@@ -73,6 +73,7 @@ export interface EventDetailViewLabels {
   yesterday?: string;
   categoriesAndTypesAriaLabel: string;
   coauthorsListAriaLabel?: string;
+  hashtagsListAriaLabel: string;
 
   // Multi-post Source Posts list + Related Events (Story 3.6u, AC5/AC6/AC8)
   /** Non-positional a11y cue on the one entry whose `isPrimary` is `true` (EXPERIENCE.md §1 accessibility-lens addendum). */
@@ -194,6 +195,7 @@ export interface EventDetailViewProps {
   categories?: EventDetailViewTagOption[];
   onTypeClick?: (value: string) => void;
   onCategoryClick?: (value: string) => void;
+  onHashtagClick?: (hashtag: string) => void;
   imageUrl?: string | null;
   imageAlt?: string | null;
   videoUrl?: string | null;
@@ -209,6 +211,7 @@ export interface EventDetailViewProps {
   originalPostUrl?: string | null;
   sourcePostUrl?: string | null;
   publishedAt?: string | null;
+  hashtags?: string[] | null;
 
   // Contact info (Story 3.6i)
   contactInfo?: string | null;

@@ -3759,6 +3759,7 @@ Constraints and Guidelines:
         sourcePostUrl: posts.postUrl,
         originalPostUrl: posts.originalPostUrl,
         publishedAt: posts.publishedAt,
+        hashtags: posts.hashtags,
         isImageStorageOptedIn: socialMediaAccountProfiles.isImageStorageOptedIn,
       }).from(events)
         .leftJoin(posts, eq(events.postId, posts.id))
@@ -3891,6 +3892,7 @@ Constraints and Guidelines:
           sourcePostUrl: posts.postUrl,
           originalPostUrl: posts.originalPostUrl,
           publishedAt: posts.publishedAt,
+          hashtags: posts.hashtags,
           isImageStorageOptedIn: socialMediaAccountProfiles.isImageStorageOptedIn,
         }).from(events)
           .leftJoin(posts, eq(events.postId, posts.id))

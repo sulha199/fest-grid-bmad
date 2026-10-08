@@ -852,6 +852,9 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
         onTypeClick: (value: string) => {
           router.push(`/?types=${encodeURIComponent(value)}`)
         },
+        onHashtagClick: (hashtag: string) => {
+          router.push(`/?q=${encodeURIComponent('#' + hashtag)}`)
+        },
         // Moderator-only: the timezone is inferred at ingestion (schedule location, then the
         // account's timezone); a still-unresolved schedule is a data issue for moderators to fix,
         // never a prompt shown to ordinary viewers.

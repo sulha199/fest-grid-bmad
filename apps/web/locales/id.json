@@ -194,6 +194,7 @@
     "yesterday": "Kemarin",
     "categoriesAndTypesAriaLabel": "Kategori dan jenis acara",
     "coauthorsListAriaLabel": "Rekan Penulis",
+    "hashtagsListAriaLabel": "Tagar",
     "sourcePostsPrimaryLabel": "Utama",
     "relatedEventsGroupLabel": "Acara dari {account}",
     "relatedEventsGroupTitleLabel": "Acara dari {title}",

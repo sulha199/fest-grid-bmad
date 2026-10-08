@@ -41,6 +41,7 @@ const LABELS: EventDetailViewLabels = {
   embedRegionLabel: 'Region',
   publishedLabel: 'Published',
   categoriesAndTypesAriaLabel: 'Event categories and types',
+  hashtagsListAriaLabel: 'Hashtags',
 };
 
 function buildEvent(
@@ -60,6 +61,7 @@ function buildEvent(
     originalPostUrl: null,
     sourcePostUrl: null,
     publishedAt: null,
+    hashtags: null,
     organizerName: null,
     contactInfo: null,
     hasPrivateContact: false,
@@ -162,6 +164,21 @@ describe('mapGraphQLEventToDetailViewProps publishedAt passthrough (Story 1.6f)'
     const event = buildEvent({});
     const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
     expect(props.publishedAt).toBeNull();
+  });
+});
+
+// Story 1.6g Task 2 (AC1): hashtags passthrough onto EventDetailViewProps.
+describe('mapGraphQLEventToDetailViewProps hashtags passthrough (Story 1.6g)', () => {
+  it('passes through a non-null hashtags array unchanged', () => {
+    const event = { ...buildEvent({}), hashtags: ['frcc2026', 'jakartaevents'] };
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.hashtags).toEqual(['frcc2026', 'jakartaevents']);
+  });
+
+  it('passes through a null hashtags as null (no linked post)', () => {
+    const event = buildEvent({});
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.hashtags).toBeNull();
   });
 });
 

@@ -39,6 +39,7 @@ describe('EventDetailView', () => {
       correctDataMenuItemLabel: 'Correct Data',
       publishedLabel: 'Published',
       categoriesAndTypesAriaLabel: 'Event categories and types',
+      hashtagsListAriaLabel: 'Hashtags',
     },
   };
 
@@ -300,6 +301,55 @@ describe('EventDetailView', () => {
         />
       );
       expect(screen.getByRole('list', { name: 'Custom badges label' })).toBeInTheDocument();
+    });
+  });
+
+  describe('hashtags block (Story 1.6g, AC2/AC3/AC4/AC6)', () => {
+    it('renders the hashtags block when hashtags is a non-empty array', () => {
+      render(<EventDetailView {...fullProps} hashtags={['frcc2026', 'jakartaevents']} />);
+      expect(screen.getByRole('list', { name: 'Hashtags' })).toBeInTheDocument();
+      expect(screen.getByText('#frcc2026')).toBeInTheDocument();
+      expect(screen.getByText('#jakartaevents')).toBeInTheDocument();
+    });
+
+    it('does not render the hashtags block when hashtags is null', () => {
+      render(<EventDetailView {...fullProps} hashtags={null} />);
+      expect(screen.queryByRole('list', { name: 'Hashtags' })).not.toBeInTheDocument();
+    });
+
+    it('does not render the hashtags block when hashtags is undefined', () => {
+      render(<EventDetailView {...fullProps} />);
+      expect(screen.queryByRole('list', { name: 'Hashtags' })).not.toBeInTheDocument();
+    });
+
+    it('does not render the hashtags block when hashtags is an empty array', () => {
+      render(<EventDetailView {...fullProps} hashtags={[]} />);
+      expect(screen.queryByRole('list', { name: 'Hashtags' })).not.toBeInTheDocument();
+    });
+
+    it('renders a hashtag pill as a button and fires onHashtagClick with the raw, un-prefixed tag value', () => {
+      const onHashtagClick = vi.fn();
+      render(<EventDetailView {...fullProps} hashtags={['frcc2026']} onHashtagClick={onHashtagClick} />);
+      const pill = screen.getByRole('button', { name: '#frcc2026' });
+      fireEvent.click(pill);
+      expect(onHashtagClick).toHaveBeenCalledWith('frcc2026');
+    });
+
+    it('renders a hashtag pill as plain, non-interactive text when no onHashtagClick handler is passed', () => {
+      render(<EventDetailView {...fullProps} hashtags={['frcc2026']} />);
+      expect(screen.queryByRole('button', { name: '#frcc2026' })).not.toBeInTheDocument();
+      expect(screen.getByText('#frcc2026')).toBeInTheDocument();
+    });
+
+    it('uses the hashtagsListAriaLabel from labels for the hashtags list', () => {
+      render(
+        <EventDetailView
+          {...fullProps}
+          hashtags={['frcc2026']}
+          labels={{ ...fullProps.labels, hashtagsListAriaLabel: 'Custom hashtags label' }}
+        />
+      );
+      expect(screen.getByRole('list', { name: 'Custom hashtags label' })).toBeInTheDocument();
     });
   });
 

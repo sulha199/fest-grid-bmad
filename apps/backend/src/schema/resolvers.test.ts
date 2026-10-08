@@ -2986,6 +2986,200 @@ test('events resolver integration via Yoga', async (t) => {
     });
   });
 
+  await t.test('Event.hashtags resolver (Story 1.6g)', async (t) => {
+    let testProfile: any;
+    let testPostWithHashtags: any;
+    let testPostNoHashtags: any;
+    let eventWithHashtags: any;
+    let eventNoHashtags: any;
+    let noPostEvent: any;
+
+    t.before(async () => {
+      const [p] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: 'resolver_test_profile_hashtags_1',
+        platform: 'instagram',
+        displayName: 'Resolver Test Profile Hashtags',
+        username: 'resolver_test_profile_hashtags_1',
+      }).returning();
+      testProfile = p;
+
+      const [postWithHashtags] = await db.insert(posts).values({
+        accountId: testProfile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/resolver_test_post_hashtags_1',
+        originalPostUrl: 'https://instagram.com/p/resolver_test_post_hashtags_1',
+        content: 'This is a test post for hashtags',
+        publishedAt: new Date(),
+        hashtags: ['frcc2026', 'jakartaevents'],
+        isExtracted: true,
+      }).returning();
+      testPostWithHashtags = postWithHashtags;
+
+      const [postNoHashtags] = await db.insert(posts).values({
+        accountId: testProfile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/resolver_test_post_hashtags_2',
+        originalPostUrl: 'https://instagram.com/p/resolver_test_post_hashtags_2',
+        content: 'This is a test post with no hashtags',
+        publishedAt: new Date(),
+        hashtags: [],
+        isExtracted: true,
+      }).returning();
+      testPostNoHashtags = postNoHashtags;
+
+      const [ev1] = await db.insert(events).values({
+        eventName: 'Resolver Test Event With Hashtags',
+        postId: testPostWithHashtags.id,
+        extractionOrdinal: 0,
+        location: 'Test location',
+      }).returning();
+      eventWithHashtags = ev1;
+
+      const [ev2] = await db.insert(events).values({
+        eventName: 'Resolver Test Event No Hashtags',
+        postId: testPostNoHashtags.id,
+        extractionOrdinal: 0,
+        location: 'Test location',
+      }).returning();
+      eventNoHashtags = ev2;
+
+      const [ev3] = await db.insert(events).values({
+        eventName: 'Resolver Test Event No Linked Post Hashtags',
+        location: 'Test location',
+      }).returning();
+      noPostEvent = ev3;
+    });
+
+    t.after(async () => {
+      if (eventWithHashtags) await db.delete(events).where(eq(events.id, eventWithHashtags.id));
+      if (eventNoHashtags) await db.delete(events).where(eq(events.id, eventNoHashtags.id));
+      if (noPostEvent) await db.delete(events).where(eq(events.id, noPostEvent.id));
+      if (testPostWithHashtags) await db.delete(posts).where(eq(posts.id, testPostWithHashtags.id));
+      if (testPostNoHashtags) await db.delete(posts).where(eq(posts.id, testPostNoHashtags.id));
+      if (testProfile) await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfile.id));
+    });
+
+    await t.test('event(id) / eventBySlug(slug) return the raw hashtags array for an event with a linked post that has hashtags', async () => {
+      const responseById = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetEventHashtags($id: ID!) {
+              event(id: $id) {
+                id
+                hashtags
+              }
+            }
+          `,
+          variables: { id: eventWithHashtags.id }
+        })
+      });
+      const resultById = await responseById.json();
+      assert.ok(!resultById.errors, JSON.stringify(resultById.errors));
+      assert.deepStrictEqual(resultById.data.event.hashtags, ['frcc2026', 'jakartaevents']);
+
+      const responseBySlug = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetEventBySlugHashtags($slug: String!) {
+              eventBySlug(slug: $slug) {
+                id
+                hashtags
+              }
+            }
+          `,
+          variables: { slug: eventWithHashtags.slug }
+        })
+      });
+      const resultBySlug = await responseBySlug.json();
+      assert.ok(!resultBySlug.errors, JSON.stringify(resultBySlug.errors));
+      assert.deepStrictEqual(resultBySlug.data.eventBySlug.hashtags, ['frcc2026', 'jakartaevents']);
+    });
+
+    await t.test('event(id) / eventBySlug(slug) return an empty array for an event with a linked post that has no hashtags', async () => {
+      const responseById = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetEventHashtags($id: ID!) {
+              event(id: $id) {
+                id
+                hashtags
+              }
+            }
+          `,
+          variables: { id: eventNoHashtags.id }
+        })
+      });
+      const resultById = await responseById.json();
+      assert.ok(!resultById.errors, JSON.stringify(resultById.errors));
+      assert.deepStrictEqual(resultById.data.event.hashtags, []);
+
+      const responseBySlug = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetEventBySlugHashtags($slug: String!) {
+              eventBySlug(slug: $slug) {
+                id
+                hashtags
+              }
+            }
+          `,
+          variables: { slug: eventNoHashtags.slug }
+        })
+      });
+      const resultBySlug = await responseBySlug.json();
+      assert.ok(!resultBySlug.errors, JSON.stringify(resultBySlug.errors));
+      assert.deepStrictEqual(resultBySlug.data.eventBySlug.hashtags, []);
+    });
+
+    await t.test('event(id) / eventBySlug(slug) return null hashtags for an event with no linked post', async () => {
+      const responseById = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetEventHashtags($id: ID!) {
+              event(id: $id) {
+                id
+                hashtags
+              }
+            }
+          `,
+          variables: { id: noPostEvent.id }
+        })
+      });
+      const resultById = await responseById.json();
+      assert.ok(!resultById.errors, JSON.stringify(resultById.errors));
+      assert.strictEqual(resultById.data.event.hashtags, null);
+
+      const responseBySlug = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetEventBySlugHashtags($slug: String!) {
+              eventBySlug(slug: $slug) {
+                id
+                hashtags
+              }
+            }
+          `,
+          variables: { slug: noPostEvent.slug }
+        })
+      });
+      const resultBySlug = await responseBySlug.json();
+      assert.ok(!resultBySlug.errors, JSON.stringify(resultBySlug.errors));
+      assert.strictEqual(resultBySlug.data.eventBySlug.hashtags, null);
+    });
+  });
+
   await t.test('Event image serving and consent gates (Story 3.6h)', async (t) => {
     let testProfile: any;
     let testPost: any;
