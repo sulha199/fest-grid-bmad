@@ -57,7 +57,8 @@ input SetAccountDefaultLocationInput {
 }
 
 extend type Mutation {
-  setAccountDefaultLocation(accountId: ID!, input: SetAccountDefaultLocationInput!): SocialMediaAccountProfile!
+  setAccountDefaultLocation(accountId: ID!, input: SetAccountDefaultLocationInput!, asModeratorCorrection: Boolean): SocialMediaAccountProfile!
   editAccountDefaultLocation(accountId: ID!, input: SetAccountDefaultLocationInput!, asModeratorCorrection: Boolean): SocialMediaAccountProfile!
+  clearAccountDefaultLocation(accountId: ID!): SocialMediaAccountProfile!
   setImageStorageOptIn(accountId: ID!, optedIn: Boolean!): SocialMediaAccountProfile!
 }

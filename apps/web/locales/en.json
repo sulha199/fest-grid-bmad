@@ -104,7 +104,19 @@
     "toggleErrorToast": "Failed to update image storage opt-in status for {name}",
     "errorHeadline": "Something went wrong",
     "errorTryAgain": "Try again",
-    "unknownError": "An unknown error occurred"
+    "unknownError": "An unknown error occurred",
+    "setDefaultLocationLabel": "Set Default Location",
+    "editDefaultLocationLabel": "Edit Default Location",
+    "clearDefaultLocationLabel": "Clear location",
+    "pendingReviewBadgeLabel": "Pending Review",
+    "clearLocationConfirmTitle": "Clear location",
+    "clearLocationConfirmDescription": "This will remove the default location for this account. The moderator or scraper will need to set it again when a new location is known.",
+    "clearLocationConfirmLabel": "Clear location",
+    "clearLocationCancelLabel": "Cancel",
+    "defaultLocationSetToast": "Default location set successfully",
+    "defaultLocationEditedToast": "Default location edited successfully",
+    "defaultLocationClearedToast": "Default location cleared successfully",
+    "defaultLocationClearErrorToast": "Failed to clear default location"
   },
   "AccountPage": {
     "errorState": "Failed to load events. Please try again later.",

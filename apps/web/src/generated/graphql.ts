@@ -522,6 +522,7 @@ export type ModeratorAccountProfileFilters = {
 export type Mutation = {
   __typename?: 'Mutation';
   castVote: AccountVote;
+  clearAccountDefaultLocation: SocialMediaAccountProfile;
   createApiKey: ApiKey;
   createUserLocation: UserLocation;
   createWidget: Widget;
@@ -583,6 +584,11 @@ export type Mutation = {
 
 export type MutationCastVoteArgs = {
   input: CastVoteInput;
+};
+
+
+export type MutationClearAccountDefaultLocationArgs = {
+  accountId: Scalars['ID']['input'];
 };
 
 
@@ -755,6 +761,7 @@ export type MutationSelectPostsForExtractionArgs = {
 
 export type MutationSetAccountDefaultLocationArgs = {
   accountId: Scalars['ID']['input'];
+  asModeratorCorrection?: InputMaybe<Scalars['Boolean']['input']>;
   input: SetAccountDefaultLocationInput;
 };
 
@@ -1613,7 +1620,7 @@ export type QueryModeratorAccountProfilesQueryVariables = Exact<{
 }>;
 
 
-export type QueryModeratorAccountProfilesQuery = { queryModeratorAccountProfiles: { totalCount: number, edges: Array<{ cursor: string, node: { id: string, accountId: string, platform: string, displayName: string, username: string, isImageStorageOptedIn: boolean } }>, pageInfo: { hasNextPage: boolean, endCursor: string | null } } };
+export type QueryModeratorAccountProfilesQuery = { queryModeratorAccountProfiles: { totalCount: number, edges: Array<{ cursor: string, node: { id: string, accountId: string, platform: string, displayName: string, username: string, isImageStorageOptedIn: boolean, hasPendingDefaultLocationReview: boolean, defaultLocation: { formattedAddress: string | null, placeName: string | null } | null } }>, pageInfo: { hasNextPage: boolean, endCursor: string | null } } };
 
 export type SetImageStorageOptInMutationVariables = Exact<{
   accountId: string | number;
@@ -1622,6 +1629,13 @@ export type SetImageStorageOptInMutationVariables = Exact<{
 
 
 export type SetImageStorageOptInMutation = { setImageStorageOptIn: { id: string, accountId: string, isImageStorageOptedIn: boolean, imageStorageOptInSource: ImageStorageOptInSource | null } };
+
+export type ClearAccountDefaultLocationMutationVariables = Exact<{
+  accountId: string | number;
+}>;
+
+
+export type ClearAccountDefaultLocationMutation = { clearAccountDefaultLocation: { id: string, accountId: string, defaultLocation: { formattedAddress: string | null, placeName: string | null } | null } };
 
 export type ModeratorPendingItemCountQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -2039,6 +2053,7 @@ export type RemoveSubscriptionMutation = { removeSubscription: { id: string } };
 export type SetAccountDefaultLocationMutationVariables = Exact<{
   accountId: string | number;
   input: SetAccountDefaultLocationInput;
+  asModeratorCorrection?: boolean | null | undefined;
 }>;
 
 
@@ -2397,6 +2412,11 @@ export const QueryModeratorAccountProfilesDocument = new TypedDocumentString(`
         displayName
         username
         isImageStorageOptedIn
+        defaultLocation {
+          formattedAddress
+          placeName
+        }
+        hasPendingDefaultLocationReview
       }
       cursor
     }
@@ -2451,6 +2471,36 @@ export const useSetImageStorageOptInMutation = <
       {
     mutationKey: ['SetImageStorageOptIn'],
     mutationFn: (variables?: SetImageStorageOptInMutationVariables) => fetcher<SetImageStorageOptInMutation, SetImageStorageOptInMutationVariables>(client, SetImageStorageOptInDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const ClearAccountDefaultLocationDocument = new TypedDocumentString(`
+    mutation ClearAccountDefaultLocation($accountId: ID!) {
+  clearAccountDefaultLocation(accountId: $accountId) {
+    id
+    accountId
+    defaultLocation {
+      formattedAddress
+      placeName
+    }
+  }
+}
+    `);
+
+export const useClearAccountDefaultLocationMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ClearAccountDefaultLocationMutation, TError, ClearAccountDefaultLocationMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ClearAccountDefaultLocationMutation, TError, ClearAccountDefaultLocationMutationVariables, TContext>(
+      {
+    mutationKey: ['ClearAccountDefaultLocation'],
+    mutationFn: (variables?: ClearAccountDefaultLocationMutationVariables) => fetcher<ClearAccountDefaultLocationMutation, ClearAccountDefaultLocationMutationVariables>(client, ClearAccountDefaultLocationDocument, variables, headers)(),
     ...options
   }
     )};
@@ -4500,8 +4550,12 @@ export const useRemoveSubscriptionMutation = <
     )};
 
 export const SetAccountDefaultLocationDocument = new TypedDocumentString(`
-    mutation setAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!) {
-  setAccountDefaultLocation(accountId: $accountId, input: $input) {
+    mutation setAccountDefaultLocation($accountId: ID!, $input: SetAccountDefaultLocationInput!, $asModeratorCorrection: Boolean) {
+  setAccountDefaultLocation(
+    accountId: $accountId
+    input: $input
+    asModeratorCorrection: $asModeratorCorrection
+  ) {
     id
     defaultLocation {
       coordinates {

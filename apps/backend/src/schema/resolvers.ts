@@ -763,23 +763,30 @@ Constraints and Guidelines:
         isInitialScrape,
       };
     },
-    setAccountDefaultLocation: async (_: any, { accountId, input }: any, context: any, info: any) => {
+    setAccountDefaultLocation: async (_: any, { accountId, input, asModeratorCorrection }: any, context: any, info: any) => {
       try {
         const authUser = requireAuth(context);
+        // AC15: mirrors editAccountDefaultLocation's AD-11 additive-auth shape exactly --
+        // the calling page decides via the explicit asModeratorCorrection intent flag, not
+        // an ambient role check. A non-moderator passing the flag still needs the
+        // subscription (defense in depth).
+        const isModerator = authUser.role === 'moderator' && asModeratorCorrection === true;
 
-        // 1. Look up caller's active subscription to accountId
-        const activeSubRows = await db.select()
-          .from(subscriptions)
-          .where(
-            and(
-              eq(subscriptions.userId, authUser.userId),
-              eq(subscriptions.accountId, accountId),
-              activeOnly(subscriptions)
-            )
-          );
+        // 1. Look up caller's active subscription to accountId only if not a moderator
+        if (!isModerator) {
+          const activeSubRows = await db.select()
+            .from(subscriptions)
+            .where(
+              and(
+                eq(subscriptions.userId, authUser.userId),
+                eq(subscriptions.accountId, accountId),
+                activeOnly(subscriptions)
+              )
+            );
 
-        if (activeSubRows.length === 0) {
-          throw new GraphQLError('Subscription not found', { extensions: { code: 'NOT_FOUND' } });
+          if (activeSubRows.length === 0) {
+            throw new GraphQLError('Subscription not found', { extensions: { code: 'NOT_FOUND' } });
+          }
         }
 
         // 2. Look up the social_media_account_profiles row by id = accountId
@@ -943,6 +950,67 @@ Constraints and Guidelines:
         }
         throw err;
       }
+    },
+    clearAccountDefaultLocation: async (_: any, { accountId }: any, context: any, info: any) => {
+      // Moderator-only, no subscriber path -- clearing has no subscriber-facing equivalent
+      // anywhere in the product (see Story 4.9 Dev Notes). Mirrors setImageStorageOptIn's shape.
+      requireModerator(context);
+
+      // 1. Look up the social_media_account_profiles row by id = accountId
+      const profileRows = await db.select()
+        .from(socialMediaAccountProfiles)
+        .where(eq(socialMediaAccountProfiles.id, accountId));
+
+      if (profileRows.length === 0) {
+        throw new GraphQLError('Account profile not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      const profile = profileRows[0];
+
+      // 2. If defaultLocation is already null, throw INVALID_STATE_TRANSITION -- mirrors
+      // setAccountDefaultLocation's own symmetric check (its mirror-image).
+      if (profile.defaultLocation === null || profile.defaultLocation === undefined) {
+        throw new GraphQLError('No default location set yet', {
+          extensions: { code: 'INVALID_STATE_TRANSITION' },
+        });
+      }
+
+      // 3. Inside one transaction: null the defaultLocation and supersede every still-open
+      // defaultLocationChangeRequests row for this account -- mirroring
+      // applyDefaultLocationChange's own superseding-transaction pattern (AD-11 rule 3,
+      // generalized here to the clear action). Deliberately does NOT call
+      // applyDefaultLocationChange() and does NOT insert a new defaultLocationChangeRequests
+      // row for the clear itself -- that table's newLocation column is NOT NULL and a clear
+      // has no new location value to log (user-confirmed tradeoff, see Story 4.9 Dev Notes).
+      await db.transaction(async (tx) => {
+        await tx.update(socialMediaAccountProfiles)
+          .set({ defaultLocation: null, updatedAt: new Date() })
+          .where(eq(socialMediaAccountProfiles.id, accountId));
+
+        await tx.update(defaultLocationChangeRequests)
+          .set({ status: 'SUPERSEDED' as any })
+          .where(
+            and(
+              eq(defaultLocationChangeRequests.accountId, accountId),
+              inArray(defaultLocationChangeRequests.status, ['PENDING_REVIEW', 'AWAITING_APPROVAL'])
+            )
+          );
+      });
+
+      // 4. Return the updated profile with defaultLocation formatted via formatLocationDetails
+      const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
+      const rows = await db.select({
+        ...requestedFields,
+        id: socialMediaAccountProfiles.id,
+      }).from(socialMediaAccountProfiles)
+        .where(eq(socialMediaAccountProfiles.id, accountId));
+
+      const updatedProfile = rows[0] as any;
+      if (updatedProfile && updatedProfile.defaultLocation) {
+        updatedProfile.defaultLocation = formatLocationDetails(updatedProfile.defaultLocation);
+      }
+
+      return updatedProfile;
     },
     setImageStorageOptIn: async (_: any, { accountId, optedIn }: any, context: any, info: any) => {
       requireModerator(context);

@@ -8,6 +8,11 @@ query QueryModeratorAccountProfiles($filters: ModeratorAccountProfileFilters, $f
         displayName
         username
         isImageStorageOptedIn
+        defaultLocation {
+          formattedAddress
+          placeName
+        }
+        hasPendingDefaultLocationReview
       }
       cursor
     }
@@ -25,5 +30,16 @@ mutation SetImageStorageOptIn($accountId: ID!, $optedIn: Boolean!) {
     accountId
     isImageStorageOptedIn
     imageStorageOptInSource
+  }
+}
+
+mutation ClearAccountDefaultLocation($accountId: ID!) {
+  clearAccountDefaultLocation(accountId: $accountId) {
+    id
+    accountId
+    defaultLocation {
+      formattedAddress
+      placeName
+    }
   }
 }

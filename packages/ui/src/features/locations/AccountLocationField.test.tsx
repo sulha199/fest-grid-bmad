@@ -50,4 +50,24 @@ describe('AccountLocationField Component', () => {
     fireEvent.click(editBtn);
     expect(defaultProps.onEdit).toHaveBeenCalledTimes(1);
   });
+
+  it('renders no second icon when onClear is omitted (existing consumers unaffected)', () => {
+    render(<AccountLocationField {...defaultProps} />);
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+    expect(screen.queryByLabelText('Clear location')).not.toBeInTheDocument();
+  });
+
+  it('renders the clear button and calls onClear on click when onClear is provided', () => {
+    const onClear = vi.fn();
+    render(
+      <AccountLocationField
+        {...defaultProps}
+        onClear={onClear}
+        labels={{ ...defaultProps.labels, clearLabel: 'Clear location' }}
+      />
+    );
+    const clearBtn = screen.getByRole('button', { name: 'Clear location' });
+    fireEvent.click(clearBtn);
+    expect(onClear).toHaveBeenCalledTimes(1);
+  });
 });

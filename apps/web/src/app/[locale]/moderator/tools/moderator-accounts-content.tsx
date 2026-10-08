@@ -2,11 +2,12 @@
 
 import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { RouteLoader, BlockingLoader, Checkbox } from '@festgrid/ui';
+import { RouteLoader, BlockingLoader, Checkbox, AccountLocationField, ConfirmActionDialog } from '@festgrid/ui';
 import { useRequireModerator } from '@/features/auth/use-require-moderator';
 import { usePostHog } from '@festgrid/analytics';
 import { toast } from 'sonner';
-import { useQueryModeratorAccountProfiles, useSetImageStorageOptInMutation } from './moderator-accounts-hooks';
+import { useQueryModeratorAccountProfiles, useSetImageStorageOptInMutation, useClearAccountDefaultLocationMutation } from './moderator-accounts-hooks';
+import { SetDefaultLocationDialog } from '../../settings/account/set-default-location-dialog';
 import type { ModeratorAccountProfileFilters } from '@/gql/graphql';
 import { Button } from '@festgrid/ui';
 
@@ -17,9 +18,17 @@ export function ModeratorAccountsContent() {
   const [searchTerm, setSearchInput] = useState('');
   const [cursor, setCursor] = useState<string | undefined>(undefined);
   const [updatingAccounts, setUpdatingAccounts] = useState<{ [key: string]: boolean }>({});
+  const [locationDialogState, setLocationDialogState] = useState<{
+    accountId: string;
+    mode: 'set' | 'edit';
+    initialLocation?: { formattedAddress?: string | null; placeName?: string | null };
+  } | null>(null);
+  const [clearingAccountId, setClearingAccountId] = useState<string | null>(null);
+  const [isClearing, setIsClearing] = useState(false);
   const filters: ModeratorAccountProfileFilters = { search: searchTerm.trim() || undefined };
   const { data: accountsData, isLoading: isLoadingAccounts, error: accountsError, refetch: refetchAccounts } = useQueryModeratorAccountProfiles(filters, cursor, 20, authStatus === 'authorized');
   const { mutateAsync: setImageStorageOptIn } = useSetImageStorageOptInMutation();
+  const { mutateAsync: clearAccountDefaultLocation } = useClearAccountDefaultLocationMutation();
 
   if (authStatus === 'loading' || authStatus === 'unauthenticated' || authStatus === 'unauthorized') return <RouteLoader />;
   if (isLoadingAccounts) return <RouteLoader />;
@@ -40,6 +49,30 @@ export function ModeratorAccountsContent() {
       toast.error(t('toggleErrorToast', { name: displayName }));
     } finally {
       setUpdatingAccounts((prev) => ({ ...prev, [accountId]: false }));
+    }
+  };
+
+  const handleLocationSaved = (accountId: string, mode: 'set' | 'edit') => {
+    posthog.capture(
+      mode === 'edit' ? 'moderator_accounts_tab_default_location_edited' : 'moderator_accounts_tab_default_location_set',
+      { accountId }
+    );
+    refetchAccounts();
+  };
+
+  const handleConfirmClear = async () => {
+    if (!clearingAccountId) return;
+    setIsClearing(true);
+    try {
+      await clearAccountDefaultLocation({ accountId: clearingAccountId });
+      posthog.capture('moderator_accounts_tab_default_location_cleared', { accountId: clearingAccountId });
+      toast.success(t('defaultLocationClearedToast'));
+      setClearingAccountId(null);
+      refetchAccounts();
+    } catch (error) {
+      toast.error(t('defaultLocationClearErrorToast'));
+    } finally {
+      setIsClearing(false);
     }
   };
 
@@ -77,7 +110,7 @@ export function ModeratorAccountsContent() {
         <div className="space-y-4">
           <div className="rounded-lg border border-border divide-y divide-border">
             {edges.map((edge) => {
-              const account = edge.node;
+              const account = edge.node as any;
               return (
                 <div key={account.id} className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="space-y-1">
@@ -86,6 +119,28 @@ export function ModeratorAccountsContent() {
                       <span className="rounded bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-800 uppercase dark:bg-violet-900 dark:text-violet-100">{account.platform}</span>
                     </div>
                     <p className="text-sm text-muted-foreground">@{account.username}</p>
+                    <div className="mt-1 text-xs">
+                      {account.defaultLocation ? (
+                        <AccountLocationField
+                          location={account.defaultLocation}
+                          isPendingReview={!!account.hasPendingDefaultLocationReview}
+                          onEdit={() => setLocationDialogState({ accountId: account.id, mode: 'edit', initialLocation: account.defaultLocation })}
+                          onClear={() => setClearingAccountId(account.id)}
+                          labels={{
+                            editLabel: t('editDefaultLocationLabel'),
+                            pendingReviewLabel: t('pendingReviewBadgeLabel'),
+                            clearLabel: t('clearDefaultLocationLabel'),
+                          }}
+                        />
+                      ) : (
+                        <button
+                          onClick={() => setLocationDialogState({ accountId: account.id, mode: 'set' })}
+                          className="text-primary hover:underline font-medium"
+                        >
+                          {t('setDefaultLocationLabel')}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center">
                     <Checkbox id={`opt-in-${account.id}`} label={t('optedInLabel')} checked={account.isImageStorageOptedIn} onChange={(checked) => handleToggleOptIn(account.id, account.displayName, checked)} disabled={updatingAccounts[account.id] || false} />
@@ -97,7 +152,31 @@ export function ModeratorAccountsContent() {
           {hasNextPage && <Button onClick={() => setCursor(queryResult?.pageInfo?.endCursor || undefined)} variant="outline" className="w-full">{t('loadMoreButton')}</Button>}
         </div>
       )}
-      <BlockingLoader active={isAnyToggleInProgress} />
+
+      <SetDefaultLocationDialog
+        accountId={locationDialogState?.accountId ?? null}
+        isOpen={locationDialogState !== null}
+        onClose={() => setLocationDialogState(null)}
+        mode={locationDialogState?.mode ?? 'set'}
+        initialLocation={locationDialogState?.initialLocation}
+        asModeratorCorrection
+        onSaved={() => {
+          if (locationDialogState) handleLocationSaved(locationDialogState.accountId, locationDialogState.mode);
+        }}
+      />
+
+      <ConfirmActionDialog
+        open={clearingAccountId !== null}
+        title={t('clearLocationConfirmTitle')}
+        description={t('clearLocationConfirmDescription')}
+        confirmLabel={t('clearLocationConfirmLabel')}
+        cancelLabel={t('clearLocationCancelLabel')}
+        confirmVariant="destructive"
+        onConfirm={handleConfirmClear}
+        onCancel={() => setClearingAccountId(null)}
+      />
+
+      <BlockingLoader active={isAnyToggleInProgress || isClearing} />
     </div>
   );
 }

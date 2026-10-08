@@ -498,6 +498,7 @@ export type ModeratorAccountProfileFilters = {
 export type Mutation = {
   __typename?: 'Mutation';
   castVote: AccountVote;
+  clearAccountDefaultLocation: SocialMediaAccountProfile;
   createApiKey: ApiKey;
   createUserLocation: UserLocation;
   createWidget: Widget;
@@ -559,6 +560,11 @@ export type Mutation = {
 
 export type MutationCastVoteArgs = {
   input: CastVoteInput;
+};
+
+
+export type MutationClearAccountDefaultLocationArgs = {
+  accountId: Scalars['ID']['input'];
 };
 
 
@@ -731,6 +737,7 @@ export type MutationSelectPostsForExtractionArgs = {
 
 export type MutationSetAccountDefaultLocationArgs = {
   accountId: Scalars['ID']['input'];
+  asModeratorCorrection?: InputMaybe<Scalars['Boolean']['input']>;
   input: SetAccountDefaultLocationInput;
 };
 
@@ -2051,6 +2058,7 @@ export type MeResolvers<ContextType = GraphQLContext, ParentType extends Resolve
 
 export type MutationResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = ResolversObject<{
   castVote?: Resolver<ResolversTypes['AccountVote'], ParentType, ContextType, RequireFields<MutationCastVoteArgs, 'input'>>;
+  clearAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationClearAccountDefaultLocationArgs, 'accountId'>>;
   createApiKey?: Resolver<ResolversTypes['ApiKey'], ParentType, ContextType, RequireFields<MutationCreateApiKeyArgs, 'input'>>;
   createUserLocation?: Resolver<ResolversTypes['UserLocation'], ParentType, ContextType, RequireFields<MutationCreateUserLocationArgs, 'input'>>;
   createWidget?: Resolver<ResolversTypes['Widget'], ParentType, ContextType, RequireFields<MutationCreateWidgetArgs, 'input'>>;

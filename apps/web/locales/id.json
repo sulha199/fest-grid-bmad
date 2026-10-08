@@ -104,7 +104,19 @@
     "toggleErrorToast": "Gagal memperbarui status persetujuan penyimpanan gambar untuk {name}",
     "errorHeadline": "Terjadi kesalahan",
     "errorTryAgain": "Coba lagi",
-    "unknownError": "Terjadi kesalahan yang tidak diketahui"
+    "unknownError": "Terjadi kesalahan yang tidak diketahui",
+    "setDefaultLocationLabel": "Atur Lokasi Utama",
+    "editDefaultLocationLabel": "Ubah Lokasi Utama",
+    "clearDefaultLocationLabel": "Hapus lokasi",
+    "pendingReviewBadgeLabel": "Menunggu Tinjauan",
+    "clearLocationConfirmTitle": "Hapus lokasi",
+    "clearLocationConfirmDescription": "Tindakan ini akan menghapus lokasi utama untuk akun ini. Moderator atau scraper perlu mengaturnya kembali saat lokasi baru diketahui.",
+    "clearLocationConfirmLabel": "Hapus lokasi",
+    "clearLocationCancelLabel": "Batal",
+    "defaultLocationSetToast": "Lokasi utama berhasil diatur",
+    "defaultLocationEditedToast": "Lokasi utama berhasil diubah",
+    "defaultLocationClearedToast": "Lokasi utama berhasil dihapus",
+    "defaultLocationClearErrorToast": "Gagal menghapus lokasi utama"
   },
   "AccountPage": {
     "errorState": "Gagal memuat acara. Silakan coba lagi nanti.",
