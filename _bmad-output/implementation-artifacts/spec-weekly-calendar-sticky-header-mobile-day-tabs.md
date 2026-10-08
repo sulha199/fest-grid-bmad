@@ -2,7 +2,7 @@
 title: 'WeeklyCalendarView: sticky header, responsive mobile nav, day-tab strip'
 type: 'feature'
 created: '2026-10-08'
-status: 'in-review'
+status: 'done'
 baseline_commit: '47bd77e3f81ae96929c6808241af11c01cf92d23'
 review_loop_iteration: 0
 context:
@@ -68,6 +68,15 @@ context:
 - Given next-week/Today/picker is used, when `weekStart` changes, then selection resets per the default rule.
 - Given the page scrolls, when the header is past the viewport top, then the desktop day headers and mobile tab strip remain visible.
 - Given a 375px viewport, when the header renders, then controls do not overflow horizontally.
+
+- 2026-10-08, shipped in PR #61 (`7662667`): the original scope above, as specified. Mobile per-date collapsibles replaced by the 7-tab strip (`role=tablist`, roving tabindex, today default, reset on `weekStart` change); sticky desktop day headers and mobile tab strip (AD-33 Local `z-10`, inside `isolate` wrappers on the two view wrappers, NOT on the component root because the non-portaled `CalendarOverflowDialog` is `fixed` at `OVERLAY_MODAL_Z` and must stay in the page root context); responsive header (`flex-col md:flex-row`, `min-h-11` tap targets). `expandDayLabel`/`collapseDayLabel` removed; `dayTabsLabel`/`noSchedulesLabel` added.
+- 2026-10-08, PR #62 (`04c069b`, `523867d`) -- **post-ship amendment, pagination.** User reported "no pagination in production". Root causes found by probing production (390px/1440px Playwright): (1) mobile's flat inline cap (`MOBILE_INLINE_CAP` = 20) equalled the week fetch's `perDayLimit` (20), so the "+N more" trigger was unreachable; (2) multi-day segments were exempt from that cap, and the week payload (201 schedules, ~90 multi-day in production) rendered 65-95 cards per mobile day; (3) the desktop multi-day banner rendered every bar (91 bars, ~5,956px tall). As built:
+  - **Mobile selected-day list** pages ALL segments (single- and multi-day; the multi-day exemption is gone) `MOBILE_PAGE_SIZE` = 10 at a time via `useInfiniteScroll` sentinel + a "Load more" button (`mobile-day-load-more`). Page count is keyed by selected day and resets on day/week change.
+  - **Continuation past the fetched window:** once the already-fetched rows are exhausted and the day had >= `dayFetchLimit` (new optional prop; Discovery passes `CALENDAR_PER_DAY_LIMIT` = 20), the list asks the caller for the day-scoped query via new `onDayContinuationRequested(date)` (Discovery wires it to `setOpenOverflowDate`), then pages from `overflowDialogData` (merge + dedupe by schedule id; `fetchNextPage` for later pages). No dialog and no `calendar_overflow_dialog_opened` event on mobile; the `calendar-overflow-trigger-mobile` control is removed (`'mobile'` stays in `WeeklyCalendarViewOverflowSurface` for type stability). Consumers that omit `dayFetchLimit` (feed/account/my-calendar) page locally only.
+  - **Desktop multi-day banner** shows `DESKTOP_BANNER_PAGE_SIZE` = 10 rows with a "Show N more multi-day events" button (`multi-day-banner-load-more`, +10 per click), resetting on week change. All bars still count toward `excludedBarSegmentKeys`, so day cells never duplicate a hidden bar's days. Desktop day cells (`maxEventsPerDay`=5 + "+N more" dialog with infinite scroll) are unchanged.
+  - New labels `loadMoreLabel`, `loadingMoreLabel`, `moreMultiDayLabel(count)` (en/id: `calendarLoadMoreLabel`, `calendarLoadingMoreLabel`, `calendarMoreMultiDayLabel`) wired into `CalendarView`, `FeedCalendarView`, `AccountCalendarView`, `my-calendar-content`.
+  - Tests: `packages/ui` 923/923 (mobile local paging, sentinel intersection, day-query continuation, multi-day paging, banner paging + week reset), `apps/web` calendar suites 25/25.
+  - Known limitations carried forward: the week query still downloads the whole week (rendering is paged, payload is not); desktop day-cell "+N more" understates days beyond the 20-per-day window; the multi-day banner still renders above the single-day grid, pushing single-day events down (design under review, see the follow-up spec).
 
 ## Design Notes
 
