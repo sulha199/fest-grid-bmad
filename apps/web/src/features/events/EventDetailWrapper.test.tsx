@@ -1195,7 +1195,13 @@ describe("EventDetailWrapper", () => {
       expect(screen.getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "true")
     })
 
-    expect(mockPosthogCapture).toHaveBeenCalledWith("account_subscribed", { eventId: "evt_1", accountId: "123" })
+    expect(mockPosthogCapture).toHaveBeenCalledWith("subscription_toggle_succeeded", {
+      action: "subscribe",
+      platform: "instagram",
+      source: "event_detail_source_account",
+    })
+    expect(mockPosthogCapture).not.toHaveBeenCalledWith("account_subscribed", expect.anything())
+    expect(mockPosthogCapture).not.toHaveBeenCalledWith("account_unsubscribed", expect.anything())
   })
 
   it("shows the subscribed toggle state when already subscribed to the source account", async () => {
@@ -1243,7 +1249,161 @@ describe("EventDetailWrapper", () => {
       expect(screen.getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "false")
     })
 
-    expect(mockPosthogCapture).toHaveBeenCalledWith("account_unsubscribed", { eventId: "evt_1", accountId: "123" })
+    expect(mockPosthogCapture).toHaveBeenCalledWith("subscription_toggle_succeeded", {
+      action: "unsubscribe",
+      platform: "instagram",
+      source: "event_detail_source_account",
+    })
+    expect(mockPosthogCapture).not.toHaveBeenCalledWith("account_subscribed", expect.anything())
+    expect(mockPosthogCapture).not.toHaveBeenCalledWith("account_unsubscribed", expect.anything())
+  })
+
+  it("Story 3.19 (AC2, AC4): clicking the source-account toggle to subscribe, on a ClientError failure, emits subscription_toggle_failed with the sanitized errorCode from extensions.code", async () => {
+    currentMockEvent.sourceSocialMediaAccountProfile = {
+      accountId: "123",
+      platform: "instagram",
+      username: "org",
+      displayName: "Org",
+      profileImageUrl: null,
+    }
+    currentMockSubscriptions = []
+
+    server.use(
+      api.mutation("SubscribeToAccount", () => {
+        return HttpResponse.json({
+          errors: [{ message: "Scraper at capacity", extensions: { code: "SCRAPER_CAPACITY_EXCEEDED" } }],
+        })
+      })
+    )
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "false")
+    })
+    fireEvent.click(screen.getByTestId("subscribe-toggle"))
+
+    await waitFor(() => {
+      expect(screen.getByText("EventDetailsPage.subscribeErrorAnnouncement")).toBeInTheDocument()
+    })
+
+    expect(mockPosthogCapture).toHaveBeenCalledWith("subscription_toggle_failed", {
+      action: "subscribe",
+      platform: "instagram",
+      source: "event_detail_source_account",
+      errorCode: "SCRAPER_CAPACITY_EXCEEDED",
+    })
+    expect(mockPosthogCapture).not.toHaveBeenCalledWith("account_subscribed", expect.anything())
+  })
+
+  it("Story 3.19 (AC4): clicking the source-account toggle to subscribe, on a non-GraphQL network-level failure, emits subscription_toggle_failed with errorCode 'unknown'", async () => {
+    currentMockEvent.sourceSocialMediaAccountProfile = {
+      accountId: "123",
+      platform: "instagram",
+      username: "org",
+      displayName: "Org",
+      profileImageUrl: null,
+    }
+    currentMockSubscriptions = []
+
+    server.use(
+      api.mutation("SubscribeToAccount", () => {
+        return HttpResponse.error()
+      })
+    )
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "false")
+    })
+    fireEvent.click(screen.getByTestId("subscribe-toggle"))
+
+    await waitFor(() => {
+      expect(screen.getByText("EventDetailsPage.subscribeErrorAnnouncement")).toBeInTheDocument()
+    })
+
+    expect(mockPosthogCapture).toHaveBeenCalledWith("subscription_toggle_failed", {
+      action: "subscribe",
+      platform: "instagram",
+      source: "event_detail_source_account",
+      errorCode: "unknown",
+    })
+  })
+
+  it("Story 3.19 (AC2, AC4): clicking the source-account toggle to unsubscribe, on a ClientError failure, emits subscription_toggle_failed with the sanitized errorCode from extensions.code", async () => {
+    currentMockEvent.sourceSocialMediaAccountProfile = {
+      accountId: "123",
+      platform: "instagram",
+      username: "org",
+      displayName: "Org",
+      profileImageUrl: null,
+    }
+    currentMockSubscriptions = [{ id: "sub_123", account: { accountId: "123" } }]
+
+    server.use(
+      api.mutation("removeSubscription", () => {
+        return HttpResponse.json({
+          errors: [{ message: "Not found", extensions: { code: "NOT_FOUND" } }],
+        })
+      })
+    )
+
+    renderComponent()
+
+    const toggle = await screen.findByTestId("subscribe-toggle")
+    await waitFor(() => {
+      expect(toggle).toHaveAttribute("aria-pressed", "true")
+    })
+    fireEvent.click(toggle)
+
+    await waitFor(() => {
+      expect(screen.getByText("EventDetailsPage.unsubscribeErrorAnnouncement")).toBeInTheDocument()
+    })
+
+    expect(mockPosthogCapture).toHaveBeenCalledWith("subscription_toggle_failed", {
+      action: "unsubscribe",
+      platform: "instagram",
+      source: "event_detail_source_account",
+      errorCode: "NOT_FOUND",
+    })
+    expect(mockPosthogCapture).not.toHaveBeenCalledWith("account_unsubscribed", expect.anything())
+  })
+
+  it("Story 3.19 (AC4): clicking the source-account toggle to unsubscribe, on a non-GraphQL network-level failure, emits subscription_toggle_failed with errorCode 'unknown'", async () => {
+    currentMockEvent.sourceSocialMediaAccountProfile = {
+      accountId: "123",
+      platform: "instagram",
+      username: "org",
+      displayName: "Org",
+      profileImageUrl: null,
+    }
+    currentMockSubscriptions = [{ id: "sub_123", account: { accountId: "123" } }]
+
+    server.use(
+      api.mutation("removeSubscription", () => {
+        return HttpResponse.error()
+      })
+    )
+
+    renderComponent()
+
+    const toggle = await screen.findByTestId("subscribe-toggle")
+    await waitFor(() => {
+      expect(toggle).toHaveAttribute("aria-pressed", "true")
+    })
+    fireEvent.click(toggle)
+
+    await waitFor(() => {
+      expect(screen.getByText("EventDetailsPage.unsubscribeErrorAnnouncement")).toBeInTheDocument()
+    })
+
+    expect(mockPosthogCapture).toHaveBeenCalledWith("subscription_toggle_failed", {
+      action: "unsubscribe",
+      platform: "instagram",
+      source: "event_detail_source_account",
+      errorCode: "unknown",
+    })
   })
 
   it("shows the neutral/checking state (not the not-subscribed icon) while getMySubscriptions is still loading for an already-subscribed user (DW-009 regression)", async () => {
@@ -1489,7 +1649,7 @@ describe("EventDetailWrapper", () => {
       })
     })
 
-    it("never calls posthog.capture for a coauthor subscribe/unsubscribe (AC9), while the existing source-account account_subscribed/account_unsubscribed assertions remain unaffected", async () => {
+    it("Story 3.19 (AC1, AC3, AC5): subscribing/unsubscribing a coauthor now emits sanitized subscription_toggle_succeeded events with source 'event_detail_coauthor' -- superseding Story 0.i6g AC9's zero-analytics behavior -- while the raw-accountId-leaking account_subscribed/account_unsubscribed events are never emitted", async () => {
       currentMockEvent.coauthors = [coauthorA]
       currentMockSubscriptions = []
 
@@ -1508,6 +1668,12 @@ describe("EventDetailWrapper", () => {
         expect(toggle).toHaveAttribute("aria-pressed", "true")
       })
 
+      expect(mockPosthogCapture).toHaveBeenCalledWith("subscription_toggle_succeeded", {
+        action: "subscribe",
+        platform: "instagram",
+        source: "event_detail_coauthor",
+      })
+
       expect(mockPosthogCapture).not.toHaveBeenCalledWith("account_subscribed", expect.anything())
       expect(mockPosthogCapture).not.toHaveBeenCalledWith("account_unsubscribed", expect.anything())
 
@@ -1517,8 +1683,229 @@ describe("EventDetailWrapper", () => {
         expect(toggle).toHaveAttribute("aria-pressed", "false")
       })
 
+      expect(mockPosthogCapture).toHaveBeenCalledWith("subscription_toggle_succeeded", {
+        action: "unsubscribe",
+        platform: "instagram",
+        source: "event_detail_coauthor",
+      })
       expect(mockPosthogCapture).not.toHaveBeenCalledWith("account_subscribed", expect.anything())
       expect(mockPosthogCapture).not.toHaveBeenCalledWith("account_unsubscribed", expect.anything())
+    })
+
+    it("Story 3.19 (AC2, AC4): a coauthor subscribe failure (ClientError) emits subscription_toggle_failed with the sanitized errorCode", async () => {
+      currentMockEvent.coauthors = [coauthorA]
+      currentMockSubscriptions = []
+
+      server.use(
+        api.mutation("SubscribeToAccount", () => {
+          return HttpResponse.json({
+            errors: [{ message: "Scraper at capacity", extensions: { code: "SCRAPER_CAPACITY_EXCEEDED" } }],
+          })
+        })
+      )
+
+      renderComponent()
+
+      const list = await screen.findByRole("list", { name: "EventDetailsPage.coauthorsListAriaLabel" })
+      const toggle = within(list).getByTestId("subscribe-toggle")
+
+      await waitFor(() => {
+        expect(toggle).toHaveAttribute("aria-pressed", "false")
+      })
+
+      fireEvent.click(toggle)
+
+      await waitFor(() => {
+        expect(screen.getByText("EventDetailsPage.subscribeErrorAnnouncement")).toBeInTheDocument()
+      })
+
+      expect(mockPosthogCapture).toHaveBeenCalledWith("subscription_toggle_failed", {
+        action: "subscribe",
+        platform: "instagram",
+        source: "event_detail_coauthor",
+        errorCode: "SCRAPER_CAPACITY_EXCEEDED",
+      })
+    })
+
+    it("Story 3.19 (AC4): a coauthor subscribe failure with a non-GraphQL network-level error emits subscription_toggle_failed with errorCode 'unknown'", async () => {
+      currentMockEvent.coauthors = [coauthorA]
+      currentMockSubscriptions = []
+
+      server.use(
+        api.mutation("SubscribeToAccount", () => {
+          return HttpResponse.error()
+        })
+      )
+
+      renderComponent()
+
+      const list = await screen.findByRole("list", { name: "EventDetailsPage.coauthorsListAriaLabel" })
+      const toggle = within(list).getByTestId("subscribe-toggle")
+
+      await waitFor(() => {
+        expect(toggle).toHaveAttribute("aria-pressed", "false")
+      })
+
+      fireEvent.click(toggle)
+
+      await waitFor(() => {
+        expect(screen.getByText("EventDetailsPage.subscribeErrorAnnouncement")).toBeInTheDocument()
+      })
+
+      expect(mockPosthogCapture).toHaveBeenCalledWith("subscription_toggle_failed", {
+        action: "subscribe",
+        platform: "instagram",
+        source: "event_detail_coauthor",
+        errorCode: "unknown",
+      })
+    })
+
+    it("Story 3.19 (AC2, AC4): a coauthor unsubscribe failure (ClientError) emits subscription_toggle_failed with the sanitized errorCode, attributed to the coauthor being unsubscribed", async () => {
+      currentMockEvent.coauthors = [coauthorA]
+      currentMockSubscriptions = [{ id: "sub_coauthor-a", account: { accountId: "coauthor-a" } }]
+
+      server.use(
+        api.mutation("removeSubscription", () => {
+          return HttpResponse.json({
+            errors: [{ message: "Not found", extensions: { code: "NOT_FOUND" } }],
+          })
+        })
+      )
+
+      renderComponent()
+
+      const list = await screen.findByRole("list", { name: "EventDetailsPage.coauthorsListAriaLabel" })
+      const toggle = within(list).getByTestId("subscribe-toggle")
+
+      await waitFor(() => {
+        expect(toggle).toHaveAttribute("aria-pressed", "true")
+      })
+
+      fireEvent.click(toggle)
+
+      await waitFor(() => {
+        expect(screen.getByText("EventDetailsPage.unsubscribeErrorAnnouncement")).toBeInTheDocument()
+      })
+
+      expect(mockPosthogCapture).toHaveBeenCalledWith("subscription_toggle_failed", {
+        action: "unsubscribe",
+        platform: "instagram",
+        source: "event_detail_coauthor",
+        errorCode: "NOT_FOUND",
+      })
+    })
+
+    it("Story 3.19 (AC6): two coauthors with different platforms toggled in sequence each produce their own correctly-attributed event, never the other's platform", async () => {
+      const coauthorTiktok = {
+        accountId: "coauthor-tiktok",
+        platform: "tiktok",
+        username: "coauthor_tt",
+        displayName: "Coauthor TikTok",
+        profileImageUrl: null,
+      }
+      currentMockEvent.coauthors = [coauthorA, coauthorTiktok]
+      currentMockSubscriptions = []
+
+      renderComponent()
+
+      const list = await screen.findByRole("list", { name: "EventDetailsPage.coauthorsListAriaLabel" })
+      await waitFor(() => {
+        expect(within(list).getAllByTestId("subscribe-toggle")).toHaveLength(2)
+      })
+      const items = within(list).getAllByRole("listitem")
+      const toggleA = within(items[0]).getByTestId("subscribe-toggle")
+      const toggleTiktok = within(items[1]).getByTestId("subscribe-toggle")
+
+      fireEvent.click(toggleA)
+      await waitFor(() => {
+        expect(toggleA).toHaveAttribute("aria-pressed", "true")
+      })
+      expect(mockPosthogCapture).toHaveBeenCalledWith("subscription_toggle_succeeded", {
+        action: "subscribe",
+        platform: "instagram",
+        source: "event_detail_coauthor",
+      })
+
+      fireEvent.click(toggleTiktok)
+      await waitFor(() => {
+        expect(toggleTiktok).toHaveAttribute("aria-pressed", "true")
+      })
+      expect(mockPosthogCapture).toHaveBeenCalledWith("subscription_toggle_succeeded", {
+        action: "subscribe",
+        platform: "tiktok",
+        source: "event_detail_coauthor",
+      })
+
+      // Neither activation's event ever carried the other coauthor's platform.
+      const subscribeToggleCalls = mockPosthogCapture.mock.calls.filter(
+        ([eventName]) => eventName === "subscription_toggle_succeeded"
+      )
+      expect(subscribeToggleCalls).toHaveLength(2)
+      expect(subscribeToggleCalls.map(([, payload]) => payload.platform).sort()).toEqual(["instagram", "tiktok"])
+    })
+
+    it("Story 3.19 (AC2): every subscription_toggle_succeeded/failed call across success, failure, and coauthor cases carries only an allowlisted subset of action/platform/source/errorCode -- a future accidental spread of a larger object would fail this check even if its own narrow test missed it", async () => {
+      const ALLOWED_KEYS = ["action", "platform", "source", "errorCode"]
+      currentMockEvent.sourceSocialMediaAccountProfile = {
+        accountId: "123",
+        platform: "instagram",
+        username: "org",
+        displayName: "Org",
+        profileImageUrl: null,
+      }
+      currentMockEvent.coauthors = [coauthorA]
+      currentMockSubscriptions = []
+
+      server.use(
+        api.mutation("SubscribeToAccount", ({ variables }) => {
+          const { input } = variables as any
+          currentMockSubscriptions = [
+            ...currentMockSubscriptions,
+            { id: `sub_${input.accountId}`, account: { accountId: input.accountId } },
+          ]
+          return HttpResponse.json({ data: { subscribeToAccount: { ...input } } })
+        }),
+        api.mutation("removeSubscription", ({ variables }) => {
+          const { id } = variables as any
+          currentMockSubscriptions = currentMockSubscriptions.filter((s) => s.id !== id)
+          return HttpResponse.json({ data: { removeSubscription: { id } } })
+        })
+      )
+
+      renderComponent()
+
+      // Exercise the source-account toggle: subscribe then unsubscribe. (The source-account
+      // toggle is always the first "subscribe-toggle" in document order -- the coauthor list
+      // renders after it -- matching the existing convention used elsewhere in this file, e.g.
+      // `screen.getAllByTestId("subscribe-toggle")[0]`.)
+      await screen.findByRole("heading", { name: "Test Event" })
+      const sourceToggle = screen.getAllByTestId("subscribe-toggle")[0]
+      await waitFor(() => expect(sourceToggle).toHaveAttribute("aria-pressed", "false"))
+      fireEvent.click(sourceToggle)
+      await waitFor(() => expect(sourceToggle).toHaveAttribute("aria-pressed", "true"))
+      fireEvent.click(sourceToggle)
+      await waitFor(() => expect(sourceToggle).toHaveAttribute("aria-pressed", "false"))
+
+      // Exercise the coauthor toggle: subscribe then unsubscribe.
+      const list = await screen.findByRole("list", { name: "EventDetailsPage.coauthorsListAriaLabel" })
+      const coauthorToggle = within(list).getByTestId("subscribe-toggle")
+      await waitFor(() => expect(coauthorToggle).toHaveAttribute("aria-pressed", "false"))
+      fireEvent.click(coauthorToggle)
+      await waitFor(() => expect(coauthorToggle).toHaveAttribute("aria-pressed", "true"))
+      fireEvent.click(coauthorToggle)
+      await waitFor(() => expect(coauthorToggle).toHaveAttribute("aria-pressed", "false"))
+
+      const sanitizedCalls = mockPosthogCapture.mock.calls.filter(
+        ([eventName]) => eventName === "subscription_toggle_succeeded" || eventName === "subscription_toggle_failed"
+      )
+      expect(sanitizedCalls.length).toBeGreaterThan(0)
+      for (const [, payload] of sanitizedCalls) {
+        const keys = Object.keys(payload)
+        expect(keys.length).toBeGreaterThan(0)
+        for (const key of keys) {
+          expect(ALLOWED_KEYS).toContain(key)
+        }
+      }
     })
 
     it("DOES invoke getMySubscriptions when the event has coauthors but no sourceSocialMediaAccountProfile (AC11)", async () => {
