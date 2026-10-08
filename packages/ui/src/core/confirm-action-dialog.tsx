@@ -4,6 +4,7 @@ import * as React from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
+import { OVERLAY_MODAL_Z } from './overlay-z';
 import { ConfirmActionDialogProps } from './confirm-action-dialog.types';
 
 /**
@@ -59,11 +60,22 @@ export function ConfirmActionDialog({
     Promise.resolve(onConfirm()).then(
       () => {
         // Consumer owns `open` state; it is responsible for flipping it to
-        // `false` once it knows the confirm succeeded (see Dev Notes).
-      },
-      (err) => {
+        // `false` once it knows the confirm succeeded (see Dev Notes). Either
+        // way, this primitive's own pending flag must clear so a dialog the
+        // consumer chooses to keep open (or reopen later) isn't stuck with
+        // Confirm/Cancel/Escape disabled (FIND-080).
         setIsConfirming(false);
-        throw err;
+      },
+      () => {
+        // A rejecting `onConfirm` -- including a consumer that caught its
+        // own error, toasted, and intentionally did not rethrow -- still
+        // means the confirm did not go through: re-enable the controls.
+        // Deliberately not rethrown here: this runs inside a `.then`
+        // rejection handler with nothing downstream to catch it, so
+        // rethrowing only produced an unhandled rejection (FIND-080). The
+        // consumer already observed/handled the error on its own promise
+        // (e.g. `onConfirm`'s awaited call) before it ever reaches here.
+        setIsConfirming(false);
       }
     );
   };
@@ -71,7 +83,7 @@ export function ConfirmActionDialog({
   return (
     <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black bg-opacity-50" />
+        <Dialog.Overlay className={`fixed inset-0 ${OVERLAY_MODAL_Z} bg-black bg-opacity-50`} />
         <Dialog.Content
           role="alertdialog"
           aria-describedby={description ? descriptionId : undefined}
@@ -86,7 +98,7 @@ export function ConfirmActionDialog({
             previouslyFocusedElementRef.current?.focus();
           }}
           className={cn(
-            'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl p-6 w-full max-w-md',
+            `fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 ${OVERLAY_MODAL_Z} bg-white rounded-lg shadow-xl p-6 w-full max-w-md`,
             className
           )}
         >
