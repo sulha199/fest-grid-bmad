@@ -1,4 +1,5 @@
 import { ProposedEventCorrection } from './types.js';
+import { isAllowedHttpUrl } from './sanitize-event-links.js';
 
 export interface CorrectionConsistencyError {
   field: string;
@@ -57,6 +58,17 @@ export function validateCorrectionConsistency(data: ProposedEventCorrection): Co
           message: `Schedule location "${schedule.location}" must contain event location "${data.location}" (case-insensitive)`,
         });
       }
+    }
+  });
+
+  // Story 4.10 (AC2) — reuse the same http(s)-protocol check already proven on the
+  // AI-extraction path so this manual-correction path and the AI path never drift.
+  (data.links ?? []).forEach((link, index) => {
+    if (!isAllowedHttpUrl(link?.url)) {
+      errors.push({
+        field: `links[${index}].url`,
+        message: 'Link URL must be a valid http(s) web address',
+      });
     }
   });
 

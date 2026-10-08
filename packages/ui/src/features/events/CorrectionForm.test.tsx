@@ -32,6 +32,12 @@ describe("CorrectionForm", () => {
     cancelButtonLabel: "Cancel",
     unmatchedErrorFallbackLabel: "Unmatched Errors Found",
     guardianPermissionCheckboxLabel: "I confirm I have parent/guardian permission if this includes a minor",
+    linksLabel: "Links",
+    addLinkButtonLabel: "Add link",
+    maxLinksReachedLabel: "Maximum of 10 links reached",
+    linkUrlLabel: (n: number) => `Link ${n} URL`,
+    linkLabelLabel: (n: number) => `Link ${n} label (optional)`,
+    removeLinkLabel: (n: number) => `Remove link ${n}`,
   };
 
   const typeOptions = [
@@ -415,6 +421,212 @@ describe("CorrectionForm", () => {
 
       fireEvent.click(checkbox);
       expect(onChange).toHaveBeenCalledWith(false);
+    });
+  });
+
+  describe("repeatable Links field (Story 4.10, AC9)", () => {
+    it("pre-fills existing initialValues.links as rows", () => {
+      render(
+        <CorrectionForm
+          initialValues={{ ...initialValues, links: [{ url: "https://tickets.example.com", label: "Tickets" }] }}
+          typeOptions={typeOptions}
+          categoryOptions={categoryOptions}
+          onSubmit={vi.fn()}
+          onCancel={vi.fn()}
+          labels={mockLabels}
+        />
+      );
+
+      expect(screen.getByLabelText("Link 1 URL")).toHaveValue("https://tickets.example.com");
+      expect(screen.getByLabelText("Link 1 label (optional)")).toHaveValue("Tickets");
+    });
+
+    it('"Add link" appends a row and moves focus to its url input', () => {
+      render(
+        <CorrectionForm
+          initialValues={initialValues}
+          typeOptions={typeOptions}
+          categoryOptions={categoryOptions}
+          onSubmit={vi.fn()}
+          onCancel={vi.fn()}
+          labels={mockLabels}
+        />
+      );
+
+      expect(screen.queryByLabelText("Link 1 URL")).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Add link" }));
+
+      const url1 = screen.getByLabelText("Link 1 URL");
+      expect(url1).toBeInTheDocument();
+      expect(url1).toHaveFocus();
+    });
+
+    it("removing a non-last row moves focus to the url input of the row that shifted up into that index", () => {
+      render(
+        <CorrectionForm
+          initialValues={{
+            ...initialValues,
+            links: [
+              { url: "https://one.example.com" },
+              { url: "https://two.example.com" },
+              { url: "https://three.example.com" },
+            ],
+          }}
+          typeOptions={typeOptions}
+          categoryOptions={categoryOptions}
+          onSubmit={vi.fn()}
+          onCancel={vi.fn()}
+          labels={mockLabels}
+        />
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Remove link 1" }));
+
+      const url1 = screen.getByLabelText("Link 1 URL");
+      expect(url1).toHaveValue("https://two.example.com");
+      expect(url1).toHaveFocus();
+    });
+
+    it("removing the last remaining row moves focus to the Add button", () => {
+      render(
+        <CorrectionForm
+          initialValues={{ ...initialValues, links: [{ url: "https://only.example.com" }] }}
+          typeOptions={typeOptions}
+          categoryOptions={categoryOptions}
+          onSubmit={vi.fn()}
+          onCancel={vi.fn()}
+          labels={mockLabels}
+        />
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Remove link 1" }));
+
+      expect(screen.queryByLabelText("Link 1 URL")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Add link" })).toHaveFocus();
+    });
+
+    it("removing the last row (of several) when it was last moves focus to the previous row's url input", () => {
+      render(
+        <CorrectionForm
+          initialValues={{
+            ...initialValues,
+            links: [{ url: "https://one.example.com" }, { url: "https://two.example.com" }],
+          }}
+          typeOptions={typeOptions}
+          categoryOptions={categoryOptions}
+          onSubmit={vi.fn()}
+          onCancel={vi.fn()}
+          labels={mockLabels}
+        />
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Remove link 2" }));
+
+      const url1 = screen.getByLabelText("Link 1 URL");
+      expect(url1).toHaveValue("https://one.example.com");
+      expect(url1).toHaveFocus();
+    });
+
+    it('"Add link" becomes disabled at 10 rows', () => {
+      const tenLinks = Array.from({ length: 10 }, (_, i) => ({ url: `https://example.com/${i}` }));
+      render(
+        <CorrectionForm
+          initialValues={{ ...initialValues, links: tenLinks }}
+          typeOptions={typeOptions}
+          categoryOptions={categoryOptions}
+          onSubmit={vi.fn()}
+          onCancel={vi.fn()}
+          labels={mockLabels}
+        />
+      );
+
+      const addButton = screen.getByRole("button", { name: "Add link" });
+      expect(addButton).toBeDisabled();
+      expect(addButton).toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByText("Maximum of 10 links reached")).toBeInTheDocument();
+    });
+
+    it("renders a links[0].url validation error inline next to that row's url field", () => {
+      render(
+        <CorrectionForm
+          initialValues={{ ...initialValues, links: [{ url: "javascript:alert(1)" }] }}
+          typeOptions={typeOptions}
+          categoryOptions={categoryOptions}
+          onSubmit={vi.fn()}
+          onCancel={vi.fn()}
+          validationErrors={[{ field: "links[0].url", message: "Link URL must be a valid http(s) web address" }]}
+          labels={mockLabels}
+        />
+      );
+
+      expect(screen.getByText("Link URL must be a valid http(s) web address")).toBeInTheDocument();
+      // Must render inline (matched), not in the unmatched-errors fallback banner.
+      expect(screen.queryByText("Unmatched Errors Found")).not.toBeInTheDocument();
+    });
+
+    it("omits links when the form was seeded with none and the user added none", () => {
+      const onSubmit = vi.fn();
+      render(
+        <CorrectionForm
+          initialValues={initialValues}
+          typeOptions={typeOptions}
+          categoryOptions={categoryOptions}
+          onSubmit={onSubmit}
+          onCancel={vi.fn()}
+          labels={mockLabels}
+        />
+      );
+
+      fireEvent.submit(screen.getByRole("button", { name: "Submit" }).closest("form")!);
+
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+      const submittedData = onSubmit.mock.calls[0][0] as ProposedEventCorrection;
+      expect(submittedData.links).toBeUndefined();
+    });
+
+    it("submits links: [] when the form was seeded with links and the user removed them all", () => {
+      const onSubmit = vi.fn();
+      render(
+        <CorrectionForm
+          initialValues={{ ...initialValues, links: [{ url: "https://only.example.com" }] }}
+          typeOptions={typeOptions}
+          categoryOptions={categoryOptions}
+          onSubmit={onSubmit}
+          onCancel={vi.fn()}
+          labels={mockLabels}
+        />
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Remove link 1" }));
+      fireEvent.submit(screen.getByRole("button", { name: "Submit" }).closest("form")!);
+
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+      const submittedData = onSubmit.mock.calls[0][0] as ProposedEventCorrection;
+      expect(submittedData.links).toEqual([]);
+    });
+
+    it("submits the full edited links array when rows were added/edited", () => {
+      const onSubmit = vi.fn();
+      render(
+        <CorrectionForm
+          initialValues={initialValues}
+          typeOptions={typeOptions}
+          categoryOptions={categoryOptions}
+          onSubmit={onSubmit}
+          onCancel={vi.fn()}
+          labels={mockLabels}
+        />
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Add link" }));
+      fireEvent.change(screen.getByLabelText("Link 1 URL"), { target: { value: "https://tickets.example.com" } });
+      fireEvent.change(screen.getByLabelText("Link 1 label (optional)"), { target: { value: "Tickets" } });
+
+      fireEvent.submit(screen.getByRole("button", { name: "Submit" }).closest("form")!);
+
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+      const submittedData = onSubmit.mock.calls[0][0] as ProposedEventCorrection;
+      expect(submittedData.links).toEqual([{ url: "https://tickets.example.com", label: "Tickets" }]);
     });
   });
 });

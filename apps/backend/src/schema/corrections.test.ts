@@ -431,4 +431,189 @@ test('submitCorrection resolver integration', async (t) => {
     const [scheduleRow] = await db.select().from(schedules).where(eq(schedules.id, testScheduleId));
     assert.deepEqual(scheduleRow.performers, ['DJ Nova']);
   });
+
+  // Story 4.10 (AC2, AC3, AC5) -- links persistence/validation/clear cases
+
+  await t.test('submitCorrection - links - rejects an invalid-protocol link URL with a links[0].url error, no DB write', async () => {
+    if (!testUser || !testEventId || !testScheduleId) return;
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation SubmitCorrection($eventId: ID!, $proposedData: ProposedEventCorrectionInput!, $source: CorrectionSource!) {
+            submitCorrection(eventId: $eventId, proposedData: $proposedData, source: $source) {
+              id
+              status
+              validationErrors {
+                field
+                message
+              }
+            }
+          }
+        `,
+        variables: {
+          eventId: testEventId,
+          proposedData: {
+            eventName: 'Links Invalid URL Test',
+            types: ['FESTIVAL'],
+            categories: ['MUSIC'],
+            location: 'Chicago, IL',
+            schedules: [{ id: testScheduleId, isMainSchedule: true, eventStartDate: '2026-08-11' }],
+            links: [{ url: 'javascript:alert(1)' }]
+          },
+          source: 'manual'
+        }
+      })
+    });
+
+    const result = await response.json();
+    assert.ok(!result.errors, JSON.stringify(result.errors));
+    assert.strictEqual(result.data.submitCorrection.status, 'rejected');
+    const errors = result.data.submitCorrection.validationErrors;
+    assert.ok(errors.some((e: any) => e.field === 'links[0].url'));
+
+    const [eventRow] = await db.select().from(events).where(eq(events.id, testEventId));
+    assert.notStrictEqual(eventRow.eventName, 'Links Invalid URL Test');
+  });
+
+  await t.test('submitCorrection - links - persists a valid links array, trimming label on sanitize', async () => {
+    if (!testUser || !testEventId || !testScheduleId) return;
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation SubmitCorrection($eventId: ID!, $proposedData: ProposedEventCorrectionInput!, $source: CorrectionSource!) {
+            submitCorrection(eventId: $eventId, proposedData: $proposedData, source: $source) {
+              id
+              status
+              validationErrors {
+                field
+                message
+              }
+            }
+          }
+        `,
+        variables: {
+          eventId: testEventId,
+          proposedData: {
+            eventName: 'Links Persist Test',
+            types: ['FESTIVAL'],
+            categories: ['MUSIC'],
+            location: 'Chicago, IL',
+            schedules: [{ id: testScheduleId, isMainSchedule: true, eventStartDate: '2026-08-11' }],
+            links: [{ url: 'https://tickets.example.com', label: '  Tickets  ' }]
+          },
+          source: 'manual'
+        }
+      })
+    });
+
+    const result = await response.json();
+    assert.ok(!result.errors, JSON.stringify(result.errors));
+    assert.strictEqual(result.data.submitCorrection.status, 'applied');
+
+    const [eventRow] = await db.select().from(events).where(eq(events.id, testEventId));
+    assert.deepEqual(eventRow.links, [{ url: 'https://tickets.example.com', label: 'Tickets' }]);
+  });
+
+  await t.test('submitCorrection - links - omitted leaves a previously-set links column unchanged', async () => {
+    if (!testUser || !testEventId || !testScheduleId) return;
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    // Sanity check: the previous test left `links` set on this event.
+    const [beforeRow] = await db.select().from(events).where(eq(events.id, testEventId));
+    assert.deepEqual(beforeRow.links, [{ url: 'https://tickets.example.com', label: 'Tickets' }]);
+
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation SubmitCorrection($eventId: ID!, $proposedData: ProposedEventCorrectionInput!, $source: CorrectionSource!) {
+            submitCorrection(eventId: $eventId, proposedData: $proposedData, source: $source) {
+              id
+              status
+            }
+          }
+        `,
+        variables: {
+          eventId: testEventId,
+          proposedData: {
+            eventName: 'Links Omitted Test',
+            types: ['FESTIVAL'],
+            categories: ['MUSIC'],
+            location: 'Chicago, IL',
+            schedules: [{ id: testScheduleId, isMainSchedule: true, eventStartDate: '2026-08-11' }]
+            // links omitted entirely
+          },
+          source: 'manual'
+        }
+      })
+    });
+
+    const result = await response.json();
+    assert.ok(!result.errors, JSON.stringify(result.errors));
+    assert.strictEqual(result.data.submitCorrection.status, 'applied');
+
+    const [afterRow] = await db.select().from(events).where(eq(events.id, testEventId));
+    assert.deepEqual(afterRow.links, [{ url: 'https://tickets.example.com', label: 'Tickets' }]);
+  });
+
+  await t.test('submitCorrection - links - submitting links: [] clears the column back to null, and the applied correction protects it', async () => {
+    if (!testUser || !testEventId || !testScheduleId) return;
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation SubmitCorrection($eventId: ID!, $proposedData: ProposedEventCorrectionInput!, $source: CorrectionSource!) {
+            submitCorrection(eventId: $eventId, proposedData: $proposedData, source: $source) {
+              id
+              status
+            }
+          }
+        `,
+        variables: {
+          eventId: testEventId,
+          proposedData: {
+            eventName: 'Links Clear Test',
+            types: ['FESTIVAL'],
+            categories: ['MUSIC'],
+            location: 'Chicago, IL',
+            schedules: [{ id: testScheduleId, isMainSchedule: true, eventStartDate: '2026-08-11' }],
+            links: []
+          },
+          source: 'manual'
+        }
+      })
+    });
+
+    const result = await response.json();
+    assert.ok(!result.errors, JSON.stringify(result.errors));
+    assert.strictEqual(result.data.submitCorrection.status, 'applied');
+
+    const [eventRow] = await db.select().from(events).where(eq(events.id, testEventId));
+    assert.strictEqual(eventRow.links, null);
+
+    // getProtectedFields (set-event-primary-post.ts) scans applied corrections' proposedData for
+    // the presence of the 'links' key -- not its value -- to protect a column from enrichment.
+    // Submitting `links: []` (an explicit clear) must leave that key present on the stored
+    // proposedData so a later enrichment pass can never silently undo this user's clear.
+    const appliedRows = await db
+      .select({ proposedData: corrections.proposedData })
+      .from(corrections)
+      .where(and(eq(corrections.eventId, testEventId), eq(corrections.status, 'applied')));
+    const latest = appliedRows[appliedRows.length - 1];
+    assert.ok(latest, 'expected an applied correction row to exist');
+    assert.ok('links' in (latest.proposedData as any), '"links" key must be present on the stored proposedData');
+    assert.deepEqual((latest.proposedData as any).links, []);
+  });
 });

@@ -25,6 +25,15 @@ export interface CorrectionFormLabels {
   cancelButtonLabel: string;
   unmatchedErrorFallbackLabel: string;
   guardianPermissionCheckboxLabel: string;
+  // Story 4.10 (AC9) — the repeatable Links field. The per-row labels are function-typed
+  // because row count is dynamic ("Link 1 URL" vs "Link 2 URL" can't be expressed ahead of
+  // time as a flat string, unlike every other field in this shape).
+  linksLabel: string;
+  addLinkButtonLabel: string;
+  maxLinksReachedLabel: string;
+  linkUrlLabel: (index: number) => string;
+  linkLabelLabel: (index: number) => string;
+  removeLinkLabel: (index: number) => string;
 }
 
 export interface CorrectionFormProps {

@@ -1,5 +1,6 @@
 import { EventType, EventCategory } from '@festgrid/shared-types';
 import { GeminiEventPayload, ProposedEventCorrection, ProposedScheduleCorrection } from './types.js';
+import { sanitizeEventLinks } from './sanitize-event-links.js';
 
 // Story 3.6s — retyped from GeminiExtractionPayload (now the post-level `events[]` wrapper) to
 // GeminiEventPayload: this function always maps exactly one event into one correction preview
@@ -38,5 +39,8 @@ export function mapExtractionPayloadToProposedCorrection(payload: GeminiEventPay
     contactInfo,
     description: payload.description,
     schedules,
+    // Story 4.10 (AC6) — previously silently dropped payload.links. Reuses the
+    // already-tested sanitizer so the AI-assisted preview path matches the manual path.
+    links: sanitizeEventLinks(payload.links),
   };
 }

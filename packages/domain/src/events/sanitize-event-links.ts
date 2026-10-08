@@ -42,7 +42,7 @@ export function sanitizeEventLinks(links: EventLink[] | undefined): EventLink[] 
   return sanitized.length > 0 ? sanitized : undefined;
 }
 
-function isAllowedHttpUrl(url: string | undefined | null): url is string {
+export function isAllowedHttpUrl(url: string | undefined | null): url is string {
   if (!url) {
     return false;
   }

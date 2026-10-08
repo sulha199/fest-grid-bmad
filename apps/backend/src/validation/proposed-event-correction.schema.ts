@@ -1,5 +1,5 @@
 import { JSONSchemaType } from 'ajv';
-import { EventType, EventCategory } from '@festgrid/shared-types';
+import { EventType, EventCategory, EventLink } from '@festgrid/shared-types';
 import { ProposedEventCorrection, ProposedScheduleCorrection } from '@festgrid/domain/events';
 
 export const proposedScheduleCorrectionSchema: JSONSchemaType<ProposedScheduleCorrection> = {
@@ -24,6 +24,16 @@ export const proposedScheduleCorrectionSchema: JSONSchemaType<ProposedScheduleCo
   additionalProperties: false
 };
 
+export const proposedEventLinkCorrectionSchema: JSONSchemaType<EventLink> = {
+  type: 'object',
+  properties: {
+    url: { type: 'string', format: 'uri' },
+    label: { type: 'string', nullable: true }
+  },
+  required: ['url'],
+  additionalProperties: false
+};
+
 export const proposedEventCorrectionSchema: JSONSchemaType<ProposedEventCorrection> = {
   type: 'object',
   properties: {
@@ -44,6 +54,12 @@ export const proposedEventCorrectionSchema: JSONSchemaType<ProposedEventCorrecti
       type: 'array',
       items: proposedScheduleCorrectionSchema,
       minItems: 1
+    },
+    links: {
+      type: 'array',
+      items: proposedEventLinkCorrectionSchema,
+      maxItems: 10,
+      nullable: true
     }
   },
   required: ['eventName', 'types', 'categories', 'location', 'schedules'],

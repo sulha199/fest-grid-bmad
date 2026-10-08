@@ -22,7 +22,7 @@ import { resolveLocation, getAddressPredictions, resolveAdminRegion } from '../l
 import { resolveInstagramOEmbed } from '../lib/instagram-oembed/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
-import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult, computePastEventThreshold, parsePlatformPrefixedEventSlug } from '@festgrid/domain/events';
+import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult, computePastEventThreshold, parsePlatformPrefixedEventSlug, sanitizeEventLinks } from '@festgrid/domain/events';
 import { transformGeminiResponseToEventFilter } from '@festgrid/domain/ai-event-filters';
 import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText } from '@festgrid/domain';
@@ -1431,6 +1431,10 @@ Constraints and Guidelines:
             organizerName: proposedData.organizerName || null,
             contactInfo: proposedData.contactInfo || null,
             description: proposedData.description || null,
+            // Story 4.10 (AC5): three-state semantics — omitted `links` leaves the column
+            // unchanged (protects AI-extracted links from a stale client); `[]` sanitizes to
+            // `undefined` and `?? null` clears the column; a non-empty array fully replaces it.
+            ...(proposedData.links !== undefined && { links: sanitizeEventLinks(proposedData.links) ?? null }),
             updatedAt: new Date(),
           })
           .where(eq(events.id, eventId));

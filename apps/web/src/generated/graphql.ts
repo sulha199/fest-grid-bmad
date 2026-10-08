@@ -368,6 +368,11 @@ export type EventLink = {
   url: Scalars['String']['output'];
 };
 
+export type EventLinkInput = {
+  label?: InputMaybe<Scalars['String']['input']>;
+  url: Scalars['String']['input'];
+};
+
 
 export type EventSourcePost = {
   __typename?: 'EventSourcePost';
@@ -894,6 +899,7 @@ export type ProposedEventCorrectionData = {
   contactInfo?: Maybe<Scalars['String']['output']>;
   description?: Maybe<Scalars['String']['output']>;
   eventName: Scalars['String']['output'];
+  links?: Maybe<Array<EventLink>>;
   location: Scalars['String']['output'];
   organizerName?: Maybe<Scalars['String']['output']>;
   schedules: Array<ProposedScheduleCorrectionData>;
@@ -905,6 +911,7 @@ export type ProposedEventCorrectionInput = {
   contactInfo?: InputMaybe<Scalars['String']['input']>;
   description?: InputMaybe<Scalars['String']['input']>;
   eventName: Scalars['String']['input'];
+  links?: InputMaybe<Array<EventLinkInput>>;
   location: Scalars['String']['input'];
   organizerName?: InputMaybe<Scalars['String']['input']>;
   schedules: Array<ProposedScheduleCorrectionInput>;
@@ -1559,6 +1566,7 @@ export enum WidgetTheme {
 
 
 
+
 export type QueryActorRunsQueryVariables = Exact<{
   filters?: ActorRunFilters | null | undefined;
   first?: number | null | undefined;
@@ -1655,14 +1663,14 @@ export type ExtractEventDataFromUrlMutationVariables = Exact<{
 }>;
 
 
-export type ExtractEventDataFromUrlMutation = { extractEventDataFromUrl: { jobId: string | null, errorCode: ExtractionErrorCode | null, errorMessage: string | null, data: { eventName: string, types: Array<EventType>, categories: Array<EventCategory>, location: string, organizerName: string | null, contactInfo: string | null, description: string | null, schedules: Array<{ isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, title: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null }> } | null } };
+export type ExtractEventDataFromUrlMutation = { extractEventDataFromUrl: { jobId: string | null, errorCode: ExtractionErrorCode | null, errorMessage: string | null, data: { eventName: string, types: Array<EventType>, categories: Array<EventCategory>, location: string, organizerName: string | null, contactInfo: string | null, description: string | null, schedules: Array<{ isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, title: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null }>, links: Array<{ url: string, label: string | null }> | null } | null } };
 
 export type ExtractionJobQueryVariables = Exact<{
   id: string | number;
 }>;
 
 
-export type ExtractionJobQuery = { extractionJob: { status: ExtractionJobState, errorCode: ExtractionErrorCode | null, errorMessage: string | null, data: { eventName: string, types: Array<EventType>, categories: Array<EventCategory>, location: string, organizerName: string | null, contactInfo: string | null, description: string | null, schedules: Array<{ isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, title: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null }> } | null } };
+export type ExtractionJobQuery = { extractionJob: { status: ExtractionJobState, errorCode: ExtractionErrorCode | null, errorMessage: string | null, data: { eventName: string, types: Array<EventType>, categories: Array<EventCategory>, location: string, organizerName: string | null, contactInfo: string | null, description: string | null, schedules: Array<{ isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, title: string | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null }>, links: Array<{ url: string, label: string | null }> | null } | null } };
 
 export type ToggleFavoriteMutationVariables = Exact<{
   eventId: string | number;
@@ -2613,6 +2621,10 @@ export const ExtractEventDataFromUrlDocument = new TypedDocumentString(`
         location
         ticketPrice
       }
+      links {
+        url
+        label
+      }
     }
     errorCode
     errorMessage
@@ -2659,6 +2671,10 @@ export const ExtractionJobDocument = new TypedDocumentString(`
         performers
         location
         ticketPrice
+      }
+      links {
+        url
+        label
       }
     }
     errorCode

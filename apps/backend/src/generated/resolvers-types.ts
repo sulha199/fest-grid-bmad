@@ -345,6 +345,11 @@ export type EventLink = {
   url: Scalars['String']['output'];
 };
 
+export type EventLinkInput = {
+  label?: InputMaybe<Scalars['String']['input']>;
+  url: Scalars['String']['input'];
+};
+
 export type EventQueryConditionInput = {
   conditions?: InputMaybe<Array<EventQueryConditionInput>>;
   field?: InputMaybe<Scalars['String']['input']>;
@@ -869,6 +874,7 @@ export type ProposedEventCorrectionData = {
   contactInfo?: Maybe<Scalars['String']['output']>;
   description?: Maybe<Scalars['String']['output']>;
   eventName: Scalars['String']['output'];
+  links?: Maybe<Array<EventLink>>;
   location: Scalars['String']['output'];
   organizerName?: Maybe<Scalars['String']['output']>;
   schedules: Array<ProposedScheduleCorrectionData>;
@@ -880,6 +886,7 @@ export type ProposedEventCorrectionInput = {
   contactInfo?: InputMaybe<Scalars['String']['input']>;
   description?: InputMaybe<Scalars['String']['input']>;
   eventName: Scalars['String']['input'];
+  links?: InputMaybe<Array<EventLinkInput>>;
   location: Scalars['String']['input'];
   organizerName?: InputMaybe<Scalars['String']['input']>;
   schedules: Array<ProposedScheduleCorrectionInput>;
@@ -1588,6 +1595,7 @@ export type ResolversTypes = ResolversObject<{
   EventFilter: ResolverTypeWrapper<EventFilter>;
   EventFilterInput: EventFilterInput;
   EventLink: ResolverTypeWrapper<EventLink>;
+  EventLinkInput: EventLinkInput;
   EventQueryConditionInput: EventQueryConditionInput;
   EventSourcePost: ResolverTypeWrapper<EventSourcePost>;
   EventType: EventType;
@@ -1702,6 +1710,7 @@ export type ResolversParentTypes = ResolversObject<{
   EventFilter: EventFilter;
   EventFilterInput: EventFilterInput;
   EventLink: EventLink;
+  EventLinkInput: EventLinkInput;
   EventQueryConditionInput: EventQueryConditionInput;
   EventSourcePost: EventSourcePost;
   ExtractEventDataFromUrlResult: ExtractEventDataFromUrlResult;
@@ -2141,6 +2150,7 @@ export type ProposedEventCorrectionDataResolvers<ContextType = GraphQLContext, P
   contactInfo?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   eventName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  links?: Resolver<Maybe<Array<ResolversTypes['EventLink']>>, ParentType, ContextType>;
   location?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   organizerName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   schedules?: Resolver<Array<ResolversTypes['ProposedScheduleCorrectionData']>, ParentType, ContextType>;

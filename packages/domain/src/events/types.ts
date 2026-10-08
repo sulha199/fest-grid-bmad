@@ -231,4 +231,8 @@ export interface ProposedEventCorrection {
   contactInfo?: string;
   description?: string;
   schedules: ProposedScheduleCorrection[];
+  // Story 4.10 — additive, optional. Three-state semantics on the write path
+  // (submitCorrection, apps/backend/src/schema/resolvers.ts): omitted = leave the event's
+  // existing `links` column unchanged; `[]` = clear it; non-empty array = full replace.
+  links?: EventLink[];
 }
