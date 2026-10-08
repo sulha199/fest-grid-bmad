@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-08T12:19:46Z
+last_updated: 2026-10-08T15:20:18Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -361,7 +361,7 @@ development_status:
   # Promotes FIND-064, re-scoped via AskUserQuestion during bmad-create-story drafting
   # (2026-10-06): dedicated-test-DB idea rejected, scoped to fixing 4 leaking test files
   # + a permanent row-count ratchet instead. All three Story Split Gates run fresh.
-  0-51-close-backend-test-row-leaks-and-add-a-permanent-row-count-ratchet: ready-for-dev
+  0-51-close-backend-test-row-leaks-and-add-a-permanent-row-count-ratchet: review
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.

@@ -2,8 +2,11 @@ import test from 'node:test';
 import * as assert from 'node:assert';
 import { db } from '../../db/client.js';
 import { posts, postAccountAssociations, socialMediaAccountProfiles } from '@festgrid/database';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { persistPostAccountAssociations } from './persist-post-account-associations.js';
+
+const createdProfileIds: string[] = [];
+const createdPostIds: string[] = [];
 
 async function makeProfile(suffix: string) {
   const [profile] = await db
@@ -15,6 +18,7 @@ async function makeProfile(suffix: string) {
       displayName: 'Test PAA ' + suffix,
     })
     .returning();
+  createdProfileIds.push(profile.id);
   return profile;
 }
 
@@ -29,10 +33,21 @@ async function makePost(accountId: string, suffix: string) {
       publishedAt: new Date(),
     })
     .returning();
+  createdPostIds.push(post.id);
   return post;
 }
 
 test('persistPostAccountAssociations integration tests', async (t) => {
+  t.after(async () => {
+    if (createdPostIds.length > 0) {
+      await db.delete(postAccountAssociations).where(inArray(postAccountAssociations.postId, createdPostIds));
+      await db.delete(posts).where(inArray(posts.id, createdPostIds));
+    }
+    if (createdProfileIds.length > 0) {
+      await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, createdProfileIds));
+    }
+  });
+
   await t.test('(a) writes exactly one SCRAPING_SOURCE row when only scrapingAccountId is given', async () => {
     const scrapingProfile = await makeProfile('a-scraping');
     const post = await makePost(scrapingProfile.id, 'a');
