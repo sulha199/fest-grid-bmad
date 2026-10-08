@@ -28,6 +28,7 @@ import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText } from '@festgrid/domain';
 import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError, postGroupingReasonToGraphQL } from '@festgrid/domain/posts';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
+import { verifyAccountProfileForDiscovery } from '../lib/accounts/verify-account-profile-for-discovery.js';
 import { triggerScrapeForAccount } from '../lib/scraper/trigger-scrape-for-account.js';
 import { decryptApiKey, encryptApiKey } from '../lib/ai-gateway/kms.js';
 import { verifyGeminiApiKey } from '../lib/ai-gateway/gemini-client.js';
@@ -2204,6 +2205,14 @@ Constraints and Guidelines:
         }
       }
       
+      // Casting a vote is a "real demand" signal for discovery (Story 3.17, AC1) -- flip
+      // isVerifiedForDiscovery false -> true via the same shared helper subscribeToAccount uses
+      // (Story 3.16, AC4). Placed once, unconditionally, before branching on new-vote /
+      // reactivate-withdrawn-vote / idempotent-no-op below, so all three castVote outcomes are
+      // covered by this single call. The return value isn't needed here (castVote returns the
+      // vote row, not the profile), so this is fire-and-forget.
+      await verifyAccountProfileForDiscovery(accountId);
+
       const existingVote = await db.select().from(accountVotes)
         .where(and(eq(accountVotes.userId, authUser.userId), eq(accountVotes.accountId, accountId)));
 
@@ -2876,7 +2885,9 @@ Constraints and Guidelines:
       const result = [];
       for (const row of rows) {
         const [profile] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, row.accountId));
-        if (profile) {
+        // Demand-gated discovery (Story 3.17, AC1): exclude a profile that hasn't yet earned
+        // isVerifiedForDiscovery from this broad ranked-discovery surface.
+        if (profile && profile.isVerifiedForDiscovery) {
           if (profile.defaultLocation) {
             profile.defaultLocation = formatLocationDetails(profile.defaultLocation);
           }
@@ -2946,7 +2957,7 @@ Constraints and Guidelines:
         .where(isNull(subscriptions.deletedAt));
       const excludedAccountIds = activeSubs.map(s => s.accountId);
 
-      const conditions = [isNull(accountVotes.deletedAt)];
+      const conditions = [isNull(accountVotes.deletedAt), eq(socialMediaAccountProfiles.isVerifiedForDiscovery, true)];
       if (excludedAccountIds.length > 0) {
         conditions.push(notInArray(accountVotes.accountId, excludedAccountIds));
       }
@@ -4222,6 +4233,9 @@ Constraints and Guidelines:
       };
     },
     queryModeratorAccountProfiles: async (_: any, { filters, first, after }: any, context: any, info: any) => {
+      // Deliberately NOT gated on isVerifiedForDiscovery (Story 3.17): moderators need full
+      // visibility into unverified/scrape-discovered profiles, unlike rankedVoteAccounts /
+      // votedAccountSuggestions. Do not "fix" this as an oversight.
       requireModerator(context);
 
       const limit = (first || 10) + 1; // +1 to detect hasNextPage

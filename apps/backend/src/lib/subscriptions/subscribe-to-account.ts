@@ -3,6 +3,7 @@ import { socialMediaAccountProfiles, subscriptions } from '@festgrid/database';
 import { and, eq, isNull, lt, or } from 'drizzle-orm';
 import { activeOnly } from '@festgrid/graphql-select';
 import { ScraperCapacityExceededError, ScrapablePlatform } from '@festgrid/domain';
+import { verifyAccountProfileForDiscovery } from '../accounts/verify-account-profile-for-discovery.js';
 import { computeClaimCutoff } from '@festgrid/domain/shared';
 import { loadBackendEnv } from '../../env.js';
 import { isProviderCapacityAvailable } from '../scraper/usage-store.js';
@@ -155,23 +156,15 @@ export async function subscribeToAccount({
   }
 
   // 1c. Flip isVerifiedForDiscovery false -> true unconditionally on subscribe (AC4) -- the
-  // signal Story 3.17's demand-gated discovery read-path will later consume. Independent of the
+  // signal Story 3.17's demand-gated discovery read-path consumes. Independent of the
   // accountTypeStatus === null branch above: it must also apply to an already-classified profile
   // subscribed to for the first time (e.g. a coauthor profile classified by a different path
   // before anyone subscribed). Placed before the existing-subscription check so the returned
-  // accountProfile always reflects the final isVerifiedForDiscovery value. A profile already
-  // `true` makes this a no-op (WHERE ... = false matches zero rows) -- cheap and idempotent.
+  // accountProfile always reflects the final isVerifiedForDiscovery value. Shared with `castVote`
+  // (Story 3.17) via verifyAccountProfileForDiscovery -- see that helper for the idempotent-no-op
+  // behavior when the profile is already `true`.
   if (accountProfile) {
-    const [verified] = await db
-      .update(socialMediaAccountProfiles)
-      .set({ isVerifiedForDiscovery: true })
-      .where(
-        and(
-          eq(socialMediaAccountProfiles.id, accountProfile.id),
-          eq(socialMediaAccountProfiles.isVerifiedForDiscovery, false)
-        )
-      )
-      .returning();
+    const verified = await verifyAccountProfileForDiscovery(accountProfile.id);
     if (verified) {
       accountProfile = verified;
     }

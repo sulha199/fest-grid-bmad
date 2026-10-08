@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-07T12:47:31Z
+last_updated: 2026-10-08T04:51:03Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -2044,7 +2044,7 @@ development_status:
   3-14-deduplicated-provenance-tracked-subscribable-profiles: review
   3-15-post-account-association-table-lossless-migration: review
   3-16-immediate-coauthor-publisher-subscribability: review
-  3-17-demand-gated-discovery-for-scrape-discovered-profiles: ready-for-dev
+  3-17-demand-gated-discovery-for-scrape-discovered-profiles: review
   3-18-union-of-associations-account-filtering: review
   3-19-sanitized-subscription-toggle-analytics: ready-for-dev
   # added 2026-10-04 via bmad-correct-course (CC-028): blur faces before images are sent to the AI,
