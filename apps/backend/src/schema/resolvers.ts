@@ -44,6 +44,13 @@ import { replayActorRun } from '../lib/scraper/replay-actor-run.js';
 import { applyDefaultLocationChange } from '../lib/accounts/apply-default-location-change.js';
 import { mergeEvents, undoEventMerge as undoEventMergeWrite, EventMergeInvalidStateError, EventMergeNotFoundError, EventMergeAlreadyUndoneError } from '../lib/events/merge-events.js';
 
+// `post_account_associations.account_id` is a uuid column: comparing it against a non-UUID string
+// (e.g. an AI-filter `accountId` the model returned as a handle/name) makes Postgres throw
+// "invalid input syntax for type uuid" -> a 500 on every `events` list that carries the filter
+// (Favorites, Discovery, ...). Such a value can never equal a real account id, so it is dropped
+// before it reaches SQL instead of being cast.
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const validateReportSystemError = compileValidator<any>(reportSystemErrorSchema);
 const validateProposedEventCorrection = compileValidator<ProposedEventCorrection>(proposedEventCorrectionSchema);
 
@@ -3278,8 +3285,13 @@ Constraints and Guidelines:
         // account that originally posted about it. See drizzle-where.ts's `matchCondition`
         // descriptor handling and `event-account-match.ts`.
         socialMediaAccountProfileId: {
-          matchCondition: (accountIds: unknown[]) =>
-            or(...(accountIds as string[]).map((id) => buildEventAccountMatchCondition(id))) ?? sql`false`,
+          matchCondition: (accountIds: unknown[]) => {
+            const validIds = (accountIds as unknown[]).filter(
+              (id): id is string => typeof id === 'string' && UUID_PATTERN.test(id)
+            );
+            // No valid id => matches nothing (and issues no subquery at all).
+            return or(...validIds.map((id) => buildEventAccountMatchCondition(id))) ?? sql`false`;
+          },
         },
         hashtags: posts.hashtags, // mapped to joined table, #-prefixed search (added 2026-08-28)
         performers: schedules.performers, // mapped to joined table

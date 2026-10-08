@@ -2120,3 +2120,20 @@ items:
      ref: [implementation-artifacts/3-17-demand-gated-discovery-for-scrape-discovered-profiles.md],
      touches: [app:backend, web:votes],
      note: "Tracks Story 3.17's user-confirmed deferred gap (not a reopening). Do only if real data shows it matters; reuse the backfill-post-media-keys.ts dry-run/workflow_dispatch pattern."}
+
+  # ── 2026-10-08 (Favorites + AI-filter accountId 500) ─────────────────────────
+  BUG-056:
+    {type: bug, status: done, created: 2026-10-08, parent: BUG-052,
+     impact: user-visible, effort: xs,
+     title: "Favorites (and any events list) 500s when the account filter's accountId is not a UUID",
+     ref: [implementation-artifacts/3-18-union-of-associations-account-filtering.md, planning-artifacts/festgrid-architecture-spine.md],
+     touches: [app:backend, web:events, cross:architecture],
+     note: "Fixed in PR #63; see Story 3.18 Change Log and AD-31 Rule 4 (input contract)."}
+
+  IDEA-065:
+    {type: idea, status: backlog, created: 2026-10-08,
+     impact: user-visible, effort: m,
+     title: "AI filter's accountId is unvalidated LLM output: resolve handle/name to a real account id (or drop it) instead of silently matching nothing",
+     ref: [packages/domain/src/ai-event-filters/transform-gemini-response-to-event-filter.ts, implementation-artifacts/3-18-union-of-associations-account-filtering.md],
+     touches: [cross:ai-extraction, pkg:domain, app:backend, web:events],
+     note: "BUG-056 only stops the 500; a non-UUID accountId now matches nothing."}
