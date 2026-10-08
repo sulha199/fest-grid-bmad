@@ -21,7 +21,7 @@ export function ModeratorAccountsContent() {
   const [locationDialogState, setLocationDialogState] = useState<{
     accountId: string;
     mode: 'set' | 'edit';
-    initialLocation?: { formattedAddress?: string | null; placeName?: string | null };
+    initialLocation?: { formattedAddress?: string; placeName?: string };
   } | null>(null);
   const [clearingAccountId, setClearingAccountId] = useState<string | null>(null);
   const [isClearing, setIsClearing] = useState(false);
@@ -124,7 +124,17 @@ export function ModeratorAccountsContent() {
                         <AccountLocationField
                           location={account.defaultLocation}
                           isPendingReview={!!account.hasPendingDefaultLocationReview}
-                          onEdit={() => setLocationDialogState({ accountId: account.id, mode: 'edit', initialLocation: account.defaultLocation })}
+                          onEdit={() => setLocationDialogState({
+                            accountId: account.id,
+                            mode: 'edit',
+                            // GraphQL gives `null` for absent fields; the dialog's prop type wants `undefined`.
+                            initialLocation: account.defaultLocation
+                              ? {
+                                  formattedAddress: account.defaultLocation.formattedAddress ?? undefined,
+                                  placeName: account.defaultLocation.placeName ?? undefined,
+                                }
+                              : undefined,
+                          })}
                           onClear={() => setClearingAccountId(account.id)}
                           labels={{
                             editLabel: t('editDefaultLocationLabel'),
