@@ -163,16 +163,6 @@ export async function callVendor<T>(vendor: VendorName, opts: CallVendorOptions<
     // (a) DPA gate -- before anything else, never retried, never touches the lock table.
     assertDpaConfirmed(vendor);
 
-    // Cap this attempt to the remaining overall budget (never longer than the per-attempt bound).
-    let attemptTimeoutMs = opts.timeoutMs;
-    if (deadlineAt !== undefined) {
-      const remainingMs = deadlineAt - Date.now();
-      if (remainingMs <= 0) {
-        throw new VendorCallTimeoutError(`Vendor call exceeded its overall ${opts.overallTimeoutMs}ms budget`);
-      }
-      attemptTimeoutMs = Math.min(opts.timeoutMs, remainingMs);
-    }
-
     // (b) Lock claim -- never retried on a busy key.
     let lockToken: string | null = null;
     if (opts.lockKey !== undefined) {
@@ -183,6 +173,17 @@ export async function callVendor<T>(vendor: VendorName, opts: CallVendorOptions<
     }
 
     try {
+      // Cap this attempt to the remaining overall budget, computed AFTER the claim (which may
+      // have waited on the database) and inside the try so the lease is always released.
+      let attemptTimeoutMs = opts.timeoutMs;
+      if (deadlineAt !== undefined) {
+        const remainingMs = deadlineAt - Date.now();
+        if (remainingMs <= 0) {
+          throw new VendorCallTimeoutError(`Vendor call exceeded its overall ${opts.overallTimeoutMs}ms budget`);
+        }
+        attemptTimeoutMs = Math.min(opts.timeoutMs, remainingMs);
+      }
+
       // (c) Timed, abortable call.
       return await callWithTimeout(opts.call, attemptTimeoutMs);
     } catch (error) {

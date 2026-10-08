@@ -428,4 +428,46 @@ test('guarded-call: callVendor', async (t) => {
     assert.equal(attempts, 1, 'the retry (>=800ms backoff + 1s minimum attempt) cannot fit in 1.5s, so it must not start');
     assert.ok(Date.now() - startedAt < 1000, 'the real error surfaces immediately, leaving time for cleanup');
   });
+
+  await t.test('overall deadline is re-checked after a delayed lease claim: thunk not invoked, lease released', async () => {
+    const lockKey = 'test-guarded-call-delayed-claim';
+    await deleteLockRow(lockKey);
+    await db.insert(vendorCallLocks).values({ lockKey, lockedUntil: new Date(Date.now() - 60_000) });
+
+    let invoked = false;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    let heldResolve!: () => void;
+    const held = new Promise<void>((r) => (heldResolve = r));
+
+    // Hold a row lock so the wrapper's claim upsert blocks past the overall deadline.
+    const holder = db.transaction(async (tx) => {
+      await tx.select().from(vendorCallLocks).where(eq(vendorCallLocks.lockKey, lockKey)).for('update');
+      heldResolve();
+      await gate;
+    });
+    await held;
+
+    const pending = callVendor('gemini', {
+      lockKey,
+      timeoutMs: 1000,
+      overallTimeoutMs: 300,
+      isTransient: NEVER_TRANSIENT,
+      call: async () => {
+        invoked = true;
+        return 'ok';
+      },
+    });
+    const outcome = assert.rejects(pending, (err: unknown) => err instanceof VendorCallTimeoutError);
+    await new Promise((r) => setTimeout(r, 600));
+    release();
+    await holder;
+    await outcome;
+
+    assert.equal(invoked, false, 'the billable call must not run after the overall deadline');
+    const rows = await db.select().from(vendorCallLocks).where(eq(vendorCallLocks.lockKey, lockKey));
+    assert.equal(rows.length, 1);
+    assert.ok(rows[0].lockedUntil.getTime() <= Date.now() + 1000, 'the acquired lease must be released');
+    await deleteLockRow(lockKey);
+  });
 });
