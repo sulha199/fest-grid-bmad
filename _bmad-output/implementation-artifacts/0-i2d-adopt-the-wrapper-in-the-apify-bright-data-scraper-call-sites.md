@@ -1,0 +1,245 @@
+---
+baseline_commit: 49395c2b5a651689da5eb4617de234cb37b2292f
+---
+
+# Story 0.i2d: Adopt the wrapper in the Apify/Bright Data scraper call sites
+
+## Story Details
+
+- Epic: 0.i2 (Guarded outbound vendor calls)
+- Story ID: 0.i2d
+- Status: ready-for-dev
+
+<!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
+
+## Story
+
+As a developer,
+I want every real Apify and Bright Data call site to route through `callVendor` (AD-32), honouring `APIFY_SCRAPING_CONFIRMED`/`BRIGHTDATA_SCRAPING_CONFIRMED` before any network call,
+So that FIND-004's DPA-confirmation gate actually runs (not just exists), both vendors get the same wrapper-level timeout/retry-backoff Gemini already has via 0.i2b/0.i2c, and Story 0.i2z's temporary, non-empty bypass inventory can be deleted rather than carried forward indefinitely.
+
+## Acceptance Criteria
+
+**Scope decisions already made (do not re-litigate — see Dev Notes "Design decisions" for the full reasoning and the `AskUserQuestion` this story's creation ran):**
+- FIND-004 is accepted on the vendors' own public docs + *Meta v. Bright Data* (no new evidence-gathering).
+- `APIFY_SCRAPING_CONFIRMED`/`BRIGHTDATA_SCRAPING_CONFIRMED` already exist (shipped by Story 0.i2a), default `true`, `false` is a kill switch — this story is the first to actually make them do something.
+- **No `opts.lockKey` is passed for any Apify/Bright Data `callVendor` call** (user decision, `AskUserQuestion`, this story's creation) — see AC4.
+- Apify is consolidated through one new shared guarded helper in `instagram-adapter.ts` rather than each bypass file inlining its own `callVendor` call (user decision, `AskUserQuestion`, this story's creation) — see AC1.
+- No DB migration (no new table/column — `vendor_call_locks` already exists from 0.i2a and is not touched by this story, since no lock is ever claimed here).
+
+1. **Given** 0.i2z's ratchet inventory names 4 real Apify bypass files — `instagram-adapter.ts`'s own `callApifyActor` (used by the sync adapter's 4 methods) plus `trigger-apify-for-target.ts`, `fetch-vendor-run-output.ts`, and `lambdas/apify-webhook.ts` (each calling the exported `getApifyClient()` directly with its own client-method shape: `.start()`, `.run().get()`, `.dataset().listItems()`), **when** this story ships, **then** a new, single guarded export `callApifyClient<T>(opts: { timeoutMs: number; maxAttempts?: number; overallTimeoutMs?: number }, fn: (client: ApifyClient, signal: AbortSignal) => Promise<T>): Promise<T>` exists in `instagram-adapter.ts` (wrapping `callVendor('apify', { ...opts, isTransient: isApifyErrorTransient, call: (signal) => fn(getApifyClient(), signal) })`, no `lockKey`), and **all 4** real call sites route through it — `callApifyActor` internally, the other 3 files importing `callApifyClient` instead of `getApifyClient`. [AD-32 Rule 1; `AskUserQuestion` consolidation decision]
+2. **Given** `brightdata-client.ts`'s 3 private functions (`_triggerBrightDataJob`, `_getBrightDataProgress`, `_getBrightDataSnapshot`) make Bright Data's only 3 raw `fetch()` calls in the codebase, **when** this story ships, **then** each one's actual `fetch(...)` + response-handling is moved inside a `callVendor('brightdata', { timeoutMs, isTransient: isBrightDataErrorTransient, call: (signal) => { ...fetch(url, { ..., signal }) } })` call (AD-32 Rule 6's own anticipated shape), with pre-flight token/dataset-ID config checks running **inside** the thunk (after the DPA gate, before the fetch) so a misconfigured env var never races ahead of the DPA check. **Given** this change, **when** `trigger-brightdata-for-target.ts`, `fetch-vendor-run-output.ts`'s `fetchBrightDataRunOutput`, `stale-job-sweep.ts`, and `trigger-brightdata-onetime.ts` call the existing exported `triggerBrightDataJob`/`getBrightDataProgress`/`getBrightDataSnapshot` functions, **then** every one of them is covered transitively with **zero code changes to those 4 files** beyond `trigger-brightdata-for-target.ts`'s new `DPA_NOT_CONFIRMED` branch (AC6).
+3. **Given** `!response.ok` today throws a generic, untyped `Error` with the status embedded only in its message string, **when** this story ships, **then** a new `BrightDataApiError extends Error { statusCode: number }` (mirroring `apify-client`'s own `ApifyApiError.statusCode` and Gemini's typed-error precedent) is thrown instead, and `isBrightDataErrorTransient(error)` classifies `error instanceof BrightDataApiError && statusCode >= 500 && statusCode <= 599` or a network-level error code (`ECONNRESET`/`ETIMEDOUT`/`ECONNREFUSED`/`EAI_AGAIN`, same set `isGeminiErrorTransient` already uses) as transient — evidence-based, never a default-transient fallback. [AD-32 Rule 4]
+4. **Given** Apify and Bright Data each have exactly one static, always-valid credential (`env.apifyApiToken`/`env.brightdataApiToken`) — not a multi-key pool like Gemini's BYOK candidates — and no candidate-exclusion retry loop exists anywhere in the Apify/Bright Data call paths to absorb a `VendorKeyBusyError` the way `callGemini`'s loop does, **when** any Apify or Bright Data `callVendor` call is made by this story, **then** `opts.lockKey` is omitted (`undefined`) on every one of them — the lock claim/release step is skipped entirely (AD-32 Rule 3's existing exception, extended here), and `vendor_call_locks` is never written to by any Apify/Bright Data call path. [AD-32 Rule 3; `AskUserQuestion` lock-key decision]
+5. **Given** `normalizeApifyError` today stringifies every error (including a typed one) into a generic `new Error('Apify request failed while ...')`, **when** this story ships, **then** it passes `VendorDpaNotConfirmedError` and `VendorCallTimeoutError` through unchanged (early return, no re-wrap) before falling through to its existing `ApifyApiError`/generic-`Error` handling — preserving the typed error for any future caller that wants to distinguish a deliberate kill-switch rejection from a real vendor failure.
+6. **Given** `ScraperTriggerFailureReason` (`scraper-trigger-result.ts`) is a closed `'CAPACITY_EXHAUSTED' | 'TRIGGER_ERROR'` union whose own doc comment states its purpose is letting the daily batch tally "distinguish a real provider/API outage... from an expected, self-imposed capacity/budget skip... without re-inferring state downstream," **when** `VendorDpaNotConfirmedError` propagates out of `trigger-apify-for-target.ts` or `trigger-brightdata-for-target.ts`'s guarded call, **then** it is caught and mapped to a new third member, `'DPA_NOT_CONFIRMED'` (not folded into `'TRIGGER_ERROR'`, which would misreport a deliberate, self-imposed gate closure as a real vendor outage to `scraper-provider-health-store.ts`'s alerting/cooldown logic) — `tally-scraper-provider-results.ts`'s dominant-failure-reason computation ranks it **above** `TRIGGER_ERROR` (most deterministic/actionable: it affects 100% of that vendor's calls by a flag the team itself controls, unlike a sporadic real outage).
+7. **Given** 0.i2z's ratchet file carries `TEMPORARY_APIFY_BRIGHTDATA_BYPASS_FILES` (a non-empty, staleness-guarded inventory of the 4 pre-existing bypass files) with an explicit header comment instructing "Story 0.i2d must empty it... delete this check and extend Task 2's Check A/B/C to cover Apify/Bright Data," **when** this story ships, **then** that temporary inventory and its associated test cases are **deleted entirely** (not emptied-but-kept), and two new **permanent** checks are added to the same file: **Check D** — scans for the identifier `getApifyClient` outside test files; asserts every match is confined to `instagram-adapter.ts` (its own defining module); **Check E** — scans for the literal substring `api.brightdata.com` outside test files; asserts every match is confined to `brightdata-client.ts`. Each gets its own negative-control test, matching Checks A/B/C's existing convention. Checks A/B/C themselves are unchanged (Gemini/Apify SDK-import confinement was already true and stays true).
+8. **Given** `opts.lockKey` is always omitted (AC4), **when** this story's own test suite runs, **then** zero rows are ever written to `vendor_call_locks` by any Apify/Bright Data test or production code path (trivially true, verified by one manual `psql` row-count check before/after a full local test run, matching 0.i2a/0.i2z's own Dev Agent Record convention) — and `pnpm --filter backend test` (Story 0.51's row-count-ratchet wrapper, now the package's own `test` script) reports zero growth across every table for every file this story touches or adds.
+9. **Given** this story's scope, **when** it ships, **then** it does **not** modify `apps/backend/src/lib/ai-gateway/*`, `apps/backend/src/lib/vendor-gateway/guarded-call.ts` itself, `apps/backend/src/env.ts`, `.env.example`, or any GraphQL resolver/schema file, and generates no database migration.
+
+## Tasks / Subtasks
+
+- [ ] Task 1 — Build the shared Apify guarded helper (AC: #1, #5)
+  - [ ] In `apps/backend/src/lib/scraper/instagram-adapter.ts`: import `callVendor`, `VendorDpaNotConfirmedError`, `VendorCallTimeoutError` from `../vendor-gateway/guarded-call.js`.
+  - [ ] Add `export function isApifyErrorTransient(error: unknown): boolean` — `true` iff `error instanceof ApifyApiError && error.statusCode >= 500 && error.statusCode <= 599`, or `error`'s `code`/`cause.code` is one of `ECONNRESET`/`ETIMEDOUT`/`ECONNREFUSED`/`EAI_AGAIN` (mirror `isGeminiErrorTransient`'s exact shape in `gemini-client.ts`). `false` otherwise — never a default-transient fallback.
+  - [ ] Add `export async function callApifyClient<T>(opts: { timeoutMs: number; maxAttempts?: number; overallTimeoutMs?: number }, fn: (client: ApifyClient, signal: AbortSignal) => Promise<T>): Promise<T>` — calls `callVendor('apify', { timeoutMs: opts.timeoutMs, maxAttempts: opts.maxAttempts, overallTimeoutMs: opts.overallTimeoutMs, isTransient: isApifyErrorTransient, call: (signal) => fn(getApifyClient(), signal) })`. **No `lockKey`** (AC4).
+  - [ ] Refactor `callApifyActor` to wrap only its real network calls (`client.actor(actorId).call(input)` + the conditional `client.dataset(datasetId).listItems(...)`) inside `callApifyClient({ timeoutMs: 23_000, maxAttempts: 1 }, async (client) => { ... return { run, items }; })`. Keep `recordSyncActorRun`'s audit write **outside/after** the guarded call (same pattern as `adapter.ts`'s `callGemini`: `recordSuccessfulUsage` runs after `callVendor` returns, never inside the thunk) — a transient-retry must never risk writing a duplicate/stale audit row. `timeoutMs: 23_000` sits deliberately between the 4 sync methods' existing `withTimeout`/`withTimeoutOrThrow` outer bound (`20_000`, which must still fire *first* in the normal case — see Task 2) and `apiLambda`'s hard CDK timeout (25s, `festgrid-backend-stack.ts`). `maxAttempts: 1`: `apiLambda`'s 25s budget cannot fit a second 23s attempt plus backoff, and today's code has zero retry on this path either — no behavior regression.
+  - [ ] Update `normalizeApifyError`: add an early return — `if (err instanceof VendorDpaNotConfirmedError || err instanceof VendorCallTimeoutError) return err;` — before its existing `ApifyApiError`/generic-`Error` handling (AC5).
+
+- [ ] Task 2 — Verify the 4 sync adapter methods' existing outer timeouts still win the race (AC: #1; regression guard)
+  - [ ] `getPostByUrl`'s `withTimeout(runCall(), 20000)` (silent `null` on timeout) and `lookupAccountProfile`/`getAccountClassificationProfile`'s `withTimeoutOrThrow(runLookup(), 20000, '...')` (throws the **existing, distinct** `ApifyRequestTimeoutError` from `@festgrid/domain`, which `resolvers.ts:2263` specifically catches with `instanceof ApifyRequestTimeoutError`) must keep firing *before* `callApifyClient`'s own internal `23_000`ms bound in the normal case — confirmed by the 20s/23s ordering chosen in Task 1. Do not change either outer wrapper's timeout value or remove them: they are the precise, typed, already-depended-upon timeout; `callApifyClient`'s bound is a deeper backstop only (same "generic bound alongside the vendor's own more precise one, not a replacement" pattern AD-32/0.i2a already established for Gemini's `GeminiTimeoutError` vs. `VendorCallTimeoutError`).
+  - [ ] `getNewestPosts` has no existing outer timeout at all — `callApifyClient`'s `23_000`ms bound is a net-new protection for this one method, not a backstop. No regression risk; no action beyond Task 1's refactor.
+  - [ ] Add one test (in `instagram-adapter.test.ts`) proving `lookupAccountProfile`/`getAccountClassificationProfile` still throw `ApifyRequestTimeoutError` (not a generic wrapped `VendorCallTimeoutError`-derived message) when the outer 20s window elapses before the inner guarded call would — a direct regression guard for `resolvers.ts:2263`'s existing `instanceof` check.
+
+- [ ] Task 3 — Route the 3 external Apify bypass files through `callApifyClient` (AC: #1, #6)
+  - [ ] `trigger-apify-for-target.ts`: replace the `getApifyClient()` import/usage with `callApifyClient({ timeoutMs: 30_000 }, (client) => client.actor('apify/instagram-api-scraper').start({...}, {...}))` (keep the existing input/webhook-options object construction unchanged, just move the `.start()` call inside the thunk). `scraperLambda` has a 300s CDK timeout (`festgrid-backend-stack.ts`) — `30_000`ms plus the default `maxAttempts: 3` retry/backoff budget comfortably fits; pass `overallTimeoutMs: 90_000` to bound the full attempt+backoff sequence explicitly rather than relying on the Lambda's own hard kill.
+  - [ ] In the same file's existing `catch (error)` block, add `if (error instanceof VendorDpaNotConfirmedError) { return { success: false, failureReason: 'DPA_NOT_CONFIRMED' }; }` **before** the generic `return { success: false, failureReason: 'TRIGGER_ERROR' }` fallback (AC6). Import `VendorDpaNotConfirmedError` from `../vendor-gateway/guarded-call.js`.
+  - [ ] `fetch-vendor-run-output.ts`'s `fetchApifyRunOutput`: replace its `getApifyClient()` + `client.run(runId).get()` + conditional `client.dataset(...).listItems(...)` with the same logic moved inside `callApifyClient({ timeoutMs: 30_000, overallTimeoutMs: 90_000 }, async (client) => { ... })`, returning the mapped `{ status, items }` shape unchanged. Keep the existing outer `try { ... } catch (err) { console.error(...); throw err; }` — no DPA-specific branch needed here (this function's only caller, `stale-job-sweep.ts`, already has its own generic per-job error handling; it is not part of the `ScraperTriggerResult` discriminated-union contract AC6 concerns).
+  - [ ] `fetchBrightDataRunOutput` in the same file: **no change** — it already only calls the public `getBrightDataProgress`/`getBrightDataSnapshot` exports, which Task 4 makes internally guarded; this function is covered transitively.
+  - [ ] `lambdas/apify-webhook.ts`: replace the `getApifyClient()` + `client.run(pendingJob.runId).get()` + (conditional) `client.dataset(run.defaultDatasetId).listItems(...)` sequence with one `callApifyClient({ timeoutMs: 20_000, maxAttempts: 1 }, async (client) => { const run = await client.run(pendingJob.runId).get(); if (!run || run.status !== 'SUCCEEDED' || !run.defaultDatasetId) { return { run, items: [] as unknown[] }; } const { items } = await client.dataset(run.defaultDatasetId).listItems({ clean: true, limit: 1000 }); return { run, items }; })`, then keep the handler's existing branching (not-found / no-dataset-despite-success / SUCCEEDED-with-items / FAILED-TIMED_OUT-ABORTED) operating on the returned `{ run, items }` exactly as it does today. `timeoutMs: 20_000, maxAttempts: 1`: this Lambda's CDK timeout is the shared default `30s` (`sharedLambdaProps`, no override for `ApifyWebhook-${stageName}`) — a 20s guarded call leaves ~10s margin for the subsequent `recordActorRunResult`/`processApifyAsyncResult`/SQS-enqueue work; a second 20s attempt could not fit, and the handler's existing outer `catch` already returns HTTP 200 "not retrying" on any error (including a new `VendorDpaNotConfirmedError`/`VendorCallTimeoutError`) — acceptable, no new branch needed here (Apify's own webhook delivery has its own retry semantics; this project's design already deliberately avoids depending on them, per the handler's existing comment).
+
+- [ ] Task 4 — Route Bright Data's 3 private functions through `callVendor` (AC: #2, #3)
+  - [ ] In `apps/backend/src/lib/scraper/brightdata-client.ts`: import `callVendor` from `../vendor-gateway/guarded-call.js`.
+  - [ ] Add `export class BrightDataApiError extends Error { statusCode: number; constructor(message: string, statusCode: number) { super(message); this.name = 'BrightDataApiError'; this.statusCode = statusCode; } }`.
+  - [ ] Add `export function isBrightDataErrorTransient(error: unknown): boolean` — `true` iff `error instanceof BrightDataApiError && statusCode` is in `[500, 599]`, or a network-level code (same `ECONNRESET`/`ETIMEDOUT`/`ECONNREFUSED`/`EAI_AGAIN` set, read off `error.code`/`error.cause?.code` the way `fetch`'s own `TypeError('fetch failed')` exposes its underlying `cause`). `false` otherwise.
+  - [ ] `_triggerBrightDataJob`: move the token/dataset-ID presence checks **and** the `fetch(...)`/response-parsing/`!response.ok` check **inside** a `callVendor('brightdata', { timeoutMs: 20_000, isTransient: isBrightDataErrorTransient, call: (signal) => { ... return { snapshotId }; } })` call — pass `signal` into the `fetch()` call's `init.signal`. On `!response.ok`, throw `new BrightDataApiError(...)` with `response.status`, not a generic `Error`. No `lockKey` (AC4).
+  - [ ] `_getBrightDataProgress`: same treatment, `timeoutMs: 15_000` (a lightweight status poll).
+  - [ ] `_getBrightDataSnapshot`: same treatment, `timeoutMs: 30_000` (could return up to `numOfPosts` items).
+  - [ ] Confirm (via `git diff`/manual read) that `triggerBrightDataJob`/`getBrightDataProgress`/`getBrightDataSnapshot`'s own exported signatures, and the `setTriggerBrightDataJob`/`setGetBrightDataProgress`/`setGetBrightDataSnapshot` test seams, are completely unchanged — only the private `_...` implementations gain the guard.
+
+- [ ] Task 5 — Wire the new `DPA_NOT_CONFIRMED` failure reason (AC: #6)
+  - [ ] `apps/backend/src/lib/scraper/scraper-trigger-result.ts`: widen `ScraperTriggerFailureReason` to `'CAPACITY_EXHAUSTED' | 'TRIGGER_ERROR' | 'DPA_NOT_CONFIRMED'`, with a one-line doc-comment addition explaining the new member (a deliberate, self-imposed gate closure — not a vendor outage).
+  - [ ] `trigger-brightdata-for-target.ts`: same `instanceof VendorDpaNotConfirmedError` branch as Task 3's `trigger-apify-for-target.ts` change, returning `{ success: false, failureReason: 'DPA_NOT_CONFIRMED' }`.
+  - [ ] `apps/backend/src/lib/scraper/tally-scraper-provider-results.ts`: add a third tracked flag `sawDpaNotConfirmed`, set when `marker.failureReason === 'DPA_NOT_CONFIRMED'`. In the dominant-failure-reason block, check it **first** (before `sawTriggerError`/`sawCapacityExhausted`) — a deliberate, deterministic, 100%-of-calls gate closure is the most actionable signal for an operator, ranking above a possibly-sporadic real outage.
+  - [ ] `scraper-provider-health-store.ts` needs **no code change** — `lastFailureReason` is already a loosely-typed `string | null` DB column (no DB enum constraint), so the widened TS union flows through it automatically.
+
+- [ ] Task 6 — Delete 0.i2z's temporary inventory; add permanent Checks D/E (AC: #7)
+  - [ ] In `apps/backend/src/lib/vendor-gateway/no-vendor-call-bypasses-wrapper.ratchet.test.ts`: delete `TEMPORARY_APIFY_BRIGHTDATA_BYPASS_FILES` and every test case built around it (the non-empty assertion, the per-entry staleness guard) — per that file's own header-comment instruction naming this story.
+  - [ ] Add **Check D**: scan every non-test `.ts` file under `apps/backend/src` for the identifier `getApifyClient` (word-boundary, matching Check C's `callGeminiGenerateContent` style); assert every match is confined to `lib/scraper/instagram-adapter.ts` (its own defining/calling module, same `ALLOWED_MODULE`-is-the-definer convention `events-postid-write-ratchet.test.ts` already uses for its own single-file case). Add a negative-control test: a synthetic snippet calling `getApifyClient()` outside the allowed file must be flagged.
+  - [ ] Add **Check E**: scan every non-test `.ts` file under `apps/backend/src` for the literal substring `api.brightdata.com`; assert every match is confined to `lib/scraper/brightdata-client.ts`. Add a negative-control test proving a synthetic snippet referencing that host outside the allowed file is flagged.
+  - [ ] Re-run the full ratchet file; confirm Checks A/B/C are unchanged and still pass (Gemini/Apify SDK-import confinement was already true and is untouched by this story).
+
+- [ ] Task 7 — Tests (AC: #1-8)
+  - [ ] `instagram-adapter.test.ts`: existing tests already mock at the `setCallApifyActor` seam (bypassing `callApifyActor`'s internals entirely) — unaffected by Task 1's refactor, confirm they still pass unchanged. Add new cases: `isApifyErrorTransient` classifies a `500` `ApifyApiError` and an `ECONNRESET`-coded error as transient, a `404`/other error as not; `callApifyClient` rejects with `VendorDpaNotConfirmedError` when `APIFY_SCRAPING_CONFIRMED=false` and the thunk never runs (same proof shape as `guarded-call.test.ts`'s own DPA tests — assert a `callInvoked` flag stays `false`); the Task 2 regression-guard test (`ApifyRequestTimeoutError` still wins the race over `callApifyClient`'s internal bound).
+  - [ ] New file `brightdata-client.test.ts` (none exists today): cover `triggerBrightDataJob`/`getBrightDataProgress`/`getBrightDataSnapshot`'s still-correct mapped output against a mocked `fetch` (functional regression coverage this file has never had); `isBrightDataErrorTransient` classification (500 → transient, 404 → not, a network-error-coded rejection → transient); DPA gate rejection when `BRIGHTDATA_SCRAPING_CONFIRMED=false` with the mocked `fetch` never invoked.
+  - [ ] `trigger-apify-for-target.test.ts` / `apps/backend/src/lib/scraper/__tests__/trigger-brightdata-for-target.test.ts`: existing `getApifyClient`-mock-based tests continue to work unchanged (`callApifyClient` still calls `getApifyClient()` internally one layer down — same substitution point). Add one case each proving a `VendorDpaNotConfirmedError` maps to `{ success: false, failureReason: 'DPA_NOT_CONFIRMED' }`.
+  - [ ] `fetch-vendor-run-output.test.ts`: existing `setGetApifyClient`-based tests continue to work unchanged for the same reason; no new case strictly required (DPA/timeout behavior is already covered at the `instagram-adapter.test.ts`/`brightdata-client.test.ts` level) — confirm green.
+  - [ ] `apify-webhook.test.ts`: none of its 5 existing cases reach the real Apify call path today (confirmed during story drafting — every case short-circuits before `getApifyClient()` is ever invoked); unaffected by Task 3's refactor. Add one new case mocking `setGetApifyClient` for a `SUCCEEDED` run with a dataset, proving the restructured `{ run, items }` shape still drives `processApifyAsyncResult` correctly (first real coverage of this handler's success path).
+  - [ ] `tally-scraper-provider-results.test.ts`: add a case proving `DPA_NOT_CONFIRMED` wins dominance over a mixed `TRIGGER_ERROR`/`CAPACITY_EXHAUSTED` day.
+  - [ ] Manual `vendor_call_locks` row-count check (`psql "$DATABASE_URL" -c "select count(*) from vendor_call_locks;"`) before/after running this story's touched/added test files — must show **zero** rows (AC8; trivially true since no `lockKey` is ever passed, but verify, don't assume).
+  - [ ] `pnpm --filter backend test` (Story 0.51's row-count-ratchet wrapper) — green, zero growth across every table.
+  - [ ] `pnpm --filter backend lint` / `pnpm --filter backend build` — clean on every touched/added file.
+
+- [ ] Task 8 — Docs/tracking (no AC, bookkeeping)
+  - [ ] `epics.md`: add an Amendment note under Story 0.i2d recording the lock-key and Apify-consolidation decisions (this story's own creation-time `AskUserQuestion`), matching the style of 0.i2z's existing 2026-10-07 Amendment.
+  - [ ] `sprint-status.yaml`: status `backlog` → `ready-for-dev` (this story's creation).
+  - [ ] `backlog.yaml`: `FIND-004` already lists `0-i2d-...` in its `stories:` array and is already `status: promoted` — verified, no edit needed.
+
+## Dev Notes
+
+### Design decisions (`AskUserQuestion`, this story's creation, 2026-10-09)
+
+Two genuine, non-mechanical design gaps surfaced while scoping this story that AD-32 left as explicit "future" placeholders rather than deciding — both were put to the user before drafting, per this workflow's design-tradeoff rule:
+
+1. **Lock-key strategy.** AD-32 Rule 2's lock exists to stop two Lambda containers from concurrently claiming the *same row* in a multi-key BYOK pool (Gemini's case). Apify/Bright Data have exactly one static, always-valid token each — there is no pool, and critically, no candidate-exclusion retry loop like `callGemini`'s to absorb a `VendorKeyBusyError` if contention occurred. A global per-vendor lock would (a) serialize all concurrent Apify/Bright Data traffic system-wide — a real, untested throughput regression, since today's SQS-fan-out Lambda containers call these vendors concurrently by design — and (b) risk a busy-lock error propagating raw out of `trigger-apify-for-target.ts`/`apify-webhook.ts` with nothing to catch it; `apify-webhook.ts`'s handler in particular swallows any error and returns HTTP 200 "not retrying," so a busy-lock hit there would silently drop a scrape result. **User chose: no `lockKey` for any Apify/Bright Data call** (AC4) — the same reasoning AD-32 Rule 3 already applied to `verifyGeminiApiKey`'s lock-less exception, extended here because it fits even more directly (not even a *future* pool, just one static credential).
+2. **Apify consolidation shape.** 0.i2z's own ratchet inventory names 4 real Apify bypass files, not the 1 the epics.md story text implies (`instagram-adapter.ts`'s `callApifyActor`, plus 3 files calling the exported `getApifyClient()` directly with 3 different client-method shapes). Fully emptying that inventory (AC7, explicitly mandatory) requires routing all 4 through `callVendor`. **User chose: one new shared guarded helper (`callApifyClient`) in `instagram-adapter.ts`**, used internally by `callApifyActor` and externally by the 3 other files, over each file inlining its own `callVendor` call — avoids duplicating the `isTransient`/no-`lockKey` policy 4 times and matches AD-32 Rule 1's "one function" chokepoint philosophy, and Bright Data's own naturally analogous shape (Task 4). This expands the touched-file count from the 2 named in this story's kickoff text to the full set in the File List below — necessary, not optional, given AC7's explicit "empty the inventory" requirement.
+
+A third, smaller decision (not put to the user — additive, low-risk, directly justified by existing code's own doc comments) is `ScraperTriggerFailureReason`'s new `'DPA_NOT_CONFIRMED'` member (AC6/Task 5): folding a deliberate kill-switch rejection into the existing `'TRIGGER_ERROR'` bucket would misreport it as a real vendor outage to `scraper-provider-health-store.ts`'s alerting logic — exactly the conflation that type's own doc comment says it exists to prevent. Precedent: AD-32 Rule 4 required a brand-new `VendorKeyBusyError` catch branch in `callGemini` rather than letting it fall into the generic re-throw, for the same reason (a new failure class needs its own name, not a nearest-fit bucket).
+
+### Architecture & UX Gate Findings
+
+Ran fresh — no `_bmad-output/planning-artifacts/epic-readiness/epic-0-i2-readiness.md` exists (confirmed by directory listing), so the epic-sweep-citation path does not apply.
+
+- **Gate 1 (Architecture/Infrastructure Completeness): No gap found.** This story touches only `apps/backend/src` (library/Lambda-handler code) plus doc/tracking files. It adds no new table (no migration), no new Lambda, no new queue, no new env var, no GraphQL surface, no frontend code. It consumes infrastructure that already shipped in Story 0.i2a (`callVendor`, the DPA-gate env vars) — nothing undeployed. The one new TS-level type (`BrightDataApiError`) and the widened `ScraperTriggerFailureReason` union are both additive, package-internal types.
+- **Gate 2 (UI Complexity & Reusability): No gap found — not applicable.** Zero UI/React/component/hook surface of any kind; nothing `DESIGN.md`/`EXPERIENCE.md`/`EVENT-CARD-DESIGN.md` governs. `packages/ui`/`apps/web` are untouched.
+- **Gate 3 (Foundational/Cross-Cutting Dependency Completeness): No gap found.** `callVendor`/the DPA-gate mechanism this story adopts already exists (0.i2a); this story is pure adoption, not a new foundational dependency. The source-scan-ratchet idiom this story extends (Checks D/E) has 4 existing precedents in this repo (`events-postid-write-ratchet.test.ts`, `event-account-match-ratchet.test.ts`, `extraction-audit-logs-no-hotpath-import.test.ts`, and 0.i2z's own Checks A/B/C) — a 5th/6th instance inside the *same already-existing* ratchet file is not a new foundation, just two more checks in it. `ScraperTriggerFailureReason`'s widening reuses the existing `tally-scraper-provider-results.ts`/`scraper-provider-health-store.ts` machinery verbatim — no new cross-cutting mechanism introduced.
+
+### Why this story does not need a DB migration
+
+No new table or column. `vendor_call_locks` (0.i2a) is never written to by this story (AC4: `lockKey` always omitted for Apify/Bright Data). `ScraperTriggerFailureReason`'s new `'DPA_NOT_CONFIRMED'` member flows into `scraperProviderHealth.lastFailureReason`, an already-untyped `TEXT` column (`scraper-provider-health-store.ts` reads/writes it as `string | null`, no DB-level enum constraint) — confirmed by reading that file in full; no migration needed for a new string value in a `TEXT` column. Per the kickoff's explicit instruction, this was confirmed (not assumed) before drafting: no migration is added by this story.
+
+### Data Type Compatibility & Migration Requirements
+
+- **Compatibility finding: No mismatch found.**
+- **Impacted fields/contracts:** `ScraperTriggerFailureReason` (TS union, `scraper-trigger-result.ts`) gains one new string literal member, consumed by `tally-scraper-provider-results.ts` (additive branch) and persisted, unconstrained, into `scraperProviderHealth.lastFailureReason` (`TEXT`, no DB enum) — verified compatible with no migration.
+- **Required DB migration changes:** None.
+- **Required TypeScript type changes:** `ScraperTriggerFailureReason` widened additively (Task 5); `BrightDataApiError`/`isApifyErrorTransient`/`isBrightDataErrorTransient`/`callApifyClient` are new, additive exports.
+- **Backward compatibility and rollout notes:** Fully additive at the type level. Behaviorally: every one of the 4 Apify-touching Lambdas (`apiLambda` 25s, `scraperLambda` 300s, `ApifyWebhook-${stageName}` 30s default, confirmed from `apps/infrastructure/lib/festgrid-backend-stack.ts`) now has a wrapper-level timeout bound it never had before on 3 of these paths (`getNewestPosts`, `trigger-apify-for-target.ts`, `apify-webhook.ts`, `fetch-vendor-run-output.ts`) — a net-new protection, not a behavior change for the 2 paths (`getPostByUrl`, `lookupAccountProfile`/`getAccountClassificationProfile`) that already had an outer timeout (Task 2 keeps those outer bounds authoritative). Bright Data's 3 functions gain their first-ever timeout of any kind. A transient-error retry on `trigger-apify-for-target.ts`/`trigger-brightdata-for-target.ts`'s trigger call carries a small, pre-existing-in-spirit risk of double-triggering a scrape job if the vendor actually registered the job before a late/dropped response looked like a 5xx — the same class of risk AD-32 already accepts system-wide for Gemini's retry-on-transient-failure design; not a new risk this story introduces.
+- **Verification checks:** `pnpm --filter backend test` (Story 0.51's row-count-ratchet wrapper); manual `vendor_call_locks` row-count check (Task 7); `pnpm --filter backend lint`/`build`.
+
+### Project Structure Notes
+
+- **New:** `apps/backend/src/lib/scraper/brightdata-client.test.ts` (no test file exists for this module today).
+- **Modified (production):** `apps/backend/src/lib/scraper/instagram-adapter.ts`, `trigger-apify-for-target.ts`, `fetch-vendor-run-output.ts`, `brightdata-client.ts`, `trigger-brightdata-for-target.ts`, `scraper-trigger-result.ts`, `tally-scraper-provider-results.ts`; `apps/backend/src/lambdas/apify-webhook.ts`.
+- **Modified (tests):** `apps/backend/src/lib/scraper/instagram-adapter.test.ts`, `trigger-apify-for-target.test.ts`, `fetch-vendor-run-output.test.ts`, `tally-scraper-provider-results.test.ts`, `__tests__/trigger-brightdata-for-target.test.ts`; `apps/backend/src/lambdas/apify-webhook.test.ts`; `apps/backend/src/lib/vendor-gateway/no-vendor-call-bypasses-wrapper.ratchet.test.ts`.
+- **Not modified:** `apps/backend/src/lib/ai-gateway/*`, `apps/backend/src/lib/vendor-gateway/guarded-call.ts` (the mechanism itself, unchanged), `apps/backend/src/env.ts`, `.env.example` (both DPA env vars already exist from 0.i2a), any GraphQL schema/resolver file, `apps/web`, `packages/ui`, `apps/infrastructure`, `packages/database/schema.ts`/`migrations/` (no migration).
+- `apps/backend/scripts/debug-apify.ts` and `apps/backend/src/trigger-brightdata-onetime.ts`: the former is outside the `src/` ratchet-scan root (unaffected, same as 0.i2z already noted); the latter is inside `src/` but only calls the already-public, now-transitively-guarded `triggerBrightDataJob`/`getBrightDataProgress`/`getBrightDataSnapshot`/`mapBrightDataDateToStartDate` exports — no direct `fetch()`/host reference, so Check E does not flag it, and no code change is needed to it.
+
+### References
+
+- [Source: `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` AD-32, lines 1812-1950 — read in full] — Rule 1 (one function/module), Rule 2 (lock mechanics, and its explicit "future `apify:<credential-id>`/`brightdata:<credential-id>`" placeholder this story resolves via AC4), Rule 3 (the lock-less exception this story extends), Rule 4 (caller-supplied `isTransient`, required new catch branches for new error classes), Rule 5 (DPA gate, Apify/Bright-Data-only), Rule 6 ("Apify/Bright Data adoption is not this pass's scope... this AD fixes the wrapper's shape so adoption is a drop-in later" — this story is that drop-in).
+- [Source: `_bmad-output/implementation-artifacts/0-i2z-ratchet-no-vendor-call-bypasses-the-wrapper.md` — read in full] — the exact temporary-inventory file list, the false-positive guard (`geoapify-client.js` substring collision — irrelevant to Checks D/E's different patterns but kept in mind), and the explicit "Story 0.i2d must empty it... delete this check" header-comment instruction Task 6 follows.
+- [Source: `_bmad-output/implementation-artifacts/0-i2a-build-the-guarded-vendor-call-wrapper.md` — read in full] — `callVendor`'s exact signature/behavior (`CallVendorOptions<T>`, the three error classes, the TTL/backoff formulas), and its own Gate 3 finding that created this story.
+- [Source: `_bmad-output/implementation-artifacts/0-i2c-adopt-the-wrapper-in-the-async-inference-path.md`, `apps/backend/src/lib/ai-gateway/adapter.ts` — read in full] — the precedent this story mirrors: audit/usage recording happens *after* `callVendor` returns, never inside the thunk; `isTransient` is evidence-based and vendor-specific; a new error class gets a required new catch branch, never the generic re-throw.
+- [Source: `apps/backend/src/lib/vendor-gateway/guarded-call.ts` — read in full] — confirmed `CallVendorOptions<T>`'s exact shape (`lockKey` genuinely optional, AC4 relies on this), the DPA-gate-before-lock-claim ordering, and that Gemini's branch reads zero DPA flags (unaffected by this story).
+- [Source: `apps/backend/src/lib/scraper/instagram-adapter.ts`, `trigger-apify-for-target.ts`, `fetch-vendor-run-output.ts`, `apps/backend/src/lambdas/apify-webhook.ts`, `brightdata-client.ts`, `trigger-brightdata-for-target.ts` — read in full] — confirmed the exact current call shapes (`.call()`, `.start()`, `.run().get()`, `.dataset().listItems()`, 3 raw `fetch()`s) this story's guarded wrappers replace, and that `getApifyClient` has exactly 4 real callers (its own defining module + the 3 files Task 3 fixes) via `grep -rn "getApifyClient" apps/backend/src --include=*.ts`.
+- [Source: `apps/backend/src/lib/scraper/scraper-trigger-result.ts`, `tally-scraper-provider-results.ts`, `scraper-provider-health-store.ts` — read in full] — confirmed the closed union's own stated purpose (justifying AC6's new member rather than reusing `TRIGGER_ERROR`), the dominant-failure-reason priority logic (Task 5's insertion point), and that `lastFailureReason` is an untyped `TEXT` column (no migration needed).
+- [Source: `apps/backend/src/schema/resolvers.ts:2263` — grepped] — confirmed `instanceof ApifyRequestTimeoutError` is specifically caught there, the regression this story's Task 2 explicitly guards against.
+- [Source: `apps/infrastructure/lib/festgrid-backend-stack.ts` — grepped for every `timeout: cdk.Duration` and each Lambda's `entry`] — `apiLambda` 25s, `scraperLambda`/`aiProcessorLambda`/`ingestorLambda`/`notifierLambda` 300s, `ApifyWebhook-${stageName}`/`Webhook-${stageName}` the shared default 30s (`sharedLambdaProps`, no override) — the concrete basis for every `timeoutMs`/`maxAttempts` choice in Tasks 1-4.
+- [Source: `node_modules/.pnpm/apify-client@2.25.0/.../apify_api_error.d.ts`] — confirmed `ApifyApiError.statusCode: number` exists, the basis for `isApifyErrorTransient`'s evidence (mirroring `isGeminiErrorTransient`'s own `originalError?.status`/`statusCode` check in `gemini-client.ts`).
+- [Source: `apps/backend/package.json` `"test"` script, `apps/backend/scripts/run-tests-with-row-count-ratchet.ts` — read in full] — confirmed Story 0.51's row-count ratchet is now live as the package's own `test` script (all-tables `COUNT(*)` before/after, not `vendor_call_locks`-specific), satisfying the kickoff's "backend row-count ratchet... must report zero growth" requirement automatically on every `pnpm --filter backend test` run.
+- [Source: `_bmad-output/implementation-artifacts/backlog.yaml` `FIND-004`, lines 324-332] — confirmed already `status: promoted` with `stories: [0-i2a-..., 0-i2d-...]` — no backlog edit needed by this story.
+
+## Global Rules References
+
+- `_bmad-output/project-context.md` — General Architecture (Adapter Pattern for external services — this story keeps the adapter boundary intact, routing through the vendor's own adapter file rather than a new cross-cutting module); Database & Performance (Drizzle ORM only — N/A here, no DB access added); Security (Credential Management — no new secrets; the two DPA env vars already exist); Testing Rules (testing-trophy for `apps/*`; `packages/domain`'s 100%-coverage rule does not apply, this module lives in `apps/backend`).
+- `_bmad-output/planning-artifacts/story-content-structure.md` — canonical section order/status vocabulary followed.
+- `_bmad-output/planning-artifacts/festgrid-architecture-spine.md#AD-32` — the authoritative decision this story adopts (not re-decides) for Apify/Bright Data.
+- `docs/infrastructure/2-backend.md` — confirmed no new Lambda/queue/IaC; this story only changes existing Lambda-hosted function bodies.
+- `_bmad-output/planning-artifacts/story-split-gate.md` — Gate 1/2/3 definitions (all ran fresh, no gap found, see Dev Notes).
+
+## Implementation Plan (Rule-Compliant)
+
+- **File Change Plan:** see Dev Notes "Project Structure Notes" above for the complete New/Modified/Not-modified breakdown.
+- **Rule Mapping:**
+  - AD-32 Rule 1 (one function, one module) → `callApifyClient` consolidates all 4 real Apify bypass sites into `instagram-adapter.ts`'s existing module (Task 1/3); Bright Data's 3 functions stay in `brightdata-client.ts` (Task 4) — no new module needed for either vendor.
+  - AD-32 Rule 3 (lock-less exception) → extended to all Apify/Bright Data calls (AC4/Task 1/3/4), per the `AskUserQuestion` decision.
+  - AD-32 Rule 4 (caller-supplied `isTransient`, required new catch branches) → `isApifyErrorTransient`/`isBrightDataErrorTransient` (Task 1/4); `DPA_NOT_CONFIRMED`'s own new branch rather than a generic fallthrough (Task 5).
+  - AD-32 Rule 5 (DPA gate, Apify/Bright-Data-only) → already built (0.i2a); this story is the first to put real call sites behind it (Tasks 1, 3, 4).
+  - AD-32 Rule 6 ("this AD fixes the wrapper's shape so adoption is a drop-in later... brightdata-client.ts's own 3 fetch() call sites would need to move inside callVendor's call thunk once 0.i2d lands") → Task 4 implements exactly this, verbatim.
+  - project-context.md Testing Rules (testing-trophy) → Task 7's integration-style tests against mocked `fetch`/`getApifyClient` seams, no `packages/domain` unit-coverage rule applied.
+- **Verification Plan:**
+  - `pnpm --filter backend test` (Story 0.51's row-count-ratchet wrapper) — full suite green, zero row growth.
+  - `pnpm --filter backend lint` / `pnpm --filter backend build` — clean.
+  - Manual `vendor_call_locks` row-count check before/after (Task 7) — zero.
+  - `git grep getApifyClient apps/backend/src --include=*.ts` and `git grep "api.brightdata.com" apps/backend/src --include=*.ts` (outside test files) — confined to the 2 allowed modules, matching Checks D/E.
+  - `git diff --stat <baseline_commit> HEAD -- apps/backend/src/lib/ai-gateway apps/backend/src/lib/vendor-gateway/guarded-call.ts apps/backend/src/env.ts` — empty (AC9).
+
+## Pre-Coding Approval Gate
+
+- [ ] Scope confirmation: adopt `callVendor` for all 4 real Apify bypass sites (via one new shared `callApifyClient` helper) and Bright Data's 3 private `fetch` functions; delete 0.i2z's temporary inventory and replace it with permanent Checks D/E; wire a new `DPA_NOT_CONFIRMED` failure-reason member. No `lockKey` for either vendor. No migration.
+- [ ] Architecture and boundary confirmation: Gate 1/2/3 all ran fresh, all report "No gap found" (Dev Notes).
+- [ ] Testing plan confirmation: Task 7's integration-style suite (existing seams reused where they already work transparently; new `brightdata-client.test.ts`; new DPA/timeout/classification cases; Checks D/E + negative controls) — no DB-lease-taking test added (AC4/AC8).
+- [ ] Explicit human approval state (Default: pending approval).
+- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — N/A, no gaps found.
+- [ ] Lock-key decision confirmed: no `lockKey` for any Apify/Bright Data call (`AskUserQuestion`, 2026-10-09).
+- [ ] Apify-consolidation decision confirmed: one shared `callApifyClient` helper, touching 5 production files total rather than the 2 named in the kickoff (`AskUserQuestion`, 2026-10-09).
+- [ ] `DPA_NOT_CONFIRMED` failure-reason addition confirmed as in-scope, additive bookkeeping (not put to a separate question — justified directly from `scraper-trigger-result.ts`'s own doc comment, see Dev Notes).
+
+## Testing Requirements
+
+- [ ] Integration tests (required, `node:test`, testing-trophy — no mocked-vs-real-DB distinction needed here since no DB access is added): `instagram-adapter.test.ts` additions, new `brightdata-client.test.ts`, `trigger-apify-for-target.test.ts`/`__tests__/trigger-brightdata-for-target.test.ts`/`apify-webhook.test.ts`/`tally-scraper-provider-results.test.ts` additions, `no-vendor-call-bypasses-wrapper.ratchet.test.ts`'s Checks D/E + negative controls.
+- [ ] Unit tests: N/A in the `packages/domain` 100%-coverage sense — all touched modules live in `apps/backend`.
+- [ ] E2E tests: N/A — no UI, no user-facing flow.
+- [ ] Manual verification: `vendor_call_locks` row-count check before/after (Task 7/8); `git grep` confirmations (Verification Plan).
+
+## Deliverables Checklist
+
+- [ ] `instagram-adapter.ts` exports `callApifyClient`, `isApifyErrorTransient`; `callApifyActor` refactored; `normalizeApifyError` preserves `VendorDpaNotConfirmedError`/`VendorCallTimeoutError`.
+- [ ] `trigger-apify-for-target.ts`, `fetch-vendor-run-output.ts`, `lambdas/apify-webhook.ts` route through `callApifyClient`; zero direct `getApifyClient()` calls outside `instagram-adapter.ts`.
+- [ ] `brightdata-client.ts` exports `BrightDataApiError`, `isBrightDataErrorTransient`; all 3 private functions' `fetch()` calls run inside `callVendor('brightdata', ...)`.
+- [ ] `trigger-apify-for-target.ts`/`trigger-brightdata-for-target.ts` map `VendorDpaNotConfirmedError` to the new `'DPA_NOT_CONFIRMED'` `ScraperTriggerFailureReason`; `tally-scraper-provider-results.ts` ranks it highest-priority.
+- [ ] `no-vendor-call-bypasses-wrapper.ratchet.test.ts`: `TEMPORARY_APIFY_BRIGHTDATA_BYPASS_FILES` and its tests deleted; Checks D/E + negative controls added; Checks A/B/C unchanged and passing.
+- [ ] New `brightdata-client.test.ts`; all listed test files updated/passing.
+- [ ] `pnpm --filter backend test`/`lint`/`build` green; manual `vendor_call_locks` row-count check shows zero growth.
+- [ ] `epics.md` Amendment added under Story 0.i2d; `sprint-status.yaml` already set to `ready-for-dev` (story creation).
+
+## Out of Scope
+
+- Any change to `callVendor`/`guarded-call.ts` itself, `env.ts`, `.env.example` — all already shipped by 0.i2a; this story only adds callers.
+- Any change to the Gemini-side call paths (`lib/ai-gateway/*`) — 0.i2b/0.i2c's scope, already shipped.
+- A per-vendor or per-target lock for Apify/Bright Data — explicitly rejected (AC4, `AskUserQuestion`); revisit only if real production contention evidence emerges and a candidate-exclusion/retry mechanism analogous to `callGemini`'s is built alongside it.
+- A DB-backed DPA audit table (confirmed-by/at/evidence) — already rejected at the AD-32 architecture stage as disproportionate to FIND-004's `effort: s` sizing; not revisited here.
+- FIND-079 (private-account enforcement at subscribe time) — unrelated mechanism, separate backlog row, explicitly left untouched per prior stories' decisions.
+- Gating Gemini under the Apify/Bright-Data DPA flags "for uniformity" — rejected at the AD-32 stage; FIND-066 (Gemini's own data-use posture) remains separate and unresolved.
+- Extending `callApifyClient`'s/`callVendor`'s retry-idempotency story (the small double-trigger risk noted in Dev Notes "Data Type Compatibility") — accepted as consistent with AD-32's existing system-wide retry philosophy, not a new gap this story introduces or must close.
+- A dedicated alert/notification path for a `DPA_NOT_CONFIRMED` day beyond `scraper-provider-health-store.ts`'s existing generic threshold/cooldown alerting — the new failure reason flows into the existing mechanism; no bespoke alert copy or channel is added.
+
+## Definition of Done
+
+- [ ] AC1-9 satisfied.
+- [ ] `pnpm --filter backend test`, `pnpm --filter backend lint`, `pnpm --filter backend build` all pass (package-scoped only).
+- [ ] `git diff --stat` confirms zero modification to `ai-gateway/`, `guarded-call.ts`, `env.ts`, `.env.example`, any GraphQL file, and no new migration file (AC9).
+- [ ] Manual `vendor_call_locks` row-count check shows zero growth (AC8).
+- [ ] Pre-Coding Approval Gate explicitly approved by the user before implementation begins.
+
+## Completion Status
+
+- [ ] Not started — story file created, ready for `dev-story`.
+
+## Dev Agent Record
+
+### Agent Model Used
+
+
+
+### Debug Log References
+
+
+
+### Completion Notes List
+
+
+
+### File List
+
