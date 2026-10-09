@@ -5,12 +5,33 @@ import { instagramScraperAdapter, callApifyActor, setCallApifyActor, mapApifyIte
 import { db } from '../../db/client.js';
 import { scraperProviderUsage, unprocessedScraperPayloads } from '@festgrid/database';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError } from '@festgrid/domain';
-import { eq, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { clearApifyProviderUsage, APIFY_TEST_PROVIDER } from './usage-store-test-helpers.js';
 
 test('instagram-adapter tests', async (t) => {
   const originalCallApifyActor = callApifyActor;
   await clearApifyProviderUsage();
+
+  // Several sub-tests below feed mapApifyItemToScrapedPost deliberately malformed/AJV-invalid
+  // items, which causes the production code to call persistUnprocessedPayload() as a
+  // side effect -- only one sub-test asserts on the resulting row directly, but every such
+  // call leaves an `unprocessed_scraper_payloads` row behind. Snapshot the ids that already
+  // exist before this file's sub-tests run, then delete only the ones that are new once they
+  // are all done (file-level t.after), the same "track ids, delete only what this file
+  // created" shape as the rest of the suite -- just captured as a before/after id diff instead
+  // of one push-per-insert, since the inserts happen inside production code this test doesn't
+  // call directly.
+  const existingUnprocessedPayloadIds = new Set(
+    (await db.select({ id: unprocessedScraperPayloads.id }).from(unprocessedScraperPayloads)).map((row) => row.id),
+  );
+
+  t.after(async () => {
+    const allIds = await db.select({ id: unprocessedScraperPayloads.id }).from(unprocessedScraperPayloads);
+    const newIds = allIds.map((row) => row.id).filter((id) => !existingUnprocessedPayloadIds.has(id));
+    if (newIds.length > 0) {
+      await db.delete(unprocessedScraperPayloads).where(inArray(unprocessedScraperPayloads.id, newIds));
+    }
+  });
 
   await t.test('mapApifyItemToScrapedPost maps Apify item correctly', async () => {
     const item = {

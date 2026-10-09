@@ -30,6 +30,16 @@ const yoga = createYoga({
 test('widgets resolvers integration', async (t) => {
   let testUser: any;
   let anotherUser: any;
+  let createdWidgetId: string | undefined;
+
+  t.after(async () => {
+    if (createdWidgetId) {
+      // deleteWidget (action: DELETE) below is a soft delete (sets deletedAt) -- the row
+      // itself still counts toward `widgets`'s row count, so hard-delete it here.
+      await db.delete(embedDomains).where(eq(embedDomains.widgetId, createdWidgetId));
+      await db.delete(widgets).where(eq(widgets.id, createdWidgetId));
+    }
+  });
 
   await t.test('setup - get test users and clear existing widgets', async () => {
     const seededUsers = await db.select().from(users).limit(2);
@@ -79,6 +89,7 @@ test('widgets resolvers integration', async (t) => {
     const resultCreate = await resCreate.json();
     assert.ok(!resultCreate.errors, 'create should not fail: ' + JSON.stringify(resultCreate.errors));
     const widget = resultCreate.data.createWidget;
+    createdWidgetId = widget.id;
     assert.strictEqual(widget.displayMode, 'CARD');
     assert.strictEqual(widget.theme, 'DARK');
 

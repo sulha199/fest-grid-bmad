@@ -37,6 +37,21 @@ test('persistScrapedPost integration tests', async (t) => {
     })
     .returning();
 
+  // Tracks post ids created by sub-tests that do NOT already clean up their own rows via a
+  // try/finally + cleanupPostAndAssociationsByUrl (those are: r, t, u, w, y). Every other
+  // sub-test below pushes the id(s) of the post row(s) it created here, and the file-level
+  // t.after at the bottom deletes exactly those rows (and their associations), in FK-safe
+  // order, plus the `profile` row created above.
+  const createdPostIds: string[] = [];
+
+  t.after(async () => {
+    for (const postId of createdPostIds) {
+      await db.delete(postAccountAssociations).where(eq(postAccountAssociations.postId, postId));
+      await db.delete(posts).where(eq(posts.id, postId));
+    }
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+  });
+
   await t.test('(a) persisting a post with a new post_url inserts a new row with alreadyExisted: false', async () => {
     const postUrl = 'https://instagram.com/p/test_post_a_' + Date.now();
     const result = await persistScrapedPost({
@@ -52,6 +67,7 @@ test('persistScrapedPost integration tests', async (t) => {
     assert.ok(result.post);
     assert.strictEqual(result.post.postUrl, postUrl);
     assert.strictEqual(result.post.content, 'Test content A');
+    createdPostIds.push(result.post.id);
 
     // Verify it is in the database
     const dbPost = await db
@@ -87,6 +103,7 @@ test('persistScrapedPost integration tests', async (t) => {
     assert.strictEqual(result2.alreadyExisted, true);
     assert.strictEqual(result2.post.id, result1.post.id);
     assert.strictEqual(result2.post.content, 'Test content B1', 'Should keep original content');
+    createdPostIds.push(result1.post.id);
 
     // Verify row count remains 1 for this post_url
     const rows = await db
@@ -119,6 +136,7 @@ test('persistScrapedPost integration tests', async (t) => {
     assert.strictEqual(result2.alreadyExisted, false);
 
     assert.notStrictEqual(result1.post.id, result2.post.id);
+    createdPostIds.push(result1.post.id, result2.post.id);
 
     // Verify both are in the database under same accountId
     const rows = await db
@@ -159,6 +177,7 @@ test('persistScrapedPost integration tests', async (t) => {
     assert.strictEqual(result2.alreadyExisted, true);
     assert.strictEqual(result2.post.id, result1.post.id);
     assert.strictEqual(result2.post.content, 'Test content D1');
+    createdPostIds.push(result1.post.id);
   });
 
   await t.test('(e) videoUrl round-trips correctly and defaults to null (Amendment)', async () => {
@@ -199,6 +218,7 @@ test('persistScrapedPost integration tests', async (t) => {
       .from(posts)
       .where(eq(posts.id, resultNoVideo.post.id));
     assert.strictEqual(dbPostNoVideo.videoUrl, null);
+    createdPostIds.push(resultWithVideo.post.id, resultNoVideo.post.id);
   });
 
   await t.test('(f) imageUrlExpiresAt is set on insert according to imageUrl format', async () => {
@@ -244,6 +264,7 @@ test('persistScrapedPost integration tests', async (t) => {
 
     assert.strictEqual(resultNullImage.alreadyExisted, false);
     assert.strictEqual(resultNullImage.post.imageUrlExpiresAt, null);
+    createdPostIds.push(resultWithExpiry.post.id, resultNoExpiry.post.id, resultNullImage.post.id);
   });
 
   await t.test('(g) FK retry correctly rethrows when the retry insert also fails (unrelated FK constraint violation on accountId)', async () => {
@@ -302,6 +323,7 @@ test('persistScrapedPost integration tests', async (t) => {
     assert.strictEqual(result2.post.videoUrl, 'https://test.com/video_h.mp4');
     assert.strictEqual(result2.post.imageUrl, 'https://test.com/image_h.png?oe=64F373FF');
     assert.ok(result2.post.imageUrlExpiresAt instanceof Date);
+    createdPostIds.push(result1.post.id);
   });
 
   await t.test('(i) preserves existing videoUrl on dedupe and does not overwrite', async () => {
@@ -331,6 +353,7 @@ test('persistScrapedPost integration tests', async (t) => {
     assert.strictEqual(result2.alreadyExisted, true);
     assert.strictEqual(result2.post.id, result1.post.id);
     assert.strictEqual(result2.post.videoUrl, 'https://test.com/video_i_first.mp4');
+    createdPostIds.push(result1.post.id);
   });
 
   await t.test('(j) additionalImageUrls round-trips into the additional_image_urls jsonb column on insert', async () => {
@@ -359,6 +382,7 @@ test('persistScrapedPost integration tests', async (t) => {
       .from(posts)
       .where(eq(posts.id, result.post.id));
     assert.deepStrictEqual(dbPost.additionalImageUrls, urls);
+    createdPostIds.push(result.post.id);
   });
 
   await t.test('(k) omitting additionalImageUrls persists null in the jsonb column', async () => {
@@ -377,6 +401,7 @@ test('persistScrapedPost integration tests', async (t) => {
       .from(posts)
       .where(eq(posts.id, result.post.id));
     assert.strictEqual(dbPost.additionalImageUrls, null);
+    createdPostIds.push(result.post.id);
   });
 
   await t.test('(l) a large additionalImageUrls array persists in full, uncapped (AC3 no-cap)', async () => {
@@ -398,6 +423,7 @@ test('persistScrapedPost integration tests', async (t) => {
       .from(posts)
       .where(eq(posts.id, result.post.id));
     assert.deepStrictEqual(dbPost.additionalImageUrls, urls);
+    createdPostIds.push(result.post.id);
   });
 
   await t.test('(m) re-persisting an existing postUrl with a different additionalImageUrls does not overwrite the stored value', async () => {
@@ -423,6 +449,7 @@ test('persistScrapedPost integration tests', async (t) => {
 
     assert.strictEqual(result2.alreadyExisted, true);
     assert.deepStrictEqual(result2.post.additionalImageUrls, ['https://test.com/orig_slide2.jpg']);
+    createdPostIds.push(result1.post.id);
   });
 
   await t.test('(n) a brand-new Instagram-shaped postUrl (no originalPostUrl) persists platformPostId/platformPostType', async () => {
@@ -447,6 +474,7 @@ test('persistScrapedPost integration tests', async (t) => {
       .where(eq(posts.id, result.post.id));
     assert.strictEqual(dbPost.platformPostId, postId);
     assert.strictEqual(dbPost.platformPostType, 'p');
+    createdPostIds.push(result.post.id);
   });
 
   await t.test('(o) a brand-new post whose postUrl cannot be parsed persists both columns as null', async () => {
@@ -469,6 +497,7 @@ test('persistScrapedPost integration tests', async (t) => {
       .where(eq(posts.id, result.post.id));
     assert.strictEqual(dbPost.platformPostId, null);
     assert.strictEqual(dbPost.platformPostType, null);
+    createdPostIds.push(result.post.id);
   });
 
   await t.test('(p) re-persisting an existing postUrl (dedupe) never backfills platformPostId/platformPostType even though the second call would now parse', async () => {
@@ -507,6 +536,7 @@ test('persistScrapedPost integration tests', async (t) => {
       .where(eq(posts.id, result1.post.id));
     assert.strictEqual(dbPost.platformPostId, null);
     assert.strictEqual(dbPost.platformPostType, null);
+    createdPostIds.push(result1.post.id);
   });
 
   await t.test('(q) originalPostUrl wins over a differently-shaped postUrl when both are present and parseable', async () => {
@@ -526,6 +556,7 @@ test('persistScrapedPost integration tests', async (t) => {
     const expectedId = originalPostUrl.split('/p/')[1];
     assert.strictEqual(result.post.platformPostId, expectedId);
     assert.strictEqual(result.post.platformPostType, 'p');
+    createdPostIds.push(result.post.id);
   });
 
   await t.test('(r) ownerId/coauthors/discoverySourceVendor: creates a discovered profile for the publisher and one per coauthor (Story 3.14)', async () => {
@@ -612,6 +643,7 @@ test('persistScrapedPost integration tests', async (t) => {
 
     const afterCount = await db.select().from(socialMediaAccountProfiles).then((rows) => rows.length);
     assert.strictEqual(afterCount, beforeCount, 'no new social_media_account_profiles row should be created');
+    createdPostIds.push(result.post.id);
   });
 
   await t.test('(t) a coauthor accountId colliding with an existing profile on a different platform does not corrupt that row (composite key sanity check)', async () => {
@@ -715,6 +747,7 @@ test('persistScrapedPost integration tests', async (t) => {
     });
 
     assert.strictEqual(result.post.accountId, profile.id, 'posts.accountId falls back to the caller-supplied accountId when no ownerId is present');
+    createdPostIds.push(result.post.id);
   });
 
   await t.test('(w) a new post with ownerId + coauthors results in SCRAPING_SOURCE + PUBLISHER + N COAUTHOR rows in post_account_associations (AC2/AC5)', async () => {
@@ -789,6 +822,7 @@ test('persistScrapedPost integration tests', async (t) => {
 
     assert.strictEqual(result.alreadyExisted, false);
     assert.strictEqual(result.post.accountId, profile.id, 'falls back to the caller accountId when publisher resolution fails');
+    createdPostIds.push(result.post.id);
   });
 
   await t.test('(y) re-persisting an existing postUrl (dedupe branch) with ownerId now present does not change the already-set post.accountId, but still writes association rows idempotently (AC3 + AC4)', async () => {
