@@ -1,6 +1,7 @@
 // apps/backend/src/lib/scraper/__tests__/trigger-brightdata-for-target.test.ts
 import test from 'node:test';
 import * as assert from 'node:assert';
+import { randomUUID } from 'node:crypto';
 import { db } from '../../../db/client.js';
 import { scraperProviderUsage } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
@@ -38,6 +39,29 @@ test('trigger-brightdata-for-target', async (t) => {
     );
 
     assert.deepStrictEqual(result, { success: false, failureReason: 'CAPACITY_EXHAUSTED' });
+  });
+
+  await t.test('maps VendorDpaNotConfirmedError to DPA_NOT_CONFIRMED (AC6, real DPA gate via callVendor)', async () => {
+    // Restore the real implementation (a prior sub-test may have replaced it via the seam).
+    setAttemptBrightDataTrigger(originalAttemptBrightDataTrigger);
+    await db.delete(scraperProviderUsage).where(eq(scraperProviderUsage.provider, BRIGHTDATA_TEST_PROVIDER));
+
+    const original = process.env.BRIGHTDATA_SCRAPING_CONFIRMED;
+    process.env.BRIGHTDATA_SCRAPING_CONFIRMED = 'false';
+    try {
+      const result = await attemptBrightDataTrigger(
+        { profileId: randomUUID(), username: 'test_user' },
+        '2026-08-01T00:00:00Z'
+      );
+
+      assert.deepStrictEqual(result, { success: false, failureReason: 'DPA_NOT_CONFIRMED' });
+    } finally {
+      if (original === undefined) {
+        delete process.env.BRIGHTDATA_SCRAPING_CONFIRMED;
+      } else {
+        process.env.BRIGHTDATA_SCRAPING_CONFIRMED = original;
+      }
+    }
   });
 });
 

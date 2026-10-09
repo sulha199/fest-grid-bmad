@@ -174,74 +174,100 @@ test('Check C negative control: a synthetic bypass reference outside the allowli
 });
 
 // ---------------------------------------------------------------------------------------------
-// Task 3 (AC3): Apify/Bright Data vendor-call bypass -- TEMPORARY inventory check.
-//
-// Story 0.i2d (backlog) must route each of the files below through `callVendor` and then EMPTY
-// this list. Once TEMPORARY_APIFY_BRIGHTDATA_BYPASS_FILES is empty, this whole check must be
-// DELETED and Check A/Check B/Check C above must be extended to cover Apify/Bright Data the same
-// way they cover Gemini today (see Story 0.i2z Dev Notes "Why this story does not just extend
-// AC1/AC2 to cover Apify/Bright Data directly").
-//
-// This check intentionally asserts the list is non-empty (so the gap can't be silently forgotten
-// and this check can't vacuously pass) AND that each named file still contains its named bypass
-// pattern (a staleness guard -- if the file's shape has drifted, this check fails loudly instead
-// of silently continuing to "pass" against code that no longer matches the inventory).
+// Check D (Story 0.i2d, AC7, property 1-equivalent for Apify's *internal* client getter):
+// getApifyClient() identifier confinement. Story 0.i2d routed all 4 real Apify bypass sites
+// through the new shared callApifyClient helper in instagram-adapter.ts -- getApifyClient
+// itself must now only ever be referenced from its own defining module (callApifyClient's
+// internal call-site), replacing the TEMPORARY_APIFY_BRIGHTDATA_BYPASS_FILES inventory this
+// check supersedes.
 // ---------------------------------------------------------------------------------------------
 
-interface BypassEntry {
-  relativePath: string;
-  pattern: RegExp;
-  description: string;
-}
+const GET_APIFY_CLIENT_IDENTIFIER_PATTERN = /\bgetApifyClient\b/;
+const GET_APIFY_CLIENT_ALLOWED_FILE = join(SRC_ROOT, 'lib', 'scraper', 'instagram-adapter.ts');
 
-const TEMPORARY_APIFY_BRIGHTDATA_BYPASS_FILES: BypassEntry[] = [
-  {
-    relativePath: 'lib/scraper/trigger-apify-for-target.ts',
-    pattern: /getApifyClient\(\)/,
-    description: 'calls getApifyClient() directly, bypassing callVendor',
-  },
-  {
-    relativePath: 'lib/scraper/fetch-vendor-run-output.ts',
-    pattern: /getApifyClient\(\)/,
-    description: 'calls getApifyClient() directly, bypassing callVendor (also imports Bright Data read helpers below)',
-  },
-  {
-    relativePath: 'lambdas/apify-webhook.ts',
-    pattern: /getApifyClient\(\)/,
-    description: 'calls getApifyClient() directly, bypassing callVendor',
-  },
-  {
-    relativePath: 'lib/scraper/trigger-brightdata-for-target.ts',
-    pattern: /from\s+['"]\.\/brightdata-client\.js['"]/,
-    description: "imports brightdata-client.ts's exported functions directly, bypassing callVendor",
-  },
-];
+test('Check D: getApifyClient is only referenced inside its own defining module (instagram-adapter.ts)', () => {
+  const files = collectTsFiles(SRC_ROOT);
+  const offenders = files
+    .filter((f) => resolve(f) !== resolve(GET_APIFY_CLIENT_ALLOWED_FILE))
+    .filter((f) => GET_APIFY_CLIENT_IDENTIFIER_PATTERN.test(readFileSync(f, 'utf8')))
+    .map(toRelative);
 
-test('Task 3: the temporary Apify/Bright Data bypass inventory is non-empty (Story 0.i2d must empty it)', () => {
+  assert.deepStrictEqual(
+    offenders,
+    [],
+    `Found getApifyClient reference(s) outside the allowed module (lib/scraper/instagram-adapter.ts): ${offenders.join(', ')}`
+  );
+
   assert.ok(
-    TEMPORARY_APIFY_BRIGHTDATA_BYPASS_FILES.length > 0,
-    'TEMPORARY_APIFY_BRIGHTDATA_BYPASS_FILES must stay non-empty until Story 0.i2d actually routes ' +
-      'each entry through callVendor. If this fires, either the list was emptied without deleting ' +
-      'this check (finish 0.i2d: delete this check and extend Check A/B/C to cover Apify/Bright ' +
-      'Data), or the list was emptied by mistake.'
+    GET_APIFY_CLIENT_IDENTIFIER_PATTERN.test(readFileSync(GET_APIFY_CLIENT_ALLOWED_FILE, 'utf8')),
+    'Expected instagram-adapter.ts to still reference getApifyClient'
   );
 });
 
-test('Task 3: each named bypass file still contains its named bypass pattern (staleness guard)', () => {
-  const stale: string[] = [];
-  for (const entry of TEMPORARY_APIFY_BRIGHTDATA_BYPASS_FILES) {
-    const fullPath = join(SRC_ROOT, entry.relativePath);
-    const content = readFileSync(fullPath, 'utf8');
-    if (!entry.pattern.test(content)) {
-      stale.push(`${entry.relativePath} (expected to still ${entry.description})`);
+test('Check D negative control: a synthetic bypass reference outside the allowed module is flagged', () => {
+  const bypassSnippet = `
+    import { getApifyClient } from './instagram-adapter.js';
+    export async function someOtherModule() {
+      return getApifyClient().actor('x').call({});
     }
-  }
+  `;
+  assert.strictEqual(
+    GET_APIFY_CLIENT_IDENTIFIER_PATTERN.test(bypassSnippet),
+    true,
+    'Expected the getApifyClient pattern to flag a synthetic bypass reference'
+  );
+
+  const unrelatedSnippet = `export function getApifyClientFactorySomethingElse() {}`;
+  assert.strictEqual(
+    GET_APIFY_CLIENT_IDENTIFIER_PATTERN.test(unrelatedSnippet),
+    false,
+    'Expected the word-boundary pattern to NOT match a longer, unrelated identifier'
+  );
+});
+
+// ---------------------------------------------------------------------------------------------
+// Check E (Story 0.i2d, AC7, property-1-equivalent for Bright Data's host): the literal
+// "api.brightdata.com" host string must only ever appear in brightdata-client.ts, Bright
+// Data's own defining/calling module (mirroring Check B's apify-client SDK-import confinement,
+// but for a raw-fetch vendor with no SDK import to anchor on).
+// ---------------------------------------------------------------------------------------------
+
+const BRIGHTDATA_HOST_PATTERN = /api\.brightdata\.com/;
+const BRIGHTDATA_HOST_ALLOWED_FILE = join(SRC_ROOT, 'lib', 'scraper', 'brightdata-client.ts');
+
+test('Check E: api.brightdata.com is only referenced inside brightdata-client.ts', () => {
+  const files = collectTsFiles(SRC_ROOT);
+  const offenders = files
+    .filter((f) => resolve(f) !== resolve(BRIGHTDATA_HOST_ALLOWED_FILE))
+    .filter((f) => BRIGHTDATA_HOST_PATTERN.test(readFileSync(f, 'utf8')))
+    .map(toRelative);
 
   assert.deepStrictEqual(
-    stale,
+    offenders,
     [],
-    `The following TEMPORARY_APIFY_BRIGHTDATA_BYPASS_FILES entries no longer match their named bypass ` +
-      `pattern -- the inventory has gone stale and must be updated (or, if the bypass was actually ` +
-      `fixed via Story 0.i2d, removed from the list): ${stale.join('; ')}`
+    `Found api.brightdata.com reference(s) outside the allowed module (lib/scraper/brightdata-client.ts): ${offenders.join(', ')}`
+  );
+
+  assert.ok(
+    BRIGHTDATA_HOST_PATTERN.test(readFileSync(BRIGHTDATA_HOST_ALLOWED_FILE, 'utf8')),
+    'Expected brightdata-client.ts to still reference api.brightdata.com'
+  );
+});
+
+test('Check E negative control: a synthetic reference outside the allowed module is flagged', () => {
+  const bypassSnippet = `
+    const response = await fetch('https://api.brightdata.com/datasets/v3/trigger');
+  `;
+  assert.strictEqual(
+    BRIGHTDATA_HOST_PATTERN.test(bypassSnippet),
+    true,
+    'Expected the api.brightdata.com pattern to flag a synthetic bypass reference'
+  );
+
+  const unrelatedSnippet = `const host = 'api.other-vendor.com';`;
+  assert.strictEqual(
+    BRIGHTDATA_HOST_PATTERN.test(unrelatedSnippet),
+    false,
+    'Expected the pattern to NOT match an unrelated host'
   );
 });

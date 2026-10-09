@@ -6,6 +6,7 @@ import { compileValidator } from '../../validation/validate.js';
 import { scrapedPostSchema } from '../../validation/scraped-post.schema.js';
 import { persistUnprocessedPayload } from '../posts/persist-unprocessed-payload.js';
 import { recordSyncActorRun } from './record-actor-run.js';
+import { callVendor, VendorDpaNotConfirmedError, VendorCallTimeoutError } from '../vendor-gateway/guarded-call.js';
 
 // ============================================================================
 // ACTOR INPUT TYPES
@@ -144,6 +145,13 @@ const CLASSIFY_ACCOUNT_PROFILE_ACTOR = 'apify~instagram-profile-scraper';
 const validateScrapedPost = compileValidator<ScrapedPost>(scrapedPostSchema);
 
 function normalizeApifyError(err: unknown, context: string): Error {
+  // Story 0.i2d (AC5) — a deliberate kill-switch rejection or the wrapper's own generic
+  // timeout bound are not Apify-vendor-shaped errors to re-wrap; pass them through unchanged
+  // so a future caller can still distinguish them via `instanceof`.
+  if (err instanceof VendorDpaNotConfirmedError || err instanceof VendorCallTimeoutError) {
+    return err;
+  }
+
   if (err instanceof ApifyApiError) {
     const detail = err.data && typeof err.data === 'object' && 'error' in err.data && err.data.error && typeof err.data.error === 'object' && 'message' in err.data.error
       ? String((err.data as any).error.message)
@@ -171,19 +179,66 @@ export function setGetApifyClient(fn: typeof getApifyClient) {
   getApifyClient = fn;
 }
 
+// Story 0.i2d (AD-32 Rule 4) — mirrors isGeminiErrorTransient's exact shape (gemini-client.ts):
+// a 5xx ApifyApiError, or a network-level error code on the error itself or its `cause`, is
+// transient. Never a default-transient fallback.
+const TRANSIENT_CONNECTION_CODES = new Set(['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'EAI_AGAIN']);
+
+export function isApifyErrorTransient(error: unknown): boolean {
+  if (error instanceof ApifyApiError) {
+    return typeof error.statusCode === 'number' && error.statusCode >= 500 && error.statusCode <= 599;
+  }
+
+  const code = (error as any)?.code ?? (error as any)?.cause?.code;
+  if (typeof code === 'string' && TRANSIENT_CONNECTION_CODES.has(code)) {
+    return true;
+  }
+
+  return false;
+}
+
+// Story 0.i2d (AD-32 Rule 1) — the single chokepoint every real Apify call site routes
+// through. No `opts.lockKey` is ever passed here (AC4): Apify has exactly one static,
+// always-valid credential, no multi-key pool to protect, and no candidate-exclusion retry
+// loop to absorb a VendorKeyBusyError if contention occurred.
+export async function callApifyClient<T>(
+  opts: { timeoutMs: number; maxAttempts?: number; overallTimeoutMs?: number },
+  fn: (client: ApifyClient, signal: AbortSignal) => Promise<T>
+): Promise<T> {
+  return callVendor('apify', {
+    timeoutMs: opts.timeoutMs,
+    maxAttempts: opts.maxAttempts,
+    overallTimeoutMs: opts.overallTimeoutMs,
+    isTransient: isApifyErrorTransient,
+    call: (signal) => fn(getApifyClient(), signal),
+  });
+}
+
 // Context for audit recording and run ID threading (set by callers that have profileId)
 export let apifyAuditContext: { profileId: string; triggerMode: 'SYNC' | 'ASYNC'; runId?: string } | undefined;
 
 export let callApifyActor = async <T extends ActorId>(actorId: T, input: ActorInputFor<T>): Promise<ActorOutputFor<T>> => {
-  const client = getApifyClient();
-  const run = await client.actor(actorId).call(input as unknown as Record<string, unknown>);
+  // `timeoutMs: 23_000` sits between the 4 sync methods' existing outer `withTimeout`/
+  // `withTimeoutOrThrow` bound (20_000, which must still win the race in the normal case --
+  // see Task 2 regression guard) and `apiLambda`'s hard CDK timeout (25s). `maxAttempts: 1`:
+  // the 25s budget cannot fit a second 23s attempt plus backoff, and today's code has zero
+  // retry on this path either -- no behavior regression.
+  const { run, items } = await callApifyClient(
+    { timeoutMs: 23_000, maxAttempts: 1 },
+    async (client) => {
+      const runResult = await client.actor(actorId).call(input as unknown as Record<string, unknown>);
+      const datasetId = runResult.defaultDatasetId;
+      const runItems = datasetId
+        ? (await client.dataset(datasetId).listItems({ clean: true, limit: 1000 })).items as ActorOutputFor<T>
+        : ([] as ActorOutputFor<T>);
+      return { run: runResult, items: runItems };
+    }
+  );
 
-  const datasetId = run.defaultDatasetId;
-  const items = datasetId
-    ? (await client.dataset(datasetId).listItems({ clean: true, limit: 1000 })).items as ActorOutputFor<T>
-    : ([] as ActorOutputFor<T>);
-
-  // Record audit trail if context is set (sync path with profileId available)
+  // Record audit trail if context is set (sync path with profileId available). This audit
+  // write stays OUTSIDE/after the guarded call (same pattern as adapter.ts's callGemini:
+  // recordSuccessfulUsage runs after callVendor returns, never inside the thunk) -- a
+  // transient-retry must never risk writing a duplicate/stale audit row.
   if (apifyAuditContext?.profileId) {
     const auditRunId = await recordSyncActorRun({
       vendor: 'APIFY',

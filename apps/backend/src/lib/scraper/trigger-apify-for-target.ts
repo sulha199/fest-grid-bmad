@@ -1,12 +1,13 @@
 import { db } from '../../db/client.js';
 import { scraperActorRuns } from '@festgrid/database';
 import { eq, desc } from 'drizzle-orm';
-import { getApifyClient } from './instagram-adapter.js';
+import { callApifyClient } from './instagram-adapter.js';
 import { createPendingJob } from './apify-pending-jobs-store.js';
 import { recordProviderUsage, isProviderCapacityAvailable } from './usage-store.js';
 import { loadBackendEnv } from '../../env.js';
 import { recordActorRunStart } from './record-actor-run.js';
 import { generateWebhookToken } from './generate-webhook-token.js';
+import { VendorDpaNotConfirmedError } from '../vendor-gateway/guarded-call.js';
 import type { ScrapeTarget as FullScrapeTarget } from './get-scrape-targets.js';
 import type { ScraperTriggerResult } from './scraper-trigger-result.js';
 
@@ -44,25 +45,29 @@ export let attemptApifyAsyncTrigger = async (
 
     const scrapeCursorTimestamp = lastSuccessfulRun?.completedAt?.toISOString() ?? newerThan;
 
-    // Get Apify client
-    const client = getApifyClient();
-
-    // Trigger async run with webhooks
-    const run = await client.actor('apify/instagram-api-scraper').start(
-      {
-        directUrls: [`https://www.instagram.com/${target.username}/`],
-        resultsType: 'posts',
-        resultsLimit: env.scrapeResultsLimit,
-        onlyPostsNewerThan: scrapeCursorTimestamp,
-      },
-      {
-        webhooks: [
+    // Trigger async run with webhooks, routed through the shared guarded wrapper (AD-32).
+    // `scraperLambda` has a 300s CDK timeout -- 30_000ms plus the default maxAttempts: 3
+    // retry/backoff budget comfortably fits; overallTimeoutMs bounds the full attempt+backoff
+    // sequence explicitly rather than relying on the Lambda's own hard kill.
+    const run = await callApifyClient(
+      { timeoutMs: 30_000, overallTimeoutMs: 90_000 },
+      (client) =>
+        client.actor('apify/instagram-api-scraper').start(
           {
-            eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.FAILED', 'ACTOR.RUN.TIMED_OUT', 'ACTOR.RUN.ABORTED'],
-            requestUrl: webhookUrl,
+            directUrls: [`https://www.instagram.com/${target.username}/`],
+            resultsType: 'posts',
+            resultsLimit: env.scrapeResultsLimit,
+            onlyPostsNewerThan: scrapeCursorTimestamp,
           },
-        ],
-      }
+          {
+            webhooks: [
+              {
+                eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.FAILED', 'ACTOR.RUN.TIMED_OUT', 'ACTOR.RUN.ABORTED'],
+                requestUrl: webhookUrl,
+              },
+            ],
+          }
+        )
     );
 
     // Record audit trail at trigger time (without pendingJobId initially)
@@ -93,6 +98,11 @@ export let attemptApifyAsyncTrigger = async (
 
     return { success: true };
   } catch (error) {
+    // Story 0.i2d (AC6) — a deliberate, self-imposed DPA-gate closure is not a real vendor
+    // outage; map it to its own failure reason so the daily batch tally doesn't misreport it.
+    if (error instanceof VendorDpaNotConfirmedError) {
+      return { success: false, failureReason: 'DPA_NOT_CONFIRMED' };
+    }
     console.error(`Failed to trigger Apify async job for ${target.username}:`, error);
     return { success: false, failureReason: 'TRIGGER_ERROR' };
   }
