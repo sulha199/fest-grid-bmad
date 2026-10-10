@@ -319,6 +319,10 @@ test('api keys resolvers integration', async (t) => {
     const resultCrossDelete = await resCrossDelete.json();
     assert.ok(resultCrossDelete.errors);
     assert.strictEqual(resultCrossDelete.errors[0].extensions?.code, 'NOT_FOUND');
+
+    // The restore cycle above leaves this key active (not soft-deleted) -- delete it for real
+    // so this sub-test doesn't leave a row behind.
+    await db.delete(apiKeys).where(eq(apiKeys.id, apiKey.id));
   });
 
   await t.test('createApiKey rejects with INVALID_API_KEY when verifyGeminiApiKey returns false', async () => {

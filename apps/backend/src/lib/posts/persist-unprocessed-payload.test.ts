@@ -3,13 +3,18 @@ import * as assert from 'node:assert';
 import { persistUnprocessedPayload } from './persist-unprocessed-payload.js';
 import { db } from '../../db/client.js';
 import { unprocessedScraperPayloads } from '@festgrid/database';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { sendScraperAuditAlert, setSendScraperAuditAlert } from '../notifications/send-scraper-audit-alert.js';
 
 test('persistUnprocessedPayload', async (t) => {
   const originalSendScraperAuditAlert = sendScraperAuditAlert;
-  t.afterEach(() => {
+  const createdPayloadIds: string[] = [];
+  t.afterEach(async () => {
     setSendScraperAuditAlert(originalSendScraperAuditAlert);
+    if (createdPayloadIds.length > 0) {
+      await db.delete(unprocessedScraperPayloads).where(inArray(unprocessedScraperPayloads.id, createdPayloadIds));
+      createdPayloadIds.length = 0;
+    }
   });
 
   await t.test('persists unprocessed payload to database', async () => {
@@ -34,6 +39,7 @@ test('persistUnprocessedPayload', async (t) => {
     };
 
     const result = await persistUnprocessedPayload(testPayload);
+    createdPayloadIds.push((result as any).id);
 
     assert.ok(result);
     assert.ok((result as any).id);
@@ -66,6 +72,7 @@ test('persistUnprocessedPayload', async (t) => {
     };
 
     const result = await persistUnprocessedPayload(testPayload);
+    createdPayloadIds.push((result as any).id);
 
     assert.ok(result);
     assert.strictEqual((result as any).context.scraperVendor, null);
@@ -88,6 +95,7 @@ test('persistUnprocessedPayload', async (t) => {
     };
 
     const inserted = await persistUnprocessedPayload(testPayload);
+    createdPayloadIds.push((inserted as any).id);
 
     const queried = await db
       .select()
@@ -123,6 +131,7 @@ test('persistUnprocessedPayload', async (t) => {
     };
 
     const result = await persistUnprocessedPayload(testPayload);
+    createdPayloadIds.push((result as any).id);
 
     assert.ok(result);
     assert.strictEqual((result as any).scraperActorRunId, null);
