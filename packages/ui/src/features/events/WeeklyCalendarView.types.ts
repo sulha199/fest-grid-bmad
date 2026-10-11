@@ -69,6 +69,16 @@ export interface WeeklyCalendarViewLabels {
   dayTabsLabel?: string;
   /** Message shown in the mobile panel when the selected day has no schedules */
   noSchedulesLabel?: string;
+  /** Message shown on desktop when the displayed week has no schedules (after any Starts/Ends filter) */
+  noSchedulesWeekLabel?: string;
+  /** Accessible group label for the Starts/Ends filter */
+  rangeFilterGroupLabel?: string;
+  /** Starts/Ends filter, desktop (context = the displayed week) */
+  startsWeekLabel?: string;
+  endsWeekLabel?: string;
+  /** Starts/Ends filter, mobile (context = the displayed day) */
+  startsDayLabel?: string;
+  endsDayLabel?: string;
   /** Mobile selected-day list "load more" button text */
   loadMoreLabel?: string;
   /** Mobile selected-day list text while the next page is being fetched */

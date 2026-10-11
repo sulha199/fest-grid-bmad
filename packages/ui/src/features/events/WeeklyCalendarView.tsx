@@ -29,6 +29,7 @@ import {
 } from './EventCardMediaPrimitives';
 import { EventCardCalendarGridItem } from './EventCardCalendarGridItem';
 import { EventCardCompact } from './EventCardCompact';
+import { CalendarRangeFilterToggle, type CalendarRangeFilterValue } from './CalendarRangeFilterToggle';
 import { computeCalendarSegmentDateBoxContent, formatEventStatus, type EventStatusLabels } from './format-event-date';
 
 // Design system styles from DESIGN.md
@@ -504,6 +505,12 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     tomorrow: 'Tomorrow',
     dayTabsLabel: 'Days of the week',
     noSchedulesLabel: 'No schedules on this day',
+    noSchedulesWeekLabel: 'No schedules this week',
+    rangeFilterGroupLabel: 'Filter by start or end',
+    startsWeekLabel: 'Starts this week',
+    endsWeekLabel: 'Ends this week',
+    startsDayLabel: 'Starts this day',
+    endsDayLabel: 'Ends this day',
     loadMoreLabel: 'Load more',
     loadingMoreLabel: 'Loading more…',
     ...labels,
@@ -567,6 +574,17 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     return merged;
   }, [schedules, dayContinuations]);
 
+  // "Starts / Ends [context]" filter. Context = the displayed week on desktop, the displayed day on
+  // mobile (each day tab filters against its own day). Neither on = unfiltered; both on = a run that
+  // starts OR ends in the context. Applied to occurrence RUNS, so a weekday-narrowed schedule is
+  // judged by the occurrence being drawn. Kept across week navigation.
+  const [rangeFilter, setRangeFilter] = useState<CalendarRangeFilterValue>({ start: false, end: false });
+  const rangeFilterActive = rangeFilter.start || rangeFilter.end;
+  const runPassesRange = (runStart: string, runEnd: string, from: string, to: string) =>
+    !rangeFilterActive ||
+    (rangeFilter.start && runStart >= from && runStart <= to) ||
+    (rangeFilter.end && runEnd >= from && runEnd <= to);
+
   // Story 1.3k (AC4) — each schedule's occurrence runs, computed ONCE (shared by `dayBuckets` and
   // `weekEntries`) via the shared `getDays` utility. Keyed by schedule id, not recomputed per week.
   const scheduleRunsById = useMemo(() => {
@@ -591,7 +609,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
       runs.forEach((run) => {
         if (run.start <= weekEndStr && run.end >= weekStartStr) {
           dayISOs.forEach((dayISO, idx) => {
-            if (dayISO >= run.start && dayISO <= run.end) {
+            if (dayISO >= run.start && dayISO <= run.end && runPassesRange(run.start, run.end, dayISO, dayISO)) {
               buckets[idx].push({
                 schedule,
                 isFirstSegment: dayISO === run.start,
@@ -607,7 +625,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
 
     buckets.forEach((bucket) => bucket.sort(compareSegments));
     return buckets;
-  }, [allSchedules, dayISOs, scheduleRunsById, weekStartStr, weekEndStr]);
+  }, [allSchedules, dayISOs, scheduleRunsById, weekStartStr, weekEndStr, rangeFilter]);
 
   // Desktop: every occurrence run visible this week as ONE entry covering `spanCount` columns
   // (clipped to the week). One entry per run, in the single calendar ordering. A run with a single
@@ -618,6 +636,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
       const runs = scheduleRunsById.get(String(schedule.id)) ?? [];
       runs.forEach((run) => {
         if (run.start > weekEndStr || run.end < weekStartStr) return;
+        if (!runPassesRange(run.start, run.end, weekStartStr, weekEndStr)) return;
         const clippedStart = run.start < weekStartStr ? weekStartStr : run.start;
         const clippedEnd = run.end > weekEndStr ? weekEndStr : run.end;
         const startCol = Math.max(0, diffInDays(weekStartStr, clippedStart));
@@ -634,10 +653,10 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     });
     entries.sort((a, b) => compareSegments(a, b) || a.key.localeCompare(b.key));
     return entries;
-  }, [allSchedules, scheduleRunsById, weekStartStr, weekEndStr]);
+  }, [allSchedules, scheduleRunsById, weekStartStr, weekEndStr, rangeFilter]);
 
   // Reset token: a new week or a new filter set starts the layout (and paging) over.
-  const resetToken = `${weekStartStr}|${resetKey ?? ''}`;
+  const resetToken = `${weekStartStr}|${resetKey ?? ''}|${rangeFilter.start ? 1 : 0}${rangeFilter.end ? 1 : 0}`;
 
   // Append-only banded placement. Placements are remembered per resetToken so that rows arriving
   // later (continuation pages) can only ever land below what is already on screen.
@@ -714,6 +733,17 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   const requestedDays = requested.token === resetToken ? requested.days : [];
   const anyContinuationFetching = Object.values(dayContinuations ?? {}).some((c) => c.isFetchingNextPage);
 
+  // Single-day schedules per start date, over the UNFILTERED set: whether a day filled the server's
+  // window must not depend on the Starts/Ends filter.
+  const singleDayCountByDate = useMemo(() => {
+    const counts = new Map<string, number>();
+    allSchedules.forEach((schedule) => {
+      if (schedule.eventEndDate && schedule.eventEndDate !== schedule.eventStartDate) return;
+      counts.set(schedule.eventStartDate, (counts.get(schedule.eventStartDate) ?? 0) + 1);
+    });
+    return counts;
+  }, [allSchedules]);
+
   /** A day may have more rows on the server when it filled the week fetch's per-day window. */
   const dayMayHaveMore = (dayIdx: number): boolean => {
     if (dayFetchLimit === undefined) return false;
@@ -722,12 +752,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
       const continuation = dayContinuations?.[dayISO];
       return continuation ? continuation.hasNextPage : true;
     }
-    const startingToday = (dayBuckets[dayIdx] ?? []).filter(
-      (seg) =>
-        seg.schedule.eventStartDate === dayISO &&
-        (!seg.schedule.eventEndDate || seg.schedule.eventEndDate === dayISO)
-    ).length;
-    return startingToday >= dayFetchLimit;
+    return (singleDayCountByDate.get(dayISO) ?? 0) >= dayFetchLimit;
   };
   const fetchMoreForDay = (dayIdx: number) => {
     const dayISO = dayISOs[dayIdx];
@@ -927,7 +952,20 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
       {/* Header Controls */}
       <div className={HEADER_CLASS}>
         <span className={DATE_RANGE_CLASS}>{dateRangeText}</span>
-        <div className={NAV_ROW_CLASS}>
+        <div className="order-last md:order-2">
+          <CalendarRangeFilterToggle
+            value={rangeFilter}
+            onChange={setRangeFilter}
+            labels={{
+              groupLabel: defaultLabels.rangeFilterGroupLabel,
+              startsWeek: defaultLabels.startsWeekLabel,
+              endsWeek: defaultLabels.endsWeekLabel,
+              startsDay: defaultLabels.startsDayLabel,
+              endsDay: defaultLabels.endsDayLabel,
+            }}
+          />
+        </div>
+        <div className={`${NAV_ROW_CLASS} md:order-3`}>
           <button
             type="button"
             className={`${NAV_BUTTON_CLASS} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-100`}
@@ -995,7 +1033,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
         <div className="[overflow-anchor:none] [&_*]:[overflow-anchor:none]" data-testid="calendar-bands">
           {weekEntries.length === 0 && (
             <p className="text-sm text-gray-500 text-center py-8" data-testid="calendar-empty">
-              {defaultLabels.noSchedulesLabel}
+              {defaultLabels.noSchedulesWeekLabel}
             </p>
           )}
           {visibleBands.map(({ band, items }) => (

@@ -403,6 +403,112 @@ describe('WeeklyCalendarView', () => {
     expect(screen.getAllByText('Trailing Festival')).toHaveLength(1);
   });
 
+  describe('Starts / Ends filter', () => {
+    beforeAll(() => {
+      vi.stubGlobal(
+        'IntersectionObserver',
+        class {
+          observe() {}
+          unobserve() {}
+          disconnect() {}
+          takeRecords() { return []; }
+        }
+      );
+    });
+    afterAll(() => {
+      vi.unstubAllGlobals();
+    });
+
+    const rangeSchedules = [
+      { id: 'a', eventSlug: 'a', eventName: 'Single In Week', isMainSchedule: true, eventStartDate: '2026-08-05' },
+      { id: 'b', eventSlug: 'b', eventName: 'Ends In Week', isMainSchedule: true, eventStartDate: '2026-08-03', eventEndDate: '2026-08-06' },
+      { id: 'c', eventSlug: 'c', eventName: 'Starts In Week', isMainSchedule: true, eventStartDate: '2026-08-06', eventEndDate: '2026-08-20' },
+      { id: 'd', eventSlug: 'd', eventName: 'Runs Through', isMainSchedule: true, eventStartDate: '2026-07-01', eventEndDate: '2026-09-30' },
+    ];
+    const desktopNames = () =>
+      within(rtlScreen.getByTestId('calendar-bands'))
+        .getAllByRole('button', { hidden: true })
+        .map((el) => el.getAttribute('aria-label'))
+        .filter((n): n is string => !!n && rangeSchedules.some((r) => r.eventName === n))
+        .sort();
+    const toggle = (key: 'start' | 'end') => fireEvent.click(rtlScreen.getByTestId(`calendar-range-filter-${key}`));
+
+    it('is unfiltered until a side is selected, and exposes both sides as independent pressed buttons', () => {
+      render(<WeeklyCalendarView {...defaultProps} schedules={rangeSchedules} locale="en-US" />);
+      expect(desktopNames()).toEqual(['Ends In Week', 'Runs Through', 'Single In Week', 'Starts In Week']);
+      expect(rtlScreen.getByTestId('calendar-range-filter-start')).toHaveAttribute('aria-pressed', 'false');
+      expect(rtlScreen.getByTestId('calendar-range-filter-end')).toHaveAttribute('aria-pressed', 'false');
+      expect(rtlScreen.getByRole('group', { name: 'Filter by start or end' })).toBeInTheDocument();
+    });
+
+    it('desktop: context is the displayed week — Start, End, and both (union)', () => {
+      render(<WeeklyCalendarView {...defaultProps} schedules={rangeSchedules} locale="en-US" />);
+
+      toggle('start');
+      expect(rtlScreen.getByTestId('calendar-range-filter-start')).toHaveAttribute('aria-pressed', 'true');
+      expect(desktopNames()).toEqual(['Single In Week', 'Starts In Week']);
+
+      toggle('start');
+      toggle('end');
+      expect(desktopNames()).toEqual(['Ends In Week', 'Single In Week']);
+
+      toggle('start');
+      expect(desktopNames()).toEqual(['Ends In Week', 'Single In Week', 'Starts In Week']);
+
+      // Unselecting both returns to everything.
+      toggle('start');
+      toggle('end');
+      expect(desktopNames()).toEqual(['Ends In Week', 'Runs Through', 'Single In Week', 'Starts In Week']);
+    });
+
+    it('mobile: context is the displayed day, per tab', () => {
+      render(<WeeklyCalendarView {...defaultProps} schedules={rangeSchedules} locale="en-US" />);
+      const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+      selectMobileDay('6 Thu');
+      // Unfiltered Thursday: the three runs covering Aug 6.
+      expect(within(mobileView).getAllByTestId('mobile-day-row')).toHaveLength(1);
+      expect(within(mobileView).getByText('Runs Through')).toBeInTheDocument();
+
+      toggle('start');
+      expect(within(mobileView).getByText('Starts In Week')).toBeInTheDocument();
+      expect(within(mobileView).queryByText('Ends In Week')).not.toBeInTheDocument();
+      expect(within(mobileView).queryByText('Runs Through')).not.toBeInTheDocument();
+
+      toggle('start');
+      toggle('end');
+      expect(within(mobileView).getByText('Ends In Week')).toBeInTheDocument();
+      expect(within(mobileView).queryByText('Starts In Week')).not.toBeInTheDocument();
+
+      // Aug 5 only has the single-day schedule (its start and end day) and bar B passing through.
+      selectMobileDay('5 Wed');
+      expect(within(mobileView).getByText('Single In Week')).toBeInTheDocument();
+      expect(within(mobileView).queryByText('Ends In Week')).not.toBeInTheDocument();
+    });
+
+    it('shows both context labels (CSS picks one per breakpoint) and the week-empty message when nothing matches', () => {
+      render(<WeeklyCalendarView {...defaultProps} schedules={[rangeSchedules[3]]} locale="en-US" />);
+      const start = rtlScreen.getByTestId('calendar-range-filter-start');
+      expect(start).toHaveTextContent('Starts this week');
+      expect(start).toHaveTextContent('Starts this day');
+      toggle('start');
+      expect(rtlScreen.getByTestId('calendar-empty')).toHaveTextContent('No schedules this week');
+    });
+
+    it('starts paging over when the filter changes', () => {
+      const many = Array.from({ length: 14 }, (_, i) => ({
+        id: `m-${String(i).padStart(2, '0')}`,
+        eventName: `Many ${i}`,
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+      }));
+      render(<WeeklyCalendarView {...defaultProps} schedules={many} locale="en-US" />);
+      fireEvent.click(rtlScreen.getByTestId('calendar-show-more'));
+      expect(rtlScreen.getAllByTestId('calendar-band')).toHaveLength(2);
+      toggle('start');
+      expect(rtlScreen.getAllByTestId('calendar-band')).toHaveLength(1);
+    });
+  });
+
   describe('Banded grid paging (spec-calendar-unified-banded-grid)', () => {
     beforeAll(() => {
       // jsdom ships no IntersectionObserver; capture callbacks so tests can fire the sentinel.

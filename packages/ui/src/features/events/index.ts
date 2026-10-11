@@ -13,6 +13,7 @@ export * from './EventDiscoveryPanel';
 export * from './EventDiscoveryPanel.types';
 export * from './TemporalFilterToggle';
 export * from './TemporalFilterToggle.types';
+export * from './CalendarRangeFilterToggle';
 export * from './WeeklyCalendarView';
 export * from './WeeklyCalendarView.types';
 export * from './EventCardCompact';

@@ -500,7 +500,14 @@
     "statusInHours": "{n} jam lagi",
     "statusInDays": "{n} hari lagi",
     "statusUpcoming": "Akan Datang",
-    "tomorrow": "Besok"
+    "tomorrow": "Besok",
+    "rangeFilterGroupLabel": "Filter berdasarkan mulai atau selesai",
+    "startsWeekLabel": "Mulai minggu ini",
+    "endsWeekLabel": "Selesai minggu ini",
+    "startsDayLabel": "Mulai hari ini",
+    "endsDayLabel": "Selesai hari ini",
+    "noSchedulesLabel": "Tidak ada jadwal pada hari ini",
+    "noSchedulesWeekLabel": "Tidak ada jadwal minggu ini"
   },
   "ReportReason": {
     "cancelled": "Dibatalkan",

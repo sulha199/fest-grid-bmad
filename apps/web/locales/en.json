@@ -500,7 +500,14 @@
     "statusInHours": "In {n} hour(s)",
     "statusInDays": "In {n} days",
     "statusUpcoming": "Upcoming",
-    "tomorrow": "Tomorrow"
+    "tomorrow": "Tomorrow",
+    "rangeFilterGroupLabel": "Filter by start or end",
+    "startsWeekLabel": "Starts this week",
+    "endsWeekLabel": "Ends this week",
+    "startsDayLabel": "Starts this day",
+    "endsDayLabel": "Ends this day",
+    "noSchedulesLabel": "No schedules on this day",
+    "noSchedulesWeekLabel": "No schedules this week"
   },
   "ReportReason": {
     "cancelled": "Cancelled",
