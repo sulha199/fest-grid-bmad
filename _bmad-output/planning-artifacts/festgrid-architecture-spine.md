@@ -1938,6 +1938,7 @@ This document defines the core architectural invariants for the FestDaily applic
         already do. This AD fixes the wrapper's and the DPA gate's shape so that adoption is a
         drop-in later; it does not add the missing story. Flagged to the user as an `epics.md` gap
         (not written in this pass — out of this run's scope).
+*   **Lease rows are permanent by design, and the test row-count ratchet accounts for it (added 2026-10-11, Story 0.51 follow-up):** `vendor_call_locks` holds one row per credential identity (`gemini:system`, `gemini:key:<apiKeyId>`) that the wrapper upserts on every real call and never deletes — it is runtime state, not test data, and a fire-and-forget call can claim it after a test's cleanup. `apps/backend/scripts/run-tests-with-row-count-ratchet.ts` therefore sweeps and logs the lease keys created during a run before its final row-count snapshot; every other table remains strictly ratcheted. Do not "fix" a lease row by adding a delete to the wrapper.
 *   **Considered and rejected:** Wrapping only `callGemini` and leaving `verifyGeminiApiKey`/the
     AD-10 system-key fallback as direct SDK calls — rejected, it's precisely the gap BUG-012/DW-069
     and 0.i2z's ratchet already name. A session-scoped or transaction-scoped Postgres advisory lock

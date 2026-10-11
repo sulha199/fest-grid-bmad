@@ -388,3 +388,23 @@ Files verified via this story's methodology and found to require **no** change: 
 - `apps/backend/src/schema/embed-domains.test.ts` (this session)
 - `apps/backend/src/schema/extraction.test.ts` (this session)
 - `apps/backend/src/schema/widgets.test.ts` (this session)
+
+### Follow-up — CI row-count ratchet failures after PR #64 (2026-10-11, `bmad-quick-dev`, branch `ccr-cc7acc23-veinmp`, PR #65)
+
+**Trigger.** PR #64 merged this story's ratchet, and `master` (run 298) then failed CI on a **clean** test DB with every test passing (`fail 0`): `Row-count ratchet FAILED` — `user_settings` +1, `scraper_provider_health` +1, `geolocation_cache` +12, `vendor_call_locks` +1. The earlier session had written off `user_settings` as "pre-existing dev-DB pollution"; on a clean CI DB it is a real leak. None of this came from the calendar work on PR #65; it only surfaced there because that PR was the next to run CI. Found by bisecting each candidate file through the ratchet's argv pass-through (with `GEOAPIFY_API_KEY=test-geoapify-key`, as CI sets, which makes the geocoding tests actually run).
+
+**Fixes — snapshot, then delete only rows created since** (never a row that pre-existed, so a dev DB's real rows are untouched):
+
+| Table | Source | Fix |
+|---|---|---|
+| `user_settings` | any `Query.events` as a *seeded* user lazily creates a row (`getOrCreateUserSettings`): `resolvers.test.ts` (withinRadius), `subscriptions.test.ts`, `favorites-and-calendar.test.ts` | `snapshotUserSettingsUserIds()` / `deleteUserSettingsCreatedSince()` in `src/lib/test-support/user-settings-cleanup.ts` (inline equivalent in `resolvers.test.ts`) |
+| `scraper_provider_health` | `src/lambdas/scraper.test.ts` (handler records a `brightdata` row) | file-local snapshot/delete helpers |
+| `vendor_call_locks` | `gemini:system` lease left by `process-scrape-job.test.ts` and `process-ai-job.test.ts` | delete the lease in `t.after`, only if it wasn't there at start |
+| `geolocation_cache` | `social-media-accounts.test.ts` (+8), `geolocation.test.ts` (+2), `user-locations.test.ts` (+2) | `registerGeolocationCacheCleanup()` (node:test `before`/`after`) in `src/lib/test-support/geolocation-cache-cleanup.ts` |
+
+**Deliberate deviation from "strict on every table" — `vendor_call_locks`.** After the above, CI still showed `vendor_call_locks` +1 although no file leaked it in isolation locally (the CI runner is slower; a fire-and-forget Gemini call can claim its lease after a test's own cleanup ran). The guarded vendor-call wrapper (AD-32) upserts one lease row per credential and never deletes it **by design**, so these rows are not test data. The ratchet wrapper therefore sweeps exactly the lease keys that appeared during the run before its final snapshot and logs them (`Row-count ratchet: swept N vendor_call_locks lease row(s) …: <keys>`), so the offending file can still be found from the CI log. **Every other table stays strictly ratcheted.**
+
+**Verification.** Each touched file run alone through the ratchet: zero growth. Full backend suite run through the ratchet with CI's env on a seeded DB: no ratchet failure (the only local failures are vendor-credential tests CI has credentials for).
+
+**Files:** `apps/backend/scripts/run-tests-with-row-count-ratchet.ts`; `apps/backend/src/lib/test-support/{user-settings-cleanup,geolocation-cache-cleanup}.ts` (new); `apps/backend/src/lambdas/scraper.test.ts`; `apps/backend/src/lib/ai-processor/process-ai-job.test.ts`; `apps/backend/src/lib/scraper/process-scrape-job.test.ts`; `apps/backend/src/schema/{resolvers,subscriptions,favorites-and-calendar,geolocation,social-media-accounts,user-locations}.test.ts`.
+
