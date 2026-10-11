@@ -18,9 +18,22 @@ import {
 } from '../lib/scraper/trigger-apify-for-target.js';
 import { loadBackendEnv } from '../env.js';
 import { db } from '../db/client.js';
-import { users, socialMediaAccountProfiles, subscriptions, posts, scraperBatchRuns } from '@festgrid/database';
+import { users, socialMediaAccountProfiles, subscriptions, posts, scraperBatchRuns, scraperProviderHealth } from '@festgrid/database';
 import { inArray, gte } from 'drizzle-orm';
 import '../lib/scraper/register-adapters.js';
+
+// The handler records per-provider health (`scraper_provider_health`, one row per provider) as a side
+// effect of a run. Snapshot the existing row ids before a test and delete only rows that run created,
+// so the backend row-count ratchet stays flat and a dev DB's real rows are never touched.
+async function snapshotProviderHealthIds(): Promise<Set<string>> {
+  const rows = await db.select({ id: scraperProviderHealth.id }).from(scraperProviderHealth);
+  return new Set(rows.map((r) => r.id));
+}
+async function deleteProviderHealthCreatedSince(before: Set<string>): Promise<void> {
+  const rows = await db.select({ id: scraperProviderHealth.id }).from(scraperProviderHealth);
+  const created = rows.map((r) => r.id).filter((id) => !before.has(id));
+  if (created.length > 0) await db.delete(scraperProviderHealth).where(inArray(scraperProviderHealth.id, created));
+}
 
 // Covers AC13: proves scraper.ts's new `{ jobType: 'poll-and-drain' }` branch (AC5) calls
 // pollAndDrainQueue with the queue URL sourced from SCRAPING_QUEUE_URL (AC7 for the other two
@@ -32,8 +45,10 @@ test('scraper lambda poll-and-drain branch', async (t) => {
   const originalReceiveSqsMessages = receiveSqsMessages;
   const originalDeleteSqsMessage = deleteSqsMessage;
   const originalQueueUrl = process.env.SCRAPING_QUEUE_URL;
+  const providerHealthBefore = await snapshotProviderHealthIds();
 
-  t.after(() => {
+  t.after(async () => {
+    await deleteProviderHealthCreatedSince(providerHealthBefore);
     setReceiveSqsMessages(originalReceiveSqsMessages);
     setDeleteSqsMessage(originalDeleteSqsMessage);
     process.env.SCRAPING_QUEUE_URL = originalQueueUrl;
@@ -105,6 +120,7 @@ test('scraper lambda poll-and-drain branch', async (t) => {
 test('scraper lambda daily-batch branch: per-target incremental newerThan (FIND-035)', async (t) => {
   const originalAttemptBrightDataTrigger = attemptBrightDataTrigger;
   const originalAttemptApifyAsyncTrigger = attemptApifyAsyncTrigger;
+  const providerHealthBefore = await snapshotProviderHealthIds();
   // Reset per subtest (afterEach, not a single shared t.after) so each subtest's own
   // scraper_batch_runs window/profile/sub/post rows are cleaned up immediately after it
   // runs -- a shared outer testStart across both subtests previously left subtest 1's
@@ -136,7 +152,8 @@ test('scraper lambda daily-batch branch: per-target incremental newerThan (FIND-
     }
   });
 
-  t.after(() => {
+  t.after(async () => {
+    await deleteProviderHealthCreatedSince(providerHealthBefore);
     setAttemptBrightDataTrigger(originalAttemptBrightDataTrigger);
     setAttemptApifyAsyncTrigger(originalAttemptApifyAsyncTrigger);
   });

@@ -7,6 +7,7 @@ import * as path from 'path';
 import { db } from '../db/client.js';
 import { users, userLocations } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
+import { registerGeolocationCacheCleanup } from '../lib/test-support/geolocation-cache-cleanup.js';
 
 // Read all required schema fragments dynamically from the schema directory
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
@@ -69,6 +70,8 @@ const fetchMock = mock.method(globalThis, 'fetch', async (url: any) => {
     })
   };
 });
+
+registerGeolocationCacheCleanup();
 
 test('user locations resolvers integration', async (t) => {
   let testUser: any;

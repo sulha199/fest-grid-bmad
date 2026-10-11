@@ -1,7 +1,7 @@
 import test from 'node:test';
 import * as assert from 'node:assert';
 import { db } from '../../db/client.js';
-import { socialMediaAccountProfiles, subscriptions, users, posts } from '@festgrid/database';
+import { socialMediaAccountProfiles, subscriptions, users, posts, vendorCallLocks } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import {
   processAiJob,
@@ -41,6 +41,16 @@ test('processAiJob orchestrator tests', async (t) => {
   setBackfillAccountProfileAndInferDefaultLocationSeam(async () => {});
 
   // Retrieve seeded users
+  // The unmocked Gemini path claims the shared `gemini:system` lease in `vendor_call_locks` and (by the
+  // guarded-call wrapper's design) leaves it behind. Delete it afterwards only if it wasn't already there.
+  const hadGeminiSystemLock =
+    (await db.select().from(vendorCallLocks).where(eq(vendorCallLocks.lockKey, 'gemini:system'))).length > 0;
+  t.after(async () => {
+    if (!hadGeminiSystemLock) {
+      await db.delete(vendorCallLocks).where(eq(vendorCallLocks.lockKey, 'gemini:system'));
+    }
+  });
+
   const seededUsers = await db.select().from(users).limit(1);
   assert.ok(seededUsers.length > 0, 'Must have at least one seeded user');
   const user = seededUsers[0];

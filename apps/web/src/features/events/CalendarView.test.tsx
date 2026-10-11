@@ -437,8 +437,8 @@ describe('CalendarView', () => {
         isMainSchedule: true,
         eventStartDate: busyDayIso,
         eventEndDate: busyDayIso,
-        eventStartTime: `${String(9 + index).padStart(2, '0')}:00:00`,
-        eventEndTime: `${String(10 + index).padStart(2, '0')}:00:00`,
+        eventStartTime: `10:${String(index).padStart(2, '0')}:00`,
+        eventEndTime: '11:00:00',
         ticketPrice: null,
         locationDetails: null,
       },
@@ -467,21 +467,18 @@ describe('CalendarView', () => {
     expect(weekCall.offset).toBeUndefined();
   });
 
-  it('opens the day-scoped dialog, fires both AC9 events, and continues from offset 20 without perDayLimit', async () => {
+  it('continues a truncated day through a day-scoped query from offset 20 once its loaded rows are nearly shown (no perDayLimit)', async () => {
     vi.stubGlobal('IntersectionObserver', MockIntersectionObserver);
 
-    // 8 single-day occurrences on the same day, against `maxEventsPerDay={5}` => "+3 more".
-    const busyDayEvents = Array.from({ length: 8 }, (_, i) => buildBusyDayEvent(i));
-    const overflowContinuationEvent = buildBusyDayEvent(8);
+    // 20 single-day occurrences fill the week fetch's per-day window, so the day may have more.
+    const busyDayEvents = Array.from({ length: 20 }, (_, i) => buildBusyDayEvent(i));
+    const continuationEvent = buildBusyDayEvent(20);
 
     server.use(
       api.query('getEventsForCalendar', ({ variables }) => {
         capturedCalendarVariables.push(variables);
         if (variables.offset === 20) {
-          return calendarQueryResponse(busyDayEvents, true, busyDayEvents.length);
-        }
-        if (variables.offset === 40) {
-          return calendarQueryResponse([overflowContinuationEvent], false, 1);
+          return calendarQueryResponse([continuationEvent], false, 1);
         }
         return calendarQueryResponse(busyDayEvents, false, busyDayEvents.length);
       })
@@ -496,74 +493,43 @@ describe('CalendarView', () => {
     );
 
     await screen.findByText('Busy Day Event 0');
-
-    // Only the capped 5 render inline; the desktop "+N more" trigger is the entry point.
     const desktopViews = rtlScreen.queryAllByTestId('desktop-calendar-view');
     const desktopView = desktopViews[desktopViews.length - 1];
-    const trigger = within(desktopView).getByTestId('calendar-overflow-trigger-desktop');
-    // The `moreLabel` resolver reaches the trigger unchanged (the spec'd ICU plural, as mocked).
-    expect(trigger).toHaveTextContent('DiscoveryPage.calendarMoreLabel(count:3)');
 
-    fireEvent.click(trigger);
+    // Dormant until needed: only the week call has been made, and the day says it may have more.
+    expect(capturedCalendarVariables).toHaveLength(1);
+    expect(within(desktopView).getAllByTestId('desktop-day-total').some((el) => el.textContent === '20+')).toBe(true);
 
-    // AC9 (1/2) — the open event, with the full payload including the hidden count.
-    expect(mockPosthogCapture).toHaveBeenCalledWith('calendar_overflow_dialog_opened', {
-      date: busyDayIso,
-      surface: 'desktop',
-      inlineHiddenCount: 3,
-    });
+    // Band 1 (6 rows) is showing; two more "Show more" clicks bring the loaded rows to within one
+    // band of the end (18 of 20), which prefetches the day's continuation.
+    fireEvent.click(within(desktopView).getByTestId('calendar-show-more'));
+    expect(capturedCalendarVariables).toHaveLength(1);
+    fireEvent.click(within(desktopView).getByTestId('calendar-show-more'));
 
-    const dialog = await rtlScreen.findByTestId('calendar-overflow-dialog');
-    expect(dialog).toHaveAttribute('data-date', busyDayIso);
-
-    // AC5/AD-2 — the continuation call is narrowed to the exact date, starts at offset 20 with
-    // limit 20, and deliberately carries NO `perDayLimit` (it must take the existing flat path).
     await waitFor(() => expect(capturedCalendarVariables.some((v) => v.offset === 20)).toBe(true));
-    const overflowCall = capturedCalendarVariables.find((v) => v.offset === 20)!;
-    expect(overflowCall.limit).toBe(20);
-    expect(overflowCall.perDayLimit).toBeUndefined();
-    const serializedCondition = JSON.stringify(overflowCall.query);
+    const dayCall = capturedCalendarVariables.find((v) => v.offset === 20)!;
+    expect(dayCall.limit).toBe(20);
+    expect(dayCall.perDayLimit).toBeUndefined();
+    const serializedCondition = JSON.stringify(dayCall.query);
     expect(serializedCondition).toContain('scheduleDateRange');
     expect(serializedCondition).toContain('overlaps');
     expect(serializedCondition).toContain(`"from":"${busyDayIso}"`);
     expect(serializedCondition).toContain(`"to":"${busyDayIso}"`);
+    expect(mockPosthogCapture).toHaveBeenCalledWith('calendar_day_continuation_requested', { date: busyDayIso });
 
-    // The dialog's own list is the merge of the week-fetch's local day bucket (all 8) — deduped by
-    // schedule id, so the continuation page's re-sent rows are not duplicated.
-    const rowHeadings = Array.from(dialog.querySelectorAll('h3')).map((el) => el.textContent);
-    expect(rowHeadings).toContain('Busy Day Event 0');
-    expect(rowHeadings).toContain('Busy Day Event 7');
-    expect(rowHeadings.filter((name) => name === 'Busy Day Event 0')).toHaveLength(1);
-
-    // The sentinel resolving a genuine second page.
-    act(() => {
-      mockObserverInstance?.callback(
-        [{ isIntersecting: true } as IntersectionObserverEntry],
-        mockObserverInstance as unknown as IntersectionObserver
-      );
-    });
-
-    await waitFor(() => expect(capturedCalendarVariables.some((v) => v.offset === 40)).toBe(true));
-
-    // AC9 (2/2) — reported once the *additional* page resolves, with its own offset/page size.
-    await waitFor(() =>
-      expect(mockPosthogCapture).toHaveBeenCalledWith('calendar_overflow_more_loaded', {
-        date: busyDayIso,
-        offset: 40,
-        loadedCount: 1,
-      })
-    );
-
-    // The newly loaded row is appended and announced through the dialog's own live region.
-    await waitFor(() =>
-      expect(within(dialog).getByRole('heading', { name: 'Busy Day Event 8' })).toBeInTheDocument()
-    );
-    expect(rtlScreen.getAllByTestId('calendar-overflow-live-region').pop()).toHaveTextContent(
-      '1 more event loaded'
-    );
+    // The continuation row joins the day and the hard stop is reached once everything is shown.
+    await waitFor(() => expect(within(desktopView).getAllByTestId('desktop-day-total').some((el) => el.textContent === '21')).toBe(true));
+    for (let i = 0; i < 2; i++) {
+      const more = within(desktopView).queryByTestId('calendar-show-more');
+      if (more) fireEvent.click(more);
+    }
+    expect(within(desktopView).getByText('Busy Day Event 20')).toBeInTheDocument();
+    expect(within(desktopView).queryByTestId('calendar-show-more')).not.toBeInTheDocument();
+    expect(within(desktopView).getByTestId('calendar-progress')).toHaveTextContent('calendarAllShownLabel');
   });
 
-  it('closes the dialog back to a dormant state, clearing the day-scoped fetch (Task 8.1)', async () => {
+  it('does not issue any day-scoped query for a week whose days all fit their window', async () => {
+    vi.stubGlobal('IntersectionObserver', MockIntersectionObserver);
     const busyDayEvents = Array.from({ length: 6 }, (_, i) => buildBusyDayEvent(i));
 
     server.use(
@@ -582,28 +548,8 @@ describe('CalendarView', () => {
     );
 
     await screen.findByText('Busy Day Event 0');
-
-    const desktopViews = rtlScreen.queryAllByTestId('desktop-calendar-view');
-    const desktopView = desktopViews[desktopViews.length - 1];
-    fireEvent.click(within(desktopView).getByTestId('calendar-overflow-trigger-desktop'));
-
-    const dialog = rtlScreen.queryAllByTestId('calendar-overflow-dialog').pop()!;
-    expect(dialog).toHaveAttribute('data-date', busyDayIso);
-    await waitFor(() => expect(capturedCalendarVariables.some((v) => v.offset === 20)).toBe(true));
-    const dialogsBeforeClose = rtlScreen.queryAllByTestId('calendar-overflow-dialog').length;
-
-    // Escape closes it through the dialog's own handler, which is what clears `openOverflowDate`.
-    // (Renders from earlier tests in this file are never cleaned up, so the count — not a bare
-    // zero — is what proves this dialog went away.)
-    fireEvent.keyDown(document, { key: 'Escape' });
-
-    await waitFor(() =>
-      expect(rtlScreen.queryAllByTestId('calendar-overflow-dialog')).toHaveLength(dialogsBeforeClose - 1)
-    );
-
-    // Nothing refetches while closed — the day-scoped query really did go dormant.
-    const dayScopedCalls = capturedCalendarVariables.filter((v) => v.offset === 20).length;
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(capturedCalendarVariables.filter((v) => v.offset === 20)).toHaveLength(dayScopedCalls);
+    expect(capturedCalendarVariables).toHaveLength(1);
+    expect(capturedCalendarVariables.filter((v) => v.offset === 20)).toHaveLength(0);
   });
 });
