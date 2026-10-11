@@ -7,6 +7,7 @@ import * as path from 'path';
 import { db } from '../db/client.js';
 import { users, apiKeys, subscriptions, socialMediaAccountProfiles, posts, events, eventPosts, schedules, accountTypeClassificationReviews, postAccountAssociations } from '@festgrid/database';
 import { eq, inArray } from 'drizzle-orm';
+import { snapshotUserSettingsUserIds, deleteUserSettingsCreatedSince } from '../lib/test-support/user-settings-cleanup.js';
 import { setCallGeminiGenerateContent, callGeminiGenerateContent } from '../lib/ai-gateway/gemini-client.js';
 
 // Force off regardless of the developer's local .env: without a queue configured (the
@@ -39,7 +40,9 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
   let createdApiKeyId: string;
 
   const originalCall = callGeminiGenerateContent;
-  t.after(() => {
+  const userSettingsBefore = await snapshotUserSettingsUserIds();
+  t.after(async () => {
+    await deleteUserSettingsCreatedSince(userSettingsBefore);
     setCallGeminiGenerateContent(originalCall);
   });
 

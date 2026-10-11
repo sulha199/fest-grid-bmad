@@ -7,6 +7,7 @@ import * as path from 'path';
 import { db } from '../db/client.js';
 import { users, events, schedules, favorites, calendarAdditions } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
+import { snapshotUserSettingsUserIds, deleteUserSettingsCreatedSince } from '../lib/test-support/user-settings-cleanup.js';
 
 // read the generated schema for the yoga server
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
@@ -38,6 +39,7 @@ test('favorites and calendar additions resolvers integration', async (t) => {
   let createdTestUser2 = false;
   let testEventId: string;
   let testScheduleId: string;
+  const userSettingsBefore = await snapshotUserSettingsUserIds();
   
   await t.test('setup - get test user and event', async () => {
     const seededUsers = await db.select().from(users).limit(2);
@@ -81,6 +83,7 @@ test('favorites and calendar additions resolvers integration', async (t) => {
   });
 
   t.after(async () => {
+    await deleteUserSettingsCreatedSince(userSettingsBefore);
     if (testUser) {
       await db.delete(favorites).where(eq(favorites.userId, testUser.id));
       await db.delete(calendarAdditions).where(eq(calendarAdditions.userId, testUser.id));

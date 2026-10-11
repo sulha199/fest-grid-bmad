@@ -901,6 +901,10 @@ test('events resolver integration via Yoga', async (t) => {
     const seededUsers = await db.select().from(users).limit(1);
     if (seededUsers.length === 0) return;
     const testUser = seededUsers[0];
+    // `Query.events` lazily creates a user_settings row for the authenticated caller; remember whether
+    // this seeded user already had one so cleanup only removes a row this test caused (row-count ratchet).
+    const seededUserHadSettings =
+      (await db.select().from(userSettings).where(eq(userSettings.userId, testUser.id))).length > 0;
 
     const daysAhead = (n: number) => {
       const d = new Date();
@@ -994,6 +998,9 @@ test('events resolver integration via Yoga', async (t) => {
       await db.delete(schedules).where(inArray(schedules.id, [schedA.id, schedB.id, schedC.id, schedD.id]));
       await db.delete(events).where(inArray(events.id, [eventA.id, eventB.id, eventC.id, eventD.id]));
       await db.delete(userLocations).where(inArray(userLocations.id, [userLoc1.id, userLoc2.id]));
+      if (!seededUserHadSettings) {
+        await db.delete(userSettings).where(eq(userSettings.userId, testUser.id));
+      }
     });
 
     await t.test('1. filters correctly within radius for saved location shape (AC1, AC6)', async () => {
