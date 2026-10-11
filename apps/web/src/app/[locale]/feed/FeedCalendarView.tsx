@@ -133,12 +133,13 @@ export function FeedCalendarView({ q, types, categories, subscriptions, onFavori
     todayLabel: t('calendarTodayLabel'),
     selectWeekLabel: t('calendarSelectWeekLabel'),
     chooseWeekLabel: t('calendarChooseWeekLabel'),
-    moreLabel: (count: number) => t('calendarMoreLabel', { count }),
-    moreMultiDayLabel: (count: number) => t('calendarMoreMultiDayLabel', { count }),
+    belowLabel: (count: number, hasMore: boolean) =>
+      t('calendarBelowLabel', { count: count === 0 ? '…' : hasMore ? `${count}+` : String(count) }),
+    progressLabel: (shown: number, total: string) => t('calendarProgressLabel', { shown, total }),
+    allShownLabel: (total: number) => t('calendarAllShownLabel', { total }),
     loadMoreLabel: t('calendarLoadMoreLabel'),
     loadingMoreLabel: t('calendarLoadingMoreLabel'),
     multiDaySegmentLabel: (dayNumber: number, totalDays: number) => t('calendarMultiDaySegmentLabel', { dayNumber, totalDays }),
-    closePopoverLabel: t('calendarClosePopoverLabel'),
     loadingText: tCalendar('loadingText'),
     favoriteToggleLabel: tCalendar('favoriteToggleLabel'),
     favoritedBadgeLabel: tCalendar('favoritedBadgeLabel'),
@@ -160,7 +161,6 @@ export function FeedCalendarView({ q, types, categories, subscriptions, onFavori
     <WeeklyCalendarView
       weekStart={weekStart}
       schedules={schedules}
-      maxEventsPerDay={5}
       onToday={handleToday}
       onPrevWeek={handlePrevWeek}
       isPrevWeekDisabled={isPrevWeekDisabled}

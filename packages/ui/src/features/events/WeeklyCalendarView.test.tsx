@@ -123,7 +123,6 @@ describe('WeeklyCalendarView', () => {
   const defaultProps = {
     weekStart: '2026-08-05', // August 5, 2026 (Wednesday)
     schedules: sampleSchedules,
-    maxEventsPerDay: 5,
     getWeekRange,
     onToday: vi.fn(),
     onPrevWeek: vi.fn(),
@@ -132,8 +131,24 @@ describe('WeeklyCalendarView', () => {
     status: 'success' as const,
   };
 
+  /** Mobile tab accessible names carry the day's count, e.g. "5 Wed (2)" — match on the day prefix. */
+  const dayTabName = (name: string) => new RegExp(`^${name}( \\(|$)`);
+
+  /** The grid cell (positioned wrapper) and band an item was placed in on the desktop grid. */
+  const cellOf = (el: HTMLElement) => {
+    let node: HTMLElement = el;
+    while (node.parentElement && node.parentElement.getAttribute('data-testid') !== 'calendar-band') {
+      node = node.parentElement;
+    }
+    return { cell: node, band: Number(node.parentElement?.getAttribute('data-band')) };
+  };
+  const desktopTitles = () =>
+    within(rtlScreen.getByTestId('calendar-bands'))
+      .getAllByTestId('calendar-grid-card')
+      .map((card) => card.querySelector('h3')?.textContent);
+
   const selectMobileDay = (name: string) => {
-    const tab = within(rtlScreen.getByTestId('mobile-calendar-view')).getByRole('tab', { name });
+    const tab = within(rtlScreen.getByTestId('mobile-calendar-view')).getByRole('tab', { name: dayTabName(name) });
     fireEvent.click(tab);
     return tab;
   };
@@ -248,52 +263,47 @@ describe('WeeklyCalendarView', () => {
 
     // Tech Workshop is multi-day: Aug 5 (Wed) -> Aug 7 (Fri). The visible week starts on the
     // supplied weekStart (Aug 5), so those are columns 1-3 of the 7-column grid.
-    const banner = rtlScreen.getByTestId('multi-day-spanning-banner');
-    const bars = within(banner).getAllByTestId('multi-day-spanning-bar');
+    const grid = rtlScreen.getByTestId('calendar-bands');
+    const bars = within(grid).getAllByTestId('multi-day-spanning-bar');
 
     // Exactly ONE rendered instance — not N per-day segments (AC1).
     expect(bars).toHaveLength(1);
     expect(within(bars[0]).getByText('Tech Workshop')).toBeInTheDocument();
     expect(screen.getAllByText('Tech Workshop')).toHaveLength(1);
 
-    // AC1 — the bar is a direct child of the banner's own CSS grid, not nested in a day cell.
-    expect(bars[0].parentElement).toBe(banner);
-    expect(banner).toHaveClass('grid-cols-7');
+    // The bar lives in the same band grid as the single-day cards (no separate banner above).
+    expect(rtlScreen.queryByTestId('multi-day-spanning-banner')).not.toBeInTheDocument();
+    const { cell, band } = cellOf(bars[0]);
+    expect(band).toBe(0);
+    expect(cell.parentElement).toHaveClass('grid-cols-7');
 
-    // AC5 — and no multi-day segment is left behind inside any of the 7 day cells.
-    const dayCells = rtlScreen
-      .getByTestId('desktop-calendar-view')
-      .querySelectorAll('.h-32');
-    expect(dayCells).toHaveLength(7);
-    dayCells.forEach((cell) => {
-      expect(cell).not.toHaveTextContent('Tech Workshop');
+    // AC1/AC3 — spans its clipped day-column range via an explicit grid-column. Main Stage
+    // Concert (Aug 5, ends earlier) takes row 1 of column 1, so the bar packs into row 2.
+    expect(cell).toHaveStyle({ gridColumn: '1 / span 3', gridRow: '2' });
+    // Gallery Tour (Thu) first-fits into row 1 beside it, inside the same band.
+    expect(cellOf(screen.getByRole('button', { name: 'Gallery Tour' })).cell).toHaveStyle({
+      gridColumn: '2 / span 1',
+      gridRow: '1',
     });
-
-    // AC1/AC3 — spans its clipped day-column range via an explicit grid-column.
-    expect(bars[0]).toHaveStyle({ gridColumn: '1 / span 3', gridRow: '1' });
   });
 
-  it('BUG-050 (AC-GRID-1): renders 7 fixed, content-independent gridline markers behind the spanning-banner cards, not divide-x on the real schedule count', () => {
+  it('BUG-050 (AC-GRID-1): renders 7 fixed, content-independent gridline markers behind each band, not divide-x on the real schedule count', () => {
     render(<WeeklyCalendarView {...defaultProps} locale="en-US" />);
 
-    const banner = rtlScreen.getByTestId('multi-day-spanning-banner');
+    const band = rtlScreen.getAllByTestId('calendar-band')[0];
 
     // The old (broken) mechanism derived column separators from `divide-x`'s DOM-sibling-adjacency
-    // selector directly on the banner's real `<MultiDaySpanningBar>` children — which never map
-    // 1:1 to the 7 visual columns. That class must be gone from the banner itself now.
-    expect(banner).not.toHaveClass('divide-x');
-    expect(banner).toHaveClass('grid-cols-7');
+    // selector directly on the real cards, which never map 1:1 to the 7 visual columns.
+    expect(band).not.toHaveClass('divide-x');
+    expect(band).toHaveClass('grid-cols-7');
 
-    // The new mechanism: a dedicated, always-7-children overlay, decoupled from schedule count,
-    // painted behind the real cards (first in the DOM) and out of the a11y tree/pointer events.
-    const guides = within(banner).getByTestId('grid-column-guides');
+    // A dedicated, always-7-children overlay, decoupled from schedule count, painted behind the
+    // real cards (first in the DOM) and out of the a11y tree/pointer events.
+    const guides = within(band).getByTestId('grid-column-guides');
     expect(guides).toHaveClass('grid-cols-7', 'divide-x', 'divide-gray-200', 'pointer-events-none');
     expect(guides).toHaveAttribute('aria-hidden', 'true');
     expect(guides.children).toHaveLength(7);
-
-    // Painted behind, not interspersed: the guide overlay is the banner's first child, every real
-    // spanning-bar card comes after it (later same-stacking-level siblings paint on top).
-    expect(banner.firstElementChild).toBe(guides);
+    expect(band.firstElementChild).toBe(guides);
   });
 
   it('stacks overlapping multi-day schedules one row each, in ascending start order (AC4)', () => {
@@ -319,46 +329,30 @@ describe('WeeklyCalendarView', () => {
       },
     ];
 
-    render(
-      <WeeklyCalendarView
-        {...defaultProps}
-        schedules={overlapping}
-        locale="en-US"
-      />
-    );
+    render(<WeeklyCalendarView {...defaultProps} schedules={overlapping} locale="en-US" />);
 
-    const banner = rtlScreen.getByTestId('multi-day-spanning-banner');
-    const bars = within(banner).getAllByTestId('multi-day-spanning-bar');
-
-    // Uncapped: both multi-day schedules get their own full-width row.
+    const bars = within(rtlScreen.getByTestId('calendar-bands')).getAllByTestId('multi-day-spanning-bar');
     expect(bars).toHaveLength(2);
-    expect(bars.map((bar) => bar.getAttribute('data-schedule-id'))).toEqual([
-      'md-early',
-      'md-late',
-    ]);
+    expect(bars.map((bar) => bar.getAttribute('data-schedule-id'))).toEqual(['md-early', 'md-late']);
 
-    // Each row is explicit, so overlapping spans stack instead of colliding.
-    expect(bars[0]).toHaveStyle({ gridColumn: '1 / span 3', gridRow: '1' });
-    expect(bars[1]).toHaveStyle({ gridColumn: '2 / span 3', gridRow: '2' });
+    // Overlapping spans stack instead of colliding.
+    expect(cellOf(bars[0]).cell).toHaveStyle({ gridColumn: '1 / span 3', gridRow: '1' });
+    expect(cellOf(bars[1]).cell).toHaveStyle({ gridColumn: '2 / span 3', gridRow: '2' });
 
-    // BUG-050 review finding (Blind Hunter/Edge Case Hunter): the riskiest gridline scenario is
-    // exactly this one -- multiple stacked sub-rows in the banner -- so it must carry its own
-    // guide-overlay assertion, not just the single-schedule case. Still one overlay per banner
-    // (`inset-0` spans the whole banner block's height, covering every stacked sub-row), not one
-    // per sub-row.
-    expect(within(banner).getAllByTestId('grid-column-guides')).toHaveLength(1);
-    expect(within(banner).getByTestId('grid-column-guides').children).toHaveLength(7);
+    // One guide overlay per band, never one per sub-row.
+    const band = rtlScreen.getAllByTestId('calendar-band')[0];
+    expect(within(band).getAllByTestId('grid-column-guides')).toHaveLength(1);
+    expect(within(band).getByTestId('grid-column-guides').children).toHaveLength(7);
   });
 
-  it('BUG-050 (AC-GRID-1 regression guard): renders no guide overlay when there is no spanning banner at all', () => {
-    // No multi-day schedules in this fixture at all -- the banner block (and therefore
-    // GridColumnGuides) must not render, same as pre-fix behavior (Edge Case Hunter finding: this
-    // implicit branch of `spanningSchedules.length > 0` had no explicit coverage).
-    const singleDayOnly = [sampleSchedules[0], sampleSchedules[1]];
-    render(<WeeklyCalendarView {...defaultProps} schedules={singleDayOnly} locale="en-US" />);
+  it('renders no band (and so no guide overlay) when the week has no schedules at all', () => {
+    render(<WeeklyCalendarView {...defaultProps} schedules={[]} locale="en-US" />);
 
-    expect(rtlScreen.queryByTestId('multi-day-spanning-banner')).not.toBeInTheDocument();
+    expect(rtlScreen.queryByTestId('calendar-band')).not.toBeInTheDocument();
     expect(rtlScreen.queryByTestId('grid-column-guides')).not.toBeInTheDocument();
+    expect(rtlScreen.getByTestId('calendar-empty')).toBeInTheDocument();
+    // Nothing to page: no progress line, no sentinel, no button.
+    expect(rtlScreen.queryByTestId('calendar-show-more')).not.toBeInTheDocument();
   });
 
   it('clips multi-day schedules at week boundaries correctly (AC3)', () => {
@@ -392,9 +386,7 @@ describe('WeeklyCalendarView', () => {
       />
     );
 
-    const bars = within(rtlScreen.getByTestId('multi-day-spanning-banner')).getAllByTestId(
-      'multi-day-spanning-bar'
-    );
+    const bars = within(rtlScreen.getByTestId('calendar-bands')).getAllByTestId('multi-day-spanning-bar');
     expect(bars).toHaveLength(2);
     expect(bars.map((bar) => bar.getAttribute('data-schedule-id'))).toEqual([
       'sched-boundary',
@@ -402,139 +394,239 @@ describe('WeeklyCalendarView', () => {
     ]);
 
     // Clipped to the on-screen columns, never off-grid: leading edge -> columns 1-3,
-    // trailing edge -> columns 5-7.
-    expect(bars[0]).toHaveStyle({ gridColumn: '1 / span 3', gridRow: '1' });
-    expect(bars[1]).toHaveStyle({ gridColumn: '5 / span 3', gridRow: '2' });
+    // trailing edge -> columns 5-7. They do not overlap, so both first-fit into row 1.
+    expect(cellOf(bars[0]).cell).toHaveStyle({ gridColumn: '1 / span 3', gridRow: '1' });
+    expect(cellOf(bars[1]).cell).toHaveStyle({ gridColumn: '5 / span 3', gridRow: '1' });
 
     // Still exactly one instance each (never repeated per day of the week).
     expect(screen.getAllByText('Boundary Festival')).toHaveLength(1);
     expect(screen.getAllByText('Trailing Festival')).toHaveLength(1);
   });
 
-  it('camps daily events if they exceed maxEventsPerDay and opens the shared overflow dialog', () => {
-    // Sunday Aug 2 gets 3 events
-    const lotsOfEvents = [
-      { id: '1', eventName: 'Event 1', isMainSchedule: true, eventStartDate: '2026-08-05' },
-      { id: '2', eventName: 'Event 2', isMainSchedule: true, eventStartDate: '2026-08-05' },
-      { id: '3', eventName: 'Event 3', isMainSchedule: true, eventStartDate: '2026-08-05' },
-    ];
+  describe('Banded grid paging (spec-calendar-unified-banded-grid)', () => {
+    beforeAll(() => {
+      // jsdom ships no IntersectionObserver; capture callbacks so tests can fire the sentinel.
+      vi.stubGlobal(
+        'IntersectionObserver',
+        class {
+          constructor(cb: IntersectionObserverCallback) {
+            observerCallbacks.push(cb);
+          }
+          observe() {}
+          unobserve() {}
+          disconnect() {}
+          takeRecords() { return []; }
+        }
+      );
+    });
 
-    const moreLabel = vi.fn((count: number) => `+${count} items remaining`);
-    const onOverflowRequested = vi.fn();
+    afterAll(() => {
+      vi.unstubAllGlobals();
+    });
 
-    render(
-      <WeeklyCalendarView
-        {...defaultProps}
-        schedules={lotsOfEvents}
-        maxEventsPerDay={2}
-        labels={{ moreLabel }}
-        onOverflowRequested={onOverflowRequested}
-        // Story 1.i1h Task 8.3 — the day-scoped query result is caller-owned (React Query never
-        // reaches `packages/ui`), so a test that wants to see the dialog's contents supplies it.
-        overflowDialogData={{
-          items: lotsOfEvents,
-          fetchNextPage: vi.fn(),
-          hasNextPage: false,
-          isFetchingNextPage: false,
-        }}
-        locale="en-US"
-      />
-    );
+    const fourteen = Array.from({ length: 14 }, (_, i) => ({
+      id: `e-${String(i + 1).padStart(2, '0')}`,
+      eventSlug: `e${i + 1}`,
+      eventName: `Wed Event ${String(i + 1).padStart(2, '0')}`,
+      isMainSchedule: true,
+      eventStartDate: '2026-08-05',
+      eventStartTime: `${String(8 + i).padStart(2, '0')}:00:00`,
+    }));
 
-    // Should only render 2 events directly
-    expect(screen.getByText('Event 1')).toBeInTheDocument();
-    expect(screen.getByText('Event 2')).toBeInTheDocument();
-    expect(screen.queryByText('Event 3')).not.toBeInTheDocument();
+    it('pages one band (6 rows per column) at a time, appending below and never reordering what is shown', () => {
+      render(<WeeklyCalendarView {...defaultProps} schedules={fourteen} locale="en-US" />);
 
-    // Verify resolver moreLabel was called
-    expect(moreLabel).toHaveBeenCalledWith(1);
-    const trigger = screen.getByText('+1 items remaining');
-    expect(trigger).toBeInTheDocument();
+      const titles = () => desktopTitles();
+      expect(titles()).toHaveLength(6);
+      expect(rtlScreen.getAllByTestId('calendar-band')).toHaveLength(1);
+      // Header: day total + "+N below" while rows are still hidden.
+      expect(rtlScreen.getAllByTestId('desktop-day-total')[0]).toHaveTextContent('14');
+      expect(rtlScreen.getAllByTestId('desktop-day-below')[0]).toHaveTextContent('+8 below');
+      expect(rtlScreen.getByTestId('calendar-progress')).toHaveTextContent('Showing 6 of 14 schedules this week');
+      const first = titles();
 
-    // Task 7.1 — the trigger asks the caller for that day's data (all three AC9 payload fields)
-    // and opens the ONE shared dialog instead of the deleted inline popover.
-    fireEvent.click(trigger);
-    expect(onOverflowRequested).toHaveBeenCalledWith('2026-08-05', 'desktop', 1);
+      fireEvent.click(rtlScreen.getByTestId('calendar-show-more'));
+      expect(rtlScreen.getAllByTestId('calendar-band')).toHaveLength(2);
+      expect(titles()).toHaveLength(12);
+      // Append-only: the first page is an unchanged prefix of the second.
+      expect(titles().slice(0, 6)).toEqual(first);
+      expect(rtlScreen.getAllByTestId('desktop-day-below')[0]).toHaveTextContent('+2 below');
 
-    const dialog = screen.getByRole('dialog', { name: /Schedules for/i });
-    expect(dialog).toHaveAttribute('data-date', '2026-08-05');
-    // Event 3 now renders inside the dialog (via EventCardCalendarGridItem's no-image
-    // composition), and exactly once overall — never duplicated next to the capped day cell.
-    // Asserted via the visible heading, not by text (the row's click layer also carries an
-    // `sr-only` copy of the name as its accessible name).
-    expect(within(dialog).getByRole('heading', { name: 'Event 3' })).toBeInTheDocument();
-    expect(screen.getAllByRole('heading', { name: 'Event 3' })).toHaveLength(1);
+      fireEvent.click(rtlScreen.getByTestId('calendar-show-more'));
+      expect(titles()).toHaveLength(14);
+      expect(rtlScreen.getAllByTestId('calendar-band')).toHaveLength(3);
 
-    // Escape closes the dialog — its own document-level keydown handler owns this now.
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByTestId('calendar-overflow-dialog')).not.toBeInTheDocument();
-  });
+      // Hard stop: everything shown, so the sentinel/button/below markers are gone.
+      expect(rtlScreen.queryByTestId('calendar-show-more')).not.toBeInTheDocument();
+      expect(rtlScreen.queryByTestId('calendar-load-more-sentinel')).not.toBeInTheDocument();
+      expect(rtlScreen.queryByTestId('desktop-day-below')).not.toBeInTheDocument();
+      expect(rtlScreen.getByTestId('calendar-progress')).toHaveTextContent('All 14 shown');
+    });
 
-  it('returns focus to the exact "+N more" trigger that opened the dialog (Task 7.4)', async () => {
-    const lotsOfEvents = [
-      { id: '1', eventName: 'Event 1', isMainSchedule: true, eventStartDate: '2026-08-05' },
-      { id: '2', eventName: 'Event 2', isMainSchedule: true, eventStartDate: '2026-08-05' },
-      { id: '3', eventName: 'Event 3', isMainSchedule: true, eventStartDate: '2026-08-05' },
-    ];
+    it('reveals the next band when the infinite-scroll sentinel intersects', () => {
+      const before = observerCallbacks.length;
+      render(<WeeklyCalendarView {...defaultProps} schedules={fourteen} locale="en-US" />);
+      expect(desktopTitles()).toHaveLength(6);
+      // The mobile list mounts its own sentinel too; fire every observer this render created.
+      act(() => {
+        observerCallbacks
+          .slice(before)
+          .forEach((cb) => cb([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver));
+      });
+      expect(desktopTitles()).toHaveLength(12);
+    });
 
-    render(
-      <WeeklyCalendarView
-        {...defaultProps}
-        schedules={lotsOfEvents}
-        maxEventsPerDay={2}
-        locale="en-US"
-      />
-    );
+    it('orders by start date, then end date, then start time, then id — one ordering for singles and bars', () => {
+      const mixed = [
+        { id: 'z-single', eventName: 'Single Late', isMainSchedule: true, eventStartDate: '2026-08-05', eventStartTime: '20:00:00' },
+        { id: 'a-bar', eventName: 'Bar Ends Later', isMainSchedule: true, eventStartDate: '2026-08-05', eventEndDate: '2026-08-06', eventStartTime: '07:00:00' },
+        { id: 'b-single', eventName: 'Single Early', isMainSchedule: true, eventStartDate: '2026-08-05', eventStartTime: '09:00:00' },
+        { id: 'c-prev', eventName: 'Started Earlier', isMainSchedule: true, eventStartDate: '2026-08-03', eventEndDate: '2026-08-09', eventStartTime: '23:00:00' },
+      ];
+      render(<WeeklyCalendarView {...defaultProps} schedules={mixed} locale="en-US" />);
+      const rows = rtlScreen
+        .getAllByTestId('calendar-band')[0]
+        .querySelectorAll('[data-testid="calendar-grid-card"], [data-testid="multi-day-spanning-bar"]');
+      const names = Array.from(rows).map((el) => el.querySelector('h3')?.textContent);
+      // Reading order within the band follows packing; compare by the sort rank via row/col instead:
+      const cells = Array.from(rows).map((el) => cellOf(el as HTMLElement).cell);
+      const byName = Object.fromEntries(names.map((n, i) => [n, cells[i]]));
+      // "Started Earlier" sorts first and takes row 1 (a full-width bar).
+      expect(byName['Started Earlier']).toHaveStyle({ gridRow: '1' });
+      // Same start date: ends earlier first — both singles (end Aug 5) before the bar ending Aug 6;
+      // singles share column 1 so they stack; the bar then needs a free row across col 1-2.
+      expect(byName['Single Early']).toHaveStyle({ gridRow: '2' });
+      expect(byName['Single Late']).toHaveStyle({ gridRow: '3' });
+      expect(byName['Bar Ends Later']).toHaveStyle({ gridRow: '4' });
+    });
 
-    const trigger = screen.getByText('+1 more');
-    fireEvent.click(trigger);
-    expect(screen.getByTestId('calendar-overflow-dialog')).toBeInTheDocument();
+    it('counts a multi-day bar once in every column it covers (header totals)', () => {
+      const mixed = [
+        { id: '1', eventSlug: 'e1', eventName: 'Event 1', isMainSchedule: true, eventStartDate: '2026-08-05' },
+        { id: '2', eventSlug: 'e2', eventName: 'Event 2', isMainSchedule: true, eventStartDate: '2026-08-05' },
+        { id: '3', eventSlug: 'e3', eventName: 'Event 3', isMainSchedule: true, eventStartDate: '2026-08-05' },
+        { id: 'md-expo', eventSlug: 'expo', eventName: 'All Week Expo', isMainSchedule: true, eventStartDate: '2026-08-05', eventEndDate: '2026-08-07' },
+      ];
+      render(<WeeklyCalendarView {...defaultProps} schedules={mixed} locale="en-US" />);
 
-    fireEvent.keyDown(document, { key: 'Escape' });
-    await new Promise((resolve) => setTimeout(resolve, 0));
+      const totals = rtlScreen.getAllByTestId('desktop-day-total').map((el) => el.textContent);
+      expect(totals).toEqual(['4', '1', '1', '0', '0', '0', '0']);
+      // Rendered exactly once overall.
+      expect(screen.getAllByText('All Week Expo')).toHaveLength(1);
+    });
 
-    expect(document.activeElement).toBe(trigger);
-  });
+    it('appends a late-arriving row that sorts earlier BELOW what is already rendered (no row above)', () => {
+      const base = [
+        { id: 'a1', eventSlug: 'a1', eventName: 'A1', isMainSchedule: true, eventStartDate: '2026-08-05', eventStartTime: '10:00:00' },
+        { id: 'a2', eventSlug: 'a2', eventName: 'A2', isMainSchedule: true, eventStartDate: '2026-08-05', eventStartTime: '11:00:00' },
+        { id: 'a3', eventSlug: 'a3', eventName: 'A3', isMainSchedule: true, eventStartDate: '2026-08-05', eventStartTime: '12:00:00' },
+      ];
+      const early = { id: 'a0', eventSlug: 'a0', eventName: 'A0 Early', isMainSchedule: true, eventStartDate: '2026-08-05', eventStartTime: '08:00:00' };
+      const ui = (continuation?: any) => (
+        <WeeklyCalendarView
+          {...defaultProps}
+          schedules={base}
+          locale="en-US"
+          dayFetchLimit={3}
+          dayContinuations={continuation ? { '2026-08-05': continuation } : undefined}
+        />
+      );
+      const { rerender } = render(ui());
+      expect(desktopTitles()).toEqual(['A1', 'A2', 'A3']);
 
-  it('triggers onScheduleClick with full schedule object on grid card or dialog card click', () => {
-    const onScheduleClick = vi.fn();
-    const lotsOfEvents = [
-      { id: '1', eventSlug: 'e1', eventName: 'Event 1', isMainSchedule: true, eventStartDate: '2026-08-05' },
-      { id: '2', eventSlug: 'e2', eventName: 'Event 2', isMainSchedule: true, eventStartDate: '2026-08-05' },
-      { id: '3', eventSlug: 'e3', eventName: 'Event 3', isMainSchedule: true, eventStartDate: '2026-08-05' },
-    ];
+      rerender(
+        ui({ items: [early], fetchNextPage: vi.fn(), hasNextPage: false, isFetchingNextPage: false })
+      );
+      // Sorted order would put A0 first; append-only places it after the rows already on screen.
+      expect(desktopTitles()).toEqual(['A1', 'A2', 'A3', 'A0 Early']);
+    });
 
-    render(
-      <WeeklyCalendarView
-        {...defaultProps}
-        schedules={lotsOfEvents}
-        maxEventsPerDay={2}
-        onScheduleClick={onScheduleClick}
-        overflowDialogData={{
-          items: lotsOfEvents,
-          fetchNextPage: vi.fn(),
-          hasNextPage: false,
-          isFetchingNextPage: false,
-        }}
-        locale="en-US"
-      />
-    );
+    it('asks the caller for a truncated day\'s continuation once everything loaded is shown, then pages it', () => {
+      const window3 = Array.from({ length: 3 }, (_, i) => ({
+        id: `w-${i + 1}`,
+        eventSlug: `w${i + 1}`,
+        eventName: `Windowed ${i + 1}`,
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+        eventStartTime: `${String(9 + i).padStart(2, '0')}:00:00`,
+      }));
+      const onDayContinuationRequested = vi.fn();
+      const fetchNextPage = vi.fn();
+      const ui = (continuation?: any) => (
+        <WeeklyCalendarView
+          {...defaultProps}
+          schedules={window3}
+          locale="en-US"
+          dayFetchLimit={3}
+          onDayContinuationRequested={onDayContinuationRequested}
+          dayContinuations={continuation ? { '2026-08-05': continuation } : undefined}
+        />
+      );
+      const { rerender } = render(ui());
 
-    // Click grid card — BUG-048: the click target is the sibling `<button>` (accessible name =
-    // `schedule.eventName`), not the visible `<h3>` text, which now lives in a separate
-    // `pointer-events-none` visual layer.
-    fireEvent.click(rtlScreen.getByRole('button', { name: 'Event 1' }));
-    expect(onScheduleClick).toHaveBeenLastCalledWith(lotsOfEvents[0]);
+      // The day filled its window, so the server may hold more: header says so, and the controls stay.
+      expect(rtlScreen.getAllByTestId('desktop-day-total')[0]).toHaveTextContent('3+');
+      expect(rtlScreen.getByTestId('calendar-progress')).toHaveTextContent('Showing 3 of 3+ schedules this week');
 
-    // Open the shared dialog and activate the overflowing card. The dialog renders each row with
-    // the Story 1.i1g AC12 shape (a real click-target <button> sitting under a purely visual card
-    // layer), so the interactive element — not the visible <h3> text — is the click target.
-    fireEvent.click(screen.getByText('+1 more'));
-    fireEvent.click(rtlScreen.getByRole('button', { name: 'Event 3' }));
+      fireEvent.click(rtlScreen.getByTestId('calendar-show-more'));
+      expect(onDayContinuationRequested).toHaveBeenCalledWith('2026-08-05');
 
-    expect(onScheduleClick).toHaveBeenLastCalledWith(lotsOfEvents[2]);
-    // Activating a card closes the dialog, matching the superseded popover's behaviour.
-    expect(rtlScreen.queryByTestId('calendar-overflow-dialog')).not.toBeInTheDocument();
+      // First continuation page lands; more pages remain.
+      const extra = { id: 'w-4', eventSlug: 'w4', eventName: 'Windowed 4', isMainSchedule: true, eventStartDate: '2026-08-05', eventStartTime: '15:00:00' };
+      rerender(ui({ items: [extra], fetchNextPage, hasNextPage: true, isFetchingNextPage: false }));
+      expect(desktopTitles()).toContain('Windowed 4');
+      fireEvent.click(rtlScreen.getByTestId('calendar-show-more'));
+      expect(fetchNextPage).toHaveBeenCalledTimes(1);
+
+      // Server exhausted: hard stop.
+      rerender(ui({ items: [extra], fetchNextPage, hasNextPage: false, isFetchingNextPage: false }));
+      expect(rtlScreen.queryByTestId('calendar-show-more')).not.toBeInTheDocument();
+      expect(rtlScreen.getByTestId('calendar-progress')).toHaveTextContent('All 4 shown');
+      expect(rtlScreen.getAllByTestId('desktop-day-total')[0]).toHaveTextContent('4');
+    });
+
+    it('pages bars too, 6 per column per band, and starts over on week change', () => {
+      const multiDay = Array.from({ length: 25 }, (_, i) => ({
+        id: `bar-${i + 1}`,
+        eventName: `Bar ${String(i + 1).padStart(2, '0')}`,
+        isMainSchedule: true,
+        eventStartDate: '2026-08-05',
+        eventEndDate: '2026-08-09',
+      }));
+      const ui = (weekStart: string) => (
+        <ScopedLocaleProvider locale="en-US">
+          <WeeklyCalendarView {...defaultProps} weekStart={weekStart} schedules={multiDay} />
+        </ScopedLocaleProvider>
+      );
+      const { rerender } = render(ui('2026-08-05'));
+      const bars = () => within(rtlScreen.getByTestId('desktop-calendar-view')).getAllByTestId('multi-day-spanning-bar');
+
+      expect(bars()).toHaveLength(6);
+      fireEvent.click(rtlScreen.getByTestId('calendar-show-more'));
+      expect(bars()).toHaveLength(12);
+      fireEvent.click(rtlScreen.getByTestId('calendar-show-more'));
+      fireEvent.click(rtlScreen.getByTestId('calendar-show-more'));
+      fireEvent.click(rtlScreen.getByTestId('calendar-show-more'));
+      expect(bars()).toHaveLength(25);
+      expect(rtlScreen.queryByTestId('calendar-show-more')).not.toBeInTheDocument();
+
+      // Another week with the same schedules starts again at the first band.
+      rerender(ui('2026-08-03'));
+      expect(bars()).toHaveLength(6);
+    });
+
+    it('triggers onScheduleClick with the full schedule object on a grid card click', () => {
+      const onScheduleClick = vi.fn();
+      const three = [
+        { id: '1', eventSlug: 'e1', eventName: 'Event 1', isMainSchedule: true, eventStartDate: '2026-08-05' },
+        { id: '2', eventSlug: 'e2', eventName: 'Event 2', isMainSchedule: true, eventStartDate: '2026-08-05' },
+      ];
+      render(<WeeklyCalendarView {...defaultProps} schedules={three} onScheduleClick={onScheduleClick} locale="en-US" />);
+
+      // BUG-048: the click target is the sibling `<button>` (accessible name = `schedule.eventName`).
+      fireEvent.click(rtlScreen.getByRole('button', { name: 'Event 2' }));
+      expect(onScheduleClick).toHaveBeenLastCalledWith(three[1]);
+    });
   });
 
   it('hovering and keyboard focusing compact card displays custom tooltip', () => {
@@ -563,67 +655,6 @@ describe('WeeklyCalendarView', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
-  it('keeps multi-day schedules out of the capped day cells and the shared overflow dialog (AC4)', () => {
-    const mixedSchedules = [
-      { id: '1', eventSlug: 'e1', eventName: 'Event 1', isMainSchedule: true, eventStartDate: '2026-08-05' },
-      { id: '2', eventSlug: 'e2', eventName: 'Event 2', isMainSchedule: true, eventStartDate: '2026-08-05' },
-      { id: '3', eventSlug: 'e3', eventName: 'Event 3', isMainSchedule: true, eventStartDate: '2026-08-05' },
-      {
-        id: 'md-expo',
-        eventSlug: 'expo',
-        eventName: 'All Week Expo',
-        isMainSchedule: true,
-        eventStartDate: '2026-08-05',
-        eventEndDate: '2026-08-07',
-      },
-    ];
-
-    const moreLabel = vi.fn((count: number) => `+${count} items remaining`);
-
-    render(
-      <WeeklyCalendarView
-        {...defaultProps}
-        schedules={mixedSchedules}
-        maxEventsPerDay={2}
-        labels={{ moreLabel }}
-        // Desktop's day cell — and therefore the day-scoped overflow list it opens — is
-        // single-day-only, so the caller's merged bucket for this day excludes the expo.
-        overflowDialogData={{
-          items: mixedSchedules.filter((schedule) => !schedule.eventEndDate),
-          fetchNextPage: vi.fn(),
-          hasNextPage: false,
-          isFetchingNextPage: false,
-        }}
-        locale="en-US"
-      />
-    );
-
-    // The multi-day schedule has its own spanning bar…
-    const banner = rtlScreen.getByTestId('multi-day-spanning-banner');
-    expect(within(banner).getAllByTestId('multi-day-spanning-bar')).toHaveLength(1);
-    expect(within(banner).getByText('All Week Expo')).toBeInTheDocument();
-
-    // …and is never duplicated inside a day cell.
-    // The visible week starts at the supplied weekStart (Aug 5 = Wed), so that day is cell 0.
-    const wedCell = rtlScreen.getByTestId('desktop-calendar-view').querySelectorAll('.h-32')[0];
-    expect(wedCell).not.toHaveTextContent('All Week Expo');
-    expect(within(wedCell as HTMLElement).getByText('Event 1')).toBeInTheDocument();
-    expect(within(wedCell as HTMLElement).getByText('Event 2')).toBeInTheDocument();
-    expect(within(wedCell as HTMLElement).queryByText('Event 3')).not.toBeInTheDocument();
-
-    // The cap/count is computed over single-day schedules only (3 single-day, limit 2 -> +1).
-    expect(moreLabel).toHaveBeenCalledWith(1);
-    fireEvent.click(screen.getByText('+1 items remaining'));
-
-    // The dialog lists the remaining single-day schedule the caller supplied, never the multi-day one.
-    const dialog = rtlScreen.getByRole('dialog', { name: /Schedules for/i });
-    expect(within(dialog).getByRole('heading', { name: 'Event 3' })).toBeInTheDocument();
-    expect(within(dialog).queryByText('All Week Expo')).not.toBeInTheDocument();
-
-    // The multi-day schedule still renders exactly once overall (no duplication).
-    expect(screen.getAllByText('All Week Expo')).toHaveLength(1);
-  });
-
   it('fires onScheduleClick from the spanning card and onFavoriteToggle without navigating (AC7/AC12)', () => {
     const onScheduleClick = vi.fn();
     const onFavoriteToggle = vi.fn();
@@ -640,9 +671,9 @@ describe('WeeklyCalendarView', () => {
     const bar = rtlScreen.getByTestId('multi-day-spanning-bar');
     const barButton = within(bar).getByRole('button', { name: 'Tech Workshop' });
 
-    // AC12 — a plain linear Tab stop, deliberately outside the roving day-cell grid.
-    expect(barButton).toHaveAttribute('tabIndex', '0');
-    expect(barButton).not.toHaveAttribute('id');
+    // The bar is one roving-tabindex stop in the banded grid (not the first card, so not the tab stop).
+    expect(barButton).toHaveAttribute('tabIndex', '-1');
+    expect(barButton).toHaveAttribute('id');
 
     fireEvent.click(barButton);
     expect(onScheduleClick).toHaveBeenCalledTimes(1);
@@ -727,49 +758,43 @@ describe('WeeklyCalendarView', () => {
     expect(barNoVenue.querySelector('[data-event-card-nearby-badge]')).toBeNull();
   });
 
-  it('roving-tabindex keyboard arrow navigation between schedule cards behaves correctly', () => {
+  it('roving-tabindex keyboard arrow navigation between schedule cards and bars behaves correctly', () => {
     render(<WeeklyCalendarView {...defaultProps} locale="en-US" />);
 
-    // Multi-day Tech Workshop is excluded from the day cells (AC5/AC6) — it has its own
-    // spanning bar instead — so the roving grid is only:
-    //   Cell 0 (Wed Aug 5): Main Stage Concert (card-0)
-    //   Cell 1 (Thu Aug 6): Gallery Tour (card-0)
-    //   Cell 2 (Fri Aug 7): nothing (Tech Workshop only)
-    // BUG-048: grid-cell click targets carry `aria-label={schedule.eventName}` rather than
-    // visible text, so they're located by accessible name instead of `closest('button')`.
-    const wed0 = screen.getByRole('button', { name: 'Main Stage Concert' });
-    const thu0 = screen.getByRole('button', { name: 'Gallery Tour' });
+    // Banded layout (band 0):
+    //   row 1: Main Stage Concert (col 1), Gallery Tour (col 2)
+    //   row 2: Tech Workshop bar (cols 1-3)
+    const concert = screen.getByRole('button', { name: 'Main Stage Concert' });
+    const gallery = screen.getByRole('button', { name: 'Gallery Tour' });
+    const workshop = screen.getByRole('button', { name: 'Tech Workshop' });
 
-    // Initial roving tabIndex=0 is the first rendered card of the week
-    expect(wed0).toHaveAttribute('tabIndex', '0');
-    expect(thu0).toHaveAttribute('tabIndex', '-1');
+    // Initial roving tabIndex=0 is the first rendered item in reading order
+    expect(concert).toHaveAttribute('tabIndex', '0');
+    expect(gallery).toHaveAttribute('tabIndex', '-1');
+    expect(workshop).toHaveAttribute('tabIndex', '-1');
 
-    // ArrowRight moves to the next card in the flat list (Thu's Gallery Tour)
-    fireEvent.keyDown(wed0, { key: 'ArrowRight' });
-    expect(thu0).toHaveFocus();
-    expect(thu0).toHaveAttribute('tabIndex', '0');
-    expect(wed0).toHaveAttribute('tabIndex', '-1');
+    // ArrowRight walks reading order
+    fireEvent.keyDown(concert, { key: 'ArrowRight' });
+    expect(gallery).toHaveFocus();
+    expect(gallery).toHaveAttribute('tabIndex', '0');
+    expect(concert).toHaveAttribute('tabIndex', '-1');
 
-    // ArrowLeft moves back to the previous card
-    fireEvent.keyDown(thu0, { key: 'ArrowLeft' });
-    expect(wed0).toHaveFocus();
+    fireEvent.keyDown(gallery, { key: 'ArrowLeft' });
+    expect(concert).toHaveFocus();
 
-    // ArrowDown moves to the same card index on the next day (Wed -> Thu)
-    fireEvent.keyDown(wed0, { key: 'ArrowDown' });
-    expect(thu0).toHaveFocus();
+    // ArrowDown stays in the column and lands on the bar covering it
+    fireEvent.keyDown(concert, { key: 'ArrowDown' });
+    expect(workshop).toHaveFocus();
+    fireEvent.keyDown(workshop, { key: 'ArrowUp' });
+    expect(concert).toHaveFocus();
+    fireEvent.keyDown(gallery, { key: 'ArrowDown' });
+    expect(workshop).toHaveFocus();
 
-    // Fri has no single-day card left, so ArrowDown must not strand focus on a card that is
-    // not rendered (its only schedule is the multi-day span).
-    fireEvent.keyDown(thu0, { key: 'ArrowDown' });
-    expect(thu0).toHaveFocus();
-
-    // AC12 — the spanning bar stays a plain linear Tab stop, outside arrow-key navigation.
-    const spanningButton = within(rtlScreen.getByTestId('multi-day-spanning-banner')).getByRole(
-      'button',
-      { name: 'Tech Workshop' }
-    );
-    expect(spanningButton).toHaveAttribute('tabIndex', '0');
-    expect(spanningButton).not.toHaveFocus();
+    // Nothing below the bar: focus must not be stranded on something that is not rendered.
+    fireEvent.keyDown(workshop, { key: 'ArrowDown' });
+    expect(workshop).toHaveFocus();
+    fireEvent.keyDown(workshop, { key: 'ArrowRight' });
+    expect(workshop).toHaveFocus();
   });
 
   it('graceful degradation for invalid/malformed locale or timezone instead of crashing', () => {
@@ -1022,7 +1047,7 @@ describe('WeeklyCalendarView', () => {
       // Saturday has no schedules: the tab is still selectable and shows the empty message.
       selectMobileDay('8 Sat');
       expect(within(mobileView).getByTestId('mobile-day-empty')).toBeInTheDocument();
-      expect(within(mobileView).getByRole('tab', { name: '8 Sat' })).toHaveAttribute('aria-selected', 'true');
+      expect(within(mobileView).getByRole('tab', { name: dayTabName('8 Sat') })).toHaveAttribute('aria-selected', 'true');
 
       // A day with schedules shows them and no empty message.
       selectMobileDay('7 Fri');
@@ -1069,7 +1094,7 @@ describe('WeeklyCalendarView', () => {
       expect(singleDayCard?.querySelector('[data-testid="multi-day-badge"]')).not.toBeInTheDocument();
     });
 
-    it('caps desktop independently of the mobile list (mobile keeps its own flat-20 bound)', () => {
+    it('lists every single-day schedule of the selected day on mobile when under one page', () => {
       const threeEvents = [
         { id: '1', eventName: 'Event 1', isMainSchedule: true, eventStartDate: '2026-08-05' },
         { id: '2', eventName: 'Event 2', isMainSchedule: true, eventStartDate: '2026-08-05' },
@@ -1078,11 +1103,7 @@ describe('WeeklyCalendarView', () => {
 
       render(
         <ScopedLocaleProvider locale="en-US">
-          <WeeklyCalendarView
-            {...defaultProps}
-            schedules={threeEvents}
-            maxEventsPerDay={1} // Cap desktop but NOT the mobile list, which has its own flat 20
-          />
+          <WeeklyCalendarView {...defaultProps} schedules={threeEvents} />
         </ScopedLocaleProvider>
       );
 
@@ -1092,11 +1113,15 @@ describe('WeeklyCalendarView', () => {
       expect(within(mobileView).getByText('Event 3')).toBeInTheDocument();
       // Under one page, so there is nothing to load.
       expect(within(mobileView).queryByTestId('mobile-day-load-more')).not.toBeInTheDocument();
+      // Each tab shows its day's count (Wed has 3, the rest are empty).
+      expect(within(mobileView).getAllByTestId('mobile-day-count').map((el) => el.textContent)).toEqual([
+        '3', '0', '0', '0', '0', '0', '0',
+      ]);
     });
 
     it('pages the selected day locally, 10 at a time, via the Load more button', () => {
       const twentyFive = Array.from({ length: 25 }, (_, i) => ({
-        id: `m-${i + 1}`,
+        id: `m-${String(i + 1).padStart(2, '0')}`,
         eventName: `Mobile Event ${i + 1}`,
         isMainSchedule: true,
         eventStartDate: '2026-08-05',
@@ -1126,7 +1151,7 @@ describe('WeeklyCalendarView', () => {
 
     it('loads more when the infinite-scroll sentinel intersects', () => {
       const twelve = Array.from({ length: 12 }, (_, i) => ({
-        id: `s-${i + 1}`,
+        id: `s-${String(i + 1).padStart(2, '0')}`,
         eventName: `Scroll Event ${i + 1}`,
         isMainSchedule: true,
         eventStartDate: '2026-08-05',
@@ -1148,30 +1173,36 @@ describe('WeeklyCalendarView', () => {
 
     it('continues past the week fetch window through the day-scoped query once local rows are exhausted', () => {
       const twenty = Array.from({ length: 20 }, (_, i) => ({
-        id: `w-${i + 1}`,
+        id: `w-${String(i + 1).padStart(2, '0')}`,
         eventName: `Windowed ${i + 1}`,
         isMainSchedule: true,
         eventStartDate: '2026-08-05',
+        eventStartTime: `${String(8 + Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}:00`,
       }));
-      const serverExtra = { id: 'w-21', eventName: 'Windowed 21', isMainSchedule: true, eventStartDate: '2026-08-05' };
+      const serverExtra = { id: 'w-21', eventName: 'Windowed 21', isMainSchedule: true, eventStartDate: '2026-08-05', eventStartTime: '20:00:00' };
       const onDayContinuationRequested = vi.fn();
       const fetchNextPage = vi.fn();
-      const onOverflowRequested = vi.fn();
 
-      const renderView = (items: typeof twenty, hasNextPage: boolean) => (
+      const renderView = (hasNextPage: boolean, withExtra: boolean) => (
         <ScopedLocaleProvider locale="en-US">
           <WeeklyCalendarView
             {...defaultProps}
             schedules={twenty}
             dayFetchLimit={20}
             onDayContinuationRequested={onDayContinuationRequested}
-            onOverflowRequested={onOverflowRequested}
-            overflowDialogData={{ items, fetchNextPage, hasNextPage, isFetchingNextPage: false }}
+            dayContinuations={
+              withExtra
+                ? { '2026-08-05': { items: [serverExtra], fetchNextPage, hasNextPage, isFetchingNextPage: false } }
+                : undefined
+            }
           />
         </ScopedLocaleProvider>
       );
-      const { rerender } = render(renderView(twenty, true));
+      const { rerender } = render(renderView(true, false));
       const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
+
+      // The tab says the day may have more (20 hit the window).
+      expect(within(mobileView).getAllByTestId('mobile-day-count')[0]).toHaveTextContent('20+');
 
       // 10 -> 20 are revealed locally with no server call.
       fireEvent.click(within(mobileView).getByRole('button', { name: 'Load more' }));
@@ -1181,24 +1212,23 @@ describe('WeeklyCalendarView', () => {
       // Local rows exhausted and the day hit the 20-per-day window: ask the caller for the day query.
       fireEvent.click(within(mobileView).getByRole('button', { name: 'Load more' }));
       expect(onDayContinuationRequested).toHaveBeenCalledWith('2026-08-05');
-      // No dialog and no dialog analytics for the mobile continuation.
-      expect(onOverflowRequested).not.toHaveBeenCalled();
       expect(rtlScreen.queryByRole('dialog')).not.toBeInTheDocument();
 
-      // The caller's merged items arrive: the extra server row renders inline, and more pages remain.
-      rerender(renderView([...twenty, serverExtra] as typeof twenty, true));
+      // The caller's continuation arrives: the extra server row renders inline, and more pages remain.
+      rerender(renderView(true, true));
       expect(within(mobileView).getByText('Windowed 21')).toBeInTheDocument();
       fireEvent.click(within(mobileView).getByRole('button', { name: 'Load more' }));
       expect(fetchNextPage).toHaveBeenCalledTimes(1);
 
-      // Last page reached: the control disappears.
-      rerender(renderView([...twenty, serverExtra] as typeof twenty, false));
+      // Last page reached: the control and the "+" disappear.
+      rerender(renderView(false, true));
       expect(within(mobileView).queryByTestId('mobile-day-load-more')).not.toBeInTheDocument();
+      expect(within(mobileView).getAllByTestId('mobile-day-count')[0]).toHaveTextContent('21');
     });
 
     it('pages multi-day segments too: a day full of long-running schedules is not rendered at once', () => {
       const multiDay = Array.from({ length: 25 }, (_, i) => ({
-        id: `md-${i + 1}`,
+        id: `md-${String(i + 1).padStart(2, '0')}`,
         eventName: `Long Run ${i + 1}`,
         isMainSchedule: true,
         eventStartDate: '2026-08-05',
@@ -1217,37 +1247,6 @@ describe('WeeklyCalendarView', () => {
       fireEvent.click(within(mobileView).getByRole('button', { name: 'Load more' }));
       expect(within(mobileView).getByText('Long Run 20')).toBeInTheDocument();
       expect(within(mobileView).queryByText('Long Run 21')).not.toBeInTheDocument();
-    });
-
-    it('pages the desktop multi-day banner 10 rows at a time and resets on week change', () => {
-      const multiDay = Array.from({ length: 25 }, (_, i) => ({
-        id: `bar-${i + 1}`,
-        eventName: `Bar ${String(i + 1).padStart(2, '0')}`,
-        isMainSchedule: true,
-        eventStartDate: '2026-08-05',
-        eventEndDate: '2026-08-09',
-      }));
-      const ui = (weekStart: string) => (
-        <ScopedLocaleProvider locale="en-US">
-          <WeeklyCalendarView {...defaultProps} weekStart={weekStart} schedules={multiDay} />
-        </ScopedLocaleProvider>
-      );
-      const { rerender } = render(ui('2026-08-05'));
-      const desktop = rtlScreen.getByTestId('desktop-calendar-view');
-
-      expect(within(desktop).getAllByTestId('multi-day-spanning-bar')).toHaveLength(10);
-      const more = within(desktop).getByTestId('multi-day-banner-load-more');
-      expect(more).toHaveTextContent('15 more');
-
-      fireEvent.click(more);
-      expect(within(desktop).getAllByTestId('multi-day-spanning-bar')).toHaveLength(20);
-      fireEvent.click(within(desktop).getByTestId('multi-day-banner-load-more'));
-      expect(within(desktop).getAllByTestId('multi-day-spanning-bar')).toHaveLength(25);
-      expect(within(desktop).queryByTestId('multi-day-banner-load-more')).not.toBeInTheDocument();
-
-      // Another week with the same schedules starts again at the first page.
-      rerender(ui('2026-08-03'));
-      expect(within(rtlScreen.getByTestId('desktop-calendar-view')).getAllByTestId('multi-day-spanning-bar')).toHaveLength(10);
     });
 
     it('renders the new date box (till text) and favorite count, with no redundant time-range-inline in list-variant', () => {
@@ -2052,8 +2051,8 @@ describe('WeeklyCalendarView', () => {
       );
 
       const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
-      expect(within(mobileView).getByRole('tab', { name: '6 Thu' })).toHaveAttribute('aria-selected', 'true');
-      expect(within(mobileView).getByRole('tab', { name: '6 Thu' })).toHaveAttribute('data-today', 'true');
+      expect(within(mobileView).getByRole('tab', { name: dayTabName('6 Thu') })).toHaveAttribute('aria-selected', 'true');
+      expect(within(mobileView).getByRole('tab', { name: dayTabName('6 Thu') })).toHaveAttribute('data-today', 'true');
       expect(within(mobileView).getByText('Gallery Tour')).toBeInTheDocument();
       expect(within(mobileView).queryByText('Main Stage Concert')).not.toBeInTheDocument();
 
@@ -2076,7 +2075,7 @@ describe('WeeklyCalendarView', () => {
       const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
       expect(within(mobileView).getAllByRole('tab')[0]).toHaveAttribute('aria-selected', 'true');
       selectMobileDay('15 Sat');
-      expect(within(mobileView).getByRole('tab', { name: '15 Sat' })).toHaveAttribute('aria-selected', 'true');
+      expect(within(mobileView).getByRole('tab', { name: dayTabName('15 Sat') })).toHaveAttribute('aria-selected', 'true');
 
       // Back to the week containing today: selection resets to today (Thu Aug 6).
       rerender(
@@ -2084,7 +2083,7 @@ describe('WeeklyCalendarView', () => {
           <WeeklyCalendarView {...defaultProps} weekStart="2026-08-05" schedules={[]} timezone="UTC" />
         </ScopedLocaleProvider>
       );
-      expect(within(mobileView).getByRole('tab', { name: '6 Thu' })).toHaveAttribute('aria-selected', 'true');
+      expect(within(mobileView).getByRole('tab', { name: dayTabName('6 Thu') })).toHaveAttribute('aria-selected', 'true');
     });
 
     it('supports roving tabindex and arrow/Home/End keyboard navigation', () => {
@@ -2232,21 +2231,18 @@ describe('WeeklyCalendarView', () => {
 
       render(<WeeklyCalendarView {...defaultProps} schedules={schedules as any} locale="en-US" />);
 
-      // No spanning banner at all -- the only occurrence visible this week (Monday Aug10) is an
-      // isolated one-day run, which never earns a bar (AC4).
-      expect(rtlScreen.queryByTestId('multi-day-spanning-banner')).not.toBeInTheDocument();
+      // No bar at all -- the only occurrence visible this week (Monday Aug 10) is an isolated
+      // one-day run, which never earns a bar (AC4).
+      expect(within(rtlScreen.getByTestId('desktop-calendar-view')).queryByTestId('multi-day-spanning-bar')).not.toBeInTheDocument();
 
-      // It renders as a normal single-day grid card on Monday's day cell instead.
-      const dayCells = rtlScreen.getByTestId('desktop-calendar-view').querySelectorAll('.h-32');
-      expect(dayCells).toHaveLength(7);
-      expect(within(dayCells[5] as HTMLElement).getByText('Monday Only Market')).toBeInTheDocument();
-      // No other day cell shows it (it doesn't occur on any other weekday).
-      [0, 1, 2, 3, 4, 6].forEach((idx) => {
-        expect(within(dayCells[idx] as HTMLElement).queryByText('Monday Only Market')).not.toBeInTheDocument();
-      });
+      // It renders as a normal single-day grid card in Monday's column (column 6 of the week
+      // starting Wed Aug 5) -- exactly once.
+      const cards = within(rtlScreen.getByTestId('desktop-calendar-view')).getAllByRole('button', { name: 'Monday Only Market' });
+      expect(cards).toHaveLength(1);
+      expect(cellOf(cards[0]).cell).toHaveStyle({ gridColumn: '6 / span 1' });
     });
 
-    it('(b) a Mon+Tue run plus an isolated Friday in the same week renders one Mon-Tue bar AND keeps the Friday day-cell segment (the AC4 regression case)', () => {
+    it('(b) a Mon+Tue run plus an isolated Friday in the same week renders one Mon-Tue bar AND keeps the Friday card (the AC4 regression case)', () => {
       const schedules = [
         {
           id: 'pop-up',
@@ -2261,29 +2257,26 @@ describe('WeeklyCalendarView', () => {
       render(<WeeklyCalendarView {...defaultProps} schedules={schedules as any} locale="en-US" />);
 
       // Exactly one Mon-Tue spanning bar (columns 5-6, 0-based -> CSS grid-column "6 / span 2").
-      const banner = rtlScreen.getByTestId('multi-day-spanning-banner');
-      const bars = within(banner).getAllByTestId('multi-day-spanning-bar');
+      const grid = rtlScreen.getByTestId('calendar-bands');
+      const bars = within(grid).getAllByTestId('multi-day-spanning-bar');
       expect(bars).toHaveLength(1);
       expect(within(bars[0]).getByText('Weekly Pop-up')).toBeInTheDocument();
-      expect(bars[0]).toHaveStyle({ gridColumn: '6 / span 2' });
+      expect(cellOf(bars[0]).cell).toHaveStyle({ gridColumn: '6 / span 2' });
 
-      // The old id-based `spanningScheduleIds` filter would have also dropped Friday's isolated
-      // occurrence of the SAME schedule -- the segment-level fix (AC4) keeps it.
-      const dayCells = rtlScreen.getByTestId('desktop-calendar-view').querySelectorAll('.h-32');
-      expect(within(dayCells[2] as HTMLElement).getByText('Weekly Pop-up')).toBeInTheDocument();
+      // The segment-level fix (AC4) keeps Friday's isolated occurrence of the SAME schedule as a card.
+      const friday = within(grid)
+        .getAllByRole('button', { name: 'Weekly Pop-up' })
+        .map((el) => cellOf(el).cell)
+        .find((cell) => cell.style.gridColumn === '3 / span 1');
+      expect(friday).toBeTruthy();
 
-      // Monday/Tuesday's OWN day cells do not also show a duplicate single-day copy of it --
-      // it's covered by the bar there, not double-rendered.
-      expect(within(dayCells[5] as HTMLElement).queryByText('Weekly Pop-up')).not.toBeInTheDocument();
-      expect(within(dayCells[6] as HTMLElement).queryByText('Weekly Pop-up')).not.toBeInTheDocument();
-
-      // Exactly 2 renders total (one in the bar, one in Friday's cell) -- never 3+.
+      // Exactly 2 renders total (one bar, one Friday card) -- never 3+, Mon/Tue are not duplicated.
       expect(within(rtlScreen.getByTestId('desktop-calendar-view')).getAllByText('Weekly Pop-up')).toHaveLength(2);
     });
 
-    it('(c) desktop overflow ("+N more") counts isolated occurrences correctly, never double-counting a segment already shown as a bar', () => {
+    it('(c) per-day totals count isolated occurrences once and a bar in every column it covers, never double-counting', () => {
       const schedules = [
-        // Mon+Tue bar -- its Monday segment must never be counted toward Monday's overflow.
+        // Mon+Tue bar -- counted once in Monday and once in Tuesday.
         {
           id: 'run',
           eventName: 'Bar Event',
@@ -2297,21 +2290,16 @@ describe('WeeklyCalendarView', () => {
         { id: 's3', eventName: 'Solo 3', isMainSchedule: true, eventStartDate: '2026-08-10' },
       ];
 
-      render(
-        <WeeklyCalendarView {...defaultProps} schedules={schedules as any} maxEventsPerDay={2} locale="en-US" />
-      );
+      render(<WeeklyCalendarView {...defaultProps} schedules={schedules as any} locale="en-US" />);
 
-      // 3 isolated single-day occurrences on Monday (the bar's own Monday segment is excluded
-      // entirely from the count) -- maxEventsPerDay=2 means exactly 1 is hidden behind "+1 more",
-      // never "+2 more" (which would mean the bar's segment was double-counted).
-      expect(screen.getByText('+1 more')).toBeInTheDocument();
-      expect(screen.getByText('Solo 1')).toBeInTheDocument();
-      expect(screen.getByText('Solo 2')).toBeInTheDocument();
-      expect(screen.queryByText('Solo 3')).not.toBeInTheDocument();
+      // Week starts Wed Aug 5: Monday Aug 10 is column 6, Tuesday Aug 11 column 7.
+      const totals = rtlScreen.getAllByTestId('desktop-day-total').map((el) => el.textContent);
+      expect(totals).toEqual(['0', '0', '0', '0', '0', '4', '1']);
 
-      // The bar itself still renders once, separately from the day-cell overflow accounting.
-      const banner = rtlScreen.getByTestId('multi-day-spanning-banner');
-      expect(within(banner).getAllByTestId('multi-day-spanning-bar')).toHaveLength(1);
+      // The bar renders once, alongside the three solos.
+      const grid = rtlScreen.getByTestId('calendar-bands');
+      expect(within(grid).getAllByTestId('multi-day-spanning-bar')).toHaveLength(1);
+      ['Solo 1', 'Solo 2', 'Solo 3'].forEach((name) => expect(screen.getByText(name)).toBeInTheDocument());
     });
 
     it('(d) per-run adjacency is evaluated against the FULL occurrence set, including days outside the visible week -- a run straddling the week boundary is not misclassified as isolated', () => {
@@ -2334,17 +2322,17 @@ describe('WeeklyCalendarView', () => {
 
       render(<WeeklyCalendarView {...defaultProps} schedules={schedules as any} locale="en-US" />);
 
-      // No bar (only Tuesday is visible from this run) -- renders as a normal single-day grid card.
-      expect(rtlScreen.queryByTestId('multi-day-spanning-banner')).not.toBeInTheDocument();
-
       const desktopView = rtlScreen.getByTestId('desktop-calendar-view');
+      // No bar (only Tuesday is visible from this run) -- renders as a normal single-day grid card.
+      expect(within(desktopView).queryByTestId('multi-day-spanning-bar')).not.toBeInTheDocument();
 
       // The schedule's occurrences also land on Wednesday Aug5 (the visible week's FIRST day) --
-      // the tail end of the PRIOR week's own Aug4-Aug5 run, equally isolated in-week. Scope to
-      // Tuesday's day cell (index 6, the LAST visible day) specifically, since that's the one
-      // whose run continues past the visible week's right edge into Wednesday Aug12.
-      const tuesdayCell = desktopView.querySelectorAll('.h-32')[6] as HTMLElement;
-      const cardButton = within(tuesdayCell).getByRole('button', { name: 'Boundary Event' });
+      // the tail end of the PRIOR week's own Aug4-Aug5 run. Pick Tuesday's card (column 7, the
+      // LAST visible day), whose run continues past the visible week's right edge into Aug12.
+      const cardButton = within(desktopView)
+        .getAllByRole('button', { name: 'Boundary Event' })
+        .find((el) => cellOf(el).cell.style.gridColumn === '7 / span 1') as HTMLElement;
+      expect(cardButton).toBeTruthy();
 
       fireEvent.pointerEnter(cardButton, { pointerType: 'mouse' });
 
@@ -2366,11 +2354,10 @@ describe('WeeklyCalendarView', () => {
       // for legacy/default schedules" requirement -- a single run equal to the whole span, one bar.
       render(<WeeklyCalendarView {...defaultProps} locale="en-US" />);
 
-      const banner = rtlScreen.getByTestId('multi-day-spanning-banner');
-      const bars = within(banner).getAllByTestId('multi-day-spanning-bar');
+      const bars = within(rtlScreen.getByTestId('calendar-bands')).getAllByTestId('multi-day-spanning-bar');
       expect(bars).toHaveLength(1);
       expect(within(bars[0]).getByText('Tech Workshop')).toBeInTheDocument();
-      expect(bars[0]).toHaveStyle({ gridColumn: '1 / span 3', gridRow: '1' });
+      expect(cellOf(bars[0]).cell).toHaveStyle({ gridColumn: '1 / span 3' });
     });
   });
 

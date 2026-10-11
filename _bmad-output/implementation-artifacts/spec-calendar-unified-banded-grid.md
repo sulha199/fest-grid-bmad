@@ -2,7 +2,8 @@
 title: 'WeeklyCalendarView: unified banded 7-column grid with per-column paging'
 type: 'feature'
 created: '2026-10-10'
-status: 'draft'
+status: 'done'
+baseline_commit: 'fae2a07a3d60dcde7c06b0170cb5ab0a3332f1d8'
 review_loop_iteration: 0
 context:
   - '{project-root}/_bmad-output/project-context.md'
@@ -62,14 +63,14 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] domain util -- `compareSchedules(a, b)` and `computeBands(items, columns, K, placedBands)` returning band rows with column/span placement, plus per-column totals -- one pure, tested ordering and packing source of truth
-- [ ] `WeeklyCalendarView.tsx` -- replace banner + cells with one `grid-cols-7` of bands (bars use `col-span`, same column template as sticky headers); remove `maxEventsPerDay`, "+N more", dialog wiring; add sentinel/button/progress line; mobile uses `compareSchedules`
-- [ ] `WeeklyCalendarView.tsx` -- sticky header totals / "+N below"; mobile tab counts
-- [ ] `WeeklyCalendarView.tsx` -- rewrite roving tabindex over band layout: Left/Right move to the adjacent column in the same band row, Up/Down move within a column across bands (bars are one stop in their start column); coordinates keyed by schedule id, not day bucket index
-- [ ] `CalendarView.tsx` + props -- per-day continuations for truncated days, requested as bands need rows; dedupe by schedule id; fire existing analytics events where still meaningful
-- [ ] `resolvers.ts` -- order the windowed rank and single-date continuation by the unified key; add resolver tests
-- [ ] Update/add tests: unit (domain), `WeeklyCalendarView.test.tsx`, `CalendarView.test.tsx`, e2e banner-alignment, AD-33 ratchet stays green; delete obsolete dialog/banner tests
-- [ ] i18n en/id labels; docs: add a note to Story 1.i1g/1.i1h files and a Spec Change Log entry here
+- [x] domain util -- `compareSchedules(a, b)` and `computeBands(items, columns, K, placedBands)` returning band rows with column/span placement, plus per-column totals -- one pure, tested ordering and packing source of truth
+- [x] `WeeklyCalendarView.tsx` -- replace banner + cells with one `grid-cols-7` of bands (bars use `col-span`, same column template as sticky headers); remove `maxEventsPerDay`, "+N more", dialog wiring; add sentinel/button/progress line; mobile uses `compareSchedules`
+- [x] `WeeklyCalendarView.tsx` -- sticky header totals / "+N below"; mobile tab counts
+- [x] `WeeklyCalendarView.tsx` -- rewrite roving tabindex over band layout: Left/Right move to the adjacent column in the same band row, Up/Down move within a column across bands (bars are one stop in their start column); coordinates keyed by schedule id, not day bucket index
+- [x] `CalendarView.tsx` + props -- per-day continuations for truncated days, requested as bands need rows; dedupe by schedule id; fire existing analytics events where still meaningful
+- [x] `resolvers.ts` -- order the windowed rank and single-date continuation by the unified key; add resolver tests
+- [x] Update/add tests: unit (domain), `WeeklyCalendarView.test.tsx`, `CalendarView.test.tsx`, e2e banner-alignment, AD-33 ratchet stays green; delete obsolete dialog/banner tests
+- [x] i18n en/id labels; docs: add a note to Story 1.i1g/1.i1h files and a Spec Change Log entry here
 
 **Acceptance Criteria:**
 - Given any loaded set, when a later page loads, then no newly rendered item appears above any previously rendered item.
@@ -81,6 +82,11 @@ context:
 - `ad33-z-index-layering.ratchet.test.ts` passes; no raw `z-40/50/z-[…]`.
 
 ## Spec Change Log
+
+- 2026-10-11 (implementation, no frozen-block change) -- K fixed at 6 (`DESKTOP_BAND_SIZE`); no "starting this week" toggle and no per-day focus view were built (the Ask-First items were left at their spec defaults, flagged for the human).
+- 2026-10-11 -- Backend: the windowed `dayRank` already equals the calendar key restricted to one date's single-day rows, so it is unchanged. The single-date continuation path (flat `Query.events`) now orders by the matching schedule's (multi-day last, start time, id) instead of the event-level "next upcoming date" key, so `offset: perDayLimit` lands exactly after the singles the week fetch loaded. Multi-day rows covering the date (already loaded, exempt from the window) trail the singles and are deduped client-side. KEEP: the pinned-date branch stays separate from the event-level key used elsewhere.
+- 2026-10-11 -- Continuation analytics: `calendar_overflow_dialog_opened`/`calendar_overflow_more_loaded` are gone with the dialog; `calendar_day_continuation_requested { date }` replaces them.
+- 2026-10-11 -- Sort fields use each occurrence RUN's start/end (not the schedule's overall span) so weekday-narrowed schedules sort by the occurrence drawn.
 
 ## Design Notes
 
@@ -98,3 +104,60 @@ Continuation caveat: with end-date-asc, a multi-day run starting on day D sorts 
 
 **Manual checks:**
 - Playwright (`/opt/pw-browsers/chromium`) at 1440px and 390px against production data: band 1 shows single-day events near the top; scrolling appends bands without scroll jump; headers show totals and "+N below".
+
+## Suggested Review Order
+
+**Ordering and banded layout (the core idea)**
+
+- One pure sort key shared by desktop and mobile; the backend mirrors it
+  [`calendar-layout.ts:22`](../../packages/domain/src/events/calendar-layout.ts#L22)
+
+- Append-only banded placement: band by deepest column rank, first-fit inside, kept placements frozen
+  [`calendar-layout.ts:62`](../../packages/domain/src/events/calendar-layout.ts#L62)
+
+- Arrow-key targets over the band layout, crossing bands and bars
+  [`calendar-layout.ts:174`](../../packages/domain/src/events/calendar-layout.ts#L174)
+
+**Desktop grid and paging**
+
+- Every run in the week becomes one entry (card or bar) in the single ordering
+  [`WeeklyCalendarView.tsx:615`](../../packages/ui/src/features/events/WeeklyCalendarView.tsx#L615)
+
+- Placements persisted per week/filter token so later rows can only append
+  [`WeeklyCalendarView.tsx:648`](../../packages/ui/src/features/events/WeeklyCalendarView.tsx#L648)
+
+- Truncated-day detection and the band-reveal/prefetch rule
+  [`WeeklyCalendarView.tsx:718`](../../packages/ui/src/features/events/WeeklyCalendarView.tsx#L718)
+  [`WeeklyCalendarView.tsx:751`](../../packages/ui/src/features/events/WeeklyCalendarView.tsx#L751)
+
+- Sticky headers with totals and "+N below"; bands; sentinel, button and progress line
+  [`WeeklyCalendarView.tsx:971`](../../packages/ui/src/features/events/WeeklyCalendarView.tsx#L971)
+  [`WeeklyCalendarView.tsx:995`](../../packages/ui/src/features/events/WeeklyCalendarView.tsx#L995)
+  [`WeeklyCalendarView.tsx:1076`](../../packages/ui/src/features/events/WeeklyCalendarView.tsx#L1076)
+
+- Roving tabindex keyed by entry, not by day bucket
+  [`WeeklyCalendarView.tsx:797`](../../packages/ui/src/features/events/WeeklyCalendarView.tsx#L797)
+
+**Caller contract and continuation fetching**
+
+- New props replace the dialog data: per-day continuations and a reset key
+  [`WeeklyCalendarView.types.ts:134`](../../packages/ui/src/features/events/WeeklyCalendarView.types.ts#L134)
+
+- Several truncated days continue at once through `useQueries`, page by page
+  [`CalendarView.tsx:185`](../../apps/web/src/features/events/CalendarView.tsx#L185)
+
+**Backend continuation ordering**
+
+- Pinned-date order mirrors the week window's rank: singles by time, multi-day last
+  [`resolvers.ts:3698`](../../apps/backend/src/schema/resolvers.ts#L3698)
+
+**Tests**
+
+- Layout/order/navigation unit tests
+  [`calendar-layout.test.ts`](../../packages/domain/src/events/calendar-layout.test.ts)
+
+- Banded paging, append-only, continuation and keyboard behavior
+  [`WeeklyCalendarView.test.tsx:406`](../../packages/ui/src/features/events/WeeklyCalendarView.test.tsx#L406)
+
+- Day-scoped continuation request wiring
+  [`CalendarView.test.tsx:470`](../../apps/web/src/features/events/CalendarView.test.tsx#L470)
