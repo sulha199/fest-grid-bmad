@@ -357,6 +357,10 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.ok(prompt.includes('ROUNDUP HANDLING'));
     assert.ok(prompt.includes('skippedItems'));
     assert.ok(prompt.includes('organizerHandle'));
+    // IDEA-068: organizerHandle is explicit-only, never a fallback to the posting account.
+    assert.ok(prompt.includes('omit organizerHandle'));
+    assert.ok(prompt.includes('do NOT fall back to the account that posted it'));
+    assert.ok(!prompt.includes('the account that posted it, or an explicitly'));
     assert.ok(prompt.includes('applicableDaysOfWeek'));
   });
 

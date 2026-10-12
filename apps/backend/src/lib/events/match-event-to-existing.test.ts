@@ -285,6 +285,41 @@ test('findMatchingEvent integration tests', async (t) => {
     assert.strictEqual(result!.tier, 'mid');
   });
 
+  await t.test('BUG-058: a discounted (undefined) posting account earns no organizer weight, but the same account counts when not discounted', async () => {
+    const { event: candidate } = await makeCandidateEvent({
+      accountId: otherAccount.id,
+      postIdSuffix: 'posting-account',
+      eventName: 'Jakarta Jazz Night PostingAcct ' + suffix,
+      eventStartDate: '2026-09-20',
+    });
+
+    // Roundup/curator-sourced new item: the caller passes accountId undefined.
+    const discounted = await findMatchingEvent(
+      db,
+      newEvent({ eventName: 'Jakarta Jazz Night PostingAcct ' + suffix }),
+      [newSchedule('2026-09-20')],
+      { postId: UNRELATED_POST_ID, accountId: undefined, groupingReason: 'roundup' },
+      undefined
+    );
+    assert.ok(discounted);
+    assert.strictEqual(discounted!.candidate.id, candidate.id);
+    // date/name only (1 * 0.25) = 0.25 -> low: no organizer weight
+    assert.strictEqual(discounted!.tier, 'low');
+
+    // Organizer-authored new item posted by the candidate's own account: organizer still counts.
+    const counted = await findMatchingEvent(
+      db,
+      newEvent({ eventName: 'Jakarta Jazz Night PostingAcct ' + suffix }),
+      [newSchedule('2026-09-20')],
+      { postId: UNRELATED_POST_ID, accountId: otherAccount.id, groupingReason: null },
+      undefined
+    );
+    assert.ok(counted);
+    assert.strictEqual(counted!.candidate.id, candidate.id);
+    // organizer (0.40) + date/name (0.25) = 0.65 -> mid
+    assert.strictEqual(counted!.tier, 'mid');
+  });
+
   await t.test('shared link and venue proximity both contribute without an organizer match', async () => {
     const { event: candidate } = await makeCandidateEvent({
       accountId: otherAccount.id,

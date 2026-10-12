@@ -2151,30 +2151,30 @@ items:
     {type: idea, status: backlog, created: 2026-10-12, parent: BUG-052,
      impact: user-visible, effort: m,
      title: "Primary-post ordering: let an organizer's own post beat a venue's post of the same event",
-     ref: [planning-artifacts/festgrid-architecture-spine.md, apps/backend/src/lib/events/set-event-primary-post.ts, apps/backend/src/lib/posts/is-organizer-authored-post.ts, packages/database/schema.ts],
+     ref: [planning-artifacts/festgrid-architecture-spine.md, apps/backend/src/lib/events/set-event-primary-post.ts, apps/backend/src/lib/posts/is-organizer-authored-post.ts, packages/database/schema.ts, backlog/IDEA-066-organizer-beats-venue-primary.md],
      touches: [app:backend, pkg:database, cross:ai-extraction, cross:architecture],
-     note: "AD-30 Rule 7 order is organizer-authored over curator, then schedule completeness, then earlier post, then lower id. isOrganizerAuthoredPost excludes only CURATOR_GUIDE and account_type has one ORGANIZER_VENUE_EVENT bucket, so a venue and an organizer tie on step 1. Two options: (a) split the account type (migration, classification prompt, review flow, backfill; cannot express an account that is venue for one event and organizer for another); (b) per-event organizerHandle plus optional venueHandle persisted on events (two new columns, prompt change), used only as a step-1 tie-breaker, never as a score weight, and corroborated against the post's own associations since caption claims are spoofable. Prefer (b). Do after BUG-058, IDEA-067 and IDEA-068; needs an AD-30 Rule 7 / AD-31 Rule 3 amendment."}
+     note: "Venue and organizer posts tie at primary-post step 1; prefer per-event handles. Detail in backlog/IDEA-066-organizer-beats-venue-primary.md."}
 
   IDEA-067:
     {type: idea, status: backlog, created: 2026-10-12, parent: BUG-052,
      impact: user-visible, effort: s,
      title: "Matching organizer signal: count the new post's own co-author/publisher associations, not only posts.accountId",
-     ref: [planning-artifacts/festgrid-architecture-spine.md, apps/backend/src/lib/events/match-event-to-existing.ts, apps/backend/src/lib/events/event-account-match.ts],
+     ref: [planning-artifacts/festgrid-architecture-spine.md, apps/backend/src/lib/events/match-event-to-existing.ts, apps/backend/src/lib/events/event-account-match.ts, backlog/IDEA-067-new-post-coauthor-organizer-signal.md],
      touches: [app:backend, cross:architecture],
-     note: "resolveOrganizerMatch checks only sourcePost.accountId (plus the resolved organizerHandle account) against the candidate's linked-post associations. A new post that credits the venue or organizer as COAUTHOR does not gain the 0.40 organizer weight from that credit. Fix would read the new post's PUBLISHER/COAUTHOR association rows. Interacts with the roundup/curator discount: decide whether the posting account counts for those items before building. Needs an AD-30 Rule 7 amendment."}
+     note: "Organizer signal ignores the new post's COAUTHOR/PUBLISHER associations. Detail in backlog/IDEA-067-new-post-coauthor-organizer-signal.md."}
 
   BUG-058:
-    {type: bug, status: backlog, created: 2026-10-12, parent: BUG-052, blocks: [IDEA-067],
+    {type: bug, status: done, created: 2026-10-12, parent: BUG-052, blocks: [IDEA-067],
      impact: user-visible, effort: xs,
      title: "Matching still gives a roundup/curator posting account the 0.40 organizer weight; only organizerHandle is discounted",
-     ref: [implementation-artifacts/3-6v-match-new-posts-to-existing-events-and-enrich-them-in-place.md, apps/backend/src/lib/events/match-event-to-existing.ts, apps/backend/src/lib/ingestor/process-ingestion-job.ts],
+     ref: [implementation-artifacts/3-6v-match-new-posts-to-existing-events-and-enrich-them-in-place.md, apps/backend/src/lib/events/match-event-to-existing.ts, apps/backend/src/lib/ingestor/process-ingestion-job.ts, backlog/BUG-058-roundup-posting-account-organizer-weight.md],
      touches: [app:backend],
-     note: "resolveOrganizerMatch always checks sourcePost.accountId, so an aggregator already on a candidate event pushes similar events from separate roundups to a high auto-merge (0.80 with name/date and venue). Fix: pass the posting account as undefined when isRoundupSourced or isCuratorSourced; tests: roundup item matching only on the posting account gets no weight, organizer-authored item matching on its own account still does. Confirm the story intended the discount to cover the posting account (its text names only the handle)."}
+     note: "Done 2026-10-12: posting account is discounted for roundup/curator items like organizerHandle. Detail in backlog/BUG-058-roundup-posting-account-organizer-weight.md."}
 
   IDEA-068:
-    {type: idea, status: backlog, created: 2026-10-12, parent: BUG-052, blocks: [IDEA-066],
+    {type: idea, status: done, created: 2026-10-12, parent: BUG-052, blocks: [IDEA-066],
      impact: user-visible, effort: s,
      title: "Extraction prompt: return organizerHandle only when the caption tags or names an organizer, not the posting account",
-     ref: [apps/backend/src/lib/ai-processor/build-gemini-request.ts, apps/backend/src/validation/extracted-event.schema.ts, implementation-artifacts/3-6s-extract-multiple-events-per-post-with-grouping-rules.md],
+     ref: [apps/backend/src/lib/ai-processor/build-gemini-request.ts, apps/backend/src/validation/extracted-event.schema.ts, implementation-artifacts/3-6s-extract-multiple-events-per-post-with-grouping-rules.md, backlog/IDEA-068-organizer-handle-explicit-only.md],
      touches: [app:backend, cross:ai-extraction],
-     note: "Prompt rule 10 defaults organizerHandle to the posting account, which is the root cause of BUG-058's discount workaround. The poster is always derivable from the database; only an explicit organizer needs capturing at extraction time. Optionally add organizerSource (tagged | stated | none). Changes the extraction schema and fixtures. Once done, the handle discount in processIngestionJob is redundant."}
+     note: "Done 2026-10-12: prompt returns organizerHandle only for an explicit organizer. Detail in backlog/IDEA-068-organizer-handle-explicit-only.md."}

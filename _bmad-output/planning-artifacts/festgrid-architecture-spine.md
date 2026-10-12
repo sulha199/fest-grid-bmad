@@ -1719,8 +1719,11 @@ This document defines the core architectural invariants for the FestDaily applic
             `minScheduleDayDifference`. The organizer signal is true when the new item's posting
             account, or the account resolved from its `organizerHandle`, matches the candidate
             through any linked post (`buildEventAccountMatchCondition`, AD-31 Rule 4);
-            `organizerHandle` is passed as `undefined` for roundup- or curator-sourced items so an
-            aggregator's handle cannot inflate a score.
+            For roundup- or curator-sourced items **both** `organizerHandle` and the posting
+            account are passed as `undefined` (BUG-058), so an aggregator can earn the organizer
+            weight only through an organizer the caption explicitly tags. The extraction prompt
+            returns `organizerHandle` only for an explicitly tagged or named organizer and never
+            defaults it to the posting account (IDEA-068).
         *   **Tier outcomes.** High: `enrichAndPromoteEvent` enriches the candidate in place and
             promotes the new post per the primary-post ordering above; no new `events` row, no
             moderator step. Mid: the item is inserted as its own event and one

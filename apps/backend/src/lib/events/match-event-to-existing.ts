@@ -28,7 +28,13 @@ const DATE_WINDOW_DAYS = 2;
 export interface MatchSourcePost {
   /** The new item's own `postId` -- excluded from candidates below (see Dev Note). */
   postId: string;
-  accountId: string;
+  /**
+   * The posting account, used as organizer-match evidence. `undefined` when the caller has
+   * discounted it (roundup- or curator-sourced new item): an aggregator's own account is not the
+   * organizer of the events it lists (BUG-058), so it must not earn the organizer weight, just
+   * like `organizerHandle`.
+   */
+  accountId: string | undefined;
   groupingReason: string | null;
 }
 
@@ -44,9 +50,9 @@ export interface MatchResult {
  * single best-scoring candidate (by composite score, ties broken by the SQL query's own
  * name-similarity ordering), or `null` when no event passes the SQL pre-filter at all.
  *
- * `organizerHandle` must already be `undefined` when the Amendment's discount applies (roundup-
- * or curator-sourced new item) -- this function does not re-derive that decision, it only reads
- * whatever the caller passed (see this story's Dev Notes).
+ * `organizerHandle` and `sourcePost.accountId` must already be `undefined` when the Amendment's
+ * discount applies (roundup- or curator-sourced new item) -- this function does not re-derive
+ * that decision, it only reads whatever the caller passed (see this story's Dev Notes, BUG-058).
  */
 export async function findMatchingEvent(
   tx: DbExecutor,
@@ -184,10 +190,13 @@ export async function findMatchingEvent(
 async function resolveOrganizerMatch(
   tx: DbExecutor,
   candidateEventId: string,
-  sourceAccountId: string,
+  sourceAccountId: string | undefined,
   organizerHandleAccountId: string | null
 ): Promise<boolean> {
-  const idsToCheck = Array.from(new Set([sourceAccountId, ...(organizerHandleAccountId ? [organizerHandleAccountId] : [])]));
+  const idsToCheck = Array.from(
+    new Set([...(sourceAccountId ? [sourceAccountId] : []), ...(organizerHandleAccountId ? [organizerHandleAccountId] : [])])
+  );
+  if (idsToCheck.length === 0) return false;
 
   const [row] = await tx
     .select({ id: events.id })
