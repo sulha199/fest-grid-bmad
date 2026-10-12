@@ -1725,7 +1725,9 @@ This document defines the core architectural invariants for the FestDaily applic
             promotes the new post per the primary-post ordering above; no new `events` row, no
             moderator step. Mid: the item is inserted as its own event and one
             `event_match_candidates` row is queued (`ON CONFLICT (event_id, candidate_event_id) DO
-            NOTHING`). Low or `null`: plain new event.
+            NOTHING`). Low or `null`: plain new event; the mid event is
+            ingested like any other, so it notifies at creation unless it is a stub (Rule 10), before
+            a moderator has reviewed the suggestion.
         *   **Suggested-match record.** `event_match_candidates` (`packages/database/schema.ts`):
             `event_id` (the new mid event), `candidate_event_id` (the existing event), `score`,
             `post_id`, `status` (`suggested_event_match_status`: pending | accepted | rejected),
@@ -1763,6 +1765,11 @@ This document defines the core architectural invariants for the FestDaily applic
         duplicate. A merge must be reversible within the moderator undo window (`EXPERIENCE.md`'s
         soft-delete-with-undo pattern); the journal that records what was repointed is owned by
         Story 3.6w and must preserve these link rows.
+        **Amended 2026-10-12 (as built, Story 3.6w):** the "undo window" is the UI's 6 s
+        soft-delete-with-undo toast only. The merge commits immediately and `undoEventMerge` has
+        **no server-side expiry** (it rejects only an unknown or already-undone journal row), so
+        undo stays callable after the toast closes. This is the accepted behavior; adding a server
+        expiry is a spine amendment.
     10. **Notifications are per event, with one marker.** `events.notified_at` is set by one
         notify helper and nowhere else. An event notifies at ingestion iff its primary post's
         `grouping_reason` is not `roundup` and the post is not curator-sourced (AD-31 Rule 3
