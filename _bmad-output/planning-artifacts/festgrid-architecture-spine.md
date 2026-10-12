@@ -1694,7 +1694,8 @@ This document defines the core architectural invariants for the FestDaily applic
         roundup/aggregator/curator; (2) the post whose extraction has more schedules with a complete
         date and location `[ASSUMPTION]`; (3) earlier post; (4) lower post id (deterministic final
         tie-break). `CURATOR_GUIDE` accounts (Story 3.4n) mark an event `stub` and rank last.
-        **Amended 2026-10-12 (Story 3.6v as built, verified against code).** The tuning and record
+        **Amended 2026-10-12 (Story 3.6v as built, verified against code; diagram:
+        `_bmad-output/planning-artifacts/diagrams/event-dedup-flow.html`).** The tuning and record
         shape deferred above are now fixed in code; changing any value below is a spine amendment,
         not a code-only edit.
         *   **Entry point.** `findMatchingEvent()` (`apps/backend/src/lib/events/match-event-to-existing.ts`),
