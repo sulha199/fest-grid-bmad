@@ -30,6 +30,11 @@ test('markPostExtracted integration tests', async (t) => {
     })
     .returning();
 
+  t.after(async () => {
+    await db.delete(posts).where(eq(posts.id, post.id));
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+  });
+
   await t.test('(a) calling it on a post with isExtracted: false sets it to true', async () => {
     const updated = await markPostExtracted(post.id);
     assert.ok(updated);

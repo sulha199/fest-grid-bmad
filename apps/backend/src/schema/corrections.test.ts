@@ -37,6 +37,16 @@ test('submitCorrection resolver integration', async (t) => {
   let testEventId: string;
   let testScheduleId: string;
 
+  t.after(async () => {
+    // The setup sub-test below only self-heals (deletes any corrections left over from a
+    // PRIOR run of this file) before this run's own sub-tests create new ones -- that caps
+    // accumulation across repeated runs but, within a single run, never cleans up what THIS
+    // run itself inserted. Do that real cleanup here too, by the same testUser.id filter.
+    if (testUser) {
+      await db.delete(corrections).where(eq(corrections.submittedByUserId, testUser.id));
+    }
+  });
+
   await t.test('setup - get test user and event', async () => {
     const seededUsers = await db.select().from(users).limit(1);
     if (seededUsers.length > 0) {

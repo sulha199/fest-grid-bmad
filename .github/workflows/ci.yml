@@ -170,4 +170,6 @@ jobs:
           SYSTEM_ERROR_ALERT_EMAIL: ${{ vars.SYSTEM_ERROR_ALERT_EMAIL }}
           WEB_APP_BASE_URL: ${{ vars.WEB_APP_BASE_URL }}
           API_KEY_USAGE_CYCLE_DAYS: ${{ vars.API_KEY_USAGE_CYCLE_DAYS }}
+          SCRAPER_USAGE_CYCLE_DAYS: ${{ vars.SCRAPER_USAGE_CYCLE_DAYS }}
+          GEMINI_POSTS_PER_KEY_PER_CYCLE: ${{ vars.GEMINI_POSTS_PER_KEY_PER_CYCLE }}
         run: pnpm --filter infrastructure exec cdk deploy FestgridBackendStack-prod --require-approval never

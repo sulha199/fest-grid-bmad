@@ -57,28 +57,32 @@ export interface WeeklyCalendarViewLabels {
   favoritedBadgeLabel?: string;
   /** aria-label for the added to calendar badge */
   addedToCalendarBadgeLabel?: string;
+  /** Per-day count shown in sticky day headers and mobile tabs, e.g. "12" or "20+" when the day may have more. */
+  dayTotalLabel?: (count: number, hasMore: boolean) => string;
+  /** Sticky day header text while rows of that day are still below, e.g. "+4 below" ("+4+ below" when more may load). */
+  belowLabel?: (count: number, hasMore: boolean) => string;
+  /** Desktop progress line while more can load. `total` is already formatted ("201" or "201+"). */
+  progressLabel?: (shown: number, total: string) => string;
+  /** Desktop progress line once everything is loaded and shown. */
+  allShownLabel?: (total: number) => string;
   /** aria-label for the mobile day-tab strip (`role="tablist"`) */
   dayTabsLabel?: string;
   /** Message shown in the mobile panel when the selected day has no schedules */
   noSchedulesLabel?: string;
-  /**
-   * Desktop multi-day banner "show more" button text, invoked with the count still hidden. A
-   * resolver FUNCTION (ICU plural in the caller). Falls back to an English default if omitted.
-   */
-  moreMultiDayLabel?: (count: number) => string;
+  /** Message shown on desktop when the displayed week has no schedules (after any Starts/Ends filter) */
+  noSchedulesWeekLabel?: string;
+  /** Accessible group label for the Starts/Ends filter */
+  rangeFilterGroupLabel?: string;
+  /** Starts/Ends filter, desktop (context = the displayed week) */
+  startsWeekLabel?: string;
+  endsWeekLabel?: string;
+  /** Starts/Ends filter, mobile (context = the displayed day) */
+  startsDayLabel?: string;
+  endsDayLabel?: string;
   /** Mobile selected-day list "load more" button text */
   loadMoreLabel?: string;
   /** Mobile selected-day list text while the next page is being fetched */
   loadingMoreLabel?: string;
-  /**
-   * "+N more" affordance text, invoked once per over-capacity day cell with
-   * that day's own hidden-schedule count. A resolver FUNCTION, not a static
-   * string, because the count is only known after this component's own
-   * per-day capping logic runs — the caller (Story 1.3f's `CalendarView`)
-   * wraps its next-intl ICU-plural message: `(count) => t('calendarMoreLabel', { count })`.
-   * Falls back to a plain `+${count} more` if omitted.
-   */
-  moreLabel?: (count: number) => string;
   /**
    * Mobile list-view segment text for multi-day schedules, showing the day number and total days.
    * A resolver FUNCTION, not a static string, because the day offset and total days are only known
@@ -87,17 +91,6 @@ export interface WeeklyCalendarViewLabels {
    * Falls back to `Day ${dayNumber} of ${totalDays}` if omitted.
    */
   multiDaySegmentLabel?: (dayNumber: number, totalDays: number) => string;
-  /** aria-label for the "+N more" overflow dialog's dismiss control (Story 1.i1h Task 7 — the shared `CalendarOverflowDialog` replaced the superseded desktop popover) */
-  closePopoverLabel?: string;
-  /**
-   * Accessible name for the shared overflow dialog, invoked once at open time with that day's
-   * already-formatted header text (e.g. `Tue, Aug 5`). A resolver FUNCTION, not a static string,
-   * for the same reason `moreLabel`/`multiDaySegmentLabel` are: the open day is only known after
-   * this component's own day computation runs. Falls back to `` (dayLabel) => `Schedules for
-   * ${dayLabel}` `` — the exact string the superseded desktop popover already used as its
-   * `aria-label`.
-   */
-  overflowDialogTitleLabel?: (dayLabel: string) => string;
   /** Shown while `status === 'loading'` (aria-label on the skeleton grid) */
   loadingText?: string;
   /** Prefix text for the list-variant date box's till/end content (default "till", AC4/AC9). */
@@ -143,33 +136,26 @@ export interface WeeklyCalendarViewLabels {
   repeatBadgeAriaLabel?: (dayLabels: string[]) => string;
 }
 
-export interface WeeklyCalendarViewOverflowDialogData<
+/**
+ * Caller-owned, day-scoped continuation of a truncated day (the week fetch returns at most
+ * `dayFetchLimit` single-day rows per day). React Query stays in `apps/web`; this is its result as
+ * plain props.
+ */
+export interface WeeklyCalendarViewDayContinuation<
   TSchedule extends WeeklyCalendarViewScheduleShape = WeeklyCalendarViewScheduleShape,
 > {
-  /**
-   * Rows to render, already merged by the caller: the week-fetch's own client-side bucket for the
-   * open day plus every page resolved by the day-scoped `useInfiniteQuery`. `CalendarOverflowDialog`
-   * keys rows by `id` and renders in array order, so a caller merging pages must dedupe by id.
-   */
+  /** Schedules fetched by the continuation so far (the component dedupes against the week fetch by id). */
   items: TSchedule[];
-  /** Day-scoped "load more" — typically React Query's `fetchNextPage`. */
+  /** Fetch the day's next page. */
   fetchNextPage: () => Promise<unknown> | void;
+  /** `true` until the server says there is no further page (including while the first page is pending). */
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
 }
 
-/**
- * Which affordance opened the shared overflow dialog — AC9's `calendar_overflow_dialog_opened`
- * `surface` field. Exported (rather than inlined) so `apps/web`'s `CalendarView.tsx` can type its
- * PostHog payload without re-declaring the union.
- */
-export type WeeklyCalendarViewOverflowSurface = 'desktop' | 'mobile';
-
 export interface WeeklyCalendarViewProps<TSchedule extends WeeklyCalendarViewScheduleShape = WeeklyCalendarViewScheduleShape> {
   weekStart: Date | string;
   schedules: TSchedule[];
-  /** Positive integer, or -1 for unlimited (matching DESIGN.md's discovery_view/personal_view split) */
-  maxEventsPerDay: number;
   getWeekRange?: (date: Date) => { start: Date; end: Date };
   onToday: () => void;
   onPrevWeek: () => void;
@@ -199,46 +185,26 @@ export interface WeeklyCalendarViewProps<TSchedule extends WeeklyCalendarViewSch
    */
   nearbyBadgeThreshold?: number;
   /**
-   * Fired when a day's "+N more" affordance opens the shared overflow dialog (Story 1.i1h Task
-   * 7.1/7.2), so the caller knows *which* day's data to start fetching (`date`) and can fire AC9's
-   * `calendar_overflow_dialog_opened` (`surface` + `inlineHiddenCount`). A caller that omits it
-   * still gets a working open/close dialog, just one that lists only whatever it passes via
-   * `overflowDialogData`.
-   */
-  onOverflowRequested?: (
-    date: string,
-    surface: WeeklyCalendarViewOverflowSurface,
-    inlineHiddenCount: number
-  ) => void;
-  /**
-   * Fired when the overflow dialog closes (Escape, the dismiss control, an outside pointerdown, or
-   * activating a card), so the caller can clear the day it opened a fetch for (Story 1.i1h Task
-   * 8.1) — this component only owns the open/closed UI state, never the query's lifetime.
-   */
-  onOverflowClosed?: () => void;
-  /**
-   * Caller-owned, day-scoped pagination result for the currently-open overflow dialog (Story
-   * 1.i1h Task 8.3). Optional because this component owns no fetch of its own — React Query is
-   * isolated to `apps/web` per `project-context.md`'s State Management Architecture rule — so a
-   * consumer with no such query simply never supplies it. When omitted, `CalendarOverflowDialog`
-   * opens with an empty list and no "load more", and the other three `WeeklyCalendarView`
-   * consumers (explicitly not switched to windowed fetching in this story, AC10) are otherwise
-   * unaffected.
-   */
-  overflowDialogData?: WeeklyCalendarViewOverflowDialogData<TSchedule>;
-  /**
-   * The per-day budget the caller's week fetch used (`perDayLimit`). On mobile, once every
-   * already-fetched schedule of the selected day is shown and that day had at least this many, the
-   * day may have more on the server, so the list continues through `onDayContinuationRequested` +
-   * `overflowDialogData` (the same day-scoped query the desktop dialog uses). Omit when the week
-   * fetch is not windowed: the mobile list then only pages through what it already has.
+   * The per-day budget the caller's week fetch used (`perDayLimit`). A day that loaded at least this
+   * many single-day schedules may have more on the server, so its sticky header/tab shows a "+" and the
+   * bands (desktop) or list (mobile) continue through `onDayContinuationRequested` + `dayContinuations`.
+   * Omit when the week fetch is not windowed: the calendar then only pages through what it has.
    */
   dayFetchLimit?: number;
   /**
-   * Mobile only: fired when the selected day's list needs the caller's day-scoped query (so the
-   * caller sets its `openOverflowDate`) — without opening the overflow dialog or its analytics.
-   * Subsequent pages come from `overflowDialogData.fetchNextPage`.
+   * Continuation results keyed by day (`YYYY-MM-DD`), supplied for every day the caller was asked to
+   * continue. Rows are merged into the week and sorted with the one calendar ordering.
+   */
+  dayContinuations?: Record<string, WeeklyCalendarViewDayContinuation<TSchedule>>;
+  /**
+   * Fired once per truncated day when the view first needs its continuation, so the caller starts the
+   * day-scoped query. Later pages come from that day's `dayContinuations[date].fetchNextPage`.
    */
   onDayContinuationRequested?: (date: string) => void;
+  /**
+   * Changes whenever the caller's result set is replaced wholesale (new filters/search). Resets the
+   * desktop layout and paging; a new week does so on its own.
+   */
+  resetKey?: string;
   className?: string;
 }

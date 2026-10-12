@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import ts from 'typescript';
 import { mapGraphQLEventToDetailViewProps } from './mapper';
 import { GetEventBySlugQuery, PostGroupingReason } from '@/generated/graphql';
 import { EventDetailViewLabels } from '@festgrid/ui';
@@ -552,5 +555,126 @@ describe('mapGraphQLEventToDetailViewProps sourcePosts mapping (Story 3.6u)', ()
     expect(props.sourcePosts?.[0].coauthors[0].isTogglePending).toBe(false);
     expect(props.sourcePosts?.[1].coauthors[0].isSubscribed).toBe(false);
     expect(props.sourcePosts?.[1].coauthors[0].isTogglePending).toBe(true);
+  });
+});
+
+// FIND-032 (Story 0.50): a locale-parity ratchet for `EventDetailViewLabels` --
+// `packages/ui`'s `EventDetailView.types.ts` and `apps/web`'s `en.json`/`id.json`
+// `EventDetailsPage` namespace are two independently hand-maintained sources that previously
+// had nothing automated enforcing their symmetry (FIND-011's own manual, symmetric
+// `postedByLabel` removal across the type and both locale files was caught only by review
+// diligence, not a test). This block closes that gap: it parses the interface's real property
+// names via the TypeScript compiler API (not a hand-maintained list that could itself drift)
+// and asserts every one of them (minus a small, explicitly-named exception list) exists as a
+// key in both locale files' `EventDetailsPage` namespace. One-directional only (interface ->
+// locale) -- the namespace legitimately holds ~18 keys used via direct `t()` calls elsewhere on
+// the page, outside this component's `labels` prop contract, so a bidirectional check would fail
+// permanently on those pre-existing, intentional keys (see the story's Dev Notes "Check
+// direction and the allow-list").
+describe('EventDetailViewLabels locale parity ratchet', () => {
+  // Deliberately never localized today -- confirmed absent from both `en.json`'s and `id.json`'s
+  // `EventDetailsPage` namespace:
+  const DELIBERATELY_UNLOCALIZED_KEYS = [
+    // `EventImage.tsx` renders a hardcoded English fallback string when this is absent; no
+    // production wiring sets it today.
+    'videoUnavailableLabel',
+    // Has no production wiring in `mapper.ts`'s `useEventDetailViewLabels()` at all.
+    'scheduleCheckboxLabel',
+  ] as const;
+
+  /**
+   * Parses TypeScript source text via the compiler API and returns the real property-signature
+   * names of the first `InterfaceDeclaration` found with the given name. Reading the real
+   * interface source at test-run time (rather than a hand-maintained literal array) is the only
+   * mechanism that can actually detect a future prop added to/removed from the interface without
+   * a matching translation -- a type-level `satisfies` check can only prove a hand-written list
+   * matches the interface's *shape*, never that it matches the real *JSON file content* (this
+   * repo has no `next-intl` message-type augmentation linking `t()` calls to the real catalog).
+   */
+  function extractInterfacePropertyNames(sourceText: string, interfaceName: string): string[] {
+    const sourceFile = ts.createSourceFile('fixture.ts', sourceText, ts.ScriptTarget.Latest, true);
+    const names: string[] = [];
+
+    const visit = (node: ts.Node): void => {
+      if (ts.isInterfaceDeclaration(node) && node.name.text === interfaceName) {
+        for (const member of node.members) {
+          if (ts.isPropertySignature(member)) {
+            names.push(member.name.getText(sourceFile));
+          }
+        }
+        return;
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(sourceFile);
+
+    return names;
+  }
+
+  /**
+   * Diffs `extractedKeys` (minus `DELIBERATELY_UNLOCALIZED_KEYS`) against `localeNamespace`'s own
+   * keys and returns the ones missing. Shared by both the real-data assertions below and the
+   * fixture-based proof test (AC4), so the proof test exercises the exact same logic the real
+   * assertions rely on.
+   */
+  function findMissingKeys(extractedKeys: string[], localeNamespace: Record<string, unknown>): string[] {
+    return extractedKeys
+      .filter((key) => !(DELIBERATELY_UNLOCALIZED_KEYS as readonly string[]).includes(key))
+      .filter((key) => !(key in localeNamespace));
+  }
+
+  // `mapper.test.ts` lives at apps/web/src/features/events/ -- 5 levels up reaches the repo
+  // root, matching the one real, already-established dependency edge this file has on
+  // `packages/ui` (it already imports `EventDetailViewLabels` as a compiled type from
+  // `@festgrid/ui` above; this reads the same file's source text for AST parsing instead).
+  const INTERFACE_SOURCE_PATH = join(
+    __dirname,
+    '../../../../../packages/ui/src/features/events/EventDetailView.types.ts'
+  );
+  const EN_LOCALE_PATH = join(__dirname, '../../../locales/en.json');
+  const ID_LOCALE_PATH = join(__dirname, '../../../locales/id.json');
+
+  const interfaceSourceText = readFileSync(INTERFACE_SOURCE_PATH, 'utf-8');
+  const extractedKeys = extractInterfacePropertyNames(interfaceSourceText, 'EventDetailViewLabels');
+
+  const enLocale = JSON.parse(readFileSync(EN_LOCALE_PATH, 'utf-8'));
+  const idLocale = JSON.parse(readFileSync(ID_LOCALE_PATH, 'utf-8'));
+
+  it('finds at least one real property on EventDetailViewLabels (sanity check the extractor is reading the real file)', () => {
+    expect(extractedKeys.length).toBeGreaterThan(0);
+    expect(extractedKeys).toContain('loadingText');
+  });
+
+  it('every extracted key (minus the allow-list) exists in en.json\'s EventDetailsPage namespace', () => {
+    const missing = findMissingKeys(extractedKeys, enLocale.EventDetailsPage);
+    expect(missing, `Missing from en.json's "EventDetailsPage" namespace: ${missing.join(', ')}`).toEqual([]);
+  });
+
+  it('every extracted key (minus the allow-list) exists in id.json\'s EventDetailsPage namespace', () => {
+    const missing = findMissingKeys(extractedKeys, idLocale.EventDetailsPage);
+    expect(missing, `Missing from id.json's "EventDetailsPage" namespace: ${missing.join(', ')}`).toEqual([]);
+  });
+
+  // Non-vacuous proof (AC4): a test that only ever exercises today's already-correct real data
+  // would pass vacuously without ever proving the check mechanism actually catches a real
+  // desync. Matches this repo's existing convention (see
+  // `apps/backend/src/lib/events/event-account-match-ratchet.test.ts`'s own "the scan is actually
+  // tuned correctly" test) of proving a ratchet's detection logic against a small embedded
+  // fixture before trusting it against real data.
+  describe('the check is actually tuned correctly (non-vacuous proof)', () => {
+    const FIXTURE_INTERFACE_SOURCE = `interface FixtureLabels { knownKey: string; rogueKey: string; }`;
+    const FIXTURE_LOCALE_NAMESPACE = { knownKey: 'known' };
+
+    it('reports the key missing from the fixture locale namespace', () => {
+      const fixtureKeys = extractInterfacePropertyNames(FIXTURE_INTERFACE_SOURCE, 'FixtureLabels');
+      const missing = findMissingKeys(fixtureKeys, FIXTURE_LOCALE_NAMESPACE);
+      expect(missing).toEqual(['rogueKey']);
+    });
+
+    it('does not false-positive on the key that is actually present', () => {
+      const fixtureKeys = extractInterfacePropertyNames(FIXTURE_INTERFACE_SOURCE, 'FixtureLabels');
+      const missing = findMissingKeys(fixtureKeys, FIXTURE_LOCALE_NAMESPACE);
+      expect(missing).not.toContain('knownKey');
+    });
   });
 });

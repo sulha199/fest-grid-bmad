@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { db } from '../../db/client.js';
-import { socialMediaAccountProfiles, apifyPendingJobs, posts } from '@festgrid/database';
+import { socialMediaAccountProfiles, apifyPendingJobs, posts, unprocessedScraperPayloads } from '@festgrid/database';
 import { eq, inArray } from 'drizzle-orm';
 import { processApifyAsyncResult } from './process-apify-async-result.js';
 import { createPendingJob } from './apify-pending-jobs-store.js';
@@ -11,6 +11,26 @@ import { setSendSqsMessage } from '../aws/send-sqs-message.js';
 
 test('process-apify-async-result tests', async (t) => {
   let testProfileId: string;
+
+  // The 'skips AJV-invalid items' sub-test below feeds processApifyAsyncResult an item that
+  // fails AJV validation; the production code (via mapApifyItemToScrapedPost) responds by
+  // calling persistUnprocessedPayload(), leaving an `unprocessed_scraper_payloads` row behind
+  // that nothing in this file ever deleted. Snapshot existing ids before this file's sub-tests
+  // run, then delete only the ones that are new once they are all done (file-level t.after) --
+  // same "track ids, delete only what this file created" shape as the rest of the suite, just
+  // captured as a before/after id diff since the insert happens inside production code this
+  // test doesn't call directly.
+  const existingUnprocessedPayloadIds = new Set(
+    (await db.select({ id: unprocessedScraperPayloads.id }).from(unprocessedScraperPayloads)).map((row) => row.id),
+  );
+
+  t.after(async () => {
+    const allIds = await db.select({ id: unprocessedScraperPayloads.id }).from(unprocessedScraperPayloads);
+    const newIds = allIds.map((row) => row.id).filter((id) => !existingUnprocessedPayloadIds.has(id));
+    if (newIds.length > 0) {
+      await db.delete(unprocessedScraperPayloads).where(inArray(unprocessedScraperPayloads.id, newIds));
+    }
+  });
 
   t.beforeEach(async () => {
     testProfileId = randomUUID();

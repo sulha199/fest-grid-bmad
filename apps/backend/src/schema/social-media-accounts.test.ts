@@ -7,6 +7,7 @@ import * as path from 'path';
 import { db } from '../db/client.js';
 import { users, subscriptions, socialMediaAccountProfiles, defaultLocationChangeRequests } from '@festgrid/database';
 import { eq, and } from 'drizzle-orm';
+import { registerGeolocationCacheCleanup } from '../lib/test-support/geolocation-cache-cleanup.js';
 
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
 const files = fs.readdirSync(schemaDir).filter(f => f.endsWith('.graphql'));
@@ -58,6 +59,8 @@ const fetchMock = mock.method(globalThis, 'fetch', async (url: any) => {
     })
   };
 });
+
+registerGeolocationCacheCleanup();
 
 test('setAccountDefaultLocation mutation resolver integration', async (t) => {
   let testUser: any;

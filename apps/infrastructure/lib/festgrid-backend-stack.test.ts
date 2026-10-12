@@ -745,3 +745,44 @@ test('FestgridBackendStack: apiLambda can async-invoke aiProcessorLambda with re
     MaximumRetryAttempts: 0,
   });
 });
+
+// Usage-cycle env drift guard: apiLambda reads the per-key AI quota, aiProcessorLambda writes it
+// (via callGemini -> recordSuccessfulUsage), and scraperLambda/webhookLambda/apifyWebhookLambda
+// gate auto-enqueue on it (fetchCandidateKeys). All must share one API_KEY_USAGE_CYCLE_DAYS --
+// an unset var defaults to 30 days, so a Lambda left out silently disagrees with the rest.
+// SCRAPER_USAGE_CYCLE_DAYS is the same class of shared value for scraper/usage-store.ts.
+test('FestgridBackendStack: every usage-store Lambda gets API_KEY_USAGE_CYCLE_DAYS and SCRAPER_USAGE_CYCLE_DAYS', () => {
+  const previous = {
+    API_KEY_USAGE_CYCLE_DAYS: process.env.API_KEY_USAGE_CYCLE_DAYS,
+    SCRAPER_USAGE_CYCLE_DAYS: process.env.SCRAPER_USAGE_CYCLE_DAYS,
+    GEMINI_POSTS_PER_KEY_PER_CYCLE: process.env.GEMINI_POSTS_PER_KEY_PER_CYCLE,
+  };
+  process.env.API_KEY_USAGE_CYCLE_DAYS = '1';
+  process.env.SCRAPER_USAGE_CYCLE_DAYS = '7';
+  process.env.GEMINI_POSTS_PER_KEY_PER_CYCLE = '250';
+
+  try {
+    const app = new cdk.App();
+    const stack = new FestgridBackendStack(app, 'TestStackUsageCycleEnv', { stageName: 'dev' });
+    const lambdaFunctions = Template.fromStack(stack).findResources('AWS::Lambda::Function');
+    const envOf = (prefix: string) => {
+      const entry = Object.entries(lambdaFunctions).find(([logicalId]) => logicalId.startsWith(prefix));
+      assert.ok(entry, `expected a "${prefix}*" function in the synthesized template`);
+      return entry![1].Properties.Environment.Variables as Record<string, unknown>;
+    };
+
+    for (const prefix of ['ApiLambda', 'ScraperLambda', 'AIProcessorLambda', 'Webhook', 'ApifyWebhook']) {
+      const env = envOf(prefix);
+      assert.strictEqual(env.API_KEY_USAGE_CYCLE_DAYS, '1', `${prefix} should get API_KEY_USAGE_CYCLE_DAYS`);
+      assert.strictEqual(env.SCRAPER_USAGE_CYCLE_DAYS, '7', `${prefix} should get SCRAPER_USAGE_CYCLE_DAYS`);
+    }
+
+    // The per-key post limit is only read by apiLambda's resolvers.
+    assert.strictEqual(envOf('ApiLambda').GEMINI_POSTS_PER_KEY_PER_CYCLE, '250');
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});

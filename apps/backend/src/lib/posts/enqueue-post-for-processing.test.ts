@@ -4,16 +4,14 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { db } from "../../db/client.js";
 import { posts, socialMediaAccountProfiles } from "@festgrid/database";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { setSendSqsMessage, sendSqsMessage } from "../aws/send-sqs-message.js";
 import { enqueuePostForProcessing } from "./enqueue-post-for-processing.js";
 import { PostNotFoundError, PostAlreadyExtractedError, PostAlreadyQueuedError } from "@festgrid/domain/posts";
 
 test("enqueuePostForProcessing integration tests", async (t) => {
   const originalSendSqsMessage = sendSqsMessage;
-  t.after(() => {
-    setSendSqsMessage(originalSendSqsMessage);
-  });
+  const createdPostIds: string[] = [];
   // Setup a test profile
   const [profile] = await db
     .insert(socialMediaAccountProfiles)
@@ -24,6 +22,14 @@ test("enqueuePostForProcessing integration tests", async (t) => {
       displayName: "Test Enqueue",
     })
     .returning();
+
+  t.after(async () => {
+    setSendSqsMessage(originalSendSqsMessage);
+    if (createdPostIds.length > 0) {
+      await db.delete(posts).where(inArray(posts.id, createdPostIds));
+    }
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+  });
 
   await t.test("(a) Happy path: enqueues an unextracted post and sends SQS message", async () => {
     let sentQueueUrl = "";
@@ -48,6 +54,7 @@ test("enqueuePostForProcessing integration tests", async (t) => {
         isExtracted: false,
       })
       .returning();
+    createdPostIds.push(post.id);
 
     await enqueuePostForProcessing(post.id);
 
@@ -103,6 +110,7 @@ test("enqueuePostForProcessing integration tests", async (t) => {
         isExtracted: true,
       })
       .returning();
+    createdPostIds.push(post.id);
 
     await assert.rejects(
       enqueuePostForProcessing(post.id),
@@ -138,6 +146,7 @@ test("enqueuePostForProcessing integration tests", async (t) => {
         additionalImageUrls: carouselImageUrls,
       })
       .returning();
+    createdPostIds.push(post.id);
 
     await enqueuePostForProcessing(post.id);
 
@@ -164,6 +173,7 @@ test("enqueuePostForProcessing integration tests", async (t) => {
         isExtracted: false,
       })
       .returning();
+    createdPostIds.push(post.id);
 
     await enqueuePostForProcessing(post.id);
 
@@ -191,6 +201,7 @@ test("enqueuePostForProcessing integration tests", async (t) => {
         queuedForExtractionAt: new Date(), // claimed just now -- well within the default 30-minute TTL
       })
       .returning();
+    createdPostIds.push(post.id);
 
     await assert.rejects(
       enqueuePostForProcessing(post.id),
@@ -227,6 +238,7 @@ test("enqueuePostForProcessing integration tests", async (t) => {
         queuedForExtractionAt: staleClaimedAt,
       })
       .returning();
+    createdPostIds.push(post.id);
 
     await enqueuePostForProcessing(post.id);
 
@@ -257,6 +269,7 @@ test("enqueuePostForProcessing integration tests", async (t) => {
         isExtracted: false,
       })
       .returning();
+    createdPostIds.push(post.id);
 
     await assert.rejects(
       enqueuePostForProcessing(post.id),

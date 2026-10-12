@@ -170,12 +170,13 @@ export function MyCalendarContent() {
     todayLabel: t('calendarTodayLabel'),
     selectWeekLabel: t('calendarSelectWeekLabel'),
     chooseWeekLabel: t('calendarChooseWeekLabel'),
-    moreLabel: (count: number) => t('calendarMoreLabel', { count }),
-    moreMultiDayLabel: (count: number) => t('calendarMoreMultiDayLabel', { count }),
+    belowLabel: (count: number, hasMore: boolean) =>
+      t('calendarBelowLabel', { count: count === 0 ? '…' : hasMore ? `${count}+` : String(count) }),
+    progressLabel: (shown: number, total: string) => t('calendarProgressLabel', { shown, total }),
+    allShownLabel: (total: number) => t('calendarAllShownLabel', { total }),
     loadMoreLabel: t('calendarLoadMoreLabel'),
     loadingMoreLabel: t('calendarLoadingMoreLabel'),
     multiDaySegmentLabel: (dayNumber: number, totalDays: number) => t('calendarMultiDaySegmentLabel', { dayNumber, totalDays }),
-    closePopoverLabel: t('calendarClosePopoverLabel'),
     loadingText: tCalendar('loadingText'),
     favoriteToggleLabel: tCalendar('favoriteToggleLabel'),
     // Story 1.i1o Task 4.3: replaced from MyCalendarPage.favoritedBadgeLabel/addedToCalendarBadgeLabel
@@ -185,6 +186,13 @@ export function MyCalendarContent() {
     favoritedBadgeLabel: tCalendar('favoritedBadgeLabel'),
     addedToCalendarBadgeLabel: tCalendar('addedToCalendarBadgeLabel'),
     tillLabel: tCalendar('tillLabel'),
+    rangeFilterGroupLabel: tCalendar('rangeFilterGroupLabel'),
+    startsWeekLabel: tCalendar('startsWeekLabel'),
+    endsWeekLabel: tCalendar('endsWeekLabel'),
+    startsDayLabel: tCalendar('startsDayLabel'),
+    endsDayLabel: tCalendar('endsDayLabel'),
+    noSchedulesLabel: tCalendar('noSchedulesLabel'),
+    noSchedulesWeekLabel: tCalendar('noSchedulesWeekLabel'),
     statusEnded: tCalendar('statusEnded'),
     statusHappeningNow: tCalendar('statusHappeningNow'),
     statusEndsToday: tCalendar('statusEndsToday'),
@@ -278,7 +286,6 @@ export function MyCalendarContent() {
       <WeeklyCalendarView
         weekStart={weekStart}
         schedules={schedules}
-        maxEventsPerDay={-1} // unlimited per personal_view token
         getWeekRange={getWeekRange}
         onToday={handleToday}
         onPrevWeek={handlePrevWeek}

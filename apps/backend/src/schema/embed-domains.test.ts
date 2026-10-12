@@ -30,6 +30,13 @@ test('embed domains resolvers integration', async (t) => {
   let testUser: any;
   let widget: any;
 
+  t.after(async () => {
+    if (widget) {
+      await db.delete(embedDomains).where(eq(embedDomains.widgetId, widget.id));
+      await db.delete(widgets).where(eq(widgets.id, widget.id));
+    }
+  });
+
   await t.test('setup - get test user and create temporary widget', async () => {
     const seededUsers = await db.select().from(users).limit(1);
     assert.ok(seededUsers.length > 0, 'Should have at least 1 user');

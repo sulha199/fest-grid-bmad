@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
 import { users, accountVotes, socialMediaAccountProfiles, subscriptions, userLocations } from '@festgrid/database';
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and, isNull, inArray } from 'drizzle-orm';
 
 // Read all required schema fragments dynamically from the schema directory
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
@@ -34,6 +34,28 @@ test('account votes resolvers integration', async (t) => {
   let anotherProfile: any;
   const suffix = Date.now().toString();
 
+  // Tracks every socialMediaAccountProfiles row this file creates (testProfile/anotherProfile
+  // plus the per-sub-test `profile`/`unverified`/`verifiedProfile` rows below) so the file-level
+  // t.after at the bottom can delete exactly those rows -- this file had zero cleanup before
+  // this fix.
+  const createdProfileIds: string[] = [];
+  let demandUserA: any;
+  let demandUserB: any;
+
+  t.after(async () => {
+    const voteOwnerIds = [testUser?.id, demandUserA?.id, demandUserB?.id].filter(Boolean);
+    if (voteOwnerIds.length > 0) {
+      await db.delete(accountVotes).where(inArray(accountVotes.userId, voteOwnerIds));
+    }
+    if (createdProfileIds.length > 0) {
+      await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, createdProfileIds));
+    }
+    const createdUserIds = [demandUserA?.id, demandUserB?.id].filter(Boolean);
+    if (createdUserIds.length > 0) {
+      await db.delete(users).where(inArray(users.id, createdUserIds));
+    }
+  });
+
   await t.test('setup - get test users and create account profiles', async () => {
     const seededUsers = await db.select().from(users).limit(2);
     assert.ok(seededUsers.length >= 2, 'Should have at least 2 users');
@@ -59,6 +81,7 @@ test('account votes resolvers integration', async (t) => {
       displayName: 'Test Twitter ' + suffix,
     }).returning();
     anotherProfile = p2;
+    createdProfileIds.push(testProfile.id, anotherProfile.id);
   });
 
   await t.test('castVote, rankedVoteAccounts, and suggestions flow', async () => {
@@ -156,9 +179,8 @@ test('account votes resolvers integration', async (t) => {
   // Story 3.17's new coverage below (Task 2.2/3.4) is self-contained -- it seeds its own users
   // rather than relying on the outer `testUser`/`anotherUser` from the "setup" subtest above,
   // since that setup reads pre-existing seeded rows from `users` that may not be present in
-  // every environment this story runs in.
-  let demandUserA: any;
-  let demandUserB: any;
+  // every environment this story runs in. (demandUserA/demandUserB are declared in the outer
+  // scope above, alongside createdProfileIds, so the file-level t.after can clean them up too.)
 
   await t.test('(3.17 setup) seed two local users for the demand-gated discovery tests', async () => {
     const [a] = await db.insert(users).values({
@@ -184,6 +206,7 @@ test('account votes resolvers integration', async (t) => {
       displayName: 'Test Unverified A ' + suffix,
       isVerifiedForDiscovery: false,
     }).returning();
+    createdProfileIds.push(unverified.id);
 
     mockUser = { userId: demandUserA.id, role: demandUserA.role };
     const res = await yoga.fetch('http://yoga/graphql', {
@@ -208,6 +231,7 @@ test('account votes resolvers integration', async (t) => {
       displayName: 'Test Already Verified B ' + suffix,
       isVerifiedForDiscovery: true,
     }).returning();
+    createdProfileIds.push(verifiedProfile.id);
 
     mockUser = { userId: demandUserB.id, role: demandUserB.role };
     const res = await yoga.fetch('http://yoga/graphql', {
@@ -232,6 +256,7 @@ test('account votes resolvers integration', async (t) => {
       displayName: 'Test Unverified C ' + suffix,
       isVerifiedForDiscovery: false,
     }).returning();
+    createdProfileIds.push(profile.id);
 
     mockUser = { userId: demandUserA.id, role: demandUserA.role };
 
@@ -282,6 +307,7 @@ test('account votes resolvers integration', async (t) => {
       isVerifiedForDiscovery: false,
     }).returning();
 
+    createdProfileIds.push(profile.id);
     await db.insert(accountVotes).values({
       userId: demandUserA.id,
       accountId: profile.id,
@@ -324,6 +350,7 @@ test('account votes resolvers integration', async (t) => {
       displayName: 'Test Verified ' + suffix,
       isVerifiedForDiscovery: true,
     }).returning();
+    createdProfileIds.push(profile.id);
 
     await db.insert(accountVotes).values({
       userId: demandUserA.id,
@@ -365,6 +392,7 @@ test('account votes resolvers integration', async (t) => {
       displayName: 'Test Moderator View ' + suffix,
       isVerifiedForDiscovery: false,
     }).returning();
+    createdProfileIds.push(profile.id);
 
     mockUser = { userId: demandUserA.id, role: 'moderator' };
 

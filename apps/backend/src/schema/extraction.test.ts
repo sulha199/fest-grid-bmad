@@ -5,7 +5,7 @@ import { resolvers } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
-import { users, posts, apiKeys, socialMediaAccountProfiles, subscriptions, manualExtractionJobs } from '@festgrid/database';
+import { users, posts, apiKeys, socialMediaAccountProfiles, subscriptions, manualExtractionJobs, vendorCallLocks } from '@festgrid/database';
 import { eq, desc } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import '../lib/scraper/register-adapters.js';
@@ -134,6 +134,11 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
 
   t.after(async () => {
     if (testApiKey) {
+      // processManualExtractionJob above runs through the real adapter.ts callGemini wrapper
+      // (only the inner callGeminiGenerateContent network call is mocked) -- that wrapper's
+      // guarded-call lease claim/release leaves a permanent `vendor_call_locks` row behind,
+      // keyed by this key's id. Delete it before the key row itself.
+      await db.delete(vendorCallLocks).where(eq(vendorCallLocks.lockKey, `gemini:key:${testApiKey.id}`));
       await db.delete(apiKeys).where(eq(apiKeys.id, testApiKey.id));
     }
     if (existingPost) {

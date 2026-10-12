@@ -329,7 +329,7 @@ items:
      stories: [0-i2a-build-the-guarded-vendor-call-wrapper,
                0-i2d-adopt-the-wrapper-in-the-apify-bright-data-scraper-call-sites],
      touches: [cross:ai-extraction, app:backend],
-     note: "Named as an open build item in the PRD 5 Security text itself. FIND-073 (child row) is separate, not resolved by 0-i2a/0-i2d."}
+     note: "Named as an open build item in the PRD 5 Security text itself. FIND-079 (child row) is separate, not resolved by 0-i2a/0-i2d."}
 
   # ── 2026-09-04 ──────────────────────────────────────────────────────────────
   CC-019:

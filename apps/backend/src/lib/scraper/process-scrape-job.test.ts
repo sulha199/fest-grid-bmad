@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import { db } from '../../db/client.js';
-import { socialMediaAccountProfiles, posts, users, apiKeys, subscriptions } from '@festgrid/database';
+import { socialMediaAccountProfiles, posts, users, apiKeys, subscriptions, vendorCallLocks } from '@festgrid/database';
 import { registerScraperAdapter, ScraperAdapter, ScraperAccountRef, ScrapedPost, AccountProfileLookupResult } from '@festgrid/domain';
 import { processScrapeJob } from './process-scrape-job.js';
 import { eq, inArray } from 'drizzle-orm';
@@ -27,6 +27,16 @@ test('process-scrape-job integration tests', async (t) => {
   });
 
   // Get a seeded user
+  // The unmocked Gemini path claims the shared `gemini:system` lease in `vendor_call_locks` and (by the
+  // guarded-call wrapper's design) leaves it behind. Delete it afterwards only if it wasn't already there.
+  const hadGeminiSystemLock =
+    (await db.select().from(vendorCallLocks).where(eq(vendorCallLocks.lockKey, 'gemini:system'))).length > 0;
+  t.after(async () => {
+    if (!hadGeminiSystemLock) {
+      await db.delete(vendorCallLocks).where(eq(vendorCallLocks.lockKey, 'gemini:system'));
+    }
+  });
+
   const seededUsers = await db.select().from(users).limit(1);
   assert.ok(seededUsers.length > 0, 'Must have at least 1 seeded user');
   testUser = seededUsers[0];
@@ -37,6 +47,15 @@ test('process-scrape-job integration tests', async (t) => {
       createdSubscriptions.length = 0;
     }
     if (createdApiKeys.length > 0) {
+      // The real (unmocked) backfillAccountProfileAndInferDefaultLocationSeam that most
+      // sub-tests below don't override goes on to use each created key for a real Gemini
+      // call attempt, which claims (and, by the guarded-call wrapper's design, permanently
+      // leaves behind) a `vendor_call_locks` lease row keyed by `gemini:key:${apiKeys.id}`.
+      // Delete those leases by the exact keys this file created before deleting the api_keys
+      // rows themselves.
+      await db.delete(vendorCallLocks).where(
+        inArray(vendorCallLocks.lockKey, createdApiKeys.map((id) => `gemini:key:${id}`))
+      );
       await db.delete(apiKeys).where(inArray(apiKeys.id, createdApiKeys));
       createdApiKeys.length = 0;
     }

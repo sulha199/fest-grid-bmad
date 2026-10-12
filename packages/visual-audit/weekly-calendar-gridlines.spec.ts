@@ -43,7 +43,6 @@ const baseProps = {
   onScheduleClick: noop,
   status: 'success' as const,
   locale: 'en-US',
-  maxEventsPerDay: -1,
 };
 
 function buildEntry(schedules: WeeklyCalendarViewScheduleShape[], variant: string): ManifestEntry {
@@ -90,7 +89,8 @@ test.describe('BUG-050 (AC-GRID-1): spanning-banner gridlines align pixel-exact 
     await mountManifestEntry(page, buildEntry(schedules, 'with-multiday'));
     await page.waitForSelector('[data-testid="desktop-calendar-view"]');
 
-    await expect(page.locator('[data-testid="multi-day-spanning-banner"]')).toBeVisible();
+    await expect(page.locator('[data-testid="calendar-band"]').first()).toBeVisible();
+    // One banded grid: one guide overlay per band (these fixtures fit in a single band).
     await expect(page.locator('[data-testid="grid-column-guides"]')).toHaveCount(1);
 
     const headers = await getElementSnapshots(page, HEADER_CELL_SELECTOR);
@@ -130,11 +130,11 @@ test.describe('BUG-050 (AC-GRID-1): spanning-banner gridlines align pixel-exact 
     await mountManifestEntry(page, buildEntry(schedules, 'stacked-multiday'));
     await page.waitForSelector('[data-testid="desktop-calendar-view"]');
 
-    const banner = page.locator('[data-testid="multi-day-spanning-banner"]');
+    const banner = page.locator('[data-testid="calendar-band"]').first();
     const guide = page.locator('[data-testid="grid-column-guides"]');
     await expect(guide).toHaveCount(1);
 
-    const [bannerSnap] = await getElementSnapshots(page, '[data-testid="multi-day-spanning-banner"]');
+    const [bannerSnap] = await getElementSnapshots(page, '[data-testid="calendar-band"]');
     const [guideSnap] = await getElementSnapshots(page, '[data-testid="grid-column-guides"]');
 
     // BUG-050 review finding (Blind Hunter): the riskiest case for the "one overlay, `inset-0`"
@@ -152,7 +152,7 @@ test.describe('BUG-050 (AC-GRID-1): spanning-banner gridlines align pixel-exact 
     void banner; // presence already asserted via bannerSnap above
   });
 
-  test('no multi-day schedules: banner/guide overlay absent, header/day-cell rows unaffected', async ({ page }) => {
+  test('no multi-day schedules: the band still carries its guide overlay, aligned with the headers', async ({ page }) => {
     const schedules = [
       {
         id: 'single-2',
@@ -168,10 +168,12 @@ test.describe('BUG-050 (AC-GRID-1): spanning-banner gridlines align pixel-exact 
     await mountManifestEntry(page, buildEntry(schedules, 'without-multiday'));
     await page.waitForSelector('[data-testid="desktop-calendar-view"]');
 
-    await expect(page.locator('[data-testid="multi-day-spanning-banner"]')).toHaveCount(0);
-    await expect(page.locator('[data-testid="grid-column-guides"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="multi-day-spanning-bar"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="grid-column-guides"]')).toHaveCount(1);
 
     const headers = await getElementSnapshots(page, HEADER_CELL_SELECTOR);
+    const guides = await getElementSnapshots(page, GUIDE_MARKER_SELECTOR);
     expect(headers).toHaveLength(7);
+    expect(guides).toHaveLength(7);
   });
 });
