@@ -115,3 +115,7 @@ so that I can focus on a subset of my subscriptions instead of always seeing eve
 - [x] Testing plan confirmation — domain coverage 100%, backend integration tests, web picker integrations, and E2E coverage mapped.
 - [x] Explicit human approval state (Default: **pending approval**).
 - [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — Gate 1/3: no gap. Gate 2: run fresh, modular picker component inside `packages/ui` avoids any duplication or isolation leaks.
+
+## Change Log
+
+- 2026-10-12: Defect fix, tracked as BUG-057. `SubscriptionPicker` emitted each option's value as the subscription ROW id (`sub.id`), but the Feed's `subscriptions` URL param feeds `socialMediaAccountProfileId` (Task: `fieldMap` maps it to the account profile / `post_account_associations.account_id`, AD-31 Rule 4). A subscription id never equals an account profile id, so selecting an account in the Feed picker returned an empty list. The picker now emits `account.id` (the profile id). `feed-content.test.tsx` asserts the condition value is the profile id (`acc-1`), not the subscription id (`sub-1`). Note: any bookmarked Feed URL carrying the old subscription-id values stays empty until re-selected (no migration — the param is transient UI state).
