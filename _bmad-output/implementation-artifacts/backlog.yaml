@@ -2136,4 +2136,4 @@ items:
      title: "AI filter's accountId is unvalidated LLM output: resolve handle/name to a real account id (or drop it) instead of silently matching nothing",
      ref: [packages/domain/src/ai-event-filters/transform-gemini-response-to-event-filter.ts, implementation-artifacts/3-18-union-of-associations-account-filtering.md],
      touches: [cross:ai-extraction, pkg:domain, app:backend, web:events],
-     note: "Done 2026-10-12: resolvePromptToEventFilter now resolves the named handle/username/display name to a profile id (lib/ai-event-filters/resolve-filter-account-id.ts) or drops it with a caveat."}
+     note: "Done 2026-10-12; see Story 3.18 Change Log."}
