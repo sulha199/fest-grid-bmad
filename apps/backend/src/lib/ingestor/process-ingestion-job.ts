@@ -84,8 +84,10 @@ export async function processIngestionJob(message: ExtractedEventMessage): Promi
 
     const { event, schedules: scheduleValues } = buildEventInsertValues(message, sourcePost ?? null, isStub ? 'stub' : undefined);
 
-    // Story 3.6v (AC1, Amendment) — organizerHandle defaults to the *posting* account for a
-    // roundup/curator-sourced item (Story 3.6s's extraction prompt), which would falsely
+    // Story 3.6v (AC1, Amendment) — organizerHandle used to default to the *posting* account for a
+    // roundup/curator-sourced item (Story 3.6s's extraction prompt; IDEA-068 now asks for an
+    // explicit organizer only, but messages queued before that change may still carry the
+    // default), which would falsely
     // inflate a match score against an unrelated event the curator/aggregator also covered.
     // Discount it to `undefined` in exactly that case -- reusing isRoundupSourced/isCuratorSourced
     // already computed above, never re-derived.
@@ -96,7 +98,13 @@ export async function processIngestionJob(message: ExtractedEventMessage): Promi
           tx,
           event,
           scheduleValues,
-          { postId: message.postId, accountId: sourcePost.accountId, groupingReason: sourcePost.groupingReason },
+          {
+            postId: message.postId,
+            // BUG-058 -- the posting account is discounted exactly like organizerHandle: an
+            // aggregator/curator account is not the organizer of what it lists.
+            accountId: isRoundupSourced || isCuratorSourced ? undefined : sourcePost.accountId,
+            groupingReason: sourcePost.groupingReason,
+          },
           organizerHandleForMatching
         )
       : null;

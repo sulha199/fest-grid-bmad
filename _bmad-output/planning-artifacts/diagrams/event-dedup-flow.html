@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Event dedup flow diagram. Source of truth for the picture of AD-30 Rule 7 matching; keep in sync with the code (see project-context.md, "Event dedup entry points"). Open in a browser. -->
+<title>Event Dedup Flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a single vertical spine for the ingestion path, branching right for exits and down into three tier outcomes. */
+:root {
+  --bg: #f3f5f7; --ink: #14202b; --muted: #55656f; --surface: #ffffff; --line: #b4c0ca;
+  --accent: #1f6f8b; --green: #2e7d4f; --green-bg: #e3f2e9; --amber: #a86a0c; --amber-bg: #fbefd6;
+  --red: #b3261e; --red-bg: #fbe4e1; --grey-bg: #e8ecef;
+  --seg-namedate: #7da7bc; --seg-venue: #9bb88f; --seg-org: #d0836f; --seg-link: #b79bc9;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10181f; --ink: #e3eaf0; --muted: #9aabb8; --surface: #17222b; --line: #3a4a57;
+    --accent: #5bb4d2; --green: #5fbf86; --green-bg: #17301f; --amber: #e0a93b; --amber-bg: #34270d;
+    --red: #f0776e; --red-bg: #3a1a18; --grey-bg: #1d2a34;
+    --seg-namedate: #4d7a90; --seg-venue: #5f8a55; --seg-org: #b5624d; --seg-link: #8564a0;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10181f; --ink: #e3eaf0; --muted: #9aabb8; --surface: #17222b; --line: #3a4a57;
+  --accent: #5bb4d2; --green: #5fbf86; --green-bg: #17301f; --amber: #e0a93b; --amber-bg: #34270d;
+  --red: #f0776e; --red-bg: #3a1a18; --grey-bg: #1d2a34;
+  --seg-namedate: #4d7a90; --seg-venue: #5f8a55; --seg-org: #b5624d; --seg-link: #8564a0;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); line-height: 1.55; padding-inline: 16px; padding-block: 28px 56px; }
+main { max-width: 960px; margin-inline: auto; }
+h1 { font-size: 1.7rem; line-height: 1.2; margin: 0 0 6px; text-wrap: balance; font-weight: 600; }
+h2 { font-size: 1.1rem; margin: 40px 0 6px; font-weight: 600; text-wrap: balance; }
+p { margin: 0 0 12px; max-width: 68ch; }
+.lede { color: var(--muted); }
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--grey-bg); padding: 1px 5px; border-radius: 3px; }
+figure { margin: 14px 0 0; }
+figcaption { color: var(--muted); font-size: 0.88rem; margin-top: 8px; max-width: 72ch; }
+.scroll { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 8px; }
+svg { display: block; width: 100%; min-width: 640px; height: auto; color: var(--ink); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.85rem; color: var(--muted); margin-top: 10px; }
+.legend span::before { content: ""; display: inline-block; width: 11px; height: 11px; margin-right: 6px; vertical-align: -1px; border: 1.5px solid var(--line); }
+.legend.nobox span::before { display: none; }
+.legend .lh::before { background: var(--green-bg); border-color: var(--green); }
+.legend .lm::before { background: var(--amber-bg); border-color: var(--amber); }
+.legend .ll::before { background: var(--grey-bg); }
+.legend .lf::before { background: var(--red-bg); border-color: var(--red); }
+ul.open { padding-left: 1.1rem; max-width: 72ch; margin: 8px 0 0; }
+ul.open li { margin-bottom: 8px; }
+/* SVG parts */
+.node { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+.n-high { fill: var(--green-bg); stroke: var(--green); }
+.n-mid { fill: var(--amber-bg); stroke: var(--amber); }
+.n-low { fill: var(--grey-bg); stroke: var(--line); }
+.n-flag { fill: var(--red-bg); stroke: var(--red); }
+.n-exit { fill: var(--grey-bg); stroke: var(--line); stroke-dasharray: 4 3; }
+.ttl { font: 600 13px var(--font-body); fill: currentColor; }
+.sub { font: 400 11.5px var(--font-body); fill: var(--muted); }
+.mono { font: 400 11.5px var(--font-mono); fill: currentColor; }
+.lbl { font: 500 11px var(--font-mono); fill: var(--accent); }
+.lbl-r { font: 500 11px var(--font-mono); fill: var(--red); }
+.edge { stroke: currentColor; stroke-width: 1.5; fill: none; opacity: 0.8; }
+.edge-dash { stroke: currentColor; stroke-width: 1.5; fill: none; stroke-dasharray: 5 4; opacity: 0.7; }
+.edge-red { stroke: var(--red); stroke-width: 2; fill: none; }
+.head { fill: currentColor; opacity: 0.8; }
+.head-red { fill: var(--red); }
+.head-ok { fill: var(--green); }
+.edge-ok { stroke: var(--green); stroke-width: 2; fill: none; }
+.okmark { fill: var(--green); }
+.thr { stroke: var(--ink); stroke-width: 1.2; stroke-dasharray: 3 3; opacity: 0.7; }
+.seg-nd { fill: var(--seg-namedate); } .seg-v { fill: var(--seg-venue); }
+.seg-o { fill: var(--seg-org); } .seg-l { fill: var(--seg-link); }
+.axis { stroke: var(--line); stroke-width: 1; }
+.tick { font: 400 10.5px var(--font-mono); fill: var(--muted); }
+.flagmark { fill: var(--red); }
+.flagtxt { font: 700 11px var(--font-body); fill: #fff; }
+@media (prefers-reduced-motion: no-preference) { svg * { transition: none; } }
+body { margin: 0; }
+</style>
+
+</head>
+<body>
+<main>
+  <h1>Event dedup flow</h1>
+  <p class="lede">How one extracted event is checked against existing events at ingestion, what each score band does, and where a moderator comes in. Reflects the code as of 2026-10-12 (Story 3.6v, AD-30 Rule 7).</p>
+
+  <h2>From ingestion to merge</h2>
+  <p>Each extracted item (one event from a post) goes through this path on its own. Everything above the split runs inside one database transaction.</p>
+
+  <figure>
+    <div class="scroll">
+<svg viewBox="0 0 900 1130" role="img" aria-label="Flow of one extracted event through idempotency check, candidate query, scoring, and three outcomes: high auto-links to the existing event, mid creates a new event plus a pending suggestion for a moderator, low creates a plain new event. Roundup and curator items get no organizer weight from the posting account.">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="head"/></marker>
+    <marker id="aho" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="head-ok"/></marker>
+    <marker id="ahr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="head-red"/></marker>
+  </defs>
+
+  <!-- A: message -->
+  <rect class="node" x="170" y="14" width="320" height="58" rx="6"/>
+  <text class="ttl" x="330" y="37" text-anchor="middle">Extracted event arrives (SQS)</text>
+  <text class="sub" x="330" y="56" text-anchor="middle">postId · extractionOrdinal · organizerHandle</text>
+  <line class="edge" x1="330" y1="72" x2="330" y2="108" marker-end="url(#ah)"/>
+
+  <!-- B: idempotency -->
+  <rect class="node" x="170" y="110" width="320" height="58" rx="6"/>
+  <text class="ttl" x="330" y="133" text-anchor="middle">Idempotency lookup</text>
+  <text class="sub" x="330" y="152" text-anchor="middle">event_posts has (postId, ordinal)?</text>
+  <line class="edge-dash" x1="490" y1="139" x2="598" y2="139" marker-end="url(#ah)"/>
+  <text class="lbl" x="544" y="132" text-anchor="middle">hit</text>
+  <rect class="node n-exit" x="600" y="110" width="270" height="58" rx="6"/>
+  <text class="ttl" x="735" y="133" text-anchor="middle">Skip: already ingested</text>
+  <text class="sub" x="735" y="152" text-anchor="middle">SQS redelivery, never re-matched</text>
+  <line class="edge" x1="330" y1="168" x2="330" y2="204" marker-end="url(#ah)"/>
+  <text class="lbl" x="342" y="192">miss</text>
+
+  <!-- C: prepare -->
+  <rect class="node" x="150" y="206" width="360" height="84" rx="6"/>
+  <text class="ttl" x="330" y="229" text-anchor="middle">Prepare the new item</text>
+  <text class="sub" x="330" y="248" text-anchor="middle">Load source post. Stub if roundup or curator account.</text>
+  <text class="sub" x="330" y="265" text-anchor="middle">Stub: organizerHandle AND posting account</text>
+  <text class="sub" x="330" y="280" text-anchor="middle">are set to undefined (no organizer weight).</text>
+  <line class="edge" x1="330" y1="290" x2="330" y2="326" marker-end="url(#ah)"/>
+
+  <!-- D: findMatchingEvent -->
+  <rect class="node" x="170" y="328" width="320" height="58" rx="6"/>
+  <text class="ttl" x="330" y="351" text-anchor="middle">findMatchingEvent()</text>
+  <text class="sub" x="330" y="370" text-anchor="middle">returns best candidate or null</text>
+  <line class="edge-dash" x1="490" y1="357" x2="598" y2="357" marker-end="url(#ah)"/>
+  <text class="lbl" x="544" y="350" text-anchor="middle">no date</text>
+  <rect class="node n-exit" x="600" y="328" width="270" height="58" rx="6"/>
+  <text class="ttl" x="735" y="351" text-anchor="middle">null → plain insert</text>
+  <text class="sub" x="735" y="370" text-anchor="middle">no schedule start date to search by</text>
+  <line class="edge" x1="330" y1="386" x2="330" y2="422" marker-end="url(#ah)"/>
+
+  <!-- E: candidate query -->
+  <rect class="node" x="120" y="424" width="420" height="122" rx="6"/>
+  <text class="ttl" x="330" y="447" text-anchor="middle">Candidate query (database)</text>
+  <text class="mono" x="140" y="470">schedule start within ±2 days</text>
+  <text class="mono" x="140" y="488">event_name % name  AND  similarity &gt; 0.3</text>
+  <text class="mono" x="140" y="506">not deleted, not merged</text>
+  <text class="mono" x="140" y="524">not already linked to THIS post</text>
+  <text class="sub" x="140" y="540">ordered by name similarity, LIMIT 20 rows</text>
+  <line class="edge-dash" x1="540" y1="485" x2="598" y2="485" marker-end="url(#ah)"/>
+  <text class="lbl" x="569" y="478" text-anchor="middle">none</text>
+  <rect class="node n-exit" x="600" y="456" width="270" height="58" rx="6"/>
+  <text class="ttl" x="735" y="479" text-anchor="middle">null → plain insert</text>
+  <text class="sub" x="735" y="498" text-anchor="middle">nothing similar nearby</text>
+  <line class="edge" x1="330" y1="546" x2="330" y2="582" marker-end="url(#ah)"/>
+  <text class="lbl" x="342" y="570">per candidate</text>
+
+  <!-- F: scoring -->
+  <rect class="node" x="100" y="584" width="460" height="132" rx="6"/>
+  <text class="ttl" x="330" y="607" text-anchor="middle">Score each candidate, keep the best</text>
+  <text class="mono" x="120" y="632">organizer     0.40  posting account OR tagged handle*</text>
+  <text class="mono" x="120" y="650">shared link   0.20  same URL (normalized)</text>
+  <text class="mono" x="120" y="668">name + date   0.25  × mean(name sim, 1 − dayDiff/2)</text>
+  <text class="mono" x="120" y="686">venue         0.15  same location or within 150 m</text>
+  <text class="sub" x="120" y="706">high ≥ 0.75 · mid ≥ 0.45 · low below · *not for stubs</text>
+  <!-- flag -->
+  <path class="edge-ok" d="M 570 632 L 600 632 L 600 600 L 628 600" marker-end="url(#aho)"/>
+  <rect class="node n-high" x="630" y="560" width="240" height="128" rx="6"/>
+  <circle class="okmark" cx="652" cy="582" r="10"/>
+  <text class="flagtxt" x="652" y="586" text-anchor="middle" style="fill: var(--bg)">✓</text>
+  <text class="ttl" x="670" y="587" style="fill: var(--green)">Fixed 2026-10-12</text>
+  <text class="sub" x="644" y="610">Roundup and curator posts get no</text>
+  <text class="sub" x="644" y="626">organizer weight from the posting</text>
+  <text class="sub" x="644" y="642">account. The prompt names an</text>
+  <text class="sub" x="644" y="658">organizer only if the caption does.</text>
+  <text class="mono" x="644" y="678" style="fill: var(--green)">BUG-058 · IDEA-068</text>
+
+  <!-- tier split -->
+  <line class="edge" x1="330" y1="716" x2="330" y2="748"/>
+  <line class="edge" x1="140" y1="748" x2="720" y2="748"/>
+  <line class="edge" x1="140" y1="748" x2="140" y2="782" marker-end="url(#ah)"/>
+  <line class="edge" x1="430" y1="748" x2="430" y2="782" marker-end="url(#ah)"/>
+  <line class="edge" x1="720" y1="748" x2="720" y2="782" marker-end="url(#ah)"/>
+  <text class="lbl" x="152" y="766">score ≥ 0.75</text>
+  <text class="lbl" x="442" y="766">0.45 – 0.75</text>
+  <text class="lbl" x="732" y="766">&lt; 0.45</text>
+
+  <!-- tier boxes -->
+  <rect class="node n-high" x="20" y="784" width="270" height="178" rx="6"/>
+  <text class="ttl" x="36" y="808" style="fill: var(--green)">HIGH: link automatically</text>
+  <text class="sub" x="36" y="830">enrichAndPromoteEvent</text>
+  <text class="sub" x="36" y="848">• existing event is enriched in place</text>
+  <text class="sub" x="36" y="866">• new post becomes primary only if</text>
+  <text class="sub" x="36" y="882">   it wins the Rule 7 ordering</text>
+  <text class="sub" x="36" y="900">• no new events row</text>
+  <text class="sub" x="36" y="918">• no moderator step</text>
+  <text class="sub" x="36" y="936">• notifies only if it newly becomes</text>
+  <text class="sub" x="36" y="952">   organizer-authored</text>
+
+  <rect class="node n-mid" x="300" y="784" width="270" height="178" rx="6"/>
+  <text class="ttl" x="316" y="808" style="fill: var(--amber)">MID: keep both, ask a human</text>
+  <text class="sub" x="316" y="830">• insert as its OWN new event</text>
+  <text class="sub" x="316" y="848">   (its post slot is taken, re-runs skip)</text>
+  <text class="sub" x="316" y="866">• queue one event_match_candidates row</text>
+  <text class="sub" x="316" y="882">   status pending, ON CONFLICT DO NOTHING</text>
+  <text class="sub" x="316" y="900">• notifies at creation unless a stub,</text>
+  <text class="sub" x="316" y="916">   before any moderator review</text>
+
+  <rect class="node n-low" x="580" y="784" width="300" height="178" rx="6"/>
+  <text class="ttl" x="596" y="808">LOW or null: new event</text>
+  <text class="sub" x="596" y="830">• plain insert, no suggestion</text>
+  <text class="sub" x="596" y="848">• notifies unless a stub</text>
+  <text class="sub" x="596" y="866">• a duplicate missed here (e.g. two</text>
+  <text class="sub" x="596" y="882">   jobs at once) is fixed later by a</text>
+  <text class="sub" x="596" y="898">   manual moderator merge</text>
+
+  <!-- moderator -->
+  <line class="edge" x1="435" y1="962" x2="435" y2="998" marker-end="url(#ah)"/>
+  <text class="lbl" x="447" y="985">moderator opens the queue</text>
+  <rect class="node" x="250" y="1000" width="370" height="46" rx="6"/>
+  <text class="ttl" x="435" y="1020" text-anchor="middle">resolveSuggestedEventMatch</text>
+  <text class="sub" x="435" y="1036" text-anchor="middle">pending suggestion: new event vs existing event</text>
+  <line class="edge" x1="330" y1="1046" x2="190" y2="1080" marker-end="url(#ah)"/>
+  <line class="edge" x1="540" y1="1046" x2="700" y2="1080" marker-end="url(#ah)"/>
+  <text class="lbl" x="200" y="1066">ACCEPT</text>
+  <text class="lbl" x="640" y="1066">REJECT</text>
+  <rect class="node" x="20" y="1082" width="380" height="44" rx="6"/>
+  <text class="ttl" x="36" y="1101">mergeEvents(winner = existing, loser = new)</text>
+  <text class="sub" x="36" y="1117">loser soft-deleted · links repointed · event_merges journal</text>
+  <rect class="node n-low" x="560" y="1082" width="320" height="44" rx="6"/>
+  <text class="ttl" x="576" y="1101">Suggestion marked rejected</text>
+  <text class="sub" x="576" y="1117">both events stay, dismissal recorded</text>
+</svg>
+    </div>
+    <figcaption>One item, top to bottom. Dashed grey boxes are early exits to a plain insert. The three coloured boxes are the only places the flow can end up with different data: a merged event, an event plus a pending suggestion, or just a new event.</figcaption>
+  </figure>
+  <div class="legend"><span class="lh">High: auto-link / fixed</span><span class="lm">Mid: moderator queue</span><span class="ll">Low / exit: new event</span></div>
+
+  <h2>Why the posting account no longer counts for roundups</h2>
+  <p>Before the fix, the same pair of events could land in different bands depending on whether the posting account counted as organizer. Example: two events listed in an aggregator's roundup posts, similar names and dates, same venue string, no shared link. The middle bar is what the code used to do; the top bar is what it does now.</p>
+
+  <figure>
+    <div class="scroll">
+<svg viewBox="0 0 900 300" role="img" aria-label="Three stacked score bars on a 0 to 1 scale with thresholds at 0.45 and 0.75. Now, without the organizer weight the pair scores 0.40 (low). Before the fix, with the posting account counted as organizer it scored 0.80 (high). With a shared link instead it scores 0.60 (mid).">
+  <!-- scale: x = 200 + score * 600 -->
+  <line class="axis" x1="200" y1="40" x2="200" y2="236"/>
+  <line class="axis" x1="800" y1="40" x2="800" y2="236"/>
+  <line class="thr" x1="470" y1="30" x2="470" y2="236"/>
+  <line class="thr" x1="650" y1="30" x2="650" y2="236"/>
+  <text class="tick" x="470" y="22" text-anchor="middle">mid ≥ 0.45</text>
+  <text class="tick" x="650" y="22" text-anchor="middle">high ≥ 0.75</text>
+  <text class="tick" x="200" y="254" text-anchor="middle">0</text>
+  <text class="tick" x="350" y="254" text-anchor="middle">0.25</text>
+  <text class="tick" x="500" y="254" text-anchor="middle">0.5</text>
+  <text class="tick" x="650" y="254" text-anchor="middle">0.75</text>
+  <text class="tick" x="800" y="254" text-anchor="middle">1.0</text>
+
+  <!-- row 1: 0.40 -->
+  <text class="ttl" x="190" y="66" text-anchor="end">Posting account not counted</text>
+  <text class="sub" x="190" y="82" text-anchor="end">current behavior (fixed)</text>
+  <rect class="seg-nd" x="200" y="50" width="150" height="38"/>
+  <rect class="seg-v" x="350" y="50" width="90" height="38"/>
+  <text class="mono" x="452" y="74" style="fill: var(--ink)">0.40 → low, new event</text>
+
+  <!-- row 2: 0.80 -->
+  <text class="ttl" x="190" y="136" text-anchor="end">Posting account counted</text>
+  <text class="sub" x="190" y="152" text-anchor="end">old behavior (BUG-058)</text>
+  <rect class="seg-nd" x="200" y="120" width="150" height="38"/>
+  <rect class="seg-v" x="350" y="120" width="90" height="38"/>
+  <rect class="seg-o" x="440" y="120" width="240" height="38"/>
+  <text class="mono" x="692" y="144" style="fill: var(--red)">0.80 → HIGH, auto-merge (old)</text>
+
+  <!-- row 3: 0.60 -->
+  <text class="ttl" x="190" y="206" text-anchor="end">Shared link, no organizer</text>
+  <text class="sub" x="190" y="222" text-anchor="end">for comparison</text>
+  <rect class="seg-nd" x="200" y="190" width="150" height="38"/>
+  <rect class="seg-v" x="350" y="190" width="90" height="38"/>
+  <rect class="seg-l" x="440" y="190" width="120" height="38"/>
+  <text class="mono" x="572" y="214" style="fill: var(--ink)">0.60 → mid, queued</text>
+</svg>
+    </div>
+    <figcaption>Name and date at full strength contribute 0.25, venue 0.15. The organizer weight (0.40) alone was enough to jump the high line. Dashed verticals are the band thresholds.</figcaption>
+  </figure>
+  <div class="legend nobox">
+    <span style="--c: var(--seg-namedate)"><i style="display:inline-block;width:11px;height:11px;background:var(--seg-namedate);margin-right:6px;vertical-align:-1px"></i>name + date</span>
+    <span style="--c: var(--seg-venue)"><i style="display:inline-block;width:11px;height:11px;background:var(--seg-venue);margin-right:6px;vertical-align:-1px"></i>venue</span>
+    <span><i style="display:inline-block;width:11px;height:11px;background:var(--seg-org);margin-right:6px;vertical-align:-1px"></i>organizer</span>
+    <span><i style="display:inline-block;width:11px;height:11px;background:var(--seg-link);margin-right:6px;vertical-align:-1px"></i>shared link</span>
+  </div>
+
+  <h2>Where to look in the code</h2>
+  <p><code>process-ingestion-job.ts</code> runs the prepare step and the tier branch. <code>match-event-to-existing.ts</code> holds <code>findMatchingEvent</code> and the candidate query. <code>match-scoring.ts</code> in <code>packages/domain</code> holds the weights and thresholds. <code>merge-events.ts</code> and the <code>resolveSuggestedEventMatch</code> resolver handle the moderator side.</p>
+
+  <h2>Status and what is left</h2>
+  <ul class="open">
+    <li><strong>Done: BUG-058.</strong> A roundup or curator posting account no longer earns the organizer weight. Assumes the Story 3.6v discount was meant to cover the posting account; the story text names only the handle.</li>
+    <li><strong>Done: IDEA-068.</strong> The extraction prompt returns <code>organizerHandle</code> only for an organizer the caption names. The handle discount in the prepare step stays as protection for messages already in the queue.</li>
+    <li><strong>Next: IDEA-067, small.</strong> Count the new post's own co-author and publisher associations in the organizer signal.</li>
+    <li><strong>Then: IDEA-066, medium.</strong> Let an organizer's post beat a venue's post as primary, using per-event organizer and venue handles stored on the event.</li>
+  </ul>
+  <p>Separate decision, not filed: the 6-second undo toast versus a server undo that never expires.</p>
+</main>
+</body>
+</html>

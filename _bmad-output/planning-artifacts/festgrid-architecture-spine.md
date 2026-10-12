@@ -1681,19 +1681,66 @@ This document defines the core architectural invariants for the FestDaily applic
         event: candidates by overlapping schedule dates (±2 days) plus trigram name similarity; score
         on same organizer account (the item's `organizerHandle`, or the candidate's organizer),
         shared registration/ticket link, date+name similarity, venue/coordinates. High ⇒ auto-link;
-        mid ⇒ moderation queue; low ⇒ new event. Thresholds are tuned in Story 3.6v, not fixed here.
+        mid ⇒ moderation queue; low ⇒ new event. Thresholds are tuned in Story 3.6v (values: see the 2026-10-12 amendment below).
         **Mid-confidence interim:** the item is ingested as its own **new event** (so its
         `(post, ordinal)` slot is taken and a re-run skips it, Rule 3) and a suggested-match record
         is queued; approving it *is* a merge (Rule 9), rejecting it is a recorded dismissal. There is
         no separate "pending" event state. An event absorbs **at most one item per post**: when two
         items of one post match the same event, the better-scoring one links and the other is
-        treated as a lower band. The suggested-match record's shape belongs to Story 3.6v.
+        treated as a lower band. The suggested-match record's shape: see the 2026-10-12 amendment below.
         Matching is best-effort: a concurrent-ingestion duplicate it misses is resolved by moderator
         merge (Rule 9), no distributed lock is designed.
         **Primary-post rule, evaluated in order:** (1) organizer-authored (AD-31 Rule 3) beats
         roundup/aggregator/curator; (2) the post whose extraction has more schedules with a complete
         date and location `[ASSUMPTION]`; (3) earlier post; (4) lower post id (deterministic final
         tie-break). `CURATOR_GUIDE` accounts (Story 3.4n) mark an event `stub` and rank last.
+        **Amended 2026-10-12 (Story 3.6v as built, verified against code; diagram:
+        `_bmad-output/planning-artifacts/diagrams/event-dedup-flow.html`).** The tuning and record
+        shape deferred above are now fixed in code; changing any value below is a spine amendment,
+        not a code-only edit.
+        *   **Entry point.** `findMatchingEvent()` (`apps/backend/src/lib/events/match-event-to-existing.ts`),
+            called by `processIngestionJob` (`apps/backend/src/lib/ingestor/process-ingestion-job.ts`)
+            between `buildEventInsertValues()` and the insert, only after the `(post, ordinal)`
+            idempotency lookup missed and the source post row exists. Returns the single
+            best-scoring candidate (any tier) or `null`; no usable schedule start date on the new
+            item ⇒ `null` (plain insert).
+        *   **Candidate query.** Excludes soft-deleted and merged events and any event already
+            linked (`event_posts`) to the new item's own post — this is what enforces "at most one
+            item per post" and stops a multi-event post's sibling ordinals re-merging. A schedule
+            start date within ±2 days (`DATE_WINDOW_DAYS`) of any new schedule; trigram name filter
+            `event_name % name` **and** an explicit `similarity(…) > 0.3` (`NAME_SIMILARITY_FLOOR`,
+            so the floor never depends on the mutable `pg_trgm.similarity_threshold` GUC); `LIMIT 20`
+            (`CANDIDATE_LIMIT`) applies to joined event×schedule rows, ordered by name similarity
+            descending so truncation drops only the weakest.
+        *   **Scoring (pure, `packages/domain/src/events/match-scoring.ts`).** `computeMatchScore` =
+            organizer 0.40 + shared link 0.20 + mean(name similarity, date proximity `1 − minDayDiff/2`,
+            clamped) × 0.25 + venue 0.15 (`MATCH_SCORE_WEIGHTS`). `MATCH_SCORE_THRESHOLDS`: high ≥ 0.75,
+            mid ≥ 0.45, else low (`classifyMatchTier`). Helpers: `hasSharedEventLink` (normalized URL),
+            `hasVenueMatch` (same location string or coordinates within 150 m),
+            `minScheduleDayDifference`. The organizer signal is true when the new item's posting
+            account, or the account resolved from its `organizerHandle`, matches the candidate
+            through any linked post (`buildEventAccountMatchCondition`, AD-31 Rule 4);
+            For roundup- or curator-sourced items **both** `organizerHandle` and the posting
+            account are passed as `undefined` (BUG-058), so an aggregator can earn the organizer
+            weight only through an organizer the caption explicitly tags. The extraction prompt
+            returns `organizerHandle` only for an explicitly tagged or named organizer and never
+            defaults it to the posting account (IDEA-068).
+        *   **Tier outcomes.** High: `enrichAndPromoteEvent` enriches the candidate in place and
+            promotes the new post per the primary-post ordering above; no new `events` row, no
+            moderator step. Mid: the item is inserted as its own event and one
+            `event_match_candidates` row is queued (`ON CONFLICT (event_id, candidate_event_id) DO
+            NOTHING`). Low or `null`: plain new event; the mid event is
+            ingested like any other, so it notifies at creation unless it is a stub (Rule 10), before
+            a moderator has reviewed the suggestion.
+        *   **Suggested-match record.** `event_match_candidates` (`packages/database/schema.ts`):
+            `event_id` (the new mid event), `candidate_event_id` (the existing event), `score`,
+            `post_id`, `status` (`suggested_event_match_status`: pending | accepted | rejected),
+            `resolved_at`, `resolved_by_moderator_id`; unique on `(event_id, candidate_event_id)`,
+            indexed on `candidate_event_id` and `status`. `Mutation.resolveSuggestedEventMatch`
+            ACCEPT runs `mergeEvents()` (Rule 9) with the existing candidate as winner and the new
+            event as loser, which also flips the suggestion to `accepted` and writes an
+            `event_merges` journal row; REJECT only records `rejected`. `undoEventMerge` restores
+            both events and returns the suggestion to `pending`.
     8.  **Promotion and post deletion.** On promotion the event adopts the matched candidate's
         `extraction_ordinal` under the new primary (that `(post, ordinal)` slot is free — the
         candidate was matched to this event rather than creating one) and keeps its old link
@@ -1722,6 +1769,11 @@ This document defines the core architectural invariants for the FestDaily applic
         duplicate. A merge must be reversible within the moderator undo window (`EXPERIENCE.md`'s
         soft-delete-with-undo pattern); the journal that records what was repointed is owned by
         Story 3.6w and must preserve these link rows.
+        **Amended 2026-10-12 (as built, Story 3.6w):** the "undo window" is the UI's 6 s
+        soft-delete-with-undo toast only. The merge commits immediately and `undoEventMerge` has
+        **no server-side expiry** (it rejects only an unknown or already-undone journal row), so
+        undo stays callable after the toast closes. This is the accepted behavior; adding a server
+        expiry is a spine amendment.
     10. **Notifications are per event, with one marker.** `events.notified_at` is set by one
         notify helper and nowhere else. An event notifies at ingestion iff its primary post's
         `grouping_reason` is not `roundup` and the post is not curator-sourced (AD-31 Rule 3
