@@ -47,6 +47,18 @@ components:
     base: "flex justify-between items-center flex-wrap" # added 2026-08-24 -- see packages/ui/src/core/page-header.tsx (Story 0.32)
     title: "text-3xl font-bold"
     action_label: "hidden sm:inline" # action button's label hides below sm:, icon-only on mobile
+  calendar_range_filter:
+    # Added 2026-10-11 (spec-calendar-unified-banded-grid, follow-up) -- "Starts [context]" / "Ends
+    # [context]" on WeeklyCalendarView (EXPERIENCE.md Calendar Unified Banded Grid). Same segmented
+    # chrome and responsiveness as {components.temporal_filter} (full width below sm:, content width
+    # from sm:, min-h-11 hit area, violet active / gray inactive), but MULTI-select: a
+    # role="group" of two aria-pressed buttons (none, one or both on), not a radiogroup.
+    # Each button carries two labels, CSS-switched at md: -- "Starts/Ends this week" (desktop,
+    # context = the displayed week) and "Starts/Ends this day" (mobile, context = the displayed day).
+    base: "inline-flex items-center rounded-md border border-gray-200 p-0.5 gap-0.5 w-full sm:w-auto"
+    option: "flex-1 sm:flex-none min-h-11 px-3 py-1.5 rounded text-sm font-medium text-center transition-colors"
+    option_active: "bg-violet-600 text-white"
+    option_inactive: "text-gray-600 hover:bg-gray-100"
   temporal_filter:
     # Added <bmad-ux pass, 2026-09-17> -- IDEA-019 (Today / Upcoming / All, card view only;
     # originally "Happening now" / Upcoming / All, renamed+redefined same day, see EXPERIENCE.md
@@ -158,6 +170,10 @@ components:
     step: "flex items-center gap-3 py-2" # icon + instruction text per step, e.g. Share icon -> "Add to Home Screen"
     step_number: "flex items-center justify-center w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold shrink-0"
   calendar_overflow_dialog:
+    # SUPERSEDED 2026-10-11 (spec-calendar-unified-banded-grid): the desktop "+N more" dialog, the
+    # 5-per-cell cap and the mobile dialog trigger are gone -- desktop pages in bands, mobile pages
+    # its selected day (EXPERIENCE.md Calendar Unified Banded Grid). The CalendarOverflowDialog
+    # component was deleted; this token family is kept only as history and has no consumer.
     # Added <bmad-ux pass, 2026-09-17> -- resolves FIND-026, supersedes the mobile list's
     # previous uncapped-always-render rule. ONE shared, responsive component for both surfaces
     # (EXPERIENCE.md Calendar Overflow: Scalable Cap + Infinite-Scroll Popup) -- not two
