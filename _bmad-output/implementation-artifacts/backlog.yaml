@@ -2178,3 +2178,12 @@ items:
      ref: [apps/backend/src/lib/ai-processor/build-gemini-request.ts, apps/backend/src/validation/extracted-event.schema.ts, implementation-artifacts/3-6s-extract-multiple-events-per-post-with-grouping-rules.md, backlog/IDEA-068-organizer-handle-explicit-only.md],
      touches: [app:backend, cross:ai-extraction],
      note: "Done 2026-10-12: prompt returns organizerHandle only for an explicit organizer. Detail in backlog/IDEA-068-organizer-handle-explicit-only.md."}
+
+  # ── 2026-10-12 (Apify reply; BYOK vs platform-paid decision) ─────────────────────────────
+  CC-032:
+    {type: proposal, status: triaged, created: 2026-10-12,
+     impact: compliance, effort: m,
+     title: "Decide the cost model: platform-paid vs user-paid (BYOK) vs hybrid, now that Apify allows contributed tokens within conditions",
+     ref: [implementation-artifacts/3-4b-byok-pooled-scraper-vendor-keys.md, planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md],
+     touches: [app:backend, cross:ai-extraction, cross:prd, cross:process],
+     note: "The product is built on Gemini BYOK while the business plan assumes platform-paid extraction; counsel brief and cost model are in the private fest-grid-monetization repo. Story 3.4b reopened to backlog (Apify only, still gated); nothing in the PRD changes until this is decided."}
