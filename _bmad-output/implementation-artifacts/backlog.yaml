@@ -2131,9 +2131,17 @@ items:
      note: "Fixed in PR #63; see Story 3.18 Change Log and AD-31 Rule 4 (input contract)."}
 
   IDEA-065:
-    {type: idea, status: backlog, created: 2026-10-08,
+    {type: idea, status: done, created: 2026-10-08,
      impact: user-visible, effort: m,
      title: "AI filter's accountId is unvalidated LLM output: resolve handle/name to a real account id (or drop it) instead of silently matching nothing",
      ref: [packages/domain/src/ai-event-filters/transform-gemini-response-to-event-filter.ts, implementation-artifacts/3-18-union-of-associations-account-filtering.md],
      touches: [cross:ai-extraction, pkg:domain, app:backend, web:events],
-     note: "BUG-056 only stops the 500; a non-UUID accountId now matches nothing."}
+     note: "Done 2026-10-12; see Story 3.18 Change Log."}
+
+  BUG-057:
+    {type: bug, status: done, created: 2026-10-12, parent: BUG-056,
+     impact: user-visible, effort: xs,
+     title: "Feed account selector returned an empty list: SubscriptionPicker emitted subscription ids, not account profile ids",
+     ref: [implementation-artifacts/3-7b-filter-the-feed-page-by-specific-subscribed-account.md, packages/ui/src/features/subscriptions/SubscriptionPicker.tsx],
+     touches: [pkg:ui, web:subscriptions, web:events],
+     note: "Fixed 2026-10-12; see Story 3.7b Change Log."}

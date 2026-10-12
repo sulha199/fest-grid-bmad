@@ -34,7 +34,7 @@ export function SubscriptionPicker({
 }: SubscriptionPickerProps) {
   const options = React.useMemo(() => {
     return subscriptions.map((sub) => {
-      const { id, account } = sub;
+      const { account } = sub;
       const displayName = account.displayName || `@${account.username}`;
 
       const optionLabel = (
@@ -45,7 +45,11 @@ export function SubscriptionPicker({
       );
 
       return {
-        value: id,
+        // The account PROFILE id, not the subscription row id: consumers feed this straight into
+        // the `socialMediaAccountProfileId` query condition (Feed `subscriptions` URL param),
+        // which compares against post_account_associations.account_id. The subscription row id
+        // never matches, so the Feed list came back empty after selecting an account.
+        value: account.id,
         label: optionLabel,
       };
     });

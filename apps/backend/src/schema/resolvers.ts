@@ -42,6 +42,7 @@ import { sendDangerousReportModeratorAlerts } from '../lib/notifications/send-da
 import { enqueuePostForProcessing } from '../lib/posts/enqueue-post-for-processing.js';
 import { replayActorRun } from '../lib/scraper/replay-actor-run.js';
 import { applyDefaultLocationChange } from '../lib/accounts/apply-default-location-change.js';
+import { resolveFilterAccountId } from '../lib/ai-event-filters/resolve-filter-account-id.js';
 import { mergeEvents, undoEventMerge as undoEventMergeWrite, EventMergeInvalidStateError, EventMergeNotFoundError, EventMergeAlreadyUndoneError } from '../lib/events/merge-events.js';
 
 // `post_account_associations.account_id` is a uuid column: comparing it against a non-UUID string
@@ -327,7 +328,7 @@ export const resolvers: Resolvers = {
       const systemInstruction = `You are an AI assistant that parses a free-text prompt from Indonesia (mainly Yogyakarta/Sleman) into a structured EventFilterInput JSON object.
 Follow this schema for the output object:
 {
-  "accountId": "optional social media account profile UUID string",
+  "accountId": "optional: the social media account the user named, exactly as written (an @handle, username or display name). NEVER invent a UUID; if no account is named, omit it",
   "types": ["optional array of EventType strings: EXHIBITION, COMPETITION, FESTIVAL, PERFORMANCE, WORKSHOP, SEMINAR, MARKET, GATHERING, PROMOTION, FUNDRAISER, CIVIC, OTHER"],
   "categories": ["optional array of EventCategory strings: MUSIC, ARTS_AND_CULTURE, FOOD_AND_DRINK, SPORTS_AND_FITNESS, FAMILY_AND_KIDS, HOBBIES_AND_INTERESTS, BUSINESS_AND_NETWORKING, HEALTH_AND_WELLNESS, HOLIDAY, CHARITY_AND_CAUSES, CIVIC_AND_COMMUNITY, RELIGION_AND_SPIRITUALITY, TECHNOLOGY, TRAVEL_AND_TOURISM, EDUCATION, CAREER, AUTOMOTIVE, OTHER"],
   "keyword": "optional search phrase string",
@@ -430,6 +431,19 @@ Constraints and Guidelines:
         }
         const resolvedFilter = transformGeminiResponseToEventFilter(parsed.resolvedFilter);
         const caveats = Array.isArray(parsed.caveats) ? parsed.caveats.filter((c: any) => typeof c === 'string') : [];
+
+        // IDEA-065: the model only ever sees the user's words, never profile UUIDs, so turn the
+        // named handle/username/display name into a real profile id (or drop it, loudly).
+        if (resolvedFilter.accountId) {
+          const namedAccount = resolvedFilter.accountId;
+          const accountProfileId = await resolveFilterAccountId(authUser.userId, namedAccount);
+          if (accountProfileId) {
+            resolvedFilter.accountId = accountProfileId;
+          } else {
+            delete resolvedFilter.accountId;
+            caveats.push(`Could not find an account matching "${namedAccount}", so events from all accounts are shown.`);
+          }
+        }
 
         return {
           resolvedFilter: resolvedFilter as any,

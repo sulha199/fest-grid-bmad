@@ -343,6 +343,10 @@ describe('FeedContent', () => {
         return args[1]?.query?.conditions?.some((c: any) => c.field === 'socialMediaAccountProfileId');
       });
       expect(call).toBeDefined();
+      // Regression: the condition must carry the account PROFILE id ('acc-1'), never the
+      // subscription row id ('sub-1'), or the feed matches no events.
+      const accountCondition = call[1].query.conditions.find((c: any) => c.field === 'socialMediaAccountProfileId');
+      expect(accountCondition.value).toEqual(['acc-1']);
     });
   });
 });
