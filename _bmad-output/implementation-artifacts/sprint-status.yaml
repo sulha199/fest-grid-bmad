@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-14T22:33:49Z
+last_updated: 2026-10-14T22:36:33Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -2515,7 +2515,7 @@ development_status:
   9-1a-build-the-filter-expression-tree-types-zod-schema-and-normalizer: review
   9-1b-extend-the-relative-date-grammar-with-spans-multi-weekday-and-temporal-status: review
   9-2-compile-filter-expressions-to-query-conditions-with-not-and-null-semantics: review
-  9-3-expose-filter-expressions-through-graphql-resolvers-and-widgets: ready-for-dev
+  9-3-expose-filter-expressions-through-graphql-resolvers-and-widgets: in-progress
   9-4-upgrade-gemini-extraction-to-expression-trees-with-node-level-caveats: backlog
   9-5-render-expression-summaries-in-english-and-indonesian: backlog
   9-6-show-long-expression-summaries-in-the-ai-filter-overlay-and-filterhub: backlog
