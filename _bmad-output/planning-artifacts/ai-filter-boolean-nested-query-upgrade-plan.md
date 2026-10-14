@@ -49,6 +49,7 @@ LeafFilter = one of the v1 fields (account, type, category, keyword, dateRange,
 | # | Story | Package | Key points |
 |---|---|---|---|
 | S1 | **Domain: `FilterNode` types + Zod schema + limits** | `packages/domain/src/ai-event-filters/` | Pure types, depth/size/NOT caps, `normalize()` (flatten nested same-op, collapse single-child groups, de-dup leaves), exhaustive unit tests. |
+| S1b | **Date grammar upgrade** | `buildEventsQueryCondition.ts`, transform, GraphQL `DateRangeFilter` | Add optional `spanAmount`/`spanUnit` to `dateRange` (rolling "next 7 days / 2 weeks", "rest of month" via span-to-period-end); `dayOfWeek` becomes an array (weekends = SAT+SUN, weekdays = MON–FRI; `getDays` already supports arrays); extract `temporalFilter` (TODAY/UPCOMING) from prompts; fix THIS_MONTH + DAY/WEEK offset semantics. Still relative-only: absolute dates, time-of-day, holidays stay caveats (v2). |
 | S2 | **Compiler: `FilterNode → QueryCondition`** | `packages/domain/src/events/buildEventsQueryCondition.ts` | Extract per-leaf builder from the current monolith (reused by flat path → no behavior drift); add `NOT` via `ne`/`notIn` where possible, and a `not` group operator in DSL only if a leaf can't be negated natively. Extend DSL type `DSLOperator` with `not`; update SQL translator + `explain-events-queries.ts`. Remove the throw for coordinates+adminArea inside OR branches. Property tests: flat filter ≡ tree of ANDed leaves. |
 | S3 | **SQL translation for `not` / null semantics** | `apps/backend` query translator | Per §3.2. Check index use with `explain-events-queries.ts` (OR of `scheduleDateRange` overlaps is already used for dayOfWeek, so pattern is proven). |
 | S4 | **GraphQL schema + resolvers** | `events.graphql`, `ai-event-filters.graphql`, `widgets.graphql`, `resolvers.ts`, codegen | Add `FilterNodeInput`/`FilterNode`; resolver validates via S1; `dayOfWeek` becomes `[DayOfWeek!]` (backward-compatible input coercion from single value); persist `resolvedFilter` JSON as `{version: 2, expr, …flat}`; `buildFeed`/`buildAccountEvents` conditions get the same support. |
@@ -58,7 +59,7 @@ LeafFilter = one of the v1 fields (account, type, category, keyword, dateRange,
 | S8 | **Evals + quality gate** | `review-rubric-ai-filter.md`, test-artifacts | Golden-prompt set (≥40 en/id prompts: AND/OR/NOT/nesting/ambiguous/over-limit/off-topic) asserting tree shape + caveats; run against Gemini behind a flag in CI nightly, stubbed in PR CI. |
 | S9 | **Docs/spec** | SPEC, `filter-vocabulary.md`, architecture spine | Update via `bmad-spec` (update). Architecture diagram doc only if infra changes (none expected). |
 
-Order: S1 → S2 → S3 → S4 → (S5 ∥ S6) → S7 → S8; S9 first (spec) and last (reconcile).
+Order: S1 → S1b → S2 → S3 → S4 → (S5 ∥ S6) → S7 → S8; S9 first (spec) and last (reconcile).
 
 ## 5. Risks & mitigations
 
@@ -84,9 +85,10 @@ Current position: implementation phase; this is a change to an existing, specced
 3. `bmad-create-epics-and-stories` (or `bmad-form-epics`) — turn §4 into epic + stories.
 4. `bmad-epic-readiness-check` → `bmad-create-story` → `bmad-dev-story` → `bmad-code-review` per story.
 
-## 8. Open questions for you
+## 8. Decisions (resolved 2026-10-14)
 
-1. Max complexity: is depth 3 / 12 nodes acceptable?
-2. NOT-with-null semantics (§3.2): include events with no value?
-3. Should `dayOfWeek` and `location` become arrays now (simple) or only be reachable through `expr` (leaner schema)? Recommend arrays for `dayOfWeek`, and `expr` OR for locations.
-4. Do Widgets get tree support in this epic or follow-up?
+1. Caps: depth 3 / 12 nodes — adopted.
+2. NOT includes events with no value for the field (NULL ≠ x) — adopted.
+3. `dayOfWeek` becomes an array; multiple locations only via OR in `expr` — adopted.
+4. Widgets get tree support in this epic (S4 covers `widgets.graphql`; add Widget regression tests) — adopted.
+5. Date grammar upgrade (S1b) included in this epic; absolute dates and time-of-day remain v2.
