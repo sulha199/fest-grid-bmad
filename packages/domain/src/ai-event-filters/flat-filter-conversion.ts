@@ -36,7 +36,12 @@ export function expressionFromFlatFilter(filter: EventFilterInput): FilterNode {
   if (filter.dayOfWeek) {
     // Decision 4 (9.1a) / Story 9.1b: the flat shape may now be singular or array-valued --
     // normalize either into the leaf's array-valued shape.
-    const dowArray = Array.isArray(filter.dayOfWeek) ? filter.dayOfWeek : [filter.dayOfWeek as DayOfWeek];
+    // Story 9.3: `filter.dayOfWeek`'s array branch is typed to additionally accept a
+    // cross-package nominal enum's values (so a GraphQL-codegen-sourced caller's own `DayOfWeek`
+    // enum assigns without a cast at the interface boundary) -- the runtime values are always
+    // plain `DayOfWeek`-valued strings regardless of which nominal enum produced them, so this
+    // cast is safe.
+    const dowArray = (Array.isArray(filter.dayOfWeek) ? filter.dayOfWeek : [filter.dayOfWeek]) as DayOfWeek[];
     children.push({ field: 'dayOfWeek', value: dowArray });
   }
   if (filter.location) {

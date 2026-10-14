@@ -367,8 +367,10 @@ export function buildEventsQueryCondition({
     if (categoriesCondition) conditions.push(categoriesCondition);
     const keywordCondition = buildKeywordCondition(filter.keyword);
     if (keywordCondition) conditions.push(keywordCondition);
+    // Story 9.3: see the EventFilterInput.dayOfWeek widening note above -- the runtime value is
+    // always a plain DayOfWeek-valued string/array regardless of which nominal enum produced it.
     const dateRangeAndDayOfWeekCondition = buildDateRangeAndDayOfWeekCondition(
-      filter.dateRange, filter.dayOfWeek, zonedCurrentDate, zonedTodayISO
+      filter.dateRange, filter.dayOfWeek as DayOfWeek[] | DayOfWeek | string | null | undefined, zonedCurrentDate, zonedTodayISO
     );
     if (dateRangeAndDayOfWeekCondition) conditions.push(dateRangeAndDayOfWeekCondition);
     const locationCondition = buildLocationCondition(filter.location);
