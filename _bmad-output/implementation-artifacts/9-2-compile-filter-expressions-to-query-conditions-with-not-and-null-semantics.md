@@ -8,7 +8,7 @@ baseline_commit: 7c45a716878ce14112f73e0db9472dd776e0ac44
 
 - Epic: 9
 - Story ID: 9.2
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -35,7 +35,7 @@ so that Discovery, Feed, Favorites, account pages and Widgets all apply expressi
 
 ## Tasks / Subtasks
 
-- [ ] 1. **(AC2, Data Type Compatibility)** In `packages/domain/src/events/buildEventsQueryCondition.ts`, extract the current `if (filter) {...}` block's per-field logic into exported, independently-callable functions, with **zero behavior change** (the existing `buildEventsQueryCondition.test.ts` suite must pass unmodified):
+- [x] 1. **(AC2, Data Type Compatibility)** In `packages/domain/src/events/buildEventsQueryCondition.ts`, extract the current `if (filter) {...}` block's per-field logic into exported, independently-callable functions, with **zero behavior change** (the existing `buildEventsQueryCondition.test.ts` suite must pass unmodified):
    - `buildAccountIdCondition(accountId: string | null | undefined): QueryCondition | undefined` — the `filter.accountId` block, verbatim guard (`if (accountId)`).
    - `buildTypesCondition(types: string[] | null | undefined): QueryCondition | undefined` — the `filter.types` block, verbatim guard (`types && types.length > 0`).
    - `buildCategoriesCondition(categories: string[] | null | undefined): QueryCondition | undefined` — same shape for `categories`.
@@ -47,9 +47,9 @@ so that Discovery, Feed, Favorites, account pages and Widgets all apply expressi
    - Add `resolveZonedToday(now: Date, timezone?: string | null): { zonedTodayISO: string; zonedCurrentDate: Date }`, wrapping the existing two-line `resolveTodayISO(now, timezone)` + `new Date(zonedTodayISO + 'T00:00:00Z')` computation that today is inlined directly inside `buildEventsQueryCondition`. Both the flat function and the new compiler (Task 3) call this one helper, so there is exactly one implementation of "what is 'today' for this request" — not two copies that could silently drift.
    - Rewrite `buildEventsQueryCondition`'s own body to call these extracted functions (in the same order it pushes conditions today: accountId, types, categories, keyword, dateRange/dayOfWeek, location, venueType, isFree, temporalFilter) instead of inlining the logic. The function's own exported signature, its `conditions.push(...)` ordering, and its final `{ operator: 'and', conditions }` / `undefined` return shape must not change.
 
-- [ ] 2. **(AC1)** In `packages/domain/src/query/queryDsl.ts`: widen `DSLOperator` from `"and" | "or"` to `"and" | "or" | "not"`. No other change to this file — `GroupCondition.conditions: QueryCondition[]` is reused as-is for the `'not'` shape (an array holding exactly one element by construction; see Task 3), so `isGroupCondition` needs no change.
+- [x] 2. **(AC1)** In `packages/domain/src/query/queryDsl.ts`: widen `DSLOperator` from `"and" | "or"` to `"and" | "or" | "not"`. No other change to this file — `GroupCondition.conditions: QueryCondition[]` is reused as-is for the `'not'` shape (an array holding exactly one element by construction; see Task 3), so `isGroupCondition` needs no change.
 
-- [ ] 3. **(AC1, AC2, AC3)** Create `packages/domain/src/ai-event-filters/compile-filter-node.ts`:
+- [x] 3. **(AC1, AC2, AC3)** Create `packages/domain/src/ai-event-filters/compile-filter-node.ts`:
    - `export interface CompileFilterNodeContext { currentDate?: Date; timezone?: string | null; }`
    - `export function compileFilterNodeToQueryCondition(node: FilterNode, ctx: CompileFilterNodeContext = {}): QueryCondition | undefined` — computes `now = ctx.currentDate ?? new Date()` and `{ zonedTodayISO, zonedCurrentDate } = resolveZonedToday(now, ctx.timezone)` (imported from `../events/buildEventsQueryCondition.js`), calls Story 9.1a's `normalize(node)` exactly once at the top (never re-normalized at each recursive step — `normalize` is already bottom-up/idempotent, so one top-level call normalizes the whole tree), then dispatches to an internal `compileNode`.
    - `compileNode(node, ctx)`: if `isFilterLeaf(node)`, dispatch to `compileLeaf`. If `isFilterNotNode(node)`, dispatch to `compileNot(node.child, ctx)`. Otherwise (`isFilterGroupNode`): for `op === 'AND'`, call `compileAndChildren(node.children, ctx)`; for `op === 'OR'`, map `compileNode` over `node.children` and filter out `undefined`. Either way, if the resulting compiled-children array is empty, return `undefined`; otherwise return `{ operator: node.op === 'AND' ? 'and' : 'or', conditions: compiledChildren }` — **never collapse a single-element group to its bare child.** This is required for AC2 parity: the legacy flat path's own `buildEventsQueryCondition` never collapses either (`return { operator: 'and', conditions }` runs regardless of `conditions.length`), so a compiler that did collapse would produce a *different* (bare, unwrapped) shape than the flat path's always-wrapped one for every single-field fixture.
@@ -58,19 +58,19 @@ so that Discovery, Feed, Favorites, account pages and Widgets all apply expressi
    - `compileNot(child: FilterNode, ctx)`: compile `child` via `compileNode`; if the result is `undefined`, return `undefined`. Otherwise, if the compiled result is **not** a `GroupCondition` (use `isGroupCondition` from `../query/queryDsl.js`) and its `operator` is `'eq'`, return the same condition with `operator: 'ne'`; if its `operator` is `'in'`, return it with `operator: 'notIn'`; for every other case (a `GroupCondition`, or a terminal with any other operator), return `{ operator: 'not', conditions: [compiledChild] }`.
    - Export `compileFilterNodeToQueryCondition` and `CompileFilterNodeContext` from this file and from `packages/domain/src/ai-event-filters/index.ts`.
 
-- [ ] 4. **(AC1)** In `packages/graphql-select/drizzle-where.ts`:
+- [x] 4. **(AC1)** In `packages/graphql-select/drizzle-where.ts`:
    - In the group-condition branch, add an `else if (condition.operator === "not")` arm (after the existing `"and"`/`"or"` arms, before the final `return undefined;`) that returns `parts.length > 0 ? sql\`NOT (${parts[0]})\` : undefined` — `parts` is already computed above from `condition.conditions.map(...).filter(defined)`, so no new traversal is needed. Add a doc comment explaining this is a plain, non-null-aware wrap (the null-inclusive guarantee is delivered by the `ne`/`notIn` cases below, not here — Dev Notes decision 3).
    - In the terminal-operator `switch`, scalar-column branch: change `case "ne"`'s non-null branch from `return ne(column, value);` to `return sql\`${column} IS DISTINCT FROM ${value}\`;` (keep the existing `value === null` branch, `return isNotNull(column);`, unchanged — it is already equivalent to `IS DISTINCT FROM NULL`).
    - Change `case "notIn"`'s scalar-column branch from `return notInArray(column, value);` to `return or(isNull(column), notInArray(column, value));` (keep the existing empty-array branch, `return sql\`true\`;`, unchanged — "not in nothing" is already unconditionally true, including for NULL rows).
    - Change `case "notIn"`'s array-column branch from `return sql\`NOT (${column} && ARRAY[${sql.join(elements, sql\`, \`)}])\`;` to `return sql\`(${column} IS NULL OR NOT (${column} && ARRAY[${sql.join(elements, sql\`, \`)}]))\`;`.
    - Leave the `matchCondition`-descriptor branch's `ne`/`notIn` cases (used today only by `socialMediaAccountProfileId`) **unchanged** — see Dev Notes decision 4 for why: that branch's `matchCondition(...)` is an `EXISTS`-based boolean that is never SQL-`NULL` (unlike a nullable scalar/JSON-extracted column), so there is no "no value for the field" case to special-case there.
 
-- [ ] 5. **(AC4)** In `apps/backend/src/explain-events-queries.ts`: add two new scenarios after the existing three `getEvents` scenarios (plain / `UPCOMING` / subscribed-account), using `compileFilterNodeToQueryCondition` (imported from `@festgrid/domain/ai-event-filters`) the same way the existing scenarios already use `buildEventsQueryCondition` — build a `FilterNode`, compile it to a `QueryCondition`, pass it as the `query` GraphQL variable (the web client's own `getEvents` operation already only declares `$query`, never `$filter`, per the existing comment in this file):
+- [x] 5. **(AC4)** In `apps/backend/src/explain-events-queries.ts`: add two new scenarios after the existing three `getEvents` scenarios (plain / `UPCOMING` / subscribed-account), using `compileFilterNodeToQueryCondition` (imported from `@festgrid/domain/ai-event-filters`) the same way the existing scenarios already use `buildEventsQueryCondition` — build a `FilterNode`, compile it to a `QueryCondition`, pass it as the `query` GraphQL variable (the web client's own `getEvents` operation already only declares `$query`, never `$filter`, per the existing comment in this file):
    - `'getEvents wide OR filter expression'`: `{ op: 'OR', children: [ {field:'type', value:[EventType.FESTIVAL]}, {field:'category', value:[EventCategory.MUSIC]}, {field:'venueType', value:'Mall'}, {field:'isFree', value:true}, {field:'locationAdminArea', value:'Sleman'}, {field:'temporalFilter', value: TemporalFilter.UPCOMING} ] }` (6 branches across 6 different leaf fields).
    - `'getEvents NOT filter expression'`: `{ op: 'NOT', child: { field: 'dateRange', value: { anchor: DateAnchor.TODAY, offsetAmount: 0, offsetUnit: DateOffsetUnit.DAY } } }`.
    - Both run through the existing `runGetEventsScenario` helper exactly like the current three scenarios (same `limit: 20`), so they appear as two new rows in the printed comparison table.
 
-- [ ] 6. **(Testing, AC1-AC3)** Create `packages/domain/src/ai-event-filters/compile-filter-node.test.ts` (`node:test`), covering:
+- [x] 6. **(Testing, AC1-AC3)** Create `packages/domain/src/ai-event-filters/compile-filter-node.test.ts` (`node:test`), covering:
    - AC2 parity: for every fixture in `EVENT_FILTER_FIXTURES` (imported from `../events/buildEventsQueryCondition.test.js`) and one fixed `currentDate`, assert `compileFilterNodeToQueryCondition(expressionFromFlatFilter(fixture), { currentDate })` deep-equals `buildEventsQueryCondition({ filter: fixture, currentDate })`.
    - AC1 native-inversion shape: `NOT(accountId leaf)` → `ne`; `NOT(type leaf)` → `notIn`; `NOT(category leaf)` → `notIn`; `NOT(locationAdminArea leaf)` → `ne`; `NOT(isFree leaf)` → `ne`; `NOT(venueType leaf)` → `ne`.
    - AC1 `'not'`-group fallback shape: `NOT(dateRange leaf)`, `NOT(dayOfWeek leaf)`, `NOT(locationProximity leaf)`, `NOT(temporalFilter leaf with UPCOMING)`, `NOT(temporalFilter leaf with TODAY` — compiles to a `GroupCondition` already, confirming the `isGroupCondition` branch`), `NOT(keyword leaf, plain text` — compiles to an `or`-of-`contains` group), each asserted to produce `{ operator: 'not', conditions: [...] }`.
@@ -81,14 +81,14 @@ so that Discovery, Feed, Favorites, account pages and Widgets all apply expressi
    - Normalization-before-compile: a non-normalized nested `AND(AND(leafA), leafB)` expression compiles identically to its normalized `AND(leafA, leafB)` form.
    - 100% branch coverage across `compile-filter-node.ts`, per `project-context.md`'s domain testing rule (manual branch-by-branch test-design review, matching Story 9.1a/9.1b's own precedent — no coverage tool is configured for this `tsx --test`-based package).
 
-- [ ] 7. **(Testing, AC2)** Confirm `packages/domain/src/events/buildEventsQueryCondition.test.ts` passes unmodified after Task 1's extraction (no new test cases are *required* here since the function's public behavior is unchanged by construction, but re-run the full existing suite as a regression gate).
+- [x] 7. **(Testing, AC2)** Confirm `packages/domain/src/events/buildEventsQueryCondition.test.ts` passes unmodified after Task 1's extraction (no new test cases are *required* here since the function's public behavior is unchanged by construction, but re-run the full existing suite as a regression gate).
 
-- [ ] 8. **(Testing, AC1)** In `packages/graphql-select/drizzle-where.test.ts`, add cases for:
+- [x] 8. **(Testing, AC1)** In `packages/graphql-select/drizzle-where.test.ts`, add cases for:
    - `'not'` group operator: wraps a single `eq` terminal's SQL in `NOT (...)` (assert via `PgDialect().sqlToQuery(...).sql` matching `/NOT \(/`); a `'not'` group with zero compiled children returns `undefined`.
    - `ne`'s updated null-inclusive SQL shape: assert the rendered SQL contains `IS DISTINCT FROM` for a non-null value (the existing "handles ne operator"/"handles ne null" tests stay as loose non-undefined checks and still pass unmodified — this is a new, additional assertion, not a replacement).
    - `notIn`'s updated null-inclusive SQL shape, both the scalar-column branch (assert `IS NULL` appears alongside the existing `NOT IN`-equivalent shape) and the array-column branch (assert `IS NULL` appears alongside the existing `&&`/`ARRAY[` shape).
 
-- [ ] 9. **(Verification)** Run `pnpm --filter @festgrid/domain test`, `pnpm --filter @festgrid/domain lint`, `pnpm --filter @festgrid/domain build`; `pnpm --filter @festgrid/graphql-select test`, `pnpm --filter @festgrid/graphql-select lint`, `pnpm --filter @festgrid/graphql-select build`. If a volume-seeded local Postgres is available (`pnpm --filter @festgrid/database seed:volume`), run `pnpm --filter @festgrid/backend exec tsx src/explain-events-queries.ts` and confirm the two new scenario rows show no `Seq Scan` on the main select; record the result (or that it was skipped for lack of a seeded DB) in the Dev Agent Record. This script is a manual dev tool, not part of the automated test/CI suite — its absence from a given run is not a Definition-of-Done blocker, but adding the two scenarios (Task 5) is (AC4's literal text).
+- [x] 9. **(Verification)** Run `pnpm --filter @festgrid/domain test`, `pnpm --filter @festgrid/domain lint`, `pnpm --filter @festgrid/domain build`; `pnpm --filter @festgrid/graphql-select test`, `pnpm --filter @festgrid/graphql-select lint`, `pnpm --filter @festgrid/graphql-select build`. If a volume-seeded local Postgres is available (`pnpm --filter @festgrid/database seed:volume`), run `pnpm --filter @festgrid/backend exec tsx src/explain-events-queries.ts` and confirm the two new scenario rows show no `Seq Scan` on the main select; record the result (or that it was skipped for lack of a seeded DB) in the Dev Agent Record. This script is a manual dev tool, not part of the automated test/CI suite — its absence from a given run is not a Definition-of-Done blocker, but adding the two scenarios (Task 5) is (AC4's literal text).
 
 ## Dev Notes
 
@@ -202,21 +202,21 @@ Per `epic-9-readiness.md` (`swept: true`, 2026-10-14), Gate 1 (Architecture/Infr
 
 ## Testing Requirements
 
-- [ ] Unit tests: `compile-filter-node.test.ts` — AC2 parity over every `EVENT_FILTER_FIXTURES` case; AC1 native-inversion shapes (`accountId`/`type`/`category`/`locationAdminArea`/`isFree`/`venueType` → `ne`/`notIn`) and `'not'`-group fallback shapes (`dateRange`/`dayOfWeek`/`locationProximity`/`temporalFilter`/plain-keyword → `'not'` group), including the shape-driven hashtag-keyword exception; AC1 group-mapping (AND/OR, empty group → `undefined`); AC3 OR-of-mutually-exclusive-location-leaves (no throw); the `compileAndChildren` sibling-merge (AND merges, OR doesn't); normalize-before-compile equivalence.
-- [ ] Unit tests: `drizzle-where.test.ts` additions — `'not'` group SQL shape (`NOT (...)`, and empty-children → `undefined`); `ne`'s `IS DISTINCT FROM` SQL shape; `notIn`'s `IS NULL OR` SQL shape for both scalar and array columns.
-- [ ] Regression: full existing `buildEventsQueryCondition.test.ts` suite passes unmodified after Task 1's extraction.
-- [ ] 100% branch coverage on `compile-filter-node.ts`, per `project-context.md`'s domain testing rule; `drizzle-where.test.ts`'s new cases follow `packages/graphql-select`'s own existing (non-100%-enforced) coverage convention.
-- [ ] Manual verification (not CI-gated): `explain-events-queries.ts`'s two new scenarios run against a volume-seeded DB, confirming no new `Seq Scan` (AC4); recorded as run or explicitly skipped in the Dev Agent Record.
-- [ ] E2E tests: not applicable — no user-facing surface in this story (confirmed by Gate 2 above).
+- [x] Unit tests: `compile-filter-node.test.ts` — AC2 parity over every `EVENT_FILTER_FIXTURES` case; AC1 native-inversion shapes (`accountId`/`type`/`category`/`locationAdminArea`/`isFree`/`venueType` → `ne`/`notIn`) and `'not'`-group fallback shapes (`dateRange`/`dayOfWeek`/`locationProximity`/`temporalFilter`/plain-keyword → `'not'` group), including the shape-driven hashtag-keyword exception; AC1 group-mapping (AND/OR, empty group → `undefined`); AC3 OR-of-mutually-exclusive-location-leaves (no throw); the `compileAndChildren` sibling-merge (AND merges, OR doesn't); normalize-before-compile equivalence.
+- [x] Unit tests: `drizzle-where.test.ts` additions — `'not'` group SQL shape (`NOT (...)`, and empty-children → `undefined`); `ne`'s `IS DISTINCT FROM` SQL shape; `notIn`'s `IS NULL OR` SQL shape for both scalar and array columns.
+- [x] Regression: full existing `buildEventsQueryCondition.test.ts` suite passes unmodified after Task 1's extraction.
+- [x] 100% branch coverage on `compile-filter-node.ts`, per `project-context.md`'s domain testing rule; `drizzle-where.test.ts`'s new cases follow `packages/graphql-select`'s own existing (non-100%-enforced) coverage convention.
+- [x] Manual verification (not CI-gated): `explain-events-queries.ts`'s two new scenarios run against a volume-seeded DB, confirming no new `Seq Scan` (AC4); recorded as run or explicitly skipped in the Dev Agent Record. **Skipped** — no volume-seeded local Postgres available in this environment; recorded in Completion Notes (not a DoD blocker per this task's own text).
+- [x] E2E tests: not applicable — no user-facing surface in this story (confirmed by Gate 2 above).
 
 ## Deliverables Checklist
 
-- [ ] `buildAccountIdCondition`/`buildTypesCondition`/`buildCategoriesCondition`/`buildKeywordCondition`/`buildDateRangeAndDayOfWeekCondition`/`buildLocationCondition`/`buildVenueTypeCondition`/`buildIsFreeCondition`/`resolveZonedToday` extracted and exported from `buildEventsQueryCondition.ts`; `buildTemporalCondition` exported; `buildEventsQueryCondition` itself behaviorally unchanged.
-- [ ] `DSLOperator` widened to `"and" | "or" | "not"` in `queryDsl.ts`.
-- [ ] `compileFilterNodeToQueryCondition` implemented in `compile-filter-node.ts`, exported from `ai-event-filters/index.ts`, satisfying AC1-AC3.
-- [ ] `drizzle-where.ts` translates `'not'` groups and null-inclusive `ne`/`notIn` (scalar + array-column).
-- [ ] `explain-events-queries.ts` has the two new AC4 scenarios.
-- [ ] All new/updated test files passing; 100% coverage on `compile-filter-node.ts`; `pnpm --filter @festgrid/domain test`/`lint`/`build` and `pnpm --filter @festgrid/graphql-select test`/`lint`/`build` all green.
+- [x] `buildAccountIdCondition`/`buildTypesCondition`/`buildCategoriesCondition`/`buildKeywordCondition`/`buildDateRangeAndDayOfWeekCondition`/`buildLocationCondition`/`buildVenueTypeCondition`/`buildIsFreeCondition`/`resolveZonedToday` extracted and exported from `buildEventsQueryCondition.ts`; `buildTemporalCondition` exported; `buildEventsQueryCondition` itself behaviorally unchanged.
+- [x] `DSLOperator` widened to `"and" | "or" | "not"` in `queryDsl.ts`.
+- [x] `compileFilterNodeToQueryCondition` implemented in `compile-filter-node.ts`, exported from `ai-event-filters/index.ts`, satisfying AC1-AC3.
+- [x] `drizzle-where.ts` translates `'not'` groups and null-inclusive `ne`/`notIn` (scalar + array-column).
+- [x] `explain-events-queries.ts` has the two new AC4 scenarios.
+- [x] All new/updated test files passing; 100% coverage on `compile-filter-node.ts`; `pnpm --filter @festgrid/domain test`/`lint`/`build` and `pnpm --filter @festgrid/graphql-select test`/`lint`/`build` all green.
 
 ## Out of Scope
 
@@ -230,22 +230,57 @@ Per `epic-9-readiness.md` (`swept: true`, 2026-10-14), Gate 1 (Architecture/Infr
 
 ## Definition of Done
 
-- [ ] AC1-AC4 satisfied and verified by their respective tests.
-- [ ] Required tests passing: `pnpm --filter @festgrid/domain test` (100% branch coverage on `compile-filter-node.ts`) and `pnpm --filter @festgrid/graphql-select test`.
-- [ ] Lint and type checks passing: `pnpm --filter @festgrid/domain lint`/`build`, `pnpm --filter @festgrid/graphql-select lint`/`build`.
-- [ ] Full existing `buildEventsQueryCondition.test.ts` suite remains green, unchanged, after Task 1's extraction.
-- [ ] `explain-events-queries.ts`'s two new scenarios added (AC4); manually run against a seeded DB where available, with the outcome recorded.
+- [x] AC1-AC4 satisfied and verified by their respective tests.
+- [x] Required tests passing: `pnpm --filter @festgrid/domain test` (100% branch coverage on `compile-filter-node.ts`) and `pnpm --filter @festgrid/graphql-select test`.
+- [x] Lint and type checks passing: `pnpm --filter @festgrid/domain lint`/`build`, `pnpm --filter @festgrid/graphql-select lint`/`build`.
+- [x] Full existing `buildEventsQueryCondition.test.ts` suite remains green, unchanged, after Task 1's extraction.
+- [x] `explain-events-queries.ts`'s two new scenarios added (AC4); manually run against a seeded DB where available, with the outcome recorded. (No seeded DB available in this environment — recorded as skipped, per this item's own allowance.)
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
+Claude Sonnet 5 (claude-sonnet-5), via the `bmad-dev-story` workflow.
+
 ### Debug Log References
+
+- `pnpm --filter @festgrid/domain test` — 659 pass / 0 fail (240 top-level suites).
+- `pnpm --filter @festgrid/domain lint` — clean (`eslint . --max-warnings 0`).
+- `pnpm --filter @festgrid/domain build` — clean (`tsc`).
+- `pnpm --filter @festgrid/graphql-select test` — 46 pass / 0 fail.
+- `pnpm --filter @festgrid/graphql-select lint` — clean (`eslint . --report-unused-disable-directives --max-warnings 0`).
+- `pnpm --filter @festgrid/graphql-select build` — clean (`tsc`).
+- `pnpm --filter backend build` — clean (`tsc`), confirming `explain-events-queries.ts`'s new imports/scenarios (Task 5) type-check against the real backend build; backend's own `test` is not a command this story's Task 9 lists (and the environment's backend tests have a pre-existing, unrelated "no seeded users" failure per this session's dispatch instruction), so it was not run as part of this story's verification.
+- Repo-wide `pnpm test` run once (per this session's dispatch instruction, not repeated): only the pre-existing `infrastructure#test` CDK-bundling failures (self-signed cert blocking `pnpm install` during asset bundling) appeared — no new failures in any other package, confirming this story's changes introduced no regressions outside its own scope.
+- Repo-wide grep for `operator: 'ne'|"ne"|'notIn'|"notIn"` re-run after implementation (Implementation Plan's Verification Plan) — only hits are this story's own new `compile-filter-node.ts`/`.test.ts` and `drizzle-where.test.ts` files; no accidental production call site was introduced.
 
 ### Completion Notes List
 
+- Task 1: extracted `buildAccountIdCondition`, `buildTypesCondition`, `buildCategoriesCondition`, `buildKeywordCondition`, `buildDateRangeAndDayOfWeekCondition`, `buildLocationCondition`, `buildVenueTypeCondition`, `buildIsFreeCondition`, and `resolveZonedToday` out of `buildEventsQueryCondition`'s inline `if (filter) {...}` block, with the extracted builders' guards preserved verbatim (including the `isFree !== undefined`-but-not-`!== null` quirk). `buildTemporalCondition` is now exported (was module-private). `buildEventsQueryCondition` itself calls the extracted functions in the same push order as before; its own signature, `conditions.push(...)` ordering, and final return shape are unchanged. The pre-existing `buildEventsQueryCondition.test.ts` suite passes unmodified, confirming zero behavior change (AC2/Task 7).
+- Task 2: `DSLOperator` widened to `"and" | "or" | "not"` in `queryDsl.ts`; no other change to that file, per the task's own note that `isGroupCondition` needs none.
+- Task 3: created `compile-filter-node.ts` with `compileFilterNodeToQueryCondition`/`CompileFilterNodeContext`, dispatching to `compileNode`/`compileLeaf`/`compileAndChildren`/`compileNot` exactly as specified, and re-exported from `ai-event-filters/index.ts`.
+  - **Implementation finding beyond the story's literal Dev Notes text (resolved within this task's own file, no scope change):** Dev Notes decision 5 asserts normalizing `expressionFromFlatFilter`'s output "is a no-op" for every `EVENT_FILTER_FIXTURES` case. This is true for every fixture with 2+ populated fields, but **not** for the two single-populated-field fixtures (`{ location: { adminArea: 'Sleman' } }` and `{ location: { coordinates: ..., radiusMeters: ... } }`): `expressionFromFlatFilter` always wraps even a single leaf in a top-level `{ op: 'AND', children: [oneLeaf] }` (by its own doc comment), and `normalize()` (Story 9.1a, unmodified) collapses *any* single-child AND/OR group to its bare child — including at the top level, not only from flattening. That collapse happens before `compileNode` ever sees a group to apply decision 6's "never collapse" rule to, so the compiled result for these two fixtures came back as a bare `TerminalCondition` instead of the legacy flat path's always-wrapped `{ operator: 'and', conditions: [...] }` — breaking AC2's byte-identical parity test (caught by the AC2 parity test itself, exactly as Task 6 intends). **Fix:** `compileFilterNodeToQueryCondition` now re-wraps the final compiled result in `{ operator: node.op==='AND'?'and':'or', conditions: [compiled] }` when the *original, pre-normalize* top-level `node` was a `FilterGroupNode` but the compiled result is not itself a `GroupCondition` — i.e. only when normalize collapsed away a top-level group that was present in the caller's own input. This does not affect any case where the top-level input is already a bare leaf or a `NOT` node (those keep compiling to a bare condition, matching the `'not'`-group fallback tests' own use of a bare leaf as `positiveCompiled`). Recorded here rather than treated as a silent deviation, since it corrects a factual claim in the story's own Dev Notes discovered empirically while making Task 6's own mandated test pass — within `compile-filter-node.ts`, the exact file Task 3 scopes, not a scope expansion.
+  - Also fixed one test-authoring mistake caught by the same first test run: the Task 6 "`compileAndChildren` sibling-merge" test's own expectation was initially bare where it should have been wrapped once (same wrapping invariant, now verified against `buildEventsQueryCondition`'s own analogous "composes dateRange with dayOfWeek" wrapped-single-condition fixture).
+- Task 4: `drizzle-where.ts` gained the `'not'` group arm (plain `NOT (...)` wrap), `ne`'s scalar branch now renders `IS DISTINCT FROM`, and `notIn`'s scalar/array branches now OR in an `IS NULL` guard — all exactly as specified. The now-unused `ne` import from `drizzle-orm` was removed (lint-clean).
+- Task 5: added the two AC4 scenarios (`'getEvents wide OR filter expression'`, `'getEvents NOT filter expression'`) to `explain-events-queries.ts`, built via `compileFilterNodeToQueryCondition` and run through the existing `runGetEventsScenario` helper, matching the story's literal `FilterNode` shapes.
+- Task 6: `compile-filter-node.test.ts` covers AC2 parity (all 7 `EVENT_FILTER_FIXTURES`), AC1 native-inversion and `'not'`-group fallback shapes (including the hashtag-keyword shape-driven exception), AC1 group mapping (incl. empty-group → `undefined`), AC3 location-leaf OR-legality, the `compileAndChildren` sibling-merge (AND merges / OR doesn't), and normalize-before-compile equivalence — manually reviewed branch-by-branch against `compile-filter-node.ts` for 100% coverage per `project-context.md`'s domain rule (no coverage tool configured for this `tsx --test` package, matching Story 9.1a/9.1b precedent).
+- Task 7: confirmed — `buildEventsQueryCondition.test.ts` passes unmodified (0 changes to that file).
+- Task 8: added the four new `drizzle-where.test.ts` cases (`'not'` group wrap + empty-children-undefined, `ne`'s `IS DISTINCT FROM`, `notIn`'s scalar/array `IS NULL` guards); one assertion regex needed a case-insensitive flag since the pg dialect renders lowercase SQL keywords (`is null`, not `IS NULL`) — fixed in the test, not the implementation.
+- Task 9: ran all six required per-package commands (domain test/lint/build; graphql-select test/lint/build) — all green (see Debug Log References). Also ran `pnpm --filter backend build` as an additional sanity check since `explain-events-queries.ts` lives in that package (not one of the two required packages, but touched by Task 5) — clean. The manual `explain-events-queries.ts` EXPLAIN re-run against a volume-seeded DB was **skipped**: no `pnpm --filter @festgrid/database seed:volume`-loaded local Postgres is available in this environment. Per the task's own text and this story's Testing Requirements/Definition of Done, this is not a Definition-of-Done blocker — the two new scenarios existing (Task 5) is the AC4 requirement; the manual EXPLAIN run is a dev-tool sanity check, not CI-gated.
+- A repo-wide `pnpm test` was run once (per this session's explicit dispatch instruction not to repeat it) to confirm no regressions outside this story's own two required packages; only the pre-existing, unrelated `infrastructure#test` CDK-bundling-via-self-signed-cert failures appeared (consistent with the dispatch instruction's own note that this is a known, pre-existing environment failure). `apps/backend`'s own test suite was not part of that run's reported failures/successes breakdown for this story's purposes — its known pre-existing "no seeded users" failure is likewise out of this story's scope per the dispatch instruction.
+- No new dependency, DB migration, or file outside this story's listed scope (`packages/domain`, `packages/graphql-select`, `apps/backend/src/explain-events-queries.ts`) was needed at any point — the Pre-Coding Approval Gate's scope confirmation held throughout implementation.
+
 ### File List
+
+- `packages/domain/src/events/buildEventsQueryCondition.ts` (UPDATED — Task 1: extracted leaf builders + `resolveZonedToday`, exported `buildTemporalCondition`, rewrote `buildEventsQueryCondition`'s body to call the extracted functions)
+- `packages/domain/src/query/queryDsl.ts` (UPDATED — Task 2: widened `DSLOperator` to include `"not"`)
+- `packages/domain/src/ai-event-filters/compile-filter-node.ts` (NEW — Task 3: `compileFilterNodeToQueryCondition` + internal `compileNode`/`compileLeaf`/`compileAndChildren`/`compileNot`)
+- `packages/domain/src/ai-event-filters/index.ts` (UPDATED — re-exports `compile-filter-node.js`)
+- `packages/domain/src/ai-event-filters/compile-filter-node.test.ts` (NEW — Task 6)
+- `packages/graphql-select/drizzle-where.ts` (UPDATED — Task 4: `'not'` group arm, null-inclusive `ne`/`notIn`; removed now-unused `ne` import)
+- `packages/graphql-select/drizzle-where.test.ts` (UPDATED — Task 8: new `'not'`/`ne`/`notIn` SQL-shape assertions)
+- `apps/backend/src/explain-events-queries.ts` (UPDATED — Task 5: two new AC4 scenarios + new imports)
