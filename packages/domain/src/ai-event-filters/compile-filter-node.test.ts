@@ -192,8 +192,12 @@ describe('compileFilterNodeToQueryCondition: compileAndChildren sibling-merge', 
     };
     const result = compileFilterNodeToQueryCondition(node, { currentDate: MOCK_DATE });
     const { zonedTodayISO, zonedCurrentDate } = resolveZonedToday(MOCK_DATE, undefined);
-    const expected = buildDateRangeAndDayOfWeekCondition(dateRangeValue, dayOfWeekValue, zonedCurrentDate, zonedTodayISO);
-    assert.deepEqual(result, expected);
+    const merged = buildDateRangeAndDayOfWeekCondition(dateRangeValue, dayOfWeekValue, zonedCurrentDate, zonedTodayISO);
+    // The top-level AND group never collapses to its bare single compiled child (Dev Notes
+    // decision 6) -- it wraps the one merged condition, matching the legacy flat path's own
+    // unconditional `{ operator: 'and', conditions }` shape (see e.g. buildEventsQueryCondition's
+    // "composes dateRange with dayOfWeek" test, which wraps its single condition the same way).
+    assert.deepEqual(result, { operator: 'and', conditions: [merged] });
   });
 
   it('an OR of the same two leaves compiles to TWO independent conditions (sibling-merge is AND-only)', () => {

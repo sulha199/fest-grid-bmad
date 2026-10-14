@@ -164,5 +164,21 @@ export function compileFilterNodeToQueryCondition(
   const { zonedTodayISO, zonedCurrentDate } = resolveZonedToday(now, ctx.timezone);
   const resolvedCtx: ResolvedContext = { now, timezone: ctx.timezone, zonedTodayISO, zonedCurrentDate };
   const normalized = normalize(node);
-  return compileNode(normalized, resolvedCtx);
+  const compiled = compileNode(normalized, resolvedCtx);
+  if (compiled === undefined) return undefined;
+
+  // Dev Notes decision 6's "never collapse a group to its bare child" invariant is enforced by
+  // `compileNode`'s own AND/OR-group branch, but `normalize()` (called once, above) can ALSO
+  // collapse a top-level AND/OR group down to its single remaining child before `compileNode`
+  // ever gets a chance to see it as a group at all (e.g. `expressionFromFlatFilter`'s
+  // single-populated-field output, always wrapped as `{ op: 'AND', children: [oneLeaf] }`,
+  // normalizes straight to the bare leaf). Re-wrap in that case so a top-level AND/OR group
+  // input still always compiles to a wrapped `{ operator, conditions: [...] }` shape -- matching
+  // the legacy flat path's own unconditional `{ operator: 'and', conditions }` return, which is
+  // required for AC2's byte-identical parity test to hold for every single-field fixture.
+  if (isFilterGroupNode(node) && !isGroupCondition(compiled)) {
+    return { operator: node.op === 'AND' ? 'and' : 'or', conditions: [compiled] };
+  }
+
+  return compiled;
 }
