@@ -8,7 +8,7 @@ baseline_commit: f902b367e5a736c8c01df824b6bb95550874e025
 
 - Epic: 9
 - Story ID: 9.1b
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -163,26 +163,26 @@ Per `epic-9-readiness.md` (`swept: true`, 2026-10-14), Gate 1 (Architecture/Infr
 
 ## Testing Requirements
 
-- [ ] Unit tests: `buildEventsQueryCondition.test.ts` — span widening (DAY/WEEK/MONTH incl. "rest of this month"), multi-value `dayOfWeek` via `getDays`, timezone-aware `resolveTodayISO` (a boundary-crossing case), the named fallback/sentinel constants, `offsetAmount`/`spanAmount` bound rejection; confirm the 3 pre-existing THIS_MONTH-offset tests are unaffected.
-- [ ] Unit tests: `transform-gemini-response-to-event-filter.test.ts` — `temporalFilter` extraction, array-valued `dayOfWeek` (alongside the existing singular case), `spanAmount`/`spanUnit` parsing, bound-violation graceful degradation.
-- [ ] Unit tests: `flat-filter-conversion.test.ts` — multi-value `dayOfWeek` round trip, alongside Story 9.1a's existing singular-value round trip (unchanged).
-- [ ] Unit tests: `filter-node-schema.test.ts` — `dateRange` leaf with valid/out-of-bounds `spanAmount`/`spanUnit`.
-- [ ] Unit tests: `render-ai-filter-summary.test.ts` — one array-valued `dayOfWeek` case.
-- [ ] 100% branch coverage across every line touched in all 5 source files, per `project-context.md`'s domain testing rule.
-- [ ] E2E tests: not applicable — no user-facing surface in this story (same as Story 9.1a).
+- [x] Unit tests: `buildEventsQueryCondition.test.ts` — span widening (DAY/WEEK/MONTH incl. "rest of this month"), multi-value `dayOfWeek` via `getDays`, timezone-aware `resolveTodayISO` (a boundary-crossing case), the named fallback/sentinel constants, `offsetAmount`/`spanAmount` bound rejection; confirm the 3 pre-existing THIS_MONTH-offset tests are unaffected.
+- [x] Unit tests: `transform-gemini-response-to-event-filter.test.ts` — `temporalFilter` extraction, array-valued `dayOfWeek` (alongside the existing singular case), `spanAmount`/`spanUnit` parsing, bound-violation graceful degradation.
+- [x] Unit tests: `flat-filter-conversion.test.ts` — multi-value `dayOfWeek` round trip, alongside Story 9.1a's existing singular-value round trip (unchanged).
+- [x] Unit tests: `filter-node-schema.test.ts` — `dateRange` leaf with valid/out-of-bounds `spanAmount`/`spanUnit`.
+- [x] Unit tests: `render-ai-filter-summary.test.ts` — one array-valued `dayOfWeek` case.
+- [x] 100% branch coverage across every line touched in all 5 source files, per `project-context.md`'s domain testing rule.
+- [x] E2E tests: not applicable — no user-facing surface in this story (same as Story 9.1a).
 
 ## Deliverables Checklist
 
-- [ ] `DateRangeFilter`/`EventFilterInput`/`BuildEventsQueryConditionInput` widened with `spanAmount`/`spanUnit`/array-`dayOfWeek`/`timezone`, all additive/backward-compatible.
-- [ ] `DATE_OFFSET_AMOUNT_BOUNDS`, `DAY_OF_WEEK_ONLY_LOOKAHEAD_DAYS`, `NO_MATCHING_WEEKDAY_SENTINEL_DATE` exported, documented, and the sole definitions of their respective values in the repo.
-- [ ] `resolveDateRangeFilter` resolves span per AC1 and throws on an out-of-bounds `offsetAmount`/`spanAmount`.
-- [ ] `resolveTodayISO` timezone helper wired into `buildEventsQueryCondition`'s date-boundary (not instant) computations.
-- [ ] `buildEventsQueryCondition` passes a normalized `dayOfWeek` array straight through to `getDays`.
-- [ ] `transformGeminiResponseToEventFilter` extracts `temporalFilter`, accepts array-valued `dayOfWeek`, parses/bounds `spanAmount`/`spanUnit`, degrading gracefully on violation.
-- [ ] `flat-filter-conversion.ts`'s round trip stays lossless for both singular and multi-value `dayOfWeek`.
-- [ ] `filter-node-schema.ts`'s `dateRange` leaf schema validates `spanAmount`/`spanUnit` against the shared bound table.
-- [ ] `render-ai-filter-summary.ts` compiles and renders gracefully for an array-valued `dayOfWeek`, with no new i18n/template scope added.
-- [ ] 100% unit coverage; `pnpm --filter @festgrid/domain test`/`lint`/`build` all green; the 3 pre-existing THIS_MONTH-offset tests and Story 9.1a's existing tests unaffected.
+- [x] `DateRangeFilter`/`EventFilterInput`/`BuildEventsQueryConditionInput` widened with `spanAmount`/`spanUnit`/array-`dayOfWeek`/`timezone`, all additive/backward-compatible.
+- [x] `DATE_OFFSET_AMOUNT_BOUNDS`, `DAY_OF_WEEK_ONLY_LOOKAHEAD_DAYS`, `NO_MATCHING_WEEKDAY_SENTINEL_DATE` exported, documented, and the sole definitions of their respective values in the repo.
+- [x] `resolveDateRangeFilter` resolves span per AC1 and throws on an out-of-bounds `offsetAmount`/`spanAmount`.
+- [x] `resolveTodayISO` timezone helper wired into `buildEventsQueryCondition`'s date-boundary (not instant) computations.
+- [x] `buildEventsQueryCondition` passes a normalized `dayOfWeek` array straight through to `getDays`.
+- [x] `transformGeminiResponseToEventFilter` extracts `temporalFilter`, accepts array-valued `dayOfWeek`, parses/bounds `spanAmount`/`spanUnit`, degrading gracefully on violation.
+- [x] `flat-filter-conversion.ts`'s round trip stays lossless for both singular and multi-value `dayOfWeek`.
+- [x] `filter-node-schema.ts`'s `dateRange` leaf schema validates `spanAmount`/`spanUnit` against the shared bound table.
+- [x] `render-ai-filter-summary.ts` compiles and renders gracefully for an array-valued `dayOfWeek`, with no new i18n/template scope added.
+- [x] 100% unit coverage; `pnpm --filter @festgrid/domain test`/`lint`/`build` all green; the 3 pre-existing THIS_MONTH-offset tests and Story 9.1a's existing tests unaffected.
 
 ## Out of Scope
 
@@ -197,15 +197,15 @@ Per `epic-9-readiness.md` (`swept: true`, 2026-10-14), Gate 1 (Architecture/Infr
 
 ## Definition of Done
 
-- [ ] AC1-AC4 satisfied and verified by their respective tests.
-- [ ] Required tests passing: `pnpm --filter @festgrid/domain test` (100% branch coverage on every touched line).
-- [ ] Lint and type checks passing: `pnpm --filter @festgrid/domain lint`, `pnpm --filter @festgrid/domain build`.
-- [ ] The 3 pre-existing THIS_MONTH-offset tests and Story 9.1a's existing round-trip/transform tests all remain green, unchanged.
-- [ ] `DATE_OFFSET_AMOUNT_BOUNDS`/`DAY_OF_WEEK_ONLY_LOOKAHEAD_DAYS`/`NO_MATCHING_WEEKDAY_SENTINEL_DATE` confirmed as the sole definitions of their values (spot-check grep, mirroring Story 9.1a's AC4 verification pattern).
+- [x] AC1-AC4 satisfied and verified by their respective tests.
+- [x] Required tests passing: `pnpm --filter @festgrid/domain test` (100% branch coverage on every touched line).
+- [x] Lint and type checks passing: `pnpm --filter @festgrid/domain lint`, `pnpm --filter @festgrid/domain build`.
+- [x] The 3 pre-existing THIS_MONTH-offset tests and Story 9.1a's existing round-trip/transform tests all remain green, unchanged.
+- [x] `DATE_OFFSET_AMOUNT_BOUNDS`/`DAY_OF_WEEK_ONLY_LOOKAHEAD_DAYS`/`NO_MATCHING_WEEKDAY_SENTINEL_DATE` confirmed as the sole definitions of their values (spot-check grep, mirroring Story 9.1a's AC4 verification pattern).
 
 ## Completion Status
 
-- [ ] Not started.
+- [x] Complete.
 
 ## Dev Agent Record
 
