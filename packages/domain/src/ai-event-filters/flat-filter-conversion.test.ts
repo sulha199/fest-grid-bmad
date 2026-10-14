@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import type { EventFilterInput } from '../events/buildEventsQueryCondition.js';
+import { DayOfWeek, type EventFilterInput } from '../events/buildEventsQueryCondition.js';
 import { EVENT_FILTER_FIXTURES } from '../events/buildEventsQueryCondition.test.js';
 import { expressionFromFlatFilter, flatFilterFromExpression } from './flat-filter-conversion.js';
 import { isFilterGroupNode } from './filter-node.js';
@@ -42,9 +42,10 @@ describe('expressionFromFlatFilter / flatFilterFromExpression (AC3)', () => {
   });
 
   it('round-trips a multi-value dayOfWeek losslessly (Story 9.1b, AC2)', () => {
-    const expression = expressionFromFlatFilter({ dayOfWeek: ['SAT', 'SUN'] });
+    const multiDayOfWeek: EventFilterInput['dayOfWeek'] = ['SAT', 'SUN'] as DayOfWeek[];
+    const expression = expressionFromFlatFilter({ dayOfWeek: multiDayOfWeek });
     assert.deepEqual(expression, { op: 'AND', children: [{ field: 'dayOfWeek', value: ['SAT', 'SUN'] }] });
-    assert.deepEqual(flatFilterFromExpression(expression), { dayOfWeek: ['SAT', 'SUN'] });
+    assert.deepEqual(flatFilterFromExpression(expression), { dayOfWeek: multiDayOfWeek });
   });
 
   it('prioritizes coordinates over adminArea when a flat location carries both', () => {

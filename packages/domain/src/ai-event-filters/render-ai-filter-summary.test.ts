@@ -67,7 +67,7 @@ describe('renderAIFilterSummary', () => {
 
   it('renders an array-valued dayOfWeek gracefully, with no crash (Story 9.1b forced compile-safety touch)', () => {
     assert.equal(
-      renderAIFilterSummary({ dayOfWeek: ['FRI', 'SAT' as DayOfWeek] }, null, { ...lbls, daysOfWeek: { FRI: 'Friday' } }).summary,
+      renderAIFilterSummary({ dayOfWeek: ['FRI', 'SAT'] as DayOfWeek[] }, null, { ...lbls, daysOfWeek: { FRI: 'Friday' } }).summary,
       'Friday, SAT'
     );
   });
