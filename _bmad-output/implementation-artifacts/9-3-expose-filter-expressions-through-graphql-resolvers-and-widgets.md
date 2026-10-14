@@ -40,13 +40,13 @@ so that every consumer of `EventFilterInput` can carry an expression.
 
 ## Tasks / Subtasks
 
-- [ ] 1. **(AC1, Data Type Compatibility)** In `apps/backend/src/schema/events.graphql`:
+- [x] 1. **(AC1, Data Type Compatibility)** In `apps/backend/src/schema/events.graphql`:
   - Add `input FilterNodeInput { op: String; children: [FilterNodeInput!]; child: FilterNodeInput; field: String; value: JSON }` and `type FilterNode { op: String; children: [FilterNode!]; child: FilterNode; field: String; value: JSON }`, placed immediately after the existing `EventQueryConditionInput` declaration (the type they most directly parallel).
   - Change `EventFilterInput.dayOfWeek: DayOfWeek` to `dayOfWeek: [DayOfWeek!]`, and `EventFilter.dayOfWeek: DayOfWeek` to `dayOfWeek: [DayOfWeek!]`.
   - Add `spanAmount: Int` and `spanUnit: DateOffsetUnit` to both `DateRangeFilterInput` and `DateRangeFilter`.
   - Add `expression: FilterNodeInput` to `Query.events`'s argument list.
 
-- [ ] 2. **(AC1, AC2, Data Type Compatibility)** In `apps/backend/src/schema/ai-event-filters.graphql`:
+- [x] 2. **(AC1, AC2, Data Type Compatibility)** In `apps/backend/src/schema/ai-event-filters.graphql`:
   - Widen `AIEventFilter.resolvedFilter: EventFilter!` to `resolvedFilter: EventFilter`.
   - Add `AIEventFilter.expression: FilterNode!`.
   - Change `saveAIEventFilter(prompt: String!, resolvedFilter: EventFilterInput!): AIEventFilter!` to `saveAIEventFilter(prompt: String!, resolvedFilter: EventFilterInput, expression: FilterNodeInput): AIEventFilter!`.
