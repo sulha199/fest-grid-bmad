@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-12"
+last_updated: "2026-10-14"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -423,7 +423,7 @@ items:
      title: "Gemini/AI backend calls lack concurrency locking, backoff, and rate-limiting guardrails",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
      touches: [app:backend, cross:ai-extraction],
-     note: "DW-066, DW-067, DW-068, DW-082. Covers backfillAccountProfileAndInferDefaultLocation's unlocked duplicate-billable-call risk, no retry backoff on failed inference, createApiKey's fail-open trust in the error-shape classifier, and resolvePromptToEventFilter's missing rate limit."}
+     note: "DW-066, DW-067, DW-068. DW-082 (resolvePromptToEventFilter rate limit) carved to BUG-059 on 2026-10-14."}
 
   BUG-012:
     {type: bug, status: promoted, created: 2026-09-05,
@@ -590,11 +590,11 @@ items:
 
   FIND-018:
     {type: finding, status: backlog, created: 2026-09-05,
-     impact: latent, effort: m, reprice_on: epic-0-i2,
-     title: "AI Event Filter (Epic 7) resolver needs validation, quota, and error-mapping hardening",
+     impact: latent, effort: s, reprice_on: epic-0-i2,
+     title: "Saved AI filter API needs a list limit, a per-user save quota and mapped DB errors",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
-     touches: [app:backend, pkg:domain, web:widgets],
-     note: "DW-074, DW-075, DW-076, DW-077, DW-078, DW-083, DW-084, DW-085, DW-086. No production widgets exist yet, so all latent: missing timezone handling, a hardcoded 90-day fallback window, an epoch-fallback trick, no offsetAmount bounds, an unvalidated 'as any' cast on Widget.filters, no pagination/quota on two mutations, unmapped DB exceptions, and a caveat-joining blemish in the summary renderer."}
+     touches: [app:backend],
+     note: "Remaining DW-083, DW-084, DW-085 after the 2026-10-14 carve; DW-074..078 and DW-086 moved to FIND-082."}
 
   FIND-019:
     {type: finding, status: done, created: 2026-09-05,
@@ -2181,9 +2181,25 @@ items:
 
   # ── 2026-10-14 (AI filter boolean/nested query upgrade) ──────────────────────
   IDEA-069:
-    {type: idea, status: backlog, created: 2026-10-14,
+    {type: idea, status: triaged, created: 2026-10-14, epic: epic-9,
      impact: user-visible, effort: l,
      title: "AI filter: AND/OR/NOT and nested expressions, plus richer date grammar (spans, multi-weekday)",
      ref: [planning-artifacts/ai-filter-boolean-nested-query-upgrade-plan.md, specs/spec-ai-prompt-event-filter/SPEC.md],
      touches: [cross:ai-extraction, pkg:domain, app:backend, web:events, web:widgets, pkg:ui],
-     note: "Fold FIND-018 and BUG-011 in as hardening stories at epic formation; retro-7-1 closes with its S5/S8."}
+     note: "Driving row of Epic 9 (formed 2026-10-14); members FIND-082, BUG-059."}
+
+  FIND-082:
+    {type: finding, status: triaged, created: 2026-10-14, parent: FIND-018, epic: epic-9,
+     impact: user-visible, effort: m,
+     title: "AI filter date and validation gaps: no timezone, 90-day fallback, epoch trick, no offsetAmount bounds, Widget.filters cast, caveat joining",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [pkg:domain, app:backend, web:widgets],
+     note: "Carved from FIND-018 (DW-074..078, DW-086); absorbed by Stories 9.1b, 9.3, 9.5."}
+
+  BUG-059:
+    {type: bug, status: triaged, created: 2026-10-14, parent: BUG-011, epic: epic-9,
+     impact: latent, effort: s,
+     title: "resolvePromptToEventFilter has no rate limit, so repeated prompts burn the user's own Gemini key quota",
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Carved from BUG-011 (DW-082); sweep Story 9.8 under Epic 9."}

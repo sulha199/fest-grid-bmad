@@ -2509,6 +2509,20 @@ development_status:
   # See epics.md Epic 8 entry for what this covers and why it's separate from
   # Epic 3's Stories 3.6g/3.6h (moderator-only opt-in, shipping now).
   epic-8: backlog
+  # Epic 9 formed 2026-10-14 via bmad-form-epics (feature epic): AI filter boolean/nested expressions + richer date grammar.
+  # Members IDEA-069, FIND-082, BUG-059. See epics.md Epic 9 and planning-artifacts/epic-formation/formation-2026-10-14.md.
+  epic-9: backlog
+  9-1a-build-the-filter-expression-tree-types-zod-schema-and-normalizer: backlog
+  9-1b-extend-the-relative-date-grammar-with-spans-multi-weekday-and-temporal-status: backlog
+  9-2-compile-filter-expressions-to-query-conditions-with-not-and-null-semantics: backlog
+  9-3-expose-filter-expressions-through-graphql-resolvers-and-widgets: backlog
+  9-4-upgrade-gemini-extraction-to-expression-trees-with-node-level-caveats: backlog
+  9-5-render-expression-summaries-in-english-and-indonesian: backlog
+  9-6-show-long-expression-summaries-in-the-ai-filter-overlay-and-filterhub: backlog
+  9-7-add-golden-prompt-evals-for-the-ai-filter: backlog
+  9-8-rate-limit-prompt-resolution: backlog
+  9-9z-ratchet-every-filter-consumer-goes-through-the-shared-compiler: backlog
+  epic-9-retrospective: optional
 
 action_items:
   - id: correct-course-2026-09-02-1
@@ -2517,7 +2531,7 @@ action_items:
     status: open
     created_at: "2026-09-02"
   - id: retro-7-1
-    description: "Refine AI Prompts: Monitor user behavior with AI filters to tune the system prompt for better date/location extraction accuracy. Folded into backlog IDEA-069 (AI filter boolean/nested upgrade, stories S5/S8)."
+    description: "Refine AI Prompts: Monitor user behavior with AI filters to tune the system prompt for better date/location extraction accuracy. Folded into backlog IDEA-069 (Epic 9, Story 9.7)."
     owner: Alice
     status: open
     created_at: "2026-08-29"
