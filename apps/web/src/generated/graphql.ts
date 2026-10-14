@@ -34,10 +34,11 @@ export type AiEventFilter = {
   __typename?: 'AIEventFilter';
   createdAt: Scalars['String']['output'];
   deletedAt?: Maybe<Scalars['String']['output']>;
+  expression: FilterNode;
   id: Scalars['ID']['output'];
   ownerUserId: Scalars['ID']['output'];
   prompt: Scalars['String']['output'];
-  resolvedFilter: EventFilter;
+  resolvedFilter?: Maybe<EventFilter>;
   updatedAt: Scalars['String']['output'];
 };
 
@@ -184,7 +185,8 @@ export type CreateUserLocationInput = {
 
 export type CreateWidgetInput = {
   displayMode?: InputMaybe<WidgetDisplayMode>;
-  filters: EventFilterInput;
+  expression?: InputMaybe<FilterNodeInput>;
+  filters?: InputMaybe<EventFilterInput>;
   theme?: InputMaybe<WidgetTheme>;
 };
 
@@ -205,12 +207,16 @@ export type DateRangeFilter = {
   anchor: DateAnchor;
   offsetAmount: Scalars['Int']['output'];
   offsetUnit: DateOffsetUnit;
+  spanAmount?: Maybe<Scalars['Int']['output']>;
+  spanUnit?: Maybe<DateOffsetUnit>;
 };
 
 export type DateRangeFilterInput = {
   anchor: DateAnchor;
   offsetAmount: Scalars['Int']['input'];
   offsetUnit: DateOffsetUnit;
+  spanAmount?: InputMaybe<Scalars['Int']['input']>;
+  spanUnit?: InputMaybe<DateOffsetUnit>;
 };
 
 export enum DayOfWeek {
@@ -341,7 +347,7 @@ export type EventFilter = {
   accountId?: Maybe<Scalars['ID']['output']>;
   categories?: Maybe<Array<EventCategory>>;
   dateRange?: Maybe<DateRangeFilter>;
-  dayOfWeek?: Maybe<DayOfWeek>;
+  dayOfWeek?: Maybe<Array<DayOfWeek>>;
   isFree?: Maybe<Scalars['Boolean']['output']>;
   keyword?: Maybe<Scalars['String']['output']>;
   location?: Maybe<LocationFilter>;
@@ -353,7 +359,7 @@ export type EventFilterInput = {
   accountId?: InputMaybe<Scalars['ID']['input']>;
   categories?: InputMaybe<Array<EventCategory>>;
   dateRange?: InputMaybe<DateRangeFilterInput>;
-  dayOfWeek?: InputMaybe<DayOfWeek>;
+  dayOfWeek?: InputMaybe<Array<DayOfWeek>>;
   isFree?: InputMaybe<Scalars['Boolean']['input']>;
   keyword?: InputMaybe<Scalars['String']['input']>;
   location?: InputMaybe<LocationFilterInput>;
@@ -442,6 +448,23 @@ export type ExtractionQuota = {
   limit: Scalars['Int']['output'];
   remaining: Scalars['Int']['output'];
   used: Scalars['Int']['output'];
+};
+
+export type FilterNode = {
+  __typename?: 'FilterNode';
+  child?: Maybe<FilterNode>;
+  children?: Maybe<Array<FilterNode>>;
+  field?: Maybe<Scalars['String']['output']>;
+  op?: Maybe<Scalars['String']['output']>;
+  value?: Maybe<Scalars['JSON']['output']>;
+};
+
+export type FilterNodeInput = {
+  child?: InputMaybe<FilterNodeInput>;
+  children?: InputMaybe<Array<FilterNodeInput>>;
+  field?: InputMaybe<Scalars['String']['input']>;
+  op?: InputMaybe<Scalars['String']['input']>;
+  value?: InputMaybe<Scalars['JSON']['input']>;
 };
 
 export enum GeolocationProvider {
@@ -749,8 +772,9 @@ export type MutationRestoreEventArgs = {
 
 
 export type MutationSaveAiEventFilterArgs = {
+  expression?: InputMaybe<FilterNodeInput>;
   prompt: Scalars['String']['input'];
-  resolvedFilter: EventFilterInput;
+  resolvedFilter?: InputMaybe<EventFilterInput>;
 };
 
 
@@ -1034,6 +1058,7 @@ export type QueryEventBySlugArgs = {
 
 
 export type QueryEventsArgs = {
+  expression?: InputMaybe<FilterNodeInput>;
   filter?: InputMaybe<EventFilterInput>;
   includeMyArchived?: InputMaybe<Scalars['Boolean']['input']>;
   includeSoftDeleted?: InputMaybe<Scalars['Boolean']['input']>;
@@ -1468,6 +1493,7 @@ export type UpdateUserSettingsInput = {
 
 export type UpdateWidgetInput = {
   displayMode?: InputMaybe<WidgetDisplayMode>;
+  expression?: InputMaybe<FilterNodeInput>;
   filters?: InputMaybe<EventFilterInput>;
   theme?: InputMaybe<WidgetTheme>;
 };
@@ -1511,7 +1537,8 @@ export type Widget = {
   createdAt: Scalars['String']['output'];
   deletedAt?: Maybe<Scalars['String']['output']>;
   displayMode: WidgetDisplayMode;
-  filters: EventFilter;
+  expression: FilterNode;
+  filters?: Maybe<EventFilter>;
   id: Scalars['ID']['output'];
   ownerUserId: Scalars['ID']['output'];
   theme: WidgetTheme;
@@ -1548,6 +1575,14 @@ export enum WidgetTheme {
 
 
 
+
+export type FilterNodeInput = {
+  child?: FilterNodeInput | null | undefined;
+  children?: Array<FilterNodeInput> | null | undefined;
+  field?: string | null | undefined;
+  op?: string | null | undefined;
+  value?: unknown;
+};
 
 
 
@@ -1714,7 +1749,7 @@ export type ResolvePromptToEventFilterMutationVariables = Exact<{
 }>;
 
 
-export type ResolvePromptToEventFilterMutation = { resolvePromptToEventFilter: { caveats: Array<string>, resolvedFilter: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: DayOfWeek | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } } };
+export type ResolvePromptToEventFilterMutation = { resolvePromptToEventFilter: { caveats: Array<string>, resolvedFilter: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } } };
 
 export type SaveAiEventFilterMutationVariables = Exact<{
   prompt: string;
@@ -1722,7 +1757,7 @@ export type SaveAiEventFilterMutationVariables = Exact<{
 }>;
 
 
-export type SaveAiEventFilterMutation = { saveAIEventFilter: { id: string, ownerUserId: string, prompt: string, createdAt: string, updatedAt: string, deletedAt: string | null, resolvedFilter: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: DayOfWeek | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } } };
+export type SaveAiEventFilterMutation = { saveAIEventFilter: { id: string, ownerUserId: string, prompt: string, createdAt: string, updatedAt: string, deletedAt: string | null, resolvedFilter: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null } };
 
 export type DeleteAiEventFilterMutationVariables = Exact<{
   id: string | number;
@@ -1829,7 +1864,7 @@ export type GetArchivedEventsQuery = { events: { hasMore: boolean, totalCount: n
 export type GetMyAiEventFiltersQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetMyAiEventFiltersQuery = { myAIEventFilters: Array<{ id: string, ownerUserId: string, prompt: string, createdAt: string, updatedAt: string, deletedAt: string | null, resolvedFilter: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: DayOfWeek | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } }> };
+export type GetMyAiEventFiltersQuery = { myAIEventFilters: Array<{ id: string, ownerUserId: string, prompt: string, createdAt: string, updatedAt: string, deletedAt: string | null, resolvedFilter: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null }> };
 
 export type SubmitReportMutationVariables = Exact<{
   eventId: string | number;
@@ -2152,7 +2187,7 @@ export type CreateWidgetMutationVariables = Exact<{
 }>;
 
 
-export type CreateWidgetMutation = { createWidget: { id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: DayOfWeek | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } } };
+export type CreateWidgetMutation = { createWidget: { id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null } };
 
 export type UpdateWidgetMutationVariables = Exact<{
   id: string | number;
@@ -2160,7 +2195,7 @@ export type UpdateWidgetMutationVariables = Exact<{
 }>;
 
 
-export type UpdateWidgetMutation = { updateWidget: { id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: DayOfWeek | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } } };
+export type UpdateWidgetMutation = { updateWidget: { id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null } };
 
 export type DeleteWidgetMutationVariables = Exact<{
   id: string | number;
@@ -2173,14 +2208,14 @@ export type DeleteWidgetMutation = { deleteWidget: { id: string, deletedAt: stri
 export type MyWidgetsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type MyWidgetsQuery = { myWidgets: Array<{ id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: DayOfWeek | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } }> };
+export type MyWidgetsQuery = { myWidgets: Array<{ id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null }> };
 
 export type WidgetByIdQueryVariables = Exact<{
   id: string | number;
 }>;
 
 
-export type WidgetByIdQuery = { widgetById: { id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: DayOfWeek | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } } | null };
+export type WidgetByIdQuery = { widgetById: { id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null } | null };
 
 
 export class TypedDocumentString<TResult, TVariables>
