@@ -6019,8 +6019,12 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 *   **Given** an authenticated user, **when** they exceed the per-user limit on `resolvePromptToEventFilter`, **then** the mutation returns a typed rate-limit error without calling Gemini.
 *   **And** the limit is configurable and covered by a test (absorbs BUG-059: DW-082).
+*   **And** the per-user counter is persisted in Postgres via Drizzle (a new, narrowly-scoped table + migration — this stack has no Redis/in-memory layer to count against across Lambda invocations), not an in-process counter that resets per cold start.
+*   **And** this limiter is a distinct, additional guard layered on top of — never a replacement or reimplementation of — the per-key lock/timeout/backoff `resolvePromptToEventFilter` already inherits today via `callGemini` → `callVendor` (Story 0.i2a/0.i2c, confirmed adopted in `apps/backend/src/lib/ai-gateway/adapter.ts`): that mechanism bounds concurrent/duplicate-billable calls on one Gemini key; this story bounds how often one *user* may call this *mutation* regardless of key contention. The two must not be merged into one check.
 
 **Depends on:** none.
+
+**Note (epic-9-readiness, 2026-10-14, Gate 1 + Gate 3):** Gate 1 flagged that the AC as originally written didn't say where rate-limit state lives, and this stack has no cache/in-memory layer durable across Lambda invocations — corrected above to a Postgres table. Gate 3 checked this against Epic 0.i2 (Guarded outbound vendor calls, `in-progress`/`review`), which already names `resolvePromptToEventFilter`'s underlying `callGemini` call as adopted onto its guarded wrapper (Story 0.i2c) — verified live in `adapter.ts`/`gemini-client.ts`. That wrapper provides a per-key lock, not a per-user request-volume quota, so this is not a duplicate mechanism, but the AC is corrected above to say so explicitly rather than leaving the boundary implicit. No new reusable Epic 0 utility is warranted: resolvePromptToEventFilter is the only consumer of a per-user mutation-rate-limit today, matching this project's own precedent (Story 3.7e's Gate 3 note) of deferring generalization until a second consumer actually appears.
 
 ### Story 9.9z: Ratchet — every filter consumer goes through the shared compiler
 
