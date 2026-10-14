@@ -390,7 +390,7 @@ test('buildDrizzleWhere', async (t) => {
     assert.ok(res !== undefined);
     const dialect = new PgDialect();
     const query = dialect.sqlToQuery(res!);
-    assert.match(query.sql, /IS NULL/);
+    assert.match(query.sql, /is null/i);
     assert.match(query.sql, /not in/i);
   });
 
