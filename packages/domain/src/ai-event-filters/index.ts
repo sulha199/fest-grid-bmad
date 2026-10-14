@@ -4,3 +4,4 @@ export * from './filter-node.js';
 export * from './filter-node-schema.js';
 export * from './normalize-filter-node.js';
 export * from './flat-filter-conversion.js';
+export * from './compile-filter-node.js';

@@ -32,7 +32,9 @@ import { resolvers } from './schema/resolvers.js';
 import { db, setSqlCaptureSink } from './db/client.js';
 import { users, subscriptions, socialMediaAccountProfiles, events, eventPosts, posts } from '@festgrid/database';
 import { activeOnly } from '@festgrid/graphql-select';
-import { buildEventsQueryCondition } from '@festgrid/domain/events';
+import { buildEventsQueryCondition, DateAnchor, DateOffsetUnit, TemporalFilter } from '@festgrid/domain/events';
+import { compileFilterNodeToQueryCondition, type FilterNode } from '@festgrid/domain/ai-event-filters';
+import { EventType, EventCategory } from '@festgrid/shared-types';
 import { loadBackendEnv } from './env.js';
 import type { GraphQLContext } from './lib/auth/context.js';
 
@@ -304,6 +306,40 @@ async function main(): Promise<void> {
     await runGetEventsScenario(schema, context, explainClient, 'getEvents filtered by a subscribed account', getEventsQuery, {
       limit: 20,
       query: accountCondition,
+    })
+  );
+
+  // Story 9.2 (AC4) -- the two new compiler-driven scenarios: a 6-branch OR tree spanning 6
+  // different locked-vocabulary leaf fields, and a NOT tree wrapping a dateRange leaf (exercising
+  // the 'not'-group SQL fallback over the EXISTS-based `overlaps` path).
+  const wideOrFilterNode: FilterNode = {
+    op: 'OR',
+    children: [
+      { field: 'type', value: [EventType.FESTIVAL] },
+      { field: 'category', value: [EventCategory.MUSIC] },
+      { field: 'venueType', value: 'Mall' },
+      { field: 'isFree', value: true },
+      { field: 'locationAdminArea', value: 'Sleman' },
+      { field: 'temporalFilter', value: TemporalFilter.UPCOMING },
+    ],
+  };
+  const wideOrCondition = compileFilterNodeToQueryCondition(wideOrFilterNode, { currentDate: new Date() });
+  results.push(
+    await runGetEventsScenario(schema, context, explainClient, 'getEvents wide OR filter expression', getEventsQuery, {
+      limit: 20,
+      query: wideOrCondition,
+    })
+  );
+
+  const notFilterNode: FilterNode = {
+    op: 'NOT',
+    child: { field: 'dateRange', value: { anchor: DateAnchor.TODAY, offsetAmount: 0, offsetUnit: DateOffsetUnit.DAY } },
+  };
+  const notCondition = compileFilterNodeToQueryCondition(notFilterNode, { currentDate: new Date() });
+  results.push(
+    await runGetEventsScenario(schema, context, explainClient, 'getEvents NOT filter expression', getEventsQuery, {
+      limit: 20,
+      query: notCondition,
     })
   );
 

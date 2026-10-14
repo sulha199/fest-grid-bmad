@@ -208,6 +208,136 @@ function buildTemporalCondition(
   return undefined;
 }
 
+/**
+ * DW-074: wraps the two-line "what is 'today' for this request" computation (`resolveTodayISO` +
+ * the zoned midnight `Date`) so there is exactly one implementation of it -- both the legacy flat
+ * `buildEventsQueryCondition` below and Story 9.2's new `compileFilterNodeToQueryCondition`
+ * compiler call this one helper, rather than each inlining their own copy that could silently
+ * drift apart.
+ */
+export function resolveZonedToday(now: Date, timezone?: string | null): { zonedTodayISO: string; zonedCurrentDate: Date } {
+  const zonedTodayISO = resolveTodayISO(now, timezone);
+  const zonedCurrentDate = new Date(zonedTodayISO + 'T00:00:00Z');
+  return { zonedTodayISO, zonedCurrentDate };
+}
+
+export { buildTemporalCondition };
+
+/** Task 1 leaf builder -- the `filter.accountId` block, verbatim guard. */
+export function buildAccountIdCondition(accountId: string | null | undefined): QueryCondition | undefined {
+  if (accountId) return { field: 'socialMediaAccountProfileId', operator: 'eq', value: accountId };
+  return undefined;
+}
+
+/** Task 1 leaf builder -- the `filter.types` block, verbatim guard. */
+export function buildTypesCondition(types: string[] | null | undefined): QueryCondition | undefined {
+  if (types && types.length > 0) return { field: 'types', operator: 'in', value: types };
+  return undefined;
+}
+
+/** Task 1 leaf builder -- the `filter.categories` block, verbatim guard. */
+export function buildCategoriesCondition(categories: string[] | null | undefined): QueryCondition | undefined {
+  if (categories && categories.length > 0) return { field: 'categories', operator: 'in', value: categories };
+  return undefined;
+}
+
+/** Task 1 leaf builder -- the `filter.keyword` block (hashtag `#`-prefix branch + the 3-way
+ * `eventName`/`performers`/`location` OR-contains branch), verbatim. */
+export function buildKeywordCondition(keyword: string | null | undefined): QueryCondition | undefined {
+  if (!keyword) return undefined;
+  const trimmed = keyword.trim();
+  if (trimmed.startsWith('#')) {
+    const tag = trimmed.slice(1).trim().toLowerCase();
+    if (tag) return { field: 'hashtags', operator: 'in', value: [tag] };
+    return undefined;
+  } else if (trimmed) {
+    return {
+      operator: 'or',
+      conditions: [
+        { field: 'eventName', operator: 'contains', value: trimmed },
+        { field: 'performers', operator: 'contains', value: trimmed },
+        { field: 'location', operator: 'contains', value: trimmed }
+      ]
+    };
+  }
+  return undefined;
+}
+
+/** Task 1 leaf builder -- the combined `if (filter.dateRange || filter.dayOfWeek) {...}` block,
+ * verbatim, including the `DAY_OF_WEEK_ONLY_LOOKAHEAD_DAYS` fallback window and the
+ * `NO_MATCHING_WEEKDAY_SENTINEL_DATE`/single-date/multi-date-OR branches of the `getDays` result. */
+export function buildDateRangeAndDayOfWeekCondition(
+  dateRange: DateRangeFilter | null | undefined,
+  dayOfWeek: DayOfWeek[] | DayOfWeek | string | null | undefined,
+  zonedCurrentDate: Date,
+  zonedTodayISO: string
+): QueryCondition | undefined {
+  if (!dateRange && !dayOfWeek) return undefined;
+  const r = dateRange
+    ? resolveDateRangeFilter(
+        dateRange.anchor,
+        dateRange.offsetAmount,
+        dateRange.offsetUnit,
+        zonedCurrentDate,
+        { spanAmount: dateRange.spanAmount, spanUnit: dateRange.spanUnit }
+      )
+    : {
+        from: zonedTodayISO,
+        to: fmt(new Date(Date.UTC(
+          zonedCurrentDate.getUTCFullYear(),
+          zonedCurrentDate.getUTCMonth(),
+          zonedCurrentDate.getUTCDate() + DAY_OF_WEEK_ONLY_LOOKAHEAD_DAYS
+        )))
+      };
+  if (dayOfWeek) {
+    const dowArray = Array.isArray(dayOfWeek) ? dayOfWeek : [dayOfWeek as DayOfWeek];
+    const dates = getDays(r.from, r.to, dowArray);
+    if (dates.length === 0) {
+      return { field: 'scheduleDateRange', operator: 'overlaps', value: { from: NO_MATCHING_WEEKDAY_SENTINEL_DATE, to: NO_MATCHING_WEEKDAY_SENTINEL_DATE } };
+    } else if (dates.length === 1) {
+      return { field: 'scheduleDateRange', operator: 'overlaps', value: { from: dates[0], to: dates[0] } };
+    } else {
+      return {
+        operator: 'or',
+        conditions: dates.map(d => ({ field: 'scheduleDateRange', operator: 'overlaps', value: { from: d, to: d } }))
+      };
+    }
+  }
+  return { field: 'scheduleDateRange', operator: 'overlaps', value: { from: r.from, to: r.to } };
+}
+
+/** Task 1 leaf builder -- the `filter.location` block, verbatim, including the existing
+ * "cannot specify both" guard (see AC3; do not remove or relax it). */
+export function buildLocationCondition(location: LocationFilter | null | undefined): QueryCondition | undefined {
+  if (!location) return undefined;
+  const { coordinates, radiusMeters, adminArea } = location;
+  if ((coordinates || radiusMeters !== undefined) && adminArea) throw new Error('Cannot specify both coordinates and adminArea in location filter');
+  if (adminArea) {
+    return { field: 'adminArea', operator: 'eq', value: adminArea };
+  } else if (coordinates) {
+    return {
+      field: 'scheduleCoordinates',
+      operator: 'withinRadius',
+      value: { latitude: coordinates.lat, longitude: coordinates.lng, radiusKm: (radiusMeters ?? 10000) / 1000 }
+    };
+  }
+  return undefined;
+}
+
+/** Task 1 leaf builder -- the `filter.venueType` block, verbatim guard. */
+export function buildVenueTypeCondition(venueType: string | null | undefined): QueryCondition | undefined {
+  if (venueType) return { field: 'venueType', operator: 'eq', value: venueType };
+  return undefined;
+}
+
+/** Task 1 leaf builder -- the `filter.isFree` block. Preserves the existing `isFree !== undefined`
+ * guard exactly (not also `!== null` -- a literal `null` still produces an `eq`/`value: null`
+ * condition; do not "fix" this while extracting it, see Task 1 notes). */
+export function buildIsFreeCondition(isFree: boolean | null | undefined): QueryCondition | undefined {
+  if (isFree !== undefined) return { field: 'isFree', operator: 'eq', value: isFree };
+  return undefined;
+}
+
 export function buildEventsQueryCondition({
   search, types, categories, nearby, filter, currentDate, temporalFilter, timezone
 }: BuildEventsQueryConditionInput): QueryCondition | undefined {
@@ -216,77 +346,26 @@ export function buildEventsQueryCondition({
   // DW-074: zoned "today" is used for every date-boundary computation below (the resolved
   // dateRange/dayOfWeek window, buildTemporalCondition's today/tomorrow) -- never for the
   // notEnded instant comparison, which stays `now.toISOString()` inside buildTemporalCondition.
-  const zonedTodayISO = resolveTodayISO(now, timezone);
-  const zonedCurrentDate = new Date(zonedTodayISO + 'T00:00:00Z');
+  const { zonedTodayISO, zonedCurrentDate } = resolveZonedToday(now, timezone);
   if (filter) {
-    if (filter.accountId) conditions.push({ field: 'socialMediaAccountProfileId', operator: 'eq', value: filter.accountId });
-    if (filter.types && filter.types.length > 0) conditions.push({ field: 'types', operator: 'in', value: filter.types });
-    if (filter.categories && filter.categories.length > 0) conditions.push({ field: 'categories', operator: 'in', value: filter.categories });
-    if (filter.keyword) {
-      const trimmed = filter.keyword.trim();
-      if (trimmed.startsWith('#')) {
-        const tag = trimmed.slice(1).trim().toLowerCase();
-        if (tag) conditions.push({ field: 'hashtags', operator: 'in', value: [tag] });
-      } else if (trimmed) {
-        conditions.push({
-          operator: 'or',
-          conditions: [
-            { field: 'eventName', operator: 'contains', value: trimmed },
-            { field: 'performers', operator: 'contains', value: trimmed },
-            { field: 'location', operator: 'contains', value: trimmed }
-          ]
-        });
-      }
-    }
-    if (filter.dateRange || filter.dayOfWeek) {
-      const r = filter.dateRange
-        ? resolveDateRangeFilter(
-            filter.dateRange.anchor,
-            filter.dateRange.offsetAmount,
-            filter.dateRange.offsetUnit,
-            zonedCurrentDate,
-            { spanAmount: filter.dateRange.spanAmount, spanUnit: filter.dateRange.spanUnit }
-          )
-        : {
-            from: zonedTodayISO,
-            to: fmt(new Date(Date.UTC(
-              zonedCurrentDate.getUTCFullYear(),
-              zonedCurrentDate.getUTCMonth(),
-              zonedCurrentDate.getUTCDate() + DAY_OF_WEEK_ONLY_LOOKAHEAD_DAYS
-            )))
-          };
-      if (filter.dayOfWeek) {
-        const dowArray = Array.isArray(filter.dayOfWeek) ? filter.dayOfWeek : [filter.dayOfWeek as DayOfWeek];
-        const dates = getDays(r.from, r.to, dowArray);
-        if (dates.length === 0) {
-          conditions.push({ field: 'scheduleDateRange', operator: 'overlaps', value: { from: NO_MATCHING_WEEKDAY_SENTINEL_DATE, to: NO_MATCHING_WEEKDAY_SENTINEL_DATE } });
-        } else if (dates.length === 1) {
-          conditions.push({ field: 'scheduleDateRange', operator: 'overlaps', value: { from: dates[0], to: dates[0] } });
-        } else {
-          conditions.push({
-            operator: 'or',
-            conditions: dates.map(d => ({ field: 'scheduleDateRange', operator: 'overlaps', value: { from: d, to: d } }))
-          });
-        }
-      } else {
-        conditions.push({ field: 'scheduleDateRange', operator: 'overlaps', value: { from: r.from, to: r.to } });
-      }
-    }
-    if (filter.location) {
-      const { coordinates, radiusMeters, adminArea } = filter.location;
-      if ((coordinates || radiusMeters !== undefined) && adminArea) throw new Error('Cannot specify both coordinates and adminArea in location filter');
-      if (adminArea) {
-        conditions.push({ field: 'adminArea', operator: 'eq', value: adminArea });
-      } else if (coordinates) {
-        conditions.push({
-          field: 'scheduleCoordinates',
-          operator: 'withinRadius',
-          value: { latitude: coordinates.lat, longitude: coordinates.lng, radiusKm: (radiusMeters ?? 10000) / 1000 }
-        });
-      }
-    }
-    if (filter.venueType) conditions.push({ field: 'venueType', operator: 'eq', value: filter.venueType });
-    if (filter.isFree !== undefined) conditions.push({ field: 'isFree', operator: 'eq', value: filter.isFree });
+    const accountIdCondition = buildAccountIdCondition(filter.accountId);
+    if (accountIdCondition) conditions.push(accountIdCondition);
+    const typesCondition = buildTypesCondition(filter.types);
+    if (typesCondition) conditions.push(typesCondition);
+    const categoriesCondition = buildCategoriesCondition(filter.categories);
+    if (categoriesCondition) conditions.push(categoriesCondition);
+    const keywordCondition = buildKeywordCondition(filter.keyword);
+    if (keywordCondition) conditions.push(keywordCondition);
+    const dateRangeAndDayOfWeekCondition = buildDateRangeAndDayOfWeekCondition(
+      filter.dateRange, filter.dayOfWeek, zonedCurrentDate, zonedTodayISO
+    );
+    if (dateRangeAndDayOfWeekCondition) conditions.push(dateRangeAndDayOfWeekCondition);
+    const locationCondition = buildLocationCondition(filter.location);
+    if (locationCondition) conditions.push(locationCondition);
+    const venueTypeCondition = buildVenueTypeCondition(filter.venueType);
+    if (venueTypeCondition) conditions.push(venueTypeCondition);
+    const isFreeCondition = buildIsFreeCondition(filter.isFree);
+    if (isFreeCondition) conditions.push(isFreeCondition);
     const filterTemporalCondition = buildTemporalCondition(filter.temporalFilter, now, timezone);
     if (filterTemporalCondition) conditions.push(filterTemporalCondition);
   } else {

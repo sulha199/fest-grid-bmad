@@ -1,4 +1,4 @@
-export type DSLOperator = "and" | "or";
+export type DSLOperator = "and" | "or" | "not";
 export type TerminalOperator = "eq" | "ne" | "contains" | "in" | "notIn" | "overlaps" | "withinRadius" | "notEnded";
 
 export interface TerminalCondition {
