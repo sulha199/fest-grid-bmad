@@ -112,12 +112,20 @@ describe('validateFilterNode (AC1)', () => {
     });
 
     it('does not flag a NOT whose grandchild (not immediate child) is a NOT', () => {
+      // Note: wrapping the inner NOT in an intermediate group to separate it from the outer NOT's
+      // immediate-child position pushes this particular tree's depth to 4 (exceeding
+      // FILTER_NODE_MAX_DEPTH), so the candidate is still reported invalid overall -- but for the
+      // depth reason only, never for double-NOT, which is exactly what this test asserts.
       const node: FilterNode = {
         op: 'NOT',
         child: { op: 'AND', children: [{ op: 'NOT', child: leafKeyword }] },
       };
       const result = validateFilterNode(node);
-      assert.equal(result.valid, true);
+      assert.equal(result.valid, false);
+      if (!result.valid) {
+        assert.ok(result.issues.every((issue) => !issue.reason.includes('double NOT')));
+        assert.ok(result.issues.some((issue) => issue.reason.includes('FILTER_NODE_MAX_DEPTH')));
+      }
     });
   });
 
