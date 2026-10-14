@@ -1,2 +1,6 @@
 export * from './transform-gemini-response-to-event-filter.js';
 export * from './render-ai-filter-summary.js';
+export * from './filter-node.js';
+export * from './filter-node-schema.js';
+export * from './normalize-filter-node.js';
+export * from './flat-filter-conversion.js';
