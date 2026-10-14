@@ -55,7 +55,12 @@ export interface EventFilterInput {
   categories?: string[] | null;
   keyword?: string | null;
   dateRange?: DateRangeFilter | null;
-  dayOfWeek?: DayOfWeek[] | DayOfWeek | 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN' | null;
+  // Story 9.3: the array branch's element type is widened to the same enum-or-literal union as
+  // the singular branch (not bare `DayOfWeek[]`) so a GraphQL-codegen-sourced caller's own
+  // generated `DayOfWeek` enum (a distinct nominal type from this one, despite identical string
+  // values -- TypeScript string enums are never structurally interchangeable) can still assign
+  // its `DayOfWeek[]` array here without a cast, exactly as the singular branch already tolerated.
+  dayOfWeek?: (DayOfWeek | 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN')[] | DayOfWeek | 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN' | null;
   location?: LocationFilter | null;
   venueType?: string | null;
   isFree?: boolean | null;
