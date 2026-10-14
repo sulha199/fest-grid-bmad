@@ -1,6 +1,24 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildEventsQueryCondition, resolveDateRangeFilter, getDays, DayOfWeek } from './buildEventsQueryCondition.js';
+import { buildEventsQueryCondition, resolveDateRangeFilter, getDays, DayOfWeek, type EventFilterInput } from './buildEventsQueryCondition.js';
+
+/**
+ * Populated-field `EventFilterInput` fixtures exercised below. Exported so Story 9.1a's
+ * `flat-filter-conversion.test.ts` (AC3) can reuse them directly as the `expressionFromFlatFilter`
+ * <-> `flatFilterFromExpression` round-trip's input set, instead of inventing a parallel fixture
+ * set. The "coordinates + adminArea together" case is intentionally excluded here -- it's an
+ * invalid combination `buildEventsQueryCondition` itself rejects (see the "throws" test below),
+ * not a valid round-trip target.
+ */
+export const EVENT_FILTER_FIXTURES: EventFilterInput[] = [
+  { accountId: 'acc-123', types: ['FESTIVAL'], categories: ['MUSIC'], keyword: 'jazz' },
+  { dateRange: { anchor: 'TODAY', offsetAmount: 1, offsetUnit: 'DAY' } },
+  { dateRange: { anchor: 'THIS_WEEK', offsetAmount: 0, offsetUnit: 'WEEK' }, dayOfWeek: 'FRI' },
+  { dateRange: { anchor: 'THIS_MONTH', offsetAmount: 0, offsetUnit: 'MONTH' }, dayOfWeek: 'FRI' },
+  { location: { adminArea: 'Sleman' } },
+  { location: { coordinates: { lat: -7.7, lng: 110.3 }, radiusMeters: 5000 } },
+  { venueType: 'Mall', isFree: true },
+];
 
 describe('getDays (AC1, Task 1)', () => {
   it('returns every date matching a single weekday (regression: unchanged single-value behavior)', () => {
@@ -42,7 +60,7 @@ describe('buildEventsQueryCondition', () => {
     const mockDate = new Date('2026-08-29T12:00:00Z');
     it('filters by accountId, types, categories, keyword', () => {
       const res = buildEventsQueryCondition({
-        filter: { accountId: 'acc-123', types: ['FESTIVAL'], categories: ['MUSIC'], keyword: 'jazz' }
+        filter: EVENT_FILTER_FIXTURES[0]
       });
       assert.deepEqual(res, {
         operator: 'and',
@@ -60,7 +78,7 @@ describe('buildEventsQueryCondition', () => {
     });
     it('filters by dateRange TODAY', () => {
       const res = buildEventsQueryCondition({
-        filter: { dateRange: { anchor: 'TODAY', offsetAmount: 1, offsetUnit: 'DAY' } }, currentDate: mockDate
+        filter: EVENT_FILTER_FIXTURES[1], currentDate: mockDate
       });
       assert.deepEqual(res, {
         operator: 'and',
@@ -69,7 +87,7 @@ describe('buildEventsQueryCondition', () => {
     });
     it('composes dateRange with dayOfWeek', () => {
       const res = buildEventsQueryCondition({
-        filter: { dateRange: { anchor: 'THIS_WEEK', offsetAmount: 0, offsetUnit: 'WEEK' }, dayOfWeek: 'FRI' }, currentDate: mockDate
+        filter: EVENT_FILTER_FIXTURES[2], currentDate: mockDate
       });
       assert.deepEqual(res, {
         operator: 'and',
@@ -78,7 +96,7 @@ describe('buildEventsQueryCondition', () => {
     });
     it('composes dateRange spanning weeks with dayOfWeek', () => {
       const res = buildEventsQueryCondition({
-        filter: { dateRange: { anchor: 'THIS_MONTH', offsetAmount: 0, offsetUnit: 'MONTH' }, dayOfWeek: 'FRI' }, currentDate: mockDate
+        filter: EVENT_FILTER_FIXTURES[3], currentDate: mockDate
       });
       assert.deepEqual(res, {
         operator: 'and',
@@ -106,11 +124,11 @@ describe('buildEventsQueryCondition', () => {
       assert.deepEqual(res, { from: '2026-09-01', to: '2026-09-30' });
     });
     it('filters by location adminArea', () => {
-      const res = buildEventsQueryCondition({ filter: { location: { adminArea: 'Sleman' } } });
+      const res = buildEventsQueryCondition({ filter: EVENT_FILTER_FIXTURES[4] });
       assert.deepEqual(res, { operator: 'and', conditions: [{ field: 'adminArea', operator: 'eq', value: 'Sleman' }] });
     });
     it('filters by location coordinates', () => {
-      const res = buildEventsQueryCondition({ filter: { location: { coordinates: { lat: -7.7, lng: 110.3 }, radiusMeters: 5000 } } });
+      const res = buildEventsQueryCondition({ filter: EVENT_FILTER_FIXTURES[5] });
       assert.deepEqual(res, {
         operator: 'and',
         conditions: [{ field: 'scheduleCoordinates', operator: 'withinRadius', value: { latitude: -7.7, longitude: 110.3, radiusKm: 5 } }]
@@ -122,7 +140,7 @@ describe('buildEventsQueryCondition', () => {
       }, /Cannot specify both coordinates and adminArea/);
     });
     it('filters by venueType and isFree', () => {
-      const res = buildEventsQueryCondition({ filter: { venueType: 'Mall', isFree: true } });
+      const res = buildEventsQueryCondition({ filter: EVENT_FILTER_FIXTURES[6] });
       assert.deepEqual(res, {
         operator: 'and',
         conditions: [
