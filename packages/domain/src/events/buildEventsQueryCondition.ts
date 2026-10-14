@@ -34,9 +34,15 @@ export interface DateRangeFilter {
   anchor: DateAnchor | 'TODAY' | 'THIS_WEEK' | 'THIS_MONTH';
   offsetAmount: number;
   offsetUnit: DateOffsetUnit | 'DAY' | 'WEEK' | 'MONTH';
-  /** Additive-only span widening (AC1) -- omitting this leaves resolution byte-identical to before. */
-  spanAmount?: number;
-  spanUnit?: DateOffsetUnit | 'DAY' | 'WEEK' | 'MONTH';
+  /**
+   * Additive-only span widening (AC1) -- omitting this leaves resolution byte-identical to
+   * before. Nullable (not just optional) per Story 9.3's GraphQL exposure: the generated
+   * `DateRangeFilterInput.spanAmount`/`spanUnit` (both optional, non-`!` GraphQL fields) type as
+   * `| null`, not just `| undefined`, so this domain type must tolerate the same shape for a
+   * GraphQL-sourced caller to type-check without a lossy cast.
+   */
+  spanAmount?: number | null;
+  spanUnit?: DateOffsetUnit | 'DAY' | 'WEEK' | 'MONTH' | null;
 }
 export interface LocationFilter {
   coordinates?: { lat: number; lng: number } | null;
@@ -109,10 +115,10 @@ export function resolveDateRangeFilter(
   offsetAmount: number,
   offsetUnit: 'DAY' | 'WEEK' | 'MONTH' | DateOffsetUnit,
   currentDate: Date,
-  span?: { spanAmount?: number; spanUnit?: DateOffsetUnit | 'DAY' | 'WEEK' | 'MONTH' }
+  span?: { spanAmount?: number | null; spanUnit?: DateOffsetUnit | 'DAY' | 'WEEK' | 'MONTH' | null }
 ): { from: string; to: string } {
   checkOffsetAmountBound(offsetAmount, offsetUnit as 'DAY' | 'WEEK' | 'MONTH', 'offsetAmount');
-  const hasSpan = span?.spanAmount !== undefined && span?.spanUnit !== undefined;
+  const hasSpan = span?.spanAmount != null && span?.spanUnit != null;
   if (hasSpan) {
     const spanAmount = span!.spanAmount as number;
     const spanUnit = span!.spanUnit as 'DAY' | 'WEEK' | 'MONTH';
