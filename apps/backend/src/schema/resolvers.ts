@@ -23,7 +23,8 @@ import { resolveInstagramOEmbed } from '../lib/instagram-oembed/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
 import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult, computePastEventThreshold, parsePlatformPrefixedEventSlug, sanitizeEventLinks } from '@festgrid/domain/events';
-import { transformGeminiResponseToEventFilter } from '@festgrid/domain/ai-event-filters';
+import { transformGeminiResponseToEventFilter, validateFilterNode, compileFilterNodeToQueryCondition, resolveStoredFilter } from '@festgrid/domain/ai-event-filters';
+import type { FilterValidationIssue } from '@festgrid/domain/ai-event-filters';
 import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText } from '@festgrid/domain';
 import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError, postGroupingReasonToGraphQL } from '@festgrid/domain/posts';
@@ -54,6 +55,15 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 
 const validateReportSystemError = compileValidator<any>(reportSystemErrorSchema);
 const validateProposedEventCorrection = compileValidator<ProposedEventCorrection>(proposedEventCorrectionSchema);
+
+/**
+ * Story 9.3 (AC1) -- shared formatter used by every `BAD_USER_INPUT` branch below that rejects an
+ * invalid `FilterNodeInput`/`expression` argument, so the message shape is consistent across
+ * `Query.events`, `saveAIEventFilter`, `createWidget` and `updateWidget`.
+ */
+function formatFilterValidationIssues(issues: FilterValidationIssue[]): string {
+  return issues.map((i) => `${i.path.join('.')}: ${i.reason}`).join('; ');
+}
 
 /**
  * Story 2.7 — seam for the `Query.events` silent-auth probe. The resolver probes
@@ -464,19 +474,36 @@ Constraints and Guidelines:
         throw err;
       }
     },
-    saveAIEventFilter: async (_: any, { prompt, resolvedFilter }: any, context: any) => {
+    saveAIEventFilter: async (_: any, { prompt, resolvedFilter, expression }: any, context: any) => {
       const authUser = requireAuth(context);
-      
+
       if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0 || prompt.length > 2000) {
         throw new GraphQLError('Prompt must be between 1 and 2000 characters', {
           extensions: { code: 'BAD_USER_INPUT' }
         });
       }
 
+      if ((resolvedFilter == null) === (expression == null)) {
+        throw new GraphQLError('Provide exactly one of resolvedFilter or expression.', {
+          extensions: { code: 'BAD_USER_INPUT' }
+        });
+      }
+
+      let storedValue: any = resolvedFilter;
+      if (expression) {
+        const validation = validateFilterNode(expression);
+        if (!validation.valid) {
+          throw new GraphQLError(formatFilterValidationIssues(validation.issues), {
+            extensions: { code: 'BAD_USER_INPUT' }
+          });
+        }
+        storedValue = { version: 2, expression: validation.node };
+      }
+
       const [inserted] = await db.insert(aiEventFilters).values({
         ownerUserId: authUser.userId,
         prompt: prompt,
-        resolvedFilter: resolvedFilter,
+        resolvedFilter: storedValue,
       }).returning();
 
       return {
@@ -2381,14 +2408,29 @@ Constraints and Guidelines:
     },
     createWidget: async (_: any, { input }: any, context: any) => {
       const authUser = requireAuth(context);
-      
-      if (typeof input.filters !== 'object' || input.filters === null) {
+
+      if ((input.filters == null) === (input.expression == null)) {
+        throw new GraphQLError('Provide exactly one of filters or expression.', {
+          extensions: { code: 'BAD_USER_INPUT' }
+        });
+      }
+
+      let storedValue: any = input.filters;
+      if (input.expression) {
+        const validation = validateFilterNode(input.expression);
+        if (!validation.valid) {
+          throw new GraphQLError(formatFilterValidationIssues(validation.issues), {
+            extensions: { code: 'BAD_USER_INPUT' }
+          });
+        }
+        storedValue = { version: 2, expression: validation.node };
+      } else if (typeof input.filters !== 'object' || input.filters === null) {
         throw new GraphQLError('Filters must be a valid JSON object', { extensions: { code: 'BAD_REQUEST' } });
       }
 
       const [inserted] = await db.insert(widgets).values({
         ownerUserId: authUser.userId,
-        filters: input.filters,
+        filters: storedValue,
         displayMode: input.displayMode || 'CARD',
         theme: input.theme || 'LIGHT',
       }).returning();
@@ -2396,7 +2438,7 @@ Constraints and Guidelines:
     },
     updateWidget: async (_: any, { id, input }: any, context: any) => {
       const authUser = requireAuth(context);
-      
+
       const [existing] = await db.select().from(widgets).where(and(eq(widgets.id, id), eq(widgets.ownerUserId, authUser.userId)));
       if (!existing) {
         throw new GraphQLError('Widget not found or unauthorized', { extensions: { code: 'NOT_FOUND' } });
@@ -2405,8 +2447,22 @@ Constraints and Guidelines:
         throw new GraphQLError('Cannot update a deleted widget', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
       }
 
+      if (input.filters !== undefined && input.expression !== undefined) {
+        throw new GraphQLError('Provide either filters or expression, not both, in the same call.', {
+          extensions: { code: 'BAD_USER_INPUT' }
+        });
+      }
+
       const updateFields: any = {};
-      if (input.filters !== undefined) {
+      if (input.expression !== undefined) {
+        const validation = validateFilterNode(input.expression);
+        if (!validation.valid) {
+          throw new GraphQLError(formatFilterValidationIssues(validation.issues), {
+            extensions: { code: 'BAD_USER_INPUT' }
+          });
+        }
+        updateFields.filters = { version: 2, expression: validation.node };
+      } else if (input.filters !== undefined) {
         if (typeof input.filters !== 'object' || input.filters === null) {
           throw new GraphQLError('Filters must be a valid JSON object', { extensions: { code: 'BAD_REQUEST' } });
         }
@@ -2660,7 +2716,6 @@ Constraints and Guidelines:
         .orderBy(desc(aiEventFilters.createdAt));
       return rows.map((r) => ({
         ...r,
-        resolvedFilter: r.resolvedFilter as any,
         createdAt: r.createdAt.toISOString(),
         updatedAt: r.updatedAt.toISOString(),
         deletedAt: r.deletedAt ? r.deletedAt.toISOString() : null,
@@ -3152,7 +3207,12 @@ Constraints and Guidelines:
       }
       return false;
     },
-    events: async (_: any, { query, filter, limit, offset, perDayLimit, includeSoftDeleted, includeMyArchived }: any, context: any, info: any) => {
+    events: async (_: any, { query, filter, expression, limit, offset, perDayLimit, includeSoftDeleted, includeMyArchived }: any, context: any, info: any) => {
+      if (filter && expression) {
+        throw new GraphQLError('Provide either the flat filter or the expression, not both.', {
+          extensions: { code: 'BAD_USER_INPUT' }
+        });
+      }
       const hasFavoritedEqTrue = (condition: QueryCondition | undefined): boolean => {
         if (!condition) {
           return false;
@@ -3180,6 +3240,11 @@ Constraints and Guidelines:
       const collectExactDates = (condition: QueryCondition | undefined, found: Set<string>): void => {
         if (!condition) return;
         if ('conditions' in condition) {
+          // Story 9.3 -- an exact date pinned *inside* a negation is excluded by the filter, not
+          // positively pinned by it, so it must never reach the calendar-view ORDER BY tie-break
+          // this collector feeds. Reachable now that `Query.events`'s new `expression` argument
+          // can produce a `'not'`-operator group wrapping a `dateRange`/`dayOfWeek` leaf.
+          if (condition.operator === 'not') return;
           for (const child of condition.conditions) {
             collectExactDates(child, found);
           }
@@ -3249,6 +3314,29 @@ Constraints and Guidelines:
               };
             } else {
               baseQuery = filterQuery;
+            }
+          }
+        } catch (err) {
+          throw new GraphQLError((err as Error).message, { extensions: { code: 'BAD_REQUEST' } });
+        }
+      }
+      if (expression) {
+        const validation = validateFilterNode(expression);
+        if (!validation.valid) {
+          throw new GraphQLError(formatFilterValidationIssues(validation.issues), {
+            extensions: { code: 'BAD_USER_INPUT' }
+          });
+        }
+        try {
+          const expressionQuery = compileFilterNodeToQueryCondition(validation.node, { currentDate: now });
+          if (expressionQuery) {
+            if (baseQuery) {
+              baseQuery = {
+                operator: 'and',
+                conditions: [baseQuery, expressionQuery],
+              };
+            } else {
+              baseQuery = expressionQuery;
             }
           }
         } catch (err) {
@@ -4491,8 +4579,13 @@ Constraints and Guidelines:
     createdAt: (parent: any) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
     deletedAt: (parent: any) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
   },
+  AIEventFilter: {
+    resolvedFilter: (parent: any) => resolveStoredFilter(parent.resolvedFilter).flatFilter,
+    expression: (parent: any) => resolveStoredFilter(parent.resolvedFilter).expression,
+  },
   Widget: {
-    filters: (parent: any) => parent.filters as any,
+    filters: (parent: any) => resolveStoredFilter(parent.filters).flatFilter,
+    expression: (parent: any) => resolveStoredFilter(parent.filters).expression,
     createdAt: (parent: any) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
     deletedAt: (parent: any) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
   },
