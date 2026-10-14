@@ -353,4 +353,113 @@ test('ai event filters resolvers integration', async (t) => {
     assert.ok(resultRestoreAgain.errors, 'Double restore should fail');
     assert.strictEqual(resultRestoreAgain.errors[0].extensions?.code, 'INVALID_STATE_TRANSITION');
   });
+
+  await t.test('saveAIEventFilter with expression (Story 9.3 AC1/AC2)', async (t) => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+    const createdIds: string[] = [];
+    t.after(async () => {
+      if (createdIds.length > 0) {
+        await db.delete(aiEventFilters).where(eq(aiEventFilters.ownerUserId, testUser.id));
+      }
+    });
+
+    async function save(args: { prompt: string; resolvedFilter?: unknown; expression?: unknown }) {
+      const res = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation Save($prompt: String!, $resolvedFilter: EventFilterInput, $expression: FilterNodeInput) {
+              saveAIEventFilter(prompt: $prompt, resolvedFilter: $resolvedFilter, expression: $expression) {
+                id
+                resolvedFilter { keyword isFree }
+                expression { op field value }
+              }
+            }
+          `,
+          variables: args,
+        }),
+      });
+      return res.json();
+    }
+
+    await t.test('a valid flat-representable expression persists {version:2,expression} and resolves both fields', async () => {
+      const result = await save({
+        prompt: 'flat expression save',
+        expression: { op: 'AND', children: [{ field: 'keyword', value: 'jazz' }] },
+      });
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      createdIds.push(result.data.saveAIEventFilter.id);
+      assert.strictEqual(result.data.saveAIEventFilter.resolvedFilter.keyword, 'jazz');
+      assert.ok(result.data.saveAIEventFilter.expression);
+
+      const [row] = await db.select().from(aiEventFilters).where(eq(aiEventFilters.id, result.data.saveAIEventFilter.id));
+      assert.deepStrictEqual(row.resolvedFilter, {
+        version: 2,
+        expression: { op: 'AND', children: [{ field: 'keyword', value: 'jazz' }] },
+      });
+    });
+
+    await t.test('a non-flat (OR) expression save returns resolvedFilter: null', async () => {
+      const result = await save({
+        prompt: 'OR expression save',
+        expression: {
+          op: 'OR',
+          children: [{ field: 'keyword', value: 'jazz' }, { field: 'isFree', value: true }],
+        },
+      });
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      createdIds.push(result.data.saveAIEventFilter.id);
+      assert.strictEqual(result.data.saveAIEventFilter.resolvedFilter, null);
+      assert.ok(result.data.saveAIEventFilter.expression);
+    });
+
+    await t.test('an invalid expression returns BAD_USER_INPUT', async () => {
+      const result = await save({
+        prompt: 'invalid expression save',
+        expression: { field: 'notARealField', value: 1 },
+      });
+      assert.ok(result.errors, 'invalid expression should error');
+      assert.strictEqual(result.errors[0].extensions?.code, 'BAD_USER_INPUT');
+    });
+
+    await t.test('supplying both resolvedFilter and expression returns BAD_USER_INPUT', async () => {
+      const result = await save({
+        prompt: 'both supplied',
+        resolvedFilter: { keyword: 'jazz' },
+        expression: { field: 'keyword', value: 'jazz' },
+      });
+      assert.ok(result.errors, 'both supplied should error');
+      assert.strictEqual(result.errors[0].extensions?.code, 'BAD_USER_INPUT');
+    });
+
+    await t.test('supplying neither resolvedFilter nor expression returns BAD_USER_INPUT', async () => {
+      const result = await save({ prompt: 'neither supplied' });
+      assert.ok(result.errors, 'neither supplied should error');
+      assert.strictEqual(result.errors[0].extensions?.code, 'BAD_USER_INPUT');
+    });
+
+    await t.test('a pre-existing legacy (no-version) row still resolves the same resolvedFilter plus a populated expression', async () => {
+      const result = await save({ prompt: 'legacy flat save', resolvedFilter: { keyword: 'live jazz', types: ['PERFORMANCE'] } });
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      createdIds.push(result.data.saveAIEventFilter.id);
+      assert.strictEqual(result.data.saveAIEventFilter.resolvedFilter.keyword, 'live jazz');
+      assert.ok(result.data.saveAIEventFilter.expression);
+
+      const resQuery = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `{ myAIEventFilters { id resolvedFilter { keyword types } expression { op field value } } }`,
+        }),
+      });
+      const resultQuery = await resQuery.json();
+      assert.ok(!resultQuery.errors, JSON.stringify(resultQuery.errors));
+      const row = resultQuery.data.myAIEventFilters.find((r: any) => r.id === result.data.saveAIEventFilter.id);
+      assert.ok(row, 'legacy row should still be returned by myAIEventFilters');
+      assert.strictEqual(row.resolvedFilter.keyword, 'live jazz');
+      assert.deepStrictEqual(row.resolvedFilter.types, ['PERFORMANCE']);
+      assert.ok(row.expression);
+    });
+  });
 });
