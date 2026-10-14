@@ -92,3 +92,10 @@ Current position: implementation phase; this is a change to an existing, specced
 3. `dayOfWeek` becomes an array; multiple locations only via OR in `expr` — adopted.
 4. Widgets get tree support in this epic (S4 covers `widgets.graphql`; add Widget regression tests) — adopted.
 5. Date grammar upgrade (S1b) included in this epic; absolute dates and time-of-day remain v2.
+
+## 9. Backlog linkage (2026-10-14)
+
+- Epic seed row: `IDEA-069` in `backlog.yaml`.
+- Fold in as hardening stories at epic formation (`bmad-form-epics`): `FIND-018` (resolver validation, quota, error mapping, 90-day/epoch fallbacks, `offsetAmount` bounds) and `BUG-011` (`resolvePromptToEventFilter` rate limit, Gemini concurrency/backoff).
+- Closes via S5/S8: action item `retro-7-1` (prompt-refinement) in `sprint-status.yaml`.
+- Must stay consistent with: `IDEA-065` (accountId resolution — reuse for `account` leaves), `IDEA-019`/`IDEA-038`/`FIND-060` (temporal filter, AD-19 weekday-narrowed schedules), `BUG-025`/Story 1.3l (Feed/Favorites AI-filter wiring → also `buildFeedQueryCondition`, `buildAccountEventsQueryCondition`).

@@ -2517,7 +2517,7 @@ action_items:
     status: open
     created_at: "2026-09-02"
   - id: retro-7-1
-    description: "Refine AI Prompts: Monitor user behavior with AI filters to tune the system prompt for better date/location extraction accuracy."
+    description: "Refine AI Prompts: Monitor user behavior with AI filters to tune the system prompt for better date/location extraction accuracy. Folded into backlog IDEA-069 (AI filter boolean/nested upgrade, stories S5/S8)."
     owner: Alice
     status: open
     created_at: "2026-08-29"

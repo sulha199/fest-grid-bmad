@@ -2178,3 +2178,12 @@ items:
      ref: [apps/backend/src/lib/ai-processor/build-gemini-request.ts, apps/backend/src/validation/extracted-event.schema.ts, implementation-artifacts/3-6s-extract-multiple-events-per-post-with-grouping-rules.md, backlog/IDEA-068-organizer-handle-explicit-only.md],
      touches: [app:backend, cross:ai-extraction],
      note: "Done 2026-10-12: prompt returns organizerHandle only for an explicit organizer. Detail in backlog/IDEA-068-organizer-handle-explicit-only.md."}
+
+  # ── 2026-10-14 (AI filter boolean/nested query upgrade) ──────────────────────
+  IDEA-069:
+    {type: idea, status: backlog, created: 2026-10-14,
+     impact: user-visible, effort: l,
+     title: "AI filter: AND/OR/NOT and nested expressions, plus richer date grammar (spans, multi-weekday)",
+     ref: [planning-artifacts/ai-filter-boolean-nested-query-upgrade-plan.md, specs/spec-ai-prompt-event-filter/SPEC.md],
+     touches: [cross:ai-extraction, pkg:domain, app:backend, web:events, web:widgets, pkg:ui],
+     note: "Fold FIND-018 and BUG-011 in as hardening stories at epic formation; retro-7-1 closes with its S5/S8."}
