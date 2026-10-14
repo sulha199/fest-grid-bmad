@@ -29,6 +29,21 @@ export function resolveStoredFilter(stored: unknown): ResolvedStoredFilter {
     ? (stored as { expression: unknown }).expression
     : expressionFromFlatFilter((stored as EventFilterInput) ?? {});
 
+  // An empty top-level AND group (no leaves -- an absent/empty legacy value, or an explicitly
+  // empty v2 expression) is a legitimate "no filter active" state, not a malformed tree --
+  // `validateFilterNode`'s empty-group rule (Story 9.1a) exists to catch an authored/compiled
+  // tree with a genuinely empty branch, not this degenerate root case, so it is special-cased
+  // here rather than loosened upstream (out of this story's scope).
+  if (
+    typeof candidate === 'object' &&
+    candidate !== null &&
+    (candidate as { op?: unknown }).op === 'AND' &&
+    Array.isArray((candidate as { children?: unknown }).children) &&
+    (candidate as { children: unknown[] }).children.length === 0
+  ) {
+    return { expression: candidate as FilterNode, flatFilter: {} };
+  }
+
   const validation = validateFilterNode(candidate);
   if (!validation.valid) {
     const issueText = validation.issues.map((i) => `${i.path.join('.')}: ${i.reason}`).join('; ');
