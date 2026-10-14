@@ -4580,12 +4580,12 @@ Constraints and Guidelines:
     deletedAt: (parent: any) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
   },
   AIEventFilter: {
-    resolvedFilter: (parent: any) => resolveStoredFilter(parent.resolvedFilter).flatFilter,
-    expression: (parent: any) => resolveStoredFilter(parent.resolvedFilter).expression,
+    resolvedFilter: (parent: any) => resolveStoredFilter(parent.resolvedFilter).flatFilter as any,
+    expression: (parent: any) => resolveStoredFilter(parent.resolvedFilter).expression as any,
   },
   Widget: {
-    filters: (parent: any) => resolveStoredFilter(parent.filters).flatFilter,
-    expression: (parent: any) => resolveStoredFilter(parent.filters).expression,
+    filters: (parent: any) => resolveStoredFilter(parent.filters).flatFilter as any,
+    expression: (parent: any) => resolveStoredFilter(parent.filters).expression as any,
     createdAt: (parent: any) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
     deletedAt: (parent: any) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
   },
