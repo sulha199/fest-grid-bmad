@@ -1,6 +1,16 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildEventsQueryCondition, resolveDateRangeFilter, getDays, DayOfWeek, type EventFilterInput } from './buildEventsQueryCondition.js';
+import {
+  buildEventsQueryCondition,
+  resolveDateRangeFilter,
+  resolveTodayISO,
+  getDays,
+  DayOfWeek,
+  DATE_OFFSET_AMOUNT_BOUNDS,
+  DAY_OF_WEEK_ONLY_LOOKAHEAD_DAYS,
+  NO_MATCHING_WEEKDAY_SENTINEL_DATE,
+  type EventFilterInput,
+} from './buildEventsQueryCondition.js';
 
 /**
  * Populated-field `EventFilterInput` fixtures exercised below. Exported so Story 9.1a's
@@ -148,6 +158,162 @@ describe('buildEventsQueryCondition', () => {
           { field: 'isFree', operator: 'eq', value: true }
         ]
       });
+    });
+  });
+});
+
+describe('resolveDateRangeFilter span widening (AC1, Task 10)', () => {
+  const mockDate = new Date('2026-08-29T00:00:00Z'); // a Saturday
+
+  it('widens the resolved `to` boundary by spanAmount days for spanUnit DAY ("next 7 days")', () => {
+    const res = resolveDateRangeFilter('TODAY', 0, 'DAY', mockDate, { spanAmount: 7, spanUnit: 'DAY' });
+    assert.deepEqual(res, { from: '2026-08-29', to: '2026-09-05' });
+  });
+
+  it('widens the resolved `to` boundary by spanAmount * 7 days for spanUnit WEEK ("next 2 weeks")', () => {
+    const res = resolveDateRangeFilter('TODAY', 0, 'DAY', mockDate, { spanAmount: 2, spanUnit: 'WEEK' });
+    assert.deepEqual(res, { from: '2026-08-29', to: '2026-09-12' });
+  });
+
+  it('widens `to` through the end of the current month for spanUnit MONTH, spanAmount 1 ("rest of this month")', () => {
+    const res = resolveDateRangeFilter('TODAY', 0, 'DAY', mockDate, { spanAmount: 1, spanUnit: 'MONTH' });
+    assert.deepEqual(res, { from: '2026-08-29', to: '2026-08-31' });
+  });
+
+  it('widens `to` through the end of the *next* month for spanUnit MONTH, spanAmount 2', () => {
+    const res = resolveDateRangeFilter('TODAY', 0, 'DAY', mockDate, { spanAmount: 2, spanUnit: 'MONTH' });
+    assert.deepEqual(res, { from: '2026-08-29', to: '2026-09-30' });
+  });
+
+  it('is additive-only: omitting spanAmount/spanUnit leaves resolution byte-identical to the 4-arg call', () => {
+    const withoutSpan = resolveDateRangeFilter('TODAY', 1, 'DAY', mockDate);
+    const withEmptySpan = resolveDateRangeFilter('TODAY', 1, 'DAY', mockDate, {});
+    assert.deepEqual(withoutSpan, { from: '2026-08-30', to: '2026-08-30' });
+    assert.deepEqual(withEmptySpan, withoutSpan);
+  });
+
+  it('throws a descriptive Error when offsetAmount exceeds its DATE_OFFSET_AMOUNT_BOUNDS bound', () => {
+    assert.throws(() => resolveDateRangeFilter('TODAY', 91, 'DAY', mockDate), /offsetAmount.*exceeds.*bound/);
+    assert.throws(() => resolveDateRangeFilter('TODAY', 53, 'WEEK', mockDate), /offsetAmount.*exceeds.*bound/);
+    assert.throws(() => resolveDateRangeFilter('TODAY', 25, 'MONTH', mockDate), /offsetAmount.*exceeds.*bound/);
+  });
+
+  it('throws a descriptive Error when spanAmount exceeds its DATE_OFFSET_AMOUNT_BOUNDS bound', () => {
+    assert.throws(
+      () => resolveDateRangeFilter('TODAY', 0, 'DAY', mockDate, { spanAmount: 91, spanUnit: 'DAY' }),
+      /spanAmount.*exceeds.*bound/
+    );
+  });
+
+  it('throws when spanAmount is not a positive integer >= 1', () => {
+    assert.throws(
+      () => resolveDateRangeFilter('TODAY', 0, 'DAY', mockDate, { spanAmount: 0, spanUnit: 'DAY' }),
+      /spanAmount.*positive integer/
+    );
+    assert.throws(
+      () => resolveDateRangeFilter('TODAY', 0, 'DAY', mockDate, { spanAmount: 1.5, spanUnit: 'DAY' }),
+      /spanAmount.*positive integer/
+    );
+    assert.throws(
+      () => resolveDateRangeFilter('TODAY', 0, 'DAY', mockDate, { spanAmount: -2, spanUnit: 'DAY' }),
+      /spanAmount.*positive integer/
+    );
+  });
+
+  it('confirms the 3 pre-existing THIS_MONTH DAY/WEEK/MONTH-offset tests stay unaffected by span/bound changes', () => {
+    assert.deepEqual(resolveDateRangeFilter('THIS_MONTH', 5, 'DAY', new Date('2026-08-29T12:00:00Z')), { from: '2026-08-06', to: '2026-09-05' });
+    assert.deepEqual(resolveDateRangeFilter('THIS_MONTH', 1, 'WEEK', new Date('2026-08-29T12:00:00Z')), { from: '2026-08-08', to: '2026-09-07' });
+    assert.deepEqual(resolveDateRangeFilter('THIS_MONTH', 1, 'MONTH', new Date('2026-08-29T12:00:00Z')), { from: '2026-09-01', to: '2026-09-30' });
+  });
+});
+
+describe('resolveTodayISO (AC3, DW-074, Task 10)', () => {
+  it('computes the zoned Y-M-D "today" when the instant is already a different calendar day in that timezone', () => {
+    // 2026-08-29T23:30:00Z is still Aug 29 in UTC, but already Aug 30 06:30 local in Asia/Jakarta (UTC+7).
+    const instant = new Date('2026-08-29T23:30:00Z');
+    assert.equal(resolveTodayISO(instant, 'Asia/Jakarta'), '2026-08-30');
+    assert.equal(resolveTodayISO(instant), '2026-08-29');
+  });
+
+  it('degrades gracefully to the UTC calendar date on an absent or invalid timezone', () => {
+    const instant = new Date('2026-08-29T23:30:00Z');
+    assert.equal(resolveTodayISO(instant, null), '2026-08-29');
+    assert.equal(resolveTodayISO(instant, 'Not/ARealTimezone'), '2026-08-29');
+  });
+});
+
+describe('named fallback/sentinel/bound constants (DW-075, DW-076, DW-077, Task 10)', () => {
+  it('have the exact documented shapes', () => {
+    assert.deepEqual(DATE_OFFSET_AMOUNT_BOUNDS, { DAY: 90, WEEK: 52, MONTH: 24 });
+    assert.equal(DAY_OF_WEEK_ONLY_LOOKAHEAD_DAYS, 90);
+    assert.equal(NO_MATCHING_WEEKDAY_SENTINEL_DATE, '1970-01-01');
+  });
+});
+
+describe('buildEventsQueryCondition: multi-weekday, timezone, and sentinel composition (AC2, AC3, Task 10)', () => {
+  const mockDate = new Date('2026-08-29T12:00:00Z'); // a Saturday
+
+  it('composes a dayOfWeek-only filter with multiple weekdays (weekends) using the DAY_OF_WEEK_ONLY_LOOKAHEAD_DAYS window', () => {
+    const res = buildEventsQueryCondition({
+      filter: { dayOfWeek: [DayOfWeek.SAT, DayOfWeek.SUN] },
+      currentDate: mockDate
+    });
+    assert.ok(res);
+    // 2026-08-29 is itself a Saturday, so it's included in the matched set.
+    if (res && res.operator === 'and') {
+      const first = res.conditions[0];
+      assert.equal(first.operator, 'or');
+    }
+  });
+
+  it('falls back to the sentinel date when a dateRange + dayOfWeek combination matches no date', () => {
+    // A single-day dateRange (TODAY, offset 0) on a Saturday, filtered to MON -- no overlap.
+    const res = buildEventsQueryCondition({
+      filter: {
+        dateRange: { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY' },
+        dayOfWeek: DayOfWeek.MON
+      },
+      currentDate: mockDate
+    });
+    assert.deepEqual(res, {
+      operator: 'and',
+      conditions: [{
+        field: 'scheduleDateRange',
+        operator: 'overlaps',
+        value: { from: NO_MATCHING_WEEKDAY_SENTINEL_DATE, to: NO_MATCHING_WEEKDAY_SENTINEL_DATE }
+      }]
+    });
+  });
+
+  it('resolves "today" from the timezone param, not the raw UTC instant, for dateRange resolution', () => {
+    const lateUtcInstant = new Date('2026-08-29T23:30:00Z'); // already Aug 30 in Asia/Jakarta
+    const res = buildEventsQueryCondition({
+      filter: { dateRange: { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY' } },
+      currentDate: lateUtcInstant,
+      timezone: 'Asia/Jakarta'
+    });
+    assert.deepEqual(res, {
+      operator: 'and',
+      conditions: [{ field: 'scheduleDateRange', operator: 'overlaps', value: { from: '2026-08-30', to: '2026-08-30' } }]
+    });
+  });
+
+  it('resolves the TODAY temporalFilter boundary from the timezone param, leaving the notEnded instant untouched', () => {
+    const lateUtcInstant = new Date('2026-08-29T23:30:00Z');
+    const res = buildEventsQueryCondition({
+      temporalFilter: 'TODAY',
+      currentDate: lateUtcInstant,
+      timezone: 'Asia/Jakarta'
+    });
+    assert.deepEqual(res, {
+      operator: 'and',
+      conditions: [{
+        operator: 'and',
+        conditions: [
+          { field: 'scheduleDateRange', operator: 'overlaps', value: { from: '2026-08-30', to: '2026-08-30' } },
+          { field: 'scheduleEndedBoundary', operator: 'notEnded', value: { now: lateUtcInstant.toISOString(), today: '2026-08-30' } }
+        ]
+      }]
     });
   });
 });

@@ -1,4 +1,5 @@
 import { QueryCondition } from '../query/queryDsl.js';
+import { isValidIanaTimezone } from '../users/validateTimezone.js';
 export type NearbyFilterInput =
   | { locationPreferenceId: string; radiusKm: number }
   | { latitude: number; longitude: number; radiusKm: number };
@@ -6,10 +7,36 @@ export enum DateAnchor { TODAY = 'TODAY', THIS_WEEK = 'THIS_WEEK', THIS_MONTH = 
 export enum DateOffsetUnit { DAY = 'DAY', WEEK = 'WEEK', MONTH = 'MONTH' }
 export enum DayOfWeek { MON = 'MON', TUE = 'TUE', WED = 'WED', THU = 'THU', FRI = 'FRI', SAT = 'SAT', SUN = 'SUN' }
 export enum TemporalFilter { TODAY = 'TODAY', UPCOMING = 'UPCOMING' }
+/**
+ * DW-077: the single, shared bound table for `offsetAmount` (every caller) and `spanAmount`
+ * (Story 9.1b) -- keyed by the respective `offsetUnit`/`spanUnit`. Never re-declared elsewhere;
+ * `filter-node-schema.ts`'s `dateRangeFilterSchema` imports this exact table rather than
+ * hardcoding its own copy of these numbers.
+ */
+export const DATE_OFFSET_AMOUNT_BOUNDS: Record<'DAY' | 'WEEK' | 'MONTH', number> = { DAY: 90, WEEK: 52, MONTH: 24 };
+/**
+ * DW-075: the named, documented replacement for the inline magic `+ 90` days previously used when
+ * `dayOfWeek` is set without `dateRange` (lookahead window for "which weekday do you mean"). Same
+ * numeric value as before -- this only makes the behavior explicit and testable.
+ */
+export const DAY_OF_WEEK_ONLY_LOOKAHEAD_DAYS = 90;
+/**
+ * DW-076: the named, documented replacement for the inline magic `'1970-01-01'` literal used to
+ * force zero results when no date in the resolved window matches the requested weekday(s). A
+ * from/to pair of this sentinel date reliably produces zero `scheduleDateRange` overlap matches
+ * for any real event (every event lives well after 1970), which is why it's reused as an
+ * "always-false" trick rather than introducing a new, dedicated "always-false" DSL terminal here
+ * (see Story 9.1b Dev Notes decision 5 -- that would require extending `DSLOperator`, which is
+ * explicitly Story 9.2/9.3's territory).
+ */
+export const NO_MATCHING_WEEKDAY_SENTINEL_DATE = '1970-01-01';
 export interface DateRangeFilter {
   anchor: DateAnchor | 'TODAY' | 'THIS_WEEK' | 'THIS_MONTH';
   offsetAmount: number;
   offsetUnit: DateOffsetUnit | 'DAY' | 'WEEK' | 'MONTH';
+  /** Additive-only span widening (AC1) -- omitting this leaves resolution byte-identical to before. */
+  spanAmount?: number;
+  spanUnit?: DateOffsetUnit | 'DAY' | 'WEEK' | 'MONTH';
 }
 export interface LocationFilter {
   coordinates?: { lat: number; lng: number } | null;
@@ -22,7 +49,7 @@ export interface EventFilterInput {
   categories?: string[] | null;
   keyword?: string | null;
   dateRange?: DateRangeFilter | null;
-  dayOfWeek?: DayOfWeek | 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN' | null;
+  dayOfWeek?: DayOfWeek[] | DayOfWeek | 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN' | null;
   location?: LocationFilter | null;
   venueType?: string | null;
   isFree?: boolean | null;
@@ -32,14 +59,68 @@ export interface BuildEventsQueryConditionInput {
   search?: string; types?: string[]; categories?: string[]; nearby?: NearbyFilterInput;
   filter?: EventFilterInput; currentDate?: Date;
   temporalFilter?: TemporalFilter | 'TODAY' | 'UPCOMING' | null;
+  /** DW-074: optional IANA timezone used to resolve "today" (date boundaries only -- never the `notEnded` instant). */
+  timezone?: string | null;
 }
 const fmt = (d: Date) => d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+/**
+ * DW-074: computes the zoned Y-M-D "today" as seen in `timezone`, degrading gracefully to the
+ * instant's own UTC calendar date (via `fmt`) when `timezone` is absent, invalid, or `Intl` throws
+ * -- matching `project-context.md`'s established Intl-degradation convention. Used only for
+ * date-boundary computation (the resolved `dateRange`/`dayOfWeek` window, and `buildTemporalCondition`'s
+ * `today`/`tomorrow`), never for the `notEnded` check's real-time instant comparison.
+ */
+export function resolveTodayISO(instant: Date, timezone?: string | null): string {
+  if (timezone && isValidIanaTimezone(timezone)) {
+    try {
+      // en-CA formats as YYYY-MM-DD, matching `fmt`'s own output shape.
+      return new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(instant);
+    } catch {
+      return fmt(instant);
+    }
+  }
+  return fmt(instant);
+}
+function checkOffsetAmountBound(amount: number, unit: 'DAY' | 'WEEK' | 'MONTH', label: string): void {
+  const bound = DATE_OFFSET_AMOUNT_BOUNDS[unit];
+  if (Math.abs(amount) > bound) {
+    throw new Error(`${label} (${amount} ${unit}) exceeds the allowed bound of ±${bound} ${unit}(s) (see DATE_OFFSET_AMOUNT_BOUNDS).`);
+  }
+}
+function applySpanWidening(e: Date, spanAmount: number, spanUnit: 'DAY' | 'WEEK' | 'MONTH'): Date {
+  if (spanUnit === 'WEEK') {
+    const widened = new Date(e);
+    widened.setUTCDate(widened.getUTCDate() + spanAmount * 7);
+    return widened;
+  }
+  if (spanUnit === 'MONTH') {
+    // Extends `to` through the end of the `spanAmount`-th calendar month, counting `e`'s own
+    // month as month 1 (AC1's "rest of this month" worked example: spanAmount=1 -> end of e's
+    // own month; spanAmount=2 -> end of the next month). Date.UTC normalizes month overflow
+    // (e.g. December + N) into the correct following year automatically.
+    return new Date(Date.UTC(e.getUTCFullYear(), e.getUTCMonth() + spanAmount, 0));
+  }
+  const widened = new Date(e);
+  widened.setUTCDate(widened.getUTCDate() + spanAmount);
+  return widened;
+}
 export function resolveDateRangeFilter(
   anchor: 'TODAY' | 'THIS_WEEK' | 'THIS_MONTH' | DateAnchor,
   offsetAmount: number,
   offsetUnit: 'DAY' | 'WEEK' | 'MONTH' | DateOffsetUnit,
-  currentDate: Date
+  currentDate: Date,
+  span?: { spanAmount?: number; spanUnit?: DateOffsetUnit | 'DAY' | 'WEEK' | 'MONTH' }
 ): { from: string; to: string } {
+  checkOffsetAmountBound(offsetAmount, offsetUnit as 'DAY' | 'WEEK' | 'MONTH', 'offsetAmount');
+  const hasSpan = span?.spanAmount !== undefined && span?.spanUnit !== undefined;
+  if (hasSpan) {
+    const spanAmount = span!.spanAmount as number;
+    const spanUnit = span!.spanUnit as 'DAY' | 'WEEK' | 'MONTH';
+    if (!Number.isInteger(spanAmount) || spanAmount < 1) {
+      throw new Error(`spanAmount (${spanAmount}) must be a positive integer >= 1.`);
+    }
+    checkOffsetAmountBound(spanAmount, spanUnit, 'spanAmount');
+  }
   const base = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), currentDate.getUTCDate()));
   let s = new Date(base), e = new Date(base);
   // Compared against the plain string literal only (not also DateOffsetUnit.MONTH/DateAnchor.TODAY etc below):
@@ -71,6 +152,9 @@ export function resolveDateRangeFilter(
     e = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, 0));
     applyDayOrWeekOffset(s, e);
   }
+  if (hasSpan) {
+    e = applySpanWidening(e, span!.spanAmount as number, span!.spanUnit as 'DAY' | 'WEEK' | 'MONTH');
+  }
   return { from: fmt(s), to: fmt(e) };
 }
 /**
@@ -101,12 +185,14 @@ export function getDays(fromStr: string, toStr: string, dow: DayOfWeek[]): strin
  */
 function buildTemporalCondition(
   temporalFilter: TemporalFilter | string | null | undefined,
-  now: Date
+  now: Date,
+  timezone?: string | null
 ): QueryCondition | undefined {
   if (!temporalFilter) return undefined;
-  const todayISO = fmt(now);
+  const todayISO = resolveTodayISO(now, timezone);
   if (temporalFilter === 'UPCOMING') {
-    const tomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+    const todayDate = new Date(todayISO + 'T00:00:00Z');
+    const tomorrow = new Date(Date.UTC(todayDate.getUTCFullYear(), todayDate.getUTCMonth(), todayDate.getUTCDate() + 1));
     const tomorrowISO = fmt(tomorrow);
     return { field: 'scheduleDateRange', operator: 'overlaps', value: { from: tomorrowISO, to: null } };
   }
@@ -123,10 +209,15 @@ function buildTemporalCondition(
 }
 
 export function buildEventsQueryCondition({
-  search, types, categories, nearby, filter, currentDate, temporalFilter
+  search, types, categories, nearby, filter, currentDate, temporalFilter, timezone
 }: BuildEventsQueryConditionInput): QueryCondition | undefined {
   const conditions: QueryCondition[] = [];
   const now = currentDate ?? new Date();
+  // DW-074: zoned "today" is used for every date-boundary computation below (the resolved
+  // dateRange/dayOfWeek window, buildTemporalCondition's today/tomorrow) -- never for the
+  // notEnded instant comparison, which stays `now.toISOString()` inside buildTemporalCondition.
+  const zonedTodayISO = resolveTodayISO(now, timezone);
+  const zonedCurrentDate = new Date(zonedTodayISO + 'T00:00:00Z');
   if (filter) {
     if (filter.accountId) conditions.push({ field: 'socialMediaAccountProfileId', operator: 'eq', value: filter.accountId });
     if (filter.types && filter.types.length > 0) conditions.push({ field: 'types', operator: 'in', value: filter.types });
@@ -149,12 +240,26 @@ export function buildEventsQueryCondition({
     }
     if (filter.dateRange || filter.dayOfWeek) {
       const r = filter.dateRange
-        ? resolveDateRangeFilter(filter.dateRange.anchor, filter.dateRange.offsetAmount, filter.dateRange.offsetUnit, now)
-        : { from: fmt(now), to: fmt(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 90))) };
+        ? resolveDateRangeFilter(
+            filter.dateRange.anchor,
+            filter.dateRange.offsetAmount,
+            filter.dateRange.offsetUnit,
+            zonedCurrentDate,
+            { spanAmount: filter.dateRange.spanAmount, spanUnit: filter.dateRange.spanUnit }
+          )
+        : {
+            from: zonedTodayISO,
+            to: fmt(new Date(Date.UTC(
+              zonedCurrentDate.getUTCFullYear(),
+              zonedCurrentDate.getUTCMonth(),
+              zonedCurrentDate.getUTCDate() + DAY_OF_WEEK_ONLY_LOOKAHEAD_DAYS
+            )))
+          };
       if (filter.dayOfWeek) {
-        const dates = getDays(r.from, r.to, [filter.dayOfWeek as DayOfWeek]);
+        const dowArray = Array.isArray(filter.dayOfWeek) ? filter.dayOfWeek : [filter.dayOfWeek as DayOfWeek];
+        const dates = getDays(r.from, r.to, dowArray);
         if (dates.length === 0) {
-          conditions.push({ field: 'scheduleDateRange', operator: 'overlaps', value: { from: '1970-01-01', to: '1970-01-01' } });
+          conditions.push({ field: 'scheduleDateRange', operator: 'overlaps', value: { from: NO_MATCHING_WEEKDAY_SENTINEL_DATE, to: NO_MATCHING_WEEKDAY_SENTINEL_DATE } });
         } else if (dates.length === 1) {
           conditions.push({ field: 'scheduleDateRange', operator: 'overlaps', value: { from: dates[0], to: dates[0] } });
         } else {
@@ -182,7 +287,7 @@ export function buildEventsQueryCondition({
     }
     if (filter.venueType) conditions.push({ field: 'venueType', operator: 'eq', value: filter.venueType });
     if (filter.isFree !== undefined) conditions.push({ field: 'isFree', operator: 'eq', value: filter.isFree });
-    const filterTemporalCondition = buildTemporalCondition(filter.temporalFilter, now);
+    const filterTemporalCondition = buildTemporalCondition(filter.temporalFilter, now, timezone);
     if (filterTemporalCondition) conditions.push(filterTemporalCondition);
   } else {
     const trimmed = (search ?? '').trim();
@@ -202,7 +307,7 @@ export function buildEventsQueryCondition({
     if (types && types.length > 0) conditions.push({ field: 'types', operator: 'in', value: types });
     if (categories && categories.length > 0) conditions.push({ field: 'categories', operator: 'in', value: categories });
     if (nearby) conditions.push({ field: 'scheduleCoordinates', operator: 'withinRadius', value: nearby });
-    const topLevelTemporalCondition = buildTemporalCondition(temporalFilter, now);
+    const topLevelTemporalCondition = buildTemporalCondition(temporalFilter, now, timezone);
     if (topLevelTemporalCondition) conditions.push(topLevelTemporalCondition);
   }
   if (conditions.length === 0) return undefined;

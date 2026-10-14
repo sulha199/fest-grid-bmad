@@ -94,8 +94,14 @@ export function renderAIFilterSummary(
       }
     }
   } else if (filter.dayOfWeek) {
-    const dow = filter.dayOfWeek;
-    clauses.push((labels.daysOfWeek && labels.daysOfWeek[dow]) ? labels.daysOfWeek[dow] : dow);
+    // Forced minimal compile-safety touch only (Story 9.1b Dev Notes decision 8, Gate 2-cleared):
+    // `dayOfWeek` may now be an array; each entry is piped through the existing `labels.daysOfWeek`
+    // lookup and joined with the same default separator used elsewhere in this file. No new label
+    // key, join-word/grammar logic, or locale string is introduced here -- that richer summary
+    // template work is Story 9.5's exclusive scope.
+    const dows = Array.isArray(filter.dayOfWeek) ? filter.dayOfWeek : [filter.dayOfWeek];
+    const translatedDows = dows.map((dow) => (labels.daysOfWeek && labels.daysOfWeek[dow]) ? labels.daysOfWeek[dow] : dow);
+    clauses.push(translatedDows.join(', '));
   }
 
   if (filter.location) {

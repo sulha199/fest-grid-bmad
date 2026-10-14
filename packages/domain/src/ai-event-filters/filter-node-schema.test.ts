@@ -202,6 +202,47 @@ describe('validateFilterNode (AC1)', () => {
     });
   });
 
+  describe('dateRange span validation (AC1, Story 9.1b, Task 13)', () => {
+    it('accepts a dateRange leaf with valid spanAmount/spanUnit', () => {
+      const node: FilterNode = {
+        field: 'dateRange',
+        value: { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY', spanAmount: 7, spanUnit: 'DAY' },
+      };
+      const result = validateFilterNode(node);
+      assert.equal(result.valid, true);
+    });
+
+    it('rejects a dateRange leaf whose spanAmount exceeds its DATE_OFFSET_AMOUNT_BOUNDS bound', () => {
+      const node: FilterNode = {
+        field: 'dateRange',
+        value: { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY', spanAmount: 91, spanUnit: 'DAY' },
+      };
+      const result = validateFilterNode(node);
+      assert.equal(result.valid, false);
+      if (!result.valid) {
+        assert.match(result.issues[0].reason, /invalid value/);
+      }
+    });
+
+    it('rejects a dateRange leaf whose offsetAmount exceeds its DATE_OFFSET_AMOUNT_BOUNDS bound', () => {
+      const node: FilterNode = {
+        field: 'dateRange',
+        value: { anchor: 'TODAY', offsetAmount: 91, offsetUnit: 'DAY' },
+      };
+      const result = validateFilterNode(node);
+      assert.equal(result.valid, false);
+    });
+
+    it('rejects a dateRange leaf where spanAmount is provided without spanUnit', () => {
+      const node: FilterNode = {
+        field: 'dateRange',
+        value: { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY', spanAmount: 7 },
+      } as unknown as FilterNode;
+      const result = validateFilterNode(node);
+      assert.equal(result.valid, false);
+    });
+  });
+
   describe('malformed candidates', () => {
     it('rejects a non-object candidate', () => {
       const result = validateFilterNode('not a node');

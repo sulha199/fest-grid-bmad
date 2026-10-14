@@ -65,6 +65,13 @@ describe('renderAIFilterSummary', () => {
     assert.equal(renderAIFilterSummary({ dayOfWeek: 'MON' as DayOfWeek }, null, { ...lbls, daysOfWeek: undefined }).summary, 'MON');
   });
 
+  it('renders an array-valued dayOfWeek gracefully, with no crash (Story 9.1b forced compile-safety touch)', () => {
+    assert.equal(
+      renderAIFilterSummary({ dayOfWeek: ['FRI', 'SAT' as DayOfWeek] }, null, { ...lbls, daysOfWeek: { FRI: 'Friday' } }).summary,
+      'Friday, SAT'
+    );
+  });
+
   it('renders location', () => {
     assert.equal(renderAIFilterSummary({ location: { adminArea: 'Berlin' } }, null, lbls).summary, 'in:Berlin');
     assert.equal(renderAIFilterSummary({ location: { adminArea: 'Berlin' } }, null, { ...lbls, adminAreaTemplate: undefined }).summary, 'in:Berlin');

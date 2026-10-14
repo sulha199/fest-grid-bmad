@@ -34,8 +34,10 @@ export function expressionFromFlatFilter(filter: EventFilterInput): FilterNode {
     children.push({ field: 'dateRange', value: filter.dateRange });
   }
   if (filter.dayOfWeek) {
-    // Decision 4: today's flat shape is singular; wrap into the leaf's array-valued shape.
-    children.push({ field: 'dayOfWeek', value: [filter.dayOfWeek as DayOfWeek] });
+    // Decision 4 (9.1a) / Story 9.1b: the flat shape may now be singular or array-valued --
+    // normalize either into the leaf's array-valued shape.
+    const dowArray = Array.isArray(filter.dayOfWeek) ? filter.dayOfWeek : [filter.dayOfWeek as DayOfWeek];
+    children.push({ field: 'dayOfWeek', value: dowArray });
   }
   if (filter.location) {
     const { coordinates, radiusMeters, adminArea } = filter.location;
@@ -107,8 +109,9 @@ export function flatFilterFromExpression(node: FilterNode): EventFilterInput {
         filter.dateRange = leaf.value;
         break;
       case 'dayOfWeek':
-        // Decision 4: this story only needs the single-element case to round-trip losslessly.
-        filter.dayOfWeek = leaf.value[0];
+        // Story 9.1b: lossless round trip for both the singular (1 element, preserving Story
+        // 9.1a's existing byte-identical single-value output) and multi-value (2+ elements) case.
+        filter.dayOfWeek = leaf.value.length === 1 ? leaf.value[0] : leaf.value;
         break;
       case 'locationAdminArea':
         filter.location = { ...filter.location, adminArea: leaf.value };

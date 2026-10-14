@@ -41,6 +41,12 @@ describe('expressionFromFlatFilter / flatFilterFromExpression (AC3)', () => {
     assert.deepEqual(flatFilterFromExpression(expression), { dayOfWeek: 'SAT' });
   });
 
+  it('round-trips a multi-value dayOfWeek losslessly (Story 9.1b, AC2)', () => {
+    const expression = expressionFromFlatFilter({ dayOfWeek: ['SAT', 'SUN'] });
+    assert.deepEqual(expression, { op: 'AND', children: [{ field: 'dayOfWeek', value: ['SAT', 'SUN'] }] });
+    assert.deepEqual(flatFilterFromExpression(expression), { dayOfWeek: ['SAT', 'SUN'] });
+  });
+
   it('prioritizes coordinates over adminArea when a flat location carries both', () => {
     const expression = expressionFromFlatFilter({
       location: { coordinates: { lat: -7.7, lng: 110.3 }, adminArea: 'Sleman' },

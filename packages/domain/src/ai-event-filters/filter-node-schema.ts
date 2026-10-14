@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { EventType, EventCategory } from '@festgrid/shared-types';
-import { DateAnchor, DateOffsetUnit, DayOfWeek, TemporalFilter } from '../events/buildEventsQueryCondition.js';
+import {
+  DateAnchor,
+  DateOffsetUnit,
+  DayOfWeek,
+  TemporalFilter,
+  DATE_OFFSET_AMOUNT_BOUNDS,
+} from '../events/buildEventsQueryCondition.js';
 import {
   FILTER_LEAF_FIELDS,
   FILTER_NODE_MAX_DEPTH,
@@ -9,11 +15,45 @@ import {
   type FilterNode,
 } from './filter-node.js';
 
-const dateRangeFilterSchema = z.object({
-  anchor: z.nativeEnum(DateAnchor),
-  offsetAmount: z.number(),
-  offsetUnit: z.nativeEnum(DateOffsetUnit),
-});
+/**
+ * AC1/Task 8: `spanAmount`/`spanUnit` are optional and bounds-validated against the shared
+ * `DATE_OFFSET_AMOUNT_BOUNDS` table (imported from `buildEventsQueryCondition.ts`, never
+ * re-declared here) -- keeping this schema a complete, accurate contract for `DateRangeFilter`'s
+ * real shape (Story 9.1a AC4's "single definition of limits" rigor) rather than silently going
+ * stale relative to it.
+ */
+const dateRangeFilterSchema = z
+  .object({
+    anchor: z.nativeEnum(DateAnchor),
+    offsetAmount: z.number(),
+    offsetUnit: z.nativeEnum(DateOffsetUnit),
+    spanAmount: z.number().int().positive().optional(),
+    spanUnit: z.nativeEnum(DateOffsetUnit).optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (Math.abs(val.offsetAmount) > DATE_OFFSET_AMOUNT_BOUNDS[val.offsetUnit]) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['offsetAmount'],
+        message: `offsetAmount (${val.offsetAmount}) exceeds the allowed bound of ±${DATE_OFFSET_AMOUNT_BOUNDS[val.offsetUnit]} for offsetUnit "${val.offsetUnit}".`,
+      });
+    }
+    const hasSpanAmount = val.spanAmount !== undefined;
+    const hasSpanUnit = val.spanUnit !== undefined;
+    if (hasSpanAmount !== hasSpanUnit) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: hasSpanAmount ? ['spanUnit'] : ['spanAmount'],
+        message: 'spanAmount and spanUnit must be provided together.',
+      });
+    } else if (hasSpanAmount && hasSpanUnit && val.spanAmount! > DATE_OFFSET_AMOUNT_BOUNDS[val.spanUnit!]) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['spanAmount'],
+        message: `spanAmount (${val.spanAmount}) exceeds the allowed bound of ${DATE_OFFSET_AMOUNT_BOUNDS[val.spanUnit!]} for spanUnit "${val.spanUnit}".`,
+      });
+    }
+  });
 
 const locationProximityValueSchema = z.object({
   coordinates: z.object({ lat: z.number(), lng: z.number() }),
