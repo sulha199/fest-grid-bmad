@@ -1,3 +1,4 @@
+export type FilterNodeInput = { child?: InputMaybe<FilterNodeInput>; children?: InputMaybe<Array<FilterNodeInput>>; field?: InputMaybe<Scalars['String']['input']>; op?: InputMaybe<Scalars['String']['input']>; value?: InputMaybe<Scalars['JSON']['input']>; };
 export type EventQueryConditionInput = { conditions?: InputMaybe<Array<EventQueryConditionInput>>; field?: InputMaybe<Scalars['String']['input']>; operator?: InputMaybe<Scalars['String']['input']>; value?: InputMaybe<Scalars['JSON']['input']>; };
 export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
 export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
@@ -459,13 +460,6 @@ export type FilterNode = {
   value?: Maybe<Scalars['JSON']['output']>;
 };
 
-export type FilterNodeInput = {
-  child?: InputMaybe<FilterNodeInput>;
-  children?: InputMaybe<Array<FilterNodeInput>>;
-  field?: InputMaybe<Scalars['String']['input']>;
-  op?: InputMaybe<Scalars['String']['input']>;
-  value?: InputMaybe<Scalars['JSON']['input']>;
-};
 
 export enum GeolocationProvider {
   Geoapify = 'GEOAPIFY'
@@ -1576,13 +1570,6 @@ export enum WidgetTheme {
 
 
 
-export type FilterNodeInput = {
-  child?: FilterNodeInput | null | undefined;
-  children?: Array<FilterNodeInput> | null | undefined;
-  field?: string | null | undefined;
-  op?: string | null | undefined;
-  value?: unknown;
-};
 
 
 
