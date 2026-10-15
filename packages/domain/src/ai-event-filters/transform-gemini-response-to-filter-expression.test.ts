@@ -190,6 +190,31 @@ describe('transformGeminiResponseToFilterExpression (AC2)', () => {
     }, /depth/i);
   });
 
+  it('a bare multi-field leaf at the top level (no wrapping op) wraps its spliced siblings in an explicit top-level AND', () => {
+    const result = transformGeminiResponseToFilterExpression({
+      expression: { keyword: 'jazz', isFree: true },
+      caveats: [],
+    });
+    assert.deepEqual(result.expression, {
+      op: 'AND',
+      children: [
+        { field: 'keyword', value: 'jazz' },
+        { field: 'isFree', value: true },
+      ],
+    });
+  });
+
+  it('a NOT whose child is a multi-field leaf (2+ results) bundles them into an explicit AND before wrapping in NOT', () => {
+    const result = transformGeminiResponseToFilterExpression({
+      expression: { op: 'NOT', child: { keyword: 'jazz', isFree: true } },
+      caveats: [],
+    });
+    assert.deepEqual(result.expression, {
+      op: 'NOT',
+      child: { op: 'AND', children: [{ field: 'keyword', value: 'jazz' }, { field: 'isFree', value: true }] },
+    });
+  });
+
   it('silently drops a leaf with an out-of-vocabulary/garbage field inside an otherwise-valid tree (no caveat pushed by this function)', () => {
     const payload = {
       expression: {
