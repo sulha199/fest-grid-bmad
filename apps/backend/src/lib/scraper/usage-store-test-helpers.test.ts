@@ -17,7 +17,7 @@ test('clearApifyProviderUsage removes a leftover exhausted-capacity row', async 
   await db.insert(scraperProviderUsage).values({
     provider: APIFY_TEST_PROVIDER,
     itemsUsedThisCycle: 10000,
-    usageCycleResetAt: new Date(Date.now() + 86400000),
+    usageCycleResetAt: new Date(),
   });
   assert.strictEqual(await isProviderCapacityAvailable(APIFY_TEST_PROVIDER), false);
 

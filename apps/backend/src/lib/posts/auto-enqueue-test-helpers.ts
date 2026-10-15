@@ -27,7 +27,7 @@ export async function seedSubscriberWithGeminiKey(accountId: string): Promise<()
     isValid: true,
     invalidAttempts: 0,
     usageCount: 0,
-    usageCycleResetAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+    usageCycleResetAt: new Date(),
   });
 
   return async () => {

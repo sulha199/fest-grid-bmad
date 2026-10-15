@@ -30,7 +30,7 @@ test('trigger-brightdata-for-target', async (t) => {
     await db.insert(scraperProviderUsage).values({
       provider: BRIGHTDATA_TEST_PROVIDER,
       itemsUsedThisCycle: 10000,
-      usageCycleResetAt: new Date(Date.now() + 86400000),
+      usageCycleResetAt: new Date(),
     });
 
     const result = await attemptBrightDataTrigger(

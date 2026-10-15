@@ -42,7 +42,7 @@ test('trigger-apify-for-target tests', async (t) => {
     await db.insert(scraperProviderUsage).values({
       provider: APIFY_TEST_PROVIDER,
       itemsUsedThisCycle: 10000,
-      usageCycleResetAt: new Date(Date.now() + 86400000),
+      usageCycleResetAt: new Date(),
     });
 
     const result = await attemptApifyAsyncTrigger(

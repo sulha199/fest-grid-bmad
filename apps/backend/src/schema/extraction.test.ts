@@ -619,7 +619,7 @@ test('manual post selection & extraction integration tests', async (t) => {
       isValid: true,
       invalidAttempts: 0,
       usageCount: 10, // 10 used
-      usageCycleResetAt: new Date(Date.now() + 1000 * 60 * 60 * 24), // cycle not reset
+      usageCycleResetAt: new Date(), // cycle not reset
     }).returning();
     testApiKey = insertedKey;
 
@@ -868,7 +868,7 @@ test('manual post selection & extraction integration tests', async (t) => {
       isValid: true,
       invalidAttempts: 0,
       usageCount: 0,
-      usageCycleResetAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+      usageCycleResetAt: new Date(),
     }).returning();
     otherApiKey = insertedOtherKey;
 

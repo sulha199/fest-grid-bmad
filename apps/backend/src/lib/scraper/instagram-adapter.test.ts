@@ -745,7 +745,7 @@ test('instagram-adapter tests', async (t) => {
     await db.insert(scraperProviderUsage).values({
       provider: APIFY_TEST_PROVIDER,
       itemsUsedThisCycle: 10000, // very high count to exceed $5/month budget
-      usageCycleResetAt: new Date(Date.now() + 86400000),
+      usageCycleResetAt: new Date(),
     });
 
     await assert.rejects(
