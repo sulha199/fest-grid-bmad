@@ -399,6 +399,66 @@ describe('PostsSelectContent integration', () => {
     expect(container).toHaveAttribute('title', 'Already processed');
   });
 
+  it('requests only un-extracted posts, first page without a cursor', async () => {
+    renderComponent();
+    await screen.findByText('Post 1 content');
+
+    const postCalls = vi.mocked(graphqlClient.request).mock.calls.filter((call: any) =>
+      String(call[0]?.document ?? call[0]).includes('getPostsByAccount')
+    );
+    expect(postCalls.length).toBeGreaterThan(0);
+    const vars: any = (postCalls[0][0] as any).variables;
+    expect(vars.onlyUnextracted).toBe(true);
+    expect(vars.limit).toBe(20);
+    expect(vars.cursor ?? null).toBeNull();
+  });
+
+  it('appends the next cursor page when the bottom sentinel scrolls into view', async () => {
+    let observerCallback: IntersectionObserverCallback | null = null;
+    class StubObserver {
+      constructor(cb: IntersectionObserverCallback) { observerCallback = cb; }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+      takeRecords() { return []; }
+    }
+    vi.stubGlobal('IntersectionObserver', StubObserver);
+
+    const baseImpl = vi.mocked(graphqlClient.request).getMockImplementation()!;
+    vi.mocked(graphqlClient.request).mockImplementation(async (arg1: any) => {
+      const docStr = arg1 && typeof arg1 === 'object' && 'document' in arg1 ? arg1.document.toString() : String(arg1 ?? '');
+      if (docStr.includes('getPostsByAccount')) {
+        if (arg1?.variables?.cursor === 'cursor-1') {
+          return {
+            postsByAccount: {
+              items: [{ id: 'post-9', accountId: 'acc-1', content: 'Page two post', imageUrl: null, postUrl: 'https://instagram.com/p/post9', originalPostUrl: null, isExtracted: false, publishedAt: '2026-08-01T12:00:00.000Z' }],
+              nextCursor: null,
+              hasMore: false,
+            },
+          };
+        }
+        return { postsByAccount: { items: mockPosts, nextCursor: 'cursor-1', hasMore: true } };
+      }
+      return baseImpl(arg1);
+    });
+
+    try {
+      renderComponent();
+      await screen.findByText('Post 1 content');
+      expect(screen.queryByText('Page two post')).not.toBeInTheDocument();
+
+      await waitFor(() => expect(observerCallback).not.toBeNull());
+      observerCallback!([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver);
+
+      expect(await screen.findByText('Page two post')).toBeInTheDocument();
+      expect(screen.getByText('Post 1 content')).toBeInTheDocument();
+      const secondPageCall = vi.mocked(graphqlClient.request).mock.calls.find((call: any) => (call[0] as any)?.variables?.cursor === 'cursor-1');
+      expect(secondPageCall).toBeDefined();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('displays inactive account warning banner and allows removing subscription', async () => {
     renderComponent();
 
@@ -530,7 +590,7 @@ describe('PostsSelectContent integration', () => {
       renderComponent();
 
       // Should show empty state message
-      const emptyStateMsg = await screen.findByText(/No posts scraped yet for this account/);
+      const emptyStateMsg = await screen.findByText(/No unprocessed posts for this account/);
       expect(emptyStateMsg).toBeInTheDocument();
 
       // Should show Scrape Posts button

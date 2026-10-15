@@ -1077,6 +1077,7 @@ export type QueryPostsByAccountArgs = {
   accountId: Scalars['ID']['input'];
   cursor?: InputMaybe<Scalars['String']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
+  onlyUnextracted?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 
@@ -2000,6 +2001,7 @@ export type GetPostsByAccountQueryVariables = Exact<{
   accountId: string | number;
   cursor?: string | null | undefined;
   limit?: number | null | undefined;
+  onlyUnextracted?: boolean | null | undefined;
 }>;
 
 
@@ -4314,8 +4316,13 @@ export const useSelectPostsForExtractionMutation = <
     )};
 
 export const GetPostsByAccountDocument = new TypedDocumentString(`
-    query getPostsByAccount($accountId: ID!, $cursor: String, $limit: Int) {
-  postsByAccount(accountId: $accountId, cursor: $cursor, limit: $limit) {
+    query getPostsByAccount($accountId: ID!, $cursor: String, $limit: Int, $onlyUnextracted: Boolean) {
+  postsByAccount(
+    accountId: $accountId
+    cursor: $cursor
+    limit: $limit
+    onlyUnextracted: $onlyUnextracted
+  ) {
     items {
       id
       accountId

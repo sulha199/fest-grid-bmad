@@ -198,15 +198,15 @@ A 'Report' button will be available for all events (whether from Social Media Ac
 
 To provide users with greater control over their API quota usage and improve the relevance of extracted events, FestDaily will offer a manual post selection feature. This allows users to choose which specific social media posts should be processed by the AI agent.
 
-*   **Relationship to Automatic Extraction (clarified 2026-10-01; BUG-039):** New posts from subscribed accounts are extracted automatically after each scrape, within the Tier 1/Tier 2 key and quota rules (Section 3.7). Manual selection is therefore the path for posts automatic extraction does not cover: older posts that predate the subscription, and posts left unextracted because no key had quota. Both paths cost one extraction call per post, draw on the same quota, and apply the same Multi-Event Posts rules (Section 3.7). A post that has already been extracted (`Post.isExtracted`) — automatically or by hand — is shown as processed and cannot be selected again, whether it yielded zero, one or several events.
+*   **Relationship to Automatic Extraction (clarified 2026-10-01; BUG-039):** New posts from subscribed accounts are extracted automatically after each scrape, within the Tier 1/Tier 2 key and quota rules (Section 3.7). Manual selection is therefore the path for posts automatic extraction does not cover: older posts that predate the subscription, and posts left unextracted because no key had quota. Both paths cost one extraction call per post, draw on the same quota, and apply the same Multi-Event Posts rules (Section 3.7). A post that has already been extracted (`Post.isExtracted`) — automatically or by hand — is not listed on the selection screen at all (changed 2026-10-15 from "shown disabled"), so it cannot be selected again, whether it yielded zero, one or several events.
 
 *   **User Interface:** A new screen will be introduced, featuring a tab-based layout where each tab corresponds to one of the user's subscribed social media accounts.
-    *   **Tab Content:** Each tab, when selected, will display a list of the 20 most recent posts from that account, presented in a card-based view.
+    *   **Tab Content:** Each tab, when selected, will display the account's posts that have not yet been extracted (`Post.isExtracted = false`), newest first, presented in a card-based view. The list loads 20 at a time and appends the next page by infinite scroll (Section 5, Infinite Scroll); the filter is applied server-side so every page is full.
     *   **Lazy Loading:** The posts within the tabs can be loaded lazily to improve initial page load performance.
 *   **Post Selection:**
     *   Users can select multiple posts by clicking a checkbox on each post card.
     *   The selection state is preserved as the user navigates between different tabs.
-    *   Posts that have already been processed and resulted in one or more events will be visually disabled and cannot be selected for re-extraction.
+    *   Posts that have already been processed are not shown (see Relationship to Automatic Extraction above); when none remain, the tab shows the "scrape now to check for new ones" empty state.
 *   **Quota Management:**
     *   A summary bar will display the number of selected posts against the user's remaining API quota (e.g., "Selected Posts: 5 / 50").
     *   The system will prevent users from extracting more posts than their quota allows.

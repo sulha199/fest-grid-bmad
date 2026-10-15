@@ -9,7 +9,8 @@ import { useSearchParams } from 'next/navigation';
 import {
   useGetMySubscriptionsQuery,
   useGetMyApiKeysQuery,
-  useGetPostsByAccountQuery,
+  GetPostsByAccountDocument,
+  type GetPostsByAccountQuery,
   useMarkSubscriptionViewedMutation,
   useSelectPostsForExtractionMutation,
   useGetMyExtractionQuotaQuery,
@@ -18,12 +19,12 @@ import {
   SoftDeleteAction,
   Subscription,
 } from '@/generated/graphql';
-import { PostCard, PostCardSkeleton, BlockingLoader, useSoftDeleteWithUndo, PageContainer, GridContainer, AccountAvatar } from '@festgrid/ui';
+import { PostCard, PostCardSkeleton, BlockingLoader, useSoftDeleteWithUndo, PageContainer, GridContainer, AccountAvatar, useInfiniteScroll } from '@festgrid/ui';
 import { AlertCircle, TriangleAlert, Ban, Clock } from 'lucide-react';
 import { usePostSelectionStore } from './post-selection-store';
 import { toast } from 'sonner';
 import { SummaryBar } from '@/features/post-selection/components/summary-bar';
-import { useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 
 export function PostsSelectContent() {
   const t = useTranslations('ManualPostSelectionPage');
@@ -199,26 +200,48 @@ export function PostsSelectContent() {
     }
   }, [activeAccountId, activeSub, markViewed]);
 
-  // 9. Query posts for the active account
+  // 9. Query posts for the active account. Only posts still awaiting extraction are listed (PRD 3.10),
+  // paged by cursor and appended as the user scrolls.
   const {
     data: postsData,
     isLoading: postsLoading,
     error: postsError,
     refetch,
-  } = useGetPostsByAccountQuery(
-    graphqlClient,
-    {
-      accountId: activeAccountId || '',
-      limit: 20,
-    },
-    {
-      enabled: !!activeAccountId,
-    }
-  );
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<GetPostsByAccountQuery, Error, InfiniteData<GetPostsByAccountQuery>, any[], string | null>({
+    queryKey: ['getPostsByAccount', { accountId: activeAccountId, onlyUnextracted: true }],
+    queryFn: ({ pageParam }) =>
+      graphqlClient.request<GetPostsByAccountQuery>({
+        document: GetPostsByAccountDocument,
+        variables: {
+          accountId: activeAccountId || '',
+          cursor: pageParam,
+          limit: 20,
+          onlyUnextracted: true,
+        },
+      }),
+    initialPageParam: null,
+    getNextPageParam: (lastPage) =>
+      lastPage.postsByAccount.hasMore ? lastPage.postsByAccount.nextCursor : undefined,
+    enabled: !!activeAccountId,
+  });
+
+  const { sentinelRef } = useInfiniteScroll({
+    hasNextPage: !!hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  });
 
   const refetchPosts = () => refetch();
 
-  const posts = postsData?.postsByAccount?.items || [];
+  const posts = useMemo(() => {
+    const seen = new Set<string>();
+    return (postsData?.pages ?? [])
+      .flatMap((page) => page.postsByAccount.items)
+      .filter((post) => (seen.has(post.id) ? false : (seen.add(post.id), true)));
+  }, [postsData]);
 
   // Refetch posts when scrape completes
   useEffect(() => {
@@ -549,6 +572,15 @@ export function PostsSelectContent() {
             })}
           </GridContainer>
         )}
+        <div ref={sentinelRef} data-testid="posts-infinite-scroll-sentinel" className="flex justify-center py-4">
+          {isFetchingNextPage && (
+            <div
+              role="status"
+              aria-label={t('loadingMorePosts')}
+              className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin text-muted-foreground"
+            />
+          )}
+        </div>
       </div>
       </div>
 
