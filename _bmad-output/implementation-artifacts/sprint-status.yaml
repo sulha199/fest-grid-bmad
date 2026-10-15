@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-15T04:01:05Z
+last_updated: 2026-10-15T04:57:48Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -2516,7 +2516,7 @@ development_status:
   9-1b-extend-the-relative-date-grammar-with-spans-multi-weekday-and-temporal-status: review
   9-2-compile-filter-expressions-to-query-conditions-with-not-and-null-semantics: review
   9-3-expose-filter-expressions-through-graphql-resolvers-and-widgets: review
-  9-4-upgrade-gemini-extraction-to-expression-trees-with-node-level-caveats: in-progress
+  9-4-upgrade-gemini-extraction-to-expression-trees-with-node-level-caveats: review
   # Gate 2 finding (UI Complexity & Reusability), surfaced creating Story 9-4: useAIFilter's
   # three consumers (home/feed/favorites) only ever build their query from the flat
   # resolvedFilter projection, never the expression tree, even though the backend/compiler
