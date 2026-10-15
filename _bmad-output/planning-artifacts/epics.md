@@ -5966,6 +5966,23 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Depends on:** Story 9.1a, Story 9.1b, Story 9.3.
 
+### Story 9.4a: Wire the resolved AI-filter expression into Discovery, Feed and Favorites query building
+
+**As a** user,
+**I want** a boolean/grouped AI filter to actually apply its full logic to the events I see,
+**So that** a prompt like "jazz or blues in Sleman or Bantul this weekend, not workshops" filters correctly instead of silently showing unfiltered results.
+
+**Acceptance Criteria:**
+
+*   **Given** `apps/web/src/features/events/use-ai-filter.ts`, **when** `resolvePromptToEventFilter` or a loaded `AIEventFilter` resolves to a non-flat expression (contains OR/NOT, or is otherwise not representable by the flat `resolvedFilter` projection), **then** the hook stores and exposes that `FilterNode` expression as part of its active-filter state, not just the lossy flat projection.
+*   **And** `buildEventsQueryCondition` (`packages/domain`, the Home/Discovery query-building function) gains an optional `expression?: FilterNode` input, mirroring Story 9.3's `buildFeedQueryCondition`/`buildAccountEventsQueryCondition` precedent (compiled via `compileFilterNodeToQueryCondition` and merged identically); Discovery (`home-content.tsx`), Feed (`feed-content.tsx`) and Favorites (`favorites-content.tsx`) all pass the hook's active expression through to their respective query-building call whenever one is present, instead of only ever passing the flat filter.
+*   **And** once an active filter's expression is non-flat, the previous silent fallback (an effectively empty/unfiltered flat `{}`) never happens on any of the three screens — the expression path is used end to end instead.
+*   **And** no new UI/visual surface is introduced (no new component, no new display, no new copy) — this is query-building wiring only; display/summary rendering stays Story 9.5/9.6's scope.
+
+**Depends on:** Story 9.2, Story 9.3, Story 9.4.
+
+**Note (bmad-create-story, 2026-10-15, Gate 2 finding while drafting Story 9.4, Freya persona via `runSubagent`):** `useAIFilter`'s three consumers (`home-content.tsx`/`feed-content.tsx`/`favorites-content.tsx`) build their events query only from the flat `resolvedFilter` projection, never from an `expression` tree, even though the backend (`Query.events(expression:)`, Story 9.3) and the compiler (`compileFilterNodeToQueryCondition`, Story 9.2) already support one. Story 9.4 is the first story that can make Gemini actually produce a non-flat (OR/NOT) expression — until this story lands, a grouped/boolean prompt resolves correctly server-side but silently applies as an empty/unfiltered flat `{}` on every consuming screen, with no caveat surfacing the loss. Split out per Gate 2 (`story-split-gate.md`) rather than absorbed into Story 9.4, since it is a reusable-hook-plus-three-screens change with its own scope (props/behavior/testing), independent of 9.4's extraction-layer ACs. Lettered off 9.4 (the story whose draft scope surfaced it) per the single-story-split numbering rule, rather than Epic 0 (not a generic cross-epic tooling gap) or a shared-data-ownership slot (no new table).
+
 ### Story 9.5: Render expression summaries in English and Indonesian
 
 **As a** user,
