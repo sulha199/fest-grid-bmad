@@ -238,7 +238,17 @@ export function useAIFilter() {
     saveError: tFilterHub('aiOverlaySaveError'),
     resolvedSummaryTitle: tFilterHub('aiOverlayResolvedSummaryTitle'),
     rePrompt: tFilterHub('aiOverlayRePrompt'),
+    examplePromptsLabel: tFilterHub('aiOverlayExamplePromptsLabel'),
   };
+
+  const examplePrompts = useMemo(
+    () => [
+      tFilterHub('aiOverlayExamplePrompt1'),
+      tFilterHub('aiOverlayExamplePrompt2'),
+      tFilterHub('aiOverlayExamplePromptGrouped'),
+    ],
+    [tFilterHub]
+  );
 
   return {
     hasApiKey: hasApiKey && !isLoadingKey,
@@ -279,6 +289,7 @@ export function useAIFilter() {
       saveError,
       onApply: handleApply,
       onRePrompt: handleRePrompt,
+      examplePrompts,
     },
   };
 }

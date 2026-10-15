@@ -288,7 +288,13 @@
     "aiOverlaySaveSuccess": "Saved!",
     "aiOverlaySaveError": "Could not save filter",
     "aiOverlayResolvedSummaryTitle": "Resolved Filter Summary",
-    "aiOverlayRePrompt": "Try another prompt"
+    "aiOverlayRePrompt": "Try another prompt",
+    "aiSummaryShowMoreLabel": "Show more",
+    "aiSummaryShowLessLabel": "Show less",
+    "aiOverlayExamplePromptsLabel": "Try an example:",
+    "aiOverlayExamplePrompt1": "free jazz events in Kota Yogyakarta this weekend",
+    "aiOverlayExamplePrompt2": "upcoming concerts in the next 7 days",
+    "aiOverlayExamplePromptGrouped": "jazz or blues in Sleman or Bantul this weekend, not workshops"
   },
   "AIFilterSummary": {
     "noFilter": "All events",

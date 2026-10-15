@@ -227,5 +227,36 @@ describe('useAIFilter hook', () => {
     expect(lastSaveVariables).toHaveProperty('expression', mockExpression);
     expect(lastSaveVariables).not.toHaveProperty('resolvedFilter');
   });
+
+  // Story 9.6 (AC2): overlayProps.examplePrompts is a static 3-element array sourced via
+  // tFilterHub (identity-return mock: t(key) => key), including the grouped-example key.
+  it('exposes overlayProps.examplePrompts as a 3-element array including the grouped-example key', () => {
+    const { result } = renderHook(() => useAIFilter(), {
+      wrapper: NuqsTestingAdapter,
+    });
+
+    expect(result.current.overlayProps.examplePrompts).toEqual([
+      'aiOverlayExamplePrompt1',
+      'aiOverlayExamplePrompt2',
+      'aiOverlayExamplePromptGrouped',
+    ]);
+  });
+
+  // Story 9.6 (AC2): an over-limit-style resolve response's caveat text must reach
+  // overlayProps.resolvedCaveats unchanged, end-to-end, through the existing summary pipeline.
+  it('surfaces a resolved response caveat through overlayProps.resolvedCaveats unchanged', () => {
+    mockCaveats = ['Your prompt described more conditions than the filter supports, so some were dropped.'];
+    const { result } = renderHook(() => useAIFilter(), {
+      wrapper: NuqsTestingAdapter,
+    });
+
+    act(() => {
+      result.current.overlayProps.onSubmit('an overly complex prompt');
+    });
+
+    expect(result.current.overlayProps.resolvedCaveats).toContain(
+      'Your prompt described more conditions than the filter supports, so some were dropped.'
+    );
+  });
 });
 

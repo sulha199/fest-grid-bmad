@@ -15,6 +15,12 @@ import {
 import { LocationRadiusFilter } from './LocationRadiusFilter';
 import { LocationRadiusFilterProps } from './LocationRadiusFilter.types';
 
+/** Fixed character-count heuristic for "is this summary long enough to need truncation" --
+ * mirrors this codebase's own existing precedent for the same problem (no real
+ * scrollWidth/clientWidth overflow measurement exists anywhere in this repo either --
+ * see Dev Notes decision 2). Approximate by design, not pixel-exact. */
+const AI_SUMMARY_TRUNCATE_THRESHOLD = 70;
+
 export interface FilterHubProps extends Omit<LocationRadiusFilterProps, 'labels'> {
   labels: {
     typeLabel: string;
@@ -24,6 +30,8 @@ export interface FilterHubProps extends Omit<LocationRadiusFilterProps, 'labels'
     aiTriggerTooltip?: string;
     aiClearLabel?: string;
     aiExpandLabel?: string;
+    aiSummaryShowMoreLabel?: string;
+    aiSummaryShowLessLabel?: string;
   };
   types: { value: string; label: string }[];
   categories: { value: string; label: string }[];
@@ -74,18 +82,42 @@ export function FilterHub({
   aiClearLabel,
   aiExpandLabel,
 }: FilterHubProps) {
+  const [isSummaryExpanded, setIsSummaryExpanded] = React.useState(false);
+
   if (aiFilterSummary) {
+    const summaryHasMore = aiFilterSummary.length > AI_SUMMARY_TRUNCATE_THRESHOLD;
+
     return (
       <div className={`flex flex-wrap items-center gap-3 py-1.5 px-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-100 dark:border-blue-900/50 text-sm ${className}`}>
         {leadingControl && <div className="w-full sm:w-auto">{leadingControl}</div>}
-        <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 font-medium mr-auto">
+        <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 font-medium mr-auto min-w-0 flex-1">
           <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 animate-pulse" />
           <span className="sr-only">AI Filter active:</span>
-          <span className="leading-tight">{aiFilterSummary}</span>
+          <span
+            className={
+              !isSummaryExpanded && summaryHasMore
+                ? 'leading-tight block truncate min-w-0'
+                : 'leading-tight'
+            }
+          >
+            {aiFilterSummary}
+          </span>
           {aiCaveatsText && (
             <span className="text-xs text-muted-foreground ml-1 font-normal block mt-0.5">
               ({aiCaveatsText})
             </span>
+          )}
+          {summaryHasMore && (
+            <button
+              type="button"
+              onClick={() => setIsSummaryExpanded((prev) => !prev)}
+              aria-expanded={isSummaryExpanded}
+              className="text-blue-600 dark:text-blue-400 hover:underline text-xs font-semibold shrink-0 whitespace-nowrap"
+            >
+              {isSummaryExpanded
+                ? labels.aiSummaryShowLessLabel || 'Show less'
+                : labels.aiSummaryShowMoreLabel || 'Show more'}
+            </button>
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">

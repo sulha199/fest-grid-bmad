@@ -132,6 +132,8 @@ export function FavoritesContent() {
       aiTriggerTooltip: tFilterHub("aiTriggerTooltip"),
       aiClearLabel: tFilterHub("aiClearLabel"),
       aiExpandLabel: tFilterHub("aiExpandLabel"),
+      aiSummaryShowMoreLabel: tFilterHub("aiSummaryShowMoreLabel"),
+      aiSummaryShowLessLabel: tFilterHub("aiSummaryShowLessLabel"),
       locationFilterLabels: {
         filterLabel: tNearby("filterLabel"),
         offOptionLabel: tNearby("offOptionLabel"),
