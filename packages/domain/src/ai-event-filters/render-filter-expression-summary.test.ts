@@ -5,15 +5,15 @@ import { renderFilterExpressionSummary, type FilterExpressionSummaryLabels } fro
 import { renderAIFilterSummary } from './render-ai-filter-summary.js';
 import { expressionFromFlatFilter } from './flat-filter-conversion.js';
 import type { FilterNode } from './filter-node.js';
-import { DateAnchor, DateOffsetUnit, type EventFilterInput } from '../events/buildEventsQueryCondition.js';
+import { DateAnchor, DateOffsetUnit, TemporalFilter, type DayOfWeek, type EventFilterInput } from '../events/buildEventsQueryCondition.js';
 
 const EN_LABELS: FilterExpressionSummaryLabels = {
   noFilter: 'All events',
   accountIdPrefix: 'acc: ',
-  types: { [EventType.FESTIVAL]: 'Festivals', [EventType.CONCERT]: 'Concerts' },
+  types: { [EventType.PERFORMANCE]: 'Concerts', [EventType.FESTIVAL]: 'Festivals', [EventType.WORKSHOP]: 'Workshops' },
   typeSeparator: ', ',
   typesPrefix: '',
-  categories: { [EventCategory.MUSIC]: 'Music', [EventCategory.WORKSHOP]: 'Workshops' },
+  categories: { [EventCategory.MUSIC]: 'Music' },
   categorySeparator: ', ',
   categoriesPrefix: '',
   keywordPrefix: 'about ',
@@ -40,10 +40,10 @@ const EN_LABELS: FilterExpressionSummaryLabels = {
 const ID_LABELS: FilterExpressionSummaryLabels = {
   noFilter: 'Semua acara',
   accountIdPrefix: 'akun: ',
-  types: { [EventType.FESTIVAL]: 'Festival', [EventType.CONCERT]: 'Konser' },
+  types: { [EventType.PERFORMANCE]: 'Konser', [EventType.FESTIVAL]: 'Festival', [EventType.WORKSHOP]: 'Lokakarya' },
   typeSeparator: ', ',
   typesPrefix: '',
-  categories: { [EventCategory.MUSIC]: 'Musik', [EventCategory.WORKSHOP]: 'Lokakarya' },
+  categories: { [EventCategory.MUSIC]: 'Musik' },
   categorySeparator: ', ',
   categoriesPrefix: '',
   keywordPrefix: 'tentang ',
@@ -93,7 +93,7 @@ describe('renderFilterExpressionSummary', () => {
       location: { adminArea: 'Sleman' },
       venueType: 'Club',
       isFree: true,
-      temporalFilter: 'UPCOMING',
+      temporalFilter: TemporalFilter.UPCOMING,
     };
     const expression = expressionFromFlatFilter(flatFixture);
     assert.deepEqual(
@@ -114,13 +114,13 @@ describe('renderFilterExpressionSummary', () => {
           ],
         },
         { field: 'dateRange', value: { anchor: DateAnchor.THIS_WEEK, offsetAmount: 0, offsetUnit: DateOffsetUnit.WEEK } },
-        { op: 'NOT', child: { field: 'category', value: [EventCategory.WORKSHOP] } },
-        { field: 'type', value: [EventType.CONCERT, EventType.FESTIVAL] },
+        { op: 'NOT', child: { field: 'type', value: [EventType.WORKSHOP] } },
+        { field: 'type', value: [EventType.PERFORMANCE, EventType.FESTIVAL] },
       ],
     };
     const result = renderFilterExpressionSummary(expression, null, {
       ...EN_LABELS,
-      types: { [EventType.CONCERT]: 'jazz', [EventType.FESTIVAL]: 'blues' },
+      types: { [EventType.PERFORMANCE]: 'jazz', [EventType.FESTIVAL]: 'blues', [EventType.WORKSHOP]: 'Workshops' },
     });
     assert.equal(
       result.summary,
@@ -129,7 +129,7 @@ describe('renderFilterExpressionSummary', () => {
   });
 
   it('NOT wrapping a single leaf has no parens; NOT wrapping a group has parens', () => {
-    const notLeaf: FilterNode = { op: 'NOT', child: { field: 'category', value: [EventCategory.WORKSHOP] } };
+    const notLeaf: FilterNode = { op: 'NOT', child: { field: 'type', value: [EventType.WORKSHOP] } };
     assert.equal(renderFilterExpressionSummary(notLeaf, null, EN_LABELS).summary, 'not Workshops');
 
     const notGroup: FilterNode = {
@@ -137,7 +137,7 @@ describe('renderFilterExpressionSummary', () => {
       child: {
         op: 'OR',
         children: [
-          { field: 'category', value: [EventCategory.WORKSHOP] },
+          { field: 'type', value: [EventType.WORKSHOP] },
           { field: 'category', value: [EventCategory.MUSIC] },
         ],
       },
@@ -200,10 +200,10 @@ describe('renderFilterExpressionSummary', () => {
   });
 
   it('AC2: dayOfWeek weekend/weekday/arbitrary sets inside a non-flat tree', () => {
-    const weekendExpr: FilterNode = { op: 'OR', children: [{ field: 'dayOfWeek', value: ['SAT', 'SUN'] }, { field: 'venueType', value: 'Club' }] };
+    const weekendExpr: FilterNode = { op: 'OR', children: [{ field: 'dayOfWeek', value: ['SAT', 'SUN'] as DayOfWeek[] }, { field: 'venueType', value: 'Club' }] };
     assert.equal(renderFilterExpressionSummary(weekendExpr, null, EN_LABELS).summary, 'weekends or at Club');
 
-    const weekdayExpr: FilterNode = { op: 'OR', children: [{ field: 'dayOfWeek', value: ['MON', 'FRI'] }, { field: 'venueType', value: 'Club' }] };
+    const weekdayExpr: FilterNode = { op: 'OR', children: [{ field: 'dayOfWeek', value: ['MON', 'FRI'] as DayOfWeek[] }, { field: 'venueType', value: 'Club' }] };
     assert.equal(renderFilterExpressionSummary(weekdayExpr, null, EN_LABELS).summary, 'Monday or Friday or at Club');
   });
 
@@ -211,7 +211,7 @@ describe('renderFilterExpressionSummary', () => {
     const expression: FilterNode = {
       op: 'OR',
       children: [
-        { field: 'temporalFilter', value: 'UPCOMING' },
+        { field: 'temporalFilter', value: TemporalFilter.UPCOMING },
         { field: 'venueType', value: 'Club' },
       ],
     };
@@ -241,7 +241,7 @@ describe('renderFilterExpressionSummary', () => {
             { field: 'locationAdminArea', value: 'Bantul' },
           ],
         },
-        { op: 'NOT', child: { field: 'category', value: [EventCategory.WORKSHOP] } },
+        { op: 'NOT', child: { field: 'type', value: [EventType.WORKSHOP] } },
       ],
     };
     const enResult = renderFilterExpressionSummary(expression, null, EN_LABELS);
@@ -250,11 +250,11 @@ describe('renderFilterExpressionSummary', () => {
     assert.equal(idResult.summary, '(di Sleman atau di Bantul) dan bukan Lokakarya');
     assert.notEqual(enResult.summary, idResult.summary);
 
-    const secondExpr: FilterNode = { op: 'OR', children: [{ field: 'dayOfWeek', value: ['SAT', 'SUN'] }, { field: 'venueType', value: 'Club' }] };
+    const secondExpr: FilterNode = { op: 'OR', children: [{ field: 'dayOfWeek', value: ['SAT', 'SUN'] as DayOfWeek[] }, { field: 'venueType', value: 'Club' }] };
     assert.equal(renderFilterExpressionSummary(secondExpr, null, EN_LABELS).summary, 'weekends or at Club');
     assert.equal(renderFilterExpressionSummary(secondExpr, null, ID_LABELS).summary, 'akhir pekan atau di Club');
 
-    const thirdExpr: FilterNode = { op: 'OR', children: [{ field: 'temporalFilter', value: 'TODAY' }, { field: 'venueType', value: 'Mall' }] };
+    const thirdExpr: FilterNode = { op: 'OR', children: [{ field: 'temporalFilter', value: TemporalFilter.TODAY }, { field: 'venueType', value: 'Mall' }] };
     assert.equal(renderFilterExpressionSummary(thirdExpr, null, EN_LABELS).summary, 'happening now or at Mall');
     assert.equal(renderFilterExpressionSummary(thirdExpr, null, ID_LABELS).summary, 'sedang berlangsung atau di Mall');
   });
