@@ -242,7 +242,7 @@ test('get-scrape-targets batch targeting tests', async (t) => {
     }).returning();
     createdProfiles.push(pPersonal.id);
 
-    // 4. Profile Curator: CURATOR_GUIDE & CONFIRMED (should be excluded)
+    // 4. Profile Curator: CURATOR_GUIDE & CONFIRMED (should be included -- Story 3.4o)
     const [pCurator] = await db.insert(socialMediaAccountProfiles).values({
       accountId: 'test-target-curator-' + Date.now(),
       platform: 'instagram',

@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import {
   buildAccountClassificationRequest,
   parseAccountClassificationResponse,
-  accountClassificationResponseSchema
+  accountClassificationResponseSchema,
+  isScrapableAccountType
 } from "./account-classification.js";
 
 test("buildAccountClassificationRequest: builds classification prompt request correctly", () => {
@@ -127,4 +128,29 @@ test("parseAccountClassificationResponse: clamps confidenceScore to [0, 1]", () 
 
   assert.ok(parsedUnder);
   assert.equal(parsedUnder.confidenceScore, 0.0);
+});
+
+test("isScrapableAccountType: never-classified (legacy) accounts are scrapable", () => {
+  assert.equal(isScrapableAccountType(null, null), true);
+  assert.equal(isScrapableAccountType("PERSONAL", null), true);
+});
+
+test("isScrapableAccountType: confirmed organizer/venue/event and curator/guide accounts are scrapable", () => {
+  assert.equal(isScrapableAccountType("ORGANIZER_VENUE_EVENT", "CONFIRMED"), true);
+  assert.equal(isScrapableAccountType("CURATOR_GUIDE", "CONFIRMED"), true);
+});
+
+test("isScrapableAccountType: confirmed personal accounts are not scrapable", () => {
+  assert.equal(isScrapableAccountType("PERSONAL", "CONFIRMED"), false);
+});
+
+test("isScrapableAccountType: accounts awaiting approval are never scrapable, whatever the proposed type", () => {
+  assert.equal(isScrapableAccountType("ORGANIZER_VENUE_EVENT", "AWAITING_APPROVAL"), false);
+  assert.equal(isScrapableAccountType("CURATOR_GUIDE", "AWAITING_APPROVAL"), false);
+  assert.equal(isScrapableAccountType("PERSONAL", "AWAITING_APPROVAL"), false);
+  assert.equal(isScrapableAccountType(null, "AWAITING_APPROVAL"), false);
+});
+
+test("isScrapableAccountType: a confirmed status with no type is not scrapable", () => {
+  assert.equal(isScrapableAccountType(null, "CONFIRMED"), false);
 });

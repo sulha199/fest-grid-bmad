@@ -10,6 +10,11 @@ import { graphqlClient } from '@/lib/graphql-client';
 import { usePostSelectionStore } from './post-selection-store';
 
 const mockRouterPush = vi.fn();
+const { mockToastError } = vi.hoisted(() => ({ mockToastError: vi.fn() }));
+
+vi.mock('sonner', () => ({
+  toast: { error: mockToastError, success: vi.fn() },
+}));
 
 vi.mock('@/i18n/navigation', () => ({
   useRouter: () => ({
@@ -795,6 +800,36 @@ describe('PostsSelectContent integration', () => {
       // Verify error handling (in real app, this would show a toast)
       // For this test, we just verify the error doesn't crash the component
       expect(scrapeBtn).toBeInTheDocument();
+    });
+
+    it('shows the account-type toast (not the generic one) on a FORBIDDEN error', async () => {
+      const mockError = new Error('Scraping is not allowed for this account type.');
+      (mockError as any).response = {
+        errors: [{ message: 'Scraping is not allowed for this account type.', extensions: { code: 'FORBIDDEN' } }],
+      };
+
+      const baseImpl = vi.mocked(graphqlClient.request).getMockImplementation()!;
+      vi.mocked(graphqlClient.request).mockImplementation(async (arg1: any, arg2: any) => {
+        const docStr =
+          arg1 && typeof arg1 === 'object' && 'document' in arg1
+            ? arg1.document.toString()
+            : arg1
+            ? arg1.toString()
+            : '';
+        if (docStr.includes('triggerAccountScrape')) {
+          throw mockError;
+        }
+        return baseImpl(arg1, arg2);
+      });
+
+      renderComponent();
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Scrape Posts' }));
+
+      await waitFor(() => {
+        expect(mockToastError).toHaveBeenCalledWith(enMessages.ManualPostSelectionPage.scrapeNotAllowedForAccountTypeToast);
+      });
+      expect(mockToastError).not.toHaveBeenCalledWith(enMessages.ManualPostSelectionPage.scrapeGenericErrorToast);
     });
 
     it('handles SCRAPER_CAPACITY_EXCEEDED error gracefully', async () => {

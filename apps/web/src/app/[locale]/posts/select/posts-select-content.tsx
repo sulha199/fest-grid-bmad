@@ -119,6 +119,9 @@ export function PostsSelectContent() {
           toast.error(t('scrapeAlreadyInProgressToast') || 'Scrape already in progress');
         } else if (code === 'SCRAPER_CAPACITY_EXCEEDED') {
           toast.error(t('scrapeCapacityExceededToast') || 'Scraper capacity exceeded');
+        } else if (code === 'FORBIDDEN') {
+          // Account type (e.g. PERSONAL, or still awaiting classification approval) isn't scrapable.
+          toast.error(t('scrapeNotAllowedForAccountTypeToast') || 'Scraping is not allowed for this account type');
         } else {
           toast.error(t('scrapeGenericErrorToast') || 'Failed to start scraping');
         }

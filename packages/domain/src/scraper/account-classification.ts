@@ -78,3 +78,27 @@ export function parseAccountClassificationResponse(
   }
   return null;
 }
+
+/**
+ * Whether an account's classification allows it to be scraped. The single source of truth for
+ * the TypeScript-side scrape gates (on-demand `triggerAccountScrape`, the subscribe-time
+ * classify-then-scrape cascade). A never-classified (legacy) account is scrapable; a classified
+ * one only when the classification is CONFIRMED and the type is an organizer/venue/event or a
+ * curator/guide (Story 3.4o -- curator posts are scraped but minimized). PERSONAL and anything
+ * AWAITING_APPROVAL are never scrapable.
+ *
+ * `getBatchScrapeTargets` expresses the same rule as a SQL `where` clause -- keep the two in
+ * lockstep (its test file covers every type/status combination).
+ */
+export function isScrapableAccountType(
+  accountType: 'ORGANIZER_VENUE_EVENT' | 'PERSONAL' | 'CURATOR_GUIDE' | null,
+  accountTypeStatus: 'CONFIRMED' | 'AWAITING_APPROVAL' | null
+): boolean {
+  if (accountTypeStatus === null) {
+    return true;
+  }
+  return (
+    accountTypeStatus === 'CONFIRMED' &&
+    (accountType === 'ORGANIZER_VENUE_EVENT' || accountType === 'CURATOR_GUIDE')
+  );
+}

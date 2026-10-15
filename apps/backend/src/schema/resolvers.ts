@@ -9,7 +9,7 @@ import { buildEventAccountMatchCondition } from '../lib/events/event-account-mat
 import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, gte, lte, isNull, isNotNull, ilike } from 'drizzle-orm';
 import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
-import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink } from '@festgrid/domain/scraper';
+import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink, isScrapableAccountType } from '@festgrid/domain/scraper';
 import { selectApiKey } from '@festgrid/domain/ai-gateway';
 import { callGemini, AiGatewayExhaustedError, AiGatewayBusyError } from '../lib/ai-gateway/adapter.js';
 import { fetchCandidateKeys } from '../lib/ai-gateway/usage-store.js';
@@ -703,9 +703,9 @@ Constraints and Guidelines:
 
       const profile = profileRows[0];
 
-      // Gate check: proceed only if accountTypeStatus is NULL or (accountType = 'ORGANIZER_VENUE_EVENT' and accountTypeStatus = 'CONFIRMED')
-      const allowed = profile.accountTypeStatus === null || (profile.accountType === 'ORGANIZER_VENUE_EVENT' && profile.accountTypeStatus === 'CONFIRMED');
-      if (!allowed) {
+      // Gate check: same rule as the daily batch and the subscribe-time cascade -- never-classified,
+      // or CONFIRMED as an organizer/venue/event or curator/guide (Story 3.4o).
+      if (!isScrapableAccountType(profile.accountType, profile.accountTypeStatus)) {
         throw new GraphQLError('Scraping is not allowed for this account type.', {
           extensions: { code: 'FORBIDDEN' },
         });
