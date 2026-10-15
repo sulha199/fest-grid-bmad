@@ -40,7 +40,7 @@ so that I can trust the filter without an edit form.
 
 ## Tasks / Subtasks
 
-- [ ] 1. **(AC2, AC3, Data Type Compatibility)** Create `packages/domain/src/ai-event-filters/summary-clause-formatters.ts` — pure, shared per-leaf-field formatting helpers, extracted once so both the flat renderer (Task 3) and the new tree renderer (Task 4) call the *same* implementation per concern (mirrors `compile-filter-node.ts`'s existing precedent of extracting shared leaf builders out of `buildEventsQueryCondition.ts` rather than re-deriving per-field logic twice). Import `AIFilterSummaryLabels` from `./render-ai-filter-summary.js` as a **type-only** import (`import type { AIFilterSummaryLabels } from './render-ai-filter-summary.js'`) — this is erased at compile time, so even though `render-ai-filter-summary.ts` (Task 3) will import *values* from this new file, there is no runtime circular dependency (unlike the `buildEventsQueryCondition.ts`↔`compile-filter-node.ts` precedent, which is runtime-circular-but-safe per Story 9.4a Dev Notes decision 6 — this one isn't circular at all at the JS level). Export:
+- [x] 1. **(AC2, AC3, Data Type Compatibility)** Create `packages/domain/src/ai-event-filters/summary-clause-formatters.ts` — pure, shared per-leaf-field formatting helpers, extracted once so both the flat renderer (Task 3) and the new tree renderer (Task 4) call the *same* implementation per concern (mirrors `compile-filter-node.ts`'s existing precedent of extracting shared leaf builders out of `buildEventsQueryCondition.ts` rather than re-deriving per-field logic twice). Import `AIFilterSummaryLabels` from `./render-ai-filter-summary.js` as a **type-only** import (`import type { AIFilterSummaryLabels } from './render-ai-filter-summary.js'`) — this is erased at compile time, so even though `render-ai-filter-summary.ts` (Task 3) will import *values* from this new file, there is no runtime circular dependency (unlike the `buildEventsQueryCondition.ts`↔`compile-filter-node.ts` precedent, which is runtime-circular-but-safe per Story 9.4a Dev Notes decision 6 — this one isn't circular at all at the JS level). Export:
   - `formatAccountIdClause(accountId: string, labels): string` — same logic as today's inline branch (template-or-prefix).
   - `formatTypesClause(types: EventType[], labels): string`, `formatCategoriesClause(categories: EventCategory[], labels): string` — same lookup/join/prefix logic as today.
   - `formatKeywordClause(keyword: string, labels): string` — same template-or-prefix logic as today.
@@ -106,9 +106,9 @@ so that I can trust the filter without an edit form.
     ```
   - Write `summary-clause-formatters.test.ts` covering every branch (100% coverage, `packages/domain` rule): span present/absent × offsetAmount zero/nonzero for `formatDateRangeClause`; weekends/weekdays/other-multi/single for `formatDayOfWeekClause`; known/unknown `temporalFilter` value; all-empty/mixed/no-empty caveats for `joinCaveats`; template-present/absent branches for the remaining formatters (mirroring Story 7.3's existing per-field test shape).
 
-- [ ] 2. **(AC2, Data Type Compatibility)** Extend `AIFilterSummaryLabels` in `packages/domain/src/ai-event-filters/render-ai-filter-summary.ts` with new **optional** keys (additive — no existing caller breaks): `or?: string`, `weekends?: string`, `weekdays?: string`, `temporalStatus?: Record<string, string>`, `dateRangeSpanOnlyTemplate?: string`, `dateRangeSpanExtensionTemplate?: string`.
+- [x] 2. **(AC2, Data Type Compatibility)** Extend `AIFilterSummaryLabels` in `packages/domain/src/ai-event-filters/render-ai-filter-summary.ts` with new **optional** keys (additive — no existing caller breaks): `or?: string`, `weekends?: string`, `weekdays?: string`, `temporalStatus?: Record<string, string>`, `dateRangeSpanOnlyTemplate?: string`, `dateRangeSpanExtensionTemplate?: string`.
 
-- [ ] 3. **(AC1, AC2, AC3)** Modify `render-ai-filter-summary.ts`'s `renderAIFilterSummary` body to call Task 1's shared formatters instead of its own inline per-field logic, for every field (accountId, types, categories, keyword, dateRange/dayOfWeek, location, venueType, isFree, caveats) — a behavior-preserving refactor for every branch Task 1 did not change, plus the new span/weekends-weekdays-or/DW-086 behavior automatically, plus **add a new `temporalFilter` branch** (the live gap — AC2) immediately after the existing dateRange/dayOfWeek branch in the fixed clause order (so the order becomes: account, type, category, keyword, date-range-or-day-of-week, temporal-status, location, venue-type, free/paid):
+- [x] 3. **(AC1, AC2, AC3)** Modify `render-ai-filter-summary.ts`'s `renderAIFilterSummary` body to call Task 1's shared formatters instead of its own inline per-field logic, for every field (accountId, types, categories, keyword, dateRange/dayOfWeek, location, venueType, isFree, caveats) — a behavior-preserving refactor for every branch Task 1 did not change, plus the new span/weekends-weekdays-or/DW-086 behavior automatically, plus **add a new `temporalFilter` branch** (the live gap — AC2) immediately after the existing dateRange/dayOfWeek branch in the fixed clause order (so the order becomes: account, type, category, keyword, date-range-or-day-of-week, temporal-status, location, venue-type, free/paid):
   ```ts
   if (filter.temporalFilter) {
     clauses.push(formatTemporalFilterClause(filter.temporalFilter, labels));
@@ -116,7 +116,7 @@ so that I can trust the filter without an edit form.
   ```
   Replace the final caveat-joining block with a call to `joinCaveats(caveats, labels)`.
 
-- [ ] 4. **(AC1, AC2, AC3, AC4)** Create `packages/domain/src/ai-event-filters/render-filter-expression-summary.ts`:
+- [x] 4. **(AC1, AC2, AC3, AC4)** Create `packages/domain/src/ai-event-filters/render-filter-expression-summary.ts`:
   - `export interface FilterExpressionSummaryLabels extends AIFilterSummaryLabels { and?: string; not?: string; }` (`and`/`not` are tree-only; `or` already lives on the base interface from Task 2 since the flat renderer's day-of-week joining needs it too).
   - `export function renderFilterExpressionSummary(node: FilterNode | null | undefined, caveats: string[] | null | undefined, labels: FilterExpressionSummaryLabels): AIFilterSummaryResult`:
     ```ts
@@ -182,7 +182,7 @@ so that I can trust the filter without an edit form.
     ```
   - Import `normalize` from `./normalize-filter-node.js`, `flatFilterFromExpression` from `./flat-filter-conversion.js`, `isFilterLeaf`/`isFilterGroupNode`/`isFilterNotNode`/`type FilterLeaf`/`type FilterNode` from `./filter-node.js`, `renderAIFilterSummary`/`type AIFilterSummaryResult` from `./render-ai-filter-summary.js`, and every formatter plus `joinCaveats` from `./summary-clause-formatters.js`.
 
-- [ ] 5. **(Testing, AC1-AC4)** Create `packages/domain/src/ai-event-filters/render-filter-expression-summary.test.ts` (`node:test`, 100% branch coverage):
+- [x] 5. **(Testing, AC1-AC4)** Create `packages/domain/src/ai-event-filters/render-filter-expression-summary.test.ts` (`node:test`, 100% branch coverage):
   - Flat-delegation parity: a bare leaf, and a top-level `AND`-of-several-leaves (built via `expressionFromFlatFilter` from a fixture `EventFilterInput` covering every field), both render **identically** to calling `renderAIFilterSummary` directly on the equivalent flat filter — the literal AC1 parity assertion.
   - The SPEC CAP-6 worked example: `AND[ OR[locationAdminArea:'Sleman', locationAdminArea:'Bantul'], dateRange:{...this weekend...}, NOT(category:['WORKSHOP']) ]` plus a `type` leaf with `['CONCERT_JAZZ','CONCERT_BLUES']`-style array value (the within-leaf-array OR, not two OR'd leaves) — asserts the exact rendered string using an English-shaped `labels` fixture, proving explicit grouping around the `OR` branch and the `NOT` prefix.
   - `NOT` wrapping a single leaf (no parens) vs `NOT` wrapping an `AND`/`OR` group (parens) — both cases.
@@ -193,9 +193,9 @@ so that I can trust the filter without an edit form.
   - Null/undefined `node` input renders the same as `renderAIFilterSummary(null, ...)` (delegates correctly).
   - An empty-children group inside a `mapFilterLeaves`-degraded tree (defensive: should not crash even though `validateFilterNode` would reject a genuinely empty group upstream) — if unreachable via the public API, mark this branch's defensive `|| labels.noFilter` fallback as covered via the top-level empty-expression case instead; do not add dead/unreachable test-only code paths.
 
-- [ ] 6. **(Data Type Compatibility)** Export the two new modules from `packages/domain/src/ai-event-filters/index.ts`: add `export * from './summary-clause-formatters.js';` and `export * from './render-filter-expression-summary.js';` (alongside the existing `render-ai-filter-summary.js` export, which already carries the Task 2 label additions).
+- [x] 6. **(Data Type Compatibility)** Export the two new modules from `packages/domain/src/ai-event-filters/index.ts`: add `export * from './summary-clause-formatters.js';` and `export * from './render-filter-expression-summary.js';` (alongside the existing `render-ai-filter-summary.js` export, which already carries the Task 2 label additions).
 
-- [ ] 7. **(AC2, i18n)** Add new keys to the existing `AIFilterSummary` namespace in **both** `apps/web/locales/en.json` and `apps/web/locales/id.json` (alongside the existing `noFilter`/`anchors`/`units`/`daysOfWeek`/etc. keys at the same nesting level):
+- [x] 7. **(AC2, i18n)** Add new keys to the existing `AIFilterSummary` namespace in **both** `apps/web/locales/en.json` and `apps/web/locales/id.json` (alongside the existing `noFilter`/`anchors`/`units`/`daysOfWeek`/etc. keys at the same nesting level):
   ```json
   "and": "and",
   "or": "or",
@@ -225,7 +225,7 @@ so that I can trust the filter without an edit form.
   ```
   Matches this project's "Microcopy should be clear, concise, and helpful. Avoid technical jargon" voice guidance (`EXPERIENCE.md`), and the existing plain-word style of every other `AIFilterSummary` key already shipped (no DESIGN.md/EXPERIENCE.md entry exists or is required for these, per Gate 2 finding below — same precedent as the ~15 existing keys in this namespace).
 
-- [ ] 8. **(AC1, AC2, Data Type Compatibility — closes a confirmed live gap, Story 9.4a Dev Notes decision 7)** In `apps/web/src/features/events/use-ai-filter.ts`:
+- [x] 8. **(AC1, AC2, Data Type Compatibility — closes a confirmed live gap, Story 9.4a Dev Notes decision 7)** In `apps/web/src/features/events/use-ai-filter.ts`:
   - Replace the `renderAIFilterSummary` import with `renderFilterExpressionSummary` (and keep `expressionFromFlatFilter` imported from `@festgrid/domain/ai-event-filters` for the fallback below).
   - Extend the existing `summaryLabels` `useMemo` with the Task 7 keys, same `tSummary`/`tSummary.raw` pattern already used for every other key in that object:
     ```ts
@@ -266,18 +266,18 @@ so that I can trust the filter without an edit form.
     ```
     Confirm (or add, if missing) a `GraphQL`-generated `expression` argument on the `useSaveAiEventFilterMutation` variables type — check `apps/web/src/features/events/mutations.graphql`'s `saveAIEventFilter` mutation document: if it does not already select/accept an `expression` variable (it may only ever have sent `resolvedFilter` until now), add `$expression: FilterNodeInput` to the mutation's variable list and pass it through, then regenerate codegen (Task 11). If it already accepts `expression` (added opportunistically by an earlier story in this batch), no `.graphql` change is needed — just the call-site change above.
 
-- [ ] 9. **(AC1, AC2, Data Type Compatibility — closes a confirmed live gap, Story 9.4a Out of Scope)** In `apps/web/src/app/[locale]/settings/ai-filters/ai-filters-content.tsx`:
+- [x] 9. **(AC1, AC2, Data Type Compatibility — closes a confirmed live gap, Story 9.4a Out of Scope)** In `apps/web/src/app/[locale]/settings/ai-filters/ai-filters-content.tsx`:
   - Replace the `renderAIFilterSummary` import with `renderFilterExpressionSummary`.
   - Extend the existing `summaryLabels` `useMemo` with the identical Task 7 keys (same pattern as Task 8, same `tSummary` instance already in this file).
   - Change the row-rendering call from `renderAIFilterSummary(filter.resolvedFilter, [], summaryLabels)` to `renderFilterExpressionSummary(filter.expression, [], summaryLabels)` — `AIEventFilter.expression` has been populated and selected by `getMyAIEventFilters` for every row (flat or not) since Stories 9.3/9.4a; this is the exact gap Story 9.4a's Out of Scope section named ("the list's summary rendering... only reads the flat projection... Story 9.5/9.6's territory"). No JSX/visual change — same `h3` element, same `rendered.summary` binding.
   - Leave `handleRowClick` untouched (Story 9.4a's scope; still forwards both `ai_filter`/`ai_expression`, and `aiFilter` in `use-ai-filter.ts` already prefers the expression).
 
-- [ ] 10. **(Testing, AC1, AC2)** Update tests:
+- [x] 10. **(Testing, AC1, AC2)** Update tests:
   - `packages/domain/src/ai-event-filters/render-ai-filter-summary.test.ts`: update the existing "renders an array-valued dayOfWeek gracefully" test's expectation from `'Friday, SAT'` to `'Friday or SAT'` (the Story 9.1b code comment explicitly deferred this exact grammar fix to this story — not a regression, an intentional, pre-flagged correction). Add cases for: a `dateRange` with `spanAmount`/`spanUnit` (both the `offsetAmount === 0` and `!== 0` branches); `dayOfWeek` equal to the exact weekend/weekday sets; a `temporalFilter` leaf; a caveats array containing an empty string (DW-086).
   - `apps/web/src/features/events/use-ai-filter.test.ts`: extend `mockExpression` to a genuinely non-flat fixture (e.g. `{ op: 'OR', children: [{ field: 'type', value: ['FESTIVAL'] }, { field: 'type', value: ['CONCERT'] }] }`) and assert `filterHubProps.aiFilterSummary` contains the locale "or" word (not just `toBeDefined()`); add a dedicated test asserting `handleSave` calls `saveFilter` with `{ prompt, expression }` and **not** a `resolvedFilter` key (proving Task 8's save-path fix).
   - `apps/web/src/app/[locale]/settings/ai-filters/ai-filters-content.test.tsx`: fix `mockFilters[0].expression` to be an internally-consistent `AND`-of-leaves mirroring its own `resolvedFilter` fixture exactly (`{ op: 'AND', children: [{ field: 'keyword', value: 'rock' }, { field: 'category', value: ['MUSIC'] }, { field: 'isFree', value: true }] }`) — today it is just a bare `{ field: 'keyword', value: 'rock' }` leaf, inconsistent with `resolvedFilter`'s `categories`/`isFree`, which would silently lose assertions once the row switches to reading `.expression` (Task 9). With the fix, the existing "renders loading states and then displays saved filters" test's assertions (`/about 'rock'/i`, `/free events only/i`) keep passing unchanged, via this story's AC1 flat-delegation parity. Add a second fixture row with a genuinely non-flat `expression` (e.g. an `OR` of two `locationAdminArea` leaves) and assert its rendered row text contains the locale "or" word and both location names — the concrete, user-visible proof that a saved grouped filter's row summary is no longer silently flattened to "All events" (the bug this story and Story 9.4a together close).
 
-- [ ] 11. **(Verification)** Run `pnpm --filter @festgrid/domain test`/`lint`/`build` (100% coverage on every new/changed file), `pnpm --filter @festgrid/web codegen` (only if Task 8's `.graphql` check required a change), `pnpm --filter @festgrid/web test`/`lint`/`build`.
+- [x] 11. **(Verification)** Run `pnpm --filter @festgrid/domain test`/`lint`/`build` (100% coverage on every new/changed file), `pnpm --filter @festgrid/web codegen` (only if Task 8's `.graphql` check required a change), `pnpm --filter @festgrid/web test`/`lint`/`build`.
 
 ## Dev Notes
 
@@ -400,23 +400,23 @@ Recent commits (`git log --oneline -5`) are all `wip(9.4a): dev-story progress` 
 
 ## Testing Requirements
 
-- [ ] Unit tests: `summary-clause-formatters.test.ts` — every formatter's every branch (span present/absent × offset zero/nonzero; weekend/weekday/other/single dayOfWeek sets; known/unknown temporalFilter; empty/mixed/clean caveats). 100% branch coverage.
-- [ ] Unit tests: `render-filter-expression-summary.test.ts` — flat-delegation parity, the SPEC CAP-6 worked example with explicit-grouping assertions, NOT-wrapping-leaf vs NOT-wrapping-group, mixed AND/OR nesting, AC2 phrasings inside a non-flat tree, AC3 caveat fix, AC4 dual-locale (en/id) fixtures, null-input delegation. 100% branch coverage.
-- [ ] Unit tests: `render-ai-filter-summary.test.ts` (extended) — the one intentionally-updated dayOfWeek assertion, plus new span/weekend-weekday/temporalFilter/DW-086 cases. 100% branch coverage maintained.
-- [ ] Integration tests (Vitest): `use-ai-filter.test.ts` — non-flat `activeExpression`/`resolvedSummaryResult` reflects the OR/NOT wording; `handleSave` sends `{ prompt, expression }`, not `resolvedFilter`.
-- [ ] Integration tests (Vitest): `ai-filters-content.test.tsx` — existing flat-row test still passes via corrected, internally-consistent fixture; new non-flat row fixture renders OR wording and both location names in the row summary.
-- [ ] E2E tests: not applicable — no new user-facing surface in the Playwright-covered-critical-flow sense (confirmed by Gate 2's "no gap" verdict above; the visible text change is covered by the Vitest integration tests above, and FilterHub's own E2E/visual coverage, if any, is unaffected since this story adds no new component).
+- [x] Unit tests: `summary-clause-formatters.test.ts` — every formatter's every branch (span present/absent × offset zero/nonzero; weekend/weekday/other/single dayOfWeek sets; known/unknown temporalFilter; empty/mixed/clean caveats). 100% branch coverage.
+- [x] Unit tests: `render-filter-expression-summary.test.ts` — flat-delegation parity, the SPEC CAP-6 worked example with explicit-grouping assertions, NOT-wrapping-leaf vs NOT-wrapping-group, mixed AND/OR nesting, AC2 phrasings inside a non-flat tree, AC3 caveat fix, AC4 dual-locale (en/id) fixtures, null-input delegation. 100% branch coverage.
+- [x] Unit tests: `render-ai-filter-summary.test.ts` (extended) — the one intentionally-updated dayOfWeek assertion, plus new span/weekend-weekday/temporalFilter/DW-086 cases. 100% branch coverage maintained.
+- [x] Integration tests (Vitest): `use-ai-filter.test.ts` — non-flat `activeExpression`/`resolvedSummaryResult` reflects the OR/NOT wording; `handleSave` sends `{ prompt, expression }`, not `resolvedFilter`.
+- [x] Integration tests (Vitest): `ai-filters-content.test.tsx` — existing flat-row test still passes via corrected, internally-consistent fixture; new non-flat row fixture renders OR wording and both location names in the row summary.
+- [x] E2E tests: not applicable — no new user-facing surface in the Playwright-covered-critical-flow sense (confirmed by Gate 2's "no gap" verdict above; the visible text change is covered by the Vitest integration tests above, and FilterHub's own E2E/visual coverage, if any, is unaffected since this story adds no new component).
 
 ## Deliverables Checklist
 
-- [ ] `summary-clause-formatters.ts` exports every per-leaf-field formatter plus `joinCaveats` (DW-086 fix), 100% covered.
-- [ ] `render-ai-filter-summary.ts` delegates to the shared formatters, gains a `temporalFilter` branch, and its `dayOfWeek` join wording is corrected (weekends/weekdays/or-word) — all previously-passing tests still pass except the one intentionally-updated assertion.
-- [ ] `render-filter-expression-summary.ts` renders any valid `FilterNode` (flat or compound) deterministically, with explicit grouping, locale-safe and/or/not words, and flat-delegation parity with Story 7.3's renderer.
-- [ ] Both renderers exported from `packages/domain/src/ai-event-filters/index.ts`.
-- [ ] `en.json`/`id.json` carry the new `AIFilterSummary` keys (`and`, `or`, `not`, `weekends`, `weekdays`, `temporalStatus.{TODAY,UPCOMING}`, `dateRangeSpanOnlyTemplate`, `dateRangeSpanExtensionTemplate`).
-- [ ] `use-ai-filter.ts`'s live/resolved summaries render the resolved expression (not just the lossy flat projection) for both a live-resolved and a previously-saved (loaded) filter, and `handleSave` persists `expression`.
-- [ ] `ai-filters-content.tsx`'s "My AI Filters" row summary renders a non-flat saved filter's real logic instead of silently collapsing to "All events."
-- [ ] All new/updated test files passing; 100% domain coverage on every changed/new `packages/domain` file; `pnpm --filter @festgrid/domain test`/`lint`/`build`, `pnpm --filter @festgrid/web test`/`lint`/`build` all green.
+- [x] `summary-clause-formatters.ts` exports every per-leaf-field formatter plus `joinCaveats` (DW-086 fix), 100% covered.
+- [x] `render-ai-filter-summary.ts` delegates to the shared formatters, gains a `temporalFilter` branch, and its `dayOfWeek` join wording is corrected (weekends/weekdays/or-word) — all previously-passing tests still pass except the one intentionally-updated assertion.
+- [x] `render-filter-expression-summary.ts` renders any valid `FilterNode` (flat or compound) deterministically, with explicit grouping, locale-safe and/or/not words, and flat-delegation parity with Story 7.3's renderer.
+- [x] Both renderers exported from `packages/domain/src/ai-event-filters/index.ts`.
+- [x] `en.json`/`id.json` carry the new `AIFilterSummary` keys (`and`, `or`, `not`, `weekends`, `weekdays`, `temporalStatus.{TODAY,UPCOMING}`, `dateRangeSpanOnlyTemplate`, `dateRangeSpanExtensionTemplate`).
+- [x] `use-ai-filter.ts`'s live/resolved summaries render the resolved expression (not just the lossy flat projection) for both a live-resolved and a previously-saved (loaded) filter, and `handleSave` persists `expression`.
+- [x] `ai-filters-content.tsx`'s "My AI Filters" row summary renders a non-flat saved filter's real logic instead of silently collapsing to "All events."
+- [x] All new/updated test files passing; 100% domain coverage on every changed/new `packages/domain` file; `pnpm --filter @festgrid/domain test`/`lint`/`build`, `pnpm --filter @festgrid/web test`/`lint`/`build` all green.
 
 ## Out of Scope
 
@@ -430,14 +430,14 @@ Recent commits (`git log --oneline -5`) are all `wip(9.4a): dev-story progress` 
 
 ## Definition of Done
 
-- [ ] AC1-AC4 satisfied and verified by their respective tests.
-- [ ] Required tests passing: `pnpm --filter @festgrid/domain test` (100% branch coverage on changed/new files) and `pnpm --filter @festgrid/web test`.
-- [ ] Lint and type checks passing: `pnpm --filter @festgrid/domain lint`/`build`, `pnpm --filter @festgrid/web lint`/`build`.
-- [ ] `pnpm --filter @festgrid/web codegen` run and diff committed, only if Task 8's `.graphql` check required a schema-document change.
+- [x] AC1-AC4 satisfied and verified by their respective tests.
+- [x] Required tests passing: `pnpm --filter @festgrid/domain test` (100% branch coverage on changed/new files) and `pnpm --filter @festgrid/web test`.
+- [x] Lint and type checks passing: `pnpm --filter @festgrid/domain lint`/`build`, `pnpm --filter @festgrid/web lint`/`build`.
+- [x] `pnpm --filter @festgrid/web codegen` run and diff committed, only if Task 8's `.graphql` check required a schema-document change.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete
 
 ## Dev Agent Record
 
