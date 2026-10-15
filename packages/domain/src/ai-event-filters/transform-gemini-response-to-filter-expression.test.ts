@@ -215,6 +215,20 @@ describe('transformGeminiResponseToFilterExpression (AC2)', () => {
     });
   });
 
+  it('drops a double-NOT that is only exposed after normalize() collapses an intervening single-child OR', () => {
+    // NOT(OR(NOT(leaf))) -- not an immediate double-NOT at conversion time (the NOT's immediate
+    // child is an OR), but the OR has exactly one child, so normalize() collapses it away,
+    // leaving NOT(NOT(leaf)) -- a real double-NOT that must still be caught and dropped.
+    const result = transformGeminiResponseToFilterExpression({
+      expression: { op: 'NOT', child: { op: 'OR', children: [{ op: 'NOT', child: { keyword: 'x' } }] } },
+      caveats: [],
+    });
+    assert.deepEqual(result.expression, { op: 'AND', children: [] });
+    assert.deepEqual(result.caveats, [
+      'A double negation in your prompt was simplified; the surrounding condition was dropped.',
+    ]);
+  });
+
   it('silently drops a leaf with an out-of-vocabulary/garbage field inside an otherwise-valid tree (no caveat pushed by this function)', () => {
     const payload = {
       expression: {

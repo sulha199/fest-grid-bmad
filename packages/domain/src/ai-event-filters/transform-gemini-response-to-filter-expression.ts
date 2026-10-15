@@ -75,6 +75,32 @@ function findWidestGroupNode(node: FilterNode): FilterGroupNode | undefined {
   return best;
 }
 
+/**
+ * Drops every `NOT` node whose immediate child is itself a `NOT` node (a double-NOT), collapsing
+ * any group/`NOT` left pointing at nothing as a result -- the same mechanism `convertRawNode`
+ * already applies at construction time, reused here because `normalize()`'s single-child group
+ * collapse can expose a double-NOT that was NOT immediately adjacent in the raw input (e.g. a
+ * `NOT` wrapping a single-child `OR` wrapping a `NOT` -- the `OR` disappears on normalize,
+ * leaving the two `NOT`s directly adjacent).
+ */
+function dropDoubleNots(node: FilterNode): FilterNode | undefined {
+  if (isFilterNotNode(node)) {
+    if (isFilterNotNode(node.child)) {
+      return undefined;
+    }
+    const child = dropDoubleNots(node.child);
+    return child === undefined ? undefined : { op: 'NOT', child };
+  }
+  if (isFilterGroupNode(node)) {
+    const children = node.children.map(dropDoubleNots).filter((child): child is FilterNode => child !== undefined);
+    if (children.length === 0) {
+      return undefined;
+    }
+    return { op: node.op, children };
+  }
+  return node;
+}
+
 /** Rebuilds `node`, replacing `target` (found by object identity) with a copy of itself minus its
  * last child. `target` is always a node actually present in `node`'s own tree (found via
  * `findWidestGroupNode` against this same tree), so identity comparison is safe here. */
@@ -134,11 +160,27 @@ export function transformGeminiResponseToFilterExpression(payload: unknown): Gem
     }
 
     let trimmedCaveatPushed = false;
+    let doubleNotCaveatPushed = false;
     while (!validation.valid) {
+      const hasDoubleNotIssue = validation.issues.some((issue) => /double not/i.test(issue.reason));
+      if (hasDoubleNotIssue) {
+        // `normalize()`'s single-child group collapse can expose a double-NOT that was not
+        // immediately adjacent in the raw input -- re-apply the same drop-and-caveat mechanism
+        // `convertRawNode` uses at construction time, then re-normalize (which may itself expose
+        // a further double-NOT, hence the surrounding `while`).
+        current = normalize(dropDoubleNots(current) ?? { op: 'AND', children: [] });
+        if (!doubleNotCaveatPushed) {
+          pushedCaveats.push('A double negation in your prompt was simplified; the surrounding condition was dropped.');
+          doubleNotCaveatPushed = true;
+        }
+        validation = validateFilterNode(current);
+        continue;
+      }
+
       const widest = findWidestGroupNode(current);
       if (!widest || widest.children.length === 0) {
         // Nothing left to trim -- stop rather than loop forever (should not normally happen,
-        // since a single leaf is always within both limits).
+        // since a single leaf is always within every limit).
         break;
       }
       current = normalize(trimNodeByIdentity(current, widest));
