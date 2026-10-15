@@ -45,9 +45,35 @@ const mockFilters = [
       categories: ['MUSIC'],
       isFree: true,
     },
-    expression: { field: 'keyword', value: 'rock' },
+    // Story 9.5 Task 10: an internally-consistent AND-of-leaves mirroring resolvedFilter exactly
+    // -- the row now reads `.expression` (Task 9), so a drifted fixture here would silently lose
+    // assertions once the renderer switches off `.resolvedFilter`.
+    expression: {
+      op: 'AND',
+      children: [
+        { field: 'keyword', value: 'rock' },
+        { field: 'category', value: ['MUSIC'] },
+        { field: 'isFree', value: true },
+      ],
+    },
     createdAt: '2026-08-01',
     updatedAt: '2026-08-01',
+  },
+  {
+    id: 'filter-2',
+    prompt: 'events in sleman or bantul',
+    resolvedFilter: {},
+    // Genuinely non-flat expression -- the concrete, user-visible proof that a saved grouped
+    // filter's row summary is no longer silently flattened to "All events" (Story 9.4a's gap).
+    expression: {
+      op: 'OR',
+      children: [
+        { field: 'locationAdminArea', value: 'Sleman' },
+        { field: 'locationAdminArea', value: 'Bantul' },
+      ],
+    },
+    createdAt: '2026-08-02',
+    updatedAt: '2026-08-02',
   },
 ];
 
@@ -114,9 +140,22 @@ describe('AiFiltersContent', () => {
       expect(screen.getByText(/free rock concerts/i)).toBeInTheDocument();
     });
 
-    // Verify it renders the summary using renderAIFilterSummary (e.g., contains 'rock' and 'free')
+    // Verify it renders the summary via the shared renderer (e.g., contains 'rock' and 'free')
     expect(screen.getByText(/about 'rock'/i)).toBeInTheDocument();
     expect(screen.getByText(/free events only/i)).toBeInTheDocument();
+  });
+
+  // Story 9.5 Task 9/10: a non-flat saved filter's row summary renders its real grouped logic
+  // instead of silently collapsing to "All events" (the bug this story and 9.4a together close).
+  it('renders a non-flat saved filter row with the locale "or" word and both location names', async () => {
+    mockSession = { user: { id: 'user-1' } };
+    renderWithProviders(<AiFiltersContent />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/events in sleman or bantul/i)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/in Sleman or in Bantul/i)).toBeInTheDocument();
   });
 
   it('navigates to Discovery with filter params when row is clicked', async () => {
