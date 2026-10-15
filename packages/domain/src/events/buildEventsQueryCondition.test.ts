@@ -13,6 +13,7 @@ import {
 } from './buildEventsQueryCondition.js';
 import { compileFilterNodeToQueryCondition } from '../ai-event-filters/compile-filter-node.js';
 import type { FilterNode } from '../ai-event-filters/filter-node.js';
+import { EventType } from '@festgrid/shared-types';
 
 /**
  * Populated-field `EventFilterInput` fixtures exercised below. Exported so Story 9.1a's
@@ -325,8 +326,8 @@ describe('buildEventsQueryCondition: expression branch (Story 9.4a, AC2, Task 9)
     const expression: FilterNode = {
       op: 'OR',
       children: [
-        { field: 'type', value: ['FESTIVAL'] },
-        { field: 'type', value: ['CONCERT'] },
+        { field: 'type', value: [EventType.FESTIVAL] },
+        { field: 'type', value: [EventType.PERFORMANCE] },
       ],
     };
     const res = buildEventsQueryCondition({ expression });
