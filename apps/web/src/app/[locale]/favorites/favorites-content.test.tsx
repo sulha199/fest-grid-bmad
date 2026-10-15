@@ -552,12 +552,11 @@ describe('FavoritesContent - Story 9.4a (AI filter expression wiring)', () => {
 
     const call = eventsCalls[eventsCalls.length - 1];
     const conditions = (call as any)?.query?.conditions ?? [];
-    expect(conditions).toEqual(
-      expect.arrayContaining([
-        { field: 'types', operator: 'in', value: ['FESTIVAL'] },
-        { field: 'types', operator: 'in', value: ['CONCERT'] },
-      ])
-    );
+    const expressionCondition = conditions.find((c: any) => c?.operator === 'or');
+    expect(expressionCondition?.conditions).toEqual([
+      { field: 'types', operator: 'in', value: ['FESTIVAL'] },
+      { field: 'types', operator: 'in', value: ['CONCERT'] },
+    ]);
   });
 
   it('treats two different non-flat expressions sharing the same flattened ai_filter as distinct cache keys (AC3 regression)', async () => {
