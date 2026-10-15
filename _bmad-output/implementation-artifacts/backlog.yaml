@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-14"
+last_updated: "2026-10-15"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -2181,25 +2181,40 @@ items:
 
   # ── 2026-10-14 (AI filter boolean/nested query upgrade) ──────────────────────
   IDEA-069:
-    {type: idea, status: triaged, created: 2026-10-14, epic: epic-9,
+    {type: idea, status: promoted, created: 2026-10-14, epic: epic-9,
      impact: user-visible, effort: l,
      title: "AI filter: AND/OR/NOT and nested expressions, plus richer date grammar (spans, multi-weekday)",
      ref: [planning-artifacts/ai-filter-boolean-nested-query-upgrade-plan.md, specs/spec-ai-prompt-event-filter/SPEC.md],
+     stories: [9-1a-build-the-filter-expression-tree-types-zod-schema-and-normalizer,
+               9-1b-extend-the-relative-date-grammar-with-spans-multi-weekday-and-temporal-status,
+               9-2-compile-filter-expressions-to-query-conditions-with-not-and-null-semantics,
+               9-3-expose-filter-expressions-through-graphql-resolvers-and-widgets,
+               9-4-upgrade-gemini-extraction-to-expression-trees-with-node-level-caveats,
+               9-4a-wire-the-resolved-ai-filter-expression-into-discovery-feed-and-favorites-query-building,
+               9-5-render-expression-summaries-in-english-and-indonesian,
+               9-6-show-long-expression-summaries-in-the-ai-filter-overlay-and-filterhub,
+               9-7-add-golden-prompt-evals-for-the-ai-filter,
+               9-8-rate-limit-prompt-resolution,
+               9-9z-ratchet-every-filter-consumer-goes-through-the-shared-compiler],
      touches: [cross:ai-extraction, pkg:domain, app:backend, web:events, web:widgets, pkg:ui],
      note: "Driving row of Epic 9 (formed 2026-10-14); members FIND-082, BUG-059."}
 
   FIND-082:
-    {type: finding, status: triaged, created: 2026-10-14, parent: FIND-018, epic: epic-9,
+    {type: finding, status: promoted, created: 2026-10-14, parent: FIND-018, epic: epic-9,
      impact: user-visible, effort: m,
      title: "AI filter date and validation gaps: no timezone, 90-day fallback, epoch trick, no offsetAmount bounds, Widget.filters cast, caveat joining",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     stories: [9-1b-extend-the-relative-date-grammar-with-spans-multi-weekday-and-temporal-status,
+               9-3-expose-filter-expressions-through-graphql-resolvers-and-widgets,
+               9-5-render-expression-summaries-in-english-and-indonesian],
      touches: [pkg:domain, app:backend, web:widgets],
      note: "Carved from FIND-018 (DW-074..078, DW-086); absorbed by Stories 9.1b, 9.3, 9.5."}
 
   BUG-059:
-    {type: bug, status: triaged, created: 2026-10-14, parent: BUG-011, epic: epic-9,
+    {type: bug, status: promoted, created: 2026-10-14, parent: BUG-011, epic: epic-9,
      impact: latent, effort: s,
      title: "resolvePromptToEventFilter has no rate limit, so repeated prompts burn the user's own Gemini key quota",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     stories: [9-8-rate-limit-prompt-resolution],
      touches: [app:backend, cross:ai-extraction],
      note: "Carved from BUG-011 (DW-082); sweep Story 9.8 under Epic 9."}
