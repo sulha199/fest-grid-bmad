@@ -8,7 +8,7 @@ baseline_commit: 443ec463722ed5697b900185901b370b4138ac3a
 
 - Epic: 9
 - Story ID: 9.5
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -443,8 +443,48 @@ Recent commits (`git log --oneline -5`) are all `wip(9.4a): dev-story progress` 
 
 ### Agent Model Used
 
+Claude Sonnet 5 (claude-sonnet-5), via `bmad-dev-story`.
+
 ### Debug Log References
+
+- Pre-Coding Approval Gate was already ticked in the story file with explicit provenance (the Epic 9 batch dispatch instruction); re-confirmed per this session's dispatch instruction and proceeded without re-asking.
+- Prerequisites 9.1a/9.1b confirmed `review` in `sprint-status.yaml` before implementation (workflow persistent-fact check).
+- `pnpm --filter @festgrid/domain build` initially failed on the new/updated test files (`EventType.CONCERT`/`EventCategory.WORKSHOP` don't exist in `@festgrid/shared-types`; `DayOfWeek`/`TemporalFilter` literal-array/string test fixtures needed explicit casts) — fixed by using real enum members (`EventType.PERFORMANCE`/`EventType.WORKSHOP`/`EventCategory.MUSIC`) and `as DayOfWeek[]`/`TemporalFilter.X` in the test fixtures; no production code was affected by this fix. Confirmed clean afterward.
+- `pnpm --filter @festgrid/web codegen` was run (Task 8's `.graphql` check found `saveAIEventFilter`'s mutation document did not yet accept an `expression` variable) — `mutations.graphql` updated, `graphql.ts` regenerated; diff is minimal (new optional `$expression`/`resolvedFilter` args only).
+- All per-package verification commands (`pnpm --filter @festgrid/domain test/lint/build`, `pnpm --filter @festgrid/web test/lint/build`) were actually executed and confirmed green, not inferred from the code.
 
 ### Completion Notes List
 
+- Task 1: Created `summary-clause-formatters.ts` with every per-leaf-field formatter (`formatAccountIdClause`, `formatTypesClause`, `formatCategoriesClause`, `formatKeywordClause`, `formatDateRangeClause` with span support, `formatDayOfWeekClause` with weekends/weekdays/or-word, `formatTemporalFilterClause`, `formatLocationAdminAreaClause`, `formatLocationProximityClause`, `formatVenueTypeClause`, `formatIsFreeClause`, `joinCaveats` (DW-086 fix)) plus `summary-clause-formatters.test.ts` (17 tests, every branch).
+- Task 2-3: Extended `AIFilterSummaryLabels` with the additive optional keys (`or`, `weekends`, `weekdays`, `temporalStatus`, `dateRangeSpanOnlyTemplate`, `dateRangeSpanExtensionTemplate`); refactored `renderAIFilterSummary` to delegate to Task 1's formatters for every field and added the new `temporalFilter` branch in fixed clause order. Behavior-preserving for every untouched branch; the one intentional, pre-flagged change is the `dayOfWeek` array-join wording (now uses the locale "or" word instead of a raw comma).
+- Task 4: Created `render-filter-expression-summary.ts` — `renderFilterExpressionSummary` delegates byte-identically to `renderAIFilterSummary` whenever the tree is flat-representable (via `flatFilterFromExpression`'s existing flatness check), else recursively renders with explicit grouping (parens only where operator mismatch or `NOT`-wraps-a-group would otherwise be ambiguous) and locale `and`/`or`/`not` words.
+- Task 5: Created `render-filter-expression-summary.test.ts` (13 tests) — flat-delegation parity (bare leaf and full-field AND-of-leaves), the SPEC CAP-6 worked example, NOT-leaf-vs-NOT-group parens, mixed AND-of-OR/OR-of-AND parens, AC2 span/weekend/weekday/temporalFilter cases inside non-flat trees, AC3 caveat fix inside a non-flat tree, AC4 dual-locale (en/id) fixtures proving no hardcoded word leaks across locales, null-input delegation, and the defensive empty-group fallback (covered via the top-level empty-expression case, since a genuinely empty group is unreachable via the public API per Task 5's own note).
+- Task 6: Barrel-exported both new modules from `packages/domain/src/ai-event-filters/index.ts`.
+- Task 7: Added the `and`/`or`/`not`/`weekends`/`weekdays`/`dateRangeSpanOnlyTemplate`/`dateRangeSpanExtensionTemplate`/`temporalStatus.{TODAY,UPCOMING}` keys to both `apps/web/locales/en.json` and `id.json`'s `AIFilterSummary` namespace.
+- Task 8: `use-ai-filter.ts` now renders via `renderFilterExpressionSummary` for both the live (`aiFilter`/`aiExpression`) and resolved (`resolvedData.expression`) summaries, with the Task 7 labels wired into `summaryLabels`. `handleSave` now sends `{ prompt, expression }` (never `resolvedFilter`), closing Story 9.4a's flagged half-measure gap. `mutations.graphql`'s `saveAIEventFilter` document did not yet accept an `expression` variable, so it was extended and codegen re-run (Task 11).
+- Task 9: `ai-filters-content.tsx`'s row summary now calls `renderFilterExpressionSummary(filter.expression, [], summaryLabels)` instead of reading only the flat `resolvedFilter` projection, closing Story 9.4a's Out-of-Scope-flagged gap for the saved-filters list.
+- Task 10: Updated `render-ai-filter-summary.test.ts` (corrected the pre-flagged dayOfWeek assertion, added span/weekend-weekday/temporalFilter/DW-086 cases), `use-ai-filter.test.ts` (non-flat `mockExpression` fixture, `aiFilterSummary` now asserted to contain the locale "or" word, new dedicated `handleSave` argument-shape test), and `ai-filters-content.test.tsx` (corrected `mockFilters[0].expression` to an internally-consistent AND-of-leaves, added a second non-flat-expression row fixture and its assertion; fixed the pre-existing `getByLabelText('Delete')` single-match assumption, now `getAllByLabelText(...)[0]`, since two rows exist after the new fixture).
+- Task 11: `pnpm --filter @festgrid/domain test` (740 pass), `lint` (clean), `build` (clean); `pnpm --filter @festgrid/web codegen` (run, minimal diff); `pnpm --filter @festgrid/web test` (647 pass), `lint` (clean, pre-existing warnings only), `build` (clean) — all confirmed green by actually running them, per the workflow's persistent-fact requirement.
+- Manual verification: re-grepped `render-ai-filter-summary.ts`/`render-filter-expression-summary.ts`/`summary-clause-formatters.ts` for hardcoded English words outside a `labels.X ?? 'default-fallback'` pattern — none found (only field-name string discriminators and the `WEEKEND_DAYS`/`WEEKDAY_DAYS` day-code constants, neither user-facing).
+
 ### File List
+
+- NEW `packages/domain/src/ai-event-filters/summary-clause-formatters.ts`
+- NEW `packages/domain/src/ai-event-filters/summary-clause-formatters.test.ts`
+- NEW `packages/domain/src/ai-event-filters/render-filter-expression-summary.ts`
+- NEW `packages/domain/src/ai-event-filters/render-filter-expression-summary.test.ts`
+- UPDATE `packages/domain/src/ai-event-filters/render-ai-filter-summary.ts`
+- UPDATE `packages/domain/src/ai-event-filters/render-ai-filter-summary.test.ts`
+- UPDATE `packages/domain/src/ai-event-filters/index.ts`
+- UPDATE `apps/web/locales/en.json`
+- UPDATE `apps/web/locales/id.json`
+- UPDATE `apps/web/src/features/events/use-ai-filter.ts`
+- UPDATE `apps/web/src/features/events/use-ai-filter.test.ts`
+- UPDATE `apps/web/src/app/[locale]/settings/ai-filters/ai-filters-content.tsx`
+- UPDATE `apps/web/src/app/[locale]/settings/ai-filters/ai-filters-content.test.tsx`
+- UPDATE `apps/web/src/features/events/mutations.graphql` (Task 8's `.graphql` check required the change — `saveAIEventFilter` did not yet accept `expression`)
+- UPDATE `apps/web/src/generated/graphql.ts` (regenerated via `pnpm --filter @festgrid/web codegen`)
+
+## Change Log
+
+- 2026-10-15 — Implemented via `bmad-dev-story`: all 11 tasks complete, all ACs satisfied and verified (`pnpm --filter @festgrid/domain test`/`lint`/`build`, `pnpm --filter @festgrid/web codegen`/`test`/`lint`/`build`, all green). Pre-Coding Approval Gate ticked per this session's Epic 9 batch dispatch instruction (approved as scoped: two new pure `packages/domain` files + tests, one extended existing `packages/domain` file + test, barrel export, en/id locale key additions, two `apps/web` call-site wirings incl. the `handleSave` persistence fix + their tests; no new components, no DB migration, no required GraphQL schema change — the `.graphql` client-document change needed by Task 8 was a conditional, pre-anticipated client-side call-site correction, not new schema). Status: review.
