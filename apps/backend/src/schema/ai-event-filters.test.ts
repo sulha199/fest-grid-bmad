@@ -5,7 +5,7 @@ import { resolvers } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
-import { users, apiKeys, aiEventFilters, vendorCallLocks } from '@festgrid/database';
+import { users, apiKeys, aiEventFilters, vendorCallLocks, socialMediaAccountProfiles } from '@festgrid/database';
 import { eq, and } from 'drizzle-orm';
 import { setCallGeminiGenerateContent, callGeminiGenerateContent, GeminiInvalidKeyError } from '../lib/ai-gateway/gemini-client.js';
 import { setDecryptApiKey } from '../lib/ai-gateway/kms.js';
@@ -154,6 +154,46 @@ test('ai event filters resolvers integration', async (t) => {
     assert.deepStrictEqual(result.data.resolvePromptToEventFilter.resolvedFilter.types, ['PERFORMANCE']);
     assert.deepStrictEqual(result.data.resolvePromptToEventFilter.resolvedFilter.categories, ['MUSIC']);
     assert.deepStrictEqual(result.data.resolvePromptToEventFilter.caveats, ['ignoring price filter']);
+  });
+
+  await t.test('resolvePromptToEventFilter resolves a named @handle to the real profile id, and drops an unknown one with a caveat (IDEA-065)', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+    const stamp = Date.now();
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: `ai-handle-${stamp}`,
+      platform: 'instagram',
+      username: `Jogja_Fest_${stamp}`,
+      displayName: 'Jogja Fest',
+    } as any).returning();
+
+    const ask = async (accountId: string) => {
+      setCallGeminiGenerateContent(async () => ({
+        text: JSON.stringify({ resolvedFilter: { accountId }, caveats: [] }),
+      }));
+      const res = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `mutation { resolvePromptToEventFilter(prompt: "events from that account") { resolvedFilter { accountId } caveats } }`,
+        }),
+      });
+      const result = await res.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      return result.data.resolvePromptToEventFilter;
+    };
+
+    try {
+      const found = await ask(`@jogja_fest_${stamp}`);
+      assert.strictEqual(found.resolvedFilter.accountId, profile.id);
+      assert.deepStrictEqual(found.caveats, []);
+
+      const missing = await ask('@no_such_account_anywhere');
+      assert.strictEqual(missing.resolvedFilter.accountId, null);
+      assert.strictEqual(missing.caveats.length, 1);
+      assert.match(missing.caveats[0], /no_such_account_anywhere/);
+    } finally {
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+    }
   });
 
   await t.test('resolvePromptToEventFilter reports temporary key contention as TEMPORARILY_BUSY, not QUOTA_EXHAUSTED (PR #57 review)', async () => {

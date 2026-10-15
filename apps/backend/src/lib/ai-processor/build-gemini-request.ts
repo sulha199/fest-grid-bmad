@@ -78,8 +78,9 @@ const geminiEventResponseSchema = {
     // the request only logs when the parsed schedules fall short of it.
     minScheduleCount: { type: 'NUMBER' },
     expectedScheduleNames: { type: 'ARRAY', items: { type: 'STRING' } },
-    // Story 3.6s (AD-30 Rule 5) — the @handle tagged for this specific item, captured at
-    // extraction time since a CURATOR_GUIDE post's caption is nulled after extraction (3.4o).
+    // Story 3.6s (AD-30 Rule 5) — the @handle of the organizer explicitly tagged/named for this
+    // specific item (IDEA-068: never defaulted to the posting account), captured at extraction
+    // time since a CURATOR_GUIDE post's caption is nulled after extraction (3.4o).
     organizerHandle: { type: 'STRING' }
   },
   required: ['eventName', 'types', 'categories', 'schedules', 'confidenceScore']
@@ -229,7 +230,7 @@ For EACH identified event in the events array, extract:
 7. Use the provided account name metadata (if present) to help disambiguate ambiguous location or venue references in the post text for this event.
 8. A performer's name must still be extracted normally into that schedule's performers array. However, any personal contact detail belonging to a specific performer (a phone number, an email address, or a booking/management link, including a wa.me link) or any photo/image reference or URL associated with a specific performer -- wherever it appears in the caption text or the image -- must never be copied into description, contactInfo, organizerName, or any schedule field (title, location, performers). If such a detail is present in the source, omit it entirely from the extraction rather than including it in any field.
 9. When more than one image is provided alongside the caption, the images are sequential slides (pages) of one social media post in their given order -- not independent posts. Schedule information for one event may be split across multiple slides (for example, one slide may list dates while another lists details). Extract schedule information from across all provided images, and merge/attribute schedule entries that describe the same event into one combined entry in that event's schedules array rather than treating each image as a separate or competing event (this is about schedules within one event -- it is independent of the post-level grouping decision above, which may still split the images' content into several distinct events).
-10. organizerHandle: the @-handle specifically associated with this item -- the account that posted it, or an explicitly @-tagged organizer in the caption for this item -- even when the post's own account is a curator/aggregator. Capture this now; it will not be re-derivable from the caption later.
+10. organizerHandle: the @-handle of the organizer that the caption explicitly tags or names for this item (for example "hosted by @x", "presented by @x", or a clearly credited organizer @-tag), even when the post's own account is a curator/aggregator. Capture this now; it will not be re-derivable from the caption later. If the caption does not explicitly tag or name an organizer for this item, omit organizerHandle -- do NOT fall back to the account that posted it, since the posting account is already known separately. A venue, sponsor, performer or media partner that is merely mentioned is not the organizer unless the caption says so.
 11. Self-report this event's extraction completeness: set minScheduleCount to the best-effort count of distinct schedules this event's caption/image content appears to describe (whether or not every field was extractable). Set expectedScheduleNames to an array of the name/title text of the schedules you can identify for this event, even when some of their other fields could not be extracted. Report a single number/count and names you are reasonably confident about; these are advisory only and are never required to be perfectly exhaustive.
 
 Also report, once for the whole post (not per event):

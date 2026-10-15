@@ -138,17 +138,25 @@ export default function AccountCalendarView({ q, types, categories, profile, onF
     todayLabel: t('calendarTodayLabel'),
     selectWeekLabel: t('calendarSelectWeekLabel'),
     chooseWeekLabel: t('calendarChooseWeekLabel'),
-    moreLabel: (count: number) => t('calendarMoreLabel', { count }),
-    moreMultiDayLabel: (count: number) => t('calendarMoreMultiDayLabel', { count }),
+    belowLabel: (count: number, hasMore: boolean) =>
+      t('calendarBelowLabel', { count: count === 0 ? '…' : hasMore ? `${count}+` : String(count) }),
+    progressLabel: (shown: number, total: string) => t('calendarProgressLabel', { shown, total }),
+    allShownLabel: (total: number) => t('calendarAllShownLabel', { total }),
     loadMoreLabel: t('calendarLoadMoreLabel'),
     loadingMoreLabel: t('calendarLoadingMoreLabel'),
     multiDaySegmentLabel: (dayNumber: number, totalDays: number) => t('calendarMultiDaySegmentLabel', { dayNumber, totalDays }),
-    closePopoverLabel: t('calendarClosePopoverLabel'),
     loadingText: tCalendar('loadingText'),
     favoriteToggleLabel: tCalendar('favoriteToggleLabel'),
     favoritedBadgeLabel: tCalendar('favoritedBadgeLabel'),
     addedToCalendarBadgeLabel: tCalendar('addedToCalendarBadgeLabel'),
     tillLabel: tCalendar('tillLabel'),
+    rangeFilterGroupLabel: tCalendar('rangeFilterGroupLabel'),
+    startsWeekLabel: tCalendar('startsWeekLabel'),
+    endsWeekLabel: tCalendar('endsWeekLabel'),
+    startsDayLabel: tCalendar('startsDayLabel'),
+    endsDayLabel: tCalendar('endsDayLabel'),
+    noSchedulesLabel: tCalendar('noSchedulesLabel'),
+    noSchedulesWeekLabel: tCalendar('noSchedulesWeekLabel'),
     statusEnded: tCalendar('statusEnded'),
     statusHappeningNow: tCalendar('statusHappeningNow'),
     statusEndsToday: tCalendar('statusEndsToday'),
@@ -172,7 +180,6 @@ export default function AccountCalendarView({ q, types, categories, profile, onF
     <WeeklyCalendarView
       weekStart={weekStart}
       schedules={schedules}
-      maxEventsPerDay={5}
       getWeekRange={getWeekRange}
       onToday={handleToday}
       onPrevWeek={handlePrevWeek}

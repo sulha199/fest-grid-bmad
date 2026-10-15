@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-07"
+last_updated: "2026-10-12"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -2131,9 +2131,50 @@ items:
      note: "Fixed in PR #63; see Story 3.18 Change Log and AD-31 Rule 4 (input contract)."}
 
   IDEA-065:
-    {type: idea, status: backlog, created: 2026-10-08,
+    {type: idea, status: done, created: 2026-10-08,
      impact: user-visible, effort: m,
      title: "AI filter's accountId is unvalidated LLM output: resolve handle/name to a real account id (or drop it) instead of silently matching nothing",
      ref: [packages/domain/src/ai-event-filters/transform-gemini-response-to-event-filter.ts, implementation-artifacts/3-18-union-of-associations-account-filtering.md],
      touches: [cross:ai-extraction, pkg:domain, app:backend, web:events],
-     note: "BUG-056 only stops the 500; a non-UUID accountId now matches nothing."}
+     note: "Done 2026-10-12; see Story 3.18 Change Log."}
+
+  BUG-057:
+    {type: bug, status: done, created: 2026-10-12, parent: BUG-056,
+     impact: user-visible, effort: xs,
+     title: "Feed account selector returned an empty list: SubscriptionPicker emitted subscription ids, not account profile ids",
+     ref: [implementation-artifacts/3-7b-filter-the-feed-page-by-specific-subscribed-account.md, packages/ui/src/features/subscriptions/SubscriptionPicker.tsx],
+     touches: [pkg:ui, web:subscriptions, web:events],
+     note: "Fixed 2026-10-12; see Story 3.7b Change Log."}
+
+  # ── 2026-10-12 (dedup follow-ups from the AD-30 Rule 7 as-built review) ──────
+  IDEA-066:
+    {type: idea, status: backlog, created: 2026-10-12, parent: BUG-052,
+     impact: user-visible, effort: m,
+     title: "Primary-post ordering: let an organizer's own post beat a venue's post of the same event",
+     ref: [planning-artifacts/festgrid-architecture-spine.md, apps/backend/src/lib/events/set-event-primary-post.ts, apps/backend/src/lib/posts/is-organizer-authored-post.ts, packages/database/schema.ts, backlog/IDEA-066-organizer-beats-venue-primary.md],
+     touches: [app:backend, pkg:database, cross:ai-extraction, cross:architecture],
+     note: "Venue and organizer posts tie at primary-post step 1; prefer per-event handles. Detail in backlog/IDEA-066-organizer-beats-venue-primary.md."}
+
+  IDEA-067:
+    {type: idea, status: backlog, created: 2026-10-12, parent: BUG-052,
+     impact: user-visible, effort: s,
+     title: "Matching organizer signal: count the new post's own co-author/publisher associations, not only posts.accountId",
+     ref: [planning-artifacts/festgrid-architecture-spine.md, apps/backend/src/lib/events/match-event-to-existing.ts, apps/backend/src/lib/events/event-account-match.ts, backlog/IDEA-067-new-post-coauthor-organizer-signal.md],
+     touches: [app:backend, cross:architecture],
+     note: "Organizer signal ignores the new post's COAUTHOR/PUBLISHER associations. Detail in backlog/IDEA-067-new-post-coauthor-organizer-signal.md."}
+
+  BUG-058:
+    {type: bug, status: done, created: 2026-10-12, parent: BUG-052, blocks: [IDEA-067],
+     impact: user-visible, effort: xs,
+     title: "Matching still gives a roundup/curator posting account the 0.40 organizer weight; only organizerHandle is discounted",
+     ref: [implementation-artifacts/3-6v-match-new-posts-to-existing-events-and-enrich-them-in-place.md, apps/backend/src/lib/events/match-event-to-existing.ts, apps/backend/src/lib/ingestor/process-ingestion-job.ts, backlog/BUG-058-roundup-posting-account-organizer-weight.md],
+     touches: [app:backend],
+     note: "Done 2026-10-12: posting account is discounted for roundup/curator items like organizerHandle. Detail in backlog/BUG-058-roundup-posting-account-organizer-weight.md."}
+
+  IDEA-068:
+    {type: idea, status: done, created: 2026-10-12, parent: BUG-052, blocks: [IDEA-066],
+     impact: user-visible, effort: s,
+     title: "Extraction prompt: return organizerHandle only when the caption tags or names an organizer, not the posting account",
+     ref: [apps/backend/src/lib/ai-processor/build-gemini-request.ts, apps/backend/src/validation/extracted-event.schema.ts, implementation-artifacts/3-6s-extract-multiple-events-per-post-with-grouping-rules.md, backlog/IDEA-068-organizer-handle-explicit-only.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Done 2026-10-12: prompt returns organizerHandle only for an explicit organizer. Detail in backlog/IDEA-068-organizer-handle-explicit-only.md."}

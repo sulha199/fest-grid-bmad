@@ -4,6 +4,7 @@
 
 - [FestGrid Infrastructure Architecture](#table-of-contents)
   - [High-Level Overview](#high-level-overview)
+  - [Architecture Diagram and Tech Stack](./architecture-diagram.md)
   - [1. Frontend](#1-frontend)
   - [2. Backend](#2-backend)
   - [3. Database](#3-database)

@@ -90,6 +90,8 @@ const QUIET_DAY = '2031-06-04';
 const MULTI_DAY_END = '2031-06-06';
 /** A separate, isolated day for the tie-break/pagination test (Task 4.2). */
 const PAGINATION_DAY = '2032-01-15';
+/** Isolated day for the multi-day-last continuation ordering (spec-calendar-unified-banded-grid). */
+const MIXED_DAY = '2032-03-10';
 
 test('events resolver perDayLimit windowed path and single-exact-date tie-break (Story 1.i1h)', async (t) => {
   const createdEventIds: string[] = [];
@@ -252,5 +254,53 @@ test('events resolver perDayLimit windowed path and single-exact-date tie-break 
     const secondAgain = await queryEvents({ query: exactDateCondition, offset: 3, limit: 3 });
     assert.deepStrictEqual(firstAgain.items.map((item) => item.id), firstIds, 'page 1 order must be stable');
     assert.deepStrictEqual(secondAgain.items.map((item) => item.id), secondIds, 'page 2 order must be stable');
+  });
+
+  await t.test('single-exact-date continuation puts multi-day occurrences last, singles by time then id (calendar ordering)', async () => {
+    // A multi-day run that STARTS earlier than the pinned date and one that starts ON it, plus
+    // two single-day occurrences. The week fetch already returned every multi-day row, so the
+    // continuation must walk the single-day rows first (offset == singles already loaded) and
+    // leave the multi-day duplicates for the very end.
+    const early = await createEvent({
+      eventName: `${PREFIX}mixed early multi`,
+      scheduleStartDate: '2032-03-08',
+      scheduleEndDate: '2032-03-12',
+      eventStartTime: '07:00:00',
+    });
+    const sameDayMulti = await createEvent({
+      eventName: `${PREFIX}mixed same-day multi`,
+      scheduleStartDate: MIXED_DAY,
+      scheduleEndDate: '2032-03-11',
+      eventStartTime: '06:00:00',
+    });
+    const lateSingle = await createEvent({
+      eventName: `${PREFIX}mixed single late`,
+      scheduleStartDate: MIXED_DAY,
+      eventStartTime: '15:00:00',
+    });
+    const earlySingle = await createEvent({
+      eventName: `${PREFIX}mixed single early`,
+      scheduleStartDate: MIXED_DAY,
+      eventStartTime: '09:00:00',
+    });
+
+    const condition = {
+      field: 'scheduleDateRange',
+      operator: 'overlaps',
+      value: { from: MIXED_DAY, to: MIXED_DAY },
+    };
+    const page = await queryEvents({ query: condition, offset: 0, limit: 10 });
+    const ids = page.items.filter((i) => i.eventName.startsWith(`${PREFIX}mixed`)).map((i) => i.id);
+    assert.deepStrictEqual(
+      ids,
+      // multi-day rows trail the singles; between themselves they follow time then id
+      [earlySingle.id, lateSingle.id, sameDayMulti.id, early.id],
+      'singles first (by time), multi-day last — the same order the windowed dayRank uses'
+    );
+
+    // offset == the number of singles already loaded skips exactly those, nothing else.
+    const rest = await queryEvents({ query: condition, offset: 2, limit: 10 });
+    const restIds = rest.items.filter((i) => i.eventName.startsWith(`${PREFIX}mixed`)).map((i) => i.id);
+    assert.deepStrictEqual(restIds, [sameDayMulti.id, early.id]);
   });
 });

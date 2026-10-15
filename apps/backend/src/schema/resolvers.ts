@@ -42,6 +42,7 @@ import { sendDangerousReportModeratorAlerts } from '../lib/notifications/send-da
 import { enqueuePostForProcessing } from '../lib/posts/enqueue-post-for-processing.js';
 import { replayActorRun } from '../lib/scraper/replay-actor-run.js';
 import { applyDefaultLocationChange } from '../lib/accounts/apply-default-location-change.js';
+import { resolveFilterAccountId } from '../lib/ai-event-filters/resolve-filter-account-id.js';
 import { mergeEvents, undoEventMerge as undoEventMergeWrite, EventMergeInvalidStateError, EventMergeNotFoundError, EventMergeAlreadyUndoneError } from '../lib/events/merge-events.js';
 
 // `post_account_associations.account_id` is a uuid column: comparing it against a non-UUID string
@@ -327,7 +328,7 @@ export const resolvers: Resolvers = {
       const systemInstruction = `You are an AI assistant that parses a free-text prompt from Indonesia (mainly Yogyakarta/Sleman) into a structured EventFilterInput JSON object.
 Follow this schema for the output object:
 {
-  "accountId": "optional social media account profile UUID string",
+  "accountId": "optional: the social media account the user named, exactly as written (an @handle, username or display name). NEVER invent a UUID; if no account is named, omit it",
   "types": ["optional array of EventType strings: EXHIBITION, COMPETITION, FESTIVAL, PERFORMANCE, WORKSHOP, SEMINAR, MARKET, GATHERING, PROMOTION, FUNDRAISER, CIVIC, OTHER"],
   "categories": ["optional array of EventCategory strings: MUSIC, ARTS_AND_CULTURE, FOOD_AND_DRINK, SPORTS_AND_FITNESS, FAMILY_AND_KIDS, HOBBIES_AND_INTERESTS, BUSINESS_AND_NETWORKING, HEALTH_AND_WELLNESS, HOLIDAY, CHARITY_AND_CAUSES, CIVIC_AND_COMMUNITY, RELIGION_AND_SPIRITUALITY, TECHNOLOGY, TRAVEL_AND_TOURISM, EDUCATION, CAREER, AUTOMOTIVE, OTHER"],
   "keyword": "optional search phrase string",
@@ -430,6 +431,19 @@ Constraints and Guidelines:
         }
         const resolvedFilter = transformGeminiResponseToEventFilter(parsed.resolvedFilter);
         const caveats = Array.isArray(parsed.caveats) ? parsed.caveats.filter((c: any) => typeof c === 'string') : [];
+
+        // IDEA-065: the model only ever sees the user's words, never profile UUIDs, so turn the
+        // named handle/username/display name into a real profile id (or drop it, loudly).
+        if (resolvedFilter.accountId) {
+          const namedAccount = resolvedFilter.accountId;
+          const accountProfileId = await resolveFilterAccountId(authUser.userId, namedAccount);
+          if (accountProfileId) {
+            resolvedFilter.accountId = accountProfileId;
+          } else {
+            delete resolvedFilter.accountId;
+            caveats.push(`Could not find an account matching "${namedAccount}", so events from all accounts are shown.`);
+          }
+        }
 
         return {
           resolvedFilter: resolvedFilter as any,
@@ -3681,62 +3695,78 @@ Constraints and Guidelines:
         // WHERE fields (performers, scheduleLocation, scheduleCoordinates);
         // sorting uses a correlated subquery so it considers every schedule for
         // the event.
-        // Story 1.i1h (Task 4.2, AC6) — when the active condition pins exactly one date,
-        // append a schedule-level tie-break. Two independently offset-paginated calls share
-        // that single-date filter (the windowed week fetch's per-day rows, then the overflow
-        // dialog's continuation from `offset: perDayLimit`), and without this every candidate
-        // row computes the *same* "next-upcoming date", so the primary key alone leaves row
-        // order undefined and rows can duplicate or skip across the two calls. The appended
-        // key mirrors the windowed path's per-partition ORDER BY
-        // (`event_start_time ASC NULLS LAST, schedules.id ASC`) for the schedule occurrence
-        // that actually matches the pinned date, so both calls walk one sequence.
-        //
-        // Deliberately inside this single `orderBy` call rather than a second one: drizzle
-        // 0.30's `orderBy` *replaces* the configured ordering, so a second call would silently
-        // drop the primary sort key above.
+        // Story 1.i1h (Task 4.2, AC6), reworked by spec-calendar-unified-banded-grid — when the
+        // active condition pins exactly one date, the order is NOT the event-level key below but
+        // the pinned-date order that mirrors the windowed path's `dayRank` (see the branch). Two
+        // independently offset-paginated calls share that single-date filter (the windowed week
+        // fetch's per-day rows, then the calendar's day continuation from `offset: perDayLimit`),
+        // so both must walk one sequence or rows duplicate/skip across the two calls.
         //
         // Degenerate case: an event with two distinct same-date schedules cannot express
-        // per-schedule position through an event-level ordering. The dialog merges its pages
-        // keyed by schedule id, so that narrowing never surfaces as a duplicate card.
+        // per-schedule position through an event-level ordering. The client merges pages keyed by
+        // schedule id, so that narrowing never surfaces as a duplicate card.
         const exactDates = new Set<string>();
         collectExactDates(mergedCondition, exactDates);
         const singleExactDate = exactDates.size === 1 ? [...exactDates][0] : undefined;
-        const singleDateTieBreak = singleExactDate === undefined ? sql`` : sql`,
-          COALESCE(
-            (SELECT s5.event_start_time FROM schedules s5
+
+        if (singleExactDate !== undefined) {
+          // spec-calendar-unified-banded-grid — the day-scoped continuation of a truncated calendar
+          // day. It must walk the SAME sequence the windowed week fetch ranked that day by
+          // (`dayRank`): single-day occurrences first, by `event_start_time ASC NULLS LAST`, then
+          // `schedules.id` — which is the calendar's one ordering (start date, end date, start time,
+          // id) restricted to the single-day rows of one date. Multi-day occurrences covering the
+          // date were all returned (exempt) by the week fetch already, so they sort LAST here: the
+          // week fetch's first `perDayLimit` single-day rows are then exactly the `offset` this
+          // call continues from, and nothing is duplicated or skipped. The "matching" schedule of an
+          // event is the one overlapping the pinned date.
+          //
+          // The previous event-level "next upcoming date" key could not express that (it ranks an
+          // event by a date unrelated to the pinned one), so the pinned-date path no longer uses it.
+          // Same pick in all three keys: among the event's schedules overlapping the date,
+          // single-day ones before multi-day ones, then time, then id (mirrors `dayRank`).
+          itemsQuery.orderBy(sql`
+            (SELECT CASE WHEN s5.event_end_date IS NOT NULL AND s5.event_end_date <> s5.event_start_date THEN 1 ELSE 0 END
+              FROM schedules s5
               WHERE s5.event_id = ${events.id}
                 AND daterange(s5.event_start_date, COALESCE(s5.event_end_date, s5.event_start_date), '[]')
                     && daterange(${singleExactDate}::date, ${singleExactDate}::date, '[]')
-              ORDER BY s5.event_start_time ASC NULLS LAST, s5.id ASC
-              LIMIT 1)
-          ) ASC NULLS LAST,
-          COALESCE(
-            (SELECT s6.id FROM schedules s6
+              ORDER BY CASE WHEN s5.event_end_date IS NOT NULL AND s5.event_end_date <> s5.event_start_date THEN 1 ELSE 0 END ASC,
+                s5.event_start_time ASC NULLS LAST, s5.id ASC
+              LIMIT 1) ASC NULLS LAST,
+            (SELECT s6.event_start_time FROM schedules s6
               WHERE s6.event_id = ${events.id}
                 AND daterange(s6.event_start_date, COALESCE(s6.event_end_date, s6.event_start_date), '[]')
                     && daterange(${singleExactDate}::date, ${singleExactDate}::date, '[]')
-              ORDER BY s6.event_start_time ASC NULLS LAST, s6.id ASC
-              LIMIT 1)
-          ) ASC
-        `;
-
-        itemsQuery.orderBy(sql`
-          COALESCE(
-            (SELECT s2.event_start_date FROM schedules s2
-              WHERE s2.event_id = ${events.id}
-                AND COALESCE(s2.event_end_date, s2.event_start_date) >= ${today}
-              ORDER BY s2.event_start_date ASC, s2.event_start_time ASC NULLS LAST
-              LIMIT 1),
-            (SELECT s3.event_start_date FROM schedules s3
-              WHERE s3.event_id = ${events.id} AND s3.is_main_schedule = true
-              ORDER BY s3.event_start_date ASC, s3.event_start_time ASC NULLS LAST
-              LIMIT 1),
-            (SELECT s4.event_start_date FROM schedules s4
-              WHERE s4.event_id = ${events.id}
-              ORDER BY s4.event_start_date ASC, s4.event_start_time ASC NULLS LAST
-              LIMIT 1)
-          ) ASC${singleDateTieBreak}
-        `);
+              ORDER BY CASE WHEN s6.event_end_date IS NOT NULL AND s6.event_end_date <> s6.event_start_date THEN 1 ELSE 0 END ASC,
+                s6.event_start_time ASC NULLS LAST, s6.id ASC
+              LIMIT 1) ASC NULLS LAST,
+            (SELECT s7.id FROM schedules s7
+              WHERE s7.event_id = ${events.id}
+                AND daterange(s7.event_start_date, COALESCE(s7.event_end_date, s7.event_start_date), '[]')
+                    && daterange(${singleExactDate}::date, ${singleExactDate}::date, '[]')
+              ORDER BY CASE WHEN s7.event_end_date IS NOT NULL AND s7.event_end_date <> s7.event_start_date THEN 1 ELSE 0 END ASC,
+                s7.event_start_time ASC NULLS LAST, s7.id ASC
+              LIMIT 1) ASC
+          `);
+        } else {
+          itemsQuery.orderBy(sql`
+            COALESCE(
+              (SELECT s2.event_start_date FROM schedules s2
+                WHERE s2.event_id = ${events.id}
+                  AND COALESCE(s2.event_end_date, s2.event_start_date) >= ${today}
+                ORDER BY s2.event_start_date ASC, s2.event_start_time ASC NULLS LAST
+                LIMIT 1),
+              (SELECT s3.event_start_date FROM schedules s3
+                WHERE s3.event_id = ${events.id} AND s3.is_main_schedule = true
+                ORDER BY s3.event_start_date ASC, s3.event_start_time ASC NULLS LAST
+                LIMIT 1),
+              (SELECT s4.event_start_date FROM schedules s4
+                WHERE s4.event_id = ${events.id}
+                ORDER BY s4.event_start_date ASC, s4.event_start_time ASC NULLS LAST
+                LIMIT 1)
+            ) ASC
+          `);
+        }
       }
       itemsQuery.limit(qLimit + 1).offset(qOffset);
 

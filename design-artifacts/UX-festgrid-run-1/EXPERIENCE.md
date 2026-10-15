@@ -330,6 +330,8 @@ onReset: () => {
 
 ### Calendar Overflow: Scalable Cap + Infinite-Scroll Popup
 
+> **SUPERSEDED 2026-10-11** by § Calendar Unified Banded Grid below: no inline cap and no "+N more" dialog on desktop or mobile any more. The per-day fetch window (`perDayLimit: 20`) and the day-scoped continuation query described here are kept and now feed the banded grid.
+
 *Added via a targeted `bmad-ux` pass, 2026-09-17 — resolves FIND-026 (desktop's `max_events_per_day=5` reconsideration) and supersedes Component Patterns § Mobile Multi-Day Calendar Spanning's "No cap, no '+N more' popover on the mobile list" rule above. User-directed: "always renders a day's full event_stack will cause issue if our apps scales and has so many users/event. So we need to apply the caps for scalability" — the superseded rule's reasoning only ever weighed per-row layout, never data/DOM scale, and does not survive a popular day accumulating hundreds of schedules.*
 
 **Both surfaces now cap, and both now open into the same infinite-scroll overflow surface.** Desktop's existing `{components.calendar.event_rendering.more_link}` ("+N more") disclosure and mobile's day-row both apply an inline cap; exceeding it opens **one shared, responsive dialog/sheet component** (full-screen sheet on mobile, a larger centered dialog on desktop — not two independently-built surfaces) showing that day's remaining schedules with real infinite scroll, replacing desktop's current small, non-paginated `max-h-56 overflow-y-auto` popover entirely — that popover renders its entire (already client-side-loaded) bucket at once today, which does not scale either.
@@ -339,6 +341,24 @@ onReset: () => {
 **The inline cap is sized from real dimensions, not a fixed magic number — on both surfaces.** User-directed: estimate how many cards fit from the designed card's actual rendered size against the available space, rather than picking an arbitrary constant. Desktop has a genuine fixed reference to measure against (`{components.calendar.day_cell}`'s `h-32`); mobile's per-day row has no fixed height of its own (it grows to fit content), so its available-space reference is necessarily a different, viewport-relative heuristic — the exact reference and measurement technique (most likely `ResizeObserver` comparing the real card's rendered height against the available space, since a pure-CSS overflow clip cannot produce the exact hidden count "+N more" needs to display) is left to the implementation story, not fixed here. **Practical fallback, user-confirmed:** if precise measurement proves too costly to build now, over-fetch a generous flat bound (20 single-day/isolated occurrences per day) from the backend regardless of surface, and let the frontend decide the actual inline-vs-overflow split from that bound — one mechanism (over-fetch, then measure-and-cut client-side) for both surfaces either way, only the "available space" reference differs per breakpoint.
 
 **Flagged for `bmad-architecture`, not decided here:** the actual data-fetching contract for per-day pagination. Today `WeeklyCalendarView` receives one already-fully-loaded batch of schedules for the entire visible week and buckets them client-side — there is no existing mechanism to fetch "the next page of single-day schedules for date X" at all. This pass states the UX/behavioral contract (capped inline count sized from real dimensions; multi-day-exempt; "+N more" opens a shared infinite-scroll dialog/sheet; a 20-per-day flat bound as an acceptable fallback shape) — the GraphQL query shape, cursor design, and whether the always-included multi-day set and the paginated single-day set are one query or two is an architecture decision, not a UX one.
+
+### Calendar Unified Banded Grid
+
+*Added 2026-10-11 from `_bmad-output/implementation-artifacts/spec-calendar-unified-banded-grid.md` (supersedes Calendar Overflow above and the desktop "multi-day banner above the day cells" layout). Trigger: a real week returns ~201 schedules, ~90 of them long-running multi-day promos, and stacking them in a banner above the single-day grid pushed single-day events far down the page.*
+
+**One ordering, everywhere:** start date asc, end date asc (earlier finish first), start time (untimed last), id — `compareCalendarSchedules` in `packages/domain`, identical on desktop, mobile and the backend's single-date continuation query. Multi-day and single-day schedules are no longer clustered separately.
+
+**Desktop: one 7-column grid of bands.** Multi-day bars span the columns they cover and cost one slot in every column; single-day cards take one column. Paging is per column in bands of K = 6 rows. Packing is first-fit **inside** a band only — nothing backfills an earlier band, so columns with fewer items leave real empty cells. Append-only: an item keeps the band it was first placed in; a late-arriving row that sorts earlier (a day's continuation page) lands below what is already on screen, never above it.
+
+**Loading more:** infinite scroll (sentinel below the last band) plus a visible "Show more" button fallback, `overflow-anchor: none` on the bands, a progress line ("Showing X of Y schedules this week" — "Y+" while any day may have more — then "All Y shown"), and a hard stop (sentinel and button removed) when every loaded and server row is shown. A truncated day's continuation is requested once at most one band of its loaded rows is left unrendered.
+
+**Day headers and tabs carry counts.** Sticky desktop headers show the day's total and "+N below" while rows of that day are unrendered ("N+" when the server may hold more); mobile tabs show the day's count ("Fri 12", "20+" when the day filled its fetch window).
+
+**Mobile** keeps its single-day panel with local + continuation paging, now on the same sort key.
+
+**Keyboard:** roving tabindex over the whole grid, bars included (one stop in their first column). Left/Right walk reading order (band, row, column); Up/Down move to the nearest item above/below that covers the current item's first column, crossing bands.
+
+**Starts / Ends filter** (`{components.calendar_range_filter}`): two independent toggles "Starts [context]" and "Ends [context]". Context is the **displayed week on desktop** and the **displayed day on mobile** (each day tab filters against its own day). Neither on = unfiltered; one on = only runs that start (or end) in the context; both on = starts **or** ends in the context. Judged per occurrence run, applied to the loaded rows, kept across week navigation, resets band paging. Purpose: lets a viewer drop the long-running schedules that merely pass through the week. Not persisted in the URL yet.
 
 ### Ambient Capability Ask: Shared Banner Slot
 

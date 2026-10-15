@@ -27,6 +27,16 @@ test('process-scrape-job integration tests', async (t) => {
   });
 
   // Get a seeded user
+  // The unmocked Gemini path claims the shared `gemini:system` lease in `vendor_call_locks` and (by the
+  // guarded-call wrapper's design) leaves it behind. Delete it afterwards only if it wasn't already there.
+  const hadGeminiSystemLock =
+    (await db.select().from(vendorCallLocks).where(eq(vendorCallLocks.lockKey, 'gemini:system'))).length > 0;
+  t.after(async () => {
+    if (!hadGeminiSystemLock) {
+      await db.delete(vendorCallLocks).where(eq(vendorCallLocks.lockKey, 'gemini:system'));
+    }
+  });
+
   const seededUsers = await db.select().from(users).limit(1);
   assert.ok(seededUsers.length > 0, 'Must have at least 1 seeded user');
   testUser = seededUsers[0];

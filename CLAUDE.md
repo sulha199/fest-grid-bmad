@@ -20,3 +20,6 @@ When the user enters a `bmad-*` command (e.g., `bmad-agent-architect`, `bmad-arc
   2. `_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md` (for features, constraints, and business logic)
 - **Fresh Chat Reminder**: If you notice the chat history contains remnants of a previous, unrelated workflow, remind the user to open a fresh chat for better LLM context hygiene.
 - **No Unrequested Worktrees**: Never call `EnterWorktree` (or otherwise relocate the session into `.claude/worktrees/*`) unless the user explicitly asked for an isolated worktree in this conversation. This applies to background/remote-control sessions too. A session that relocates itself mid-run breaks VS Code tab attachment and Remote Control's ability to reconnect to it — this has caused unrecoverable "can't reach your computer" sessions before. If isolation seems useful, ask first instead of doing it unilaterally.
+
+## 4. Architecture Diagram Upkeep
+- `docs/infrastructure/architecture-diagram.md` holds the architecture diagram and tech-stack table. Update it, and `docs/infrastructure/high-level-overview.md`, in the same change whenever a service, queue, Lambda, scraper, database, hosting provider or major library is added, removed or replaced.

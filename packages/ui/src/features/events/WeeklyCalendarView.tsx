@@ -9,13 +9,18 @@
 // file's header comment for the full root-cause writeup.
 import React, { useState, useRef, useEffect, useMemo, useId } from 'react';
 import { ChevronLeft, ChevronRight, Heart, CalendarPlus } from 'lucide-react';
-import { getDays } from '@festgrid/domain/events';
+import {
+  getDays,
+  compareCalendarSchedules,
+  layoutCalendarBands,
+  navigateCalendarGrid,
+  type CalendarPlacement,
+} from '@festgrid/domain/events';
 import { WeekPicker } from '../../core/WeekPicker';
 import { useScopedLocale, useScopedTimezone, useHoverFocusTooltip, useInfiniteScroll } from '../../hooks';
 import type {
   WeeklyCalendarViewProps,
   WeeklyCalendarViewScheduleShape,
-  WeeklyCalendarViewOverflowSurface,
 } from './WeeklyCalendarView.types';
 import { getWeekStart, getWeekEnd } from '../../hooks';
 import {
@@ -24,7 +29,7 @@ import {
 } from './EventCardMediaPrimitives';
 import { EventCardCalendarGridItem } from './EventCardCalendarGridItem';
 import { EventCardCompact } from './EventCardCompact';
-import { CalendarOverflowDialog } from './CalendarOverflowDialog';
+import { CalendarRangeFilterToggle, type CalendarRangeFilterValue } from './CalendarRangeFilterToggle';
 import { computeCalendarSegmentDateBoxContent, formatEventStatus, type EventStatusLabels } from './format-event-date';
 
 // Design system styles from DESIGN.md
@@ -38,9 +43,8 @@ const NAV_ROW_CLASS = "flex items-center justify-between gap-2 md:justify-start"
  * Sticky day-header row (desktop) / day-tab strip (mobile). AD-33 Local tier: bare `z-10`, legal only
  * because each of the two wrappers that own it (`desktop-calendar-view` / `mobile-calendar-view`)
  * carries `isolate`, so the numeral never escapes into the page's stacking context and stays below
- * `z-chrome` (the nav rail). `isolate` is deliberately NOT on the component root: the shared
- * `CalendarOverflowDialog` is a non-portaled `fixed` overlay at `OVERLAY_MODAL_Z` and must stay in
- * the page's root context to out-rank chrome.
+ * `z-chrome` (the nav rail). `isolate` is deliberately NOT on the component root, so nothing in
+ * here can trap a future `fixed` overlay below chrome. Each desktop band is its own `isolate` grid.
  */
 const STICKY_HEADER_CLASS = "sticky top-0 z-10";
 const DAY_TAB_CLASS = "flex flex-col items-center justify-center min-h-11 py-1 text-xs font-medium border-b-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-inset";
@@ -100,19 +104,10 @@ const SPANNING_BAR_VISUAL_CLASS = "relative z-20 pointer-events-none [&_button]:
  */
 const MOBILE_PAGE_SIZE = 10;
 /**
- * Desktop multi-day spanning banner paging: the banner used to render one row per multi-day schedule
- * with no bound, so a week with ~90 long-running schedules produced a ~6000px-tall block above the
- * day cells. It now shows this many rows first and reveals `DESKTOP_BANNER_PAGE_SIZE` more per click.
+ * Desktop band size `K`: how many rows each column gains per page. A multi-day bar costs one slot in
+ * every column it covers. Small on purpose so each page appends a screenful, not the whole week.
  */
-const DESKTOP_BANNER_PAGE_SIZE = 10;
-/** Stable no-op for the not-yet-supplied `overflowDialogData` case (keeps `useInfiniteScroll`'s effect graph stable when omitted). */
-const NOOP = () => {};
-/**
- * Default accessible name for the shared overflow dialog — the exact `Schedules for ${day}` string
- * the superseded desktop popover already used as its `aria-label`, now day-scoped per open day.
- */
-const DEFAULT_OVERFLOW_DIALOG_TITLE_LABEL = (dayLabel: string) => `Schedules for ${dayLabel}`;
-
+const DESKTOP_BAND_SIZE = 6;
 
 /**
  * Format range helper with graceful degradation for invalid timezone/locale.
@@ -347,18 +342,37 @@ interface Segment<TSchedule> {
 }
 
 /**
- * One multi-day schedule as it appears in the spanning banner row (Story 1.i1g Task 2):
- * the schedule itself plus its already-clipped column range within the visible week.
+ * One occurrence run of a schedule as it appears in the desktop grid: already clipped to the visible
+ * week's columns. `spanCount > 1` renders as a spanning bar, `1` as a card.
  */
-interface SpanningSchedule<TSchedule> {
+interface WeekEntry<TSchedule> {
+  /** `${scheduleId}-${runStartDate}` — unique per run, stable across renders (placement is keyed by it). */
+  key: string;
   schedule: TSchedule;
-  /** 0-based index of the first visible day-column the schedule occupies (AC3). */
-  startColIdx: number;
-  /** Number of visible day-columns the (clipped) schedule spans (AC1/AC3). */
-  spanCount: number;
-  /** Story 1.3k (AC4/AC5) — this bar's run's own (possibly week-external) first/last occurrence day. */
   runStartDate: string;
   runEndDate: string;
+  /** 0-based first visible day-column the run occupies. */
+  startCol: number;
+  /** Number of visible day-columns the (clipped) run spans. */
+  spanCount: number;
+}
+
+/**
+ * The single calendar ordering applied to a run (start date, end date, start time, id) — the same
+ * `compareCalendarSchedules` key the backend continuation query mirrors. Uses the RUN's own bounds
+ * so a weekday-narrowed schedule sorts by the occurrence it is actually drawn for.
+ */
+function compareSegments(
+  a: { schedule: WeeklyCalendarViewScheduleShape; runStartDate: string; runEndDate: string },
+  b: { schedule: WeeklyCalendarViewScheduleShape; runStartDate: string; runEndDate: string }
+): number {
+  const toSortable = (x: typeof a) => ({
+    id: String(x.schedule.id),
+    eventStartDate: x.runStartDate,
+    eventEndDate: x.runEndDate,
+    eventStartTime: x.schedule.eventStartTime,
+  });
+  return compareCalendarSchedules(toSortable(a), toSortable(b));
 }
 
 /**
@@ -432,7 +446,6 @@ function isMultiDayRunSegment<TSchedule>(seg: Segment<TSchedule>): boolean {
 export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleShape = WeeklyCalendarViewScheduleShape>({
   weekStart,
   schedules,
-  maxEventsPerDay,
   getWeekRange,
   onToday,
   onPrevWeek,
@@ -448,11 +461,10 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   timezone,
   labels = {},
   nearbyBadgeThreshold,
-  onOverflowRequested,
-  onOverflowClosed,
-  overflowDialogData,
   dayFetchLimit,
+  dayContinuations,
   onDayContinuationRequested,
+  resetKey,
   className = '',
 }: WeeklyCalendarViewProps<TSchedule>) {
   // Provide default getWeekRange if not supplied
@@ -493,6 +505,12 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     tomorrow: 'Tomorrow',
     dayTabsLabel: 'Days of the week',
     noSchedulesLabel: 'No schedules on this day',
+    noSchedulesWeekLabel: 'No schedules this week',
+    rangeFilterGroupLabel: 'Filter by start or end',
+    startsWeekLabel: 'Starts this week',
+    endsWeekLabel: 'Ends this week',
+    startsDayLabel: 'Starts this day',
+    endsDayLabel: 'Ends this day',
     loadMoreLabel: 'Load more',
     loadingMoreLabel: 'Loading more…',
     ...labels,
@@ -500,8 +518,17 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     // explicit `labels={{ nearbyBadge: undefined }}` still falls back to the formatter instead
     // of crashing `EventCardNearbyBadge` when it calls `defaultLabels.nearbyBadge(distanceKm)`.
     nearbyBadge: labels.nearbyBadge ?? formatNearbyBadgeDistance,
+    // Resolver labels fall back to English after the spread, so an explicit `undefined` still works.
+    dayTotalLabel:
+      labels.dayTotalLabel ?? ((count: number, hasMore: boolean) => `${count}${hasMore ? '+' : ''}`),
+    belowLabel:
+      labels.belowLabel ??
+      ((count: number, hasMore: boolean) => (count > 0 ? `+${count}${hasMore ? '+' : ''} below` : '+ below')),
+    progressLabel:
+      labels.progressLabel ??
+      ((shown: number, total: string) => `Showing ${shown} of ${total} schedules this week`),
+    allShownLabel: labels.allShownLabel ?? ((total: number) => `All ${total} shown`),
   };
-  const overflowDialogTitleLabel = labels.overflowDialogTitleLabel ?? DEFAULT_OVERFLOW_DIALOG_TITLE_LABEL;
   // BUG-048 review finding: computed once and reused at all three `statusLabels` call sites
   // (spanning bar, grid cell, mobile list row) instead of re-literalling the same 7-key object
   // three times — a future label-key change now only needs to happen here.
@@ -531,36 +558,58 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     return days;
   }, [weekStart]);
 
-  // Story 1.3k (AC4) — each schedule's occurrence runs, computed ONCE (shared by `dayBuckets`,
-  // `spanningSchedules`, and the mobile multi-day exemption below) via the shared `getDays`
-  // utility. Keyed by schedule id, not recomputed per visible week.
+  // Continuation pages the caller fetched for truncated days (spec-calendar-unified-banded-grid):
+  // merged into the week's schedules, deduped by id. Everything below derives from `allSchedules`.
+  const allSchedules = useMemo(() => {
+    if (!dayContinuations) return schedules;
+    const seen = new Set(schedules.map((schedule) => String(schedule.id)));
+    const merged = [...schedules];
+    Object.values(dayContinuations).forEach((continuation) => {
+      continuation.items.forEach((schedule) => {
+        if (seen.has(String(schedule.id))) return;
+        seen.add(String(schedule.id));
+        merged.push(schedule);
+      });
+    });
+    return merged;
+  }, [schedules, dayContinuations]);
+
+  // "Starts / Ends [context]" filter. Context = the displayed week on desktop, the displayed day on
+  // mobile (each day tab filters against its own day). Neither on = unfiltered; both on = a run that
+  // starts OR ends in the context. Applied to occurrence RUNS, so a weekday-narrowed schedule is
+  // judged by the occurrence being drawn. Kept across week navigation.
+  const [rangeFilter, setRangeFilter] = useState<CalendarRangeFilterValue>({ start: false, end: false });
+  const rangeFilterActive = rangeFilter.start || rangeFilter.end;
+  const runPassesRange = (runStart: string, runEnd: string, from: string, to: string) =>
+    !rangeFilterActive ||
+    (rangeFilter.start && runStart >= from && runStart <= to) ||
+    (rangeFilter.end && runEnd >= from && runEnd <= to);
+
+  // Story 1.3k (AC4) — each schedule's occurrence runs, computed ONCE (shared by `dayBuckets` and
+  // `weekEntries`) via the shared `getDays` utility. Keyed by schedule id, not recomputed per week.
   const scheduleRunsById = useMemo(() => {
     const map = new Map<string, OccurrenceRun[]>();
-    schedules.forEach((schedule) => {
+    allSchedules.forEach((schedule) => {
       map.set(String(schedule.id), computeScheduleRuns(schedule));
     });
     return map;
-  }, [schedules]);
+  }, [allSchedules]);
 
-  // 2. Bucketing schedules/segments into visible days
-  //
-  // Story 1.3k (AC4/AC5) rewrite: iterates each schedule's occurrence RUNS (not its raw
-  // `eventStartDate`/`eventEndDate` span) — a schedule with `applicableDaysOfWeek` unset/empty
-  // has exactly one run (its whole span), so this is byte-identical to the pre-1.3k logic for
-  // every legacy/default schedule (zero behavior change, AC4's explicit regression requirement).
+  const weekStartStr = toISODateString(visibleDays[0]);
+  const weekEndStr = toISODateString(visibleDays[6]);
+  const dayISOs = useMemo(() => visibleDays.map(toISODateString), [visibleDays]);
+
+  // Per-day segments (mobile list + per-day totals). Story 1.3k (AC4/AC5): iterates each schedule's
+  // occurrence RUNS, so a schedule with no `applicableDaysOfWeek` has exactly one run (its span).
   const dayBuckets = useMemo(() => {
-    const buckets: Segment<TSchedule>[][] = Array.from({ length: 7 }, () => []);
-    const startStr = toISODateString(visibleDays[0]);
-    const endStr = toISODateString(visibleDays[6]);
+    const buckets: Segment<TSchedule>[][] = Array.from({ length: DAYS_PER_WEEK }, () => []);
 
-    schedules.forEach((schedule) => {
+    allSchedules.forEach((schedule) => {
       const runs = scheduleRunsById.get(String(schedule.id)) ?? [];
       runs.forEach((run) => {
-        // Check overlap with visible week range [startStr, endStr]
-        if (run.start <= endStr && run.end >= startStr) {
-          visibleDays.forEach((day, idx) => {
-            const dayISO = toISODateString(day);
-            if (dayISO >= run.start && dayISO <= run.end) {
+        if (run.start <= weekEndStr && run.end >= weekStartStr) {
+          dayISOs.forEach((dayISO, idx) => {
+            if (dayISO >= run.start && dayISO <= run.end && runPassesRange(run.start, run.end, dayISO, dayISO)) {
               buckets[idx].push({
                 schedule,
                 isFirstSegment: dayISO === run.start,
@@ -574,211 +623,214 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
       });
     });
 
-    // Sort bucket segments by time ascending
-    buckets.forEach((bucket) => {
-      bucket.sort((a, b) => {
-        const timeA = a.schedule.eventStartTime || '99:99';
-        const timeB = b.schedule.eventStartTime || '99:99';
-        return timeA.localeCompare(timeB);
-      });
-    });
-
+    buckets.forEach((bucket) => bucket.sort(compareSegments));
     return buckets;
-  }, [schedules, visibleDays, scheduleRunsById]);
+  }, [allSchedules, dayISOs, scheduleRunsById, weekStartStr, weekEndStr, rangeFilter]);
 
-  // 2b. Story 1.i1g Task 2 — multi-day schedules as *one* spanning row entry each.
-  //
-  // Range intersection in date-string space (`YYYY-MM-DD` sorts lexicographically) mirrors
-  // the dayBuckets overlap test above, but is computed once per schedule instead of once per
-  // day-column. Column indices are always derived against the *visible week* (never the
-  // schedule's true start/end), so a schedule running past either edge of the week is clipped
-  // to the columns that are actually on screen (AC3) while still rendering exactly one bar.
-  //
-  // User feedback (2026-09-28, desktop view): whether a schedule EARNS a spanning bar at all is
-  // now decided by its CLIPPED span count within this visible week, not by comparing its raw
-  // `eventStartDate`/`eventEndDate` globally ("determined based on the number of consecutive days
-  // in that week rather than by counting the dates in schedule"). A schedule that's multi-day in
-  // the database but whose current week only overlaps one of its days (e.g. a Dec 30 - Jan 2
-  // event viewed in the Jan 2 - 8 week) now renders as a normal single-day cell instead of a
-  // one-column-wide spanning bar — `spanCount <= 1` below is the gate, computed unconditionally
-  // (dropping the old upfront `isMultiDaySchedule` gate, which only ever looked at the raw dates).
-  const spanningSchedules = useMemo(() => {
-    const weekStartStr = toISODateString(visibleDays[0]);
-    const weekEndStr = toISODateString(visibleDays[6]);
-    const entries: SpanningSchedule<TSchedule>[] = [];
-
-    schedules.forEach((schedule) => {
+  // Desktop: every occurrence run visible this week as ONE entry covering `spanCount` columns
+  // (clipped to the week). One entry per run, in the single calendar ordering. A run with a single
+  // visible day renders as a card, with several as a spanning bar.
+  const weekEntries = useMemo(() => {
+    const entries: WeekEntry<TSchedule>[] = [];
+    allSchedules.forEach((schedule) => {
       const runs = scheduleRunsById.get(String(schedule.id)) ?? [];
       runs.forEach((run) => {
-        const { start, end } = run;
-
-        // No overlap with the visible week at all → no bar in this week's banner.
-        if (start > weekEndStr || end < weekStartStr) return;
-
-        const clippedStart = start < weekStartStr ? weekStartStr : start;
-        const clippedEnd = end > weekEndStr ? weekEndStr : end;
-
-        const startColIdx = Math.max(0, diffInDays(weekStartStr, clippedStart));
-        const endColIdx = Math.min(6, diffInDays(weekStartStr, clippedEnd));
-        const spanCount = endColIdx - startColIdx + 1;
-
-        // Only one day of this run is actually visible this week — not multi-day *here*, even
-        // if the run itself spans more days overall (isolated one-day runs, and runs with only
-        // one visible day this week, get no bar — AC4).
-        if (spanCount <= 1) return;
-
-        entries.push({ schedule, startColIdx, spanCount, runStartDate: start, runEndDate: end });
+        if (run.start > weekEndStr || run.end < weekStartStr) return;
+        if (!runPassesRange(run.start, run.end, weekStartStr, weekEndStr)) return;
+        const clippedStart = run.start < weekStartStr ? weekStartStr : run.start;
+        const clippedEnd = run.end > weekEndStr ? weekEndStr : run.end;
+        const startCol = Math.max(0, diffInDays(weekStartStr, clippedStart));
+        const endCol = Math.min(DAYS_PER_WEEK - 1, diffInDays(weekStartStr, clippedEnd));
+        entries.push({
+          key: `${schedule.id}-${run.start}`,
+          schedule,
+          runStartDate: run.start,
+          runEndDate: run.end,
+          startCol,
+          spanCount: endCol - startCol + 1,
+        });
       });
     });
-
-    // AC4 — deterministic row order: earliest start date, then earliest start time (untimed
-    // schedules last, matching the day-bucket time sort's `'99:99'` sentinel), then id so the
-    // order never depends on caller-supplied array order.
-    entries.sort((a, b) => {
-      const byStart = a.schedule.eventStartDate.localeCompare(b.schedule.eventStartDate);
-      if (byStart !== 0) return byStart;
-
-      const timeA = a.schedule.eventStartTime || '99:99';
-      const timeB = b.schedule.eventStartTime || '99:99';
-      const byTime = timeA.localeCompare(timeB);
-      if (byTime !== 0) return byTime;
-
-      return String(a.schedule.id).localeCompare(String(b.schedule.id));
-    });
-
+    entries.sort((a, b) => compareSegments(a, b) || a.key.localeCompare(b.key));
     return entries;
-  }, [schedules, visibleDays, scheduleRunsById]);
+  }, [allSchedules, scheduleRunsById, weekStartStr, weekEndStr, rangeFilter]);
 
-  // 2c. Story 1.i1g Task 3 (AC5/AC6), rewritten by Story 1.3k (AC4) — the desktop day cells and
-  // their "+N more" popover list single-day/isolated segments only, because every DAY-COLUMN that
-  // actually got covered by a spanning bar above already has its own row there; keeping the same
-  // day's segment too would duplicate it.
-  //
-  // Story 1.3k AC4's fix: exclusion is now SEGMENT-level (`scheduleId + this exact calendar day`),
-  // not schedule-id-level. The pre-1.3k `spanningScheduleIds` set dropped every day-bucket segment
-  // belonging to a schedule that earned a bar ANYWHERE this week — silently also dropping that same
-  // schedule's isolated single-day occurrences elsewhere in the week (the Mon+Tue-run-plus-isolated-
-  // Friday regression case AC4 calls out). Built from the literal (dayIdx, schedule id) pairs a
-  // rendered bar actually covers, so an isolated day of the same schedule outside any bar's span
-  // is never excluded.
-  const excludedBarSegmentKeys = useMemo(() => {
-    const keys = new Set<string>();
-    spanningSchedules.forEach((entry) => {
-      for (let colIdx = entry.startColIdx; colIdx < entry.startColIdx + entry.spanCount; colIdx++) {
-        keys.add(`${String(entry.schedule.id)}:${colIdx}`);
-      }
-    });
-    return keys;
-  }, [spanningSchedules]);
-  const singleDayDayBuckets = useMemo(
-    () =>
-      dayBuckets.map((bucket, dayIdx) =>
-        bucket.filter((segment) => !excludedBarSegmentKeys.has(`${String(segment.schedule.id)}:${dayIdx}`))
-      ),
-    [dayBuckets, excludedBarSegmentKeys]
-  );
+  // Reset token: a new week or a new filter set starts the layout (and paging) over.
+  const resetToken = `${weekStartStr}|${resetKey ?? ''}|${rangeFilter.start ? 1 : 0}${rangeFilter.end ? 1 : 0}`;
 
-  // 3. Roving Tabindex State & Arrow-key Nav implementation
-  const [activeCardCoords, setActiveCardCoords] = useState<{ dayIdx: number; cardIdx: number } | null>(null);
-
-  // Flattened grid of accessible cards (excluding popover-only elements) for Arrow movements
-  const gridCards = useMemo(() => {
-    const cards: { dayIdx: number; cardIdx: number; key: string }[] = [];
-    singleDayDayBuckets.forEach((bucket, dayIdx) => {
-      const displayCount = maxEventsPerDay === -1 ? bucket.length : Math.min(maxEventsPerDay, bucket.length);
-      for (let cardIdx = 0; cardIdx < displayCount; cardIdx++) {
-        cards.push({ dayIdx, cardIdx, key: `${dayIdx}-${cardIdx}` });
-      }
-    });
-    return cards;
-  }, [singleDayDayBuckets, maxEventsPerDay]);
-
-  // Sync active roving tabindex coordinate if previous coordinate gets removed / is invalid
-  useEffect(() => {
-    if (gridCards.length === 0) {
-      setActiveCardCoords(null);
-      return;
-    }
-    if (!activeCardCoords) {
-      // Default to first card of the week
-      setActiveCardCoords({ dayIdx: gridCards[0].dayIdx, cardIdx: gridCards[0].cardIdx });
-      return;
-    }
-    const exists = gridCards.some(
-      (c) => c.dayIdx === activeCardCoords.dayIdx && c.cardIdx === activeCardCoords.cardIdx
+  // Append-only banded placement. Placements are remembered per resetToken so that rows arriving
+  // later (continuation pages) can only ever land below what is already on screen.
+  const placementsRef = useRef<{ token: string; map: Map<string, CalendarPlacement> }>({
+    token: '',
+    map: new Map(),
+  });
+  const placements = useMemo(() => {
+    const previous = placementsRef.current.token === resetToken ? placementsRef.current.map : undefined;
+    const next = layoutCalendarBands(
+      weekEntries.map((entry) => ({ key: entry.key, startCol: entry.startCol, spanCount: entry.spanCount })),
+      DESKTOP_BAND_SIZE,
+      DAYS_PER_WEEK,
+      previous
     );
-    if (!exists) {
-      setActiveCardCoords({ dayIdx: gridCards[0].dayIdx, cardIdx: gridCards[0].cardIdx });
+    placementsRef.current = { token: resetToken, map: next };
+    return next;
+  }, [weekEntries, resetToken]);
+
+  const bandNumbers = useMemo(
+    () => Array.from(new Set(Array.from(placements.values(), (p) => p.band))).sort((a, b) => a - b),
+    [placements]
+  );
+  const [bandPage, setBandPage] = useState<{ token: string; count: number } | null>(null);
+  const revealedBandCount = bandPage?.token === resetToken ? bandPage.count : 1;
+  const revealedBandSet = useMemo(
+    () => new Set(bandNumbers.slice(0, revealedBandCount)),
+    [bandNumbers, revealedBandCount]
+  );
+  const hasHiddenBands = bandNumbers.length > revealedBandCount;
+
+  const visibleBands = useMemo(() => {
+    const byBand = new Map<number, { entry: WeekEntry<TSchedule>; placement: CalendarPlacement }[]>();
+    weekEntries.forEach((entry) => {
+      const placement = placements.get(entry.key);
+      if (!placement || !revealedBandSet.has(placement.band)) return;
+      const list = byBand.get(placement.band) ?? [];
+      list.push({ entry, placement });
+      byBand.set(placement.band, list);
+    });
+    // DOM order follows the visual order (row, then column) so reading and focus order match the grid.
+    return bandNumbers
+      .filter((b) => revealedBandSet.has(b))
+      .map((band) => ({
+        band,
+        items: (byBand.get(band) ?? []).sort(
+          (x, y) => x.placement.row - y.placement.row || x.entry.startCol - y.entry.startCol
+        ),
+      }));
+  }, [weekEntries, placements, revealedBandSet, bandNumbers]);
+
+  // Per-column totals: everything loaded vs. what the revealed bands actually render.
+  const totalPerDay = useMemo(() => {
+    const counts: number[] = Array.from({ length: DAYS_PER_WEEK }, () => 0);
+    weekEntries.forEach((entry) => {
+      for (let c = entry.startCol; c < entry.startCol + entry.spanCount; c++) counts[c] += 1;
+    });
+    return counts;
+  }, [weekEntries]);
+  const countRendered = (revealCount: number) => {
+    const allowed = new Set(bandNumbers.slice(0, revealCount));
+    const counts: number[] = Array.from({ length: DAYS_PER_WEEK }, () => 0);
+    weekEntries.forEach((entry) => {
+      const placement = placements.get(entry.key);
+      if (!placement || !allowed.has(placement.band)) return;
+      for (let c = entry.startCol; c < entry.startCol + entry.spanCount; c++) counts[c] += 1;
+    });
+    return counts;
+  };
+  const renderedPerDay = countRendered(revealedBandCount);
+
+  // Continuation bookkeeping: which truncated days the caller was already asked to continue.
+  const [requested, setRequested] = useState<{ token: string; days: string[] }>({ token: '', days: [] });
+  const requestedDays = requested.token === resetToken ? requested.days : [];
+  const anyContinuationFetching = Object.values(dayContinuations ?? {}).some((c) => c.isFetchingNextPage);
+
+  // Single-day schedules per start date, over the UNFILTERED set: whether a day filled the server's
+  // window must not depend on the Starts/Ends filter.
+  const singleDayCountByDate = useMemo(() => {
+    const counts = new Map<string, number>();
+    allSchedules.forEach((schedule) => {
+      if (schedule.eventEndDate && schedule.eventEndDate !== schedule.eventStartDate) return;
+      counts.set(schedule.eventStartDate, (counts.get(schedule.eventStartDate) ?? 0) + 1);
+    });
+    return counts;
+  }, [allSchedules]);
+
+  /** A day may have more rows on the server when it filled the week fetch's per-day window. */
+  const dayMayHaveMore = (dayIdx: number): boolean => {
+    if (dayFetchLimit === undefined) return false;
+    const dayISO = dayISOs[dayIdx];
+    if (requestedDays.includes(dayISO)) {
+      const continuation = dayContinuations?.[dayISO];
+      return continuation ? continuation.hasNextPage : true;
     }
-  }, [gridCards, activeCardCoords]);
-
-  // Keyboard Navigation Arrow Handlers
-  const handleGridKeyDown = (e: React.KeyboardEvent, dayIdx: number, cardIdx: number) => {
-    if (!activeCardCoords) return;
-
-    const findIndex = (coords: { dayIdx: number; cardIdx: number }) => {
-      return gridCards.findIndex((c) => c.dayIdx === coords.dayIdx && c.cardIdx === coords.cardIdx);
-    };
-
-    const currentIndex = findIndex({ dayIdx, cardIdx });
-    if (currentIndex === -1) return;
-
-    let targetCoords: { dayIdx: number; cardIdx: number } | null = null;
-
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-      e.preventDefault();
-      // Move within day list or to adjacent day cell
-      const offset = e.key === 'ArrowLeft' ? -1 : 1;
-      const targetIndex = currentIndex + offset;
-      if (targetIndex >= 0 && targetIndex < gridCards.length) {
-        const target = gridCards[targetIndex];
-        targetCoords = { dayIdx: target.dayIdx, cardIdx: target.cardIdx };
-      }
-    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-      e.preventDefault();
-      // Move to adjacent column in the same row index (which is row/col conceptually)
-      // Since col is dayIdx (0-6), we want targetDayIdx = dayIdx + (Up: -1, Down: +1)
-      const colOffset = e.key === 'ArrowUp' ? -1 : 1;
-      const targetDayIdx = dayIdx + colOffset;
-
-      if (targetDayIdx >= 0 && targetDayIdx < 7) {
-        // Story 1.i1g Task 3 (AC5/AC6): must read the *same* single-day buckets the day cells
-        // actually render from — reading raw `dayBuckets` here would let ArrowDown "move" the
-        // roving coordinate onto a day whose only entry is a multi-day schedule (rendered as a
-        // spanning bar, not a card), stranding focus on a non-existent `calendar-card-*` id.
-        const targetBucket = singleDayDayBuckets[targetDayIdx];
-        const displayLimit = maxEventsPerDay === -1 ? targetBucket.length : Math.min(maxEventsPerDay, targetBucket.length);
-        if (displayLimit > 0) {
-          // fallback sensibly if that day has fewer cards
-          const targetCardIdx = Math.min(cardIdx, displayLimit - 1);
-          targetCoords = { dayIdx: targetDayIdx, cardIdx: targetCardIdx };
-        }
-      }
+    return (singleDayCountByDate.get(dayISO) ?? 0) >= dayFetchLimit;
+  };
+  const fetchMoreForDay = (dayIdx: number) => {
+    const dayISO = dayISOs[dayIdx];
+    if (!requestedDays.includes(dayISO)) {
+      // Functional update: several truncated days can be requested in one tick.
+      setRequested((prev) => {
+        const days = prev.token === resetToken ? prev.days : [];
+        return days.includes(dayISO) ? prev : { token: resetToken, days: [...days, dayISO] };
+      });
+      onDayContinuationRequested?.(dayISO);
+      return;
     }
-
-    if (targetCoords) {
-      setActiveCardCoords(targetCoords);
-      // Imperative focus management
-      const elementId = `calendar-card-${targetCoords.dayIdx}-${targetCoords.cardIdx}`;
-      // Do synchronously so focus works immediately and reliably in tests/render
-      const el = document.getElementById(elementId);
-      el?.focus();
+    const continuation = dayContinuations?.[dayISO];
+    if (continuation && continuation.hasNextPage && !continuation.isFetchingNextPage) {
+      void continuation.fetchNextPage();
     }
   };
+  const anyDayMayHaveMore = dayISOs.some((_, idx) => dayMayHaveMore(idx));
+  const canLoadMoreBands = hasHiddenBands || anyDayMayHaveMore;
 
-  // 4. Overflow-dialog state (Story 1.i1h Task 7)
-  //
-  // The UI open/closed state stays local to `WeeklyCalendarView` exactly as the superseded desktop
-  // popover's `openPopoverDayIdx` did (Task 7.1's explicit instruction); only the *data* is lifted
-  // to the caller (Task 8's `overflowDialogData`), because React Query must stay isolated to
-  // `apps/web` per project-context.md's State Management Architecture rule. The whole focus-trap /
-  // Escape / outside-pointerdown / focus-return mechanism that used to live here was deleted and
-  // now lives inside `CalendarOverflowDialog` (Task 6.5) — the dialog is rendered exactly ONCE
-  // (Task 7.3), so there is exactly one trap / live region / sentinel in the document (AC8).
-  const [openOverflow, setOpenOverflow] = useState<{
-    dayIdx: number;
-    surface: WeeklyCalendarViewOverflowSurface;
-  } | null>(null);
+  const loadMoreBands = () => {
+    const nextCount = hasHiddenBands ? revealedBandCount + 1 : revealedBandCount;
+    if (hasHiddenBands) setBandPage({ token: resetToken, count: nextCount });
+    // Prefetch a truncated day's next page once at most one band of its loaded rows is left unrendered.
+    const rendered = countRendered(nextCount);
+    dayISOs.forEach((_, idx) => {
+      if (dayMayHaveMore(idx) && totalPerDay[idx] - rendered[idx] <= DESKTOP_BAND_SIZE) fetchMoreForDay(idx);
+    });
+  };
+  const { sentinelRef: bandSentinelRef } = useInfiniteScroll({
+    fetchNextPage: loadMoreBands,
+    hasNextPage: canLoadMoreBands,
+    isFetchingNextPage: anyContinuationFetching,
+  });
+
+  const shownScheduleCount = useMemo(
+    () => new Set(visibleBands.flatMap((band) => band.items.map(({ entry }) => String(entry.schedule.id)))).size,
+    [visibleBands]
+  );
+  const totalScheduleCount = useMemo(
+    () => new Set(weekEntries.map((entry) => String(entry.schedule.id))).size,
+    [weekEntries]
+  );
+
+  // Roving tabindex over the banded grid, keyed by entry key (not a day/card index).
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const navItems = useMemo(
+    () =>
+      visibleBands.flatMap((band) =>
+        band.items.map(({ entry, placement }) => ({
+          key: entry.key,
+          band: placement.band,
+          row: placement.row,
+          startCol: entry.startCol,
+          spanCount: entry.spanCount,
+        }))
+      ),
+    [visibleBands]
+  );
+  const firstNavKey = useMemo(() => {
+    if (navItems.length === 0) return null;
+    return [...navItems].sort((a, b) => a.band - b.band || a.row - b.row || a.startCol - b.startCol)[0].key;
+  }, [navItems]);
+  const effectiveActiveKey =
+    activeKey !== null && navItems.some((item) => item.key === activeKey) ? activeKey : firstNavKey;
+
+  const handleGridKeyDown = (e: React.KeyboardEvent, key: string) => {
+    const direction =
+      e.key === 'ArrowLeft' ? 'left' : e.key === 'ArrowRight' ? 'right' : e.key === 'ArrowUp' ? 'up' : e.key === 'ArrowDown' ? 'down' : null;
+    if (!direction) return;
+    e.preventDefault();
+    const target = navigateCalendarGrid(navItems, key, direction);
+    if (!target) return;
+    setActiveKey(target);
+    // Do synchronously so focus works immediately and reliably in tests/render
+    document.getElementById(`calendar-card-${target}`)?.focus();
+  };
+
   const todayISO = getTodayISOInTimezone(activeTimezone);
   const mobileDayContentIdPrefix = useId();
 
@@ -786,59 +838,26 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   // (`dayBuckets`), it never navigates or refetches. The selection is stored together with the week
   // it was made in, so a `weekStart` change (next/prev/Today/picker) falls back to the default —
   // today if it is in the visible week, else the first day — with no effect/extra render.
-  const weekKey = toISODateString(visibleDays[0]);
+  const weekKey = weekStartStr;
   const defaultDayIdx = Math.max(
     0,
-    visibleDays.findIndex((d) => toISODateString(d) === todayISO)
+    dayISOs.findIndex((d) => d === todayISO)
   );
   const [daySelection, setDaySelection] = useState<{ weekKey: string; idx: number } | null>(null);
   const selectedDayIdx = daySelection?.weekKey === weekKey ? daySelection.idx : defaultDayIdx;
   const dayTabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  // Desktop banner paging, keyed by week so navigating weeks starts over at the first page.
-  const [bannerPage, setBannerPage] = useState<{ weekKey: string; count: number } | null>(null);
-  const bannerVisibleCount = bannerPage?.weekKey === weekKey ? bannerPage.count : DESKTOP_BANNER_PAGE_SIZE;
-  const bannerHiddenCount = Math.max(0, spanningSchedules.length - bannerVisibleCount);
 
   // Mobile selected-day pagination. Local paging reveals `MOBILE_PAGE_SIZE` more of the schedules the
   // week fetch already returned; once those are exhausted and the day hit the fetch's per-day budget,
-  // the caller's day-scoped query (`overflowDialogData`) supplies the rest page by page.
-  const selectedDayISO = toISODateString(visibleDays[selectedDayIdx]);
+  // the caller's day-scoped continuation supplies the rest page by page (same sort key as desktop).
+  const selectedDayISO = dayISOs[selectedDayIdx];
   const [pageState, setPageState] = useState<{ dayISO: string; count: number } | null>(null);
-  const [continuationDayISO, setContinuationDayISO] = useState<string | null>(null);
   const mobileVisibleCount = pageState?.dayISO === selectedDayISO ? pageState.count : MOBILE_PAGE_SIZE;
-  const continuationActive = continuationDayISO === selectedDayISO;
-
-  const mobileDaySegments = useMemo(() => {
-    const bucket = dayBuckets[selectedDayIdx] ?? [];
-    if (!continuationActive || !overflowDialogData) return bucket;
-    const seen = new Set(bucket.map((seg) => String(seg.schedule.id)));
-    const extra: Segment<TSchedule>[] = [];
-    overflowDialogData.items.forEach((schedule) => {
-      if (seen.has(String(schedule.id))) return;
-      seen.add(String(schedule.id));
-      const run = (scheduleRunsById.get(String(schedule.id)) ?? computeScheduleRuns(schedule)).find(
-        (r) => r.start <= selectedDayISO && r.end >= selectedDayISO
-      );
-      if (!run) return;
-      extra.push({
-        schedule,
-        isFirstSegment: selectedDayISO === run.start,
-        isLastSegment: selectedDayISO === run.end,
-        runStartDate: run.start,
-        runEndDate: run.end,
-      });
-    });
-    return [...bucket, ...extra];
-  }, [dayBuckets, selectedDayIdx, continuationActive, overflowDialogData, scheduleRunsById, selectedDayISO]);
-
-  const localDayCount = (dayBuckets[selectedDayIdx] ?? []).length;
+  const mobileDaySegments = dayBuckets[selectedDayIdx] ?? [];
   const hasMoreLocal = mobileDaySegments.length > mobileVisibleCount;
-  const dayMayHaveMoreRemote =
-    dayFetchLimit !== undefined &&
-    localDayCount >= dayFetchLimit &&
-    (!continuationActive || (overflowDialogData?.hasNextPage ?? false));
-  const mobileCanLoadMore = hasMoreLocal || dayMayHaveMoreRemote;
-  const mobileIsFetchingMore = continuationActive && (overflowDialogData?.isFetchingNextPage ?? false);
+  const mobileDayMayHaveMore = dayMayHaveMore(selectedDayIdx);
+  const mobileCanLoadMore = hasMoreLocal || mobileDayMayHaveMore;
+  const mobileIsFetchingMore = dayContinuations?.[selectedDayISO]?.isFetchingNextPage ?? false;
 
   const loadMoreMobileDay = () => {
     // Reveal already-fetched rows first; only go to the server once none are left to show.
@@ -846,13 +865,8 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
       setPageState({ dayISO: selectedDayISO, count: mobileVisibleCount + MOBILE_PAGE_SIZE });
       return;
     }
-    if (!dayMayHaveMoreRemote) return;
-    if (!continuationActive) {
-      setContinuationDayISO(selectedDayISO);
-      onDayContinuationRequested?.(selectedDayISO);
-    } else if (!mobileIsFetchingMore) {
-      overflowDialogData?.fetchNextPage();
-    }
+    if (!mobileDayMayHaveMore || mobileIsFetchingMore) return;
+    fetchMoreForDay(selectedDayIdx);
     // Rows arriving from the server are revealed as soon as they land.
     setPageState({ dayISO: selectedDayISO, count: mobileVisibleCount + MOBILE_PAGE_SIZE });
   };
@@ -873,46 +887,6 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     setDaySelection({ weekKey, idx: target });
     dayTabRefs.current[target]?.focus();
   };
-  /**
-   * Trigger refs, kept in two per-surface arrays indexed by day because desktop and mobile live in
-   * separate `hidden md:block` / `md:hidden` trees — only one is ever mounted. `openOverflowTriggerRef`
-   * holds whichever trigger was actually activated, and is what the dialog receives as
-   * `triggerRef` so focus returns to that exact "+N more" control on close (Task 7.4 / AC8).
-   */
-  const desktopOverflowTriggerRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const mobileOverflowTriggerRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const openOverflowTriggerRef = useRef<HTMLElement | null>(null);
-
-  const handleOpenOverflow = (
-    dayIdx: number,
-    surface: WeeklyCalendarViewOverflowSurface,
-    inlineHiddenCount: number
-  ) => {
-    const triggerRefs = surface === 'desktop' ? desktopOverflowTriggerRefs : mobileOverflowTriggerRefs;
-    openOverflowTriggerRef.current = triggerRefs.current[dayIdx];
-    setOpenOverflow({ dayIdx, surface });
-    // Task 7.1 / 8.4 — the caller owns the day-scoped fetch *and* AC9's
-    // `calendar_overflow_dialog_opened` event, so it needs all three payload fields: which date,
-    // which surface the trigger came from, and how many inline items that surface hid.
-    onOverflowRequested?.(toISODateString(visibleDays[dayIdx]), surface, inlineHiddenCount);
-  };
-
-  const handleCloseOverflow = () => {
-    // Focus return is the dialog's own responsibility via `triggerRef` (Task 6.5) — there is no
-    // local `setTimeout(() => trigger.focus())` here any more.
-    setOpenOverflow(null);
-    // Task 8.1 — the caller owns the day-scoped query's lifetime, so it needs to know the dialog
-    // closed in order to clear its own `openOverflowDate` and let that query go dormant again.
-    onOverflowClosed?.();
-  };
-
-  const overflowDayIdx = openOverflow?.dayIdx ?? null;
-  const overflowDate = overflowDayIdx === null ? null : toISODateString(visibleDays[overflowDayIdx]);
-
-  // (The superseded popover's focus-trap / Escape / outside-pointerdown effect lived here. It was
-  // deleted in Story 1.i1h Task 7.1 and reimplemented, unchanged in behaviour, inside
-  // `CalendarOverflowDialog` — one shared implementation for both the desktop and mobile surfaces
-  // instead of a bespoke desktop-only one.)
 
   // Loading Skeleton State (AC11)
   if (status === 'loading') {
@@ -978,7 +952,20 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
       {/* Header Controls */}
       <div className={HEADER_CLASS}>
         <span className={DATE_RANGE_CLASS}>{dateRangeText}</span>
-        <div className={NAV_ROW_CLASS}>
+        <div className="order-last md:order-2">
+          <CalendarRangeFilterToggle
+            value={rangeFilter}
+            onChange={setRangeFilter}
+            labels={{
+              groupLabel: defaultLabels.rangeFilterGroupLabel,
+              startsWeek: defaultLabels.startsWeekLabel,
+              endsWeek: defaultLabels.endsWeekLabel,
+              startsDay: defaultLabels.startsDayLabel,
+              endsDay: defaultLabels.endsDayLabel,
+            }}
+          />
+        </div>
+        <div className={`${NAV_ROW_CLASS} md:order-3`}>
           <button
             type="button"
             className={`${NAV_BUTTON_CLASS} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-100`}
@@ -1018,285 +1005,257 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
 
       {/* Desktop layout */}
       <div className="hidden md:block isolate" data-testid="desktop-calendar-view">
-        {/* Day Headers (sticky) */}
+        {/* Day Headers (sticky): per-day total + "+N below" while the day still has unrendered rows */}
         <div className={`${GRID_WEEKLY_CLASS} ${STICKY_HEADER_CLASS} bg-gray-50`} data-testid="desktop-day-headers">
-        {visibleDays.map((day, idx) => {
-          const headerStr = formatDayHeader(activeLocale, activeTimezone, day);
-          return (
-            <div key={idx} className={DAY_HEADER_CLASS}>
-              {headerStr}
-            </div>
-          );
-        })}
-      </div>
+          {visibleDays.map((day, idx) => {
+            const headerStr = formatDayHeader(activeLocale, activeTimezone, day);
+            const mayHaveMore = dayMayHaveMore(idx);
+            const below = Math.max(0, totalPerDay[idx] - renderedPerDay[idx]);
+            return (
+              <div key={idx} className={DAY_HEADER_CLASS} data-testid="desktop-day-header">
+                <span>{headerStr}</span>
+                <span className="ml-1 text-xs text-gray-500" data-testid="desktop-day-total">
+                  {defaultLabels.dayTotalLabel(totalPerDay[idx], mayHaveMore)}
+                </span>
+                {(below > 0 || mayHaveMore) && (
+                  <span className="block text-xs font-normal text-violet-600" data-testid="desktop-day-below">
+                    {defaultLabels.belowLabel(below, mayHaveMore)}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
 
-      {/* Multi-day spanning banner (Story 1.i1g Task 4).
-          One row per multi-day schedule, spanning its day-columns so the schedule reads as a
-          single continuous grid item (AC1/AC2). It reuses the exact same `GRID_WEEKLY_CLASS`
-          column template as the day-header and day-cell grids above/below, so its column
-          boundaries align pixel-for-pixel (AC2). Rendered only when the visible week actually
-          has a multi-day schedule (Task 4.2 / AC4). */}
-      {spanningSchedules.length > 0 && (
-        <div className={`${GRID_WEEKLY_CLASS_NO_DIVIDE} bg-white`} data-testid="multi-day-spanning-banner">
-          <GridColumnGuides />
-          {spanningSchedules.slice(0, bannerVisibleCount).map((entry, rowIdx) => (
-            <MultiDaySpanningBar
-              // Story 1.3k — a schedule can now produce MULTIPLE bars (one per visible run), so
-              // the schedule id alone is no longer a unique key; the run's own start date makes
-              // each bar instance unique even when the same schedule has two runs in one week.
-              key={`${entry.schedule.id}-${entry.runStartDate}`}
-              schedule={entry.schedule}
-              startColIdx={entry.startColIdx}
-              spanCount={entry.spanCount}
-              runStartDate={entry.runStartDate}
-              runEndDate={entry.runEndDate}
-              rowIdx={rowIdx}
-              locale={activeLocale}
-              timezone={activeTimezone}
-              onScheduleClick={onScheduleClick}
-              onFavoriteToggle={onFavoriteToggle}
-              favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
-              nearbyBadgeThreshold={nearbyBadgeThreshold}
-              statusLabels={statusLabels}
-              dayOfWeekLabels={labels.dayOfWeekLabels}
-              repeatBadgeAriaLabel={labels.repeatBadgeAriaLabel}
-              addedToCalendarBadgeLabel={defaultLabels.addedToCalendarBadgeLabel}
-            />
+        {/* Unified banded grid: multi-day bars span the columns they cover, single-day cards take
+            one column. Each band is its own 7-column grid, so packing never reaches into an earlier
+            band. `overflow-anchor: none` keeps appended bands from shifting the scroll position. */}
+        <div className="[overflow-anchor:none] [&_*]:[overflow-anchor:none]" data-testid="calendar-bands">
+          {weekEntries.length === 0 && (
+            <p className="text-sm text-gray-500 text-center py-8" data-testid="calendar-empty">
+              {defaultLabels.noSchedulesWeekLabel}
+            </p>
+          )}
+          {visibleBands.map(({ band, items }) => (
+            <div
+              key={band}
+              className={`${GRID_WEEKLY_CLASS_NO_DIVIDE} bg-white border-b border-gray-100 items-start`}
+              data-testid="calendar-band"
+              data-band={band}
+            >
+              <GridColumnGuides />
+              {items.map(({ entry, placement }) => (
+                <div
+                  key={entry.key}
+                  className="relative min-w-0 p-1"
+                  style={{
+                    gridColumn: `${entry.startCol + 1} / span ${entry.spanCount}`,
+                    gridRow: `${placement.row + 1}`,
+                  }}
+                >
+                  {entry.spanCount > 1 ? (
+                    <MultiDaySpanningBar
+                      schedule={entry.schedule}
+                      cardId={`calendar-card-${entry.key}`}
+                      isRovingActive={effectiveActiveKey === entry.key}
+                      onKeyDown={(e) => handleGridKeyDown(e, entry.key)}
+                      onFocus={() => setActiveKey(entry.key)}
+                      runStartDate={entry.runStartDate}
+                      runEndDate={entry.runEndDate}
+                      locale={activeLocale}
+                      timezone={activeTimezone}
+                      onScheduleClick={onScheduleClick}
+                      onFavoriteToggle={onFavoriteToggle}
+                      favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
+                      nearbyBadgeThreshold={nearbyBadgeThreshold}
+                      statusLabels={statusLabels}
+                      dayOfWeekLabels={labels.dayOfWeekLabels}
+                      repeatBadgeAriaLabel={labels.repeatBadgeAriaLabel}
+                      addedToCalendarBadgeLabel={defaultLabels.addedToCalendarBadgeLabel}
+                    />
+                  ) : (
+                    <CalendarCard
+                      segment={{
+                        schedule: entry.schedule,
+                        isFirstSegment: dayISOs[entry.startCol] === entry.runStartDate,
+                        isLastSegment: dayISOs[entry.startCol] === entry.runEndDate,
+                        runStartDate: entry.runStartDate,
+                        runEndDate: entry.runEndDate,
+                      }}
+                      dayIdx={entry.startCol}
+                      cardId={`calendar-card-${entry.key}`}
+                      isRovingActive={effectiveActiveKey === entry.key}
+                      locale={activeLocale}
+                      timezone={activeTimezone}
+                      onScheduleClick={onScheduleClick}
+                      onFavoriteToggle={onFavoriteToggle}
+                      favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
+                      tillLabel={defaultLabels.tillLabel}
+                      onKeyDown={(e) => handleGridKeyDown(e, entry.key)}
+                      onFocus={() => setActiveKey(entry.key)}
+                      favoritedBadgeLabel={defaultLabels.favoritedBadgeLabel}
+                      addedToCalendarBadgeLabel={defaultLabels.addedToCalendarBadgeLabel}
+                      nearbyBadgeLabel={defaultLabels.nearbyBadge}
+                      nearbyBadgeThreshold={nearbyBadgeThreshold}
+                      statusLabels={statusLabels}
+                      dayOfWeekLabels={labels.dayOfWeekLabels}
+                      repeatBadgeAriaLabel={labels.repeatBadgeAriaLabel}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
           ))}
         </div>
-      )}
-      {bannerHiddenCount > 0 && (
-        <div className="flex justify-center border-b border-gray-200 bg-white py-2">
-          <button
-            type="button"
-            data-testid="multi-day-banner-load-more"
-            className={MORE_LINK_CLASS}
-            onClick={() => setBannerPage({ weekKey, count: bannerVisibleCount + DESKTOP_BANNER_PAGE_SIZE })}
-          >
-            {labels.moreMultiDayLabel
-              ? labels.moreMultiDayLabel(bannerHiddenCount)
-              : `Show more multi-day events (${bannerHiddenCount} more)`}
-          </button>
-        </div>
-      )}
 
-      {/* Day cells grid */}
-      <div className={GRID_WEEKLY_CLASS}>
-        {singleDayDayBuckets.map((bucket, dayIdx) => {
-          const totalSchedules = bucket.length;
-          const displayLimit = maxEventsPerDay === -1 ? totalSchedules : Math.min(maxEventsPerDay, totalSchedules);
-          const visibleSegments = bucket.slice(0, displayLimit);
-          const hiddenCount = totalSchedules - displayLimit;
+        {/* Progress line + infinite-scroll sentinel + explicit "Show more" fallback. Both controls
+            disappear once everything (including every truncated day's server rows) is loaded. */}
+        {weekEntries.length > 0 && (
+          <div className="flex flex-col items-center gap-2 py-3 [overflow-anchor:none]" data-testid="calendar-bands-footer">
+            <p className="text-xs text-gray-500" aria-live="polite" data-testid="calendar-progress">
+              {canLoadMoreBands
+                ? defaultLabels.progressLabel(shownScheduleCount, `${totalScheduleCount}${anyDayMayHaveMore ? '+' : ''}`)
+                : defaultLabels.allShownLabel(totalScheduleCount)}
+            </p>
+            {canLoadMoreBands && (
+              <div ref={bandSentinelRef} className="flex justify-center" data-testid="calendar-load-more-sentinel">
+                <button
+                  type="button"
+                  data-testid="calendar-show-more"
+                  className={MORE_LINK_CLASS}
+                  onClick={loadMoreBands}
+                  disabled={anyContinuationFetching}
+                >
+                  {anyContinuationFetching ? defaultLabels.loadingMoreLabel : defaultLabels.loadMoreLabel}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Mobile day tabs + selected-day list (AC15). The tab strip mirrors the desktop header's
+          7 equal columns; selecting a tab only filters the already-fetched week. */}
+      <div className="md:hidden isolate" data-testid="mobile-calendar-view">
+        <div
+          role="tablist"
+          aria-label={defaultLabels.dayTabsLabel}
+          data-testid="mobile-day-tabs"
+          className={`${GRID_WEEKLY_CLASS} ${STICKY_HEADER_CLASS} bg-gray-50 border-b border-gray-200`}
+        >
+          {visibleDays.map((day, idx) => {
+            const dateISO = dayISOs[idx];
+            const isSelected = idx === selectedDayIdx;
+            const isToday = dateISO === todayISO;
+            const { weekday, day: dayNum } = formatDayTabParts(activeLocale, activeTimezone, day);
+            const dayCountText = defaultLabels.dayTotalLabel(dayBuckets[idx].length, dayMayHaveMore(idx));
+            return (
+              <button
+                key={dateISO}
+                type="button"
+                role="tab"
+                id={`${mobileDayContentIdPrefix}-mobile-day-tab-${idx}`}
+                data-testid="mobile-day-tab"
+                data-today={isToday ? 'true' : undefined}
+                aria-selected={isSelected}
+                aria-controls={`${mobileDayContentIdPrefix}-mobile-day-content`}
+                aria-label={`${formatDayHeader(activeLocale, activeTimezone, day)} (${dayCountText})`}
+                tabIndex={isSelected ? 0 : -1}
+                ref={(el) => {
+                  dayTabRefs.current[idx] = el;
+                }}
+                onClick={() => setDaySelection({ weekKey, idx })}
+                onKeyDown={(e) => handleDayTabKeyDown(e, idx)}
+                className={`${DAY_TAB_CLASS} ${
+                  isSelected
+                    ? 'border-violet-600 text-violet-700 bg-white'
+                    : 'border-transparent text-gray-600'
+                }`}
+              >
+                <span aria-hidden="true">{weekday}</span>
+                <span
+                  aria-hidden="true"
+                  className={`text-sm ${isToday ? 'font-bold underline underline-offset-2' : ''}`}
+                >
+                  {dayNum}
+                </span>
+                <span aria-hidden="true" className="text-[10px] font-normal text-gray-500" data-testid="mobile-day-count">
+                  {dayCountText}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        {(() => {
+          const dayIdx = selectedDayIdx;
+          const dateISO = dayISOs[dayIdx];
+
+          // Every segment (single- and multi-day) is paged: the day shows `mobileVisibleCount` rows.
+          const mobileVisibleSegments = mobileDaySegments.slice(0, mobileVisibleCount);
 
           return (
-            <div key={dayIdx} className={`${DAY_CELL_CLASS} bg-white`}>
-              {visibleSegments.map((seg, cardIdx) => (
+            <div
+              role="tabpanel"
+              id={`${mobileDayContentIdPrefix}-mobile-day-content`}
+              aria-labelledby={`${mobileDayContentIdPrefix}-mobile-day-tab-${dayIdx}`}
+              className="flex flex-col gap-2 p-4"
+              data-testid="mobile-day-row"
+            >
+              {mobileDaySegments.length === 0 && (
+                <p className="text-sm text-gray-500 text-center py-6" data-testid="mobile-day-empty">
+                  {defaultLabels.noSchedulesLabel}
+                </p>
+              )}
+              {mobileVisibleSegments.map((seg) => (
                 <CalendarCard
-                  key={seg.schedule.id}
+                  key={`${seg.schedule.id}-${seg.runStartDate}`}
                   segment={seg}
                   dayIdx={dayIdx}
-                  cardIdx={cardIdx}
-                  isRovingActive={
-                    activeCardCoords?.dayIdx === dayIdx && activeCardCoords?.cardIdx === cardIdx
-                  }
+                  isRovingActive={false}
                   locale={activeLocale}
                   timezone={activeTimezone}
                   onScheduleClick={onScheduleClick}
                   onFavoriteToggle={onFavoriteToggle}
                   favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
                   tillLabel={defaultLabels.tillLabel}
-                  onKeyDown={(e) => handleGridKeyDown(e, dayIdx, cardIdx)}
-                  onFocus={() => setActiveCardCoords({ dayIdx, cardIdx })}
+                  variant="list"
+                  currentDayStr={dateISO}
                   favoritedBadgeLabel={defaultLabels.favoritedBadgeLabel}
                   addedToCalendarBadgeLabel={defaultLabels.addedToCalendarBadgeLabel}
+                  statusLabels={statusLabels}
                   nearbyBadgeLabel={defaultLabels.nearbyBadge}
                   nearbyBadgeThreshold={nearbyBadgeThreshold}
-                  statusLabels={statusLabels}
                   dayOfWeekLabels={labels.dayOfWeekLabels}
                   repeatBadgeAriaLabel={labels.repeatBadgeAriaLabel}
                 />
               ))}
 
-              {/* "+N more" affordance (AC4) — Story 1.i1h Task 7.1: same trigger, but it now opens
-                  the shared `CalendarOverflowDialog` instead of the bespoke inline
-                  `w-56 max-h-56 overflow-y-auto` popover, which is deleted. */}
-              {hiddenCount > 0 && (
-                <button
-                  type="button"
-                  data-testid="calendar-overflow-trigger-desktop"
-                  ref={(el) => {
-                    desktopOverflowTriggerRefs.current[dayIdx] = el;
-                  }}
-                  className={MORE_LINK_CLASS}
-                  onClick={() => handleOpenOverflow(dayIdx, 'desktop', hiddenCount)}
-                  aria-expanded={openOverflow?.surface === 'desktop' && overflowDayIdx === dayIdx}
-                  aria-haspopup="dialog"
-                >
-                  {labels.moreLabel ? labels.moreLabel(hiddenCount) : `+${hiddenCount} more`}
-                </button>
+              {/* Infinite-scroll sentinel + explicit fallback button for the selected day's list. */}
+              {mobileCanLoadMore && (
+                <div ref={mobileSentinelRef} className="flex justify-center py-2" data-testid="mobile-day-load-more">
+                  <button
+                    type="button"
+                    className={MORE_LINK_CLASS}
+                    onClick={loadMoreMobileDay}
+                    disabled={mobileIsFetchingMore}
+                  >
+                    {mobileIsFetchingMore ? defaultLabels.loadingMoreLabel : defaultLabels.loadMoreLabel}
+                  </button>
+                </div>
               )}
-
-              {/* (Story 1.i1h Task 7.1 — the floating `w-56 max-h-56 overflow-y-auto` popover
-                  disclosure that lived here is deleted; its contents/mechanics are the shared
-                  `CalendarOverflowDialog`, rendered once at this component's root.) */}
             </div>
           );
-        })}
+        })()}
       </div>
     </div>
-
-    {/* Mobile day tabs + selected-day list (AC15). The tab strip mirrors the desktop header's
-        7 equal columns; selecting a tab only filters the already-fetched week. */}
-    <div className="md:hidden isolate" data-testid="mobile-calendar-view">
-      <div
-        role="tablist"
-        aria-label={defaultLabels.dayTabsLabel}
-        data-testid="mobile-day-tabs"
-        className={`${GRID_WEEKLY_CLASS} ${STICKY_HEADER_CLASS} bg-gray-50 border-b border-gray-200`}
-      >
-        {visibleDays.map((day, idx) => {
-          const dateISO = toISODateString(day);
-          const isSelected = idx === selectedDayIdx;
-          const isToday = dateISO === todayISO;
-          const { weekday, day: dayNum } = formatDayTabParts(activeLocale, activeTimezone, day);
-          return (
-            <button
-              key={dateISO}
-              type="button"
-              role="tab"
-              id={`${mobileDayContentIdPrefix}-mobile-day-tab-${idx}`}
-              data-testid="mobile-day-tab"
-              data-today={isToday ? 'true' : undefined}
-              aria-selected={isSelected}
-              aria-controls={`${mobileDayContentIdPrefix}-mobile-day-content`}
-              aria-label={formatDayHeader(activeLocale, activeTimezone, day)}
-              tabIndex={isSelected ? 0 : -1}
-              ref={(el) => {
-                dayTabRefs.current[idx] = el;
-              }}
-              onClick={() => setDaySelection({ weekKey, idx })}
-              onKeyDown={(e) => handleDayTabKeyDown(e, idx)}
-              className={`${DAY_TAB_CLASS} ${
-                isSelected
-                  ? 'border-violet-600 text-violet-700 bg-white'
-                  : 'border-transparent text-gray-600'
-              }`}
-            >
-              <span aria-hidden="true">{weekday}</span>
-              <span
-                aria-hidden="true"
-                className={`text-sm ${isToday ? 'font-bold underline underline-offset-2' : ''}`}
-              >
-                {dayNum}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-      {(() => {
-        const dayIdx = selectedDayIdx;
-        const bucket = mobileDaySegments;
-        const dateISO = toISODateString(visibleDays[dayIdx]);
-
-        // Every segment (single- and multi-day) is paged: the day shows `mobileVisibleCount` rows.
-        const mobileVisibleSegments = mobileDaySegments.slice(0, mobileVisibleCount);
-
-        return (
-          <div
-            role="tabpanel"
-            id={`${mobileDayContentIdPrefix}-mobile-day-content`}
-            aria-labelledby={`${mobileDayContentIdPrefix}-mobile-day-tab-${dayIdx}`}
-            className="flex flex-col gap-2 p-4"
-            data-testid="mobile-day-row"
-          >
-            {bucket.length === 0 && (
-              <p className="text-sm text-gray-500 text-center py-6" data-testid="mobile-day-empty">
-                {defaultLabels.noSchedulesLabel}
-              </p>
-            )}
-            {mobileVisibleSegments.map((seg) => (
-              <CalendarCard
-                key={seg.schedule.id}
-                segment={seg}
-                dayIdx={dayIdx}
-                cardIdx={-1} // Non-grid / plain Tab stop
-                isRovingActive={false}
-                locale={activeLocale}
-                timezone={activeTimezone}
-                onScheduleClick={onScheduleClick}
-                onFavoriteToggle={onFavoriteToggle}
-                favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
-                tillLabel={defaultLabels.tillLabel}
-                variant="list"
-                currentDayStr={dateISO}
-                favoritedBadgeLabel={defaultLabels.favoritedBadgeLabel}
-                addedToCalendarBadgeLabel={defaultLabels.addedToCalendarBadgeLabel}
-                statusLabels={statusLabels}
-                nearbyBadgeLabel={defaultLabels.nearbyBadge}
-                nearbyBadgeThreshold={nearbyBadgeThreshold}
-                dayOfWeekLabels={labels.dayOfWeekLabels}
-                repeatBadgeAriaLabel={labels.repeatBadgeAriaLabel}
-              />
-            ))}
-
-            {/* Infinite-scroll sentinel + explicit fallback button for the selected day's list. */}
-            {mobileCanLoadMore && (
-              <div ref={mobileSentinelRef} className="flex justify-center py-2" data-testid="mobile-day-load-more">
-                <button
-                  type="button"
-                  className={MORE_LINK_CLASS}
-                  onClick={loadMoreMobileDay}
-                  disabled={mobileIsFetchingMore}
-                >
-                  {mobileIsFetchingMore ? defaultLabels.loadingMoreLabel : defaultLabels.loadMoreLabel}
-                </button>
-              </div>
-            )}
-          </div>
-        );
-      })()}
-    </div>
-
-    {/* Shared overflow dialog (Story 1.i1h Task 7.3) — rendered exactly ONCE at the root, never
-        once per day, so there is a single focus trap, a single `aria-live` region and a single
-        infinite-scroll sentinel in the document no matter how many days overflowed (AC8). It is
-        `fixed`-positioned, so its DOM placement here is layout-irrelevant. */}
-    <CalendarOverflowDialog<TSchedule>
-      open={overflowDayIdx !== null}
-      date={overflowDate}
-      items={overflowDialogData?.items ?? []}
-      fetchNextPage={overflowDialogData?.fetchNextPage ?? NOOP}
-      hasNextPage={overflowDialogData?.hasNextPage ?? false}
-      isFetchingNextPage={overflowDialogData?.isFetchingNextPage ?? false}
-      onClose={handleCloseOverflow}
-      onScheduleClick={(schedule) => {
-        // Matches the superseded popover's own behaviour: activating a card closes the surface so
-        // the navigation it triggers is not left sitting behind an open modal.
-        handleCloseOverflow();
-        onScheduleClick(schedule);
-      }}
-      onFavoriteToggle={onFavoriteToggle}
-      nearbyBadgeThreshold={nearbyBadgeThreshold}
-      triggerRef={openOverflowTriggerRef}
-      labels={{
-        titleLabel:
-          overflowDayIdx === null
-            ? undefined
-            : overflowDialogTitleLabel(
-                formatDayHeader(activeLocale, activeTimezone, visibleDays[overflowDayIdx])
-              ),
-        closeLabel: defaultLabels.closePopoverLabel,
-        favoriteToggleLabel: defaultLabels.favoriteToggleLabel,
-      }}
-    />
-  </div>
   );
 }
 
 interface CalendarCardProps<TSchedule> {
   segment: Segment<TSchedule>;
   dayIdx: number;
-  cardIdx: number;
+  /** DOM id of the grid card's click target (roving-tabindex focus target); omitted for the mobile list variant. */
+  cardId?: string;
   isRovingActive: boolean;
   locale: string;
   timezone: string | undefined;
@@ -1338,7 +1297,7 @@ interface CalendarCardProps<TSchedule> {
 function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   segment,
   dayIdx,
-  cardIdx,
+  cardId,
   isRovingActive,
   locale,
   timezone,
@@ -1401,7 +1360,6 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
     }
   };
 
-  const elementId = cardIdx >= 0 ? `calendar-card-${dayIdx}-${cardIdx}` : undefined;
 
   // Story 3.6ua (AC1) — the `variant === 'list'` (Mobile Vertical Day List) render path now
   // delegates to the standalone, exported `EventCardCompact` primitive (`packages/ui`'s own
@@ -1495,9 +1453,9 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   return (
     <div className="relative w-full" data-testid="calendar-grid-card">
       <button
-        id={elementId}
+        id={cardId}
         type="button"
-        tabIndex={cardIdx >= 0 ? (isRovingActive ? 0 : -1) : 0}
+        tabIndex={cardId ? (isRovingActive ? 0 : -1) : 0}
         className={SPANNING_BAR_CLICK_CLASS}
         aria-label={schedule.eventName}
         onClick={() => onScheduleClick(schedule)}
@@ -1571,12 +1529,11 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
 interface MultiDaySpanningBarProps<TSchedule extends WeeklyCalendarViewScheduleShape> {
   /** The multi-day schedule this single spanning card represents. */
   schedule: TSchedule;
-  /** 0-based index of the first visible day-column (AC3) — becomes the CSS grid column start. */
-  startColIdx: number;
-  /** Number of visible day-columns spanned (AC1/AC3) — becomes the CSS grid column span. */
-  spanCount: number;
-  /** 0-based banner row index, so overlapping spans stack instead of colliding (AC4). */
-  rowIdx: number;
+  /** DOM id of the click target (roving-tabindex focus target, `calendar-card-${key}`). */
+  cardId: string;
+  isRovingActive: boolean;
+  onKeyDown?: (e: React.KeyboardEvent) => void;
+  onFocus?: () => void;
   locale: string;
   timezone?: string;
   onScheduleClick: (schedule: TSchedule) => void;
@@ -1620,8 +1577,8 @@ interface MultiDaySpanningBarProps<TSchedule extends WeeklyCalendarViewScheduleS
  *     `[&_button]:pointer-events-auto`.
  *
  * The primitive's favorite control is therefore never nested inside the schedule-click
- * element (AC7), and the click target itself stays a single plain linear Tab stop (AC12) that
- * never joins the day cells' roving tabindex grid.
+ * element (AC7), and the click target itself is one roving-tabindex stop in the banded grid (it
+ * joins the same arrow-key navigation as the single-day cards).
  *
  * The card layer is purely visual, so the click target carries its own accessible name
  * (`aria-label`) and, while its tooltip is visible, the same `aria-describedby` →
@@ -1629,9 +1586,10 @@ interface MultiDaySpanningBarProps<TSchedule extends WeeklyCalendarViewScheduleS
  */
 function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>({
   schedule,
-  startColIdx,
-  spanCount,
-  rowIdx,
+  cardId,
+  isRovingActive,
+  onKeyDown,
+  onFocus,
   locale,
   timezone,
   onScheduleClick,
@@ -1690,25 +1648,28 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
       className="relative w-full"
       data-testid="multi-day-spanning-bar"
       data-schedule-id={schedule.id}
-      // AC1/AC3 — explicit column start + span and an explicit row, so the bar physically
-      // spans its day-columns within the shared `GRID_WEEKLY_CLASS` template and never
-      // auto-places into a neighbouring row.
-      style={{ gridColumn: `${startColIdx + 1} / span ${spanCount}`, gridRow: `${rowIdx + 1}` }}
     >
       {/* AC12 — the schedule-click target: a real button (Enter/Space, focus-visible ring,
           one linear Tab stop) sitting underneath the visual card layer. */}
       <button
+        id={cardId}
         type="button"
-        tabIndex={0}
+        tabIndex={isRovingActive ? 0 : -1}
         className={SPANNING_BAR_CLICK_CLASS}
         aria-label={schedule.eventName}
         aria-describedby={tooltipVisible ? tooltipId : undefined}
         onClick={() => onScheduleClick(schedule)}
         onPointerEnter={tooltipHandlers.onPointerEnter}
         onPointerLeave={tooltipHandlers.onPointerLeave}
-        onFocus={tooltipHandlers.onFocus}
+        onFocus={(e) => {
+          tooltipHandlers.onFocus(e);
+          onFocus?.();
+        }}
         onBlur={tooltipHandlers.onBlur}
-        onKeyDown={tooltipHandlers.onKeyDown}
+        onKeyDown={(e) => {
+          tooltipHandlers.onKeyDown(e);
+          onKeyDown?.(e);
+        }}
       />
 
       {/* AC7/AC8/AC9 — the visible card is `EventCardCalendarGridItem` (Story 1.i1f) in its

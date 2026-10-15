@@ -10,9 +10,9 @@
 // Deliberately does NOT reseed, truncate, or otherwise touch the database itself (see the story's
 // Dev Notes "Why not force a reseed") -- this only ever reads COUNT(*), before and after.
 import { spawn } from 'node:child_process';
-import { sql } from 'drizzle-orm';
+import { inArray, sql } from 'drizzle-orm';
 import { getTableConfig } from 'drizzle-orm/pg-core';
-import { getTablesInDeleteOrder } from '@festgrid/database';
+import { getTablesInDeleteOrder, vendorCallLocks } from '@festgrid/database';
 import { db } from '../src/db/client.js';
 
 async function snapshotCounts(): Promise<Map<string, number>> {
@@ -23,6 +23,25 @@ async function snapshotCounts(): Promise<Map<string, number>> {
     counts.set(name, row?.count ?? 0);
   }
   return counts;
+}
+
+// `vendor_call_locks` is not test data: the guarded vendor-call wrapper (AD-32) upserts one lease row per
+// credential identity (`gemini:system`, `gemini:key:<apiKeyId>`) on every real call and, by design, never
+// deletes it. Any test that reaches a vendor adapter without mocking it past the wrapper therefore leaves a
+// lease behind, including from fire-and-forget calls that finish after the test's own cleanup ran -- which a
+// per-test `t.after` cannot reliably catch (it passed locally and still left a row on the slower CI runner).
+// So the harness removes exactly the lease keys that appeared during the run, before the final snapshot,
+// and reports them so the offending file can still be found. Every other table stays strictly ratcheted.
+async function snapshotLeaseKeys(): Promise<Set<string>> {
+  const rows = await db.select({ lockKey: vendorCallLocks.lockKey }).from(vendorCallLocks);
+  return new Set(rows.map((row) => row.lockKey));
+}
+
+async function sweepLeasesCreatedSince(before: Set<string>): Promise<void> {
+  const created = [...(await snapshotLeaseKeys())].filter((key) => !before.has(key));
+  if (created.length === 0) return;
+  await db.delete(vendorCallLocks).where(inArray(vendorCallLocks.lockKey, created));
+  console.log(`\nRow-count ratchet: swept ${created.length} vendor_call_locks lease row(s) created during the run: ${created.join(', ')}`);
 }
 
 function runRealTests(): Promise<number> {
@@ -57,7 +76,9 @@ function runRealTests(): Promise<number> {
 
 async function main() {
   const before = await snapshotCounts();
+  const leaseKeysBefore = await snapshotLeaseKeys();
   const testExitCode = await runRealTests();
+  await sweepLeasesCreatedSince(leaseKeysBefore);
   const after = await snapshotCounts();
 
   const leaks: Array<{ table: string; before: number; after: number }> = [];
