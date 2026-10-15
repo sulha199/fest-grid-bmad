@@ -191,8 +191,8 @@ A 'Report' button will be available for all events (whether from Social Media Ac
 #### 3.9.3 User and Moderator Interfaces
 
 *   **User Reports Page:** Authenticated users will have access to a dedicated 'Reports' page under their user menu, displaying the status and history of their submitted reports.
-*   **Moderator Tools:** For users with a 'moderator' access level, a 'Moderator Items' page will be available under the user menu. For the MVP, moderator access levels will be assigned manually via the database. In addition to user reports, this page surfaces pending "Default Location" changes (Section 3.7): post-hoc `PENDING_REVIEW` items to accept or revert, and pre-hoc `AWAITING_APPROVAL` items (low-confidence AI inferences awaiting a decision before they ever apply) to approve or reject, visually distinguished from each other. **(Added 2026-10-01, FR114)** It also surfaces suggested cross-post event matches (Section 3.7) for review, and offers a merge action for duplicate events — with confirmation and an undo window matching the existing soft-delete-with-undo pattern.
-*   **Moderator Pending-Item Badge (added 2026-08-28):** For users with moderator access, a numeric badge shows the combined count of items awaiting moderator action — pending reports above, and Default Location changes in `PENDING_REVIEW` or `AWAITING_APPROVAL` status (Section 3.7/4.14) — in two places: next to the "Moderator Items" entry inside the opened user menu, and on the user's avatar in the navbar when the menu is closed. **(Amended 2026-10-02, FR114)** Suggested cross-post event matches awaiting moderator review — the mid-confidence matches queued by Cross-Post Event Matching above (Section 3.7, FR114) for a moderator to approve or reject — also count toward this same combined total. The badge shows one combined total, not a per-category breakdown; opening Moderator Items itself provides that detail. The count is kept reasonably current (refreshed periodically or on relevant navigation), not necessarily instantaneous.
+*   **Moderator Tools:** For users with a 'moderator' access level, a 'Moderator Items' page will be available under the user menu. For the MVP, moderator access levels will be assigned manually via the database. In addition to user reports, this page surfaces pending "Default Location" changes (Section 3.7): post-hoc `PENDING_REVIEW` items to accept or revert, and pre-hoc `AWAITING_APPROVAL` items (low-confidence AI inferences awaiting a decision before they ever apply) to approve or reject, visually distinguished from each other. **(Added 2026-10-01, FR114)** It also surfaces suggested cross-post event matches (Section 3.7) for review, and offers a merge action for duplicate events — with confirmation and an undo window matching the existing soft-delete-with-undo pattern. **(Added 2026-10-15)** It also lists accounts whose type classification is awaiting approval (Section 3.16): a low-confidence or failed AI classification. For each, the moderator sees the account's bio and the AI's proposed type and confidence, or the reason classification failed, and chooses organizer/venue/event, curator/local-guide or personal. The choice is final and the account is then treated as confirmed. Resolving it does not start a scrape on its own; the account is picked up by the next daily scrape or an on-demand one.
+*   **Moderator Pending-Item Badge (added 2026-08-28):** For users with moderator access, a numeric badge shows the combined count of items awaiting moderator action — pending reports above, and Default Location changes in `PENDING_REVIEW` or `AWAITING_APPROVAL` status (Section 3.7/4.14) — in two places: next to the "Moderator Items" entry inside the opened user menu, and on the user's avatar in the navbar when the menu is closed. **(Amended 2026-10-02, FR114)** Suggested cross-post event matches awaiting moderator review — the mid-confidence matches queued by Cross-Post Event Matching above (Section 3.7, FR114) for a moderator to approve or reject — also count toward this same combined total. **(Amended 2026-10-15)** Account-type classifications awaiting a moderator's decision also count toward this combined total. The badge shows one combined total, not a per-category breakdown; opening Moderator Items itself provides that detail. The count is kept reasonably current (refreshed periodically or on relevant navigation), not necessarily instantaneous.
 
 ### 3.10 Manual Post Selection for Event Extraction
 
@@ -765,6 +765,19 @@ interface SocialMediaAccountProfile {
    * subscribed to directly (the pre-existing, non-discovered path).
    */
   isVerifiedForDiscovery: boolean;
+  /**
+   * What kind of account this is, set by AI classification when the account is first
+   * subscribed to (added 2026-10-15, Stories 3.4n/3.4o). Absent for a legacy account that has
+   * never been classified. Together with `accountTypeStatus` it decides whether the account
+   * is scraped (Section 3.16, Account-type filtering).
+   */
+  accountType?: 'ORGANIZER_VENUE_EVENT' | 'CURATOR_GUIDE' | 'PERSONAL';
+  /**
+   * `CONFIRMED` once the type stands (a confident AI classification, or a moderator's decision).
+   * `AWAITING_APPROVAL` while a low-confidence or failed classification waits for a moderator
+   * (Section 3.9.3); the account is not scraped in that state. Absent while `accountType` is.
+   */
+  accountTypeStatus?: 'CONFIRMED' | 'AWAITING_APPROVAL';
 }
 ```
 
