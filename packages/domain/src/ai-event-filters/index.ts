@@ -8,3 +8,5 @@ export * from './compile-filter-node.js';
 export * from './resolve-stored-filter.js';
 export * from './map-filter-leaves.js';
 export * from './transform-gemini-response-to-filter-expression.js';
+export * from './summary-clause-formatters.js';
+export * from './render-filter-expression-summary.js';

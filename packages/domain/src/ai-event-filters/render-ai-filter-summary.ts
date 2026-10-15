@@ -1,4 +1,19 @@
-import { EventFilterInput } from '../events/buildEventsQueryCondition.js';
+import type { EventType, EventCategory } from '@festgrid/shared-types';
+import { EventFilterInput, type DayOfWeek } from '../events/buildEventsQueryCondition.js';
+import {
+  formatAccountIdClause,
+  formatCategoriesClause,
+  formatDateRangeClause,
+  formatDayOfWeekClause,
+  formatIsFreeClause,
+  formatKeywordClause,
+  formatLocationAdminAreaClause,
+  formatLocationProximityClause,
+  formatTemporalFilterClause,
+  formatTypesClause,
+  formatVenueTypeClause,
+  joinCaveats,
+} from './summary-clause-formatters.js';
 
 export interface AIFilterSummaryLabels {
   noFilter: string;
@@ -27,6 +42,12 @@ export interface AIFilterSummaryLabels {
   paidEventsOnly?: string;
   caveatPrefix?: string;
   caveatSeparator?: string;
+  or?: string;
+  weekends?: string;
+  weekdays?: string;
+  temporalStatus?: Record<string, string>;
+  dateRangeSpanOnlyTemplate?: string;
+  dateRangeSpanExtensionTemplate?: string;
 }
 
 export interface AIFilterSummaryResult {
@@ -45,100 +66,53 @@ export function renderAIFilterSummary(
   const clauses: string[] = [];
 
   if (filter.accountId && filter.accountId.trim() !== '') {
-    const accId = filter.accountId.trim();
-    if (labels.accountIdTemplate) {
-      clauses.push(labels.accountIdTemplate.replace('{accountId}', accId));
-    } else {
-      clauses.push((labels.accountIdPrefix ?? '') + accId);
-    }
+    clauses.push(formatAccountIdClause(filter.accountId, labels));
   }
 
   if (filter.types && filter.types.length > 0) {
-    const translatedTypes = filter.types.map(t => (labels.types && labels.types[t]) ? labels.types[t] : t);
-    const typeSeparator = labels.typeSeparator ?? ', ';
-    clauses.push((labels.typesPrefix ?? '') + translatedTypes.join(typeSeparator));
+    clauses.push(formatTypesClause(filter.types as EventType[], labels));
   }
 
   if (filter.categories && filter.categories.length > 0) {
-    const translatedCats = filter.categories.map(c => (labels.categories && labels.categories[c]) ? labels.categories[c] : c);
-    const catSeparator = labels.categorySeparator ?? ', ';
-    clauses.push((labels.categoriesPrefix ?? '') + translatedCats.join(catSeparator));
+    clauses.push(formatCategoriesClause(filter.categories as EventCategory[], labels));
   }
 
   if (filter.keyword && filter.keyword.trim() !== '') {
-    const kw = filter.keyword.trim();
-    if (labels.keywordTemplate) {
-      clauses.push(labels.keywordTemplate.replace('{keyword}', kw));
-    } else {
-      clauses.push((labels.keywordPrefix ?? "about ") + "'" + kw + "'");
-    }
+    clauses.push(formatKeywordClause(filter.keyword, labels));
   }
 
   if (filter.dateRange) {
-    const { anchor, offsetAmount, offsetUnit } = filter.dateRange;
-    const anchorText = (labels.anchors && labels.anchors[anchor]) ? labels.anchors[anchor] : anchor;
-    if (offsetAmount === 0) {
-      clauses.push(anchorText);
-    } else {
-      const unitText = (labels.units && labels.units[offsetUnit]) ? labels.units[offsetUnit] : offsetUnit;
-      const sign = offsetAmount >= 0 ? '+' : '-';
-      const absAmount = Math.abs(offsetAmount);
-      if (labels.dateRangeTemplate) {
-        clauses.push(labels.dateRangeTemplate
-          .replace('{anchor}', anchorText)
-          .replace('{sign}', sign)
-          .replace('{amount}', String(absAmount))
-          .replace('{unit}', unitText));
-      } else {
-        clauses.push(`${anchorText} ${sign} ${absAmount} ${unitText}`);
-      }
-    }
+    clauses.push(formatDateRangeClause(filter.dateRange, labels));
   } else if (filter.dayOfWeek) {
-    // Forced minimal compile-safety touch only (Story 9.1b Dev Notes decision 8, Gate 2-cleared):
-    // `dayOfWeek` may now be an array; each entry is piped through the existing `labels.daysOfWeek`
-    // lookup and joined with the same default separator used elsewhere in this file. No new label
-    // key, join-word/grammar logic, or locale string is introduced here -- that richer summary
-    // template work is Story 9.5's exclusive scope.
-    const dows = Array.isArray(filter.dayOfWeek) ? filter.dayOfWeek : [filter.dayOfWeek];
-    const translatedDows = dows.map((dow) => (labels.daysOfWeek && labels.daysOfWeek[dow]) ? labels.daysOfWeek[dow] : dow);
-    clauses.push(translatedDows.join(', '));
+    clauses.push(formatDayOfWeekClause(filter.dayOfWeek as DayOfWeek[] | DayOfWeek | string, labels));
+  }
+
+  if (filter.temporalFilter) {
+    clauses.push(formatTemporalFilterClause(filter.temporalFilter, labels));
   }
 
   if (filter.location) {
     const { adminArea, coordinates, radiusMeters } = filter.location;
     if (adminArea && adminArea.trim() !== '') {
-      const area = adminArea.trim();
-      clauses.push(labels.adminAreaTemplate ? labels.adminAreaTemplate.replace('{adminArea}', area) : (labels.adminAreaPrefix ?? 'in ') + area);
+      clauses.push(formatLocationAdminAreaClause(adminArea, labels));
     } else if (coordinates) {
-      if (radiusMeters !== undefined && radiusMeters !== null) {
-        const radiusKm = radiusMeters / 1000;
-        clauses.push(labels.nearMeWithRadiusTemplate ? labels.nearMeWithRadiusTemplate.replace('{radius}', String(radiusKm)) : (labels.nearMeWithRadiusPrefix ?? 'within ') + radiusKm + 'km of me');
-      } else {
-        clauses.push(labels.nearMe ?? 'near me');
-      }
+      clauses.push(formatLocationProximityClause(radiusMeters, labels));
     }
   }
 
   if (filter.venueType && filter.venueType.trim() !== '') {
-    const vt = filter.venueType.trim();
-    clauses.push(labels.venueTypeTemplate ? labels.venueTypeTemplate.replace('{venueType}', vt) : (labels.venueTypePrefix ?? 'at ') + vt);
+    clauses.push(formatVenueTypeClause(filter.venueType, labels));
   }
 
-  if (filter.isFree !== undefined) {
-    if (filter.isFree === true && labels.freeEventsOnly) {
-      clauses.push(labels.freeEventsOnly);
-    } else if (filter.isFree === false && labels.paidEventsOnly) {
-      clauses.push(labels.paidEventsOnly);
+  if (filter.isFree != null) {
+    const isFreeClause = formatIsFreeClause(filter.isFree, labels);
+    if (isFreeClause !== undefined) {
+      clauses.push(isFreeClause);
     }
   }
 
   const summary = clauses.length > 0 ? clauses.join(' ') : labels.noFilter;
-  let caveatsText: string | undefined = undefined;
-  if (caveats && caveats.length > 0) {
-    const caveatSeparator = labels.caveatSeparator ?? '\n';
-    const caveatPrefix = labels.caveatPrefix ?? '';
-    caveatsText = caveats.map(c => caveatPrefix + c).join(caveatSeparator);
-  }
+  const caveatsText = joinCaveats(caveats, labels);
 
   return { summary, caveatsText };
 }
