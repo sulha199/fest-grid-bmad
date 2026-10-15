@@ -11,6 +11,8 @@ import {
   NO_MATCHING_WEEKDAY_SENTINEL_DATE,
   type EventFilterInput,
 } from './buildEventsQueryCondition.js';
+import { compileFilterNodeToQueryCondition } from '../ai-event-filters/compile-filter-node.js';
+import type { FilterNode } from '../ai-event-filters/filter-node.js';
 
 /**
  * Populated-field `EventFilterInput` fixtures exercised below. Exported so Story 9.1a's
@@ -315,5 +317,49 @@ describe('buildEventsQueryCondition: multi-weekday, timezone, and sentinel compo
         ]
       }]
     });
+  });
+});
+
+describe('buildEventsQueryCondition: expression branch (Story 9.4a, AC2, Task 9)', () => {
+  it('an expression-only call returns the exact same compiled condition as calling compileFilterNodeToQueryCondition directly', () => {
+    const expression: FilterNode = {
+      op: 'OR',
+      children: [
+        { field: 'type', value: ['FESTIVAL'] },
+        { field: 'type', value: ['CONCERT'] },
+      ],
+    };
+    const res = buildEventsQueryCondition({ expression });
+    const expected = compileFilterNodeToQueryCondition(expression, {});
+    assert.deepEqual(res, expected);
+  });
+
+  it('when both filter and expression are supplied, expression wins and filter/search/types/categories/nearby/temporalFilter are all ignored', () => {
+    const expression: FilterNode = { field: 'isFree', value: true };
+    const res = buildEventsQueryCondition({
+      expression,
+      filter: { types: ['FESTIVAL'], keyword: 'jazz' },
+      search: 'blues',
+      types: ['CONCERT'],
+      categories: ['MUSIC'],
+      nearby: { latitude: -7.7, longitude: 110.3, radiusKm: 5 },
+      temporalFilter: 'TODAY',
+    });
+    const expected = compileFilterNodeToQueryCondition(expression, {});
+    assert.deepEqual(res, expected);
+    assert.deepEqual(res, { field: 'isFree', operator: 'eq', value: true });
+  });
+
+  it('an expression that compiles to undefined (an empty AND group) returns undefined, matching the existing "no conditions" return shape', () => {
+    const expression: FilterNode = { op: 'AND', children: [] };
+    const res = buildEventsQueryCondition({ expression });
+    assert.equal(res, undefined);
+  });
+
+  it('threads currentDate/timezone through to the compiled expression, matching the flat-filter branch\'s own timezone resolution', () => {
+    const lateUtcInstant = new Date('2026-08-29T23:30:00Z'); // already Aug 30 in Asia/Jakarta
+    const expression: FilterNode = { field: 'dateRange', value: { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY' } };
+    const res = buildEventsQueryCondition({ expression, currentDate: lateUtcInstant, timezone: 'Asia/Jakarta' });
+    assert.deepEqual(res, { field: 'scheduleDateRange', operator: 'overlaps', value: { from: '2026-08-30', to: '2026-08-30' } });
   });
 });

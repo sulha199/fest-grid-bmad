@@ -1,5 +1,7 @@
 import { QueryCondition } from '../query/queryDsl.js';
 import { isValidIanaTimezone } from '../users/validateTimezone.js';
+import { compileFilterNodeToQueryCondition } from '../ai-event-filters/compile-filter-node.js';
+import type { FilterNode } from '../ai-event-filters/filter-node.js';
 export type NearbyFilterInput =
   | { locationPreferenceId: string; radiusKm: number }
   | { latitude: number; longitude: number; radiusKm: number };
@@ -72,6 +74,13 @@ export interface BuildEventsQueryConditionInput {
   temporalFilter?: TemporalFilter | 'TODAY' | 'UPCOMING' | null;
   /** DW-074: optional IANA timezone used to resolve "today" (date boundaries only -- never the `notEnded` instant). */
   timezone?: string | null;
+  /**
+   * Story 9.4a (AC2) -- an alternative, expression-shaped source for the same concern as
+   * `filter`. When supplied, short-circuits everything else (`filter`/`search`/`types`/
+   * `categories`/`nearby`/`temporalFilter` are all ignored in the same call), mirroring
+   * `buildFeedQueryCondition`/`buildAccountEventsQueryCondition`'s own expression-branch shape.
+   */
+  expression?: FilterNode;
 }
 const fmt = (d: Date) => d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
 /**
@@ -350,8 +359,15 @@ export function buildIsFreeCondition(isFree: boolean | null | undefined): QueryC
 }
 
 export function buildEventsQueryCondition({
-  search, types, categories, nearby, filter, currentDate, temporalFilter, timezone
+  search, types, categories, nearby, filter, currentDate, temporalFilter, timezone, expression
 }: BuildEventsQueryConditionInput): QueryCondition | undefined {
+  // Story 9.4a (AC2, Dev Notes decision 2): short-circuits everything else -- `filter`/`search`/
+  // `types`/`categories`/`nearby`/`temporalFilter` are all ignored when `expression` is supplied,
+  // mirroring `buildFeedQueryCondition`/`buildAccountEventsQueryCondition`'s own expression-branch
+  // shape and the pre-existing flat-filter branch's own all-or-nothing precedent.
+  if (expression) {
+    return compileFilterNodeToQueryCondition(expression, { currentDate, timezone });
+  }
   const conditions: QueryCondition[] = [];
   const now = currentDate ?? new Date();
   // DW-074: zoned "today" is used for every date-boundary computation below (the resolved
