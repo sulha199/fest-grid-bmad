@@ -27,3 +27,5 @@ These three were independently validated as producing the same caveat mechanism,
 ## Expression operators (CAP-6)
 
 Fields above are leaves. Leaves combine with `AND`, `OR`, `NOT`: depth ≤ 3, ≤ 12 nodes, `NOT` wraps a leaf or group only. `NOT` keeps events with no value for the negated field. Multiple locations are OR branches. Operators never introduce a new field; anything outside the table is still a caveat.
+
+> **Field naming note (added 2026-10-15, FR98-FR103):** the `location.proximity`/`location.adminArea` dot-paths in the table above describe the **flat** `EventFilterInput.location` object (PRD §4.18). Inside a `FilterNode` expression leaf, these become two separate, mutually-exclusive leaf field names instead — `locationProximity` and `locationAdminArea` — so a single leaf can never represent both at once (the type-level guarantee behind "within one leaf the combination is a caveat, not an error," above). This is why multiple locations are expressed only as OR branches of separate leaves, never as one combined leaf.
