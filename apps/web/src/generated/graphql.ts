@@ -1741,7 +1741,8 @@ export type ResolvePromptToEventFilterMutation = { resolvePromptToEventFilter: {
 
 export type SaveAiEventFilterMutationVariables = Exact<{
   prompt: string;
-  resolvedFilter: EventFilterInput;
+  resolvedFilter?: EventFilterInput | null | undefined;
+  expression?: FilterNodeInput | null | undefined;
 }>;
 
 
@@ -2938,8 +2939,12 @@ export const useResolvePromptToEventFilterMutation = <
     )};
 
 export const SaveAiEventFilterDocument = new TypedDocumentString(`
-    mutation saveAIEventFilter($prompt: String!, $resolvedFilter: EventFilterInput!) {
-  saveAIEventFilter(prompt: $prompt, resolvedFilter: $resolvedFilter) {
+    mutation saveAIEventFilter($prompt: String!, $resolvedFilter: EventFilterInput, $expression: FilterNodeInput) {
+  saveAIEventFilter(
+    prompt: $prompt
+    resolvedFilter: $resolvedFilter
+    expression: $expression
+  ) {
     id
     ownerUserId
     prompt

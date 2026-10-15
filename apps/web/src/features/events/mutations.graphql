@@ -70,8 +70,8 @@ mutation resolvePromptToEventFilter($prompt: String!) {
 }
 
 
-mutation saveAIEventFilter($prompt: String!, $resolvedFilter: EventFilterInput!) {
-  saveAIEventFilter(prompt: $prompt, resolvedFilter: $resolvedFilter) {
+mutation saveAIEventFilter($prompt: String!, $resolvedFilter: EventFilterInput, $expression: FilterNodeInput) {
+  saveAIEventFilter(prompt: $prompt, resolvedFilter: $resolvedFilter, expression: $expression) {
     id
     ownerUserId
     prompt
