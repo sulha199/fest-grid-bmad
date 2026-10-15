@@ -1252,6 +1252,7 @@ export type ResolveScheduleTimezoneResult = {
 export type ResolvedAiEventFilterResult = {
   __typename?: 'ResolvedAIEventFilterResult';
   caveats: Array<Scalars['String']['output']>;
+  expression: FilterNode;
   resolvedFilter: EventFilter;
 };
 
