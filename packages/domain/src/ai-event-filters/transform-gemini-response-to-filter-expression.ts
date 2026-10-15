@@ -169,12 +169,12 @@ export function transformGeminiResponseToFilterExpression(payload: unknown): Gem
         continue;
       }
 
-      const widest = findWidestGroupNode(current);
-      if (!widest || widest.children.length === 0) {
-        // Nothing left to trim -- stop rather than loop forever (should not normally happen,
-        // since a single leaf is always within every limit).
-        break;
-      }
+      // Depth and double-NOT issues are both handled above (the depth guard throws; the
+      // double-NOT guard `continue`s), so the only issue `validation` can still report here is a
+      // node-count violation -- which, given `FILTER_NODE_MAX_NODES` (12) and a max depth of 3,
+      // can only occur when some `AND`/`OR` group holds 2+ children (a leaf/`NOT`-only chain
+      // tops out at node count 3). `findWidestGroupNode` is therefore guaranteed to find one.
+      const widest = findWidestGroupNode(current) as FilterGroupNode;
       current = normalize(trimNodeByIdentity(current, widest));
       if (!trimmedCaveatPushed) {
         pushedCaveats.push('Your prompt described more conditions than the filter supports, so some were dropped.');
