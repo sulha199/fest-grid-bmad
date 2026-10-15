@@ -343,6 +343,7 @@
     "loadingMorePosts": "Memuat postingan lainnya",
     "scrapeInProgressLabel": "Mengambil postingan baru…",
     "scrapeTimeoutMessage": "Masih diproses — periksa lagi dalam beberapa saat.",
+    "scrapeStartedToast": "Pengambilan dimulai. Postingan baru akan segera muncul.",
     "scrapeCapacityExceededToast": "Kapasitas scraper sementara habis. Coba lagi nanti.",
     "scrapeAlreadyInProgressToast": "Proses pengambilan sudah berjalan untuk akun ini.",
     "scrapeNotAllowedForAccountTypeToast": "Pengambilan tidak diizinkan untuk jenis akun ini.",

@@ -109,9 +109,13 @@ export function PostsSelectContent() {
     graphqlClient,
     {
       onSuccess: () => {
-        // Start polling timer
-        setScrapePollingStartTime(Date.now());
-        toast.success(t('scrapePostsButton') || 'Scrape triggered');
+        // The server stamps scrapeTriggeredAt inside the mutation, so refetch the subscriptions
+        // to pick up isScrapeInProgress. The polling timer is deliberately not started here: it
+        // starts once that flag is observed true (see the effect below). Starting it now would
+        // let the completion effect treat the still-stale `false` as "scrape finished" and clear
+        // it, and polling itself only runs while the flag is true.
+        refetchSubs();
+        toast.success(t('scrapeStartedToast') || 'Scrape started');
       },
       onError: (err: any) => {
         const code = err?.response?.errors?.[0]?.extensions?.code;

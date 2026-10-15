@@ -10,10 +10,10 @@ import { graphqlClient } from '@/lib/graphql-client';
 import { usePostSelectionStore } from './post-selection-store';
 
 const mockRouterPush = vi.fn();
-const { mockToastError } = vi.hoisted(() => ({ mockToastError: vi.fn() }));
+const { mockToastError, mockToastSuccess } = vi.hoisted(() => ({ mockToastError: vi.fn(), mockToastSuccess: vi.fn() }));
 
 vi.mock('sonner', () => ({
-  toast: { error: mockToastError, success: vi.fn() },
+  toast: { error: mockToastError, success: mockToastSuccess },
 }));
 
 vi.mock('@/i18n/navigation', () => ({
@@ -651,6 +651,42 @@ describe('PostsSelectContent integration', () => {
       await waitFor(() => {
         expect(scrapeBtn).toBeDisabled();
       });
+    });
+
+    it('shows the in-progress indicator right after the scrape request succeeds', async () => {
+      // The server stamps scrapeTriggeredAt inside the mutation, so the next subscriptions
+      // fetch reports isScrapeInProgress: true. Mimic that: flip the mocked subscription when
+      // the trigger mutation runs.
+      const baseImpl = vi.mocked(graphqlClient.request).getMockImplementation()!;
+      vi.mocked(graphqlClient.request).mockImplementation(async (arg1: any, arg2: any) => {
+        const docStr =
+          arg1 && typeof arg1 === 'object' && 'document' in arg1
+            ? arg1.document.toString()
+            : arg1
+            ? arg1.toString()
+            : '';
+        if (docStr.includes('triggerAccountScrape')) {
+          mockSubscriptions = mockSubscriptions.map((sub) => ({
+            ...sub,
+            account: { ...sub.account, isScrapeInProgress: true },
+          }));
+          return { triggerAccountScrape: { triggered: true, isInitialScrape: false } };
+        }
+        return baseImpl(arg1, arg2);
+      });
+
+      renderComponent();
+
+      const scrapeBtn = await screen.findByRole('button', { name: 'Scrape Posts' });
+      expect(scrapeBtn).not.toBeDisabled();
+      fireEvent.click(scrapeBtn);
+
+      expect(await screen.findByText(/Scraping for new posts/)).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Scrape Posts' })).toBeDisabled();
+      });
+      // The toast says the scrape started, not the button's label.
+      expect(mockToastSuccess).toHaveBeenCalledWith(enMessages.ManualPostSelectionPage.scrapeStartedToast);
     });
 
     it('shows in-progress label when scraping is active', async () => {
