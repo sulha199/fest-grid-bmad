@@ -2536,9 +2536,9 @@ action_items:
     status: open
     created_at: "2026-09-02"
   - id: retro-7-1
-    description: "Refine AI Prompts: Monitor user behavior with AI filters to tune the system prompt for better date/location extraction accuracy. Folded into backlog IDEA-069 (Epic 9, Story 9.7)."
+    description: "Refine AI Prompts: Monitor user behavior with AI filters to tune the system prompt for better date/location extraction accuracy. Folded into backlog IDEA-069 (Epic 9, Story 9.7). Closed by Story 9.7's golden-prompt fixture regression suite + opt-in nightly live-drift report -- a fixed-suite/report mechanism, narrower than this item's original open-ended 'monitor user behavior' framing (see Story 9.7 Dev Notes decision 6)."
     owner: Alice
-    status: open
+    status: closed
     created_at: "2026-08-29"
   - id: retro-7-2
     description: "Performance Monitoring: Keep an eye on Gemini API response times during FilterHub prompt resolutions."

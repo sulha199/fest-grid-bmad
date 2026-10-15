@@ -326,6 +326,17 @@ The AI Gateway wraps all outbound Google Gemini API calls behind a single Adapte
 
 To support automated default-location inference when scraping social media accounts, the application requires a platform-owned fallback key (`SYSTEM_GEMINI_API_KEY`) classified identically to `GEOAPIFY_API_KEY`. This key is obtained the same way as the personal test key described above, but is funded by the platform and used exclusively as the final fallback for default-location inference when no subscriber has a valid, unexhausted key. It is structurally isolated and never used for general post extraction.
 
+#### Nightly Golden-Prompt Eval Key (`GEMINI_NIGHTLY_EVAL_API_KEY`)
+
+To support the opt-in nightly drift report for the AI filter's golden-prompt fixture suite
+(Story 9.7, `.github/workflows/ai-filter-golden-prompt-nightly-eval.yml`), a third, separate
+Gemini API key is required. Obtained the same way as the personal test key described above
+(Google AI Studio free-tier key), funded by the platform, and configured as a **GitHub Actions
+repository secret** (`GEMINI_NIGHTLY_EVAL_API_KEY`) -- not an AWS Secrets Manager entry, since
+this key is consumed only by a CI workflow, never by a deployed Lambda. Structurally isolated
+from both BYOK keys and `SYSTEM_GEMINI_API_KEY`: it is never used for post extraction or
+default-location inference, only for the nightly eval script's own calls.
+
 ## 9. Scraper Adapter (Apify)
 
 Apify's `apify/instagram-scraper` actor is the concrete Instagram `ScraperAdapter` implementation (Story 3.4). This is a single, **app-funded** credential the application itself owns and pays for — never a per-user BYOK key, unlike the Gemini setup above.

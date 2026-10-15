@@ -1,0 +1,49 @@
+name: Golden-Prompt Live Gemini Eval (nightly)
+
+# Opt-in, nightly drift report for the AI filter's golden-prompt fixture suite (Story 9.7
+# AC2). Entirely separate from ci.yml -- a pull_request or push NEVER triggers this workflow,
+# and apps/backend/scripts/run-golden-prompt-live-eval.ts is itself a no-op unless
+# RUN_LIVE_GEMINI_EVAL=true is set (set only here, never in ci.yml).
+on:
+  schedule:
+    - cron: '17 19 * * *' # nightly, off-peak UTC
+  workflow_dispatch: {}
+
+jobs:
+  golden-prompt-live-eval:
+    name: Golden-Prompt Live Gemini Eval (nightly)
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'package.json'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Workspace packages (@festgrid/domain) resolve to their gitignored dist/ output, so they
+      # must be built before the eval script can import them (same rationale as
+      # backfill-post-media-keys.yml's own "Build workspace packages" step).
+      - name: Build workspace packages
+        run: pnpm run build
+
+      - name: Run golden-prompt live eval
+        env:
+          RUN_LIVE_GEMINI_EVAL: 'true'
+          GEMINI_NIGHTLY_EVAL_API_KEY: ${{ secrets.GEMINI_NIGHTLY_EVAL_API_KEY }}
+          # loadBackendEnv() (invoked inside callGeminiGenerateContent) requires this; this
+          # script never binds a port, so any valid number works (same note as
+          # backfill-post-media-keys.yml's BACKEND_PORT usage).
+          BACKEND_PORT: '4001'
+        run: pnpm --filter @festgrid/backend exec tsx scripts/run-golden-prompt-live-eval.ts
