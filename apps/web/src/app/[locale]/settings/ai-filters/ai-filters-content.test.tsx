@@ -183,7 +183,7 @@ describe('AiFiltersContent', () => {
       expect(screen.getByText(/free rock concerts/i)).toBeInTheDocument();
     });
 
-    const deleteButton = screen.getByLabelText('Delete');
+    const deleteButton = screen.getAllByLabelText('Delete')[0];
     fireEvent.click(deleteButton);
 
     await waitFor(() => {
