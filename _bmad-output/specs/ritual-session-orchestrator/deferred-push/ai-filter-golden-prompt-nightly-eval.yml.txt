@@ -46,4 +46,4 @@ jobs:
           # script never binds a port, so any valid number works (same note as
           # backfill-post-media-keys.yml's BACKEND_PORT usage).
           BACKEND_PORT: '4001'
-        run: pnpm --filter @festgrid/backend exec tsx scripts/run-golden-prompt-live-eval.ts
+        run: pnpm --filter backend exec tsx scripts/run-golden-prompt-live-eval.ts

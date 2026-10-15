@@ -8,3 +8,7 @@ The file is kept locally (excluded via `.git/info/exclude`) and a copy is stored
 `ai-filter-golden-prompt-nightly-eval.yml.txt`. To land it, a human with workflow scope should copy it to
 `.github/workflows/ai-filter-golden-prompt-nightly-eval.yml` and push. Review it first: once on the default
 branch it runs nightly and calls the live Gemini API with `SYSTEM_GEMINI_API_KEY`.
+
+## Update (2026-10-15)
+
+The parked copy was corrected on review: its last step now uses `pnpm --filter backend exec ...` (the package is named `backend`; the earlier `@festgrid/backend` filter matched no project). A second push attempt after a session-mode change was still rejected for the missing `workflow` scope, so the file remains parked here until a token with that scope can push it to `.github/workflows/ai-filter-golden-prompt-nightly-eval.yml`. The repo secret `GEMINI_NIGHTLY_EVAL_API_KEY` must exist before the first nightly run.
