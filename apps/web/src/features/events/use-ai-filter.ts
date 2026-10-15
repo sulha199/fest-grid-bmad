@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl';
 import { useResolvePromptToEventFilterMutation, useSaveAiEventFilterMutation, EventFilterInput } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
 import { useApiKeyStatus } from '@/features/onboarding/use-has-api-key';
-import { renderAIFilterSummary } from '@festgrid/domain/ai-event-filters';
+import { renderFilterExpressionSummary, expressionFromFlatFilter } from '@festgrid/domain/ai-event-filters';
 import type { FilterNode } from '@festgrid/domain/ai-event-filters';
 
 export function useAIFilter() {
