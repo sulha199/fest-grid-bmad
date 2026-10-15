@@ -4,6 +4,7 @@ import { transformGeminiResponseToFilterExpression } from './transform-gemini-re
 import { normalize } from './normalize-filter-node.js';
 import { expressionFromFlatFilter } from './flat-filter-conversion.js';
 import { transformGeminiResponseToEventFilter } from './transform-gemini-response-to-event-filter.js';
+import { validateFilterNode } from './filter-node-schema.js';
 import { FILTER_NODE_MAX_DEPTH, type FilterNode } from './filter-node.js';
 
 /** `depth(leaf) = 1`; `depth(NOT x) = 1 + depth(x)`; `depth(group) = 1 + max(depth(c))`. */
@@ -124,6 +125,69 @@ describe('transformGeminiResponseToFilterExpression (AC2)', () => {
       assert.deepEqual(result.expression, { op: 'AND', children: [] });
       assert.deepEqual(result.caveats, []);
     }
+  });
+
+  it('a non-plain-object raw "expression" value (e.g. a bare string) degrades to an empty filter', () => {
+    const result = transformGeminiResponseToFilterExpression({ expression: 'garbage-string', caveats: [] });
+    assert.deepEqual(result.expression, { op: 'AND', children: [] });
+    assert.deepEqual(result.caveats, []);
+  });
+
+  it('an OR whose only child is entirely out-of-vocabulary (no surviving leaves) degrades to an empty filter', () => {
+    const result = transformGeminiResponseToFilterExpression({
+      expression: { op: 'OR', children: [{ notARealField: 'xyz' }] },
+      caveats: [],
+    });
+    assert.deepEqual(result.expression, { op: 'AND', children: [] });
+    assert.deepEqual(result.caveats, []);
+  });
+
+  it('a NOT whose child is entirely out-of-vocabulary (not a double-NOT) degrades to an empty filter without the double-negation caveat', () => {
+    const result = transformGeminiResponseToFilterExpression({
+      expression: { op: 'NOT', child: { notARealField: 'xyz' } },
+      caveats: [],
+    });
+    assert.deepEqual(result.expression, { op: 'AND', children: [] });
+    assert.deepEqual(result.caveats, []);
+  });
+
+  it('trims a widest group nested inside a NOT (exercising the NOT-recursion branch of the trim/widest-search logic)', () => {
+    const manyKeywords = Array.from({ length: 13 }, (_, i) => ({ keyword: `kw-${i}` }));
+    const result = transformGeminiResponseToFilterExpression({
+      expression: { op: 'NOT', child: { op: 'OR', children: manyKeywords } },
+      caveats: [],
+    });
+    assert.ok(validateFilterNode(result.expression).valid);
+    assert.deepEqual(result.caveats, [
+      'Your prompt described more conditions than the filter supports, so some were dropped.',
+    ]);
+  });
+
+  it('trims a widest group nested one level inside an unrelated sibling group (exercising the group-recursion branch of the trim logic)', () => {
+    const manyKeywords = Array.from({ length: 13 }, (_, i) => ({ keyword: `kw-${i}` }));
+    const result = transformGeminiResponseToFilterExpression({
+      expression: { op: 'AND', children: [{ op: 'OR', children: manyKeywords }, { keyword: 'extra' }] },
+      caveats: [],
+    });
+    assert.ok(validateFilterNode(result.expression).valid);
+    assert.deepEqual(result.caveats, [
+      'Your prompt described more conditions than the filter supports, so some were dropped.',
+    ]);
+  });
+
+  it('rethrows on a depth violation after construction (adversarial raw JSON, not reachable from a schema-conformant Gemini response, but this function must never silently swallow one)', () => {
+    assert.throws(() => {
+      transformGeminiResponseToFilterExpression({
+        expression: {
+          op: 'AND',
+          children: [
+            { op: 'NOT', child: { op: 'OR', children: [{ keyword: 'a' }, { keyword: 'b' }] } },
+            { keyword: 'c' },
+          ],
+        },
+        caveats: [],
+      });
+    }, /depth/i);
   });
 
   it('silently drops a leaf with an out-of-vocabulary/garbage field inside an otherwise-valid tree (no caveat pushed by this function)', () => {

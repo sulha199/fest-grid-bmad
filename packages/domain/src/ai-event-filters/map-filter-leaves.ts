@@ -1,4 +1,4 @@
-import { isFilterGroupNode, isFilterLeaf, isFilterNotNode, type FilterLeaf, type FilterNode } from './filter-node.js';
+import { isFilterGroupNode, isFilterNotNode, type FilterLeaf, type FilterNode } from './filter-node.js';
 
 /**
  * Shared, pure tree-editing primitive (Story 9.4 AC3): walks `node`, running every leaf through
@@ -20,18 +20,6 @@ export function mapFilterLeaves(
   node: FilterNode,
   mapLeaf: (leaf: FilterLeaf) => FilterLeaf | undefined
 ): FilterNode | undefined {
-  if (isFilterLeaf(node)) {
-    return mapLeaf(node);
-  }
-
-  if (isFilterNotNode(node)) {
-    const mappedChild = mapFilterLeaves(node.child, mapLeaf);
-    if (mappedChild === undefined) {
-      return undefined;
-    }
-    return { op: 'NOT', child: mappedChild };
-  }
-
   if (isFilterGroupNode(node)) {
     const mappedChildren = node.children
       .map((child) => mapFilterLeaves(child, mapLeaf))
@@ -42,5 +30,14 @@ export function mapFilterLeaves(
     return { op: node.op, children: mappedChildren };
   }
 
-  return node;
+  if (isFilterNotNode(node)) {
+    const mappedChild = mapFilterLeaves(node.child, mapLeaf);
+    if (mappedChild === undefined) {
+      return undefined;
+    }
+    return { op: 'NOT', child: mappedChild };
+  }
+
+  // Neither a group nor a `NOT` -- by `FilterNode`'s own union, this is a `FilterLeaf`.
+  return mapLeaf(node);
 }
