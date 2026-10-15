@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { DateAnchor, DateOffsetUnit } from '../events/buildEventsQueryCondition.js';
+import { DateAnchor, DateOffsetUnit, type DayOfWeek } from '../events/buildEventsQueryCondition.js';
 import type { AIFilterSummaryLabels } from './render-ai-filter-summary.js';
 import {
   formatAccountIdClause,
@@ -127,26 +127,26 @@ describe('summary-clause-formatters', () => {
   });
 
   it('formatDayOfWeekClause: weekend exact set', () => {
-    assert.equal(formatDayOfWeekClause(['SAT', 'SUN'], lbls), 'weekends');
-    assert.equal(formatDayOfWeekClause(['SUN', 'SAT'], lbls), 'weekends');
+    assert.equal(formatDayOfWeekClause(['SAT', 'SUN'] as DayOfWeek[], lbls), 'weekends');
+    assert.equal(formatDayOfWeekClause(['SUN', 'SAT'] as DayOfWeek[], lbls), 'weekends');
     // no weekends label -> falls through to generic join
-    assert.equal(formatDayOfWeekClause(['SAT', 'SUN'], { ...lbls, weekends: undefined, daysOfWeek: { SAT: 'Saturday', SUN: 'Sunday' } }), 'Saturday or Sunday');
+    assert.equal(formatDayOfWeekClause(['SAT', 'SUN'] as DayOfWeek[], { ...lbls, weekends: undefined, daysOfWeek: { SAT: 'Saturday', SUN: 'Sunday' } }), 'Saturday or Sunday');
   });
 
   it('formatDayOfWeekClause: weekday exact set', () => {
-    assert.equal(formatDayOfWeekClause(['MON', 'TUE', 'WED', 'THU', 'FRI'], lbls), 'weekdays');
-    assert.equal(formatDayOfWeekClause(['MON', 'TUE', 'WED', 'THU', 'FRI'], { ...lbls, weekdays: undefined, daysOfWeek: undefined }), 'MON, TUE, WED, THU or FRI');
+    assert.equal(formatDayOfWeekClause(['MON', 'TUE', 'WED', 'THU', 'FRI'] as DayOfWeek[], lbls), 'weekdays');
+    assert.equal(formatDayOfWeekClause(['MON', 'TUE', 'WED', 'THU', 'FRI'] as DayOfWeek[], { ...lbls, weekdays: undefined, daysOfWeek: undefined }), 'MON, TUE, WED, THU or FRI');
   });
 
   it('formatDayOfWeekClause: arbitrary multi-value set uses or-word', () => {
-    assert.equal(formatDayOfWeekClause(['FRI', 'SAT'], lbls), 'Friday or Saturday');
-    assert.equal(formatDayOfWeekClause(['FRI', 'SAT'], { ...lbls, or: undefined }), 'Friday or Saturday');
+    assert.equal(formatDayOfWeekClause(['FRI', 'SAT'] as DayOfWeek[], lbls), 'Friday or Saturday');
+    assert.equal(formatDayOfWeekClause(['FRI', 'SAT'] as DayOfWeek[], { ...lbls, or: undefined }), 'Friday or Saturday');
   });
 
   it('formatDayOfWeekClause: single value', () => {
-    assert.equal(formatDayOfWeekClause('FRI', lbls), 'Friday');
-    assert.equal(formatDayOfWeekClause('MON', { ...lbls, daysOfWeek: undefined }), 'MON');
-    assert.equal(formatDayOfWeekClause(['FRI'], lbls), 'Friday');
+    assert.equal(formatDayOfWeekClause('FRI' as DayOfWeek, lbls), 'Friday');
+    assert.equal(formatDayOfWeekClause('MON' as DayOfWeek, { ...lbls, daysOfWeek: undefined }), 'MON');
+    assert.equal(formatDayOfWeekClause(['FRI'] as DayOfWeek[], lbls), 'Friday');
   });
 
   it('formatTemporalFilterClause: known and unknown values', () => {
