@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-15T10:35:00Z
+last_updated: 2026-10-15T14:03:45Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -2523,7 +2523,7 @@ development_status:
   # already support one. See epics.md Story 9.4a Note.
   9-4a-wire-the-resolved-ai-filter-expression-into-discovery-feed-and-favorites-query-building: review
   9-5-render-expression-summaries-in-english-and-indonesian: review
-  9-6-show-long-expression-summaries-in-the-ai-filter-overlay-and-filterhub: in-progress
+  9-6-show-long-expression-summaries-in-the-ai-filter-overlay-and-filterhub: review
   9-7-add-golden-prompt-evals-for-the-ai-filter: backlog
   9-8-rate-limit-prompt-resolution: backlog
   9-9z-ratchet-every-filter-consumer-goes-through-the-shared-compiler: backlog
