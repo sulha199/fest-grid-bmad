@@ -5,7 +5,7 @@ import { resolvers } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
-import { users, posts, apiKeys, socialMediaAccountProfiles, subscriptions, manualExtractionJobs, vendorCallLocks } from '@festgrid/database';
+import { users, posts, apiKeys, socialMediaAccountProfiles, subscriptions, manualExtractionJobs, vendorCallLocks, postAccountAssociations } from '@festgrid/database';
 import { and, eq, desc } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import '../lib/scraper/register-adapters.js';
@@ -849,6 +849,77 @@ test('manual post selection & extraction integration tests', async (t) => {
       assert.strictEqual(filtered.length, unfiltered.length - unfiltered.filter((p) => p.isExtracted).length);
     } finally {
       await db.update(posts).set({ isExtracted: false }).where(eq(posts.id, target.id));
+    }
+  });
+
+  await t.test('postsByAccount and selectPostsForExtraction cover a post stored under a twin profile but scraped under the subscribed account', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    // Subscribing keys the profile by username while publisher resolution keys it by the vendor's
+    // numeric owner id, so a scrape's posts can land on a twin row the subscriber never subscribed
+    // to. The post's SCRAPING_SOURCE association still points at the subscribed profile.
+    const [twinProfile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: `twin-numeric-${Date.now()}-${Math.random()}`,
+      platform: 'instagram',
+      username: 'twin-of-test-profile',
+      displayName: 'Twin Of Test Profile',
+    }).returning();
+    const [twinPost] = await db.insert(posts).values({
+      accountId: twinProfile.id,
+      platform: 'instagram',
+      content: 'post stored under the twin profile',
+      postUrl: `https://instagram.com/p/twin-post-${Date.now()}-${Math.random()}`,
+      publishedAt: new Date(),
+    }).returning();
+    await db.insert(postAccountAssociations).values({
+      postId: twinPost.id,
+      accountId: testProfile.id,
+      role: 'SCRAPING_SOURCE',
+    });
+
+    try {
+      const listResponse = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query PostsByAccount($accountId: ID!) {
+              postsByAccount(accountId: $accountId, limit: 100, onlyUnextracted: true) {
+                items { id }
+              }
+            }
+          `,
+          variables: { accountId: testProfile.id }
+        })
+      });
+      const listResult = await listResponse.json();
+      assert.ok(!listResult.errors, 'should not have errors');
+      assert.ok(
+        listResult.data.postsByAccount.items.some((p: { id: string }) => p.id === twinPost.id),
+        'the twin-owned post scraped under the subscribed account is listed'
+      );
+
+      const selectResponse = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation SelectPosts($postIds: [ID!]!) {
+              selectPostsForExtraction(postIds: $postIds) {
+                id
+              }
+            }
+          `,
+          variables: { postIds: [twinPost.id] }
+        })
+      });
+      const selectResult = await selectResponse.json();
+      assert.ok(!selectResult.errors, 'selecting it for extraction is not FORBIDDEN: ' + JSON.stringify(selectResult.errors));
+      assert.strictEqual(selectResult.data.selectPostsForExtraction[0].id, twinPost.id);
+    } finally {
+      await db.delete(postAccountAssociations).where(eq(postAccountAssociations.postId, twinPost.id));
+      await db.delete(posts).where(eq(posts.id, twinPost.id));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, twinProfile.id));
     }
   });
 

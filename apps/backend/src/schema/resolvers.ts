@@ -10,6 +10,7 @@ import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, gt
 import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink, isScrapableAccountType } from '@festgrid/domain/scraper';
+import { postsScrapedUnderAccount, getPostAccessAccountIds } from '../lib/posts/posts-scraped-under-account.js';
 import { selectApiKey } from '@festgrid/domain/ai-gateway';
 import { callGemini, AiGatewayExhaustedError, AiGatewayBusyError } from '../lib/ai-gateway/adapter.js';
 import { fetchCandidateKeys } from '../lib/ai-gateway/usage-store.js';
@@ -2210,8 +2211,10 @@ Constraints and Guidelines:
         .where(and(eq(subscriptions.userId, authUser.userId), activeOnly(subscriptions)));
       
       const subAccountIds = new Set(activeSubs.map(s => s.accountId));
+      const postAccessAccountIds = await getPostAccessAccountIds(submitPosts);
       for (const post of submitPosts) {
-        if (!subAccountIds.has(post.accountId)) {
+        const reachableVia = postAccessAccountIds.get(post.id) ?? new Set([post.accountId]);
+        if (![...reachableVia].some((id) => subAccountIds.has(id))) {
           throw new GraphQLError('No active subscription to this account', {
             extensions: { code: 'FORBIDDEN' }
           });
@@ -2778,7 +2781,9 @@ Constraints and Guidelines:
       }
 
       const qLimit = limit ?? 20;
-      const conditions = [eq(posts.accountId, accountId)];
+      // Posts owned by the account, plus posts whose scrape ran under it but are stored under a
+      // twin profile of the same platform account (see posts-scraped-under-account.ts).
+      const conditions = [postsScrapedUnderAccount(accountId)];
       // Manual extraction only lists posts still awaiting extraction (PRD 3.10); the filter runs in
       // SQL so cursor pages stay full instead of being thinned out by client-side hiding.
       if (onlyUnextracted) {
