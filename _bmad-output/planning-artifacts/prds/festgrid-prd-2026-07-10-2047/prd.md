@@ -7,7 +7,7 @@ status: "final"
 
 created: "2026-07-10T20:50:17Z"
 
-updated: "2026-10-02T00:00:00Z"
+updated: "2026-10-15T00:00:00Z"
 
 ---
 
@@ -300,7 +300,7 @@ Full rationale and the authoritative rule-by-rule reference lives in `monetizati
 *   **Faces are blurred before an image is sent to the AI vendor, unless the post's owner opted in. (FR115, added 2026-10-04, Architecture Spine AD-28 Rule 10)** When the backend setting `BLUR_FACES_BEFORE_AI` is on (the default), every image of a post, including each carousel slide, has detected faces blurred **before** it is sent to the AI vendor for extraction, so an identifiable bystander's face does not leave FestDaily unblurred. The exception is a post whose **owner** (the account that published it, never a co-author) has `isImageStorageOptedIn = true`: its original images are sent unchanged. If the blur cannot be completed for an image, that image is not sent: the post is extracted from its caption text only. Setting `BLUR_FACES_BEFORE_AI` off restores the previous behavior, where the vendor receives the original image. The same detection pass produces the stored blurred thumbnail, so detection runs once per image.
 *   **Event detail page:** Uses an embedded Instagram post (oEmbed-style), not a raw hotlinked image URL. This is a copyright/retention-footprint improvement, not by itself a personal-data-exposure fix — an embed showing an identifiable individual is still subject to the same display-lifecycle bound as a hotlinked image would be. Requires a defined fallback ("content no longer available" for non-opted-in accounts; `durableImageUrl` is acceptable for opted-in accounts) if the source post becomes unavailable.
 *   **`SocialMediaAccountProfile.profileImageUrl` is never stored or displayed on any surface, including via embed, regardless of the account's image-storage opt-in status** (Section 4.5) — this is a stricter, independent rule from the post/poster-image handling above.
-*   **Account-type filtering:** scraping must exclude personal attendee accounts and curator/local-guide accounts — only organizer/venue/event accounts are in scope. Not yet built; tracked in epics.md.
+*   **Account-type filtering:** **(Amended 2026-10-15; Stories 3.4n, 3.4o)** Each subscribed account is classified as an organizer/venue/event, a curator/local-guide, or a personal account. An account is scraped only if it has never been classified (legacy), or its classification is confirmed as organizer/venue/event or curator/local-guide. Personal accounts, and any account whose classification is still awaiting moderator approval, are never scraped. The same rule applies to the daily batch scrape, the on-demand "scrape this account" action and the scrape started when a user first subscribes. Posts from a curator/local-guide account are scraped only to extract events (which are stubs, Section 3.7): their images are not durably stored unless the account is opted in (Section 4.5), and a post's caption is never displayed and is cleared once extraction finishes. When an on-demand scrape is refused because of the account type, the user is told so rather than shown a generic failure.
 
 ### 3.17 Self-Service Account Claim & Ownership Verification (Epic 8, added 2026-09-11)
 
@@ -786,9 +786,11 @@ interface Post {
    */
   id: string;
   /**
-   * The content (text) of the post.
+   * The content (text) of the post. **(Amended 2026-10-15, Story 3.4o)** `null` for a post from a
+   * curator/local-guide account once extraction has finished: the caption is used for extraction
+   * but never displayed or retained (Section 3.16).
    */
-  content: string;
+  content: string | null;
   /**
    * The URL of the image in the post, if any. Also used as the skeleton-loader placeholder
    * and playback-failure fallback when `videoUrl` is present (Section 3.3.5). For posts that
