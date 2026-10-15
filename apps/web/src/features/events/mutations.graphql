@@ -46,6 +46,25 @@ mutation resolvePromptToEventFilter($prompt: String!) {
       venueType
       isFree
     }
+    expression {
+      op
+      field
+      value
+      children {
+        op
+        field
+        value
+        children { op field value }
+        child { op field value }
+      }
+      child {
+        op
+        field
+        value
+        children { op field value }
+        child { op field value }
+      }
+    }
     caveats
   }
 }

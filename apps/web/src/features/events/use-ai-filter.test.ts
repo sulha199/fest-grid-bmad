@@ -8,6 +8,7 @@ let mockApiKeyLoading = false;
 let mockMutationError: any = null;
 let mockResolvedFilter: any = { types: ['FESTIVAL'], keyword: 'jazz' };
 let mockCaveats: any = ['Some caveats'];
+let mockExpression: any = { field: 'type', value: ['FESTIVAL'] };
 
 // Mock next-intl
 const mockTranslate = Object.assign(
@@ -45,6 +46,7 @@ vi.mock('@/generated/graphql', () => ({
           resolvePromptToEventFilter: {
             resolvedFilter: mockResolvedFilter,
             caveats: mockCaveats,
+            expression: mockExpression,
           },
         }, { prompt });
       }
@@ -72,6 +74,7 @@ describe('useAIFilter hook', () => {
     mockMutationError = null;
     mockResolvedFilter = { types: ['FESTIVAL'], keyword: 'jazz' };
     mockCaveats = ['Some caveats'];
+    mockExpression = { field: 'type', value: ['FESTIVAL'] };
   });
 
   it('correctly resolves key presence', () => {
@@ -112,6 +115,79 @@ describe('useAIFilter hook', () => {
     });
     rerender();
     expect(result.current.activeFilter).toBeNull();
+  });
+
+  // Story 9.4a (AC1) -- activeExpression stores the resolved `FilterNode` expression, not just
+  // the lossy flat projection, and is cleared in lockstep with activeFilter at every clear site.
+  it('stores the resolved expression as activeExpression after a non-flat mutation response', () => {
+    mockResolvedFilter = {};
+    mockExpression = {
+      op: 'OR',
+      children: [
+        { field: 'type', value: ['FESTIVAL'] },
+        { field: 'type', value: ['CONCERT'] },
+      ],
+    };
+    const { result } = renderHook(() => useAIFilter(), {
+      wrapper: NuqsTestingAdapter,
+    });
+
+    act(() => {
+      result.current.overlayProps.onSubmit('jazz or blues');
+    });
+
+    expect(result.current.activeExpression).toEqual(mockExpression);
+  });
+
+  it('clears activeExpression (null) after onAIExpand()', () => {
+    const { result, rerender } = renderHook(() => useAIFilter(), {
+      wrapper: NuqsTestingAdapter,
+    });
+
+    act(() => {
+      result.current.overlayProps.onSubmit('jazz festivals');
+    });
+    expect(result.current.activeExpression).toEqual(mockExpression);
+
+    act(() => {
+      result.current.filterHubProps.onAIExpand();
+    });
+    rerender();
+    expect(result.current.activeExpression).toBeNull();
+  });
+
+  it('clears activeExpression (null) after onAIClear()', () => {
+    const { result, rerender } = renderHook(() => useAIFilter(), {
+      wrapper: NuqsTestingAdapter,
+    });
+
+    act(() => {
+      result.current.overlayProps.onSubmit('jazz festivals');
+    });
+    expect(result.current.activeExpression).toEqual(mockExpression);
+
+    act(() => {
+      result.current.filterHubProps.onAIClear();
+    });
+    rerender();
+    expect(result.current.activeExpression).toBeNull();
+  });
+
+  it('clears activeExpression (null) after a fresh onSubmit() following a prior one (re-prompt)', () => {
+    const { result, rerender } = renderHook(() => useAIFilter(), {
+      wrapper: NuqsTestingAdapter,
+    });
+
+    act(() => {
+      result.current.overlayProps.onSubmit('jazz festivals');
+    });
+    expect(result.current.activeExpression).toEqual(mockExpression);
+
+    act(() => {
+      result.current.overlayProps.onRePrompt();
+    });
+    rerender();
+    expect(result.current.activeExpression).toBeNull();
   });
 });
 

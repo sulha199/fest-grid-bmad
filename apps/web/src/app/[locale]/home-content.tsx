@@ -209,7 +209,7 @@ export function HomeContent() {
 
   const prefersReducedMotion = usePrefersReducedMotion();
   const pagination = useListPaginationController({
-    filterKey: { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter, temporalFilter },
+    filterKey: { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter, aiExpression: aiFilter.activeExpression, temporalFilter },
     initialCursor: 0,
     onReset: () => {
       if (typeof window !== 'undefined') {
@@ -226,11 +226,13 @@ export function HomeContent() {
     status,
     error
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ['events', { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter, temporalFilter }, pagination.resetToken],
+    queryKey: ['events', { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter, aiExpression: aiFilter.activeExpression, temporalFilter }, pagination.resetToken],
     queryFn: async ({ pageParam }) => {
-      const condition = aiFilter.activeFilter
-        ? buildEventsQueryCondition({ filter: { ...aiFilter.activeFilter, temporalFilter } })
-        : buildEventsQueryCondition({ search: q, types, categories, nearby: resolvedNearby, temporalFilter });
+      const condition = aiFilter.activeExpression
+        ? buildEventsQueryCondition({ expression: aiFilter.activeExpression })
+        : aiFilter.activeFilter
+          ? buildEventsQueryCondition({ filter: { ...aiFilter.activeFilter, temporalFilter } })
+          : buildEventsQueryCondition({ search: q, types, categories, nearby: resolvedNearby, temporalFilter });
       return graphqlClient.request<GetEventsQuery>(GetEventsDocument, {
         limit: 10,
         offset: pageParam as number,

@@ -94,7 +94,8 @@ export function AiFiltersContent() {
   const handleRowClick = (filter: any) => {
     if (isPending(filter.id)) return;
     const filterParam = encodeURIComponent(JSON.stringify(filter.resolvedFilter));
-    router.push(`/?ai_filter=${filterParam}`);
+    const expressionParam = encodeURIComponent(JSON.stringify(filter.expression));
+    router.push(`/?ai_filter=${filterParam}&ai_expression=${expressionParam}`);
   };
 
   const summaryLabels = useMemo(() => {

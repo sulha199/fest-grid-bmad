@@ -31,6 +31,7 @@ import { useRouter } from "@/i18n/navigation"
 import { useSearchParams } from "next/navigation"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
 import { buildEventsQueryCondition, EventFilterInput, NearbyFilterInput, DayOfWeek as DomainDayOfWeek } from "@festgrid/domain/events"
+import type { FilterNode } from "@festgrid/domain/ai-event-filters"
 import { useAIFilter } from "@/features/events/use-ai-filter"
 import { useTemporalFilter } from "@/features/events/use-temporal-filter"
 import { useNearbyFilter } from "../use-nearby-filter"
@@ -56,11 +57,14 @@ function buildFavoritesQueryCondition(
   categories: string[],
   filter?: EventFilterInput | null,
   nearby?: NearbyFilterInput,
-  temporalFilter?: "TODAY" | "UPCOMING" | null
+  temporalFilter?: "TODAY" | "UPCOMING" | null,
+  expression?: FilterNode | null
 ): EventQueryConditionInput {
-  const dynamicQuery = (filter
-    ? buildEventsQueryCondition({ filter: { ...filter, temporalFilter: temporalFilter ?? filter.temporalFilter } })
-    : buildEventsQueryCondition({ search: q, types, categories, nearby, temporalFilter })) as
+  const dynamicQuery = (expression
+    ? buildEventsQueryCondition({ expression })
+    : filter
+      ? buildEventsQueryCondition({ filter: { ...filter, temporalFilter: temporalFilter ?? filter.temporalFilter } })
+      : buildEventsQueryCondition({ search: q, types, categories, nearby, temporalFilter })) as
     | EventQueryConditionInput
     | undefined
 
@@ -166,8 +170,8 @@ export function FavoritesContent() {
 
   const favoritesQuery = useMemo(
     () =>
-      buildFavoritesQueryCondition(q, types, categories, aiFilter.activeFilter ?? undefined, resolvedNearby, temporalFilter),
-    [q, types, categories, aiFilter.activeFilter, resolvedNearby, temporalFilter]
+      buildFavoritesQueryCondition(q, types, categories, aiFilter.activeFilter ?? undefined, resolvedNearby, temporalFilter, aiFilter.activeExpression ?? undefined),
+    [q, types, categories, aiFilter.activeFilter, resolvedNearby, temporalFilter, aiFilter.activeExpression]
   )
 
   // AC1: do not fetch any data if user is unauthenticated.
@@ -182,7 +186,7 @@ export function FavoritesContent() {
     // Deliberately keyed on the same {q, types, categories, nearby, aiFilter} snapshot
     // idSnapshotData itself uses, NOT on frozenIds (a derived value) -- see Dev Notes
     // "Why the controller's filterKey deliberately excludes frozenIds (Favorites)".
-    filterKey: { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter, temporalFilter },
+    filterKey: { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter, expression: aiFilter.activeExpression, temporalFilter },
     initialCursor: 0,
     onReset: () => {
       if (typeof window !== 'undefined') {
@@ -204,7 +208,7 @@ export function FavoritesContent() {
     status: idSnapshotStatus,
     error: idSnapshotError,
   } = useQuery<GetFavoritedEventIdsQuery, Error>({
-    queryKey: ["favoriteIds", { q, types, categories, filter: aiFilter.activeFilter, nearby: resolvedNearby, temporalFilter }],
+    queryKey: ["favoriteIds", { q, types, categories, filter: aiFilter.activeFilter, expression: aiFilter.activeExpression, nearby: resolvedNearby, temporalFilter }],
     queryFn: async () => {
       return graphqlClient.request<GetFavoritedEventIdsQuery>(GetFavoritedEventIdsDocument, {
         query: favoritesQuery,
@@ -244,7 +248,7 @@ export function FavoritesContent() {
     status,
     error,
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ["favoriteEvents", { ids: frozenIds, q, types, categories, filter: aiFilter.activeFilter, nearby: resolvedNearby, temporalFilter }, pagination.resetToken],
+    queryKey: ["favoriteEvents", { ids: frozenIds, q, types, categories, filter: aiFilter.activeFilter, expression: aiFilter.activeExpression, nearby: resolvedNearby, temporalFilter }, pagination.resetToken],
     queryFn: async ({ pageParam }) => {
       const start = pageParam as number
       const batchIds = frozenIds.slice(start, start + PAGE_SIZE)
@@ -265,9 +269,11 @@ export function FavoritesContent() {
         value: batchIds,
       }]
 
-      const filterCondition = (aiFilter.activeFilter
-        ? buildEventsQueryCondition({ filter: { ...aiFilter.activeFilter, temporalFilter: temporalFilter ?? aiFilter.activeFilter.temporalFilter } })
-        : buildEventsQueryCondition({ search: q, types, categories, nearby: resolvedNearby, temporalFilter })) as
+      const filterCondition = (aiFilter.activeExpression
+        ? buildEventsQueryCondition({ expression: aiFilter.activeExpression })
+        : aiFilter.activeFilter
+          ? buildEventsQueryCondition({ filter: { ...aiFilter.activeFilter, temporalFilter: temporalFilter ?? aiFilter.activeFilter.temporalFilter } })
+          : buildEventsQueryCondition({ search: q, types, categories, nearby: resolvedNearby, temporalFilter })) as
         | EventQueryConditionInput
         | undefined
 
