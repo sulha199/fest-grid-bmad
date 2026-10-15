@@ -98,17 +98,26 @@ export function useAIFilter() {
       anchors,
       units,
       daysOfWeek,
+      and: tSummary('and'),
+      or: tSummary('or'),
+      not: tSummary('not'),
+      weekends: tSummary('weekends'),
+      weekdays: tSummary('weekdays'),
+      dateRangeSpanOnlyTemplate: tSummary.raw('dateRangeSpanOnlyTemplate'),
+      dateRangeSpanExtensionTemplate: tSummary.raw('dateRangeSpanExtensionTemplate'),
+      temporalStatus: { TODAY: tSummary('temporalStatus.TODAY'), UPCOMING: tSummary('temporalStatus.UPCOMING') },
     };
   }, [tSummary]);
 
   const summaryResult = useMemo(() => {
-    if (!aiFilter) return null;
-    return renderAIFilterSummary(aiFilter, aiCaveats, summaryLabels);
-  }, [aiFilter, aiCaveats, summaryLabels]);
+    if (!aiFilter && !aiExpression) return null;
+    const node = aiExpression ?? expressionFromFlatFilter(aiFilter ?? {});
+    return renderFilterExpressionSummary(node, aiCaveats, summaryLabels);
+  }, [aiFilter, aiExpression, aiCaveats, summaryLabels]);
 
   const resolvedSummaryResult = useMemo(() => {
     if (!resolvedData) return null;
-    return renderAIFilterSummary(resolvedData.resolvedFilter, resolvedData.caveats, summaryLabels);
+    return renderFilterExpressionSummary(resolvedData.expression, resolvedData.caveats, summaryLabels);
   }, [resolvedData, summaryLabels]);
 
   const { mutate: resolvePrompt, isPending: isLoading } = useResolvePromptToEventFilterMutation(graphqlClient, {
@@ -151,7 +160,7 @@ export function useAIFilter() {
     setSaveError(null);
     saveFilter({
       prompt: resolvedData.prompt,
-      resolvedFilter: resolvedData.resolvedFilter,
+      expression: resolvedData.expression,
     });
   };
 
