@@ -1737,7 +1737,7 @@ export type ResolvePromptToEventFilterMutationVariables = Exact<{
 }>;
 
 
-export type ResolvePromptToEventFilterMutation = { resolvePromptToEventFilter: { caveats: Array<string>, resolvedFilter: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } } };
+export type ResolvePromptToEventFilterMutation = { resolvePromptToEventFilter: { caveats: Array<string>, resolvedFilter: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null }, expression: { op: string | null, field: string | null, value: unknown, children: Array<{ op: string | null, field: string | null, value: unknown, children: Array<{ op: string | null, field: string | null, value: unknown }> | null, child: { op: string | null, field: string | null, value: unknown } | null }> | null, child: { op: string | null, field: string | null, value: unknown, children: Array<{ op: string | null, field: string | null, value: unknown }> | null, child: { op: string | null, field: string | null, value: unknown } | null } | null } } };
 
 export type SaveAiEventFilterMutationVariables = Exact<{
   prompt: string;
@@ -1852,7 +1852,7 @@ export type GetArchivedEventsQuery = { events: { hasMore: boolean, totalCount: n
 export type GetMyAiEventFiltersQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetMyAiEventFiltersQuery = { myAIEventFilters: Array<{ id: string, ownerUserId: string, prompt: string, createdAt: string, updatedAt: string, deletedAt: string | null, resolvedFilter: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null }> };
+export type GetMyAiEventFiltersQuery = { myAIEventFilters: Array<{ id: string, ownerUserId: string, prompt: string, createdAt: string, updatedAt: string, deletedAt: string | null, resolvedFilter: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null, expression: { op: string | null, field: string | null, value: unknown, children: Array<{ op: string | null, field: string | null, value: unknown, children: Array<{ op: string | null, field: string | null, value: unknown }> | null, child: { op: string | null, field: string | null, value: unknown } | null }> | null, child: { op: string | null, field: string | null, value: unknown, children: Array<{ op: string | null, field: string | null, value: unknown }> | null, child: { op: string | null, field: string | null, value: unknown } | null } | null } }> };
 
 export type SubmitReportMutationVariables = Exact<{
   eventId: string | number;
@@ -2880,6 +2880,41 @@ export const ResolvePromptToEventFilterDocument = new TypedDocumentString(`
       venueType
       isFree
     }
+    expression {
+      op
+      field
+      value
+      children {
+        op
+        field
+        value
+        children {
+          op
+          field
+          value
+        }
+        child {
+          op
+          field
+          value
+        }
+      }
+      child {
+        op
+        field
+        value
+        children {
+          op
+          field
+          value
+        }
+        child {
+          op
+          field
+          value
+        }
+      }
+    }
     caveats
   }
 }
@@ -3576,6 +3611,41 @@ export const GetMyAiEventFiltersDocument = new TypedDocumentString(`
       }
       venueType
       isFree
+    }
+    expression {
+      op
+      field
+      value
+      children {
+        op
+        field
+        value
+        children {
+          op
+          field
+          value
+        }
+        child {
+          op
+          field
+          value
+        }
+      }
+      child {
+        op
+        field
+        value
+        children {
+          op
+          field
+          value
+        }
+        child {
+          op
+          field
+          value
+        }
+      }
     }
     createdAt
     updatedAt
