@@ -8,7 +8,7 @@ baseline_commit: 4e2663e35ee0efdeed36dbe79fee3444757bd6fe
 
 - Epic: 9
 - Story ID: 9.6
-- Status: in-progress
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -173,7 +173,8 @@ so that complex prompts do not break the layout.
 
 - [x] 8. **(AC1, AC2, Testing)** Update the three content files' tests — `home-content.test.tsx`, `feed-content.test.tsx`, `favorites-content.test.tsx` — only if any of them asserts the exact shape of `filterLabels` or the mocked `useAIFilter()` return value (check each file's existing `useAIFilter` mock before assuming a change is needed; if a test mocks `useAIFilter` wholesale, it already supplies its own `overlayProps`/`filterHubProps` shape and needs no edit purely for this story's additive fields unless it does an exact-equality/snapshot assertion on either object).
 
-- [ ] 9. **(Verification)** Run `pnpm --filter @festgrid/ui test`/`lint`/`build` (FilterHub/AIFilterOverlay changes) and `pnpm --filter @festgrid/web test`/`lint`/`build` (use-ai-filter.ts, the three content files, and their locale JSON). No `packages/domain` change in this story, so no domain-package command is required, though the existing `turbo` build graph will still build it transitively as a dependency of `apps/web`/`packages/ui`.
+- [x] 9. **(Verification)** Run `pnpm --filter @festgrid/ui test`/`lint`/`build` (FilterHub/AIFilterOverlay changes) and `pnpm --filter @festgrid/web test`/`lint`/`build` (use-ai-filter.ts, the three content files, and their locale JSON). No `packages/domain` change in this story, so no domain-package command is required, though the existing `turbo` build graph will still build it transitively as a dependency of `apps/web`/`packages/ui`.
+  - Run after session resume: `pnpm --filter @festgrid/ui test` (68 files / 911 tests passed), `pnpm --filter @festgrid/ui lint` (clean), `pnpm --filter @festgrid/ui build` (no build script on this package -- it's consumed as source, built transitively via `web`'s own build, consistent with the task's own note). `pnpm --filter web test` (78 files / 649 tests passed -- includes the previously-failing `home-content.test.tsx`/`feed-content.test.tsx`/`favorites-content.test.tsx` 9.4a tests, now green after the hook-hoist fix), `pnpm --filter web lint` (exit 0, only pre-existing unrelated warnings, no errors), `pnpm --filter web build` (succeeded, all 39 routes generated).
 
 ## Dev Notes
 
@@ -318,7 +319,7 @@ Recent commits (`git log --oneline -8`) are all `wip(9.5): dev-story progress` /
 
 ## Completion Status
 
-- [ ] Implementation complete (Tasks 1-8); Task 9 (verification commands) blocked by tool outage -- see Dev Agent Record. Status intentionally left at `in-progress`, not advanced to `review`.
+- [x] Implementation complete (Tasks 1-9); all ACs satisfied, all verification commands run and green (session resume after an earlier tool-execution outage). Status advanced to `review`.
 
 ## Dev Agent Record
 
@@ -333,14 +334,22 @@ claude-sonnet-5 (bmad-dev-story, Epic 9 batch dispatch)
   - **Root-caused, not assumed:** `packages/ui/src/features/events/FilterHub.tsx`'s `if (aiFilterSummary) { return (...); }` early return sat BEFORE this component's `useQueryState` hook calls for `selectedTypes`/`selectedCategories` -- in BOTH the pre-9.6 baseline (confirmed via `git show 4e2663e:...FilterHub.tsx`, read in full) and my own first pass at Task 1 (which only added one new hook, `isSummaryExpanded`, ALSO before the early return, so it didn't change this pre-existing shape). A `FilterHub` instance that mounts with no active AI filter calls those two hooks every render; the failing tests seed `ai_filter`/`ai_expression` via `nuqs` AFTER initial mount, so on the next render `aiFilterSummary` becomes truthy and the SAME mounted instance hits the early return having called 0 (baseline) or 1 (my first pass) hooks instead of 2/3 -- a hard violation of React's rules of hooks, not a story-9.6-introduced regression (the defective shape pre-dates this story; 9.6 only became the first story whose tests exercise this exact transition's render path in a way that already-existing `ai_expression`-seeding tests from Story 9.4a hit it).
   - **Fix applied (in `FilterHub.tsx`, same file this story already edits):** hoisted the pre-existing `useQueryState('types', ...)`/`useQueryState('categories', ...)` calls to run unconditionally, above the `if (aiFilterSummary)` branch, alongside the new `isSummaryExpanded` state -- same hook count on every render regardless of branch taken, with zero change to the hooks' own behavior (they were already irrelevant to, and unused by, the AI-active branch; only their position in the function moved). Documented inline in the file with a comment pointing back to this record.
   - **Could not re-run `pnpm --filter web test` (or any other `pnpm`/`node`/`python3 subprocess`/Monitor invocation) after applying this fix, or run any `lint`/`build` command for either package, for the remainder of this session.** Starting partway through this session, every Bash/Monitor call that attempts to actually execute a toolchain binary (`pnpm --version`, `node -e`, `node <script>`, `python3 -c`, a `vitest` binary invoked directly, a wrapper shell script, foreground and background alike) fails immediately with `Tool permission request failed: AbortError: Stream closed` -- while trivial commands (`echo`, `git log`/`status`/`diff`/`show`, `ls`, `which`, `cp`, `node --version`, `python3 --version`) keep working throughout. This reproduced consistently across more than a dozen varied retries (different commands, different wrapping, background vs foreground, after real-time waits) and did not self-recover, so it is reported here as a session-level tool outage rather than retried further, per this story's own dispatch instruction not to loop on the same command.
-- **Net effect:** the fix above is reasoned from first principles (confirmed root cause via direct source diff against the pre-9.6 baseline) and is a minimal, mechanical hook-hoist with no behavioral change, but it is **unverified by an actual test run** in this session. Task 9's verification commands (`pnpm --filter @festgrid/ui test/lint/build`, `pnpm --filter web test/lint/build`) could not be executed after this point. Per workflow Step 7/9, this story's Status is deliberately left at `in-progress` (not advanced to `review`), and no final commit was made (the `on_complete` instruction requires confirming the Verification Plan commands passed, which could not be done) -- the human/dispatcher should re-run `pnpm --filter @festgrid/ui test`/`lint`/`build` and `pnpm --filter web test`/`lint`/`build` once tool execution is available again, confirm green, then advance status and commit.
+- **Net effect at that point:** the fix was reasoned from first principles (confirmed root cause via direct source diff against the pre-9.6 baseline) and was a minimal, mechanical hook-hoist with no behavioral change, but was unverified by an actual test run before the session hit its account session limit and was cut off.
+- **Session resumed (new session, same WIP already auto-committed as `76feaf9`).** `pnpm --version` and all other tool execution worked normally on resume -- the outage was specific to the prior session and did not persist. Task 9 verification was then run to completion, each command once:
+  - `pnpm --filter @festgrid/ui test` → 68 files / 911 tests passed.
+  - `pnpm --filter @festgrid/ui lint` → clean (`eslint . --max-warnings 0`, zero output).
+  - `pnpm --filter @festgrid/ui build` → "None of the selected packages has a 'build' script" -- expected; `@festgrid/ui` has no standalone build step and is built transitively as a source dependency of `web`'s own build, per Task 9's own note.
+  - `pnpm --filter web test` → 78 files / 649 tests passed, **including** the previously-failing `home-content.test.tsx`/`feed-content.test.tsx`/`favorites-content.test.tsx` Story-9.4a tests -- confirms the hook-hoist fix was correct and resolved the regression.
+  - `pnpm --filter web lint` → exit 0; only pre-existing warnings unrelated to this story's files (`no-explicit-any`/`no-unused-vars` in files/lines this story didn't touch), no errors.
+  - `pnpm --filter web build` → succeeded, all 39 routes generated cleanly.
+  - `git status --short` after the full run → clean (no `tsconfig.tsbuildinfo` or other build artifact left modified/untracked).
 
 ### Completion Notes List
 
-- Tasks 1-8 (all functional/i18n/test code for AC1-AC3) are implemented exactly per the Implementation Plan. Pre-Coding Approval Gate's provenance (Epic 9 batch dispatch instruction) honored as already ticked in this story file.
-- One additional, in-scope correctness fix was required and applied (not a scope expansion): hoisting two pre-existing `useQueryState` hook calls in `FilterHub.tsx` above the `if (aiFilterSummary)` early return to fix a pre-existing rules-of-hooks violation exposed by `home-content.test.tsx`/`feed-content.test.tsx`/`favorites-content.test.tsx`'s existing Story-9.4a tests. See Debug Log References for full root-cause analysis.
-- Verification (Task 9) is incomplete: a tool-execution outage in this session (every `pnpm`/`node`/`python3`-subprocess/Monitor invocation failing with "Stream closed", while trivial commands keep working) blocked re-running tests/lint/build after the fix above. Reported rather than retried in a loop, per this story's own dispatch instruction.
-- Story Status intentionally left at `in-progress` in both the story file and `sprint-status.yaml` (not advanced to `review`) until the Verification Plan's commands can actually be run and confirmed green.
+- Tasks 1-9 (all functional/i18n/test code for AC1-AC3, plus verification) are implemented and passing exactly per the Implementation Plan. Pre-Coding Approval Gate's provenance (Epic 9 batch dispatch instruction) honored as already ticked in this story file.
+- One additional, in-scope correctness fix was required and applied (not a scope expansion): hoisting two pre-existing `useQueryState` hook calls in `FilterHub.tsx` above the `if (aiFilterSummary)` early return to fix a pre-existing rules-of-hooks violation exposed by `home-content.test.tsx`/`feed-content.test.tsx`/`favorites-content.test.tsx`'s existing Story-9.4a tests. See Debug Log References for full root-cause analysis; confirmed correct by the full `pnpm --filter web test` run going green after the fix.
+- All Definition of Done items satisfied: AC1-AC3 verified by their tests; `pnpm --filter @festgrid/ui test`/`lint` and `pnpm --filter web test`/`lint`/`build` all green (no build script on `@festgrid/ui` itself, as expected); File List complete; only permitted story sections modified.
+- Story Status advanced to `review` in both the story file and `sprint-status.yaml`.
 
 ### File List
 
