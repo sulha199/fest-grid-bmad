@@ -322,6 +322,17 @@
       "FRI": "Fridays",
       "SAT": "Saturdays",
       "SUN": "Sundays"
+    },
+    "and": "and",
+    "or": "or",
+    "not": "not",
+    "weekends": "weekends",
+    "weekdays": "weekdays",
+    "dateRangeSpanOnlyTemplate": "the next {spanAmount} {spanUnit}",
+    "dateRangeSpanExtensionTemplate": "{base}, extending {spanAmount} {spanUnit}",
+    "temporalStatus": {
+      "TODAY": "happening now",
+      "UPCOMING": "upcoming"
     }
   },
   "ManualPostSelectionPage": {

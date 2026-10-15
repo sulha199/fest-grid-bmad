@@ -322,6 +322,17 @@
       "FRI": "Jumat",
       "SAT": "Sabtu",
       "SUN": "Minggu"
+    },
+    "and": "dan",
+    "or": "atau",
+    "not": "bukan",
+    "weekends": "akhir pekan",
+    "weekdays": "hari kerja",
+    "dateRangeSpanOnlyTemplate": "{spanAmount} {spanUnit} ke depan",
+    "dateRangeSpanExtensionTemplate": "{base}, diperpanjang {spanAmount} {spanUnit}",
+    "temporalStatus": {
+      "TODAY": "sedang berlangsung",
+      "UPCOMING": "akan datang"
     }
   },
   "ManualPostSelectionPage": {
