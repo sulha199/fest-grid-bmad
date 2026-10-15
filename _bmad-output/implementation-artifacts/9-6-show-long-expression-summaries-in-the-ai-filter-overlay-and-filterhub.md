@@ -8,7 +8,7 @@ baseline_commit: 4e2663e35ee0efdeed36dbe79fee3444757bd6fe
 
 - Epic: 9
 - Story ID: 9.6
-- Status: ready-for-dev
+- Status: in-progress
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -39,7 +39,7 @@ so that complex prompts do not break the layout.
 
 ## Tasks / Subtasks
 
-- [ ] 1. **(AC1)** In `packages/ui/src/features/events/FilterHub.tsx`, inside the `if (aiFilterSummary)` collapsed-layout branch (lines 77-113):
+- [x] 1. **(AC1)** In `packages/ui/src/features/events/FilterHub.tsx`, inside the `if (aiFilterSummary)` collapsed-layout branch (lines 77-113):
   - Add a module-local constant and a local `isSummaryExpanded` state:
     ```ts
     /** Fixed character-count heuristic for "is this summary long enough to need truncation" --
@@ -85,12 +85,12 @@ so that complex prompts do not break the layout.
     ```
   - Add `aiSummaryShowMoreLabel?: string;` and `aiSummaryShowLessLabel?: string;` to `FilterHubProps['labels']`'s type (alongside the existing `aiTriggerTooltip?`/`aiClearLabel?`/`aiExpandLabel?` keys) — **nested in `labels` only**, deliberately not duplicated as flat top-level override props the way `aiExpandLabel`/`aiClearLabel`/`aiTriggerTooltip` are (see Dev Notes decision 1 for why: that flat-prop duplication is confirmed dead code today — none of the three call sites ever pass it — and a brand-new label has no reason to copy a dead pattern).
 
-- [ ] 2. **(AC1, Testing)** Update `packages/ui/src/features/events/FilterHub.test.tsx`:
+- [x] 2. **(AC1, Testing)** Update `packages/ui/src/features/events/FilterHub.test.tsx`:
   - Add a case: render with a long `aiFilterSummary` (e.g. a fixture string over 70 characters, such as the rendered form of the SPEC CAP-6 worked example) and `labels` including `aiSummaryShowMoreLabel: 'Show more'`/`aiSummaryShowLessLabel: 'Show less'`. Assert a `Show more` button exists, the summary `<span>` carries the `truncate` class, clicking it flips the button's accessible name to `Show less` and `aria-expanded` to `true`, and the span no longer carries `truncate`. Click again and assert it reverts.
   - Extend the existing "renders the collapsed AI filter summary layout" test (short `aiFilterSummary="Events about jazz in Work"`, 26 chars) with an explicit assertion that **no** `Show more`/`Show less` button is rendered — locks in the threshold behavior so a future change to the heuristic doesn't silently regress the short-summary case.
   - Add a case proving `aiCaveatsText` stays rendered and unchanged both before and after toggling the new expand control, using a summary long enough to trigger truncation alongside a non-empty `aiCaveatsText` — the literal "caveats remain visible" assertion.
 
-- [ ] 3. **(AC2, i18n)** Add new keys to the existing `FilterHub` namespace in **both** `apps/web/locales/en.json` and `apps/web/locales/id.json` (alongside the existing `aiTriggerTooltip`/`aiClearLabel`/`aiExpandLabel`/`aiOverlay*` keys at the same nesting level):
+- [x] 3. **(AC2, i18n)** Add new keys to the existing `FilterHub` namespace in **both** `apps/web/locales/en.json` and `apps/web/locales/id.json` (alongside the existing `aiTriggerTooltip`/`aiClearLabel`/`aiExpandLabel`/`aiOverlay*` keys at the same nesting level):
   ```json
   "aiSummaryShowMoreLabel": "Show more",
   "aiSummaryShowLessLabel": "Show less",
@@ -110,7 +110,7 @@ so that complex prompts do not break the layout.
   ```
   `aiOverlayExamplePrompt1` reuses the PRD §3.15/SPEC "success signal" canonical v1 example verbatim; `aiOverlayExamplePromptGrouped` reuses the SPEC CAP-6 worked example verbatim (both already used as worked examples elsewhere in this epic's own stories, e.g. Story 9.5's test fixtures) — not newly invented copy.
 
-- [ ] 4. **(AC2)** In `packages/ui/src/features/events/AIFilterOverlay.tsx`:
+- [x] 4. **(AC2)** In `packages/ui/src/features/events/AIFilterOverlay.tsx`:
   - Extend `AIFilterOverlayProps`:
     ```ts
     examplePrompts?: string[];
@@ -143,12 +143,12 @@ so that complex prompts do not break the layout.
     ```
     Gated on `!resolvedSummary` (not `!resolvedSummary && !isLoading`) so the chips don't disappear mid-request — only their `disabled` state changes — matching the textarea's own `disabled={isLoading || !!resolvedSummary}` pattern one step more granularly (chips are irrelevant, not actively wrong, once a summary exists, so they fully unmount then rather than just disabling, which also keeps the resolved-state layout uncluttered).
 
-- [ ] 5. **(AC2, Testing)** Update `packages/ui/src/features/events/AIFilterOverlay.test.tsx`:
+- [x] 5. **(AC2, Testing)** Update `packages/ui/src/features/events/AIFilterOverlay.test.tsx`:
   - Add a case: render with `examplePrompts={['prompt one', 'jazz or blues, not workshops']}` and `labels.examplePromptsLabel`; assert both appear as buttons, clicking the second sets the textarea's value to `'jazz or blues, not workshops'` (assert via the textarea's `value`), and the chips are disabled when `isLoading={true}`.
   - Add a case: render with `resolvedSummary` set and `examplePrompts` also passed; assert no example-prompt button is rendered (the `!resolvedSummary` gate).
   - Add a case proving the exact Story 9.4 "too complex" caveat text renders unchanged through the existing amber block: `resolvedCaveats="- Your prompt described more conditions than the filter supports, so some were dropped."` renders verbatim (this is the literal, already-shipped caveat string — see Dev Notes decision 3 for why no new styling is added here).
 
-- [ ] 6. **(AC1, AC2, Data Type Compatibility)** In `apps/web/src/features/events/use-ai-filter.ts`:
+- [x] 6. **(AC1, AC2, Data Type Compatibility)** In `apps/web/src/features/events/use-ai-filter.ts`:
   - Add a memoized example-prompts list and label, using the same `tFilterHub` instance already used for `overlayLabels`:
     ```ts
     const examplePrompts = useMemo(
@@ -164,14 +164,14 @@ so that complex prompts do not break the layout.
   - Add `examplePrompts,` to the returned `overlayProps` object (alongside `labels: overlayLabels`).
   - **No change to `filterHubProps`** is needed in this file — `aiSummaryShowMoreLabel`/`aiSummaryShowLessLabel` reach `FilterHub` via the `labels` object each call site already constructs and passes straight through (Task 7), not via a hook-returned prop, since they're static microcopy, not derived state (consistent with how `aiTriggerTooltip`/`aiClearLabel`/`aiExpandLabel` already reach `FilterHub` today — via `labels`, not `filterHubProps`).
 
-- [ ] 7. **(AC1, i18n wiring)** In **each** of the three identical `filterLabels` `useMemo` blocks that already include `aiTriggerTooltip`/`aiClearLabel`/`aiExpandLabel` — `apps/web/src/app/[locale]/home-content.tsx` (~line 173), `apps/web/src/app/[locale]/feed/feed-content.tsx` (~line 91), `apps/web/src/app/[locale]/favorites/favorites-content.tsx` (~line 127) — add two more keys using the same `tFilterHub` instance already in scope in each file:
+- [x] 7. **(AC1, i18n wiring)** In **each** of the three identical `filterLabels` `useMemo` blocks that already include `aiTriggerTooltip`/`aiClearLabel`/`aiExpandLabel` — `apps/web/src/app/[locale]/home-content.tsx` (~line 173), `apps/web/src/app/[locale]/feed/feed-content.tsx` (~line 91), `apps/web/src/app/[locale]/favorites/favorites-content.tsx` (~line 127) — add two more keys using the same `tFilterHub` instance already in scope in each file:
   ```ts
   aiSummaryShowMoreLabel: tFilterHub('aiSummaryShowMoreLabel'),
   aiSummaryShowLessLabel: tFilterHub('aiSummaryShowLessLabel'),
   ```
   No other change is needed in these three files — `<AIFilterOverlay {...aiFilter.overlayProps} />` already spreads the whole `overlayProps` object (Task 6 added `examplePrompts` to it), and `<EventDiscoveryPanel>`'s `filterLabels={filterLabels}` already forwards the whole `labels` object to `<FilterHub>` unchanged.
 
-- [ ] 8. **(AC1, AC2, Testing)** Update the three content files' tests — `home-content.test.tsx`, `feed-content.test.tsx`, `favorites-content.test.tsx` — only if any of them asserts the exact shape of `filterLabels` or the mocked `useAIFilter()` return value (check each file's existing `useAIFilter` mock before assuming a change is needed; if a test mocks `useAIFilter` wholesale, it already supplies its own `overlayProps`/`filterHubProps` shape and needs no edit purely for this story's additive fields unless it does an exact-equality/snapshot assertion on either object).
+- [x] 8. **(AC1, AC2, Testing)** Update the three content files' tests — `home-content.test.tsx`, `feed-content.test.tsx`, `favorites-content.test.tsx` — only if any of them asserts the exact shape of `filterLabels` or the mocked `useAIFilter()` return value (check each file's existing `useAIFilter` mock before assuming a change is needed; if a test mocks `useAIFilter` wholesale, it already supplies its own `overlayProps`/`filterHubProps` shape and needs no edit purely for this story's additive fields unless it does an exact-equality/snapshot assertion on either object).
 
 - [ ] 9. **(Verification)** Run `pnpm --filter @festgrid/ui test`/`lint`/`build` (FilterHub/AIFilterOverlay changes) and `pnpm --filter @festgrid/web test`/`lint`/`build` (use-ai-filter.ts, the three content files, and their locale JSON). No `packages/domain` change in this story, so no domain-package command is required, though the existing `turbo` build graph will still build it transitively as a dependency of `apps/web`/`packages/ui`.
 
@@ -318,14 +318,41 @@ Recent commits (`git log --oneline -8`) are all `wip(9.5): dev-story progress` /
 
 ## Completion Status
 
-- [ ] Not started
+- [ ] Implementation complete (Tasks 1-8); Task 9 (verification commands) blocked by tool outage -- see Dev Agent Record. Status intentionally left at `in-progress`, not advanced to `review`.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
+claude-sonnet-5 (bmad-dev-story, Epic 9 batch dispatch)
+
 ### Debug Log References
+
+- **Tasks 1-8 implemented exactly per the Implementation Plan/File Change Plan.** `pnpm --filter @festgrid/ui test` was run once, successfully, early in this session (68 files / 911 tests passed) -- this was BEFORE Task 1's FilterHub.tsx edit landed, confirming the pre-edit baseline was green.
+- **`pnpm --filter web test` was run once, successfully to completion, after all of Tasks 1-8 landed.** Result: 3 test files failed (6 tests) -- `home-content.test.tsx`, `feed-content.test.tsx`, `favorites-content.test.tsx` -- each on exactly two "Story 9.4a (AI filter expression wiring)" tests ("uses the compiled expression condition..."/"treats two different non-flat expressions..."), with the same root error: `Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.`
+  - **Root-caused, not assumed:** `packages/ui/src/features/events/FilterHub.tsx`'s `if (aiFilterSummary) { return (...); }` early return sat BEFORE this component's `useQueryState` hook calls for `selectedTypes`/`selectedCategories` -- in BOTH the pre-9.6 baseline (confirmed via `git show 4e2663e:...FilterHub.tsx`, read in full) and my own first pass at Task 1 (which only added one new hook, `isSummaryExpanded`, ALSO before the early return, so it didn't change this pre-existing shape). A `FilterHub` instance that mounts with no active AI filter calls those two hooks every render; the failing tests seed `ai_filter`/`ai_expression` via `nuqs` AFTER initial mount, so on the next render `aiFilterSummary` becomes truthy and the SAME mounted instance hits the early return having called 0 (baseline) or 1 (my first pass) hooks instead of 2/3 -- a hard violation of React's rules of hooks, not a story-9.6-introduced regression (the defective shape pre-dates this story; 9.6 only became the first story whose tests exercise this exact transition's render path in a way that already-existing `ai_expression`-seeding tests from Story 9.4a hit it).
+  - **Fix applied (in `FilterHub.tsx`, same file this story already edits):** hoisted the pre-existing `useQueryState('types', ...)`/`useQueryState('categories', ...)` calls to run unconditionally, above the `if (aiFilterSummary)` branch, alongside the new `isSummaryExpanded` state -- same hook count on every render regardless of branch taken, with zero change to the hooks' own behavior (they were already irrelevant to, and unused by, the AI-active branch; only their position in the function moved). Documented inline in the file with a comment pointing back to this record.
+  - **Could not re-run `pnpm --filter web test` (or any other `pnpm`/`node`/`python3 subprocess`/Monitor invocation) after applying this fix, or run any `lint`/`build` command for either package, for the remainder of this session.** Starting partway through this session, every Bash/Monitor call that attempts to actually execute a toolchain binary (`pnpm --version`, `node -e`, `node <script>`, `python3 -c`, a `vitest` binary invoked directly, a wrapper shell script, foreground and background alike) fails immediately with `Tool permission request failed: AbortError: Stream closed` -- while trivial commands (`echo`, `git log`/`status`/`diff`/`show`, `ls`, `which`, `cp`, `node --version`, `python3 --version`) keep working throughout. This reproduced consistently across more than a dozen varied retries (different commands, different wrapping, background vs foreground, after real-time waits) and did not self-recover, so it is reported here as a session-level tool outage rather than retried further, per this story's own dispatch instruction not to loop on the same command.
+- **Net effect:** the fix above is reasoned from first principles (confirmed root cause via direct source diff against the pre-9.6 baseline) and is a minimal, mechanical hook-hoist with no behavioral change, but it is **unverified by an actual test run** in this session. Task 9's verification commands (`pnpm --filter @festgrid/ui test/lint/build`, `pnpm --filter web test/lint/build`) could not be executed after this point. Per workflow Step 7/9, this story's Status is deliberately left at `in-progress` (not advanced to `review`), and no final commit was made (the `on_complete` instruction requires confirming the Verification Plan commands passed, which could not be done) -- the human/dispatcher should re-run `pnpm --filter @festgrid/ui test`/`lint`/`build` and `pnpm --filter web test`/`lint`/`build` once tool execution is available again, confirm green, then advance status and commit.
 
 ### Completion Notes List
 
+- Tasks 1-8 (all functional/i18n/test code for AC1-AC3) are implemented exactly per the Implementation Plan. Pre-Coding Approval Gate's provenance (Epic 9 batch dispatch instruction) honored as already ticked in this story file.
+- One additional, in-scope correctness fix was required and applied (not a scope expansion): hoisting two pre-existing `useQueryState` hook calls in `FilterHub.tsx` above the `if (aiFilterSummary)` early return to fix a pre-existing rules-of-hooks violation exposed by `home-content.test.tsx`/`feed-content.test.tsx`/`favorites-content.test.tsx`'s existing Story-9.4a tests. See Debug Log References for full root-cause analysis.
+- Verification (Task 9) is incomplete: a tool-execution outage in this session (every `pnpm`/`node`/`python3`-subprocess/Monitor invocation failing with "Stream closed", while trivial commands keep working) blocked re-running tests/lint/build after the fix above. Reported rather than retried in a loop, per this story's own dispatch instruction.
+- Story Status intentionally left at `in-progress` in both the story file and `sprint-status.yaml` (not advanced to `review`) until the Verification Plan's commands can actually be run and confirmed green.
+
 ### File List
+
+- `packages/ui/src/features/events/FilterHub.tsx` (UPDATE -- Task 1 truncate/expand toggle + labels; plus the hook-hoist correctness fix described above)
+- `packages/ui/src/features/events/FilterHub.test.tsx` (UPDATE -- Task 2)
+- `packages/ui/src/features/events/AIFilterOverlay.tsx` (UPDATE -- Task 4)
+- `packages/ui/src/features/events/AIFilterOverlay.test.tsx` (UPDATE -- Task 5)
+- `apps/web/locales/en.json` (UPDATE -- Task 3)
+- `apps/web/locales/id.json` (UPDATE -- Task 3)
+- `apps/web/src/features/events/use-ai-filter.ts` (UPDATE -- Task 6)
+- `apps/web/src/features/events/use-ai-filter.test.ts` (UPDATE -- Task 6)
+- `apps/web/src/app/[locale]/home-content.tsx` (UPDATE -- Task 7)
+- `apps/web/src/app/[locale]/feed/feed-content.tsx` (UPDATE -- Task 7)
+- `apps/web/src/app/[locale]/favorites/favorites-content.tsx` (UPDATE -- Task 7)
+- (Task 8: `home-content.test.tsx`, `feed-content.test.tsx`, `favorites-content.test.tsx` checked -- none required an edit; none asserts an exact `filterLabels`/`useAIFilter()` shape that the two new additive fields would break)
