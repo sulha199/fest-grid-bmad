@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-15T19:24:02Z
+last_updated: 2026-10-15T19:24:17Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -2526,7 +2526,7 @@ development_status:
   9-6-show-long-expression-summaries-in-the-ai-filter-overlay-and-filterhub: review
   9-7-add-golden-prompt-evals-for-the-ai-filter: review
   9-8-rate-limit-prompt-resolution: review
-  9-9z-ratchet-every-filter-consumer-goes-through-the-shared-compiler: in-progress
+  9-9z-ratchet-every-filter-consumer-goes-through-the-shared-compiler: review
   epic-9-retrospective: optional
 
 action_items:
