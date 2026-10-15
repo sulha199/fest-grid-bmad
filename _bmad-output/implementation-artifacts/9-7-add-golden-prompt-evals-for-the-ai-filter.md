@@ -38,7 +38,7 @@ so that prompt or schema changes cannot silently regress extraction quality.
 
 ## Tasks / Subtasks
 
-- [ ] 1. **(AC1)** Create `packages/domain/src/ai-event-filters/golden-prompts/golden-prompt-fixtures.ts`:
+- [x] 1. **(AC1)** Create `packages/domain/src/ai-event-filters/golden-prompts/golden-prompt-fixtures.ts`:
   - Define and export:
     ```ts
     import type { FilterNode } from '../filter-node.js';
@@ -312,7 +312,7 @@ so that prompt or schema changes cannot silently regress extraction quality.
     run it with `pnpm --filter @festgrid/domain exec tsx --test tmp-capture.test.ts`, paste the printed `expression`/`caveats` verbatim into the fixture's `expected`, then **delete `tmp-capture.test.ts`** (never commit it). This is deliberately a capture-not-derive workflow: the trim-to-node-limit and double-NOT-collapse algorithms are order-dependent (see the worked `over-limit-en-01` comment above), so hand-deriving a wrong "expected" value would silently defeat the entire point of a regression ratchet.
   - Author enough additional fixtures (using the method above) to satisfy, across the full `GOLDEN_PROMPT_FIXTURES` array: **≥40 fixtures total; ≥15 with `lang: 'en'`; ≥15 with `lang: 'id'`; every one of the 8 `GOLDEN_PROMPT_CATEGORIES` represented by ≥2 `en` and ≥2 `id` fixtures** (8 categories × 4 ≥ 32, comfortably inside the ≥40/≥15/≥15 totals with room for a few extra, e.g. a combined fixture exercising both a model-reported caveat AND a pushed over-limit caveat together, proving the `[...modelCaveats, ...pushedCaveats]` ordering). Distribute realistic vocabulary from `filter-vocabulary.md` across fixtures (`accountId`, `venueType`, `temporalFilter`, `dateRange.spanAmount`/`spanUnit` e.g. "next 7 days"/"next 2 weeks", multi-value `dayOfWeek` e.g. "weekdays" = MON-FRI) -- do not restrict every fixture to only the fields the 8 worked examples already cover. For `out-of-vocabulary`, draw only from `filter-vocabulary.md`'s three documented always-caveat cases (numeric price threshold, floor/room-level location detail, or an absolute date/time-of-day/holiday name) so this category stays grounded in the SPEC, not invented. For `off-topic`, use generic chit-chat/off-topic content unrelated to events (mirroring `off-topic-id-01`'s pattern: empty `expression`, one model-reported caveat, resulting `expected.expression` of `{ op: 'AND', children: [] }`).
 
-- [ ] 2. **(AC1, Testing)** Create `packages/domain/src/ai-event-filters/golden-prompts/golden-prompt-fixtures.test.ts`:
+- [x] 2. **(AC1, Testing)** Create `packages/domain/src/ai-event-filters/golden-prompts/golden-prompt-fixtures.test.ts`:
   - Main suite (`node:test`/`tsx --test`, matching every sibling test file's existing convention -- see `transform-gemini-response-to-filter-expression.test.ts`): `describe('golden-prompt fixtures (Story 9.7 AC1)', ...)`, one `it(fixture.id, ...)` per fixture in `GOLDEN_PROMPT_FIXTURES`, each calling `transformGeminiResponseToFilterExpression(fixture.geminiResponse)` and asserting `assert.deepEqual(result.expression, fixture.expected.expression)` and `assert.deepEqual(result.caveats, fixture.expected.caveats)`.
   - A second `describe('golden-prompt fixture-set integrity (Story 9.7 AC1)', ...)` block asserting, over the whole `GOLDEN_PROMPT_FIXTURES` array (not any single fixture):
     - `GOLDEN_PROMPT_FIXTURES.length >= 40`.
@@ -324,7 +324,7 @@ so that prompt or schema changes cannot silently regress extraction quality.
     - Every fixture tagged `category: 'over-limit'` has `expected.caveats` containing the exact string `'Your prompt described more conditions than the filter supports, so some were dropped.'`.
     - Every fixture tagged `category: 'off-topic'` has `expected.expression` deep-equal to `{ op: 'AND', children: [] }` and `expected.caveats.length > 0`.
 
-- [ ] 3. **(AC2)** Create `packages/domain/src/ai-event-filters/golden-prompts/compute-golden-prompt-drift.ts` -- the pure, network-free comparison logic the opt-in live-eval script (Task 4) delegates to, kept in `packages/domain` specifically so it carries its own deterministic unit-test coverage independent of the network-touching script:
+- [x] 3. **(AC2)** Create `packages/domain/src/ai-event-filters/golden-prompts/compute-golden-prompt-drift.ts` -- the pure, network-free comparison logic the opt-in live-eval script (Task 4) delegates to, kept in `packages/domain` specifically so it carries its own deterministic unit-test coverage independent of the network-touching script:
   ```ts
   import { isFilterGroupNode, isFilterLeaf, isFilterNotNode, type FilterNode } from '../filter-node.js';
   import type { GeminiFilterExtractionResult } from '../transform-gemini-response-to-filter-expression.js';
@@ -383,16 +383,16 @@ so that prompt or schema changes cannot silently regress extraction quality.
   }
   ```
 
-- [ ] 4. **(AC1, AC2, Testing)** Create `packages/domain/src/ai-event-filters/golden-prompts/compute-golden-prompt-drift.test.ts` (`node:test`): unit-test `computeFilterNodeFieldSignature` against a leaf, a NOT-wrapped leaf, and a nested AND/OR tree (assert sorted, deduplicated field names); unit-test `summarizeGoldenPromptDrift` with: (a) a synthetic `liveResult` identical in field-signature and caveat-presence to a fixture's `expected` -> `drifted: false`; (b) a `liveResult` with a different field set -> `drifted: true`, `details` naming both signatures; (c) a `liveResult` with matching fields but caveat presence flipped (expected none, actual has one, and vice versa) -> `drifted: true`. Zero network, zero DB -- pure data in, pure data out, matching this package's 100%-unit-test-coverage convention (`project-context.md`).
+- [x] 4. **(AC1, AC2, Testing)** Create `packages/domain/src/ai-event-filters/golden-prompts/compute-golden-prompt-drift.test.ts` (`node:test`): unit-test `computeFilterNodeFieldSignature` against a leaf, a NOT-wrapped leaf, and a nested AND/OR tree (assert sorted, deduplicated field names); unit-test `summarizeGoldenPromptDrift` with: (a) a synthetic `liveResult` identical in field-signature and caveat-presence to a fixture's `expected` -> `drifted: false`; (b) a `liveResult` with a different field set -> `drifted: true`, `details` naming both signatures; (c) a `liveResult` with matching fields but caveat presence flipped (expected none, actual has one, and vice versa) -> `drifted: true`. Zero network, zero DB -- pure data in, pure data out, matching this package's 100%-unit-test-coverage convention (`project-context.md`).
 
-- [ ] 5. **(AC1, Project Structure)** Update `packages/domain/src/ai-event-filters/index.ts`: add
+- [x] 5. **(AC1, Project Structure)** Update `packages/domain/src/ai-event-filters/index.ts`: add
   ```ts
   export * from './golden-prompts/golden-prompt-fixtures.js';
   export * from './golden-prompts/compute-golden-prompt-drift.js';
   ```
   (alongside the existing `export * from './transform-gemini-response-to-filter-expression.js';` line), so both are reachable externally as `@festgrid/domain/ai-event-filters` -- the import path Task 6's backend script uses.
 
-- [ ] 6. **(AC2)** Create `apps/backend/scripts/run-golden-prompt-live-eval.ts` -- an opt-in, manually/nightly-invoked script, following this repo's existing `apps/backend/scripts/*.ts` convention (e.g. `run-tests-with-row-count-ratchet.ts`) of a standalone script outside the resolver/Lambda control flow, never imported by production code:
+- [x] 6. **(AC2)** Create `apps/backend/scripts/run-golden-prompt-live-eval.ts` -- an opt-in, manually/nightly-invoked script, following this repo's existing `apps/backend/scripts/*.ts` convention (e.g. `run-tests-with-row-count-ratchet.ts`) of a standalone script outside the resolver/Lambda control flow, never imported by production code:
   ```ts
   /*
    * Opt-in live-Gemini drift eval for the golden-prompt fixture suite (Story 9.7 AC2).
@@ -468,7 +468,7 @@ so that prompt or schema changes cannot silently regress extraction quality.
   ```
   - This file lives under `apps/backend/tsconfig.json`'s `include: ["."]`, so `pnpm --filter @festgrid/backend build`/`lint` type-check and lint it statically -- neither executes it, so neither requires network.
 
-- [ ] 7. **(AC2)** Create `.github/workflows/ai-filter-golden-prompt-nightly-eval.yml` -- the repo's first scheduled (`schedule:`) workflow; every existing non-`ci.yml` workflow today is `workflow_dispatch`-only (manual backfills/triggers), so this introduces (not reuses) the nightly-trigger pattern, entirely separate from `ci.yml`'s `push`/`pull_request` triggers:
+- [x] 7. **(AC2)** Create `.github/workflows/ai-filter-golden-prompt-nightly-eval.yml` -- the repo's first scheduled (`schedule:`) workflow; every existing non-`ci.yml` workflow today is `workflow_dispatch`-only (manual backfills/triggers), so this introduces (not reuses) the nightly-trigger pattern, entirely separate from `ci.yml`'s `push`/`pull_request` triggers:
   ```yaml
   name: Golden-Prompt Live Gemini Eval (nightly)
 
@@ -521,7 +521,7 @@ so that prompt or schema changes cannot silently regress extraction quality.
           run: pnpm --filter @festgrid/backend exec tsx scripts/run-golden-prompt-live-eval.ts
   ```
 
-- [ ] 8. **(AC2, Setup Docs)** Update `SETUP_WALKTHROUGH.md` section 8 ("AI Gateway (Google Gemini API)"), immediately after the existing "Fallback System Key (`SYSTEM_GEMINI_API_KEY`)" subsection, adding a new subsection documenting the new secret this story introduces:
+- [x] 8. **(AC2, Setup Docs)** Update `SETUP_WALKTHROUGH.md` section 8 ("AI Gateway (Google Gemini API)"), immediately after the existing "Fallback System Key (`SYSTEM_GEMINI_API_KEY`)" subsection, adding a new subsection documenting the new secret this story introduces:
   ```markdown
   #### Nightly Golden-Prompt Eval Key (`GEMINI_NIGHTLY_EVAL_API_KEY`)
 
@@ -535,7 +535,7 @@ so that prompt or schema changes cannot silently regress extraction quality.
   default-location inference, only for the nightly eval script's own calls.
   ```
 
-- [ ] 9. **(AC3)** In `_bmad-output/implementation-artifacts/sprint-status.yaml`'s `action_items` list, update the `retro-7-1` entry's `status` from `open` to `closed`, and append (do not replace) its `description` with a trailing clause: `" Closed by Story 9.7's golden-prompt fixture regression suite + opt-in nightly live-drift report -- a fixed-suite/report mechanism, narrower than this item's original open-ended 'monitor user behavior' framing (see Story 9.7 Dev Notes decision 6)."` Do not touch any other `action_items` entry (`correct-course-2026-09-02-1`, `retro-7-2`) or any `backlog.yaml` content -- this task is a `sprint-status.yaml` `action_items` edit only, unrelated to this session's backlog-promotion skip instruction.
+- [x] 9. **(AC3)** In `_bmad-output/implementation-artifacts/sprint-status.yaml`'s `action_items` list, update the `retro-7-1` entry's `status` from `open` to `closed`, and append (do not replace) its `description` with a trailing clause: `" Closed by Story 9.7's golden-prompt fixture regression suite + opt-in nightly live-drift report -- a fixed-suite/report mechanism, narrower than this item's original open-ended 'monitor user behavior' framing (see Story 9.7 Dev Notes decision 6)."` Do not touch any other `action_items` entry (`correct-course-2026-09-02-1`, `retro-7-2`) or any `backlog.yaml` content -- this task is a `sprint-status.yaml` `action_items` edit only, unrelated to this session's backlog-promotion skip instruction.
 
 - [ ] 10. **(Verification)** Run, each once:
   - `pnpm --filter @festgrid/domain test` -- the new `golden-prompt-fixtures.test.ts` (all fixture cases + the fixture-set-integrity meta-test) and `compute-golden-prompt-drift.test.ts` pass; full existing `domain` suite stays green.
