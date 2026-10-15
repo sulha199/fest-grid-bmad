@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { db } from '../../db/client.js';
-import { socialMediaAccountProfiles } from '@festgrid/database';
+import { socialMediaAccountProfiles, users } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import { resolveFilterExpressionAccountIds } from './resolve-filter-expression-account-ids.js';
 import type { FilterNode } from '@festgrid/domain/ai-event-filters';
@@ -14,6 +14,10 @@ test('resolveFilterExpressionAccountIds (AC3)', async (t) => {
       await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, id));
     }
   });
+
+  const [seededUser] = await db.select().from(users).limit(1);
+  assert.ok(seededUser, 'at least one seeded user is required');
+  const userId = seededUser.id;
 
   const [profile] = await db
     .insert(socialMediaAccountProfiles)
@@ -28,14 +32,14 @@ test('resolveFilterExpressionAccountIds (AC3)', async (t) => {
 
   await t.test('a tree with zero accountId leaves passes through unchanged, performing no DB query', async () => {
     const node: FilterNode = { op: 'AND', children: [{ field: 'keyword', value: 'jazz' }] };
-    const result = await resolveFilterExpressionAccountIds(node, 'some-user-id');
+    const result = await resolveFilterExpressionAccountIds(node, userId);
     assert.deepEqual(result.expression, node);
     assert.deepEqual(result.caveats, []);
   });
 
   await t.test('a single resolving accountId leaf updates its value to the real profile UUID', async () => {
     const node: FilterNode = { field: 'accountId', value: `@jogja_fest_expr_${stamp}` };
-    const result = await resolveFilterExpressionAccountIds(node, 'some-user-id');
+    const result = await resolveFilterExpressionAccountIds(node, userId);
     assert.deepEqual(result.expression, { field: 'accountId', value: profile.id });
     assert.deepEqual(result.caveats, []);
   });
@@ -48,7 +52,7 @@ test('resolveFilterExpressionAccountIds (AC3)', async (t) => {
         { field: 'accountId', value: `@no_such_account_anywhere_${stamp}` },
       ],
     };
-    const result = await resolveFilterExpressionAccountIds(node, 'some-user-id');
+    const result = await resolveFilterExpressionAccountIds(node, userId);
     assert.deepEqual(result.expression, { field: 'accountId', value: profile.id });
     assert.equal(result.caveats.length, 1);
     assert.match(result.caveats[0], new RegExp(`no_such_account_anywhere_${stamp}`));
