@@ -119,7 +119,12 @@ export function useAIFilter() {
       setAiExpressionStr(JSON.stringify(data.resolvePromptToEventFilter.expression));
       setResolvedData({
         resolvedFilter: data.resolvePromptToEventFilter.resolvedFilter,
-        expression: data.resolvePromptToEventFilter.expression,
+        // The generated GraphQL type is a loosely-typed recursive shape (`op`/`field`: `string |
+        // null`, `value: unknown`) since the schema's `FilterNode` can't express the domain's
+        // discriminated union -- the backend has already validated/shaped this value by the time
+        // it reaches here (Story 9.3/9.4's `resolveStoredFilter`/Gemini transform), so this is a
+        // safe narrowing cast, not an unchecked assumption about unvalidated data.
+        expression: data.resolvePromptToEventFilter.expression as unknown as FilterNode,
         caveats: data.resolvePromptToEventFilter.caveats,
         prompt: variables.prompt,
       });
