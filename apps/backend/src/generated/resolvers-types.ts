@@ -1230,6 +1230,7 @@ export type ResolveScheduleTimezoneResult = {
 export type ResolvedAiEventFilterResult = {
   __typename?: 'ResolvedAIEventFilterResult';
   caveats: Array<Scalars['String']['output']>;
+  expression: FilterNode;
   resolvedFilter: EventFilter;
 };
 
@@ -2319,6 +2320,7 @@ export type ResolveScheduleTimezoneResultResolvers<ContextType = GraphQLContext,
 
 export type ResolvedAiEventFilterResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ResolvedAIEventFilterResult'] = ResolversParentTypes['ResolvedAIEventFilterResult']> = ResolversObject<{
   caveats?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
+  expression?: Resolver<ResolversTypes['FilterNode'], ParentType, ContextType>;
   resolvedFilter?: Resolver<ResolversTypes['EventFilter'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
