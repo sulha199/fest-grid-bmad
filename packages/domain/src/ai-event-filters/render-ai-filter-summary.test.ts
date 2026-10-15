@@ -65,11 +65,57 @@ describe('renderAIFilterSummary', () => {
     assert.equal(renderAIFilterSummary({ dayOfWeek: 'MON' as DayOfWeek }, null, { ...lbls, daysOfWeek: undefined }).summary, 'MON');
   });
 
-  it('renders an array-valued dayOfWeek gracefully, with no crash (Story 9.1b forced compile-safety touch)', () => {
+  it('renders an array-valued dayOfWeek with the locale "or" word (Story 9.5: corrects the Story 9.1b deferred placeholder join)', () => {
     assert.equal(
-      renderAIFilterSummary({ dayOfWeek: ['FRI', 'SAT'] as DayOfWeek[] }, null, { ...lbls, daysOfWeek: { FRI: 'Friday' } }).summary,
-      'Friday, SAT'
+      renderAIFilterSummary({ dayOfWeek: ['FRI', 'SAT'] as DayOfWeek[] }, null, { ...lbls, daysOfWeek: { FRI: 'Friday' }, or: 'or' }).summary,
+      'Friday or SAT'
     );
+  });
+
+  it('renders a dateRange span (AC2): offsetAmount zero and nonzero branches', () => {
+    assert.equal(
+      renderAIFilterSummary(
+        { dateRange: { anchor: DateAnchor.TODAY, offsetAmount: 0, offsetUnit: DateOffsetUnit.DAY, spanAmount: 7, spanUnit: DateOffsetUnit.DAY } },
+        null,
+        { ...lbls, dateRangeSpanOnlyTemplate: 'next {spanAmount}{spanUnit}' }
+      ).summary,
+      'next 7day'
+    );
+    assert.equal(
+      renderAIFilterSummary(
+        { dateRange: { anchor: DateAnchor.TODAY, offsetAmount: 2, offsetUnit: DateOffsetUnit.DAY, spanAmount: 7, spanUnit: DateOffsetUnit.DAY } },
+        null,
+        { ...lbls, dateRangeSpanExtensionTemplate: '{base}+{spanAmount}{spanUnit}' }
+      ).summary,
+      'today+2day+7day'
+    );
+  });
+
+  it('renders dayOfWeek equal to the exact weekend/weekday sets (AC2)', () => {
+    assert.equal(
+      renderAIFilterSummary({ dayOfWeek: ['SAT', 'SUN'] as DayOfWeek[] }, null, { ...lbls, weekends: 'weekends' }).summary,
+      'weekends'
+    );
+    assert.equal(
+      renderAIFilterSummary({ dayOfWeek: ['MON', 'TUE', 'WED', 'THU', 'FRI'] as DayOfWeek[] }, null, { ...lbls, weekdays: 'weekdays' }).summary,
+      'weekdays'
+    );
+  });
+
+  it('renders a temporalFilter leaf (AC2, the previously-live gap)', () => {
+    assert.equal(
+      renderAIFilterSummary({ temporalFilter: 'TODAY' }, null, { ...lbls, temporalStatus: { TODAY: 'happening now' } }).summary,
+      'happening now'
+    );
+    assert.equal(
+      renderAIFilterSummary({ temporalFilter: 'UPCOMING' }, null, lbls).summary,
+      'UPCOMING'
+    );
+  });
+
+  it('drops an empty string from a caveats array before joining (AC3, DW-086)', () => {
+    const res = renderAIFilterSummary({ keyword: 'jazz' }, ['', 'err1', '  '], lbls);
+    assert.equal(res.caveatsText, 'cav:err1');
   });
 
   it('renders location', () => {
