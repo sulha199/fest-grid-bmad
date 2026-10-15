@@ -284,21 +284,21 @@ Recent commits (`git log --oneline -8`) are all `wip(9.5): dev-story progress` /
 
 ## Testing Requirements
 
-- [ ] Integration tests (Vitest/RTL): `FilterHub.test.tsx` — long-summary truncation + "Show more"/"Show less" toggle + `aria-expanded`; short-summary non-regression (no toggle rendered); caveats remain visible/unchanged across the toggle's collapsed/expanded states.
-- [ ] Integration tests (Vitest/RTL): `AIFilterOverlay.test.tsx` — example-prompt chips render and fill the textarea on click; chips disabled while `isLoading`; chips absent once `resolvedSummary` is set; the exact Story 9.4 "too complex" caveat string renders verbatim in the existing amber block.
-- [ ] Integration tests (Vitest): `use-ai-filter.test.ts` — `overlayProps.examplePrompts` is a 3-element array sourced via `tFilterHub` (asserted against the mock's identity-return keys, per this file's existing `t(key) => key` convention) and includes the grouped-example key; an end-to-end assertion that a mocked over-limit-style resolve response's caveat text reaches `overlayProps.resolvedCaveats` unchanged.
-- [ ] Integration tests: `home-content.test.tsx`/`feed-content.test.tsx`/`favorites-content.test.tsx` — updated only if Task 8 finds an exact-shape assertion on `filterLabels` or the mocked `useAIFilter()` return value that the two new fields would break.
-- [ ] E2E tests: not applicable — no new route/page/critical-flow surface in the Playwright-covered-critical-flow sense (confirmed by Gate 2's "no gap" verdict above; this story refines an already-E2E-covered flow — Story 7.4's own E2E happy path — with presentational-only additions fully exercised by the Vitest/RTL integration tests above).
+- [x] Integration tests (Vitest/RTL): `FilterHub.test.tsx` — long-summary truncation + "Show more"/"Show less" toggle + `aria-expanded`; short-summary non-regression (no toggle rendered); caveats remain visible/unchanged across the toggle's collapsed/expanded states.
+- [x] Integration tests (Vitest/RTL): `AIFilterOverlay.test.tsx` — example-prompt chips render and fill the textarea on click; chips disabled while `isLoading`; chips absent once `resolvedSummary` is set; the exact Story 9.4 "too complex" caveat string renders verbatim in the existing amber block.
+- [x] Integration tests (Vitest): `use-ai-filter.test.ts` — `overlayProps.examplePrompts` is a 3-element array sourced via `tFilterHub` (asserted against the mock's identity-return keys, per this file's existing `t(key) => key` convention) and includes the grouped-example key; an end-to-end assertion that a mocked over-limit-style resolve response's caveat text reaches `overlayProps.resolvedCaveats` unchanged.
+- [x] Integration tests: `home-content.test.tsx`/`feed-content.test.tsx`/`favorites-content.test.tsx` — updated only if Task 8 finds an exact-shape assertion on `filterLabels` or the mocked `useAIFilter()` return value that the two new fields would break.
+- [x] E2E tests: not applicable — no new route/page/critical-flow surface in the Playwright-covered-critical-flow sense (confirmed by Gate 2's "no gap" verdict above; this story refines an already-E2E-covered flow — Story 7.4's own E2E happy path — with presentational-only additions fully exercised by the Vitest/RTL integration tests above).
 
 ## Deliverables Checklist
 
-- [ ] `FilterHub.tsx`'s collapsed AI-filter row stays visually one line by default for a long summary, with a working "Show more"/"Show less" toggle that never collides with the pre-existing "Edit / Expand" control, and caveats text stays visible at all times.
-- [ ] `AIFilterOverlay.tsx` shows a short list of example prompts (including one grouped AND/OR/NOT example reusing the SPEC CAP-6 worked example) before a prompt resolves; clicking one fills the textarea without auto-submitting.
-- [ ] An over-limit prompt's existing "too complex" caveat is proven, by a new test, to still reach and render in the overlay unchanged.
-- [ ] `en.json`/`id.json` carry the six new `FilterHub` namespace keys in both locales.
-- [ ] `use-ai-filter.ts` exposes `examplePrompts`/`examplePromptsLabel` via `overlayProps`; all three Discovery/Feed/Favorites call sites' `filterLabels` carry the two new `FilterHub` labels.
-- [ ] No saved-filter ("My AI Filters") file or path is touched.
-- [ ] All new/updated test files passing; `pnpm --filter @festgrid/ui test`/`lint`/`build`, `pnpm --filter @festgrid/web test`/`lint`/`build` all green.
+- [x] `FilterHub.tsx`'s collapsed AI-filter row stays visually one line by default for a long summary, with a working "Show more"/"Show less" toggle that never collides with the pre-existing "Edit / Expand" control, and caveats text stays visible at all times.
+- [x] `AIFilterOverlay.tsx` shows a short list of example prompts (including one grouped AND/OR/NOT example reusing the SPEC CAP-6 worked example) before a prompt resolves; clicking one fills the textarea without auto-submitting.
+- [x] An over-limit prompt's existing "too complex" caveat is proven, by a new test, to still reach and render in the overlay unchanged.
+- [x] `en.json`/`id.json` carry the six new `FilterHub` namespace keys in both locales.
+- [x] `use-ai-filter.ts` exposes `examplePrompts`/`examplePromptsLabel` via `overlayProps`; all three Discovery/Feed/Favorites call sites' `filterLabels` carry the two new `FilterHub` labels.
+- [x] No saved-filter ("My AI Filters") file or path is touched.
+- [x] All new/updated test files passing; `pnpm --filter @festgrid/ui test`/`lint`/`build`, `pnpm --filter @festgrid/web test`/`lint`/`build` all green.
 
 ## Out of Scope
 
@@ -313,9 +313,9 @@ Recent commits (`git log --oneline -8`) are all `wip(9.5): dev-story progress` /
 
 ## Definition of Done
 
-- [ ] AC1-AC3 satisfied and verified by their respective tests.
-- [ ] Required tests passing: `pnpm --filter @festgrid/ui test` and `pnpm --filter @festgrid/web test`.
-- [ ] Lint and type checks passing: `pnpm --filter @festgrid/ui lint`/`build`, `pnpm --filter @festgrid/web lint`/`build`.
+- [x] AC1-AC3 satisfied and verified by their respective tests.
+- [x] Required tests passing: `pnpm --filter @festgrid/ui test` and `pnpm --filter @festgrid/web test`.
+- [x] Lint and type checks passing: `pnpm --filter @festgrid/ui lint`/`build`, `pnpm --filter @festgrid/web lint`/`build`.
 
 ## Completion Status
 
