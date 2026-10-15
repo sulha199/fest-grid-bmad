@@ -115,7 +115,7 @@ export const InstagramEmbed: React.FC<InstagramEmbedProps> = ({
       observer?.disconnect();
       clearTimeout(fallbackTimer);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [showEmbed, html]);
 
   if (showEmbed) {

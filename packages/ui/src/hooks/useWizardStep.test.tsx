@@ -65,7 +65,7 @@ describe('useWizardStep / WizardStepProvider', () => {
   });
 
   it('isolates state between different provider instances and resets on remount', () => {
-    const { result, unmount, rerender } = renderHook(() => useWizardStep(), {
+    const { result, unmount } = renderHook(() => useWizardStep(), {
       wrapper: ({ children }) => <WizardStepProvider>{children}</WizardStepProvider>,
     });
 

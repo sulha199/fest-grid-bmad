@@ -513,8 +513,8 @@ export function formatDayNumber(locale: string, timezone: string | undefined, da
  * it's invisible to that extraction — confirmed against `event-card-date-box-overflow.ts`'s own
  * proof spec before landing.
  */
-const DAY_VARIANT_WORD: 'word' = 'word';
-const DAY_VARIANT_NUMBER: 'number' = 'number';
+const DAY_VARIANT_WORD = 'word' as const;
+const DAY_VARIANT_NUMBER = 'number' as const;
 
 export function formatShortEventDateTimeParts(
   locale: string,

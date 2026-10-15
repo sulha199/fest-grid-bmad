@@ -594,7 +594,7 @@ items:
      title: "Saved AI filter API needs a list limit, a per-user save quota and mapped DB errors",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
      touches: [app:backend],
-     note: "Remaining DW-083, DW-084, DW-085 after the 2026-10-14 carve; DW-074..078 and DW-086 moved to FIND-082."}
+     note: "Remaining DW-083, DW-084, DW-085 after the 2026-10-14 carve; DW-074..078 and DW-086 moved to FIND-083."}
 
   FIND-019:
     {type: finding, status: done, created: 2026-09-05,
@@ -2197,9 +2197,9 @@ items:
                9-8-rate-limit-prompt-resolution,
                9-9z-ratchet-every-filter-consumer-goes-through-the-shared-compiler],
      touches: [cross:ai-extraction, pkg:domain, app:backend, web:events, web:widgets, pkg:ui],
-     note: "Driving row of Epic 9 (formed 2026-10-14); members FIND-082, BUG-059."}
+     note: "Driving row of Epic 9 (formed 2026-10-14); members FIND-083, BUG-059."}
 
-  FIND-082:
+  FIND-083:
     {type: finding, status: promoted, created: 2026-10-14, parent: FIND-018, epic: epic-9,
      impact: user-visible, effort: m,
      title: "AI filter date and validation gaps: no timezone, 90-day fallback, epoch trick, no offsetAmount bounds, Widget.filters cast, caveat joining",
@@ -2218,3 +2218,12 @@ items:
      stories: [9-8-rate-limit-prompt-resolution],
      touches: [app:backend, cross:ai-extraction],
      note: "Carved from BUG-011 (DW-082); sweep Story 9.8 under Epic 9."}
+
+  # ── 2026-10-15 (code review of Story 0.i2d) ──────────────────────────────────
+  FIND-082:
+    {type: finding, status: backlog, created: 2026-10-15,
+     impact: internal, effort: s,
+     title: "Story 0.i2d review deferrals: triplicated transient-error classifier; Apify webhook 20s cap covers dataset download",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend],
+     note: "Deferred from: code review of story-0.i2d (2026-10-15). 2 findings."}

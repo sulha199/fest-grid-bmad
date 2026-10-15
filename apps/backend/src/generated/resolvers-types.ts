@@ -1077,6 +1077,7 @@ export type QueryPostsByAccountArgs = {
   accountId: Scalars['ID']['input'];
   cursor?: InputMaybe<Scalars['String']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
+  onlyUnextracted?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 

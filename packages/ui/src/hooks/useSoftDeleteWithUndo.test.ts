@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { useSoftDeleteWithUndo } from './useSoftDeleteWithUndo';
 import { toast } from 'sonner';
 
@@ -9,6 +9,10 @@ vi.mock('sonner', () => ({
     dismiss: vi.fn(),
   }),
 }));
+
+// `toast` is replaced by the vi.fn() above; this is the typed handle on it.
+type ToastArgs = [string, { onAutoClose: () => void; action: { onClick: () => void } }];
+const toastMock = toast as unknown as Mock<(...args: ToastArgs) => string> & { dismiss: Mock };
 
 describe('useSoftDeleteWithUndo', () => {
   beforeEach(() => {
@@ -36,7 +40,7 @@ describe('useSoftDeleteWithUndo', () => {
   });
 
   it('undo flips isPending back to false, calls toast.dismiss, and calls the supplied undo function', async () => {
-    (toast as any).mockReturnValue('toast-id-1');
+    toastMock.mockReturnValue('toast-id-1');
     
     const { result } = renderHook(() => useSoftDeleteWithUndo());
     const undoFn = vi.fn().mockResolvedValue(undefined);
@@ -53,7 +57,7 @@ describe('useSoftDeleteWithUndo', () => {
 
     expect(result.current.isPending('item-1')).toBe(false);
     expect(result.current.pendingIds.has('item-1')).toBe(false);
-    expect((toast as any).dismiss).toHaveBeenCalledWith('toast-id-1');
+    expect(toastMock.dismiss).toHaveBeenCalledWith('toast-id-1');
     expect(undoFn).toHaveBeenCalledTimes(1);
   });
 
@@ -69,7 +73,7 @@ describe('useSoftDeleteWithUndo', () => {
     expect(result.current.isPending('item-1')).toBe(true);
 
     // Get the onAutoClose callback from the toast call options
-    const toastCall = (toast as any).mock.calls[0];
+    const toastCall = toastMock.mock.calls[0];
     const toastOptions = toastCall[1];
     const onAutoClose = toastOptions.onAutoClose;
 
@@ -85,7 +89,7 @@ describe('useSoftDeleteWithUndo', () => {
   });
 
   it('multiple concurrent pending items are tracked independently (including independent per-item expiry)', async () => {
-    (toast as any).mockReturnValueOnce('toast-id-1')
+    toastMock.mockReturnValueOnce('toast-id-1')
                  .mockReturnValueOnce('toast-id-2')
                  .mockReturnValueOnce('toast-id-3');
                  
@@ -104,7 +108,7 @@ describe('useSoftDeleteWithUndo', () => {
     expect(result.current.pendingIds.size).toBe(3);
 
     // Get the toast call options for item-2
-    const toastCall2 = (toast as any).mock.calls[1];
+    const toastCall2 = toastMock.mock.calls[1];
     const onAutoClose2 = toastCall2[1].onAutoClose;
 
     act(() => {

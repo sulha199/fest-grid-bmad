@@ -2,7 +2,7 @@ import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, subscriptions } from '@festgrid/database';
 import { and, eq, isNull, lt, or } from 'drizzle-orm';
 import { activeOnly } from '@festgrid/graphql-select';
-import { ScraperCapacityExceededError, ScrapablePlatform } from '@festgrid/domain';
+import { ScraperCapacityExceededError, ScrapablePlatform, isScrapableAccountType } from '@festgrid/domain';
 import { verifyAccountProfileForDiscovery } from '../accounts/verify-account-profile-for-discovery.js';
 import { computeClaimCutoff } from '@festgrid/domain/shared';
 import { loadBackendEnv } from '../../env.js';
@@ -136,7 +136,7 @@ export async function subscribeToAccount({
         accountTypeStatus: classification.accountTypeStatus,
       };
 
-      if (classification.accountType === 'ORGANIZER_VENUE_EVENT' && classification.accountTypeStatus === 'CONFIRMED') {
+      if (isScrapableAccountType(classification.accountType, classification.accountTypeStatus)) {
         const scrapeTarget = {
           profileId: accountProfile.id,
           platform: accountProfile.platform as ScrapablePlatform,

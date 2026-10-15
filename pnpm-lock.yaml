@@ -654,6 +654,9 @@ importers:
         specifier: ^3.6.0
         version: 3.6.0
     devDependencies:
+      '@festgrid/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
       '@festgrid/testing-config':
         specifier: workspace:*
         version: link:../testing-config

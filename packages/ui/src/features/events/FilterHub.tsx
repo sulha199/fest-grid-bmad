@@ -84,19 +84,12 @@ export function FilterHub({
 }: FilterHubProps) {
   const [isSummaryExpanded, setIsSummaryExpanded] = React.useState(false);
 
-  // Pre-existing rules-of-hooks fix (unrelated to this story's feature scope, but required to
-  // keep this file's mandatory test suite green -- see Dev Agent Record): these two hooks used
-  // to be declared AFTER the `if (aiFilterSummary)` early return below, so a FilterHub instance
-  // that starts without an active AI filter (0/1 hooks called before the early return) and then
-  // receives one (now hitting the early return) called a different number of hooks across
-  // renders of the SAME mounted instance -- a hard React "Rendered fewer hooks than during the
-  // previous render" crash. Hoisting them above the conditional, unconditionally, fixes this
-  // without changing any observable behavior (they are unused in the branch below, same as
-  // before this fix).
+  // Hooks stay above the AI-summary early return so their order is identical on every render.
   const [selectedTypes, setSelectedTypes] = useQueryState(
     'types',
     parseAsArrayOf(parseAsString).withDefault([])
   );
+
   const [selectedCategories, setSelectedCategories] = useQueryState(
     'categories',
     parseAsArrayOf(parseAsString).withDefault([])
@@ -161,6 +154,7 @@ export function FilterHub({
       </div>
     );
   }
+
 
   const handleClear = () => {
     setSelectedTypes(null);

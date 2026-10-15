@@ -1,4 +1,5 @@
 import tseslint from 'typescript-eslint';
+import { config as reactInternalConfig } from '@festgrid/eslint-config/react-internal';
 import noDynamicTailwindArbitraryValue from './eslint-rules/no-dynamic-tailwind-arbitrary-value.mjs';
 
 /**
@@ -13,6 +14,7 @@ import noDynamicTailwindArbitraryValue from './eslint-rules/no-dynamic-tailwind-
  * @type {import("eslint").Linter.Config[]}
  */
 export default [
+  ...reactInternalConfig,
   {
     files: ['src/features/events/**/*.{ts,tsx}'],
     // `InstagramEmbed.tsx` carries a pre-existing `eslint-disable-next-line

@@ -5308,6 +5308,8 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Depends on:** Story 0.i2a.
 
+**Amendment (2026-10-09, `bmad-create-story`, `AskUserQuestion`):** This story's AC text above ("serializes the call per credential") and its "As a/I want" text (naming only `trigger-apify-for-target.ts` and `brightdata-client.ts`) both undersell the real scope, in two ways surfaced and resolved during this story's drafting. **(1) Lock key:** Apify and Bright Data each have exactly one static, always-valid credential (no multi-key BYOK pool like Gemini's, and no candidate-exclusion retry loop to absorb a busy-lock error) — the user chose **no `lockKey`** for any Apify/Bright Data `callVendor` call, extending AD-32 Rule 3's existing lock-less exception rather than literally serializing all concurrent Apify/Bright Data traffic system-wide. **(2) Call-site scope:** 0.i2z's own ratchet inventory names 4 real Apify bypass files, not 1 (`instagram-adapter.ts`'s `callApifyActor` plus 3 files calling `getApifyClient()` directly) — the user chose to consolidate all 4 through one new shared `callApifyClient` helper in `instagram-adapter.ts`, so the inventory can genuinely be emptied (this story's explicit AC) rather than leaving 3 of 4 Apify bypass sites unresolved. Full reasoning, the exact file list, and the new `DPA_NOT_CONFIRMED` `ScraperTriggerFailureReason` member added along the way are in `_bmad-output/implementation-artifacts/0-i2d-adopt-the-wrapper-in-the-apify-bright-data-scraper-call-sites.md`.
+
 ### Story 0.i2z: Ratchet — no vendor call bypasses the wrapper
 
 **As a** developer,
@@ -5916,7 +5918,7 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 *   **Given** `dateRange` with optional `spanAmount`/`spanUnit`, **when** it resolves, **then** the window widens accordingly ("next 7 days", "next 2 weeks", "rest of this month"); a THIS_MONTH anchor with a DAY/WEEK offset has defined, tested semantics.
 *   **And** `dayOfWeek` accepts several values (weekends = SAT+SUN, weekdays = MON–FRI) via the existing array-capable `getDays`, and the Gemini transform extracts `temporalFilter` (TODAY/UPCOMING).
-*   **And** date resolution is timezone-aware, the hardcoded 90-day fallback and the epoch-fallback trick are replaced by explicit behavior, and `offsetAmount` is bounded (absorbs FIND-082: DW-074..077).
+*   **And** date resolution is timezone-aware, the hardcoded 90-day fallback and the epoch-fallback trick are replaced by explicit behavior, and `offsetAmount` is bounded (absorbs FIND-083: DW-074..077).
 *   **And** absolute dates, time of day and holiday names still produce a caveat.
 
 **Depends on:** Story 9.1a.
@@ -5945,7 +5947,7 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 **Acceptance Criteria:**
 
 *   **Given** `events.graphql`, `ai-event-filters.graphql` and `widgets.graphql`, **when** extended with a bounded `FilterNodeInput`/`FilterNode` and `dayOfWeek: [DayOfWeek!]`, **then** the resolvers validate with the Story 9.1a schema and reject invalid input with `BAD_USER_INPUT`.
-*   **And** saved filters persist `{version: 2, …}` and v1 rows still load unchanged; Widgets render expressions through the same compiler, and `Widget.filters` is validated at read time instead of an `as any` cast (absorbs FIND-082: DW-078).
+*   **And** saved filters persist `{version: 2, …}` and v1 rows still load unchanged; Widgets render expressions through the same compiler, and `Widget.filters` is validated at read time instead of an `as any` cast (absorbs FIND-083: DW-078).
 *   **And** `buildFeedQueryCondition` and `buildAccountEventsQueryCondition` accept expressions.
 *   **And** generated GraphQL types are regenerated and committed.
 
@@ -5993,7 +5995,7 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 *   **Given** an expression, **when** the summary renders, **then** it is deterministic template output with locale-safe and/or/not words and explicit grouping, identical for identical input.
 *   **And** the new date phrasings (spans, several weekdays, temporal status) render in both locales through `next-intl`.
-*   **And** empty caveat strings are not joined (absorbs FIND-082: DW-086).
+*   **And** empty caveat strings are not joined (absorbs FIND-083: DW-086).
 *   **And** snapshot tests cover `en` and `id`.
 
 **Depends on:** Story 9.1a, Story 9.1b.
@@ -6057,4 +6059,4 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Depends on:** Stories 9.2, 9.3, 9.4.
 
-**Note:** Formed 2026-10-14 via `bmad-form-epics` (scoped pass) from IDEA-069 (driving), FIND-082 (carved from FIND-018) and BUG-059 (carved from BUG-011). Feature epic: the `z` ratchet is optional and was included because the epic's justification is the shared compiler. Remaining FIND-018 scope (DW-083/084/085) and BUG-011 scope (DW-066/067/068) stay on the board.
+**Note:** Formed 2026-10-14 via `bmad-form-epics` (scoped pass) from IDEA-069 (driving), FIND-083 (carved from FIND-018) and BUG-059 (carved from BUG-011). Feature epic: the `z` ratchet is optional and was included because the epic's justification is the shared compiler. Remaining FIND-018 scope (DW-083/084/085) and BUG-011 scope (DW-066/067/068) stay on the board.

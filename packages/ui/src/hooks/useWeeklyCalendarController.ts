@@ -1,6 +1,11 @@
 import { useMemo } from 'react';
 import { computeDistanceKm } from '@festgrid/domain/geolocation';
-import { WeeklyCalendarControllerOptions, WeeklyCalendarControllerResult } from './useWeeklyCalendarController.types';
+import type { WeeklyCalendarViewScheduleShape } from '../features/events/WeeklyCalendarView.types';
+import type {
+  CalendarSourceEvent,
+  WeeklyCalendarControllerOptions,
+  WeeklyCalendarControllerResult,
+} from './useWeeklyCalendarController.types';
 
 const parseDateOnly = (dateStr: string) => {
   const [year, month, day] = dateStr.split('-').map(Number);
@@ -43,13 +48,14 @@ export const getWeekEnd = (weekStartStr: string) => {
  * mapping (instead of duplicating it in `apps/web`) is what keeps the two lists identical —
  * including `distanceKm`, `locationName` and `imageUrl`, which the overflowing cards need.
  */
-export function mapCalendarSchedules<TEvent = any, TSchedule = any>(
+export function mapCalendarSchedules<TEvent = CalendarSourceEvent, TSchedule = WeeklyCalendarViewScheduleShape>(
   rawEvents: TEvent[] | null | undefined,
   viewerCoord?: { latitude: number; longitude: number }
 ): TSchedule[] {
   const events = rawEvents ?? [];
-  return events.flatMap((event: any) => {
-    return (event.schedules || []).map((schedule: any) => {
+  return events.flatMap((rawEvent) => {
+    const event = rawEvent as CalendarSourceEvent;
+    return (event.schedules || []).map((schedule) => {
       const targetCoords = schedule.locationDetails?.coordinates;
       const distanceKm =
         viewerCoord && targetCoords
@@ -88,10 +94,10 @@ export function mapCalendarSchedules<TEvent = any, TSchedule = any>(
         distanceKm,
       };
     });
-  }) as TSchedule[];
+  }) as unknown as TSchedule[];
 }
 
-export function useWeeklyCalendarController<TEvent = any, TSchedule = any>(
+export function useWeeklyCalendarController<TEvent = CalendarSourceEvent, TSchedule = WeeklyCalendarViewScheduleShape>(
   options: WeeklyCalendarControllerOptions<TEvent>
 ): WeeklyCalendarControllerResult<TSchedule> {
   const {

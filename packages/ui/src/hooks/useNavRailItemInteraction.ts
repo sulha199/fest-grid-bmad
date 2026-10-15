@@ -1,6 +1,6 @@
 'use client';
 
-import { FocusEvent, KeyboardEvent, PointerEvent, useEffect, useRef, useState } from 'react';
+import { KeyboardEvent, PointerEvent, useEffect, useRef, useState } from 'react';
 import { usePrefersReducedMotion } from './usePrefersReducedMotion';
 import {
   UseNavRailItemInteractionProps,
@@ -67,11 +67,11 @@ export function useNavRailItemInteraction({
         setIsHovered(false);
       }
     },
-    onFocus: (event: FocusEvent<HTMLElement>) => {
+    onFocus: () => {
       setIsDismissed(false);
       setIsFocused(true);
     },
-    onBlur: (event: FocusEvent<HTMLElement>) => {
+    onBlur: () => {
       setIsFocused(false);
     },
     onKeyDown: (event: KeyboardEvent<HTMLElement>) => {

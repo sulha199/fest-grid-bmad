@@ -9,7 +9,7 @@ import { buildEventAccountMatchCondition } from '../lib/events/event-account-mat
 import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, gte, lte, isNull, isNotNull, ilike } from 'drizzle-orm';
 import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
-import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink } from '@festgrid/domain/scraper';
+import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink, isScrapableAccountType } from '@festgrid/domain/scraper';
 import { selectApiKey } from '@festgrid/domain/ai-gateway';
 import { callGemini, AiGatewayExhaustedError, AiGatewayBusyError } from '../lib/ai-gateway/adapter.js';
 import { fetchCandidateKeys } from '../lib/ai-gateway/usage-store.js';
@@ -658,9 +658,9 @@ export const resolvers: Resolvers = {
 
       const profile = profileRows[0];
 
-      // Gate check: proceed only if accountTypeStatus is NULL or (accountType = 'ORGANIZER_VENUE_EVENT' and accountTypeStatus = 'CONFIRMED')
-      const allowed = profile.accountTypeStatus === null || (profile.accountType === 'ORGANIZER_VENUE_EVENT' && profile.accountTypeStatus === 'CONFIRMED');
-      if (!allowed) {
+      // Gate check: same rule as the daily batch and the subscribe-time cascade -- never-classified,
+      // or CONFIRMED as an organizer/venue/event or curator/guide (Story 3.4o).
+      if (!isScrapableAccountType(profile.accountType, profile.accountTypeStatus)) {
         throw new GraphQLError('Scraping is not allowed for this account type.', {
           extensions: { code: 'FORBIDDEN' },
         });
@@ -2741,7 +2741,7 @@ export const resolvers: Resolvers = {
         .orderBy(desc(subscriptions.createdAt));
       return rows.map(row => formatSubscription(row));
     },
-    postsByAccount: async (_: any, { accountId, cursor, limit }: any, context: any) => {
+    postsByAccount: async (_: any, { accountId, cursor, limit, onlyUnextracted }: any, context: any) => {
       const authUser = requireAuth(context);
 
       // Security Scope Check: Caller must have an active subscription to the account
@@ -2762,6 +2762,11 @@ export const resolvers: Resolvers = {
 
       const qLimit = limit ?? 20;
       const conditions = [eq(posts.accountId, accountId)];
+      // Manual extraction only lists posts still awaiting extraction (PRD 3.10); the filter runs in
+      // SQL so cursor pages stay full instead of being thinned out by client-side hiding.
+      if (onlyUnextracted) {
+        conditions.push(eq(posts.isExtracted, false));
+      }
       if (cursor) {
         conditions.push(sql`${posts.publishedAt} < ${new Date(cursor)}`);
       }

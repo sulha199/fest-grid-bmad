@@ -81,7 +81,7 @@ type ExtractionQuota {
 }
 
 extend type Query {
-  postsByAccount(accountId: ID!, cursor: String, limit: Int): PostConnection!
+  postsByAccount(accountId: ID!, cursor: String, limit: Int, onlyUnextracted: Boolean): PostConnection!
   myExtractionQuota: ExtractionQuota!
   extractionJob(id: ID!): ExtractionJobStatus!
 }

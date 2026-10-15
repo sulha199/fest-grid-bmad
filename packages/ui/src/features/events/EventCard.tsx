@@ -209,6 +209,15 @@ export function EventCard({
   const activeLocale = locale || contextLocale;
   const activeTimezone = timezone || contextTimezone;
 
+  // Story 1.3k Task 6 (AC6, "Tooltip trigger resolution" Dev Notes) — the repeat badge is never
+  // an independently-focusable trigger of its own (it would nest a focusable element inside
+  // RootTag, already an `<a>`/`<button>` when `href`/`onClick` is supplied — the same hazard
+  // Story 1.i1d/1.i1e already solved for the favorite badge). Instead RootTag's own existing
+  // hover/focus state, via the shared `useHoverFocusTooltip` hook, drives the badge's tooltip.
+  // Called before the `loading` early return below so the hook order never changes between renders.
+  const { isVisible: repeatBadgeTooltipVisible, handlers: repeatBadgeTooltipHandlers } =
+    useHoverFocusTooltip({ enabled: true });
+
   if (loading) {
     return (
       <article
@@ -312,14 +321,6 @@ export function EventCard({
     : onClick
       ? { onClick, type: 'button' as const }
       : {};
-
-  // Story 1.3k Task 6 (AC6, "Tooltip trigger resolution" Dev Notes) — the repeat badge is never
-  // an independently-focusable trigger of its own (it would nest a focusable element inside
-  // RootTag, already an `<a>`/`<button>` when `href`/`onClick` is supplied — the same hazard
-  // Story 1.i1d/1.i1e already solved for the favorite badge). Instead RootTag's own existing
-  // hover/focus state, via the shared `useHoverFocusTooltip` hook, drives the badge's tooltip.
-  const { isVisible: repeatBadgeTooltipVisible, handlers: repeatBadgeTooltipHandlers } =
-    useHoverFocusTooltip({ enabled: true });
 
   return (
     <article

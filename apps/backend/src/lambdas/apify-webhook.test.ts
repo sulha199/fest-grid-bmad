@@ -4,9 +4,10 @@ import { randomBytes } from 'node:crypto';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { handler } from './apify-webhook.js';
 import { db } from '../db/client.js';
-import { apifyPendingJobs, socialMediaAccountProfiles } from '@festgrid/database';
+import { apifyPendingJobs, socialMediaAccountProfiles, posts } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import { createPendingJob } from '../lib/scraper/apify-pending-jobs-store.js';
+import { setGetApifyClient, getApifyClient } from '../lib/scraper/instagram-adapter.js';
 
 test('apify-webhook tests', async (t) => {
   const testAccountId = 'profile-' + Date.now();
@@ -26,6 +27,7 @@ test('apify-webhook tests', async (t) => {
   });
 
   t.afterEach(async () => {
+    await db.delete(posts).where(eq(posts.accountId, testProfileId));
     await db.delete(apifyPendingJobs).where(eq(apifyPendingJobs.profileId, testProfileId));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfileId));
   });
@@ -104,6 +106,59 @@ test('apify-webhook tests', async (t) => {
       .where(eq(apifyPendingJobs.id, id));
 
     assert.strictEqual(job.status, 'EXPIRED');
+  });
+
+  await t.test('SUCCEEDED run with a dataset: restructured { run, items } from callApifyClient still drives processApifyAsyncResult (first real coverage of this handler\'s success path)', async () => {
+    const originalGetApifyClient = getApifyClient;
+    const postUrl = `https://www.instagram.com/p/C_webhook_success_${Date.now()}/`;
+
+    setGetApifyClient((() => ({
+      run: () => ({
+        get: async () => ({ id: 'run-success-1', status: 'SUCCEEDED', defaultDatasetId: 'dataset-1' }),
+      }),
+      dataset: () => ({
+        listItems: async () => ({
+          items: [
+            {
+              url: postUrl,
+              caption: 'Webhook success path caption',
+              timestamp: '2026-10-09T00:00:00Z',
+            },
+          ],
+        }),
+      }),
+    })) as unknown as typeof originalGetApifyClient);
+
+    const { webhookToken } = await createPendingJob({
+      profileId: testProfileId,
+      runId: 'run-success-1',
+      webhookToken: randomBytes(24).toString('hex'),
+    });
+
+    try {
+      const event: APIGatewayProxyEvent = {
+        queryStringParameters: { jobToken: webhookToken },
+      } as any;
+
+      const result = await handler(event);
+
+      assert.strictEqual(result.statusCode, 200);
+      assert.ok(result.body.includes('Success'));
+
+      // The restructured { run, items } shape from callApifyClient's thunk reached
+      // processApifyAsyncResult and the pending job was marked completed.
+      const [job] = await db
+        .select()
+        .from(apifyPendingJobs)
+        .where(eq(apifyPendingJobs.profileId, testProfileId));
+      assert.strictEqual(job.status, 'COMPLETED');
+
+      const persistedPosts = await db.select().from(posts).where(eq(posts.postUrl, postUrl));
+      assert.strictEqual(persistedPosts.length, 1);
+      assert.strictEqual(persistedPosts[0].content, 'Webhook success path caption');
+    } finally {
+      setGetApifyClient(originalGetApifyClient);
+    }
   });
 
   await t.test('returns 200 on any error', async () => {

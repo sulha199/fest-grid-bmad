@@ -10,7 +10,6 @@ export function WizardStepSummary({ steps, currentStepSlug }: WizardStepSummaryP
       {steps.map((step, index) => {
         const isCompleted = index < currentIndex;
         const isCurrent = index === currentIndex;
-        const isUpcoming = index > currentIndex;
         const isSegmentFilled = index < currentIndex;
         const hasNextSegment = index < steps.length - 1;
 
