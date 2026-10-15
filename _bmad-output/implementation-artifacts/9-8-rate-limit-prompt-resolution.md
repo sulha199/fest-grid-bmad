@@ -60,7 +60,7 @@ so that bigger prompts and retries cannot burn my quota unnoticed.
   - Run `pnpm --filter @festgrid/database migrate` (`tsx migrate.ts`) against the local sandbox Postgres only. Confirm it completes with "Migrations completed successfully" (the session's own startup hook already shows this script runs cleanly against the local DB).
   - Never point either command at a non-`localhost`/non-`127.0.0.1` `DATABASE_URL` (no network access exists in this session regardless, but this is also a standing project rule — Supabase is cloud-only).
 
-- [ ] 3. **(AC1, AC2)** Add `packages/domain/src/ai-event-filters/prompt-filter-rate-limit.ts` — pure, dependency-free logic (no DB/ORM/Node-only import), 100% unit-tested:
+- [x] 3. **(AC1, AC2)** Add `packages/domain/src/ai-event-filters/prompt-filter-rate-limit.ts` — pure, dependency-free logic (no DB/ORM/Node-only import), 100% unit-tested:
   ```ts
   export interface PromptFilterRateLimitState {
     requestCount: number;
@@ -100,7 +100,7 @@ so that bigger prompts and retries cannot burn my quota unnoticed.
   Add `prompt-filter-rate-limit.test.ts` covering: no prior state → allowed, count 1; under limit → allowed, incremented, same window; at limit → denied, state unchanged; over limit → denied; window elapsed with a stale high count → allowed, reset to count 1 with a fresh `windowStartAt`; a boundary case where `now` is exactly `windowMinutes` after `windowStartAt` (inclusive — must count as elapsed, matching `isCycleElapsed`'s own `>=` convention).
   Export both from `packages/domain/src/ai-event-filters/index.ts` (new `export * from './prompt-filter-rate-limit.js';` line, additive only).
 
-- [ ] 4. **(AC1, AC3)** Add `apps/backend/src/lib/ai-event-filters/prompt-filter-rate-limit-store.ts`:
+- [x] 4. **(AC1, AC3)** Add `apps/backend/src/lib/ai-event-filters/prompt-filter-rate-limit-store.ts`:
   ```ts
   import { eq } from 'drizzle-orm';
   import { promptFilterRateLimits } from '@festgrid/database';
@@ -149,7 +149,7 @@ so that bigger prompts and retries cannot burn my quota unnoticed.
   ```
   This is a plain read-then-write, not a single atomic upsert — deliberately matching the existing `apps/backend/src/lib/ai-gateway/usage-store.ts#recordSuccessfulUsage` precedent (same read-row → decide → write-row shape for a per-entity usage counter) rather than introducing a new locking/upsert pattern for this one caller. See Dev Notes decision 2 for why this is an accepted, precedent-matching tradeoff here and not a race-condition bug to fix.
 
-- [ ] 5. **(AC1, AC4)** Wire the check into `resolvePromptToEventFilter` in `apps/backend/src/schema/resolvers.ts`:
+- [x] 5. **(AC1, AC4)** Wire the check into `resolvePromptToEventFilter` in `apps/backend/src/schema/resolvers.ts`:
   - Import `checkAndRecordPromptFilterRateLimit` from `../lib/ai-event-filters/prompt-filter-rate-limit-store.js`.
   - Immediately after the existing prompt-length/shape validation block (around line 328) and before the `// NO_API_KEY Pre-Check` comment, insert:
     ```ts
@@ -167,7 +167,7 @@ so that bigger prompts and retries cannot burn my quota unnoticed.
     ```
   - No GraphQL schema (`.graphql`) change: `extensions.code` on a `GraphQLError` is error metadata, not a typed schema field -- confirmed by inspecting the existing `NO_API_KEY`/`QUOTA_EXHAUSTED`/`TEMPORARILY_BUSY` codes this same resolver already throws, none of which appear in any `.graphql` enum (the unrelated `ExtractionErrorCode` enum in `extraction.graphql` backs a different field, `ExtractionJob.errorCode`, not this resolver's thrown errors). No codegen regeneration needed.
 
-- [ ] 6. **(AC1, AC2, AC4)** Add integration tests to `apps/backend/src/schema/ai-event-filters.test.ts` (existing `resolvePromptToEventFilter` suite in this file):
+- [x] 6. **(AC1, AC2, AC4)** Add integration tests to `apps/backend/src/schema/ai-event-filters.test.ts` (existing `resolvePromptToEventFilter` suite in this file):
   - **Denial case:** seed a `promptFilterRateLimits` row for `testUser.id` with `requestCount` at the configured max (read `loadBackendEnv().promptFilterRateLimitMaxRequests` directly in the test, or override `process.env.PROMPT_FILTER_RATE_LIMIT_MAX_REQUESTS` to a small deterministic value with save/restore, following this file's own `GEMINI_VERIFICATION_TIMEOUT_MS` override convention in `api-keys.test.ts`) and `windowStartAt: new Date()` (fresh). Call the mutation once; assert `result.errors[0].extensions.code === 'RATE_LIMITED'` and that the injected `setCallGeminiGenerateContent` mock's call counter did not increase (wrap the mock in a counting shim for this assertion).
   - **Window-reset case:** seed the same row with `requestCount` at/above the max but `windowStartAt` far enough in the past to have elapsed under the configured window; call the mutation; assert it succeeds (reaches the Gemini mock) and the row's `requestCount` is reset to 1 with a fresh `windowStartAt` afterward.
   - **Cleanup:** add `await db.delete(promptFilterRateLimits).where(eq(promptFilterRateLimits.userId, testUser.id));` to the file's existing `t.after(...)` cleanup block (alongside the existing `aiEventFilters`/`apiKeys`/`vendorCallLocks` deletes), and import `promptFilterRateLimits` in this file's existing `@festgrid/database` import line.

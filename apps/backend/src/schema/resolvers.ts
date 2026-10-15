@@ -13,6 +13,7 @@ import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildIn
 import { selectApiKey } from '@festgrid/domain/ai-gateway';
 import { callGemini, AiGatewayExhaustedError, AiGatewayBusyError } from '../lib/ai-gateway/adapter.js';
 import { fetchCandidateKeys } from '../lib/ai-gateway/usage-store.js';
+import { checkAndRecordPromptFilterRateLimit } from '../lib/ai-event-filters/prompt-filter-rate-limit-store.js';
 import { startManualExtractionJob, getManualExtractionJobStatus } from '../lib/extraction/manual-extraction-job.js';
 import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
 import { validateHidePastEventsAfterDays, InvalidUserSettingsInputError } from '@festgrid/domain/user-settings';
@@ -324,6 +325,18 @@ export const resolvers: Resolvers = {
       if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0 || prompt.length > 2000) {
         throw new GraphQLError('Prompt must be between 1 and 2000 characters', {
           extensions: { code: 'BAD_USER_INPUT' }
+        });
+      }
+
+      // Story 9.8 -- per-user request-volume guard, distinct from and additive to callVendor's
+      // per-key lock/timeout/backoff (callGemini -> callVendor, Story 0.i2a/0.i2c below). This
+      // check bounds how often THIS USER may call this mutation; it never replaces or is replaced
+      // by that per-key mechanism. Runs before the candidate-key lookup so a denied request never
+      // pays for it.
+      const rateLimitAllowed = await checkAndRecordPromptFilterRateLimit(authUser.userId);
+      if (!rateLimitAllowed) {
+        throw new GraphQLError('You are sending prompts too quickly. Please wait a few minutes and try again.', {
+          extensions: { code: 'RATE_LIMITED' }
         });
       }
 

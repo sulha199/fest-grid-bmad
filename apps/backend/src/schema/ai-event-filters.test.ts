@@ -5,7 +5,7 @@ import { resolvers } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
-import { users, apiKeys, aiEventFilters, vendorCallLocks, socialMediaAccountProfiles } from '@festgrid/database';
+import { users, apiKeys, aiEventFilters, vendorCallLocks, socialMediaAccountProfiles, promptFilterRateLimits } from '@festgrid/database';
 import { eq, and } from 'drizzle-orm';
 import { setCallGeminiGenerateContent, callGeminiGenerateContent, GeminiInvalidKeyError } from '../lib/ai-gateway/gemini-client.js';
 import { setDecryptApiKey } from '../lib/ai-gateway/kms.js';
@@ -46,6 +46,8 @@ test('ai event filters resolvers integration', async (t) => {
     }
     if (testUser) {
       await db.delete(aiEventFilters).where(eq(aiEventFilters.ownerUserId, testUser.id));
+      // Story 9.8 -- row-count-ratchet cleanup for the new prompt_filter_rate_limits table.
+      await db.delete(promptFilterRateLimits).where(eq(promptFilterRateLimits.userId, testUser.id));
     }
   });
 
@@ -168,6 +170,119 @@ test('ai event filters resolvers integration', async (t) => {
     assert.ok(leaves.some((l: any) => l.field === 'keyword' && l.value === 'live jazz'));
     assert.ok(leaves.some((l: any) => l.field === 'type' && JSON.stringify(l.value) === JSON.stringify(['PERFORMANCE'])));
     assert.ok(leaves.some((l: any) => l.field === 'category' && JSON.stringify(l.value) === JSON.stringify(['MUSIC'])));
+  });
+
+  await t.test('resolvePromptToEventFilter denies over the configured per-user rate limit without calling Gemini (Story 9.8 AC1/AC2)', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    const originalMaxEnv = process.env.PROMPT_FILTER_RATE_LIMIT_MAX_REQUESTS;
+    process.env.PROMPT_FILTER_RATE_LIMIT_MAX_REQUESTS = '2';
+
+    let callCount = 0;
+    setCallGeminiGenerateContent(async () => {
+      callCount++;
+      return {
+        text: JSON.stringify({ expression: { keyword: 'live jazz' }, caveats: [] }),
+      };
+    });
+
+    try {
+      await db.delete(promptFilterRateLimits).where(eq(promptFilterRateLimits.userId, testUser.id));
+      // Seed a row already at the configured max (2) with a fresh window, so the next request
+      // is the denied one.
+      await db.insert(promptFilterRateLimits).values({
+        userId: testUser.id,
+        requestCount: 2,
+        windowStartAt: new Date(),
+      });
+
+      const res = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation {
+              resolvePromptToEventFilter(prompt: "Show me jazz events in Yogyakarta") {
+                resolvedFilter { keyword }
+              }
+            }
+          `
+        })
+      });
+      const result = await res.json();
+      assert.ok(result.errors, 'should deny the request over the configured limit');
+      assert.strictEqual(result.errors[0].extensions?.code, 'RATE_LIMITED');
+      assert.strictEqual(callCount, 0, 'callGemini must never be invoked for a denied attempt');
+    } finally {
+      await db.delete(promptFilterRateLimits).where(eq(promptFilterRateLimits.userId, testUser.id));
+      // loadBackendEnv() is not memoized -- restoring process.env is sufficient, no cache to bust.
+      if (originalMaxEnv === undefined) {
+        delete process.env.PROMPT_FILTER_RATE_LIMIT_MAX_REQUESTS;
+      } else {
+        process.env.PROMPT_FILTER_RATE_LIMIT_MAX_REQUESTS = originalMaxEnv;
+      }
+    }
+  });
+
+  await t.test('resolvePromptToEventFilter succeeds and resets the counter once the rate-limit window has elapsed (Story 9.8 AC1/AC2)', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    const originalMaxEnv = process.env.PROMPT_FILTER_RATE_LIMIT_MAX_REQUESTS;
+    const originalWindowEnv = process.env.PROMPT_FILTER_RATE_LIMIT_WINDOW_MINUTES;
+    process.env.PROMPT_FILTER_RATE_LIMIT_MAX_REQUESTS = '2';
+    process.env.PROMPT_FILTER_RATE_LIMIT_WINDOW_MINUTES = '10';
+
+    let callCount = 0;
+    setCallGeminiGenerateContent(async () => {
+      callCount++;
+      return {
+        text: JSON.stringify({ expression: { keyword: 'live jazz' }, caveats: [] }),
+      };
+    });
+
+    try {
+      await db.delete(promptFilterRateLimits).where(eq(promptFilterRateLimits.userId, testUser.id));
+      // Seed a row at/above the max, but with a windowStartAt far enough in the past (20 minutes,
+      // > the configured 10-minute window) that the window has elapsed.
+      await db.insert(promptFilterRateLimits).values({
+        userId: testUser.id,
+        requestCount: 2,
+        windowStartAt: new Date(Date.now() - 20 * 60 * 1000),
+      });
+
+      const res = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation {
+              resolvePromptToEventFilter(prompt: "Show me jazz events in Yogyakarta") {
+                resolvedFilter { keyword }
+              }
+            }
+          `
+        })
+      });
+      const result = await res.json();
+      assert.ok(!result.errors, 'should succeed once the window has elapsed: ' + JSON.stringify(result.errors));
+      assert.strictEqual(callCount, 1, 'callGemini must be invoked once the window has reset');
+
+      const [row] = await db.select().from(promptFilterRateLimits).where(eq(promptFilterRateLimits.userId, testUser.id));
+      assert.ok(row, 'a row should exist after the reset');
+      assert.strictEqual(row.requestCount, 1, 'the counter should reset to 1, not keep incrementing the stale count');
+    } finally {
+      await db.delete(promptFilterRateLimits).where(eq(promptFilterRateLimits.userId, testUser.id));
+      if (originalMaxEnv === undefined) {
+        delete process.env.PROMPT_FILTER_RATE_LIMIT_MAX_REQUESTS;
+      } else {
+        process.env.PROMPT_FILTER_RATE_LIMIT_MAX_REQUESTS = originalMaxEnv;
+      }
+      if (originalWindowEnv === undefined) {
+        delete process.env.PROMPT_FILTER_RATE_LIMIT_WINDOW_MINUTES;
+      } else {
+        process.env.PROMPT_FILTER_RATE_LIMIT_WINDOW_MINUTES = originalWindowEnv;
+      }
+    }
   });
 
   await t.test('resolvePromptToEventFilter still accepts the legacy flat `resolvedFilter` response shape (AC2 regression)', async () => {

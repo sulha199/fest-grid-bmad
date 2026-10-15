@@ -16,6 +16,11 @@ export interface BackendEnv {
   apiKeyInvalidAttemptsThreshold: number;
   geminiPostsPerKeyPerCycle: number;
   apiKeyUsageCycleDays: number;
+  // Story 9.8 -- per-user request-volume guard on resolvePromptToEventFilter (distinct from,
+  // additive to, the per-key callVendor lock/timeout/backoff above). Default 10 requests per
+  // 10-minute rolling-fixed window per user -- see that story's Dev Notes decision 3 for why.
+  promptFilterRateLimitMaxRequests: number;
+  promptFilterRateLimitWindowMinutes: number;
   webAppBaseUrl: string;
   // Batch cap for how many additional carousel (Sidecar) slide images are sent to Gemini in a
   // single extraction request, beyond the cover image (Story 3.6l). Keeps the AI Processor
@@ -220,6 +225,19 @@ export function loadBackendEnv(): BackendEnv {
     ),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     apiKeyUsageCycleDays: parseInt(process.env.API_KEY_USAGE_CYCLE_DAYS || '30', 10),
+    // Story 9.8 AC2 -- both figures configurable, default 10 requests / 10-minute window.
+    promptFilterRateLimitMaxRequests: parseNonNegativeInt(
+      // eslint-disable-next-line turbo/no-undeclared-env-vars
+      process.env.PROMPT_FILTER_RATE_LIMIT_MAX_REQUESTS,
+      'PROMPT_FILTER_RATE_LIMIT_MAX_REQUESTS',
+      10
+    ),
+    promptFilterRateLimitWindowMinutes: parseNonNegativeInt(
+      // eslint-disable-next-line turbo/no-undeclared-env-vars
+      process.env.PROMPT_FILTER_RATE_LIMIT_WINDOW_MINUTES,
+      'PROMPT_FILTER_RATE_LIMIT_WINDOW_MINUTES',
+      10
+    ),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     webAppBaseUrl: process.env.WEB_APP_BASE_URL || 'http://localhost:3000',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
