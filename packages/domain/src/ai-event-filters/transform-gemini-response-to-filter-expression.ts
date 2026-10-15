@@ -65,7 +65,10 @@ function convertRawNode(raw: unknown, pushedCaveats: string[]): FilterNode[] {
   // transform + flat-to-expression conversion verbatim (Dev Notes decision 2) -- zero new
   // per-field parsing/validation logic.
   const flat = transformGeminiResponseToEventFilter(raw);
-  const expression = expressionFromFlatFilter(flat);
+  // `expressionFromFlatFilter` always returns its documented `{ op: 'AND', children }` shape
+  // (never a bare leaf) -- its return type is the broader `FilterNode` union only because that's
+  // the shared return type every function in this module uses.
+  const expression = expressionFromFlatFilter(flat) as FilterGroupNode;
   return expression.children;
 }
 

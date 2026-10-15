@@ -111,9 +111,10 @@ describe('transformGeminiResponseToFilterExpression (AC2)', () => {
     };
 
     const result = transformGeminiResponseToFilterExpression(payload);
+    const expression = result.expression as { op: 'OR'; children: unknown[] };
 
-    assert.ok(result.expression.op === 'OR');
-    assert.ok((result.expression as { op: 'OR'; children: unknown[] }).children.length < 13);
+    assert.ok(expression.op === 'OR');
+    assert.ok(expression.children.length < 13);
     assert.deepEqual(result.caveats, [
       'Your prompt described more conditions than the filter supports, so some were dropped.',
     ]);
