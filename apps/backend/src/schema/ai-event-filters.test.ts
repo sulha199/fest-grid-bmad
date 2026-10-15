@@ -242,7 +242,7 @@ test('ai event filters resolvers integration', async (t) => {
     });
     const result = await res.json();
     assert.ok(!result.errors, JSON.stringify(result.errors));
-    assert.deepStrictEqual(result.data.resolvePromptToEventFilter.resolvedFilter, {});
+    assert.deepStrictEqual(result.data.resolvePromptToEventFilter.resolvedFilter, { keyword: null });
     assert.strictEqual(result.data.resolvePromptToEventFilter.expression.op, 'OR');
     assert.strictEqual(result.data.resolvePromptToEventFilter.expression.children.length, 2);
   });
