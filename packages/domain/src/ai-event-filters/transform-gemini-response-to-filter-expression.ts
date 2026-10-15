@@ -14,6 +14,18 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * The canonical "no filter at all" sentinel (`expressionFromFlatFilter`'s own documented
+ * representation of an empty flat filter). `validateFilterNode` rejects ANY empty `AND`/`OR`
+ * group as a malformed/empty sub-expression wherever it appears in a tree -- correct for a
+ * nested empty group, but this exact shape is also this function's own degrade-to-nothing
+ * result (garbage input, a fully-dropped double-NOT, ...), which must be treated as trivially
+ * valid rather than fed back into a repair loop that has nothing left to remove.
+ */
+function isEmptyExpression(node: FilterNode): boolean {
+  return isFilterGroupNode(node) && node.op === 'AND' && node.children.length === 0;
+}
+
+/**
  * Converts one raw JSON value from Gemini's tree-shaped response into zero, one, or several
  * sibling `FilterNode`s (Story 9.4 AC2). Never returns a nested wrapper for a leaf position -- a
  * leaf-shaped raw object with 2+ populated fields expands into multiple sibling leaves spliced
@@ -136,7 +148,7 @@ export function transformGeminiResponseToFilterExpression(payload: unknown): Gem
   }
 
   let current = root;
-  let validation = validateFilterNode(current);
+  let validation = isEmptyExpression(current) ? ({ valid: true, node: current } as const) : validateFilterNode(current);
 
   if (!validation.valid) {
     const hasDepthIssue = validation.issues.some((issue) => /depth/i.test(issue.reason));
@@ -165,7 +177,7 @@ export function transformGeminiResponseToFilterExpression(payload: unknown): Gem
           pushedCaveats.push('A double negation in your prompt was simplified; the surrounding condition was dropped.');
           doubleNotCaveatPushed = true;
         }
-        validation = validateFilterNode(current);
+        validation = isEmptyExpression(current) ? ({ valid: true, node: current } as const) : validateFilterNode(current);
         continue;
       }
 
