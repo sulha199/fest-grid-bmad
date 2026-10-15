@@ -45,13 +45,13 @@ describe('mapFilterLeaves (AC3)', () => {
     assert.deepEqual(result, { op: 'NOT', child: leafA });
   });
 
-  it('a nested AND-inside-OR where only the inner leaf survives', () => {
+  it('a nested AND-inside-OR where only the inner leaf survives (the now-single-child AND is NOT collapsed -- that is normalize()\'s job)', () => {
     const node: FilterNode = {
       op: 'OR',
       children: [{ op: 'AND', children: [leafA, leafB] }, leafC],
     };
     const result = mapFilterLeaves(node, (leaf) => (leaf.field === 'isFree' || leaf.field === 'keyword' ? leaf : undefined));
-    assert.deepEqual(result, { op: 'OR', children: [leafA, leafC] });
+    assert.deepEqual(result, { op: 'OR', children: [{ op: 'AND', children: [leafA] }, leafC] });
   });
 
   it('drops every leaf inside a nested group, collapsing it entirely out of the parent', () => {
