@@ -684,3 +684,12 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: `_bmad-output/implementation-artifacts/spec-auto-enqueue-async-scrape-results.md`
   summary: The Bright Data and Apify webhook Lambdas inherit the 30s `sharedLambdaProps` timeout (API Gateway caps at about 29s) and now run, per new post, a subscriber lookup, a key lookup, an atomic claim and an SQS send serially with no per-account memoisation; a large batch (Apify `listItems` limit 1000) could be killed mid-loop and orphan the remaining posts per the item above.
   evidence: Surfaced by Blind Hunter and Edge Case Hunter. Current volume is bounded (SCRAPE_RESULTS_LIMIT 30 per account, so roughly 30 posts per invocation, estimated well under the limit), and the spec lists the webhook timeouts under Ask First; tuning them or memoising the key check per account needs a measured decision.
+
+## Deferred from: code review of story-0.i2d (2026-10-15)
+
+- source_spec: `_bmad-output/implementation-artifacts/0-i2d-adopt-the-wrapper-in-the-apify-bright-data-scraper-call-sites.md`
+  summary: The transient-connection-code classifier (`TRANSIENT_CONNECTION_CODES` plus the `code ?? cause?.code` check) is copy-pasted in `instagram-adapter.ts`, `brightdata-client.ts` and `gemini-client.ts`; adding a vendor or a new code means three edits.
+  evidence: Surfaced by Blind Hunter. Mirrors the story's own instruction to copy `isGeminiErrorTransient`'s shape, so it is not a defect of this change; consolidating it into `vendor-gateway` is a small follow-up.
+- source_spec: `_bmad-output/implementation-artifacts/0-i2d-adopt-the-wrapper-in-the-apify-bright-data-scraper-call-sites.md`
+  summary: The Apify webhook now bounds `run().get()` plus `listItems({limit: 1000})` with one 20s `maxAttempts: 1` guarded call; a timeout or transient error returns HTTP 200 "not retrying" and the result is only recovered by the stale-job sweep after the pending job passes `expiresAt` (default 180 minutes).
+  evidence: Surfaced by Edge Case Hunter. The pre-change error path also returned 200, and current volume (`SCRAPE_RESULTS_LIMIT` 30 per account) keeps the download well under 20s, so the 20s cap is the only new exposure; tuning it needs a measured decision.
