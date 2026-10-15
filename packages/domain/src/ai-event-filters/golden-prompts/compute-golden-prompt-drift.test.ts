@@ -17,14 +17,14 @@ describe('computeFilterNodeFieldSignature', () => {
   });
 
   it('returns sorted, de-duplicated field names for a nested AND/OR tree', () => {
-    const node: FilterNode = {
+    const node = {
       op: 'AND',
       children: [
         { op: 'OR', children: [{ field: 'keyword', value: 'jazz' }, { field: 'keyword', value: 'blues' }] },
         { field: 'locationAdminArea', value: 'Sleman' },
         { op: 'NOT', child: { field: 'type', value: ['WORKSHOP'] } },
       ],
-    };
+    } as FilterNode;
     assert.deepEqual(computeFilterNodeFieldSignature(node), ['keyword', 'locationAdminArea', 'type']);
   });
 });
