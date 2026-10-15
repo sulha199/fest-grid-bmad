@@ -81,8 +81,8 @@ describe('transformGeminiResponseToFilterExpression (AC2)', () => {
       op: 'OR',
       children: [
         { field: 'keyword', value: 'jazz' },
-        { field: 'isFree', value: true },
         { field: 'venueType', value: 'CAFE' },
+        { field: 'isFree', value: true },
       ],
     });
     assert.ok(depthOf(result.expression) <= FILTER_NODE_MAX_DEPTH);
