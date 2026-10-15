@@ -38,7 +38,7 @@ so that a prompt like "jazz or blues in Sleman or Bantul this weekend, not works
 
 ## Tasks / Subtasks
 
-- [ ] 1. **(AC1)** In `apps/web/src/features/events/mutations.graphql`'s `resolvePromptToEventFilter` mutation, add an `expression { ... }` selection to the existing `resolvedFilter { ... } / caveats` selection set — a 3-level-unrolled selection matching `FILTER_NODE_MAX_DEPTH = 3` exactly (the same unrolling precedent Story 9.4's backend `buildFilterExtractionResponseSchema` already established for the Gemini-facing schema):
+- [x] 1. **(AC1)** In `apps/web/src/features/events/mutations.graphql`'s `resolvePromptToEventFilter` mutation, add an `expression { ... }` selection to the existing `resolvedFilter { ... } / caveats` selection set — a 3-level-unrolled selection matching `FILTER_NODE_MAX_DEPTH = 3` exactly (the same unrolling precedent Story 9.4's backend `buildFilterExtractionResponseSchema` already established for the Gemini-facing schema):
    ```graphql
    expression {
      op
@@ -62,9 +62,9 @@ so that a prompt like "jazz or blues in Sleman or Bantul this weekend, not works
    ```
    No fragment is introduced (this codebase has zero `.graphql` fragment definitions today — a grep of `apps/web/src/**/*.graphql` for `^fragment ` returns nothing; inlining matches the established convention and keeps this story's diff minimal).
 
-- [ ] 2. **(AC1)** In `apps/web/src/features/events/queries.graphql`'s `getMyAIEventFilters` query, add the identical 3-level-unrolled `expression { ... }` selection (from Task 1) to the existing `myAIEventFilters { ... resolvedFilter { ... } }` selection set, immediately after `resolvedFilter`'s closing brace. `AIEventFilter.expression: FilterNode!` has been populated for every row (flat or not) since Story 9.3's `resolveStoredFilter`, but no client document selects it yet.
+- [x] 2. **(AC1)** In `apps/web/src/features/events/queries.graphql`'s `getMyAIEventFilters` query, add the identical 3-level-unrolled `expression { ... }` selection (from Task 1) to the existing `myAIEventFilters { ... resolvedFilter { ... } }` selection set, immediately after `resolvedFilter`'s closing brace. `AIEventFilter.expression: FilterNode!` has been populated for every row (flat or not) since Story 9.3's `resolveStoredFilter`, but no client document selects it yet.
 
-- [ ] 3. **(AC1)** In `apps/web/src/app/[locale]/settings/ai-filters/ai-filters-content.tsx`'s `handleRowClick`: alongside the existing `ai_filter` URL param, add a second `ai_expression` param carrying `encodeURIComponent(JSON.stringify(filter.expression))`:
+- [x] 3. **(AC1)** In `apps/web/src/app/[locale]/settings/ai-filters/ai-filters-content.tsx`'s `handleRowClick`: alongside the existing `ai_filter` URL param, add a second `ai_expression` param carrying `encodeURIComponent(JSON.stringify(filter.expression))`:
    ```ts
    const handleRowClick = (filter: any) => {
      if (isPending(filter.id)) return;
@@ -75,7 +75,7 @@ so that a prompt like "jazz or blues in Sleman or Bantul this weekend, not works
    ```
    This is the "loaded `AIEventFilter`" half of AC1 — without it, re-opening a saved grouped/boolean filter from "My AI Filters" would keep silently applying as empty, exactly the bug this story exists to close, just reached via the save/load path instead of the live-prompt path.
 
-- [ ] 4. **(AC1)** In `apps/web/src/features/events/use-ai-filter.ts`:
+- [x] 4. **(AC1)** In `apps/web/src/features/events/use-ai-filter.ts`:
    - Add `const [aiExpressionStr, setAiExpressionStr] = useQueryState('ai_expression', parseAsString);` alongside the existing `aiFilterStr`/`aiCaveatsStr` declarations.
    - Add an `aiExpression` `useMemo` that `JSON.parse`s `aiExpressionStr` into a `FilterNode | null`, degrading to `null` on a missing/unparseable value (mirroring `aiFilter`'s/`aiCaveats`'s existing `try { JSON.parse } catch { return null }` shape exactly). Import `type { FilterNode } from '@festgrid/domain/ai-event-filters'`.
    - Extend `resolvedData`'s state shape with an `expression: FilterNode` field, and set it (plus `setAiExpressionStr(JSON.stringify(data.resolvePromptToEventFilter.expression))`) inside `resolvePrompt`'s `onSuccess` handler, alongside the existing `resolvedFilter`/`caveats` assignments.
@@ -83,13 +83,13 @@ so that a prompt like "jazz or blues in Sleman or Bantul this weekend, not works
    - Add `activeExpression: aiExpression` to the hook's top-level returned object, alongside the existing `activeFilter: aiFilter`.
    - Leave the existing `q`/`aiFilterStr` auto-expand effect (the one comparing `currentQ`/`filterQ`) unchanged — it already degrades correctly for a non-flat filter today (`aiFilter.keyword` is `undefined` when `resolvedFilter` is `{}`), and this story does not change what triggers that effect.
 
-- [ ] 5. **(AC2, Data Type Compatibility)** In `packages/domain/src/events/buildEventsQueryCondition.ts`:
+- [x] 5. **(AC2, Data Type Compatibility)** In `packages/domain/src/events/buildEventsQueryCondition.ts`:
    - Import `compileFilterNodeToQueryCondition` from `'../ai-event-filters/compile-filter-node.js'` and `type { FilterNode }` from `'../ai-event-filters/filter-node.js'`.
    - Add `expression?: FilterNode` to `BuildEventsQueryConditionInput`.
    - At the top of `buildEventsQueryCondition`'s body, before the existing `if (filter) {...} else {...}` branch: `if (expression) { return compileFilterNodeToQueryCondition(expression, { currentDate, timezone }); }` — short-circuits everything else (`filter`/`search`/`types`/`categories`/`nearby`/`temporalFilter` are all ignored when `expression` is supplied, matching `buildFeedQueryCondition`/`buildAccountEventsQueryCondition`'s own expression-branch shape, which likewise never threads a separately-supplied `temporalFilter` into the compiled expression — an embedded `temporalFilter` leaf inside the expression tree itself is the only way a non-flat filter's temporal constraint is expressed, consistent with `temporalFilter` already being one of Story 9.1a's locked `FilterLeaf` fields).
    - This introduces a two-file circular import (`buildEventsQueryCondition.ts` ↔ `compile-filter-node.ts`, which already imports several named functions from `buildEventsQueryCondition.ts`) — see Dev Notes decision 6 for why this is safe and already an established pattern one layer up (`buildFeedQueryCondition.ts`/`buildAccountEventsQueryCondition.ts` already depend on both files today).
 
-- [ ] 6. **(AC2, AC3)** In `apps/web/src/app/[locale]/home-content.tsx`:
+- [x] 6. **(AC2, AC3)** In `apps/web/src/app/[locale]/home-content.tsx`:
    - Replace the `queryFn`'s `const condition = aiFilter.activeFilter ? buildEventsQueryCondition({ filter: { ...aiFilter.activeFilter, temporalFilter } }) : buildEventsQueryCondition({ search: q, types, categories, nearby: resolvedNearby, temporalFilter })` with a three-way branch that checks `aiFilter.activeExpression` first:
      ```ts
      const condition = aiFilter.activeExpression
@@ -100,7 +100,7 @@ so that a prompt like "jazz or blues in Sleman or Bantul this weekend, not works
      ```
    - Add `aiExpression: aiFilter.activeExpression` to both the `useListPaginationController`'s `filterKey` object and the `useInfiniteQuery`'s `queryKey` array's filter object (both currently include `aiFilter: aiFilter.activeFilter` only).
 
-- [ ] 7. **(AC2, AC3)** In `apps/web/src/app/[locale]/feed/feed-content.tsx`:
+- [x] 7. **(AC2, AC3)** In `apps/web/src/app/[locale]/feed/feed-content.tsx`:
    - In the `queryCondition` `useMemo`, pass exactly one of `filter`/`expression` to `buildFeedQueryCondition` — never both in the same call (matching the documented mutual-exclusivity expectation `buildFeedQueryCondition`'s own JSDoc already states):
      ```ts
      const queryCondition = useMemo(() => {
@@ -114,7 +114,7 @@ so that a prompt like "jazz or blues in Sleman or Bantul this weekend, not works
      ```
    - Add `aiExpression: aiFilter.activeExpression` to both `useListPaginationController`'s `filterKey` and `useInfiniteQuery`'s `queryKey` filter object (both currently include `aiFilter: aiFilter.activeFilter` only).
 
-- [ ] 8. **(AC2, AC3)** In `apps/web/src/app/[locale]/favorites/favorites-content.tsx`:
+- [x] 8. **(AC2, AC3)** In `apps/web/src/app/[locale]/favorites/favorites-content.tsx`:
    - Add an `expression?: FilterNode | null` parameter to the local `buildFavoritesQueryCondition` helper (import `type { FilterNode }` from `@festgrid/domain/ai-event-filters`), and branch on it first, mirroring Task 6's three-way shape:
      ```ts
      function buildFavoritesQueryCondition(
@@ -137,18 +137,18 @@ so that a prompt like "jazz or blues in Sleman or Bantul this weekend, not works
    - Apply the identical three-way branch (expression first, then filter, then search) to the inline `filterCondition` built inside `useInfiniteQuery`'s `queryFn` (the second, independent call site that builds the `favoriteEvents` page's own event-detail query).
    - Add `expression: aiFilter.activeExpression` to: the `idSnapshotData` `useQuery`'s `queryKey` filter object, `useListPaginationController`'s `filterKey`, and the `favoriteEvents` `useInfiniteQuery`'s `queryKey` filter object (all three currently include `filter: aiFilter.activeFilter` / `aiFilter: aiFilter.activeFilter` only).
 
-- [ ] 9. **(Testing, AC2, Data Type Compatibility)** Extend `packages/domain/src/events/buildEventsQueryCondition.test.ts` (`node:test`, 100% branch coverage per `project-context.md`'s domain testing rule):
+- [x] 9. **(Testing, AC2, Data Type Compatibility)** Extend `packages/domain/src/events/buildEventsQueryCondition.test.ts` (`node:test`, 100% branch coverage per `project-context.md`'s domain testing rule):
    - An `expression`-only call (no `filter`) returns the exact same compiled condition as calling `compileFilterNodeToQueryCondition(expression)` directly (parity, mirroring `buildFeedQueryCondition.test.ts`'s existing `expression`-only test shape).
    - When both `filter` and `expression` are supplied, `expression` wins and `filter`/`search`/`types`/`categories`/`nearby`/`temporalFilter` are all ignored (documents the short-circuit behavior Task 5 implements).
    - An `expression` that compiles to `undefined` (e.g. an empty `{op:'AND', children:[]}`) returns `undefined`, matching the existing "no conditions" return shape.
 
-- [ ] 10. **(Testing, AC1)** Extend `apps/web/src/features/events/use-ai-filter.test.ts` (Vitest):
+- [x] 10. **(Testing, AC1)** Extend `apps/web/src/features/events/use-ai-filter.test.ts` (Vitest):
    - Update the mocked `useResolvePromptToEventFilterMutation`'s `onSuccess` payload to include an `expression` field (e.g. `{ op: 'OR', children: [{ field: 'type', value: ['FESTIVAL'] }, { field: 'type', value: ['CONCERT'] }] }`) alongside the existing `resolvedFilter`/`caveats`, and assert `result.current.activeExpression` equals that value after `overlayProps.onSubmit(...)`.
    - Assert `activeExpression` is cleared (`null`) after `onAIExpand()`, `onAIClear()`, and after a fresh `onSubmit()` following a prior one (the existing "re-prompt" pattern), matching the existing `activeFilter`-clearing assertions' shape.
 
-- [ ] 11. **(Testing, AC2, AC3)** Extend `apps/web/src/app/[locale]/home-content.test.tsx`, `feed-content.test.tsx` and `favorites-content.test.tsx` (Vitest, using each file's existing `nuqs` mock, which is a generic shared-store keyed by query-param name — no special-casing needed for the new `ai_expression` key): seed `ai_expression` (and, for parity, a non-empty `ai_filter` reflecting the same expression's lossy flat projection, exactly as the real backend would produce) directly into the mocked `nuqs` store before render, then assert the `query`/`query` variable the page sends via `graphqlClient.request(GetEventsDocument, { query: ... })` reflects the compiled expression's condition shape (e.g. an `operator: 'or'` group over two `type` conditions for the OR-of-two-types fixture above) rather than an empty/absent filter. Also assert that changing `ai_expression` alone (same `ai_filter` value, i.e. simulating two different non-flat prompts that both flatten to `{}`) produces a distinct query/cache key — the AC3 regression test for the cache-key fix.
+- [x] 11. **(Testing, AC2, AC3)** Extend `apps/web/src/app/[locale]/home-content.test.tsx`, `feed-content.test.tsx` and `favorites-content.test.tsx` (Vitest, using each file's existing `nuqs` mock, which is a generic shared-store keyed by query-param name — no special-casing needed for the new `ai_expression` key): seed `ai_expression` (and, for parity, a non-empty `ai_filter` reflecting the same expression's lossy flat projection, exactly as the real backend would produce) directly into the mocked `nuqs` store before render, then assert the `query`/`query` variable the page sends via `graphqlClient.request(GetEventsDocument, { query: ... })` reflects the compiled expression's condition shape (e.g. an `operator: 'or'` group over two `type` conditions for the OR-of-two-types fixture above) rather than an empty/absent filter. Also assert that changing `ai_expression` alone (same `ai_filter` value, i.e. simulating two different non-flat prompts that both flatten to `{}`) produces a distinct query/cache key — the AC3 regression test for the cache-key fix.
 
-- [ ] 12. **(Verification, AC1-AC4)** Run `pnpm --filter @festgrid/domain test`/`lint`/`build`, `pnpm --filter @festgrid/web codegen` (regenerating `apps/web/src/generated/graphql.ts` from Tasks 1-2's `.graphql` changes), `pnpm --filter @festgrid/web test`/`lint`/`build`. Commit the regenerated `apps/web/src/generated/graphql.ts` diff alongside the source changes.
+- [x] 12. **(Verification, AC1-AC4)** Run `pnpm --filter @festgrid/domain test`/`lint`/`build`, `pnpm --filter @festgrid/web codegen` (regenerating `apps/web/src/generated/graphql.ts` from Tasks 1-2's `.graphql` changes), `pnpm --filter @festgrid/web test`/`lint`/`build`. Commit the regenerated `apps/web/src/generated/graphql.ts` diff alongside the source changes.
 
 ## Dev Notes
 
