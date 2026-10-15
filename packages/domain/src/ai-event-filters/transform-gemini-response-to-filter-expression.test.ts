@@ -133,6 +133,12 @@ describe('transformGeminiResponseToFilterExpression (AC2)', () => {
     assert.deepEqual(result.caveats, []);
   });
 
+  it('an AND/OR node with a missing (non-array) "children" property degrades to an empty filter, defaulting to zero children', () => {
+    const result = transformGeminiResponseToFilterExpression({ expression: { op: 'AND' }, caveats: [] });
+    assert.deepEqual(result.expression, { op: 'AND', children: [] });
+    assert.deepEqual(result.caveats, []);
+  });
+
   it('an OR whose only child is entirely out-of-vocabulary (no surviving leaves) degrades to an empty filter', () => {
     const result = transformGeminiResponseToFilterExpression({
       expression: { op: 'OR', children: [{ notARealField: 'xyz' }] },

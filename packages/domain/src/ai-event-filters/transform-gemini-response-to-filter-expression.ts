@@ -146,7 +146,6 @@ export function transformGeminiResponseToFilterExpression(payload: unknown): Gem
     }
 
     let trimmedCaveatPushed = false;
-    let doubleNotCaveatPushed = false;
     while (!validation.valid) {
       const hasDoubleNotIssue = validation.issues.some((issue) => /double not/i.test(issue.reason));
       if (hasDoubleNotIssue) {
@@ -158,12 +157,12 @@ export function transformGeminiResponseToFilterExpression(payload: unknown): Gem
         // enclosing group/`NOT` would push the whole tree to depth 4+ and trip the depth guard
         // above first. A root-level double-NOT's only child is itself the (now-dangling) `NOT`
         // being negated away, so dropping it -- the same "drop the whole outer NOT" mechanism
-        // `convertRawNode` applies at construction time -- always empties the tree entirely.
+        // `convertRawNode` applies at construction time -- always empties the tree entirely,
+        // which is always immediately valid (see `isEmptyExpression`), so this branch of the loop
+        // never runs a second time -- no "already pushed" guard needed, unlike the node-count
+        // trim below.
         current = { op: 'AND', children: [] };
-        if (!doubleNotCaveatPushed) {
-          pushedCaveats.push('A double negation in your prompt was simplified; the surrounding condition was dropped.');
-          doubleNotCaveatPushed = true;
-        }
+        pushedCaveats.push('A double negation in your prompt was simplified; the surrounding condition was dropped.');
         validation = { valid: true, node: current };
         continue;
       }
