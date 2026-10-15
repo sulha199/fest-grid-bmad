@@ -53,6 +53,7 @@
     "lint": "eslint . --max-warnings 0"
   },
   "devDependencies": {
+    "@festgrid/eslint-config": "workspace:*",
     "@festgrid/testing-config": "workspace:*",
     "@festgrid/typescript-config": "workspace:*",
     "@testing-library/jest-dom": "^7.0.0",

@@ -3,6 +3,10 @@ import React from 'react';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { EventCardCompact } from './EventCardCompact';
+import type { ComponentProps } from 'react';
+
+const asDays = (...days: string[]) =>
+  days as unknown as ComponentProps<typeof EventCardCompact>['applicableDaysOfWeek'];
 
 describe('EventCardCompact (Story 3.6ua)', () => {
   afterEach(() => {
@@ -33,7 +37,7 @@ describe('EventCardCompact (Story 3.6ua)', () => {
           locationName="Central Park"
           distanceKm={2}
           nearbyBadgeThreshold={8}
-          applicableDaysOfWeek={['MONDAY', 'WEDNESDAY'] as any}
+          applicableDaysOfWeek={asDays('MONDAY', 'WEDNESDAY')}
           dayOfWeekLabels={{ MONDAY: 'Mon', WEDNESDAY: 'Wed' }}
         />
       );

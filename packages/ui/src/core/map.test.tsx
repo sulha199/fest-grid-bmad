@@ -1,17 +1,39 @@
 import React from 'react';
-import { render, fireEvent, act, cleanup } from '@testing-library/react';
+import { render, act, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { MapView } from './map';
-import * as maplibregl from 'maplibre-gl';
 
 // Mock maplibre-gl
-const onHandlers: Record<string, Function[]> = {};
-let mapInstance: any = null;
-let markerInstance: any = null;
+const onHandlers: Record<string, Array<(...args: unknown[]) => void>> = {};
+type MockFn = ReturnType<typeof vi.fn>;
+interface MapInstanceMock {
+  container: unknown;
+  style: string;
+  center: [number, number];
+  zoom: number;
+  addControl: MockFn;
+  remove: MockFn;
+  setCenter: MockFn;
+  setZoom: MockFn;
+}
+interface MarkerInstanceMock {
+  setLngLat: MockFn;
+  addTo: MockFn;
+  remove: MockFn;
+}
+let mapInstance: MapInstanceMock | null = null;
+let markerInstance: MarkerInstanceMock | null = null;
+// Assigned through helpers (not `x = this` in the constructors) to satisfy no-this-alias.
+function registerMapInstance(instance: MapInstanceMock) {
+  mapInstance = instance;
+}
+function registerMarkerInstance(instance: MarkerInstanceMock) {
+  markerInstance = instance;
+}
 
 vi.mock('maplibre-gl', () => {
   class MockMap {
-    container: any;
+    container: unknown;
     style: string;
     center: [number, number];
     zoom: number;
@@ -20,15 +42,15 @@ vi.mock('maplibre-gl', () => {
     setCenter = vi.fn();
     setZoom = vi.fn();
 
-    constructor(options: any) {
+    constructor(options: { container: unknown; style: string; center?: [number, number]; zoom?: number }) {
       this.container = options.container;
       this.style = options.style;
       this.center = options.center || [0, 0];
       this.zoom = options.zoom || 12;
-      mapInstance = this;
+      registerMapInstance(this);
     }
 
-    on(event: string, handler: Function) {
+    on(event: string, handler: (...args: unknown[]) => void) {
       if (!onHandlers[event]) {
         onHandlers[event] = [];
       }
@@ -50,13 +72,13 @@ vi.mock('maplibre-gl', () => {
     remove = vi.fn();
 
     constructor() {
-      markerInstance = this;
+      registerMarkerInstance(this);
     }
   }
 
   class MockNavigationControl {
-    options: any;
-    constructor(options: any) {
+    options: unknown;
+    constructor(options: unknown) {
       this.options = options;
     }
   }
@@ -69,7 +91,7 @@ vi.mock('maplibre-gl', () => {
   };
 });
 
-function triggerEvent(event: string, data: any) {
+function triggerEvent(event: string, data: unknown) {
   if (onHandlers[event]) {
     onHandlers[event].forEach((handler) => handler(data));
   }
@@ -129,11 +151,11 @@ describe('MapView Component', () => {
     render(<MapView {...defaultProps} mapStyle="dark-matter" />);
 
     expect(mapInstance).not.toBeNull();
-    expect(mapInstance.style).toBe(
+    expect(mapInstance!.style).toBe(
       'https://maps.geoapify.com/v1/styles/dark-matter/style.json?apiKey=test-api-key'
     );
-    expect(mapInstance.center).toEqual([106.8000, -6.2000]);
-    expect(mapInstance.zoom).toBe(12);
+    expect(mapInstance!.center).toEqual([106.8000, -6.2000]);
+    expect(mapInstance!.zoom).toBe(12);
   });
 
   it('supports custom localized labels', () => {
@@ -178,29 +200,29 @@ describe('MapView Component', () => {
     rerender(<MapView {...defaultProps} marker={{ latitude: -6.2200, longitude: 106.8200 }} />);
 
     expect(markerInstance).not.toBeNull();
-    expect(markerInstance.setLngLat).toHaveBeenCalledWith([106.8200, -6.2200]);
-    expect(markerInstance.addTo).toHaveBeenCalledWith(mapInstance);
+    expect(markerInstance!.setLngLat).toHaveBeenCalledWith([106.8200, -6.2200]);
+    expect(markerInstance!.addTo).toHaveBeenCalledWith(mapInstance);
 
     // Update marker coordinates
     rerender(<MapView {...defaultProps} marker={{ latitude: -6.2300, longitude: 106.8300 }} />);
-    expect(markerInstance.setLngLat).toHaveBeenLastCalledWith([106.8300, -6.2300]);
+    expect(markerInstance!.setLngLat).toHaveBeenLastCalledWith([106.8300, -6.2300]);
 
     // Clear marker
     rerender(<MapView {...defaultProps} marker={null} />);
-    expect(markerInstance.remove).toHaveBeenCalled();
+    expect(markerInstance!.remove).toHaveBeenCalled();
   });
 
   it('conditionally adds zoom NavigationControl when showZoomControl is true (default)', () => {
     render(<MapView {...defaultProps} />);
 
-    expect(mapInstance.addControl).toHaveBeenCalledTimes(1);
-    expect(mapInstance.addControl).toHaveBeenCalledWith(expect.any(Object), 'top-right');
+    expect(mapInstance!.addControl).toHaveBeenCalledTimes(1);
+    expect(mapInstance!.addControl).toHaveBeenCalledWith(expect.any(Object), 'top-right');
   });
 
   it('does not add zoom NavigationControl when showZoomControl is false', () => {
     render(<MapView {...defaultProps} showZoomControl={false} />);
 
-    expect(mapInstance.addControl).not.toHaveBeenCalled();
+    expect(mapInstance!.addControl).not.toHaveBeenCalled();
   });
 
   it('reports camera state changes (moveend/zoomend) and ignores programmatic camera updates', () => {
@@ -208,8 +230,8 @@ describe('MapView Component', () => {
     const { rerender } = render(<MapView {...defaultProps} onViewStateChange={onViewStateChange} />);
 
     // Simulate user-driven moveend
-    mapInstance.center = [106.8500, -6.2500];
-    mapInstance.zoom = 14;
+    mapInstance!.center = [106.8500, -6.2500];
+    mapInstance!.zoom = 14;
 
     act(() => {
       triggerEvent('moveend', {});
@@ -234,8 +256,8 @@ describe('MapView Component', () => {
     );
 
     // Expect setCenter/setZoom were called programmatically with { programmatic: true }
-    expect(mapInstance.setCenter).toHaveBeenCalledWith([106.9000, -6.3000], { programmatic: true });
-    expect(mapInstance.setZoom).toHaveBeenCalledWith(13, { programmatic: true });
+    expect(mapInstance!.setCenter).toHaveBeenCalledWith([106.9000, -6.3000], { programmatic: true });
+    expect(mapInstance!.setZoom).toHaveBeenCalledWith(13, { programmatic: true });
 
     // Simulate moveend event triggered programmatically
     act(() => {
@@ -251,6 +273,6 @@ describe('MapView Component', () => {
     expect(mapInstance).not.toBeNull();
 
     unmount();
-    expect(mapInstance.remove).toHaveBeenCalled();
+    expect(mapInstance!.remove).toHaveBeenCalled();
   });
 });

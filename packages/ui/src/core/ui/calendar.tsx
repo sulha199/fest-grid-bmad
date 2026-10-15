@@ -1,11 +1,21 @@
 import * as React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { DayPicker } from 'react-day-picker';
+import { DayPicker, type ChevronProps } from 'react-day-picker';
 
 import { cn } from '../../lib/utils';
 import { buttonVariants } from './button';
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
+
+// Declared at module level (not inline in `components`) so it is a typed component with a stable
+// identity -- an inline arrow there was flagged by react/prop-types and re-created every render.
+function CalendarChevron({ orientation, className, ...props }: ChevronProps) {
+  return orientation === 'left' ? (
+    <ChevronLeft className={cn('h-4 w-4', className)} {...props} />
+  ) : (
+    <ChevronRight className={cn('h-4 w-4', className)} {...props} />
+  );
+}
 
 function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
   return (
@@ -46,14 +56,7 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
         hidden: 'invisible',
         ...classNames,
       }}
-      components={{
-        Chevron: ({ orientation, className: chevronClassName, ...chevronProps }) =>
-          orientation === 'left' ? (
-            <ChevronLeft className={cn('h-4 w-4', chevronClassName)} {...chevronProps} />
-          ) : (
-            <ChevronRight className={cn('h-4 w-4', chevronClassName)} {...chevronProps} />
-          ),
-      }}
+      components={{ Chevron: CalendarChevron }}
       {...props}
     />
   );

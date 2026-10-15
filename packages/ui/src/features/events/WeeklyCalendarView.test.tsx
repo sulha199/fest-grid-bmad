@@ -5,61 +5,62 @@ import { describe, it, expect, vi, afterEach, beforeAll, afterAll } from 'vitest
 import { WeeklyCalendarView } from './WeeklyCalendarView';
 import { ScopedLocaleProvider } from '../../hooks/useScopedLocale';
 import { EVENT_CARD_BADGE_FONT_SIZE_VAR, EVENT_CARD_BADGE_FONT_SIZE_BY_SIZE } from './event-card-media-tokens';
+import type { ComponentProps } from 'react';
 
 // Custom screen wrapper to automatically scope existing desktop-grid assertions
 const screen = {
   ...rtlScreen,
-  getByText: (text: string | RegExp, options?: any) => {
+  getByText: (text: string | RegExp, options?: Parameters<typeof rtlScreen.getByText>[1]) => {
     const desktop = rtlScreen.queryByTestId('desktop-calendar-view');
     if (desktop) {
       try {
         return within(desktop).getByText(text, options);
-      } catch {}
+      } catch { /* not inside the desktop view -- fall back to the unscoped query below */ }
     }
     return rtlScreen.getByText(text, options);
   },
-  getAllByText: (text: string | RegExp, options?: any) => {
+  getAllByText: (text: string | RegExp, options?: Parameters<typeof rtlScreen.getAllByText>[1]) => {
     const desktop = rtlScreen.queryByTestId('desktop-calendar-view');
     if (desktop) {
       try {
         return within(desktop).getAllByText(text, options);
-      } catch {}
+      } catch { /* not inside the desktop view -- fall back to the unscoped query below */ }
     }
     return rtlScreen.getAllByText(text, options);
   },
-  queryByText: (text: string | RegExp, options?: any) => {
+  queryByText: (text: string | RegExp, options?: Parameters<typeof rtlScreen.queryByText>[1]) => {
     const desktop = rtlScreen.queryByTestId('desktop-calendar-view');
     if (desktop) {
       return within(desktop).queryByText(text, options);
     }
     return rtlScreen.queryByText(text, options);
   },
-  getByRole: (role: string, options?: any) => {
+  getByRole: (role: string, options?: Parameters<typeof rtlScreen.getByRole>[1]) => {
     const desktop = rtlScreen.queryByTestId('desktop-calendar-view');
     if (desktop) {
       try {
         return within(desktop).getByRole(role, options);
-      } catch {}
+      } catch { /* not inside the desktop view -- fall back to the unscoped query below */ }
     }
     return rtlScreen.getByRole(role, options);
   },
-  queryByRole: (role: string, options?: any) => {
+  queryByRole: (role: string, options?: Parameters<typeof rtlScreen.queryByRole>[1]) => {
     const desktop = rtlScreen.queryByTestId('desktop-calendar-view');
     if (desktop) {
       return within(desktop).queryByRole(role, options);
     }
     return rtlScreen.queryByRole(role, options);
   },
-  getByLabelText: (text: string | RegExp, options?: any) => {
+  getByLabelText: (text: string | RegExp, options?: Parameters<typeof rtlScreen.getByLabelText>[1]) => {
     const desktop = rtlScreen.queryByTestId('desktop-calendar-view');
     if (desktop) {
       try {
         return within(desktop).getByLabelText(text, options);
-      } catch {}
+      } catch { /* not inside the desktop view -- fall back to the unscoped query below */ }
     }
     return rtlScreen.getByLabelText(text, options);
   },
-  queryByLabelText: (text: string | RegExp, options?: any) => {
+  queryByLabelText: (text: string | RegExp, options?: Parameters<typeof rtlScreen.queryByLabelText>[1]) => {
     const desktop = rtlScreen.queryByTestId('desktop-calendar-view');
     if (desktop) {
       return within(desktop).queryByLabelText(text, options);
@@ -628,7 +629,7 @@ describe('WeeklyCalendarView', () => {
         { id: 'a3', eventSlug: 'a3', eventName: 'A3', isMainSchedule: true, eventStartDate: '2026-08-05', eventStartTime: '12:00:00' },
       ];
       const early = { id: 'a0', eventSlug: 'a0', eventName: 'A0 Early', isMainSchedule: true, eventStartDate: '2026-08-05', eventStartTime: '08:00:00' };
-      const ui = (continuation?: any) => (
+      const ui = (continuation?: NonNullable<ComponentProps<typeof WeeklyCalendarView>['dayContinuations']>[string]) => (
         <WeeklyCalendarView
           {...defaultProps}
           schedules={base}
@@ -658,7 +659,7 @@ describe('WeeklyCalendarView', () => {
       }));
       const onDayContinuationRequested = vi.fn();
       const fetchNextPage = vi.fn();
-      const ui = (continuation?: any) => (
+      const ui = (continuation?: NonNullable<ComponentProps<typeof WeeklyCalendarView>['dayContinuations']>[string]) => (
         <WeeklyCalendarView
           {...defaultProps}
           schedules={window3}
@@ -1618,7 +1619,7 @@ describe('WeeklyCalendarView', () => {
           eventStartDate: '2026-08-05',
         }
       ];
-      const { container } = render(
+      render(
         <ScopedLocaleProvider locale="en-US">
           <WeeklyCalendarView
             {...defaultProps}
@@ -1912,7 +1913,7 @@ describe('WeeklyCalendarView', () => {
           },
         ];
 
-        const { container } = render(
+        render(
           <ScopedLocaleProvider locale="en-US">
             <WeeklyCalendarView {...defaultProps} schedules={schedule} />
           </ScopedLocaleProvider>
@@ -2335,7 +2336,7 @@ describe('WeeklyCalendarView', () => {
         },
       ];
 
-      render(<WeeklyCalendarView {...defaultProps} schedules={schedules as any} locale="en-US" />);
+      render(<WeeklyCalendarView {...defaultProps} schedules={schedules as unknown as ComponentProps<typeof WeeklyCalendarView>['schedules']} locale="en-US" />);
 
       // No bar at all -- the only occurrence visible this week (Monday Aug 10) is an isolated
       // one-day run, which never earns a bar (AC4).
@@ -2360,7 +2361,7 @@ describe('WeeklyCalendarView', () => {
         },
       ];
 
-      render(<WeeklyCalendarView {...defaultProps} schedules={schedules as any} locale="en-US" />);
+      render(<WeeklyCalendarView {...defaultProps} schedules={schedules as unknown as ComponentProps<typeof WeeklyCalendarView>['schedules']} locale="en-US" />);
 
       // Exactly one Mon-Tue spanning bar (columns 5-6, 0-based -> CSS grid-column "6 / span 2").
       const grid = rtlScreen.getByTestId('calendar-bands');
@@ -2396,7 +2397,7 @@ describe('WeeklyCalendarView', () => {
         { id: 's3', eventName: 'Solo 3', isMainSchedule: true, eventStartDate: '2026-08-10' },
       ];
 
-      render(<WeeklyCalendarView {...defaultProps} schedules={schedules as any} locale="en-US" />);
+      render(<WeeklyCalendarView {...defaultProps} schedules={schedules as unknown as ComponentProps<typeof WeeklyCalendarView>['schedules']} locale="en-US" />);
 
       // Week starts Wed Aug 5: Monday Aug 10 is column 6, Tuesday Aug 11 column 7.
       const totals = rtlScreen.getAllByTestId('desktop-day-total').map((el) => el.textContent);
@@ -2426,7 +2427,7 @@ describe('WeeklyCalendarView', () => {
         },
       ];
 
-      render(<WeeklyCalendarView {...defaultProps} schedules={schedules as any} locale="en-US" />);
+      render(<WeeklyCalendarView {...defaultProps} schedules={schedules as unknown as ComponentProps<typeof WeeklyCalendarView>['schedules']} locale="en-US" />);
 
       const desktopView = rtlScreen.getByTestId('desktop-calendar-view');
       // No bar (only Tuesday is visible from this run) -- renders as a normal single-day grid card.

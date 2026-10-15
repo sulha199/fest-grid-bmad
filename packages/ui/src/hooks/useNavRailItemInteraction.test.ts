@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useNavRailItemInteraction } from './useNavRailItemInteraction';
+import type { FocusEvent, KeyboardEvent, PointerEvent } from 'react';
 
 // Mock prefers reduced motion hook to control its return value
 const mockPrefersReducedMotion = vi.fn().mockReturnValue(false);
@@ -59,12 +60,12 @@ describe('useNavRailItemInteraction', () => {
       expect(result.current.tooltipVisible).toBe(false);
 
       act(() => {
-        result.current.handlers.onPointerEnter({ pointerType: 'mouse' } as any);
+        result.current.handlers.onPointerEnter({ pointerType: 'mouse' } as unknown as PointerEvent<HTMLElement>);
       });
       expect(result.current.tooltipVisible).toBe(true);
 
       act(() => {
-        result.current.handlers.onPointerLeave({ pointerType: 'mouse' } as any);
+        result.current.handlers.onPointerLeave({ pointerType: 'mouse' } as unknown as PointerEvent<HTMLElement>);
       });
       expect(result.current.tooltipVisible).toBe(false);
     });
@@ -75,7 +76,7 @@ describe('useNavRailItemInteraction', () => {
       );
 
       act(() => {
-        result.current.handlers.onPointerEnter({ pointerType: 'touch' } as any);
+        result.current.handlers.onPointerEnter({ pointerType: 'touch' } as unknown as PointerEvent<HTMLElement>);
       });
       expect(result.current.tooltipVisible).toBe(false);
     });
@@ -88,12 +89,12 @@ describe('useNavRailItemInteraction', () => {
       expect(result.current.tooltipVisible).toBe(false);
 
       act(() => {
-        result.current.handlers.onFocus({} as any);
+        result.current.handlers.onFocus({} as unknown as FocusEvent<HTMLElement>);
       });
       expect(result.current.tooltipVisible).toBe(true);
 
       act(() => {
-        result.current.handlers.onBlur({} as any);
+        result.current.handlers.onBlur({} as unknown as FocusEvent<HTMLElement>);
       });
       expect(result.current.tooltipVisible).toBe(false);
     });
@@ -104,18 +105,18 @@ describe('useNavRailItemInteraction', () => {
       );
 
       act(() => {
-        result.current.handlers.onFocus({} as any);
+        result.current.handlers.onFocus({} as unknown as FocusEvent<HTMLElement>);
       });
       expect(result.current.tooltipVisible).toBe(true);
 
       act(() => {
-        result.current.handlers.onKeyDown({ key: 'Escape' } as any);
+        result.current.handlers.onKeyDown({ key: 'Escape' } as unknown as KeyboardEvent<HTMLElement>);
       });
       expect(result.current.tooltipVisible).toBe(false);
 
       // hover again should restore tooltip
       act(() => {
-        result.current.handlers.onPointerEnter({ pointerType: 'mouse' } as any);
+        result.current.handlers.onPointerEnter({ pointerType: 'mouse' } as unknown as PointerEvent<HTMLElement>);
       });
       expect(result.current.tooltipVisible).toBe(true);
     });
@@ -131,7 +132,7 @@ describe('useNavRailItemInteraction', () => {
       expect(result.current.isFlashing).toBe(false);
 
       act(() => {
-        result.current.handlers.onPointerUp({ pointerType: 'touch' } as any);
+        result.current.handlers.onPointerUp({ pointerType: 'touch' } as unknown as PointerEvent<HTMLElement>);
       });
       expect(result.current.isFlashing).toBe(true);
 
@@ -157,7 +158,7 @@ describe('useNavRailItemInteraction', () => {
       );
 
       act(() => {
-        result.current.handlers.onPointerUp({ pointerType: 'touch' } as any);
+        result.current.handlers.onPointerUp({ pointerType: 'touch' } as unknown as PointerEvent<HTMLElement>);
       });
       expect(result.current.isFlashing).toBe(true);
 
@@ -182,7 +183,7 @@ describe('useNavRailItemInteraction', () => {
       );
 
       act(() => {
-        result.current.handlers.onPointerUp({ pointerType: 'touch' } as any);
+        result.current.handlers.onPointerUp({ pointerType: 'touch' } as unknown as PointerEvent<HTMLElement>);
       });
       expect(result.current.isFlashing).toBe(false);
     });

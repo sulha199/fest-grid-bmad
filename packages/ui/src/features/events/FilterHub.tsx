@@ -74,6 +74,17 @@ export function FilterHub({
   aiClearLabel,
   aiExpandLabel,
 }: FilterHubProps) {
+  // Hooks stay above the AI-summary early return so their order is identical on every render.
+  const [selectedTypes, setSelectedTypes] = useQueryState(
+    'types',
+    parseAsArrayOf(parseAsString).withDefault([])
+  );
+
+  const [selectedCategories, setSelectedCategories] = useQueryState(
+    'categories',
+    parseAsArrayOf(parseAsString).withDefault([])
+  );
+
   if (aiFilterSummary) {
     return (
       <div className={`flex flex-wrap items-center gap-3 py-1.5 px-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-100 dark:border-blue-900/50 text-sm ${className}`}>
@@ -112,16 +123,6 @@ export function FilterHub({
     );
   }
 
-
-  const [selectedTypes, setSelectedTypes] = useQueryState(
-    'types',
-    parseAsArrayOf(parseAsString).withDefault([])
-  );
-  
-  const [selectedCategories, setSelectedCategories] = useQueryState(
-    'categories',
-    parseAsArrayOf(parseAsString).withDefault([])
-  );
 
   const handleClear = () => {
     setSelectedTypes(null);

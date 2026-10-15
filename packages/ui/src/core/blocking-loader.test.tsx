@@ -72,7 +72,7 @@ describe('BlockingLoader', () => {
     buttonAfter.textContent = 'After';
     document.body.appendChild(buttonAfter);
 
-    const { rerender } = render(
+    render(
       <BlockingLoader active={true} label="Loading..." />
     );
 

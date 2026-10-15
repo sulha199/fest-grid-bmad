@@ -31,7 +31,13 @@ describe('NavRailItem component', () => {
     'aria-label': ariaLabel,
     'aria-current': ariaCurrent,
     ...rest
-  }: any) => (
+  }: {
+    href: string;
+    className?: string;
+    children: React.ReactNode;
+    'aria-label'?: string;
+    'aria-current'?: 'page';
+  }) => (
     <a
       href={href}
       className={className}

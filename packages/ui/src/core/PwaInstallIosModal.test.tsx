@@ -22,8 +22,8 @@ function installLocalStorageSpy() {
   const removeItem = vi.fn((key: string) => {
     store.delete(key);
   });
-  vi.spyOn(window.localStorage.__proto__, 'setItem').mockImplementation(setItem as any);
-  vi.spyOn(window.localStorage.__proto__, 'removeItem').mockImplementation(removeItem as any);
+  vi.spyOn(Storage.prototype, 'setItem').mockImplementation(setItem);
+  vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(removeItem);
   return { setItem, removeItem };
 }
 

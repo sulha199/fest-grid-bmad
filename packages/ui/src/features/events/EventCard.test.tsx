@@ -10,6 +10,10 @@ import {
   EVENT_CARD_BADGE_MIN_TOUCH_REM,
 } from './event-card-media-tokens';
 import { ScopedLocaleProvider } from '../../hooks/useScopedLocale';
+import type { ComponentProps } from 'react';
+
+const asDays = (...days: string[]) =>
+  days as unknown as ComponentProps<typeof EventCard>['applicableDaysOfWeek'];
 
 // FIND-053 removed `variant='standard'` (dead code -- no production call site ever passed
 // it), which was the only EventCard render path that ever showed a full month/day/year/
@@ -1076,7 +1080,7 @@ describe('EventCard', () => {
           variant="masonry"
           locale="en-US"
           distanceKm={1}
-          applicableDaysOfWeek={['MON', 'WED'] as any}
+          applicableDaysOfWeek={asDays('MON', 'WED')}
         />
       );
       const badgeRow = container.querySelector('.p-3.flex-1.flex.flex-col.gap-2 > div') as HTMLElement;
@@ -1092,7 +1096,7 @@ describe('EventCard', () => {
           {...defaultProps}
           variant="masonry"
           locale="en-US"
-          applicableDaysOfWeek={['MON', 'TUE'] as any}
+          applicableDaysOfWeek={asDays('MON', 'TUE')}
           labels={{ dayOfWeekLabels: { MON: 'Monday', TUE: 'Tuesday' } }}
         />
       );
@@ -1107,7 +1111,7 @@ describe('EventCard', () => {
           {...defaultProps}
           variant="masonry"
           locale="en-US"
-          applicableDaysOfWeek={['MON'] as any}
+          applicableDaysOfWeek={asDays('MON')}
           labels={{ dayOfWeekLabels: { MON: 'Monday' } }}
         />
       );
@@ -1131,7 +1135,7 @@ describe('EventCard', () => {
           {...defaultProps}
           variant="masonry"
           locale="en-US"
-          applicableDaysOfWeek={['FRI'] as any}
+          applicableDaysOfWeek={asDays('FRI')}
           labels={{ dayOfWeekLabels: { FRI: 'Friday' } }}
         />
       );
@@ -1152,7 +1156,7 @@ describe('EventCard', () => {
           {...defaultProps}
           variant="masonry"
           locale="en-US"
-          applicableDaysOfWeek={['MON', 'TUE'] as any}
+          applicableDaysOfWeek={asDays('MON', 'TUE')}
           labels={{ dayOfWeekLabels: { MON: 'Monday', TUE: 'Tuesday' }, repeatBadgeAriaLabel }}
         />
       );
@@ -1166,7 +1170,7 @@ describe('EventCard', () => {
           {...defaultProps}
           variant="masonry"
           locale="en-US"
-          applicableDaysOfWeek={['MON'] as any}
+          applicableDaysOfWeek={asDays('MON')}
         />
       );
       const badge = container.querySelector('[data-event-card-repeat-badge]') as HTMLElement;
@@ -1210,7 +1214,7 @@ describe('EventCard', () => {
     });
 
     it('Story 0.45 AC8 — the masonry title scales via a container-query step, not a viewport breakpoint', () => {
-      const { container } = render(
+      render(
         <EventCard {...defaultProps} variant="masonry" locale="en-US" />
       );
       const title = screen.getByText(defaultProps.eventName).closest('h3') as HTMLElement;
