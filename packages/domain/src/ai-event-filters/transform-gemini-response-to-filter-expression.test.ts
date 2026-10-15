@@ -229,23 +229,6 @@ describe('transformGeminiResponseToFilterExpression (AC2)', () => {
     ]);
   });
 
-  it('drops a double-NOT nested inside a sibling group, keeping the surviving sibling (exercises the group-recursion branch of the double-NOT repair)', () => {
-    const result = transformGeminiResponseToFilterExpression({
-      expression: {
-        op: 'AND',
-        children: [
-          { op: 'NOT', child: { op: 'OR', children: [{ op: 'NOT', child: { keyword: 'x' } }] } },
-          { keyword: 'y' },
-        ],
-      },
-      caveats: [],
-    });
-    assert.deepEqual(result.expression, { field: 'keyword', value: 'y' });
-    assert.deepEqual(result.caveats, [
-      'A double negation in your prompt was simplified; the surrounding condition was dropped.',
-    ]);
-  });
-
   it('silently drops a leaf with an out-of-vocabulary/garbage field inside an otherwise-valid tree (no caveat pushed by this function)', () => {
     const payload = {
       expression: {

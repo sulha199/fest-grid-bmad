@@ -76,27 +76,19 @@ function findWidestGroupNode(node: FilterNode): FilterGroupNode | undefined {
 }
 
 /**
- * Drops every `NOT` node whose immediate child is itself a `NOT` node (a double-NOT), collapsing
- * any group/`NOT` left pointing at nothing as a result -- the same mechanism `convertRawNode`
- * already applies at construction time, reused here because `normalize()`'s single-child group
- * collapse can expose a double-NOT that was NOT immediately adjacent in the raw input (e.g. a
- * `NOT` wrapping a single-child `OR` wrapping a `NOT` -- the `OR` disappears on normalize,
- * leaving the two `NOT`s directly adjacent).
+ * Drops a root-level double-NOT (a `NOT` node whose immediate child is itself a `NOT` node) --
+ * the same mechanism `convertRawNode` already applies at construction time, reused here because
+ * `normalize()`'s single-child group collapse can expose a double-NOT that was NOT immediately
+ * adjacent in the raw input (e.g. a `NOT` wrapping a single-child `OR` wrapping a `NOT` -- the
+ * `OR` disappears on normalize, leaving the two `NOT`s directly adjacent). Only ever needs to
+ * check the root: `NOT(NOT(leaf))` is already depth 3 (the maximum), so any double-NOT nested one
+ * level deeper inside an enclosing group/`NOT` would push the whole tree to depth 4+ and trip the
+ * depth guard above first -- a double-NOT surviving to this point is therefore always the tree's
+ * own root.
  */
 function dropDoubleNots(node: FilterNode): FilterNode | undefined {
-  if (isFilterNotNode(node)) {
-    if (isFilterNotNode(node.child)) {
-      return undefined;
-    }
-    const child = dropDoubleNots(node.child);
-    return child === undefined ? undefined : { op: 'NOT', child };
-  }
-  if (isFilterGroupNode(node)) {
-    const children = node.children.map(dropDoubleNots).filter((child): child is FilterNode => child !== undefined);
-    if (children.length === 0) {
-      return undefined;
-    }
-    return { op: node.op, children };
+  if (isFilterNotNode(node) && isFilterNotNode(node.child)) {
+    return undefined;
   }
   return node;
 }
