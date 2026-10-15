@@ -2,7 +2,7 @@
 title: "Architecture Spine: FestDaily"
 status: "draft"
 created: "2026-07-20T09:34:00Z"
-updated: "2026-10-06T00:00:00Z"
+updated: "2026-10-15T00:00:00Z"
 ---
 
 # Architecture Spine: FestDaily
@@ -2100,6 +2100,45 @@ This document defines the core architectural invariants for the FestDaily applic
 *   **Enforced by:** the Vitest ratchet in Rule 4, to be added by the story that performs the Rule 2
     migration (not built in this architecture pass — planning/architecture work does not modify
     source or test code; see routing).
+
+---
+
+### AD-34: Scrape Gate — One Rule for "May This Account Be Scraped"
+
+*   **Binds:** `isScrapableAccountType(accountType, accountTypeStatus)` in
+    `packages/domain/src/scraper/account-classification.ts`; every code path that *starts* a scrape
+    — `triggerAccountScrape` (`apps/backend/src/schema/resolvers.ts`), the subscribe-time
+    classify-then-scrape cascade (`subscribeToAccount`), and the daily batch
+    (`getBatchScrapeTargets`, `apps/backend/src/lib/scraper/get-scrape-targets.ts`); Stories 3.4n
+    (classification + gate), 3.4o (curator accounts become scrapable), 3.16.
+*   **Prevents:** The incident that created this AD (2026-10-15): Story 3.4o widened the gate in the
+    batch's SQL only, so `triggerAccountScrape` and `subscribeToAccount` kept rejecting `CONFIRMED`
+    `CURATOR_GUIDE` accounts (prod `FORBIDDEN` on `laridijogja`) while the daily batch scraped the
+    same accounts. Each entry point re-inlining its own copy of the condition, so a change to the
+    rule lands in one and not the others.
+*   **Rule:**
+    1.  **One definition.** An account is scrapable iff `accountTypeStatus` is `NULL` (a legacy
+        account, never classified) **or** (`accountTypeStatus = CONFIRMED` **and** `accountType` is
+        `ORGANIZER_VENUE_EVENT` or `CURATOR_GUIDE`). `PERSONAL`, and any account `AWAITING_APPROVAL`
+        whatever its proposed type, is never scraped. The rule lives only in
+        `isScrapableAccountType()`, which has the 100% unit coverage `packages/domain` requires.
+    2.  **TypeScript gates call it; none re-inline the condition.** `triggerAccountScrape` and the
+        subscribe-time cascade import the function.
+    3.  **The batch is the one SQL form.** A TypeScript function cannot sit in a query's `where`, so
+        `getBatchScrapeTargets` expresses the same rule as a clause, marked with a comment pointing at
+        the function. Its test file **must** cover every `accountType` × `accountTypeStatus`
+        combination (including `NULL`), so the two forms cannot drift unnoticed.
+    4.  **A new code path that starts a scrape adopts the gate** (Rule 2 or Rule 3) in the same
+        change. Paths that only *process* an already-started run (`stale-job-sweep.ts`, the Apify and
+        Bright Data result handlers) do not start one and are exempt.
+    5.  **Distinct from AD-31's "curator-typed".** That predicate answers "was this post authored by
+        an organizer?" and deliberately counts `AWAITING_APPROVAL` curators; this one answers "may we
+        scrape this account?". Do not reuse one for the other.
+*   **Enforced by:** the unit tests in Rule 1 and the lockstep tests in Rule 3. No lint or source-scan
+    ratchet yet; see Deferred.
+*   **Deferred:** a source-scan ratchet forbidding a raw `accountTypeStatus === ` comparison outside
+    `packages/domain` and `get-scrape-targets.ts`. Revisit if a fourth scrape entry point is added or
+    a gate drifts again.
 
 ---
 
