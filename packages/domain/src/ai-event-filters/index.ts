@@ -12,3 +12,4 @@ export * from './summary-clause-formatters.js';
 export * from './render-filter-expression-summary.js';
 export * from './golden-prompts/golden-prompt-fixtures.js';
 export * from './golden-prompts/compute-golden-prompt-drift.js';
+export * from './prompt-filter-rate-limit.js';
