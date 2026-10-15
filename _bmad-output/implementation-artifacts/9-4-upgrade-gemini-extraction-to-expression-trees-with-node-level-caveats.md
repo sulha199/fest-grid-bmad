@@ -1,5 +1,5 @@
 ---
-baseline_commit: HEAD
+baseline_commit: 45ab3704ed324c30547008a2d53a26e6f1bf4c0e
 ---
 
 # Story 9.4: Upgrade Gemini extraction to expression trees with node-level caveats
