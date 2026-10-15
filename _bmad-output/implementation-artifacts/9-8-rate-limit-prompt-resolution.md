@@ -44,7 +44,7 @@ so that bigger prompts and retries cannot burn my quota unnoticed.
 
 ## Tasks / Subtasks
 
-- [ ] 1. **(AC3)** Add the `prompt_filter_rate_limits` table to `packages/database/schema.ts`:
+- [x] 1. **(AC3)** Add the `prompt_filter_rate_limits` table to `packages/database/schema.ts`:
   ```ts
   export const promptFilterRateLimits = pgTable('prompt_filter_rate_limits', {
     userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).primaryKey(),
@@ -55,7 +55,7 @@ so that bigger prompts and retries cannot burn my quota unnoticed.
   ```
   One row per user (`userId` is itself the primary key — this table has no independent identity, mirroring `vendorCallLocks`'s `lockKey`-as-primary-key shape rather than `apiKeys`' separate-`id` shape, since there is exactly one active window per user at a time). Export it alongside the existing table exports (no barrel file needed — `packages/database/index.ts` already does `export * from './schema.js'`).
 
-- [ ] 2. **(AC3)** Generate and apply the migration locally, using only the repo's own tooling:
+- [x] 2. **(AC3)** Generate and apply the migration locally, using only the repo's own tooling:
   - Run `pnpm --filter @festgrid/database generate` (drizzle-kit, reads local `DATABASE_URL` from `packages/database/.env`) — produces a new numbered `.sql` file under `packages/database/migrations/` plus its `meta/_journal.json`/snapshot entries. Do not hand-edit the generated SQL.
   - Run `pnpm --filter @festgrid/database migrate` (`tsx migrate.ts`) against the local sandbox Postgres only. Confirm it completes with "Migrations completed successfully" (the session's own startup hook already shows this script runs cleanly against the local DB).
   - Never point either command at a non-`localhost`/non-`127.0.0.1` `DATABASE_URL` (no network access exists in this session regardless, but this is also a standing project rule — Supabase is cloud-only).
