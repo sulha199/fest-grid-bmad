@@ -87,24 +87,6 @@ function findWidestGroupNode(node: FilterNode): FilterGroupNode | undefined {
   return best;
 }
 
-/**
- * Drops a root-level double-NOT (a `NOT` node whose immediate child is itself a `NOT` node) --
- * the same mechanism `convertRawNode` already applies at construction time, reused here because
- * `normalize()`'s single-child group collapse can expose a double-NOT that was NOT immediately
- * adjacent in the raw input (e.g. a `NOT` wrapping a single-child `OR` wrapping a `NOT` -- the
- * `OR` disappears on normalize, leaving the two `NOT`s directly adjacent). Only ever needs to
- * check the root: `NOT(NOT(leaf))` is already depth 3 (the maximum), so any double-NOT nested one
- * level deeper inside an enclosing group/`NOT` would push the whole tree to depth 4+ and trip the
- * depth guard above first -- a double-NOT surviving to this point is therefore always the tree's
- * own root.
- */
-function dropDoubleNots(node: FilterNode): FilterNode | undefined {
-  if (isFilterNotNode(node) && isFilterNotNode(node.child)) {
-    return undefined;
-  }
-  return node;
-}
-
 /** Rebuilds `node`, replacing `target` (found by object identity) with a copy of itself minus its
  * last child. `target` is always a node actually present in `node`'s own tree (found via
  * `findWidestGroupNode` against this same tree), so identity comparison is safe here. */
@@ -169,15 +151,20 @@ export function transformGeminiResponseToFilterExpression(payload: unknown): Gem
       const hasDoubleNotIssue = validation.issues.some((issue) => /double not/i.test(issue.reason));
       if (hasDoubleNotIssue) {
         // `normalize()`'s single-child group collapse can expose a double-NOT that was not
-        // immediately adjacent in the raw input -- re-apply the same drop-and-caveat mechanism
-        // `convertRawNode` uses at construction time, then re-normalize (which may itself expose
-        // a further double-NOT, hence the surrounding `while`).
-        current = normalize(dropDoubleNots(current) ?? { op: 'AND', children: [] });
+        // immediately adjacent in the raw input (e.g. a `NOT` wrapping a single-child `OR`
+        // wrapping a `NOT` -- the `OR` disappears on normalize, leaving the two `NOT`s directly
+        // adjacent). This issue can only ever be reported at the tree's own root: `NOT(NOT(leaf))`
+        // is already depth 3 (the maximum), so a double-NOT nested one level deeper inside an
+        // enclosing group/`NOT` would push the whole tree to depth 4+ and trip the depth guard
+        // above first. A root-level double-NOT's only child is itself the (now-dangling) `NOT`
+        // being negated away, so dropping it -- the same "drop the whole outer NOT" mechanism
+        // `convertRawNode` applies at construction time -- always empties the tree entirely.
+        current = { op: 'AND', children: [] };
         if (!doubleNotCaveatPushed) {
           pushedCaveats.push('A double negation in your prompt was simplified; the surrounding condition was dropped.');
           doubleNotCaveatPushed = true;
         }
-        validation = isEmptyExpression(current) ? ({ valid: true, node: current } as const) : validateFilterNode(current);
+        validation = { valid: true, node: current };
         continue;
       }
 
