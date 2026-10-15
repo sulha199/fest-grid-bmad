@@ -113,6 +113,9 @@ test('brightdata-client tests', async (t) => {
           return true;
         }
       );
+      // Story 0.i2d review: the trigger POST creates a billed snapshot and is not idempotent, so a
+      // 5xx must NOT be retried by the wrapper (a retry could create a second, untracked job).
+      assert.strictEqual(mock.getCallCount(), 1, 'trigger POST is attempted exactly once');
     } finally {
       mock.restore();
     }

@@ -66,6 +66,9 @@ async function _triggerBrightDataJob(
 ): Promise<BrightDataTriggerResponse> {
   return callVendor('brightdata', {
     timeoutMs: 20_000,
+    // maxAttempts: 1 -- the trigger POST creates a billed snapshot and is not idempotent:
+    // retrying after a lost response could create a second job nobody tracks.
+    maxAttempts: 1,
     isTransient: isBrightDataErrorTransient,
     call: async (signal) => {
       const env = loadBackendEnv();

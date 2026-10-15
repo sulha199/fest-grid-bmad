@@ -46,11 +46,11 @@ export let attemptApifyAsyncTrigger = async (
     const scrapeCursorTimestamp = lastSuccessfulRun?.completedAt?.toISOString() ?? newerThan;
 
     // Trigger async run with webhooks, routed through the shared guarded wrapper (AD-32).
-    // `scraperLambda` has a 300s CDK timeout -- 30_000ms plus the default maxAttempts: 3
-    // retry/backoff budget comfortably fits; overallTimeoutMs bounds the full attempt+backoff
-    // sequence explicitly rather than relying on the Lambda's own hard kill.
+    // maxAttempts: 1 -- `.start()` is not idempotent: retrying after a lost response (5xx /
+    // ECONNRESET) could start a second paid run that no pending-job row tracks. The fallback
+    // chain in trigger-scrape-for-account / lambdas/scraper already handles a failed trigger.
     const run = await callApifyClient(
-      { timeoutMs: 30_000, overallTimeoutMs: 90_000 },
+      { timeoutMs: 30_000, maxAttempts: 1 },
       (client) =>
         client.actor('apify/instagram-api-scraper').start(
           {
