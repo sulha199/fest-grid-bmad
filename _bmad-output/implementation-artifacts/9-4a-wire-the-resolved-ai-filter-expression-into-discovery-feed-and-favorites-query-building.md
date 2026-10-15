@@ -259,21 +259,21 @@ Per `epic-9-readiness.md` (`swept: true`, 2026-10-14), Gate 1 (Architecture/Infr
 
 ## Testing Requirements
 
-- [ ] Unit tests: `buildEventsQueryCondition.test.ts` — `expression`-only parity with direct `compileFilterNodeToQueryCondition`, `expression` wins when both `filter` and `expression` are supplied, an empty-compiling `expression` returns `undefined`. 100% branch coverage (via extension) on the new code paths.
-- [ ] Unit tests: `use-ai-filter.test.ts` — `activeExpression` populated on a mocked non-flat mutation response; cleared on expand/clear/re-prompt, mirroring the existing `activeFilter`-clearing assertions.
-- [ ] Integration tests (Vitest, extending each page's existing test file): a seeded non-flat `ai_expression` (via the shared `nuqs` mock) produces a `graphqlClient.request` call whose `query` variable reflects the compiled expression condition, on all three of Discovery/Feed/Favorites; two different non-flat expressions (same flattened `ai_filter`) produce distinct query/cache keys (AC3 regression).
-- [ ] 100% branch coverage on the changed `packages/domain` file, per `project-context.md`'s domain testing rule; Vitest coverage follows each extended test file's existing style (no literal percentage gate for `apps/web`).
-- [ ] E2E tests: not applicable — no new user-facing surface in this story (confirmed by Gate 2's "no gap" verdict above); existing E2E coverage of the three pages' happy paths is unaffected since flat-filter behavior is byte-identical to before.
+- [x] Unit tests: `buildEventsQueryCondition.test.ts` — `expression`-only parity with direct `compileFilterNodeToQueryCondition`, `expression` wins when both `filter` and `expression` are supplied, an empty-compiling `expression` returns `undefined`. 100% branch coverage (via extension) on the new code paths.
+- [x] Unit tests: `use-ai-filter.test.ts` — `activeExpression` populated on a mocked non-flat mutation response; cleared on expand/clear/re-prompt, mirroring the existing `activeFilter`-clearing assertions.
+- [x] Integration tests (Vitest, extending each page's existing test file): a seeded non-flat `ai_expression` (via the shared `nuqs` mock) produces a `graphqlClient.request` call whose `query` variable reflects the compiled expression condition, on all three of Discovery/Feed/Favorites; two different non-flat expressions (same flattened `ai_filter`) produce distinct query/cache keys (AC3 regression).
+- [x] 100% branch coverage on the changed `packages/domain` file, per `project-context.md`'s domain testing rule; Vitest coverage follows each extended test file's existing style (no literal percentage gate for `apps/web`).
+- [x] E2E tests: not applicable — no new user-facing surface in this story (confirmed by Gate 2's "no gap" verdict above); existing E2E coverage of the three pages' happy paths is unaffected since flat-filter behavior is byte-identical to before.
 
 ## Deliverables Checklist
 
-- [ ] `resolvePromptToEventFilter`/`getMyAIEventFilters` client documents select `expression` (3-level unrolled); `graphql.ts` regenerated and committed.
-- [ ] `ai-filters-content.tsx`'s `handleRowClick` forwards `expression` via a new `ai_expression` URL param.
-- [ ] `useAIFilter()` returns `activeExpression`, backed by a new `ai_expression` `nuqs` state field cleared in lockstep with `activeFilter`/caveats at all five existing clear sites.
-- [ ] `buildEventsQueryCondition` accepts an optional `expression?: FilterNode` that short-circuits to `compileFilterNodeToQueryCondition`, mirroring `buildFeedQueryCondition`/`buildAccountEventsQueryCondition`.
-- [ ] Discovery, Feed, and Favorites all prefer `activeExpression` over `activeFilter` in their query-building call, and all three screens' cache keys (`queryKey`/`filterKey`, including Favorites' extra `idSnapshotData` query) include `activeExpression`.
-- [ ] A non-flat (`OR`/`NOT`-containing) AI filter, live-resolved or loaded from "My AI Filters," now actually filters Discovery/Feed/Favorites results instead of silently applying as empty.
-- [ ] All new/updated test files passing; 100% domain coverage on the changed `packages/domain` file; `pnpm --filter @festgrid/domain test`/`lint`/`build`, `pnpm --filter @festgrid/web codegen`/`test`/`lint`/`build` all green.
+- [x] `resolvePromptToEventFilter`/`getMyAIEventFilters` client documents select `expression` (3-level unrolled); `graphql.ts` regenerated and committed.
+- [x] `ai-filters-content.tsx`'s `handleRowClick` forwards `expression` via a new `ai_expression` URL param.
+- [x] `useAIFilter()` returns `activeExpression`, backed by a new `ai_expression` `nuqs` state field cleared in lockstep with `activeFilter`/caveats at all five existing clear sites.
+- [x] `buildEventsQueryCondition` accepts an optional `expression?: FilterNode` that short-circuits to `compileFilterNodeToQueryCondition`, mirroring `buildFeedQueryCondition`/`buildAccountEventsQueryCondition`.
+- [x] Discovery, Feed, and Favorites all prefer `activeExpression` over `activeFilter` in their query-building call, and all three screens' cache keys (`queryKey`/`filterKey`, including Favorites' extra `idSnapshotData` query) include `activeExpression`.
+- [x] A non-flat (`OR`/`NOT`-containing) AI filter, live-resolved or loaded from "My AI Filters," now actually filters Discovery/Feed/Favorites results instead of silently applying as empty.
+- [x] All new/updated test files passing; 100% domain coverage on the changed `packages/domain` file; `pnpm --filter @festgrid/domain test`/`lint`/`build`, `pnpm --filter @festgrid/web codegen`/`test`/`lint`/`build` all green.
 
 ## Out of Scope
 
@@ -286,10 +286,10 @@ Per `epic-9-readiness.md` (`swept: true`, 2026-10-14), Gate 1 (Architecture/Infr
 
 ## Definition of Done
 
-- [ ] AC1-AC4 satisfied and verified by their respective tests.
-- [ ] Required tests passing: `pnpm --filter @festgrid/domain test` (100% branch coverage on changed files) and `pnpm --filter @festgrid/web test`.
-- [ ] Lint and type checks passing: `pnpm --filter @festgrid/domain lint`/`build`, `pnpm --filter @festgrid/web lint`/`build`.
-- [ ] `pnpm --filter @festgrid/web codegen` run, with the regenerated `graphql.ts` committed.
+- [x] AC1-AC4 satisfied and verified by their respective tests.
+- [x] Required tests passing: `pnpm --filter @festgrid/domain test` (100% branch coverage on changed files) and `pnpm --filter @festgrid/web test`.
+- [x] Lint and type checks passing: `pnpm --filter @festgrid/domain lint`/`build`, `pnpm --filter @festgrid/web lint`/`build`.
+- [x] `pnpm --filter @festgrid/web codegen` run, with the regenerated `graphql.ts` committed.
 
 ## Completion Status
 
