@@ -6,3 +6,5 @@ export * from './normalize-filter-node.js';
 export * from './flat-filter-conversion.js';
 export * from './compile-filter-node.js';
 export * from './resolve-stored-filter.js';
+export * from './map-filter-leaves.js';
+export * from './transform-gemini-response-to-filter-expression.js';

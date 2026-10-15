@@ -23,7 +23,7 @@ import { resolveInstagramOEmbed } from '../lib/instagram-oembed/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError } from 'graphql';
 import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult, computePastEventThreshold, parsePlatformPrefixedEventSlug, sanitizeEventLinks } from '@festgrid/domain/events';
-import { transformGeminiResponseToEventFilter, validateFilterNode, compileFilterNodeToQueryCondition, resolveStoredFilter } from '@festgrid/domain/ai-event-filters';
+import { transformGeminiResponseToFilterExpression, validateFilterNode, compileFilterNodeToQueryCondition, resolveStoredFilter, flatFilterFromExpression } from '@festgrid/domain/ai-event-filters';
 import type { FilterValidationIssue } from '@festgrid/domain/ai-event-filters';
 import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText } from '@festgrid/domain';
@@ -43,7 +43,8 @@ import { sendDangerousReportModeratorAlerts } from '../lib/notifications/send-da
 import { enqueuePostForProcessing } from '../lib/posts/enqueue-post-for-processing.js';
 import { replayActorRun } from '../lib/scraper/replay-actor-run.js';
 import { applyDefaultLocationChange } from '../lib/accounts/apply-default-location-change.js';
-import { resolveFilterAccountId } from '../lib/ai-event-filters/resolve-filter-account-id.js';
+import { resolveFilterExpressionAccountIds } from '../lib/ai-event-filters/resolve-filter-expression-account-ids.js';
+import { buildFilterExtractionSystemInstruction, buildFilterExtractionResponseSchema } from '../lib/ai-event-filters/build-filter-extraction-request.js';
 import { mergeEvents, undoEventMerge as undoEventMergeWrite, EventMergeInvalidStateError, EventMergeNotFoundError, EventMergeAlreadyUndoneError } from '../lib/events/merge-events.js';
 
 // `post_account_associations.account_id` is a uuid column: comparing it against a non-UUID string
@@ -335,97 +336,12 @@ export const resolvers: Resolvers = {
         });
       }
 
-      const systemInstruction = `You are an AI assistant that parses a free-text prompt from Indonesia (mainly Yogyakarta/Sleman) into a structured EventFilterInput JSON object.
-Follow this schema for the output object:
-{
-  "accountId": "optional: the social media account the user named, exactly as written (an @handle, username or display name). NEVER invent a UUID; if no account is named, omit it",
-  "types": ["optional array of EventType strings: EXHIBITION, COMPETITION, FESTIVAL, PERFORMANCE, WORKSHOP, SEMINAR, MARKET, GATHERING, PROMOTION, FUNDRAISER, CIVIC, OTHER"],
-  "categories": ["optional array of EventCategory strings: MUSIC, ARTS_AND_CULTURE, FOOD_AND_DRINK, SPORTS_AND_FITNESS, FAMILY_AND_KIDS, HOBBIES_AND_INTERESTS, BUSINESS_AND_NETWORKING, HEALTH_AND_WELLNESS, HOLIDAY, CHARITY_AND_CAUSES, CIVIC_AND_COMMUNITY, RELIGION_AND_SPIRITUALITY, TECHNOLOGY, TRAVEL_AND_TOURISM, EDUCATION, CAREER, AUTOMOTIVE, OTHER"],
-  "keyword": "optional search phrase string",
-  "dateRange": {
-    "anchor": "optional anchor string: TODAY, THIS_WEEK, THIS_MONTH",
-    "offsetAmount": "optional integer amount, can be positive/negative",
-    "offsetUnit": "optional offset unit string: DAY, WEEK, MONTH"
-  },
-  "dayOfWeek": "optional day of week string: MON, TUE, WED, THU, FRI, SAT, SUN",
-  "location": {
-    "coordinates": {
-      "lat": "optional number",
-      "lng": "optional number"
-    },
-    "radiusMeters": "optional integer",
-    "adminArea": "optional province/city/regency string, e.g. Yogyakarta, Sleman, Bantul, Jakarta"
-  },
-  "venueType": "optional string (e.g. CAFE, STADIUM, MALL)",
-  "isFree": "optional boolean"
-}
-
-Any part of the user's prompt that does not map to this schema MUST be explicitly listed as a caveat string in a parallel "caveats" field.
-Constraints and Guidelines:
-- If a specific location is named but no coordinates are known, set "location.adminArea".
-- Price thresholds, floor/room details, or complex unanchored date expressions should be returned as strings in the "caveats" array.
-- Output MUST be valid JSON matching:
-{
-  "resolvedFilter": <EventFilterInput object>,
-  "caveats": ["caveat 1", "caveat 2", ...]
-}
-`;
-
       try {
         const response = await callGemini({
           contents: `Parse this prompt: "${prompt}"`,
-          systemInstruction,
+          systemInstruction: buildFilterExtractionSystemInstruction(),
           responseMimeType: 'application/json',
-          responseSchema: {
-            type: 'OBJECT',
-            properties: {
-              resolvedFilter: {
-                type: 'OBJECT',
-                properties: {
-                  accountId: { type: 'STRING' },
-                  types: {
-                    type: 'ARRAY',
-                    items: { type: 'STRING' }
-                  },
-                  categories: {
-                    type: 'ARRAY',
-                    items: { type: 'STRING' }
-                  },
-                  keyword: { type: 'STRING' },
-                  dateRange: {
-                    type: 'OBJECT',
-                    properties: {
-                      anchor: { type: 'STRING' },
-                      offsetAmount: { type: 'INTEGER' },
-                      offsetUnit: { type: 'STRING' }
-                    }
-                  },
-                  dayOfWeek: { type: 'STRING' },
-                  location: {
-                    type: 'OBJECT',
-                    properties: {
-                      coordinates: {
-                        type: 'OBJECT',
-                        properties: {
-                          lat: { type: 'NUMBER' },
-                          lng: { type: 'NUMBER' }
-                        }
-                      },
-                      radiusMeters: { type: 'INTEGER' },
-                      adminArea: { type: 'STRING' }
-                    }
-                  },
-                  venueType: { type: 'STRING' },
-                  isFree: { type: 'BOOLEAN' }
-                }
-              },
-              caveats: {
-                type: 'ARRAY',
-                items: { type: 'STRING' }
-              }
-            },
-            required: ['resolvedFilter', 'caveats']
-          },
+          responseSchema: buildFilterExtractionResponseSchema(),
           provider: 'gemini',
           subscriberUserIds: [authUser.userId],
         });
@@ -439,25 +355,24 @@ Constraints and Guidelines:
             extensions: { code: 'INTERNAL_SERVER_ERROR' }
           });
         }
-        const resolvedFilter = transformGeminiResponseToEventFilter(parsed.resolvedFilter);
-        const caveats = Array.isArray(parsed.caveats) ? parsed.caveats.filter((c: any) => typeof c === 'string') : [];
 
-        // IDEA-065: the model only ever sees the user's words, never profile UUIDs, so turn the
-        // named handle/username/display name into a real profile id (or drop it, loudly).
-        if (resolvedFilter.accountId) {
-          const namedAccount = resolvedFilter.accountId;
-          const accountProfileId = await resolveFilterAccountId(authUser.userId, namedAccount);
-          if (accountProfileId) {
-            resolvedFilter.accountId = accountProfileId;
-          } else {
-            delete resolvedFilter.accountId;
-            caveats.push(`Could not find an account matching "${namedAccount}", so events from all accounts are shown.`);
-          }
+        const { expression: rawExpression, caveats: extractionCaveats } = transformGeminiResponseToFilterExpression(parsed);
+        const { expression, caveats: accountCaveats } = await resolveFilterExpressionAccountIds(rawExpression, authUser.userId);
+
+        let resolvedFilter: any;
+        try {
+          resolvedFilter = flatFilterFromExpression(expression);
+        } catch {
+          // Honest "no flat projection" for a non-flat (OR/NOT-containing) expression -- never a
+          // fabricated partial filter, never a 500 (AC4, matching Story 9.3's `resolveStoredFilter`
+          // precedent, adapted for this field's non-null GraphQL contract).
+          resolvedFilter = {};
         }
 
         return {
           resolvedFilter: resolvedFilter as any,
-          caveats,
+          expression: expression as any,
+          caveats: [...extractionCaveats, ...accountCaveats],
         };
       } catch (err: any) {
         if (err instanceof AiGatewayExhaustedError) {

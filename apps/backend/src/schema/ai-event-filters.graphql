@@ -11,6 +11,7 @@ type AIEventFilter {
 
 type ResolvedAIEventFilterResult {
   resolvedFilter: EventFilter!
+  expression: FilterNode!
   caveats: [String!]!
 }
 

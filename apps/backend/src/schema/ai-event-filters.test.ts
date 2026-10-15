@@ -117,10 +117,13 @@ test('ai event filters resolvers integration', async (t) => {
       return Buffer.from(cipher, 'base64').toString('utf-8');
     });
 
+    // Story 9.4 AC1/AC2: Gemini now returns the tree-shaped `expression` (not the legacy flat
+    // `resolvedFilter`) -- this fixture is a leaf-shaped, flat-representable tree (no op/children),
+    // so it round-trips to the exact same `resolvedFilter` back-projection as before.
     setCallGeminiGenerateContent(async () => {
       return {
         text: JSON.stringify({
-          resolvedFilter: {
+          expression: {
             keyword: 'live jazz',
             types: ['PERFORMANCE'],
             categories: ['MUSIC'],
@@ -142,6 +145,10 @@ test('ai event filters resolvers integration', async (t) => {
                 types
                 categories
               }
+              expression {
+                op
+                children { field value }
+              }
               caveats
             }
           }
@@ -154,6 +161,90 @@ test('ai event filters resolvers integration', async (t) => {
     assert.deepStrictEqual(result.data.resolvePromptToEventFilter.resolvedFilter.types, ['PERFORMANCE']);
     assert.deepStrictEqual(result.data.resolvePromptToEventFilter.resolvedFilter.categories, ['MUSIC']);
     assert.deepStrictEqual(result.data.resolvePromptToEventFilter.caveats, ['ignoring price filter']);
+
+    const expression = result.data.resolvePromptToEventFilter.expression;
+    assert.strictEqual(expression.op, 'AND');
+    const leaves = expression.children;
+    assert.ok(leaves.some((l: any) => l.field === 'keyword' && l.value === 'live jazz'));
+    assert.ok(leaves.some((l: any) => l.field === 'type' && JSON.stringify(l.value) === JSON.stringify(['PERFORMANCE'])));
+    assert.ok(leaves.some((l: any) => l.field === 'category' && JSON.stringify(l.value) === JSON.stringify(['MUSIC'])));
+  });
+
+  await t.test('resolvePromptToEventFilter still accepts the legacy flat `resolvedFilter` response shape (AC2 regression)', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    setCallGeminiGenerateContent(async () => {
+      return {
+        text: JSON.stringify({
+          resolvedFilter: {
+            keyword: 'live jazz',
+            types: ['PERFORMANCE'],
+            categories: ['MUSIC'],
+          },
+          caveats: ['ignoring price filter'],
+        })
+      };
+    });
+
+    const res = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            resolvePromptToEventFilter(prompt: "Show me jazz events in Yogyakarta") {
+              resolvedFilter { keyword types categories }
+              expression { op children { field value } }
+              caveats
+            }
+          }
+        `
+      })
+    });
+    const result = await res.json();
+    assert.ok(!result.errors, 'Should succeed without errors');
+    assert.strictEqual(result.data.resolvePromptToEventFilter.resolvedFilter.keyword, 'live jazz');
+    assert.deepStrictEqual(result.data.resolvePromptToEventFilter.resolvedFilter.types, ['PERFORMANCE']);
+    assert.deepStrictEqual(result.data.resolvePromptToEventFilter.resolvedFilter.categories, ['MUSIC']);
+    assert.deepStrictEqual(result.data.resolvePromptToEventFilter.caveats, ['ignoring price filter']);
+    assert.ok(result.data.resolvePromptToEventFilter.expression, 'a derived expression is still returned');
+  });
+
+  await t.test('resolvePromptToEventFilter returns a grouped (OR/NOT) expression with an honest, non-fabricated empty resolvedFilter (AC4)', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    setCallGeminiGenerateContent(async () => {
+      return {
+        text: JSON.stringify({
+          expression: {
+            op: 'OR',
+            children: [{ keyword: 'jazz' }, { keyword: 'blues' }],
+          },
+          caveats: [],
+        })
+      };
+    });
+
+    const res = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            resolvePromptToEventFilter(prompt: "jazz or blues events") {
+              resolvedFilter { keyword }
+              expression { op children { field value } }
+              caveats
+            }
+          }
+        `
+      })
+    });
+    const result = await res.json();
+    assert.ok(!result.errors, JSON.stringify(result.errors));
+    assert.deepStrictEqual(result.data.resolvePromptToEventFilter.resolvedFilter, {});
+    assert.strictEqual(result.data.resolvePromptToEventFilter.expression.op, 'OR');
+    assert.strictEqual(result.data.resolvePromptToEventFilter.expression.children.length, 2);
   });
 
   await t.test('resolvePromptToEventFilter resolves a named @handle to the real profile id, and drops an unknown one with a caveat (IDEA-065)', async () => {
@@ -168,13 +259,35 @@ test('ai event filters resolvers integration', async (t) => {
 
     const ask = async (accountId: string) => {
       setCallGeminiGenerateContent(async () => ({
-        text: JSON.stringify({ resolvedFilter: { accountId }, caveats: [] }),
+        text: JSON.stringify({ expression: { accountId }, caveats: [] }),
       }));
       const res = await yoga.fetch('http://yoga/graphql', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query: `mutation { resolvePromptToEventFilter(prompt: "events from that account") { resolvedFilter { accountId } caveats } }`,
+        }),
+      });
+      const result = await res.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      return result.data.resolvePromptToEventFilter;
+    };
+
+    const askOr = async (accountIdA: string, accountIdB: string) => {
+      setCallGeminiGenerateContent(async () => ({
+        text: JSON.stringify({
+          expression: {
+            op: 'OR',
+            children: [{ accountId: accountIdA }, { accountId: accountIdB }],
+          },
+          caveats: [],
+        }),
+      }));
+      const res = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `mutation { resolvePromptToEventFilter(prompt: "events from either account") { resolvedFilter { accountId } expression { op field value } caveats } }`,
         }),
       });
       const result = await res.json();
@@ -191,6 +304,14 @@ test('ai event filters resolvers integration', async (t) => {
       assert.strictEqual(missing.resolvedFilter.accountId, null);
       assert.strictEqual(missing.caveats.length, 1);
       assert.match(missing.caveats[0], /no_such_account_anywhere/);
+
+      // AC3: two accountId leaves under an OR -- one resolves, one drops with a caveat, the
+      // surviving single leaf collapses the OR (normalize()) so resolvedFilter is still flat.
+      const mixed = await askOr(`@jogja_fest_${stamp}`, '@no_such_account_anywhere_either');
+      assert.strictEqual(mixed.resolvedFilter.accountId, profile.id);
+      assert.strictEqual(mixed.expression.field, 'accountId');
+      assert.strictEqual(mixed.caveats.length, 1);
+      assert.match(mixed.caveats[0], /no_such_account_anywhere_either/);
     } finally {
       await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
     }
