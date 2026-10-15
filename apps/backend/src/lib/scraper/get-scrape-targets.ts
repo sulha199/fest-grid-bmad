@@ -37,6 +37,7 @@ export async function getBatchScrapeTargets(): Promise<ScrapeTarget[]> {
           isNull(socialMediaAccountProfiles.lastScrapedAt),
           lt(socialMediaAccountProfiles.lastScrapedAt, cutoffDate)
         ),
+        // SQL form of isScrapableAccountType() in @festgrid/domain -- keep the two in lockstep.
         or(
           isNull(socialMediaAccountProfiles.accountTypeStatus),
           and(

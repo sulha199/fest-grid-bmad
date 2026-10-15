@@ -248,7 +248,7 @@ test('subscribe-to-account tests', async (t) => {
     assert.strictEqual(resultB.profile.accountType, 'PERSONAL');
     assert.strictEqual(resultB.profile.accountTypeStatus, 'CONFIRMED');
 
-    // Case C: CURATOR_GUIDE should NOT trigger scrape
+    // Case C: CURATOR_GUIDE (CONFIRMED) DOES trigger scrape -- Story 3.4o made curators scrapable
     let scrapeCalledC = false;
     setAttemptApifyAsyncTrigger(async () => {
       scrapeCalledC = true;
@@ -270,7 +270,7 @@ test('subscribe-to-account tests', async (t) => {
       accountId: `gated-ghi-${ts}`,
       profile: { displayName: 'Cur User', username: 'cur_user' }
     });
-    assert.strictEqual(scrapeCalledC, false, 'Scrape should NOT be triggered for CURATOR_GUIDE');
+    assert.strictEqual(scrapeCalledC, true, 'Scrape should be triggered for a CONFIRMED CURATOR_GUIDE');
     assert.strictEqual(resultC.profile.accountType, 'CURATOR_GUIDE');
     assert.strictEqual(resultC.profile.accountTypeStatus, 'CONFIRMED');
 
