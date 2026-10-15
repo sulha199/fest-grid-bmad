@@ -827,9 +827,19 @@ test('instagram-adapter tests', async (t) => {
     }
   });
 
+  // 2026-10-15 prod incident: the profile scraper needed ~22s (two Instagram blocks + retry) and the
+  // old 20s outer bound fired just before it finished. The budgets must stay strictly ordered:
+  // outer lookup bound < inner vendor-call bound < apiLambda's 28s CDK timeout (< API Gateway's 29s).
+  await t.test('profile lookup timeout budgets stay ordered under the 28s apiLambda timeout and cover the observed ~22s run', async () => {
+    const mod = await import('./instagram-adapter.js');
+    assert.ok(mod.PROFILE_LOOKUP_TIMEOUT_MS > 22_000, 'must outlast the observed blocked-then-retried run');
+    assert.ok(mod.PROFILE_LOOKUP_TIMEOUT_MS < mod.APIFY_CALL_TIMEOUT_MS, 'outer bound must win the race');
+    assert.ok(mod.APIFY_CALL_TIMEOUT_MS < 28_000, 'inner bound must fit inside apiLambda timeout');
+  });
+
   // Story 0.i2d (Task 2 regression guard) -- lookupAccountProfile/getAccountClassificationProfile's
-  // existing outer withTimeoutOrThrow(20_000) bound must still win the race over
-  // callApifyClient's own internal 23_000ms bound and throw the existing, distinct, typed
+  // existing outer withTimeoutOrThrow(PROFILE_LOOKUP_TIMEOUT_MS) bound must still win the race over
+  // callApifyClient's own internal APIFY_CALL_TIMEOUT_MS bound and throw the existing, distinct, typed
   // ApifyRequestTimeoutError (which resolvers.ts:2263 specifically catches) -- never a generic
   // VendorCallTimeoutError-derived message. Uses the real getApifyClient seam (not
   // setCallApifyActor, which would bypass callApifyClient's internals entirely) so the real

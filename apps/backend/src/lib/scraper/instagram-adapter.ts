@@ -217,14 +217,22 @@ export async function callApifyClient<T>(
 // Context for audit recording and run ID threading (set by callers that have profileId)
 export let apifyAuditContext: { profileId: string; triggerMode: 'SYNC' | 'ASYNC'; runId?: string } | undefined;
 
+// The apify/instagram-profile-scraper actor is routinely blocked by Instagram on its first
+// request(s) and retries on a fresh session internally (prod 2026-10-15: two "Request blocked"
+// retries, ~22s end to end incl. container start). The profile lookups therefore get a larger
+// budget than the 20s used for post lookups; the actor exposes no proxy/retry inputs to tune.
+export const PROFILE_LOOKUP_TIMEOUT_MS = 25_000;
+export const APIFY_CALL_TIMEOUT_MS = 26_000;
+
 export let callApifyActor = async <T extends ActorId>(actorId: T, input: ActorInputFor<T>): Promise<ActorOutputFor<T>> => {
-  // `timeoutMs: 23_000` sits between the 4 sync methods' existing outer `withTimeout`/
-  // `withTimeoutOrThrow` bound (20_000, which must still win the race in the normal case --
-  // see Task 2 regression guard) and `apiLambda`'s hard CDK timeout (25s). `maxAttempts: 1`:
-  // the 25s budget cannot fit a second 23s attempt plus backoff, and today's code has zero
-  // retry on this path either -- no behavior regression.
+  // `timeoutMs: APIFY_CALL_TIMEOUT_MS` sits between the sync methods' outer `withTimeout`/
+  // `withTimeoutOrThrow` bounds (20_000 for post lookups, PROFILE_LOOKUP_TIMEOUT_MS for the two
+  // profile lookups -- both must still win the race, see the Task 2 regression guard) and
+  // `apiLambda`'s hard CDK timeout (28s, under API Gateway's 29s integration limit).
+  // `maxAttempts: 1`: the budget cannot fit a second attempt plus backoff, and today's code has
+  // zero retry on this path either -- no behavior regression.
   const { run, items } = await callApifyClient(
-    { timeoutMs: 23_000, maxAttempts: 1 },
+    { timeoutMs: APIFY_CALL_TIMEOUT_MS, maxAttempts: 1 },
     async (client) => {
       const runResult = await client.actor(actorId).call(input as unknown as Record<string, unknown>);
       const datasetId = runResult.defaultDatasetId;
@@ -539,7 +547,7 @@ export const instagramScraperAdapter: ScraperAdapter = {
       }
     };
 
-    return withTimeoutOrThrow(runLookup(), 20000, 'Account profile lookup timed out');
+    return withTimeoutOrThrow(runLookup(), PROFILE_LOOKUP_TIMEOUT_MS, 'Account profile lookup timed out');
   },
 
   async getAccountClassificationProfile(username: string): Promise<{ biography: string; username: string; displayName: string; businessCategoryName: string | null } | null> {
@@ -576,6 +584,6 @@ export const instagramScraperAdapter: ScraperAdapter = {
       }
     };
 
-    return withTimeoutOrThrow(runLookup(), 20000, 'Account profile lookup for classification timed out');
+    return withTimeoutOrThrow(runLookup(), PROFILE_LOOKUP_TIMEOUT_MS, 'Account profile lookup for classification timed out');
   },
 };
