@@ -45,6 +45,7 @@ const mockFilters = [
       categories: ['MUSIC'],
       isFree: true,
     },
+    expression: { field: 'keyword', value: 'rock' },
     createdAt: '2026-08-01',
     updatedAt: '2026-08-01',
   },
@@ -131,7 +132,8 @@ describe('AiFiltersContent', () => {
     fireEvent.click(row!);
 
     const expectedParam = encodeURIComponent(JSON.stringify(mockFilters[0].resolvedFilter));
-    expect(mockRouterPush).toHaveBeenCalledWith(`/?ai_filter=${expectedParam}`);
+    const expectedExpressionParam = encodeURIComponent(JSON.stringify(mockFilters[0].expression));
+    expect(mockRouterPush).toHaveBeenCalledWith(`/?ai_filter=${expectedParam}&ai_expression=${expectedExpressionParam}`);
   });
 
   it('triggers soft delete immediately and RESTORE on Undo', async () => {
