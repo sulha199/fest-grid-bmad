@@ -194,6 +194,39 @@ describe('MyCalendarContent', () => {
     expect(addedToggle).toBeChecked();
   });
 
+  it('sends the parent event id (a string), not the schedule object, when a calendar card is un-favorited', async () => {
+    // Regression: WeeklyCalendarView calls onFavoriteToggle(schedule); this page used to forward that
+    // argument straight into toggleFavorite({ eventId }), sending a whole schedule object as the id.
+    const toggledVariables: unknown[] = [];
+    server.use(
+      api.mutation('toggleFavorite', ({ variables }) => {
+        toggledVariables.push(variables);
+        return HttpResponse.json({
+          data: { toggleFavorite: { eventId: variables.eventId, isFavorited: false, favoriteCount: 0 } },
+        });
+      })
+    );
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <NuqsTestingAdapter>
+          <MyCalendarContent />
+        </NuqsTestingAdapter>
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => expect(screen.getAllByText('Fav Event')[0]).toBeInTheDocument());
+
+    const favoriteButton = screen.getAllByLabelText(/favorite/i).find((el) => el.tagName === 'BUTTON');
+    expect(favoriteButton).toBeDefined();
+    fireEvent.click(favoriteButton!);
+
+    await waitFor(() => expect(toggledVariables.length).toBeGreaterThan(0));
+    const sent = toggledVariables[0] as { eventId: unknown };
+    expect(typeof sent.eventId).toBe('string');
+    expect(['evt-fav', 'evt-added']).toContain(sent.eventId);
+  });
+
   it('filters out favorited or added-to-calendar schedules when toggles are checked off client-side', async () => {
     const { container } = render(
       <QueryClientProvider client={queryClient}>

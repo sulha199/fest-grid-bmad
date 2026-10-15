@@ -127,7 +127,7 @@ export function useListPaginationController<TFilterKey, TCursor>({
 
   const resetToFirstPage = useCallback(() => {
     setState((prev) => makeResetState(initialCursor, prev.resetToken + 1));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [initialCursor]);
 
   return {

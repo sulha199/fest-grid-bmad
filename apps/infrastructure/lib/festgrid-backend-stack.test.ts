@@ -87,7 +87,7 @@ test('FestgridBackendStack provisions correct resources', () => {
   });
 
   // 9b. Assert L_Notifier Lambda environment variables are present (full AC5 var set).
-  // Combined with Timeout: 300 to disambiguate from L_API (Timeout 25) and the other
+  // Combined with Timeout: 300 to disambiguate from L_API (Timeout 28) and the other
   // batch Lambdas (Scraper/AIProcessor/Ingestor), which don't carry SES_FROM_EMAIL_ADDRESS/
   // WEB_APP_BASE_URL/QUEUE_NOTIFICATION_* in their environment.
   template.hasResourceProperties('AWS::Lambda::Function', {

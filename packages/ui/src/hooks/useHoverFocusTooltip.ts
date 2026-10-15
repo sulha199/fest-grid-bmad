@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { FocusEvent, KeyboardEvent, PointerEvent } from 'react';
+import type { KeyboardEvent, PointerEvent } from 'react';
 import type { UseHoverFocusTooltipOptions, UseHoverFocusTooltipResult } from './useHoverFocusTooltip.types';
 
 /**
@@ -45,11 +45,11 @@ export function useHoverFocusTooltip(
         setIsHovered(false);
       }
     },
-    onFocus: (_event: FocusEvent<HTMLElement>) => {
+    onFocus: () => {
       setIsDismissed(false);
       setIsFocused(true);
     },
-    onBlur: (_event: FocusEvent<HTMLElement>) => {
+    onBlur: () => {
       setIsFocused(false);
     },
     onKeyDown: (event: KeyboardEvent<HTMLElement>) => {

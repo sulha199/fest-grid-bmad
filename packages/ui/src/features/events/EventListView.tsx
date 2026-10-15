@@ -141,7 +141,7 @@ export function EventListView<TEvent extends EventListViewItem>({
           )}
           {!isFetchingNextPage && !hasNextPage && (
             <div className="text-sm text-muted-foreground">
-              You've reached the end of the list.
+              You&apos;ve reached the end of the list.
             </div>
           )}
         </div>

@@ -8,7 +8,17 @@ describe('UserMenu component', () => {
     cleanup();
   });
 
-  const mockRenderLink = ({ href, className, children, onClick }: any) => (
+  const mockRenderLink = ({
+    href,
+    className,
+    children,
+    onClick,
+  }: {
+    href: string;
+    className?: string;
+    children: React.ReactNode;
+    onClick?: () => void;
+  }) => (
     <a href={href} className={className} data-testid={`menu-link-${href}`} onClick={onClick}>
       {children}
     </a>

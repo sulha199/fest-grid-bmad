@@ -5,7 +5,15 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { AppShell } from './AppShell';
 
 // Minimal `renderLink` stand-in — AppShell only needs an anchor-compatible component.
-function TestLink({ href, children, className, ...rest }: any) {
+type TestLinkProps = {
+  href: string;
+  className?: string;
+  children: React.ReactNode;
+  'aria-label'?: string;
+  'aria-current'?: 'page';
+};
+
+function TestLink({ href, children, className, ...rest }: TestLinkProps) {
   return (
     <a href={href} className={className} {...rest}>
       {children}
@@ -52,7 +60,6 @@ describe('AppShell (Story 0.42 AC1-AC3)', () => {
 
     // Banner must precede content in DOM order.
     const position = banner.compareDocumentPosition(content);
-    // eslint-disable-next-line no-bitwise
     expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 

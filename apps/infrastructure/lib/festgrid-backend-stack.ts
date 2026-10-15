@@ -273,7 +273,10 @@ export class FestgridBackendStack extends cdk.Stack {
       entry: path.resolve(projectRoot, 'apps/backend/src/lambdas/api.ts'),
       handler: 'handler',
       ...sharedLambdaProps,
-      timeout: cdk.Duration.seconds(25),
+      // 28s: synchronous Apify profile lookups can take ~22s when Instagram blocks the actor's
+      // first requests (prod 2026-10-15). API Gateway's integration timeout is 29s, so this is
+      // the most headroom available without moving the lookup off the request path.
+      timeout: cdk.Duration.seconds(28),
       bundling: {
         format: nodejs.OutputFormat.CJS,
         externalModules: LAMBDA_IMAGE_PROCESSING_EXTERNAL_MODULES,

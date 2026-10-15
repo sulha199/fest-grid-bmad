@@ -6,14 +6,19 @@ import type { UseVisibleOnceOptions } from './useVisibleOnce';
 // Mock IntersectionObserver (Story 3.6u) -- same shape as useInfiniteScroll.test.ts's mock.
 let mockObserverInstance: MockIntersectionObserver | null = null;
 
+// Assigned through a helper (not `x = this` in the constructor) to satisfy no-this-alias.
+function registerMockObserver(instance: MockIntersectionObserver) {
+  mockObserverInstance = instance;
+}
+
 class MockIntersectionObserver implements IntersectionObserver {
   readonly root: Element | Document | null = null;
   readonly rootMargin: string = '';
   readonly scrollMargin: string = '';
   readonly thresholds: ReadonlyArray<number> = [];
 
-  constructor(public callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
-    mockObserverInstance = this;
+  constructor(public callback: IntersectionObserverCallback) {
+    registerMockObserver(this);
   }
 
   observe = vi.fn();
@@ -176,7 +181,7 @@ describe('useVisibleOnce (Story 3.6u)', () => {
   });
 
   it('uses the default rootMargin/threshold matching useInfiniteScroll', () => {
-    const observerSpy = vi.spyOn(globalThis, 'IntersectionObserver' as any);
+    const observerSpy = vi.spyOn(globalThis as unknown as { IntersectionObserver: typeof IntersectionObserver }, 'IntersectionObserver');
     const { result } = setup();
 
     const element = document.createElement('div');
@@ -191,7 +196,7 @@ describe('useVisibleOnce (Story 3.6u)', () => {
   });
 
   it('honors custom rootMargin/threshold options', () => {
-    const observerSpy = vi.spyOn(globalThis, 'IntersectionObserver' as any);
+    const observerSpy = vi.spyOn(globalThis as unknown as { IntersectionObserver: typeof IntersectionObserver }, 'IntersectionObserver');
     const { result } = setup({ rootMargin: '50px', threshold: 0.5 });
 
     const element = document.createElement('div');

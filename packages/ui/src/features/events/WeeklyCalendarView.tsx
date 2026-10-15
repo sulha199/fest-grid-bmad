@@ -7,7 +7,7 @@
 // this file's JSX to React's runtime instead of Playwright's internal one. Same fix already
 // applied to EventCardMediaPrimitives.tsx/count-badge.tsx for the identical reason -- see that
 // file's header comment for the full root-cause writeup.
-import React, { useState, useRef, useEffect, useMemo, useId } from 'react';
+import React, { useState, useRef, useMemo, useId, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Heart, CalendarPlus } from 'lucide-react';
 import {
   getDays,
@@ -579,11 +579,13 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   // starts OR ends in the context. Applied to occurrence RUNS, so a weekday-narrowed schedule is
   // judged by the occurrence being drawn. Kept across week navigation.
   const [rangeFilter, setRangeFilter] = useState<CalendarRangeFilterValue>({ start: false, end: false });
-  const rangeFilterActive = rangeFilter.start || rangeFilter.end;
-  const runPassesRange = (runStart: string, runEnd: string, from: string, to: string) =>
-    !rangeFilterActive ||
-    (rangeFilter.start && runStart >= from && runStart <= to) ||
-    (rangeFilter.end && runEnd >= from && runEnd <= to);
+  const runPassesRange = useCallback(
+    (runStart: string, runEnd: string, from: string, to: string) =>
+      !(rangeFilter.start || rangeFilter.end) ||
+      (rangeFilter.start && runStart >= from && runStart <= to) ||
+      (rangeFilter.end && runEnd >= from && runEnd <= to),
+    [rangeFilter.start, rangeFilter.end]
+  );
 
   // Story 1.3k (AC4) — each schedule's occurrence runs, computed ONCE (shared by `dayBuckets` and
   // `weekEntries`) via the shared `getDays` utility. Keyed by schedule id, not recomputed per week.
@@ -625,7 +627,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
 
     buckets.forEach((bucket) => bucket.sort(compareSegments));
     return buckets;
-  }, [allSchedules, dayISOs, scheduleRunsById, weekStartStr, weekEndStr, rangeFilter]);
+  }, [allSchedules, dayISOs, scheduleRunsById, weekStartStr, weekEndStr, runPassesRange]);
 
   // Desktop: every occurrence run visible this week as ONE entry covering `spanCount` columns
   // (clipped to the week). One entry per run, in the single calendar ordering. A run with a single
@@ -653,7 +655,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     });
     entries.sort((a, b) => compareSegments(a, b) || a.key.localeCompare(b.key));
     return entries;
-  }, [allSchedules, scheduleRunsById, weekStartStr, weekEndStr, rangeFilter]);
+  }, [allSchedules, scheduleRunsById, weekStartStr, weekEndStr, runPassesRange]);
 
   // Reset token: a new week or a new filter set starts the layout (and paging) over.
   const resetToken = `${weekStartStr}|${resetKey ?? ''}|${rangeFilter.start ? 1 : 0}${rangeFilter.end ? 1 : 0}`;

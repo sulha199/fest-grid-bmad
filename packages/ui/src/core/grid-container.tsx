@@ -150,7 +150,7 @@ function useActiveColumnCount(counts: GridContainerColumnCounts, enabled: boolea
 
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [enabled, counts.base, counts.md, counts.lg, counts.xl, counts.twoXl]);
 
   return enabled ? columnCount : counts.base;

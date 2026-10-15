@@ -79,7 +79,6 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   favoriteCount,
   onFavoriteToggle,
   isAuthenticated = true,
-  isAddedToCalendar,
   onAddToCalendar,
   onResolveScheduleTimezone,
   onCorrectData,
@@ -95,13 +94,13 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   const [timezoneStates, setTimezoneStates] = React.useState<Record<string, { value: string }>>({})
 
 
-  const handleTriggerClick = () => {
+  const handleTriggerClick = React.useCallback(() => {
     if (!isAuthenticated && onAddToCalendar) {
       onAddToCalendar([]);
       return;
     }
     setIsDialogOpen(true);
-  };
+  }, [isAuthenticated, onAddToCalendar]);
 
   const menuActions = React.useMemo(() => {
     const list: { label: string; onClick: () => void }[] = [];
@@ -245,7 +244,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
         dateString += ` - ${new Intl.DateTimeFormat(locale, timeOptions).format(toWallClockDate(schedule.eventStartDate, schedule.eventEndTime))}`;
       }
       return dateString;
-    } catch (e) {
+    } catch {
       // Fallback if date is invalid
       return schedule.eventStartDate;
     }
@@ -976,7 +975,6 @@ const AddToCalendarDialog: React.FC<AddToCalendarDialogProps> = ({
   schedules,
   labels,
   onConfirm,
-  locale,
   formatScheduleDate,
   triggerEl,
 }) => {

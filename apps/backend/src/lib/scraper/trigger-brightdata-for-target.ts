@@ -7,6 +7,7 @@ import { createPendingJob } from './brightdata-pending-jobs-store.js';
 import { loadBackendEnv } from '../../env.js';
 import { recordActorRunStart } from './record-actor-run.js';
 import { generateWebhookToken } from './generate-webhook-token.js';
+import { VendorDpaNotConfirmedError } from '../vendor-gateway/guarded-call.js';
 import type { ScraperTriggerResult } from './scraper-trigger-result.js';
 
 export let attemptBrightDataTrigger = async (
@@ -71,6 +72,11 @@ export let attemptBrightDataTrigger = async (
 
     return { success: true };
   } catch (error) {
+    // Story 0.i2d (AC6) — a deliberate, self-imposed DPA-gate closure is not a real vendor
+    // outage; map it to its own failure reason so the daily batch tally doesn't misreport it.
+    if (error instanceof VendorDpaNotConfirmedError) {
+      return { success: false, failureReason: 'DPA_NOT_CONFIRMED' };
+    }
     console.error(`Failed to trigger Bright Data job for ${target.username}:`, error);
     return { success: false, failureReason: 'TRIGGER_ERROR' };
   }

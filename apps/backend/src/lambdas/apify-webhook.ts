@@ -1,7 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { findPendingJobByToken, markPendingJobExpired } from '../lib/scraper/apify-pending-jobs-store.js';
 import { processApifyAsyncResult } from '../lib/scraper/process-apify-async-result.js';
-import { getApifyClient } from '../lib/scraper/instagram-adapter.js';
+import { callApifyClient } from '../lib/scraper/instagram-adapter.js';
 import { recordActorRunResult } from '../lib/scraper/record-actor-run.js';
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
@@ -46,9 +46,21 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    // Fetch the run to get its status and dataset ID
-    const client = getApifyClient();
-    const run = await client.run(pendingJob.runId).get();
+    // Fetch the run to get its status and dataset ID, routed through the shared guarded
+    // wrapper (AD-32). timeoutMs: 20_000, maxAttempts: 1: this Lambda's CDK timeout is the
+    // shared default 30s -- a 20s guarded call leaves ~10s margin for the subsequent
+    // recordActorRunResult/processApifyAsyncResult/SQS-enqueue work; a second 20s attempt
+    // could not fit. This handler's existing outer catch already returns HTTP 200
+    // "not retrying" on any error (including a VendorDpaNotConfirmedError/VendorCallTimeoutError)
+    // -- acceptable, no new branch needed here.
+    const { run, items } = await callApifyClient({ timeoutMs: 20_000, maxAttempts: 1 }, async (client) => {
+      const runResult = await client.run(pendingJob.runId).get();
+      if (!runResult || runResult.status !== 'SUCCEEDED' || !runResult.defaultDatasetId) {
+        return { run: runResult, items: [] as unknown[] };
+      }
+      const { items: datasetItems } = await client.dataset(runResult.defaultDatasetId).listItems({ clean: true, limit: 1000 });
+      return { run: runResult, items: datasetItems };
+    });
 
     if (!run) {
       console.warn(`Apify webhook: run ${pendingJob.runId} not found`);
@@ -84,9 +96,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         };
       }
 
-      // Fetch dataset items
-      const { items } = await client.dataset(run.defaultDatasetId).listItems({ clean: true, limit: 1000 });
-
+      // dataset items already fetched inside the guarded callApifyClient thunk above
       // Record successful audit trail
       await recordActorRunResult({
         vendor: 'APIFY',

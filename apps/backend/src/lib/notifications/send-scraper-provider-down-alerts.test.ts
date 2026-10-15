@@ -3,7 +3,7 @@ import * as assert from 'node:assert';
 import { db } from '../../db/client.js';
 import { users, scraperProviderHealth } from '@festgrid/database';
 import { inArray, eq } from 'drizzle-orm';
-import { sendScraperProviderDownAlerts } from './send-scraper-provider-down-alerts.js';
+import { sendScraperProviderDownAlerts, describeFailureReason } from './send-scraper-provider-down-alerts.js';
 
 test('sendScraperProviderDownAlerts tests', async (t) => {
   const testRunId = Date.now();
@@ -207,4 +207,16 @@ test('sendScraperProviderDownAlerts tests', async (t) => {
     assert.ok(row1.lastAlertSentAt, 'Eligible provider 1 should be marked sent');
     assert.ok(row2.lastAlertSentAt, 'Eligible provider 2 should be marked sent');
   });
+});
+
+test('describeFailureReason gives each stored reason its own sentence (Story 0.i2d review)', () => {
+  const capacity = describeFailureReason('CAPACITY_EXHAUSTED');
+  const trigger = describeFailureReason('TRIGGER_ERROR');
+  const dpa = describeFailureReason('DPA_NOT_CONFIRMED');
+  const fallback = describeFailureReason(null);
+
+  assert.match(dpa, /APIFY_SCRAPING_CONFIRMED/);
+  assert.match(dpa, /not a vendor outage/i);
+  assert.strictEqual(new Set([capacity, trigger, dpa, fallback]).size, 4, 'every reason, and the null fallback, reads differently');
+  assert.strictEqual(describeFailureReason('SOMETHING_NEW'), fallback, 'unknown reasons keep the generic fallback');
 });

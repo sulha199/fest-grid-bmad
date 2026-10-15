@@ -16,6 +16,9 @@ export function describeFailureReason(reason: string | null | undefined): string
   if (reason === 'TRIGGER_ERROR') {
     return 'Every attempt returned a real trigger/API error (an actual vendor or credential problem, not a capacity limit).';
   }
+  if (reason === 'DPA_NOT_CONFIRMED') {
+    return 'Every attempt was blocked on purpose: the vendor scraping DPA switch (APIFY_SCRAPING_CONFIRMED / BRIGHTDATA_SCRAPING_CONFIRMED) is set to false. This is not a vendor outage -- set it back to true (or unset it) to resume scraping.';
+  }
   return 'The provider returned repeated trigger failures (see CloudWatch logs for detail).';
 }
 

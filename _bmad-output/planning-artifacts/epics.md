@@ -5308,6 +5308,8 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Depends on:** Story 0.i2a.
 
+**Amendment (2026-10-09, `bmad-create-story`, `AskUserQuestion`):** This story's AC text above ("serializes the call per credential") and its "As a/I want" text (naming only `trigger-apify-for-target.ts` and `brightdata-client.ts`) both undersell the real scope, in two ways surfaced and resolved during this story's drafting. **(1) Lock key:** Apify and Bright Data each have exactly one static, always-valid credential (no multi-key BYOK pool like Gemini's, and no candidate-exclusion retry loop to absorb a busy-lock error) — the user chose **no `lockKey`** for any Apify/Bright Data `callVendor` call, extending AD-32 Rule 3's existing lock-less exception rather than literally serializing all concurrent Apify/Bright Data traffic system-wide. **(2) Call-site scope:** 0.i2z's own ratchet inventory names 4 real Apify bypass files, not 1 (`instagram-adapter.ts`'s `callApifyActor` plus 3 files calling `getApifyClient()` directly) — the user chose to consolidate all 4 through one new shared `callApifyClient` helper in `instagram-adapter.ts`, so the inventory can genuinely be emptied (this story's explicit AC) rather than leaving 3 of 4 Apify bypass sites unresolved. Full reasoning, the exact file list, and the new `DPA_NOT_CONFIRMED` `ScraperTriggerFailureReason` member added along the way are in `_bmad-output/implementation-artifacts/0-i2d-adopt-the-wrapper-in-the-apify-bright-data-scraper-call-sites.md`.
+
 ### Story 0.i2z: Ratchet — no vendor call bypasses the wrapper
 
 **As a** developer,

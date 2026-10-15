@@ -1,12 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import { ApifyApiError } from 'apify-client';
-import { instagramScraperAdapter, callApifyActor, setCallApifyActor, mapApifyItemToScrapedPost } from './instagram-adapter.js';
+import {
+  instagramScraperAdapter,
+  callApifyActor,
+  setCallApifyActor,
+  mapApifyItemToScrapedPost,
+  callApifyClient,
+  isApifyErrorTransient,
+} from './instagram-adapter.js';
 import { db } from '../../db/client.js';
 import { scraperProviderUsage, unprocessedScraperPayloads } from '@festgrid/database';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError } from '@festgrid/domain';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { clearApifyProviderUsage, APIFY_TEST_PROVIDER } from './usage-store-test-helpers.js';
+import { VendorDpaNotConfirmedError } from '../vendor-gateway/guarded-call.js';
 
 test('instagram-adapter tests', async (t) => {
   const originalCallApifyActor = callApifyActor;
@@ -737,7 +745,7 @@ test('instagram-adapter tests', async (t) => {
     await db.insert(scraperProviderUsage).values({
       provider: APIFY_TEST_PROVIDER,
       itemsUsedThisCycle: 10000, // very high count to exceed $5/month budget
-      usageCycleResetAt: new Date(Date.now() + 86400000),
+      usageCycleResetAt: new Date(),
     });
 
     await assert.rejects(
@@ -769,5 +777,105 @@ test('instagram-adapter tests', async (t) => {
       }
     );
     assert.strictEqual(wasSeamCalled, false);
+  });
+
+  // Story 0.i2d (AC1/AC5/Task 1/Task 7) -- isApifyErrorTransient classification.
+  await t.test('isApifyErrorTransient classifies a 500 ApifyApiError and an ECONNRESET-coded error as transient, a 404/other error as not', () => {
+    const serverError = new ApifyApiError(
+      { status: 500, data: {}, config: { method: 'post', url: 'https://api.apify.com/v2/x' } } as any,
+      1
+    );
+    assert.strictEqual(isApifyErrorTransient(serverError), true);
+
+    const notFoundError = new ApifyApiError(
+      { status: 404, data: {}, config: { method: 'post', url: 'https://api.apify.com/v2/x' } } as any,
+      1
+    );
+    assert.strictEqual(isApifyErrorTransient(notFoundError), false);
+
+    const connResetError: any = new Error('socket hang up');
+    connResetError.code = 'ECONNRESET';
+    assert.strictEqual(isApifyErrorTransient(connResetError), true);
+
+    assert.strictEqual(isApifyErrorTransient(new Error('some other error')), false);
+    assert.strictEqual(isApifyErrorTransient('not even an Error instance'), false);
+  });
+
+  // Story 0.i2d (AC4/Task 1/Task 7) -- callApifyClient rejects with VendorDpaNotConfirmedError
+  // when APIFY_SCRAPING_CONFIRMED=false and the thunk never runs (same proof shape as
+  // guarded-call.test.ts's own DPA tests -- assert a callInvoked flag stays false).
+  await t.test('callApifyClient rejects with VendorDpaNotConfirmedError when APIFY_SCRAPING_CONFIRMED="false", thunk never invoked', async () => {
+    const original = process.env.APIFY_SCRAPING_CONFIRMED;
+    process.env.APIFY_SCRAPING_CONFIRMED = 'false';
+    try {
+      let callInvoked = false;
+      await assert.rejects(
+        () =>
+          callApifyClient({ timeoutMs: 1000 }, async () => {
+            callInvoked = true;
+            return 'should not run';
+          }),
+        VendorDpaNotConfirmedError
+      );
+      assert.strictEqual(callInvoked, false);
+    } finally {
+      if (original === undefined) {
+        delete process.env.APIFY_SCRAPING_CONFIRMED;
+      } else {
+        process.env.APIFY_SCRAPING_CONFIRMED = original;
+      }
+    }
+  });
+
+  // 2026-10-15 prod incident: the profile scraper needed ~22s (two Instagram blocks + retry) and the
+  // old 20s outer bound fired just before it finished. The budgets must stay strictly ordered:
+  // outer lookup bound < inner vendor-call bound < apiLambda's 28s CDK timeout (< API Gateway's 29s).
+  await t.test('profile lookup timeout budgets stay ordered under the 28s apiLambda timeout and cover the observed ~22s run', async () => {
+    const mod = await import('./instagram-adapter.js');
+    assert.ok(mod.PROFILE_LOOKUP_TIMEOUT_MS > 22_000, 'must outlast the observed blocked-then-retried run');
+    assert.ok(mod.PROFILE_LOOKUP_TIMEOUT_MS < mod.APIFY_CALL_TIMEOUT_MS, 'outer bound must win the race');
+    assert.ok(mod.APIFY_CALL_TIMEOUT_MS < 28_000, 'inner bound must fit inside apiLambda timeout');
+  });
+
+  // Story 0.i2d (Task 2 regression guard) -- lookupAccountProfile/getAccountClassificationProfile's
+  // existing outer withTimeoutOrThrow(PROFILE_LOOKUP_TIMEOUT_MS) bound must still win the race over
+  // callApifyClient's own internal APIFY_CALL_TIMEOUT_MS bound and throw the existing, distinct, typed
+  // ApifyRequestTimeoutError (which resolvers.ts:2263 specifically catches) -- never a generic
+  // VendorCallTimeoutError-derived message. Uses the real getApifyClient seam (not
+  // setCallApifyActor, which would bypass callApifyClient's internals entirely) so the real
+  // race is exercised.
+  await t.test('lookupAccountProfile/getAccountClassificationProfile: outer 20s ApifyRequestTimeoutError wins the race over callApifyClient\'s inner 23s bound (regression guard)', async () => {
+    const originalModule = await import('./instagram-adapter.js');
+    const originalGetApifyClient = originalModule.getApifyClient;
+
+    const hangingClient = {
+      actor: () => ({ call: () => new Promise(() => {}) }),
+      dataset: () => ({ listItems: () => new Promise(() => {}) }),
+    };
+    originalModule.setGetApifyClient(() => hangingClient as any);
+
+    try {
+      await assert.rejects(
+        () => instagramScraperAdapter.lookupAccountProfile('test_username_race'),
+        (err: any) => {
+          assert.strictEqual(err.name, 'ApifyRequestTimeoutError');
+          assert.ok(err instanceof ApifyRequestTimeoutError);
+          assert.match(err.message, /timed out/i);
+          return true;
+        }
+      );
+
+      await assert.rejects(
+        () => instagramScraperAdapter.getAccountClassificationProfile('test_username_race'),
+        (err: any) => {
+          assert.strictEqual(err.name, 'ApifyRequestTimeoutError');
+          assert.ok(err instanceof ApifyRequestTimeoutError);
+          assert.match(err.message, /timed out/i);
+          return true;
+        }
+      );
+    } finally {
+      originalModule.setGetApifyClient(originalGetApifyClient);
+    }
   });
 });

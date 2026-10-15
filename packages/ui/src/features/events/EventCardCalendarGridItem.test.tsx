@@ -3,6 +3,10 @@ import React from 'react';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { EventCardCalendarGridItem } from './EventCardCalendarGridItem';
+import type { ComponentProps } from 'react';
+
+const asDays = (...days: string[]) =>
+  days as unknown as ComponentProps<typeof EventCardCalendarGridItem>['applicableDaysOfWeek'];
 
 describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
   afterEach(() => {
@@ -330,7 +334,7 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
       const { container } = render(
         <EventCardCalendarGridItem
           {...defaultProps}
-          applicableDaysOfWeek={['MON', 'WED'] as any}
+          applicableDaysOfWeek={asDays('MON', 'WED')}
           dayOfWeekLabels={{ MON: 'Monday', WED: 'Wednesday' }}
         />
       );
@@ -347,7 +351,7 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
           {...defaultProps}
           isMultiDay
           imageUrl="https://img.example/poster.jpg"
-          applicableDaysOfWeek={['FRI'] as any}
+          applicableDaysOfWeek={asDays('FRI')}
         />
       );
       expect(container.querySelector('[data-event-card-repeat-badge]')).not.toBeNull();
@@ -358,7 +362,7 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
       // not this component -- this test only asserts this component's own corner choice never
       // collides with that documented `-top-1.5 -left-1.5` slot.
       const { container } = render(
-        <EventCardCalendarGridItem {...defaultProps} applicableDaysOfWeek={['SAT'] as any} />
+        <EventCardCalendarGridItem {...defaultProps} applicableDaysOfWeek={asDays('SAT')} />
       );
       const badge = container.querySelector('[data-event-card-repeat-badge]') as HTMLElement;
       expect(badge).not.toHaveClass('-top-1.5');
@@ -369,7 +373,7 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
       const { container, rerender } = render(
         <EventCardCalendarGridItem
           {...defaultProps}
-          applicableDaysOfWeek={['SUN'] as any}
+          applicableDaysOfWeek={asDays('SUN')}
           dayOfWeekLabels={{ SUN: 'Sunday' }}
         />
       );
@@ -378,7 +382,7 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
       rerender(
         <EventCardCalendarGridItem
           {...defaultProps}
-          applicableDaysOfWeek={['SUN'] as any}
+          applicableDaysOfWeek={asDays('SUN')}
           dayOfWeekLabels={{ SUN: 'Sunday' }}
           repeatBadgeTooltipVisible
         />

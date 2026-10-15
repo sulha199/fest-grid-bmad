@@ -2178,3 +2178,12 @@ items:
      ref: [apps/backend/src/lib/ai-processor/build-gemini-request.ts, apps/backend/src/validation/extracted-event.schema.ts, implementation-artifacts/3-6s-extract-multiple-events-per-post-with-grouping-rules.md, backlog/IDEA-068-organizer-handle-explicit-only.md],
      touches: [app:backend, cross:ai-extraction],
      note: "Done 2026-10-12: prompt returns organizerHandle only for an explicit organizer. Detail in backlog/IDEA-068-organizer-handle-explicit-only.md."}
+
+  # ── 2026-10-15 (code review of Story 0.i2d) ──────────────────────────────────
+  FIND-082:
+    {type: finding, status: backlog, created: 2026-10-15,
+     impact: internal, effort: s,
+     title: "Story 0.i2d review deferrals: triplicated transient-error classifier; Apify webhook 20s cap covers dataset download",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend],
+     note: "Deferred from: code review of story-0.i2d (2026-10-15). 2 findings."}

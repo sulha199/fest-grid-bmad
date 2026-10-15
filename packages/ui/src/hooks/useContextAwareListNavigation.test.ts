@@ -124,8 +124,8 @@ describe('useContextAwareListNavigation', () => {
 
     expect(result.current.next).toEqual({ target: null, disabled: false, loading: false });
 
-    let requestPromise1: Promise<any>;
-    let requestPromise2: Promise<any>;
+    let requestPromise1: Promise<unknown>;
+    let requestPromise2: Promise<unknown>;
 
     act(() => {
       requestPromise1 = result.current.requestNext();
@@ -197,7 +197,7 @@ describe('useContextAwareListNavigation', () => {
       { initialProps: { currentItems: items, hasNext: true } }
     );
 
-    let requestPromise: Promise<any>;
+    let requestPromise: Promise<unknown>;
     act(() => {
       requestPromise = result.current.requestNext();
     });

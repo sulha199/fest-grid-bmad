@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, screen, act, cleanup } from '@testing-library/react';
+import { render, fireEvent, screen, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { LocationPickerField } from './LocationPickerField';
 

@@ -8,7 +8,7 @@ baseline_commit: 0fb6a3eb8a586831b0842fe09b1f6fe7f99cacc7
 
 - Epic: 0
 - Story ID: 0.41
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -17,7 +17,7 @@ Sourced from backlog.yaml's FIND-036 (created 2026-09-18 while drafting Story 1.
 from FIND-035). The user already measured and decided the one open question this story's own
 AC3 leaves conditional ("fix everything" vs. "ship a scoped override") on 2026-10-06, before
 this story file existed: enabling `@festgrid/eslint-config/react-internal` on `packages/ui`
-yields 0 errors / 167 warnings across 48 of 198 `src` files, and the decision is to fix every
+yields 0 errors / 167 warnings across 48 of 200 `src` files, and the decision is to fix every
 one of them -- no exception list, `--max-warnings 0` passes from day one. This session
 independently re-verified that exact measurement by temporarily swapping the full ruleset into
 `packages/ui/eslint.config.mjs` and running `eslint . --max-warnings 0` for real (then
@@ -36,36 +36,36 @@ so that `packages/ui` — the package every shared UI primitive in this monorepo
    **When** this story ships,
    **Then** `packages/ui/eslint.config.mjs` spreads `@festgrid/eslint-config/react-internal`'s exported `config` array (the export documented as "for libraries that use React" — matches `packages/ui`'s own nature exactly, and is not yet used by any other package in the monorepo today), and `packages/ui/package.json` gains `"@festgrid/eslint-config": "workspace:*"` as a devDependency — the exact same range (`workspace:*`, not a semver range) every sibling package (`database`, `domain`, `graphql-select`, `shared-types`, `apps/backend`, `apps/web`) already uses for this dependency.
 2. **And** `packages/ui`'s existing `"lint": "eslint . --max-warnings 0"` script (already present since Story 1.i1k) is unchanged, and running it (`pnpm --filter @festgrid/ui lint`, and therefore `pnpm run lint` / CI's existing `Run lint` step via `turbo run lint`) actually executes the now-full ruleset and passes with zero warnings against the real, current `packages/ui` source tree.
-3. **And** every one of the 167 pre-existing warnings (0 errors) the newly-enabled ruleset surfaces across 48 of `packages/ui`'s 198 real `src` files is fixed as a real source change — **no exception list, no rule downgraded to `warn`, no `ignores` added on any real source directory.** This resolves AC3's original either/or (epics.md Story 0.41) in favor of "fix everything": a user decision made and measured on 2026-10-06, before this story file existed (see Dev Notes' "2026-10-06 decision" and "Verified violation inventory"). The one path this AC does **not** sanction is leaving any of the 167 as a suppressed/deferred warning.
+3. **And** every one of the 167 pre-existing warnings (0 errors) the newly-enabled ruleset surfaces across 48 of `packages/ui`'s 200 real `src` files is fixed as a real source change — **no exception list, no rule downgraded to `warn`, no `ignores` added on any real source directory.** This resolves AC3's original either/or (epics.md Story 0.41) in favor of "fix everything": a user decision made and measured on 2026-10-06, before this story file existed (see Dev Notes' "2026-10-06 decision" and "Verified violation inventory"). The one path this AC does **not** sanction is leaving any of the 167 as a suppressed/deferred warning.
 4. **And** Story 1.i1k's own narrow, file-scoped `no-dynamic-tailwind-arbitrary-value` custom rule (already in `packages/ui/eslint.config.mjs`, `files: ['src/features/events/**/*.{ts,tsx}']`, with its `ignores: ['src/features/events/InstagramEmbed.tsx']` entry) continues to apply completely unchanged — this story appends `react-internal`'s config array alongside that existing block in the same file; it does not replace, reorder in a way that changes merge semantics, or narrow it. (Verified directly this session: spreading `react-internal`'s config ahead of the existing custom-rule block and running the real lint reproduces the exact same 167-warning/0-error result with no "unknown rule" or duplicate-plugin errors — the custom block's own `plugins`/`rules` keys merge additively with the preceding config objects in flat-config's array-merge semantics, they don't get clobbered.)
 5. **And** this story adds zero new application/business logic — every one of the 167 fixes is a real, behavior-preserving source change (narrowing an `any` to a concrete/narrower type, removing a genuinely-unused variable/import, converting a `require()` call to an ESM `import`, correcting a `useEffect`/`useMemo`/`useCallback` dependency array, removing `this`-aliasing, replacing the bare `Function` type, removing an empty block statement, etc.) — not a UI/UX/business-logic change. The one category with a genuine (if small) runtime-behavior-change risk is `react-hooks/exhaustive-deps` (4 occurrences): adding a missing dependency to a hook's array can change when that hook re-fires. Each of those 4 fixes must be verified against `packages/ui`'s existing test suite (`pnpm --filter @festgrid/ui test`) to confirm no behavioral regression, not merely silenced.
 6. **And** the `pnpm-lock.yaml` diff produced by adding this one new devDependency is limited to `packages/ui`'s own importer entry (a new `devDependencies['@festgrid/eslint-config']: { specifier: workspace:*, version: link:../eslint-config }` block) — no other importer's entries change, and no new package version is added to the lockfile's `packages:` section, since every one of `@festgrid/eslint-config`'s own transitive dependencies is already resolved identically for its existing consumers (`domain`, `database`, `graphql-select`, `shared-types`, `apps/backend`, `apps/web`).
-7. **And** `pnpm --filter @festgrid/ui test` and `tsc --noEmit` (for `packages/ui`) are re-run before/after this story's changes and show no new failures: the existing test suite stays green, and any pre-existing `tsc` errors (currently 115 with `--ignoreDeprecations 6.0` — unrelated `require`/`process`/`global` ambient-type gaps in test files and pre-existing prop-type mismatches, none caused by or in scope for this story's ESLint-config wiring) are unchanged in count/identity by a before/after diff, not newly introduced by this story's fixes.
+7. **And** `pnpm --filter @festgrid/ui test` and `tsc --noEmit` (for `packages/ui`) are re-run before/after this story's changes and show no new failures: the existing test suite stays green, and any pre-existing `tsc` errors (129 as re-measured 2026-10-09 (was 115 when this story was drafted) with `--ignoreDeprecations 6.0` — unrelated `require`/`process`/`global` ambient-type gaps in test files and pre-existing prop-type mismatches, none caused by or in scope for this story's ESLint-config wiring) are unchanged in count/identity by a before/after diff, not newly introduced by this story's fixes.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Wire the dependency and config (AC1, AC4, AC6)
-  - [ ] 1.1 Add `"@festgrid/eslint-config": "workspace:*"` to `packages/ui/package.json`'s `devDependencies` (alphabetically sorted alongside the existing `@festgrid/testing-config`/`@festgrid/typescript-config` entries).
-  - [ ] 1.2 Update `packages/ui/eslint.config.mjs`: add `import { config as reactInternalConfig } from '@festgrid/eslint-config/react-internal';` and prepend `...reactInternalConfig` to the exported array, ahead of the existing `no-dynamic-tailwind-arbitrary-value` config object (which stays byte-for-byte unchanged otherwise).
-  - [ ] 1.3 Run the targeted, minimal-diff dependency install for this one new workspace link (e.g. `pnpm install --filter @festgrid/ui...` or equivalent scoped invocation) — **never** a bare unfrozen repo-wide `pnpm install`. Confirm via `git diff pnpm-lock.yaml` that the only change is the new `packages/ui` importer entry for `@festgrid/eslint-config` (AC6) — no other importer block, no new `packages:` entry.
-- [ ] Task 2: Fix every `@typescript-eslint/no-explicit-any` warning (AC3, AC5) — 96 occurrences, the largest category, concentrated in `src/hooks/*.test.ts(x)` (mock typings), `useWeeklyCalendarController.ts`/`.types.ts` (controller return-value typing), and scattered `src/core`/`src/features` files. Replace each `any` with the real/narrowest correct type (prefer the actual prop/return type already defined elsewhere in the file or its imports over a new `unknown`-and-cast escape hatch).
-- [ ] Task 3: Fix every `@typescript-eslint/no-unused-vars` warning (AC3, AC5) — 29 occurrences. Remove genuinely-dead variables/imports/params; for an intentionally-unused destructured/callback param that must stay for signature shape, prefix with `_` (already-recognized convention for this rule) instead of leaving it bare.
-- [ ] Task 4: Fix every `@typescript-eslint/no-require-imports` warning (AC3, AC5) — 9 occurrences. Convert each `require(...)` call (found in test-file mocking, e.g. `EventDiscoveryPanel.test.tsx`) to an ESM `import`/`vi.mock` pattern already used elsewhere in this package's test suite.
-- [ ] Task 5: Fix every `react-hooks/exhaustive-deps` warning (AC3, AC5) — 4 occurrences. For each, add the missing dependency and then run that specific component/hook's test file to confirm no new re-render/re-fetch regression; do not silence with an `eslint-disable` comment.
-- [ ] Task 6: Fix every `no-this-alias` (4), `@typescript-eslint/no-unsafe-function-type` (4, the bare `Function` type), and `no-empty` (4) warning (AC3, AC5) — all mechanical, no behavior change expected.
-- [ ] Task 7: Fix the remaining smaller categories found in the real verification run (AC3, AC5): `turbo/no-undeclared-env-vars` (4, all in `src/features/events/combineDateTime.test.ts` — `TZ` env var not declared in `turbo.json`'s `test` task's `env` array; add it there, matching the existing env-list convention), `react-hooks/rules-of-hooks` (3), `react/prop-types` (2), `@typescript-eslint/prefer-as-const` (2), `react/no-unescaped-entities` (1), and the 5 unattributed warnings (3 stale `eslint-disable-next-line react-hooks/exhaustive-deps` directives left over from before this package had a working ruleset to resolve them against, plus 2 `no-bitwise`/`no-console` stale directives — remove each stale directive rather than leaving it).
-- [ ] Task 8: Verification pass (AC2, AC5, AC6, AC7)
-  - [ ] 8.1 Run `pnpm --filter @festgrid/ui lint` — confirm `0 errors, 0 warnings` (AC2, AC3).
-  - [ ] 8.2 Run `pnpm --filter @festgrid/ui test` — confirm the full existing suite is green, with particular attention to the test files touching the 4 `react-hooks/exhaustive-deps` fixes (AC5).
-  - [ ] 8.3 Run `tsc --noEmit` for `packages/ui` (with `--ignoreDeprecations 6.0`, matching this package's pre-existing `tsconfig.json` baseUrl situation) before and after this story's changes; diff the two outputs and confirm zero new errors (AC7). Do not attempt to fix any of the pre-existing ~115 errors — out of scope (see Out of Scope).
-  - [ ] 8.4 Confirm `git diff pnpm-lock.yaml` is limited to the single new `packages/ui` importer entry (AC6).
+- [x] Task 1: Wire the dependency and config (AC1, AC4, AC6)
+  - [x] 1.1 Add `"@festgrid/eslint-config": "workspace:*"` to `packages/ui/package.json`'s `devDependencies` (alphabetically sorted alongside the existing `@festgrid/testing-config`/`@festgrid/typescript-config` entries).
+  - [x] 1.2 Update `packages/ui/eslint.config.mjs`: add `import { config as reactInternalConfig } from '@festgrid/eslint-config/react-internal';` and prepend `...reactInternalConfig` to the exported array, ahead of the existing `no-dynamic-tailwind-arbitrary-value` config object (which stays byte-for-byte unchanged otherwise).
+  - [x] 1.3 Run the targeted, minimal-diff dependency install for this one new workspace link (e.g. `pnpm install --filter @festgrid/ui...` or equivalent scoped invocation) — **never** a bare unfrozen repo-wide `pnpm install`. Confirm via `git diff pnpm-lock.yaml` that the only change is the new `packages/ui` importer entry for `@festgrid/eslint-config` (AC6) — no other importer block, no new `packages:` entry.
+- [x] Task 2: Fix every `@typescript-eslint/no-explicit-any` warning (AC3, AC5) — 96 occurrences, the largest category, concentrated in `src/hooks/*.test.ts(x)` (mock typings), `useWeeklyCalendarController.ts`/`.types.ts` (controller return-value typing), and scattered `src/core`/`src/features` files. Replace each `any` with the real/narrowest correct type (prefer the actual prop/return type already defined elsewhere in the file or its imports over a new `unknown`-and-cast escape hatch).
+- [x] Task 3: Fix every `@typescript-eslint/no-unused-vars` warning (AC3, AC5) — 29 occurrences. Remove genuinely-dead variables/imports/params; for an intentionally-unused destructured/callback param that must stay for signature shape, prefix with `_` (already-recognized convention for this rule) instead of leaving it bare.
+- [x] Task 4: Fix every `@typescript-eslint/no-require-imports` warning (AC3, AC5) — 9 occurrences. Convert each `require(...)` call (found in test-file mocking, e.g. `EventDiscoveryPanel.test.tsx`) to an ESM `import`/`vi.mock` pattern already used elsewhere in this package's test suite.
+- [x] Task 5: Fix every `react-hooks/exhaustive-deps` warning (AC3, AC5) — 4 occurrences. For each, add the missing dependency and then run that specific component/hook's test file to confirm no new re-render/re-fetch regression; do not silence with an `eslint-disable` comment.
+- [x] Task 6: Fix every `no-this-alias` (4), `@typescript-eslint/no-unsafe-function-type` (4, the bare `Function` type), and `no-empty` (4) warning (AC3, AC5) — all mechanical, no behavior change expected.
+- [x] Task 7: Fix the remaining smaller categories found in the real verification run (AC3, AC5): `turbo/no-undeclared-env-vars` (4, all in `src/features/events/combineDateTime.test.ts` — `TZ` env var not declared in `turbo.json`'s `test` task's `env` array; add it there, matching the existing env-list convention), `react-hooks/rules-of-hooks` (3), `react/prop-types` (2), `@typescript-eslint/prefer-as-const` (2), `react/no-unescaped-entities` (1), and the 5 unattributed warnings (3 stale `eslint-disable-next-line react-hooks/exhaustive-deps` directives left over from before this package had a working ruleset to resolve them against, plus 2 `no-bitwise`/`no-console` stale directives — remove each stale directive rather than leaving it).
+- [x] Task 8: Verification pass (AC2, AC5, AC6, AC7)
+  - [x] 8.1 Run `pnpm --filter @festgrid/ui lint` — confirm `0 errors, 0 warnings` (AC2, AC3).
+  - [x] 8.2 Run `pnpm --filter @festgrid/ui test` — confirm the full existing suite is green, with particular attention to the test files touching the 4 `react-hooks/exhaustive-deps` fixes (AC5).
+  - [x] 8.3 Run `tsc --noEmit` for `packages/ui` (with `--ignoreDeprecations 6.0`, matching this package's pre-existing `tsconfig.json` baseUrl situation) before and after this story's changes; diff the two outputs and confirm zero new errors (AC7). Do not attempt to fix any of the pre-existing ~129 errors — out of scope (see Out of Scope).
+  - [x] 8.4 Confirm `git diff pnpm-lock.yaml` is limited to the single new `packages/ui` importer entry (AC6).
 
 ## Dev Notes
 
 - **2026-10-06 decision (resolves epics.md Story 0.41's AC3 either/or):** the user already measured and decided, before this story file existed, that the volume (167 warnings, 0 errors, across 48/198 files) is fixed in full — no scoped/temporary override, no exception list. This story's own AC3/AC5 above encode that decision directly; do not re-open it or propose a partial/override alternative during implementation.
 - **Verified violation inventory (re-confirmed this session, not just taken on the user's word):** this session temporarily spread `@festgrid/eslint-config/react-internal`'s config into `packages/ui/eslint.config.mjs` (ahead of the existing custom-rule block, exactly as Task 1.2 specifies) and ran `pnpm exec eslint . --max-warnings 0` for real inside `packages/ui`, then restored the file via `git checkout -- packages/ui/eslint.config.mjs` (confirmed clean via `git status --porcelain` afterward — no stray diff left behind). Real result: **167 problems, 0 errors, 167 warnings, across 48 files** (exactly matching the user's measurement). Full category breakdown from that real run: `@typescript-eslint/no-explicit-any` 96, `@typescript-eslint/no-unused-vars` 29, `@typescript-eslint/no-require-imports` 9, `react-hooks/exhaustive-deps` 4, `@typescript-eslint/no-this-alias` 4, `@typescript-eslint/no-unsafe-function-type` 4, `no-empty` 4, `turbo/no-undeclared-env-vars` 4, `react-hooks/rules-of-hooks` 3, `react/prop-types` 2, `@typescript-eslint/prefer-as-const` 2, `react/no-unescaped-entities` 1, plus 5 unattributed (stale `eslint-disable` directives / bare message lines in the CLI output with no inline rule id — all traced to specific rule contexts during the real run, see Tasks 6-7). The user's own summary ("96/29/9/4-each/5 unattributed") covers the five largest buckets; the smaller `turbo`/`rules-of-hooks`/`prop-types`/`prefer-as-const`/`no-unescaped-entities` categories (12 warnings total) are real and must be fixed too — they are simply not called out individually in the dispatching command's summary. Nothing here is estimated; every number above came from a real `eslint` run against the real current source tree, not from re-deriving or trusting the September measurement blind.
 - **`packages/ui/eslint.config.mjs` merge mechanics confirmed safe (AC4):** prepending `...reactInternalConfig` ahead of the existing `no-dynamic-tailwind-arbitrary-value` config object in the exported array does not break or shadow that custom rule — ESLint flat config merges array entries by `rules`/`plugins` key additively across all matching config objects for a given file, it does not let an earlier object's absence of a key erase a later object's presence of that key. The real verification run reproduced the identical 167/0 result with the custom rule's own config object present and unmodified, and zero "unknown rule"/"duplicate plugin" errors — confirming the two config layers coexist cleanly exactly as they will ship.
-- **`tsc --noEmit` baseline (AC7, out-of-scope boundary):** running `tsc --noEmit` for `packages/ui` without `--ignoreDeprecations 6.0` stops immediately after a single `TS5101` (`baseUrl` deprecated) diagnostic and never reaches the rest of the codebase's type errors. With `--ignoreDeprecations 6.0` (the flag Story 1.i1k's own verification pass already established as this package's correct invocation), the real current count is **115 pre-existing errors** (re-measured this session, not reused from Story 1.i1k's September figure of 207 — the difference reflects intervening stories' own fixes, not a regression). These are unrelated to this story (ambient `require`/`process`/`global` Node-type gaps in test files, pre-existing mock/prop-type mismatches in `FilterHub.test.tsx`/`EventDiscoveryPanel.test.tsx`, etc.) — **not in scope to fix here.** This story's own Definition of Done is "zero *new* type errors introduced," verified by a before/after diff of the full error list, never "zero errors overall."
+- **`tsc --noEmit` baseline (AC7, out-of-scope boundary):** running `tsc --noEmit` for `packages/ui` without `--ignoreDeprecations 6.0` stops immediately after a single `TS5101` (`baseUrl` deprecated) diagnostic and never reaches the rest of the codebase's type errors. With `--ignoreDeprecations 6.0` (the flag Story 1.i1k's own verification pass already established as this package's correct invocation), the real count re-measured 2026-10-09 on master 7898d530 is **129 pre-existing errors** (115 at story creation; the +14 drift is from intervening stories 0.47, masonry Phase 2 and 1.6g/4.9/4.10 landing, not from this story) (re-measured this session, not reused from Story 1.i1k's September figure of 207 — the difference reflects intervening stories' own fixes, not a regression). These are unrelated to this story (ambient `require`/`process`/`global` Node-type gaps in test files, pre-existing mock/prop-type mismatches in `FilterHub.test.tsx`/`EventDiscoveryPanel.test.tsx`, etc.) — **not in scope to fix here.** This story's own Definition of Done is "zero *new* type errors introduced," verified by a before/after diff of the full error list, never "zero errors overall."
 - **`turbo/no-undeclared-env-vars` fix location (Task 7):** the 4 occurrences are all in `src/features/events/combineDateTime.test.ts`, which deliberately mutates `process.env.TZ` (in an isolated single-test file, per that file's own extensive docstring on `Intl`/V8 timezone-caching) to reproduce a timezone-dependent bug. `TZ` is not currently listed in any of `turbo.json`'s task `env` arrays. The correct fix is adding `"TZ"` to the `test` task's `env` array in root `turbo.json` (where `BACKEND_PORT`/`DATABASE_URL`/etc. already live) — not to the `lint` task's own list, since `TZ` is read at test-runtime, not lint-time; the ESLint rule still clears once it's declared anywhere relevant to this package's task graph. Confirmed this is a pre-existing, mechanical declare-the-var fix (not a new foundational gap) by Gate 3 below.
 
 ### Architecture & UX Gate Findings
@@ -132,7 +132,7 @@ so that `packages/ui` — the package every shared UI primitive in this monorepo
 
 - `pnpm --filter @festgrid/ui lint` → `0 errors, 0 warnings` (AC2, AC3).
 - `pnpm --filter @festgrid/ui test` → full existing suite green, no new failures, with explicit attention to the 4 files touched by the `exhaustive-deps` fixes (AC5).
-- `tsc --noEmit` (packages/ui, `--ignoreDeprecations 6.0`) before vs. after diff → zero new errors; pre-existing ~115 count/identity unchanged (AC7).
+- `tsc --noEmit` (packages/ui, `--ignoreDeprecations 6.0`) before vs. after diff → zero new errors; pre-existing ~129 count/identity unchanged (AC7).
 - `git diff pnpm-lock.yaml` → confined to the single `packages/ui` importer entry (AC6).
 - All four run in the foreground, targeted/package-scoped (`--filter @festgrid/ui`, or `cd packages/ui &&`), never a bare repo-wide `pnpm install`/`pnpm run lint`/`pnpm test`.
 
@@ -161,7 +161,7 @@ so that `packages/ui` — the package every shared UI primitive in this monorepo
 
 ## Out of Scope
 
-- Fixing any of the ~115 pre-existing `tsc --noEmit` errors in `packages/ui` unrelated to this story's ESLint-config wiring (ambient Node-type gaps in test files, pre-existing mock/prop-type mismatches) — a separate, unbounded-size type-hygiene concern, not this story's scope (AC7, Dev Notes).
+- Fixing any of the ~129 pre-existing `tsc --noEmit` errors in `packages/ui` unrelated to this story's ESLint-config wiring (ambient Node-type gaps in test files, pre-existing mock/prop-type mismatches) — a separate, unbounded-size type-hygiene concern, not this story's scope (AC7, Dev Notes).
 - Any change to `packages/ui`'s existing `no-dynamic-tailwind-arbitrary-value` custom rule's logic, scope, or `ignores` list — it ships unchanged (AC4).
 - Enabling the full ruleset on any other package — every sibling package already has it; this story is `packages/ui`-only.
 - No Gate 1/2/3 gap was found, so no prerequisite story/backlog entry/epics.md addition was required by this story.
@@ -182,10 +182,99 @@ so that `packages/ui` — the package every shared UI primitive in this monorepo
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Sonnet 5.5 (`claude-sonnet-5-5`), via the `bmad-dev-story` workflow.
 
 ### Debug Log References
 
+- Pre-coding approval: the Pre-Coding Approval Gate's "explicit human approval" was granted by the user's direct instruction in-session (2026-10-15: "Run step 1, 2, 3", where step 1 was "finish or commit the Story 0.41 changes"). Task 1 (config + dependency + lockfile) and about 7 of the 167 warnings were already present, uncommitted, in the working tree from an earlier session; they were inspected and kept, not redone.
+- Measured state at the start of this session: 160 warnings remaining across 43 files (0 errors). After `eslint --fix` (stale directives only) and the hand fixes below: **0 errors, 0 warnings**, `eslint . --max-warnings 0` exit 0.
+- `tsc --noEmit --ignoreDeprecations 6.0` for `packages/ui`, before (clean worktree at HEAD) vs after, compared with line numbers stripped: **129 -> 120 errors, zero new**. One entry differs in text only (`EventDetailView.test.tsx` TS2322): the same pre-existing "labels is missing properties" error, now printing `ScheduleDetail[]` instead of `any[]` because `schedules` is no longer cast to `any`.
+- Full-repo gates were first run unfiltered with `run-check.ts`; they exposed three problems that the package-scoped runs could not (Completion Notes 4-6).
+
 ### Completion Notes List
 
+1. **Warnings fixed (all 167 are gone, none suppressed).** `no-explicit-any` (96): typed helpers instead of casts (`asDays`, `InstgrmWindow`, `MapInstanceMock`, typed nuqs mocks, `CalendarSourceEvent`/`CalendarSourceSchedule` for the controller hook). `no-unused-vars` (29), `no-require-imports` (9, `vi.importActual` in async mock factories plus top-level imports), `no-unsafe-function-type` (4), `no-this-alias` (4, via `registerMock*` helpers), `no-empty` (4, commented catch), `prefer-as-const` (2), `react/no-unescaped-entities` (1), `react/prop-types` (2, `CalendarChevron` extracted and typed with `ChevronProps`), 4 stale `eslint-disable` directives removed, `TZ` added to the `test` task `env` in `turbo.json`.
+2. **`react-hooks/rules-of-hooks` (3) were real bugs, not style.** `EventCard` called `useHoverFocusTooltip` after an `if (loading) return`, and `FilterHub` called two `useQueryState` hooks after the AI-summary early return; either would throw "rendered more hooks than during the previous render" when `loading` / `aiFilterSummary` flipped. Both hooks were hoisted above the early return with identical behaviour on every render path.
+3. **`react-hooks/exhaustive-deps` (4), fixed without changing re-fire behaviour.** `map.tsx`: the init effect now reads the click callback and latest centre/zoom through refs (adding them as dependencies would have rebuilt the whole map on every pan). `WeeklyCalendarView`: `runPassesRange` wrapped in `useCallback` on `[rangeFilter.start, rangeFilter.end]` and used as the memo dependency. `EventDetailView`: `handleTriggerClick` wrapped in `useCallback`. Covered by the existing suites for those files, all green.
+4. **Found and fixed a latent bug (outside this story's literal scope, forced by the type tightening).** Replacing `TSchedule = any` with `WeeklyCalendarViewScheduleShape` made `apps/web` fail to compile: `my-calendar-content.tsx` forwarded `WeeklyCalendarView`'s `onFavoriteToggle(schedule)` argument straight into `toggleFavorite({ eventId })`, i.e. it sent a whole schedule object as the event id. The three sibling calendars (`CalendarView`, `FeedCalendarView`, `AccountCalendarView`) correctly use `schedule.eventId`. Fixed to match them and added a regression test (`sends the parent event id (a string), not the schedule object...`), which was confirmed to fail (`expected 'object' to be 'string'`) against the old handler.
+5. **Fixed the test seeds my earlier quota hardening broke.** The domain build used by `apps/backend` was stale until the full `turbo build`; once rebuilt, `isCycleElapsed` (which now treats a cycle start more than 5 minutes in the future as corrupt, commit 067746c6) invalidated 11 test seeds across 8 backend files that simulated "budget exhausted" with `usageCycleResetAt: now + 24h` (the pre-2026-10-05 convention). They now seed `new Date()` (cycle started now), which is the correct meaning.
+6. **Environment (not code).** `pnpm install --frozen-lockfile` was needed first: several workspace packages had no `eslint` installed and `@alloc/quick-lru` was missing, so unfiltered lint/build could not run. It changed `node_modules` only; `pnpm-lock.yaml` is unchanged by it.
+7. **Verification Plan commands, all executed:** `pnpm --filter @festgrid/ui lint` -> 0 errors / 0 warnings; full `run-check --kind lint` -> 8/8 tasks pass; `run-check --kind build` -> 8/8 pass (`next build` compiles and generates all 39 pages); `pnpm --filter @festgrid/ui test` -> 68 files / 906 tests pass; `tsc` before/after diff -> zero new errors (129 -> 120); `git diff pnpm-lock.yaml` -> exactly one added `packages/ui` importer entry for `@festgrid/eslint-config` (`workspace:*`, `link:../eslint-config`).
+8. **Full unfiltered test run:** domain 497/497, ui 906/906, web 639/639 (638 plus the new regression test), database 10/10, graphql-select 41/41, visual-audit 49/49, analytics 2/2, **backend 1217/1222**. The 5 backend failures are all pre-existing and unrelated: `processIngestionJob integration tests` fails with a duplicate key on a fixed fixture identity (`Cx9uWttkSN`) because a leftover row from 2026-10-05 is still in the local DB; `eventBySlug` and `queryModeratorAccountProfiles` (inside `resolvers.test.ts`) fail identically on untouched `origin/master` (reproduced in a clean worktree: 108 pass / 10 fail there, same tests). The temporal-filter cases in that file also fail on `origin/master` and were flaky in the full run. They are flagged here rather than fixed.
+
 ### File List
+
+**`packages/ui` (the story):**
+- `packages/ui/eslint.config.mjs`
+- `packages/ui/package.json`
+- `packages/ui/src/core/PwaInstallIosModal.test.tsx`
+- `packages/ui/src/core/app-shell/AppShell.test.tsx`
+- `packages/ui/src/core/app-shell/NavRailItem.test.tsx`
+- `packages/ui/src/core/app-shell/UserMenu.test.tsx`
+- `packages/ui/src/core/app-shell/profile-menu-entries.ts`
+- `packages/ui/src/core/blocking-loader.test.tsx`
+- `packages/ui/src/core/checkbox.test.tsx`
+- `packages/ui/src/core/grid-container.masonry-mount-stability.test.tsx`
+- `packages/ui/src/core/grid-container.tsx`
+- `packages/ui/src/core/map.test.tsx`
+- `packages/ui/src/core/map.tsx`
+- `packages/ui/src/core/swipe-to-reveal.test.tsx`
+- `packages/ui/src/core/tabbed-shell/TabbedShell.test.tsx`
+- `packages/ui/src/core/ui/calendar.tsx`
+- `packages/ui/src/core/wizard/WizardStepSummary.tsx`
+- `packages/ui/src/features/events/EventCard.test.tsx`
+- `packages/ui/src/features/events/EventCard.tsx`
+- `packages/ui/src/features/events/EventCardCalendarGridItem.test.tsx`
+- `packages/ui/src/features/events/EventCardCompact.test.tsx`
+- `packages/ui/src/features/events/EventCardMediaPrimitives.test.tsx`
+- `packages/ui/src/features/events/EventDetailView.test.tsx`
+- `packages/ui/src/features/events/EventDetailView.tsx`
+- `packages/ui/src/features/events/EventDiscoveryPanel.test.tsx`
+- `packages/ui/src/features/events/EventListView.tsx`
+- `packages/ui/src/features/events/FilterHub.test.tsx`
+- `packages/ui/src/features/events/FilterHub.tsx`
+- `packages/ui/src/features/events/InstagramEmbed.test.tsx`
+- `packages/ui/src/features/events/InstagramEmbed.tsx`
+- `packages/ui/src/features/events/LocationRadiusFilter.test.tsx`
+- `packages/ui/src/features/events/WeeklyCalendarView.test.tsx`
+- `packages/ui/src/features/events/WeeklyCalendarView.tsx`
+- `packages/ui/src/features/events/format-event-date.ts`
+- `packages/ui/src/features/locations/LocationPickerField.test.tsx`
+- `packages/ui/src/features/subscriptions/SubscribedAccountCard.tsx`
+- `packages/ui/src/hooks/useContextAwareListNavigation.test.ts`
+- `packages/ui/src/hooks/useHoverFocusTooltip.test.ts`
+- `packages/ui/src/hooks/useHoverFocusTooltip.ts`
+- `packages/ui/src/hooks/useInfiniteScroll.test.ts`
+- `packages/ui/src/hooks/useListPaginationController.ts`
+- `packages/ui/src/hooks/useNavRailItemInteraction.test.ts`
+- `packages/ui/src/hooks/useNavRailItemInteraction.ts`
+- `packages/ui/src/hooks/useSoftDeleteWithUndo.test.ts`
+- `packages/ui/src/hooks/useVisibleOnce.test.ts`
+- `packages/ui/src/hooks/useWeeklyCalendarController.test.tsx`
+- `packages/ui/src/hooks/useWeeklyCalendarController.ts`
+- `packages/ui/src/hooks/useWeeklyCalendarController.types.ts`
+- `packages/ui/src/hooks/useWizardStep.test.tsx`
+
+**Repo config:**
+- `turbo.json`
+- `pnpm-lock.yaml`
+
+**Outside `packages/ui`, forced by Completion Notes 4-5:**
+- `apps/web/src/app/[locale]/my-calendar/my-calendar-content.test.tsx`
+- `apps/web/src/app/[locale]/my-calendar/my-calendar-content.tsx`
+- `apps/backend/src/lib/posts/auto-enqueue-test-helpers.ts`
+- `apps/backend/src/lib/posts/has-available-api-key-for-account.test.ts`
+- `apps/backend/src/lib/scraper/__tests__/trigger-brightdata-for-target.test.ts`
+- `apps/backend/src/lib/scraper/instagram-adapter.test.ts`
+- `apps/backend/src/lib/scraper/process-scrape-job.test.ts`
+- `apps/backend/src/lib/scraper/trigger-apify-for-target.test.ts`
+- `apps/backend/src/lib/scraper/usage-store-test-helpers.test.ts`
+- `apps/backend/src/schema/extraction.test.ts`
+
+**Tracking:**
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`
+- `_bmad-output/implementation-artifacts/0-41-wire-up-packages-ui-eslint-configuration.md`
+
+### Change Log
+
+- 2026-10-15: Story 0.41 implemented. `packages/ui` now extends `@festgrid/eslint-config/react-internal`; all 167 pre-existing warnings fixed in source with no suppressions; 2 hook-order bugs fixed; My Calendar favorite-toggle bug fixed; 11 backend test seeds corrected for the cycle-start semantics. Status ready-for-dev -> review.

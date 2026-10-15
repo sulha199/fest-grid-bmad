@@ -58,7 +58,7 @@ export function SubscribedAccountCard({
           <span className={`truncate font-medium ${displayNameTextClass}`} title={primaryLabel}>{primaryLabel}</span>
           {showPlatformBadge && account.platform && (
             <span className="text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full shrink-0">
-              {getPlatformDisplayName(account.platform as any)}
+              {getPlatformDisplayName(account.platform as Parameters<typeof getPlatformDisplayName>[0])}
             </span>
           )}
         </div>

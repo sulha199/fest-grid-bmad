@@ -1,4 +1,33 @@
 import { loadBackendEnv } from '../../env.js';
+import { callVendor } from '../vendor-gateway/guarded-call.js';
+
+// Story 0.i2d (AD-32 Rule 4) — mirrors apify's isApifyErrorTransient/Gemini's
+// isGeminiErrorTransient exact shape: a 5xx BrightDataApiError, or a network-level error code
+// on the error itself or its `cause` (the shape fetch's own TypeError('fetch failed') exposes),
+// is transient. Never a default-transient fallback.
+export class BrightDataApiError extends Error {
+  statusCode: number;
+  constructor(message: string, statusCode: number) {
+    super(message);
+    this.name = 'BrightDataApiError';
+    this.statusCode = statusCode;
+  }
+}
+
+const TRANSIENT_CONNECTION_CODES = new Set(['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'EAI_AGAIN']);
+
+export function isBrightDataErrorTransient(error: unknown): boolean {
+  if (error instanceof BrightDataApiError) {
+    return error.statusCode >= 500 && error.statusCode <= 599;
+  }
+
+  const code = (error as any)?.code ?? (error as any)?.cause?.code;
+  if (typeof code === 'string' && TRANSIENT_CONNECTION_CODES.has(code)) {
+    return true;
+  }
+
+  return false;
+}
 
 export interface BrightDataTriggerInput {
   url: string;
@@ -35,114 +64,141 @@ async function _triggerBrightDataJob(
   input: BrightDataTriggerInput,
   webhookUrl: string
 ): Promise<BrightDataTriggerResponse> {
-  const env = loadBackendEnv();
+  return callVendor('brightdata', {
+    timeoutMs: 20_000,
+    // maxAttempts: 1 -- the trigger POST creates a billed snapshot and is not idempotent:
+    // retrying after a lost response could create a second job nobody tracks.
+    maxAttempts: 1,
+    isTransient: isBrightDataErrorTransient,
+    call: async (signal) => {
+      const env = loadBackendEnv();
 
-  if (!env.brightdataApiToken) {
-    throw new Error('BRIGHTDATA_API_TOKEN is not set');
-  }
+      if (!env.brightdataApiToken) {
+        throw new Error('BRIGHTDATA_API_TOKEN is not set');
+      }
 
-  if (!env.brightdataDatasetId) {
-    throw new Error('BRIGHTDATA_DATASET_ID is not set');
-  }
+      if (!env.brightdataDatasetId) {
+        throw new Error('BRIGHTDATA_DATASET_ID is not set');
+      }
 
-  const url = new URL('https://api.brightdata.com/datasets/v3/trigger');
-  url.searchParams.set('dataset_id', env.brightdataDatasetId);
-  url.searchParams.set('type', 'discover_new');
-  url.searchParams.set('discover_by', 'url');
-  url.searchParams.set('endpoint', webhookUrl);
-  url.searchParams.set('format', 'json');
+      const url = new URL('https://api.brightdata.com/datasets/v3/trigger');
+      url.searchParams.set('dataset_id', env.brightdataDatasetId);
+      url.searchParams.set('type', 'discover_new');
+      url.searchParams.set('discover_by', 'url');
+      url.searchParams.set('endpoint', webhookUrl);
+      url.searchParams.set('format', 'json');
 
-  const response = await fetch(url.toString(), {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.brightdataApiToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      input: [
-        {
-          url: input.url,
-          num_of_posts: input.numOfPosts,
-          start_date: input.startDate,
+      const response = await fetch(url.toString(), {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${env.brightdataApiToken}`,
+          'Content-Type': 'application/json',
         },
-      ],
-    }),
+        body: JSON.stringify({
+          input: [
+            {
+              url: input.url,
+              num_of_posts: input.numOfPosts,
+              start_date: input.startDate,
+            },
+          ],
+        }),
+        signal,
+      });
+
+      if (!response.ok) {
+        throw new BrightDataApiError(
+          `Failed to trigger Bright Data job: ${response.status} ${response.statusText}`,
+          response.status
+        );
+      }
+
+      const data = (await response.json()) as { snapshot_id?: string };
+
+      if (!data.snapshot_id) {
+        throw new Error('Bright Data response missing snapshot_id');
+      }
+
+      return { snapshotId: data.snapshot_id };
+    },
   });
-
-  if (!response.ok) {
-    throw new Error(
-      `Failed to trigger Bright Data job: ${response.status} ${response.statusText}`
-    );
-  }
-
-  const data = (await response.json()) as { snapshot_id?: string };
-
-  if (!data.snapshot_id) {
-    throw new Error('Bright Data response missing snapshot_id');
-  }
-
-  return { snapshotId: data.snapshot_id };
 }
 
 async function _getBrightDataProgress(
   snapshotId: string
 ): Promise<BrightDataProgressResponse> {
-  const env = loadBackendEnv();
+  return callVendor('brightdata', {
+    timeoutMs: 15_000,
+    isTransient: isBrightDataErrorTransient,
+    call: async (signal) => {
+      const env = loadBackendEnv();
 
-  if (!env.brightdataApiToken) {
-    throw new Error('BRIGHTDATA_API_TOKEN is not set');
-  }
+      if (!env.brightdataApiToken) {
+        throw new Error('BRIGHTDATA_API_TOKEN is not set');
+      }
 
-  const url = new URL(
-    `https://api.brightdata.com/datasets/v3/progress/${snapshotId}`
-  );
+      const url = new URL(
+        `https://api.brightdata.com/datasets/v3/progress/${snapshotId}`
+      );
 
-  const response = await fetch(url.toString(), {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${env.brightdataApiToken}`,
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${env.brightdataApiToken}`,
+        },
+        signal,
+      });
+
+      if (!response.ok) {
+        throw new BrightDataApiError(
+          `Failed to get Bright Data progress: ${response.status} ${response.statusText}`,
+          response.status
+        );
+      }
+
+      const data = (await response.json()) as { status?: string };
+
+      return {
+        status: (data.status || 'scheduled') as BrightDataProgressResponse['status'],
+      };
     },
   });
-
-  if (!response.ok) {
-    throw new Error(
-      `Failed to get Bright Data progress: ${response.status} ${response.statusText}`
-    );
-  }
-
-  const data = (await response.json()) as { status?: string };
-
-  return {
-    status: (data.status || 'scheduled') as BrightDataProgressResponse['status'],
-  };
 }
 
 async function _getBrightDataSnapshot(snapshotId: string): Promise<unknown[]> {
-  const env = loadBackendEnv();
+  return callVendor('brightdata', {
+    timeoutMs: 30_000,
+    isTransient: isBrightDataErrorTransient,
+    call: async (signal) => {
+      const env = loadBackendEnv();
 
-  if (!env.brightdataApiToken) {
-    throw new Error('BRIGHTDATA_API_TOKEN is not set');
-  }
+      if (!env.brightdataApiToken) {
+        throw new Error('BRIGHTDATA_API_TOKEN is not set');
+      }
 
-  const url = new URL(
-    `https://api.brightdata.com/datasets/v3/snapshot/${snapshotId}`
-  );
-  url.searchParams.set('format', 'json');
+      const url = new URL(
+        `https://api.brightdata.com/datasets/v3/snapshot/${snapshotId}`
+      );
+      url.searchParams.set('format', 'json');
 
-  const response = await fetch(url.toString(), {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${env.brightdataApiToken}`,
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${env.brightdataApiToken}`,
+        },
+        signal,
+      });
+
+      if (!response.ok) {
+        throw new BrightDataApiError(
+          `Failed to get Bright Data snapshot: ${response.status} ${response.statusText}`,
+          response.status
+        );
+      }
+
+      return response.json();
     },
   });
-
-  if (!response.ok) {
-    throw new Error(
-      `Failed to get Bright Data snapshot: ${response.status} ${response.statusText}`
-    );
-  }
-
-  return response.json();
 }
 
 export async function triggerBrightDataJob(

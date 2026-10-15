@@ -56,7 +56,13 @@ function runRealTests(): Promise<number> {
     // running the whole suite.
     const passthroughArgs = process.argv.slice(2);
     const testArgs = passthroughArgs.length > 0 ? passthroughArgs : ['src/**/*.test.ts'];
-    const child = spawn('tsx', ['--test', '--test-concurrency=1', ...testArgs], {
+    // Spawn tsx's CLI module directly via the current Node binary instead of spawning the bare
+    // "tsx" command name. On Windows, pnpm only installs a "tsx.CMD"/"tsx.ps1" shim into
+    // node_modules/.bin -- there is no extension-less "tsx" executable -- and Node's spawn (with
+    // shell left at its deliberate `false`, see above) only matches an exact filename, so it threw
+    // ENOENT there. Resolving tsx/cli's real path and running it with process.execPath keeps shell
+    // at false (preserving AC6b's argv/glob behavior) while working identically on every platform.
+    const child = spawn(process.execPath, [require.resolve('tsx/cli'), '--test', '--test-concurrency=1', ...testArgs], {
       stdio: 'inherit',
     });
     child.on('error', reject);

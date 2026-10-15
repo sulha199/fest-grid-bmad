@@ -2758,7 +2758,7 @@ Constraints and Guidelines:
         .orderBy(desc(subscriptions.createdAt));
       return rows.map(row => formatSubscription(row));
     },
-    postsByAccount: async (_: any, { accountId, cursor, limit }: any, context: any) => {
+    postsByAccount: async (_: any, { accountId, cursor, limit, onlyUnextracted }: any, context: any) => {
       const authUser = requireAuth(context);
 
       // Security Scope Check: Caller must have an active subscription to the account
@@ -2779,6 +2779,11 @@ Constraints and Guidelines:
 
       const qLimit = limit ?? 20;
       const conditions = [eq(posts.accountId, accountId)];
+      // Manual extraction only lists posts still awaiting extraction (PRD 3.10); the filter runs in
+      // SQL so cursor pages stay full instead of being thinned out by client-side hiding.
+      if (onlyUnextracted) {
+        conditions.push(eq(posts.isExtracted, false));
+      }
       if (cursor) {
         conditions.push(sql`${posts.publishedAt} < ${new Date(cursor)}`);
       }

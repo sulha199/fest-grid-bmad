@@ -3,12 +3,13 @@ import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { InstagramEmbed } from './InstagramEmbed';
+type InstgrmWindow = Window & { instgrm?: { Embeds: { process: unknown } } };
 
 describe('InstagramEmbed', () => {
   beforeEach(() => {
     // Reset any script tags/globals injected by a previous test's idempotent script-loading.
     document.querySelectorAll('script[src*="instagram.com/embed.js"]').forEach((el) => el.remove());
-    delete (window as any).instgrm;
+    delete (window as InstgrmWindow).instgrm;
   });
 
   afterEach(() => {
@@ -45,7 +46,7 @@ describe('InstagramEmbed', () => {
     expect(script).not.toBeNull();
 
     // Simulate the script finishing its load and exposing window.instgrm, then firing 'load'.
-    (window as any).instgrm = { Embeds: { process: processMock } };
+    (window as InstgrmWindow).instgrm = { Embeds: { process: processMock } };
     script?.dispatchEvent(new Event('load'));
 
     await waitFor(() => {
