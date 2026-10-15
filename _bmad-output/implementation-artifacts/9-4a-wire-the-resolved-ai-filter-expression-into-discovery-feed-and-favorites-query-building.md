@@ -8,7 +8,7 @@ baseline_commit: 7ea15393da2dd48e3bc0e800607b42fc7f852920
 
 - Epic: 9
 - Story ID: 9.4a
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -293,16 +293,55 @@ Per `epic-9-readiness.md` (`swept: true`, 2026-10-14), Gate 1 (Architecture/Infr
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete — all tasks/subtasks done, all ACs satisfied, verification commands green.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Sonnet 5 (claude-sonnet-5), via `bmad-dev-story`.
 
 ### Debug Log References
 
+- `pnpm --filter @festgrid/domain test` — 706/706 passing (includes the 4 new expression-branch tests on `buildEventsQueryCondition.test.ts`: expression-only parity, expression-wins-over-filter short-circuit, empty-compiling expression returns `undefined`, currentDate/timezone threading).
+- `pnpm --filter @festgrid/domain lint` — 0 errors/warnings.
+- `pnpm --filter @festgrid/domain build` (`tsc`) — clean, including the new `buildEventsQueryCondition.ts` ↔ `compile-filter-node.ts` circular import (Dev Notes decision 6) — confirmed no bundler/TS resolution issue.
+- `pnpm --filter web codegen` — regenerated `apps/web/src/generated/graphql.ts` (+75 lines: the `expression { ... }` selections' generated types/result shape for `ResolvePromptToEventFilterMutation`/`GetMyAiEventFiltersQuery`).
+- `pnpm --filter web test` (full, unfiltered) — 78/78 test files, 645/645 tests passing. Includes all new/updated cases: 4 new `use-ai-filter.test.ts` cases (AC1), 2 new cases each in `home-content.test.tsx`/`feed-content.test.tsx`/`favorites-content.test.tsx` (AC2/AC3, including the AC3 distinct-cache-key regression), and a pre-existing `ai-filters-content.test.tsx` case updated for the new `ai_expression` URL param (Task 3 changed `handleRowClick`'s output, which that file's existing "navigates to Discovery with filter params" test asserted literally).
+- `pnpm lint` (repo root, unfiltered) — 0 errors (warnings only, all pre-existing).
+- `pnpm build` (repo root, unfiltered) — 8/8 tasks successful, including `web`'s full Next.js build (all routes, including `/favorites`, `/feed`, `/settings/ai-filters`, `/[locale]`).
+- Manual: `grep -rn "activeFilter\b" apps/web/src --include="*.tsx"` — confirmed every consumer (`home-content.tsx`, `feed-content.tsx`, `favorites-content.tsx`) now also reads `aiFilter.activeExpression` alongside `aiFilter.activeFilter`, both in the query-building branch and in every cache-key object (including Favorites' extra `idSnapshotData` query) — no consumer missed.
+- One intermittent `Uncaught Exception` (`window is not defined` inside `sonner`'s internal timer, surfaced while `subscriptions-content.test.tsx` was running) was observed on one `pnpm --filter web test` run. Investigated per the resumed-session guidance: `git diff 2c5003c..HEAD --stat -- apps/web` confirms this story's diff touches none of `subscriptions-content.tsx`/`.test.tsx` or anything they import; a clean re-run of the full unfiltered suite immediately after (78/78 files, 645/645 tests) did not reproduce it. Recorded here as a suspected pre-existing test-isolation flake (a toast library's background timer firing after an unrelated test's teardown), not caused by this story's changes.
+
 ### Completion Notes List
 
+- Implemented exactly per the story's Implementation Plan/File Change Plan: one additive `packages/domain` parameter (`buildEventsQueryCondition`'s `expression?: FilterNode`), two client `.graphql` selection additions, one `use-ai-filter.ts` hook extension (`activeExpression`/`ai_expression`), one `ai-filters-content.tsx` URL-param addition, and three page-level query-building/cache-key rewires (Discovery/Feed/Favorites). No new component, no new schema, no DB migration — matches the Pre-Coding Approval Gate's scope exactly.
+- **Pre-Coding Approval Gate:** ticked as pre-approved per this session's Epic 9 batch dispatch instruction (approved as scoped: one additive `packages/domain` parameter + tests, `use-ai-filter` hook extension, client `.graphql` selection additions, the three page-level content files, settings-page URL param; no new components/schema/migration).
+- **Resolved default (recorded per the dispatch instruction to minimise questions):** Task 4's literal wording claims `setAiExpressionStr(null)` should be added to "all five" call sites that already clear `aiFilterStr`/`aiCaveatsStr` together (`handleApply`, `handleRePrompt`, `handleClose`, `handleAIClear`, `handleAIExpand`). On inspection, only three of those five (`handleRePrompt`, `handleAIClear`, `handleAIExpand`) actually clear `aiFilterStr`/`aiCaveatsStr` in the pre-story code — `handleApply`/`handleClose` deliberately leave them set (that's how "Apply" commits the just-resolved filter as the active one; clearing `ai_expression` there while leaving `ai_filter` set would wipe a just-applied non-flat expression's own logic immediately on Apply, reintroducing the exact silent-empty-filter bug this story exists to close). Implemented `setAiExpressionStr(null)` only at the three sites that actually clear the sibling fields, preserving the "atomic bundle, never partial" invariant Task 4 intends rather than its literal (but inconsistent with current behavior) site list.
+- **Resolved default:** `buildEventsQueryCondition`'s new `expression` branch calls `compileFilterNodeToQueryCondition(expression, { currentDate, timezone })`, threading both through (unlike `buildFeedQueryCondition`/`buildAccountEventsQueryCondition`'s own expression branches, which call it with no context argument) — per Task 5's literal instruction and because `buildEventsQueryCondition` already accepts both as its own input params, so threading them is a direct, low-risk extension of its own existing timezone-resolution behavior (DW-074), not a new mechanism.
+- Verified AC2's `expression`-wins-when-both-supplied short-circuit, AC2's `undefined`-on-empty-expression parity with the existing "no conditions" return shape, and AC3's distinct-cache-key regression (two different non-flat expressions sharing the same flattened `{}` `ai_filter` produce different `graphqlClient.request`/`getEvents` query payloads) via dedicated new tests at both the domain level and all three `apps/web` content-page integration-test files.
+- `ai-filters-content.test.tsx`'s pre-existing "navigates to Discovery with filter params when row is clicked" test asserted the exact `router.push` URL string, which Task 3's `ai_expression` param addition changed; updated that test's fixture/assertion to include `expression` (same pattern as `resolvedFilter`) rather than leaving a stale assertion — in scope as a direct, unavoidable consequence of Task 3's own listed file.
+- `handleSave`/`saveAIEventFilter` and `ai-filters-content.tsx`'s list-row summary rendering were deliberately left untouched, exactly as the story's Dev Notes decision 7 and Out of Scope section specify.
+
 ### File List
+
+**Modified:**
+- `packages/domain/src/events/buildEventsQueryCondition.ts` (additive `expression?: FilterNode` parameter, short-circuit branch)
+- `packages/domain/src/events/buildEventsQueryCondition.test.ts` (4 new expression-branch tests)
+- `apps/web/src/features/events/mutations.graphql` (`resolvePromptToEventFilter`'s `expression { ... }` selection)
+- `apps/web/src/features/events/queries.graphql` (`getMyAIEventFilters`'s `expression { ... }` selection)
+- `apps/web/src/features/events/use-ai-filter.ts` (`activeExpression`, `ai_expression` query state, extended `resolvedData`, clear-site wiring)
+- `apps/web/src/features/events/use-ai-filter.test.ts` (4 new `activeExpression` tests)
+- `apps/web/src/app/[locale]/settings/ai-filters/ai-filters-content.tsx` (`handleRowClick`'s `ai_expression` URL param)
+- `apps/web/src/app/[locale]/settings/ai-filters/ai-filters-content.test.tsx` (updated pre-existing `handleRowClick` test fixture/assertion for the new param)
+- `apps/web/src/app/[locale]/home-content.tsx` (expression-first query-building branch + cache-key additions)
+- `apps/web/src/app/[locale]/home-content.test.tsx` (2 new AC2/AC3 integration tests)
+- `apps/web/src/app/[locale]/feed/feed-content.tsx` (expression-first query-building branch + cache-key additions)
+- `apps/web/src/app/[locale]/feed/feed-content.test.tsx` (2 new AC2/AC3 integration tests)
+- `apps/web/src/app/[locale]/favorites/favorites-content.tsx` (`buildFavoritesQueryCondition`'s `expression` parameter, both call sites, cache-key additions)
+- `apps/web/src/app/[locale]/favorites/favorites-content.test.tsx` (`__setNuqsValue` test helper added; 2 new AC2/AC3 integration tests)
+- `apps/web/src/generated/graphql.ts` (regenerated codegen artifact)
+
+## Change Log
+
+- 2026-10-15 — Implemented via `bmad-dev-story`: all 12 tasks complete, all ACs satisfied and verified (`pnpm --filter @festgrid/domain test`/`lint`/`build`, `pnpm --filter web codegen`/`test`/`lint`/`build`, all green). Pre-Coding Approval Gate ticked per this session's Epic 9 batch dispatch instruction (approved as scoped: one additive `packages/domain` parameter + tests, `use-ai-filter` hook extension, client `.graphql` selection additions, the three page-level content files, settings-page URL param; no new components/schema/migration). Status: review.
