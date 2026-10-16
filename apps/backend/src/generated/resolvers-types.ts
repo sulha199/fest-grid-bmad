@@ -853,6 +853,7 @@ export type Post = {
   __typename?: 'Post';
   accountId: Scalars['ID']['output'];
   content?: Maybe<Scalars['String']['output']>;
+  extractionStatus: PostExtractionStatus;
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
   isExtracted: Scalars['Boolean']['output'];
@@ -867,6 +868,17 @@ export type PostConnection = {
   items: Array<Post>;
   nextCursor?: Maybe<Scalars['String']['output']>;
 };
+
+/**
+ * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING posts
+ * can be selected for extraction.
+ */
+export type PostExtractionStatus =
+  | 'EXTRACTING'
+  | 'NOT_EVENT'
+  | 'PENDING'
+  | 'PROMOTED'
+  | 'QUEUED';
 
 export type PostGroupingReason =
   | 'DEPENDENT_STAGES'
@@ -1053,6 +1065,7 @@ export type QueryPostsByAccountArgs = {
   cursor?: InputMaybe<Scalars['String']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
   onlyUnextracted?: InputMaybe<Scalars['Boolean']['input']>;
+  statuses?: InputMaybe<Array<PostExtractionStatus>>;
 };
 
 
@@ -1633,6 +1646,7 @@ export type ResolversTypes = ResolversObject<{
   PayloadContext: ResolverTypeWrapper<PayloadContext>;
   Post: ResolverTypeWrapper<Post>;
   PostConnection: ResolverTypeWrapper<PostConnection>;
+  PostExtractionStatus: PostExtractionStatus;
   PostGroupingReason: PostGroupingReason;
   ProposedEventCorrectionData: ResolverTypeWrapper<ProposedEventCorrectionData>;
   ProposedEventCorrectionInput: ProposedEventCorrectionInput;
@@ -2138,6 +2152,7 @@ export type PayloadContextResolvers<ContextType = GraphQLContext, ParentType ext
 export type PostResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Post'] = ResolversParentTypes['Post']> = ResolversObject<{
   accountId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   content?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  extractionStatus?: Resolver<ResolversTypes['PostExtractionStatus'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   imageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   isExtracted?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;

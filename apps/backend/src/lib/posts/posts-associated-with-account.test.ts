@@ -3,7 +3,7 @@ import * as assert from 'node:assert';
 import { db } from '../../db/client.js';
 import { posts, postAccountAssociations, socialMediaAccountProfiles } from '@festgrid/database';
 import { and, eq, inArray } from 'drizzle-orm';
-import { postsScrapedUnderAccount, getPostAccessAccountIds } from './posts-scraped-under-account.js';
+import { postsAssociatedWithAccount, getPostAccessAccountIds } from './posts-associated-with-account.js';
 
 const createdProfileIds: string[] = [];
 const createdPostIds: string[] = [];
@@ -45,11 +45,11 @@ async function idsFor(accountId: string) {
   const rows = await db
     .select({ id: posts.id })
     .from(posts)
-    .where(and(postsScrapedUnderAccount(accountId), inArray(posts.id, createdPostIds)));
+    .where(and(postsAssociatedWithAccount(accountId), inArray(posts.id, createdPostIds)));
   return rows.map((r) => r.id);
 }
 
-test('posts-scraped-under-account integration tests', async (t) => {
+test('posts-associated-with-account integration tests', async (t) => {
   t.after(async () => {
     if (createdPostIds.length > 0) {
       await db.delete(postAccountAssociations).where(inArray(postAccountAssociations.postId, createdPostIds));
@@ -74,21 +74,23 @@ test('posts-scraped-under-account integration tests', async (t) => {
   const unrelatedPost = await makePost(other.id, 'unrelated');
   await associate(unrelatedPost.id, other.id, 'SCRAPING_SOURCE');
 
-  await t.test('postsScrapedUnderAccount: includes posts owned by the account', async () => {
+  await t.test('postsAssociatedWithAccount: includes posts owned by the account', async () => {
     assert.ok((await idsFor(subscribed.id)).includes(ownPost.id));
   });
 
-  await t.test('postsScrapedUnderAccount: includes posts owned by a twin profile but scraped under the account', async () => {
+  await t.test('postsAssociatedWithAccount: includes posts owned by a twin profile but scraped under the account', async () => {
     assert.ok((await idsFor(subscribed.id)).includes(twinPost.id));
   });
 
-  await t.test('postsScrapedUnderAccount: excludes a post the account only co-authored, and unrelated posts', async () => {
-    const ids = await idsFor(subscribed.id);
-    assert.ok(!ids.includes(coauthorOnlyPost.id), 'COAUTHOR-only association must not count');
-    assert.ok(!ids.includes(unrelatedPost.id));
+  await t.test('postsAssociatedWithAccount: includes a post the account only co-authored (the same post appears in each co-author tab)', async () => {
+    assert.ok((await idsFor(subscribed.id)).includes(coauthorOnlyPost.id));
   });
 
-  await t.test('postsScrapedUnderAccount: the twin profile itself still sees only what it owns', async () => {
+  await t.test('postsAssociatedWithAccount: excludes posts with no association to the account', async () => {
+    assert.ok(!(await idsFor(subscribed.id)).includes(unrelatedPost.id));
+  });
+
+  await t.test('postsAssociatedWithAccount: the twin profile itself still sees only what it owns', async () => {
     const ids = await idsFor(twin.id);
     assert.deepStrictEqual(ids, [twinPost.id]);
   });

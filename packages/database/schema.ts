@@ -348,6 +348,11 @@ export const posts = pgTable('posts', {
   // and claim-ttl.ts for the full design). No default, no backfill -- every existing row is
   // correctly null/unclaimed. No index: every read/write is scoped by posts.id (primary key).
   queuedForExtractionAt: timestamp('queued_for_extraction_at', { withTimezone: true }),
+  // PRD 3.10 (2026-10-16) -- set by the AI processor when it begins a post, so the manual extract
+  // screen can tell QUEUED (claim made, processing not started) from EXTRACTING (processing started
+  // at or after the latest claim). Observational only: nothing gates on it, and a re-enqueue makes the
+  // new queued_for_extraction_at newer than it, which reads as QUEUED again. No index, no backfill.
+  extractionStartedAt: timestamp('extraction_started_at', { withTimezone: true }),
   ...timestamps,
 }, (t) => ({
   accountIdIdx: index('account_id_idx').on(t.accountId),

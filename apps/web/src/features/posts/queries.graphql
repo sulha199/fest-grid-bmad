@@ -1,5 +1,5 @@
-query getPostsByAccount($accountId: ID!, $cursor: String, $limit: Int, $onlyUnextracted: Boolean) {
-  postsByAccount(accountId: $accountId, cursor: $cursor, limit: $limit, onlyUnextracted: $onlyUnextracted) {
+query getPostsByAccount($accountId: ID!, $cursor: String, $limit: Int, $onlyUnextracted: Boolean, $statuses: [PostExtractionStatus!]) {
+  postsByAccount(accountId: $accountId, cursor: $cursor, limit: $limit, onlyUnextracted: $onlyUnextracted, statuses: $statuses) {
     items {
       id
       accountId
@@ -8,6 +8,7 @@ query getPostsByAccount($accountId: ID!, $cursor: String, $limit: Int, $onlyUnex
       postUrl
       originalPostUrl
       isExtracted
+      extractionStatus
       publishedAt
     }
     nextCursor

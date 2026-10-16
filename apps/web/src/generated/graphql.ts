@@ -877,6 +877,7 @@ export type Post = {
   __typename?: 'Post';
   accountId: Scalars['ID']['output'];
   content?: Maybe<Scalars['String']['output']>;
+  extractionStatus: PostExtractionStatus;
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
   isExtracted: Scalars['Boolean']['output'];
@@ -891,6 +892,18 @@ export type PostConnection = {
   items: Array<Post>;
   nextCursor?: Maybe<Scalars['String']['output']>;
 };
+
+/**
+ * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING posts
+ * can be selected for extraction.
+ */
+export enum PostExtractionStatus {
+  Extracting = 'EXTRACTING',
+  NotEvent = 'NOT_EVENT',
+  Pending = 'PENDING',
+  Promoted = 'PROMOTED',
+  Queued = 'QUEUED'
+}
 
 export enum PostGroupingReason {
   DependentStages = 'DEPENDENT_STAGES',
@@ -1078,6 +1091,7 @@ export type QueryPostsByAccountArgs = {
   cursor?: InputMaybe<Scalars['String']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
   onlyUnextracted?: InputMaybe<Scalars['Boolean']['input']>;
+  statuses?: InputMaybe<Array<PostExtractionStatus>>;
 };
 
 
@@ -1556,6 +1570,17 @@ export enum WidgetTheme {
 
 
 
+/**
+ * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING posts
+ * can be selected for extraction.
+ */
+export type PostExtractionStatus =
+  | 'EXTRACTING'
+  | 'NOT_EVENT'
+  | 'PENDING'
+  | 'PROMOTED'
+  | 'QUEUED';
+
 
 
 
@@ -2002,10 +2027,11 @@ export type GetPostsByAccountQueryVariables = Exact<{
   cursor?: string | null | undefined;
   limit?: number | null | undefined;
   onlyUnextracted?: boolean | null | undefined;
+  statuses?: Array<PostExtractionStatus> | PostExtractionStatus | null | undefined;
 }>;
 
 
-export type GetPostsByAccountQuery = { postsByAccount: { nextCursor: string | null, hasMore: boolean, items: Array<{ id: string, accountId: string, content: string | null, imageUrl: string | null, postUrl: string, originalPostUrl: string | null, isExtracted: boolean, publishedAt: string }> } };
+export type GetPostsByAccountQuery = { postsByAccount: { nextCursor: string | null, hasMore: boolean, items: Array<{ id: string, accountId: string, content: string | null, imageUrl: string | null, postUrl: string, originalPostUrl: string | null, isExtracted: boolean, extractionStatus: PostExtractionStatus, publishedAt: string }> } };
 
 export type GetMyExtractionQuotaQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -4316,12 +4342,13 @@ export const useSelectPostsForExtractionMutation = <
     )};
 
 export const GetPostsByAccountDocument = new TypedDocumentString(`
-    query getPostsByAccount($accountId: ID!, $cursor: String, $limit: Int, $onlyUnextracted: Boolean) {
+    query getPostsByAccount($accountId: ID!, $cursor: String, $limit: Int, $onlyUnextracted: Boolean, $statuses: [PostExtractionStatus!]) {
   postsByAccount(
     accountId: $accountId
     cursor: $cursor
     limit: $limit
     onlyUnextracted: $onlyUnextracted
+    statuses: $statuses
   ) {
     items {
       id
@@ -4331,6 +4358,7 @@ export const GetPostsByAccountDocument = new TypedDocumentString(`
       postUrl
       originalPostUrl
       isExtracted
+      extractionStatus
       publishedAt
     }
     nextCursor

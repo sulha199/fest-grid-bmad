@@ -10,8 +10,9 @@ import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, lt
 import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink, isScrapableAccountType } from '@festgrid/domain/scraper';
-import { postsScrapedUnderAccount, getPostAccessAccountIds } from '../lib/posts/posts-scraped-under-account.js';
+import { postsAssociatedWithAccount, getPostAccessAccountIds } from '../lib/posts/posts-associated-with-account.js';
 import { findProfileByUsername } from '../lib/accounts/find-profile-by-username.js';
+import { postExtractionStatusCondition, withExtractionStatus } from '../lib/posts/post-extraction-status.js';
 import { selectApiKey } from '@festgrid/domain/ai-gateway';
 import { callGemini, AiGatewayExhaustedError, AiGatewayBusyError } from '../lib/ai-gateway/adapter.js';
 import { fetchCandidateKeys } from '../lib/ai-gateway/usage-store.js';
@@ -2254,7 +2255,10 @@ Constraints and Guidelines:
         throw err;
       }
 
-      const updatedPosts = await db.select().from(posts).where(inArray(posts.id, succeededIds));
+      const updatedPosts = await withExtractionStatus(
+        await db.select().from(posts).where(inArray(posts.id, succeededIds)),
+        loadBackendEnv().postExtractionClaimTtlMinutes
+      );
       return updatedPosts.map(p => ({
         ...p,
         publishedAt: p.publishedAt.toISOString()
@@ -2771,7 +2775,7 @@ Constraints and Guidelines:
         .orderBy(desc(subscriptions.createdAt));
       return rows.map(row => formatSubscription(row));
     },
-    postsByAccount: async (_: any, { accountId, cursor, limit, onlyUnextracted }: any, context: any) => {
+    postsByAccount: async (_: any, { accountId, cursor, limit, onlyUnextracted, statuses }: any, context: any) => {
       const authUser = requireAuth(context);
 
       // Security Scope Check: Caller must have an active subscription to the account
@@ -2792,12 +2796,17 @@ Constraints and Guidelines:
 
       const qLimit = limit ?? 20;
       // Posts owned by the account, plus posts whose scrape ran under it but are stored under a
-      // twin profile of the same platform account (see posts-scraped-under-account.ts).
-      const conditions = [postsScrapedUnderAccount(accountId)];
+      // twin profile of the same platform account (see posts-associated-with-account.ts).
+      const conditions = [postsAssociatedWithAccount(accountId)];
       // Manual extraction only lists posts still awaiting extraction (PRD 3.10); the filter runs in
       // SQL so cursor pages stay full instead of being thinned out by client-side hiding.
       if (onlyUnextracted) {
         conditions.push(eq(posts.isExtracted, false));
+      }
+      // PRD 3.10 status filter (multi-select). Omitted or empty means every status.
+      const claimTtlMinutes = loadBackendEnv().postExtractionClaimTtlMinutes;
+      if (Array.isArray(statuses) && statuses.length > 0) {
+        conditions.push(postExtractionStatusCondition(statuses, claimTtlMinutes));
       }
       // Keyset cursor "<publishedAt ISO>|<post id>": id breaks ties between posts sharing a
       // timestamp so a page boundary never skips one. A bare ISO cursor (no "|") is still accepted.
@@ -2827,8 +2836,9 @@ Constraints and Guidelines:
       const lastItem = items[items.length - 1];
       const nextCursor = hasMore ? `${lastItem.publishedAt.toISOString()}|${lastItem.id}` : null;
 
+      const itemsWithStatus = await withExtractionStatus(items, claimTtlMinutes);
       return {
-        items: items.map(p => ({
+        items: itemsWithStatus.map(p => ({
           ...p,
           publishedAt: p.publishedAt.toISOString()
         })),
