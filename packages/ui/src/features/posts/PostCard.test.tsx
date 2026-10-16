@@ -179,4 +179,18 @@ describe('PostCard & PostCardSkeleton', () => {
     expect(skeleton).toHaveAttribute('aria-busy', 'true');
     expect(skeleton).toHaveClass('animate-pulse');
   });
+
+  it('renders a status badge in the footer when one is provided, and none otherwise', () => {
+    const post = { id: 'p-badge', accountId: 'acc', content: 'badge post', postUrl: 'https://instagram.com/p/badge', publishedAt: '2026-01-01T10:00:00.000Z' } as Post;
+    const { rerender } = render(<PostCard post={post} statusBadge={<span data-testid="badge">Queued</span>} />);
+    expect(screen.getByTestId('badge')).toHaveTextContent('Queued');
+    rerender(<PostCard post={post} />);
+    expect(screen.queryByTestId('badge')).not.toBeInTheDocument();
+  });
+
+  it('shows no selection checkbox when no onSelectionChange is given (a non-selectable post)', () => {
+    const post = { id: 'p-nocheck', accountId: 'acc', content: 'no checkbox', postUrl: 'https://instagram.com/p/nocheck', publishedAt: '2026-01-01T10:00:00.000Z' } as Post;
+    render(<PostCard post={post} />);
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  });
 });

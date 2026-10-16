@@ -1,5 +1,5 @@
 import { type ProcessingJobMessage } from '@festgrid/domain/posts';
-import { getActiveSubscriberUserIds } from '../subscriptions/get-active-subscriber-user-ids.js';
+import { getActiveSubscriberUserIdsForPost } from '../subscriptions/get-active-subscriber-user-ids-for-post.js';
 import { buildGeminiExtractionRequest } from './build-gemini-request.js';
 import { callGemini as defaultCallGemini } from '../ai-gateway/adapter.js';
 import { compileValidator } from '../../validation/validate.js';
@@ -74,8 +74,17 @@ export interface ProcessAiJobDeps {
 export async function processAiJob(message: ProcessingJobMessage, deps?: ProcessAiJobDeps): Promise<void> {
   const env = loadBackendEnv();
 
-  // 1. Get active subscriber user IDs
-  const subscriberUserIds = await getActiveSubscriberUserIds(message.accountId);
+  // PRD 3.10 (2026-10-16): mark the post EXTRACTING. Purely observational (the manual extract
+  // screen reads it), so a failure here must never fail the extraction itself.
+  try {
+    await db.update(posts).set({ extractionStartedAt: new Date() }).where(eq(posts.id, message.postId));
+  } catch (startMarkErr) {
+    console.error(`[processAiJob] Failed to record extraction start for post ${message.postId}:`, startMarkErr);
+  }
+
+  // 1. Get active subscriber user IDs: those of every account the post is associated with, not only
+  // posts.account_id (PRD 3.7, 2026-10-16).
+  const subscriberUserIds = await getActiveSubscriberUserIdsForPost(message.postId, message.accountId);
 
   const [accountRow] = await db
     .select({

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useFormatter } from 'next-intl';
 import { useAuthSession } from '@/components/providers/auth-session-provider';
 import { useRouter, Link } from '@/i18n/navigation';
 import { graphqlClient } from '@/lib/graphql-client';
@@ -18,16 +18,19 @@ import {
   useTriggerAccountScrapeMutation,
   SoftDeleteAction,
   Subscription,
+  PostExtractionStatus as GeneratedPostExtractionStatus,
 } from '@/generated/graphql';
-import { PostCard, PostCardSkeleton, BlockingLoader, useSoftDeleteWithUndo, PageContainer, GridContainer, AccountAvatar, useInfiniteScroll } from '@festgrid/ui';
-import { AlertCircle, TriangleAlert, Ban, Clock } from 'lucide-react';
+import { PostCard, PostCardSkeleton, BlockingLoader, useSoftDeleteWithUndo, PageContainer, GridContainer, AccountAvatar, useInfiniteScroll, StatusBadge } from '@festgrid/ui';
+import { AlertCircle, TriangleAlert, Ban, Clock, Hourglass, History, Loader2 } from 'lucide-react';
 import { usePostSelectionStore } from './post-selection-store';
 import { toast } from 'sonner';
 import { SummaryBar } from '@/features/post-selection/components/summary-bar';
+import { ExtractionStatusFilter, type PostExtractionStatus } from '@/features/posts/ExtractionStatusFilter';
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 
 export function PostsSelectContent() {
   const t = useTranslations('ManualPostSelectionPage');
+  const format = useFormatter();
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectPath = searchParams?.get('redirect') || '/';
@@ -103,6 +106,24 @@ export function PostsSelectContent() {
 
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [scrapePollingStartTime, setScrapePollingStartTime] = useState<number | null>(null);
+  const formatDate = (value?: string | null) =>
+    value ? format.dateTime(new Date(value), { dateStyle: 'medium' }) : '';
+  // PRD 3.10: the status filter applies to every tab; by default only Pending posts are shown.
+  const [statusFilter, setStatusFilter] = useState<PostExtractionStatus[]>(['PENDING']);
+  const statusLabels: Record<PostExtractionStatus, string> = {
+    PENDING: t('extractionStatusPending'),
+    QUEUED: t('extractionStatusQueued'),
+    EXTRACTING: t('extractionStatusExtracting'),
+    PROMOTED: t('extractionStatusPromoted'),
+    NOT_EVENT: t('extractionStatusNotEvent'),
+  } as Record<PostExtractionStatus, string>;
+  const statusBadgeVariant = {
+    PENDING: 'pending',
+    QUEUED: 'queued',
+    EXTRACTING: 'extracting',
+    PROMOTED: 'promoted',
+    NOT_EVENT: 'notEvent',
+  } as const;
 
   // Trigger account scrape mutation
   const { mutate: triggerScrape, isPending: isScraping } = useTriggerAccountScrapeMutation(
@@ -207,7 +228,7 @@ export function PostsSelectContent() {
     }
   }, [activeAccountId, activeSub, markViewed]);
 
-  // 9. Query posts for the active account. Only posts still awaiting extraction are listed (PRD 3.10),
+  // 9. Query posts for the active account, filtered by extraction status (PRD 3.10; default Pending),
   // paged by cursor and appended as the user scrolls.
   const {
     data: postsData,
@@ -218,7 +239,7 @@ export function PostsSelectContent() {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery<GetPostsByAccountQuery, Error, InfiniteData<GetPostsByAccountQuery>, any[], string | null>({
-    queryKey: ['getPostsByAccount', { accountId: activeAccountId, onlyUnextracted: true }],
+    queryKey: ['getPostsByAccount', { accountId: activeAccountId, statuses: statusFilter }],
     queryFn: ({ pageParam }) =>
       graphqlClient.request<GetPostsByAccountQuery>({
         document: GetPostsByAccountDocument,
@@ -226,7 +247,7 @@ export function PostsSelectContent() {
           accountId: activeAccountId || '',
           cursor: pageParam,
           limit: 20,
-          onlyUnextracted: true,
+          statuses: statusFilter as GeneratedPostExtractionStatus[],
         },
       }),
     initialPageParam: null,
@@ -250,6 +271,17 @@ export function PostsSelectContent() {
       .filter((post) => (seen.has(post.id) ? false : (seen.add(post.id), true)));
   }, [postsData]);
 
+  // A selected post that has since left Pending (queued by this user elsewhere or by another
+  // subscriber) can no longer be selected: drop it so it is not submitted or counted.
+  useEffect(() => {
+    const stale = posts
+      .filter((post) => post.extractionStatus !== 'PENDING' && selectedPostIds.includes(post.id as string))
+      .map((post) => post.id as string);
+    if (stale.length > 0) {
+      stale.forEach((id) => togglePost(id));
+    }
+  }, [posts, selectedPostIds, togglePost]);
+
   // Refetch posts when scrape completes
   useEffect(() => {
     if (activeSub && scrapePollingStartTime && !activeSub.account.isScrapeInProgress) {
@@ -262,18 +294,33 @@ export function PostsSelectContent() {
   const { mutate: selectPosts, isPending: isExtracting } = useSelectPostsForExtractionMutation(
     graphqlClient,
     {
-      onSuccess: () => {
-        const count = selectedPostIds.length;
+      onSuccess: (data, variables) => {
+        const total = Array.isArray(variables.postIds) ? variables.postIds.length : 1;
+        const queued = data.selectPostsForExtraction.length;
         clearSelection();
-        toast.success(
-          t('title') === 'Extract Events'
-            ? `Successfully enqueued ${count} posts for extraction!`
-            : `Berhasil mengantrekan ${count} postingan untuk diekstrak!`
-        );
+        if (queued < total) {
+          // Some posts left Pending between selection and submit (for example queued by another
+          // subscriber of a co-author); the rest were queued.
+          toast.warning(t('selectionPartiallyQueued', { queued, total }));
+        } else {
+          toast.success(
+            t('title') === 'Extract Events'
+              ? `Successfully enqueued ${queued} posts for extraction!`
+              : `Berhasil mengantrekan ${queued} postingan untuk diekstrak!`
+          );
+        }
         refetchQuota();
         router.push(redirectPath);
       },
       onError: (err: any) => {
+        const code = err?.response?.errors?.[0]?.extensions?.code;
+        if (code === 'CONFLICT' || code === 'BAD_REQUEST') {
+          // None of the posts could be queued: they are no longer Pending.
+          clearSelection();
+          refetchPosts();
+          toast.error(t('selectionNoLongerPending'));
+          return;
+        }
         toast.error(err?.message || 'Failed to submit selection for extraction.');
       },
     }
@@ -419,13 +466,21 @@ export function PostsSelectContent() {
       </div>
 
       {/* Inactive Account Warning Banner */}
-      {activeSub?.isInactive && (
+      {activeSub?.activityState === 'INACTIVE' && (
         <div className="p-4 border rounded-xl bg-yellow-50 dark:bg-yellow-950/20 text-yellow-800 dark:text-yellow-200 border-yellow-200 dark:border-yellow-900/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
             <TriangleAlert className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
             <div className="space-y-1">
               <h4 className="font-semibold leading-tight">{t('inactiveAccountAlertTitle')}</h4>
               <p className="text-sm opacity-90 leading-normal">{t('inactiveAccountAlertDescription')}</p>
+              <p className="text-sm opacity-90 leading-normal">
+                {activeSub.latestPostAt
+                  ? t('inactiveAccountAlertDetails', {
+                      lastChecked: formatDate(activeSub.account.lastScrapedAt),
+                      latestPost: formatDate(activeSub.latestPostAt),
+                    })
+                  : t('inactiveAccountAlertNoPosts', { lastChecked: formatDate(activeSub.account.lastScrapedAt) })}
+              </p>
             </div>
           </div>
           <button
@@ -464,11 +519,30 @@ export function PostsSelectContent() {
                   />
 
                   <span>{sub.account.displayName}</span>
-                  {sub.isInactive && (
+                  {sub.activityState === 'INACTIVE' && (
                     <AlertCircle
                       className="h-4 w-4 text-yellow-500 shrink-0"
                       xlinkTitle={t('inactiveWarningTitle') || 'Inactive Account'}
                     />
+                  )}
+                  {sub.activityState === 'NEVER_SCRAPED' && (
+                    <span role="img" aria-label={t('neverScrapedBadgeTooltip')} title={t('neverScrapedBadgeTooltip')}>
+                      <Hourglass className="h-4 w-4 text-muted-foreground shrink-0" />
+                    </span>
+                  )}
+                  {sub.activityState === 'SCRAPE_IN_PROGRESS' && (
+                    <span role="img" aria-label={t('scrapeInProgressLabel')} title={t('scrapeInProgressLabel')}>
+                      <Loader2 className="h-4 w-4 text-sky-500 shrink-0 animate-spin" />
+                    </span>
+                  )}
+                  {sub.activityState === 'SCRAPE_STALE' && (
+                    <span
+                      role="img"
+                      aria-label={t('scrapeStaleBadgeTooltip', { date: formatDate(sub.account.lastScrapedAt) })}
+                      title={t('scrapeStaleBadgeTooltip', { date: formatDate(sub.account.lastScrapedAt) })}
+                    >
+                      <History className="h-4 w-4 text-muted-foreground shrink-0" />
+                    </span>
                   )}
                   {sub.account.accountTypeStatus === 'AWAITING_APPROVAL' && (
                     <Clock
@@ -495,6 +569,24 @@ export function PostsSelectContent() {
 
       {/* Tab Content */}
       <div className="mt-6">
+        {activeSub?.activityState === 'NEVER_SCRAPED' && (
+          <p className="mb-4 text-sm text-muted-foreground">{t('neverScrapedNote')}</p>
+        )}
+        {activeSub?.activityState === 'SCRAPE_STALE' && (
+          <p className="mb-4 text-sm text-muted-foreground">
+            {t('scrapeStaleNote', { date: formatDate(activeSub.account.lastScrapedAt) })}
+          </p>
+        )}
+        {activeSub && (
+          <div className="mb-4">
+            <ExtractionStatusFilter
+              value={statusFilter}
+              onChange={setStatusFilter}
+              groupLabel={t('extractionStatusFilterLabel')}
+              labels={statusLabels}
+            />
+          </div>
+        )}
         {postsLoading || !activeAccountId ? (
           <GridContainer baseCols={1} colsStep={1} gap="gap-4">
             {Array.from({ length: 8 }).map((_, i) => (
@@ -528,19 +620,26 @@ export function PostsSelectContent() {
             </p>
           </div>
         ) : posts.length === 0 ? (
-          <div className="text-center p-16 border rounded-xl border-dashed border-slate-200 dark:border-slate-800 space-y-4">
-            <p className="text-muted-foreground font-medium">{t('scrapePostsEmptyStateCta')}</p>
-            {renderScrapeControl()}
-          </div>
+          statusFilter.length === 1 && statusFilter[0] === 'PENDING' ? (
+            <div className="text-center p-16 border rounded-xl border-dashed border-slate-200 dark:border-slate-800 space-y-4">
+              <p className="text-muted-foreground font-medium">{t('scrapePostsEmptyStateCta')}</p>
+              {renderScrapeControl()}
+            </div>
+          ) : (
+            <div className="text-center p-16 border rounded-xl border-dashed border-slate-200 dark:border-slate-800">
+              <p className="text-muted-foreground font-medium">{t('noPostsForStatuses')}</p>
+            </div>
+          )
         ) : (
           <GridContainer baseCols={1} colsStep={1} gap="gap-4">
             {posts.map((post) => {
               const isSelected = selectedPostIds.includes(post.id as string);
-              const isProcessed = post.isExtracted;
+              const status = post.extractionStatus as PostExtractionStatus;
+              const isSelectable = status === 'PENDING';
               const quotaReached = selectedPostIds.length >= remainingQuota;
-              const isDisabled = isProcessed || (!isSelected && quotaReached);
-              const hoverTitle = isProcessed
-                ? 'Already processed'
+              const isDisabled = !isSelectable || (!isSelected && quotaReached);
+              const hoverTitle = !isSelectable
+                ? t('nonSelectableHint')
                 : !isSelected && quotaReached
                 ? 'You have reached your quota limit.'
                 : undefined;
@@ -559,8 +658,9 @@ export function PostsSelectContent() {
                       publishedAt: post.publishedAt,
                     }}
                     isSelected={isSelected}
-                    onSelectionChange={() => togglePost(post.id as string)}
+                    onSelectionChange={isSelectable ? () => togglePost(post.id as string) : undefined}
                     disabled={isDisabled}
+                    statusBadge={<StatusBadge variant={statusBadgeVariant[status]} label={statusLabels[status]} />}
                     labels={{
                       contentPlaceholder: t('nulledContentPlaceholder') || undefined,
                     }}

@@ -9,6 +9,7 @@ import { loadBackendEnv } from '../../env.js';
 import { isProviderCapacityAvailable } from '../scraper/usage-store.js';
 import { triggerScrapeForAccount } from '../scraper/trigger-scrape-for-account.js';
 import { classifyAccountType } from '../accounts/classify-account-type.js';
+import { findProfileByUsername } from '../accounts/find-profile-by-username.js';
 
 interface ProfileInput {
   displayName: string;
@@ -42,6 +43,16 @@ export async function subscribeToAccount({
     )
     .limit(1)
     .then((rows) => rows[0]);
+
+  // STOPGAP (BUG-059): a typed handle that matches the username of a row scrape ingestion already
+  // created under the vendor's numeric ID is the same platform account -- reuse that row instead
+  // of creating a handle-keyed twin whose posts would never be attached to the subscription.
+  if (!accountProfile && profile.username) {
+    const matchedByUsername = await findProfileByUsername(platform, profile.username);
+    if (matchedByUsername) {
+      accountProfile = matchedByUsername;
+    }
+  }
 
   // If absent, insert one and re-select safely (handling concurrent insertions). Story 3.16
   // (Task 3.1): this branch is now find-or-create ONLY -- the capacity check and the

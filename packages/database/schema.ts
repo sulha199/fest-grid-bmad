@@ -348,6 +348,11 @@ export const posts = pgTable('posts', {
   // and claim-ttl.ts for the full design). No default, no backfill -- every existing row is
   // correctly null/unclaimed. No index: every read/write is scoped by posts.id (primary key).
   queuedForExtractionAt: timestamp('queued_for_extraction_at', { withTimezone: true }),
+  // PRD 3.10 (2026-10-16) -- set by the AI processor when it begins a post, so the manual extract
+  // screen can tell QUEUED (claim made, processing not started) from EXTRACTING (processing started
+  // at or after the latest claim). Observational only: nothing gates on it, and a re-enqueue makes the
+  // new queued_for_extraction_at newer than it, which reads as QUEUED again. No index, no backfill.
+  extractionStartedAt: timestamp('extraction_started_at', { withTimezone: true }),
   ...timestamps,
 }, (t) => ({
   accountIdIdx: index('account_id_idx').on(t.accountId),
@@ -569,6 +574,25 @@ export const eventMerges = pgTable('event_merges', {
   ...timestamps,
   undoneAt: timestamp('undone_at', { withTimezone: true }),
 });
+
+// BUG-059 / spec-profile-identity-unification -- audit trail for merging a "twin" profile (a second
+// social_media_account_profiles row for the same platform account) into its survivor. Mirrors the
+// event_merges precedent: the full twin row and every id repointed per table are kept so a merge can
+// be reversed by a script. survivor_id has no cascade (the survivor outlives the merge); the twin row
+// itself is deleted and lives on only as twin_snapshot.
+export const accountProfileMerges = pgTable('account_profile_merges', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  survivorId: uuid('survivor_id').references(() => socialMediaAccountProfiles.id).notNull(),
+  twinAccountId: text('twin_account_id').notNull(),
+  twinSnapshot: jsonb('twin_snapshot').$type<Record<string, unknown>>().notNull(),
+  performedBy: text('performed_by').notNull(),
+  evidence: jsonb('evidence').$type<Record<string, unknown>>().notNull(),
+  repointed: jsonb('repointed').$type<Record<string, unknown>>().notNull(),
+  ...timestamps,
+  undoneAt: timestamp('undone_at', { withTimezone: true }),
+}, (t) => ({
+  survivorIdx: index('idx_account_profile_merges_survivor').on(t.survivorId),
+}));
 
 // Story 3.6p / AD-29 Rule 3 -- records why actualFaceDetectionCount is null (Story 3.6n/3.6o's
 // eventual backfill), so a null is never misread as "detection ran and found zero faces."

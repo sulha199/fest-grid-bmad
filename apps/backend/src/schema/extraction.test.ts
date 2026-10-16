@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
 import { users, posts, apiKeys, socialMediaAccountProfiles, subscriptions, manualExtractionJobs, vendorCallLocks, postAccountAssociations } from '@festgrid/database';
-import { and, eq, desc } from 'drizzle-orm';
+import { and, eq, desc, inArray } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import '../lib/scraper/register-adapters.js';
 import { callGeminiGenerateContent, setCallGeminiGenerateContent } from '../lib/ai-gateway/gemini-client.js';
@@ -674,8 +674,11 @@ test('manual post selection & extraction integration tests', async (t) => {
     }
   });
 
-  await t.test('Subscription.isInactive resolves to true if posts are older than 30 days', async () => {
+  await t.test('Subscription.isInactive resolves to true if the account was scraped recently and its posts are older than 30 days', async () => {
     mockUser = { userId: testUser.id, role: testUser.role };
+    // Story 5.4a: an account that has never been scraped is not inactive, so the fixture needs a recent
+    // completed scrape for "no recent posts" to mean something. Restored below.
+    await db.update(socialMediaAccountProfiles).set({ lastScrapedAt: new Date() }).where(eq(socialMediaAccountProfiles.id, testProfile.id));
 
     const response = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',
@@ -697,6 +700,7 @@ test('manual post selection & extraction integration tests', async (t) => {
     const sub = result.data.mySubscriptions.find((s: any) => s.id === testSubscription.id);
     assert.ok(sub);
     assert.strictEqual(sub.isInactive, true);
+    await db.update(socialMediaAccountProfiles).set({ lastScrapedAt: null }).where(eq(socialMediaAccountProfiles.id, testProfile.id));
   });
 
   await t.test('Subscription.isInactive resolves to false if there is a post within 30 days', async () => {
@@ -852,6 +856,84 @@ test('manual post selection & extraction integration tests', async (t) => {
     }
   });
 
+  await t.test('postsByAccount next-page cursor works and never skips posts that share a timestamp', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    const [pagingProfile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: `paging-${Date.now()}-${Math.random()}`,
+      platform: 'instagram',
+      username: 'paging-test-account',
+      displayName: 'Paging Test Account',
+    }).returning();
+    const [pagingSub] = await db.insert(subscriptions).values({
+      userId: testUser.id,
+      accountId: pagingProfile.id,
+    }).returning();
+    const sameInstant = new Date('2026-01-01T10:00:00.000Z');
+    const created = await db.insert(posts).values(
+      [0, 1, 2].map((i) => ({
+        accountId: pagingProfile.id,
+        platform: 'instagram',
+        content: `same-timestamp post ${i}`,
+        postUrl: `https://instagram.com/p/paging-${i}-${Date.now()}-${Math.random()}`,
+        publishedAt: sameInstant,
+      }))
+    ).returning();
+    const olderPost = (await db.insert(posts).values({
+      accountId: pagingProfile.id,
+      platform: 'instagram',
+      content: 'older post',
+      postUrl: `https://instagram.com/p/paging-old-${Date.now()}-${Math.random()}`,
+      publishedAt: new Date('2025-12-31T10:00:00.000Z'),
+    }).returning())[0];
+
+    try {
+      const query = `
+        query PostsByAccount($accountId: ID!, $cursor: String, $limit: Int) {
+          postsByAccount(accountId: $accountId, cursor: $cursor, limit: $limit) {
+            items { id }
+            nextCursor
+            hasMore
+          }
+        }
+      `;
+      const seen: string[] = [];
+      let cursor: string | null = null;
+      for (let guard = 0; guard < 10; guard++) {
+        const response: Response = await yoga.fetch('http://yoga/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, variables: { accountId: pagingProfile.id, limit: 1, cursor } })
+        });
+        const result: any = await response.json();
+        assert.ok(!result.errors, 'next page must not error: ' + JSON.stringify(result.errors));
+        seen.push(...result.data.postsByAccount.items.map((p: { id: string }) => p.id));
+        if (!result.data.postsByAccount.hasMore) break;
+        cursor = result.data.postsByAccount.nextCursor;
+      }
+      assert.strictEqual(new Set(seen).size, seen.length, 'no post is returned twice');
+      assert.deepStrictEqual(
+        [...seen].sort(),
+        [...created.map((p) => p.id), olderPost.id].sort(),
+        'every post is returned exactly once across pages'
+      );
+
+      // A bare ISO cursor (the previous format) is still accepted.
+      const legacy = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, variables: { accountId: pagingProfile.id, limit: 10, cursor: sameInstant.toISOString() } })
+      });
+      const legacyResult = await legacy.json();
+      assert.ok(!legacyResult.errors, 'legacy cursor accepted');
+      assert.deepStrictEqual(legacyResult.data.postsByAccount.items.map((p: { id: string }) => p.id), [olderPost.id]);
+    } finally {
+      await db.delete(posts).where(eq(posts.accountId, pagingProfile.id));
+      await db.delete(subscriptions).where(eq(subscriptions.id, pagingSub.id));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, pagingProfile.id));
+    }
+  });
+
   await t.test('postsByAccount and selectPostsForExtraction cover a post stored under a twin profile but scraped under the subscribed account', async () => {
     mockUser = { userId: testUser.id, role: testUser.role };
 
@@ -920,6 +1002,153 @@ test('manual post selection & extraction integration tests', async (t) => {
       await db.delete(postAccountAssociations).where(eq(postAccountAssociations.postId, twinPost.id));
       await db.delete(posts).where(eq(posts.id, twinPost.id));
       await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, twinProfile.id));
+    }
+  });
+
+  await t.test('postsByAccount filters by extraction status and returns the status of each post (PRD 3.10)', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+    const [statusProfile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: `status-${Date.now()}-${Math.random()}`,
+      platform: 'instagram',
+      username: 'status-filter-account',
+      displayName: 'Status Filter Account',
+    }).returning();
+    const [statusSub] = await db.insert(subscriptions).values({ userId: testUser.id, accountId: statusProfile.id }).returning();
+    const mk = async (tag: string, values: Partial<typeof posts.$inferInsert>) => (await db.insert(posts).values({
+      accountId: statusProfile.id,
+      platform: 'instagram',
+      content: tag,
+      postUrl: `https://instagram.com/p/status-${tag}-${Date.now()}-${Math.random()}`,
+      publishedAt: new Date(),
+      ...values,
+    }).returning())[0];
+
+    try {
+      const pending = await mk('pending', {});
+      const queued = await mk('queued', { queuedForExtractionAt: new Date() });
+      const extracting = await mk('extracting', { queuedForExtractionAt: new Date(Date.now() - 2000), extractionStartedAt: new Date() });
+      const promoted = await mk('promoted', { isExtracted: true, extractedEventCount: 1 });
+      const notEvent = await mk('notevent', { isExtracted: true });
+
+      const run = async (statuses?: string[]) => {
+        const response = await yoga.fetch('http://yoga/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: `query($accountId: ID!, $statuses: [PostExtractionStatus!]) {
+              postsByAccount(accountId: $accountId, limit: 100, statuses: $statuses) { items { id extractionStatus } }
+            }`,
+            variables: { accountId: statusProfile.id, statuses },
+          })
+        });
+        const result: any = await response.json();
+        assert.ok(!result.errors, 'should not have errors: ' + JSON.stringify(result.errors));
+        return new Map<string, string>(result.data.postsByAccount.items.map((p: any) => [p.id, p.extractionStatus]));
+      };
+
+      const all = await run();
+      assert.strictEqual(all.size, 5, 'no filter lists every post');
+      assert.strictEqual(all.get(pending.id), 'PENDING');
+      assert.strictEqual(all.get(queued.id), 'QUEUED');
+      assert.strictEqual(all.get(extracting.id), 'EXTRACTING');
+      assert.strictEqual(all.get(promoted.id), 'PROMOTED');
+      assert.strictEqual(all.get(notEvent.id), 'NOT_EVENT');
+
+      assert.deepStrictEqual([...(await run(['PENDING'])).keys()], [pending.id]);
+      assert.deepStrictEqual([...(await run(['PROMOTED', 'NOT_EVENT'])).keys()].sort(), [promoted.id, notEvent.id].sort());
+      assert.strictEqual((await run([])).size, 5, 'an empty filter means every status');
+    } finally {
+      await db.delete(posts).where(eq(posts.accountId, statusProfile.id));
+      await db.delete(subscriptions).where(eq(subscriptions.id, statusSub.id));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, statusProfile.id));
+    }
+  });
+
+  await t.test('a co-authored post is one post across both accounts: listed in each tab, selectable by a subscriber of only the co-author, queued once', async () => {
+    const stamp = `${Date.now()}-${Math.random()}`;
+    const [publisher] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: `co-pub-${stamp}`, platform: 'instagram', username: `co-pub-${stamp}`, displayName: 'Co Publisher',
+    }).returning();
+    const [coauthor] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: `co-auth-${stamp}`, platform: 'instagram', username: `co-auth-${stamp}`, displayName: 'Co Author',
+    }).returning();
+    const [coUser] = await db.insert(users).values({ email: `co-${Date.now()}@example.com`, role: 'user' }).returning();
+    const [coKey] = await db.insert(apiKeys).values({
+      userId: coUser.id, provider: 'gemini', keyEncrypted: 'mps-mock-encrypted-key-co', keyLast4: '7777',
+      isValid: true, invalidAttempts: 0, usageCount: 0, usageCycleResetAt: new Date(),
+    }).returning();
+    const [coSub] = await db.insert(subscriptions).values({ userId: coUser.id, accountId: coauthor.id }).returning();
+    const [post] = await db.insert(posts).values({
+      accountId: publisher.id, platform: 'instagram', content: 'co-authored post',
+      postUrl: `https://instagram.com/p/co-${stamp}`, publishedAt: new Date(),
+    }).returning();
+    await db.insert(postAccountAssociations).values([
+      { postId: post.id, accountId: publisher.id, role: 'PUBLISHER' },
+      { postId: post.id, accountId: coauthor.id, role: 'COAUTHOR' },
+    ]);
+    // The publisher account is subscribed to by testUser, the co-author account by coUser only.
+    const [pubSub] = await db.insert(subscriptions).values({ userId: testUser.id, accountId: publisher.id }).returning();
+
+    const list = async (user: any, accountId: string, statuses: string[]) => {
+      mockUser = { userId: user.id, role: user.role };
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `query($accountId: ID!, $statuses: [PostExtractionStatus!]) {
+            postsByAccount(accountId: $accountId, limit: 100, statuses: $statuses) { items { id extractionStatus } }
+          }`,
+          variables: { accountId, statuses },
+        })
+      });
+      const result: any = await response.json();
+      assert.ok(!result.errors, 'should not have errors: ' + JSON.stringify(result.errors));
+      return result.data.postsByAccount.items.map((p: any) => p.id as string);
+    };
+
+    try {
+      assert.ok((await list(testUser, publisher.id, ['PENDING'])).includes(post.id), 'listed in the publisher tab');
+      assert.ok((await list(coUser, coauthor.id, ['PENDING'])).includes(post.id), 'listed in the co-author tab');
+
+      // The co-author's subscriber selects it although posts.account_id is the publisher.
+      mockUser = { userId: coUser.id, role: coUser.role };
+      const select = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `mutation($postIds: [ID!]!) { selectPostsForExtraction(postIds: $postIds) { id extractionStatus } }`,
+          variables: { postIds: [post.id] },
+        })
+      });
+      const selectResult: any = await select.json();
+      assert.ok(!selectResult.errors, 'co-author subscriber may select it: ' + JSON.stringify(selectResult.errors));
+      assert.strictEqual(selectResult.data.selectPostsForExtraction[0].extractionStatus, 'QUEUED');
+
+      // It is now queued in BOTH tabs and no longer pending in either.
+      assert.ok((await list(testUser, publisher.id, ['QUEUED'])).includes(post.id));
+      assert.ok((await list(coUser, coauthor.id, ['QUEUED'])).includes(post.id));
+      assert.ok(!(await list(testUser, publisher.id, ['PENDING'])).includes(post.id));
+
+      // A second subscriber selecting the same post does not queue it again.
+      mockUser = { userId: testUser.id, role: testUser.role };
+      const again = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `mutation($postIds: [ID!]!) { selectPostsForExtraction(postIds: $postIds) { id } }`,
+          variables: { postIds: [post.id] },
+        })
+      });
+      const againResult: any = await again.json();
+      assert.ok(againResult.errors, 'a post already queued by the other account cannot be queued twice');
+      assert.strictEqual(againResult.errors[0].extensions?.code, 'CONFLICT');
+    } finally {
+      await db.delete(postAccountAssociations).where(eq(postAccountAssociations.postId, post.id));
+      await db.delete(posts).where(eq(posts.id, post.id));
+      await db.delete(subscriptions).where(inArray(subscriptions.id, [coSub.id, pubSub.id]));
+      await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, [publisher.id, coauthor.id]));
+      await db.delete(apiKeys).where(eq(apiKeys.id, coKey.id));
+      await db.delete(users).where(eq(users.id, coUser.id));
     }
   });
 

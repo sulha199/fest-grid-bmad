@@ -4,6 +4,8 @@ query getMySubscriptions {
     accountId
     isNewlyAdded
     isInactive
+    activityState
+    latestPostAt
     createdAt
     pendingExtractionCount
     account {

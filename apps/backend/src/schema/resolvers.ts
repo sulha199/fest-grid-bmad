@@ -6,11 +6,14 @@ import { events, schedules, posts, users, favorites, calendarAdditions, userLoca
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly, getRequestedFieldNames } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator } from '../lib/auth/context.js';
 import { buildEventAccountMatchCondition } from '../lib/events/event-account-match.js';
-import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, gte, lte, isNull, isNotNull, ilike } from 'drizzle-orm';
+import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, lt, gte, lte, isNull, isNotNull, ilike } from 'drizzle-orm';
 import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
-import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink, isScrapableAccountType } from '@festgrid/domain/scraper';
-import { postsScrapedUnderAccount, getPostAccessAccountIds } from '../lib/posts/posts-scraped-under-account.js';
+import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink, isScrapableAccountType, computeIsScrapeInProgress } from '@festgrid/domain/scraper';
+import { postsAssociatedWithAccount, getPostAccessAccountIds } from '../lib/posts/posts-associated-with-account.js';
+import { findProfileByUsername } from '../lib/accounts/find-profile-by-username.js';
+import { postExtractionStatusCondition, withExtractionStatus } from '../lib/posts/post-extraction-status.js';
+import { loadAccountActivity, type AccountActivity } from '../lib/accounts/load-account-activity.js';
 import { selectApiKey } from '@festgrid/domain/ai-gateway';
 import { callGemini, AiGatewayExhaustedError, AiGatewayBusyError } from '../lib/ai-gateway/adapter.js';
 import { fetchCandidateKeys } from '../lib/ai-gateway/usage-store.js';
@@ -204,6 +207,15 @@ async function batchEventRowsForIds(eventIds: string[], info: any, paths: Array<
 }
 
 
+/**
+ * One account-activity lookup per Subscription row per request: `isInactive`, `activityState` and
+ * `latestPostAt` all read it, and a single query selecting all three would otherwise run three times.
+ */
+function subscriptionActivity(parent: any): Promise<AccountActivity> {
+  parent.__activity ??= loadAccountActivity(parent.accountId);
+  return parent.__activity;
+}
+
 export const resolvers: Resolvers = {
   JSON: GraphQLJSON,
   Coordinates: {
@@ -235,30 +247,26 @@ export const resolvers: Resolvers = {
 
       return profile as any;
     },
+    // Posts the user can still select on the manual extract screen: every post the account owns or is
+    // associated with that is Pending (PRD 3.10).
     pendingExtractionCount: async (parent: any) => {
       const rows = await db.select({ count: count() })
         .from(posts)
         .where(
           and(
-            eq(posts.accountId, parent.accountId),
-            eq(posts.isExtracted, false)
+            postsAssociatedWithAccount(parent.accountId),
+            postExtractionStatusCondition(['PENDING'], loadBackendEnv().postExtractionClaimTtlMinutes)
           )
         );
       return rows[0]?.count ?? 0;
     },
-    isInactive: async (parent: any) => {
-      const rows = await db.select({ publishedAt: posts.publishedAt })
-        .from(posts)
-        .where(eq(posts.accountId, parent.accountId))
-        .orderBy(desc(posts.publishedAt))
-        .limit(1);
-      if (rows.length === 0) {
-        return true;
-      }
-      const mostRecent = rows[0].publishedAt;
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      return mostRecent < thirtyDaysAgo;
-    }
+    // The three fields below share one lookup per subscription row within a request.
+    isInactive: async (parent: any) => (await subscriptionActivity(parent)).state === 'INACTIVE',
+    activityState: async (parent: any) => (await subscriptionActivity(parent)).state,
+    latestPostAt: async (parent: any) => {
+      const { newestPostAt } = await subscriptionActivity(parent);
+      return newestPostAt ? newestPostAt.toISOString() : null;
+    },
   } as any,
   SocialMediaAccountProfile: {
     hasPendingDefaultLocationReview: async (parent: any) => {
@@ -288,23 +296,10 @@ export const resolvers: Resolvers = {
       }
 
       const env = loadBackendEnv();
-      const scrapeInProgressTimeoutHours = parseInt(env.scrapeInProgressTimeoutHours || '3', 10);
-      const timeoutMs = scrapeInProgressTimeoutHours * 60 * 60 * 1000;
-      const scrapeTimeoutBoundary = new Date(Date.now() - timeoutMs);
-
-      // If scrapeTriggeredAt is older than the timeout, consider it cleared (orphaned job)
-      if (profile.scrapeTriggeredAt < scrapeTimeoutBoundary) {
-        return false;
-      }
-
-      // In-progress if:
-      // - scrapeTriggeredAt is set AND
-      // - (lastScrapedAt is null OR lastScrapedAt < scrapeTriggeredAt)
-      if (profile.lastScrapedAt === null || profile.lastScrapedAt < profile.scrapeTriggeredAt) {
-        return true;
-      }
-
-      return false;
+      return computeIsScrapeInProgress(
+        { scrapeTriggeredAt: profile.scrapeTriggeredAt, lastScrapedAt: profile.lastScrapedAt },
+        parseInt(env.scrapeInProgressTimeoutHours || '3', 10)
+      );
     },
   } as any,
   Mutation: {
@@ -2253,7 +2248,10 @@ Constraints and Guidelines:
         throw err;
       }
 
-      const updatedPosts = await db.select().from(posts).where(inArray(posts.id, succeededIds));
+      const updatedPosts = await withExtractionStatus(
+        await db.select().from(posts).where(inArray(posts.id, succeededIds)),
+        loadBackendEnv().postExtractionClaimTtlMinutes
+      );
       return updatedPosts.map(p => ({
         ...p,
         publishedAt: p.publishedAt.toISOString()
@@ -2287,7 +2285,16 @@ Constraints and Guidelines:
           throw new GraphQLError('Account profile lookup failed or account not found on platform', { extensions: { code: 'BAD_REQUEST' } });
         }
         
-        const [profile] = await db.insert(socialMediaAccountProfiles)
+        // STOPGAP (BUG-059): reuse a profile a user already created from a typed handle instead of
+        // adding a numeric-keyed twin for the same platform account.
+        const handleKeyedProfile = await findProfileByUsername(
+          input.platform.toLowerCase(),
+          lookupResult.username,
+          { handleKeyedOnly: true }
+        );
+        const [profile] = handleKeyedProfile && handleKeyedProfile.accountId !== lookupResult.accountId
+          ? [handleKeyedProfile]
+          : await db.insert(socialMediaAccountProfiles)
           .values({
             platform: input.platform.toLowerCase(),
             accountId: lookupResult.accountId,
@@ -2761,7 +2768,7 @@ Constraints and Guidelines:
         .orderBy(desc(subscriptions.createdAt));
       return rows.map(row => formatSubscription(row));
     },
-    postsByAccount: async (_: any, { accountId, cursor, limit, onlyUnextracted }: any, context: any) => {
+    postsByAccount: async (_: any, { accountId, cursor, limit, onlyUnextracted, statuses }: any, context: any) => {
       const authUser = requireAuth(context);
 
       // Security Scope Check: Caller must have an active subscription to the account
@@ -2782,29 +2789,49 @@ Constraints and Guidelines:
 
       const qLimit = limit ?? 20;
       // Posts owned by the account, plus posts whose scrape ran under it but are stored under a
-      // twin profile of the same platform account (see posts-scraped-under-account.ts).
-      const conditions = [postsScrapedUnderAccount(accountId)];
+      // twin profile of the same platform account (see posts-associated-with-account.ts).
+      const conditions = [postsAssociatedWithAccount(accountId)];
       // Manual extraction only lists posts still awaiting extraction (PRD 3.10); the filter runs in
       // SQL so cursor pages stay full instead of being thinned out by client-side hiding.
       if (onlyUnextracted) {
         conditions.push(eq(posts.isExtracted, false));
       }
+      // PRD 3.10 status filter (multi-select). Omitted or empty means every status.
+      const claimTtlMinutes = loadBackendEnv().postExtractionClaimTtlMinutes;
+      if (Array.isArray(statuses) && statuses.length > 0) {
+        conditions.push(postExtractionStatusCondition(statuses, claimTtlMinutes));
+      }
+      // Keyset cursor "<publishedAt ISO>|<post id>": id breaks ties between posts sharing a
+      // timestamp so a page boundary never skips one. A bare ISO cursor (no "|") is still accepted.
+      // The comparison uses typed column helpers: a Date interpolated into a raw sql`` template is
+      // rejected by the postgres driver, which made every "next page" request fail.
       if (cursor) {
-        conditions.push(sql`${posts.publishedAt} < ${new Date(cursor)}`);
+        const [cursorTime, cursorId] = cursor.split('|');
+        const cursorDate = new Date(cursorTime);
+        if (Number.isNaN(cursorDate.getTime())) {
+          throw new GraphQLError('Invalid cursor', { extensions: { code: 'BAD_REQUEST' } });
+        }
+        conditions.push(
+          cursorId
+            ? or(lt(posts.publishedAt, cursorDate), and(eq(posts.publishedAt, cursorDate), lt(posts.id, cursorId)))!
+            : lt(posts.publishedAt, cursorDate)
+        );
       }
 
       const postsRows = await db.select()
         .from(posts)
         .where(and(...conditions))
-        .orderBy(desc(posts.publishedAt))
+        .orderBy(desc(posts.publishedAt), desc(posts.id))
         .limit(qLimit + 1);
 
       const hasMore = postsRows.length > qLimit;
       const items = hasMore ? postsRows.slice(0, qLimit) : postsRows;
-      const nextCursor = hasMore ? items[items.length - 1].publishedAt.toISOString() : null;
+      const lastItem = items[items.length - 1];
+      const nextCursor = hasMore ? `${lastItem.publishedAt.toISOString()}|${lastItem.id}` : null;
 
+      const itemsWithStatus = await withExtractionStatus(items, claimTtlMinutes);
       return {
-        items: items.map(p => ({
+        items: itemsWithStatus.map(p => ({
           ...p,
           publishedAt: p.publishedAt.toISOString()
         })),

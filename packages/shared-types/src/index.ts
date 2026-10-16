@@ -180,6 +180,8 @@ export interface Post {
   postUrl: string;
   originalPostUrl?: string;
   isExtracted?: boolean;
+  /** Derived extraction status shown on the manual extract screen (PRD 3.10). */
+  extractionStatus?: 'PENDING' | 'QUEUED' | 'EXTRACTING' | 'PROMOTED' | 'NOT_EVENT';
   publishedAt: DateTimeIso;
   locationName?: string;
   ownerDisplayName?: string;

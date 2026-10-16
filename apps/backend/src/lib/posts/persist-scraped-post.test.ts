@@ -883,4 +883,47 @@ test('persistScrapedPost integration tests', async (t) => {
     }
   });
 
+
+  await t.test('(z) STOPGAP BUG-059: a post whose owner username matches the handle-keyed profile of the scraping account is attributed to that profile, with no numeric twin', async () => {
+    const handle = 'twin_guard_z_' + Date.now();
+    const [handleProfile] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({ accountId: handle, platform: 'instagram', username: handle, displayName: 'Twin Guard Z' })
+      .returning();
+    const ownerId = '7' + Date.now();
+    const postUrl = 'https://instagram.com/p/twin_guard_z_' + Date.now();
+
+    try {
+      const result = await persistScrapedPost({
+        accountId: handleProfile.id,
+        platform: 'instagram',
+        content: 'Test content Z',
+        postUrl,
+        publishedAt: new Date().toISOString(),
+        ownerId,
+        ownerUsername: handle.toUpperCase(),
+        discoverySourceVendor: 'apify',
+      });
+
+      assert.strictEqual(result.post.accountId, handleProfile.id, 'posts.accountId is the handle-keyed profile the user subscribed to');
+      const twin = await db
+        .select()
+        .from(socialMediaAccountProfiles)
+        .where(and(eq(socialMediaAccountProfiles.platform, 'instagram'), eq(socialMediaAccountProfiles.accountId, ownerId)));
+      assert.strictEqual(twin.length, 0, 'no numeric-keyed twin row was created');
+      const associations = await db
+        .select()
+        .from(postAccountAssociations)
+        .where(eq(postAccountAssociations.postId, result.post.id));
+      const publisher = associations.find((a) => a.role === 'PUBLISHER');
+      assert.strictEqual(publisher?.accountId, handleProfile.id, 'the PUBLISHER association points at the handle-keyed profile');
+    } finally {
+      await cleanupPostAndAssociationsByUrl(postUrl);
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, handleProfile.id));
+      await db
+        .delete(socialMediaAccountProfiles)
+        .where(and(eq(socialMediaAccountProfiles.platform, 'instagram'), eq(socialMediaAccountProfiles.accountId, ownerId)));
+    }
+  });
+
 });

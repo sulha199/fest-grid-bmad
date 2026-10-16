@@ -1,0 +1,119 @@
+name: Merge Twin Profiles
+
+# Manual-only, dedicated workflow -- never runs on push/pull_request, and is separate from
+# ci.yml so a manual trigger only ever runs this one script, not the full CI/CD pipeline.
+# Runs apps/backend/scripts/merge-twin-profiles.ts (BUG-059): finds social_media_account_profiles
+# rows that are "twins" (same platform + username, more than one row) and merges each twin into its
+# survivor. Design and runbook: _bmad-output/specs/spec-profile-identity-unification/DESIGN.md
+# (sections 4 and 6).
+#
+# Like the backfill workflows it reads/writes only the database via DATABASE_URL, so no AWS
+# credentials step is needed. It writes to the account_profile_merges audit table (migration 0077),
+# so the ci.yml `db-migrate` job must have run against production first -- an --apply run without
+# that table rolls the merge back and changes nothing.
+#
+# Safe by default:
+#   * `apply` defaults to false: a dry run prints the plan and writes nothing. Run it first, read the
+#     plan, then re-run with apply checked.
+#   * Only groups with vendor-proven evidence and no blocker are merged. A group without evidence is
+#     listed as SKIP; merge it only by naming its username in `allow_without_evidence` after a human
+#     has confirmed it is the same account. Blockers (differing confirmed account types, differing
+#     image opt-in, differing usernames) are never overridden.
+#   * Each merge is one database transaction; a failure rolls that group back and nothing is half-done.
+#   * `environment: production` -- add required reviewers to that environment so an apply run needs
+#     approval before it starts.
+#   * Take a backup of the affected rows before an apply run (design doc section 6).
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Commit the merges (unchecked = dry run, writes nothing)'
+        required: true
+        type: boolean
+        default: false
+      allow_without_evidence:
+        description: >-
+          Optional. Comma-separated usernames to merge although the vendor evidence is missing, e.g.
+          plazaambarrukmo,slemancityhall. Only after a dry run and a human check. Blockers still apply.
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  merge-twin-profiles:
+    name: Merge Twin Profiles (manual)
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: merge-twin-profiles
+      cancel-in-progress: false
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'package.json'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Workspace packages (@festgrid/database, @festgrid/domain) resolve to their gitignored
+      # dist/ output, so they must be built before the script can import them.
+      - name: Build workspace packages
+        run: pnpm run build
+
+      - name: Run merge
+        env:
+          # loadBackendEnv() (run at import time by db/client.ts) requires this; the script never
+          # binds a port, so any valid number works.
+          BACKEND_PORT: '4001'
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # Passed through the environment, never interpolated into the shell command, and validated
+          # below, so the input cannot inject shell syntax.
+          ALLOW_WITHOUT_EVIDENCE: ${{ inputs.allow_without_evidence }}
+          APPLY: ${{ inputs.apply }}
+        run: |
+          set -euo pipefail
+          cd apps/backend
+
+          args=()
+          if [ "$APPLY" = "true" ]; then
+            args+=(--apply)
+          else
+            echo "::notice::Running in DRY RUN mode -- nothing will be written. Re-run with 'apply' checked to commit."
+          fi
+
+          if [ -n "$ALLOW_WITHOUT_EVIDENCE" ]; then
+            if ! printf '%s' "$ALLOW_WITHOUT_EVIDENCE" | grep -Eq '^[A-Za-z0-9._]+(,[A-Za-z0-9._]+)*$'; then
+              echo "::error::allow_without_evidence must be comma-separated usernames (letters, digits, '.' and '_'), no spaces."
+              exit 1
+            fi
+            args+=("--allow-without-evidence=$ALLOW_WITHOUT_EVIDENCE")
+          fi
+
+          npx tsx scripts/merge-twin-profiles.ts "${args[@]}" 2>&1 | tee "$RUNNER_TEMP/merge-twin-profiles.log"
+
+      - name: Publish the plan to the job summary
+        if: always()
+        env:
+          APPLY: ${{ inputs.apply }}
+          ALLOW_WITHOUT_EVIDENCE: ${{ inputs.allow_without_evidence }}
+        run: |
+          {
+            echo '### Merge Twin Profiles'
+            echo ''
+            echo "- apply: \`$APPLY\`"
+            echo "- allow_without_evidence: \`${ALLOW_WITHOUT_EVIDENCE:-none}\`"
+            echo ''
+            echo '```'
+            cat "$RUNNER_TEMP/merge-twin-profiles.log" 2>/dev/null || echo '(no output)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
