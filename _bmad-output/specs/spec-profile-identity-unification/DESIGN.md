@@ -113,14 +113,14 @@ Rules:
 5. **Manual "update username".** A moderator enters the new handle; a lookup returns the ID; the change is accepted only if it equals `account_id`.
 6. **ID wins.** When an ID is confirmed as the owner of name X, any other row still claiming X is marked stale and ignored by name lookups. Once that exists, a unique index on `(platform, lower(username))` becomes possible and the database enforces "one current owner per name". `username` is `NOT NULL`, so the stale marker needs a choice (a flag, or moving the row to a tombstoned name). Deferred until after the main change; reuse is rare.
 
-### 3.5 Subscribing to a brand-new handle (open decision)
+### 3.5 Subscribing to a brand-new handle (decided 2026-10-16: option A)
 
-A new handle needs an Apify lookup before the row can be created, which conflicts with Story 3.16 AC1 ("subscribing always succeeds"). Options:
+A handle with no existing row needs a vendor lookup to get its ID before the row can be created. **The lookup is mandatory.** There is no temporary handle-keyed row, so the CHECK constraint in 3.1 can be enforced.
 
-- **A. Make the lookup mandatory for unknown handles** (recommended). A failed or timed-out lookup returns a retryable error. This keeps the CHECK constraint enforceable. AC1 is already not absolute: `subscribeToAccount` aborts with `ScraperCapacityExceededError` when no scraper capacity is available (`subscribe-to-account.ts`, in the classification branch).
-- **B. Allow a temporary handle-keyed row** until a scrape returns the ID. Subscribing never fails, but the mixed key namespace and the transitional state come back, and the CHECK constraint cannot be enforced.
-
-Known handles (any existing row) never trigger a lookup.
+- **Known handles never trigger a lookup.** Any existing row matched by `lower(username)` is reused.
+- **Failure is a retryable error and nothing is created:** no profile row and no subscription. `castVote` already maps the lookup outcomes to GraphQL codes (`SCRAPE_TIMEOUT` on a timeout, `BAD_REQUEST` for a failed lookup or an account not found on the platform, `SCRAPER_CAPACITY_EXCEEDED` when capacity is exhausted); `subscribeToAccount` reuses the same mapping. The two subscribe screens (`subscribe-account-dialog.tsx`, `onboarding-subscribe-step.tsx`) already special-case `SCRAPER_CAPACITY_EXCEEDED`; they need messages for the other codes, in both locales.
+- **What this amends.** Story 3.16 AC1 ("subscription always succeeds", written for the classification cascade) no longer holds for an unknown handle. AC1 was already not absolute: `subscribeToAccount` aborts with `ScraperCapacityExceededError` when no scraper capacity is available. The story file `3-16-immediate-coauthor-publisher-subscribability.md` and its epics entry get a dated amendment note when story 2 of section 7 is created; the PRD has no "always succeeds" wording to change.
+- **Cost.** One Apify profile lookup (1 usage unit) per brand-new account. The existing classification fetch for a brand-new account is a second Apify call; whether it can return the ID too, making the lookup free, has not been verified.
 
 ## 4. Merging twins is a one-off migration tool
 
@@ -209,13 +209,16 @@ Documents to update when approved: Architecture Spine (new AD: `account_id` is t
 
 ## 8. Decisions
 
-Decided by the owner (2026-10-16):
+Decided (owner, 2026-10-16; items 3 to 6 are the recommended defaults, adopted at the owner's request):
 1. **Single field:** `account_id` holds the platform's numeric ID; no `platform_user_id` column; `username` is the current handle.
+2. **Subscribing to a brand-new handle:** option A, a mandatory lookup with a retryable error and nothing created on failure (3.5).
+3. **The merge script runs only on vendor-proven evidence (E1)** and stops and reports otherwise.
+4. **Undo is an audited script**, not a moderator UI.
+5. **The PROD cleanup (story 4) comes before rename and reuse handling (story 5)**, because it ends the curator-minimization gap for `laridijogja`.
+6. **No code stopgap in `process-ai-job`.** Until the cleanup, `laridijogja`'s 7 own posts (stored on the twin, so processed as non-curator, impact 3) must **not be extracted manually**. Why no stopgap:
+   - The exposure is narrow: auto-extraction never runs for these posts (impact 2), so only a manual selection by the one subscriber triggers it.
+   - A stopgap would have to decide which definition governs minimization: the type of `posts.account_id` (Story 3.4o today), the scraping source, or authorship (AD-31 "organizer-authored"). That is a policy question; deciding it inside a temporary patch would change behaviour for collaborator posts on every curator account, not only the twin ones.
+   - After the unification a curator's own posts are stored on the curator's row, so the 3.4o rule is correct for them with no change. Whether collaborator posts owned by an organizer should also be minimized is to be settled in the architecture step, not here.
 
-Open:
-2. **Subscribing to a new handle (3.5):** A (mandatory lookup, retryable error; recommended) or B (temporary handle-keyed row).
-3. **Merge script runs only on vendor-proven evidence (E1)** and stops otherwise (recommended).
-4. **Undo as an audited script**, not a moderator UI (recommended).
-5. **Do the PROD cleanup (story 4) before story 5**, because it ends the curator-minimization gap for `laridijogja` (recommended).
-6. **Curator stopgap:** until the cleanup, should `process-ai-job` also treat a post as curator-typed when its `SCRAPING_SOURCE` account is a curator? It closes impact 3 independent of the merge, at the cost of a second code path that story 2 makes redundant.
+Deferred:
 7. **Unique index on `lower(username)`** after the "ID wins" rule: later, if wanted.
