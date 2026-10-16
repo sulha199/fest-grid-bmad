@@ -55,4 +55,37 @@ describe('resolveStoredFilter', () => {
       /FilterNode validation/
     );
   });
+
+  it('tolerates a v2 row saved from a null-padded GraphQL FilterNode and returns the clean tree', () => {
+    const result = resolveStoredFilter({
+      version: 2,
+      expression: {
+        op: 'AND',
+        field: null,
+        value: null,
+        child: null,
+        children: [
+          { op: null, field: 'type', value: ['COMPETITION'], children: null, child: null },
+          { op: null, field: 'keyword', value: 'badminton', children: null, child: null },
+        ],
+      },
+    });
+    assert.deepEqual(result.expression, {
+      op: 'AND',
+      children: [
+        { field: 'type', value: ['COMPETITION'] },
+        { field: 'keyword', value: 'badminton' },
+      ],
+    });
+    assert.deepEqual(result.flatFilter, { types: ['COMPETITION'], keyword: 'badminton' });
+  });
+
+  it('treats a null-padded empty root AND as "no filter active" rather than a malformed tree', () => {
+    const result = resolveStoredFilter({
+      version: 2,
+      expression: { op: 'AND', field: null, value: null, children: [], child: null },
+    });
+    assert.deepEqual(result.expression, { op: 'AND', children: [] });
+    assert.deepEqual(result.flatFilter, {});
+  });
 });

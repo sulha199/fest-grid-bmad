@@ -796,6 +796,29 @@ test('events resolver integration via Yoga', async (t) => {
       assert.ok(!filterIds.has(otherEvent.id));
     });
 
+    await t.test('a null-padded expression (GraphQL FilterNode wire shape the web client echoes back) behaves like the clean one', async () => {
+      // GraphQL serializes EVERY FilterNode key on every node (absent ones as explicit null), and
+      // the web app sends that exact shape back as `expression` -- it previously crashed the
+      // compiler with "Cannot read properties of null (reading 'map')".
+      const padded = {
+        op: 'AND',
+        field: null,
+        value: null,
+        child: null,
+        children: [{ op: null, field: 'keyword', value: 'jazz event', children: null, child: null }],
+      };
+      const viaPadded = await queryEventsRaw({ expression: padded });
+      assert.ok(!viaPadded.errors, JSON.stringify(viaPadded.errors));
+      const viaClean = await queryEventsRaw({ expression: { field: 'keyword', value: 'jazz event' } });
+      assert.ok(!viaClean.errors, JSON.stringify(viaClean.errors));
+
+      const paddedIds = new Set(viaPadded.data.events.items.map((i: { id: string }) => i.id));
+      const cleanIds = new Set(viaClean.data.events.items.map((i: { id: string }) => i.id));
+      assert.deepStrictEqual(paddedIds, cleanIds);
+      assert.ok(paddedIds.has(jazzEvent.id));
+      assert.ok(!paddedIds.has(otherEvent.id));
+    });
+
     await t.test('an invalid expression (over-depth) returns BAD_USER_INPUT', async () => {
       // Nest four AND groups deep (depth 5), exceeding FILTER_NODE_MAX_DEPTH (3).
       const overDepth = {

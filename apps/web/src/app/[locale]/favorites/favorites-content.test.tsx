@@ -527,7 +527,7 @@ describe('FavoritesContent - Story 9.4a (AI filter expression wiring)', () => {
     op: 'OR',
     children: [
       { field: 'type', value: ['FESTIVAL'] },
-      { field: 'type', value: ['CONCERT'] },
+      { field: 'type', value: ['PERFORMANCE'] },
     ],
   };
 
@@ -555,7 +555,7 @@ describe('FavoritesContent - Story 9.4a (AI filter expression wiring)', () => {
     const expressionCondition = conditions.find((c: any) => c?.operator === 'or');
     expect(expressionCondition?.conditions).toEqual([
       { field: 'types', operator: 'in', value: ['FESTIVAL'] },
-      { field: 'types', operator: 'in', value: ['CONCERT'] },
+      { field: 'types', operator: 'in', value: ['PERFORMANCE'] },
     ]);
   });
 

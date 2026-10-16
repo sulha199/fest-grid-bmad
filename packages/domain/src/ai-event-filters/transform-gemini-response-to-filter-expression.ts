@@ -4,6 +4,9 @@ import { normalize } from './normalize-filter-node.js';
 import { expressionFromFlatFilter } from './flat-filter-conversion.js';
 import { transformGeminiResponseToEventFilter } from './transform-gemini-response-to-event-filter.js';
 
+export const EMPTY_EXPRESSION_CAVEAT =
+  'We could not turn your prompt into any filter. Try rephrasing it, e.g. "kids events in Yogyakarta this weekend".';
+
 export interface GeminiFilterExtractionResult {
   expression: FilterNode;
   caveats: string[];
@@ -26,6 +29,18 @@ function isEmptyExpression(node: FilterNode): boolean {
 }
 
 /**
+ * Leaf conditions carried directly on a raw object, via the existing (already-tested,
+ * already-defensive) flat transform -- zero new per-field parsing. `expressionFromFlatFilter`
+ * always returns its documented `{ op: 'AND', children }` shape (never a bare leaf); its return
+ * type is the broader `FilterNode` union only because that's the shared return type every function
+ * in this module uses.
+ */
+function leafChildrenOf(raw: Record<string, unknown>): FilterNode[] {
+  const flat = transformGeminiResponseToEventFilter(raw);
+  return (expressionFromFlatFilter(flat) as FilterGroupNode).children;
+}
+
+/**
  * Converts one raw JSON value from Gemini's tree-shaped response into zero, one, or several
  * sibling `FilterNode`s (Story 9.4 AC2). Never returns a nested wrapper for a leaf position -- a
  * leaf-shaped raw object with 2+ populated fields expands into multiple sibling leaves spliced
@@ -38,7 +53,15 @@ function convertRawNode(raw: unknown, pushedCaveats: string[]): FilterNode[] {
 
   if (raw.op === 'AND' || raw.op === 'OR') {
     const rawChildren = Array.isArray(raw.children) ? raw.children : [];
-    const children = rawChildren.flatMap((child) => convertRawNode(child, pushedCaveats));
+    // The response schema gives every level BOTH the group keys and all leaf fields, so Gemini
+    // can emit leaf fields directly on a group node (e.g. `{ op: "AND", categories: [...],
+    // location: {...} }` with no `children`). Those conditions are real -- keep them as extra
+    // children of THAT group, joined by its own operator (literal reading: the model put them on
+    // this node), instead of silently dropping them (SPEC CAP-2: surfaced, never dropped).
+    const children = [
+      ...rawChildren.flatMap((child) => convertRawNode(child, pushedCaveats)),
+      ...leafChildrenOf(raw),
+    ];
     if (children.length === 0) {
       return [];
     }
@@ -64,12 +87,7 @@ function convertRawNode(raw: unknown, pushedCaveats: string[]): FilterNode[] {
   // Leaf-shaped (no recognized `op`): reuse the existing, already-tested, already-defensive flat
   // transform + flat-to-expression conversion verbatim (Dev Notes decision 2) -- zero new
   // per-field parsing/validation logic.
-  const flat = transformGeminiResponseToEventFilter(raw);
-  // `expressionFromFlatFilter` always returns its documented `{ op: 'AND', children }` shape
-  // (never a bare leaf) -- its return type is the broader `FilterNode` union only because that's
-  // the shared return type every function in this module uses.
-  const expression = expressionFromFlatFilter(flat) as FilterGroupNode;
-  return expression.children;
+  return leafChildrenOf(raw);
 }
 
 /** Finds the `AND`/`OR` group node (anywhere in the tree, including nested) with the most
@@ -128,6 +146,14 @@ export function transformGeminiResponseToFilterExpression(payload: unknown): Gem
     // Known-flat legacy shape (AC2's "v1 flat response still accepted") -- reuses the existing
     // flat pipeline directly, skipping `convertRawNode` entirely.
     root = normalize(expressionFromFlatFilter(transformGeminiResponseToEventFilter(payload.resolvedFilter)));
+  } else if (isPlainObject(payload)) {
+    // Neither `expression` nor `resolvedFilter`: the model answered with the flat v1 shape at the
+    // top level (leaf fields + `caveats` side by side). Treat the payload itself as the node --
+    // `caveats` is not a leaf field, so the flat transform ignores it.
+    const siblings = convertRawNode(payload, pushedCaveats);
+    root = normalize(
+      siblings.length === 0 ? { op: 'AND', children: [] } : siblings.length === 1 ? siblings[0] : { op: 'AND', children: siblings }
+    );
   } else {
     root = { op: 'AND', children: [] };
   }
@@ -189,6 +215,12 @@ export function transformGeminiResponseToFilterExpression(payload: unknown): Gem
     isPlainObject(payload) && Array.isArray(payload.caveats)
       ? payload.caveats.filter((caveat): caveat is string => typeof caveat === 'string')
       : [];
+
+  // An empty filter that nobody explained is indistinguishable from "nothing happened" -- surface
+  // it (SPEC CAP-2) instead of returning a silent no-filter result.
+  if (isEmptyExpression(current) && modelCaveats.length === 0 && pushedCaveats.length === 0) {
+    pushedCaveats.push(EMPTY_EXPRESSION_CAVEAT);
+  }
 
   return {
     expression: current,
