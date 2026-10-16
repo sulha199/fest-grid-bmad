@@ -1574,12 +1574,6 @@ export enum WidgetTheme {
  * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING posts
  * can be selected for extraction.
  */
-export type PostExtractionStatus =
-  | 'EXTRACTING'
-  | 'NOT_EVENT'
-  | 'PENDING'
-  | 'PROMOTED'
-  | 'QUEUED';
 
 
 

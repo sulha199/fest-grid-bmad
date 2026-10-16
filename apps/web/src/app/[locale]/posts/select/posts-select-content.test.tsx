@@ -10,10 +10,10 @@ import { graphqlClient } from '@/lib/graphql-client';
 import { usePostSelectionStore } from './post-selection-store';
 
 const mockRouterPush = vi.fn();
-const { mockToastError, mockToastSuccess } = vi.hoisted(() => ({ mockToastError: vi.fn(), mockToastSuccess: vi.fn() }));
+const { mockToastError, mockToastSuccess, mockToastWarning } = vi.hoisted(() => ({ mockToastError: vi.fn(), mockToastSuccess: vi.fn(), mockToastWarning: vi.fn() }));
 
 vi.mock('sonner', () => ({
-  toast: { error: mockToastError, success: mockToastSuccess },
+  toast: { error: mockToastError, success: mockToastSuccess, warning: mockToastWarning },
 }));
 
 vi.mock('@/i18n/navigation', () => ({
@@ -111,6 +111,7 @@ beforeEach(() => {
       postUrl: 'https://instagram.com/p/post1',
       originalPostUrl: null,
       isExtracted: false,
+      extractionStatus: 'PENDING',
       publishedAt: '2026-08-10T12:00:00.000Z',
     },
     {
@@ -121,6 +122,7 @@ beforeEach(() => {
       postUrl: 'https://instagram.com/p/post2',
       originalPostUrl: null,
       isExtracted: false,
+      extractionStatus: 'PENDING',
       publishedAt: '2026-08-10T12:00:00.000Z',
     },
     {
@@ -131,6 +133,7 @@ beforeEach(() => {
       postUrl: 'https://instagram.com/p/post3',
       originalPostUrl: null,
       isExtracted: true,
+      extractionStatus: 'PROMOTED',
       publishedAt: '2026-08-10T12:00:00.000Z',
     },
   ];
@@ -164,9 +167,12 @@ beforeEach(() => {
       };
     }
     if (docStr.includes('getPostsByAccount')) {
+      const requestedStatuses: string[] | undefined = arg1?.variables?.statuses ?? arg2?.statuses;
       return {
         postsByAccount: {
-          items: mockPosts,
+          items: requestedStatuses && requestedStatuses.length > 0
+            ? mockPosts.filter((p: any) => requestedStatuses.includes(p.extractionStatus))
+            : mockPosts,
           nextCursor: null,
           hasMore: false,
         },
@@ -284,6 +290,7 @@ describe('PostsSelectContent integration', () => {
         postUrl: 'https://instagram.com/p/post1',
         originalPostUrl: null,
         isExtracted: false,
+        extractionStatus: 'PENDING',
         publishedAt: '2026-08-10T12:00:00.000Z',
       },
     ];
@@ -395,27 +402,133 @@ describe('PostsSelectContent integration', () => {
     expect(card2Container).toHaveAttribute('title', 'You have reached your quota limit.');
   });
 
-  it('disables and marks already processed posts as disabled', async () => {
-    renderComponent();
-
-    // Post 3 is already processed (isExtracted: true)
-    const card3Container = await screen.findByText('Post 3 content (Processed)');
-    const container = card3Container.closest('[title]');
-    expect(container).toHaveAttribute('title', 'Already processed');
-  });
-
-  it('requests only un-extracted posts, first page without a cursor', async () => {
+  it('shows only Pending posts by default and requests the first page without a cursor', async () => {
     renderComponent();
     await screen.findByText('Post 1 content');
+    expect(screen.queryByText('Post 3 content (Processed)')).not.toBeInTheDocument();
 
     const postCalls = vi.mocked(graphqlClient.request).mock.calls.filter((call: any) =>
       String(call[0]?.document ?? call[0]).includes('getPostsByAccount')
     );
     expect(postCalls.length).toBeGreaterThan(0);
     const vars: any = (postCalls[0][0] as any).variables;
-    expect(vars.onlyUnextracted).toBe(true);
+    expect(vars.statuses).toEqual(['PENDING']);
     expect(vars.limit).toBe(20);
     expect(vars.cursor ?? null).toBeNull();
+  });
+
+  describe('extraction status filter and selectability (PRD 3.10)', () => {
+    it('adds a status to the filter, requests it, and shows the post with its status badge and no checkbox', async () => {
+      renderComponent();
+      await screen.findByText('Post 1 content');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Promoted to event' }));
+
+      const processed = await screen.findByText('Post 3 content (Processed)');
+      // Status badge on the card (the filter chip has the same text, so look inside the card).
+      const card = processed.closest('article') as HTMLElement;
+      expect(card).toHaveTextContent('Promoted to event');
+      // Only Pending posts carry a checkbox; this one cannot be selected.
+      expect(card.querySelector('input[type="checkbox"]')).toBeNull();
+      expect(processed.closest('[title]')).toHaveAttribute('title', 'Only pending posts can be selected.');
+      // The still-pending posts keep their checkbox.
+      expect((screen.getByText('Post 1 content').closest('article') as HTMLElement).querySelector('input[type="checkbox"]')).not.toBeNull();
+
+      const statusRequests = vi.mocked(graphqlClient.request).mock.calls
+        .filter((call: any) => String(call[0]?.document ?? call[0]).includes('getPostsByAccount'))
+        .map((call: any) => (call[0] as any).variables.statuses);
+      expect(statusRequests).toContainEqual(['PENDING', 'PROMOTED']);
+    });
+
+    it('keeps at least one status selected', async () => {
+      renderComponent();
+      await screen.findByText('Post 1 content');
+      const pendingChip = screen.getByRole('button', { name: 'Pending' });
+      expect(pendingChip).toHaveAttribute('aria-pressed', 'true');
+      fireEvent.click(pendingChip);
+      expect(pendingChip).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    it('shows a filter-specific empty state, not the scrape prompt, when no post matches a non-default filter', async () => {
+      renderComponent();
+      await screen.findByText('Post 1 content');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Queued' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Pending' }));
+
+      expect(await screen.findByText('No posts with the selected statuses.')).toBeInTheDocument();
+    });
+
+    it('drops a selected post from the selection when a refreshed list shows it is no longer Pending', async () => {
+      renderComponent();
+      fireEvent.click(await screen.findByText('Post 1 content'));
+      expect(await screen.findByText('Selected Posts: 1 / 1')).toBeInTheDocument();
+
+      // Another subscriber queued post-1; the next fetch (here triggered by widening the filter) reports it.
+      mockPosts = mockPosts.map((p: any) => (p.id === 'post-1' ? { ...p, extractionStatus: 'QUEUED' } : p));
+      fireEvent.click(screen.getByRole('button', { name: 'Queued' }));
+
+      await waitFor(() => {
+        expect(screen.queryByText('Selected Posts: 1 / 1')).not.toBeInTheDocument();
+      });
+    });
+
+    it('keeps one selection for a post shown in several tabs: it stays selected when switching tab and counts once', async () => {
+      renderComponent();
+      fireEvent.click(await screen.findByText('Post 1 content'));
+      expect(await screen.findByText('Selected Posts: 1 / 1')).toBeInTheDocument();
+
+      // The mock returns the same posts for every account, as a co-authored post appears in each tab.
+      fireEvent.click(await screen.findByRole('button', { name: /Inactive Sub/ }));
+      const sameCard = (await screen.findByText('Post 1 content')).closest('article') as HTMLElement;
+      expect((sameCard.querySelector('input[type="checkbox"]') as HTMLInputElement).checked).toBe(true);
+      expect(screen.getByText('Selected Posts: 1 / 1')).toBeInTheDocument();
+    });
+
+    it('tells the user when only some of the selected posts could be queued', async () => {
+      mockQuota = { limit: 5, used: 0, remaining: 5 };
+      const baseImpl = vi.mocked(graphqlClient.request).getMockImplementation()!;
+      vi.mocked(graphqlClient.request).mockImplementation(async (arg1: any, arg2: any) => {
+        const docStr = arg1 && typeof arg1 === 'object' && 'document' in arg1 ? arg1.document.toString() : String(arg1 ?? '');
+        if (docStr.includes('selectPostsForExtraction')) {
+          return { selectPostsForExtraction: [{ id: 'post-1', isExtracted: false, extractionStatus: 'QUEUED' }] };
+        }
+        return baseImpl(arg1, arg2);
+      });
+
+      renderComponent();
+      fireEvent.click(await screen.findByText('Post 1 content'));
+      fireEvent.click(await screen.findByText('Post 2 content'));
+      fireEvent.click(await screen.findByRole('button', { name: 'Extract Events' }));
+
+      await waitFor(() => {
+        expect(mockToastWarning).toHaveBeenCalledWith('1 of 2 posts were queued. The others are no longer pending.');
+      });
+    });
+
+    it('explains and refreshes when none of the selected posts could be queued', async () => {
+      const baseImpl = vi.mocked(graphqlClient.request).getMockImplementation()!;
+      const conflict: any = new Error('Post is already queued for extraction');
+      conflict.response = { errors: [{ extensions: { code: 'CONFLICT' } }] };
+      vi.mocked(graphqlClient.request).mockImplementation(async (arg1: any, arg2: any) => {
+        const docStr = arg1 && typeof arg1 === 'object' && 'document' in arg1 ? arg1.document.toString() : String(arg1 ?? '');
+        if (docStr.includes('selectPostsForExtraction')) {
+          throw conflict;
+        }
+        return baseImpl(arg1, arg2);
+      });
+
+      renderComponent();
+      fireEvent.click(await screen.findByText('Post 1 content'));
+      fireEvent.click(await screen.findByRole('button', { name: 'Extract Events' }));
+
+      await waitFor(() => {
+        expect(mockToastError).toHaveBeenCalledWith('These posts are no longer pending. The list has been refreshed.');
+      });
+      await waitFor(() => {
+        expect(screen.queryByText('Selected Posts: 1 / 1')).not.toBeInTheDocument();
+      });
+    });
   });
 
   it('appends the next cursor page when the bottom sentinel scrolls into view', async () => {
@@ -436,7 +549,7 @@ describe('PostsSelectContent integration', () => {
         if (arg1?.variables?.cursor === 'cursor-1') {
           return {
             postsByAccount: {
-              items: [{ id: 'post-9', accountId: 'acc-1', content: 'Page two post', imageUrl: null, postUrl: 'https://instagram.com/p/post9', originalPostUrl: null, isExtracted: false, publishedAt: '2026-08-01T12:00:00.000Z' }],
+              items: [{ id: 'post-9', accountId: 'acc-1', content: 'Page two post', imageUrl: null, postUrl: 'https://instagram.com/p/post9', originalPostUrl: null, isExtracted: false, extractionStatus: 'PENDING', publishedAt: '2026-08-01T12:00:00.000Z' }],
               nextCursor: null,
               hasMore: false,
             },

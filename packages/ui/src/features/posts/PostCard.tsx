@@ -57,6 +57,7 @@ export function PostCard({
   locale,
   timezone,
   labels = {},
+  statusBadge,
 }: PostCardProps) {
   const defaultLabels = {
     imageFallbackAlt: 'No image available',
@@ -159,9 +160,12 @@ export function PostCard({
 
         {/* Footer section with Date & Link */}
         <div className="flex items-center justify-between text-muted-foreground mt-4 pt-3 border-t border-border/50 text-xs">
-          <time dateTime={post.publishedAt}>
-            {formattedDate}
-          </time>
+          <div className="flex items-center gap-2 min-w-0">
+            {statusBadge}
+            <time dateTime={post.publishedAt}>
+              {formattedDate}
+            </time>
+          </div>
           <a
             href={post.postUrl}
             target="_blank"

@@ -1,3 +1,4 @@
+import type * as React from 'react';
 import { Post } from '@festgrid/shared-types';
 
 export interface PostCardLabels {
@@ -39,6 +40,9 @@ export interface PostCardProps {
 
   /** Optional localized labels */
   labels?: PostCardLabels;
+
+  /** Optional badge shown in the card footer, e.g. the post's extraction status */
+  statusBadge?: React.ReactNode;
 }
 
 export interface PostCardSkeletonProps {
