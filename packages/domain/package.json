@@ -71,7 +71,8 @@
     "test": "tsx --test \"src/**/*.test.ts\""
   },
   "dependencies": {
-    "@festgrid/shared-types": "workspace:*"
+    "@festgrid/shared-types": "workspace:*",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@festgrid/eslint-config": "workspace:*",

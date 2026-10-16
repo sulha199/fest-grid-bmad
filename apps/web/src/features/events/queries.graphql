@@ -359,6 +359,25 @@ query getMyAIEventFilters {
       venueType
       isFree
     }
+    expression {
+      op
+      field
+      value
+      children {
+        op
+        field
+        value
+        children { op field value }
+        child { op field value }
+      }
+      child {
+        op
+        field
+        value
+        children { op field value }
+        child { op field value }
+      }
+    }
     createdAt
     updatedAt
     deletedAt

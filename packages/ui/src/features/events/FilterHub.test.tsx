@@ -318,6 +318,96 @@ describe('FilterHub', () => {
 
     fireEvent.click(clearBtn);
     expect(onAIClear).toHaveBeenCalled();
+
+    // Short summary (26 chars) must never render a Show more/Show less toggle.
+    expect(screen.queryByRole('button', { name: 'Show more' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Show less' })).not.toBeInTheDocument();
+  });
+
+  it('truncates a long AI filter summary behind a working Show more/Show less toggle', () => {
+    const longSummary =
+      'Jazz or blues events in Sleman or Bantul this weekend, excluding workshops and meetups';
+    expect(longSummary.length).toBeGreaterThan(70);
+
+    render(
+      <FilterHub
+        labels={{
+          ...defaultLabels,
+          aiSummaryShowMoreLabel: 'Show more',
+          aiSummaryShowLessLabel: 'Show less',
+        }}
+        types={mockTypes}
+        categories={mockCategories}
+        isAuthenticated={false}
+        isLoadingLocations={false}
+        savedLocations={[]}
+        selectedValue="off"
+        radiusKm={5}
+        isCapturingCurrentLocation={false}
+        currentLocationError={null}
+        onSelectLocation={vi.fn()}
+        onRadiusChange={vi.fn()}
+        aiFilterSummary={longSummary}
+        onAIClear={vi.fn()}
+        onAIExpand={vi.fn()}
+      />
+    );
+
+    const summarySpan = screen.getByText(longSummary);
+    expect(summarySpan).toHaveClass('truncate');
+
+    const toggleBtn = screen.getByRole('button', { name: 'Show more' });
+    expect(toggleBtn).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(toggleBtn);
+
+    const toggledBtn = screen.getByRole('button', { name: 'Show less' });
+    expect(toggledBtn).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText(longSummary)).not.toHaveClass('truncate');
+
+    fireEvent.click(toggledBtn);
+
+    const revertedBtn = screen.getByRole('button', { name: 'Show more' });
+    expect(revertedBtn).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText(longSummary)).toHaveClass('truncate');
+  });
+
+  it('keeps aiCaveatsText visible and unchanged across the Show more/Show less toggle', () => {
+    const longSummary =
+      'Jazz or blues events in Sleman or Bantul this weekend, excluding workshops and meetups';
+
+    render(
+      <FilterHub
+        labels={{
+          ...defaultLabels,
+          aiSummaryShowMoreLabel: 'Show more',
+          aiSummaryShowLessLabel: 'Show less',
+        }}
+        types={mockTypes}
+        categories={mockCategories}
+        isAuthenticated={false}
+        isLoadingLocations={false}
+        savedLocations={[]}
+        selectedValue="off"
+        radiusKm={5}
+        isCapturingCurrentLocation={false}
+        currentLocationError={null}
+        onSelectLocation={vi.fn()}
+        onRadiusChange={vi.fn()}
+        aiFilterSummary={longSummary}
+        aiCaveatsText="Missing ticket price"
+        onAIClear={vi.fn()}
+        onAIExpand={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('(Missing ticket price)')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show more' }));
+    expect(screen.getByText('(Missing ticket price)')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show less' }));
+    expect(screen.getByText('(Missing ticket price)')).toBeInTheDocument();
   });
 
 });

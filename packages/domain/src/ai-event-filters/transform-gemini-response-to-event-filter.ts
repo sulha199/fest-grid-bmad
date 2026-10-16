@@ -1,5 +1,12 @@
 import { EventType, EventCategory } from '@festgrid/shared-types';
-import { DateAnchor, DateOffsetUnit, DayOfWeek, EventFilterInput } from '../events/buildEventsQueryCondition.js';
+import {
+  DateAnchor,
+  DateOffsetUnit,
+  DayOfWeek,
+  EventFilterInput,
+  TemporalFilter,
+  DATE_OFFSET_AMOUNT_BOUNDS,
+} from '../events/buildEventsQueryCondition.js';
 
 export function transformGeminiResponseToEventFilter(payload: unknown): EventFilterInput {
   if (!payload || typeof payload !== 'object') {
@@ -39,7 +46,10 @@ export function transformGeminiResponseToEventFilter(payload: unknown): EventFil
     result.keyword = source.keyword;
   }
 
-  // 5. dateRange
+  // 5. dateRange (DW-077: offsetAmount is bounds-checked here too; a violation omits the whole
+  // dateRange, same as every other unparseable-field case in this function -- untrusted model
+  // output degrades gracefully rather than throwing, unlike resolveDateRangeFilter's throw path
+  // for the trusted/direct-GraphQL caller.)
   if (source.dateRange && typeof source.dateRange === 'object') {
     const dr = source.dateRange as Record<string, unknown>;
     const anchor = Object.values(DateAnchor).includes(dr.anchor as DateAnchor)
@@ -50,20 +60,63 @@ export function transformGeminiResponseToEventFilter(payload: unknown): EventFil
       : undefined;
     const offsetAmount = typeof dr.offsetAmount === 'number' ? dr.offsetAmount : parseInt(String(dr.offsetAmount), 10);
 
-    if (anchor && offsetUnit && !isNaN(offsetAmount)) {
-      result.dateRange = {
-        anchor,
-        offsetAmount,
-        offsetUnit,
-      };
+    if (
+      anchor &&
+      offsetUnit &&
+      !isNaN(offsetAmount) &&
+      Math.abs(offsetAmount) <= DATE_OFFSET_AMOUNT_BOUNDS[offsetUnit]
+    ) {
+      const dateRange: NonNullable<EventFilterInput['dateRange']> = { anchor, offsetAmount, offsetUnit };
+
+      // Additive-only span (AC1): omits just the span fields (not the whole dateRange) on a
+      // bound violation or malformed shape -- span is a strictly additive enhancement, so the
+      // base anchor/offset resolution should still work even if the model's span value is bad.
+      const spanUnit = Object.values(DateOffsetUnit).includes(dr.spanUnit as DateOffsetUnit)
+        ? (dr.spanUnit as DateOffsetUnit)
+        : undefined;
+      const spanAmount = typeof dr.spanAmount === 'number' ? dr.spanAmount : parseInt(String(dr.spanAmount), 10);
+      if (
+        spanUnit &&
+        !isNaN(spanAmount) &&
+        Number.isInteger(spanAmount) &&
+        spanAmount >= 1 &&
+        spanAmount <= DATE_OFFSET_AMOUNT_BOUNDS[spanUnit]
+      ) {
+        dateRange.spanAmount = spanAmount;
+        dateRange.spanUnit = spanUnit;
+      }
+
+      result.dateRange = dateRange;
     }
   }
 
-  // 6. dayOfWeek
+  // 6. dayOfWeek -- accepts either a single weekday string (existing behavior, output stays a
+  // bare string) or an array of weekday strings (new, AC2): filters to valid DayOfWeek members,
+  // outputting a bare string when exactly one valid value survives (preserves the existing
+  // singular-output contract) or an array when 2+.
   if (typeof source.dayOfWeek === 'string') {
     const dow = source.dayOfWeek.toUpperCase() as DayOfWeek;
     if (Object.values(DayOfWeek).includes(dow)) {
       result.dayOfWeek = dow;
+    }
+  } else if (Array.isArray(source.dayOfWeek)) {
+    const validDows = source.dayOfWeek
+      .filter((d): d is string => typeof d === 'string')
+      .map((d) => d.toUpperCase() as DayOfWeek)
+      .filter((d) => Object.values(DayOfWeek).includes(d));
+    if (validDows.length === 1) {
+      result.dayOfWeek = validDows[0];
+    } else if (validDows.length > 1) {
+      result.dayOfWeek = validDows;
+    }
+  }
+
+  // temporalFilter (AC2): extracted the same way as dayOfWeek/anchor -- a field this function
+  // did not read at all before this story.
+  if (typeof source.temporalFilter === 'string') {
+    const tf = source.temporalFilter.toUpperCase() as TemporalFilter;
+    if (Object.values(TemporalFilter).includes(tf)) {
+      result.temporalFilter = tf;
     }
   }
 

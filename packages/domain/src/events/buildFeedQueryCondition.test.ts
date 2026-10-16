@@ -2,6 +2,8 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { isGroupCondition, QueryCondition } from '../query/queryDsl.js';
 import { buildFeedQueryCondition } from './buildFeedQueryCondition.js';
+import { compileFilterNodeToQueryCondition } from '../ai-event-filters/compile-filter-node.js';
+import type { FilterNode } from '../ai-event-filters/filter-node.js';
 
 function groupConditions(condition: QueryCondition): QueryCondition[] {
   assert.ok(isGroupCondition(condition), 'expected a group condition');
@@ -212,6 +214,25 @@ describe('buildFeedQueryCondition', () => {
     });
 
     assert.deepEqual(groupConditions(result), [{ field: 'isFromSubscribedAccount', operator: 'eq', value: true }]);
+  });
+
+  it('Story 9.3 AC3: an expression-only call compiles and merges exactly like calling compileFilterNodeToQueryCondition directly then AND-wrapping with the base conditions', () => {
+    const expression: FilterNode = { field: 'isFree', value: true };
+    const result = buildFeedQueryCondition({
+      search: '',
+      types: [],
+      categories: [],
+      expression,
+    });
+
+    const expectedExpressionCondition = compileFilterNodeToQueryCondition(expression);
+    assert.deepEqual(result, {
+      operator: 'and',
+      conditions: [
+        { field: 'isFromSubscribedAccount', operator: 'eq', value: true },
+        expectedExpressionCondition,
+      ],
+    });
   });
 
   it('applies the temporal filter on top of an AI filter, falling back to the AI filter own value', () => {

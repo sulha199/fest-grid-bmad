@@ -2,6 +2,8 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { isGroupCondition, QueryCondition } from '../query/queryDsl.js';
 import { buildAccountEventsQueryCondition } from './buildAccountEventsQueryCondition.js';
+import { compileFilterNodeToQueryCondition } from '../ai-event-filters/compile-filter-node.js';
+import type { FilterNode } from '../ai-event-filters/filter-node.js';
 
 function groupConditions(condition: QueryCondition): QueryCondition[] {
   assert.ok(isGroupCondition(condition), 'expected a group condition');
@@ -93,5 +95,25 @@ describe('buildAccountEventsQueryCondition', () => {
     });
 
     assert.deepEqual(groupConditions(result), [{ field: 'socialMediaAccountProfileId', operator: 'in', value: ['acc-uuid-1'] }]);
+  });
+
+  it('Story 9.3 AC3: an expression-only call compiles and merges exactly like calling compileFilterNodeToQueryCondition directly then AND-wrapping with the base conditions', () => {
+    const expression: FilterNode = { field: 'isFree', value: true };
+    const result = buildAccountEventsQueryCondition({
+      search: '',
+      types: [],
+      categories: [],
+      profileId: 'acc-uuid-1',
+      expression,
+    });
+
+    const expectedExpressionCondition = compileFilterNodeToQueryCondition(expression);
+    assert.deepEqual(result, {
+      operator: 'and',
+      conditions: [
+        { field: 'socialMediaAccountProfileId', operator: 'in', value: ['acc-uuid-1'] },
+        expectedExpressionCondition,
+      ],
+    });
   });
 });

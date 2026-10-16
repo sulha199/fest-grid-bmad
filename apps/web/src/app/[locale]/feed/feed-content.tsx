@@ -96,6 +96,8 @@ export function FeedContent() {
       aiTriggerTooltip: tFilterHub("aiTriggerTooltip"),
       aiClearLabel: tFilterHub("aiClearLabel"),
       aiExpandLabel: tFilterHub("aiExpandLabel"),
+      aiSummaryShowMoreLabel: tFilterHub("aiSummaryShowMoreLabel"),
+      aiSummaryShowLessLabel: tFilterHub("aiSummaryShowLessLabel"),
       locationFilterLabels: {
         filterLabel: tNearby("filterLabel"),
         offOptionLabel: tNearby("offOptionLabel"),
@@ -140,14 +142,15 @@ export function FeedContent() {
       categories,
       subscriptions: subscriptionsQuery,
       nearby: resolvedNearby,
-      filter: aiFilter.activeFilter ?? undefined,
+      filter: aiFilter.activeExpression ? undefined : aiFilter.activeFilter ?? undefined,
+      expression: aiFilter.activeExpression ?? undefined,
       temporalFilter,
     });
-  }, [q, types, categories, subscriptionsQuery, resolvedNearby, aiFilter.activeFilter, temporalFilter]);
+  }, [q, types, categories, subscriptionsQuery, resolvedNearby, aiFilter.activeFilter, aiFilter.activeExpression, temporalFilter]);
 
   const prefersReducedMotion = usePrefersReducedMotion();
   const pagination = useListPaginationController({
-    filterKey: { q, types, categories, subscriptions: subscriptionsQuery, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter, temporalFilter },
+    filterKey: { q, types, categories, subscriptions: subscriptionsQuery, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter, aiExpression: aiFilter.activeExpression, temporalFilter },
     initialCursor: 0,
     onReset: () => {
       if (typeof window !== 'undefined') {
@@ -164,7 +167,7 @@ export function FeedContent() {
     status: listStatus,
     error,
   } = useInfiniteQuery<GetEventsQuery, Error, InfiniteData<GetEventsQuery>, any[], number>({
-    queryKey: ["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter, temporalFilter }, pagination.resetToken],
+    queryKey: ["events", "feed", { q, types, categories, subscriptions: subscriptionsQuery, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter, aiExpression: aiFilter.activeExpression, temporalFilter }, pagination.resetToken],
     queryFn: async ({ pageParam }) => {
       return graphqlClient.request<GetEventsQuery>(GetEventsDocument, {
         limit: 10,

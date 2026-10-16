@@ -11,7 +11,8 @@ enum WidgetTheme {
 type Widget {
   id: ID!
   ownerUserId: ID!
-  filters: EventFilter!
+  filters: EventFilter
+  expression: FilterNode!
   displayMode: WidgetDisplayMode!
   theme: WidgetTheme!
   createdAt: String!
@@ -19,13 +20,15 @@ type Widget {
 }
 
 input CreateWidgetInput {
-  filters: EventFilterInput!
+  filters: EventFilterInput
+  expression: FilterNodeInput
   displayMode: WidgetDisplayMode
   theme: WidgetTheme
 }
 
 input UpdateWidgetInput {
   filters: EventFilterInput
+  expression: FilterNodeInput
   displayMode: WidgetDisplayMode
   theme: WidgetTheme
 }

@@ -1,0 +1,19 @@
+{
+  "createdAt": "2026-10-14T17:39:56.842Z",
+  "mode": "epic",
+  "modeValue": "9",
+  "epicsFile": "/home/user/fest-grid-bmad/_bmad-output/planning-artifacts/epics.md",
+  "implementationArtifacts": "/home/user/fest-grid-bmad/_bmad-output/implementation-artifacts",
+  "order": [
+    "9.1a",
+    "9.1b",
+    "9.2",
+    "9.3",
+    "9.4",
+    "9.5",
+    "9.6",
+    "9.7",
+    "9.8",
+    "9.9z"
+  ]
+}

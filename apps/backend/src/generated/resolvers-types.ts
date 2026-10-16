@@ -24,10 +24,11 @@ export type AiEventFilter = {
   __typename?: 'AIEventFilter';
   createdAt: Scalars['String']['output'];
   deletedAt?: Maybe<Scalars['String']['output']>;
+  expression: FilterNode;
   id: Scalars['ID']['output'];
   ownerUserId: Scalars['ID']['output'];
   prompt: Scalars['String']['output'];
-  resolvedFilter: EventFilter;
+  resolvedFilter?: Maybe<EventFilter>;
   updatedAt: Scalars['String']['output'];
 };
 
@@ -168,7 +169,8 @@ export type CreateUserLocationInput = {
 
 export type CreateWidgetInput = {
   displayMode?: InputMaybe<WidgetDisplayMode>;
-  filters: EventFilterInput;
+  expression?: InputMaybe<FilterNodeInput>;
+  filters?: InputMaybe<EventFilterInput>;
   theme?: InputMaybe<WidgetTheme>;
 };
 
@@ -187,12 +189,16 @@ export type DateRangeFilter = {
   anchor: DateAnchor;
   offsetAmount: Scalars['Int']['output'];
   offsetUnit: DateOffsetUnit;
+  spanAmount?: Maybe<Scalars['Int']['output']>;
+  spanUnit?: Maybe<DateOffsetUnit>;
 };
 
 export type DateRangeFilterInput = {
   anchor: DateAnchor;
   offsetAmount: Scalars['Int']['input'];
   offsetUnit: DateOffsetUnit;
+  spanAmount?: InputMaybe<Scalars['Int']['input']>;
+  spanUnit?: InputMaybe<DateOffsetUnit>;
 };
 
 export type DayOfWeek =
@@ -318,7 +324,7 @@ export type EventFilter = {
   accountId?: Maybe<Scalars['ID']['output']>;
   categories?: Maybe<Array<EventCategory>>;
   dateRange?: Maybe<DateRangeFilter>;
-  dayOfWeek?: Maybe<DayOfWeek>;
+  dayOfWeek?: Maybe<Array<DayOfWeek>>;
   isFree?: Maybe<Scalars['Boolean']['output']>;
   keyword?: Maybe<Scalars['String']['output']>;
   location?: Maybe<LocationFilter>;
@@ -330,7 +336,7 @@ export type EventFilterInput = {
   accountId?: InputMaybe<Scalars['ID']['input']>;
   categories?: InputMaybe<Array<EventCategory>>;
   dateRange?: InputMaybe<DateRangeFilterInput>;
-  dayOfWeek?: InputMaybe<DayOfWeek>;
+  dayOfWeek?: InputMaybe<Array<DayOfWeek>>;
   isFree?: InputMaybe<Scalars['Boolean']['input']>;
   keyword?: InputMaybe<Scalars['String']['input']>;
   location?: InputMaybe<LocationFilterInput>;
@@ -422,6 +428,23 @@ export type ExtractionQuota = {
   limit: Scalars['Int']['output'];
   remaining: Scalars['Int']['output'];
   used: Scalars['Int']['output'];
+};
+
+export type FilterNode = {
+  __typename?: 'FilterNode';
+  child?: Maybe<FilterNode>;
+  children?: Maybe<Array<FilterNode>>;
+  field?: Maybe<Scalars['String']['output']>;
+  op?: Maybe<Scalars['String']['output']>;
+  value?: Maybe<Scalars['JSON']['output']>;
+};
+
+export type FilterNodeInput = {
+  child?: InputMaybe<FilterNodeInput>;
+  children?: InputMaybe<Array<FilterNodeInput>>;
+  field?: InputMaybe<Scalars['String']['input']>;
+  op?: InputMaybe<Scalars['String']['input']>;
+  value?: InputMaybe<Scalars['JSON']['input']>;
 };
 
 export type GeolocationProvider =
@@ -725,8 +748,9 @@ export type MutationRestoreEventArgs = {
 
 
 export type MutationSaveAiEventFilterArgs = {
+  expression?: InputMaybe<FilterNodeInput>;
   prompt: Scalars['String']['input'];
-  resolvedFilter: EventFilterInput;
+  resolvedFilter?: InputMaybe<EventFilterInput>;
 };
 
 
@@ -1021,6 +1045,7 @@ export type QueryEventBySlugArgs = {
 
 
 export type QueryEventsArgs = {
+  expression?: InputMaybe<FilterNodeInput>;
   filter?: InputMaybe<EventFilterInput>;
   includeMyArchived?: InputMaybe<Scalars['Boolean']['input']>;
   includeSoftDeleted?: InputMaybe<Scalars['Boolean']['input']>;
@@ -1219,6 +1244,7 @@ export type ResolveScheduleTimezoneResult = {
 export type ResolvedAiEventFilterResult = {
   __typename?: 'ResolvedAIEventFilterResult';
   caveats: Array<Scalars['String']['output']>;
+  expression: FilterNode;
   resolvedFilter: EventFilter;
 };
 
@@ -1462,6 +1488,7 @@ export type UpdateUserSettingsInput = {
 
 export type UpdateWidgetInput = {
   displayMode?: InputMaybe<WidgetDisplayMode>;
+  expression?: InputMaybe<FilterNodeInput>;
   filters?: InputMaybe<EventFilterInput>;
   theme?: InputMaybe<WidgetTheme>;
 };
@@ -1505,7 +1532,8 @@ export type Widget = {
   createdAt: Scalars['String']['output'];
   deletedAt?: Maybe<Scalars['String']['output']>;
   displayMode: WidgetDisplayMode;
-  filters: EventFilter;
+  expression: FilterNode;
+  filters?: Maybe<EventFilter>;
   id: Scalars['ID']['output'];
   ownerUserId: Scalars['ID']['output'];
   theme: WidgetTheme;
@@ -1639,6 +1667,8 @@ export type ResolversTypes = ResolversObject<{
   ExtractionJobState: ExtractionJobState;
   ExtractionJobStatus: ResolverTypeWrapper<ExtractionJobStatus>;
   ExtractionQuota: ResolverTypeWrapper<ExtractionQuota>;
+  FilterNode: ResolverTypeWrapper<FilterNode>;
+  FilterNodeInput: FilterNodeInput;
   Float: ResolverTypeWrapper<Scalars['Float']['output']>;
   GeolocationProvider: GeolocationProvider;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
@@ -1753,6 +1783,8 @@ export type ResolversParentTypes = ResolversObject<{
   ExtractEventDataFromUrlResult: ExtractEventDataFromUrlResult;
   ExtractionJobStatus: ExtractionJobStatus;
   ExtractionQuota: ExtractionQuota;
+  FilterNode: FilterNode;
+  FilterNodeInput: FilterNodeInput;
   Float: Scalars['Float']['output'];
   ID: Scalars['ID']['output'];
   InstagramEmbed: InstagramEmbed;
@@ -1818,10 +1850,11 @@ export type ResolversParentTypes = ResolversObject<{
 export type AiEventFilterResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AIEventFilter'] = ResolversParentTypes['AIEventFilter']> = ResolversObject<{
   createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   deletedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  expression?: Resolver<ResolversTypes['FilterNode'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   ownerUserId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   prompt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  resolvedFilter?: Resolver<ResolversTypes['EventFilter'], ParentType, ContextType>;
+  resolvedFilter?: Resolver<Maybe<ResolversTypes['EventFilter']>, ParentType, ContextType>;
   updatedAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -1902,6 +1935,8 @@ export type DateRangeFilterResolvers<ContextType = GraphQLContext, ParentType ex
   anchor?: Resolver<ResolversTypes['DateAnchor'], ParentType, ContextType>;
   offsetAmount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   offsetUnit?: Resolver<ResolversTypes['DateOffsetUnit'], ParentType, ContextType>;
+  spanAmount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  spanUnit?: Resolver<Maybe<ResolversTypes['DateOffsetUnit']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1983,7 +2018,7 @@ export type EventFilterResolvers<ContextType = GraphQLContext, ParentType extend
   accountId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
   categories?: Resolver<Maybe<Array<ResolversTypes['EventCategory']>>, ParentType, ContextType>;
   dateRange?: Resolver<Maybe<ResolversTypes['DateRangeFilter']>, ParentType, ContextType>;
-  dayOfWeek?: Resolver<Maybe<ResolversTypes['DayOfWeek']>, ParentType, ContextType>;
+  dayOfWeek?: Resolver<Maybe<Array<ResolversTypes['DayOfWeek']>>, ParentType, ContextType>;
   isFree?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   keyword?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   location?: Resolver<Maybe<ResolversTypes['LocationFilter']>, ParentType, ContextType>;
@@ -2034,6 +2069,15 @@ export type ExtractionQuotaResolvers<ContextType = GraphQLContext, ParentType ex
   limit?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   remaining?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   used?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type FilterNodeResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['FilterNode'] = ResolversParentTypes['FilterNode']> = ResolversObject<{
+  child?: Resolver<Maybe<ResolversTypes['FilterNode']>, ParentType, ContextType>;
+  children?: Resolver<Maybe<Array<ResolversTypes['FilterNode']>>, ParentType, ContextType>;
+  field?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  op?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  value?: Resolver<Maybe<ResolversTypes['JSON']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -2117,7 +2161,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   resolveScheduleTimezone?: Resolver<ResolversTypes['ResolveScheduleTimezoneResult'], ParentType, ContextType, RequireFields<MutationResolveScheduleTimezoneArgs, 'scheduleId' | 'timezone'>>;
   resolveSuggestedEventMatch?: Resolver<ResolversTypes['SuggestedEventMatchResolution'], ParentType, ContextType, RequireFields<MutationResolveSuggestedEventMatchArgs, 'action' | 'id'>>;
   restoreEvent?: Resolver<ResolversTypes['Event'], ParentType, ContextType, RequireFields<MutationRestoreEventArgs, 'action' | 'id'>>;
-  saveAIEventFilter?: Resolver<ResolversTypes['AIEventFilter'], ParentType, ContextType, RequireFields<MutationSaveAiEventFilterArgs, 'prompt' | 'resolvedFilter'>>;
+  saveAIEventFilter?: Resolver<ResolversTypes['AIEventFilter'], ParentType, ContextType, RequireFields<MutationSaveAiEventFilterArgs, 'prompt'>>;
   selectPostsForExtraction?: Resolver<Array<ResolversTypes['Post']>, ParentType, ContextType, RequireFields<MutationSelectPostsForExtractionArgs, 'postIds'>>;
   setAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationSetAccountDefaultLocationArgs, 'accountId' | 'input'>>;
   setImageStorageOptIn?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationSetImageStorageOptInArgs, 'accountId' | 'optedIn'>>;
@@ -2307,6 +2351,7 @@ export type ResolveScheduleTimezoneResultResolvers<ContextType = GraphQLContext,
 
 export type ResolvedAiEventFilterResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ResolvedAIEventFilterResult'] = ResolversParentTypes['ResolvedAIEventFilterResult']> = ResolversObject<{
   caveats?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
+  expression?: Resolver<ResolversTypes['FilterNode'], ParentType, ContextType>;
   resolvedFilter?: Resolver<ResolversTypes['EventFilter'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -2514,7 +2559,8 @@ export type WidgetResolvers<ContextType = GraphQLContext, ParentType extends Res
   createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   deletedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   displayMode?: Resolver<ResolversTypes['WidgetDisplayMode'], ParentType, ContextType>;
-  filters?: Resolver<ResolversTypes['EventFilter'], ParentType, ContextType>;
+  expression?: Resolver<ResolversTypes['FilterNode'], ParentType, ContextType>;
+  filters?: Resolver<Maybe<ResolversTypes['EventFilter']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   ownerUserId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   theme?: Resolver<ResolversTypes['WidgetTheme'], ParentType, ContextType>;
@@ -2543,6 +2589,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   ExtractEventDataFromUrlResult?: ExtractEventDataFromUrlResultResolvers<ContextType>;
   ExtractionJobStatus?: ExtractionJobStatusResolvers<ContextType>;
   ExtractionQuota?: ExtractionQuotaResolvers<ContextType>;
+  FilterNode?: FilterNodeResolvers<ContextType>;
   InstagramEmbed?: InstagramEmbedResolvers<ContextType>;
   InstagramEmbedBySlug?: InstagramEmbedBySlugResolvers<ContextType>;
   JSON?: GraphQLScalarType;

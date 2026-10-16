@@ -288,7 +288,13 @@
     "aiOverlaySaveSuccess": "Saved!",
     "aiOverlaySaveError": "Could not save filter",
     "aiOverlayResolvedSummaryTitle": "Resolved Filter Summary",
-    "aiOverlayRePrompt": "Try another prompt"
+    "aiOverlayRePrompt": "Try another prompt",
+    "aiSummaryShowMoreLabel": "Show more",
+    "aiSummaryShowLessLabel": "Show less",
+    "aiOverlayExamplePromptsLabel": "Try an example:",
+    "aiOverlayExamplePrompt1": "free jazz events in Kota Yogyakarta this weekend",
+    "aiOverlayExamplePrompt2": "upcoming concerts in the next 7 days",
+    "aiOverlayExamplePromptGrouped": "jazz or blues in Sleman or Bantul this weekend, not workshops"
   },
   "AIFilterSummary": {
     "noFilter": "All events",
@@ -322,6 +328,17 @@
       "FRI": "Fridays",
       "SAT": "Saturdays",
       "SUN": "Sundays"
+    },
+    "and": "and",
+    "or": "or",
+    "not": "not",
+    "weekends": "weekends",
+    "weekdays": "weekdays",
+    "dateRangeSpanOnlyTemplate": "the next {spanAmount} {spanUnit}",
+    "dateRangeSpanExtensionTemplate": "{base}, extending {spanAmount} {spanUnit}",
+    "temporalStatus": {
+      "TODAY": "happening now",
+      "UPCOMING": "upcoming"
     }
   },
   "ManualPostSelectionPage": {
