@@ -5,17 +5,17 @@ import { FilterHub } from './FilterHub';
 import * as nuqs from 'nuqs';
 
 // Mock nuqs to use React state for testing
-vi.mock('nuqs', () => {
-  const ReactMock = require('react');
-  const store: Record<string, any> = {};
-  const listeners: Record<string, Set<Function>> = {};
+vi.mock('nuqs', async () => {
+  const ReactMock = await vi.importActual<typeof import('react')>('react');
+  const store: Record<string, unknown> = {};
+  const listeners: Record<string, Set<(value: unknown) => void>> = {};
 
   return {
     __reset: () => {
       Object.keys(store).forEach((key) => delete store[key]);
       Object.keys(listeners).forEach((key) => listeners[key].clear());
     },
-    useQueryState: (key: string, options?: any) => {
+    useQueryState: (key: string, options?: { defaultValue?: unknown }) => {
       const defaultValue = options?.defaultValue ?? '';
       if (!(key in store)) {
         store[key] = defaultValue;
@@ -30,19 +30,19 @@ vi.mock('nuqs', () => {
         };
       }, [key]);
 
-      const setSharedState = ReactMock.useCallback((val: any) => {
+      const setSharedState = ReactMock.useCallback((val: unknown) => {
         const newValue = typeof val === 'function' ? val(store[key]) : val;
         const resolvedValue = newValue === null ? defaultValue : newValue;
         store[key] = resolvedValue;
         if (listeners[key]) {
-          listeners[key].forEach((listener: any) => listener(resolvedValue));
+          listeners[key].forEach((listener) => listener(resolvedValue));
         }
       }, [key, defaultValue]);
 
       return [state, setSharedState];
     },
-    parseAsString: { withDefault: (val: any) => ({ defaultValue: val }) },
-    parseAsArrayOf: () => ({ withDefault: (val: any) => ({ defaultValue: val }) }),
+    parseAsString: { withDefault: (val: unknown) => ({ defaultValue: val }) },
+    parseAsArrayOf: () => ({ withDefault: (val: unknown) => ({ defaultValue: val }) }),
   };
 });
 

@@ -61,7 +61,7 @@ test('hasAvailableApiKeyForAccount integration tests', async (t) => {
       isValid: true,
       invalidAttempts: 0,
       usageCount: 0,
-      usageCycleResetAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+      usageCycleResetAt: new Date(),
       ...overrides,
     }).returning();
     createdApiKeyIds.push(key.id);

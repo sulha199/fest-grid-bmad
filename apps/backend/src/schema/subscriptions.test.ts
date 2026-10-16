@@ -1113,6 +1113,48 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
         .where(eq(socialMediaAccountProfiles.id, testProfile.id));
     });
 
+    await t.test('triggerAccountScrape - a CONFIRMED CURATOR_GUIDE account is allowed (Story 3.4o)', async () => {
+      mockUser = { userId: testUser.id, role: testUser.role };
+
+      await db.update(socialMediaAccountProfiles)
+        .set({
+          accountType: 'CURATOR_GUIDE',
+          accountTypeStatus: 'CONFIRMED',
+          scrapeTriggeredAt: null,
+        })
+        .where(eq(socialMediaAccountProfiles.id, testProfile.id));
+
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation TriggerAccountScrape($accountId: ID!) {
+              triggerAccountScrape(accountId: $accountId) {
+                triggered
+              }
+            }
+          `,
+          variables: {
+            accountId: testProfile.id
+          }
+        })
+      });
+
+      const body = await response.json();
+      assert.ok(!body.errors, 'Should not have errors: ' + JSON.stringify(body.errors));
+      assert.equal(body.data.triggerAccountScrape.triggered, true);
+
+      // Restore to legacy/NULL status so other cleanups work
+      await db.update(socialMediaAccountProfiles)
+        .set({
+          accountType: null,
+          accountTypeStatus: null,
+          scrapeTriggeredAt: null,
+        })
+        .where(eq(socialMediaAccountProfiles.id, testProfile.id));
+    });
+
     await t.test('cleanup - delete trigger test data', async () => {
       await db.delete(posts).where(eq(posts.accountId, testProfile.id));
       await db.delete(subscriptions).where(eq(subscriptions.id, testSubscription.id));

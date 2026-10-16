@@ -1,9 +1,10 @@
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { useHoverFocusTooltip } from './useHoverFocusTooltip';
+import type { FocusEvent, KeyboardEvent, PointerEvent } from 'react';
 
 function pointerEvent(pointerType: 'mouse' | 'touch') {
-  return { pointerType } as any;
+  return { pointerType } as unknown as PointerEvent<HTMLElement>;
 }
 
 describe('useHoverFocusTooltip (Story 1.3k Task 4, AC11)', () => {
@@ -28,9 +29,9 @@ describe('useHoverFocusTooltip (Story 1.3k Task 4, AC11)', () => {
 
   it('becomes visible on focus and hides on blur', () => {
     const { result } = renderHook(() => useHoverFocusTooltip());
-    act(() => result.current.handlers.onFocus({} as any));
+    act(() => result.current.handlers.onFocus({} as unknown as FocusEvent<HTMLElement>));
     expect(result.current.isVisible).toBe(true);
-    act(() => result.current.handlers.onBlur({} as any));
+    act(() => result.current.handlers.onBlur({} as unknown as FocusEvent<HTMLElement>));
     expect(result.current.isVisible).toBe(false);
   });
 
@@ -38,14 +39,14 @@ describe('useHoverFocusTooltip (Story 1.3k Task 4, AC11)', () => {
     const { result } = renderHook(() => useHoverFocusTooltip());
     act(() => result.current.handlers.onPointerEnter(pointerEvent('mouse')));
     expect(result.current.isVisible).toBe(true);
-    act(() => result.current.handlers.onKeyDown({ key: 'Escape' } as any));
+    act(() => result.current.handlers.onKeyDown({ key: 'Escape' } as unknown as KeyboardEvent<HTMLElement>));
     expect(result.current.isVisible).toBe(false);
   });
 
   it('re-entering hover after a dismiss clears the dismissed flag', () => {
     const { result } = renderHook(() => useHoverFocusTooltip());
     act(() => result.current.handlers.onPointerEnter(pointerEvent('mouse')));
-    act(() => result.current.handlers.onKeyDown({ key: 'Escape' } as any));
+    act(() => result.current.handlers.onKeyDown({ key: 'Escape' } as unknown as KeyboardEvent<HTMLElement>));
     expect(result.current.isVisible).toBe(false);
     act(() => result.current.handlers.onPointerLeave(pointerEvent('mouse')));
     act(() => result.current.handlers.onPointerEnter(pointerEvent('mouse')));

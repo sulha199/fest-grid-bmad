@@ -1,7 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { LocationRadiusFilter } from "./LocationRadiusFilter";
 
 const defaultLabels = {
@@ -152,7 +151,6 @@ describe("LocationRadiusFilter", () => {
   });
 
   it("calls onSelectLocation and onRadiusChange correctly", async () => {
-    const user = userEvent.setup();
     const onSelectLocation = vi.fn();
     const onRadiusChange = vi.fn();
 

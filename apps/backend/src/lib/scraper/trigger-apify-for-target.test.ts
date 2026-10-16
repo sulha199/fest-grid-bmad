@@ -42,7 +42,7 @@ test('trigger-apify-for-target tests', async (t) => {
     await db.insert(scraperProviderUsage).values({
       provider: APIFY_TEST_PROVIDER,
       itemsUsedThisCycle: 10000,
-      usageCycleResetAt: new Date(Date.now() + 86400000),
+      usageCycleResetAt: new Date(),
     });
 
     const result = await attemptApifyAsyncTrigger(
@@ -113,6 +113,37 @@ test('trigger-apify-for-target tests', async (t) => {
     assert.strictEqual(jobs.length, 1);
     assert.strictEqual(jobs[0].status, 'PENDING');
     assert.ok(jobs[0].webhookToken);
+  });
+
+  await t.test('maps VendorDpaNotConfirmedError to DPA_NOT_CONFIRMED (AC6, real DPA gate via callApifyClient)', async () => {
+    // Restore the real implementation (a prior sub-test replaced it via the seam) so this
+    // exercises the actual callApifyClient -> callVendor -> assertDpaConfirmed gate, not a mock.
+    setAttemptApifyAsyncTrigger(originalAttemptApifyAsyncTrigger);
+
+    const original = process.env.APIFY_SCRAPING_CONFIRMED;
+    process.env.APIFY_SCRAPING_CONFIRMED = 'false';
+    try {
+      const result = await attemptApifyAsyncTrigger(
+        { profileId: testProfileId, username: 'test_user' },
+        '2026-08-01T00:00:00Z'
+      );
+
+      assert.strictEqual(result.success, false);
+      assert.strictEqual(result.failureReason, 'DPA_NOT_CONFIRMED');
+    } finally {
+      if (original === undefined) {
+        delete process.env.APIFY_SCRAPING_CONFIRMED;
+      } else {
+        process.env.APIFY_SCRAPING_CONFIRMED = original;
+      }
+    }
+
+    // No pending job created -- the gate rejects before any real Apify call is attempted.
+    const jobs = await db
+      .select()
+      .from(apifyPendingJobs)
+      .where(eq(apifyPendingJobs.profileId, testProfileId));
+    assert.strictEqual(jobs.length, 0);
   });
 
   await t.test('returns false on trigger error and creates no job', async () => {

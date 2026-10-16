@@ -4,6 +4,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { EventDetailView } from './EventDetailView';
 import { formatShortEventDateTime } from './format-event-date';
+import type { ComponentProps } from 'react';
 
 describe('EventDetailView', () => {
   afterEach(() => {
@@ -1511,7 +1512,7 @@ describe('EventDetailView', () => {
   describe('schedule date/time formatting (venue wall-clock values from the DB)', () => {
     const base = minimalProps;
     const renderWith = (schedule: Record<string, unknown>) =>
-      render(<EventDetailView {...base} schedules={[{ id: 's1', ...schedule } as any]} />);
+      render(<EventDetailView {...base} schedules={[{ id: 's1', ...schedule } as unknown as ComponentProps<typeof EventDetailView>['schedules'][number]]} />);
 
     it('shows the start and end time of a same-day schedule from date + HH:MM:SS strings', () => {
       renderWith({ eventStartDate: '2026-10-12', eventStartTime: '19:00:00', eventEndDate: '2026-10-12', eventEndTime: '21:30:00' });

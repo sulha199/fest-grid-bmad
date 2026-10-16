@@ -8,7 +8,11 @@
 // plumbing used only within apps/backend/src/lib/scraper/, not a reusable cross-entity
 // domain concept.
 
-export type ScraperTriggerFailureReason = 'CAPACITY_EXHAUSTED' | 'TRIGGER_ERROR';
+// 'DPA_NOT_CONFIRMED' (Story 0.i2d, AD-32): a deliberate, self-imposed gate closure (the
+// APIFY_SCRAPING_CONFIRMED/BRIGHTDATA_SCRAPING_CONFIRMED kill switch) -- not a real vendor
+// outage. Kept distinct from TRIGGER_ERROR so scraper-provider-health-store.ts's alerting
+// logic doesn't misreport a team-controlled flag flip as a provider/API failure.
+export type ScraperTriggerFailureReason = 'CAPACITY_EXHAUSTED' | 'TRIGGER_ERROR' | 'DPA_NOT_CONFIRMED';
 
 export type ScraperTriggerResult =
   | { success: true }

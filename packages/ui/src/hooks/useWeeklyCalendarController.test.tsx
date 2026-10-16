@@ -170,7 +170,7 @@ describe('useWeeklyCalendarController', () => {
     );
 
     expect(result.current.schedules[0]).toMatchObject({ id: 'schedule-1', distanceKm: 0 });
-    expect((result.current.schedules[1] as any).distanceKm).toBeUndefined();
+    expect(result.current.schedules[1].distanceKm).toBeUndefined();
   });
 
   it('leaves distanceKm undefined for every schedule when no viewerCoord is provided', () => {
@@ -202,7 +202,7 @@ describe('useWeeklyCalendarController', () => {
       })
     );
 
-    expect((result.current.schedules[0] as any).distanceKm).toBeUndefined();
+    expect(result.current.schedules[0].distanceKm).toBeUndefined();
   });
 
   it('navigates previous week, next week, today, and an arbitrary picked date, and fires callbacks', () => {

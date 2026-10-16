@@ -45,6 +45,16 @@ export function MapView({
     onViewStateChangeRef.current = onViewStateChange;
   }, [onViewStateChange]);
 
+  // The init effect below must only re-run when the API key / style / zoom control change (it
+  // rebuilds the whole map), so it reads the latest click callback and view through refs rather
+  // than listing them as dependencies -- listing them would recreate the map on every pan or zoom.
+  const onCoordinatesChangeRef = useRef(onCoordinatesChange);
+  const latestViewRef = useRef({ center, zoom });
+  useEffect(() => {
+    onCoordinatesChangeRef.current = onCoordinatesChange;
+    latestViewRef.current = { center, zoom };
+  }, [onCoordinatesChange, center, zoom]);
+
   // 1. Initialize map on mount or when API key/style changes
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -58,8 +68,8 @@ export function MapView({
       const map = new maplibregl.Map({
         container: mapContainerRef.current,
         style: styleUrl,
-        center: [center.longitude, center.latitude],
-        zoom,
+        center: [latestViewRef.current.center.longitude, latestViewRef.current.center.latitude],
+        zoom: latestViewRef.current.zoom,
       });
 
       mapRef.current = map;
@@ -79,14 +89,15 @@ export function MapView({
       });
 
       map.on('click', (e) => {
-        onCoordinatesChange({
+        onCoordinatesChangeRef.current({
           latitude: e.lngLat.lat,
           longitude: e.lngLat.lng,
         });
       });
 
-      const report = (e: any) => {
-        if (e && e.programmatic) return;
+      const report = (e?: unknown) => {
+        // `programmatic` is a custom flag set by our own setCenter/setZoom calls (see below).
+        if (e && typeof e === 'object' && 'programmatic' in e && e.programmatic) return;
         if (onViewStateChangeRef.current) {
           const mapCenter = map.getCenter();
           onViewStateChangeRef.current({

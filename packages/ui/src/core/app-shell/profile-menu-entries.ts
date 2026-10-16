@@ -1,4 +1,4 @@
-import { LucideIcon, User, MapPin, Radio, Key, ListChecks, Bell, FileText, ShieldAlert, Archive, Sparkles, Activity, AlertCircle, Puzzle } from 'lucide-react';
+import { LucideIcon, User, MapPin, Radio, FileText, ShieldAlert, Archive, Sparkles, Activity, Puzzle } from 'lucide-react';
 
 export interface ProfileMenuEntry {
   id: string;

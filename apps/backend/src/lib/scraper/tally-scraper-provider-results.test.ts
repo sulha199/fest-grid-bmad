@@ -44,4 +44,24 @@ test('tallyScraperProviderResults', async (t) => {
     ]);
     assert.deepStrictEqual(tally, { attempted: 2, succeeded: 0, failureReason: 'CAPACITY_EXHAUSTED' });
   });
+
+  // Story 0.i2d (AC6) -- DPA_NOT_CONFIRMED wins dominance over a mixed TRIGGER_ERROR/
+  // CAPACITY_EXHAUSTED day: a deliberate, deterministic, 100%-of-calls gate closure is the
+  // most actionable signal for an operator, ranking above a possibly-sporadic real outage.
+  await t.test('mixed DPA_NOT_CONFIRMED/TRIGGER_ERROR/CAPACITY_EXHAUSTED day: DPA_NOT_CONFIRMED wins as dominant', () => {
+    const tally = tallyScraperProviderResults([
+      { attempted: true, succeeded: false, failureReason: 'CAPACITY_EXHAUSTED' },
+      { attempted: true, succeeded: false, failureReason: 'TRIGGER_ERROR' },
+      { attempted: true, succeeded: false, failureReason: 'DPA_NOT_CONFIRMED' },
+    ]);
+    assert.deepStrictEqual(tally, { attempted: 3, succeeded: 0, failureReason: 'DPA_NOT_CONFIRMED' });
+  });
+
+  await t.test('all DPA_NOT_CONFIRMED failures: reports DPA_NOT_CONFIRMED', () => {
+    const tally = tallyScraperProviderResults([
+      { attempted: true, succeeded: false, failureReason: 'DPA_NOT_CONFIRMED' },
+      { attempted: true, succeeded: false, failureReason: 'DPA_NOT_CONFIRMED' },
+    ]);
+    assert.deepStrictEqual(tally, { attempted: 2, succeeded: 0, failureReason: 'DPA_NOT_CONFIRMED' });
+  });
 });

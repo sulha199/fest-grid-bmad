@@ -1,5 +1,5 @@
-query getPostsByAccount($accountId: ID!, $cursor: String, $limit: Int) {
-  postsByAccount(accountId: $accountId, cursor: $cursor, limit: $limit) {
+query getPostsByAccount($accountId: ID!, $cursor: String, $limit: Int, $onlyUnextracted: Boolean) {
+  postsByAccount(accountId: $accountId, cursor: $cursor, limit: $limit, onlyUnextracted: $onlyUnextracted) {
     items {
       id
       accountId

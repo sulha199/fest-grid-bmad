@@ -26,6 +26,10 @@ import {
   EVENT_CARD_ROW_FAVORITE_ICON_MIN_PX,
   EVENT_CARD_ROW_FAVORITE_ICON_MAX_PX,
 } from './event-card-media-tokens';
+import type { ComponentProps } from 'react';
+
+const asDays = (...days: string[]) =>
+  days as unknown as ComponentProps<typeof EventCardRepeatBadge>['daysOfWeek'];
 
 // Built independently from the raw exported constants, not by calling
 // eventCardBadgeIconSizeStyle itself -- so a wrong formula inside that function
@@ -600,7 +604,7 @@ describe('EventCardRepeatBadge - Story 1.3k AC6/AC10 (self-gating, always-presen
   });
 
   it('renders the Repeat icon with the always-present default fallback aria-label when daysOfWeek is set', () => {
-    const { container } = render(<EventCardRepeatBadge daysOfWeek={['MON', 'WED'] as any} />);
+    const { container } = render(<EventCardRepeatBadge daysOfWeek={asDays('MON', 'WED')} />);
     const badge = container.querySelector('[data-event-card-repeat-badge]') as HTMLElement;
     expect(badge).not.toBeNull();
     const icon = badge.querySelector('svg') as SVGElement;
@@ -611,7 +615,7 @@ describe('EventCardRepeatBadge - Story 1.3k AC6/AC10 (self-gating, always-presen
   it('resolves translated day labels via dayOfWeekLabels, falling back to the raw enum member for a missing key', () => {
     const { container } = render(
       <EventCardRepeatBadge
-        daysOfWeek={['MON', 'WED'] as any}
+        daysOfWeek={asDays('MON', 'WED')}
         dayOfWeekLabels={{ MON: 'Monday' }}
       />
     );
@@ -624,7 +628,7 @@ describe('EventCardRepeatBadge - Story 1.3k AC6/AC10 (self-gating, always-presen
     const repeatBadgeAriaLabel = vi.fn((dayLabels: string[]) => `Every ${dayLabels.join(' & ')}`);
     const { container } = render(
       <EventCardRepeatBadge
-        daysOfWeek={['MON', 'TUE'] as any}
+        daysOfWeek={asDays('MON', 'TUE')}
         dayOfWeekLabels={{ MON: 'Monday', TUE: 'Tuesday' }}
         repeatBadgeAriaLabel={repeatBadgeAriaLabel}
       />
@@ -635,14 +639,14 @@ describe('EventCardRepeatBadge - Story 1.3k AC6/AC10 (self-gating, always-presen
   });
 
   it('does not render a tooltip element when tooltipVisible is false/omitted', () => {
-    const { container } = render(<EventCardRepeatBadge daysOfWeek={['MON'] as any} />);
+    const { container } = render(<EventCardRepeatBadge daysOfWeek={asDays('MON')} />);
     expect(container.querySelector('[role="tooltip"]')).toBeNull();
   });
 
   it('renders a role="tooltip" element with the same label text when tooltipVisible is true', () => {
     const { container } = render(
       <EventCardRepeatBadge
-        daysOfWeek={['MON'] as any}
+        daysOfWeek={asDays('MON')}
         dayOfWeekLabels={{ MON: 'Monday' }}
         tooltipVisible
       />
@@ -653,7 +657,7 @@ describe('EventCardRepeatBadge - Story 1.3k AC6/AC10 (self-gating, always-presen
   });
 
   it('gives the badge icon no independent focus stop (no tabIndex, no button/a wrapper) per the Tooltip trigger resolution', () => {
-    const { container } = render(<EventCardRepeatBadge daysOfWeek={['MON'] as any} tooltipVisible />);
+    const { container } = render(<EventCardRepeatBadge daysOfWeek={asDays('MON')} tooltipVisible />);
     expect(container.querySelectorAll('button, a, [tabindex]')).toHaveLength(0);
   });
 });
@@ -855,7 +859,7 @@ describe('Story 1.i1l — badge font-size harmonization and the TILL offset cont
   it('lets the favorite count inherit the pill font-size instead of pinning its own', () => {
     // DESIGN.md: the responsive size is "inherited by the count text". A hardcoded
     // `text-xs` on the count would leave it at 12px while its pill grew to 14px.
-    const { container } = render(
+    render(
       <EventCardFavoriteBadge
         scale="default"
         isFavorited={false}

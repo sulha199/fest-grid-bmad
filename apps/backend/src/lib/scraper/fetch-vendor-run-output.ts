@@ -1,4 +1,4 @@
-import { getApifyClient } from './instagram-adapter.js';
+import { callApifyClient } from './instagram-adapter.js';
 import { getBrightDataProgress, getBrightDataSnapshot } from './brightdata-client.js';
 
 export interface VendorRunOutput {
@@ -11,38 +11,38 @@ export interface VendorRunOutput {
  * Extracted from stale-job-sweep.ts to avoid duplication when replaying runs.
  */
 export async function fetchApifyRunOutput(runId: string): Promise<VendorRunOutput> {
-  const client = getApifyClient();
-
   try {
-    const run = await client.run(runId).get();
+    return await callApifyClient({ timeoutMs: 30_000, overallTimeoutMs: 90_000 }, async (client) => {
+      const run = await client.run(runId).get();
 
-    if (!run) {
-      throw new Error(`Apify run not found: ${runId}`);
-    }
+      if (!run) {
+        throw new Error(`Apify run not found: ${runId}`);
+      }
 
-    if (run.status === 'SUCCEEDED') {
-      const { items } = await client.dataset(run.defaultDatasetId).listItems({
-        clean: true,
-        limit: 1000,
-      });
-      return {
-        status: 'SUCCEEDED',
-        items: items as unknown[],
+      if (run.status === 'SUCCEEDED') {
+        const { items } = await client.dataset(run.defaultDatasetId).listItems({
+          clean: true,
+          limit: 1000,
+        });
+        return {
+          status: 'SUCCEEDED',
+          items: items as unknown[],
+        };
+      }
+
+      // Map Apify status to our enum
+      const statusMap: Record<string, VendorRunOutput['status']> = {
+        SUCCEEDED: 'SUCCEEDED',
+        FAILED: 'FAILED',
+        TIMED_OUT: 'TIMED_OUT',
+        ABORTED: 'ABORTED',
       };
-    }
 
-    // Map Apify status to our enum
-    const statusMap: Record<string, VendorRunOutput['status']> = {
-      SUCCEEDED: 'SUCCEEDED',
-      FAILED: 'FAILED',
-      TIMED_OUT: 'TIMED_OUT',
-      ABORTED: 'ABORTED',
-    };
-
-    return {
-      status: statusMap[run.status] || 'unknown',
-      items: [],
-    };
+      return {
+        status: statusMap[run.status] || 'unknown',
+        items: [],
+      };
+    });
   } catch (err) {
     console.error(`Failed to fetch Apify run output for run ${runId}:`, err);
     throw err;

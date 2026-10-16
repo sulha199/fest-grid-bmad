@@ -293,7 +293,7 @@ export function MyCalendarContent() {
         onNextWeek={handleNextWeek}
         onSelectWeek={handleSelectWeek}
         onScheduleClick={handleScheduleClick}
-        onFavoriteToggle={(eventId) => toggleFavorite({ eventId })}
+        onFavoriteToggle={(schedule) => schedule.eventId && toggleFavorite({ eventId: schedule.eventId })}
         status={status === 'pending' ? 'loading' : (status as any)}
         errorMessage={errorMessage}
         errorDetail={errorDetail}

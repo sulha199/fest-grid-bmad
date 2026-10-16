@@ -6,14 +6,19 @@ import type { UseInfiniteScrollOptions } from './useInfiniteScroll.types';
 // Mock IntersectionObserver
 let mockObserverInstance: MockIntersectionObserver | null = null;
 
+// Assigned through a helper (not `x = this` in the constructor) to satisfy no-this-alias.
+function registerMockObserver(instance: MockIntersectionObserver) {
+  mockObserverInstance = instance;
+}
+
 class MockIntersectionObserver implements IntersectionObserver {
   readonly root: Element | Document | null = null;
   readonly rootMargin: string = '';
   readonly scrollMargin: string = '';
   readonly thresholds: ReadonlyArray<number> = [];
   
-  constructor(public callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
-    mockObserverInstance = this;
+  constructor(public callback: IntersectionObserverCallback) {
+    registerMockObserver(this);
   }
   
   observe = vi.fn();

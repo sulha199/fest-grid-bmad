@@ -1,4 +1,4 @@
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import React from 'react';
 import { EventDiscoveryPanel } from './EventDiscoveryPanel';
@@ -20,13 +20,13 @@ Object.defineProperty(window, 'matchMedia', {
 });
 
 
-vi.mock('nuqs', () => {
-  const ReactMock = require('react');
-  const store: Record<string, any> = {};
-  const listeners: Record<string, Set<Function>> = {};
+vi.mock('nuqs', async () => {
+  const ReactMock = await vi.importActual<typeof import('react')>('react');
+  const store: Record<string, unknown> = {};
+  const listeners: Record<string, Set<(value: unknown) => void>> = {};
 
   return {
-    useQueryState: (key: string, options?: any) => {
+    useQueryState: (key: string, options?: { defaultValue?: unknown }) => {
       const defaultValue = options?.defaultValue ?? '';
       if (!(key in store)) {
         store[key] = defaultValue;
@@ -41,19 +41,19 @@ vi.mock('nuqs', () => {
         };
       }, [key]);
 
-      const setSharedState = ReactMock.useCallback((val: any) => {
+      const setSharedState = ReactMock.useCallback((val: unknown) => {
         const newValue = typeof val === 'function' ? val(store[key]) : val;
         const resolvedValue = newValue === null ? defaultValue : newValue;
         store[key] = resolvedValue;
         if (listeners[key]) {
-          listeners[key].forEach((listener: any) => listener(resolvedValue));
+          listeners[key].forEach((listener) => listener(resolvedValue));
         }
       }, [key, defaultValue]);
 
       return [state, setSharedState];
     },
-    parseAsString: { withDefault: (val: any) => ({ defaultValue: val }) },
-    parseAsArrayOf: () => ({ withDefault: (val: any) => ({ defaultValue: val }) }),
+    parseAsString: { withDefault: (val: unknown) => ({ defaultValue: val }) },
+    parseAsArrayOf: () => ({ withDefault: (val: unknown) => ({ defaultValue: val }) }),
     // Story 0.i5d: lets each test start from a clean `view` query-state instead of leaking
     // whatever a prior test's tab click left behind (the shared `store` above is module-scoped
     // and otherwise persists across tests in this file).
@@ -68,7 +68,7 @@ describe('EventDiscoveryPanel', () => {
   afterEach(async () => {
     cleanup();
     const nuqsMock = await import('nuqs');
-    (nuqsMock as any).__resetStore();
+    (nuqsMock as unknown as { __resetStore: () => void }).__resetStore();
   });
 
   const defaultProps = {
@@ -138,10 +138,12 @@ describe('EventDiscoveryPanel', () => {
   });
 
   it('no crash when optional callbacks onSearchEnter or onFilterChange are omitted', () => {
-    const { onSearchEnter, onFilterChange, ...propsWithoutCallbacks } = defaultProps;
+    const propsWithoutCallbacks: Partial<typeof defaultProps> = { ...defaultProps };
+    delete propsWithoutCallbacks.onSearchEnter;
+    delete propsWithoutCallbacks.onFilterChange;
     
     expect(() => {
-      render(<EventDiscoveryPanel {...propsWithoutCallbacks} />);
+      render(<EventDiscoveryPanel {...(propsWithoutCallbacks as typeof defaultProps)} />);
     }).not.toThrow();
   });
 
@@ -186,8 +188,6 @@ describe('EventDiscoveryPanel', () => {
   });
 
   it('updates the active view content when a switcher tab is clicked', async () => {
-    const { fireEvent } = require('@testing-library/react');
-    
     render(<EventDiscoveryPanel {...defaultProps} />);
     
     // Default is card view
@@ -220,7 +220,6 @@ describe('EventDiscoveryPanel', () => {
     });
 
     it('does not render the temporal filter toggle when currentViewId === "calendar"', () => {
-      const { fireEvent } = require('@testing-library/react');
       render(<EventDiscoveryPanel {...defaultProps} />);
 
       fireEvent.click(screen.getByRole('tab', { name: 'Calendar View' }));
@@ -254,7 +253,6 @@ describe('EventDiscoveryPanel', () => {
     });
 
     it('renders collapse button when scroll is above threshold', () => {
-      const { act } = require('@testing-library/react');
       Object.defineProperty(window, 'scrollY', { value: 0, writable: true });
       render(<EventDiscoveryPanel {...defaultProps} />);
 
@@ -269,7 +267,6 @@ describe('EventDiscoveryPanel', () => {
     });
 
     it('clicking expand button scrolls to top and immediately re-expands the header', () => {
-      const { act, fireEvent } = require('@testing-library/react');
       Object.defineProperty(window, 'scrollY', { value: 0, writable: true });
       render(<EventDiscoveryPanel {...defaultProps} />);
 
@@ -290,7 +287,6 @@ describe('EventDiscoveryPanel', () => {
     });
 
     it('links the expand button to the header content via aria-controls', () => {
-      const { act } = require('@testing-library/react');
       Object.defineProperty(window, 'scrollY', { value: 0, writable: true });
       render(<EventDiscoveryPanel {...defaultProps} />);
 
@@ -306,7 +302,6 @@ describe('EventDiscoveryPanel', () => {
     });
 
     it('does not collapse while focus is inside the header', () => {
-      const { act } = require('@testing-library/react');
       Object.defineProperty(window, 'scrollY', { value: 0, writable: true });
       render(<EventDiscoveryPanel {...defaultProps} />);
 
@@ -323,7 +318,6 @@ describe('EventDiscoveryPanel', () => {
     });
 
     it('uses the passed showFiltersLabel instead of the English fallback', () => {
-      const { act } = require('@testing-library/react');
       Object.defineProperty(window, 'scrollY', { value: 0, writable: true });
       render(<EventDiscoveryPanel {...defaultProps} showFiltersLabel="Tampilkan filter" />);
 

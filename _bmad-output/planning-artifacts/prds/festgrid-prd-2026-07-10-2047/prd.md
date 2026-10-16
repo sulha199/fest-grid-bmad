@@ -7,7 +7,7 @@ status: "final"
 
 created: "2026-07-10T20:50:17Z"
 
-updated: "2026-10-02T00:00:00Z"
+updated: "2026-10-15T00:00:00Z"
 
 ---
 
@@ -191,22 +191,22 @@ A 'Report' button will be available for all events (whether from Social Media Ac
 #### 3.9.3 User and Moderator Interfaces
 
 *   **User Reports Page:** Authenticated users will have access to a dedicated 'Reports' page under their user menu, displaying the status and history of their submitted reports.
-*   **Moderator Tools:** For users with a 'moderator' access level, a 'Moderator Items' page will be available under the user menu. For the MVP, moderator access levels will be assigned manually via the database. In addition to user reports, this page surfaces pending "Default Location" changes (Section 3.7): post-hoc `PENDING_REVIEW` items to accept or revert, and pre-hoc `AWAITING_APPROVAL` items (low-confidence AI inferences awaiting a decision before they ever apply) to approve or reject, visually distinguished from each other. **(Added 2026-10-01, FR114)** It also surfaces suggested cross-post event matches (Section 3.7) for review, and offers a merge action for duplicate events — with confirmation and an undo window matching the existing soft-delete-with-undo pattern.
-*   **Moderator Pending-Item Badge (added 2026-08-28):** For users with moderator access, a numeric badge shows the combined count of items awaiting moderator action — pending reports above, and Default Location changes in `PENDING_REVIEW` or `AWAITING_APPROVAL` status (Section 3.7/4.14) — in two places: next to the "Moderator Items" entry inside the opened user menu, and on the user's avatar in the navbar when the menu is closed. **(Amended 2026-10-02, FR114)** Suggested cross-post event matches awaiting moderator review — the mid-confidence matches queued by Cross-Post Event Matching above (Section 3.7, FR114) for a moderator to approve or reject — also count toward this same combined total. The badge shows one combined total, not a per-category breakdown; opening Moderator Items itself provides that detail. The count is kept reasonably current (refreshed periodically or on relevant navigation), not necessarily instantaneous.
+*   **Moderator Tools:** For users with a 'moderator' access level, a 'Moderator Items' page will be available under the user menu. For the MVP, moderator access levels will be assigned manually via the database. In addition to user reports, this page surfaces pending "Default Location" changes (Section 3.7): post-hoc `PENDING_REVIEW` items to accept or revert, and pre-hoc `AWAITING_APPROVAL` items (low-confidence AI inferences awaiting a decision before they ever apply) to approve or reject, visually distinguished from each other. **(Added 2026-10-01, FR114)** It also surfaces suggested cross-post event matches (Section 3.7) for review, and offers a merge action for duplicate events — with confirmation and an undo window matching the existing soft-delete-with-undo pattern. **(Added 2026-10-15)** It also lists accounts whose type classification is awaiting approval (Section 3.16): a low-confidence or failed AI classification. For each, the moderator sees the account's bio and the AI's proposed type and confidence, or the reason classification failed, and chooses organizer/venue/event, curator/local-guide or personal. The choice is final and the account is then treated as confirmed. Resolving it does not start a scrape on its own; the account is picked up by the next daily scrape or an on-demand one.
+*   **Moderator Pending-Item Badge (added 2026-08-28):** For users with moderator access, a numeric badge shows the combined count of items awaiting moderator action — pending reports above, and Default Location changes in `PENDING_REVIEW` or `AWAITING_APPROVAL` status (Section 3.7/4.14) — in two places: next to the "Moderator Items" entry inside the opened user menu, and on the user's avatar in the navbar when the menu is closed. **(Amended 2026-10-02, FR114)** Suggested cross-post event matches awaiting moderator review — the mid-confidence matches queued by Cross-Post Event Matching above (Section 3.7, FR114) for a moderator to approve or reject — also count toward this same combined total. **(Amended 2026-10-15)** Account-type classifications awaiting a moderator's decision also count toward this combined total. The badge shows one combined total, not a per-category breakdown; opening Moderator Items itself provides that detail. The count is kept reasonably current (refreshed periodically or on relevant navigation), not necessarily instantaneous.
 
 ### 3.10 Manual Post Selection for Event Extraction
 
 To provide users with greater control over their API quota usage and improve the relevance of extracted events, FestDaily will offer a manual post selection feature. This allows users to choose which specific social media posts should be processed by the AI agent.
 
-*   **Relationship to Automatic Extraction (clarified 2026-10-01; BUG-039):** New posts from subscribed accounts are extracted automatically after each scrape, within the Tier 1/Tier 2 key and quota rules (Section 3.7). Manual selection is therefore the path for posts automatic extraction does not cover: older posts that predate the subscription, and posts left unextracted because no key had quota. Both paths cost one extraction call per post, draw on the same quota, and apply the same Multi-Event Posts rules (Section 3.7). A post that has already been extracted (`Post.isExtracted`) — automatically or by hand — is shown as processed and cannot be selected again, whether it yielded zero, one or several events.
+*   **Relationship to Automatic Extraction (clarified 2026-10-01; BUG-039):** New posts from subscribed accounts are extracted automatically after each scrape, within the Tier 1/Tier 2 key and quota rules (Section 3.7). Manual selection is therefore the path for posts automatic extraction does not cover: older posts that predate the subscription, and posts left unextracted because no key had quota. Both paths cost one extraction call per post, draw on the same quota, and apply the same Multi-Event Posts rules (Section 3.7). A post that has already been extracted (`Post.isExtracted`) — automatically or by hand — is not listed on the selection screen at all (changed 2026-10-15 from "shown disabled"), so it cannot be selected again, whether it yielded zero, one or several events.
 
 *   **User Interface:** A new screen will be introduced, featuring a tab-based layout where each tab corresponds to one of the user's subscribed social media accounts.
-    *   **Tab Content:** Each tab, when selected, will display a list of the 20 most recent posts from that account, presented in a card-based view.
+    *   **Tab Content:** Each tab, when selected, will display the account's posts that have not yet been extracted (`Post.isExtracted = false`), newest first, presented in a card-based view. The list loads 20 at a time and appends the next page by infinite scroll (Section 5, Infinite Scroll); the filter is applied server-side so every page is full.
     *   **Lazy Loading:** The posts within the tabs can be loaded lazily to improve initial page load performance.
 *   **Post Selection:**
     *   Users can select multiple posts by clicking a checkbox on each post card.
     *   The selection state is preserved as the user navigates between different tabs.
-    *   Posts that have already been processed and resulted in one or more events will be visually disabled and cannot be selected for re-extraction.
+    *   Posts that have already been processed are not shown (see Relationship to Automatic Extraction above); when none remain, the tab shows the "scrape now to check for new ones" empty state.
 *   **Quota Management:**
     *   A summary bar will display the number of selected posts against the user's remaining API quota (e.g., "Selected Posts: 5 / 50").
     *   The system will prevent users from extracting more posts than their quota allows.
@@ -300,7 +300,7 @@ Full rationale and the authoritative rule-by-rule reference lives in `monetizati
 *   **Faces are blurred before an image is sent to the AI vendor, unless the post's owner opted in. (FR115, added 2026-10-04, Architecture Spine AD-28 Rule 10)** When the backend setting `BLUR_FACES_BEFORE_AI` is on (the default), every image of a post, including each carousel slide, has detected faces blurred **before** it is sent to the AI vendor for extraction, so an identifiable bystander's face does not leave FestDaily unblurred. The exception is a post whose **owner** (the account that published it, never a co-author) has `isImageStorageOptedIn = true`: its original images are sent unchanged. If the blur cannot be completed for an image, that image is not sent: the post is extracted from its caption text only. Setting `BLUR_FACES_BEFORE_AI` off restores the previous behavior, where the vendor receives the original image. The same detection pass produces the stored blurred thumbnail, so detection runs once per image.
 *   **Event detail page:** Uses an embedded Instagram post (oEmbed-style), not a raw hotlinked image URL. This is a copyright/retention-footprint improvement, not by itself a personal-data-exposure fix — an embed showing an identifiable individual is still subject to the same display-lifecycle bound as a hotlinked image would be. Requires a defined fallback ("content no longer available" for non-opted-in accounts; `durableImageUrl` is acceptable for opted-in accounts) if the source post becomes unavailable.
 *   **`SocialMediaAccountProfile.profileImageUrl` is never stored or displayed on any surface, including via embed, regardless of the account's image-storage opt-in status** (Section 4.5) — this is a stricter, independent rule from the post/poster-image handling above.
-*   **Account-type filtering:** scraping must exclude personal attendee accounts and curator/local-guide accounts — only organizer/venue/event accounts are in scope. Not yet built; tracked in epics.md.
+*   **Account-type filtering:** **(Amended 2026-10-15; Stories 3.4n, 3.4o)** Each subscribed account is classified as an organizer/venue/event, a curator/local-guide, or a personal account. An account is scraped only if it has never been classified (legacy), or its classification is confirmed as organizer/venue/event or curator/local-guide. Personal accounts, and any account whose classification is still awaiting moderator approval, are never scraped. The same rule applies to the daily batch scrape, the on-demand "scrape this account" action and the scrape started when a user first subscribes. Posts from a curator/local-guide account are scraped only to extract events (which are stubs, Section 3.7): their images are not durably stored unless the account is opted in (Section 4.5), and a post's caption is never displayed and is cleared once extraction finishes. When an on-demand scrape is refused because of the account type, the user is told so rather than shown a generic failure.
 
 ### 3.17 Self-Service Account Claim & Ownership Verification (Epic 8, added 2026-09-11)
 
@@ -765,6 +765,19 @@ interface SocialMediaAccountProfile {
    * subscribed to directly (the pre-existing, non-discovered path).
    */
   isVerifiedForDiscovery: boolean;
+  /**
+   * What kind of account this is, set by AI classification when the account is first
+   * subscribed to (added 2026-10-15, Stories 3.4n/3.4o). Absent for a legacy account that has
+   * never been classified. Together with `accountTypeStatus` it decides whether the account
+   * is scraped (Section 3.16, Account-type filtering).
+   */
+  accountType?: 'ORGANIZER_VENUE_EVENT' | 'CURATOR_GUIDE' | 'PERSONAL';
+  /**
+   * `CONFIRMED` once the type stands (a confident AI classification, or a moderator's decision).
+   * `AWAITING_APPROVAL` while a low-confidence or failed classification waits for a moderator
+   * (Section 3.9.3); the account is not scraped in that state. Absent while `accountType` is.
+   */
+  accountTypeStatus?: 'CONFIRMED' | 'AWAITING_APPROVAL';
 }
 ```
 
@@ -786,9 +799,11 @@ interface Post {
    */
   id: string;
   /**
-   * The content (text) of the post.
+   * The content (text) of the post. **(Amended 2026-10-15, Story 3.4o)** `null` for a post from a
+   * curator/local-guide account once extraction has finished: the caption is used for extraction
+   * but never displayed or retained (Section 3.16).
    */
-  content: string;
+  content: string | null;
   /**
    * The URL of the image in the post, if any. Also used as the skeleton-loader placeholder
    * and playback-failure fallback when `videoUrl` is present (Section 3.3.5). For posts that

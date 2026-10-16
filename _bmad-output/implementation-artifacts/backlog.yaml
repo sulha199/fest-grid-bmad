@@ -2187,3 +2187,20 @@ items:
      ref: [implementation-artifacts/3-4b-byok-pooled-scraper-vendor-keys.md, planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md],
      touches: [app:backend, cross:ai-extraction, cross:prd, cross:process],
      note: "The product is built on Gemini BYOK while the business plan assumes platform-paid extraction; counsel brief and cost model are in the private fest-grid-monetization repo. Story 3.4b reopened to backlog (Apify only, still gated); nothing in the PRD changes until this is decided."}
+  # ── 2026-10-15 (code review of Story 0.i2d) ──────────────────────────────────
+  FIND-082:
+    {type: finding, status: backlog, created: 2026-10-15,
+     impact: internal, effort: s,
+     title: "Story 0.i2d review deferrals: triplicated transient-error classifier; Apify webhook 20s cap covers dataset download",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend],
+     note: "Deferred from: code review of story-0.i2d (2026-10-15). 2 findings."}
+
+  # ── 2026-10-15 (prod: manual extract page empty after a successful scrape) ────
+  BUG-059:
+    {type: bug, status: backlog, created: 2026-10-15,
+     impact: user-visible, effort: m,
+     title: "A subscribed account and its scrape-discovered numeric-ID profile are two rows; posts land on the one nobody subscribed to",
+     ref: [apps/backend/src/lib/accounts/get-or-create-discovered-account-profile.ts, apps/backend/src/lib/posts/persist-scraped-post.ts, apps/backend/src/lib/posts/posts-scraped-under-account.ts, apps/backend/src/lib/posts/auto-enqueue-new-post.ts, backlog/BUG-059-subscribed-profile-twin-split.md],
+     touches: [app:backend, pkg:database, web:post-selection, web:subscriptions],
+     note: "Manual-extract symptom mitigated in 15c0eb97; auto-extraction of twin-owned posts and the twin rows themselves remain. Detail in backlog/BUG-059-subscribed-profile-twin-split.md."}

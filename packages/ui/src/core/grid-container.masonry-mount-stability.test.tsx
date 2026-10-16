@@ -434,7 +434,7 @@ describe('FIND-052 permanent regression suite — mount-stable masonry engine (S
   });
 
   it('prints the FIND-052 measurement table', () => {
-    // eslint-disable-next-line no-console
+     
     console.table(
       results.map((r) => ({
         scenario: r.name,

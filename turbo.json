@@ -63,6 +63,7 @@
       "dependsOn": ["^build"],
       "env": [
         "BACKEND_PORT",
+        "TZ",
         "DATABASE_URL",
         "GEOAPIFY_API_KEY",
         "NEXT_PUBLIC_NEARBY_BADGE_DISTANCE_KM",

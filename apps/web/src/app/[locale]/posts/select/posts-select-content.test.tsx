@@ -10,6 +10,11 @@ import { graphqlClient } from '@/lib/graphql-client';
 import { usePostSelectionStore } from './post-selection-store';
 
 const mockRouterPush = vi.fn();
+const { mockToastError, mockToastSuccess } = vi.hoisted(() => ({ mockToastError: vi.fn(), mockToastSuccess: vi.fn() }));
+
+vi.mock('sonner', () => ({
+  toast: { error: mockToastError, success: mockToastSuccess },
+}));
 
 vi.mock('@/i18n/navigation', () => ({
   useRouter: () => ({
@@ -399,6 +404,66 @@ describe('PostsSelectContent integration', () => {
     expect(container).toHaveAttribute('title', 'Already processed');
   });
 
+  it('requests only un-extracted posts, first page without a cursor', async () => {
+    renderComponent();
+    await screen.findByText('Post 1 content');
+
+    const postCalls = vi.mocked(graphqlClient.request).mock.calls.filter((call: any) =>
+      String(call[0]?.document ?? call[0]).includes('getPostsByAccount')
+    );
+    expect(postCalls.length).toBeGreaterThan(0);
+    const vars: any = (postCalls[0][0] as any).variables;
+    expect(vars.onlyUnextracted).toBe(true);
+    expect(vars.limit).toBe(20);
+    expect(vars.cursor ?? null).toBeNull();
+  });
+
+  it('appends the next cursor page when the bottom sentinel scrolls into view', async () => {
+    let observerCallback: IntersectionObserverCallback | null = null;
+    class StubObserver {
+      constructor(cb: IntersectionObserverCallback) { observerCallback = cb; }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+      takeRecords() { return []; }
+    }
+    vi.stubGlobal('IntersectionObserver', StubObserver);
+
+    const baseImpl = vi.mocked(graphqlClient.request).getMockImplementation()!;
+    vi.mocked(graphqlClient.request).mockImplementation(async (arg1: any) => {
+      const docStr = arg1 && typeof arg1 === 'object' && 'document' in arg1 ? arg1.document.toString() : String(arg1 ?? '');
+      if (docStr.includes('getPostsByAccount')) {
+        if (arg1?.variables?.cursor === 'cursor-1') {
+          return {
+            postsByAccount: {
+              items: [{ id: 'post-9', accountId: 'acc-1', content: 'Page two post', imageUrl: null, postUrl: 'https://instagram.com/p/post9', originalPostUrl: null, isExtracted: false, publishedAt: '2026-08-01T12:00:00.000Z' }],
+              nextCursor: null,
+              hasMore: false,
+            },
+          };
+        }
+        return { postsByAccount: { items: mockPosts, nextCursor: 'cursor-1', hasMore: true } };
+      }
+      return baseImpl(arg1);
+    });
+
+    try {
+      renderComponent();
+      await screen.findByText('Post 1 content');
+      expect(screen.queryByText('Page two post')).not.toBeInTheDocument();
+
+      await waitFor(() => expect(observerCallback).not.toBeNull());
+      observerCallback!([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver);
+
+      expect(await screen.findByText('Page two post')).toBeInTheDocument();
+      expect(screen.getByText('Post 1 content')).toBeInTheDocument();
+      const secondPageCall = vi.mocked(graphqlClient.request).mock.calls.find((call: any) => (call[0] as any)?.variables?.cursor === 'cursor-1');
+      expect(secondPageCall).toBeDefined();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('displays inactive account warning banner and allows removing subscription', async () => {
     renderComponent();
 
@@ -530,7 +595,7 @@ describe('PostsSelectContent integration', () => {
       renderComponent();
 
       // Should show empty state message
-      const emptyStateMsg = await screen.findByText(/No posts scraped yet for this account/);
+      const emptyStateMsg = await screen.findByText(/No unprocessed posts for this account/);
       expect(emptyStateMsg).toBeInTheDocument();
 
       // Should show Scrape Posts button
@@ -586,6 +651,42 @@ describe('PostsSelectContent integration', () => {
       await waitFor(() => {
         expect(scrapeBtn).toBeDisabled();
       });
+    });
+
+    it('shows the in-progress indicator right after the scrape request succeeds', async () => {
+      // The server stamps scrapeTriggeredAt inside the mutation, so the next subscriptions
+      // fetch reports isScrapeInProgress: true. Mimic that: flip the mocked subscription when
+      // the trigger mutation runs.
+      const baseImpl = vi.mocked(graphqlClient.request).getMockImplementation()!;
+      vi.mocked(graphqlClient.request).mockImplementation(async (arg1: any, arg2: any) => {
+        const docStr =
+          arg1 && typeof arg1 === 'object' && 'document' in arg1
+            ? arg1.document.toString()
+            : arg1
+            ? arg1.toString()
+            : '';
+        if (docStr.includes('triggerAccountScrape')) {
+          mockSubscriptions = mockSubscriptions.map((sub) => ({
+            ...sub,
+            account: { ...sub.account, isScrapeInProgress: true },
+          }));
+          return { triggerAccountScrape: { triggered: true, isInitialScrape: false } };
+        }
+        return baseImpl(arg1, arg2);
+      });
+
+      renderComponent();
+
+      const scrapeBtn = await screen.findByRole('button', { name: 'Scrape Posts' });
+      expect(scrapeBtn).not.toBeDisabled();
+      fireEvent.click(scrapeBtn);
+
+      expect(await screen.findByText(/Scraping for new posts/)).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Scrape Posts' })).toBeDisabled();
+      });
+      // The toast says the scrape started, not the button's label.
+      expect(mockToastSuccess).toHaveBeenCalledWith(enMessages.ManualPostSelectionPage.scrapeStartedToast);
     });
 
     it('shows in-progress label when scraping is active', async () => {
@@ -735,6 +836,36 @@ describe('PostsSelectContent integration', () => {
       // Verify error handling (in real app, this would show a toast)
       // For this test, we just verify the error doesn't crash the component
       expect(scrapeBtn).toBeInTheDocument();
+    });
+
+    it('shows the account-type toast (not the generic one) on a FORBIDDEN error', async () => {
+      const mockError = new Error('Scraping is not allowed for this account type.');
+      (mockError as any).response = {
+        errors: [{ message: 'Scraping is not allowed for this account type.', extensions: { code: 'FORBIDDEN' } }],
+      };
+
+      const baseImpl = vi.mocked(graphqlClient.request).getMockImplementation()!;
+      vi.mocked(graphqlClient.request).mockImplementation(async (arg1: any, arg2: any) => {
+        const docStr =
+          arg1 && typeof arg1 === 'object' && 'document' in arg1
+            ? arg1.document.toString()
+            : arg1
+            ? arg1.toString()
+            : '';
+        if (docStr.includes('triggerAccountScrape')) {
+          throw mockError;
+        }
+        return baseImpl(arg1, arg2);
+      });
+
+      renderComponent();
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Scrape Posts' }));
+
+      await waitFor(() => {
+        expect(mockToastError).toHaveBeenCalledWith(enMessages.ManualPostSelectionPage.scrapeNotAllowedForAccountTypeToast);
+      });
+      expect(mockToastError).not.toHaveBeenCalledWith(enMessages.ManualPostSelectionPage.scrapeGenericErrorToast);
     });
 
     it('handles SCRAPER_CAPACITY_EXCEEDED error gracefully', async () => {

@@ -25,6 +25,7 @@ export function tallyScraperProviderResults(
   let succeeded = 0;
   let sawTriggerError = false;
   let sawCapacityExhausted = false;
+  let sawDpaNotConfirmed = false;
 
   for (const marker of markers) {
     if (!marker || !marker.attempted) {
@@ -33,6 +34,8 @@ export function tallyScraperProviderResults(
     attempted += 1;
     if (marker.succeeded) {
       succeeded += 1;
+    } else if (marker.failureReason === 'DPA_NOT_CONFIRMED') {
+      sawDpaNotConfirmed = true;
     } else if (marker.failureReason === 'TRIGGER_ERROR') {
       sawTriggerError = true;
     } else if (marker.failureReason === 'CAPACITY_EXHAUSTED') {
@@ -43,9 +46,13 @@ export function tallyScraperProviderResults(
   const tally: ScraperProviderTally = { attempted, succeeded };
 
   if (attempted > 0 && succeeded === 0) {
-    // Dominant failure reason: a real provider/API error is the more actionable/alarming
-    // condition and takes priority over capacity noise when a day mixes both.
-    if (sawTriggerError) {
+    // Dominant failure reason: DPA_NOT_CONFIRMED ranks highest -- a deliberate, deterministic,
+    // 100%-of-calls gate closure (a flag the team itself controls) is the most actionable
+    // signal for an operator, ranking above a possibly-sporadic real outage. A real
+    // provider/API error (TRIGGER_ERROR) in turn takes priority over capacity noise.
+    if (sawDpaNotConfirmed) {
+      tally.failureReason = 'DPA_NOT_CONFIRMED';
+    } else if (sawTriggerError) {
       tally.failureReason = 'TRIGGER_ERROR';
     } else if (sawCapacityExhausted) {
       tally.failureReason = 'CAPACITY_EXHAUSTED';
