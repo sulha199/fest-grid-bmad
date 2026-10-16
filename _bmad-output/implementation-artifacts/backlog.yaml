@@ -2195,4 +2195,4 @@ items:
      title: "A subscribed account and its scrape-discovered numeric-ID profile are two rows; posts land on the one nobody subscribed to",
      ref: [apps/backend/src/lib/accounts/get-or-create-discovered-account-profile.ts, apps/backend/src/lib/posts/persist-scraped-post.ts, apps/backend/src/lib/posts/posts-scraped-under-account.ts, apps/backend/src/lib/posts/auto-enqueue-new-post.ts, backlog/BUG-059-subscribed-profile-twin-split.md],
      touches: [app:backend, pkg:database, web:post-selection, web:subscriptions],
-     note: "Manual-extract symptom mitigated in 15c0eb97; auto-extraction of twin-owned posts and the twin rows themselves remain. Detail in backlog/BUG-059-subscribed-profile-twin-split.md."}
+     note: "2026-10-16: new twins stopped by a stopgap (c76385b4); merge tool built (d3123f5b) but not yet run on PROD; auto-extraction and manual listing now follow associations (91c5405b). Numeric account_id identity model still to build. Detail in backlog/BUG-059-subscribed-profile-twin-split.md."}
