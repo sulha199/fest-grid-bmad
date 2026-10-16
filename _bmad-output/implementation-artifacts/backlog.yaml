@@ -2245,3 +2245,11 @@ items:
      ref: [apps/backend/src/lib/accounts/get-or-create-discovered-account-profile.ts, apps/backend/src/lib/posts/persist-scraped-post.ts, apps/backend/src/lib/posts/posts-scraped-under-account.ts, apps/backend/src/lib/posts/auto-enqueue-new-post.ts, backlog/BUG-059-subscribed-profile-twin-split.md],
      touches: [app:backend, pkg:database, web:post-selection, web:subscriptions],
      note: "2026-10-16: new twins stopped by a stopgap (c76385b4); merge tool built (d3123f5b) but not yet run on PROD; auto-extraction and manual listing now follow associations (91c5405b). Numeric account_id identity model still to build. Detail in backlog/BUG-059-subscribed-profile-twin-split.md."}
+
+  BUG-061:
+    {type: bug, status: done, created: 2026-10-16,
+     impact: user-visible, effort: s,
+     title: "AI filter: GraphQL's null-padded FilterNode crashed the summary and event queries; shared links collapsed; empty extractions were silent",
+     ref: [packages/domain/src/ai-event-filters/filter-node-schema.ts, packages/domain/src/ai-event-filters/transform-gemini-response-to-filter-expression.ts, apps/web/src/features/events/use-ai-filter.ts],
+     touches: [pkg:domain, web:events, app:backend, cross:ai-extraction],
+     note: "Fixed 2026-10-16: validateFilterNode strips null node keys; hook validates the URL param; no auto-collapse on load; empty result now carries a caveat."}

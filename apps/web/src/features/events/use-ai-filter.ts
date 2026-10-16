@@ -4,7 +4,12 @@ import { useTranslations } from 'next-intl';
 import { useResolvePromptToEventFilterMutation, useSaveAiEventFilterMutation, EventFilterInput } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
 import { useApiKeyStatus } from '@/features/onboarding/use-has-api-key';
-import { renderFilterExpressionSummary, expressionFromFlatFilter } from '@festgrid/domain/ai-event-filters';
+import {
+  renderFilterExpressionSummary,
+  expressionFromFlatFilter,
+  stripNullNodeKeys,
+  validateFilterNode,
+} from '@festgrid/domain/ai-event-filters';
 import type { FilterNode } from '@festgrid/domain/ai-event-filters';
 
 export function useAIFilter() {
@@ -54,7 +59,12 @@ export function useAIFilter() {
   const aiExpression = useMemo(() => {
     if (!aiExpressionStr) return null;
     try {
-      return JSON.parse(aiExpressionStr) as FilterNode;
+      // The URL param is untrusted input, and URLs shared/bookmarked before the null-padding fix
+      // still carry GraphQL's `op: null` / `children: null` / `child: null` keys -- validate (which
+      // also strips them) instead of casting, so a malformed or old-shape value degrades to "no
+      // expression" rather than crashing the summary/query builders.
+      const validation = validateFilterNode(JSON.parse(aiExpressionStr));
+      return validation.valid ? validation.node : null;
     } catch {
       return null;
     }
@@ -123,17 +133,18 @@ export function useAIFilter() {
   const { mutate: resolvePrompt, isPending: isLoading } = useResolvePromptToEventFilterMutation(graphqlClient, {
     onSuccess: (data, variables) => {
       setError(null);
+      // The generated GraphQL type is a loosely-typed recursive shape: the schema's `FilterNode`
+      // can't express the domain's discriminated union, and GraphQL serializes EVERY declared key
+      // on every node (absent ones as explicit `null`: `{ op: null, field: "type", children: null,
+      // child: null, ... }`). The backend has already validated the tree, so only that null padding
+      // needs removing -- left in, it crashes the summary renderer and query compiler.
+      const expression = stripNullNodeKeys(data.resolvePromptToEventFilter.expression) as FilterNode;
       setAiFilterStr(JSON.stringify(data.resolvePromptToEventFilter.resolvedFilter));
       setAiCaveatsStr(JSON.stringify(data.resolvePromptToEventFilter.caveats));
-      setAiExpressionStr(JSON.stringify(data.resolvePromptToEventFilter.expression));
+      setAiExpressionStr(JSON.stringify(expression));
       setResolvedData({
         resolvedFilter: data.resolvePromptToEventFilter.resolvedFilter,
-        // The generated GraphQL type is a loosely-typed recursive shape (`op`/`field`: `string |
-        // null`, `value: unknown`) since the schema's `FilterNode` can't express the domain's
-        // discriminated union -- the backend has already validated/shaped this value by the time
-        // it reaches here (Story 9.3/9.4's `resolveStoredFilter`/Gemini transform), so this is a
-        // safe narrowing cast, not an unchecked assumption about unvalidated data.
-        expression: data.resolvePromptToEventFilter.expression as unknown as FilterNode,
+        expression,
         caveats: data.resolvePromptToEventFilter.caveats,
         prompt: variables.prompt,
       });
@@ -210,14 +221,22 @@ export function useAIFilter() {
   };
 
   // Only auto-expand when `q` changes while an AI filter was ALREADY active (the user typed into
-  // manual search). Skip the check on the render where `aiFilterStr` itself just changed (a fresh
-  // resolve or a clear) -- otherwise a freshly-resolved filter with a keyword field would always
-  // mismatch the still-stale `q` and immediately self-collapse back to manual mode.
+  // manual search). Two situations must NOT collapse the filter:
+  //  - the render where `aiFilterStr` itself just changed (a fresh resolve or a clear) --
+  //    otherwise a freshly-resolved filter with a keyword field would always mismatch the
+  //    still-stale `q` and immediately self-collapse back to manual mode;
+  //  - a page load (or shared/bookmarked link) that arrives with `ai_filter` already in the URL --
+  //    `q` is empty there, so comparing it to the filter's keyword would read as a user edit and
+  //    silently turn the AI filter into manual controls. Tracking that `q` actually CHANGED (rather
+  //    than merely differs) also keeps this correct under React StrictMode's double-run of effects.
   const prevAiFilterStrRef = useRef(aiFilterStr);
+  const prevQRef = useRef(q);
   useEffect(() => {
     const aiFilterJustChanged = prevAiFilterStrRef.current !== aiFilterStr;
+    const qChanged = prevQRef.current !== q;
     prevAiFilterStrRef.current = aiFilterStr;
-    if (aiFilterJustChanged || !aiFilter) return;
+    prevQRef.current = q;
+    if (aiFilterJustChanged || !qChanged || !aiFilter) return;
     const currentQ = q || '';
     const filterQ = aiFilter.keyword || '';
     if (currentQ !== filterQ) {

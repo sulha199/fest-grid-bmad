@@ -1,6 +1,6 @@
 import type { EventFilterInput } from '../events/buildEventsQueryCondition.js';
 import { expressionFromFlatFilter, flatFilterFromExpression } from './flat-filter-conversion.js';
-import { validateFilterNode } from './filter-node-schema.js';
+import { stripNullNodeKeys, validateFilterNode } from './filter-node-schema.js';
 import type { FilterNode } from './filter-node.js';
 
 export interface ResolvedStoredFilter {
@@ -25,9 +25,11 @@ export function resolveStoredFilter(stored: unknown): ResolvedStoredFilter {
   const isV2 =
     typeof stored === 'object' && stored !== null && (stored as { version?: unknown }).version === 2;
 
-  const candidate = isV2
-    ? (stored as { expression: unknown }).expression
-    : expressionFromFlatFilter((stored as EventFilterInput) ?? {});
+  // A v2 row may have been saved from a null-padded GraphQL `FilterNode` response before
+  // `validateFilterNode` began normalizing it, so tolerate (and clean) that stored shape too.
+  const candidate = stripNullNodeKeys(
+    isV2 ? (stored as { expression: unknown }).expression : expressionFromFlatFilter((stored as EventFilterInput) ?? {})
+  );
 
   // An empty top-level AND group (no leaves -- an absent/empty legacy value, or an explicitly
   // empty v2 expression) is a legitimate "no filter active" state, not a malformed tree --

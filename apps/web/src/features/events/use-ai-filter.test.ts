@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useAIFilter } from './use-ai-filter';
 import { renderHook, act } from '@testing-library/react';
 import { NuqsTestingAdapter } from 'nuqs/adapters/testing';
+import { createElement, type ReactNode } from 'react';
 
 let mockHasApiKey = true;
 let mockApiKeyLoading = false;
@@ -13,7 +14,7 @@ let mockExpression: any = {
   op: 'OR',
   children: [
     { field: 'type', value: ['FESTIVAL'] },
-    { field: 'type', value: ['CONCERT'] },
+    { field: 'type', value: ['PERFORMANCE'] },
   ],
 };
 
@@ -75,6 +76,24 @@ vi.mock('@/generated/graphql', () => ({
   }),
 }));
 
+
+// GraphQL serializes every declared `FilterNode` key on every node (absent ones as explicit
+// `null`). The mocks above use clean trees, which is how the production crash
+// (`Cannot read properties of null (reading 'map')`) shipped -- these mirror the REAL wire shape.
+const paddedLeaf = (field: string, value: unknown) => ({ op: null, field, value, children: null, child: null });
+const paddedGroup = (op: string, children: unknown[]) => ({ op, field: null, value: null, children, child: null });
+const cleanBadmintonTree = {
+  op: 'AND',
+  children: [
+    { field: 'type', value: ['COMPETITION'] },
+    { field: 'keyword', value: 'badminton' },
+  ],
+};
+const withSearchParams =
+  (searchParams: Record<string, string>) =>
+  ({ children }: { children: ReactNode }) =>
+    createElement(NuqsTestingAdapter, { searchParams }, children);
+
 describe('useAIFilter hook', () => {
   beforeEach(() => {
     mockHasApiKey = true;
@@ -87,7 +106,7 @@ describe('useAIFilter hook', () => {
       op: 'OR',
       children: [
         { field: 'type', value: ['FESTIVAL'] },
-        { field: 'type', value: ['CONCERT'] },
+        { field: 'type', value: ['PERFORMANCE'] },
       ],
     };
   });
@@ -142,7 +161,7 @@ describe('useAIFilter hook', () => {
       op: 'OR',
       children: [
         { field: 'type', value: ['FESTIVAL'] },
-        { field: 'type', value: ['CONCERT'] },
+        { field: 'type', value: ['PERFORMANCE'] },
       ],
     };
     const { result } = renderHook(() => useAIFilter(), {
@@ -257,6 +276,54 @@ describe('useAIFilter hook', () => {
     expect(result.current.overlayProps.resolvedCaveats).toContain(
       'Your prompt described more conditions than the filter supports, so some were dropped.'
     );
+  });
+  it('strips GraphQL null padding from a resolved expression so the summary and query builders get the domain shape', () => {
+    mockResolvedFilter = { types: ['COMPETITION'], keyword: 'badminton' };
+    mockExpression = paddedGroup('AND', [paddedLeaf('type', ['COMPETITION']), paddedLeaf('keyword', 'badminton')]);
+    const { result } = renderHook(() => useAIFilter(), { wrapper: NuqsTestingAdapter });
+
+    act(() => {
+      result.current.overlayProps.onSubmit('badminton competition');
+    });
+
+    expect(result.current.activeExpression).toEqual(cleanBadmintonTree);
+    expect(typeof result.current.filterHubProps.aiFilterSummary).toBe('string');
+    expect(result.current.overlayProps.resolvedSummary).toBeTruthy();
+
+    act(() => {
+      result.current.overlayProps.onSave();
+    });
+    expect(lastSaveVariables.expression).toEqual(cleanBadmintonTree);
+  });
+
+  it('reads a null-padded ai_expression from the URL (links shared before the fix) without crashing', () => {
+    const { result } = renderHook(() => useAIFilter(), {
+      wrapper: withSearchParams({
+        ai_filter: JSON.stringify({ types: ['COMPETITION'], keyword: 'badminton' }),
+        ai_caveats: '[]',
+        ai_expression: JSON.stringify(
+          paddedGroup('AND', [paddedLeaf('type', ['COMPETITION']), paddedLeaf('keyword', 'badminton')])
+        ),
+      }),
+    });
+
+    expect(result.current.activeExpression).toEqual(cleanBadmintonTree);
+    expect(typeof result.current.filterHubProps.aiFilterSummary).toBe('string');
+  });
+
+  it.each([
+    ['unparseable JSON', '{not json'],
+    ['a non-node value', '"just a string"'],
+    ['an empty group', JSON.stringify({ op: 'AND', children: [] })],
+    ['an out-of-vocabulary leaf', JSON.stringify({ field: 'price', value: 5 })],
+  ])('treats an ai_expression URL param that is %s as no expression instead of throwing', (_label, raw) => {
+    const { result } = renderHook(() => useAIFilter(), {
+      wrapper: withSearchParams({ ai_filter: JSON.stringify({ keyword: 'jazz' }), ai_expression: raw }),
+    });
+
+    expect(result.current.activeExpression).toBeNull();
+    // Falls back to the flat ai_filter, so the summary still renders.
+    expect(typeof result.current.filterHubProps.aiFilterSummary).toBe('string');
   });
 });
 

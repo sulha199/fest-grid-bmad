@@ -106,6 +106,41 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/**
+ * The five keys GraphQL's `FilterNode` object type declares on EVERY node. A GraphQL response
+ * serializes all of them -- absent ones as an explicit `null` (e.g. a leaf arrives as
+ * `{ op: null, field: "type", value: [...], children: null, child: null }`) -- whereas this
+ * module's domain `FilterNode` union signals "not a group/NOT" by the ABSENCE of `op`/`children`/
+ * `child`. Left as-is, a null-padded node passes structural validation (Zod strips the unknown
+ * keys) yet later crashes `.map`/`for...of` consumers that expect an array.
+ */
+const FILTER_NODE_KEYS = ['op', 'field', 'value', 'children', 'child'] as const;
+
+/**
+ * Returns a copy of `raw` with every `null` node key (see `FILTER_NODE_KEYS`) removed,
+ * recursing through `children`/`child`. A leaf's `value` payload is left untouched. Anything that
+ * is not a plain object is returned as-is so `walkNode` can report it.
+ */
+export function stripNullNodeKeys(raw: unknown): unknown {
+  if (!isPlainObject(raw)) {
+    return raw;
+  }
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (value === null && (FILTER_NODE_KEYS as readonly string[]).includes(key)) {
+      continue;
+    }
+    cleaned[key] = value;
+  }
+  if (Array.isArray(cleaned.children)) {
+    cleaned.children = cleaned.children.map(stripNullNodeKeys);
+  }
+  if ('child' in cleaned) {
+    cleaned.child = stripNullNodeKeys(cleaned.child);
+  }
+  return cleaned;
+}
+
 function describeLeafVocabularyOrShapeError(raw: Record<string, unknown>): string {
   const fieldValue = raw.field;
   if (typeof fieldValue !== 'string' || !(FILTER_LEAF_FIELDS as readonly string[]).includes(fieldValue)) {
@@ -191,7 +226,10 @@ function walkNode(raw: unknown, path: FilterValidationPath, issues: FilterValida
  * (depth, node count) are reported at the root path `[]` since they are properties of the whole
  * tree, not a single node.
  */
-export function validateFilterNode(candidate: unknown): FilterValidationResult {
+export function validateFilterNode(rawCandidate: unknown): FilterValidationResult {
+  // Normalize GraphQL's null-padded node shape first, so both the walk below and the `node` handed
+  // back to callers (resolvers, the compiler, the web hook) see the domain's absent-key shape.
+  const candidate = stripNullNodeKeys(rawCandidate);
   const issues: FilterValidationIssue[] = [];
   const { depth, count } = walkNode(candidate, [], issues);
 

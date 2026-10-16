@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventType, EventCategory } from '@festgrid/shared-types';
 import { DayOfWeek, TemporalFilter } from '../events/buildEventsQueryCondition.js';
-import { validateFilterNode } from './filter-node-schema.js';
+import { validateFilterNode, stripNullNodeKeys } from './filter-node-schema.js';
 import type { FilterNode } from './filter-node.js';
 
 const leafAccountId: FilterNode = { field: 'accountId', value: 'acc-1' };
@@ -276,5 +276,60 @@ describe('validateFilterNode (AC1)', () => {
         assert.match(result.issues[0].reason, /must have a "child"/);
       }
     });
+  });
+});
+
+// GraphQL serializes every declared `FilterNode` key on every node, absent ones as an explicit
+// `null` -- the exact shape the web app received from `resolvePromptToEventFilter` and put in the
+// `ai_expression` URL param (the production crash: `Cannot read properties of null (reading 'map')`).
+describe('null-padded GraphQL FilterNode shape', () => {
+  const paddedLeaf = (field: string, value: unknown) => ({ op: null, field, value, children: null, child: null });
+  const paddedGroup = (op: string, children: unknown[]) => ({ op, field: null, value: null, children, child: null });
+  const paddedNot = (child: unknown) => ({ op: 'NOT', field: null, value: null, children: null, child });
+
+  it('stripNullNodeKeys removes null node keys from leaves, groups and NOT nodes, recursively', () => {
+    const stripped = stripNullNodeKeys(
+      paddedGroup('AND', [paddedLeaf('type', ['COMPETITION']), paddedNot(paddedLeaf('keyword', 'jazz'))])
+    );
+    assert.deepEqual(stripped, {
+      op: 'AND',
+      children: [
+        { field: 'type', value: ['COMPETITION'] },
+        { op: 'NOT', child: { field: 'keyword', value: 'jazz' } },
+      ],
+    });
+  });
+
+  it('stripNullNodeKeys leaves a leaf value payload (including nested nulls) and non-node keys untouched', () => {
+    const stripped = stripNullNodeKeys({ field: 'dateRange', value: { anchor: 'TODAY', spanAmount: null }, extra: null });
+    assert.deepEqual(stripped, { field: 'dateRange', value: { anchor: 'TODAY', spanAmount: null }, extra: null });
+  });
+
+  it('stripNullNodeKeys passes non-objects through unchanged', () => {
+    assert.equal(stripNullNodeKeys(null), null);
+    assert.equal(stripNullNodeKeys('x'), 'x');
+    assert.deepEqual(stripNullNodeKeys([1]), [1]);
+  });
+
+  it('validateFilterNode accepts the exact payload from the failing production URL and returns a clean node', () => {
+    const result = validateFilterNode(
+      paddedGroup('AND', [paddedLeaf('type', ['COMPETITION']), paddedLeaf('keyword', 'badminton')])
+    );
+    assert.equal(result.valid, true);
+    if (result.valid) {
+      assert.deepEqual(result.node, {
+        op: 'AND',
+        children: [
+          { field: 'type', value: ['COMPETITION'] },
+          { field: 'keyword', value: 'badminton' },
+        ],
+      });
+      assert.equal(JSON.stringify(result.node).includes('null'), false);
+    }
+  });
+
+  it('still rejects an invalid null-padded tree (a padded NOT of a NOT is a double NOT)', () => {
+    const result = validateFilterNode(paddedNot(paddedNot(paddedLeaf('keyword', 'jazz'))));
+    assert.equal(result.valid, false);
   });
 });

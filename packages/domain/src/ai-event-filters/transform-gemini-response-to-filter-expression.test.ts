@@ -1,6 +1,9 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { transformGeminiResponseToFilterExpression } from './transform-gemini-response-to-filter-expression.js';
+import {
+  transformGeminiResponseToFilterExpression,
+  EMPTY_EXPRESSION_CAVEAT,
+} from './transform-gemini-response-to-filter-expression.js';
 import { normalize } from './normalize-filter-node.js';
 import { expressionFromFlatFilter } from './flat-filter-conversion.js';
 import { transformGeminiResponseToEventFilter } from './transform-gemini-response-to-event-filter.js';
@@ -120,24 +123,24 @@ describe('transformGeminiResponseToFilterExpression (AC2)', () => {
     ]);
   });
 
-  it('degrades null/garbage payload (neither expression nor resolvedFilter key) to an empty filter with no caveats and no throw', () => {
+  it('degrades null/garbage payload (neither expression nor resolvedFilter key) to an empty filter with only the could-not-build-a-filter caveat and no throw', () => {
     for (const payload of [null, undefined, {}, 'garbage', 42, []]) {
       const result = transformGeminiResponseToFilterExpression(payload);
       assert.deepEqual(result.expression, { op: 'AND', children: [] });
-      assert.deepEqual(result.caveats, []);
+      assert.deepEqual(result.caveats, [EMPTY_EXPRESSION_CAVEAT]);
     }
   });
 
   it('a non-plain-object raw "expression" value (e.g. a bare string) degrades to an empty filter', () => {
     const result = transformGeminiResponseToFilterExpression({ expression: 'garbage-string', caveats: [] });
     assert.deepEqual(result.expression, { op: 'AND', children: [] });
-    assert.deepEqual(result.caveats, []);
+    assert.deepEqual(result.caveats, [EMPTY_EXPRESSION_CAVEAT]);
   });
 
   it('an AND/OR node with a missing (non-array) "children" property degrades to an empty filter, defaulting to zero children', () => {
     const result = transformGeminiResponseToFilterExpression({ expression: { op: 'AND' }, caveats: [] });
     assert.deepEqual(result.expression, { op: 'AND', children: [] });
-    assert.deepEqual(result.caveats, []);
+    assert.deepEqual(result.caveats, [EMPTY_EXPRESSION_CAVEAT]);
   });
 
   it('an OR whose only child is entirely out-of-vocabulary (no surviving leaves) degrades to an empty filter', () => {
@@ -146,7 +149,7 @@ describe('transformGeminiResponseToFilterExpression (AC2)', () => {
       caveats: [],
     });
     assert.deepEqual(result.expression, { op: 'AND', children: [] });
-    assert.deepEqual(result.caveats, []);
+    assert.deepEqual(result.caveats, [EMPTY_EXPRESSION_CAVEAT]);
   });
 
   it('a NOT whose child is entirely out-of-vocabulary (not a double-NOT) degrades to an empty filter without the double-negation caveat', () => {
@@ -155,7 +158,7 @@ describe('transformGeminiResponseToFilterExpression (AC2)', () => {
       caveats: [],
     });
     assert.deepEqual(result.expression, { op: 'AND', children: [] });
-    assert.deepEqual(result.caveats, []);
+    assert.deepEqual(result.caveats, [EMPTY_EXPRESSION_CAVEAT]);
   });
 
   it('trims a widest group nested inside a NOT (exercising the NOT-recursion branch of the trim/widest-search logic)', () => {
@@ -248,6 +251,104 @@ describe('transformGeminiResponseToFilterExpression (AC2)', () => {
     const result = transformGeminiResponseToFilterExpression(payload);
 
     assert.deepEqual(result.expression, { field: 'keyword', value: 'jazz' });
+    assert.deepEqual(result.caveats, []);
+  });
+  it('keeps leaf fields carried directly on an AND/OR node (no "children") instead of silently dropping them', () => {
+    const result = transformGeminiResponseToFilterExpression({
+      expression: { op: 'AND', categories: ['FAMILY_AND_KIDS'], location: { adminArea: 'Yogyakarta' } },
+      caveats: [],
+    });
+    assert.deepEqual(result.expression, {
+      op: 'AND',
+      children: [
+        { field: 'category', value: ['FAMILY_AND_KIDS'] },
+        { field: 'locationAdminArea', value: 'Yogyakarta' },
+      ],
+    });
+    assert.deepEqual(result.caveats, []);
+  });
+
+  it('combines an AND/OR node\'s own leaf fields with its "children"', () => {
+    const result = transformGeminiResponseToFilterExpression({
+      expression: { op: 'AND', keyword: 'exciting', children: [{ types: ['COMPETITION'] }] },
+      caveats: [],
+    });
+    assert.deepEqual(result.expression, {
+      op: 'AND',
+      children: [
+        { field: 'type', value: ['COMPETITION'] },
+        { field: 'keyword', value: 'exciting' },
+      ],
+    });
+  });
+
+  it('joins leaf fields carried on an OR node to that OR (its own operator), alongside its children', () => {
+    const result = transformGeminiResponseToFilterExpression({
+      expression: { op: 'OR', keyword: 'jazz', children: [{ keyword: 'blues' }] },
+      caveats: [],
+    });
+    assert.deepEqual(result.expression, {
+      op: 'OR',
+      children: [
+        { field: 'keyword', value: 'blues' },
+        { field: 'keyword', value: 'jazz' },
+      ],
+    });
+  });
+
+  it('accepts a flat v1-style answer at the top level (leaf fields beside "caveats", no "expression" key)', () => {
+    const result = transformGeminiResponseToFilterExpression({
+      types: ['COMPETITION'],
+      categories: ['FAMILY_AND_KIDS'],
+      location: { adminArea: 'Yogyakarta' },
+      caveats: ['model note'],
+    });
+    assert.deepEqual(result.expression, {
+      op: 'AND',
+      children: [
+        { field: 'type', value: ['COMPETITION'] },
+        { field: 'category', value: ['FAMILY_AND_KIDS'] },
+        { field: 'locationAdminArea', value: 'Yogyakarta' },
+      ],
+    });
+    assert.deepEqual(result.caveats, ['model note']);
+  });
+
+  it('a top-level flat answer with a single leaf collapses to that one condition', () => {
+    const result = transformGeminiResponseToFilterExpression({ keyword: 'badminton', caveats: [] });
+    assert.deepEqual(result.expression, { field: 'keyword', value: 'badminton' });
+  });
+
+  it('treats null-valued group keys the model may emit for absent fields as absent', () => {
+    const result = transformGeminiResponseToFilterExpression({
+      expression: {
+        op: 'AND',
+        children: [
+          { op: null, children: null, child: null, categories: ['FAMILY_AND_KIDS'], location: null },
+          { op: null, location: { adminArea: 'Yogyakarta' }, categories: null },
+        ],
+      },
+      caveats: [],
+    });
+    assert.deepEqual(result.expression, {
+      op: 'AND',
+      children: [
+        { field: 'category', value: ['FAMILY_AND_KIDS'] },
+        { field: 'locationAdminArea', value: 'Yogyakarta' },
+      ],
+    });
+  });
+
+  it('does not add the "could not build a filter" caveat when the model already explained an empty result', () => {
+    const result = transformGeminiResponseToFilterExpression({
+      expression: { op: 'AND', children: [] },
+      caveats: ['price filters are not supported'],
+    });
+    assert.deepEqual(result.caveats, ['price filters are not supported']);
+  });
+
+  it('does not add the "could not build a filter" caveat to a non-empty result', () => {
+    const result = transformGeminiResponseToFilterExpression({ expression: { keyword: 'jazz' }, caveats: [] });
     assert.deepEqual(result.caveats, []);
   });
 });

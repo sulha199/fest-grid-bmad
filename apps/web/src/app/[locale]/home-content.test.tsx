@@ -588,7 +588,7 @@ describe('HomeContent - Story 9.4a (AI filter expression wiring)', () => {
     op: 'OR',
     children: [
       { field: 'type', value: ['FESTIVAL'] },
-      { field: 'type', value: ['CONCERT'] },
+      { field: 'type', value: ['PERFORMANCE'] },
     ],
   };
 
@@ -616,7 +616,7 @@ describe('HomeContent - Story 9.4a (AI filter expression wiring)', () => {
     expect(query.operator).toBe('or');
     expect(query.conditions).toEqual([
       { field: 'types', operator: 'in', value: ['FESTIVAL'] },
-      { field: 'types', operator: 'in', value: ['CONCERT'] },
+      { field: 'types', operator: 'in', value: ['PERFORMANCE'] },
     ]);
   });
 
