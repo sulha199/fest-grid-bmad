@@ -11,6 +11,7 @@ import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink, isScrapableAccountType } from '@festgrid/domain/scraper';
 import { postsScrapedUnderAccount, getPostAccessAccountIds } from '../lib/posts/posts-scraped-under-account.js';
+import { findProfileByUsername } from '../lib/accounts/find-profile-by-username.js';
 import { selectApiKey } from '@festgrid/domain/ai-gateway';
 import { callGemini, AiGatewayExhaustedError, AiGatewayBusyError } from '../lib/ai-gateway/adapter.js';
 import { fetchCandidateKeys } from '../lib/ai-gateway/usage-store.js';
@@ -2287,7 +2288,16 @@ Constraints and Guidelines:
           throw new GraphQLError('Account profile lookup failed or account not found on platform', { extensions: { code: 'BAD_REQUEST' } });
         }
         
-        const [profile] = await db.insert(socialMediaAccountProfiles)
+        // STOPGAP (BUG-059): reuse a profile a user already created from a typed handle instead of
+        // adding a numeric-keyed twin for the same platform account.
+        const handleKeyedProfile = await findProfileByUsername(
+          input.platform.toLowerCase(),
+          lookupResult.username,
+          { handleKeyedOnly: true }
+        );
+        const [profile] = handleKeyedProfile && handleKeyedProfile.accountId !== lookupResult.accountId
+          ? [handleKeyedProfile]
+          : await db.insert(socialMediaAccountProfiles)
           .values({
             platform: input.platform.toLowerCase(),
             accountId: lookupResult.accountId,

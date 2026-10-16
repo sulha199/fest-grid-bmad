@@ -555,4 +555,41 @@ test('subscribe-to-account tests', async (t) => {
     assert.strictEqual(row.accountTypeStatus, 'CONFIRMED');
     assert.strictEqual(row.classificationClaimedAt, null);
   });
+
+  await t.test('STOPGAP BUG-059: subscribing by a typed handle reuses a classified profile that scrape ingestion created under a numeric ID', async () => {
+    const handle = 'reuse_handle_' + ts;
+    const numericId = '6' + ts;
+    const [discovered] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({
+        accountId: numericId,
+        platform: testPlatform,
+        username: handle,
+        displayName: 'Discovered Numeric',
+        isVerifiedForDiscovery: false,
+        accountType: 'ORGANIZER_VENUE_EVENT',
+        accountTypeStatus: 'CONFIRMED',
+      })
+      .returning();
+
+    try {
+      const result = await subscribeToAccount({
+        userId: testUserId,
+        platform: testPlatform,
+        accountId: handle,
+        profile: { displayName: handle, username: handle },
+      });
+
+      assert.strictEqual(result.profile.id, discovered.id, 'the numeric-keyed profile is reused');
+      assert.strictEqual(result.subscription.accountId, discovered.id, 'the subscription is attached to it');
+      const handleKeyed = await db
+        .select()
+        .from(socialMediaAccountProfiles)
+        .where(and(eq(socialMediaAccountProfiles.platform, testPlatform), eq(socialMediaAccountProfiles.accountId, handle)));
+      assert.strictEqual(handleKeyed.length, 0, 'no handle-keyed twin row was created');
+    } finally {
+      await db.delete(subscriptions).where(eq(subscriptions.accountId, discovered.id));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, discovered.id));
+    }
+  });
 });
