@@ -6,3 +6,5 @@ export * from "./parse-image-url-expiry.js";
 export * from "./parse-platform-post-identity.js";
 export * from "./account-classification.js";
 export * from "./build-instagram-permalink.js";
+export * from "./compute-is-scrape-in-progress.js";
+export * from "./compute-account-activity-state.js";

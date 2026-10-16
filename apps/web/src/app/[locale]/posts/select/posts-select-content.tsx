@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useFormatter } from 'next-intl';
 import { useAuthSession } from '@/components/providers/auth-session-provider';
 import { useRouter, Link } from '@/i18n/navigation';
 import { graphqlClient } from '@/lib/graphql-client';
@@ -21,7 +21,7 @@ import {
   PostExtractionStatus as GeneratedPostExtractionStatus,
 } from '@/generated/graphql';
 import { PostCard, PostCardSkeleton, BlockingLoader, useSoftDeleteWithUndo, PageContainer, GridContainer, AccountAvatar, useInfiniteScroll, StatusBadge } from '@festgrid/ui';
-import { AlertCircle, TriangleAlert, Ban, Clock } from 'lucide-react';
+import { AlertCircle, TriangleAlert, Ban, Clock, Hourglass, History, Loader2 } from 'lucide-react';
 import { usePostSelectionStore } from './post-selection-store';
 import { toast } from 'sonner';
 import { SummaryBar } from '@/features/post-selection/components/summary-bar';
@@ -30,6 +30,7 @@ import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/r
 
 export function PostsSelectContent() {
   const t = useTranslations('ManualPostSelectionPage');
+  const format = useFormatter();
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectPath = searchParams?.get('redirect') || '/';
@@ -105,6 +106,8 @@ export function PostsSelectContent() {
 
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [scrapePollingStartTime, setScrapePollingStartTime] = useState<number | null>(null);
+  const formatDate = (value?: string | null) =>
+    value ? format.dateTime(new Date(value), { dateStyle: 'medium' }) : '';
   // PRD 3.10: the status filter applies to every tab; by default only Pending posts are shown.
   const [statusFilter, setStatusFilter] = useState<PostExtractionStatus[]>(['PENDING']);
   const statusLabels: Record<PostExtractionStatus, string> = {
@@ -463,13 +466,21 @@ export function PostsSelectContent() {
       </div>
 
       {/* Inactive Account Warning Banner */}
-      {activeSub?.isInactive && (
+      {activeSub?.activityState === 'INACTIVE' && (
         <div className="p-4 border rounded-xl bg-yellow-50 dark:bg-yellow-950/20 text-yellow-800 dark:text-yellow-200 border-yellow-200 dark:border-yellow-900/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
             <TriangleAlert className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
             <div className="space-y-1">
               <h4 className="font-semibold leading-tight">{t('inactiveAccountAlertTitle')}</h4>
               <p className="text-sm opacity-90 leading-normal">{t('inactiveAccountAlertDescription')}</p>
+              <p className="text-sm opacity-90 leading-normal">
+                {activeSub.latestPostAt
+                  ? t('inactiveAccountAlertDetails', {
+                      lastChecked: formatDate(activeSub.account.lastScrapedAt),
+                      latestPost: formatDate(activeSub.latestPostAt),
+                    })
+                  : t('inactiveAccountAlertNoPosts', { lastChecked: formatDate(activeSub.account.lastScrapedAt) })}
+              </p>
             </div>
           </div>
           <button
@@ -508,11 +519,30 @@ export function PostsSelectContent() {
                   />
 
                   <span>{sub.account.displayName}</span>
-                  {sub.isInactive && (
+                  {sub.activityState === 'INACTIVE' && (
                     <AlertCircle
                       className="h-4 w-4 text-yellow-500 shrink-0"
                       xlinkTitle={t('inactiveWarningTitle') || 'Inactive Account'}
                     />
+                  )}
+                  {sub.activityState === 'NEVER_SCRAPED' && (
+                    <span role="img" aria-label={t('neverScrapedBadgeTooltip')} title={t('neverScrapedBadgeTooltip')}>
+                      <Hourglass className="h-4 w-4 text-muted-foreground shrink-0" />
+                    </span>
+                  )}
+                  {sub.activityState === 'SCRAPE_IN_PROGRESS' && (
+                    <span role="img" aria-label={t('scrapeInProgressLabel')} title={t('scrapeInProgressLabel')}>
+                      <Loader2 className="h-4 w-4 text-sky-500 shrink-0 animate-spin" />
+                    </span>
+                  )}
+                  {sub.activityState === 'SCRAPE_STALE' && (
+                    <span
+                      role="img"
+                      aria-label={t('scrapeStaleBadgeTooltip', { date: formatDate(sub.account.lastScrapedAt) })}
+                      title={t('scrapeStaleBadgeTooltip', { date: formatDate(sub.account.lastScrapedAt) })}
+                    >
+                      <History className="h-4 w-4 text-muted-foreground shrink-0" />
+                    </span>
                   )}
                   {sub.account.accountTypeStatus === 'AWAITING_APPROVAL' && (
                     <Clock
@@ -539,6 +569,14 @@ export function PostsSelectContent() {
 
       {/* Tab Content */}
       <div className="mt-6">
+        {activeSub?.activityState === 'NEVER_SCRAPED' && (
+          <p className="mb-4 text-sm text-muted-foreground">{t('neverScrapedNote')}</p>
+        )}
+        {activeSub?.activityState === 'SCRAPE_STALE' && (
+          <p className="mb-4 text-sm text-muted-foreground">
+            {t('scrapeStaleNote', { date: formatDate(activeSub.account.lastScrapedAt) })}
+          </p>
+        )}
         {activeSub && (
           <div className="mb-4">
             <ExtractionStatusFilter

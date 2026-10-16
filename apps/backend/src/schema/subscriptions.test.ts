@@ -892,6 +892,93 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
   });
 
+  await t.test('15. Subscription activity state: never scraped, in progress, stale, inactive, active (PRD 3.10, Story 5.4a)', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+    const day = 24 * 60 * 60 * 1000;
+    const stamp = `${Date.now()}-${Math.random()}`;
+
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      platform: 'instagram',
+      accountId: `activity-${stamp}`,
+      username: `activity-${stamp}`,
+      displayName: 'Activity Account',
+    }).returning();
+    const [otherProfile] = await db.insert(socialMediaAccountProfiles).values({
+      platform: 'instagram',
+      accountId: `activity-other-${stamp}`,
+      username: `activity-other-${stamp}`,
+      displayName: 'Activity Other Account',
+    }).returning();
+    const [sub] = await db.insert(subscriptions).values({ userId: testUser.id, accountId: profile.id }).returning();
+
+    const read = async () => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `query { mySubscriptions { id isInactive activityState latestPostAt } }`
+        })
+      });
+      const body: any = await response.json();
+      assert.ok(!body.errors, JSON.stringify(body.errors));
+      return body.data.mySubscriptions.find((s: any) => s.id === sub.id);
+    };
+    const setProfile = (values: Partial<typeof socialMediaAccountProfiles.$inferInsert>) =>
+      db.update(socialMediaAccountProfiles).set(values).where(eq(socialMediaAccountProfiles.id, profile.id));
+
+    try {
+      // Never scraped: no posts is "not looked at yet", never "inactive" (Story 5.4a AC1).
+      let state = await read();
+      assert.strictEqual(state.activityState, 'NEVER_SCRAPED');
+      assert.strictEqual(state.isInactive, false);
+      assert.strictEqual(state.latestPostAt, null);
+
+      // Scrape in flight wins (AC2), including right after a first trigger.
+      await setProfile({ scrapeTriggeredAt: new Date(Date.now() - 60 * 1000), lastScrapedAt: null });
+      assert.strictEqual((await read()).activityState, 'SCRAPE_IN_PROGRESS');
+      assert.strictEqual((await read()).isInactive, false);
+
+      // Scraped just now, no posts at all: genuinely inactive (AC3).
+      await setProfile({ scrapeTriggeredAt: null, lastScrapedAt: new Date() });
+      state = await read();
+      assert.strictEqual(state.activityState, 'INACTIVE');
+      assert.strictEqual(state.isInactive, true);
+
+      // Last successful scrape is stale: do not claim inactivity from old information.
+      await setProfile({ lastScrapedAt: new Date(Date.now() - 5 * day) });
+      state = await read();
+      assert.strictEqual(state.activityState, 'SCRAPE_STALE');
+      assert.strictEqual(state.isInactive, false);
+
+      // Recently scraped again, and the newest post is old: inactive; the date is reported.
+      await setProfile({ lastScrapedAt: new Date() });
+      const oldDate = new Date(Date.now() - 40 * day);
+      const [oldPost] = await db.insert(posts).values({
+        accountId: profile.id, platform: 'instagram', content: 'old', postUrl: `https://instagram.com/p/act-old-${stamp}`, publishedAt: oldDate,
+      }).returning();
+      state = await read();
+      assert.strictEqual(state.activityState, 'INACTIVE');
+      assert.strictEqual(state.latestPostAt, oldDate.toISOString());
+
+      // A recent post that the account only co-authored (stored under another profile) keeps it active.
+      const recentDate = new Date(Date.now() - 2 * day);
+      const [coPost] = await db.insert(posts).values({
+        accountId: otherProfile.id, platform: 'instagram', content: 'co', postUrl: `https://instagram.com/p/act-co-${stamp}`, publishedAt: recentDate,
+      }).returning();
+      await db.insert(postAccountAssociations).values({ postId: coPost.id, accountId: profile.id, role: 'COAUTHOR' });
+      state = await read();
+      assert.strictEqual(state.activityState, 'ACTIVE');
+      assert.strictEqual(state.isInactive, false);
+      assert.strictEqual(state.latestPostAt, recentDate.toISOString());
+
+      await db.delete(postAccountAssociations).where(eq(postAccountAssociations.postId, coPost.id));
+      await db.delete(posts).where(inArray(posts.id, [oldPost.id, coPost.id]));
+    } finally {
+      await db.delete(subscriptions).where(eq(subscriptions.id, sub.id));
+      await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, [profile.id, otherProfile.id]));
+    }
+  });
+
   await t.test('triggerAccountScrape mutation tests', async (t) => {
     let testProfile: any;
     let testSubscription: any;

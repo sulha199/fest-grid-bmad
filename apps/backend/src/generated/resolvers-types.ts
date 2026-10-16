@@ -1329,12 +1329,26 @@ export type Subscription = {
   __typename?: 'Subscription';
   account: SocialMediaAccountProfile;
   accountId: Scalars['ID']['output'];
+  /**
+   * What the manual extract screen shows for this account (PRD 3.10, Story 5.4a). INACTIVE only when the account
+   * was scraped successfully and recently and still has no recent post.
+   */
+  activityState: SubscriptionActivityState;
   createdAt: Scalars['String']['output'];
   id: Scalars['ID']['output'];
   isInactive: Scalars['Boolean']['output'];
   isNewlyAdded: Scalars['Boolean']['output'];
+  /** When the newest post the account owns or is associated with was published; null when it has none. */
+  latestPostAt?: Maybe<Scalars['String']['output']>;
   pendingExtractionCount: Scalars['Int']['output'];
 };
+
+export type SubscriptionActivityState =
+  | 'ACTIVE'
+  | 'INACTIVE'
+  | 'NEVER_SCRAPED'
+  | 'SCRAPE_IN_PROGRESS'
+  | 'SCRAPE_STALE';
 
 export type SuggestedEventMatch = {
   __typename?: 'SuggestedEventMatch';
@@ -1677,6 +1691,7 @@ export type ResolversTypes = ResolversObject<{
   SubscribeToAccountInput: SubscribeToAccountInput;
   SubscribeToAccountResult: ResolverTypeWrapper<SubscribeToAccountResult>;
   Subscription: ResolverTypeWrapper<{}>;
+  SubscriptionActivityState: SubscriptionActivityState;
   SuggestedEventMatch: ResolverTypeWrapper<SuggestedEventMatch>;
   SuggestedEventMatchAction: SuggestedEventMatchAction;
   SuggestedEventMatchConnection: ResolverTypeWrapper<SuggestedEventMatchConnection>;
@@ -2381,10 +2396,12 @@ export type SubscribeToAccountResultResolvers<ContextType = GraphQLContext, Pare
 export type SubscriptionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Subscription'] = ResolversParentTypes['Subscription']> = ResolversObject<{
   account?: SubscriptionResolver<ResolversTypes['SocialMediaAccountProfile'], "account", ParentType, ContextType>;
   accountId?: SubscriptionResolver<ResolversTypes['ID'], "accountId", ParentType, ContextType>;
+  activityState?: SubscriptionResolver<ResolversTypes['SubscriptionActivityState'], "activityState", ParentType, ContextType>;
   createdAt?: SubscriptionResolver<ResolversTypes['String'], "createdAt", ParentType, ContextType>;
   id?: SubscriptionResolver<ResolversTypes['ID'], "id", ParentType, ContextType>;
   isInactive?: SubscriptionResolver<ResolversTypes['Boolean'], "isInactive", ParentType, ContextType>;
   isNewlyAdded?: SubscriptionResolver<ResolversTypes['Boolean'], "isNewlyAdded", ParentType, ContextType>;
+  latestPostAt?: SubscriptionResolver<Maybe<ResolversTypes['String']>, "latestPostAt", ParentType, ContextType>;
   pendingExtractionCount?: SubscriptionResolver<ResolversTypes['Int'], "pendingExtractionCount", ParentType, ContextType>;
 }>;
 

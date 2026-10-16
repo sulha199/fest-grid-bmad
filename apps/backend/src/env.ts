@@ -88,6 +88,10 @@ export interface BackendEnv {
   unprocessedPayloadRetentionDays?: string;
   // Scrape in-progress timeout
   scrapeInProgressTimeoutHours?: string;
+  // Manual extract screen (PRD 3.10, Story 5.4a): a last successful scrape older than this many days is
+  // too old to call an account inactive; no post newer than this many days makes it inactive.
+  accountScrapeStaleDays?: string;
+  accountInactiveAfterDays?: string;
   systemGeminiApiKey?: string;
   postMediaBucketName?: string;
   postMediaCdnDomain?: string;
@@ -300,6 +304,10 @@ export function loadBackendEnv(): BackendEnv {
     unprocessedPayloadRetentionDays: process.env.UNPROCESSED_PAYLOAD_RETENTION_DAYS || '30',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     scrapeInProgressTimeoutHours: process.env.SCRAPE_IN_PROGRESS_TIMEOUT_HOURS || '3',
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    accountScrapeStaleDays: process.env.ACCOUNT_SCRAPE_STALE_DAYS || '3',
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    accountInactiveAfterDays: process.env.ACCOUNT_INACTIVE_AFTER_DAYS || '30',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     systemGeminiApiKey: process.env.SYSTEM_GEMINI_API_KEY,
     // eslint-disable-next-line turbo/no-undeclared-env-vars

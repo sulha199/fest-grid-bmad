@@ -9,10 +9,11 @@ import { buildEventAccountMatchCondition } from '../lib/events/event-account-mat
 import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, lt, gte, lte, isNull, isNotNull, ilike } from 'drizzle-orm';
 import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
-import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink, isScrapableAccountType } from '@festgrid/domain/scraper';
+import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink, isScrapableAccountType, computeIsScrapeInProgress } from '@festgrid/domain/scraper';
 import { postsAssociatedWithAccount, getPostAccessAccountIds } from '../lib/posts/posts-associated-with-account.js';
 import { findProfileByUsername } from '../lib/accounts/find-profile-by-username.js';
 import { postExtractionStatusCondition, withExtractionStatus } from '../lib/posts/post-extraction-status.js';
+import { loadAccountActivity, type AccountActivity } from '../lib/accounts/load-account-activity.js';
 import { selectApiKey } from '@festgrid/domain/ai-gateway';
 import { callGemini, AiGatewayExhaustedError, AiGatewayBusyError } from '../lib/ai-gateway/adapter.js';
 import { fetchCandidateKeys } from '../lib/ai-gateway/usage-store.js';
@@ -206,6 +207,15 @@ async function batchEventRowsForIds(eventIds: string[], info: any, paths: Array<
 }
 
 
+/**
+ * One account-activity lookup per Subscription row per request: `isInactive`, `activityState` and
+ * `latestPostAt` all read it, and a single query selecting all three would otherwise run three times.
+ */
+function subscriptionActivity(parent: any): Promise<AccountActivity> {
+  parent.__activity ??= loadAccountActivity(parent.accountId);
+  return parent.__activity;
+}
+
 export const resolvers: Resolvers = {
   JSON: GraphQLJSON,
   Coordinates: {
@@ -237,30 +247,26 @@ export const resolvers: Resolvers = {
 
       return profile as any;
     },
+    // Posts the user can still select on the manual extract screen: every post the account owns or is
+    // associated with that is Pending (PRD 3.10).
     pendingExtractionCount: async (parent: any) => {
       const rows = await db.select({ count: count() })
         .from(posts)
         .where(
           and(
-            eq(posts.accountId, parent.accountId),
-            eq(posts.isExtracted, false)
+            postsAssociatedWithAccount(parent.accountId),
+            postExtractionStatusCondition(['PENDING'], loadBackendEnv().postExtractionClaimTtlMinutes)
           )
         );
       return rows[0]?.count ?? 0;
     },
-    isInactive: async (parent: any) => {
-      const rows = await db.select({ publishedAt: posts.publishedAt })
-        .from(posts)
-        .where(eq(posts.accountId, parent.accountId))
-        .orderBy(desc(posts.publishedAt))
-        .limit(1);
-      if (rows.length === 0) {
-        return true;
-      }
-      const mostRecent = rows[0].publishedAt;
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      return mostRecent < thirtyDaysAgo;
-    }
+    // The three fields below share one lookup per subscription row within a request.
+    isInactive: async (parent: any) => (await subscriptionActivity(parent)).state === 'INACTIVE',
+    activityState: async (parent: any) => (await subscriptionActivity(parent)).state,
+    latestPostAt: async (parent: any) => {
+      const { newestPostAt } = await subscriptionActivity(parent);
+      return newestPostAt ? newestPostAt.toISOString() : null;
+    },
   } as any,
   SocialMediaAccountProfile: {
     hasPendingDefaultLocationReview: async (parent: any) => {
@@ -290,23 +296,10 @@ export const resolvers: Resolvers = {
       }
 
       const env = loadBackendEnv();
-      const scrapeInProgressTimeoutHours = parseInt(env.scrapeInProgressTimeoutHours || '3', 10);
-      const timeoutMs = scrapeInProgressTimeoutHours * 60 * 60 * 1000;
-      const scrapeTimeoutBoundary = new Date(Date.now() - timeoutMs);
-
-      // If scrapeTriggeredAt is older than the timeout, consider it cleared (orphaned job)
-      if (profile.scrapeTriggeredAt < scrapeTimeoutBoundary) {
-        return false;
-      }
-
-      // In-progress if:
-      // - scrapeTriggeredAt is set AND
-      // - (lastScrapedAt is null OR lastScrapedAt < scrapeTriggeredAt)
-      if (profile.lastScrapedAt === null || profile.lastScrapedAt < profile.scrapeTriggeredAt) {
-        return true;
-      }
-
-      return false;
+      return computeIsScrapeInProgress(
+        { scrapeTriggeredAt: profile.scrapeTriggeredAt, lastScrapedAt: profile.lastScrapedAt },
+        parseInt(env.scrapeInProgressTimeoutHours || '3', 10)
+      );
     },
   } as any,
   Mutation: {

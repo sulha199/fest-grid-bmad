@@ -72,6 +72,7 @@ beforeEach(() => {
       accountId: 'acc-1',
       isNewlyAdded: false,
       isInactive: false,
+      activityState: 'ACTIVE',
       createdAt: '2026-08-01T00:00:00.000Z',
       pendingExtractionCount: 0,
       account: {
@@ -89,10 +90,13 @@ beforeEach(() => {
       accountId: 'acc-2',
       isNewlyAdded: false,
       isInactive: true,
+      activityState: 'INACTIVE',
+      latestPostAt: '2026-06-15T00:00:00.000Z',
       createdAt: '2026-08-01T00:00:00.000Z',
       pendingExtractionCount: 0,
       account: {
         id: 'acc-2',
+        lastScrapedAt: '2026-08-09T00:00:00.000Z',
         platform: 'instagram',
         displayName: 'Inactive Sub',
         username: 'inactive_sub',
@@ -531,6 +535,60 @@ describe('PostsSelectContent integration', () => {
     });
   });
 
+  describe('account activity states on the tab bar and banner (Story 5.4a, PRD 3.10)', () => {
+    const withState = (state: string, overrides: Record<string, unknown> = {}, accountOverrides: Record<string, unknown> = {}) => {
+      mockSubscriptions = mockSubscriptions.map((sub: any) =>
+        sub.id === 'sub-2'
+          ? {
+              ...sub,
+              isInactive: state === 'INACTIVE',
+              activityState: state,
+              ...overrides,
+              account: { ...sub.account, ...accountOverrides },
+            }
+          : sub
+      );
+    };
+
+    it('shows a not-scraped-yet badge and note, and no inactive banner, for a never-scraped account', async () => {
+      withState('NEVER_SCRAPED', { latestPostAt: null }, { lastScrapedAt: null });
+      renderComponent();
+
+      expect(await screen.findByRole('img', { name: 'Not scraped yet' })).toBeInTheDocument();
+      fireEvent.click(await screen.findByText('Inactive Sub'));
+      expect(await screen.findByText(/has not been scraped yet/)).toBeInTheDocument();
+      expect(screen.queryByText('Inactive Account')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Remove Subscription' })).not.toBeInTheDocument();
+    });
+
+    it('shows an in-progress badge, and no inactive banner, while a scrape is running', async () => {
+      withState('SCRAPE_IN_PROGRESS', { latestPostAt: null }, { lastScrapedAt: null, isScrapeInProgress: true });
+      renderComponent();
+
+      expect(await screen.findByRole('img', { name: /Scraping for new posts/ })).toBeInTheDocument();
+      fireEvent.click(await screen.findByText('Inactive Sub'));
+      expect(screen.queryByText('Inactive Account')).not.toBeInTheDocument();
+    });
+
+    it('shows a not-checked-since badge and note, and no inactive banner, when the last scrape is stale', async () => {
+      withState('SCRAPE_STALE', { latestPostAt: '2026-05-01T00:00:00.000Z' }, { lastScrapedAt: '2026-08-01T00:00:00.000Z' });
+      renderComponent();
+
+      expect(await screen.findByRole('img', { name: 'Not checked since Aug 1, 2026' })).toBeInTheDocument();
+      fireEvent.click(await screen.findByText('Inactive Sub'));
+      expect(await screen.findByText(/not been able to check this account since Aug 1, 2026/)).toBeInTheDocument();
+      expect(screen.queryByText('Inactive Account')).not.toBeInTheDocument();
+    });
+
+    it('says no posts were found when an inactive account has none', async () => {
+      withState('INACTIVE', { latestPostAt: null });
+      renderComponent();
+
+      fireEvent.click(await screen.findByText('Inactive Sub'));
+      expect(await screen.findByText(/Last checked Aug 9, 2026\. No posts found\./)).toBeInTheDocument();
+    });
+  });
+
   it('appends the next cursor page when the bottom sentinel scrolls into view', async () => {
     let observerCallback: IntersectionObserverCallback | null = null;
     class StubObserver {
@@ -588,6 +646,12 @@ describe('PostsSelectContent integration', () => {
     const bannerTitle = await screen.findByText('Inactive Account');
     expect(bannerTitle).toBeInTheDocument();
 
+    // It says when the account was last checked and when its latest post was, as readable dates.
+    const details = screen.getByText(/Last checked .* Latest post: /);
+    expect(details.textContent).toMatch(/Aug 9, 2026/);
+    expect(details.textContent).toMatch(/Jun 15, 2026/);
+    expect(details.textContent).not.toMatch(/2026-0/);
+
     const removeBtn = screen.getByRole('button', { name: 'Remove Subscription' });
     expect(removeBtn).toBeInTheDocument();
 
@@ -610,6 +674,7 @@ describe('PostsSelectContent integration', () => {
         accountId: 'acc-gated-1',
         isNewlyAdded: false,
         isInactive: false,
+        activityState: 'ACTIVE',
         createdAt: '2026-08-01T00:00:00.000Z',
         pendingExtractionCount: 0,
         account: {
@@ -629,6 +694,7 @@ describe('PostsSelectContent integration', () => {
         accountId: 'acc-gated-2',
         isNewlyAdded: false,
         isInactive: false,
+        activityState: 'ACTIVE',
         createdAt: '2026-08-01T00:00:00.000Z',
         pendingExtractionCount: 0,
         account: {
@@ -648,6 +714,7 @@ describe('PostsSelectContent integration', () => {
         accountId: 'acc-curator-1',
         isNewlyAdded: false,
         isInactive: false,
+        activityState: 'ACTIVE',
         createdAt: '2026-08-01T00:00:00.000Z',
         pendingExtractionCount: 0,
         account: {

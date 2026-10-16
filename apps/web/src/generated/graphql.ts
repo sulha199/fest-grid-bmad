@@ -1360,12 +1360,27 @@ export type Subscription = {
   __typename?: 'Subscription';
   account: SocialMediaAccountProfile;
   accountId: Scalars['ID']['output'];
+  /**
+   * What the manual extract screen shows for this account (PRD 3.10, Story 5.4a). INACTIVE only when the account
+   * was scraped successfully and recently and still has no recent post.
+   */
+  activityState: SubscriptionActivityState;
   createdAt: Scalars['String']['output'];
   id: Scalars['ID']['output'];
   isInactive: Scalars['Boolean']['output'];
   isNewlyAdded: Scalars['Boolean']['output'];
+  /** When the newest post the account owns or is associated with was published; null when it has none. */
+  latestPostAt?: Maybe<Scalars['String']['output']>;
   pendingExtractionCount: Scalars['Int']['output'];
 };
+
+export enum SubscriptionActivityState {
+  Active = 'ACTIVE',
+  Inactive = 'INACTIVE',
+  NeverScraped = 'NEVER_SCRAPED',
+  ScrapeInProgress = 'SCRAPE_IN_PROGRESS',
+  ScrapeStale = 'SCRAPE_STALE'
+}
 
 export type SuggestedEventMatch = {
   __typename?: 'SuggestedEventMatch';
@@ -1574,6 +1589,7 @@ export enum WidgetTheme {
  * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING posts
  * can be selected for extraction.
  */
+
 
 
 
@@ -2100,7 +2116,7 @@ export type TriggerAccountScrapeMutation = { triggerAccountScrape: { triggered: 
 export type GetMySubscriptionsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetMySubscriptionsQuery = { mySubscriptions: Array<{ id: string, accountId: string, isNewlyAdded: boolean, isInactive: boolean, createdAt: string, pendingExtractionCount: number, account: { id: string, accountId: string, platform: string, displayName: string, username: string, profileImageUrl: string | null, isScrapeInProgress: boolean, lastScrapedAt: string | null, accountType: string | null, accountTypeStatus: string | null, hasPendingDefaultLocationReview: boolean, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } }> };
+export type GetMySubscriptionsQuery = { mySubscriptions: Array<{ id: string, accountId: string, isNewlyAdded: boolean, isInactive: boolean, activityState: SubscriptionActivityState, latestPostAt: string | null, createdAt: string, pendingExtractionCount: number, account: { id: string, accountId: string, platform: string, displayName: string, username: string, profileImageUrl: string | null, isScrapeInProgress: boolean, lastScrapedAt: string | null, accountType: string | null, accountTypeStatus: string | null, hasPendingDefaultLocationReview: boolean, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } }> };
 
 export type ReportSystemErrorMutationVariables = Exact<{
   input: ReportSystemErrorInput;
@@ -4690,6 +4706,8 @@ export const GetMySubscriptionsDocument = new TypedDocumentString(`
     accountId
     isNewlyAdded
     isInactive
+    activityState
+    latestPostAt
     createdAt
     pendingExtractionCount
     account {
