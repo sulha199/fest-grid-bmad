@@ -5,10 +5,9 @@ import * as path from 'node:path';
 
 // Ratchet on explicit `any` in backend source (`as any` and `: any`). The count may only go down:
 // when you remove some, lower BASELINE in the same change; when a new one looks necessary, type it
-// instead. The biggest remaining cluster is src/schema/resolvers.ts, where field resolvers take raw
-// database rows as `parent`; typing those properly needs codegen `mappers` for the GraphQL types
-// that differ from their rows (SocialMediaAccountProfile, Event, Subscription, ...).
-const BASELINE = 206;
+// instead. What remains in src/schema/resolvers.ts is a handful of locals and JSON inputs; row-shaped
+// GraphQL types get their parent from the codegen `mappers` in codegen.ts (src/lib/graphql-mappers.ts).
+const BASELINE = 69;
 
 const SRC = path.resolve(process.cwd(), 'src');
 const EXPLICIT_ANY = /\bas any\b|: any\b/g;
