@@ -674,8 +674,11 @@ test('manual post selection & extraction integration tests', async (t) => {
     }
   });
 
-  await t.test('Subscription.isInactive resolves to true if posts are older than 30 days', async () => {
+  await t.test('Subscription.isInactive resolves to true if the account was scraped recently and its posts are older than 30 days', async () => {
     mockUser = { userId: testUser.id, role: testUser.role };
+    // Story 5.4a: an account that has never been scraped is not inactive, so the fixture needs a recent
+    // completed scrape for "no recent posts" to mean something. Restored below.
+    await db.update(socialMediaAccountProfiles).set({ lastScrapedAt: new Date() }).where(eq(socialMediaAccountProfiles.id, testProfile.id));
 
     const response = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',
@@ -697,6 +700,7 @@ test('manual post selection & extraction integration tests', async (t) => {
     const sub = result.data.mySubscriptions.find((s: any) => s.id === testSubscription.id);
     assert.ok(sub);
     assert.strictEqual(sub.isInactive, true);
+    await db.update(socialMediaAccountProfiles).set({ lastScrapedAt: null }).where(eq(socialMediaAccountProfiles.id, testProfile.id));
   });
 
   await t.test('Subscription.isInactive resolves to false if there is a post within 30 days', async () => {

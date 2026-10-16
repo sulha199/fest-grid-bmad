@@ -1,6 +1,7 @@
-import { sql } from 'drizzle-orm';
+import { and, count, eq, inArray, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { db } from '../../db/client.js';
-import { accountProfileMerges } from '@festgrid/database';
+import { accountProfileMerges, postAccountAssociations, posts } from '@festgrid/database';
 
 /**
  * BUG-059 / spec-profile-identity-unification section 4 -- merges a "twin" profile (a second
@@ -64,16 +65,28 @@ export async function planAccountProfileMerge(survivorId: string, twinId: string
     blockers.push('image-storage opt-in differs (consent must not be inferred)');
   }
 
-  const [{ n }] = (await db.execute(sql`
-    select count(*)::int as n
-    from post_account_associations pub
-    join post_account_associations src
-      on src.post_id = pub.post_id and src.role = 'SCRAPING_SOURCE' and src.account_id = ${survivorId}
-    join posts p on p.id = pub.post_id
-    where pub.account_id = ${twinId}
-      and pub.role = 'PUBLISHER'
-      and lower(p.owner_username) = lower(${survivor.username})
-  `)) as unknown as { n: number }[];
+  const publisherRow = alias(postAccountAssociations, 'publisher_row');
+  const sourceRow = alias(postAccountAssociations, 'source_row');
+  const [{ n: evidenceRows }] = await db
+    .select({ n: count() })
+    .from(publisherRow)
+    .innerJoin(
+      sourceRow,
+      and(
+        eq(sourceRow.postId, publisherRow.postId),
+        eq(sourceRow.role, 'SCRAPING_SOURCE'),
+        eq(sourceRow.accountId, survivorId)
+      )
+    )
+    .innerJoin(posts, eq(posts.id, publisherRow.postId))
+    .where(
+      and(
+        eq(publisherRow.accountId, twinId),
+        eq(publisherRow.role, 'PUBLISHER'),
+        sql`lower(${posts.ownerUsername}) = lower(${survivor.username})`
+      )
+    );
+  const n = Number(evidenceRows);
 
   return {
     survivor,
@@ -147,17 +160,33 @@ export async function mergeAccountProfiles(options: MergeAccountProfilesOptions)
     // source) cannot be violated by a repoint, because each post has at most one such row and it
     // belongs to exactly one of the two profiles. The only collision is the same (post, role) on
     // both rows, which can happen for COAUTHOR (several allowed per post): keep the survivor's.
-    const droppedAssociations: unknown[] = [];
-    droppedAssociations.push(...((await tx.execute(sql`
-      delete from post_account_associations t
-      using post_account_associations s
-      where t.account_id = ${twinId} and s.account_id = ${survivorId}
-        and s.post_id = t.post_id and s.role = t.role
-      returning t.id, t.post_id, t.role`)) as unknown as unknown[]));
-    repointed.associationsDropped = droppedAssociations;
-    repointed.associations = ids(await tx.execute(sql`
-      update post_account_associations set account_id = ${survivorId}, updated_at = now()
-      where account_id = ${twinId} returning id`));
+    const twinRow2 = alias(postAccountAssociations, 'twin_row');
+    const survivorRow2 = alias(postAccountAssociations, 'survivor_row');
+    const duplicateAssociations = await tx
+      .select({ id: twinRow2.id, postId: twinRow2.postId, role: twinRow2.role })
+      .from(twinRow2)
+      .innerJoin(
+        survivorRow2,
+        and(
+          eq(survivorRow2.postId, twinRow2.postId),
+          eq(survivorRow2.role, twinRow2.role),
+          eq(survivorRow2.accountId, survivorId)
+        )
+      )
+      .where(eq(twinRow2.accountId, twinId));
+    if (duplicateAssociations.length > 0) {
+      await tx
+        .delete(postAccountAssociations)
+        .where(inArray(postAccountAssociations.id, duplicateAssociations.map((d) => d.id)));
+    }
+    repointed.associationsDropped = duplicateAssociations;
+    repointed.associations = (
+      await tx
+        .update(postAccountAssociations)
+        .set({ accountId: survivorId, updatedAt: new Date() })
+        .where(eq(postAccountAssociations.accountId, twinId))
+        .returning({ id: postAccountAssociations.id })
+    ).map((row) => row.id);
 
     // Subscriptions: repoint, then keep one active row per user (the earliest).
     repointed.subscriptions = ids(await tx.execute(sql`
