@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { alias } from 'drizzle-orm/pg-core';
-import { Resolvers } from '../generated/resolvers-types.js';
+import { Resolvers, type SocialMediaAccountProfileConnection } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
 import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns, aiEventFilters, accountTypeClassificationReviews, postAccountAssociations, eventPosts, eventSlugAliases, eventMatchCandidates, eventMerges } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly, getRequestedFieldNames } from '@festgrid/graphql-select';
-import { requireAuth, requireModerator } from '../lib/auth/context.js';
+import { requireAuth, requireModerator, type GraphQLContext } from '../lib/auth/context.js';
 import { buildEventAccountMatchCondition } from '../lib/events/event-account-match.js';
 import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, lt, gte, lte, isNull, isNotNull, ilike } from 'drizzle-orm';
 import { parse as parseTld } from 'tldts';
@@ -26,7 +26,7 @@ import { getOrCreateUserSettings } from '../lib/user-settings/get-or-create-user
 import { resolveLocation, getAddressPredictions, resolveAdminRegion } from '../lib/geolocation/adapter.js';
 import { resolveInstagramOEmbed } from '../lib/instagram-oembed/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
-import { GraphQLError } from 'graphql';
+import { GraphQLError, type GraphQLResolveInfo } from 'graphql';
 import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult, computePastEventThreshold, parsePlatformPrefixedEventSlug, sanitizeEventLinks } from '@festgrid/domain/events';
 import { transformGeminiResponseToFilterExpression, validateFilterNode, compileFilterNodeToQueryCondition, resolveStoredFilter, flatFilterFromExpression } from '@festgrid/domain/ai-event-filters';
 import type { FilterValidationIssue } from '@festgrid/domain/ai-event-filters';
@@ -240,7 +240,7 @@ export const resolvers: Resolvers = {
     source: (parent: any) => parent.source?.toUpperCase(),
   },
   Subscription: {
-    account: async (parent: any, _: any, context: any, info: any) => {
+    account: async (parent: any, _args: unknown, _context: GraphQLContext, info: GraphQLResolveInfo) => {
       const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
       const rows = await db.select({
         ...requestedFields,
@@ -315,7 +315,7 @@ export const resolvers: Resolvers = {
     },
   } as any,
   Mutation: {
-    resolvePromptToEventFilter: async (_: any, { prompt }: any, context: any) => {
+    resolvePromptToEventFilter: async (_, { prompt }, context) => {
       const authUser = requireAuth(context);
 
       if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0 || prompt.length > 2000) {
@@ -398,7 +398,7 @@ export const resolvers: Resolvers = {
         throw err;
       }
     },
-    saveAIEventFilter: async (_: any, { prompt, resolvedFilter, expression }: any, context: any) => {
+    saveAIEventFilter: async (_, { prompt, resolvedFilter, expression }, context) => {
       const authUser = requireAuth(context);
 
       if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0 || prompt.length > 2000) {
@@ -437,7 +437,7 @@ export const resolvers: Resolvers = {
         deletedAt: inserted.deletedAt ? inserted.deletedAt.toISOString() : null,
       } as any;
     },
-    deleteAIEventFilter: async (_: any, { id, action }: any, context: any) => {
+    deleteAIEventFilter: async (_, { id, action }, context) => {
       const authUser = requireAuth(context);
       const [existing] = await db.select().from(aiEventFilters)
         .where(and(eq(aiEventFilters.id, id), eq(aiEventFilters.ownerUserId, authUser.userId)));
@@ -477,7 +477,7 @@ export const resolvers: Resolvers = {
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
-    createApiKey: async (_: any, { input }: any, context: any) => {
+    createApiKey: async (_, { input }, context) => {
       const authUser = requireAuth(context);
       const normalizedKey = input.key.trim();
       if (input.provider.toLowerCase() !== 'gemini') {
@@ -533,7 +533,7 @@ export const resolvers: Resolvers = {
       }).returning();
       return formatApiKey(inserted);
     },
-    deleteApiKey: async (_: any, { id, action }: any, context: any) => {
+    deleteApiKey: async (_, { id, action }, context) => {
       const authUser = requireAuth(context);
       const existingRows = await db.select().from(apiKeys)
         .where(and(eq(apiKeys.id, id), eq(apiKeys.userId, authUser.userId)));
@@ -564,7 +564,7 @@ export const resolvers: Resolvers = {
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
-    subscribeToAccount: async (_: any, { input }: any, context: any) => {
+    subscribeToAccount: async (_, { input }, context) => {
       const authUser = requireAuth(context);
       if (!SUPPORTED_PLATFORMS.includes(input.platform.toLowerCase() as any)) {
         throw new GraphQLError('Unsupported platform', { extensions: { code: 'BAD_REQUEST' } });
@@ -592,7 +592,7 @@ export const resolvers: Resolvers = {
         throw err;
       }
     },
-    removeSubscription: async (_: any, { id, action }: any, context: any) => {
+    removeSubscription: async (_, { id, action }, context) => {
       const authUser = requireAuth(context);
       const existingRows = await db.select().from(subscriptions)
         .where(and(eq(subscriptions.id, id), eq(subscriptions.userId, authUser.userId)));
@@ -623,7 +623,7 @@ export const resolvers: Resolvers = {
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
-    triggerAccountScrape: async (_: any, { accountId }: any, context: any) => {
+    triggerAccountScrape: async (_, { accountId }, context) => {
       const authUser = requireAuth(context);
 
       // 1. Check that the user has an active subscription to this account
@@ -735,7 +735,7 @@ export const resolvers: Resolvers = {
         isInitialScrape,
       };
     },
-    setAccountDefaultLocation: async (_: any, { accountId, input, asModeratorCorrection }: any, context: any, info: any) => {
+    setAccountDefaultLocation: async (_, { accountId, input, asModeratorCorrection }, context, info) => {
       try {
         const authUser = requireAuth(context);
         // AC15: mirrors editAccountDefaultLocation's AD-11 additive-auth shape exactly --
@@ -822,7 +822,7 @@ export const resolvers: Resolvers = {
         throw err;
       }
     },
-    editAccountDefaultLocation: async (_: any, { accountId, input, asModeratorCorrection }: any, context: any, info: any) => {
+    editAccountDefaultLocation: async (_, { accountId, input, asModeratorCorrection }, context, info) => {
       try {
         const authUser = requireAuth(context);
         // Which mutation semantics apply is decided by the calling page (via the explicit
@@ -923,7 +923,7 @@ export const resolvers: Resolvers = {
         throw err;
       }
     },
-    clearAccountDefaultLocation: async (_: any, { accountId }: any, context: any, info: any) => {
+    clearAccountDefaultLocation: async (_, { accountId }, context, info) => {
       // Moderator-only, no subscriber path -- clearing has no subscriber-facing equivalent
       // anywhere in the product (see Story 4.9 Dev Notes). Mirrors setImageStorageOptIn's shape.
       requireModerator(context);
@@ -997,7 +997,7 @@ export const resolvers: Resolvers = {
 
       return updatedProfile;
     },
-    setImageStorageOptIn: async (_: any, { accountId, optedIn }: any, context: any, info: any) => {
+    setImageStorageOptIn: async (_, { accountId, optedIn }, context, info) => {
       requireModerator(context);
 
       // 1. Look up the social_media_account_profiles row by id = accountId
@@ -1033,7 +1033,7 @@ export const resolvers: Resolvers = {
 
       return updatedProfile;
     },
-    createUserLocation: async (_: any, { input }: any, context: any) => {
+    createUserLocation: async (_, { input }, context) => {
       try {
         const authUser = requireAuth(context);
         const mode = resolveLocationInputMode(input);
@@ -1073,7 +1073,7 @@ export const resolvers: Resolvers = {
         throw err;
       }
     },
-    updateUserLocation: async (_: any, { id, input }: any, context: any) => {
+    updateUserLocation: async (_, { id, input }, context) => {
       try {
         const authUser = requireAuth(context);
         const existingRows = await db.select().from(userLocations)
@@ -1132,7 +1132,7 @@ export const resolvers: Resolvers = {
         throw err;
       }
     },
-    deleteUserLocation: async (_: any, { id, action }: any, context: any) => {
+    deleteUserLocation: async (_, { id, action }, context) => {
       const authUser = requireAuth(context);
       const existingRows = await db.select().from(userLocations)
         .where(and(eq(userLocations.id, id), eq(userLocations.userId, authUser.userId)));
@@ -1173,7 +1173,7 @@ export const resolvers: Resolvers = {
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
-    toggleFavorite: async (_: any, { eventId }: any, context: any) => {
+    toggleFavorite: async (_, { eventId }, context) => {
       const authUser = requireAuth(context);
       
       return await db.transaction(async (tx) => {
@@ -1211,7 +1211,7 @@ export const resolvers: Resolvers = {
         }
       });
     },
-    updateUserSettings: async (_: any, { input }: any, context: any) => {
+    updateUserSettings: async (_, { input }, context) => {
       try {
         const authUser = requireAuth(context);
         if (input.hidePastEventsAfterDays !== undefined && input.hidePastEventsAfterDays !== null) {
@@ -1249,7 +1249,7 @@ export const resolvers: Resolvers = {
         throw err;
       }
     },
-    toggleCalendarAddition: async (_: any, { eventId, scheduleId }: any, context: any) => {
+    toggleCalendarAddition: async (_, { eventId, scheduleId }, context) => {
       const authUser = requireAuth(context);
 
       return await db.transaction(async (tx) => {
@@ -1292,7 +1292,7 @@ export const resolvers: Resolvers = {
         }
       });
     },
-    resolveScheduleTimezone: async (_: any, { scheduleId, timezone }: any, context: any) => {
+    resolveScheduleTimezone: async (_, { scheduleId, timezone }, context) => {
       const authUser = requireAuth(context);
 
       if (!isValidIanaTimezone(timezone)) {
@@ -1328,7 +1328,7 @@ export const resolvers: Resolvers = {
         timezoneStatus: 'RESOLVED' as const,
       };
     },
-    registerFcmToken: async (_: any, { token }: any, context: any) => {
+    registerFcmToken: async (_, { token }, context) => {
       const authUser = requireAuth(context);
       await db.insert(fcmTokens).values({
         token,
@@ -1342,7 +1342,7 @@ export const resolvers: Resolvers = {
       });
       return true;
     },
-    unregisterFcmToken: async (_: any, { token }: any, context: any) => {
+    unregisterFcmToken: async (_, { token }, context) => {
       const authUser = requireAuth(context);
       await db.delete(fcmTokens).where(
         and(
@@ -1352,7 +1352,7 @@ export const resolvers: Resolvers = {
       );
       return true;
     },
-    updateUserTimezone: async (_: any, { timezone }: any, context: any) => {
+    updateUserTimezone: async (_, { timezone }, context) => {
       const authUser = requireAuth(context);
       if (!isValidIanaTimezone(timezone)) {
         throw new GraphQLError('Invalid IANA timezone.', {
@@ -1370,7 +1370,7 @@ export const resolvers: Resolvers = {
       }
       return true;
     },
-    reportSystemError: async (_: any, { input }: any) => {
+    reportSystemError: async (_, { input }) => {
       const valid = validateReportSystemError(input);
       if (!valid) {
         throw new GraphQLError('Invalid reportSystemError input', {
@@ -1396,8 +1396,13 @@ export const resolvers: Resolvers = {
 
       return true;
     },
-    submitCorrection: async (_: any, { eventId, proposedData, source, guardianPermissionConfirmed }: any, context: any) => {
+    submitCorrection: async (_, { eventId, proposedData: proposedInput, source, guardianPermissionConfirmed }, context) => {
       const authUser = requireAuth(context);
+
+      // The GraphQL input and the stored ProposedEventCorrection describe the same values but are
+      // typed differently (string-literal unions vs enums, null vs undefined). AJV below is the
+      // runtime gate, and rejected rows deliberately store the payload as received.
+      const proposedData = proposedInput as unknown as ProposedEventCorrection;
 
       // 1. Look up event
       const eventRows = await db.select().from(events).where(eq(events.id, eventId));
@@ -1427,14 +1432,14 @@ export const resolvers: Resolvers = {
 
       // 4. Schedule ownership check (only if AJV passed)
       if (validationErrors.length === 0) {
-        const ids = proposedData.schedules.map((s: any) => s.id).filter((id: any): id is string => !!id);
+        const ids = proposedData.schedules.map((s) => s.id).filter((id: any): id is string => !!id);
         if (ids.length > 0) {
           const existingSchedules = await db.select()
             .from(schedules)
             .where(and(eq(schedules.eventId, eventId), inArray(schedules.id, ids)));
           const existingIds = new Set(existingSchedules.map((s) => s.id));
 
-          proposedData.schedules.forEach((s: any, index: number) => {
+          proposedData.schedules.forEach((s, index: number) => {
             if (s.id && !existingIds.has(s.id)) {
               validationErrors.push({
                 field: `schedules[${index}].id`,
@@ -1543,7 +1548,7 @@ export const resolvers: Resolvers = {
         validationErrors: [],
       } as any;
     },
-    extractEventDataFromUrl: async (_: any, { url }: any, context: any) => {
+    extractEventDataFromUrl: async (_, { url }, context) => {
       const authUser = requireAuth(context);
 
       // Story 4.2b -- only the synchronous pre-checks run here (same branching, same error codes
@@ -1627,7 +1632,7 @@ export const resolvers: Resolvers = {
         },
       });
     },
-    submitReport: async (_: any, { eventId, reason, details }: any, context: any): Promise<any> => {
+    submitReport: async (_, { eventId, reason, details }, context): Promise<any> => {
       const authUser = requireAuth(context);
       const [existingEvent] = await db.select().from(events).where(eq(events.id, eventId));
       if (!existingEvent) {
@@ -1692,7 +1697,7 @@ export const resolvers: Resolvers = {
         resolvedAt: newReport.resolvedAt ? newReport.resolvedAt.toISOString() : null,
       };
     },
-    resolveReport: async (_: any, { id, outcome }: any, context: any): Promise<any> => {
+    resolveReport: async (_, { id, outcome }, context): Promise<any> => {
       const moderator = requireModerator(context);
       const [report] = await db.select().from(reports).where(eq(reports.id, id));
       if (!report) {
@@ -1716,7 +1721,7 @@ export const resolvers: Resolvers = {
         resolvedAt: updated.resolvedAt ? updated.resolvedAt.toISOString() : null,
       };
     },
-    ignoreSubsequentReports: async (_: any, { reportId }: any, context: any): Promise<any> => {
+    ignoreSubsequentReports: async (_, { reportId }, context): Promise<any> => {
       requireModerator(context);
       const [report] = await db.select().from(reports).where(eq(reports.id, reportId));
       if (!report) {
@@ -1738,7 +1743,7 @@ export const resolvers: Resolvers = {
         resolvedAt: updated.resolvedAt ? updated.resolvedAt.toISOString() : null,
       };
     },
-    resolveReportsForEvent: async (_: any, { eventId }: any, context: any): Promise<any> => {
+    resolveReportsForEvent: async (_, { eventId }, context): Promise<any> => {
       const moderator = requireModerator(context);
       const [existingEvent] = await db.select().from(events).where(eq(events.id, eventId));
       if (!existingEvent) {
@@ -1766,13 +1771,13 @@ export const resolvers: Resolvers = {
         return rows;
       });
 
-      return updatedReports.map((r: any) => ({
+      return updatedReports.map((r) => ({
         ...r,
         createdAt: r.createdAt.toISOString(),
         resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null,
       }));
     },
-    restoreEvent: async (_: any, { id, action }: any, context: any, info: any) => {
+    restoreEvent: async (_, { id, action }, context, info) => {
       requireModerator(context);
       const existingRows = await db.select().from(events).where(eq(events.id, id));
       if (existingRows.length === 0) {
@@ -1832,7 +1837,7 @@ export const resolvers: Resolvers = {
     // (the existing event, the winner) via mergeEvents, inside one transaction so the merge and
     // the suggestion's own status flip commit together. REJECT needs no transaction -- it is a
     // recorded dismissal with no merge side effects (AC3).
-    resolveSuggestedEventMatch: async (_: any, { id, action }: any, context: any, info: any) => {
+    resolveSuggestedEventMatch: async (_, { id, action }, context, info) => {
       const moderator = requireModerator(context);
 
       const [suggestion] = await db.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.id, id));
@@ -1889,7 +1894,7 @@ export const resolvers: Resolvers = {
     },
     // Story 3.6w (AC7) -- reverses a merge's full repoint set exactly, via the journal
     // mergeEvents wrote.
-    undoEventMerge: async (_: any, { mergeId }: any, context: any, info: any) => {
+    undoEventMerge: async (_, { mergeId }, context, info) => {
       const moderator = requireModerator(context);
 
       let restoredEventId: string;
@@ -1928,7 +1933,7 @@ export const resolvers: Resolvers = {
 
       return (restoredRow as any) || null;
     },
-    deleteEventPermanently: async (_: any, { id }: any, context: any) => {
+    deleteEventPermanently: async (_, { id }, context) => {
       requireModerator(context);
       const existingRows = await db.select().from(events).where(eq(events.id, id));
       if (existingRows.length === 0) {
@@ -1937,7 +1942,7 @@ export const resolvers: Resolvers = {
       await db.delete(events).where(eq(events.id, id));
       return true;
     },
-    resolveDefaultLocationChange: async (_: any, { id, action }: any, context: any): Promise<any> => {
+    resolveDefaultLocationChange: async (_, { id, action }, context): Promise<any> => {
       const moderator = requireModerator(context);
       
       const [reqRow] = await db.select()
@@ -2058,7 +2063,7 @@ export const resolvers: Resolvers = {
         reviewedAt: updatedRow.reviewedAt ? updatedRow.reviewedAt.toISOString() : null,
       };
     },
-    resolveAccountTypeClassificationReview: async (_: any, { id, accountType }: any, context: any): Promise<any> => {
+    resolveAccountTypeClassificationReview: async (_, { id, accountType }, context): Promise<any> => {
       const moderator = requireModerator(context);
 
       const [reqRow] = await db.select()
@@ -2103,7 +2108,7 @@ export const resolvers: Resolvers = {
         reviewedAt: updatedRow.reviewedAt ? updatedRow.reviewedAt.toISOString() : null,
       };
     },
-    markSubscriptionViewed: async (_: any, { subscriptionId }: any, context: any) => {
+    markSubscriptionViewed: async (_, { subscriptionId }, context) => {
       const authUser = requireAuth(context);
       const [updated] = await db.update(subscriptions)
         .set({ isNewlyAdded: false })
@@ -2114,7 +2119,7 @@ export const resolvers: Resolvers = {
       }
       return formatSubscription(updated);
     },
-    selectPostsForExtraction: async (_: any, { postIds }: any, context: any) => {
+    selectPostsForExtraction: async (_, { postIds }, context) => {
       const authUser = requireAuth(context);
 
       if (postIds.length === 0) {
@@ -2212,7 +2217,7 @@ export const resolvers: Resolvers = {
         publishedAt: p.publishedAt.toISOString()
       }));
     },
-    castVote: async (_: any, { input }: any, context: any) => {
+    castVote: async (_, { input }, context) => {
       const authUser = requireAuth(context);
       
       let accountId = input.accountId;
@@ -2312,7 +2317,7 @@ export const resolvers: Resolvers = {
 
       return voteResult;
     },
-    withdrawVote: async (_: any, { id, action }: any, context: any) => {
+    withdrawVote: async (_, { id, action }, context) => {
       const authUser = requireAuth(context);
       
       const existingVote = await db.select().from(accountVotes)
@@ -2344,7 +2349,7 @@ export const resolvers: Resolvers = {
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
-    createWidget: async (_: any, { input }: any, context: any) => {
+    createWidget: async (_, { input }, context) => {
       const authUser = requireAuth(context);
 
       if ((input.filters == null) === (input.expression == null)) {
@@ -2374,7 +2379,7 @@ export const resolvers: Resolvers = {
       }).returning();
       return { ...inserted, createdAt: inserted.createdAt.toISOString(), deletedAt: null } as any;
     },
-    updateWidget: async (_: any, { id, input }: any, context: any) => {
+    updateWidget: async (_, { id, input }, context) => {
       const authUser = requireAuth(context);
 
       const [existing] = await db.select().from(widgets).where(and(eq(widgets.id, id), eq(widgets.ownerUserId, authUser.userId)));
@@ -2419,7 +2424,7 @@ export const resolvers: Resolvers = {
         .returning();
       return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: updated.deletedAt ? updated.deletedAt.toISOString() : null } as any;
     },
-    deleteWidget: async (_: any, { id, action }: any, context: any) => {
+    deleteWidget: async (_, { id, action }, context) => {
       const authUser = requireAuth(context);
       const [existing] = await db.select().from(widgets).where(and(eq(widgets.id, id), eq(widgets.ownerUserId, authUser.userId)));
       if (!existing) {
@@ -2447,7 +2452,7 @@ export const resolvers: Resolvers = {
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
-    registerEmbedDomain: async (_: any, { widgetId, pattern }: any, context: any) => {
+    registerEmbedDomain: async (_, { widgetId, pattern }, context) => {
       const authUser = requireAuth(context);
       
       const [widget] = await db.select().from(widgets).where(and(eq(widgets.id, widgetId), eq(widgets.ownerUserId, authUser.userId), isNull(widgets.deletedAt)));
@@ -2489,7 +2494,7 @@ export const resolvers: Resolvers = {
         .returning();
       return { ...inserted, createdAt: inserted.createdAt.toISOString(), deletedAt: null };
     },
-    deregisterEmbedDomain: async (_: any, { id, action }: any, context: any) => {
+    deregisterEmbedDomain: async (_, { id, action }, context) => {
       const authUser = requireAuth(context);
       
       const [existing] = await db.select({
@@ -2528,7 +2533,7 @@ export const resolvers: Resolvers = {
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
-    reprocessPayload: async (_: any, { payloadId, parserVersion }: any, context: any) => {
+    reprocessPayload: async (_, { payloadId, parserVersion }, context) => {
       requireModerator(context);
 
       // Verify payload exists
@@ -2624,7 +2629,7 @@ export const resolvers: Resolvers = {
         message: `Reprocessed successfully: ${replayResult.message}`,
       };
     },
-    deleteUnprocessedPayload: async (_: any, { payloadId }: any, context: any) => {
+    deleteUnprocessedPayload: async (_, { payloadId }, context) => {
       requireModerator(context);
 
       const result = await db
@@ -2640,14 +2645,14 @@ export const resolvers: Resolvers = {
 
       return result.length > 0;
     },
-    replayActorRun: async (_: any, { actorRunId }: any, context: any) => {
+    replayActorRun: async (_, { actorRunId }, context) => {
       requireModerator(context);
       return replayActorRun(actorRunId);
     },
   },
   Query: {
     health: () => true,
-    myAIEventFilters: async (_: any, __: any, context: any) => {
+    myAIEventFilters: async (_, __, context) => {
       const authUser = requireAuth(context);
       const rows = await db.select().from(aiEventFilters)
         .where(and(eq(aiEventFilters.ownerUserId, authUser.userId), activeOnly(aiEventFilters)))
@@ -2659,7 +2664,7 @@ export const resolvers: Resolvers = {
         deletedAt: r.deletedAt ? r.deletedAt.toISOString() : null,
       })) as any;
     },
-    myReports: async (_: any, __: any, context: any): Promise<any> => {
+    myReports: async (_, __, context): Promise<any> => {
       const authUser = requireAuth(context);
       const rows = await db.select().from(reports)
         .where(eq(reports.reporterUserId, authUser.userId))
@@ -2670,7 +2675,7 @@ export const resolvers: Resolvers = {
         resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null,
       }));
     },
-    reportedEvents: async (_: any, { status, reason }: any, context: any): Promise<any> => {
+    reportedEvents: async (_, { status, reason }, context): Promise<any> => {
       requireModerator(context);
       const conditions: any[] = [];
       if (status) {
@@ -2689,7 +2694,7 @@ export const resolvers: Resolvers = {
         resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null,
       }));
     },
-    moderatorPendingItemCount: async (_: any, __: any, context: any): Promise<number> => {
+    moderatorPendingItemCount: async (_, __, context): Promise<number> => {
       requireModerator(context);
       const [[{ pendingReportCount }], [{ pendingLocationChangeCount }], [{ pendingClassificationCount }], [{ pendingSuggestionCount }]] = await Promise.all([
         db.select({ pendingReportCount: count() })
@@ -2709,7 +2714,7 @@ export const resolvers: Resolvers = {
       ]);
       return Number(pendingReportCount) + Number(pendingLocationChangeCount) + Number(pendingClassificationCount) + Number(pendingSuggestionCount);
     },
-    pendingDefaultLocationChanges: async (_: any, __: any, context: any): Promise<any> => {
+    pendingDefaultLocationChanges: async (_, __, context): Promise<any> => {
       requireModerator(context);
       const rows = await db.select()
         .from(defaultLocationChangeRequests)
@@ -2724,7 +2729,7 @@ export const resolvers: Resolvers = {
         reviewedAt: r.reviewedAt ? r.reviewedAt.toISOString() : null,
       }));
     },
-    pendingAccountTypeClassificationReviews: async (_: any, __: any, context: any): Promise<any> => {
+    pendingAccountTypeClassificationReviews: async (_, __, context): Promise<any> => {
       requireModerator(context);
       const rows = await db.select()
         .from(accountTypeClassificationReviews)
@@ -2737,21 +2742,21 @@ export const resolvers: Resolvers = {
         reviewedAt: r.reviewedAt ? r.reviewedAt.toISOString() : null,
       }));
     },
-    myApiKeys: async (_: any, __: any, context: any) => {
+    myApiKeys: async (_, __, context) => {
       const authUser = requireAuth(context);
       const rows = await db.select().from(apiKeys)
         .where(and(eq(apiKeys.userId, authUser.userId), activeOnly(apiKeys)))
         .orderBy(desc(apiKeys.createdAt));
       return rows.map(row => formatApiKey(row));
     },
-    mySubscriptions: async (_: any, __: any, context: any) => {
+    mySubscriptions: async (_, __, context) => {
       const authUser = requireAuth(context);
       const rows = await db.select().from(subscriptions)
         .where(and(eq(subscriptions.userId, authUser.userId), activeOnly(subscriptions)))
         .orderBy(desc(subscriptions.createdAt));
       return rows.map(row => formatSubscription(row));
     },
-    postsByAccount: async (_: any, { accountId, cursor, limit, onlyUnextracted, statuses }: any, context: any) => {
+    postsByAccount: async (_, { accountId, cursor, limit, onlyUnextracted, statuses }, context) => {
       const authUser = requireAuth(context);
 
       // Security Scope Check: Caller must have an active subscription to the account
@@ -2822,7 +2827,7 @@ export const resolvers: Resolvers = {
         hasMore
       };
     },
-    extractionJob: async (_: any, { id }: any, context: any): Promise<any> => {
+    extractionJob: async (_, { id }, context): Promise<any> => {
       const authUser = requireAuth(context);
       const job = await getManualExtractionJobStatus(id, authUser.userId);
       if (!job) {
@@ -2830,7 +2835,7 @@ export const resolvers: Resolvers = {
       }
       return job;
     },
-    myExtractionQuota: async (_: any, __: any, context: any) => {
+    myExtractionQuota: async (_, __, context) => {
       const authUser = requireAuth(context);
 
       const keysRows = await db.select().from(apiKeys)
@@ -2859,7 +2864,7 @@ export const resolvers: Resolvers = {
         remaining
       };
     },
-    socialMediaAccountProfileByAccountId: async (_: any, { platform, accountId }: any, context: any, info: any) => {
+    socialMediaAccountProfileByAccountId: async (_, { platform, accountId }, context, info) => {
       const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
       const rows = await db.select({
         ...requestedFields,
@@ -2881,7 +2886,7 @@ export const resolvers: Resolvers = {
 
       return profile as any;
     },
-    mySettings: async (_: any, __: any, context: any) => {
+    mySettings: async (_, __, context) => {
       const authUser = requireAuth(context);
       const settings = await getOrCreateUserSettings(authUser.userId);
       return {
@@ -2890,7 +2895,7 @@ export const resolvers: Resolvers = {
         updatedAt: settings.updatedAt.toISOString(),
       } as any;
     },
-    previewLocation: async (_: any, { latitude, longitude, placeId }: any, context: any) => {
+    previewLocation: async (_, { latitude, longitude, placeId }, context) => {
       requireAuth(context);
 
       const hasCoords = (latitude !== undefined && latitude !== null) && (longitude !== undefined && longitude !== null);
@@ -2906,15 +2911,15 @@ export const resolvers: Resolvers = {
 
       const resolved = hasPlaceId
         ? await resolveLocation({ kind: 'PLACE_ID', placeId })
-        : await resolveLocation({ kind: 'COORDINATES', coordinates: { latitude, longitude } });
+        : await resolveLocation({ kind: 'COORDINATES', coordinates: { latitude: latitude as number, longitude: longitude as number } });
 
       return formatLocationDetails(resolved) as any;
     },
-    addressAutocomplete: async (_: any, { input }: any, context: any) => {
+    addressAutocomplete: async (_, { input }, context) => {
       requireAuth(context);
       return await getAddressPredictions(input);
     },
-    myLocations: async (_: any, __: any, context: any) => {
+    myLocations: async (_, __, context) => {
       const authUser = requireAuth(context);
       const rows = await db.select().from(userLocations)
         .where(and(eq(userLocations.userId, authUser.userId), activeOnly(userLocations)))
@@ -2927,7 +2932,7 @@ export const resolvers: Resolvers = {
         updatedAt: row.updatedAt.toISOString(),
       })) as any;
     },
-    me: async (_: any, __: any, context: any) => {
+    me: async (_, __, context) => {
       const authUser = requireAuth(context);
       const rows = await db.select({
         id: users.id,
@@ -2940,7 +2945,7 @@ export const resolvers: Resolvers = {
       }
       return rows[0];
     },
-    rankedVoteAccounts: async (_: any, { nearMe, locationPreferenceId }: any, context: any, info: any) => {
+    rankedVoteAccounts: async (_, { nearMe, locationPreferenceId }, context, info) => {
       const activeSubs = await db.select({ accountId: subscriptions.accountId })
         .from(subscriptions)
         .where(isNull(subscriptions.deletedAt));
@@ -3030,7 +3035,7 @@ export const resolvers: Resolvers = {
       }
       return result;
     },
-    voteRegionBreakdown: async (_: any, { accountId }: any, context: any) => {
+    voteRegionBreakdown: async (_, { accountId }, context) => {
       const votes = await db.select({
         userId: accountVotes.userId,
         latitude: userLocations.latitude,
@@ -3079,8 +3084,8 @@ export const resolvers: Resolvers = {
 
       return result;
     },
-    votedAccountSuggestions: async (_: any, { query }: any, context: any) => {
-      requireAuth(context);
+    votedAccountSuggestions: async (_, { query }, context) => {
+      const authUser = requireAuth(context);
 
       const activeSubs = await db.select({ accountId: subscriptions.accountId })
         .from(subscriptions)
@@ -3106,7 +3111,7 @@ export const resolvers: Resolvers = {
       const votesQuery = db.select({
         accountId: accountVotes.accountId,
         voteCount: sql<number>`count(${accountVotes.id})::int`,
-        userVoteId: sql<string | null>`MAX(CASE WHEN ${accountVotes.userId} = ${context.user.userId} THEN ${accountVotes.id}::text ELSE NULL END)`,
+        userVoteId: sql<string | null>`MAX(CASE WHEN ${accountVotes.userId} = ${authUser.userId} THEN ${accountVotes.id}::text ELSE NULL END)`,
       })
       .from(accountVotes)
       .innerJoin(socialMediaAccountProfiles, eq(accountVotes.accountId, socialMediaAccountProfiles.id))
@@ -3135,16 +3140,16 @@ export const resolvers: Resolvers = {
       }
       return result;
     },
-    myWidgets: async (_: any, __: any, context: any) => {
+    myWidgets: async (_, __, context) => {
       const authUser = requireAuth(context);
       const rows = await db.select().from(widgets).where(and(eq(widgets.ownerUserId, authUser.userId), isNull(widgets.deletedAt)));
       return rows.map(row => ({ ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null })) as any;
     },
-    widgetById: async (_: any, { id }: any, context: any) => {
+    widgetById: async (_, { id }, context) => {
       const [row] = await db.select().from(widgets).where(and(eq(widgets.id, id), isNull(widgets.deletedAt)));
       return (row ? { ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null } : null) as any;
     },
-    embedDomainsForWidget: async (_: any, { widgetId }: any, context: any) => {
+    embedDomainsForWidget: async (_, { widgetId }, context) => {
       const authUser = requireAuth(context);
       const [widget] = await db.select().from(widgets).where(and(eq(widgets.id, widgetId), eq(widgets.ownerUserId, authUser.userId), isNull(widgets.deletedAt)));
       if (!widget) {
@@ -3153,7 +3158,7 @@ export const resolvers: Resolvers = {
       const rows = await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widgetId), isNull(embedDomains.deletedAt)));
       return rows.map(row => ({ ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null }));
     },
-    isOriginAllowedForWidget: async (_: any, { widgetId, origin }: any) => {
+    isOriginAllowedForWidget: async (_, { widgetId, origin }) => {
       const cleanOrigin = origin.toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
       const activePatterns = await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widgetId), isNull(embedDomains.deletedAt)));
       
@@ -3172,7 +3177,7 @@ export const resolvers: Resolvers = {
       }
       return false;
     },
-    events: async (_: any, { query, filter, expression, limit, offset, perDayLimit, includeSoftDeleted, includeMyArchived }: any, context: any, info: any) => {
+    events: async (_, { query, filter, expression, limit, offset, perDayLimit, includeSoftDeleted, includeMyArchived }, context, info) => {
       if (filter && expression) {
         throw new GraphQLError('Provide either the flat filter or the expression, not both.', {
           extensions: { code: 'BAD_USER_INPUT' }
@@ -3252,8 +3257,8 @@ export const resolvers: Resolvers = {
       // shared `ended-cases` fixture. Only honored in test builds -- never exposed as GraphQL
       // input, so this cannot be influenced by a real client request.
       const now =
-        process.env.NODE_ENV === 'test' && (context as { now?: Date })?.now instanceof Date
-          ? (context as { now: Date }).now
+        process.env.NODE_ENV === 'test' && (context as GraphQLContext & { now?: Date })?.now instanceof Date
+          ? (context as GraphQLContext & { now: Date }).now
           : new Date();
       const threshold = computePastEventThreshold({ now, hidePastEventsAfterDays });
 
@@ -3865,7 +3870,7 @@ export const resolvers: Resolvers = {
         totalCount
       };
     },
-    event: async (_: any, { id, includeMyArchived }: any, context: any, info: any) => {
+    event: async (_, { id, includeMyArchived }, context, info) => {
       const requestedFields = buildOptimizedDrizzleSelect(events, info);
       const isModerator = context.user?.role === 'moderator';
       
@@ -3992,7 +3997,7 @@ export const resolvers: Resolvers = {
 
       return row;
     },
-    eventBySlug: async (_: any, { slug, includeMyArchived }: any, context: any, info: any) => {
+    eventBySlug: async (_, { slug, includeMyArchived }, context, info) => {
       const requestedFields = buildOptimizedDrizzleSelect(events, info);
       const isModerator = context.user?.role === 'moderator';
 
@@ -4150,7 +4155,7 @@ export const resolvers: Resolvers = {
     // query reusing the existing `event_posts` PK/index.
     // Story 3.6x (AC2, AD-30 Rule 11) — widened to accept a `postId`-keyed variant alongside the
     // original `eventId`-keyed one (unchanged below). Exactly one of the two must be supplied.
-    relatedEventIds: async (_: any, { eventId, postId }: { eventId?: string | null; postId?: string | null }) => {
+    relatedEventIds: async (_, { eventId, postId }: { eventId?: string | null; postId?: string | null }) => {
       if ((!eventId && !postId) || (eventId && postId)) {
         throw new GraphQLError('Exactly one of eventId or postId must be provided', { extensions: { code: 'BAD_REQUEST' } });
       }
@@ -4173,7 +4178,7 @@ export const resolvers: Resolvers = {
           return [];
         }
 
-        return [{ postId, eventIds: rows.map((row: any) => row.eventId) }] as any;
+        return [{ postId, eventIds: rows.map((row) => row.eventId) }] as any;
       }
 
       const ep1 = alias(eventPosts, 'ep1');
@@ -4204,7 +4209,7 @@ export const resolvers: Resolvers = {
     // isPrimary/coauthors are hardcoded (meaningless/unused outside an event's own post list) for
     // type-shape completeness only, costing nothing since GraphQL never evaluates an unselected
     // field.
-    postByPlatformIdentifiers: async (_: any, { platform, postType, platformPostId }: { platform: string; postType: string; platformPostId: string }) => {
+    postByPlatformIdentifiers: async (_, { platform, postType, platformPostId }: { platform: string; postType: string; platformPostId: string }) => {
       const [row] = await db.select({
         postId: posts.id,
         groupingReason: posts.groupingReason,
@@ -4254,7 +4259,7 @@ export const resolvers: Resolvers = {
         coauthors: [],
       } as any;
     },
-    instagramEmbedBySlug: async (_: any, { slug }: { slug: string }) => {
+    instagramEmbedBySlug: async (_, { slug }: { slug: string }) => {
       const parsed = parsePlatformPrefixedEventSlug(slug);
       if (!parsed || parsed.platform !== 'instagram') {
         return { status: 'NOT_RESOLVABLE_FROM_SLUG', html: null, durableImageUrl: null };
@@ -4290,7 +4295,7 @@ export const resolvers: Resolvers = {
 
       return resolved ?? { status: 'UNAVAILABLE', html: null, durableImageUrl: null };
     },
-    queryUnprocessedPayloads: async (_: any, { filters, first, after }: any, context: any) => {
+    queryUnprocessedPayloads: async (_, { filters, first, after }, context) => {
       requireModerator(context);
 
       const limit = (first || 10) + 1; // +1 to detect hasNextPage
@@ -4348,7 +4353,7 @@ export const resolvers: Resolvers = {
         totalCount: totalCountRows[0]?.count || 0,
       } as any;
     },
-    parserVersions: async (_: any, { onlyActive, source }: any, context: any) => {
+    parserVersions: async (_, { onlyActive, source }, context) => {
       requireModerator(context);
 
       const conditions = [];
@@ -4367,7 +4372,7 @@ export const resolvers: Resolvers = {
 
       return rows;
     },
-    queryActorRuns: async (_: any, { filters, first, after }: any, context: any) => {
+    queryActorRuns: async (_, { filters, first, after }, context) => {
       requireModerator(context);
 
       const limit = (first || 10) + 1; // +1 to detect hasNextPage
@@ -4418,7 +4423,7 @@ export const resolvers: Resolvers = {
         totalCount: totalCountRows[0]?.count || 0,
       };
     },
-    queryModeratorAccountProfiles: async (_: any, { filters, first, after }: any, context: any, info: any) => {
+    queryModeratorAccountProfiles: async (_, { filters, first, after }, context, info) => {
       // Deliberately NOT gated on isVerifiedForDiscovery (Story 3.17): moderators need full
       // visibility into unverified/scrape-discovered profiles, unlike rankedVoteAccounts /
       // votedAccountSuggestions. Do not "fix" this as an oversight.
@@ -4449,7 +4454,7 @@ export const resolvers: Resolvers = {
         .offset(offset);
 
       const hasNextPage = rows.length > (first || 10);
-      const edges = rows.slice(0, first || 10).map((row: any, idx: number) => {
+      const edges = rows.slice(0, first || 10).map((row, idx: number) => {
         const node = { ...row };
         if (node.defaultLocation) {
           node.defaultLocation = formatLocationDetails(node.defaultLocation);
@@ -4467,16 +4472,18 @@ export const resolvers: Resolvers = {
         .from(socialMediaAccountProfiles)
         .where(conditions.length > 0 ? and(...conditions) : undefined);
 
+      // Rows carry Date columns that the SocialMediaAccountProfile field resolvers serialise, so the
+      // generated connection type does not fit until codegen has a mapper for that type.
       return {
         edges,
         pageInfo: { hasNextPage, endCursor },
         totalCount: totalCountRows[0]?.count || 0,
-      };
+      } as unknown as SocialMediaAccountProfileConnection;
     },
     // Story 3.6w (AC1, AC5) -- the "Duplicate Events" tab's own list. Always filtered to
     // status: 'pending', oldest-queued-first (matching pendingDefaultLocationChanges's own
     // ordering) -- there is no current need to list already-accepted/rejected suggestions.
-    suggestedEventMatches: async (_: any, { first, after }: any, context: any, info: any) => {
+    suggestedEventMatches: async (_, { first, after }, context, info) => {
       requireModerator(context);
 
       const limit = (first || 10) + 1; // +1 to detect hasNextPage
@@ -4522,7 +4529,7 @@ export const resolvers: Resolvers = {
     },
   },
   RankedAccountVote: {
-    profile: async (parent: any, _: any, context: any, info: any) => {
+    profile: async (parent: any, _, context, info) => {
       if (parent.profile) {
         return parent.profile;
       }
@@ -4559,7 +4566,7 @@ export const resolvers: Resolvers = {
     deletedAt: (parent: any) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
   },
   DefaultLocationChangeRequest: {
-    account: async (parent: any, _: any, __: any, info: any) => {
+    account: async (parent: any, _, __, info) => {
       const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
       const rows = await db.select({
         ...requestedFields,
@@ -4576,7 +4583,7 @@ export const resolvers: Resolvers = {
     }
   },
   AccountTypeClassificationReview: {
-    account: async (parent: any, _: any, __: any, info: any) => {
+    account: async (parent: any, _, __, info) => {
       const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
       const rows = await db.select({
         ...requestedFields,
@@ -4588,7 +4595,7 @@ export const resolvers: Resolvers = {
     }
   },
   Report: {
-    event: async (parent: any, _: any, __: any, info: any) => {
+    event: async (parent: any, _, __, info) => {
       const requestedFields = buildOptimizedDrizzleSelect(events, info);
       const rows = await db.select({
         ...requestedFields,
@@ -4612,7 +4619,7 @@ export const resolvers: Resolvers = {
     }
   },
   Event: {
-    sourceSocialMediaAccountProfile: async (parent: any, args: any, context: any, info: any) => {
+    sourceSocialMediaAccountProfile: async (parent: any, args, context, info) => {
       if (!parent.postId) {
         return null;
       }
@@ -4626,7 +4633,7 @@ export const resolvers: Resolvers = {
 
       return (rows[0] as any) || null;
     },
-    coauthors: async (parent: any, args: any, context: any, info: any) => {
+    coauthors: async (parent: any, args, context, info) => {
       if (!parent.postId) {
         return [];
       }
@@ -4648,7 +4655,7 @@ export const resolvers: Resolvers = {
     // lookup, AC1), grouped in JS, plus one batched-`IN` follow-up query for every linked post's
     // own `coauthors` (keyed by `postId`, mirroring `Event.coauthors` above but per-post) --
     // never a per-post-per-field N+1.
-    sourcePosts: async (parent: any, args: any, context: any, info: any) => {
+    sourcePosts: async (parent: any, args, context, info) => {
       const linkRows = await db.select({
         postId: eventPosts.postId,
         extractionOrdinal: eventPosts.extractionOrdinal,
@@ -4676,7 +4683,7 @@ export const resolvers: Resolvers = {
         return [];
       }
 
-      const postIds = linkRows.map((row: any) => row.postId);
+      const postIds = linkRows.map((row) => row.postId);
       const coauthorRows = await db.select({
         postId: postAccountAssociations.postId,
         id: socialMediaAccountProfiles.id,
@@ -4705,8 +4712,8 @@ export const resolvers: Resolvers = {
         coauthorsByPost.set(row.postId, list);
       }
 
-      const primaryFirst = (row: any) => (row.postId === parent.postId ? 0 : 1);
-      const sorted = [...linkRows].sort((a: any, b: any) => {
+      const primaryFirst = (row: { postId: string }) => (row.postId === parent.postId ? 0 : 1);
+      const sorted = [...linkRows].sort((a, b) => {
         const primaryDiff = primaryFirst(a) - primaryFirst(b);
         if (primaryDiff !== 0) return primaryDiff;
         const ordinalA = a.extractionOrdinal ?? Number.MAX_SAFE_INTEGER;
@@ -4717,7 +4724,7 @@ export const resolvers: Resolvers = {
         return createdAtA - createdAtB;
       });
 
-      return sorted.map((row: any) => ({
+      return sorted.map((row) => ({
         postId: row.postId,
         isPrimary: row.postId === parent.postId,
         groupingReason: row.groupingReason ? postGroupingReasonToGraphQL(row.groupingReason) : null,
@@ -4739,7 +4746,7 @@ export const resolvers: Resolvers = {
         coauthors: coauthorsByPost.get(row.postId) ?? [],
       })) as any;
     },
-    schedules: async (parent: any, args: any, context: any, info: any) => {
+    schedules: async (parent: any, args, context, info) => {
       // Story 1.i1h (Task 3.4) — windowed-mode short-circuit. `Query.events`' windowed
       // (`perDayLimit`) branch is schedule-first, so it pre-populates the exact matched
       // schedule(s) for this row on this resolver-internal marker. Checked *first*, ahead of
@@ -4792,7 +4799,7 @@ export const resolvers: Resolvers = {
     sourcePostUrl: (parent: any) => parent.sourcePostUrl || null,
     originalPostUrl: (parent: any) => parent.originalPostUrl || null,
     publishedAt: (parent: any) => parent.publishedAt instanceof Date ? parent.publishedAt.toISOString() : (parent.publishedAt || null),
-    isFavorited: async (parent: any, _: any, context: any) => {
+    isFavorited: async (parent: any, _, context) => {
       // Story 1.3j (AC1, AD-17 Rule 1) — passthrough: read the value pre-populated on the
       // parent by the `events` resolver's batched select. Fall back to the legacy per-row
       // query (with its anonymous/error → false shape preserved) only when absent.
@@ -4828,7 +4835,7 @@ export const resolvers: Resolvers = {
         ));
       return rows[0]?.count ?? 0;
     },
-    isAddedToCalendar: async (parent: any, _: any, context: any) => {
+    isAddedToCalendar: async (parent: any, _, context) => {
       // Story 1.3j (AC1, AD-17 Rule 1) — passthrough: read the value pre-populated on the
       // parent by the `events` resolver's batched select. Fall back to the legacy per-row
       // query (with its anonymous/error → false shape preserved) only when absent.
@@ -4849,7 +4856,7 @@ export const resolvers: Resolvers = {
         return false;
       }
     },
-    isHiddenForCurrentUser: async (parent: any, _: any, context: any) => {
+    isHiddenForCurrentUser: async (parent: any, _, context) => {
       try {
         const authUser = requireAuth(context);
         const rows = await db.select({ id: reports.id })
@@ -4860,7 +4867,7 @@ export const resolvers: Resolvers = {
         return false;
       }
     },
-    isExpiredForCurrentUser: async (parent: any, _: any, context: any) => {
+    isExpiredForCurrentUser: async (parent: any, _, context) => {
       try {
         const authUser = requireAuth(context);
         const settings = await getOrCreateUserSettings(authUser.userId);
@@ -4885,7 +4892,7 @@ export const resolvers: Resolvers = {
     }
   },
   Schedule: {
-    isAddedToCalendar: async (parent: any, _: any, context: any) => {
+    isAddedToCalendar: async (parent: any, _, context) => {
       // Story 1.6c (AC1) — passthrough: read the value pre-populated on the parent by the
       // batched schedules query (`event`/`eventBySlug`, Task 2). Falls back to the legacy
       // per-schedule query only when absent — mirrors the Event-level passthrough pattern
