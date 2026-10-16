@@ -570,6 +570,25 @@ export const eventMerges = pgTable('event_merges', {
   undoneAt: timestamp('undone_at', { withTimezone: true }),
 });
 
+// BUG-059 / spec-profile-identity-unification -- audit trail for merging a "twin" profile (a second
+// social_media_account_profiles row for the same platform account) into its survivor. Mirrors the
+// event_merges precedent: the full twin row and every id repointed per table are kept so a merge can
+// be reversed by a script. survivor_id has no cascade (the survivor outlives the merge); the twin row
+// itself is deleted and lives on only as twin_snapshot.
+export const accountProfileMerges = pgTable('account_profile_merges', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  survivorId: uuid('survivor_id').references(() => socialMediaAccountProfiles.id).notNull(),
+  twinAccountId: text('twin_account_id').notNull(),
+  twinSnapshot: jsonb('twin_snapshot').$type<Record<string, unknown>>().notNull(),
+  performedBy: text('performed_by').notNull(),
+  evidence: jsonb('evidence').$type<Record<string, unknown>>().notNull(),
+  repointed: jsonb('repointed').$type<Record<string, unknown>>().notNull(),
+  ...timestamps,
+  undoneAt: timestamp('undone_at', { withTimezone: true }),
+}, (t) => ({
+  survivorIdx: index('idx_account_profile_merges_survivor').on(t.survivorId),
+}));
+
 // Story 3.6p / AD-29 Rule 3 -- records why actualFaceDetectionCount is null (Story 3.6n/3.6o's
 // eventual backfill), so a null is never misread as "detection ran and found zero faces."
 export const extractionAuditFaceDetectionSkippedReasonEnum = pgEnum('extraction_audit_face_detection_skipped_reason', [
