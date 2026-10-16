@@ -2,6 +2,7 @@
 title: "Profile identity unification: one platform account, one profile row"
 status: draft
 created: 2026-10-15
+revised: 2026-10-16
 backlog: BUG-059
 audience: product owner + implementers (input to bmad-architecture, bmad-form-epics, bmad-create-story)
 ---
@@ -10,7 +11,9 @@ audience: product owner + implementers (input to bmad-architecture, bmad-form-ep
 
 One Instagram account can currently be stored as **two** `social_media_account_profiles` rows ("twins"). This document lists everything that breaks because of it (verified against code and PROD), and designs (1) how new twins are prevented, (2) how twins are detected and merged safely, and (3) how the twins already in PROD are cleaned up.
 
-Evidence comes from read-only PROD queries on 2026-10-15 and from the code at commit `60e2f8f9`. Nothing in this document has been applied.
+Evidence comes from read-only PROD queries on 2026-10-15/16 and from the code at commit `60e2f8f9`. Nothing in this document has been applied.
+
+> **Revision 2026-10-16.** The owner decided to use the **single field** `account_id` for the platform's numeric ID (no extra `platform_user_id` column) and to treat `username` as the changeable handle. Sections 3 to 8 are rewritten around that. Merging twins becomes a one-off migration tool instead of a permanent product feature (section 4).
 
 ## 1. Root cause
 
@@ -22,7 +25,7 @@ Evidence comes from read-only PROD queries on 2026-10-15 and from the code at co
 | Scrape ingestion (publisher or coauthor of a post) | the vendor's **numeric owner ID** (`68892898447`) | `getOrCreateDiscoveredAccountProfile`, `persist-scraped-post.ts` |
 | `castVote` with a handle or URL | the vendor lookup's `item.id` (numeric) | `resolvers.ts` `castVote`, `instagram-adapter.ts` `lookupAccountProfile` |
 
-Ingestion only produces a numeric owner ID for **Apify** scrapes (`instagram-adapter.ts:372`; `process-brightdata-result.ts` passes none). That is why 8 of the 11 subscribed accounts have no twin yet: they are scraped by Bright Data. Any account that gets an Apify scrape (first scrape, on-demand scrape, manual re-scrape) gets a twin the first time its own post is stored.
+Ingestion only passes a numeric owner ID for **Apify** scrapes (`instagram-adapter.ts:372`). Bright Data records do carry one (`user_posted_id`, e.g. `7436284187` for `slemancityhall` in the sample data), but `brightdata-record-mapper.ts` reads only `user_posted` and `process-brightdata-result.ts` passes no owner ID. So an account only grows a twin when an Apify scrape stores one of its own posts. That is the likely reason 8 of the 11 subscribed accounts have none yet; I did not verify which vendor scraped each of them.
 
 Story 3.15 AC3 then stores each new post under the resolved **publisher** profile (`posts.account_id`), which is the twin, while the subscriber is attached to the handle-keyed row.
 
@@ -55,128 +58,164 @@ Not affected (checked): `AIEventFilter` resolution prefers the user's subscribed
 
 > **Urgent, caused by my own earlier fix.** `15c0eb97` makes `laridijogja`'s 7 own posts visible and selectable on the manual extract page. Extracting them **before** the merge runs through item 3: the curator caption would not be cleared. Either merge the four groups first (section 6, small), or do not extract those 7 posts manually until then.
 
-## 3. Design: one identity, one resolver
+## 3. Design: `account_id` is the platform's ID, `username` is the current name
 
 ### 3.1 Data model
 
-Add `social_media_account_profiles.platform_user_id text NULL` (the vendor's stable account ID) with a **partial unique index** `(platform, platform_user_id) WHERE platform_user_id IS NOT NULL`. Keep `account_id` exactly as it is: it is the public URL identifier (`/[platformSlug]/[accountId]`, PRD 4.5), is copied into `events.source_social_media_account_id`, and appears in saved links and widgets.
-
-Backfill: `platform_user_id = account_id` for rows whose `account_id` is all digits (Instagram only for now; the column and rules are platform-agnostic).
+- **`account_id`** holds the platform's stable numeric account ID, always. Never a handle. No new column.
+- **`username`** holds the current handle, normalized (lower-case, no `@`), and may change. It is already what both scrapers address (`username: [account.username]` for Apify, `https://www.instagram.com/${target.username}/` for Bright Data), so scraping triggers exactly as today.
+- The existing unique key `(platform, account_id)` now suffices to guarantee one row per Instagram account.
+- **Database guard:** `CHECK (platform <> 'instagram' OR account_id ~ '^[0-9]+$')`, added `NOT VALID` first and validated once the migration (section 6) has run. A handle-keyed row then cannot exist. Instagram allows all-digit usernames, so "digits means ID" cannot be inferred from the value; the invariant holds because every creation path resolves the ID first (3.3).
+- Index on `(platform, lower(username))` for lookups. Not unique yet: see "ID wins" in 3.4.
 
 *Considered and rejected:*
-- **Re-key the handle row to the numeric ID.** Breaks account URLs and saved links, forces a rewrite of the `events` text copy, and still leaves subscribe unable to know the numeric ID without a vendor call.
-- **Unique index on `lower(username)`.** Usernames are mutable and get reassigned on Instagram; the index would block a legitimate new account that takes a freed name, and would wrongly fuse history.
-- **A database trigger that merges.** Hides a multi-table, audited operation inside a write path and cannot ask a moderator.
+- **Username as the key.** It is mutable and gets reassigned, and nothing in the data would reveal either event.
+- **A separate `platform_user_id` column** (my earlier proposal). Works, but needs a two-step resolver and leaves two identity fields; the owner prefers one.
+- **A database trigger that merges.** Hides an audited multi-table operation inside a write path.
 
-### 3.2 One resolver for every creation path
+### 3.2 URLs and links stop using `account_id`
 
-All three creation paths call one function, `resolveAccountProfile(identity)`, where `identity = { platform, platformUserId?, username, displayName?, accountId? }`. Order:
+The account page route is `/[platformSlug]/[accountId]`. Today the segment is `social_media_account_profiles.account_id`. It becomes the **username**:
 
-1. `platform_user_id` exact match.
-2. `(platform, account_id)` exact match (legacy and handle-keyed rows).
-3. **Username match** (case-insensitive, `@` stripped) among rows whose `platform_user_id` is NULL, or among numeric-keyed discovered rows when the identity is handle-only:
-   - If the identity carries a `platformUserId`, **adopt**: set that row's `platform_user_id`. This is what stops the twin from ever being created when ingestion meets an existing handle-keyed row.
-   - If the identity is handle-only (user typed a handle), **reuse** the matched row. This is the reverse order (numeric row first, subscribe second).
-4. Create the row.
+- The page lookup resolves the segment by `lower(username)` first, then by `account_id`, so any existing `/instagram/<numeric>` link keeps working. The backend query `socialMediaAccountProfileByAccountId` accepts either.
+- Links are built from `username`: `apps/web/src/features/events/mapper.ts` (lines 107, 130, 139, 187) and `subscriptions-content.tsx:103`.
+- Existing handle URLs keep working because, for today's rows, handle equals username. After a rename the old URL stops working, as it does on Instagram.
+- Everywhere else the web app uses `accountId` only to compare identities (`EventDetailWrapper.tsx`, `mapper.ts` subscription checks); those stay correct with a numeric value. The one display use is the onboarding label fallback `subscription.accountId` (`onboarding-subscribe-step.tsx:86`), which should prefer `username`.
 
-Rules that keep it safe:
-- A row that **already has** a different `platform_user_id` is never matched by username (that is the "old name reassigned to a new person" case: a new account B that takes A's old handle is created fresh).
-- The whole resolve runs inside a transaction holding `pg_advisory_xact_lock(hashtext(platform || ':' || lower(username)))`, so two concurrent scrape results or a scrape and a subscribe cannot both create a row.
-- If step 1 and step 3 hit **two different rows**, twins already exist: hand them to the merge path (section 4) instead of picking one silently.
+**This ships before any row is re-keyed.**
 
-Call sites to change: `subscribeToAccount`, `castVote`'s profile creation, `getOrCreateDiscoveredAccountProfile`. A source-scan ratchet (backend test) fails if any other file inserts into `social_media_account_profiles`, so a fourth path cannot reintroduce the problem.
+### 3.3 One resolver for every creation path
 
-## 4. Detection and merge
+`subscribeToAccount`, `castVote`'s profile creation and `getOrCreateDiscoveredAccountProfile` all call one function, `resolveAccountProfile`:
 
-### 4.1 Detection (safety net, not the primary defense)
+- **With an ID** (ingestion owner or coauthor, vote lookup, subscribing from an event's coauthor chip): upsert on `(platform, account_id)` with `ON CONFLICT DO UPDATE`. The unique key makes this race-free, so no advisory lock is needed. If the existing row's `username` differs from the vendor-supplied one, apply the rename rule (3.4).
+- **With a typed handle** (subscribe dialog, onboarding): normalize it, then look for a row by `lower(username)` (the current owner of the name). Found: reuse it, no vendor call. Not found: run the vendor profile lookup (`lookupAccountProfile`, already used by `castVote`) to get the ID, then take the ID path.
+- A source-scan ratchet test fails if any other file inserts into `social_media_account_profiles`.
+- Bright Data's `user_posted_id` is read by the record mapper and passed as `ownerId`, so Bright Data scrapes also carry IDs (needed for the checks in 3.4).
 
-The resolver prevents new twins. Detection exists for anything that slips through (old rows, concurrency bugs, a vendor returning an ID late).
+### 3.4 Username changes and reuse
 
-- **Candidate query:** groups of `(platform, lower(username))` with more than one row, plus any pair where one row's `platform_user_id` equals the other's `account_id`.
-- **When it runs:** for the affected profiles after each scrape result is processed (cheap, indexed), and once a day in the existing scheduled scraper lambda as a full sweep (90 rows today).
-- **Classification of each group:**
-  - **AUTO**: evidence rule E1 holds and no blocker applies.
-  - **REVIEW**: same username but no vendor evidence, or a non-fatal conflict. Goes to a moderator item ("Possible duplicate accounts"), following the existing Duplicate Events pattern (mid-confidence goes to a human).
-  - **BLOCKED**: a conflict that needs a person to decide (below). Never merged automatically.
+Compare what a scrape returns with what is stored. Only posts whose `ownerUsername` equals the target's username count; a profile scrape also returns collaborator posts whose owners legitimately differ.
 
-**Evidence rule E1 (vendor-proven identity):** at least one post exists where the numeric row is `PUBLISHER`, the other row is `SCRAPING_SOURCE`, and `posts.owner_username` equals the username (case-insensitive). Meaning: the vendor itself returned "owner ID X, username U" while scraping the account named U. **Verified on all four PROD groups** (23 / 1 / 1 / 7 posts).
+| Returned ID vs stored `account_id` | Returned username vs stored `username` | Meaning | Action |
+|---|---|---|---|
+| same | different | **Rename** | Update `username` |
+| different | same | **Reuse**: someone else now owns the name | Reject the batch, flag the account, stop scraping it |
+| different | different | Unrelated account (collaborator) | Ignore for this check |
+| same | same | Normal | Nothing |
 
-**Blockers (never auto):** both rows have a confirmed `account_type` and they differ; `is_image_storage_opted_in` differs (consent must not be inferred); both rows hold a different `platform_user_id`; more than two rows in a group.
+Rules:
+
+1. **Compare before persisting.** The first scrape after a reuse already fetches the stranger's posts, because scraping is by username. The check runs before `persistScrapedPost`; on a mismatch the whole batch is discarded and an alert is raised. The vendor fetched the data, we never store it.
+2. **Passive rename learning.** Any scrape that returns (ID N, username Y) for a row whose `username` is X updates it to Y. Collaborator lists and other accounts' posts already carry such pairs.
+3. **Re-subscribing under the new name.** The typed handle Y finds no row by username, the lookup returns ID N, the ID path matches the existing row and only `username` changes. No duplicate.
+4. **Scrape of the old name finds nothing.** Today that looks like an inactive account. After N consecutive not-found results, flag the account for a moderator. Counting needs somewhere to live: derive it from `scraper_actor_runs` if that table records outcomes (not verified), otherwise one small column. I have **not** verified that any available actor can find a new username from an ID, so automatic follow-up is not assumed.
+5. **Manual "update username".** A moderator enters the new handle; a lookup returns the ID; the change is accepted only if it equals `account_id`.
+6. **ID wins.** When an ID is confirmed as the owner of name X, any other row still claiming X is marked stale and ignored by name lookups. Once that exists, a unique index on `(platform, lower(username))` becomes possible and the database enforces "one current owner per name". `username` is `NOT NULL`, so the stale marker needs a choice (a flag, or moving the row to a tombstoned name). Deferred until after the main change; reuse is rare.
+
+### 3.5 Subscribing to a brand-new handle (open decision)
+
+A new handle needs an Apify lookup before the row can be created, which conflicts with Story 3.16 AC1 ("subscribing always succeeds"). Options:
+
+- **A. Make the lookup mandatory for unknown handles** (recommended). A failed or timed-out lookup returns a retryable error. This keeps the CHECK constraint enforceable. AC1 is already not absolute: `subscribeToAccount` aborts with `ScraperCapacityExceededError` when no scraper capacity is available (`subscribe-to-account.ts`, in the classification branch).
+- **B. Allow a temporary handle-keyed row** until a scrape returns the ID. Subscribing never fails, but the mixed key namespace and the transitional state come back, and the CHECK constraint cannot be enforced.
+
+Known handles (any existing row) never trigger a lookup.
+
+## 4. Merging twins is a one-off migration tool
+
+After the CHECK constraint is validated a twin cannot be created: one account has one ID and `(platform, account_id)` is unique. The permanent detector, the daily sweep and the moderator "possible duplicate accounts" screen from the earlier draft are no longer needed. What remains:
+
+- **Steady state:** only a **username collision** (two rows claiming one current name) can occur. That is the reuse / missed-rename case in 3.4, handled by the alert and the "ID wins" rule.
+- **Migration:** merge the four existing twin groups, using the function below. It is a tested script with a dry-run default, not a product feature.
+
+### 4.1 Evidence rule E1 (when the script may merge without asking)
+
+At least one post exists where the numeric row is `PUBLISHER`, the other row is `SCRAPING_SOURCE`, and `posts.owner_username` equals the username (case-insensitive): the vendor itself returned "owner ID X, username U" while scraping the account named U. **Verified on all four PROD groups** (23 / 1 / 1 / 7 posts). Without E1, or with a blocker, the script stops and reports.
+
+**Blockers:** both rows have a confirmed `account_type` and they differ; `is_image_storage_opted_in` differs (consent must not be inferred); more than two rows in a group.
 
 ### 4.2 Choosing the survivor
 
-Score, highest wins: active subscriptions, then confirmed `account_type`, then a set `default_location`, then `is_image_storage_opted_in`, then older `created_at`. The survivor keeps its `id` and `account_id` (URLs and the events text copy stay valid) and gains `platform_user_id`.
-
-In every PROD case this picks the handle-keyed, subscribed row.
+Score, highest wins: active subscriptions, then confirmed `account_type`, then a set `default_location`, then `is_image_storage_opted_in`, then older `created_at`. The survivor keeps its `id`. In every PROD group this is the handle-keyed, subscribed row; its `account_id` is then **set to the twin's numeric ID** (4.3).
 
 ### 4.3 `mergeAccountProfiles(survivorId, twinId, { performedBy })`
 
-One transaction. Lock both rows with `SELECT … FOR UPDATE` in `id` order (no deadlock between concurrent merges), re-verify both still exist and are unmerged, then:
+One transaction. Lock both rows with `SELECT … FOR UPDATE` in `id` order, re-verify both still exist, then:
 
 | Table / column | Action | Conflict handling |
 |---|---|---|
-| `posts.account_id` | repoint twin to survivor | none (no unique on it) |
-| `post_account_associations.account_id` | repoint | delete twin rows that would duplicate `(post_id, role)` on the survivor first; on the one-publisher-slot index, keep a real `PUBLISHER` over a `PUBLISHER_UNKNOWN` |
-| `subscriptions.account_id` | repoint | if one user ends up with two active rows, keep the earlier one and soft-delete the other (reuse the soft-delete convention, AD-8) |
+| `posts.account_id` | repoint twin to survivor | none |
+| `post_account_associations.account_id` | repoint | delete twin rows that would duplicate `(post_id, role)` first; on the one-publisher-slot index keep a real `PUBLISHER` over `PUBLISHER_UNKNOWN` |
+| `subscriptions.account_id` | repoint | if one user ends up with two active rows, keep the earlier and soft-delete the other (AD-8) |
 | `account_votes.account_id` | repoint | unique `(user_id, account_id)`: drop the twin's vote when the user already voted the survivor |
-| `default_location_change_requests.account_id` | repoint | audit trail, no unique |
-| `account_type_classification_reviews.account_id` | repoint; auto-resolve a pending twin review as superseded | |
-| `scraper_actor_runs.profile_id`, `apify_pending_jobs.profile_id`, `brightdata_pending_jobs.profile_id` | repoint **before** deleting the twin | **These three cascade on delete**: deleting first would silently destroy run history and in-flight jobs. Test for it explicitly |
-| `events.source_social_media_account_id` (text, no FK) | rewrite `twin.account_id` to `survivor.account_id` for events whose source post moved | scope through the event's post so a numeric collision with another platform cannot match |
-| Profile fields | fold into survivor: keep the survivor's value, fill blanks from the twin (`description`, `default_location`, `first_seen` earliest, `last_seen` and `last_post_date` latest, `discovery_source`, `is_verified_for_discovery` OR) | opt-in and account type are **never** taken from the twin (blocker if they differ) |
-| Twin row | `DELETE` after everything above | |
+| `default_location_change_requests.account_id` | repoint | none |
+| `account_type_classification_reviews.account_id` | repoint; resolve a pending twin review as superseded | |
+| `scraper_actor_runs.profile_id`, `apify_pending_jobs.profile_id`, `brightdata_pending_jobs.profile_id` | repoint **before** deleting the twin | **These three cascade on delete**; deleting first silently destroys run history and in-flight jobs. Test it explicitly |
+| Profile fields | keep the survivor's value, fill blanks from the twin (`description`, `default_location`, `first_seen` earliest, `last_seen` latest, `discovery_source`, `is_verified_for_discovery` OR) | opt-in and account type are never taken from the twin |
+| Twin row | `DELETE` | |
+| The survivor's `account_id` | set to the twin's numeric ID | **after** the twin is deleted, because of the `(platform, account_id)` unique key |
+| `events.source_social_media_account_id` (text, no FK) | rewrite the survivor's old handle to its new numeric ID | same transaction, so notification matching (`getSubscribersForNotification` compares this text with the profile's `account_id`) is never inconsistent; scope to `platform = 'instagram'` |
 
-Audit and undo follow the existing `event_merges` precedent: a new `account_profile_merges` table records the survivor, the full twin row snapshot, the IDs repointed per table, who or what performed it (moderator id, or `system:auto`), and the evidence that justified it. Undo in v1 is a documented script that re-inserts the snapshot and repoints the recorded IDs; a moderator UI undo is a later option.
+Audit and undo follow the `event_merges` precedent: an `account_profile_merges` table records the survivor, the full twin snapshot, the IDs repointed per table, the operator, and the evidence. Undo in v1 is a documented script that re-inserts the snapshot and repoints the recorded IDs.
 
 After the merge, re-evaluate primary posts for events touched (AD-30 rule 6), because organizer-authored status can change (impact 7). Nothing needs to refresh `last_post_date`: no backend code writes it.
 
 ## 5. Idempotence and failure behaviour
 
-- Merging an already-merged pair is a no-op (twin row gone, survivor already holds `platform_user_id`).
-- A failed merge rolls back entirely; the group stays AUTO or REVIEW and is retried by the next sweep, with an alert after N failures rather than an endless loop.
-- Merge and resolver both take the same advisory lock key, so a scrape cannot create a fresh twin between "decide" and "merge".
+- Re-running the script on an already-merged group is a no-op (twin gone, survivor already numeric).
+- A failed merge rolls back entirely; the group stays pending and the script reports it.
+- Every re-key of a handle-keyed row (the last two rows of 4.3) is its own transaction together with its events rewrite.
 
-## 6. Fixing the twins already in PROD
+## 6. Fixing the data already in PROD
 
-Dry-run results (read-only SQL, 2026-10-15). Posts and associations are the only things that move:
+Dry-run results (read-only SQL, 2026-10-15). For the four twin groups only posts and associations move:
 
-| Survivor (handle) | Twin (numeric) | Posts moved | E1 evidence | Conflicts |
-|---|---|---|---|---|
-| `jogjacitymall` | `1491307877` | 23 | 23 posts | none |
-| `jogjacoffeeweek.id` | `16908000379` | 1 | 1 post | none |
-| `jogjaexpocenter` | `3004202148` | 1 | 1 post | none |
-| `laridijogja` | `68892898447` | 7 | 7 posts | none |
+| Survivor (handle) | Twin (numeric ID, becomes the survivor's `account_id`) | Posts moved | E1 evidence | Events to rewrite | Conflicts |
+|---|---|---|---|---|---|
+| `jogjacitymall` | `1491307877` | 23 | 23 posts | 15 | none |
+| `jogjacoffeeweek.id` | `16908000379` | 1 | 1 post | 0 | none |
+| `jogjaexpocenter` | `3004202148` | 1 | 1 post | 31 | none |
+| `laridijogja` | `68892898447` | 7 | 7 posts | 0 | none |
 
-Runbook:
+The other seven subscribed rows are handle-keyed with no twin and need their numeric ID: `pakuwonmall.jogja`, `aftereo.ofc`, `plazaambarrukmo`, `lippoplazajogja_official`, `galeriajogja`, `slemancityhall`, `infoeventjogja`. In total 866 events across 9 distinct handles carry a handle in `events.source_social_media_account_id`. Data checked: all 79 numeric rows have a real username, none has uppercase, `@` or spaces, and no two numeric rows share a username.
 
-1. Ship the migration (column, partial index, backfill) and `mergeAccountProfiles`. No behaviour change yet.
-2. A one-off script `merge-known-twins` runs the detection query, prints the plan, and **defaults to dry-run**. It applies per group in its own transaction, only for AUTO groups.
-3. Take a snapshot of the four groups first (a `pg_dump` of the affected rows is enough). The `account_profile_merges` row is the in-database undo.
-4. Apply. Expect, per group, that the survivor's post count rises by the number in the table and `posts` with `account_id = twin` becomes 0.
-5. Verify with queries: no `(platform, lower(username))` group with more than one row; no association points at a deleted id (FK guarantees it); the manual extract page lists the posts; `getSubscribersForNotification` returns the subscribers for the survivor's `account_id`.
-6. Only the writer credentials can apply this. The read-only PROD role used for this analysis cannot, which is intended.
+Order matters; each phase is independently deployable:
 
-Expected side effect to watch: once the survivor owns the posts, auto-extraction can start for the user's unextracted posts (impact 2). Review the user's extraction quota before the first scrape after the merge.
+1. **URLs by username** (3.2): backend query and web links. No data change. Must be first.
+2. **Resolver and Bright Data ID capture** (3.3): new rows are numeric from now on. Subscribe behaviour per the decision in 3.5.
+3. **Merge tool** (section 4) with its audit table.
+4. **Merge the four twin groups** (dry-run first; snapshot of the affected rows with `pg_dump`; the audit row is the in-database undo).
+5. **Re-key the seven handle-keyed rows:** a one-time lookup script (about 7 Apify profile lookups, 7 usage units) obtains each ID, then re-keys the row and rewrites its events in one transaction. A row whose lookup fails is left as is and reported; the CHECK is not validated until none remain.
+6. **Add the CHECK `NOT VALID`** (it enforces on new writes immediately, so it follows phase 2), then `VALIDATE` after phase 5.
+
+Verify after phases 4 and 5: no `(platform, lower(username))` group has more than one row; the manual extract page lists the posts; `getSubscribersForNotification` returns the subscribers for the survivor; `events` has no handle-valued `source_social_media_account_id` for a re-keyed account; the account page opens for both the handle and the numeric ID. Only writer credentials can apply this; the read-only PROD role used for this analysis cannot.
+
+Expected side effects to watch: once the survivor owns the posts, auto-extraction can start for the user's unextracted posts (impact 2), so check the user's extraction quota before the next scrape; new-event push notifications start reaching the subscriber (impact 5).
 
 ## 7. Proposed work breakdown
 
 | # | Story | Notes |
 |---|---|---|
-| 1 | Identity model and resolver | migration, backfill, `resolveAccountProfile`, advisory lock, three call sites, concurrency tests |
-| 2 | `mergeAccountProfiles` + audit table | per-table tests including the cascade-delete trap and every conflict row in the table above |
-| 3 | Detection sweep and auto-merge | candidate query, E1 evidence, AUTO / REVIEW / BLOCKED, hook after scrape processing and the daily sweep |
-| 4 | Moderator "Possible duplicate accounts" item | REVIEW and BLOCKED groups, merge action, badge count (PRD 3.9.3) |
-| 5 | PROD cleanup | the runbook in section 6, as an ops story; do it right after story 2 |
-| 6 | Ratchet | source-scan test: no insert into `social_media_account_profiles` outside the resolver; no TS file re-implements the username match |
+| 1 | URL resolution by username | backend query accepts username or ID; web links built from `username`; onboarding label; tests. Prerequisite for everything |
+| 2 | Resolver (numeric `account_id`) + Bright Data ID capture | the three creation paths, ratchet on inserts, decision 3.5, lookup on unknown handles |
+| 3 | `mergeAccountProfiles` + audit table + one-off script | per-table tests including the cascade-delete trap and each conflict row |
+| 4 | PROD cleanup | phases 4 to 6 of section 6, as an ops story; the CHECK validation closes it |
+| 5 | Rename and reuse handling | compare-before-persist, passive rename update, not-found flag, manual update username, "ID wins" stale-claimant rule |
 
-Cleanup (5) does not need to wait for 1, 3 or 4: it needs only 2 and the migration column. That order removes the compliance exposure (impact 3) fastest.
+Order: 1, 2, 3, 4, then 5. Story 5 is not needed to remove the compliance exposure (impact 3), so it does not block the cleanup. The earlier "moderator possible-duplicates screen" and permanent detection sweep are dropped (section 4).
 
-Documents to update when this is approved: Architecture Spine (new AD, section 3 rules and the cascade-delete trap), PRD 4.5 (`SocialMediaAccountProfile` identity), `project-context.md` (one-line rule), and BUG-059 (superseded by the epic). `docs/infrastructure/architecture-diagram.md` needs no change unless the sweep is added as a new scheduled component.
+Documents to update when approved: Architecture Spine (new AD: `account_id` is the platform ID, `username` is the current name, the CHECK, the resolver, the cascade-delete trap), PRD 4.5 (`SocialMediaAccountProfile.accountId` and `username` semantics), `project-context.md` (one-line rule), and BUG-059 (superseded by the epic). `docs/infrastructure/architecture-diagram.md` needs no change.
 
-## 8. Decisions for the owner
+## 8. Decisions
 
-1. **Add `platform_user_id` and keep `account_id`** (recommended) versus re-keying to the numeric ID. Re-keying changes public URLs.
-2. **Auto-merge only on vendor-proven evidence (E1)**; everything else goes to a moderator (recommended). Alternative: merge on matching username alone, which is simpler but unsafe with reassigned handles.
-3. **Undo in v1 as an audited script**, not a moderator UI (recommended; the UI follows with story 4 if wanted).
-4. **Do the PROD cleanup (story 5) before the rest**, because it ends the curator-minimization gap for `laridijogja` (recommended).
-5. **Extra caution for curators:** until the merge, should `process-ai-job` also treat a post as curator-typed when its `SCRAPING_SOURCE` account is a curator? That would close impact 3 independent of the merge, at the cost of a second code path that story 1 makes redundant.
+Decided by the owner (2026-10-16):
+1. **Single field:** `account_id` holds the platform's numeric ID; no `platform_user_id` column; `username` is the current handle.
+
+Open:
+2. **Subscribing to a new handle (3.5):** A (mandatory lookup, retryable error; recommended) or B (temporary handle-keyed row).
+3. **Merge script runs only on vendor-proven evidence (E1)** and stops otherwise (recommended).
+4. **Undo as an audited script**, not a moderator UI (recommended).
+5. **Do the PROD cleanup (story 4) before story 5**, because it ends the curator-minimization gap for `laridijogja` (recommended).
+6. **Curator stopgap:** until the cleanup, should `process-ai-job` also treat a post as curator-typed when its `SCRAPING_SOURCE` account is a curator? It closes impact 3 independent of the merge, at the cost of a second code path that story 2 makes redundant.
+7. **Unique index on `lower(username)`** after the "ID wins" rule: later, if wanted.
