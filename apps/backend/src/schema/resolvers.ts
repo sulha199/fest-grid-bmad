@@ -6,7 +6,7 @@ import { events, schedules, posts, users, favorites, calendarAdditions, userLoca
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly, getRequestedFieldNames } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator } from '../lib/auth/context.js';
 import { buildEventAccountMatchCondition } from '../lib/events/event-account-match.js';
-import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, gte, lte, isNull, isNotNull, ilike } from 'drizzle-orm';
+import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, lt, gte, lte, isNull, isNotNull, ilike } from 'drizzle-orm';
 import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink, isScrapableAccountType } from '@festgrid/domain/scraper';
@@ -2789,19 +2789,33 @@ Constraints and Guidelines:
       if (onlyUnextracted) {
         conditions.push(eq(posts.isExtracted, false));
       }
+      // Keyset cursor "<publishedAt ISO>|<post id>": id breaks ties between posts sharing a
+      // timestamp so a page boundary never skips one. A bare ISO cursor (no "|") is still accepted.
+      // The comparison uses typed column helpers: a Date interpolated into a raw sql`` template is
+      // rejected by the postgres driver, which made every "next page" request fail.
       if (cursor) {
-        conditions.push(sql`${posts.publishedAt} < ${new Date(cursor)}`);
+        const [cursorTime, cursorId] = cursor.split('|');
+        const cursorDate = new Date(cursorTime);
+        if (Number.isNaN(cursorDate.getTime())) {
+          throw new GraphQLError('Invalid cursor', { extensions: { code: 'BAD_REQUEST' } });
+        }
+        conditions.push(
+          cursorId
+            ? or(lt(posts.publishedAt, cursorDate), and(eq(posts.publishedAt, cursorDate), lt(posts.id, cursorId)))!
+            : lt(posts.publishedAt, cursorDate)
+        );
       }
 
       const postsRows = await db.select()
         .from(posts)
         .where(and(...conditions))
-        .orderBy(desc(posts.publishedAt))
+        .orderBy(desc(posts.publishedAt), desc(posts.id))
         .limit(qLimit + 1);
 
       const hasMore = postsRows.length > qLimit;
       const items = hasMore ? postsRows.slice(0, qLimit) : postsRows;
-      const nextCursor = hasMore ? items[items.length - 1].publishedAt.toISOString() : null;
+      const lastItem = items[items.length - 1];
+      const nextCursor = hasMore ? `${lastItem.publishedAt.toISOString()}|${lastItem.id}` : null;
 
       return {
         items: items.map(p => ({

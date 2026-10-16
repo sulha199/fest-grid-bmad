@@ -852,6 +852,84 @@ test('manual post selection & extraction integration tests', async (t) => {
     }
   });
 
+  await t.test('postsByAccount next-page cursor works and never skips posts that share a timestamp', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    const [pagingProfile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: `paging-${Date.now()}-${Math.random()}`,
+      platform: 'instagram',
+      username: 'paging-test-account',
+      displayName: 'Paging Test Account',
+    }).returning();
+    const [pagingSub] = await db.insert(subscriptions).values({
+      userId: testUser.id,
+      accountId: pagingProfile.id,
+    }).returning();
+    const sameInstant = new Date('2026-01-01T10:00:00.000Z');
+    const created = await db.insert(posts).values(
+      [0, 1, 2].map((i) => ({
+        accountId: pagingProfile.id,
+        platform: 'instagram',
+        content: `same-timestamp post ${i}`,
+        postUrl: `https://instagram.com/p/paging-${i}-${Date.now()}-${Math.random()}`,
+        publishedAt: sameInstant,
+      }))
+    ).returning();
+    const olderPost = (await db.insert(posts).values({
+      accountId: pagingProfile.id,
+      platform: 'instagram',
+      content: 'older post',
+      postUrl: `https://instagram.com/p/paging-old-${Date.now()}-${Math.random()}`,
+      publishedAt: new Date('2025-12-31T10:00:00.000Z'),
+    }).returning())[0];
+
+    try {
+      const query = `
+        query PostsByAccount($accountId: ID!, $cursor: String, $limit: Int) {
+          postsByAccount(accountId: $accountId, cursor: $cursor, limit: $limit) {
+            items { id }
+            nextCursor
+            hasMore
+          }
+        }
+      `;
+      const seen: string[] = [];
+      let cursor: string | null = null;
+      for (let guard = 0; guard < 10; guard++) {
+        const response: Response = await yoga.fetch('http://yoga/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, variables: { accountId: pagingProfile.id, limit: 1, cursor } })
+        });
+        const result: any = await response.json();
+        assert.ok(!result.errors, 'next page must not error: ' + JSON.stringify(result.errors));
+        seen.push(...result.data.postsByAccount.items.map((p: { id: string }) => p.id));
+        if (!result.data.postsByAccount.hasMore) break;
+        cursor = result.data.postsByAccount.nextCursor;
+      }
+      assert.strictEqual(new Set(seen).size, seen.length, 'no post is returned twice');
+      assert.deepStrictEqual(
+        [...seen].sort(),
+        [...created.map((p) => p.id), olderPost.id].sort(),
+        'every post is returned exactly once across pages'
+      );
+
+      // A bare ISO cursor (the previous format) is still accepted.
+      const legacy = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, variables: { accountId: pagingProfile.id, limit: 10, cursor: sameInstant.toISOString() } })
+      });
+      const legacyResult = await legacy.json();
+      assert.ok(!legacyResult.errors, 'legacy cursor accepted');
+      assert.deepStrictEqual(legacyResult.data.postsByAccount.items.map((p: { id: string }) => p.id), [olderPost.id]);
+    } finally {
+      await db.delete(posts).where(eq(posts.accountId, pagingProfile.id));
+      await db.delete(subscriptions).where(eq(subscriptions.id, pagingSub.id));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, pagingProfile.id));
+    }
+  });
+
   await t.test('postsByAccount and selectPostsForExtraction cover a post stored under a twin profile but scraped under the subscribed account', async () => {
     mockUser = { userId: testUser.id, role: testUser.role };
 
