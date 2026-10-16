@@ -141,7 +141,13 @@ afterEach(() => {
   subscriptionsResponse = mockSubscriptions;
   removeCalls = [];
 });
-afterAll(() => {
+afterAll(async () => {
+  // sonner's deleteToast schedules a 200ms (TIME_BEFORE_UNMOUNT) setTimeout
+  // that is never cleared on unmount. If the file finishes inside that window
+  // the timer fires after jsdom is torn down and vitest reports an unhandled
+  // `ReferenceError: window is not defined`, failing the run despite every
+  // test passing. Let any pending toast-removal timer drain first.
+  await new Promise((resolve) => setTimeout(resolve, 250));
   server.close();
 });
 
