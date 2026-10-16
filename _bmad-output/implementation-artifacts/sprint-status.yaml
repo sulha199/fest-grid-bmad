@@ -1,5 +1,5 @@
 # generated: 2026-07-29T02:58:30Z
-# last_updated: 2026-10-08T00:00:00Z
+# last_updated: 2026-10-12T00:00:00Z
 # project: festgrid
 # project_key: NOKEY
 # tracking_system: file-system
@@ -1339,7 +1339,12 @@ development_status:
   # weeks of silence past the story's own 1-2 week follow-up window). User
   # decided no-go rather than nudging further. Both vendors now closed --
   # story will not proceed unless reopened.
-  3-4b-byok-pooled-scraper-vendor-keys: wont-do
+  # REOPENED 2026-10-12: Apify replied (support, written): a contributed token
+  # used only for accounts that user follows does not breach its s5.2. Apify
+  # only (Bright Data stays closed). STILL LEGALLY GATED -- not ready-for-dev:
+  # re-confirm on paid-product facts, counsel review, and the BYOK vs
+  # platform-paid decision (backlog CC-032) come first.
+  3-4b-byok-pooled-scraper-vendor-keys: backlog
   # added 2026-08-09 via bmad-create-story: exploratory outreach to Instagram-
   # viewer sites (storiesig.info explicitly invites API-access contact; imginn.com
   # is the right shape but has no advertised partnership channel, cold outreach
@@ -2432,7 +2437,8 @@ development_status:
   # true for never-scraped/scrape-in-progress accounts, adds two new tab
   # badges. Gate 1/2/3 run fresh (Story 5.6 postdates the epic-5 sweep): no
   # gap, builds inline. See epics.md Story 5.4a.
-  5-4a-distinguish-inactive-in-progress-and-never-scraped-states: ready-for-dev
+  5-4a-distinguish-inactive-in-progress-and-never-scraped-states: review
+  # 2026-10-16: implemented with the PRD 3.10 amendment (stale-scrape state, posts counted by association, dates in the banner). Awaiting bmad-code-review.
   # Reopened 2026-08-24 via bmad-correct-course: wizard steps extended with a
   # push-notification opt-in step (reusing Story 2.9's toggle), exitPath changed
   # to /feed. See sprint-change-proposal-2026-08-24-ux-rework-batch.md Section 4.6.
@@ -2510,7 +2516,7 @@ development_status:
   # Epic 3's Stories 3.6g/3.6h (moderator-only opt-in, shipping now).
   epic-8: backlog
   # Epic 9 formed 2026-10-14 via bmad-form-epics (feature epic): AI filter boolean/nested expressions + richer date grammar.
-  # Members IDEA-069, FIND-083, BUG-059. See epics.md Epic 9 and planning-artifacts/epic-formation/formation-2026-10-14.md.
+  # Members IDEA-069, FIND-083, BUG-060. See epics.md Epic 9 and planning-artifacts/epic-formation/formation-2026-10-14.md.
   epic-9: backlog
   9-1a-build-the-filter-expression-tree-types-zod-schema-and-normalizer: review
   9-1b-extend-the-relative-date-grammar-with-spans-multi-weekday-and-temporal-status: review

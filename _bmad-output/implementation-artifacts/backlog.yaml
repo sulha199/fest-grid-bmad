@@ -423,7 +423,7 @@ items:
      title: "Gemini/AI backend calls lack concurrency locking, backoff, and rate-limiting guardrails",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
      touches: [app:backend, cross:ai-extraction],
-     note: "DW-066, DW-067, DW-068. DW-082 (resolvePromptToEventFilter rate limit) carved to BUG-059 on 2026-10-14."}
+     note: "DW-066, DW-067, DW-068. DW-082 (resolvePromptToEventFilter rate limit) carved to BUG-060 on 2026-10-14."}
 
   BUG-012:
     {type: bug, status: promoted, created: 2026-09-05,
@@ -2197,7 +2197,7 @@ items:
                9-8-rate-limit-prompt-resolution,
                9-9z-ratchet-every-filter-consumer-goes-through-the-shared-compiler],
      touches: [cross:ai-extraction, pkg:domain, app:backend, web:events, web:widgets, pkg:ui],
-     note: "Driving row of Epic 9 (formed 2026-10-14); members FIND-083, BUG-059."}
+     note: "Driving row of Epic 9 (formed 2026-10-14); members FIND-083, BUG-060."}
 
   FIND-083:
     {type: finding, status: promoted, created: 2026-10-14, parent: FIND-018, epic: epic-9,
@@ -2210,7 +2210,7 @@ items:
      touches: [pkg:domain, app:backend, web:widgets],
      note: "Carved from FIND-018 (DW-074..078, DW-086); absorbed by Stories 9.1b, 9.3, 9.5."}
 
-  BUG-059:
+  BUG-060:
     {type: bug, status: promoted, created: 2026-10-14, parent: BUG-011, epic: epic-9,
      impact: latent, effort: s,
      title: "resolvePromptToEventFilter has no rate limit, so repeated prompts burn the user's own Gemini key quota",
@@ -2219,6 +2219,15 @@ items:
      touches: [app:backend, cross:ai-extraction],
      note: "Carved from BUG-011 (DW-082); sweep Story 9.8 under Epic 9."}
 
+
+  # ── 2026-10-12 (Apify reply; BYOK vs platform-paid decision) ─────────────────────────────
+  CC-032:
+    {type: proposal, status: triaged, created: 2026-10-12,
+     impact: compliance, effort: m,
+     title: "Decide the cost model: platform-paid vs user-paid (BYOK) vs hybrid, now that Apify allows contributed tokens within conditions",
+     ref: [implementation-artifacts/3-4b-byok-pooled-scraper-vendor-keys.md, planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md],
+     touches: [app:backend, cross:ai-extraction, cross:prd, cross:process],
+     note: "The product is built on Gemini BYOK while the business plan assumes platform-paid extraction; counsel brief and cost model are in the private fest-grid-monetization repo. Story 3.4b reopened to backlog (Apify only, still gated); nothing in the PRD changes until this is decided."}
   # ── 2026-10-15 (code review of Story 0.i2d) ──────────────────────────────────
   FIND-082:
     {type: finding, status: backlog, created: 2026-10-15,
@@ -2227,3 +2236,12 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      touches: [app:backend],
      note: "Deferred from: code review of story-0.i2d (2026-10-15). 2 findings."}
+
+  # ── 2026-10-15 (prod: manual extract page empty after a successful scrape) ────
+  BUG-059:
+    {type: bug, status: backlog, created: 2026-10-15,
+     impact: user-visible, effort: m,
+     title: "A subscribed account and its scrape-discovered numeric-ID profile are two rows; posts land on the one nobody subscribed to",
+     ref: [apps/backend/src/lib/accounts/get-or-create-discovered-account-profile.ts, apps/backend/src/lib/posts/persist-scraped-post.ts, apps/backend/src/lib/posts/posts-scraped-under-account.ts, apps/backend/src/lib/posts/auto-enqueue-new-post.ts, backlog/BUG-059-subscribed-profile-twin-split.md],
+     touches: [app:backend, pkg:database, web:post-selection, web:subscriptions],
+     note: "2026-10-16: new twins stopped by a stopgap (c76385b4); merge tool built (d3123f5b) but not yet run on PROD; auto-extraction and manual listing now follow associations (91c5405b). Numeric account_id identity model still to build. Detail in backlog/BUG-059-subscribed-profile-twin-split.md."}

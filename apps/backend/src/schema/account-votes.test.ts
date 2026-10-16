@@ -7,6 +7,9 @@ import * as path from 'path';
 import { db } from '../db/client.js';
 import { users, accountVotes, socialMediaAccountProfiles, subscriptions, userLocations } from '@festgrid/database';
 import { eq, and, isNull, inArray } from 'drizzle-orm';
+import '../lib/scraper/register-adapters.js';
+import { callApifyActor, setCallApifyActor } from '../lib/scraper/instagram-adapter.js';
+import { clearApifyProviderUsage } from '../lib/scraper/usage-store-test-helpers.js';
 
 // Read all required schema fragments dynamically from the schema directory
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
@@ -407,5 +410,40 @@ test('account votes resolvers integration', async (t) => {
     assert.ok(!result.errors, 'queryModeratorAccountProfiles failed: ' + JSON.stringify(result.errors));
     const nodes = result.data.queryModeratorAccountProfiles.edges.map((e: any) => e.node);
     assert.ok(nodes.some((n: any) => n.id === profile.id), 'moderator view must still show the unverified profile');
+  });
+
+  await t.test('STOPGAP BUG-059: castVote by handle reuses an existing handle-keyed profile instead of creating a numeric twin', async () => {
+    const handle = 'vote_twin_guard_' + suffix;
+    const numericId = '5' + suffix;
+    const [handleKeyed] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: handle,
+      platform: 'instagram',
+      username: handle,
+      displayName: 'Vote Twin Guard',
+    }).returning();
+    createdProfileIds.push(handleKeyed.id);
+
+    const originalCallApifyActor = callApifyActor;
+    setCallApifyActor(async () => [{ id: numericId, username: handle, fullName: 'Vote Twin Guard', biography: 'bio' }] as any);
+    mockUser = { userId: testUser.id, role: testUser.role };
+    try {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `mutation($input: CastVoteInput!) { castVote(input: $input) { id accountId } }`,
+          variables: { input: { platform: 'instagram', handleOrUrl: handle } },
+        }),
+      });
+      const result = await response.json();
+      assert.ok(!result.errors, 'castVote succeeds: ' + JSON.stringify(result.errors));
+      assert.strictEqual(result.data.castVote.accountId, handleKeyed.id, 'the vote lands on the existing handle-keyed profile');
+      const twin = await db.select().from(socialMediaAccountProfiles)
+        .where(and(eq(socialMediaAccountProfiles.platform, 'instagram'), eq(socialMediaAccountProfiles.accountId, numericId)));
+      assert.strictEqual(twin.length, 0, 'no numeric-keyed twin was created');
+    } finally {
+      setCallApifyActor(originalCallApifyActor);
+      await clearApifyProviderUsage();
+    }
   });
 });

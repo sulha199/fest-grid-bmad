@@ -118,4 +118,45 @@ test('getOrCreateDiscoveredAccountProfile', async (t) => {
     assert.equal(profile.displayName, accountId);
     assert.equal(profile.username, accountId);
   });
+
+  await t.test('STOPGAP BUG-059: a username matching an existing handle-keyed profile returns that profile and creates no numeric twin', async () => {
+    const suffix = Math.random().toString(36).slice(2, 9);
+    const handle = 'twin_guard_' + suffix;
+    const numericId = '9' + Date.now();
+    createdPlatformAccountIds.push({ platform: 'instagram', accountId: handle });
+    createdPlatformAccountIds.push({ platform: 'instagram', accountId: numericId });
+
+    const [handleKeyed] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({ accountId: handle, platform: 'instagram', username: handle, displayName: 'Handle Keyed' })
+      .returning();
+
+    const resolved = await getOrCreateDiscoveredAccountProfile({
+      platform: 'instagram',
+      accountId: numericId,
+      username: handle.toUpperCase(),
+      vendor: 'apify',
+    });
+
+    assert.equal(resolved.id, handleKeyed.id, 'the existing handle-keyed row is returned (case-insensitive username match)');
+    assert.ok(resolved.lastSeen, 'lastSeen is advanced on the reused row');
+    const twin = await db
+      .select()
+      .from(socialMediaAccountProfiles)
+      .where(and(eq(socialMediaAccountProfiles.platform, 'instagram'), eq(socialMediaAccountProfiles.accountId, numericId)));
+    assert.equal(twin.length, 0, 'no numeric-keyed row was created');
+  });
+
+  await t.test('STOPGAP BUG-059: a username that only matches a numeric-keyed row does not short-circuit the normal upsert', async () => {
+    const suffix = Math.random().toString(36).slice(2, 9);
+    const username = 'numeric_only_' + suffix;
+    const firstId = '8' + Date.now();
+    createdPlatformAccountIds.push({ platform: 'instagram', accountId: firstId });
+
+    const first = await getOrCreateDiscoveredAccountProfile({ platform: 'instagram', accountId: firstId, username, vendor: 'apify' });
+    const again = await getOrCreateDiscoveredAccountProfile({ platform: 'instagram', accountId: firstId, username, vendor: 'apify' });
+
+    assert.equal(again.id, first.id, 'same (platform, accountId) still resolves to the same row');
+    assert.equal(again.accountId, firstId);
+  });
 });

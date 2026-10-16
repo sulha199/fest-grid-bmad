@@ -7,7 +7,7 @@ status: "final"
 
 created: "2026-07-10T20:50:17Z"
 
-updated: "2026-10-15T00:00:00Z"
+updated: "2026-10-16T00:00:00Z"
 
 ---
 
@@ -115,6 +115,7 @@ This feature allows users to curate their event feed by subscribing to specific 
     *   **Internal Quota Tracking:** The system will internally track the usage of each API key to inform the fairness algorithm. This tracking will be reset at the beginning of each billing cycle.
     *   **Tier 1: User-Specific Subscriptions:** Requests for social media accounts subscribed to by only one user will be processed first, using that user's API key(s).
     *   **Tier 2: Shared Subscriptions (Round-Robin with Fairness):** For social-media accounts subscribed to by multiple users, a round-robin approach will be used to cycle through the API keys of the subscribing users. To ensure fairness, the algorithm will prioritize keys from users who have contributed fewer API calls in the current billing cycle.
+    *   **Whose subscribers count (added 2026-10-16):** The subscribers of a post are the subscribers of every account the post is associated with — its publisher, any co-author, and the account whose scrape found it (Section 4.7a) — not only of the account that published it. Tier 1 and Tier 2 are decided over that combined set, so a post co-authored by two accounts can be extracted with a key from a subscriber of either.
     *   **Multiple API Keys:** If a user provides multiple API keys, the system will treat them as a pool of resources for that user, cycling through them as needed.
     *   **Key Failure:** If a user's key fails or is rate-limited, it will be temporarily skipped, and the next user's key in the round-robin will be used.
 *   **Display Subscribed Events:** Events extracted from a user's social media accounts will be displayed to the user.
@@ -198,21 +199,32 @@ A 'Report' button will be available for all events (whether from Social Media Ac
 
 To provide users with greater control over their API quota usage and improve the relevance of extracted events, FestDaily will offer a manual post selection feature. This allows users to choose which specific social media posts should be processed by the AI agent.
 
-*   **Relationship to Automatic Extraction (clarified 2026-10-01; BUG-039):** New posts from subscribed accounts are extracted automatically after each scrape, within the Tier 1/Tier 2 key and quota rules (Section 3.7). Manual selection is therefore the path for posts automatic extraction does not cover: older posts that predate the subscription, and posts left unextracted because no key had quota. Both paths cost one extraction call per post, draw on the same quota, and apply the same Multi-Event Posts rules (Section 3.7). A post that has already been extracted (`Post.isExtracted`) — automatically or by hand — is not listed on the selection screen at all (changed 2026-10-15 from "shown disabled"), so it cannot be selected again, whether it yielded zero, one or several events.
+*   **Relationship to Automatic Extraction (clarified 2026-10-01; BUG-039):** New posts from subscribed accounts are extracted automatically after each scrape, within the Tier 1/Tier 2 key and quota rules (Section 3.7). Manual selection is therefore the path for posts automatic extraction does not cover: older posts that predate the subscription, and posts left unextracted because no key had quota. Both paths cost one extraction call per post, draw on the same quota, and apply the same Multi-Event Posts rules (Section 3.7). Every post stored for an account is listed on the selection screen together with its extraction status (below), so the user can see what happened to it; only a post that is still Pending can be selected, so an extracted post cannot be selected again, whether it yielded zero, one or several events. **(Changed 2026-10-16: 2026-10-15 had hidden extracted posts entirely.)**
 
 *   **User Interface:** A new screen will be introduced, featuring a tab-based layout where each tab corresponds to one of the user's subscribed social media accounts.
-    *   **Tab Content:** Each tab, when selected, will display the account's posts that have not yet been extracted (`Post.isExtracted = false`), newest first, presented in a card-based view. The list loads 20 at a time and appends the next page by infinite scroll (Section 5, Infinite Scroll); the filter is applied server-side so every page is full.
+    *   **Tab Content:** Each tab, when selected, will display the account's posts, newest first, in a card-based view, each card showing its extraction status. A post appears in the tab of every subscribed account it is associated with — the account that published it, any co-author, and the account whose scrape found it (Section 4.7a) — and it is the same post in each: a co-authored post is not duplicated. The list loads 20 at a time and appends the next page by infinite scroll (Section 5, Infinite Scroll); the status filter is applied server-side so every page is full, and a page boundary never skips or repeats a post.
+    *   **Extraction Status (added 2026-10-16):** Each post has exactly one status:
+        *   **Pending** — not yet extracted and not in the extraction queue (or its queue slot has expired). The only status that can be selected.
+        *   **Queued** — waiting in the extraction queue.
+        *   **Extracting** — being processed now.
+        *   **Promoted to event** — extraction finished and produced at least one event.
+        *   **Not an event** — extraction finished and found no event.
+        A post whose extraction cannot finish (for example the AI response fails validation) stays Queued or Extracting until its queue slot expires, then returns to Pending so it can be tried again.
+    *   **Status Filter (added 2026-10-16):** A multi-select above the list chooses which statuses are shown. By default only Pending is selected. The filter applies to every tab, and changing it never clears the posts the user has already selected.
     *   **Lazy Loading:** The posts within the tabs can be loaded lazily to improve initial page load performance.
 *   **Post Selection:**
     *   Users can select multiple posts by clicking a checkbox on each post card.
     *   The selection state is preserved as the user navigates between different tabs.
-    *   Posts that have already been processed are not shown (see Relationship to Automatic Extraction above); when none remain, the tab shows the "scrape now to check for new ones" empty state.
+    *   Only Pending posts have a checkbox; posts in any other status are shown without one.
+    *   **Selection is per post, not per tab (added 2026-10-16):** a post that appears in several tabs because of co-authors is selected in all of them at once, counts once against the quota, and is queued once. When a post leaves Pending — queued by this user or by another subscriber — it can no longer be selected in any tab, and a request that includes a post that is no longer Pending does not fail the other posts in the request.
+    *   When no post matches the filter, the tab shows an empty state; with the default filter this is the "scrape now to check for new ones" message.
 *   **Quota Management:**
     *   A summary bar will display the number of selected posts against the user's remaining API quota (e.g., "Selected Posts: 5 / 50").
     *   The system will prevent users from extracting more posts than their quota allows.
 *   **Inactive Account Handling:**
-    *   If a subscribed account has not published any posts within a configurable period (e.g., 30 days), a warning icon will be displayed on its tab.
-    *   The tab's content will show a warning message and a button allowing the user to remove the inactive subscription.
+    *   A subscribed account is shown as inactive only when it has been scraped successfully and recently (within a configurable period, default 3 days) and still has no post newer than a configurable period (e.g., 30 days). Posts count whether the account published them, co-authored them, or they were found by its scrape. **(Amended 2026-10-16.)**
+    *   An account that has never been scraped, is being scraped right now, or has not been scraped successfully within that recent period is not called inactive; its tab shows a neutral state instead (first scrape pending, scrape in progress, or "not checked since <date>").
+    *   When shown, the warning displays when the account was last checked and the date of its latest post, and the tab's content offers a button to remove the inactive subscription.
 *   **Wizard Integration:**
     *   The manual post selection screen is integrated as a new step in the getting started wizard, appearing after the user adds their subscriptions.
     *   When a user adds a new subscription, it will be marked as `isNewlyAdded`, and the corresponding tab will be automatically activated in the selection screen.
@@ -851,6 +863,13 @@ interface Post {
    * True if the post has already been processed and an event has been extracted.
    */
   isExtracted?: boolean;
+  /**
+   * Where the post is in extraction (added 2026-10-16, Section 3.10): `PENDING`, `QUEUED`, `EXTRACTING`,
+   * `PROMOTED` (produced at least one event) or `NOT_EVENT`. Derived, never edited: from `isExtracted`,
+   * whether the post holds a live queue slot, whether processing has started, and whether it yielded an
+   * event. Only `PENDING` posts can be selected for extraction.
+   */
+  extractionStatus: 'PENDING' | 'QUEUED' | 'EXTRACTING' | 'PROMOTED' | 'NOT_EVENT';
   /**
    * The ID of the `SocialMediaAccountProfile` (Section 4.5) whose subscription/scrape job
    * triggered this post's ingestion — the *scraping-source* account, which is not always
@@ -1626,7 +1645,7 @@ interface AIEventFilter {
 
 *   **Scraped-Content Personal Data (Indonesia PDP Law / GDPR):** Data extracted from third-party social posts must be minimized per Section 3.16 and the field-level rules in Section 4 (`EventInfo.hasPrivateContact`, `Schedule.performers`, `SocialMediaAccountProfile.profileImageUrl`/`isImageStorageOptedIn`). Two rules not yet enforced anywhere in the pipeline, tracked as open build items in epics.md: (1) a children's-data keyword filter that prevents an individual minor's name from ever being written to the database (not merely hidden at display), with a separate, non-self-service exception path for verified schools/studios; (2) vendor confirmation from Apify and Bright Data, in writing, that their Instagram scraping operates logged-out against public data only — the favorable Meta v. Bright Data legal comparison this product currently relies on depends on that being true, not just structurally plausible from the adapter code.
 *   **Public-Accounts-Only Scraping Scope (added 2026-10-06):** FestDaily only allows subscribing to **public** social media accounts, so every scrape is intended to target a public account and its publicly visible posts; private accounts are not meant to be subscribed to or scraped. **Enforcement gap:** the subscribe path does not yet check whether an account is private, so today this is product intent backed only by logged-out scraping returning nothing for private accounts (tracked as FIND-079). The data therefore stays the account owner's own public content, and the scraping-method confirmation above (logged-out, public data only) is consistent with product scope rather than an additional restriction on it. The vendor confirmation is a statement about *how* Apify and Bright Data collect (logged-out, public only), not about who owns the data; account-owner and data-subject protections remain the field-level rules in the first bullet above.
-*   **AI Vendor Data Use (added 2026-10-04):** Google's Gemini API terms let it use content submitted through *unpaid* keys, including images, to improve its products, with possible human review; paid keys are not used that way. FestDaily's extraction keys include subscribers' own keys whose billing tier is not verified, so a bystander's face must not reach the vendor unblurred by default (Section 3.16, FR115). Whether to verify or require a paid tier at key setup is tracked separately (FIND-066).
+*   **AI Vendor Data Use (added 2026-10-04):** Google's Gemini API terms let it use content submitted through *unpaid* keys, including images, to improve its products, with possible human review; paid keys are not used that way. FestDaily's extraction keys include subscribers' own keys whose billing tier is not verified, so a bystander's face must not reach the vendor unblurred by default (Section 3.16, FR115). Whether to verify or require a paid tier at key setup is tracked separately (FIND-066). **Business-model note (2026-10-12):** the BYOK design itself is under legal and business-model review (platform-paid vs user-paid vs hybrid; the business plan currently assumes platform-paid extraction, this PRD is built on BYOK), tracked as CC-032. Apify has indicated user-contributed scraping tokens are acceptable only when used for accounts that user follows (Story 3.4b, reopened, still gated); no Gemini-side confirmation exists. Nothing in this PRD changes until that decision is made.
 *   User data and privacy must be protected with industry-standard security measures. When BYOK Gemini API keys are used server-side for event data extraction, they will be securely stored and managed with robust encryption and access controls. Your personal, identifiable data (event preferences, saved locations, calendar and favorite selections, account details) is used solely to personalize your experience within the app; we do not spam your calendar, and we do not sell personal data to third parties. Crucially, our 'add to calendar' feature works one-way, simply adding selected events to your calendar without accessing its existing content. We absolutely do not read your personal calendar content.
 *   **Private vs. Sellable Data Boundary:** A distinct, non-identifiable category — aggregated, anonymized usage and interest data (e.g. category/event-type demand trends, regional favorite/calendar-add volume) — is not subject to the "we do not sell personal data" commitment above and may be shared or sold to city tourism boards, venues, and local partners as part of the platform's monetization strategy (Section 6). This is permitted only when the data is reduced to the same k-anonymity standard already established by the vote list's "Near Me" ranking (Section 3.13): bucketed to city/province granularity, never raw coordinates, suppressed entirely for any region with fewer than 5 distinct contributing users, and with no path back to an individual account. Any future sellable-data product must be validated against this standard before launch.
 *   **Widget Embedding:** The embeddable widget (Section 3.14) is served from a dedicated route with a dynamically-scoped `frame-ancestors` policy limited to registered domain patterns (Section 4.17), validated against a Public Suffix List at registration time to prevent whitelisting a shared-hosting domain — the rest of the application's framing protection is unaffected.

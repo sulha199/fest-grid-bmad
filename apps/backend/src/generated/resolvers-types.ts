@@ -877,6 +877,7 @@ export type Post = {
   __typename?: 'Post';
   accountId: Scalars['ID']['output'];
   content?: Maybe<Scalars['String']['output']>;
+  extractionStatus: PostExtractionStatus;
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
   isExtracted: Scalars['Boolean']['output'];
@@ -891,6 +892,17 @@ export type PostConnection = {
   items: Array<Post>;
   nextCursor?: Maybe<Scalars['String']['output']>;
 };
+
+/**
+ * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING posts
+ * can be selected for extraction.
+ */
+export type PostExtractionStatus =
+  | 'EXTRACTING'
+  | 'NOT_EVENT'
+  | 'PENDING'
+  | 'PROMOTED'
+  | 'QUEUED';
 
 export type PostGroupingReason =
   | 'DEPENDENT_STAGES'
@@ -1078,6 +1090,7 @@ export type QueryPostsByAccountArgs = {
   cursor?: InputMaybe<Scalars['String']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
   onlyUnextracted?: InputMaybe<Scalars['Boolean']['input']>;
+  statuses?: InputMaybe<Array<PostExtractionStatus>>;
 };
 
 
@@ -1342,12 +1355,26 @@ export type Subscription = {
   __typename?: 'Subscription';
   account: SocialMediaAccountProfile;
   accountId: Scalars['ID']['output'];
+  /**
+   * What the manual extract screen shows for this account (PRD 3.10, Story 5.4a). INACTIVE only when the account
+   * was scraped successfully and recently and still has no recent post.
+   */
+  activityState: SubscriptionActivityState;
   createdAt: Scalars['String']['output'];
   id: Scalars['ID']['output'];
   isInactive: Scalars['Boolean']['output'];
   isNewlyAdded: Scalars['Boolean']['output'];
+  /** When the newest post the account owns or is associated with was published; null when it has none. */
+  latestPostAt?: Maybe<Scalars['String']['output']>;
   pendingExtractionCount: Scalars['Int']['output'];
 };
+
+export type SubscriptionActivityState =
+  | 'ACTIVE'
+  | 'INACTIVE'
+  | 'NEVER_SCRAPED'
+  | 'SCRAPE_IN_PROGRESS'
+  | 'SCRAPE_STALE';
 
 export type SuggestedEventMatch = {
   __typename?: 'SuggestedEventMatch';
@@ -1663,6 +1690,7 @@ export type ResolversTypes = ResolversObject<{
   PayloadContext: ResolverTypeWrapper<PayloadContext>;
   Post: ResolverTypeWrapper<Post>;
   PostConnection: ResolverTypeWrapper<PostConnection>;
+  PostExtractionStatus: PostExtractionStatus;
   PostGroupingReason: PostGroupingReason;
   ProposedEventCorrectionData: ResolverTypeWrapper<ProposedEventCorrectionData>;
   ProposedEventCorrectionInput: ProposedEventCorrectionInput;
@@ -1693,6 +1721,7 @@ export type ResolversTypes = ResolversObject<{
   SubscribeToAccountInput: SubscribeToAccountInput;
   SubscribeToAccountResult: ResolverTypeWrapper<SubscribeToAccountResult>;
   Subscription: ResolverTypeWrapper<{}>;
+  SubscriptionActivityState: SubscriptionActivityState;
   SuggestedEventMatch: ResolverTypeWrapper<SuggestedEventMatch>;
   SuggestedEventMatchAction: SuggestedEventMatchAction;
   SuggestedEventMatchConnection: ResolverTypeWrapper<SuggestedEventMatchConnection>;
@@ -2182,6 +2211,7 @@ export type PayloadContextResolvers<ContextType = GraphQLContext, ParentType ext
 export type PostResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Post'] = ResolversParentTypes['Post']> = ResolversObject<{
   accountId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   content?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  extractionStatus?: Resolver<ResolversTypes['PostExtractionStatus'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   imageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   isExtracted?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
@@ -2411,10 +2441,12 @@ export type SubscribeToAccountResultResolvers<ContextType = GraphQLContext, Pare
 export type SubscriptionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Subscription'] = ResolversParentTypes['Subscription']> = ResolversObject<{
   account?: SubscriptionResolver<ResolversTypes['SocialMediaAccountProfile'], "account", ParentType, ContextType>;
   accountId?: SubscriptionResolver<ResolversTypes['ID'], "accountId", ParentType, ContextType>;
+  activityState?: SubscriptionResolver<ResolversTypes['SubscriptionActivityState'], "activityState", ParentType, ContextType>;
   createdAt?: SubscriptionResolver<ResolversTypes['String'], "createdAt", ParentType, ContextType>;
   id?: SubscriptionResolver<ResolversTypes['ID'], "id", ParentType, ContextType>;
   isInactive?: SubscriptionResolver<ResolversTypes['Boolean'], "isInactive", ParentType, ContextType>;
   isNewlyAdded?: SubscriptionResolver<ResolversTypes['Boolean'], "isNewlyAdded", ParentType, ContextType>;
+  latestPostAt?: SubscriptionResolver<Maybe<ResolversTypes['String']>, "latestPostAt", ParentType, ContextType>;
   pendingExtractionCount?: SubscriptionResolver<ResolversTypes['Int'], "pendingExtractionCount", ParentType, ContextType>;
 }>;
 

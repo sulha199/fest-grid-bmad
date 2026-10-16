@@ -1,6 +1,8 @@
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles } from '@festgrid/database';
+import { eq } from 'drizzle-orm';
 import { resolveDiscoveredIdentityNames } from '@festgrid/domain/scraper';
+import { findProfileByUsername } from './find-profile-by-username.js';
 
 interface DiscoveredIdentityInput {
   platform: string;
@@ -25,10 +27,26 @@ interface DiscoveredIdentityInput {
  *
  * A newly created profile defaults `isVerifiedForDiscovery: false` and is never
  * subscribed and never triggers a scrape -- that is Story 3.16's job.
+ *
+ * STOPGAP (BUG-059): when the identity carries a username that already belongs to a profile created
+ * from a typed handle (e.g. one a user subscribed to), that profile is returned instead of creating
+ * a second, numeric-keyed row for the same platform account. See find-profile-by-username.ts.
  */
 export async function getOrCreateDiscoveredAccountProfile(identity: DiscoveredIdentityInput) {
   const { displayName, username } = resolveDiscoveredIdentityNames(identity);
   const now = new Date();
+
+  if (identity.username) {
+    const handleKeyed = await findProfileByUsername(identity.platform, identity.username, { handleKeyedOnly: true });
+    if (handleKeyed && handleKeyed.accountId !== identity.accountId) {
+      const [touched] = await db
+        .update(socialMediaAccountProfiles)
+        .set({ lastSeen: now, updatedAt: now })
+        .where(eq(socialMediaAccountProfiles.id, handleKeyed.id))
+        .returning();
+      return touched;
+    }
+  }
 
   const [profile] = await db
     .insert(socialMediaAccountProfiles)

@@ -895,6 +895,7 @@ export type Post = {
   __typename?: 'Post';
   accountId: Scalars['ID']['output'];
   content?: Maybe<Scalars['String']['output']>;
+  extractionStatus: PostExtractionStatus;
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
   isExtracted: Scalars['Boolean']['output'];
@@ -909,6 +910,18 @@ export type PostConnection = {
   items: Array<Post>;
   nextCursor?: Maybe<Scalars['String']['output']>;
 };
+
+/**
+ * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING posts
+ * can be selected for extraction.
+ */
+export enum PostExtractionStatus {
+  Extracting = 'EXTRACTING',
+  NotEvent = 'NOT_EVENT',
+  Pending = 'PENDING',
+  Promoted = 'PROMOTED',
+  Queued = 'QUEUED'
+}
 
 export enum PostGroupingReason {
   DependentStages = 'DEPENDENT_STAGES',
@@ -1097,6 +1110,7 @@ export type QueryPostsByAccountArgs = {
   cursor?: InputMaybe<Scalars['String']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
   onlyUnextracted?: InputMaybe<Scalars['Boolean']['input']>;
+  statuses?: InputMaybe<Array<PostExtractionStatus>>;
 };
 
 
@@ -1366,12 +1380,27 @@ export type Subscription = {
   __typename?: 'Subscription';
   account: SocialMediaAccountProfile;
   accountId: Scalars['ID']['output'];
+  /**
+   * What the manual extract screen shows for this account (PRD 3.10, Story 5.4a). INACTIVE only when the account
+   * was scraped successfully and recently and still has no recent post.
+   */
+  activityState: SubscriptionActivityState;
   createdAt: Scalars['String']['output'];
   id: Scalars['ID']['output'];
   isInactive: Scalars['Boolean']['output'];
   isNewlyAdded: Scalars['Boolean']['output'];
+  /** When the newest post the account owns or is associated with was published; null when it has none. */
+  latestPostAt?: Maybe<Scalars['String']['output']>;
   pendingExtractionCount: Scalars['Int']['output'];
 };
+
+export enum SubscriptionActivityState {
+  Active = 'ACTIVE',
+  Inactive = 'INACTIVE',
+  NeverScraped = 'NEVER_SCRAPED',
+  ScrapeInProgress = 'SCRAPE_IN_PROGRESS',
+  ScrapeStale = 'SCRAPE_STALE'
+}
 
 export type SuggestedEventMatch = {
   __typename?: 'SuggestedEventMatch';
@@ -1576,6 +1605,12 @@ export enum WidgetTheme {
 
 
 
+
+
+/**
+ * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING posts
+ * can be selected for extraction.
+ */
 
 
 
@@ -2026,10 +2061,11 @@ export type GetPostsByAccountQueryVariables = Exact<{
   cursor?: string | null | undefined;
   limit?: number | null | undefined;
   onlyUnextracted?: boolean | null | undefined;
+  statuses?: Array<PostExtractionStatus> | PostExtractionStatus | null | undefined;
 }>;
 
 
-export type GetPostsByAccountQuery = { postsByAccount: { nextCursor: string | null, hasMore: boolean, items: Array<{ id: string, accountId: string, content: string | null, imageUrl: string | null, postUrl: string, originalPostUrl: string | null, isExtracted: boolean, publishedAt: string }> } };
+export type GetPostsByAccountQuery = { postsByAccount: { nextCursor: string | null, hasMore: boolean, items: Array<{ id: string, accountId: string, content: string | null, imageUrl: string | null, postUrl: string, originalPostUrl: string | null, isExtracted: boolean, extractionStatus: PostExtractionStatus, publishedAt: string }> } };
 
 export type GetMyExtractionQuotaQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -2104,7 +2140,7 @@ export type TriggerAccountScrapeMutation = { triggerAccountScrape: { triggered: 
 export type GetMySubscriptionsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetMySubscriptionsQuery = { mySubscriptions: Array<{ id: string, accountId: string, isNewlyAdded: boolean, isInactive: boolean, createdAt: string, pendingExtractionCount: number, account: { id: string, accountId: string, platform: string, displayName: string, username: string, profileImageUrl: string | null, isScrapeInProgress: boolean, lastScrapedAt: string | null, accountType: string | null, accountTypeStatus: string | null, hasPendingDefaultLocationReview: boolean, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } }> };
+export type GetMySubscriptionsQuery = { mySubscriptions: Array<{ id: string, accountId: string, isNewlyAdded: boolean, isInactive: boolean, activityState: SubscriptionActivityState, latestPostAt: string | null, createdAt: string, pendingExtractionCount: number, account: { id: string, accountId: string, platform: string, displayName: string, username: string, profileImageUrl: string | null, isScrapeInProgress: boolean, lastScrapedAt: string | null, accountType: string | null, accountTypeStatus: string | null, hasPendingDefaultLocationReview: boolean, defaultLocation: { formattedAddress: string | null, placeName: string | null, coordinates: { lat: number, lng: number } } | null } }> };
 
 export type ReportSystemErrorMutationVariables = Exact<{
   input: ReportSystemErrorInput;
@@ -4414,12 +4450,13 @@ export const useSelectPostsForExtractionMutation = <
     )};
 
 export const GetPostsByAccountDocument = new TypedDocumentString(`
-    query getPostsByAccount($accountId: ID!, $cursor: String, $limit: Int, $onlyUnextracted: Boolean) {
+    query getPostsByAccount($accountId: ID!, $cursor: String, $limit: Int, $onlyUnextracted: Boolean, $statuses: [PostExtractionStatus!]) {
   postsByAccount(
     accountId: $accountId
     cursor: $cursor
     limit: $limit
     onlyUnextracted: $onlyUnextracted
+    statuses: $statuses
   ) {
     items {
       id
@@ -4429,6 +4466,7 @@ export const GetPostsByAccountDocument = new TypedDocumentString(`
       postUrl
       originalPostUrl
       isExtracted
+      extractionStatus
       publishedAt
     }
     nextCursor
@@ -4766,6 +4804,8 @@ export const GetMySubscriptionsDocument = new TypedDocumentString(`
     accountId
     isNewlyAdded
     isInactive
+    activityState
+    latestPostAt
     createdAt
     pendingExtractionCount
     account {

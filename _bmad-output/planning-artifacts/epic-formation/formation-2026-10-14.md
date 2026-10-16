@@ -8,15 +8,15 @@
 
 **Epic 9** (feature axis, next integer; Epic 8 is a placeholder).
 Capability: a user describes events in one prompt using any combination of the supported criteria, including or, not, groups, rolling date spans and several weekdays, and sees exactly the events they meant, with a summary that says how the prompt was understood.
-Members: **IDEA-069** (driving), **FIND-083** (carved from FIND-018), **BUG-059** (carved from BUG-011).
+Members: **IDEA-069** (driving), **FIND-083** (carved from FIND-018), **BUG-060** (carved from BUG-011).
 Stories: 9.1a, 9.1b, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9z (ratchet optional for a feature epic; kept).
 Spec route: spec already updated (`bmad-spec`, CAP-6/CAP-7); PRD §3.15/§4.18 amendment carried in 9.9z.
 
 ## Criteria check (§5)
 
-1. ≥3 open rows — IDEA-069, FIND-083, BUG-059 (after carve-first).
+1. ≥3 open rows — IDEA-069, FIND-083, BUG-060 (after carve-first).
 2. Sentence written before membership (above).
-3. Journey form — FIND-083 members are gaps in "exactly the events they meant" (wrong date windows, unvalidated filters). BUG-059 is an abuse guard and fails the journey test, so it joins as a **sweep story** (9.8), not a capability member.
+3. Journey form — FIND-083 members are gaps in "exactly the events they meant" (wrong date windows, unvalidated filters). BUG-060 is an abuse guard and fails the journey test, so it joins as a **sweep story** (9.8), not a capability member.
 4. Ratchet — optional (feature epic); 9.9z included.
 5. Effort ≥3 stories — 10 stories.
 
@@ -25,7 +25,7 @@ Spec route: spec already updated (`bmad-spec`, CAP-6/CAP-7); PRD §3.15/§4.18 a
 | Row | Result |
 |---|---|
 | FIND-018 | Split. DW-074..078 and DW-086 → FIND-083 (member). Remainder DW-083/084/085 stays on FIND-018 → `promote` (effort s). |
-| BUG-011 | Split. DW-082 → BUG-059 (sweep, Story 9.8). Remainder DW-066/067/068 stays on BUG-011 (`epic-0-i2`). |
+| BUG-011 | Split. DW-082 → BUG-060 (sweep, Story 9.8). Remainder DW-066/067/068 stays on BUG-011 (`epic-0-i2`). |
 
 ## Rejected / not members
 

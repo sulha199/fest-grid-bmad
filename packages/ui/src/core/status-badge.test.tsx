@@ -98,4 +98,14 @@ describe('StatusBadge Component', () => {
     expect(badge).toBeDefined();
     expect(badge.className).toContain('text-red-800');
   });
+
+  it.each([
+    ['queued', 'text-sky-800'],
+    ['extracting', 'text-violet-800'],
+    ['promoted', 'text-green-800'],
+    ['notEvent', 'text-slate-800'],
+  ] as const)('renders the %s extraction-status variant', (variant, expectedClass) => {
+    render(<StatusBadge variant={variant} label={`Label ${variant}`} />);
+    expect(screen.getByText(`Label ${variant}`).className).toContain(expectedClass);
+  });
 });

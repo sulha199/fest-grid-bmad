@@ -544,8 +544,22 @@
     {
       "idx": 77,
       "version": "6",
-      "when": 1792077758355,
-      "tag": "0077_sloppy_doctor_faustus",
+      "when": 1792114696541,
+      "tag": "0077_tired_taskmaster",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "6",
+      "when": 1792115171935,
+      "tag": "0078_optimal_gorgon",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "6",
+      "when": 1792119487457,
+      "tag": "0079_furry_patriot",
       "breakpoints": true
     }
   ]

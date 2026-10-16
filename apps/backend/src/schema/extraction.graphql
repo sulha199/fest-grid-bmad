@@ -57,6 +57,18 @@ type ExtractionJobStatus {
   errorMessage: String
 }
 
+"""
+Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING posts
+can be selected for extraction.
+"""
+enum PostExtractionStatus {
+  PENDING
+  QUEUED
+  EXTRACTING
+  PROMOTED
+  NOT_EVENT
+}
+
 type Post {
   id: ID!
   accountId: ID!
@@ -65,6 +77,7 @@ type Post {
   postUrl: String!
   originalPostUrl: String
   isExtracted: Boolean!
+  extractionStatus: PostExtractionStatus!
   publishedAt: String!
 }
 
@@ -81,7 +94,7 @@ type ExtractionQuota {
 }
 
 extend type Query {
-  postsByAccount(accountId: ID!, cursor: String, limit: Int, onlyUnextracted: Boolean): PostConnection!
+  postsByAccount(accountId: ID!, cursor: String, limit: Int, onlyUnextracted: Boolean, statuses: [PostExtractionStatus!]): PostConnection!
   myExtractionQuota: ExtractionQuota!
   extractionJob(id: ID!): ExtractionJobStatus!
 }

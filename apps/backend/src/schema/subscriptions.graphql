@@ -6,6 +6,21 @@ type Subscription {
   account: SocialMediaAccountProfile!
   pendingExtractionCount: Int!
   isInactive: Boolean!
+  """
+  What the manual extract screen shows for this account (PRD 3.10, Story 5.4a). INACTIVE only when the account
+  was scraped successfully and recently and still has no recent post.
+  """
+  activityState: SubscriptionActivityState!
+  """When the newest post the account owns or is associated with was published; null when it has none."""
+  latestPostAt: String
+}
+
+enum SubscriptionActivityState {
+  ACTIVE
+  NEVER_SCRAPED
+  SCRAPE_IN_PROGRESS
+  SCRAPE_STALE
+  INACTIVE
 }
 
 extend type Query {

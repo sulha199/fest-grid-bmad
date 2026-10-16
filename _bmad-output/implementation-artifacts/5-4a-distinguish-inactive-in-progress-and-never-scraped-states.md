@@ -4,7 +4,7 @@
 
 - Epic: 5
 - Story ID: 5.4a
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -172,16 +172,40 @@ This story targets Epic 5. `epic-readiness/epic-5-readiness.md` exists and is `s
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Implemented 2026-10-16 (see Amendment below); awaiting `bmad-code-review`.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Sonnet 5.5 (`claude-sonnet-5-5`)
 
 ### Debug Log References
 
 ### Completion Notes List
 
+**Amendment 2026-10-16 (owner-directed, PRD 3.10 amended the same day).** This story was built together with three
+additions, so its original ACs were extended rather than reopened:
+
+- **AC9 (stale scrape).** An account is `INACTIVE` only if it was scraped successfully and recently. A last successful scrape older
+  than `ACCOUNT_SCRAPE_STALE_DAYS` (default 3) gives `SCRAPE_STALE`, shown as a neutral "not checked since <date>" badge and note,
+  never as inactive. `ACCOUNT_INACTIVE_AFTER_DAYS` (default 30) makes the inactivity window configurable, as the PRD already said.
+- **AC10 (posts counted by association).** The newest post is looked up over every post the account owns *or is associated with in
+  any role* (publisher, co-author, scraping source), so an account whose posts are stored under another profile (BUG-059) or that
+  co-authored a recent post is not reported as having none. `pendingExtractionCount` uses the same set and counts Pending posts.
+- **AC11 (dates in the banner).** The inactive banner states when the account was last checked and the date of its latest post
+  (`Subscription.latestPostAt`), formatted per locale; or "No posts found" when there are none.
+- **AC12 (one state).** `Subscription.activityState` (`ACTIVE | NEVER_SCRAPED | SCRAPE_IN_PROGRESS | SCRAPE_STALE | INACTIVE`) is computed by
+  one pure domain function, `computeAccountActivityState`, with `computeIsScrapeInProgress` (AC8) inside it. `isInactive` is kept and
+  equals `activityState === INACTIVE`.
+
+Precedence: in progress, never scraped, stale, inactive, active. All tasks and ACs 1 to 8 are done as specified, except that the web page
+reads `activityState` instead of recomputing the three-way state client-side (Task 5), which removes the duplicate logic.
+
 ### File List
+
+- `packages/domain/src/scraper/compute-is-scrape-in-progress.ts` (+ test), `compute-account-activity-state.ts` (+ test), `index.ts`
+- `apps/backend/src/lib/accounts/load-account-activity.ts`, `apps/backend/src/env.ts`, `apps/backend/src/schema/resolvers.ts`,
+  `apps/backend/src/schema/subscriptions.graphql`, `apps/backend/src/schema/subscriptions.test.ts`
+- `apps/web/src/app/[locale]/posts/select/posts-select-content.tsx` (+ test), `apps/web/src/features/subscriptions/queries.graphql`,
+  `apps/web/locales/en.json`, `apps/web/locales/id.json`, `apps/web/fix-codegen.js`, generated GraphQL types (backend and web)

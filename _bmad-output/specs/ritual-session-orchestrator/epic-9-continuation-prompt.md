@@ -8,7 +8,7 @@ Continue the Epic 9 ritual batch with the `ritual-orchestrator` skill (invoke it
 
 ## What Epic 9 is
 
-"Boolean, nested and richer date AI event filters" (feature epic, `epics.md` → Epic 9; spec `_bmad-output/specs/spec-ai-prompt-event-filter/SPEC.md` CAP-6/CAP-7; plan `_bmad-output/planning-artifacts/ai-filter-boolean-nested-query-upgrade-plan.md`; readiness report `_bmad-output/planning-artifacts/epic-readiness/epic-9-readiness.md`, approved). Backlog rows: IDEA-069 (driving), FIND-083, BUG-059 (all `epic: epic-9`).
+"Boolean, nested and richer date AI event filters" (feature epic, `epics.md` → Epic 9; spec `_bmad-output/specs/spec-ai-prompt-event-filter/SPEC.md` CAP-6/CAP-7; plan `_bmad-output/planning-artifacts/ai-filter-boolean-nested-query-upgrade-plan.md`; readiness report `_bmad-output/planning-artifacts/epic-readiness/epic-9-readiness.md`, approved). Backlog rows: IDEA-069 (driving), FIND-083, BUG-060 (all `epic: epic-9`).
 
 ## State when this prompt was written (verify with `git log`, `scripts/sprint-status-tool.py get <key>`)
 
@@ -29,7 +29,7 @@ Still `backlog` (create-story then dev-story, in this order):
   - watch: `npx tsx src/watch-log.ts --mailbox <abs mailbox> --label "<story>/<skill>"`
 - Relay child approval requests: read `mailbox/pending/<id>.json`, write `mailbox/answers/<id>.json` as `{"requestId":"<id>","approve":true,"answeredAt":"<ISO>"}`.
 - Minimum human-in-the-loop policy (user's standing instruction): auto-approve routine in-repo child tool calls (reads, edits, per-package test/lint/build, codegen, local git add/commit on this branch, `scripts/sprint-status-tool.py`); auto-answer design questions with the recommended default; ASK THE USER before anything destructive or outward-facing (pushes by a child, deletes outside the repo, external network calls, any DB target that is not the local sandbox). Inspect each request before approving; the seed script has its own local-only guard.
-- Never edit `backlog.yaml` from a child; tell children to skip the backlog-promotion intake step. The orchestrator attaches story keys to IDEA-069 / FIND-083 / BUG-059 itself at the end (IDEA-069 ← all Epic 9 stories; FIND-083 ← 9.1b, 9.3, 9.5; BUG-059 ← 9.8) and runs `uv run --python 3.11 --with pyyaml scripts/backlog-check.py`.
+- Never edit `backlog.yaml` from a child; tell children to skip the backlog-promotion intake step. The orchestrator attaches story keys to IDEA-069 / FIND-083 / BUG-060 itself at the end (IDEA-069 ← all Epic 9 stories; FIND-083 ← 9.1b, 9.3, 9.5; BUG-060 ← 9.8) and runs `uv run --python 3.11 --with pyyaml scripts/backlog-check.py`.
 
 ## Prompts that worked
 

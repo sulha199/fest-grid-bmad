@@ -1,7 +1,7 @@
 import test from 'node:test';
 import * as assert from 'node:assert';
 import { db } from '../../db/client.js';
-import { socialMediaAccountProfiles, subscriptions, users, posts, vendorCallLocks } from '@festgrid/database';
+import { socialMediaAccountProfiles, subscriptions, users, posts, postAccountAssociations, vendorCallLocks } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import {
   processAiJob,
@@ -594,6 +594,57 @@ test('processAiJob orchestrator tests', async (t) => {
     assert.ok(markPostExtractedCalled);
   });
 
+  await t.test('Case S: records the extraction start and uses the subscribers of a co-authored post other account (PRD 3.7/3.10, 2026-10-16)', async () => {
+    const [publisher] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({ accountId: 'case-s-publisher-' + Date.now(), platform: 'instagram', displayName: 'Case S Publisher', username: 'case_s_pub_' + Date.now() })
+      .returning();
+    const [post] = await db
+      .insert(posts)
+      .values({
+        accountId: publisher.id,
+        platform: 'instagram',
+        content: 'Case S post',
+        postUrl: 'https://test.com/case-s-' + Date.now(),
+        publishedAt: new Date(),
+      })
+      .returning();
+    // `profile` (subscribed to by `user`) co-authors the post; the publisher has no subscriber.
+    await db.insert(postAccountAssociations).values({ postId: post.id, accountId: profile.id, role: 'COAUTHOR' });
+
+    let seenSubscribers: string[] | undefined;
+    setCallGeminiSeam(async (req) => {
+      seenSubscribers = req.subscriberUserIds;
+      return { text: JSON.stringify({ isEvent: false, events: [] }) };
+    });
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    try {
+      assert.strictEqual(
+        (await db.select().from(posts).where(eq(posts.id, post.id)))[0].extractionStartedAt,
+        null,
+        'precondition: not started'
+      );
+
+      await processAiJob({
+        postId: post.id,
+        accountId: publisher.id,
+        content: 'Case S post',
+        postUrl: post.postUrl,
+        publishedAt: new Date().toISOString(),
+      });
+
+      assert.deepStrictEqual(seenSubscribers, [user.id], 'the subscriber of the co-author account is used for key selection');
+      const [after] = await db.select().from(posts).where(eq(posts.id, post.id));
+      assert.ok(after.extractionStartedAt, 'extraction start is recorded');
+    } finally {
+      await db.delete(postAccountAssociations).where(eq(postAccountAssociations.postId, post.id));
+      await db.delete(posts).where(eq(posts.id, post.id));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, publisher.id));
+    }
+  });
+
   await t.test('Case H: isEvent: false does NOT attempt rehosting', async () => {
     const originalFetch = globalThis.fetch;
     t.after(() => {
@@ -611,7 +662,7 @@ test('processAiJob orchestrator tests', async (t) => {
     };
 
     const message: ProcessingJobMessage = {
-      postId: 'post-rehost-h',
+      postId: '00000000-0000-4000-8000-0000000000a8',
       accountId: profile.id,
       content: 'Just chilling at home!',
       imageUrl: 'https://test.com/img.png',
@@ -660,7 +711,7 @@ test('processAiJob orchestrator tests', async (t) => {
     };
 
     const message: ProcessingJobMessage = {
-      postId: 'post-rehost-i',
+      postId: '00000000-0000-4000-8000-0000000000a9',
       accountId: profile.id,
       content: 'Invalid AJV caption',
       imageUrl: 'https://test.com/img.png',

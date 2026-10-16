@@ -10,10 +10,10 @@ import { graphqlClient } from '@/lib/graphql-client';
 import { usePostSelectionStore } from './post-selection-store';
 
 const mockRouterPush = vi.fn();
-const { mockToastError } = vi.hoisted(() => ({ mockToastError: vi.fn() }));
+const { mockToastError, mockToastSuccess, mockToastWarning } = vi.hoisted(() => ({ mockToastError: vi.fn(), mockToastSuccess: vi.fn(), mockToastWarning: vi.fn() }));
 
 vi.mock('sonner', () => ({
-  toast: { error: mockToastError, success: vi.fn() },
+  toast: { error: mockToastError, success: mockToastSuccess, warning: mockToastWarning },
 }));
 
 vi.mock('@/i18n/navigation', () => ({
@@ -72,6 +72,7 @@ beforeEach(() => {
       accountId: 'acc-1',
       isNewlyAdded: false,
       isInactive: false,
+      activityState: 'ACTIVE',
       createdAt: '2026-08-01T00:00:00.000Z',
       pendingExtractionCount: 0,
       account: {
@@ -89,10 +90,13 @@ beforeEach(() => {
       accountId: 'acc-2',
       isNewlyAdded: false,
       isInactive: true,
+      activityState: 'INACTIVE',
+      latestPostAt: '2026-06-15T00:00:00.000Z',
       createdAt: '2026-08-01T00:00:00.000Z',
       pendingExtractionCount: 0,
       account: {
         id: 'acc-2',
+        lastScrapedAt: '2026-08-09T00:00:00.000Z',
         platform: 'instagram',
         displayName: 'Inactive Sub',
         username: 'inactive_sub',
@@ -111,6 +115,7 @@ beforeEach(() => {
       postUrl: 'https://instagram.com/p/post1',
       originalPostUrl: null,
       isExtracted: false,
+      extractionStatus: 'PENDING',
       publishedAt: '2026-08-10T12:00:00.000Z',
     },
     {
@@ -121,6 +126,7 @@ beforeEach(() => {
       postUrl: 'https://instagram.com/p/post2',
       originalPostUrl: null,
       isExtracted: false,
+      extractionStatus: 'PENDING',
       publishedAt: '2026-08-10T12:00:00.000Z',
     },
     {
@@ -131,6 +137,7 @@ beforeEach(() => {
       postUrl: 'https://instagram.com/p/post3',
       originalPostUrl: null,
       isExtracted: true,
+      extractionStatus: 'PROMOTED',
       publishedAt: '2026-08-10T12:00:00.000Z',
     },
   ];
@@ -164,9 +171,12 @@ beforeEach(() => {
       };
     }
     if (docStr.includes('getPostsByAccount')) {
+      const requestedStatuses: string[] | undefined = arg1?.variables?.statuses ?? arg2?.statuses;
       return {
         postsByAccount: {
-          items: mockPosts,
+          items: requestedStatuses && requestedStatuses.length > 0
+            ? mockPosts.filter((p: any) => requestedStatuses.includes(p.extractionStatus))
+            : mockPosts,
           nextCursor: null,
           hasMore: false,
         },
@@ -284,6 +294,7 @@ describe('PostsSelectContent integration', () => {
         postUrl: 'https://instagram.com/p/post1',
         originalPostUrl: null,
         isExtracted: false,
+        extractionStatus: 'PENDING',
         publishedAt: '2026-08-10T12:00:00.000Z',
       },
     ];
@@ -395,27 +406,187 @@ describe('PostsSelectContent integration', () => {
     expect(card2Container).toHaveAttribute('title', 'You have reached your quota limit.');
   });
 
-  it('disables and marks already processed posts as disabled', async () => {
-    renderComponent();
-
-    // Post 3 is already processed (isExtracted: true)
-    const card3Container = await screen.findByText('Post 3 content (Processed)');
-    const container = card3Container.closest('[title]');
-    expect(container).toHaveAttribute('title', 'Already processed');
-  });
-
-  it('requests only un-extracted posts, first page without a cursor', async () => {
+  it('shows only Pending posts by default and requests the first page without a cursor', async () => {
     renderComponent();
     await screen.findByText('Post 1 content');
+    expect(screen.queryByText('Post 3 content (Processed)')).not.toBeInTheDocument();
 
     const postCalls = vi.mocked(graphqlClient.request).mock.calls.filter((call: any) =>
       String(call[0]?.document ?? call[0]).includes('getPostsByAccount')
     );
     expect(postCalls.length).toBeGreaterThan(0);
     const vars: any = (postCalls[0][0] as any).variables;
-    expect(vars.onlyUnextracted).toBe(true);
+    expect(vars.statuses).toEqual(['PENDING']);
     expect(vars.limit).toBe(20);
     expect(vars.cursor ?? null).toBeNull();
+  });
+
+  describe('extraction status filter and selectability (PRD 3.10)', () => {
+    it('adds a status to the filter, requests it, and shows the post with its status badge and no checkbox', async () => {
+      renderComponent();
+      await screen.findByText('Post 1 content');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Promoted to event' }));
+
+      const processed = await screen.findByText('Post 3 content (Processed)');
+      // Status badge on the card (the filter chip has the same text, so look inside the card).
+      const card = processed.closest('article') as HTMLElement;
+      expect(card).toHaveTextContent('Promoted to event');
+      // Only Pending posts carry a checkbox; this one cannot be selected.
+      expect(card.querySelector('input[type="checkbox"]')).toBeNull();
+      expect(processed.closest('[title]')).toHaveAttribute('title', 'Only pending posts can be selected.');
+      // The still-pending posts keep their checkbox.
+      expect((screen.getByText('Post 1 content').closest('article') as HTMLElement).querySelector('input[type="checkbox"]')).not.toBeNull();
+
+      const statusRequests = vi.mocked(graphqlClient.request).mock.calls
+        .filter((call: any) => String(call[0]?.document ?? call[0]).includes('getPostsByAccount'))
+        .map((call: any) => (call[0] as any).variables.statuses);
+      expect(statusRequests).toContainEqual(['PENDING', 'PROMOTED']);
+    });
+
+    it('keeps at least one status selected', async () => {
+      renderComponent();
+      await screen.findByText('Post 1 content');
+      const pendingChip = screen.getByRole('button', { name: 'Pending' });
+      expect(pendingChip).toHaveAttribute('aria-pressed', 'true');
+      fireEvent.click(pendingChip);
+      expect(pendingChip).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    it('shows a filter-specific empty state, not the scrape prompt, when no post matches a non-default filter', async () => {
+      renderComponent();
+      await screen.findByText('Post 1 content');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Queued' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Pending' }));
+
+      expect(await screen.findByText('No posts with the selected statuses.')).toBeInTheDocument();
+    });
+
+    it('drops a selected post from the selection when a refreshed list shows it is no longer Pending', async () => {
+      renderComponent();
+      fireEvent.click(await screen.findByText('Post 1 content'));
+      expect(await screen.findByText('Selected Posts: 1 / 1')).toBeInTheDocument();
+
+      // Another subscriber queued post-1; the next fetch (here triggered by widening the filter) reports it.
+      mockPosts = mockPosts.map((p: any) => (p.id === 'post-1' ? { ...p, extractionStatus: 'QUEUED' } : p));
+      fireEvent.click(screen.getByRole('button', { name: 'Queued' }));
+
+      await waitFor(() => {
+        expect(screen.queryByText('Selected Posts: 1 / 1')).not.toBeInTheDocument();
+      });
+    });
+
+    it('keeps one selection for a post shown in several tabs: it stays selected when switching tab and counts once', async () => {
+      renderComponent();
+      fireEvent.click(await screen.findByText('Post 1 content'));
+      expect(await screen.findByText('Selected Posts: 1 / 1')).toBeInTheDocument();
+
+      // The mock returns the same posts for every account, as a co-authored post appears in each tab.
+      fireEvent.click(await screen.findByRole('button', { name: /Inactive Sub/ }));
+      const sameCard = (await screen.findByText('Post 1 content')).closest('article') as HTMLElement;
+      expect((sameCard.querySelector('input[type="checkbox"]') as HTMLInputElement).checked).toBe(true);
+      expect(screen.getByText('Selected Posts: 1 / 1')).toBeInTheDocument();
+    });
+
+    it('tells the user when only some of the selected posts could be queued', async () => {
+      mockQuota = { limit: 5, used: 0, remaining: 5 };
+      const baseImpl = vi.mocked(graphqlClient.request).getMockImplementation()!;
+      vi.mocked(graphqlClient.request).mockImplementation(async (arg1: any, arg2: any) => {
+        const docStr = arg1 && typeof arg1 === 'object' && 'document' in arg1 ? arg1.document.toString() : String(arg1 ?? '');
+        if (docStr.includes('selectPostsForExtraction')) {
+          return { selectPostsForExtraction: [{ id: 'post-1', isExtracted: false, extractionStatus: 'QUEUED' }] };
+        }
+        return baseImpl(arg1, arg2);
+      });
+
+      renderComponent();
+      fireEvent.click(await screen.findByText('Post 1 content'));
+      fireEvent.click(await screen.findByText('Post 2 content'));
+      fireEvent.click(await screen.findByRole('button', { name: 'Extract Events' }));
+
+      await waitFor(() => {
+        expect(mockToastWarning).toHaveBeenCalledWith('1 of 2 posts were queued. The others are no longer pending.');
+      });
+    });
+
+    it('explains and refreshes when none of the selected posts could be queued', async () => {
+      const baseImpl = vi.mocked(graphqlClient.request).getMockImplementation()!;
+      const conflict: any = new Error('Post is already queued for extraction');
+      conflict.response = { errors: [{ extensions: { code: 'CONFLICT' } }] };
+      vi.mocked(graphqlClient.request).mockImplementation(async (arg1: any, arg2: any) => {
+        const docStr = arg1 && typeof arg1 === 'object' && 'document' in arg1 ? arg1.document.toString() : String(arg1 ?? '');
+        if (docStr.includes('selectPostsForExtraction')) {
+          throw conflict;
+        }
+        return baseImpl(arg1, arg2);
+      });
+
+      renderComponent();
+      fireEvent.click(await screen.findByText('Post 1 content'));
+      fireEvent.click(await screen.findByRole('button', { name: 'Extract Events' }));
+
+      await waitFor(() => {
+        expect(mockToastError).toHaveBeenCalledWith('These posts are no longer pending. The list has been refreshed.');
+      });
+      await waitFor(() => {
+        expect(screen.queryByText('Selected Posts: 1 / 1')).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('account activity states on the tab bar and banner (Story 5.4a, PRD 3.10)', () => {
+    const withState = (state: string, overrides: Record<string, unknown> = {}, accountOverrides: Record<string, unknown> = {}) => {
+      mockSubscriptions = mockSubscriptions.map((sub: any) =>
+        sub.id === 'sub-2'
+          ? {
+              ...sub,
+              isInactive: state === 'INACTIVE',
+              activityState: state,
+              ...overrides,
+              account: { ...sub.account, ...accountOverrides },
+            }
+          : sub
+      );
+    };
+
+    it('shows a not-scraped-yet badge and note, and no inactive banner, for a never-scraped account', async () => {
+      withState('NEVER_SCRAPED', { latestPostAt: null }, { lastScrapedAt: null });
+      renderComponent();
+
+      expect(await screen.findByRole('img', { name: 'Not scraped yet' })).toBeInTheDocument();
+      fireEvent.click(await screen.findByText('Inactive Sub'));
+      expect(await screen.findByText(/has not been scraped yet/)).toBeInTheDocument();
+      expect(screen.queryByText('Inactive Account')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Remove Subscription' })).not.toBeInTheDocument();
+    });
+
+    it('shows an in-progress badge, and no inactive banner, while a scrape is running', async () => {
+      withState('SCRAPE_IN_PROGRESS', { latestPostAt: null }, { lastScrapedAt: null, isScrapeInProgress: true });
+      renderComponent();
+
+      expect(await screen.findByRole('img', { name: /Scraping for new posts/ })).toBeInTheDocument();
+      fireEvent.click(await screen.findByText('Inactive Sub'));
+      expect(screen.queryByText('Inactive Account')).not.toBeInTheDocument();
+    });
+
+    it('shows a not-checked-since badge and note, and no inactive banner, when the last scrape is stale', async () => {
+      withState('SCRAPE_STALE', { latestPostAt: '2026-05-01T00:00:00.000Z' }, { lastScrapedAt: '2026-08-01T00:00:00.000Z' });
+      renderComponent();
+
+      expect(await screen.findByRole('img', { name: 'Not checked since Aug 1, 2026' })).toBeInTheDocument();
+      fireEvent.click(await screen.findByText('Inactive Sub'));
+      expect(await screen.findByText(/not been able to check this account since Aug 1, 2026/)).toBeInTheDocument();
+      expect(screen.queryByText('Inactive Account')).not.toBeInTheDocument();
+    });
+
+    it('says no posts were found when an inactive account has none', async () => {
+      withState('INACTIVE', { latestPostAt: null });
+      renderComponent();
+
+      fireEvent.click(await screen.findByText('Inactive Sub'));
+      expect(await screen.findByText(/Last checked Aug 9, 2026\. No posts found\./)).toBeInTheDocument();
+    });
   });
 
   it('appends the next cursor page when the bottom sentinel scrolls into view', async () => {
@@ -436,7 +607,7 @@ describe('PostsSelectContent integration', () => {
         if (arg1?.variables?.cursor === 'cursor-1') {
           return {
             postsByAccount: {
-              items: [{ id: 'post-9', accountId: 'acc-1', content: 'Page two post', imageUrl: null, postUrl: 'https://instagram.com/p/post9', originalPostUrl: null, isExtracted: false, publishedAt: '2026-08-01T12:00:00.000Z' }],
+              items: [{ id: 'post-9', accountId: 'acc-1', content: 'Page two post', imageUrl: null, postUrl: 'https://instagram.com/p/post9', originalPostUrl: null, isExtracted: false, extractionStatus: 'PENDING', publishedAt: '2026-08-01T12:00:00.000Z' }],
               nextCursor: null,
               hasMore: false,
             },
@@ -475,6 +646,12 @@ describe('PostsSelectContent integration', () => {
     const bannerTitle = await screen.findByText('Inactive Account');
     expect(bannerTitle).toBeInTheDocument();
 
+    // It says when the account was last checked and when its latest post was, as readable dates.
+    const details = screen.getByText(/Last checked .* Latest post: /);
+    expect(details.textContent).toMatch(/Aug 9, 2026/);
+    expect(details.textContent).toMatch(/Jun 15, 2026/);
+    expect(details.textContent).not.toMatch(/2026-0/);
+
     const removeBtn = screen.getByRole('button', { name: 'Remove Subscription' });
     expect(removeBtn).toBeInTheDocument();
 
@@ -497,6 +674,7 @@ describe('PostsSelectContent integration', () => {
         accountId: 'acc-gated-1',
         isNewlyAdded: false,
         isInactive: false,
+        activityState: 'ACTIVE',
         createdAt: '2026-08-01T00:00:00.000Z',
         pendingExtractionCount: 0,
         account: {
@@ -516,6 +694,7 @@ describe('PostsSelectContent integration', () => {
         accountId: 'acc-gated-2',
         isNewlyAdded: false,
         isInactive: false,
+        activityState: 'ACTIVE',
         createdAt: '2026-08-01T00:00:00.000Z',
         pendingExtractionCount: 0,
         account: {
@@ -535,6 +714,7 @@ describe('PostsSelectContent integration', () => {
         accountId: 'acc-curator-1',
         isNewlyAdded: false,
         isInactive: false,
+        activityState: 'ACTIVE',
         createdAt: '2026-08-01T00:00:00.000Z',
         pendingExtractionCount: 0,
         account: {
@@ -651,6 +831,42 @@ describe('PostsSelectContent integration', () => {
       await waitFor(() => {
         expect(scrapeBtn).toBeDisabled();
       });
+    });
+
+    it('shows the in-progress indicator right after the scrape request succeeds', async () => {
+      // The server stamps scrapeTriggeredAt inside the mutation, so the next subscriptions
+      // fetch reports isScrapeInProgress: true. Mimic that: flip the mocked subscription when
+      // the trigger mutation runs.
+      const baseImpl = vi.mocked(graphqlClient.request).getMockImplementation()!;
+      vi.mocked(graphqlClient.request).mockImplementation(async (arg1: any, arg2: any) => {
+        const docStr =
+          arg1 && typeof arg1 === 'object' && 'document' in arg1
+            ? arg1.document.toString()
+            : arg1
+            ? arg1.toString()
+            : '';
+        if (docStr.includes('triggerAccountScrape')) {
+          mockSubscriptions = mockSubscriptions.map((sub) => ({
+            ...sub,
+            account: { ...sub.account, isScrapeInProgress: true },
+          }));
+          return { triggerAccountScrape: { triggered: true, isInitialScrape: false } };
+        }
+        return baseImpl(arg1, arg2);
+      });
+
+      renderComponent();
+
+      const scrapeBtn = await screen.findByRole('button', { name: 'Scrape Posts' });
+      expect(scrapeBtn).not.toBeDisabled();
+      fireEvent.click(scrapeBtn);
+
+      expect(await screen.findByText(/Scraping for new posts/)).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Scrape Posts' })).toBeDisabled();
+      });
+      // The toast says the scrape started, not the button's label.
+      expect(mockToastSuccess).toHaveBeenCalledWith(enMessages.ManualPostSelectionPage.scrapeStartedToast);
     });
 
     it('shows in-progress label when scraping is active', async () => {

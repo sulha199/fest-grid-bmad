@@ -2867,6 +2867,8 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Amendment (2026-08-10, added via `bmad-create-story` at the user's request):** Refined the outreach to separate two distinct things that had been conflated: the **key's own scope** (a contributed key is only ever invoked for accounts the contributing user has personally subscribed to — never on another user's behalf) versus the **resulting data's sharing scope** (that data may still be shown to other users who independently subscribe to the same public account, since Story 3.1a's data model attaches posts to the account, not to whichever subscriber's key fetched them). Both outreach emails now ask this as an explicit either/or, plus whether a stricter "exclusive use, never shown to anyone but the key's owner" model would be unambiguously fine as a fallback design, and whether each vendor has an existing account/partner model built for many end-users each bringing their own key. Also added: a mutual-benefit point noting this model brings each vendor new individual signups (not just more usage on one existing account), and the app's free-for-users framing. Independent of what either vendor requires, Story 3.4b's AC4 now bakes in a baseline requirement that the contributing user must see explicit disclosure and affirmatively consent (not a pre-checked box) that their key's resulting data may be shown to other subscribers of the same account — this is a product decision, not conditional on vendor mandate.
 
+**Amendment (2026-10-12):** Apify replied to the 2026-08-12 chat: a user-contributed token used only for accounts that user follows does not breach its Section 5.2 (support-level, not legal advice). Story 3.4b is reopened to `backlog`, **Apify only** (Bright Data stays closed), and is still legally gated: re-confirm on paid-product facts, counsel review, and the BYOK-vs-platform-paid business decision (backlog `CC-032`) come first. New AC6 (token only for accounts the owner follows) and proposed AC7 (billing-exposure disclosure) are in the story file. Note the "wont-do (2026-09-07)" closure in `sprint-status.yaml` was never mirrored here until this amendment.
+
 **Depends on:** Story 3.4 (and, if pursued for Bright Data too, Story 3.4a).
 
 ---
@@ -6037,7 +6039,7 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 **Acceptance Criteria:**
 
 *   **Given** an authenticated user, **when** they exceed the per-user limit on `resolvePromptToEventFilter`, **then** the mutation returns a typed rate-limit error without calling Gemini.
-*   **And** the limit is configurable and covered by a test (absorbs BUG-059: DW-082).
+*   **And** the limit is configurable and covered by a test (absorbs BUG-060: DW-082).
 *   **And** the per-user counter is persisted in Postgres via Drizzle (a new, narrowly-scoped table + migration — this stack has no Redis/in-memory layer to count against across Lambda invocations), not an in-process counter that resets per cold start.
 *   **And** this limiter is a distinct, additional guard layered on top of — never a replacement or reimplementation of — the per-key lock/timeout/backoff `resolvePromptToEventFilter` already inherits today via `callGemini` → `callVendor` (Story 0.i2a/0.i2c, confirmed adopted in `apps/backend/src/lib/ai-gateway/adapter.ts`): that mechanism bounds concurrent/duplicate-billable calls on one Gemini key; this story bounds how often one *user* may call this *mutation* regardless of key contention. The two must not be merged into one check.
 
@@ -6059,4 +6061,4 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Depends on:** Stories 9.2, 9.3, 9.4.
 
-**Note:** Formed 2026-10-14 via `bmad-form-epics` (scoped pass) from IDEA-069 (driving), FIND-083 (carved from FIND-018) and BUG-059 (carved from BUG-011). Feature epic: the `z` ratchet is optional and was included because the epic's justification is the shared compiler. Remaining FIND-018 scope (DW-083/084/085) and BUG-011 scope (DW-066/067/068) stay on the board.
+**Note:** Formed 2026-10-14 via `bmad-form-epics` (scoped pass) from IDEA-069 (driving), FIND-083 (carved from FIND-018) and BUG-060 (carved from BUG-011). Feature epic: the `z` ratchet is optional and was included because the epic's justification is the shared compiler. Remaining FIND-018 scope (DW-083/084/085) and BUG-011 scope (DW-066/067/068) stay on the board.

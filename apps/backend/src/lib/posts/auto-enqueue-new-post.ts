@@ -1,4 +1,4 @@
-import { hasAvailableApiKeyForAccount } from './has-available-api-key-for-account.js';
+import { hasAvailableApiKeyForPost } from './has-available-api-key-for-account.js';
 import { enqueuePostForProcessing } from './enqueue-post-for-processing.js';
 
 /**
@@ -25,7 +25,7 @@ export async function autoEnqueueNewPostForExtraction(
   }
 
   try {
-    const hasKey = await hasAvailableApiKeyForAccount(post.accountId);
+    const hasKey = await hasAvailableApiKeyForPost(post.id);
     if (hasKey) {
       await enqueuePostForProcessing(post.id);
     }

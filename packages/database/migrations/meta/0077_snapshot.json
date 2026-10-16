@@ -1,9 +1,104 @@
 {
-  "id": "68ff585a-3a2a-4017-91ba-33fcf3948d64",
+  "id": "d6d83d79-97c3-40fb-bbd6-5f254d4b5bf4",
   "prevId": "72d6e0d0-6c4c-443e-bf44-b27cc1a4de96",
   "version": "6",
   "dialect": "postgresql",
   "tables": {
+    "public.account_profile_merges": {
+      "name": "account_profile_merges",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "survivor_id": {
+          "name": "survivor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "twin_account_id": {
+          "name": "twin_account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "twin_snapshot": {
+          "name": "twin_snapshot",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "performed_by": {
+          "name": "performed_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "evidence": {
+          "name": "evidence",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "repointed": {
+          "name": "repointed",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "undone_at": {
+          "name": "undone_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "idx_account_profile_merges_survivor": {
+          "name": "idx_account_profile_merges_survivor",
+          "columns": [
+            "survivor_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "account_profile_merges_survivor_id_social_media_account_profiles_id_fk": {
+          "name": "account_profile_merges_survivor_id_social_media_account_profiles_id_fk",
+          "tableFrom": "account_profile_merges",
+          "tableTo": "social_media_account_profiles",
+          "columnsFrom": [
+            "survivor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
     "public.account_type_classification_reviews": {
       "name": "account_type_classification_reviews",
       "schema": "",
@@ -2757,64 +2852,6 @@
           ]
         }
       }
-    },
-    "public.prompt_filter_rate_limits": {
-      "name": "prompt_filter_rate_limits",
-      "schema": "",
-      "columns": {
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "request_count": {
-          "name": "request_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "window_start_at": {
-          "name": "window_start_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "prompt_filter_rate_limits_user_id_users_id_fk": {
-          "name": "prompt_filter_rate_limits_user_id_users_id_fk",
-          "tableFrom": "prompt_filter_rate_limits",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
     },
     "public.reports": {
       "name": "reports",
