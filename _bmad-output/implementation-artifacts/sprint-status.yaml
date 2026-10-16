@@ -1,5 +1,5 @@
 # generated: 2026-07-29T02:58:30Z
-# last_updated: 2026-10-08T00:00:00Z
+# last_updated: 2026-10-12T00:00:00Z
 # project: festgrid
 # project_key: NOKEY
 # tracking_system: file-system
@@ -1339,7 +1339,12 @@ development_status:
   # weeks of silence past the story's own 1-2 week follow-up window). User
   # decided no-go rather than nudging further. Both vendors now closed --
   # story will not proceed unless reopened.
-  3-4b-byok-pooled-scraper-vendor-keys: wont-do
+  # REOPENED 2026-10-12: Apify replied (support, written): a contributed token
+  # used only for accounts that user follows does not breach its s5.2. Apify
+  # only (Bright Data stays closed). STILL LEGALLY GATED -- not ready-for-dev:
+  # re-confirm on paid-product facts, counsel review, and the BYOK vs
+  # platform-paid decision (backlog CC-032) come first.
+  3-4b-byok-pooled-scraper-vendor-keys: backlog
   # added 2026-08-09 via bmad-create-story: exploratory outreach to Instagram-
   # viewer sites (storiesig.info explicitly invites API-access contact; imginn.com
   # is the right shape but has no advertised partnership channel, cold outreach
