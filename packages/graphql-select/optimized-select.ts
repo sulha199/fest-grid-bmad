@@ -82,6 +82,13 @@ export function getRequestedFieldNames(
   return requested;
 }
 
+/**
+ * Row shape of a query built from `buildOptimizedDrizzleSelect`: only the columns the GraphQL
+ * operation requested (plus any the caller adds, such as `id`) are present, so every column is
+ * optional. Use it to type the rows such a query returns instead of `any`.
+ */
+export type OptimizedRow<TTable extends PgTable> = Partial<TTable['$inferSelect']>;
+
 export function buildOptimizedDrizzleSelect<TTable extends PgTable>(
   table: TTable,
   info: GraphQLResolveInfo,
