@@ -1,0 +1,112 @@
+name: Backfill Post Thumbnails
+
+# Manual-only, dedicated workflow -- never runs on push/pull_request, and is separate from
+# ci.yml so a manual trigger only ever runs this backfill, not the full CI/CD pipeline.
+# Builds the face-blurred durable thumbnail (posts.durableThumbnailUrl, AD-28) for posts that
+# lack one although their ORIGINAL image URL has not expired yet. It is also the recovery path for
+# posts whose pre-AI cover blur failed closed (ai_image_input = 'text_only_fail_closed'), which the
+# extraction pipeline never retries.
+#
+# Posts whose original image has already expired are not touched (the bytes are gone), and posts the
+# extraction pipeline's relevance gate would skip (event ends before the image expires) are skipped
+# too. Re-run it while the originals are still valid -- the Instagram image URLs expire.
+#
+# Like "Backfill Post Media Keys" it reads the `posts` table directly and writes to the post-media
+# S3 bucket, so it needs AWS credentials; the bucket/CDN/distribution come from the prod stack outputs.
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Commit changes (unchecked = dry run, writes nothing)'
+        required: true
+        type: boolean
+        default: false
+      limit:
+        description: 'Optional. Process at most this many posts (soonest-expiring image first).'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  backfill-post-thumbnails:
+    name: Backfill Post Thumbnails (manual)
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: backfill-post-thumbnails
+      cancel-in-progress: false
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'package.json'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Workspace packages (@festgrid/database, @festgrid/domain) resolve to their gitignored
+      # dist/ output, so they must be built before the backfill script can import them.
+      - name: Build workspace packages
+        run: pnpm run build
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Resolve post-media bucket/CDN/distribution outputs
+        id: resolve
+        run: |
+          BUCKET_NAME=$(aws cloudformation describe-stacks \
+            --stack-name FestgridBackendStack-prod \
+            --query "Stacks[0].Outputs[?OutputKey=='postMediaBucketNameOutput'].OutputValue" \
+            --output text)
+          CDN_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name FestgridBackendStack-prod \
+            --query "Stacks[0].Outputs[?OutputKey=='postMediaCdnDomainOutput'].OutputValue" \
+            --output text)
+          DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+            --stack-name FestgridBackendStack-prod \
+            --query "Stacks[0].Outputs[?OutputKey=='postMediaDistributionIdOutput'].OutputValue" \
+            --output text)
+          if [ -z "$BUCKET_NAME" ] || [ "$BUCKET_NAME" = "None" ] || [ -z "$CDN_DOMAIN" ] || [ "$CDN_DOMAIN" = "None" ] || [ -z "$DISTRIBUTION_ID" ] || [ "$DISTRIBUTION_ID" = "None" ]; then
+            echo "::error::Could not resolve post-media bucket/CDN/distribution outputs from FestgridBackendStack-prod outputs."
+            exit 1
+          fi
+          echo "bucket_name=$BUCKET_NAME" >> "$GITHUB_OUTPUT"
+          echo "cdn_domain=$CDN_DOMAIN" >> "$GITHUB_OUTPUT"
+          echo "distribution_id=$DISTRIBUTION_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Run backfill
+        env:
+          # loadBackendEnv() (run at import time by db/client.ts) requires this; the backfill never
+          # binds a port, so any valid number works.
+          BACKEND_PORT: '4001'
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          POST_MEDIA_BUCKET_NAME: ${{ steps.resolve.outputs.bucket_name }}
+          POST_MEDIA_CDN_DOMAIN: ${{ steps.resolve.outputs.cdn_domain }}
+          POST_MEDIA_DISTRIBUTION_ID: ${{ steps.resolve.outputs.distribution_id }}
+          LIMIT: ${{ inputs.limit }}
+        run: |
+          cd apps/backend
+          ARGS=""
+          if [ -n "$LIMIT" ]; then
+            ARGS="--limit $LIMIT"
+          fi
+          if [ "${{ inputs.apply }}" = "true" ]; then
+            npx tsx src/backfill-post-thumbnails.ts backfill --apply $ARGS
+          else
+            echo "::notice::Running in DRY RUN mode -- nothing will be written. Re-run with 'apply: true' to commit."
+            npx tsx src/backfill-post-thumbnails.ts backfill $ARGS
+          fi
