@@ -458,3 +458,84 @@ describe('FeedContent - Story 0.i5e (pagination controller)', () => {
     });
   });
 });
+
+// Story 9.4a (AC2, AC3) -- a seeded non-flat `ai_expression` must drive the request's `query`
+// variable, and two different non-flat expressions sharing the same flattened `ai_filter` must
+// produce distinct cache keys rather than being silently treated as the same query.
+describe('FeedContent - Story 9.4a (AI filter expression wiring)', () => {
+  const orOfTwoTypesExpression = {
+    op: 'OR',
+    children: [
+      { field: 'type', value: ['FESTIVAL'] },
+      { field: 'type', value: ['PERFORMANCE'] },
+    ],
+  };
+
+  it('uses the compiled expression condition in the request query when ai_expression is seeded (AC2/AC3)', async () => {
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText('Event Feed 1')).toBeInTheDocument();
+    });
+
+    mockRequestSpy.mockClear();
+
+    await act(async () => {
+      // Mirrors the real backend's own lossy flat projection of a non-flat expression ({}).
+      (global as any).__setNuqsValue('ai_filter', JSON.stringify({}));
+      (global as any).__setNuqsValue('ai_expression', JSON.stringify(orOfTwoTypesExpression));
+    });
+
+    await waitFor(() => {
+      expect(mockRequestSpy).toHaveBeenCalled();
+    });
+
+    const call = mockRequestSpy.mock.calls[mockRequestSpy.mock.calls.length - 1];
+    const query = call[1]?.query;
+    expect(query.conditions).toEqual(
+      expect.arrayContaining([
+        { field: 'types', operator: 'in', value: ['FESTIVAL'] },
+        { field: 'types', operator: 'in', value: ['PERFORMANCE'] },
+      ])
+    );
+  });
+
+  it('treats two different non-flat expressions sharing the same flattened ai_filter as distinct cache keys (AC3 regression)', async () => {
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText('Event Feed 1')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      (global as any).__setNuqsValue('ai_filter', JSON.stringify({}));
+      (global as any).__setNuqsValue('ai_expression', JSON.stringify(orOfTwoTypesExpression));
+    });
+
+    await waitFor(() => {
+      expect(mockRequestSpy).toHaveBeenCalled();
+    });
+
+    const firstQuery = mockRequestSpy.mock.calls[mockRequestSpy.mock.calls.length - 1][1]?.query;
+    mockRequestSpy.mockClear();
+
+    const secondExpression = {
+      op: 'OR',
+      children: [
+        { field: 'type', value: ['WORKSHOP'] },
+        { field: 'type', value: ['MARKET'] },
+      ],
+    };
+
+    await act(async () => {
+      (global as any).__setNuqsValue('ai_expression', JSON.stringify(secondExpression));
+    });
+
+    await waitFor(() => {
+      expect(mockRequestSpy).toHaveBeenCalled();
+    });
+
+    const secondQuery = mockRequestSpy.mock.calls[mockRequestSpy.mock.calls.length - 1][1]?.query;
+    expect(secondQuery).not.toEqual(firstQuery);
+  });
+});

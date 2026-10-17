@@ -22,6 +22,7 @@ export interface AIFilterOverlayProps {
     saveError?: string;
     resolvedSummaryTitle?: string;
     rePrompt?: string;
+    examplePromptsLabel?: string;
   };
   resolvedSummary?: string | null;
   resolvedCaveats?: string | null;
@@ -31,6 +32,7 @@ export interface AIFilterOverlayProps {
   saveError?: string | null;
   onApply?: () => void;
   onRePrompt?: () => void;
+  examplePrompts?: string[];
 }
 
 export function AIFilterOverlay({
@@ -48,6 +50,7 @@ export function AIFilterOverlay({
   saveError,
   onApply,
   onRePrompt,
+  examplePrompts,
 }: AIFilterOverlayProps) {
   const [prompt, setPrompt] = React.useState('');
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
@@ -164,6 +167,28 @@ export function AIFilterOverlay({
                 }
               }}
             />
+            {!resolvedSummary && examplePrompts && examplePrompts.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 justify-center">
+                <span className="text-xs text-muted-foreground">
+                  {labels.examplePromptsLabel || 'Try an example:'}
+                </span>
+                {examplePrompts.map((example) => (
+                  <button
+                    key={example}
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => {
+                      setPrompt(example);
+                      textareaRef.current?.focus();
+                    }}
+                    className="text-xs rounded-full border border-input px-3 py-1 hover:bg-muted transition-colors disabled:opacity-50"
+                  >
+                    {example}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {error && (
               <div role="alert" className="text-sm font-medium text-destructive mt-1 p-3 bg-destructive/10 rounded-lg">
                 {error}

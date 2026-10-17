@@ -6,7 +6,7 @@ import { GraphQLError } from 'graphql';
 import { resolvers, setEventsAuthProbe, eventsAuthProbe } from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
-import { db, enableQueryDebug, resetExecutedQueryCount, getExecutedQueryCount } from '../db/client.js';
+import { db, enableQueryDebug, resetExecutedQueryCount, getExecutedQueryCount, setSqlCaptureSink } from '../db/client.js';
 import { users, events, schedules, userLocations, userSettings, posts, socialMediaAccountProfiles, reports, favorites, calendarAdditions, unprocessedScraperPayloads, instagramOembedCache, accountVotes, postAccountAssociations, eventPosts, eventSlugAliases, subscriptions } from '@festgrid/database';
 import { eq, inArray, count, sql } from 'drizzle-orm';
 import { ENDED_CASE_FIXTURES } from '@festgrid/domain/events';
@@ -732,6 +732,148 @@ test('events resolver integration via Yoga', async (t) => {
       const ids = await queryEvents({ filter: { temporalFilter: 'UPCOMING' } });
       assert.ok(!ids.has(noMondayRemainingEvent.id), 'a remaining Tue-Wed span with no Monday should be excluded from UPCOMING');
       assert.ok(ids.has(monEvent.id), 'a remaining span that still contains a Monday (Sep 16/23/30) should be included in UPCOMING');
+    });
+  });
+
+  await t.test('events - expression argument (Story 9.3 AC1, AC2)', async (t) => {
+    const createdEventIds: string[] = [];
+
+    async function createEventWithSchedule(opts: { eventName: string; scheduleStartDate: string; keyword?: string }) {
+      const [event] = await db.insert(events).values({
+        eventName: opts.eventName,
+        location: 'Test City',
+      }).returning();
+      createdEventIds.push(event.id);
+      await db.insert(schedules).values({
+        eventId: event.id,
+        eventStartDate: opts.scheduleStartDate,
+        isMainSchedule: true,
+      });
+      return event;
+    }
+
+    t.after(async () => {
+      await db.delete(events).where(inArray(events.id, createdEventIds));
+    });
+
+    async function queryEventsRaw(args: { filter?: unknown; expression?: unknown }) {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query Events($filter: EventFilterInput, $expression: FilterNodeInput) {
+              events(filter: $filter, expression: $expression, limit: 1000) {
+                items { id eventName }
+              }
+            }
+          `,
+          variables: args,
+        }),
+      });
+      return response.json();
+    }
+
+    const jazzEvent = await createEventWithSchedule({
+      eventName: '9.3 expression test - jazz event',
+      scheduleStartDate: '2031-01-15',
+    });
+    const otherEvent = await createEventWithSchedule({
+      eventName: '9.3 expression test - other event',
+      scheduleStartDate: '2031-01-16',
+    });
+
+    await t.test('a valid expression returns the same results as the equivalent flat filter (parity)', async () => {
+      const viaFilter = await queryEventsRaw({ filter: { keyword: 'jazz event' } });
+      assert.ok(!viaFilter.errors, JSON.stringify(viaFilter.errors));
+      const viaExpression = await queryEventsRaw({ expression: { field: 'keyword', value: 'jazz event' } });
+      assert.ok(!viaExpression.errors, JSON.stringify(viaExpression.errors));
+
+      const filterIds = new Set(viaFilter.data.events.items.map((i: { id: string }) => i.id));
+      const expressionIds = new Set(viaExpression.data.events.items.map((i: { id: string }) => i.id));
+      assert.deepStrictEqual(filterIds, expressionIds);
+      assert.ok(filterIds.has(jazzEvent.id));
+      assert.ok(!filterIds.has(otherEvent.id));
+    });
+
+    await t.test('a null-padded expression (GraphQL FilterNode wire shape the web client echoes back) behaves like the clean one', async () => {
+      // GraphQL serializes EVERY FilterNode key on every node (absent ones as explicit null), and
+      // the web app sends that exact shape back as `expression` -- it previously crashed the
+      // compiler with "Cannot read properties of null (reading 'map')".
+      const padded = {
+        op: 'AND',
+        field: null,
+        value: null,
+        child: null,
+        children: [{ op: null, field: 'keyword', value: 'jazz event', children: null, child: null }],
+      };
+      const viaPadded = await queryEventsRaw({ expression: padded });
+      assert.ok(!viaPadded.errors, JSON.stringify(viaPadded.errors));
+      const viaClean = await queryEventsRaw({ expression: { field: 'keyword', value: 'jazz event' } });
+      assert.ok(!viaClean.errors, JSON.stringify(viaClean.errors));
+
+      const paddedIds = new Set(viaPadded.data.events.items.map((i: { id: string }) => i.id));
+      const cleanIds = new Set(viaClean.data.events.items.map((i: { id: string }) => i.id));
+      assert.deepStrictEqual(paddedIds, cleanIds);
+      assert.ok(paddedIds.has(jazzEvent.id));
+      assert.ok(!paddedIds.has(otherEvent.id));
+    });
+
+    await t.test('an invalid expression (over-depth) returns BAD_USER_INPUT', async () => {
+      // Nest four AND groups deep (depth 5), exceeding FILTER_NODE_MAX_DEPTH (3).
+      const overDepth = {
+        op: 'AND',
+        children: [{
+          op: 'AND',
+          children: [{
+            op: 'AND',
+            children: [{
+              op: 'AND',
+              children: [{ field: 'isFree', value: true }],
+            }],
+          }],
+        }],
+      };
+      const result = await queryEventsRaw({ expression: overDepth });
+      assert.ok(result.errors, 'over-depth expression should error');
+      assert.strictEqual(result.errors[0].extensions?.code, 'BAD_USER_INPUT');
+    });
+
+    await t.test('supplying both filter and expression returns BAD_USER_INPUT', async () => {
+      const result = await queryEventsRaw({
+        filter: { keyword: 'jazz' },
+        expression: { field: 'keyword', value: 'jazz' },
+      });
+      assert.ok(result.errors, 'both supplied should error');
+      assert.strictEqual(result.errors[0].extensions?.code, 'BAD_USER_INPUT');
+    });
+
+    await t.test('a NOT(dateRange)-shaped expression does not trigger the pinned-date ORDER BY path (collectExactDates regression)', async () => {
+      // NOT(dateRange overlaps exactly jazzEvent's single date) excludes that one date -- this
+      // must NOT be collected by collectExactDates as a positively-pinned date (the bug Story
+      // 9.3 fixes), so the event-level default ORDER BY is used, not the pinned-date one.
+      const captured: { sql: string; params: unknown[] }[] = [];
+      setSqlCaptureSink((sql, params) => captured.push({ sql, params }));
+      let result: any;
+      try {
+        result = await queryEventsRaw({
+          expression: {
+            op: 'NOT',
+            child: { field: 'dateRange', value: { anchor: 'THIS_WEEK', offsetAmount: 0, offsetUnit: 'WEEK' } },
+          },
+        });
+      } finally {
+        setSqlCaptureSink(null);
+      }
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+
+      const itemsStatement = captured.find((c) => /from\s+"events"/i.test(c.sql) && /order by/i.test(c.sql));
+      assert.ok(itemsStatement, 'expected to capture the items SELECT with an ORDER BY clause');
+      // The pinned-date branch's ORDER BY references the dedicated s5/s6/s7 schedule aliases;
+      // the default event-level branch references s2/s3/s4 instead (see resolvers.ts). Asserting
+      // on this distinguishing SQL text confirms the default (non-pinned) ORDER BY path was used.
+      assert.ok(!/\bs5\./.test(itemsStatement!.sql), 'should NOT use the pinned-date ORDER BY (s5 alias)');
+      assert.ok(/\bs2\./.test(itemsStatement!.sql), 'should use the default event-level ORDER BY (s2 alias)');
     });
   });
 

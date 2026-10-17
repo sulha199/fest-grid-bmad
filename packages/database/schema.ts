@@ -1121,3 +1121,15 @@ export const vendorCallLocks = pgTable('vendor_call_locks', {
   lockKey: text('lock_key').primaryKey(),
   lockedUntil: timestamp('locked_until', { withTimezone: true }).notNull(),
 });
+
+// Story 9.8 -- per-user request-volume guard for resolvePromptToEventFilter, distinct from and
+// additive to vendorCallLocks' per-key lock/timeout/backoff mechanism above (AC4). One row per
+// user (userId is itself the primary key, mirroring vendorCallLocks' lockKey-as-primary-key
+// shape) -- there is exactly one active window per user at a time, so this table has no
+// independent identity of its own.
+export const promptFilterRateLimits = pgTable('prompt_filter_rate_limits', {
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).primaryKey(),
+  requestCount: integer('request_count').default(0).notNull(),
+  windowStartAt: timestamp('window_start_at', { withTimezone: true }).defaultNow().notNull(),
+  ...timestamps,
+});

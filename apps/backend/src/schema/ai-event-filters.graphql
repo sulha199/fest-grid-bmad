@@ -2,7 +2,8 @@ type AIEventFilter {
   id: ID!
   ownerUserId: ID!
   prompt: String!
-  resolvedFilter: EventFilter!
+  resolvedFilter: EventFilter
+  expression: FilterNode!
   createdAt: String!
   updatedAt: String!
   deletedAt: String
@@ -10,6 +11,7 @@ type AIEventFilter {
 
 type ResolvedAIEventFilterResult {
   resolvedFilter: EventFilter!
+  expression: FilterNode!
   caveats: [String!]!
 }
 
@@ -19,6 +21,6 @@ extend type Query {
 
 extend type Mutation {
   resolvePromptToEventFilter(prompt: String!): ResolvedAIEventFilterResult!
-  saveAIEventFilter(prompt: String!, resolvedFilter: EventFilterInput!): AIEventFilter!
+  saveAIEventFilter(prompt: String!, resolvedFilter: EventFilterInput, expression: FilterNodeInput): AIEventFilter!
   deleteAIEventFilter(id: ID!, action: SoftDeleteAction!): AIEventFilter!
 }

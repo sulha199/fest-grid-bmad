@@ -192,8 +192,29 @@ input EventQueryConditionInput {
   value: JSON
 }
 
+# Story 9.3 (AC1) -- the generic, flat-recursive encoding reused from EventQueryConditionInput's
+# own operator/conditions/field/value shape for Story 9.1a's FilterNode/FilterLeaf discriminated
+# union, since GraphQL has no input-union construct. op/children/child/field/value mirror
+# FilterNode's actual TypeScript shape exactly (groups: op+children; NOT: op+child; leaves:
+# field+value), so a validated value round-trips structurally with no translation layer.
+input FilterNodeInput {
+  op: String
+  children: [FilterNodeInput!]
+  child: FilterNodeInput
+  field: String
+  value: JSON
+}
+
+type FilterNode {
+  op: String
+  children: [FilterNode!]
+  child: FilterNode
+  field: String
+  value: JSON
+}
+
 extend type Query {
-  events(query: EventQueryConditionInput, filter: EventFilterInput, limit: Int, offset: Int, perDayLimit: Int, includeSoftDeleted: Boolean, includeMyArchived: Boolean): EventConnection!
+  events(query: EventQueryConditionInput, filter: EventFilterInput, expression: FilterNodeInput, limit: Int, offset: Int, perDayLimit: Int, includeSoftDeleted: Boolean, includeMyArchived: Boolean): EventConnection!
   event(id: ID!, includeMyArchived: Boolean): Event
   eventBySlug(slug: String!, includeMyArchived: Boolean): Event
   instagramEmbedBySlug(slug: String!): InstagramEmbedBySlug!
@@ -244,6 +265,8 @@ input DateRangeFilterInput {
   anchor: DateAnchor!
   offsetAmount: Int!
   offsetUnit: DateOffsetUnit!
+  spanAmount: Int
+  spanUnit: DateOffsetUnit
 }
 
 input CoordinatesInput {
@@ -268,7 +291,7 @@ input EventFilterInput {
   categories: [EventCategory!]
   keyword: String
   dateRange: DateRangeFilterInput
-  dayOfWeek: DayOfWeek
+  dayOfWeek: [DayOfWeek!]
   location: LocationFilterInput
   venueType: String
   isFree: Boolean
@@ -279,6 +302,8 @@ type DateRangeFilter {
   anchor: DateAnchor!
   offsetAmount: Int!
   offsetUnit: DateOffsetUnit!
+  spanAmount: Int
+  spanUnit: DateOffsetUnit
 }
 
 type LocationFilter {
@@ -293,7 +318,7 @@ type EventFilter {
   categories: [EventCategory!]
   keyword: String
   dateRange: DateRangeFilter
-  dayOfWeek: DayOfWeek
+  dayOfWeek: [DayOfWeek!]
   location: LocationFilter
   venueType: String
   isFree: Boolean

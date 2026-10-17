@@ -288,7 +288,9 @@ FestDaily's event discovery can be embedded as a public, unauthenticated iframe 
 As a faster alternative to operating FilterHub's manual controls (Section 3.1), a user can describe what they're looking for in a free-text prompt — e.g. "free jazz events in Kota Yogyakarta next week" — and immediately see matching Discovery results, serving the Engagement goal (Section 2) by lowering the effort to reach a precise result. This is an on-demand, single-shot capability: each prompt is extracted and applied independently, with no conversation memory, no follow-up refinement turn, and no chat interface. A recurring digest evaluated against a saved filter is deferred to Post-MVP (Section 8.4).
 
 *   **Access and Funding:** Prompt extraction is a third Gemini-consuming code path alongside event extraction and Default Location inference (both Section 3.7). Like event extraction, it is BYOK-only, drawing on a `contributing_user`'s own saved Gemini API key (Section 3.11). A user with no BYOK key on file — including an unauthenticated Discovery visitor — does not see the AI filter entry point; they use FilterHub's manual controls instead. This intentionally does not extend the narrowly-scoped system-key fallback that exists solely for Default Location inference (Section 3.7).
-*   **Locked Filter Vocabulary:** A prompt can populate any combination of: social media account, event type, category, keyword, date range or day-of-week recurrence, admin-area/region text match, venue type, and a "free"/"gratis" exact-text match (`isFree`) — a deliberately narrow exception to the numeric price-threshold filtering deferred to Post-MVP (Section 8.5), not a first step toward it. These map onto the shared `EventFilterInput` shape (Section 4.18) — the same structure FilterHub's manual controls and the Embeddable Widget's filters (Section 3.14) use. `EventFilterInput`'s proximity-radius field (reused unchanged from Section 3.3) is not itself prompt-extracted — a prompt cannot productively set precise coordinates — so it stays populated only via FilterHub's existing manual location control, same as today.
+*   **Locked Filter Vocabulary:** A prompt can populate any combination of: social media account, event type, category, keyword, date range or day-of-week recurrence, ongoing/upcoming status, admin-area/region text match, venue type, and a "free"/"gratis" exact-text match (`isFree`) — a deliberately narrow exception to the numeric price-threshold filtering deferred to Post-MVP (Section 8.5), not a first step toward it. These map onto the shared `EventFilterInput` shape (Section 4.18) — the same structure FilterHub's manual controls and the Embeddable Widget's filters (Section 3.14) use. `EventFilterInput`'s proximity-radius field (reused unchanged from Section 3.3) is not itself prompt-extracted — a prompt cannot productively set precise coordinates — so it stays populated only via FilterHub's existing manual location control, same as today.
+*   **Richer Relative Dates (added 2026-10-15, FR98-FR103):** Beyond a single shifted period, the date grammar also supports rolling spans ("next 7 days", "next 2 weeks", "rest of this month"), multiple weekdays in one recurrence (weekends = Saturday+Sunday, weekdays = Monday-Friday), and the existing ongoing/upcoming status (Section 3.12's `temporalFilter`, now also prompt-extractable). Absolute dates, time of day, and holiday names remain outside the locked vocabulary and still produce a caveat.
+*   **Boolean, Nested Expressions (added 2026-10-15, FR98-FR103):** A prompt can combine any locked-vocabulary fields with AND, OR and NOT, grouped up to depth 3 and 12 total nodes (e.g. "jazz or blues in Sleman or Bantul this weekend, not workshops") — a fragment that cannot be expressed this way, or that exceeds the bound, produces a caveat while the rest of the filter still applies; it never discards the whole prompt. `NOT` keeps events that have no value at all for the negated field rather than excluding them (e.g. `NOT venueType=Cafe` still includes events with no venue type recorded). Every filter that predates this upgrade — a flat manual FilterHub selection, a previously-saved AI filter, or an Embeddable Widget's filter — is still a valid, implicit "AND of its fields" expression and returns identical results; nothing is migrated or re-extracted. The Embeddable Widget (Section 3.14) supports the same boolean expressions as Discovery, through the identical shared compiler — there is no second, widget-specific filtering mechanism.
 *   **Degrading Gracefully:** A prompt fragment outside the locked vocabulary above — a numeric price threshold, a floor/room-level location detail, a compound date expression that the closed grammar has no single anchor for (e.g. "this weekend"), or off-topic content unrelated to filtering — is never guessed at or silently dropped; it is always surfaced as an explicit caveat in the rendered summary below. This single degrade mechanism was validated against the price, floor, and off-topic cases specifically, and is intended to generalize the same way to any other unsupported fragment.
 *   **Venue Type Source:** Venue type is extracted by the existing Gemini AI processing pipeline from the source post itself (Section 3.7), not looked up from the geolocation provider — informal local venue names are not reliably identifiable that way. It is stored on the event's location details (Section 4.3) alongside the new admin-area field, and is included whenever a schedule inherits its account's Default Location (Section 3.7) — a partial inherit would leave venue-type filtering broken specifically for the accounts that rely on that fallback.
 *   **Region Matching, a Known Limitation:** Admin-area/region matching (e.g. distinguishing "Kota Yogyakarta" from "Kabupaten Sleman") relies on the existing geolocation provider's administrative-area data (Section 4.3). Because that data is community-sourced (OpenStreetMap), address matching near a city/regency boundary may occasionally be imprecise. This is an accepted v1 limitation, not a blocking defect — true polygon/point-in-polygon geographic filtering was considered and rejected as new infrastructure not justified by current use cases.
@@ -298,7 +300,7 @@ As a faster alternative to operating FilterHub's manual controls (Section 3.1), 
 
 > **Considered and rejected:** a general-purpose, open-dialogue chatbot — this would let a user's own BYOK Gemini API key (Section 3.11) be used as a free chat proxy through the app, an abuse vector the constrained, structured-output-only extraction task above avoids. Also rejected: a dedicated "AI mode" toggle that hides FilterHub entirely — the icon-only trigger above was chosen instead so manual and AI-driven filtering coexist without an app-wide mode switch.
 
-> **Deferred to implementation:** whether a future revision of the closed date grammar (Section 4.18) should add compound-day support (e.g. a `WEEKEND` anchor, or a set-valued day-of-week) so phrasing like "this weekend" resolves to a real filter instead of a caveat — not addressed in this pass since the grammar was deliberately locked closed during discovery.
+> **Resolved (2026-10-15, FR98-FR103 — supersedes the "deferred to implementation" note this replaces):** the closed date grammar now supports compound-day phrasing — multiple weekdays in one recurrence (weekends, weekdays) and rolling spans ("next 7 days") — exactly the gap this note originally flagged when the grammar was first locked. See "Richer Relative Dates" above.
 
 **Data Governance & Trust**
 
@@ -1448,14 +1450,28 @@ enum DayOfWeek {
 }
 
 /**
+ * "Happening now" / "upcoming" status (Section 3.12, Architecture Spine AD-20).
+ * Pre-existing field, newly also prompt-extractable (Section 3.15, FR98-FR103).
+ */
+enum TemporalFilter {
+  TODAY,
+  UPCOMING
+}
+
+/**
  * A closed, composable date-range expression — e.g. {THIS_WEEK, +1, WEEK}
  * for "next week". Resolved fresh against the current date whenever the
  * filter is applied; never stored or matched as a frozen absolute date.
+ * `spanAmount`/`spanUnit` optionally widen the resolved window further
+ * (added 2026-10-15, FR98-FR103) — e.g. {TODAY, 0, DAY, spanAmount: 7,
+ * spanUnit: DAY} for "next 7 days".
  */
 interface DateRangeFilter {
   anchor: DateAnchor;
   offsetAmount: number;
   offsetUnit: DateOffsetUnit;
+  spanAmount?: number;
+  spanUnit?: DateOffsetUnit;
 }
 
 /**
@@ -1489,7 +1505,13 @@ interface EventFilterInput {
    * `LocationFilter`'s two modes, which are mutually exclusive.
    */
   dateRange?: DateRangeFilter;
-  dayOfWeek?: DayOfWeek;
+  /**
+   * One or more weekdays (added 2026-10-15, FR98-FR103 — was a single
+   * DayOfWeek before this amendment). "Weekends" = [SAT, SUN]; "weekdays" =
+   * [MON, TUE, WED, THU, FRI]. Composes with dateRange above (AND semantics)
+   * exactly as a single value already did.
+   */
+  dayOfWeek?: DayOfWeek[];
   location?: LocationFilter;
   /**
    * Matched against `LocationDetails.venueType` (Section 4.3).
@@ -1500,8 +1522,52 @@ interface EventFilterInput {
    * "free"/"gratis" phrasing (Section 3.15) — not a numeric price threshold.
    */
   isFree?: boolean;
+  /**
+   * Ongoing/upcoming status (Section 3.12, AD-20) — newly also
+   * prompt-extractable (Section 3.15, FR98-FR103).
+   */
+  temporalFilter?: TemporalFilter;
+}
+
+/**
+ * Boolean, nested composition of EventFilterInput's locked fields (Section
+ * 3.15, FR98-FR103, added 2026-10-15). Groups compose with AND/OR; NOT wraps
+ * a single leaf or group and is null-inclusive (an event with no value for
+ * the negated field is kept, not excluded). Bounded to depth 3 and 12 total
+ * nodes. Leaves use the same locked field names as EventFilterInput, except
+ * location, which splits into two mutually-exclusive leaf kinds —
+ * locationProximity / locationAdminArea — since OR can place proximity and
+ * admin-area in separate branches, which EventFilterInput's single
+ * `location` object cannot express (see filter-vocabulary.md). A flat
+ * EventFilterInput is always a valid, implicit AND-of-leaves FilterNode and
+ * compiles to identical results — nothing that predates this amendment is
+ * migrated or behaves differently.
+ */
+type FilterNode = FilterGroupNode | FilterNotNode | FilterLeaf;
+
+interface FilterGroupNode {
+  op: 'AND' | 'OR';
+  children: FilterNode[];
+}
+
+interface FilterNotNode {
+  op: 'NOT';
+  child: FilterNode;
+}
+
+/**
+ * One leaf per locked field (Section 3.15). `field` is one of: accountId,
+ * type, category, keyword, dateRange, dayOfWeek, locationAdminArea,
+ * locationProximity, venueType, isFree, temporalFilter — see
+ * filter-vocabulary.md for the exact value shape of each.
+ */
+interface FilterLeaf {
+  field: string;
+  value: unknown;
 }
 ```
+
+> At the GraphQL layer, `FilterNode` is carried by a generic `op`/`children`/`child`/`field`/`value` input/output pair (the same flat-recursive encoding `EventQueryConditionInput` already uses, since GraphQL has no input-union type) — see `events.graphql`. A saved AI filter or Widget carrying an expression persists as `{version: 2, expression: FilterNode}` in its existing `jsonb` column; a flat-shaped save stores the plain `EventFilterInput` object exactly as before, with no `version` key, so every pre-existing row is unaffected.
 
 
 ### 4.19. AIEventFilter Interface
@@ -1579,7 +1645,7 @@ interface AIEventFilter {
 
 *   **Scraped-Content Personal Data (Indonesia PDP Law / GDPR):** Data extracted from third-party social posts must be minimized per Section 3.16 and the field-level rules in Section 4 (`EventInfo.hasPrivateContact`, `Schedule.performers`, `SocialMediaAccountProfile.profileImageUrl`/`isImageStorageOptedIn`). Two rules not yet enforced anywhere in the pipeline, tracked as open build items in epics.md: (1) a children's-data keyword filter that prevents an individual minor's name from ever being written to the database (not merely hidden at display), with a separate, non-self-service exception path for verified schools/studios; (2) vendor confirmation from Apify and Bright Data, in writing, that their Instagram scraping operates logged-out against public data only — the favorable Meta v. Bright Data legal comparison this product currently relies on depends on that being true, not just structurally plausible from the adapter code.
 *   **Public-Accounts-Only Scraping Scope (added 2026-10-06):** FestDaily only allows subscribing to **public** social media accounts, so every scrape is intended to target a public account and its publicly visible posts; private accounts are not meant to be subscribed to or scraped. **Enforcement gap:** the subscribe path does not yet check whether an account is private, so today this is product intent backed only by logged-out scraping returning nothing for private accounts (tracked as FIND-079). The data therefore stays the account owner's own public content, and the scraping-method confirmation above (logged-out, public data only) is consistent with product scope rather than an additional restriction on it. The vendor confirmation is a statement about *how* Apify and Bright Data collect (logged-out, public only), not about who owns the data; account-owner and data-subject protections remain the field-level rules in the first bullet above.
-*   **AI Vendor Data Use (added 2026-10-04):** Google's Gemini API terms let it use content submitted through *unpaid* keys, including images, to improve its products, with possible human review; paid keys are not used that way. FestDaily's extraction keys include subscribers' own keys whose billing tier is not verified, so a bystander's face must not reach the vendor unblurred by default (Section 3.16, FR115). Whether to verify or require a paid tier at key setup is tracked separately (FIND-066).
+*   **AI Vendor Data Use (added 2026-10-04):** Google's Gemini API terms let it use content submitted through *unpaid* keys, including images, to improve its products, with possible human review; paid keys are not used that way. FestDaily's extraction keys include subscribers' own keys whose billing tier is not verified, so a bystander's face must not reach the vendor unblurred by default (Section 3.16, FR115). Whether to verify or require a paid tier at key setup is tracked separately (FIND-066). **Business-model note (2026-10-12):** the BYOK design itself is under legal and business-model review (platform-paid vs user-paid vs hybrid; the business plan currently assumes platform-paid extraction, this PRD is built on BYOK), tracked as CC-032. Apify has indicated user-contributed scraping tokens are acceptable only when used for accounts that user follows (Story 3.4b, reopened, still gated); no Gemini-side confirmation exists. Nothing in this PRD changes until that decision is made.
 *   User data and privacy must be protected with industry-standard security measures. When BYOK Gemini API keys are used server-side for event data extraction, they will be securely stored and managed with robust encryption and access controls. Your personal, identifiable data (event preferences, saved locations, calendar and favorite selections, account details) is used solely to personalize your experience within the app; we do not spam your calendar, and we do not sell personal data to third parties. Crucially, our 'add to calendar' feature works one-way, simply adding selected events to your calendar without accessing its existing content. We absolutely do not read your personal calendar content.
 *   **Private vs. Sellable Data Boundary:** A distinct, non-identifiable category — aggregated, anonymized usage and interest data (e.g. category/event-type demand trends, regional favorite/calendar-add volume) — is not subject to the "we do not sell personal data" commitment above and may be shared or sold to city tourism boards, venues, and local partners as part of the platform's monetization strategy (Section 6). This is permitted only when the data is reduced to the same k-anonymity standard already established by the vote list's "Near Me" ranking (Section 3.13): bucketed to city/province granularity, never raw coordinates, suppressed entirely for any region with fewer than 5 distinct contributing users, and with no path back to an individual account. Any future sellable-data product must be validated against this standard before launch.
 *   **Widget Embedding:** The embeddable widget (Section 3.14) is served from a dedicated route with a dynamically-scoped `frame-ancestors` policy limited to registered domain patterns (Section 4.17), validated against a Public Suffix List at registration time to prevent whitelisting a shared-hosting domain — the rest of the application's framing protection is unaffected.

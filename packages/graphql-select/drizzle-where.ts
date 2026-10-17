@@ -1,4 +1,4 @@
-import { SQL, and, or, ilike, inArray, notInArray, eq, ne, sql, isNotNull, isNull } from "drizzle-orm";
+import { SQL, and, or, ilike, inArray, notInArray, eq, sql, isNotNull, isNull } from "drizzle-orm";
 import { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import { QueryCondition, isGroupCondition } from "@festgrid/domain/query";
 
@@ -26,6 +26,13 @@ export function buildDrizzleWhere(
       return and(...parts);
     } else if (condition.operator === "or") {
       return or(...parts);
+    } else if (condition.operator === "not") {
+      // Story 9.2 (AC1) -- a plain, non-null-aware `NOT (<child SQL>)` wrap. The null-inclusive
+      // guarantee ("NULL != x" keeps matching) is delivered entirely by the `ne`/`notIn` terminal
+      // cases below, not here -- see Dev Notes decision 3 for why this fallback deliberately
+      // stays non-null-aware (every leaf that reaches this path either always has a value, or --
+      // for `locationProximity` -- isn't the null-inclusive case this story's AC targets).
+      return parts.length > 0 ? sql`NOT (${parts[0]})` : undefined;
     }
     return undefined;
   }
@@ -75,7 +82,9 @@ export function buildDrizzleWhere(
       return eq(column, value);
     case "ne":
       if (value === null) return isNotNull(column);
-      return ne(column, value);
+      // Story 9.2 (AC1) -- null-inclusive: `IS DISTINCT FROM` (unlike `<> `/`ne`) also matches a
+      // row with no value for this column, satisfying "NULL != x" for e.g. `NOT venueType=CAFE`.
+      return sql`${column} IS DISTINCT FROM ${value}`;
     case "contains":
       if (isArrayColumn) {
         // We assume "contains" on an array column means the array contains the value.
@@ -98,10 +107,14 @@ export function buildDrizzleWhere(
     case "notIn":
       if (!Array.isArray(value) || value.length === 0) return sql`true`; // Not in empty array is always true
       if (isArrayColumn) {
+        // Story 9.2 (AC1) -- null-inclusive: a row with no value for this array column (NULL)
+        // also satisfies "not in [...]" (NULL != any of the listed values).
         const elements = value.map((v) => sql`${v}`);
-        return sql`NOT (${column} && ARRAY[${sql.join(elements, sql`, `)}])`;
+        return sql`(${column} IS NULL OR NOT (${column} && ARRAY[${sql.join(elements, sql`, `)}]))`;
       }
-      return notInArray(column, value);
+      // Story 9.2 (AC1) -- null-inclusive: a row with no value for this scalar column (NULL)
+      // also satisfies "not in [...]" (NULL != any of the listed values).
+      return or(isNull(column), notInArray(column, value));
     case "overlaps": {
       const { from, to } = value as { from: string; to: string | null };
       const { table, eventIdCol, correlateCol, startCol, endCol, applicableDaysOfWeekCol } = column as {

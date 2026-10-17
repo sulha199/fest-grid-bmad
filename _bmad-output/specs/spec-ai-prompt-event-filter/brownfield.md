@@ -28,3 +28,10 @@ Existing code and docs this feature extends. See `../../project-context.md` for 
 ## Validation
 
 - Per project-context.md's Runtime Schema Validation rule, the new `EventFilterInput` and its `dateRange`/`location`/`venueType`/`isFree` sub-shapes must be validated with Zod (frontend) / AJV (backend) at the point the AI extraction output enters the system — the extraction task's raw Gemini output is exactly the kind of external-source data that rule targets.
+
+## Expression and date upgrade (CAP-6/7)
+
+- `packages/domain/src/events/buildEventsQueryCondition.ts` — flat AND builder, `resolveDateRangeFilter`, `getDays` (already array-capable), `buildTemporalCondition`. `packages/domain/src/query/queryDsl.ts` is already recursive (`and`/`or`, `ne`, `notIn`) but has no `not` group. Also `buildFeedQueryCondition.ts` and `buildAccountEventsQueryCondition.ts` share the filter type.
+- Known gaps today: TODAY anchor with an offset shifts a one-day window (no span); `transformGeminiResponseToEventFilter` accepts a single `dayOfWeek` and never extracts `temporalFilter`; location combination of coordinates and adminArea throws.
+- GraphQL: `EventFilterInput` (`events.graphql`), `ai-event-filters.graphql`, `widgets.graphql`; resolver and system prompt in `apps/backend/src/schema/resolvers.ts` (`resolvePromptToEventFilter`). Account leaves reuse `resolve-filter-account-id.ts` (IDEA-065).
+- Related backlog: IDEA-069 (this upgrade), FIND-018 and BUG-011 (resolver hardening, rate limit), IDEA-019/IDEA-038/FIND-060 (temporal filter, weekday-narrowed schedules).

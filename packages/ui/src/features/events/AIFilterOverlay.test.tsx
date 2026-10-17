@@ -130,4 +130,74 @@ describe('AIFilterOverlay', () => {
 
     expect(screen.getAllByText('Saved successfully!').length).toBeGreaterThan(0);
   });
+
+  it('renders example prompt chips and fills the textarea on click, disabled while loading', () => {
+    const { rerender } = render(
+      <AIFilterOverlay
+        isOpen={true}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        labels={{ ...defaultLabels, examplePromptsLabel: 'Try an example:' }}
+        examplePrompts={['prompt one', 'jazz or blues, not workshops']}
+      />
+    );
+
+    expect(screen.getByText('Try an example:')).toBeInTheDocument();
+    const promptOne = screen.getByRole('button', { name: 'prompt one' });
+    const groupedPrompt = screen.getByRole('button', { name: 'jazz or blues, not workshops' });
+    expect(promptOne).toBeInTheDocument();
+    expect(groupedPrompt).toBeInTheDocument();
+
+    fireEvent.click(groupedPrompt);
+    const textarea = screen.getByPlaceholderText('e.g. music festivals this weekend') as HTMLTextAreaElement;
+    expect(textarea.value).toBe('jazz or blues, not workshops');
+
+    rerender(
+      <AIFilterOverlay
+        isOpen={true}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        labels={{ ...defaultLabels, examplePromptsLabel: 'Try an example:' }}
+        examplePrompts={['prompt one', 'jazz or blues, not workshops']}
+        isLoading={true}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'prompt one' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'jazz or blues, not workshops' })).toBeDisabled();
+  });
+
+  it('hides example prompt chips once resolvedSummary is set', () => {
+    render(
+      <AIFilterOverlay
+        isOpen={true}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        labels={{ ...defaultLabels, examplePromptsLabel: 'Try an example:' }}
+        examplePrompts={['prompt one', 'jazz or blues, not workshops']}
+        resolvedSummary="Filtered events about jazz in Berlin"
+      />
+    );
+
+    expect(screen.queryByText('Try an example:')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'prompt one' })).not.toBeInTheDocument();
+  });
+
+  it('renders the Story 9.4 "too complex" caveat text verbatim in the existing amber block', () => {
+    const tooComplexCaveat =
+      '- Your prompt described more conditions than the filter supports, so some were dropped.';
+
+    render(
+      <AIFilterOverlay
+        isOpen={true}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        labels={defaultLabels}
+        resolvedSummary="Filtered events about jazz in Berlin"
+        resolvedCaveats={tooComplexCaveat}
+      />
+    );
+
+    expect(screen.getByText(tooComplexCaveat)).toBeInTheDocument();
+  });
 });

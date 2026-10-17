@@ -2867,6 +2867,8 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Amendment (2026-08-10, added via `bmad-create-story` at the user's request):** Refined the outreach to separate two distinct things that had been conflated: the **key's own scope** (a contributed key is only ever invoked for accounts the contributing user has personally subscribed to — never on another user's behalf) versus the **resulting data's sharing scope** (that data may still be shown to other users who independently subscribe to the same public account, since Story 3.1a's data model attaches posts to the account, not to whichever subscriber's key fetched them). Both outreach emails now ask this as an explicit either/or, plus whether a stricter "exclusive use, never shown to anyone but the key's owner" model would be unambiguously fine as a fallback design, and whether each vendor has an existing account/partner model built for many end-users each bringing their own key. Also added: a mutual-benefit point noting this model brings each vendor new individual signups (not just more usage on one existing account), and the app's free-for-users framing. Independent of what either vendor requires, Story 3.4b's AC4 now bakes in a baseline requirement that the contributing user must see explicit disclosure and affirmatively consent (not a pre-checked box) that their key's resulting data may be shown to other subscribers of the same account — this is a product decision, not conditional on vendor mandate.
 
+**Amendment (2026-10-12):** Apify replied to the 2026-08-12 chat: a user-contributed token used only for accounts that user follows does not breach its Section 5.2 (support-level, not legal advice). Story 3.4b is reopened to `backlog`, **Apify only** (Bright Data stays closed), and is still legally gated: re-confirm on paid-product facts, counsel review, and the BYOK-vs-platform-paid business decision (backlog `CC-032`) come first. New AC6 (token only for accounts the owner follows) and proposed AC7 (billing-exposure disclosure) are in the story file. Note the "wont-do (2026-09-07)" closure in `sprint-status.yaml` was never mirrored here until this amendment.
+
 **Depends on:** Story 3.4 (and, if pursued for Bright Data too, Story 3.4a).
 
 ---
@@ -5881,3 +5883,182 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 **Depends on:** Stories 2.i1a, 2.i1b, 2.i1c.
 
 **Note:** Formed 2026-09-08 via `bmad-form-epics` from BUG-007, BUG-008, BUG-009, FIND-006 (fractional, see Story 2.i1c). **Open convention conflict, not resolved by this epic:** BUG-008/Story 2.i1a preserves the existing optimistic ±1 pattern; FIND-022 (a separate, unrelated row) mandates no optimistic state change — confirm-then-refetch — for its own new subscribe-toggle mutation. Whichever ships first sets the house convention for the other. Flagged in the formation report; not adjudicated here.
+
+---
+
+## Epic 9 (AI Prompt Filter v1.1) — feature epic formed from the backlog
+
+### Epic 9: Boolean, nested and richer date AI event filters
+
+**Capability:** A user describes events in one prompt using any combination of the supported criteria — including or, not, groups, rolling date spans and several weekdays — and sees exactly the events they meant, with a summary sentence that says how the prompt was understood.
+**Spec:** `specs/spec-ai-prompt-event-filter/SPEC.md` (CAP-6, CAP-7). **Plan:** `planning-artifacts/ai-filter-boolean-nested-query-upgrade-plan.md`.
+**Limits (spec constraints):** depth 3, 12 nodes; NOT wraps a leaf or group only and keeps events with no value for the negated field; `dayOfWeek` is the one multi-value field; multiple locations only as OR branches; the flat `EventFilterInput` stays valid as an implicit AND; absolute dates, time of day, holidays and numeric price remain caveats (v2).
+**FRs covered:** FR98–FR103 (amended — PRD §3.15 and §4.18 amendment carried in Story 9.9z).
+
+### Story 9.1a: Build the filter expression tree types, Zod schema and normalizer
+
+**As a** developer,
+**I want** one typed `FilterNode` (AND/OR/NOT over the locked leaf fields) with a shared Zod schema in `packages/domain`,
+**So that** the resolvers, the Gemini transform and the compiler all validate and normalize expressions through the same rules.
+
+**Acceptance Criteria:**
+
+*   **Given** a candidate expression, **when** it is validated, **then** depth > 3, more than 12 nodes, a double NOT, an empty group, or a leaf outside the locked vocabulary is rejected with a reason naming the offending node.
+*   **And** `normalize()` flattens nested same-operator groups, collapses single-child groups and removes duplicate leaves, and is idempotent.
+*   **And** a flat `EventFilterInput` converts to an expression (implicit AND of its leaves) and back without loss.
+*   **And** the schema is the only definition of these limits in the repo.
+
+**Depends on:** none (mechanism story).
+
+### Story 9.1b: Extend the relative date grammar with spans, multi-weekday and temporal status
+
+**As a** user,
+**I want** "next 7 days", "weekends" and "happening now" to work in a prompt,
+**So that** common date phrasings become filters instead of caveats.
+
+**Acceptance Criteria:**
+
+*   **Given** `dateRange` with optional `spanAmount`/`spanUnit`, **when** it resolves, **then** the window widens accordingly ("next 7 days", "next 2 weeks", "rest of this month"); a THIS_MONTH anchor with a DAY/WEEK offset has defined, tested semantics.
+*   **And** `dayOfWeek` accepts several values (weekends = SAT+SUN, weekdays = MON–FRI) via the existing array-capable `getDays`, and the Gemini transform extracts `temporalFilter` (TODAY/UPCOMING).
+*   **And** date resolution is timezone-aware, the hardcoded 90-day fallback and the epoch-fallback trick are replaced by explicit behavior, and `offsetAmount` is bounded (absorbs FIND-083: DW-074..077).
+*   **And** absolute dates, time of day and holiday names still produce a caveat.
+
+**Depends on:** Story 9.1a.
+
+### Story 9.2: Compile filter expressions to query conditions with NOT and null semantics
+
+**As a** developer,
+**I want** `FilterNode` compiled to the existing query DSL, with `not` supported end to end,
+**So that** Discovery, Feed, Favorites, account pages and Widgets all apply expressions through one path.
+
+**Acceptance Criteria:**
+
+*   **Given** an expression, **when** compiled, **then** AND/OR map to DSL groups, NOT maps to `ne`/`notIn` where native and to a `not` group otherwise, and the SQL translation keeps events with no value for the negated field (NULL ≠ x).
+*   **And** a flat filter and its expression form compile to identical conditions (parity test over every existing `buildEventsQueryCondition` case).
+*   **And** coordinates plus adminArea in different OR branches are legal; in one leaf they yield a caveat, not an error.
+*   **And** `explain-events-queries.ts` covers a wide OR tree and a NOT tree.
+
+**Depends on:** Story 9.1a, Story 9.1b.
+
+### Story 9.3: Expose filter expressions through GraphQL, resolvers and Widgets
+
+**As a** developer,
+**I want** expressions accepted and persisted by the events queries, saved AI filters and Widgets,
+**So that** every consumer of `EventFilterInput` can carry an expression.
+
+**Acceptance Criteria:**
+
+*   **Given** `events.graphql`, `ai-event-filters.graphql` and `widgets.graphql`, **when** extended with a bounded `FilterNodeInput`/`FilterNode` and `dayOfWeek: [DayOfWeek!]`, **then** the resolvers validate with the Story 9.1a schema and reject invalid input with `BAD_USER_INPUT`.
+*   **And** saved filters persist `{version: 2, …}` and v1 rows still load unchanged; Widgets render expressions through the same compiler, and `Widget.filters` is validated at read time instead of an `as any` cast (absorbs FIND-083: DW-078).
+*   **And** `buildFeedQueryCondition` and `buildAccountEventsQueryCondition` accept expressions.
+*   **And** generated GraphQL types are regenerated and committed.
+
+**Depends on:** Story 9.2.
+
+### Story 9.4: Upgrade Gemini extraction to expression trees with node-level caveats
+
+**As a** user,
+**I want** my grouped prompt understood correctly, and any part that cannot be understood called out,
+**So that** a partly unsupported prompt still gives useful results.
+
+**Acceptance Criteria:**
+
+*   **Given** the single-shot structured-output prompt, **when** the prompt text contains and/or/not and grouping, **then** the response is an expression tree with few-shot examples for precedence in English and Indonesian.
+*   **And** the transform validates the tree with the Story 9.1a schema and degrades node by node: an invalid or over-limit sub-expression is dropped with a caveat while the rest applies; a v1 flat response is still accepted.
+*   **And** the `account` leaf reuses the existing accountId resolution (IDEA-065).
+*   **And** the prompt stays single-shot with structured output only (no chat).
+
+**Depends on:** Story 9.1a, Story 9.1b, Story 9.3.
+
+### Story 9.4a: Wire the resolved AI-filter expression into Discovery, Feed and Favorites query building
+
+**As a** user,
+**I want** a boolean/grouped AI filter to actually apply its full logic to the events I see,
+**So that** a prompt like "jazz or blues in Sleman or Bantul this weekend, not workshops" filters correctly instead of silently showing unfiltered results.
+
+**Acceptance Criteria:**
+
+*   **Given** `apps/web/src/features/events/use-ai-filter.ts`, **when** `resolvePromptToEventFilter` or a loaded `AIEventFilter` resolves to a non-flat expression (contains OR/NOT, or is otherwise not representable by the flat `resolvedFilter` projection), **then** the hook stores and exposes that `FilterNode` expression as part of its active-filter state, not just the lossy flat projection.
+*   **And** `buildEventsQueryCondition` (`packages/domain`, the Home/Discovery query-building function) gains an optional `expression?: FilterNode` input, mirroring Story 9.3's `buildFeedQueryCondition`/`buildAccountEventsQueryCondition` precedent (compiled via `compileFilterNodeToQueryCondition` and merged identically); Discovery (`home-content.tsx`), Feed (`feed-content.tsx`) and Favorites (`favorites-content.tsx`) all pass the hook's active expression through to their respective query-building call whenever one is present, instead of only ever passing the flat filter.
+*   **And** once an active filter's expression is non-flat, the previous silent fallback (an effectively empty/unfiltered flat `{}`) never happens on any of the three screens — the expression path is used end to end instead.
+*   **And** no new UI/visual surface is introduced (no new component, no new display, no new copy) — this is query-building wiring only; display/summary rendering stays Story 9.5/9.6's scope.
+
+**Depends on:** Story 9.2, Story 9.3, Story 9.4.
+
+**Note (bmad-create-story, 2026-10-15, Gate 2 finding while drafting Story 9.4, Freya persona via `runSubagent`):** `useAIFilter`'s three consumers (`home-content.tsx`/`feed-content.tsx`/`favorites-content.tsx`) build their events query only from the flat `resolvedFilter` projection, never from an `expression` tree, even though the backend (`Query.events(expression:)`, Story 9.3) and the compiler (`compileFilterNodeToQueryCondition`, Story 9.2) already support one. Story 9.4 is the first story that can make Gemini actually produce a non-flat (OR/NOT) expression — until this story lands, a grouped/boolean prompt resolves correctly server-side but silently applies as an empty/unfiltered flat `{}` on every consuming screen, with no caveat surfacing the loss. Split out per Gate 2 (`story-split-gate.md`) rather than absorbed into Story 9.4, since it is a reusable-hook-plus-three-screens change with its own scope (props/behavior/testing), independent of 9.4's extraction-layer ACs. Lettered off 9.4 (the story whose draft scope surfaced it) per the single-story-split numbering rule, rather than Epic 0 (not a generic cross-epic tooling gap) or a shared-data-ownership slot (no new table).
+
+### Story 9.5: Render expression summaries in English and Indonesian
+
+**As a** user,
+**I want** a sentence that shows exactly how my prompt was grouped,
+**So that** I can trust the filter without an edit form.
+
+**Acceptance Criteria:**
+
+*   **Given** an expression, **when** the summary renders, **then** it is deterministic template output with locale-safe and/or/not words and explicit grouping, identical for identical input.
+*   **And** the new date phrasings (spans, several weekdays, temporal status) render in both locales through `next-intl`.
+*   **And** empty caveat strings are not joined (absorbs FIND-083: DW-086).
+*   **And** snapshot tests cover `en` and `id`.
+
+**Depends on:** Story 9.1a, Story 9.1b.
+
+### Story 9.6: Show long expression summaries in the AI filter overlay and FilterHub
+
+**As a** user,
+**I want** a long summary to stay readable in FilterHub's single collapsed row,
+**So that** complex prompts do not break the layout.
+
+**Acceptance Criteria:**
+
+*   **Given** an active AI filter with a long summary, **when** FilterHub renders, **then** it stays one row with truncate and expand, and caveats remain visible.
+*   **And** the overlay's example prompts include one grouped example, and an over-limit prompt shows a "too complex" caveat.
+*   **And** there is still no UI path that edits a saved filter.
+
+**Depends on:** Story 9.4, Story 9.5.
+
+### Story 9.7: Add golden-prompt evals for the AI filter
+
+**As a** maintainer,
+**I want** a fixed prompt set with expected tree shapes and caveats,
+**So that** prompt or schema changes cannot silently regress extraction quality.
+
+**Acceptance Criteria:**
+
+*   **Given** at least 40 English and Indonesian prompts covering AND, OR, NOT, nesting, precedence, over-limit, out-of-vocabulary and off-topic, **when** the suite runs against a stub in PR CI, **then** shape and caveat expectations are asserted.
+*   **And** a nightly run against Gemini is wired behind a flag and reports drift.
+*   **And** this story closes sprint action item `retro-7-1`.
+
+**Depends on:** Story 9.4.
+
+### Story 9.8: Rate-limit prompt resolution
+
+**As a** user paying for my own Gemini key,
+**I want** `resolvePromptToEventFilter` to be rate limited,
+**So that** bigger prompts and retries cannot burn my quota unnoticed.
+
+**Acceptance Criteria:**
+
+*   **Given** an authenticated user, **when** they exceed the per-user limit on `resolvePromptToEventFilter`, **then** the mutation returns a typed rate-limit error without calling Gemini.
+*   **And** the limit is configurable and covered by a test (absorbs BUG-060: DW-082).
+*   **And** the per-user counter is persisted in Postgres via Drizzle (a new, narrowly-scoped table + migration — this stack has no Redis/in-memory layer to count against across Lambda invocations), not an in-process counter that resets per cold start.
+*   **And** this limiter is a distinct, additional guard layered on top of — never a replacement or reimplementation of — the per-key lock/timeout/backoff `resolvePromptToEventFilter` already inherits today via `callGemini` → `callVendor` (Story 0.i2a/0.i2c, confirmed adopted in `apps/backend/src/lib/ai-gateway/adapter.ts`): that mechanism bounds concurrent/duplicate-billable calls on one Gemini key; this story bounds how often one *user* may call this *mutation* regardless of key contention. The two must not be merged into one check.
+
+**Depends on:** none.
+
+**Note (epic-9-readiness, 2026-10-14, Gate 1 + Gate 3):** Gate 1 flagged that the AC as originally written didn't say where rate-limit state lives, and this stack has no cache/in-memory layer durable across Lambda invocations — corrected above to a Postgres table. Gate 3 checked this against Epic 0.i2 (Guarded outbound vendor calls, `in-progress`/`review`), which already names `resolvePromptToEventFilter`'s underlying `callGemini` call as adopted onto its guarded wrapper (Story 0.i2c) — verified live in `adapter.ts`/`gemini-client.ts`. That wrapper provides a per-key lock, not a per-user request-volume quota, so this is not a duplicate mechanism, but the AC is corrected above to say so explicitly rather than leaving the boundary implicit. No new reusable Epic 0 utility is warranted: resolvePromptToEventFilter is the only consumer of a per-user mutation-rate-limit today, matching this project's own precedent (Story 3.7e's Gate 3 note) of deferring generalization until a second consumer actually appears.
+
+### Story 9.9z: Ratchet — every filter consumer goes through the shared compiler
+
+**As a** maintainer,
+**I want** a failing test if any `EventFilterInput` consumer bypasses the Story 9.2 compiler,
+**So that** a second filter path cannot reappear.
+
+**Acceptance Criteria:**
+
+*   **Given** a repo-wide sweep test, **when** any consumer of `EventFilterInput` builds a query condition without the shared compiler, **then** the test fails.
+*   **And** the flat/expression parity test from Story 9.2 runs in CI.
+*   **And** PRD §3.15 and §4.18 and the `filter-vocabulary.md` companion are amended for expressions and the date grammar (FR98–FR103).
+
+**Depends on:** Stories 9.2, 9.3, 9.4.
+
+**Note:** Formed 2026-10-14 via `bmad-form-epics` (scoped pass) from IDEA-069 (driving), FIND-083 (carved from FIND-018) and BUG-060 (carved from BUG-011). Feature epic: the `z` ratchet is optional and was included because the epic's justification is the shared compiler. Remaining FIND-018 scope (DW-083/084/085) and BUG-011 scope (DW-066/067/068) stay on the board.

@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import React from 'react';
-import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, cleanup, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeAll, afterEach, afterAll } from 'vitest';
 import { graphql, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
@@ -55,6 +55,15 @@ vi.mock('nuqs', () => {
   (global as any).__resetNuqsStore = () => {
     for (const key in store) delete store[key];
     for (const key in listeners) listeners[key].clear();
+  };
+
+  // Story 9.4a: lets tests seed/simulate a query-param change (e.g. `ai_expression`) without
+  // driving actual UI, matching home-content.test.tsx/feed-content.test.tsx's own helper.
+  (global as any).__setNuqsValue = (key: string, value: any) => {
+    store[key] = value;
+    if (listeners[key]) {
+      listeners[key].forEach((listener: any) => listener(value));
+    }
   };
 
   return {
@@ -507,5 +516,85 @@ describe('FavoritesContent - Story 0.i5e (pagination controller)', () => {
       const pendingArticles = screen.getAllByRole('article').filter((el) => el.getAttribute('aria-disabled') === 'true');
       expect(pendingArticles).toHaveLength(0);
     });
+  });
+});
+
+// Story 9.4a (AC2, AC3) -- a seeded non-flat `ai_expression` must drive the `getEvents` request's
+// `query` variable, and two different non-flat expressions sharing the same flattened `ai_filter`
+// must produce distinct cache keys rather than being silently treated as the same query.
+describe('FavoritesContent - Story 9.4a (AI filter expression wiring)', () => {
+  const orOfTwoTypesExpression = {
+    op: 'OR',
+    children: [
+      { field: 'type', value: ['FESTIVAL'] },
+      { field: 'type', value: ['PERFORMANCE'] },
+    ],
+  };
+
+  it('uses the compiled expression condition in the getEvents request query when ai_expression is seeded (AC2/AC3)', async () => {
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText('Event evt-1')).toBeInTheDocument();
+    });
+
+    eventsCalls.length = 0;
+
+    await act(async () => {
+      // Mirrors the real backend's own lossy flat projection of a non-flat expression ({}).
+      (global as any).__setNuqsValue('ai_filter', JSON.stringify({}));
+      (global as any).__setNuqsValue('ai_expression', JSON.stringify(orOfTwoTypesExpression));
+    });
+
+    await waitFor(() => {
+      expect(eventsCalls.length).toBeGreaterThan(0);
+    });
+
+    const call = eventsCalls[eventsCalls.length - 1];
+    const conditions = (call as any)?.query?.conditions ?? [];
+    const expressionCondition = conditions.find((c: any) => c?.operator === 'or');
+    expect(expressionCondition?.conditions).toEqual([
+      { field: 'types', operator: 'in', value: ['FESTIVAL'] },
+      { field: 'types', operator: 'in', value: ['PERFORMANCE'] },
+    ]);
+  });
+
+  it('treats two different non-flat expressions sharing the same flattened ai_filter as distinct cache keys (AC3 regression)', async () => {
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText('Event evt-1')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      (global as any).__setNuqsValue('ai_filter', JSON.stringify({}));
+      (global as any).__setNuqsValue('ai_expression', JSON.stringify(orOfTwoTypesExpression));
+    });
+
+    await waitFor(() => {
+      expect(eventsCalls.length).toBeGreaterThan(0);
+    });
+
+    const firstQuery = eventsCalls[eventsCalls.length - 1]?.query;
+    eventsCalls.length = 0;
+
+    const secondExpression = {
+      op: 'OR',
+      children: [
+        { field: 'type', value: ['WORKSHOP'] },
+        { field: 'type', value: ['MARKET'] },
+      ],
+    };
+
+    await act(async () => {
+      (global as any).__setNuqsValue('ai_expression', JSON.stringify(secondExpression));
+    });
+
+    await waitFor(() => {
+      expect(eventsCalls.length).toBeGreaterThan(0);
+    });
+
+    const secondQuery = eventsCalls[eventsCalls.length - 1]?.query;
+    expect(secondQuery).not.toEqual(firstQuery);
   });
 });

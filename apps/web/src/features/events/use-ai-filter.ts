@@ -4,7 +4,13 @@ import { useTranslations } from 'next-intl';
 import { useResolvePromptToEventFilterMutation, useSaveAiEventFilterMutation, EventFilterInput } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
 import { useApiKeyStatus } from '@/features/onboarding/use-has-api-key';
-import { renderAIFilterSummary } from '@festgrid/domain/ai-event-filters';
+import {
+  renderFilterExpressionSummary,
+  expressionFromFlatFilter,
+  stripNullNodeKeys,
+  validateFilterNode,
+} from '@festgrid/domain/ai-event-filters';
+import type { FilterNode } from '@festgrid/domain/ai-event-filters';
 
 export function useAIFilter() {
   const { hasApiKey, isLoading: isLoadingKey } = useApiKeyStatus();
@@ -13,6 +19,7 @@ export function useAIFilter() {
 
   const [resolvedData, setResolvedData] = useState<{
     resolvedFilter: EventFilterInput;
+    expression: FilterNode;
     caveats: string[];
     prompt: string;
   } | null>(null);
@@ -25,6 +32,7 @@ export function useAIFilter() {
 
   const [aiFilterStr, setAiFilterStr] = useQueryState('ai_filter', parseAsString);
   const [aiCaveatsStr, setAiCaveatsStr] = useQueryState('ai_caveats', parseAsString);
+  const [aiExpressionStr, setAiExpressionStr] = useQueryState('ai_expression', parseAsString);
 
   const [q, setQ] = useQueryState('q', parseAsString.withDefault(''));
   const [types, setTypes] = useQueryState('types', parseAsArrayOf(parseAsString).withDefault([]));
@@ -47,6 +55,20 @@ export function useAIFilter() {
       return null;
     }
   }, [aiCaveatsStr]);
+
+  const aiExpression = useMemo(() => {
+    if (!aiExpressionStr) return null;
+    try {
+      // The URL param is untrusted input, and URLs shared/bookmarked before the null-padding fix
+      // still carry GraphQL's `op: null` / `children: null` / `child: null` keys -- validate (which
+      // also strips them) instead of casting, so a malformed or old-shape value degrades to "no
+      // expression" rather than crashing the summary/query builders.
+      const validation = validateFilterNode(JSON.parse(aiExpressionStr));
+      return validation.valid ? validation.node : null;
+    } catch {
+      return null;
+    }
+  }, [aiExpressionStr]);
 
   const summaryLabels = useMemo(() => {
     const anchors = {
@@ -86,26 +108,43 @@ export function useAIFilter() {
       anchors,
       units,
       daysOfWeek,
+      and: tSummary('and'),
+      or: tSummary('or'),
+      not: tSummary('not'),
+      weekends: tSummary('weekends'),
+      weekdays: tSummary('weekdays'),
+      dateRangeSpanOnlyTemplate: tSummary.raw('dateRangeSpanOnlyTemplate'),
+      dateRangeSpanExtensionTemplate: tSummary.raw('dateRangeSpanExtensionTemplate'),
+      temporalStatus: { TODAY: tSummary('temporalStatus.TODAY'), UPCOMING: tSummary('temporalStatus.UPCOMING') },
     };
   }, [tSummary]);
 
   const summaryResult = useMemo(() => {
-    if (!aiFilter) return null;
-    return renderAIFilterSummary(aiFilter, aiCaveats, summaryLabels);
-  }, [aiFilter, aiCaveats, summaryLabels]);
+    if (!aiFilter && !aiExpression) return null;
+    const node = aiExpression ?? expressionFromFlatFilter(aiFilter ?? {});
+    return renderFilterExpressionSummary(node, aiCaveats, summaryLabels);
+  }, [aiFilter, aiExpression, aiCaveats, summaryLabels]);
 
   const resolvedSummaryResult = useMemo(() => {
     if (!resolvedData) return null;
-    return renderAIFilterSummary(resolvedData.resolvedFilter, resolvedData.caveats, summaryLabels);
+    return renderFilterExpressionSummary(resolvedData.expression, resolvedData.caveats, summaryLabels);
   }, [resolvedData, summaryLabels]);
 
   const { mutate: resolvePrompt, isPending: isLoading } = useResolvePromptToEventFilterMutation(graphqlClient, {
     onSuccess: (data, variables) => {
       setError(null);
+      // The generated GraphQL type is a loosely-typed recursive shape: the schema's `FilterNode`
+      // can't express the domain's discriminated union, and GraphQL serializes EVERY declared key
+      // on every node (absent ones as explicit `null`: `{ op: null, field: "type", children: null,
+      // child: null, ... }`). The backend has already validated the tree, so only that null padding
+      // needs removing -- left in, it crashes the summary renderer and query compiler.
+      const expression = stripNullNodeKeys(data.resolvePromptToEventFilter.expression) as FilterNode;
       setAiFilterStr(JSON.stringify(data.resolvePromptToEventFilter.resolvedFilter));
       setAiCaveatsStr(JSON.stringify(data.resolvePromptToEventFilter.caveats));
+      setAiExpressionStr(JSON.stringify(expression));
       setResolvedData({
         resolvedFilter: data.resolvePromptToEventFilter.resolvedFilter,
+        expression,
         caveats: data.resolvePromptToEventFilter.caveats,
         prompt: variables.prompt,
       });
@@ -132,7 +171,7 @@ export function useAIFilter() {
     setSaveError(null);
     saveFilter({
       prompt: resolvedData.prompt,
-      resolvedFilter: resolvedData.resolvedFilter,
+      expression: resolvedData.expression,
     });
   };
 
@@ -146,6 +185,7 @@ export function useAIFilter() {
   const handleRePrompt = () => {
     setAiFilterStr(null);
     setAiCaveatsStr(null);
+    setAiExpressionStr(null);
     setResolvedData(null);
     setSaveError(null);
     setSaveSuccess(false);
@@ -161,6 +201,7 @@ export function useAIFilter() {
   const handleAIClear = () => {
     setAiFilterStr(null);
     setAiCaveatsStr(null);
+    setAiExpressionStr(null);
   };
 
   const handleAIExpand = () => {
@@ -176,17 +217,26 @@ export function useAIFilter() {
     }
     setAiFilterStr(null);
     setAiCaveatsStr(null);
+    setAiExpressionStr(null);
   };
 
   // Only auto-expand when `q` changes while an AI filter was ALREADY active (the user typed into
-  // manual search). Skip the check on the render where `aiFilterStr` itself just changed (a fresh
-  // resolve or a clear) -- otherwise a freshly-resolved filter with a keyword field would always
-  // mismatch the still-stale `q` and immediately self-collapse back to manual mode.
+  // manual search). Two situations must NOT collapse the filter:
+  //  - the render where `aiFilterStr` itself just changed (a fresh resolve or a clear) --
+  //    otherwise a freshly-resolved filter with a keyword field would always mismatch the
+  //    still-stale `q` and immediately self-collapse back to manual mode;
+  //  - a page load (or shared/bookmarked link) that arrives with `ai_filter` already in the URL --
+  //    `q` is empty there, so comparing it to the filter's keyword would read as a user edit and
+  //    silently turn the AI filter into manual controls. Tracking that `q` actually CHANGED (rather
+  //    than merely differs) also keeps this correct under React StrictMode's double-run of effects.
   const prevAiFilterStrRef = useRef(aiFilterStr);
+  const prevQRef = useRef(q);
   useEffect(() => {
     const aiFilterJustChanged = prevAiFilterStrRef.current !== aiFilterStr;
+    const qChanged = prevQRef.current !== q;
     prevAiFilterStrRef.current = aiFilterStr;
-    if (aiFilterJustChanged || !aiFilter) return;
+    prevQRef.current = q;
+    if (aiFilterJustChanged || !qChanged || !aiFilter) return;
     const currentQ = q || '';
     const filterQ = aiFilter.keyword || '';
     if (currentQ !== filterQ) {
@@ -207,11 +257,22 @@ export function useAIFilter() {
     saveError: tFilterHub('aiOverlaySaveError'),
     resolvedSummaryTitle: tFilterHub('aiOverlayResolvedSummaryTitle'),
     rePrompt: tFilterHub('aiOverlayRePrompt'),
+    examplePromptsLabel: tFilterHub('aiOverlayExamplePromptsLabel'),
   };
+
+  const examplePrompts = useMemo(
+    () => [
+      tFilterHub('aiOverlayExamplePrompt1'),
+      tFilterHub('aiOverlayExamplePrompt2'),
+      tFilterHub('aiOverlayExamplePromptGrouped'),
+    ],
+    [tFilterHub]
+  );
 
   return {
     hasApiKey: hasApiKey && !isLoadingKey,
     activeFilter: aiFilter,
+    activeExpression: aiExpression,
     isLoading,
     filterHubProps: {
       showAITrigger: hasApiKey && !isLoadingKey,
@@ -247,6 +308,7 @@ export function useAIFilter() {
       saveError,
       onApply: handleApply,
       onRePrompt: handleRePrompt,
+      examplePrompts,
     },
   };
 }

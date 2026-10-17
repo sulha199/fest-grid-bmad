@@ -1,5 +1,5 @@
 # generated: 2026-07-29T02:58:30Z
-# last_updated: 2026-10-08T00:00:00Z
+# last_updated: 2026-10-12T00:00:00Z
 # project: festgrid
 # project_key: NOKEY
 # tracking_system: file-system
@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-15T12:14:12Z
+last_updated: 2026-10-15T19:24:17Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -1339,7 +1339,12 @@ development_status:
   # weeks of silence past the story's own 1-2 week follow-up window). User
   # decided no-go rather than nudging further. Both vendors now closed --
   # story will not proceed unless reopened.
-  3-4b-byok-pooled-scraper-vendor-keys: wont-do
+  # REOPENED 2026-10-12: Apify replied (support, written): a contributed token
+  # used only for accounts that user follows does not breach its s5.2. Apify
+  # only (Bright Data stays closed). STILL LEGALLY GATED -- not ready-for-dev:
+  # re-confirm on paid-product facts, counsel review, and the BYOK vs
+  # platform-paid decision (backlog CC-032) come first.
+  3-4b-byok-pooled-scraper-vendor-keys: backlog
   # added 2026-08-09 via bmad-create-story: exploratory outreach to Instagram-
   # viewer sites (storiesig.info explicitly invites API-access contact; imginn.com
   # is the right shape but has no advertised partnership channel, cold outreach
@@ -2510,6 +2515,25 @@ development_status:
   # See epics.md Epic 8 entry for what this covers and why it's separate from
   # Epic 3's Stories 3.6g/3.6h (moderator-only opt-in, shipping now).
   epic-8: backlog
+  # Epic 9 formed 2026-10-14 via bmad-form-epics (feature epic): AI filter boolean/nested expressions + richer date grammar.
+  # Members IDEA-069, FIND-083, BUG-060. See epics.md Epic 9 and planning-artifacts/epic-formation/formation-2026-10-14.md.
+  epic-9: backlog
+  9-1a-build-the-filter-expression-tree-types-zod-schema-and-normalizer: review
+  9-1b-extend-the-relative-date-grammar-with-spans-multi-weekday-and-temporal-status: review
+  9-2-compile-filter-expressions-to-query-conditions-with-not-and-null-semantics: review
+  9-3-expose-filter-expressions-through-graphql-resolvers-and-widgets: review
+  9-4-upgrade-gemini-extraction-to-expression-trees-with-node-level-caveats: review
+  # Gate 2 finding (UI Complexity & Reusability), surfaced creating Story 9-4: useAIFilter's
+  # three consumers (home/feed/favorites) only ever build their query from the flat
+  # resolvedFilter projection, never the expression tree, even though the backend/compiler
+  # already support one. See epics.md Story 9.4a Note.
+  9-4a-wire-the-resolved-ai-filter-expression-into-discovery-feed-and-favorites-query-building: review
+  9-5-render-expression-summaries-in-english-and-indonesian: review
+  9-6-show-long-expression-summaries-in-the-ai-filter-overlay-and-filterhub: review
+  9-7-add-golden-prompt-evals-for-the-ai-filter: review
+  9-8-rate-limit-prompt-resolution: review
+  9-9z-ratchet-every-filter-consumer-goes-through-the-shared-compiler: review
+  epic-9-retrospective: optional
 
 action_items:
   - id: correct-course-2026-09-02-1
@@ -2518,9 +2542,9 @@ action_items:
     status: open
     created_at: "2026-09-02"
   - id: retro-7-1
-    description: "Refine AI Prompts: Monitor user behavior with AI filters to tune the system prompt for better date/location extraction accuracy."
+    description: "Refine AI Prompts: Monitor user behavior with AI filters to tune the system prompt for better date/location extraction accuracy. Folded into backlog IDEA-069 (Epic 9, Story 9.7). Closed by Story 9.7's golden-prompt fixture regression suite + opt-in nightly live-drift report -- a fixed-suite/report mechanism, narrower than this item's original open-ended 'monitor user behavior' framing (see Story 9.7 Dev Notes decision 6)."
     owner: Alice
-    status: open
+    status: closed
     created_at: "2026-08-29"
   - id: retro-7-2
     description: "Performance Monitoring: Keep an eye on Gemini API response times during FilterHub prompt resolutions."

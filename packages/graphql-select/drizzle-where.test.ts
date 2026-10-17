@@ -346,6 +346,69 @@ test('buildDrizzleWhere', async (t) => {
     assert.strictEqual(res, undefined);
   });
 
+  await t.test("handles 'not' group operator: wraps a single eq terminal's SQL in NOT (...)", () => {
+    const condition: QueryCondition = {
+      operator: 'not',
+      conditions: [{ field: 'name', operator: 'eq', value: 'Fest' }]
+    };
+    const res = buildDrizzleWhere(condition, fieldMap);
+    assert.ok(res !== undefined);
+    const dialect = new PgDialect();
+    const query = dialect.sqlToQuery(res!);
+    assert.match(query.sql, /NOT \(/);
+  });
+
+  await t.test("'not' group with zero compiled children returns undefined", () => {
+    const condition: QueryCondition = {
+      operator: 'not',
+      conditions: [{ field: 'unmapped', operator: 'eq', value: 'a' }]
+    };
+    const res = buildDrizzleWhere(condition, fieldMap);
+    assert.strictEqual(res, undefined);
+  });
+
+  await t.test("ne's updated null-inclusive SQL shape: renders IS DISTINCT FROM for a non-null value", () => {
+    const condition: QueryCondition = {
+      field: 'name',
+      operator: 'ne',
+      value: 'Fest'
+    };
+    const res = buildDrizzleWhere(condition, fieldMap);
+    assert.ok(res !== undefined);
+    const dialect = new PgDialect();
+    const query = dialect.sqlToQuery(res!);
+    assert.match(query.sql, /IS DISTINCT FROM/);
+  });
+
+  await t.test("notIn's updated null-inclusive SQL shape on a scalar column: IS NULL alongside NOT IN", () => {
+    const condition: QueryCondition = {
+      field: 'name',
+      operator: 'notIn',
+      value: ['a']
+    };
+    const res = buildDrizzleWhere(condition, fieldMap);
+    assert.ok(res !== undefined);
+    const dialect = new PgDialect();
+    const query = dialect.sqlToQuery(res!);
+    assert.match(query.sql, /is null/i);
+    assert.match(query.sql, /not in/i);
+  });
+
+  await t.test("notIn's updated null-inclusive SQL shape on an array column: IS NULL alongside the && ARRAY[...] guard", () => {
+    const condition: QueryCondition = {
+      field: 'types',
+      operator: 'notIn',
+      value: ['MUSIC']
+    };
+    const res = buildDrizzleWhere(condition, fieldMap);
+    assert.ok(res !== undefined);
+    const dialect = new PgDialect();
+    const query = dialect.sqlToQuery(res!);
+    assert.match(query.sql, /IS NULL/);
+    assert.match(query.sql, /&&/);
+    assert.match(query.sql, /ARRAY\[/);
+  });
+
   await t.test('handles deeply nested group condition', () => {
     const condition: QueryCondition = {
       operator: 'or',

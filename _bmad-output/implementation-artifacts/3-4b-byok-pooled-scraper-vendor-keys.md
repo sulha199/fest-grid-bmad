@@ -4,13 +4,20 @@
 
 - Epic: 3
 - Story ID: 3.4b
-- Status: wont-do (closed 2026-09-07 — Apify never responded)
+- Status: backlog (reopened 2026-10-12 — Apify replied; still legally gated, NOT ready-for-dev; Apify only, Bright Data stays closed)
 
 ## LEGAL GATE — READ BEFORE DOING ANYTHING ELSE WITH THIS STORY
 
 **This story is not implementation-ready and must not be moved to `ready-for-dev` (via `bmad-create-story` or otherwise) until written confirmation is obtained from both Apify and Bright Data**, using the outreach emails drafted in Dev Notes below (or your own, covering the same questions). This is a real legal/business-risk question about third-party Terms of Service, not an engineering judgment call — automated research during Story 3.4's creation found genuine, unresolved ambiguity for both vendors (see "ToS Research Recap" below) and could not resolve it either way. Do not build around an assumption here.
 
 If you have already obtained written vendor confirmation, update this section (and the Completion Status) to record what was said, by whom, and when, before proceeding to the conditional Acceptance Criteria below.
+
+**Update 2026-10-12 — Apify replied (support, written; date received not recorded, reply answers the 2026-08-12 support chat). Gate is partially cleared, not cleared.**
+
+- **What Apify said:** letting each user optionally add their own Apify API token so the app runs scrapes on their behalf "is essentially an integration, which we support"; showing the resulting data to other users who independently follow the same public account "does not, on its own, breach Section 5.2". **Condition:** a contributed token may only ever run what that user explicitly asked for, i.e. the accounts they follow in the app; never accounts the user doesn't follow, never any other task. Apify also said it cannot give legal advice and that the view rests on "the information you have shared".
+- **Why the gate is not cleared yet:** (1) it is a support-level statement with no legal weight; (2) the earlier outreach described the app as free, while the business plan now includes paid subscription tiers — it is not recorded what the 2026-08-12 chat said, so the answer may need re-confirming on paid-product facts; (3) a business decision is open on whether scraping/AI cost is platform-paid, user-paid (BYOK) or hybrid — see backlog `CC-032`; (4) counsel review is requested in the (private) `fest-grid-monetization` repo, `counsel-engagement-brief-BYOK-EN.md` / `-ID.md`.
+- **Scope after this update:** Apify only. Bright Data remains closed for individual contributors (KYC for registered business entities only). The "both vendors" wording of the gate above is superseded.
+- **Do not** run `bmad-create-story 3-4b` or move this to `ready-for-dev` until Task 2 below is done and the product owner confirms BYOK is the chosen cost model.
 
 ## Story
 
@@ -27,12 +34,15 @@ so that total scraping headroom can scale with community contribution instead of
 3. **And** the app-funded key (Story 3.4/3.4a) remains available as a baseline/fallback for accounts with zero contributing users, rather than scraping simply not running for those accounts.
 4. **And**, regardless of what the vendor(s) themselves require, the contributing user is shown explicit, plain-language disclosure at the point they add their key — stating that the key will only ever be used to scrape accounts *they* have personally subscribed to (never on behalf of other users' unrelated interests), but that the *resulting data* may also be shown to other app users who independently subscribe to that same public account — and the user must affirmatively consent (not a pre-checked box) before the key is accepted. This is a baseline product requirement, not conditional on the vendor mandating it. Any *additional* vendor-required consent/disclosure language (per the Legal Gate outreach) is layered on top of this baseline, not a substitute for it.
 5. **And** the per-vendor capacity-gating mechanism from Story 3.4 (`scraper_provider_usage`) is extended to track pooled/contributed keys' usage distinctly from the app-funded key's usage, so a contributing user's own key exhausting its quota doesn't incorrectly block the app-funded fallback (or vice versa).
+6. **And** _(added 2026-10-12, from Apify's stated condition)_ a contributed Apify token is selected **only** for an account that the token's owner personally follows (an active subscription of that same user). It is never used for a moderator-initiated run, a curated-pool run, a trial wildcard run, an on-demand scrape on behalf of another user, or any system-driven task the owner did not ask for. The pool's candidate set for account X is therefore X's own contributing subscribers (mirroring how Gemini candidates are limited to an account's active subscribers, Story 3.6 Task 4 `getActiveSubscriberUserIds`), with the app-funded key as the fallback. This is enforced in key selection and covered by a test that a token never runs for a non-followed account.
+7. **And** _(proposed 2026-10-12, pending counsel question A4)_ the disclosure shown at key-add time (AC4) also states that usage beyond the contributor's free Apify credit is billed to the contributor's own Apify account, and that Apify could act on their account; wording to be set by counsel.
 
 *Full task breakdown, Dev Notes, and Implementation Plan detail intentionally left light here — the concrete design (which vendor(s) actually permit this, what consent/disclosure they require, whether a partner account type is needed instead of individual accounts) depends entirely on the vendor responses this story is gated on. Re-run `bmad-create-story 3-4b` for a fully detailed story once the Legal Gate clears, rather than treating this file's current level of detail as sufficient for `dev-story`.*
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 (the only actionable task right now): Send the vendor outreach emails below (or equivalent), obtain **written** responses, and record them in this file's Legal Gate section. Do not proceed to any other task until this is done.
+- [x] Task 1: Send the vendor outreach emails below (or equivalent), obtain **written** responses, and record them in this file's Legal Gate section. Done for Apify 2026-10-12 (see Legal Gate update); Bright Data closed 2026-08-10.
+- [ ] Task 1b (actionable now, added 2026-10-12): (a) record the date the Apify reply was received and what the 2026-08-12 chat told them (free vs paid app); (b) if it said "free", re-confirm with Apify on the paid-product facts; (c) wait for the counsel answer and the BYOK-vs-platform-paid decision (`CC-032`). Do not proceed to Task 2+ before these.
 - [ ] Task 2+ (blocked, sketch only, to be detailed by a future `bmad-create-story 3-4b` run once gated): extend `api_keys`/`/settings/api-keys` for the confirmed vendor(s); generalize Story 0.13's `selectApiKey` for a pooled scraper-key resource; wire the scraper adapter(s) to select from the pool with app-funded fallback; extend `scraper_provider_usage` tracking per contributed key; surface any vendor-required consent/disclosure UI.
 
 ## Dev Notes
@@ -154,7 +164,8 @@ Send both (they are independent; one vendor confirming does not imply the other 
 
 ### Vendor Responses (fill in once received)
 
-- **Apify: closed 2026-09-07, no response received.** Outreach sent ~2026-08-14 (exact date not recorded); the drafted follow-up nudge (Dev Notes above) was never sent either — the user decided, given 3+ weeks of total silence, to treat this as a no-go rather than nudge further. This closes the story entirely: Bright Data was already closed 2026-08-10 (KYC restricted to registered business entities), and Apify is now closed too. **3.4b will not be built.** If Apify's stance ever changes (e.g. they reach out unprompted, or a future retry is deliberately chosen), reopen this story rather than treating this closure as permanent policy.
+- **Apify: REOPENED 2026-10-12 — reply received (support, written).** Summary: contributed-token pattern is "essentially an integration, which we support" and does not on its own breach Section 5.2, provided a contributed token is used only for accounts that user follows in the app. Not legal advice; based on the information shared; possibly premised on a "free app" description — re-confirm (see Legal Gate update). Full text is kept in the private `fest-grid-monetization` repo (`counsel-engagement-brief-BYOK-EN.md`, Annex A). The paragraph below is the earlier, now-superseded closure record, kept for history.
+- **Apify (superseded closure record): closed 2026-09-07, no response received.** Outreach sent ~2026-08-14 (exact date not recorded); the drafted follow-up nudge (Dev Notes above) was never sent either — the user decided, given 3+ weeks of total silence, to treat this as a no-go rather than nudge further. This closes the story entirely: Bright Data was already closed 2026-08-10 (KYC restricted to registered business entities), and Apify is now closed too. **3.4b will not be built.** If Apify's stance ever changes (e.g. they reach out unprompted, or a future retry is deliberately chosen), reopen this story rather than treating this closure as permanent policy.
 - **Bright Data: closed for this story (3.4b) specifically, 2026-08-10 — but the follow-up's underlying question resolved favorably for Story 3.4a.** Initial response received from Akhilesh (support/sales contact): *"Bright Data no longer provides the IPs for Social media account management usecase or accessing payment gateways like PayPal & Stripe. We do the KYC only for the Registered business entities not Freelancer individuals."* Follow-up response (same thread, 2026-08-10): *"We can support you collecting Social media data from our Webscraper APIs and Filter APIs. If you have the post URL or Profile URL you can give those as an input and fetch the publicly available data."* This confirms the account-management exclusion was about their Proxy/IP product, not the Web Scraper/Dataset API — good news for Story 3.4a, which is now unblocked on the policy question (see that story's own note for the one remaining capability question: does profile-URL input return recent posts, or only metadata/single-post lookup). **This does not change this story's (3.4b's) own conclusion**: the KYC-for-registered-business-entities restriction is untouched by either reply and still rules out individual end-users contributing their own Bright Data key. Bright Data BYOK remains closed here. Apify's BYOK viability is unaffected by any of this and remains open pending its own response.
 
 ### References
@@ -220,7 +231,8 @@ Send both (they are independent; one vendor confirming does not imply the other 
 
 ## Completion Status
 
-- [x] Closed 2026-09-07 — both vendors (Bright Data, Apify) resolved with no path forward. Bright Data explicitly declined (KYC scope); Apify never responded. Story abandoned, no code was or will be written under it as currently scoped.
+- [ ] **Reopened 2026-10-12** (status `backlog`) — Apify replied (see Legal Gate update); gated on re-confirmation, counsel review and the BYOK-vs-platform-paid decision (`CC-032`). Bright Data stays closed.
+- [x] _(Historical)_ Closed 2026-09-07 — both vendors (Bright Data, Apify) resolved with no path forward. Bright Data explicitly declined (KYC scope); Apify never responded. Story abandoned, no code was or will be written under it as currently scoped.
 
 ## Dev Agent Record
 

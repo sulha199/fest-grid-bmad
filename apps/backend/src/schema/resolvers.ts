@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { alias } from 'drizzle-orm/pg-core';
-import { Resolvers } from '../generated/resolvers-types.js';
+import { Resolvers, type EventFilter, type FilterNode, type UnprocessedPayloadSource } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
 import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns, aiEventFilters, accountTypeClassificationReviews, postAccountAssociations, eventPosts, eventSlugAliases, eventMatchCandidates, eventMerges } from '@festgrid/database';
 import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly, getRequestedFieldNames } from '@festgrid/graphql-select';
-import { requireAuth, requireModerator } from '../lib/auth/context.js';
+import { requireAuth, requireModerator, type GraphQLContext } from '../lib/auth/context.js';
 import { buildEventAccountMatchCondition } from '../lib/events/event-account-match.js';
-import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, lt, gte, lte, isNull, isNotNull, ilike } from 'drizzle-orm';
+import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, lt, gte, lte, isNull, isNotNull, ilike, type SQL } from 'drizzle-orm';
 import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink, isScrapableAccountType, computeIsScrapeInProgress } from '@festgrid/domain/scraper';
@@ -14,9 +14,11 @@ import { postsAssociatedWithAccount, getPostAccessAccountIds } from '../lib/post
 import { findProfileByUsername } from '../lib/accounts/find-profile-by-username.js';
 import { postExtractionStatusCondition, withExtractionStatus } from '../lib/posts/post-extraction-status.js';
 import { loadAccountActivity, type AccountActivity } from '../lib/accounts/load-account-activity.js';
+import type { EventParent, SocialMediaAccountProfileParent, SubscriptionParent } from '../lib/graphql-mappers.js';
 import { selectApiKey } from '@festgrid/domain/ai-gateway';
 import { callGemini, AiGatewayExhaustedError, AiGatewayBusyError } from '../lib/ai-gateway/adapter.js';
 import { fetchCandidateKeys } from '../lib/ai-gateway/usage-store.js';
+import { checkAndRecordPromptFilterRateLimit } from '../lib/ai-event-filters/prompt-filter-rate-limit-store.js';
 import { startManualExtractionJob, getManualExtractionJobStatus } from '../lib/extraction/manual-extraction-job.js';
 import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
 import { validateHidePastEventsAfterDays, InvalidUserSettingsInputError } from '@festgrid/domain/user-settings';
@@ -25,10 +27,11 @@ import { getOrCreateUserSettings } from '../lib/user-settings/get-or-create-user
 import { resolveLocation, getAddressPredictions, resolveAdminRegion } from '../lib/geolocation/adapter.js';
 import { resolveInstagramOEmbed } from '../lib/instagram-oembed/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
-import { GraphQLError } from 'graphql';
+import { GraphQLError, type GraphQLResolveInfo } from 'graphql';
 import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult, computePastEventThreshold, parsePlatformPrefixedEventSlug, sanitizeEventLinks } from '@festgrid/domain/events';
-import { transformGeminiResponseToEventFilter } from '@festgrid/domain/ai-event-filters';
-import { SUPPORTED_PLATFORMS } from '@festgrid/domain/subscriptions';
+import { transformGeminiResponseToFilterExpression, validateFilterNode, compileFilterNodeToQueryCondition, resolveStoredFilter, flatFilterFromExpression } from '@festgrid/domain/ai-event-filters';
+import type { FilterValidationIssue } from '@festgrid/domain/ai-event-filters';
+import { SUPPORTED_PLATFORMS, type ScrapablePlatform, type SupportedPlatform } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText } from '@festgrid/domain';
 import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError, postGroupingReasonToGraphQL } from '@festgrid/domain/posts';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
@@ -46,7 +49,8 @@ import { sendDangerousReportModeratorAlerts } from '../lib/notifications/send-da
 import { enqueuePostForProcessing } from '../lib/posts/enqueue-post-for-processing.js';
 import { replayActorRun } from '../lib/scraper/replay-actor-run.js';
 import { applyDefaultLocationChange } from '../lib/accounts/apply-default-location-change.js';
-import { resolveFilterAccountId } from '../lib/ai-event-filters/resolve-filter-account-id.js';
+import { resolveFilterExpressionAccountIds } from '../lib/ai-event-filters/resolve-filter-expression-account-ids.js';
+import { buildFilterExtractionSystemInstruction, buildFilterExtractionResponseSchema } from '../lib/ai-event-filters/build-filter-extraction-request.js';
 import { mergeEvents, undoEventMerge as undoEventMergeWrite, EventMergeInvalidStateError, EventMergeNotFoundError, EventMergeAlreadyUndoneError } from '../lib/events/merge-events.js';
 
 // `post_account_associations.account_id` is a uuid column: comparing it against a non-UUID string
@@ -58,6 +62,15 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 
 const validateReportSystemError = compileValidator<any>(reportSystemErrorSchema);
 const validateProposedEventCorrection = compileValidator<ProposedEventCorrection>(proposedEventCorrectionSchema);
+
+/**
+ * Story 9.3 (AC1) -- shared formatter used by every `BAD_USER_INPUT` branch below that rejects an
+ * invalid `FilterNodeInput`/`expression` argument, so the message shape is consistent across
+ * `Query.events`, `saveAIEventFilter`, `createWidget` and `updateWidget`.
+ */
+function formatFilterValidationIssues(issues: FilterValidationIssue[]): string {
+  return issues.map((i) => `${i.path.join('.')}: ${i.reason}`).join('; ');
+}
 
 /**
  * Story 2.7 — seam for the `Query.events` silent-auth probe. The resolver probes
@@ -148,7 +161,7 @@ async function batchScheduleRowsForEvents({
   virtualFields,
 }: {
   eventIds: string[];
-  info: any;
+  info: GraphQLResolveInfo;
   path: string | string[];
   virtualFields?: Record<string, any>;
 }): Promise<Map<string, any[]>> {
@@ -159,7 +172,7 @@ async function batchScheduleRowsForEvents({
 
   const schedulesByEvent = new Map<string, any[]>();
   for (const row of scheduleRows) {
-    const eventId = (row as any).eventId;
+    const eventId = (row).eventId;
     const list = schedulesByEvent.get(eventId) ?? [];
     list.push(row);
     schedulesByEvent.set(eventId, list);
@@ -173,7 +186,7 @@ async function batchScheduleRowsForEvents({
 // attached to each edge's `event`/`candidateEvent` below -- never a per-row field resolver.
 // Mirrors `Report.event`/`restoreEvent`'s own select shape (the same image/post join fields
 // `Event.imageUrl` etc. read from their parent) rather than a fresh ad-hoc one.
-async function batchEventRowsForIds(eventIds: string[], info: any, paths: Array<string | string[]>): Promise<Map<string, any>> {
+async function batchEventRowsForIds(eventIds: string[], info: GraphQLResolveInfo, paths: Array<string | string[]>): Promise<Map<string, any>> {
   if (eventIds.length === 0) return new Map();
 
   const requestedFields = paths.reduce(
@@ -201,7 +214,7 @@ async function batchEventRowsForIds(eventIds: string[], info: any, paths: Array<
 
   const byId = new Map<string, any>();
   for (const row of rows) {
-    byId.set((row as any).id, row);
+    byId.set((row).id, row);
   }
   return byId;
 }
@@ -211,7 +224,10 @@ async function batchEventRowsForIds(eventIds: string[], info: any, paths: Array<
  * One account-activity lookup per Subscription row per request: `isInactive`, `activityState` and
  * `latestPostAt` all read it, and a single query selecting all three would otherwise run three times.
  */
-function subscriptionActivity(parent: any): Promise<AccountActivity> {
+const isSupportedPlatform = (platform: string): platform is SupportedPlatform =>
+  (SUPPORTED_PLATFORMS as readonly string[]).includes(platform);
+
+function subscriptionActivity(parent: SubscriptionParent): Promise<AccountActivity> {
   parent.__activity ??= loadAccountActivity(parent.accountId);
   return parent.__activity;
 }
@@ -219,16 +235,19 @@ function subscriptionActivity(parent: any): Promise<AccountActivity> {
 export const resolvers: Resolvers = {
   JSON: GraphQLJSON,
   Coordinates: {
-    lat: (parent: any) => parent.lat ?? parent.latitude,
-    lng: (parent: any) => parent.lng ?? parent.longitude,
+    // One of the two spellings is always present (see CoordinatesParent).
+    lat: (parent) => (parent.lat ?? parent.latitude) as number,
+    lng: (parent) => (parent.lng ?? parent.longitude) as number,
   },
   PayloadContext: {
     // context.source is persisted lowercase (see persist-unprocessed-payload.ts) but the
     // UnprocessedPayloadSource enum values are uppercase; normalize on the way out.
-    source: (parent: any) => parent.source?.toUpperCase(),
+    source: (parent) => parent.source?.toUpperCase() as UnprocessedPayloadSource,
   },
+  // The GraphQL type is named `Subscription`, which codegen treats as the root subscription type (its
+  // fields would need `subscribe`/`resolve`), so these ordinary field resolvers are cast to that slot.
   Subscription: {
-    account: async (parent: any, _: any, context: any, info: any) => {
+    account: async (parent: SubscriptionParent, _args: unknown, _context: GraphQLContext, info: GraphQLResolveInfo) => {
       const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
       const rows = await db.select({
         ...requestedFields,
@@ -236,7 +255,7 @@ export const resolvers: Resolvers = {
       }).from(socialMediaAccountProfiles)
         .where(eq(socialMediaAccountProfiles.id, parent.accountId));
 
-      const profile = rows[0] as any;
+      const profile = rows[0] as SocialMediaAccountProfileParent | undefined;
       if (!profile) {
         throw new GraphQLError('Profile not found', { extensions: { code: 'NOT_FOUND' } });
       }
@@ -245,11 +264,11 @@ export const resolvers: Resolvers = {
         profile.defaultLocation = formatLocationDetails(profile.defaultLocation);
       }
 
-      return profile as any;
+      return profile;
     },
     // Posts the user can still select on the manual extract screen: every post the account owns or is
     // associated with that is Pending (PRD 3.10).
-    pendingExtractionCount: async (parent: any) => {
+    pendingExtractionCount: async (parent: SubscriptionParent) => {
       const rows = await db.select({ count: count() })
         .from(posts)
         .where(
@@ -261,15 +280,15 @@ export const resolvers: Resolvers = {
       return rows[0]?.count ?? 0;
     },
     // The three fields below share one lookup per subscription row within a request.
-    isInactive: async (parent: any) => (await subscriptionActivity(parent)).state === 'INACTIVE',
-    activityState: async (parent: any) => (await subscriptionActivity(parent)).state,
-    latestPostAt: async (parent: any) => {
+    isInactive: async (parent: SubscriptionParent) => (await subscriptionActivity(parent)).state === 'INACTIVE',
+    activityState: async (parent: SubscriptionParent) => (await subscriptionActivity(parent)).state,
+    latestPostAt: async (parent: SubscriptionParent) => {
       const { newestPostAt } = await subscriptionActivity(parent);
       return newestPostAt ? newestPostAt.toISOString() : null;
     },
-  } as any,
+  } as unknown as Resolvers['Subscription'],
   SocialMediaAccountProfile: {
-    hasPendingDefaultLocationReview: async (parent: any) => {
+    hasPendingDefaultLocationReview: async (parent) => {
       const rows = await db.select({ id: defaultLocationChangeRequests.id })
         .from(defaultLocationChangeRequests)
         .where(
@@ -281,7 +300,7 @@ export const resolvers: Resolvers = {
         .limit(1);
       return rows.length > 0;
     },
-    isScrapeInProgress: async (parent: any) => {
+    isScrapeInProgress: async (parent) => {
       const rows = await db.select({
         scrapeTriggeredAt: socialMediaAccountProfiles.scrapeTriggeredAt,
         lastScrapedAt: socialMediaAccountProfiles.lastScrapedAt,
@@ -301,14 +320,26 @@ export const resolvers: Resolvers = {
         parseInt(env.scrapeInProgressTimeoutHours || '3', 10)
       );
     },
-  } as any,
+  },
   Mutation: {
-    resolvePromptToEventFilter: async (_: any, { prompt }: any, context: any) => {
+    resolvePromptToEventFilter: async (_, { prompt }, context) => {
       const authUser = requireAuth(context);
 
       if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0 || prompt.length > 2000) {
         throw new GraphQLError('Prompt must be between 1 and 2000 characters', {
           extensions: { code: 'BAD_USER_INPUT' }
+        });
+      }
+
+      // Story 9.8 -- per-user request-volume guard, distinct from and additive to callVendor's
+      // per-key lock/timeout/backoff (callGemini -> callVendor, Story 0.i2a/0.i2c below). This
+      // check bounds how often THIS USER may call this mutation; it never replaces or is replaced
+      // by that per-key mechanism. Runs before the candidate-key lookup so a denied request never
+      // pays for it.
+      const rateLimitAllowed = await checkAndRecordPromptFilterRateLimit(authUser.userId);
+      if (!rateLimitAllowed) {
+        throw new GraphQLError('You are sending prompts too quickly. Please wait a few minutes and try again.', {
+          extensions: { code: 'RATE_LIMITED' }
         });
       }
 
@@ -321,97 +352,12 @@ export const resolvers: Resolvers = {
         });
       }
 
-      const systemInstruction = `You are an AI assistant that parses a free-text prompt from Indonesia (mainly Yogyakarta/Sleman) into a structured EventFilterInput JSON object.
-Follow this schema for the output object:
-{
-  "accountId": "optional: the social media account the user named, exactly as written (an @handle, username or display name). NEVER invent a UUID; if no account is named, omit it",
-  "types": ["optional array of EventType strings: EXHIBITION, COMPETITION, FESTIVAL, PERFORMANCE, WORKSHOP, SEMINAR, MARKET, GATHERING, PROMOTION, FUNDRAISER, CIVIC, OTHER"],
-  "categories": ["optional array of EventCategory strings: MUSIC, ARTS_AND_CULTURE, FOOD_AND_DRINK, SPORTS_AND_FITNESS, FAMILY_AND_KIDS, HOBBIES_AND_INTERESTS, BUSINESS_AND_NETWORKING, HEALTH_AND_WELLNESS, HOLIDAY, CHARITY_AND_CAUSES, CIVIC_AND_COMMUNITY, RELIGION_AND_SPIRITUALITY, TECHNOLOGY, TRAVEL_AND_TOURISM, EDUCATION, CAREER, AUTOMOTIVE, OTHER"],
-  "keyword": "optional search phrase string",
-  "dateRange": {
-    "anchor": "optional anchor string: TODAY, THIS_WEEK, THIS_MONTH",
-    "offsetAmount": "optional integer amount, can be positive/negative",
-    "offsetUnit": "optional offset unit string: DAY, WEEK, MONTH"
-  },
-  "dayOfWeek": "optional day of week string: MON, TUE, WED, THU, FRI, SAT, SUN",
-  "location": {
-    "coordinates": {
-      "lat": "optional number",
-      "lng": "optional number"
-    },
-    "radiusMeters": "optional integer",
-    "adminArea": "optional province/city/regency string, e.g. Yogyakarta, Sleman, Bantul, Jakarta"
-  },
-  "venueType": "optional string (e.g. CAFE, STADIUM, MALL)",
-  "isFree": "optional boolean"
-}
-
-Any part of the user's prompt that does not map to this schema MUST be explicitly listed as a caveat string in a parallel "caveats" field.
-Constraints and Guidelines:
-- If a specific location is named but no coordinates are known, set "location.adminArea".
-- Price thresholds, floor/room details, or complex unanchored date expressions should be returned as strings in the "caveats" array.
-- Output MUST be valid JSON matching:
-{
-  "resolvedFilter": <EventFilterInput object>,
-  "caveats": ["caveat 1", "caveat 2", ...]
-}
-`;
-
       try {
         const response = await callGemini({
           contents: `Parse this prompt: "${prompt}"`,
-          systemInstruction,
+          systemInstruction: buildFilterExtractionSystemInstruction(),
           responseMimeType: 'application/json',
-          responseSchema: {
-            type: 'OBJECT',
-            properties: {
-              resolvedFilter: {
-                type: 'OBJECT',
-                properties: {
-                  accountId: { type: 'STRING' },
-                  types: {
-                    type: 'ARRAY',
-                    items: { type: 'STRING' }
-                  },
-                  categories: {
-                    type: 'ARRAY',
-                    items: { type: 'STRING' }
-                  },
-                  keyword: { type: 'STRING' },
-                  dateRange: {
-                    type: 'OBJECT',
-                    properties: {
-                      anchor: { type: 'STRING' },
-                      offsetAmount: { type: 'INTEGER' },
-                      offsetUnit: { type: 'STRING' }
-                    }
-                  },
-                  dayOfWeek: { type: 'STRING' },
-                  location: {
-                    type: 'OBJECT',
-                    properties: {
-                      coordinates: {
-                        type: 'OBJECT',
-                        properties: {
-                          lat: { type: 'NUMBER' },
-                          lng: { type: 'NUMBER' }
-                        }
-                      },
-                      radiusMeters: { type: 'INTEGER' },
-                      adminArea: { type: 'STRING' }
-                    }
-                  },
-                  venueType: { type: 'STRING' },
-                  isFree: { type: 'BOOLEAN' }
-                }
-              },
-              caveats: {
-                type: 'ARRAY',
-                items: { type: 'STRING' }
-              }
-            },
-            required: ['resolvedFilter', 'caveats']
-          },
+          responseSchema: buildFilterExtractionResponseSchema(),
           provider: 'gemini',
           subscriberUserIds: [authUser.userId],
         });
@@ -425,27 +371,26 @@ Constraints and Guidelines:
             extensions: { code: 'INTERNAL_SERVER_ERROR' }
           });
         }
-        const resolvedFilter = transformGeminiResponseToEventFilter(parsed.resolvedFilter);
-        const caveats = Array.isArray(parsed.caveats) ? parsed.caveats.filter((c: any) => typeof c === 'string') : [];
 
-        // IDEA-065: the model only ever sees the user's words, never profile UUIDs, so turn the
-        // named handle/username/display name into a real profile id (or drop it, loudly).
-        if (resolvedFilter.accountId) {
-          const namedAccount = resolvedFilter.accountId;
-          const accountProfileId = await resolveFilterAccountId(authUser.userId, namedAccount);
-          if (accountProfileId) {
-            resolvedFilter.accountId = accountProfileId;
-          } else {
-            delete resolvedFilter.accountId;
-            caveats.push(`Could not find an account matching "${namedAccount}", so events from all accounts are shown.`);
-          }
+        const { expression: rawExpression, caveats: extractionCaveats } = transformGeminiResponseToFilterExpression(parsed);
+        const { expression, caveats: accountCaveats } = await resolveFilterExpressionAccountIds(rawExpression, authUser.userId);
+
+        let resolvedFilter: any;
+        try {
+          resolvedFilter = flatFilterFromExpression(expression);
+        } catch {
+          // Honest "no flat projection" for a non-flat (OR/NOT-containing) expression -- never a
+          // fabricated partial filter, never a 500 (AC4, matching Story 9.3's `resolveStoredFilter`
+          // precedent, adapted for this field's non-null GraphQL contract).
+          resolvedFilter = {};
         }
 
         return {
-          resolvedFilter: resolvedFilter as any,
-          caveats,
+          resolvedFilter: resolvedFilter,
+          expression: expression,
+          caveats: [...extractionCaveats, ...accountCaveats],
         };
-      } catch (err: any) {
+      } catch (err) {
         if (err instanceof AiGatewayExhaustedError) {
           throw new GraphQLError('No available Gemini API key or quota exceeded.', {
             extensions: { code: 'QUOTA_EXHAUSTED' }
@@ -460,19 +405,36 @@ Constraints and Guidelines:
         throw err;
       }
     },
-    saveAIEventFilter: async (_: any, { prompt, resolvedFilter }: any, context: any) => {
+    saveAIEventFilter: async (_, { prompt, resolvedFilter, expression }, context) => {
       const authUser = requireAuth(context);
-      
+
       if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0 || prompt.length > 2000) {
         throw new GraphQLError('Prompt must be between 1 and 2000 characters', {
           extensions: { code: 'BAD_USER_INPUT' }
         });
       }
 
+      if ((resolvedFilter == null) === (expression == null)) {
+        throw new GraphQLError('Provide exactly one of resolvedFilter or expression.', {
+          extensions: { code: 'BAD_USER_INPUT' }
+        });
+      }
+
+      let storedValue: any = resolvedFilter;
+      if (expression) {
+        const validation = validateFilterNode(expression);
+        if (!validation.valid) {
+          throw new GraphQLError(formatFilterValidationIssues(validation.issues), {
+            extensions: { code: 'BAD_USER_INPUT' }
+          });
+        }
+        storedValue = { version: 2, expression: validation.node };
+      }
+
       const [inserted] = await db.insert(aiEventFilters).values({
         ownerUserId: authUser.userId,
         prompt: prompt,
-        resolvedFilter: resolvedFilter,
+        resolvedFilter: storedValue,
       }).returning();
 
       return {
@@ -480,9 +442,9 @@ Constraints and Guidelines:
         createdAt: inserted.createdAt.toISOString(),
         updatedAt: inserted.updatedAt.toISOString(),
         deletedAt: inserted.deletedAt ? inserted.deletedAt.toISOString() : null,
-      } as any;
+      };
     },
-    deleteAIEventFilter: async (_: any, { id, action }: any, context: any) => {
+    deleteAIEventFilter: async (_, { id, action }, context) => {
       const authUser = requireAuth(context);
       const [existing] = await db.select().from(aiEventFilters)
         .where(and(eq(aiEventFilters.id, id), eq(aiEventFilters.ownerUserId, authUser.userId)));
@@ -504,7 +466,7 @@ Constraints and Guidelines:
           createdAt: updated.createdAt.toISOString(),
           updatedAt: updated.updatedAt.toISOString(),
           deletedAt: updated.deletedAt ? updated.deletedAt.toISOString() : null,
-        } as any;
+        };
       } else if (action === 'RESTORE') {
         if (existing.deletedAt === null) {
           throw new GraphQLError('AIEventFilter is already active', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
@@ -518,11 +480,11 @@ Constraints and Guidelines:
           createdAt: updated.createdAt.toISOString(),
           updatedAt: updated.updatedAt.toISOString(),
           deletedAt: null,
-        } as any;
+        };
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
-    createApiKey: async (_: any, { input }: any, context: any) => {
+    createApiKey: async (_, { input }, context) => {
       const authUser = requireAuth(context);
       const normalizedKey = input.key.trim();
       if (input.provider.toLowerCase() !== 'gemini') {
@@ -552,7 +514,7 @@ Constraints and Guidelines:
         if (!isValid) {
           throw new GraphQLError('Invalid Gemini API key', { extensions: { code: 'INVALID_API_KEY' } });
         }
-      } catch (err: any) {
+      } catch (err) {
         if (err instanceof GraphQLError && err.extensions?.code === 'INVALID_API_KEY') {
           throw err;
         }
@@ -578,7 +540,7 @@ Constraints and Guidelines:
       }).returning();
       return formatApiKey(inserted);
     },
-    deleteApiKey: async (_: any, { id, action }: any, context: any) => {
+    deleteApiKey: async (_, { id, action }, context) => {
       const authUser = requireAuth(context);
       const existingRows = await db.select().from(apiKeys)
         .where(and(eq(apiKeys.id, id), eq(apiKeys.userId, authUser.userId)));
@@ -609,15 +571,16 @@ Constraints and Guidelines:
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
-    subscribeToAccount: async (_: any, { input }: any, context: any) => {
+    subscribeToAccount: async (_, { input }, context) => {
       const authUser = requireAuth(context);
-      if (!SUPPORTED_PLATFORMS.includes(input.platform.toLowerCase() as any)) {
+      const platform = input.platform.toLowerCase();
+      if (!isSupportedPlatform(platform)) {
         throw new GraphQLError('Unsupported platform', { extensions: { code: 'BAD_REQUEST' } });
       }
       try {
         const result = await subscribeToAccountFn({
           userId: authUser.userId,
-          platform: input.platform.toLowerCase(),
+          platform,
           accountId: input.accountId,
           profile: {
             username: input.username,
@@ -637,7 +600,7 @@ Constraints and Guidelines:
         throw err;
       }
     },
-    removeSubscription: async (_: any, { id, action }: any, context: any) => {
+    removeSubscription: async (_, { id, action }, context) => {
       const authUser = requireAuth(context);
       const existingRows = await db.select().from(subscriptions)
         .where(and(eq(subscriptions.id, id), eq(subscriptions.userId, authUser.userId)));
@@ -668,7 +631,7 @@ Constraints and Guidelines:
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
-    triggerAccountScrape: async (_: any, { accountId }: any, context: any) => {
+    triggerAccountScrape: async (_, { accountId }, context) => {
       const authUser = requireAuth(context);
 
       // 1. Check that the user has an active subscription to this account
@@ -758,7 +721,7 @@ Constraints and Guidelines:
       // 5. Build ScrapeTarget and trigger the cascade
       const scrapeTarget = {
         profileId: profile.id,
-        platform: profile.platform as any,
+        platform: profile.platform as ScrapablePlatform,
         accountId: profile.accountId,
         username: profile.username,
         isInitialNewSubscription: isInitialScrape,
@@ -780,7 +743,7 @@ Constraints and Guidelines:
         isInitialScrape,
       };
     },
-    setAccountDefaultLocation: async (_: any, { accountId, input, asModeratorCorrection }: any, context: any, info: any) => {
+    setAccountDefaultLocation: async (_, { accountId, input, asModeratorCorrection }, context, info) => {
       try {
         const authUser = requireAuth(context);
         // AC15: mirrors editAccountDefaultLocation's AD-11 additive-auth shape exactly --
@@ -854,20 +817,20 @@ Constraints and Guidelines:
         }).from(socialMediaAccountProfiles)
           .where(eq(socialMediaAccountProfiles.id, accountId));
 
-        const updatedProfile = rows[0] as any;
+        const updatedProfile = rows[0] as SocialMediaAccountProfileParent;
         if (updatedProfile && updatedProfile.defaultLocation) {
           updatedProfile.defaultLocation = formatLocationDetails(updatedProfile.defaultLocation);
         }
 
         return updatedProfile;
-      } catch (err: any) {
+      } catch (err) {
         if (err instanceof InvalidUserLocationInputError) {
           throw new GraphQLError(err.message, { extensions: { code: 'BAD_REQUEST' } });
         }
         throw err;
       }
     },
-    editAccountDefaultLocation: async (_: any, { accountId, input, asModeratorCorrection }: any, context: any, info: any) => {
+    editAccountDefaultLocation: async (_, { accountId, input, asModeratorCorrection }, context, info) => {
       try {
         const authUser = requireAuth(context);
         // Which mutation semantics apply is decided by the calling page (via the explicit
@@ -955,20 +918,20 @@ Constraints and Guidelines:
         }).from(socialMediaAccountProfiles)
           .where(eq(socialMediaAccountProfiles.id, accountId));
 
-        const updatedProfile = rows[0] as any;
+        const updatedProfile = rows[0] as SocialMediaAccountProfileParent;
         if (updatedProfile && updatedProfile.defaultLocation) {
           updatedProfile.defaultLocation = formatLocationDetails(updatedProfile.defaultLocation);
         }
 
         return updatedProfile;
-      } catch (err: any) {
+      } catch (err) {
         if (err instanceof InvalidUserLocationInputError) {
           throw new GraphQLError(err.message, { extensions: { code: 'BAD_REQUEST' } });
         }
         throw err;
       }
     },
-    clearAccountDefaultLocation: async (_: any, { accountId }: any, context: any, info: any) => {
+    clearAccountDefaultLocation: async (_, { accountId }, context, info) => {
       // Moderator-only, no subscriber path -- clearing has no subscriber-facing equivalent
       // anywhere in the product (see Story 4.9 Dev Notes). Mirrors setImageStorageOptIn's shape.
       requireModerator(context);
@@ -1018,7 +981,7 @@ Constraints and Guidelines:
         }
 
         await tx.update(defaultLocationChangeRequests)
-          .set({ status: 'SUPERSEDED' as any })
+          .set({ status: 'SUPERSEDED' })
           .where(
             and(
               eq(defaultLocationChangeRequests.accountId, accountId),
@@ -1035,14 +998,14 @@ Constraints and Guidelines:
       }).from(socialMediaAccountProfiles)
         .where(eq(socialMediaAccountProfiles.id, accountId));
 
-      const updatedProfile = rows[0] as any;
+      const updatedProfile = rows[0] as SocialMediaAccountProfileParent;
       if (updatedProfile && updatedProfile.defaultLocation) {
         updatedProfile.defaultLocation = formatLocationDetails(updatedProfile.defaultLocation);
       }
 
       return updatedProfile;
     },
-    setImageStorageOptIn: async (_: any, { accountId, optedIn }: any, context: any, info: any) => {
+    setImageStorageOptIn: async (_, { accountId, optedIn }, context, info) => {
       requireModerator(context);
 
       // 1. Look up the social_media_account_profiles row by id = accountId
@@ -1071,14 +1034,14 @@ Constraints and Guidelines:
       }).from(socialMediaAccountProfiles)
         .where(eq(socialMediaAccountProfiles.id, accountId));
 
-      const updatedProfile = rows[0] as any;
+      const updatedProfile = rows[0] as SocialMediaAccountProfileParent;
       if (updatedProfile && updatedProfile.defaultLocation) {
         updatedProfile.defaultLocation = formatLocationDetails(updatedProfile.defaultLocation);
       }
 
       return updatedProfile;
     },
-    createUserLocation: async (_: any, { input }: any, context: any) => {
+    createUserLocation: async (_, { input }, context) => {
       try {
         const authUser = requireAuth(context);
         const mode = resolveLocationInputMode(input);
@@ -1110,15 +1073,15 @@ Constraints and Guidelines:
           locationDetails: formatLocationDetails(created.locationDetails),
           createdAt: created.createdAt.toISOString(),
           updatedAt: created.updatedAt.toISOString(),
-        } as any;
-      } catch (err: any) {
+        };
+      } catch (err) {
         if (err instanceof InvalidUserLocationInputError) {
           throw new GraphQLError(err.message, { extensions: { code: 'BAD_REQUEST' } });
         }
         throw err;
       }
     },
-    updateUserLocation: async (_: any, { id, input }: any, context: any) => {
+    updateUserLocation: async (_, { id, input }, context) => {
       try {
         const authUser = requireAuth(context);
         const existingRows = await db.select().from(userLocations)
@@ -1169,15 +1132,15 @@ Constraints and Guidelines:
           locationDetails: formatLocationDetails(updated.locationDetails),
           createdAt: updated.createdAt.toISOString(),
           updatedAt: updated.updatedAt.toISOString(),
-        } as any;
-      } catch (err: any) {
+        };
+      } catch (err) {
         if (err instanceof InvalidUserLocationInputError) {
           throw new GraphQLError(err.message, { extensions: { code: 'BAD_REQUEST' } });
         }
         throw err;
       }
     },
-    deleteUserLocation: async (_: any, { id, action }: any, context: any) => {
+    deleteUserLocation: async (_, { id, action }, context) => {
       const authUser = requireAuth(context);
       const existingRows = await db.select().from(userLocations)
         .where(and(eq(userLocations.id, id), eq(userLocations.userId, authUser.userId)));
@@ -1200,7 +1163,7 @@ Constraints and Guidelines:
           locationDetails: formatLocationDetails(updated.locationDetails),
           createdAt: updated.createdAt.toISOString(),
           updatedAt: updated.updatedAt.toISOString(),
-        } as any;
+        };
       } else if (action === 'RESTORE') {
         if (existing.deletedAt === null) {
           throw new GraphQLError('Location is already active', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
@@ -1214,11 +1177,11 @@ Constraints and Guidelines:
           locationDetails: formatLocationDetails(updated.locationDetails),
           createdAt: updated.createdAt.toISOString(),
           updatedAt: updated.updatedAt.toISOString(),
-        } as any;
+        };
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
-    toggleFavorite: async (_: any, { eventId }: any, context: any) => {
+    toggleFavorite: async (_, { eventId }, context) => {
       const authUser = requireAuth(context);
       
       return await db.transaction(async (tx) => {
@@ -1256,7 +1219,7 @@ Constraints and Guidelines:
         }
       });
     },
-    updateUserSettings: async (_: any, { input }: any, context: any) => {
+    updateUserSettings: async (_, { input }, context) => {
       try {
         const authUser = requireAuth(context);
         if (input.hidePastEventsAfterDays !== undefined && input.hidePastEventsAfterDays !== null) {
@@ -1286,15 +1249,15 @@ Constraints and Guidelines:
           ...updated,
           createdAt: updated.createdAt.toISOString(),
           updatedAt: updated.updatedAt.toISOString(),
-        } as any;
-      } catch (err: any) {
+        };
+      } catch (err) {
         if (err instanceof InvalidUserSettingsInputError) {
           throw new GraphQLError(err.message, { extensions: { code: 'BAD_REQUEST' } });
         }
         throw err;
       }
     },
-    toggleCalendarAddition: async (_: any, { eventId, scheduleId }: any, context: any) => {
+    toggleCalendarAddition: async (_, { eventId, scheduleId }, context) => {
       const authUser = requireAuth(context);
 
       return await db.transaction(async (tx) => {
@@ -1337,7 +1300,7 @@ Constraints and Guidelines:
         }
       });
     },
-    resolveScheduleTimezone: async (_: any, { scheduleId, timezone }: any, context: any) => {
+    resolveScheduleTimezone: async (_, { scheduleId, timezone }, context) => {
       const authUser = requireAuth(context);
 
       if (!isValidIanaTimezone(timezone)) {
@@ -1361,7 +1324,7 @@ Constraints and Guidelines:
       const [updated] = await db.update(schedules)
         .set({
           timezone,
-          timezoneStatus: 'RESOLVED' as any,
+          timezoneStatus: 'RESOLVED',
           updatedAt: new Date(),
         })
         .where(eq(schedules.id, scheduleId))
@@ -1373,7 +1336,7 @@ Constraints and Guidelines:
         timezoneStatus: 'RESOLVED' as const,
       };
     },
-    registerFcmToken: async (_: any, { token }: any, context: any) => {
+    registerFcmToken: async (_, { token }, context) => {
       const authUser = requireAuth(context);
       await db.insert(fcmTokens).values({
         token,
@@ -1387,7 +1350,7 @@ Constraints and Guidelines:
       });
       return true;
     },
-    unregisterFcmToken: async (_: any, { token }: any, context: any) => {
+    unregisterFcmToken: async (_, { token }, context) => {
       const authUser = requireAuth(context);
       await db.delete(fcmTokens).where(
         and(
@@ -1397,7 +1360,7 @@ Constraints and Guidelines:
       );
       return true;
     },
-    updateUserTimezone: async (_: any, { timezone }: any, context: any) => {
+    updateUserTimezone: async (_, { timezone }, context) => {
       const authUser = requireAuth(context);
       if (!isValidIanaTimezone(timezone)) {
         throw new GraphQLError('Invalid IANA timezone.', {
@@ -1415,7 +1378,7 @@ Constraints and Guidelines:
       }
       return true;
     },
-    reportSystemError: async (_: any, { input }: any) => {
+    reportSystemError: async (_, { input }) => {
       const valid = validateReportSystemError(input);
       if (!valid) {
         throw new GraphQLError('Invalid reportSystemError input', {
@@ -1441,8 +1404,13 @@ Constraints and Guidelines:
 
       return true;
     },
-    submitCorrection: async (_: any, { eventId, proposedData, source, guardianPermissionConfirmed }: any, context: any) => {
+    submitCorrection: async (_, { eventId, proposedData: proposedInput, source, guardianPermissionConfirmed }, context) => {
       const authUser = requireAuth(context);
+
+      // The GraphQL input and the stored ProposedEventCorrection describe the same values but are
+      // typed differently (string-literal unions vs enums, null vs undefined). AJV below is the
+      // runtime gate, and rejected rows deliberately store the payload as received.
+      const proposedData = proposedInput as unknown as ProposedEventCorrection;
 
       // 1. Look up event
       const eventRows = await db.select().from(events).where(eq(events.id, eventId));
@@ -1472,14 +1440,14 @@ Constraints and Guidelines:
 
       // 4. Schedule ownership check (only if AJV passed)
       if (validationErrors.length === 0) {
-        const ids = proposedData.schedules.map((s: any) => s.id).filter((id: any): id is string => !!id);
+        const ids = proposedData.schedules.map((s) => s.id).filter((id: any): id is string => !!id);
         if (ids.length > 0) {
           const existingSchedules = await db.select()
             .from(schedules)
             .where(and(eq(schedules.eventId, eventId), inArray(schedules.id, ids)));
           const existingIds = new Set(existingSchedules.map((s) => s.id));
 
-          proposedData.schedules.forEach((s: any, index: number) => {
+          proposedData.schedules.forEach((s, index: number) => {
             if (s.id && !existingIds.has(s.id)) {
               validationErrors.push({
                 field: `schedules[${index}].id`,
@@ -1508,7 +1476,7 @@ Constraints and Guidelines:
           createdAt: inserted.createdAt.toISOString(),
           resolvedAt: inserted.resolvedAt ? inserted.resolvedAt.toISOString() : null,
           validationErrors,
-        } as any;
+        };
       }
 
       // 6. If applied (inside transaction)
@@ -1586,9 +1554,9 @@ Constraints and Guidelines:
         createdAt: correction.createdAt.toISOString(),
         resolvedAt: correction.resolvedAt ? correction.resolvedAt.toISOString() : null,
         validationErrors: [],
-      } as any;
+      };
     },
-    extractEventDataFromUrl: async (_: any, { url }: any, context: any) => {
+    extractEventDataFromUrl: async (_, { url }, context) => {
       const authUser = requireAuth(context);
 
       // Story 4.2b -- only the synchronous pre-checks run here (same branching, same error codes
@@ -1672,7 +1640,7 @@ Constraints and Guidelines:
         },
       });
     },
-    submitReport: async (_: any, { eventId, reason, details }: any, context: any): Promise<any> => {
+    submitReport: async (_, { eventId, reason, details }, context): Promise<any> => {
       const authUser = requireAuth(context);
       const [existingEvent] = await db.select().from(events).where(eq(events.id, eventId));
       if (!existingEvent) {
@@ -1737,7 +1705,7 @@ Constraints and Guidelines:
         resolvedAt: newReport.resolvedAt ? newReport.resolvedAt.toISOString() : null,
       };
     },
-    resolveReport: async (_: any, { id, outcome }: any, context: any): Promise<any> => {
+    resolveReport: async (_, { id, outcome }, context): Promise<any> => {
       const moderator = requireModerator(context);
       const [report] = await db.select().from(reports).where(eq(reports.id, id));
       if (!report) {
@@ -1761,7 +1729,7 @@ Constraints and Guidelines:
         resolvedAt: updated.resolvedAt ? updated.resolvedAt.toISOString() : null,
       };
     },
-    ignoreSubsequentReports: async (_: any, { reportId }: any, context: any): Promise<any> => {
+    ignoreSubsequentReports: async (_, { reportId }, context): Promise<any> => {
       requireModerator(context);
       const [report] = await db.select().from(reports).where(eq(reports.id, reportId));
       if (!report) {
@@ -1783,7 +1751,7 @@ Constraints and Guidelines:
         resolvedAt: updated.resolvedAt ? updated.resolvedAt.toISOString() : null,
       };
     },
-    resolveReportsForEvent: async (_: any, { eventId }: any, context: any): Promise<any> => {
+    resolveReportsForEvent: async (_, { eventId }, context): Promise<any> => {
       const moderator = requireModerator(context);
       const [existingEvent] = await db.select().from(events).where(eq(events.id, eventId));
       if (!existingEvent) {
@@ -1811,13 +1779,13 @@ Constraints and Guidelines:
         return rows;
       });
 
-      return updatedReports.map((r: any) => ({
+      return updatedReports.map((r) => ({
         ...r,
         createdAt: r.createdAt.toISOString(),
         resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null,
       }));
     },
-    restoreEvent: async (_: any, { id, action }: any, context: any, info: any) => {
+    restoreEvent: async (_, { id, action }, context, info) => {
       requireModerator(context);
       const existingRows = await db.select().from(events).where(eq(events.id, id));
       if (existingRows.length === 0) {
@@ -1870,14 +1838,14 @@ Constraints and Guidelines:
         .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
         .where(eq(events.id, id));
 
-      return (rows[0] as any) || null;
+      return (rows[0]) || null;
     },
     // Story 3.6w (AC1, AC3) -- the suggested-match list's Accept/Reject action. ACCEPT merges
     // the suggestion's eventId (the newly-ingested event, the loser) into its candidateEventId
     // (the existing event, the winner) via mergeEvents, inside one transaction so the merge and
     // the suggestion's own status flip commit together. REJECT needs no transaction -- it is a
     // recorded dismissal with no merge side effects (AC3).
-    resolveSuggestedEventMatch: async (_: any, { id, action }: any, context: any, info: any) => {
+    resolveSuggestedEventMatch: async (_, { id, action }, context, info) => {
       const moderator = requireModerator(context);
 
       const [suggestion] = await db.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.id, id));
@@ -1934,7 +1902,7 @@ Constraints and Guidelines:
     },
     // Story 3.6w (AC7) -- reverses a merge's full repoint set exactly, via the journal
     // mergeEvents wrote.
-    undoEventMerge: async (_: any, { mergeId }: any, context: any, info: any) => {
+    undoEventMerge: async (_, { mergeId }, context, info) => {
       const moderator = requireModerator(context);
 
       let restoredEventId: string;
@@ -1971,9 +1939,9 @@ Constraints and Guidelines:
         .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
         .where(eq(events.id, restoredEventId));
 
-      return (restoredRow as any) || null;
+      return (restoredRow) || null;
     },
-    deleteEventPermanently: async (_: any, { id }: any, context: any) => {
+    deleteEventPermanently: async (_, { id }, context) => {
       requireModerator(context);
       const existingRows = await db.select().from(events).where(eq(events.id, id));
       if (existingRows.length === 0) {
@@ -1982,7 +1950,7 @@ Constraints and Guidelines:
       await db.delete(events).where(eq(events.id, id));
       return true;
     },
-    resolveDefaultLocationChange: async (_: any, { id, action }: any, context: any): Promise<any> => {
+    resolveDefaultLocationChange: async (_, { id, action }, context): Promise<any> => {
       const moderator = requireModerator(context);
       
       const [reqRow] = await db.select()
@@ -2103,7 +2071,7 @@ Constraints and Guidelines:
         reviewedAt: updatedRow.reviewedAt ? updatedRow.reviewedAt.toISOString() : null,
       };
     },
-    resolveAccountTypeClassificationReview: async (_: any, { id, accountType }: any, context: any): Promise<any> => {
+    resolveAccountTypeClassificationReview: async (_, { id, accountType }, context): Promise<any> => {
       const moderator = requireModerator(context);
 
       const [reqRow] = await db.select()
@@ -2148,7 +2116,7 @@ Constraints and Guidelines:
         reviewedAt: updatedRow.reviewedAt ? updatedRow.reviewedAt.toISOString() : null,
       };
     },
-    markSubscriptionViewed: async (_: any, { subscriptionId }: any, context: any) => {
+    markSubscriptionViewed: async (_, { subscriptionId }, context) => {
       const authUser = requireAuth(context);
       const [updated] = await db.update(subscriptions)
         .set({ isNewlyAdded: false })
@@ -2159,7 +2127,7 @@ Constraints and Guidelines:
       }
       return formatSubscription(updated);
     },
-    selectPostsForExtraction: async (_: any, { postIds }: any, context: any) => {
+    selectPostsForExtraction: async (_, { postIds }, context) => {
       const authUser = requireAuth(context);
 
       if (postIds.length === 0) {
@@ -2235,7 +2203,7 @@ Constraints and Guidelines:
       }
 
       if (succeededIds.length === 0) {
-        const err = failures[0]?.error as any;
+        const err = failures[0]?.error;
         if (err instanceof PostAlreadyExtractedError) {
           throw new GraphQLError('Post has already been extracted', { extensions: { code: 'BAD_REQUEST' } });
         }
@@ -2257,7 +2225,7 @@ Constraints and Guidelines:
         publishedAt: p.publishedAt.toISOString()
       }));
     },
-    castVote: async (_: any, { input }: any, context: any) => {
+    castVote: async (_, { input }, context) => {
       const authUser = requireAuth(context);
       
       let accountId = input.accountId;
@@ -2267,13 +2235,14 @@ Constraints and Guidelines:
           throw new GraphQLError('accountId or platform + handleOrUrl required', { extensions: { code: 'BAD_REQUEST' } });
         }
         
-        if (!SUPPORTED_PLATFORMS.includes(input.platform.toLowerCase() as any)) {
+        const platform = input.platform.toLowerCase();
+        if (!isSupportedPlatform(platform)) {
           throw new GraphQLError('Unsupported platform', { extensions: { code: 'BAD_REQUEST' } });
         }
         
         let lookupResult;
         try {
-          lookupResult = await lookupAccountProfile(input.platform.toLowerCase() as any, input.handleOrUrl);
+          lookupResult = await lookupAccountProfile(platform, input.handleOrUrl);
         } catch (err) {
           if (err instanceof ApifyRequestTimeoutError) {
             throw new GraphQLError(err.message, { extensions: { code: 'SCRAPE_TIMEOUT' } });
@@ -2288,7 +2257,7 @@ Constraints and Guidelines:
         // STOPGAP (BUG-059): reuse a profile a user already created from a typed handle instead of
         // adding a numeric-keyed twin for the same platform account.
         const handleKeyedProfile = await findProfileByUsername(
-          input.platform.toLowerCase(),
+          platform,
           lookupResult.username,
           { handleKeyedOnly: true }
         );
@@ -2357,7 +2326,7 @@ Constraints and Guidelines:
 
       return voteResult;
     },
-    withdrawVote: async (_: any, { id, action }: any, context: any) => {
+    withdrawVote: async (_, { id, action }, context) => {
       const authUser = requireAuth(context);
       
       const existingVote = await db.select().from(accountVotes)
@@ -2389,24 +2358,39 @@ Constraints and Guidelines:
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
-    createWidget: async (_: any, { input }: any, context: any) => {
+    createWidget: async (_, { input }, context) => {
       const authUser = requireAuth(context);
-      
-      if (typeof input.filters !== 'object' || input.filters === null) {
+
+      if ((input.filters == null) === (input.expression == null)) {
+        throw new GraphQLError('Provide exactly one of filters or expression.', {
+          extensions: { code: 'BAD_USER_INPUT' }
+        });
+      }
+
+      let storedValue: any = input.filters;
+      if (input.expression) {
+        const validation = validateFilterNode(input.expression);
+        if (!validation.valid) {
+          throw new GraphQLError(formatFilterValidationIssues(validation.issues), {
+            extensions: { code: 'BAD_USER_INPUT' }
+          });
+        }
+        storedValue = { version: 2, expression: validation.node };
+      } else if (typeof input.filters !== 'object' || input.filters === null) {
         throw new GraphQLError('Filters must be a valid JSON object', { extensions: { code: 'BAD_REQUEST' } });
       }
 
       const [inserted] = await db.insert(widgets).values({
         ownerUserId: authUser.userId,
-        filters: input.filters,
+        filters: storedValue,
         displayMode: input.displayMode || 'CARD',
         theme: input.theme || 'LIGHT',
       }).returning();
-      return { ...inserted, createdAt: inserted.createdAt.toISOString(), deletedAt: null } as any;
+      return { ...inserted, createdAt: inserted.createdAt.toISOString(), deletedAt: null };
     },
-    updateWidget: async (_: any, { id, input }: any, context: any) => {
+    updateWidget: async (_, { id, input }, context) => {
       const authUser = requireAuth(context);
-      
+
       const [existing] = await db.select().from(widgets).where(and(eq(widgets.id, id), eq(widgets.ownerUserId, authUser.userId)));
       if (!existing) {
         throw new GraphQLError('Widget not found or unauthorized', { extensions: { code: 'NOT_FOUND' } });
@@ -2415,8 +2399,22 @@ Constraints and Guidelines:
         throw new GraphQLError('Cannot update a deleted widget', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
       }
 
+      if (input.filters !== undefined && input.expression !== undefined) {
+        throw new GraphQLError('Provide either filters or expression, not both, in the same call.', {
+          extensions: { code: 'BAD_USER_INPUT' }
+        });
+      }
+
       const updateFields: any = {};
-      if (input.filters !== undefined) {
+      if (input.expression !== undefined) {
+        const validation = validateFilterNode(input.expression);
+        if (!validation.valid) {
+          throw new GraphQLError(formatFilterValidationIssues(validation.issues), {
+            extensions: { code: 'BAD_USER_INPUT' }
+          });
+        }
+        updateFields.filters = { version: 2, expression: validation.node };
+      } else if (input.filters !== undefined) {
         if (typeof input.filters !== 'object' || input.filters === null) {
           throw new GraphQLError('Filters must be a valid JSON object', { extensions: { code: 'BAD_REQUEST' } });
         }
@@ -2433,9 +2431,9 @@ Constraints and Guidelines:
         .set(updateFields)
         .where(eq(widgets.id, id))
         .returning();
-      return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: updated.deletedAt ? updated.deletedAt.toISOString() : null } as any;
+      return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: updated.deletedAt ? updated.deletedAt.toISOString() : null };
     },
-    deleteWidget: async (_: any, { id, action }: any, context: any) => {
+    deleteWidget: async (_, { id, action }, context) => {
       const authUser = requireAuth(context);
       const [existing] = await db.select().from(widgets).where(and(eq(widgets.id, id), eq(widgets.ownerUserId, authUser.userId)));
       if (!existing) {
@@ -2450,7 +2448,7 @@ Constraints and Guidelines:
           .set({ deletedAt: new Date() })
           .where(eq(widgets.id, id))
           .returning();
-        return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: updated.deletedAt ? updated.deletedAt.toISOString() : null } as any;
+        return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: updated.deletedAt ? updated.deletedAt.toISOString() : null };
       } else if (action === 'RESTORE') {
         if (existing.deletedAt === null) {
           throw new GraphQLError('Widget is already active', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
@@ -2459,11 +2457,11 @@ Constraints and Guidelines:
           .set({ deletedAt: null })
           .where(eq(widgets.id, id))
           .returning();
-        return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: null } as any;
+        return { ...updated, createdAt: updated.createdAt.toISOString(), deletedAt: null };
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
-    registerEmbedDomain: async (_: any, { widgetId, pattern }: any, context: any) => {
+    registerEmbedDomain: async (_, { widgetId, pattern }, context) => {
       const authUser = requireAuth(context);
       
       const [widget] = await db.select().from(widgets).where(and(eq(widgets.id, widgetId), eq(widgets.ownerUserId, authUser.userId), isNull(widgets.deletedAt)));
@@ -2505,7 +2503,7 @@ Constraints and Guidelines:
         .returning();
       return { ...inserted, createdAt: inserted.createdAt.toISOString(), deletedAt: null };
     },
-    deregisterEmbedDomain: async (_: any, { id, action }: any, context: any) => {
+    deregisterEmbedDomain: async (_, { id, action }, context) => {
       const authUser = requireAuth(context);
       
       const [existing] = await db.select({
@@ -2544,7 +2542,7 @@ Constraints and Guidelines:
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
-    reprocessPayload: async (_: any, { payloadId, parserVersion }: any, context: any) => {
+    reprocessPayload: async (_, { payloadId, parserVersion }, context) => {
       requireModerator(context);
 
       // Verify payload exists
@@ -2640,7 +2638,7 @@ Constraints and Guidelines:
         message: `Reprocessed successfully: ${replayResult.message}`,
       };
     },
-    deleteUnprocessedPayload: async (_: any, { payloadId }: any, context: any) => {
+    deleteUnprocessedPayload: async (_, { payloadId }, context) => {
       requireModerator(context);
 
       const result = await db
@@ -2656,27 +2654,26 @@ Constraints and Guidelines:
 
       return result.length > 0;
     },
-    replayActorRun: async (_: any, { actorRunId }: any, context: any) => {
+    replayActorRun: async (_, { actorRunId }, context) => {
       requireModerator(context);
       return replayActorRun(actorRunId);
     },
   },
   Query: {
     health: () => true,
-    myAIEventFilters: async (_: any, __: any, context: any) => {
+    myAIEventFilters: async (_, __, context) => {
       const authUser = requireAuth(context);
       const rows = await db.select().from(aiEventFilters)
         .where(and(eq(aiEventFilters.ownerUserId, authUser.userId), activeOnly(aiEventFilters)))
         .orderBy(desc(aiEventFilters.createdAt));
       return rows.map((r) => ({
         ...r,
-        resolvedFilter: r.resolvedFilter as any,
         createdAt: r.createdAt.toISOString(),
         updatedAt: r.updatedAt.toISOString(),
         deletedAt: r.deletedAt ? r.deletedAt.toISOString() : null,
-      })) as any;
+      }));
     },
-    myReports: async (_: any, __: any, context: any): Promise<any> => {
+    myReports: async (_, __, context): Promise<any> => {
       const authUser = requireAuth(context);
       const rows = await db.select().from(reports)
         .where(eq(reports.reporterUserId, authUser.userId))
@@ -2687,9 +2684,9 @@ Constraints and Guidelines:
         resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null,
       }));
     },
-    reportedEvents: async (_: any, { status, reason }: any, context: any): Promise<any> => {
+    reportedEvents: async (_, { status, reason }, context): Promise<any> => {
       requireModerator(context);
-      const conditions: any[] = [];
+      const conditions: SQL[] = [];
       if (status) {
         conditions.push(eq(reports.status, status));
       }
@@ -2706,7 +2703,7 @@ Constraints and Guidelines:
         resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null,
       }));
     },
-    moderatorPendingItemCount: async (_: any, __: any, context: any): Promise<number> => {
+    moderatorPendingItemCount: async (_, __, context): Promise<number> => {
       requireModerator(context);
       const [[{ pendingReportCount }], [{ pendingLocationChangeCount }], [{ pendingClassificationCount }], [{ pendingSuggestionCount }]] = await Promise.all([
         db.select({ pendingReportCount: count() })
@@ -2726,7 +2723,7 @@ Constraints and Guidelines:
       ]);
       return Number(pendingReportCount) + Number(pendingLocationChangeCount) + Number(pendingClassificationCount) + Number(pendingSuggestionCount);
     },
-    pendingDefaultLocationChanges: async (_: any, __: any, context: any): Promise<any> => {
+    pendingDefaultLocationChanges: async (_, __, context): Promise<any> => {
       requireModerator(context);
       const rows = await db.select()
         .from(defaultLocationChangeRequests)
@@ -2741,7 +2738,7 @@ Constraints and Guidelines:
         reviewedAt: r.reviewedAt ? r.reviewedAt.toISOString() : null,
       }));
     },
-    pendingAccountTypeClassificationReviews: async (_: any, __: any, context: any): Promise<any> => {
+    pendingAccountTypeClassificationReviews: async (_, __, context): Promise<any> => {
       requireModerator(context);
       const rows = await db.select()
         .from(accountTypeClassificationReviews)
@@ -2754,21 +2751,21 @@ Constraints and Guidelines:
         reviewedAt: r.reviewedAt ? r.reviewedAt.toISOString() : null,
       }));
     },
-    myApiKeys: async (_: any, __: any, context: any) => {
+    myApiKeys: async (_, __, context) => {
       const authUser = requireAuth(context);
       const rows = await db.select().from(apiKeys)
         .where(and(eq(apiKeys.userId, authUser.userId), activeOnly(apiKeys)))
         .orderBy(desc(apiKeys.createdAt));
       return rows.map(row => formatApiKey(row));
     },
-    mySubscriptions: async (_: any, __: any, context: any) => {
+    mySubscriptions: async (_, __, context) => {
       const authUser = requireAuth(context);
       const rows = await db.select().from(subscriptions)
         .where(and(eq(subscriptions.userId, authUser.userId), activeOnly(subscriptions)))
         .orderBy(desc(subscriptions.createdAt));
       return rows.map(row => formatSubscription(row));
     },
-    postsByAccount: async (_: any, { accountId, cursor, limit, onlyUnextracted, statuses }: any, context: any) => {
+    postsByAccount: async (_, { accountId, cursor, limit, onlyUnextracted, statuses }, context) => {
       const authUser = requireAuth(context);
 
       // Security Scope Check: Caller must have an active subscription to the account
@@ -2839,7 +2836,7 @@ Constraints and Guidelines:
         hasMore
       };
     },
-    extractionJob: async (_: any, { id }: any, context: any): Promise<any> => {
+    extractionJob: async (_, { id }, context): Promise<any> => {
       const authUser = requireAuth(context);
       const job = await getManualExtractionJobStatus(id, authUser.userId);
       if (!job) {
@@ -2847,7 +2844,7 @@ Constraints and Guidelines:
       }
       return job;
     },
-    myExtractionQuota: async (_: any, __: any, context: any) => {
+    myExtractionQuota: async (_, __, context) => {
       const authUser = requireAuth(context);
 
       const keysRows = await db.select().from(apiKeys)
@@ -2876,7 +2873,7 @@ Constraints and Guidelines:
         remaining
       };
     },
-    socialMediaAccountProfileByAccountId: async (_: any, { platform, accountId }: any, context: any, info: any) => {
+    socialMediaAccountProfileByAccountId: async (_, { platform, accountId }, context, info) => {
       const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
       const rows = await db.select({
         ...requestedFields,
@@ -2889,25 +2886,25 @@ Constraints and Guidelines:
           )
         );
 
-      const profile = rows[0] as any;
+      const profile = rows[0] as SocialMediaAccountProfileParent | undefined;
       if (!profile) return null;
 
       if (profile.defaultLocation) {
         profile.defaultLocation = formatLocationDetails(profile.defaultLocation);
       }
 
-      return profile as any;
+      return profile;
     },
-    mySettings: async (_: any, __: any, context: any) => {
+    mySettings: async (_, __, context) => {
       const authUser = requireAuth(context);
       const settings = await getOrCreateUserSettings(authUser.userId);
       return {
         ...settings,
         createdAt: settings.createdAt.toISOString(),
         updatedAt: settings.updatedAt.toISOString(),
-      } as any;
+      };
     },
-    previewLocation: async (_: any, { latitude, longitude, placeId }: any, context: any) => {
+    previewLocation: async (_, { latitude, longitude, placeId }, context) => {
       requireAuth(context);
 
       const hasCoords = (latitude !== undefined && latitude !== null) && (longitude !== undefined && longitude !== null);
@@ -2923,15 +2920,15 @@ Constraints and Guidelines:
 
       const resolved = hasPlaceId
         ? await resolveLocation({ kind: 'PLACE_ID', placeId })
-        : await resolveLocation({ kind: 'COORDINATES', coordinates: { latitude, longitude } });
+        : await resolveLocation({ kind: 'COORDINATES', coordinates: { latitude: latitude as number, longitude: longitude as number } });
 
-      return formatLocationDetails(resolved) as any;
+      return formatLocationDetails(resolved);
     },
-    addressAutocomplete: async (_: any, { input }: any, context: any) => {
+    addressAutocomplete: async (_, { input }, context) => {
       requireAuth(context);
       return await getAddressPredictions(input);
     },
-    myLocations: async (_: any, __: any, context: any) => {
+    myLocations: async (_, __, context) => {
       const authUser = requireAuth(context);
       const rows = await db.select().from(userLocations)
         .where(and(eq(userLocations.userId, authUser.userId), activeOnly(userLocations)))
@@ -2942,9 +2939,9 @@ Constraints and Guidelines:
         locationDetails: formatLocationDetails(row.locationDetails),
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
-      })) as any;
+      }));
     },
-    me: async (_: any, __: any, context: any) => {
+    me: async (_, __, context) => {
       const authUser = requireAuth(context);
       const rows = await db.select({
         id: users.id,
@@ -2957,7 +2954,7 @@ Constraints and Guidelines:
       }
       return rows[0];
     },
-    rankedVoteAccounts: async (_: any, { nearMe, locationPreferenceId }: any, context: any, info: any) => {
+    rankedVoteAccounts: async (_, { nearMe, locationPreferenceId }, context, info) => {
       const activeSubs = await db.select({ accountId: subscriptions.accountId })
         .from(subscriptions)
         .where(isNull(subscriptions.deletedAt));
@@ -2971,7 +2968,7 @@ Constraints and Guidelines:
         // Not authenticated
       }
 
-      let locationPref: any = null;
+      let locationPref: typeof userLocations.$inferSelect | null = null;
       if (nearMe && locationPreferenceId && userId) {
         const [loc] = await db.select().from(userLocations)
           .where(and(eq(userLocations.id, locationPreferenceId), eq(userLocations.userId, userId), isNull(userLocations.deletedAt)));
@@ -3039,7 +3036,7 @@ Constraints and Guidelines:
             profile.defaultLocation = formatLocationDetails(profile.defaultLocation);
           }
           result.push({
-            profile: profile as any,
+            profile: profile,
             voteCount: row.voteCount,
             userVoteId: row.userVoteId,
           });
@@ -3047,7 +3044,7 @@ Constraints and Guidelines:
       }
       return result;
     },
-    voteRegionBreakdown: async (_: any, { accountId }: any, context: any) => {
+    voteRegionBreakdown: async (_, { accountId }, context) => {
       const votes = await db.select({
         userId: accountVotes.userId,
         latitude: userLocations.latitude,
@@ -3061,7 +3058,7 @@ Constraints and Guidelines:
       const voterLocationsMap = new Map<string, { latitude: number; longitude: number; city?: string; province?: string }>();
       for (const row of votes) {
         if (row.latitude !== null && row.longitude !== null && !voterLocationsMap.has(row.userId)) {
-          const details = row.locationDetails as any;
+          const details = row.locationDetails;
           voterLocationsMap.set(row.userId, {
             latitude: row.latitude,
             longitude: row.longitude,
@@ -3096,8 +3093,8 @@ Constraints and Guidelines:
 
       return result;
     },
-    votedAccountSuggestions: async (_: any, { query }: any, context: any) => {
-      requireAuth(context);
+    votedAccountSuggestions: async (_, { query }, context) => {
+      const authUser = requireAuth(context);
 
       const activeSubs = await db.select({ accountId: subscriptions.accountId })
         .from(subscriptions)
@@ -3123,7 +3120,7 @@ Constraints and Guidelines:
       const votesQuery = db.select({
         accountId: accountVotes.accountId,
         voteCount: sql<number>`count(${accountVotes.id})::int`,
-        userVoteId: sql<string | null>`MAX(CASE WHEN ${accountVotes.userId} = ${context.user.userId} THEN ${accountVotes.id}::text ELSE NULL END)`,
+        userVoteId: sql<string | null>`MAX(CASE WHEN ${accountVotes.userId} = ${authUser.userId} THEN ${accountVotes.id}::text ELSE NULL END)`,
       })
       .from(accountVotes)
       .innerJoin(socialMediaAccountProfiles, eq(accountVotes.accountId, socialMediaAccountProfiles.id))
@@ -3144,7 +3141,7 @@ Constraints and Guidelines:
             profile.defaultLocation = formatLocationDetails(profile.defaultLocation);
           }
           result.push({
-            profile: profile as any,
+            profile: profile,
             voteCount: row.voteCount,
             userVoteId: row.userVoteId,
           });
@@ -3152,16 +3149,16 @@ Constraints and Guidelines:
       }
       return result;
     },
-    myWidgets: async (_: any, __: any, context: any) => {
+    myWidgets: async (_, __, context) => {
       const authUser = requireAuth(context);
       const rows = await db.select().from(widgets).where(and(eq(widgets.ownerUserId, authUser.userId), isNull(widgets.deletedAt)));
-      return rows.map(row => ({ ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null })) as any;
+      return rows.map(row => ({ ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null }));
     },
-    widgetById: async (_: any, { id }: any, context: any) => {
+    widgetById: async (_, { id }, context) => {
       const [row] = await db.select().from(widgets).where(and(eq(widgets.id, id), isNull(widgets.deletedAt)));
-      return (row ? { ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null } : null) as any;
+      return (row ? { ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null } : null);
     },
-    embedDomainsForWidget: async (_: any, { widgetId }: any, context: any) => {
+    embedDomainsForWidget: async (_, { widgetId }, context) => {
       const authUser = requireAuth(context);
       const [widget] = await db.select().from(widgets).where(and(eq(widgets.id, widgetId), eq(widgets.ownerUserId, authUser.userId), isNull(widgets.deletedAt)));
       if (!widget) {
@@ -3170,7 +3167,7 @@ Constraints and Guidelines:
       const rows = await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widgetId), isNull(embedDomains.deletedAt)));
       return rows.map(row => ({ ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null }));
     },
-    isOriginAllowedForWidget: async (_: any, { widgetId, origin }: any) => {
+    isOriginAllowedForWidget: async (_, { widgetId, origin }) => {
       const cleanOrigin = origin.toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
       const activePatterns = await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widgetId), isNull(embedDomains.deletedAt)));
       
@@ -3189,7 +3186,12 @@ Constraints and Guidelines:
       }
       return false;
     },
-    events: async (_: any, { query, filter, limit, offset, perDayLimit, includeSoftDeleted, includeMyArchived }: any, context: any, info: any) => {
+    events: async (_, { query, filter, expression, limit, offset, perDayLimit, includeSoftDeleted, includeMyArchived }, context, info) => {
+      if (filter && expression) {
+        throw new GraphQLError('Provide either the flat filter or the expression, not both.', {
+          extensions: { code: 'BAD_USER_INPUT' }
+        });
+      }
       const hasFavoritedEqTrue = (condition: QueryCondition | undefined): boolean => {
         if (!condition) {
           return false;
@@ -3217,6 +3219,11 @@ Constraints and Guidelines:
       const collectExactDates = (condition: QueryCondition | undefined, found: Set<string>): void => {
         if (!condition) return;
         if ('conditions' in condition) {
+          // Story 9.3 -- an exact date pinned *inside* a negation is excluded by the filter, not
+          // positively pinned by it, so it must never reach the calendar-view ORDER BY tie-break
+          // this collector feeds. Reachable now that `Query.events`'s new `expression` argument
+          // can produce a `'not'`-operator group wrapping a `dateRange`/`dayOfWeek` leaf.
+          if (condition.operator === 'not') return;
           for (const child of condition.conditions) {
             collectExactDates(child, found);
           }
@@ -3259,8 +3266,8 @@ Constraints and Guidelines:
       // shared `ended-cases` fixture. Only honored in test builds -- never exposed as GraphQL
       // input, so this cannot be influenced by a real client request.
       const now =
-        process.env.NODE_ENV === 'test' && (context as { now?: Date })?.now instanceof Date
-          ? (context as { now: Date }).now
+        process.env.NODE_ENV === 'test' && (context as GraphQLContext & { now?: Date })?.now instanceof Date
+          ? (context as GraphQLContext & { now: Date }).now
           : new Date();
       const threshold = computePastEventThreshold({ now, hidePastEventsAfterDays });
 
@@ -3292,6 +3299,29 @@ Constraints and Guidelines:
           throw new GraphQLError((err as Error).message, { extensions: { code: 'BAD_REQUEST' } });
         }
       }
+      if (expression) {
+        const validation = validateFilterNode(expression);
+        if (!validation.valid) {
+          throw new GraphQLError(formatFilterValidationIssues(validation.issues), {
+            extensions: { code: 'BAD_USER_INPUT' }
+          });
+        }
+        try {
+          const expressionQuery = compileFilterNodeToQueryCondition(validation.node, { currentDate: now });
+          if (expressionQuery) {
+            if (baseQuery) {
+              baseQuery = {
+                operator: 'and',
+                conditions: [baseQuery, expressionQuery],
+              };
+            } else {
+              baseQuery = expressionQuery;
+            }
+          }
+        } catch (err) {
+          throw new GraphQLError((err as Error).message, { extensions: { code: 'BAD_REQUEST' } });
+        }
+      }
 
       if (hasWithinRadiusCondition(baseQuery as QueryCondition | undefined) && userId === null) {
         requireAuth(context);
@@ -3307,7 +3337,7 @@ Constraints and Guidelines:
         
         const locationsById = new Map(locationRows.map(r => [r.id, { latitude: r.latitude, longitude: r.longitude }]));
         try {
-          resolvedQuery = resolveWithinRadiusConditions(baseQuery as QueryCondition, locationsById) as any;
+          resolvedQuery = resolveWithinRadiusConditions(baseQuery as QueryCondition, locationsById);
         } catch (err) {
           if (err instanceof UnknownLocationPreferenceError) {
             throw new GraphQLError('Location not found', { extensions: { code: 'NOT_FOUND' } });
@@ -3462,7 +3492,7 @@ Constraints and Guidelines:
         if (includeSoftDeleted === true) {
           requireModerator(context);
         } else {
-          whereClause = whereClause ? and(whereClause as any, activeOnly(events)) : activeOnly(events);
+          whereClause = whereClause ? and(whereClause, activeOnly(events)) : activeOnly(events);
         }
       }
       
@@ -3617,7 +3647,7 @@ Constraints and Guidelines:
 
         const eventRowById = new Map<string, any>();
         for (const row of windowedEventRows) {
-          eventRowById.set((row as any).id as string, row);
+          eventRowById.set((row).id as string, row);
         }
 
         // Stage 3 (AC3 / Task 3.3) — the one matched schedule per occurrence, shaped with the
@@ -3639,18 +3669,18 @@ Constraints and Guidelines:
           }).from(schedules).where(inArray(schedules.id, dayFairRows.map((row) => row.scheduleId)));
 
           for (const row of windowedScheduleRows) {
-            scheduleRowById.set((row as any).id as string, row);
+            scheduleRowById.set((row).id as string, row);
           }
         }
 
         // Zip stages 1-3 back into the `Event`-shaped rows the GraphQL layer expects.
-        const windowedItems: Record<string, unknown>[] = [];
+        const windowedItems: EventParent[] = [];
         for (const row of dayFairRows) {
           const eventRow = eventRowById.get(row.eventId);
           if (!eventRow) {
             continue;
           }
-          const item: Record<string, unknown> = { ...(eventRow as Record<string, unknown>) };
+          const item: EventParent = { ...(eventRow as EventParent) };
           if (wantsSchedules) {
             const scheduleRow = scheduleRowById.get(row.scheduleId);
             // Task 3.4's `Event.schedules` short-circuit reads this resolver-internal marker
@@ -3669,7 +3699,7 @@ Constraints and Guidelines:
         // expensive COUNT query over the whole week. Do not "fix" this into a real count query
         // while there is still no consumer.
         return {
-          items: windowedItems as any,
+          items: windowedItems,
           hasMore: false,
           totalCount: windowedItems.length,
         };
@@ -3717,7 +3747,7 @@ Constraints and Guidelines:
       }
 
       if (whereClause) {
-        itemsQuery.where(whereClause as any);
+        itemsQuery.where(whereClause);
       }
 
       if (sortByFavoritedAt) {
@@ -3807,7 +3837,7 @@ Constraints and Guidelines:
       }
       itemsQuery.limit(qLimit + 1).offset(qOffset);
 
-      const fetchedItems = await itemsQuery;
+      const fetchedItems = (await itemsQuery) as EventParent[];
 
       const hasMore = fetchedItems.length > qLimit;
       const items = hasMore ? fetchedItems.slice(0, qLimit) : fetchedItems;
@@ -3820,12 +3850,12 @@ Constraints and Guidelines:
       // this call site's own behavior/output is unchanged by that extraction.
       if (getRequestedFieldNames(info, 'items').has('schedules') && items.length > 0) {
         const schedulesByEvent = await batchScheduleRowsForEvents({
-          eventIds: items.map(i => (i as any).id),
+          eventIds: items.map(i => (i).id),
           info,
           path: ['items', 'schedules'],
         });
         for (const item of items) {
-          (item as any).schedules = schedulesByEvent.get((item as any).id) ?? [];
+          (item).schedules = schedulesByEvent.get((item).id) ?? [];
         }
       }
 
@@ -3835,21 +3865,21 @@ Constraints and Guidelines:
       // fetched page length, not this query, so gating it off does not affect pagination.
       let totalCount = 0;
       if (getRequestedFieldNames(info).has('totalCount')) {
-        const totalCountRes = await db.select({ count: count() as any })
+        const totalCountRes = await db.select({ count: count() })
           .from(events)
           .leftJoin(schedules, mainSchedulesOnly)
           .leftJoin(posts, eq(events.postId, posts.id))
-          .where(whereClause as any);
+          .where(whereClause);
         totalCount = totalCountRes[0]?.count ?? 0;
       }
 
       return {
-        items: items as any, // Cast since buildOptimizedDrizzleSelect returns partial shapes
+        items: items, // Cast since buildOptimizedDrizzleSelect returns partial shapes
         hasMore,
         totalCount
       };
     },
-    event: async (_: any, { id, includeMyArchived }: any, context: any, info: any) => {
+    event: async (_, { id, includeMyArchived }, context, info) => {
       const requestedFields = buildOptimizedDrizzleSelect(events, info);
       const isModerator = context.user?.role === 'moderator';
       
@@ -3934,7 +3964,7 @@ Constraints and Guidelines:
         .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
         .where(condition);
 
-      const row = (rows[0] as any) || null;
+      const row = (rows[0] as EventParent | undefined) || null;
 
       // Story 1.6c (AC1, AC6) — reuse Story 1.3j's shared batched-schedules code path (Task 1)
       // instead of a separate per-row query, with a schedule-level `isAddedToCalendar` virtual
@@ -3976,7 +4006,7 @@ Constraints and Guidelines:
 
       return row;
     },
-    eventBySlug: async (_: any, { slug, includeMyArchived }: any, context: any, info: any) => {
+    eventBySlug: async (_, { slug, includeMyArchived }, context, info) => {
       const requestedFields = buildOptimizedDrizzleSelect(events, info);
       const isModerator = context.user?.role === 'moderator';
 
@@ -3984,7 +4014,7 @@ Constraints and Guidelines:
       // alias fallback below (on a slug-lookup miss) can re-run the EXACT same
       // moderator/includeMyArchived/visibility logic keyed on `events.id` instead of
       // `events.slug`, with zero duplicated logic between the two call sites.
-      async function selectEventRow(matchClause: any) {
+      async function selectEventRow(matchClause: SQL) {
         let condition;
         if (isModerator) {
           condition = matchClause;
@@ -4067,7 +4097,7 @@ Constraints and Guidelines:
           .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
           .where(condition);
 
-        return (rows[0] as any) || null;
+        return (rows[0] as EventParent | undefined) || null;
       }
 
       let row = await selectEventRow(eq(events.slug, slug));
@@ -4134,7 +4164,7 @@ Constraints and Guidelines:
     // query reusing the existing `event_posts` PK/index.
     // Story 3.6x (AC2, AD-30 Rule 11) — widened to accept a `postId`-keyed variant alongside the
     // original `eventId`-keyed one (unchanged below). Exactly one of the two must be supplied.
-    relatedEventIds: async (_: any, { eventId, postId }: { eventId?: string | null; postId?: string | null }) => {
+    relatedEventIds: async (_, { eventId, postId }: { eventId?: string | null; postId?: string | null }) => {
       if ((!eventId && !postId) || (eventId && postId)) {
         throw new GraphQLError('Exactly one of eventId or postId must be provided', { extensions: { code: 'BAD_REQUEST' } });
       }
@@ -4157,7 +4187,7 @@ Constraints and Guidelines:
           return [];
         }
 
-        return [{ postId, eventIds: rows.map((row: any) => row.eventId) }] as any;
+        return [{ postId, eventIds: rows.map((row) => row.eventId) }];
       }
 
       const ep1 = alias(eventPosts, 'ep1');
@@ -4175,20 +4205,20 @@ Constraints and Guidelines:
         ));
 
       const groups = new Map<string, string[]>();
-      for (const row of rows as any[]) {
+      for (const row of rows) {
         const list = groups.get(row.postId) ?? [];
         list.push(row.eventId);
         groups.set(row.postId, list);
       }
 
-      return [...groups.entries()].map(([postId, eventIds]) => ({ postId, eventIds })) as any;
+      return [...groups.entries()].map(([postId, eventIds]) => ({ postId, eventIds }));
     },
     // Story 3.6x (AC1) — backend-only lookup powering the Post Collection Page route's
     // generateMetadata/content fetch. Reuses the existing EventSourcePost type (Story 3.6u);
     // isPrimary/coauthors are hardcoded (meaningless/unused outside an event's own post list) for
     // type-shape completeness only, costing nothing since GraphQL never evaluates an unselected
     // field.
-    postByPlatformIdentifiers: async (_: any, { platform, postType, platformPostId }: { platform: string; postType: string; platformPostId: string }) => {
+    postByPlatformIdentifiers: async (_, { platform, postType, platformPostId }) => {
       const [row] = await db.select({
         postId: posts.id,
         groupingReason: posts.groupingReason,
@@ -4227,18 +4257,18 @@ Constraints and Guidelines:
         originalPostUrl: row.originalPostUrl || null,
         platformPostId: row.platformPostId || null,
         postType: row.postType || null,
-        account: row.accountId ? {
+        account: row.accountId ? ({
           id: row.accountId,
           accountId: row.accountIdentifier,
           platform: row.accountPlatform,
           displayName: row.accountDisplayName,
           username: row.accountUsername,
           profileImageUrl: row.accountProfileImageUrl,
-        } : null,
+        } as SocialMediaAccountProfileParent) : null,
         coauthors: [],
-      } as any;
+      };
     },
-    instagramEmbedBySlug: async (_: any, { slug }: { slug: string }) => {
+    instagramEmbedBySlug: async (_, { slug }: { slug: string }) => {
       const parsed = parsePlatformPrefixedEventSlug(slug);
       if (!parsed || parsed.platform !== 'instagram') {
         return { status: 'NOT_RESOLVABLE_FROM_SLUG', html: null, durableImageUrl: null };
@@ -4274,7 +4304,7 @@ Constraints and Guidelines:
 
       return resolved ?? { status: 'UNAVAILABLE', html: null, durableImageUrl: null };
     },
-    queryUnprocessedPayloads: async (_: any, { filters, first, after }: any, context: any) => {
+    queryUnprocessedPayloads: async (_, { filters, first, after }, context) => {
       requireModerator(context);
 
       const limit = (first || 10) + 1; // +1 to detect hasNextPage
@@ -4330,9 +4360,9 @@ Constraints and Guidelines:
         edges,
         pageInfo: { hasNextPage, endCursor },
         totalCount: totalCountRows[0]?.count || 0,
-      } as any;
+      };
     },
-    parserVersions: async (_: any, { onlyActive, source }: any, context: any) => {
+    parserVersions: async (_, { onlyActive, source }, context) => {
       requireModerator(context);
 
       const conditions = [];
@@ -4351,7 +4381,7 @@ Constraints and Guidelines:
 
       return rows;
     },
-    queryActorRuns: async (_: any, { filters, first, after }: any, context: any) => {
+    queryActorRuns: async (_, { filters, first, after }, context) => {
       requireModerator(context);
 
       const limit = (first || 10) + 1; // +1 to detect hasNextPage
@@ -4360,10 +4390,10 @@ Constraints and Guidelines:
       const conditions = [];
 
       if (filters?.vendor) {
-        conditions.push(eq(scraperActorRuns.vendor, filters.vendor as any));
+        conditions.push(eq(scraperActorRuns.vendor, filters.vendor));
       }
       if (filters?.status) {
-        conditions.push(eq(scraperActorRuns.status, filters.status as any));
+        conditions.push(eq(scraperActorRuns.status, filters.status));
       }
       if (filters?.profileId) {
         conditions.push(eq(scraperActorRuns.profileId, filters.profileId));
@@ -4402,7 +4432,7 @@ Constraints and Guidelines:
         totalCount: totalCountRows[0]?.count || 0,
       };
     },
-    queryModeratorAccountProfiles: async (_: any, { filters, first, after }: any, context: any, info: any) => {
+    queryModeratorAccountProfiles: async (_, { filters, first, after }, context, info) => {
       // Deliberately NOT gated on isVerifiedForDiscovery (Story 3.17): moderators need full
       // visibility into unverified/scrape-discovered profiles, unlike rankedVoteAccounts /
       // votedAccountSuggestions. Do not "fix" this as an oversight.
@@ -4433,7 +4463,7 @@ Constraints and Guidelines:
         .offset(offset);
 
       const hasNextPage = rows.length > (first || 10);
-      const edges = rows.slice(0, first || 10).map((row: any, idx: number) => {
+      const edges = rows.slice(0, first || 10).map((row, idx: number) => {
         const node = { ...row };
         if (node.defaultLocation) {
           node.defaultLocation = formatLocationDetails(node.defaultLocation);
@@ -4460,7 +4490,7 @@ Constraints and Guidelines:
     // Story 3.6w (AC1, AC5) -- the "Duplicate Events" tab's own list. Always filtered to
     // status: 'pending', oldest-queued-first (matching pendingDefaultLocationChanges's own
     // ordering) -- there is no current need to list already-accepted/rejected suggestions.
-    suggestedEventMatches: async (_: any, { first, after }: any, context: any, info: any) => {
+    suggestedEventMatches: async (_, { first, after }, context, info) => {
       requireModerator(context);
 
       const limit = (first || 10) + 1; // +1 to detect hasNextPage
@@ -4506,7 +4536,7 @@ Constraints and Guidelines:
     },
   },
   RankedAccountVote: {
-    profile: async (parent: any, _: any, context: any, info: any) => {
+    profile: async (parent, _, context, info) => {
       if (parent.profile) {
         return parent.profile;
       }
@@ -4515,30 +4545,35 @@ Constraints and Guidelines:
         ...requestedFields,
         id: socialMediaAccountProfiles.id,
       }).from(socialMediaAccountProfiles)
-        .where(eq(socialMediaAccountProfiles.id, parent.accountId || parent.profileId));
+        .where(eq(socialMediaAccountProfiles.id, (parent.accountId || parent.profileId) as string));
       
-      const profile = rows[0] as any;
+      const profile = rows[0] as SocialMediaAccountProfileParent | undefined;
       if (profile && profile.defaultLocation) {
         profile.defaultLocation = formatLocationDetails(profile.defaultLocation);
       }
-      return profile || null;
+      return (profile || null) as SocialMediaAccountProfileParent;
     }
   },
   AccountVote: {
-    createdAt: (parent: any) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
-    deletedAt: (parent: any) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
+    createdAt: (parent) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
+    deletedAt: (parent) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
+  },
+  AIEventFilter: {
+    resolvedFilter: (parent) => resolveStoredFilter(parent.resolvedFilter).flatFilter as EventFilter | null,
+    expression: (parent) => resolveStoredFilter(parent.resolvedFilter).expression as FilterNode,
   },
   Widget: {
-    filters: (parent: any) => parent.filters as any,
-    createdAt: (parent: any) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
-    deletedAt: (parent: any) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
+    filters: (parent) => resolveStoredFilter(parent.filters).flatFilter as EventFilter | null,
+    expression: (parent) => resolveStoredFilter(parent.filters).expression as FilterNode,
+    createdAt: (parent) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
+    deletedAt: (parent) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
   },
   EmbedDomain: {
-    createdAt: (parent: any) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
-    deletedAt: (parent: any) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
+    createdAt: (parent) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
+    deletedAt: (parent) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
   },
   DefaultLocationChangeRequest: {
-    account: async (parent: any, _: any, __: any, info: any) => {
+    account: async (parent, _, __, info) => {
       const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
       const rows = await db.select({
         ...requestedFields,
@@ -4546,16 +4581,16 @@ Constraints and Guidelines:
       }).from(socialMediaAccountProfiles)
         .where(eq(socialMediaAccountProfiles.id, parent.accountId));
 
-      const profile = rows[0] as any;
+      const profile = rows[0] as SocialMediaAccountProfileParent | undefined;
       if (profile && profile.defaultLocation) {
         profile.defaultLocation = formatLocationDetails(profile.defaultLocation);
       }
 
-      return profile || null;
+      return (profile || null) as SocialMediaAccountProfileParent;
     }
   },
   AccountTypeClassificationReview: {
-    account: async (parent: any, _: any, __: any, info: any) => {
+    account: async (parent, _, __, info) => {
       const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
       const rows = await db.select({
         ...requestedFields,
@@ -4563,11 +4598,11 @@ Constraints and Guidelines:
       }).from(socialMediaAccountProfiles)
         .where(eq(socialMediaAccountProfiles.id, parent.accountId));
 
-      return (rows[0] as any) || null;
+      return (rows[0]) || null;
     }
   },
   Report: {
-    event: async (parent: any, _: any, __: any, info: any) => {
+    event: async (parent, _, __, info) => {
       const requestedFields = buildOptimizedDrizzleSelect(events, info);
       const rows = await db.select({
         ...requestedFields,
@@ -4587,11 +4622,11 @@ Constraints and Guidelines:
         .leftJoin(socialMediaAccountProfiles, eq(posts.accountId, socialMediaAccountProfiles.id))
         .where(eq(events.id, parent.eventId));
       
-      return (rows[0] as any) || null;
+      return (rows[0]) || null;
     }
   },
   Event: {
-    sourceSocialMediaAccountProfile: async (parent: any, args: any, context: any, info: any) => {
+    sourceSocialMediaAccountProfile: async (parent, args, context, info) => {
       if (!parent.postId) {
         return null;
       }
@@ -4603,9 +4638,9 @@ Constraints and Guidelines:
         .innerJoin(posts, eq(posts.accountId, socialMediaAccountProfiles.id))
         .where(eq(posts.id, parent.postId));
 
-      return (rows[0] as any) || null;
+      return (rows[0]) || null;
     },
-    coauthors: async (parent: any, args: any, context: any, info: any) => {
+    coauthors: async (parent, args, context, info) => {
       if (!parent.postId) {
         return [];
       }
@@ -4618,7 +4653,7 @@ Constraints and Guidelines:
         .where(and(eq(postAccountAssociations.postId, parent.postId), eq(postAccountAssociations.role, 'COAUTHOR')))
         .orderBy(asc(postAccountAssociations.createdAt));
 
-      return rows as any;
+      return rows;
     },
     // Story 3.6u (AC1, AD-30 Rule 11) — every post linked to this event (not just the primary
     // post), primary-first-then-link-order. Follows `batchScheduleRowsForEvents`'s batched-`IN`
@@ -4627,7 +4662,7 @@ Constraints and Guidelines:
     // lookup, AC1), grouped in JS, plus one batched-`IN` follow-up query for every linked post's
     // own `coauthors` (keyed by `postId`, mirroring `Event.coauthors` above but per-post) --
     // never a per-post-per-field N+1.
-    sourcePosts: async (parent: any, args: any, context: any, info: any) => {
+    sourcePosts: async (parent, args, context, info) => {
       const linkRows = await db.select({
         postId: eventPosts.postId,
         extractionOrdinal: eventPosts.extractionOrdinal,
@@ -4655,7 +4690,7 @@ Constraints and Guidelines:
         return [];
       }
 
-      const postIds = linkRows.map((row: any) => row.postId);
+      const postIds = linkRows.map((row) => row.postId);
       const coauthorRows = await db.select({
         postId: postAccountAssociations.postId,
         id: socialMediaAccountProfiles.id,
@@ -4671,7 +4706,7 @@ Constraints and Guidelines:
         .orderBy(asc(postAccountAssociations.createdAt));
 
       const coauthorsByPost = new Map<string, any[]>();
-      for (const row of coauthorRows as any[]) {
+      for (const row of coauthorRows) {
         const list = coauthorsByPost.get(row.postId) ?? [];
         list.push({
           id: row.id,
@@ -4684,8 +4719,8 @@ Constraints and Guidelines:
         coauthorsByPost.set(row.postId, list);
       }
 
-      const primaryFirst = (row: any) => (row.postId === parent.postId ? 0 : 1);
-      const sorted = [...linkRows].sort((a: any, b: any) => {
+      const primaryFirst = (row: { postId: string }) => (row.postId === parent.postId ? 0 : 1);
+      const sorted = [...linkRows].sort((a, b) => {
         const primaryDiff = primaryFirst(a) - primaryFirst(b);
         if (primaryDiff !== 0) return primaryDiff;
         const ordinalA = a.extractionOrdinal ?? Number.MAX_SAFE_INTEGER;
@@ -4696,7 +4731,7 @@ Constraints and Guidelines:
         return createdAtA - createdAtB;
       });
 
-      return sorted.map((row: any) => ({
+      return sorted.map((row) => ({
         postId: row.postId,
         isPrimary: row.postId === parent.postId,
         groupingReason: row.groupingReason ? postGroupingReasonToGraphQL(row.groupingReason) : null,
@@ -4707,18 +4742,18 @@ Constraints and Guidelines:
         originalPostUrl: row.originalPostUrl || null,
         platformPostId: row.platformPostId || null,
         postType: row.postType || null,
-        account: row.accountId ? {
+        account: row.accountId ? ({
           id: row.accountId,
           accountId: row.accountIdentifier,
           platform: row.accountPlatform,
           displayName: row.accountDisplayName,
           username: row.accountUsername,
           profileImageUrl: row.accountProfileImageUrl,
-        } : null,
+        } as SocialMediaAccountProfileParent) : null,
         coauthors: coauthorsByPost.get(row.postId) ?? [],
-      })) as any;
+      }));
     },
-    schedules: async (parent: any, args: any, context: any, info: any) => {
+    schedules: async (parent, args, context, info) => {
       // Story 1.i1h (Task 3.4) — windowed-mode short-circuit. `Query.events`' windowed
       // (`perDayLimit`) branch is schedule-first, so it pre-populates the exact matched
       // schedule(s) for this row on this resolver-internal marker. Checked *first*, ahead of
@@ -4730,33 +4765,33 @@ Constraints and Guidelines:
       // fall straight through to the existing behaviour. Never exposed through the GraphQL
       // schema.
       if (parent.__schedulesPreloaded) {
-        return parent.__schedulesPreloaded as any;
+        return parent.__schedulesPreloaded;
       }
       // Story 1.3j (AC3, AD-17 Rule 2) — passthrough: read the batched schedules already
       // pre-populated on the parent by the `events` resolver. Fall back to the legacy per-row
       // query only when absent (a defensive path for a caller that reaches this resolver
       // without pre-population; never the expected path once this ships).
       if (parent.schedules !== undefined) {
-        return parent.schedules as any;
+        return parent.schedules;
       }
       const requestedFields = buildOptimizedDrizzleSelect(schedules, info);
       const rows = await db.select({
         ...requestedFields,
         id: schedules.id
       }).from(schedules).where(eq(schedules.eventId, parent.id));
-      return rows as any;
+      return rows;
     },
-    imageUrl: (parent: any) => resolveServedImageUrl({
+    imageUrl: (parent) => resolveServedImageUrl({
       imageUrl: parent.imageUrl,
       durableImageUrl: parent.durableImageUrl,
       durableThumbnailUrl: parent.durableThumbnailUrl,
       imageUrlExpiresAt: parent.imageUrlExpiresAt,
       isImageStorageOptedIn: parent.isImageStorageOptedIn === true,
     }),
-    durableImageUrl: (parent: any) => parent.durableImageUrl || null,
-    durableThumbnailUrl: (parent: any) => parent.durableThumbnailUrl || null,
-    videoUrl: (parent: any) => parent.videoUrl || null,
-    instagramEmbed: async (parent: any) => {
+    durableImageUrl: (parent) => parent.durableImageUrl || null,
+    durableThumbnailUrl: (parent) => parent.durableThumbnailUrl || null,
+    videoUrl: (parent) => parent.videoUrl || null,
+    instagramEmbed: async (parent) => {
       const postUrl = parent.originalPostUrl || parent.sourcePostUrl;
       if (!postUrl) {
         return null;
@@ -4768,10 +4803,10 @@ Constraints and Guidelines:
         durableImageUrl: parent.durableImageUrl,
       });
     },
-    sourcePostUrl: (parent: any) => parent.sourcePostUrl || null,
-    originalPostUrl: (parent: any) => parent.originalPostUrl || null,
-    publishedAt: (parent: any) => parent.publishedAt instanceof Date ? parent.publishedAt.toISOString() : (parent.publishedAt || null),
-    isFavorited: async (parent: any, _: any, context: any) => {
+    sourcePostUrl: (parent) => parent.sourcePostUrl || null,
+    originalPostUrl: (parent) => parent.originalPostUrl || null,
+    publishedAt: (parent) => parent.publishedAt instanceof Date ? parent.publishedAt.toISOString() : (parent.publishedAt || null),
+    isFavorited: async (parent, _, context) => {
       // Story 1.3j (AC1, AD-17 Rule 1) — passthrough: read the value pre-populated on the
       // parent by the `events` resolver's batched select. Fall back to the legacy per-row
       // query (with its anonymous/error → false shape preserved) only when absent.
@@ -4792,7 +4827,7 @@ Constraints and Guidelines:
         return false;
       }
     },
-    favoriteCount: async (parent: any) => {
+    favoriteCount: async (parent) => {
       // Story 1.3j (AC1, AD-17 Rule 1) — passthrough: read the value pre-populated on the
       // parent by the `events` resolver's batched select. Fall back to the legacy per-row
       // query only when absent.
@@ -4807,7 +4842,7 @@ Constraints and Guidelines:
         ));
       return rows[0]?.count ?? 0;
     },
-    isAddedToCalendar: async (parent: any, _: any, context: any) => {
+    isAddedToCalendar: async (parent, _, context) => {
       // Story 1.3j (AC1, AD-17 Rule 1) — passthrough: read the value pre-populated on the
       // parent by the `events` resolver's batched select. Fall back to the legacy per-row
       // query (with its anonymous/error → false shape preserved) only when absent.
@@ -4828,7 +4863,7 @@ Constraints and Guidelines:
         return false;
       }
     },
-    isHiddenForCurrentUser: async (parent: any, _: any, context: any) => {
+    isHiddenForCurrentUser: async (parent, _, context) => {
       try {
         const authUser = requireAuth(context);
         const rows = await db.select({ id: reports.id })
@@ -4839,7 +4874,7 @@ Constraints and Guidelines:
         return false;
       }
     },
-    isExpiredForCurrentUser: async (parent: any, _: any, context: any) => {
+    isExpiredForCurrentUser: async (parent, _, context) => {
       try {
         const authUser = requireAuth(context);
         const settings = await getOrCreateUserSettings(authUser.userId);
@@ -4864,7 +4899,7 @@ Constraints and Guidelines:
     }
   },
   Schedule: {
-    isAddedToCalendar: async (parent: any, _: any, context: any) => {
+    isAddedToCalendar: async (parent, _, context) => {
       // Story 1.6c (AC1) — passthrough: read the value pre-populated on the parent by the
       // batched schedules query (`event`/`eventBySlug`, Task 2). Falls back to the legacy
       // per-schedule query only when absent — mirrors the Event-level passthrough pattern

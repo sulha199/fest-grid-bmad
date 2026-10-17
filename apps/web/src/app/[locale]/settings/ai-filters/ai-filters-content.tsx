@@ -9,7 +9,7 @@ import { graphqlClient } from "@/lib/graphql-client";
 import { useGetMyAiEventFiltersQuery, useDeleteAiEventFilterMutation, SoftDeleteAction } from "@/generated/graphql";
 import { Sparkles, Trash2, ArrowRight } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { renderAIFilterSummary } from "@festgrid/domain/ai-event-filters";
+import { renderFilterExpressionSummary } from "@festgrid/domain/ai-event-filters";
 
 export function AiFiltersContent() {
   const t = useTranslations("MyAIFiltersPage");
@@ -94,7 +94,8 @@ export function AiFiltersContent() {
   const handleRowClick = (filter: any) => {
     if (isPending(filter.id)) return;
     const filterParam = encodeURIComponent(JSON.stringify(filter.resolvedFilter));
-    router.push(`/?ai_filter=${filterParam}`);
+    const expressionParam = encodeURIComponent(JSON.stringify(filter.expression));
+    router.push(`/?ai_filter=${filterParam}&ai_expression=${expressionParam}`);
   };
 
   const summaryLabels = useMemo(() => {
@@ -135,6 +136,14 @@ export function AiFiltersContent() {
       anchors,
       units,
       daysOfWeek,
+      and: tSummary("and"),
+      or: tSummary("or"),
+      not: tSummary("not"),
+      weekends: tSummary("weekends"),
+      weekdays: tSummary("weekdays"),
+      dateRangeSpanOnlyTemplate: tSummary.raw("dateRangeSpanOnlyTemplate"),
+      dateRangeSpanExtensionTemplate: tSummary.raw("dateRangeSpanExtensionTemplate"),
+      temporalStatus: { TODAY: tSummary("temporalStatus.TODAY"), UPCOMING: tSummary("temporalStatus.UPCOMING") },
     };
   }, [tSummary]);
 
@@ -183,7 +192,7 @@ export function AiFiltersContent() {
         <div className="divide-y border rounded-lg overflow-hidden bg-card text-card-foreground shadow-sm">
           {filters.map((filter: any) => {
             const pending = isPending(filter.id);
-            const rendered = renderAIFilterSummary(filter.resolvedFilter, [], summaryLabels);
+            const rendered = renderFilterExpressionSummary(filter.expression, [], summaryLabels);
 
             return (
               <SwipeToReveal

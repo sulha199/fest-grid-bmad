@@ -59,6 +59,8 @@ test('rehostPostImage integration/unit tests', async (t) => {
     apiKeyInvalidAttemptsThreshold: 5,
     geminiPostsPerKeyPerCycle: 300,
     apiKeyUsageCycleDays: 30,
+    promptFilterRateLimitMaxRequests: 10,
+    promptFilterRateLimitWindowMinutes: 10,
     webAppBaseUrl: 'http://localhost:3000',
     locationInferenceConfidenceThreshold: 0.5,
     scrapeResultsLimit: 10,

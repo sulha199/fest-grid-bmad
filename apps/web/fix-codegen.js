@@ -112,4 +112,10 @@ content = content.replace(/export type DateRangeFilterInput = \{\r?\n\s+anchor: 
 content = content.replace(/export type EventFilterInput = \{\r?\n\s+accountId\?\: string \| number \| null \| undefined;[\s\S]*?\};\r?\n/g, '');
 content = content.replace(/export type LocationFilterInput = \{\r?\n\s+adminArea\?\: string \| null \| undefined;[\s\S]*?\};\r?\n/g, '');
 
+// Replace duplicate FilterNodeInput (Story 9.3: recursive input type re-declared by the
+// operations-plugin for each operation that references it -- same dedup pattern as the other
+// shared input types above).
+content = content.replace(/export type FilterNodeInput = \{\r?\n\s+child\?\:[\s\S]*?\};\r?\n/g, '');
+content = "export type FilterNodeInput = { child?: InputMaybe<FilterNodeInput>; children?: InputMaybe<Array<FilterNodeInput>>; field?: InputMaybe<Scalars['String']['input']>; op?: InputMaybe<Scalars['String']['input']>; value?: InputMaybe<Scalars['JSON']['input']>; };\n" + content;
+
 fs.writeFileSync(file, content);

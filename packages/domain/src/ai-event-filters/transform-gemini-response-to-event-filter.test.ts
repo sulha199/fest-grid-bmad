@@ -82,4 +82,77 @@ describe('transformGeminiResponseToEventFilter', () => {
     assert.strictEqual(result.isFree, true);
     assert.strictEqual(result.dateRange, undefined); // Invalid anchor means dateRange gets omitted
   });
+
+  it('should extract temporalFilter (AC2)', () => {
+    assert.strictEqual(transformGeminiResponseToEventFilter({ temporalFilter: 'today' }).temporalFilter, 'TODAY');
+    assert.strictEqual(transformGeminiResponseToEventFilter({ temporalFilter: 'UPCOMING' }).temporalFilter, 'UPCOMING');
+    assert.strictEqual(transformGeminiResponseToEventFilter({ temporalFilter: 'NOT_A_VALUE' }).temporalFilter, undefined);
+  });
+
+  it('should accept an array-valued dayOfWeek alongside the existing singular case (AC2)', () => {
+    const multi = transformGeminiResponseToEventFilter({ dayOfWeek: ['sat', 'sun'] });
+    assert.deepStrictEqual(multi.dayOfWeek, [DayOfWeek.SAT, DayOfWeek.SUN]);
+
+    const single = transformGeminiResponseToEventFilter({ dayOfWeek: 'sat' });
+    assert.strictEqual(single.dayOfWeek, DayOfWeek.SAT);
+
+    // An array that filters down to exactly one valid member still outputs a bare string.
+    const collapsedToOne = transformGeminiResponseToEventFilter({ dayOfWeek: ['sat', 'invalid'] });
+    assert.strictEqual(collapsedToOne.dayOfWeek, DayOfWeek.SAT);
+
+    // An array with zero valid members omits the field entirely.
+    const allInvalid = transformGeminiResponseToEventFilter({ dayOfWeek: ['invalid', 'also-invalid'] });
+    assert.strictEqual(allInvalid.dayOfWeek, undefined);
+  });
+
+  it('should parse spanAmount/spanUnit on dateRange (AC1, AC3)', () => {
+    const payload = {
+      dateRange: {
+        anchor: 'TODAY',
+        offsetAmount: 0,
+        offsetUnit: 'DAY',
+        spanAmount: 7,
+        spanUnit: 'DAY',
+      },
+    };
+    const result = transformGeminiResponseToEventFilter(payload);
+    assert.deepStrictEqual(result.dateRange, {
+      anchor: DateAnchor.TODAY,
+      offsetAmount: 0,
+      offsetUnit: DateOffsetUnit.DAY,
+      spanAmount: 7,
+      spanUnit: DateOffsetUnit.DAY,
+    });
+  });
+
+  it('should omit the whole dateRange when offsetAmount exceeds its bound (DW-077, untrusted-input degradation)', () => {
+    const payload = {
+      dateRange: { anchor: 'TODAY', offsetAmount: 91, offsetUnit: 'DAY' },
+    };
+    assert.strictEqual(transformGeminiResponseToEventFilter(payload).dateRange, undefined);
+  });
+
+  it('should omit only the span fields (keeping the valid base dateRange) when spanAmount exceeds its bound', () => {
+    const payload = {
+      dateRange: { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY', spanAmount: 91, spanUnit: 'DAY' },
+    };
+    const result = transformGeminiResponseToEventFilter(payload);
+    assert.deepStrictEqual(result.dateRange, {
+      anchor: DateAnchor.TODAY,
+      offsetAmount: 0,
+      offsetUnit: DateOffsetUnit.DAY,
+    });
+  });
+
+  it('should omit the span fields when spanAmount is not a positive integer >= 1', () => {
+    const payload = {
+      dateRange: { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY', spanAmount: 0, spanUnit: 'DAY' },
+    };
+    const result = transformGeminiResponseToEventFilter(payload);
+    assert.deepStrictEqual(result.dateRange, {
+      anchor: DateAnchor.TODAY,
+      offsetAmount: 0,
+      offsetUnit: DateOffsetUnit.DAY,
+    });
+  });
 });
