@@ -9,6 +9,7 @@ import {
   transformGeminiResponseToEventInfo,
   type ScrapedPost,
   computeLatestScheduleEnd,
+  isThumbnailStillRelevant,
 } from '@festgrid/domain';
 import { resolveAccountAndLocations } from './resolve-account-and-locations.js';
 import { resolveScheduleTimezones } from './resolve-schedule-timezones.js';
@@ -69,6 +70,25 @@ export interface ProcessAiJobDeps {
   // direct processAiJob(message) call sites in tests (no second argument) continue to work
   // unchanged.
   getRemainingTimeInMillis?: () => number;
+}
+
+// One greppable line per post describing what the face-blur thumbnail stage did, so a thumbnail
+// that is missing because the upload FAILED can be told apart in CloudWatch from one that is
+// missing by design (relevance gate, no image, fail-closed pre-AI blur). console.info on purpose:
+// several test files assert exact console.log/console.warn counts for unrelated features.
+// `pre_ai_blur_failed_closed` posts are recoverable with the thumbnail backfill
+// (apps/backend/src/backfill-post-thumbnails.ts) while the original image URL is still valid.
+type FaceBlurThumbnailOutcome =
+  | 'stored'
+  | 'upload_failed'
+  | 'relevance_gated'
+  | 'pre_ai_blur_failed_closed'
+  | 'detection_failed'
+  | 'skipped_low_time_budget'
+  | 'not_attempted';
+
+function logFaceBlurThumbnailOutcome(postId: string, outcome: FaceBlurThumbnailOutcome): void {
+  console.info(`[processAiJob] face-blur-thumbnail outcome=${outcome} post=${postId}`);
 }
 
 export async function processAiJob(message: ProcessingJobMessage, deps?: ProcessAiJobDeps): Promise<void> {
@@ -383,8 +403,7 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     const latestScheduleEnd = computeLatestScheduleEnd(events);
     // AD-12 Rule 3's "null is already-expired" convention: a null imageUrlExpiresAt, or an
     // unparseable/absent schedule end, can never prove the event is safe to skip -- fail open.
-    const isStillRelevant =
-      imageUrlExpiresAt === null || latestScheduleEnd === null || latestScheduleEnd > imageUrlExpiresAt;
+    const isStillRelevant = isThumbnailStillRelevant(imageUrlExpiresAt, latestScheduleEnd);
 
     // AC2: the face count is already known either way (detection already ran pre-AI), so
     // faceDetectionSkippedReason is never 'event_relevance_gate' for this branch -- only the
@@ -400,10 +419,14 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
       // Reuse the ALREADY-BLURRED cover bytes (Story 3.20) for the thumbnail -- never call
       // detectAndBlurFacesSeam again (AC1: one detection pass per image, not two).
       try {
-        await uploadFaceBlurThumbnailSeam(message.postId, blurredCoverImageBytes, env);
+        const storedUrl = await uploadFaceBlurThumbnailSeam(message.postId, blurredCoverImageBytes, env);
+        logFaceBlurThumbnailOutcome(message.postId, storedUrl ? 'stored' : 'upload_failed');
       } catch (uploadError) {
         console.error(`Face-blur thumbnail upload failed for post ${message.postId}:`, uploadError);
+        logFaceBlurThumbnailOutcome(message.postId, 'upload_failed');
       }
+    } else {
+      logFaceBlurThumbnailOutcome(message.postId, isStillRelevant ? 'not_attempted' : 'relevance_gated');
     }
   } else if (aiImageInput === 'text_only_fail_closed') {
     // The cover's own pre-AI blur failed or timed out (Story 3.20) -- no backfill, no
@@ -413,6 +436,7 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
       `[processAiJob] Skipping face-blur thumbnail for post ${message.postId}: ` +
         `the pre-AI cover blur failed closed (aiImageInput=text_only_fail_closed); not retrying.`
     );
+    logFaceBlurThumbnailOutcome(message.postId, 'pre_ai_blur_failed_closed');
   } else if (imageBytes && imageContentType && payload.hasFaceImage === true) {
     // --- Story 3.6n/3.6o's existing pipeline, UNCHANGED below (aiImageInput is
     // 'original_mode_off', 'original_owner_opted_in', or 'no_image_sent' here) ---
@@ -423,14 +447,14 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
       .limit(1);
     const imageUrlExpiresAt = postExpiryRow?.imageUrlExpiresAt ?? null;
     const latestScheduleEnd = computeLatestScheduleEnd(events);
-    const isStillRelevant =
-      imageUrlExpiresAt === null || latestScheduleEnd === null || latestScheduleEnd > imageUrlExpiresAt;
+    const isStillRelevant = isThumbnailStillRelevant(imageUrlExpiresAt, latestScheduleEnd);
 
     if (!isStillRelevant) {
       await backfillFaceDetectionAuditResultSeam(auditLogId, {
         actualFaceDetectionCount: null,
         faceDetectionSkippedReason: 'event_relevance_gate',
       });
+      logFaceBlurThumbnailOutcome(message.postId, 'relevance_gated');
     } else {
       const remainingMs = deps?.getRemainingTimeInMillis ? deps.getRemainingTimeInMillis() : Infinity;
       if (remainingMs < env.faceBlurMinRemainingTimeMs) {
@@ -439,6 +463,7 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
             `only ${remainingMs}ms remaining (floor ${env.faceBlurMinRemainingTimeMs}ms).`
         );
         // No extraction_audit_logs backfill here -- documented residual gap, AC9.
+        logFaceBlurThumbnailOutcome(message.postId, 'skipped_low_time_budget');
       } else {
         // Detection (Task 2) and the resize/upload step (Task 3) are kept as two separate steps
         // here, deliberately, so AC9's exact contract holds: the real detected face count is
@@ -452,6 +477,7 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
           console.error(`Face detection failed for post ${message.postId}:`, detectError);
           // No extraction_audit_logs backfill here -- documented residual gap, AC9 (an unexpected
           // failure inside detection itself leaves both columns null/null).
+          logFaceBlurThumbnailOutcome(message.postId, 'detection_failed');
         }
         if (detectionResult) {
           await backfillFaceDetectionAuditResultSeam(auditLogId, {
@@ -464,9 +490,11 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
           // failure here (production or a test double) never propagates out of processAiJob and
           // never undoes the audit backfill already written above.
           try {
-            await uploadFaceBlurThumbnailSeam(message.postId, detectionResult.buffer, env);
+            const storedUrl = await uploadFaceBlurThumbnailSeam(message.postId, detectionResult.buffer, env);
+            logFaceBlurThumbnailOutcome(message.postId, storedUrl ? 'stored' : 'upload_failed');
           } catch (uploadError) {
             console.error(`Face-blur thumbnail upload failed for post ${message.postId}:`, uploadError);
+            logFaceBlurThumbnailOutcome(message.postId, 'upload_failed');
           }
         }
       }
@@ -476,6 +504,7 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
       actualFaceDetectionCount: null,
       faceDetectionSkippedReason: 'no_face_reported',
     });
+    logFaceBlurThumbnailOutcome(message.postId, 'not_attempted');
   }
 
   // 8. Assign deterministic extraction ordinals (Task 5.4/Task 2, AC7) -- by earliest schedule

@@ -8,6 +8,7 @@ export * from './buildMyCalendarQueryCondition.js';
 export * from './buildDefaultEventVisibilityConditions.js';
 export * from './computePastEventThreshold.js';
 export * from './computeLatestScheduleEnd.js';
+export * from './isThumbnailStillRelevant.js';
 export * from './selectDisplaySchedule.js';
 export * from './calendar-layout.js';
 export * from './types.js';
