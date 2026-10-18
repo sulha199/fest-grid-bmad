@@ -273,6 +273,77 @@ test('geoapify-client getPlaceDetails omits countryCode when properties.country_
   fetchMock.mock.restore();
 });
 
+// Venue type (BACKLOG: venue-type design): Geoapify's category is stored raw as
+// `LocationDetails.venueType` -- nothing else in the backend ever wrote it, so every venueType
+// filter matched nothing. Set only when Geoapify returns one (street/city results carry none).
+test('geoapify-client geocodeAddress stores the Geoapify category of a place result as venueType', async () => {
+  const fetchMock = mock.method(globalThis, 'fetch', async () => ({
+    ok: true,
+    json: async () => ({
+      results: [
+        { lat: -7.79, lon: 110.36, formatted: 'Malioboro Mall, Yogyakarta', place_id: 'p1', category: 'commercial.shopping_mall' },
+        { lat: -7.8, lon: 110.4, formatted: 'Jl. Kaliurang, Sleman', place_id: 'p2' },
+      ],
+    }),
+  }));
+
+  const result = await geocodeAddress('Malioboro Mall Yogyakarta');
+  assert.equal(result[0].venueType, 'commercial.shopping_mall');
+  assert.ok(!('venueType' in result[1]), 'a result with no category must not carry a venueType key');
+
+  fetchMock.mock.restore();
+});
+
+test('geoapify-client reverseGeocode stores the Geoapify category as venueType', async () => {
+  const fetchMock = mock.method(globalThis, 'fetch', async () => ({
+    ok: true,
+    json: async () => ({
+      results: [{ lat: -7.79, lon: 110.36, formatted: 'Taman Pintar, Yogyakarta', place_id: 'p3', category: 'leisure.park' }],
+    }),
+  }));
+
+  const result = await reverseGeocode({ latitude: -7.79, longitude: 110.36 });
+  assert.equal(result.venueType, 'leisure.park');
+
+  fetchMock.mock.restore();
+});
+
+test('geoapify-client getPlaceDetails stores the most specific category as venueType', async () => {
+  const fetchMock = mock.method(globalThis, 'fetch', async () => ({
+    ok: true,
+    json: async () => ({
+      features: [{
+        properties: {
+          lat: -7.79,
+          lon: 110.36,
+          formatted: 'Malioboro Mall, Yogyakarta',
+          name: 'Malioboro Mall',
+          categories: ['building', 'building.commercial', 'commercial', 'commercial.shopping_mall'],
+        },
+      }],
+    }),
+  }));
+
+  const result = await getPlaceDetails('place-1');
+  assert.equal(result.venueType, 'commercial.shopping_mall');
+
+  fetchMock.mock.restore();
+});
+
+test('geoapify-client getPlaceDetails omits venueType when categories is absent, empty or malformed', async () => {
+  for (const categories of [undefined, [], 'commercial', [null, 42, '']]) {
+    const fetchMock = mock.method(globalThis, 'fetch', async () => ({
+      ok: true,
+      json: async () => ({ features: [{ properties: { lat: 1, lon: 2, formatted: 'x', categories } }] }),
+    }));
+
+    const result = await getPlaceDetails('place-2');
+    assert.ok(!('venueType' in result), `venueType must be absent for categories=${JSON.stringify(categories)}`);
+
+    fetchMock.mock.restore();
+  }
+});
+
 test('geoapify-client non-2xx throws GeolocationApiError', async () => {
   const fetchMock = mock.method(globalThis, 'fetch', async () => {
     return {
