@@ -2,7 +2,7 @@
 title: 'Moderator re-extract post preview'
 type: 'feature'
 created: '2026-10-18'
-status: 'in-review'
+status: 'done'
 review_loop_iteration: 0
 baseline_commit: 'c9ea9497819c7c475d5322bca48f0380402f1eb3'
 context:
@@ -85,3 +85,79 @@ Rescraped text lives only in the job payload, so "purge after rescrape" is satis
 - `pnpm --filter backend test` -- expected: pass, including ingestion regression
 - `pnpm --filter web test` and `pnpm --filter web exec tsc --noEmit` -- expected: pass
 - `python3 scripts/backlog-check.py` -- expected: no new failures
+
+## Suggested Review Order
+
+**The one shared decision (start here)**
+
+- Ingestion's stub rule, organizer discount and match call live in one function now; preview reuses it.
+  [`evaluate-ingestion-match.ts:39`](../../apps/backend/src/lib/ingestor/evaluate-ingestion-match.ts#L39)
+
+- Turns a Gemini payload into per-event dedup outcomes with no writes and no geocoding.
+  [`build-reextraction-preview.ts:56`](../../apps/backend/src/lib/ai-processor/build-reextraction-preview.ts#L56)
+
+**Privacy: the caption never persists**
+
+- Payload blanked at claim time, so a crash mid-run leaves nothing stored.
+  [`process-manual-extraction-job.ts:67`](../../apps/backend/src/lib/ai-processor/process-manual-extraction-job.ts#L67)
+
+- Read-modify-write through Drizzle, because the column is a jsonb string and `jsonb_set` fails.
+  [`blank-manual-job-payload.ts:17`](../../apps/backend/src/lib/extraction/blank-manual-job-payload.ts#L17)
+
+- Preview branch of the existing job: reports every event, stores the result, never touches events.
+  [`process-manual-extraction-job.ts:133`](../../apps/backend/src/lib/ai-processor/process-manual-extraction-job.ts#L133)
+
+**Starting a preview: rescrape and cooldown**
+
+- Rescrape only when the caption is missing; the text goes into the job payload, not `posts`.
+  [`start-post-reextraction-preview.ts:94`](../../apps/backend/src/lib/extraction/start-post-reextraction-preview.ts#L94)
+
+- Per-URL cooldown read from recent jobs; failed scrapes are recorded so they count too.
+  [`start-post-reextraction-preview.ts:41`](../../apps/backend/src/lib/extraction/start-post-reextraction-preview.ts#L41)
+
+**API surface**
+
+- Moderator-only mutation; exactly one of postId or url.
+  [`resolvers.ts:1651`](../../apps/backend/src/schema/resolvers.ts#L1651)
+
+- Poll query rejects correction jobs by mode, in any state.
+  [`resolvers.ts:2863`](../../apps/backend/src/schema/resolvers.ts#L2863)
+
+- Result schema the UI renders.
+  [`extraction.graphql:137`](../../apps/backend/src/schema/extraction.graphql#L137)
+
+- Shared result and payload types, including the cooldown constant.
+  [`types.ts:101`](../../packages/domain/src/posts/types.ts#L101)
+
+**Where moderators use it**
+
+- Panel mounted outside the multi-post gate, so single-post events get the button.
+  [`EventDetailWrapper.tsx:1035`](../../apps/web/src/features/events/EventDetailWrapper.tsx#L1035)
+
+- One button per source post, opening the preview dialog.
+  [`moderator-source-posts-panel.tsx:24`](../../apps/web/src/features/moderation/moderator-source-posts-panel.tsx#L24)
+
+- Start and poll hook, with a run counter so stale responses are ignored.
+  [`use-post-reextraction-preview.ts:32`](../../apps/web/src/features/moderation/use-post-reextraction-preview.ts#L32)
+
+- Result view: tier, score, closest event, already-represented link.
+  [`reextract-preview-result.tsx:35`](../../apps/web/src/features/moderation/reextract-preview-result.tsx#L35)
+
+- Tools tab for posts with no event page.
+  [`reextract-content.tsx:16`](../../apps/web/src/app/[locale]/moderator/tools/reextract-content.tsx#L16)
+
+**Architecture and docs**
+
+- AD-36: preview-only, one decision, caption never persists, rejected alternatives.
+  [`festgrid-architecture-spine.md:2221`](../planning-artifacts/festgrid-architecture-spine.md#L2221)
+
+- Runbook section for moderators.
+  [`7-event-dedup.md:56`](../../docs/infrastructure/7-event-dedup.md#L56)
+
+**Tests**
+
+- Preview writes nothing, reports the real tier, and the payload is blanked on every path.
+  [`process-reextraction-preview.test.ts:134`](../../apps/backend/src/lib/ai-processor/process-reextraction-preview.test.ts#L134)
+
+- Cooldown, failed-scrape accounting and job mode.
+  [`start-post-reextraction-preview.test.ts:108`](../../apps/backend/src/lib/extraction/start-post-reextraction-preview.test.ts#L108)
