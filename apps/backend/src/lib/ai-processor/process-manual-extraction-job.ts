@@ -8,6 +8,8 @@ import { extractedEventSchema } from '../../validation/extracted-event.schema.js
 import { callGemini as defaultCallGemini, AiGatewayExhaustedError, AiGatewayBusyError } from '../ai-gateway/adapter.js';
 import { getActiveSubscriberUserIds } from '../subscriptions/get-active-subscriber-user-ids.js';
 import { buildGeminiExtractionRequest } from './build-gemini-request.js';
+import { buildReextractionPreview } from './build-reextraction-preview.js';
+import { blankManualJobPayloadContent } from '../extraction/blank-manual-job-payload.js';
 
 // Story 4.2b -- runs inside the AI Lambda (the only Lambda with the image-processing runtime for
 // Story 3.20's pre-AI face blur). Takes over the Gemini call + parse/validate/map half of Story
@@ -58,6 +60,11 @@ export async function processManualExtractionJob(jobId: string, deps?: ProcessMa
     console.warn(`[processManualExtractionJob] Job ${jobId} not found or not PENDING; skipping.`);
     return;
   }
+
+  // AD-36 -- `job.requestPayload` above is the in-memory copy this run works from. Blank the stored
+  // one now, not only at the end, so a Lambda timeout or crash mid-run cannot leave the caption in
+  // the database. The `finally` below remains as the backstop.
+  await blankManualJobPayloadContent(jobId);
 
   try {
     const env = loadBackendEnv();
@@ -123,6 +130,24 @@ export async function processManualExtractionJob(jobId: string, deps?: ProcessMa
     if (!validateExtractedEvent(payload)) {
       throw new ManualExtractionFailure('EXTRACTION_FAILED', 'The extracted content could not be validated.');
     }
+    if (job.requestPayload.mode === 'REEXTRACT_PREVIEW') {
+      // AD-36 -- preview: report grouping, every event and its dry-run dedup outcome. "Not an
+      // event" is a valid, informative preview (zero events), not a failure.
+      const previewEvents = payload.isEvent === false || !Array.isArray(payload.events) ? [] : payload.events;
+      const preview = await buildReextractionPreview({
+        executor: db,
+        payload: { events: previewEvents, groupingReason: payload.groupingReason },
+        message,
+        postStored: job.requestPayload.postStored ?? Boolean(existingPostAccountId),
+        rescraped: job.requestPayload.rescraped ?? false,
+        maxEvents: env.maxExtractedEventsPerPost,
+      });
+      await db
+        .update(manualExtractionJobs)
+        .set({ status: 'SUCCEEDED', resultData: preview, completedAt: new Date(), updatedAt: new Date() })
+        .where(eq(manualExtractionJobs.id, jobId));
+      return;
+    }
     if (payload.isEvent === false || !Array.isArray(payload.events) || payload.events.length === 0) {
       throw new ManualExtractionFailure('EXTRACTION_FAILED', 'The linked post does not appear to describe an event.');
     }
@@ -149,5 +174,7 @@ export async function processManualExtractionJob(jobId: string, deps?: ProcessMa
     }
     console.error(`[processManualExtractionJob] Job ${jobId} failed unexpectedly:`, err);
     await markFailed(jobId, 'EXTRACTION_FAILED', 'The extraction could not be completed.');
+  } finally {
+    await blankManualJobPayloadContent(jobId);
   }
 }

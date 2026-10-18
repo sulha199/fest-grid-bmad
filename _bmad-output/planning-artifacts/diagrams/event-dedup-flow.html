@@ -289,7 +289,7 @@ body { margin: 0; }
   </div>
 
   <h2>Where to look in the code</h2>
-  <p><code>process-ingestion-job.ts</code> runs the prepare step and the tier branch. <code>match-event-to-existing.ts</code> holds <code>findMatchingEvent</code> and the candidate query. <code>match-scoring.ts</code> in <code>packages/domain</code> holds the weights and thresholds. <code>merge-events.ts</code> and the <code>resolveSuggestedEventMatch</code> resolver handle the moderator side.</p>
+  <p><code>process-ingestion-job.ts</code> runs the tier branch; the stub rule, organizer discount and match call live in <code>evaluate-ingestion-match.ts</code>, which the moderator re-extract preview (AD-36) also calls. <code>match-event-to-existing.ts</code> holds <code>findMatchingEvent</code> and the candidate query. <code>match-scoring.ts</code> in <code>packages/domain</code> holds the weights and thresholds. <code>merge-events.ts</code> and the <code>resolveSuggestedEventMatch</code> resolver handle the moderator side.</p>
 
   <h2>Status and what is left</h2>
   <ul class="open">

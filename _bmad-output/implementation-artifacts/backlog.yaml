@@ -2318,3 +2318,19 @@ items:
      ref: [apps/backend/src/lib/ai-processor/build-gemini-request.ts, packages/domain/src/events/transform-gemini-response-to-event-info.ts],
      touches: [app:backend, pkg:domain, cross:ai-extraction],
      note: "Found 2026-10-18 on PROD while investigating BUG-063: 4 live events have organizer_name over 120 characters, 2 contain reasoning text. Needs a length cap/sanitizer at the transform step and a prompt check; the 4 rows need a manual fix."}
+
+  IDEA-073:
+    {type: idea, status: done, created: 2026-10-18,
+     impact: user-visible, effort: m,
+     title: "Moderator re-extract preview: see what current extraction and dedup would do with a post, rescrape when the caption is missing",
+     ref: [implementation-artifacts/spec-moderator-reextract-post-preview.md, apps/backend/src/lib/extraction/start-post-reextraction-preview.ts, apps/web/src/features/moderation/moderator-source-posts-panel.tsx],
+     touches: [app:backend, pkg:domain, web:moderation, cross:architecture],
+     note: "Built 2026-10-18, preview only (AD-36). Placements: event detail source-post panel (moderator) and Moderator -> Tools -> Re-extract. No apply step by design. Follow-ups: an apply mode needs a replace/skip design for already-represented (post, ordinal) slots."}
+
+  FIND-086:
+    {type: finding, status: backlog, created: 2026-10-18,
+     impact: internal, effort: s,
+     title: "Re-extract preview review deferrals: unclaimed-job caption sweep, invalid-JSON links aborting the candidate query, LIMIT 20 ordering, URL variants",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend, cross:architecture],
+     note: "Deferred from: quick-dev of the moderator re-extract preview (2026-10-18, `bmad-quick-dev`). 4 findings."}

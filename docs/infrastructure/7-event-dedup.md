@@ -53,6 +53,16 @@ Pending suggestions: `SELECT * FROM event_match_candidates WHERE status = 'pendi
 
 3. **Choose the winner** as the event holding the *main* schedule (the race day), not the deadline post. A loser's schedules are copied onto the winner as non-main, its posts are linked to the winner, favorites, reports and calendar entries are repointed, and the loser's slug becomes an alias, so old links still resolve. The winner keeps its own primary post, name and organizer.
 
+## Re-extract preview (moderators)
+
+Shows what the **current** extraction and dedup logic would do with a post, and writes nothing. Spine **AD-36**.
+
+*   **Where:** on an event page, the moderator-only "Source posts (moderator)" panel has a **Re-extract** button per source post (it appears even for an event with a single source post). For a post with no event, use **Moderator → Tools → Re-extract** and paste the post URL.
+*   **What it shows:** the post's grouping reason; every extracted event with its schedules and links; each event's dedup result (would auto-link, would queue for review, low match, or no similar event) with the score and the closest existing event; and whether ingestion would skip the item because the post's slot already has an event.
+*   **Why a re-run does not change existing events:** ingestion skips an item whose `(post, extraction_ordinal)` already has an event. The preview reports that case instead of acting on it. To change an existing event, merge it (above) or edit it as a moderator.
+*   **Rescrape:** only when the post's caption is not stored, and at most once per 10 minutes per URL (scraper credit). A stored caption is never refetched. The caption is held only in the extraction job, which blanks it when it ends; it is never written to the post. A URL not in the database is scraped and previewed without an account signal, and is not stored.
+*   **Limits:** no geocoding or timezone lookups, so the venue signal is the location text only. Uses the same Gemini key rules as the correction flow: a post already in the database falls back to shared subscriber keys; an unknown URL needs the moderator's own key.
+
 ## Gotchas
 
 *   `events.links` is a jsonb **string** holding the array in production (drizzle/postgres.js double-encoding; all rows with links, checked 2026-10-18). Drizzle's read path unwraps it; raw SQL must use `#>> '{}'`.

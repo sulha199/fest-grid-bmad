@@ -21,6 +21,7 @@ import { callGemini, AiGatewayExhaustedError, AiGatewayBusyError } from '../lib/
 import { fetchCandidateKeys } from '../lib/ai-gateway/usage-store.js';
 import { checkAndRecordPromptFilterRateLimit } from '../lib/ai-event-filters/prompt-filter-rate-limit-store.js';
 import { startManualExtractionJob, getManualExtractionJobStatus } from '../lib/extraction/manual-extraction-job.js';
+import { startPostReextractionPreview } from '../lib/extraction/start-post-reextraction-preview.js';
 import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
 import { validateHidePastEventsAfterDays, InvalidUserSettingsInputError } from '@festgrid/domain/user-settings';
 import { isValidIanaTimezone } from '@festgrid/domain/users';
@@ -34,7 +35,7 @@ import { transformGeminiResponseToFilterExpression, dropUnsupportedVenueTypes, v
 import type { FilterValidationIssue } from '@festgrid/domain/ai-event-filters';
 import { SUPPORTED_PLATFORMS, type ScrapablePlatform, type SupportedPlatform } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText } from '@festgrid/domain';
-import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError, postGroupingReasonToGraphQL } from '@festgrid/domain/posts';
+import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError, postGroupingReasonToGraphQL, isPostGroupingReason, type ReextractionPreviewResult } from '@festgrid/domain/posts';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
 import { verifyAccountProfileForDiscovery } from '../lib/accounts/verify-account-profile-for-discovery.js';
 import { triggerScrapeForAccount } from '../lib/scraper/trigger-scrape-for-account.js';
@@ -1647,6 +1648,13 @@ export const resolvers: Resolvers = {
         },
       });
     },
+    previewPostReextraction: async (_, { postId, url }, context): Promise<any> => {
+      const moderator = requireModerator(context);
+      if ((postId ? 1 : 0) + (url ? 1 : 0) !== 1) {
+        throw new GraphQLError('Provide exactly one of postId or url', { extensions: { code: 'BAD_REQUEST' } });
+      }
+      return startPostReextractionPreview(moderator.userId, { postId, url });
+    },
     submitReport: async (_, { eventId, reason, details }, context): Promise<any> => {
       const authUser = requireAuth(context);
       const [existingEvent] = await db.select().from(events).where(eq(events.id, eventId));
@@ -2846,10 +2854,38 @@ export const resolvers: Resolvers = {
     extractionJob: async (_, { id }, context): Promise<any> => {
       const authUser = requireAuth(context);
       const job = await getManualExtractionJobStatus(id, authUser.userId);
-      if (!job) {
+      // A re-extract preview (AD-36) is read through `postReextractionPreview`, not as a correction.
+      if (!job || job.mode === 'REEXTRACT_PREVIEW') {
         throw new GraphQLError('Extraction job not found', { extensions: { code: 'NOT_FOUND' } });
       }
       return job;
+    },
+    postReextractionPreview: async (_, { id }, context): Promise<any> => {
+      const moderator = requireModerator(context);
+      const job = await getManualExtractionJobStatus(id, moderator.userId);
+      if (!job) {
+        throw new GraphQLError('Extraction job not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+      // A correction job is read through `extractionJob`; its id here is a wrong id, in any state.
+      if (job.mode !== 'REEXTRACT_PREVIEW') {
+        throw new GraphQLError('Extraction job not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+      const result = job.data as ReextractionPreviewResult | null;
+      return {
+        status: job.status,
+        preview: result
+          ? {
+              ...result,
+              groupingReason:
+                result.groupingReason && isPostGroupingReason(result.groupingReason)
+                  ? postGroupingReasonToGraphQL(result.groupingReason)
+                  : null,
+              events: result.events.map((e) => ({ ...e, dedup: { ...e.dedup, tier: e.dedup.tier.toUpperCase() } })),
+            }
+          : null,
+        errorCode: job.errorCode,
+        errorMessage: job.errorMessage,
+      };
     },
     myExtractionQuota: async (_, __, context) => {
       const authUser = requireAuth(context);

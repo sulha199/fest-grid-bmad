@@ -2218,6 +2218,73 @@ This document defines the core architectural invariants for the FestDaily applic
 
 ---
 
+### AD-36: Moderator Re-extract Is a Write-Free Preview That Never Keeps a Caption
+
+*   **Binds:** `Mutation.previewPostReextraction`, `Query.postReextractionPreview`
+    (`extraction.graphql`, `resolvers.ts`); `startPostReextractionPreview`
+    (`apps/backend/src/lib/extraction/`); the `REEXTRACT_PREVIEW` mode of the manual extraction job
+    (`process-manual-extraction-job.ts`, `build-reextraction-preview.ts`); `evaluateIngestionMatch`
+    (`apps/backend/src/lib/ingestor/`), now shared with `processIngestionJob`; the moderator UI
+    (`apps/web/src/features/moderation/`, the event detail page, Moderator → Tools → Re-extract).
+    Builds on AD-30 Rules 3, 7 and 10 and the Story 4.2b manual extraction job.
+*   **Prevents:** A second, divergent copy of the ingestion dedup decision that reports one thing
+    while ingestion does another; a "re-extract" that creates duplicate events or overwrites a
+    moderator's edits; a post caption (especially a curator caption, deliberately null in `posts`
+    since Story 3.4o) outliving its use; a rescrape loop spending scraper credit.
+*   **Rule:**
+    1.  **Preview only.** The operation writes nothing to `events`, `schedules`, `event_posts`,
+        `event_match_candidates`, `posts` or `extraction_audit_logs`, and enqueues nothing. Its
+        only writes are the job row and its result. There is **no apply step**: ingestion
+        idempotency on `(post, extraction_ordinal)` (AD-30 Rule 3) skips every item the post
+        already produced, so applying a re-run could only add items with a new ordinal. A write
+        mode is a spine amendment.
+    2.  **One decision, two callers.** `evaluateIngestionMatch(tx, message, sourcePost)` owns the
+        stub rule (AD-30 Rule 10), the roundup/curator organizer discount (BUG-058, IDEA-068) and
+        `findMatchingEvent`. `processIngestionJob` acts on its result; the preview reports it. The
+        preview does not reimplement any part of it.
+    3.  **Reuse the manual extraction job.** A `REEXTRACT_PREVIEW` job runs in the AI Lambda like a
+        correction job (same face blur, same key tiers, same `manual_extraction_jobs` row, owner-
+        scoped to the requesting moderator), and stores a `ReextractionPreviewResult` in
+        `result_data`. It reports every event of the post (not just the first), the post's
+        grouping reason, each event's dedup tier, score and closest candidate, and whether its
+        `(post, ordinal)` slot is already taken. No DDL. A job's `mode` is reported by
+        `getManualExtractionJobStatus`; `postReextractionPreview` rejects a correction job and
+        `extractionJob` rejects a preview job (NOT_FOUND), whatever the state. The post's freshly
+        extracted `groupingReason` (not the stored one) decides the roundup stub in the preview.
+    4.  **No geocoder or timezone calls.** The preview builds messages with empty resolved
+        locations, so the venue signal is the location string only; a match that relies on
+        coordinates within 150 m will score lower in the preview than in ingestion.
+    5.  **Rescrape only when the caption is missing**, via `getScraperAdapter(platform).getPostByUrl`.
+        A stored caption is never refetched. A rescrape of one URL is limited to once per 10
+        minutes (`REEXTRACT_RESCRAPE_COOLDOWN_MS`), checked against recent preview jobs; it does not
+        limit previews of stored captions. A scrape that throws or returns nothing is recorded as an
+        already-FAILED job so it counts too (a post that never scrapes cannot be retried without
+        limit). An image-only post (empty caption) is not a failure. A URL that is not in the
+        database is scraped, previewed without an account signal (`postStored: false`, authorship
+        assumed to be the organizer's, so not a stub), and never stored.
+    6.  **The caption never persists.** (a) A rescraped caption is held only in the job's
+        `request_payload` and is **never written to `posts.content`**, for any account type. (b)
+        `request_payload.message.content` is blanked as soon as the AI Lambda claims the job
+        (the run works from its in-memory copy, so a timeout or crash mid-run leaves nothing), and
+        again in its `finally`, on a failed start, and on the lazy stale-job failure
+        (`blankManualJobPayloadContent`), for correction jobs too. The one uncovered window, a job
+        inserted but never claimed and never polled, is deferred (FIND-086). (c) A stored caption of a
+        non-curator post is untouched.
+    7.  **Moderator only.** Both operations call `requireModerator`.
+*   **Gotcha, recorded because it bit this work:** drizzle/postgres.js stores a jsonb column
+    written from a JS object as a jsonb **string** holding the JSON (`events.links`,
+    `manual_extraction_jobs.request_payload`). Raw SQL over such a column must unwrap it
+    (`col #>> '{}'`) first; `jsonb_set` and `->>` on the raw column fail or return NULL. Read and
+    write through Drizzle, which unwraps and re-encodes consistently.
+*   **Considered and rejected:** an apply/replace mode (soft-deleting a post's events risks
+    favorites, calendar entries and slugs); writing the rescraped caption to `posts.content` and
+    purging it afterward (a crash between the two leaves a curator caption stored; holding it only
+    in the job payload leaves nothing to purge); a new table for previews (the job table already
+    carries owner scope, status and result); a cooldown on every preview (a moderator re-checking
+    after a prompt fix would be blocked, and Gemini quota is already governed by the key gateway).
+
+---
+
 ## Related Documents
 
 - [Infrastructure](../../docs/infrastructure/index.md)

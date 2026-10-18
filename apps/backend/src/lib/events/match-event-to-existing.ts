@@ -134,7 +134,8 @@ export async function findMatchingEvent(
               END,
               '$[*].url'
             ) AS link_url(value)
-            WHERE regexp_replace(split_part(lower(btrim(link_url.value #>> '{}')), '?', 1), '/$', '') IN (${sql.join(
+            WHERE regexp_replace(split_part(lower(btrim(link_url.value #>> '{}', E' 	
+')), '?', 1), '/$', '') IN (${sql.join(
               newLinkUrls.map((url) => sql`${url}`),
               sql`, `
             )})

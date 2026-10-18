@@ -49,6 +49,9 @@ export function parseArgs(argv: string[]): MergeBySlugArgs {
   if (!winnerSlug || loserSlugs.length === 0 || !moderatorId || loserSlugs.some((s) => !s)) {
     throw new Error('Usage: --winner <slug> --loser <slug> [--loser <slug> ...] --moderator-id <uuid> [--apply]');
   }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(moderatorId)) {
+    throw new Error('--moderator-id must be a users.id uuid.');
+  }
   return { winnerSlug, loserSlugs, moderatorId, apply };
 }
 

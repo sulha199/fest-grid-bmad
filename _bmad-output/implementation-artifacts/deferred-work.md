@@ -708,3 +708,18 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: `_bmad-output/implementation-artifacts/spec-bug-059-account-url-by-username.md`
   summary: `generateMetadata` on the account page turns a transient backend error into `notFound()`, so an outage can make crawlers see valid account pages as 404.
   evidence: Surfaced by Edge Case Hunter. Pre-existing behaviour kept as it was (the old `generateMetadata` had the same try/catch then `notFound()`); fixing it means returning fallback metadata on error, which is a separate small change.
+
+## Deferred from: quick-dev of the moderator re-extract preview (2026-10-18, `bmad-quick-dev`)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-moderator-reextract-post-preview.md`
+  summary: A manual extraction job that is inserted but never claimed (lost invoke, crash between insert and invoke) keeps its rescraped or curator caption in `request_payload` until the owning moderator polls it past the 5-minute stale limit; there is no sweep.
+  evidence: Surfaced by Edge Case Hunter. Claiming now blanks the payload at once, so a crash mid-run is covered; the insert-to-claim window is not. A scheduled sweep that blanks terminal and stale jobs is the fix.
+- source_spec: `_bmad-output/implementation-artifacts/spec-moderator-reextract-post-preview.md`
+  summary: `findMatchingEvent`'s shared-link candidate SQL casts `(events.links #>> '{}')::jsonb`, which throws on a stored string that starts with `[` but is not valid JSON, aborting the whole candidate query and so all matching for any new event that has links.
+  evidence: Surfaced by Edge Case Hunter. Rows are written from sanitized arrays so none exist today, but one bad row would degrade dedup everywhere. Needs a savepoint or `pg_input_is_valid` (PG16+).
+- source_spec: `_bmad-output/implementation-artifacts/spec-moderator-reextract-post-preview.md`
+  summary: The candidate query's `LIMIT 20` counts (event, schedule) rows ordered by name similarity only, so the widened shared-link pool can push an in-window candidate out of the top 20 for events with many schedules.
+  evidence: Surfaced by Edge Case Hunter. Ordering in-window candidates first would remove the risk.
+- source_spec: `_bmad-output/implementation-artifacts/spec-moderator-reextract-post-preview.md`
+  summary: Post lookup by URL is exact equality, so a trailing slash, tracking query string or `/reel/` versus `/p/` variant of a stored post is treated as an unknown post (scraped again, no account signal) and bypasses the per-URL rescrape cooldown.
+  evidence: Surfaced by Blind Hunter and Edge Case Hunter. Same behavior as the existing `extractEventDataFromUrl`; normalizing via the platform identity parser is the fix.

@@ -408,6 +408,7 @@ export type ExtractionErrorCode =
   | 'NOT_FOUND'
   | 'NO_API_KEY'
   | 'QUOTA_EXHAUSTED'
+  | 'RATE_LIMITED'
   | 'SCRAPE_FAILED'
   | 'UNSUPPORTED_PLATFORM';
 
@@ -538,6 +539,7 @@ export type Mutation = {
   extractEventDataFromUrl: ExtractEventDataFromUrlResult;
   ignoreSubsequentReports: Report;
   markSubscriptionViewed: Subscription;
+  previewPostReextraction: StartPostReextractionPreviewResult;
   registerEmbedDomain: EmbedDomain;
   registerFcmToken: Scalars['Boolean']['output'];
   removeSubscription: Subscription;
@@ -667,6 +669,12 @@ export type MutationIgnoreSubsequentReportsArgs = {
 
 export type MutationMarkSubscriptionViewedArgs = {
   subscriptionId: Scalars['ID']['input'];
+};
+
+
+export type MutationPreviewPostReextractionArgs = {
+  postId?: InputMaybe<Scalars['ID']['input']>;
+  url?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -913,6 +921,22 @@ export type PostGroupingReason =
   | 'SEPARATE_EVENTS'
   | 'SINGLE_EVENT';
 
+export type PostReextractionPreview = {
+  __typename?: 'PostReextractionPreview';
+  events: Array<ReextractionPreviewEvent>;
+  groupingReason?: Maybe<PostGroupingReason>;
+  postStored: Scalars['Boolean']['output'];
+  rescraped: Scalars['Boolean']['output'];
+};
+
+export type PostReextractionPreviewStatus = {
+  __typename?: 'PostReextractionPreviewStatus';
+  errorCode?: Maybe<ExtractionErrorCode>;
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  preview?: Maybe<PostReextractionPreview>;
+  status: ExtractionJobState;
+};
+
 export type ProposedEventCorrectionData = {
   __typename?: 'ProposedEventCorrectionData';
   categories: Array<EventCategory>;
@@ -1003,6 +1027,7 @@ export type Query = {
   pendingAccountTypeClassificationReviews: Array<AccountTypeClassificationReview>;
   pendingDefaultLocationChanges: Array<DefaultLocationChangeRequest>;
   postByPlatformIdentifiers?: Maybe<EventSourcePost>;
+  postReextractionPreview: PostReextractionPreviewStatus;
   postsByAccount: PostConnection;
   previewLocation: LocationDetails;
   queryActorRuns: ActorRunConnection;
@@ -1088,6 +1113,11 @@ export type QueryPostByPlatformIdentifiersArgs = {
   platform: Scalars['String']['input'];
   platformPostId: Scalars['String']['input'];
   postType: Scalars['String']['input'];
+};
+
+
+export type QueryPostReextractionPreviewArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -1177,6 +1207,45 @@ export type RankedAccountVote = {
   profile: SocialMediaAccountProfile;
   userVoteId?: Maybe<Scalars['ID']['output']>;
   voteCount: Scalars['Int']['output'];
+};
+
+export type ReextractionDedupTier =
+  | 'HIGH'
+  | 'LOW'
+  | 'MID'
+  | 'NONE';
+
+export type ReextractionPreviewDedup = {
+  __typename?: 'ReextractionPreviewDedup';
+  candidateName?: Maybe<Scalars['String']['output']>;
+  candidateSlug?: Maybe<Scalars['String']['output']>;
+  score?: Maybe<Scalars['Float']['output']>;
+  tier: ReextractionDedupTier;
+};
+
+export type ReextractionPreviewEvent = {
+  __typename?: 'ReextractionPreviewEvent';
+  alreadyRepresentedBySlug?: Maybe<Scalars['String']['output']>;
+  dedup: ReextractionPreviewDedup;
+  eventName: Scalars['String']['output'];
+  extractionOrdinal: Scalars['Int']['output'];
+  isStub: Scalars['Boolean']['output'];
+  links: Array<ReextractionPreviewLink>;
+  schedules: Array<ReextractionPreviewSchedule>;
+};
+
+export type ReextractionPreviewLink = {
+  __typename?: 'ReextractionPreviewLink';
+  label?: Maybe<Scalars['String']['output']>;
+  url: Scalars['String']['output'];
+};
+
+export type ReextractionPreviewSchedule = {
+  __typename?: 'ReextractionPreviewSchedule';
+  endDate?: Maybe<Scalars['String']['output']>;
+  isMain: Scalars['Boolean']['output'];
+  startDate?: Maybe<Scalars['String']['output']>;
+  title?: Maybe<Scalars['String']['output']>;
 };
 
 export type RegionVoteBucket = {
@@ -1343,6 +1412,13 @@ export type SocialMediaAccountProfileEdge = {
 export type SoftDeleteAction =
   | 'DELETE'
   | 'RESTORE';
+
+export type StartPostReextractionPreviewResult = {
+  __typename?: 'StartPostReextractionPreviewResult';
+  errorCode?: Maybe<ExtractionErrorCode>;
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  jobId?: Maybe<Scalars['ID']['output']>;
+};
 
 export type SubscribeToAccountInput = {
   accountId: Scalars['String']['input'];
@@ -1698,12 +1774,19 @@ export type ResolversTypes = ResolversObject<{
   PostConnection: ResolverTypeWrapper<PostConnection>;
   PostExtractionStatus: PostExtractionStatus;
   PostGroupingReason: PostGroupingReason;
+  PostReextractionPreview: ResolverTypeWrapper<PostReextractionPreview>;
+  PostReextractionPreviewStatus: ResolverTypeWrapper<PostReextractionPreviewStatus>;
   ProposedEventCorrectionData: ResolverTypeWrapper<ProposedEventCorrectionData>;
   ProposedEventCorrectionInput: ProposedEventCorrectionInput;
   ProposedScheduleCorrectionData: ResolverTypeWrapper<ProposedScheduleCorrectionData>;
   ProposedScheduleCorrectionInput: ProposedScheduleCorrectionInput;
   Query: ResolverTypeWrapper<{}>;
   RankedAccountVote: ResolverTypeWrapper<RankedAccountVoteParent>;
+  ReextractionDedupTier: ReextractionDedupTier;
+  ReextractionPreviewDedup: ResolverTypeWrapper<ReextractionPreviewDedup>;
+  ReextractionPreviewEvent: ResolverTypeWrapper<ReextractionPreviewEvent>;
+  ReextractionPreviewLink: ResolverTypeWrapper<ReextractionPreviewLink>;
+  ReextractionPreviewSchedule: ResolverTypeWrapper<ReextractionPreviewSchedule>;
   RegionVoteBucket: ResolverTypeWrapper<RegionVoteBucket>;
   RelatedEventGroup: ResolverTypeWrapper<RelatedEventGroup>;
   ReplayActorRunResult: ResolverTypeWrapper<ReplayActorRunResult>;
@@ -1723,6 +1806,7 @@ export type ResolversTypes = ResolversObject<{
   SocialMediaAccountProfileConnection: ResolverTypeWrapper<Omit<SocialMediaAccountProfileConnection, 'edges'> & { edges: Array<ResolversTypes['SocialMediaAccountProfileEdge']> }>;
   SocialMediaAccountProfileEdge: ResolverTypeWrapper<Omit<SocialMediaAccountProfileEdge, 'node'> & { node: ResolversTypes['SocialMediaAccountProfile'] }>;
   SoftDeleteAction: SoftDeleteAction;
+  StartPostReextractionPreviewResult: ResolverTypeWrapper<StartPostReextractionPreviewResult>;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   SubscribeToAccountInput: SubscribeToAccountInput;
   SubscribeToAccountResult: ResolverTypeWrapper<Omit<SubscribeToAccountResult, 'subscription'> & { subscription: ResolversTypes['Subscription'] }>;
@@ -1808,12 +1892,18 @@ export type ResolversParentTypes = ResolversObject<{
   PayloadContext: PayloadContextParent;
   Post: Post;
   PostConnection: PostConnection;
+  PostReextractionPreview: PostReextractionPreview;
+  PostReextractionPreviewStatus: PostReextractionPreviewStatus;
   ProposedEventCorrectionData: ProposedEventCorrectionData;
   ProposedEventCorrectionInput: ProposedEventCorrectionInput;
   ProposedScheduleCorrectionData: ProposedScheduleCorrectionData;
   ProposedScheduleCorrectionInput: ProposedScheduleCorrectionInput;
   Query: {};
   RankedAccountVote: RankedAccountVoteParent;
+  ReextractionPreviewDedup: ReextractionPreviewDedup;
+  ReextractionPreviewEvent: ReextractionPreviewEvent;
+  ReextractionPreviewLink: ReextractionPreviewLink;
+  ReextractionPreviewSchedule: ReextractionPreviewSchedule;
   RegionVoteBucket: RegionVoteBucket;
   RelatedEventGroup: RelatedEventGroup;
   ReplayActorRunResult: ReplayActorRunResult;
@@ -1828,6 +1918,7 @@ export type ResolversParentTypes = ResolversObject<{
   SocialMediaAccountProfile: SocialMediaAccountProfileParent;
   SocialMediaAccountProfileConnection: Omit<SocialMediaAccountProfileConnection, 'edges'> & { edges: Array<ResolversParentTypes['SocialMediaAccountProfileEdge']> };
   SocialMediaAccountProfileEdge: Omit<SocialMediaAccountProfileEdge, 'node'> & { node: ResolversParentTypes['SocialMediaAccountProfile'] };
+  StartPostReextractionPreviewResult: StartPostReextractionPreviewResult;
   String: Scalars['String']['output'];
   SubscribeToAccountInput: SubscribeToAccountInput;
   SubscribeToAccountResult: Omit<SubscribeToAccountResult, 'subscription'> & { subscription: ResolversParentTypes['Subscription'] };
@@ -2153,6 +2244,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   extractEventDataFromUrl?: Resolver<ResolversTypes['ExtractEventDataFromUrlResult'], ParentType, ContextType, RequireFields<MutationExtractEventDataFromUrlArgs, 'url'>>;
   ignoreSubsequentReports?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationIgnoreSubsequentReportsArgs, 'reportId'>>;
   markSubscriptionViewed?: Resolver<ResolversTypes['Subscription'], ParentType, ContextType, RequireFields<MutationMarkSubscriptionViewedArgs, 'subscriptionId'>>;
+  previewPostReextraction?: Resolver<ResolversTypes['StartPostReextractionPreviewResult'], ParentType, ContextType, Partial<MutationPreviewPostReextractionArgs>>;
   registerEmbedDomain?: Resolver<ResolversTypes['EmbedDomain'], ParentType, ContextType, RequireFields<MutationRegisterEmbedDomainArgs, 'pattern' | 'widgetId'>>;
   registerFcmToken?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationRegisterFcmTokenArgs, 'token'>>;
   removeSubscription?: Resolver<ResolversTypes['Subscription'], ParentType, ContextType, RequireFields<MutationRemoveSubscriptionArgs, 'action' | 'id'>>;
@@ -2234,6 +2326,22 @@ export type PostConnectionResolvers<ContextType = GraphQLContext, ParentType ext
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type PostReextractionPreviewResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['PostReextractionPreview'] = ResolversParentTypes['PostReextractionPreview']> = ResolversObject<{
+  events?: Resolver<Array<ResolversTypes['ReextractionPreviewEvent']>, ParentType, ContextType>;
+  groupingReason?: Resolver<Maybe<ResolversTypes['PostGroupingReason']>, ParentType, ContextType>;
+  postStored?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  rescraped?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type PostReextractionPreviewStatusResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['PostReextractionPreviewStatus'] = ResolversParentTypes['PostReextractionPreviewStatus']> = ResolversObject<{
+  errorCode?: Resolver<Maybe<ResolversTypes['ExtractionErrorCode']>, ParentType, ContextType>;
+  errorMessage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  preview?: Resolver<Maybe<ResolversTypes['PostReextractionPreview']>, ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['ExtractionJobState'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type ProposedEventCorrectionDataResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ProposedEventCorrectionData'] = ResolversParentTypes['ProposedEventCorrectionData']> = ResolversObject<{
   categories?: Resolver<Array<ResolversTypes['EventCategory']>, ParentType, ContextType>;
   contactInfo?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -2285,6 +2393,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   pendingAccountTypeClassificationReviews?: Resolver<Array<ResolversTypes['AccountTypeClassificationReview']>, ParentType, ContextType>;
   pendingDefaultLocationChanges?: Resolver<Array<ResolversTypes['DefaultLocationChangeRequest']>, ParentType, ContextType>;
   postByPlatformIdentifiers?: Resolver<Maybe<ResolversTypes['EventSourcePost']>, ParentType, ContextType, RequireFields<QueryPostByPlatformIdentifiersArgs, 'platform' | 'platformPostId' | 'postType'>>;
+  postReextractionPreview?: Resolver<ResolversTypes['PostReextractionPreviewStatus'], ParentType, ContextType, RequireFields<QueryPostReextractionPreviewArgs, 'id'>>;
   postsByAccount?: Resolver<ResolversTypes['PostConnection'], ParentType, ContextType, RequireFields<QueryPostsByAccountArgs, 'accountId'>>;
   previewLocation?: Resolver<ResolversTypes['LocationDetails'], ParentType, ContextType, Partial<QueryPreviewLocationArgs>>;
   queryActorRuns?: Resolver<ResolversTypes['ActorRunConnection'], ParentType, ContextType, Partial<QueryQueryActorRunsArgs>>;
@@ -2304,6 +2413,39 @@ export type RankedAccountVoteResolvers<ContextType = GraphQLContext, ParentType 
   profile?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType>;
   userVoteId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
   voteCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ReextractionPreviewDedupResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ReextractionPreviewDedup'] = ResolversParentTypes['ReextractionPreviewDedup']> = ResolversObject<{
+  candidateName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  candidateSlug?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  score?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
+  tier?: Resolver<ResolversTypes['ReextractionDedupTier'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ReextractionPreviewEventResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ReextractionPreviewEvent'] = ResolversParentTypes['ReextractionPreviewEvent']> = ResolversObject<{
+  alreadyRepresentedBySlug?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  dedup?: Resolver<ResolversTypes['ReextractionPreviewDedup'], ParentType, ContextType>;
+  eventName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  extractionOrdinal?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  isStub?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  links?: Resolver<Array<ResolversTypes['ReextractionPreviewLink']>, ParentType, ContextType>;
+  schedules?: Resolver<Array<ResolversTypes['ReextractionPreviewSchedule']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ReextractionPreviewLinkResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ReextractionPreviewLink'] = ResolversParentTypes['ReextractionPreviewLink']> = ResolversObject<{
+  label?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  url?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ReextractionPreviewScheduleResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ReextractionPreviewSchedule'] = ResolversParentTypes['ReextractionPreviewSchedule']> = ResolversObject<{
+  endDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  isMain?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  startDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -2435,6 +2577,13 @@ export type SocialMediaAccountProfileConnectionResolvers<ContextType = GraphQLCo
 export type SocialMediaAccountProfileEdgeResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['SocialMediaAccountProfileEdge'] = ResolversParentTypes['SocialMediaAccountProfileEdge']> = ResolversObject<{
   cursor?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   node?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type StartPostReextractionPreviewResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['StartPostReextractionPreviewResult'] = ResolversParentTypes['StartPostReextractionPreviewResult']> = ResolversObject<{
+  errorCode?: Resolver<Maybe<ResolversTypes['ExtractionErrorCode']>, ParentType, ContextType>;
+  errorMessage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  jobId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -2608,10 +2757,16 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   PayloadContext?: PayloadContextResolvers<ContextType>;
   Post?: PostResolvers<ContextType>;
   PostConnection?: PostConnectionResolvers<ContextType>;
+  PostReextractionPreview?: PostReextractionPreviewResolvers<ContextType>;
+  PostReextractionPreviewStatus?: PostReextractionPreviewStatusResolvers<ContextType>;
   ProposedEventCorrectionData?: ProposedEventCorrectionDataResolvers<ContextType>;
   ProposedScheduleCorrectionData?: ProposedScheduleCorrectionDataResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   RankedAccountVote?: RankedAccountVoteResolvers<ContextType>;
+  ReextractionPreviewDedup?: ReextractionPreviewDedupResolvers<ContextType>;
+  ReextractionPreviewEvent?: ReextractionPreviewEventResolvers<ContextType>;
+  ReextractionPreviewLink?: ReextractionPreviewLinkResolvers<ContextType>;
+  ReextractionPreviewSchedule?: ReextractionPreviewScheduleResolvers<ContextType>;
   RegionVoteBucket?: RegionVoteBucketResolvers<ContextType>;
   RelatedEventGroup?: RelatedEventGroupResolvers<ContextType>;
   ReplayActorRunResult?: ReplayActorRunResultResolvers<ContextType>;
@@ -2624,6 +2779,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   SocialMediaAccountProfile?: SocialMediaAccountProfileResolvers<ContextType>;
   SocialMediaAccountProfileConnection?: SocialMediaAccountProfileConnectionResolvers<ContextType>;
   SocialMediaAccountProfileEdge?: SocialMediaAccountProfileEdgeResolvers<ContextType>;
+  StartPostReextractionPreviewResult?: StartPostReextractionPreviewResultResolvers<ContextType>;
   SubscribeToAccountResult?: SubscribeToAccountResultResolvers<ContextType>;
   Subscription?: SubscriptionResolvers<ContextType>;
   SuggestedEventMatch?: SuggestedEventMatchResolvers<ContextType>;

@@ -1,0 +1,42 @@
+mutation PreviewPostReextraction($postId: ID, $url: String) {
+  previewPostReextraction(postId: $postId, url: $url) {
+    jobId
+    errorCode
+    errorMessage
+  }
+}
+
+query PostReextractionPreview($id: ID!) {
+  postReextractionPreview(id: $id) {
+    status
+    errorCode
+    errorMessage
+    preview {
+      groupingReason
+      postStored
+      rescraped
+      events {
+        extractionOrdinal
+        eventName
+        alreadyRepresentedBySlug
+        isStub
+        links {
+          url
+          label
+        }
+        schedules {
+          title
+          startDate
+          endDate
+          isMain
+        }
+        dedup {
+          tier
+          score
+          candidateSlug
+          candidateName
+        }
+      }
+    }
+  }
+}
