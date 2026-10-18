@@ -2355,10 +2355,10 @@ items:
   IDEA-075:
     {type: idea, status: backlog, created: 2026-10-18,
      impact: user-visible, effort: m, blocks: [IDEA-074],
-     title: "Read an account's country and reach from its initial profile scrape; retry that scrape when it fails",
+     title: "Profile enrichment: country, reach and default time zone from the initial profile scrape, with retry",
      ref: [backlog/IDEA-075-profile-enrichment-country-reach-retry.md, planning-artifacts/event-insight-poc/poc-report.md],
      touches: [app:backend, pkg:domain, pkg:database, web:accounts, web:locations, cross:ai-extraction],
-     note: "POC: 16 profiles (5 real, 11 synthetic), 0 wrong countries in 48 runs; model and signals never disagreed, so conflict handling is unit-tested only."}
+     note: "POC: 18 profiles (5 real, 13 synthetic), 0 wrong country and 0 wrong time zone in 54 runs; signals and model never disagreed, so conflict handling is unit-tested only. Legacy curators: bulk update, SQL in the note."}
 
   FIND-086:
     {type: finding, status: backlog, created: 2026-10-18,

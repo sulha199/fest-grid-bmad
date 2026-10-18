@@ -14,6 +14,14 @@ captured: 2026-10-18
 * `isScrapableAccountType(null, null)` is `true` and `getBatchScrapeTargets` selects `account_type_status IS NULL` — Story 3.4n AC5 grandfathered every pre-existing account on purpose ("a deliberate, user-accepted gap").
 * So a curator that existed before 3.4n and was never classified is scraped like an organizer and, because its `accountType` is null, **escapes the minimization that exists for curators**.
 
+## A second consequence (also by reading)
+
+`is-organizer-authored-post.ts` says so in its own header: "A NULL accountType is NOT curator-typed". So a never-classified curator's post counts as organizer-authored: `process-ingestion-job.ts` does not make its events `stub` (`isCuratorSourced` is false), trusts its `organizerHandle` for matching, and the post can become an event's primary post and trigger the first-organizer notification. That is the opposite of what the curator design intends ("a misread curator must not become a primary or fire a notification").
+
+## Resolution for part of the group
+
+The product owner states that the never-classified accounts with **no location** are all Indonesian curators; setting them to `CURATOR_GUIDE`/`CONFIRMED` by one bulk update (SQL in IDEA-075) fixes both consequences for them going forward. Captions already stored stay until a separate, explicit deletion. Never-classified accounts *with* a location are not covered by that statement.
+
 ## Why it is registered separately from BUG-065
 
 BUG-065 is about a wrong *location*. This is about an unmet *minimization* obligation for the same accounts, which has a different owner and a different fix (classify them — IDEA-075 — or treat null as curator-until-proven-otherwise for minimization). `impact: compliance`, because the failure has no user symptom.

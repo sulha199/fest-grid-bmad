@@ -1,5 +1,5 @@
 ---
-status: complete (addenda 1-4, 2026-10-18, appended)
+status: complete (addenda 1-5, 2026-10-18, appended)
 type: poc-report
 date: 2026-10-18
 model_under_test: gemini-3.5-flash-lite   # the production default (apps/backend/src/env.ts)
@@ -370,4 +370,42 @@ Corpus: 5 real (2 with a real profile payload from `apify-runs/`, 3 known only f
 * The synthetic corpus and its labels are mine; the real corpus is five accounts, all Indonesian.
 * Earlier numbers re-verified identical after this round: the guarded wrong-claim table (`wrong-claims.ts` diff). The ranking demo changed only in labels, not in tier counts.
 * Backlog: IDEA-075 and FIND-086 added with tier-1 notes; BUG-065, BUG-066 and IDEA-074 updated; the checker's pre-existing failure count is unchanged (69), none on the new rows. No product code was changed.
+
+---
+
+# Addendum 5 (2026-10-18, fifth discussion): legacy accounts by bulk update, the subscribers' country, a default time zone
+
+Questions answered here: *the legacy accounts with no location are all Indonesian curators — do we need a backfill? should we record the subscribing user's country as a clue to the account's country? infer a default time zone too, since the country cannot supply it.* Code: `country-signals.ts` (+ subscribers' country; 15 tests), `timezone-signals.ts` (14), `profile-insight.ts` (prompt v2 with a time zone; 18), `run-profile-insight.ts` (`--prompt v2`, `--from`). Total offline tests: **191**. Raw: `results/profile-insight-v2.json|.generated.md` (the run as it happened), `results/profile-insight-v2-rescored.json|.generated.md` (the same recorded answers re-scored with the corrected guard).
+
+## E1. Legacy accounts: no backfill
+
+Taken as stated by the product owner (I cannot see the data): never-classified accounts with no location are all Indonesian curators. One transaction sets them to `CURATOR_GUIDE`/`CONFIRMED` (SQL with a before-state table, a guard against a concurrent subscribe and a rollback: IDEA-075; **not run**). From the code, what changes for them: scraping no; future captions cleared and images not re-hosted (3.4o); future events ingested as `stub` and no longer organizer-authored for primary-post choice and the first-organizer notification (`isOrganizerAuthoredPost`: "a NULL accountType is NOT curator-typed" — so until now they were treated as organizers). That second effect is a visible behaviour change; I did not check how the UI renders a stub event. Already-stored captions stay. Never-classified accounts *with* a location are outside the statement and stay null.
+
+## E2. The subscribers' country
+
+There is no country column on `users`; the country of a user's saved places is in `user_locations.location_details` and the device zone is `users.timezone`, so a subscriber's country is derivable on demand and nothing new needs recording (`countryOfUser`: saved places first, then the zone). As a signal it is deliberately weak — worth 1, needs 3 or more subscribers and an 80% majority, cannot resolve alone, cannot outvote a strong marker. The reason is the base rate: on a mostly-Indonesian platform nearly every account's subscribers are Indonesian, so the signal adds almost nothing and would mislead for a foreign community followed by Indonesians (unit-tested with eight Indonesian subscribers of a Melbourne account). **No production data was available; whether it ever matters is unmeasured** (query in IDEA-075).
+
+## E3. A default time zone, inferred (live Gemini + offline signals, 18 profiles × 3 runs)
+
+Corpus: the 16 profiles of Addendum 4 plus two written for this question — a curator listing events in **Java and Bali** (WIB and WITA) and a Papua community (WIT). Labels were written before the run. The label for a national organizer, the Java+Bali curator, the Flores/Kupang/Kartasura olympiad and the placeless accounts is *no zone*.
+
+| | result |
+|---|---|
+| time-zone signals alone | zone resolved 11/18, **wrong 0**; the 7 unresolved are cases where the label allows no zone |
+| country, signals alone | resolved 15/18, **wrong 0** |
+| model, 54 runs, as recorded | wrong zone 0/54 — but 14 correct zones were discarded by my guard (see below), so "UNKNOWN where expected" read 14/54 |
+| model, same answers re-scored with the corrected guard | **wrong zone 0/54**, UNKNOWN where expected 0/54; fully correct 51/54 (the 3 misses are reach calls on placeless or multi-region profiles); wrong country 0/54 |
+| the traps | Java+Bali curator → `UNKNOWN` ×3 and signals "multi-zone"; national company → `UNKNOWN`; Flores/Kupang/Kartasura olympiad → `UNKNOWN`; an Indonesian shop with no place → `UNKNOWN` (language is not a zone); Papua → `Asia/Jayapura`; Bali studio → `Asia/Makassar`; the Indonesian-language Melbourne community → `Australia/Melbourne` |
+
+**A defect of mine, found by the run.** `isVerbatimQuote` ignores quotes shorter than 4 characters, so the guard dropped every zone whose only evidence was the abbreviation itself ("WIB", "MYT", "SGT", "IST", "WIT"): 14 of 54 runs. Fixed with `isVerbatimEvidence` (a 2-3 letter quote counts only as a whole, case-sensitive token) and the recorded answers re-scored offline with `--from` — no new model calls. The fix was made after seeing the failure; the "wrong 0/54" does not depend on it (raw answers were already 0/54 wrong).
+
+**Two further defects in `timezone-signals.ts`**, both fixed before the live run: the corpus showed that an ambiguous abbreviation ("IST" = India, Ireland or Israel) wrongly counted against the right zone because it also listed the other two (now a neutral vote for any zone it includes); and a unit test showed that 9 texts of 10 failed a 0.9 bar through floating point.
+
+**Limits.** Same as Addendum 4: the signals and the model agreed wherever both spoke, so a disagreement is unit-tested, not measured; synthetic profiles are cleaner than real ones; there is no real foreign account; only two real bios. The place tables are mine and cover only the places in the corpus plus a handful: a production build needs a gazetteer (the geocoder already returns a zone for a place — the more reliable source when the account has one). `COUNTRY_SINGLE_ZONE` (Singapore, India, Malaysia) is a convenience that nothing in the corpus depends on.
+
+## E4. Limits and changes after seeing results (this addendum)
+
+* The bulk update and the history query are **unrun SQL**; column names were read from `packages/database/schema.ts`.
+* Earlier numbers re-verified identical after this round: the guarded wrong-claims table. Addendum 4's v1 results file (16 profiles) is untouched; the corpus now has 18.
+* Backlog: IDEA-075 widened (title and note) and its tier-1 note rewritten; BUG-065 and FIND-086 updated; checker failure count unchanged (69), none on the new rows. No product code was changed.
 

@@ -19,6 +19,7 @@ import { inferCountryFromSignals, type CountryDecision, type ProfileText } from 
 import { AREA_ALIASES, isVerbatimQuote } from './score.js';
 import { AREA_LEVELS, type AreaLevel } from './insight-schema.js';
 import { textMentions } from './audience-areas.js';
+import { isValidZone } from './timezone-signals.js';
 
 export const REACHES = ['local', 'regional', 'national', 'international', 'unspecified'] as const;
 export type Reach = (typeof REACHES)[number];
@@ -29,6 +30,9 @@ export interface ProfileInsight {
   reach: Reach;
   reachAreas: Array<{ name: string; level: AreaLevel }>;
   evidence: string[];
+  // prompt v2 only: the IANA zone of the account's usual events, or 'UNKNOWN' (absent in v1 records)
+  timezone?: string;
+  timezoneEvidence?: string[];
 }
 
 export const profileInsightSchema = {
@@ -43,6 +47,13 @@ export const profileInsightSchema = {
   required: ['countryCode', 'countryEvidence', 'reach', 'reachAreas', 'evidence'],
 };
 
+export const profileInsightSchemaV2 = {
+  ...profileInsightSchema,
+  properties: { ...profileInsightSchema.properties, timezone: { type: 'STRING' }, timezoneEvidence: { type: 'ARRAY', items: { type: 'STRING' } } },
+  required: [...profileInsightSchema.required, 'timezone', 'timezoneEvidence'],
+};
+export function profileInsightSchemaFor(version: string) { return version === 'v2' ? profileInsightSchemaV2 : profileInsightSchema; }
+
 export const PROFILE_INSIGHT_INSTRUCTION_V1 = `You are an analyst for an event-discovery app. Given what a social media account shows about itself -- its name, bio, business category, link, and its recent post captions and location tags -- report where the account operates and how far its OWN audience reaches. The text may be Indonesian, English or mixed.
 
 - countryCode: the ISO 3166-1 alpha-2 code of the country the account operates in (ID, MY, SG, AU, IN, ...), or the word UNKNOWN. Use only concrete evidence: a phone number or calling code, a time-zone abbreviation, a currency with an amount, an address, a named place that belongs to one country, a country-specific web domain. The LANGUAGE of the text is NOT evidence of a country: Indonesian is also written by communities in Malaysia and Australia, Malay and Indonesian look alike, and English is used everywhere. If nothing concrete supports a country, answer UNKNOWN.
@@ -52,9 +63,16 @@ export const PROFILE_INSIGHT_INSTRUCTION_V1 = `You are an analyst for an event-d
 - evidence: up to 3 short VERBATIM snippets supporting reach and reachAreas.
 Strictly follow the JSON schema.`;
 
+// v2 = v1 (frozen) + the account's default time zone.
+export const PROFILE_INSIGHT_INSTRUCTION_V2 = `${PROFILE_INSIGHT_INSTRUCTION_V1.replace('Strictly follow the JSON schema.', '')}
+- timezone: the IANA time-zone name (for example Asia/Jakarta) in which this account's events usually happen, or the word UNKNOWN. THE COUNTRY DOES NOT DETERMINE THE TIME ZONE: Indonesia has three (WIB = Asia/Jakarta, WITA = Asia/Makassar, WIT = Asia/Jayapura) and Australia has several, so decide from the time-zone abbreviations and the places in the input, never from the country or the language. Answer a zone ONLY if everything the account does is in that one zone. If the account is national or international, covers places in different zones (for example Java and Bali), or the input names no zone and no place, answer UNKNOWN.
+- timezoneEvidence: 1 to 3 short VERBATIM snippets (at most 100 characters each) that support timezone -- a time-zone abbreviation or the place name. Empty when timezone is UNKNOWN.
+Strictly follow the JSON schema.`;
+
 export function profileInsightInstruction(version: string): string {
-  if (version !== 'v1') throw new Error(`Unknown profile-insight prompt ${version}`);
-  return PROFILE_INSIGHT_INSTRUCTION_V1;
+  if (version === 'v1') return PROFILE_INSIGHT_INSTRUCTION_V1;
+  if (version === 'v2') return PROFILE_INSIGHT_INSTRUCTION_V2;
+  throw new Error(`Unknown profile-insight prompt ${version}`);
 }
 
 /** What the model is shown: the same fields the subscribe-time scrape returns. */
@@ -84,8 +102,20 @@ export function validateProfileInsight(raw: unknown): { ok: boolean; value?: Pro
   if (!Array.isArray(r.reachAreas)) errors.push('reachAreas');
   else for (const a of r.reachAreas) if (typeof a?.name !== 'string' || !(AREA_LEVELS as readonly string[]).includes(a?.level as string)) errors.push('reachArea');
   if (!Array.isArray(r.evidence)) errors.push('evidence');
+  if (r.timezone !== undefined && typeof r.timezone !== 'string') errors.push('timezone');
+  if (r.timezoneEvidence !== undefined && !Array.isArray(r.timezoneEvidence)) errors.push('timezoneEvidence');
   if (errors.length) return { ok: false, errors };
   return { ok: true, value: { ...(r as ProfileInsight), countryCode: (r.countryCode as string).trim().toUpperCase() }, errors };
+}
+
+// Short evidence such as a time-zone abbreviation ("WIB", "MYT") is below isVerbatimQuote's 4-character floor. A 2-3 letter
+// quote is accepted only as a whole, case-sensitive token of the source — never as a fragment of a longer word.
+// (Found by the first v2 run: the floor discarded 14 correct zones whose only evidence was the abbreviation.)
+export function isVerbatimEvidence(quote: string, source: string): boolean {
+  if (isVerbatimQuote(quote, source)) return true;
+  const q = quote.trim();
+  if (!/^[A-Za-z]{2,3}$/.test(q)) return false;
+  return new RegExp(`(^|[^A-Za-z])${q}([^A-Za-z]|$)`).test(source);
 }
 
 // ---- guards (remove claims, never add) ---------------------------------------------------------------------
@@ -97,14 +127,23 @@ export function guardProfileInsight(out: ProfileInsight, p: ProfileText): { out:
   let countryCode = out.countryCode;
   let countryEvidence = out.countryEvidence;
   if (countryCode !== 'UNKNOWN') {
-    const grounded = out.countryEvidence.filter((q) => isVerbatimQuote(q, src));
+    const grounded = out.countryEvidence.filter((q) => isVerbatimEvidence(q, src));
     if (grounded.length === 0) { countryCode = 'UNKNOWN'; countryEvidence = []; actions.push(`country ${out.countryCode} dropped: no verbatim evidence`); }
     else countryEvidence = grounded;
   }
   let reachAreas = out.reachAreas;
   if (out.reach !== 'local' && out.reach !== 'regional' && reachAreas.length) { actions.push('reach areas dropped: reach is not local/regional'); reachAreas = []; }
   reachAreas = reachAreas.filter((a) => { const ok = textMentions(src, a.name); if (!ok) actions.push(`reach area "${a.name}" dropped: not in the input`); return ok; });
-  return { out: { ...out, countryCode, countryEvidence, reachAreas }, actions };
+  let timezone = out.timezone;
+  let timezoneEvidence = out.timezoneEvidence;
+  if (timezone !== undefined && timezone !== 'UNKNOWN') {
+    const grounded = (out.timezoneEvidence ?? []).filter((q) => isVerbatimEvidence(q, src));
+    if (!isValidZone(timezone)) { actions.push(`timezone "${timezone}" dropped: not an IANA zone`); timezone = 'UNKNOWN'; timezoneEvidence = []; }
+    else if (grounded.length === 0) { actions.push(`timezone ${timezone} dropped: no verbatim evidence`); timezone = 'UNKNOWN'; timezoneEvidence = []; }
+    else if (out.reach === 'national' || out.reach === 'international') { actions.push(`timezone ${timezone} dropped: ${out.reach} reach spans zones`); timezone = 'UNKNOWN'; timezoneEvidence = []; }
+    else timezoneEvidence = grounded;
+  }
+  return { out: { ...out, countryCode, countryEvidence, reachAreas, ...(timezone !== undefined ? { timezone, timezoneEvidence } : {}) }, actions };
 }
 
 // ---- the combined country decision -----------------------------------------------------------------------
@@ -170,6 +209,12 @@ export const SYNTHETIC_PROFILES: ProfileCase[] = [
   { id: 'syn-johor-sukan', origin: 'synthetic', note: 'TRAP: Malay-language account in Malaysia — must not give Indonesia', username: 'kompleks.sukan.jb.demo', displayName: 'Kompleks Sukan Johor Bahru', businessCategoryName: 'Sports complex', externalUrl: null,
     biography: 'Kompleks sukan rasmi Johor Bahru. Sewa gelanggang & kejohanan.\nWhatsApp +60 7-123 4567',
     captions: ['Kejohanan futsal terbuka 12 Disember. Yuran penyertaan RM30 sahaja.'], locationNames: ['Johor Bahru'] },
+  { id: 'syn-java-bali-curator', origin: 'synthetic', note: 'curator listing events in Java AND Bali — two time zones: the right default zone is none', username: 'info.event.jawa.bali.demo', displayName: 'Info Event Jawa & Bali', businessCategoryName: 'Media', externalUrl: null,
+    biography: 'Agenda konser, festival & pameran di Jawa dan Bali 🎶',
+    captions: ['Jazz di Taman Budaya Surabaya, Sabtu 19.00 WIB. Tiket Rp 150.000.', 'Sunset Party di Canggu, Minggu 17.00 WITA.', 'Pasar Malam Bandung Jumat 18.00 WIB, gratis!', 'Pameran seni Ubud 10.00 WITA s.d. 8 Des.'], locationNames: [] },
+  { id: 'syn-jayapura-komunitas', origin: 'synthetic', note: 'Indonesian community in Papua — the third Indonesian zone (WIT)', username: 'komunitas.jayapura.demo', displayName: 'Komunitas Jayapura', businessCategoryName: 'Community', externalUrl: null,
+    biography: 'Kumpul warga Jayapura. Bakti sosial, olahraga & budaya 🏐',
+    captions: ['Turnamen voli pantai Sabtu 14.00 WIT di Pantai Base-G, Jayapura. Daftar Rp 100.000/tim.', 'Bakti sosial Minggu 08.00 WIT, kumpul di Lapangan Mandala.'], locationNames: ['Jayapura'] },
   { id: 'syn-warung-tanpa-kota', origin: 'synthetic', note: 'Indonesian-language shop with no place anywhere — must not invent a city', username: 'warung.kopi.enak.demo', displayName: 'Warung Kopi Enak', businessCategoryName: 'Coffee shop', externalUrl: null,
     biography: 'Warung kopi enak 🍵 Buka tiap hari, jangan lupa mampir!', captions: ['Promo hari ini diskon 20% semua menu.', 'Menu baru: kopi susu gula aren.'], locationNames: [] },
 ];
@@ -179,6 +224,8 @@ export interface ProfileLabel {
   country: string[];            // acceptable country codes ([] = the right answer is "no country")
   countryAbstainOk: boolean;    // UNKNOWN is acceptable (a miss in value, never a wrong claim)
   reach: Reach[];
+  // the account's default IANA zone: acceptable answers ([] = the right answer is NO zone, any claim is wrong); abstainOk = UNKNOWN is fine
+  tz?: { accept: string[]; abstainOk: boolean };
   include?: string[][];         // each inner list = alias keys, any one must appear in reachAreas
   noAreas?: boolean;            // reachAreas must be empty
   forbid?: string[];            // alias keys that must not appear in reachAreas
@@ -186,23 +233,28 @@ export interface ProfileLabel {
 
 export const PROFILE_LABELS: Record<string, ProfileLabel> = {
   // real
-  plazaambarrukmo: { country: ['ID'], countryAbstainOk: false, reach: ['local', 'regional'], include: [['yogyakarta', 'sleman']] },
-  infoeventjogja: { country: ['ID'], countryAbstainOk: false, reach: ['local', 'regional'], include: [['yogyakarta']] },
-  wanitatamajogja: { country: ['ID'], countryAbstainOk: true, reach: ['local', 'regional', 'unspecified'], forbid: ['jakarta'] },
-  'pakuwonmall.jogja': { country: ['ID'], countryAbstainOk: true, reach: ['local', 'regional'], include: [['yogyakarta']] },
-  chaanakyaekadantaolympiad: { country: ['ID'], countryAbstainOk: true, reach: ['national'], noAreas: true },
+  plazaambarrukmo: { country: ['ID'], countryAbstainOk: false, reach: ['local', 'regional'], include: [['yogyakarta', 'sleman']], tz: { accept: ['Asia/Jakarta', 'Asia/Pontianak'], abstainOk: false } },
+  infoeventjogja: { country: ['ID'], countryAbstainOk: false, reach: ['local', 'regional'], include: [['yogyakarta']], tz: { accept: ['Asia/Jakarta', 'Asia/Pontianak'], abstainOk: false } },
+  wanitatamajogja: { country: ['ID'], countryAbstainOk: true, reach: ['local', 'regional', 'unspecified'], forbid: ['jakarta'], tz: { accept: ['Asia/Jakarta', 'Asia/Pontianak'], abstainOk: true } },
+  'pakuwonmall.jogja': { country: ['ID'], countryAbstainOk: true, reach: ['local', 'regional'], include: [['yogyakarta']], tz: { accept: ['Asia/Jakarta', 'Asia/Pontianak'], abstainOk: true } },
+  // rounds in Flores and Kupang (WITA) and Kartasura (WIB): no single zone
+  chaanakyaekadantaolympiad: { country: ['ID'], countryAbstainOk: true, reach: ['national'], noAreas: true, tz: { accept: [], abstainOk: true } },
   // synthetic
-  'syn-dinas-sleman': { country: ['ID'], countryAbstainOk: false, reach: ['local', 'regional'], include: [['sleman']], forbid: ['jakarta'] },
-  'syn-telco-nasional': { country: ['ID'], countryAbstainOk: false, reach: ['national'], noAreas: true },
-  'syn-kl-hall': { country: ['MY'], countryAbstainOk: false, reach: ['local', 'regional'], include: [['kuala lumpur']] },
-  'syn-sg-makers': { country: ['SG'], countryAbstainOk: false, reach: ['local'], include: [['singapore', 'ubi']] },
-  'syn-melb-indo': { country: ['AU'], countryAbstainOk: false, reach: ['local', 'regional'], include: [['melbourne']] },
-  'syn-delhi-academy': { country: ['IN'], countryAbstainOk: false, reach: ['local', 'regional'], include: [['delhi']] },
-  'syn-global-coffee': { country: [], countryAbstainOk: true, reach: ['unspecified'], noAreas: true },
-  'syn-empty': { country: [], countryAbstainOk: true, reach: ['unspecified'], noAreas: true },
-  'syn-canggu-yoga': { country: ['ID'], countryAbstainOk: false, reach: ['local', 'regional'], include: [['canggu', 'bali']] },
-  'syn-johor-sukan': { country: ['MY'], countryAbstainOk: false, reach: ['local', 'regional'], include: [['johor']] },
-  'syn-warung-tanpa-kota': { country: ['ID'], countryAbstainOk: true, reach: ['local', 'unspecified'], noAreas: true },
+  'syn-dinas-sleman': { country: ['ID'], countryAbstainOk: false, reach: ['local', 'regional'], include: [['sleman']], forbid: ['jakarta'], tz: { accept: ['Asia/Jakarta', 'Asia/Pontianak'], abstainOk: false } },
+  'syn-telco-nasional': { country: ['ID'], countryAbstainOk: false, reach: ['national'], noAreas: true, tz: { accept: [], abstainOk: true } },
+  'syn-kl-hall': { country: ['MY'], countryAbstainOk: false, reach: ['local', 'regional'], include: [['kuala lumpur']], tz: { accept: ['Asia/Kuala_Lumpur', 'Asia/Kuching'], abstainOk: false } },
+  'syn-sg-makers': { country: ['SG'], countryAbstainOk: false, reach: ['local'], include: [['singapore', 'ubi']], tz: { accept: ['Asia/Singapore'], abstainOk: false } },
+  'syn-melb-indo': { country: ['AU'], countryAbstainOk: false, reach: ['local', 'regional'], include: [['melbourne']], tz: { accept: ['Australia/Melbourne', 'Australia/Sydney', 'Australia/Canberra'], abstainOk: false } },
+  'syn-delhi-academy': { country: ['IN'], countryAbstainOk: false, reach: ['local', 'regional'], include: [['delhi']], tz: { accept: ['Asia/Kolkata', 'Asia/Calcutta'], abstainOk: false } },
+  'syn-global-coffee': { country: [], countryAbstainOk: true, reach: ['unspecified'], noAreas: true, tz: { accept: [], abstainOk: true } },
+  'syn-empty': { country: [], countryAbstainOk: true, reach: ['unspecified'], noAreas: true, tz: { accept: [], abstainOk: true } },
+  'syn-canggu-yoga': { country: ['ID'], countryAbstainOk: false, reach: ['local', 'regional'], include: [['canggu', 'bali']], tz: { accept: ['Asia/Makassar'], abstainOk: false } },
+  'syn-johor-sukan': { country: ['MY'], countryAbstainOk: false, reach: ['local', 'regional'], include: [['johor']], tz: { accept: ['Asia/Kuala_Lumpur', 'Asia/Kuching'], abstainOk: false } },
+  // Java + Bali: WIB and WITA, so NO default zone is the right answer
+  'syn-java-bali-curator': { country: ['ID'], countryAbstainOk: false, reach: ['regional', 'national'], tz: { accept: [], abstainOk: true } },
+  'syn-jayapura-komunitas': { country: ['ID'], countryAbstainOk: false, reach: ['local', 'regional'], include: [['jayapura']], tz: { accept: ['Asia/Jayapura'], abstainOk: false } },
+  // Indonesian-language shop with no place and no zone: the language says nothing about the zone
+  'syn-warung-tanpa-kota': { country: ['ID'], countryAbstainOk: true, reach: ['local', 'unspecified'], noAreas: true, tz: { accept: [], abstainOk: true } },
 };
 
 function aliasHit(name: string, key: string): boolean {
@@ -217,11 +269,15 @@ export interface ProfileScore {
   reachOk: boolean;
   areasOk: boolean;
   nationalWithArea: boolean;   // a national/unspecified account given a place (head-office leak)
+  tzWrong: boolean;            // a zone was claimed and it is not an accepted one (shifts every displayed time)
+  tzMissed: boolean;           // UNKNOWN where a zone was expected and abstaining is not OK
   pass: boolean;
   detail: string[];
 }
 
-export function scoreProfile(country: string, reach: Reach, areas: Array<{ name: string }>, label: ProfileLabel): ProfileScore {
+const UNKNOWN_ZONE = (z: string | undefined) => z === undefined || z === 'UNKNOWN';
+
+export function scoreProfile(country: string, reach: Reach, areas: Array<{ name: string }>, label: ProfileLabel, timezone?: string): ProfileScore {
   const detail: string[] = [];
   const claimed = country !== 'UNKNOWN';
   const countryWrong = claimed && !label.country.includes(country);
@@ -235,7 +291,15 @@ export function scoreProfile(country: string, reach: Reach, areas: Array<{ name:
   for (const k of label.forbid ?? []) if (areas.some((a) => aliasHit(a.name, k))) { areasOk = false; detail.push(`forbidden area ${k}`); }
   if (label.noAreas && areas.length > 0) { areasOk = false; detail.push(`areas invented: [${areas.map((a) => a.name).join('; ')}]`); }
   const nationalWithArea = (reach === 'national' || reach === 'international' || reach === 'unspecified') && areas.length > 0;
-  return { countryWrong, countryMissed, reachOk, areasOk, nationalWithArea, pass: !countryWrong && !countryMissed && reachOk && areasOk, detail };
+  // time zone: scored only when the run reports one (prompt v2) and the profile has a label
+  let tzWrong = false, tzMissed = false;
+  if (label.tz && timezone !== undefined) {
+    tzWrong = !UNKNOWN_ZONE(timezone) && !label.tz.accept.includes(timezone);
+    tzMissed = UNKNOWN_ZONE(timezone) && label.tz.accept.length > 0 && !label.tz.abstainOk;
+    if (tzWrong) detail.push(`timezone ${timezone}, expected ${label.tz.accept.join('|') || 'UNKNOWN'}`);
+    if (tzMissed) detail.push(`timezone UNKNOWN, expected ${label.tz.accept.join('|')}`);
+  }
+  return { countryWrong, countryMissed, reachOk, areasOk, nationalWithArea, tzWrong, tzMissed, pass: !countryWrong && !countryMissed && reachOk && areasOk && !tzWrong && !tzMissed, detail };
 }
 
 export { inferCountryFromSignals };

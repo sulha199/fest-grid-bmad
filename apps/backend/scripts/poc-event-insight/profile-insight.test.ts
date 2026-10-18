@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { inferCountryFromSignals } from './country-signals.js';
 import {
-  PROFILE_LABELS, SYNTHETIC_PROFILES, guardProfileInsight, profilePromptContents, realProfiles, resolveCountry, scoreProfile, sourceText, validateProfileInsight,
+  PROFILE_LABELS, SYNTHETIC_PROFILES, guardProfileInsight, isVerbatimEvidence, profilePromptContents, realProfiles, resolveCountry, scoreProfile, sourceText, validateProfileInsight,
   type ProfileInsight,
 } from './profile-insight.js';
 
@@ -126,4 +126,73 @@ test('sourceText covers every field shown to the model', () => {
   const p = SYNTHETIC_PROFILES.find((x) => x.id === 'syn-telco-nasional')!;
   const s = sourceText(p);
   for (const part of [p.username, p.displayName, p.biography, ...p.captions]) assert.ok(s.includes(part));
+});
+
+// ---- time zone (prompt v2) ----
+import { inferZone, sameClock } from './timezone-signals.js';
+import { profileInsightInstruction, profileInsightSchemaFor } from './profile-insight.js';
+
+test('v2 schema and prompt add the time zone; v1 stays frozen', () => {
+  assert.ok('timezone' in profileInsightSchemaFor('v2').properties);
+  assert.ok(!('timezone' in profileInsightSchemaFor('v1').properties));
+  assert.ok(profileInsightInstruction('v2').startsWith(profileInsightInstruction('v1').replace('Strictly follow the JSON schema.', '').trimEnd()));
+  assert.match(profileInsightInstruction('v2'), /THE COUNTRY DOES NOT DETERMINE THE TIME ZONE/);
+  assert.throws(() => profileInsightInstruction('v9'));
+});
+
+test('guard: a zone needs a valid IANA name, a verbatim quote, and a single-region account', () => {
+  const p = SYNTHETIC_PROFILES.find((x) => x.id === 'syn-canggu-yoga')!;
+  const ok = guardProfileInsight(ins({ reach: 'local', timezone: 'Asia/Makassar', timezoneEvidence: ['Beach yoga every Thursday 6am WITA'] }), p);
+  assert.equal(ok.out.timezone, 'Asia/Makassar'); assert.deepEqual(ok.actions, []);
+  assert.equal(guardProfileInsight(ins({ reach: 'local', timezone: 'WITA', timezoneEvidence: ['6am WITA'] }), p).out.timezone, 'UNKNOWN', 'an abbreviation is not an IANA zone');
+  assert.equal(guardProfileInsight(ins({ reach: 'local', timezone: 'Asia/Makassar', timezoneEvidence: ['they are in Bali'] }), p).out.timezone, 'UNKNOWN', 'no verbatim quote');
+  assert.equal(guardProfileInsight(ins({ reach: 'national', timezone: 'Asia/Makassar', timezoneEvidence: ['6am WITA'] }), p).out.timezone, 'UNKNOWN', 'a national account has no single zone');
+  assert.equal(guardProfileInsight(ins({ reach: 'local' }), p).out.timezone, undefined, 'a v1 record carries no zone and gets none');
+});
+
+test('scoreProfile: a wrong zone is harmful; multi-zone and placeless accounts are right to say UNKNOWN', () => {
+  const canggu = PROFILE_LABELS['syn-canggu-yoga'];
+  assert.equal(scoreProfile('ID', 'local', [{ name: 'Canggu' }], canggu, 'Asia/Jakarta').tzWrong, true, 'Bali is WITA, not WIB');
+  assert.equal(scoreProfile('ID', 'local', [{ name: 'Canggu' }], canggu, 'Asia/Makassar').pass, true);
+  assert.equal(scoreProfile('ID', 'local', [{ name: 'Canggu' }], canggu, 'UNKNOWN').tzMissed, true);
+  const multi = PROFILE_LABELS['syn-java-bali-curator'];
+  assert.equal(scoreProfile('ID', 'regional', [], multi, 'Asia/Jakarta').tzWrong, true, 'a default for a Java+Bali curator is wrong');
+  assert.equal(scoreProfile('ID', 'regional', [], multi, 'UNKNOWN').pass, true);
+  const warung = PROFILE_LABELS['syn-warung-tanpa-kota'];
+  assert.equal(scoreProfile('UNKNOWN', 'unspecified', [], warung, 'Asia/Jakarta').tzWrong, true, 'language is not evidence of a zone');
+  assert.equal(scoreProfile('UNKNOWN', 'unspecified', [], warung).tzWrong, false, 'not scored when the run reports no zone (v1)');
+});
+
+test('deterministic zone on the corpus: resolved zones are right, multi-zone and placeless accounts stay unresolved', () => {
+  const all2 = [...realProfiles(), ...SYNTHETIC_PROFILES];
+  let resolved = 0;
+  for (const prof of all2) {
+    const label = PROFILE_LABELS[prof.id];
+    const country = inferCountryFromSignals(prof);
+    const d = inferZone(prof, { country: country.status === 'resolved' ? country.country : undefined });
+    if (d.status === 'resolved') {
+      resolved++;
+      assert.ok(label.tz!.accept.some((z) => sameClock(z, d.zone)), `${prof.id}: signals say ${d.zone}, label accepts ${label.tz!.accept.join('|') || 'none'}`);
+    } else if (!label.tz!.abstainOk) {
+      assert.fail(`${prof.id}: unresolved (${d.reason}) but the label demands ${label.tz!.accept.join('|')}`);
+    }
+  }
+  assert.ok(resolved >= 10, `resolved ${resolved}`);
+});
+
+test('short evidence: a 2-3 letter time-zone abbreviation counts only as a whole, case-sensitive token of the source', () => {
+  const src = 'Open hours: 10.00-22.00 WIB\nOfficial Instagram';
+  assert.equal(isVerbatimEvidence('WIB', src), true);
+  assert.equal(isVerbatimEvidence('wib', src), false, 'case-sensitive');
+  assert.equal(isVerbatimEvidence('WI', src), false, 'a fragment of a longer token');
+  assert.equal(isVerbatimEvidence('IB', src), false);
+  assert.equal(isVerbatimEvidence('Open hours: 10.00-22.00 WIB', src), true, 'longer quotes keep the normal check');
+  assert.equal(isVerbatimEvidence('MYT', src), false, 'not in the source');
+  assert.equal(isVerbatimEvidence('1234', src), false);
+});
+
+test('guard: a zone whose only evidence is its abbreviation survives (the case a 4-character floor wrongly dropped)', () => {
+  const p = SYNTHETIC_PROFILES.find((x) => x.id === 'syn-kl-hall')!;
+  const g = guardProfileInsight(ins({ reach: 'local', countryCode: 'MY', countryEvidence: ['MYT'], timezone: 'Asia/Kuala_Lumpur', timezoneEvidence: ['MYT'] }), p);
+  assert.equal(g.out.timezone, 'Asia/Kuala_Lumpur'); assert.equal(g.out.countryCode, 'MY'); assert.deepEqual(g.actions, []);
 });

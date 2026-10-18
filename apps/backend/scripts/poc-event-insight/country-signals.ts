@@ -14,6 +14,12 @@
  *   weak   (1): a named place that belongs to one country (Yogyakarta, Kuala Lumpur, Melbourne…) · a
  *               country name ("Indonesia", "Malaysia")
  *
+ * A third, deliberately weak kind (1) is the SUBSCRIBERS' country: users tend to follow accounts from where they
+ * live. It counts only with at least 3 subscribers of whom at least 80% share a country, and it can never
+ * resolve a country alone (a weak signal is worth 1; resolving needs 2). On a platform that is mostly
+ * Indonesian it says "ID" for nearly every account, so it is a tie-breaker for an otherwise-quiet profile, not
+ * evidence against a strong foreign marker.
+ *
  * Each KIND of signal counts once per country (twelve captions with "Rp" are one currency signal, not
  * twelve), so a chatty account cannot out-vote a quiet one. A country is resolved when its score is at least
  * 2 and at least 2 ahead of the runner-up; otherwise the answer is "unresolved", never a guess.
@@ -27,9 +33,11 @@ export interface ProfileText {
   externalUrl?: string | null;
   captions: string[];
   locationNames: string[];
+  // One entry per subscriber: the ISO country of that user (see countryOfUser). A WEAK clue only — see below.
+  subscriberCountries?: string[];
 }
 
-export type SignalKind = 'phone' | 'timezone' | 'currency' | 'domain' | 'address' | 'place' | 'country-name';
+export type SignalKind = 'phone' | 'timezone' | 'currency' | 'domain' | 'address' | 'place' | 'country-name' | 'subscribers';
 export interface Signal { country: string; kind: SignalKind; strength: 1 | 2; evidence: string }
 
 export type CountryDecision =
@@ -109,7 +117,46 @@ export function collectSignals(p: ProfileText): Signal[] {
       }
     }
   }
+  const subs = subscriberMajority(p.subscriberCountries ?? []);
+  if (subs) add({ country: subs.country, kind: 'subscribers', strength: 1, evidence: `${subs.count}/${subs.total} subscribers in ${subs.country}` });
   return [...found.values()];
+}
+
+export const SUBSCRIBER_MIN = 3;
+export const SUBSCRIBER_SHARE = 0.8;
+
+export function subscriberMajority(countries: string[]): { country: string; count: number; total: number } | undefined {
+  const known = countries.map((c) => c.trim().toUpperCase()).filter((c) => /^[A-Z]{2}$/.test(c));
+  if (known.length < SUBSCRIBER_MIN) return undefined;
+  const tally = new Map<string, number>();
+  for (const c of known) tally.set(c, (tally.get(c) ?? 0) + 1);
+  const [country, count] = [...tally.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+  return count / known.length >= SUBSCRIBER_SHARE ? { country, count, total: known.length } : undefined;
+}
+
+// IANA zone -> country, for the zones this POC knows. A real build would use the IANA zone1970.tab.
+const ZONE_COUNTRY: Record<string, string> = {
+  'Asia/Jakarta': 'ID', 'Asia/Pontianak': 'ID', 'Asia/Makassar': 'ID', 'Asia/Jayapura': 'ID',
+  'Asia/Kuala_Lumpur': 'MY', 'Asia/Kuching': 'MY', 'Asia/Singapore': 'SG', 'Asia/Kolkata': 'IN', 'Asia/Calcutta': 'IN',
+};
+export function zoneCountry(zone: string): string | undefined {
+  return ZONE_COUNTRY[zone] ?? (zone.startsWith('Australia/') ? 'AU' : undefined);
+}
+
+/**
+ * The country of one user, from what is ALREADY stored: the country of their saved locations (they chose
+ * those; most common wins) or, failing that, the country of their device time zone (`users.timezone`, captured
+ * at subscribe time by Story 3.6c). Nothing new needs to be recorded: the join subscriptions -> users /
+ * user_locations gives it on demand.
+ */
+export function countryOfUser(u: { timezone?: string | null; savedLocationCountries?: string[] }): string | undefined {
+  const saved = (u.savedLocationCountries ?? []).map((c) => c.trim().toUpperCase()).filter((c) => /^[A-Z]{2}$/.test(c));
+  if (saved.length) {
+    const tally = new Map<string, number>();
+    for (const c of saved) tally.set(c, (tally.get(c) ?? 0) + 1);
+    return [...tally.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0];
+  }
+  return u.timezone ? zoneCountry(u.timezone) : undefined;
 }
 
 export function inferCountryFromSignals(p: ProfileText): CountryDecision {

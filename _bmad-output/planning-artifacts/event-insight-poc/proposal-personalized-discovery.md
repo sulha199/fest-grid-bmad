@@ -1,5 +1,5 @@
 ---
-status: draft-for-review (revision 5)
+status: draft-for-review (revision 6)
 type: planning-proposal
 date: 2026-10-18
 related: [prd §3.1 Event Discovery, §3.2 Personalization, §3.8 Gemini API Management, §3.16 Data Minimization, §4.1 EventInfo, §4.3 LocationDetails; Architecture Spine AD-13, AD-17, AD-18, AD-29, AD-30; Epic 7/9 (AI filter) for the golden-set pattern]
@@ -36,6 +36,12 @@ evidence: ./poc-report.md
 13. **A never-classified account (`accountTypeStatus` null) lends no location** (§10.1). It means *unknown*, not *organizer*: Story 3.4n grandfathered those accounts into scraping on purpose, and a curator among them would otherwise lend a wrong location. Scraping is unchanged. Side finding **FIND-086**: such a curator also escapes the curator caption-clearing.
 14. **The account's country is read from its initial profile scrape** (§10.8, **IDEA-075**), not from a platform default, and **that scrape gets a retry policy** — today any failure parks the account for a moderator and nothing retries it.
 15. **Organizers have a reach** — local, regional, national. A national company's account location is a head office; it does not lend it, and its online events with no stated audience are "for anyone". Reach comes from the same profile read.
+
+### Revision 6 — decisions from the fifth discussion (2026-10-18)
+
+16. **Legacy accounts get a bulk update, not a backfill.** The never-classified accounts that have no location are all Indonesian curators (the product owner's statement; I cannot see the data), so one transaction sets them to `CURATOR_GUIDE`/`CONFIRMED`; no profile re-read is spent on them (§10.9, SQL in IDEA-075). The statement does not cover never-classified accounts *with* a location.
+17. **The subscribers' country is a weak clue, and nothing new is recorded for it.** A user's country is derivable from `user_locations` (country of their saved places) or `users.timezone`; used as a tie-break only (§10.9).
+18. **Accounts get a default time zone inferred like country and reach — and never from the country.** Indonesia has three zones; the rule needs a zone abbreviation or a place, and says "no default" for national, multi-region and placeless accounts (§10.9). It also replaces a tier the curator policy would otherwise remove from the schedule-timezone resolver.
 
 ## 1. Recommendation
 
@@ -235,13 +241,15 @@ Two honest caveats. (1) The 27-event, 5-week demo pool is far denser per day tha
 10. ~~Unclassified (legacy) accounts~~ — **resolved (rev. 5): they lend no location** (§10.1); scraping unchanged. Still open: whether to classify them (IDEA-075, decision 1).
 11. ~~A platform home country as the geocoder's country filter~~ — **replaced (rev. 5): the account's country is read from its profile scrape** (§10.8); a platform default applies only to accounts still unresolved after the retries, as a preference with a confidence floor. Open: what an unresolved country does to geocoding (IDEA-075, decision 2).
 9. **"Near you" vs the existing Nearby badge** (AD-22/24, <5 km): separate chip (recommended; different semantics: area vs distance) or unify?
+12. **Run the legacy bulk update?** Look first (the sizing query in IDEA-075). Then: clear the already-stored captions of those accounts too (a deletion that also removes the ability to re-extract those posts), or leave them. And what to do with the never-classified accounts that *have* a location.
+13. **Subscribers' country as a tie-break** — yes (recommended) or no; it repurposes users' location data (§10.9).
 
 ## 7. Proposed epic (not yet in `epics.md`; numbering and splitting to be done with `bmad-create-epics-and-stories` after you confirm §6.2)
 
 **Epic 10 (proposed): Personalized Discovery** — revised order, smallest-first:
 
 * *Phase 0 — shared prerequisites (also fix the AI filter, §9; registered in the backlog):* **10.0a canonical area ladder (IDEA-073, first)** — geocoder writes a normalised country > province > regency > city path (keeping `county`), matching is case-insensitive and hierarchical, backfill of cached geocodes + existing schedules (shared with IDEA-071). **10.0b online attendance + per-schedule venues (BUG-064)** — attendance mode (onsite/online/hybrid) as a field; online platforms never reach the geocoder; every schedule keeps its own venue; location filters match *any* schedule, not only the main one; venue `kind` + `setting` (§9.3).
-* *Phase 0 also (revision 4, registered as BUG-065 / BUG-066):* **10.0c location policy** — one `mayUseAccountLocation(accountType, accountTypeStatus)` predicate (the shape of `isScrapableAccountType`, AD-34) applied at the three fallback sites, no default-location inference for curators or accounts awaiting approval, consensus-before-inference for organizers, plus a ratchet. **10.0d geocoder correctness** — country as a filter, country-aware candidate choice with a confidence floor and an "unresolved" outcome, inference gated on the geocoder's confidence rather than Gemini's. Run the BUG-066 probe and SQL before sizing 10.0d. **10.0e profile enrichment (IDEA-075)** — read country and reach (and, with it, the account type) from the initial profile scrape; persist the derived values; retry with backoff; 10.0c and 10.0d consume its output.
+* *Phase 0 also (revision 4, registered as BUG-065 / BUG-066):* **10.0c location policy** — one `mayUseAccountLocation(accountType, accountTypeStatus)` predicate (the shape of `isScrapableAccountType`, AD-34) applied at the three fallback sites, no default-location inference for curators or accounts awaiting approval, consensus-before-inference for organizers, plus a ratchet. **10.0d geocoder correctness** — country as a filter, country-aware candidate choice with a confidence floor and an "unresolved" outcome, inference gated on the geocoder's confidence rather than Gemini's. Run the BUG-066 probe and SQL before sizing 10.0d. **10.0e profile enrichment (IDEA-075)** — read country, reach and **default time zone** from the initial profile scrape; persist the derived values; retry with backoff; 10.0c and 10.0d consume its output, and the schedule-timezone resolver's tier 2 becomes `defaultLocation?.timezone ?? account.default_timezone`. **10.0f legacy accounts** — the one-off bulk update of §10.9, run once the sizing query confirms the set (a data change, not a story's code).
 * *Phase A — audience extraction (gated; revision 4 moved it first, because the ordering depends on it):* 10.1 audience-area + scope + attendance domain types, AJV, prompt v2, guards (`guardAudienceAreas`), golden set + nightly eval (gate; reuse IDEA-072's machinery); 10.2 piggy-back extraction + persistence + audit counters (abstentions counted apart from wrong claims); 10.3 resolve the extracted areas through the geocoder into canonical keys; 10.4 backfill existing events.
 * *Phase B — area-first ordering:* 10.5 `effectiveAudienceAreas` + `areaTier` + sort in `packages/domain` (100% tested, sample in `relevance.ts` / `location-policy.ts`, incl. the soonest-matching-stop date; no online placement, `attendance` is not an input) with SQL parity test; 10.6 `Query.events` `sort` arg (RECOMMENDED = area → date) + EXPLAIN at ~30k; 10.7 Discovery UI (sort control, "near you" chip, skeletons, i18n, detail-nav context) + replay harness + flag.
 * *Phase C — tracks and the optional second stage:* 10.8 age/eligibility tracks (§2.3) + "for age N" filter + track chips on cards; 10.9 `user_interest_profile` (+ onboarding chips, reset control) and the bounded relevance discount as an A/B arm.
@@ -268,6 +276,8 @@ npx tsx scripts/poc-event-insight/rescore-audience-areas.ts --results <audience-
 npx tsx scripts/poc-event-insight/area-demo.ts --results <audience-areas-*.json>                   # offline: audience-area order per persona with the account policy
 GEOAPIFY_API_KEY=... npx tsx scripts/poc-event-insight/probe-geocode-country.ts [--dry]           # live (needs a key; NOT run by me): country of today's geocode pick
 npx tsx scripts/poc-event-insight/run-profile-insight.ts --runs 3                  # live: country + reach from a profile scrape (16 profiles)
+npx tsx scripts/poc-event-insight/run-profile-insight.ts --runs 3 --prompt v2       # live: + default time zone (18 profiles)
+npx tsx scripts/poc-event-insight/run-profile-insight.ts --prompt v2 --from <profile-insight-v2.json>   # offline: re-score recorded answers with the current guards
 npx tsx --test scripts/poc-event-insight/*.test.ts                              # unit tests, no network
 ```
 
@@ -349,7 +359,7 @@ IDEA-072 (golden prompts grown from real usage, human-gated promotion) is the ri
 | `ORGANIZER_VENUE_EVENT`, confirmed | **yes** — "an event at a mall posted on the mall's account" (PRD §3.7) | yes, but only on **consensus** across posts |
 | `CURATOR_GUIDE` | **no** | **no** |
 | `PERSONAL` | never scraped | no |
-| never classified (`accountTypeStatus` null) | **no** (revised, rev. 5) | no, until classified |
+| never classified (`accountTypeStatus` null) | **no** (revised, rev. 5). The ones with no location are curators and are bulk-set (rev. 6, §10.9) | no, until classified |
 | `AWAITING_APPROVAL` | no — might be a curator | no |
 | confirmed organizer with a **national** reach | **no** — its account location is a head office | no |
 
@@ -446,4 +456,12 @@ Gemini `gemini-3.5-flash-lite`, 3 runs per post, live, model confidence not used
 | the scrape worked but showed no country | **no re-scrape**: wait for new evidence (the first scraped posts), up to 3 passes, then `NEEDS_REVIEW` |
 
 No new service: a query ("PENDING and due") inside an existing scheduled job, guarded by the Story 3.16 claim-with-TTL pattern. I did not trace which scheduled Lambda should host it. The architecture diagram needs no change unless that turns out to be wrong. **Not decided here:** whether to also read the null-status legacy accounts ($2.60 per 1,000 profiles plus a model call each; this reverses 3.4n's rejection of a backfill only if you choose it), and what an unresolved country does to geocoding (recommended: a preference plus the confidence floor, not "no pin").
+
+### 10.9 Revision 6 — legacy accounts, subscribers' country, default time zone
+
+**Legacy accounts: a bulk update.** Statement (product owner): the never-classified accounts with no location are all Indonesian curators. I cannot check it, so the SQL looks first (counts, then the list to read), keeps a before-state table, updates in one transaction guarded against a concurrent subscribe, and has a rollback — all in IDEA-075, **not run**. What it changes, from the code: scraping is unchanged; future captions are cleared after extraction and images not re-hosted (3.4o); and their future events are ingested as `stub` and no longer count as organizer-authored (`isOrganizerAuthoredPost`), exactly as for every other confirmed curator — until now a null-typed curator was treated as an organizer on all of that (FIND-086). I did not check how the UI renders stub events. Captions already stored stay until someone decides to delete them.
+
+**The user's country as a clue to the account's country.** Nothing needs recording: `users` has `timezone` but no country; the country of a user's saved places is in `user_locations.location_details`, and the join from `subscriptions` gives it on demand. As a signal it is deliberately weak (worth 1; needs 3 or more subscribers and an 80% majority; never resolves alone; cannot outvote a strong marker): on a mostly-Indonesian platform it says "ID" for nearly every account, including a Melbourne community followed by Indonesians (tested with eight Indonesian subscribers: the account stays Australian). Its use is a tie-break for a quiet profile and a prior for the first subscriber. Using users' locations to describe an *account* is a different purpose from the existing one (3.6c uses the subscriber's timezone for events), so it is flagged as a decision; no production data was available to show whether it ever matters (query in IDEA-075).
+
+**Default time zone.** The schedule-timezone resolver tries the event's own venue, then the account's timezone (today only its default location's), then the single subscriber's, then a moderator. Removing a curator's location (BUG-065) removes the second tier; a stored but arbitrary location also gives a silent one-hour error for a Bali event of a Yogyakarta-located curator (not reproduced). So an account gets its own `default_timezone`, inferred and never taken from the country: evidence is a zone abbreviation (WIB/WITA/WIT/MYT/SGT) or a place that lies in one zone; AEST/IST only narrow and need a place; the zones of the account's past events count when at least 5 agree at 90%; and the answer is "no default" when 10% or more of the texts point to another clock, for national/international reach, and for a placeless account (`timezone-signals.ts`, 14 tests). Measured on 18 profiles, 3 runs (model `gemini-3.5-flash-lite`): **0 wrong zones in 54 runs**; the signals alone resolved 11 of 18 with none wrong; the model said `UNKNOWN` on every multi-zone and placeless account. A bug of mine surfaced on the first run — a guard with a 4-character floor discarded 14 correct answers whose evidence was "WIB" or "MYT" — fixed and re-scored offline from the recorded answers. For the legacy curators: no blanket `Asia/Jakarta`; the query in IDEA-075 reads the zones of their past events and accepts only a uniform history.
 
