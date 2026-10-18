@@ -1,3 +1,9 @@
+---
+backlog_id: IDEA-075
+title: "Legacy accounts: bulk-update runbook (look, apply, rollback, after) and its self-check"
+captured: 2026-10-18
+---
+
 # IDEA-075 — legacy accounts: bulk update (decision 2026-10-18)
 
 Sets every **never-classified account that has no default location** to `CURATOR_GUIDE` / `CONFIRMED`. Never-classified accounts that *already have* a location are **not** changed (product owner's decision). Nothing else is touched: scraping is unchanged, no caption is deleted, no country or time-zone column exists yet.
