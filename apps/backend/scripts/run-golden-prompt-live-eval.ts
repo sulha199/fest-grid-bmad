@@ -13,14 +13,32 @@
  * DB-stored key to select from. It calls callGeminiGenerateContent (gemini-client.ts) directly
  * with a dedicated, platform-funded GEMINI_NIGHTLY_EVAL_API_KEY, structurally isolated from
  * both BYOK keys and SYSTEM_GEMINI_API_KEY (see SETUP_WALKTHROUGH.md #8).
+ *
+ * Mirrors `resolvePromptToEventFilter` (resolvers.ts): same dedicated GEMINI_FILTER_MODEL and the
+ * same `dropUngroundedVenueTypes` post-processing, so drift is measured on what users actually
+ * receive. Optional `GOLDEN_EVAL_CATEGORY=<category>` limits the run to one fixture category.
  */
 import {
   GOLDEN_PROMPT_FIXTURES,
+  dropUngroundedVenueTypes,
   summarizeGoldenPromptDrift,
   transformGeminiResponseToFilterExpression,
 } from '@festgrid/domain/ai-event-filters';
 import { buildFilterExtractionSystemInstruction, buildFilterExtractionResponseSchema } from '../src/lib/ai-event-filters/build-filter-extraction-request.js';
 import { callGeminiGenerateContent } from '../src/lib/ai-gateway/gemini-client.js';
+import { loadBackendEnv } from '../src/env.js';
+
+// Gemini answers 503 "high demand" (or resets the connection) in bursts; one transient spike must not abort a ~50-call run.
+async function callWithRetry<T>(call: () => Promise<T>, attempts = 4): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await call();
+    } catch (err) {
+      if (attempt >= attempts || !/UNAVAILABLE|fetch failed|ECONNRESET/.test(String((err as Error)?.message))) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
+    }
+  }
+}
 
 async function main(): Promise<void> {
   if (process.env.RUN_LIVE_GEMINI_EVAL !== 'true') {
@@ -34,15 +52,22 @@ async function main(): Promise<void> {
 
   const systemInstruction = buildFilterExtractionSystemInstruction();
   const responseSchema = buildFilterExtractionResponseSchema();
+  const filterModel = loadBackendEnv().geminiFilterModel;
+  const onlyCategory = process.env.GOLDEN_EVAL_CATEGORY;
+  const fixtures = onlyCategory ? GOLDEN_PROMPT_FIXTURES.filter((f) => f.category === onlyCategory) : GOLDEN_PROMPT_FIXTURES;
+  console.log(`Golden-prompt live eval model: ${filterModel}; fixtures: ${fixtures.length}`);
   const results = [];
 
-  for (const fixture of GOLDEN_PROMPT_FIXTURES) {
-    const response = await callGeminiGenerateContent(apiKey, {
-      contents: `Parse this prompt: "${fixture.prompt}"`,
-      systemInstruction,
-      responseSchema,
-      responseMimeType: 'application/json',
-    });
+  for (const fixture of fixtures) {
+    const response = await callWithRetry(() =>
+      callGeminiGenerateContent(apiKey, {
+        contents: `Parse this prompt: "${fixture.prompt}"`,
+        systemInstruction,
+        responseSchema,
+        responseMimeType: 'application/json',
+        model: filterModel,
+      })
+    );
     let parsed: unknown;
     try {
       const rawText = response.text.replace(/^\s*```json/, '').replace(/```\s*$/, '').trim();
@@ -51,7 +76,9 @@ async function main(): Promise<void> {
       results.push({ fixtureId: fixture.id, drifted: true, details: 'live response was not valid JSON' });
       continue;
     }
-    const liveResult = transformGeminiResponseToFilterExpression(parsed);
+    const transformed = transformGeminiResponseToFilterExpression(parsed);
+    const guarded = dropUngroundedVenueTypes(transformed.expression, fixture.prompt);
+    const liveResult = { expression: guarded.expression, caveats: [...transformed.caveats, ...guarded.caveats] };
     results.push(summarizeGoldenPromptDrift(fixture, liveResult));
   }
 

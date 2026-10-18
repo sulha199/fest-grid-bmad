@@ -172,6 +172,50 @@ test('ai event filters resolvers integration', async (t) => {
     assert.ok(leaves.some((l: any) => l.field === 'category' && JSON.stringify(l.value) === JSON.stringify(['MUSIC'])));
   });
 
+  await t.test('resolvePromptToEventFilter calls the dedicated filter model and drops a venueType the prompt never mentioned (BUG: "exiting events for kid in the weekend")', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    const originalFilterModel = process.env.GEMINI_FILTER_MODEL;
+    process.env.GEMINI_FILTER_MODEL = 'gemini-filter-test-model';
+    let requestedModel: string | undefined;
+    setCallGeminiGenerateContent(async (_apiKey, request) => {
+      requestedModel = request.model;
+      // The lite-model failure mode: a placeholder venueType and nothing else.
+      return { text: JSON.stringify({ expression: { venueType: 'kids' }, caveats: [] }) };
+    });
+
+    try {
+      const res = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation {
+              resolvePromptToEventFilter(prompt: "exiting events for kid in the weekend") {
+                resolvedFilter { venueType }
+                expression { op children { field value } }
+                caveats
+              }
+            }
+          `
+        })
+      });
+      const result = await res.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.strictEqual(requestedModel, 'gemini-filter-test-model');
+      const payload = result.data.resolvePromptToEventFilter;
+      assert.strictEqual(payload.resolvedFilter.venueType ?? null, null);
+      assert.deepStrictEqual(payload.expression.children ?? [], []);
+      assert.deepStrictEqual(payload.caveats, ['Ignored the venue type "kids" because your prompt did not mention a place.']);
+    } finally {
+      if (originalFilterModel === undefined) {
+        delete process.env.GEMINI_FILTER_MODEL;
+      } else {
+        process.env.GEMINI_FILTER_MODEL = originalFilterModel;
+      }
+    }
+  });
+
   await t.test('resolvePromptToEventFilter denies over the configured per-user rate limit without calling Gemini (Story 9.8 AC1/AC2)', async () => {
     mockUser = { userId: testUser.id, role: testUser.role };
 

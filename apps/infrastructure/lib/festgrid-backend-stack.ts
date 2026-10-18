@@ -311,6 +311,7 @@ export class FestgridBackendStack extends cdk.Stack {
         SYSTEM_ERROR_ALERT_EMAIL: process.env.SYSTEM_ERROR_ALERT_EMAIL,
         BYOK_KMS_KEY_ID: kmsKey.keyId,
         GEMINI_MODEL: process.env.GEMINI_MODEL,
+        GEMINI_FILTER_MODEL: process.env.GEMINI_FILTER_MODEL,
         API_KEY_INVALID_ATTEMPTS_THRESHOLD: process.env.API_KEY_INVALID_ATTEMPTS_THRESHOLD,
         GEMINI_POSTS_PER_KEY_PER_CYCLE: process.env.GEMINI_POSTS_PER_KEY_PER_CYCLE,
         ...usageCycleEnv,
