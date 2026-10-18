@@ -14,11 +14,10 @@
  *   weak   (1): a named place that belongs to one country (Yogyakarta, Kuala Lumpur, Melbourne…) · a
  *               country name ("Indonesia", "Malaysia")
  *
- * A third, deliberately weak kind (1) is the SUBSCRIBERS' country: users tend to follow accounts from where they
- * live. It counts only with at least 3 subscribers of whom at least 80% share a country, and it can never
- * resolve a country alone (a weak signal is worth 1; resolving needs 2). On a platform that is mostly
- * Indonesian it says "ID" for nearly every account, so it is a tie-breaker for an otherwise-quiet profile, not
- * evidence against a strong foreign marker.
+ * The SUBSCRIBERS' country is NOT one of these signals. Decision 2026-10-18: it is a tie-break and the LAST
+ * option, applied by applySubscriberTieBreak only after everything else (these markers, the model, the first
+ * scraped posts) has failed to resolve a country, and only to confirm a lone weak signal for the same country. See
+ * that function for why it never breaks a real tie.
  *
  * Each KIND of signal counts once per country (twelve captions with "Rp" are one currency signal, not
  * twelve), so a chatty account cannot out-vote a quiet one. A country is resolved when its score is at least
@@ -33,15 +32,14 @@ export interface ProfileText {
   externalUrl?: string | null;
   captions: string[];
   locationNames: string[];
-  // One entry per subscriber: the ISO country of that user (see countryOfUser). A WEAK clue only — see below.
-  subscriberCountries?: string[];
 }
 
 export type SignalKind = 'phone' | 'timezone' | 'currency' | 'domain' | 'address' | 'place' | 'country-name' | 'subscribers';
+// 'subscribers' is never produced by collectSignals: it only appears on a decision that applySubscriberTieBreak resolved.
 export interface Signal { country: string; kind: SignalKind; strength: 1 | 2; evidence: string }
 
 export type CountryDecision =
-  | { status: 'resolved'; country: string; score: number; signals: Signal[] }
+  | { status: 'resolved'; country: string; score: number; signals: Signal[]; viaSubscribers?: true }
   | { status: 'unresolved'; reason: 'no-signal' | 'weak' | 'conflict'; signals: Signal[] };
 
 interface Rule { country: string; kind: SignalKind; strength: 1 | 2; re: RegExp }
@@ -117,8 +115,6 @@ export function collectSignals(p: ProfileText): Signal[] {
       }
     }
   }
-  const subs = subscriberMajority(p.subscriberCountries ?? []);
-  if (subs) add({ country: subs.country, kind: 'subscribers', strength: 1, evidence: `${subs.count}/${subs.total} subscribers in ${subs.country}` });
   return [...found.values()];
 }
 
@@ -157,6 +153,26 @@ export function countryOfUser(u: { timezone?: string | null; savedLocationCountr
     return [...tally.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0];
   }
   return u.timezone ? zoneCountry(u.timezone) : undefined;
+}
+
+/**
+ * LAST OPTION, TIE-BREAK ONLY. Applied to a decision that everything else left unresolved:
+ *   - it fires only when the decision is `weak` — exactly one country has any evidence at all, and only a
+ *     single weak signal (a place name, a country name) — and the subscribers' majority is THAT country; then
+ *     the subscribers confirm it (1 + 1 = 2).
+ *   - it never fires on `no-signal` (subscribers alone are not evidence), and it never fires on a `conflict`:
+ *     on a platform that is mostly Indonesian the subscribers would break every genuine tie toward ID, so a
+ *     Melbourne community with one Indonesian-looking word would be pinned in Indonesia.
+ */
+export function applySubscriberTieBreak(d: CountryDecision, subscriberCountries: string[]): CountryDecision {
+  if (d.status !== 'unresolved' || d.reason !== 'weak') return d;
+  const countries = new Set(d.signals.map((s) => s.country));
+  if (countries.size !== 1) return d;
+  const majority = subscriberMajority(subscriberCountries);
+  const [only] = [...countries];
+  if (!majority || majority.country !== only) return d;
+  const subSignal: Signal = { country: only, kind: 'subscribers', strength: 1, evidence: `${majority.count}/${majority.total} subscribers in ${only}` };
+  return { status: 'resolved', country: only, score: d.signals.reduce((n, s) => n + s.strength, 0) + 1, signals: [...d.signals, subSignal], viaSubscribers: true };
 }
 
 export function inferCountryFromSignals(p: ProfileText): CountryDecision {

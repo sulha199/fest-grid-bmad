@@ -1,5 +1,5 @@
 ---
-status: complete (addenda 1-5, 2026-10-18, appended)
+status: complete (addenda 1-6, 2026-10-18, appended)
 type: poc-report
 date: 2026-10-18
 model_under_test: gemini-3.5-flash-lite   # the production default (apps/backend/src/env.ts)
@@ -345,6 +345,8 @@ Questions answered here: *should an online event get the same weight as its audi
 
 ## D2. What "never classified" means (code reading, not data)
 
+> **Superseded by Addendum 6 on one point:** `mayUseAccountLocation(null, null)` is true again — never-classified accounts that already have a location are not changed.
+
 `accountTypeStatus IS NULL` = no classification recorded: accounts that existed before Story 3.4n (grandfathered on purpose, AC5), discovered profiles, and any null profile nobody has subscribed to since. `isScrapableAccountType(null, null)` is true, so they are scraped. For location they are now treated as **unknown, not organizer** (`mayUseAccountLocation(null, null)` is false; the test that pinned the opposite was rewritten). Side finding FIND-086: `isCuratorGuide` in `process-ai-job.ts` reads `accountType` alone, so a never-classified curator keeps its captions. **Neither the count of null accounts nor the existence of such a curator is known**; the SQL is in the notes.
 
 ## D3. Country and reach from the initial profile scrape (live Gemini + offline signals, 16 profiles)
@@ -383,7 +385,7 @@ Taken as stated by the product owner (I cannot see the data): never-classified a
 
 ## E2. The subscribers' country
 
-There is no country column on `users`; the country of a user's saved places is in `user_locations.location_details` and the device zone is `users.timezone`, so a subscriber's country is derivable on demand and nothing new needs recording (`countryOfUser`: saved places first, then the zone). As a signal it is deliberately weak — worth 1, needs 3 or more subscribers and an 80% majority, cannot resolve alone, cannot outvote a strong marker. The reason is the base rate: on a mostly-Indonesian platform nearly every account's subscribers are Indonesian, so the signal adds almost nothing and would mislead for a foreign community followed by Indonesians (unit-tested with eight Indonesian subscribers of a Melbourne account). **No production data was available; whether it ever matters is unmeasured** (query in IDEA-075).
+There is no country column on `users`; the country of a user's saved places is in `user_locations.location_details` and the device zone is `users.timezone`, so a subscriber's country is derivable on demand and nothing new needs recording (`countryOfUser`: saved places first, then the zone). As a signal it is deliberately weak — worth 1, needs 3 or more subscribers and an 80% majority, cannot resolve alone, cannot outvote a strong marker. *(Addendum 6: it is no longer a scoring signal at all but a last-option tie-break.)* The reason is the base rate: on a mostly-Indonesian platform nearly every account's subscribers are Indonesian, so the signal adds almost nothing and would mislead for a foreign community followed by Indonesians (unit-tested with eight Indonesian subscribers of a Melbourne account). **No production data was available; whether it ever matters is unmeasured** (query in IDEA-075).
 
 ## E3. A default time zone, inferred (live Gemini + offline signals, 18 profiles × 3 runs)
 
@@ -408,4 +410,47 @@ Corpus: the 16 profiles of Addendum 4 plus two written for this question — a c
 * The bulk update and the history query are **unrun SQL**; column names were read from `packages/database/schema.ts`.
 * Earlier numbers re-verified identical after this round: the guarded wrong-claims table. Addendum 4's v1 results file (16 profiles) is untouched; the corpus now has 18.
 * Backlog: IDEA-075 widened (title and note) and its tier-1 note rewritten; BUG-065 and FIND-086 updated; checker failure count unchanged (69), none on the new rows. No product code was changed.
+
+---
+
+# Addendum 6 (2026-10-18, sixth discussion): the open questions answered — a tested bulk-update runbook, never-classified accounts left alone, an unresolved country geocodes with a preference and a floor, subscribers as the last-option tie-break
+
+Decisions taken: **bulk update — yes; never-classified accounts that already have a location — not changed; unresolved country — preference + floor; subscribers' country — tie-break, last option.** Code: `location-policy.ts` (23 tests), `country-signals.ts` (18), `profile-insight.ts` (19). Total offline tests: **199**. SQL: `_bmad-output/implementation-artifacts/backlog/IDEA-075-legacy-bulk-update/`.
+
+## F1. The legacy bulk update, tested
+
+A real PostgreSQL 16 server (the sandbox has the binaries) was started on a scratch directory and the repository's **80 drizzle migrations were applied to it**, so the tables and columns are the real ones. Six made-up accounts were seeded (three never-classified without a location, one never-classified with a location, one confirmed organizer, one awaiting approval). `test-on-scratch-db.sh` re-runs all of this against any EMPTY scratch database and refuses to run if the schema is already present.
+
+| scenario | result |
+|---|---|
+| `01-look` | lists exactly the three accounts without a location; not the one with a location |
+| `02-apply`, happy path | the three become `CURATOR_GUIDE`/`CONFIRMED` with a NULL confidence score; the legacy account **with** a location, the confirmed organizer and the awaiting account are untouched |
+| a second `02-apply` | refused (the backup table exists); nothing changes |
+| `03-rollback` | restores the before-state |
+| abort: set larger than `max_rows` | writes nothing, leaves no backup table |
+| abort: an account started classification in between | writes nothing |
+| abort: empty set | writes nothing |
+
+Also run: **every SQL block in the four backlog notes** (BUG-065, BUG-066, FIND-086, IDEA-075 — 7 blocks, 12 statements) was executed, rolled back, against the same schema: each parses and every table and column resolves. That removes the "column names were only read from the schema file" caveat from the earlier addenda; it does **not** make any result known, because no production data was involved.
+
+**What this does not show.** The seeded accounts are mine; "the set is all curators" is the product owner's statement and the first script exists precisely so it can be read before anything changes. The `\gset`/`\if` logic is psql 16 behaviour. The bulk update has **not** been run on production, and the sandbox cannot do that.
+
+## F2. Never-classified accounts: three positions in one day
+
+Addendum 3 kept them lending their location, Addendum 4 made them lend nothing, and now (decision) the ones **with** a location are not changed and the ones **without** become curators. `mayUseAccountLocation(null, null)` is true again and the unit test that pinned the opposite was rewritten back. The reach gate still applies to them. What stays exposed: a curator among the never-classified accounts that has a location — it keeps an arbitrary stored location and still escapes the curator minimization (FIND-086). `04-after.sql` lists such accounts whose events are scattered over five or more distinct cities, which is a lead to read, not a finding.
+
+## F3. An unresolved country: preference + floor
+
+`geocodePlan(accountCountry, homeCountry, floor)` returns a **filter** (`filter=countrycode:xx`, only that country's candidates eligible) for a known country and a **bias** (`bias=countrycode:home`, any country may win) for an unknown one; `decideGeocode` applies the floor in both cases and returns "unresolved" (text kept, no coordinates) below it. Nothing is hidden for lack of a country; a guess is never stored as a pin. Tested with synthetic candidate sets, including a foreign candidate that outranks a local one under the bias and an all-below-floor set. **The floor (0.5, the threshold `isLocationTrustworthy` already uses for the map link) is not calibrated**, and no Geoapify response was seen: that needs a key and `probe-geocode-country.ts`.
+
+## F4. Subscribers' country: tie-break, last option
+
+`collectSignals` no longer produces a subscribers signal. `applySubscriberTieBreak` is applied to a decision that is `weak` — exactly one country has any evidence, a single weak signal — and fires only if the subscribers' majority (3 or more, 80%) is that country; `resolveCountry` calls it last, after the markers and the model. Tested: a lone place name plus Indonesian subscribers resolves to ID; subscribers alone resolve nothing; subscribers of another country do nothing; a Melbourne community with an Indonesian-looking word and eight Indonesian subscribers stays unresolved; a decision that already resolved is never overridden. The recorded profile results did not move (the re-score of the v2 answers is byte-identical in its summary).
+
+## F5. Limits and changes after seeing results (this addendum)
+
+* Policy reversals are mine to own: `mayUseAccountLocation(null, null)` changed twice and two commits carry the intermediate version.
+* The first version of the test script compared `psql`'s `t/f` output with the strings `true/false`; the run failed, and the script was fixed. The runbook SQL itself needed no change.
+* Re-verified identical after this round: the guarded wrong-claims table; the v2 profile re-score summary.
+* Backlog: IDEA-075, BUG-065, BUG-066 and FIND-086 updated to the decisions; checker failure count unchanged (69), none on the new rows. No product code was changed.
 

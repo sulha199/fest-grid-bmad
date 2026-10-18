@@ -15,7 +15,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { inferCountryFromSignals, type CountryDecision, type ProfileText } from './country-signals.js';
+import { applySubscriberTieBreak, inferCountryFromSignals, type CountryDecision, type ProfileText } from './country-signals.js';
 import { AREA_ALIASES, isVerbatimQuote } from './score.js';
 import { AREA_LEVELS, type AreaLevel } from './insight-schema.js';
 import { textMentions } from './audience-areas.js';
@@ -148,13 +148,13 @@ export function guardProfileInsight(out: ProfileInsight, p: ProfileText): { out:
 
 // ---- the combined country decision -----------------------------------------------------------------------
 export type CountryResolution =
-  | { status: 'resolved'; country: string; source: 'signals' | 'signals+model' | 'model' }
+  | { status: 'resolved'; country: string; source: 'signals' | 'signals+model' | 'model' | 'subscribers' }
   | { status: 'unresolved'; reason: 'no-evidence' | 'conflict' };
 
 // Deterministic signals are the anchor. The model may add a country only where the signals are silent (and it
 // has quoted evidence — guardProfileInsight already enforced that); where both speak and differ, the answer is
 // "unresolved", which the retry/moderation path handles — never a guess.
-export function resolveCountry(signals: CountryDecision, model: ProfileInsight | undefined): CountryResolution {
+export function resolveCountry(signals: CountryDecision, model: ProfileInsight | undefined, subscriberCountries: string[] = []): CountryResolution {
   const modelCountry = model && model.countryCode !== 'UNKNOWN' ? model.countryCode : undefined;
   if (signals.status === 'resolved') {
     if (modelCountry && modelCountry !== signals.country) return { status: 'unresolved', reason: 'conflict' };
@@ -168,6 +168,9 @@ export function resolveCountry(signals: CountryDecision, model: ProfileInsight |
     if (other && !own) return { status: 'unresolved', reason: 'conflict' };
     return { status: 'resolved', country: modelCountry, source: 'model' };
   }
+  // LAST option (decision 2026-10-18): the subscribers' country, only to confirm a lone weak signal.
+  const tie = applySubscriberTieBreak(signals, subscriberCountries);
+  if (tie.status === 'resolved') return { status: 'resolved', country: tie.country, source: 'subscribers' };
   return { status: 'unresolved', reason: 'no-evidence' };
 }
 

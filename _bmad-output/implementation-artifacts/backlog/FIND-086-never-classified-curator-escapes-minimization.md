@@ -18,9 +18,11 @@ captured: 2026-10-18
 
 `is-organizer-authored-post.ts` says so in its own header: "A NULL accountType is NOT curator-typed". So a never-classified curator's post counts as organizer-authored: `process-ingestion-job.ts` does not make its events `stub` (`isCuratorSourced` is false), trusts its `organizerHandle` for matching, and the post can become an event's primary post and trigger the first-organizer notification. That is the opposite of what the curator design intends ("a misread curator must not become a primary or fire a notification").
 
-## Resolution for part of the group
+## Resolution for part of the group (decision 2026-10-18)
 
-The product owner states that the never-classified accounts with **no location** are all Indonesian curators; setting them to `CURATOR_GUIDE`/`CONFIRMED` by one bulk update (SQL in IDEA-075) fixes both consequences for them going forward. Captions already stored stay until a separate, explicit deletion. Never-classified accounts *with* a location are not covered by that statement.
+The product owner states that the never-classified accounts with **no location** are all Indonesian curators. The bulk update in `IDEA-075-legacy-bulk-update/` sets them to `CURATOR_GUIDE`/`CONFIRMED` (tested on a scratch Postgres 16 with the real migrations; not run on production), which fixes both consequences for them going forward. Captions already stored stay until a separate, explicit deletion.
+
+**Not resolved — by decision:** never-classified accounts that *already have a location* are not changed. If one of them is a curator it still escapes the minimization and the stub/notification handling. `04-after.sql` lists such accounts whose events are scattered over five or more cities (a curator's shape); that is a lead to read, not a finding.
 
 ## Why it is registered separately from BUG-065
 
@@ -36,6 +38,6 @@ WHERE p.account_type_status IS NULL AND po.content IS NOT NULL
 GROUP BY 1 ORDER BY 2 DESC LIMIT 50;
 ```
 
-Then look at the top rows by hand: an aggregator among them confirms the finding. (Column names and the join key — `posts.account_id` is the profile's uuid `id` — were read from `packages/database/schema.ts`; the query was not run.)
+Then look at the top rows by hand: an aggregator among them confirms the finding. (The join key is `posts.account_id` = the profile's uuid `id`. The query was run, rolled back, against a scratch PostgreSQL 16 built from the repository's 80 migrations: it parses and every column resolves. It was not run against production data.)
 
 Related: BUG-065, IDEA-075.

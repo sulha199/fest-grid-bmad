@@ -2356,9 +2356,9 @@ items:
     {type: idea, status: backlog, created: 2026-10-18,
      impact: user-visible, effort: m, blocks: [IDEA-074],
      title: "Profile enrichment: country, reach and default time zone from the initial profile scrape, with retry",
-     ref: [backlog/IDEA-075-profile-enrichment-country-reach-retry.md, planning-artifacts/event-insight-poc/poc-report.md],
+     ref: [backlog/IDEA-075-profile-enrichment-country-reach-retry.md, backlog/IDEA-075-legacy-bulk-update/README.md, planning-artifacts/event-insight-poc/poc-report.md],
      touches: [app:backend, pkg:domain, pkg:database, web:accounts, web:locations, cross:ai-extraction],
-     note: "POC: 18 profiles (5 real, 13 synthetic), 0 wrong country and 0 wrong time zone in 54 runs; signals and model never disagreed, so conflict handling is unit-tested only. Legacy curators: bulk update, SQL in the note."}
+     note: "POC: 18 profiles (5 real, 13 synthetic), 0 wrong country / 0 wrong zone in 54 runs; signals and model never disagreed (conflict rule unit-tested only). Legacy bulk-update runbook decided 2026-10-18, tested on a scratch Postgres, not run on production."}
 
   FIND-086:
     {type: finding, status: backlog, created: 2026-10-18,

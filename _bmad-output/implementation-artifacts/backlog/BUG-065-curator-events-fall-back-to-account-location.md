@@ -16,15 +16,20 @@ Pipeline consequences: **inferred from reading code**, not reproduced (no databa
 | `ORGANIZER_VENUE_EVENT`, confirmed | yes — "an event at a mall posted on the mall's account" (PRD §3.7) | yes, but only when several posts agree (see Fix) |
 | `CURATOR_GUIDE` | **no** | **no** |
 | `PERSONAL` | never scraped (`isScrapableAccountType`) | no |
-| never classified (`accountTypeStatus` null) | **no** (revised 2026-10-18 — see below) | no, until classified |
+| never classified (`accountTypeStatus` null) **with** a location | yes — unchanged (decision 2026-10-18; see below) | not needed — it has one |
+| never classified, **no** location | bulk-set to `CURATOR_GUIDE` (decision 2026-10-18), so: no | no |
 | `AWAITING_APPROVAL` | no — it might be a curator | no |
 | confirmed organizer whose profile shows a **national** reach (a national company or olympiad organizer) | **no** — its account location is a head office | no |
 
-## "Never classified" means unknown, not organizer (revised 2026-10-18)
+## What "never classified" means, and what was decided (2026-10-18)
 
-`accountTypeStatus IS NULL` means no classification was ever recorded. By reading Story 3.4n and its code: (1) every account that existed before 3.4n shipped was **grandfathered** — deliberately left null and still scraped (AC5, "Legacy Accounts: Explicit Accepted Gap"; a backfill job was rejected for cost and effort); (2) classification otherwise runs only when someone subscribes to a null-status profile, so a legacy account with no new subscriber stays null indefinitely; (3) accounts found by discovery are created null on purpose and classified at first subscribe. `isScrapableAccountType` therefore treats null as scrapable.
+`accountTypeStatus IS NULL` means no classification was ever recorded. By reading Story 3.4n and its code: (1) every account that existed before 3.4n shipped was **grandfathered** — deliberately left null and still scraped (AC5, "Legacy Accounts: Explicit Accepted Gap"); (2) classification otherwise runs only when someone subscribes to a null-status profile, so a legacy account with no new subscriber stays null; (3) accounts found by discovery are created null by design. `isScrapableAccountType(null, null)` is true.
 
-For *location* that default is the wrong way round: a null account may be a curator (the curator that motivated this bug is exactly the kind of account that predates 3.4n), the cost of lending a wrong location is a wrong pin ("fatal"), and the cost of withholding it is one missing fallback on a post that names no place. Policy: null does not lend its location. This does **not** change scraping. **Decision 2026-10-18:** the never-classified accounts that have *no location* are all Indonesian curators, so they are set by one bulk update rather than re-read (SQL, backup, rollback and the list of what changes for them are in IDEA-075); the never-classified accounts *with* a location stay null. How many accounts are null: see the SQL below. See also FIND-086 (a null-typed curator also escapes the curator minimization) and IDEA-075 (the profile-enrichment job that can classify them).
+Decisions, in the order they were taken:
+
+1. **The never-classified accounts that have no location are all Indonesian curators** (product owner) → one bulk update sets them to `CURATOR_GUIDE`/`CONFIRMED` instead of a profile re-read. Tested runbook: `IDEA-075-legacy-bulk-update/` (look → apply → rollback → after).
+2. **Never-classified accounts that already have a location are not changed.** They stay null and keep behaving as today, including lending their location (`mayUseAccountLocation(null, null)` is true again). An intermediate draft had made them lend nothing; that was reversed by this decision.
+3. **What remains exposed:** a curator among those with a location would still carry an arbitrary stored location and still escape the curator minimization (FIND-086). `04-after.sql` lists the ones whose events are scattered over five or more cities, the shape a curator has. It is a pointer, not proof.
 
 ## Consequence for time zones (found while answering "infer a default timezone too")
 
@@ -83,7 +88,7 @@ JOIN social_media_account_profiles p ON p.account_id = e.source_social_media_acc
 WHERE s.location_details IS NOT NULL GROUP BY 1;
 ```
 
-Column names were read from `packages/database/schema.ts`; the queries were **not run**. The second one counts pinned schedules by account type, it cannot tell a fallback pin from a stated one — that needs the post text.
+Every block above was run (rolled back) against a scratch PostgreSQL 16 built from the repository's 80 migrations: each parses and every table and column resolves. They were not run against production data, so none of their results is known. The second one counts pinned schedules by account type, it cannot tell a fallback pin from a stated one — that needs the post text.
 
 ```sql
 -- how many accounts are in each classification state (null = never classified)

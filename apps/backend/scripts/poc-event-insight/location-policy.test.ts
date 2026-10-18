@@ -10,13 +10,13 @@ import {
 const TYPES: AccountType[] = ['ORGANIZER_VENUE_EVENT', 'CURATOR_GUIDE', 'PERSONAL', null];
 const STATUSES: AccountTypeStatus[] = ['CONFIRMED', 'AWAITING_APPROVAL', null];
 
-test('mayUseAccountLocation: only a CONFIRMED organizer/venue/event account (never-classified accounts are unknown, not organizers)', () => {
-  const expected = (t: AccountType, s: AccountTypeStatus): boolean => s === 'CONFIRMED' && t === 'ORGANIZER_VENUE_EVENT';
+test('mayUseAccountLocation: confirmed organizers and never-classified accounts may lend; curators, personal and awaiting approval may not', () => {
+  const expected = (t: AccountType, s: AccountTypeStatus): boolean => s === null || (s === 'CONFIRMED' && t === 'ORGANIZER_VENUE_EVENT');
   for (const t of TYPES) for (const s of STATUSES) assert.equal(mayUseAccountLocation(t, s), expected(t, s), `${t}/${s}`);
   assert.equal(mayUseAccountLocation('ORGANIZER_VENUE_EVENT', 'CONFIRMED'), true);
   assert.equal(mayUseAccountLocation('CURATOR_GUIDE', 'CONFIRMED'), false, 'the curator case');
   assert.equal(mayUseAccountLocation('ORGANIZER_VENUE_EVENT', 'AWAITING_APPROVAL'), false, 'might be a curator');
-  assert.equal(mayUseAccountLocation(null, null), false, 'REVISED: a never-classified (legacy) account no longer lends its location');
+  assert.equal(mayUseAccountLocation(null, null), true, 'DECISION 2026-10-18: a never-classified account that already has a location is not changed');
 });
 
 test('mayUseAccountLocation: a NATIONAL organizer\'s account location is a head office — it does not lend it; unknown reach does', () => {
@@ -25,6 +25,7 @@ test('mayUseAccountLocation: a NATIONAL organizer\'s account location is a head 
   assert.equal(mayUseAccountLocation('ORGANIZER_VENUE_EVENT', 'CONFIRMED', 'unknown'), true);
   assert.equal(mayUseAccountLocation('ORGANIZER_VENUE_EVENT', 'CONFIRMED', 'national'), false);
   assert.equal(mayUseAccountLocation('ORGANIZER_VENUE_EVENT', 'CONFIRMED', 'international'), false);
+  assert.equal(mayUseAccountLocation(null, null, 'national'), false, 'reach applies to never-classified accounts too');
 });
 
 test('mayUseAccountLocation is strictly narrower than the scrape gate (a curator is scrapable but has no fallback location)', () => {
@@ -94,7 +95,8 @@ test('effectiveAudienceAreas: local government vs national company, both posting
   assert.deepEqual(effectiveAudienceAreas({ ...online, accountReach: 'national' }), { keys: [], source: 'none' }, 'a national company\'s webinar is for everyone — its head-office city is not its audience');
   assert.deepEqual(effectiveAudienceAreas({ ...online, accountReach: 'unknown' }), { keys: [], source: 'none' });
   assert.deepEqual(effectiveAudienceAreas({ ...online, accountReach: 'local', accountType: 'CURATOR_GUIDE' }), { keys: [], source: 'none' }, 'never a curator');
-  assert.deepEqual(effectiveAudienceAreas({ ...online, accountReach: 'local', accountTypeStatus: null, accountType: null }), { keys: [], source: 'none' }, 'never an unclassified account');
+  assert.deepEqual(effectiveAudienceAreas({ ...online, accountReach: 'local', accountTypeStatus: null, accountType: null }), { keys: ['sleman'], source: 'account' }, 'a never-classified account with a location and a KNOWN local reach is unchanged');
+  assert.deepEqual(effectiveAudienceAreas({ ...online, accountReach: 'unknown', accountTypeStatus: null, accountType: null }), { keys: [], source: 'none' }, 'online still needs a known local reach');
 });
 
 test('effectiveAudienceAreas: an area-less ONSITE post from a national organizer does not take its head-office city', () => {
@@ -148,4 +150,38 @@ test('consensusPlace: needs at least two agreeing posts and a majority; one post
   assert.equal(consensusPlace(['Plaza Ambarrukmo', 'Plaza Ambarrukmo', 'A B C', 'D E F', 'G H I', 'J K L']), null, 'two of six is not a majority');
   assert.equal(consensusPlace([]), null);
   assert.equal(consensusPlace(['Jogja', 'Yogyakarta']), null, 'filler-only descriptions carry no place to agree on');
+});
+
+// ---- decision 2026-10-18: an unresolved country is a preference + the floor, not "no pin" ----
+import { DEFAULT_GEOCODE_FLOOR, decideGeocode, geocodePlan } from './location-policy.js';
+
+test('geocodePlan: a known country is a hard filter; an unknown one is a preference for the home country', () => {
+  const known = geocodePlan('MY', 'id');
+  assert.deepEqual(known, { mode: 'filter', countries: ['my'], providerParam: 'filter=countrycode:my', minConfidence: DEFAULT_GEOCODE_FLOOR });
+  const unknown = geocodePlan(undefined, 'ID');
+  assert.deepEqual(unknown, { mode: 'bias', homeCountry: 'id', providerParam: 'bias=countrycode:id', minConfidence: DEFAULT_GEOCODE_FLOOR });
+  assert.equal(geocodePlan('  ', 'id').mode, 'bias');
+  assert.equal(geocodePlan('indonesia', 'id').mode, 'bias', 'only a 2-letter code is a country; anything else is treated as unknown');
+  assert.equal(DEFAULT_GEOCODE_FLOOR, 0.5, 'the threshold isLocationTrustworthy already uses; not calibrated');
+});
+
+test('decideGeocode, KNOWN country: a foreign candidate is never eligible, whatever its confidence', () => {
+  const plan = geocodePlan('id', 'id');
+  const d = decideGeocode(plan, [{ countryCode: 'my', confidence: 0.95, label: 'Kuala Lumpur' }, { countryCode: 'id', confidence: 0.62, label: 'Yogyakarta' }]);
+  assert.equal(d.status, 'accepted'); if (d.status === 'accepted') assert.equal(d.candidate.label, 'Yogyakarta');
+  assert.equal(decideGeocode(plan, [{ countryCode: 'my', confidence: 0.95 }]).status, 'unresolved');
+});
+
+test('decideGeocode, UNKNOWN country: any country may win — but only above the floor', () => {
+  const plan = geocodePlan(undefined, 'id');
+  const foreignHigh = decideGeocode(plan, [{ countryCode: 'my', confidence: 0.9, label: 'KL' }, { countryCode: 'id', confidence: 0.55, label: 'Jogja' }]);
+  assert.equal(foreignHigh.status === 'accepted' && foreignHigh.candidate.label, 'KL', 'a preference, not a restriction');
+  assert.deepEqual(decideGeocode(plan, [{ countryCode: 'id', confidence: 0.3 }, { countryCode: 'my', confidence: 0.2 }]), { status: 'unresolved', reason: 'below-confidence-floor', skippedForeign: 0 }, 'a guess is stored as text, never as a pin');
+  assert.equal(decideGeocode(plan, [{ confidence: 0.8, label: 'no country field' }]).status, 'accepted', 'with no restriction a missing country code does not disqualify');
+  assert.equal(decideGeocode(plan, []).status, 'unresolved');
+});
+
+test('the floor is a parameter', () => {
+  assert.equal(decideGeocode(geocodePlan(undefined, 'id', 0.8), [{ countryCode: 'id', confidence: 0.7 }]).status, 'unresolved');
+  assert.equal(decideGeocode(geocodePlan(undefined, 'id', 0.6), [{ countryCode: 'id', confidence: 0.7 }]).status, 'accepted');
 });

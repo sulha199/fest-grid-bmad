@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SUBSCRIBER_MIN, collectSignals, countryOfUser, inferCountryFromSignals, subscriberMajority, type ProfileText } from './country-signals.js';
+import { SUBSCRIBER_MIN, applySubscriberTieBreak, collectSignals, countryOfUser, inferCountryFromSignals, subscriberMajority, type ProfileText } from './country-signals.js';
 
 const p = (over: Partial<ProfileText> = {}): ProfileText => ({ username: 'acct', displayName: 'Acct', biography: '', captions: [], locationNames: [], ...over });
 const kinds = (t: ProfileText, country: string) => collectSignals(t).filter((s) => s.country === country).map((s) => s.kind).sort();
@@ -76,34 +76,53 @@ test('empty input is unresolved with no signals', () => {
   assert.deepEqual(inferCountryFromSignals(p()), { status: 'unresolved', reason: 'no-signal', signals: [] });
 });
 
-// ---- subscribers' country: a weak clue ----
-
-test('subscribers: needs at least 3 of them and an 80% majority; a weak signal worth 1', () => {
+// ---- subscribers' country: the LAST option, a tie-break ----
+test('subscribers: needs at least 3 of them and an 80% majority', () => {
   assert.equal(subscriberMajority(['ID', 'ID']), undefined, 'too few subscribers');
   assert.equal(SUBSCRIBER_MIN, 3);
   assert.deepEqual(subscriberMajority(['ID', 'ID', 'ID', 'ID', 'AU']), { country: 'ID', count: 4, total: 5 });
   assert.equal(subscriberMajority(['ID', 'ID', 'AU', 'AU']), undefined, 'no 80% majority');
-  assert.equal(subscriberMajority(['id', ' ID ', 'ID', 'xx-garbage', '']) ?.country, 'ID', 'normalised; junk ignored');
-  assert.deepEqual(kinds(p({ subscriberCountries: ['ID', 'ID', 'ID'] }), 'ID'), ['subscribers']);
+  assert.equal(subscriberMajority(['id', ' ID ', 'ID', 'xx-garbage', ''])?.country, 'ID', 'normalised; junk ignored');
 });
 
-test('subscribers alone never resolve a country (weak = 1, resolving needs 2)', () => {
-  const d = inferCountryFromSignals(p({ subscriberCountries: ['ID', 'ID', 'ID', 'ID', 'ID'] }));
-  assert.equal(d.status, 'unresolved'); assert.equal(d.status === 'unresolved' && d.reason, 'weak');
+test('subscribers are not a signal: collectSignals never produces one', () => {
+  assert.deepEqual(collectSignals(p({ biography: 'hello' })), []);
 });
 
-test('subscribers break the tie for a quiet profile: one weak place + subscribers resolves', () => {
-  const d = inferCountryFromSignals(p({ biography: 'Yoga in Canggu', subscriberCountries: ['ID', 'ID', 'ID'] }));
+test('tie-break: it confirms a LONE weak signal for the same country (one place name + subscribers)', () => {
+  const weak = inferCountryFromSignals(p({ biography: 'Yoga in Canggu' }));
+  assert.equal(weak.status === 'unresolved' && weak.reason, 'weak');
+  const d = applySubscriberTieBreak(weak, ['ID', 'ID', 'ID']);
   assert.equal(d.status === 'resolved' && d.country, 'ID');
+  assert.equal(d.status === 'resolved' && d.viaSubscribers, true);
+  assert.ok(d.signals.some((s) => s.kind === 'subscribers'));
 });
 
-test('subscribers never outvote a strong foreign marker: Indonesian users following a Melbourne community', () => {
-  const d = inferCountryFromSignals(p({
+test('tie-break: subscribers alone never resolve a country (no signal at all stays unresolved)', () => {
+  const none = inferCountryFromSignals(p());
+  assert.deepEqual(applySubscriberTieBreak(none, ['ID', 'ID', 'ID', 'ID', 'ID']), none);
+});
+
+test('tie-break: it does not fire when the subscribers point at a different country than the lone signal', () => {
+  const weak = inferCountryFromSignals(p({ biography: 'Yoga in Canggu' }));
+  assert.deepEqual(applySubscriberTieBreak(weak, ['AU', 'AU', 'AU']), weak);
+  assert.deepEqual(applySubscriberTieBreak(weak, ['ID', 'ID']), weak, 'too few subscribers');
+});
+
+test('tie-break never breaks a genuine tie: Indonesian subscribers must not pin a Melbourne community in Indonesia', () => {
+  const tie = inferCountryFromSignals(p({ biography: 'Komunitas di Melbourne, Indonesia' })); // AU place 1 vs ID country-name 1
+  assert.equal(tie.status, 'unresolved', 'one weak signal each: nothing resolves');
+  assert.equal(new Set(tie.signals.map((s) => s.country)).size, 2, 'two countries have evidence');
+  assert.deepEqual(applySubscriberTieBreak(tie, Array(8).fill('ID')), tie, 'two countries with evidence: the subscribers do not pick one');
+});
+
+test('tie-break leaves a resolved decision alone, even against the subscribers', () => {
+  const melb = inferCountryFromSignals(p({
     displayName: 'Komunitas Indonesia di Melbourne', biography: 'Kumpul warga Indonesia di Victoria',
     captions: ['Piknik bareng Minggu 10am AEST di Fitzroy Gardens, Melbourne. Donasi A$5.'],
-    subscriberCountries: ['ID', 'ID', 'ID', 'ID', 'ID', 'ID', 'ID', 'ID'],
   }));
-  assert.equal(d.status === 'resolved' && d.country, 'AU');
+  assert.deepEqual(applySubscriberTieBreak(melb, Array(8).fill('ID')), melb);
+  assert.equal(melb.status === 'resolved' && melb.country, 'AU');
 });
 
 test('countryOfUser: saved locations win (the user chose them), else the device time zone, else nothing', () => {

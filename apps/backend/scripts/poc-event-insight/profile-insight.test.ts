@@ -196,3 +196,14 @@ test('guard: a zone whose only evidence is its abbreviation survives (the case a
   const g = guardProfileInsight(ins({ reach: 'local', countryCode: 'MY', countryEvidence: ['MYT'], timezone: 'Asia/Kuala_Lumpur', timezoneEvidence: ['MYT'] }), p);
   assert.equal(g.out.timezone, 'Asia/Kuala_Lumpur'); assert.equal(g.out.countryCode, 'MY'); assert.deepEqual(g.actions, []);
 });
+
+test('resolveCountry: the subscribers are the LAST option — after the markers and the model, only for a lone weak signal', () => {
+  const weak = inferCountryFromSignals({ username: 'a', displayName: 'a', biography: 'Yoga in Canggu', captions: [], locationNames: [] });
+  const none = inferCountryFromSignals({ username: 'a', displayName: 'a', biography: 'hello', captions: [], locationNames: [] });
+  const subs = ['ID', 'ID', 'ID', 'ID'];
+  assert.deepEqual(resolveCountry(weak, ins(), subs), { status: 'resolved', country: 'ID', source: 'subscribers' });
+  assert.deepEqual(resolveCountry(weak, ins({ countryCode: 'ID' }), subs), { status: 'resolved', country: 'ID', source: 'model' }, 'the model comes first');
+  assert.deepEqual(resolveCountry(none, ins(), subs), { status: 'unresolved', reason: 'no-evidence' }, 'subscribers alone are not evidence');
+  assert.deepEqual(resolveCountry(weak, ins(), ['AU', 'AU', 'AU']), { status: 'unresolved', reason: 'no-evidence' });
+  assert.deepEqual(resolveCountry(weak, ins()), { status: 'unresolved', reason: 'no-evidence' });
+});

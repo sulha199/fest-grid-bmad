@@ -21,18 +21,21 @@ export type AccountTypeStatus = 'CONFIRMED' | 'AWAITING_APPROVAL' | null;
 export type AccountReach = 'local' | 'regional' | 'national' | 'international' | 'unknown';
 
 // A venue/organizer account's location is its events' location ("an event at a mall posted on the
-// mall's account", PRD §3.7) — when the organizer is LOCAL. Three accounts must not lend theirs:
+// mall's account", PRD §3.7) — when the organizer is LOCAL. Accounts that must not lend theirs:
 //   * a curator publishes events from many places, so it has no single location to fall back to;
 //   * a national company's or a national organizer's account location is a head office, not where an
 //     area-less post's event happens (reach 'national' / 'international');
-//   * an account that is not CONFIRMED an organizer — awaiting approval (might be a curator) or NEVER
-//     CLASSIFIED (accountTypeStatus null). Revised 2026-10-18: "never classified" used to keep today's
-//     behaviour, but null means *unknown*, not *organizer*: Story 3.4n grandfathered those accounts into
-//     scraping on purpose, and any curator among them would otherwise lend a wrong location. The cost of
-//     withholding is one missing fallback pin on an area-less post; the cost of lending is a wrong pin.
+//   * an account awaiting approval — it might be a curator.
+// NEVER-CLASSIFIED accounts (accountTypeStatus null) keep today's behaviour: they may lend the location they
+// have. Decision 2026-10-18, after a stricter draft: the never-classified accounts WITHOUT a location are all
+// curators and are set to CURATOR_GUIDE by one bulk update (IDEA-075), so the only never-classified accounts
+// left are the ones that already have a location, and the product owner said not to change them. The risk
+// that remains is a curator among them that carries an arbitrary stored location (FIND-086 and the scatter
+// query in the IDEA-075 runbook are how to look for one).
 export function mayUseAccountLocation(accountType: AccountType, accountTypeStatus: AccountTypeStatus, reach: AccountReach = 'unknown'): boolean {
-  if (accountTypeStatus !== 'CONFIRMED' || accountType !== 'ORGANIZER_VENUE_EVENT') return false;
-  return reach !== 'national' && reach !== 'international';
+  if (reach === 'national' || reach === 'international') return false;
+  if (accountTypeStatus === null) return true;
+  return accountTypeStatus === 'CONFIRMED' && accountType === 'ORGANIZER_VENUE_EVENT';
 }
 
 // Inferring an account location from a post only makes sense for the accounts that may use one.
@@ -52,17 +55,44 @@ export type GeocodeDecision<T extends GeocodeCandidate> =
 // otherwise the answer is "unresolved" — stored as text only, never as a wrong pin.
 export function acceptGeocode<T extends GeocodeCandidate>(
   candidates: T[],
-  opts: { allowedCountries: string[]; minConfidence: number },
+  opts: { allowedCountries?: string[]; minConfidence: number },
 ): GeocodeDecision<T> {
   if (candidates.length === 0) return { status: 'unresolved', reason: 'no-candidates', skippedForeign: 0 };
-  const allowed = new Set(opts.allowedCountries.map((c) => c.toLowerCase()));
-  const eligible = candidates.filter((c) => c.countryCode !== undefined && allowed.has(c.countryCode.toLowerCase()));
+  // `allowedCountries` undefined = no country restriction (the account's country is unknown): only the floor applies.
+  const allowed = opts.allowedCountries ? new Set(opts.allowedCountries.map((c) => c.toLowerCase())) : undefined;
+  const eligible = allowed ? candidates.filter((c) => c.countryCode !== undefined && allowed.has(c.countryCode.toLowerCase())) : candidates;
   const skippedForeign = candidates.length - eligible.length;
   if (eligible.length === 0) return { status: 'unresolved', reason: 'no-candidate-in-allowed-country', skippedForeign };
   let best = eligible[0];
   for (const c of eligible.slice(1)) if ((c.confidence ?? -Infinity) > (best.confidence ?? -Infinity)) best = c;
   if ((best.confidence ?? -Infinity) < opts.minConfidence) return { status: 'unresolved', reason: 'below-confidence-floor', skippedForeign };
   return { status: 'accepted', candidate: best, skippedForeign };
+}
+
+// ---- 2b. how to geocode for an account whose country may be unknown ------------------------------------------
+// Decision 2026-10-18 ("on your recommendation"): a country that is still unresolved after the profile read and
+// its retries does NOT mean "no pin". The geocoder gets a PREFERENCE for the platform's home country (today's
+// `bias=countrycode:`) and the confidence floor, and nothing is restricted. A known country is a hard filter.
+//   known country     -> filter: only that country's candidates are eligible, and they must clear the floor
+//   unknown country   -> bias:   the home country is preferred by the provider, any country may win, and the winner must clear the floor
+// A candidate below the floor is "unresolved": the text is kept, no coordinates are stored — never a wrong pin.
+// The floor is a parameter; 0.5 is the threshold `isLocationTrustworthy` already uses for the map link. It is
+// NOT calibrated: that needs a Geoapify key (probe-geocode-country.ts).
+export const DEFAULT_GEOCODE_FLOOR = 0.5;
+
+export type GeocodePlan =
+  | { mode: 'filter'; countries: string[]; providerParam: string; minConfidence: number }
+  | { mode: 'bias'; homeCountry: string; providerParam: string; minConfidence: number };
+
+export function geocodePlan(accountCountry: string | undefined, homeCountry: string, minConfidence: number = DEFAULT_GEOCODE_FLOOR): GeocodePlan {
+  const known = accountCountry?.trim().toLowerCase();
+  if (known && /^[a-z]{2}$/.test(known)) return { mode: 'filter', countries: [known], providerParam: `filter=countrycode:${known}`, minConfidence };
+  const home = homeCountry.trim().toLowerCase();
+  return { mode: 'bias', homeCountry: home, providerParam: `bias=countrycode:${home}`, minConfidence };
+}
+
+export function decideGeocode<T extends GeocodeCandidate>(plan: GeocodePlan, candidates: T[]): GeocodeDecision<T> {
+  return acceptGeocode(candidates, { allowedCountries: plan.mode === 'filter' ? plan.countries : undefined, minConfidence: plan.minConfidence });
 }
 
 // ---- 3. which area is an event FOR -------------------------------------------------------------
