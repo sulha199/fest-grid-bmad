@@ -13,6 +13,10 @@ export interface BackendEnv {
   systemErrorAlertEmail?: string;
   byokKmsKeyId?: string;
   geminiModel: string;
+  // Model for resolvePromptToEventFilter only. The shared GEMINI_MODEL (a lite tier, tuned for
+  // post extraction) cannot reliably fill the tree-shaped filter schema: on vague prompts like
+  // "exciting events for kids" it fills free-text fields with guesses. See AD / BUG note in resolver.
+  geminiFilterModel: string;
   apiKeyInvalidAttemptsThreshold: number;
   geminiPostsPerKeyPerCycle: number;
   apiKeyUsageCycleDays: number;
@@ -218,6 +222,8 @@ export function loadBackendEnv(): BackendEnv {
     byokKmsKeyId: process.env.BYOK_KMS_KEY_ID,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     geminiModel: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    geminiFilterModel: process.env.GEMINI_FILTER_MODEL || 'gemini-3.5-flash',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     apiKeyInvalidAttemptsThreshold: parseInt(process.env.API_KEY_INVALID_ATTEMPTS_THRESHOLD || '5', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars

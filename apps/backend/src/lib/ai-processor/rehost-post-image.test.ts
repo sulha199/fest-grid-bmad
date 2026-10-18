@@ -56,6 +56,7 @@ test('rehostPostImage integration/unit tests', async (t) => {
     postMediaCdnDomain: 'cdn.test.com',
     postMediaDistributionId: 'TESTDISTID',
     geminiModel: 'gemini-3.5-flash-lite',
+    geminiFilterModel: 'gemini-3.5-flash',
     apiKeyInvalidAttemptsThreshold: 5,
     geminiPostsPerKeyPerCycle: 300,
     apiKeyUsageCycleDays: 30,
