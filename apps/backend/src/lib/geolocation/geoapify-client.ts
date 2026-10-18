@@ -33,6 +33,9 @@ interface GeoapifyGeocodeResult {
   province?: string;
   county?: string;
   country_code?: string;
+  // Hierarchical Geoapify category of a place result (e.g. `commercial.shopping_mall`,
+  // `leisure.park`). Absent for street/address/city results.
+  category?: string;
   rank?: {
     confidence?: number;
     match_type?: string;
@@ -94,8 +97,23 @@ function mapGeocodeResult(result: GeoapifyGeocodeResult): LocationDetails {
     ...(result.rank?.confidence !== undefined && { confidence: result.rank.confidence }),
     ...(result.rank?.match_type && { matchType: result.rank.match_type }),
     ...(result.country_code && { countryCode: result.country_code }),
+    ...(result.category && { venueType: result.category }),
   };
 }
+
+// Place Details lists a place's categories from generic to specific (e.g. `['building',
+// 'building.commercial', 'commercial', 'commercial.shopping_mall']`); the most specific is the one
+// with the most dotted segments (the later entry wins a tie).
+function mostSpecificCategory(categories: unknown): string | undefined {
+  if (!Array.isArray(categories)) return undefined;
+  let best: string | undefined;
+  for (const category of categories) {
+    if (typeof category !== 'string' || category === '') continue;
+    if (best === undefined || category.split('.').length >= best.split('.').length) best = category;
+  }
+  return best;
+}
+
 export async function reverseGeocode(coordinates: Coordinates): Promise<LocationDetails> {
 
   const apiKey = getApiKey();
@@ -129,6 +147,7 @@ export async function getPlaceDetails(placeId: string): Promise<LocationDetails>
   }
   
   const properties = data.features[0].properties;
+  const venueType = mostSpecificCategory(properties.categories);
   return {
     coordinates: {
       latitude: properties.lat,
@@ -147,6 +166,7 @@ export async function getPlaceDetails(placeId: string): Promise<LocationDetails>
     ...(properties.city && { city: properties.city }),
     ...((properties.state || properties.province || properties.county) && { province: properties.state || properties.province || properties.county }),
     ...(properties.country_code && { countryCode: properties.country_code }),
+    ...(venueType && { venueType }),
   };
 }
 
