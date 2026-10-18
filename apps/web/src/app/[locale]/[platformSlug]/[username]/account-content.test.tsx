@@ -181,7 +181,7 @@ describe('AccountContent', () => {
 
   it('renders account profile header information correctly', async () => {
     renderWithProviders(
-      <AccountContent platformSlug="ig" accountId="17841400000" profile={defaultProfile} />
+      <AccountContent platformSlug="ig" profile={defaultProfile} />
     );
 
     // Header displayName and description
@@ -196,7 +196,7 @@ describe('AccountContent', () => {
 
   it('displays the list of events sourced from the account', async () => {
     renderWithProviders(
-      <AccountContent platformSlug="ig" accountId="17841400000" profile={defaultProfile} />
+      <AccountContent platformSlug="ig" profile={defaultProfile} />
     );
 
     // Wait for infinite query to resolve and render the event card
@@ -207,7 +207,7 @@ describe('AccountContent', () => {
 
   it('never renders the account profile avatar URL inside an event card image slot (Story 3.7c AC2)', async () => {
     renderWithProviders(
-      <AccountContent platformSlug="ig" accountId="17841400000" profile={defaultProfile} />
+      <AccountContent platformSlug="ig" profile={defaultProfile} />
     );
 
     // Wait for infinite query to resolve and render the event card

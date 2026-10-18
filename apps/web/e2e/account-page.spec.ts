@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test.describe("Public Account Page E2E", () => {
   test("should render public account page, show its events, navigate to detail view and click the attribution link back", async ({ page }) => {
     // Navigate directly to Jakarta City Events account page
-    await page.goto("/en/ig/ig_jkt_events");
+    await page.goto("/en/ig/jktcity.events");
 
     // Check account page header shows displayName
     const header = page.locator("h1");
@@ -40,7 +40,22 @@ test.describe("Public Account Page E2E", () => {
     await attributionLink.click();
 
     // Verify we are back on the public account page
-    await expect(page).toHaveURL(/\/en\/ig\/ig_jkt_events/);
+    await expect(page).toHaveURL(/\/en\/ig\/jktcity\.events/);
     await expect(header).toHaveText("Jakarta City Events");
+  });
+
+  // Architecture Spine AD-35 Rule 5: the numeric account_id (and any non-canonical spelling) is
+  // never the public URL; it 308-redirects to the username URL, keeping the query string.
+  test("redirects a numeric account id URL to the username URL, preserving the query string", async ({ page }) => {
+    await page.goto("/en/ig/2237970730?view=list");
+
+    await expect(page).toHaveURL(/\/en\/ig\/pakuwonmall\.jogja\?view=list/);
+    await expect(page.locator("h1")).toHaveText("Pakuwon Mall Jogja", { timeout: 15000 });
+  });
+
+  test("redirects a mixed-case username URL to the lower-case username URL", async ({ page }) => {
+    await page.goto("/en/ig/JktCity.Events");
+
+    await expect(page).toHaveURL(/\/en\/ig\/jktcity\.events$/);
   });
 });

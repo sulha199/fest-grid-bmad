@@ -1029,7 +1029,11 @@ export type Query = {
   rankedVoteAccounts: Array<RankedAccountVote>;
   relatedEventIds: Array<RelatedEventGroup>;
   reportedEvents: Array<Report>;
-  socialMediaAccountProfileByAccountId?: Maybe<SocialMediaAccountProfile>;
+  /**
+   * Resolves an account page URL segment: the current username (case-insensitive) first, then, for an
+   * all-digit segment, the platform's numeric account id (Architecture Spine AD-35).
+   */
+  socialMediaAccountProfileByUsername?: Maybe<SocialMediaAccountProfile>;
   /**
    * Pending suggested event-match rows awaiting moderator review (Story 3.6w AC1/AC5), oldest-
    * queued-first. Always filtered to status: PENDING -- there is no current need to list
@@ -1160,9 +1164,9 @@ export type QueryReportedEventsArgs = {
 };
 
 
-export type QuerySocialMediaAccountProfileByAccountIdArgs = {
-  accountId: Scalars['String']['input'];
+export type QuerySocialMediaAccountProfileByUsernameArgs = {
   platform: Scalars['String']['input'];
+  username: Scalars['String']['input'];
 };
 
 
@@ -1607,11 +1611,11 @@ export enum WidgetTheme {
 
 
 
+
 /**
  * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING posts
  * can be selected for extraction.
  */
-
 
 
 
@@ -1701,13 +1705,13 @@ export type ModeratorPendingItemCountQueryVariables = Exact<{ [key: string]: nev
 
 export type ModeratorPendingItemCountQuery = { moderatorPendingItemCount: number };
 
-export type GetSocialMediaAccountProfileByAccountIdQueryVariables = Exact<{
+export type GetSocialMediaAccountProfileByUsernameQueryVariables = Exact<{
   platform: string;
-  accountId: string;
+  username: string;
 }>;
 
 
-export type GetSocialMediaAccountProfileByAccountIdQuery = { socialMediaAccountProfileByAccountId: { id: string, accountId: string, platform: string, displayName: string, username: string, profileImageUrl: string | null, description: string | null } | null };
+export type GetSocialMediaAccountProfileByUsernameQuery = { socialMediaAccountProfileByUsername: { id: string, accountId: string, platform: string, displayName: string, username: string, profileImageUrl: string | null, description: string | null } | null };
 
 export type UpdateUserTimezoneMutationVariables = Exact<{
   timezone: string;
@@ -2591,9 +2595,9 @@ export const useModeratorPendingItemCountQuery = <
   }
     )};
 
-export const GetSocialMediaAccountProfileByAccountIdDocument = new TypedDocumentString(`
-    query getSocialMediaAccountProfileByAccountId($platform: String!, $accountId: String!) {
-  socialMediaAccountProfileByAccountId(platform: $platform, accountId: $accountId) {
+export const GetSocialMediaAccountProfileByUsernameDocument = new TypedDocumentString(`
+    query getSocialMediaAccountProfileByUsername($platform: String!, $username: String!) {
+  socialMediaAccountProfileByUsername(platform: $platform, username: $username) {
     id
     accountId
     platform
@@ -2605,20 +2609,20 @@ export const GetSocialMediaAccountProfileByAccountIdDocument = new TypedDocument
 }
     `);
 
-export const useGetSocialMediaAccountProfileByAccountIdQuery = <
-      TData = GetSocialMediaAccountProfileByAccountIdQuery,
+export const useGetSocialMediaAccountProfileByUsernameQuery = <
+      TData = GetSocialMediaAccountProfileByUsernameQuery,
       TError = unknown
     >(
       client: GraphQLClient,
-      variables: GetSocialMediaAccountProfileByAccountIdQueryVariables,
-      options?: Omit<UseQueryOptions<GetSocialMediaAccountProfileByAccountIdQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetSocialMediaAccountProfileByAccountIdQuery, TError, TData>['queryKey'] },
+      variables: GetSocialMediaAccountProfileByUsernameQueryVariables,
+      options?: Omit<UseQueryOptions<GetSocialMediaAccountProfileByUsernameQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetSocialMediaAccountProfileByUsernameQuery, TError, TData>['queryKey'] },
       headers?: RequestInit['headers']
     ) => {
     
-    return useQuery<GetSocialMediaAccountProfileByAccountIdQuery, TError, TData>(
+    return useQuery<GetSocialMediaAccountProfileByUsernameQuery, TError, TData>(
       {
-    queryKey: ['getSocialMediaAccountProfileByAccountId', variables],
-    queryFn: fetcher<GetSocialMediaAccountProfileByAccountIdQuery, GetSocialMediaAccountProfileByAccountIdQueryVariables>(client, GetSocialMediaAccountProfileByAccountIdDocument, variables, headers),
+    queryKey: ['getSocialMediaAccountProfileByUsername', variables],
+    queryFn: fetcher<GetSocialMediaAccountProfileByUsernameQuery, GetSocialMediaAccountProfileByUsernameQueryVariables>(client, GetSocialMediaAccountProfileByUsernameDocument, variables, headers),
     ...options
   }
     )};

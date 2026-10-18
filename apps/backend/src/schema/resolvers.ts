@@ -12,6 +12,7 @@ import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenc
 import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink, isScrapableAccountType, computeIsScrapeInProgress } from '@festgrid/domain/scraper';
 import { postsAssociatedWithAccount, getPostAccessAccountIds } from '../lib/posts/posts-associated-with-account.js';
 import { findProfileByUsername } from '../lib/accounts/find-profile-by-username.js';
+import { resolveProfileByUsername } from '../lib/accounts/resolve-profile-by-username.js';
 import { postExtractionStatusCondition, withExtractionStatus } from '../lib/posts/post-extraction-status.js';
 import { loadAccountActivity, type AccountActivity } from '../lib/accounts/load-account-activity.js';
 import type { EventParent, SocialMediaAccountProfileParent, SubscriptionParent } from '../lib/graphql-mappers.js';
@@ -2873,20 +2874,14 @@ export const resolvers: Resolvers = {
         remaining
       };
     },
-    socialMediaAccountProfileByAccountId: async (_, { platform, accountId }, context, info) => {
+    socialMediaAccountProfileByUsername: async (_, { platform, username }, context, info) => {
       const requestedFields = buildOptimizedDrizzleSelect(socialMediaAccountProfiles, info);
-      const rows = await db.select({
+      const row = await resolveProfileByUsername(platform, username, {
         ...requestedFields,
         id: socialMediaAccountProfiles.id,
-      }).from(socialMediaAccountProfiles)
-        .where(
-          and(
-            eq(socialMediaAccountProfiles.platform, platform),
-            eq(socialMediaAccountProfiles.accountId, accountId)
-          )
-        );
+      });
 
-      const profile = rows[0] as SocialMediaAccountProfileParent | undefined;
+      const profile = row as SocialMediaAccountProfileParent | undefined;
       if (!profile) return null;
 
       if (profile.defaultLocation) {

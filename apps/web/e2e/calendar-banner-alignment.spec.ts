@@ -10,7 +10,7 @@ test.describe('Weekly calendar bar alignment', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
   test('multi-day spanning bar columns match the sticky day-header columns', async ({ page }) => {
-    await page.goto('/en/ig/ig_jkt_events');
+    await page.goto('/en/ig/jktcity.events');
 
     await page.getByRole('tab', { name: 'Calendar View' }).click();
 
@@ -65,7 +65,7 @@ test.describe('Weekly calendar bar alignment', () => {
   });
 
   test('"Show more" appends a band below the first without moving it, and stops when everything is shown', async ({ page }) => {
-    await page.goto('/en/ig/ig_jkt_events');
+    await page.goto('/en/ig/jktcity.events');
     await page.getByRole('tab', { name: 'Calendar View' }).click();
 
     const bands = page.getByTestId('calendar-band');

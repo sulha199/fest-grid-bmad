@@ -2,7 +2,7 @@
 title: "Architecture Spine: FestDaily"
 status: "draft"
 created: "2026-07-20T09:34:00Z"
-updated: "2026-10-15T00:00:00Z"
+updated: "2026-10-18T00:00:00Z"
 ---
 
 # Architecture Spine: FestDaily
@@ -2139,6 +2139,60 @@ This document defines the core architectural invariants for the FestDaily applic
 *   **Deferred:** a source-scan ratchet forbidding a raw `accountTypeStatus === ` comparison outside
     `packages/domain` and `get-scrape-targets.ts`. Revisit if a fourth scrape entry point is added or
     a gate drifts again.
+
+---
+
+### AD-35: Account URLs Resolve by Username, Never by `account_id`
+
+*   **Binds:** the account page route `apps/web/src/app/[locale]/[platformSlug]/[accountId]/`
+    (segment renamed `[username]`); the GraphQL query that loads it; every `accountHref` builder —
+    `apps/web/src/features/events/mapper.ts` (4 sites), `subscriptions-content.tsx`; the
+    `accountHref` props of `EventDetailView` and `SubscribedAccountCard` in `packages/ui`;
+    BUG-059 story 1 (URL resolution by username) and `_bmad-output/specs/spec-profile-identity-unification/DESIGN.md` §3.2.
+*   **Prevents:** The incident that created this AD (2026-10-18): `account_id` now holds the
+    platform's numeric ID, so every link built as `/${platformSlug}/${accountId}` shows a numeric
+    URL. Four copies of that template literal each need the same fix, and any future link builder
+    can reintroduce the numeric form. Also prevents two units resolving one URL segment
+    differently (page vs `generateMetadata`), and one account answering at several URLs.
+*   **Rule:**
+    1.  **The URL carries the normalized `username`** (lower-case, no `@`). `account_id` never
+        appears in a URL, a link label or an `href`. It stays in GraphQL types for identity
+        comparison (`isSubscribed`) and mutation arguments only.
+    2.  **One builder.** `buildAccountHref(platform, username)` in `packages/domain/src/scraper/`,
+        beside `getPlatformSlug`, is the only code that forms the path. `packages/ui` never builds
+        account URLs; it renders the `accountHref` it is given. An empty `username` yields
+        `null` (rendered unlinked), never a numeric-ID fallback link.
+    3.  **One backend resolution point.** `socialMediaAccountProfileByUsername(platform, username)`
+        replaces `socialMediaAccountProfileByAccountId` (the account page is its only consumer).
+        Order: match `lower(username)`; only if nothing matches **and** the segment is all digits,
+        match `account_id`. **Username wins** when an all-digit username equals another account's
+        numeric ID; the rare collision is accepted.
+    4.  **Transitional tie-break.** While twin rows exist (before BUG-059 story 4), a handle-keyed
+        row and its numeric twin share one username. The resolver orders matches numeric
+        `account_id` first, then oldest `created_at`, and takes one. Remove this rule when story 4
+        has run and a unique `(platform, lower(username))` index exists.
+    5.  **One canonical URL, by redirect.** The page compares the URL segment with
+        the **normalized** `profile.username` (the same lower-casing `buildAccountHref` applies, so a
+        stored mixed-case value cannot cause a redirect loop); any difference (numeric ID,
+        upper-case, other spelling) calls `permanentRedirect` (308) to
+        `/<locale>/<platformSlug>/<username>`, **carrying the incoming search params**, because the `nuqs` filters (`q`, `types`, `categories`, `view`) live in the
+        query string and `permanentRedirect` does not carry it. Existing `/instagram/<numeric>`
+        links therefore keep working.
+    6.  **One fetch per request.** `generateMetadata` and the page share one `cache()`-wrapped
+        lookup, so both resolve the segment identically and agree on `notFound()`.
+    7.  **Rename and reuse.** After a rename the old username resolves nothing (404); no history
+        table. Once BUG-059 story 5's stale-claimant marker exists, the resolver excludes stale
+        rows.
+*   **Enforced by:** a unit test on `buildAccountHref`; a Vitest source-scan ratchet failing on any
+    template literal under `apps/web/src` that interpolates an `accountId` into a path; resolver
+    tests (username wins, digit fallback, tie-break, not found); a page test for the 308 with
+    preserved params. All added by BUG-059 story 1 (planning work does not modify source).
+*   **Deferred:** `alternates.canonical` in the account page metadata (revisit if account pages get
+    indexed); redirects from old usernames after a rename (revisit if rename 404s are reported).
+*   **Verified:** `permanentRedirect` in Next.js App Router serves 308 outside a streaming context
+    and a meta redirect inside one, throws `NEXT_REDIRECT`, and does not preserve the query string
+    (Next.js docs, 2026-10-18; repo pins `next ^15.1.3`). Precedent for page-level canonical
+    redirects: AD-16 / Story 3.6v in `events/[slug]/page.tsx`, which uses the 307 `redirect`.
 
 ---
 

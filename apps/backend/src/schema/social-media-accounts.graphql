@@ -38,9 +38,13 @@ type SocialMediaAccountProfileConnection {
 }
 
 extend type Query {
-  socialMediaAccountProfileByAccountId(
+  """
+  Resolves an account page URL segment: the current username (case-insensitive) first, then, for an
+  all-digit segment, the platform's numeric account id (Architecture Spine AD-35).
+  """
+  socialMediaAccountProfileByUsername(
     platform: String!
-    accountId: String!
+    username: String!
   ): SocialMediaAccountProfile
 
   queryModeratorAccountProfiles(
