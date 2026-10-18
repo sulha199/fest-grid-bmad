@@ -32,6 +32,8 @@ export type CostTier = (typeof COST_TIERS)[number];
 
 export interface EventInsight {
   geoScope: GeoScope;
+  // How people attend (venues experiment, venues.ts). Optional so older recorded results still load.
+  attendance?: 'onsite' | 'online' | 'hybrid' | 'unspecified';
   targetAreas: Array<{ name: string; level: AreaLevel }>;
   eligibility: Eligibility;
   restrictionNote?: string;

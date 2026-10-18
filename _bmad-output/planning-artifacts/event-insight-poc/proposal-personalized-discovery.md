@@ -1,5 +1,5 @@
 ---
-status: draft-for-review (revision 2)
+status: draft-for-review (revision 3)
 type: planning-proposal
 date: 2026-10-18
 related: [prd §3.1 Event Discovery, §3.2 Personalization, §3.8 Gemini API Management, §3.16 Data Minimization, §4.1 EventInfo, §4.3 LocationDetails; Architecture Spine AD-13, AD-17, AD-18, AD-29, AD-30; Epic 7/9 (AI filter) for the golden-set pattern]
@@ -16,6 +16,12 @@ evidence: ./poc-report.md
 2. **Default order is "targeted at my area first, then the sooner"** (§4.0): `ORDER BY areaTier, nextDate, id`. The blended relevance score of the first draft (§4.1) is kept only as an optional second stage / experiment arm.
 3. **Age is modelled as *tracks*, not one min/max** (§2.3), because real events qualify people in several ways at once. Tested live: §2.3 and the report's addendum.
 4. **Master brought the venue-type work (BUG-062, IDEA-070/071/072, AD-35).** Reading it against the code shows the AI filter's *region* match has the same defect venue type had: the field is read but nothing in production writes it. §9 sets out what that means for this proposal and what to discuss.
+
+### Revision 3 — decisions from the second discussion (2026-10-18)
+
+5. **The area ladder is its own first story** and is registered in the backlog as **IDEA-073**, with the two defects behind it as **BUG-063** (`adminArea` never written) and **BUG-064** (online and multi-venue events). It fixes the AI filter on its own, whether or not this feature ships.
+6. **Ordering is one merged local group, then the rest** (§4.0). No "own district before the region" split: every rung of the user's area ladder is one group ordered by date; then events reachable from anywhere (online, national, unspecified); then events targeted at other local areas. **Online events get explicit handling** (§4.0, §9.3).
+7. **Venue type is mapped to indoor/outdoor, and an event can have several venues** (§9.3): Geoapify's category first, a small closed vocabulary, the model only where the geocoder is silent; venues belong to schedules, so a multi-venue event already exists in the data model — but production extraction currently loses the venues (BUG-064).
 
 ## 1. Recommendation
 
@@ -130,24 +136,26 @@ A one-off backfill using the *standalone* call (measured **~1.2k input / ~0.25k 
 
 ## 4. Ranking design
 
-### 4.0 Default order: targeted at my area first, then the sooner
+### 4.0 Default order: the local ladder first, then the sooner
 
 ```
-ORDER BY areaTier ASC, nextUpcomingDate ASC, id ASC          -- areaTier = one integer CASE
+ORDER BY areaTier ASC, soonestMatchingDate ASC, id ASC          -- areaTier = one integer CASE
 ```
 
 | tier | meaning | examples for a Sleman user |
 |--:|---|---|
-| 0 | the event's target areas include **my area, a sub-area, a containing area, or a sibling in my region** | Sleman · Depok · DIY-wide · Bantul |
-| 1 | no specific area: national / international / online / unspecified / no insight yet — and **every event, if I have no location** | "se-Indonesia" webinar; Zoom class |
-| 2 | targeted at **somewhere else** | Jakarta exhibition; Bali yoga |
+| **0 — local ladder** | the event is targeted at **any rung** of the user's area ladder, merged into **one** group ordered by date: their own area, a sub-area, a containing area, or a sibling in the same region | a Sleman event · a DIY-wide event · a Bantul event · a Zoom class "for Yogyakarta students" |
+| **1 — anywhere** | reachable regardless of where the user is: **online / hybrid events not targeted at their area**, national / international scope, no resolvable area, no insight yet — and **every event, if the user has no location** | a global Zoom webinar · "se-Indonesia" competition · a hybrid seminar in Jakarta |
+| **2 — other local** | **onsite-only** events targeted at some other area | a Jakarta exhibition · a Bali yoga dinner |
 
-* **Event areas** = AI `targetAreas` **∪ the venue's geocoded areas** (already stored on `schedules.location_details`). The venue part needs no Gemini, so this ordering can ship *before* audience extraction does, and the AI part then adds the catchment the venue cannot tell you ("terbuka untuk mahasiswa dan umum se-DIY & Jawa Tengah"). Both depend on the area ladder fix in §9.
+* **"Targeted at" is read first, "online" second.** A Zoom event for Yogyakarta students is tier 0; a Zoom event for Jakarta residents is tier 1 (the user *can* attend it — it is not "other local"). Online placement is an option: `after-local` (**default**, tier 1, ahead of other-local in-person events the user cannot attend) · `with-local` (online events with no area merge into tier 0 and are ordered by date with the local ones) · `last` (behind other-local). **This is the one open choice** (§6.2).
+* **Event areas** = AI `targetAreas` ∪ the geocoded areas of **every schedule's venue** (not just the main one — location filters today look only at the main schedule, BUG-064). The venue part needs no Gemini, so this ordering can ship *before* audience extraction does; the AI part then adds the catchment a venue cannot tell you ("terbuka untuk mahasiswa dan umum se-DIY & Jawa Tengah").
+* **Multi-venue events:** areas are the **union** over schedules, and "sooner" is the **soonest schedule that matches the user** — a festival with day 1 in Jakarta and day 2 in Yogyakarta is a local event on day 2 for a Yogyakarta user, not on day 1. (Tested.)
 * **No profile ⇒ every event is tier 1 ⇒ exactly today's chronological order** (unit-tested). Ties break on `id`, so offset pagination stays deterministic.
-* **Option `most-local-first`** splits tier 0 into "my own district first, then the wider region" (Sleman before DIY-wide). Needs the regency level, which the geocoder currently drops (§9.1).
-* **Option `horizon`** (e.g. apply tiers only within the next 30 days, pure date beyond): protects against the strictness trade-off below. Default: off, as requested; decide with the replay (§5).
+* **Option `horizon`** (apply tiers only within the next N days, pure date beyond) protects against the strictness trade-off below. Default off, as requested; decide with the replay (§5).
+* Depends on the area ladder (IDEA-073, §9.2) — without canonical keys neither the local group nor "sibling in my region" can be computed.
 
-**Measured on the real extracted insights** (27 events, 4 personas; `rank-demo.ts`): the expat in Canggu goes from rank 14 to **1** for the Bali event and has 23 of 27 events in tier 2; Yogyakarta users keep 20 of 27 in tier 0, so for them the page is chronological with out-of-area events behind. **Said plainly: "area first" separates regions, not people within a region.** On a Jogja-only catalogue it will change little until (a) the catalogue spans several cities, or (b) the area ladder is fine enough to tell Sleman from Bantul from Yogyakarta city, or (c) a within-tier refinement exists (nearer via the saved-location radius, or interest — §4.1). **Trade-off to accept knowingly:** a strictly local event two months away outranks a national event tomorrow (`rankAreaThenDate: strictness trade-off is real` test).
+**Measured on the real extracted insights** (27 events, 4 personas, attendance mode taken from Gemini's own venues extraction; `rank-demo.ts`): the expat in Canggu goes from rank 14 to **1** for the Bali event; their Zoom webinar sits right behind it (tier 1) ahead of every in-person Yogyakarta event; 23 of 27 events are tier 2. A Yogyakarta user has 20 of 27 in tier 0, so for them the page is chronological with other-local events behind. **Said plainly: this separates regions, not people within a region** — on a Jogja-only catalogue it changes little until the catalogue spans several cities, or a within-tier refinement exists (nearer via the saved-location radius, or interest — §4.1). **Trade-off to accept knowingly:** a strictly local event two months away outranks a national or online event tomorrow (pinned in a test).
 
 ### 4.1 Optional second stage: relevance as a *bounded date discount*
 
@@ -207,16 +215,17 @@ Two honest caveats. (1) The 27-event, 5-week demo pool is far denser per day tha
 3. **Anonymous visitors with granted browser location:** location-only personalisation (recommended) or none?
 4. **Events with several linked posts (AD-30):** insight follows the *primary* post and is replaced when primary changes *only if* the new primary produced one (recommended) — or merge insights across posts?
 5. ~~Is an age-banded event `restricted` or `open_to_public`?~~ — **resolved by tracks (rev. 2):** age and gender are track criteria; `eligibility` means only membership-type limits. "Dibuka untuk UMUM, usia 7–16" = `open_to_public` + one `[7,16]` track. (The POC's flat guards "age band keeps restricted" and "gender ⇒ restricted" belong to the old schema and go away.)
-6. **Tier granularity and horizon (§4.0):** `any-containing` (as requested) or `most-local-first`; with or without a 30-day horizon? Recommend shipping `any-containing` and letting the replay decide.
-7. **What counts as "my area":** AI target areas ∪ venue geocode (recommended), and should the user's saved-location radius also count (an event within my saved radius is "mine" even if its area names differ)?
-8. **"Near you" vs the existing Nearby badge** (AD-22/24, <5 km): separate chip (recommended; different semantics: area vs distance) or unify?
+6. ~~Tier granularity~~ — **resolved (rev. 3): one merged local group, no own-district-first split.** Still open: a 30-day `horizon` (recommend: decide with the replay).
+7. **Where do online events go?** Recommend `after-local` — right behind the local group, ahead of in-person events in other cities (§4.0). Alternatives: merge online events into the local group by date, or put them last. **This is the one question I need answered.**
+8. **What counts as "my area":** AI target areas ∪ venue geocode (recommended), and should the user's saved-location radius also count (an event within my saved radius is "mine" even if its area names differ)?
+9. **"Near you" vs the existing Nearby badge** (AD-22/24, <5 km): separate chip (recommended; different semantics: area vs distance) or unify?
 
 ## 7. Proposed epic (not yet in `epics.md`; numbering and splitting to be done with `bmad-create-epics-and-stories` after you confirm §6.2)
 
 **Epic 10 (proposed): Personalized Discovery** — revised order, smallest-first:
 
-* *Phase 0 — shared prerequisite (also fixes the AI filter, §9):* **10.0 canonical area ladder** — geocoder writes a normalised country > province > regency > city path (keeping `county`), matching is case-insensitive and hierarchical, backfill of cached geocodes + existing schedules. Owned jointly with IDEA-071.
-* *Phase A — area-first ordering (needs no Gemini):* 10.1 `areaTier` + sort in `packages/domain` (100% tested, sample in `relevance.ts`) with SQL parity test; 10.2 `Query.events` `sort` arg (RECOMMENDED = area → date) + EXPLAIN at ~30k; 10.3 Discovery UI (sort control, "near you" chip, skeletons, i18n, detail-nav context) + replay harness + flag.
+* *Phase 0 — shared prerequisites (also fix the AI filter, §9; registered in the backlog):* **10.0a canonical area ladder (IDEA-073, first)** — geocoder writes a normalised country > province > regency > city path (keeping `county`), matching is case-insensitive and hierarchical, backfill of cached geocodes + existing schedules (shared with IDEA-071). **10.0b online attendance + per-schedule venues (BUG-064)** — attendance mode (onsite/online/hybrid) as a field; online platforms never reach the geocoder; every schedule keeps its own venue; location filters match *any* schedule, not only the main one; venue `kind` + `setting` (§9.3).
+* *Phase A — area-first ordering (needs no Gemini):* 10.1 `areaTier` + sort in `packages/domain` (100% tested, sample in `relevance.ts`, incl. online placement and the soonest-matching-schedule date) with SQL parity test; 10.2 `Query.events` `sort` arg (RECOMMENDED = area → date) + EXPLAIN at ~30k; 10.3 Discovery UI (sort control, "near you" chip, skeletons, i18n, detail-nav context) + replay harness + flag.
 * *Phase B — automatic audience extraction (gated):* 10.4 insight + tracks domain types, AJV, prompt, golden set + nightly eval (gate; reuse IDEA-072's machinery); 10.5 piggy-back extraction + guards (incl. range repair) + persistence + audit counters; 10.6 resolve AI `targetAreas` through the geocoder into canonical keys; 10.7 backfill; 10.8 "for age N" filter + track chips on cards.
 * *Phase C — optional second stage:* 10.9 `user_interest_profile` (+ onboarding chips, reset control) and the bounded relevance discount as an A/B arm.
 
@@ -234,7 +243,9 @@ npx tsx scripts/poc-event-insight/rank-demo.ts --results <results.json>         
 npx tsx scripts/poc-event-insight/wrong-claims.ts "label=<results.json>"       # offline, wrong-claim rate + CI
 npx tsx scripts/poc-event-insight/run-tracks.ts --runs 2                         # live: age/eligibility as tracks (--holdout for the unseen set)
 npx tsx scripts/poc-event-insight/rescore-tracks.ts <tracks-experiment.json>    # offline: with/without range repair
-npx tsx --test scripts/poc-event-insight/*.test.ts                              # 82 unit tests, no network
+npx tsx scripts/poc-event-insight/run-venues.ts --runs 2                         # live: attendance mode, venues, indoor/outdoor
+npx tsx scripts/poc-event-insight/probe-online.ts --runs 4 [--patched]          # live: what production extraction emits for online/multi-venue posts
+npx tsx --test scripts/poc-event-insight/*.test.ts                              # 98 unit tests, no network
 ```
 
 ## 9. What master revealed: AI filter, venue type, and the area ladder
@@ -252,7 +263,7 @@ IDEA-070's root cause: *the PRD lists `venueType`, the AI filter offers it, the 
 | **writer** | `geoapify-client.ts` | maps `city`, `province` (= `state` ‖ `province` ‖ `county`), `countryCode`, `timezone`, `venueType` — **no `adminArea`** |
 | only other writer | `seed-volume.ts` | dev seed |
 
-So, from the code, an AI filter such as "events in Sleman" resolves to `adminArea eq 'Sleman'` against a field no production path populates, and returns nothing — exactly BUG-062's symptom, for regions. **I inferred this from reading the code; I did not reproduce it** (no database or Geoapify key in this environment), so it needs a one-minute check against a real schedule row. A second problem sits underneath: the mapper keeps `county` only as a fallback for `province`, but the **regency** (Sleman, Bantul) is the level Indonesians name. I could not verify what Geoapify returns for Indonesian places without a key; IDEA-070's author did a live probe for categories and the same probe should be done for admin levels.
+Registered as **BUG-063** (backlog; tier-1 note `backlog/BUG-063-admin-area-never-written.md`). So, from the code, an AI filter such as "events in Sleman" resolves to `adminArea eq 'Sleman'` against a field no production path populates, and returns nothing — exactly BUG-062's symptom, for regions. **I inferred this from reading the code; I did not reproduce it** (no database or Geoapify key in this environment), so it needs a one-minute check against a real schedule row. A second problem sits underneath: the mapper keeps `county` only as a fallback for `province`, but the **regency** (Sleman, Bantul) is the level Indonesians name. I could not verify what Geoapify returns for Indonesian places without a key; IDEA-070's author did a live probe for categories and the same probe should be done for admin levels.
 
 ### 9.2 One area ladder instead of three mechanisms
 
@@ -264,9 +275,30 @@ The AI filter's region leaf, this proposal's area-first ordering, and resolving 
 * **`NOT` semantics** (Q3): `NOT area=Jakarta` is `IS DISTINCT FROM`, which keeps unknown — correct for filters, but then "unknown area" must be a first-class value, not an absence. The ordering's tier 1 is that value.
 * **Backfill** (IDEA-071): the geocode cache never expires and existing schedules carry no area path; same one-off job.
 
-### 9.3 Venue type is also an audience question
+### 9.3 Venue type → indoor/outdoor, multiple venues, and online events
 
-BUG-062's prompt — "outdoor event for kids this weekend" — is an audience (kids) + setting (outdoor) + date query. IDEA-070 Q1 asks whether an AI should classify indoor/outdoor from the caption "at the cost of wrong guesses and a per-event call". The piggy-back measurements here answer the cost half: **a field added to the existing extraction call costs zero extra requests** and a few tokens. The accuracy half is untested. A closed `setting` (indoor / outdoor / mixed / unknown) with the Geoapify category as the first source is a natural next probe with this POC's machinery — I have not run it.
+**Q: do venue type first and map it to indoor/outdoor? — Yes, as a chain, and the mapping is data not code.**
+
+1. **Geoapify's category is the first source** for a *named place* (already stored raw as `LocationDetails.venueType`). A table in `packages/domain` maps it hierarchically (longest prefix wins) to a closed `kind` (mall, hall, hotel, campus, sports_venue, park_open_space, nature, …) and a closed `setting` (**indoor / outdoor / mixed / unknown**). `indoor` is a *positive* value — never "not outdoor" (IDEA-070 Q3). Prototype: `venues.ts` `categoryToVenue` (11 tests). **Caveat that matters:** only two rows (`commercial.shopping_mall`, `leisure.park`) are confirmed by IDEA-070's live probe; the rest of my draft table must be checked against live Geoapify responses for Indonesian places before it ships.
+2. **The model fills the gap** where the geocoder is silent (informal venues, street addresses). Measured, 70 runs over 35 posts: **0 invented venues, 0 online platforms listed as venues, 0 wrong indoor/outdoor calls** — but note the denominator: 29 of the 32 expected venues had a testable setting label, and across runs the model *committed* to 48 judgements (all correct) and abstained on 10, so zero errors in 48 still allows an error rate of up to ~6% (95%). When unsure it says `unknown` (12 abstained venue-runs, 29 indoor / 28 outdoor / 18 unknown overall). Its `kind` is often right when its `setting` is unknown (a hotel, a co-working space), so a kind→setting default for *unambiguous* kinds (hotel, mall, hall → indoor) resolves a few more; museum, campus and community space stay `unknown`.
+3. **Conflicts are counted, not hidden:** if both speak and disagree, Geoapify wins and the disagreement is logged (`resolveSetting`); a rising conflict rate means the table is wrong.
+4. **Informal venues stay unknown** ("Omah Noto Plankton", "Co-Lab Space", a museum with an outdoor run) — for those neither source helps, and `unknown` is the honest answer. A filter for "outdoor" must therefore treat `unknown` as *not matching* a positive request but *not excluded* by a negative one (IDEA-070 Q3).
+
+**Q: can an event have multiple venues? — Yes at the data-model level; no in practice today.**
+
+* Location is resolved **per schedule**, so the model already allows it (one venue per schedule). An event-level answer is the *set* of its venues' settings/areas, matched with EXISTS semantics (`eventSettings`).
+* But (a) location filters join **only the main schedule**, so a second venue is invisible to them; (b) production extraction **drops the venues** of multi-venue posts — `schedules[].location` was `null` on every schedule of a 3-venue festival and a 2-venue day in **4 of 4 runs each**, with the place only in the schedule title, so each schedule would fall back to the **account's default location** (inferred from `resolveAccountAndLocations`; not reproduced); (c) a single schedule that spans several places (a fun-walk route, "Atrium & Plaza Rama") has room for one `location` string only.
+* Fixability: an explicit "every schedule gets its own physical location" rule fixed a 3-venue festival in 2 of 3 runs and a 2-venue day in 1 of 3 — the model tends to collapse two venues on one date into one schedule. A separate **venue list tied to schedules** (what `venues.ts` extracts) is the sturdier design.
+
+**Online events (Zoom, Google Meet, YouTube Live)** are not modelled at all today (BUG-064):
+
+| post | production `location` today | with an explicit location rule |
+|---|---|---|
+| Zoom-only class | `"Zoom"` (4/4) | absent (3/3) |
+| Google Meet-only discussion | `"Google Meet"` (4/4) | absent (3/3) |
+| hybrid seminar (auditorium + Zoom) | `"Auditorium Fakultas Ekonomi UGM & Zoom"` (4/4) | `"Auditorium Fakultas Ekonomi UGM"` (3/3) |
+
+so a Zoom event is sent to the geocoder as if it were an address. Proposed: `attendance ∈ {onsite, online, hybrid, unspecified}` as its own field; the platform name is an `onlinePlatform` attribute, never a venue; an online-only schedule has **no** venue and no default-location fallback; a hybrid schedule keeps only its physical venue. In the ordering (§4.0), "online" never makes an event "other local". In the venues experiment the model got attendance right in 66 of 70 runs; the 4 misses are a tournament post that names no place, where it assumed `onsite` (label: unspecified) — a mild unsupported inference.
 
 ### 9.4 A ratchet worth having
 
@@ -276,9 +308,9 @@ Venue type and `adminArea` are two instances of one failure: *a spec'd, queryabl
 
 IDEA-072 (golden prompts grown from real usage, human-gated promotion) is the right home for this proposal's golden set; the metamorphic variants and rate-limit-safe pacing added to the nightly eval in master are exactly what the POC lacked (it was throttled at ~15 calls/min).
 
-### 9.6 To discuss
+### 9.6 Status of the discussion points
 
-1. Should the area ladder (10.0) be done first, as its own story, since it fixes the AI filter independently of this feature?
-2. Is `setting` (indoor/outdoor) part of the audience extraction, or stays a geocoder-only attribute with the AI as a fallback (IDEA-070 Q1)?
-3. Do you want a backlog finding recorded for `adminArea` now (I have not touched `backlog.yaml`)?
-
+1. ✅ Area ladder first, as its own story → **IDEA-073**.
+2. ✅ Venue type → indoor/outdoor via a closed mapping, Geoapify first, model as the fallback (§9.3). Open: live-verify the category table for Indonesian places.
+3. ✅ Backlog finding recorded → **BUG-063**, plus **BUG-064** (online and multi-venue) which this round turned up.
+4. ✅ Ordering: one merged local ladder, then the rest; online handled explicitly. Open: where online events go (§6.2 item 7).

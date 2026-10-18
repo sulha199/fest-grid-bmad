@@ -154,52 +154,89 @@ export function rankDiscovery<T extends RankableEvent>(events: T[], user?: UserP
 
 // ---- Area-first ordering ----------------------------------------------------------------------
 // Requested ordering: events TARGETED AT THE USER'S AREA first, then the sooner. A strict
-// lexicographic key — (areaTier, daysUntilNext, id) — rather than a blended score. Simple to explain
-// ("local first, then soonest"), a single integer CASE in SQL ahead of the existing date key, and it
-// needs only area data (no interest/audience model) so it can ship before the rest.
+// lexicographic key — (areaTier, date, id) — rather than a blended score. Simple to explain, a single
+// integer CASE in SQL ahead of the existing date key, and it needs only area/attendance data.
 //
-// Tiers (what "targeted at" means):
-//   0  the event's target areas include the user's area, a sub-area of it, an area that contains it, or a
-//      sibling inside the same containing region (Bantul for a Sleman user) — "meant for people where I am".
-//   1  no specific area: national / international / online / unspecified / no resolvable area, or the
-//      user has no location signal at all (then every event lands here => pure date order).
-//   2  targeted at some other area and not national/online => "meant for people elsewhere".
-// With granularity 'most-local-first', tier 0 splits in two: the user's own area or a sub-area first,
-// then a broader containing area (so a Sleman event outranks a DIY-wide one).
-export type AreaGranularity = 'any-containing' | 'most-local-first';
+// Tiers:
+//   0  "local ladder" — the event is targeted at ANY rung of the user's area ladder: their own area, a
+//      sub-area, a containing area (province/regency), or a sibling inside the same region. All rungs are
+//      ONE merged group, ordered by date (no "own district before the region" split).
+//   1  "anywhere" — reachable regardless of where the user is: national / international scope, no
+//      resolvable area, or an ONLINE / hybrid event that is not targeted at the user's area. Also every
+//      event when the user has no location (=> pure date order).
+//   2  "other local" — onsite-only, targeted at some other area.
+// An online/hybrid event that IS targeted at the user's area (a Zoom class "for Yogyakarta students") is
+// tier 0: the target area is read first; "online" only decides what happens when it does not match.
+//
+// Multi-venue events: an event's areas are the UNION of all its schedules' venues (+ AI target areas),
+// and its "sooner" date is its soonest schedule that MATCHES the user — a festival with day 1 in Jakarta
+// and day 2 in Yogyakarta is a Yogyakarta event on day 2 for a Yogyakarta user, not on day 1.
+export type OnlinePlacement = 'after-local' | 'with-local' | 'last';
 
-export interface AreaTierResult { tier: number; reason: 'own-area' | 'containing-area' | 'same-region' | 'no-specific-area' | 'elsewhere' }
-
-// `venueAreaKeys`: canonical keys from the venue's geocoded LocationDetails. Fallback/union with the
-// AI-extracted target areas, so the ordering works for events whose post names no audience area.
-export function areaTier(user: UserProfile | undefined, insight: EventInsight | undefined, venueAreaKeys: string[] = [], granularity: AreaGranularity = 'any-containing'): AreaTierResult {
-  const none: AreaTierResult = { tier: granularity === 'any-containing' ? 1 : 2, reason: 'no-specific-area' };
-  if (!user || user.areas.length === 0) return none;
-  if (insight?.geoScope === 'online') return none;
-  const eventKeys = [...new Set([
-    ...(insight?.targetAreas ?? []).map((a) => canonicalAreaKey(a.name)).filter((k): k is string => !!k),
-    ...venueAreaKeys,
-  ])].filter((k) => k !== 'indonesia'); // a country-level target is "national", not "my area"
-  if (eventKeys.length === 0) return none;
-
-  // `user.areas[0]` is the user's most specific area (e.g. Sleman); the rest are the broader areas that
-  // contain it (e.g. DIY). Note a SIBLING (Bantul, for a Sleman user) is a sub-area of DIY but is not
-  // the user's own area — it is "same region", a distinct reason.
-  const [mine, ...broader] = user.areas;
-  const own = eventKeys.some((e) => e === mine || ancestors(e).includes(mine));
-  const containing = eventKeys.some((e) => broader.includes(e));
-  const sameRegion = eventKeys.some((e) => broader.some((b) => ancestors(e).includes(b)));
-  if (own) return { tier: 0, reason: 'own-area' };
-  if (containing) return { tier: granularity === 'any-containing' ? 0 : 1, reason: 'containing-area' };
-  if (sameRegion) return { tier: granularity === 'any-containing' ? 0 : 1, reason: 'same-region' };
-  if (insight?.geoScope === 'national' || insight?.geoScope === 'international') return none;
-  return { tier: granularity === 'any-containing' ? 2 : 3, reason: 'elsewhere' };
+export interface AreaOrderOptions {
+  // Where an event that is attendable remotely but NOT targeted at the user's area goes:
+  //   'after-local' (default) tier 1, right after the local group, ahead of other-local in-person events;
+  //   'with-local'            merged into tier 0 and ordered by date with the local events;
+  //   'last'                  tier 3, behind other-local events.
+  onlinePlacement?: OnlinePlacement;
 }
 
-export interface RankableWithVenue extends RankableEvent { venueAreaKeys?: string[] }
+export interface EventSchedule { daysUntil: number; areaKeys?: string[]; attendance?: 'onsite' | 'online' | 'hybrid' }
 
-export function rankAreaThenDate<T extends RankableWithVenue>(events: T[], user?: UserProfile, granularity: AreaGranularity = 'any-containing'): Array<T & AreaTierResult> {
+export interface AreaTierResult { tier: number; reason: 'local-ladder' | 'anywhere' | 'online' | 'other-local'; matchedDays?: number }
+
+export interface RankableWithVenue extends RankableEvent {
+  venueAreaKeys?: string[];   // venue areas not tied to a schedule (event-level fallback)
+  schedules?: EventSchedule[]; // per-schedule venue areas / attendance, when known
+}
+
+function ladderHit(user: UserProfile, keys: string[]): boolean {
+  const [mine, ...broader] = user.areas;
+  // `mine` or a sub-area of it; a broader area the user belongs to; a sibling within a broader area.
+  return keys.some((e) => e === mine || ancestors(e).includes(mine) || broader.includes(e) || broader.some((b) => ancestors(e).includes(b)));
+}
+
+const isRemote = (a?: string) => a === 'online' || a === 'hybrid';
+
+export function areaTier(user: UserProfile | undefined, event: Pick<RankableWithVenue, 'insight' | 'venueAreaKeys' | 'schedules'>, opts: AreaOrderOptions = {}): AreaTierResult {
+  const placement = opts.onlinePlacement ?? 'after-local';
+  const anywhere: AreaTierResult = { tier: 1, reason: 'anywhere' };
+  if (!user || user.areas.length === 0) return anywhere;
+
+  const insight = event.insight;
+  const scheduleKeys = (event.schedules ?? []).flatMap((s) => s.areaKeys ?? []);
+  const keys = [...new Set([
+    ...(insight?.targetAreas ?? []).map((a) => canonicalAreaKey(a.name)).filter((k): k is string => !!k),
+    ...(event.venueAreaKeys ?? []),
+    ...scheduleKeys,
+  ])].filter((k) => k !== 'indonesia'); // a country-level target is "national", not "my area"
+  const remote = insight?.geoScope === 'online' || isRemote(insight?.attendance) || (event.schedules ?? []).some((s) => isRemote(s.attendance));
+
+  // Per-schedule matching date (only when schedules carry their own areas): a schedule matches if its
+  // own venue is on the ladder, or if there are no per-schedule areas and the event-level areas match.
+  const matchedDays = (): number | undefined => {
+    const scheds = event.schedules ?? [];
+    const hits = scheds.filter((s) => (s.areaKeys && s.areaKeys.length > 0 ? ladderHit(user, s.areaKeys) : false));
+    return hits.length ? Math.min(...hits.map((s) => s.daysUntil)) : undefined;
+  };
+
+  if (keys.length > 0 && ladderHit(user, keys)) return { tier: 0, reason: 'local-ladder', matchedDays: matchedDays() };
+
+  if (remote) {
+    if (placement === 'with-local' && keys.length === 0) return { tier: 0, reason: 'online' };
+    if (placement === 'last') return { tier: 3, reason: 'online' };
+    return { tier: 1, reason: 'online' };
+  }
+  if (keys.length === 0) return anywhere;
+  if (insight?.geoScope === 'national' || insight?.geoScope === 'international') return anywhere;
+  return { tier: 2, reason: 'other-local' };
+}
+
+export function rankAreaThenDate<T extends RankableWithVenue>(events: T[], user?: UserProfile, opts: AreaOrderOptions = {}): Array<T & AreaTierResult & { sortDays: number }> {
   return events
-    .map((e) => ({ ...e, ...areaTier(user, e.insight, e.venueAreaKeys, granularity) }))
-    .sort((a, b) => a.tier - b.tier || a.daysUntilNext - b.daysUntilNext || a.id.localeCompare(b.id));
+    .map((e) => {
+      const t = areaTier(user, e, opts);
+      return { ...e, ...t, sortDays: t.matchedDays ?? e.daysUntilNext };
+    })
+    .sort((a, b) => a.tier - b.tier || a.sortDays - b.sortDays || a.id.localeCompare(b.id));
 }

@@ -72,51 +72,51 @@ Event pool: 27 posts, 27 with an extracted + guarded insight (model gemini-3.5-f
 | maya | tropical-playland | 5 | 5 | 2 |
 | tom | syn-expat-bali | 14 | 1 | 1 |
 
-### Area first, then sooner — top 6 per user (tier: 0 = targeted at my area/region · 1 = no specific area · 2 = targeted elsewhere)
+### Area first, then sooner — top 6 per user (tier 0 = local ladder, merged · 1 = anywhere: online / national / unspecified · 2 = other local)
 
-**rina** — events by tier: 20 / 3 / 4
-
-| # | event | in (days) | tier | why |
-|--:|---|--:|--:|---|
-| 1 | shopfest | 3 | 0 | containing-area |
-| 2 | syn-women-tech | 4 | 0 | containing-area |
-| 3 | uss-market | 5 | 0 | containing-area |
-| 4 | syn-senam-lansia | 6 | 0 | own-area |
-| 5 | tropical-playland | 7 | 0 | containing-area |
-| 6 | swasana-budaya | 9 | 0 | containing-area |
-
-**budi** — events by tier: 20 / 3 / 4
+**rina** — events by tier: 20 / 3 / 4 · online: syn-webinar-nasional→tier 1, fixture-drum-contest→tier 1
 
 | # | event | in (days) | tier | why |
 |--:|---|--:|--:|---|
-| 1 | shopfest | 3 | 0 | own-area |
-| 2 | syn-women-tech | 4 | 0 | own-area |
-| 3 | uss-market | 5 | 0 | own-area |
-| 4 | syn-senam-lansia | 6 | 0 | own-area |
-| 5 | tropical-playland | 7 | 0 | own-area |
-| 6 | swasana-budaya | 9 | 0 | own-area |
+| 1 | shopfest | 3 | 0 | local-ladder |
+| 2 | syn-women-tech | 4 | 0 | local-ladder |
+| 3 | uss-market | 5 | 0 | local-ladder |
+| 4 | syn-senam-lansia | 6 | 0 | local-ladder |
+| 5 | tropical-playland | 7 | 0 | local-ladder |
+| 6 | swasana-budaya | 9 | 0 | local-ladder |
 
-**maya** — events by tier: 20 / 3 / 4
-
-| # | event | in (days) | tier | why |
-|--:|---|--:|--:|---|
-| 1 | shopfest | 3 | 0 | containing-area |
-| 2 | syn-women-tech | 4 | 0 | containing-area |
-| 3 | uss-market | 5 | 0 | containing-area |
-| 4 | syn-senam-lansia | 6 | 0 | own-area |
-| 5 | tropical-playland | 7 | 0 | containing-area |
-| 6 | swasana-budaya | 9 | 0 | containing-area |
-
-**tom** — events by tier: 1 / 3 / 23
+**budi** — events by tier: 20 / 3 / 4 · online: syn-webinar-nasional→tier 1, fixture-drum-contest→tier 1
 
 | # | event | in (days) | tier | why |
 |--:|---|--:|--:|---|
-| 1 | syn-expat-bali | 16 | 0 | own-area |
-| 2 | syn-webinar-nasional | 8 | 1 | no-specific-area |
-| 3 | volunteer-pulangkesinii | 19 | 1 | no-specific-area |
-| 4 | fixture-drum-contest | 33 | 1 | no-specific-area |
-| 5 | shopfest | 3 | 2 | elsewhere |
-| 6 | syn-women-tech | 4 | 2 | elsewhere |
+| 1 | shopfest | 3 | 0 | local-ladder |
+| 2 | syn-women-tech | 4 | 0 | local-ladder |
+| 3 | uss-market | 5 | 0 | local-ladder |
+| 4 | syn-senam-lansia | 6 | 0 | local-ladder |
+| 5 | tropical-playland | 7 | 0 | local-ladder |
+| 6 | swasana-budaya | 9 | 0 | local-ladder |
+
+**maya** — events by tier: 20 / 3 / 4 · online: syn-webinar-nasional→tier 1, fixture-drum-contest→tier 1
+
+| # | event | in (days) | tier | why |
+|--:|---|--:|--:|---|
+| 1 | shopfest | 3 | 0 | local-ladder |
+| 2 | syn-women-tech | 4 | 0 | local-ladder |
+| 3 | uss-market | 5 | 0 | local-ladder |
+| 4 | syn-senam-lansia | 6 | 0 | local-ladder |
+| 5 | tropical-playland | 7 | 0 | local-ladder |
+| 6 | swasana-budaya | 9 | 0 | local-ladder |
+
+**tom** — events by tier: 1 / 3 / 23 · online: syn-webinar-nasional→tier 1, fixture-drum-contest→tier 1
+
+| # | event | in (days) | tier | why |
+|--:|---|--:|--:|---|
+| 1 | syn-expat-bali | 16 | 0 | local-ladder |
+| 2 | syn-webinar-nasional | 8 | 1 | online |
+| 3 | volunteer-pulangkesinii | 19 | 1 | anywhere |
+| 4 | fixture-drum-contest | 33 | 1 | online |
+| 5 | shopfest | 3 | 2 | other-local |
+| 6 | syn-women-tech | 4 | 2 | other-local |
 
 Events whose position differs from the chronological order: rina 22/27 · budi 22/27 · maya 22/27 · tom 26/27
 

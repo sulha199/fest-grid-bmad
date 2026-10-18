@@ -1,0 +1,86 @@
+### ven-hybrid-seminar — run 1 — one physical venue AND a Zoom option
+  event 1: SEMINAR NASIONAL KEWIRAUSAHAAN 2026 | event.location="Auditorium Fakultas Ekonomi UGM"
+    schedule 1: 2026-11-28 location="Auditorium Fakultas Ekonomi UGM & Zoom"
+### ven-hybrid-seminar — run 2 — one physical venue AND a Zoom option
+  event 1: SEMINAR NASIONAL KEWIRAUSAHAAN 2026 | event.location="Auditorium Fakultas Ekonomi UGM"
+    schedule 1: 2026-11-28 location="Auditorium Fakultas Ekonomi UGM & Zoom"
+### ven-hybrid-seminar — run 3 — one physical venue AND a Zoom option
+  event 1: SEMINAR NASIONAL KEWIRAUSAHAAN 2026 | event.location="Auditorium Fakultas Ekonomi UGM"
+    schedule 1: 2026-11-28 location="Auditorium Fakultas Ekonomi UGM dan Zoom"
+### ven-hybrid-seminar — run 4 — one physical venue AND a Zoom option
+  event 1: SEMINAR NASIONAL KEWIRAUSAHAAN 2026 | event.location="Auditorium Fakultas Ekonomi UGM"
+    schedule 1: 2026-11-28 location="Auditorium Fakultas Ekonomi UGM & Zoom"
+### ven-multi-venue-festival — run 1 — three days, three venues, mixed settings
+  event 1: Festival Kota Tua Jogja | event.location=null
+    schedule 1: 2026-12-04 location=null 
+    schedule 2: 2026-12-04 location=null 
+    schedule 3: 2026-12-05 location=null 
+    schedule 4: 2026-12-06 location=null 
+### ven-multi-venue-festival — run 2 — three days, three venues, mixed settings
+  event 1: Festival Kota Tua Jogja | event.location=null
+    schedule 1: 2026-12-04 location=null 
+    schedule 2: 2026-12-04 location=null 
+    schedule 3: 2026-12-05 location=null 
+    schedule 4: 2026-12-06 location=null 
+### ven-multi-venue-festival — run 3 — three days, three venues, mixed settings
+  event 1: Festival Kota Tua Jogja | event.location=null
+    schedule 1: 2026-12-04 location=null 
+    schedule 2: 2026-12-05 location=null 
+    schedule 3: 2026-12-06 location=null 
+### ven-multi-venue-festival — run 4 — three days, three venues, mixed settings
+  event 1: Festival Kota Tua Jogja | event.location=null
+    schedule 1: 2026-12-04 location=null 
+    schedule 2: 2026-12-05 location=null 
+    schedule 3: 2026-12-06 location=null 
+
+### ven-zoom-class — run 1 — online only; a Zoom link is not a venue
+  event 1: Kelas Memasak Online | event.location="Zoom"
+    schedule 1: 2026-11-14 location="Zoom"
+
+### ven-zoom-class — run 2 — online only; a Zoom link is not a venue
+  event 1: Kelas Memasak Online | event.location=null
+    schedule 1: 2026-11-14 location="Zoom"
+
+### ven-zoom-class — run 3 — online only; a Zoom link is not a venue
+  event 1: Kelas Memasak Online | event.location=null
+    schedule 1: 2026-11-14 location="Zoom"
+
+### ven-zoom-class — run 4 — online only; a Zoom link is not a venue
+  event 1: Kelas Memasak Online | event.location="Zoom"
+    schedule 1: 2026-11-14 location="Zoom"
+
+### ven-meet-discussion — run 1 — online only on Google Meet
+  event 1: Diskusi Buku Bulanan: Laut Bercerita | event.location="Google Meet"
+    schedule 1: 2026-11-19 location="Google Meet"
+
+### ven-meet-discussion — run 2 — online only on Google Meet
+  event 1: Diskusi Buku Bulanan: Laut Bercerita | event.location=null
+    schedule 1: 2026-11-19 location="Google Meet"
+
+### ven-meet-discussion — run 3 — online only on Google Meet
+  event 1: Diskusi Buku Bulanan: Laut Bercerita | event.location="Google Meet"
+    schedule 1: 2026-11-19 location="Google Meet"
+
+### ven-meet-discussion — run 4 — online only on Google Meet
+  event 1: Diskusi Buku Bulanan: Laut Bercerita | event.location="Google Meet"
+    schedule 1: 2026-11-19 location="Google Meet" 
+
+### ven-two-sites-one-day — run 1 — two venues on one day, indoor and outdoor
+  event 1: Pameran & Workshop Batik | event.location=null
+    schedule 1: 2026-11-21 location=null 
+    schedule 2: 2026-11-21 location=null 
+
+### ven-two-sites-one-day — run 2 — two venues on one day, indoor and outdoor
+  event 1: Pameran & Workshop Batik | event.location=null
+    schedule 1: 2026-11-21 location=null 
+    schedule 2: 2026-11-21 location=null 
+
+### ven-two-sites-one-day — run 3 — two venues on one day, indoor and outdoor
+  event 1: Pameran & Workshop Batik | event.location=null
+    schedule 1: 2026-11-21 location=null 
+    schedule 2: 2026-11-21 location=null 
+
+### ven-two-sites-one-day — run 4 — two venues on one day, indoor and outdoor
+  event 1: Pameran & Workshop Batik | event.location=null
+    schedule 1: 2026-11-21 location=null 
+    schedule 2: 2026-11-21 location=null 

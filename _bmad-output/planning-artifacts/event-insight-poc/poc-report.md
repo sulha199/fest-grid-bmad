@@ -1,5 +1,5 @@
 ---
-status: complete (addendum 2026-10-18 appended)
+status: complete (addenda 2026-10-18 appended)
 type: poc-report
 date: 2026-10-18
 model_under_test: gemini-3.5-flash-lite   # the production default (apps/backend/src/env.ts)
@@ -222,3 +222,60 @@ Question (from the discussion): events qualify people in several ways at once �
 * The tracks tuning set and A1's bug fixes were all informed by failures on the data they are then scored on; the only clean out-of-sample numbers in this addendum are the **held-out 12/15** and **0 fabricated numbers**.
 * No new Gemini runs were made for the area-first demo or A1; both use the recorded responses.
 * Not done: `setting` (indoor/outdoor) extraction (proposal §9.3), a live Geoapify probe for Indonesian admin levels (no key here), a reproduction of the `adminArea` AI-filter symptom against a real database (none here).
+
+---
+
+# Addendum 2 (2026-10-18, second discussion): venues, indoor/outdoor, online events, ordering v2
+
+Questions answered here: *map venue type to indoor/outdoor? can an event have several venues? how should online events (Zoom) be ordered?* Code: `venues.ts` (+11 tests), `run-venues.ts`, `probe-online.ts`; ordering in `relevance.ts` (31 tests). Total offline tests: **98**. Raw: `results/venues-experiment.json`, `results/probe-online-extraction*.generated.txt`.
+
+## B1. What production extraction emits today for online and multi-venue posts (live, 4 runs each)
+
+Probe of the **unmodified** production prompt (`buildGeminiExtractionRequest`), reading `schedules[].location`:
+
+| post | `location` emitted | runs |
+|---|---|--:|
+| Zoom-only class | `"Zoom"` | 4/4 |
+| Google Meet-only discussion | `"Google Meet"` | 4/4 |
+| hybrid seminar (Auditorium UGM + Zoom) | `"Auditorium Fakultas Ekonomi UGM & Zoom"` (once `… dan Zoom`) | 4/4 |
+| 3-day festival, 3 venues | `null` on **every** schedule (place only in the title) | 4/4 |
+| 2 venues on one day | `null` on **every** schedule (place only in the title) | 4/4 |
+
+With an explicit location rule appended (probe only; product code untouched), 3 runs each: online → `location` absent **6/6**; hybrid → physical venue only **3/3**; festival → per-day venues correct **2/3**; two venues on one day **1/3** (the model collapses two venues on one date into one schedule).
+
+**What I did not verify:** what the pipeline then does with these strings. From reading `resolveAccountAndLocations` (`schedule.location` → event location → *account default location*), a `"Zoom"` string is geocoded as an address and a `null` falls back to the account's default location; no database or Geoapify key was available to reproduce either. Recorded as **BUG-064** with that caveat.
+
+## B2. Venues, attendance mode and indoor/outdoor (live, `gemini-3.5-flash-lite`, 35 posts × 2 runs)
+
+Schema: `attendance ∈ {onsite, online, hybrid, unspecified}`, `venues[]` each `{name, kind (closed set), setting ∈ {indoor, outdoor, mixed, unknown}, scheduleLabel?}`, `onlinePlatform`. 29 existing-corpus posts + 6 new (hybrid, 3-venue festival, Zoom-only, route, Meet-only, two venues on one day).
+
+| measure | result |
+|---|--:|
+| usable responses | 70/70 |
+| attendance mode correct | 66/70 (94%) |
+| venue count in the labelled range | 70/70 |
+| **online platform listed as a venue** | **0/70** |
+| **invented venue (name not in the post)** | **0/70** |
+| every expected venue found with the right setting/kind | 60/70 (86%) |
+| fully correct run | 56/70 (80%) |
+| wrong indoor/outdoor call | **0** of 48 committed judgements; 10 abstentions (`unknown`) |
+
+* **Denominators matter.** 29 of 32 expected venues had a restrictive setting label (the other 3 accept any). Zero errors in 48 committed judgements still allows an error rate of up to ~6% (95% bound). Setting labels are mine.
+* **Misses:** all setting misses are abstentions — a hotel (`kind` right, setting unknown), an informal venue ("Omah Noto Plankton"), a co-working space, a museum with an outdoor event. The 4 attendance misses are a tournament post that names no place, where the model assumed `onsite` (label: unspecified).
+* **Hybrid design works as intended:** the hotel case is exactly where a Geoapify category (`accommodation.hotel` → indoor) or an unambiguous-kind default would fill the model's `unknown`.
+* **Not tested:** the Geoapify side. `categoryToVenue` is a draft table; only `commercial.shopping_mall` and `leisure.park` are confirmed (by IDEA-070's live probe). No Geoapify key was available, so no live category check was possible.
+
+## B3. Ordering v2: merged local ladder → anywhere → other-local (prototype, unit-tested)
+
+Changes from §A3 after the discussion: **removed** the `most-local-first` split; **added** online/hybrid handling, a union over all schedules' venues, and "sooner" = the soonest *matching* schedule. Tiers: 0 local ladder (own/sub/containing/sibling merged, by date) · 1 anywhere (online/hybrid not targeted at the user's area, national/international, unspecified, no location) · 2 onsite-only targeted elsewhere; option `onlinePlacement` = `after-local` (default) | `with-local` | `last`.
+
+* Demo (`results/rank-demo.generated.md`, attendance taken from the venues experiment): the Bali user's tier 0 has 1 event, tier 1 holds the webinar (online) and national events, tier 2 has 23 in-person events elsewhere; Yogyakarta users have 20/3/4.
+* Tested semantics: a Zoom class *targeted at* Yogyakarta is tier 0; a Zoom class for Jakarta is tier 1, **not** other-local; a hybrid event in Jakarta is tier 1; a Jakarta-day + Sleman-day festival is local for a Sleman user and sorts on day 30, not day 2; the online option moves only remote events.
+* The drum contest (online audition, hotel final in Yogyakarta) landed in tier 1 for Yogyakarta users in this demo only because the v1 run left its `targetAreas` empty; the venue's geocoded area would put it in tier 0 — an argument for the venue fallback.
+
+## B4. Limits and changes after seeing results (this addendum)
+
+* The venue labels were written before the run, but the 6 new posts and their labels are mine and are cleaner than real posters; text only; Jogja-heavy; one labeller.
+* The probe's "explicit location rule" and the ordering rules for online events were designed from the probe/discussion, then unit-tested — there is no out-of-sample test of either.
+* The earlier guarded numbers (§3) were re-verified unchanged after this round (`wrong-claims.ts` diff).
+* Backlog: BUG-063, BUG-064, IDEA-073 added (`backlog.yaml` + two tier-1 notes); the checker's count of pre-existing failures is unchanged (69) and none are on the new rows.
