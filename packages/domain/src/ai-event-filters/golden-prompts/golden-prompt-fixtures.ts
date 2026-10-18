@@ -509,14 +509,15 @@ export const GOLDEN_PROMPT_FIXTURES = [
           "SPORTS_AND_FITNESS"
         ],
         "isFree": true,
-        "venueType": "CAFE",
         "dateRange": {
           "anchor": "THIS_WEEK",
           "offsetAmount": 0,
           "offsetUnit": "WEEK"
         }
       },
-      "caveats": []
+      "caveats": [
+        "Jenis tempat (\"kafe\") belum didukung sebagai filter, sehingga diabaikan."
+      ]
     },
     "expected": {
       "expression": {
@@ -537,16 +538,14 @@ export const GOLDEN_PROMPT_FIXTURES = [
             }
           },
           {
-            "field": "venueType",
-            "value": "CAFE"
-          },
-          {
             "field": "isFree",
             "value": true
           }
         ]
       },
-      "caveats": []
+      "caveats": [
+        "Jenis tempat (\"kafe\") belum didukung sebagai filter, sehingga diabaikan."
+      ]
     }
   },
   {
@@ -556,33 +555,49 @@ export const GOLDEN_PROMPT_FIXTURES = [
     "prompt": "events at a cafe or a mall this weekend",
     "geminiResponse": {
       "expression": {
-        "op": "OR",
+        "op": "AND",
         "children": [
           {
-            "venueType": "CAFE"
-          },
-          {
-            "venueType": "MALL"
+            "dateRange": {
+              "anchor": "THIS_WEEK",
+              "offsetAmount": 0,
+              "offsetUnit": "WEEK"
+            },
+            "dayOfWeek": [
+              "SAT",
+              "SUN"
+            ]
           }
         ]
       },
-      "caveats": []
+      "caveats": [
+        "Venue types (\"cafe\", \"mall\") are not supported as a filter yet, so they were ignored."
+      ]
     },
     "expected": {
       "expression": {
-        "op": "OR",
+        "op": "AND",
         "children": [
           {
-            "field": "venueType",
-            "value": "CAFE"
+            "field": "dateRange",
+            "value": {
+              "anchor": "THIS_WEEK",
+              "offsetAmount": 0,
+              "offsetUnit": "WEEK"
+            }
           },
           {
-            "field": "venueType",
-            "value": "MALL"
+            "field": "dayOfWeek",
+            "value": [
+              "SAT",
+              "SUN"
+            ]
           }
         ]
       },
-      "caveats": []
+      "caveats": [
+        "Venue types (\"cafe\", \"mall\") are not supported as a filter yet, so they were ignored."
+      ]
     }
   },
   {
@@ -822,16 +837,12 @@ export const GOLDEN_PROMPT_FIXTURES = [
             "location": {
               "adminArea": "Sleman"
             }
-          },
-          {
-            "op": "NOT",
-            "child": {
-              "venueType": "MALL"
-            }
           }
         ]
       },
-      "caveats": []
+      "caveats": [
+        "Venue types (\"mall\") are not supported as a filter yet, so \"not at a mall\" was ignored."
+      ]
     },
     "expected": {
       "expression": {
@@ -844,17 +855,12 @@ export const GOLDEN_PROMPT_FIXTURES = [
           {
             "field": "locationAdminArea",
             "value": "Sleman"
-          },
-          {
-            "op": "NOT",
-            "child": {
-              "field": "venueType",
-              "value": "MALL"
-            }
           }
         ]
       },
-      "caveats": []
+      "caveats": [
+        "Venue types (\"mall\") are not supported as a filter yet, so \"not at a mall\" was ignored."
+      ]
     }
   },
   {
@@ -1017,9 +1023,6 @@ export const GOLDEN_PROMPT_FIXTURES = [
             ]
           },
           {
-            "venueType": "CAFE"
-          },
-          {
             "dateRange": {
               "anchor": "THIS_WEEK",
               "offsetAmount": 0,
@@ -1040,7 +1043,9 @@ export const GOLDEN_PROMPT_FIXTURES = [
           }
         ]
       },
-      "caveats": []
+      "caveats": [
+        "Venue types (\"cafe\") are not supported as a filter yet, so it was ignored."
+      ]
     },
     "expected": {
       "expression": {
@@ -1058,10 +1063,6 @@ export const GOLDEN_PROMPT_FIXTURES = [
                 "value": "blues"
               }
             ]
-          },
-          {
-            "field": "venueType",
-            "value": "CAFE"
           },
           {
             "field": "dateRange",
@@ -1089,7 +1090,9 @@ export const GOLDEN_PROMPT_FIXTURES = [
           }
         ]
       },
-      "caveats": []
+      "caveats": [
+        "Venue types (\"cafe\") are not supported as a filter yet, so it was ignored."
+      ]
     }
   },
   {
@@ -1251,17 +1254,6 @@ export const GOLDEN_PROMPT_FIXTURES = [
             "isFree": true
           },
           {
-            "op": "OR",
-            "children": [
-              {
-                "venueType": "CAFE"
-              },
-              {
-                "venueType": "MALL"
-              }
-            ]
-          },
-          {
             "dateRange": {
               "anchor": "THIS_WEEK",
               "offsetAmount": 0,
@@ -1282,7 +1274,9 @@ export const GOLDEN_PROMPT_FIXTURES = [
           }
         ]
       },
-      "caveats": []
+      "caveats": [
+        "Jenis tempat (\"kafe\", \"mal\") belum didukung sebagai filter, sehingga diabaikan."
+      ]
     },
     "expected": {
       "expression": {
@@ -1310,19 +1304,6 @@ export const GOLDEN_PROMPT_FIXTURES = [
             "value": true
           },
           {
-            "op": "OR",
-            "children": [
-              {
-                "field": "venueType",
-                "value": "CAFE"
-              },
-              {
-                "field": "venueType",
-                "value": "MALL"
-              }
-            ]
-          },
-          {
             "field": "dateRange",
             "value": {
               "anchor": "THIS_WEEK",
@@ -1348,7 +1329,9 @@ export const GOLDEN_PROMPT_FIXTURES = [
           }
         ]
       },
-      "caveats": []
+      "caveats": [
+        "Jenis tempat (\"kafe\", \"mal\") belum didukung sebagai filter, sehingga diabaikan."
+      ]
     }
   },
   {
@@ -2245,9 +2228,6 @@ export const GOLDEN_PROMPT_FIXTURES = [
             ]
           },
           {
-            "venueType": "MALL"
-          },
-          {
             "dateRange": {
               "anchor": "THIS_WEEK",
               "offsetAmount": 0,
@@ -2261,7 +2241,8 @@ export const GOLDEN_PROMPT_FIXTURES = [
         ]
       },
       "caveats": [
-        "Floor/room-level location detail (\"Lantai 2\") is not supported yet, so it was ignored."
+        "Floor/room-level location detail (\"Lantai 2\") is not supported yet, so it was ignored.",
+        "Venue types (\"mall\") are not supported as a filter yet, so it was ignored."
       ]
     },
     "expected": {
@@ -2273,10 +2254,6 @@ export const GOLDEN_PROMPT_FIXTURES = [
             "value": [
               "MUSIC"
             ]
-          },
-          {
-            "field": "venueType",
-            "value": "MALL"
           },
           {
             "field": "dateRange",
@@ -2296,7 +2273,8 @@ export const GOLDEN_PROMPT_FIXTURES = [
         ]
       },
       "caveats": [
-        "Floor/room-level location detail (\"Lantai 2\") is not supported yet, so it was ignored."
+        "Floor/room-level location detail (\"Lantai 2\") is not supported yet, so it was ignored.",
+        "Venue types (\"mall\") are not supported as a filter yet, so it was ignored."
       ]
     }
   },

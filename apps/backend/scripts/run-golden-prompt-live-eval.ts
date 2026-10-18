@@ -15,7 +15,7 @@
  * both BYOK keys and SYSTEM_GEMINI_API_KEY (see SETUP_WALKTHROUGH.md #8).
  *
  * Mirrors `resolvePromptToEventFilter` (resolvers.ts): same dedicated GEMINI_FILTER_MODEL and the
- * same `dropUngroundedVenueTypes` post-processing, so drift is measured on what users actually
+ * same `dropUnsupportedVenueTypes` post-processing, so drift is measured on what users actually
  * receive. Optional `GOLDEN_EVAL_CATEGORY=<category>` limits the run to one fixture category.
  *
  * `GOLDEN_EVAL_VARIANTS=true` additionally sends ONE metamorphic variant per eligible fixture
@@ -26,7 +26,7 @@
  */
 import {
   GOLDEN_PROMPT_FIXTURES,
-  dropUngroundedVenueTypes,
+  dropUnsupportedVenueTypes,
   pickPromptVariant,
   summarizeGoldenPromptDrift,
   summarizeMetamorphicDrift,
@@ -100,7 +100,7 @@ async function main(): Promise<void> {
       return undefined;
     }
     const transformed = transformGeminiResponseToFilterExpression(parsed);
-    const guarded = dropUngroundedVenueTypes(transformed.expression, prompt);
+    const guarded = dropUnsupportedVenueTypes(transformed.expression);
     return { expression: guarded.expression, caveats: [...transformed.caveats, ...guarded.caveats] };
   }
 
