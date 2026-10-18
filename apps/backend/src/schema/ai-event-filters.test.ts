@@ -172,16 +172,23 @@ test('ai event filters resolvers integration', async (t) => {
     assert.ok(leaves.some((l: any) => l.field === 'category' && JSON.stringify(l.value) === JSON.stringify(['MUSIC'])));
   });
 
-  await t.test('resolvePromptToEventFilter calls the dedicated filter model and drops a venueType the prompt never mentioned (BUG: "exiting events for kid in the weekend")', async () => {
+  await t.test('resolvePromptToEventFilter calls the dedicated filter model and reports a venueType as a caveat instead of applying it ("exiting outdoor event for kids in weekend")', async () => {
     mockUser = { userId: testUser.id, role: testUser.role };
 
     const originalFilterModel = process.env.GEMINI_FILTER_MODEL;
     process.env.GEMINI_FILTER_MODEL = 'gemini-filter-test-model';
     let requestedModel: string | undefined;
+    let requestedSchema: string | undefined;
     setCallGeminiGenerateContent(async (_apiKey, request) => {
       requestedModel = request.model;
-      // The lite-model failure mode: a placeholder venueType and nothing else.
-      return { text: JSON.stringify({ expression: { venueType: 'kids' }, caveats: [] }) };
+      requestedSchema = JSON.stringify(request.responseSchema);
+      // A venueType leaf still slips through (legacy shape / stray emission): it must never be applied.
+      return {
+        text: JSON.stringify({
+          expression: { categories: ['FAMILY_AND_KIDS'], venueType: 'OUTDOOR' },
+          caveats: [],
+        }),
+      };
     });
 
     try {
@@ -191,9 +198,8 @@ test('ai event filters resolvers integration', async (t) => {
         body: JSON.stringify({
           query: `
             mutation {
-              resolvePromptToEventFilter(prompt: "exiting events for kid in the weekend") {
-                resolvedFilter { venueType }
-                expression { op children { field value } }
+              resolvePromptToEventFilter(prompt: "exiting outdoor event for kids in weekend") {
+                resolvedFilter { categories venueType }
                 caveats
               }
             }
@@ -203,10 +209,11 @@ test('ai event filters resolvers integration', async (t) => {
       const result = await res.json();
       assert.ok(!result.errors, JSON.stringify(result.errors));
       assert.strictEqual(requestedModel, 'gemini-filter-test-model');
+      assert.ok(!requestedSchema!.includes('venueType'), 'the model must not be offered a venueType field');
       const payload = result.data.resolvePromptToEventFilter;
+      assert.deepStrictEqual(payload.resolvedFilter.categories, ['FAMILY_AND_KIDS']);
       assert.strictEqual(payload.resolvedFilter.venueType ?? null, null);
-      assert.deepStrictEqual(payload.expression.children ?? [], []);
-      assert.deepStrictEqual(payload.caveats, ['Ignored the venue type "kids" because your prompt did not mention a place.']);
+      assert.deepStrictEqual(payload.caveats, ["Ignored the venue type \"OUTDOOR\": filtering by venue type isn't supported yet."]);
     } finally {
       if (originalFilterModel === undefined) {
         delete process.env.GEMINI_FILTER_MODEL;

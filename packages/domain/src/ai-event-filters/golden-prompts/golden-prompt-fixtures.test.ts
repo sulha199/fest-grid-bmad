@@ -78,6 +78,15 @@ describe('golden-prompt fixture-set integrity (Story 9.7 AC1)', () => {
     }
   });
 
+  it('no fixture response or expectation uses venueType (venue-type filtering is not offered to the model yet)', () => {
+    for (const fixture of GOLDEN_PROMPT_FIXTURES) {
+      assert.ok(
+        !JSON.stringify(fixture.geminiResponse).includes('venueType') && !JSON.stringify(fixture.expected).includes('venueType'),
+        `fixture "${fixture.id}" still models a venueType leaf`
+      );
+    }
+  });
+
   it('every "over-limit" fixture carries the exact generic over-limit caveat', () => {
     const overLimitFixtures = GOLDEN_PROMPT_FIXTURES.filter((f) => f.category === 'over-limit');
     assert.ok(overLimitFixtures.length > 0, 'expected at least one "over-limit" fixture');

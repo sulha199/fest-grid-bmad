@@ -65,6 +65,19 @@ describe('renderAIFilterSummary', () => {
     assert.equal(renderAIFilterSummary({ dayOfWeek: 'MON' as DayOfWeek }, null, { ...lbls, daysOfWeek: undefined }).summary, 'MON');
   });
 
+  it('renders dateRange AND dayOfWeek together ("this weekend" = this week + weekends), not just the date range', () => {
+    const filter = {
+      categories: ['FAMILY_AND_KIDS'],
+      dateRange: { anchor: DateAnchor.THIS_WEEK, offsetAmount: 0, offsetUnit: DateOffsetUnit.WEEK },
+      dayOfWeek: ['SAT', 'SUN'] as DayOfWeek[],
+    };
+    const labels = { ...lbls, anchors: { THIS_WEEK: 'this week' }, weekends: 'weekends' };
+    assert.match(renderAIFilterSummary(filter, null, labels).summary, /this week, weekends$/);
+    // Each alone is unchanged.
+    assert.equal(renderAIFilterSummary({ dateRange: filter.dateRange }, null, labels).summary, 'this week');
+    assert.equal(renderAIFilterSummary({ dayOfWeek: filter.dayOfWeek }, null, labels).summary, 'weekends');
+  });
+
   it('renders an array-valued dayOfWeek with the locale "or" word (Story 9.5: corrects the Story 9.1b deferred placeholder join)', () => {
     assert.equal(
       renderAIFilterSummary({ dayOfWeek: ['FRI', 'SAT'] as DayOfWeek[] }, null, { ...lbls, daysOfWeek: { FRI: 'Friday' }, or: 'or' }).summary,

@@ -30,7 +30,7 @@ import { resolveInstagramOEmbed } from '../lib/instagram-oembed/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError, type GraphQLResolveInfo } from 'graphql';
 import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult, computePastEventThreshold, parsePlatformPrefixedEventSlug, sanitizeEventLinks } from '@festgrid/domain/events';
-import { transformGeminiResponseToFilterExpression, dropUngroundedVenueTypes, validateFilterNode, compileFilterNodeToQueryCondition, resolveStoredFilter, flatFilterFromExpression } from '@festgrid/domain/ai-event-filters';
+import { transformGeminiResponseToFilterExpression, dropUnsupportedVenueTypes, validateFilterNode, compileFilterNodeToQueryCondition, resolveStoredFilter, flatFilterFromExpression } from '@festgrid/domain/ai-event-filters';
 import type { FilterValidationIssue } from '@festgrid/domain/ai-event-filters';
 import { SUPPORTED_PLATFORMS, type ScrapablePlatform, type SupportedPlatform } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText } from '@festgrid/domain';
@@ -362,7 +362,7 @@ export const resolvers: Resolvers = {
           provider: 'gemini',
           subscriberUserIds: [authUser.userId],
           // Dedicated model: the shared lite GEMINI_MODEL fills this schema with guesses on vague
-          // prompts ("exciting events for kids" -> venueType "kids"). See GEMINI_FILTER_MODEL.
+          // prompts ("exciting events for kids" -> a hallucinated leaf). See GEMINI_FILTER_MODEL.
           model: loadBackendEnv().geminiFilterModel,
         });
 
@@ -377,9 +377,9 @@ export const resolvers: Resolvers = {
         }
 
         const { expression: transformedExpression, caveats: extractionCaveats } = transformGeminiResponseToFilterExpression(parsed);
-        // venueType is free text matched with `eq`: drop any value the prompt never mentioned
-        // instead of silently filtering on a model guess.
-        const { expression: rawExpression, caveats: venueCaveats } = dropUngroundedVenueTypes(transformedExpression, prompt);
+        // Venue-type filtering is not supported yet (nothing reliably populates the field): never
+        // apply a venueType leaf, report it instead. See the BACKLOG venue-type design item.
+        const { expression: rawExpression, caveats: venueCaveats } = dropUnsupportedVenueTypes(transformedExpression);
         const { expression, caveats: accountCaveats } = await resolveFilterExpressionAccountIds(rawExpression, authUser.userId);
 
         let resolvedFilter: any;

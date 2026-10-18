@@ -81,7 +81,14 @@ export function renderAIFilterSummary(
     clauses.push(formatKeywordClause(filter.keyword, labels));
   }
 
-  if (filter.dateRange) {
+  // `dateRange` and `dayOfWeek` are applied together (the weekdays within the window -- "this
+  // weekend" is THIS_WEEK + [SAT, SUN]), so both must be shown; printing only the date range reads
+  // as "this week" and hides the weekday narrowing the query really applies.
+  if (filter.dateRange && filter.dayOfWeek) {
+    clauses.push(
+      `${formatDateRangeClause(filter.dateRange, labels)}, ${formatDayOfWeekClause(filter.dayOfWeek as DayOfWeek[] | DayOfWeek | string, labels)}`
+    );
+  } else if (filter.dateRange) {
     clauses.push(formatDateRangeClause(filter.dateRange, labels));
   } else if (filter.dayOfWeek) {
     clauses.push(formatDayOfWeekClause(filter.dayOfWeek as DayOfWeek[] | DayOfWeek | string, labels));
