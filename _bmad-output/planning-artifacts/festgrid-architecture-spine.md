@@ -1741,6 +1741,28 @@ This document defines the core architectural invariants for the FestDaily applic
             event as loser, which also flips the suggestion to `accepted` and writes an
             `event_merges` journal row; REJECT only records `rejected`. `undoEventMerge` restores
             both events and returns the suggestion to `pending`.
+        **Amended 2026-10-18 (BUG-063, GembiRun Loka 2026).** One event was posted three ways: a
+        registration-deadline post (schedule 21 Oct) and a race-day post (8 Nov) created two events
+        that never matched, because the candidate query only looked ±2 days around the new
+        schedule. The registration link, name, venue and account were identical. Rule 5 already
+        says "registration windows are schedules", so a deadline post and a race-day post of one
+        event are *expected* to sit weeks apart. Two changes, both in `findMatchingEvent`:
+        *   **Second admission path.** A candidate is also admitted when it shares a normalized
+            event link (`normalizeEventLinkUrl`, mirrored in SQL) with the new item **and** has a
+            schedule within ±90 days (`SHARED_LINK_DATE_WINDOW_DAYS`). The name floor (`similarity >
+            0.3`), the soft-delete/merge exclusion, the same-post exclusion and `LIMIT 20` still
+            apply. The SQL reads `events.links` raw and accepts both a jsonb array and a jsonb
+            *string* holding the array: the column is written JSON-stringified through
+            drizzle/postgres.js, so production rows (all 229 with links, checked 2026-10-18) are
+            jsonb strings that only drizzle's read path unwraps.
+        *   **Tier cap.** A candidate with no schedule inside ±2 days (`DATE_WINDOW_DAYS`) is capped
+            at `mid` (`capTierWhenOutsideDateWindow`, `packages/domain`). It is never auto-linked:
+            the same link and name can belong to another edition of the event, so a moderator
+            decides. Candidates are ranked by tier first, then score, so a date-distant candidate
+            cannot displace an in-window `high` one. In-window behavior is unchanged.
+        Weights and thresholds are unchanged. A pair already in the database is merged by a
+        moderator accepting the queued suggestion, or by `merge-events-by-slug.ts` (a dry run by
+        default) when no suggestion exists; both run `mergeEvents()` (Rule 9) and are undoable.
     8.  **Promotion and post deletion.** On promotion the event adopts the matched candidate's
         `extraction_ordinal` under the new primary (that `(post, ordinal)` slot is free — the
         candidate was matched to this event rather than creating one) and keeps its old link

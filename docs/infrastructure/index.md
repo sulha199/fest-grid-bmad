@@ -12,4 +12,5 @@
   - [4. Push Notifications](#4-push-notifications)
   - [5. Geolocation](#5-geolocation)
   - [6. Outbound Email](#6-outbound-email)
+  - [7. Event Dedup](./7-event-dedup.md)
   - [Note for the Future](#note-for-the-future)

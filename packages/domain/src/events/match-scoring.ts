@@ -175,6 +175,17 @@ export function classifyMatchTier(score: number): MatchTier {
   return 'low';
 }
 
+/**
+ * A candidate admitted only through the shared-link path (no schedule inside the ±`windowDays`
+ * date window -- e.g. the registration-deadline post of an event whose race day is weeks later)
+ * must never auto-link: the same link and name can also belong to another edition of the event,
+ * so a `high` tier is demoted to `mid` and goes to the moderator queue. `mid`/`low` and any
+ * in-window candidate pass through unchanged. `Infinity` (no date pair) counts as outside.
+ */
+export function capTierWhenOutsideDateWindow(tier: MatchTier, minDayDiff: number, windowDays: number): MatchTier {
+  return tier === 'high' && !(minDayDiff <= windowDays) ? 'mid' : tier;
+}
+
 export interface MatchScoreInput {
   /** Resolved by the caller before calling in here -- see this file's header comment. */
   organizerMatch: boolean;
