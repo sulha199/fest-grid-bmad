@@ -22,7 +22,6 @@ import { DayOfWeek as DomainDayOfWeek } from "@festgrid/domain/events";
 
 interface AccountContentProps {
   platformSlug: string;
-  accountId: string;
   profile: {
     id: string;
     accountId: string;
@@ -46,7 +45,7 @@ function buildEnumLabels(values: string[], translate: (key: string) => string) {
   );
 }
 
-export default function AccountContent({ platformSlug, accountId, profile }: AccountContentProps) {
+export default function AccountContent({ platformSlug, profile }: AccountContentProps) {
   const t = useTranslations("AccountPage");
   const tCategory = useTranslations("EventCategory");
   const tType = useTranslations("EventType");

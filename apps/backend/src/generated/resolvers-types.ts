@@ -1011,7 +1011,11 @@ export type Query = {
   rankedVoteAccounts: Array<RankedAccountVote>;
   relatedEventIds: Array<RelatedEventGroup>;
   reportedEvents: Array<Report>;
-  socialMediaAccountProfileByAccountId?: Maybe<SocialMediaAccountProfile>;
+  /**
+   * Resolves an account page URL segment: the current username (case-insensitive) first, then, for an
+   * all-digit segment, the platform's numeric account id (Architecture Spine AD-35).
+   */
+  socialMediaAccountProfileByUsername?: Maybe<SocialMediaAccountProfile>;
   /**
    * Pending suggested event-match rows awaiting moderator review (Story 3.6w AC1/AC5), oldest-
    * queued-first. Always filtered to status: PENDING -- there is no current need to list
@@ -1142,9 +1146,9 @@ export type QueryReportedEventsArgs = {
 };
 
 
-export type QuerySocialMediaAccountProfileByAccountIdArgs = {
-  accountId: Scalars['String']['input'];
+export type QuerySocialMediaAccountProfileByUsernameArgs = {
   platform: Scalars['String']['input'];
+  username: Scalars['String']['input'];
 };
 
 
@@ -2289,7 +2293,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   rankedVoteAccounts?: Resolver<Array<ResolversTypes['RankedAccountVote']>, ParentType, ContextType, Partial<QueryRankedVoteAccountsArgs>>;
   relatedEventIds?: Resolver<Array<ResolversTypes['RelatedEventGroup']>, ParentType, ContextType, Partial<QueryRelatedEventIdsArgs>>;
   reportedEvents?: Resolver<Array<ResolversTypes['Report']>, ParentType, ContextType, Partial<QueryReportedEventsArgs>>;
-  socialMediaAccountProfileByAccountId?: Resolver<Maybe<ResolversTypes['SocialMediaAccountProfile']>, ParentType, ContextType, RequireFields<QuerySocialMediaAccountProfileByAccountIdArgs, 'accountId' | 'platform'>>;
+  socialMediaAccountProfileByUsername?: Resolver<Maybe<ResolversTypes['SocialMediaAccountProfile']>, ParentType, ContextType, RequireFields<QuerySocialMediaAccountProfileByUsernameArgs, 'platform' | 'username'>>;
   suggestedEventMatches?: Resolver<ResolversTypes['SuggestedEventMatchConnection'], ParentType, ContextType, Partial<QuerySuggestedEventMatchesArgs>>;
   voteRegionBreakdown?: Resolver<Array<ResolversTypes['RegionVoteBucket']>, ParentType, ContextType, RequireFields<QueryVoteRegionBreakdownArgs, 'accountId'>>;
   votedAccountSuggestions?: Resolver<Array<ResolversTypes['RankedAccountVote']>, ParentType, ContextType, Partial<QueryVotedAccountSuggestionsArgs>>;

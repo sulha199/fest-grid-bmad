@@ -67,6 +67,12 @@ export interface LocationDetails {
   city?: string;
   province?: string;
   adminArea?: string;
+  /**
+   * Geoapify's category for the place, stored raw and hierarchical (e.g. `commercial.shopping_mall`,
+   * `leisure.park`). Set for named places only -- street/address/city results carry none. Cached
+   * results and schedules geocoded before this was stored have no value until re-resolved. Not yet
+   * a filter vocabulary: see the BACKLOG venue-type design item.
+   */
   venueType?: string;
   /**
    * Geoapify's `rank.confidence` for this match (range ~0-1). Optional: pre-existing

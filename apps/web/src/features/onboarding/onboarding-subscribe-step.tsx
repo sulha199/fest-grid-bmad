@@ -83,7 +83,7 @@ export function OnboardingSubscribeStep() {
         <div className="space-y-2 rounded-md border bg-muted/30 p-3">
           {subscriptions.map((subscription: any) => {
             const account = subscription.account;
-            const label = account?.displayName || account?.username || subscription.accountId;
+            const label = account?.displayName || account?.username;
             return (
               <div key={subscription.id} className="flex items-center justify-between gap-2 text-sm">
                 <span className="font-medium">{label}</span>

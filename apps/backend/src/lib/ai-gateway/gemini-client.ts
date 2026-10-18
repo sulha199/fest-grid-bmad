@@ -9,6 +9,8 @@ export interface GeminiCallRequest {
   responseMimeType?: string;
   // Story 3.6s (AC7) — explicit response-size cap, threaded into the SDK's `config` object.
   maxOutputTokens?: number;
+  // Per-call model override; falls back to the shared GEMINI_MODEL when omitted.
+  model?: string;
 }
 
 export interface GeminiCallResult {
@@ -71,7 +73,7 @@ export let callGeminiGenerateContent = async (
 
   try {
     const response = await generateContentSeam(ai, {
-      model: env.geminiModel,
+      model: request.model ?? env.geminiModel,
       contents: request.contents,
       config,
     });

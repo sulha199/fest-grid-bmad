@@ -1,5 +1,5 @@
-query getSocialMediaAccountProfileByAccountId($platform: String!, $accountId: String!) {
-  socialMediaAccountProfileByAccountId(platform: $platform, accountId: $accountId) {
+query getSocialMediaAccountProfileByUsername($platform: String!, $username: String!) {
+  socialMediaAccountProfileByUsername(platform: $platform, username: $username) {
     id
     accountId
     platform

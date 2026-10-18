@@ -41,6 +41,11 @@ jobs:
       - name: Run golden-prompt live eval
         env:
           RUN_LIVE_GEMINI_EVAL: 'true'
+          # One rotating metamorphic variant per fixture (seed = UTC day); see the script header.
+          GOLDEN_EVAL_VARIANTS: 'true'
+          # Paces calls (~13/min) to stay under a free-tier key's 15 requests/minute limit; set to '0' once
+          # GEMINI_NIGHTLY_EVAL_API_KEY is a paid key.
+          GOLDEN_EVAL_MIN_INTERVAL_MS: '4500'
           GEMINI_NIGHTLY_EVAL_API_KEY: ${{ secrets.GEMINI_NIGHTLY_EVAL_API_KEY }}
           # loadBackendEnv() (invoked inside callGeminiGenerateContent) requires this; this
           # script never binds a port, so any valid number works (same note as

@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-15"
+last_updated: "2026-10-18"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -2253,3 +2253,52 @@ items:
      ref: [packages/domain/src/ai-event-filters/filter-node-schema.ts, packages/domain/src/ai-event-filters/transform-gemini-response-to-filter-expression.ts, apps/web/src/features/events/use-ai-filter.ts],
      touches: [pkg:domain, web:events, app:backend, cross:ai-extraction],
      note: "Fixed 2026-10-16: validateFilterNode strips null node keys; hook validates the URL param; no auto-collapse on load; empty result now carries a caveat."}
+
+  # ── 2026-10-18 (quick-dev of BUG-059 story 1) ────────────────────────────────
+  FIND-084:
+    {type: finding, status: backlog, created: 2026-10-18,
+     impact: internal, effort: s,
+     title: "BUG-059 story 1 review deferrals: cached 308 after a rename, no lower(username) index, removed query has no alias, metadata 404s on outage",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend, web:accounts],
+     note: "Deferred from: quick-dev of BUG-059 story 1, account URL by username (2026-10-18, `bmad-quick-dev`). 4 findings."}
+
+  # ── 2026-10-18 (AI filter: "exiting events for kid in the weekend" -> wrong / empty results) ──
+  BUG-062:
+    {type: bug, status: done, created: 2026-10-18,
+     impact: user-visible, effort: s,
+     title: "AI filter: vague words and venue words resolved to a hallucinated or empty filter; the weekend was missing from the summary",
+     ref: [apps/backend/src/lib/ai-event-filters/build-filter-extraction-request.ts, packages/domain/src/ai-event-filters/drop-unsupported-venue-types.ts, packages/domain/src/ai-event-filters/render-ai-filter-summary.ts, backlog/IDEA-070-venue-type-design.md],
+     touches: [app:backend, pkg:domain, web:events, cross:ai-extraction],
+     note: "Fixed 2026-10-18: filter uses GEMINI_FILTER_MODEL (lite model hallucinated), venueType offered to the model no more (reported as a caveat), summary shows dateRange + dayOfWeek. Root cause of the zero results is IDEA-070."}
+
+  IDEA-070:
+    {type: idea, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: m,
+     title: "Venue type design: closed indoor/outdoor + venue-kind vocabulary, Geoapify vs AI classification, NOT semantics, then re-enable it in the AI filter",
+     ref: [backlog/IDEA-070-venue-type-design.md],
+     touches: [pkg:domain, pkg:shared-types, app:backend, web:events, web:locations, cross:ai-extraction, cross:prd],
+     note: "Spawned by BUG-062. Interim 2026-10-18: Geoapify category now stored raw as LocationDetails.venueType; the AI filter treats venue words as caveats. NOT keeps unclassified venues, so indoor cannot be NOT outdoor."}
+
+  IDEA-071:
+    {type: idea, status: backlog, created: 2026-10-18, parent: IDEA-070,
+     impact: internal, effort: s,
+     title: "Backfill LocationDetails.venueType: the geolocation cache never expires and existing schedules were geocoded before it was stored",
+     ref: [apps/backend/src/lib/geolocation/cache-store.ts, apps/backend/src/lib/geolocation/geoapify-client.ts],
+     touches: [app:backend, pkg:database]}
+
+  IDEA-072:
+    {type: idea, status: backlog, created: 2026-10-18,
+     impact: internal, effort: m,
+     title: "AI-filter golden prompts that grow from real usage: production capture, human-gated promotion, drift mining",
+     ref: [backlog/IDEA-072-golden-prompt-evolution.md],
+     touches: [pkg:domain, app:backend, cross:ai-extraction],
+     note: "Spawned by BUG-062. Metamorphic variants already landed in the nightly eval (#83); capture needs a privacy decision on logging prompts first."}
+
+  FIND-085:
+    {type: finding, status: backlog, created: 2026-10-18,
+     impact: internal, effort: xs,
+     title: "Nightly golden-prompt eval runs on a free-tier Gemini key: paced to ~13/min but a daily cap can still truncate the ~116-call run",
+     ref: [.github/workflows/ai-filter-golden-prompt-nightly-eval.yml, apps/backend/scripts/run-golden-prompt-live-eval.ts],
+     touches: [app:infrastructure, cross:process],
+     note: "Use a paid GEMINI_NIGHTLY_EVAL_API_KEY and set GOLDEN_EVAL_MIN_INTERVAL_MS to 0, or unset GOLDEN_EVAL_VARIANTS on most nights."}

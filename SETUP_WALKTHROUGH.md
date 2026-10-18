@@ -316,6 +316,7 @@ The AI Gateway wraps all outbound Google Gemini API calls behind a single Adapte
         ```env
         BYOK_KMS_KEY_ID="" # Provisioned automatically by Story 0.14's AWS IaC stack
         GEMINI_MODEL="gemini-3.5-flash-lite"
+        GEMINI_FILTER_MODEL="gemini-3.5-flash" # AI prompt filter only; lite models mis-fill its schema
         API_KEY_INVALID_ATTEMPTS_THRESHOLD="5"
         GEMINI_POSTS_PER_KEY_PER_CYCLE="300"
         API_KEY_USAGE_CYCLE_DAYS="30"

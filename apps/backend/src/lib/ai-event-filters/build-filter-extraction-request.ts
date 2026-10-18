@@ -21,9 +21,10 @@ Each node in the tree is either a GROUP (has "op": "AND" or "OR" plus "children"
 - dateRange: optional object -- { anchor: one of ${Object.values(DateAnchor).join(', ')}, offsetAmount: integer (positive or negative), offsetUnit: one of ${Object.values(DateOffsetUnit).join(', ')}, spanAmount: optional positive integer widening the window (e.g. "next 7 days"), spanUnit: optional, same allowed values as offsetUnit, required together with spanAmount }.
 - dayOfWeek: optional array of one or more weekday strings: ${Object.values(DayOfWeek).join(', ')} (e.g. "weekends" -> ["SAT", "SUN"]).
 - location: optional object -- EITHER { adminArea: a province/city/regency string, e.g. Yogyakarta, Sleman, Bantul, Jakarta } OR { coordinates: { lat, lng }, radiusMeters: optional integer } -- never both on the same leaf.
-- venueType: optional string (e.g. CAFE, STADIUM, MALL).
 - isFree: optional boolean.
 - temporalFilter: optional string, one of ${Object.values(TemporalFilter).join(', ')} ("happening now" vs. "upcoming").
+
+NOT FILTERABLE: the kind or setting of a place (cafe, mall, stadium, indoor, outdoor, rooftop, ...) has NO field. Never invent one and never map such a word to a type, category or keyword -- list it in "caveats" and keep every other condition.
 
 A leaf node may populate more than one of the fields above at once (e.g. a single leaf combining dateRange and dayOfWeek for "this weekend").
 
@@ -109,7 +110,6 @@ function buildLeafProperties(): Record<string, object> {
         adminArea: { type: 'STRING' },
       },
     },
-    venueType: { type: 'STRING' },
     isFree: { type: 'BOOLEAN' },
     temporalFilter: { type: 'STRING', enum: Object.values(TemporalFilter) },
   };

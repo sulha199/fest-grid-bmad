@@ -3,7 +3,9 @@ import type { FilterNode } from '../filter-node.js';
 /**
  * Story 9.7 AC1: the 8 required golden-prompt categories (`epics.md` AC1), covering AND/OR/NOT
  * boolean grammar, nesting, operator precedence, over-the-node-limit degradation, out-of-vocabulary
- * input, and off-topic prompts. `GOLDEN_PROMPT_FIXTURES`'s fixture-set-integrity meta-test
+ * input, and off-topic prompts; plus `vague-descriptor` (added after the "exiting events for kid in
+ * the weekend" bug): subjective words that map to no field must be ignored with a caveat, never
+ * guessed into a leaf. `GOLDEN_PROMPT_FIXTURES`'s fixture-set-integrity meta-test
  * (`golden-prompt-fixtures.test.ts`) asserts every category is represented by at least 2 `en` and
  * 2 `id` fixtures.
  */
@@ -16,6 +18,7 @@ export const GOLDEN_PROMPT_CATEGORIES = [
   'over-limit',
   'out-of-vocabulary',
   'off-topic',
+  'vague-descriptor',
 ] as const;
 export type GoldenPromptCategory = (typeof GOLDEN_PROMPT_CATEGORIES)[number];
 
@@ -506,14 +509,15 @@ export const GOLDEN_PROMPT_FIXTURES = [
           "SPORTS_AND_FITNESS"
         ],
         "isFree": true,
-        "venueType": "CAFE",
         "dateRange": {
           "anchor": "THIS_WEEK",
           "offsetAmount": 0,
           "offsetUnit": "WEEK"
         }
       },
-      "caveats": []
+      "caveats": [
+        "Jenis tempat (\"kafe\") belum didukung sebagai filter, sehingga diabaikan."
+      ]
     },
     "expected": {
       "expression": {
@@ -534,16 +538,14 @@ export const GOLDEN_PROMPT_FIXTURES = [
             }
           },
           {
-            "field": "venueType",
-            "value": "CAFE"
-          },
-          {
             "field": "isFree",
             "value": true
           }
         ]
       },
-      "caveats": []
+      "caveats": [
+        "Jenis tempat (\"kafe\") belum didukung sebagai filter, sehingga diabaikan."
+      ]
     }
   },
   {
@@ -553,33 +555,49 @@ export const GOLDEN_PROMPT_FIXTURES = [
     "prompt": "events at a cafe or a mall this weekend",
     "geminiResponse": {
       "expression": {
-        "op": "OR",
+        "op": "AND",
         "children": [
           {
-            "venueType": "CAFE"
-          },
-          {
-            "venueType": "MALL"
+            "dateRange": {
+              "anchor": "THIS_WEEK",
+              "offsetAmount": 0,
+              "offsetUnit": "WEEK"
+            },
+            "dayOfWeek": [
+              "SAT",
+              "SUN"
+            ]
           }
         ]
       },
-      "caveats": []
+      "caveats": [
+        "Venue types (\"cafe\", \"mall\") are not supported as a filter yet, so they were ignored."
+      ]
     },
     "expected": {
       "expression": {
-        "op": "OR",
+        "op": "AND",
         "children": [
           {
-            "field": "venueType",
-            "value": "CAFE"
+            "field": "dateRange",
+            "value": {
+              "anchor": "THIS_WEEK",
+              "offsetAmount": 0,
+              "offsetUnit": "WEEK"
+            }
           },
           {
-            "field": "venueType",
-            "value": "MALL"
+            "field": "dayOfWeek",
+            "value": [
+              "SAT",
+              "SUN"
+            ]
           }
         ]
       },
-      "caveats": []
+      "caveats": [
+        "Venue types (\"cafe\", \"mall\") are not supported as a filter yet, so they were ignored."
+      ]
     }
   },
   {
@@ -819,16 +837,12 @@ export const GOLDEN_PROMPT_FIXTURES = [
             "location": {
               "adminArea": "Sleman"
             }
-          },
-          {
-            "op": "NOT",
-            "child": {
-              "venueType": "MALL"
-            }
           }
         ]
       },
-      "caveats": []
+      "caveats": [
+        "Venue types (\"mall\") are not supported as a filter yet, so \"not at a mall\" was ignored."
+      ]
     },
     "expected": {
       "expression": {
@@ -841,17 +855,12 @@ export const GOLDEN_PROMPT_FIXTURES = [
           {
             "field": "locationAdminArea",
             "value": "Sleman"
-          },
-          {
-            "op": "NOT",
-            "child": {
-              "field": "venueType",
-              "value": "MALL"
-            }
           }
         ]
       },
-      "caveats": []
+      "caveats": [
+        "Venue types (\"mall\") are not supported as a filter yet, so \"not at a mall\" was ignored."
+      ]
     }
   },
   {
@@ -1014,9 +1023,6 @@ export const GOLDEN_PROMPT_FIXTURES = [
             ]
           },
           {
-            "venueType": "CAFE"
-          },
-          {
             "dateRange": {
               "anchor": "THIS_WEEK",
               "offsetAmount": 0,
@@ -1037,7 +1043,9 @@ export const GOLDEN_PROMPT_FIXTURES = [
           }
         ]
       },
-      "caveats": []
+      "caveats": [
+        "Venue types (\"cafe\") are not supported as a filter yet, so it was ignored."
+      ]
     },
     "expected": {
       "expression": {
@@ -1055,10 +1063,6 @@ export const GOLDEN_PROMPT_FIXTURES = [
                 "value": "blues"
               }
             ]
-          },
-          {
-            "field": "venueType",
-            "value": "CAFE"
           },
           {
             "field": "dateRange",
@@ -1086,7 +1090,9 @@ export const GOLDEN_PROMPT_FIXTURES = [
           }
         ]
       },
-      "caveats": []
+      "caveats": [
+        "Venue types (\"cafe\") are not supported as a filter yet, so it was ignored."
+      ]
     }
   },
   {
@@ -1248,17 +1254,6 @@ export const GOLDEN_PROMPT_FIXTURES = [
             "isFree": true
           },
           {
-            "op": "OR",
-            "children": [
-              {
-                "venueType": "CAFE"
-              },
-              {
-                "venueType": "MALL"
-              }
-            ]
-          },
-          {
             "dateRange": {
               "anchor": "THIS_WEEK",
               "offsetAmount": 0,
@@ -1279,7 +1274,9 @@ export const GOLDEN_PROMPT_FIXTURES = [
           }
         ]
       },
-      "caveats": []
+      "caveats": [
+        "Jenis tempat (\"kafe\", \"mal\") belum didukung sebagai filter, sehingga diabaikan."
+      ]
     },
     "expected": {
       "expression": {
@@ -1307,19 +1304,6 @@ export const GOLDEN_PROMPT_FIXTURES = [
             "value": true
           },
           {
-            "op": "OR",
-            "children": [
-              {
-                "field": "venueType",
-                "value": "CAFE"
-              },
-              {
-                "field": "venueType",
-                "value": "MALL"
-              }
-            ]
-          },
-          {
             "field": "dateRange",
             "value": {
               "anchor": "THIS_WEEK",
@@ -1345,7 +1329,9 @@ export const GOLDEN_PROMPT_FIXTURES = [
           }
         ]
       },
-      "caveats": []
+      "caveats": [
+        "Jenis tempat (\"kafe\", \"mal\") belum didukung sebagai filter, sehingga diabaikan."
+      ]
     }
   },
   {
@@ -2242,9 +2228,6 @@ export const GOLDEN_PROMPT_FIXTURES = [
             ]
           },
           {
-            "venueType": "MALL"
-          },
-          {
             "dateRange": {
               "anchor": "THIS_WEEK",
               "offsetAmount": 0,
@@ -2258,7 +2241,8 @@ export const GOLDEN_PROMPT_FIXTURES = [
         ]
       },
       "caveats": [
-        "Floor/room-level location detail (\"Lantai 2\") is not supported yet, so it was ignored."
+        "Floor/room-level location detail (\"Lantai 2\") is not supported yet, so it was ignored.",
+        "Venue types (\"mall\") are not supported as a filter yet, so it was ignored."
       ]
     },
     "expected": {
@@ -2270,10 +2254,6 @@ export const GOLDEN_PROMPT_FIXTURES = [
             "value": [
               "MUSIC"
             ]
-          },
-          {
-            "field": "venueType",
-            "value": "MALL"
           },
           {
             "field": "dateRange",
@@ -2293,7 +2273,8 @@ export const GOLDEN_PROMPT_FIXTURES = [
         ]
       },
       "caveats": [
-        "Floor/room-level location detail (\"Lantai 2\") is not supported yet, so it was ignored."
+        "Floor/room-level location detail (\"Lantai 2\") is not supported yet, so it was ignored.",
+        "Venue types (\"mall\") are not supported as a filter yet, so it was ignored."
       ]
     }
   },
@@ -2505,6 +2486,437 @@ export const GOLDEN_PROMPT_FIXTURES = [
       },
       "caveats": [
         "Prompt ini tidak terkait dengan pencarian acara, sehingga tidak ada filter yang diterapkan."
+      ]
+    }
+  },
+
+  // -- Vague/subjective descriptors ("exciting", "fun", "seru", "best"): they map to NO leaf field. The
+  // ideal response ignores them with a caveat and keeps every other condition; it never fills a
+  // free-text field (venueType/keyword) with a guess. Added after the "exiting events for kid in
+  // the weekend" bug (lite model returned only a hallucinated venueType). --
+
+  {
+    "id": "vague-descriptor-en-01",
+    "lang": "en",
+    "category": "vague-descriptor",
+    "prompt": "exciting events for kids this weekend",
+    "geminiResponse": {
+      "expression": {
+        "op": "AND",
+        "children": [
+          {
+            "categories": [
+              "FAMILY_AND_KIDS"
+            ]
+          },
+          {
+            "dateRange": {
+              "anchor": "THIS_WEEK",
+              "offsetAmount": 0,
+              "offsetUnit": "WEEK"
+            },
+            "dayOfWeek": [
+              "SAT",
+              "SUN"
+            ]
+          }
+        ]
+      },
+      "caveats": [
+        "The subjective word \"exciting\" cannot be filtered on, so it was ignored."
+      ]
+    },
+    "expected": {
+      "expression": {
+        "op": "AND",
+        "children": [
+          {
+            "field": "category",
+            "value": [
+              "FAMILY_AND_KIDS"
+            ]
+          },
+          {
+            "field": "dateRange",
+            "value": {
+              "anchor": "THIS_WEEK",
+              "offsetAmount": 0,
+              "offsetUnit": "WEEK"
+            }
+          },
+          {
+            "field": "dayOfWeek",
+            "value": [
+              "SAT",
+              "SUN"
+            ]
+          }
+        ]
+      },
+      "caveats": [
+        "The subjective word \"exciting\" cannot be filtered on, so it was ignored."
+      ]
+    }
+  },
+  {
+    "id": "vague-descriptor-en-02",
+    "lang": "en",
+    "category": "vague-descriptor",
+    "prompt": "exiting events for kid in the weekend",
+    "geminiResponse": {
+      "expression": {
+        "op": "AND",
+        "children": [
+          {
+            "categories": [
+              "FAMILY_AND_KIDS"
+            ]
+          },
+          {
+            "dateRange": {
+              "anchor": "THIS_WEEK",
+              "offsetAmount": 0,
+              "offsetUnit": "WEEK"
+            },
+            "dayOfWeek": [
+              "SAT",
+              "SUN"
+            ]
+          }
+        ]
+      },
+      "caveats": [
+        "\"exiting\" was read as \"exciting\", a subjective word that cannot be filtered on, so it was ignored."
+      ]
+    },
+    "expected": {
+      "expression": {
+        "op": "AND",
+        "children": [
+          {
+            "field": "category",
+            "value": [
+              "FAMILY_AND_KIDS"
+            ]
+          },
+          {
+            "field": "dateRange",
+            "value": {
+              "anchor": "THIS_WEEK",
+              "offsetAmount": 0,
+              "offsetUnit": "WEEK"
+            }
+          },
+          {
+            "field": "dayOfWeek",
+            "value": [
+              "SAT",
+              "SUN"
+            ]
+          }
+        ]
+      },
+      "caveats": [
+        "\"exiting\" was read as \"exciting\", a subjective word that cannot be filtered on, so it was ignored."
+      ]
+    }
+  },
+  {
+    "id": "vague-descriptor-en-03",
+    "lang": "en",
+    "category": "vague-descriptor",
+    "prompt": "best jazz concerts in Sleman",
+    "geminiResponse": {
+      "expression": {
+        "op": "AND",
+        "children": [
+          {
+            "keyword": "jazz"
+          },
+          {
+            "types": [
+              "PERFORMANCE"
+            ]
+          },
+          {
+            "location": {
+              "adminArea": "Sleman"
+            }
+          }
+        ]
+      },
+      "caveats": [
+        "The subjective word \"best\" cannot be filtered on, so it was ignored."
+      ]
+    },
+    "expected": {
+      "expression": {
+        "op": "AND",
+        "children": [
+          {
+            "field": "keyword",
+            "value": "jazz"
+          },
+          {
+            "field": "type",
+            "value": [
+              "PERFORMANCE"
+            ]
+          },
+          {
+            "field": "locationAdminArea",
+            "value": "Sleman"
+          }
+        ]
+      },
+      "caveats": [
+        "The subjective word \"best\" cannot be filtered on, so it was ignored."
+      ]
+    }
+  },
+  {
+    "id": "vague-descriptor-en-04",
+    "lang": "en",
+    "category": "vague-descriptor",
+    "prompt": "fun things to do tomorrow",
+    "geminiResponse": {
+      "expression": {
+        "op": "AND",
+        "children": [
+          {
+            "dateRange": {
+              "anchor": "TODAY",
+              "offsetAmount": 1,
+              "offsetUnit": "DAY"
+            }
+          }
+        ]
+      },
+      "caveats": [
+        "The subjective word \"fun\" cannot be filtered on, so it was ignored."
+      ]
+    },
+    "expected": {
+      "expression": {
+        "field": "dateRange",
+        "value": {
+          "anchor": "TODAY",
+          "offsetAmount": 1,
+          "offsetUnit": "DAY"
+        }
+      },
+      "caveats": [
+        "The subjective word \"fun\" cannot be filtered on, so it was ignored."
+      ]
+    }
+  },
+  {
+    "id": "vague-descriptor-en-05",
+    "lang": "en",
+    "category": "vague-descriptor",
+    "prompt": "something exciting to do",
+    "geminiResponse": {
+      "expression": {
+        "op": "AND",
+        "children": []
+      },
+      "caveats": [
+        "The subjective word \"exciting\" cannot be filtered on, so no filters were applied."
+      ]
+    },
+    "expected": {
+      "expression": {
+        "op": "AND",
+        "children": []
+      },
+      "caveats": [
+        "The subjective word \"exciting\" cannot be filtered on, so no filters were applied."
+      ]
+    }
+  },
+  {
+    "id": "vague-descriptor-id-01",
+    "lang": "id",
+    "category": "vague-descriptor",
+    "prompt": "seru seru acara anak akhir pekan ini",
+    "geminiResponse": {
+      "expression": {
+        "op": "AND",
+        "children": [
+          {
+            "categories": [
+              "FAMILY_AND_KIDS"
+            ]
+          },
+          {
+            "dateRange": {
+              "anchor": "THIS_WEEK",
+              "offsetAmount": 0,
+              "offsetUnit": "WEEK"
+            },
+            "dayOfWeek": [
+              "SAT",
+              "SUN"
+            ]
+          }
+        ]
+      },
+      "caveats": [
+        "Kata subjektif \"seru\" tidak dapat difilter, sehingga diabaikan."
+      ]
+    },
+    "expected": {
+      "expression": {
+        "op": "AND",
+        "children": [
+          {
+            "field": "category",
+            "value": [
+              "FAMILY_AND_KIDS"
+            ]
+          },
+          {
+            "field": "dateRange",
+            "value": {
+              "anchor": "THIS_WEEK",
+              "offsetAmount": 0,
+              "offsetUnit": "WEEK"
+            }
+          },
+          {
+            "field": "dayOfWeek",
+            "value": [
+              "SAT",
+              "SUN"
+            ]
+          }
+        ]
+      },
+      "caveats": [
+        "Kata subjektif \"seru\" tidak dapat difilter, sehingga diabaikan."
+      ]
+    }
+  },
+  {
+    "id": "vague-descriptor-id-02",
+    "lang": "id",
+    "category": "vague-descriptor",
+    "prompt": "acara keren untuk keluarga di Sleman",
+    "geminiResponse": {
+      "expression": {
+        "op": "AND",
+        "children": [
+          {
+            "categories": [
+              "FAMILY_AND_KIDS"
+            ]
+          },
+          {
+            "location": {
+              "adminArea": "Sleman"
+            }
+          }
+        ]
+      },
+      "caveats": [
+        "Kata subjektif \"keren\" tidak dapat difilter, sehingga diabaikan."
+      ]
+    },
+    "expected": {
+      "expression": {
+        "op": "AND",
+        "children": [
+          {
+            "field": "category",
+            "value": [
+              "FAMILY_AND_KIDS"
+            ]
+          },
+          {
+            "field": "locationAdminArea",
+            "value": "Sleman"
+          }
+        ]
+      },
+      "caveats": [
+        "Kata subjektif \"keren\" tidak dapat difilter, sehingga diabaikan."
+      ]
+    }
+  },
+  {
+    "id": "vague-descriptor-id-03",
+    "lang": "id",
+    "category": "vague-descriptor",
+    "prompt": "konser jazz terbaik di Bantul",
+    "geminiResponse": {
+      "expression": {
+        "op": "AND",
+        "children": [
+          {
+            "keyword": "jazz"
+          },
+          {
+            "types": [
+              "PERFORMANCE"
+            ]
+          },
+          {
+            "location": {
+              "adminArea": "Bantul"
+            }
+          }
+        ]
+      },
+      "caveats": [
+        "Kata subjektif \"terbaik\" tidak dapat difilter, sehingga diabaikan."
+      ]
+    },
+    "expected": {
+      "expression": {
+        "op": "AND",
+        "children": [
+          {
+            "field": "keyword",
+            "value": "jazz"
+          },
+          {
+            "field": "type",
+            "value": [
+              "PERFORMANCE"
+            ]
+          },
+          {
+            "field": "locationAdminArea",
+            "value": "Bantul"
+          }
+        ]
+      },
+      "caveats": [
+        "Kata subjektif \"terbaik\" tidak dapat difilter, sehingga diabaikan."
+      ]
+    }
+  },
+  {
+    "id": "vague-descriptor-id-04",
+    "lang": "id",
+    "category": "vague-descriptor",
+    "prompt": "cari yang seru-seru aja",
+    "geminiResponse": {
+      "expression": {
+        "op": "AND",
+        "children": []
+      },
+      "caveats": [
+        "Kata subjektif \"seru\" tidak dapat difilter, sehingga tidak ada filter yang diterapkan."
+      ]
+    },
+    "expected": {
+      "expression": {
+        "op": "AND",
+        "children": []
+      },
+      "caveats": [
+        "Kata subjektif \"seru\" tidak dapat difilter, sehingga tidak ada filter yang diterapkan."
       ]
     }
   },
