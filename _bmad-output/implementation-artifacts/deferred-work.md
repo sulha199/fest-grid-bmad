@@ -693,3 +693,18 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: `_bmad-output/implementation-artifacts/0-i2d-adopt-the-wrapper-in-the-apify-bright-data-scraper-call-sites.md`
   summary: The Apify webhook now bounds `run().get()` plus `listItems({limit: 1000})` with one 20s `maxAttempts: 1` guarded call; a timeout or transient error returns HTTP 200 "not retrying" and the result is only recovered by the stale-job sweep after the pending job passes `expiresAt` (default 180 minutes).
   evidence: Surfaced by Edge Case Hunter. The pre-change error path also returned 200, and current volume (`SCRAPE_RESULTS_LIMIT` 30 per account) keeps the download well under 20s, so the 20s cap is the only new exposure; tuning it needs a measured decision.
+
+## Deferred from: quick-dev of BUG-059 story 1, account URL by username (2026-10-18, `bmad-quick-dev`)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-bug-059-account-url-by-username.md`
+  summary: A browser or CDN caches the permanent (308) redirect from `/ig/<numeric id>` to the username URL indefinitely, so after an Instagram rename (BUG-059 story 5) a returning visitor lands on the old username, which then 404s or belongs to a different account.
+  evidence: Surfaced by Blind Hunter and Edge Case Hunter. A direct consequence of the owner's Fork 2 choice (308) in AD-35 Rule 5; accepted for now because renames are not handled yet. Revisit when story 5 ships: switch the numeric-ID redirect to a temporary one, or keep username history.
+- source_spec: `_bmad-output/implementation-artifacts/spec-bug-059-account-url-by-username.md`
+  summary: The username lookup (`lower(username) = $1` per platform) has no functional index, so every account page view and `generateMetadata` call scans `social_media_account_profiles` for the platform.
+  evidence: Surfaced by Blind Hunter. DESIGN.md 3.1 calls for an index on `(platform, lower(username))`; the spec's Ask First gate covered migrations, so it was left out. About 344 rows locally, so no urgency; add the index with the unique-index work in BUG-059 story 5.
+- source_spec: `_bmad-output/implementation-artifacts/spec-bug-059-account-url-by-username.md`
+  summary: The `socialMediaAccountProfileByAccountId` query was removed with no deprecated alias, so a web deploy that reaches production before the backend deploy makes every account page fail GraphQL validation until the backend catches up.
+  evidence: Surfaced by Blind Hunter and Edge Case Hunter. The web account page was its only consumer (grep of `apps/` and `packages/` found no other), and the spec chose a clean replace; the risk is deploy ordering only, so deploy the backend first or add a one-release alias if the pipelines are not ordered.
+- source_spec: `_bmad-output/implementation-artifacts/spec-bug-059-account-url-by-username.md`
+  summary: `generateMetadata` on the account page turns a transient backend error into `notFound()`, so an outage can make crawlers see valid account pages as 404.
+  evidence: Surfaced by Edge Case Hunter. Pre-existing behaviour kept as it was (the old `generateMetadata` had the same try/catch then `notFound()`); fixing it means returning fallback metadata on error, which is a separate small change.

@@ -7,7 +7,7 @@ import { useAuthSession } from "@/components/providers/auth-session-provider"
 import { useRouter, Link } from "@/i18n/navigation"
 import { graphqlClient } from "@/lib/graphql-client"
 import { useGetMySubscriptionsQuery, useRemoveSubscriptionMutation, SoftDeleteAction } from "@/generated/graphql"
-import { getPlatformSlug } from "@festgrid/domain/scraper"
+import { buildAccountHref } from "@festgrid/domain/scraper"
 import { useApiKeyStatus } from "@/features/onboarding/use-has-api-key"
 import { SubscribeAccountDialog } from "./subscribe-account-dialog"
 import { SetDefaultLocationDialog } from "./set-default-location-dialog"
@@ -95,12 +95,12 @@ export function SubscriptionsContent() {
   }
 
   const navigateToAccount = (sub: any) => {
-    const slug = getPlatformSlug(sub.account.platform as any)
-    if (!slug) {
-      console.error("Cannot navigate: unknown platform for account", sub.account.platform)
+    const href = buildAccountHref(sub.account.platform as any, sub.account.username)
+    if (!href) {
+      console.error("Cannot navigate: account has no username", sub.account.platform)
       return
     }
-    router.push(`/${slug}/${sub.account.accountId}`)
+    router.push(href)
   }
 
   const handleRowClick = (e: React.MouseEvent<HTMLDivElement>, sub: any) => {

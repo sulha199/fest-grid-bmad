@@ -257,7 +257,7 @@ describe('SubscriptionsContent', () => {
     });
   });
 
-  it('navigates to the platform/accountId page when the subscription row is clicked, but not when buttons are clicked', async () => {
+  it('navigates to the platform/username page when the subscription row is clicked, but not when buttons are clicked', async () => {
     mockSession = { user: { id: 'user-1' } };
     mockHasApiKey = true;
     renderWithProviders(<SubscriptionsContent />);
@@ -269,7 +269,7 @@ describe('SubscriptionsContent', () => {
     // Clicking the row text "Jakarta Festivals" should push to router
     const rowText = screen.getByText('Jakarta Festivals');
     fireEvent.click(rowText);
-    expect(mockRouterPush).toHaveBeenCalledWith('/ig/acc-1');
+    expect(mockRouterPush).toHaveBeenCalledWith('/ig/jkt_festivals');
 
     // Reset router push mock
     mockRouterPush.mockClear();

@@ -1,7 +1,7 @@
 import { GetEventBySlugQuery, GetMySubscriptionsQuery } from '@/generated/graphql';
 import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels, EventDetailViewCoauthor, EventDetailViewSourcePost } from '@festgrid/ui';
 import { useTranslations } from 'next-intl';
-import { getPlatformSlug } from '@festgrid/domain/scraper';
+import { buildAccountHref } from '@festgrid/domain/scraper';
 
 export function useEventDetailViewLabels(): EventDetailViewLabels {
   const t = useTranslations('EventDetailsPage');
@@ -104,7 +104,7 @@ export function mapGraphQLEventToDetailViewProps(
     displayName: coauthor.displayName,
     username: coauthor.username,
     profileImageUrl: coauthor.profileImageUrl,
-    accountHref: `/${getPlatformSlug(coauthor.platform as any)}/${coauthor.accountId}`,
+    accountHref: buildAccountHref(coauthor.platform as any, coauthor.username),
     isSubscribed: !!mySubscriptions?.find((s) => s.account.accountId === coauthor.accountId),
     isTogglePending: pendingCoauthorAccountId === coauthor.accountId,
   }));
@@ -127,7 +127,7 @@ export function mapGraphQLEventToDetailViewProps(
           username: sourcePost.account.username,
           displayName: sourcePost.account.displayName,
           profileImageUrl: sourcePost.account.profileImageUrl,
-          accountHref: `/${getPlatformSlug(sourcePost.account.platform as any)}/${sourcePost.account.accountId}`,
+          accountHref: buildAccountHref(sourcePost.account.platform as any, sourcePost.account.username),
         }
       : null,
     coauthors: (sourcePost.coauthors || []).map((coauthor) => ({
@@ -136,7 +136,7 @@ export function mapGraphQLEventToDetailViewProps(
       displayName: coauthor.displayName,
       username: coauthor.username,
       profileImageUrl: coauthor.profileImageUrl,
-      accountHref: `/${getPlatformSlug(coauthor.platform as any)}/${coauthor.accountId}`,
+      accountHref: buildAccountHref(coauthor.platform as any, coauthor.username),
       isSubscribed: !!mySubscriptions?.find((s) => s.account.accountId === coauthor.accountId),
       isTogglePending: pendingCoauthorAccountId === coauthor.accountId,
     })),
@@ -184,7 +184,7 @@ export function mapGraphQLEventToDetailViewProps(
     accountId: event.sourceSocialMediaAccountProfile?.accountId ?? null,
     accountPlatformIconUrl: event.sourceSocialMediaAccountProfile?.profileImageUrl ?? null,
     accountHref: event.sourceSocialMediaAccountProfile
-      ? `/${getPlatformSlug(event.sourceSocialMediaAccountProfile.platform as any)}/${event.sourceSocialMediaAccountProfile.accountId}`
+      ? buildAccountHref(event.sourceSocialMediaAccountProfile.platform as any, event.sourceSocialMediaAccountProfile.username)
       : null,
     accountLocation: (() => {
       const defaultLocation = event.sourceSocialMediaAccountProfile?.defaultLocation;

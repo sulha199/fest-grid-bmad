@@ -1,11 +1,11 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles } from '@festgrid/database';
+import { normalizeUsername } from '@festgrid/domain/scraper';
 
-/** Lower-case, trimmed, no leading `@`: how a username is compared. */
-export function normalizeUsername(raw: string): string {
-  return raw.trim().replace(/^@+/, '').toLowerCase();
-}
+// One normalizer for lookups and URLs: it lives in `@festgrid/domain` (AD-35); re-exported here so
+// existing importers keep working.
+export { normalizeUsername };
 
 /**
  * STOPGAP (BUG-059) -- finds an existing profile row for a platform account by its username.

@@ -366,7 +366,7 @@ describe('mapGraphQLEventToDetailViewProps coauthors mapping (Story 0.i6g)', () 
     expect(props.coauthors).toEqual([]);
   });
 
-  it('maps each coauthor, deriving accountHref the same way as the existing source-account case', () => {
+  it('maps each coauthor, deriving accountHref from the username (AD-35)', () => {
     const event = {
       ...buildEvent({}),
       coauthors: [
@@ -387,7 +387,7 @@ describe('mapGraphQLEventToDetailViewProps coauthors mapping (Story 0.i6g)', () 
         username: 'coauthor_one',
         displayName: 'Coauthor One',
         profileImageUrl: 'https://example.com/coauthor-1.png',
-        accountHref: '/ig/coauthor-1',
+        accountHref: '/ig/coauthor_one',
         isSubscribed: false,
         isTogglePending: false,
       },
@@ -477,7 +477,7 @@ describe('mapGraphQLEventToDetailViewProps sourcePosts mapping (Story 3.6u)', ()
           username: 'acct_one',
           displayName: 'Acct One',
           profileImageUrl: 'https://example.com/acct-1.png',
-          accountHref: '/ig/acct-1',
+          accountHref: '/ig/acct_one',
         },
         coauthors: [],
       },
@@ -676,5 +676,33 @@ describe('EventDetailViewLabels locale parity ratchet', () => {
       const missing = findMissingKeys(fixtureKeys, FIXTURE_LOCALE_NAMESPACE);
       expect(missing).not.toContain('knownKey');
     });
+  });
+});
+
+// Architecture Spine AD-35 Rules 1-2: every account link is built from the normalized username by
+// buildAccountHref and never contains the platform's numeric account_id.
+describe('mapGraphQLEventToDetailViewProps accountHref (AD-35)', () => {
+  const profile = (overrides: Record<string, unknown>) => ({
+    accountId: '17841400000',
+    platform: 'instagram',
+    username: 'JktCity.Events',
+    displayName: 'Jakarta City Events',
+    profileImageUrl: null,
+    accountType: null,
+    defaultLocation: null,
+    ...overrides,
+  });
+
+  it('builds the source account href from the lower-cased username, not the numeric account id', () => {
+    const event = { ...buildEvent({}), sourceSocialMediaAccountProfile: profile({}) };
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.accountHref).toBe('/ig/jktcity.events');
+    expect(props.accountHref).not.toContain('17841400000');
+  });
+
+  it('yields a null href (unlinked) rather than a numeric fallback when the username is empty', () => {
+    const event = { ...buildEvent({}), sourceSocialMediaAccountProfile: profile({ username: '' }) };
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.accountHref).toBeNull();
   });
 });

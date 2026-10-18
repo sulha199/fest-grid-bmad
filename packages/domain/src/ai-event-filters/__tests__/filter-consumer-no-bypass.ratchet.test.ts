@@ -272,7 +272,7 @@ test('Check 2 positive confirmation: the five known live EventFilterInput/Filter
     'apps/web/src/app/[locale]/home-content.tsx',
     'apps/web/src/app/[locale]/feed/feed-content.tsx',
     'apps/web/src/app/[locale]/favorites/favorites-content.tsx',
-    'apps/web/src/app/[locale]/[platformSlug]/[accountId]/account-content.tsx',
+    'apps/web/src/app/[locale]/[platformSlug]/[username]/account-content.tsx',
     'apps/backend/src/schema/resolvers.ts',
   ];
 

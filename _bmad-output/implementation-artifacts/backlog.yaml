@@ -2253,3 +2253,12 @@ items:
      ref: [packages/domain/src/ai-event-filters/filter-node-schema.ts, packages/domain/src/ai-event-filters/transform-gemini-response-to-filter-expression.ts, apps/web/src/features/events/use-ai-filter.ts],
      touches: [pkg:domain, web:events, app:backend, cross:ai-extraction],
      note: "Fixed 2026-10-16: validateFilterNode strips null node keys; hook validates the URL param; no auto-collapse on load; empty result now carries a caveat."}
+
+  # ── 2026-10-18 (quick-dev of BUG-059 story 1) ────────────────────────────────
+  FIND-084:
+    {type: finding, status: backlog, created: 2026-10-18,
+     impact: internal, effort: s,
+     title: "BUG-059 story 1 review deferrals: cached 308 after a rename, no lower(username) index, removed query has no alias, metadata 404s on outage",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend, web:accounts],
+     note: "Deferred from: quick-dev of BUG-059 story 1, account URL by username (2026-10-18, `bmad-quick-dev`). 4 findings."}
