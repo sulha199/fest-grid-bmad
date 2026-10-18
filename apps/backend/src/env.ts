@@ -223,7 +223,8 @@ export function loadBackendEnv(): BackendEnv {
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     geminiModel: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
-    geminiFilterModel: process.env.GEMINI_FILTER_MODEL || 'gemini-3.5-flash',
+    // Optional: unset, empty or whitespace-only all fall back to the default (never throws).
+    geminiFilterModel: process.env.GEMINI_FILTER_MODEL?.trim() || 'gemini-3.5-flash',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     apiKeyInvalidAttemptsThreshold: parseInt(process.env.API_KEY_INVALID_ATTEMPTS_THRESHOLD || '5', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
