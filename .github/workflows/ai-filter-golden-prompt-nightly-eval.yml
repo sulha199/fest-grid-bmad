@@ -46,4 +46,10 @@ jobs:
           # script never binds a port, so any valid number works (same note as
           # backfill-post-media-keys.yml's BACKEND_PORT usage).
           BACKEND_PORT: '4001'
+          # The eval script transitively imports db/client.ts (gemini-client.ts -> guarded-call.ts),
+          # which throws at module load without DATABASE_URL. The script itself never queries the
+          # DB (it calls callGeminiGenerateContent directly, with no lockKey) and postgres.js
+          # connects lazily, so a placeholder suffices -- deliberately NOT secrets.DATABASE_URL,
+          # so this job never holds production DB credentials.
+          DATABASE_URL: 'postgresql://unused:unused@127.0.0.1:5432/unused'
         run: pnpm --filter backend exec tsx scripts/run-golden-prompt-live-eval.ts
