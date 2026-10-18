@@ -19,8 +19,11 @@ evidence: ./poc-report.md
 | Can Gemini extract targeting insight (area, audience, eligibility, …) from our posts? | **Yes for the hard-edged fields** (target area, geo scope, eligibility, stated age, gender restriction, cost tier: each ≥94% correct on the core set, and steady run-to-run; with only 27 posts the 95% interval on a per-post rate of ~93% is roughly 77–98%, so read these as "good enough to build behind a gate", not as measured production accuracy). **Not reliably for the soft ones** (audience segments, participation mode): they flip between runs on ~⅓–½ of posts. |
 | Can it do it without another API request per post? | **Yes.** Injecting the insight into the *real* production extraction schema was accepted in all 33 calls (no `400 INVALID_ARGUMENT`, the failure `build-gemini-request.ts` documents for oversized schemas) at a median **+0.9k–1.3k input tokens (static rules text, depending on prompt version), +~0.2k output tokens and ~+0.4 s per post, 0 extra requests.** |
 | Can we trust the model's own confidence? | **No.** Mean self-reported confidence was 0.92 on fully-correct answers and 0.94 on wrong ones. The design never gates on it. |
-| Does it hallucinate? | **Rarely, but in a harmful way**: invented age bounds (`60..120` for "60 tahun ke atas"; `3..10` inferred from "PAUD/TK/SD") and a wrongly "restricted" event. Cheap deterministic checks against the source text removed all of these on the core set (§5). |
+| Does it hallucinate? | **Rarely, but in a harmful way**: invented age bounds (`60..120` for "60 tahun ke atas"; `3..10` inferred from "PAUD/TK/SD") and a wrongly "restricted" event. Cheap deterministic checks against the source text removed all of these on the core set (§3.2). |
+| How often is an extracted insight wrong somewhere? | **Roughly 1 in 5 to 1 in 9 insights has at least one wrong field** (11–20% of runs, 95% CIs ~6–30%), though each field alone is 93–100% — see the report's wrong-claim table. So ranking must be **bounded and low-leverage per field**, which is what §4 does. |
 | Is each-user-sees-a-different-page workable? | **Mechanically yes** (§4 prototype, run on real extracted insights), with an honest caveat: the first prototype failed — see §4.3. Weights must be tuned on real engagement, not by judgement. |
+
+**Prompt choice is open.** v1 and v2 are statistically indistinguishable at this sample size (v2 better on 6 held-out posts, worse on 27 core posts); pick on the larger golden set.
 
 **Gate for the build phase:** a *golden set* with a nightly live eval and a hard bar of **zero critical errors** (§7, Story 10.1). The POC's 33 labelled posts are a seed for that set, not a substitute: one labeller, text-only (no poster images), Jogja-heavy.
 
@@ -42,7 +45,7 @@ Two halves joined by one pure function:
 |---|---|---|---|
 | `geoScope` | venue_local · city · region · national · international · online · unspecified | Is this for people near me, or anywhere? | high |
 | `targetAreas[]` `{name, level}` | place names the **audience** is drawn from — *not* where performers/artists come from | the user's own example: "extract which area is targeted" | high (one adversarial venue-vs-artist-origin case passed 3/3) |
-| `eligibility` | open_to_public · restricted · unspecified | "Is it for me at all?" | high after prompt v2; **use only to demote, never to hide** |
+| `eligibility` | open_to_public · restricted · unspecified | "Is it for me at all?" | 90–95% core; **"is an age band a restriction?" is an open product definition (§6.2)**; use only to demote, never to hide |
 | `ageMin` / `ageMax` | numbers **stated in the text only** | kids/seniors events | high **only with the grounding guard** |
 | `genderFocus` | all · women · men | women-only etc. | high |
 | `costTier` | free · low · medium · high · unspecified | budget fit | high (±1 tier at team-fee posts) |
@@ -152,7 +155,8 @@ Two honest caveats. (1) The 27-event, 5-week demo pool is far denser per day tha
 2. **Default sort** for signed-in users once flagged: RECOMMENDED (recommended, behind the A/B) vs SOONEST until the replay is convincing.
 3. **Anonymous visitors with granted browser location:** location-only personalisation (recommended) or none?
 4. **Events with several linked posts (AD-30):** insight follows the *primary* post and is replaced when primary changes *only if* the new primary produced one (recommended) — or merge insights across posts?
-5. **"Near you" vs the existing Nearby badge** (AD-22/24, <5 km): separate chip (recommended; different semantics: area vs distance) or unify?
+5. **Is an age-banded event ("usia 7–16 tahun", "60+") `restricted` or `open_to_public`?** The extraction prompt and the product must agree; it changes what `eligibility` means for ranking and for any future filter. (The POC's own prompt and labels disagreed on exactly this.)
+6. **"Near you" vs the existing Nearby badge** (AD-22/24, <5 km): separate chip (recommended; different semantics: area vs distance) or unify?
 
 ## 7. Proposed epic (not yet in `epics.md`; numbering and splitting to be done with `bmad-create-epics-and-stories` after you confirm §6.2)
 
@@ -169,5 +173,6 @@ export SYSTEM_GEMINI_API_KEY=...                                                
 npx tsx scripts/poc-event-insight/run.ts --set core --prompt v2 --runs 3        # live Gemini calls
 npx tsx scripts/poc-event-insight/rescore.ts --results <results.json>           # offline, applies guards
 npx tsx scripts/poc-event-insight/rank-demo.ts --results <results.json>         # offline, per-persona ranking
+npx tsx scripts/poc-event-insight/wrong-claims.ts "label=<results.json>"       # offline, wrong-claim rate + CI
 npx tsx --test scripts/poc-event-insight/*.test.ts                              # 51 unit tests, no network
 ```

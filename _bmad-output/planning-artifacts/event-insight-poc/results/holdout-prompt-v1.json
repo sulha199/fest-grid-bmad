@@ -1,0 +1,1913 @@
+{
+ "promptVersion": "v1",
+ "set": "holdout",
+ "model": "gemini-3.5-flash-lite",
+ "compareModel": "",
+ "runs": 3,
+ "records": [
+  {
+   "caseId": "ho-pentas-bantul",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1236,
+   "inputTokens": 1092,
+   "outputTokens": 190,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Bantul",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "traditional dance",
+     "karawitan",
+     "theater",
+     "folk art"
+    ],
+    "participationModes": [
+     "attend"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [],
+    "evidence": [
+     "Terbuka untuk umum!",
+     "Gratis, tanpa tiket."
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local|region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Bantul]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [traditional dance; karawitan; theater; folk art]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "ho-pentas-bantul",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1290,
+   "inputTokens": 1092,
+   "outputTokens": 199,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Bantul",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "traditional dance",
+     "karawitan",
+     "theatre",
+     "folk arts"
+    ],
+    "participationModes": [
+     "attend"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "Terbuka untuk umum!",
+     "Gratis, tanpa tiket."
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local|region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Bantul]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [traditional dance; karawitan; theatre; folk arts]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "ho-pentas-bantul",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1097,
+   "inputTokens": 1092,
+   "outputTokens": 192,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Bantul",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "traditional dance",
+     "karawitan",
+     "theater"
+    ],
+    "participationModes": [
+     "attend"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "Terbuka untuk umum!",
+     "Gratis, tanpa tiket."
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local|region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Bantul]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [traditional dance; karawitan; theater]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "ho-coding-camp",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1110,
+   "inputTokens": 1091,
+   "outputTokens": 227,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Bandung",
+      "level": "city"
+     }
+    ],
+    "eligibility": "unspecified",
+    "segments": [
+     "kids"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "coding",
+     "game development",
+     "technology"
+    ],
+    "participationModes": [
+     "learn",
+     "participate"
+    ],
+    "costTier": "medium",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "eligibility"
+    ],
+    "evidence": [
+     "Untuk anak usia 8–12 tahun.",
+     "Rp450.000"
+    ],
+    "confidence": 0.95,
+    "ageMax": 12,
+    "ageMin": 8
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Bandung]"
+     },
+     "eligibility": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got unspecified, accept open_to_public|restricted"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [kids]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got 8..12"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [coding; game development; technology]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [learn,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got medium, accept medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "ho-coding-camp",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1073,
+   "inputTokens": 1091,
+   "outputTokens": 227,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Bandung",
+      "level": "city"
+     }
+    ],
+    "eligibility": "unspecified",
+    "segments": [
+     "kids"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "coding",
+     "game development",
+     "technology"
+    ],
+    "participationModes": [
+     "learn",
+     "participate"
+    ],
+    "costTier": "medium",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "eligibility"
+    ],
+    "evidence": [
+     "Untuk anak usia 8–12 tahun.",
+     "Rp450.000"
+    ],
+    "confidence": 0.95,
+    "ageMax": 12,
+    "ageMin": 8
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Bandung]"
+     },
+     "eligibility": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got unspecified, accept open_to_public|restricted"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [kids]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got 8..12"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [coding; game development; technology]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [learn,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got medium, accept medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "ho-coding-camp",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1130,
+   "inputTokens": 1091,
+   "outputTokens": 226,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Bandung",
+      "level": "city"
+     }
+    ],
+    "eligibility": "unspecified",
+    "segments": [
+     "kids"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "coding",
+     "game development",
+     "technology"
+    ],
+    "participationModes": [
+     "learn",
+     "participate"
+    ],
+    "costTier": "medium",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "eligibility"
+    ],
+    "evidence": [
+     "Untuk anak usia 8–12 tahun.",
+     "Rp450.000"
+    ],
+    "confidence": 0.9,
+    "ageMax": 12,
+    "ageMin": 8
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Bandung]"
+     },
+     "eligibility": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got unspecified, accept open_to_public|restricted"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [kids]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got 8..12"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [coding; game development; technology]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [learn,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got medium, accept medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "ho-srikandi-run",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1048,
+   "inputTokens": 1091,
+   "outputTokens": 226,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Surabaya",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "women",
+    "interests": [
+     "running",
+     "5k"
+    ],
+    "participationModes": [
+     "compete",
+     "participate"
+    ],
+    "costTier": "medium",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "Lari khusus perempuan!",
+     "Pendaftaran: Rp175.000 (termasuk jersey & medali)",
+     "Minggu, 15 November 2026 — Taman Bungkul, Surabaya"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Surabaya]"
+     },
+     "eligibility": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got open_to_public, accept restricted"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got women, accept women"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [running; 5k]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got medium, accept medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "ho-srikandi-run",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1072,
+   "inputTokens": 1091,
+   "outputTokens": 218,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Surabaya",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "women",
+    "interests": [
+     "running",
+     "5k"
+    ],
+    "participationModes": [
+     "compete",
+     "participate"
+    ],
+    "costTier": "medium",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "Lari khusus perempuan!",
+     "Minggu, 15 November 2026 — Taman Bungkul, Surabaya",
+     "Pendaftaran: Rp175.000"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Surabaya]"
+     },
+     "eligibility": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got open_to_public, accept restricted"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got women, accept women"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [running; 5k]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got medium, accept medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "ho-srikandi-run",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1137,
+   "inputTokens": 1091,
+   "outputTokens": 218,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Surabaya",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "women",
+    "interests": [
+     "running",
+     "5k"
+    ],
+    "participationModes": [
+     "compete",
+     "participate"
+    ],
+    "costTier": "medium",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "Lari khusus perempuan!",
+     "Minggu, 15 November 2026 — Taman Bungkul, Surabaya",
+     "Pendaftaran: Rp175.000"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Surabaya]"
+     },
+     "eligibility": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got open_to_public, accept restricted"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got women, accept women"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [running; 5k]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got medium, accept medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "ho-esai-nasional",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1165,
+   "inputTokens": 1099,
+   "outputTokens": 255,
+   "insight": {
+    "geoScope": "national",
+    "targetAreas": [
+     {
+      "name": "Indonesia",
+      "level": "country"
+     }
+    ],
+    "eligibility": "restricted",
+    "segments": [
+     "teens",
+     "students"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "essay writing",
+     "clean energy",
+     "youth"
+    ],
+    "participationModes": [
+     "compete",
+     "participate"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "LOMBA ESAI NASIONAL 2026",
+     "Terbuka untuk pelajar SMA/sederajat se-Indonesia",
+     "Gratis biaya pendaftaran"
+    ],
+    "confidence": 0.95,
+    "restrictionNote": "Limited to high school students (pelajar SMA/sederajat) in Indonesia"
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got national, accept national|online"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Indonesia]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got restricted, accept restricted|open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [teens,students]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [essay writing; clean energy; youth]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "ho-esai-nasional",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1161,
+   "inputTokens": 1099,
+   "outputTokens": 238,
+   "insight": {
+    "geoScope": "national",
+    "targetAreas": [
+     {
+      "name": "Indonesia",
+      "level": "country"
+     }
+    ],
+    "eligibility": "restricted",
+    "segments": [
+     "teens",
+     "students"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "essay writing",
+     "clean energy",
+     "youth"
+    ],
+    "participationModes": [
+     "compete",
+     "learn"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [],
+    "evidence": [
+     "LOMBA ESAI NASIONAL 2026",
+     "Terbuka untuk pelajar SMA/sederajat se-Indonesia",
+     "Gratis biaya pendaftaran."
+    ],
+    "confidence": 0.95,
+    "restrictionNote": "Pelajar SMA/sederajat"
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got national, accept national|online"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Indonesia]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got restricted, accept restricted|open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [teens,students]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [essay writing; clean energy; youth]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,learn]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "ho-esai-nasional",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1154,
+   "inputTokens": 1099,
+   "outputTokens": 258,
+   "insight": {
+    "geoScope": "national",
+    "targetAreas": [
+     {
+      "name": "Indonesia",
+      "level": "country"
+     }
+    ],
+    "eligibility": "restricted",
+    "segments": [
+     "teens",
+     "students"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "essay writing",
+     "clean energy",
+     "youth",
+     "writing competition"
+    ],
+    "participationModes": [
+     "compete",
+     "participate"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "LOMBA ESAI NASIONAL 2026",
+     "Terbuka untuk pelajar SMA/sederajat se-Indonesia",
+     "Gratis biaya pendaftaran."
+    ],
+    "confidence": 0.95,
+    "restrictionNote": "Terbuka untuk pelajar SMA/sederajat se-Indonesia"
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got national, accept national|online"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Indonesia]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got restricted, accept restricted|open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [teens,students]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [essay writing; clean energy; youth; writing competition]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "ho-gathering-internal",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1227,
+   "inputTokens": 1082,
+   "outputTokens": 242,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "restricted",
+    "segments": [
+     "families",
+     "professionals"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "employee gathering",
+     "batik"
+    ],
+    "participationModes": [
+     "attend"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "geo"
+    ],
+    "evidence": [
+     "Khusus karyawan PT Maju Jaya dan keluarga inti. Tidak untuk umum.",
+     "Sabtu, 21 November 2026, The Alana Hotel, Yogyakarta."
+    ],
+    "confidence": 0.95,
+    "restrictionNote": "Khusus karyawan PT Maju Jaya dan keluarga inti. Tidak untuk umum."
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept venue_local|city|unspecified"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got restricted, accept restricted"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [families,professionals]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [employee gathering; batik]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "ho-gathering-internal",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1135,
+   "inputTokens": 1082,
+   "outputTokens": 239,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "restricted",
+    "segments": [
+     "families",
+     "professionals"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "batik",
+     "corporate gathering"
+    ],
+    "participationModes": [
+     "attend"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments",
+     "interests",
+     "geo"
+    ],
+    "evidence": [
+     "Khusus karyawan PT Maju Jaya dan keluarga inti. Tidak untuk umum.",
+     "The Alana Hotel, Yogyakarta."
+    ],
+    "confidence": 0.95,
+    "restrictionNote": "Khusus karyawan PT Maju Jaya dan keluarga inti. Tidak untuk umum."
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept venue_local|city|unspecified"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got restricted, accept restricted"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [families,professionals]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [batik; corporate gathering]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "ho-gathering-internal",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1119,
+   "inputTokens": 1082,
+   "outputTokens": 224,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "restricted",
+    "segments": [
+     "families",
+     "professionals"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "batik",
+     "employee gathering"
+    ],
+    "participationModes": [
+     "attend"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "cost",
+     "participation"
+    ],
+    "evidence": [
+     "Khusus karyawan PT Maju Jaya dan keluarga inti. Tidak untuk umum.",
+     "Sabtu, 21 November 2026, The Alana Hotel, Yogyakarta."
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept venue_local|city|unspecified"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got restricted, accept restricted"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [families,professionals]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [batik; employee gathering]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "ho-layang-layang",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1079,
+   "inputTokens": 1094,
+   "outputTokens": 241,
+   "insight": {
+    "geoScope": "region",
+    "targetAreas": [
+     {
+      "name": "Jawa",
+      "level": "province"
+     },
+     {
+      "name": "Bali",
+      "level": "province"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "kids",
+     "teens",
+     "adults"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "kite flying",
+     "kite festival"
+    ],
+    "participationModes": [
+     "compete",
+     "participate"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [],
+    "evidence": [
+     "Peserta dari seluruh Jawa dan Bali diundang bertanding!",
+     "Kategori anak, remaja dan dewasa.",
+     "Pendaftaran gratis"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got region, accept region|national"
+     },
+     "areas": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got [Jawa; Bali], missing bantul/yogyakarta"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [kids,teens,adults]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [kite flying; kite festival]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "ho-layang-layang",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1199,
+   "inputTokens": 1094,
+   "outputTokens": 240,
+   "insight": {
+    "geoScope": "region",
+    "targetAreas": [
+     {
+      "name": "Jawa",
+      "level": "province"
+     },
+     {
+      "name": "Bali",
+      "level": "province"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "kids",
+     "teens",
+     "adults"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "kite flying",
+     "kites"
+    ],
+    "participationModes": [
+     "compete",
+     "attend"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [],
+    "evidence": [
+     "Peserta dari seluruh Jawa dan Bali diundang bertanding!",
+     "Kategori anak, remaja dan dewasa.",
+     "Pendaftaran gratis"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got region, accept region|national"
+     },
+     "areas": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got [Jawa; Bali], missing bantul/yogyakarta"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [kids,teens,adults]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [kite flying; kites]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,attend]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "ho-layang-layang",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1159,
+   "inputTokens": 1094,
+   "outputTokens": 245,
+   "insight": {
+    "geoScope": "region",
+    "targetAreas": [
+     {
+      "name": "Jawa",
+      "level": "province"
+     },
+     {
+      "name": "Bali",
+      "level": "province"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "kids",
+     "teens",
+     "adults"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "kite flying",
+     "kites",
+     "kite festival"
+    ],
+    "participationModes": [
+     "compete",
+     "attend"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [],
+    "evidence": [
+     "Peserta dari seluruh Jawa dan Bali diundang bertanding!",
+     "Kategori anak, remaja dan dewasa.",
+     "Pendaftaran gratis"
+    ],
+    "confidence": 1
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got region, accept region|national"
+     },
+     "areas": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got [Jawa; Bali], missing bantul/yogyakarta"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [kids,teens,adults]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [kite flying; kites; kite festival]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,attend]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  }
+ ]
+}
