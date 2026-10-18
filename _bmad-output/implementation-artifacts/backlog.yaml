@@ -2327,3 +2327,27 @@ items:
      ref: [backlog/BUG-063-admin-area-never-written.md, planning-artifacts/event-insight-poc/proposal-personalized-discovery.md],
      touches: [app:backend, pkg:domain, pkg:shared-types, pkg:database, web:locations, cross:ai-extraction, cross:prd],
      note: "Approved as its own first story (2026-10-18). Shares the backfill with IDEA-071; prerequisite for area-first Discovery ordering."}
+
+  BUG-065:
+    {type: bug, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: s, blocks: [IDEA-074],
+     title: "Curator events fall back to the curator's account location; inference gives it an arbitrary place",
+     ref: [backlog/BUG-065-curator-events-fall-back-to-account-location.md, apps/backend/src/lib/ai-processor/resolve-account-and-locations.ts],
+     touches: [app:backend, pkg:domain, web:accounts, web:locations, cross:ai-extraction, cross:prd],
+     note: "Gemini behaviour measured (curator: 12 posts, 12 different places, all applied); code consequences inferred from reading, not reproduced."}
+
+  BUG-066:
+    {type: bug, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: m, blocks: [IDEA-074],
+     title: "Geocoding can land in the wrong country: soft bias only, no bias at bootstrap, no confidence floor",
+     ref: [backlog/BUG-066-geocoder-can-resolve-to-the-wrong-country.md, apps/backend/src/lib/geolocation/geoapify-client.ts],
+     touches: [app:backend, pkg:domain, web:locations],
+     note: "NOT reproduced: the report is the product owner's; six mechanisms found by reading code. Run probe-geocode-country.ts and the SQL in the note first."}
+
+  IDEA-074:
+    {type: idea, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: l,
+     title: "Personalized Discovery: extract each event's target audience (area first), order by it not the venue",
+     ref: [backlog/IDEA-074-audience-extraction-and-audience-area-ordering.md, planning-artifacts/event-insight-poc/proposal-personalized-discovery.md, planning-artifacts/event-insight-poc/poc-report.md],
+     touches: [app:backend, pkg:domain, pkg:shared-types, pkg:database, web:events, cross:ai-extraction, cross:prd, cross:architecture],
+     note: "POC only. Held-out audience-area result is 18/18 on 6 posts (small). Depends on IDEA-073, BUG-065, BUG-066."}

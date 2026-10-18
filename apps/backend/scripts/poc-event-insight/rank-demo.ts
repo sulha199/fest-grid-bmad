@@ -15,7 +15,8 @@ import { fileURLToPath } from 'node:url';
 import { loadCases } from './corpus.js';
 import { applyGuards } from './guards.js';
 import type { EventInsight } from './insight-schema.js';
-import { rankAreaThenDate, rankDiscovery, type RankableEvent, type UserProfile } from './relevance.js';
+import { effectiveAudienceAreas } from './location-policy.js';
+import { canonicalAreaKey, rankAreaThenDate, rankDiscovery, type RankableWithAudience, type UserProfile } from './relevance.js';
 
 const DAYS: Record<string, number> = {
   'shopfest': 3, 'uss-market': 5, 'tropical-playland': 7, 'swasana-budaya': 9, 'gowes-merdeka': 11, 'cald-conference': 13,
@@ -58,12 +59,17 @@ if (existsSync(venuesFile)) {
   }
 }
 const captions = new Map(loadCases('all').map((c) => [c.id, c.caption]));
-const events: RankableEvent[] = [];
+const events: RankableWithAudience[] = [];
 for (const [id, days] of Object.entries(DAYS)) {
   const rec = data.records.find((r) => r.caseId === id && r.variant === 'standalone' && r.model === data.model && r.run === 1 && r.insight);
   // Guarded, as it would be persisted: the model proposes, deterministic checks verify.
   const guarded = rec?.insight ? applyGuards(rec.insight, captions.get(id) as string).insight : undefined;
-  events.push({ id, daysUntilNext: days, insight: guarded ? { ...guarded, attendance: attendanceById.get(id) ?? guarded.attendance } : undefined });
+  const insight = guarded ? { ...guarded, attendance: attendanceById.get(id) ?? guarded.attendance } : undefined;
+  // The first study's insight does not separate "stated" from "venue" areas, so its targetAreas are treated as the
+  // stated audience here; the audience-area study (area-demo.ts) is the one that keeps them apart.
+  const stated = (insight?.targetAreas ?? []).map((a) => canonicalAreaKey(a.name)).filter((k): k is string => !!k);
+  const audience = insight ? effectiveAudienceAreas({ geoScope: insight.geoScope, statedAreaKeys: stated, venueAreaKeys: [], accountAreaKeys: [], accountType: null, accountTypeStatus: null }) : undefined;
+  events.push({ id, daysUntilNext: days, insight, audience, geoScope: insight?.geoScope, attendance: insight?.attendance });
 }
 const withInsight = events.filter((e) => e.insight).length;
 

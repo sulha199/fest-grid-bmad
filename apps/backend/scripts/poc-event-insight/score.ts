@@ -14,12 +14,17 @@ export const AREA_ALIASES: Record<string, string[]> = {
   bantul: ['bantul'],
   central_java: ['jawa tengah', 'central java'],
   semarang: ['semarang'],
-  jakarta: ['jakarta', 'dki'],
+  jakarta: ['jakarta', 'dki', 'jabodetabek'],
   bandung: ['bandung'],
   surabaya: ['surabaya'],
   bali: ['bali'],
   canggu: ['canggu'],
   asia: ['asia', 'asean'],
+  indonesia: ['indonesia'],
+  kulon_progo: ['kulon progo', 'kulonprogo'],
+  sidoarjo: ['sidoarjo'],
+  melbourne: ['melbourne', 'victoria', 'australia'],
+  java: ['jawa', 'java'],
 };
 
 export type Dimension =

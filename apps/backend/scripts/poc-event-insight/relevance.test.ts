@@ -129,90 +129,107 @@ test('rankDiscovery does not mutate its input and exposes the reasons for the UI
   assert.ok(ranked[0].reasons.some((r) => r.startsWith('you like')));
 });
 
-// ---- area-first ordering ----
-import { areaTier, rankAreaThenDate, type RankableWithVenue } from './relevance.js';
+// ---- area-first ordering (by AUDIENCE area, never the venue) ----
+import { areaTier, rankAreaThenDate, type RankableWithAudience } from './relevance.js';
+import { effectiveAudienceAreas, type EffectiveAudienceAreas } from './location-policy.js';
 
-const at = (name: string, over: Partial<EventInsight> = {}) => insight({ targetAreas: [{ name, level: 'city' }], ...over });
-const ev = (insightValue?: EventInsight, extra: Partial<RankableWithVenue> = {}): RankableWithVenue => ({ id: 'x', daysUntilNext: 5, insight: insightValue, ...extra });
+const aud = (...keys: string[]): EffectiveAudienceAreas => ({ keys, source: keys.length ? 'stated' : 'none' });
+const ev = (over: Partial<RankableWithAudience> = {}): RankableWithAudience => ({ id: 'x', daysUntilNext: 5, ...over });
 
 test('areaTier: every rung of the ladder is ONE merged group — own area, sub-area, containing area, sibling district', () => {
-  for (const name of ['Sleman', 'Yogyakarta', 'Bantul']) {
-    const r = areaTier(rina, ev(at(name)));
-    assert.equal(r.tier, 0, name);
-    assert.equal(r.reason, 'local-ladder', name);
+  for (const key of ['sleman', 'yogyakarta', 'bantul']) {
+    const r = areaTier(rina, ev({ audience: aud(key) }));
+    assert.equal(r.tier, 0, key);
+    assert.equal(r.reason, 'local-ladder', key);
   }
-  assert.equal(areaTier({ ...rina, areas: ['yogyakarta'] }, ev(at('Sleman'))).tier, 0, 'a district inside the user\'s city-level area');
-  assert.equal(areaTier({ ...rina, areas: ['yogyakarta'] }, ev(at('Bantul'))).tier, 0);
+  assert.equal(areaTier({ ...rina, areas: ['yogyakarta'] }, ev({ audience: aud('sleman') })).tier, 0, 'a district inside the user\'s city-level area');
+  assert.equal(areaTier({ ...rina, areas: ['yogyakarta'] }, ev({ audience: aud('bantul') })).tier, 0);
 });
 
-test('areaTier: onsite events targeted at another area are "other local" (tier 2), including another province', () => {
-  for (const name of ['Jakarta', 'Semarang', 'Bali']) assert.equal(areaTier(rina, ev(at(name))).tier, 2, name);
-  assert.equal(areaTier(rina, ev(at('Jakarta'))).reason, 'other-local');
+test('areaTier: onsite events aimed at another area are "other local" (tier 2), including another province', () => {
+  for (const key of ['jakarta', 'semarang', 'bali']) assert.equal(areaTier(rina, ev({ audience: aud(key) })).tier, 2, key);
+  assert.equal(areaTier(rina, ev({ audience: aud('jakarta') })).reason, 'other-local');
 });
 
-test('areaTier: national / international / unspecified / country-level / no insight are "anywhere" (tier 1), never other-local', () => {
-  assert.equal(areaTier(rina, ev(insight())).tier, 1);
-  assert.equal(areaTier(rina, ev(undefined)).tier, 1);
-  assert.equal(areaTier(rina, ev(at('Indonesia', { geoScope: 'national' }))).tier, 1);
-  assert.equal(areaTier(rina, ev(at('Jakarta', { geoScope: 'national' }))).tier, 1, 'a listed city at national scope is not "other local"');
-  assert.equal(areaTier(rina, ev(at('Asia', { geoScope: 'international' }))).tier, 1);
+test('areaTier: no audience area, national / international, or a country-level audience is "anywhere" (tier 1), never other-local', () => {
+  assert.equal(areaTier(rina, ev()).tier, 1);
+  assert.equal(areaTier(rina, ev({ audience: aud() })).tier, 1);
+  assert.equal(areaTier(rina, ev({ audience: aud('indonesia'), geoScope: 'national' })).tier, 1);
+  assert.equal(areaTier(rina, ev({ audience: aud('jakarta'), geoScope: 'national' })).tier, 1, 'a listed city at national scope is not "other local"');
+  assert.equal(areaTier(rina, ev({ audience: aud('asia'), geoScope: 'international' })).tier, 1);
 });
 
 test('areaTier: no user, or a user with no location, puts everything in tier 1 (=> pure date order)', () => {
-  assert.equal(areaTier(undefined, ev(at('Sleman'))).tier, 1);
-  assert.equal(areaTier({ ...rina, areas: [] }, ev(at('Jakarta'))).tier, 1);
+  assert.equal(areaTier(undefined, ev({ audience: aud('sleman') })).tier, 1);
+  assert.equal(areaTier({ ...rina, areas: [] }, ev({ audience: aud('jakarta') })).tier, 1);
 });
 
-test('areaTier: the venue\'s geocoded areas count when the post names no audience area, and union with the AI areas', () => {
-  assert.equal(areaTier(rina, ev(insight(), { venueAreaKeys: ['sleman'] })).tier, 0);
-  assert.equal(areaTier(rina, ev(at('Jakarta'), { venueAreaKeys: ['sleman'] })).tier, 0, 'any matching area wins');
-  assert.equal(areaTier(rina, ev(insight(), { venueAreaKeys: ['jakarta'] })).tier, 2);
+test('THE POINT OF THIS REVISION: the venue is never an input — a national event held on a local campus is not local', () => {
+  // effectiveAudienceAreas() (location-policy.ts) turns "national, venue = Yogyakarta" into no audience area…
+  const nationalAtCampus = effectiveAudienceAreas({
+    geoScope: 'national', statedAreaKeys: [], venueAreaKeys: ['yogyakarta'], accountAreaKeys: ['yogyakarta'], accountType: 'ORGANIZER_VENUE_EVENT', accountTypeStatus: 'CONFIRMED',
+  });
+  assert.deepEqual(nationalAtCampus, { keys: [], source: 'none' });
+  // …and the ordering, which only reads that, puts it in "anywhere" for a Yogyakarta user.
+  assert.equal(areaTier(rina, ev({ audience: nationalAtCampus, geoScope: 'national' })).tier, 1);
+  // The reverse case: a Jakarta venue with a stated Surabaya audience is a Surabaya event.
+  const busToJakarta = effectiveAudienceAreas({
+    geoScope: 'region', statedAreaKeys: ['surabaya'], venueAreaKeys: ['jakarta'], accountAreaKeys: [], accountType: 'ORGANIZER_VENUE_EVENT', accountTypeStatus: 'CONFIRMED',
+  });
+  assert.equal(areaTier({ ...rina, areas: ['surabaya'] }, ev({ audience: busToJakarta })).tier, 0);
+  assert.equal(areaTier({ ...rina, areas: ['jakarta'] }, ev({ audience: busToJakarta })).tier, 2, 'a Jakarta user is not the audience');
 });
 
-test('online: an online event TARGETED at the user\'s area is local; one that is not targeted is "anywhere", not other-local', () => {
-  assert.equal(areaTier(rina, ev(at('Yogyakarta', { geoScope: 'online' }))).tier, 0, 'a Zoom class for Yogyakarta students');
-  assert.equal(areaTier(rina, ev(insight({ geoScope: 'online' }))).tier, 1, 'a global Zoom event');
-  assert.equal(areaTier(rina, ev(at('Jakarta', { geoScope: 'online' }))).tier, 1, 'a Zoom event for Jakarta is still attendable from Yogyakarta — not "other local"');
-  assert.equal(areaTier(rina, ev(insight({ attendance: 'online' }))).reason, 'online');
+test('curator vs organizer end to end: the same area-less post is local for an organizer\'s followers, "anywhere" for a curator\'s', () => {
+  const inputs = { geoScope: 'unspecified' as const, statedAreaKeys: [], venueAreaKeys: [], accountAreaKeys: ['sleman'] };
+  const organizer = effectiveAudienceAreas({ ...inputs, accountType: 'ORGANIZER_VENUE_EVENT', accountTypeStatus: 'CONFIRMED' });
+  const curator = effectiveAudienceAreas({ ...inputs, accountType: 'CURATOR_GUIDE', accountTypeStatus: 'CONFIRMED' });
+  assert.equal(areaTier(rina, ev({ audience: organizer })).tier, 0);
+  assert.equal(areaTier(rina, ev({ audience: curator })).tier, 1);
 });
 
-test('hybrid: a hybrid event in another city is attendable remotely, so it is "anywhere"; its venue still matches if it is local', () => {
-  assert.equal(areaTier(rina, ev(at('Jakarta', { attendance: 'hybrid' }))).tier, 1);
-  assert.equal(areaTier(rina, ev(at('Sleman', { attendance: 'hybrid' }))).tier, 0);
-  assert.equal(areaTier(rina, ev(at('Jakarta', { attendance: 'onsite' }))).tier, 2);
+test('online: an online event AIMED at the user\'s area is local; one that is not is "anywhere", not other-local', () => {
+  assert.equal(areaTier(rina, ev({ audience: aud('yogyakarta'), geoScope: 'online' })).tier, 0, 'a Zoom class for DIY students');
+  assert.equal(areaTier(rina, ev({ geoScope: 'online' })).tier, 1, 'a global Zoom event');
+  assert.equal(areaTier(rina, ev({ audience: aud('jakarta'), geoScope: 'online' })).tier, 1, 'a Zoom event for Jakarta is still attendable — not "other local"');
+  assert.equal(areaTier(rina, ev({ attendance: 'online' })).reason, 'online');
+});
+
+test('hybrid: a hybrid event aimed at another city is attendable remotely, so "anywhere"; aimed at the user it is local', () => {
+  assert.equal(areaTier(rina, ev({ audience: aud('jakarta'), attendance: 'hybrid' })).tier, 1);
+  assert.equal(areaTier(rina, ev({ audience: aud('sleman'), attendance: 'hybrid' })).tier, 0);
+  assert.equal(areaTier(rina, ev({ audience: aud('jakarta'), attendance: 'onsite' })).tier, 2);
 });
 
 test('online placement option: after-local (default, tier 1) / with-local (merged into tier 0) / last (tier 3)', () => {
-  const zoom = ev(insight({ geoScope: 'online' }));
+  const zoom = ev({ geoScope: 'online' });
   assert.equal(areaTier(rina, zoom).tier, 1);
   assert.equal(areaTier(rina, zoom, { onlinePlacement: 'with-local' }).tier, 0);
   assert.equal(areaTier(rina, zoom, { onlinePlacement: 'last' }).tier, 3);
-  const jakartaOnsite = ev(at('Jakarta'));
-  assert.equal(areaTier(rina, jakartaOnsite, { onlinePlacement: 'last' }).tier, 2, 'the option only moves remote events');
-  const targeted = ev(at('Sleman', { geoScope: 'online' }));
-  assert.equal(areaTier(rina, targeted, { onlinePlacement: 'last' }).tier, 0, 'an online event targeted at me stays local under every option');
+  assert.equal(areaTier(rina, ev({ audience: aud('jakarta') }), { onlinePlacement: 'last' }).tier, 2, 'the option only moves remote events');
+  assert.equal(areaTier(rina, ev({ audience: aud('sleman'), geoScope: 'online' }), { onlinePlacement: 'last' }).tier, 0, 'an online event aimed at me stays local under every option');
 });
 
-test('multi-venue: areas are the UNION over schedules — a Jakarta day plus a Sleman day is a local event', () => {
-  const festival = ev(insight(), { schedules: [{ daysUntil: 2, areaKeys: ['jakarta'] }, { daysUntil: 30, areaKeys: ['sleman'] }] });
-  assert.equal(areaTier(rina, festival).tier, 0);
-  assert.equal(areaTier(rina, ev(insight(), { schedules: [{ daysUntil: 2, areaKeys: ['jakarta'] }, { daysUntil: 9, areaKeys: ['bali'] }] })).tier, 2);
+test('multi-stop: audiences are the UNION over stops — a Jakarta stop plus a Sleman stop is local for a Sleman user', () => {
+  const tour = ev({ schedules: [{ daysUntil: 2, areaKeys: ['jakarta'] }, { daysUntil: 30, areaKeys: ['sleman'] }] });
+  assert.equal(areaTier(rina, tour).tier, 0);
+  assert.equal(areaTier(rina, ev({ schedules: [{ daysUntil: 2, areaKeys: ['jakarta'] }, { daysUntil: 9, areaKeys: ['bali'] }] })).tier, 2);
 });
 
-test('multi-venue: the "sooner" date is the soonest schedule that MATCHES the user, not the event\'s first day', () => {
-  const festival: RankableWithVenue = { id: 'festival', daysUntilNext: 2, insight: insight(), schedules: [{ daysUntil: 2, areaKeys: ['jakarta'] }, { daysUntil: 30, areaKeys: ['sleman'] }] };
-  const local: RankableWithVenue = { id: 'local', daysUntilNext: 10, insight: at('Sleman') };
-  const ranked = rankAreaThenDate([festival, local], rina);
-  assert.deepEqual(ranked.map((e) => e.id), ['local', 'festival'], 'for a Sleman user the festival is on day 30, so the day-10 local event comes first');
+test('multi-stop: "sooner" is the soonest stop that MATCHES the user, not the first stop', () => {
+  const tour: RankableWithAudience = { id: 'tour', daysUntilNext: 2, schedules: [{ daysUntil: 2, areaKeys: ['jakarta'] }, { daysUntil: 30, areaKeys: ['sleman'] }] };
+  const local: RankableWithAudience = { id: 'local', daysUntilNext: 10, audience: aud('sleman') };
+  const ranked = rankAreaThenDate([tour, local], rina);
+  assert.deepEqual(ranked.map((e) => e.id), ['local', 'tour'], 'for a Sleman user the tour is on day 30');
   assert.equal(ranked[1].sortDays, 30);
-  assert.equal(rankAreaThenDate([festival, local], { ...rina, areas: ['jakarta'] })[0].id, 'festival', 'for a Jakarta user the same festival is on day 2');
+  assert.equal(rankAreaThenDate([tour, local], { ...rina, areas: ['jakarta'] })[0].id, 'tour', 'for a Jakarta user the same tour is on day 2');
 });
 
 test('rankAreaThenDate: local ladder (by date) first, then anywhere (by date), then other-local (by date)', () => {
-  const events: RankableWithVenue[] = [
-    { id: 'jkt-1', daysUntilNext: 1, insight: at('Jakarta') }, { id: 'zoom-2', daysUntilNext: 2, insight: insight({ geoScope: 'online' }) },
-    { id: 'sleman-9', daysUntilNext: 9, insight: at('Sleman') }, { id: 'diy-5', daysUntilNext: 5, insight: at('Yogyakarta') },
-    { id: 'national-3', daysUntilNext: 3, insight: insight({ geoScope: 'national' }) }, { id: 'bantul-20', daysUntilNext: 20, insight: at('Bantul') },
+  const events: RankableWithAudience[] = [
+    { id: 'jkt-1', daysUntilNext: 1, audience: aud('jakarta') }, { id: 'zoom-2', daysUntilNext: 2, geoScope: 'online' },
+    { id: 'sleman-9', daysUntilNext: 9, audience: aud('sleman') }, { id: 'diy-5', daysUntilNext: 5, audience: aud('yogyakarta') },
+    { id: 'national-3', daysUntilNext: 3, geoScope: 'national' }, { id: 'bantul-20', daysUntilNext: 20, audience: aud('bantul') },
   ];
   assert.deepEqual(rankAreaThenDate(events, rina).map((e) => e.id), ['diy-5', 'sleman-9', 'bantul-20', 'zoom-2', 'national-3', 'jkt-1']);
   assert.deepEqual(rankAreaThenDate(events, rina, { onlinePlacement: 'with-local' }).map((e) => e.id), ['zoom-2', 'diy-5', 'sleman-9', 'bantul-20', 'national-3', 'jkt-1']);
@@ -220,17 +237,17 @@ test('rankAreaThenDate: local ladder (by date) first, then anywhere (by date), t
 });
 
 test('rankAreaThenDate: with no profile it is exactly chronological, ties by id', () => {
-  const events: RankableWithVenue[] = [{ id: 'c', daysUntilNext: 9, insight: at('Jakarta') }, { id: 'a', daysUntilNext: 2, insight: at('Sleman') }, { id: 'b', daysUntilNext: 2, insight: insight() }];
+  const events: RankableWithAudience[] = [{ id: 'c', daysUntilNext: 9, audience: aud('jakarta') }, { id: 'a', daysUntilNext: 2, audience: aud('sleman') }, { id: 'b', daysUntilNext: 2 }];
   assert.deepEqual(rankAreaThenDate(events).map((e) => e.id), ['a', 'b', 'c']);
 });
 
 test('rankAreaThenDate: strictness trade-off is real — a far-off local event outranks a much sooner "anywhere" one', () => {
-  const ids = rankAreaThenDate([{ id: 'soon-national', daysUntilNext: 1, insight: insight({ geoScope: 'national' }) }, { id: 'far-local', daysUntilNext: 60, insight: at('Sleman') }], rina).map((e) => e.id);
+  const ids = rankAreaThenDate([{ id: 'soon-national', daysUntilNext: 1, geoScope: 'national' }, { id: 'far-local', daysUntilNext: 60, audience: aud('sleman') }], rina).map((e) => e.id);
   assert.deepEqual(ids, ['far-local', 'soon-national']);
 });
 
 test('rankAreaThenDate does not mutate its input', () => {
-  const events: RankableWithVenue[] = [{ id: 'a', daysUntilNext: 2, insight: at('Sleman'), schedules: [{ daysUntil: 2, areaKeys: ['sleman'] }] }];
+  const events: RankableWithAudience[] = [{ id: 'a', daysUntilNext: 2, audience: aud('sleman'), schedules: [{ daysUntil: 2, areaKeys: ['sleman'] }] }];
   const copy = JSON.stringify(events);
   rankAreaThenDate(events, rina);
   assert.equal(JSON.stringify(events), copy);
