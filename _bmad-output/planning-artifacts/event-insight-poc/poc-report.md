@@ -1,5 +1,5 @@
 ---
-status: complete
+status: complete (addendum 2026-10-18 appended)
 type: poc-report
 date: 2026-10-18
 model_under_test: gemini-3.5-flash-lite   # the production default (apps/backend/src/env.ts)
@@ -162,7 +162,63 @@ npx tsx scripts/poc-event-insight/run.ts --set core --prompt v1 --runs 3        
 npx tsx scripts/poc-event-insight/rescore.ts --results <results.json>           # offline: raw vs guarded
 npx tsx scripts/poc-event-insight/wrong-claims.ts "label=<results.json>" ...    # offline: wrong-claim rate + CI
 npx tsx scripts/poc-event-insight/rank-demo.ts --results <results.json>         # offline: per-persona ranking
-npx tsx --test scripts/poc-event-insight/*.test.ts                              # 51 tests, no network
+npx tsx scripts/poc-event-insight/run-tracks.ts --runs 2 [--holdout]             # live: age/eligibility as tracks (see addendum)
+npx tsx scripts/poc-event-insight/rescore-tracks.ts <tracks-experiment.json>    # offline: with/without range repair
+npx tsx --test scripts/poc-event-insight/*.test.ts                              # 82 tests, no network
 ```
 
 Raw per-call outputs (insights, scores, tokens, latencies; raw response text omitted) are in `results/`. The corpus `corpus.real.json` contains public captions already present in this repo's `apify-runs`/`cc-024-reference-posts`, with contact-detail lines removed.
+
+---
+
+# Addendum (2026-10-18, after pulling master and the follow-up discussion)
+
+Three things were added: **age/eligibility as tracks** (a live experiment), **area-first ordering** (prototype + demo on the real extracted insights), and **fixes to defects I found in my own guards**. Everything in §§1–10 above is unchanged and was re-verified (see A1).
+
+## A1. Defects found in my own guards, and what they did to earlier numbers
+
+While building the tracks experiment I found four bugs in the guard code reported in §3:
+
+| bug | how it was found | fix |
+|---|---|---|
+| the role check ignored a number's role: `ageMax=45` passed for "usia 45 tahun ke atas" (a *minimum*) | a unit test I wrote for a stretched range failed | the number must fit its wording; a wrong-direction cue rejects it unless a right-direction cue is also present |
+| cue words were substrings: `min` matched "**Min**ggu" (Sunday), `age` matched "package", `yo` matched "Toyota" | a music-class post failed after repair | whole-word boundaries |
+| a literal backspace character corrupted three regexes | my own tooling (Python `re.sub` escapes) broke 7 tests | rewritten; checked for control characters |
+| the role check's ±25-character window crossed clauses: in "KU II (16–18 tahun), **Senior (19+** tahun)" the neighbouring "+" rejected the 18 | out-of-sample run (A2) | judge the cue within the number's own clause (split on `, ; newline • |`) |
+
+**Effect on the numbers in §§2–4:** none. After every one of these changes I re-ran `wrong-claims.ts` on all four result files and diffed it against the committed `results/wrong-claims.generated.txt`: **identical** — the fixes changed no outcome on the 81+81+18+18 recorded responses. (I have not worked out *why* beyond that; the diff is the evidence, not an explanation.) Tests went from 51 to 82; each bug has a regression test.
+
+## A2. Age and eligibility as tracks (live, `gemini-3.5-flash-lite`)
+
+Question (from the discussion): events qualify people in several ways at once — what should "age" be? Tested: tracks = separately-qualifying categories (alternatives across tracks; all criteria within a track; `lifeStages` for school levels instead of invented numbers; `allAges`). Schema and rules: `tracks.ts`; runner: `run-tracks.ts`; raw: `results/tracks-experiment.json`, `results/tracks-holdout.json`.
+
+| set | posts × runs | usable | right track count | fabricated numbers | fully correct, raw | with deterministic range repair |
+|---|--:|--:|--:|--:|--:|--:|
+| tuning (8 existing + 4 new multi-category) | 12 × 2 | 24/24 | 24/24 | **0** | 18/24 | 24/24 ¹ |
+| **held-out** (5 new, labelled first) | 5 × 3 | 15/15 | 15/15 | **0** | 6/15 | **12/15** → 15/15 ² |
+
+¹ the repair was designed from this set's failures — optimistic.
+² 12/15 is the clean out-of-sample figure (repair as designed, never tuned on these posts). The remaining 3/15 was the clause-scope bug in A1, found on this set and fixed; 15/15 after that fix is contaminated.
+
+**What the model does well:** finds the right *structure* every time (39/39 runs: number of categories, which are gendered, school-level → life stage, "pelajar SMA atau mahasiswa" → alternatives, "tim mahasiswa maks. 25 tahun" → stage AND cap), and fabricates no numbers. A post with a time range and a price range plus "usia berapa saja" (the trap) returned `allAges` with nothing invented, 3/3.
+
+**What it does badly, systematically:** for a **closed age range** ("usia 6–10 tahun", "5–8 tahun", "13–17 tahun", "10–19 tahun") it returns the minimum and **drops the maximum** — in 3 of the 4 posts with a closed range in the first set (the coding camp's "8–12" came back complete) and in all 3 closed-range posts of the held-out set. That is an abstention (safe), but it is the *main* signal for kids' events, so it needs a fix: numbers are cheap for code to read exactly, so `repairAgeRanges` fills the missing bound from a range literally written with an adjacent age word ("usia 6–10", "6–10 tahun"), and never overwrites a stated bound or acts on an ambiguous one. (A first version let "Rp100-250 ribu, usia berapa saja" fill `ageMax=250`; a unit test caught it, and the age word must now be adjacent.)
+
+**Comparison with the flat design on the same kinds of posts (§2):** the flat schema produced `3..10` from "PAUD/TK + 1–3 SD" and `60..120` from "60 tahun ke atas", and cannot represent the fun run at all (`6..45` says an 11-year-old qualifies; with tracks `qualifies(event, {age: 11})` is correctly false).
+
+**Not tested:** images (text only); `qualifies()` and the "for age N" filter are specified and unit-tested but not exercised on a real catalogue; the 17 labelled posts the tracks reuse are the same Jogja-heavy corpus.
+
+## A3. Area first, then the sooner (prototype)
+
+`relevance.ts` → `areaTier` / `rankAreaThenDate`; demo: `results/rank-demo.generated.md` (v1 insights, guarded, 27 events, 4 personas; dates are illustrative).
+
+* Expat in Canggu: Bali yoga dinner **14 → 1**; 1 event in tier 0, 3 in tier 1, **23 in tier 2** (elsewhere).
+* Yogyakarta users (runner / student / parent): **20 of 27 events are tier 0**, so the page is chronological with the 7 out-of-area/neutral events behind. The three personas get the same top six. Inherent to the rule: it separates regions, not people within a region.
+* Unit-tested semantics: a **sibling district is "same region", not "own area"** (a Bantul event for a Sleman user) — found by re-reading my first implementation, which had classed it as own; country-level targets and national/online/unspecified are neutral, never "elsewhere"; no user ⇒ pure chronological; a strictly local event 60 days out outranks a national one tomorrow (the trade-off, pinned in a test).
+* Depends on a fine enough **area ladder**, which production does not have today (proposal §9).
+
+## A4. Updated limits and changes-after-seeing-results
+
+* The tracks tuning set and A1's bug fixes were all informed by failures on the data they are then scored on; the only clean out-of-sample numbers in this addendum are the **held-out 12/15** and **0 fabricated numbers**.
+* No new Gemini runs were made for the area-first demo or A1; both use the recorded responses.
+* Not done: `setting` (indoor/outdoor) extraction (proposal §9.3), a live Geoapify probe for Indonesian admin levels (no key here), a reproduction of the `adminArea` AI-filter symptom against a real database (none here).

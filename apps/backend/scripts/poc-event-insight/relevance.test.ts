@@ -128,3 +128,71 @@ test('rankDiscovery does not mutate its input and exposes the reasons for the UI
   assert.ok(ranked[0].reasons.includes('near you'));
   assert.ok(ranked[0].reasons.some((r) => r.startsWith('you like')));
 });
+
+// ---- area-first ordering ----
+import { areaTier, rankAreaThenDate, type RankableWithVenue } from './relevance.js';
+
+const at = (name: string, over: Partial<EventInsight> = {}) => insight({ targetAreas: [{ name, level: 'city' }], ...over });
+
+test('areaTier: own area, a sub-area, and a containing area are all "targeted at me"; elsewhere is not', () => {
+  assert.equal(areaTier(rina, at('Sleman')).reason, 'own-area');
+  assert.equal(areaTier(rina, at('Yogyakarta')).reason, 'containing-area');
+  assert.equal(areaTier({ ...rina, areas: ['yogyakarta'] }, at('Sleman')).reason, 'own-area', 'a sub-area of the user\'s city counts as inside their area');
+  assert.equal(areaTier(rina, at('Jakarta')).reason, 'elsewhere');
+  assert.equal(areaTier(rina, at('Sleman')).tier, 0);
+  assert.equal(areaTier(rina, at('Yogyakarta')).tier, 0);
+  assert.equal(areaTier(rina, at('Jakarta')).tier, 2);
+});
+
+test('areaTier: a sibling district is "same region", not "own area" (Bantul for a Sleman user), and is not elsewhere', () => {
+  assert.equal(areaTier(rina, at('Bantul')).reason, 'same-region');
+  assert.equal(areaTier(rina, at('Bantul')).tier, 0);
+  assert.equal(areaTier(rina, at('Bantul'), [], 'most-local-first').tier, 1, 'but behind the user\'s own district when ordering most-local-first');
+  assert.equal(areaTier({ ...rina, areas: ['yogyakarta'] }, at('Bantul')).reason, 'own-area', 'a district inside the user\'s city-level area is own');
+  assert.equal(areaTier(rina, at('Semarang')).reason, 'elsewhere', 'another province is still elsewhere');
+});
+
+test('areaTier: national / international / online / unspecified / country-level targets are neutral, never "elsewhere"', () => {
+  assert.equal(areaTier(rina, insight()).reason, 'no-specific-area');
+  assert.equal(areaTier(rina, insight({ geoScope: 'online' })).reason, 'no-specific-area');
+  assert.equal(areaTier(rina, at('Indonesia', { geoScope: 'national' })).reason, 'no-specific-area');
+  assert.equal(areaTier(rina, at('Jakarta', { geoScope: 'national' })).reason, 'no-specific-area', 'a listed city at national scope is not "elsewhere"');
+  assert.equal(areaTier(rina, at('Asia', { geoScope: 'international' })).reason, 'no-specific-area');
+  assert.equal(areaTier(rina, undefined).reason, 'no-specific-area', 'no insight yet => neutral');
+});
+
+test('areaTier: no user, or a user with no location, puts everything in the neutral tier (=> pure date order)', () => {
+  assert.equal(areaTier(undefined, at('Sleman')).reason, 'no-specific-area');
+  assert.equal(areaTier({ ...rina, areas: [] }, at('Jakarta')).reason, 'no-specific-area');
+});
+
+test('areaTier: the venue\'s geocoded areas count when the post names no audience area, and union with the AI areas', () => {
+  assert.equal(areaTier(rina, insight(), ['sleman']).reason, 'own-area');
+  assert.equal(areaTier(rina, at('Jakarta'), ['sleman']).reason, 'own-area', 'any matching area wins');
+});
+
+test('areaTier: most-local-first splits the containing area from the own area', () => {
+  assert.equal(areaTier(rina, at('Sleman'), [], 'most-local-first').tier, 0);
+  assert.equal(areaTier(rina, at('Yogyakarta'), [], 'most-local-first').tier, 1);
+  assert.equal(areaTier(rina, insight(), [], 'most-local-first').tier, 2);
+  assert.equal(areaTier(rina, at('Jakarta'), [], 'most-local-first').tier, 3);
+});
+
+test('rankAreaThenDate: targeted-at-me first (by date), then neutral (by date), then elsewhere (by date)', () => {
+  const events: RankableWithVenue[] = [
+    evt('jkt-1', 1, at('Jakarta')), evt('neutral-2', 2, insight()), evt('sleman-9', 9, at('Sleman')),
+    evt('diy-5', 5, at('Yogyakarta')), evt('national-3', 3, insight({ geoScope: 'national' })), evt('sleman-20', 20, at('Sleman')),
+  ];
+  assert.deepEqual(rankAreaThenDate(events, rina).map((e) => e.id), ['diy-5', 'sleman-9', 'sleman-20', 'neutral-2', 'national-3', 'jkt-1']);
+  assert.deepEqual(rankAreaThenDate(events, rina, 'most-local-first').map((e) => e.id), ['sleman-9', 'sleman-20', 'diy-5', 'neutral-2', 'national-3', 'jkt-1']);
+});
+
+test('rankAreaThenDate: with no profile it is exactly chronological, ties by id', () => {
+  const events = [evt('c', 9, at('Jakarta')), evt('a', 2, at('Sleman')), evt('b', 2, insight())];
+  assert.deepEqual(rankAreaThenDate(events).map((e) => e.id), ['a', 'b', 'c']);
+});
+
+test('rankAreaThenDate: strictness trade-off is real — a far-off local event outranks a much sooner neutral one', () => {
+  const ids = rankAreaThenDate([evt('soon-national', 1, insight({ geoScope: 'national' })), evt('far-local', 60, at('Sleman'))], rina).map((e) => e.id);
+  assert.deepEqual(ids, ['far-local', 'soon-national']);
+});

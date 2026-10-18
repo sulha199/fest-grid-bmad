@@ -115,6 +115,40 @@ test('an UNverified gender restriction is reset to all first, and does not force
   assert.equal(r.insight.eligibility, 'open_to_public');
 });
 
+test('role check: a number can only ground the bound its wording states', () => {
+  const src = 'Gratis untuk lansia usia 60 tahun ke atas';
+  assert.equal(applyGuards(base({ ageMax: 60, evidence: [src] }), src).insight.ageMax, undefined, '"60 ke atas" is a minimum, not a maximum');
+  assert.equal(applyGuards(base({ ageMin: 60, evidence: [src] }), src).insight.ageMin, 60);
+  const under = 'Anak di bawah 12 tahun masuk gratis';
+  assert.equal(applyGuards(base({ ageMin: 12, evidence: [under] }), under).insight.ageMin, undefined, '"di bawah 12" is a maximum, not a minimum');
+  assert.equal(applyGuards(base({ ageMax: 12, evidence: [under] }), under).insight.ageMax, 12);
+});
+
+test('role check does not reject a plain range or a neighbouring line\'s cue', () => {
+  const src = 'Kids Dash 1K — usia 6–10 tahun\n5K Terbuka — usia 12 tahun ke atas';
+  const r = applyGuards(base({ ageMin: 6, ageMax: 10, evidence: ['Kids Dash 1K — usia 6–10 tahun'] }), src);
+  assert.equal(r.insight.ageMin, 6);
+  assert.equal(r.insight.ageMax, 10);
+  const range = applyGuards(base({ ageMin: 7, ageMax: 16, evidence: ['Usia 7–16 Tahun'] }), 'Usia 7–16 Tahun');
+  assert.equal(range.insight.ageMax, 16);
+});
+
+test('cue words are whole words: "Minggu" is not "min", "package" is not "age", "Toyota" is not "yo"', () => {
+  const src = 'Kelas Anak (usia 5–8 tahun) — Sabtu\nKelas Remaja (13–17 tahun) — Minggu';
+  assert.equal(applyGuards(base({ ageMin: 5, ageMax: 8, evidence: ['Kelas Anak (usia 5–8 tahun) — Sabtu'] }), src).insight.ageMax, 8, '"Minggu" next door must not turn 8 into a minimum');
+  const notAge = 'Toyota package 12 unit';
+  assert.equal(applyGuards(base({ ageMin: 12, evidence: [notAge] }), notAge).insight.ageMin, undefined, '"package"/"Toyota" are not age words');
+});
+
+test('role check is per clause: a neighbouring group\'s "19+" does not make 18 a minimum', () => {
+  const src = 'Kelompok umur: KU I (13–15 tahun), KU II (16–18 tahun), Senior (19+ tahun).';
+  const r = applyGuards(base({ ageMin: 16, ageMax: 18, evidence: ['KU II (16–18 tahun)'] }), src);
+  assert.equal(r.insight.ageMax, 18);
+  const senior = applyGuards(base({ ageMin: 19, evidence: ['Senior (19+ tahun)'] }), src);
+  assert.equal(senior.insight.ageMin, 19);
+  assert.equal(applyGuards(base({ ageMax: 19, evidence: ['Senior (19+ tahun)'] }), src).insight.ageMax, undefined, '19+ is still only a minimum');
+});
+
 test('does not mutate its input', () => {
   const input = base({ ageMax: 99, evidence: ['nothing'] });
   const copy = JSON.stringify(input);

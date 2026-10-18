@@ -9,7 +9,7 @@
 import type { EventInsight } from './insight-schema.js';
 import { isVerbatimQuote } from './score.js';
 
-const AGE_WORDS = /(usia|umur|age|aged|tahun|thn|years?|yrs?|yo|y\.o|th\b|di ?bawah|under|ke ?atas|above|older)/i;
+const AGE_WORDS = /(\busia\b|\bumur\b|\bage[ds]?\b|\btahun\b|\bthn\b|\byears?\b|\byrs?\b|\byo\b|\by\.o\b|\bth\b|di ?bawah|\bunder\b|ke ?atas|\babove\b|\bolder\b)/i;
 
 const RESTRICTION_CUE = /(khusus|hanya (untuk|bagi)|eksklusif|exclusive|internal|undangan|invitation|invite[- ]only|members? only|only for|anggota|tidak (terbuka )?untuk umum|not open to|wajib (membawa|memiliki|menunjukkan)|private event)/i;
 
@@ -17,15 +17,25 @@ const GENDER_CUE = /(khusus|hanya|only|exclusive|eksklusif).{0,24}(perempuan|wan
 
 export interface GuardResult { insight: EventInsight; actions: string[] }
 
-const UPPER_BOUND_CUE = /(di ?bawah|kurang dari|under|below|younger than|max(imum)?)/i;
-const LOWER_BOUND_CUE = /(di ?atas|lebih dari|over|above|older than|min(imum)?|ke ?atas|keatas|\+)/i;
+const UPPER_BOUND_CUE = /(di ?bawah|kurang dari|\bunder\b|\bbelow\b|\byounger than\b|\bmax(imum|imal)?\b|\bmaks(imal)?\b)/i;
+const LOWER_BOUND_CUE = /(di ?atas|lebih dari|\bover\b|\babove\b|\bolder than\b|\bmin(imum|imal)?\b|ke ?atas|keatas|\+)/i;
 
 // A number is accepted as a stated age only if it appears as a standalone numeric token inside a
 // (verbatim-verified) evidence quote, within 25 characters of an age word. This is what separates
-// "usia 7–16 tahun" from "1 - 3 SD" (a school level) and from a model-invented "60..120".
+// "usia 7–16 tahun" from "1 - 3 SD" (a school level) and from a model-invented "60..120". The
+// number's ROLE must also fit: "45 tahun ke atas" can ground a minimum of 45 but not a maximum of 45.
 // Exclusive bounds are the one legitimate derivation: "di bawah 12 tahun" -> ageMax 11 (or 12),
 // "di atas 17 tahun" -> ageMin 18 (or 17), so n±1 is accepted next to an under/over cue.
-function ageNumberIsStated(n: number, quotes: string[], kind: 'min' | 'max'): boolean {
+const CLAUSE_BREAK = /[,;\n•|]/;
+function clauseAround(text: string, index: number): string {
+  let lo = index;
+  while (lo > 0 && !CLAUSE_BREAK.test(text[lo - 1])) lo--;
+  let hi = index;
+  while (hi < text.length && !CLAUSE_BREAK.test(text[hi])) hi++;
+  return text.slice(lo, hi);
+}
+
+export function ageNumberIsStated(n: number, quotes: string[], kind: 'min' | 'max'): boolean {
   const candidates = [n];
   if (kind === 'max') candidates.push(n + 1); else candidates.push(n - 1);
   return candidates.some((cand) => {
@@ -35,7 +45,18 @@ function ageNumberIsStated(n: number, quotes: string[], kind: 'min' | 'max'): bo
         const lo = Math.max(0, m.index! - 25);
         const window = q.slice(lo, m.index! + String(cand).length + 25);
         if (!AGE_WORDS.test(window)) continue;
-        if (cand === n) return true;
+        if (cand === n) {
+          // Role check: a number sitting next to a wrong-direction cue only counts if a right-direction
+          // cue is also in the window. "usia 45 tahun ke atas" states a MINIMUM of 45, never a maximum;
+          // "di bawah 12 tahun" states a maximum, never a minimum.
+          // Judged within the number's own CLAUSE (split on , ; newline • |), not the whole window: in
+          // "KU II (16–18 tahun), Senior (19+ tahun)" the neighbouring "+" belongs to a different group.
+          const clause = clauseAround(q, m.index!);
+          const wrong = kind === 'max' ? LOWER_BOUND_CUE : UPPER_BOUND_CUE;
+          const right = kind === 'max' ? UPPER_BOUND_CUE : LOWER_BOUND_CUE;
+          if (wrong.test(clause) && !right.test(clause)) continue;
+          return true;
+        }
         // n±1 only counts next to an exclusive-bound cue pointing the right way.
         if (kind === 'max' ? UPPER_BOUND_CUE.test(window) : LOWER_BOUND_CUE.test(window)) return true;
       }

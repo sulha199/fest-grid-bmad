@@ -13,7 +13,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { loadCases } from './corpus.js';
 import { applyGuards } from './guards.js';
 import type { EventInsight } from './insight-schema.js';
-import { rankDiscovery, type RankableEvent, type UserProfile } from './relevance.js';
+import { rankAreaThenDate, rankDiscovery, type RankableEvent, type UserProfile } from './relevance.js';
 
 const DAYS: Record<string, number> = {
   'shopfest': 3, 'uss-market': 5, 'tropical-playland': 7, 'swasana-budaya': 9, 'gowes-merdeka': 11, 'cald-conference': 13,
@@ -66,14 +66,26 @@ for (const p of PERSONAS) {
   out.push(`### ${p.id} — ${p.blurb}`, '', '| # | event | in (days) | relevance | why |', '|--:|---|--:|--:|---|',
     ...ranked.slice(0, top).map((e, i) => `| ${i + 1} | ${e.id} | ${e.daysUntilNext} | ${e.score.toFixed(2)} | ${e.reasons.join(', ') || '—'} |`), '');
 }
-out.push(`### Rank of the events each user would plausibly care about (1 = top of ${events.length}; chronological → personalised)`, '', '| user | event | chronological | personalised |', '|---|---|--:|--:|');
+out.push(`### Rank of the events each user would plausibly care about (1 = top of ${events.length})`, '', '| user | event | chronological | area → sooner | bounded relevance discount |', '|---|---|--:|--:|--:|');
 const rankOf = (list: Array<{ id: string }>, id: string) => list.findIndex((e) => e.id === id) + 1;
 const chronoAll = rankDiscovery(events);
 for (const p of PERSONAS) {
   const mine = rankDiscovery(events, p);
-  for (const id of WANTED[p.id] ?? []) out.push(`| ${p.id} | ${id} | ${rankOf(chronoAll, id)} | ${rankOf(mine, id)} |`);
+  const areaFirst = rankAreaThenDate(events, p);
+  for (const id of WANTED[p.id] ?? []) out.push(`| ${p.id} | ${id} | ${rankOf(chronoAll, id)} | ${rankOf(areaFirst, id)} | ${rankOf(mine, id)} |`);
 }
 out.push('');
+out.push(`### Area first, then sooner — top ${top} per user (tier: 0 = targeted at my area/region · 1 = no specific area · 2 = targeted elsewhere)`, '');
+const areaTops = new Map<string, string[]>();
+for (const p of PERSONAS) {
+  const ranked = rankAreaThenDate(events, p);
+  areaTops.set(p.id, ranked.slice(0, top).map((e) => e.id));
+  const counts = [0, 1, 2].map((t) => ranked.filter((e) => e.tier === t).length);
+  out.push(`**${p.id}** — events by tier: ${counts[0]} / ${counts[1]} / ${counts[2]}`, '', '| # | event | in (days) | tier | why |', '|--:|---|--:|--:|---|',
+    ...ranked.slice(0, top).map((e, i) => `| ${i + 1} | ${e.id} | ${e.daysUntilNext} | ${e.tier} | ${e.reason} |`), '');
+}
+const moved = (p: UserProfile) => { const a = rankDiscovery(events).map((e) => e.id), b = rankAreaThenDate(events, p).map((e) => e.id); return b.filter((id, i) => a[i] !== id).length; };
+out.push('Events whose position differs from the chronological order: ' + PERSONAS.map((p) => `${p.id} ${moved(p)}/${events.length}`).join(' · '), '');
 const jaccard = (a: string[], b: string[]) => { const A = new Set(a), B = new Set(b); return [...A].filter((x) => B.has(x)).length / new Set([...A, ...B]).size; };
 const names = [...tops.keys()];
 out.push(`### Top-${top} overlap between users (Jaccard; 1.00 = identical page)`, '', '| | ' + names.join(' | ') + ' | anonymous |', '|---|' + names.map(() => '--:').join('|') + '|--:|');

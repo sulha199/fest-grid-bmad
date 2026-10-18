@@ -1,0 +1,730 @@
+{
+ "model": "gemini-3.5-flash-lite",
+ "runs": 3,
+ "records": [
+  {
+   "id": "htrk-badminton-u",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1228,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "child",
+       "teen"
+      ],
+      "genderFocus": "all",
+      "ageMax": 13,
+      "label": "U-13"
+     },
+     {
+      "lifeStages": [
+       "teen"
+      ],
+      "genderFocus": "all",
+      "ageMax": 17,
+      "label": "U-17"
+     },
+     {
+      "lifeStages": [
+       "young_adult",
+       "adult"
+      ],
+      "genderFocus": "all",
+      "label": "Umum"
+     },
+     {
+      "lifeStages": [
+       "young_adult",
+       "adult",
+       "teen",
+       "senior"
+      ],
+      "genderFocus": "women",
+      "label": "Ganda Putri"
+     }
+    ],
+    "evidence": [
+     "U-13 (di bawah 13 tahun)",
+     "U-17 (di bawah 17 tahun)",
+     "Umum",
+     "Ganda Putri (khusus perempuan)"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 3,
+    "expectationsTotal": 3,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "htrk-badminton-u",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1512,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "child",
+       "teen"
+      ],
+      "genderFocus": "all",
+      "ageMax": 13,
+      "label": "U-13"
+     },
+     {
+      "lifeStages": [
+       "teen"
+      ],
+      "genderFocus": "all",
+      "ageMax": 17,
+      "label": "U-17"
+     },
+     {
+      "lifeStages": [
+       "young_adult",
+       "adult"
+      ],
+      "genderFocus": "all",
+      "label": "Umum"
+     },
+     {
+      "lifeStages": [
+       "young_adult",
+       "adult",
+       "teen"
+      ],
+      "genderFocus": "women",
+      "label": "Ganda Putri"
+     }
+    ],
+    "evidence": [
+     "U-13 (di bawah 13 tahun)",
+     "U-17 (di bawah 17 tahun)",
+     "Umum",
+     "Ganda Putri (khusus perempuan)"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 3,
+    "expectationsTotal": 3,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "htrk-badminton-u",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1139,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "child",
+       "teen"
+      ],
+      "genderFocus": "all",
+      "ageMax": 13,
+      "label": "U-13"
+     },
+     {
+      "lifeStages": [
+       "teen"
+      ],
+      "genderFocus": "all",
+      "ageMax": 17,
+      "label": "U-17"
+     },
+     {
+      "lifeStages": [
+       "young_adult",
+       "adult"
+      ],
+      "genderFocus": "all",
+      "label": "Umum"
+     },
+     {
+      "lifeStages": [
+       "young_adult",
+       "adult",
+       "senior"
+      ],
+      "genderFocus": "women",
+      "label": "Ganda Putri"
+     }
+    ],
+    "evidence": [
+     "U-13 (di bawah 13 tahun)",
+     "U-17 (di bawah 17 tahun)",
+     "Umum",
+     "Ganda Putri (khusus perempuan)"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 3,
+    "expectationsTotal": 3,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "htrk-lukis",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 968,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "early_childhood"
+      ],
+      "genderFocus": "all",
+      "ageMin": 3,
+      "label": "Kelas Balita"
+     },
+     {
+      "lifeStages": [
+       "child"
+      ],
+      "genderFocus": "all",
+      "ageMin": 6,
+      "label": "Kelas Anak"
+     }
+    ],
+    "evidence": [
+     "Kelas Balita (3–5 tahun, didampingi orang tua)",
+     "Kelas Anak (6–12 tahun)"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 2,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": false,
+    "detail": [
+     "no track matches {\"ageMin\":[3],\"ageMax\":[5]}",
+     "no track matches {\"ageMin\":[6],\"ageMax\":[12]}"
+    ]
+   }
+  },
+  {
+   "id": "htrk-lukis",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 948,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "early_childhood"
+      ],
+      "genderFocus": "all",
+      "ageMin": 3,
+      "label": "Kelas Balita"
+     },
+     {
+      "lifeStages": [
+       "early_childhood",
+       "child"
+      ],
+      "genderFocus": "all",
+      "ageMax": 12,
+      "ageMin": 6,
+      "label": "Kelas Anak"
+     }
+    ],
+    "evidence": [
+     "Kelas Balita (3–5 tahun, didampingi orang tua)",
+     "Kelas Anak (6–12 tahun)"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 2,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": false,
+    "detail": [
+     "no track matches {\"ageMin\":[3],\"ageMax\":[5]}"
+    ]
+   }
+  },
+  {
+   "id": "htrk-lukis",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 985,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "early_childhood"
+      ],
+      "genderFocus": "all",
+      "ageMin": 3,
+      "label": "Kelas Balita"
+     },
+     {
+      "lifeStages": [
+       "child"
+      ],
+      "genderFocus": "all",
+      "ageMin": 6,
+      "label": "Kelas Anak"
+     }
+    ],
+    "evidence": [
+     "Kelas Balita (3–5 tahun, didampingi orang tua)",
+     "Kelas Anak (6–12 tahun)"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 2,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": false,
+    "detail": [
+     "no track matches {\"ageMin\":[3],\"ageMax\":[5]}",
+     "no track matches {\"ageMin\":[6],\"ageMax\":[12]}"
+    ]
+   }
+  },
+  {
+   "id": "htrk-renang",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1387,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "teen"
+      ],
+      "genderFocus": "all",
+      "ageMin": 13,
+      "label": "KU I (13–15 tahun)"
+     },
+     {
+      "lifeStages": [
+       "teen",
+       "young_adult"
+      ],
+      "genderFocus": "all",
+      "ageMin": 16,
+      "label": "KU II (16–18 tahun)"
+     },
+     {
+      "lifeStages": [
+       "young_adult",
+       "adult",
+       "senior"
+      ],
+      "genderFocus": "all",
+      "ageMin": 19,
+      "label": "Senior (19+ tahun)"
+     }
+    ],
+    "evidence": [
+     "KU I (13–15 tahun)",
+     "KU II (16–18 tahun)",
+     "Senior (19+ tahun)"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 3,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": false,
+    "detail": [
+     "no track matches {\"ageMin\":[13],\"ageMax\":[15]}",
+     "no track matches {\"ageMin\":[16],\"ageMax\":[18]}"
+    ]
+   }
+  },
+  {
+   "id": "htrk-renang",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1200,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "teen",
+       "young_adult"
+      ],
+      "genderFocus": "all",
+      "ageMin": 13,
+      "label": "KU I (13–15 tahun)"
+     },
+     {
+      "lifeStages": [
+       "teen",
+       "young_adult"
+      ],
+      "genderFocus": "all",
+      "ageMin": 16,
+      "label": "KU II (16–18 tahun)"
+     },
+     {
+      "lifeStages": [
+       "young_adult",
+       "adult",
+       "senior"
+      ],
+      "genderFocus": "all",
+      "ageMin": 19,
+      "label": "Senior (19+ tahun)"
+     }
+    ],
+    "evidence": [
+     "KU I (13–15 tahun)",
+     "KU II (16–18 tahun)",
+     "Senior (19+ tahun)"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 3,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": false,
+    "detail": [
+     "no track matches {\"ageMin\":[13],\"ageMax\":[15]}",
+     "no track matches {\"ageMin\":[16],\"ageMax\":[18]}"
+    ]
+   }
+  },
+  {
+   "id": "htrk-renang",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1012,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "teen"
+      ],
+      "genderFocus": "all",
+      "ageMin": 13,
+      "label": "KU I (13–15 tahun)"
+     },
+     {
+      "lifeStages": [
+       "teen",
+       "young_adult"
+      ],
+      "genderFocus": "all",
+      "ageMin": 16,
+      "label": "KU II (16–18 tahun)"
+     },
+     {
+      "lifeStages": [
+       "young_adult",
+       "adult",
+       "senior"
+      ],
+      "genderFocus": "all",
+      "ageMin": 19,
+      "label": "Senior (19+ tahun)"
+     }
+    ],
+    "evidence": [
+     "KU I (13–15 tahun)",
+     "KU II (16–18 tahun)",
+     "Senior (19+ tahun)"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 3,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": false,
+    "detail": [
+     "no track matches {\"ageMin\":[13],\"ageMax\":[15]}",
+     "no track matches {\"ageMin\":[16],\"ageMax\":[18]}"
+    ]
+   }
+  },
+  {
+   "id": "htrk-posyandu",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1098,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "teen"
+      ],
+      "genderFocus": "all",
+      "ageMin": 10,
+      "label": "remaja usia 10–19 tahun"
+     },
+     {
+      "lifeStages": [
+       "senior"
+      ],
+      "genderFocus": "all",
+      "ageMin": 60,
+      "label": "lansia usia ≥ 60 tahun"
+     }
+    ],
+    "evidence": [
+     "remaja usia 10–19 tahun",
+     "lansia usia ≥ 60 tahun"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 2,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": false,
+    "detail": [
+     "no track matches {\"ageMin\":[10],\"ageMax\":[19]}"
+    ]
+   }
+  },
+  {
+   "id": "htrk-posyandu",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1003,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "teen"
+      ],
+      "genderFocus": "all",
+      "ageMin": 10,
+      "label": "Remaja usia 10-19 tahun"
+     },
+     {
+      "lifeStages": [
+       "senior"
+      ],
+      "genderFocus": "all",
+      "ageMin": 60,
+      "label": "Lansia usia >= 60 tahun"
+     }
+    ],
+    "evidence": [
+     "POSYANDU REMAJA & LANSIA",
+     "remaja usia 10–19 tahun",
+     "lansia usia ≥ 60 tahun"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 2,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": false,
+    "detail": [
+     "no track matches {\"ageMin\":[10],\"ageMax\":[19]}"
+    ]
+   }
+  },
+  {
+   "id": "htrk-posyandu",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1101,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "teen"
+      ],
+      "genderFocus": "all",
+      "ageMin": 10,
+      "label": "remaja usia 10–19 tahun"
+     },
+     {
+      "lifeStages": [
+       "senior"
+      ],
+      "genderFocus": "all",
+      "ageMin": 60,
+      "label": "lansia usia ≥ 60 tahun"
+     }
+    ],
+    "evidence": [
+     "POSYANDU REMAJA & LANSIA",
+     "remaja usia 10–19 tahun",
+     "lansia usia ≥ 60 tahun"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 2,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": false,
+    "detail": [
+     "no track matches {\"ageMin\":[10],\"ageMax\":[19]}"
+    ]
+   }
+  },
+  {
+   "id": "htrk-bazaar-trap",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1036,
+   "audience": {
+    "allAges": true,
+    "tracks": [
+     {
+      "lifeStages": [
+       "early_childhood",
+       "child",
+       "teen",
+       "young_adult",
+       "adult",
+       "senior"
+      ],
+      "genderFocus": "all",
+      "label": "Semua Usia"
+     }
+    ],
+    "evidence": [
+     "Usia berapa saja boleh datang, semua umur!"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "htrk-bazaar-trap",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 720,
+   "audience": {
+    "allAges": true,
+    "tracks": [
+     {
+      "lifeStages": [
+       "early_childhood",
+       "child",
+       "teen",
+       "young_adult",
+       "adult",
+       "senior"
+      ],
+      "genderFocus": "all",
+      "label": "semua umur"
+     }
+    ],
+    "evidence": [
+     "Usia berapa saja boleh datang, semua umur!"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "htrk-bazaar-trap",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 797,
+   "audience": {
+    "allAges": true,
+    "tracks": [
+     {
+      "lifeStages": [
+       "early_childhood",
+       "child",
+       "teen",
+       "young_adult",
+       "adult",
+       "senior"
+      ],
+      "genderFocus": "all"
+     }
+    ],
+    "evidence": [
+     "Usia berapa saja boleh datang, semua umur!"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  }
+ ]
+}
