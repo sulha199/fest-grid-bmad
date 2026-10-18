@@ -15,7 +15,9 @@ Sort by the **target audience's area**, never the event's/venue's area. A nation
 
 ## Effective audience area (first match wins)
 
-stated in the post → (national / international / online scope stops the fallbacks) → the venue's locality, for a plain local event → the account's location, organizers only → none ("for anyone").
+stated in the post → (national / international scope stops the fallbacks) → for an **online** event, only the organizer's own area and only when its reach is known to be local/regional → the venue's locality, for a plain local event → the account's location, confirmed organizers whose reach is not national only → none ("for anyone").
+
+**Online is not a tier (decision 2026-10-18).** An online event is weighed by its audience exactly like an onsite one: a local government's Zoom briefing for Sleman residents is local for a Sleman user and *other-local* for a Jakarta user; a national company's webinar has no audience area and is "anywhere" for everyone. How an event is attended does not enter the order (a type-level test pins it). The reach of the organizer comes from IDEA-075.
 
 ## Measured (Gemini `gemini-3.5-flash-lite`, 3 runs per post, live; model confidence not used)
 
@@ -31,9 +33,9 @@ Residual: a continent-level audience ("delegates from across Asia") is scoped `i
 ## Story outline
 
 1. IDEA-073 — canonical area ladder (prerequisite).
-2. BUG-065 / BUG-066 — location policy and geocoder correctness (prerequisite for the account fallback).
+2. BUG-065 / BUG-066 / IDEA-075 — location policy, geocoder correctness, and the profile read that supplies country and reach (prerequisites for the account fallback).
 3. Extraction: audience areas + scope (+ `attendance`, BUG-064) on the extraction response, AJV-validated, guards on write, nothing from model confidence.
 4. Ordering: one `ORDER BY` expression `(areaTier, soonestMatchingDate, id)` (AD-17/AD-18: no per-row resolver), user area from the saved location.
 5. Optional second stage: bounded relevance discount (interests/age tracks) — only after 1–4 are measured.
 
-Related: IDEA-073, BUG-063, BUG-064, BUG-065, BUG-066, IDEA-071.
+Related: IDEA-073, BUG-063, BUG-064, BUG-065, BUG-066, IDEA-071, IDEA-075, FIND-086.

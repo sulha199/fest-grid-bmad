@@ -1,5 +1,5 @@
 ---
-status: draft-for-review (revision 4)
+status: draft-for-review (revision 5)
 type: planning-proposal
 date: 2026-10-18
 related: [prd §3.1 Event Discovery, §3.2 Personalization, §3.8 Gemini API Management, §3.16 Data Minimization, §4.1 EventInfo, §4.3 LocationDetails; Architecture Spine AD-13, AD-17, AD-18, AD-29, AD-30; Epic 7/9 (AI filter) for the golden-set pattern]
@@ -20,7 +20,7 @@ evidence: ./poc-report.md
 ### Revision 3 — decisions from the second discussion (2026-10-18)
 
 5. **The area ladder is its own first story** and is registered in the backlog as **IDEA-073**, with the two defects behind it as **BUG-063** (`adminArea` never written) and **BUG-064** (online and multi-venue events). It fixes the AI filter on its own, whether or not this feature ships.
-6. **Ordering is one merged local group, then the rest** (§4.0). No "own district before the region" split: every rung of the user's area ladder is one group ordered by date; then events reachable from anywhere (online, national, unspecified); then events targeted at other local areas. **Online events get explicit handling** (§4.0, §9.3).
+6. **Ordering is one merged local group, then the rest** (§4.0). No "own district before the region" split: every rung of the user's area ladder is one group ordered by date; then events reachable from anywhere (national, unspecified — and online ones only if they have no audience area, decision 12); then events targeted at other local areas. **Online events are weighed by their audience** (decision 12, §4.0, §9.3).
 7. **Venue type is mapped to indoor/outdoor, and an event can have several venues** (§9.3): Geoapify's category first, a small closed vocabulary, the model only where the geocoder is silent; venues belong to schedules, so a multi-venue event already exists in the data model — but production extraction currently loses the venues (BUG-064).
 
 ### Revision 4 — decisions from the third discussion (2026-10-18)
@@ -28,7 +28,14 @@ evidence: ./poc-report.md
 8. **Order by the target audience's area, never by the event's or venue's area.** A national competition held on a Yogyakarta campus is *not* a Yogyakarta event; a Jakarta concert with a bus for Surabaya residents *is* a Surabaya event. Revisions 2–3 unioned the venue's area into the event's areas (§4.0 used to say so); that is withdrawn. The ordering reads one value per event — the **effective audience area** (§10.3) — and the venue appears in it only as a fallback for a plain local event. This makes audience extraction the foundation of the feature (§10.2), not an optional second phase (§7 is reordered).
 9. **Account location is a fallback for venue/organizer accounts only.** A curator's events must never fall back to the curator's account location (§10.1). Registered as **BUG-065**.
 10. **Querying a curator's location produces wrong addresses and wrong countries ("fatal")** — registered as **BUG-066**. I could not reproduce it (no Geoapify key); §10.4 lists the six mechanisms found in the code, what ruled one out, and a probe + SQL to run first. What *was* measured is the cause behind BUG-065: the production inference gives a curator a different "location" for every post.
-11. **Online events** are an explicit case in the effective-audience-area rule (§10.3): an online event has no venue fallback, and "online" only decides the tier when the audience area does not match the user.
+11. **Online events** are an explicit case in the effective-audience-area rule (§10.3). *(Superseded by decision 12: "online" no longer decides a tier at all.)*
+
+### Revision 5 — decisions from the fourth discussion (2026-10-18)
+
+12. **Online events are weighed by their audience, exactly like onsite events** — there is no online tier and no placement option any more. A local government's Zoom briefing for Sleman residents is local for a Sleman user and *other-local* for a Jakarta user (they could log in, but it is not for them); a national company's webinar has no audience area and is "anywhere" for everyone. How an event is attended is not an input to the order at all (a type-level test pins it). This closes the one question that was open in §6.2.
+13. **A never-classified account (`accountTypeStatus` null) lends no location** (§10.1). It means *unknown*, not *organizer*: Story 3.4n grandfathered those accounts into scraping on purpose, and a curator among them would otherwise lend a wrong location. Scraping is unchanged. Side finding **FIND-086**: such a curator also escapes the curator caption-clearing.
+14. **The account's country is read from its initial profile scrape** (§10.8, **IDEA-075**), not from a platform default, and **that scrape gets a retry policy** — today any failure parks the account for a moderator and nothing retries it.
+15. **Organizers have a reach** — local, regional, national. A national company's account location is a head office; it does not lend it, and its online events with no stated audience are "for anyone". Reach comes from the same profile read.
 
 ## 1. Recommendation
 
@@ -152,10 +159,10 @@ ORDER BY areaTier ASC, soonestMatchingDate ASC, id ASC          -- areaTier = on
 | tier | meaning | examples for a Sleman user |
 |--:|---|---|
 | **0 — local ladder** | the event is targeted at **any rung** of the user's area ladder, merged into **one** group ordered by date: their own area, a sub-area, a containing area, or a sibling in the same region | a Sleman event · a DIY-wide event · a Bantul event · a Zoom class "for Yogyakarta students" |
-| **1 — anywhere** | reachable regardless of where the user is: **online / hybrid events not targeted at their area**, national / international scope, no resolvable area, no insight yet — and **every event, if the user has no location** | a global Zoom webinar · "se-Indonesia" competition · a hybrid seminar in Jakarta |
-| **2 — other local** | **onsite-only** events targeted at some other area | a Jakarta exhibition · a Bali yoga dinner |
+| **1 — anywhere** | **no audience area**: national / international scope, an online event open to anyone, nothing resolvable, no insight yet — and **every event, if the user has no location** | a national company's webinar · "se-Indonesia" competition · a post that names no audience |
+| **2 — other local** | targeted at some **other** area — **onsite or online, it makes no difference** | a Jakarta exhibition · a Bali yoga dinner · a Zoom briefing "for Sleman residents" seen from Jakarta |
 
-* **"Targeted at" is read first, "online" second.** A Zoom event for Yogyakarta students is tier 0; a Zoom event for Jakarta residents is tier 1 (the user *can* attend it — it is not "other local"). Online placement is an option: `after-local` (**default**, tier 1, ahead of other-local in-person events the user cannot attend) · `with-local` (online events with no area merge into tier 0 and are ordered by date with the local ones) · `last` (behind other-local). **This is the one open choice** (§6.2).
+* **Online is weighed by its audience, exactly like onsite (revision 5).** A Zoom class for Yogyakarta students is tier 0 for a Yogyakarta user; a Zoom briefing for Jakarta residents is tier 2 for them — the user *could* attend, but it is not for them, which is the same judgement as for a Jakarta exhibition; a webinar from a national company has no audience area and is tier 1. The earlier draft put online events not aimed at the user in tier 1 ("attendable") and offered a placement option (`after-local` / `with-local` / `last`); both are removed. `attendance` stays useful for filters and labels and is deliberately not an input to `areaTier`.
 * **The area of an event is its *effective audience area* (§10.3), not its venue (revision 4).** First match wins: the audience the post states ("se-Kabupaten Bantul", "warga Surabaya", "mahasiswa se-DIY") → a nationwide / international / online scope (which stops the fallbacks) → the locality of the venue, for a plain local event with no stated audience → the account's own location, organizers only (BUG-065) → none ("for anyone", tier 1). The ordering code (`areaTier`) takes only that value, so it cannot read a venue by accident. Because the stated audience is what the ordering needs, **it cannot ship before audience extraction does** (§7), or national competitions held on a local campus would sort as local.
 * **Multi-stop events (tours, festivals in several cities):** each stop carries its own audience area, and "sooner" is the **soonest stop that matches the user** — day 1 in Jakarta and day 2 in Yogyakarta is a Yogyakarta event on day 2 for a Yogyakarta user, not on day 1. (Tested.) Location filters still only join the main schedule (BUG-064).
 * **No profile ⇒ every event is tier 1 ⇒ exactly today's chronological order** (unit-tested). Ties break on `id`, so offset pagination stays deterministic.
@@ -223,10 +230,10 @@ Two honest caveats. (1) The 27-event, 5-week demo pool is far denser per day tha
 4. **Events with several linked posts (AD-30):** insight follows the *primary* post and is replaced when primary changes *only if* the new primary produced one (recommended) — or merge insights across posts?
 5. ~~Is an age-banded event `restricted` or `open_to_public`?~~ — **resolved by tracks (rev. 2):** age and gender are track criteria; `eligibility` means only membership-type limits. "Dibuka untuk UMUM, usia 7–16" = `open_to_public` + one `[7,16]` track. (The POC's flat guards "age band keeps restricted" and "gender ⇒ restricted" belong to the old schema and go away.)
 6. ~~Tier granularity~~ — **resolved (rev. 3): one merged local group, no own-district-first split.** Still open: a 30-day `horizon` (recommend: decide with the replay).
-7. **Where do online events go?** Recommend `after-local` — right behind the local group, ahead of in-person events in other cities (§4.0). Alternatives: merge online events into the local group by date, or put them last. **This is the one question I need answered.**
+7. ~~Where do online events go?~~ — **resolved (rev. 5): by their audience, like onsite events (§4.0, §10.3).**
 8. ~~What counts as "my area"~~ — **resolved (rev. 4): the audience area only** (§10.3); the venue is a fallback for plain local events. Still open: should the user's saved-location radius also count (an event within my saved radius is "mine" even if its area names differ)?
-10. **Unclassified (legacy) accounts keep today's fallback** (recommended: changing them is a behaviour change nobody asked for) and **accounts awaiting approval do not** (they might be curators). Confirm.
-11. **A platform home country** (Indonesia today) as the country filter for the very first geocode of an account that has none (BUG-066 mechanism 1). Needs a settings home; recommend an env value next to `GEOAPIFY_API_KEY`.
+10. ~~Unclassified (legacy) accounts~~ — **resolved (rev. 5): they lend no location** (§10.1); scraping unchanged. Still open: whether to classify them (IDEA-075, decision 1).
+11. ~~A platform home country as the geocoder's country filter~~ — **replaced (rev. 5): the account's country is read from its profile scrape** (§10.8); a platform default applies only to accounts still unresolved after the retries, as a preference with a confidence floor. Open: what an unresolved country does to geocoding (IDEA-075, decision 2).
 9. **"Near you" vs the existing Nearby badge** (AD-22/24, <5 km): separate chip (recommended; different semantics: area vs distance) or unify?
 
 ## 7. Proposed epic (not yet in `epics.md`; numbering and splitting to be done with `bmad-create-epics-and-stories` after you confirm §6.2)
@@ -234,9 +241,9 @@ Two honest caveats. (1) The 27-event, 5-week demo pool is far denser per day tha
 **Epic 10 (proposed): Personalized Discovery** — revised order, smallest-first:
 
 * *Phase 0 — shared prerequisites (also fix the AI filter, §9; registered in the backlog):* **10.0a canonical area ladder (IDEA-073, first)** — geocoder writes a normalised country > province > regency > city path (keeping `county`), matching is case-insensitive and hierarchical, backfill of cached geocodes + existing schedules (shared with IDEA-071). **10.0b online attendance + per-schedule venues (BUG-064)** — attendance mode (onsite/online/hybrid) as a field; online platforms never reach the geocoder; every schedule keeps its own venue; location filters match *any* schedule, not only the main one; venue `kind` + `setting` (§9.3).
-* *Phase 0 also (revision 4, registered as BUG-065 / BUG-066):* **10.0c location policy** — one `mayUseAccountLocation(accountType, accountTypeStatus)` predicate (the shape of `isScrapableAccountType`, AD-34) applied at the three fallback sites, no default-location inference for curators or accounts awaiting approval, consensus-before-inference for organizers, plus a ratchet. **10.0d geocoder correctness** — country as a filter, country-aware candidate choice with a confidence floor and an "unresolved" outcome, inference gated on the geocoder's confidence rather than Gemini's. Run the BUG-066 probe and SQL before sizing 10.0d.
+* *Phase 0 also (revision 4, registered as BUG-065 / BUG-066):* **10.0c location policy** — one `mayUseAccountLocation(accountType, accountTypeStatus)` predicate (the shape of `isScrapableAccountType`, AD-34) applied at the three fallback sites, no default-location inference for curators or accounts awaiting approval, consensus-before-inference for organizers, plus a ratchet. **10.0d geocoder correctness** — country as a filter, country-aware candidate choice with a confidence floor and an "unresolved" outcome, inference gated on the geocoder's confidence rather than Gemini's. Run the BUG-066 probe and SQL before sizing 10.0d. **10.0e profile enrichment (IDEA-075)** — read country and reach (and, with it, the account type) from the initial profile scrape; persist the derived values; retry with backoff; 10.0c and 10.0d consume its output.
 * *Phase A — audience extraction (gated; revision 4 moved it first, because the ordering depends on it):* 10.1 audience-area + scope + attendance domain types, AJV, prompt v2, guards (`guardAudienceAreas`), golden set + nightly eval (gate; reuse IDEA-072's machinery); 10.2 piggy-back extraction + persistence + audit counters (abstentions counted apart from wrong claims); 10.3 resolve the extracted areas through the geocoder into canonical keys; 10.4 backfill existing events.
-* *Phase B — area-first ordering:* 10.5 `effectiveAudienceAreas` + `areaTier` + sort in `packages/domain` (100% tested, sample in `relevance.ts` / `location-policy.ts`, incl. online placement and the soonest-matching-stop date) with SQL parity test; 10.6 `Query.events` `sort` arg (RECOMMENDED = area → date) + EXPLAIN at ~30k; 10.7 Discovery UI (sort control, "near you" chip, skeletons, i18n, detail-nav context) + replay harness + flag.
+* *Phase B — area-first ordering:* 10.5 `effectiveAudienceAreas` + `areaTier` + sort in `packages/domain` (100% tested, sample in `relevance.ts` / `location-policy.ts`, incl. the soonest-matching-stop date; no online placement, `attendance` is not an input) with SQL parity test; 10.6 `Query.events` `sort` arg (RECOMMENDED = area → date) + EXPLAIN at ~30k; 10.7 Discovery UI (sort control, "near you" chip, skeletons, i18n, detail-nav context) + replay harness + flag.
 * *Phase C — tracks and the optional second stage:* 10.8 age/eligibility tracks (§2.3) + "for age N" filter + track chips on cards; 10.9 `user_interest_profile` (+ onboarding chips, reset control) and the bounded relevance discount as an A/B arm.
 
 Needs a new FR set and PRD edits (§3.1/§3.2 and §4.1 `EventInfo`) — **not made here** because this is a proposal awaiting your decisions in §6.2.
@@ -260,7 +267,8 @@ npx tsx scripts/poc-event-insight/run-audience-areas.ts --prompt v2 --set core|h
 npx tsx scripts/poc-event-insight/rescore-audience-areas.ts --results <audience-areas-*.json>... # offline: with/without the deterministic guards
 npx tsx scripts/poc-event-insight/area-demo.ts --results <audience-areas-*.json>                   # offline: audience-area order per persona with the account policy
 GEOAPIFY_API_KEY=... npx tsx scripts/poc-event-insight/probe-geocode-country.ts [--dry]           # live (needs a key; NOT run by me): country of today's geocode pick
-npx tsx --test scripts/poc-event-insight/*.test.ts                              # 134 unit tests, no network
+npx tsx scripts/poc-event-insight/run-profile-insight.ts --runs 3                  # live: country + reach from a profile scrape (16 profiles)
+npx tsx --test scripts/poc-event-insight/*.test.ts                              # unit tests, no network
 ```
 
 ## 9. What master revealed: AI filter, venue type, and the area ladder
@@ -313,7 +321,7 @@ The AI filter's region leaf, this proposal's area-first ordering, and resolving 
 | Google Meet-only discussion | `"Google Meet"` (4/4) | absent (3/3) |
 | hybrid seminar (auditorium + Zoom) | `"Auditorium Fakultas Ekonomi UGM & Zoom"` (4/4) | `"Auditorium Fakultas Ekonomi UGM"` (3/3) |
 
-so a Zoom event is sent to the geocoder as if it were an address. Proposed: `attendance ∈ {onsite, online, hybrid, unspecified}` as its own field; the platform name is an `onlinePlatform` attribute, never a venue; an online-only schedule has **no** venue and no default-location fallback; a hybrid schedule keeps only its physical venue. In the ordering (§4.0), "online" never makes an event "other local". In the venues experiment the model got attendance right in 66 of 70 runs; the 4 misses are a tournament post that names no place, where it assumed `onsite` (label: unspecified) — a mild unsupported inference.
+so a Zoom event is sent to the geocoder as if it were an address. Proposed: `attendance ∈ {onsite, online, hybrid, unspecified}` as its own field; the platform name is an `onlinePlatform` attribute, never a venue; an online-only schedule has **no** venue and no default-location fallback; a hybrid schedule keeps only its physical venue. In the ordering (§4.0, revision 5) how an event is attended does not matter; only its audience does. In the venues experiment the model got attendance right in 66 of 70 runs; the 4 misses are a tournament post that names no place, where it assumed `onsite` (label: unspecified) — a mild unsupported inference.
 
 ### 9.4 A ratchet worth having
 
@@ -328,8 +336,9 @@ IDEA-072 (golden prompts grown from real usage, human-gated promotion) is the ri
 1. ✅ Area ladder first, as its own story → **IDEA-073**.
 2. ✅ Venue type → indoor/outdoor via a closed mapping, Geoapify first, model as the fallback (§9.3). Open: live-verify the category table for Indonesian places.
 3. ✅ Backlog finding recorded → **BUG-063**, plus **BUG-064** (online and multi-venue) which this round turned up.
-4. ✅ Ordering: one merged local ladder, then the rest; online handled explicitly. Open: where online events go (§6.2 item 7).
-5. ✅ Revision 4 (third round): ordering by **audience** area, curator/organizer location policy, the wrong-country report — §10, **BUG-065**, **BUG-066**, **IDEA-074**. Open: BUG-066 is unreproduced; where online events go (§6.2 item 7) is still unanswered.
+4. ✅ Ordering: one merged local ladder, then the rest. Online events: decided in revision 5 — by audience, no special tier.
+5. ✅ Revision 4 (third round): ordering by **audience** area, curator/organizer location policy, the wrong-country report — §10, **BUG-065**, **BUG-066**, **IDEA-074**. Open: BUG-066 is unreproduced.
+6. ✅ Revision 5 (fourth round): online weighed by audience, never-classified accounts lend no location, country and reach from the profile scrape with a retry — §10.8, **IDEA-075**, **FIND-086**.
 
 ## 10. Revision 4 — audience first, and who may lend an event a location
 
@@ -340,10 +349,13 @@ IDEA-072 (golden prompts grown from real usage, human-gated promotion) is the ri
 | `ORGANIZER_VENUE_EVENT`, confirmed | **yes** — "an event at a mall posted on the mall's account" (PRD §3.7) | yes, but only on **consensus** across posts |
 | `CURATOR_GUIDE` | **no** | **no** |
 | `PERSONAL` | never scraped | no |
-| unclassified (`accountTypeStatus` null) | yes — today's behaviour | yes |
+| never classified (`accountTypeStatus` null) | **no** (revised, rev. 5) | no, until classified |
 | `AWAITING_APPROVAL` | no — might be a curator | no |
+| confirmed organizer with a **national** reach | **no** — its account location is a head office | no |
 
 Today **no account-type check exists** at any of the three sites that use the account's `defaultLocation` as an event location (`resolveAccountAndLocations`, `transformGeminiResponseToEventInfo`, and the inference that fills it — `backfillAccountProfileAndInferDefaultLocation` via `process-scrape-job.ts` and `process-ai-job.ts` step 8.5). `process-ai-job.ts` already knows `isCuratorGuide`, so the gate is cheap. Draft predicate + tests: `location-policy.ts` (`mayUseAccountLocation` among others; 16 tests in the file). Tier-1 note: `backlog/BUG-065-…`.
+
+**What "never classified" is (read from Story 3.4n and its code, not from data).** Null means no classification was ever recorded. Every account that existed before 3.4n shipped was grandfathered on purpose (AC5: "a deliberate, user-accepted gap"; a backfill job was rejected for cost and effort) and is still scraped; a null profile is classified only when someone subscribes to it, so a legacy account with no new subscriber stays null; discovered profiles are created null by design. `isScrapableAccountType(null, null)` is true. For *location* I had first kept that default, then reversed it: a null account may be a curator, the cost of lending a wrong location is a wrong pin, and the cost of withholding it is one missing fallback. **I do not know how many null accounts exist** — the SQL is in BUG-065. The same reading produced FIND-086: `process-ai-job.ts` computes `isCuratorGuide` from `accountType` alone, so a never-classified curator keeps its captions (not reproduced; unknown whether one exists).
 
 ### 10.2 Why a curator has no usable "account location" — measured
 
@@ -362,13 +374,14 @@ The prompt asks where *this post's* events take place; a curator answers a diffe
 ```
 stated audience area            -> that area                       ("se-Kabupaten Bantul", "mahasiswa se-DIY")
 else scope national/international -> none, stop                     (a national contest at a local campus is for everyone)
-else scope online               -> none, stop                       (no venue exists)
+else scope online               -> the organizer's own area, ONLY if confirmed organizer AND reach local/regional; else none
+                                                                    (a local government's Zoom briefing is for its residents; a national company's webinar is for everyone)
 else a venue the post names     -> that venue's locality            (plain local event)
-else organizer account location -> that location                    (never a curator)
+else organizer account location -> that location                    (confirmed organizer, reach not national; never a curator, never an unclassified account)
 else                            -> none                             (tier 1: for anyone)
 ```
 
-`effectiveAudienceAreas` (`location-policy.ts`, tested) implements it; `areaTier` consumes only its result. Cases it exists for, all from the labelled posts: a national contest held at UGM; a Jakarta concert with a bus "khusus warga Surabaya dan Sidoarjo" (audience Surabaya, venue Jakarta); a teacher training "se-Kabupaten Bantul" held in the city next door; a Zoom class for DIY students; a tour; a Melbourne community event; an area-less curator post.
+`effectiveAudienceAreas` (`location-policy.ts`, tested) implements it; `areaTier` consumes only its result. Cases it exists for, all from the labelled posts: a national contest held at UGM; a Jakarta concert with a bus "khusus warga Surabaya dan Sidoarjo" (audience Surabaya, venue Jakarta); a teacher training "se-Kabupaten Bantul" held in the city next door; a Zoom class for DIY students; a tour; a Melbourne community event; an area-less curator post; a local government's and a national company's online events.
 
 ### 10.4 Wrong address / wrong country — what I found and what I did not
 
@@ -409,4 +422,28 @@ Gemini `gemini-3.5-flash-lite`, 3 runs per post, live, model confidence not used
 * An organizer with a wrong stored default (made by the old unbiased inference) keeps it until BUG-066's data check finds it.
 * The wrong-country report is unverified.
 * Audience extraction is only as good as the posts' own words: a post that never says who it is for gets the venue locality, which is right for a market and wrong for a regional contest; that is a real, bounded error and the reason the fallback is ranked below the stated audience.
+
+### 10.8 Revision 5 — country and reach from the initial profile scrape, and its retry
+
+**Can we infer the country from the initial profile scrape? Yes, for the profiles tested — with caveats.** The subscribe-time scrape (Apify `instagram-profile-scraper`, $0.0026 per profile in the 3.4n smoke test) returns the bio, name, business category, link and the **latest 12 posts** (captions, hashtags, sometimes location tags). Today the adapter keeps 4 fields and the bio is stored nowhere. `country-signals.ts` reads concrete markers — phone / calling code, time-zone abbreviation (WIB, MYT, AEST), a currency *with an amount*, a country-code domain, Indonesian address forms — and deliberately **never the language** (Indonesian is written in Melbourne and Johor, English in Bali). `profile-insight.ts` asks Gemini for the same plus the account's **reach**, with the country accepted only when backed by a verbatim quote.
+
+| 16 profiles — 5 real (2 with a real profile payload, 3 known only from post payloads so with no bio), 11 synthetic written to hit the traps | result |
+|---|---|
+| deterministic signals alone | country resolved 13/16, **0 wrong**; the 3 unresolved are the placeless profiles, as labelled |
+| model, 48 runs | **0 wrong country**; fully correct 47/48; reach right 47/48; 0 claims no signal supports; 0 national accounts given a place |
+| traps | Melbourne (Indonesian text) → AU, Johor (Malay text) → MY, Canggu (English text) → ID, national company with a Jakarta head office → reach national and **no** area, English brand with no place → UNKNOWN, empty profile → UNKNOWN |
+
+**What this does not show.** The signals and the model agreed on every profile, so it cannot say which to trust when they disagree — that rule (`resolveCountry`: signals anchor, the model fills silence, disagreement is "unresolved") is unit-tested, not measured. The synthetic profiles are cleaner than real ones; there is **no real foreign account**; real bios are often decorative or empty. Two of the five real accounts' captions mention another country (a mall promo with "Malaysia Healthcare … RM450") — the margin rule kept them Indonesian, which is the case it exists for. The signal list was written with general knowledge, but the place list includes `kupang|flores|kartasura`, which I added after reading one real account: tuned. The model is genuinely needed for **reach** (signals cannot tell a national company from a local one); for **country** the signals did all the work.
+
+**Reach changes the ordering — shown on hand-made rows** (`results/area-demo.generated.md`, the reach taken from the model's answer on the matching synthetic profile): an area-less Zoom briefing from a Sleman agency (reach local) is *local* for the Sleman user and *other-local* for Jakarta, Surabaya and Bali users; the same kind of post from a national company with a Jakarta head office (reach national) is "anywhere" for all four — under the old rule the Jakarta user saw it as local.
+
+**The retry.** `profile-retry.ts` (8 tests). Today `classifyAccountType` turns *any* failure of the profile call — timeout, 429, capacity, model outage, unparsable answer — into `AWAITING_APPROVAL` with a review row, and `subscribeToAccount` classifies only a null-status profile, so nothing ever retries: a one-minute Apify blip parks an account (and excludes it from scraping) until a person looks. The policy separates:
+
+| situation | handling |
+|---|---|
+| transient (timeout, 429/5xx, capacity, model unavailable) | retry after 15 min, 1 h, 6 h, 1 day, 3 days (a longer `Retry-After` wins), then `NEEDS_REVIEW` |
+| permanent (profile not found, private) | `NEEDS_REVIEW` at once — no more paid scrapes |
+| the scrape worked but showed no country | **no re-scrape**: wait for new evidence (the first scraped posts), up to 3 passes, then `NEEDS_REVIEW` |
+
+No new service: a query ("PENDING and due") inside an existing scheduled job, guarded by the Story 3.16 claim-with-TTL pattern. I did not trace which scheduled Lambda should host it. The architecture diagram needs no change unless that turns out to be wrong. **Not decided here:** whether to also read the null-status legacy accounts ($2.60 per 1,000 profiles plus a model call each; this reverses 3.4n's rejection of a backfill only if you choose it), and what an unresolved country does to geocoding (recommended: a preference plus the confidence floor, not "no pin").
 

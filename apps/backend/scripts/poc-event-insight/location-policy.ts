@@ -15,14 +15,24 @@ import type { GeoScope } from './insight-schema.js';
 export type AccountType = 'ORGANIZER_VENUE_EVENT' | 'PERSONAL' | 'CURATOR_GUIDE' | null;
 export type AccountTypeStatus = 'CONFIRMED' | 'AWAITING_APPROVAL' | null;
 
+// How far an account's own audience reaches, as read from its profile (profile-insight.ts). A venue, a
+// mall, a local government reach 'local'/'regional'; a national company, a national olympiad organizer
+// reach 'national'. 'unknown' = not (yet) determined, e.g. the profile scrape has not succeeded.
+export type AccountReach = 'local' | 'regional' | 'national' | 'international' | 'unknown';
+
 // A venue/organizer account's location is its events' location ("an event at a mall posted on the
-// mall's account", PRD §3.7). A curator publishes events from many places, so it has no single
-// location to fall back to — and a personal account is never scraped. Unclassified (legacy) accounts
-// keep today's behaviour; an account whose type is still awaiting moderator approval might be a
-// curator, so it does not get the benefit of the doubt.
-export function mayUseAccountLocation(accountType: AccountType, accountTypeStatus: AccountTypeStatus): boolean {
-  if (accountTypeStatus === null) return true;
-  return accountTypeStatus === 'CONFIRMED' && accountType === 'ORGANIZER_VENUE_EVENT';
+// mall's account", PRD §3.7) — when the organizer is LOCAL. Three accounts must not lend theirs:
+//   * a curator publishes events from many places, so it has no single location to fall back to;
+//   * a national company's or a national organizer's account location is a head office, not where an
+//     area-less post's event happens (reach 'national' / 'international');
+//   * an account that is not CONFIRMED an organizer — awaiting approval (might be a curator) or NEVER
+//     CLASSIFIED (accountTypeStatus null). Revised 2026-10-18: "never classified" used to keep today's
+//     behaviour, but null means *unknown*, not *organizer*: Story 3.4n grandfathered those accounts into
+//     scraping on purpose, and any curator among them would otherwise lend a wrong location. The cost of
+//     withholding is one missing fallback pin on an area-less post; the cost of lending is a wrong pin.
+export function mayUseAccountLocation(accountType: AccountType, accountTypeStatus: AccountTypeStatus, reach: AccountReach = 'unknown'): boolean {
+  if (accountTypeStatus !== 'CONFIRMED' || accountType !== 'ORGANIZER_VENUE_EVENT') return false;
+  return reach !== 'national' && reach !== 'international';
 }
 
 // Inferring an account location from a post only makes sense for the accounts that may use one.
@@ -68,6 +78,8 @@ export interface AudienceAreaInputs {
   accountAreaKeys: string[];
   accountType: AccountType;
   accountTypeStatus: AccountTypeStatus;
+  // the account's own reach, when its profile has been read; absent = 'unknown'
+  accountReach?: AccountReach;
 }
 
 export interface EffectiveAudienceAreas { keys: string[]; source: AreaSource }
@@ -78,18 +90,24 @@ const NATIONWIDE: GeoScope[] = ['national', 'international'];
 //   1. a stated audience area wins outright;
 //   2. a stated national/international scope stops the fallbacks — a national competition held at a
 //      Yogyakarta campus is not "for Yogyakarta";
-//   3. an online-only event has no venue to fall back to;
+//   3. an online event has no venue, so it takes only its organizer's own area — and only when that
+//      organizer is KNOWN to be local (a local government's Zoom briefing is for its residents; a
+//      national company's webinar is for everyone, and an organizer of unknown reach is not guessed at);
 //   4. otherwise a plain local event is for the locality of its venue;
-//   5. otherwise an organizer/venue account's own location (never a curator's);
+//   5. otherwise a CONFIRMED, non-national organizer/venue account's own location (never a curator's);
 //   6. otherwise nothing — the event is "for anyone".
 export function effectiveAudienceAreas(i: AudienceAreaInputs): EffectiveAudienceAreas {
+  const reach = i.accountReach ?? 'unknown';
+  const mayUse = mayUseAccountLocation(i.accountType, i.accountTypeStatus, reach);
   if (i.statedAreaKeys.length > 0) return { keys: [...new Set(i.statedAreaKeys)], source: 'stated' };
   if (NATIONWIDE.includes(i.geoScope)) return { keys: [], source: 'none' };
-  if (i.geoScope === 'online') return { keys: [], source: 'none' };
-  if (i.venueAreaKeys.length > 0) return { keys: [...new Set(i.venueAreaKeys)], source: 'venue' };
-  if (i.accountAreaKeys.length > 0 && mayUseAccountLocation(i.accountType, i.accountTypeStatus)) {
-    return { keys: [...new Set(i.accountAreaKeys)], source: 'account' };
+  if (i.geoScope === 'online') {
+    return mayUse && (reach === 'local' || reach === 'regional') && i.accountAreaKeys.length > 0
+      ? { keys: [...new Set(i.accountAreaKeys)], source: 'account' }
+      : { keys: [], source: 'none' };
   }
+  if (i.venueAreaKeys.length > 0) return { keys: [...new Set(i.venueAreaKeys)], source: 'venue' };
+  if (i.accountAreaKeys.length > 0 && mayUse) return { keys: [...new Set(i.accountAreaKeys)], source: 'account' };
   return { keys: [], source: 'none' };
 }
 

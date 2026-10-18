@@ -1,5 +1,5 @@
 ---
-status: complete (addenda 1-3, 2026-10-18, appended)
+status: complete (addenda 1-4, 2026-10-18, appended)
 type: poc-report
 date: 2026-10-18
 model_under_test: gemini-3.5-flash-lite   # the production default (apps/backend/src/env.ts)
@@ -267,6 +267,7 @@ Schema: `attendance ∈ {onsite, online, hybrid, unspecified}`, `venues[]` each 
 
 ## B3. Ordering v2: merged local ladder → anywhere → other-local (prototype, unit-tested)
 
+> **Superseded in part by Addendum 3 and 4:** B3 also offered an `onlinePlacement` option and put online events not aimed at the user in tier 1. Addendum 4 removed both: online is weighed by its audience.
 > **Superseded in part by Addendum 3:** B3 unions the venues' areas into an event's areas. Revision 4 withdrew that — the order is by the *audience* area, with the venue only a fallback. The tiers, the online handling and the soonest-matching-stop date are unchanged.
 
 Changes from §A3 after the discussion: **removed** the `most-local-first` split; **added** online/hybrid handling, a union over all schedules' venues, and "sooner" = the soonest *matching* schedule. Tiers: 0 local ladder (own/sub/containing/sibling merged, by date) · 1 anywhere (online/hybrid not targeted at the user's area, national/international, unspecified, no location) · 2 onsite-only targeted elsewhere; option `onlinePlacement` = `after-local` (default) | `with-local` | `last`.
@@ -331,4 +332,42 @@ I found six ways, by reading the code, for a geocode to land in the wrong place 
 * The account-type table, `ACCOUNTS` in `area-demo.ts`, and the persona areas are hand-made for the demo.
 * Earlier numbers (guarded wrong-claims, tracks, venues, rank-demo) were re-verified identical after this round: `wrong-claims.ts` diff and `rank-demo.ts` regeneration both produce byte-identical output.
 * Backlog: BUG-065, BUG-066, IDEA-074 added with tier-1 notes; the checker's count of pre-existing failures is unchanged (69) and none are on the new rows. No product code was changed.
+
+---
+
+# Addendum 4 (2026-10-18, fourth discussion): online by audience, never-classified accounts, country and reach from the profile scrape, a retry
+
+Questions answered here: *should an online event get the same weight as its audience (local government vs national company)? what does a never-classified account mean? can the country be inferred from the initial profile scrape, and what if that scrape fails?* Code: `relevance.ts` (online special-casing and `onlinePlacement` removed; 31 tests), `location-policy.ts` (+`AccountReach`; 19 tests), `country-signals.ts` (10), `profile-insight.ts` (12), `run-profile-insight.ts`, `profile-retry.ts` (8), `profiles.real.json`. Total offline tests: **166**. Raw: `results/profile-insight-v1.json|.generated.md`, `results/area-demo.generated.md`.
+
+## D1. Online events are weighed by their audience
+
+`areaTier` no longer reads how an event is attended. Same audience ⇒ same tier whether onsite, online or hybrid, pinned by a test that the input type rejects an `attendance` field. Behaviour: a Zoom briefing for Sleman residents is tier 0 for a Sleman user and tier 2 for a Jakarta user; a webinar with no audience area is tier 1 for everyone. For an online event with **no stated audience**, `effectiveAudienceAreas` now takes the organizer's own area only when the organizer is a confirmed organizer whose reach is local or regional; a national company's head-office city is never an audience. Regenerating `rank-demo.ts` changed no tier count (27 events: 20/3/4 for Yogyakarta users, 1/3/23 for the Bali user) — the old online tier 1 and the new rule coincide when an online event has no audience area, as in that corpus.
+
+## D2. What "never classified" means (code reading, not data)
+
+`accountTypeStatus IS NULL` = no classification recorded: accounts that existed before Story 3.4n (grandfathered on purpose, AC5), discovered profiles, and any null profile nobody has subscribed to since. `isScrapableAccountType(null, null)` is true, so they are scraped. For location they are now treated as **unknown, not organizer** (`mayUseAccountLocation(null, null)` is false; the test that pinned the opposite was rewritten). Side finding FIND-086: `isCuratorGuide` in `process-ai-job.ts` reads `accountType` alone, so a never-classified curator keeps its captions. **Neither the count of null accounts nor the existence of such a curator is known**; the SQL is in the notes.
+
+## D3. Country and reach from the initial profile scrape (live Gemini + offline signals, 16 profiles)
+
+Corpus: 5 real (2 with a real profile payload from `apify-runs/`, 3 known only from post payloads so with no bio) and 11 synthetic that I wrote (handles end in `.demo`) to include a local government agency, a national company with a Jakarta head office, an Indonesian-language community in Melbourne, a Malay-language complex in Johor, an English-language studio in Bali, an English brand with no place, an empty profile. Labels were written before the run.
+
+| | result |
+|---|---|
+| deterministic signals alone | resolved 13/16, **0 wrong country**; the other 3 are the placeless profiles, as labelled |
+| model (`gemini-3.5-flash-lite`), 48 runs | **wrong country 0/48**; fully correct 47/48; reach right 47/48; a country no signal supports 0/48; national account given a place 0/48 |
+| the miss | a placeless coffee shop whose reach was called `local` in 1 of 3 runs (label: unspecified) |
+
+* **Limits that matter.** Signals and model agreed on every profile, so the test cannot say which to trust when they disagree; `resolveCountry` handles that and is unit-tested only. There is no real foreign account. Real bios are often decorative or empty; only two real bios exist in the corpus. The `place` table in `country-signals.ts` includes `kupang|flores|kartasura`, added after reading one real account (tuned). The model's real contribution is **reach**; for **country** the signals did all the work.
+* **Order effect** (hand-made rows in `area-demo`, reach taken from the model's answer on the matching profile): a Sleman agency's area-less Zoom briefing is local for the Sleman user and other-local for Jakarta, Surabaya and Bali users; a national company's is "anywhere" for all four (the old rule put it in the Jakarta user's local group).
+
+## D4. The retry
+
+`profile-retry.ts`: transient failures retry after 15 min, 1 h, 6 h, 1 day, 3 days (a longer `Retry-After` wins), then go to a person; a permanent failure (not found / private) goes to a person immediately; a scrape that worked but showed no country is not re-scraped — it waits for the first scraped posts, three passes at most. Read from the code: today any failure of the profile call becomes `AWAITING_APPROVAL` and nothing retries it. The two other profile-scraper actors tried during Story 3.4n were rate-limited or returned nothing, so the primary actor's failures are not hypothetical. No new service is implied; I did not trace which scheduled job should host the sweep.
+
+## D5. Limits and changes after seeing results (this addendum)
+
+* `country-signals.ts` was tightened three times while I wrote it, before any run, by reasoning rather than from results: the Indonesian landline pattern would also match Indian area codes (dropped), "Singapore" counted as both a place and a country name (now country name only), and the `.id` domain rule was over-complicated (now `.id` at the end of the host).
+* The synthetic corpus and its labels are mine; the real corpus is five accounts, all Indonesian.
+* Earlier numbers re-verified identical after this round: the guarded wrong-claim table (`wrong-claims.ts` diff). The ranking demo changed only in labels, not in tier counts.
+* Backlog: IDEA-075 and FIND-086 added with tier-1 notes; BUG-065, BUG-066 and IDEA-074 updated; the checker's pre-existing failure count is unchanged (69), none on the new rows. No product code was changed.
 

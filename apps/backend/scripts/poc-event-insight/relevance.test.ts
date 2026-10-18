@@ -188,26 +188,24 @@ test('curator vs organizer end to end: the same area-less post is local for an o
   assert.equal(areaTier(rina, ev({ audience: curator })).tier, 1);
 });
 
-test('online: an online event AIMED at the user\'s area is local; one that is not is "anywhere", not other-local', () => {
+test('online is weighed by its audience, exactly like onsite: local govt (Zoom for Sleman) vs national company (Zoom for anyone)', () => {
+  assert.equal(areaTier(rina, ev({ audience: aud('sleman'), geoScope: 'city' })).tier, 0, 'local government, Zoom for Sleman residents — local for a Sleman user');
+  assert.equal(areaTier({ ...rina, areas: ['jakarta'] }, ev({ audience: aud('sleman'), geoScope: 'city' })).tier, 2, '... and other-local for a Jakarta user, not "attendable so anywhere"');
+  assert.equal(areaTier(rina, ev({ geoScope: 'online' })).tier, 1, 'a national company\'s webinar: no audience area, anywhere');
   assert.equal(areaTier(rina, ev({ audience: aud('yogyakarta'), geoScope: 'online' })).tier, 0, 'a Zoom class for DIY students');
-  assert.equal(areaTier(rina, ev({ geoScope: 'online' })).tier, 1, 'a global Zoom event');
-  assert.equal(areaTier(rina, ev({ audience: aud('jakarta'), geoScope: 'online' })).tier, 1, 'a Zoom event for Jakarta is still attendable — not "other local"');
-  assert.equal(areaTier(rina, ev({ attendance: 'online' })).reason, 'online');
+  assert.equal(areaTier(rina, ev({ audience: aud('jakarta'), geoScope: 'online' })).tier, 2, 'a Zoom event aimed at Jakarta is other-local for a Sleman user');
 });
 
-test('hybrid: a hybrid event aimed at another city is attendable remotely, so "anywhere"; aimed at the user it is local', () => {
-  assert.equal(areaTier(rina, ev({ audience: aud('jakarta'), attendance: 'hybrid' })).tier, 1);
-  assert.equal(areaTier(rina, ev({ audience: aud('sleman'), attendance: 'hybrid' })).tier, 0);
-  assert.equal(areaTier(rina, ev({ audience: aud('jakarta'), attendance: 'onsite' })).tier, 2);
-});
-
-test('online placement option: after-local (default, tier 1) / with-local (merged into tier 0) / last (tier 3)', () => {
-  const zoom = ev({ geoScope: 'online' });
-  assert.equal(areaTier(rina, zoom).tier, 1);
-  assert.equal(areaTier(rina, zoom, { onlinePlacement: 'with-local' }).tier, 0);
-  assert.equal(areaTier(rina, zoom, { onlinePlacement: 'last' }).tier, 3);
-  assert.equal(areaTier(rina, ev({ audience: aud('jakarta') }), { onlinePlacement: 'last' }).tier, 2, 'the option only moves remote events');
-  assert.equal(areaTier(rina, ev({ audience: aud('sleman'), geoScope: 'online' }), { onlinePlacement: 'last' }).tier, 0, 'an online event aimed at me stays local under every option');
+test('the order has no input about HOW an event is attended: the same audience gives the same tier onsite, online or hybrid', () => {
+  for (const user of [rina, { ...rina, areas: ['jakarta'] }, { ...rina, areas: ['bali'] }]) {
+    const onsite = areaTier(user, ev({ audience: aud('sleman') })).tier;
+    // @ts-expect-error attendance is deliberately not part of the ordering input
+    const hybrid = areaTier(user, ev({ audience: aud('sleman'), attendance: 'hybrid' })).tier;
+    // @ts-expect-error attendance is deliberately not part of the ordering input
+    const online = areaTier(user, ev({ audience: aud('sleman'), attendance: 'online', geoScope: 'city' })).tier;
+    assert.equal(hybrid, onsite);
+    assert.equal(online, onsite);
+  }
 });
 
 test('multi-stop: audiences are the UNION over stops — a Jakarta stop plus a Sleman stop is local for a Sleman user', () => {
@@ -232,8 +230,6 @@ test('rankAreaThenDate: local ladder (by date) first, then anywhere (by date), t
     { id: 'national-3', daysUntilNext: 3, geoScope: 'national' }, { id: 'bantul-20', daysUntilNext: 20, audience: aud('bantul') },
   ];
   assert.deepEqual(rankAreaThenDate(events, rina).map((e) => e.id), ['diy-5', 'sleman-9', 'bantul-20', 'zoom-2', 'national-3', 'jkt-1']);
-  assert.deepEqual(rankAreaThenDate(events, rina, { onlinePlacement: 'with-local' }).map((e) => e.id), ['zoom-2', 'diy-5', 'sleman-9', 'bantul-20', 'national-3', 'jkt-1']);
-  assert.deepEqual(rankAreaThenDate(events, rina, { onlinePlacement: 'last' }).map((e) => e.id), ['diy-5', 'sleman-9', 'bantul-20', 'national-3', 'jkt-1', 'zoom-2']);
 });
 
 test('rankAreaThenDate: with no profile it is exactly chronological, ties by id', () => {

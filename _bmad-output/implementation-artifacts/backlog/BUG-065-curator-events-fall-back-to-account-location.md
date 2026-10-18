@@ -16,8 +16,15 @@ Pipeline consequences: **inferred from reading code**, not reproduced (no databa
 | `ORGANIZER_VENUE_EVENT`, confirmed | yes — "an event at a mall posted on the mall's account" (PRD §3.7) | yes, but only when several posts agree (see Fix) |
 | `CURATOR_GUIDE` | **no** | **no** |
 | `PERSONAL` | never scraped (`isScrapableAccountType`) | no |
-| unclassified (`accountTypeStatus` null, legacy) | yes — today's behaviour is kept | yes |
+| never classified (`accountTypeStatus` null) | **no** (revised 2026-10-18 — see below) | no, until classified |
 | `AWAITING_APPROVAL` | no — it might be a curator | no |
+| confirmed organizer whose profile shows a **national** reach (a national company or olympiad organizer) | **no** — its account location is a head office | no |
+
+## "Never classified" means unknown, not organizer (revised 2026-10-18)
+
+`accountTypeStatus IS NULL` means no classification was ever recorded. By reading Story 3.4n and its code: (1) every account that existed before 3.4n shipped was **grandfathered** — deliberately left null and still scraped (AC5, "Legacy Accounts: Explicit Accepted Gap"; a backfill job was rejected for cost and effort); (2) classification otherwise runs only when someone subscribes to a null-status profile, so a legacy account with no new subscriber stays null indefinitely; (3) accounts found by discovery are created null on purpose and classified at first subscribe. `isScrapableAccountType` therefore treats null as scrapable.
+
+For *location* that default is the wrong way round: a null account may be a curator (the curator that motivated this bug is exactly the kind of account that predates 3.4n), the cost of lending a wrong location is a wrong pin ("fatal"), and the cost of withholding it is one missing fallback on a post that names no place. Policy: null does not lend its location. This does **not** change scraping. How many accounts are null: see the SQL below. See also FIND-086 (a null-typed curator also escapes the curator minimization) and IDEA-075 (the profile-enrichment job that can classify them).
 
 ## What the code does today (no account-type check at any of these sites)
 
@@ -71,4 +78,12 @@ WHERE s.location_details IS NOT NULL GROUP BY 1;
 
 Column names were read from `packages/database/schema.ts`; the queries were **not run**. The second one counts pinned schedules by account type, it cannot tell a fallback pin from a stated one — that needs the post text.
 
-Related: BUG-066, BUG-064, IDEA-074. Design: `planning-artifacts/event-insight-poc/proposal-personalized-discovery.md` §9.
+```sql
+-- how many accounts are in each classification state (null = never classified)
+SELECT account_type, account_type_status, count(*) FROM social_media_account_profiles GROUP BY 1, 2 ORDER BY 3 DESC;
+-- never-classified accounts that actually have an active subscription (the ones still being scraped)
+SELECT count(DISTINCT p.id) FROM social_media_account_profiles p JOIN subscriptions s ON s.account_id = p.id
+WHERE p.account_type_status IS NULL AND s.deleted_at IS NULL;
+```
+
+Related: BUG-066, BUG-064, IDEA-074, IDEA-075, FIND-086. Design: `planning-artifacts/event-insight-poc/proposal-personalized-discovery.md` §9.

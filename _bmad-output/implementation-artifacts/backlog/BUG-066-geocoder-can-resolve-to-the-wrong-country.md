@@ -24,7 +24,7 @@ Ruled out by reading: the geocode **cache key** includes the bias (`build-cache-
 
 ## Fix direction
 
-1. Country as a **filter**, from a known set: the account's country if it has one, else a platform home-country setting (Indonesia today) for the bootstrap geocode; the global search only when a post names another country explicitly.
+1. Country as a **filter**, from a known set. The account's country comes from **its initial profile scrape** (IDEA-075: deterministic markers such as +62 / WIB / Rp / .co.id, backed by a quoted model answer; 16 profiles tested, 0 wrong countries — a small, partly synthetic test). Only when that is unresolved after the retries does a platform home-country setting (Indonesia today) apply, as a preference with the confidence floor, never as a silent filter; the global search only when a post names another country explicitly.
 2. Country-aware candidate choice with a confidence floor and an **"unresolved"** outcome: keep the text, store no coordinates, never a wrong pin (draft + tests: `poc-event-insight/location-policy.ts` `acceptGeocode`).
 3. Gate inference on the **geocoder's** confidence/country, not Gemini's.
 4. Do not infer for curators (BUG-065); infer for organizers only on consensus.
@@ -49,4 +49,4 @@ FROM schedules s WHERE s.location_details IS NOT NULL AND (s.location_details->>
 
 If the first query shows only `id`, mechanism 1–4 are not producing foreign pins in practice and the fault is narrower (probably a handful of curator defaults). The queries were **not run**; column names were read from `packages/database/schema.ts`.
 
-Related: BUG-065, IDEA-073, BUG-064.
+Related: BUG-065, IDEA-073, IDEA-075, BUG-064.

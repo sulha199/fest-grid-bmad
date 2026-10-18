@@ -72,20 +72,9 @@ Event pool: 27 posts, 27 with an extracted + guarded insight (model gemini-3.5-f
 | maya | tropical-playland | 5 | 5 | 2 |
 | tom | syn-expat-bali | 14 | 1 | 1 |
 
-### Area first, then sooner — top 6 per user (tier 0 = local ladder, merged · 1 = anywhere: online / national / unspecified · 2 = other local)
+### Area first, then sooner — top 6 per user (tier 0 = local ladder, merged · 1 = anywhere: no audience area — national / international / online-for-anyone / unspecified · 2 = aimed at another area, online or not)
 
-**rina** — events by tier: 20 / 3 / 4 · online: syn-webinar-nasional→tier 1, fixture-drum-contest→tier 1
-
-| # | event | in (days) | tier | why |
-|--:|---|--:|--:|---|
-| 1 | shopfest | 3 | 0 | local-ladder |
-| 2 | syn-women-tech | 4 | 0 | local-ladder |
-| 3 | uss-market | 5 | 0 | local-ladder |
-| 4 | syn-senam-lansia | 6 | 0 | local-ladder |
-| 5 | tropical-playland | 7 | 0 | local-ladder |
-| 6 | swasana-budaya | 9 | 0 | local-ladder |
-
-**budi** — events by tier: 20 / 3 / 4 · online: syn-webinar-nasional→tier 1, fixture-drum-contest→tier 1
+**rina** — events by tier: 20 / 3 / 4 · online: syn-webinar-nasional→tier 1
 
 | # | event | in (days) | tier | why |
 |--:|---|--:|--:|---|
@@ -96,7 +85,7 @@ Event pool: 27 posts, 27 with an extracted + guarded insight (model gemini-3.5-f
 | 5 | tropical-playland | 7 | 0 | local-ladder |
 | 6 | swasana-budaya | 9 | 0 | local-ladder |
 
-**maya** — events by tier: 20 / 3 / 4 · online: syn-webinar-nasional→tier 1, fixture-drum-contest→tier 1
+**budi** — events by tier: 20 / 3 / 4 · online: syn-webinar-nasional→tier 1
 
 | # | event | in (days) | tier | why |
 |--:|---|--:|--:|---|
@@ -107,14 +96,25 @@ Event pool: 27 posts, 27 with an extracted + guarded insight (model gemini-3.5-f
 | 5 | tropical-playland | 7 | 0 | local-ladder |
 | 6 | swasana-budaya | 9 | 0 | local-ladder |
 
-**tom** — events by tier: 1 / 3 / 23 · online: syn-webinar-nasional→tier 1, fixture-drum-contest→tier 1
+**maya** — events by tier: 20 / 3 / 4 · online: syn-webinar-nasional→tier 1
+
+| # | event | in (days) | tier | why |
+|--:|---|--:|--:|---|
+| 1 | shopfest | 3 | 0 | local-ladder |
+| 2 | syn-women-tech | 4 | 0 | local-ladder |
+| 3 | uss-market | 5 | 0 | local-ladder |
+| 4 | syn-senam-lansia | 6 | 0 | local-ladder |
+| 5 | tropical-playland | 7 | 0 | local-ladder |
+| 6 | swasana-budaya | 9 | 0 | local-ladder |
+
+**tom** — events by tier: 1 / 3 / 23 · online: syn-webinar-nasional→tier 1
 
 | # | event | in (days) | tier | why |
 |--:|---|--:|--:|---|
 | 1 | syn-expat-bali | 16 | 0 | local-ladder |
-| 2 | syn-webinar-nasional | 8 | 1 | online |
+| 2 | syn-webinar-nasional | 8 | 1 | anywhere |
 | 3 | volunteer-pulangkesinii | 19 | 1 | anywhere |
-| 4 | fixture-drum-contest | 33 | 1 | online |
+| 4 | fixture-drum-contest | 33 | 1 | anywhere |
 | 5 | shopfest | 3 | 2 | other-local |
 | 6 | syn-women-tech | 4 | 2 | other-local |
 

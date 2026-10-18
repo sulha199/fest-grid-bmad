@@ -10,13 +10,21 @@ import {
 const TYPES: AccountType[] = ['ORGANIZER_VENUE_EVENT', 'CURATOR_GUIDE', 'PERSONAL', null];
 const STATUSES: AccountTypeStatus[] = ['CONFIRMED', 'AWAITING_APPROVAL', null];
 
-test('mayUseAccountLocation: every type/status combination', () => {
-  const expected = (t: AccountType, s: AccountTypeStatus): boolean => s === null || (s === 'CONFIRMED' && t === 'ORGANIZER_VENUE_EVENT');
+test('mayUseAccountLocation: only a CONFIRMED organizer/venue/event account (never-classified accounts are unknown, not organizers)', () => {
+  const expected = (t: AccountType, s: AccountTypeStatus): boolean => s === 'CONFIRMED' && t === 'ORGANIZER_VENUE_EVENT';
   for (const t of TYPES) for (const s of STATUSES) assert.equal(mayUseAccountLocation(t, s), expected(t, s), `${t}/${s}`);
   assert.equal(mayUseAccountLocation('ORGANIZER_VENUE_EVENT', 'CONFIRMED'), true);
   assert.equal(mayUseAccountLocation('CURATOR_GUIDE', 'CONFIRMED'), false, 'the curator case');
   assert.equal(mayUseAccountLocation('ORGANIZER_VENUE_EVENT', 'AWAITING_APPROVAL'), false, 'might be a curator');
-  assert.equal(mayUseAccountLocation(null, null), true, 'legacy unclassified keeps today\'s behaviour');
+  assert.equal(mayUseAccountLocation(null, null), false, 'REVISED: a never-classified (legacy) account no longer lends its location');
+});
+
+test('mayUseAccountLocation: a NATIONAL organizer\'s account location is a head office — it does not lend it; unknown reach does', () => {
+  assert.equal(mayUseAccountLocation('ORGANIZER_VENUE_EVENT', 'CONFIRMED', 'local'), true);
+  assert.equal(mayUseAccountLocation('ORGANIZER_VENUE_EVENT', 'CONFIRMED', 'regional'), true);
+  assert.equal(mayUseAccountLocation('ORGANIZER_VENUE_EVENT', 'CONFIRMED', 'unknown'), true);
+  assert.equal(mayUseAccountLocation('ORGANIZER_VENUE_EVENT', 'CONFIRMED', 'national'), false);
+  assert.equal(mayUseAccountLocation('ORGANIZER_VENUE_EVENT', 'CONFIRMED', 'international'), false);
 });
 
 test('mayUseAccountLocation is strictly narrower than the scrape gate (a curator is scrapable but has no fallback location)', () => {
@@ -75,8 +83,24 @@ test('effectiveAudienceAreas: a NATIONAL event held at a local venue is not "for
 });
 
 test('effectiveAudienceAreas: an online-only event has no venue to fall back to; a stated area still counts', () => {
-  assert.deepEqual(effectiveAudienceAreas({ ...base, geoScope: 'online', venueAreaKeys: ['jakarta'], accountAreaKeys: ['yogyakarta'] }), { keys: [], source: 'none' });
+  assert.deepEqual(effectiveAudienceAreas({ ...base, geoScope: 'online', venueAreaKeys: ['jakarta'], accountAreaKeys: ['yogyakarta'] }), { keys: [], source: 'none' }, 'organizer of UNKNOWN reach: not guessed');
   assert.deepEqual(effectiveAudienceAreas({ ...base, geoScope: 'online', statedAreaKeys: ['yogyakarta'] }), { keys: ['yogyakarta'], source: 'stated' });
+});
+
+test('effectiveAudienceAreas: local government vs national company, both posting an online event with no stated audience', () => {
+  const online = { ...base, geoScope: 'online' as const, accountAreaKeys: ['sleman'] };
+  assert.deepEqual(effectiveAudienceAreas({ ...online, accountReach: 'local' }), { keys: ['sleman'], source: 'account' }, 'a local government\'s Zoom briefing is for its residents');
+  assert.deepEqual(effectiveAudienceAreas({ ...online, accountReach: 'regional' }), { keys: ['sleman'], source: 'account' });
+  assert.deepEqual(effectiveAudienceAreas({ ...online, accountReach: 'national' }), { keys: [], source: 'none' }, 'a national company\'s webinar is for everyone — its head-office city is not its audience');
+  assert.deepEqual(effectiveAudienceAreas({ ...online, accountReach: 'unknown' }), { keys: [], source: 'none' });
+  assert.deepEqual(effectiveAudienceAreas({ ...online, accountReach: 'local', accountType: 'CURATOR_GUIDE' }), { keys: [], source: 'none' }, 'never a curator');
+  assert.deepEqual(effectiveAudienceAreas({ ...online, accountReach: 'local', accountTypeStatus: null, accountType: null }), { keys: [], source: 'none' }, 'never an unclassified account');
+});
+
+test('effectiveAudienceAreas: an area-less ONSITE post from a national organizer does not take its head-office city', () => {
+  assert.deepEqual(effectiveAudienceAreas({ ...base, geoScope: 'unspecified', accountAreaKeys: ['jakarta'], accountReach: 'national' }), { keys: [], source: 'none' });
+  assert.deepEqual(effectiveAudienceAreas({ ...base, geoScope: 'unspecified', accountAreaKeys: ['sleman'], accountReach: 'local' }), { keys: ['sleman'], source: 'account' });
+  assert.deepEqual(effectiveAudienceAreas({ ...base, geoScope: 'unspecified', accountAreaKeys: ['sleman'], accountReach: 'national', venueAreaKeys: ['sleman'] }), { keys: ['sleman'], source: 'venue' }, 'a national company\'s Yogyakarta store event still has its venue');
 });
 
 test('effectiveAudienceAreas: a venue in Jakarta with a stated Surabaya audience is for Surabaya', () => {

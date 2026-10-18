@@ -167,32 +167,27 @@ export function rankDiscovery<T extends RankableEvent>(events: T[], user?: UserP
 // Tiers:
 //   0  "local ladder" — the audience is ANY rung of the user's area ladder: their own area, a sub-area, a
 //      containing area (province/regency) or a sibling inside the same region — one merged group by date.
-//   1  "anywhere" — no audience area (national / international / unspecified), or an ONLINE / hybrid event
-//      not aimed at the user's area. Also every event when the user has no location (=> pure date order).
-//   2  "other local" — onsite-only, aimed at some other area.
-// An online/hybrid event that IS aimed at the user's area (a Zoom class "for DIY students") is tier 0:
-// the audience area is read first; "online" only decides what happens when it does not match.
+//   1  "anywhere" — no audience area (national / international / online-for-anyone / unspecified). Also
+//      every event when the user has no location (=> pure date order).
+//   2  "other local" — aimed at some other area.
+//
+// HOW AN EVENT IS ATTENDED (onsite / online / hybrid) IS NOT AN INPUT (2026-10-18, third discussion).
+// An online event is weighed exactly like an onsite one: by its audience. A Zoom class "for Sleman
+// residents" from a local government is tier 0 for a Sleman user and tier 2 for a Jakarta user — the
+// Jakarta user *could* log in, but it is not for them; a national company's webinar has no audience area
+// and is tier 1 for everybody. `attendance` stays useful for filters and labels, never for the order.
 //
 // Multi-stop events (a tour): `schedules[].areaKeys` carry each stop's audience, and "sooner" is the
 // soonest stop that MATCHES the user — day 1 in Jakarta and day 2 in Yogyakarta is a Yogyakarta event on
 // day 2 for a Yogyakarta user.
-export type OnlinePlacement = 'after-local' | 'with-local' | 'last';
+export interface EventSchedule { daysUntil: number; areaKeys?: string[] }
 
-export interface AreaOrderOptions {
-  // Where a remotely attendable event that is NOT aimed at the user's area goes:
-  //   'after-local' (default) tier 1; 'with-local' merged into tier 0 by date; 'last' tier 3, behind other-local.
-  onlinePlacement?: OnlinePlacement;
-}
-
-export interface EventSchedule { daysUntil: number; areaKeys?: string[]; attendance?: 'onsite' | 'online' | 'hybrid' }
-
-export interface AreaTierResult { tier: number; reason: 'local-ladder' | 'anywhere' | 'online' | 'other-local'; matchedDays?: number }
+export interface AreaTierResult { tier: number; reason: 'local-ladder' | 'anywhere' | 'other-local'; matchedDays?: number }
 
 export interface RankableWithAudience extends RankableEvent {
   audience?: EffectiveAudienceAreas;               // resolved by effectiveAudienceAreas(); NOT the venue
   geoScope?: GeoScope;                             // as extracted
-  attendance?: 'onsite' | 'online' | 'hybrid' | 'unspecified';
-  schedules?: EventSchedule[];                     // per-stop audience areas / attendance, when known
+  schedules?: EventSchedule[];                     // per-stop audience areas, when known
 }
 
 function ladderHit(user: UserProfile, keys: string[]): boolean {
@@ -201,36 +196,27 @@ function ladderHit(user: UserProfile, keys: string[]): boolean {
   return keys.some((e) => e === mine || ancestors(e).includes(mine) || broader.includes(e) || broader.some((b) => ancestors(e).includes(b)));
 }
 
-const isRemote = (a?: string) => a === 'online' || a === 'hybrid';
-
-export function areaTier(user: UserProfile | undefined, event: Pick<RankableWithAudience, 'audience' | 'geoScope' | 'attendance' | 'schedules'>, opts: AreaOrderOptions = {}): AreaTierResult {
-  const placement = opts.onlinePlacement ?? 'after-local';
+export function areaTier(user: UserProfile | undefined, event: Pick<RankableWithAudience, 'audience' | 'geoScope' | 'schedules'>): AreaTierResult {
   const anywhere: AreaTierResult = { tier: 1, reason: 'anywhere' };
   if (!user || user.areas.length === 0) return anywhere;
 
   const scheds = event.schedules ?? [];
   const keys = [...new Set([...(event.audience?.keys ?? []), ...scheds.flatMap((s) => s.areaKeys ?? [])])]
     .filter((k) => k !== 'indonesia'); // a country-level audience is "national", not "my area"
-  const remote = event.geoScope === 'online' || isRemote(event.attendance) || scheds.some((s) => isRemote(s.attendance));
 
   if (keys.length > 0 && ladderHit(user, keys)) {
     const hits = scheds.filter((s) => s.areaKeys && s.areaKeys.length > 0 && ladderHit(user, s.areaKeys));
     return { tier: 0, reason: 'local-ladder', matchedDays: hits.length ? Math.min(...hits.map((s) => s.daysUntil)) : undefined };
-  }
-  if (remote) {
-    if (placement === 'with-local' && keys.length === 0) return { tier: 0, reason: 'online' };
-    if (placement === 'last') return { tier: 3, reason: 'online' };
-    return { tier: 1, reason: 'online' };
   }
   if (keys.length === 0) return anywhere;
   if (event.geoScope === 'national' || event.geoScope === 'international') return anywhere;
   return { tier: 2, reason: 'other-local' };
 }
 
-export function rankAreaThenDate<T extends RankableWithAudience>(events: T[], user?: UserProfile, opts: AreaOrderOptions = {}): Array<T & AreaTierResult & { sortDays: number }> {
+export function rankAreaThenDate<T extends RankableWithAudience>(events: T[], user?: UserProfile): Array<T & AreaTierResult & { sortDays: number }> {
   return events
     .map((e) => {
-      const t = areaTier(user, e, opts);
+      const t = areaTier(user, e);
       return { ...e, ...t, sortDays: t.matchedDays ?? e.daysUntilNext };
     })
     .sort((a, b) => a.tier - b.tier || a.sortDays - b.sortDays || a.id.localeCompare(b.id));

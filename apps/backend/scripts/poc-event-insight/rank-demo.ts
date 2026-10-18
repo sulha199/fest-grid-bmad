@@ -69,7 +69,7 @@ for (const [id, days] of Object.entries(DAYS)) {
   // stated audience here; the audience-area study (area-demo.ts) is the one that keeps them apart.
   const stated = (insight?.targetAreas ?? []).map((a) => canonicalAreaKey(a.name)).filter((k): k is string => !!k);
   const audience = insight ? effectiveAudienceAreas({ geoScope: insight.geoScope, statedAreaKeys: stated, venueAreaKeys: [], accountAreaKeys: [], accountType: null, accountTypeStatus: null }) : undefined;
-  events.push({ id, daysUntilNext: days, insight, audience, geoScope: insight?.geoScope, attendance: insight?.attendance });
+  events.push({ id, daysUntilNext: days, insight, audience, geoScope: insight?.geoScope });
 }
 const withInsight = events.filter((e) => e.insight).length;
 
@@ -92,13 +92,13 @@ for (const p of PERSONAS) {
   for (const id of WANTED[p.id] ?? []) out.push(`| ${p.id} | ${id} | ${rankOf(chronoAll, id)} | ${rankOf(areaFirst, id)} | ${rankOf(mine, id)} |`);
 }
 out.push('');
-out.push(`### Area first, then sooner — top ${top} per user (tier 0 = local ladder, merged · 1 = anywhere: online / national / unspecified · 2 = other local)`, '');
+out.push(`### Area first, then sooner — top ${top} per user (tier 0 = local ladder, merged · 1 = anywhere: no audience area — national / international / online-for-anyone / unspecified · 2 = aimed at another area, online or not)`, '');
 const areaTops = new Map<string, string[]>();
 for (const p of PERSONAS) {
   const ranked = rankAreaThenDate(events, p);
   areaTops.set(p.id, ranked.slice(0, top).map((e) => e.id));
   const counts = [0, 1, 2].map((t) => ranked.filter((e) => e.tier === t).length);
-  const online = ranked.filter((e) => e.reason === 'online' || e.insight?.attendance === 'online').map((e) => `${e.id}→tier ${e.tier}`);
+  const online = ranked.filter((e) => e.insight?.attendance === 'online').map((e) => `${e.id}→tier ${e.tier}`);
   out.push(`**${p.id}** — events by tier: ${counts[0]} / ${counts[1]} / ${counts[2]}${online.length ? ` · online: ${online.join(', ')}` : ''}`, '', '| # | event | in (days) | tier | why |', '|--:|---|--:|--:|---|',
     ...ranked.slice(0, top).map((e, i) => `| ${i + 1} | ${e.id} | ${e.daysUntilNext} | ${e.tier} | ${e.reason} |`), '');
 }

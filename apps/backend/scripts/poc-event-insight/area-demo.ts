@@ -6,12 +6,15 @@
  *
  * For each event it also computes the tier the OLD rule (area = audience ∪ venue, fallback to the account
  * for every account type) would have given, so the change the discussion asked for is visible event by
- * event. `daysUntilNext` is illustrative. Rows marked (hand-made) are not Gemini output: they exist to
- * show the account-type policy on an area-less post.
+ * event. `daysUntilNext` is illustrative. Rows marked (hand-made) are not Gemini output on those posts: they
+ * exist to show the account-type and account-reach policy on area-less and online posts (the reach comes from
+ * the profile-insight experiment).
  */
 import { readFileSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { loadCases } from './corpus.js';
-import { effectiveAudienceAreas, type AccountType, type AccountTypeStatus } from './location-policy.js';
+import { effectiveAudienceAreas, type AccountReach, type AccountType, type AccountTypeStatus } from './location-policy.js';
 import { canonicalAreaKey, rankAreaThenDate, type RankableWithAudience, type UserProfile } from './relevance.js';
 import type { AudienceAreas } from './audience-areas.js';
 
@@ -52,10 +55,28 @@ for (const rec of data.records.filter((r) => r.run === 1 && r.out)) {
   const oldKeys = [...new Set([...stated, ...venue, ...held, ...(stated.length + venue.length + held.length === 0 ? acc.areas : [])])];
   rows.push({ id: rec.id, daysUntilNext: 3 + (n++ * 2) % 41, audience, geoScope: out.geoScope, note: `${out.geoScope}; stated [${stated.join(',')}] venue [${venue.join(',')}]`, oldKeys, source: audience.source });
 }
-// Hand-made: the same area-less post from an organizer and from a curator, both with a stored location in Sleman.
-for (const [id, acc] of [['x-organizer-arealess (hand-made)', { type: 'ORGANIZER_VENUE_EVENT' as AccountType }], ['x-curator-arealess (hand-made)', { type: 'CURATOR_GUIDE' as AccountType }]] as const) {
-  const audience = effectiveAudienceAreas({ geoScope: 'unspecified', statedAreaKeys: [], venueAreaKeys: [], accountAreaKeys: ['sleman'], accountType: acc.type, accountTypeStatus: 'CONFIRMED' });
-  rows.push({ id, daysUntilNext: 3 + (n++ * 2) % 41, audience, geoScope: 'unspecified', note: `hand-made; account location sleman, type ${acc.type}`, oldKeys: ['sleman'], source: audience.source });
+// Hand-made rows (NOT Gemini output on these posts). The account reach is the one Gemini returned for the
+// matching synthetic profile (results/profile-insight-v1.json, run 1); falls back to the label when absent.
+function reachOf(profileId: string, fallback: AccountReach): AccountReach {
+  try {
+    const f = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../_bmad-output/planning-artifacts/event-insight-poc/results/profile-insight-v1.json');
+    const rec = (JSON.parse(readFileSync(f, 'utf8')) as { records: Array<{ id: string; run: number; guarded?: { reach: string } }> }).records.find((r) => r.id === profileId && r.run === 1);
+    const r = rec?.guarded?.reach;
+    return r === 'local' || r === 'regional' || r === 'national' || r === 'international' ? r : fallback;
+  } catch { return fallback; }
+}
+const HAND: Array<{ id: string; geoScope: AudienceAreas['geoScope']; type: AccountType; status: AccountTypeStatus; areas: string[]; reach: AccountReach; note: string }> = [
+  { id: 'x-organizer-arealess (hand-made)', geoScope: 'unspecified', type: 'ORGANIZER_VENUE_EVENT', status: 'CONFIRMED', areas: ['sleman'], reach: 'local', note: 'area-less post, local organizer in Sleman' },
+  { id: 'x-curator-arealess (hand-made)', geoScope: 'unspecified', type: 'CURATOR_GUIDE', status: 'CONFIRMED', areas: ['sleman'], reach: 'local', note: 'the same post from a curator with a stored Sleman location' },
+  { id: 'x-unclassified-arealess (hand-made)', geoScope: 'unspecified', type: null, status: null, areas: ['sleman'], reach: 'unknown', note: 'the same post from a never-classified (legacy) account' },
+  { id: 'x-localgov-zoom (hand-made)', geoScope: 'online', type: 'ORGANIZER_VENUE_EVENT', status: 'CONFIRMED', areas: ['sleman'], reach: reachOf('syn-dinas-sleman', 'local'), note: 'Zoom briefing from a Sleman agency, no stated audience' },
+  { id: 'x-national-co-zoom (hand-made)', geoScope: 'online', type: 'ORGANIZER_VENUE_EVENT', status: 'CONFIRMED', areas: ['jakarta'], reach: reachOf('syn-telco-nasional', 'national'), note: 'Zoom webinar from a national company with a Jakarta head office, no stated audience' },
+  { id: 'x-localgov-zoom-for-sleman (hand-made)', geoScope: 'city', type: 'ORGANIZER_VENUE_EVENT', status: 'CONFIRMED', areas: ['sleman'], reach: 'local', note: 'Zoom briefing that STATES "untuk warga Sleman"' },
+];
+for (const h of HAND) {
+  const stated = h.id.includes('for-sleman') ? ['sleman'] : [];
+  const audience = effectiveAudienceAreas({ geoScope: h.geoScope, statedAreaKeys: stated, venueAreaKeys: [], accountAreaKeys: h.areas, accountType: h.type, accountTypeStatus: h.status, accountReach: h.reach });
+  rows.push({ id: h.id, daysUntilNext: 3 + (n++ * 2) % 41, audience, geoScope: h.geoScope, note: `hand-made; ${h.note}; reach ${h.reach}`, oldKeys: h.areas, source: audience.source });
 }
 
 const PERSONAS: Array<UserProfile & { blurb: string }> = [

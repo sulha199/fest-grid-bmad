@@ -2350,4 +2350,20 @@ items:
      title: "Personalized Discovery: extract each event's target audience (area first), order by it not the venue",
      ref: [backlog/IDEA-074-audience-extraction-and-audience-area-ordering.md, planning-artifacts/event-insight-poc/proposal-personalized-discovery.md, planning-artifacts/event-insight-poc/poc-report.md],
      touches: [app:backend, pkg:domain, pkg:shared-types, pkg:database, web:events, cross:ai-extraction, cross:prd, cross:architecture],
-     note: "POC only. Held-out audience-area result is 18/18 on 6 posts (small). Depends on IDEA-073, BUG-065, BUG-066."}
+     note: "POC only. Held-out audience-area result is 18/18 on 6 posts (small). Depends on IDEA-073, BUG-065, BUG-066, IDEA-075."}
+
+  IDEA-075:
+    {type: idea, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: m, blocks: [IDEA-074],
+     title: "Read an account's country and reach from its initial profile scrape; retry that scrape when it fails",
+     ref: [backlog/IDEA-075-profile-enrichment-country-reach-retry.md, planning-artifacts/event-insight-poc/poc-report.md],
+     touches: [app:backend, pkg:domain, pkg:database, web:accounts, web:locations, cross:ai-extraction],
+     note: "POC: 16 profiles (5 real, 11 synthetic), 0 wrong countries in 48 runs; model and signals never disagreed, so conflict handling is unit-tested only."}
+
+  FIND-086:
+    {type: finding, status: backlog, created: 2026-10-18,
+     impact: compliance, effort: s,
+     title: "A never-classified curator account is treated as an organizer: its captions are not cleared after extraction",
+     ref: [backlog/FIND-086-never-classified-curator-escapes-minimization.md, apps/backend/src/lib/ai-processor/process-ai-job.ts],
+     touches: [app:backend, web:accounts, cross:prd],
+     note: "Found by reading code, not reproduced; unknown whether any such account exists (SQL in the note). Story 3.4n grandfathered null-type accounts on purpose."}
