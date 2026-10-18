@@ -2367,3 +2367,44 @@ items:
      ref: [backlog/FIND-086-never-classified-curator-escapes-minimization.md, apps/backend/src/lib/ai-processor/process-ai-job.ts],
      touches: [app:backend, web:accounts, cross:prd],
      note: "Found by reading code, not reproduced; unknown whether any such account exists (SQL in the note). Story 3.4n grandfathered null-type accounts on purpose."}
+
+  # ── 2026-10-18 (discovery ranking at scale: list-endpoint measurements, close matches, freshness, seen) ──
+  FIND-087:
+    {type: finding, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: xs,
+     title: "Query.events: the planner switches on JIT compilation for it (~80% of the time at 30k events) and its cost follows total history, not the visible set",
+     ref: [backlog/FIND-087-event-list-jit-compilation-and-total-catalogue-cost.md, planning-artifacts/event-insight-poc/proposal-discovery-ranking-and-scale.md, apps/backend/src/schema/resolvers.ts],
+     touches: [app:backend, app:infrastructure, pkg:database],
+     note: "Measured on a scratch Postgres 16.15 + seed:volume, DB only (882 ms JIT on vs 175 ms off at 30k). Production's jit setting is unknown: run SHOW jit first."}
+
+  BUG-067:
+    {type: bug, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: xs,
+     title: "Query.events orders by the next date alone, so offset paging repeats and skips events that share a date",
+     ref: [backlog/BUG-067-event-list-order-has-no-tie-break.md, apps/backend/src/schema/resolvers.ts],
+     touches: [app:backend, web:events],
+     note: "Reproduced on seed data (20 pages of 10: 48 events on more than one page, 98 of the first 200 never returned); seed has more same-day ties than production probably does. Not reproduced on production."}
+
+  IDEA-076:
+    {type: idea, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: m, blocks: [IDEA-074],
+     title: "Scale-safe event list: maintained next-open-date column, open-events index, id tie-break, pinned-session cursor",
+     ref: [planning-artifacts/event-insight-poc/proposal-discovery-ranking-and-scale.md, backlog/FIND-087-event-list-jit-compilation-and-total-catalogue-cost.md, backlog/BUG-067-event-list-order-has-no-tie-break.md],
+     touches: [app:backend, pkg:database, pkg:domain, web:events, cross:architecture],
+     note: "Measured end state 0.4 ms vs 175-880 ms today (30k) and 2,084 vs 4.4 requests/s. Write side (trigger + nightly roll-forward) and users with hide-past grace above 0 are NOT measured."}
+
+  IDEA-077:
+    {type: idea, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: m,
+     title: "AI filter closest matches: keep events that miss one condition, with a score and the unmet conditions, in a separate bounded lane",
+     ref: [planning-artifacts/event-insight-poc/proposal-discovery-ranking-and-scale.md, apps/backend/scripts/poc-event-insight/partial-match.ts],
+     touches: [app:backend, pkg:domain, web:events, cross:ai-extraction],
+     note: "Semantics prototyped and unit-tested; weights are unvalidated. Scoring every event costs 140-458 ms, a bounded lane 5-6 ms, so it must not ride on Query.events. Relaxed-candidate query not built or measured."}
+
+  IDEA-078:
+    {type: idea, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: s,
+     title: "Discovery freshness pull (post published_at) and session-snapshot demotion of already-seen events, behind a flag and an A/B",
+     ref: [planning-artifacts/event-insight-poc/proposal-discovery-ranking-and-scale.md, apps/backend/scripts/poc-event-insight/discovery-sort.ts],
+     touches: [app:backend, pkg:domain, web:events],
+     note: "Bounded perturbation of the date order (7 days earlier, 14 later); cost ~6 ms and ~0 at 30k. Depends on IDEA-076 and IDEA-074; no user-facing effect has been tested."}

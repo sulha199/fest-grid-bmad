@@ -1,5 +1,5 @@
 ---
-status: draft-for-review (revision 7)
+status: draft-for-review (revision 8)
 type: planning-proposal
 date: 2026-10-18
 related: [prd §3.1 Event Discovery, §3.2 Personalization, §3.8 Gemini API Management, §3.16 Data Minimization, §4.1 EventInfo, §4.3 LocationDetails; Architecture Spine AD-13, AD-17, AD-18, AD-29, AD-30; Epic 7/9 (AI filter) for the golden-set pattern]
@@ -48,6 +48,15 @@ evidence: ./poc-report.md
 19. **Run the legacy bulk update — yes — and never-classified accounts that already have a location are not changed.** The runbook (`IDEA-075-legacy-bulk-update/`: look → apply → rollback → after) was **tested on a scratch PostgreSQL 16 built from the repository's 80 migrations**; it has not been run on production data. Decision 13 is reversed accordingly: a never-classified account with a location keeps today's behaviour, including lending its location (§10.1). What stays exposed is a curator among them (FIND-086); `04-after.sql` lists accounts whose events are scattered over five or more cities, a curator's shape.
 20. **An unresolved country is a preference plus the confidence floor, not "no pin"** (§10.4). The geocoder keeps today's soft `bias=countrycode:` toward the platform's home country, any country may win, but the winner must clear the floor — otherwise the text is kept and no coordinates are stored. A known country is a hard filter with the same floor. `geocodePlan` / `decideGeocode`, tested; the floor (0.5) is not calibrated.
 21. **The subscribers' country is a tie-break and the last option** (§10.9). Not a scoring signal any more: it is applied after the markers, the model and the first-scraped-posts re-evaluation, only to confirm a lone weak signal for the same country, never to resolve alone or to break a genuine tie.
+
+### Revision 8 — ranking at scale: the list endpoint measured, close matches, freshness, "already seen" (2026-10-18)
+
+Analysis and measurements are in [`proposal-discovery-ranking-and-scale.md`](./proposal-discovery-ranking-and-scale.md); nothing in it is decided yet.
+
+22. **The list endpoint is not in shape to carry any of this — independent of this feature.** Measured on a scratch PostgreSQL with the repo's migrations and `seed:volume`: the planner JIT-compiles the query (882 ms vs 175 ms with JIT off at 30k events), its cost follows total history, and the order has no tie-break so offset paging repeats and skips events (FIND-087, BUG-067). A maintained sort key plus an index of still-open events brings it to 0.4 ms (IDEA-076). **That foundation comes before the ranking stories.**
+23. **§4.2's cost claim is corrected:** cost today is bounded by the *total* catalogue, not the visible set, and the fallback that works is a **horizon** (personalise the next 60 days, then plain date order: 28 ms at 30k, 67 ms at 120k all-open), not the window rule (exact, but only pays at ~98k open events).
+24. **AI filter partial matches are possible** as a separate bounded "closest matches" lane with a score and the unmet conditions — not as scoring inside `Query.events` (140–458 ms) (IDEA-077).
+25. **Freshness (post `published_at`, ≤7 days earlier) and session-snapshot demotion of already-seen events (≤14 days later, never within 3 days)** are bounded perturbations of the date order, nearly free to compute; the seen term is an A/B (IDEA-078).
 
 ## 1. Recommendation
 
@@ -199,7 +208,7 @@ sortKey  = daysUntilNext − 21·max(R,0) + 21·max(−R,0)
 ### 4.2 Fit with the hot-path rules
 
 * **One `ORDER BY` expression** (the area tier is a single integer `CASE` ahead of the existing date key) inside the existing `Query.events` select — no per-row field resolver and no extra unconditional query (project-context "Database & Performance"; AD-17). User-profile terms are passed as bound parameters (arrays), not joins.
-* Cost is bounded by the **visible** set (default filter is ongoing/upcoming), and the existing sort already evaluates correlated subqueries per row (Story 2.7 EXPLAIN'd at ~30k events). Story 10.2 must repeat that EXPLAIN. **Fallback if it doesn't hold:** rank only a date window of the first N candidates (the bounded 21-day discount means a window of `offset + page + 21 days` is sufficient).
+* Cost is bounded by the **visible** set (default filter is ongoing/upcoming), and the existing sort already evaluates correlated subqueries per row (Story 2.7 EXPLAIN'd at ~30k events). Story 10.2 must repeat that EXPLAIN. **Corrected in revision 8:** the measured cost follows the *total* catalogue, not only the visible set, and the query is JIT-compiled by default; see `proposal-discovery-ranking-and-scale.md` §2 and §6 before relying on this bullet. **Fallback if it doesn't hold:** rank only a date window of the first N candidates (the bounded 21-day discount means a window of `offset + page + 21 days` is sufficient).
 * **One definition of "relevance".** The reference scorer lives in `packages/domain` (100% unit-tested, per the Unit Test Requirement); the SQL builder is tested for **parity** against it on DB fixtures, so the ORDER BY and the UI chips ("Near you", "Because you like running") cannot drift apart — the same failure class AD-17 Rule 1 was written to prevent. Chips are derived **client-side** from the same pure function; a server `relevanceReasons` field would be a new per-row resolver and is not allowed here.
 * `sort: RECOMMENDED | SOONEST` becomes a `nuqs` URL param and is a committed filter-class input for `useListPaginationController` (AD-18 / BUG-019 class): changing it resets pagination. Next/Previous in the detail view inherits the sort (Context-Aware Detail Views). Calendar, Feed, Favorites and account pages keep their own orderings.
 * Pagination caveat: `R` depends on the profile, which can change mid-scroll (favoriting an event). The client already merges pages by id, so the worst case is a duplicate/skip at a page boundary, not corruption. Story 10.2 decides whether to snapshot the profile per session.

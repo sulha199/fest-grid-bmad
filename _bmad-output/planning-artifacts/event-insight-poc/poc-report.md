@@ -1,5 +1,5 @@
 ---
-status: complete (addenda 1-6, 2026-10-18, appended)
+status: complete (addenda 1-7, 2026-10-18, appended)
 type: poc-report
 date: 2026-10-18
 model_under_test: gemini-3.5-flash-lite   # the production default (apps/backend/src/env.ts)
@@ -454,3 +454,38 @@ Addendum 3 kept them lending their location, Addendum 4 made them lend nothing, 
 * Re-verified identical after this round: the guarded wrong-claims table; the v2 profile re-score summary.
 * Backlog: IDEA-075, BUG-065, BUG-066 and FIND-086 updated to the decisions; checker failure count unchanged (69), none on the new rows. No product code was changed.
 
+---
+
+# Addendum 7 (2026-10-18, seventh discussion): can the AI filter keep partial matches, can freshness and "already seen" join the sort, and can the list endpoint carry it
+
+Questions: (1) rather than eliminate an event that only partly matches an AI filter, keep it with a lower score; (2) combine the freshness of the post into the Discovery sort; (3) treat events already shown on screen as lower; (4) all of it without hurting `Query.events`, the most-used endpoint. Analysis: [`proposal-discovery-ranking-and-scale.md`](./proposal-discovery-ranking-and-scale.md). Code: `partial-match.ts` (11 tests), `discovery-sort.ts` (10), `perf-bench.ts`, `perf-variants.ts`, `perf-features.ts`, `perf-pagination.ts`. Total offline tests: **220**. No Gemini call was made in this round.
+
+## G1. How the endpoint behaves today (scratch PostgreSQL 16.15, the repo's 80 migrations, `seed:volume`)
+
+The harness runs the web client's own `getEvents` operation against the real schema and captures the SQL the resolver emits, so the baseline is today's query, not a copy. Tables: `results/perf-variants-*.generated.md`, `perf-pgbench-30k`, `perf-pagination-30k`, `perf-today-list-query*`.
+
+| finding | measured |
+|---|---|
+| JIT compilation | 30k events: **882 ms** with the server default (JIT on) vs **175 ms** off; the captured plan spends 717 of 909 ms compiling 79 functions. 8 clients: 4.4 vs 25 requests/s |
+| cost follows history | 120k events, 85% ended: 239 ms with JIT off; the plan reads every event, post and main schedule |
+| no tie-break | 20 pages of 10: **48 events returned more than once, 98 of the true first 200 never returned** |
+| a maintained key with an index of only still-open events | **0.4 ms** (30k and 120k mature); 2,084 requests/s at 8 clients. Without the pruning the same idea is **worse** than today on the mature catalogue (503 ms) |
+| OFFSET vs keyset on the maintained key | offset 2,000: 18.7 vs 0.3 ms; offset 10,000: 130 vs 0.4 ms |
+
+## G2. Partial matches in the AI filter
+
+Semantics prototyped (hard / graded / binary leaves, weights 1–3, AND weighted mean, OR best, NOT strict, unknown data 0.5 and reported as unknown, close match = at most one unmet leaf and score ≥ 0.6) and unit-tested; worked example in the proposal §3.2. Cost on a four-leaf filter that matches nothing on the seed: scoring every visible event **140 ms (30k) / 458 ms (120k open)**; events matching ≥3 of 4 leaves 94 / 386 ms; **bounded to the 300 soonest events 6.1 / 5.2 ms (643 requests/s under load)**. Conclusion: yes, as a separate bounded lane, not inside `Query.events`.
+
+## G3. Freshness and "already seen"
+
+Bounded terms on top of the date (up to 7 days earlier for a fresh post, 14 later for a seen one, no push for events within 3 days). The window rule that lets an index serve them (window = 7 + 14 days) is checked against the full ranking on 300 random pools, and a test shows a smaller window is not exact. Cost at 30k: area tier 39.7 ms, + freshness 45.2, + seen 43.4; at 120k all open: 119.6 / 173.1 / 191.4. **Personalising only the next 60 days: 28.4 ms (30k), 66.9 ms (120k open); 14 days: 15.4 / 29.1 ms**; under load 76.5 requests/s against 34.7 when personalising everything.
+
+## G4. Limits and changes after seeing results (this addendum)
+
+* **Synthetic data, database only, one sandbox.** Ratios are the finding; the milliseconds are the machine's. The production `jit` setting and data shape are unknown.
+* **A wrong measurement was caught and redone.** The first run of the feature benchmark located the visibility predicate with `indexOf(' where ')`, which matched the `WHERE` inside the select list's favourites sub-select; the queries still ran and returned 21 rows, so nothing failed — a syntax error in a later variant exposed it. The code now anchors on `' where (EXISTS'` and every figure above is from the re-run.
+* The first pagination run used a page size of 20; the client uses 10, so the script gained `--size` and the quoted run uses 10.
+* The windowed (P3b) variant did not pay at 30k (no gain, worse at offset 200) — which is why the horizon variant (P3h) was added *after* seeing that result. It is therefore a post-hoc comparison, not a pre-registered one.
+* One of my own tests asserted an ordering that the weights do not produce (a date one day late and a missed `isFree` both cost 1/9). The test was rewritten to assert the equality as a tuning fact, and the proposal §3.2 says so.
+* **Not measured:** the write side of a maintained key, freshness through the `posts` join, the relaxed-candidate query for close matches, users with a hide-past grace above 0, any effect on user behaviour. The bounded lane as measured covers only the 300 soonest events (about 2–3 days on the seed), so its latency is real and its coverage is not the final design's.
+* Re-verified identical after this round: the guarded wrong-claims table. Backlog: **FIND-087, BUG-067, IDEA-076, IDEA-077, IDEA-078** added; checker failure count unchanged (69), none on the new rows. No product code was changed.
