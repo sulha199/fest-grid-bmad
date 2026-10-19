@@ -11,6 +11,7 @@ import { writeFileSync } from 'node:fs';
 import postgres from 'postgres';
 import { buildSchema, capture, mainSelect, webOperation, type Captured } from './perf-bench.js';
 import { loadBackendEnv } from '../../src/env.js';
+import { scratchDatabaseUrl } from './scratch-guard.js';
 
 const arg = (n: string, d?: string) => { const i = process.argv.indexOf(`--${n}`); return i >= 0 ? process.argv[i + 1] : d; };
 const has = (n: string) => process.argv.includes(`--${n}`);
@@ -20,7 +21,7 @@ const KEY = (a: string) => `COALESCE(min(${a}.event_start_date) FILTER (WHERE CO
 
 async function main() {
   const label = arg('label', 'bench');
-  const client = postgres(loadBackendEnv().databaseUrl as string, { max: 1, prepare: false });
+  const client = postgres(scratchDatabaseUrl(loadBackendEnv().databaseUrl, 'perf-features.ts'), { max: 1, prepare: false });
   if (has('open-all')) {
     await client.unsafe(`UPDATE schedules SET event_start_date = event_start_date + 450, event_end_date = CASE WHEN event_end_date IS NULL THEN NULL ELSE event_end_date + 450 END WHERE event_start_date < current_date - 100`);
     await client.unsafe(`ANALYZE schedules`);

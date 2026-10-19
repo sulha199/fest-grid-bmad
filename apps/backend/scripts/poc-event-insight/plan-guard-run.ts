@@ -12,6 +12,7 @@ import { graphql } from 'graphql';
 import postgres from 'postgres';
 import { setSqlCaptureSink } from '../../src/db/client.js';
 import { loadBackendEnv } from '../../src/env.js';
+import { scratchDatabaseUrl } from './scratch-guard.js';
 import { buildSchema, webOperation, type Captured } from './perf-bench.js';
 import { analyzePlan, checkPlan, DEFAULT_PLAN_RULES, describe, type ExplainRoot } from './plan-guard.js';
 
@@ -32,7 +33,7 @@ const label = (s: string): string => {
 };
 
 async function main() {
-  const client = postgres(loadBackendEnv().databaseUrl as string, { max: 1, prepare: false });
+  const client = postgres(scratchDatabaseUrl(loadBackendEnv().databaseUrl, 'plan-guard-run.ts'), { max: 1, prepare: false });
   const schema = buildSchema();
   const jobs: Array<{ name: string; sql: string; params: unknown[] }> = [];
   for (const [who, ctx] of [['anonymous', { user: null }], ['signed in', { user: { userId: '8d01845c-dc75-4e71-890d-49893bfa366e', role: 'user' as const } }]] as const) {

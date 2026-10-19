@@ -18,6 +18,7 @@ import { join } from 'node:path';
 import { resolvers } from '../../src/schema/resolvers.js';
 import { setSqlCaptureSink } from '../../src/db/client.js';
 import { loadBackendEnv } from '../../src/env.js';
+import { scratchDatabaseUrl } from './scratch-guard.js';
 import type { GraphQLContext } from '../../src/lib/auth/context.js';
 
 export interface Captured { sql: string; params: unknown[] }
@@ -61,7 +62,7 @@ export async function explain(client: ReturnType<typeof postgres>, c: Captured, 
 
 async function main() {
   const env = loadBackendEnv();
-  const client = postgres(env.databaseUrl as string, { max: 1, prepare: false });
+  const client = postgres(scratchDatabaseUrl(env.databaseUrl, 'perf-bench.ts'), { max: 1, prepare: false });
   const schema = buildSchema();
   const outDir = resolve(process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : '.');
   mkdirSync(outDir, { recursive: true });

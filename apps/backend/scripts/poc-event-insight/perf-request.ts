@@ -18,6 +18,7 @@ import { graphql } from 'graphql';
 import postgres from 'postgres';
 import { setSqlCaptureSink } from '../../src/db/client.js';
 import { loadBackendEnv } from '../../src/env.js';
+import { scratchDatabaseUrl } from './scratch-guard.js';
 import { buildSchema, webOperation, type Captured } from './perf-bench.js';
 import type { GraphQLContext } from '../../src/lib/auth/context.js';
 
@@ -58,7 +59,7 @@ async function timeStmt(client: ReturnType<typeof postgres>, c: Captured, jit: b
 
 async function main() {
   const label = arg('label', 'bench');
-  const client = postgres(loadBackendEnv().databaseUrl as string, { max: 1, prepare: false });
+  const client = postgres(scratchDatabaseUrl(loadBackendEnv().databaseUrl, 'perf-request.ts'), { max: 1, prepare: false });
   const schema = buildSchema();
   const web = webOperation('getEvents');
   const noCount = web.replace(/\n\s*totalCount/, '');

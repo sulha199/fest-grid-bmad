@@ -11,6 +11,7 @@ import { writeFileSync } from 'node:fs';
 import postgres from 'postgres';
 import { buildSchema, capture, mainSelect, webOperation, type Captured } from './perf-bench.js';
 import { loadBackendEnv } from '../../src/env.js';
+import { scratchDatabaseUrl } from './scratch-guard.js';
 import type { GraphQLContext } from '../../src/lib/auth/context.js';
 
 const arg = (n: string, d?: string) => { const i = process.argv.indexOf(`--${n}`); return i >= 0 ? process.argv[i + 1] : d; };
@@ -23,7 +24,7 @@ const KEY = (alias: string) => `COALESCE(min(${alias}.event_start_date) FILTER (
 
 async function main() {
   const label = arg('label', 'bench');
-  const client = postgres(loadBackendEnv().databaseUrl as string, { max: 1, prepare: false });
+  const client = postgres(scratchDatabaseUrl(loadBackendEnv().databaseUrl, 'perf-variants.ts'), { max: 1, prepare: false });
   const schema = buildSchema();
   const cs = await capture(schema, { user: null } as GraphQLContext, webOperation('getEvents'), { limit: 20 });
   const base = inline(mainSelect(cs));

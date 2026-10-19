@@ -12,12 +12,13 @@ import { writeFileSync } from 'node:fs';
 import postgres from 'postgres';
 import { buildSchema, capture, mainSelect, webOperation, type Captured } from './perf-bench.js';
 import { loadBackendEnv } from '../../src/env.js';
+import { scratchDatabaseUrl } from './scratch-guard.js';
 
 const arg = (n: string, d?: string) => { const i = process.argv.indexOf(`--${n}`); return i >= 0 ? process.argv[i + 1] : d; };
 const inline = (c: Captured) => c.sql.replace(/\$(\d+)/g, (_, n) => `'${String(c.params[Number(n) - 1]).replace(/'/g, "''")}'`);
 
 async function main() {
-  const client = postgres(loadBackendEnv().databaseUrl as string, { max: 1, prepare: false });
+  const client = postgres(scratchDatabaseUrl(loadBackendEnv().databaseUrl, 'perf-pagination.ts'), { max: 1, prepare: false });
   const base = inline(mainSelect(await capture(buildSchema(), { user: null }, webOperation('getEvents'), { limit: 20 })));
   const lower = base.toLowerCase();
   const orderAt = lower.indexOf('order by');

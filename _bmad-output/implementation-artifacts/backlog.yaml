@@ -2457,3 +2457,19 @@ items:
      ref: [planning-artifacts/event-insight-poc/proposal-target-area-and-scan-safety.md, apps/backend/scripts/poc-event-insight/plan-guard.ts],
      touches: [app:backend, app:infrastructure, pkg:database, cross:process],
      note: "Guard fails all 4 of today's Discovery statements at 300k events; junction candidates 1.0-2.3 ms vs 29 ms at 91k open. Thresholds are starting values; pooler behaviour of SET LOCAL/timeout untested; junction write path unmeasured."}
+
+  FIND-090:
+    {type: finding, status: backlog, created: 2026-10-19,
+     impact: internal, effort: xs,
+     title: "The cloud-session environment holds production-named secrets; the POC's live Gemini runs used SYSTEM_GEMINI_API_KEY",
+     ref: [planning-artifacts/event-insight-poc/prod-readonly/README.md, .env.example],
+     touches: [app:infrastructure, cross:process],
+     note: "Variable names seen, values never printed: SYSTEM_GEMINI_API_KEY (the app's platform-funded fallback, used for hundreds of POC calls and rate-limited), an Apify token and AWS credentials (not used). Check the key's usage/quota, use a separate experiment key, review the others."}
+
+  IDEA-083:
+    {type: idea, status: backlog, created: 2026-10-19,
+     impact: internal, effort: xs,
+     title: "Read-only production check: a least-privilege role, an aggregate-only pack and a plan guard that a person runs against a replica",
+     ref: [planning-artifacts/event-insight-poc/prod-readonly/README.md, apps/backend/scripts/poc-event-insight/prod-readonly-check.ts],
+     touches: [app:backend, pkg:database, cross:process],
+     note: "Tested on a scratch Postgres only: the role, the pack, the refusal of a write-capable role. Supabase RLS, pooler SET LOCAL and pg_stat_statements access are unverified. Confirms FIND-087, FIND-088, BUG-063, BUG-066 and the IDEA-075 legacy set on real data."}

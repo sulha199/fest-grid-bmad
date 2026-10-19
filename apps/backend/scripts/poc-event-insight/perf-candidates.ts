@@ -18,13 +18,14 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import postgres from 'postgres';
 import { loadBackendEnv } from '../../src/env.js';
+import { scratchDatabaseUrl } from './scratch-guard.js';
 import { analyzePlan, checkPlan, DEFAULT_PLAN_RULES, describe, type ExplainRoot } from './plan-guard.js';
 
 const arg = (n: string, d?: string) => { const i = process.argv.indexOf(`--${n}`); return i >= 0 ? process.argv[i + 1] : d; };
 
 async function main() {
   const label = arg('label', 'bench');
-  const client = postgres(loadBackendEnv().databaseUrl as string, { max: 1, prepare: false });
+  const client = postgres(scratchDatabaseUrl(loadBackendEnv().databaseUrl, 'perf-candidates.ts'), { max: 1, prepare: false });
   const have = await client.unsafe(`select count(*)::int c from information_schema.columns where table_name='events' and column_name in ('bench_open_key','bench_audience')`);
   if (have[0].c !== 2) throw new Error('run perf-features.ts on this database first');
 
