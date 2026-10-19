@@ -54,7 +54,7 @@ export function EventDiscoveryPanel({
   const activeContent = views.find((v) => v.id === currentViewId)?.content ?? null;
 
   const headerContainerRef = React.useRef<HTMLDivElement>(null);
-  const { isCollapsed, expand } = useCollapseHeaderOnScroll(80, headerContainerRef);
+  const { isCollapsed, isFloatingOpen, toggleFloating } = useCollapseHeaderOnScroll(80, headerContainerRef);
   const headerContentId = React.useId();
 
   return (
@@ -69,8 +69,8 @@ export function EventDiscoveryPanel({
         <div hidden={!isCollapsed} className="flex justify-center py-2">
           <button
             type="button"
-            onClick={expand}
-            aria-expanded={!isCollapsed}
+            onClick={toggleFloating}
+            aria-expanded={isFloatingOpen}
             aria-controls={headerContentId}
             className="flex items-center gap-2 rounded-full border bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
           >
@@ -78,7 +78,15 @@ export function EventDiscoveryPanel({
             <span>{showFiltersLabel || 'Show filters'}</span>
           </button>
         </div>
-        <div id={headerContentId} hidden={isCollapsed}>
+        <div
+          id={headerContentId}
+          hidden={isCollapsed && !isFloatingOpen}
+          className={
+            isCollapsed
+              ? 'absolute inset-x-0 top-full max-h-[calc(100dvh-5rem)] overflow-y-auto rounded-b-xl border border-t-0 border-gray-200 bg-background px-4 pb-4 pt-3 shadow-lg dark:border-gray-800'
+              : undefined
+          }
+        >
           <div className="flex flex-col gap-6">
             <SearchBar
               query={query}

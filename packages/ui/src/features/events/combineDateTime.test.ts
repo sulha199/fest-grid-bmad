@@ -75,9 +75,30 @@ describe('combineDateTime (BUG, 2026-09-28: mobile-only date-off-by-one)', () =>
     });
   });
 
-  it('leaves the no-timeStr passthrough as the unmodified UTC-parsed instant (never buggy, must stay that way)', () => {
-    const combined = withTZ('America/Los_Angeles', () => combineDateTime('2026-10-02'));
-    expect(combined.getTime()).toBe(new Date('2026-10-02').getTime());
+  // 2026-10-19: this used to assert the UTC-midnight passthrough ("never buggy"). It WAS buggy: 00:00Z
+  // is the previous calendar day in any zone west of UTC, so a one-day event starting today read
+  // "Ended" in America/New_York. A bare date now anchors at midnight IN the target timezone.
+  it('anchors a no-timeStr bare date at midnight of that day in the target timezone, on any device timezone', () => {
+    for (const device of ['America/Los_Angeles', 'Asia/Jakarta', 'UTC']) {
+      for (const tz of ['America/New_York', 'Asia/Jakarta', 'Pacific/Kiritimati', 'Pacific/Pago_Pago']) {
+        const combined = withTZ(device, () => combineDateTime('2026-10-02', null, tz));
+        const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+        }).formatToParts(combined);
+        const get = (type: string) => parts.find((p) => p.type === type)?.value;
+        expect(`${get('year')}-${get('month')}-${get('day')}`).toBe('2026-10-02');
+        expect(Number(get('hour')) % 24).toBe(0);
+        expect(get('minute')).toBe('00');
+      }
+    }
+  });
+
+  it('with no timezone at all, anchors a no-timeStr bare date at the device\'s own local midnight', () => {
+    withTZ('America/Los_Angeles', () => {
+      const combined = combineDateTime('2026-10-02');
+      expect(combined.getDate()).toBe(2);
+      expect(combined.getHours()).toBe(0);
+    });
   });
 
   // Fix 2 (2026-09-29): fix 1 above (extracting Y/M/D straight from the date-only string) was
