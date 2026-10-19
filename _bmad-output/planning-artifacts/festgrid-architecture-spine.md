@@ -1741,6 +1741,28 @@ This document defines the core architectural invariants for the FestDaily applic
             event as loser, which also flips the suggestion to `accepted` and writes an
             `event_merges` journal row; REJECT only records `rejected`. `undoEventMerge` restores
             both events and returns the suggestion to `pending`.
+        **Amended 2026-10-18 (BUG-063, GembiRun Loka 2026).** One event was posted three ways: a
+        registration-deadline post (schedule 21 Oct) and a race-day post (8 Nov) created two events
+        that never matched, because the candidate query only looked ±2 days around the new
+        schedule. The registration link, name, venue and account were identical. Rule 5 already
+        says "registration windows are schedules", so a deadline post and a race-day post of one
+        event are *expected* to sit weeks apart. Two changes, both in `findMatchingEvent`:
+        *   **Second admission path.** A candidate is also admitted when it shares a normalized
+            event link (`normalizeEventLinkUrl`, mirrored in SQL) with the new item **and** has a
+            schedule within ±90 days (`SHARED_LINK_DATE_WINDOW_DAYS`). The name floor (`similarity >
+            0.3`), the soft-delete/merge exclusion, the same-post exclusion and `LIMIT 20` still
+            apply. The SQL reads `events.links` raw and accepts both a jsonb array and a jsonb
+            *string* holding the array: the column is written JSON-stringified through
+            drizzle/postgres.js, so production rows (all 229 with links, checked 2026-10-18) are
+            jsonb strings that only drizzle's read path unwraps.
+        *   **Tier cap.** A candidate with no schedule inside ±2 days (`DATE_WINDOW_DAYS`) is capped
+            at `mid` (`capTierWhenOutsideDateWindow`, `packages/domain`). It is never auto-linked:
+            the same link and name can belong to another edition of the event, so a moderator
+            decides. Candidates are ranked by tier first, then score, so a date-distant candidate
+            cannot displace an in-window `high` one. In-window behavior is unchanged.
+        Weights and thresholds are unchanged. A pair already in the database is merged by a
+        moderator accepting the queued suggestion, or by `merge-events-by-slug.ts` (a dry run by
+        default) when no suggestion exists; both run `mergeEvents()` (Rule 9) and are undoable.
     8.  **Promotion and post deletion.** On promotion the event adopts the matched candidate's
         `extraction_ordinal` under the new primary (that `(post, ordinal)` slot is free — the
         candidate was matched to this event rather than creating one) and keeps its old link
@@ -2193,6 +2215,73 @@ This document defines the core architectural invariants for the FestDaily applic
     and a meta redirect inside one, throws `NEXT_REDIRECT`, and does not preserve the query string
     (Next.js docs, 2026-10-18; repo pins `next ^15.1.3`). Precedent for page-level canonical
     redirects: AD-16 / Story 3.6v in `events/[slug]/page.tsx`, which uses the 307 `redirect`.
+
+---
+
+### AD-36: Moderator Re-extract Is a Write-Free Preview That Never Keeps a Caption
+
+*   **Binds:** `Mutation.previewPostReextraction`, `Query.postReextractionPreview`
+    (`extraction.graphql`, `resolvers.ts`); `startPostReextractionPreview`
+    (`apps/backend/src/lib/extraction/`); the `REEXTRACT_PREVIEW` mode of the manual extraction job
+    (`process-manual-extraction-job.ts`, `build-reextraction-preview.ts`); `evaluateIngestionMatch`
+    (`apps/backend/src/lib/ingestor/`), now shared with `processIngestionJob`; the moderator UI
+    (`apps/web/src/features/moderation/`, the event detail page, Moderator → Tools → Re-extract).
+    Builds on AD-30 Rules 3, 7 and 10 and the Story 4.2b manual extraction job.
+*   **Prevents:** A second, divergent copy of the ingestion dedup decision that reports one thing
+    while ingestion does another; a "re-extract" that creates duplicate events or overwrites a
+    moderator's edits; a post caption (especially a curator caption, deliberately null in `posts`
+    since Story 3.4o) outliving its use; a rescrape loop spending scraper credit.
+*   **Rule:**
+    1.  **Preview only.** The operation writes nothing to `events`, `schedules`, `event_posts`,
+        `event_match_candidates`, `posts` or `extraction_audit_logs`, and enqueues nothing. Its
+        only writes are the job row and its result. There is **no apply step**: ingestion
+        idempotency on `(post, extraction_ordinal)` (AD-30 Rule 3) skips every item the post
+        already produced, so applying a re-run could only add items with a new ordinal. A write
+        mode is a spine amendment.
+    2.  **One decision, two callers.** `evaluateIngestionMatch(tx, message, sourcePost)` owns the
+        stub rule (AD-30 Rule 10), the roundup/curator organizer discount (BUG-058, IDEA-068) and
+        `findMatchingEvent`. `processIngestionJob` acts on its result; the preview reports it. The
+        preview does not reimplement any part of it.
+    3.  **Reuse the manual extraction job.** A `REEXTRACT_PREVIEW` job runs in the AI Lambda like a
+        correction job (same face blur, same key tiers, same `manual_extraction_jobs` row, owner-
+        scoped to the requesting moderator), and stores a `ReextractionPreviewResult` in
+        `result_data`. It reports every event of the post (not just the first), the post's
+        grouping reason, each event's dedup tier, score and closest candidate, and whether its
+        `(post, ordinal)` slot is already taken. No DDL. A job's `mode` is reported by
+        `getManualExtractionJobStatus`; `postReextractionPreview` rejects a correction job and
+        `extractionJob` rejects a preview job (NOT_FOUND), whatever the state. The post's freshly
+        extracted `groupingReason` (not the stored one) decides the roundup stub in the preview.
+    4.  **No geocoder or timezone calls.** The preview builds messages with empty resolved
+        locations, so the venue signal is the location string only; a match that relies on
+        coordinates within 150 m will score lower in the preview than in ingestion.
+    5.  **Rescrape only when the caption is missing**, via `getScraperAdapter(platform).getPostByUrl`.
+        A stored caption is never refetched. A rescrape of one URL is limited to once per 10
+        minutes (`REEXTRACT_RESCRAPE_COOLDOWN_MS`), checked against recent preview jobs; it does not
+        limit previews of stored captions. A scrape that throws or returns nothing is recorded as an
+        already-FAILED job so it counts too (a post that never scrapes cannot be retried without
+        limit). An image-only post (empty caption) is not a failure. A URL that is not in the
+        database is scraped, previewed without an account signal (`postStored: false`, authorship
+        assumed to be the organizer's, so not a stub), and never stored.
+    6.  **The caption never persists.** (a) A rescraped caption is held only in the job's
+        `request_payload` and is **never written to `posts.content`**, for any account type. (b)
+        `request_payload.message.content` is blanked as soon as the AI Lambda claims the job
+        (the run works from its in-memory copy, so a timeout or crash mid-run leaves nothing), and
+        again in its `finally`, on a failed start, and on the lazy stale-job failure
+        (`blankManualJobPayloadContent`), for correction jobs too. The one uncovered window, a job
+        inserted but never claimed and never polled, is deferred (FIND-086). (c) A stored caption of a
+        non-curator post is untouched.
+    7.  **Moderator only.** Both operations call `requireModerator`.
+*   **Gotcha, recorded because it bit this work:** drizzle/postgres.js stores a jsonb column
+    written from a JS object as a jsonb **string** holding the JSON (`events.links`,
+    `manual_extraction_jobs.request_payload`). Raw SQL over such a column must unwrap it
+    (`col #>> '{}'`) first; `jsonb_set` and `->>` on the raw column fail or return NULL. Read and
+    write through Drizzle, which unwraps and re-encodes consistently.
+*   **Considered and rejected:** an apply/replace mode (soft-deleting a post's events risks
+    favorites, calendar entries and slugs); writing the rescraped caption to `posts.content` and
+    purging it afterward (a crash between the two leaves a curator caption stored; holding it only
+    in the job payload leaves nothing to purge); a new table for previews (the job table already
+    carries owner scope, status and result); a cooldown on every preview (a moderator re-checking
+    after a prompt fix would be blocked, and Gemini quota is already governed by the key gateway).
 
 ---
 

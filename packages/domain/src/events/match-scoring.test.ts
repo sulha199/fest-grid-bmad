@@ -8,6 +8,7 @@ import {
   minScheduleDayDifference,
   computeDateProximityScore,
   classifyMatchTier,
+  capTierWhenOutsideDateWindow,
   computeMatchScore,
   MATCH_SCORE_WEIGHTS,
   MATCH_SCORE_THRESHOLDS,
@@ -276,5 +277,20 @@ test('computeMatchScore', async (t) => {
     });
     // average(1, 1) = 1; weighted: 1 * 0.25 = 0.25
     assert.strictEqual(result.score, 0.25);
+  });
+});
+
+test('capTierWhenOutsideDateWindow (BUG-063)', async (t) => {
+  await t.test('demotes high to mid when no schedule is inside the date window', () => {
+    assert.strictEqual(capTierWhenOutsideDateWindow('high', 18, 2), 'mid');
+    assert.strictEqual(capTierWhenOutsideDateWindow('high', Infinity, 2), 'mid');
+  });
+  await t.test('leaves an in-window candidate untouched, boundary included', () => {
+    assert.strictEqual(capTierWhenOutsideDateWindow('high', 0, 2), 'high');
+    assert.strictEqual(capTierWhenOutsideDateWindow('high', 2, 2), 'high');
+  });
+  await t.test('never promotes or touches mid/low', () => {
+    assert.strictEqual(capTierWhenOutsideDateWindow('mid', 18, 2), 'mid');
+    assert.strictEqual(capTierWhenOutsideDateWindow('low', 18, 2), 'low');
   });
 });

@@ -4727,6 +4727,48 @@ test('setImageStorageOptIn and queryModeratorAccountProfiles integration tests',
     assert.strictEqual(result.errors[0].extensions?.code, 'FORBIDDEN');
   });
 
+  await t.test('previewPostReextraction mutation - FORBIDDEN for non-moderator (AD-36)', async () => {
+    mockUser = { userId: '00000000-0000-0000-0000-000000000003', role: 'user' };
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `mutation { previewPostReextraction(postId: "${seededPost.id}") { jobId errorCode errorMessage } }`
+      })
+    });
+    const result = await response.json();
+    assert.ok(result.errors);
+    assert.strictEqual(result.errors[0].extensions?.code, 'FORBIDDEN');
+  });
+
+  await t.test('postReextractionPreview query - FORBIDDEN for non-moderator (AD-36)', async () => {
+    mockUser = { userId: '00000000-0000-0000-0000-000000000003', role: 'user' };
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `query { postReextractionPreview(id: "00000000-0000-4000-8000-0000000000aa") { status } }`
+      })
+    });
+    const result = await response.json();
+    assert.ok(result.errors);
+    assert.strictEqual(result.errors[0].extensions?.code, 'FORBIDDEN');
+  });
+
+  await t.test('previewPostReextraction mutation - BAD_REQUEST unless exactly one of postId/url (AD-36)', async () => {
+    mockUser = { userId: '00000000-0000-0000-0000-000000000003', role: 'moderator' };
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `mutation { previewPostReextraction { jobId errorCode errorMessage } }`
+      })
+    });
+    const result = await response.json();
+    assert.ok(result.errors);
+    assert.strictEqual(result.errors[0].extensions?.code, 'BAD_REQUEST');
+  });
+
   await t.test('setImageStorageOptIn mutation - NOT_FOUND for unknown accountId', async () => {
     mockUser = { userId: '00000000-0000-0000-0000-000000000004', role: 'moderator' };
     const response = await yoga.fetch('http://yoga/graphql', {

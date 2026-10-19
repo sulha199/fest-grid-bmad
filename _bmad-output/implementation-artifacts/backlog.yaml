@@ -2302,3 +2302,35 @@ items:
      ref: [.github/workflows/ai-filter-golden-prompt-nightly-eval.yml, apps/backend/scripts/run-golden-prompt-live-eval.ts],
      touches: [app:infrastructure, cross:process],
      note: "Use a paid GEMINI_NIGHTLY_EVAL_API_KEY and set GOLDEN_EVAL_MIN_INTERVAL_MS to 0, or unset GOLDEN_EVAL_VARIANTS on most nights."}
+  # ── 2026-10-18 (event dedup: GembiRun Loka 2026 split into three events) ─────
+  BUG-063:
+    {type: bug, status: done, created: 2026-10-18,
+     impact: user-visible, effort: s,
+     title: "Event dedup missed a registration-deadline post and the race-day post of one event (candidate query only looked ±2 days)",
+     ref: [apps/backend/src/lib/events/match-event-to-existing.ts, packages/domain/src/events/match-scoring.ts, apps/backend/src/merge-events-by-slug.ts],
+     touches: [app:backend, pkg:domain, cross:architecture],
+     note: "Fixed 2026-10-18: a shared-link candidate within ±90 days is now admitted and capped at mid (moderator queue). AD-30 Rule 7 amended. The three live GembiRun Loka 2026 events (ig_p_DeZE84tha0E winner; ig_p_Deg9VTFFC90, ig_p_DekqyPtTpVe losers) still need merging on PROD with merge-events-by-slug.ts."}
+
+  BUG-064:
+    {type: bug, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: s,
+     title: "Extraction leaks the model's reasoning into events.organizer_name (ig_p_Deg9VTFFC90 holds 2,165 characters of 'Wait, let's ...')",
+     ref: [apps/backend/src/lib/ai-processor/build-gemini-request.ts, packages/domain/src/events/transform-gemini-response-to-event-info.ts],
+     touches: [app:backend, pkg:domain, cross:ai-extraction],
+     note: "Found 2026-10-18 on PROD while investigating BUG-063: 4 live events have organizer_name over 120 characters, 2 contain reasoning text. Needs a length cap/sanitizer at the transform step and a prompt check; the 4 rows need a manual fix."}
+
+  IDEA-073:
+    {type: idea, status: done, created: 2026-10-18,
+     impact: user-visible, effort: m,
+     title: "Moderator re-extract preview: see what current extraction and dedup would do with a post, rescrape when the caption is missing",
+     ref: [implementation-artifacts/spec-moderator-reextract-post-preview.md, apps/backend/src/lib/extraction/start-post-reextraction-preview.ts, apps/web/src/features/moderation/moderator-source-posts-panel.tsx],
+     touches: [app:backend, pkg:domain, web:moderation, cross:architecture],
+     note: "Built 2026-10-18, preview only (AD-36). Placements: event detail source-post panel (moderator) and Moderator -> Tools -> Re-extract. No apply step by design. Follow-ups: an apply mode needs a replace/skip design for already-represented (post, ordinal) slots."}
+
+  FIND-086:
+    {type: finding, status: backlog, created: 2026-10-18,
+     impact: internal, effort: s,
+     title: "Re-extract preview review deferrals: unclaimed-job caption sweep, invalid-JSON links aborting the candidate query, LIMIT 20 ordering, URL variants",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend, cross:architecture],
+     note: "Deferred from: quick-dev of the moderator re-extract preview (2026-10-18, `bmad-quick-dev`). 4 findings."}

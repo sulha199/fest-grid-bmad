@@ -7,8 +7,9 @@ import { ActorRunsContent } from "./actor-runs-content"
 import { UnprocessedPayloadsContent } from "./unprocessed-payloads-content"
 import { ModeratorAccountsContent } from "./moderator-accounts-content"
 import { DuplicateEventsContent } from "./duplicate-events-content"
+import { ReextractContent } from "./reextract-content"
 
-const tabEnum = parseAsStringEnum(['actor-runs', 'unprocessed-payloads', 'accounts', 'duplicate-events']).withDefault('actor-runs')
+const tabEnum = parseAsStringEnum(['actor-runs', 'unprocessed-payloads', 'accounts', 'duplicate-events', 'reextract']).withDefault('actor-runs')
 
 export function ModeratorToolsContent() {
   const t = useTranslations("ModeratorToolsPage")
@@ -34,6 +35,11 @@ export function ModeratorToolsContent() {
       key: "duplicate-events",
       label: t("duplicateEventsTabLabel"),
       Component: DuplicateEventsContent,
+    },
+    {
+      key: "reextract",
+      label: t("reextractTabLabel"),
+      Component: ReextractContent,
     },
   ]
 
