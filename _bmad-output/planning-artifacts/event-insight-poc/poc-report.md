@@ -602,7 +602,28 @@ Full review: [`prod-findings-review-2026-10-19.md`](./prod-findings-review-2026-
 
 ## L2. Limits (this addendum)
 
-* No production access: the report's numbers were checked for consistency, not re-measured. The events-per-post figure (1.08) does not reconcile with the report's own 1,326 + 38 posts.
+* No production access: the report's numbers were checked for consistency, not re-measured. (Superseded by Addendum 13: the production run confirmed 1.08 on the pack's own definition; the report's 1,364 posts count something else.)
 * Drizzle versions between 0.31.0 and 0.33.0 were not checked; every process that creates its own postgres.js client needs the same serializer line.
 * The recall classes, the notification and flooding gaps, and the group-collapsing proposal are reasoning and one synthetic fixture, not measurements on production.
+* Checker count unchanged (69); no product code changed.
+
+---
+
+# Addendum 13 (2026-10-19, thirteenth discussion): the production checks came back (pack SQL as `readonly_2`, recall classes, geocode probe)
+
+Full analysis: [`prod-check-results-review-2026-10-19.md`](./prod-check-results-review-2026-10-19.md). Raw results: `results/prod-readonly-report-2026-10-19.md`, `results/recall-classes-prod-2026-10-19.txt`, `results/geocode-probe-2026-10-19.md`. Run by a local session on the owner's machine; I re-ran nothing against production.
+
+## M1. What the results changed
+
+* **BUG-068 is confirmed on production** for all four columns the role can see: 2,231 of 2,231 non-null values are JSON strings, none an object or array. `with_admin_area` is 0 of 1,460 (BUG-063 confirmed); `with_venue_type` 37.
+* **A bug in my own query, found by the output.** `recall-classes.sql` dated a pair by the larger-id event instead of the newer one; two pairs in "created before the first candidate" had a candidate row, which cannot happen. Fixed, regression fixture added (`recall-classes.fixture.sql`); the production classes must be re-run. The bound that survives: recall on reachable pairs is at most 23 / 168 ≈ 14%.
+* **Hypothesis from the code, not yet measured:** a pair of duplicate roundup- or curator-sourced events can never reach the 'mid' threshold (0.25 + 0.15 = 0.40 < 0.45) because the organizer weight is discounted on purpose (BUG-058). `recall-class4-stubs.sql` tests it.
+* **Geocoding:** 7 of 14 probe descriptions got the wrong place, only 2 of 42 picks were outside Indonesia (so the bounding-box test undercounts), a country filter does not help, and the two wrong *area phrases* scored 0.66 and 0.50, above the placeholder floor of 0.5. 627 of 1,460 stored pins (43%) have confidence under 0.5; with the 265 unpinned schedules, about half of all schedules have no trustworthy pin.
+* The 1.08 events per post is confirmed (1,286 primary posts); my earlier "does not reconcile" was about the report's different post count.
+
+## M2. Limits (this addendum)
+
+* The pack's Discovery `EXPLAIN` verdicts were not run on production (the pack refuses `readonly_2`).
+* The probe's right/wrong labels are my reading of formatted addresses; 14 hand-picked descriptions do not calibrate a floor.
+* Sleman City Hall's US pin is unexplained: the probe geocodes it correctly. Round 2 (brief §7) has the queries and probe variant that test the explanations.
 * Checker count unchanged (69); no product code changed.

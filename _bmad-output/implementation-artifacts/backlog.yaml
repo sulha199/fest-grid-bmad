@@ -2310,7 +2310,7 @@ items:
      title: "AI filter region match (adminArea) has no data: nothing in production writes LocationDetails.adminArea",
      ref: [backlog/BUG-063-admin-area-never-written.md, apps/backend/src/lib/geolocation/geoapify-client.ts],
      touches: [app:backend, pkg:domain, web:events, web:locations, cross:ai-extraction],
-     note: "Found by reading code, not reproduced; same class as BUG-062. Fix direction is IDEA-073, not one more free-text field."}
+     note: "Confirmed on production 2026-10-19: adminArea written for 0 of 1,460 pins (venueType 37). Same class as BUG-062. Fix direction is IDEA-073, not one more free-text field."}
 
   BUG-064:
     {type: bug, status: backlog, created: 2026-10-18,
@@ -2342,7 +2342,7 @@ items:
      title: "Geocoding can land in the wrong country: soft bias only, no bias at bootstrap, no confidence floor",
      ref: [backlog/BUG-066-geocoder-can-resolve-to-the-wrong-country.md, apps/backend/src/lib/geolocation/geoapify-client.ts],
      touches: [app:backend, pkg:domain, web:locations],
-     note: "Seen in production data 2026-10-19: 379 of 1,460 pins outside Indonesia, 26 Sleman City Hall schedules in the US (FIND-091). Six mechanisms found by reading code; probe-geocode-country.ts not yet run."}
+     note: "Production 2026-10-19: 379 of 1,460 pins outside Indonesia (a floor), 627 under confidence 0.5. Probe: 7 of 14 texts wrong, a country filter does not help, area phrases score 0.66/0.50. Sleman City Hall's US pin unexplained."}
 
   IDEA-074:
     {type: idea, status: backlog, created: 2026-10-18,
@@ -2481,7 +2481,7 @@ items:
      title: "Every jsonb column written through Drizzle is stored as a JSON string (27 columns; schedules.location_details in every production row)",
      ref: [backlog/BUG-068-jsonb-columns-double-encoded-by-drizzle.md, planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/results/jsonb-encoding-probe.generated.md, apps/backend/scripts/poc-event-insight/probe-jsonb-encoding.ts, apps/backend/src/db/client.ts],
      touches: [app:backend, pkg:database, web:locations],
-     note: "Reproduced on scratch: Drizzle 0.30.10 stringifies and postgres.js stringifies again; not the pooler, every environment. Fix: pass-through serializers 114/3802, then one UPDATE per column. Reads via Drizzle work; SQL-side ->> never matches."}
+     note: "Reproduced on scratch (Drizzle 0.30.10 + postgres.js stringify twice; not the pooler). Production 2026-10-19: 2,231 of 2,231 non-null values in 4 columns are strings. Fix: pass-through serializers 114/3802, then one UPDATE per column."}
 
   FIND-091:
     {type: finding, status: backlog, created: 2026-10-19,
@@ -2489,7 +2489,7 @@ items:
      title: "Production snapshot 2026-10-19: wrong-country pins, matcher recall 5%, caption duplicates, pack artifacts",
      ref: [planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/prod-findings-review-2026-10-19.md],
      touches: [app:backend, pkg:database, cross:process],
-     note: "379 of 1,460 pins lie outside Indonesia (BUG-066 seen live); the matcher proposes 23 of 446 same-name pairs. One snapshot of about 7 weeks, read with the readonly_2 role. Review: the 5% is not a clean recall; 1.08 events/post does not reconcile with 1,394 events over 1,364 posts."}
+     note: "379 of 1,460 pins lie outside Indonesia (BUG-066 seen live); the matcher proposes 23 of 446 same-name pairs. One snapshot of about 7 weeks. Rechecked 2026-10-19 (results review): 1.08 events/post confirmed; the 5% is not a clean recall."}
 
   IDEA-085:
     {type: idea, status: backlog, created: 2026-10-19,
@@ -2497,7 +2497,7 @@ items:
      title: "Raise the duplicate matcher's recall (5% of same-name pairs) and clear the moderator merge queue",
      ref: [planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/prod-findings-review-2026-10-19.md],
      touches: [app:backend, pkg:database, web:events, web:moderation],
-     note: "Stories 3.6v and 3.6w are built (review) but event_merges has 0 rows and 147 candidates are pending, 75 older than 7 days. Why recall is low is not diagnosed; the 5% counts pairs outside the matcher's reach, split them with recall-classes.sql (review doc section 5)."}
+     note: "Stories 3.6v and 3.6w are built (review) but event_merges has 0 rows and 147 candidates are pending, 75 older than 7 days. Recall on reachable pairs is at most 23/168; 43% of the 446 pairs are legacy, 19% recurring. Stub pairs cannot reach 'mid' by construction (hypothesis, untested)."}
 
   IDEA-084:
     {type: idea, status: backlog, created: 2026-10-19,

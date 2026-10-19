@@ -6,7 +6,7 @@ captured: 2026-10-19
 
 # BUG-068 — the double encoding is in the application's own database client, not in the pooler
 
-**Status:** **mechanism reproduced** on a scratch PostgreSQL 16.15 (`apps/backend/scripts/poc-event-insight/probe-jsonb-encoding.ts`, output in `planning-artifacts/event-insight-poc/results/jsonb-encoding-probe.generated.md`). Production shows the effect on `schedules.location_details` (1,460 of 1,460 non-null rows, `prod-findings-and-event-groups-2026-10-19.md` §3); the other columns below are **inferred from the mechanism, not yet read on production** (the production pack now has a "JSON encoding of jsonb columns" item that will).
+**Status:** **mechanism reproduced** on a scratch PostgreSQL 16.15 (`apps/backend/scripts/poc-event-insight/probe-jsonb-encoding.ts`, output in `planning-artifacts/event-insight-poc/results/jsonb-encoding-probe.generated.md`). Production shows the effect on `schedules.location_details` (1,460 of 1,460 non-null rows, `prod-findings-and-event-groups-2026-10-19.md` §3); **confirmed on production 2026-10-19 for every column the read-only role can see** (`results/prod-readonly-report-2026-10-19.md`): `schedules.location_details` 1,460 of 1,460, `social_media_account_profiles.default_location` 28 of 28, `events.links` 247 of 247 and `posts.additional_image_urls` 496 of 496 non-null values are JSON strings; **none** is an object or array, so the production writer is still double-encoding. The other 23 columns are inferred from the mechanism, not read.
 
 ## Mechanism
 
@@ -48,6 +48,8 @@ So the pooler / `prepare: false` hypothesis in the production write-up and in AD
    WHERE jsonb_typeof(location_details) = 'string' AND left(location_details #>> '{}', 1) IN ('{', '[');
    ```
    The `left(...)` guard leaves a row that is a genuine JSON string untouched. Rehearsed in the probe: after step 1 and before step 2 Drizzle reads old (string) and new (object) rows alike; SQL-side `->>` only matches the new ones; after step 2 both match.
+
+**Migration size for the four visible columns:** 2,231 rows (the remaining columns hold journal and job data; count them with the owner's own role before migrating).
 
 **Verification (read-only, production):** the pack's item "JSON encoding of jsonb columns written through Drizzle" must show only `object` / `array` rows, and `schedules` must report `pinned` and `with_admin_area` the same before and after.
 

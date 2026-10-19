@@ -70,3 +70,20 @@ Never print the key. Show the output and summarize, per description, the country
 ## 6. Out of scope here
 
 Fixing BUG-068 or BUG-066, editing AD-36 or the PRD, running the Gemini extraction probes, running the role create/drop scripts, building the matcher replay, and the target-area filtering/scoring discussion. If the owner asks for any of these, say it belongs in the cloud session or a separate story.
+
+## 7. Round 2 (added after the first results came back) — same rules as §1, same variables, same hand-back as §5
+
+The first results were pulled and reviewed. Three things changed: the first `recall-classes.sql` had a bug (it took the created-at of the larger-id event as "the later one"; it is fixed, so **re-run it**); two follow-up queries exist; one probe variant is useful. **`PROD_RO2_DATABASE_URL` (the `readonly_2` role) is all you need; check 1's pack is not re-run.** Run each file exactly like check 2, from the repo root, one file per command, output to `/tmp`:
+
+```
+{ echo "BEGIN READ ONLY;"; echo "SET LOCAL statement_timeout = '60s';"; cat <FILE>; echo "ROLLBACK;"; } | psql "$PROD_RO2_DATABASE_URL" -X -v ON_ERROR_STOP=1 > /tmp/<OUT>
+```
+
+| # | `<FILE>` (under `_bmad-output/planning-artifacts/event-insight-poc/results/prod-findings-review-2026-10-19-queries/`) | `<OUT>` | What it answers |
+|---|---|---|---|
+| 4 | `recall-classes.sql` (fixed) | `recall-classes-v2.txt` | the four classes again; class 2 must now have **0** pairs in the candidate list |
+| 5 | `recall-class4-stubs.sql` | `recall-class4-stubs.txt` | of the reachable pairs: how many involve a stub (organizer weight discounted), how many share a link, how many are in the candidate list |
+| 6 | `confidence-by-country-box.sql` (four result sets) | `confidence-by-country-box.txt` | stored geocode confidence of every pin inside / outside Indonesia's box; match types; which venue texts produced the outside-the-box pins (and their confidence / provider); whether the pin's country equals the account's default country |
+| 7 | optional, ask first (42 Geoapify requests): `npx tsx scripts/poc-event-insight/probe-geocode-country.ts --country us --md /tmp/geocode-probe-us.md` from `apps/backend`, after a `--dry` look | `geocode-probe-us.md` | what the geocoder answers when the bias is the *wrong* country (the probe was run with `--country id`; production stored Sleman City Hall in the US) |
+
+If a file errors (it may need a table or column the role cannot read), show the error and stop; do not change the SQL. After the owner has read the outputs and says so, copy them into `results/` as `recall-classes-prod-2026-10-19-v2.txt`, `recall-class4-stubs-prod-2026-10-19.txt`, `confidence-by-country-box-prod-2026-10-19.txt` and `geocode-probe-us-2026-10-19.md`, stage only those, commit and push as in §5.

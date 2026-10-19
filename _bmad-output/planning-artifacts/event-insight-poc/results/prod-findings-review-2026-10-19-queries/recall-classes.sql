@@ -6,7 +6,7 @@
 with t0 as (select min(created_at) first_candidate_at from event_match_candidates),
 ev as materialized (select e.id, e.source_social_media_account_id acct, e.created_at, btrim(regexp_replace(lower(e.event_name),'[^a-z0-9]+',' ','g')) nname
                     from events e where e.deleted_at is null and e.merged_into_event_id is null),
-pairs as (select a.id aid, b.id bid, b.created_at later_created from ev a join ev b on a.acct = b.acct and a.nname = b.nname and a.id < b.id),
+pairs as (select a.id aid, b.id bid, greatest(a.created_at, b.created_at) later_created from ev a join ev b on a.acct = b.acct and a.nname = b.nname and a.id < b.id),
 cls as (select p.*,
   exists (select 1 from event_posts x join event_posts y on x.post_id = y.post_id where x.event_id = p.aid and y.event_id = p.bid) as same_post,
   exists (select 1 from schedules sa join schedules sb on sb.event_start_date between sa.event_start_date - 2 and sa.event_start_date + 2 where sa.event_id = p.aid and sb.event_id = p.bid) as dates_within_2d,

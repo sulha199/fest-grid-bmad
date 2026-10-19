@@ -8,6 +8,12 @@ captured: 2026-10-18
 
 **Captured:** 2026-10-18 · **Update 2026-10-19:** the effect is now **seen in production data** (`prod-findings-and-event-groups-2026-10-19.md` §3: 379 of 1,460 pins outside Indonesia's bounding box, 26 Sleman City Hall schedules pinned in the US, Plaza Ambarrukmo outlets in New York); which of the six mechanisms below produced which pin is still not established, and the probe has not been run. · **Status:** **mechanisms not reproduced.** The report was the product owner's ("querying curator location falls into totally wrong address, wrong country — fatal"). Everything below is **code reading**; the session had no Geoapify key, and an attempted keyless check against Nominatim was rate-limited (HTTP 429) and abandoned, so **no wrong-country result is claimed here as observed.** A ready-to-run probe is included.
 
+## Measured 2026-10-19 (`prod-check-results-review-2026-10-19.md`)
+
+* Production: 379 of 1,460 pins lie outside Indonesia's bounding box; **627 (43%) have a stored confidence under 0.5**; 265 more schedules have no pin. The box test is a floor: pins in the wrong province of the right country are inside the box.
+* Probe (`results/geocode-probe-2026-10-19.md`, 14 descriptions × no bias / bias `id` / filter `id`, my reading of the addresses): 7 right (confidence 0.67–1.00), 5 venue texts answered with another place (confidence 0.00–0.20), 2 **area phrases** answered with a business (0.66 and 0.50). Only 2 of 42 picks were outside Indonesia (the same description, Canada at 0.20); the `filter` mode stays wrong inside Indonesia. So: a floor works on venue texts and fails on area phrases, which should go to the gazetteer instead (IDEA-081); do not calibrate the floor on 14 texts.
+* Open: the probe geocodes "Sleman City Hall" correctly (id, 1.00) while production stores 26 of its schedules in the US. `confidence-by-country-box.sql` and a probe with `--country us` test the explanations (account default as bias, cache entry, pin from another path).
+
 ## Mechanisms found in the code (each is a hypothesis until the probe or the SQL says otherwise)
 
 | # | where | what | effect |
