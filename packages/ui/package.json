@@ -50,6 +50,7 @@
   },
   "scripts": {
     "test": "vitest run",
+    "test:tz": "cross-env TZ=Asia/Jakarta vitest run src/features/events/format-event-date.timezone.test.ts src/features/events/WeeklyCalendarView.timezone.test.tsx src/features/events/WeeklyCalendarView.test.tsx && cross-env TZ=America/Los_Angeles vitest run src/features/events/format-event-date.timezone.test.ts src/features/events/WeeklyCalendarView.timezone.test.tsx src/features/events/WeeklyCalendarView.test.tsx && cross-env TZ=Pacific/Auckland vitest run src/features/events/format-event-date.timezone.test.ts src/features/events/WeeklyCalendarView.timezone.test.tsx src/features/events/WeeklyCalendarView.test.tsx && cross-env TZ=Pacific/Kiritimati vitest run src/features/events/format-event-date.timezone.test.ts src/features/events/WeeklyCalendarView.timezone.test.tsx src/features/events/WeeklyCalendarView.test.tsx && cross-env TZ=Pacific/Pago_Pago vitest run src/features/events/format-event-date.timezone.test.ts src/features/events/WeeklyCalendarView.timezone.test.tsx src/features/events/WeeklyCalendarView.test.tsx",
     "lint": "eslint . --max-warnings 0"
   },
   "devDependencies": {
