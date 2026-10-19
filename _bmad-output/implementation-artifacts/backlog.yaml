@@ -2318,7 +2318,7 @@ items:
      title: "Online events are geocoded as places, multi-venue events lose their venues, location filters see only the main schedule",
      ref: [backlog/BUG-064-online-and-multi-venue-events.md, apps/backend/src/lib/ai-processor/resolve-account-and-locations.ts],
      touches: [app:backend, pkg:domain, web:events, web:locations, cross:ai-extraction, cross:prd],
-     note: "Gemini behaviour measured (4 runs per post); geocoder and default-location consequences inferred from code, not reproduced."}
+     note: "Gemini behaviour measured (4 runs per post); consequences inferred from code. 2026-10-19: multi-venue is solved by AD-38 (one place-set per event, split); non-place guard is AD-14 Rule 5; filter semantics AD-39 Rule 5."}
 
   IDEA-073:
     {type: idea, status: backlog, created: 2026-10-18,
@@ -2326,7 +2326,7 @@ items:
      title: "Canonical area ladder: geocoder writes a country>province>regency>city path; hierarchical, case-insensitive matching for the AI filter and area-first ordering",
      ref: [backlog/BUG-063-admin-area-never-written.md, planning-artifacts/event-insight-poc/proposal-personalized-discovery.md],
      touches: [app:backend, pkg:domain, pkg:shared-types, pkg:database, web:locations, cross:ai-extraction, cross:prd],
-     note: "Approved as its own first story (2026-10-18). Shares the backfill with IDEA-071; prerequisite for area-first Discovery ordering."}
+     note: "Approved as its own first story (2026-10-18). Shares the backfill with IDEA-071; prerequisite for area-first ordering. Event area keys, area_status and the source order: AD-39 Rules 1-2 (IDEA-087)."}
 
   BUG-065:
     {type: bug, status: backlog, created: 2026-10-18,
@@ -2334,7 +2334,7 @@ items:
      title: "Curator events fall back to the curator's account location; inference gives it an arbitrary place",
      ref: [backlog/BUG-065-curator-events-fall-back-to-account-location.md, apps/backend/src/lib/ai-processor/resolve-account-and-locations.ts],
      touches: [app:backend, pkg:domain, web:accounts, web:locations, cross:ai-extraction, cross:prd],
-     note: "Gemini behaviour measured (curator: 12 posts, 12 different places, all applied); consequences inferred. Production 2026-10-19: 11 of 17 curators hold a default location; clear them after the code gate (decided)."}
+     note: "Curator: 12 posts, 12 places, all applied. Production 2026-10-19: 11 of 17 curators hold a default; clear after the code gate. Decided (AD-39 Rule 3): mandatory audience area at CONFIRMED, no account-location fallback; legacy stay unknown."}
 
   BUG-066:
     {type: bug, status: backlog, created: 2026-10-18,
@@ -2358,7 +2358,7 @@ items:
      title: "Profile enrichment: country, reach and default time zone from the initial profile scrape, with retry",
      ref: [backlog/IDEA-075-profile-enrichment-country-reach-retry.md, backlog/IDEA-075-legacy-bulk-update/README.md, planning-artifacts/event-insight-poc/poc-report.md],
      touches: [app:backend, pkg:domain, pkg:database, web:accounts, web:locations, cross:ai-extraction],
-     note: "POC: 18 profiles (5 real, 13 synthetic), 0 wrong country / 0 wrong zone in 54 runs; signals and model never disagreed (conflict rule unit-tested only). Legacy bulk-update runbook decided 2026-10-18, tested on a scratch Postgres, not run on production."}
+     note: "POC: 18 profiles (5 real, 13 synthetic), 0 wrong country / 0 wrong zone in 54 runs. Legacy bulk-update runbook tested on scratch, not run on production. Also derives the audience area of legacy curators (AD-39 Rule 3)."}
 
   FIND-086:
     {type: finding, status: backlog, created: 2026-10-18,
@@ -2501,8 +2501,24 @@ items:
 
   IDEA-084:
     {type: idea, status: backlog, created: 2026-10-19,
-     impact: user-visible, effort: l,
-     title: "Event groups: a named programme with children, suggested by title and anchor, confirmed by a person",
-     ref: [planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/prod-findings-review-2026-10-19.md],
-     touches: [app:backend, pkg:domain, pkg:database, web:events, web:moderation, cross:ai-extraction, cross:architecture, cross:prd],
-     note: "SCH 8th Anniversary: REBORN is stored as 4 umbrella rows, 9 child events and duplicates; 1 of 21 children carries the keyword. Precision of the child-suggestion rule is not measured. AD-36 gaps G1-G10: review doc section 4 (anchor on merge, per-event notifications first)."}
+     impact: user-visible, effort: l, blocks: [IDEA-086],
+     title: "Event groups: series and programme kinds, deterministic series detection, Discovery collapse, per-group notifications, group surface",
+     ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/prod-findings-review-2026-10-19.md],
+     touches: [app:backend, pkg:domain, pkg:database, web:events, web:moderation, cross:ai-extraction, cross:architecture, cross:notifications, cross:prd],
+     note: "Decided 2026-10-19 (AD-36 Rules 1-15). SCH 8th Anniversary: 4 umbrella rows, 9 children, duplicates. Tier 2 precision unmeasured. Needs IDEA-085 (dedup first), BUG-068 deployed, a PRD change (per-group notifications). Series GAP 60 days: size with series-candidates.sql."}
+
+  IDEA-086:
+    {type: idea, status: backlog, created: 2026-10-19,
+     impact: user-visible, effort: l, blocks: [IDEA-074],
+     title: "Event identity: one activity at one place-set; deterministic place normalizer, split of existing multi-place events, quota-bounded backfill",
+     ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/architecture/architecture-festgrid-2026-09-22/.memlog.md, planning-artifacts/event-insight-poc/prod-check-results-review-2026-10-19.md],
+     touches: [app:backend, pkg:domain, pkg:database, web:events, web:moderation, cross:ai-extraction, cross:architecture, cross:notifications, cross:prd],
+     note: "Decided 2026-10-19 (AD-38). Riot Jogja: 1 event, 3 schedules, 3 venues. Backfill: upcoming events only, deterministic first, Flash Lite for the residual inside 500 requests/day. Sizing waits on Round 3 items 9, 11, 12. Needs the IDEA-084 schema and the IDEA-085 gate."}
+
+  IDEA-087:
+    {type: idea, status: backlog, created: 2026-10-19,
+     impact: user-visible, effort: l, blocks: [IDEA-074],
+     title: "Place model: pin trust, area keys and provenance as three facts; curator audience area; unknown-area handling; strict area filter",
+     ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/architecture/architecture-festgrid-2026-09-22/.memlog.md, planning-artifacts/event-insight-poc/prod-check-results-review-2026-10-19.md],
+     touches: [app:backend, pkg:domain, pkg:database, web:accounts, web:events, web:locations, cross:ai-extraction, cross:architecture, cross:prd],
+     note: "Decided 2026-10-19 (AD-39, AD-14 Rules 3a-5). Replaces BUG-065's fallback and widens BUG-063/064/066 into one model. Open: trust floor, gazetteer source and licence, area-key storage, audience-area inheritance by group members."}
