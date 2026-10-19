@@ -585,3 +585,24 @@ The first version of the check took `DATABASE_URL` from `loadBackendEnv()`. That
 * The hand-back by git puts production aggregates into the repository history; the runbook says so and offers the chat as the alternative.
 * The statement policy is a keyword/function deny-list over single statements, backed by the read-only role and `BEGIN READ ONLY`; it is a belt-and-braces check, not a SQL parser.
 * No product code was changed; backlog IDEA-083 and FIND-090 as registered; checker count unchanged (69).
+
+---
+
+# Addendum 12 (2026-10-19, twelfth discussion): the production report and the event-group plan (AD-36), verified
+
+Full review: [`prod-findings-review-2026-10-19.md`](./prod-findings-review-2026-10-19.md). Nothing in AD-36 or in the product owner's report was edited; amendments are proposed there.
+
+## L1. What the checks changed
+
+* **The double encoding is not the pooler.** Drizzle 0.30.10's `jsonb` stringifies and postgres.js 3.4.9 stringifies again; reproduced with `prepare` on and off, and cured by pass-through serializers for OIDs 114 and 3802 (what Drizzle ≥ 0.33.0 installs). It affects all 27 `jsonb` columns in every environment, not one column in production (BUG-068, note `backlog/BUG-068-…md`; probe output `results/jsonb-encoding-probe.generated.md`). The fix order (writer first, then rows) is rehearsed in the probe.
+* **The production-size numbers.** A scratch database with production's row count answers a Discovery page in about 8–10 ms (`results/perf-request-prodsize.generated.md`), production `jit` is off and production's open set is 431: the scale items (IDEA-076, IDEA-082, FIND-088) lose urgency; data quality (BUG-068, BUG-066, duplicates) gains it.
+* **The "5% recall" is not the matcher's recall.** It counts same-name pairs the matcher cannot reach by design (created before it ran, siblings of one post, dates more than two days apart). `results/prod-findings-review-2026-10-19-queries/recall-classes.sql` splits them; it is validated on a synthetic fixture only.
+* **AD-36 has ten gaps** (anchor not handled by a merge, per-event notifications multiplied by the reshape and contradicting a PRD rule, a weak dedup gate, an unworked moderator queue, Discovery flooding, an undefined Tier 2 anchor source, a venue test on broken location data, no index plan, a small Tier 1 sample, non-deterministic extraction).
+* The production pack was corrected (events per post, a JSON-encoding item, normalized location reads) and re-run as the least-privilege role on the scratch database.
+
+## L2. Limits (this addendum)
+
+* No production access: the report's numbers were checked for consistency, not re-measured. The events-per-post figure (1.08) does not reconcile with the report's own 1,326 + 38 posts.
+* Drizzle versions between 0.31.0 and 0.33.0 were not checked; every process that creates its own postgres.js client needs the same serializer line.
+* The recall classes, the notification and flooding gaps, and the group-collapsing proposal are reasoning and one synthetic fixture, not measurements on production.
+* Checker count unchanged (69); no product code changed.

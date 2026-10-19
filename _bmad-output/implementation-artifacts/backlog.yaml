@@ -2342,7 +2342,7 @@ items:
      title: "Geocoding can land in the wrong country: soft bias only, no bias at bootstrap, no confidence floor",
      ref: [backlog/BUG-066-geocoder-can-resolve-to-the-wrong-country.md, apps/backend/src/lib/geolocation/geoapify-client.ts],
      touches: [app:backend, pkg:domain, web:locations],
-     note: "NOT reproduced: the report is the product owner's; six mechanisms found by reading code. Run probe-geocode-country.ts and the SQL in the note first."}
+     note: "Seen in production data 2026-10-19: 379 of 1,460 pins outside Indonesia, 26 Sleman City Hall schedules in the US (FIND-091). Six mechanisms found by reading code; probe-geocode-country.ts not yet run."}
 
   IDEA-074:
     {type: idea, status: backlog, created: 2026-10-18,
@@ -2375,7 +2375,7 @@ items:
      title: "Query.events: JIT compilation adds ~50 ms or ~800 ms depending on whether the plan's estimated cost crosses 500k; cost follows total history, not the visible set",
      ref: [backlog/FIND-087-event-list-jit-compilation-and-total-catalogue-cost.md, planning-artifacts/event-insight-poc/proposal-discovery-ranking-and-scale.md, apps/backend/src/schema/resolvers.ts],
      touches: [app:backend, app:infrastructure, pkg:database],
-     note: "Scratch Postgres 16.15 + seed:volume, DB only. JIT is a cliff set by plan cost vs 500k (+700-840 ms over, ~50 ms under), not a constant 80%; corrected 2026-10-19. Production jit unknown: run SHOW jit first."}
+     note: "Scratch Postgres 16.15 + seed:volume, DB only. JIT is a cliff set by plan cost vs 500k (+700-840 ms over, ~50 ms under), not a constant 80%; corrected 2026-10-19. Production jit is OFF (2026-10-19): insurance, not a live risk."}
 
   BUG-067:
     {type: bug, status: backlog, created: 2026-10-18,
@@ -2391,7 +2391,7 @@ items:
      title: "Scale-safe event list: maintained next-open-date column, open-events index, id tie-break, pinned-session cursor",
      ref: [planning-artifacts/event-insight-poc/proposal-discovery-ranking-and-scale.md, backlog/FIND-087-event-list-jit-compilation-and-total-catalogue-cost.md, backlog/BUG-067-event-list-order-has-no-tie-break.md],
      touches: [app:backend, pkg:database, pkg:domain, web:events, cross:architecture],
-     note: "Measured end state 0.4 ms vs 175-880 ms today (30k) and 2,084 vs 4.4 requests/s. Write side (trigger + nightly roll-forward) and users with hide-past grace above 0 are NOT measured."}
+     note: "Measured end state 0.4 ms vs 175-880 ms today (30k) and 2,084 vs 4.4 requests/s. Write side (trigger + nightly roll-forward) and users with hide-past grace above 0 are NOT measured. At production size (431 open, 2026-10-19) a page is ~8-10 ms: act at p95 > 50 ms or open set > 20k."}
 
   IDEA-077:
     {type: idea, status: backlog, created: 2026-10-18,
@@ -2416,7 +2416,7 @@ items:
      title: "Discovery selects totalCount it never reads, so every page request runs an extra count(*)",
      ref: [planning-artifacts/event-insight-poc/proposal-posthog-and-list-scale.md, apps/web/src/features/events/queries.graphql, "apps/web/src/app/[locale]/home-content.tsx"],
      touches: [app:backend, web:events],
-     note: "Scratch Postgres + seed:volume (JIT off): the count is 20-33% of a page today and ~98% of a request after IDEA-076. hasMore already exists; nothing reads this totalCount (Archive and favorited ids use their own documents)."}
+     note: "Scratch Postgres + seed:volume (JIT off): the count is 20-33% of a page today and ~98% of a request after IDEA-076. hasMore already exists; nothing reads this totalCount (Archive and favorited ids use their own documents). Production: ~2 ms at its size, not urgent."}
 
   FIND-089:
     {type: finding, status: backlog, created: 2026-10-19,
@@ -2456,7 +2456,7 @@ items:
      title: "Prevent slow scans on hot paths: plan-shape guard in CI on the volume seed, JIT off and a statement timeout for the API role, junction-table candidate generation",
      ref: [planning-artifacts/event-insight-poc/proposal-target-area-and-scan-safety.md, apps/backend/scripts/poc-event-insight/plan-guard.ts],
      touches: [app:backend, app:infrastructure, pkg:database, cross:process],
-     note: "Guard fails all 4 of today's Discovery statements at 300k events; junction candidates 1.0-2.3 ms vs 29 ms at 91k open. Thresholds are starting values; pooler behaviour of SET LOCAL/timeout untested; junction write path unmeasured."}
+     note: "Guard fails all 4 of today's Discovery statements at 300k events; junction candidates 1.0-2.3 ms vs 29 ms at 91k open. Thresholds are starting values; pooler behaviour of SET LOCAL/timeout untested; junction write path unmeasured. Not urgent at production size (see IDEA-076)."}
 
   FIND-090:
     {type: finding, status: backlog, created: 2026-10-19,
@@ -2477,32 +2477,32 @@ items:
   # ── 2026-10-19 (production findings: double-encoded location_details, matcher recall, event groups) ──
   BUG-068:
     {type: bug, status: backlog, created: 2026-10-19,
-     impact: user-visible, effort: s, blocks: [IDEA-073],
-     title: "schedules.location_details is stored as a JSON string, not an object, in every production row",
-     ref: [planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, apps/backend/scripts/poc-event-insight/prod-readonly-check.ts],
+     impact: user-visible, effort: s, blocks: [IDEA-073, IDEA-081],
+     title: "Every jsonb column written through Drizzle is stored as a JSON string (27 columns; schedules.location_details in every production row)",
+     ref: [backlog/BUG-068-jsonb-columns-double-encoded-by-drizzle.md, planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/results/jsonb-encoding-probe.generated.md, apps/backend/scripts/poc-event-insight/probe-jsonb-encoding.ts, apps/backend/src/db/client.ts],
      touches: [app:backend, pkg:database, web:locations],
-     note: "Seen on production only (1,460 of 1,460 rows); mechanism NOT verified, suspect the pooler prepare:false path. Read with (location_details #>> '{}')::jsonb. Makes the pack's country, adminArea and coordinate counts artifacts."}
+     note: "Reproduced on scratch: Drizzle 0.30.10 stringifies and postgres.js stringifies again; not the pooler, every environment. Fix: pass-through serializers 114/3802, then one UPDATE per column. Reads via Drizzle work; SQL-side ->> never matches."}
 
   FIND-091:
     {type: finding, status: backlog, created: 2026-10-19,
      impact: internal, effort: xs,
      title: "Production snapshot 2026-10-19: wrong-country pins, matcher recall 5%, caption duplicates, pack artifacts",
-     ref: [planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md],
+     ref: [planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/prod-findings-review-2026-10-19.md],
      touches: [app:backend, pkg:database, cross:process],
-     note: "379 of 1,460 pins lie outside Indonesia (BUG-066 seen live); the matcher proposes 23 of 446 same-name pairs. One snapshot of about 7 weeks, read with the readonly_2 role."}
+     note: "379 of 1,460 pins lie outside Indonesia (BUG-066 seen live); the matcher proposes 23 of 446 same-name pairs. One snapshot of about 7 weeks, read with the readonly_2 role. Review: the 5% is not a clean recall; 1.08 events/post does not reconcile with 1,394 events over 1,364 posts."}
 
   IDEA-085:
     {type: idea, status: backlog, created: 2026-10-19,
      impact: user-visible, effort: m, blocks: [IDEA-084],
      title: "Raise the duplicate matcher's recall (5% of same-name pairs) and clear the moderator merge queue",
-     ref: [planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md],
+     ref: [planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/prod-findings-review-2026-10-19.md],
      touches: [app:backend, pkg:database, web:events, web:moderation],
-     note: "Stories 3.6v and 3.6w are built (review) but event_merges has 0 rows and 147 candidates are pending, 75 older than 7 days. Why recall is low is not diagnosed."}
+     note: "Stories 3.6v and 3.6w are built (review) but event_merges has 0 rows and 147 candidates are pending, 75 older than 7 days. Why recall is low is not diagnosed; the 5% counts pairs outside the matcher's reach, split them with recall-classes.sql (review doc section 5)."}
 
   IDEA-084:
     {type: idea, status: backlog, created: 2026-10-19,
      impact: user-visible, effort: l,
      title: "Event groups: a named programme with children, suggested by title and anchor, confirmed by a person",
-     ref: [planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md],
+     ref: [planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/prod-findings-review-2026-10-19.md],
      touches: [app:backend, pkg:domain, pkg:database, web:events, web:moderation, cross:ai-extraction, cross:architecture, cross:prd],
-     note: "SCH 8th Anniversary: REBORN is stored as 4 umbrella rows, 9 child events and duplicates; 1 of 21 children carries the keyword. Precision of the child-suggestion rule is not measured."}
+     note: "SCH 8th Anniversary: REBORN is stored as 4 umbrella rows, 9 child events and duplicates; 1 of 21 children carries the keyword. Precision of the child-suggestion rule is not measured. AD-36 gaps G1-G10: review doc section 4 (anchor on merge, per-event notifications first)."}

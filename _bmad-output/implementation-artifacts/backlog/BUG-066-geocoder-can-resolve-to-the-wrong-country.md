@@ -6,7 +6,7 @@ captured: 2026-10-18
 
 # BUG-066 — a wrong address or country is reachable by construction
 
-**Captured:** 2026-10-18 · **Status:** **not reproduced.** The report is the product owner's ("querying curator location falls into totally wrong address, wrong country — fatal"). Everything below is **code reading**; the session had no Geoapify key, and an attempted keyless check against Nominatim was rate-limited (HTTP 429) and abandoned, so **no wrong-country result is claimed here as observed.** A ready-to-run probe is included.
+**Captured:** 2026-10-18 · **Update 2026-10-19:** the effect is now **seen in production data** (`prod-findings-and-event-groups-2026-10-19.md` §3: 379 of 1,460 pins outside Indonesia's bounding box, 26 Sleman City Hall schedules pinned in the US, Plaza Ambarrukmo outlets in New York); which of the six mechanisms below produced which pin is still not established, and the probe has not been run. · **Status:** **mechanisms not reproduced.** The report was the product owner's ("querying curator location falls into totally wrong address, wrong country — fatal"). Everything below is **code reading**; the session had no Geoapify key, and an attempted keyless check against Nominatim was rate-limited (HTTP 429) and abandoned, so **no wrong-country result is claimed here as observed.** A ready-to-run probe is included.
 
 ## Mechanisms found in the code (each is a hypothesis until the probe or the SQL says otherwise)
 

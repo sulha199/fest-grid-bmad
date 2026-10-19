@@ -24,9 +24,9 @@ DO $$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO festgrid_poc_ro', cu
 GRANT USAGE ON SCHEMA public TO festgrid_poc_ro;
 
 -- exactly what the list query and the aggregate checks read
-GRANT SELECT (id, slug, event_name, location, types, categories, post_id, detail_level, merged_into_event_id, deleted_at, created_at, updated_at) ON public.events TO festgrid_poc_ro;
+GRANT SELECT (id, slug, event_name, location, types, categories, post_id, detail_level, merged_into_event_id, deleted_at, created_at, updated_at, links) ON public.events TO festgrid_poc_ro;
 GRANT SELECT ON public.schedules TO festgrid_poc_ro;   -- dates and places of events: already public in the app
-GRANT SELECT (id, account_id, image_url, durable_image_url, durable_thumbnail_url, image_url_expires_at, video_url, post_url, original_post_url, published_at) ON public.posts TO festgrid_poc_ro;   -- not `content`
+GRANT SELECT (id, account_id, image_url, durable_image_url, durable_thumbnail_url, image_url_expires_at, video_url, post_url, original_post_url, published_at, additional_image_urls) ON public.posts TO festgrid_poc_ro;   -- not `content`
 GRANT SELECT (id, is_image_storage_opted_in, account_type, account_type_status, default_location) ON public.social_media_account_profiles TO festgrid_poc_ro;
 GRANT SELECT (event_id, deleted_at) ON public.favorites TO festgrid_poc_ro;   -- the list query counts favorites per event; not who
 
