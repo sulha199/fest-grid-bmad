@@ -3,7 +3,7 @@ status: draft-for-review
 type: planning-proposal
 date: 2026-10-19
 related: [proposal-posthog-and-list-scale.md, proposal-discovery-ranking-and-scale.md, proposal-personalized-discovery.md §9–§10; prd §3.1, §4.3; Architecture Spine AD-17, AD-18, AD-30; backlog IDEA-073, IDEA-074, IDEA-076]
-evidence: ./results/area-resolver-eval.generated.md · perf-candidates-*.generated.md · perf-pgbench-candidates.generated.md · plan-guard-month12.generated.txt · perf-count-and-ranking-*.generated.md
+evidence: ./results/area-resolver-eval.generated.md · area-kinds-probe.generated.md · perf-candidates-*.generated.md · perf-pgbench-candidates.generated.md · plan-guard-month12.generated.txt · perf-count-and-ranking-*.generated.md
 backlog: [IDEA-081, IDEA-082, FIND-088 (re-analysed); decisions recorded on IDEA-075, IDEA-079, FIND-086]
 ---
 
@@ -20,12 +20,15 @@ backlog: [IDEA-081, IDEA-082, FIND-088 (re-analysed); decisions recorded on IDEA
 | Geoapify key | See §1: this is a cloud session; I cannot read your local `.env`. | §1 |
 | Stored captions | **Accept "cleared at next re-extraction".** No purge. | IDEA-075 / FIND-086 notes |
 | PostHog | **Approved** (plan, order and privacy posture of `proposal-posthog-and-list-scale.md` §7). | IDEA-079 → `triaged` |
+| Roundup heading as a stated area | **Yes** (reply 2): a place in a roundup's heading counts as a stated area for items that state none — with the guardrails of §2.6. | §2.6, IDEA-081 |
 | Slow table scans | **Prevent proactively.** | §3, IDEA-082 |
 | Total count | Make sure a `hasNextPage`-style flag exists; **analyse again whether skipping the count matters.** | §4 |
 
 ## 1. The Geoapify key
 
 This session runs in a cloud container (not on your machine): the repository was cloned from GitHub, so your local `.env` is not in it — only `.env.example` — and I have no way to read files on your computer. Nothing is blocked on the network: `api.geoapify.com` answers from here (HTTP 401 without a key). To give me the key without pasting it into chat, add `GEOAPIFY_API_KEY` to the cloud environment (environment menu in the session's title bar → Edit → a network secret / environment variable). A **new session** picks it up. With it I can run `probe-geocode-country.ts` (BUG-066) and calibrate the confidence floor, and test the geocoder side of §2. Until then I have not mocked or invented any geocoder result.
+
+**What this session does and does not have access to** (you asked, because it was not clear): I have **not** connected to your production database, and I have **not** read your local `.env` — I cannot. Everything I measured ran on a PostgreSQL I created inside this container with synthetic data (`seed:volume`), as each document says. The repositories were cloned from GitHub. The container does carry environment variables set on the cloud environment — I listed the *names* only: a Gemini key (`SYSTEM_GEMINI_API_KEY`, which the live extraction experiments and the probe in §2.9 used), plus an **Apify token and AWS credentials that I have not used**. I cannot tell what those two can reach; if they are not meant to be in a cloud environment, or are production-scoped, it is worth reviewing the environment's variable list and removing what the work does not need. I will not use them unless you ask. The statements that depend on real data (the legacy accounts being Indonesian curators, `SHOW jit`, real event counts) are still yours to confirm; the SQL for each is in the backlog notes.
 
 ## 2. The target area: how to define it and map it to the right level
 
@@ -38,7 +41,7 @@ This session runs in a cloud container (not on your machine): the repository was
 
 1. **Stated audience** in the post ("se-Kabupaten Bantul", "mahasiswa se-DIY") — extracted by the model, 18/18 on the 6-post held-out set (small).
 2. **The item's own place** for an ordinary local event with no stated audience. For roundup items this is guaranteed by the prompt rule above, which is why your point holds: *the roundup's own schedules already carry the area*.
-3. **A post-level area** — a roundup titled "Weekend Roundup in Jakarta" or from a city curator. `postTitle` is stored but nothing parses an area from it. It is a candidate *stated* area for items that state none (open question below).
+3. **A post-level area** — a roundup titled "Weekend Roundup in Jakarta" or from a city curator. `postTitle` is stored but nothing parses an area from it. **Decided: it counts as a stated area for items that state none, with the guardrails of §2.6.**
 
 The unsolved part is the mapping: **a name as written → a canonical key on one administrative ladder, with the right level.**
 
@@ -80,8 +83,64 @@ The audience key exists, the event has no pin. Per leaf (not decided; recommende
 | map pin, distance label | absent |
 | `venueType`, indoor/outdoor | unknown |
 
-### 2.6 Open question for you
-Should a roundup's title or caption heading ("Agenda Jogja", "Weekend Roundup in Jakarta") count as a **stated** area for its items that state none? It would widen those items from the venue's regency to the curator's catchment; for users on the ladder it barely changes tier 0, and only matters near regional borders.
+### 2.6 A roundup heading as a stated area — decided yes; the edge cases
+
+Your answer is yes. The edge cases below decide *how*; the live probe in §2.9 shows the model can already tell most of them apart.
+
+| edge case | example | rule |
+|---|---|---|
+| The heading's place is where events are, not who they are for | "Agenda Jogja", "Event di Bandung" | `events_located_in`: a coverage claim. It **supplies** an area for items whose own place does not resolve; it does not override an item that has its own stated audience |
+| The heading names an audience that differs from the place | "Wisata Jogja untuk warga Jakarta" | two roles from one heading: Jogja = where, Jakarta = audience. Only the audience becomes the items' stated audience |
+| The place is part of a name | "Java Jazz Festival", "Bali United vs Persib Bandung" | `brand_or_name`: ignore. A plain alias scan of titles would turn Java Jazz (held in Jakarta) into the whole island of Java |
+| The heading is wider than the item | national or island heading over a Surabaya concert | **never widen**: a heading wider than the item's own place does not move the item up to tier 1, unless the role is audience |
+| An item lies outside the heading's area | "Jadwal Konser Jabodetabek" listing a Bandung concert | the item keeps its own place; the conflict is flagged. In the probe the model did not leak item places into the heading's areas (0 of 16 runs) |
+| Online or national items inside a local roundup | a Zoom webinar in "Agenda Jogja" | no place from the heading unless its role is audience; otherwise the national webinar is wrongly localised |
+| The heading names several places or an aggregate | "Jawa-Bali", "Jabodetabek" | a set of keys (§2.8) |
+| **The heading was written by the model, not by the post** | the model's `postTitle` "Weekend Event Roundup in Jakarta" when the post has no heading | **circular**: that place was derived from the items' venues and adds no independent signal. Use only a heading **found verbatim in the post text** (the existing grounding guard); do not parse `postTitle` |
+| Ambiguous names | "Agenda Yogyakarta" | the same ambiguity rule as any other area (flagged, widest by default) |
+| No heading, or an old post | most posts; `postTitle` was never backfilled | nothing changes; the item falls back to its own place |
+| Event with several posts (AD-30) | roundup is the primary post for one item and not for another | use the primary post's heading, as for the rest of the insight |
+| An item whose own place does not resolve | the item says only "Gedung X" and geocoding fails | **this is the main case the heading helps**: it supplies the city, so the event still gets a target area without a pin |
+
+Practical effect, stated plainly: for items that have a resolvable place the heading rarely changes anything (the ladder is merged and a Bantul item and a "Jogja" heading are both tier 0 for a Sleman user); it earns its keep for items whose place does not resolve and for the audience-differs case.
+
+### 2.7 The ladder to define: levels, settlement type, aggregates, scopes
+
+Yes — define it explicitly, but as **four separate things**, not one list with "urban" and "sub-urban" mixed in:
+
+| concept | what it is | values | used for |
+|---|---|---|---|
+| **administrative level** (a tree) | the legal hierarchy; each unit has one parent | `country > province > regency/city > district > village` (Indonesia: provinsi > kabupaten/kota > kecamatan > kelurahan/desa); the model's `neighborhood` maps to a locality below district | nested/parent matching and the graded closeness (same / inside / covers / sibling / other) |
+| **settlement type** (an attribute, not a level) | whether a unit is urban or rural | derived for free from the legal type: **kota** vs **kabupaten**, **kelurahan** vs **desa** | optional scoring such as "city-centre" vs "outskirts"; not needed for matching in v1 |
+| **aggregate** (a set of units, any levels) | a named area that is not one administrative unit and may cross provinces | metro areas (Jabodetabek, Kartamantul, Solo Raya, Malang Raya, Gerbangkertosusila), islands (Jawa, Sumatera), regions (Indonesia Timur, Nusa Tenggara), supranational (Asia Tenggara, ASEAN); each lists its members | "dan sekitarnya" catchments and any audience phrase that names a region; this is where **sub-urban** belongs (the surroundings of a city are a set of neighbouring units, not a level) |
+| **scope** (not an area) | how far the audience reaches | `venue_local, city, region, national, international, online, unspecified` (already extracted) | tier 1 ("anywhere") for national / international / online with no area |
+
+Why urban/sub-urban are not levels: they do not nest (a sub-urban district belongs to a regency, not to an "urban" node), they have no legal definition or data source, and two competing definitions would corrupt matching. The legal kota/kabupaten and kelurahan/desa types already give the urban/rural split where it is wanted.
+
+Two additions the data asked for: a **`continent`/supranational** top (the recorded runs contain "Asia"), and a **qualifier** on an area — `only`, `and_surroundings` ("dan sekitarnya"), `part_of` ("Jawa bagian selatan"). A qualifier changes the set: `and_surroundings` = the named unit plus its neighbours (siblings under the same parent, or the members of the aggregate it belongs to).
+
+### 2.8 Does "Jawa" mean several provinces? Yes — an event has a *set* of target areas
+
+* `audienceAreas` is a **set of keys**, each with its ancestor path. "Jawa" is six provinces (DKI Jakarta, Jawa Barat, Banten, Jawa Tengah, DI Yogyakarta, Jawa Timur); "Jabodetabek" is nine units in three provinces; "DIY & Jawa Tengah" is two; a tour "Jakarta, Bandung, Surabaya" is three cities.
+* Keys are stored at the **covering level** (the six provinces, not their ~119 regencies); descendants match through the path, so the stored set stays small. A very large set (for example "Indonesia Timur") is capped and stored as the aggregate key itself.
+* **Relation = the best over the set**: a Sleman user is `covers` for "Jawa" (it contains DIY) and `same` for "Sleman"; the closest relation decides the tier.
+* "Jawa" itself is ambiguous in Indonesian — the island, or the Javanese heartland — and "se-Jawa Bali" is an island pair. Default: the island, flagged ambiguous; "Jawa Tengah/Timur/Barat" are resolved first by longest match.
+* Country-level keys and above are **not an audience area**: they mean "national" and go to tier 1.
+
+### 2.9 Can the AI extract this? A live probe
+
+Existing evidence (prompt v2, `gemini-3.5-flash-lite`): **scope and stated area names** — 57/60 fully correct on the core set (the 3 misses are the known `cald-conference` post), **18/18 on the 6-post held-out set**, no ungrounded area, no venue leak. What it did *not* do well was the level (§2.3). The new probe (`run-area-kinds.ts`; 18 short posts and 8 roundup headings, 2 runs each, **my** gold labels, one labeller) asks for something different: a **kind**, a **qualifier**, the **units covered**, and the **role** of a place in a heading.
+
+| | result |
+|---|---|
+| kind of the area (admin unit / metro area / island / region / country / continent) | **36/36 runs** — Jabodetabek, Solo Raya, Malang Raya, Kartamantul, Gerbangkertosusila, Bandung Raya = metro areas; Pulau Jawa = island; Indonesia Timur, Asia Tenggara, Pantura = regions; "Bali dan Lombok" = province + island |
+| qualifier ("dan sekitarnya", "bagian selatan") | **35/36** — one misread: "se-DIY **dan** Jawa Tengah" got `and_surroundings` on one area in one run |
+| units covered, where graded (Jabodetabek, Java, Kartamantul, DIY + Jawa Tengah) | recall **92%** over 8 runs, no extras: Java 6/6, Kartamantul 3/3, DIY + Jateng 2/2, **Jabodetabek 6/9 in both runs**. I could not inspect the raw lists (the key was rate-limited on the rerun), so I cannot say whether the missing three are the model's omission or my sample gazetteer resolving a bare "Bogor/Bekasi/Tangerang" to the city only |
+| role of a place in a roundup heading (coverage / audience / brand / none) | **16/16 runs**, including the traps: "Java Jazz" and "Bali United vs Persib Bandung" as brands, "Wisata Jogja untuk warga Jakarta" split into place and audience, a heading with no place over items in three cities (no leak), and a Bandung item under a Jabodetabek heading (no leak) |
+
+**Answer:** yes for what the post *says* — names, kind, qualifier, role, and a best-effort list of covered units — and that is good enough to use as input. **No for being the source of truth**: the unit lists are 92% on a small graded set and the earlier runs got the level wrong 8 times in 73. So keep the split: the model reports; the gazetteer and aggregate table (curated, versioned, reviewable) decide. A useful middle path for aggregates the table does not know yet: accept the model's `coveredUnits` **only** after they resolve in the gazetteer, mark the result `source: model`, and queue it for review like an abstention.
+
+**Limits of the probe.** Short, clean, synthetic posts that I wrote; real posts are messier. The headings were given as post text, so it does not test the "model-written title" case of §2.6. Gold labels are mine, general knowledge, unchecked against an official source. Two runs per case. The probe called the live Gemini API (a key from the cloud environment); no production data was used.
 
 ## 3. Preventing slow table scans proactively
 
@@ -160,6 +219,7 @@ Order: FIND-088 → PostHog basics → JIT off + statement timeout + tie-break �
 ## 6. Limits
 * **Synthetic data, database only, one sandbox**, medians of 5; build-to-build variation is real (the same junction-vs-overlap comparison flipped plan type between builds). Do not read differences below ~30% as findings.
 * **Not measured**: the write side of the junction table and the sort key; the geocoder half of area resolution; the real distribution of audience areas (here 40% none, 12 areas, one per event); a held-out evaluation of the gazetteer. The gazetteer is a hand-typed sample.
+* The §2.9 probe: 26 hand-written cases, two runs each, my gold labels, clean synthetic text; membership graded for four cases only; the raw lists of the aggregate cases were not inspected.
 * The statement-timeout and `SET LOCAL` mechanics through Supabase's pooler are reasoned from its documented transaction mode, not tested.
 * The plan-guard thresholds are starting values chosen by me; the first real runs should tune them.
 

@@ -2446,7 +2446,7 @@ items:
     {type: idea, status: backlog, created: 2026-10-19,
      impact: user-visible, effort: m, blocks: [IDEA-074],
      title: "Target-area resolver: place name as written to canonical admin keys from a gazetteer (aggregates as sets, level from the gazetteer, ambiguity flagged)",
-     ref: [planning-artifacts/event-insight-poc/proposal-target-area-and-scan-safety.md, apps/backend/scripts/poc-event-insight/area-resolver.ts],
+     ref: [planning-artifacts/event-insight-poc/proposal-target-area-and-scan-safety.md, apps/backend/scripts/poc-event-insight/area-resolver.ts, planning-artifacts/event-insight-poc/results/area-kinds-probe.generated.md],
      touches: [app:backend, pkg:domain, pkg:database, web:locations, cross:ai-extraction],
      note: "In 73 recorded model mentions its level was wrong 8x (Jabodetabek, Jawa, Canggu) and ambiguous 9x. POC gazetteer is hand-typed and fitted to those names: needs the official data source, its licence, and the Geoapify key for the geocoder half."}
 

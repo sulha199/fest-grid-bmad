@@ -1,5 +1,5 @@
 ---
-status: complete (addenda 1-9, 2026-10-19, appended)
+status: complete (addenda 1-10, 2026-10-19, appended)
 type: poc-report
 date: 2026-10-18
 model_under_test: gemini-3.5-flash-lite   # the production default (apps/backend/src/env.ts)
@@ -545,3 +545,26 @@ Candidate generation by array overlap reads the whole candidate pool from K ≥ 
 * The plan flip seen on an earlier build (a parallel sequential scan) did not recur on the rebuilt databases; only the whole-pool scan did. The finding is the fragility, not one plan.
 * **Not measured**: the write side of the junction table; the geocoder half of area resolution; a held-out gazetteer evaluation; statement-timeout and `SET LOCAL` behaviour behind Supabase's pooler.
 * Re-verified identical after this round: the guarded wrong-claims table. Backlog: **IDEA-081, IDEA-082** added; IDEA-079 `triaged`; FIND-088 re-analysed; decisions recorded on IDEA-075 and FIND-086; checker count unchanged (69). No product code was changed.
+
+---
+
+# Addendum 10 (2026-10-19, tenth discussion): the area ladder, multi-area events, whether the AI can extract it, roundup headings as a stated area, and what this session has access to
+
+Decisions taken: a place in a roundup's heading **counts as a stated area** for items that state none. Questions answered: which levels to define, whether "Jawa" means several provinces, whether the AI can extract this, and what access I have. Analysis: [`proposal-target-area-and-scan-safety.md`](./proposal-target-area-and-scan-safety.md) §1 and §2.6–§2.9. Code: `run-area-kinds.ts` (live Gemini probe). Raw: `results/area-kinds-probe.generated.md`. Offline tests unchanged at **238**.
+
+## J1. The probe (live `gemini-3.5-flash-lite`, 26 hand-written cases × 2 runs, my gold labels)
+
+| | result |
+|---|---|
+| kind of area (admin unit, metro area, island, region, country, continent) | 36/36 runs |
+| qualifier ("dan sekitarnya", "bagian selatan") | 35/36 runs (one "dan" misread as a qualifier) |
+| covered units where graded (4 cases) | recall 92% over 8 runs, no extras; Jabodetabek 6/9 in both runs |
+| role of a place in a roundup heading (coverage / audience / brand / none) | 16/16 runs, 0 leaks from the items into the heading's areas |
+
+## J2. Limits and changes after seeing results (this addendum)
+
+* **A misunderstanding corrected**: the user believed this session could read their local `.env` and reach the production database. It cannot and did not: every database figure came from a synthetic scratch PostgreSQL inside the container. The container's environment does hold a Gemini key (used here), and an Apify token and AWS credentials that were **not** used; their origin and scope are unknown to me and flagged for review.
+* **The probe is easy mode**: short, clean, synthetic posts I wrote, one labeller, two runs per case, membership graded for four cases, headings supplied as post text (so the "model-written title" circularity of §2.6 is argued, not tested). The Jabodetabek 6/9 could not be explained: a rerun was rate-limited, so the raw lists were not inspected.
+* The first rerun was cut off by a shell timeout and a second hit the key's rate limit; the saved report is the first, complete run (no error cells). A `--only` filter and a `--raw` dump were added to the script afterwards.
+* Not measured: real roundup posts; model-written versus post-stated headings; the geocoder half of area resolution; a held-out gazetteer evaluation.
+* Backlog: IDEA-081 reference added; checker count unchanged (69). No product code was changed.
