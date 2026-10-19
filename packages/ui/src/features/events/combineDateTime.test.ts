@@ -171,15 +171,10 @@ describe('combineDateTime (BUG, 2026-09-28: mobile-only date-off-by-one)', () =>
   });
 });
 
-// CONFIRMED PRODUCT DECISION (2026-09-29, user-directed: "let's use viewer's locale for now"):
-// the masonry card's date-box has no per-schedule `timezone` field threaded to it at all
-// (`EventCard.tsx` only ever receives `ScopedLocaleProvider`'s fixed per-locale mapping --
-// `America/New_York` for `/en/`, `Asia/Jakarta` for `/id/` -- never the actual event's own
-// `schedule.timezone`). This was raised as an open question after this session's fix made that
-// fixed display timezone finally apply CONSISTENTLY (device-independent) -- an /en/ locale viewer
-// sees a Jakarta-morning event's date/time normalized into New York's clock, not the event's own
-// venue time. User confirmed this is the INTENDED behavior (normalize to the viewer's own locale,
-// not each event's own venue timezone) -- not a bug, don't thread `schedule.timezone` through.
-// (Separately, some scraped schedules also carry clearly-wrong inferred timezones, e.g.
-// "Europe/Paris" for a Yogyakarta venue, seen live in production -- moot for this card either
-// way, since it never consults that field.)
+// PRODUCT DECISION, REVISED (2026-10-19, user-directed -- supersedes the 2026-09-29 "use the viewer's
+// locale for now, don't thread `schedule.timezone` through"): an event's wall-clock date/time are
+// VENUE time. List and calendar cards now receive the schedule's own `timezone` and render in it
+// when its `timezoneStatus` is RESOLVED (`resolveScheduleTimezone` -> `useEventTimezone`), and a date
+// with no time is 00:00 in that zone. Only when the event has no RESOLVED timezone does a card fall
+// back to `ScopedLocaleProvider`'s fixed per-locale zone (`America/New_York` for `/en/`,
+// `Asia/Jakarta` for `/id/`). The second `combineDateTime` test above documents the fallback shape.

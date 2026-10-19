@@ -30,6 +30,7 @@ import {
 import { EventCardCalendarGridItem } from './EventCardCalendarGridItem';
 import { EventCardCompact } from './EventCardCompact';
 import { CalendarRangeFilterToggle, type CalendarRangeFilterValue } from './CalendarRangeFilterToggle';
+import { resolveScheduleTimezone } from '@festgrid/domain/events';
 import { combineDateTime, computeCalendarSegmentDateBoxContent, formatEventStatus, type EventStatusLabels } from './format-event-date';
 
 // Design system styles from DESIGN.md
@@ -1060,7 +1061,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
                       runStartDate={entry.runStartDate}
                       runEndDate={entry.runEndDate}
                       locale={activeLocale}
-                      timezone={activeTimezone}
+                      timezone={timezone}
                       onScheduleClick={onScheduleClick}
                       onFavoriteToggle={onFavoriteToggle}
                       favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
@@ -1083,7 +1084,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
                       cardId={`calendar-card-${entry.key}`}
                       isRovingActive={effectiveActiveKey === entry.key}
                       locale={activeLocale}
-                      timezone={activeTimezone}
+                      timezone={timezone}
                       onScheduleClick={onScheduleClick}
                       onFavoriteToggle={onFavoriteToggle}
                       favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
@@ -1210,7 +1211,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
                   dayIdx={dayIdx}
                   isRovingActive={false}
                   locale={activeLocale}
-                  timezone={activeTimezone}
+                  timezone={timezone}
                   onScheduleClick={onScheduleClick}
                   onFavoriteToggle={onFavoriteToggle}
                   favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
@@ -1315,9 +1316,9 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   repeatBadgeAriaLabel,
 }: CalendarCardProps<TSchedule>) {
   const { schedule } = segment;
-  // Resolved here, not trusted from the parent: a parent that forgets `timezone` must still land
-  // on the app timezone rather than the viewer's device zone.
-  const timezone = useEventTimezone(timezoneProp);
+  // Resolved here, not trusted from the parent: explicit prop -> the event's own RESOLVED timezone
+  // -> the app timezone. A parent that forgets `timezone` must never land on the device's zone.
+  const timezone = useEventTimezone(timezoneProp, resolveScheduleTimezone(schedule));
 
   // Story 1.3k Task 4 (AC11) — the hover+focus+Escape-dismiss interaction state, now the shared
   // `useHoverFocusTooltip` hook instead of this component's own hand-rolled copy. `enabled: true`
@@ -1603,7 +1604,7 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
   repeatBadgeAriaLabel,
   addedToCalendarBadgeLabel,
 }: MultiDaySpanningBarProps<TSchedule>) {
-  const timezone = useEventTimezone(timezoneProp);
+  const timezone = useEventTimezone(timezoneProp, resolveScheduleTimezone(schedule));
   // Story 1.3k Task 4 (AC11) — same shared hook as `CalendarCard`'s grid variant, replacing this
   // component's own hand-rolled `isHovered`/`isFocused`/`isDismissed` state (the mandatory second
   // consumer per Gate 3's resolution — see the hook's own header comment). No mode gate here (this

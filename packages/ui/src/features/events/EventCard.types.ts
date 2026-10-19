@@ -66,6 +66,12 @@ export interface EventCardProps {
 
   /** Optional explicit IANA timezone (e.g. 'Asia/Jakarta') for formatting the date. If omitted, falls back to the nearest ancestor ScopedLocaleProvider's timezone (see useScopedTimezone/ScopedLocaleProvider), or the runtime's default timezone if none is present/set. */
   timezone?: string;
+  /**
+   * The event's own IANA timezone (already vetted by `resolveScheduleTimezone`, i.e. RESOLVED only):
+   * the zone this card's start/end date and time -- and a date with no time, as 00:00 -- are
+   * expressed in. Beaten only by an explicit `timezone` prop; beats the ambient provider timezone.
+   */
+  eventTimezone?: string;
 
   /** Optional URL for the event image */
   imageUrl?: string;

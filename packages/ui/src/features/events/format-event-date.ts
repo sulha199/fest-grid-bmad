@@ -181,7 +181,10 @@ function zonedTimeToUtc(
  *    event starting today in `America/New_York` read "Ended"; an event tomorrow read "In 0
  *    hours") and hours into the day in every zone east of it (a UTC+7 viewer saw today's event as
  *    "not started" until 07:00). It now anchors at 00:00 wall-clock IN `timezone`, exactly like a
- *    date that carries a time. Callers MUST pass the same `timezone` they later format/compare in.
+ *    date that carries a time. Callers MUST pass the same `timezone` they later format/compare in,
+ *    and for an event that timezone is the EVENT's own (RESOLVED) one, falling back to the app/viewer
+ *    zone only when the event has none (`resolveScheduleTimezone` + `useEventTimezone`): a poster's
+ *    "18:30", and a date with no time (00:00), are venue time.
  *    A non-string `Date` input with no `timeStr` is returned untouched (it already is an instant).
  */
 export function combineDateTime(dateInput: Date | string, timeStr?: string | null, timezone?: string): Date {

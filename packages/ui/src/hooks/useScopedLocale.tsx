@@ -58,17 +58,21 @@ export function useScopedTimezone(): string | undefined {
 
 /**
  * The one place a component resolves "which timezone do I render this schedule/post in":
- * an explicit `timezoneOverride` (a component's own `timezone` prop, ignoring an accidental empty
- * string) beats the nearest ScopedLocaleProvider's timezone, which beats `undefined` (the runtime's
- * own timezone). Call it in the component that formats/compares, instead of receiving an
- * already-resolved value from a parent: a parent that forgets to pass `timezone` down then falls
- * back to the app timezone, not silently to whatever zone the viewer's device happens to be in.
  *
- * A per-event timezone (`Schedule.timezone`) is the intended next link in this chain
- * (override -> event -> ambient); it is deliberately NOT wired yet -- see the product decision on
- * event-local vs viewer-local display.
+ *   1. `timezoneProp` -- the component's own explicit `timezone` prop (an empty string counts as
+ *      absent), the caller deliberately forcing a zone;
+ *   2. `eventTimezone` -- the event's own timezone, already vetted by `resolveScheduleTimezone`
+ *      (a poster's "18:30", or a date with no time = 00:00, is in the venue's zone);
+ *   3. the nearest ScopedLocaleProvider's timezone (the app/viewer zone);
+ *   4. `undefined` -- the runtime's own timezone.
+ *
+ * Call it in the component that formats/compares, instead of receiving an already-resolved value
+ * from a parent: a parent that forgets to pass a timezone down then falls back to the event's /
+ * app zone, not silently to whatever zone the viewer's device happens to be in. A parent that
+ * forwards a timezone to children must forward the RAW prop, not this hook's result -- otherwise
+ * the ambient fallback would outrank each child's own event timezone.
  */
-export function useEventTimezone(timezoneOverride?: string | null): string | undefined {
+export function useEventTimezone(timezoneProp?: string | null, eventTimezone?: string | null): string | undefined {
   const contextTimezone = useScopedTimezone();
-  return timezoneOverride || contextTimezone;
+  return timezoneProp || eventTimezone || contextTimezone;
 }

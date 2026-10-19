@@ -65,8 +65,8 @@ describe('useScopedLocale / useScopedTimezone / ScopedLocaleProvider', () => {
 describe('useEventTimezone', () => {
   afterEach(() => cleanup());
 
-  function EventProbe({ override }: { override?: string | null }) {
-    return <span>{useEventTimezone(override) ?? 'undefined'}</span>;
+  function EventProbe({ override, event }: { override?: string | null; event?: string | null }) {
+    return <span>{useEventTimezone(override, event) ?? 'undefined'}</span>;
   }
 
   it('returns the ambient timezone when there is no override', () => {
@@ -91,6 +91,31 @@ describe('useEventTimezone', () => {
     render(
       <ScopedLocaleProvider locale="en" timezone="America/New_York">
         <EventProbe override={override} />
+      </ScopedLocaleProvider>
+    );
+    expect(screen.getByText('America/New_York')).toBeInTheDocument();
+  });
+
+  it('the event timezone beats the ambient one, and an explicit override beats both', () => {
+    render(
+      <ScopedLocaleProvider locale="en" timezone="America/New_York">
+        <EventProbe event="Asia/Jakarta" />
+      </ScopedLocaleProvider>
+    );
+    expect(screen.getByText('Asia/Jakarta')).toBeInTheDocument();
+    cleanup();
+    render(
+      <ScopedLocaleProvider locale="en" timezone="America/New_York">
+        <EventProbe override="Europe/Paris" event="Asia/Jakarta" />
+      </ScopedLocaleProvider>
+    );
+    expect(screen.getByText('Europe/Paris')).toBeInTheDocument();
+  });
+
+  it.each([['undefined', undefined], ['null', null], ['an empty string', '']])('an event timezone of %s falls through to the ambient one', (_label, event) => {
+    render(
+      <ScopedLocaleProvider locale="en" timezone="America/New_York">
+        <EventProbe event={event} />
       </ScopedLocaleProvider>
     );
     expect(screen.getByText('America/New_York')).toBeInTheDocument();

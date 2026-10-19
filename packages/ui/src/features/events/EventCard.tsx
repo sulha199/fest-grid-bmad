@@ -69,6 +69,7 @@ export function EventCard({
   startTime,
   locale,
   timezone,
+  eventTimezone,
   imageUrl,
   imageFallbackUrl,
   imageAlt,
@@ -206,7 +207,7 @@ export function EventCard({
   // `||` (not `??`) so an accidental empty-string prop also falls through to context/default
   // instead of being passed straight to Intl and throwing.
   const activeLocale = locale || contextLocale;
-  const activeTimezone = useEventTimezone(timezone);
+  const activeTimezone = useEventTimezone(timezone, eventTimezone);
 
   // Story 1.3k Task 6 (AC6, "Tooltip trigger resolution" Dev Notes) — the repeat badge is never
   // an independently-focusable trigger of its own (it would nest a focusable element inside

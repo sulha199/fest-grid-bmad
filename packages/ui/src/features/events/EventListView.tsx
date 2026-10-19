@@ -1,7 +1,7 @@
 import { EventCard } from './EventCard';
 import { EventListViewItem, EventListViewProps } from './EventListView.types';
 import { GridContainer } from '../../core/grid-container';
-import { selectDisplaySchedule } from '@festgrid/domain/events';
+import { selectDisplaySchedule, resolveScheduleTimezone } from '@festgrid/domain/events';
 
 export function EventListView<TEvent extends EventListViewItem>({
   status,
@@ -81,6 +81,9 @@ export function EventListView<TEvent extends EventListViewItem>({
               startTime: displaySchedule?.eventStartTime ?? null,
               endDate: displaySchedule?.eventEndDate ?? undefined,
               endTime: displaySchedule?.eventEndTime ?? null,
+              // The displayed schedule's own timezone (RESOLVED only): its date/time -- and a
+              // date with no time, 00:00 -- are in the venue's zone, not the viewer's.
+              eventTimezone: resolveScheduleTimezone(displaySchedule),
               imageUrl: event.imageUrl ?? undefined,
               // BUG-042 (AC-IMG-1): the imageUrl -> imageFallbackUrl retry chain's second URL —
               // this single derivation point also fixes the Archive page, which routes through
