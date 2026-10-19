@@ -2416,7 +2416,7 @@ items:
      title: "Discovery selects totalCount it never reads, so every page request runs an extra count(*)",
      ref: [planning-artifacts/event-insight-poc/proposal-posthog-and-list-scale.md, apps/web/src/features/events/queries.graphql, "apps/web/src/app/[locale]/home-content.tsx"],
      touches: [app:backend, web:events],
-     note: "Measured on scratch Postgres + seed:volume (JIT off): the count is 14-42% of a page's DB time, 31-348 ms per request. Discovery uses hasMore; Archive and Favorites do use totalCount, so give Discovery its own document."}
+     note: "Scratch Postgres + seed:volume (JIT off): the count is 20-33% of a page today and ~98% of a request after IDEA-076. hasMore already exists; nothing reads this totalCount (Archive and favorited ids use their own documents)."}
 
   FIND-089:
     {type: finding, status: backlog, created: 2026-10-19,
@@ -2427,7 +2427,7 @@ items:
      note: "Found by reading code and seen in the captured statements: INSERT ... ON CONFLICT DO UPDATE on the hot read path (~0.1 ms, but a write per request). A SELECT with the default of 0 would do. Not load-tested."}
 
   IDEA-079:
-    {type: idea, status: backlog, created: 2026-10-19,
+    {type: idea, status: triaged, created: 2026-10-19,
      impact: internal, effort: m,
      title: "PostHog: page views, Discovery impressions and rank context, cost-model calibration funnel, fake-door test, ranking experiments",
      ref: [planning-artifacts/event-insight-poc/proposal-posthog-and-list-scale.md, packages/analytics/src/posthog-provider.tsx],
@@ -2441,3 +2441,19 @@ items:
      ref: [planning-artifacts/event-insight-poc/proposal-posthog-and-list-scale.md, "apps/web/src/app/[locale]/favorites/favorites-content.tsx"],
      touches: [app:backend, pkg:database, web:events, cross:architecture],
      note: "Extends the Favorites id-snapshot pattern. Measured: hydrating 10 ids 0.3-0.5 ms, 200 ranked ids 21-52 ms once; ids-only saves nothing on today's query, so it depends on IDEA-076. Write cost of content_version not measured."}
+
+  IDEA-081:
+    {type: idea, status: backlog, created: 2026-10-19,
+     impact: user-visible, effort: m, blocks: [IDEA-074],
+     title: "Target-area resolver: place name as written to canonical admin keys from a gazetteer (aggregates as sets, level from the gazetteer, ambiguity flagged)",
+     ref: [planning-artifacts/event-insight-poc/proposal-target-area-and-scan-safety.md, apps/backend/scripts/poc-event-insight/area-resolver.ts],
+     touches: [app:backend, pkg:domain, pkg:database, web:locations, cross:ai-extraction],
+     note: "In 73 recorded model mentions its level was wrong 8x (Jabodetabek, Jawa, Canggu) and ambiguous 9x. POC gazetteer is hand-typed and fitted to those names: needs the official data source, its licence, and the Geoapify key for the geocoder half."}
+
+  IDEA-082:
+    {type: idea, status: backlog, created: 2026-10-19,
+     impact: internal, effort: m, blocks: [IDEA-074],
+     title: "Prevent slow scans on hot paths: plan-shape guard in CI on the volume seed, JIT off and a statement timeout for the API role, junction-table candidate generation",
+     ref: [planning-artifacts/event-insight-poc/proposal-target-area-and-scan-safety.md, apps/backend/scripts/poc-event-insight/plan-guard.ts],
+     touches: [app:backend, app:infrastructure, pkg:database, cross:process],
+     note: "Guard fails all 4 of today's Discovery statements at 300k events; junction candidates 1.0-2.3 ms vs 29 ms at 91k open. Thresholds are starting values; pooler behaviour of SET LOCAL/timeout untested; junction write path unmeasured."}

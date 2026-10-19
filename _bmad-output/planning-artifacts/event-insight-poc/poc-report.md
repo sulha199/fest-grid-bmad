@@ -1,5 +1,5 @@
 ---
-status: complete (addenda 1-8, 2026-10-19, appended)
+status: complete (addenda 1-9, 2026-10-19, appended)
 type: poc-report
 date: 2026-10-18
 model_under_test: gemini-3.5-flash-lite   # the production default (apps/backend/src/env.ts)
@@ -517,3 +517,31 @@ Questions: how PostHog should be used; how many events the forecast implies and 
 * The rebuilt scratch databases use different random draws, so a re-run moved some variants by up to ~50% and the windowed variant (P3b) by 5× (8.9 vs 43.5 ms). Differences below ~30% are not findings.
 * **Not measured**: the write cost of a maintained key and `content_version`; fixed per-call overhead (API Gateway, Lambda, JWT); scoring over JSON-stored features; production `jit`, pool size and storage limit. Events per post (1.0), lead time, daily-active share, session shape and the push-burst figure are my assumptions.
 * Re-verified identical after this round: the guarded wrong-claims table. Backlog: **FIND-088, FIND-089, IDEA-079, IDEA-080** added and FIND-087 corrected; checker count unchanged (69). No product code was changed.
+
+---
+
+# Addendum 9 (2026-10-19, ninth discussion): the audience's target area and how to map it to a level; preventing slow scans; the total count again
+
+Decisions taken: stub events matter through the **audience's target area**, not the curator's location; the N-minute retry schedule is accepted; stored captions are "cleared at next re-extraction"; PostHog is approved; slow table scans are to be prevented proactively; and the total count is to be re-analysed with a `hasNextPage`-style flag in place. Analysis: [`proposal-target-area-and-scan-safety.md`](./proposal-target-area-and-scan-safety.md). Code: `area-resolver.ts` (9 tests), `area-resolver-eval.ts`, `plan-guard.ts` (9 tests), `plan-guard-run.ts`, `perf-candidates.ts`, and a count series in `perf-features.ts`. Total offline tests: **238**. No Gemini or Geoapify call was made (this is a cloud session: no key, and the user's local `.env` is out of reach).
+
+## I1. Defining the target area
+
+On the recorded audience-area runs (73 area mentions, 21 distinct strings) the model's level label **agreed with a gazetteer 47 times, was wrong 8 times** (Jabodetabek and Java called provinces, Canggu called a city or a regency), was **ambiguous 9 times** ("Yogyakarta") and **definitional 6 times** (Jakarta); 3 mentions are outside the Indonesian sample. Design: the model reports the name and scope; a gazetteer resolves it to canonical keys with ancestor paths and takes the level; aggregates are sets; ambiguity is flagged and ruled; foreign names go to the geocoder. The sample gazetteer is hand-typed **after** reading those names, so its coverage is fitted, not held out.
+
+## I2. Slow scans
+
+Candidate generation by array overlap reads the whole candidate pool from K ≥ 1,000 on 91k open events (28–42 ms, 16,845 rows scanned; 178 requests/s at 8 clients); a junction table of audience-area keys with per-rung ordered range scans does 1.0 ms at K=1,000 and 2.3 ms at K=3,000 (4,108 and 1,708 requests/s). The plan guard fails all four of today's Discovery statements at 300k events (sequential scan of 300,012 events, cost 523k–765k, 33–105 JIT functions, 52k–405k rows scanned for 1–11 returned) and passes the junction query.
+
+## I3. The total count
+
+`hasMore` (from the extra row) already is the `hasNextPage` flag, and nothing reads `totalCount` from the shared `getEvents` document. The count is 20–33% of a page's database time today and would be about 98% of a request once the foundation brings the page to 0.4–0.6 ms; even a capped count is plan-fragile (2.0–53.7 ms).
+
+## I4. Limits and changes after seeing results (this addendum)
+
+* **Two earlier statements corrected**: stubs normally do have a date and a place (the extraction prompt skips roundup items without both), and the UI does treat roundups on the detail page.
+* **The first summary line of the area evaluation was misleading** ("26 of 73 do not agree") because it counted ambiguity, a definitional difference and a foreign place as disagreements; it was replaced by five classes (47 / 8 / 9 / 6 / 3).
+* **The plan guard's first rule set missed the 91k case**: that build's slow form was a bitmap scan of the whole pool, not a sequential scan, and 17× amplification is under the 2,000× ratio. An absolute per-query scanned-rows budget was added after seeing it.
+* **A first run of the count series failed** (a missing FROM entry for the filter predicate) and was fixed before any figure was used.
+* The plan flip seen on an earlier build (a parallel sequential scan) did not recur on the rebuilt databases; only the whole-pool scan did. The finding is the fragility, not one plan.
+* **Not measured**: the write side of the junction table; the geocoder half of area resolution; a held-out gazetteer evaluation; statement-timeout and `SET LOCAL` behaviour behind Supabase's pooler.
+* Re-verified identical after this round: the guarded wrong-claims table. Backlog: **IDEA-081, IDEA-082** added; IDEA-079 `triaged`; FIND-088 re-analysed; decisions recorded on IDEA-075 and FIND-086; checker count unchanged (69). No product code was changed.

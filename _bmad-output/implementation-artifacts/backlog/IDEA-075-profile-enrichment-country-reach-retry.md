@@ -38,6 +38,11 @@ What it changes for those accounts (from the code, not observed): scraping no; f
 
 **Left as they are, by decision:** never-classified accounts with a location keep today's behaviour, including lending their location (`mayUseAccountLocation(null, null)` is true). A curator among them would still carry an arbitrary stored location and still escape the minimization; `04-after.sql` lists the ones whose events are scattered over five or more cities, the shape a curator has. Once the `country_code` column of this idea exists, the same migration sets `country_code = 'ID'` for the bulk-set group.
 
+## Decisions (2026-10-19)
+
+* **Retry:** an N-minute backoff and retry is enough — the schedule in `profile-retry.ts` (15 min, 1 h, 6 h, 1 day, 3 days), hosted on the existing 5-minute scraper poll-and-drain rule. Scope: the one-time profile read only (classification + country/reach/time zone); post scraping keeps its own recovery.
+* **Stored captions of the bulk-updated accounts:** accept "cleared at next re-extraction" (the curator minimization rule fires on extraction). No purge; the legacy captions of posts that are never re-extracted stay until they are.
+
 ## What was measured
 
 **Country and reach** — v1, `gemini-3.5-flash-lite`, 3 runs per profile, 16 profiles: **5 real** (2 with a real profile payload; 3 known only from post payloads, so with no bio) and **11 synthetic** that I wrote to include the traps (an Indonesian-language community in Melbourne, a Malay-language complex in Johor, an English-language studio in Bali, a national company with a Jakarta head office, a local-government agency, an English brand with no place, an empty profile). Labels were written before the run.

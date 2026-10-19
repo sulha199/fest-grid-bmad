@@ -24,6 +24,10 @@ The product owner states that the never-classified accounts with **no location**
 
 **Not resolved — by decision:** never-classified accounts that *already have a location* are not changed. If one of them is a curator it still escapes the minimization and the stub/notification handling. `04-after.sql` lists such accounts whose events are scattered over five or more cities (a curator's shape); that is a lead to read, not a finding.
 
+## Decision (2026-10-19)
+
+Captions already stored for the bulk-updated accounts: accept "cleared at next re-extraction"; no purge. Posts that are never re-extracted keep their caption until they are.
+
 ## Why it is registered separately from BUG-065
 
 BUG-065 is about a wrong *location*. This is about an unmet *minimization* obligation for the same accounts, which has a different owner and a different fix (classify them — IDEA-075 — or treat null as curator-until-proven-otherwise for minimization). `impact: compliance`, because the failure has no user symptom.

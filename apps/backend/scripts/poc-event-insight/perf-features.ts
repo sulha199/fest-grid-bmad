@@ -109,6 +109,18 @@ async function main() {
     { group: 'I', name: 'I3h ids only: tier + freshness + seen over the next 60 days', sql: IDQ(`${TIER}, ("events"."bench_open_key" - current_date) - ${FRESH} + ${SEEN}, "events"."id"`, ` AND ${HORIZON}`) },
     { group: 'I', name: 'I3h ids only, 200 ids (a pinned session list)', sql: IDQ(`${TIER}, ("events"."bench_open_key" - current_date) - ${FRESH} + ${SEEN}, "events"."id"`, ` AND ${HORIZON}`).replace('limit 21', 'limit 200') },
   );
+  // N-series: what a total COUNT costs, against the same visibility predicate (Discovery has hasMore from the extra row and never needs it).
+  const countStmt = cs.find((c) => /^select\s+count\(/i.test(c.sql.trim()));
+  const L_STRICT = strict;
+  const NFROM = `"events" left join "schedules" on ("events"."id" = "schedules"."event_id" and "schedules"."is_main_schedule" = true)`;
+  tests.push(
+    ...(countStmt ? [{ group: 'N', name: "N0 TODAY's count statement, as the resolver emits it (a separate query per page)", sql: inline(countStmt) }] : []),
+    { group: 'N', name: 'N1 exact count(*) over open events (maintained key + visibility predicate)', sql: `select count(*) from "events" where ${OPEN}` },
+    { group: 'N', name: 'N2 exact count(*) from the open-events index alone (no visibility predicate)', sql: `select count(*) from "events" where "events"."deleted_at" IS NULL AND "events"."bench_open_key" IS NOT NULL` },
+    { group: 'N', name: 'N3 capped count: stop after 1,001 open events ("1000+")', sql: `select count(*) from (select 1 from "events" where ${OPEN} limit 1001) t` },
+    { group: 'N', name: 'N4 exact count under the four-leaf filter', sql: `select count(*) from ${NFROM} where (${L_STRICT}) AND ${OPEN}` },
+    { group: 'N', name: 'N5 capped count (1,001) under the four-leaf filter', sql: `select count(*) from (select 1 from ${NFROM} where (${L_STRICT}) AND ${OPEN} limit 1001) t` },
+  );
   tests.splice(2, 0,
     { group: 'P', name: 'P1b area tier as three index-ordered branches merged (date only)', sql: tierMerge(0, false) },
     { group: 'P', name: 'P1b at offset 200', sql: tierMerge(200, false) });
