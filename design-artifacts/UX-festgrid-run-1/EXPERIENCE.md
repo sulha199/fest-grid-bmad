@@ -137,7 +137,7 @@ onReset: () => {
 ```
 
 - **Why:** a filter change replaces the list's contents from the top; leaving the viewport scrolled partway down shows stale-looking items from the old result set until the user scrolls up themselves.
-- **Reduced motion:** `behavior` follows the same `prefersReducedMotion`-aware convention already established by `useCollapseHeaderOnScroll.ts`'s `expand()` (Component Patterns § Global Navigation context) — `'auto'` (instant) under `prefers-reduced-motion`, `'smooth'` otherwise. Never a separate, divergent reduced-motion check.
+- **Reduced motion:** `behavior` follows the same `prefersReducedMotion`-aware convention already established project-wide via `usePrefersReducedMotion` (the discovery header's "Show filters" pill no longer scrolls at all -- it floats the header open in place, so it has no `behavior` to choose) — `'auto'` (instant) under `prefers-reduced-motion`, `'smooth'` otherwise. Never a separate, divergent reduced-motion check.
 - **Scope:** fires only from the controller's `onReset` (a filter-driven reset), not from pagination (`fetchNextPage`) or the initial mount.
 
 ### Mobile Multi-Day Calendar Spanning

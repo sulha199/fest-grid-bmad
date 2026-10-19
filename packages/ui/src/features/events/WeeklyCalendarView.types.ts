@@ -40,6 +40,14 @@ export interface WeeklyCalendarViewScheduleShape {
    * schedule occurs on every day of its span (today's default/legacy behavior, zero change).
    */
   applicableDaysOfWeek?: DomainDayOfWeek[] | null;
+  /**
+   * The schedule's own IANA timezone and its confirmation status, straight from the GraphQL
+   * `Schedule`. The card renders this schedule's date/time (and a date with no time = 00:00) in
+   * `timezone` only when `timezoneStatus` is `RESOLVED` (`resolveScheduleTimezone`); otherwise it
+   * falls back to the calendar's/app timezone.
+   */
+  timezone?: string | null;
+  timezoneStatus?: string | null;
 }
 
 export interface WeeklyCalendarViewLabels {

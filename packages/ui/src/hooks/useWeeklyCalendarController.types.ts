@@ -14,6 +14,8 @@ export interface CalendarSourceSchedule {
   eventEndTime?: string | null;
   isAddedToCalendar?: boolean | null;
   applicableDaysOfWeek?: unknown;
+  timezone?: string | null;
+  timezoneStatus?: string | null;
   locationDetails?: { coordinates?: { lat: number; lng: number } | null } | null;
 }
 

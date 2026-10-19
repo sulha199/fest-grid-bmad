@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { StatusBadge, useScopedLocale, useScopedTimezone } from "@festgrid/ui";
+import { StatusBadge, useScopedLocale, useEventTimezone } from "@festgrid/ui";
 
 export interface ReportListItemProps {
   report: {
@@ -28,7 +28,7 @@ export function ReportListItem({ report }: ReportListItemProps) {
   const [imgError, setImgError] = useState(false);
 
   const contextLocale = useScopedLocale();
-  const contextTimezone = useScopedTimezone();
+  const contextTimezone = useEventTimezone();
   const dateObj = new Date(report.createdAt);
 
   const formattedDate = (() => {

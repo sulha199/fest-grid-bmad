@@ -51,9 +51,9 @@ const localeIntlTagMap: Record<string, string> = {
 // mismatch (where EventCard fell back to the *runtime* default timezone, which can differ
 // between the two and across request/rendering). Regional default chosen to match each
 // locale's BCP-47 region (en-US → America/New_York, id-ID → Asia/Jakarta). This is an
-// app-wide fallback only — per-event timezones (LocationDetails.timezone on the event's
-// location) remain the intended per-event source for a future pass, overriding this default
-// via an explicit EventCard `timezone` prop when wired.
+// app-wide FALLBACK only: an event's own RESOLVED `Schedule.timezone` wins for that event's
+// date/time (EventListView / calendar cards, via `resolveScheduleTimezone` + `useEventTimezone`);
+// this default applies to an event with no RESOLVED timezone and to non-event timestamps.
 const timezoneIntlMap: Record<string, string> = {
   en: 'America/New_York',
   id: 'Asia/Jakarta',

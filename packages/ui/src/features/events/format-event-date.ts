@@ -175,10 +175,17 @@ function zonedTimeToUtc(
  *    threaded all the way from `formatEventStatus`/`EventCard.tsx`, instead of ever touching the
  *    calling runtime's own local timezone for real production dates.
  *
- * The no-`timeStr`, bare-date passthrough anchors at UTC midnight for the resolved calendar date
- * (not local midnight in either the device's or `timezone`'s own zone) — downstream
- * `Intl.DateTimeFormat` calls with an explicit `timeZone` correctly recover this exact calendar
- * day from a UTC-anchored instant regardless of what zone that is, so there's nothing to convert.
+ * 3. (2026-10-19 fix) a bare date with NO `timeStr` used to be anchored at UTC midnight on the
+ *    theory that `Intl` with an explicit `timeZone` recovers the same calendar day from it. That
+ *    only holds for UTC itself: 00:00Z is the PREVIOUS day in every zone west of UTC (a one-day
+ *    event starting today in `America/New_York` read "Ended"; an event tomorrow read "In 0
+ *    hours") and hours into the day in every zone east of it (a UTC+7 viewer saw today's event as
+ *    "not started" until 07:00). It now anchors at 00:00 wall-clock IN `timezone`, exactly like a
+ *    date that carries a time. Callers MUST pass the same `timezone` they later format/compare in,
+ *    and for an event that timezone is the EVENT's own (RESOLVED) one, falling back to the app/viewer
+ *    zone only when the event has none (`resolveScheduleTimezone` + `useEventTimezone`): a poster's
+ *    "18:30", and a date with no time (00:00), are venue time.
+ *    A non-string `Date` input with no `timeStr` is returned untouched (it already is an instant).
  */
 export function combineDateTime(dateInput: Date | string, timeStr?: string | null, timezone?: string): Date {
   const base = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
@@ -195,10 +202,11 @@ export function combineDateTime(dateInput: Date | string, timeStr?: string | nul
     const year = parseInt(dateOnlyMatch[1], 10);
     const month = parseInt(dateOnlyMatch[2], 10) - 1;
     const day = parseInt(dateOnlyMatch[3], 10);
-    if (!timeStr) {
-      return new Date(Date.UTC(year, month, day));
-    }
-    const [h = 0, m = 0, s = 0] = timeStr.split(':').map((n) => parseInt(n, 10));
+    // No time-of-day: anchor at the START of that calendar day IN `timezone` (never UTC
+    // midnight -- that instant is the previous calendar day in every zone west of UTC, and
+    // hours into the day in every zone east of it, so a one-day event starting today read
+    // "Ended" / "In 0 hours" depending on where the viewer was).
+    const [h = 0, m = 0, s = 0] = (timeStr ?? '00:00:00').split(':').map((n) => parseInt(n, 10));
     return zonedTimeToUtc(year, month, day, h, m, s, timezone);
   }
 
@@ -719,7 +727,7 @@ export function computeCalendarSegmentDateBoxContent(
   const started = currentDayStr >= startDate;
   const notYetEnded = currentDayStr <= effectiveEnd;
   const targetDate = started && notYetEnded ? effectiveEnd : startDate;
-  const targetDateTime = combineDateTime(targetDate);
+  const targetDateTime = combineDateTime(targetDate, null, timezone);
 
   return {
     month: formatMonthAbbrev(locale, timezone, targetDateTime),

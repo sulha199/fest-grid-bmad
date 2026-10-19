@@ -21,6 +21,8 @@ query getEvents($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
         eventEndDate
         eventEndTime
         ticketPrice
+        timezone
+        timezoneStatus
         applicableDaysOfWeek
         locationDetails {
           coordinates {
@@ -254,6 +256,8 @@ query getEventsForCalendar($limit: Int, $offset: Int, $perDayLimit: Int, $query:
         eventStartTime
         eventEndTime
         ticketPrice
+        timezone
+        timezoneStatus
         applicableDaysOfWeek
         locationDetails {
           coordinates {
@@ -291,6 +295,8 @@ query getEventsForMyCalendar($limit: Int, $offset: Int, $query: EventQueryCondit
         eventEndTime
         ticketPrice
         isAddedToCalendar
+        timezone
+        timezoneStatus
         applicableDaysOfWeek
         locationDetails {
           coordinates {

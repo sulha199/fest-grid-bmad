@@ -17,7 +17,7 @@ import {
   type CalendarPlacement,
 } from '@festgrid/domain/events';
 import { WeekPicker } from '../../core/WeekPicker';
-import { useScopedLocale, useScopedTimezone, useHoverFocusTooltip, useInfiniteScroll } from '../../hooks';
+import { useScopedLocale, useEventTimezone, useHoverFocusTooltip, useInfiniteScroll } from '../../hooks';
 import type {
   WeeklyCalendarViewProps,
   WeeklyCalendarViewScheduleShape,
@@ -30,7 +30,8 @@ import {
 import { EventCardCalendarGridItem } from './EventCardCalendarGridItem';
 import { EventCardCompact } from './EventCardCompact';
 import { CalendarRangeFilterToggle, type CalendarRangeFilterValue } from './CalendarRangeFilterToggle';
-import { computeCalendarSegmentDateBoxContent, formatEventStatus, type EventStatusLabels } from './format-event-date';
+import { resolveScheduleTimezone } from '@festgrid/domain/events';
+import { combineDateTime, computeCalendarSegmentDateBoxContent, formatEventStatus, type EventStatusLabels } from './format-event-date';
 
 // Design system styles from DESIGN.md
 const CALENDAR_BASE_CLASS = "border border-gray-200 rounded-lg";
@@ -110,11 +111,12 @@ const MOBILE_PAGE_SIZE = 10;
 const DESKTOP_BAND_SIZE = 6;
 
 /**
- * Format range helper with graceful degradation for invalid timezone/locale.
+ * Format range helper with graceful degradation for an invalid locale. `start`/`end` are
+ * calendar-day anchors (noon UTC), so they are formatted as UTC -- never in the app timezone,
+ * which shifts the anchor onto the neighbouring day at UTC+12 and beyond.
  */
 function formatWeekRange(
   locale: string,
-  timezone: string | undefined,
   start: Date,
   end: Date
 ): string {
@@ -126,11 +128,11 @@ function formatWeekRange(
   try {
     return new Intl.DateTimeFormat(locale, {
       ...options,
-      ...(timezone ? { timeZone: timezone } : {}),
+      timeZone: 'UTC',
     }).formatRange(start, end);
   } catch {
     try {
-      return new Intl.DateTimeFormat(locale, options).formatRange(start, end);
+      return new Intl.DateTimeFormat(locale, { ...options, timeZone: 'UTC' }).formatRange(start, end);
     } catch {
       return new Intl.DateTimeFormat('en-US', options).formatRange(start, end);
     }
@@ -144,6 +146,19 @@ const toISODateString = (d: Date) => {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
+ * `YYYY-MM-DD` of a calendar-day ANCHOR (the noon-UTC `Date`s `visibleDays` is built from). Reads
+ * UTC getters: the anchor carries a calendar date, not an instant, so the device's own timezone
+ * must play no part (local getters rolled the date forward for every device east of UTC+12 --
+ * NZ, Fiji, Tonga, Kiribati -- shifting the whole week by a day).
+ */
+const anchorToISODateString = (d: Date) => {
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
 
@@ -222,21 +237,13 @@ function GridColumnGuides() {
  */
 function formatDayHeader(
   locale: string,
-  timezone: string | undefined,
   date: Date
 ): string {
   const options: Intl.DateTimeFormatOptions = { weekday: 'short', day: 'numeric' };
   try {
-    return new Intl.DateTimeFormat(locale, {
-      ...options,
-      ...(timezone ? { timeZone: timezone } : {}),
-    }).format(date);
+    return new Intl.DateTimeFormat(locale, { ...options, timeZone: 'UTC' }).format(date);
   } catch {
-    try {
-      return new Intl.DateTimeFormat(locale, options).format(date);
-    } catch {
-      return new Intl.DateTimeFormat('en-US', options).format(date);
-    }
+    return new Intl.DateTimeFormat('en-US', { ...options, timeZone: 'UTC' }).format(date);
   }
 }
 
@@ -246,18 +253,13 @@ function formatDayHeader(
  */
 function formatDayTabParts(
   locale: string,
-  timezone: string | undefined,
   date: Date
 ): { weekday: string; day: string } {
   const format = (opts: Intl.DateTimeFormatOptions) => {
     try {
-      return new Intl.DateTimeFormat(locale, { ...opts, ...(timezone ? { timeZone: timezone } : {}) }).format(date);
+      return new Intl.DateTimeFormat(locale, { ...opts, timeZone: 'UTC' }).format(date);
     } catch {
-      try {
-        return new Intl.DateTimeFormat(locale, opts).format(date);
-      } catch {
-        return new Intl.DateTimeFormat('en-US', opts).format(date);
-      }
+      return new Intl.DateTimeFormat('en-US', { ...opts, timeZone: 'UTC' }).format(date);
     }
   };
   return { weekday: format({ weekday: 'short' }), day: format({ day: 'numeric' }) };
@@ -284,15 +286,10 @@ function formatTooltipTimeRange(
     minute: '2-digit',
   };
 
-  const parseDateTime = (dStr: string, tStr?: string | null): Date => {
-    if (tStr) {
-      // e.g. "2026-08-01T12:00:00" or similar
-      const combined = dStr.includes('T') ? dStr : `${dStr}T${tStr}`;
-      const d = new Date(combined);
-      if (!isNaN(d.getTime())) return d;
-    }
-    return new Date(dStr);
-  };
+  // The wall-clock date/time belong to `timezone` (the zone they are formatted in below), so the
+  // instant must be built there -- `new Date('2026-10-19T18:30:00')` builds it in the DEVICE's
+  // zone, which showed a different time on every device outside the app timezone.
+  const parseDateTime = (dStr: string, tStr?: string | null): Date => combineDateTime(dStr, tStr, timezone);
 
   const start = parseDateTime(startDateStr, startTimeStr);
   const end = endDateStr ? parseDateTime(endDateStr, endTimeStr) : start;
@@ -478,10 +475,9 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   };
   const effectiveGetWeekRange = getWeekRange ?? defaultGetWeekRange;
   const contextLocale = useScopedLocale();
-  const contextTimezone = useScopedTimezone();
 
   const activeLocale = locale || contextLocale;
-  const activeTimezone = timezone || contextTimezone;
+  const activeTimezone = useEventTimezone(timezone);
 
   const defaultLabels = {
     prevWeekLabel: 'Previous week',
@@ -547,7 +543,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   const visibleDays = useMemo(() => {
     const baseDate = typeof weekStart === 'string'
       ? new Date(`${weekStart}T12:00:00Z`)
-      : new Date(weekStart);
+      : new Date(Date.UTC(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate(), 12));
 
     const days: Date[] = [];
     for (let i = 0; i < DAYS_PER_WEEK; i++) {
@@ -597,9 +593,9 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
     return map;
   }, [allSchedules]);
 
-  const weekStartStr = toISODateString(visibleDays[0]);
-  const weekEndStr = toISODateString(visibleDays[6]);
-  const dayISOs = useMemo(() => visibleDays.map(toISODateString), [visibleDays]);
+  const weekStartStr = anchorToISODateString(visibleDays[0]);
+  const weekEndStr = anchorToISODateString(visibleDays[6]);
+  const dayISOs = useMemo(() => visibleDays.map(anchorToISODateString), [visibleDays]);
 
   // Per-day segments (mobile list + per-day totals). Story 1.3k (AC4/AC5): iterates each schedule's
   // occurrence RUNS, so a schedule with no `applicableDaysOfWeek` has exactly one run (its span).
@@ -947,7 +943,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   }
 
   // Format header range
-  const dateRangeText = formatWeekRange(activeLocale, activeTimezone, visibleDays[0], visibleDays[6]);
+  const dateRangeText = formatWeekRange(activeLocale, visibleDays[0], visibleDays[6]);
 
   return (
     <div className={`${CALENDAR_BASE_CLASS} ${className}`}>
@@ -1010,7 +1006,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
         {/* Day Headers (sticky): per-day total + "+N below" while the day still has unrendered rows */}
         <div className={`${GRID_WEEKLY_CLASS} ${STICKY_HEADER_CLASS} bg-gray-50`} data-testid="desktop-day-headers">
           {visibleDays.map((day, idx) => {
-            const headerStr = formatDayHeader(activeLocale, activeTimezone, day);
+            const headerStr = formatDayHeader(activeLocale, day);
             const mayHaveMore = dayMayHaveMore(idx);
             const below = Math.max(0, totalPerDay[idx] - renderedPerDay[idx]);
             return (
@@ -1065,7 +1061,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
                       runStartDate={entry.runStartDate}
                       runEndDate={entry.runEndDate}
                       locale={activeLocale}
-                      timezone={activeTimezone}
+                      timezone={timezone}
                       onScheduleClick={onScheduleClick}
                       onFavoriteToggle={onFavoriteToggle}
                       favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
@@ -1088,7 +1084,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
                       cardId={`calendar-card-${entry.key}`}
                       isRovingActive={effectiveActiveKey === entry.key}
                       locale={activeLocale}
-                      timezone={activeTimezone}
+                      timezone={timezone}
                       onScheduleClick={onScheduleClick}
                       onFavoriteToggle={onFavoriteToggle}
                       favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
@@ -1149,7 +1145,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
             const dateISO = dayISOs[idx];
             const isSelected = idx === selectedDayIdx;
             const isToday = dateISO === todayISO;
-            const { weekday, day: dayNum } = formatDayTabParts(activeLocale, activeTimezone, day);
+            const { weekday, day: dayNum } = formatDayTabParts(activeLocale, day);
             const dayCountText = defaultLabels.dayTotalLabel(dayBuckets[idx].length, dayMayHaveMore(idx));
             return (
               <button
@@ -1161,7 +1157,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
                 data-today={isToday ? 'true' : undefined}
                 aria-selected={isSelected}
                 aria-controls={`${mobileDayContentIdPrefix}-mobile-day-content`}
-                aria-label={`${formatDayHeader(activeLocale, activeTimezone, day)} (${dayCountText})`}
+                aria-label={`${formatDayHeader(activeLocale, day)} (${dayCountText})`}
                 tabIndex={isSelected ? 0 : -1}
                 ref={(el) => {
                   dayTabRefs.current[idx] = el;
@@ -1215,7 +1211,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
                   dayIdx={dayIdx}
                   isRovingActive={false}
                   locale={activeLocale}
-                  timezone={activeTimezone}
+                  timezone={timezone}
                   onScheduleClick={onScheduleClick}
                   onFavoriteToggle={onFavoriteToggle}
                   favoriteToggleLabel={defaultLabels.favoriteToggleLabel}
@@ -1260,7 +1256,7 @@ interface CalendarCardProps<TSchedule> {
   cardId?: string;
   isRovingActive: boolean;
   locale: string;
-  timezone: string | undefined;
+  timezone?: string;
   onScheduleClick: (schedule: TSchedule) => void;
   onFavoriteToggle?: (schedule: TSchedule) => void;
   favoriteToggleLabel?: string;
@@ -1302,7 +1298,7 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   cardId,
   isRovingActive,
   locale,
-  timezone,
+  timezone: timezoneProp,
   onScheduleClick,
   onFavoriteToggle,
   favoriteToggleLabel,
@@ -1320,6 +1316,9 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   repeatBadgeAriaLabel,
 }: CalendarCardProps<TSchedule>) {
   const { schedule } = segment;
+  // Resolved here, not trusted from the parent: explicit prop -> the event's own RESOLVED timezone
+  // -> the app timezone. A parent that forgets `timezone` must never land on the device's zone.
+  const timezone = useEventTimezone(timezoneProp, resolveScheduleTimezone(schedule));
 
   // Story 1.3k Task 4 (AC11) — the hover+focus+Escape-dismiss interaction state, now the shared
   // `useHoverFocusTooltip` hook instead of this component's own hand-rolled copy. `enabled: true`
@@ -1593,7 +1592,7 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
   onKeyDown,
   onFocus,
   locale,
-  timezone,
+  timezone: timezoneProp,
   onScheduleClick,
   onFavoriteToggle,
   favoriteToggleLabel,
@@ -1605,6 +1604,7 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
   repeatBadgeAriaLabel,
   addedToCalendarBadgeLabel,
 }: MultiDaySpanningBarProps<TSchedule>) {
+  const timezone = useEventTimezone(timezoneProp, resolveScheduleTimezone(schedule));
   // Story 1.3k Task 4 (AC11) — same shared hook as `CalendarCard`'s grid variant, replacing this
   // component's own hand-rolled `isHovered`/`isFocused`/`isDismissed` state (the mandatory second
   // consumer per Gate 3's resolution — see the hook's own header comment). No mode gate here (this

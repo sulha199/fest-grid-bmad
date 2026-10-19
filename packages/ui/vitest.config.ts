@@ -17,8 +17,13 @@ export default mergeConfig(
       // behavior, which Dev Notes documents as intentional) is FIND-062's own suggested fix,
       // confirmed to resolve the failure locally (non-UTC dev machine) without affecting runtime
       // behavior anywhere else.
+      //
+      // `FESTGRID_TEST_TZ` is the one sanctioned override (`pnpm test:tz` sets it to a handful of
+      // non-UTC DEVICE timezones to prove the timezone suites don't depend on the machine). A
+      // plain `TZ=... vitest` is ignored on purpose -- this block would overwrite it, which is how
+      // an earlier `test:tz` ran every "device timezone" as UTC without anyone noticing.
       env: {
-        TZ: 'UTC',
+        TZ: process.env.FESTGRID_TEST_TZ ?? 'UTC',
       },
     },
   })

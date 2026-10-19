@@ -84,8 +84,8 @@ export interface EventCardCompactProps {
   // Locale/timezone — needed for the internal `formatEventStatus` call (Design Decision #2).
   /** Explicit locale for formatting the status badge. */
   locale: string;
-  /** Explicit IANA timezone for formatting the status badge. */
-  timezone: string | undefined;
+  /** Explicit IANA timezone for formatting the status badge; omitted -> the nearest `ScopedLocaleProvider`'s. */
+  timezone?: string;
 
   // Interaction
   /** Zero-arg schedule-click callback, mirrors `onFavoriteToggle`'s shape. */
