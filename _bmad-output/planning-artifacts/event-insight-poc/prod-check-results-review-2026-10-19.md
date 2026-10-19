@@ -72,7 +72,7 @@ What this says:
 
 | Item | Effect |
 |---|---|
-| BUG-068 | confirmed in production on four columns; the other 23 are inferred from the mechanism. Migration scope for the four visible columns is 2,231 rows. Decision still yours: serializer line vs Drizzle upgrade |
+| BUG-068 | confirmed in production on four columns; the other 23 are inferred from the mechanism. Migration scope for the four visible columns is 2,231 rows. Decided 2026-10-19: fix first, ahead of IDEA-074; mechanism `customJsonb` on the 27 columns (not the serializer line: see §9) |
 | BUG-063 | confirmed: `adminArea` is written for 0 of 1,460 pins; `venueType` for 37 |
 | BUG-066 | now measured: 43% of pins are under 0.5; wrong pins inside Indonesia are invisible to the box test; the filter does not help; area phrases need routing, not a floor. The 0.5 floor stays a placeholder until `confidence-by-country-box.sql` gives the production distribution |
 | IDEA-085 | the "5%" is retired; scope becomes sweep + stub scoring + queue (§2). AD-36 Rule 10's gate should name class-4 recall and the sweep, not "above 5%" |
@@ -92,7 +92,7 @@ Four items, `readonly_2` only: the fixed `recall-classes.sql`, `recall-class4-st
 
 ## 7. Decisions needed from you
 
-1. **BUG-068:** serializer line (my recommendation) or Drizzle upgrade, and may it run ahead of the personalization work? The production check turns "may it" into "must it": every SQL-side location read is blind today.
+1. **BUG-068 (decided, see §9):** serializer line (my recommendation at the time) or Drizzle upgrade, and may it run ahead of the personalization work? The production check turns "may it" into "must it": every SQL-side location read is blind today.
 2. **IDEA-085 scope:** do you want the sweep of legacy duplicates and the stub scoring rule in it?
 3. **Curator defaults:** clear the 11 curator default locations (they are arbitrary by BUG-065), or leave them?
 4. **Whether to proceed to the filtering and scoring discussion now** (events with a target area and no trustworthy pin), or after Round 2.
@@ -103,3 +103,14 @@ Four items, `readonly_2` only: the fixed `recall-classes.sql`, `recall-class4-st
 * The class sizes after the bug fix, and the stub hypothesis (needs Round 2).
 * Ground truth for the probe's "right" and "wrong" (my reading of the addresses), and any generalization from 14 descriptions to the 627 low-confidence pins.
 * The other 23 jsonb columns on production.
+
+## 9. Decided 2026-10-19 ("do as your recommendations") and one change of mechanism
+
+| Question | Decision | Where recorded |
+|---|---|---|
+| BUG-068: which fix, and before the personalization work? | Fix first, **ahead of IDEA-074**. **Mechanism changed by me after the decision:** `customJsonb` on the 27 plain `jsonb()` columns + a ratchet test, then the row migration. Reason: reading `deferred-work.md` showed the team fixed the same bug on three columns on 2026-08-29 with exactly this type (proven on production, with a test); the serializer line would make those three columns raise an error (probe), a Drizzle upgrade likewise; the swap is migration-neutral (`drizzle-kit generate` on a copy: "No schema changes"). Say so if you prefer the serializer route. Status `triaged`, **not implemented** | `backlog/BUG-068-…md` (implementation spec), `backlog/BUG-068-jsonb-migration/` (tested runbook) |
+| IDEA-085 scope | sweep of the legacy pairs + stub scoring + moderator queue; AD-36 Rule 10's gate to be restated on class-4 recall. Status `triaged` | `backlog/IDEA-085-…md` |
+| Curator default locations (11 of 17) | clear them **after** the BUG-065 code gate ships, as a runbook step | `backlog/BUG-065-…md` |
+| Filtering and scoring for events with a target area and no usable pin | **after Round 2** | this document §6 |
+
+Not done, on purpose: no product code was changed (this branch is planning only), nothing was written to production, AD-36 was not edited.

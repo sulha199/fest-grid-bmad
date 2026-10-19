@@ -2334,7 +2334,7 @@ items:
      title: "Curator events fall back to the curator's account location; inference gives it an arbitrary place",
      ref: [backlog/BUG-065-curator-events-fall-back-to-account-location.md, apps/backend/src/lib/ai-processor/resolve-account-and-locations.ts],
      touches: [app:backend, pkg:domain, web:accounts, web:locations, cross:ai-extraction, cross:prd],
-     note: "Gemini behaviour measured (curator: 12 posts, 12 different places, all applied); code consequences inferred from reading, not reproduced."}
+     note: "Gemini behaviour measured (curator: 12 posts, 12 different places, all applied); consequences inferred. Production 2026-10-19: 11 of 17 curators hold a default location; clear them after the code gate (decided)."}
 
   BUG-066:
     {type: bug, status: backlog, created: 2026-10-18,
@@ -2476,12 +2476,12 @@ items:
 
   # ── 2026-10-19 (production findings: double-encoded location_details, matcher recall, event groups) ──
   BUG-068:
-    {type: bug, status: backlog, created: 2026-10-19,
+    {type: bug, status: triaged, created: 2026-10-19,
      impact: user-visible, effort: s, blocks: [IDEA-073, IDEA-081],
-     title: "Every jsonb column written through Drizzle is stored as a JSON string (27 columns; schedules.location_details in every production row)",
-     ref: [backlog/BUG-068-jsonb-columns-double-encoded-by-drizzle.md, planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/results/jsonb-encoding-probe.generated.md, apps/backend/scripts/poc-event-insight/probe-jsonb-encoding.ts, apps/backend/src/db/client.ts],
+     title: "27 plain jsonb() columns are stored as JSON strings, not objects (schedules.location_details in every production row); extend customJsonb, then migrate the rows",
+     ref: [backlog/BUG-068-jsonb-columns-double-encoded-by-drizzle.md, backlog/BUG-068-jsonb-migration/README.md, planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/results/jsonb-encoding-probe.generated.md, apps/backend/scripts/poc-event-insight/probe-jsonb-encoding.ts, apps/backend/src/db/client.ts],
      touches: [app:backend, pkg:database, web:locations],
-     note: "Reproduced on scratch (Drizzle 0.30.10 + postgres.js stringify twice; not the pooler). Production 2026-10-19: 2,231 of 2,231 non-null values in 4 columns are strings. Fix: pass-through serializers 114/3802, then one UPDATE per column."}
+     note: "Decided 2026-10-19, ahead of IDEA-074: customJsonb (fixed 3 columns 2026-08-29) on the other 27 + ratchet test, then the tested row migration. Production: 2,231 of 2,231 non-null values in 4 columns are strings. Not implemented."}
 
   FIND-091:
     {type: finding, status: backlog, created: 2026-10-19,
@@ -2492,12 +2492,12 @@ items:
      note: "379 of 1,460 pins lie outside Indonesia (BUG-066 seen live); the matcher proposes 23 of 446 same-name pairs. One snapshot of about 7 weeks. Rechecked 2026-10-19 (results review): 1.08 events/post confirmed; the 5% is not a clean recall."}
 
   IDEA-085:
-    {type: idea, status: backlog, created: 2026-10-19,
+    {type: idea, status: triaged, created: 2026-10-19,
      impact: user-visible, effort: m, blocks: [IDEA-084],
-     title: "Raise the duplicate matcher's recall (5% of same-name pairs) and clear the moderator merge queue",
-     ref: [planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/prod-findings-review-2026-10-19.md],
+     title: "Duplicate events: sweep the legacy pairs, let stub pairs reach the candidate threshold, work the moderator queue",
+     ref: [backlog/IDEA-085-duplicate-events-sweep-stub-scoring-queue.md, planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/prod-findings-review-2026-10-19.md],
      touches: [app:backend, pkg:database, web:events, web:moderation],
-     note: "Stories 3.6v and 3.6w are built (review) but event_merges has 0 rows and 147 candidates are pending, 75 older than 7 days. Recall on reachable pairs is at most 23/168; 43% of the 446 pairs are legacy, 19% recurring. Stub pairs cannot reach 'mid' by construction (hypothesis, untested)."}
+     note: "Stories 3.6v and 3.6w are built (review) but event_merges has 0 rows and 147 candidates are pending, 75 older than 7 days. Scope agreed 2026-10-19: sweep + stub scoring + queue. Recall on reachable pairs <= 23/168; up to 43% of pairs are legacy. Stub pairs max 0.40 < 0.45 (hypothesis, untested)."}
 
   IDEA-084:
     {type: idea, status: backlog, created: 2026-10-19,

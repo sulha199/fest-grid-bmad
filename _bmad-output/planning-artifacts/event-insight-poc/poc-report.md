@@ -594,7 +594,7 @@ Full review: [`prod-findings-review-2026-10-19.md`](./prod-findings-review-2026-
 
 ## L1. What the checks changed
 
-* **The double encoding is not the pooler.** Drizzle 0.30.10's `jsonb` stringifies and postgres.js 3.4.9 stringifies again; reproduced with `prepare` on and off, and cured by pass-through serializers for OIDs 114 and 3802 (what Drizzle ≥ 0.33.0 installs). It affects all 27 `jsonb` columns in every environment, not one column in production (BUG-068, note `backlog/BUG-068-…md`; probe output `results/jsonb-encoding-probe.generated.md`). The fix order (writer first, then rows) is rehearsed in the probe.
+* **The double encoding is not the pooler** (and the repository already fixed it on three columns on 2026-08-29: see Addendum 14). Drizzle 0.30.10's `jsonb` stringifies and postgres.js 3.4.9 stringifies again; reproduced with `prepare` on and off, and cured by pass-through serializers for OIDs 114 and 3802 (what Drizzle ≥ 0.33.0 installs). It affects all 27 `jsonb` columns in every environment, not one column in production (BUG-068, note `backlog/BUG-068-…md`; probe output `results/jsonb-encoding-probe.generated.md`). The fix order (writer first, then rows) is rehearsed in the probe.
 * **The production-size numbers.** A scratch database with production's row count answers a Discovery page in about 8–10 ms (`results/perf-request-prodsize.generated.md`), production `jit` is off and production's open set is 431: the scale items (IDEA-076, IDEA-082, FIND-088) lose urgency; data quality (BUG-068, BUG-066, duplicates) gains it.
 * **The "5% recall" is not the matcher's recall.** It counts same-name pairs the matcher cannot reach by design (created before it ran, siblings of one post, dates more than two days apart). `results/prod-findings-review-2026-10-19-queries/recall-classes.sql` splits them; it is validated on a synthetic fixture only.
 * **AD-36 has ten gaps** (anchor not handled by a merge, per-event notifications multiplied by the reshape and contradicting a PRD rule, a weak dedup gate, an unworked moderator queue, Discovery flooding, an undefined Tier 2 anchor source, a venue test on broken location data, no index plan, a small Tier 1 sample, non-deterministic extraction).
@@ -627,3 +627,22 @@ Full analysis: [`prod-check-results-review-2026-10-19.md`](./prod-check-results-
 * The probe's right/wrong labels are my reading of formatted addresses; 14 hand-picked descriptions do not calibrate a floor.
 * Sleman City Hall's US pin is unexplained: the probe geocodes it correctly. Round 2 (brief §7) has the queries and probe variant that test the explanations.
 * Checker count unchanged (69); no product code changed.
+
+---
+
+# Addendum 14 (2026-10-19, fourteenth discussion): decisions taken on the production results, and a change of mechanism for BUG-068
+
+Detail: [`prod-check-results-review-2026-10-19.md`](./prod-check-results-review-2026-10-19.md) §9.
+
+## N1. What was decided, and what changed
+
+* The product owner accepted my recommendations: BUG-068 is fixed **ahead of the personalization work**; IDEA-085 covers a sweep of the legacy duplicate pairs, a stub-scoring fix and the moderator queue; the 11 curator default locations are cleared after the BUG-065 code gate; the filtering and scoring discussion for events with a target area and no usable pin follows Round 2.
+* **I changed the BUG-068 mechanism after the decision, and say so here.** My recommendation was a client-level pass-through serializer. Reading `deferred-work.md` afterwards showed the team had fixed the same bug on three columns on 2026-08-29 with an in-house `customJsonb` type (raw object to the driver, parse on read, a test, defensive reads, no data migration, "not schema-wide"); my probe shows the serializer route makes those three columns raise an error, and a Drizzle upgrade to 0.33 or later would too. `customJsonb` on the other 27 columns is migration-neutral (`drizzle-kit generate` on a temp copy: "No schema changes, nothing to migrate"; a swapped column stores an object and still reads a legacy string) and is proven on production for three columns. That earlier entry also explains the pooler hypothesis: it blamed `prepare: false`; the probe shows the cause is independent of it.
+* Delivered: the implementation spec (`backlog/BUG-068-jsonb-columns-double-encoded-by-drizzle.md`), a tested row-migration runbook (`backlog/BUG-068-jsonb-migration/`: look, apply, rollback; 10 checks on a scratch PostgreSQL built from the 80 migrations, **not run on production**), IDEA-085's scope note, and the BUG-065 decision. BUG-068 and IDEA-085 are `triaged`.
+
+## N2. Limits (this addendum)
+
+* **Nothing is implemented.** The writer fix, the ratchet test and the regression test are specified, not written; no production write was made.
+* The mechanical swap was verified on a temp copy of `packages/database` for migration-neutrality and on one table at run time; the full test suite was not run against a swapped schema.
+* The migration runbook's `rest` columns were not sized on production; `01-look.sql` reports bytes first.
+* Checker count unchanged (69).

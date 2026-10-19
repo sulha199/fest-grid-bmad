@@ -35,7 +35,7 @@
 - **Cause:** Drizzle 0.30.10's `jsonb` already returns `JSON.stringify(value)`; postgres.js 3.4.9 stringifies a `json`/`jsonb` parameter **again**. Drizzle's postgres-js driver only neutralizes the date types in 0.30.10; from 0.33.0 it also neutralizes OIDs 114 and 3802 (checked in the 0.33.0 tarball; absent in 0.31.0; 0.32.x not checked).
 - **So the pooler is cleared**, and so is "does it exist locally": yes, my scratch database (written by the same code path) shows `string` for 2,008 of 2,008 schedules.
 - **Scope:** 27 `jsonb` columns (I said 26 earlier; the schema has 27), all written through Drizzle. Only four of them are visible to the read-only role; the pack reports their `jsonb_typeof`. The reader-side damage is the SQL-side `->>` in the AI filter (`resolvers.ts:3401–3402`) and every planned SQL-side use. Reads through Drizzle are unaffected, which is why nothing looked broken.
-- **Fix order matters** and is rehearsed in the probe: (1) stop writing strings (pass-through serializers, or Drizzle ≥ 0.33.0), (2) convert existing rows with `(col #>> '{}')::jsonb` where `jsonb_typeof = 'string'`. With step 1 done and step 2 not, Drizzle reads old and new rows alike; SQL-side reads see only the new ones.
+- **Superseded 2026-10-19 (same day):** the fix mechanism is now `customJsonb` on the 27 columns, not the serializer line. `deferred-work.md` shows the team fixed three columns this way on 2026-08-29, the pass-through serializers would make those three columns error (probe), and the swap is migration-neutral. See `backlog/BUG-068-jsonb-columns-double-encoded-by-drizzle.md`. **Fix order matters** and is rehearsed in the probe: (1) stop writing strings (pass-through serializers, or Drizzle ≥ 0.33.0), (2) convert existing rows with `(col #>> '{}')::jsonb` where `jsonb_typeof = 'string'`. With step 1 done and step 2 not, Drizzle reads old and new rows alike; SQL-side reads see only the new ones.
 - **Not fixed by this:** BUG-066 (379 pins in the wrong country, including Sleman City Hall at about (34, −84)). That is the geocoder choosing the wrong place; the encoding only hid it from SQL.
 
 ## 3. Production against what the scale proposals assumed
@@ -100,7 +100,7 @@ The report counts **446** same-account, same-normalized-name pairs and finds **2
 
 ## 7. Decisions I need from you
 
-1. **BUG-068:** fix by the two-line serializer change now (my recommendation: smaller, reversible, no Drizzle upgrade) or by upgrading Drizzle to ≥ 0.33.0? And may the fix be scheduled ahead of the personalization work, since it blocks it?
+1. **BUG-068 (decided 2026-10-19; mechanism superseded, see §2):** fix by the two-line serializer change now (my recommendation: smaller, reversible, no Drizzle upgrade) or by upgrading Drizzle to ≥ 0.33.0? And may the fix be scheduled ahead of the personalization work, since it blocks it?
 2. **AD-36:** which of G1–G10 do you want folded into the spine as amendments? My order: G1, G2, G3, G4 first (each changes a rule), then G6–G8, with G5, G9, G10 as story-level notes.
 3. **Run `recall-classes.sql`** (and re-run the updated pack, which also prints the JSON-encoding item), and send the output back the same way as before.
 4. The earlier open items still stand: how the UI renders stub events, the Geoapify key through the cloud environment variable (never pasted in chat), the PostHog consent and region, and then the discussion you asked for: **filtering and scoring for an event that has a target area but no recorded location** (G5's audience-area question belongs there).

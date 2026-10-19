@@ -1,60 +1,60 @@
 ---
 backlog_id: BUG-068
-title: "Every jsonb column written through Drizzle 0.30.10 + postgres.js is stored as a JSON string, not an object"
+title: "Every plain jsonb() column written through Drizzle 0.30.10 + postgres.js is stored as a JSON string, not an object"
 captured: 2026-10-19
 ---
 
-# BUG-068 — the double encoding is in the application's own database client, not in the pooler
+# BUG-068 — the double encoding is in Drizzle's `jsonb()` type, not in the pooler, and the repository already has the fix for three columns
 
-**Status:** **mechanism reproduced** on a scratch PostgreSQL 16.15 (`apps/backend/scripts/poc-event-insight/probe-jsonb-encoding.ts`, output in `planning-artifacts/event-insight-poc/results/jsonb-encoding-probe.generated.md`). Production shows the effect on `schedules.location_details` (1,460 of 1,460 non-null rows, `prod-findings-and-event-groups-2026-10-19.md` §3); **confirmed on production 2026-10-19 for every column the read-only role can see** (`results/prod-readonly-report-2026-10-19.md`): `schedules.location_details` 1,460 of 1,460, `social_media_account_profiles.default_location` 28 of 28, `events.links` 247 of 247 and `posts.additional_image_urls` 496 of 496 non-null values are JSON strings; **none** is an object or array, so the production writer is still double-encoding. The other 23 columns are inferred from the mechanism, not read.
+**Status:** mechanism **reproduced** (scratch PostgreSQL 16.15, `apps/backend/scripts/poc-event-insight/probe-jsonb-encoding.ts`, output `planning-artifacts/event-insight-poc/results/jsonb-encoding-probe.generated.md`) and **confirmed on production 2026-10-19** for every column the read-only role can see: `schedules.location_details` 1,460 of 1,460, `social_media_account_profiles.default_location` 28 of 28, `events.links` 247 of 247, `posts.additional_image_urls` 496 of 496 non-null values are JSON strings; **none** is an object or array, so the production writer is still double-encoding. The other 23 columns are inferred from the mechanism, not read.
+
+**Decided 2026-10-19 (product owner, on my recommendation):** fix at the write path **ahead of the personalization work**, then convert the stored rows. **The mechanism I first recommended was changed the same day, after finding the history below**: extend the in-house `customJsonb` type to the 27 columns instead of a client-level serializer. Nothing is implemented yet; this note is the implementation spec.
+
+## History the first analysis missed
+
+`deferred-work.md` (2026-08-29, "unprocessed_scraper_payloads.context is double-JSON-encoded") records the same bug on three columns. It was fixed at the source with `customJsonb` (`packages/database/schema.ts`: `toDriver` hands the **raw object** to postgres.js, which serializes it once; `fromDriver` parses a legacy string), "applied only to this table's three jsonb columns, not schema-wide", with defensive reads in two resolver filters (`resolvers.ts:4318–4336`), a regression test (`apps/backend/src/schema/jsonb-encoding.test.ts`), and **no data migration**. That entry attributed the cause to `prepare: false`; the probe shows it is independent of it. BUG-068 is the schema-wide completion of that fix, plus the data migration it deferred.
 
 ## Mechanism
 
 1. Drizzle 0.30.10 `PgJsonb.mapToDriverValue` returns `JSON.stringify(value)` (a string).
-2. postgres.js 3.4.9 has a built-in serializer for the `json` / `jsonb` parameter types (OIDs 114 and 3802) that stringifies **again**, so the server receives a quoted JSON string and stores a jsonb *string* whose text is the JSON.
-3. Drizzle's postgres-js driver 0.30.10 only replaces the serializers of the date/time types (OIDs 1184, 1082, 1083, 1114). Drizzle **0.33.0** also installs a pass-through serializer for 114 and 3802 (`node_modules/drizzle-orm/postgres-js/driver.js` in the 0.33.0 and later tarballs; the 0.31.0 tarball does not have it; versions between were not checked).
+2. postgres.js 3.4.9 has a built-in serializer for the `json` / `jsonb` parameter types (OIDs 114 and 3802) that stringifies **again**, so the server stores a jsonb *string* whose text is the JSON.
+3. Drizzle's postgres-js driver only neutralizes the date types in 0.30.10; from 0.33.0 it also installs a pass-through serializer for 114 and 3802 (present in the 0.33.0 tarball, absent in 0.31.0; versions between not checked).
 
-| client configuration | Drizzle `jsonb()` insert | plain `$1::jsonb` with a JSON string | `client.json(obj)` |
+| client / column configuration | Drizzle `jsonb()` insert | `$1::jsonb` with a JSON string | `customJsonb` insert |
 |---|---|---|---|
-| default (`prepare: true`) | **string** | **string** | object |
-| `prepare: false` (the pooler setting in `db/client.ts`) | **string** | **string** | object |
-| `prepare: false` + `max_lifetime` | **string** | **string** | object |
-| serializers 114 and 3802 set to pass-through, either `prepare` | object | object | n/a |
-
-So the pooler / `prepare: false` hypothesis in the production write-up and in AD-36 Rule 11 is **refuted**: the behavior is identical with prepared statements on, and it exists in every database the application writes to, including local development. The code already contains one workaround for the same effect on another column: `apps/backend/src/schema/resolvers.ts:4318–4336` reads `unprocessed_scraper_payloads.context` both ways (`context->>'source'` **or** `(("context"#>>'{}')::jsonb)->>'source'`).
+| default (`prepare: true`) | **string** | **string** | — |
+| `prepare: false` (what `db/client.ts` uses) | **string** | **string** | **object** |
+| `prepare: false` + `max_lifetime` | **string** | **string** | — |
+| serializers 114 / 3802 set to pass-through | object | object | **error** (`The "string" argument must be of type string…`) |
 
 ## Scope
 
-27 `jsonb` columns are declared in `packages/database/schema.ts`: `user_locations.location_details`, `social_media_account_profiles.default_location` and `.discovery_source`, `geolocation_cache.result`, `posts.additional_image_urls`, `scraper_actor_runs.raw_input` and `.raw_output`, `events.links`, seven `event_merges` journal columns, three `account_profile_merges` columns, `extraction_audit_logs.events_completeness`, `schedules.location_details`, `default_location_change_requests.previous_location` and `.new_location`, `corrections.proposed_data`, `widgets.filters`, `ai_event_filters.resolved_filter`, `manual_extraction_jobs.request_payload` and `.result_data`. All of them are written through Drizzle's `jsonb()`.
+`packages/database/schema.ts` declares **30** jsonb columns: 3 already `customJsonb` (`unprocessed_scraper_payloads.raw_payload`, `.validation_error`, `.context`) and **27 plain `jsonb()`** that this bug is about: `user_locations.location_details`, `social_media_account_profiles.default_location` and `.discovery_source`, `geolocation_cache.result`, `posts.additional_image_urls`, `scraper_actor_runs.raw_input` and `.raw_output`, `events.links`, seven `event_merges` journal columns, three `account_profile_merges` columns, `extraction_audit_logs.events_completeness`, `schedules.location_details`, `default_location_change_requests.previous_location` and `.new_location`, `corrections.proposed_data`, `widgets.filters`, `ai_event_filters.resolved_filter`, `manual_extraction_jobs.request_payload` and `.result_data`.
 
-**Why nothing visibly broke:** reads through Drizzle work in every state — postgres.js returns the stored jsonb string as a JS string and Drizzle's `mapFromDriverValue` parses it. What does **not** work is anything evaluated inside PostgreSQL:
+**Why nothing visibly broke:** reads through Drizzle work in every state. What does **not** work is anything evaluated inside PostgreSQL: `resolvers.ts:3401–3402` `location_details->>'adminArea'` / `->>'venueType'` (`->>` on a jsonb string returns null; checked) cannot be true; `jsonb_array_elements` on a string raises "cannot extract elements from a scalar" (checked); every planned SQL-side use (area ladder IDEA-073, target-area resolver IDEA-081, `@>` containment, expression indexes) would see nothing.
 
-| reader | effect today |
-|---|---|
-| `resolvers.ts:3401–3402` `schedules.location_details->>'adminArea'` / `->>'venueType'` (the AI filter's area and venue-type conditions) | `->>` on a jsonb string returns null (checked), so these conditions cannot be true while the value is a string; BUG-063 (adminArea is never written) is a second, independent reason the area condition finds nothing |
-| every planned SQL-side use: area ladder (IDEA-073), target-area resolver (IDEA-081), country counts, `@>` containment, expression indexes | would silently see nothing |
-| `event_merges` journal arrays | read back through Drizzle only; `jsonb_array_elements` on a string value raises "cannot extract elements from a scalar" (checked) |
+## The three ways to fix the write path
 
-## Fix (two steps, in this order)
+| | A. client-level pass-through serializers | **B. `customJsonb` on the 27 columns (decided)** | C. upgrade Drizzle to ≥ 0.33 |
+|---|---|---|---|
+| change | `serializers['114'/'3802']` in every `postgres()` client | 27 column declarations in `schema.ts` | version bump across `drizzle-orm`/`drizzle-kit` |
+| works with the existing `customJsonb` | **no**: the probe raises an error unless `customJsonb.toDriver` is also changed | yes (it is the same type) | **no**, same reason; the upgrade must revisit `customJsonb` |
+| proven on this project's pooler setup | no | **yes**: three production columns have been written this way since 2026-08-29 | no |
+| covers future columns and other processes | yes, if every client uses the helper | only with a ratchet test (below) | yes |
+| migration-neutral | n/a | **yes** (verified: `drizzle-kit generate` on a copy with all 27 swapped says "No schema changes, nothing to migrate"; the seven `.default([])` columns included) | n/a |
+| seeds, backfills, tests that build their own client | each needs the helper | inherit it (same schema) | inherit it |
 
-1. **Stop writing strings.** Either upgrade Drizzle to ≥ 0.33.0 (a larger upgrade across 0.30 → 0.33; check `drizzle-kit` and the generated migration snapshots) or, as a two-line change in `apps/backend/src/db/client.ts` after the client is created, set the pass-through serializers exactly as the newer driver does:
-   ```ts
-   for (const oid of ['114', '3802']) (client.options.serializers as Record<string, unknown>)[oid] = (v: unknown) => v;
-   ```
-   Every other process that creates its own `postgres()` client for application writes (Lambdas, scripts, `packages/database/migrate.ts` callers) needs the same line or a shared factory. No non-test code binds an object to a `::jsonb` parameter by hand (searched `::jsonb`, `to_jsonb`, `jsonb_build`, `sql.json`), and a plain JSON string cast with `$1::jsonb` also stores an object once the serializer is a pass-through (probe row 2).
-2. **Convert the stored rows**, after step 1 is deployed (otherwise new rows keep arriving as strings), per column, in batches, inside a maintenance window or off-peak:
-   ```sql
-   UPDATE schedules SET location_details = (location_details #>> '{}')::jsonb
-   WHERE jsonb_typeof(location_details) = 'string' AND left(location_details #>> '{}', 1) IN ('{', '[');
-   ```
-   The `left(...)` guard leaves a row that is a genuine JSON string untouched. Rehearsed in the probe: after step 1 and before step 2 Drizzle reads old (string) and new (object) rows alike; SQL-side `->>` only matches the new ones; after step 2 both match.
+## Implementation spec (for `bmad-quick-dev` or a story)
 
-**Migration size for the four visible columns:** 2,231 rows (the remaining columns hold journal and job data; count them with the owner's own role before migrating).
-
-**Verification (read-only, production):** the pack's item "JSON encoding of jsonb columns written through Drizzle" must show only `object` / `array` rows, and `schedules` must report `pinned` and `with_admin_area` the same before and after.
+1. **`packages/database/schema.ts`:** replace each plain `jsonb('x').$type<T>()` by `customJsonb<T>('x')`, keeping `.notNull()` and `.default([])`; remove the unused `jsonb` import. Verified on a temp copy of the package: all 27 replaced mechanically, `drizzle-kit generate` → no migration, and a Drizzle insert through the swapped `geolocation_cache.result` stores an `object` while a legacy string row still reads back parsed.
+2. **Ratchet test (stops the next plain `jsonb()`):** enumerate the exported tables with `is(v, PgTable)`, `getTableColumns(v)`, keep columns whose `getSQLType() === 'jsonb'`, and assert none has `columnType === 'PgJsonb'` (today: 30 jsonb columns, 27 `PgJsonb`, 3 `PgCustomColumn`; after the change: 0 `PgJsonb`). A comment in `schema.ts` and a rule in `project-context.md` ("jsonb columns use `customJsonb`") point at it.
+3. **Regression test:** extend `jsonb-encoding.test.ts`: insert through Drizzle into `schedules.location_details`, `events.links`, `social_media_account_profiles.default_location` and `posts.additional_image_urls`, then assert `jsonb_typeof` is `object` / `array` (and that a legacy string row still reads parsed).
+4. **Deploy**, then run the migration runbook `BUG-068-jsonb-migration/` (look → apply → look again; tested on a scratch database, **not run on production**). Core columns first; `-v include_rest=1` only after reading the byte sizes in the look output.
+5. **Verify on production** with the pack's "JSON encoding of jsonb columns" item (all rows `object` / `array`), and that `schedules` reports the same `pinned` count before and after.
+6. **Not part of this fix:** BUG-066 (wrong pins), BUG-063 (`adminArea` is never written: 0 of 1,460), and the defensive `->>` reads of 2026-08-29 (keep until step 5 is done).
 
 ## Notes for the dependent work
 
-- BUG-063 (adminArea never written) and the area filter need this **and** a backfill of the admin area; BUG-066 (wrong-country pins, 379 of 1,460) is a **separate** defect — fixing the encoding does not move a pin.
+- `customJsonb` is written for Drizzle 0.30's behavior; any Drizzle upgrade to ≥ 0.33 must revisit it (it would error, see the table above).
 - AD-36 Rule 9 (location inheritance for group children) stays gated behind this and BUG-066.
-- A regression test belongs with the fix: insert an object through Drizzle into each of the four columns of the pack, assert `jsonb_typeof` is `object` / `array`.
+- Until step 4 is done, new rows are objects and old rows are strings: SQL-side `->>` sees only the new ones.

@@ -99,3 +99,7 @@ WHERE p.account_type_status IS NULL AND s.deleted_at IS NULL;
 ```
 
 Related: BUG-066, BUG-064, IDEA-074, IDEA-075, FIND-086. Design: `planning-artifacts/event-insight-poc/proposal-personalized-discovery.md` §9.
+
+## Decision 2026-10-19 — the stored curator defaults
+
+Production (`results/prod-readonly-report-2026-10-19.md`): 17 accounts are `CURATOR_GUIDE`; **11 of them hold a default location**, which by this note's measurement is the venue of whichever post ran first. Decided on my recommendation: **clear them, but after the code gate ships** (curators' events no longer fall back to the account location), not before: clearing first would make 11 curators' location-less events unlocated today, with the side effects listed under the risks above. The clearing is a data step for the IDEA-075 runbook family (look, apply with a before-state table, rollback), not a one-off statement. The 6 curators without a location need nothing.
