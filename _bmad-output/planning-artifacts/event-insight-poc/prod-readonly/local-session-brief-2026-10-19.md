@@ -87,3 +87,19 @@ The first results were pulled and reviewed. Three things changed: the first `rec
 | 7 | optional, ask first (42 Geoapify requests): `npx tsx scripts/poc-event-insight/probe-geocode-country.ts --country us --md /tmp/geocode-probe-us.md` from `apps/backend`, after a `--dry` look | `geocode-probe-us.md` | what the geocoder answers when the bias is the *wrong* country (the probe was run with `--country id`; production stored Sleman City Hall in the US) |
 
 If a file errors (it may need a table or column the role cannot read), show the error and stop; do not change the SQL. After the owner has read the outputs and says so, copy them into `results/` as `recall-classes-prod-2026-10-19-v2.txt`, `recall-class4-stubs-prod-2026-10-19.txt`, `confidence-by-country-box-prod-2026-10-19.txt` and `geocode-probe-us-2026-10-19.md`, stage only those, commit and push as in §5.
+
+## 8. Round 3 — same rules as §1, same variables, same hand-back as §5
+
+Round 2 was pulled and analysed (`../prod-check-results-review-2026-10-19.md` §10). Round 3 has two read-only queries (`readonly_2` only) and one optional Geoapify probe. Run each query exactly like Round 2 (§7), one file per command, from the repo root:
+
+```
+{ echo "BEGIN READ ONLY;"; echo "SET LOCAL statement_timeout = '60s';"; cat <FILE>; echo "ROLLBACK;"; } | psql "$PROD_RO2_DATABASE_URL" -X -v ON_ERROR_STOP=1 > /tmp/<OUT>
+```
+
+| # | `<FILE>` (under `_bmad-output/planning-artifacts/event-insight-poc/results/prod-findings-review-2026-10-19-queries/`) | `<OUT>` | What it answers |
+|---|---|---|---|
+| 8 | `recall-replay.sql` | `recall-replay.txt` | replays the matcher's own scoring over the 178 reachable duplicate pairs: of the pairs in the candidate list, and of the 155 that are not, how many should have scored `mid` or `high`. It needs `post_account_associations` and `pg_trgm`'s `similarity()`; if either is unreadable, show the error and stop |
+| 9 | `events-place-quality.sql` | `events-place-quality.txt` | per event, split by stub / full and open / past: a trusted-looking pin, a pin that is untrusted, place text only, no place at all (the numbers the "target area but no usable pin" discussion needs) |
+| 10 | optional, **ask first: 100 Geoapify requests** — from `apps/backend`: `npx tsx scripts/poc-event-insight/probe-geocode-compound.ts --dry` (shows the count and URLs, key redacted), then `npx tsx scripts/poc-event-insight/probe-geocode-compound.ts --md /tmp/geocode-compound-probe.md` | `geocode-compound-probe.md` | the stored compound venue texts of the wrong-country pins, as stored vs with floors/rooms removed vs venue segment only vs venue segment + city, with and without the country bias; the summary counts, per variant, how many of the 21 labelled Indonesian venues come back in Indonesia with confidence ≥ 0.5 |
+
+If a file errors, show the error and stop; do not change the SQL. After the owner has read the outputs and says so, copy them into `results/` as `recall-replay-prod-2026-10-19.txt`, `events-place-quality-prod-2026-10-19.txt` and `geocode-compound-probe-2026-10-19.md`, stage only those, commit and push as in §5.
