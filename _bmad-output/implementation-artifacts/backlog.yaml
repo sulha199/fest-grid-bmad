@@ -2342,7 +2342,7 @@ items:
      title: "Geocoding can land in the wrong country: soft bias only, no bias at bootstrap, no confidence floor",
      ref: [backlog/BUG-066-geocoder-can-resolve-to-the-wrong-country.md, apps/backend/src/lib/geolocation/geoapify-client.ts],
      touches: [app:backend, pkg:domain, web:locations],
-     note: "Production 2026-10-19: 379 of 1,460 pins outside Indonesia (a floor), 627 under confidence 0.5. Probe: 7 of 14 texts wrong, a country filter does not help, area phrases score 0.66/0.50. Sleman City Hall's US pin unexplained."}
+     note: "Production 2026-10-19: 379 pins outside Indonesia (a floor), 627 under confidence 0.5; confidence overlaps inside/outside the box, so a floor alone cannot fix it. Compound venue texts ('Atrium ..., Sleman City Hall') fail at 0.00; bias is not the cause."}
 
   IDEA-074:
     {type: idea, status: backlog, created: 2026-10-18,
@@ -2497,7 +2497,7 @@ items:
      title: "Duplicate events: sweep the legacy pairs, let stub pairs reach the candidate threshold, work the moderator queue",
      ref: [backlog/IDEA-085-duplicate-events-sweep-stub-scoring-queue.md, planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/prod-findings-review-2026-10-19.md],
      touches: [app:backend, pkg:database, web:events, web:moderation],
-     note: "Stories 3.6v and 3.6w are built (review) but event_merges has 0 rows and 147 candidates are pending, 75 older than 7 days. Scope agreed 2026-10-19: sweep + stub scoring + queue. Recall on reachable pairs <= 23/168; up to 43% of pairs are legacy. Stub pairs max 0.40 < 0.45 (hypothesis, untested)."}
+     note: "Stories 3.6v and 3.6w are built (review) but event_merges has 0 rows and 147 candidates are pending, 75 older than 7 days. Scope: sweep + stub scoring + queue. Round 2: reachable-pair recall 23/178; stub pairs without a link 0/122 (confirmed); 29 both-full pairs unexplained (replay next); 160 legacy."}
 
   IDEA-084:
     {type: idea, status: backlog, created: 2026-10-19,

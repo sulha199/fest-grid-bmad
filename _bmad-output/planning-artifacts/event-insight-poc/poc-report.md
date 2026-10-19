@@ -667,3 +667,23 @@ The product owner answered "do it" to the offer to implement the fix. **This is 
 * **Backend suite** (1,348 tests, migrated and seeded scratch PostgreSQL 16): everything passes except 21 tests in `geolocation.test.ts`, `social-media-accounts.test.ts` and `user-locations.test.ts`, which need a real Geoapify key (`GEOAPIFY_API_KEY is not configured`). A clean run of exactly those three files gives **the same 21 failures on the old and on the new schema** (51 tests, 30 pass, 21 fail both ways). The row-count ratchet reported one leftover profile (`test_profile_ac15_1`), left by those key-less failures. **My first full run was contaminated**: the first background attempt kept running while I started the second, so the log holds two interleaved runs; I rely on the per-file comparison for the failures, and the other 1,300+ tests passed under that interference. The geolocation cache path that uses a swapped column (`geolocation_cache.result`) is covered by the new DB regression test, not by those key-less tests.
 * `packages/database` unit tests (12) pass; `packages/database` lint (`--max-warnings 0`) and `tsc` are clean; backend `tsc --noEmit` is clean. Web and the other packages were not run.
 * `customJsonb` is tied to drizzle-orm 0.30's behavior (see the project-context rule).
+
+---
+
+# Addendum 16 (2026-10-19, sixteenth discussion): Round 2 of the production checks
+
+Detail: [`prod-check-results-review-2026-10-19.md`](./prod-check-results-review-2026-10-19.md) §10. Raw results: `results/recall-classes-prod-2026-10-19-v2.txt`, `recall-class4-stubs-prod-2026-10-19.txt`, `confidence-by-country-box-prod-2026-10-19.txt`, `geocode-probe-us-2026-10-19.md`.
+
+## P1. What Round 2 showed
+
+* **Recall on reachable pairs is 12.9% (23 of 178).** The corrected query puts 160 pairs in the legacy class, 107 in the recurring class, 178 in the reachable class.
+* **The stub hypothesis is confirmed as the dominant gap** (0 of 122 stub pairs without a shared link are candidates, 79% of the uncovered reachable pairs) **and is not the whole story** (29 uncovered pairs of two full events remain unexplained; the replay decides).
+* **Confidence cannot fix BUG-066 alone:** the stored confidence of pins inside and outside the country box overlaps (129 of 343 outside pins ≥ 0.5, 413 of 959 inside pins < 0.5), and "Online" is answered with France at 1.00.
+* **The Sleman City Hall pins come from compound texts** ("Atrium & Plaza Rama, Sleman City Hall"): a sub-venue qualifier makes the geocoder match the generic word. The account-default bias is not the cause (64% of the sampled wrong pins come from accounts with no default; a US bias changes only answers that were already wrong).
+
+## P2. Limits (this addendum)
+
+* The Discovery plan verdicts of the pack are still unmeasured (no `festgrid_poc_ro` URL on the owner's machine).
+* The "qualifier makes the geocoder match the generic word" reading is from the stored texts and confidences, not from a probe on those texts.
+* The 29 unexplained both-full pairs and the share of the 413 sub-0.5 pins that are right are not known.
+* Checker count unchanged (69).

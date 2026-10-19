@@ -114,3 +114,36 @@ Four items, `readonly_2` only: the fixed `recall-classes.sql`, `recall-class4-st
 | Filtering and scoring for events with a target area and no usable pin | **after Round 2** | this document §6 |
 
 Not done, on purpose: nothing was written to production, AD-36 was not edited. *Update, same day: the BUG-068 writer fix was then implemented at the product owner's request ("do it"), see Addendum 15; the "no product code was changed" statement above held until then.*
+
+## 10. Round 2 results (local session, commit `eec72e9`; `readonly_2`, read-only, production primary)
+
+Files: `results/recall-classes-prod-2026-10-19-v2.txt`, `results/recall-class4-stubs-prod-2026-10-19.txt`, `results/confidence-by-country-box-prod-2026-10-19.txt`, `results/geocode-probe-us-2026-10-19.md`. I read them; I re-ran nothing.
+
+### 10.1 Duplicates (IDEA-085)
+
+* **The fixed query behaves:** class 2 now has 0 candidates (it had 2 with the bug). Classes: same post 1, legacy 160 (36%), more than two days apart 107 (24%), **reachable 178 (40%)**, of which 23 are candidates: **recall on reachable pairs is 12.9%** (my earlier bound was "at most 13.7%").
+* **The stub hypothesis holds, and it is the dominant gap.** Stub pairs without a shared link: **0 of 122** are candidates, 79% of the 155 uncovered reachable pairs. Stub pairs with a shared link: 6 of 10. A scoring rule for stub pairs could reach up to 126 of the 155.
+* **It is not the whole story.** Pairs of two full events with no shared link: only 17 of 46 are candidates, so **29 uncovered pairs are unexplained by the stub rule.** From the code, the organizer weight (0.40) goes through `post_account_associations` on the posts linked by `event_posts` (not through `events.source_social_media_account_id`, which the report's pairs use), so a pair that looks same-account can still score without it; a path that does not run the matcher is also possible. Only a replay of `computeMatchScore` over the 178 pairs decides it.
+* Totals the sweep and the scoring fix would touch: 160 legacy + 155 uncovered reachable = 315 of 446 pairs; the 107 recurring pairs are mostly not duplicates.
+
+### 10.2 Pins, confidence and the wrong country (BUG-066)
+
+| | inside the box (1,081) | outside the box (379) |
+|---|--:|--:|
+| stored confidence < 0.5 | 413 of 959 with a value (43%) | 214 of 343 (62%) |
+| stored confidence ≥ 0.5 | 546 | 129 (83 at exactly 1.00) |
+| no confidence stored | 122 | 36 |
+
+* **The distributions overlap**, so a floor alone cannot fix BUG-066: a floor of 0.5 would drop 413 pins inside Indonesia (an unknown share of them right) and keep 129 outside.
+* **Why high confidence is not safe:** the outside pins at 1.00 are partly legitimate foreign events (Denmark Open 27, Egypt 13) and partly confident nonsense: **"Online" answered with Montpellier at 1.00** (BUG-064, not a geocoder fault), "Court 2" answered with Canada at 1.00.
+* **The failing texts have a shape.** The Sleman City Hall rows are compound texts, not the plain name the probe used: "Atrium & Plaza Rama, Sleman City Hall" (US, 0.00, 5 schedules), "Atrium Shinta, Ground Floor, Sleman City Hall, Jl. Magelang" (France, 0.00), "Customer Service, Ground Floor, Sleman City Hall" (US, 0.55). The same generic word recurs elsewhere: "Atrium Lower Ground, Galeria Mall" (US, 0.00, six schedules), "Grand Atrium Pakuwon Mall Jogja" (Pakistan, 0.00), "Sky Commons, Lantai 3A, Plaza Ambarrukmo" (Spain, 0.06), "TKP JOGJA Lantai 2, Pakuwon Mall Jogja" (Spain, 0.00), "Watsons, Ground Floor Galeria Mall" (Mexico, 0.70), "Convention Hall Lt.2" (Canada, 0.81). **A sub-venue qualifier (atrium, floor, hall, court, counter) in front of the venue name makes the geocoder match the generic word.** Most of these score 0.00–0.06, so a floor catches them; the 0.55–0.81 ones show it cannot catch all.
+* **The bias explanation is refuted for the plain text and mostly for the rest.** With `bias=us` 12 of 14 probe descriptions answer exactly as with `bias=id` (the two that moved were already wrong at 0.00), and plain "Sleman City Hall" stays correct. In production, of the first 333 outside pins, **214 (64%) come from accounts with no default location** (so no bias at all: BUG-066 mechanism 1) and the pin country equals the account's default country in only 15. The app sends only a soft `bias=countrycode:` and never a filter (`geoapify-client.ts:60`), and the probe shows that bias has little effect on a bad text, so "bias to Indonesia when there is no account default" (already decided) is necessary but would not have fixed these.
+
+### 10.3 What this suggests for BUG-066's fix (for the decision, not decided)
+
+In order of evidence: (1) do not geocode "Online" and other non-places (BUG-064); (2) strip the sub-venue qualifier before geocoding, keep venue name plus city (a Round 3 probe on the production texts would test it); (3) keep the confidence floor as a cheap net for the 0.00–0.06 cases; (4) **validate the answer against the event's stated target area**: a pin in Mexico for an event whose post says Jogja is wrong whatever the confidence. (4) is the only check that catches the confident nonsense, and it needs the area ladder and the resolver (IDEA-073, IDEA-081): it is where this thread meets the filtering and scoring discussion you scheduled after Round 2.
+
+### 10.4 Next, if you want it
+
+* **Round 3 (one local run):** (a) the `computeMatchScore` replay over the 178 reachable pairs as a read-only SQL (I would write and test it on a fixture first); (b) a Geoapify probe over the roughly 15 distinct compound texts above, as is and with the qualifier stripped, under bias `id`. Both are read-only or public-name-only.
+* **The filtering and scoring discussion** (target area but no usable pin): the numbers it needs are now in hand (§3, §10.2).
