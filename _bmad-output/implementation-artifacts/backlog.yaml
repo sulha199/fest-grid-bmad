@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-18"
+last_updated: "2026-10-19"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -2473,3 +2473,36 @@ items:
      ref: [planning-artifacts/event-insight-poc/prod-readonly/README.md, apps/backend/scripts/poc-event-insight/prod-readonly-check.ts],
      touches: [app:backend, pkg:database, cross:process],
      note: "Tested on a scratch Postgres only: the role, the pack, the refusal of a write-capable role. Supabase RLS, pooler SET LOCAL and pg_stat_statements access are unverified. Confirms FIND-087, FIND-088, BUG-063, BUG-066 and the IDEA-075 legacy set on real data."}
+
+  # ── 2026-10-19 (production findings: double-encoded location_details, matcher recall, event groups) ──
+  BUG-068:
+    {type: bug, status: backlog, created: 2026-10-19,
+     impact: user-visible, effort: s, blocks: [IDEA-073],
+     title: "schedules.location_details is stored as a JSON string, not an object, in every production row",
+     ref: [planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, apps/backend/scripts/poc-event-insight/prod-readonly-check.ts],
+     touches: [app:backend, pkg:database, web:locations],
+     note: "Seen on production only (1,460 of 1,460 rows); mechanism NOT verified, suspect the pooler prepare:false path. Read with (location_details #>> '{}')::jsonb. Makes the pack's country, adminArea and coordinate counts artifacts."}
+
+  FIND-091:
+    {type: finding, status: backlog, created: 2026-10-19,
+     impact: internal, effort: xs,
+     title: "Production snapshot 2026-10-19: wrong-country pins, matcher recall 5%, caption duplicates, pack artifacts",
+     ref: [planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md],
+     touches: [app:backend, pkg:database, cross:process],
+     note: "379 of 1,460 pins lie outside Indonesia (BUG-066 seen live); the matcher proposes 23 of 446 same-name pairs. One snapshot of about 7 weeks, read with the readonly_2 role."}
+
+  IDEA-085:
+    {type: idea, status: backlog, created: 2026-10-19,
+     impact: user-visible, effort: m, blocks: [IDEA-084],
+     title: "Raise the duplicate matcher's recall (5% of same-name pairs) and clear the moderator merge queue",
+     ref: [planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md],
+     touches: [app:backend, pkg:database, web:events, web:moderation],
+     note: "Stories 3.6v and 3.6w are built (review) but event_merges has 0 rows and 147 candidates are pending, 75 older than 7 days. Why recall is low is not diagnosed."}
+
+  IDEA-084:
+    {type: idea, status: backlog, created: 2026-10-19,
+     impact: user-visible, effort: l,
+     title: "Event groups: a named programme with children, suggested by title and anchor, confirmed by a person",
+     ref: [planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md],
+     touches: [app:backend, pkg:domain, pkg:database, web:events, web:moderation, cross:ai-extraction, cross:architecture, cross:prd],
+     note: "SCH 8th Anniversary: REBORN is stored as 4 umbrella rows, 9 child events and duplicates; 1 of 21 children carries the keyword. Precision of the child-suggestion rule is not measured."}
