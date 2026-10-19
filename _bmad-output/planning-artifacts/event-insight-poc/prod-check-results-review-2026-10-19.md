@@ -113,4 +113,4 @@ Four items, `readonly_2` only: the fixed `recall-classes.sql`, `recall-class4-st
 | Curator default locations (11 of 17) | clear them **after** the BUG-065 code gate ships, as a runbook step | `backlog/BUG-065-…md` |
 | Filtering and scoring for events with a target area and no usable pin | **after Round 2** | this document §6 |
 
-Not done, on purpose: no product code was changed (this branch is planning only), nothing was written to production, AD-36 was not edited.
+Not done, on purpose: nothing was written to production, AD-36 was not edited. *Update, same day: the BUG-068 writer fix was then implemented at the product owner's request ("do it"), see Addendum 15; the "no product code was changed" statement above held until then.*

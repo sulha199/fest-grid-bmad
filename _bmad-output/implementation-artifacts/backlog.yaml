@@ -2481,7 +2481,7 @@ items:
      title: "27 plain jsonb() columns are stored as JSON strings, not objects (schedules.location_details in every production row); extend customJsonb, then migrate the rows",
      ref: [backlog/BUG-068-jsonb-columns-double-encoded-by-drizzle.md, backlog/BUG-068-jsonb-migration/README.md, planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/results/jsonb-encoding-probe.generated.md, apps/backend/scripts/poc-event-insight/probe-jsonb-encoding.ts, apps/backend/src/db/client.ts],
      touches: [app:backend, pkg:database, web:locations],
-     note: "Decided 2026-10-19, ahead of IDEA-074: customJsonb (fixed 3 columns 2026-08-29) on the other 27 + ratchet test, then the tested row migration. Production: 2,231 of 2,231 non-null values in 4 columns are strings. Not implemented."}
+     note: "Writer fix implemented 2026-10-19 (27 columns to customJsonb, ratchet + DB regression test), not yet deployed. Pending: deploy, run backlog/BUG-068-jsonb-migration/ on production, verify with the pack. 2,231 of 2,231 non-null values in 4 columns were strings."}
 
   FIND-091:
     {type: finding, status: backlog, created: 2026-10-19,

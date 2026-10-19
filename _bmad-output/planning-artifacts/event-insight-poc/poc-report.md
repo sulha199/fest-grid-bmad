@@ -646,3 +646,24 @@ Detail: [`prod-check-results-review-2026-10-19.md`](./prod-check-results-review-
 * The mechanical swap was verified on a temp copy of `packages/database` for migration-neutrality and on one table at run time; the full test suite was not run against a swapped schema.
 * The migration runbook's `rest` columns were not sized on production; `01-look.sql` reports bytes first.
 * Checker count unchanged (69).
+
+---
+
+# Addendum 15 (2026-10-19, fifteenth discussion): the BUG-068 writer fix, implemented
+
+The product owner answered "do it" to the offer to implement the fix. **This is the first product-code change on this planning branch**; it is in its own commit so it can be reviewed, cherry-picked or reverted separately.
+
+## O1. What changed
+
+* `packages/database/schema.ts`: the 27 plain `jsonb()` columns are `customJsonb<T>()` (mechanical, balanced-bracket rewrite; the unused `jsonb` import is gone; the comment on `customJsonb` now states the real cause). `drizzle-kit generate` reports no migration.
+* `packages/database/jsonb-columns.test.ts` (new, vitest): no column may be a `PgJsonb`; `customJsonb` hands the driver the raw value and parses a legacy string. Verified to fail on the old schema.
+* `apps/backend/src/schema/jsonb-encoding.test.ts`: a DB regression test that writes through Drizzle into `schedules.location_details`, `events.links`, `social_media_account_profiles.default_location` and `posts.additional_image_urls`, asserts `jsonb_typeof` and that SQL-side `->>` and `jsonb_array_elements` see inside, and that a legacy string row still reads parsed. Run on a migrated scratch PostgreSQL 16; verified to fail on the old schema.
+* `_bmad-output/project-context.md`: a rule that every jsonb column uses `customJsonb`.
+* `apps/backend/tsconfig.json`: `scripts/poc-event-insight` is excluded. **A defect from my earlier turns:** the backend's `tsc` (its `build`) includes `scripts/`, and nine of my POC scripts use `import.meta`, which the backend's NodeNext/CJS config rejects, so `pnpm --filter backend build` would have failed. The POC scripts keep their own type-check command.
+
+## O2. Limits (this addendum)
+
+* Not deployed; **no production write**; the row migration (`backlog/BUG-068-jsonb-migration/`) is still to be run by the owner after the deploy.
+* **Backend suite** (1,348 tests, migrated and seeded scratch PostgreSQL 16): everything passes except 21 tests in `geolocation.test.ts`, `social-media-accounts.test.ts` and `user-locations.test.ts`, which need a real Geoapify key (`GEOAPIFY_API_KEY is not configured`). A clean run of exactly those three files gives **the same 21 failures on the old and on the new schema** (51 tests, 30 pass, 21 fail both ways). The row-count ratchet reported one leftover profile (`test_profile_ac15_1`), left by those key-less failures. **My first full run was contaminated**: the first background attempt kept running while I started the second, so the log holds two interleaved runs; I rely on the per-file comparison for the failures, and the other 1,300+ tests passed under that interference. The geolocation cache path that uses a swapped column (`geolocation_cache.result`) is covered by the new DB regression test, not by those key-less tests.
+* `packages/database` unit tests (12) pass; `packages/database` lint (`--max-warnings 0`) and `tsc` are clean; backend `tsc --noEmit` is clean. Web and the other packages were not run.
+* `customJsonb` is tied to drizzle-orm 0.30's behavior (see the project-context rule).
