@@ -35,7 +35,7 @@ import {
   EventCardRepeatBadge,
   EVENT_CARD_CONTAINER_CLASS,
 } from './EventCardMediaPrimitives';
-import { useHoverFocusTooltip } from '../../hooks';
+import { useHoverFocusTooltip, useEventTimezone } from '../../hooks';
 import { formatEventStatus } from './format-event-date';
 import {
   badgeFontSizeStyleFor,
@@ -109,11 +109,15 @@ export function EventCardCompact({
   dayOfWeekLabels,
   repeatBadgeAriaLabel,
   locale,
-  timezone,
+  timezone: timezoneProp,
   onClick,
   loading = false,
   className = '',
 }: EventCardCompactProps) {
+  // Resolved here (explicit prop -> ScopedLocaleProvider), so a caller that omits `timezone` gets
+  // the app timezone, never the viewer's device zone.
+  const timezone = useEventTimezone(timezoneProp);
+
   // Story 1.3k Task 4 (AC11), kept from the extraction source — needed even though the
   // grid-only time-range tooltip itself is dropped (AC2): the same hover/focus state also
   // drives the repeat badge's own tooltip.

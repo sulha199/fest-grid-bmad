@@ -55,3 +55,20 @@ export function useScopedLocale(): string {
 export function useScopedTimezone(): string | undefined {
   return useContext(LocaleContext)?.timezone;
 }
+
+/**
+ * The one place a component resolves "which timezone do I render this schedule/post in":
+ * an explicit `timezoneOverride` (a component's own `timezone` prop, ignoring an accidental empty
+ * string) beats the nearest ScopedLocaleProvider's timezone, which beats `undefined` (the runtime's
+ * own timezone). Call it in the component that formats/compares, instead of receiving an
+ * already-resolved value from a parent: a parent that forgets to pass `timezone` down then falls
+ * back to the app timezone, not silently to whatever zone the viewer's device happens to be in.
+ *
+ * A per-event timezone (`Schedule.timezone`) is the intended next link in this chain
+ * (override -> event -> ambient); it is deliberately NOT wired yet -- see the product decision on
+ * event-local vs viewer-local display.
+ */
+export function useEventTimezone(timezoneOverride?: string | null): string | undefined {
+  const contextTimezone = useScopedTimezone();
+  return timezoneOverride || contextTimezone;
+}

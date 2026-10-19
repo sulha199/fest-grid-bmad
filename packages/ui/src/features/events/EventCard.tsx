@@ -9,7 +9,7 @@
 // direct repro this is based on.
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Heart } from 'lucide-react';
-import { useScopedLocale, useScopedTimezone, useHoverFocusTooltip } from '../../hooks';
+import { useScopedLocale, useEventTimezone, useHoverFocusTooltip } from '../../hooks';
 import type { EventCardProps } from './EventCard.types';
 import {
   computeEventCardDateBoxParts,
@@ -203,11 +203,10 @@ export function EventCard({
   }, []);
 
   const contextLocale = useScopedLocale();
-  const contextTimezone = useScopedTimezone();
   // `||` (not `??`) so an accidental empty-string prop also falls through to context/default
   // instead of being passed straight to Intl and throwing.
   const activeLocale = locale || contextLocale;
-  const activeTimezone = timezone || contextTimezone;
+  const activeTimezone = useEventTimezone(timezone);
 
   // Story 1.3k Task 6 (AC6, "Tooltip trigger resolution" Dev Notes) — the repeat badge is never
   // an independently-focusable trigger of its own (it would nest a focusable element inside

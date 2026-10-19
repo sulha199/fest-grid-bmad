@@ -1957,7 +1957,7 @@ describe('WeeklyCalendarView', () => {
         ];
 
         const { container } = render(
-          <ScopedLocaleProvider locale="en-US">
+          <ScopedLocaleProvider locale="en-US" timezone="UTC">
             <WeeklyCalendarView {...defaultProps} schedules={schedule} />
           </ScopedLocaleProvider>
         );
@@ -2092,7 +2092,7 @@ describe('WeeklyCalendarView', () => {
         vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
 
         render(
-          <ScopedLocaleProvider locale="en-US">
+          <ScopedLocaleProvider locale="en-US" timezone="UTC">
             <WeeklyCalendarView {...defaultProps} />
           </ScopedLocaleProvider>
         );

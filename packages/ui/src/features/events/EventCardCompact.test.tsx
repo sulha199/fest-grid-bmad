@@ -3,6 +3,7 @@ import React from 'react';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { EventCardCompact } from './EventCardCompact';
+import { ScopedLocaleProvider } from '../../hooks/useScopedLocale';
 import type { ComponentProps } from 'react';
 
 const asDays = (...days: string[]) =>
@@ -28,6 +29,50 @@ describe('EventCardCompact (Story 3.6ua)', () => {
     onClick: vi.fn(),
     favoriteToggleLabel: 'Toggle favorite',
   };
+
+  describe('timezone resolution', () => {
+    // The production event shape: single day, 18:30, no end date/time. With no `timezone` prop the
+    // card must use the ScopedLocaleProvider's zone, not the device's.
+    const prodShape = {
+      ...defaultProps,
+      timezone: undefined,
+      eventStartDate: '2026-10-19',
+      eventStartTime: '18:30:00',
+      eventEndDate: undefined,
+      eventEndTime: undefined,
+    };
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('omitted timezone prop -> uses the ambient provider timezone (not the device zone, not "Ended")', () => {
+      vi.useFakeTimers();
+      // 20:00Z: 16:00 in New York (event not started), but 20:00 in the UTC test process (started).
+      // Only an ambient-zone resolution gives "In n hours"; falling back to the device zone would
+      // read "Ends Today".
+      vi.setSystemTime(new Date('2026-10-19T20:00:00Z'));
+      render(
+        <ScopedLocaleProvider locale="en-US" timezone="America/New_York">
+          <EventCardCompact {...prodShape} />
+        </ScopedLocaleProvider>
+      );
+      expect(screen.getByText(/In \d+ hour/)).toBeInTheDocument();
+      expect(screen.queryByText('Ended')).not.toBeInTheDocument();
+    });
+
+    it('explicit timezone prop beats the ambient provider timezone', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-10-19T11:30:00Z')); // 07:30 in New York, 18:30 in Jakarta
+      render(
+        <ScopedLocaleProvider locale="en-US" timezone="America/New_York">
+          <EventCardCompact {...prodShape} timezone="Asia/Jakarta" />
+        </ScopedLocaleProvider>
+      );
+      // 18:30 Jakarta has just started there: no end time -> "Ends Today" (New York would say "In n hours").
+      expect(screen.getByText('Ends Today')).toBeInTheDocument();
+    });
+  });
 
   describe('Full-data render (AC2, AC4)', () => {
     it('renders title, location, status badge, nearby badge, and repeat badge', () => {

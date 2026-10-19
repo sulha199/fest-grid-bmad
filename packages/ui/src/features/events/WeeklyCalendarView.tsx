@@ -17,7 +17,7 @@ import {
   type CalendarPlacement,
 } from '@festgrid/domain/events';
 import { WeekPicker } from '../../core/WeekPicker';
-import { useScopedLocale, useScopedTimezone, useHoverFocusTooltip, useInfiniteScroll } from '../../hooks';
+import { useScopedLocale, useEventTimezone, useHoverFocusTooltip, useInfiniteScroll } from '../../hooks';
 import type {
   WeeklyCalendarViewProps,
   WeeklyCalendarViewScheduleShape,
@@ -474,10 +474,9 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   };
   const effectiveGetWeekRange = getWeekRange ?? defaultGetWeekRange;
   const contextLocale = useScopedLocale();
-  const contextTimezone = useScopedTimezone();
 
   const activeLocale = locale || contextLocale;
-  const activeTimezone = timezone || contextTimezone;
+  const activeTimezone = useEventTimezone(timezone);
 
   const defaultLabels = {
     prevWeekLabel: 'Previous week',
@@ -1256,7 +1255,7 @@ interface CalendarCardProps<TSchedule> {
   cardId?: string;
   isRovingActive: boolean;
   locale: string;
-  timezone: string | undefined;
+  timezone?: string;
   onScheduleClick: (schedule: TSchedule) => void;
   onFavoriteToggle?: (schedule: TSchedule) => void;
   favoriteToggleLabel?: string;
@@ -1298,7 +1297,7 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   cardId,
   isRovingActive,
   locale,
-  timezone,
+  timezone: timezoneProp,
   onScheduleClick,
   onFavoriteToggle,
   favoriteToggleLabel,
@@ -1316,6 +1315,9 @@ function CalendarCard<TSchedule extends WeeklyCalendarViewScheduleShape>({
   repeatBadgeAriaLabel,
 }: CalendarCardProps<TSchedule>) {
   const { schedule } = segment;
+  // Resolved here, not trusted from the parent: a parent that forgets `timezone` must still land
+  // on the app timezone rather than the viewer's device zone.
+  const timezone = useEventTimezone(timezoneProp);
 
   // Story 1.3k Task 4 (AC11) — the hover+focus+Escape-dismiss interaction state, now the shared
   // `useHoverFocusTooltip` hook instead of this component's own hand-rolled copy. `enabled: true`
@@ -1589,7 +1591,7 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
   onKeyDown,
   onFocus,
   locale,
-  timezone,
+  timezone: timezoneProp,
   onScheduleClick,
   onFavoriteToggle,
   favoriteToggleLabel,
@@ -1601,6 +1603,7 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
   repeatBadgeAriaLabel,
   addedToCalendarBadgeLabel,
 }: MultiDaySpanningBarProps<TSchedule>) {
+  const timezone = useEventTimezone(timezoneProp);
   // Story 1.3k Task 4 (AC11) — same shared hook as `CalendarCard`'s grid variant, replacing this
   // component's own hand-rolled `isHovered`/`isFocused`/`isDismissed` state (the mandatory second
   // consumer per Gate 3's resolution — see the hook's own header comment). No mode gate here (this
