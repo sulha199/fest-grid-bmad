@@ -1,5 +1,5 @@
 ---
-status: complete (addenda 1-7, 2026-10-18, appended)
+status: complete (addenda 1-8, 2026-10-19, appended)
 type: poc-report
 date: 2026-10-18
 model_under_test: gemini-3.5-flash-lite   # the production default (apps/backend/src/env.ts)
@@ -466,7 +466,7 @@ The harness runs the web client's own `getEvents` operation against the real sch
 
 | finding | measured |
 |---|---|
-| JIT compilation | 30k events: **882 ms** with the server default (JIT on) vs **175 ms** off; the captured plan spends 717 of 909 ms compiling 79 functions. 8 clients: 4.4 vs 25 requests/s |
+| JIT compilation | 30k events, **anonymous plan**: **882 ms** with the server default (JIT on) vs **175 ms** off; the captured plan spends 717 of 909 ms compiling 79 functions. 8 clients: 4.4 vs 25 requests/s. *(Corrected in Addendum 8: a cliff set by plan cost vs 500k, ~50 ms below it and ~800 ms above; the signed-in plan paid 53 ms at 30k and 837 ms at 300k.)* |
 | cost follows history | 120k events, 85% ended: 239 ms with JIT off; the plan reads every event, post and main schedule |
 | no tie-break | 20 pages of 10: **48 events returned more than once, 98 of the true first 200 never returned** |
 | a maintained key with an index of only still-open events | **0.4 ms** (30k and 120k mature); 2,084 requests/s at 8 clients. Without the pruning the same idea is **worse** than today on the mature catalogue (503 ms) |
@@ -489,3 +489,31 @@ Bounded terms on top of the date (up to 7 days earlier for a fresh post, 14 late
 * One of my own tests asserted an ordering that the weights do not produce (a date one day late and a missed `isFree` both cost 1/9). The test was rewritten to assert the equality as a tuning fact, and the proposal §3.2 says so.
 * **Not measured:** the write side of a maintained key, freshness through the `posts` join, the relaxed-candidate query for close matches, users with a hide-past grace above 0, any effect on user behaviour. The bounded lane as measured covers only the 300 soonest events (about 2–3 days on the seed), so its latency is real and its coverage is not the final design's.
 * Re-verified identical after this round: the guarded wrong-claims table. Backlog: **FIND-087, BUG-067, IDEA-076, IDEA-077, IDEA-078** added; checker failure count unchanged (69), none on the new rows. No product code was changed.
+
+---
+
+# Addendum 8 (2026-10-19, eighth discussion): the pre-subscription forecast turned into events and traffic; what one page request costs statement by statement; per-user scoring budget; ids-then-hydrate; PostHog utilization
+
+Questions: how PostHog should be used; how many events the forecast implies and what limits `getEvents` under complex filters and per-user scores; whether returning ids + last-update and hydrating separately (with a frontend cache) is worth it; whether skipping `totalCount` matters; whether the current stack is enough; plus follow-ups on the four open questions (stub events and location, the retry sweep's scope, the geocode confidence floor, stored captions). Analysis: [`proposal-posthog-and-list-scale.md`](./proposal-posthog-and-list-scale.md). Code: `perf-request.ts`, `perf-scoring.ts`, the new ids-only I-series in `perf-features.ts`. Raw tables: `results/perf-request-*`, `perf-features-*`, `perf-scoring-*`, `perf-pgbench-scoring`, `perf-variants-300k-month12`. No Gemini call was made.
+
+## H1. What the measurements added
+
+| finding | measured |
+|---|---|
+| **history, not only visibility** | the same 22k open events: a page statement of 204 ms (anonymous) / 167 ms (signed in) at 30k total events becomes 545 / 581 ms at 300k (JIT off) |
+| **`totalCount`** | the shared `GetEvents` document selects it; Discovery never reads it; removing it saves 31–348 ms, 14–42% of a page's DB time (JIT off) |
+| **JIT is a cliff** (corrects FIND-087) | +700–840 ms when the plan's estimated cost exceeds 500k, ~50 ms below; anonymous and signed-in plans cross at different sizes |
+| **a write on the read path** | every signed-in `events` request runs `INSERT … ON CONFLICT DO UPDATE` on `user_settings` (FIND-089) |
+| **per-user scoring** | ≈ 1.3–4 µs per scored candidate for a synthetic 12-term score; K ≤ 3,000 costs 5–40 ms; candidate generation can flip to a parallel seq scan (54 requests/s under 8 clients at 91k open) |
+| **ids then hydrate** | ids-only on today's query saves nothing (164–280 ms regardless of K); hydrating 10 ids 0.3–0.5 ms with code that exists (Favorites); 200 ranked ids 21–52 ms once; ranking without joins only 10–35% cheaper |
+| **foundation at "month 12"** (300k events, 22k open) | today 1,115 ms (JIT on) / 503 ms (off); maintained key + open-events index 0.5 ms; unpruned maintained key 1,926 ms |
+| **PostHog today** | 96 capture sites, ~67 names; no page views, no impressions, favorites carry only `eventId`, no AI-filter result events, no timing |
+
+## H2. Limits and changes after seeing results (this addendum)
+
+* **My own earlier headline was too general.** "JIT is ~80% of the request" came from the anonymous plan; the signed-in plan at the same size paid 53 ms. Found by running the signed-in request through the harness for the first time. FIND-087 and the first-round documents carry the correction.
+* **An arithmetic slip caught on re-check**: I first wrote the pipeline load as "17–25 posts per minute"; 24,403–35,949 posts a month is 0.6–0.8 per minute. The burst (a daily scrape landing ~800–1,200 posts within an hour, 13–20 per minute) is what matters, against the ~15 calls/min on which the POC's key was throttled.
+* **A bad YAML row**: bracketed paths (`[locale]`) inside a flow sequence broke the board parser; the checker failed with a parse error rather than a count. Quoted, re-run: 69 failures, none on the new rows.
+* The rebuilt scratch databases use different random draws, so a re-run moved some variants by up to ~50% and the windowed variant (P3b) by 5× (8.9 vs 43.5 ms). Differences below ~30% are not findings.
+* **Not measured**: the write cost of a maintained key and `content_version`; fixed per-call overhead (API Gateway, Lambda, JWT); scoring over JSON-stored features; production `jit`, pool size and storage limit. Events per post (1.0), lead time, daily-active share, session shape and the push-burst figure are my assumptions.
+* Re-verified identical after this round: the guarded wrong-claims table. Backlog: **FIND-088, FIND-089, IDEA-079, IDEA-080** added and FIND-087 corrected; checker count unchanged (69). No product code was changed.

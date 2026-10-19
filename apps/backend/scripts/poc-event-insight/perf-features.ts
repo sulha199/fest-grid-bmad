@@ -100,6 +100,15 @@ async function main() {
     { group: 'P', name: 'P3h at offset 200', sql: `${selectFrom} where ${OPEN} AND ${HORIZON} order by ${TIER}, ("events"."bench_open_key" - current_date) - ${FRESH} + ${SEEN}, "events"."id" ${lim(200)}` },
     { group: 'P', name: 'P3h, 14 days', sql: `${selectFrom} where ${OPEN} AND "events"."bench_open_key" <= current_date + 14 order by ${TIER}, ("events"."bench_open_key" - current_date) - ${FRESH} + ${SEEN}, "events"."id" ${lim()}` },
   );
+  // I-series: the same orders, but the query returns ONLY events.id (no joins to posts / profiles / schedules, no select-list sub-selects) --
+  // the ranking half of a "rank ids first, hydrate by id" request.
+  const IDQ = (order: string, extra = '', o = 0) => `select "events"."id" from "events" where ${OPEN}${extra} order by ${order} limit 21 offset ${o}`;
+  tests.push(
+    { group: 'I', name: 'I1 ids only: area tier + date', sql: IDQ(`${TIER}, "events"."bench_open_key", "events"."id"`) },
+    { group: 'I', name: 'I3 ids only: tier + freshness + seen (all open events)', sql: IDQ(`${TIER}, ("events"."bench_open_key" - current_date) - ${FRESH} + ${SEEN}, "events"."id"`) },
+    { group: 'I', name: 'I3h ids only: tier + freshness + seen over the next 60 days', sql: IDQ(`${TIER}, ("events"."bench_open_key" - current_date) - ${FRESH} + ${SEEN}, "events"."id"`, ` AND ${HORIZON}`) },
+    { group: 'I', name: 'I3h ids only, 200 ids (a pinned session list)', sql: IDQ(`${TIER}, ("events"."bench_open_key" - current_date) - ${FRESH} + ${SEEN}, "events"."id"`, ` AND ${HORIZON}`).replace('limit 21', 'limit 200') },
+  );
   tests.splice(2, 0,
     { group: 'P', name: 'P1b area tier as three index-ordered branches merged (date only)', sql: tierMerge(0, false) },
     { group: 'P', name: 'P1b at offset 200', sql: tierMerge(200, false) });

@@ -1,6 +1,6 @@
 ---
 backlog_id: FIND-087
-title: "Query.events: the planner switches on JIT compilation for it (about 80% of the time at 30k events), and its cost follows total history, not the visible set"
+title: "Query.events: JIT compilation adds ~50 ms or ~800 ms depending on whether the plan's estimated cost crosses 500k, and the cost follows total history, not the visible set"
 captured: 2026-10-18
 ---
 
@@ -17,6 +17,10 @@ captured: 2026-10-18
 | 8 concurrent clients, 4 cores, 12 s | 4.4 requests/s with JIT on · 25 with JIT off · 2,084 with a maintained sort key and an open-events index |
 | 120k events, 85% ended (13,394 open), JIT off | 239 ms — the plan reads all 120,012 events, 120,035 posts and every main schedule, then discards the ended ones |
 | a maintained key with an index over *all* events (no pruning) on that mature catalogue | 503 ms — worse than today: the index walks past every ended event |
+
+## Correction (2026-10-19)
+
+The "~80%" above is true of the **anonymous** plan at 30k events only. Every plan here exceeds `jit_above_cost` (100k), but the expensive part (inlining + optimisation, ~700–840 ms) is paid only when the estimated cost also exceeds `jit_inline_above_cost` / `jit_optimize_above_cost` (500k each). Measured (anonymous / signed-in plan cost → JIT time): 30k events 611k / 345k → 700 / 53 ms; 120k mature 445k / 283k → 44 / 56 ms; 300k events with the same 22k open 1.01M / 625k → 818 / 837 ms; 120k all open 2.86M / 1.60M → 694 / 809 ms. It is a **cliff**: a signed-in request that cost 53 ms of JIT at 30k events paid 837 ms at 300k. The throughput figures above (4.4 vs 25 requests/s) were for the anonymous plan. Detail: `planning-artifacts/event-insight-poc/proposal-posthog-and-list-scale.md` §3.
 
 ## To verify first (read-only, on the production database)
 
