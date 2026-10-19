@@ -1,5 +1,5 @@
 ---
-status: complete (addenda 1-10, 2026-10-19, appended)
+status: complete (addenda 1-11, 2026-10-19, appended)
 type: poc-report
 date: 2026-10-18
 model_under_test: gemini-3.5-flash-lite   # the production default (apps/backend/src/env.ts)
@@ -568,3 +568,20 @@ Decisions taken: a place in a roundup's heading **counts as a stated area** for 
 * The first rerun was cut off by a shell timeout and a second hit the key's rate limit; the saved report is the first, complete run (no error cells). A `--only` filter and a `--raw` dump were added to the script afterwards.
 * Not measured: real roundup posts; model-written versus post-stated headings; the geocoder half of area resolution; a held-out gazetteer evaluation.
 * Backlog: IDEA-081 reference added; checker count unchanged (69). No product code was changed.
+
+---
+
+# Addendum 11 (2026-10-19, eleventh discussion): a read-only production check, run on the user's machine, result passed back
+
+Decision taken: the production check will run in a **local** Claude Code session (or the user's terminal); the result comes back to this session through the chat or through git. Runbook: [`prod-readonly/README.md`](./prod-readonly/README.md). Code: `prod-readonly-check.ts`, `prod-ro-env.ts`, `readonly-policy.ts`, `scratch-guard.ts`. Total offline tests: **250**.
+
+## K1. A flaw in my first version, found before anyone ran it
+
+The first version of the check took `DATABASE_URL` from `loadBackendEnv()`. That loader runs **at import time** (the app's db client imports it) and reads the repository's root `.env` — which, on the user's machine, holds the application's own owner-privileged production URL. If the read-only variable had been forgotten, the check would have connected as the owner and only then refused (the role guard), after one `SELECT`. It now takes its URL **only** from `PROD_RO_DATABASE_URL`, loaded by a preload module imported first; it refuses a missing variable and any user name that does not start with `festgrid_poc_ro`; it masks the host in its report. Verified: with `DATABASE_URL` and a repository `.env` pointing at two other ports, the check dialled only the read-only URL; without the variable, or with a wrong role name, it stopped before any connection; against a scratch PostgreSQL built from the repository's migrations the whole pack ran under the role and the owner role was refused.
+
+## K2. Limits (this addendum)
+
+* Verified on a scratch PostgreSQL only. **Not verified**: Supabase row-level security on these tables, the pooler's handling of `SET LOCAL`, `pg_stat_statements` access, and that production's schema equals the repository's migrations.
+* The hand-back by git puts production aggregates into the repository history; the runbook says so and offers the chat as the alternative.
+* The statement policy is a keyword/function deny-list over single statements, backed by the read-only role and `BEGIN READ ONLY`; it is a belt-and-braces check, not a SQL parser.
+* No product code was changed; backlog IDEA-083 and FIND-090 as registered; checker count unchanged (69).

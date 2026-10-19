@@ -12,11 +12,14 @@
  * The only statements not written here are the two the real resolver emits for the web client's `getEvents` document (anonymous): a SELECT and a
  * count. They are captured, checked by (3), and run again under EXPLAIN (ANALYZE), which EXECUTES them: on production prefer a replica or off-peak.
  *
- *   DATABASE_URL='postgres://festgrid_poc_ro:…@host:port/db' BACKEND_PORT=4001 npx tsx scripts/poc-event-insight/prod-readonly-check.ts [--out report.md] [--no-explain] [--stats]
+ *   PROD_RO_DATABASE_URL='postgres://festgrid_poc_ro:…@host:port/db' npx tsx scripts/poc-event-insight/prod-readonly-check.ts [--label replica] [--out report.md] [--no-explain] [--stats]
+ *
+ * The connection string comes ONLY from PROD_RO_DATABASE_URL (user name must start with festgrid_poc_ro); DATABASE_URL and .env files are never used.
  *
  * Runs on a machine that can reach the database (it needs a raw TCP connection); it is NOT meant for a cloud sandbox. Credentials are read from
  * the process environment and never printed: only host, port and database name are.
  */
+import './prod-ro-env.js'; // first: makes PROD_RO_DATABASE_URL the only connection string any later module can see
 import { writeFileSync } from 'node:fs';
 import { graphql } from 'graphql';
 import postgres from 'postgres';
@@ -67,7 +70,7 @@ async function main() {
   const flag = (n: string) => process.argv.includes(`--${n}`);
   const url = loadBackendEnv().databaseUrl as string;
   const client = postgres(url, { max: 1, prepare: false, connection: { application_name: 'festgrid-poc-readonly' } });
-  const out: string[] = [`# Read-only production check — ${new Date().toISOString().slice(0, 16)}Z`, '', `Target: \`${describeTarget(url)}\` · aggregates only · every statement runs in \`BEGIN READ ONLY\` with a statement timeout`, ''];
+  const out: string[] = [`# Read-only production check — ${new Date().toISOString().slice(0, 16)}Z`, '', `Target: \`${describeTarget(url)}\`${arg('label') ? ` · label given by the person running it: ${arg('label')}` : ''} · aggregates only · every statement runs in \`BEGIN READ ONLY\` with a statement timeout`, ''];
   try {
     const warnings = await guardRole(client);
     for (const w of warnings) out.push(`> **Warning:** ${w}`, '');

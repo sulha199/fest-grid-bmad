@@ -29,9 +29,33 @@ export function assertReadOnlySql(sql: string): void {
   for (const f of FORBIDDEN_FUNCTIONS) if (words.has(f)) throw new Error(`forbidden function: ${f}`);
 }
 
-/** host:port/database only — never the user or password. */
+export const RO_ROLE_PREFIX = 'festgrid_poc_ro';
+
+/**
+ * The only way the production check obtains its connection string: the dedicated variable PROD_RO_DATABASE_URL, never DATABASE_URL and never a
+ * .env file (the backend's env loader reads the repository's .env, which holds the application's own owner-privileged URL). The user name must be
+ * the read-only role of 01-create-readonly-role.sql (a Supabase pooler appends ".<project>" to it).
+ */
+export function readOnlyUrlFromEnv(value: string | undefined): string {
+  if (!value) throw new Error('PROD_RO_DATABASE_URL is not set. The production check never falls back to DATABASE_URL or a .env file: set PROD_RO_DATABASE_URL to the connection string of the read-only role (see prod-readonly/README.md).');
+  let u: URL;
+  try { u = new URL(value); } catch { throw new Error('PROD_RO_DATABASE_URL is not a valid connection string.'); }
+  const user = decodeURIComponent(u.username);
+  if (!user.startsWith(RO_ROLE_PREFIX)) throw new Error(`PROD_RO_DATABASE_URL must use the read-only role (user name starting with "${RO_ROLE_PREFIX}"), not "${user.slice(0, 12)}…". Create it with prod-readonly/01-create-readonly-role.sql.`);
+  return value;
+}
+
+/** Hides the identifying part of a hosted address (project reference, account id): keeps the last two labels of a name, the last octet of an IPv4. */
+export function maskHost(host: string): string {
+  if (['localhost', '127.0.0.1', '[::1]'].includes(host)) return host;
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) return `x.x.x.${host.split('.')[3]}`;
+  const labels = host.split('.');
+  return labels.length <= 2 ? host : [...labels.slice(0, -2).map(() => '*'), ...labels.slice(-2)].join('.');
+}
+
+/** port/database and a masked host — never the user or the password. */
 export function describeTarget(url: string): string {
-  try { const u = new URL(url); return `${u.hostname}${u.port ? ':' + u.port : ''}${u.pathname}`; } catch { return '(unparseable url)'; }
+  try { const u = new URL(url); return `${maskHost(u.hostname)}${u.port ? ':' + u.port : ''}${u.pathname}`; } catch { return '(unparseable url)'; }
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------------

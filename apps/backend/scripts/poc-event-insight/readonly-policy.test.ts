@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { assertReadOnlySql, describeTarget, PACK, SENSITIVE_TABLES, STATS_ITEM, stripLiteralsAndComments } from './readonly-policy.js';
+import { assertReadOnlySql, describeTarget, maskHost, PACK, readOnlyUrlFromEnv, SENSITIVE_TABLES, STATS_ITEM, stripLiteralsAndComments } from './readonly-policy.js';
 
 const ok = (s: string) => assert.doesNotThrow(() => assertReadOnlySql(s), s);
 const bad = (s: string, why?: RegExp) => assert.throws(() => assertReadOnlySql(s), why ?? /./, s);
@@ -52,8 +52,30 @@ test('the pack is read-only, aggregate-only and never names a user-data table or
   }
 });
 
-test('describeTarget shows host, port and database only', () => {
-  assert.equal(describeTarget('postgres://festgrid_poc_ro:s3cret@db.abcd.supabase.co:5432/postgres'), 'db.abcd.supabase.co:5432/postgres');
-  assert.ok(!describeTarget('postgres://u:s3cret@h:1/d').includes('s3cret'));
+test('describeTarget shows a masked host, port and database only', () => {
+  assert.equal(describeTarget('postgres://festgrid_poc_ro:s3cret@db.abcdefgh.supabase.co:5432/postgres'), '*.*.supabase.co:5432/postgres');
+  assert.ok(!describeTarget('postgres://u:s3cret@h.example.com:1/d').includes('s3cret'));
+  assert.equal(describeTarget('postgres://festgrid_poc_ro@127.0.0.1:54330/bench'), '127.0.0.1:54330/bench');
   assert.equal(describeTarget('garbage'), '(unparseable url)');
+});
+
+test('maskHost hides project references and all but the last octet of an address', () => {
+  assert.equal(maskHost('aws-0-ap-southeast-1.pooler.supabase.com'), '*.*.supabase.com');
+  assert.equal(maskHost('db.example.org'), '*.example.org');
+  assert.equal(maskHost('example.org'), 'example.org');
+  assert.equal(maskHost('10.20.30.40'), 'x.x.x.40');
+  assert.equal(maskHost('localhost'), 'localhost');
+});
+
+test('the connection string comes only from PROD_RO_DATABASE_URL, and only for the read-only role', () => {
+  assert.throws(() => readOnlyUrlFromEnv(undefined), /never falls back to DATABASE_URL or a \.env file/);
+  assert.throws(() => readOnlyUrlFromEnv(''), /not set/);
+  assert.throws(() => readOnlyUrlFromEnv('not a url'), /not a valid connection string/);
+  assert.throws(() => readOnlyUrlFromEnv('postgres://postgres:pw@db.x.supabase.co:5432/postgres'), /must use the read-only role/);
+  assert.throws(() => readOnlyUrlFromEnv('postgres://service_role.abcd:pw@h:6543/postgres'), /must use the read-only role/);
+  const ok = 'postgres://festgrid_poc_ro:pw@db.x.supabase.co:5432/postgres';
+  assert.equal(readOnlyUrlFromEnv(ok), ok);
+  const pooled = 'postgres://festgrid_poc_ro.abcdefgh:pw@aws-0-region.pooler.supabase.com:6543/postgres';
+  assert.equal(readOnlyUrlFromEnv(pooled), pooled, 'a Supabase pooler appends the project reference to the user name');
+  try { readOnlyUrlFromEnv('postgres://postgres:hunter2@h:1/d'); assert.fail('should throw'); } catch (e) { assert.ok(!(e as Error).message.includes('hunter2')); }
 });
