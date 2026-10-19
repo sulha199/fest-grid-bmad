@@ -24,6 +24,8 @@ The cloud sandbox reaches the internet through an HTTPS proxy that **does not ca
 
 ## Doing it with a local Claude Code session, and passing the result back to the cloud session
 
+> **2026-10-19:** the current brief for the local session (three checks: the corrected pack, the recall split, the optional Geoapify probe) is [`local-session-brief-2026-10-19.md`](./local-session-brief-2026-10-19.md); the prompt below is the original single-check version.
+
 There is no channel I can rely on from your machine into the cloud session; the two reliable hand-offs are the chat and git.
 
 **Prepare (once, in your terminal):**
