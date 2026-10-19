@@ -2497,7 +2497,7 @@ items:
      title: "Duplicate events: sweep the legacy pairs, let stub pairs reach the candidate threshold, work the moderator queue",
      ref: [backlog/IDEA-085-duplicate-events-sweep-stub-scoring-queue.md, planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/prod-findings-review-2026-10-19.md],
      touches: [app:backend, pkg:database, web:events, web:moderation],
-     note: "Stories 3.6v and 3.6w are built (review) but event_merges has 0 rows and 147 candidates are pending, 75 older than 7 days. Scope: sweep + stub scoring + queue. Round 2: reachable-pair recall 23/178; stub pairs without a link 0/122 (confirmed); 29 both-full pairs unexplained (replay next); 160 legacy."}
+     note: "Stories 3.6v/3.6w are built (review) but event_merges has 0 rows and 147 candidates are pending, 75 older than 7 days. Scope: sweep + stub scoring + queue. Round 2: reachable-pair recall 23/178; stub pairs without a link 0/122 (confirmed); 29 full-event pairs unexplained (replay next); 160 legacy."}
 
   IDEA-084:
     {type: idea, status: backlog, created: 2026-10-19,
