@@ -2,7 +2,7 @@
 title: "Architecture Spine: FestDaily"
 status: "draft"
 created: "2026-07-20T09:34:00Z"
-updated: "2026-10-18T00:00:00Z"
+updated: "2026-10-19T00:00:00Z"
 ---
 
 # Architecture Spine: FestDaily
@@ -2193,6 +2193,169 @@ This document defines the core architectural invariants for the FestDaily applic
     and a meta redirect inside one, throws `NEXT_REDIRECT`, and does not preserve the query string
     (Next.js docs, 2026-10-18; repo pins `next ^15.1.3`). Precedent for page-level canonical
     redirects: AD-16 / Story 3.6v in `events/[slug]/page.tsx`, which uses the 307 `redirect`.
+
+---
+
+### AD-36: Event Groups — Named-Programme Entity, Tiered Anchor Detection, Non-Blocking Moderator Review
+
+*   **Binds:** `packages/database/schema.ts` (new `event_groups` table, new `events.group_id`
+    nullable FK); the group-suggestion pipeline (new); `mergeEvents()`/`undoEventMerge` (AD-30 Rule
+    9, Stories 3.6v/3.6w); Moderator Tools (PRD §3.9.3); AD-30 Rule 5 / FR113's `program-lineup`
+    branch (reopened as a **plan**, Rule 6 below); IDEA-084 (event groups), IDEA-085 (matcher
+    recall), BUG-068 (`location_details` JSON-string encoding) and the PRD §3.7 "Default Location:
+    Immediate Apply with Moderator Oversight" convention this AD reuses. Evidence:
+    `planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md`
+    (production read-only snapshot, 2026-10-19).
+*   **Prevents:** Two representations of "this event belongs to a named programme" (ad hoc
+    title-parsing at render time, vs a real relation someone can query and moderate); a group model
+    that cannot express a cross-account member (the SCH *8th Anniversary* keyword spans
+    `slemancityhall`, `tirta_lie`, `sarangbuah.id` — no shared post, no shared account) or an
+    umbrella-less tournament (only children, no anchor row); grouping running over unmerged
+    duplicates and producing groups of copies; a group-based location inherited from an anchor whose
+    own `location_details` is unverified-shape data; a pre-approval gate for group suggestions that
+    contradicts the spine's existing non-blocking-review convention; two independent rewrites of the
+    `program-lineup` extraction shape (this AD's plan vs whatever IDEA-074's branch does on its own).
+*   **Rule:**
+    1.  **Schema — a group entity, not a second merge and not a schedule.** A group is "these
+        distinct events belong to one named programme"; a merge is "these rows are one event"
+        (AD-30); a schedule is "this event has several dates." The three stay separate mechanisms.
+        ```mermaid
+        erDiagram
+          event_groups ||--o{ events : "group_id (nullable)"
+          events }o--o| events : "anchor_event_id (nullable, within event_groups)"
+        ```
+        - `event_groups(id, name, anchor_event_id uuid null FK events ON DELETE SET NULL,
+          window_start date null, window_end date null, confidence_tier
+          group_confidence_tier_enum, source group_source_enum, status
+          group_status_enum default 'active', created_at)`.
+        - `events.group_id uuid null FK event_groups ON DELETE SET NULL` — **one group per event**
+          (a nullable scalar FK, not a join table): the write-up's option A fit note and every
+          observed case (SCH, VICTORIA TOURNAMENT, Logolepsy 2026) show one programme per event: no
+          case for an event in two programmes at once was found, so a join table is not justified
+          yet. Revisit only if a real two-programme case turns up.
+        - `group_confidence_tier_enum`: `title_pattern | keyword_organizer | extraction_field |
+          moderator`. `group_source_enum` mirrors it (records which tier produced the group, for
+          the moderator-review surface and for measuring tier-2 precision post-launch — §9 flags
+          this as currently unmeasured). `group_status_enum`: `active | dissolved` (Rule 5).
+        - Closed sets declared once in `packages/domain`, persisted as `pgEnum` — same convention as
+          AD-30's `grouping_reason`/`detail_level`.
+    2.  **Cross-account membership is free, not a special case.** Membership is keyed by
+        `events.group_id`, not by account or by a shared post/association row — an event from any
+        account can join a group regardless of who posted it. `[ADOPTED, settled — not a fork]`:
+        the write-up already demonstrates this is required (§4), and nothing in the schema above
+        constrains a member's account.
+    3.  **Anchor detection — three tiers, in the precision order §5 measured.**
+        - **Tier 1 — `title_pattern`.** Same-account title "Umbrella - Child" with 2+ distinct
+          children. Measured: 17 groups, 52 events, spot-checked all genuine (§5). The only tier
+          with measured precision.
+        - **Tier 2 — `keyword_organizer`.** A keyword anchor plus its organizer (e.g. "8th
+          Anniversary" + Sleman City Hall), suggesting children inside the anchor's window that
+          share its venue and either a shared post or a schedule-title match (write-up §7's tier-2
+          combination). **Precision is NOT measured** (§9) — good anchor finder, unproven child
+          finder (1 of 21 SCH children carried the keyword, §4).
+        - **Tier 3 — `extraction_field` / `moderator`.** Reserved enum values for (a) a future
+          extraction field naming the programme a post belongs to (not built — no story exists yet;
+          this AD only reserves the slot) and (b) a moderator creating or editing a group by hand.
+          No precision claim possible for either; `extraction_field` has never run.
+    4.  **Confirmation policy — immediate-apply, notify-don't-block.** `[ADOPTED, user-directed,
+        modified from the tier-gated recommendation]`: every tier writes the group/membership
+        immediately; **nothing in ingestion, matching or display waits on a moderator.** This
+        reuses PRD §3.7's "Default Location: Immediate Apply with Moderator Oversight" posture
+        rather than inventing a new pre-approval gate. Tier 2 and Tier 3 suggestions generate a
+        moderator notification; Moderator Tools (§3.9.3) gains a "review group" action — detach a
+        wrongly-suggested child, rename, or dissolve the group (Rule 5) — which is a **revert**,
+        never a block. `[ASSUMPTION]` Tier 1 also notifies, at lower priority than Tier 2/3, since
+        even a precise signal can mis-group (two accounts could reuse an "Opening - Day 1" style
+        title); confirm at story time whether Tier 1 needs a notification at all.
+    5.  **Group edits are reversible, not a hard delete** — same undo convention as AD-30 Rule 9's
+        merge journal. Detaching a member, renaming, or dissolving a group (`status: 'dissolved'`)
+        is logged and reversible; dissolving never deletes the member events or their own data. The
+        exact journal shape (a new table vs. riding on `event_groups.status` transitions) is left to
+        story time — not a spine-level fork.
+    6.  **`program-lineup` reshape — a committed plan, not built this session.** `[ADOPTED,
+        user-directed, PLAN-ONLY]`: AD-30 Rule 5 item 3 / FR113's `program-lineup` branch today
+        keeps a programme's items as **schedules** of one event, which hides each one from listing,
+        filters and the calendar (write-up §7(a) — this is exactly what hides SCH's own programme).
+        This AD commits the target shape: `program-lineup` items become real, visible child
+        **events** with `group_id` set, under an anchor detected the same way as Rule 3. **This is
+        marked pending-supersession of AD-30 Rule 5 item 3, not a rewrite of it now** — the
+        extraction contract, ingestion shape and migration are **not changed in this pass**.
+        Current production behavior (hidden schedules) stays in force until delivered. Per the
+        user: "we only make the plan now, but the implementation will be done together along with
+        the personalization works that is in this branch" (IDEA-074 and its dependents) — so this
+        reshape is sequenced with that branch's work, not scheduled independently.
+    7.  **Merge interaction (`event_merges`, AD-30 Rule 9, Stories 3.6v/3.6w).** A merge must stay
+        correct for a grouped event without blocking deduplication:
+        - The winner keeps its own `group_id` if already set.
+        - If the winner's `group_id` is null and the loser's is not, the winner **inherits** the
+          loser's `group_id` — a merge means "same real event," so group membership must not be
+          silently lost (same spirit as AD-30 Rule 9's link-preservation rule).
+        - If both carry **different**, non-null `group_id`s, the merge still **proceeds**
+          (deduplication must never block on a group conflict) keeping the winner's `group_id`, and
+          queues a moderator notification flagging the conflict — non-blocking, same posture as
+          Rule 4. The system does not guess which group is right.
+        - `undoEventMerge` restores the pre-merge `group_id` exactly as it restores every other
+          field AD-30 Rule 9 names — one more column riding the existing merge journal row, not a
+          new mechanism.
+    8.  **Distinct from Related Events (`Query.relatedEventIds`, AD-30 Rule 11, Story 3.6u).**
+        `relatedEventIds` means "linked by a shared post"; a group means "linked by a named
+        programme," independent of any shared post. The two can and do disagree — SCH's
+        "road-to" events (Jogja Otomotif Show #8, Tirta Lie's Bakmi Festival) are keyword-tagged by
+        caption mention without being programme children, and a group member need not share a post
+        with any other member. No shared implementation; both may surface as separate affordances
+        on the event-detail page.
+    9.  **Location inheritance is gated behind BUG-068 — a hard sequencing rule, not a preference.**
+        A child event missing a location MAY eventually inherit its anchor's venue, but this
+        **must not ship** before `schedules.location_details`'s JSON-string storage (BUG-068) is
+        fixed and reverified on production. Shipping earlier risks propagating a double-encoded or
+        (BUG-066) wrong-country value to every ungrounded child. This AD reserves the behavior; it
+        does not build it.
+    10. **Deduplication-first is a hard sequencing rule, not a preference.** Grouping must not run —
+        not even Tier 1 — over the **existing backlog** of unmerged duplicate events: the write-up's
+        §6/§7 conclusion is that doing so "builds groups of copies." **IDEA-085 (raise the
+        matcher's recall, clear the 147-candidate/75-stale-day moderator queue) must ship and be
+        verified** (`event_merges` > 0 rows, recall measurably above the observed 5%) **before
+        IDEA-084 processes the existing event backlog.** `[ASSUMPTION]` going-forward grouping of
+        newly-ingested events is not held to the same gate, since AD-30's write-path matching
+        (Rule 7) already reduces, though does not eliminate, new duplicates — confirm this
+        backfill-vs-going-forward split at story time if a stricter "pause everything" reading is
+        wanted instead.
+    11. **What's measured and what isn't (write-up §9 — carried forward, not re-claimed as
+        settled).** Measured: Tier-1 precision (§5, spot-checked genuine); Tier-2 as an
+        anchor/road-to-event finder but not as a children finder (§4); matcher recall (5%, 23/446,
+        §6); `location_details` double-encoding prevalence (1,460/1,460 rows, §3). **Not measured:**
+        Tier-2 precision as a general rule (whether another organizer's generic phrase, e.g. a bare
+        "anniversary," produces false groups); the double-encoding **mechanism** (candidate: the
+        pooler's `prepare: false` path — a hypothesis, not a fact); the plan/cost of the production
+        list query; anything beyond this one ~7-week snapshot.
+*   **Considered and rejected:** Option B, reusing Story 3.6u's related events (shared-post-only,
+    cannot express a cross-post or cross-account group); Option C, `parent_event_id` on `events`
+    (requires the umbrella to exist as its own event — fails for an umbrella-less tournament); a
+    pre-approval gate for Tier-2/3 suggestions (rejected by user decision as inconsistent with the
+    spine's existing immediate-apply-with-oversight convention); a `group_id` join table for
+    multi-group membership (no observed case justifies it yet, Rule 1).
+*   **Deferred:** the group-review journal's exact shape (Rule 5); whether Tier 1 also notifies
+    moderators (Rule 4's `[ASSUMPTION]`); the Tier-3 `extraction_field` anchor itself (reserved, not
+    built — no story yet); the `program-lineup` reshape's migration and extraction-contract rewrite
+    (Rule 6) — its own architecture/story pass, timed with the IDEA-074 branch; whether
+    `event_groups` needs a dedicated undo-toast UI beyond the moderator "review group" action; the
+    backfill-vs-going-forward dedup-gate split (Rule 10's `[ASSUMPTION]`).
+*   **Follow-ups this AD creates (for `bmad-form-epics` to cluster):**
+    1.  **IDEA-084 core** — `event_groups` schema, the Tier-1/Tier-2 suggestion pipeline, the
+        non-blocking moderator notification + "review group" action (Rules 1–5).
+    2.  **Merge/group reconciliation** — the small addition to `mergeEvents()`/`undoEventMerge`
+        (Rule 7); naturally rides with Stories 3.6v/3.6w's existing surface.
+    3.  **`program-lineup` reshape** — the AD-30 Rule 5 amendment itself plus its migration and
+        extraction-contract change (Rule 6); sequence with the IDEA-074 personalization branch per
+        the user's explicit instruction, not as a standalone epic.
+    4.  **Group-based location inheritance** — a distinct, later idea gated behind BUG-068's fix and
+        reverification (Rule 9); do not bundle into the IDEA-084 core epic.
+    5.  **IDEA-085 (prerequisite)** — matcher recall + moderator-queue clearing; must land and be
+        verified before IDEA-084 runs against the existing event backlog (Rule 10).
+    6.  **BUG-068 (prerequisite)** — fix the `location_details` JSON-string encoding and verify the
+        mechanism; gates follow-up 4.
+    7.  **Tier-3 extraction-field anchor** — a new idea, not yet in the backlog; an AI-extraction
+        contract change, candidate for its own `IDEA-0xx` row when the team is ready to schedule it.
 
 ---
 
