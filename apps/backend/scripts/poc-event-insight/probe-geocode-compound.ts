@@ -102,7 +102,7 @@ export function requestPlan(cases: CompoundCase[] = CASES): Array<{ query: strin
   return out;
 }
 
-interface Hit { country_code?: string; formatted?: string; rank?: { confidence?: number; match_type?: string } }
+interface Hit { country_code?: string; formatted?: string; rank?: { confidence?: number; confidence_city_level?: number; confidence_street_level?: number; match_type?: string } }
 const arg = (n: string) => { const i = process.argv.indexOf(`--${n}`); return i >= 0 ? process.argv[i + 1] : undefined; };
 
 async function main() {
@@ -118,12 +118,12 @@ async function main() {
     const hits = ((await res.json()) as { results?: Hit[] }).results ?? [];
     answers.set(`${r.strategy}|${r.query}`, pickByConfidence(hits) ?? null);
   }
-  const rows = ['| stored text | variant | query sent | strategy | picked | country | confidence |', '|---|---|---|---|---|:-:|--:|'];
+  const rows = ['| stored text | variant | query sent | strategy | picked | country | confidence | city level | street level | match type |', '|---|---|---|---|---|:-:|--:|--:|--:|---|'];
   const tally = new Map<string, { n: number; right: number; usable: number }>();
   for (const c of CASES) for (const v of variantsOf(c)) for (const s of STRATEGIES) {
     const a = answers.get(`${s}|${v.query}`);
     const best = a && a !== 'error' ? a : undefined;
-    rows.push(`| ${c.text} | ${v.name} | ${v.query} | ${s} | ${a === 'error' ? 'HTTP error' : best?.formatted ?? '(no result)'} | ${best?.country_code ?? ''} | ${best?.rank?.confidence?.toFixed(2) ?? ''} |`);
+    rows.push(`| ${c.text} | ${v.name} | ${v.query} | ${s} | ${a === 'error' ? 'HTTP error' : best?.formatted ?? '(no result)'} | ${best?.country_code ?? ''} | ${best?.rank?.confidence?.toFixed(2) ?? ''} | ${best?.rank?.confidence_city_level?.toFixed(2) ?? ''} | ${best?.rank?.confidence_street_level?.toFixed(2) ?? ''} | ${best?.rank?.match_type ?? ''} |`);
     if (c.expectCountry) {
       const t = tally.get(`${v.name} / ${s}`) ?? { n: 0, right: 0, usable: 0 };
       t.n++; if (best?.country_code === c.expectCountry) { t.right++; if ((best.rank?.confidence ?? 0) >= 0.5) t.usable++; }

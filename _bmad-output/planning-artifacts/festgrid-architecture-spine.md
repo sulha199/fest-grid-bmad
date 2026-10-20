@@ -475,7 +475,10 @@ This document defines the core architectural invariants for the FestDaily applic
         geocoder matches the generic word. `[ASSUMPTION]` the qualifier rule is confirmed by Round 3
         item 10 (`probe-geocode-compound.ts`, not yet run); the non-place rule is not an
         assumption.
-    *   **Deferred (AD-14 amendment):** the floor value; the gazetteer-first routing of area phrases
+    *   **Deferred (AD-14 amendment):** the floor value and the `full_match` clause, calibrated on a
+        person-labelled sample of pins (Round 3 item 14, `pin-trust-sample.sql` and
+        `score-pin-trust-labels.ts`) and the compound-text probe (item 10), not on the Round 2
+        histograms alone, which cannot say which pins are right; the gazetteer-first routing of area phrases
         ("DIY & Jawa Tengah" answered with a PLN office at 0.66) belongs to AD-39 and IDEA-081.
 
 ---
@@ -2609,8 +2612,9 @@ This document defines the core architectural invariants for the FestDaily applic
           with K; **keep K at or below 3,000**. The script and output are to be stored under
           `event-insight-poc/results/` (Round 3).
     14. **Notifications — one per (group, source post)** (added 2026-10-19). `[ADOPTED, user-directed:
-        one per group and post, sent after a short delay; the mechanism is PROPOSED, because the
-        SQS delay the user confirmed does not fit the shipped queue topology]`
+        one per group and post, sent after a short delay; mechanism user-confirmed 2026-10-20: a
+        database due time claimed by the existing drain, because the SQS delay does not fit the
+        shipped queue topology]`
         - A grouped event does not notify on its own. One notification is sent per `(group, source
           post)`: a later post that adds members to an existing group notifies once for those
           members. An ungrouped event notifies per event, as today. **This replaces the PRD rule
@@ -2727,7 +2731,9 @@ This document defines the core architectural invariants for the FestDaily applic
     backfill-vs-going-forward dedup-gate split (Rule 10's `[ASSUMPTION]`). Added 2026-10-19: the
     values of `GAP`, `k`, the programme penalty and the due delay (Rules 12–14), to calibrate after
     Round 3 item 13 and a shadow run of Discovery; the group-surface UX (Rule 15); the carrier of the
-    moderator notifications of Rules 4 and 7 (no channel exists; the queue resolved nothing so far);
+    moderator notifications of Rules 4 and 7: today a moderator is emailed for only five event types
+    (dangerous report, default-location change, two scraper alerts) and nothing reaches them about
+    queue items (BUG-069, IDEA-090), so "review after the fact" depends on IDEA-090;
     `posts.extracted_event_count` stays the pre-split count, and "See all N events" reads
     `relatedEventIds` (AD-30 Rule 11).
 *   **Follow-ups this AD creates (for `bmad-form-epics` to cluster):**
@@ -3165,24 +3171,45 @@ This document defines the core architectural invariants for the FestDaily applic
           (`model | moderator`) and written only by one `setAudienceArea()` that records a change
           row. A location-less curator event inherits it, with `location_source =
           account_audience_area` and precision `AREA`.
-          **How the area is found.** `[ADOPTED, user-directed 2026-10-20]` Profile enrichment
-          proposes it: Gemini names the areas the account serves (`reachAreas`, each with verbatim
-          evidence from the bio, name or recent captions), a deterministic guard drops any area not
-          in the input, and the **gazetteer** resolves the names to keys (an ambiguous name such as
-          "Yogyakarta", city or province, takes the widest candidate `[ASSUMPTION]`, so a wrong
-          guess lands in the partial lane instead of hiding the event). **When an area was resolved
-          this way, moderator review is not a blocker**: the AI path may confirm `CURATOR_GUIDE`
-          and a moderator corrects the area afterwards (the AD-36 Rule 4 posture). **When none was
-          resolved** (no place named, nothing resolved, the guard dropped everything) the account
-          stays `AWAITING_APPROVAL` until a moderator sets one (AD-34 does not scrape that status;
-          the scrape-gate function is unchanged). Curators already `CONFIRMED` keep being scraped;
-          their events are `unknown` until an area is set.
+          **How the area is found.** `[ADOPTED, user-directed 2026-10-20: a model guess, validated
+          by the account's first posts, never Geoapify; the table is PROPOSED]` Two sources, both
+          resolved through the gazetteer (an ambiguous name such as "Yogyakarta", city or province,
+          takes the widest candidate `[ASSUMPTION]`, so a wrong guess lands in the partial lane
+          instead of hiding the event). **P, the profile:** Gemini names the areas the account
+          serves (`reachAreas`, each with verbatim evidence from the bio, name or captions), and a
+          guard drops any area not in the input. **Q, the first posts:** each of the account's
+          first extracted posts has an audience area (the post-level extraction, same guards); Q is
+          the narrowest area that contains the areas of at least `M` of the first `N` posts, never
+          the country (start values `N = 5`, `M = 3`, `[ASSUMPTION]`).
+
+          | P | Q | audience area | `audience_area_source` |
+          |---|---|---|---|
+          | resolved | consistent (every post area inside P) | P | `model` |
+          | resolved | contradicts (post areas outside P) | Q if it exists, else unresolved | `posts` / none |
+          | resolved | not available yet | P, provisional | `model` |
+          | none | resolved | Q | `posts` |
+          | none | none | unresolved | none |
+
+          It is re-validated after each of the first `N` posts and again at `N`: a provisional or
+          model area that the posts contradict becomes Q, or unresolved.
+          **Type confirmation and scraping never wait for the area.** `[ADOPTED, user-directed
+          2026-10-20]` A curator is safe to scrape and extract whether or not an area is known: the
+          area is a separate field, the AD-34 gate is unchanged, and no new curator is held in
+          `AWAITING_APPROVAL` for lack of one.
+          **When no area was resolved** and the event states none either, the event is
+          **published** with `area_status = unknown` (default tier, ranking penalty, per-page cap;
+          Rule 4), and the account is listed for a moderator to set an area (the backstop, not the
+          mechanism). `[PROPOSED: publish rather than hold. Moderators resolved 0 of 147 queued
+          candidates and receive no notification about queue items today (BUG-069), so a hold
+          would be indefinite and silent.]` An event that states its own area or venue keeps it
+          (`area_source = stated` or `pin`); only an event with no clue at all is `unknown`.
+          Moderator review of a model- or posts-derived area happens after the fact.
           **Evidence, and its limits.** The POC profile test (18 profiles, 3 runs each, one real
           curator) never named a wrong country or zone (0 of 54) and returned a region for the real
           curator in 3 of 3 runs, but the areas varied by run (a city, the province, a city plus
           Central Java), and the sample is far too small for a rate. Hence the area is a proposal a
-          moderator can correct, and a real-curator evaluation is the gate for confirming without
-          review (Deferred). For the 463 of the 466 legacy accounts that have no default location
+          moderator can correct, and a real-curator evaluation is the gate for trusting it without
+          that pass (Deferred). For the 463 of the 466 legacy accounts that have no default location
           (IDEA-075 bulk update) the same enrichment runs; where it resolves nothing the area stays
           unset. Setting an area re-queues that account's `unknown` events once.
         - **Venue accounts:** the account's default location may serve as the event's place (and its
@@ -3284,7 +3311,7 @@ This document defines the core architectural invariants for the FestDaily applic
 *   **Deferred:** the pin-trust floor and the `full_match` question (AD-14); a **real-curator
     evaluation of the area guess** (the stored profiles of the 17 curators and a sample of the
     legacy 463 through the profile-insight prompt and the gazetteer, compared with a person's
-    judgement) before the AI path confirms a curator without review; the gazetteer's data
+    judgement) before the model-derived area is trusted without a moderator pass; the gazetteer's data
     source, licence and coverage beyond the POC's sample list (versioned data file, Indonesia-only
     first); **audience-area inheritance by group members** (a child with no stated area taking its
     group's, AD-36 Rule 9; no coordinates involved, so not gated by BUG-068); deriving a schedule's
@@ -3294,7 +3321,7 @@ This document defines the core architectural invariants for the FestDaily applic
     1.  **IDEA-087 core** — the provenance fields, `area_*`, the area-key resolver, the gazetteer
         file, `resolveEventPlace()` and the single writers (Rules 1–3, 7).
     2.  **Curator audience area** — `audience_area_keys`, `setAudienceArea()`, the
-        `CONFIRMED` rule on both paths, the legacy derivation and the removal of the account-
+        P/Q validation, the legacy derivation and the removal of the account-
         default fallback for curators (Rule 3; BUG-065, IDEA-075), and the real-curator evaluation
         that gates confirming without review.
     3.  **Derive and switch** — the Rule 7 job and the reader flip, after AD-37's row migration.

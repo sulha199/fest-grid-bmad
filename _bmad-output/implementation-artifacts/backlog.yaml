@@ -2334,7 +2334,7 @@ items:
      title: "Curator events fall back to the curator's account location; inference gives it an arbitrary place",
      ref: [backlog/BUG-065-curator-events-fall-back-to-account-location.md, apps/backend/src/lib/ai-processor/resolve-account-and-locations.ts],
      touches: [app:backend, pkg:domain, web:accounts, web:locations, cross:ai-extraction, cross:prd],
-     note: "Curator: 12 posts, 12 places, all applied. Production 2026-10-19: 11 of 17 curators hold a default; clear after the code gate. Decided (AD-39 Rule 3): never Geoapify; Gemini names the area, the gazetteer resolves it, moderator review not a blocker when resolved."}
+     note: "Curator: 12 posts, 12 places, all applied. 11 of 17 curators hold a default; clear after the code gate. Decided (AD-39 Rule 3): never Geoapify; Gemini + gazetteer, validated by the first posts; scraping never waits; unresolved events publish as unknown."}
 
   BUG-066:
     {type: bug, status: backlog, created: 2026-10-18,
@@ -2538,3 +2538,19 @@ items:
      ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md],
      touches: [app:backend, pkg:domain, cross:ai-extraction, cross:architecture, cross:prd],
      note: "Decided 2026-10-19 (AD-38 Rule 2, AD-36 Rule 6). Needs an extraction-contract criterion for distinct activities vs one activity on several dates (the PRD uses program-lineup for both) and an isRoute field. 47 production program-lineup posts; about +10% events (estimate)."}
+
+  BUG-069:
+    {type: bug, status: backlog, created: 2026-10-20,
+     impact: user-visible, effort: s, blocks: [IDEA-090],
+     title: "A moderator receives no email or push notification (PWA installed); failed sends are silent",
+     ref: [backlog/BUG-069-moderators-receive-no-email-or-push.md, apps/backend/src/lib/notifications/get-moderators.ts, apps/backend/src/lib/email/adapter.ts, apps/web/src/lib/push-notifications.ts],
+     touches: [app:backend, app:infrastructure, web:moderation, web:settings, cross:notifications],
+     note: "Reported by the owner: a moderator gets no email or push. From code: push never goes to moderators by design; 5 email types only, none for queue items; failed sends are silent. SES config, sandbox and role are unverified; owner checklist and count SQL in the note."}
+
+  IDEA-090:
+    {type: idea, status: backlog, created: 2026-10-20,
+     impact: user-visible, effort: m,
+     title: "Moderator work-queue notifications: a digest email and a push for pending items, with delivery failures recorded",
+     ref: [backlog/BUG-069-moderators-receive-no-email-or-push.md, planning-artifacts/festgrid-architecture-spine.md],
+     touches: [app:backend, pkg:domain, web:moderation, web:settings, cross:notifications, cross:prd],
+     note: "Decided direction 2026-10-20 (AD-36 Rules 4 and 7 depend on it): a digest email and a push to moderators for pending queue items (candidates, corrections, reports, group suggestions, curators without an area); today only 5 event types are emailed. Needs BUG-069 first."}
