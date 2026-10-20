@@ -39,6 +39,7 @@ import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError, p
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
 import { verifyAccountProfileForDiscovery } from '../lib/accounts/verify-account-profile-for-discovery.js';
 import { triggerScrapeForAccount } from '../lib/scraper/trigger-scrape-for-account.js';
+import { decideInitialOrIncrementalNewerThan } from '../lib/scraper/decide-initial-or-incremental-scrape.js';
 import { decryptApiKey, encryptApiKey } from '../lib/ai-gateway/kms.js';
 import { verifyGeminiApiKey } from '../lib/ai-gateway/gemini-client.js';
 import { VendorCallTimeoutError } from '../lib/vendor-gateway/guarded-call.js';
@@ -86,6 +87,15 @@ function formatFilterValidationIssues(issues: FilterValidationIssue[]): string {
 export let eventsAuthProbe = requireAuth;
 export function setEventsAuthProbe(fn: typeof requireAuth): void {
   eventsAuthProbe = fn;
+}
+
+// Test seam for Part 3's moderator-resolution first-scrape trigger (resolveAccountTypeClassificationReview,
+// 2026-10-20) -- lets a test assert "triggered exactly once" / "trigger failure doesn't fail the
+// mutation" deterministically without a real Apify/queue round trip. Defaults to the real
+// triggerScrapeForAccount; production behavior is unchanged.
+export let triggerFirstScrapeAfterModeratorResolutionSeam = triggerScrapeForAccount;
+export function setTriggerFirstScrapeAfterModeratorResolutionSeam(fn: typeof triggerScrapeForAccount): void {
+  triggerFirstScrapeAfterModeratorResolutionSeam = fn;
 }
 
 function formatAjvInstancePath(instancePath: string, missingProperty?: string): string {
@@ -678,18 +688,17 @@ export const resolvers: Resolvers = {
         });
       }
 
-      // 3. Re-check isScrapeInProgress server-side
+      // 3. Re-check isScrapeInProgress server-side (shared with Subscription.activityState via
+      // computeIsScrapeInProgress -- see AD-34-adjacent decide-initial-or-incremental-scrape.ts
+      // for the other half of this shared decision, also used by the moderator-resolution
+      // scrape trigger below).
       const env = loadBackendEnv();
       const scrapeInProgressTimeoutHours = parseInt(env.scrapeInProgressTimeoutHours || '3', 10);
-      const timeoutMs = scrapeInProgressTimeoutHours * 60 * 60 * 1000;
-      const scrapeTimeoutBoundary = new Date(Date.now() - timeoutMs);
 
-      let isScrapeInProgress = false;
-      if (profile.scrapeTriggeredAt && profile.scrapeTriggeredAt > scrapeTimeoutBoundary) {
-        if (profile.lastScrapedAt === null || profile.lastScrapedAt < profile.scrapeTriggeredAt) {
-          isScrapeInProgress = true;
-        }
-      }
+      const isScrapeInProgress = computeIsScrapeInProgress(
+        { scrapeTriggeredAt: profile.scrapeTriggeredAt, lastScrapedAt: profile.lastScrapedAt },
+        scrapeInProgressTimeoutHours
+      );
 
       if (isScrapeInProgress) {
         throw new GraphQLError('Scrape already in progress for this account.', {
@@ -698,33 +707,7 @@ export const resolvers: Resolvers = {
       }
 
       // 4. Decide branch: count posts to determine if initial or incremental
-      const postCountRows = await db.select({ count: count() })
-        .from(posts)
-        .where(eq(posts.accountId, accountId));
-
-      const postCount = postCountRows[0]?.count ?? 0;
-      let isInitialScrape = false;
-      let newerThan: string;
-
-      if (postCount === 0) {
-        // Initial scrape: 7 days ago
-        isInitialScrape = true;
-        newerThan = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      } else {
-        // Incremental: from the most recent post
-        const mostRecentRows = await db.select({ publishedAt: posts.publishedAt })
-          .from(posts)
-          .where(eq(posts.accountId, accountId))
-          .orderBy(desc(posts.publishedAt))
-          .limit(1);
-
-        if (mostRecentRows.length > 0) {
-          newerThan = mostRecentRows[0].publishedAt.toISOString();
-        } else {
-          // Fallback (shouldn't happen)
-          newerThan = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-        }
-      }
+      const { isInitialScrape, newerThan } = await decideInitialOrIncrementalNewerThan(accountId);
 
       // 5. Build ScrapeTarget and trigger the cascade
       const scrapeTarget = {
@@ -2124,6 +2107,56 @@ export const resolvers: Resolvers = {
 
         return updated;
       });
+
+      // Part 3 (2026-10-20, infokonsermusik follow-up): today the first scrape after a
+      // moderator resolves a classification only happens via a manual trigger or the next daily
+      // batch. Start it here, after the resolution transaction has committed, using the same
+      // gate (AD-34) and the same target shape/initial-window the subscribe-time cascade uses.
+      // A failed trigger must never fail or roll back the resolution -- the daily batch is the
+      // backstop -- so this is deliberately outside the transaction above and swallows its own
+      // errors.
+      if (isScrapableAccountType(accountType, 'CONFIRMED')) {
+        try {
+          const [refreshedProfile] = await db.select({
+            id: socialMediaAccountProfiles.id,
+            platform: socialMediaAccountProfiles.platform,
+            accountId: socialMediaAccountProfiles.accountId,
+            username: socialMediaAccountProfiles.username,
+            scrapeTriggeredAt: socialMediaAccountProfiles.scrapeTriggeredAt,
+            lastScrapedAt: socialMediaAccountProfiles.lastScrapedAt,
+          })
+            .from(socialMediaAccountProfiles)
+            .where(eq(socialMediaAccountProfiles.id, reqRow.accountId));
+
+          if (refreshedProfile) {
+            const env = loadBackendEnv();
+            const scrapeInProgressTimeoutHours = parseInt(env.scrapeInProgressTimeoutHours || '3', 10);
+            const alreadyInProgress = computeIsScrapeInProgress(
+              { scrapeTriggeredAt: refreshedProfile.scrapeTriggeredAt, lastScrapedAt: refreshedProfile.lastScrapedAt },
+              scrapeInProgressTimeoutHours
+            );
+
+            if (!alreadyInProgress) {
+              const { isInitialScrape, newerThan } = await decideInitialOrIncrementalNewerThan(refreshedProfile.id);
+              await triggerFirstScrapeAfterModeratorResolutionSeam(
+                {
+                  profileId: refreshedProfile.id,
+                  platform: refreshedProfile.platform as ScrapablePlatform,
+                  accountId: refreshedProfile.accountId,
+                  username: refreshedProfile.username,
+                  isInitialNewSubscription: isInitialScrape,
+                },
+                newerThan
+              );
+            }
+          }
+        } catch (err) {
+          console.error(
+            `[resolveAccountTypeClassificationReview] Failed to trigger first scrape for account ${reqRow.accountId} after moderator resolution:`,
+            err
+          );
+        }
+      }
 
       return {
         ...updatedRow,
