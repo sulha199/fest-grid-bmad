@@ -325,6 +325,49 @@ the larger lever.**
 for pairs that are not concurrent, and my labels (the posts were not read). Whether hashtags would settle the 0.70 to 0.85
 zone is the next measurement (event-hashtags-for-series-score.sql).
 
+### 4.3 Hashtags and the personalization taxonomy (Round 4 ask 3b, 2026-10-20)
+
+Data: the hashtag export joined to the names export (1,467 of 1,467 rows matched). Hashtags are the primary post's.
+
+**Coverage.** 1,109 events (76%) have hashtags: 74% of venue or organizer accounts, 78% of curators; stubs 82%, full 74%; by first
+date, September 54%, October 85%. 157 events share their post with other events and 145 of those carry the post's tags (a
+roundup's tags describe several events), so they cannot be used for one event. The most common tags are the malls' own
+(`plazaambarrukmo` 160 events, `pakuwonmalljogja` 140, `slemancityhall` 113, `pavilionofjogja` 103), which must be ignored.
+
+**Do tags separate the pairs the name cannot?** On pairs I could label (Buy 1 Get 1 promos by brand, plus the branch-promo
+families from 4.2), counting a "rare" shared tag as one on at most 12 events and ignoring multi-event posts:
+
+| Pair set | Testable pairs | Share a rare tag |
+|---|--:|--:|
+| Different brands, same Buy 1 Get 1 phrase | 48 | 1 (2%): the generic `#buy1get1` |
+| Same brand (Sports Station, SATURDAYS) at different malls | 24 | 2 (8%) |
+| Other real branch-promo families (Wacoal, J.CO, Coffee Day, MAKO, iPhone 18 Pro, ...) | 48 | 17 (35%) |
+| Baseline: other cross-account pairs scoring 0.5 to 0.6 on the name | 244 | 21 (9%) |
+
+Tags keep different brands apart well, but they link same-brand pairs only a third of the time or less: mall accounts tag the
+mall, not the brand (4 of the 8 Sports Station promo posts carry `#sportsstation`; the others carry only `#slemancityhall`
+and `#pavilionofjogja`, or `#pakuwonmalljogja`).
+
+**In the zone the name misses (53 cross-account pairs, weighted name score 0.70 to 0.85):** 10 share a non-mall tag. Eight are
+real same-promo pairs (`#internationalcoffeeday`, `#iphone18pro`, `#sportsstation` twice, `#veteranfestival2026`, `#baycultureshow`,
+`#apple`), two are generic campaign tags shared by different brands (`#buy1get1`, `#buymoresavemore`). So tags would recover
+about eight of the roughly ten real pairs the bar misses, and add two false ones unless a generic tag is screened out. The KFC
+"HUT Kota Jogja ke-270" pairs share no tag.
+
+**The personalization taxonomy (proposal-personalized-discovery.md section 2.1).** Per event the plan extracts `interests[]`
+(up to six open-vocabulary lower-case tags, "the main personalization signal"), `segments[]`, `tracks[]`, `costTier`,
+`participationModes[]`, `geoScope`, `targetAreas[]`. None exists in production data yet, and existing events are backfilled
+only where the caption still exists (curator stubs stay empty). I cannot test `interests[]` on this export; I tested the two
+taxonomy-like fields the events already carry:
+- `types` agrees on every pair (100%, all PROMOTION): no information.
+- `categories`: pairs of the same brand share at least one category 88% of the time, different brands 57%; identical category sets
+  only 21% of same-brand pairs (the same Sports Station promo is labelled "sports and fitness" on one post and "hobbies and
+  interests" on another). As a gate it would split real pairs; as a signal it is weak.
+Reading: the taxonomy describes what kind of event it is, not which brand or campaign, and the hard case (Sports Station against
+Planet Sports) is two sportswear promos with the same interests. It is not a grouping signal in v1. **Tracks** are the exception
+in principle: AD-36 Rule 12 defines a series as members with one audience and a programme as members with their own, so the
+audience tracks could validate the kind later. That is a plan, not tested.
+
 ## 5. Notifications and sessions (Job B, Job C)
 
 Ranked causes of "a subscribed moderator never gets a push or an email" (from the local session, code

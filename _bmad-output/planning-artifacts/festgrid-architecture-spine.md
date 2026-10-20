@@ -2737,7 +2737,32 @@ This document defines the core architectural invariants for the FestDaily applic
           (KFC "HUT Kota Jogja ke-270", International Coffee Day, iPhone 18 Pro pre-order) from
           "different brands sharing a promo phrase" (Buy 1 Get 1 Free), which is why the bar is
           high and some real pairs are missed on purpose. In-sample: the formula was fixed after
-          seeing this data. `groupName(a, b)` gives the series its
+          seeing this data. **Tag evidence `[PROPOSED]`, measured 2026-10-20 on the same export
+          joined to each event's primary-post hashtags:** 1,109 of 1,467 events (76%) have
+          hashtags (54% of September's, 85% of October's), 145 of the 157 events that share a
+          post with others cannot use them (a roundup's tags describe several events), and the most
+          common tags are the malls' (`#plazaambarrukmo` 160 events, `#pakuwonmalljogja` 140,
+          `#slemancityhall` 113). Pairs of **different brands** sharing the Buy 1 Get 1 phrase
+          share a rare tag in 1 of 48 testable pairs (2%, and that tag is the generic
+          `#buy1get1`); pairs from the real branch-promo families share one in 17 of 48 (35%);
+          of the 53 cross-account pairs between 0.70 and 0.85, 10 share a non-mall tag, 8 of
+          them real same-promo pairs (`#internationalcoffeeday`, `#iphone18pro`, `#sportsstation`,
+          `#veteranfestival2026`, `#baycultureshow`) and 2 generic campaign tags across brands
+          (`#buy1get1`, `#buymoresavemore`). Mall accounts often tag the mall and not the brand
+          (4 of 8 Sports Station promo posts carry `#sportsstation`), so absence of a shared tag
+          proves nothing. Proposed use: a pair at weighted name score 0.70 to 0.85 joins when it
+          shares one hashtag that is rare in the corpus (start: on at most 12 events), is not a
+          mall or city tag, and spells words that are themselves rare in event names (so
+          `#sportsstation` counts and `#buy1get1` does not); both events must be the only event of
+          their post. `[ASSUMPTION]` the guard on generic campaign tags is untested beyond these two
+          pairs. **The personalization taxonomy is not a grouping signal in v1:** `interests[]`,
+          `segments[]` and `costTier` (the personalization plan) say what kind of event this is, not
+          which brand or campaign, so Sports Station and Planet Sports promos would carry the same
+          interests; the coarse `categories` and `types` already stored agree on every
+          promo pair (types 100%) and differ for the same brand across posts (identical categories
+          on only 21% of same-brand pairs), so they cannot gate either. Tracks (the audience) are
+          the one field that matches Rule 12's definition of kind (a series shares one audience, a
+          programme's members differ) and could validate the kind later. `groupName(a, b)` gives the series its
           `event_groups.name`: the words the two names share once each place is removed, in the
           poster's spelling and casing, from the more general of the two (e.g. "Wacoal 25% Off
           Promo"); it is computed from the first two members and not recomputed, and a moderator
