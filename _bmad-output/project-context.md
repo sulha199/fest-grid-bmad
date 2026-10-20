@@ -87,10 +87,13 @@ The following documents contain detailed specifications, architectures, and desi
 - **Event groups** (added 2026-10-19, amended 2026-10-20, `bmad-architecture`, IDEA-084/085, see
   Architecture Spine AD-36 — **plan only, not yet built**): a group is a new `event_groups` entity
   with a nullable `events.group_id` (one group per event) — never a `parent_event_id`, and never
-  reuse of `relatedEventIds` (AD-30 Rule 11). Two kinds, `series` (same activity, different places or
-  times) and `programme` (different activities under one umbrella); **kind comes from a membership
-  test, never from the title shape or the creator** — "Activity - Place" and "Umbrella - Activity"
-  look alike, and a wrong `series` is hidden from Discovery by its cap. Suggestions auto-apply and
+  reuse of `relatedEventIds` (AD-30 Rule 11). Two kinds, `series` (same activity, same audience, different places or times: a weekly run, a
+  Wacoal promo at several malls) and `programme` (different activities under one umbrella, each with its own
+  audience: SCH's "8th Anniversary"); **kind comes from a membership test, never from the title shape or the
+  creator** — "Activity - Place" and "Umbrella - Activity" look alike, and a wrong `series` is hidden from
+  Discovery by its cap. **A programme's members are each promoted individually** (no cap, no collapse; a "part of"
+  chip); a series shows **one cover, the member nearest the user**, with its own Nearby badge and "also at N other
+  places" (concurrent) or "+N more sessions". Suggestions auto-apply and
   moderators review after the fact, never as a gate. **One writer** (`group-membership.ts`) owns
   `group_id` and `member_count`; creation takes an advisory lock; the Discovery collapse is computed
   per request behind `groupCollapse`, ships after the ranked list, and never runs on the calendar,

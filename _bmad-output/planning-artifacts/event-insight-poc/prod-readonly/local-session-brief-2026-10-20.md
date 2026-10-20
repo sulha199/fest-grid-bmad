@@ -20,6 +20,15 @@ All of §1 of `local-session-brief-2026-10-19.md` still applies unchanged (never
 
 Follow **§8 of `local-session-brief-2026-10-19.md` exactly, items 8 to 14**, one file per command, from the repo root. Item 14 is different (run it with `psql ... -X -q --csv`); the other items use the plain form. If a file errors, show the error and stop; do not edit the SQL.
 
+**Two more read-only queries (items 15 and 16, added 2026-10-20 after the owner revisited the group kinds).** Run each exactly like items 8 to 13 (`readonly_2`, one file per command, from the repo root, files under `_bmad-output/planning-artifacts/event-insight-poc/results/prod-findings-review-2026-10-19-queries/`):
+
+| # | `<FILE>` | `<OUT>` | What it answers |
+|---|---|---|---|
+| 15 | `concurrent-multi-place.sql` (4 result sets) | `concurrent-multi-place.txt` | does the **"Wacoal promo" shape** exist in production: the same activity at the same time in several places? Pairs of events with the same normalized name, overlapping dates and different place texts, split by *same account and same post* (the extractor already split it), *same account, different posts*, and *different accounts* (each place posts its own promo, which the planned series key would **not** group); cluster sizes; the 25 largest clusters with names and places as shown in the app; and every event whose name contains "Wacoal", to see its real shape |
+| 16 | `tier1-group-members.sql` (2 result sets) | `tier1-group-members.txt` | the **Tier 1 "Umbrella - Child" groups** (the cloud session counted 17 groups, 52 events on 2026-10-19), classified by a SQL proxy: is the text after the dash inside the member's own place (series-like, "Wednesday Night Run - Kenes Soho") or not (programme-like, "8th Anniversary - Zumba")? Then the groups themselves, so the owner can read which are programmes. Confirms on real names that SCH comes out as a programme |
+
+Do not interpret these two beyond a one-paragraph reading each (what the biggest clusters look like, whether any account/post split dominates, whether SCH's umbrella is in the programme-like class); the cloud session does the analysis.
+
 **Item 14 needs the owner.** `pin-trust-sample.csv` has up to 96 pins with an empty `label` column; the owner labels each one **Y** (the pin is the place the text means), **C** (right city or area, wrong place), **N** (wrong) or **?** (cannot tell). To make that easy, show the rows to the owner in batches of 12 in the chat (row reference, venue text, the pin's address, city, country, confidence), write down the owner's answers exactly as given, and **never guess a label yourself**. Then run `cd apps/backend && npx tsx scripts/poc-event-insight/score-pin-trust-labels.ts <labelled.csv> --md /tmp/pin-trust-calibration.md` and show the table.
 
 ## 4. Job B — why does a subscribed moderator never get a push or an e-mail?
@@ -56,9 +65,9 @@ What to do: read the code for H1 to H5 and H7 (cite file and line); with the own
 
 ## 6. Hand-back
 
-1. A summary block of at most 40 lines: Round 3 figures (items 8 to 14, each marked measured by you or copied), then B and C as ranked explanations with evidence, then a **checklist for the owner** (the things you could not reach: SES sandbox and sender address, the Lambda environment variable, the moderator's role, Supabase auth settings, CloudWatch strings).
+1. A summary block of at most 40 lines: Round 3 figures (items 8 to 16, each marked measured by you or copied), then B and C as ranked explanations with evidence, then a **checklist for the owner** (the things you could not reach: SES sandbox and sender address, the Lambda environment variable, the moderator's role, Supabase auth settings, CloudWatch strings).
 2. Write the long form to `/tmp/notification-and-session-investigation-2026-10-20.md` and name the raw Round 3 files in `/tmp`.
-3. **Only if the owner says so**, copy into `_bmad-output/planning-artifacts/event-insight-poc/results/` as `notification-and-session-investigation-2026-10-20.md`, `recall-replay-prod-2026-10-19.txt`, `events-place-quality-prod-2026-10-19.txt`, `geocode-compound-probe-2026-10-19.md`, `events-multi-place-prod-2026-10-19.txt`, `gemini-usage-prod-2026-10-19.txt`, `series-candidates-prod-2026-10-19.txt`, `pin-trust-sample-prod-2026-10-19.csv` and `pin-trust-labelled-prod-2026-10-19.csv`; stage only those, commit and push to `claude/ecstatic-shannon-e8eh9h`, with the usual `Co-Authored-By` line. Never stage a file that holds a cookie, token, endpoint, e-mail address or user id.
+3. **Only if the owner says so**, copy into `_bmad-output/planning-artifacts/event-insight-poc/results/` as `notification-and-session-investigation-2026-10-20.md`, `recall-replay-prod-2026-10-19.txt`, `events-place-quality-prod-2026-10-19.txt`, `geocode-compound-probe-2026-10-19.md`, `events-multi-place-prod-2026-10-19.txt`, `gemini-usage-prod-2026-10-19.txt`, `series-candidates-prod-2026-10-19.txt`, `pin-trust-sample-prod-2026-10-19.csv`, `pin-trust-labelled-prod-2026-10-19.csv`, `concurrent-multi-place-prod-2026-10-20.txt` and `tier1-group-members-prod-2026-10-20.txt`; stage only those, commit and push to `claude/ecstatic-shannon-e8eh9h`, with the usual `Co-Authored-By` line. Never stage a file that holds a cookie, token, endpoint, e-mail address or user id.
 4. Then say: "Now tell the cloud session: *pull the branch*."
 
 ## 7. Out of scope

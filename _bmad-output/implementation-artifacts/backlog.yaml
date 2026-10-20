@@ -2505,7 +2505,7 @@ items:
      title: "Event groups: series and programme kinds, deterministic series detection, Discovery collapse, per-group notifications, group surface",
      ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/prod-findings-review-2026-10-19.md],
      touches: [app:backend, pkg:domain, pkg:database, web:events, web:moderation, cross:ai-extraction, cross:architecture, cross:notifications, cross:prd],
-     note: "Decided 2026-10-19 (AD-36 Rules 1-16). SCH 8th Anniversary: 4 umbrella rows, 9 children, duplicates. Tier 2 precision unmeasured. The backlog run needs IDEA-085 (dedup first) and BUG-068 deployed; per-group notifications need a PRD change. GAP 60 days: size with series-candidates.sql."}
+     note: "Decided 2026-10-19/20 (AD-36 Rules 1-16). Programme members promoted individually (no cap); series = one cover, nearest first. SCH 8th Anniversary: 4 umbrella rows, 9 children. Backlog run needs IDEA-085 and BUG-068 deployed; per-group notifications need a PRD change."}
 
   IDEA-086:
     {type: idea, status: backlog, created: 2026-10-19,

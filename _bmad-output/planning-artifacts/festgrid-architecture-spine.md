@@ -2377,8 +2377,9 @@ This document defines the core architectural invariants for the FestDaily applic
         `kind group_kind_enum NOT NULL DEFAULT 'programme'` (`series | programme`),
         `organizer_account_id uuid null` (FK `social_media_account_profiles.id`, `ON DELETE SET
         NULL`) and `stem text null` (a series' identity, Rule 12), `keyword text null` (the Tier 2
-        seed), `confirmed_at timestamptz null`, `member_count int` (denormalized; Rule 16 owns its
-        writer) and the group's display `name`. `group_source_enum` gains `place_split` and
+        seed), `confirmed_at timestamptz null`, `member_count int`, `place_count smallint` and
+        `concurrent boolean` (denormalized; Rule 16 owns their writer) and the group's display
+        `name`. `group_source_enum` gains `place_split` and
         `series_stem`, and `group_confidence_tier_enum` gains `deterministic` (a group made by a
         rule with no model call); the detector table in Rule 16 gives each detector's values.
         `events.group_id` is indexed `WHERE group_id IS NOT NULL AND deleted_at IS NULL`,
@@ -2529,11 +2530,23 @@ This document defines the core architectural invariants for the FestDaily applic
         the two kinds, series rolling, programmes time-bound; the derivation test and the organizer
         key are PROPOSED by the architect review]`
         - **Two kinds**, `group_kind_enum (series | programme)`, `NOT NULL DEFAULT 'programme'`
-          (the policy that never hides an event; there is no "unknown kind"), stored on
-          `event_groups` so a moderator can correct it. A **series** is members with the *same
-          activity* at different places or times (Riot Jogja's "Wednesday Night Run" at three
-          venues). A **programme** is members with *different activities* under one named umbrella
-          (SCH's "8th Anniversary": circus, line dance, zumba, fireworks, …).
+          (there is no "unknown kind"), stored on `event_groups` so a moderator can correct it. A
+          **series** is members with the *same activity* at different places or times, who are the
+          same audience: Riot Jogja's "Wednesday Night Run" at three venues, a Wacoal promo at
+          several malls. A **programme** is members with *different activities* under one named
+          umbrella, each with **its own audience**: SCH's "8th Anniversary" (circus, line dance,
+          zumba, fireworks, …). `[ADOPTED, user-directed 2026-10-20: SCH is a programme, because
+          each of its events must be promoted individually]`
+        - **A series has two shapes and one kind.** `[PROPOSED]` *Over time*: the same activity on
+          different dates (a weekly run). *Concurrent*: the same activity at the same time in
+          several places, a branch promo (the Wacoal case). A third kind is not added: the
+          Discovery policy is the same (one cover, Rule 13) and the difference is only the label,
+          which is derived. The group stores `place_count` (distinct places among its active
+          members by `isSamePlace`) and `concurrent` (the active members' date ranges all overlap);
+          the card says "also at N other places" when `concurrent` and `place_count ≥ 2`, else "+N
+          more sessions". A concurrent series made from one post is a place split (AD-38); one
+          posted separately by each place's own account is **not** grouped, because the series key
+          includes the organizer (Deferred; Round 3 item 15 measures how common it is).
         - **Kind is never derived from the creator or from the shape of a title.** "Activity -
           Place" (Riot) and "Umbrella - Activity" (SCH) have the same syntax and opposite meaning.
           One function, `deriveGroupFromTitles()` in `packages/domain`, serves the title-pattern
@@ -2582,11 +2595,23 @@ This document defines the core architectural invariants for the FestDaily applic
           final order; `LIMIT/OFFSET`. A group appears iff at least one member matches, and its
           cover is the best-ranked *matching* member (it may differ with and without a filter, by
           design). No column holds the cover.
-        - **One cap, applied globally over the ranked list, not per page** (a per-page cap would
-          show a series again on page 2): `series` is a **hard** cap `k = 1` (the other members
-          collapse behind the cover and are reached through the group surface, Rule 15);
-          `programme` is a **soft** cap `k = 3`: members beyond the third take a rank penalty and
-          are never removed. `k` and the penalty are start values to calibrate `[ASSUMPTION]`.
+        - **A series is capped at one cover, applied globally over the ranked list, not per page**
+          (a per-page cap would show a series again on page 2): the other members collapse behind
+          the cover and are reached through the group surface (Rule 15). **A programme is not
+          capped and not collapsed**: every member competes on its own relevance, so each event
+          reaches its own audience, and carries a "part of <programme>" chip.
+          `[ADOPTED, user-directed 2026-10-20]` An optional soft cap for programmes (members beyond
+          `k` take a rank penalty, never removed) exists behind a flag, **off by default**; turn it
+          on only if a shadow run shows one programme flooding a page. `k` and the penalty are
+          start values to calibrate `[ASSUMPTION]`.
+        - **The cover of a series is the member nearest the user.** `[PROPOSED]` Within a series
+          the cover order is proximity first, then the list's rank key. Proximity is the trusted-pin
+          distance (AD-22's shared computation) when the user has a location and the member has a
+          trusted pin, else the area closeness of AD-39 Rule 5, else nothing (rank order). The
+          card shows the cover's own Nearby badge when its pin is trusted and within range (pin-only,
+          AD-22), and the series indicator of Rule 12. The window is
+          `row_number() OVER (PARTITION BY coalesce(g.id, e.id) ORDER BY proximity NULLS LAST,
+          rank_key)` for series groups only.
         - **Dissolved groups do not collapse.** The window partitions by `coalesce(g.id, e.id)`
           where `g` is `event_groups` joined **before** the window with `status = 'active'` (both
           ids are `uuid`; an ungrouped event is its own partition).
@@ -2656,8 +2681,8 @@ This document defines the core architectural invariants for the FestDaily applic
           members, not the sum.
         - **The group surface is new UI**, because the Discovery collapse hides members that a user
           may have favorited: the event page shows "part of <group>" with the active members (a
-          series by place and date, a programme by activity), and every member must be reachable
-          from there. Layout and copy belong to the UX step; this rule fixes only that the surface
+          series by place and date, a programme by activity; a concurrent series lists its places
+          with the distance where a pin is trusted), and every member must be reachable from there. Layout and copy belong to the UX step; this rule fixes only that the surface
           exists and reads from the separate on-demand query.
     16. **Integrity: one writer, serialised creation, precedence, switches** (added 2026-10-19).
         `[PROPOSED by the architect review]`
@@ -2665,7 +2690,8 @@ This document defines the core architectural invariants for the FestDaily applic
           `.anchor_event_id` and `.confirmed_at` are written only by
           `apps/backend/src/lib/groups/group-membership.ts`, as AD-30 Rule 2 does for
           `events.post_id`. `member_count` is recomputed from `events` (`group_id = $g AND
-          deleted_at IS NULL`) under a `FOR UPDATE` lock on the group row, never incremented. Every
+          deleted_at IS NULL`) under a `FOR UPDATE` lock on the group row, never incremented; the same call recomputes
+          `place_count` (distinct places by `isSamePlace`) and `concurrent`. Every
           path calls it: attach, detach, dissolve, place split and its undo, merge and its undo,
           soft delete and restore, permanent delete (a pre-delete hook; the FK only sets null), and
           post or account erasure. A source-scan ratchet fails any other writer; a consistency
@@ -2722,15 +2748,20 @@ This document defines the core architectural invariants for the FestDaily applic
     a series on page 2, Rule 13); one notification per event for grouped events (a burst of N pushes
     for one poster, Rule 14); an SQS `DelaySeconds` notify message (no queue or sender supports it
     and production drains on a 5-minute poll, Rule 14); kind derived from the creator or the title
-    shape (the Riot and SCH titles have the same shape, Rule 12).
+    shape (the Riot and SCH titles have the same shape, Rule 12); a third group kind for
+    concurrent branch promos (same Discovery policy as a series, only the label differs, Rule 12);
+    collapsing or capping a programme (each member has its own audience, Rule 13).
 *   **Deferred:** the group-review journal's exact shape (Rule 5); whether Tier 1 also notifies
     moderators (Rule 4's `[ASSUMPTION]`); the Tier-3 `extraction_field` anchor itself (reserved, not
     built — no story yet); the `program-lineup` reshape's migration and extraction-contract rewrite
     (Rule 6) — its own architecture/story pass, timed with the IDEA-074 branch; whether
     `event_groups` needs a dedicated undo-toast UI beyond the moderator "review group" action; the
     backfill-vs-going-forward dedup-gate split (Rule 10's `[ASSUMPTION]`). Added 2026-10-19: the
-    values of `GAP`, `k`, the programme penalty and the due delay (Rules 12–14), to calibrate after
-    Round 3 item 13 and a shadow run of Discovery; the group-surface UX (Rule 15); the carrier of the
+    values of `GAP` and the due delay (Rules 12 and 14), and the optional programme soft cap (Rule 13,
+    off by default), to calibrate after Round 3 item 13 and a shadow run of Discovery;
+    **cross-account series** (each place posts its own promo: the series key includes the
+    organizer, so none is grouped; Round 3 item 15 measures it); the labels' copy and the group-
+    surface UX (Rule 15); the carrier of the
     moderator notifications of Rules 4 and 7: today a moderator is emailed for only five event types
     (dangerous report, default-location change, two scraper alerts) and nothing reaches them about
     queue items (BUG-069, IDEA-090), so "review after the fact" depends on IDEA-090;
@@ -3249,7 +3280,9 @@ This document defines the core architectural invariants for the FestDaily applic
           not labelled "in your area". `[ADOPTED, user-accepted 2026-10-20]`
         - **Nearby stays a pin-only distance claim** (AD-22, one shared computation, trusted pins
           only). Events with area-only precision appear in a radius filter's partial lane as "no
-          exact location".
+          exact location". The cover of a series (AD-36 Rule 13) is chosen by the same two
+          quantities, trusted-pin distance first, then area closeness, and its card shows its own
+          Nearby badge when its pin is trusted.
         - The **paid score** uses area closeness in place of the distance term when there is no
           trusted pin: same 1.0, inside 0.8, covers 0.5, sibling 0.3, other 0 (start values), and
           never calls it distance. With one place-set per event (AD-38), place filters and this
