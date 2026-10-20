@@ -1085,7 +1085,7 @@ describe("EventDetailWrapper", () => {
     expect(screen.queryByPlaceholderText("EventDetailsPage.timezoneSelectPlaceholder")).not.toBeInTheDocument()
   })
 
-  it("shows a moderator a Re-extract button for a single source post (AD-36)", async () => {
+  it("shows a moderator a Re-extract button for a single source post (AD-40)", async () => {
     currentMockMeRole = "moderator"
     currentMockEvent.sourcePosts = [
       {
@@ -1102,7 +1102,7 @@ describe("EventDetailWrapper", () => {
     expect(await screen.findByRole("button", { name: "ReextractPreview.reextractButton" })).toBeInTheDocument()
   })
 
-  it("never shows the Re-extract panel to a non-moderator (AD-36)", async () => {
+  it("never shows the Re-extract panel to a non-moderator (AD-40)", async () => {
     currentMockMeRole = "user"
     currentMockEvent.sourcePosts = [
       {

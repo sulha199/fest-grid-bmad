@@ -55,7 +55,7 @@ function jobMode(job: { requestPayload: ManualExtractionRequestPayload }): 'CORR
 }
 
 export interface ManualExtractionJobStatusResult {
-  /** `REEXTRACT_PREVIEW` jobs (AD-36) are read through `postReextractionPreview`, correction jobs through `extractionJob`. */
+  /** `REEXTRACT_PREVIEW` jobs (AD-40) are read through `postReextractionPreview`, correction jobs through `extractionJob`. */
   mode: 'CORRECTION' | 'REEXTRACT_PREVIEW';
   status: 'PENDING' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED';
   data: unknown | null;

@@ -26,7 +26,7 @@ export interface UsePostReextractionPreviewResult {
 }
 
 /**
- * AD-36 -- drives the moderator re-extract preview: starts the job, then polls it until it reaches
+ * AD-40 -- drives the moderator re-extract preview: starts the job, then polls it until it reaches
  * a terminal state. Preview only; nothing here (or on the server) writes events or posts.
  */
 export function usePostReextractionPreview(): UsePostReextractionPreviewResult {

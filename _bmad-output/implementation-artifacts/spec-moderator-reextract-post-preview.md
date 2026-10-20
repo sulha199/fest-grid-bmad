@@ -65,7 +65,7 @@ context:
 - [x] `manual-extraction-job.ts`, `extraction.graphql`, `resolvers.ts` -- mutation, query, rescrape, cooldown, moderator gate
 - [x] `EventDetailWrapper.tsx` + preview dialog, moderator Tools tab, locales -- the two UI placements
 - [x] Tests: matrix rows, blanking on success and failure, no `posts`/`events` writes, cooldown, ingestion regression
-- [x] Docs: AD-36 in the spine, `project-context.md`, `docs/infrastructure/7-event-dedup.md` "Re-extract preview", backlog row; `architecture-diagram.md` unchanged (no service, queue, Lambda or library added)
+- [x] Docs: AD-40 in the spine, `project-context.md`, `docs/infrastructure/7-event-dedup.md` "Re-extract preview", backlog row; `architecture-diagram.md` unchanged (no service, queue, Lambda or library added)
 
 **Acceptance Criteria:**
 - Given a moderator and a stored post, when previewing, then the response lists each extracted event with its dedup tier and candidate slug, and row counts of `events`, `schedules`, `event_posts` and `posts` are unchanged.
@@ -148,7 +148,7 @@ Rescraped text lives only in the job payload, so "purge after rescrape" is satis
 
 **Architecture and docs**
 
-- AD-36: preview-only, one decision, caption never persists, rejected alternatives.
+- AD-40: preview-only, one decision, caption never persists, rejected alternatives.
   [`festgrid-architecture-spine.md:2221`](../planning-artifacts/festgrid-architecture-spine.md#L2221)
 
 - Runbook section for moderators.

@@ -8,7 +8,7 @@ import type { ProcessingJobMessage, ReextractionPreviewResult } from '@festgrid/
 import type { DbExecutor } from '../events/set-event-primary-post.js';
 import { evaluateIngestionMatch, type IngestionSourcePost } from '../ingestor/evaluate-ingestion-match.js';
 
-// AD-36 -- the moderator re-extract preview. Turns a validated Gemini payload into what ingestion
+// AD-40 -- the moderator re-extract preview. Turns a validated Gemini payload into what ingestion
 // WOULD decide for each event, by calling the same `evaluateIngestionMatch` ingestion calls. It
 // performs no writes: no events, schedules, event_posts, posts, audit-log or queue messages, and
 // no geocoder or timezone calls (the venue signal is the location string only).

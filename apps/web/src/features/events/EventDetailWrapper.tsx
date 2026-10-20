@@ -1030,7 +1030,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     </Carousel>
   )
 
-  // AD-36 -- moderator-only re-extract entry point, one button per source post. Separate from
+  // AD-40 -- moderator-only re-extract entry point, one button per source post. Separate from
   // EventDetailView's own source-post list, which only renders for multi-post events.
   const moderatorSourcePostsPanel =
     isModerator && data?.eventBySlug?.sourcePosts?.length ? (

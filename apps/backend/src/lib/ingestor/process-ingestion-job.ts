@@ -73,7 +73,7 @@ export async function processIngestionJob(message: ExtractedEventMessage): Promi
     }
 
     // Stub rule, organizer discount and candidate search live in evaluateIngestionMatch -- the one
-    // place the decision is made, shared with the moderator re-extract preview (AD-36).
+    // place the decision is made, shared with the moderator re-extract preview (AD-40).
     const { event, scheduleValues, isStub, match } = await evaluateIngestionMatch(tx, message, sourcePost ?? null);
 
     if (match && match.tier === 'high') {

@@ -5,7 +5,7 @@ enum ExtractionErrorCode {
   SCRAPE_FAILED
   EXTRACTION_FAILED
   QUOTA_EXHAUSTED
-  RATE_LIMITED # a rescrape of this post URL was done in the last 10 minutes (AD-36)
+  RATE_LIMITED # a rescrape of this post URL was done in the last 10 minutes (AD-40)
 }
 
 type ProposedScheduleCorrectionData {
@@ -94,7 +94,7 @@ type ExtractionQuota {
   remaining: Int!
 }
 
-# AD-36 -- the dry-run dedup outcome for one extracted event: what ingestion's real matching would do.
+# AD-40 -- the dry-run dedup outcome for one extracted event: what ingestion's real matching would do.
 # NONE means no candidate event passed the candidate query.
 enum ReextractionDedupTier {
   HIGH
@@ -159,14 +159,14 @@ extend type Query {
   postsByAccount(accountId: ID!, cursor: String, limit: Int, onlyUnextracted: Boolean, statuses: [PostExtractionStatus!]): PostConnection!
   myExtractionQuota: ExtractionQuota!
   extractionJob(id: ID!): ExtractionJobStatus!
-  # AD-36 -- moderator only. Polls a re-extract preview started by previewPostReextraction.
+  # AD-40 -- moderator only. Polls a re-extract preview started by previewPostReextraction.
   postReextractionPreview(id: ID!): PostReextractionPreviewStatus!
 }
 
 extend type Mutation {
   extractEventDataFromUrl(url: String!): ExtractEventDataFromUrlResult!
   selectPostsForExtraction(postIds: [ID!]!): [Post!]!
-  # AD-36 -- moderator only, preview only (writes nothing to events/schedules/posts). Give exactly
+  # AD-40 -- moderator only, preview only (writes nothing to events/schedules/posts). Give exactly
   # one of postId or url. Rescrapes only when the post's caption is not stored.
   previewPostReextraction(postId: ID, url: String): StartPostReextractionPreviewResult!
 }

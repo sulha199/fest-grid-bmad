@@ -17,7 +17,7 @@ interface ModeratorSourcePostsPanelProps {
 }
 
 /**
- * AD-36 -- moderator-only list of an event's source posts, each with a "Re-extract" button.
+ * AD-40 -- moderator-only list of an event's source posts, each with a "Re-extract" button.
  * Deliberately separate from EventDetailView's own source-post list, which only renders for events
  * with more than one source post (AD-30): a single-post event has to be reachable too.
  */

@@ -61,7 +61,7 @@ export async function processManualExtractionJob(jobId: string, deps?: ProcessMa
     return;
   }
 
-  // AD-36 -- `job.requestPayload` above is the in-memory copy this run works from. Blank the stored
+  // AD-40 -- `job.requestPayload` above is the in-memory copy this run works from. Blank the stored
   // one now, not only at the end, so a Lambda timeout or crash mid-run cannot leave the caption in
   // the database. The `finally` below remains as the backstop.
   await blankManualJobPayloadContent(jobId);
@@ -131,7 +131,7 @@ export async function processManualExtractionJob(jobId: string, deps?: ProcessMa
       throw new ManualExtractionFailure('EXTRACTION_FAILED', 'The extracted content could not be validated.');
     }
     if (job.requestPayload.mode === 'REEXTRACT_PREVIEW') {
-      // AD-36 -- preview: report grouping, every event and its dry-run dedup outcome. "Not an
+      // AD-40 -- preview: report grouping, every event and its dry-run dedup outcome. "Not an
       // event" is a valid, informative preview (zero events), not a failure.
       const previewEvents = payload.isEvent === false || !Array.isArray(payload.events) ? [] : payload.events;
       const preview = await buildReextractionPreview({

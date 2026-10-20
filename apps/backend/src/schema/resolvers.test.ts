@@ -4727,7 +4727,7 @@ test('setImageStorageOptIn and queryModeratorAccountProfiles integration tests',
     assert.strictEqual(result.errors[0].extensions?.code, 'FORBIDDEN');
   });
 
-  await t.test('previewPostReextraction mutation - FORBIDDEN for non-moderator (AD-36)', async () => {
+  await t.test('previewPostReextraction mutation - FORBIDDEN for non-moderator (AD-40)', async () => {
     mockUser = { userId: '00000000-0000-0000-0000-000000000003', role: 'user' };
     const response = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',
@@ -4741,7 +4741,7 @@ test('setImageStorageOptIn and queryModeratorAccountProfiles integration tests',
     assert.strictEqual(result.errors[0].extensions?.code, 'FORBIDDEN');
   });
 
-  await t.test('postReextractionPreview query - FORBIDDEN for non-moderator (AD-36)', async () => {
+  await t.test('postReextractionPreview query - FORBIDDEN for non-moderator (AD-40)', async () => {
     mockUser = { userId: '00000000-0000-0000-0000-000000000003', role: 'user' };
     const response = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',
@@ -4755,7 +4755,7 @@ test('setImageStorageOptIn and queryModeratorAccountProfiles integration tests',
     assert.strictEqual(result.errors[0].extensions?.code, 'FORBIDDEN');
   });
 
-  await t.test('previewPostReextraction mutation - BAD_REQUEST unless exactly one of postId/url (AD-36)', async () => {
+  await t.test('previewPostReextraction mutation - BAD_REQUEST unless exactly one of postId/url (AD-40)', async () => {
     mockUser = { userId: '00000000-0000-0000-0000-000000000003', role: 'moderator' };
     const response = await yoga.fetch('http://yoga/graphql', {
       method: 'POST',

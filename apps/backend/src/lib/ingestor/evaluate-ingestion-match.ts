@@ -26,7 +26,7 @@ export interface IngestionMatchEvaluation {
  * The single source of truth for "what does ingestion decide about this extracted item": the
  * stub rule (AD-30 Rule 10), the roundup/curator organizer discount (BUG-058, IDEA-068) and the
  * candidate search + scoring (`findMatchingEvent`). `processIngestionJob` acts on the result;
- * the moderator re-extract preview (AD-36) reports it without acting. Performs no writes.
+ * the moderator re-extract preview (AD-40) reports it without acting. Performs no writes.
  *
  * Preview-only options (ingestion never sets either):
  * - `matchWithoutSourcePost`: evaluate a post that is not stored. There is no account and no

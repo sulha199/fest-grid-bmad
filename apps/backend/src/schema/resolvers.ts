@@ -2887,7 +2887,7 @@ export const resolvers: Resolvers = {
     extractionJob: async (_, { id }, context): Promise<any> => {
       const authUser = requireAuth(context);
       const job = await getManualExtractionJobStatus(id, authUser.userId);
-      // A re-extract preview (AD-36) is read through `postReextractionPreview`, not as a correction.
+      // A re-extract preview (AD-40) is read through `postReextractionPreview`, not as a correction.
       if (!job || job.mode === 'REEXTRACT_PREVIEW') {
         throw new GraphQLError('Extraction job not found', { extensions: { code: 'NOT_FOUND' } });
       }
