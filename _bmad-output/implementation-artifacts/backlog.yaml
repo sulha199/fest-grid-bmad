@@ -2493,7 +2493,7 @@ items:
 
   IDEA-085:
     {type: idea, status: triaged, created: 2026-10-19,
-     impact: user-visible, effort: m, blocks: [IDEA-084],
+     impact: user-visible, effort: m, blocks: [IDEA-084, IDEA-088],
      title: "Duplicate events: sweep the legacy pairs, let stub pairs reach the candidate threshold, work the moderator queue",
      ref: [backlog/IDEA-085-duplicate-events-sweep-stub-scoring-queue.md, planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/prod-findings-review-2026-10-19.md],
      touches: [app:backend, pkg:database, web:events, web:moderation],
@@ -2501,19 +2501,19 @@ items:
 
   IDEA-084:
     {type: idea, status: backlog, created: 2026-10-19,
-     impact: user-visible, effort: l, blocks: [IDEA-086],
+     impact: user-visible, effort: l,
      title: "Event groups: series and programme kinds, deterministic series detection, Discovery collapse, per-group notifications, group surface",
      ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/prod-findings-review-2026-10-19.md],
      touches: [app:backend, pkg:domain, pkg:database, web:events, web:moderation, cross:ai-extraction, cross:architecture, cross:notifications, cross:prd],
-     note: "Decided 2026-10-19 (AD-36 Rules 1-15). SCH 8th Anniversary: 4 umbrella rows, 9 children, duplicates. Tier 2 precision unmeasured. Needs IDEA-085 (dedup first), BUG-068 deployed, a PRD change (per-group notifications). Series GAP 60 days: size with series-candidates.sql."}
+     note: "Decided 2026-10-19 (AD-36 Rules 1-16). SCH 8th Anniversary: 4 umbrella rows, 9 children, duplicates. Tier 2 precision unmeasured. The backlog run needs IDEA-085 (dedup first) and BUG-068 deployed; per-group notifications need a PRD change. GAP 60 days: size with series-candidates.sql."}
 
   IDEA-086:
     {type: idea, status: backlog, created: 2026-10-19,
-     impact: user-visible, effort: l, blocks: [IDEA-074],
-     title: "Event identity: one activity at one place-set; deterministic place normalizer, split of existing multi-place events, quota-bounded backfill",
+     impact: user-visible, effort: l, blocks: [IDEA-074, IDEA-085],
+     title: "Event identity core: one activity at one place-set; isSamePlace, place normalizer, sibling ordinals, write-path order",
      ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/architecture/architecture-festgrid-2026-09-22/.memlog.md, planning-artifacts/event-insight-poc/prod-check-results-review-2026-10-19.md],
-     touches: [app:backend, pkg:domain, pkg:database, web:events, web:moderation, cross:ai-extraction, cross:architecture, cross:notifications, cross:prd],
-     note: "Decided 2026-10-19 (AD-38). Riot Jogja: 1 event, 3 schedules, 3 venues. Backfill: upcoming events only, deterministic first, Flash Lite for the residual inside 500 requests/day. Sizing waits on Round 3 items 9, 11, 12. Needs the IDEA-084 schema and the IDEA-085 gate."}
+     touches: [app:backend, pkg:domain, pkg:database, web:events, cross:ai-extraction, cross:architecture, cross:notifications, cross:prd],
+     note: "Decided 2026-10-19 (AD-38 Rules 1-3, 6-8). Core: isSamePlace, normalizeName, Indonesia-only gazetteer file, place normalizer, siblingOrdinal, flag. Needs the IDEA-084 group schema and writer first; IDEA-085 needs isSamePlace from here. Split/backfill is IDEA-088."}
 
   IDEA-087:
     {type: idea, status: backlog, created: 2026-10-19,
@@ -2522,3 +2522,19 @@ items:
      ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/architecture/architecture-festgrid-2026-09-22/.memlog.md, planning-artifacts/event-insight-poc/prod-check-results-review-2026-10-19.md],
      touches: [app:backend, pkg:domain, pkg:database, web:accounts, web:events, web:locations, cross:ai-extraction, cross:architecture, cross:prd],
      note: "Decided 2026-10-19 (AD-39, AD-14 Rules 3a-5). Replaces BUG-065's fallback and widens BUG-063/064/066 into one model. Open: trust floor, gazetteer source and licence, area-key storage, audience-area inheritance by group members."}
+
+  IDEA-088:
+    {type: idea, status: backlog, created: 2026-10-19,
+     impact: user-visible, effort: l,
+     title: "Split existing multi-place events and backfill upcoming ones: journal, undo, dry-run queue, quota ledger",
+     ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/architecture/architecture-festgrid-2026-09-22/reviews/review-data-integrity.md],
+     touches: [app:backend, pkg:database, web:events, web:moderation, cross:ai-extraction, cross:architecture],
+     note: "Decided 2026-10-19 (AD-38 Rules 4-5). Split existing multi-place events: calendar_additions repoint, main schedule, journal and undo, dry-run queue, 3 gated steps, never notifies. Key for re-extraction is an open owner decision (AD-10). Sizing waits on Round 3 items 9, 11, 12."}
+
+  IDEA-089:
+    {type: idea, status: backlog, created: 2026-10-19,
+     impact: user-visible, effort: m,
+     title: "Activity split: program-lineup items become visible events of a programme group (extraction-contract criterion, isRoute)",
+     ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md],
+     touches: [app:backend, pkg:domain, cross:ai-extraction, cross:architecture, cross:prd],
+     note: "Decided 2026-10-19 (AD-38 Rule 2, AD-36 Rule 6). Needs an extraction-contract criterion for distinct activities vs one activity on several dates (the PRD uses program-lineup for both) and an isRoute field. 47 production program-lineup posts; about +10% events (estimate)."}

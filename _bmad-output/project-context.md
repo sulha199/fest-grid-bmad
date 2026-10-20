@@ -4,7 +4,7 @@ baseline_commit: 198301f0757cfed0df2316ac947793691ff189e9
 user_name: 'shulha'
 date: '2026-08-01T00:00:00Z'
 status: 'complete'
-rule_count: 64
+rule_count: 66
 optimized_for_llm: true
 sections_completed:
   - 'technology_stack'
@@ -84,20 +84,34 @@ The following documents contain detailed specifications, architectures, and desi
 - **Event dedup entry points** (added 2026-10-12, see Architecture Spine AD-30 Rule 7): `findMatchingEvent` (`apps/backend/src/lib/events/match-event-to-existing.ts`), `computeMatchScore` (`packages/domain/src/events/match-scoring.ts`) and the `event_match_candidates` table are the cross-post matching surface — extend these; do not re-implement. Thresholds/weights are spine-fixed. The flow is drawn in `_bmad-output/planning-artifacts/diagrams/event-dedup-flow.html`: **any change to the dedup flow (candidate query, scoring weights/thresholds, tier outcomes, organizer/stub discount, extraction `organizerHandle`, primary-post ordering, moderator accept/reject/undo) must update that diagram in the same change**, and the status section at its foot.
 - **Scrape gate** (added 2026-10-15, see Architecture Spine AD-34): whether an account may be scraped is decided only by `isScrapableAccountType()` in `packages/domain/src/scraper/account-classification.ts` — scrapable iff never classified, or `CONFIRMED` as `ORGANIZER_VENUE_EVENT` or `CURATOR_GUIDE`; `PERSONAL` and `AWAITING_APPROVAL` are never scraped. **Any TypeScript code that starts a scrape must call it; never re-inline the condition.** The daily batch (`getBatchScrapeTargets`) holds the one SQL form of the rule and its test must cover every type/status combination. A new code path that starts a scrape adopts the gate in the same change.
 - **Account URLs by username** (added 2026-10-18, `bmad-architecture`, BUG-059, see Architecture Spine AD-35): an account's page URL is `/<locale>/<platformSlug>/<username>` (normalized lower-case handle); `account_id` (the platform's numeric ID) **never** appears in a URL, link label or `href` — it is for identity comparison and mutation arguments only. Links are built only by `buildAccountHref(platform, username)` in `packages/domain/src/scraper/` (a missing username yields `null`, never a numeric fallback); `packages/ui` receives `accountHref` and never builds one. The page resolves its segment through one backend query (`socialMediaAccountProfileByUsername`: username first, all-digit `account_id` fallback) and `permanentRedirect`s any non-canonical segment to the username URL, preserving search params.
-- **Event groups** (added 2026-10-19, `bmad-architecture`, IDEA-084/085, BUG-068, see Architecture
-  Spine AD-36 — **plan only, not yet built**): a named programme ("8th Anniversary: REBORN") is a
-  new `event_groups` entity with a nullable `anchor_event_id` and a nullable `events.group_id` —
-  never a `parent_event_id` and never reuse of `relatedEventIds` (AD-30 Rule 11), which is
-  shared-post-only and cannot express a cross-account or umbrella-less group. Group suggestions
-  **always auto-apply** (Tier 1 title pattern, Tier 2 keyword+organizer, Tier 3 extraction
-  field/moderator) — moderators are **notified for after-the-fact review, never a pre-approval
-  gate** that blocks ingestion or display. **Two hard sequencing gates, enforced before any group
-  work ships against real data:** IDEA-085 (matcher recall, currently 5%) must land before grouping
-  runs over the existing event backlog; BUG-068 (`location_details` stored as a JSON string in
-  every row) must land before a group's children may inherit the anchor's location. AD-30 Rule 5
-  item 3's `program-lineup` extraction shape (hidden schedules) is marked pending-supersession —
-  its reshape into visible child events is sequenced with the IDEA-074 personalization work, not
-  built by this AD.
+- **Event groups** (added 2026-10-19, amended 2026-10-20, `bmad-architecture`, IDEA-084/085, see
+  Architecture Spine AD-36 — **plan only, not yet built**): a group is a new `event_groups` entity
+  with a nullable `events.group_id` (one group per event) — never a `parent_event_id`, and never
+  reuse of `relatedEventIds` (AD-30 Rule 11). Two kinds, `series` (same activity, different places or
+  times) and `programme` (different activities under one umbrella); **kind comes from a membership
+  test, never from the title shape or the creator** — "Activity - Place" and "Umbrella - Activity"
+  look alike, and a wrong `series` is hidden from Discovery by its cap. Suggestions auto-apply and
+  moderators review after the fact, never as a gate. **One writer** (`group-membership.ts`) owns
+  `group_id` and `member_count`; creation takes an advisory lock; the Discovery collapse is computed
+  per request behind `groupCollapse`, ships after the ranked list, and never runs on the calendar,
+  favorites, feed or account pages. **A grouped event notifies once per (group, source post)**,
+  through `events.notify_due_at` claimed by the ingestor's drain (not an SQS delay); this replaces
+  the PRD's per-event rule for grouped events. **Sequencing gates:** IDEA-085 (reachable-pair gate,
+  AD-36 Rule 10) before grouping runs over the existing backlog; BUG-068's row migration before a
+  child inherits a location.
+- **Event identity and the place model** (added 2026-10-20, `bmad-architecture`, IDEA-086/087/088, see
+  Architecture Spine AD-38 and AD-39 — **plan only, not yet built**): an event is **one activity at
+  one place-set**; its schedules are the dates. A deterministic place normalizer in `packages/domain`
+  splits multi-place extractions into sibling events (never for `dependent-stages` or routes).
+  `isSamePlace()` and `normalizeName()` are the **only** place and name comparisons — do not write a
+  third. A schedule move changes **two** pointers, `schedules.event_id` and
+  `calendar_additions.event_id`. Sibling ordinals are `siblingOrdinal(k, j) = k + 100·j`, never
+  `max + 1`. A pin has three independent facts: **read `pin_trust` only** (never `confidence` or
+  `matchType` outside `packages/domain/src/geolocation`), area is `events.area_status` + `area_keys`
+  (**`unknown` is a value, never null read as "anywhere"**), provenance is `location_source`;
+  `locationPrecision` is derived, not stored. An account's default location is read for an event's
+  place **only** in `resolveEventPlace()`; a curator's location-less event takes its audience area,
+  not its location. The place columns have one writer (`writeSchedulePlace()` / `writeEventArea()`).
 - **Soft-Delete Convention:** Tables that support removal **must** use a `deletedAt: timestamp | null` column, default every query to `deletedAt IS NULL`, and index hot lookup columns with a **partial index** scoped to that condition (never a bare index on `deletedAt`). Soft-delete mutations take an explicit `action: SoftDeleteAction!` (`DELETE`/`RESTORE`) argument. **See Architecture Spine AD-8** for the exact table list/exclusions, current per-resolver (not yet centralized) enforcement state, and the `drizzle-kit`-drops-the-WHERE-clause workaround.
 
 ### Security
