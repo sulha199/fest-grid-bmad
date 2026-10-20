@@ -21,14 +21,9 @@ captured: 2026-10-20
 - `users.role = 'moderator'` for the moderator's own row in production, and `deleted_at IS NULL`.
 - Run as the database owner, counts only: moderators; moderators with an `fcm_tokens` row; with a `user_settings` row; with `push_notifications_enabled`; with an active subscription.
 
-```sql
-select count(*) filter (where u.role = 'moderator' and u.deleted_at is null) as moderators,
-       count(*) filter (where u.role = 'moderator' and u.deleted_at is null and exists (select 1 from fcm_tokens t where t.user_id = u.id)) as with_push_token,
-       count(*) filter (where u.role = 'moderator' and u.deleted_at is null and exists (select 1 from user_settings s where s.user_id = u.id)) as with_settings_row,
-       count(*) filter (where u.role = 'moderator' and u.deleted_at is null and exists (select 1 from user_settings s where s.user_id = u.id and s.push_notifications_enabled)) as push_enabled,
-       count(*) filter (where u.role = 'moderator' and u.deleted_at is null and exists (select 1 from subscriptions b where b.user_id = u.id and b.deleted_at is null)) as with_active_subscription
-from users u;
-```
+The queries are in `_bmad-output/planning-artifacts/event-insight-poc/results/prod-findings-review-2026-10-19-queries/owner-notification-checks.sql` (owner-run, read-only transaction, tested on a scratch database built from the migrations): the moderators as a group, the owner's own row, the accounts the owner subscribes to (type, twin profile, last 30 days of events: stubs and notified), and the global notified-versus-not split.
+
+**Investigation brief for the local session:** `event-insight-poc/prod-readonly/local-session-brief-2026-10-20.md` (Job B). A further lead found while writing it: `getSubscribersForNotification` joins `social_media_account_profiles.account_id` to the event's source account id, so a subscription to a BUG-059 twin profile never matches; and the token is saved only from Settings → Notifications, per browser or installed app.
 
 ## Why it matters for the architecture
 
