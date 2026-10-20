@@ -304,7 +304,7 @@ the score does not decide: the same promo worded differently and different brand
 - **7 clusters, 21 events are one event posted by several accounts** (Erafone Run Yogyakarta Series, 7 events from 4
   accounts, BIOSFERUN, Bay Culture Show, K-24 Healthy Run, K-Spooky Jam, Perayaan Jumat Spooky). The stand-in place check
   called their spellings "different" or "unresolved"; with a real `isSamePlace` they are duplicates for the matcher.
-- **No wrong merge** by my reading.
+- **No wrong merge** by my reading. *Correction from review R4:* Rule 12 excludes curator-typed accounts, so on the rule's own eligibility the cross-account count is 22 clusters and 53 events (not 24 and 63), and the same-account count 26 clusters and 94 events (not 36 and 144); BWF, RSIH, Denmark Open and AKMU are curator-only today.
 - This **corrects my earlier statement** that branch promos were few (2 of 5 names in a top-25 listing). They are the
   common cross-account case. `organizer_name` is not a usable key: it is the brand for Wacoal, PPANG, Dcrepes and Marugame
   Udon, and the mall for most Sports Station posts.
@@ -384,6 +384,22 @@ architect review is needed.
    for review.
 4. **Recommendation:** collapse identical-core pairs from the start; link only for 0.85 to 0.99 and for tag-evidence joins; a
    per-detector switch, a daily cap and a nightly list of new cross-account groups as the safety net; no moderator gate.
+
+### 4.5 Date gap between events of a group (2026-10-20, asked by the owner)
+
+Before this, the 60-day gap was an assumed filter on the pairs I scored, not something I had measured; Round 3 item 13 had only
+measured the span of each candidate series. On the export (pairs at weighted score 0.85 or above, different place; gap = days between
+the two date ranges, 0 = overlap):
+
+| Pairs | Overlap | 1-7 d | 8-14 d | 15-30 d | 31-60 d | beyond 60 d |
+|---|--:|--:|--:|--:|--:|--:|
+| Same account (262) | 90 | 62 | 42 | 32 | 36 | 8 (63-106 d) |
+| Different accounts (48) | 33 | 6 | 2 | 7 | 0 | 0 |
+
+The 8 pairs beyond 60 days are tours by one account: AKMU Asia Tour (63-70 d) and Ruang Berpesta in Cirebon and Garut (99-106 d).
+So a 60-day cap loses about 2.5% of the grouped pairs; the same-account tail up to 60 days is not empty; cross-account pairs never
+exceed 30 days. Proposed (AD-36 Rule 12): **120 days within one account, 30 days across accounts**. What the data cannot say is where a
+new season starts (that needs annual repeats), and the number guard already separates annual editions that carry a year.
 
 ## 5. Notifications and sessions (Job B, Job C)
 

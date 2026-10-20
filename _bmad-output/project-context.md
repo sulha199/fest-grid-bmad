@@ -94,7 +94,7 @@ The following documents contain detailed specifications, architectures, and desi
   Discovery by its cap. **A programme's members are each promoted individually** (no cap, no collapse; a "part of"
   chip); a series shows **one cover, the member nearest the user**, with its own Nearby badge and "also at N other
   places" (concurrent) or "+N more sessions". Suggestions auto-apply and
-  moderators review after the fact, never as a gate. **One writer** (`group-membership.ts`) owns
+  moderators review after the fact, never as a gate. **Collapse and scope (2026-10-20, review R4):** a series member collapses in Discovery only when `events.group_collapse_key` is non-null (equality of `canonicalKey()`; a score decides a link, never a collapse); events of different countries are never grouped (`events.country_key`, enforced by a composite foreign key, NULL = unsettled and attaches to nothing); the attach lock key is never NULL and is taken per (detector, country). **One writer** (`group-membership.ts`) owns
   `group_id` and `member_count`; creation takes an advisory lock; the Discovery collapse is computed
   per request behind `groupCollapse`, ships after the ranked list, and never runs on the calendar,
   favorites, feed or account pages. **A grouped event notifies once per (group, source post)**,
