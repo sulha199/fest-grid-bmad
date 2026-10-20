@@ -2668,14 +2668,22 @@ This document defines the core architectural invariants for the FestDaily applic
           clusters are one place spelled several ways, so 178 over-counts true multi-place pairs
           until the phrase-score re-cut (Round 4 ask 3). Of the 5 multi-account names in the
           listing, 3 are one place posted by several accounts (duplicates: the matcher's job) and 2
-          are branch promos (Sports Station with 4 accounts, J.CO with 2), which stay ungrouped
-          `[PROPOSED]`. Both are series by definition and both score 1.00 on `seriesNameScore`;
-          what keeps them out is only the organizer key. **Option, owner decision:** a cross-account
-          pair joins when the score reaches a **higher** bar (start 0.90), the schedules **overlap**
-          in time, the places differ, and the shared core holds at least one token that is rare in
-          the corpus (inverse document frequency, so "Sports Station" counts and "Buy 1 Get 1 Free
-          Promo" does not); such a group is created **unconfirmed** (`confirmed_at` null, source
-          `series_phrase`). **Measured 2026-10-20 (the export above, weighted score at least
+          are branch promos (Sports Station with 4 accounts, J.CO with 2). That listing was a top-25
+          sample; the full export is measured below.
+          `[ADOPTED, user-directed 2026-10-20]` **cross-account series.** Branch promos posted by each
+          place's own account (Sports Station, J.CO, Wacoal) are series by definition and score
+          1.00 on `seriesNameScore`; the organizer key no longer keeps them out. A cross-account
+          series (`source = series_phrase`) joins members of different accounts when the weighted
+          name score reaches the bar (0.85), the schedules overlap or fall within `GAP`, the places
+          differ (`isSamePlace`) and the **area scope** below holds. **Collapse policy (option B,
+          user-directed):** pairs with an identical core (weighted score 1.00) **collapse in
+          Discovery from the start**; pairs at 0.85 to 0.99 and joins by tag evidence get the "part
+          of" link only. No moderator gate: moderators resolved 0 of 147 and receive no queue
+          notification, so a gate would make the feature inert. The safety net is the per-detector
+          switch and daily cap (Rule 16), a nightly list of newly created cross-account groups for
+          the owner to read, the collapse existing only in Discovery (the calendar, favorites, feed
+          and account pages list every event), every member staying reachable from the group page,
+          and a dissolve that restores every member. **Measured 2026-10-20 (the export above, weighted score at least
           0.85, different place, different account): 24 clusters and 63 events, of which 17
           clusters and 42 events are real branch promos (mall accounts post the same brand
           promo for their own mall: Sports Station, J.CO, Wacoal, MAKO, PPANG, Cheon, Dcrepes,
@@ -2684,31 +2692,32 @@ This document defines the core architectural invariants for the FestDaily applic
           with no wrong merge by a reading of the names alone.** The earlier "few" (2 of 5 names
           in a top-25 listing) was wrong: branch promos by mall accounts are the common cross-account
           case. `organizer_name` cannot be the key: it is the brand for Wacoal, PPANG, Dcrepes and
-          Marugame Udon, but the mall for most Sports Station posts. Rule 4 as written still lets an unconfirmed group take the Rule 13
-          Discovery policy, and a wrong series hides events behind a cap of one; so for this
-          detector Rule 4's bound is **tightened**: the collapse waits for a moderator's confirm
-          and only the "part of" link applies until then. That makes the cross-account series
-          depend on a reachable moderator (IDEA-090). **Alternative, owner decision:** since the
-          sample had no wrong merge and nearly every cross-account pair sits at 1.00 (20 pairs) with
-          only 2 at 0.85 to 0.90, the collapse may apply from the start to identical-core pairs
-          (weighted score 1.00) and give the 0.85 to 0.99 pairs the link only. **Architect
-          recommendation 2026-10-20 (owner leaning yes, option not yet confirmed): the
-          identical-core collapse.** Reasons, all from the 2026-10-20 export: (a) a moderator gate
-          makes the feature inert, since moderators resolved 0 of 147 and receive no queue
-          notification; (b) requiring a corroborating signal (same `organizer_name` or a shared
-          rare hashtag) would drop 12 of the 25 distinct real shared names (21 of 43 exact pairs
-          corroborate); (c) no statistic separates a generic shared name from a branded one in
-          this corpus ("Grand Opening" has a distinctiveness sum of 7.8, "Promo Diskon" 7.2,
-          against 7.7 for "BIOSFERUN 2026" and 7.9 for "MAKO Promo"), so the residual risk is an
-          unrelated pair with an identical generic name; none of the 25 shared names was generic,
-          and the risk is bounded by the per-detector switch and daily cap (Rule 16), a nightly
-          list of newly created cross-account groups for the owner to read, the collapse existing
-          only in Discovery (the calendar, favorites, feed and account pages list every event),
-          and a dissolve that restores every member. Open question for review: the join rule
-          "against any active member" lets a group grow by chain; 2 of the 27 clusters of three or
-          more members on the export are held together that way (both look genuine: International
-          Coffee Day, AKMU Asia Tour), and comparing a new member with the group's stem or with
-          every member is the alternative. All numbers `[ASSUMPTION]`.
+          Marugame Udon, but the mall for most Sports Station posts. Reasons for B, from the
+          export: a corroborating signal (same `organizer_name`, shared rare hashtag) would drop
+          12 of the 25 distinct real shared names; no statistic separates a generic shared name
+          from a branded one (distinctiveness sums: "Grand Opening" 7.8, "Promo Diskon" 7.2,
+          against "BIOSFERUN 2026" 7.7, "MAKO Promo" 7.9), so the residual risk is an unrelated pair
+          with an identical generic name, unobserved in the 25 names. `[ASSUMPTION]` all numbers.
+          **Area scope `[ADOPTED, user-directed 2026-10-20]`: events targeted at different
+          countries are never grouped.** The scope is a level, `GROUP_AREA_LEVEL`, start value
+          `country`; a finer level (region, city) is a configuration change. Two events may share
+          a group only when they have the same area key at that level. The country of an event is
+          `eventCountry()` in `packages/domain`, the same resolution as AD-14 Rule 4 (e)'s expected
+          country: the country key of its `area_keys` (AD-39), else the country of a **trusted**
+          pin, else the country named in its location text, else `GEOAPIFY_DEFAULT_COUNTRY`; an
+          untrusted pin's country never counts `[ASSUMPTION]`. It applies to **every** group
+          attach (series, programme, place split, moderator), so one group is one country: a
+          member of another country is not attached and stays tied to its siblings only through
+          the shared post (AD-30 Rule 11). It is also enforced at read time (Rule 13), so a group
+          made before an event's country was known never collapses across countries. Consequences
+          on the export: "erafone Run 2026" at Pantai Cenang, Langkawi would not join the
+          Yogyakarta ones; the BWF World Junior Championships rounds (Denmark, Egypt) and the AKMU
+          Asia Tour (Osaka, Taipei, Kuala Lumpur) would not form one group. Open questions for the
+          review: how a group that mixes identical-core and link-only members carries the collapse
+          decision; what serialises attach when no organizer is shared; the join rule "against any
+          active member" lets a group grow by chain (2 of the 27 clusters of three or more members
+          on the export, both genuine), against comparing with the group's stem or with every
+          member.
         - **Kind is never derived from the creator or from the shape of a title.** "Activity -
           Place" (Riot) and "Umbrella - Activity" (SCH) have the same syntax and opposite meaning.
           One function, `deriveGroupFromTitles()` in `packages/domain`, serves the title-pattern
@@ -2753,7 +2762,7 @@ This document defines the core architectural invariants for the FestDaily applic
           (KFC "HUT Kota Jogja ke-270", International Coffee Day, iPhone 18 Pro pre-order) from
           "different brands sharing a promo phrase" (Buy 1 Get 1 Free), which is why the bar is
           high and some real pairs are missed on purpose. In-sample: the formula was fixed after
-          seeing this data. **Tag evidence `[PROPOSED]`, measured 2026-10-20 on the same export
+          seeing this data. **Tag evidence `[ADOPTED, user-directed 2026-10-20; the guard on generic campaign tags is an ASSUMPTION]`, measured 2026-10-20 on the same export
           joined to each event's primary-post hashtags:** 1,109 of 1,467 events (76%) have
           hashtags (54% of September's, 85% of October's), 145 of the 157 events that share a
           post with others cannot use them (a roundup's tags describe several events), and the most
@@ -2770,8 +2779,8 @@ This document defines the core architectural invariants for the FestDaily applic
           shares one hashtag that is rare in the corpus (start: on at most 12 events), is not a
           mall or city tag, and spells words that are themselves rare in event names (so
           `#sportsstation` counts and `#buy1get1` does not); both events must be the only event of
-          their post. `[ASSUMPTION]` the guard on generic campaign tags is untested beyond these two
-          pairs. **The personalization taxonomy is not a grouping signal in v1:** `interests[]`,
+          their post, and the area scope above applies. `[ASSUMPTION]` the guard on generic campaign tags is untested beyond these two
+          pairs; "only event of their post" cannot be read from `events_in_post` at ingestion, because the siblings of a post land one at a time. **The personalization taxonomy is not a grouping signal in v1:** `interests[]`,
           `segments[]` and `costTier` (the personalization plan) say what kind of event this is, not
           which brand or campaign, so Sports Station and Planet Sports promos would carry the same
           interests; the coarse `categories` and `types` already stored agree on every
@@ -2848,6 +2857,9 @@ This document defines the core architectural invariants for the FestDaily applic
         - **Dissolved groups do not collapse.** The window partitions by `coalesce(g.id, e.id)`
           where `g` is `event_groups` joined **before** the window with `status = 'active'` (both
           ids are `uuid`; an ungrouped event is its own partition).
+          **Area scope at read time (2026-10-20, user-directed):** the window also partitions by the
+          member's country key (Rule 12), so a moderator-made or older group that spans countries
+          never collapses across them.
         - The card shows the count of *matching* members ("+2 more matching sessions") from the
           same pass; with one match it is a plain event card with a small "part of <group>" link.
           The programme anchor gets no cover priority in v1. `totalCount` is computed with the same
@@ -2949,6 +2961,7 @@ This document defines the core architectural invariants for the FestDaily applic
           | title pattern ("Umbrella - Child", 2+ children) | `title_pattern` | `title_pattern` | `programme` unless the Rule 12 test passes | set |
           | series stem rule (Rule 12 test passes) | `deterministic` | `series_stem` | `series` | set |
           | AD-38 place split | `deterministic` | `place_split` | `series` | set |
+          | cross-account series (Rule 12) | `deterministic` | `series_phrase` | `series` | set for identical-core pairs (collapse); null for 0.85 to 0.99 and tag joins (link only) `[OPEN: carrier for a mixed group]` |
           | seeded anchor (Tier 2) | `keyword_organizer` | `keyword_organizer` | `programme` | null until a moderator confirms |
           | extraction field (Tier 3, reserved) | `extraction_field` | `extraction_field` | `programme` | null |
           | moderator | `moderator` | `moderator` | moderator's choice | set |
@@ -2992,10 +3005,7 @@ This document defines the core architectural invariants for the FestDaily applic
     backfill-vs-going-forward dedup-gate split (Rule 10's `[ASSUMPTION]`). Added 2026-10-19: the
     values of `GAP` and the due delay (Rules 12 and 14), and the optional programme soft cap (Rule 13,
     off by default), to calibrate after Round 3 item 13 and a shadow run of Discovery;
-    **cross-account series** (each place posts its own promo: the series key includes the
-    organizer, so none is grouped; measured 2026-10-20, Rule 12: 34 of 178 concurrent pairs, of the 5
-    multi-account names listed 3 are duplicates and 2 are branch promos; revisit after the
-    phrase-score re-cut); the labels' copy and the group-
+    **cross-account series** (decided 2026-10-20, Rule 12: grouped, identical-core pairs collapse from the start, same-country scope; still open: the carrier for a group that mixes identical-core and link-only members, the attach serialisation key when no organizer is shared, and the join rule against chaining); the labels' copy and the group-
     surface UX (Rule 15); the carrier of the
     moderator notifications of Rules 4 and 7: today a moderator is emailed for only five event types
     (dangerous report, default-location change, two scraper alerts) and nothing reaches them about
