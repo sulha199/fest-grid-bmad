@@ -32,7 +32,15 @@ under "Needs the owner".
 | Safety net has no carrier and the switch does not undo | R4D-5, R4A-15 | **Applied** (Rule 17.8): bulk `dissolveBySource`; the nightly list has no delivery channel until IDEA-090, and the rule says so |
 | Code: numeric tokens count as shared words; a bare number is a "place run"; connectors in the place text; possessives; `a`/`an` dropped; non-Latin marks shredded; whole-word drop and leftover connector in `groupName`; `idfFrom([])` is NaN; duplicates inflate df; null place throws; `groupName` re-derives an unweighted decision; duplicated run logic; weak tests | CR-2 to CR-15 | **Applied** in revision 3 (`series-phrase.ts`, 19 tests; POC suite 278 of 278). Residual, documented in the file: word order changes the key; a single word plus a year never groups; `Run-Kenes` with no space keeps the partial word |
 
-## Needs the owner
+## Owner decisions (2026-10-20, after the triage)
+
+1. **Notifications:** suppress per `(user, group)`. Adopted in AD-36 Rule 17.5 (`event_group_notifications`, the insert is the per-user claim).
+2. **Cost of the country scope:** read as acceptable (the safe direction); Round 4 still sizes it.
+3. **Exact-repeat merge:** the owner asked for a recommendation; it stays `[PROPOSED]` until answered.
+4. **PostgreSQL version:** production runs 17.6, so `ON DELETE SET NULL (group_id)` is usable (AD-36 Rule 17.2).
+5. **Date gap:** `GAP` 120 days within one account, 30 days across accounts, adopted (AD-36 Rule 12).
+
+## Needs the owner (as written at triage time)
 
 1. **Notifications for a cross-account group** (Rule 17.5): accept one push per `(group, source post)` (a user subscribed to three
    malls hears three times), or suppress per `(user, group)`. Recommendation: suppress.

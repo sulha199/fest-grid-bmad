@@ -2795,7 +2795,7 @@ This document defines the core architectural invariants for the FestDaily applic
           **Serialisation, determinism, notification and detector-order corrections are Rule 17.**
           Review R4 left these questions with the owner or the stories: the carrier is decided
           (Rule 17.1), the lock key is decided (Rule 17.3), the join rule is decided (compare with
-          the stem, no chain), per-user notification suppression is the owner's (Rule 17.5).
+          the stem, no chain), per-user notification suppression is decided (Rule 17.5, adopted).
         - **Kind is never derived from the creator or from the shape of a title.** "Activity -
           Place" (Riot) and "Umbrella - Activity" (SCH) have the same syntax and opposite meaning.
           One function, `deriveGroupFromTitles()` in `packages/domain`, serves the title-pattern
@@ -2905,7 +2905,8 @@ This document defines the core architectural invariants for the FestDaily applic
           `becameOrganizerAuthored` re-runs group attach. (The matcher's any-role union,
           `buildEventAccountMatchCondition`, is a broader predicate for a different job.)
         - **Rolling.** A new member joins the open series when its first date falls within `GAP`
-          of the latest date of any existing member (**start value 60 days** `[ASSUMPTION]`; sized
+          of the latest date of any existing member (**the 60-day start value is superseded by the two
+          windows below; its sizing is kept as the evidence**; sized
           2026-10-20 by Round 3 item 13: of 59 candidates, 52 span under a month, 5 one to two
           months, 1 two to four, 1 over four, so 60 days splits at most the two candidates whose
           members are further apart and keeps the rest whole; the data is one seven-week snapshot
@@ -2916,8 +2917,8 @@ This document defines the core architectural invariants for the FestDaily applic
           there are only 8 pairs (plain score at least 0.85), all same-account tours: AKMU Asia Tour
           at 63 to 70 days and Ruang Berpesta (Cirebon, Garut) at 99 to 106. So the 60-day cap loses
           about 2.5% of the grouped pairs, the tail up to 60 days is not empty (14% of same-account
-          pairs sit at 31 to 60), and cross-account pairs never exceed 30 days. `[PROPOSED]`
-          two windows: **`GAP` 120 days within one account** (the number guard already separates
+          pairs sit at 31 to 60), and cross-account pairs never exceed 30 days. `[ADOPTED, user-directed
+          2026-10-20; the two values stay start values]` two windows: **`GAP` 120 days within one account** (the number guard already separates
           annual editions that carry a year), **30 days across accounts** (a branch promo is
           concurrent, and a short window is one more guard against two brands reusing a phrase).
           Where a new season starts cannot be read from seven weeks of posts; it needs annual
@@ -3126,8 +3127,9 @@ This document defines the core architectural invariants for the FestDaily applic
            Tested on the scratch database: a member of another country cannot be attached, a grouped
            member's country cannot change unless `group_id` is cleared in the same statement, an
            unsettled event cannot hold a group, deleting a group keeps the event's key. `ON DELETE
-           SET NULL (col)` needs PostgreSQL 15 or later: **verify the production version before the
-           migration** `[ASSUMPTION]`. Drizzle emits `ON DELETE SET NULL` for both columns, so the
+           SET NULL (col)` needs PostgreSQL 15 or later: **production runs PostgreSQL 17.6** (owner,
+           2026-10-20), so the column list is usable; the scratch test ran on 16.15, and the
+           migration's own test runs on the CI image, which must be 15 or later too. Drizzle emits `ON DELETE SET NULL` for both columns, so the
            migration hand-edits the column list and the schema builder keeps `onDelete: 'set null'`
            so `getTablesInDeleteOrder` still skips the edge. Attach, merge-inherit (Rule 7),
            `undoEventMerge`, dissolve-undo and the place split pre-check the country and **skip with
@@ -3182,12 +3184,24 @@ This document defines the core architectural invariants for the FestDaily applic
            is `$post`" (a roundup linking members whose primaries are elsewhere would claim them
            for the wrong account), and `events.notify_source_account_id` is written when
            `notify_due_at` is set, because `notifyDueGroups()` has no queue message to read it from.
-           **Owner decision (new):** a user subscribed to three malls that post one promo gets three
-           pushes, one per `(group, post)`, for what Discovery shows as one card. (a) Accept N pushes,
-           today's rule read literally. (b) Suppress per `(user, group)`: the first claim notifies a
-           user and later claims skip users already notified for that group (a sent-log keyed
-           `(user_id, group_id)`). Recommendation (b); it is cheap, and it changes only who is told
-           twice.
+           **`[ADOPTED, user-directed 2026-10-20]` Suppress per `(user, group)`.** A user subscribed
+           to three malls that post one promo is told once, not once per `(group, post)`, for what
+           Discovery shows as one card. Mechanism: `event_group_notifications (user_id, group_id,
+           first_event_id, sent_at, PRIMARY KEY (user_id, group_id))`, `ON DELETE CASCADE` from the
+           group and the user. The insert **is** the per-user claim: after the `(group, post)` claim
+           above returns rows, the sender runs `INSERT ... ON CONFLICT DO NOTHING RETURNING user_id`
+           for the source account's subscribers and sends only to the users returned, so two
+           concurrent claims for different posts cannot both notify one user. This changes
+           `getSubscribersForNotification()`, which returns FCM tokens only today (no user id) and
+           must return `(user_id, token)`; ungrouped events keep today's path and write no log row.
+           Consequences stated so the stories do not rediscover them: a user who subscribes to a
+           second mall after the first claim is still not told about that mall's branch (the group
+           was already announced to them); a user who subscribed to none of the earlier posters
+           is told at the first claim that reaches them; a **new season** is a new group (Rule 12), so
+           it notifies again; a dissolved group's rows are irrelevant (no later claims) and merging
+           two groups repoints the rows, keeping the earliest `sent_at` per user. The claim stays
+           before the send and a failed send is not retried (Rule 14), so the log can record a user
+           whose push failed: the same posture as `notified_at`.
         6. **Aggregates and page order.** `member_count`, `place_count` and `concurrent` are
            recomputed by every writer of `events.deleted_at` (merge, the cancelled-report soft
            delete, restore, hard delete: delete first, then recount, in one transaction), and the
