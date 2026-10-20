@@ -8,8 +8,17 @@ import {
   setGetAccountClassificationProfileSeam,
   getAccountClassificationProfileSeam,
   setCallGeminiForAccountClassificationSeam,
-  callGeminiForAccountClassificationSeam
+  callGeminiForAccountClassificationSeam,
+  setInsertAccountTypeClassificationReviewSeam,
+  insertAccountTypeClassificationReviewSeam,
+  ClassificationPersistenceFailedError
 } from './classify-account-type.js';
+
+// Captured once at module load, before any test can reassign the `let` export -- used to
+// restore the real seam deterministically. (A plain-value import binding re-reads the live
+// export, so re-passing the imported identifier itself would just reassign whatever the last
+// test already set it to; capturing the reference up front avoids that.)
+const realInsertAccountTypeClassificationReviewSeam = insertAccountTypeClassificationReviewSeam;
 
 test('classifyAccountType orchestration tests', async (t) => {
   let testProfile: any;
@@ -37,6 +46,7 @@ test('classifyAccountType orchestration tests', async (t) => {
     }
     setGetAccountClassificationProfileSeam(getAccountClassificationProfileSeam);
     setCallGeminiForAccountClassificationSeam(callGeminiForAccountClassificationSeam);
+    setInsertAccountTypeClassificationReviewSeam(realInsertAccountTypeClassificationReviewSeam);
   });
 
   await t.test('1. Successful classification above threshold (ORGANIZER_VENUE_EVENT)', async () => {
@@ -220,5 +230,74 @@ test('classifyAccountType orchestration tests', async (t) => {
     assert.ok(review);
     assert.equal(review.proposedAccountType, null);
     assert.match(review.failureReason || '', /Failed to parse Gemini response/);
+  });
+
+  // Prod incident 2026-10-15/2026-10-20 (infokonsermusik): the profile UPDATE and the review-row
+  // INSERT used to be two separate statements, so a kill or write error between them left the
+  // profile AWAITING_APPROVAL with no open review row. These two tests simulate the review
+  // insert failing in each failure path and assert the paired profile update rolled back with
+  // it -- the profile must come out exactly as it went in.
+  await t.test('6. Review-row insert failing during a hard failure leaves the profile unchanged (atomicity regression guard)', async () => {
+    setGetAccountClassificationProfileSeam(async () => {
+      throw new Error('Apify API rate limit');
+    });
+    setInsertAccountTypeClassificationReviewSeam(async () => {
+      throw new Error('simulated review insert failure');
+    });
+
+    await assert.rejects(
+      () => classifyAccountType({
+        accountId: testProfile.id,
+        username: 'atomic_hard_failure',
+        userId: 'user-id-abc'
+      }),
+      (err: any) => {
+        assert.ok(err instanceof ClassificationPersistenceFailedError);
+        return true;
+      }
+    );
+
+    const [unchanged] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfile.id));
+    assert.equal(unchanged.accountType, null);
+    assert.equal(unchanged.accountTypeStatus, null);
+    assert.equal(unchanged.accountTypeConfidenceScore, null);
+
+    const reviews = await db.select().from(accountTypeClassificationReviews).where(eq(accountTypeClassificationReviews.accountId, testProfile.id));
+    assert.equal(reviews.length, 0);
+  });
+
+  await t.test('7. Review-row insert failing on the low-confidence path leaves the profile unchanged (atomicity regression guard)', async () => {
+    setGetAccountClassificationProfileSeam(async (username) => ({
+      username,
+      displayName: 'Ambiguous Account',
+      biography: 'Vague bio about events in city',
+      businessCategoryName: null
+    }));
+    setCallGeminiForAccountClassificationSeam(async () => ({
+      text: JSON.stringify({ accountType: 'ORGANIZER_VENUE_EVENT', confidenceScore: 0.5 })
+    }));
+    setInsertAccountTypeClassificationReviewSeam(async () => {
+      throw new Error('simulated review insert failure');
+    });
+
+    await assert.rejects(
+      () => classifyAccountType({
+        accountId: testProfile.id,
+        username: 'atomic_low_conf',
+        userId: 'user-id-abc'
+      }),
+      (err: any) => {
+        assert.ok(err instanceof ClassificationPersistenceFailedError);
+        return true;
+      }
+    );
+
+    const [unchanged] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfile.id));
+    assert.equal(unchanged.accountType, null);
+    assert.equal(unchanged.accountTypeStatus, null);
+    assert.equal(unchanged.accountTypeConfidenceScore, null);
+
+    const reviews = await db.select().from(accountTypeClassificationReviews).where(eq(accountTypeClassificationReviews.accountId, testProfile.id));
+    assert.equal(reviews.length, 0);
   });
 });

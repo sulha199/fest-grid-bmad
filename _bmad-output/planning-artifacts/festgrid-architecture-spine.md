@@ -2130,8 +2130,10 @@ This document defines the core architectural invariants for the FestDaily applic
 *   **Binds:** `isScrapableAccountType(accountType, accountTypeStatus)` in
     `packages/domain/src/scraper/account-classification.ts`; every code path that *starts* a scrape
     — `triggerAccountScrape` (`apps/backend/src/schema/resolvers.ts`), the subscribe-time
-    classify-then-scrape cascade (`subscribeToAccount`), and the daily batch
-    (`getBatchScrapeTargets`, `apps/backend/src/lib/scraper/get-scrape-targets.ts`); Stories 3.4n
+    classify-then-scrape cascade (`subscribeToAccount`), the daily batch
+    (`getBatchScrapeTargets`, `apps/backend/src/lib/scraper/get-scrape-targets.ts`), and the
+    moderator-resolution first-scrape trigger (`resolveAccountTypeClassificationReview`,
+    `apps/backend/src/schema/resolvers.ts`, added 2026-10-20); Stories 3.4n
     (classification + gate), 3.4o (curator accounts become scrapable), 3.16.
 *   **Prevents:** The incident that created this AD (2026-10-15): Story 3.4o widened the gate in the
     batch's SQL only, so `triggerAccountScrape` and `subscribeToAccount` kept rejecting `CONFIRMED`

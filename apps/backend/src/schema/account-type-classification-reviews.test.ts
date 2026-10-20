@@ -1,7 +1,11 @@
 import test from 'node:test';
 import * as assert from 'node:assert';
 import { createSchema, createYoga } from 'graphql-yoga';
-import { resolvers } from './resolvers.js';
+import {
+  resolvers,
+  setTriggerFirstScrapeAfterModeratorResolutionSeam,
+  triggerFirstScrapeAfterModeratorResolutionSeam
+} from './resolvers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
@@ -22,6 +26,10 @@ const schema = createSchema({
   `,
   resolvers: resolvers as any
 });
+
+// Captured once at module load (before any test reassigns the `let` export) so it can be
+// restored exactly, regardless of aliasing through the live binding re-import.
+const realTriggerFirstScrapeAfterModeratorResolutionSeam = triggerFirstScrapeAfterModeratorResolutionSeam;
 
 let mockUser: any = null;
 
@@ -348,6 +356,228 @@ test('account type classification reviews resolver integration', async (t) => {
     const countAfter = afterResult.data.moderatorPendingItemCount;
 
     assert.strictEqual(countAfter, countBefore - 1);
+  });
+
+  // Part 3 (2026-10-20): resolveAccountTypeClassificationReview must start the account's first
+  // scrape after the resolution commits (ORGANIZER_VENUE_EVENT/CURATOR_GUIDE only, never
+  // PERSONAL), respect the existing scrape-in-progress rule, and never fail the mutation if the
+  // trigger itself fails. Uses the resolvers.ts test seam so these assert deterministically
+  // without a real Apify/queue round trip.
+  await t.test('Part 3 - resolving to ORGANIZER_VENUE_EVENT triggers the first scrape exactly once', async () => {
+    await db.update(socialMediaAccountProfiles)
+      .set({ scrapeTriggeredAt: null, lastScrapedAt: null })
+      .where(eq(socialMediaAccountProfiles.id, testAccount.id));
+
+    const [review] = await db.insert(accountTypeClassificationReviews).values({
+      accountId: testAccount.id,
+      proposedAccountType: 'ORGANIZER_VENUE_EVENT',
+      confidenceScore: 0.3,
+    }).returning();
+
+    let callCount = 0;
+    let lastTarget: any = null;
+    setTriggerFirstScrapeAfterModeratorResolutionSeam(async (target) => {
+      callCount++;
+      lastTarget = target;
+    });
+
+    try {
+      mockUser = { userId: moderatorUser.id, role: moderatorUser.role };
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation ResolveAccountTypeClassificationReview($id: ID!, $accountType: AccountType!) {
+              resolveAccountTypeClassificationReview(id: $id, accountType: $accountType) {
+                id
+                resolvedAccountType
+              }
+            }
+          `,
+          variables: { id: review.id, accountType: 'ORGANIZER_VENUE_EVENT' }
+        })
+      });
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.strictEqual(result.data.resolveAccountTypeClassificationReview.resolvedAccountType, 'ORGANIZER_VENUE_EVENT');
+      assert.strictEqual(callCount, 1, 'should trigger the first scrape exactly once');
+      assert.strictEqual(lastTarget.isInitialNewSubscription, true, 'no posts yet -> initial 7-day window');
+    } finally {
+      setTriggerFirstScrapeAfterModeratorResolutionSeam(realTriggerFirstScrapeAfterModeratorResolutionSeam);
+    }
+  });
+
+  await t.test('Part 3 - resolving to CURATOR_GUIDE triggers the first scrape exactly once', async () => {
+    await db.update(socialMediaAccountProfiles)
+      .set({ scrapeTriggeredAt: null, lastScrapedAt: null })
+      .where(eq(socialMediaAccountProfiles.id, testAccount.id));
+
+    const [review] = await db.insert(accountTypeClassificationReviews).values({
+      accountId: testAccount.id,
+      proposedAccountType: 'CURATOR_GUIDE',
+      confidenceScore: 0.3,
+    }).returning();
+
+    let callCount = 0;
+    setTriggerFirstScrapeAfterModeratorResolutionSeam(async () => {
+      callCount++;
+    });
+
+    try {
+      mockUser = { userId: moderatorUser.id, role: moderatorUser.role };
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation ResolveAccountTypeClassificationReview($id: ID!, $accountType: AccountType!) {
+              resolveAccountTypeClassificationReview(id: $id, accountType: $accountType) {
+                id
+                resolvedAccountType
+              }
+            }
+          `,
+          variables: { id: review.id, accountType: 'CURATOR_GUIDE' }
+        })
+      });
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.strictEqual(result.data.resolveAccountTypeClassificationReview.resolvedAccountType, 'CURATOR_GUIDE');
+      assert.strictEqual(callCount, 1, 'should trigger the first scrape exactly once');
+    } finally {
+      setTriggerFirstScrapeAfterModeratorResolutionSeam(realTriggerFirstScrapeAfterModeratorResolutionSeam);
+    }
+  });
+
+  await t.test('Part 3 - resolving to PERSONAL does not trigger a scrape', async () => {
+    await db.update(socialMediaAccountProfiles)
+      .set({ scrapeTriggeredAt: null, lastScrapedAt: null })
+      .where(eq(socialMediaAccountProfiles.id, testAccount.id));
+
+    const [review] = await db.insert(accountTypeClassificationReviews).values({
+      accountId: testAccount.id,
+      proposedAccountType: 'PERSONAL',
+      confidenceScore: 0.9,
+    }).returning();
+
+    let callCount = 0;
+    setTriggerFirstScrapeAfterModeratorResolutionSeam(async () => {
+      callCount++;
+    });
+
+    try {
+      mockUser = { userId: moderatorUser.id, role: moderatorUser.role };
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation ResolveAccountTypeClassificationReview($id: ID!, $accountType: AccountType!) {
+              resolveAccountTypeClassificationReview(id: $id, accountType: $accountType) {
+                id
+                resolvedAccountType
+              }
+            }
+          `,
+          variables: { id: review.id, accountType: 'PERSONAL' }
+        })
+      });
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.strictEqual(result.data.resolveAccountTypeClassificationReview.resolvedAccountType, 'PERSONAL');
+      assert.strictEqual(callCount, 0, 'PERSONAL must never trigger a scrape');
+    } finally {
+      setTriggerFirstScrapeAfterModeratorResolutionSeam(realTriggerFirstScrapeAfterModeratorResolutionSeam);
+    }
+  });
+
+  await t.test('Part 3 - a failed trigger does not fail the resolution mutation', async () => {
+    await db.update(socialMediaAccountProfiles)
+      .set({ scrapeTriggeredAt: null, lastScrapedAt: null })
+      .where(eq(socialMediaAccountProfiles.id, testAccount.id));
+
+    const [review] = await db.insert(accountTypeClassificationReviews).values({
+      accountId: testAccount.id,
+      proposedAccountType: 'ORGANIZER_VENUE_EVENT',
+      confidenceScore: 0.3,
+    }).returning();
+
+    setTriggerFirstScrapeAfterModeratorResolutionSeam(async () => {
+      throw new Error('simulated scrape trigger failure');
+    });
+
+    try {
+      mockUser = { userId: moderatorUser.id, role: moderatorUser.role };
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation ResolveAccountTypeClassificationReview($id: ID!, $accountType: AccountType!) {
+              resolveAccountTypeClassificationReview(id: $id, accountType: $accountType) {
+                id
+                resolvedAccountType
+              }
+            }
+          `,
+          variables: { id: review.id, accountType: 'ORGANIZER_VENUE_EVENT' }
+        })
+      });
+      const result = await response.json();
+      assert.ok(!result.errors, 'a failed trigger must not fail the mutation: ' + JSON.stringify(result.errors));
+      assert.strictEqual(result.data.resolveAccountTypeClassificationReview.resolvedAccountType, 'ORGANIZER_VENUE_EVENT');
+
+      // The review must still be resolved despite the trigger failure (logged, not thrown).
+      const [resolvedReview] = await db.select().from(accountTypeClassificationReviews).where(eq(accountTypeClassificationReviews.id, review.id));
+      assert.ok(resolvedReview.reviewedAt, 'review must still be marked resolved');
+    } finally {
+      setTriggerFirstScrapeAfterModeratorResolutionSeam(realTriggerFirstScrapeAfterModeratorResolutionSeam);
+    }
+  });
+
+  await t.test('Part 3 - an already-in-progress scrape is not re-triggered', async () => {
+    await db.update(socialMediaAccountProfiles)
+      .set({ scrapeTriggeredAt: new Date(), lastScrapedAt: null })
+      .where(eq(socialMediaAccountProfiles.id, testAccount.id));
+
+    const [review] = await db.insert(accountTypeClassificationReviews).values({
+      accountId: testAccount.id,
+      proposedAccountType: 'ORGANIZER_VENUE_EVENT',
+      confidenceScore: 0.3,
+    }).returning();
+
+    let callCount = 0;
+    setTriggerFirstScrapeAfterModeratorResolutionSeam(async () => {
+      callCount++;
+    });
+
+    try {
+      mockUser = { userId: moderatorUser.id, role: moderatorUser.role };
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation ResolveAccountTypeClassificationReview($id: ID!, $accountType: AccountType!) {
+              resolveAccountTypeClassificationReview(id: $id, accountType: $accountType) {
+                id
+                resolvedAccountType
+              }
+            }
+          `,
+          variables: { id: review.id, accountType: 'ORGANIZER_VENUE_EVENT' }
+        })
+      });
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.strictEqual(callCount, 0, 'an in-progress scrape must not be re-triggered');
+    } finally {
+      setTriggerFirstScrapeAfterModeratorResolutionSeam(realTriggerFirstScrapeAfterModeratorResolutionSeam);
+      await db.update(socialMediaAccountProfiles)
+        .set({ scrapeTriggeredAt: null })
+        .where(eq(socialMediaAccountProfiles.id, testAccount.id));
+    }
   });
 
   await t.test('cleanup', async () => {
