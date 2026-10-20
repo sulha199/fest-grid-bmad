@@ -2334,7 +2334,7 @@ items:
      title: "Curator events fall back to the curator's account location; inference gives it an arbitrary place",
      ref: [backlog/BUG-065-curator-events-fall-back-to-account-location.md, apps/backend/src/lib/ai-processor/resolve-account-and-locations.ts],
      touches: [app:backend, pkg:domain, web:accounts, web:locations, cross:ai-extraction, cross:prd],
-     note: "Curator: 12 posts, 12 places, all applied. Production 2026-10-19: 11 of 17 curators hold a default; clear after the code gate. Decided (AD-39 Rule 3): mandatory audience area at CONFIRMED, no account-location fallback; legacy stay unknown."}
+     note: "Curator: 12 posts, 12 places, all applied. Production 2026-10-19: 11 of 17 curators hold a default; clear after the code gate. Decided (AD-39 Rule 3): never Geoapify; Gemini names the area, the gazetteer resolves it, moderator review not a blocker when resolved."}
 
   BUG-066:
     {type: bug, status: backlog, created: 2026-10-18,
@@ -2529,7 +2529,7 @@ items:
      title: "Split existing multi-place events and backfill upcoming ones: journal, undo, dry-run queue, quota ledger",
      ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/architecture/architecture-festgrid-2026-09-22/reviews/review-data-integrity.md],
      touches: [app:backend, pkg:database, web:events, web:moderation, cross:ai-extraction, cross:architecture],
-     note: "Decided 2026-10-19 (AD-38 Rules 4-5). Split existing multi-place events: calendar_additions repoint, main schedule, journal and undo, dry-run queue, 3 gated steps, never notifies. Key for re-extraction is an open owner decision (AD-10). Sizing waits on Round 3 items 9, 11, 12."}
+     note: "Decided 2026-10-19/20 (AD-38 Rules 4-5). Split existing multi-place events: calendar_additions repoint, main schedule, journal and undo, dry-run queue, 3 gated steps, never notifies. Re-extraction uses subscribed contributors' keys only. Sizing waits on Round 3 items 9, 11, 12."}
 
   IDEA-089:
     {type: idea, status: backlog, created: 2026-10-19,

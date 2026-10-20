@@ -2912,7 +2912,7 @@ This document defines the core architectural invariants for the FestDaily applic
         - The place split is a pure function; the activity split inherits the extractor's
           non-determinism (7 events in one post, 10 in another from one caption).
     3.  **Write-path order and ordinals.** `[ADOPTED, user-accepted order; ordinal formula
-        PROPOSED]`
+        user-accepted 2026-10-20]`
         ```mermaid
         flowchart LR
           A["Extraction<br/>1 Gemini call per post"] --> B["Place normalizer<br/>deterministic"]
@@ -3007,28 +3007,26 @@ This document defines the core architectural invariants for the FestDaily applic
           names and, with trusted pins, more than 500 m apart) `[ASSUMPTION]`.
         - **Never notifies:** children inherit `notified_at`, and a backfill-created group is
           inserted with its members already stamped.
-        - **Key and budget.** `[PROPOSED; needs an owner decision]` Live extraction is BYOK
-          (`callGemini` selects subscriber keys; AD-10, PRD §3.7): `SYSTEM_GEMINI_API_KEY` is
-          structurally unreachable from it, so "500 minus live use" has no live term and the backfill
-          has no sanctioned key yet. Either (a) AD-10 is amended to add a sibling
-          `callGeminiForEventSplitBackfill` in `system-key-adapter.ts`, the only extraction caller of
-          the system key, with its own ledger (a per-day counter row incremented before every call:
-          at most 20 per minute and `500 − measured use of that key` per day; location inference and
-          account classification also draw on the key and write no `extraction_audit_logs` row, so
-          `gemini-usage.sql` is a lower bound and the counter is the budget), or (b) the backfill
-          runs on contributors' keys under their quotas. Either way: quotas are per Google project,
-          not per key, and reset at midnight Pacific time; 500 requests/day and 20/minute for Flash
-          Lite and 20/day for the non-lite model are **owner-reported on 2026-10-19**
-          `[ASSUMPTION]` (Google's documentation lists no per-model free-tier numbers: re-read them
-          in AI Studio the day the backfill is sized); the model is the extraction model
-          (`GEMINI_MODEL`, default `gemini-3.5-flash-lite`), never the filter model
-          (`GEMINI_FILTER_MODEL`, default `gemini-3.5-flash`, which the user-facing AI filter also
-          spends); re-extraction passes the same face-blur step as live extraction, and the key's
-          billing tier is stated (unpaid-tier content may be used by Google, PRD and FIND-066).
-          Post volume is 2,337 posts over 7 weeks (about 47 a day, a ceiling proxy: 880 posts carry a
-          `grouping_reason`). The Phase 0+1 forecast (about 813 posts a day) sizes BYOK key
-          availability, not this key, and matters only if extraction becomes platform-funded
-          (CC-032).
+        - **Key and budget.** `[ADOPTED, user-directed 2026-10-20]` Re-extraction uses
+          **contributors' keys only, and only those of contributors who subscribe to the account
+          that posted it**: `callGemini` with that account's `subscriberUserIds`, the same
+          relationship live extraction already relies on (AD-10, PRD §3.7). `SYSTEM_GEMINI_API_KEY`
+          stays unreachable from extraction, so there is no AD-10 amendment and no platform ledger.
+          Consequences: a post whose account has no subscriber with a usable key is not re-extracted
+          (the dry run lists it as `unresolvable`; its event stays unsplit); the budget is each
+          contributor's own quota, which the platform does not control or measure, so the backfill is
+          low priority, capped per run and per key, and relies on `callGemini`'s existing backoff
+          and `AiGatewayExhaustedError` (the post is retried in a later run, never forced).
+          The owner's figures (Flash Lite 500 requests a day and 20 a minute, 20 a day for the
+          non-lite model, stated 2026-10-19) describe the owner's key, not contributors'
+          `[ASSUMPTION]`; quotas are per Google project and reset at midnight Pacific time. The model
+          is the extraction model (`GEMINI_MODEL`, default `gemini-3.5-flash-lite`), never the filter
+          model (`GEMINI_FILTER_MODEL`, default `gemini-3.5-flash`, which the user-facing AI filter
+          also spends). Re-extraction passes the same face-blur step as live extraction (PRD:
+          unpaid-tier content may be used by Google; FIND-066). Post volume is 2,337 posts over 7
+          weeks (about 47 a day, a ceiling proxy: 880 posts carry a `grouping_reason`). The Phase 0+1
+          forecast (about 813 posts a day) sizes BYOK key availability, and matters only if
+          extraction becomes platform-funded (CC-032).
     6.  **The duplicate key, and pairs that are never duplicates.** Two events are duplicates when
         they share the organizer (AD-36 Rule 12's definition), the normalized name, a date within 2
         days and the place. A pair is **never** a candidate when (a) both are linked to the same
@@ -3049,7 +3047,7 @@ This document defines the core architectural invariants for the FestDaily applic
         (PostHog or `parseBooleanDefaultOn` in `env.ts`): `place-normalizer`,
         `discovery-group-collapse`, `group-notifications`, `area-exposure`. Backend metrics and alerts
         (AD-5 covers only frontend product analytics, so this is a new list for the story): splits per post and cap hits, `unresolved` places, `pin_trust` distribution,
-        groups created, kill-switch state, notification claims and failures, the Gemini ledger,
+        groups created, kill-switch state, notification claims and failures, backfill re-extractions per key and `unresolvable` posts,
         ladder outcomes, and the window-query latency. The migration order is AD-39 Rule 7's
         expand → derive → switch → contract, and applies to every new column and table of AD-36,
         AD-38 and AD-39. `project-context.md` is updated with the new "never" rules (read `pin_trust`
@@ -3071,8 +3069,7 @@ This document defines the core architectural invariants for the FestDaily applic
     **A stored `place_key`:** a derived value that drifts with the gazetteer version.
 *   **Deferred:** the `isSamePlace` similarity threshold and the venue-name normalization details;
     backfill sizing, until Round 3 items 9, 11 and 12 (`events-place-quality.sql`,
-    `events-multi-place.sql`, `gemini-usage.sql`) are run; the key decision of Rule 5; the
-    extraction-contract criterion and the `isRoute` field; the exact shape of the split journal and
+    `events-multi-place.sql`, `gemini-usage.sql`) are run; the extraction-contract criterion and the `isRoute` field; the exact shape of the split journal and
     `event_split_proposals`.
 *   **Follow-ups this AD creates (for `bmad-form-epics`), in dependency order:**
     1.  **IDEA-086 core** — `isSamePlace`, `normalizeName`, the gazetteer file (Indonesia-only), the
@@ -3081,8 +3078,7 @@ This document defines the core architectural invariants for the FestDaily applic
     2.  **IDEA-085** — stub-vs-stub scoring, the Rule 6 exclusions, the sweep and its system user
         (AD-30 Rule 7); needs follow-up 1 for `isSamePlace`.
     3.  **Split and backfill** — the journal, `undoEventSplit`, the moderator action, the dry-run
-        queue and the quota ledger (Rules 4–5); gated by follow-up 2 (AD-36 Rule 10) and the key
-        decision.
+        queue and the per-run caps (Rules 4–5); gated by follow-up 2 (AD-36 Rule 10).
     4.  **Activity split** — the extraction-contract criterion, the `isRoute` field and the
         `program-lineup` reshape (AD-36 Rule 6); its own story, after follow-up 1.
     5.  **IDEA-084 backlog run** — grouping the existing events, after follow-ups 2 and 3.
@@ -3118,8 +3114,8 @@ This document defines the core architectural invariants for the FestDaily applic
         "national"**), `events.area_keys text[]` (ancestor-closed: a Sleman event stores
         `{id, id-yo, id-yo-sleman}`; `inside X` is `area_keys @> {X}`), `events.area_leaf_key` (the
         finest key, for `covers`) and `events.area_source` (`stated | pin | heading | account`).
-        `[ASSUMPTION]` the storage shape is fixed now so the writer and the filters cannot diverge;
-        IDEA-087 may revise it before the first migration. (c) The **provenance**:
+        `[ADOPTED, user-accepted 2026-10-20]` the storage shape is fixed now so the writer and the
+        filters cannot diverge; IDEA-087 may still revise it before the first migration. (c) The **provenance**:
         `schedules.location_source`, written at ingestion: `stated` (the poster named the place or
         a user picked it), `geocoded_from_text` (Geoapify resolved free text), `account_default`,
         `account_audience_area`, `none`, and `legacy_unknown` (existing rows, Rule 7).
@@ -3156,24 +3152,39 @@ This document defines the core architectural invariants for the FestDaily applic
         result cannot overwrite a stated area. A stated area and a pin must agree (AD-14 Rule 4
         (c)); on conflict the pin is `untrusted`, not the text.
     3.  **Account fallbacks are narrow, recorded and in one function.**
-        `[ADOPTED, user-directed and user-accepted; the consequences below are PROPOSED]` The
+        `[ADOPTED, user-directed and user-accepted; the "everything else" bullet accepted
+        2026-10-20]` The
         account default location is read for an event's place only in `resolveEventPlace()`
         (`packages/domain`), which `resolveAccountAndLocations`, `transformGeminiResponseToEventInfo`
         and timezone tier 2 all call (a source-scan ratchet fails any other read).
         - **Curators** (`CURATOR_GUIDE`): an event with no exact location does **not** take the
-          account's location (reverses today's fallback; BUG-065). The account instead carries a
-          **mandatory audience target area**, stored as `social_media_account_profiles.
-          audience_area_keys text[]` and written only by one `setAudienceArea()` that records a
-          change row. A location-less curator event inherits it, with `location_source =
-          account_audience_area` and precision `AREA`. "Mandatory" means required to reach
-          `CONFIRMED` as `CURATOR_GUIDE`, on **both** paths: the moderator review enforces it, and
-          the AI auto-confirm path cannot supply an area, so a **new** auto-detected curator stays
-          `AWAITING_APPROVAL` until a moderator sets one (AD-34 does not scrape that status; the
-          scrape-gate function is unchanged). Curators already `CONFIRMED` keep being scraped; their
-          events are `unknown` until an area is set. For the 463 of the 466 legacy accounts that have
-          no default location (IDEA-075 bulk update) the area is derived in profile enrichment (bio
-          and name through the gazetteer); where undecided it stays unset. Setting an area
-          re-queues that account's `unknown` events once.
+          account's location (reverses today's fallback; BUG-065), and the audience area is
+          **never** derived with Geoapify (its pick for a curator is a different venue each time:
+          12 posts, 12 places). The account instead carries an **audience target area**, stored as
+          `social_media_account_profiles.audience_area_keys text[]` with `audience_area_source`
+          (`model | moderator`) and written only by one `setAudienceArea()` that records a change
+          row. A location-less curator event inherits it, with `location_source =
+          account_audience_area` and precision `AREA`.
+          **How the area is found.** `[ADOPTED, user-directed 2026-10-20]` Profile enrichment
+          proposes it: Gemini names the areas the account serves (`reachAreas`, each with verbatim
+          evidence from the bio, name or recent captions), a deterministic guard drops any area not
+          in the input, and the **gazetteer** resolves the names to keys (an ambiguous name such as
+          "Yogyakarta", city or province, takes the widest candidate `[ASSUMPTION]`, so a wrong
+          guess lands in the partial lane instead of hiding the event). **When an area was resolved
+          this way, moderator review is not a blocker**: the AI path may confirm `CURATOR_GUIDE`
+          and a moderator corrects the area afterwards (the AD-36 Rule 4 posture). **When none was
+          resolved** (no place named, nothing resolved, the guard dropped everything) the account
+          stays `AWAITING_APPROVAL` until a moderator sets one (AD-34 does not scrape that status;
+          the scrape-gate function is unchanged). Curators already `CONFIRMED` keep being scraped;
+          their events are `unknown` until an area is set.
+          **Evidence, and its limits.** The POC profile test (18 profiles, 3 runs each, one real
+          curator) never named a wrong country or zone (0 of 54) and returned a region for the real
+          curator in 3 of 3 runs, but the areas varied by run (a city, the province, a city plus
+          Central Java), and the sample is far too small for a rate. Hence the area is a proposal a
+          moderator can correct, and a real-curator evaluation is the gate for confirming without
+          review (Deferred). For the 463 of the 466 legacy accounts that have no default location
+          (IDEA-075 bulk update) the same enrichment runs; where it resolves nothing the area stays
+          unset. Setting an area re-queues that account's `unknown` events once.
         - **Venue accounts:** the account's default location may serve as the event's place (and its
           pin may be `trusted`) only when `location_source = account_default`, the account is a
           confirmed `ORGANIZER_VENUE_EVENT` of local or regional reach (the POC's reach guard: a
@@ -3198,7 +3209,7 @@ This document defines the core architectural invariants for the FestDaily applic
         **backstop, never the mechanism** (moderators resolved 0 of 147 queued candidates). The
         `'Location not specified'` placeholder in `events.location` (NOT NULL) is not a second
         source of truth: readers use `area_status`; removing the placeholder is a follow-up.
-    5.  **Filter and lane semantics.** `[ADOPTED; the sibling and chip decisions PROPOSED]`
+    5.  **Filter and lane semantics.** `[ADOPTED]`
         - A strict "in X" area filter matches an event only when its area key is the **same as or
           inside** X. `LocationFilterInput.adminArea` (never written, BUG-063) is replaced by
           `areaKey`. An event whose area **covers** X (a DIY-wide curator event for a Sleman user)
@@ -3208,7 +3219,7 @@ This document defines the core architectural invariants for the FestDaily applic
           set is `unknown`, never national.
         - **"In your area"** (the chip and default Discovery tier label) means `same` and `inside`.
           `covers` and `sibling` events stay in the local ordering tier (the POC's tier 0) but are
-          not labelled "in your area". `[ASSUMPTION]`
+          not labelled "in your area". `[ADOPTED, user-accepted 2026-10-20]`
         - **Nearby stays a pin-only distance claim** (AD-22, one shared computation, trusted pins
           only). Events with area-only precision appear in a radius filter's partial lane as "no
           exact location".
@@ -3270,7 +3281,10 @@ This document defines the core architectural invariants for the FestDaily applic
     `detail_level` as the precision field; the moderator list as the mechanism; a Nearby badge for
     area-only events; a `NOT NULL DEFAULT 'none'` for `pin_trust` (a straggling old Lambda would
     write indistinguishable "no pin" rows during a rolling deploy).
-*   **Deferred:** the pin-trust floor and the `full_match` question (AD-14); the gazetteer's data
+*   **Deferred:** the pin-trust floor and the `full_match` question (AD-14); a **real-curator
+    evaluation of the area guess** (the stored profiles of the 17 curators and a sample of the
+    legacy 463 through the profile-insight prompt and the gazetteer, compared with a person's
+    judgement) before the AI path confirms a curator without review; the gazetteer's data
     source, licence and coverage beyond the POC's sample list (versioned data file, Indonesia-only
     first); **audience-area inheritance by group members** (a child with no stated area taking its
     group's, AD-36 Rule 9; no coordinates involved, so not gated by BUG-068); deriving a schedule's
@@ -3281,7 +3295,8 @@ This document defines the core architectural invariants for the FestDaily applic
         file, `resolveEventPlace()` and the single writers (Rules 1–3, 7).
     2.  **Curator audience area** — `audience_area_keys`, `setAudienceArea()`, the
         `CONFIRMED` rule on both paths, the legacy derivation and the removal of the account-
-        default fallback for curators (Rule 3; BUG-065, IDEA-075).
+        default fallback for curators (Rule 3; BUG-065, IDEA-075), and the real-curator evaluation
+        that gates confirming without review.
     3.  **Derive and switch** — the Rule 7 job and the reader flip, after AD-37's row migration.
     4.  **Filter, lane and score semantics** (Rule 5; BUG-064, IDEA-081).
     5.  **Exposure and badge** (Rule 6) — with the UX step.
