@@ -2747,8 +2747,10 @@ This document defines the core architectural invariants for the FestDaily applic
           members by `isSamePlace`) and `concurrent` (the active members' date ranges all overlap);
           the card says "also at N other places" when `concurrent` and `place_count ≥ 2`, else "+N
           more sessions". A concurrent series made from one post is a place split (AD-38); one
-          posted separately by each place's own account is **not** grouped, because the series key
-          includes the organizer (superseded 2026-10-20: cross-account series are adopted, see below). **Measured 2026-10-20 (Round 3 item 15):** 178
+          posted separately by each place's own account was **not** grouped while the series key
+          included the organizer (superseded 2026-10-20: cross-account series are adopted, see
+          below; the "Series roll" identity key still reads `(organizer_account_id, stem)` and
+          needs the cross-account form from Rule 12). **Measured 2026-10-20 (Round 3 item 15):** 178
           concurrent pairs, 144 from one account on different posts and 34 across accounts, none
           from one post. The Wacoal promo is 3 events, one per mall, with overlapping date ranges
           (9 to 31 October, 9 to 31 October, 12 to 31 October), so it fits this shape. Many large
@@ -3203,9 +3205,9 @@ This document defines the core architectural invariants for the FestDaily applic
            is `$post`" (a roundup linking members whose primaries are elsewhere would claim them
            for the wrong account), and `events.notify_source_account_id` is written when
            `notify_due_at` is set, because `notifyDueGroups()` has no queue message to read it from.
-           **`[ADOPTED, user-directed 2026-10-20]` Suppress per `(user, group)`.** A user subscribed
-           to three malls that post one promo is told once, not once per `(group, post)`, for what
-           Discovery shows as one card. Mechanism: `event_group_notifications (user_id, group_id,
+           **`[ADOPTED, user-directed 2026-10-20; scope OPEN, see the last paragraph]` Suppress per
+           `(user, group)`.** A user subscribed to three malls that post one promo is told once, not
+           once per `(group, post)`, for what Discovery shows as one card. Mechanism: `event_group_notifications (user_id, group_id,
            first_event_id, sent_at, PRIMARY KEY (user_id, group_id))`, `ON DELETE CASCADE` from the
            group and the user. The insert **is** the per-user claim: after the `(group, post)` claim
            above returns rows, the sender runs `INSERT ... ON CONFLICT DO NOTHING RETURNING user_id`
@@ -3221,6 +3223,18 @@ This document defines the core architectural invariants for the FestDaily applic
            two groups repoints the rows, keeping the earliest `sent_at` per user. The claim stays
            before the send and a failed send is not retried (Rule 14), so the log can record a user
            whose push failed: the same posture as `notified_at`.
+           **OPEN, found by the PRD extraction (2026-10-20): this contradicts Rule 14 and the
+           programme kind as written.** Rule 14 (ADOPTED) says a later post that adds members to an
+           existing group notifies once for those members; "once per user per group until a new
+           season" would send nothing for week 2 of a weekly series (Riot Jogja's Wednesday Night
+           Run, `GAP` 120 days) and nothing for the second event of a programme, although SCH is a
+           programme precisely because each of its events is promoted individually (Rule 12). The
+           owner's reason was the same promo posted by several accounts. Architect recommendation,
+           awaiting the owner: suppression applies to **series only** (programmes are never
+           suppressed), and only **within a window** of the user's last push for that group (start
+           value 7 days `[ASSUMPTION]`), so the three-mall case collapses to one push while a weekly
+           run keeps its weekly push. Until the owner decides, the PRD states the intent (one push
+           for what Discovery shows as one card) and not the span.
         6. **Aggregates and page order.** `member_count`, `place_count` and `concurrent` are
            recomputed by every writer of `events.deleted_at` (merge, the cancelled-report soft
            delete, restore, hard delete: delete first, then recount, in one transaction), and the
@@ -3267,7 +3281,7 @@ This document defines the core architectural invariants for the FestDaily applic
     backfill-vs-going-forward dedup-gate split (Rule 10's `[ASSUMPTION]`). Added 2026-10-19: the
     values of `GAP` and the due delay (Rules 12 and 14), and the optional programme soft cap (Rule 13,
     off by default), to calibrate after Round 3 item 13 and a shadow run of Discovery;
-    **cross-account series** (decided 2026-10-20, Rule 12: grouped, identical-core pairs collapse from the start, same-country scope; still open: the carrier for a group that mixes identical-core and link-only members, the attach serialisation key when no organizer is shared, and the join rule against chaining); the labels' copy and the group-
+    **cross-account series** (decided 2026-10-20, Rule 12: grouped, identical-core pairs collapse from the start, same-country scope; the carrier for a group that mixes identical-core and link-only members, the attach serialisation key when no organizer is shared, and the join rule against chaining are specified in Rules 12, 17.1 and 17.3, `[PROPOSED by review R4]`, awaiting the owner's yes); the labels' copy and the group-
     surface UX (Rule 15); the carrier of the
     moderator notifications of Rules 4 and 7: today a moderator is emailed for only five event types
     (dangerous report, default-location change, two scraper alerts) and nothing reaches them about
