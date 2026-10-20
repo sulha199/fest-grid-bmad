@@ -1,0 +1,23 @@
+BEGIN
+SET
+ detail_level | status |    place_situation    | events 
+--------------+--------+-----------------------+--------
+ stub         | open   | 1 trusted-looking pin |     49
+ stub         | open   | 2 pin, but untrusted  |     60
+ stub         | open   | 3 place text only     |     16
+ stub         | open   | 4 no place at all     |      4
+ stub         | past   | 1 trusted-looking pin |     48
+ stub         | past   | 2 pin, but untrusted  |     78
+ stub         | past   | 3 place text only     |      8
+ stub         | past   | 4 no place at all     |      4
+ full         | open   | 1 trusted-looking pin |    106
+ full         | open   | 2 pin, but untrusted  |    153
+ full         | open   | 3 place text only     |     42
+ full         | open   | 4 no place at all     |     22
+ full         | past   | 1 trusted-looking pin |    251
+ full         | past   | 2 pin, but untrusted  |    449
+ full         | past   | 3 place text only     |    101
+ full         | past   | 4 no place at all     |     40
+(16 rows)
+
+ROLLBACK
