@@ -2497,7 +2497,7 @@ items:
      title: "Duplicate events: sweep the legacy pairs, let stub pairs reach the candidate threshold, work the moderator queue",
      ref: [backlog/IDEA-085-duplicate-events-sweep-stub-scoring-queue.md, planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/prod-findings-review-2026-10-19.md],
      touches: [app:backend, pkg:database, web:events, web:moderation],
-     note: "Round 3 replay: 181 reachable pairs, 25 listed. 33 mid/high pairs are missing (the sweep's job); 123 stub pairs score low by construction (needs the same-poster stub rule, AD-30 Rule 7). The sweep bound max(0,50-pending) inserts nothing while 147 are pending."}
+     note: "181 reachable pairs, 25 listed: 33 mid/high pairs are the sweep's job, 123 stub pairs score low (stub rule, AD-30 Rule 7). Exact-repeat merge adopted 2026-10-20, live and sweep: see the detail file."}
 
   IDEA-084:
     {type: idea, status: backlog, created: 2026-10-19,

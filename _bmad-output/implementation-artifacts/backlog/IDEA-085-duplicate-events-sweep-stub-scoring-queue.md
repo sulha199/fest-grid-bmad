@@ -34,3 +34,7 @@ The reachable pairs by the matcher's own scoring inputs (`results/recall-class4-
 ## Proposed gate for AD-36 Rule 10 (replaces "recall above the observed 5%")
 
 "Of the reachable same-name pairs (class 4 of `recall-classes.sql`), at least 80% are merged, dismissed, or have a candidate no older than 7 days, and the legacy class has been swept." The two queries are the acceptance test; run them before and after.
+
+## Decision 2026-10-20: exact repeats merge without a moderator (AD-30 Rule 7)
+
+Adopted by the owner, both paths: one predicate `isExactRepeat` (same poster, same normalized name, same place, same country, identical date range and start time). The live matcher raises such a candidate to `high` (behind `exact_repeat_live`, default off until the first capped sweep run is read); the sweep merges existing pairs as `system-dedup`. Overlapping but different ranges stay `mid` (a promo window and its final day are not repeats). Size on the owner's export with identical ranges: 195 pairs, 56 clusters, 150 events, about 94 soft deletes (22 curator-guide clusters, 31 venue-event). Not yet measured: start time (not in the export), the stub weight (Round 4 ask 1), precision as read by the owner. Gate before the cap is lifted: the owner reads the dry-run list (largest clusters, a random sample, every cluster whose place texts differ).

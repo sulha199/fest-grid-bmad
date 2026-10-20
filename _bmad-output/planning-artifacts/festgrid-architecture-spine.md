@@ -1982,24 +1982,43 @@ This document defines the core architectural invariants for the FestDaily applic
             0.25 + 0.15 + 0.20 = 0.60 is below `high` (0.75): this signal alone makes a pair `mid` and
             never auto-merges it. The weight is arithmetic, not yet replayed (Round 4 ask 1 replays
             0.10 and 0.20).
-        *   **Exact repeats** `[PROPOSED, owner decision; tightened by review R4]`: a same-poster
-            pair with the same normalized name, `isSamePlace` = `same` and a **shared schedule date
-            and start time** is a repeat post of one event, and the sweep merges it as
-            `system-dedup` (journaled, undoable) instead of queuing it, because a queue nobody works
-            cannot clear it. This extends the adopted "auto-merge `high` pairs" scope to a case that
-            scores `mid`, so it needs the same one PRD sentence. On the export 227 such pairs form 63
-            clusters over 174 events, so an unattended first run would soft-delete about 111 events.
+        *   **Exact repeats** `[ADOPTED, user-directed 2026-10-20, both paths; the preconditions come
+            from review R4 and from the sample read on 2026-10-20]`: a same-poster pair with the
+            same normalized name, `isSamePlace` = `same` and the **same date range and start time**
+            on the main schedule is a repeat post of one event. One predicate, `isExactRepeat(a, b)`
+            in `packages/domain`, serves two paths. **Live:** `findMatchingEvent` raises the tier of
+            a candidate that satisfies it to `high`, so the existing high path links the new post to
+            the existing event and no second event is created (behind its own switch,
+            `exact_repeat_live`, default off until the sweep's first capped run has been read).
+            **Sweep:** the one-time sweep merges the pairs that already exist through `mergeEvents()`
+            as `system-dedup` (journaled, undoable) instead of queuing them, because a queue nobody
+            works cannot clear it. This extends the adopted "auto-merge `high` pairs" scope to a case
+            that scored `mid`; the PRD sentence is "If a poster posts the same event twice (same
+            name, place, date and time), FestGrid shows it once."
+            **The date test is identity, not overlap.** A first version used overlapping ranges
+            (227 pairs, 63 clusters, 174 events). Reading a sample of 16 clusters showed the
+            difference: "Shoptember Reward" (1 to 30 Sep against 7 Sep to 31 Oct), "King of the
+            Month" (1 to 13 Sep against 13 Sep) and "Frenzy Bite" (24 to 29 Sep against 28 Sep) are a
+            promo and a sub-event or an extension, not repeats. With identical ranges: **195 pairs,
+            56 clusters, 150 events, so an unattended first run would soft-delete about 94**
+            (22 curator-guide clusters, 31 venue-event, 3 unknown; 38 of the 56 have already ended).
+            The 32 overlapping pairs stay `mid`. Start time is not in the export, so these counts are
+            an upper bound; the place check is the author's crude stand-in; the sample was read by
+            the author from names and dates only, so **the owner reads the dry-run list before the
+            cap is lifted**.
             Preconditions, none optional: no `rejected` row for the pair (a moderator's "not a
             duplicate" wins); AD-38 Rule 6 exclusions (a) and (b) apply (two items of one roundup
             that the extractor declared distinct are never repeats); neither event has an applied or
             pending correction or a pending report (`mergeEvents` does not move `corrections`);
             same country; `mergeEvents` first locks both event rows in id order (`FOR NO KEY
             UPDATE`), because a live enrichment between its read and its soft delete leaves a
-            schedule and a link on a deleted event; the schedule match is `(start date, start time,
-            place)`, not date only; every automatic merge is tagged `source = exact_repeat` in the
-            journal; the first run is capped (for example 20 clusters) and reported before the cap
-            is lifted. `undoEventMerge` of an automatic merge writes a `rejected` candidate row for
-            the pair when none exists, so the next sweep does not merge it again. The seeded
+            schedule and a link on a deleted event; the schedule match is `(start date, end date,
+            start time, place)`, not date only; every automatic merge is tagged `source =
+            exact_repeat` in the journal; the sweep runs as a script with a dry-run default that
+            prints the clusters (AD-38 Rule 5 style), and the first live run is capped (20 clusters:
+            the largest, a random sample, and every cluster whose place texts differ) and reported
+            before the cap is lifted. `undoEventMerge` of an automatic merge writes a `rejected`
+            candidate row for the pair when none exists, so neither path merges it again. The seeded
             `system-dedup` user must not have `role = 'moderator'` (the moderator alert fan-out
             would email it), needs a reserved non-routable address, and `seed.ts` recreates it. A
             hard delete of the winner of a non-undone merge is refused unless forced (the journal

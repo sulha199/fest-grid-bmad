@@ -36,7 +36,7 @@ under "Needs the owner".
 
 1. **Notifications:** suppress per `(user, group)`. Adopted in AD-36 Rule 17.5 (`event_group_notifications`, the insert is the per-user claim).
 2. **Cost of the country scope:** read as acceptable (the safe direction); Round 4 still sizes it.
-3. **Exact-repeat merge:** the owner asked for a recommendation; it stays `[PROPOSED]` until answered.
+3. **Exact-repeat merge:** adopted for both paths (live matcher and sweep) on the owner's yes. The date test became identity, not overlap, after a 16-cluster sample (AD-30 Rule 7: 56 clusters, about 94 events instead of 63 and 111).
 4. **PostgreSQL version:** production runs 17.6, so `ON DELETE SET NULL (group_id)` is usable (AD-36 Rule 17.2).
 5. **Date gap:** `GAP` 120 days within one account, 30 days across accounts, adopted (AD-36 Rule 12).
 
