@@ -428,25 +428,50 @@ This document defines the core architectural invariants for the FestDaily applic
         only when:
         (a) the match is `PLACE_ID_EXACT` (a place the user picked; Rule 1's synthetic result,
         which the shipped predicate rejects today), or the confidence reaches the floor (start
-        value 0.5, uncalibrated) and `matchType` is `full_match`. `[ASSUMPTION]` whether the
-        `full_match` clause stays: production shows `full_match` at confidence 0.00, and Geoapify
-        also returns `confidence_city_level` and `confidence_street_level`, which the mapper does
-        not store and which may separate the cases better. Decide against
-        `confidence-by-country-box` and the compound-text probe;
+        value 0.5) and `matchType` is `full_match`. **Calibrated 2026-10-20** (Round 3 item 14,
+        87 owner labels of which 15 are correct; analysis:
+        `event-insight-poc/round-3-analysis-2026-10-20.md` §1) `[PROPOSED]`: the **floor stays 0.5
+        and the `full_match` clause stays**. The floor is the weakest lever: 0.5 to 0.6 changes one
+        in-country row; 0.7 and above keep 47% or fewer of the correct pins and do not raise
+        precision; without `full_match` precision at 0.5 falls from 44% to 39%. Seven of the 15
+        correct pins are already below the floor (four with a stored confidence of 0.00 to 0.45,
+        three with none), because a compound text scored low and still found the building: the
+        fix is a cleaner query (Rule 5), not a lower floor. `confidence_city_level` and
+        `confidence_street_level` are **not** an alternative: they are present in 19 of 192 probe
+        rows;
         (b) the answer is not a non-place (Rule 5);
         (c) when the schedule's place has area keys from a source that does **not** depend on the
         pin (a stated area, the roundup heading: AD-39 Rule 2 steps 1 and 3), the pin's
         administrative path intersects them below country level (the country never counts); keys
         derived from the pin itself (AD-39 Rule 2 step 2) never feed (c);
         (d) the pin did not come from an account's default location unless AD-39 Rule 3's
-        venue-account conditions hold.
+        venue-account conditions hold;
+        (e) `[PROPOSED 2026-10-20]` the pin's `countryCode` equals the **expected country**, and a
+        pin with no `countryCode` is untrusted. Expected country = the country the schedule's own
+        location text names, when it names one (a short ISO country-name list in
+        `packages/domain/src/geolocation/`, so the Denmark Open and BWF pins stay trusted), else
+        `GEOAPIFY_DEFAULT_COUNTRY` (default `id`). **The account's default country is never the
+        expected country**: of 42 labelled wrong-country pins, 12 came from accounts whose own
+        default is abroad (lb 6, sg 3, in 2, us 1) and 25 from accounts with no usable country.
+        The country code, not the Indonesia bounding box, is the test: Sandakan, Malaysia lies inside
+        the box. Evidence: all 42 labelled pins outside the box are wrong at every confidence,
+        including 4 of 4 at 1.00; adding (e) to the shipped rule lifts weighted precision from 44%
+        to 56% (84% counting a right city as right) and keeps every correct pin, on a sample of 15
+        correct pins, so a direction and not a rate. Leg (e) needs only the stored country code and
+        runs without the area resolver. **Result type:** `[ASSUMPTION]` the mapper also stores
+        Geoapify's `result_type`, and a city, state or country result is capped at precision `AREA`
+        (not a place for the map link or Nearby); 15 of the 87 labelled pins are the right city or
+        neighbourhood but not the place, and nothing stored separates them today. Which result
+        types count as a place is decided when the mapper story reads the probe's raw responses.
         **Computed** per schedule at ingestion, **after** the AD-38 place split (so (c) sees the
         keys of that schedule's own place), and written as `schedules.pin_trust`
         (`trusted | untrusted | none`) with `pin_evaluated_with` (floor and gazetteer version). The
         inputs (`confidence`, `matchType`, `countryCode`) stay in `location_details`; a change of
         floor or gazetteer version re-derives the rows whose `pin_evaluated_with` differs. Until the
-        area resolver and BUG-063 supply path data, (c) is vacuously true and **BUG-066 stays open
-        until (c) can run**.
+        area resolver and BUG-063 supply path data, (c) is vacuously true; **(e) closes the
+        wrong-country pins at once, and BUG-066 stays open for the in-country wrong-city pins
+        (Transmart Cirebon answered in Surabaya, Balai Kota Yogyakarta in Jakarta) until (c) can
+        run**.
         **Readers.** Every reader of a pin reads `pin_trust` and nothing else: the map link
         (`LocationLink`), the radius filter (`scheduleCoordinates.withinRadius`), the Nearby badge
         and distance (AD-22), the paid distance term (AD-39), the matcher's venue test
@@ -456,7 +481,7 @@ This document defines the core architectural invariants for the FestDaily applic
         "consumer reads `confidence`/`matchType`" is superseded for these readers and its ratchet
         tests are re-pointed to assert that `pinTrust` is selected.
         Confidence alone cannot separate good from bad pins (129 of 343 pins outside Indonesia's box
-        are ≥ 0.5, 83 at exactly 1.00; 413 of 959 inside are < 0.5), which is why (c) exists.
+        are ≥ 0.5, 83 at exactly 1.00; 413 of 959 inside are < 0.5), which is why (c) and (e) exist.
         **Rollout.** NULL means "not derived": the AD-39 Rule 7 job fills existing rows before any
         reader switches (otherwise the map link disappears from all 1,460 pinned schedules); the
         radius predicate ships with an EXPLAIN gate (AD-30 Rules 4 and 6) and, if the plan needs it,
@@ -464,21 +489,36 @@ This document defines the core architectural invariants for the FestDaily applic
         **Enforced by:** a source-scan test failing on `.confidence`/`matchType` reads outside
         `packages/domain/src/geolocation`; the re-pointed Rule 2 tests; truth-table tests of
         `isPinTrusted`.
-    5.  **Geocode input hygiene.** Two pure functions in `packages/domain/src/geolocation/` own it,
-        with English and Indonesian token lists and tests built from the production texts:
+    5.  **Geocode input hygiene.** Two pure functions in `packages/domain/src/geolocation/` own it
+        (a third, `pickVenueSegment()`, is proposed below), with English and Indonesian token lists
+        and tests built from the production texts:
         `isNonPlace()` ("Online" is in production data; "Zoom" and "Google Meet" so far only in
         POC extraction output, BUG-064) and `stripSubVenueQualifier()` (floor, level, room,
         counter, atrium; `lantai`, `lt.`, `ground floor`). `adapter.resolveLocation` calls both
         **before** it builds the cache key, so the key is built from the stripped text; a non-place
         is never sent to the geocoder, and the venue name plus the stated city are kept. Production
         texts such as "Atrium & Plaza Rama, Sleman City Hall" fail at confidence 0.00 because the
-        geocoder matches the generic word. `[ASSUMPTION]` the qualifier rule is confirmed by Round 3
-        item 10 (`probe-geocode-compound.ts`, not yet run); the non-place rule is not an
-        assumption.
-    *   **Deferred (AD-14 amendment):** the floor value and the `full_match` clause, calibrated on a
-        person-labelled sample of pins (Round 3 item 14, `pin-trust-sample.sql` and
-        `score-pin-trust-labels.ts`) and the compound-text probe (item 10), not on the Round 2
-        histograms alone, which cannot say which pins are right; the gazetteer-first routing of area phrases
+        geocoder matches the generic word. The non-place rule is not an assumption.
+        **Round 3 item 10 ran 2026-10-20** (100 Geoapify requests, 21 texts with a known country):
+        right country for 4 as stored, **11 with the qualifiers removed, 16 with only the venue
+        segment** (13 of the 16 at confidence ≥ 0.5); adding the stated city changed nothing and the
+        `bias=countrycode` parameter changed nothing. So the qualifier rule alone recovers about
+        half of the gain. `[PROPOSED]` a third pure function, `pickVenueSegment()`, runs after
+        `stripSubVenueQualifier()`: the text is split at commas and spaced dashes and the **last
+        segment that reads as a venue** (a short English and Indonesian word list: mall, plaza,
+        hall, atrium, museum, hotel, stadium, ...) is what the geocoder receives, else the last
+        segment. `[ASSUMPTION]` 16 of 21 is an upper bound: the probe's word list was written while
+        looking at these 21 texts. A held-out set of 20 further texts is run before the list is
+        frozen (Round 4 ask 4, analysis §6). Seven texts stay wrong even at venue-segment level
+        ("Court 2" answered in Canada at 1.00, "Online" in France at 1.00), which is why Rule 4 (e)
+        exists.
+    *   **Deferred (AD-14 amendment):** the floor value and the `full_match` clause were calibrated
+        2026-10-20 on 87 person-labelled pins and the compound-text probe (Rule 4, `[PROPOSED]`,
+        awaiting the owner's yes); what stays open is the sample size (15 correct pins: a direction, not a rate), which result types
+        count as a place, the held-out geocode set (Rule 5), the 158 pins with no stored signal
+        (reverse-geocoded by the derive job for a country code only; 3 of the 4 sampled are right, too
+        few to trust them without it), and the re-geocode of the 213 open events with an untrusted
+        pin. The gazetteer-first routing of area phrases
         ("DIY & Jawa Tengah" answered with a PLN office at 0.66) belongs to AD-39 and IDEA-081.
 
 ---
@@ -1884,6 +1924,33 @@ This document defines the core architectural invariants for the FestDaily applic
             never auto-merged: a same-link, same-name pair weeks apart is queued for a moderator,
             not folded. The flow diagram `diagrams/event-dedup-flow.html` changes with the sweep
             and the exclusions (project-context).
+        **Amended 2026-10-20 (Round 3 item 8, the `computeMatchScore` replay; analysis
+        `event-insight-poc/round-3-analysis-2026-10-20.md` §2).** 181 reachable pairs (178 at the
+        Round 2 count), all same-account by construction. The 12.9% recall figure counted two
+        different problems:
+        *   **33 pairs the scoring itself rates `mid` or `high` hold no candidate** (full events: 4
+            `high` and 25 `mid`; stub pairs: 4 `mid`), so 25 of 58 such pairs (43%) are listed. They
+            predate the matcher or were ingested concurrently; the one-time sweep above is what
+            reaches them, and its `high` pairs merge through `mergeEvents()`.
+        *   **123 stub pairs (68% of the 181) score `low` by construction** (mean 0.384; 111 share a
+            venue), the 0.40 ceiling the 2026-10-19 amendment predicted. `[PROPOSED]` the stub-vs-stub
+            rule that amendment deferred: for a pair whose two items were posted by the **same
+            account**, with the same `normalizeName()` and `isSamePlace` = `same`, a **same-poster
+            signal of 0.20** (half the organizer weight) replaces the discounted organizer term.
+            Pairs across different accounts never earn it, so BUG-058's intent holds. The ceiling
+            0.25 + 0.15 + 0.20 = 0.60 is below `high` (0.75): this signal alone makes a pair `mid` and
+            never auto-merges it. The weight is arithmetic, not yet replayed (Round 4 ask 1 replays
+            0.10 and 0.20).
+        *   **Exact repeats** `[PROPOSED, owner decision]`: a same-poster pair with the same name,
+            `isSamePlace` = `same` and overlapping schedule dates is a repeat post of one event. The
+            sweep merges it as `system-dedup` (journaled, undoable) instead of queuing it, because a
+            queue nobody works cannot clear it. This extends the adopted "auto-merge `high` pairs"
+            scope to a case that scores `mid`, so it needs the same one PRD sentence.
+        *   **The insert bound would insert nothing today.** `max(0, 50 - pending)` is 0 while 147
+            candidates are pending (75 older than 7 days, 0 resolved), so the sweep's `mid` pairs
+            would never reach a moderator who, in addition, is not notified (BUG-069, IDEA-090).
+            `[PROPOSED]` only pending candidates **younger than 7 days** count against the bound, and
+            a pending candidate expires once either of its events has no open schedule.
     8.  **Promotion and post deletion.** On promotion the event adopts the matched candidate's
         `extraction_ordinal` under the new primary (that `(post, ordinal)` slot is free — the
         candidate was matched to this event rather than creating one) and keeps its old link
@@ -2445,6 +2512,14 @@ This document defines the core architectural invariants for the FestDaily applic
         their own, and the "shares its venue" test calls `isSamePlace` (AD-38 Rule 1) with the
         organizer, not coordinates, until BUG-066 and AD-37's migration land. `[ASSUMPTION]`
         (review gaps G6/G7, not yet user-confirmed).
+        **Amended 2026-10-20 (Round 3 item 16).** Tier 1 now finds 19 groups and 56 events (it found
+        17 and 52 on 2026-10-19); **SCH is not one of them** (its children are named "SCH Choir
+        Competition 2026", "Zumba Anniversary" and so on, never "8th Anniversary - X"), as the
+        write-up already said ("covers about 4% and misses SCH"). Because Tier 2 needs a seeded
+        anchor and SCH has no Tier 1 umbrella, **SCH becomes a programme only when a moderator
+        creates the group with its `(keyword, organizer)` seed** (the `moderator` detector). The
+        decision that SCH is a programme stands; its delivery depends on a reachable moderator
+        (IDEA-090) and is a manual step until Tier 3 exists.
     4.  **Confirmation policy — immediate-apply, notify-don't-block.** `[ADOPTED, user-directed,
         modified from the tier-gated recommendation]`: every tier writes the group/membership
         immediately; **nothing in ingestion, matching or display waits on a moderator.** This
@@ -2547,6 +2622,10 @@ This document defines the core architectural invariants for the FestDaily applic
         counted and 80% is unreachable): at least 80% merged, dismissed, or holding a candidate no
         older than 7 days, and the legacy class swept (AD-30 Rule 7, amended). `[ASSUMPTION]` the 80%
         threshold (review gap G3), to be confirmed in IDEA-085.
+        **Measured 2026-10-20 (Round 3 item 8):** 25 of the 181 reachable pairs (14%) hold a candidate,
+        and 123 pairs (68%) cannot reach `mid` until AD-30 Rule 7's stub rule exists, so **the gate
+        cannot be met by the sweep alone**: the stub rule and a working queue (or the exact-repeat
+        merge) are prerequisites of IDEA-084's backlog run.
     11. **What's measured and what isn't (write-up §9 — carried forward, not re-claimed as
         settled).** Measured: Tier-1 precision (§5, spot-checked genuine); Tier-2 as an
         anchor/road-to-event finder but not as a children finder (§4); matcher recall (5%, 23/446,
@@ -2579,18 +2658,34 @@ This document defines the core architectural invariants for the FestDaily applic
           the card says "also at N other places" when `concurrent` and `place_count ≥ 2`, else "+N
           more sessions". A concurrent series made from one post is a place split (AD-38); one
           posted separately by each place's own account is **not** grouped, because the series key
-          includes the organizer (Deferred; Round 3 item 15 measures how common it is).
+          includes the organizer (Deferred). **Measured 2026-10-20 (Round 3 item 15):** 178
+          concurrent pairs, 144 from one account on different posts and 34 across accounts, none
+          from one post. The Wacoal promo is 3 events, one per mall, with overlapping date ranges
+          (9 to 31 October, 9 to 31 October, 12 to 31 October), so it fits this shape. Many large
+          clusters are one place spelled several ways, so 178 over-counts true multi-place pairs
+          until `isSamePlace` re-cuts it (Round 4 ask 3). Of the 5 multi-account names in the
+          listing, 3 are one place posted by several accounts (duplicates: the matcher's job) and 2
+          are branch promos (Sports Station with 4 accounts, J.CO with 2), which stay ungrouped
+          `[PROPOSED]`.
         - **Kind is never derived from the creator or from the shape of a title.** "Activity -
           Place" (Riot) and "Umbrella - Activity" (SCH) have the same syntax and opposite meaning.
           One function, `deriveGroupFromTitles()` in `packages/domain`, serves the title-pattern
           tier and the stem rule: a group is a `series` only if every member's text after its
           trailing spaced dash is that member's **own place** (`isSamePlace` = `same`, AD-38 Rule 1)
           or the members share one normalized name; every other group it finds is a `programme`.
-          The place split (AD-38) creates `series` groups directly. Fixture: the 52 SCH events of
-          the Tier 1 measurement yield zero `series` groups.
+          The place split (AD-38) creates `series` groups directly. Fixture: the 19 Tier 1 groups of
+          the 2026-10-20 measurement (56 events) yield one `series` group (the Ruang Berpesta pair,
+          "Cirebon" and "Garut", whose children are their own places) and eighteen `programme`
+          groups, and a hand-written SCH fixture (its 21 children are found only by Tier 2) yields
+          no `series`. **Corrected 2026-10-20:** this sentence said "the 52 SCH events of the Tier 1
+          measurement"; those 52 events were VICTORIA TOURNAMENT, Logolepsy, UGM RunFest and the
+          like, not SCH.
         - **Series roll.** Identity key = `(organizer_account_id, stem)`. `stem` = the normalized
           name with a trailing `- <own place>` suffix removed (the place-split naming form), else
-          the whole normalized name. `normalizeName()` and `deriveStem()` are exported from
+          the whole normalized name. `[PROPOSED 2026-10-20]` the suffix forms are `- X`, `at X`,
+          `@ X`, `di X` and `(X)`, each removed only when X is the member's own place by
+          `isSamePlace`: production has "Wacoal 25% Off Promo at Pakuwon Mall Jogja" beside two
+          events named "Wacoal 25% Off Promo", which a dash-only stem would keep apart. `normalizeName()` and `deriveStem()` are exported from
           `packages/domain/src/events/name-normalization.ts` and are the only normalizers; the
           matcher's duplicate key (AD-38 Rule 6), `assignExtractionOrdinals` and the gate SQL use
           them (the SQL through a generated expression with a test).
@@ -2601,8 +2696,11 @@ This document defines the core architectural invariants for the FestDaily applic
           `becameOrganizerAuthored` re-runs group attach. (The matcher's any-role union,
           `buildEventAccountMatchCondition`, is a broader predicate for a different job.)
         - **Rolling.** A new member joins the open series when its first date falls within `GAP`
-          of the latest date of any existing member (**start value 60 days** `[ASSUMPTION]`, sized
-          by the series-candidates query, Round 3 item 13); otherwise it opens a new series (a new
+          of the latest date of any existing member (**start value 60 days** `[ASSUMPTION]`; sized
+          2026-10-20 by Round 3 item 13: of 59 candidates, 52 span under a month, 5 one to two
+          months, 1 two to four, 1 over four, so 60 days splits at most the two candidates whose
+          members are further apart and keeps the rest whole; the data is one seven-week snapshot
+          and cannot show a yearly repeat, so the value stays an assumption); otherwise it opens a new series (a new
           season). Past members stay as the archive. A group with at most one active member, or a
           series with no upcoming member, is **dormant**: nothing to collapse, still reachable from
           any member's page. Detection is deterministic, no model call.
@@ -2793,7 +2891,9 @@ This document defines the core architectural invariants for the FestDaily applic
     values of `GAP` and the due delay (Rules 12 and 14), and the optional programme soft cap (Rule 13,
     off by default), to calibrate after Round 3 item 13 and a shadow run of Discovery;
     **cross-account series** (each place posts its own promo: the series key includes the
-    organizer, so none is grouped; Round 3 item 15 measures it); the labels' copy and the group-
+    organizer, so none is grouped; measured 2026-10-20, Rule 12: 34 of 178 concurrent pairs, of the 5
+    multi-account names listed 3 are duplicates and 2 are branch promos; revisit after the
+    `isSamePlace` re-cut); the labels' copy and the group-
     surface UX (Rule 15); the carrier of the
     moderator notifications of Rules 4 and 7: today a moderator is emailed for only five event types
     (dangerous report, default-location change, two scraper alerts) and nothing reaches them about
@@ -3101,6 +3201,16 @@ This document defines the core architectural invariants for the FestDaily applic
           weeks (about 47 a day, a ceiling proxy: 880 posts carry a `grouping_reason`). The Phase 0+1
           forecast (about 813 posts a day) sizes BYOK key availability, and matters only if
           extraction becomes platform-funded (CC-032).
+        - **Sized 2026-10-20 (Round 3 item 11): the backfill is about ten events.** `[PROPOSED]`
+          Events holding more than one place are 15 of 1,431 (about 1%), and 7 more have several
+          schedules and no place at all. Only 5 of the 15 have an open schedule, and one of those is
+          `dependent-stages` (never split); of the 7, at most 6 are open. So the backfill is about 4
+          events the Rule 2 function splits plus at most 6 that need the place read out of their
+          schedule titles. The proposals table, per-run and per-key caps and standing drift check above are
+          machinery for that size; the simpler path is the Rule 4 moderator "split event" action
+          (journaled, undoable) run on the ten, keeping the proposals table only if a later count
+          grows. Live extraction made 27 to 48 calls a day (spikes of 409, 123 and 106; 1,124 in 15
+          days), so ten re-extractions are invisible to any quota.
     6.  **The duplicate key, and pairs that are never duplicates.** Two events are duplicates when
         they share the organizer (AD-36 Rule 12's definition), the normalized name, a date within 2
         days and the place. A pair is **never** a candidate when (a) both are linked to the same
@@ -3308,6 +3418,13 @@ This document defines the core architectural invariants for the FestDaily applic
         **backstop, never the mechanism** (moderators resolved 0 of 147 queued candidates). The
         `'Location not specified'` placeholder in `events.location` (NOT NULL) is not a second
         source of truth: readers use `area_status`; removing the placeholder is a follow-up.
+        **Size, 2026-10-20 (Round 3 item 9).** 26 of 452 open events (6%) have no place at all (22
+        full, 4 stub) and 58 more have place text only; 155 (34%) have a pin the shipped test
+        trusts and 213 (47%) a pin it rejects. The count of `unknown` events is **larger than 26
+        once Rule 3 applies**, because curator events that carry an account-default pin today lose
+        it (BUG-065). The Rule 7 fingerprint counts size that before the switch (Round 4 ask 2).
+        The alternative to publishing (a hold) has no worker: moderators resolved 0 of 147 and
+        receive no queue notification.
     5.  **Filter and lane semantics.** `[ADOPTED]`
         - A strict "in X" area filter matches an event only when its area key is the **same as or
           inside** X. `LocationFilterInput.adminArea` (never written, BUG-063) is replaced by
@@ -3382,7 +3499,8 @@ This document defines the core architectural invariants for the FestDaily applic
     `detail_level` as the precision field; the moderator list as the mechanism; a Nearby badge for
     area-only events; a `NOT NULL DEFAULT 'none'` for `pin_trust` (a straggling old Lambda would
     write indistinguishable "no pin" rows during a rolling deploy).
-*   **Deferred:** the pin-trust floor and the `full_match` question (AD-14); a **real-curator
+*   **Deferred:** the pin-trust floor and the `full_match` question were calibrated 2026-10-20
+    (`[PROPOSED]` in AD-14 Rule 4, awaiting the owner's yes), so they are no longer open here; a **real-curator
     evaluation of the area guess** (the stored profiles of the 17 curators and a sample of the
     legacy 463 through the profile-insight prompt and the gazetteer, compared with a person's
     judgement) before the model-derived area is trusted without a moderator pass; the gazetteer's data

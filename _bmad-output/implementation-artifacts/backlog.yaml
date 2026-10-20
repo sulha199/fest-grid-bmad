@@ -2342,7 +2342,7 @@ items:
      title: "Geocoding can land in the wrong country: soft bias only, no bias at bootstrap, no confidence floor",
      ref: [backlog/BUG-066-geocoder-can-resolve-to-the-wrong-country.md, apps/backend/src/lib/geolocation/geoapify-client.ts],
      touches: [app:backend, pkg:domain, web:locations],
-     note: "Production 2026-10-19: 379 pins outside Indonesia (a floor), 627 under confidence 0.5; confidence overlaps inside/outside the box, so a floor alone cannot fix it. Compound venue texts ('Atrium ..., Sleman City Hall') fail at 0.00; bias is not the cause."}
+     note: "Round 3 (87 labels): today's rule is 44% precise; all 42 pins outside Indonesia are wrong at any confidence; a country-code leg gives 56% and keeps every correct pin; floor 0.5 stays. Compound texts: 4 of 21 right as stored, 16 with the venue segment only. Proposed: AD-14 Rule 4 (e), Rule 5."}
 
   IDEA-074:
     {type: idea, status: backlog, created: 2026-10-18,
@@ -2497,7 +2497,7 @@ items:
      title: "Duplicate events: sweep the legacy pairs, let stub pairs reach the candidate threshold, work the moderator queue",
      ref: [backlog/IDEA-085-duplicate-events-sweep-stub-scoring-queue.md, planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/prod-findings-review-2026-10-19.md],
      touches: [app:backend, pkg:database, web:events, web:moderation],
-     note: "Stories 3.6v/3.6w are built (review) but event_merges has 0 rows and 147 candidates are pending, 75 older than 7 days. Scope: sweep + stub scoring + queue. Round 2: reachable-pair recall 23/178; stub pairs without a link 0/122 (confirmed); 29 full-event pairs unexplained (replay next); 160 legacy."}
+     note: "Round 3 replay: 181 reachable pairs, 25 listed. 33 mid/high pairs are missing (the sweep's job); 123 stub pairs score low by construction (needs the same-poster stub rule, AD-30 Rule 7). The sweep bound max(0,50-pending) inserts nothing while 147 are pending."}
 
   IDEA-084:
     {type: idea, status: backlog, created: 2026-10-19,
@@ -2545,7 +2545,7 @@ items:
      title: "A moderator receives no email or push notification (PWA installed); failed sends are silent",
      ref: [backlog/BUG-069-moderators-receive-no-email-or-push.md, apps/backend/src/lib/notifications/get-moderators.ts, apps/backend/src/lib/email/adapter.ts, apps/web/src/lib/push-notifications.ts],
      touches: [app:backend, app:infrastructure, web:moderation, web:settings, cross:notifications],
-     note: "Reported by the owner: a moderator gets no email or push. From code: push never goes to moderators by design; 5 email types only, none for queue items; failed sends are silent. SES config, sandbox and role are unverified; owner checklist and count SQL in the note."}
+     note: "Local investigation 2026-10-20: no email path exists for events or queue items (IDEA-090). Push most likely has no fcm_tokens row (saved only from Settings > Notifications, needs a login; see BUG-072) or a BUG-059 twin profile. Owner SQL set tells them apart."}
 
   IDEA-090:
     {type: idea, status: backlog, created: 2026-10-20,
@@ -2554,6 +2554,14 @@ items:
      ref: [backlog/BUG-069-moderators-receive-no-email-or-push.md, planning-artifacts/festgrid-architecture-spine.md],
      touches: [app:backend, pkg:domain, web:moderation, web:settings, cross:notifications, cross:prd],
      note: "Decided direction 2026-10-20 (AD-36 Rules 4 and 7 depend on it): a digest email and a push to moderators for pending queue items (candidates, corrections, reports, group suggestions, curators without an area); today only 5 event types are emailed. Needs BUG-069 first."}
+
+  BUG-072:
+    {type: bug, status: backlog, created: 2026-10-20,
+     impact: user-visible, effort: m,
+     title: "One UNAUTHENTICATED response signs the user out: every JWT verification failure maps to it and no refresh middleware is built",
+     ref: [planning-artifacts/event-insight-poc/results/notification-and-session-investigation-2026-10-20.md, apps/web/src/lib/graphql-client.ts, apps/web/src/middleware.ts, apps/backend/src/lib/auth/verify-jwt.ts, apps/backend/src/lib/auth/jwks.ts],
+     touches: [app:backend, web:auth, cross:notifications],
+     note: "Confirmed in code, not reproduced in 3 minutes: a JWKS fetch failure or an expired token reads as UNAUTHENTICATED and signs out; only next-intl middleware is built, so a server getSession() can spend the refresh token. A logged-out page load saves no fcm token (BUG-069)."}
 
   # ── 2026-10-18 (merged from master 2026-10-20, renumbered: dedup GembiRun Loka, re-extract preview) ──
   BUG-070:
