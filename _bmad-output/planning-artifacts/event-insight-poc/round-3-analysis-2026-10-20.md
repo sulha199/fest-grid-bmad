@@ -13,8 +13,8 @@ What follows answers the four open decisions first (Section 0), then gives the e
 | # | Decision | Recommendation | What it rests on | What the data cannot show |
 |---|---|---|---|---|
 | 1 | Publish curator events with no resolved area as `unknown` (penalty, per-page cap) instead of holding them | **Yes, publish** | Today at most 26 of 452 open events (6%) have no place at all; a hold would be indefinite and silent because moderators resolved 0 of 147 and receive no queue notification (BUG-069) | AD-39 Rule 3 removes the account-default pin from curator events, so more events become area-less than the 26. The size of that is the fingerprint count of AD-39 Rule 7, not yet run (Section 6) |
-| 2 | Wacoal-type promos are a `series`, cover = member nearest the user, label "also at N other places" | **Yes**, with one change to the stem rule | Wacoal is 3 events, 3 malls, date ranges that overlap, so it fits "same activity, same audience, several places". The change: one of the three names reads "... at Pakuwon Mall Jogja", and the stem rule as written only strips "- <place>" (Section 4) | Whether the 3 events share one account (the landed file has no account column); how many true same-account multi-place series exist after spelling variants of one place are removed |
-| 3 | Promos posted separately by each place's own account stay ungrouped | **Yes, ungrouped for now** | 34 of 178 concurrent pairs cross accounts. Of the 5 multi-account names in the listing, 3 are one place posted by several accounts (duplicates, the matcher's job) and 2 are branch promos (Sports Station, J.CO). Branch promos exist but are few, and grouping them needs an organizer key the series rule does not have | The landed file lists only the 25 largest names. Revisit after the `isSamePlace` re-cut (Section 6, ask 3) |
+| 2 | Wacoal-type promos are a `series`, cover = member nearest the user, label "also at N other places" | **Yes**, and the stem becomes a phrase-and-order score instead of suffix patterns | Wacoal is 3 events, 3 malls, date ranges that overlap, so it fits "same activity, same audience, several places". One of the three names reads "... at Pakuwon Mall Jogja"; a pattern per suffix form ("- X", "at X", "@ X") is brittle, so Section 4.1 replaces it with a score (prototype and 12 tests in `poc-event-insight/series-phrase.ts`) | Whether the 3 events share one account (the landed file has no account column); how many true same-account multi-place series exist after spelling variants of one place are removed |
+| 3 | Promos posted separately by each place's own account | **They are candidates, yes (Sports Station and J.CO are series by definition). Keep them ungrouped in v1 behind an option; decide after the names cut** | 34 of 178 concurrent pairs cross accounts. Of the 5 multi-account names in the listing, 3 are one place posted by several accounts (duplicates, the matcher's job) and 2 are branch promos (Sports Station, J.CO); both score 1.00 on the phrase score, so only the organizer key keeps them out. A wrong series hides events behind a cap of one, so the option needs a higher bar, overlapping dates, a rare-word anchor and moderator confirmation (AD-36 Rule 12) | The listing shows only the 25 largest names, so how many such pairs exist is unknown. Two cheap unknowns: whether the posting accounts are brand or mall accounts, and whether the captions tag the brand (a better key than the posting account). Both come from the Round 4 names cut (Section 6, ask 3) |
 | 4 | Pin-trust floor and the `full_match` clause | **Keep 0.5 and keep `full_match`; add a country leg; do not raise the floor** | The floor is the least important lever (Section 1): 0.5 to 0.6 moves one labelled row, 0.7 and above discard good pins. The country leg removes all 42 wrong-country rows | 15 correct (Y) pins is a direction, not a rate; legitimate foreign events (Denmark Open, BWF) exist and must not be hidden by the country leg |
 
 ## 1. Pin trust (Round 3 item 14, 87 labels: 15 Y, 15 C, 57 N)
@@ -191,10 +191,46 @@ Mlayu Mlayu (2 places), SWARANUSA (2 places). Of the 5 names in the listing that
 are one place posted by several accounts (Erafone Run, GembiRun Loka, BIOSFERUN: duplicates, the matcher's
 job) and 2 are branch promos (Sports Station, 4 accounts and 4 stores; J.CO, 2 accounts and 2 malls).
 
-**The stem rule and "at <place>".** `deriveStem()` removes only a trailing "- <own place>". The Wacoal
-events are named "Wacoal 25% Off Promo", "Wacoal 25% Off Promo", and "Wacoal 25% Off Promo at Pakuwon Mall
-Jogja". Production names also use "@" and "di". `[PROPOSED]` the suffix forms are `- X`, `at X`, `@ X`,
-`di X` and `(X)`, each stripped only when X is the member's own place by `isSamePlace`.
+### 4.1 The stem rule as a score, not a pattern (added after review)
+
+`deriveStem()` as first written removed only a trailing "- <own place>". The Wacoal events are named
+"Wacoal 25% Off Promo", "Wacoal 25% Off Promo" and "Wacoal 25% Off Promo at Pakuwon Mall Jogja"; production
+names also use "@", "di", brackets or a leading place. Listing every form is brittle, so
+`seriesNameScore(a, b)` (POC: `apps/backend/scripts/poc-event-insight/series-phrase.ts`, 12 tests) scores two names on
+phrase and order:
+
+1. **Core of each name** = the name minus the longest run of consecutive tokens that is also a run of its own
+   place text. Order is what keeps the brand: "House of Wacoal 2nd Floor, Pakuwon Mall Jogja" shares "wacoal"
+   with the name, but the run "pakuwon mall jogja" is longer, so the brand stays. A run that the other name also
+   contains ("Sports Station" in both, "Jogja" in "Jogja Coffee Week") is shared wording and stays.
+2. **Score** = 0.5 x dice over the longest common token *subsequence* + 0.5 x (longest common contiguous *run* /
+   longer core). Reordered words score low (0.25 for "Promo Off 25% Wacoal" against "Wacoal 25% Off Promo");
+   one extra word costs a share that shrinks as names get longer.
+3. **A differing number caps the score at 0.5** (25% against 30%, 2025 against 2026, Week 6 against Week 7).
+4. **Optional rarity weights** (inverse document frequency over all event names) make a generic shared phrase
+   count less than a shared brand.
+
+What it did on the names in the repo (the 12 tests):
+
+| Pair | Score |
+|---|--:|
+| Wacoal "at Pakuwon" against the two plain Wacoal events | 1.00, 1.00 |
+| Sports Station BOGO (two stores), J.CO Anniversary (two malls), Lomba Mata Pelajaran (two malls) | 1.00 |
+| Dash, "@", "di", bracket, leading and middle place forms (synthetic) | 1.00 each |
+| SCH Choir against SCH Halloween Dance | 0.53 |
+| Wacoal against J.CO, against Sports Station | 0.25, 0.15 |
+| BWF "Final" against "Quarterfinals" | 0.75 |
+| Denmark Open 2026 against Victor Denmark Open 2026 (same place: the matcher's case) | 0.80 |
+| Same name, 2025 against 2026; 25% against 30% | 0.50 (capped) |
+| Generic phrase, two brands ("Buy 1 Get 1 Free Promo") | 0.78 plain, 0.66 weighted |
+
+**What this does not show.** The cases are 12 hand-picked pairs, and the first version failed two of them (it
+stripped the brand "Wacoal" because the place text repeats it, and left "mall jogja" in the name); the run-based
+core was the fix, so the set was not independent of the design. Every score is 1.00 or at most 0.80, so the range
+0.80 to 0.95, where the bar will actually bite, is untested. The bar (0.85) is an assumption until Round 4 ask 3
+runs the formula over all 1,431 names. Known miss: a city that is in the name but not in the place text ("Erafone
+Run 2026 Yogyakarta Series" and "... Bandung Series") scores low until the gazetteer area label is passed in
+with the place text.
 
 ## 5. Notifications and sessions (Job B, Job C)
 
@@ -236,13 +272,37 @@ sandbox), the Lambda Firebase environment, Supabase auth settings. These are the
 2. **Fingerprint counts** of AD-39 Rule 7 on open events, by account type: `account_default` (empty
    schedule location and a pin matching the account default), `geocoded_from_text`, `legacy_unknown`. They
    size how many curator events lose a pin and become `unknown`.
-3. **Item 15 re-cut with `isSamePlace`** (or the POC place normalizer): true multi-place same-account series
-   after spelling variants are merged, with the account of the Wacoal events.
-4. **Held-out geocode set:** 20 more labelled texts not used to write the venue-word list, run through the
+3. **Item 15 re-cut with the phrase score:** for every event, its name, posting account, tagged
+   `organizerHandle`, own place text and schedule dates (no captions). The cloud session runs `seriesNameScore`
+   over the pairs offline, so the cut-off is read off real pairs and the owner can eyeball the cross-account
+   candidates (Sports Station, J.CO and whatever else surfaces). It also gives the account of the Wacoal events
+   and says whether the captions of the brand promos tag the brand (`organizerHandle`), which would be a
+   better series key than the posting account.
+4. **Held-out geocode set** (run inside the build story as its test set): 20 more labelled texts not used to write the venue-word list, run through the
    venue-segment query.
-5. **Pins with no stored signal:** the 158 pins, reverse-geocoded for country code only, as a dry run.
+5. **Foreign events, text only:** for the outside-box pins, how many have an event or schedule location text that
+   names a country (Denmark, Egypt), against how many have none. It sizes who loses a map link under Rule 4 (e).
+   (The 158 pins with no stored signal are not a separate ask: the derive job's dry run covers them.)
 
-## 7. What was not looked at
+## 7. Which unverified items are worth verifying
+
+Rule used: verify an item only if its answer could change a decision, and only if the check costs less than being
+wrong. Ranked by that.
+
+| # | Unverified | What it decides | Cost to verify | Verdict |
+|---|---|---|---|---|
+| 1 | Why the moderator gets no push (`owner-notification-checks.sql`, SES, Lambda Firebase variables) | the owner's actual problem; whether BUG-072 matters for it | one read-only query run by you, a few settings looks | **Do first.** It is the only item that is a live defect for a person today. If the moderator has no `fcm_tokens` row, BUG-072 becomes the lead and a 10-minute idle-tab reproduction is worth it; if a row exists, skip the reproduction |
+| 2 | Phrase-score names cut (Round 4 ask 3): all event names with account, tagged organizer, own place and dates, no captions | the bar (0.85 is a guess); how many cross-account pairs exist; the account of Wacoal; whether the brand is a better key than the posting account | one read-only query, then offline scoring here | **Do.** It settles decisions 2 and 3 with data instead of 12 hand-picked pairs |
+| 3 | Same-poster stub weight (Round 4 ask 1): replay at 0.10 and 0.20 | the stub rule's value and the size of the exact-repeat merge | the same replay SQL with one parameter | **Do, after 1 and 2.** Low urgency: even a right weight only feeds a queue nobody works until the exact-repeat merge or IDEA-090 exists |
+| 4 | Fingerprint counts for unknown area (Round 4 ask 2) | the size of the penalty and per-page cap, and the UX copy; not the publish-or-hold decision (a hold has no worker whatever the count) | one read-only query | **Do before UX and epics sizing, not before your yes** |
+| 5 | Foreign events under the country leg: whether the 27 Denmark and 10 Egypt schedules (empty schedule text) have an event text that names the country | whether legitimate foreign events lose their map link | a text-only count; fold it into ask 5 | **Cheap, do it with the others.** The harm if wrong is small: a Denmark badminton event loses a map link, and Nearby never applied to it for an Indonesian user |
+| 6 | Held-out geocode set (Round 4 ask 4): 20 more texts through the venue-segment query | whether the venue-word list really gets 16 of 21 | 20 expected countries from you, about 40 Geoapify calls | **Do inside the build story as its test set, not before.** It needs to exist as a test anyway |
+| 7 | More pin labels | the floor (insensitive: 0.5 against 0.6 is one row) and the country leg (42 of 42 already) | your time, about an hour for 50 labels | **Not worth it now.** More labels would not flip either decision. Spend it after the change ships: 30 fresh labels as an acceptance check that the outside-box wrong pins are gone |
+| 8 | GAP of 60 days | when a series becomes a new season | needs months of series data | **Not verifiable now, not worth trying.** Keep it a configuration value; revisit after about six months |
+| 9 | The 158 pins with no stored signal | a country code for old rows | about 158 reverse-geocode calls | **Do not run separately.** It is the dry run of the derive job |
+| 10 | "About 70 open events show a correct pin today" | nothing; it is a motivating estimate from pin weights to events | not applicable | **Do not verify.** Do not quote it as a measurement |
+
+## 8. What was not looked at
 
 - The result files from earlier rounds (`perf-*`, `audience-areas-*`, `profile-insight-*`, `tracks-*`,
   `venues-*`) were not re-read; this landing did not change them.

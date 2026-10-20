@@ -447,9 +447,12 @@ This document defines the core architectural invariants for the FestDaily applic
         (d) the pin did not come from an account's default location unless AD-39 Rule 3's
         venue-account conditions hold;
         (e) `[PROPOSED 2026-10-20]` the pin's `countryCode` equals the **expected country**, and a
-        pin with no `countryCode` is untrusted. Expected country = the country the schedule's own
-        location text names, when it names one (a short ISO country-name list in
-        `packages/domain/src/geolocation/`, so the Denmark Open and BWF pins stay trusted), else
+        pin with no `countryCode` is untrusted. Expected country = the country named in the
+        schedule's location text or, when that is empty, in its event's location text (a short
+        ISO country-name list in `packages/domain/src/geolocation/`, so the Denmark Open and BWF
+        pins stay trusted; `[ASSUMPTION]` 27 Denmark and 10 Egypt schedules in the Round 2 check
+        have an empty schedule text, and whether their event text names the country is not
+        verified), else
         `GEOAPIFY_DEFAULT_COUNTRY` (default `id`). **The account's default country is never the
         expected country**: of 42 labelled wrong-country pins, 12 came from accounts whose own
         default is abroad (lb 6, sg 3, in 2, us 1) and 25 from accounts with no usable country.
@@ -2663,10 +2666,20 @@ This document defines the core architectural invariants for the FestDaily applic
           from one post. The Wacoal promo is 3 events, one per mall, with overlapping date ranges
           (9 to 31 October, 9 to 31 October, 12 to 31 October), so it fits this shape. Many large
           clusters are one place spelled several ways, so 178 over-counts true multi-place pairs
-          until `isSamePlace` re-cuts it (Round 4 ask 3). Of the 5 multi-account names in the
+          until the phrase-score re-cut (Round 4 ask 3). Of the 5 multi-account names in the
           listing, 3 are one place posted by several accounts (duplicates: the matcher's job) and 2
           are branch promos (Sports Station with 4 accounts, J.CO with 2), which stay ungrouped
-          `[PROPOSED]`.
+          `[PROPOSED]`. Both are series by definition and both score 1.00 on `seriesNameScore`;
+          what keeps them out is only the organizer key. **Option, owner decision:** a cross-account
+          pair joins when the score reaches a **higher** bar (start 0.90), the schedules **overlap**
+          in time, the places differ, and the shared core holds at least one token that is rare in
+          the corpus (inverse document frequency, so "Sports Station" counts and "Buy 1 Get 1 Free
+          Promo" does not); such a group is created **unconfirmed** (`confirmed_at` null, source
+          `series_phrase`). Rule 4 as written still lets an unconfirmed group take the Rule 13
+          Discovery policy, and a wrong series hides events behind a cap of one; so for this
+          detector Rule 4's bound is **tightened**: the collapse waits for a moderator's confirm
+          and only the "part of" link applies until then. That makes the cross-account series
+          depend on a reachable moderator (IDEA-090). All three numbers `[ASSUMPTION]`.
         - **Kind is never derived from the creator or from the shape of a title.** "Activity -
           Place" (Riot) and "Umbrella - Activity" (SCH) have the same syntax and opposite meaning.
           One function, `deriveGroupFromTitles()` in `packages/domain`, serves the title-pattern
@@ -2682,10 +2695,30 @@ This document defines the core architectural invariants for the FestDaily applic
           like, not SCH.
         - **Series roll.** Identity key = `(organizer_account_id, stem)`. `stem` = the normalized
           name with a trailing `- <own place>` suffix removed (the place-split naming form), else
-          the whole normalized name. `[PROPOSED 2026-10-20]` the suffix forms are `- X`, `at X`,
-          `@ X`, `di X` and `(X)`, each removed only when X is the member's own place by
-          `isSamePlace`: production has "Wacoal 25% Off Promo at Pakuwon Mall Jogja" beside two
-          events named "Wacoal 25% Off Promo", which a dash-only stem would keep apart. `normalizeName()` and `deriveStem()` are exported from
+          the whole normalized name. **Amended 2026-10-20 `[PROPOSED]`: the stem is decided by a
+          phrase-and-order score, not by a list of suffix patterns.** Production has "Wacoal 25%
+          Off Promo at Pakuwon Mall Jogja" beside two events named "Wacoal 25% Off Promo", and
+          names also use "@", "di", brackets or a leading place; an exact pattern per form would
+          miss the next form. `seriesNameScore(a, b)` in `packages/domain` (POC with tests:
+          `poc-event-insight/series-phrase.ts`): (1) tokenise (accents folded, punctuation and
+          connectors such as at, di, in, dan dropped); (2) take each member's **core**: its name
+          minus the longest run of tokens that is also a run of its **own place text**, unless
+          the other member's name contains that run (shared wording, not a place), so the brand
+          survives when the place repeats it ("House of Wacoal"); (3) score = 0.5 x dice over the
+          longest common token subsequence + 0.5 x (longest common contiguous run / longer core),
+          so a reordering or an extra word costs score; (4) a number that differs ("25%" and
+          "30%", 2025 and 2026, "Week 6" and "Week 7") caps the score at 0.5; (5) the result is
+          the larger of the raw-name score and the core score. A new member joins an open series
+          when the score against any active member reaches the bar (start value **0.85**
+          `[ASSUMPTION]`, uncalibrated: the 12 test cases from real and synthetic names sit at
+          1.00 or at 0.80 and below, so the interesting range 0.80 to 0.95 is untested; Round 4
+          ask 3 reads the cut-off off all event names). The series row stores the first member's
+          core as `stem` for display and the advisory lock is taken on the organizer alone, since
+          a fuzzy key has no canonical string. Whether the two members are at **different** places
+          stays `isSamePlace`'s call; same place and a high score is the matcher's duplicate, not
+          a series. Known gap: a city that is in the name but not in the place text ("Erafone Run
+          2026 Yogyakarta Series" and "... Bandung Series") is missed until the event's gazetteer
+          area label is passed in with the place text. `normalizeName()` and `deriveStem()` are exported from
           `packages/domain/src/events/name-normalization.ts` and are the only normalizers; the
           matcher's duplicate key (AD-38 Rule 6), `assignExtractionOrdinals` and the gate SQL use
           them (the SQL through a generated expression with a test).
@@ -2893,7 +2926,7 @@ This document defines the core architectural invariants for the FestDaily applic
     **cross-account series** (each place posts its own promo: the series key includes the
     organizer, so none is grouped; measured 2026-10-20, Rule 12: 34 of 178 concurrent pairs, of the 5
     multi-account names listed 3 are duplicates and 2 are branch promos; revisit after the
-    `isSamePlace` re-cut); the labels' copy and the group-
+    phrase-score re-cut); the labels' copy and the group-
     surface UX (Rule 15); the carrier of the
     moderator notifications of Rules 4 and 7: today a moderator is emailed for only five event types
     (dangerous report, default-location change, two scraper alerts) and nothing reaches them about
