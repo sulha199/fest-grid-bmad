@@ -214,21 +214,27 @@ What it did on the names in the repo. The group name is the output of `groupName
 once each place is removed, in the poster's own spelling and casing, taken from the more general of the two names. For a
 pair below the bar no group is made; the name is shown in brackets only to show what the shared words would be.
 
-| Pair | Score | Groups at 0.85? | Group name (formula output) |
-|---|--:|:-:|---|
-| Wacoal "... at Pakuwon Mall Jogja" with the plain Wacoal events (Plaza Ambarrukmo, Jogja City Mall) | 1.00 | yes | Wacoal 25% Off Promo |
-| Sports Station BOGO, two stores | 1.00 | yes | Sports Station Buy 1 Get 1 Free Promo |
-| J.CO Anniversary, two malls | 1.00 | yes | J.CO ANNIVERSARY PROMO |
-| Lomba Mata Pelajaran, two malls | 1.00 | yes | Lomba Mata Pelajaran dan Mewarnai |
-| Jogja Coffee Week at two venues | 1.00 | yes | Jogja Coffee Week |
-| Dash, "@", "di", bracket and leading-place forms (synthetic) | 1.00 each | yes | Wednesday Night Run |
-| SCH Choir against SCH Halloween Dance | 0.53 | no | (SCH Competition 2026) |
-| Line Dance Carnival against Zumba Anniversary | 0.00 | no | (none) |
-| Wacoal against J.CO, against Sports Station | 0.25, 0.15 | no | (Promo) |
-| BWF "Men's Singles Final" against "... Quarterfinals" | 0.75 | no | (Men's Singles) |
-| Denmark Open 2026 against Victor Denmark Open 2026 (same place: the matcher's case) | 0.80 | no | (Denmark Open 2026) |
-| Same name, 2025 against 2026; 25% against 30% | 0.50 (capped) | no | (the shared words) |
-| Generic phrase, two brands ("Buy 1 Get 1 Free Promo") | 0.78 plain, 0.66 weighted | no | (not computed) |
+Source column: **R** = the names and place texts are as they appear in the production listings of 2026-10-19/20; **R\*** =
+the names are real, but I completed a place text or a child name that the listing cut at 24 characters (for example
+"sports station lt ug lip" became "Sports Station Lippo Plaza Jogja"); **S** = I made it up from the shape of a real case.
+Correction added after review: the previous version of this table did not mark which rows were which, and two rows were
+not what they looked like (the Jogja Coffee Week row and every row of the second table below).
+
+| Source | Pair | Score | Groups at 0.85? | Group name (formula output) |
+|:-:|---|--:|:-:|---|
+| R | Wacoal "... at Pakuwon Mall Jogja" with the plain Wacoal events (Plaza Ambarrukmo, Jogja City Mall) | 1.00 | yes | Wacoal 25% Off Promo |
+| R* | Sports Station BOGO, two stores | 1.00 | yes | Sports Station Buy 1 Get 1 Free Promo |
+| R* | J.CO Anniversary, two malls | 1.00 | yes | J.CO ANNIVERSARY PROMO |
+| R | Lomba Mata Pelajaran, two malls | 1.00 | yes | Lomba Mata Pelajaran dan Mewarnai |
+| S | "Jogja Coffee Week" at JEC and at Plaza Ambarrukmo (the real event, "Jogja Coffee Week 6", is one venue spelled four ways, so it is a duplicate case, not a series) | 1.00 | yes | Jogja Coffee Week |
+| S | Dash, "@", "di", bracket and leading-place forms | 1.00 each | yes | Wednesday Night Run |
+| R | SCH Choir against SCH Halloween Dance | 0.53 | no | (SCH Competition 2026) |
+| R* | Line Dance Carnival against Zumba Anniversary | 0.00 | no | (none) |
+| R | Wacoal against J.CO, against Sports Station | 0.25, 0.15 | no | (Promo) |
+| R* | BWF "Men's Singles Final" against "... Quarterfinals" (the listing shows "men s singles final" and "men s singles quarterf") | 0.75 | no | (Men's Singles) |
+| R | Denmark Open 2026 against Victor Denmark Open 2026 (same place: the matcher's case) | 0.80 | no | (Denmark Open 2026) |
+| S | Same name, 2025 against 2026; 25% against 30% | 0.50 (capped) | no | (the shared words) |
+| S | Generic phrase, two brands ("Buy 1 Get 1 Free Promo"; "Watsons" is invented) | 0.78 plain, 0.66 weighted | no | (not computed) |
 
 Two things the name shows that the score does not. The name is only as good as the pair that made it: it is computed
 from the first two members when the series is created and is not recomputed when a third arrives (a moderator can
@@ -245,15 +251,24 @@ with the place text.
 **The in-between zone (synthetic pairs, scored afterwards to show where the bar bites).** Each is a pair at two
 different places:
 
+**Every variant below is invented (S).** The first name of each pair is a real event name; the second is my invention of a
+plausible variant. None of these variants is in production as far as I know. In particular "Erafone Fun Run 2026" does not
+exist: the real event is "Erafone Run 2026 Yogyakarta Series" (a "Chapter Yogyakarta" of the Erafone Run, from the post of
+2026-08-30 in the test corpus).
+
 | Pair | Score | Should it group? | Group name if it did (formula output) |
 |---|--:|---|---|
 | "Sports Station Buy 1 Get 1 Free Promo" and "... Free" (one drops "Promo") | 0.90 | yes | Sports Station Buy 1 Get 1 Free |
 | "Wacoal 25% Off Promo" and "Wacoal Anniversary 25% Off Promo" | 0.74 | probably yes | Wacoal 25% Off Promo |
 | "Jogja Coffee Week 6" and "Jogja Coffee Week 6 Opening Day" | 0.73 | probably yes | Jogja Coffee Week 6 |
 | "Wednesday Night Run" and "Wednesday Night Run Special Edition" | 0.68 | probably yes | Wednesday Night Run |
-| "Erafone Run 2026" and "Erafone Fun Run 2026" (two different runs by one brand) | 0.68 | **no** | Erafone Run 2026 |
+| "Erafone Run 2026" and "Erafone Fun Run 2026" (a stand-in for two different runs by one brand) | 0.68 | **no** | Erafone Run 2026 |
 | "Obral Obrolan Buku" and "Obral Obrolan Buku Vol 2" (number cap) | 0.50 | unclear: an edition, or the next one | Obral Obrolan Buku |
 | "Promo Diskon 25% Wacoal" and "Wacoal 25% Off Promo" (Indonesian against English) | 0.25 | yes | Promo (wrong: the shared word is only "Promo") |
+
+What this means: the conclusion (the formula cannot tell "the same activity plus an added word" from "a different
+activity with a similar name") rests on invented variants, so it shows the formula's behaviour, not how often real names
+look like that. The names query is what shows how often.
 
 The formula cannot tell "the same activity with an added word" from "a different activity with a similar name": both
 sit at 0.68. Any bar between 0.68 and 0.90 therefore trades missed groups against wrong ones, and the two errors are

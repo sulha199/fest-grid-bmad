@@ -11,7 +11,8 @@ test('tokens: accents folded, punctuation and emoji dropped, "&" and "@" read as
   assert.deepEqual(tokens('Wacoal @ Pakuwon & Co'), ['wacoal', 'at', 'pakuwon', 'and', 'co']);
 });
 
-// Real names and places from the 2026-10-19/20 production results (concurrent-multi-place, tier1, item 15 Wacoal rows).
+// Real event names from the 2026-10-19/20 production listings (concurrent-multi-place, tier1, item 15 Wacoal rows). Place texts are real for Wacoal
+// and Lomba; for Sports Station and J.CO the listing cut them at 24 characters and they are completed by hand. Anything marked synthetic is invented.
 test('real same-activity pairs at different places score at the top', () => {
   const wacoalPakuwon = m('Wacoal 25% Off Promo at Pakuwon Mall Jogja', 'House of Wacoal 2nd Floor, Pakuwon Mall Jogja');
   assert.equal(score(wacoalPakuwon, m('Wacoal 25% Off Promo', 'House of Wacoal 2nd Floor, Plaza Ambarrukmo')), 1);
