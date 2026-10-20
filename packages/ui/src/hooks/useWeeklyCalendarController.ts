@@ -82,6 +82,10 @@ export function mapCalendarSchedules<TEvent = CalendarSourceEvent, TSchedule = W
         // the story's "Mapping boundary placement" Dev Note). This shared mapper simply forwards
         // whatever value is already on `schedule.applicableDaysOfWeek`.
         applicableDaysOfWeek: schedule.applicableDaysOfWeek,
+        // The schedule's own timezone + status: the calendar card resolves it (RESOLVED only) via
+        // `resolveScheduleTimezone`, so date/time -- and a date with no time -- render in the venue's zone.
+        timezone: schedule.timezone,
+        timezoneStatus: schedule.timezoneStatus,
         // BUG-042 (AC-IMG-1): single shared mapping point for every calendar surface
         // (CalendarView, FeedCalendarView, AccountCalendarView, my-calendar-content) —
         // the imageUrl -> imageFallbackUrl retry chain's second URL.

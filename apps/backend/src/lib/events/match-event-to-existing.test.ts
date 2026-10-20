@@ -1,6 +1,6 @@
 import test from 'node:test';
 import * as assert from 'node:assert';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, posts, events, eventPosts, schedules, postAccountAssociations } from '@festgrid/database';
 import type { EventInsertValues, ScheduleInsertValues } from '@festgrid/domain/events';
@@ -347,6 +347,97 @@ test('findMatchingEvent integration tests', async (t) => {
     assert.strictEqual(result!.candidate.id, candidate.id);
     // organizer (0.40) absent; shared link (0.20) + date/name (~0.25) + venue (0.15) = mid/high
     assert.notStrictEqual(result!.tier, 'low');
+  });
+
+  await t.test('BUG-063: a shared-link candidate ~3 weeks away (registration deadline vs race day) is admitted but capped at mid', async () => {
+    // GembiRun Loka 2026: the registration-deadline post (21 Oct) and the race-day post (8 Nov)
+    // share a registration link, name, venue and account but sit 18 days apart.
+    const { event: candidate } = await makeCandidateEvent({
+      accountId: matchingAccount.id,
+      postIdSuffix: 'link-far',
+      eventName: 'GembiRun Loka Far ' + suffix,
+      eventStartDate: '2026-10-21',
+      location: 'Gembira Loka Zoo',
+      links: [{ url: 'http://www.gembirunloka.id' }],
+    });
+
+    const result = await findMatchingEvent(
+      db,
+      newEvent({ eventName: 'GembiRun Loka Far ' + suffix, links: [{ url: 'HTTP://www.gembirunloka.id/?utm=x' }] }),
+      [newSchedule('2026-11-08', { location: 'Gembira Loka Zoo' })],
+      { postId: UNRELATED_POST_ID, accountId: matchingAccount.id, groupingReason: null },
+      undefined
+    );
+
+    assert.ok(result);
+    assert.strictEqual(result!.candidate.id, candidate.id);
+    // organizer + link + venue + name would score high; the date gap caps it at mid (no auto-link).
+    assert.ok(result!.score >= 0.75, 'raw score is high-band, proving the cap is what demotes it');
+    assert.strictEqual(result!.tier, 'mid');
+  });
+
+  await t.test('BUG-063: a far-dated candidate WITHOUT a shared link is still excluded', async () => {
+    await makeCandidateEvent({
+      accountId: matchingAccount.id,
+      postIdSuffix: 'far-nolink',
+      eventName: 'GembiRun Loka NoLink ' + suffix,
+      eventStartDate: '2026-10-21',
+      links: [{ url: 'https://other.example.com/a' }],
+    });
+
+    const result = await findMatchingEvent(
+      db,
+      newEvent({ eventName: 'GembiRun Loka NoLink ' + suffix, links: [{ url: 'https://different.example.com/b' }] }),
+      [newSchedule('2026-11-08')],
+      { postId: UNRELATED_POST_ID, accountId: matchingAccount.id, groupingReason: null },
+      undefined
+    );
+
+    assert.strictEqual(result, null);
+  });
+
+  await t.test('BUG-063: a shared-link candidate beyond the 90-day window (a yearly re-run) is excluded', async () => {
+    await makeCandidateEvent({
+      accountId: matchingAccount.id,
+      postIdSuffix: 'link-year',
+      eventName: 'GembiRun Loka Edition ' + suffix,
+      eventStartDate: '2025-11-09',
+      links: [{ url: 'https://edition.example.com/run' }],
+    });
+
+    const result = await findMatchingEvent(
+      db,
+      newEvent({ eventName: 'GembiRun Loka Edition ' + suffix, links: [{ url: 'https://edition.example.com/run' }] }),
+      [newSchedule('2026-11-08')],
+      { postId: UNRELATED_POST_ID, accountId: matchingAccount.id, groupingReason: null },
+      undefined
+    );
+
+    assert.strictEqual(result, null);
+  });
+
+  await t.test('BUG-063: a candidate whose links column is a jsonb string (prod encoding) is matched by link', async () => {
+    const { event: candidate } = await makeCandidateEvent({
+      accountId: matchingAccount.id,
+      postIdSuffix: 'link-string',
+      eventName: 'GembiRun Loka Encoded ' + suffix,
+      eventStartDate: '2026-10-21',
+    });
+    // Reproduce the production shape: the whole array JSON-stringified into a jsonb string scalar.
+    await db.execute(
+      sql`UPDATE events SET links = to_jsonb(${JSON.stringify([{ url: 'http://www.encoded.example.id', label: 'Daftar' }])}::text) WHERE id = ${candidate.id}`
+    );
+
+    const result = await findMatchingEvent(
+      db,
+      newEvent({ eventName: 'GembiRun Loka Encoded ' + suffix, links: [{ url: 'http://www.encoded.example.id' }] }),
+      [newSchedule('2026-11-08')],
+      { postId: UNRELATED_POST_ID, accountId: matchingAccount.id, groupingReason: null },
+      undefined
+    );
+
+    assert.ok(result);
+    assert.strictEqual(result!.candidate.id, candidate.id);
   });
 
   await t.test('a sibling event already linked to the SAME postId is never returned as a candidate, even when it would otherwise score high', async () => {

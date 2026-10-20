@@ -425,6 +425,7 @@ export enum ExtractionErrorCode {
   NotFound = 'NOT_FOUND',
   NoApiKey = 'NO_API_KEY',
   QuotaExhausted = 'QUOTA_EXHAUSTED',
+  RateLimited = 'RATE_LIMITED',
   ScrapeFailed = 'SCRAPE_FAILED',
   UnsupportedPlatform = 'UNSUPPORTED_PLATFORM'
 }
@@ -554,6 +555,7 @@ export type Mutation = {
   extractEventDataFromUrl: ExtractEventDataFromUrlResult;
   ignoreSubsequentReports: Report;
   markSubscriptionViewed: Subscription;
+  previewPostReextraction: StartPostReextractionPreviewResult;
   registerEmbedDomain: EmbedDomain;
   registerFcmToken: Scalars['Boolean']['output'];
   removeSubscription: Subscription;
@@ -683,6 +685,12 @@ export type MutationIgnoreSubsequentReportsArgs = {
 
 export type MutationMarkSubscriptionViewedArgs = {
   subscriptionId: Scalars['ID']['input'];
+};
+
+
+export type MutationPreviewPostReextractionArgs = {
+  postId?: InputMaybe<Scalars['ID']['input']>;
+  url?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -931,6 +939,22 @@ export enum PostGroupingReason {
   SingleEvent = 'SINGLE_EVENT'
 }
 
+export type PostReextractionPreview = {
+  __typename?: 'PostReextractionPreview';
+  events: Array<ReextractionPreviewEvent>;
+  groupingReason?: Maybe<PostGroupingReason>;
+  postStored: Scalars['Boolean']['output'];
+  rescraped: Scalars['Boolean']['output'];
+};
+
+export type PostReextractionPreviewStatus = {
+  __typename?: 'PostReextractionPreviewStatus';
+  errorCode?: Maybe<ExtractionErrorCode>;
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  preview?: Maybe<PostReextractionPreview>;
+  status: ExtractionJobState;
+};
+
 export type ProposedEventCorrectionData = {
   __typename?: 'ProposedEventCorrectionData';
   categories: Array<EventCategory>;
@@ -1021,6 +1045,7 @@ export type Query = {
   pendingAccountTypeClassificationReviews: Array<AccountTypeClassificationReview>;
   pendingDefaultLocationChanges: Array<DefaultLocationChangeRequest>;
   postByPlatformIdentifiers?: Maybe<EventSourcePost>;
+  postReextractionPreview: PostReextractionPreviewStatus;
   postsByAccount: PostConnection;
   previewLocation: LocationDetails;
   queryActorRuns: ActorRunConnection;
@@ -1106,6 +1131,11 @@ export type QueryPostByPlatformIdentifiersArgs = {
   platform: Scalars['String']['input'];
   platformPostId: Scalars['String']['input'];
   postType: Scalars['String']['input'];
+};
+
+
+export type QueryPostReextractionPreviewArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -1195,6 +1225,46 @@ export type RankedAccountVote = {
   profile: SocialMediaAccountProfile;
   userVoteId?: Maybe<Scalars['ID']['output']>;
   voteCount: Scalars['Int']['output'];
+};
+
+export enum ReextractionDedupTier {
+  High = 'HIGH',
+  Low = 'LOW',
+  Mid = 'MID',
+  None = 'NONE'
+}
+
+export type ReextractionPreviewDedup = {
+  __typename?: 'ReextractionPreviewDedup';
+  candidateName?: Maybe<Scalars['String']['output']>;
+  candidateSlug?: Maybe<Scalars['String']['output']>;
+  score?: Maybe<Scalars['Float']['output']>;
+  tier: ReextractionDedupTier;
+};
+
+export type ReextractionPreviewEvent = {
+  __typename?: 'ReextractionPreviewEvent';
+  alreadyRepresentedBySlug?: Maybe<Scalars['String']['output']>;
+  dedup: ReextractionPreviewDedup;
+  eventName: Scalars['String']['output'];
+  extractionOrdinal: Scalars['Int']['output'];
+  isStub: Scalars['Boolean']['output'];
+  links: Array<ReextractionPreviewLink>;
+  schedules: Array<ReextractionPreviewSchedule>;
+};
+
+export type ReextractionPreviewLink = {
+  __typename?: 'ReextractionPreviewLink';
+  label?: Maybe<Scalars['String']['output']>;
+  url: Scalars['String']['output'];
+};
+
+export type ReextractionPreviewSchedule = {
+  __typename?: 'ReextractionPreviewSchedule';
+  endDate?: Maybe<Scalars['String']['output']>;
+  isMain: Scalars['Boolean']['output'];
+  startDate?: Maybe<Scalars['String']['output']>;
+  title?: Maybe<Scalars['String']['output']>;
 };
 
 export type RegionVoteBucket = {
@@ -1366,6 +1436,13 @@ export enum SoftDeleteAction {
   Delete = 'DELETE',
   Restore = 'RESTORE'
 }
+
+export type StartPostReextractionPreviewResult = {
+  __typename?: 'StartPostReextractionPreviewResult';
+  errorCode?: Maybe<ExtractionErrorCode>;
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  jobId?: Maybe<Scalars['ID']['output']>;
+};
 
 export type SubscribeToAccountInput = {
   accountId: Scalars['String']['input'];
@@ -1637,6 +1714,7 @@ export enum WidgetTheme {
 
 
 
+
 export type QueryActorRunsQueryVariables = Exact<{
   filters?: ActorRunFilters | null | undefined;
   first?: number | null | undefined;
@@ -1803,7 +1881,7 @@ export type GetEventsQueryVariables = Exact<{
 }>;
 
 
-export type GetEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, isFavorited: boolean, favoriteCount: number, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventStartTime: string | null, eventEndDate: string | null, eventEndTime: string | null, ticketPrice: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
+export type GetEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, isFavorited: boolean, favoriteCount: number, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventStartTime: string | null, eventEndDate: string | null, eventEndTime: string | null, ticketPrice: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
 
 export type GetFavoritedEventIdsQueryVariables = Exact<{
   query?: EventQueryConditionInput | null | undefined;
@@ -1871,7 +1949,7 @@ export type GetEventsForCalendarQueryVariables = Exact<{
 }>;
 
 
-export type GetEventsForCalendarQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, isFavorited: boolean, favoriteCount: number, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, ticketPrice: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
+export type GetEventsForCalendarQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, isFavorited: boolean, favoriteCount: number, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, ticketPrice: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
 
 export type GetEventsForMyCalendarQueryVariables = Exact<{
   limit?: number | null | undefined;
@@ -1880,7 +1958,7 @@ export type GetEventsForMyCalendarQueryVariables = Exact<{
 }>;
 
 
-export type GetEventsForMyCalendarQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, isFavorited: boolean, favoriteCount: number, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, ticketPrice: string | null, isAddedToCalendar: boolean, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
+export type GetEventsForMyCalendarQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, isFavorited: boolean, favoriteCount: number, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, ticketPrice: string | null, isAddedToCalendar: boolean, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
 
 export type GetArchivedEventsQueryVariables = Exact<{
   limit?: number | null | undefined;
@@ -2026,6 +2104,21 @@ export type ResolveAccountTypeClassificationReviewMutationVariables = Exact<{
 
 
 export type ResolveAccountTypeClassificationReviewMutation = { resolveAccountTypeClassificationReview: { id: string, resolvedAccountType: AccountType | null, reviewedAt: string | null } };
+
+export type PreviewPostReextractionMutationVariables = Exact<{
+  postId?: string | number | null | undefined;
+  url?: string | null | undefined;
+}>;
+
+
+export type PreviewPostReextractionMutation = { previewPostReextraction: { jobId: string | null, errorCode: ExtractionErrorCode | null, errorMessage: string | null } };
+
+export type PostReextractionPreviewQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type PostReextractionPreviewQuery = { postReextractionPreview: { status: ExtractionJobState, errorCode: ExtractionErrorCode | null, errorMessage: string | null, preview: { groupingReason: PostGroupingReason | null, postStored: boolean, rescraped: boolean, events: Array<{ extractionOrdinal: number, eventName: string, alreadyRepresentedBySlug: string | null, isStub: boolean, links: Array<{ url: string, label: string | null }>, schedules: Array<{ title: string | null, startDate: string | null, endDate: string | null, isMain: boolean }>, dedup: { tier: ReextractionDedupTier, score: number | null, candidateSlug: string | null, candidateName: string | null } }> } | null } };
 
 export type CreateApiKeyMutationVariables = Exact<{
   input: CreateApiKeyInput;
@@ -3085,6 +3178,8 @@ export const GetEventsDocument = new TypedDocumentString(`
         eventEndDate
         eventEndTime
         ticketPrice
+        timezone
+        timezoneStatus
         applicableDaysOfWeek
         locationDetails {
           coordinates {
@@ -3494,6 +3589,8 @@ export const GetEventsForCalendarDocument = new TypedDocumentString(`
         eventStartTime
         eventEndTime
         ticketPrice
+        timezone
+        timezoneStatus
         applicableDaysOfWeek
         locationDetails {
           coordinates {
@@ -3551,6 +3648,8 @@ export const GetEventsForMyCalendarDocument = new TypedDocumentString(`
         eventEndTime
         ticketPrice
         isAddedToCalendar
+        timezone
+        timezoneStatus
         applicableDaysOfWeek
         locationDetails {
           coordinates {
@@ -4305,6 +4404,88 @@ export const useResolveAccountTypeClassificationReviewMutation = <
       {
     mutationKey: ['resolveAccountTypeClassificationReview'],
     mutationFn: (variables?: ResolveAccountTypeClassificationReviewMutationVariables) => fetcher<ResolveAccountTypeClassificationReviewMutation, ResolveAccountTypeClassificationReviewMutationVariables>(client, ResolveAccountTypeClassificationReviewDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const PreviewPostReextractionDocument = new TypedDocumentString(`
+    mutation PreviewPostReextraction($postId: ID, $url: String) {
+  previewPostReextraction(postId: $postId, url: $url) {
+    jobId
+    errorCode
+    errorMessage
+  }
+}
+    `);
+
+export const usePreviewPostReextractionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<PreviewPostReextractionMutation, TError, PreviewPostReextractionMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<PreviewPostReextractionMutation, TError, PreviewPostReextractionMutationVariables, TContext>(
+      {
+    mutationKey: ['PreviewPostReextraction'],
+    mutationFn: (variables?: PreviewPostReextractionMutationVariables) => fetcher<PreviewPostReextractionMutation, PreviewPostReextractionMutationVariables>(client, PreviewPostReextractionDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const PostReextractionPreviewDocument = new TypedDocumentString(`
+    query PostReextractionPreview($id: ID!) {
+  postReextractionPreview(id: $id) {
+    status
+    errorCode
+    errorMessage
+    preview {
+      groupingReason
+      postStored
+      rescraped
+      events {
+        extractionOrdinal
+        eventName
+        alreadyRepresentedBySlug
+        isStub
+        links {
+          url
+          label
+        }
+        schedules {
+          title
+          startDate
+          endDate
+          isMain
+        }
+        dedup {
+          tier
+          score
+          candidateSlug
+          candidateName
+        }
+      }
+    }
+  }
+}
+    `);
+
+export const usePostReextractionPreviewQuery = <
+      TData = PostReextractionPreviewQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: PostReextractionPreviewQueryVariables,
+      options?: Omit<UseQueryOptions<PostReextractionPreviewQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<PostReextractionPreviewQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<PostReextractionPreviewQuery, TError, TData>(
+      {
+    queryKey: ['PostReextractionPreview', variables],
+    queryFn: fetcher<PostReextractionPreviewQuery, PostReextractionPreviewQueryVariables>(client, PostReextractionPreviewDocument, variables, headers),
     ...options
   }
     )};

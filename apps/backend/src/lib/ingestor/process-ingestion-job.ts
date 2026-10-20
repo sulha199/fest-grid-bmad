@@ -1,12 +1,11 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '../../db/client.js';
 import { schedules, posts, eventPosts, eventMatchCandidates } from '@festgrid/database';
-import { ExtractedEventMessage, buildEventInsertValues } from '@festgrid/domain';
+import { ExtractedEventMessage } from '@festgrid/domain';
 import { parsePlatformPostIdentity } from '@festgrid/domain/scraper';
 import { insertEventWithPrimaryPost, enrichAndPromoteEvent } from '../events/set-event-primary-post.js';
 import { notifyNewEvent } from '../events/notify-new-event.js';
-import { isOrganizerAuthoredPost } from '../posts/is-organizer-authored-post.js';
-import { findMatchingEvent } from '../events/match-event-to-existing.js';
+import { evaluateIngestionMatch } from './evaluate-ingestion-match.js';
 
 export async function processIngestionJob(message: ExtractedEventMessage): Promise<{ inserted: boolean }> {
   let insertedEvent: any = null;
@@ -73,41 +72,9 @@ export async function processIngestionJob(message: ExtractedEventMessage): Promi
       }
     }
 
-    // Story 3.6t (AC3/AC5) — an event is a stub (never notifies) when its primary post's
-    // grouping_reason is 'roundup' OR its primary post is curator-sourced (AD-31 Rule 3,
-    // negated); full/notify-eligible otherwise. isStub/shouldNotify are the exact complement of
-    // each other by construction (AD-30 Rule 7 and Rule 10 share the same two boolean inputs) --
-    // not computed independently, so a future edit to one rule can't silently desync them.
-    const isRoundupSourced = sourcePost?.groupingReason === 'roundup';
-    const isCuratorSourced = !(await isOrganizerAuthoredPost(message.postId, tx));
-    const isStub = isRoundupSourced || isCuratorSourced;
-
-    const { event, schedules: scheduleValues } = buildEventInsertValues(message, sourcePost ?? null, isStub ? 'stub' : undefined);
-
-    // Story 3.6v (AC1, Amendment) — organizerHandle used to default to the *posting* account for a
-    // roundup/curator-sourced item (Story 3.6s's extraction prompt; IDEA-068 now asks for an
-    // explicit organizer only, but messages queued before that change may still carry the
-    // default), which would falsely
-    // inflate a match score against an unrelated event the curator/aggregator also covered.
-    // Discount it to `undefined` in exactly that case -- reusing isRoundupSourced/isCuratorSourced
-    // already computed above, never re-derived.
-    const organizerHandleForMatching = isRoundupSourced || isCuratorSourced ? undefined : message.organizerHandle;
-
-    const match = sourcePost
-      ? await findMatchingEvent(
-          tx,
-          event,
-          scheduleValues,
-          {
-            postId: message.postId,
-            // BUG-058 -- the posting account is discounted exactly like organizerHandle: an
-            // aggregator/curator account is not the organizer of what it lists.
-            accountId: isRoundupSourced || isCuratorSourced ? undefined : sourcePost.accountId,
-            groupingReason: sourcePost.groupingReason,
-          },
-          organizerHandleForMatching
-        )
-      : null;
+    // Stub rule, organizer discount and candidate search live in evaluateIngestionMatch -- the one
+    // place the decision is made, shared with the moderator re-extract preview (AD-40).
+    const { event, scheduleValues, isStub, match } = await evaluateIngestionMatch(tx, message, sourcePost ?? null);
 
     if (match && match.tier === 'high') {
       // Story 3.6v (AC1, AC2, AC4, AC5, AC7) — enrich the matched event in place and promote the

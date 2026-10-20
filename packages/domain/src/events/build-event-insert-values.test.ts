@@ -390,3 +390,27 @@ test('buildEventInsertValues - a schedule with applicableDaysOfWeek absent defau
   const result = buildEventInsertValues(message, null);
   assert.strictEqual(result.schedules[0].applicableDaysOfWeek, null);
 });
+
+test('buildEventInsertValues - stores an overnight schedule with no end date as ending the next day', () => {
+  const base = { isMainSchedule: true, eventStartDate: '2026-10-19', eventStartTime: '21:00:00', eventEndTime: '02:00:00' };
+  const message: ExtractedEventMessage = {
+    postId: 'post-1',
+    sourceSocialMediaAccountId: 'account-1',
+    eventName: 'Late Night Set',
+    types: [EventType.FESTIVAL],
+    categories: [EventCategory.MUSIC],
+    confidenceScore: 0.9,
+    schedules: [
+      base,
+      { ...base, isMainSchedule: false, eventStartTime: '19:00:00', eventEndTime: '22:00:00' },
+      { ...base, isMainSchedule: false, eventEndDate: '2026-10-21' },
+    ],
+  };
+
+  const { schedules } = buildEventInsertValues(message, null);
+
+  assert.deepStrictEqual(
+    schedules.map((s) => s.eventEndDate),
+    ['2026-10-20', null, '2026-10-21']
+  );
+});

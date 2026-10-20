@@ -266,12 +266,12 @@ describe('EventDiscoveryPanel', () => {
       expect(expandBtn).toBeVisible();
     });
 
-    it('clicking expand button scrolls to top and immediately re-expands the header', () => {
+    it('clicking the pill floats the header open in place: no scroll, same scroll position', () => {
       Object.defineProperty(window, 'scrollY', { value: 0, writable: true });
       render(<EventDiscoveryPanel {...defaultProps} />);
 
       act(() => {
-        Object.defineProperty(window, 'scrollY', { value: 100, writable: true });
+        Object.defineProperty(window, 'scrollY', { value: 400, writable: true });
         window.dispatchEvent(new Event('scroll'));
       });
 
@@ -280,10 +280,38 @@ describe('EventDiscoveryPanel', () => {
 
       fireEvent.click(expandBtn);
 
-      expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
-      // The header re-expands immediately -- doesn't wait for the (async,
-      // possibly-interrupted) scroll animation to cross the threshold.
+      expect(window.scrollTo).not.toHaveBeenCalled();
+      expect(window.scrollY).toBe(400);
+      expect(expandBtn).toHaveAttribute('aria-expanded', 'true');
       expect(screen.getByPlaceholderText('Search events...')).toBeVisible();
+      // Floating = out of flow, so opening it can't shift the content below.
+      const panel = document.getElementById(expandBtn.getAttribute('aria-controls')!)!;
+      expect(panel.className).toContain('absolute');
+    });
+
+    it('the floating header collapses again on further scroll, on Escape, and on a second pill click', () => {
+      Object.defineProperty(window, 'scrollY', { value: 0, writable: true });
+      render(<EventDiscoveryPanel {...defaultProps} />);
+      const scrollTo = (y: number) =>
+        act(() => {
+          Object.defineProperty(window, 'scrollY', { value: y, writable: true });
+          window.dispatchEvent(new Event('scroll'));
+        });
+      scrollTo(400);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+      expect(screen.getByPlaceholderText('Search events...')).toBeVisible();
+      scrollTo(520);
+      expect(screen.getByPlaceholderText('Search events...')).not.toBeVisible();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+      expect(screen.getByPlaceholderText('Search events...')).toBeVisible();
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.getByPlaceholderText('Search events...')).not.toBeVisible();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+      expect(screen.getByPlaceholderText('Search events...')).not.toBeVisible();
     });
 
     it('links the expand button to the header content via aria-controls', () => {

@@ -21,6 +21,7 @@ import { callGemini, AiGatewayExhaustedError, AiGatewayBusyError } from '../lib/
 import { fetchCandidateKeys } from '../lib/ai-gateway/usage-store.js';
 import { checkAndRecordPromptFilterRateLimit } from '../lib/ai-event-filters/prompt-filter-rate-limit-store.js';
 import { startManualExtractionJob, getManualExtractionJobStatus } from '../lib/extraction/manual-extraction-job.js';
+import { startPostReextractionPreview } from '../lib/extraction/start-post-reextraction-preview.js';
 import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
 import { validateHidePastEventsAfterDays, InvalidUserSettingsInputError } from '@festgrid/domain/user-settings';
 import { isValidIanaTimezone } from '@festgrid/domain/users';
@@ -34,10 +35,11 @@ import { transformGeminiResponseToFilterExpression, dropUnsupportedVenueTypes, v
 import type { FilterValidationIssue } from '@festgrid/domain/ai-event-filters';
 import { SUPPORTED_PLATFORMS, type ScrapablePlatform, type SupportedPlatform } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText } from '@festgrid/domain';
-import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError, postGroupingReasonToGraphQL } from '@festgrid/domain/posts';
+import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError, postGroupingReasonToGraphQL, isPostGroupingReason, type ReextractionPreviewResult } from '@festgrid/domain/posts';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
 import { verifyAccountProfileForDiscovery } from '../lib/accounts/verify-account-profile-for-discovery.js';
 import { triggerScrapeForAccount } from '../lib/scraper/trigger-scrape-for-account.js';
+import { decideInitialOrIncrementalNewerThan } from '../lib/scraper/decide-initial-or-incremental-scrape.js';
 import { decryptApiKey, encryptApiKey } from '../lib/ai-gateway/kms.js';
 import { verifyGeminiApiKey } from '../lib/ai-gateway/gemini-client.js';
 import { VendorCallTimeoutError } from '../lib/vendor-gateway/guarded-call.js';
@@ -85,6 +87,15 @@ function formatFilterValidationIssues(issues: FilterValidationIssue[]): string {
 export let eventsAuthProbe = requireAuth;
 export function setEventsAuthProbe(fn: typeof requireAuth): void {
   eventsAuthProbe = fn;
+}
+
+// Test seam for Part 3's moderator-resolution first-scrape trigger (resolveAccountTypeClassificationReview,
+// 2026-10-20) -- lets a test assert "triggered exactly once" / "trigger failure doesn't fail the
+// mutation" deterministically without a real Apify/queue round trip. Defaults to the real
+// triggerScrapeForAccount; production behavior is unchanged.
+export let triggerFirstScrapeAfterModeratorResolutionSeam = triggerScrapeForAccount;
+export function setTriggerFirstScrapeAfterModeratorResolutionSeam(fn: typeof triggerScrapeForAccount): void {
+  triggerFirstScrapeAfterModeratorResolutionSeam = fn;
 }
 
 function formatAjvInstancePath(instancePath: string, missingProperty?: string): string {
@@ -677,18 +688,17 @@ export const resolvers: Resolvers = {
         });
       }
 
-      // 3. Re-check isScrapeInProgress server-side
+      // 3. Re-check isScrapeInProgress server-side (shared with Subscription.activityState via
+      // computeIsScrapeInProgress -- see AD-34-adjacent decide-initial-or-incremental-scrape.ts
+      // for the other half of this shared decision, also used by the moderator-resolution
+      // scrape trigger below).
       const env = loadBackendEnv();
       const scrapeInProgressTimeoutHours = parseInt(env.scrapeInProgressTimeoutHours || '3', 10);
-      const timeoutMs = scrapeInProgressTimeoutHours * 60 * 60 * 1000;
-      const scrapeTimeoutBoundary = new Date(Date.now() - timeoutMs);
 
-      let isScrapeInProgress = false;
-      if (profile.scrapeTriggeredAt && profile.scrapeTriggeredAt > scrapeTimeoutBoundary) {
-        if (profile.lastScrapedAt === null || profile.lastScrapedAt < profile.scrapeTriggeredAt) {
-          isScrapeInProgress = true;
-        }
-      }
+      const isScrapeInProgress = computeIsScrapeInProgress(
+        { scrapeTriggeredAt: profile.scrapeTriggeredAt, lastScrapedAt: profile.lastScrapedAt },
+        scrapeInProgressTimeoutHours
+      );
 
       if (isScrapeInProgress) {
         throw new GraphQLError('Scrape already in progress for this account.', {
@@ -697,33 +707,7 @@ export const resolvers: Resolvers = {
       }
 
       // 4. Decide branch: count posts to determine if initial or incremental
-      const postCountRows = await db.select({ count: count() })
-        .from(posts)
-        .where(eq(posts.accountId, accountId));
-
-      const postCount = postCountRows[0]?.count ?? 0;
-      let isInitialScrape = false;
-      let newerThan: string;
-
-      if (postCount === 0) {
-        // Initial scrape: 7 days ago
-        isInitialScrape = true;
-        newerThan = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      } else {
-        // Incremental: from the most recent post
-        const mostRecentRows = await db.select({ publishedAt: posts.publishedAt })
-          .from(posts)
-          .where(eq(posts.accountId, accountId))
-          .orderBy(desc(posts.publishedAt))
-          .limit(1);
-
-        if (mostRecentRows.length > 0) {
-          newerThan = mostRecentRows[0].publishedAt.toISOString();
-        } else {
-          // Fallback (shouldn't happen)
-          newerThan = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-        }
-      }
+      const { isInitialScrape, newerThan } = await decideInitialOrIncrementalNewerThan(accountId);
 
       // 5. Build ScrapeTarget and trigger the cascade
       const scrapeTarget = {
@@ -1647,6 +1631,13 @@ export const resolvers: Resolvers = {
         },
       });
     },
+    previewPostReextraction: async (_, { postId, url }, context): Promise<any> => {
+      const moderator = requireModerator(context);
+      if ((postId ? 1 : 0) + (url ? 1 : 0) !== 1) {
+        throw new GraphQLError('Provide exactly one of postId or url', { extensions: { code: 'BAD_REQUEST' } });
+      }
+      return startPostReextractionPreview(moderator.userId, { postId, url });
+    },
     submitReport: async (_, { eventId, reason, details }, context): Promise<any> => {
       const authUser = requireAuth(context);
       const [existingEvent] = await db.select().from(events).where(eq(events.id, eventId));
@@ -2116,6 +2107,56 @@ export const resolvers: Resolvers = {
 
         return updated;
       });
+
+      // Part 3 (2026-10-20, infokonsermusik follow-up): today the first scrape after a
+      // moderator resolves a classification only happens via a manual trigger or the next daily
+      // batch. Start it here, after the resolution transaction has committed, using the same
+      // gate (AD-34) and the same target shape/initial-window the subscribe-time cascade uses.
+      // A failed trigger must never fail or roll back the resolution -- the daily batch is the
+      // backstop -- so this is deliberately outside the transaction above and swallows its own
+      // errors.
+      if (isScrapableAccountType(accountType, 'CONFIRMED')) {
+        try {
+          const [refreshedProfile] = await db.select({
+            id: socialMediaAccountProfiles.id,
+            platform: socialMediaAccountProfiles.platform,
+            accountId: socialMediaAccountProfiles.accountId,
+            username: socialMediaAccountProfiles.username,
+            scrapeTriggeredAt: socialMediaAccountProfiles.scrapeTriggeredAt,
+            lastScrapedAt: socialMediaAccountProfiles.lastScrapedAt,
+          })
+            .from(socialMediaAccountProfiles)
+            .where(eq(socialMediaAccountProfiles.id, reqRow.accountId));
+
+          if (refreshedProfile) {
+            const env = loadBackendEnv();
+            const scrapeInProgressTimeoutHours = parseInt(env.scrapeInProgressTimeoutHours || '3', 10);
+            const alreadyInProgress = computeIsScrapeInProgress(
+              { scrapeTriggeredAt: refreshedProfile.scrapeTriggeredAt, lastScrapedAt: refreshedProfile.lastScrapedAt },
+              scrapeInProgressTimeoutHours
+            );
+
+            if (!alreadyInProgress) {
+              const { isInitialScrape, newerThan } = await decideInitialOrIncrementalNewerThan(refreshedProfile.id);
+              await triggerFirstScrapeAfterModeratorResolutionSeam(
+                {
+                  profileId: refreshedProfile.id,
+                  platform: refreshedProfile.platform as ScrapablePlatform,
+                  accountId: refreshedProfile.accountId,
+                  username: refreshedProfile.username,
+                  isInitialNewSubscription: isInitialScrape,
+                },
+                newerThan
+              );
+            }
+          }
+        } catch (err) {
+          console.error(
+            `[resolveAccountTypeClassificationReview] Failed to trigger first scrape for account ${reqRow.accountId} after moderator resolution:`,
+            err
+          );
+        }
+      }
 
       return {
         ...updatedRow,
@@ -2846,10 +2887,38 @@ export const resolvers: Resolvers = {
     extractionJob: async (_, { id }, context): Promise<any> => {
       const authUser = requireAuth(context);
       const job = await getManualExtractionJobStatus(id, authUser.userId);
-      if (!job) {
+      // A re-extract preview (AD-40) is read through `postReextractionPreview`, not as a correction.
+      if (!job || job.mode === 'REEXTRACT_PREVIEW') {
         throw new GraphQLError('Extraction job not found', { extensions: { code: 'NOT_FOUND' } });
       }
       return job;
+    },
+    postReextractionPreview: async (_, { id }, context): Promise<any> => {
+      const moderator = requireModerator(context);
+      const job = await getManualExtractionJobStatus(id, moderator.userId);
+      if (!job) {
+        throw new GraphQLError('Extraction job not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+      // A correction job is read through `extractionJob`; its id here is a wrong id, in any state.
+      if (job.mode !== 'REEXTRACT_PREVIEW') {
+        throw new GraphQLError('Extraction job not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+      const result = job.data as ReextractionPreviewResult | null;
+      return {
+        status: job.status,
+        preview: result
+          ? {
+              ...result,
+              groupingReason:
+                result.groupingReason && isPostGroupingReason(result.groupingReason)
+                  ? postGroupingReasonToGraphQL(result.groupingReason)
+                  : null,
+              events: result.events.map((e) => ({ ...e, dedup: { ...e.dedup, tier: e.dedup.tier.toUpperCase() } })),
+            }
+          : null,
+        errorCode: job.errorCode,
+        errorMessage: job.errorMessage,
+      };
     },
     myExtractionQuota: async (_, __, context) => {
       const authUser = requireAuth(context);

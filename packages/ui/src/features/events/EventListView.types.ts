@@ -16,6 +16,9 @@ export interface EventListViewScheduleShape {
    * the schedule occurs on every day of its span (legacy/default behavior).
    */
   applicableDaysOfWeek?: DomainDayOfWeek[] | null;
+  /** The schedule's own IANA timezone + confirmation status; used only when `RESOLVED` (`resolveScheduleTimezone`). */
+  timezone?: string | null;
+  timezoneStatus?: string | null;
 }
 
 export interface EventListViewItem {

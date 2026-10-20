@@ -7,6 +7,7 @@ import {
   EventDetailLevel,
 } from './types.js';
 import { getPlatformSlug } from '../scraper/platform-registry.js';
+import { normalizeOvernightEndDate } from './normalize-overnight-end-date.js';
 import { ScrapablePlatform } from '../subscriptions/platforms.js';
 
 export function buildEventInsertValues(
@@ -52,7 +53,10 @@ export function buildEventInsertValues(
     return {
       isMainSchedule: s.isMainSchedule,
       eventStartDate: s.eventStartDate,
-      eventEndDate: s.eventEndDate || null,
+      // An overnight event ("21:00 - 02:00", no end date) is stored with the next day as its end
+      // date, the shape the correction validator already requires -- see normalizeOvernightEndDate.
+      eventEndDate:
+        normalizeOvernightEndDate(s.eventStartDate, s.eventStartTime, s.eventEndDate, s.eventEndTime) || null,
       eventStartTime: s.eventStartTime || null,
       eventEndTime: s.eventEndTime || null,
       title: s.title || null,

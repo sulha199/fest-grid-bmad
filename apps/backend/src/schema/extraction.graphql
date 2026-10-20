@@ -5,6 +5,7 @@ enum ExtractionErrorCode {
   SCRAPE_FAILED
   EXTRACTION_FAILED
   QUOTA_EXHAUSTED
+  RATE_LIMITED # a rescrape of this post URL was done in the last 10 minutes (AD-40)
 }
 
 type ProposedScheduleCorrectionData {
@@ -93,13 +94,79 @@ type ExtractionQuota {
   remaining: Int!
 }
 
+# AD-40 -- the dry-run dedup outcome for one extracted event: what ingestion's real matching would do.
+# NONE means no candidate event passed the candidate query.
+enum ReextractionDedupTier {
+  HIGH
+  MID
+  LOW
+  NONE
+}
+
+type ReextractionPreviewDedup {
+  tier: ReextractionDedupTier!
+  score: Float
+  candidateSlug: String
+  candidateName: String
+}
+
+type ReextractionPreviewLink {
+  url: String!
+  label: String
+}
+
+type ReextractionPreviewSchedule {
+  title: String
+  startDate: String
+  endDate: String
+  isMain: Boolean!
+}
+
+type ReextractionPreviewEvent {
+  extractionOrdinal: Int!
+  eventName: String!
+  # Ingestion would skip this item: the post's (post, ordinal) slot already holds this event.
+  alreadyRepresentedBySlug: String
+  # A roundup- or curator-sourced event is a stub (AD-30 Rule 10).
+  isStub: Boolean!
+  links: [ReextractionPreviewLink!]!
+  schedules: [ReextractionPreviewSchedule!]!
+  dedup: ReextractionPreviewDedup!
+}
+
+type PostReextractionPreview {
+  groupingReason: PostGroupingReason
+  # False for a URL that is not in our database: the dedup outcome then has no account signal.
+  postStored: Boolean!
+  rescraped: Boolean!
+  events: [ReextractionPreviewEvent!]!
+}
+
+type PostReextractionPreviewStatus {
+  status: ExtractionJobState!
+  preview: PostReextractionPreview
+  errorCode: ExtractionErrorCode
+  errorMessage: String
+}
+
+type StartPostReextractionPreviewResult {
+  jobId: ID
+  errorCode: ExtractionErrorCode
+  errorMessage: String
+}
+
 extend type Query {
   postsByAccount(accountId: ID!, cursor: String, limit: Int, onlyUnextracted: Boolean, statuses: [PostExtractionStatus!]): PostConnection!
   myExtractionQuota: ExtractionQuota!
   extractionJob(id: ID!): ExtractionJobStatus!
+  # AD-40 -- moderator only. Polls a re-extract preview started by previewPostReextraction.
+  postReextractionPreview(id: ID!): PostReextractionPreviewStatus!
 }
 
 extend type Mutation {
   extractEventDataFromUrl(url: String!): ExtractEventDataFromUrlResult!
   selectPostsForExtraction(postIds: [ID!]!): [Post!]!
+  # AD-40 -- moderator only, preview only (writes nothing to events/schedules/posts). Give exactly
+  # one of postId or url. Rescrapes only when the post's caption is not stored.
+  previewPostReextraction(postId: ID, url: String): StartPostReextractionPreviewResult!
 }

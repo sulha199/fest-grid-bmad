@@ -3,10 +3,12 @@ import { events, schedules, socialMediaAccountProfiles } from '@festgrid/databas
 import { activeOnly } from '@festgrid/graphql-select';
 import type { EventInsertValues, ScheduleInsertValues } from '@festgrid/domain/events';
 import {
+  capTierWhenOutsideDateWindow,
   computeMatchScore,
   hasSharedEventLink,
   hasVenueMatch,
   minScheduleDayDifference,
+  normalizeEventLinkUrl,
   type MatchTier,
 } from '@festgrid/domain/events';
 import type { DbExecutor } from './set-event-primary-post.js';
@@ -24,6 +26,13 @@ const NAME_SIMILARITY_FLOOR = 0.3;
 // AC1 -- candidates are selected by schedule date-range overlap within +/-2 days of any of the
 // new item's schedules.
 const DATE_WINDOW_DAYS = 2;
+// BUG-063 -- a candidate sharing a normalized event link with the new item is also admitted when
+// a schedule is within +/-90 days: a registration-deadline post and the race-day post of one
+// event sit weeks apart (GembiRun Loka 2026: 21 Oct vs 8 Nov), far outside +/-2 days. 90 days
+// covers a registration window; it stays well short of a yearly re-run of the same event. Such a
+// candidate is capped at `mid` (see `capTierWhenOutsideDateWindow`) -- it is never auto-linked.
+const SHARED_LINK_DATE_WINDOW_DAYS = 90;
+const TIER_RANK: Record<MatchTier, number> = { low: 0, mid: 1, high: 2 };
 
 export interface MatchSourcePost {
   /** The new item's own `postId` -- excluded from candidates below (see Dev Note). */
@@ -96,6 +105,43 @@ export async function findMatchingEvent(
       sql`${schedules.eventStartDate} BETWEEN (${d}::date - INTERVAL '${sql.raw(String(DATE_WINDOW_DAYS))} days') AND (${d}::date + INTERVAL '${sql.raw(String(DATE_WINDOW_DAYS))} days')`
   );
 
+  // BUG-063 -- second admission path: a stored link equal (after the same normalization
+  // `hasSharedEventLink` applies) to one of the new item's links, with a schedule within
+  // +/-SHARED_LINK_DATE_WINDOW_DAYS. `events.links` is read raw here, and the column is written
+  // JSON-stringified through drizzle/postgres.js, so it is usually a jsonb *string* holding the
+  // array -- unwrap it with `#>> '{}'` before `jsonb_path_query` (lax mode: tolerates a non-array).
+  const newLinkUrls = Array.from(
+    new Set((newEvent.links ?? []).map((link) => link.url).filter((url): url is string => Boolean(url)).map(normalizeEventLinkUrl))
+  );
+  const sharedLinkWindowDays = sql.raw(String(SHARED_LINK_DATE_WINDOW_DAYS));
+  const sharedLinkCandidate =
+    newLinkUrls.length === 0
+      ? undefined
+      : and(
+          or(
+            ...usableNewDates.map(
+              (d) =>
+                sql`${schedules.eventStartDate} BETWEEN (${d}::date - INTERVAL '${sharedLinkWindowDays} days') AND (${d}::date + INTERVAL '${sharedLinkWindowDays} days')`
+            )
+          ),
+          sql`EXISTS (
+            SELECT 1
+            FROM jsonb_path_query(
+              CASE
+                WHEN jsonb_typeof(${events.links}) = 'array' THEN ${events.links}
+                WHEN jsonb_typeof(${events.links}) = 'string' AND (${events.links} #>> '{}') LIKE '[%' THEN (${events.links} #>> '{}')::jsonb
+                ELSE '[]'::jsonb
+              END,
+              '$[*].url'
+            ) AS link_url(value)
+            WHERE regexp_replace(split_part(lower(btrim(link_url.value #>> '{}', E' 	
+')), '?', 1), '/$', '') IN (${sql.join(
+              newLinkUrls.map((url) => sql`${url}`),
+              sql`, `
+            )})
+          )`
+        );
+
   const candidateRows = await tx
     .select({
       eventId: events.id,
@@ -109,7 +155,7 @@ export async function findMatchingEvent(
         isNull(events.mergedIntoEventId),
         sql`${events.eventName} % ${newEvent.eventName}`,
         sql`similarity(${events.eventName}, ${newEvent.eventName}) > ${NAME_SIMILARITY_FLOOR}`,
-        or(...dateConditions),
+        or(...dateConditions, sharedLinkCandidate),
         // Dev Note (discovered during this story's own weight/threshold validation against the
         // CC-024 reference posts) -- a multi-event post (Story 3.6s) extracts several genuinely
         // distinct events sharing the SAME postId at different extractionOrdinals. Without this
@@ -164,15 +210,18 @@ export async function findMatchingEvent(
     const minDayDiff = minScheduleDayDifference(newSchedules, candidateSchedules);
     const nameSimilarity = nameSimByEventId.get(candidateEventId) ?? 0;
 
-    const { score, tier } = computeMatchScore({
+    const { score, tier: scoredTier } = computeMatchScore({
       organizerMatch,
       sharedLink,
       nameSimilarity,
       minDayDiff,
       venueMatch,
     });
+    const tier = capTierWhenOutsideDateWindow(scoredTier, minDayDiff, DATE_WINDOW_DAYS);
 
-    if (!best || score > best.score) {
+    // Rank by the (possibly capped) tier first, so a date-distant shared-link candidate whose raw
+    // score is higher can never displace an in-window `high` candidate.
+    if (!best || TIER_RANK[tier] > TIER_RANK[best.tier] || (tier === best.tier && score > best.score)) {
       best = { candidate: candidateEvent, score, tier };
     }
   }

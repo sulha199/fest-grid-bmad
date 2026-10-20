@@ -26,6 +26,7 @@ content = content.replace(/export type SoftDeleteAction =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type SuggestedEventMatchAction =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type SuggestedEventMatchStatus =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type PostExtractionStatus =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type ReextractionDedupTier =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type SubscriptionActivityState =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type EventQueryConditionInput = \{[\s\S]*?\};\r?\n/g, '');
 content = "export type EventQueryConditionInput = { conditions?: InputMaybe<Array<EventQueryConditionInput>>; field?: InputMaybe<Scalars['String']['input']>; operator?: InputMaybe<Scalars['String']['input']>; value?: InputMaybe<Scalars['JSON']['input']>; };\n" + content;

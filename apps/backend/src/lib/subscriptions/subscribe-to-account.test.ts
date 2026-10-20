@@ -10,6 +10,8 @@ import {
   setCallGeminiForAccountClassificationSeam,
   getAccountClassificationProfileSeam,
   callGeminiForAccountClassificationSeam,
+  setInsertAccountTypeClassificationReviewSeam,
+  insertAccountTypeClassificationReviewSeam,
 } from '../accounts/classify-account-type.js';
 import { accountTypeClassificationReviews } from '@festgrid/database';
 import '../scraper/register-adapters.js';
@@ -27,6 +29,11 @@ function mockOrganizerConfirmedClassification(username: string) {
     text: JSON.stringify({ accountType: 'ORGANIZER_VENUE_EVENT', confidenceScore: 0.9 }),
   }));
 }
+
+// Captured once at module load (before any test reassigns the `let` export) so it can be
+// restored exactly -- re-passing the imported identifier itself would just reassign whatever
+// the last test already set it to, since import bindings are live.
+const realInsertAccountTypeClassificationReviewSeam = insertAccountTypeClassificationReviewSeam;
 
 test('subscribe-to-account tests', async (t) => {
   let testUserId: string;
@@ -554,6 +561,63 @@ test('subscribe-to-account tests', async (t) => {
     assert.strictEqual(row.isVerifiedForDiscovery, true);
     assert.strictEqual(row.accountTypeStatus, 'CONFIRMED');
     assert.strictEqual(row.classificationClaimedAt, null);
+  });
+
+  await t.test('(k) classifyAccountType throwing (atomic persistence failure) still lets the subscription succeed, releases the claim, and skips the scrape', async (subT) => {
+    const seededAccountId = `discovered-k-${ts}`;
+    subT.after(() => cleanupSeededProfile(seededAccountId));
+
+    await db.insert(socialMediaAccountProfiles).values({
+      accountId: seededAccountId,
+      platform: testPlatform,
+      username: 'discovered_k',
+      displayName: 'Discovered K',
+      accountTypeStatus: null,
+      isVerifiedForDiscovery: false,
+      discoverySource: { vendor: 'apify' },
+    });
+
+    let scrapeCalled = false;
+    setAttemptApifyAsyncTrigger(async () => {
+      scrapeCalled = true;
+      return { success: true };
+    });
+    // Apify lookup fails -> classifyAccountType's handleHardFailure path -> its atomic
+    // transaction's review-row insert fails too -> classifyAccountType throws
+    // ClassificationPersistenceFailedError instead of returning a fake AWAITING_APPROVAL.
+    setGetAccountClassificationProfileSeam(async () => {
+      throw new Error('Apify down');
+    });
+    setInsertAccountTypeClassificationReviewSeam(async () => {
+      throw new Error('simulated review insert failure');
+    });
+
+    let result: Awaited<ReturnType<typeof subscribeToAccount>>;
+    try {
+      result = await subscribeToAccount({
+        userId: testUserId,
+        platform: testPlatform,
+        accountId: seededAccountId,
+        profile: { displayName: 'Discovered K', username: 'discovered_k' },
+      });
+    } finally {
+      setInsertAccountTypeClassificationReviewSeam(realInsertAccountTypeClassificationReviewSeam);
+    }
+
+    assert.ok(result.subscription, 'subscription must still succeed when classification persistence fails (AC1)');
+    assert.strictEqual(scrapeCalled, false, 'scrape must not be triggered when classification persistence fails');
+
+    // The profile itself is unchanged (classify-account-type.ts's transaction rolled back) and
+    // the claim was released so a later subscribe can retry classification instead of waiting
+    // out the full TTL.
+    const [row] = await db
+      .select()
+      .from(socialMediaAccountProfiles)
+      .where(eq(socialMediaAccountProfiles.id, result.profile.id))
+      .limit(1);
+    assert.strictEqual(row.accountType, null);
+    assert.strictEqual(row.accountTypeStatus, null);
+    assert.strictEqual(row.classificationClaimedAt, null, 'claim must be released on classification failure');
   });
 
   await t.test('STOPGAP BUG-059: subscribing by a typed handle reuses a classified profile that scrape ingestion created under a numeric ID', async () => {

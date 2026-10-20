@@ -7,6 +7,7 @@ import {
 import { db } from '../../db/client.js';
 import { loadBackendEnv } from '../../env.js';
 import { invokeAiProcessor } from '../aws/invoke-ai-processor.js';
+import { blankManualJobPayloadContent } from './blank-manual-job-payload.js';
 
 // Story 4.2b -- API-Lambda side of manual "AI-Assisted Correction" extraction. Deliberately has
 // no import of anything that pulls in the image-processing runtime (sharp / face-api / tfjs): the
@@ -33,6 +34,7 @@ export async function startManualExtractionJob(
       .update(manualExtractionJobs)
       .set({ status: 'FAILED', errorCode: 'EXTRACTION_FAILED', errorMessage, completedAt: new Date(), updatedAt: new Date() })
       .where(eq(manualExtractionJobs.id, job.id));
+    await blankManualJobPayloadContent(job.id);
     return { errorCode: 'EXTRACTION_FAILED', errorMessage };
   };
 
@@ -48,7 +50,13 @@ export async function startManualExtractionJob(
   return { jobId: job.id };
 }
 
+function jobMode(job: { requestPayload: ManualExtractionRequestPayload }): 'CORRECTION' | 'REEXTRACT_PREVIEW' {
+  return job.requestPayload.mode === 'REEXTRACT_PREVIEW' ? 'REEXTRACT_PREVIEW' : 'CORRECTION';
+}
+
 export interface ManualExtractionJobStatusResult {
+  /** `REEXTRACT_PREVIEW` jobs (AD-40) are read through `postReextractionPreview`, correction jobs through `extractionJob`. */
+  mode: 'CORRECTION' | 'REEXTRACT_PREVIEW';
   status: 'PENDING' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED';
   data: unknown | null;
   errorCode: string | null;
@@ -92,12 +100,14 @@ export async function getManualExtractionJobStatus(
       )
       .returning({ id: manualExtractionJobs.id });
     if (updated.length > 0) {
-      return { status: 'FAILED', data: null, errorCode: 'EXTRACTION_FAILED', errorMessage };
+      await blankManualJobPayloadContent(jobId);
+      return { mode: jobMode(job), status: 'FAILED', data: null, errorCode: 'EXTRACTION_FAILED', errorMessage };
     }
     return getManualExtractionJobStatus(jobId, userId, now);
   }
 
   return {
+    mode: jobMode(job),
     status: job.status,
     data: job.status === 'SUCCEEDED' ? (job.resultData ?? null) : null,
     errorCode: job.errorCode,

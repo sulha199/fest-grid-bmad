@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useState } from 'react';
 import { Instagram, Link, ExternalLink } from 'lucide-react';
-import { useScopedLocale, useScopedTimezone } from '../../hooks';
+import { useScopedLocale, useEventTimezone } from '../../hooks';
 import { Checkbox } from '../../core/checkbox';
 import { AccountAvatar } from '../../core/account-avatar';
 import type { PostCardProps, PostCardSkeletonProps } from './PostCard.types';
@@ -68,9 +68,8 @@ export function PostCard({
 
   const [imgError, setImgError] = useState(false);
   const contextLocale = useScopedLocale();
-  const contextTimezone = useScopedTimezone();
   const activeLocale = locale || contextLocale;
-  const activeTimezone = timezone || contextTimezone;
+  const activeTimezone = useEventTimezone(timezone);
 
   if (loading) {
     return <PostCardSkeleton loadingLabel={defaultLabels.loading} />;

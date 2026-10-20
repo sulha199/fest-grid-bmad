@@ -132,32 +132,49 @@ export async function subscribeToAccount({
         throw new ScraperCapacityExceededError('Scraper capacity temporarily exceeded — new subscriptions are paused until next cycle.');
       }
 
-      const classification = await classifyAccountType({
-        accountId: accountProfile.id,
-        username: accountProfile.username,
-        userId,
-      });
-
-      // classifyAccountType() persists accountType/accountTypeStatus to the DB row directly;
-      // merge its return value into our in-memory snapshot so callers (and the existing-subscription
-      // check below) don't see the stale pre-classification values.
-      accountProfile = {
-        ...accountProfile,
-        accountType: classification.accountType,
-        accountTypeStatus: classification.accountTypeStatus,
-      };
-
-      if (isScrapableAccountType(classification.accountType, classification.accountTypeStatus)) {
-        const scrapeTarget = {
-          profileId: accountProfile.id,
-          platform: accountProfile.platform as ScrapablePlatform,
-          accountId: accountProfile.accountId,
+      // classify-account-type.ts's hard-failure/low-confidence writes are now atomic (Part 1,
+      // 2026-10-20): a write failure propagates as ClassificationPersistenceFailedError instead
+      // of returning a fake success. That must never block the subscription itself -- AC1
+      // requires subscribing to always succeed. Log it, release the claim (so a later subscribe
+      // request can retry classification instead of waiting out the full TTL), and skip the
+      // scrape -- the rest of subscribeToAccount proceeds as if the cascade never ran.
+      let classification: Awaited<ReturnType<typeof classifyAccountType>> | null = null;
+      try {
+        classification = await classifyAccountType({
+          accountId: accountProfile.id,
           username: accountProfile.username,
-          isInitialNewSubscription: true,
+          userId,
+        });
+      } catch (err) {
+        console.error(`[subscribeToAccount] classifyAccountType failed for profile ${accountProfile.id}:`, err);
+        await db
+          .update(socialMediaAccountProfiles)
+          .set({ classificationClaimedAt: null })
+          .where(eq(socialMediaAccountProfiles.id, accountProfile.id));
+      }
+
+      if (classification) {
+        // classifyAccountType() persists accountType/accountTypeStatus to the DB row directly;
+        // merge its return value into our in-memory snapshot so callers (and the existing-subscription
+        // check below) don't see the stale pre-classification values.
+        accountProfile = {
+          ...accountProfile,
+          accountType: classification.accountType,
+          accountTypeStatus: classification.accountTypeStatus,
         };
 
-        const newerThan = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-        await triggerScrapeForAccount(scrapeTarget, newerThan);
+        if (isScrapableAccountType(classification.accountType, classification.accountTypeStatus)) {
+          const scrapeTarget = {
+            profileId: accountProfile.id,
+            platform: accountProfile.platform as ScrapablePlatform,
+            accountId: accountProfile.accountId,
+            username: accountProfile.username,
+            isInitialNewSubscription: true,
+          };
+
+          const newerThan = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+          await triggerScrapeForAccount(scrapeTarget, newerThan);
+        }
       }
     }
     // When `claimed` is falsy: another request already claimed or already finished classifying

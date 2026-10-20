@@ -1085,6 +1085,38 @@ describe("EventDetailWrapper", () => {
     expect(screen.queryByPlaceholderText("EventDetailsPage.timezoneSelectPlaceholder")).not.toBeInTheDocument()
   })
 
+  it("shows a moderator a Re-extract button for a single source post (AD-40)", async () => {
+    currentMockMeRole = "moderator"
+    currentMockEvent.sourcePosts = [
+      {
+        postId: "post-1",
+        isPrimary: true,
+        title: "Costume contest",
+        sourcePostUrl: "https://www.instagram.com/p/x/",
+        account: { accountId: "acct-1", platform: "instagram", username: "acct_one", displayName: "Acct One", profileImageUrl: null },
+      },
+    ]
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+    expect(await screen.findByRole("button", { name: "ReextractPreview.reextractButton" })).toBeInTheDocument()
+  })
+
+  it("never shows the Re-extract panel to a non-moderator (AD-40)", async () => {
+    currentMockMeRole = "user"
+    currentMockEvent.sourcePosts = [
+      {
+        postId: "post-1",
+        isPrimary: true,
+        account: { accountId: "acct-1", platform: "instagram", username: "acct_one", displayName: "Acct One", profileImageUrl: null },
+      },
+    ]
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "ReextractPreview.reextractButton" })).not.toBeInTheDocument()
+  })
+
   it("authenticated timezone submit calls mutation and shows success message", async () => {
     currentMockMeRole = "moderator"
     renderComponent()

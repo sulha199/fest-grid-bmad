@@ -142,7 +142,7 @@ body { margin: 0; }
   <!-- E: candidate query -->
   <rect class="node" x="120" y="424" width="420" height="122" rx="6"/>
   <text class="ttl" x="330" y="447" text-anchor="middle">Candidate query (database)</text>
-  <text class="mono" x="140" y="470">schedule start within ±2 days</text>
+  <text class="mono" x="140" y="470">schedule within ±2 d, OR shared link + ±90 d†</text>
   <text class="mono" x="140" y="488">event_name % name  AND  similarity &gt; 0.3</text>
   <text class="mono" x="140" y="506">not deleted, not merged</text>
   <text class="mono" x="140" y="524">not already linked to THIS post</text>
@@ -289,12 +289,13 @@ body { margin: 0; }
   </div>
 
   <h2>Where to look in the code</h2>
-  <p><code>process-ingestion-job.ts</code> runs the prepare step and the tier branch. <code>match-event-to-existing.ts</code> holds <code>findMatchingEvent</code> and the candidate query. <code>match-scoring.ts</code> in <code>packages/domain</code> holds the weights and thresholds. <code>merge-events.ts</code> and the <code>resolveSuggestedEventMatch</code> resolver handle the moderator side.</p>
+  <p><code>process-ingestion-job.ts</code> runs the tier branch; the stub rule, organizer discount and match call live in <code>evaluate-ingestion-match.ts</code>, which the moderator re-extract preview (AD-40) also calls. <code>match-event-to-existing.ts</code> holds <code>findMatchingEvent</code> and the candidate query. <code>match-scoring.ts</code> in <code>packages/domain</code> holds the weights and thresholds. <code>merge-events.ts</code> and the <code>resolveSuggestedEventMatch</code> resolver handle the moderator side.</p>
 
   <h2>Status and what is left</h2>
   <ul class="open">
     <li><strong>Done: BUG-058.</strong> A roundup or curator posting account no longer earns the organizer weight. Assumes the Story 3.6v discount was meant to cover the posting account; the story text names only the handle.</li>
     <li><strong>Done: IDEA-068.</strong> The extraction prompt returns <code>organizerHandle</code> only for an organizer the caption names. The handle discount in the prepare step stays as protection for messages already in the queue.</li>
+    <li><strong>Done: BUG-070.</strong> † A candidate admitted only by a shared link (no schedule within ±2 days) is capped at mid, so a deadline post and a race-day post of one event reach a moderator instead of being missed. See AD-30 Rule 7, amended 2026-10-18.</li>
     <li><strong>Next: IDEA-067, small.</strong> Count the new post's own co-author and publisher associations in the organizer signal.</li>
     <li><strong>Then: IDEA-066, medium.</strong> Let an organizer's post beat a venue's post as primary, using per-event organizer and venue handles stored on the event.</li>
   </ul>

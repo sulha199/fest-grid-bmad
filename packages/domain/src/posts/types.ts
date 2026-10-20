@@ -13,6 +13,10 @@ export type PostAccountRole = (typeof POST_ACCOUNT_ROLES)[number];
 export const POST_GROUPING_REASONS = ['single-event', 'program-lineup', 'dependent-stages', 'separate-events', 'roundup'] as const;
 export type PostGroupingReason = (typeof POST_GROUPING_REASONS)[number];
 
+export function isPostGroupingReason(value: string): value is PostGroupingReason {
+  return (POST_GROUPING_REASONS as readonly string[]).includes(value);
+}
+
 /**
  * Closed set describing which image shape the AI actually saw for a given extraction attempt
  * (Story 3.21, Architecture Spine AD-29 Rule 7). Computed once per attempt by
@@ -59,7 +63,50 @@ export interface ManualExtractionInvokePayload {
 export interface ManualExtractionRequestPayload {
   message: ProcessingJobMessage;
   existingPostAccountId?: string;
+  /**
+   * AD-40 -- `REEXTRACT_PREVIEW` runs the moderator re-extract preview (extraction plus a dry-run
+   * of the ingestion dedup decision) instead of the single-event correction proposal. Absent means
+   * the Story 4.2b correction flow.
+   */
+  mode?: ManualExtractionMode;
+  /** AD-40 -- preview facts known when the job is started, echoed into the result. */
+  postStored?: boolean;
+  rescraped?: boolean;
 }
+
+export const MANUAL_EXTRACTION_MODES = ['CORRECTION', 'REEXTRACT_PREVIEW'] as const;
+export type ManualExtractionMode = (typeof MANUAL_EXTRACTION_MODES)[number];
+
+/** AD-40 -- a dedup outcome in a re-extract preview. `none` means no candidate passed the query. */
+export type ReextractionPreviewTier = 'high' | 'mid' | 'low' | 'none';
+
+export interface ReextractionPreviewEvent {
+  extractionOrdinal: number;
+  eventName: string;
+  /** Ingestion would skip this item: the post's `(post, ordinal)` slot already has this event (slug). */
+  alreadyRepresentedBySlug: string | null;
+  /** Roundup- or curator-sourced events are stubs (AD-30 Rule 10). */
+  isStub: boolean;
+  links: Array<{ url: string; label?: string | null }>;
+  schedules: Array<{ title: string | null; startDate: string | null; endDate: string | null; isMain: boolean }>;
+  dedup: {
+    tier: ReextractionPreviewTier;
+    score: number | null;
+    candidateSlug: string | null;
+    candidateName: string | null;
+  };
+}
+
+/** AD-40 -- stored in `manual_extraction_jobs.result_data` for a `REEXTRACT_PREVIEW` job. */
+export interface ReextractionPreviewResult {
+  groupingReason: string | null;
+  postStored: boolean;
+  rescraped: boolean;
+  events: ReextractionPreviewEvent[];
+}
+
+/** AD-40 -- the rescrape of a post URL is rate-limited per URL (scraper credit). */
+export const REEXTRACT_RESCRAPE_COOLDOWN_MS = 10 * 60 * 1000;
 
 /**
  * GraphQL-safe representation of `PostGroupingReason` (Story 3.6u, AD-30 Rule 11). The DB enum's

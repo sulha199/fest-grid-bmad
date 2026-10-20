@@ -2,7 +2,7 @@
 title: "Architecture Spine: FestDaily"
 status: "draft"
 created: "2026-07-20T09:34:00Z"
-updated: "2026-10-19T00:00:00Z"
+updated: "2026-10-20T00:00:00Z"
 ---
 
 # Architecture Spine: FestDaily
@@ -1827,6 +1827,28 @@ This document defines the core architectural invariants for the FestDaily applic
             event as loser, which also flips the suggestion to `accepted` and writes an
             `event_merges` journal row; REJECT only records `rejected`. `undoEventMerge` restores
             both events and returns the suggestion to `pending`.
+        **Amended 2026-10-18 (BUG-070, GembiRun Loka 2026).** One event was posted three ways: a
+        registration-deadline post (schedule 21 Oct) and a race-day post (8 Nov) created two events
+        that never matched, because the candidate query only looked ±2 days around the new
+        schedule. The registration link, name, venue and account were identical. Rule 5 already
+        says "registration windows are schedules", so a deadline post and a race-day post of one
+        event are *expected* to sit weeks apart. Two changes, both in `findMatchingEvent`:
+        *   **Second admission path.** A candidate is also admitted when it shares a normalized
+            event link (`normalizeEventLinkUrl`, mirrored in SQL) with the new item **and** has a
+            schedule within ±90 days (`SHARED_LINK_DATE_WINDOW_DAYS`). The name floor (`similarity >
+            0.3`), the soft-delete/merge exclusion, the same-post exclusion and `LIMIT 20` still
+            apply. The SQL reads `events.links` raw and accepts both a jsonb array and a jsonb
+            *string* holding the array: the column is written JSON-stringified through
+            drizzle/postgres.js, so production rows (all 229 with links, checked 2026-10-18) are
+            jsonb strings that only drizzle's read path unwraps.
+        *   **Tier cap.** A candidate with no schedule inside ±2 days (`DATE_WINDOW_DAYS`) is capped
+            at `mid` (`capTierWhenOutsideDateWindow`, `packages/domain`). It is never auto-linked:
+            the same link and name can belong to another edition of the event, so a moderator
+            decides. Candidates are ranked by tier first, then score, so a date-distant candidate
+            cannot displace an in-window `high` one. In-window behavior is unchanged.
+        Weights and thresholds are unchanged. A pair already in the database is merged by a
+        moderator accepting the queued suggestion, or by `merge-events-by-slug.ts` (a dry run by
+        default) when no suggestion exists; both run `mergeEvents()` (Rule 9) and are undoable.
         **Amended 2026-10-19 (production check 2026-10-19; IDEA-085; evidence:
         `event-insight-poc/prod-check-results-review-2026-10-19.md` §2 and §10).** Of the 446
         same-account, same-normalized-name pairs, the matcher is *able* to act on only the
@@ -1856,9 +1878,12 @@ This document defines the core architectural invariants for the FestDaily applic
             sweep clusters pairs (union-find) and merges into the final winner (an organizer-
             authored primary, then more complete schedules, then the earlier `created_at`, then the
             lower id); `event_match_candidates` gets a unique index on the unordered pair, so a
-            re-run cannot re-queue a pair a moderator rejected. The flow diagram
-            `diagrams/event-dedup-flow.html` changes with the sweep and the exclusions
-            (project-context).
+            re-run cannot re-queue a pair a moderator rejected. The sweep scores with the same
+            pure `computeMatchScore` **and** `capTierWhenOutsideDateWindow` (the 2026-10-18
+            amendment above), so a pair with no schedule inside ±2 days is capped at `mid` and is
+            never auto-merged: a same-link, same-name pair weeks apart is queued for a moderator,
+            not folded. The flow diagram `diagrams/event-dedup-flow.html` changes with the sweep
+            and the exclusions (project-context).
     8.  **Promotion and post deletion.** On promotion the event adopts the matched candidate's
         `extraction_ordinal` under the new primary (that `(post, ordinal)` slot is free — the
         candidate was matched to this event rather than creating one) and keeps its old link
@@ -2240,8 +2265,10 @@ This document defines the core architectural invariants for the FestDaily applic
 *   **Binds:** `isScrapableAccountType(accountType, accountTypeStatus)` in
     `packages/domain/src/scraper/account-classification.ts`; every code path that *starts* a scrape
     — `triggerAccountScrape` (`apps/backend/src/schema/resolvers.ts`), the subscribe-time
-    classify-then-scrape cascade (`subscribeToAccount`), and the daily batch
-    (`getBatchScrapeTargets`, `apps/backend/src/lib/scraper/get-scrape-targets.ts`); Stories 3.4n
+    classify-then-scrape cascade (`subscribeToAccount`), the daily batch
+    (`getBatchScrapeTargets`, `apps/backend/src/lib/scraper/get-scrape-targets.ts`), and the
+    moderator-resolution first-scrape trigger (`resolveAccountTypeClassificationReview`,
+    `apps/backend/src/schema/resolvers.ts`, added 2026-10-20); Stories 3.4n
     (classification + gate), 3.4o (curator accounts become scrapable), 3.16.
 *   **Prevents:** The incident that created this AD (2026-10-15): Story 3.4o widened the gate in the
     batch's SQL only, so `triggerAccountScrape` and `subscribeToAccount` kept rejecting `CONFIRMED`
@@ -2266,6 +2293,12 @@ This document defines the core architectural invariants for the FestDaily applic
     5.  **Distinct from AD-31's "curator-typed".** That predicate answers "was this post authored by
         an organizer?" and deliberately counts `AWAITING_APPROVAL` curators; this one answers "may we
         scrape this account?". Do not reuse one for the other.
+    6.  **Amended 2026-10-20 by AD-41 Rule 6: a pending classification is not scrapable.** Rule 1's
+        `NULL` case narrows to "never classified **and** never requested"; an account with
+        `classification_requested_at` set and status still `NULL` is not scrapable until it settles.
+        `isScrapableAccountType` takes a required third argument for this, and Rule 3's SQL form and
+        its test gain the same dimension. The classification worker and the moderator-resolve path
+        (AD-41 Rule 7) join the entry points that adopt the gate.
 *   **Enforced by:** the unit tests in Rule 1 and the lockstep tests in Rule 3. No lint or source-scan
     ratchet yet; see Deferred.
 *   **Deferred:** a source-scan ratchet forbidding a raw `accountTypeStatus === ` comparison outside
@@ -2948,6 +2981,10 @@ This document defines the core architectural invariants for the FestDaily applic
           source post and an identical normalized activity name (AD-36 Rule 12).
         - The place split is a pure function; the activity split inherits the extractor's
           non-determinism (7 events in one post, 10 in another from one caption).
+        - **The AD-40 re-extract preview runs the same normalizer** on its extraction result, so
+          it reports the sibling events (with their `siblingOrdinal`s) and the group the split
+          would create. It still writes nothing (AD-40 Rule 1): the group and siblings are
+          reported, not created.
     3.  **Write-path order and ordinals.** `[ADOPTED, user-accepted order; ordinal formula
         user-accepted 2026-10-20]`
         ```mermaid
@@ -3226,7 +3263,11 @@ This document defines the core architectural invariants for the FestDaily applic
           **Type confirmation and scraping never wait for the area.** `[ADOPTED, user-directed
           2026-10-20]` A curator is safe to scrape and extract whether or not an area is known: the
           area is a separate field, the AD-34 gate is unchanged, and no new curator is held in
-          `AWAITING_APPROVAL` for lack of one.
+          `AWAITING_APPROVAL` for lack of one. `[ASSUMPTION]` P is produced by the classification
+          call (`classifyAccountType`, run by the AD-41 worker, same key order, so a sweep
+          re-drive uses the system key only); a missing or failed P leaves the area unresolved and
+          never changes the classification outcome or delays `CONFIRMED` or the first scrape
+          (AD-41 Rules 4 and 7).
           **When no area was resolved** and the event states none either, the event is
           **published** with `area_status = unknown` (default tier, ranking penalty, per-page cap;
           Rule 4), and the account is listed for a moderator to set an area (the backstop, not the
@@ -3360,6 +3401,234 @@ This document defines the core architectural invariants for the FestDaily applic
     3.  **Derive and switch** — the Rule 7 job and the reader flip, after AD-37's row migration.
     4.  **Filter, lane and score semantics** (Rule 5; BUG-064, IDEA-081).
     5.  **Exposure and badge** (Rule 6) — with the UX step.
+
+---
+
+### AD-40: Moderator Re-extract Is a Write-Free Preview That Never Keeps a Caption
+
+*   **Binds:** `Mutation.previewPostReextraction`, `Query.postReextractionPreview`
+    (`extraction.graphql`, `resolvers.ts`); `startPostReextractionPreview`
+    (`apps/backend/src/lib/extraction/`); the `REEXTRACT_PREVIEW` mode of the manual extraction job
+    (`process-manual-extraction-job.ts`, `build-reextraction-preview.ts`); `evaluateIngestionMatch`
+    (`apps/backend/src/lib/ingestor/`), now shared with `processIngestionJob`; the moderator UI
+    (`apps/web/src/features/moderation/`, the event detail page, Moderator → Tools → Re-extract).
+    Builds on AD-30 Rules 3, 7 and 10 and the Story 4.2b manual extraction job.
+*   **Prevents:** A second, divergent copy of the ingestion dedup decision that reports one thing
+    while ingestion does another; a "re-extract" that creates duplicate events or overwrites a
+    moderator's edits; a post caption (especially a curator caption, deliberately null in `posts`
+    since Story 3.4o) outliving its use; a rescrape loop spending scraper credit.
+*   **Rule:**
+    1.  **Preview only.** The operation writes nothing to `events`, `schedules`, `event_posts`,
+        `event_match_candidates`, `posts` or `extraction_audit_logs`, and enqueues nothing. Its
+        only writes are the job row and its result. There is **no apply step**: ingestion
+        idempotency on `(post, extraction_ordinal)` (AD-30 Rule 3) skips every item the post
+        already produced, so applying a re-run could only add items with a new ordinal. A write
+        mode is a spine amendment.
+    2.  **One decision, two callers.** `evaluateIngestionMatch(tx, message, sourcePost)` owns the
+        stub rule (AD-30 Rule 10), the roundup/curator organizer discount (BUG-058, IDEA-068) and
+        `findMatchingEvent`. `processIngestionJob` acts on its result; the preview reports it. The
+        preview does not reimplement any part of it.
+    3.  **Reuse the manual extraction job.** A `REEXTRACT_PREVIEW` job runs in the AI Lambda like a
+        correction job (same face blur, same key tiers, same `manual_extraction_jobs` row, owner-
+        scoped to the requesting moderator), and stores a `ReextractionPreviewResult` in
+        `result_data`. It reports every event of the post (not just the first), the post's
+        grouping reason, each event's dedup tier, score and closest candidate, and whether its
+        `(post, ordinal)` slot is already taken. No DDL. A job's `mode` is reported by
+        `getManualExtractionJobStatus`; `postReextractionPreview` rejects a correction job and
+        `extractionJob` rejects a preview job (NOT_FOUND), whatever the state. The post's freshly
+        extracted `groupingReason` (not the stored one) decides the roundup stub in the preview.
+    4.  **No geocoder or timezone calls.** The preview builds messages with empty resolved
+        locations, so the venue signal is the location string only; a match that relies on
+        coordinates within 150 m will score lower in the preview than in ingestion.
+    5.  **Rescrape only when the caption is missing**, via `getScraperAdapter(platform).getPostByUrl`.
+        A stored caption is never refetched. A rescrape of one URL is limited to once per 10
+        minutes (`REEXTRACT_RESCRAPE_COOLDOWN_MS`), checked against recent preview jobs; it does not
+        limit previews of stored captions. A scrape that throws or returns nothing is recorded as an
+        already-FAILED job so it counts too (a post that never scrapes cannot be retried without
+        limit). An image-only post (empty caption) is not a failure. A URL that is not in the
+        database is scraped, previewed without an account signal (`postStored: false`, authorship
+        assumed to be the organizer's, so not a stub), and never stored.
+    6.  **The caption never persists.** (a) A rescraped caption is held only in the job's
+        `request_payload` and is **never written to `posts.content`**, for any account type. (b)
+        `request_payload.message.content` is blanked as soon as the AI Lambda claims the job
+        (the run works from its in-memory copy, so a timeout or crash mid-run leaves nothing), and
+        again in its `finally`, on a failed start, and on the lazy stale-job failure
+        (`blankManualJobPayloadContent`), for correction jobs too. The one uncovered window, a job
+        inserted but never claimed and never polled, is deferred (FIND-092). (c) A stored caption of a
+        non-curator post is untouched.
+    7.  **Moderator only.** Both operations call `requireModerator`.
+*   **Gotcha, recorded because it bit this work:** drizzle/postgres.js stores a jsonb column
+    written from a JS object as a jsonb **string** holding the JSON (`events.links`,
+    `manual_extraction_jobs.request_payload`). Raw SQL over such a column must unwrap it
+    (`col #>> '{}'`) first; `jsonb_set` and `->>` on the raw column fail or return NULL. Read and
+    write through Drizzle, which unwraps and re-encodes consistently. **Amended 2026-10-20 by
+    AD-37:** new writes go through `customJsonb` and stop producing jsonb strings; the raw-SQL
+    unwrap above stays required, with the AD-37 guard on the first character, until the AD-37
+    row migration has run on the table.
+*   **Considered and rejected:** an apply/replace mode (soft-deleting a post's events risks
+    favorites, calendar entries and slugs); writing the rescraped caption to `posts.content` and
+    purging it afterward (a crash between the two leaves a curator caption stored; holding it only
+    in the job payload leaves nothing to purge); a new table for previews (the job table already
+    carries owner scope, status and result); a cooldown on every preview (a moderator re-checking
+    after a prompt fix would be blocked, and Gemini quota is already governed by the key gateway).
+
+---
+
+### AD-41: Subscribe Returns Fast — Classification and the First Scrape Run Off the Request Path
+
+*   **Binds:** `subscribeToAccount` (`apps/backend/src/lib/subscriptions/subscribe-to-account.ts`);
+    `classifyAccountType` (`apps/backend/src/lib/accounts/classify-account-type.ts`); the scraper
+    Lambda handler (`apps/backend/src/lambdas/scraper.ts`) as the worker host; a new invoke seam
+    beside `apps/backend/src/lib/aws/invoke-ai-processor.ts`; `resolveAccountTypeClassificationReview`
+    and `triggerAccountScrape` (`apps/backend/src/schema/resolvers.ts`);
+    `social_media_account_profiles` (`packages/database/schema.ts`, two new columns, see Rule 3); `apps/infrastructure/lib/festgrid-backend-stack.ts` (invoke grant, function-name
+    env, the 5-minute scraper tick); the GraphQL `isClassificationInProgress` field and its UI;
+    AD-34 (amended by Rule 6 here). Builds on the in-flight fix on branch
+    `claude/classification-failure-persistence` (atomic settle write, shared scrape-plan decision,
+    scrape on moderator resolve), which this AD does not redo.
+*   **Prevents:** The incident that created this AD (2026-10-19, prod account `infokonsermusik`):
+    classification ran inside the 28 s API Lambda; a slow Apify lookup (25 s) left ~1.6 s for the
+    failure write, the profile `UPDATE` landed, the Lambda was killed before the review-row
+    `INSERT`, and the account sat `AWAITING_APPROVAL` with no moderation row — never retried, never
+    scraped, invisible. Five more claims were abandoned the same way on 2026-10-16 and are being
+    scraped unclassified. Also prevents two units diverging on **who claims, who counts attempts,
+    who writes the terminal state, and who may start the first scrape**, and prevents a
+    possibly-personal account being scraped while it is still being classified.
+*   **Rule:**
+    1.  **Subscribe never classifies.** `subscribeToAccount` upserts the profile (unchanged), then —
+        if `account_type_status IS NULL AND classification_requested_at IS NULL` — stamps
+        `classification_requested_at = now()` with a conditional `UPDATE` (concurrent subscribes stamp
+        once), creates the subscription, and fires the worker invoke best-effort. No Apify, no
+        Gemini, no capacity check, no scrape on this path; the subscription always succeeds. An
+        invoke failure is logged and swallowed: the stamp is the durable intent, the sweep (Rule 5)
+        is the backstop. `ScraperCapacityExceededError` is no longer thrown on the subscribe path.
+    2.  **Hand-off is an async Lambda invoke — a scoped exception to the SQS rule.** The API Lambda
+        calls a reassignable seam (`invokeClassificationWorker(functionName, payload)`, 202-checked,
+        lazy SDK import, same convention as `invokeAiProcessor`, Story 4.2b) with
+        `InvocationType: 'Event'` and `{ jobType: 'classify-account', profileId, actingUserId }`. The
+        payload is a hint: the worker reloads the profile and decides from database state only
+        (`actingUserId` excepted: it picks whose Gemini key is tried first, as `classifyAccountType`
+        does today, falling back to the AD-10 system key; a sweep re-drive has no acting user and
+        passes an empty list, so it uses the system key only and never spends another subscriber's
+        key). This exception covers this one user-facing, latency-sensitive hand-off; the scraping, AI and
+        ingestion legs stay on their queues. Lambda async invokes retry a function error twice by
+        default and drop the event after that unless a destination is set (verified 2026-10-20), so
+        **the worker is written as if an event can arrive more than once**, and the scraper Lambda's
+        event-invoke config is **not** changed (it also serves the daily batch and the 5-minute
+        tick). The CDK stack grants the API Lambda invoke on the scraper Lambda and passes its
+        function name as an env var, mirroring `AI_PROCESSOR_FUNCTION_NAME`.
+    3.  **One worker, one atomic claim, one attempt counter.** The worker is a `jobType:
+        'classify-account'` branch of the scraper Lambda (300 s), the `hasJobType` pattern already
+        used for `poll-and-drain`. Two new columns: `classification_requested_at` (timestamptz,
+        null) and `classification_attempts` (integer, not null, default 0); the existing
+        `classification_claimed_at` stays the claim. Order, fixed: (a) load the profile and exit
+        unless `account_type_status IS NULL AND classification_requested_at IS NOT NULL`;
+        (b) check provider capacity — none available → exit **without** a claim and **without**
+        spending an attempt (a deferral; the sweep retries); (c) one conditional `UPDATE` takes the
+        claim **and** increments `classification_attempts`, `WHERE` status is still `NULL`, requested
+        is set, `classification_attempts < 3` and the claim is null or older than the TTL, `RETURNING`
+        the row — no row means someone else has it, exit; (d) classify; (e) settle per Rule 4.
+        `ACCOUNT_CLASSIFICATION_CLAIM_TTL_MINUTES` default changes from 30 to 10 — the claim now
+        belongs to a 300 s worker, not a 28 s request.
+    4.  **Outcomes, and every settle is atomic.** Any write that moves `account_type_status` off
+        `NULL` is **one transaction** that also writes the review row when the outcome needs one —
+        never one without the other — and is conditional on the status still being `NULL`, so a late
+        worker can never overwrite a settle that already happened. (i) Confidence ≥ 0.7: `CONFIRMED` + type + score, claim cleared,
+        then Rule 7. (ii) **Definitive** non-confirm — low confidence, or "profile not found":
+        `AWAITING_APPROVAL` + an open `account_type_classification_reviews` row, no retry. (iii)
+        **Transient** failure — timeout, Apify blocked/busy, Gemini error or busy key, response-parse
+        error: release the claim (`classification_claimed_at = NULL`), leave the status `NULL`; the
+        attempt stays spent and the sweep re-drives. (iv) On the **final** attempt
+        (`classification_attempts = 3`) a transient failure is treated as definitive: it writes
+        `AWAITING_APPROVAL` + a review row carrying that failure's own reason. A worker that **dies**
+        on its last attempt leaves an expired claim; the sweep writes the terminal row (Rule 5).
+        **Invariant:** every account with `classification_requested_at` set reaches `CONFIRMED`, or
+        `AWAITING_APPROVAL` with an open review row, in bounded time — it can never sit in limbo
+        silently.
+    5.  **The sweep rides the existing 5-minute prod scraper tick** (the `poll-and-drain` EventBridge
+        rule since FIND-034; no new rule). On each tick, two indexed queries: (a) **re-drive** —
+        status `NULL`, requested set, attempts `< 3`, claim null or expired → invoke the worker for
+        each (bounded per tick); (b) **abandon** — status `NULL`, requested set, attempts `≥ 3`, claim
+        expired → one transaction writing `AWAITING_APPROVAL` + a review row (`failure_reason`
+        "classification abandoned after 3 attempts"). A partial index on
+        `classification_requested_at WHERE account_type_status IS NULL AND classification_requested_at
+        IS NOT NULL` serves both; the sweep is a no-op when nothing is pending. dev/staging have no
+        5-minute tick (FIND-034), so the sweep runs there only on a manual invoke.
+    6.  **AD-34 is amended: pending is not scrapable.** `isScrapableAccountType` gains a **required**
+        third argument (whether classification was requested — required, not optional, so the compiler
+        forces every caller to pass it). Scrapable iff (status `NULL` **and** never requested — a
+        legacy account) **or** (`CONFIRMED` and `ORGANIZER_VENUE_EVENT` / `CURATOR_GUIDE`). The batch's
+        SQL form adds `classification_requested_at IS NULL` to its `NULL` branch and its every-combination
+        test gains the new dimension. AD-34 carries a pointer (its Rule 6) so a reader of either AD
+        finds the other.
+    7.  **One path starts the first scrape.** A single backend function — the shared scrape-plan
+        decision (initial 7-day window vs incremental, plus the in-progress check) extracted from
+        `triggerAccountScrape` by the in-flight fix, then `triggerScrapeForAccount`, gated by
+        `isScrapableAccountType` — is called by (i) the worker right after `CONFIRMED` and (ii)
+        `resolveAccountTypeClassificationReview` right after its commit. Neither re-derives the
+        decision. A trigger failure is logged and never fails or rolls back the settle or the
+        resolve; the daily batch is the backstop. Extraction follows unchanged (scrape → webhook /
+        ingest → `autoEnqueueNewPost` → `AIProcessingQueue`); this AD does not alter that leg.
+    8.  **Pending is a computed flag, not a status.** GraphQL `isClassificationInProgress: Boolean!`
+        = `account_type_status IS NULL AND classification_requested_at IS NOT NULL`, computed beside
+        `isScrapeInProgress`. No new `account_type_status` value, so AD-34's enum and every gate call
+        site keep their meaning. The UI shows "Classifying…" and polls with a bound (the pattern of
+        `posts-select-content.tsx`'s `isScrapeInProgress` polling, a longer bound than its 60 s),
+        then stops; `AWAITING_APPROVAL` keeps its existing moderation wording ("Classification
+        Pending / pending moderation review") — two states, two wordings. The manual "scrape now"
+        control is disabled while the flag is true, because the gate (Rule 6) would answer it with
+        `FORBIDDEN`.
+    9.  **Local dev and tests.** With no function name configured, the invoke seam runs the worker
+        inline, fire-and-forget (mirroring `scrapeInlineFallbackEnabled` in `triggerScrapeForAccount`);
+        tests replace the seam through its setter.
+    10. **Existing rows.** The migration adds the columns and the partial index, and backfills
+        `classification_requested_at = now()` and a cleared claim on `NULL`-status profiles that carry
+        a `classification_claimed_at` (the five abandoned 2026-10-16 claims), so the sweep classifies
+        them and — with Rule 6 — they stop being scraped until it does. Profiles with no claim stay
+        legacy (`requested_at` NULL, scrapable). The orphan `AWAITING_APPROVAL`-without-a-review-row
+        profile (`infokonsermusik`) is repaired by hand SQL, not by the migration.
+    11. **Twin-profile merge carries the new state.** `merge-account-profiles.ts` (BUG-059)
+        reconciles classification state between a survivor and its twin; it treats
+        `classification_requested_at` and `classification_attempts` as part of that state. If the
+        survivor is still `NULL` and the twin is pending, the survivor inherits the request, so a
+        merge can neither strand an account in "pending" nor silently make a pending one scrapable.
+*   **Enforced by:** `isScrapableAccountType` unit tests over every input combination (100%,
+    `packages/domain`); the `getBatchScrapeTargets` lockstep test with the new dimension (AD-34
+    Rule 3); worker tests for the capacity deferral (no claim, no attempt), the claim race, the
+    attempts bound, definitive vs transient, and settle atomicity (a failing review insert leaves
+    the status `NULL`); sweep tests for both queries; a `subscribeToAccount` test that nothing in
+    the subscribe path calls Apify or Gemini and that an invoke failure is swallowed; a CDK test for
+    the invoke grant and env var (`festgrid-backend-stack.test.ts`). The invariant is also checkable
+    by one SQL query that must return zero rows: profiles `AWAITING_APPROVAL` with no open review
+    row, plus profiles with requested set, status `NULL`, attempts `≥ 3` and an expired claim.
+*   **Considered and rejected:** a new `ClassificationQueue` + DLQ (prod consumers drain only every 5
+    minutes since FIND-034, so classification would start up to 5 minutes after subscribe, and it
+    adds a queue, DLQ, rule and docs); reusing `ScrapingQueue` with a job type (couples
+    classification to the scrape drain loop and DLQ; today's messages carry no type field); a
+    `CLASSIFYING` status value (widens the enum across every AD-34 call site); the API taking the
+    claim as today (a failed invoke would hold the claim until its TTL, and there is nowhere to
+    count attempts); retry-until-success (no terminal state — the original bug class); keeping the
+    capacity error on subscribe.
+*   **Deferred:** the sweep's per-tick batch size and the UI poll bound (story-level numbers); the
+    classification lookup timeout inside the worker (bounded by the worker's 300 s;
+    `PROFILE_LOOKUP_TIMEOUT_MS` and its 28 s guard keep governing the synchronous API paths); a
+    sweep in dev/staging (Rule 5); alerting on the invariant query (revisit if the sweep ever
+    abandons an account in prod); an on-failure destination for the async invoke (the stamp plus
+    sweep already make a dropped event recoverable, so none is needed yet).
+*   **Follow-ups this AD creates (for `bmad-form-epics` to cluster):**
+    1.  **Mechanism story** — the two columns, partial index and backfill migration; the invoke
+        seam + worker branch + claim/attempt logic; CDK grant and env var; the claim-TTL change
+        (Rules 2, 3, 9, 10).
+    2.  **Subscribe + UI** — `subscribeToAccount` reduced to stamp-and-invoke, `isClassificationInProgress`,
+        the "Classifying…" state and bounded poll (Rules 1, 8). Supersedes the fail-soft catch added
+        to `subscribeToAccount` by the in-flight fix.
+    3.  **AD-34 gate amendment** — the domain function, the batch SQL and the test dimension
+        (Rule 6); must ship with or before story 1's backfill, or newly requested accounts are
+        scrapable while pending.
+    4.  **Sweep** — the two tick queries and the terminal write (Rules 4(iv), 5).
+    5.  **Docs** — `docs/infrastructure/architecture-diagram.md` and `high-level-overview.md`
+        (the API → scraper async-invoke edge and the sweep) in the same change as story 1
+        (CLAUDE.md §4); the `project-context.md` rule added with this AD is updated by the same story.
 
 ---
 

@@ -16,6 +16,7 @@ import { toast } from "sonner"
 import { ChevronLeft, ChevronRight, Home, X } from "lucide-react"
 import { CorrectionDialog } from "./correction-dialog"
 import { ReportDialog } from "./report-dialog"
+import { ModeratorSourcePostsPanel } from "@/features/moderation/moderator-source-posts-panel"
 import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, type CarouselApi } from "@/components/ui/carousel"
 import { EventPreviewCard } from "./event-preview-card"
 import { getPlatformSlug } from "@festgrid/domain/scraper"
@@ -1029,10 +1030,18 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     </Carousel>
   )
 
+  // AD-40 -- moderator-only re-extract entry point, one button per source post. Separate from
+  // EventDetailView's own source-post list, which only renders for multi-post events.
+  const moderatorSourcePostsPanel =
+    isModerator && data?.eventBySlug?.sourcePosts?.length ? (
+      <ModeratorSourcePostsPanel sourcePosts={data.eventBySlug.sourcePosts} />
+    ) : null
+
   if (isModal) {
     return (
       <>
         {detailViewContent}
+        {moderatorSourcePostsPanel}
         {isCorrectionDialogOpen && data?.eventBySlug && (
           <CorrectionDialog
             isOpen={isCorrectionDialogOpen}
@@ -1056,6 +1065,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     <PageContainer fullWidth={false} className="max-w-full lg:max-w-5xl mx-auto">
       <div className="bg-background border border-gray-100 dark:border-gray-800 rounded-xl my-6 shadow-sm">
         {detailViewContent}
+        {moderatorSourcePostsPanel}
         {isCorrectionDialogOpen && data?.eventBySlug && (
           <CorrectionDialog
             isOpen={isCorrectionDialogOpen}

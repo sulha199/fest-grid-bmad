@@ -75,9 +75,30 @@ describe('combineDateTime (BUG, 2026-09-28: mobile-only date-off-by-one)', () =>
     });
   });
 
-  it('leaves the no-timeStr passthrough as the unmodified UTC-parsed instant (never buggy, must stay that way)', () => {
-    const combined = withTZ('America/Los_Angeles', () => combineDateTime('2026-10-02'));
-    expect(combined.getTime()).toBe(new Date('2026-10-02').getTime());
+  // 2026-10-19: this used to assert the UTC-midnight passthrough ("never buggy"). It WAS buggy: 00:00Z
+  // is the previous calendar day in any zone west of UTC, so a one-day event starting today read
+  // "Ended" in America/New_York. A bare date now anchors at midnight IN the target timezone.
+  it('anchors a no-timeStr bare date at midnight of that day in the target timezone, on any device timezone', () => {
+    for (const device of ['America/Los_Angeles', 'Asia/Jakarta', 'UTC']) {
+      for (const tz of ['America/New_York', 'Asia/Jakarta', 'Pacific/Kiritimati', 'Pacific/Pago_Pago']) {
+        const combined = withTZ(device, () => combineDateTime('2026-10-02', null, tz));
+        const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+        }).formatToParts(combined);
+        const get = (type: string) => parts.find((p) => p.type === type)?.value;
+        expect(`${get('year')}-${get('month')}-${get('day')}`).toBe('2026-10-02');
+        expect(Number(get('hour')) % 24).toBe(0);
+        expect(get('minute')).toBe('00');
+      }
+    }
+  });
+
+  it('with no timezone at all, anchors a no-timeStr bare date at the device\'s own local midnight', () => {
+    withTZ('America/Los_Angeles', () => {
+      const combined = combineDateTime('2026-10-02');
+      expect(combined.getDate()).toBe(2);
+      expect(combined.getHours()).toBe(0);
+    });
   });
 
   // Fix 2 (2026-09-29): fix 1 above (extracting Y/M/D straight from the date-only string) was
@@ -150,15 +171,10 @@ describe('combineDateTime (BUG, 2026-09-28: mobile-only date-off-by-one)', () =>
   });
 });
 
-// CONFIRMED PRODUCT DECISION (2026-09-29, user-directed: "let's use viewer's locale for now"):
-// the masonry card's date-box has no per-schedule `timezone` field threaded to it at all
-// (`EventCard.tsx` only ever receives `ScopedLocaleProvider`'s fixed per-locale mapping --
-// `America/New_York` for `/en/`, `Asia/Jakarta` for `/id/` -- never the actual event's own
-// `schedule.timezone`). This was raised as an open question after this session's fix made that
-// fixed display timezone finally apply CONSISTENTLY (device-independent) -- an /en/ locale viewer
-// sees a Jakarta-morning event's date/time normalized into New York's clock, not the event's own
-// venue time. User confirmed this is the INTENDED behavior (normalize to the viewer's own locale,
-// not each event's own venue timezone) -- not a bug, don't thread `schedule.timezone` through.
-// (Separately, some scraped schedules also carry clearly-wrong inferred timezones, e.g.
-// "Europe/Paris" for a Yogyakarta venue, seen live in production -- moot for this card either
-// way, since it never consults that field.)
+// PRODUCT DECISION, REVISED (2026-10-19, user-directed -- supersedes the 2026-09-29 "use the viewer's
+// locale for now, don't thread `schedule.timezone` through"): an event's wall-clock date/time are
+// VENUE time. List and calendar cards now receive the schedule's own `timezone` and render in it
+// when its `timezoneStatus` is RESOLVED (`resolveScheduleTimezone` -> `useEventTimezone`), and a date
+// with no time is 00:00 in that zone. Only when the event has no RESOLVED timezone does a card fall
+// back to `ScopedLocaleProvider`'s fixed per-locale zone (`America/New_York` for `/en/`,
+// `Asia/Jakarta` for `/id/`). The second `combineDateTime` test above documents the fallback shape.
