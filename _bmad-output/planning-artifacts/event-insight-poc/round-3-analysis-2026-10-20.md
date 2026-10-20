@@ -232,6 +232,25 @@ runs the formula over all 1,431 names. Known miss: a city that is in the name bu
 Run 2026 Yogyakarta Series" and "... Bandung Series") scores low until the gazetteer area label is passed in
 with the place text.
 
+**The in-between zone (synthetic pairs, scored afterwards to show where the bar bites).** Each is a pair at two
+different places:
+
+| Pair | Score | Should it group? |
+|---|--:|---|
+| "Sports Station Buy 1 Get 1 Free Promo" and "... Free" (one drops "Promo") | 0.90 | yes |
+| "Wacoal 25% Off Promo" and "Wacoal Anniversary 25% Off Promo" | 0.74 | probably yes |
+| "Jogja Coffee Week 6" and "Jogja Coffee Week 6 Opening Day" | 0.73 | probably yes |
+| "Wednesday Night Run" and "Wednesday Night Run Special Edition" | 0.68 | probably yes |
+| "Erafone Run 2026" and "Erafone Fun Run 2026" (two different runs by one brand) | 0.68 | **no** |
+| "Obral Obrolan Buku" and "Obral Obrolan Buku Vol 2" (number cap) | 0.50 | unclear: an edition, or the next one |
+| "Promo Diskon 25% Wacoal" and "Wacoal 25% Off Promo" (Indonesian against English) | 0.25 | yes |
+
+The formula cannot tell "the same activity with an added word" from "a different activity with a similar name": both
+sit at 0.68. Any bar between 0.68 and 0.90 therefore trades missed groups against wrong ones, and the two errors are
+not equal. A missed group leaves the events as they are today. A wrong series hides events behind a cap of one.
+That is why the starting bar is high (0.85) and why the cross-account option needs a moderator's confirmation. The
+last row is a separate limit: the score compares words, so a translation or a synonym is invisible to it.
+
 ## 5. Notifications and sessions (Job B, Job C)
 
 Ranked causes of "a subscribed moderator never gets a push or an email" (from the local session, code
@@ -272,8 +291,10 @@ sandbox), the Lambda Firebase environment, Supabase auth settings. These are the
 2. **Fingerprint counts** of AD-39 Rule 7 on open events, by account type: `account_default` (empty
    schedule location and a pin matching the account default), `geocoded_from_text`, `legacy_unknown`. They
    size how many curator events lose a pin and become `unknown`.
-3. **Item 15 re-cut with the phrase score:** for every event, its name, posting account, tagged
-   `organizerHandle`, own place text and schedule dates (no captions). The cloud session runs `seriesNameScore`
+3. **Item 15 re-cut with the phrase score** (`prod-findings-review-2026-10-19-queries/event-names-for-series-score.sql`,
+   one SELECT, tested on the scratch database): for every live event, its name, place text, main schedule dates, a
+   pseudonymous account, the account's type and `organizer_name` cut to 40 characters (no captions, links, handles or
+   platform ids). The cloud session runs `seriesNameScore`
    over the pairs offline, so the cut-off is read off real pairs and the owner can eyeball the cross-account
    candidates (Sports Station, J.CO and whatever else surfaces). It also gives the account of the Wacoal events
    and says whether the captions of the brand promos tag the brand (`organizerHandle`), which would be a
