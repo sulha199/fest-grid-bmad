@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { core, idfFrom, phraseScore, seriesNameScore, tokens, type Member } from './series-phrase.js';
+import { core, groupName, idfFrom, phraseScore, seriesNameScore, tokens, type Member } from './series-phrase.js';
 
 const m = (name: string, place: string): Member => ({ name, place });
 const BAR = 0.85; // uncalibrated start value (see the module comment); the cases below sit far from it on both sides
@@ -83,6 +83,27 @@ test('KNOWN LIMITATION: a city that is part of the name but not of the place tex
   // The fix is to feed the event's gazetteer area label (AD-39) in with the place text; until then this pair is missed, not mis-grouped.
   const s = score(m('Erafone Run 2026 Yogyakarta Series', 'Museum Gunungapi Merapi'), m('Erafone Run 2026 Bandung Series', 'Gedung Sate'));
   assert.ok(s < BAR, `got ${s}`);
+});
+
+test('group name: the shared words in the original spelling, the place removed wherever it sat (real and synthetic names)', () => {
+  const wacoalPakuwon = m('Wacoal 25% Off Promo at Pakuwon Mall Jogja', 'House of Wacoal 2nd Floor, Pakuwon Mall Jogja');
+  assert.equal(groupName(wacoalPakuwon, m('Wacoal 25% Off Promo', 'Lantai UG, Jogja City Mall')), 'Wacoal 25% Off Promo');
+  assert.equal(groupName(m('Sports Station Buy 1 Get 1 Free Promo', 'Lantai 1 Sleman City Hall'), m('Sports Station Buy 1 Get 1 Free Promo', 'Sports Station Lippo Plaza Jogja')), 'Sports Station Buy 1 Get 1 Free Promo');
+  assert.equal(groupName(m('J.CO ANNIVERSARY PROMO', 'J.CO Ground Floor Galeria Mall'), m('J.CO ANNIVERSARY PROMO', 'J.CO Plaza Ambarrukmo')), 'J.CO ANNIVERSARY PROMO', 'casing and punctuation are the poster\'s');
+  assert.equal(groupName(m('Lomba Mata Pelajaran dan Mewarnai', 'Neo Solo Grand Mall'), m('Lomba Mata Pelajaran dan Mewarnai', 'Transmart Cirebon')), 'Lomba Mata Pelajaran dan Mewarnai', 'a connector between two kept words stays');
+  assert.equal(groupName(m('Jogja Coffee Week', 'Jogja Expo Center'), m('Jogja Coffee Week', 'Plaza Ambarrukmo')), 'Jogja Coffee Week');
+  for (const [a, b] of [
+    ['Wednesday Night Run - Kenes Soho', 'Wednesday Night Run - Mad Monkey'],
+    ['Wednesday Night Run @ Kenes Soho', 'Wednesday Night Run @ Mad Monkey'],
+    ['Wednesday Night Run di Kenes Soho', 'Wednesday Night Run di Mad Monkey'],
+    ['Wednesday Night Run (Kenes Soho)', 'Wednesday Night Run (Mad Monkey)'],
+    ['Kenes Soho Wednesday Night Run', 'Mad Monkey Wednesday Night Run'],
+  ]) assert.equal(groupName(m(a, 'Kenes Soho'), m(b, 'Mad Monkey')), 'Wednesday Night Run', `${a} / ${b}`);
+});
+
+test('group name: when one name has an extra word, the more general name wins; with nothing shared it is empty', () => {
+  assert.equal(groupName(m('Wednesday Night Run', 'Kenes Soho'), m('Wednesday Night Run Special Edition', 'Mad Monkey')), 'Wednesday Night Run');
+  assert.equal(groupName(m('Line Dance Carnival', 'Atrium Shinta'), m('Zumba Anniversary', 'Atrium Shinta')), '');
 });
 
 test('empty names score zero', () => {

@@ -26,7 +26,7 @@ const NUMBER_CAP = 0.5;
 
 export function tokens(text: string): string[] {
   return text
-    .normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    .normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
     .replace(/&/g, ' and ').replace(/@/g, ' at ')
     .replace(/[^\p{L}\p{N}%]+/gu, ' ').trim().split(' ').filter(Boolean);
 }
@@ -41,8 +41,12 @@ export function tokens(text: string): string[] {
  */
 export function core(name: string, ownPlace: string, otherName: string): string[] {
   const nt = tokens(name).filter((t) => !CONNECTORS.has(t));
-  const pt = tokens(ownPlace);
-  const other = tokens(otherName).filter((t) => !CONNECTORS.has(t));
+  const run = placeRun(nt, tokens(ownPlace), tokens(otherName).filter((t) => !CONNECTORS.has(t)));
+  return run === null ? nt : [...nt.slice(0, run.start), ...nt.slice(run.end)];
+}
+
+/** The [start, end) range of `nt` that core() removes, or null. */
+function placeRun(nt: string[], pt: string[], other: string[]): { start: number; end: number } | null {
   const runs = Array.from({ length: nt.length + 1 }, () => new Array<number>(pt.length + 1).fill(0));
   let best = { len: 0, end: 0 };
   for (let i = 1; i <= nt.length; i++) for (let j = 1; j <= pt.length; j++) {
@@ -53,7 +57,7 @@ export function core(name: string, ownPlace: string, otherName: string): string[
     if (!maximal || len === nt.length || containsRun(other, nt.slice(i - len, i))) continue;
     if (len >= best.len) best = { len, end: i };
   }
-  return best.len === 0 ? nt : [...nt.slice(0, best.end - best.len), ...nt.slice(best.end)];
+  return best.len === 0 ? null : { start: best.end - best.len, end: best.end };
 }
 
 function containsRun(haystack: string[], run: string[]): boolean {
@@ -104,3 +108,59 @@ export function seriesNameScore(a: Member, b: Member, w: Weight = ONE): SeriesNa
   const raw = phraseScore(tokens(a.name).filter((t) => !CONNECTORS.has(t)), tokens(b.name).filter((t) => !CONNECTORS.has(t)), w);
   return { score: Math.max(raw, phraseScore(coreA, coreB, w)), coreA, coreB };
 }
+
+interface Word { raw: string; toks: string[] }
+const wordsOf = (name: string): Word[] => name.split(/\s+/).filter(Boolean).map((raw) => ({ raw, toks: tokens(raw) }));
+const content = (w: Word) => w.toks.filter((t) => !CONNECTORS.has(t));
+
+/** The words of `name` left after the place run is removed (strip = false keeps every word). */
+function wordsWithoutPlace(name: string, ownPlace: string, otherName: string, strip: boolean): Word[] {
+  const words = wordsOf(name);
+  if (!strip) return words;
+  const flat = words.flatMap((w, i) => content(w).map((tok) => ({ tok, i })));
+  const run = placeRun(flat.map((f) => f.tok), tokens(ownPlace), tokens(otherName).filter((t) => !CONNECTORS.has(t)));
+  if (run === null) return words;
+  const dropped = new Set(flat.slice(run.start, run.end).map((f) => f.i));
+  return words.filter((_, i) => !dropped.has(i));
+}
+
+/** Indices of `a`'s content tokens that belong to one longest common subsequence with `b`. */
+function lcsPositions(a: string[], b: string[]): Set<number> {
+  const dp = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+    dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+  const hit = new Set<number>();
+  for (let i = a.length, j = b.length; i > 0 && j > 0;) {
+    if (a[i - 1] === b[j - 1]) { hit.add(i - 1); i--; j--; } else if (dp[i - 1][j] >= dp[i][j - 1]) i--; else j--;
+  }
+  return hit;
+}
+
+const trimPunct = (s: string) => s.replace(/^[\s,;:|/)\-\u2013\u2014]+|[\s,;:|/(\-\u2013\u2014]+$/g, '');
+
+/**
+ * The name the group would show: the words the two members' names SHARE once each place is removed, in the original spelling and casing of
+ * the member with the shorter core (the more general name). A word is kept when every one of its content tokens is in the common
+ * subsequence; connectors and punctuation ("dan", "-") survive only between two kept words. It uses the same winner as seriesNameScore: if
+ * the raw names score at least as high as the cores, nothing is removed. Returns '' when no word is shared.
+ */
+export function groupName(a: Member, b: Member): string {
+  const rawScore = phraseScore(contentTokens(a.name), contentTokens(b.name));
+  const strip = phraseScore(core(a.name, a.place, b.name), core(b.name, b.place, a.name)) > rawScore;
+  const wa = wordsWithoutPlace(a.name, a.place, b.name, strip);
+  const wb = wordsWithoutPlace(b.name, b.place, a.name, strip);
+  const flat = (ws: Word[]) => ws.flatMap((w, i) => content(w).map((tok) => ({ tok, i })));
+  const fa = flat(wa); const fb = flat(wb);
+  const [words, f, otherTokens] = fa.length <= fb.length ? [wa, fa, fb.map((x) => x.tok)] : [wb, fb, fa.map((x) => x.tok)];
+  const shared = lcsPositions(f.map((x) => x.tok), otherTokens);
+  const keep = words.map((_, i) => {
+    const own = f.map((x, k) => (x.i === i ? k : -1)).filter((k) => k >= 0);
+    return own.length > 0 && own.every((k) => shared.has(k));
+  });
+  const first = keep.indexOf(true); const last = keep.lastIndexOf(true);
+  if (first < 0) return '';
+  const inside = words.slice(first, last + 1).filter((w, k) => keep[first + k] || content(w).length === 0);
+  return trimPunct(inside.map((w) => w.raw).join(' '));
+}
+
+const contentTokens = (name: string) => tokens(name).filter((t) => !CONNECTORS.has(t));

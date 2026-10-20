@@ -2712,9 +2712,12 @@ This document defines the core architectural invariants for the FestDaily applic
           when the score against any active member reaches the bar (start value **0.85**
           `[ASSUMPTION]`, uncalibrated: the 12 test cases from real and synthetic names sit at
           1.00 or at 0.80 and below, so the interesting range 0.80 to 0.95 is untested; Round 4
-          ask 3 reads the cut-off off all event names). The series row stores the first member's
-          core as `stem` for display and the advisory lock is taken on the organizer alone, since
-          a fuzzy key has no canonical string. Whether the two members are at **different** places
+          ask 3 reads the cut-off off all event names). `groupName(a, b)` gives the series its
+          `event_groups.name`: the words the two names share once each place is removed, in the
+          poster's spelling and casing, from the more general of the two (e.g. "Wacoal 25% Off
+          Promo"); it is computed from the first two members and not recomputed, and a moderator
+          can rename it `[ASSUMPTION]`. The row stores the normalized core as `stem`, and the
+          advisory lock is taken on the organizer alone, since a fuzzy key has no canonical string. Whether the two members are at **different** places
           stays `isSamePlace`'s call; same place and a high score is the matcher's duplicate, not
           a series. Known gap: a city that is in the name but not in the place text ("Erafone Run
           2026 Yogyakarta Series" and "... Bandung Series") is missed until the event's gazetteer

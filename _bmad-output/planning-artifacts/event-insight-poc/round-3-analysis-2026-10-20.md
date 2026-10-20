@@ -210,19 +210,29 @@ phrase and order:
 4. **Optional rarity weights** (inverse document frequency over all event names) make a generic shared phrase
    count less than a shared brand.
 
-What it did on the names in the repo (the 12 tests):
+What it did on the names in the repo. The group name is the output of `groupName(a, b)`: the words the two names share
+once each place is removed, in the poster's own spelling and casing, taken from the more general of the two names. For a
+pair below the bar no group is made; the name is shown in brackets only to show what the shared words would be.
 
-| Pair | Score |
-|---|--:|
-| Wacoal "at Pakuwon" against the two plain Wacoal events | 1.00, 1.00 |
-| Sports Station BOGO (two stores), J.CO Anniversary (two malls), Lomba Mata Pelajaran (two malls) | 1.00 |
-| Dash, "@", "di", bracket, leading and middle place forms (synthetic) | 1.00 each |
-| SCH Choir against SCH Halloween Dance | 0.53 |
-| Wacoal against J.CO, against Sports Station | 0.25, 0.15 |
-| BWF "Final" against "Quarterfinals" | 0.75 |
-| Denmark Open 2026 against Victor Denmark Open 2026 (same place: the matcher's case) | 0.80 |
-| Same name, 2025 against 2026; 25% against 30% | 0.50 (capped) |
-| Generic phrase, two brands ("Buy 1 Get 1 Free Promo") | 0.78 plain, 0.66 weighted |
+| Pair | Score | Groups at 0.85? | Group name (formula output) |
+|---|--:|:-:|---|
+| Wacoal "... at Pakuwon Mall Jogja" with the plain Wacoal events (Plaza Ambarrukmo, Jogja City Mall) | 1.00 | yes | Wacoal 25% Off Promo |
+| Sports Station BOGO, two stores | 1.00 | yes | Sports Station Buy 1 Get 1 Free Promo |
+| J.CO Anniversary, two malls | 1.00 | yes | J.CO ANNIVERSARY PROMO |
+| Lomba Mata Pelajaran, two malls | 1.00 | yes | Lomba Mata Pelajaran dan Mewarnai |
+| Jogja Coffee Week at two venues | 1.00 | yes | Jogja Coffee Week |
+| Dash, "@", "di", bracket and leading-place forms (synthetic) | 1.00 each | yes | Wednesday Night Run |
+| SCH Choir against SCH Halloween Dance | 0.53 | no | (SCH Competition 2026) |
+| Line Dance Carnival against Zumba Anniversary | 0.00 | no | (none) |
+| Wacoal against J.CO, against Sports Station | 0.25, 0.15 | no | (Promo) |
+| BWF "Men's Singles Final" against "... Quarterfinals" | 0.75 | no | (Men's Singles) |
+| Denmark Open 2026 against Victor Denmark Open 2026 (same place: the matcher's case) | 0.80 | no | (Denmark Open 2026) |
+| Same name, 2025 against 2026; 25% against 30% | 0.50 (capped) | no | (the shared words) |
+| Generic phrase, two brands ("Buy 1 Get 1 Free Promo") | 0.78 plain, 0.66 weighted | no | (not computed) |
+
+Two things the name shows that the score does not. The name is only as good as the pair that made it: it is computed
+from the first two members when the series is created and is not recomputed when a third arrives (a moderator can
+rename it), `[ASSUMPTION]`. And a below-bar pair still has shared words, which is why a name is never made for it.
 
 **What this does not show.** The cases are 12 hand-picked pairs, and the first version failed two of them (it
 stripped the brand "Wacoal" because the place text repeats it, and left "mall jogja" in the name); the run-based
@@ -235,15 +245,15 @@ with the place text.
 **The in-between zone (synthetic pairs, scored afterwards to show where the bar bites).** Each is a pair at two
 different places:
 
-| Pair | Score | Should it group? |
-|---|--:|---|
-| "Sports Station Buy 1 Get 1 Free Promo" and "... Free" (one drops "Promo") | 0.90 | yes |
-| "Wacoal 25% Off Promo" and "Wacoal Anniversary 25% Off Promo" | 0.74 | probably yes |
-| "Jogja Coffee Week 6" and "Jogja Coffee Week 6 Opening Day" | 0.73 | probably yes |
-| "Wednesday Night Run" and "Wednesday Night Run Special Edition" | 0.68 | probably yes |
-| "Erafone Run 2026" and "Erafone Fun Run 2026" (two different runs by one brand) | 0.68 | **no** |
-| "Obral Obrolan Buku" and "Obral Obrolan Buku Vol 2" (number cap) | 0.50 | unclear: an edition, or the next one |
-| "Promo Diskon 25% Wacoal" and "Wacoal 25% Off Promo" (Indonesian against English) | 0.25 | yes |
+| Pair | Score | Should it group? | Group name if it did (formula output) |
+|---|--:|---|---|
+| "Sports Station Buy 1 Get 1 Free Promo" and "... Free" (one drops "Promo") | 0.90 | yes | Sports Station Buy 1 Get 1 Free |
+| "Wacoal 25% Off Promo" and "Wacoal Anniversary 25% Off Promo" | 0.74 | probably yes | Wacoal 25% Off Promo |
+| "Jogja Coffee Week 6" and "Jogja Coffee Week 6 Opening Day" | 0.73 | probably yes | Jogja Coffee Week 6 |
+| "Wednesday Night Run" and "Wednesday Night Run Special Edition" | 0.68 | probably yes | Wednesday Night Run |
+| "Erafone Run 2026" and "Erafone Fun Run 2026" (two different runs by one brand) | 0.68 | **no** | Erafone Run 2026 |
+| "Obral Obrolan Buku" and "Obral Obrolan Buku Vol 2" (number cap) | 0.50 | unclear: an edition, or the next one | Obral Obrolan Buku |
+| "Promo Diskon 25% Wacoal" and "Wacoal 25% Off Promo" (Indonesian against English) | 0.25 | yes | Promo (wrong: the shared word is only "Promo") |
 
 The formula cannot tell "the same activity with an added word" from "a different activity with a similar name": both
 sit at 0.68. Any bar between 0.68 and 0.90 therefore trades missed groups against wrong ones, and the two errors are
