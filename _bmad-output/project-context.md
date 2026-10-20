@@ -4,7 +4,7 @@ baseline_commit: 198301f0757cfed0df2316ac947793691ff189e9
 user_name: 'shulha'
 date: '2026-08-01T00:00:00Z'
 status: 'complete'
-rule_count: 63
+rule_count: 64
 optimized_for_llm: true
 sections_completed:
   - 'technology_stack'
@@ -83,6 +83,20 @@ The following documents contain detailed specifications, architectures, and desi
 - **Event dedup entry points** (added 2026-10-12, see Architecture Spine AD-30 Rule 7): `findMatchingEvent` (`apps/backend/src/lib/events/match-event-to-existing.ts`), `computeMatchScore` (`packages/domain/src/events/match-scoring.ts`) and the `event_match_candidates` table are the cross-post matching surface — extend these; do not re-implement. Thresholds/weights are spine-fixed. The flow is drawn in `_bmad-output/planning-artifacts/diagrams/event-dedup-flow.html`: **any change to the dedup flow (candidate query, scoring weights/thresholds, tier outcomes, organizer/stub discount, extraction `organizerHandle`, primary-post ordering, moderator accept/reject/undo) must update that diagram in the same change**, and the status section at its foot. **Two traps** (BUG-063, 2026-10-18): (1) a registration-deadline post and the race-day post of one event sit weeks apart, so candidate admission is not date-only — a shared normalized link within ±90 days also admits a candidate, capped at `mid` (never auto-linked); (2) `events.links` is stored as a jsonb *string* holding the array (drizzle/postgres.js double-encoding), so any raw SQL over it must unwrap with `#>> '{}'` — see `match-event-to-existing.ts`. Operator runbook for merging duplicates that dedup missed: `docs/infrastructure/7-event-dedup.md`. **Moderator re-extract preview (AD-36):** the ingestion dedup decision is `evaluateIngestionMatch` (`apps/backend/src/lib/ingestor/`) — `processIngestionJob` and the preview both call it, so never re-derive the stub rule, organizer discount or match call elsewhere. The preview is write-free (no apply step), and a post caption must never persist in `manual_extraction_jobs.request_payload` or be written to `posts.content` by it. Any new raw SQL over a drizzle-written jsonb column (`events.links`, `request_payload`) must unwrap with `#>> '{}'` first.
 - **Scrape gate** (added 2026-10-15, see Architecture Spine AD-34): whether an account may be scraped is decided only by `isScrapableAccountType()` in `packages/domain/src/scraper/account-classification.ts` — scrapable iff never classified, or `CONFIRMED` as `ORGANIZER_VENUE_EVENT` or `CURATOR_GUIDE`; `PERSONAL` and `AWAITING_APPROVAL` are never scraped. **Any TypeScript code that starts a scrape must call it; never re-inline the condition.** Current scrape-starting entry points: `triggerAccountScrape`, the subscribe-time classify-then-scrape cascade (`subscribeToAccount`), the moderator-resolution first-scrape trigger (`resolveAccountTypeClassificationReview`, added 2026-10-20), and the daily batch. The daily batch (`getBatchScrapeTargets`) holds the one SQL form of the rule and its test must cover every type/status combination. A new code path that starts a scrape adopts the gate in the same change (and gets added to this list).
 - **Account URLs by username** (added 2026-10-18, `bmad-architecture`, BUG-059, see Architecture Spine AD-35): an account's page URL is `/<locale>/<platformSlug>/<username>` (normalized lower-case handle); `account_id` (the platform's numeric ID) **never** appears in a URL, link label or `href` — it is for identity comparison and mutation arguments only. Links are built only by `buildAccountHref(platform, username)` in `packages/domain/src/scraper/` (a missing username yields `null`, never a numeric fallback); `packages/ui` receives `accountHref` and never builds one. The page resolves its segment through one backend query (`socialMediaAccountProfileByUsername`: username first, all-digit `account_id` fallback) and `permanentRedirect`s any non-canonical segment to the username URL, preserving search params.
+- **Async subscribe** (added 2026-10-20, `bmad-architecture`, prod incident `infokonsermusik`, see
+  Architecture Spine AD-37 — **plan only, not yet built**): `subscribeToAccount` must never run
+  Apify, Gemini or a capacity check, and never start a scrape. It stamps
+  `classification_requested_at`, creates the subscription, and fires a best-effort `Event` Lambda
+  invoke (a scoped exception to the SQS rule, precedent `invoke-ai-processor.ts`) at the scraper
+  Lambda's `classify-account` branch. The worker owns the atomic claim and `classification_attempts`
+  (max 3); every write that moves `account_type_status` off NULL is **one transaction** that also
+  writes the review row when needed — an account is never `AWAITING_APPROVAL` without an open review
+  row. A sweep on the existing 5-minute prod scraper tick re-drives and abandons. **This amends the
+  Scrape gate above (AD-34 Rule 6):** a status-NULL account with `classification_requested_at` set
+  is not scrapable; `isScrapableAccountType` takes a required third argument, and the batch SQL and
+  its every-combination test change with it. The worker and `resolveAccountTypeClassificationReview`
+  start the first scrape through one shared function. Any new Lambda/queue wiring updates
+  `docs/infrastructure/architecture-diagram.md` and `high-level-overview.md` in the same change.
 - **Soft-Delete Convention:** Tables that support removal **must** use a `deletedAt: timestamp | null` column, default every query to `deletedAt IS NULL`, and index hot lookup columns with a **partial index** scoped to that condition (never a bare index on `deletedAt`). Soft-delete mutations take an explicit `action: SoftDeleteAction!` (`DELETE`/`RESTORE`) argument. **See Architecture Spine AD-8** for the exact table list/exclusions, current per-resolver (not yet centralized) enforcement state, and the `drizzle-kit`-drops-the-WHERE-clause workaround.
 
 ### Security
