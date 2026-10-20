@@ -4,16 +4,19 @@
  * Spine reference: AD-36 Rule 12 (series stem) and the cross-account question left open after Round 3 item 15.
  *
  *   1. tokens        lower case, accents folded, punctuation to spaces; connectors (at, di, in, the, and, dan...) dropped.
- *   2. core          a member's name minus the longest stretch of it that is also a stretch of ITS OWN place text
+ *   2. core          a member's name minus the longest TRAILING stretch of it that is also a stretch of ITS OWN place text
  *                    ("Wacoal 25% Off Promo at Pakuwon Mall Jogja" at "House of Wacoal 2nd Floor, Pakuwon Mall Jogja" ->
- *                    "wacoal 25% off promo"). Where the place sits in the name (end, start, middle, after a dash, in brackets)
- *                    does not matter, and the brand survives even when the place text repeats it.
+ *                    "wacoal 25% off promo"). Trailing = it ends the name, or it follows a connector (at, di, in...). A stretch at the
+ *                    START of the name is never removed: production place texts often begin with the store ("Sports Station, Pakuwon
+ *                    Mall Jogja"), and the name begins with the same brand. Removing it made "Minimal Store", "Sports Station" and
+ *                    "Planet Sports" Buy 1 Get 1 Free promos all collapse to "buy 1 get 1 free promo" and score 1.00 (2026-10-20 data).
  *   3. phrase score  0.5 * dice(longest common SUBSEQUENCE) + 0.5 * (longest common contiguous RUN / longer core),
  *                    both over token weights (1 each, or inverse document frequency when a corpus is given). A shared
  *                    phrase in the wrong order scores low; one extra or missing word costs a share of the score that
  *                    shrinks with name length.
  *   4. guards        a number that differs ("25%" vs "30%", a year, "Week 6" vs "Week 7") caps the score: it is another
- *                    promo or another edition, not the same activity.
+ *                    promo or another edition, not the same activity. Fewer than two shared content words caps it too: "Jazz at
+ *                    Plaza Ambarrukmo" and "Jazz di Kebun" share one common word and are not one activity.
  *   5. the score is max(raw names, cores), so a leading place that is also an activity word ("Jogja Coffee Week") is not
  *      lost by the stripping. Whether two members are at DIFFERENT places is not decided here (isSamePlace, AD-38).
  *
@@ -23,6 +26,7 @@
 
 const CONNECTORS = new Set(['at', 'di', 'in', 'pada', 'the', 'a', 'an', 'of', 'and', 'dan', 'by', 'with']);
 const NUMBER_CAP = 0.5;
+const MIN_SHARED_TOKENS = 2;
 
 export function tokens(text: string): string[] {
   return text
@@ -40,21 +44,32 @@ export function tokens(text: string): string[] {
  * leads). A run is never removed if it would empty the name.
  */
 export function core(name: string, ownPlace: string, otherName: string): string[] {
-  const nt = tokens(name).filter((t) => !CONNECTORS.has(t));
+  const nt = contentWithContext(name);
   const run = placeRun(nt, tokens(ownPlace), tokens(otherName).filter((t) => !CONNECTORS.has(t)));
-  return run === null ? nt : [...nt.slice(0, run.start), ...nt.slice(run.end)];
+  const toks = nt.map((x) => x.tok);
+  return run === null ? toks : [...toks.slice(0, run.start), ...toks.slice(run.end)];
 }
 
-/** The [start, end) range of `nt` that core() removes, or null. */
-function placeRun(nt: string[], pt: string[], other: string[]): { start: number; end: number } | null {
+interface Tok { tok: string; afterConnector: boolean }
+/** Content tokens, each flagged with whether a connector (at, di, in...) came right before it. */
+function contentWithContext(name: string): Tok[] {
+  const all = tokens(name);
+  const out: Tok[] = [];
+  all.forEach((t, i) => { if (!CONNECTORS.has(t)) out.push({ tok: t, afterConnector: i > 0 && CONNECTORS.has(all[i - 1]) }); });
+  return out;
+}
+
+/** The [start, end) range of `nt` that core() removes, or null. Only a trailing run, or one that follows a connector, qualifies. */
+function placeRun(nt: Tok[], pt: string[], other: string[]): { start: number; end: number } | null {
   const runs = Array.from({ length: nt.length + 1 }, () => new Array<number>(pt.length + 1).fill(0));
   let best = { len: 0, end: 0 };
   for (let i = 1; i <= nt.length; i++) for (let j = 1; j <= pt.length; j++) {
-    if (nt[i - 1] !== pt[j - 1]) continue;
+    if (nt[i - 1].tok !== pt[j - 1]) continue;
     runs[i][j] = runs[i - 1][j - 1] + 1;
-    const maximal = i === nt.length || j === pt.length || nt[i] !== pt[j];
+    const maximal = i === nt.length || j === pt.length || nt[i].tok !== pt[j];
     const len = runs[i][j];
-    if (!maximal || len === nt.length || containsRun(other, nt.slice(i - len, i))) continue;
+    const trailing = i === nt.length || nt[i - len].afterConnector;
+    if (!maximal || !trailing || len === nt.length || containsRun(other, nt.slice(i - len, i).map((x) => x.tok))) continue;
     if (len >= best.len) best = { len, end: i };
   }
   return best.len === 0 ? null : { start: best.end - best.len, end: best.end };
@@ -75,16 +90,18 @@ export function idfFrom(names: string[]): Weight {
   return (t) => Math.log(1 + names.length / (df.get(t) ?? 1));
 }
 
-function overlap(a: string[], b: string[], w: Weight): { lcs: number; run: number } {
+function overlap(a: string[], b: string[], w: Weight): { lcs: number; run: number; shared: number } {
   const dp = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
+  const cnt = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
   const runs = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
   let run = 0;
   for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) {
     const same = a[i - 1] === b[j - 1];
     dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1], same ? dp[i - 1][j - 1] + w(a[i - 1]) : 0);
+    cnt[i][j] = same ? Math.max(cnt[i - 1][j - 1] + 1, cnt[i - 1][j], cnt[i][j - 1]) : Math.max(cnt[i - 1][j], cnt[i][j - 1]);
     if (same) { runs[i][j] = runs[i - 1][j - 1] + w(a[i - 1]); run = Math.max(run, runs[i][j]); }
   }
-  return { lcs: dp[a.length][b.length], run };
+  return { lcs: dp[a.length][b.length], run, shared: cnt[a.length][b.length] };
 }
 
 const sum = (t: string[], w: Weight) => t.reduce((s, x) => s + w(x), 0);
@@ -92,11 +109,12 @@ const numbers = (t: string[]) => new Set(t.filter((x) => /\d/.test(x)));
 
 export function phraseScore(a: string[], b: string[], w: Weight = ONE): number {
   if (a.length === 0 || b.length === 0) return 0;
-  const { lcs, run } = overlap(a, b, w);
+  const { lcs, run, shared } = overlap(a, b, w);
   const wa = sum(a, w); const wb = sum(b, w);
   let score = 0.5 * ((2 * lcs) / (wa + wb)) + 0.5 * (run / Math.max(wa, wb));
   const na = numbers(a); const nb = numbers(b);
   if ([...na].some((x) => !nb.has(x)) || [...nb].some((x) => !na.has(x))) score = Math.min(score, NUMBER_CAP);
+  if (shared < MIN_SHARED_TOKENS) score = Math.min(score, NUMBER_CAP);
   return score;
 }
 
@@ -117,8 +135,13 @@ const content = (w: Word) => w.toks.filter((t) => !CONNECTORS.has(t));
 function wordsWithoutPlace(name: string, ownPlace: string, otherName: string, strip: boolean): Word[] {
   const words = wordsOf(name);
   if (!strip) return words;
-  const flat = words.flatMap((w, i) => content(w).map((tok) => ({ tok, i })));
-  const run = placeRun(flat.map((f) => f.tok), tokens(ownPlace), tokens(otherName).filter((t) => !CONNECTORS.has(t)));
+  const flat: Array<Tok & { i: number }> = [];
+  let prev = '';
+  words.forEach((w, i) => w.toks.forEach((t) => {
+    if (!CONNECTORS.has(t)) flat.push({ tok: t, afterConnector: CONNECTORS.has(prev), i });
+    prev = t;
+  }));
+  const run = placeRun(flat, tokens(ownPlace), tokens(otherName).filter((t) => !CONNECTORS.has(t)));
   if (run === null) return words;
   const dropped = new Set(flat.slice(run.start, run.end).map((f) => f.i));
   return words.filter((_, i) => !dropped.has(i));

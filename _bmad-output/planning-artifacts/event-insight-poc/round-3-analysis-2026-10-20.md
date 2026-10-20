@@ -276,6 +276,55 @@ not equal. A missed group leaves the events as they are today. A wrong series hi
 That is why the starting bar is high (0.85) and why the cross-account option needs a moderator's confirmation. The
 last row is a separate limit: the score compares words, so a translation or a synonym is invisible to it.
 
+### 4.2 Result on the real names (Round 4 ask 3, 2026-10-20)
+
+Data: 1,467 live events from 144 accounts (1,188 full, 279 stubs; account types 907 venue or organizer, 347 curator, 213
+unclassified), almost all dated September to October 2026. Every pair of events whose date ranges are within 60 days was
+scored (2,696 pairs reached 0.5 on the plain or the weighted score). The place check is a crude stand-in (weighted token
+containment), because `isSamePlace` does not exist yet. **Every judgement below is mine, from names and places only, and the
+formula was fixed after seeing this data, so the numbers are in-sample, not a held-out test.**
+
+**1. A defect the real data exposed, and its fix.** The first version removed any stretch of the name that also appeared
+in the place text. Production place texts often begin with the store ("Sports Station, Pakuwon Mall Jogja"), so the brand
+was removed as if it were the place, and "Minimal Store", "Sports Station", "Planet Sports", "SATURDAYS" and "LocknLock"
+Buy 1 Get 1 Free promos all collapsed into one 10-event cluster at 1.00 (and "Jazz at Plaza Ambarrukmo" joined "Jazz di
+Kebun", "Giordano", "Havaianas" and "Top Noodle" sales joined each other). Fixed by removing only a **trailing** place (the
+name ends with it, or it follows a connector), requiring **two** shared content words, and deciding on the **weighted** score.
+After the fix those clusters are gone.
+
+**2. The score distribution is bimodal.** No pair scores between 0.90 and 0.99 on the plain score, so any bar in that range
+is equivalent; the 0.85 bar adds only 4 different-place pairs (2 cross-account). 724 pairs sit at 1.00. Between 0.70 and 0.85
+the score does not decide: the same promo worded differently and different brands sharing a phrase mix together.
+
+**3. Cross-account pairs (different account, different place, weighted score at least 0.85): 24 clusters, 63 events.**
+- **17 clusters, 42 events are real branch promos.** Mall accounts post the same brand promo for their own mall: Sports
+  Station BOGO (4 accounts), J.CO Anniversary, International Coffee Day at Dum Dum, Wacoal (3 accounts, same
+  `organizer_name`), Cheon Fun7astic, Mid Season Sale at Sports Station, PPANG, Gimbap Attack, MAKO (split into three
+  clusters by wording), SATURDAYS BOGO, Sports Station Cash Rebate, Dcrepes, Oishii Lunch, X.O Suki.
+- **7 clusters, 21 events are one event posted by several accounts** (Erafone Run Yogyakarta Series, 7 events from 4
+  accounts, BIOSFERUN, Bay Culture Show, K-24 Healthy Run, K-Spooky Jam, Perayaan Jumat Spooky). The stand-in place check
+  called their spellings "different" or "unresolved"; with a real `isSamePlace` they are duplicates for the matcher.
+- **No wrong merge** by my reading.
+- This **corrects my earlier statement** that branch promos were few (2 of 5 names in a top-25 listing). They are the
+  common cross-account case. `organizer_name` is not a usable key: it is the brand for Wacoal, PPANG, Dcrepes and Marugame
+  Udon, and the mall for most Sports Station posts.
+- **Missed on purpose or by wording (53 pairs between 0.70 and 0.85):** about ten look like the same promo (KFC "HUT Kota
+  Jogja ke-270" at two malls, International Coffee Day Promo/Celebration, iPhone 18 Pro Pre-order, Jogja 270th Anniversary
+  Celebration, Veteran Festival 8.0); most of the rest are different brands sharing "Buy 1 Get 1 Free Promo", correctly
+  rejected. The best brand-versus-brand false pair scores 0.82, only 0.03 under the bar.
+
+**4. Same-account pairs: 36 clusters, 144 events.** Real multi-place series: Lomba Mata Pelajaran dan Mewarnai (15 events in
+many cities), BWF World Junior Championships (12, Denmark and Egypt), AKMU Asia Tour (4 cities), Bangun Pagi Bahagia
+(Kudus, Solo, Tegal), Ruang Berpesta (Cirebon, Garut), RSIH Mlayu Mlayu and SWARANUSA (2 places each), DJ on the Deck.
+Most of the other clusters are one event whose place is spelled several ways or is "Location not specified" (Jogja Coffee Week
+#6 with 12 events at JEC, Tirta Lie's Bakmi Festival, Denmark Open, Bay Culture Show, Styles Prizeventure with "Lippo
+Malls" and "Lippo Plaza Jogja"). **The place check, not the name score, decides series against duplicate, so `isSamePlace` is
+the larger lever.**
+
+**5. What stays unverified.** The held-out test (this was tuned on the same data), `isSamePlace` itself, the 60-day window
+for pairs that are not concurrent, and my labels (the posts were not read). Whether hashtags would settle the 0.70 to 0.85
+zone is the next measurement (event-hashtags-for-series-score.sql).
+
 ## 5. Notifications and sessions (Job B, Job C)
 
 Ranked causes of "a subscribed moderator never gets a push or an email" (from the local session, code

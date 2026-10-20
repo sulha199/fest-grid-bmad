@@ -22,16 +22,54 @@ test('real same-activity pairs at different places score at the top', () => {
   assert.equal(score(m('J.CO ANNIVERSARY PROMO', 'J.CO Ground Floor Galeria Mall'), m('J.CO ANNIVERSARY PROMO', 'J.CO Plaza Ambarrukmo')), 1);
 });
 
-test('the place is removed wherever it sits in the name: after a dash, "@", "di", in brackets, at the start, in the middle (synthetic names)', () => {
+test('a TRAILING place is removed: after a dash, "@", "di", "at", in brackets (synthetic names)', () => {
   const kenes = 'Kenes Soho'; const mad = 'Mad Monkey';
   for (const [a, b] of [
     ['Wednesday Night Run - Kenes Soho', 'Wednesday Night Run - Mad Monkey'],
     ['Wednesday Night Run @ Kenes Soho', 'Wednesday Night Run @ Mad Monkey'],
     ['Wednesday Night Run di Kenes Soho', 'Wednesday Night Run di Mad Monkey'],
+    ['Wednesday Night Run at Kenes Soho', 'Wednesday Night Run at Mad Monkey'],
     ['Wednesday Night Run (Kenes Soho)', 'Wednesday Night Run (Mad Monkey)'],
-    ['Kenes Soho Wednesday Night Run', 'Mad Monkey Wednesday Night Run'],
   ]) assert.ok(score(m(a, kenes), m(b, mad)) >= BAR, `${a} / ${b}`);
-  assert.ok(score(m('Wacoal Pakuwon 25% Off Promo', 'Pakuwon Mall Jogja'), m('Wacoal Ambarrukmo 25% Off Promo', 'Plaza Ambarrukmo')) >= BAR);
+});
+
+test('a LEADING or middle place is NOT removed (changed 2026-10-20: real place texts start with the store, so the name starts with the same brand)', () => {
+  // Synthetic names that the first version grouped. The real data showed why that was wrong, see the next test.
+  assert.ok(score(m('Kenes Soho Wednesday Night Run', 'Kenes Soho'), m('Mad Monkey Wednesday Night Run', 'Mad Monkey')) < BAR);
+  assert.ok(score(m('Wacoal Pakuwon 25% Off Promo', 'Pakuwon Mall Jogja'), m('Wacoal Ambarrukmo 25% Off Promo', 'Plaza Ambarrukmo')) < BAR);
+});
+
+// Event names from the 2026-10-20 production export (the BOGO family and a few unrelated ones), used as the corpus for rarity weights.
+const BOGO_CORPUS = [
+  'Minimal Store Buy 1 Get 1 Free Promo', 'Sports Station Buy 1 Get 1 Free Promo', 'Sports Station Buy 1 Get 1 Free Promo', 'Sports Station Buy 1 Get 1 Free Promo',
+  'Buy 1 Get 1 Free Promo at Planet Sports', 'Buy 1 Get 1 Free Promo at Sports Station', 'Buy 1 Get 1 Free Promo at Sports Station Galeria Mall',
+  'SATURDAYS Buy 1 Get 1 Free Promo', 'SATURDAYS Buy 1 Get 1 FREE Promo', 'LocknLock Buy 1 Get 1 Free Promo', 'Sports Direct Buy 1 Get 1 Free',
+  'Wacoal 25% Off Promo', 'J.CO Anniversary Promo', 'Jazz at Plaza Ambarrukmo', 'Spiral Deck Concert', 'Dance Phoria', 'Lomba Mata Pelajaran dan Mewarnai',
+  'Gimbap Attack at Chadol Gujeolpan', 'Mid Season Sale at Sports Station', 'Beauty Class at Plaza Ambarrukmo', 'Sushi Go Crazy Monday',
+];
+
+test('different brands sharing a generic promo phrase do not group, even when the place text starts with the store (production names, 2026-10-20)', () => {
+  const w = idfFrom(BOGO_CORPUS);
+  const minimal = m('Minimal Store Buy 1 Get 1 Free Promo', 'Minimal Store, Lantai 1 Galeria Mall');
+  const sports = m('Sports Station Buy 1 Get 1 Free Promo', 'Sports Station, Pakuwon Mall Jogja');
+  const planet = m('Buy 1 Get 1 Free Promo at Planet Sports', 'Planet Sports Pakuwon Mall Jogja');
+  const saturdays = m('SATURDAYS Buy 1 Get 1 Free Promo', 'SATURDAYS Pakuwon Mall Jogja');
+  const weighted = (x: Member, y: Member) => seriesNameScore(x, y, w).score;
+  for (const [x, y] of [[minimal, sports], [minimal, planet], [sports, planet], [sports, saturdays], [planet, saturdays], [minimal, saturdays]]) {
+    assert.ok(weighted(x, y) < BAR, `${x.name} / ${y.name}: ${weighted(x, y)}`);
+  }
+  // unweighted, the closest pair is above the bar (one extra brand word in a six-word phrase): the weights are what separate them
+  assert.ok(score(planet, saturdays) >= BAR);
+  // the same brand at two malls still groups, weighted or not
+  const sportsPlaza = m('Sports Station Buy 1 Get 1 Free Promo', 'Sports Station – Plaza Ambarrukmo');
+  assert.ok(score(sports, sportsPlaza) >= BAR && weighted(sports, sportsPlaza) >= BAR);
+  // other brands sharing "Sale at Pakuwon Mall Jogja"
+  assert.ok(score(m('Giordano Sale at Pakuwon Mall Jogja', 'UG Floor Giordano, Pakuwon Mall Jogja'), m('Havaianas Sale', 'Havaianas, Pakuwon Mall Jogja')) < BAR);
+});
+
+test('one shared common word is not an activity: "Jazz at Plaza Ambarrukmo" and "Jazz di Kebun" (production names)', () => {
+  assert.ok(score(m('Jazz at Plaza Ambarrukmo', 'Plaza Ambarrukmo'), m('Jazz di Kebun', 'Kebun Raya Bogor')) <= 0.5);
+  assert.ok(score(m('Promo Amplaz', 'Amplaz'), m('FitFlop Promo', 'FitFlop, Pakuwon Mall Jogja')) <= 0.5);
 });
 
 test('the brand survives when the place text repeats it (the first version stripped "wacoal")', () => {
@@ -98,7 +136,6 @@ test('group name: the shared words in the original spelling, the place removed w
     ['Wednesday Night Run @ Kenes Soho', 'Wednesday Night Run @ Mad Monkey'],
     ['Wednesday Night Run di Kenes Soho', 'Wednesday Night Run di Mad Monkey'],
     ['Wednesday Night Run (Kenes Soho)', 'Wednesday Night Run (Mad Monkey)'],
-    ['Kenes Soho Wednesday Night Run', 'Mad Monkey Wednesday Night Run'],
   ]) assert.equal(groupName(m(a, 'Kenes Soho'), m(b, 'Mad Monkey')), 'Wednesday Night Run', `${a} / ${b}`);
 });
 

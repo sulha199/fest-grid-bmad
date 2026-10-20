@@ -2675,11 +2675,24 @@ This document defines the core architectural invariants for the FestDaily applic
           in time, the places differ, and the shared core holds at least one token that is rare in
           the corpus (inverse document frequency, so "Sports Station" counts and "Buy 1 Get 1 Free
           Promo" does not); such a group is created **unconfirmed** (`confirmed_at` null, source
-          `series_phrase`). Rule 4 as written still lets an unconfirmed group take the Rule 13
+          `series_phrase`). **Measured 2026-10-20 (the export above, weighted score at least
+          0.85, different place, different account): 24 clusters and 63 events, of which 17
+          clusters and 42 events are real branch promos (mall accounts post the same brand
+          promo for their own mall: Sports Station, J.CO, Wacoal, MAKO, PPANG, Cheon, Dcrepes,
+          X.O Suki, International Coffee Day, ...) and 7 clusters and 21 events are one event
+          posted by several accounts (a duplicate, which `isSamePlace` must send to the matcher),
+          with no wrong merge by a reading of the names alone.** The earlier "few" (2 of 5 names
+          in a top-25 listing) was wrong: branch promos by mall accounts are the common cross-account
+          case. `organizer_name` cannot be the key: it is the brand for Wacoal, PPANG, Dcrepes and
+          Marugame Udon, but the mall for most Sports Station posts. Rule 4 as written still lets an unconfirmed group take the Rule 13
           Discovery policy, and a wrong series hides events behind a cap of one; so for this
           detector Rule 4's bound is **tightened**: the collapse waits for a moderator's confirm
           and only the "part of" link applies until then. That makes the cross-account series
-          depend on a reachable moderator (IDEA-090). All three numbers `[ASSUMPTION]`.
+          depend on a reachable moderator (IDEA-090). **Alternative, owner decision:** since the
+          sample had no wrong merge and nearly every cross-account pair sits at 1.00 (20 pairs) with
+          only 2 at 0.85 to 0.90, the collapse may apply from the start to identical-core pairs
+          (weighted score 1.00) and give the 0.85 to 0.99 pairs the link only. All numbers
+          `[ASSUMPTION]`.
         - **Kind is never derived from the creator or from the shape of a title.** "Activity -
           Place" (Riot) and "Umbrella - Activity" (SCH) have the same syntax and opposite meaning.
           One function, `deriveGroupFromTitles()` in `packages/domain`, serves the title-pattern
@@ -2699,20 +2712,32 @@ This document defines the core architectural invariants for the FestDaily applic
           phrase-and-order score, not by a list of suffix patterns.** Production has "Wacoal 25%
           Off Promo at Pakuwon Mall Jogja" beside two events named "Wacoal 25% Off Promo", and
           names also use "@", "di", brackets or a leading place; an exact pattern per form would
-          miss the next form. `seriesNameScore(a, b)` in `packages/domain` (POC with tests:
+          miss the next form. `seriesNameScore(a, b, weights)` in `packages/domain` (POC with tests:
           `poc-event-insight/series-phrase.ts`): (1) tokenise (accents folded, punctuation and
           connectors such as at, di, in, dan dropped); (2) take each member's **core**: its name
-          minus the longest run of tokens that is also a run of its **own place text**, unless
-          the other member's name contains that run (shared wording, not a place), so the brand
-          survives when the place repeats it ("House of Wacoal"); (3) score = 0.5 x dice over the
-          longest common token subsequence + 0.5 x (longest common contiguous run / longer core),
-          so a reordering or an extra word costs score; (4) a number that differs ("25%" and
-          "30%", 2025 and 2026, "Week 6" and "Week 7") caps the score at 0.5; (5) the result is
-          the larger of the raw-name score and the core score. A new member joins an open series
-          when the score against any active member reaches the bar (start value **0.85**
-          `[ASSUMPTION]`, uncalibrated: the 12 test cases from real and synthetic names sit at
-          1.00 or at 0.80 and below, so the interesting range 0.80 to 0.95 is untested; Round 4
-          ask 3 reads the cut-off off all event names). `groupName(a, b)` gives the series its
+          minus the longest **trailing** run of tokens (it ends the name, or follows a connector)
+          that is also a run of its **own place text**, unless the other member's name contains
+          that run (shared wording, not a place). A run at the **start** of the name is never
+          removed: production place texts often begin with the store ("Sports Station, Pakuwon
+          Mall Jogja") and the name begins with the same brand; removing it made "Minimal Store",
+          "Sports Station" and "Planet Sports" Buy 1 Get 1 Free promos collapse into one cluster
+          (found on the 2026-10-20 export, fixed); (3) score = 0.5 x dice over the longest common
+          token subsequence + 0.5 x (longest common contiguous run / longer core), so a
+          reordering or an extra word costs score; (4) caps at 0.5: a number that differs ("25%"
+          and "30%", 2025 and 2026, "Week 6" and "Week 7"), and fewer than **two** shared content
+          words ("Jazz at Plaza Ambarrukmo" and "Jazz di Kebun"); (5) the result is the larger of
+          the raw-name score and the core score; (6) the decision score is **weighted**, each
+          token by ln(1 + N / df) over all live event names, so a shared brand outweighs a shared
+          generic phrase ("Buy 1 Get 1 Free Promo"). A new member joins an open series when the
+          weighted score against any active member reaches the bar (start value **0.85**
+          `[ASSUMPTION]`). **Measured on the 2026-10-20 export (1,467 events, 144 accounts, every
+          pair within 60 days):** no pair scores between 0.90 and 0.99 (plain), so any bar in that
+          range gives the same result and 0.85 adds only 4 different-place pairs (2 cross-account);
+          between 0.70 and 0.85 the score does not separate "the same promo worded differently"
+          (KFC "HUT Kota Jogja ke-270", International Coffee Day, iPhone 18 Pro pre-order) from
+          "different brands sharing a promo phrase" (Buy 1 Get 1 Free), which is why the bar is
+          high and some real pairs are missed on purpose. In-sample: the formula was fixed after
+          seeing this data. `groupName(a, b)` gives the series its
           `event_groups.name`: the words the two names share once each place is removed, in the
           poster's spelling and casing, from the more general of the two (e.g. "Wacoal 25% Off
           Promo"); it is computed from the first two members and not recomputed, and a moderator
