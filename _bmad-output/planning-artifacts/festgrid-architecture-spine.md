@@ -2158,12 +2158,12 @@ This document defines the core architectural invariants for the FestDaily applic
     5.  **Distinct from AD-31's "curator-typed".** That predicate answers "was this post authored by
         an organizer?" and deliberately counts `AWAITING_APPROVAL` curators; this one answers "may we
         scrape this account?". Do not reuse one for the other.
-    6.  **Amended 2026-10-20 by AD-37 Rule 6: a pending classification is not scrapable.** Rule 1's
+    6.  **Amended 2026-10-20 by AD-41 Rule 6: a pending classification is not scrapable.** Rule 1's
         `NULL` case narrows to "never classified **and** never requested"; an account with
         `classification_requested_at` set and status still `NULL` is not scrapable until it settles.
         `isScrapableAccountType` takes a required third argument for this, and Rule 3's SQL form and
         its test gain the same dimension. The classification worker and the moderator-resolve path
-        (AD-37 Rule 7) join the entry points that adopt the gate.
+        (AD-41 Rule 7) join the entry points that adopt the gate.
 *   **Enforced by:** the unit tests in Rule 1 and the lockstep tests in Rule 3. No lint or source-scan
     ratchet yet; see Deferred.
 *   **Deferred:** a source-scan ratchet forbidding a raw `accountTypeStatus === ` comparison outside
@@ -2226,7 +2226,7 @@ This document defines the core architectural invariants for the FestDaily applic
 
 ---
 
-### AD-36: Moderator Re-extract Is a Write-Free Preview That Never Keeps a Caption
+### AD-40: Moderator Re-extract Is a Write-Free Preview That Never Keeps a Caption
 
 *   **Binds:** `Mutation.previewPostReextraction`, `Query.postReextractionPreview`
     (`extraction.graphql`, `resolvers.ts`); `startPostReextractionPreview`
@@ -2293,7 +2293,7 @@ This document defines the core architectural invariants for the FestDaily applic
 
 ---
 
-### AD-37: Subscribe Returns Fast — Classification and the First Scrape Run Off the Request Path
+### AD-41: Subscribe Returns Fast — Classification and the First Scrape Run Off the Request Path
 
 *   **Binds:** `subscribeToAccount` (`apps/backend/src/lib/subscriptions/subscribe-to-account.ts`);
     `classifyAccountType` (`apps/backend/src/lib/accounts/classify-account-type.ts`); the scraper

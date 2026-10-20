@@ -48,7 +48,7 @@ function makePreview(overrides: Partial<ReextractionPreview> = {}): Reextraction
 
 const idle = { start: vi.fn(), reset: vi.fn(), phase: 'idle', preview: null, errorCode: null, errorMessage: null } as any;
 
-describe('ReextractPreviewResult (AD-36)', () => {
+describe('ReextractPreviewResult (AD-40)', () => {
   afterEach(cleanup);
 
   it('shows grouping, the event, its dedup tier with score, and a link to the closest event', () => {
@@ -85,7 +85,7 @@ describe('ReextractPreviewResult (AD-36)', () => {
   });
 });
 
-describe('ModeratorSourcePostsPanel (AD-36)', () => {
+describe('ModeratorSourcePostsPanel (AD-40)', () => {
   beforeEach(() => {
     vi.mocked(usePostReextractionPreview).mockReturnValue(idle);
   });
@@ -113,7 +113,7 @@ describe('ModeratorSourcePostsPanel (AD-36)', () => {
   });
 });
 
-describe('ReextractPostDialog (AD-36)', () => {
+describe('ReextractPostDialog (AD-40)', () => {
   afterEach(cleanup);
 
   it('shows the failure message with a retry', async () => {

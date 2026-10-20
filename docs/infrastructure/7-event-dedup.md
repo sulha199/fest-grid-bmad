@@ -55,7 +55,7 @@ Pending suggestions: `SELECT * FROM event_match_candidates WHERE status = 'pendi
 
 ## Re-extract preview (moderators)
 
-Shows what the **current** extraction and dedup logic would do with a post, and writes nothing. Spine **AD-36**.
+Shows what the **current** extraction and dedup logic would do with a post, and writes nothing. Spine **AD-40**.
 
 *   **Where:** on an event page, the moderator-only "Source posts (moderator)" panel has a **Re-extract** button per source post (it appears even for an event with a single source post). For a post with no event, use **Moderator → Tools → Re-extract** and paste the post URL.
 *   **What it shows:** the post's grouping reason; every extracted event with its schedules and links; each event's dedup result (would auto-link, would queue for review, low match, or no similar event) with the score and the closest existing event; and whether ingestion would skip the item because the post's slot already has an event.

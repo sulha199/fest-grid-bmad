@@ -31,7 +31,7 @@ interface ReextractPreviewResultProps {
   preview: ReextractionPreview;
 }
 
-/** AD-36 -- what the current extraction and dedup logic would do with a post. Read-only. */
+/** AD-40 -- what the current extraction and dedup logic would do with a post. Read-only. */
 export function ReextractPreviewResult({ preview }: ReextractPreviewResultProps) {
   const t = useTranslations('ReextractPreview');
 

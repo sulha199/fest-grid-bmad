@@ -7,11 +7,11 @@ import type { ManualExtractionRequestPayload } from '@festgrid/domain/posts';
 import { startPostReextractionPreview } from './start-post-reextraction-preview.js';
 import { getManualExtractionJobStatus } from './manual-extraction-job.js';
 
-// AD-36 -- the API-Lambda half of the moderator re-extract preview. The AI Lambda invoke is not
+// AD-40 -- the API-Lambda half of the moderator re-extract preview. The AI Lambda invoke is not
 // configured under test, so a job that gets as far as starting fails to start and is marked FAILED:
 // that is exactly the path that must still blank the stored caption.
 
-test('startPostReextractionPreview (AD-36)', async (t) => {
+test('startPostReextractionPreview (AD-40)', async (t) => {
   const suffix = Date.now();
   const [user] = await db.select().from(users).limit(1);
   assert.ok(user, 'Must have at least one seeded user');

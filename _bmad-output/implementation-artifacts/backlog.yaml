@@ -2325,7 +2325,7 @@ items:
      title: "Moderator re-extract preview: see what current extraction and dedup would do with a post, rescrape when the caption is missing",
      ref: [implementation-artifacts/spec-moderator-reextract-post-preview.md, apps/backend/src/lib/extraction/start-post-reextraction-preview.ts, apps/web/src/features/moderation/moderator-source-posts-panel.tsx],
      touches: [app:backend, pkg:domain, web:moderation, cross:architecture],
-     note: "Built 2026-10-18, preview only (AD-36). Placements: event detail source-post panel (moderator) and Moderator -> Tools -> Re-extract. No apply step by design. Follow-ups: an apply mode needs a replace/skip design for already-represented (post, ordinal) slots."}
+     note: "Built 2026-10-18, preview only (AD-40). Placements: event detail source-post panel (moderator) and Moderator -> Tools -> Re-extract. No apply step by design. Follow-ups: an apply mode needs a replace/skip design for already-represented (post, ordinal) slots."}
 
   FIND-086:
     {type: finding, status: backlog, created: 2026-10-18,

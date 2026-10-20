@@ -9,7 +9,7 @@ import { usePostReextractionPreview } from "@/features/moderation/use-post-reext
 import { ReextractPreviewResult } from "@/features/moderation/reextract-preview-result"
 
 /**
- * AD-36 -- Moderator -> Tools -> Re-extract. Takes a post URL, for posts that have no event (so
+ * AD-40 -- Moderator -> Tools -> Re-extract. Takes a post URL, for posts that have no event (so
  * there is no event page to launch from). A post already in the database is previewed from its
  * stored caption; an unknown URL is scraped. Preview only.
  */

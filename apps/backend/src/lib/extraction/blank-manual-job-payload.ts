@@ -3,7 +3,7 @@ import { manualExtractionJobs } from '@festgrid/database';
 import { db } from '../../db/client.js';
 
 /**
- * AD-36 privacy invariant -- the post caption (possibly just rescraped, possibly a curator caption
+ * AD-40 privacy invariant -- the post caption (possibly just rescraped, possibly a curator caption
  * that is deliberately null in `posts`) must not outlive a manual extraction job in
  * `request_payload`. Called wherever a job reaches a terminal state: the AI Lambda's `finally`, a
  * failed start, and the lazy stale-job failure. Best-effort: a failure here is logged, never

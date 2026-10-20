@@ -11,7 +11,7 @@ import { db } from '../../db/client.js';
 import { fetchCandidateKeys } from '../ai-gateway/usage-store.js';
 import { startManualExtractionJob } from './manual-extraction-job.js';
 
-// AD-36 -- starts a moderator re-extract preview. The caller (the resolver) has already enforced
+// AD-40 -- starts a moderator re-extract preview. The caller (the resolver) has already enforced
 // `requireModerator`. Nothing here writes to `posts` or `events`: a rescraped caption lives only in
 // the job's `request_payload`, which the AI Lambda blanks when the job ends.
 

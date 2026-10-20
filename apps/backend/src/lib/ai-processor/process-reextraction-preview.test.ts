@@ -18,11 +18,11 @@ import { processManualExtractionJob, setCallGeminiForManualExtractionSeam, callG
 import { insertEventWithPrimaryPost } from '../events/set-event-primary-post.js';
 import { setDetectAndBlurFacesSeam, detectAndBlurFacesSeam } from './detect-and-blur-faces.js';
 
-// AD-36 -- real-DB tests for the moderator re-extract preview (AI-Lambda half). Gemini is a seam.
+// AD-40 -- real-DB tests for the moderator re-extract preview (AI-Lambda half). Gemini is a seam.
 // The invariants under test: the preview writes nothing to events/schedules/event_posts/posts, and
 // the post caption never outlives the job in manual_extraction_jobs.request_payload.
 
-test('processManualExtractionJob REEXTRACT_PREVIEW (AD-36)', async (t) => {
+test('processManualExtractionJob REEXTRACT_PREVIEW (AD-40)', async (t) => {
   const suffix = Date.now();
   const originalGemini = callGeminiForManualExtractionSeam;
   const originalDetect = detectAndBlurFacesSeam;

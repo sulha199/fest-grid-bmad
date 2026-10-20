@@ -64,12 +64,12 @@ export interface ManualExtractionRequestPayload {
   message: ProcessingJobMessage;
   existingPostAccountId?: string;
   /**
-   * AD-36 -- `REEXTRACT_PREVIEW` runs the moderator re-extract preview (extraction plus a dry-run
+   * AD-40 -- `REEXTRACT_PREVIEW` runs the moderator re-extract preview (extraction plus a dry-run
    * of the ingestion dedup decision) instead of the single-event correction proposal. Absent means
    * the Story 4.2b correction flow.
    */
   mode?: ManualExtractionMode;
-  /** AD-36 -- preview facts known when the job is started, echoed into the result. */
+  /** AD-40 -- preview facts known when the job is started, echoed into the result. */
   postStored?: boolean;
   rescraped?: boolean;
 }
@@ -77,7 +77,7 @@ export interface ManualExtractionRequestPayload {
 export const MANUAL_EXTRACTION_MODES = ['CORRECTION', 'REEXTRACT_PREVIEW'] as const;
 export type ManualExtractionMode = (typeof MANUAL_EXTRACTION_MODES)[number];
 
-/** AD-36 -- a dedup outcome in a re-extract preview. `none` means no candidate passed the query. */
+/** AD-40 -- a dedup outcome in a re-extract preview. `none` means no candidate passed the query. */
 export type ReextractionPreviewTier = 'high' | 'mid' | 'low' | 'none';
 
 export interface ReextractionPreviewEvent {
@@ -97,7 +97,7 @@ export interface ReextractionPreviewEvent {
   };
 }
 
-/** AD-36 -- stored in `manual_extraction_jobs.result_data` for a `REEXTRACT_PREVIEW` job. */
+/** AD-40 -- stored in `manual_extraction_jobs.result_data` for a `REEXTRACT_PREVIEW` job. */
 export interface ReextractionPreviewResult {
   groupingReason: string | null;
   postStored: boolean;
@@ -105,7 +105,7 @@ export interface ReextractionPreviewResult {
   events: ReextractionPreviewEvent[];
 }
 
-/** AD-36 -- the rescrape of a post URL is rate-limited per URL (scraper credit). */
+/** AD-40 -- the rescrape of a post URL is rate-limited per URL (scraper credit). */
 export const REEXTRACT_RESCRAPE_COOLDOWN_MS = 10 * 60 * 1000;
 
 /**
