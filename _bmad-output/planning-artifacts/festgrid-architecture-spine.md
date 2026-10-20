@@ -2691,8 +2691,24 @@ This document defines the core architectural invariants for the FestDaily applic
           depend on a reachable moderator (IDEA-090). **Alternative, owner decision:** since the
           sample had no wrong merge and nearly every cross-account pair sits at 1.00 (20 pairs) with
           only 2 at 0.85 to 0.90, the collapse may apply from the start to identical-core pairs
-          (weighted score 1.00) and give the 0.85 to 0.99 pairs the link only. All numbers
-          `[ASSUMPTION]`.
+          (weighted score 1.00) and give the 0.85 to 0.99 pairs the link only. **Architect
+          recommendation 2026-10-20 (owner leaning yes, option not yet confirmed): the
+          identical-core collapse.** Reasons, all from the 2026-10-20 export: (a) a moderator gate
+          makes the feature inert, since moderators resolved 0 of 147 and receive no queue
+          notification; (b) requiring a corroborating signal (same `organizer_name` or a shared
+          rare hashtag) would drop 12 of the 25 distinct real shared names (21 of 43 exact pairs
+          corroborate); (c) no statistic separates a generic shared name from a branded one in
+          this corpus ("Grand Opening" has a distinctiveness sum of 7.8, "Promo Diskon" 7.2,
+          against 7.7 for "BIOSFERUN 2026" and 7.9 for "MAKO Promo"), so the residual risk is an
+          unrelated pair with an identical generic name; none of the 25 shared names was generic,
+          and the risk is bounded by the per-detector switch and daily cap (Rule 16), a nightly
+          list of newly created cross-account groups for the owner to read, the collapse existing
+          only in Discovery (the calendar, favorites, feed and account pages list every event),
+          and a dissolve that restores every member. Open question for review: the join rule
+          "against any active member" lets a group grow by chain; 2 of the 27 clusters of three or
+          more members on the export are held together that way (both look genuine: International
+          Coffee Day, AKMU Asia Tour), and comparing a new member with the group's stem or with
+          every member is the alternative. All numbers `[ASSUMPTION]`.
         - **Kind is never derived from the creator or from the shape of a title.** "Activity -
           Place" (Riot) and "Umbrella - Activity" (SCH) have the same syntax and opposite meaning.
           One function, `deriveGroupFromTitles()` in `packages/domain`, serves the title-pattern

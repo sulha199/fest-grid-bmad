@@ -368,6 +368,23 @@ Planet Sports) is two sportswear promos with the same interests. It is not a gro
 in principle: AD-36 Rule 12 defines a series as members with one audience and a programme as members with their own, so the
 audience tracks could validate the kind later. That is a plan, not tested.
 
+### 4.4 Checks made before recommending the cross-account collapse (2026-10-20)
+
+Owner position: leaning yes to the tag rule and to cross-account grouping; asked for a recommendation and whether an
+architect review is needed.
+
+1. **Would "identical name" ever be generic?** The 43 cross-account exact-name pairs form 25 distinct shared names; all 25 carry a
+   brand or event name. No statistic separates a generic name from a branded one here: "Grand Opening" sums to 7.8,
+   "Promo Diskon" 7.2, "Special Sale" 7.3, against "MAKO Promo" 7.9 and "BIOSFERUN 2026" 7.7 (sum of ln(1 + N / df) over the
+   words). The risk is real but unobserved.
+2. **Would a corroborating signal fix that?** Requiring the same `organizer_name` or a shared rare hashtag keeps only 21 of 43
+   exact pairs and 13 of 25 shared names; 12 real ones (MAKO, Sports Station, X.O Suki, ...) would be lost. Too expensive.
+3. **Chaining.** The join rule "against any active member" links clusters through a chain: 2 of 27 clusters of three or more
+   members (International Coffee Day, AKMU Asia Tour) have member pairs below the bar. Both look genuine; the rule is a question
+   for review.
+4. **Recommendation:** collapse identical-core pairs from the start; link only for 0.85 to 0.99 and for tag-evidence joins; a
+   per-detector switch, a daily cap and a nightly list of new cross-account groups as the safety net; no moderator gate.
+
 ## 5. Notifications and sessions (Job B, Job C)
 
 Ranked causes of "a subscribed moderator never gets a push or an email" (from the local session, code
