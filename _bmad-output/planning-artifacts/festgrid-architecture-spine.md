@@ -3971,6 +3971,13 @@ This document defines the core architectural invariants for the FestDaily applic
         - An event whose area is `unknown` still has an audience country; the ranking penalty and
           page cap of Rule 4 stay, because the area is unknown. Existing events stay empty until
           re-derived (no bulk default). A moderator can correct the value (source `moderator`).
+        - **Whose key pays (`[ADOPTED, user-directed 2026-10-21]`).** The per-post insight rides on
+          the existing extraction call and the subscribers' keys (about +1,000 input and +240 output
+          tokens per post, POC medians). A **platform key** is used only for the one-time backfill
+          of insight for existing events and for the nightly extraction-quality evaluation, a
+          narrow exception of the kind the default-location inference already has (PRD 3.7); it is
+          never used for new-post extraction. The AD-38 split backfill keeps its own rule (only the
+          keys of subscribers to the posting account). AD-42 carries the quota and audit details.
         - **What is not proven.** The audience-area POC (prompt v2: 57/60 on its core set, 18/18 on a
           six-post held-out set) had no country field, and its posts were written or chosen by the
           author. Curator captions are cleared after extraction (PRD 3.16), and on 2026-10-21 34% of
