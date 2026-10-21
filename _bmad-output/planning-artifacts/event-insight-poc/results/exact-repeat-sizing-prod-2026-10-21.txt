@@ -1,22 +1,24 @@
-                                measure                                 | groups | events | would_be_soft_deleted | groups_without_a_start_time | groups_already_ended | groups_blocked_by_an_exclusion | would_be_soft_deleted_after_exclusions 
-------------------------------------------------------------------------+--------+--------+-----------------------+-----------------------------+----------------------+--------------------------------+----------------------------------------
- identity groups: same poster, name, place text, date range, start time |     40 |    110 |                    70 |                          32 |                   24 |                              1 |                                     69
-(1 row)
+                                measure                                | groups | events | would_be_soft_deleted | groups_without_a_start_time | groups_already_ended | groups_blocked_by_an_exclusion | would_be_soft_deleted_after_exclusions 
+-----------------------------------------------------------------------+--------+--------+-----------------------+-----------------------------+----------------------+--------------------------------+----------------------------------------
+ RULE: same poster, name, place text, date range, start time           |     38 |    107 |                    69 |                          28 |                   25 |                              1 |                                     68
+ NO PLACE TEXT on either event (not the rule: isSamePlace is not same) |      1 |      2 |                     1 |                           1 |                    1 |                              0 |                                      1
+(2 rows)
 
-       acct_type       | detail_level | groups | events | would_be_soft_deleted 
------------------------+--------------+--------+--------+-----------------------
- CURATOR_GUIDE         | stub         |     19 |     61 |                    42
- ORGANIZER_VENUE_EVENT | full         |     16 |     38 |                    22
- (unclassified)        | full         |      2 |      4 |                     2
- CURATOR_GUIDE         | full         |      2 |      5 |                     3
- ORGANIZER_VENUE_EVENT | stub         |      1 |      2 |                     1
-(5 rows)
+ place_known |       acct_type       | detail_level | groups | events | would_be_soft_deleted 
+-------------+-----------------------+--------------+--------+--------+-----------------------
+ t           | CURATOR_GUIDE         | stub         |     16 |     55 |                    39
+ t           | ORGANIZER_VENUE_EVENT | full         |     15 |     38 |                    23
+ t           | CURATOR_GUIDE         | full         |      4 |      8 |                     4
+ t           | (unclassified)        | full         |      2 |      4 |                     2
+ t           | ORGANIZER_VENUE_EVENT | stub         |      1 |      2 |                     1
+ f           | CURATOR_GUIDE         | stub         |      1 |      2 |                     1
+(6 rows)
 
                             relation                             | pairs 
 -----------------------------------------------------------------+-------
- 1 identical range and start time (the rule)                     |   149
- 2 identical range, start time differs or is missing on one side |     3
- 3 ranges overlap but differ (stays in the moderator queue)      |    30
+ 1 identical range and start time (the rule)                     |   161
+ 2 identical range, start time differs or is missing on one side |     2
+ 3 ranges overlap but differ (stays in the moderator queue)      |    12
 (3 rows)
 
                                          exclusion                                          | groups 
@@ -27,22 +29,22 @@
  groups where a moderator already rejected the pair                                         |      0
 (4 rows)
 
- events |                     event_name                      |                    place                    | first_date | last_date  | start_time |       acct_type       
---------+-----------------------------------------------------+---------------------------------------------+------------+------------+------------+-----------------------
-     11 | Allianz Malaysia Super 100 2026                     |                                             | 2026-10-13 | 2026-10-18 |            | CURATOR_GUIDE
-      7 | BWF World Junior Championships 2026                 |                                             | 2026-10-12 | 2026-10-17 |            | CURATOR_GUIDE
-      5 | Victor Denmark Open 2026                            |                                             | 2026-10-13 | 2026-10-18 |            | CURATOR_GUIDE
-      3 | Basic Espresso & Coffee Creation Class              | Crystal F&B Studio (LPK Crystal)            | 2026-10-21 | 2026-10-21 | 13:00:00   | CURATOR_GUIDE
-      3 | Belanja 500K, Gratis 5kg Beras Premium              | Pakuwon Mall Jogja                          | 2026-09-18 | 2026-09-20 |            | ORGANIZER_VENUE_EVENT
-      3 | Denmark Open 2026                                   |                                             | 2026-10-13 | 2026-10-18 |            | CURATOR_GUIDE
-      3 | GembiRun Loka 2026                                  |                                             | 2026-10-21 | 2026-10-21 |            | CURATOR_GUIDE
-      3 | Jogja Coffee Week #6                                | Hall B–C, JEC Yogyakarta                    | 2026-09-04 | 2026-09-06 | 10:00:00   | ORGANIZER_VENUE_EVENT
-      3 | Jogja Otomotif Show #8                              | Atrium Rama, Ground Floor, Sleman City Hall | 2026-10-21 | 2026-10-25 |            | ORGANIZER_VENUE_EVENT
-      3 | RSIH 25th Mlayu Mlayu                               |                                             | 2026-09-27 | 2026-09-27 |            | CURATOR_GUIDE
-      3 | SCH Choir Competition 2026                          | Atrium Rama, Ground Floor, Sleman City Hall | 2026-10-30 | 2026-10-30 | 13:00:00   | ORGANIZER_VENUE_EVENT
-      3 | Sportember                                          | Sleman City Hall                            | 2026-09-01 | 2026-09-30 |            | ORGANIZER_VENUE_EVENT
-      3 | Studium Generale 2026: Investing at a Turning Point |                                             | 2026-10-10 | 2026-10-10 | 08:30:00   | CURATOR_GUIDE
-      3 | SWARANUSA 2026 — Lomba Solo Vokal Nasional          |                                             | 2026-10-08 | 2026-10-20 |            | CURATOR_GUIDE
-      3 | Synchronize Fest                                    |                                             | 2026-10-16 | 2026-10-16 |            | CURATOR_GUIDE
+ events | place_known |                               event_name                               |                       place                        | first_date | last_date  | start_time |       acct_type       
+--------+-------------+------------------------------------------------------------------------+----------------------------------------------------+------------+------------+------------+-----------------------
+     11 | t           | Allianz Malaysia Super 100 2026                                        | Denmark                                            | 2026-10-13 | 2026-10-18 |            | CURATOR_GUIDE
+      9 | t           | BWF World Junior Championships 2026                                    | Egypt                                              | 2026-10-12 | 2026-10-17 |            | CURATOR_GUIDE
+      4 | t           | Jogja Coffee Week #6                                                   | Hall B-C, JEC Yogyakarta                           | 2026-09-04 | 2026-09-06 | 10:00:00   | ORGANIZER_VENUE_EVENT
+      4 | t           | Studium Generale 2026: Investing at a Turning Point                    | Auditorium Koinonia, UKDW Yogyakarta               | 2026-10-10 | 2026-10-10 | 08:30:00   | CURATOR_GUIDE
+      4 | t           | Tirta Lie's Bakmi Festival                                             | Atrium Shinta, Ground Floor, Sleman City Hall      | 2026-10-21 | 2026-10-25 |            | ORGANIZER_VENUE_EVENT
+      4 | t           | Victor Denmark Open 2026                                               | Denmark                                            | 2026-10-13 | 2026-10-18 |            | CURATOR_GUIDE
+      3 | t           | Basic Espresso & Coffee Creation Class                                 | Crystal F&B Studio (LPK Crystal)                   | 2026-10-21 | 2026-10-21 | 13:00:00   | CURATOR_GUIDE
+      3 | t           | Belanja 500K, Gratis 5kg Beras Premium                                 | Pakuwon Mall Jogja                                 | 2026-09-18 | 2026-09-20 |            | ORGANIZER_VENUE_EVENT
+      3 | t           | Dasar Foto Produk & Copywriting untuk Meningkatkan Penjualan Produk di | Kantor BPR Kurnia Sewon, Jl. Parangtritis No.192A, | 2026-10-21 | 2026-10-21 | 09:30:00   | CURATOR_GUIDE
+      3 | t           | Jogja Otomotif Show #8                                                 | Atrium Rama, Ground Floor, Sleman City Hall        | 2026-10-21 | 2026-10-25 |            | ORGANIZER_VENUE_EVENT
+      3 | t           | SCH Choir Competition 2026                                             | Atrium Rama, Ground Floor, Sleman City Hall        | 2026-10-30 | 2026-10-30 | 13:00:00   | ORGANIZER_VENUE_EVENT
+      3 | t           | Sportember                                                             | Sleman City Hall                                   | 2026-09-01 | 2026-09-30 |            | ORGANIZER_VENUE_EVENT
+      3 | t           | SWARANUSA 2026 — Lomba Solo Vokal Nasional                             | STIKES Panti Rapih Yogyakarta                      | 2026-10-08 | 2026-10-20 |            | CURATOR_GUIDE
+      2 | t           | 8th Anniversary Sleman City Hall: REBORN                               | Atrium & Plaza Rama, Sleman City Hall              | 2026-10-28 | 2026-11-01 |            | ORGANIZER_VENUE_EVENT
+      2 | t           | Big Bang Festival 2026                                                 | JIExpo Kemayoran, Jakarta                          | 2026-12-25 | 2027-01-05 |            | (unclassified)
 (15 rows)
 
