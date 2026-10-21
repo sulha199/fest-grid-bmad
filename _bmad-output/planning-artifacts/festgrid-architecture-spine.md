@@ -3946,6 +3946,21 @@ This document defines the core architectural invariants for the FestDaily applic
           root key of its known area (area keys are ancestor-closed, Rule 1); (3) the account's own
           country when it has one (IDEA-075); (4) the platform default country `id`, recorded with
           source `default`.
+          **`[PROPOSED 2026-10-21, after the owner asked whether the post's language should be
+          extracted]`** insert a step between (1) and (2), **who the post addresses**: the language
+          the post is written in together with the posting account's country, when both point to
+          the same country. An Indonesian-language post from an Indonesian account about an event
+          in Denmark is addressed to Indonesia, while the place order alone would give Denmark
+          (the BWF, Allianz Malaysia and Denmark Open posts are curator posts about foreign
+          events). A language several countries share (English, Spanish, Arabic, Portuguese, and
+          Malay, which is close to Indonesian) points to no single country alone and needs a second
+          cue: a currency (Rp or RM), a phone country code, a time-zone abbreviation, the account's
+          country. The language is already in the insight design (`languages[]`, high reliability
+          in the POC for Indonesian and English only; Javanese and others untested); the
+          extraction call returns it at no extra cost, a deterministic detector can cross-check
+          it, and it must be read at ingestion because curator captions are cleared. Untested:
+          mixed Indonesian and English captions, short captions, and the Indonesian/Malay pair;
+          these go into the audience POC.
         - **A separate fact from the grouping country.** `events.country_key` (AD-36 Rule 17.2) is
           where the event happens, strict, and NULL when unsettled; a defaulted audience country
           never feeds grouping, a pin test or the Nearby claim.
