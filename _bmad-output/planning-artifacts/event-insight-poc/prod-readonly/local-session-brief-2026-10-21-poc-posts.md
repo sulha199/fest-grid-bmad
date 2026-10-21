@@ -31,3 +31,19 @@ Suggested selection (plan §3): 8 to 10 curators, including those that post fore
 ## Hand-back
 
 The summary table the script prints (account, stratum, posts, posts with an empty caption, sources) and the count of posts per stratum. Posts with an empty caption mean the stored output no longer has the caption: say so, because for curators it decides whether a re-download or a new scrape is needed. Then label the posts locally (plan §3, two labellers). Delete the `local/` folder when the POC ends.
+
+## Next: label sheets (`label-sheets.ts`, 9 tests)
+
+After the posts are gathered. Everything stays in the git-ignored `local/` folder; the sheets contain captions so the labellers can read them, and the commands below print ids, label values and counts only.
+
+```
+npx tsx scripts/poc-event-insight/label-sheets.ts make --labeller owner --half all        # the owner labels every post
+npx tsx scripts/poc-event-insight/label-sheets.ts make --labeller wife  --half heldout    # the second labeller: the held-out half only
+npx tsx scripts/poc-event-insight/label-sheets.ts check --sheet local/label-sheet-owner.csv   # blanks and values that are not allowed
+npx tsx scripts/poc-event-insight/label-sheets.ts compare --a local/label-sheet-owner.csv --b local/label-sheet-wife.csv
+npx tsx scripts/poc-event-insight/label-sheets.ts freeze --sheet local/labels-final.csv       # prints the hash to commit; the labels stay local
+```
+
+* The held-out half is fixed by a hash of the post URL (so it is decided before any model output exists and never changes); the labelling guide is `labelling-guide-2026-10-21.md` (Indonesian: `.id.md`). Open the CSV in a spreadsheet, fill the blank label columns with the exact words of the guide, save as CSV (UTF-8).
+* `compare` reports per field the agreement, Cohen's kappa and how many `unclear` answers were skipped, and writes `label-disagreements.local.csv` (post id, field, both answers, a blank `final` column) for the owner to settle once. Kappa is low when almost all answers are the same label even if agreement is high, so read the two numbers together.
+* Not built yet, in this order: the extraction runner (three Gemini runs per labelled post with the owner's key, country and language fields added) and the scorer (the thresholds of plan section 5 on the held-out half).
