@@ -2350,7 +2350,7 @@ items:
      title: "Personalized Discovery: extract each event's target audience (area first), order by it not the venue",
      ref: [backlog/IDEA-074-audience-extraction-and-audience-area-ordering.md, planning-artifacts/event-insight-poc/proposal-personalized-discovery.md, planning-artifacts/event-insight-poc/poc-report.md],
      touches: [app:backend, pkg:domain, pkg:shared-types, pkg:database, web:events, cross:ai-extraction, cross:prd, cross:architecture],
-     note: "POC only. Held-out audience-area result is 18/18 on 6 posts (small). Depends on IDEA-073, BUG-065, BUG-066, IDEA-075."}
+     note: "POC only. 18/18 on 6 author-written posts. Contract in AD-42; gate IDEA-092. Depends on IDEA-073, BUG-065, BUG-066, IDEA-075."}
 
   IDEA-075:
     {type: idea, status: backlog, created: 2026-10-18,
@@ -2570,6 +2570,22 @@ items:
      ref: [backlog/BUG-073-push-pipeline-has-no-credentials-where-it-sends.md, planning-artifacts/event-insight-poc/results/notification-aws-and-owner-sql-findings-2026-10-21.md, apps/backend/src/lib/events/notify-new-event.ts, apps/backend/src/lib/firebase-admin.ts],
      touches: [app:backend, app:infrastructure, cross:notifications],
      note: "Logs 2026-10-07..16: ~40 failed Firebase initialisations a day in Ingestor/AIProcessor; since 10-16 every attempt finds no subscriber with a token. notified_at is claimed before the send, so those events never notify. Recommend releasing the claim when initialisation fails."}
+
+  IDEA-092:
+    {type: idea, status: backlog, created: 2026-10-21,
+     impact: user-visible, effort: m, blocks: [IDEA-074],
+     title: "Audience, language and taxonomy POC: a labelled set of real events, three runs, pre-set thresholds, then the AD-42 reviews",
+     ref: [planning-artifacts/event-insight-poc/audience-and-taxonomy-poc-plan-2026-10-21.md, planning-artifacts/festgrid-architecture-spine.md],
+     touches: [app:backend, pkg:domain, cross:ai-extraction, cross:architecture, cross:process],
+     note: "Gate for AD-42 (audience country, post language, tracks, interest-tag stability, sensitive screen). Needs the owner: thresholds, a second labeller, curator caption capture. Nothing in AD-42 Rules 2-8 ships before it passes."}
+
+  IDEA-093:
+    {type: idea, status: backlog, created: 2026-10-21,
+     impact: user-visible, effort: l, blocks: [IDEA-074],
+     title: "Interest taxonomy, interest profile and the sensitive-interests switch (AD-42 Rules 7-8)",
+     ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/event-insight-poc/proposal-personalized-discovery.md],
+     touches: [app:backend, pkg:database, pkg:domain, web:settings, web:events, web:moderation, cross:prd],
+     note: "Owner 2026-10-21: in launch scope. Non-sensitive learned and stored; sensitive never learned unless a Settings switch, default off, is on. Counsel check on PDP Law pending. Waits for IDEA-092 and the second PRD pass."}
 
   # ── 2026-10-18 (merged from master 2026-10-20, renumbered: dedup GembiRun Loka, re-extract preview) ──
   BUG-070:

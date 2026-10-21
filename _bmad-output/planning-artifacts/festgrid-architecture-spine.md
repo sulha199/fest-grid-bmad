@@ -4250,6 +4250,172 @@ This document defines the core architectural invariants for the FestDaily applic
 
 ---
 
+### AD-42: Event Insight — One Extraction Contract for Audience, Eligibility and Interests, With Guards, Versions and Gates
+
+*   **Binds:** the `insight` object that `geminiEventResponseSchema` and the system instruction
+    (`apps/backend/src/lib/ai-processor/`) return for each extracted event; the guards in
+    `packages/domain` (reference implementations, POC only: `apps/backend/scripts/poc-event-insight/`
+    `insight-schema.ts`, `guards.ts`, `audience-areas.ts`, `tracks.ts`, `country-signals.ts`,
+    `profile-insight.ts`); `events` (the `insight` jsonb and the denormalised columns of Rule 5);
+    the interest tables and `user_settings` (Rules 8 and 9); `extraction_audit_logs` (AD-29); the
+    golden set and the nightly evaluation (Story 9.7's machinery, IDEA-072); AD-39 Rule 8 (the
+    audience-country ladder), AD-30 (primary post, merge), AD-31 (organizer-authored), AD-32 (the
+    vendor wrapper), AD-37 (jsonb writes), AD-38 Rule 5 (backfill key), AD-36 (groups), AD-14 and
+    AD-39 (place). Source proposal: `event-insight-poc/proposal-personalized-discovery.md`
+    (Revisions 2 to 9). IDEA-074 (audience extraction and ordering), IDEA-075 (account country),
+    IDEA-072 (the evaluation machinery).
+*   **Prevents:** A model answer driving a filter, a label or an order without a deterministic check
+    (the POC saw invented ages, a venue read as the audience, "national" from a national-sounding
+    venue name); a national contest held on a local campus sorting as a local event; an
+    Indonesian-language post about an event in Denmark read as aimed at Denmark; two prompt versions
+    silently mixed in one ranking; a sensitive interest (religion, health, politics) inferred from a
+    favorite and stored; a null column read as a penalty for a third of the catalogue (curator
+    captions are cleared, so those events cannot be re-extracted); organizers wording posts to climb
+    the order; a correction that the next re-extraction overwrites; the evaluation and the backfill
+    running on keys nobody owns.
+*   **Rule:**
+    1.  **One extraction call, one `insight` per event.** `[ADOPTED, user-directed 2026-10-21 (key
+        decision); the field list is PROPOSED]` The insight rides on the existing per-post call (no
+        second call: the batching limits of AD-13, the curator caption that is cleared after
+        extraction, and the image tokens all argue against it), so roundups and multi-event posts
+        get one each. Measured marginal cost per post, paired against the same request without it:
+        median +931 input, +242 output tokens, +0.4 s (rules v1, n = 27); +1.3k input (rules v2).
+        Rule 11 says whose key pays.
+    2.  **Fields, and how far each may be trusted.** `[PROPOSED]` `geoScope` (`venue_local | city |
+        region | national | international | online | unspecified`), `targetAreas[]`,
+        `postLanguage` and `languages[]`, `eligibility` (`open_to_public | restricted |
+        unspecified`: membership-type limits only), `tracks[]` (age and gender as separate
+        qualifying categories, numbers only when written), `costTier`, `interests[]` (at most six),
+        `segments[]`, `participationModes[]`, plus `evidence[]` and `confidence`. Reliability in the
+        POC decides the use: `geoScope`, `targetAreas`, language and `costTier` may order or filter;
+        `eligibility` only demotes, never hides; `tracks` feed cards and the "for age N" filter;
+        `segments` and `participationModes` are unstable and carry a weak weight or a label only;
+        `confidence` is logged and never used.
+    3.  **The model proposes, deterministic code verifies.** `[PROPOSED]` Applied before persistence:
+        (a) every evidence quote must occur verbatim in the source text; (b) an age survives only if
+        its number is grounded in a quote within its own clause and its role fits the wording ("45
+        and over" is a minimum), and a closed range's dropped maximum is repaired by code; (c) a
+        gender restriction needs gender wording; (d) `restricted` without restriction wording
+        becomes `unspecified`, log-only until a hard "hide events I cannot attend" filter exists;
+        (e) `national` needs nationwide wording ("seluruh Indonesia", "tingkat nasional"); a
+        national-sounding venue name, "open to the public" and a post with no place or audience
+        never make it national; (f) a `targetArea` or country not in the input is dropped; (g) no
+        venue-derived area is added to a nationwide or international event. Abstentions (a claim a
+        guard dropped) are counted apart from wrong claims.
+    4.  **Audience country: the ladder and its storage.** `[ADOPTED: the ladder, AD-39 Rule 8;
+        the rest PROPOSED]` The stated audience, then who the post addresses (language plus the
+        posting account's country, a second cue for shared languages), then the place country, the
+        account's country, the platform default. Computed after extraction by deterministic code
+        from the guarded model output and the cues (currency such as Rp or RM, a phone country
+        code, a time-zone abbreviation, hashtags) and written with `audience_country_source` and
+        `audience_country_evaluated_with`. It never feeds merging, grouping or a pin check. **Where
+        a nationwide or online event sorts** (open since the PRD extraction): `geo_scope` is a column
+        of its own and a national, international or online event with no area is not `unknown`, so
+        it takes no unknown-area penalty; it sits in the default tier (the POC's tier 1)
+        `[PROPOSED]`. The post language is read at ingestion, because curator captions are cleared
+        once extraction finishes (PRD 3.16): for those events only values captured then exist.
+    5.  **Persistence and versions.** `[PROPOSED]` `events.insight jsonb` (written through the AD-37
+        writer; detail view, `tracks`, debugging) and the few columns the hot path reads, with no
+        join: `audience_country`, `audience_country_source`, `post_language`, `geo_scope`,
+        `target_area_keys text[]` (GIN), later `interest_keys text[]` (GIN), `eligibility`,
+        `languages text[]`. `insight_version` (prompt plus schema) and `insight_source`
+        (`model | moderator | derived`) are stamped. A new version re-derives the deterministic parts
+        (the ladder, the guards) for every event, and re-extracts only events whose caption still
+        exists, through the queue and the AD-32 wrapper at a rate the vendor allows (the POC met
+        429s at about 15 calls a minute); curator events keep their old version. A missing insight
+        ranks neutrally, never as a penalty. Insight follows the **primary** post and is replaced
+        when the primary changes only if the new primary produced one (proposal §6.2 #4, still open);
+        a merge keeps the survivor's insight; an exact-repeat merge recomputes nothing.
+    6.  **Correction and abuse.** `[PROPOSED]` A moderator can correct `audience_country`,
+        `geo_scope` and the target area; the row carries `insight_source = moderator` and a
+        re-extraction never overwrites it. The user correction form (PRD 3.9.1) does not offer
+        derived fields. The effect of any insight on the order is bounded (the date discount of at
+        most three weeks, proposal §4.1), `national` needs verbatim wording (Rule 3e), and a
+        nightly list shows events claiming national or international scope from accounts of local
+        reach for a moderator to read `[ASSUMPTION]`.
+    7.  **Interests become a governed taxonomy.** `[PROPOSED]` The model's six free tags are
+        normalised (case, singular form, diacritics) and mapped through an `interest_tags` table
+        (canonical key, labels in Indonesian and English, `status` of `active | candidate | merged |
+        deprecated`, `merged_into`, `sensitive`) to canonical keys stored on the event. An unmapped
+        tag is a `candidate` until it occurs on enough distinct events and accounts (`[ASSUMPTION]`
+        start value 5 and 3) or a moderator promotes it; merging, renaming and deprecating are
+        moderator actions that rewrite the stored keys. The closed `EventCategory` (18 values) and
+        `EventType` (12) stay as coarse facets; interests refine them and may name a parent category.
+        The `sensitive` flag marks religion and spirituality, civic or political, health conditions,
+        sexuality and ethnicity, by a deterministic list plus a moderator flag. Untested: nothing is
+        measured yet on tag stability, tail length or coverage; the POC (Rule 10) measures them.
+    8.  **The interest profile and its privacy.** `[ADOPTED, user-directed 2026-10-21; details
+        PROPOSED]` The profile learns from favorites and calendar adds, with a time decay
+        (`[ASSUMPTION]` half-life 30 days), and from onboarding chips. Non-sensitive interests are
+        stored in `user_interest_profile (user_id, interest_key, weight, last_event_at)` for signed-in
+        users, `ON DELETE CASCADE` from the user, and in the browser for anonymous visitors, sent with
+        a Discovery request as a bound parameter array of at most 20 keys, never joined in the hot
+        query and never written to a request log or an analytics event. Events in sensitive
+        categories or with sensitive tags never enter what the profile learns and never change a
+        score; they rank like any other event. `user_settings.use_sensitive_interests boolean NOT
+        NULL DEFAULT false` is the Settings switch: when it is on, sensitive interests are learned and
+        stored with the rest and sensitive chips are offered; switching it off deletes the sensitive
+        rows in one transaction. Reset and switch-off of the whole profile are in Settings. Counsel
+        checks this against Indonesia's PDP Law before launch (unverified).
+    9.  **Ranking reads, it does not decide.** `[PROPOSED]` The area tier and the bounded date
+        discount are one `ORDER BY` expression with bound parameters (proposal §4); the reference
+        scorer in `packages/domain` is the one definition and the SQL is tested for parity against
+        it. Sort RECOMMENDED versus SOONEST is a flag with a visible toggle, and the default for
+        signed-in users is decided with the replay (proposal §6.2 #2). Ranking ships behind the
+        flags of the AD-36 Rule 13 gate and after IDEA-076 (the scale-safe list).
+    10. **The gates and the sequence.** `[ADOPTED: the sequence, user-directed 2026-10-20 and
+        2026-10-21; the thresholds are ASSUMPTIONS to be set before the run]` Nothing in Rules 2 to 8
+        ships before: (i) a labelled set of 150 to 200 **real** events (strata: local, national,
+        foreign-located posted in Indonesian, online, curator, multi-country, mixed-language
+        captions), labelled by two people, with the labels frozen before any run; (ii) three
+        extraction runs per event, scored on a held-out half; (iii) pre-registered thresholds, for
+        example audience country at least 95% exact and at least 90% on the foreign and shared-language
+        strata, no critical error (an invented age, a wrongly national event, a wrong country on an
+        event that states one, a non-verbatim quote), run-to-run agreement at least 95%, abstention
+        at most 15%; (iv) the architect reviews of the Reviewer Gate (rubric walker, adversarial
+        two-units, data-integrity) and a code review of the POC code; (v) a nightly evaluation on the
+        golden set once live. The plan is `event-insight-poc/audience-and-taxonomy-poc-plan-2026-10-21.md`.
+    11. **Whose key pays.** `[ADOPTED, user-directed 2026-10-21]` Subscribers' keys for the per-post
+        insight on new posts; a platform key only for the one-time backfill of insight for existing
+        events and for the nightly evaluation, never for new-post extraction. Tokens and calls are
+        counted per purpose in `extraction_audit_logs` (AD-29 Rule 1).
+*   **Enforced by:** unit tests of every guard on fixtures (the POC's `guards.test.ts`, `tracks.test.ts`
+    promoted); AJV parity between the response schema and the domain types; the ladder's tests per
+    step, including the Indonesian-language post about a foreign event and the Indonesian/Malay pair;
+    a source-scan ratchet that the learner reads the sensitive set and that no request logger or
+    analytics call receives the interest parameter; a test that switching the sensitive switch off
+    deletes its rows; the SQL-versus-domain parity test of Rule 9; the EXPLAIN check of the list
+    query; the nightly golden-set evaluation.
+*   **Considered and rejected:** a second "insight pass" per post (doubles requests, cannot see a
+    cleared caption); one age minimum and maximum per event (it invents numbers: the colouring
+    contest, the fun run); the model's confidence as a threshold (unreliable in the POC); storing
+    evidence quotes (verbatim caption text); an embedding service now (it would add a vendor and
+    trigger the architecture-diagram rule); sensitive interests kept only on the device and sent per
+    request (still processed on the server, one browser only); on-device re-ranking of sensitive
+    interests (complex, covers only the loaded results); penalising sensitive events (it buries them
+    for everyone); a bulk default audience country for existing events.
+*   **Deferred:** the open ranking decisions of proposal §6.2 (the default sort, anonymous visitors
+    with a location, "Near you" versus the Nearby badge, the horizon, whether a saved location's
+    radius counts); tags as FilterHub facets and the AI-filter vocabulary; the ordering of the
+    embeddable widget; personalised push notifications; languages beyond Indonesian and English;
+    organizer-facing analytics; the real-curator evaluation of the profile area guess (AD-39);
+    the exact sensitive list (decided with counsel).
+*   **Follow-ups this AD creates (for `bmad-form-epics` to cluster):**
+    1.  **The POC** — the labelled set, the runs, the scoring code and the two reviews (Rule 10);
+        precedes every other follow-up.
+    2.  **Extraction contract** — schema, prompt, guards, persistence, versions, audit counters
+        (Rules 1 to 6, 11).
+    3.  **Taxonomy** — `interest_tags`, normalisation, governance actions, the sensitive list (Rule 7).
+    4.  **Interest profile** — the table, the learner, the anonymous parameter, the Settings switch,
+        reset and deletion (Rule 8).
+    5.  **Evaluation and backfill** — the nightly golden-set run, the platform-key backfill (Rules 5,
+        10, 11).
+    6.  **Ranking** — the Epic 10 Phase B stories, rebuilt on this contract (Rule 9; IDEA-076 first).
+    7.  **PRD second pass** — ranking, tracks, interests, the taxonomy and the Settings switch, after
+        follow-up 1.
+
+---
+
 ## Related Documents
 
 - [Infrastructure](../../docs/infrastructure/index.md)
