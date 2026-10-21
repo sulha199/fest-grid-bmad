@@ -70,6 +70,27 @@ The owner proposed: the **frontend public** (it changes most and benefits from t
 * The migration waits until the personalization epics are ready for development, then happens before any premium code is written, so no premium code is ever pushed to a public remote. Until then the planning documents stay in this repository, which is public: the AD-42 text, the proposal, the POC and its findings, the labelling guide. The owner may flip the repository to private at any time without migrating anything (a settings change, reversible); doing so now closes that exposure and takes the portfolio offline until the public child exists.
 * Costs to check: the GitHub plan for the private repository; Vercel's free plan is for non-commercial use, so a paid product probably needs Pro; the licenses (the existing MIT copies stay MIT; the public child can keep MIT or use a source-available license; the private code is proprietary). Take advice.
 
+## 0c. Adopted (owner, 2026-10-21): the client/server split, three repositories, and how the interim works
+
+Adopted as the plan: the split of section 0b. The owner changed one point: the **current repository stays as it is**, paused (no GitHub Actions), as a public portfolio artifact with a link to the new public repository; the migration creates **two new repositories**, a private parent and a public child (the frontend and shared public packages).
+
+| Repository | Visibility | Role |
+|---|---|---|
+| Today's `sulha199/fest-grid-bmad` | public, frozen | Portfolio artifact of the project and its method on `master`; GitHub Actions disabled (or the repository archived); a README link to the public child; its Vercel connection, secrets and integrations removed after the cut-over. |
+| New private parent | private | Backend, infrastructure, database, `graphql-select`, the premium packages, all BMad documents and tooling; includes the public child as a submodule; deploys the backend. |
+| New public child | public | Frontend and shared public packages (section 0b); Vercel deploys the production frontend from it, so the production URL does not change. |
+
+### Interim rules (owner decision: keep the repository public, work only on this branch)
+
+* All work goes to the branch `claude/ecstatic-shannon-e8eh9h` and nowhere else. No pull request and no merge into `master`: on 2026-10-21 `master` holds none of the personalization planning, the POC, the production findings or this plan (the branch is 93 commits ahead of it and holds all of them; `master` has 2 commits the branch does not), so the artifact repository stays clean of them.
+* The migration starts only when the personalization epics are ready for development. Before it, merge `master` into the branch once more (other work lands there), run the secret scan, and migrate from that merged state. Premium code is written only after the migration.
+* After the migration the branch is deleted. Deleting it does not unpublish what was pushed: the commits stay fetchable by their hash on GitHub until it collects them, clones and caches may keep copies, and the repository has 0 forks and 1 star today. If something in the branch must not stay (a key, a person's data), GitHub's sensitive-data removal process is the route, not branch deletion. The interim exposure (the planning documents on the branch) is accepted by the owner.
+* Until then the production frontend and backend keep deploying from `master` of this repository as they do today.
+
+### Still open
+
+How much history the new repositories carry (the private parent can start from the branch with its history; the public child either keeps only the history of its paths, after a secret scan, or starts fresh); the licenses of the public child and the artifact; whether to archive the old repository or only disable Actions; the registry or submodule details; the GraphQL contract export; the Vercel plan.
+
 ## 1. Why the timing is good
 
 No premium code exists in production yet. What exists is planning (AD-42, the proposal), a POC under `apps/backend/scripts/poc-event-insight/`, and its analysis files. So the split costs a documentation move and a seam, not a rewrite. The longer premium code is written in the public repository first, the more has to be extracted later.
