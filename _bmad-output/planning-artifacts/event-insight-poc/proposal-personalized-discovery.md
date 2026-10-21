@@ -58,6 +58,13 @@ Analysis and measurements are in [`proposal-discovery-ranking-and-scale.md`](./p
 24. **AI filter partial matches are possible** as a separate bounded "closest matches" lane with a score and the unmet conditions — not as scoring inside `Query.events` (140–458 ms) (IDEA-077).
 25. **Freshness (post `published_at`, ≤7 days earlier) and session-snapshot demotion of already-seen events (≤14 days later, never within 3 days)** are bounded perturbations of the date order, nearly free to compute; the seen term is an A/B (IDEA-078).
 
+### Revision 9 — decisions from the 2026-10-21 PRD pass (owner)
+
+26. **Launch scope is the whole plan** (audience, tracks, taxonomy, interest profile, ranking), although the app is not released and its 2 users are the owner's; nothing that learns from favorites can be evaluated on real behaviour before launch. The gates stay (golden set, nightly eval, 0 critical errors), ranking ships behind flags, and the default sort is decided later (§6.2 #2).
+27. **Every event carries an audience country** (a code or `international`), found by a first-source-that-answers ladder: the stated audience; **who the post addresses** (the post's language together with the posting account's country, a second cue for shared languages such as English or Malay); the place country; the account's country; the platform default, recorded as defaulted. It is separate from the place country that grouping and merging use (AD-39 Rule 8).
+28. **Whose key pays:** subscribers' keys for the per-post insight on new posts; a platform key only for the one-time backfill and the nightly evaluation (AD-39 Rule 8).
+29. **Interest profile privacy.** The profile learns from favorites and calendar adds. Non-sensitive interests are stored on the server for signed-in users and in the browser for anonymous visitors. Events in sensitive categories (religion and spirituality, civic or political, and sensitive tags such as a health condition) never enter what the profile learns and never change scores; they rank like any other event. A Settings switch, **default off**, lets a user opt in to using sensitive interests; once on they are stored with the rest, and turning it off deletes them. Sensitive topics are not offered as onboarding chips unless the switch is on. Reset and switch-off for the whole profile are in Settings; it is deleted with the account. Counsel should check this against Indonesia's PDP Law (not verified here).
+
 ## 1. Recommendation
 
 **Build it, in two gated phases.** The POC says Gemini can extract *who an event is for and where its audience is* well enough to rank on — for some fields. For others it can't, and the design below uses each field only as far as the evidence supports.
