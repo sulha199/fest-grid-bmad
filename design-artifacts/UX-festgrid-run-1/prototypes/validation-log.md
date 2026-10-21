@@ -48,4 +48,7 @@ spec state has no fidelity record here. Flagged rather than reconstructed; see `
 IDEA-046 (`_bmad-output/implementation-artifacts/backlog/IDEA-046-prototype-fidelity-residuals.md`,
 renumbered from IDEA-043) for the rules and their implementation status.
 
+## Round 9 -- 2026-10-21, places, groups and the moderator queue
+
+Two key-screen mocks, not card prototypes from a reference PNG: `mockups/keyscreens-cards-groups-places-2026-10-21.html` and `mockups/keyscreens-moderator-2026-10-21.html` (screenshots in `mockups/screens/`). Rendered with the local tailwindcss 3.4.1 CLI and Playwright because the Tailwind CDN is not reachable from this environment; the HTML files still load the CDN script when opened in a browser. Checked at the real widths (masonry 175 and 230, row 326 and 655, day cell 174x128, popover 320, page 1024, sheet 420, dialogs 448): no overflow and no console errors. One defect found and fixed by the real-width render: a long area name pushed the repeat icon onto a line of its own (the place badge is now capped at `calc(100%-1.5rem)` and truncates). The mocks follow the `[ASSUMPTION]` entries of the UX memlog; DESIGN.md and EXPERIENCE.md win on conflict.
 

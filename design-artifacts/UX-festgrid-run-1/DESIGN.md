@@ -2,7 +2,7 @@
 title: "DESIGN.md: festgrid"
 status: "draft"
 created: "2026-07-13T22:33:00Z"
-updated: "2026-09-18T00:00:00Z"
+updated: "2026-10-21T00:00:00Z"
 sources:
   - "_bmad-output/planning-artifacts/prfaq-festgrid.md"
   - "_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md"
@@ -205,6 +205,38 @@ components:
     negative: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200" # invalid, upheld, reverted, removedByModeration
     pendingReview: "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200" # pending, pendingReview, hiddenByMe
     superseded: "bg-slate-100 dark:bg-slate-900/30 text-slate-800 dark:text-slate-200" # added 2026-08-24 (AD-11) -- shares expired's neutral/grey treatment: a superseded request isn't wrong or reverted, it's simply no longer the live one
+  lane_heading: # Added 2026-10-21 -- PRD 3.20 lanes ("closest matches", "no exact location"); a full-width row between two masonry segments (EXPERIENCE.md Component Patterns > Lane Headings and the Location Filter's Area Mode). Mock: mockups/keyscreens-cards-groups-places-2026-10-21.html section 4
+    base: "px-2 pt-5 pb-2 flex flex-col gap-0.5"
+    title: "text-base font-semibold text-foreground" # an h2
+    subtitle: "text-xs text-muted-foreground"
+  area_picker: # Added 2026-10-21 -- shared by the Discovery location filter's Area mode and the moderator's audience-area dialog; a searchable hierarchy, level always written out as text
+    row: "w-full min-h-11 px-3 flex items-center justify-between gap-2 text-left text-sm"
+    row_selected: "bg-violet-50 font-semibold"
+    row_disabled: "text-slate-400" # e.g. the whole country in the audience-area dialog, with "too wide" as its level text
+    level: "text-xs font-normal text-slate-600"
+    group_label: "px-3 text-xs font-semibold text-slate-600"
+  event_detail_place_line: # Added 2026-10-21 -- event page place text by precision (EXPERIENCE.md Component Patterns > Event Page Place Line by Precision)
+    area_line: "flex items-center gap-1.5 text-sm text-slate-700" # lucide Map icon w-4 h-4 + "Area: {areaLabel}"
+    note: "text-xs text-slate-600"
+  event_detail_group_section: # Added 2026-10-21 -- "Part of {group}" section on the event page (EXPERIENCE.md Component Patterns > Event Groups)
+    heading: "text-sm font-semibold flex items-center gap-1.5" # an h2, lucide Layers w-4 h-4; same size as the Related Events headings
+    kind_line: "text-xs text-slate-600"
+    show_all: "self-start min-h-11 px-3 text-sm font-medium text-violet-700 underline inline-flex items-center gap-1" # expands in place, aria-expanded
+  queue_nav: # Added 2026-10-21 -- Moderator Items "On this page" jump links
+    list: "flex flex-wrap gap-2"
+    pill: "min-h-11 inline-flex items-center px-3 rounded-full border border-slate-300 bg-card text-sm"
+    pill_count: "ml-1 inline-flex items-center justify-center min-w-[1.4rem] h-[1.4rem] px-1 rounded-full bg-slate-200 text-slate-800 text-[11px] font-semibold"
+  queue_row: # Added 2026-10-21 -- one queue item on Moderator Items (groups to review, curators, automatic merges)
+    base: "border border-slate-200 rounded-lg bg-card p-4 flex flex-wrap items-start justify-between gap-3"
+    body: "min-w-0 flex-1 basis-80 flex flex-col gap-1.5"
+    actions: "flex items-center gap-2"
+  queue_chip: # Added 2026-10-21 -- outlined neutral chip for a row's kind or state; deliberately NOT status_badge (that palette means review outcome)
+    base: "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium bg-background text-slate-700 border border-slate-300"
+    unresolved: "border-dashed border-slate-400" # a state with no value yet (e.g. a curator with no audience area); lucide CircleHelp icon
+  count_badge: # Added 2026-10-21 -- backs packages/ui/src/core/count-badge.tsx; documented here with the moderator pending-item badge amendment (EXPERIENCE.md Component Patterns > Moderator Pending-Item Badge)
+    base: "min-w-[1.25rem] h-5 px-1 rounded-full bg-destructive text-destructive-foreground text-[11px] font-semibold flex items-center justify-center leading-none" # text floor 11px (the shipped 10px / 1.1rem is raised)
+    avatar_position: "absolute -top-1 -end-1" # only while the profile menu is closed
+    max: 99 # shows "99+" above; the shipped cap of 9 saturated permanently
   nav:
     bottom_tab_bar: "fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t bg-background md:hidden"
     sidenav_rail: "fixed inset-y-0 start-0 z-40 hidden md:flex md:flex-col md:items-center xl:items-stretch w-16 xl:w-56 border-e bg-background py-4"

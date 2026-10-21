@@ -2603,6 +2603,14 @@ items:
      touches: [cross:architecture, cross:process, app:backend, pkg:domain, pkg:database, app:infrastructure, web:events],
      note: "Owner chose open-core 2026-10-21 over making the repo private. No premium code in production yet, so the split is cheap now. Open: the premium boundary, where new premium docs go meanwhile, registry, schema and GraphQL approach."}
 
+  FIND-094:
+    {type: finding, status: backlog, created: 2026-10-21,
+     impact: user-visible, effort: s,
+     title: "Moderator pages and badges fall short of the UX floor: hard-coded English toasts, a pending row dimmed by opacity alone, a pending-item badge that saturates at 9+, is 10px and has no accessible name",
+     ref: ["apps/web/src/app/[locale]/moderator/items/moderator-items-content.tsx", "apps/web/src/app/[locale]/moderator/tools/duplicate-events-content.tsx", packages/ui/src/core/count-badge.tsx, design-artifacts/UX-festgrid-run-1/.working/baseline-map-2026-10-21.md],
+     touches: [web:moderation, pkg:ui, cross:i18n],
+     note: "Found 2026-10-21 by the UX baseline map (C21, C26, C29). Fix with the UX update: ModeratorItemsPage strings with en/id parity, no opacity-only pending state, badge cap 99+, 11px, accessible names. DESIGN.md status_badge lists 4 of 18 variants."}
+
   # ── 2026-10-18 (merged from master 2026-10-20, renumbered: dedup GembiRun Loka, re-extract preview) ──
   BUG-070:
     {type: bug, status: done, created: 2026-10-18,
