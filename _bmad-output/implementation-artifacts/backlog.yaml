@@ -2595,6 +2595,14 @@ items:
      touches: [cross:process, cross:architecture],
      note: "GitHub shows visibility public since creation (2026-07-20); 0 forks, 1 star. Owner plans personalization as a premium feature. Options: make the repo private (keeps history, secrets, Vercel link), a new private repo, or open-core. Anything already public stays MIT for those who copied it."}
 
+  IDEA-094:
+    {type: idea, status: backlog, created: 2026-10-21,
+     impact: internal, effort: l, blocks: [IDEA-093],
+     title: "Open-core split: public MIT core, private premium package and repository, ports with no-op defaults, entitlements, split BMad documents",
+     ref: [planning-artifacts/open-core-split-plan-2026-10-21.md],
+     touches: [cross:architecture, cross:process, app:backend, app:web, pkg:domain, pkg:database, app:infrastructure],
+     note: "Owner chose open-core 2026-10-21 over making the repo private. No premium code in production yet, so the split is cheap now. Open: the premium boundary, where new premium docs go meanwhile, registry, schema and GraphQL approach."}
+
   # ── 2026-10-18 (merged from master 2026-10-20, renumbered: dedup GembiRun Loka, re-extract preview) ──
   BUG-070:
     {type: bug, status: done, created: 2026-10-18,
