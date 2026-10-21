@@ -23,19 +23,36 @@
  * resolve to the same leaf fields as its fixture. The variant kind rotates with
  * `GOLDEN_EVAL_VARIANT_SEED` (default: the UTC day number), so coverage widens night by night while
  * any failure stays reproducible by re-running with the printed seed.
+ *
+ * `GOLDEN_EVAL_DAILY_BUDGET=<n>` windows the run for a quota-capped key (a free-tier flash model
+ * allows ~20 requests/day, far below the ~90 calls of a full run with variants). At most n Gemini
+ * calls are made, retries included; the window is chosen by `planGoldenEvalWindow` -- never-evaluated
+ * fixtures first, then fixtures that drifted last time, then the stalest -- and every fixture left
+ * out stays pending, highest-priority-first, for the next run. A Gemini per-day 429 ends the run
+ * early the same way (a warning, not a failure) instead of discarding the run. Unset (or 0) runs the
+ * whole suite, as a paid key should.
+ *
+ * `GOLDEN_EVAL_LEDGER_PATH=<file>` is where the "what was evaluated when, and did it drift" ledger
+ * is read from and written to between runs (the nightly workflow caches it with actions/cache).
+ * Without it every run starts from an empty ledger, so a windowed run always picks the same window.
  */
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import {
   GOLDEN_PROMPT_FIXTURES,
   dropUnsupportedVenueTypes,
+  parseGoldenEvalLedger,
   pickPromptVariant,
+  planGoldenEvalWindow,
   summarizeGoldenPromptDrift,
   summarizeMetamorphicDrift,
   transformGeminiResponseToFilterExpression,
+  type GoldenEvalLedger,
 } from '@festgrid/domain/ai-event-filters';
 import { buildFilterExtractionSystemInstruction, buildFilterExtractionResponseSchema } from '../src/lib/ai-event-filters/build-filter-extraction-request.js';
 import { callGeminiGenerateContent } from '../src/lib/ai-gateway/gemini-client.js';
 import { loadBackendEnv } from '../src/env.js';
-import { nextEvalRetryDelayMs } from '../src/lib/ai-gateway/eval-retry-policy.js';
+import { isEvalDailyQuotaError, nextEvalRetryDelayMs } from '../src/lib/ai-gateway/eval-retry-policy.js';
 
 // Free-tier keys allow ~15 requests/minute, and a run with variants makes ~120 calls: space calls
 // out (default 4.5s ~= 13/min) instead of only reacting to 429s. Set GOLDEN_EVAL_MIN_INTERVAL_MS=0
@@ -43,24 +60,54 @@ import { nextEvalRetryDelayMs } from '../src/lib/ai-gateway/eval-retry-policy.js
 const MIN_INTERVAL_MS = Number(process.env.GOLDEN_EVAL_MIN_INTERVAL_MS ?? 4500);
 let lastCallAt = 0;
 
+// Hard cap on Gemini requests this run (every retry attempt counts); Infinity = the whole suite.
+const rawBudget = Number(process.env.GOLDEN_EVAL_DAILY_BUDGET ?? 0);
+const CALL_BUDGET = Number.isFinite(rawBudget) && rawBudget >= 1 ? Math.floor(rawBudget) : Infinity;
+let attemptsUsed = 0;
+
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+// Thrown to end the run early with the rest of the window left pending (not a drift, not a crash).
+class EvalStopped extends Error {}
 
 // One transient failure (503, connection reset, per-minute 429) must not abort a ~120-call run.
 // A per-day quota or a non-transient error propagates immediately (see eval-retry-policy.ts).
 async function callWithRetry<T>(call: () => Promise<T>): Promise<T> {
   for (let attempt = 1; ; attempt++) {
+    if (attemptsUsed >= CALL_BUDGET) throw new EvalStopped(`the ${CALL_BUDGET}-call budget is spent`);
     const wait = lastCallAt + MIN_INTERVAL_MS - Date.now();
     if (wait > 0) await sleep(wait);
     lastCallAt = Date.now();
+    attemptsUsed++;
     try {
       return await call();
     } catch (err) {
-      const delayMs = nextEvalRetryDelayMs(String((err as Error)?.message), attempt);
+      const message = String((err as Error)?.message);
+      if (isEvalDailyQuotaError(message)) throw new EvalStopped('Gemini reports the per-day quota is exhausted');
+      const delayMs = nextEvalRetryDelayMs(message, attempt);
       if (delayMs === undefined) throw err;
       console.log(`Gemini call failed (attempt ${attempt}); retrying in ${Math.round(delayMs / 1000)}s: ${String((err as Error)?.name)}`);
       await sleep(delayMs);
     }
   }
+}
+
+const ledgerPath = process.env.GOLDEN_EVAL_LEDGER_PATH;
+
+function loadLedger(knownFixtureIds: readonly string[]): GoldenEvalLedger {
+  if (!ledgerPath || !existsSync(ledgerPath)) return {};
+  try {
+    return parseGoldenEvalLedger(JSON.parse(readFileSync(ledgerPath, 'utf8')), knownFixtureIds);
+  } catch {
+    console.log(`Ignoring unreadable ledger at ${ledgerPath}; every fixture counts as never evaluated.`);
+    return {};
+  }
+}
+
+function saveLedger(ledger: GoldenEvalLedger): void {
+  if (!ledgerPath) return;
+  mkdirSync(dirname(ledgerPath), { recursive: true });
+  writeFileSync(ledgerPath, `${JSON.stringify(ledger, null, 2)}\n`);
 }
 
 async function main(): Promise<void> {
@@ -79,7 +126,7 @@ async function main(): Promise<void> {
   const onlyCategory = process.env.GOLDEN_EVAL_CATEGORY;
   const fixtures = onlyCategory ? GOLDEN_PROMPT_FIXTURES.filter((f) => f.category === onlyCategory) : GOLDEN_PROMPT_FIXTURES;
   console.log(`Golden-prompt live eval model: ${filterModel}; fixtures: ${fixtures.length}`);
-  const results = [];
+  const results: Array<{ fixtureId: string; drifted: boolean; details: string }> = [];
 
   // Same pipeline as `resolvePromptToEventFilter`: Gemini -> transform -> venueType guard.
   async function resolveLive(prompt: string) {
@@ -111,23 +158,44 @@ async function main(): Promise<void> {
   }
   const variantResults = [];
 
-  for (const [index, fixture] of fixtures.entries()) {
-    const liveResult = await resolveLive(fixture.prompt);
-    if (liveResult) {
-      results.push(summarizeGoldenPromptDrift(fixture, liveResult));
-    } else {
-      results.push({ fixtureId: fixture.id, drifted: true, details: 'live response was not valid JSON' });
-    }
+  // The ledger spans the whole suite, so a GOLDEN_EVAL_CATEGORY run never forgets the other categories.
+  const ledger = loadLedger(GOLDEN_PROMPT_FIXTURES.map((f) => f.id));
+  const window = planGoldenEvalWindow(fixtures, ledger, { budget: CALL_BUDGET, withVariants: runVariants });
+  const countReason = (reason: string) => window.filter((item) => item.reason === reason).length;
+  console.log(
+    `Window: ${window.length}/${fixtures.length} fixtures (${countReason('never-evaluated')} never evaluated, ${countReason('drift-recheck')} drift rechecks, ${countReason('stalest')} stalest); ` +
+      `call budget ${Number.isFinite(CALL_BUDGET) ? CALL_BUDGET : 'unlimited'}.`
+  );
 
-    const variant = runVariants ? pickPromptVariant(fixture, index, seed) : undefined;
-    if (variant) {
-      const variantLive = await resolveLive(variant.prompt);
-      variantResults.push(
-        variantLive
+  const runAt = new Date().toISOString();
+  const nextLedger: GoldenEvalLedger = { ...ledger };
+  let stoppedReason: string | undefined;
+  try {
+    for (const { fixture, index, withVariant } of window) {
+      const liveResult = await resolveLive(fixture.prompt);
+      const baseResult = liveResult
+        ? summarizeGoldenPromptDrift(fixture, liveResult)
+        : { fixtureId: fixture.id, drifted: true, details: 'live response was not valid JSON' };
+      results.push(baseResult);
+      // Recorded before the variant call, so a run that ends there still counts the base prompt as evaluated.
+      nextLedger[fixture.id] = { lastEvaluatedAt: runAt, drifted: baseResult.drifted };
+
+      const variant = runVariants && withVariant ? pickPromptVariant(fixture, index, seed) : undefined;
+      if (variant) {
+        const variantLive = await resolveLive(variant.prompt);
+        const variantResult = variantLive
           ? summarizeMetamorphicDrift(fixture, variant, variantLive)
-          : { fixtureId: fixture.id, kind: variant.kind, variantPrompt: variant.prompt, drifted: true, details: 'live response was not valid JSON' }
-      );
+          : { fixtureId: fixture.id, kind: variant.kind, variantPrompt: variant.prompt, drifted: true, details: 'live response was not valid JSON' };
+        variantResults.push(variantResult);
+        nextLedger[fixture.id] = { lastEvaluatedAt: runAt, drifted: baseResult.drifted || variantResult.drifted };
+      }
     }
+  } catch (err) {
+    if (!(err instanceof EvalStopped)) throw err;
+    stoppedReason = err.message;
+  } finally {
+    // Even a crash keeps what this run evaluated; a fixture it never reached keeps its old priority.
+    saveLedger(nextLedger);
   }
 
   const drifted = results.filter((r) => r.drifted);
@@ -144,7 +212,14 @@ async function main(): Promise<void> {
       console.log(`::warning::Metamorphic drift on "${r.fixtureId}" (${r.kind}, seed ${seed}): ${r.details}`);
     }
   }
-  if (drifted.length > 0 || driftedVariants.length > 0) {
+
+  const pending = fixtures.filter((f) => !results.some((r) => r.fixtureId === f.id)).length;
+  console.log(`Evaluated ${results.length}/${fixtures.length} fixtures with ${attemptsUsed} Gemini requests; ${pending} pending for the next runs.`);
+  if (stoppedReason) {
+    console.log(`::warning::Golden-prompt eval stopped early: ${stoppedReason}. The unevaluated fixtures keep their priority for the next run.`);
+  }
+  // A quota stop after some evaluations is routine; one before the first result left no signal at all.
+  if (drifted.length > 0 || driftedVariants.length > 0 || (stoppedReason && results.length === 0)) {
     process.exitCode = 1;
   }
 }

@@ -50,6 +50,11 @@ const NEUTRAL_TYPOS: ReadonlyArray<readonly [string, string]> = [
  */
 const VARIANT_SKIPPED_CATEGORIES: ReadonlySet<GoldenPromptFixture['category']> = new Set(['over-limit', 'off-topic']);
 
+/** Whether `pickPromptVariant` can ever produce a variant for `fixture` -- lets a caller budget the extra call up front. */
+export function canHavePromptVariant(fixture: GoldenPromptFixture): boolean {
+  return !VARIANT_SKIPPED_CATEGORIES.has(fixture.category);
+}
+
 function applyTypo(prompt: string): string | undefined {
   for (const [word, typo] of NEUTRAL_TYPOS) {
     const pattern = new RegExp(`\\b${word}\\b`, 'i');
@@ -84,7 +89,7 @@ function build(fixture: GoldenPromptFixture, kind: PromptVariantKind, seed: numb
  * through to the next. Returns `undefined` only for categories variants cannot meaningfully test.
  */
 export function pickPromptVariant(fixture: GoldenPromptFixture, fixtureIndex: number, seed: number): PromptVariant | undefined {
-  if (VARIANT_SKIPPED_CATEGORIES.has(fixture.category)) {
+  if (!canHavePromptVariant(fixture)) {
     return undefined;
   }
   const start = fixtureIndex + seed;

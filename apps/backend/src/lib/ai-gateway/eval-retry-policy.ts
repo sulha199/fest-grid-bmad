@@ -12,12 +12,23 @@ export const EVAL_MAX_ATTEMPTS = 6;
 const MAX_DELAY_MS = 120_000;
 const DEFAULT_RATE_LIMIT_DELAY_MS = 60_000;
 
+const isRateLimited = (message: string) => /\b429\b|RESOURCE_EXHAUSTED/.test(message);
+
+/**
+ * True when Gemini rejected the call because the key's per-DAY quota (e.g. 20 RPD on a free-tier
+ * flash model) is spent. Nothing can succeed until the quota resets, so the eval stops and leaves
+ * the rest of its window pending instead of failing the whole run.
+ */
+export function isEvalDailyQuotaError(message: string): boolean {
+  return isRateLimited(message) && /PerDay|per day/i.test(message);
+}
+
 export function nextEvalRetryDelayMs(message: string, attempt: number): number | undefined {
   if (attempt >= EVAL_MAX_ATTEMPTS) {
     return undefined;
   }
-  if (/\b429\b|RESOURCE_EXHAUSTED/.test(message)) {
-    if (/PerDay|per day/i.test(message)) {
+  if (isRateLimited(message)) {
+    if (isEvalDailyQuotaError(message)) {
       return undefined;
     }
     const hint = /retry in ([\d.]+)s/i.exec(message);

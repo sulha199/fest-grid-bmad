@@ -338,6 +338,19 @@ this key is consumed only by a CI workflow, never by a deployed Lambda. Structur
 from both BYOK keys and `SYSTEM_GEMINI_API_KEY`: it is never used for post extraction or
 default-location inference, only for the nightly eval script's own calls.
 
+*Free-tier quota (windowed runs):* a free-tier flash model allows only ~20 requests/day, far fewer
+than the ~90 calls of a full run (49 fixtures + their metamorphic variants). The workflow therefore
+sets `GOLDEN_EVAL_DAILY_BUDGET: '20'`: each night evaluates a window of the suite, and every fixture
+that did not fit stays pending for the next night. The window is chosen from a small ledger
+(`GOLDEN_EVAL_LEDGER_PATH`, kept between nights in the Actions cache): fixtures never evaluated
+first, then fixtures that drifted last time (capped at a quarter of the budget), then the stalest.
+A full rotation takes ~5 nights with variants on (~3 without -- unset `GOLDEN_EVAL_VARIANTS` to
+trade variant coverage for faster base-fixture coverage). If Gemini returns a per-day 429 the run
+stops early with a warning (it fails only if nothing was evaluated). Moving to a paid key: delete
+`GOLDEN_EVAL_DAILY_BUDGET` (and set `GOLDEN_EVAL_MIN_INTERVAL_MS` to `'0'`) to run the whole suite
+every night again. A manual `workflow_dispatch` on the same day spends the same daily quota a
+second time, so expect it to stop early.
+
 ## 9. Scraper Adapter (Apify)
 
 Apify's `apify/instagram-scraper` actor is the concrete Instagram `ScraperAdapter` implementation (Story 3.4). This is a single, **app-funded** credential the application itself owns and pays for — never a per-user BYOK key, unlike the Gemini setup above.

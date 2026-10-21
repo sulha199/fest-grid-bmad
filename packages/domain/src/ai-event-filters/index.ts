@@ -14,4 +14,5 @@ export * from './render-filter-expression-summary.js';
 export * from './golden-prompts/golden-prompt-fixtures.js';
 export * from './golden-prompts/compute-golden-prompt-drift.js';
 export * from './golden-prompts/generate-prompt-variants.js';
+export * from './golden-prompts/plan-golden-eval-window.js';
 export * from './prompt-filter-rate-limit.js';
