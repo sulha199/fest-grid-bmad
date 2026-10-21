@@ -2587,6 +2587,14 @@ items:
      touches: [app:backend, pkg:database, pkg:domain, web:settings, web:events, web:moderation, cross:prd],
      note: "Owner 2026-10-21: in launch scope. Non-sensitive learned and stored; sensitive never learned unless a Settings switch, default off, is on. Counsel check on PDP Law pending. Waits for IDEA-092 and the second PRD pass."}
 
+  FIND-092:
+    {type: finding, status: backlog, created: 2026-10-21,
+     impact: internal, effort: xs,
+     title: "The repository is public (MIT) and holds the premium personalization plans, AD-42, the POC code and production findings",
+     ref: [LICENSE, planning-artifacts/event-insight-poc/proposal-personalized-discovery.md, planning-artifacts/festgrid-architecture-spine.md],
+     touches: [cross:process, cross:architecture],
+     note: "GitHub shows visibility public since creation (2026-07-20); 0 forks, 1 star. Owner plans personalization as a premium feature. Options: make the repo private (keeps history, secrets, Vercel link), a new private repo, or open-core. Anything already public stays MIT for those who copied it."}
+
   # ── 2026-10-18 (merged from master 2026-10-20, renumbered: dedup GembiRun Loka, re-extract preview) ──
   BUG-070:
     {type: bug, status: done, created: 2026-10-18,
