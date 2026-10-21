@@ -3883,7 +3883,11 @@ This document defines the core architectural invariants for the FestDaily applic
           set is `unknown`, never national.
         - **"In your area"** (the chip and default Discovery tier label) means `same` and `inside`.
           `covers` and `sibling` events stay in the local ordering tier (the POC's tier 0) but are
-          not labelled "in your area". `[ADOPTED, user-accepted 2026-10-20]`
+          not labelled "in your area". `[ADOPTED, user-accepted 2026-10-20]` **The viewer's area**
+          is the area of the viewer's saved location or, when the viewer allows it, of their current
+          location; a visitor with neither has none and sees no "in your area" label
+          `[ADOPTED, user-directed 2026-10-21]`. A per-viewer, non-persisted label and filter are
+          within the PRD's Location Data Reuse Boundary (amended 2026-10-21).
         - **Nearby stays a pin-only distance claim** (AD-22, one shared computation, trusted pins
           only). Events with area-only precision appear in a radius filter's partial lane as "no
           exact location". The cover of a series (AD-36 Rule 13) is chosen by the same two
@@ -3946,8 +3950,8 @@ This document defines the core architectural invariants for the FestDaily applic
           root key of its known area (area keys are ancestor-closed, Rule 1); (3) the account's own
           country when it has one (IDEA-075); (4) the platform default country `id`, recorded with
           source `default`.
-          **`[PROPOSED 2026-10-21, after the owner asked whether the post's language should be
-          extracted]`** insert a step between (1) and (2), **who the post addresses**: the language
+          **`[ADOPTED, user-directed 2026-10-21 ("all recommended"); cues and thresholds are
+          PROPOSED until the audience POC]`** a step is inserted between (1) and (2), **who the post addresses**: the language
           the post is written in together with the posting account's country, when both point to
           the same country. An Indonesian-language post from an Indonesian account about an event
           in Denmark is addressed to Indonesia, while the place order alone would give Denmark
