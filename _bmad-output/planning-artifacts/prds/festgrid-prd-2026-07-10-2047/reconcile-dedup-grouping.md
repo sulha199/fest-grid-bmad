@@ -20,9 +20,9 @@ Counts. ADOPTED: 26 captured, 11 weak, 5 missing (42). Conflicts: 7 resolved, 2 
 | A8 | An event is one activity at one place-set (+ table) | WEAK | The definition is not stated as a rule. PRD:363 states only the planned place split and lineup reshape. Missing table rows: a route is one event; dependent stages are schedules; a schedule with no place stays with the sibling owning the earliest dated schedule. Not annotated: PRD:171 (3.9.1 Schedule Consistency still lets a schedule carry its own location), PRD:94 (rule 3), PRD:1000 (`groupingReason`). |
 | A9 | Write-path order and its user consequence | MISSING | "An unsplit three-place event never matches its per-place duplicates" and "the group is attached after the events exist". Low importance. |
 | A10 | Backfill scope: open schedules only | CAPTURED | PRD:363 (past events left as they are); split children never notify, PRD:361. |
-| A11 | Backfill key: subscribers of the posting account only | MISSING | PRD:363 says existing events are "planned to be re-extracted" but not that only keys of subscribers to the account that posted are used, nor that a post whose account has none is not re-extracted and "its event stays unsplit". Related: curator captions are cleared after extraction (PRD:384, 3.16; memlog 147c), so curator events cannot be re-extracted; extraction is BYOK-only (PRD:98 area, 3.8), so the backfill spends subscribers' quota. |
+| A11 | Backfill key: subscribers of the posting account only | MISSING | PRD:363 says existing events are "planned to be re-extracted" but not that only keys of subscribers to the account that posted are used, nor that a post whose account has none is not re-extracted and "its event stays unsplit". Related: curator captions are cleared after extraction (PRD:384, 3.16; memlog 147c), so curator events cannot be re-extracted; extraction is BYOK-only (PRD:81, 3.8), so the backfill spends subscribers' quota. |
 | A12 | Cross-account membership | CAPTURED | PRD:356. |
-| A13 | Two kinds; kind stored and correctable | CAPTURED | PRD:349-352, PRD:365, PRD:1468 (4.21). |
+| A13 | Two kinds; kind stored and correctable | CAPTURED | PRD:349-352, PRD:365, PRD:1463-1468 (4.21). |
 | A14 | SCH is a programme (each event promoted individually) | CAPTURED | PRD:352 (mall anniversary with circus, line dance, fireworks; "promoted on its own"). The creation path is the problem, see gap 2. |
 | A15 | Series roll; dormant group | WEAK | PRD:355 (join within gap, else new season, past stays as archive). Missing: dormant state (at most one active member, or no upcoming member: nothing to collapse, still reachable from any member's page). "Archive" (PRD:355, PRD:1471) is never said to be user-visible or not. |
 | A16 | Programmes are time-bound | CAPTURED | PRD:355. "A member outside the window extends it" dropped (minor). |
@@ -40,7 +40,7 @@ Counts. ADOPTED: 26 captured, 11 weak, 5 missing (42). Conflicts: 7 resolved, 2 
 | A28 | Group appears iff a member matches; cover may differ | CAPTURED | PRD:359. |
 | A29 | Card text: count; single match is a plain card | WEAK | PRD:359 and PRD:40 give the count of other matching occurrences (wording to UX). Missing: with one match the card is a plain event card with a small "part of <group>" link. |
 | A30 | A series counts as seen if any member was seen | MISSING | The PRD has no "seen" concept to host it; belongs with the ranked-list / personalization work. Low. |
-| A31 | Dissolved groups do not collapse | CAPTURED | PRD:1470 (`status`), PRD:1471 comment. |
+| A31 | Dissolved groups do not collapse | CAPTURED | PRD:1469-1470 (4.21 `status` and its comment). |
 | A32 | Collapse only in Discovery | CAPTURED | PRD:359 last sentence (calendar, favorites, feed, account pages list every event). |
 | A33 | Group surface on the event page | CAPTURED | PRD:360. |
 | A34 | One notification per (group, source post) | CAPTURED | PRD:361, PRD:100. |
@@ -59,14 +59,14 @@ Counts. ADOPTED: 26 captured, 11 weak, 5 missing (42). Conflicts: 7 resolved, 2 
 |---|---|---|---|
 | C1 | "Push notifications are sent per event, not per post" | RESOLVED | PRD:100 keeps the sentence and appends "(Amended 2026-10-21, FR119) For an event that belongs to an event group the notification is sent per group and source post, not per event (Section 3.19)." |
 | C2 | First-Organizer-Post Notification, "one notification" | RESOLVED | PRD:106 "For an event in a group the notification goes through the group rule (Section 3.19); an event that has never notified keeps its one future notification until then." |
-| C3 | Merge and Redirect (moderators only); 3.9.3 merge action; `mergedIntoEventId` | RESOLVED | PRD:107 "The system also merges events on its own in two cases ..."; PRD:199 adds the list of automatic merges with undo; PRD:558-563 (4.1) comment amended. |
+| C3 | Merge and Redirect (moderators only); 3.9.3 merge action; `mergedIntoEventId` | RESOLVED | PRD:107 "The system also merges events on its own in two cases ..."; PRD:199 adds the list of automatic merges with undo; PRD:559-564 (4.1) comment amended. |
 | C4 | Matching: high / mid / low | RESOLVED | PRD:103 adds "A new post that is an exact repeat ... is linked to that existing event whatever its score". Unadopted U1 and P2 correctly left out. |
 | C5 | "Different venue" left to the model | RESOLVED (as planned) | PRD:92 "planned to stop depending on the model alone ... Until that ships, the rule above applies as written." |
-| C6 | `extractedEventCount` | RESOLVED | PRD:1005-1007 "stays the count before any place split". |
+| C6 | `extractedEventCount` | RESOLVED | PRD:1003-1004 "stays the count before any place split". |
 | C7 | `program-lineup` is one event | PARTIAL | The plan is recorded at PRD:363, but PRD:94 (rule 3) and the `groupingReason` doc at PRD:1000 carry no pointer; a reader of 3.7 or 4.7 never learns the rule is slated to change. |
 | C8 | "A merge can be undone within the moderator undo window" | PARTIAL | PRD:107 keeps the sentence. As built the only "window" is the 6-second toast and undo stays callable with no expiry. The new system-merge text (PRD:344, PRD:199) says "can be undone" with no window, so the PRD now holds two readings. |
 | C9 | Default View and 3.1 had no grouping text | RESOLVED | PRD:40 (3.1), PRD:359 last sentence; PRD:66 (3.4.1) is not contradicted. |
-| C10 | Primary Post clause (2) stated as fact; spine tags it `[ASSUMPTION]` | STANDING | PRD:108 unchanged; the spine still tags it (AD-30 Rule 7, "more schedules with a complete date and location [ASSUMPTION]"). Logged as open item 10 in the PRD memlog only. |
+| C10 | Primary Post clause (2) stated as fact; spine tags it `[ASSUMPTION]` | STANDING | PRD:104 unchanged; the spine still tags it (AD-30 Rule 7, "more schedules with a complete date and location [ASSUMPTION]"). Logged as open item 10 in the PRD memlog only. |
 
 ADD-only items from the extract: favorites per event in 3.2.1 (PRD:45) not edited, covered at PRD:362; Related Events vs group, PRD:360; badge counts group items, PRD:201 (2026-10-21 decision 6); 3.9.1 one place-set per event not touched (see A8).
 
