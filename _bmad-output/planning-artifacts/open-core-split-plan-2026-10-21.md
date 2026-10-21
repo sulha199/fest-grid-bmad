@@ -2,6 +2,34 @@
 
 Decision (owner, 2026-10-21): FestDaily becomes **open-core**. The core stays public under MIT. Premium code (personalization is the first premium feature) lives in a private package and private repository. This plan says what that needs; nothing in it has been executed. See FIND-093 (the repository is public today and already contains premium planning and production findings).
 
+## 0. Revision, later on 2026-10-21: a paid app, a secret recipe, a portfolio
+
+The owner then said: the app will be **paid**; everything about personalization is the **secret recipe**, including the BMad documents, the POC and the personalization backend; and the project should also be a **portfolio** piece. The owner's idea: one **private parent repository** with a **public child sub-repository** (a git submodule) that can be changed from the parent. The owner asked for a recommendation. Sections 1 to 7 below were written before this and assume the premium code is a private package beside a public core; they still hold, with the following changed.
+
+### Structures compared
+
+| | A. Private parent + public submodule (the owner's idea) | B. Private monorepo + generated public mirror (recommended) | C. Public core + private premium overlay repo |
+|---|---|---|---|
+| Source of truth | Core in the public repo, the rest in the parent | One private repository holds everything | Core public, premium private |
+| Deploys from | The parent (checks out the submodule) | The private repository | The premium repository (checks out the core at a pinned version) |
+| Public repo | A real repository; accepts pull requests | A read-only mirror of an allow-list of paths, republished by a script; fresh history | A real repository |
+| Day-to-day | Two repositories and a pointer commit; the child must be pushed before the parent | One checkout, one CI, atomic changes across core and premium | Two repositories, version pinning |
+| Main risk | One `git push` from inside the submodule folder publishes whatever is in it | A bad allow-list publishes a file; a CI check on the mirror tree catches it | Version drift, two CIs |
+| Existing history | Needs a new, clean public repository for the child anyway | The current repository becomes the private one and keeps issues, secrets and the Vercel link; the public mirror is new | Same problem as A |
+| Fit for a paid app and a portfolio | Good | Best: premium and every BMad document never touch a public remote | Good for community-driven cores, more than needed here |
+
+### Recommendation: B
+
+Make the existing repository private (it becomes the working repository and keeps its history, issues, Actions secrets and Vercel link). Publish a **clean, new public repository** as the portfolio from an allow-list of paths, by a script and a workflow, with a CI test that fails if a premium path or a banned string reaches the mirror. The mirror has none of the existing history, so what is public today (the planning documents, the POC, the production findings) is not carried into the portfolio. Choose A if the owner wants the public repository to be a living repository that takes outside contributions; the cost is the submodule friction and the accidental-publish risk above.
+
+### What changes in the earlier sections
+
+* Everything under `_bmad-output/` and the BMad tooling configuration stays private; the public mirror carries `docs/infrastructure/` (the architecture diagram and tech stack, which suit a portfolio), a README written for the portfolio, and the core code.
+* "Premium" now means **personalization as a whole** (AD-42, the proposal, the audience, tracks, taxonomy, profile and ranking work, the POC code and results, and the premium parts of the PRD and spine). The core keeps duplicate merging, event groups, the place model and the area filter and label, moderator queues, scraping, AI extraction of events, the AI prompt filter. The ports of section 3 are how the core calls premium code, so the public mirror still builds with no-op defaults.
+* Because the repository stops being public, sections 3 and 5 no longer need a private registry for the package: premium code can live in the private repository's own workspace packages and be left out of the mirror by the allow-list. The ports and the stub stay, so the mirror compiles and runs.
+* **License.** The existing code was published under MIT and copies already taken stay MIT. Private code can be proprietary. The mirror's license is a choice: MIT (anyone may fork the core) or a source-available license that forbids commercial use (a portfolio that cannot be resold as a competing product). Take advice.
+* **Costs to check:** GitHub Actions minutes for a private repository; Vercel's free plan is for non-commercial use, so a paid product probably needs a paid plan.
+
 ## 1. Why the timing is good
 
 No premium code exists in production yet. What exists is planning (AD-42, the proposal), a POC under `apps/backend/scripts/poc-event-insight/`, and its analysis files. So the split costs a documentation move and a seam, not a rewrite. The longer premium code is written in the public repository first, the more has to be extracted later.
