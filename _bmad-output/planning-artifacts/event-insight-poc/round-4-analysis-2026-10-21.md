@@ -6,9 +6,9 @@ Source: the five read-only queries of `prod-readonly/local-session-brief-2026-10
 
 | # | Finding | Changes |
 |---|---|---|
-| 1 | **Production has 2 registered users**, neither with push on, both following 10 or more accounts; one has 18 favorites and 1 calendar addition; no new user in 30 days | The offline replay and any A/B on signed-in users are not possible; the implicit interest profile cannot be learned or tested; per-user notification suppression has no audience today. Ask the owner whether this is expected (section 1) |
+| 1 | **Production has 2 registered users, both the owner's: the app is not released yet** (owner, 2026-10-21). Neither has push on, both following 10 or more accounts; one has 18 favorites and 1 calendar addition; no new user in 30 days | The offline replay and any A/B on signed-in users are not possible; the implicit interest profile cannot be learned or tested; per-user notification suppression has no audience today. Expected, so the work waits for launch cohorts, not for a fix (section 1) |
 | 2 | **Stub weight: 0.10, not 0.20.** 114 of the 134 stub pairs are exact repeats the exact-repeat rule handles; the weight only decides the other 20. At 0.20, six pairs with a shared link reach `high` and merge through the matcher, bypassing the exact-repeat preconditions | AD-30 Rule 7: stub signal 0.10 `[PROPOSED]`; the "ceiling 0.60, never high" sentence was wrong when a shared link is present (0.80) and is corrected |
-| 3 | **The exact-repeat sizing query over-counted "same place"**: it read the schedule's place text only, and 9 of the 15 largest groups have none. Re-run after the fix | AD-30 Rule 7 figures marked provisional (section 3) |
+| 3 | **The exact-repeat sizing query over-counted "same place"**; fixed and re-run: **38 groups, 107 events, 69 soft deletes** (28 groups without a start time) | AD-30 Rule 7 figures replaced (section 3) |
 | 4 | **The push pipeline cannot send today**: the Lambdas that send pushes (Ingestor, AIProcessor) hold no Firebase credentials and no alert address; SES is in the sandbox with no verified identity | New BUG-073; BUG-069 and IDEA-090 gain a prerequisite; the grouped-notification work sits behind it |
 | 5 | **Only 3 open curator events lose a pin** to the place model (AD-39 Rule 3), not dozens | BUG-065's open-event effect is small; the derive job still has to classify 61 curator events with an unknown pin source |
 
@@ -22,10 +22,11 @@ Source: the five read-only queries of `prod-readonly/local-session-brief-2026-10
 | Active favorites (one user) | 18 (13 in the last 28 days, none in the last 7) |
 | Users following 10 or more accounts | 2 (push on: 0) |
 
-Reading, and what it does not say. The table holds only people who signed in; Discovery and account pages are public, so anonymous traffic is not in these numbers (PostHog would hold it, IDEA-079). What the numbers do say is that nothing about signed-in behaviour can be measured or learned today: the replay needs many users with a history, an A/B on signed-in users cannot reach any significance, and a favorites-based interest profile would be built from one person. Consequences for the plan, for the owner to confirm:
+**Owner, 2026-10-21: the app is not released yet; both users are the owner's.** So the count is a fact about the stage, not a finding about demand. Reading, and what it does not say. The table holds only people who signed in; Discovery and account pages are public, so anonymous traffic is not in these numbers (PostHog would hold it, IDEA-079). What the numbers do say is that nothing about signed-in behaviour can be measured or learned today: the replay needs many users with a history, an A/B on signed-in users cannot reach any significance, and a favorites-based interest profile would be built from one person. Consequences for the plan (recommendations; the pre-release answer stands behind them):
 
 * Ranking that needs only the **viewer's location** (the area-first order, the audience country) works for anonymous visitors and needs no history: it stays.
-* The **implicit interest profile** (`user_interest_profile`, taxonomy chips learned from favorites) and the **A/B on signed-in users** have no population: defer them until there are signed-in users; do not start the taxonomy POC now. Tags as FilterHub facets and the explicit onboarding chips do not need history and can be planned later.
+* The **implicit interest profile** (`user_interest_profile`, interests learned from favorites), the **offline replay** and the **A/B on signed-in users** have no population before release: they wait for launch cohorts. The **taxonomy POC** splits: tag extraction stability, vocabulary size and governance need only real events and can run before release; whether tags *predict* a favorite needs users and waits. Tags as FilterHub facets and the explicit onboarding chips need no history.
+* **Launch readiness is the nearer risk**: push and every e-mail cannot send today (finding 4), and the owner has not yet fixed the SES DNS or requested SES production access.
 * **Per-user notification suppression** (AD-36 Rule 17.5) stays adopted but has no audience today; it should not be built before push works for anyone (finding 4).
 
 ## 2. Stub-weight replay (`recall-replay-stub-weight-prod-2026-10-21.txt`)
@@ -55,7 +56,9 @@ Pairs (older event is the candidate, newer is the new item), the matcher's own s
 | Curator groups (stub 19, full 2) | 21 of 40; 45 of the 70 deletes |
 | Lenient pairs: identical range and time / identical range, time differs or missing / ranges differ | 149 / 3 / 30 |
 
-**Defect found while reading it.** The query took the place text from the schedule only. Nine of the fifteen largest groups print an empty place (Allianz Malaysia Super 100 ×11, BWF World Junior ×7, Victor Denmark Open ×5, Denmark Open ×3, and five others, all curator posts), so two events with no place text were counted as "same place". The adopted rule needs `isSamePlace` = same; no place is not that. The query is fixed (the event's text is the fallback, the "Location not specified" placeholder counts as none, and the result splits by `place_known`) and tested on the scratch fixture; it must be re-run. Until then the 40 / 110 / 70 are an upper bound.
+**Re-run with the fixed query (2026-10-21, local session):** the event's text now supplies the place, so only **1 group (2 events)** has no place text on either event and 38 groups (107 events) follow the rule: **69 soft deletes, 68 after exclusions**, 28 of the 38 groups without a start time, 25 already ended, 20 curator groups (39 of the 69 deletes are curator stubs), lenient pairs 161 identical / 2 differing time / 12 differing range. The BWF and Denmark Open repeats (Allianz Malaysia ×11 at "Denmark", BWF World Junior ×9 at "Egypt", Victor Denmark Open ×4) are inside the rule through the event-level place text. Open question 1 below is therefore settled: the one group with no place stays in the queue.
+
+**Defect found while reading the first version.** The query took the place text from the schedule only. Nine of the fifteen largest groups print an empty place (Allianz Malaysia Super 100 ×11, BWF World Junior ×7, Victor Denmark Open ×5, Denmark Open ×3, and five others, all curator posts), so two events with no place text were counted as "same place". The adopted rule needs `isSamePlace` = same; no place is not that. The query is fixed (the event's text is the fallback, the "Location not specified" placeholder counts as none, and the result splits by `place_known`) and tested on the scratch fixture; it must be re-run. Until then the 40 / 110 / 70 are an upper bound.
 
 Two facts that stand regardless. (1) 32 of the 40 groups have no start time, so for them "same start time" means "both missing"; that is weaker than the rule's wording. (2) The curator no-place groups (the BWF and Denmark Open posts, 26 events) are real repeat posts by eye, and they are exactly the ones the rule as adopted would leave to the queue. Whether a curator stub with an identical name, date range and poster and no place text on either side counts as a repeat is an owner decision, to take after the re-run (open question 1).
 
@@ -101,7 +104,8 @@ Consequences: grouped-event notifications (AD-36 Rules 14 and 17.5) and moderato
 
 ## 7. Open questions for the owner
 
-1. **Curator stubs with no place text** and an identical poster, name, date range and start time: repeats (merge) or queue? Take after the re-run of `exact-repeat-sizing.sql`.
-2. **Is "2 registered users" expected** for production? It decides whether the signed-in personalization work (interest profile, taxonomy, A/B, replay) is deferred.
-3. **Stub weight 0.10** instead of 0.20?
-4. **Release the notification claim when Firebase fails to initialise** (recommended)?
+1. ~~Curator stubs with no place text~~ settled by the re-run: 1 group (2 events) has none; it stays in the queue.
+2. ~~Is "2 registered users" expected?~~ Answered 2026-10-21: the app is not released; both users are the owner's.
+3. ~~Stub weight 0.10 instead of 0.20?~~ Adopted 2026-10-21.
+4. ~~Release the notification claim when Firebase fails to initialise?~~ Adopted 2026-10-21 (AD-30 Rule 10, BUG-073).
+5. Still the owner's: fix the SES domain's DNS, request SES production access, put `FIREBASE_*` and the alert address on the Ingestor and AIProcessor; run `owner-notification-checks-one-result.sql` (one statement, no e-mail needed) for the owner's own token and subscription rows.

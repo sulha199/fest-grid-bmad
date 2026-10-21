@@ -19,9 +19,13 @@ Found by the local session's read-only AWS checks and the owner's SQL (`planning
 ## Proposed fix (for a story, not done)
 
 * Give the Ingestor and AIProcessor the three `FIREBASE_*` variables and the alert address (or move the send behind a Lambda that has them); one source in `env.ts`.
-* Release the claim (set `notified_at` back to NULL) **only when the failure happens before any FCM request is made** (initialisation); every other failure keeps claim-before-send, so a double send stays impossible. Add a test for both branches.
+* Release the claim (set `notified_at` back to NULL) **only when the failure happens before any FCM request is made** (initialisation); every other failure keeps claim-before-send, so a double send stays impossible. Add a test for both branches. **Adopted by the owner 2026-10-21** (AD-30 Rule 10, amended).
 * SES: fix the domain's DNS, request production access, set `SES_FROM_EMAIL_ADDRESS` to a verified identity (owner's checklist).
 * Tell a moderator or the owner when initialisation fails (it is the first alert this needs).
+
+## Status 2026-10-21
+
+The owner has not yet fixed the SES domain's DNS or requested SES production access. The app is not released; the 2 production users are the owner's. This is a launch blocker for push and for every e-mail.
 
 ## Blocks
 

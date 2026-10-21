@@ -1989,9 +1989,9 @@ This document defines the core architectural invariants for the FestDaily applic
             decides only the other 20. At **0.10** no pair reaches `high` (ceiling 0.25 + 0.15 +
             0.20 shared link + 0.10 = 0.70) and 6 of the 20 reach `mid`; at 0.20 six pairs that
             share a link reach `high` (0.80) and merge through the matcher **without** the
-            exact-repeat preconditions, for two more `mid` pairs. `[PROPOSED]` **0.10** (the earlier
-            0.20, and the sentence "the ceiling 0.60 never auto-merges", assumed no shared link and
-            were wrong with one).
+            exact-repeat preconditions, for two more `mid` pairs. `[ADOPTED, user-directed 2026-10-21
+            ("do as your suggestions")]` **0.10** (the earlier 0.20, and the sentence "the ceiling
+            0.60 never auto-merges", assumed no shared link and were wrong with one).
         *   **Exact repeats** `[ADOPTED, user-directed 2026-10-20, both paths; the preconditions come
             from review R4 and from the sample read on 2026-10-20]`: a same-poster pair with the
             same normalized name, `isSamePlace` = `same` and the **same date range and start time**
@@ -2012,15 +2012,20 @@ This document defines the core architectural invariants for the FestDaily applic
             promo and a sub-event or an extension, not repeats. With identical ranges: **195 pairs,
             56 clusters, 150 events, so an unattended first run would soft-delete about 94**
             (22 curator-guide clusters, 31 venue-event, 3 unknown; 38 of the 56 have already ended).
-            **On the production rows, 2026-10-21 (first version of the sizing query):** 40 groups,
-            110 events, 70 soft deletes, 32 of the 40 groups with no start time on the main
-            schedule, 1 group blocked by an exclusion, and the lenient pairs split 149 identical,
-            3 with a differing start time and 30 with differing ranges. That query counted two
-            events with **no place text** as the same place (9 of the 15 largest groups, all
-            curator posts: Allianz Malaysia Super 100 ×11, BWF World Junior ×7, Denmark Open); it is
-            fixed and the figures are an upper bound until it is re-run. Whether a curator stub with
-            the same poster, name, date range and start time and no place text on either side is a
-            repeat is an owner decision, open (analysis section 7).
+            **On the production rows, 2026-10-21 (query revision 2, which falls back to the event's
+            place text and ignores the "Location not specified" placeholder):** 38 groups, 107
+            events, **69 soft deletes (68 after exclusions)**; 28 of the 38 groups have no start
+            time on the main schedule (for them "same start time" means "both missing"); 25 have
+            already ended; 20 of the 38 are curator posts (39 of the 69 deletes are curator stubs);
+            1 group is blocked by an exclusion (two events of one post); the lenient pairs split
+            161 identical, 2 with a differing or missing start time and 12 with differing ranges.
+            Only 1 group (2 events) has no place text on either event, so that case is settled by
+            leaving it in the queue. Revision 1 of the query read the schedule's text only and
+            counted 40 groups, 110 events and 70 deletes by treating missing places as the same
+            place; the difference is small because the event-level text ("Denmark", "Egypt")
+            supplies the place for the BWF and Denmark Open posts. The largest groups are Allianz
+            Malaysia Super 100 ×11 ("Denmark"), BWF World Junior ×9 ("Egypt"), Victor Denmark Open
+            ×4: repeat posts by one curator, whose surviving event keeps the place text it has.
             The 32 overlapping pairs stay `mid`. Start time is not in the export, so these counts are
             an upper bound; the place check is the author's crude stand-in; the sample was read by
             the author from names and dates only, so **the owner reads the dry-run list before the
@@ -2110,6 +2115,14 @@ This document defines the core architectural invariants for the FestDaily applic
         `(group, source post)` and sends one notification. An ungrouped event is unchanged, the
         eligibility test above applies to each covered event, and `notified_at` stays the one
         marker.
+        **Amended 2026-10-21 (BUG-073; `[ADOPTED, user-directed 2026-10-21 ("do as your suggestions")]`).**
+        The claim stays before the send, which is what makes a double send impossible, with one
+        exception: when the send fails **before any FCM request is made** (Firebase initialisation
+        fails because the credentials are missing), the helper sets `notified_at` back to NULL, so
+        a later drain or re-drive can notify. Any failure after a request was made keeps the claim
+        and is not retried. Production evidence: 2026-10-07 to 10-16 the Ingestor logged about 40
+        failed Firebase initialisations a day, and every event it claimed in that window can never
+        notify.
     11. **Related events and source posts.** `Query.relatedEventIds(eventId | postId)` is an
         index-driven read of `event_posts` joined to `events` — it excludes soft-deleted and merged
         events and the subject event itself, so a "See all N" count never includes a hidden event —
@@ -3251,9 +3264,9 @@ This document defines the core architectural invariants for the FestDaily applic
            `[ASSUMPTION]`), so the three-mall case collapses to one push while a weekly run keeps
            its weekly push. The claim is `INSERT ... ON CONFLICT (user_id, group_id) DO UPDATE SET
            sent_at = now() WHERE event_group_notifications.sent_at < now() - $window RETURNING
-           user_id`, which sends only to the users returned. **Size, 2026-10-21:** production has 2
-           registered users, both with push off, so this has no audience until push works for
-           anyone (BUG-073).
+           user_id`, which sends only to the users returned. **Size, 2026-10-21:** the app is not
+           released yet and production has 2 registered users, both the owner's, both with push
+           off, so this has no audience until push works for anyone (BUG-073).
         6. **Aggregates and page order.** `member_count`, `place_count` and `concurrent` are
            recomputed by every writer of `events.deleted_at` (merge, the cancelled-report soft
            delete, restore, hard delete: delete first, then recount, in one transaction), and the
