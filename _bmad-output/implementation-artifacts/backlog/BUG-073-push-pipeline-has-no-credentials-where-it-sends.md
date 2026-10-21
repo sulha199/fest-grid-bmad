@@ -25,7 +25,7 @@ Found by the local session's read-only AWS checks and the owner's SQL (`planning
 
 ## Status 2026-10-21
 
-The owner has not yet fixed the SES domain's DNS or requested SES production access. The app is not released; the 2 production users are the owner's. This is a launch blocker for push and for every e-mail.
+Owner SQL (one row per user, 2 users, both `moderator`): `push_enabled` is **false** for both although each has 2 FCM token rows (created 2026-08-30, last updated 2026-09-22 and 09-28); they hold 31 and 17 active subscriptions, of which 1 and 3 are subscriptions to **twin profiles** (BUG-059: they never match an event's source account); 10 and 12 follow organizer accounts. Push was therefore switched off for both about when the logs change (2026-10-16); who or what switched it is not visible. The owner confirms SES is in the sandbox and has not yet fixed the SES domain's DNS or requested SES production access. The app is not released; the 2 production users are the owner's. This is a launch blocker for push and for every e-mail.
 
 ## Blocks
 
