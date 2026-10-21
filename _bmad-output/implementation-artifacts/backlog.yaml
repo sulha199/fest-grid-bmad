@@ -2587,7 +2587,7 @@ items:
      touches: [app:backend, pkg:database, pkg:domain, web:settings, web:events, web:moderation, cross:prd],
      note: "Owner 2026-10-21: in launch scope. Non-sensitive learned and stored; sensitive never learned unless a Settings switch, default off, is on. Counsel check on PDP Law pending. Waits for IDEA-092 and the second PRD pass."}
 
-  FIND-092:
+  FIND-093:
     {type: finding, status: backlog, created: 2026-10-21,
      impact: internal, effort: xs,
      title: "The repository is public (MIT) and holds the premium personalization plans, AD-42, the POC code and production findings",
