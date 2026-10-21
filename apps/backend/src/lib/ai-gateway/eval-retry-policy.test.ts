@@ -1,9 +1,19 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { EVAL_MAX_ATTEMPTS, nextEvalRetryDelayMs } from './eval-retry-policy.js';
+import { EVAL_MAX_ATTEMPTS, isEvalDailyQuotaError, nextEvalRetryDelayMs } from './eval-retry-policy.js';
 
 const FREE_TIER_429 =
   '{"error":{"code":429,"message":"You exceeded your current quota. * Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 15, model: gemini-3.5-flash-lite\\nPlease retry in 42.430894734s.","status":"RESOURCE_EXHAUSTED"}}';
+
+describe('isEvalDailyQuotaError', () => {
+  it('is true only for a rate-limit rejection that names the per-day quota', () => {
+    assert.equal(isEvalDailyQuotaError('429 Quota exceeded for metric ..._requests_PerDay ... retry in 10s'), true);
+    assert.equal(isEvalDailyQuotaError('RESOURCE_EXHAUSTED: requests per day'), true);
+    assert.equal(isEvalDailyQuotaError(FREE_TIER_429), false);
+    assert.equal(isEvalDailyQuotaError('API key not valid'), false);
+    assert.equal(isEvalDailyQuotaError('requests per day'), false);
+  });
+});
 
 describe('nextEvalRetryDelayMs', () => {
   it('waits the server-provided retry hint (rounded up) plus a 1s margin on a per-minute 429', () => {

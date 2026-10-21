@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   PROMPT_VARIANT_KINDS,
+  canHavePromptVariant,
   pickPromptVariant,
   summarizeMetamorphicDrift,
   type PromptVariant,
@@ -83,6 +84,13 @@ describe('pickPromptVariant', () => {
   it('returns undefined for categories a variant cannot meaningfully test', () => {
     assert.equal(pickPromptVariant(fixture({ prompt: 'x', category: 'over-limit' }), 0, 0), undefined);
     assert.equal(pickPromptVariant(fixture({ prompt: 'x', category: 'off-topic' }), 0, 0), undefined);
+  });
+
+  it('canHavePromptVariant agrees with pickPromptVariant for every category', () => {
+    for (const category of ['AND', 'OR', 'NOT', 'nesting', 'precedence', 'over-limit', 'out-of-vocabulary', 'off-topic', 'vague-descriptor'] as const) {
+      const f = fixture({ prompt: 'free jazz events', category });
+      assert.equal(canHavePromptVariant(f), pickPromptVariant(f, 0, 0) !== undefined, category);
+    }
   });
 
   it('is deterministic: the same (fixture, index, seed) always yields the same variant', () => {

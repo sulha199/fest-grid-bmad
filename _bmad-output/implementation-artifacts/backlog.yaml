@@ -2296,12 +2296,12 @@ items:
      note: "Spawned by BUG-062. Metamorphic variants already landed in the nightly eval (#83); capture needs a privacy decision on logging prompts first."}
 
   FIND-085:
-    {type: finding, status: backlog, created: 2026-10-18,
+    {type: finding, status: done, created: 2026-10-18,
      impact: internal, effort: xs,
      title: "Nightly golden-prompt eval runs on a free-tier Gemini key: paced to ~13/min but a daily cap can still truncate the ~116-call run",
      ref: [.github/workflows/ai-filter-golden-prompt-nightly-eval.yml, apps/backend/scripts/run-golden-prompt-live-eval.ts],
      touches: [app:infrastructure, cross:process],
-     note: "Use a paid GEMINI_NIGHTLY_EVAL_API_KEY and set GOLDEN_EVAL_MIN_INTERVAL_MS to 0, or unset GOLDEN_EVAL_VARIANTS on most nights."}
+     note: "Fixed 2026-10-21 without needing a paid key: the free-tier flash cap is ~20 requests/day (the full run is 49 fixtures + 39 variants = 88 calls), so the nightly now runs a GOLDEN_EVAL_DAILY_BUDGET-sized window and leaves the rest pending. planGoldenEvalWindow (packages/domain) picks never-evaluated fixtures, then last night's drift (capped at 25% of the budget), then the stalest, rotating across categories; the ledger rides between nights in actions/cache; a per-day 429 ends the run early as a warning. Verified against a stubbed Gemini over a 7-night simulation (full rotation in 5 nights) -- the first live windowed run is the next scheduled nightly. Original advice follows: use a paid GEMINI_NIGHTLY_EVAL_API_KEY and set GOLDEN_EVAL_MIN_INTERVAL_MS to 0, or unset GOLDEN_EVAL_VARIANTS on most nights (now: remove GOLDEN_EVAL_DAILY_BUDGET)."}
   # ── 2026-10-18 (event dedup: GembiRun Loka 2026 split into three events) ─────
   BUG-063:
     {type: bug, status: done, created: 2026-10-18,
