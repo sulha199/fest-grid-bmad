@@ -4364,13 +4364,13 @@ This document defines the core architectural invariants for the FestDaily applic
         signed-in users is decided with the replay (proposal §6.2 #2). Ranking ships behind the
         flags of the AD-36 Rule 13 gate and after IDEA-076 (the scale-safe list).
     10. **The gates and the sequence.** `[ADOPTED: the sequence, user-directed 2026-10-20 and
-        2026-10-21; the thresholds are ASSUMPTIONS to be set before the run]` Nothing in Rules 2 to 8
+        2026-10-21; the first three thresholds below were adopted by the owner on 2026-10-21, the others are start values]` Nothing in Rules 2 to 8
         ships before: (i) a labelled set of 150 to 200 **real** events (strata: local, national,
         foreign-located posted in Indonesian, online, curator, multi-country, mixed-language
         captions), labelled by two people, with the labels frozen before any run; (ii) three
         extraction runs per event, scored on a held-out half; (iii) pre-registered thresholds, for
-        example audience country at least 95% exact and at least 90% on the foreign and shared-language
-        strata, no critical error (an invented age, a wrongly national event, a wrong country on an
+        audience country at least 95% exact and at least 90% on the foreign and shared-language
+        strata, no critical error (adopted) (an invented age, a wrongly national event, a wrong country on an
         event that states one, a non-verbatim quote), run-to-run agreement at least 95%, abstention
         at most 15%; (iv) the architect reviews of the Reviewer Gate (rubric walker, adversarial
         two-units, data-integrity) and a code review of the POC code; (v) a nightly evaluation on the
