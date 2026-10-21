@@ -2577,7 +2577,7 @@ items:
      title: "Audience, language and taxonomy POC: a labelled set of real events, three runs, pre-set thresholds, then the AD-42 reviews",
      ref: [planning-artifacts/event-insight-poc/audience-and-taxonomy-poc-plan-2026-10-21.md, planning-artifacts/festgrid-architecture-spine.md],
      touches: [app:backend, pkg:domain, cross:ai-extraction, cross:architecture, cross:process],
-     note: "Gate for AD-42 (audience country, post language, tracks, interest-tag stability, sensitive screen). Needs the owner: thresholds, a second labeller, curator caption capture. Nothing in AD-42 Rules 2-8 ships before it passes."}
+     note: "Gate for AD-42. Thresholds adopted 2026-10-21; posts via fetch-poc-posts.ts on the owner's machine (built, tested). Open: a second labeller. Nothing in AD-42 Rules 2-8 ships before it passes."}
 
   IDEA-093:
     {type: idea, status: backlog, created: 2026-10-21,
