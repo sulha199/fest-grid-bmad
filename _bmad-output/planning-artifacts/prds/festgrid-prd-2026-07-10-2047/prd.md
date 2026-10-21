@@ -7,7 +7,7 @@ status: "final"
 
 created: "2026-07-10T20:50:17Z"
 
-updated: "2026-10-16T00:00:00Z"
+updated: "2026-10-21T00:00:00Z"
 
 ---
 
@@ -34,7 +34,11 @@ This document outlines the product requirements for FestDaily, a platform design
 *   **Search and Filter (FilterHub):** A free-text search bar will allow users to search by event-name, performers, and location name, using partial matching for performance. Users can also filter events by type and category. This filter bar is referred to elsewhere in this document as "FilterHub." When a search phrase starts with `#`, it matches exactly against a post's hashtags (Section 4.7) instead of event-name/performers/location — e.g. `#jogjaevent` matches the literal hashtag, not a substring. Hashtag search combines with type/category filters the same way normal search does (added 2026-08-28). See Section 3.15 for a free-text, AI prompt-based alternative to operating it manually.
 *   **Default View:** By default, the event discovery page will only display ongoing and upcoming events.
 *   **Event Status Badge (added 2026-09-04):** Every event card displays a relative-time status badge summarizing where the event stands relative to now: `Ended` (a schedule that has fully passed — relevant to card-reusing surfaces like Archive, not the default ongoing/upcoming Discovery view above), `Happening Now`/similar (started, not ending today), `Ends Today` (started, ends today), `In (n) hour(s)` (starts later today), `Tomorrow`, the weekday name (starts within the same week), `In (n) days` (starts next week), or `Upcoming` (beyond that). Exact wording and the same-week/next-week/next-month boundaries are defined in the implementing story (Story 1.3b).
-*   **Nearby Badge (added 2026-09-04):** When the viewer has granted browser location permission, a card for an event within 5km of the viewer's current position shows a "Nearby" badge. No badge is shown when permission is not granted — this badge never itself prompts for location access (distinct from Section 3.3's explicit, user-initiated "nearby events" search, which does prompt).
+*   **Area Badge and "In Your Area" (added 2026-10-21; FR121):** A card whose event is known only by its area, not by an exact verified place, shows an area badge with the area's name instead of implying a precise spot; an event with no known area is not labelled. The "In your area" label marks an event whose area is the viewer's area or inside it. An event aimed at a wider area than the viewer's (for example a province-wide event seen from one regency) still ranks among the local events but is not labelled "in your area". Section 3.20.
+*   **Area Filter (added 2026-10-21; FR121):** Filtering by area ("in Sleman") shows events whose area is that area or inside it. Events aimed at a wider area that contains it are shown separately as closest matches, so the filter does not hide them; an event whose area is unknown never matches. Section 3.20.
+*   **Events With No Known Area (added 2026-10-21; FR123):** An event for which no area can be determined is still shown in the default list, with a lower rank and a limit per page, rather than held back (Section 3.20).
+*   **Event Groups in Discovery (added 2026-10-21; FR118):** A repeated activity (the same promo at several branches, a weekly run at several venues) appears once in the default Discovery list as its best-ranked matching occurrence, with a count of the other matching occurrences. A programme of different activities under one name (a mall anniversary with its own shows) is not collapsed: each event appears on its own with a "part of …" label. Section 3.19.
+*   **Nearby Badge (added 2026-09-04):** When the viewer has granted browser location permission, a card for an event within 5km of the viewer's current position shows a "Nearby" badge. No badge is shown when permission is not granted — this badge never itself prompts for location access (distinct from Section 3.3's explicit, user-initiated "nearby events" search, which does prompt). **(Amended 2026-10-21, FR121)** The badge is a claim about distance, so it appears only for an event whose location is verified (Section 3.20); an event known only by its area never shows it.
 
 ### 3.2 Personalization Features
 
@@ -45,7 +49,7 @@ This document outlines the product requirements for FestDaily, a platform design
 ### 3.3 Saved Location Preferences
 *   Users can save multiple named locations (e.g., "Home", "Work").
 *   A location can be set by using the user's current location or by picking a point on a map.
-*   These saved locations can be used to find "nearby events" within a user-defined radius (stored in meters for processing, e.g., 1000m to 50000m, but displayed in kilometers in the UI).
+*   These saved locations can be used to find "nearby events" within a user-defined radius (stored in meters for processing, e.g., 1000m to 50000m, but displayed in kilometers in the UI). **(Amended 2026-10-21, FR121)** The radius matches only events with a verified location (Section 3.20); events known only by area appear in a separate lane labelled "no exact location".
 
 ### 3.4 Event Management
 
@@ -76,16 +80,16 @@ This feature allows users to curate their event feed by subscribing to specific 
 *   **Scraping Approach (Adapter-Specific):** Posts are scraped via a platform-specific scraper adapter (see Architecture Spine's Adapter Pattern rule). Where a platform blocks direct scraping (e.g. Instagram), the adapter scrapes through a proxy/mirror site instead (e.g. `imginn.com`) and persists the URL it actually fetched (`Post.postUrl`). When the adapter can also determine the canonical original-platform URL for that post (e.g. `imginn.com` preserves Instagram's own post ID, letting the original URL be deterministically derived), it persists that too (`Post.originalPostUrl`). This derivation rule is adapter-specific — a future adapter for a different platform/proxy may need to capture the original URL separately rather than derive it, or may not be able to supply one at all.
 *   **Account Subscription:** Users can subscribe to desired social media accounts by providing their own Gemini API Key (BYOK). Event data from these subscribed accounts will be processed by an AI agent to extract event details. For accounts subscribed to by multiple users, the system will intelligently utilize any valid API key from contributing users to optimize data extraction and distribute quota usage.
     *   **Automatic Extraction of New Posts (clarified 2026-10-01; BUG-039):** Extraction of newly scraped posts from subscribed accounts is automatic, not something a user must trigger. After each scrape, every new post is enqueued for extraction under the Tier 1/Tier 2 key-selection and quota rules (Quota Management Algorithm, below), consuming the same one extraction call per post as any other path. Posts that cannot be extracted automatically — older posts that predate the subscription, and posts left unextracted because no key had quota — remain available for the user to select by hand (Section 3.10). The Multi-Event Posts rules below apply identically to automatically and manually extracted posts.
-    *   **Default Location for Subscriptions:** To handle cases where an event's location is implicit (e.g., an event at a mall posted on the mall's social media), users can optionally set a "Default Location" when subscribing to an account. If the AI agent does not find an explicit location in a post, it will use this default location for the event.
+    *   **Default Location for Subscriptions:** To handle cases where an event's location is implicit (e.g., an event at a mall posted on the mall's social media), users can optionally set a "Default Location" when subscribing to an account. If the AI agent does not find an explicit location in a post, it will use this default location for the event. **(Amended 2026-10-21, FR122)** Whether the default may serve as an event's place depends on the account's type (Section 3.20); a curator or local-guide account never lends its location.
         *   **Shared, Account-Level Setting:** A "Default Location" belongs to the social media account, not to an individual subscriber — because AI extraction runs once per post for accounts with multiple subscribers, a per-subscriber default would be ambiguous about which value applies to the resulting event. Any subscriber may set it if unset.
         *   **Immediate Apply with Moderator Oversight:** Editing a "Default Location" takes effect immediately, with no pre-approval gate — extraction is not blocked waiting on review. When a change is made, moderators are notified by email and can, from Moderator Tools (Section 3.9.3), accept the change or revert the account to its previous default location. This is the default posture for a human edit and for a high-confidence AI inference (see below); a low-confidence AI inference instead requires moderator pre-approval before it applies.
-        *   **AI-Assisted Location Inference (added 2026-08-24; confidence gate added 2026-08-28):** If a "Default Location" is still unset when a post is scraped, the system infers one automatically rather than leaving the account without a fallback. The AI agent is given only the post's own scraped metadata (its caption and any location name attached to the post itself) — never a subscriber's saved location preference (Section 3.3), which exists for a different, already-consented purpose (finding nearby events) and must not be repurposed to label an account, per the Location Data Reuse Boundary (Section 5). The agent's inferred place description is then resolved into full location details (coordinates, formatted address) via the standard geolocation lookup. The inference call also returns a confidence score (0.0–1.0, same scale as `EventInfo.confidenceScore`, Section 4.1). When the score meets or exceeds `LOCATION_INFERENCE_CONFIDENCE_THRESHOLD` (default `0.5`, environment-variable configurable), the result is written to "Default Location" immediately, going through the same immediate-apply-with-moderator-oversight flow above. When the score falls below the threshold, the inferred value is **not** applied — it is held as an `AWAITING_APPROVAL` request (Section 4.14) that a moderator must explicitly approve or reject from Moderator Tools (Section 3.9.3) before it ever reaches `SocialMediaAccountProfile.defaultLocation`; the account's Default Location stays unset (or keeps its prior value) in the meantime, so extraction never runs against an unvetted guess. Which of the two produced a given change, and whether it required pre-approval, is recorded (Section 4.14) so moderators can tell them apart.
+        *   **AI-Assisted Location Inference (added 2026-08-24; confidence gate added 2026-08-28):** If a "Default Location" is still unset when a post is scraped, the system infers one automatically rather than leaving the account without a fallback. The AI agent is given only the post's own scraped metadata (its caption and any location name attached to the post itself) — never a subscriber's saved location preference (Section 3.3), which exists for a different, already-consented purpose (finding nearby events) and must not be repurposed to label an account, per the Location Data Reuse Boundary (Section 5). The agent's inferred place description is then resolved into full location details (coordinates, formatted address) via the standard geolocation lookup. The inference call also returns a confidence score (0.0–1.0, same scale as `EventInfo.confidenceScore`, Section 4.1). When the score meets or exceeds `LOCATION_INFERENCE_CONFIDENCE_THRESHOLD` (default `0.5`, environment-variable configurable), the result is written to "Default Location" immediately, going through the same immediate-apply-with-moderator-oversight flow above. When the score falls below the threshold, the inferred value is **not** applied — it is held as an `AWAITING_APPROVAL` request (Section 4.14) that a moderator must explicitly approve or reject from Moderator Tools (Section 3.9.3) before it ever reaches `SocialMediaAccountProfile.defaultLocation`; the account's Default Location stays unset (or keeps its prior value) in the meantime, so extraction never runs against an unvetted guess. Which of the two produced a given change, and whether it required pre-approval, is recorded (Section 4.14) so moderators can tell them apart. **(Amended 2026-10-21, FR122)** For a curator or local-guide account no Default Location is inferred or used; its audience area (Section 3.20) replaces it.
         *   **Key Used for Inference (added 2026-08-24):** This inference call prefers a contributing subscriber's own BYOK Gemini key (the same fairness/rotation approach as regular extraction, above). Only when no subscriber of the account has a usable key does the system fall back to a platform-funded key, held centrally for this purpose. This system key is used exclusively for default-location inference on accounts with no subscriber-contributed key; it does not extend to general post-extraction processing, which remains BYOK-only until the managed-key-pool phase of the platform's rollout (Section 6).
         *   **Moderator Override (added 2026-08-24):** A moderator reviewing a pending change is not limited to accepting or reverting it as-is — they may also set "Default Location" directly to a corrected value, using the same mechanism a subscriber uses. This closes a gap the AI-inference feature above makes routine: reverting a wrong AI guess only blanks the value (Section 3.9.3), it does not let a moderator supply the value that should have been inferred. A moderator-sourced change requires no further review — the moderator's own edit *is* the review — and is recorded with `changeSource: MODERATOR` (Section 4.14). Setting a new value this way, by a subscriber or a moderator, automatically supersedes any other still-pending `DefaultLocationChangeRequest` for that account, since an earlier pending record's captured before/after values are no longer accurate once a later edit has overtaken it.
 *   **Multi-Image (Carousel) Extraction (added 2026-09-03; FR112):** A scraped post may carry multiple images (e.g. an Instagram carousel/Sidecar post) — schedule information for the event(s) being advertised does not always appear on the cover image or in the caption; it may live on a later slide. When a post has additional images, the AI agent is given the cover image plus up to a configurable number of the post's additional images (`Post.additionalImageUrls`) in the **same** extraction call, so it can read schedule details across all provided slides. This is not a separate/repeated extraction pass — see Section 3.8 for how this interacts with quota, and Section 3.10, where the "Selected Posts" quota count is unaffected since a carousel post still costs exactly one extraction call.
 *   **Weekday-Narrowed Recurring Schedules (added 2026-09-11):** A caption may state that a schedule recurs only on specific weekdays within a date range (e.g. "Valid only Monday to Wednesday during September 2026"), rather than applying to every day in that range. When the AI agent identifies this pattern, it records the schedule's full span via `eventStartDate`/`eventEndDate` as usual, plus the stated weekdays via `applicableDaysOfWeek` (Section 4.4), so downstream matching and calendar rendering treat only those weekdays as valid occurrences, not the entire span. Extraction may represent a multi-weekday recurrence either as one schedule per weekday (matching how the source names each occurrence) or as a single schedule covering multiple weekdays that share the same title/time/price/location — both are valid under this field; the AI agent is not required to force one shape over the other. In a post that yields several events (Multi-Event Posts, below), this applies per event — each event's schedules carry their own `applicableDaysOfWeek`.
 *   **Multi-Event Posts (added 2026-10-01; FR113):** A single post may advertise one event or several distinct ones, so the system does not assume one post is one event. The AI agent decides the grouping within the **same single extraction call** per post — quota and carousel handling (above, and Section 3.8) are unchanged — and the outcome is recorded on the post as `Post.groupingReason` (`single-event`, `program-lineup`, `dependent-stages`, `separate-events`, or `roundup`) and `Post.extractedEventCount` (Section 4.7). Items are grouped by these rules, applied in order:
-    1.  **Strong signals — any one makes a separate event:** an item has its own registration/ticket/fee/sign-up, its own organizer handle, or a different venue.
+    1.  **Strong signals — any one makes a separate event:** an item has its own registration/ticket/fee/sign-up, its own organizer handle, or a different venue. **(Amended 2026-10-21, FR117; planned)** "A different venue" is planned to stop depending on the model alone: after extraction the system separates one activity held at several places into one event per place, grouped as a series (Section 3.19). Until that ships, the rule above applies as written.
     2.  **Weak signals — two or more make a separate event:** a standalone headliner or title, dates more than about 7 days apart, or a different category.
     3.  Items within about 7 days of each other under one title and venue are **one event** with several schedules (`program-lineup`).
     4.  **Dependent stages** (e.g. online audition → finalists → final) are **one event** (`dependent-stages`). Registration and sign-up windows are schedules of the event they belong to, never separate events.
@@ -93,14 +97,14 @@ This feature allows users to curate their event feed by subscribing to specific 
 
     *   **Roundup Posts:** A post that lists many events by many organizers (`roundup`) yields an event per item **only when the item has a readable date and a readable location**; every other item is skipped, not guessed. The number of events extracted from one post is capped (default 10, configurable). Events created from a roundup are **stubs** (`detailLevel: 'stub'`) that show the roundup post's cover image and a lighter "details coming" treatment until a post from the event's own organizer is linked (Cross-Post Event Matching, below). Events from a curator/local-guide account (Section 3.16) are likewise stubs.
     *   **Per-Event Handling:** Timezone inference (below), the private-contact guard (Section 4.1, `hasPrivateContact`) and the performer-data guard (Section 4.4, `performers`) run **per event**. The children's-data filter (Section 5, Security) stays **post-level**: one match suppresses the whole post, accepted as the conservative choice.
-    *   **Notifications:** Push notifications are sent per event, not per post. An event created from a roundup post sends none at creation; see the first-organizer-post notification under Cross-Post Event Matching.
+    *   **Notifications:** Push notifications are sent per event, not per post. An event created from a roundup post sends none at creation; see the first-organizer-post notification under Cross-Post Event Matching. **(Amended 2026-10-21, FR119)** For an event that belongs to an event group the notification is sent per group and source post, not per event (Section 3.19).
     *   **No Duplicate Re-Extraction:** Re-running extraction or ingestion for a post never creates a second event for an item it already produced, and an event a moderator has soft-deleted (Section 3.9) is not recreated by a re-run.
 *   **Cross-Post Event Matching (added 2026-10-01; FR114):** The same event is often advertised by several posts — the organizer's own, a venue's, an aggregator's roundup. Rather than listing it once per post, the system links them to a single event.
-    *   **Matching:** Before creating each extracted event, the system looks for an existing event with overlapping schedule dates (within 2 days) and a similar name, then scores the pair on shared organizer account (the item's organizer handle, captured at extraction time, against the existing event's organizer), a shared registration/ticket link, date and name similarity, and venue. A **high** score links the new post to the existing event automatically, with no moderator step. A **mid** score creates the item as its own event and queues a suggested match for a moderator (Section 3.9.3); approving it merges the two, rejecting it records a dismissal. A **low** score creates a new event. Score thresholds are tuned during implementation. An event absorbs at most one item per post.
+    *   **Matching:** Before creating each extracted event, the system looks for an existing event with overlapping schedule dates (within 2 days) and a similar name, then scores the pair on shared organizer account (the item's organizer handle, captured at extraction time, against the existing event's organizer), a shared registration/ticket link, date and name similarity, and venue. A **high** score links the new post to the existing event automatically, with no moderator step. A **mid** score creates the item as its own event and queues a suggested match for a moderator (Section 3.9.3); approving it merges the two, rejecting it records a dismissal. A **low** score creates a new event. Score thresholds are tuned during implementation. An event absorbs at most one item per post. **(Amended 2026-10-21, FR116)** A new post that is an *exact repeat* of an event the same poster already has (same name, same place, same date range and start time) is linked to that existing event whatever its score, so the event is shown once (Section 3.18).
     *   **Primary Post:** One linked post is the event's **primary** post (`EventInfo.postId`, Section 4.1); its image, video and embedded post are what the event shows. The primary is chosen in order: (1) a post authored by the event's organizer (the publisher or a coauthor, Section 4.7a — not a curator/local-guide account) beats a roundup, aggregator or curator post; (2) the post whose extraction gave more schedules with a complete date and location; (3) the earlier post; (4) a deterministic tie-break. When a better primary arrives, the event's primary changes to it.
     *   **Enrichment in Place:** A matched post enriches the existing event rather than replacing it. A field that has an approved user correction or a moderator edit (Section 3.9) is never overwritten — the proposed change is queued for a moderator instead. Schedules are matched by date: existing ones are updated, new ones added, and a schedule that a user's calendar entry references is never removed. A stub event gains full detail this way (`detailLevel` becomes `'full'`).
-    *   **First-Organizer-Post Notification:** When an event that has not yet notified anyone first gains an organizer-authored primary post, **one** notification is sent for it, and never again for that event (including after a merge).
-    *   **Merge and Redirect:** A moderator can merge two events that are duplicates (Section 3.9.3). The merged-away event is soft-deleted and points at the surviving one (`mergedIntoEventId`); favorites, calendar entries and reports move to the survivor with no per-user duplicates, and a user's calendar entries are preserved. A merge can be undone within the moderator undo window. A link to a merged-away or re-slugged event continues to work by redirecting to the surviving event's current address.
+    *   **First-Organizer-Post Notification:** When an event that has not yet notified anyone first gains an organizer-authored primary post, **one** notification is sent for it, and never again for that event (including after a merge). **(Amended 2026-10-21, FR119)** For an event in a group the notification goes through the group rule (Section 3.19); an event that has never notified keeps its one future notification until then.
+    *   **Merge and Redirect:** A moderator can merge two events that are duplicates (Section 3.9.3). **(Amended 2026-10-21, FR116)** The system also merges events on its own in two cases, exact repeats and, in a one-time sweep, near-certain ("high") matches (Section 3.18); each is recorded as a system merge that a moderator can undo. The merged-away event is soft-deleted and points at the surviving one (`mergedIntoEventId`); favorites, calendar entries and reports move to the survivor with no per-user duplicates, and a user's calendar entries are preserved. A merge can be undone within the moderator undo window. A link to a merged-away or re-slugged event continues to work by redirecting to the surviving event's current address.
     *   **Slug Follows the Primary Post:** An event's URL slug names its primary post (Section 4.1). When the primary changes, the event gets a new slug and the old one permanently redirects to it.
     *   **Post Deletion:** When a post is deleted (including through account or profile erasure), the event's next linked post becomes primary by the rule above; an event left with no linked post stays, keeping its slug, with no image or source link.
     *   **Related Events:** An event's detail view shows the other events that share a linked post with it, grouped by post, each group headed "Events from [post headline/title]" (the AI-extracted post headline; posts without one fall back to "Events from [account]" -- no backfill for already-extracted posts), loaded lazily as they near the viewport and hidden when there are none. Events that have already ended are hidden (same rule as the event list); the rest are ordered happening-now first (earliest end first), then upcoming (earliest start first). Each card shows the "till" tag only when the event has started and ends after today. Each group shows up to 5 events inline, then a "See all N events" link to a **post collection page** listing every event from that post. That page reuses the existing event-list view, filters and Next/Previous detail navigation (Section 3.12), not a separate list implementation. Soft-deleted and merged events are never shown or counted.
@@ -192,8 +196,9 @@ A 'Report' button will be available for all events (whether from Social Media Ac
 #### 3.9.3 User and Moderator Interfaces
 
 *   **User Reports Page:** Authenticated users will have access to a dedicated 'Reports' page under their user menu, displaying the status and history of their submitted reports.
-*   **Moderator Tools:** For users with a 'moderator' access level, a 'Moderator Items' page will be available under the user menu. For the MVP, moderator access levels will be assigned manually via the database. In addition to user reports, this page surfaces pending "Default Location" changes (Section 3.7): post-hoc `PENDING_REVIEW` items to accept or revert, and pre-hoc `AWAITING_APPROVAL` items (low-confidence AI inferences awaiting a decision before they ever apply) to approve or reject, visually distinguished from each other. **(Added 2026-10-01, FR114)** It also surfaces suggested cross-post event matches (Section 3.7) for review, and offers a merge action for duplicate events — with confirmation and an undo window matching the existing soft-delete-with-undo pattern. **(Added 2026-10-15)** It also lists accounts whose type classification is awaiting approval (Section 3.16): a low-confidence or failed AI classification. For each, the moderator sees the account's bio and the AI's proposed type and confidence, or the reason classification failed, and chooses organizer/venue/event, curator/local-guide or personal. The choice is final and the account is then treated as confirmed. Resolving it does not start a scrape on its own; the account is picked up by the next daily scrape or an on-demand one.
-*   **Moderator Pending-Item Badge (added 2026-08-28):** For users with moderator access, a numeric badge shows the combined count of items awaiting moderator action — pending reports above, and Default Location changes in `PENDING_REVIEW` or `AWAITING_APPROVAL` status (Section 3.7/4.14) — in two places: next to the "Moderator Items" entry inside the opened user menu, and on the user's avatar in the navbar when the menu is closed. **(Amended 2026-10-02, FR114)** Suggested cross-post event matches awaiting moderator review — the mid-confidence matches queued by Cross-Post Event Matching above (Section 3.7, FR114) for a moderator to approve or reject — also count toward this same combined total. **(Amended 2026-10-15)** Account-type classifications awaiting a moderator's decision also count toward this combined total. The badge shows one combined total, not a per-category breakdown; opening Moderator Items itself provides that detail. The count is kept reasonably current (refreshed periodically or on relevant navigation), not necessarily instantaneous.
+*   **Moderator Tools:** For users with a 'moderator' access level, a 'Moderator Items' page will be available under the user menu. For the MVP, moderator access levels will be assigned manually via the database. In addition to user reports, this page surfaces pending "Default Location" changes (Section 3.7): post-hoc `PENDING_REVIEW` items to accept or revert, and pre-hoc `AWAITING_APPROVAL` items (low-confidence AI inferences awaiting a decision before they ever apply) to approve or reject, visually distinguished from each other. **(Added 2026-10-01, FR114)** It also surfaces suggested cross-post event matches (Section 3.7) for review, and offers a merge action for duplicate events — with confirmation and an undo window matching the existing soft-delete-with-undo pattern. **(Added 2026-10-15)** It also lists accounts whose type classification is awaiting approval (Section 3.16): a low-confidence or failed AI classification. For each, the moderator sees the account's bio and the AI's proposed type and confidence, or the reason classification failed, and chooses organizer/venue/event, curator/local-guide or personal. The choice is final and the account is then treated as confirmed. Resolving it does not start a scrape on its own; the account is picked up by the next daily scrape or an on-demand one. **(Added 2026-10-21, FR126)** It also lists: event groups to review ("review group": detach a wrongly suggested event, rename, dissolve the group — each reversible and none of them a gate, Section 3.19); curator accounts that have no audience area, with the action to set or correct it (Section 3.20); and the automatic merges the system made (Section 3.18), each with an undo.
+*   **Moderator Work-Queue Notifications (added 2026-10-21; FR126):** Moderators are told when items are waiting, because queues go unworked when nothing notifies anyone (0 of 147 suggested matches had been resolved when this was decided). A digest e-mail and a push notification list the pending queue items (suggested matches, corrections, reports, group suggestions, curators without an audience area), and a failed delivery is recorded. `[ASSUMPTION]` The digest cadence, the recipients, an opt-out and where failures are shown are decided at story time. Delivery depends on e-mail and push delivery working in the deployed environment; today only five event types are e-mailed to moderators and neither channel can send (BUG-073).
+*   **Moderator Pending-Item Badge (added 2026-08-28):** For users with moderator access, a numeric badge shows the combined count of items awaiting moderator action — pending reports above, and Default Location changes in `PENDING_REVIEW` or `AWAITING_APPROVAL` status (Section 3.7/4.14) — in two places: next to the "Moderator Items" entry inside the opened user menu, and on the user's avatar in the navbar when the menu is closed. **(Amended 2026-10-02, FR114)** Suggested cross-post event matches awaiting moderator review — the mid-confidence matches queued by Cross-Post Event Matching above (Section 3.7, FR114) for a moderator to approve or reject — also count toward this same combined total. **(Amended 2026-10-15)** Account-type classifications awaiting a moderator's decision also count toward this combined total. The badge shows one combined total, not a per-category breakdown; opening Moderator Items itself provides that detail. **(Amended 2026-10-21, FR126)** Group suggestions, and the other items in these queues (suggested matches, corrections, curator accounts without an audience area), also count toward the combined total. The count is kept reasonably current (refreshed periodically or on relevant navigation), not necessarily instantaneous.
 
 ### 3.10 Manual Post Selection for Event Extraction
 
@@ -293,7 +298,7 @@ As a faster alternative to operating FilterHub's manual controls (Section 3.1), 
 *   **Boolean, Nested Expressions (added 2026-10-15, FR98-FR103):** A prompt can combine any locked-vocabulary fields with AND, OR and NOT, grouped up to depth 3 and 12 total nodes (e.g. "jazz or blues in Sleman or Bantul this weekend, not workshops") — a fragment that cannot be expressed this way, or that exceeds the bound, produces a caveat while the rest of the filter still applies; it never discards the whole prompt. `NOT` keeps events that have no value at all for the negated field rather than excluding them (e.g. `NOT venueType=Cafe` still includes events with no venue type recorded). Every filter that predates this upgrade — a flat manual FilterHub selection, a previously-saved AI filter, or an Embeddable Widget's filter — is still a valid, implicit "AND of its fields" expression and returns identical results; nothing is migrated or re-extracted. The Embeddable Widget (Section 3.14) supports the same boolean expressions as Discovery, through the identical shared compiler — there is no second, widget-specific filtering mechanism.
 *   **Degrading Gracefully:** A prompt fragment outside the locked vocabulary above — a numeric price threshold, a floor/room-level location detail, a compound date expression that the closed grammar has no single anchor for (e.g. "this weekend"), or off-topic content unrelated to filtering — is never guessed at or silently dropped; it is always surfaced as an explicit caveat in the rendered summary below. This single degrade mechanism was validated against the price, floor, and off-topic cases specifically, and is intended to generalize the same way to any other unsupported fragment.
 *   **Venue Type Source:** Venue type is extracted by the existing Gemini AI processing pipeline from the source post itself (Section 3.7), not looked up from the geolocation provider — informal local venue names are not reliably identifiable that way. It is stored on the event's location details (Section 4.3) alongside the new admin-area field, and is included whenever a schedule inherits its account's Default Location (Section 3.7) — a partial inherit would leave venue-type filtering broken specifically for the accounts that rely on that fallback.
-*   **Region Matching, a Known Limitation:** Admin-area/region matching (e.g. distinguishing "Kota Yogyakarta" from "Kabupaten Sleman") relies on the existing geolocation provider's administrative-area data (Section 4.3). Because that data is community-sourced (OpenStreetMap), address matching near a city/regency boundary may occasionally be imprecise. This is an accepted v1 limitation, not a blocking defect — true polygon/point-in-polygon geographic filtering was considered and rejected as new infrastructure not justified by current use cases.
+*   **Region Matching, a Known Limitation:** Admin-area/region matching (e.g. distinguishing "Kota Yogyakarta" from "Kabupaten Sleman") relies on the existing geolocation provider's administrative-area data (Section 4.3). Because that data is community-sourced (OpenStreetMap), address matching near a city/regency boundary may occasionally be imprecise. This is an accepted v1 limitation, not a blocking defect — true polygon/point-in-polygon geographic filtering was considered and rejected as new infrastructure not justified by current use cases. **(Amended 2026-10-21, FR121)** Region matching now uses the event's area (Section 3.20), because the provider's admin-area text field was never populated; an event whose area is unknown never matches a region filter.
 *   **Summary Is the Only Transparency Layer:** The resulting filter — whether just-extracted or loaded from a save — is described to the user solely by a deterministic, template-rendered summary sentence built from its current field values and any caveats (never an AI-generated or frozen caption). There is no edit UI for a filter, ever: the only way to change one is to re-prompt. This single mechanism is deliberately the entire trust/transparency layer.
 *   **Saving and Reuse:** A user can save a resolved filter from a dedicated "My AI Filters" list page (same pattern as the Favorites and Subscribed Accounts list pages, Sections 3.2 and 3.7). Loading a saved filter into Discovery and then adjusting a FilterHub manual control (Section 3.1) changes only that browsing session's query state — it never mutates the saved filter itself.
 *   **FilterHub Entry Point:** The prompt entry point is a small icon-only trigger (no permanent label) that opens the prompt as an overlay, adding no permanent width to FilterHub. While a prompt is being resolved, the overlay uses Section 3.12's existing blocking full-screen-overlay pattern (the same one used for other data-extraction actions), not a lighter-weight spinner. When an AI filter is active, it replaces FilterHub's manual controls with a single collapsed row showing the live summary plus clear/expand actions — the two are never shown stacked together.
@@ -328,6 +333,55 @@ Today, `SocialMediaAccountProfile.isImageStorageOptedIn` (Section 4.5) can only 
 *   **Not in Scope for MVP:** Multiple simultaneous verified owners on one account (e.g. co-organizers) and any claim-granted capability beyond the image-storage opt-in above are deferred — see `epics.md` Epic 8 for the originating scope note.
 
 > **Deferred to implementation:** whether a claimed account's verified status is surfaced as a visible badge on the Public Account Page (Section 3.7) — plausible, but this pass resolves the ownership/verification/grant mechanics, not the resulting UI treatment.
+
+### 3.18 Duplicate Events: Exact Repeats (added 2026-10-21; FR116)
+
+This section is about the *same* event posted more than once. It is separate from event groups (Section 3.19), which keep *different* events together; a duplicate is merged or queued, a group member stays its own event.
+
+*   **An Exact Repeat Is Shown Once:** If a poster posts the same event twice (same name, same place, same date range and same start time), FestGrid shows it once. When a new post is an exact repeat of an event that poster already has, the post is linked to the existing event and no second event is created. A promo window and a single day inside it are different events, so the date range must be identical, not merely overlapping.
+*   **Repeats That Already Exist Are Merged Automatically:** A one-time sweep over the events already in the catalogue merges existing exact repeats instead of queuing them, because the moderator queue has not been worked (0 of 147 suggested matches resolved when this was decided). The same sweep merges near-certain ("high") matches; "likely" ("mid") matches are queued for a moderator as before (Section 3.7, Cross-Post Event Matching).
+*   **Never Merged Automatically:** a pair a moderator has marked "not a duplicate"; two events extracted from one post as separate events; an event with an applied or pending correction or a pending report; events aimed at different countries.
+*   **Reversible and Supervised:** Every automatic merge is recorded as a system merge, is visible to moderators and can be undone. Undoing it records "not a duplicate", so neither the live check nor the sweep merges that pair again. The first sweep is a dry run that lists what it would merge; the first live run is limited to a small number of groups (start value 20) and reported before the limit is lifted.
+*   **Delivery:** The sweep comes first. The live check ships behind its own switch, off until the first sweep's result has been reviewed by the owner. Different posters announcing the same event at the same place are not covered by the exact-repeat rule; they remain under Cross-Post Event Matching (Section 3.7). `[ASSUMPTION]` A rule that sends such a pair to the moderator queue as a likely match is proposed, not decided.
+
+### 3.19 Event Groups (added 2026-10-21; FR117–FR120)
+
+An event group ties together *different* events that belong together. There are two kinds:
+
+*   **Series:** the same activity at different places or times for the same audience: a weekly run at three venues, a promo at several mall branches.
+*   **Programme:** different activities under one named umbrella, each aimed at its own audience: a mall anniversary with a circus, a line dance and fireworks. Each event of a programme is promoted on its own.
+
+*   **Created Automatically, Never a Gate (FR117):** The system creates groups from the events themselves, without a model call, and every group applies immediately; nothing in ingestion, matching or display waits for a moderator. Moderators are notified of suggestions and can review them afterwards (Section 3.9.3).
+*   **Series Roll, Programmes Are Time-Bound:** A new occurrence joins an open series when its first date falls within a gap of the series' latest date: 120 days within one account, 30 days across accounts (`[ASSUMPTION]` start values). Otherwise it opens a new series (a new season) and the past occurrences stay as the archive. A programme is identified by its name and date window; next year's edition is a new programme.
+*   **Across Accounts:** Branch promos posted by each place's own account (the same shoe-store promo at three malls) can join one series when the promo name is near-identical, the places differ and the dates overlap or fall within the gap. Hashtags may later serve as extra evidence for a link (planned, switched off until generic campaign tags can be screened out); a hashtag link never collapses events.
+*   **Same Country Only:** Events aimed at different countries are never grouped, and an event whose country cannot be settled joins no group. The cost is accepted: an Indonesian event whose only location is a wrong foreign pin, with no area and no country in its text, stays ungrouped.
+*   **A Duplicate Is Not a Group Member:** Two events at the same place with the same name are duplicates (Section 3.18); a series needs different places.
+*   **Discovery Shows a Series Once (FR118):** In the default Discovery list a series appears as one card, its best-ranked matching occurrence, with the count of the other matching occurrences (wording belongs to UX). It collapses only where the occurrences carry the same promo name; occurrences linked more loosely show on their own with a "part of …" link. A programme is never collapsed and never capped: every event competes on its own relevance and carries a "part of …" label. A group appears when at least one member matches the current filters, so its cover may differ with and without a filter. The calendar, favorites, the subscribed feed and account pages always list every event.
+*   **Group Page (FR118):** An event in a group shows "part of <group>" with the group's other active members (a series by place and date, a programme by activity); every member is reachable from there. This is separate from Related Events, which lists events that share a linked post (Section 3.7). Layout and copy belong to the UX step.
+*   **Notifications for Grouped Events (FR119):** A grouped event does not notify on its own. One notification is sent per group and source post, shortly after ingestion (a short delay plus up to one processing cycle; `[ASSUMPTION]` start value 90 seconds), counting the events it covers; a later post that adds members to an existing group notifies once for those members. A user who follows several accounts that post the same series is not notified about it more than once within 7 days (`[ASSUMPTION]` start value); this applies to series only, never to programmes, whose events are promoted individually. An event that is split out of another never notifies. Ungrouped events notify per event as today (Section 3.7).
+*   **Favorites and Calendar (FR120):** Favorites are per event, never per group, and calendar additions stay per schedule. When one event is split into several (one activity at several places), every user's favorite is copied to each resulting event. Where favorites count as a ranking signal, a series counts distinct users, not the sum over its occurrences.
+*   **One Event Is One Activity at One Place-Set (planned):** A post advertising one activity at several places is planned to become one event per place, grouped as a series, and existing upcoming events are planned to be re-extracted the same way (past events are left as they are). Until that ships, the Multi-Event Posts rules (Section 3.7) apply. Likewise a post's program lineup is planned to become separate visible events inside a programme; until delivered, it stays one event with several schedules.
+*   **Safety Net:** Each way of creating groups can be switched off on its own, a daily limit caps the groups created, a nightly list shows the newly created cross-account groups for the owner to read, and dissolving a group restores every member as an ordinary event (nothing is deleted). `[ASSUMPTION]` The switch and the limit are proposed mechanisms; the nightly list reaches a person only once moderator notifications work (Section 3.9.3).
+*   **Moderator Actions:** From "review group" a moderator can detach a wrongly suggested event, rename the group or dissolve it, and can correct a group's kind. These are reversals, never a gate on display.
+
+### 3.20 Place, Area and Precision (added 2026-10-21; FR121–FR124)
+
+*   **Three Facts (FR121):** For each event the system keeps (a) the *pin*, exact coordinates when they are verified; (b) the *area*, the administrative areas the event belongs to (country, province, regency, city), from a gazetteer, or unknown; and (c) where the place came from (stated by the poster, looked up from the text, taken from the account, or none). None is inferred from another. An unknown area is a value of its own and is never read as "national". The gazetteer covers Indonesia first; for other countries only the country is known (`[ASSUMPTION]`).
+*   **Precision Users See:** `EXACT` (a verified pin): the map link, the Nearby badge and the radius filter apply. `AREA` (the area is known, the pin is not verified or absent): an area badge, no map link, never Nearby. `UNKNOWN`: no area label. Precision is derived from the facts above, not edited by hand.
+*   **A Pin Is Verified Only When It Fits (FR124):** A map link and the Nearby badge appear only for a verified pin. A pin is not verified when the geolocation provider's confidence is below a floor (`[ASSUMPTION]` start value 0.5), when it disagrees with the area the poster stated, when it came from an account's default location outside the cases below, or when its country differs from the event's expected country: the single country named in the poster's own location text, or, when the text names none, the platform's default country. A pin that is not verified still leaves the event with its area. On production data 336 of 432 pins outside Indonesia name no country in their text and would be withheld, as all 42 pins labelled by hand were wrong.
+*   **Where an Event's Area Comes From:** In order, the first that answers: the area the poster states (including the area named by a roundup post's heading for an item that states none); the area of a verified pin; the account fallback below; otherwise unknown. Area phrases such as "DIY and Central Java" or "Jabodetabek" resolve through the gazetteer, not the geocoder. A stated area and a pin must agree; if they do not, the pin is not verified, not the text.
+*   **Filter and Lane Rules (FR121):** A strict area filter matches an event whose area is the same or inside; an event aimed at a wider area goes to the closest-matches lane; events with an unknown area never match. The radius filter matches verified pins only; events known by area appear in a separate lane labelled "no exact location". Ranking may use area closeness when there is no verified pin and never presents it as a distance.
+*   **Account Fallbacks by Account Type (FR122):** A stated place always wins over any fallback. *Curator or local-guide accounts* never lend their location (the location the model picked for one curator was a different venue in each of 12 posts); an event of theirs with no location of its own takes the account's audience area, with precision `AREA`. *Organizer or venue accounts* may lend their default location as the event's place, and the pin may be verified, only for a confirmed organizer/venue/event account of local or regional reach (a national company's head office is not where its webinar happens) and for an event the organizer authored. *Every other account* (never classified, personal, awaiting approval, or a venue account outside those conditions) lends at most the area of its default location: precision `AREA`, never Nearby.
+*   **Curator Audience Area (FR122):** Each curator account carries an *audience area*, the area it serves. The model proposes it from the account's profile, naming areas with evidence from the bio, name or captions (any area not in the input is dropped), and the account's first extracted posts validate it: the narrowest area that contains most of the first posts, never the whole country. When they disagree the posts win; when neither yields an area it stays unresolved. It is never taken from the geocoder. A moderator can set or correct it (Section 3.9.3), and doing so re-checks the account's unknown-area events once; `[ASSUMPTION]` a subscriber cannot. A curator is scraped, and its type confirmed, whether or not an area is known. `[ASSUMPTION]` Existing curators' stored default locations are cleared once this ships.
+*   **Unknown Area Is Published, Not Held (FR123):** An event with no stated area, no usable place text and no usable fallback is published. It appears in the default list with a lower rank and a limit per page (`[ASSUMPTION]` values set at story time), a nightly automatic job retries to resolve it (the roundup heading, then the account's area), and its account is listed for a moderator as a backstop, not as the mechanism. Moderators resolved none of the 147 queued matches, so a hold would be indefinite and silent.
+
+### 3.21 Audience Country (added 2026-10-21; FR125)
+
+*   **Every Event Has an Audience Country:** Each event carries the country it is aimed at, as a country code, or `international` when it is aimed at several countries. This is who the event is for, not where it happens: a national competition held on a Yogyakarta campus and a webinar for Indonesian residents are Indonesia; a conference for several countries is international.
+*   **Where It Comes From, in Order:** (1) the audience the post states (a named country, "se-Indonesia", several countries); an online event with no stated audience is `international`; (2) the country of the event's known place: a verified pin's country, the single country named in its location text, or the country of its known area; (3) the account's own country when it has one; (4) the platform's default country, recorded as defaulted.
+*   **Kept Apart From the Place:** The audience country is a separate fact from the country an event takes place in (Section 3.19 uses the latter, strictly, and leaves an unsettled event ungrouped). A defaulted audience country never feeds grouping or the check on a pin's country. An event whose area is unknown still has an audience country; it keeps its lower rank and limit (Section 3.20) because its area is unknown.
+*   **Correctable, Not Retroactive:** A moderator can correct an event's audience country. Existing events stay without one until they are derived again; no bulk default is applied.
+*   **Not Yet Proven:** `[ASSUMPTION]` Extraction of the audience country has not been measured: the earlier audience-area test had no country field and used posts written or chosen by its author. Curator captions are cleared once extraction finishes (Section 3.16), and on 2026-10-21 34% of the open events came from curator accounts and 22% from accounts never classified, so for those the value must be set when the post is ingested or inferred from the place and the account. A larger test on real events comes before any build. How the value orders or filters Discovery is not decided here.
 
 ## 4. Event Data Schema
 
@@ -405,6 +459,26 @@ interface EventInfo {
    */
   location: string;
   /**
+   * How exactly the event's location is known (added 2026-10-21, FR121, Section 3.20): `EXACT` when
+   * the main schedule's pin is verified, `AREA` when only the area is known, `UNKNOWN` otherwise
+   * (including an event with no schedule). Derived, never edited by hand.
+   */
+  locationPrecision: 'EXACT' | 'AREA' | 'UNKNOWN';
+  /**
+   * The localized name of the event's area (FR121). Absent when the area is unknown.
+   */
+  areaLabel?: string;
+  /**
+   * The country the event is aimed at: an ISO 3166-1 alpha-2 code, or `'international'` (added
+   * 2026-10-21, FR125, Section 3.21). Present once derived; absent on events not yet derived.
+   */
+  audienceCountry?: string;
+  /**
+   * Where `audienceCountry` came from; `'default'` marks the platform's default country and never
+   * feeds grouping or a pin check (FR125).
+   */
+  audienceCountrySource?: 'stated' | 'place' | 'account' | 'default' | 'moderator';
+  /**
    * The organizer of the event.
    */
   organizerName?: string;
@@ -480,11 +554,17 @@ interface EventInfo {
    */
   detailLevel: 'stub' | 'full';
   /**
-   * Set when a moderator merged this event into another as a duplicate (added 2026-10-01, FR114,
-   * AD-30); the event is soft-deleted (`deletedAt`) and this is the surviving event's `id`. Links
+   * Set when a moderator, or the system for an exact repeat or a near-certain match in the one-time
+   * sweep (Section 3.18, FR116), merged this event into another as a duplicate (added 2026-10-01,
+   * FR114, AD-30); the event is soft-deleted (`deletedAt`) and this is the surviving event's `id`. Links
    * to this event's slug redirect to that event. Absent on every event that has not been merged away.
    */
   mergedIntoEventId?: string;
+  /**
+   * The group this event belongs to, when it does (added 2026-10-21, FR117-FR118, Section 3.19).
+   * An event belongs to at most one group. Absent on an ungrouped event.
+   */
+  group?: EventGroup;
   /**
    * Indicates if the event has been favorited by the current user.
    * This is a user-contextual field added at runtime.
@@ -562,6 +642,9 @@ interface LocationDetails {
    * underlying provider data is community-sourced, this occasionally
    * misattributes an address near a city/regency boundary — an accepted
    * limitation (Section 3.15).
+   *
+   * Amended 2026-10-21 (FR121): nothing in production wrote this field, and region matching no
+   * longer reads it. Matching uses the event's area keys from the gazetteer (Section 3.20).
    */
   adminArea?: string;
   /**
@@ -642,6 +725,12 @@ interface Schedule {
    * Detailed information about the event's location.
    */
   locationDetails?: LocationDetails;
+  /**
+   * Whether this schedule's pin may be shown as an exact place (added 2026-10-21, FR124, Section
+   * 3.20): `trusted` (verified), `untrusted` (a pin exists but failed the checks), `none` (no pin).
+   * The map link, the radius filter and the Nearby badge read this and nothing else.
+   */
+  pinTrust?: 'trusted' | 'untrusted' | 'none';
   /**
    * A unique identifier for the schedule within the event, generated automatically as a UUID by the PostgreSQL database.
    */
@@ -724,8 +813,21 @@ interface SocialMediaAccountProfile {
    * directly by a moderator correcting a value (Section 3.7 Moderator
    * Override) — `DefaultLocationChangeRequest.changeSource` (Section 4.14)
    * records which.
+   *
+   * Amended 2026-10-21 (FR122, Section 3.20): used as an event's place only for a venue account
+   * under the conditions there; a curator account never lends it (see `audienceAreaKeys`).
    */
   defaultLocation?: LocationDetails;
+  /**
+   * The area a curator or local-guide account serves (added 2026-10-21, FR122, Section 3.20), as
+   * gazetteer area keys. Absent until resolved. Never taken from the geocoder.
+   */
+  audienceAreaKeys?: string[];
+  /**
+   * How `audienceAreaKeys` was found: proposed by the model from the profile, validated by the
+   * account's first posts, or set by a moderator. `[ASSUMPTION]` the value set is not final.
+   */
+  audienceAreaSource?: 'model' | 'posts' | 'moderator';
   /**
    * Whether this account's owner has consented to FestDaily durably storing
    * a copy of their post/poster images, rather than the default of
@@ -898,6 +1000,8 @@ interface Post {
   groupingReason?: 'single-event' | 'program-lineup' | 'dependent-stages' | 'separate-events' | 'roundup';
   /**
    * The number of events created from this post by extraction (added 2026-10-01, FR113, AD-30).
+   * Amended 2026-10-21 (FR117): this stays the count before any place split, so a post whose one
+   * activity is split into one event per place yields more events than this number.
    * Absent until the post has been extracted; `0` when extraction found no event (items skipped
    * for a missing date or location do not count).
    */
@@ -1345,6 +1449,34 @@ interface AccountClaim {
 
 **Distribution & Filtering**
 
+### 4.21. EventGroup Interface (added 2026-10-21, Section 3.19)
+
+```typescript
+/**
+ * A set of different events that belong together (FR117-FR120). Planned; not yet in production.
+ * A duplicate of one event is never a group member (Section 3.18).
+ */
+interface EventGroup {
+  id: string;
+  /** The group's display name. A moderator can rename it. */
+  name: string;
+  /**
+   * `series`: the same activity at different places or times (rolls; collapses in Discovery where
+   * the occurrences share the promo name). `programme`: different activities under one named
+   * umbrella (time-bound; never collapsed or capped). A moderator can correct the kind.
+   */
+  kind: 'series' | 'programme';
+  /** A dissolved group no longer collapses anything; its members are ordinary events. */
+  status: 'active' | 'dissolved';
+  /** The number of active members, not counting the archive of past occurrences. */
+  memberCount: number;
+  /** For a series: how many distinct places its active members are at. */
+  placeCount?: number;
+  /** For a series: whether the active members' date ranges all overlap ("also at N other places"). */
+  concurrent?: boolean;
+}
+```
+
 ### 4.16. Widget Interface
 
 ```typescript
@@ -1483,8 +1615,16 @@ interface LocationFilter {
   radiusMeters?: number;
   /**
    * Matched against `LocationDetails.adminArea` (Section 4.3).
+   * Superseded 2026-10-21 (FR121): never written in production; use `areaKey`.
    */
   adminArea?: string;
+  /**
+   * A gazetteer area key (added 2026-10-21, FR121, Section 3.20). Matches events whose area is the
+   * same or inside; events aimed at a wider area go to the closest-matches lane; an event whose
+   * area is unknown never matches. The nested-expression leaf `locationAdminArea` (Section 4.18)
+   * reads this key.
+   */
+  areaKey?: string;
 }
 
 /**
@@ -1701,6 +1841,7 @@ FestDaily will launch with a two-phase rollout to manage costs and build a valua
 *   **Moderator Override Rate:** Frequency with which moderators override automated decisions or user reports (e.g., restoring a soft-deleted event, marking a dangerous event as safe).
 *   **Vote-to-Subscription Conversion (Section 3.13):** Votes cast, distinct accounts voted for, and the share of voted accounts that go on to be subscribed — the vote list's core value is as a demand signal, so this measures whether it actually predicts what gets subscribed.
 *   **Widget Reach (Section 3.14):** Active registered embed domains, widget impressions, and "Powered by FestDaily" click-through rate — the widget's stated purpose is acquisition, so click-through back to the main app is the metric that validates it.
+*   **Duplicate and Grouping Quality (added 2026-10-21; FR116-FR119):** Exact repeats merged automatically, with the share a moderator undoes (counter-metric: a high undo share means the rule merges events it should not); duplicate pairs still visible per 1,000 open events; groups created per day and the share dissolved or detached by a moderator (counter-metric: events hidden by a wrong group); suggested matches waiting longer than 7 days for review.
 
 ## 8. Post-MVP Features
 
