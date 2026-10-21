@@ -4359,8 +4359,10 @@ This document defines the core architectural invariants for the FestDaily applic
         checks this against Indonesia's PDP Law before launch (unverified).
     9.  **Ranking reads, it does not decide.** `[PROPOSED]` The area tier and the bounded date
         discount are one `ORDER BY` expression with bound parameters (proposal §4); the reference
-        scorer in `packages/domain` is the one definition and the SQL is tested for parity against
-        it. Sort RECOMMENDED versus SOONEST is a flag with a visible toggle, and the default for
+        scorer is the one definition and the SQL is tested for parity against it. **It lives in a
+        private premium package that only the backend imports, not in the public `packages/domain`
+        (open-core plan, 2026-10-21); the server returns coarse match reasons per event (for example
+        the matched interest keys), never weights, so no scoring rule reaches the web bundle.** Sort RECOMMENDED versus SOONEST is a flag with a visible toggle, and the default for
         signed-in users is decided with the replay (proposal §6.2 #2). Ranking ships behind the
         flags of the AD-36 Rule 13 gate and after IDEA-076 (the scale-safe list).
     10. **The gates and the sequence.** `[ADOPTED: the sequence, user-directed 2026-10-20 and

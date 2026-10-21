@@ -30,6 +30,46 @@ Make the existing repository private (it becomes the working repository and keep
 * **License.** The existing code was published under MIT and copies already taken stay MIT. Private code can be proprietary. The mirror's license is a choice: MIT (anyone may fork the core) or a source-available license that forbids commercial use (a portfolio that cannot be resold as a competing product). Take advice.
 * **Costs to check:** GitHub Actions minutes for a private repository; Vercel's free plan is for non-commercial use, so a paid product probably needs a paid plan.
 
+## 0b. Revision 3, still 2026-10-21: split by client and server (the owner's axis), recommended over section 0
+
+The owner proposed: the **frontend public** (it changes most and benefits from the free GitHub Actions minutes of a public repository) and the **backend and database private** (they change less and hold the secret recipe), and named the package/domain boundary as the likely conflict. Nothing is migrated until all personalization epics are ready for development. This replaces the recommendation of section 0: it follows the client/server line, which is also the line the secret follows.
+
+### Why this line is better
+
+* The secret recipe is server-side (extraction contract, guards, taxonomy, profile, ranking). The frontend bundle is downloadable by every user, so publishing its source loses little, provided no scoring weights or guard rules ever reach it.
+* Dependencies already point the right way: the private side may depend on public packages, never the reverse.
+* Vercel can deploy the frontend straight from the public repository, so no private submodule access is needed; the backend and infrastructure deploy from the private repository.
+* A Next.js PWA with i18n, a design system and tests is a strong portfolio; the backend architecture can be shown through public documents and diagrams without its code.
+
+### Topology
+
+* **Private parent repository** (today's repository, made private; it keeps history, issues, secrets): `apps/backend`, `apps/infrastructure`, `packages/database`, `packages/graphql-select`, the new premium packages, `_bmad*`, `.claude`, `_bmad-output`, private documents. It contains the public repository as a **git submodule** (the owner's original idea) so one checkout still builds and tests everything and a change can be made from the parent.
+* **Public child repository** (new, created by extracting the history of the public paths with `git filter-repo`, after a secret scan): `apps/web`, `packages/ui`, `packages/analytics`, `packages/shared-types`, `packages/domain`, the config packages (`eslint-config`, `typescript-config`, `testing-config`), `packages/visual-audit`, the portfolio README and sanitized `docs/infrastructure`.
+
+### The package boundary, from the real imports (2026-10-21)
+
+| Package | Imported by the web app | Imported by the backend | Side |
+|---|--:|--:|---|
+| `ui` | 94 files | 0 | public |
+| `analytics` | 59 | 0 | public |
+| `shared-types` | 9 | 17 | public (shared) |
+| `domain` | 26 (about 20 symbols: platform helpers, the query-condition builders, `selectDisplaySchedule`, `computeDistanceKm`, the filter types and summary) | 84 | public as it is |
+| `database` | 0 | 198 | private |
+| `graphql-select` | 0 | 16 | private |
+| `eslint-config`, `typescript-config`, `testing-config`, `visual-audit` | 0 | 0 | public (tooling) |
+
+* **`packages/domain` can stay public unchanged.** The secret recipe is new code, not code that lives there today; the existing contents (dedup scoring, group detection, filters, geolocation, email templates, gateway helpers) are core features. So no refactor of the 84 backend files is needed. The rule that replaces it: **premium logic never goes into a public package**; it lives in new private packages (for example `packages/premium-domain`) that only the backend imports. (A quick audit of `domain/ai-gateway` and `domain/scraper` for anything that should not be public comes before the migration.)
+* **AD-42 Rule 9 changes.** The reference scorer was to live in `packages/domain` and the chips were to be derived in the browser from the same function; that would put the weights in the public bundle. Instead the scorer lives in the private premium package and the server returns coarse match reasons per event (for example the matched interest keys), never weights.
+* **GraphQL contract.** The web `codegen.ts` reads `../backend/src/schema/**/*.graphql`. After the split the private repository exports the schema to the public one (a CI job commits `contract/schema.graphql`, or the submodule path is the contract). The schema lists every type, including moderation; the moderation screens are already in the web bundle, so little is added. Premium-only internals can be stripped by a marker.
+* **Tests.** Web end-to-end tests that call the backend run against a mock server in the public repository; the full end-to-end run is a scheduled job in the private one.
+* **CI minutes.** The public repository gets unlimited standard-runner minutes; the private one has a monthly allowance on a free plan, so use path filters and run backend integration tests only on backend changes.
+* **Documents.** `_bmad-output`, the memlogs and the BMad tooling configuration are private. Public documents are the portfolio README, the architecture diagram and tech stack (sanitized), and the frontend documentation.
+
+### Before and after the migration
+
+* The migration waits until the personalization epics are ready for development, then happens before any premium code is written, so no premium code is ever pushed to a public remote. Until then the planning documents stay in this repository, which is public: the AD-42 text, the proposal, the POC and its findings, the labelling guide. The owner may flip the repository to private at any time without migrating anything (a settings change, reversible); doing so now closes that exposure and takes the portfolio offline until the public child exists.
+* Costs to check: the GitHub plan for the private repository; Vercel's free plan is for non-commercial use, so a paid product probably needs Pro; the licenses (the existing MIT copies stay MIT; the public child can keep MIT or use a source-available license; the private code is proprietary). Take advice.
+
 ## 1. Why the timing is good
 
 No premium code exists in production yet. What exists is planning (AD-42, the proposal), a POC under `apps/backend/scripts/poc-event-insight/`, and its analysis files. So the split costs a documentation move and a seam, not a rewrite. The longer premium code is written in the public repository first, the more has to be extracted later.
