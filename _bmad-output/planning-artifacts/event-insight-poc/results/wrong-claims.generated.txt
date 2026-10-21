@@ -1,0 +1,8 @@
+core v1     raw     runs=81  wrong-claim runs 13 (16%, 95% CI 10-26%)  runs with an abstention 4  critical 4  fully correct 66
+core v1     guarded runs=81  wrong-claim runs 9 (11%, 95% CI 6-20%)  runs with an abstention 5  critical 0  fully correct 69
+core v2     raw     runs=81  wrong-claim runs 16 (20%, 95% CI 13-30%)  runs with an abstention 15  critical 3  fully correct 52
+core v2     guarded runs=81  wrong-claim runs 16 (20%, 95% CI 13-30%)  runs with an abstention 15  critical 3  fully correct 52
+holdout v1  raw     runs=18  wrong-claim runs 6 (33%, 95% CI 16-56%)  runs with an abstention 3  critical 0  fully correct 9
+holdout v1  guarded runs=18  wrong-claim runs 3 (17%, 95% CI 6-39%)  runs with an abstention 6  critical 0  fully correct 9
+holdout v2  raw     runs=18  wrong-claim runs 4 (22%, 95% CI 9-45%)  runs with an abstention 1  critical 0  fully correct 13
+holdout v2  guarded runs=18  wrong-claim runs 4 (22%, 95% CI 9-45%)  runs with an abstention 4  critical 0  fully correct 10

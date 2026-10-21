@@ -1,0 +1,115 @@
+BEGIN
+SET
+          pin          |  stored_confidence   | pins 
+-----------------------+----------------------+------
+ inside Indonesia box  | 0.00                 |  220
+ inside Indonesia box  | 0.01-0.24            |  106
+ inside Indonesia box  | 0.25-0.49            |   87
+ inside Indonesia box  | 0.50-0.74            |  209
+ inside Indonesia box  | 0.75-0.99            |   58
+ inside Indonesia box  | 1.00                 |  279
+ inside Indonesia box  | no confidence stored |  122
+ outside Indonesia box | 0.00                 |  118
+ outside Indonesia box | 0.01-0.24            |   55
+ outside Indonesia box | 0.25-0.49            |   41
+ outside Indonesia box | 0.50-0.74            |   44
+ outside Indonesia box | 0.75-0.99            |    2
+ outside Indonesia box | 1.00                 |   83
+ outside Indonesia box | no confidence stored |   36
+(14 rows)
+
+          pin          |        match_type        | pins 
+-----------------------+--------------------------+------
+ inside Indonesia box  | full_match               |  858
+ inside Indonesia box  | (none)                   |  122
+ inside Indonesia box  | match_by_street          |   52
+ inside Indonesia box  | match_by_city_or_disrict |   37
+ inside Indonesia box  | match_by_building        |    8
+ inside Indonesia box  | inner_part               |    4
+ outside Indonesia box | full_match               |  320
+ outside Indonesia box | (none)                   |   36
+ outside Indonesia box | match_by_street          |   10
+ outside Indonesia box | match_by_building        |    8
+ outside Indonesia box | match_by_city_or_disrict |    4
+ outside Indonesia box | inner_part               |    1
+(12 rows)
+
+                    schedule_location_text                    | country | provider |    match_type     | confidence | schedules 
+--------------------------------------------------------------+---------+----------+-------------------+------------+-----------
+                                                              | dk      | GEOAPIFY | full_match        |       1.00 |        27
+                                                              | fr      | GEOAPIFY | full_match        |       1.00 |        25
+                                                              | us      | GEOAPIFY | full_match        |       0.00 |        24
+                                                              | in      | GEOAPIFY | full_match        |       0.27 |        10
+                                                              | eg      | GEOAPIFY | full_match        |       1.00 |        10
+                                                              | lb      | GEOAPIFY | match_by_street   |       0.50 |         6
+ Atrium & Plaza Rama, Sleman City Hall                        | us      | GEOAPIFY | full_match        |       0.00 |         5
+ Online                                                       | fr      | GEOAPIFY | full_match        |       1.00 |         5
+ Sushi Go – Plaza Ambarrukmo, Lantai 3                        | us      | GEOAPIFY | full_match        |       0.06 |         5
+                                                              | us      | GEOAPIFY | full_match        |       1.00 |         5
+ Atrium Lower Ground, Galeria Mall                            | us      | GEOAPIFY | full_match        |       0.00 |         4
+ Court 2                                                      | ca      | GEOAPIFY | full_match        |       1.00 |         4
+                                                              | br      | GEOAPIFY | full_match        |       0.30 |         4
+                                                              | et      | GEOAPIFY | full_match        |       0.33 |         4
+ Egypt                                                        | eg      | GEOAPIFY | full_match        |       1.00 |         3
+ Grand Atrium Pakuwon Mall Jogja                              | pk      | GEOAPIFY | full_match        |       0.00 |         3
+                                                              | fr      | GEOAPIFY | full_match        |       0.50 |         3
+                                                              | us      | GEOAPIFY | match_by_building |       0.00 |         3
+                                                              |         | GEOAPIFY |                   |            |         3
+ Atrium Lower Ground Galeria Mall                             | us      | GEOAPIFY | full_match        |       0.00 |         2
+ Atrium Shinta, Ground Floor, Sleman City Hall, Jl. Magelang  | fr      | GEOAPIFY | full_match        |       0.00 |         2
+ Convention Hall Lt.2                                         | ca      | GEOAPIFY | full_match        |       0.81 |         2
+ Customer Service, Ground Floor, Sleman City Hall             | us      | GEOAPIFY | full_match        |       0.55 |         2
+ Icon Mall Gresik                                             | us      | GEOAPIFY | full_match        |       0.00 |         2
+ Institute France Indonesie, Lembaga Indonesia Prancis        | us      | GEOAPIFY | full_match        |       0.00 |         2
+ J.CO, Ground Floor, Galeria Mall                             |         | GEOAPIFY |                   |            |         2
+ JEC                                                          |         | GEOAPIFY |                   |            |         2
+ Kudus City Walk Mall                                         | in      | GEOAPIFY | full_match        |       0.00 |         2
+ LA Plaza Lamongan                                            | es      | GEOAPIFY | full_match        |       0.00 |         2
+ Le Gareca Space                                              | fr      | GEOAPIFY | full_match        |       0.67 |         2
+ Open Space JIExpo dan Gambir Expo, Kemayoran - Jakarta       | us      | GEOAPIFY | full_match        |       0.12 |         2
+ Plaza Ambarrukmo Mall Jogja                                  |         | GEOAPIFY |                   |            |         2
+ Sky Commons, Lantai 3A, Plaza Ambarrukmo                     | es      | GEOAPIFY | full_match        |       0.06 |         2
+ Spiral Deck Zona D, GIK UGM                                  | do      | GEOAPIFY | full_match        |       0.00 |         2
+ Tennis Indoor Senayan, Jakarta                               | us      | GEOAPIFY | full_match        |       0.50 |         2
+ TKP JOGJA Lantai 2, Pakuwon Mall Jogja                       | es      | GEOAPIFY | full_match        |       0.00 |         2
+ Watsons, Ground Floor Galeria Mall                           | mx      | GEOAPIFY | full_match        |       0.70 |         2
+                                                              | us      | GEOAPIFY | full_match        |       0.50 |         2
+                                                              | th      | GEOAPIFY | full_match        |       0.12 |         2
+                                                              | in      | GEOAPIFY | full_match        |       0.00 |         2
+(40 rows)
+
+ pin_country |      account_default_country      | schedules 
+-------------+-----------------------------------+-----------
+ us          | (account has no default location) |        90
+ (none)      | (account has no default location) |        38
+ dk          | us                                |        27
+ fr          | id                                |        20
+ es          | (account has no default location) |        19
+ eg          | us                                |        13
+ fr          | (account has no default location) |        12
+ in          | (account has no default location) |        10
+ in          | sg                                |        10
+ ca          | (account has no default location) |         7
+ lb          | lb                                |         7
+ br          | (account has no default location) |         6
+ fr          | sg                                |         6
+ mx          | (account has no default location) |         6
+ pk          | (account has no default location) |         6
+ us          | id                                |         6
+ et          | (account has no default location) |         5
+ ie          | id                                |         5
+ us          | us                                |         5
+ br          | in                                |         4
+ ca          | us                                |         4
+ it          | (account has no default location) |         4
+ au          | (account has no default location) |         3
+ do          | id                                |         3
+ fr          | lb                                |         3
+ in          | in                                |         3
+ ph          | (account has no default location) |         3
+ ro          | (account has no default location) |         3
+ us          | sg                                |         3
+ co          | (account has no default location) |         2
+(30 rows)
+
+ROLLBACK

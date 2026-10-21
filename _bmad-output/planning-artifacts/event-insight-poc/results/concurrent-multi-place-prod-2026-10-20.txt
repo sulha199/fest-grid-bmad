@@ -1,0 +1,56 @@
+BEGIN
+SET
+           concurrent_pairs_by_poster            | pairs | distinct_names 
+-------------------------------------------------+-------+----------------
+ 2 same account, different posts                 |   144 |             39
+ 3 different accounts (each place posts its own) |    34 |             21
+(2 rows)
+
+   cluster_size   |    posted_by     | clusters | events_in_them 
+------------------+------------------+----------+----------------
+ 2 events         | one account      |       19 |             38
+ 2 events         | several accounts |       17 |             34
+ 3 events         | one account      |        5 |             15
+ 3 events         | several accounts |        1 |              3
+ 4-5 events       | one account      |        8 |             35
+ 4-5 events       | several accounts |        3 |             15
+ 6 or more events | one account      |        4 |             36
+(7 rows)
+
+                 event_name                 | events | accounts | first_date | last_date  |                                                     places                                                     
+--------------------------------------------+--------+----------+------------+------------+----------------------------------------------------------------------------------------------------------------
+ Jogja Coffee Week 6                        |     12 |        1 | 2026-09-04 | 2026-09-10 | hall b c jec stand d 3 | hall b c jec yogyakarta | jogja | jogja expo center bangun | jogja expo center jec | 
+ BWF World Junior Championships 2026        |     11 |        1 | 2026-10-12 | 2026-10-17 | denmark | egypt
+ RSIH 25th Mlayu Mlayu                      |      7 |        1 | 2026-09-27 | 2026-10-11 | jl veteran 184 yogyakart | xt square yogyakarta | yogyakarta
+ Tirta Lie’s Bakmi Festival                 |      6 |        1 | 2026-10-21 | 2026-10-25 | atrium shinta ground flo | atrium shinta lantai gf 
+ Denmark Open 2026                          |      5 |        1 | 2026-10-13 | 2026-10-18 | denmark | denmark ia united states | location not specified
+ Erafone Run 2026 Yogyakarta Series         |      5 |        3 | 2026-10-31 | 2026-10-31 | museum gunungapi merapi | museum gunungapi merapi 
+ GembiRun Loka 2026                         |      5 |        3 | 2026-10-21 | 2026-10-21 | gembira loka zoo | gembira loka zoo yogyaka
+ Sports Station Buy 1 Get 1 Free Promo      |      5 |        4 | 2026-10-02 | 2026-10-04 | lantai 1 sleman city hal | lippo plaza jogja | sports station lt ug lip | sports station pakuwon m | sports st
+ SWARANUSA 2026 — LOMBA SOLO VOKAL NASIONAL |      5 |        1 | 2026-09-23 | 2026-11-02 | museum perjuangan yogyak | stikes panti rapih yogya
+ Victor Denmark Open 2026                   |      5 |        1 | 2026-10-13 | 2026-10-18 | denmark | location not specified
+ Dance Phoria                               |      4 |        1 | 2026-09-11 | 2026-09-20 | jogja | pakuwon mall jogja socie | society atrium lt ug pak | ug atrium pakuwon mall j
+ Lomba Mata Pelajaran dan Mewarnai          |      4 |        1 | 2026-08-30 | 2026-10-11 | bg junction surabaya | kudus city walk mall | neo solo grand mall | transmart cirebon
+ Obral Obrolan Buku                         |      4 |        1 | 2026-09-23 | 2026-10-13 | atrium rama ground floor | atrium rama lantai gf sl | atrium rama sleman city 
+ SCH Choir Competition 2026                 |      4 |        1 | 2026-10-15 | 2026-10-30 | atrium rama ground floor | atrium rama lantai gf sl
+ Trans Durian Roadshow                      |      4 |        1 | 2026-09-18 | 2026-10-04 | area parkir timur plaza  | parkir timur plaza ambar
+ BCA AUTO SHOW 2026                         |      3 |        1 | 2026-09-10 | 2026-09-13 | atrium plaza ambarrukmo | plaza ambarrukmo yogyaka
+ J.CO ANNIVERSARY PROMO                     |      3 |        2 | 2026-08-31 | 2026-09-04 | j co ground floor galeri | j co plaza ambarrukmo
+ Kejuaraan Daerah Barongsai 2026            |      3 |        1 | 2026-10-02 | 2026-10-03 | atrium shinta ground flo
+ Line Dance Carnival                        |      3 |        1 | 2026-10-28 | 2026-10-28 | atrium shinta ground flo | atrium shinta lantai gf 
+ SCH HALLOWEEN DANCE COMPETITION 2026       |      3 |        1 | 2026-10-31 | 2026-10-31 | atrium rama ground floor | atrium rama lantai gf sl
+ Synchronize Fest                           |      3 |        1 | 2026-10-16 | 2026-10-16 | fest 62 052 komorniki po | location not specified
+ Amero World Gold Morphosis                 |      2 |        1 | 2026-09-02 | 2026-09-11 | grand atrium pakuwon mal | pakuwon mall yogyakarta
+ Avengers Golden Ticket Hunt                |      2 |        1 | 2026-09-18 | 2026-10-07 | cin polis lippo plaza jo | lippo plaza jogja gang n
+ Bangor Kids Run                            |      2 |        1 | 2026-09-26 | 2026-10-11 | jogja | museum perjuangan yogyak
+ BIOSFERUN 2026                             |      2 |        2 | 2026-10-18 | 2026-10-18 | desa pagerharjo | lapangan desa pagerharjo
+(25 rows)
+
+                 event_name                 | detail_level | has_post | first_date | last_date  | schedules | distinct_schedule_places |                  main_place                   
+--------------------------------------------+--------------+----------+------------+------------+-----------+--------------------------+-----------------------------------------------
+ Wacoal 25% Off Promo                       | full         | t        | 2026-10-09 | 2026-10-31 |         1 |                        0 | House of Wacoal 2nd Floor, Plaza Ambarrukmo
+ Wacoal 25% Off Promo at Pakuwon Mall Jogja | full         | t        | 2026-10-09 | 2026-10-31 |         1 |                        1 | House of Wacoal 2nd Floor, Pakuwon Mall Jogja
+ Wacoal 25% Off Promo                       | full         | t        | 2026-10-12 | 2026-10-31 |         1 |                        0 | Lantai UG, Jogja City Mall
+(3 rows)
+
+ROLLBACK

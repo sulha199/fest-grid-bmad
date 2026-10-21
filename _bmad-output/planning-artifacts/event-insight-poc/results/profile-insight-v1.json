@@ -1,0 +1,3151 @@
+{
+ "prompt": "v1",
+ "model": "gemini-3.5-flash-lite",
+ "runs": 3,
+ "records": [
+  {
+   "id": "plazaambarrukmo",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Open hours: 10.00-22.00 WIB",
+     "Yogyakarta"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Official Instagram of Plaza Ambarrukmo",
+     "Plaza Ambarrukmo Mall Jogja"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Open hours: 10.00-22.00 WIB",
+     "Yogyakarta"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Official Instagram of Plaza Ambarrukmo",
+     "Plaza Ambarrukmo Mall Jogja"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "plazaambarrukmo",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Open hours: 10.00-22.00 WIB",
+     "Plaza Ambarrukmo Mall Jogja",
+     "Yogyakarta"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Plaza Ambarrukmo Mall Jogja",
+     "USS menyapa Yogyakarta untuk pertama kalinya!"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Open hours: 10.00-22.00 WIB",
+     "Plaza Ambarrukmo Mall Jogja",
+     "Yogyakarta"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Plaza Ambarrukmo Mall Jogja",
+     "USS menyapa Yogyakarta untuk pertama kalinya!"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "plazaambarrukmo",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Open hours: 10.00-22.00 WIB",
+     "Yogyakarta"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Official Instagram of Plaza Ambarrukmo",
+     "Plaza Ambarrukmo Mall Jogja"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Open hours: 10.00-22.00 WIB",
+     "Yogyakarta"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Official Instagram of Plaza Ambarrukmo",
+     "Plaza Ambarrukmo Mall Jogja"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "infoeventjogja",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Yogyakarta dan sekitarnya",
+     "Rp300.000/tim",
+     "se-DIY & Jawa Tengah"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     },
+     {
+      "name": "Jawa Tengah",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "📍Yogyakarta dan sekitarnya",
+     "Terbuka untuk mahasiswa dan umum se-DIY & Jawa Tengah"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Yogyakarta dan sekitarnya",
+     "Rp300.000/tim",
+     "se-DIY & Jawa Tengah"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     },
+     {
+      "name": "Jawa Tengah",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "📍Yogyakarta dan sekitarnya",
+     "Terbuka untuk mahasiswa dan umum se-DIY & Jawa Tengah"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "infoeventjogja",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Yogyakarta dan sekitarnya",
+     "Rp300.000/tim",
+     "Yogyakarta"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Yogyakarta dan sekitarnya",
+     "Jogja dan sekitarnya"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Yogyakarta dan sekitarnya",
+     "Rp300.000/tim",
+     "Yogyakarta"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Yogyakarta dan sekitarnya",
+     "Jogja dan sekitarnya"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "infoeventjogja",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Yogyakarta dan sekitarnya",
+     "Rp300.000/tim",
+     "se-DIY & Jawa Tengah"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     },
+     {
+      "name": "Bantul",
+      "level": "regency"
+     },
+     {
+      "name": "Sleman",
+      "level": "regency"
+     },
+     {
+      "name": "Jawa Tengah",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Yogyakarta dan sekitarnya",
+     "se-DIY & Jawa Tengah"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Yogyakarta dan sekitarnya",
+     "Rp300.000/tim",
+     "se-DIY & Jawa Tengah"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     },
+     {
+      "name": "Bantul",
+      "level": "regency"
+     },
+     {
+      "name": "Sleman",
+      "level": "regency"
+     },
+     {
+      "name": "Jawa Tengah",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Yogyakarta dan sekitarnya",
+     "se-DIY & Jawa Tengah"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "wanitatamajogja",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Laksda Adisucipto No.88 Depok, Sleman, Yogyakarta"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Mandala Bhakti Wanitatama Laksda Adisucipto No.88 Depok, Sleman, Yogyakarta",
+     "#wanitatamajogja"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Laksda Adisucipto No.88 Depok, Sleman, Yogyakarta"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Mandala Bhakti Wanitatama Laksda Adisucipto No.88 Depok, Sleman, Yogyakarta",
+     "#wanitatamajogja"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "wanitatamajogja",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Yogyakarta",
+     "wanitatamajogja",
+     "gedungpernikahanjogja"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "wanitatamajogja",
+     "Yogyakarta",
+     "gedungpernikahanjogja"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Yogyakarta",
+     "wanitatamajogja",
+     "gedungpernikahanjogja"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "wanitatamajogja",
+     "Yogyakarta",
+     "gedungpernikahanjogja"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "wanitatamajogja",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Laksda Adisucipto No.88 Depok, Sleman, Yogyakarta"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "📍Mandala Bhakti Wanitatama Laksda Adisucipto No.88 Depok, Sleman, Yogyakarta"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Laksda Adisucipto No.88 Depok, Sleman, Yogyakarta"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "📍Mandala Bhakti Wanitatama Laksda Adisucipto No.88 Depok, Sleman, Yogyakarta"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "pakuwonmall.jogja",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Rp4.500.000",
+     "Pakuwon Mall Jogja",
+     "jogjainfo"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Jogja",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Pakuwon Mall Jogja",
+     "#pakuwonmalljogja",
+     "#dancejogja"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Rp4.500.000",
+     "Pakuwon Mall Jogja",
+     "jogjainfo"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Jogja",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Pakuwon Mall Jogja",
+     "#pakuwonmalljogja",
+     "#dancejogja"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "pakuwonmall.jogja",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Rp4.500.000",
+     "Pakuwon Mall Jogja",
+     "jogjaevent"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Jogja",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Pakuwon Mall Jogja",
+     "UG Atrium, Pakuwon Mall Jogja"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Rp4.500.000",
+     "Pakuwon Mall Jogja",
+     "jogjaevent"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Jogja",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Pakuwon Mall Jogja",
+     "UG Atrium, Pakuwon Mall Jogja"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "pakuwonmall.jogja",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Rp4.500.000",
+     "Pakuwon Mall Jogja",
+     "jogjainfo"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Jogja",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Pakuwon Mall Jogja",
+     "#pakuwonmalljogja",
+     "#dancejogja"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Rp4.500.000",
+     "Pakuwon Mall Jogja",
+     "jogjainfo"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Jogja",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Pakuwon Mall Jogja",
+     "#pakuwonmalljogja",
+     "#dancejogja"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "chaanakyaekadantaolympiad",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Puspresnas",
+     "Rp. 85.000/mapel"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "Tingkat Nasional 2026-2027",
+     "Puspresnas"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Puspresnas",
+     "Rp. 85.000/mapel"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "Tingkat Nasional 2026-2027",
+     "Puspresnas"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "chaanakyaekadantaolympiad",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Puspresnas",
+     "Rp. 85.000/mapel"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "🏆 Tingkat Nasional 2026-2027",
+     "*KOMPETISI NASIONAL*"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Puspresnas",
+     "Rp. 85.000/mapel"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "🏆 Tingkat Nasional 2026-2027",
+     "*KOMPETISI NASIONAL*"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "chaanakyaekadantaolympiad",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Puspresnas",
+     "Biaya Rp. 85.000/mapel"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "🏆 Tingkat Nasional 2026-2027",
+     "*KOMPETISI NASIONAL*"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Puspresnas",
+     "Biaya Rp. 85.000/mapel"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "🏆 Tingkat Nasional 2026-2027",
+     "*KOMPETISI NASIONAL*"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-dinas-sleman",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "DIY",
+     "0274 868 1234",
+     "go.id"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Kabupaten Sleman",
+      "level": "regency"
+     }
+    ],
+    "evidence": [
+     "Akun resmi Dinas Pariwisata Kabupaten Sleman",
+     "Terbuka untuk warga Sleman, gratis!",
+     "pengelola desa wisata se-Kabupaten Sleman"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "0274 868 1234",
+     "go.id"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Kabupaten Sleman",
+      "level": "regency"
+     }
+    ],
+    "evidence": [
+     "Akun resmi Dinas Pariwisata Kabupaten Sleman",
+     "Terbuka untuk warga Sleman, gratis!",
+     "pengelola desa wisata se-Kabupaten Sleman"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-dinas-sleman",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "DIY",
+     "0274 868 1234",
+     "WIB"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Kabupaten Sleman",
+      "level": "regency"
+     }
+    ],
+    "evidence": [
+     "Terbuka untuk warga Sleman",
+     "pengelola desa wisata se-Kabupaten Sleman"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "0274 868 1234"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Kabupaten Sleman",
+      "level": "regency"
+     }
+    ],
+    "evidence": [
+     "Terbuka untuk warga Sleman",
+     "pengelola desa wisata se-Kabupaten Sleman"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-dinas-sleman",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Kabupaten Sleman, DIY",
+     "Jl. Candi Gebang No. 1, Sleman",
+     "0274 868 1234"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Sleman",
+      "level": "regency"
+     }
+    ],
+    "evidence": [
+     "Terbuka untuk warga Sleman, gratis!",
+     "pengelola desa wisata se-Kabupaten Sleman"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Kabupaten Sleman, DIY",
+     "Jl. Candi Gebang No. 1, Sleman",
+     "0274 868 1234"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Sleman",
+      "level": "regency"
+     }
+    ],
+    "evidence": [
+     "Terbuka untuk warga Sleman, gratis!",
+     "pengelola desa wisata se-Kabupaten Sleman"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-telco-nasional",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "melayani seluruh Indonesia",
+     "co.id",
+     "WIB"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "melayani seluruh Indonesia",
+     "pelaku usaha dari seluruh Indonesia",
+     "berangkat dari 25 kota"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "melayani seluruh Indonesia",
+     "co.id"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "melayani seluruh Indonesia",
+     "pelaku usaha dari seluruh Indonesia",
+     "berangkat dari 25 kota"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-telco-nasional",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "seluruh Indonesia",
+     ".co.id"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "melayani seluruh Indonesia",
+     "berangkat dari 25 kota"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "seluruh Indonesia",
+     ".co.id"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "melayani seluruh Indonesia",
+     "berangkat dari 25 kota"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-telco-nasional",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "melayani seluruh Indonesia",
+     "co.id",
+     "WIB"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "melayani seluruh Indonesia",
+     "berangkat dari 25 kota, daftar di gerai Telko terdekat"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "melayani seluruh Indonesia",
+     "co.id"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "melayani seluruh Indonesia",
+     "berangkat dari 25 kota, daftar di gerai Telko terdekat"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-kl-hall",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "Jalan Tun Razak, Kuala Lumpur",
+     "MYT",
+     "+60 12-345 6789"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Kuala Lumpur",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "KL Convention Hall, Jalan Tun Razak, Kuala Lumpur."
+    ]
+   },
+   "guarded": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "Jalan Tun Razak, Kuala Lumpur",
+     "+60 12-345 6789"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Kuala Lumpur",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "KL Convention Hall, Jalan Tun Razak, Kuala Lumpur."
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "MY",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-kl-hall",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "Kuala Lumpur",
+     "MYT",
+     "+60 12-345 6789",
+     "example.com.my"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Kuala Lumpur",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "KL Convention Hall, Jalan Tun Razak, Kuala Lumpur."
+    ]
+   },
+   "guarded": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "Kuala Lumpur",
+     "+60 12-345 6789",
+     "example.com.my"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Kuala Lumpur",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "KL Convention Hall, Jalan Tun Razak, Kuala Lumpur."
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "MY",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-kl-hall",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "Kuala Lumpur",
+     "MYT",
+     "+60 12-345 6789",
+     ".com.my"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Kuala Lumpur",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Official page of KL Convention Hall, Jalan Tun Razak, Kuala Lumpur."
+    ]
+   },
+   "guarded": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "Kuala Lumpur",
+     "+60 12-345 6789",
+     ".com.my"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Kuala Lumpur",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Official page of KL Convention Hall, Jalan Tun Razak, Kuala Lumpur."
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "MY",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-sg-makers",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "SG",
+    "countryEvidence": [
+     "Singapore",
+     "+65 6123 4567",
+     ".sg"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Ubi",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Community makerspace in Singapore",
+     "Ubi Avenue 1"
+    ]
+   },
+   "guarded": {
+    "countryCode": "SG",
+    "countryEvidence": [
+     "Singapore",
+     "+65 6123 4567"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Ubi",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Community makerspace in Singapore",
+     "Ubi Avenue 1"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "SG",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-sg-makers",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "SG",
+    "countryEvidence": [
+     "Singapore",
+     "+65 6123 4567",
+     ".sg"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Ubi",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Community makerspace in Singapore",
+     "Ubi Avenue 1"
+    ]
+   },
+   "guarded": {
+    "countryCode": "SG",
+    "countryEvidence": [
+     "Singapore",
+     "+65 6123 4567"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Ubi",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Community makerspace in Singapore",
+     "Ubi Avenue 1"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "SG",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-sg-makers",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "SG",
+    "countryEvidence": [
+     "Singapore",
+     "+65 6123 4567",
+     "ubimakers.example.sg"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Ubi",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Community makerspace in Singapore",
+     "Ubi Avenue 1"
+    ]
+   },
+   "guarded": {
+    "countryCode": "SG",
+    "countryEvidence": [
+     "Singapore",
+     "+65 6123 4567",
+     "ubimakers.example.sg"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Ubi",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Community makerspace in Singapore",
+     "Ubi Avenue 1"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "SG",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-melb-indo",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "AU",
+    "countryEvidence": [
+     "Victoria 🇦🇺",
+     "AEST",
+     "A$5"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Victoria",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Kumpul warga Indonesia di Victoria"
+    ]
+   },
+   "guarded": {
+    "countryCode": "AU",
+    "countryEvidence": [
+     "Victoria 🇦🇺",
+     "AEST"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Victoria",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Kumpul warga Indonesia di Victoria"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "AU",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-melb-indo",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "AU",
+    "countryEvidence": [
+     "Victoria 🇦🇺",
+     "AEST",
+     "A$5"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Victoria",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Kumpul warga Indonesia di Victoria"
+    ]
+   },
+   "guarded": {
+    "countryCode": "AU",
+    "countryEvidence": [
+     "Victoria 🇦🇺",
+     "AEST"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Victoria",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Kumpul warga Indonesia di Victoria"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "AU",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-melb-indo",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "AU",
+    "countryEvidence": [
+     "Victoria \u0012\u0013",
+     "AEST",
+     "A$5"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Victoria",
+      "level": "province"
+     },
+     {
+      "name": "Melbourne",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Kumpul warga Indonesia di Victoria",
+     "Piknik bareng Minggu 10am AEST di Fitzroy Gardens, Melbourne",
+     "Bazar Indonesia di Footscray"
+    ]
+   },
+   "guarded": {
+    "countryCode": "AU",
+    "countryEvidence": [
+     "Victoria \u0012\u0013",
+     "AEST"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Victoria",
+      "level": "province"
+     },
+     {
+      "name": "Melbourne",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Kumpul warga Indonesia di Victoria",
+     "Piknik bareng Minggu 10am AEST di Fitzroy Gardens, Melbourne",
+     "Bazar Indonesia di Footscray"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "AU",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-delhi-academy",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "IN",
+    "countryEvidence": [
+     "+91 98100 12345",
+     "sharma-academy.example.in",
+     "New Delhi, India"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "South Delhi",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Batches in South Delhi."
+    ]
+   },
+   "guarded": {
+    "countryCode": "IN",
+    "countryEvidence": [
+     "+91 98100 12345",
+     "sharma-academy.example.in",
+     "New Delhi, India"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "South Delhi",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Batches in South Delhi."
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "IN",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-delhi-academy",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "IN",
+    "countryEvidence": [
+     "+91 98100 12345",
+     "sharma-academy.example.in",
+     "New Delhi, India"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "South Delhi",
+      "level": "neighborhood"
+     },
+     {
+      "name": "New Delhi",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Batches in South Delhi.",
+     "New Delhi, India"
+    ]
+   },
+   "guarded": {
+    "countryCode": "IN",
+    "countryEvidence": [
+     "+91 98100 12345",
+     "sharma-academy.example.in",
+     "New Delhi, India"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "South Delhi",
+      "level": "neighborhood"
+     },
+     {
+      "name": "New Delhi",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Batches in South Delhi.",
+     "New Delhi, India"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "IN",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-delhi-academy",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "IN",
+    "countryEvidence": [
+     "+91 98100 12345",
+     "sharma-academy.example.in",
+     "New Delhi, India"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "South Delhi",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Batches in South Delhi."
+    ]
+   },
+   "guarded": {
+    "countryCode": "IN",
+    "countryEvidence": [
+     "+91 98100 12345",
+     "sharma-academy.example.in",
+     "New Delhi, India"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "South Delhi",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Batches in South Delhi."
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "IN",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-global-coffee",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": []
+   },
+   "guarded": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-global-coffee",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "local",
+    "reachAreas": [],
+    "evidence": [
+     "Coffee shop",
+     "Latte art throwdown this Friday. Come hang out!"
+    ]
+   },
+   "guarded": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "local",
+    "reachAreas": [],
+    "evidence": [
+     "Coffee shop",
+     "Latte art throwdown this Friday. Come hang out!"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": false,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": false,
+    "detail": [
+     "reach local, expected unspecified"
+    ]
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": false,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": false,
+    "detail": [
+     "reach local, expected unspecified"
+    ]
+   },
+   "combined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-global-coffee",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": []
+   },
+   "guarded": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-empty",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": []
+   },
+   "guarded": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-empty",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": []
+   },
+   "guarded": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-empty",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": []
+   },
+   "guarded": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-canggu-yoga",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "WITA",
+     "IDR",
+     "Rp 250.000"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Canggu",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Yoga & community dinners in Canggu, Bali"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "WITA",
+     "Rp 250.000"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Canggu",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Yoga & community dinners in Canggu, Bali"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-canggu-yoga",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "WITA",
+     "IDR",
+     "Rp 250.000"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Canggu",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Yoga & community dinners in Canggu, Bali",
+     "Beach yoga every Thursday 6am WITA"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "WITA",
+     "Rp 250.000"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Canggu",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Yoga & community dinners in Canggu, Bali",
+     "Beach yoga every Thursday 6am WITA"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-canggu-yoga",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "WITA",
+     "250k IDR",
+     "Rp 250.000"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Canggu",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Yoga & community dinners in Canggu, Bali"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "WITA",
+     "250k IDR",
+     "Rp 250.000"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Canggu",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Yoga & community dinners in Canggu, Bali"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-johor-sukan",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "WhatsApp +60 7-123 4567",
+     "RM30"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Johor Bahru",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Kompleks sukan rasmi Johor Bahru",
+     "Johor Bahru"
+    ]
+   },
+   "guarded": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "WhatsApp +60 7-123 4567",
+     "RM30"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Johor Bahru",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Kompleks sukan rasmi Johor Bahru",
+     "Johor Bahru"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "MY",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-johor-sukan",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "+60 7-123 4567",
+     "RM30"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Johor Bahru",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Kompleks sukan rasmi Johor Bahru"
+    ]
+   },
+   "guarded": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "+60 7-123 4567",
+     "RM30"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Johor Bahru",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Kompleks sukan rasmi Johor Bahru"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "MY",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-johor-sukan",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "WhatsApp +60 7-123 4567",
+     "RM30"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Johor Bahru",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Kompleks sukan rasmi Johor Bahru",
+     "Johor Bahru"
+    ]
+   },
+   "guarded": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "WhatsApp +60 7-123 4567",
+     "RM30"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Johor Bahru",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Kompleks sukan rasmi Johor Bahru",
+     "Johor Bahru"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "MY",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-warung-tanpa-kota",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": []
+   },
+   "guarded": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-warung-tanpa-kota",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "local",
+    "reachAreas": [],
+    "evidence": [
+     "Warung kopi enak 🍵 Buka tiap hari, jangan lupa mampir!"
+    ]
+   },
+   "guarded": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "local",
+    "reachAreas": [],
+    "evidence": [
+     "Warung kopi enak 🍵 Buka tiap hari, jangan lupa mampir!"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  },
+  {
+   "id": "syn-warung-tanpa-kota",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "local",
+    "reachAreas": [],
+    "evidence": [
+     "Warung kopi enak",
+     "Buka tiap hari, jangan lupa mampir!"
+    ]
+   },
+   "guarded": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "local",
+    "reachAreas": [],
+    "evidence": [
+     "Warung kopi enak",
+     "Buka tiap hari, jangan lupa mampir!"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false
+  }
+ ]
+}

@@ -402,10 +402,164 @@ This document defines the core architectural invariants for the FestDaily applic
         passes the account's own `defaultLocation.countryCode` as `bias=countrycode:xx`, and the
         ADDRESS cache key folds that bias in, so two accounts geocoding the identical address with
         different biases can never be served each other's cached result. When no bias is known, the
-        parameter (and its cache-key segment) is omitted entirely — self-healing, not a gap.
+        parameter (and its cache-key segment) is omitted entirely. **Amended 2026-10-19 (Rule 3a):** when
+        the account has no default country the resolver sends `bias=countrycode:<country>` from
+        `GEOAPIFY_DEFAULT_COUNTRY` (env, default `id`) and the cache key folds that value in; the
+        parameter is omitted only when the deployment sets no default. The old claim that omitting
+        the bias is "self-healing, not a gap" is withdrawn.
         - **Enforced by:** `packages/domain/src/geolocation/build-cache-key.test.ts` (countryBias
           cache-key folding) + `apps/backend/src/lib/geolocation/adapter.test.ts`'s countryBias
           integration case.
+    **Amended 2026-10-19 (production check, BUG-066; evidence:
+    `event-insight-poc/prod-check-results-review-2026-10-19.md` §3 and §10).**
+    3a. **Rule 3's "self-healing, not a gap" is withdrawn** (corrected in place above). Production:
+        627 of 1,460 stored pins (43%) have a stored confidence under 0.5. Of the 333 pins outside
+        Indonesia's bounding box that the check listed (a floor on wrong pins; some are legitimate
+        foreign events such as Denmark and Egypt), 214 (64%) come from accounts with **no** default
+        location, and the pin's country equals the account's default in only 15. The bias is a soft
+        preference (Geoapify "prioritizes"; a `filter` is the hard form, and the repo's probe shows
+        it gives the same answer) and changes few answers (12 of 14 identical under `bias=us` and
+        `bias=id`), so omitting it correlates with wrong pins and is not shown to cause them. The
+        protection is Rule 4, not the bias.
+    4.  **Pin trust is one predicate, computed once per schedule and stored.** `[PROPOSED by the
+        2026-10-19 architect review; the idea of a "trusted pin" is user-accepted (AD-39), this
+        predicate's shape is not yet]` `isPinTrusted()` in `packages/domain` extends the shipped
+        `isLocationTrustworthy` (`confidence >= 0.5` and `matchType === 'full_match'`) and is true
+        only when:
+        (a) the match is `PLACE_ID_EXACT` (a place the user picked; Rule 1's synthetic result,
+        which the shipped predicate rejects today), or the confidence reaches the floor (start
+        value 0.5) and `matchType` is `full_match`. **Calibrated 2026-10-20** (Round 3 item 14,
+        87 owner labels of which 15 are correct; analysis:
+        `event-insight-poc/round-3-analysis-2026-10-20.md` §1) `[PROPOSED]`: the **floor stays 0.5
+        and the `full_match` clause stays**. The floor is the weakest lever: 0.5 to 0.6 changes one
+        in-country row; 0.7 and above keep 47% or fewer of the correct pins and do not raise
+        precision; without `full_match` precision at 0.5 falls from 44% to 39%. Seven of the 15
+        correct pins are already below the floor (four with a stored confidence of 0.00 to 0.45,
+        three with none), because a compound text scored low and still found the building: the
+        fix is a cleaner query (Rule 5), not a lower floor. `confidence_city_level` and
+        `confidence_street_level` are **not** an alternative: they are present in 19 of 192 probe
+        rows;
+        (b) the answer is not a non-place (Rule 5);
+        (c) when the schedule's place has area keys from a source that does **not** depend on the
+        pin (a stated area, the roundup heading: AD-39 Rule 2 steps 1 and 3), the pin's
+        administrative path intersects them below country level (the country never counts); keys
+        derived from the pin itself (AD-39 Rule 2 step 2) never feed (c);
+        (d) the pin did not come from an account's default location unless AD-39 Rule 3's
+        venue-account conditions hold;
+        (e) `[ADOPTED, user-directed 2026-10-21 (the wrong-country test itself); the country-name list,
+        the narrowing, the alternatives and the result-type cap keep their own tags below]` the pin's `countryCode` equals the **expected country**, and a
+        pin with no `countryCode` is untrusted. Expected country = the single country named in the
+        **stated** location text of the schedule or, when that is empty, of its event (a short
+        country-name list in `packages/domain/src/geolocation/`, English **and Indonesian**: Jepang,
+        Korea Selatan, Singapura, Arab Saudi, Belanda, Tiongkok, Selandia Baru, Amerika Serikat;
+        so the Denmark Open and BWF pins stay trusted: on the 2026-10-20 export the 40 events whose
+        place is exactly "Denmark" or "Egypt" resolve this way). **Review R4 narrowed the text
+        tier:** text whose `location_source` is `account_default`, and a geocoder's formatted
+        address, never count (13 of the 56 place texts naming a foreign country on the export are
+        the address of a wrong answer or of the account default: "Concert Hall, ... Tripoli,
+        Lebanon", "Denmark, IA, United States"; letting them name the expected country makes (e)
+        trust exactly the pins it exists to reject); several countries named ("Institute France
+        Indonesie, Lembaga Indonesia Prancis") means **no expected country** and the pin must
+        agree with the default; names that collide with ordinary words (Georgia, Jordan, Turkey,
+        Chad, Mali, "Holland") count only as a whole-name text, not inside a venue name
+        `[ASSUMPTION]`. An alternative that needs no list, untested here: reject a pin whose
+        returned name shares no non-generic word with the query (it catches "Online" answered in
+        France and "Concert Hall" in Tripoli), or have the extractor return a `country` with
+        verbatim evidence and drop it when the evidence is not in the input (the pattern AD-39
+        already uses for `reachAreas`); to be decided on the 87 labels and the 21-text probe.
+        Otherwise the expected country is
+        `GEOAPIFY_DEFAULT_COUNTRY` (default `id`). **The account's default country is never the
+        expected country**: of 42 labelled wrong-country pins, 12 came from accounts whose own
+        default is abroad (lb 6, sg 3, in 2, us 1) and 25 from accounts with no usable country.
+        The country code, not the Indonesia bounding box, is the test: Sandakan, Malaysia lies inside
+        the box. Evidence: all 42 labelled pins outside the box are wrong at every confidence,
+        including 4 of 4 at 1.00; adding (e) to the shipped rule lifts weighted precision from 44%
+        to 56% (84% counting a right city as right) and keeps every correct pin, on a sample of 15
+        correct pins, so a direction and not a rate. Leg (e) needs only the stored country code and
+        runs without the area resolver. **Sized on production 2026-10-21 (Round 4 ask 5):** of 432
+        pins outside the box, 8 have a country named in the schedule text, 88 only in the event
+        text (which can hold a geocoder's address, excluded above) and 336 (78%) name none; those
+        336 take the default expected country and are withheld, the cost of this rule for any
+        genuine foreign event whose text does not say where it is. **Result type:** `[ASSUMPTION]` the mapper also stores
+        Geoapify's `result_type`, and a city, state or country result is capped at precision `AREA`
+        (not a place for the map link or Nearby); 15 of the 87 labelled pins are the right city or
+        neighbourhood but not the place, and nothing stored separates them today. Which result
+        types count as a place is decided when the mapper story reads the probe's raw responses.
+        **Computed** per schedule at ingestion, **after** the AD-38 place split (so (c) sees the
+        keys of that schedule's own place), and written as `schedules.pin_trust`
+        (`trusted | untrusted | none`) with `pin_evaluated_with` (floor and gazetteer version). The
+        inputs (`confidence`, `matchType`, `countryCode`) stay in `location_details`; a change of
+        floor or gazetteer version re-derives the rows whose `pin_evaluated_with` differs. Until the
+        area resolver and BUG-063 supply path data, (c) is vacuously true; **(e) closes the
+        wrong-country pins at once, and BUG-066 stays open for the in-country wrong-city pins
+        (Transmart Cirebon answered in Surabaya, Balai Kota Yogyakarta in Jakarta) until (c) can
+        run**.
+        **Readers.** Every reader of a pin reads `pin_trust` and nothing else: the map link
+        (`LocationLink`), the radius filter (`scheduleCoordinates.withinRadius`), the Nearby badge
+        and distance (AD-22), the paid distance term (AD-39), the matcher's venue test
+        `hasVenueMatch` (coordinates compared only when both pins are `trusted`; the 0.15 weight is
+        unchanged), and timezone resolution tier 1. GraphQL exposes `Schedule.pinTrust`, and
+        `isLocationTrustworthy` leaves `packages/ui` and the web mapper in its favour. Rule 2's
+        "consumer reads `confidence`/`matchType`" is superseded for these readers and its ratchet
+        tests are re-pointed to assert that `pinTrust` is selected.
+        Confidence alone cannot separate good from bad pins (129 of 343 pins outside Indonesia's box
+        are ≥ 0.5, 83 at exactly 1.00; 413 of 959 inside are < 0.5), which is why (c) and (e) exist.
+        **Rollout.** NULL means "not derived": the AD-39 Rule 7 job fills existing rows before any
+        reader switches (otherwise the map link disappears from all 1,460 pinned schedules); the
+        radius predicate ships with an EXPLAIN gate (AD-30 Rules 4 and 6) and, if the plan needs it,
+        a partial index on the coordinates `WHERE pin_trust = 'trusted'`.
+        **Derive job, corrected by review R4 (R4D-8).** The country-code fill for the 158 pins with
+        no stored signal runs **before** the `pin_trust` derive, writes **only** `countryCode` and its
+        provenance (never the mapper's whole `LocationDetails`), and `pin_trust` stays NULL
+        (pending) while a pin has no `countryCode`; otherwise those rows are derived `untrusted`
+        first and never re-selected. `pin_evaluated_with` records every input a row lacked (floor,
+        gazetteer version, default country, result-type list, "country code present"). A re-geocode
+        of an open event's pin replaces coordinates and, through the writer, the timezone, which
+        moves the absolute time for users who added the event to their calendar: it writes
+        `place_derive_log (schedule_id, run_id, before, after)` (`customJsonb`) or runs as a dry-run
+        table applied behind a flag, and "set the columns back to NULL" is not a rollback.
+        `geolocation_cache` has no expiry or version, so every cache hit returns the old shape
+        without `result_type`: a shape version is folded into the cache key (bounded by the
+        Geoapify quota: about 430 calls for the derive job, 14% of the 3,000-credit daily free
+        tier), and a pin without `result_type` is `untrusted` for the map link until it has one.
+        `events.location` is written outside `writeSchedulePlace()` (correction, enrichment), so
+        editing it re-derives the schedules' `pin_trust`. AD-39 Rule 7's switch gate also requires
+        `pin_trust IS NULL AND latitude IS NOT NULL` to be zero, so a pin written by a straggling
+        old Lambda does not read as "no pin".
+        **Enforced by:** a source-scan test failing on `.confidence`/`matchType` reads outside
+        `packages/domain/src/geolocation`; the re-pointed Rule 2 tests; truth-table tests of
+        `isPinTrusted`.
+    5.  **Geocode input hygiene.** Two pure functions in `packages/domain/src/geolocation/` own it
+        (a third, `pickVenueSegment()`, is proposed below), with English and Indonesian token lists
+        and tests built from the production texts:
+        `isNonPlace()` ("Online" is in production data; "Zoom" and "Google Meet" so far only in
+        POC extraction output, BUG-064) and `stripSubVenueQualifier()` (floor, level, room,
+        counter, atrium; `lantai`, `lt.`, `ground floor`). `adapter.resolveLocation` calls both
+        **before** it builds the cache key, so the key is built from the stripped text; a non-place
+        is never sent to the geocoder, and the venue name plus the stated city are kept. Production
+        texts such as "Atrium & Plaza Rama, Sleman City Hall" fail at confidence 0.00 because the
+        geocoder matches the generic word. The non-place rule is not an assumption.
+        **Round 3 item 10 ran 2026-10-20** (100 Geoapify requests, 21 texts with a known country):
+        right country for 4 as stored, **11 with the qualifiers removed, 16 with only the venue
+        segment** (13 of the 16 at confidence ≥ 0.5); adding the stated city changed nothing and the
+        `bias=countrycode` parameter changed nothing. So the qualifier rule alone recovers about
+        half of the gain. `[PROPOSED]` a third pure function, `pickVenueSegment()`, runs after
+        `stripSubVenueQualifier()`: the text is split at commas and spaced dashes and the **last
+        segment that reads as a venue** (a short English and Indonesian word list: mall, plaza,
+        hall, atrium, museum, hotel, stadium, ...) is what the geocoder receives, else the last
+        segment. `[ASSUMPTION]` 16 of 21 is an upper bound: the probe's word list was written while
+        looking at these 21 texts. A held-out set of 20 further texts is run before the list is
+        frozen (Round 4 ask 4, analysis §6). Seven texts stay wrong even at venue-segment level
+        ("Court 2" answered in Canada at 1.00, "Online" in France at 1.00), which is why Rule 4 (e)
+        exists.
+    *   **Deferred (AD-14 amendment):** the floor value and the `full_match` clause were calibrated
+        2026-10-20 on 87 person-labelled pins and the compound-text probe (Rule 4, `[PROPOSED]`,
+        awaiting the owner's yes); what stays open is the sample size (15 correct pins: a direction, not a rate), which result types
+        count as a place, the held-out geocode set (Rule 5), the 158 pins with no stored signal
+        (reverse-geocoded by the derive job for a country code only; 3 of the 4 sampled are right, too
+        few to trust them without it), and the re-geocode of the 213 open events with an untrusted
+        pin. The gazetteer-first routing of area phrases
+        ("DIY & Jawa Tengah" answered with a PLN office at 0.66) belongs to AD-39 and IDEA-081.
 
 ---
 ### AD-15: Event Card Media Primitive
@@ -1668,6 +1822,18 @@ This document defines the core architectural invariants for the FestDaily applic
         `skippedItems`), capped per post. `[ASSUMPTION]` the proposal also mentions "reduced
         confidence when location missing"; that is kept only for non-roundup separate events, since
         a roundup item with no location is skipped outright.
+        **Amended 2026-10-19 (AD-38).** Grouping rule (1)'s "different venue ⇒ separate events" is
+        no longer left to the prompt: the product owner reported one event holding three schedules
+        at three venues (Riot Jogja "Wednesday Night Run"; prevalence unmeasured until Round 3
+        items 11 and 13), and one caption was extracted into 7 events in one post and 10 in
+        another. A deterministic **place normalizer** (AD-38 Rule 2) enforces the rule after
+        extraction, except for `dependent-stages` posts and events the extractor flags as a route.
+        The `program-lineup` shape that keeps distinct programme items as **hidden schedules of one
+        event** is **to be superseded when the activity split ships** (AD-36 Rule 6, AD-38 Rule 2,
+        which needs an extraction-contract criterion for which lineup items are distinct
+        activities); until then production behavior is unchanged. Rules (3) and (4) stand: items
+        within about 7 days under one title and venue stay one event, and **dependent stages are
+        never split**.
     6.  **Account-feed matching is any-linked-post.** The account filter and
         `isFromSubscribedAccount` match an event when **any** post in `event_posts` belongs to a
         subscribed account (via `posts.accountId`; via the association table once Story 3.15 lands —
@@ -1741,7 +1907,7 @@ This document defines the core architectural invariants for the FestDaily applic
             event as loser, which also flips the suggestion to `accepted` and writes an
             `event_merges` journal row; REJECT only records `rejected`. `undoEventMerge` restores
             both events and returns the suggestion to `pending`.
-        **Amended 2026-10-18 (BUG-063, GembiRun Loka 2026).** One event was posted three ways: a
+        **Amended 2026-10-18 (BUG-070, GembiRun Loka 2026).** One event was posted three ways: a
         registration-deadline post (schedule 21 Oct) and a race-day post (8 Nov) created two events
         that never matched, because the candidate query only looked ±2 days around the new
         schedule. The registration link, name, venue and account were identical. Rule 5 already
@@ -1763,6 +1929,132 @@ This document defines the core architectural invariants for the FestDaily applic
         Weights and thresholds are unchanged. A pair already in the database is merged by a
         moderator accepting the queued suggestion, or by `merge-events-by-slug.ts` (a dry run by
         default) when no suggestion exists; both run `mergeEvents()` (Rule 9) and are undoable.
+        **Amended 2026-10-19 (production check 2026-10-19; IDEA-085; evidence:
+        `event-insight-poc/prod-check-results-review-2026-10-19.md` §2 and §10).** Of the 446
+        same-account, same-normalized-name pairs, the matcher is *able* to act on only the
+        reachable ones; recall on them is 23 of 178 (12.9%).
+        *   **Stub pairs cannot reach `mid` by construction.** For a roundup- or curator-sourced
+            item the organizer weight is discounted on purpose (BUG-058), so a same-name, same-day
+            pair scores at most 0.25 + 0.15 (same venue) = 0.40 < 0.45 unless the two share a link
+            (+0.20). Production: stub pairs without a shared link are candidates **0 of 122**.
+            **A scoring rule for stub-vs-stub pairs is required.** The exact rule and weights are
+            **Deferred** to IDEA-085 after the offline `computeMatchScore` replay
+            (`recall-replay.sql`, Round 3 item 8), as a further amendment of this Rule (weights are
+            spine-fixed). It must keep BUG-058's intent for pairs that span different accounts.
+        *   **The matcher gets a second entry point.** Matching was write-path only, so pairs that
+            existed before the matcher ran (160 of 446) can never be touched. IDEA-085 adds a
+            one-time sweep over existing rows that scores pairs with the same pure
+            `computeMatchScore`: `high` pairs are merged through `mergeEvents()` (journaled,
+            undoable, Rule 9), `mid` pairs become `event_match_candidates`, `low` are ignored.
+            The sweep **must not enqueue `mid` candidates faster than moderators resolve them**
+            (147 pending, 0 merges at the check): the sweep inserts at most `max(0, 50 - pending)` `mid`
+            candidates per run (start value `[ASSUMPTION]`).
+            `[ADOPTED scope, user-agreed]`; auto-merging `high` pairs in the sweep needs one PRD
+            sentence (the PRD says moderators merge duplicates and `high` links at ingest).
+        *   **Pair classes.** Same-name pairs more than two days apart (107 of 446) are **series
+            members, not duplicates** (AD-36 Rule 12); the duplicate key is organizer + normalized
+            name + date + place (AD-38 Rule 6). System-initiated merges are performed by a seeded
+            user `system-dedup` (`event_merges.performed_by_moderator_id` stays `NOT NULL`); the
+            sweep clusters pairs (union-find) and merges into the final winner (an organizer-
+            authored primary, then more complete schedules, then the earlier `created_at`, then the
+            lower id); `event_match_candidates` gets a unique index on the unordered pair, so a
+            re-run cannot re-queue a pair a moderator rejected (**corrected by review R4:** the
+            index is added **next to** the ordered constraint, never instead of it, because the
+            live insert names `ON CONFLICT (event_id, candidate_event_id)` and fails with 42P10 on
+            every mid-tier ingestion once that constraint is gone; the sweep, the only possible
+            reverse-orientation inserter, uses a bare `ON CONFLICT DO NOTHING`; the migration first
+            runs `SELECT least(...), greatest(...) ... HAVING count(*) > 1`, because a pair that
+            exists in both orientations aborts the single-transaction migration). The sweep scores with the same
+            pure `computeMatchScore` **and** `capTierWhenOutsideDateWindow` (the 2026-10-18
+            amendment above), so a pair with no schedule inside ±2 days is capped at `mid` and is
+            never auto-merged: a same-link, same-name pair weeks apart is queued for a moderator,
+            not folded. The flow diagram `diagrams/event-dedup-flow.html` changes with the sweep
+            and the exclusions (project-context).
+        **Amended 2026-10-20 (Round 3 item 8, the `computeMatchScore` replay; analysis
+        `event-insight-poc/round-3-analysis-2026-10-20.md` §2).** 181 reachable pairs (178 at the
+        Round 2 count), all same-account by construction. The 12.9% recall figure counted two
+        different problems:
+        *   **33 pairs the scoring itself rates `mid` or `high` hold no candidate** (full events: 4
+            `high` and 25 `mid`; stub pairs: 4 `mid`), so 25 of 58 such pairs (43%) are listed. They
+            predate the matcher or were ingested concurrently; the one-time sweep above is what
+            reaches them, and its `high` pairs merge through `mergeEvents()`.
+        *   **123 stub pairs (68% of the 181) score `low` by construction** (mean 0.384; 111 share a
+            venue), the 0.40 ceiling the 2026-10-19 amendment predicted. `[PROPOSED]` the stub-vs-stub
+            rule that amendment deferred: for a pair whose two items were posted by the **same
+            account**, with the same `normalizeName()` and `isSamePlace` = `same`, a **same-poster
+            signal** replaces the discounted organizer term. Pairs across different accounts never
+            earn it, so BUG-058's intent holds. **Replayed on production 2026-10-21 (Round 4 ask 1,
+            analysis `event-insight-poc/round-4-analysis-2026-10-21.md` section 2):** 114 of the 134
+            stub pairs are exact repeats, which the exact-repeat rule below handles, so the weight
+            decides only the other 20. At **0.10** no pair reaches `high` (ceiling 0.25 + 0.15 +
+            0.20 shared link + 0.10 = 0.70) and 6 of the 20 reach `mid`; at 0.20 six pairs that
+            share a link reach `high` (0.80) and merge through the matcher **without** the
+            exact-repeat preconditions, for two more `mid` pairs. `[PROPOSED]` **0.10** (the earlier
+            0.20, and the sentence "the ceiling 0.60 never auto-merges", assumed no shared link and
+            were wrong with one).
+        *   **Exact repeats** `[ADOPTED, user-directed 2026-10-20, both paths; the preconditions come
+            from review R4 and from the sample read on 2026-10-20]`: a same-poster pair with the
+            same normalized name, `isSamePlace` = `same` and the **same date range and start time**
+            on the main schedule is a repeat post of one event. One predicate, `isExactRepeat(a, b)`
+            in `packages/domain`, serves two paths. **Live:** `findMatchingEvent` raises the tier of
+            a candidate that satisfies it to `high`, so the existing high path links the new post to
+            the existing event and no second event is created (behind its own switch,
+            `exact_repeat_live`, default off until the sweep's first capped run has been read).
+            **Sweep:** the one-time sweep merges the pairs that already exist through `mergeEvents()`
+            as `system-dedup` (journaled, undoable) instead of queuing them, because a queue nobody
+            works cannot clear it. This extends the adopted "auto-merge `high` pairs" scope to a case
+            that scored `mid`; the PRD sentence is "If a poster posts the same event twice (same
+            name, place, date and time), FestGrid shows it once."
+            **The date test is identity, not overlap.** A first version used overlapping ranges
+            (227 pairs, 63 clusters, 174 events). Reading a sample of 16 clusters showed the
+            difference: "Shoptember Reward" (1 to 30 Sep against 7 Sep to 31 Oct), "King of the
+            Month" (1 to 13 Sep against 13 Sep) and "Frenzy Bite" (24 to 29 Sep against 28 Sep) are a
+            promo and a sub-event or an extension, not repeats. With identical ranges: **195 pairs,
+            56 clusters, 150 events, so an unattended first run would soft-delete about 94**
+            (22 curator-guide clusters, 31 venue-event, 3 unknown; 38 of the 56 have already ended).
+            **On the production rows, 2026-10-21 (first version of the sizing query):** 40 groups,
+            110 events, 70 soft deletes, 32 of the 40 groups with no start time on the main
+            schedule, 1 group blocked by an exclusion, and the lenient pairs split 149 identical,
+            3 with a differing start time and 30 with differing ranges. That query counted two
+            events with **no place text** as the same place (9 of the 15 largest groups, all
+            curator posts: Allianz Malaysia Super 100 ×11, BWF World Junior ×7, Denmark Open); it is
+            fixed and the figures are an upper bound until it is re-run. Whether a curator stub with
+            the same poster, name, date range and start time and no place text on either side is a
+            repeat is an owner decision, open (analysis section 7).
+            The 32 overlapping pairs stay `mid`. Start time is not in the export, so these counts are
+            an upper bound; the place check is the author's crude stand-in; the sample was read by
+            the author from names and dates only, so **the owner reads the dry-run list before the
+            cap is lifted**.
+            Preconditions, none optional: no `rejected` row for the pair (a moderator's "not a
+            duplicate" wins); AD-38 Rule 6 exclusions (a) and (b) apply (two items of one roundup
+            that the extractor declared distinct are never repeats); neither event has an applied or
+            pending correction or a pending report (`mergeEvents` does not move `corrections`);
+            same country; `mergeEvents` first locks both event rows in id order (`FOR NO KEY
+            UPDATE`), because a live enrichment between its read and its soft delete leaves a
+            schedule and a link on a deleted event; the schedule match is `(start date, end date,
+            start time, place)`, not date only; every automatic merge is tagged `source =
+            exact_repeat` in the journal; the sweep runs as a script with a dry-run default that
+            prints the clusters (AD-38 Rule 5 style), and the first live run is capped (20 clusters:
+            the largest, a random sample, and every cluster whose place texts differ) and reported
+            before the cap is lifted. `undoEventMerge` of an automatic merge writes a `rejected`
+            candidate row for the pair when none exists, so neither path merges it again. The seeded
+            `system-dedup` user must not have `role = 'moderator'` (the moderator alert fan-out
+            would email it), needs a reserved non-routable address, and `seed.ts` recreates it. A
+            hard delete of the winner of a non-undone merge is refused unless forced (the journal
+            and every repointed favorite cascade with it).
+        *   **The insert bound would insert nothing today.** `max(0, 50 - pending)` is 0 while 147
+            candidates are pending (75 older than 7 days, 0 resolved), so the sweep's `mid` pairs
+            would never reach a moderator who, in addition, is not notified (BUG-069, IDEA-090).
+            `[PROPOSED; corrected by review R4]` only pending candidates **younger than 7 days**
+            count against the bound, and **expiry is derived, not a status**: a pending candidate is
+            actionable only while both events are alive, unmerged and have an open schedule, which
+            is a predicate (no new enum value, no writer, no clash with `undoEventMerge` returning a
+            suggestion to `pending`). The bound is for the **one-time** sweep: a weekly re-run would
+            add up to 50 more a week into a queue nobody works. A `superseded` pair (AD-38 Rule 4)
+            is **reopened** (status back to `pending`, new score, journaled), never re-inserted;
+            the unordered index forbids a second row. A **cross-poster duplicate rule** is added
+            (Rule 17.7 of AD-36): normalized name equal, `isSamePlace` = `same`, date ranges sharing
+            a date, any posters, yields `mid`.
     8.  **Promotion and post deletion.** On promotion the event adopts the matched candidate's
         `extraction_ordinal` under the new primary (that `(post, ordinal)` slot is free — the
         candidate was matched to this event rather than creating one) and keeps its old link
@@ -1796,6 +2088,15 @@ This document defines the core architectural invariants for the FestDaily applic
         **no server-side expiry** (it rejects only an unknown or already-undone journal row), so
         undo stays callable after the toast closes. This is the accepted behavior; adding a server
         expiry is a spine amendment.
+        **Amended 2026-10-19 (AD-38 Rules 4 and 6; reviews DI-4, DI-17, ADV-16).** (i) Enrichment
+        (`enrichAndPromoteEvent`) takes `SELECT ... FOR UPDATE` on the candidate event before it
+        reads its schedules, and `mergeSchedules` deletes `WHERE id IN (...) AND event_id =
+        $eventId`, so a concurrent split cannot lose schedules. (ii) `mergeEvents` refuses a pair
+        whose place sets do not intersect (`isSamePlace`, AD-38 Rule 1) unless a moderator forces
+        it, and maps loser schedules to winner schedules by **(start date, place)**, not by date
+        alone, so merging two siblings cannot drop an occurrence or repoint a calendar entry to
+        another venue. (iii) A moderator merge of split siblings is the exception that ends
+        in the AD-38 Rule 4 undo, not a way to re-create the multi-place event.
     10. **Notifications are per event, with one marker.** `events.notified_at` is set by one
         notify helper and nowhere else. An event notifies at ingestion iff its primary post's
         `grouping_reason` is not `roundup` and the post is not curator-sourced (AD-31 Rule 3
@@ -1804,6 +2105,11 @@ This document defines the core architectural invariants for the FestDaily applic
         NULL`, exactly one notification is sent and `notified_at` is set. A merge keeps the earliest
         non-null `notified_at` of the two events, so it can never re-fire. Stories 3.8 and 3.6t
         consume this; neither defines its own marker.
+        **Amended 2026-10-19 (AD-36 Rule 14).** A grouped, eligible event gets `notify_due_at`
+        instead of an immediate `notifyNewEvent`; the scheduled drain claims `notified_at` once per
+        `(group, source post)` and sends one notification. An ungrouped event is unchanged, the
+        eligibility test above applies to each covered event, and `notified_at` stays the one
+        marker.
     11. **Related events and source posts.** `Query.relatedEventIds(eventId | postId)` is an
         index-driven read of `event_posts` joined to `events` — it excludes soft-deleted and merged
         events and the subject event itself, so a "See all N" count never includes a hidden event —
@@ -2226,6 +2532,1457 @@ This document defines the core architectural invariants for the FestDaily applic
 
 ---
 
+### AD-36: Event Groups — Named-Programme Entity, Tiered Anchor Detection, Non-Blocking Moderator Review
+
+*   **Binds:** `packages/database/schema.ts` (new `event_groups` table, new `events.group_id`
+    nullable FK); the group-suggestion pipeline (new); `mergeEvents()`/`undoEventMerge` (AD-30 Rule
+    9, Stories 3.6v/3.6w); Moderator Tools (PRD §3.9.3); AD-30 Rule 5 / FR113's `program-lineup`
+    branch (reopened as a **plan**, Rule 6 below); IDEA-084 (event groups), IDEA-085 (matcher
+    recall), BUG-068 (`location_details` JSON-string encoding) and the PRD §3.7 "Default Location:
+    Immediate Apply with Moderator Oversight" convention this AD reuses; since 2026-10-19 also
+    AD-37 (jsonb write path), AD-38 (event identity, which creates `series` groups) and AD-39
+    (place model). Evidence:
+    `planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md`
+    (production read-only snapshot, 2026-10-19).
+*   **Prevents:** Two representations of "this event belongs to a named programme" (ad hoc
+    title-parsing at render time, vs a real relation someone can query and moderate); a group model
+    that cannot express a cross-account member (the SCH *8th Anniversary* keyword spans
+    `slemancityhall`, `tirta_lie`, `sarangbuah.id` — no shared post, no shared account) or an
+    umbrella-less tournament (only children, no anchor row); grouping running over unmerged
+    duplicates and producing groups of copies; a group-based location inherited from an anchor whose
+    own `location_details` is unverified-shape data; a pre-approval gate for group suggestions that
+    contradicts the spine's existing non-blocking-review convention; two independent rewrites of the
+    `program-lineup` extraction shape (this AD's plan vs whatever IDEA-074's branch does on its own).
+*   **Rule:**
+    1.  **Schema — a group entity, not a second merge and not a schedule.** A group is "these
+        distinct events belong to one named programme"; a merge is "these rows are one event"
+        (AD-30); a schedule is "this event has several dates." The three stay separate mechanisms.
+        ```mermaid
+        erDiagram
+          event_groups ||--o{ events : "group_id (nullable)"
+          events }o--o| events : "anchor_event_id (nullable, within event_groups)"
+        ```
+        - `event_groups(id, name, anchor_event_id uuid null FK events ON DELETE SET NULL,
+          window_start date null, window_end date null, confidence_tier
+          group_confidence_tier_enum, source group_source_enum, status
+          group_status_enum default 'active', created_at)`.
+        - `events.group_id uuid null FK event_groups ON DELETE SET NULL` — **one group per event**
+          (a nullable scalar FK, not a join table): the write-up's option A fit note and every
+          observed case (SCH, VICTORIA TOURNAMENT, Logolepsy 2026) show one programme per event: no
+          case for an event in two programmes at once was found, so a join table is not justified
+          yet. Revisit only if a real two-programme case turns up.
+        - `group_confidence_tier_enum`: `title_pattern | keyword_organizer | extraction_field |
+          moderator`. `group_source_enum` mirrors it (records which tier produced the group, for
+          the moderator-review surface and for measuring tier-2 precision post-launch — §9 flags
+          this as currently unmeasured). `group_status_enum`: `active | dissolved` (Rule 5).
+        - Closed sets declared once in `packages/domain`, persisted as `pgEnum` — same convention as
+          AD-30's `grouping_reason`/`detail_level`.
+        **Amended 2026-10-19 (Rules 12–16 below, AD-38).** `event_groups` also carries
+        `kind group_kind_enum NOT NULL DEFAULT 'programme'` (`series | programme`),
+        `organizer_account_id uuid null` (FK `social_media_account_profiles.id`, `ON DELETE SET
+        NULL`) and `stem text null` (a series' identity, Rule 12), `keyword text null` (the Tier 2
+        seed), `confirmed_at timestamptz null`, `member_count int`, `place_count smallint` and
+        `concurrent boolean` (denormalized; Rule 16 owns their writer) and the group's display
+        `name`. `group_source_enum` gains `place_split` and
+        `series_stem`, and `group_confidence_tier_enum` gains `deterministic` (a group made by a
+        rule with no model call); the detector table in Rule 16 gives each detector's values.
+        `events.group_id` is indexed `WHERE group_id IS NOT NULL AND deleted_at IS NULL`,
+        **hand-written in the migration SQL** (drizzle-kit 0.21.4 emits the index without its
+        predicate; re-checked 2026-10-19; AD-30 Rule 1, AD-8 Rule 3).
+    2.  **Cross-account membership is free, not a special case.** Membership is keyed by
+        `events.group_id`, not by account or by a shared post/association row — an event from any
+        account can join a group regardless of who posted it. `[ADOPTED, settled — not a fork]`:
+        the write-up already demonstrates this is required (§4), and nothing in the schema above
+        constrains a member's account.
+    3.  **Anchor detection — three tiers, in the precision order §5 measured.**
+        - **Tier 1 — `title_pattern`.** Same-account title "Umbrella - Child" with 2+ distinct
+          children. Measured: 17 groups, 52 events, spot-checked all genuine (§5). The only tier
+          with measured precision.
+        - **Tier 2 — `keyword_organizer`.** A keyword anchor plus its organizer (e.g. "8th
+          Anniversary" + Sleman City Hall), suggesting children inside the anchor's window that
+          share its venue and either a shared post or a schedule-title match (write-up §7's tier-2
+          combination). **Precision is NOT measured** (§9) — good anchor finder, unproven child
+          finder (1 of 21 SCH children carried the keyword, §4).
+        - **Tier 3 — `extraction_field` / `moderator`.** Reserved enum values for (a) a future
+          extraction field naming the programme a post belongs to (not built — no story exists yet;
+          this AD only reserves the slot) and (b) a moderator creating or editing a group by hand.
+          No precision claim possible for either; `extraction_field` has never run.
+        **Amended 2026-10-19.** Tier 1 and the **series stem rule** share one derivation
+        (Rule 12): the group's kind comes from a membership test, never from the title shape,
+        and never from the creator. Tier 2 requires a **seeded anchor**: a confirmed Tier 1
+        umbrella event or a moderator-created group carries `(keyword, organizer_account_id)`, and
+        new posts are matched against the seeded list in memory at ingest (refreshed per
+        invocation), never by scanning captions; third-party captions never attach an event on
+        their own, and the "shares its venue" test calls `isSamePlace` (AD-38 Rule 1) with the
+        organizer, not coordinates, until BUG-066 and AD-37's migration land. `[ASSUMPTION]`
+        (review gaps G6/G7, not yet user-confirmed).
+        **Amended 2026-10-20 (Round 3 item 16).** Tier 1 now finds 19 groups and 56 events (it found
+        17 and 52 on 2026-10-19); **SCH is not one of them** (its children are named "SCH Choir
+        Competition 2026", "Zumba Anniversary" and so on, never "8th Anniversary - X"), as the
+        write-up already said ("covers about 4% and misses SCH"). Because Tier 2 needs a seeded
+        anchor and SCH has no Tier 1 umbrella, **SCH becomes a programme only when a moderator
+        creates the group with its `(keyword, organizer)` seed** (the `moderator` detector). The
+        decision that SCH is a programme stands; its delivery depends on a reachable moderator
+        (IDEA-090) and is a manual step until Tier 3 exists.
+    4.  **Confirmation policy — immediate-apply, notify-don't-block.** `[ADOPTED, user-directed,
+        modified from the tier-gated recommendation]`: every tier writes the group/membership
+        immediately; **nothing in ingestion, matching or display waits on a moderator.** This
+        reuses PRD §3.7's "Default Location: Immediate Apply with Moderator Oversight" posture
+        rather than inventing a new pre-approval gate. Tier 2 and Tier 3 suggestions generate a
+        moderator notification; Moderator Tools (§3.9.3) gains a "review group" action — detach a
+        wrongly-suggested child, rename, or dissolve the group (Rule 5) — which is a **revert**,
+        never a block. `[ASSUMPTION]` Tier 1 also notifies, at lower priority than Tier 2/3, since
+        even a precise signal can mis-group (two accounts could reuse an "Opening - Day 1" style
+        title); confirm at story time whether Tier 1 needs a notification at all.
+        **Amended 2026-10-19.** Immediate-apply is safe only if an unreviewed group's *effect* is
+        bounded: until a group is **confirmed** (`confirmed_at` set, Rule 16: Tier 1, the
+        deterministic detectors, or a moderator "confirm" action added to the review actions), its
+        only effect is the "part of …" link on the event page and the Rule 13 Discovery policy; any
+        location or audience-area inheritance (Rule 9) applies to confirmed groups only. Each
+        detector has a configuration switch and a daily cap on suggestions (Rule 16), because the
+        moderator queue has resolved nothing so far (147 pending, 0 merges). `[ASSUMPTION]`
+        (review gap G4).
+        **Amended 2026-10-20 (review R4, finding R4A-1/R4D-1).** For a `series` group the Rule 13
+        Discovery policy is decided **per member** by `events.group_collapse_key` (Rule 17.1), not by
+        the group's `confirmed_at`; `confirmed_at` keeps one meaning (it lifts the inheritance bound
+        and records a moderator's confirm). Read literally, the sentence above collapsed every
+        member of an unconfirmed series, including link-only joins.
+    5.  **Group edits are reversible, not a hard delete** — same undo convention as AD-30 Rule 9's
+        merge journal. Detaching a member, renaming, or dissolving a group (`status: 'dissolved'`)
+        is logged and reversible; dissolving never deletes the member events or their own data. The
+        exact journal shape (a new table vs. riding on `event_groups.status` transitions) is left to
+        story time — not a spine-level fork.
+        **Amended 2026-10-19 (Rule 16).** The review actions also include **confirm** (sets
+        `confirmed_at`, which lifts Rule 4's bound on inheritance) and **merge groups** (repoints
+        the members of two active series that share one key, journaled). Dissolving nulls the
+        members' `group_id`; the journal lists them, so the undo restores them into an active group.
+    6.  **`program-lineup` reshape — a committed plan, not built this session.** `[ADOPTED,
+        user-directed, PLAN-ONLY]`: AD-30 Rule 5 item 3 / FR113's `program-lineup` branch today
+        keeps a programme's items as **schedules** of one event, which hides each one from listing,
+        filters and the calendar (write-up §7(a) — this is exactly what hides SCH's own programme).
+        This AD commits the target shape: `program-lineup` items become real, visible child
+        **events** with `group_id` set, under an anchor detected the same way as Rule 3. **This is
+        marked pending-supersession of AD-30 Rule 5 item 3, not a rewrite of it now** — the
+        extraction contract, ingestion shape and migration are **not changed in this pass**.
+        Current production behavior (hidden schedules) stays in force until delivered. Per the
+        user: "we only make the plan now, but the implementation will be done together along with
+        the personalization works that is in this branch" (IDEA-074 and its dependents) — so this
+        reshape is sequenced with that branch's work, not scheduled independently.
+        **Amended 2026-10-19.** The reshape is now the group half of one rule, **AD-38**: an event
+        is one activity at one place-set. Items of a `program-lineup` post that are distinct
+        activities, and schedules at a different place, become events tied by a group (kind
+        `programme`, or `series` when the activity is the same). It remains **not built**; it
+        needs, before it ships: AD-38's place normalizer and the extraction-contract criterion for
+        which lineup items are distinct activities, the dedup gate (Rule 10), per-group
+        notifications and the Discovery policy (Rules 13–14), and a PRD change. Production size:
+        47 `program-lineup` posts (about +10% events as an estimate, to be sized by Round 3 item
+        11).
+    7.  **Merge interaction (`event_merges`, AD-30 Rule 9, Stories 3.6v/3.6w).** A merge must stay
+        correct for a grouped event without blocking deduplication:
+        - The winner keeps its own `group_id` if already set.
+        - If the winner's `group_id` is null and the loser's is not, the winner **inherits** the
+          loser's `group_id` — a merge means "same real event," so group membership must not be
+          silently lost (same spirit as AD-30 Rule 9's link-preservation rule).
+        - If both carry **different**, non-null `group_id`s, the merge still **proceeds**
+          (deduplication must never block on a group conflict) keeping the winner's `group_id`, and
+          queues a moderator notification flagging the conflict — non-blocking, same posture as
+          Rule 4. The system does not guess which group is right.
+        - `undoEventMerge` restores the pre-merge `group_id` exactly as it restores every other
+          field AD-30 Rule 9 names — one more column riding the existing merge journal row, not a
+          new mechanism.
+        **Amended 2026-10-19 (review gap G1).** A merge soft-deletes the loser (`deletedAt` +
+        `mergedIntoEventId`), so `event_groups.anchor_event_id`'s `ON DELETE SET NULL` never fires:
+        `mergeEvents()` repoints `anchor_event_id` from loser to winner, journals it
+        (`repointedGroupAnchorIds`) and `undoEventMerge` restores it. A group's **active members**
+        are events with `group_id` set and `deleted_at IS NULL`; `member_count` counts only those.
+        `undoEventMerge` restores `group_id` only into an **active** group.
+    8.  **Distinct from Related Events (`Query.relatedEventIds`, AD-30 Rule 11, Story 3.6u).**
+        `relatedEventIds` means "linked by a shared post"; a group means "linked by a named
+        programme," independent of any shared post. The two can and do disagree — SCH's
+        "road-to" events (Jogja Otomotif Show #8, Tirta Lie's Bakmi Festival) are keyword-tagged by
+        caption mention without being programme children, and a group member need not share a post
+        with any other member. No shared implementation; both may surface as separate affordances
+        on the event-detail page.
+    9.  **Location inheritance is gated behind BUG-068 — a hard sequencing rule, not a preference.**
+        A child event missing a location MAY eventually inherit its anchor's venue, but this
+        **must not ship** before `schedules.location_details`'s JSON-string storage (BUG-068) is
+        fixed and reverified on production. Shipping earlier risks propagating a double-encoded or
+        (BUG-066) wrong-country value to every ungrounded child. This AD reserves the behavior; it
+        does not build it.
+        **Amended 2026-10-19.** The BUG-068 writer fix is implemented (AD-37) and **not deployed**;
+        the gate is now "writer deployed, row migration run and verified on production, and
+        BUG-066's wrong-country pins no longer reach a child". **Audience-area inheritance** (a
+        child with no stated area taking its group's) does not depend on coordinates and is
+        therefore not gated by this Rule; it is an open decision (AD-39, Deferred).
+    10. **Deduplication-first is a hard sequencing rule, not a preference.** Grouping must not run —
+        not even Tier 1 — over the **existing backlog** of unmerged duplicate events: the write-up's
+        §6/§7 conclusion is that doing so "builds groups of copies." **IDEA-085 (raise the
+        matcher's recall, clear the 147-candidate/75-stale-day moderator queue) must ship and be
+        verified** (`event_merges` > 0 rows, the reachable-pair gate stated below) **before
+        IDEA-084 processes the existing event backlog.** `[ASSUMPTION]` going-forward grouping of
+        newly-ingested events is not held to the same gate, since AD-30's write-path matching
+        (Rule 7) already reduces, though does not eliminate, new duplicates — confirm this
+        backfill-vs-going-forward split at story time if a stricter "pause everything" reading is
+        wanted instead.
+        **Amended 2026-10-19.** "Recall above 5%" is retired: the 5% mixed pairs the matcher cannot
+        reach by design. The gate is stated on **reachable pairs**: class 4 of
+        `event-insight-poc/results/prod-findings-review-2026-10-19-queries/recall-classes.sql`,
+        **after** the AD-38 Rule 6 exclusions (otherwise series siblings at different places are
+        counted and 80% is unreachable): at least 80% merged, dismissed, or holding a candidate no
+        older than 7 days, and the legacy class swept (AD-30 Rule 7, amended). `[ASSUMPTION]` the 80%
+        threshold (review gap G3), to be confirmed in IDEA-085.
+        **Measured 2026-10-20 (Round 3 item 8):** 25 of the 181 reachable pairs (14%) hold a candidate,
+        and 123 pairs (68%) cannot reach `mid` until AD-30 Rule 7's stub rule exists, so **the gate
+        cannot be met by the sweep alone**: the stub rule and a working queue (or the exact-repeat
+        merge) are prerequisites of IDEA-084's backlog run.
+    11. **What's measured and what isn't (write-up §9 — carried forward, not re-claimed as
+        settled).** Measured: Tier-1 precision (§5, spot-checked genuine); Tier-2 as an
+        anchor/road-to-event finder but not as a children finder (§4); matcher recall (5%, 23/446,
+        §6); `location_details` double-encoding prevalence (1,460/1,460 rows, §3). **Not measured:**
+        Tier-2 precision as a general rule (whether another organizer's generic phrase, e.g. a bare
+        "anniversary," produces false groups); the plan/cost of the production list query
+        on production data; anything beyond this one ~7-week snapshot.
+        **Amended 2026-10-19.** The double-encoding **mechanism is verified** and is not the
+        pooler: drizzle-orm 0.30's `jsonb()` stringifies and postgres.js stringifies again, with
+        `prepare` on or off (AD-37). The 2026-10-19 Round 2 results also measured: matcher recall
+        on reachable pairs 12.9% (AD-30 Rule 7); 29 pairs of two full events remain unexplained
+        pending the replay.
+    12. **Group kinds, identity and the one derivation** (added 2026-10-19). `[ADOPTED, user-confirmed:
+        the two kinds, series rolling, programmes time-bound; the derivation test and the organizer
+        key are PROPOSED by the architect review]`
+        - **Two kinds**, `group_kind_enum (series | programme)`, `NOT NULL DEFAULT 'programme'`
+          (there is no "unknown kind"), stored on `event_groups` so a moderator can correct it. A
+          **series** is members with the *same activity* at different places or times, who are the
+          same audience: Riot Jogja's "Wednesday Night Run" at three venues, a Wacoal promo at
+          several malls. A **programme** is members with *different activities* under one named
+          umbrella, each with **its own audience**: SCH's "8th Anniversary" (circus, line dance,
+          zumba, fireworks, …). `[ADOPTED, user-directed 2026-10-20: SCH is a programme, because
+          each of its events must be promoted individually]`
+        - **A series has two shapes and one kind.** `[PROPOSED]` *Over time*: the same activity on
+          different dates (a weekly run). *Concurrent*: the same activity at the same time in
+          several places, a branch promo (the Wacoal case). A third kind is not added: the
+          Discovery policy is the same (one cover, Rule 13) and the difference is only the label,
+          which is derived. The group stores `place_count` (distinct places among its active
+          members by `isSamePlace`) and `concurrent` (the active members' date ranges all overlap);
+          the card says "also at N other places" when `concurrent` and `place_count ≥ 2`, else "+N
+          more sessions". A concurrent series made from one post is a place split (AD-38); one
+          posted separately by each place's own account was **not** grouped while the series key
+          included the organizer (superseded 2026-10-20: cross-account series are adopted, see
+          below; the "Series roll" identity key still reads `(organizer_account_id, stem)` and
+          needs the cross-account form from Rule 12). **Measured 2026-10-20 (Round 3 item 15):** 178
+          concurrent pairs, 144 from one account on different posts and 34 across accounts, none
+          from one post. The Wacoal promo is 3 events, one per mall, with overlapping date ranges
+          (9 to 31 October, 9 to 31 October, 12 to 31 October), so it fits this shape. Many large
+          clusters are one place spelled several ways, so 178 over-counts true multi-place pairs
+          until the phrase-score re-cut (Round 4 ask 3). Of the 5 multi-account names in the
+          listing, 3 are one place posted by several accounts (duplicates: the matcher's job) and 2
+          are branch promos (Sports Station with 4 accounts, J.CO with 2). That listing was a top-25
+          sample; the full export is measured below.
+          `[ADOPTED, user-directed 2026-10-20]` **cross-account series.** Branch promos posted by each
+          place's own account (Sports Station, J.CO, Wacoal) are series by definition and score
+          1.00 on `seriesNameScore`; the organizer key no longer keeps them out. A cross-account
+          series (`source = series_phrase`) joins members of different accounts when the weighted
+          name score reaches the bar (0.85), the schedules overlap or fall within `GAP`, the places
+          differ (`isSamePlace` = `different`; `unresolved` is not enough, it would label a probable
+          duplicate "also at 1 other place") and the **area scope** below holds. **Collapse policy
+          (option B, user-directed):** members whose canonical key equals the group's stem
+          (Rule 17.1) **collapse in Discovery from the start**; members that joined by a score of
+          0.85 to 0.99 or by tag evidence get the "part of" link only. No moderator gate: moderators resolved 0 of 147 and receive no queue
+          notification, so a gate would make the feature inert. The safety net is the per-detector
+          switch and daily cap (Rule 16), a nightly list of newly created cross-account groups for
+          the owner to read, the collapse existing only in Discovery (the calendar, favorites, feed
+          and account pages list every event), every member staying reachable from the group page,
+          and a dissolve that restores every member. **Measured 2026-10-20 (the export above, weighted score at least
+          0.85, different place, different account): 24 clusters and 63 events, of which 17
+          clusters and 42 events are real branch promos (mall accounts post the same brand
+          promo for their own mall: Sports Station, J.CO, Wacoal, MAKO, PPANG, Cheon, Dcrepes,
+          X.O Suki, International Coffee Day, ...) and 7 clusters and 21 events are one event
+          posted by several accounts (a duplicate, which `isSamePlace` must send to the matcher),
+          with no wrong merge by a reading of the names alone.** Review R4 re-cut the same clusters on
+          Rule 12's own eligibility (a curator-typed account neither creates nor joins a series):
+          22 clusters and 53 events cross-account, 26 clusters and 94 events same-account; BWF,
+          RSIH, Denmark Open and AKMU are curator-only today and cannot form a series until
+          promoted. The earlier "few" (2 of 5 names
+          in a top-25 listing) was wrong: branch promos by mall accounts are the common cross-account
+          case. `organizer_name` cannot be the key: it is the brand for Wacoal, PPANG, Dcrepes and
+          Marugame Udon, but the mall for most Sports Station posts. Reasons for B, from the
+          export: a corroborating signal (same `organizer_name`, shared rare hashtag) would drop
+          12 of the 25 distinct real shared names; no statistic separates a generic shared name
+          from a branded one (distinctiveness sums: "Grand Opening" 7.8, "Promo Diskon" 7.2,
+          against "BIOSFERUN 2026" 7.7, "MAKO Promo" 7.9), so the residual risk is an unrelated pair
+          with an identical generic name, unobserved in the 25 names. `[ASSUMPTION]` all numbers.
+          **Area scope `[ADOPTED, user-directed 2026-10-20; mechanism corrected by review R4]`:
+          events targeted at different countries are never grouped.** The scope is a level, start
+          value `country`. It is a **stored fact and a database constraint** (Rule 17.2), not a
+          computation at read time: `events.country_key`, `event_groups.country_key`, and a member
+          can only join a group with its own key. The country of an event is `eventCountry()` in
+          `packages/domain`, which returns a key or **unsettled** (NULL), in this order: (1) the
+          country of its `area_keys` (AD-39); (2) the country of a **trusted** pin; (3) the single
+          country named in its **stated** location text (never text whose `location_source` is
+          `account_default`, and never a geocoder's formatted address); (4)
+          `GEOAPIFY_DEFAULT_COUNTRY`, only when no pin on the event carries a different
+          `countryCode`; otherwise unsettled. **An unsettled event attaches to nothing.** It
+          applies to every group attach (series, programme, place split, moderator), so one group
+          is one country; a member of another country is not attached and stays tied to its
+          siblings only through the shared post (AD-30 Rule 11). Cost, for the owner: an
+          Indonesian event whose only pin is a wrong foreign one, with no area key and no country in
+          its text, stays ungrouped (about 27% of pins by weight lie outside the Indonesia box); a
+          missed group is the status quo, a wrong join hides an event, and a Round 4 count sizes it.
+          Consequences on the export: "erafone Run 2026" at Pantai Cenang, Langkawi does not join
+          the Yogyakarta ones; the BWF rounds (Denmark, Egypt) separate; the AKMU Asia Tour dates
+          that carry a foreign pin are unsettled, not Indonesian (revision 1 of this function
+          answered `id` for them, which review R4 found).
+          **Serialisation, determinism, notification and detector-order corrections are Rule 17.**
+          Review R4 left these questions with the owner or the stories: the carrier is decided
+          (Rule 17.1), the lock key is decided (Rule 17.3), the join rule is decided (compare with
+          the stem, no chain), per-user notification suppression is decided (Rule 17.5, adopted).
+        - **Kind is never derived from the creator or from the shape of a title.** "Activity -
+          Place" (Riot) and "Umbrella - Activity" (SCH) have the same syntax and opposite meaning.
+          One function, `deriveGroupFromTitles()` in `packages/domain`, serves the title-pattern
+          tier and the stem rule: a group is a `series` only if every member's text after its
+          trailing spaced dash is that member's **own place** (`isSamePlace` = `same`, AD-38 Rule 1)
+          or the members share one normalized name; every other group it finds is a `programme`.
+          The place split (AD-38) creates `series` groups directly. Fixture: the 19 Tier 1 groups of
+          the 2026-10-20 measurement (56 events) yield one `series` group (the Ruang Berpesta pair,
+          "Cirebon" and "Garut", whose children are their own places) and eighteen `programme`
+          groups, and a hand-written SCH fixture (its 21 children are found only by Tier 2) yields
+          no `series`. **Corrected 2026-10-20:** this sentence said "the 52 SCH events of the Tier 1
+          measurement"; those 52 events were VICTORIA TOURNAMENT, Logolepsy, UGM RunFest and the
+          like, not SCH.
+        - **Series roll.** Identity key = `(organizer_account_id, stem)`. `stem` = the normalized
+          name with a trailing `- <own place>` suffix removed (the place-split naming form), else
+          the whole normalized name. **Amended 2026-10-20, revised after review R4 `[PROPOSED]`:
+          collapse is equality of a per-event key; a phrase-and-order score decides only the link
+          tier.** Production has "Wacoal 25% Off Promo at Pakuwon Mall Jogja" beside two events
+          named "Wacoal 25% Off Promo", and names also use "@", "di" or brackets; a pattern per form
+          misses the next form, and a pairwise score is neither transitive nor stable.
+          `canonicalKey()` in `packages/domain` (POC with tests: `poc-event-insight/series-phrase.ts`,
+          revision 3) maps one event to a string: (1) tokenise (accents folded on Latin letters
+          only, apostrophes removed, punctuation dropped, connectors such as at, di, dan, of
+          dropped); (2) remove **one trailing run** of words (it ends the name, or follows a
+          connector) that is a run of the event's own place text **and a known venue**, meaning
+          the phrase occurs in the place text of at least `MIN_VENUE_EVENTS` = 15 distinct events
+          `[ASSUMPTION]`; on the export malls and halls occur in 16 to 236 events' place text and
+          store brands in 1 to 9 ("Sports Station" 9, "Planet Sports" 2), and the grouping result
+          did not change between thresholds of 3 and 40; AD-38's gazetteer venue list replaces the
+          count when it exists. A run at the **start** of the name, a bare number and the whole
+          name are never removed, and a name that is itself a venue is left whole. So "Wacoal
+          ... at Pakuwon Mall Jogja" and the plain Wacoal events share one key, while "Buy 1 Get 1
+          Free Promo at Planet Sports" keeps its store even when the place text repeats it (revision
+          2 removed any run shared with the place text, which collapsed Minimal Store, Sports
+          Station and Planet Sports promos into one cluster at 1.00; code review found it). **Equal
+          keys collapse.** The key depends on no other event, no weights and no arrival order.
+          The **link tier** is `seriesNameScore(a, b, weights)`: 0.5 x dice over the longest common
+          word subsequence + 0.5 x (longest common contiguous run / longer name), so a reordering or
+          an extra word costs score; capped at 0.5 when a number differs ("25%" and "30%", 2025 and
+          2026, "Week 6" and "Week 7") and when fewer than **two distinct non-numeric** words are
+          shared ("Jazz at Plaza Ambarrukmo 2026" and "Jazz di Kebun 2026" share one); weighted by
+          ln(1 + N / df) over the **distinct** names of a pinned snapshot (`name_token_df`, rebuilt
+          nightly, version stored with the join, Rule 17.1) so a shared brand outweighs a shared
+          generic phrase. A member joins by link when its weighted score **against the group's
+          stem** reaches the bar (start value **0.85** `[ASSUMPTION]`); comparing with the stem and
+          not with "any active member" removes chains. **Measured on the 2026-10-20 export (1,467
+          events, 144 accounts, every pair within 60 days):** no pair scores between 0.90 and 0.99,
+          so any bar in that range gives the same result; between 0.70 and 0.85 the score does not
+          separate "the same promo worded differently" (KFC "HUT Kota Jogja ke-270", International
+          Coffee Day, iPhone 18 Pro pre-order) from "different brands sharing a promo phrase"
+          (Buy 1 Get 1 Free), which is why the bar is high and some real pairs are missed on
+          purpose. With revision 3: 31 cross-account keys (84 events) and 53 same-account keys (177
+          events) are shared by events with different place texts (the place check is the author's
+          stand-in, so about a third of them are one place spelled several ways), and only 3
+          cross-account pairs are link-tier (different key, score at least 0.85). In-sample: the
+          formula was fixed after seeing this data. **Tag evidence `[ADOPTED, user-directed 2026-10-20; the guard on generic campaign tags is an ASSUMPTION]`, measured 2026-10-20 on the same export
+          joined to each event's primary-post hashtags:** 1,109 of 1,467 events (76%) have
+          hashtags (54% of September's, 85% of October's), 145 of the 157 events that share a
+          post with others cannot use them (a roundup's tags describe several events), and the most
+          common tags are the malls' (`#plazaambarrukmo` 160 events, `#pakuwonmalljogja` 140,
+          `#slemancityhall` 113). Pairs of **different brands** sharing the Buy 1 Get 1 phrase
+          share a rare tag in 1 of 48 testable pairs (2%, and that tag is the generic
+          `#buy1get1`); pairs from the real branch-promo families share one in 17 of 48 (35%);
+          of the 53 cross-account pairs between 0.70 and 0.85, 10 share a non-mall tag, 8 of
+          them real same-promo pairs (`#internationalcoffeeday`, `#iphone18pro`, `#sportsstation`,
+          `#veteranfestival2026`, `#baycultureshow`) and 2 generic campaign tags across brands
+          (`#buy1get1`, `#buymoresavemore`). Mall accounts often tag the mall and not the brand
+          (4 of 8 Sports Station promo posts carry `#sportsstation`), so absence of a shared tag
+          proves nothing. Proposed use: a pair at weighted name score 0.70 to 0.85 joins when it
+          shares one hashtag that is rare in the corpus (start: on at most 12 events), is not a
+          mall or city tag, and spells words that are themselves rare in event names (so
+          `#sportsstation` counts and `#buy1get1` does not); both events must be the only event of
+          their post, and the area scope above applies. `[ASSUMPTION]` the guard on generic campaign tags is untested beyond these two
+          pairs. **Review R4 (R4A-8, R4D-10):** the terms "mall or city tag" and "words rare in event names" had no
+          function behind them and the guard did not separate the five good tags from `#buymoresavemore`
+          and `#buy1get1` on any threshold; "only event of their post" is read from
+          `posts.extracted_event_count` (written at extraction, before the siblings are enqueued), not
+          from `events_in_post`; tags are read once at attach and stored in the join journal. So tag
+          evidence ships behind its own detector switch, **default off**, until `isEvidenceTag()`
+          exists as one function with the five good tags as its fixture and `#buymoresavemore` as a
+          failing case. Because a tag join is link-only (Rule 17.1), a wrong tag join adds a wrong
+          "part of" link and hides nothing. **The personalization taxonomy is not a grouping signal in v1:** `interests[]`,
+          `segments[]` and `costTier` (the personalization plan) say what kind of event this is, not
+          which brand or campaign, so Sports Station and Planet Sports promos would carry the same
+          interests; the coarse `categories` and `types` already stored agree on every
+          promo pair (types 100%) and differ for the same brand across posts (identical categories
+          on only 21% of same-brand pairs), so they cannot gate either. Tracks (the audience) are
+          the one field that matches Rule 12's definition of kind (a series shares one audience, a
+          programme's members differ) and could validate the kind later. `groupName(a, b)` gives the series its
+          `event_groups.name`: the words the two names share once each place is removed, in the
+          poster's spelling and casing, from the more general of the two (e.g. "Wacoal 25% Off
+          Promo"); it is computed from the first two members and not recomputed, and a moderator
+          can rename it `[ASSUMPTION]`; it falls back to `stem` when the function returns ''. The row
+          stores the creating member's canonical key as `stem` (Rule 17.1), and the attach lock is
+          Rule 17.3's. Whether the two members are at **different** places
+          stays `isSamePlace`'s call; same place and a high score is the matcher's duplicate, not
+          a series. Known gap: a city that is in the name but not in the place text ("Erafone Run
+          2026 Yogyakarta Series" and "... Bandung Series") is missed until the event's gazetteer
+          area label is passed in with the place text. `normalizeName()` and `deriveStem()` are exported from
+          `packages/domain/src/events/name-normalization.ts` and are the only normalizers; the
+          matcher's duplicate key (AD-38 Rule 6), `assignExtractionOrdinals` and the gate SQL use
+          them (the SQL through a generated expression with a test).
+        - **The organizer is `social_media_account_profiles.id` (uuid)** of the event's
+          organizer-authored `PUBLISHER` (AD-31 Rule 3), resolved through the survivor of any
+          BUG-059 twin merge, which repoints `event_groups.organizer_account_id`. A roundup or
+          curator-sourced stub neither creates nor joins a series until it is promoted;
+          `becameOrganizerAuthored` re-runs group attach. (The matcher's any-role union,
+          `buildEventAccountMatchCondition`, is a broader predicate for a different job.)
+        - **Rolling.** A new member joins the open series when its first date falls within `GAP`
+          of the latest date of any existing member (**the 60-day start value is superseded by the two
+          windows below; its sizing is kept as the evidence**; sized
+          2026-10-20 by Round 3 item 13: of 59 candidates, 52 span under a month, 5 one to two
+          months, 1 two to four, 1 over four, so 60 days splits at most the two candidates whose
+          members are further apart and keeps the rest whole; the data is one seven-week snapshot
+          and cannot show a yearly repeat, so the value stays an assumption). **Measured 2026-10-20 on the
+          export (date gap between two events' ranges, 0 = overlap), pairs at weighted score 0.85 or
+          above with different places:** same account 262 pairs: overlap 90, 1 to 7 days 62, 8 to 14
+          42, 15 to 30 32, 31 to 60 36; different accounts 48 pairs: 33, 6, 2, 7, 0. Beyond 60 days
+          there are only 8 pairs (plain score at least 0.85), all same-account tours: AKMU Asia Tour
+          at 63 to 70 days and Ruang Berpesta (Cirebon, Garut) at 99 to 106. So the 60-day cap loses
+          about 2.5% of the grouped pairs, the tail up to 60 days is not empty (14% of same-account
+          pairs sit at 31 to 60), and cross-account pairs never exceed 30 days. `[ADOPTED, user-directed
+          2026-10-20; the two values stay start values]` two windows: **`GAP` 120 days within one account** (the number guard already separates
+          annual editions that carry a year), **30 days across accounts** (a branch promo is
+          concurrent, and a short window is one more guard against two brands reusing a phrase).
+          Where a new season starts cannot be read from seven weeks of posts; it needs annual
+          repeats. Otherwise it opens a new series (a new season). Past members stay as the archive. A group with at most one active member, or a
+          series with no upcoming member, is **dormant**: nothing to collapse, still reachable from
+          any member's page. Detection is deterministic, no model call.
+        - **Programmes are time-bound.** Identity = name + date window; a member outside the window
+          extends it; next year's edition is a new group, and a year inside the name keeps annual
+          events apart.
+        - **A poster's agenda heading is not a group**, and **a programme item held at two places
+          stays in the programme**: `group_id` is the programme (Rule 16 precedence), and its place
+          siblings are tied by the shared source post and an identical normalized activity name (the
+          `relatedEventIds` relation, AD-30 Rule 11), not by a second group.
+    13. **Discovery handling — the cover is computed, never stored** (added 2026-10-19).
+        `[ADOPTED, user-accepted; delivery gate and request switch PROPOSED]`
+        - **Delivery gate.** Today's `Query.events` orders by the next schedule date with
+          `LIMIT/OFFSET`: it has no score, no candidate cap K and no ids-then-hydrate. This Rule
+          ships **after** the ranked list of IDEA-074 / IDEA-076 / IDEA-080 and is not delivered
+          earlier. (On today's order the same cap would be
+          `row_number() OVER (PARTITION BY coalesce(g.id, e.id) ORDER BY <current order key>)`.)
+        - **Request switch.** `Query.events` takes `groupCollapse: Boolean = false`; only the
+          Discovery document sets it. The backend never infers Discovery from the condition tree.
+          The calendar, favorites, the feed and account pages list every event.
+        - **Pipeline order, fixed:** filters apply to **members** first; score and area tier
+          (AD-39); the group window caps (this Rule); the unknown-area page cap (AD-39 Rule 4);
+          final order; `LIMIT/OFFSET`. A group appears iff at least one member matches, and its
+          cover is the best-ranked *matching* member (it may differ with and without a filter, by
+          design). No column holds the cover.
+        - **A series is capped at one cover, applied globally over the ranked list, not per page**
+          (a per-page cap would show a series again on page 2): the other members collapse behind
+          the cover and are reached through the group surface (Rule 15). **A programme is not
+          capped and not collapsed**: every member competes on its own relevance, so each event
+          reaches its own audience, and carries a "part of <programme>" chip.
+          `[ADOPTED, user-directed 2026-10-20]` An optional soft cap for programmes (members beyond
+          `k` take a rank penalty, never removed) exists behind a flag, **off by default**; turn it
+          on only if a shadow run shows one programme flooding a page. `k` and the penalty are
+          start values to calibrate `[ASSUMPTION]`.
+        - **The cover of a series is the member nearest the user.** `[PROPOSED]` Within a series
+          the cover order is proximity first, then the list's rank key. Proximity is the trusted-pin
+          distance (AD-22's shared computation) when the user has a location and the member has a
+          trusted pin, else the area closeness of AD-39 Rule 5, else nothing (rank order). The
+          card shows the cover's own Nearby badge when its pin is trusted and within range (pin-only,
+          AD-22), and the series indicator of Rule 12. The window is
+          `row_number() OVER (PARTITION BY coalesce(g.id, e.id) ORDER BY proximity NULLS LAST,
+          rank_key)` for series groups only.
+        - **Dissolved groups do not collapse.** The window partitions by `coalesce(g.id, e.id)`
+          where `g` is `event_groups` joined **before** the window with `status = 'active'` (both
+          ids are `uuid`; an ungrouped event is its own partition).
+          **Collapse partition (review R4, 2026-10-20):** active series partition by
+          `coalesce(g.id::text || ':' || e.group_collapse_key, e.id::text)`; a member with a null key
+          is its own partition (chip only, Rule 17.1). The country scope is enforced at attach by a
+          composite foreign key (Rule 17.2), so the window needs no country term. The unknown-area
+          page cap runs as a member filter **before** the window (Rule 17.6).
+        - The card shows the count of *matching* members ("+2 more matching sessions") from the
+          same pass; with one match it is a plain event card with a small "part of <group>" link.
+          The programme anchor gets no cover priority in v1. `totalCount` is computed with the same
+          cap or dropped (FIND-088 shows nothing reads it).
+        - **Group-level seen, for a series.** Any member seen counts as the series seen, otherwise
+          the cover rotates to the next occurrence and re-surfaces as new. If "seen" feeds the
+          score, its `bool_or` window runs before the rescore and the `row_number` after it.
+        - **One query, no double fetch**: candidate set (cap K), score, window passes, outer-query
+          cap, order, `LIMIT/OFFSET`. Name, kind and `member_count` are denormalized on
+          `event_groups` and joined for the displayed rows. With the ranked-ids mode (IDEA-080) the
+          id list also carries `group_id`, name, kind and `matching_count`. The group surface is a
+          **separate on-demand query** on the partial index of Rule 1.
+        - **Gate and measured cost.** An EXPLAIN gate (AD-30 Rules 4 and 6) on the 120k-event seed
+          shows no Seq Scan on `events`, and K is enforced by a `LIMIT` in the candidate subquery.
+          Measured on a synthetic table (12% of rows in about 400 groups, PostgreSQL 16.15, JIT off,
+          median of 9; production is 17.6 and the production plan is not captured): at K = 3,000 the
+          baseline top-200 is 1.1 ms, with the series cap 3.1 ms, with cap + count + seen 4.8 ms;
+          at K = 10,000 it is 2.0, 7.8 and 15.5 ms. An independent re-run on uuid keys at
+          production's `work_mem` gave 4.8 and 5.4 ms at K = 3,000: **about +2 to +4 ms**, growing
+          with K; **keep K at or below 3,000**. The script and output are to be stored under
+          `event-insight-poc/results/` (Round 3).
+    14. **Notifications — one per (group, source post)** (added 2026-10-19). `[ADOPTED, user-directed:
+        one per group and post, sent after a short delay; mechanism user-confirmed 2026-10-20: a
+        database due time claimed by the existing drain, because the SQS delay does not fit the
+        shipped queue topology]`
+        - A grouped event does not notify on its own. One notification is sent per `(group, source
+          post)`: a later post that adds members to an existing group notifies once for those
+          members. An ungrouped event notifies per event, as today. **This replaces the PRD rule
+          "push notifications are sent per event, not per post"** for grouped events, so the PRD
+          changes before this ships.
+        - **Why not an SQS `DelaySeconds`.** No notify message exists: `notifyNewEvent` runs inline
+          in the ingestor and sends FCM directly (FIND-061); the send helpers cannot pass a delay;
+          the ingestor parses every body as an extracted event; and in production the queues are not
+          event-source-mapped but drained by a 5-minute EventBridge poll-and-drain (FIND-034), so
+          a delayed message would arrive on a later tick anyway.
+        - **Mechanism: due time in the database, claimed by the existing drain.** Ingestion of a
+          grouped, eligible event sets `events.notify_due_at = now() + 90 s` (start value) instead
+          of calling `notifyNewEvent`. The ingestor's scheduled drain ends with `notifyDueGroups()`
+          (no new queue, no new Lambda, so no CLAUDE.md §4 diagram change; if a story chooses SQS
+          instead, it updates `architecture-diagram.md` and `high-level-overview.md` in the same
+          change). For each `(group, primary post)` with due events it runs one
+          `UPDATE events SET notified_at = now() WHERE group_id = $g AND notified_at IS NULL AND
+          notify_due_at <= now() AND id IN (events whose PRIMARY post is $post) RETURNING id`; a non-empty
+          result sends once, **N = the rows returned** (not `member_count`, which includes the
+          archive). Claim before send, as `notifyNewEvent` does. The user-visible delay is the due
+          time plus up to one drain cycle (about 6 minutes in production, seconds in dev with the
+          inline fallback calling the same function); it is a lower bound, not a promise.
+        - **Eligibility is AD-30 Rule 10's per-event test**, applied to each covered event: a
+          roundup or curator-sourced stub never gets `notify_due_at` and is never stamped, so its
+          one future notification when it becomes organizer-authored is not consumed. A sibling
+          that lands after the claim of its own `(group, post)` has `notified_at` set at attach and sends
+          nothing (Rule 17.5 for members from other posts). A split
+          child inherits `notified_at` (a split never notifies). An event that leaves its group
+          before the claim is notified per event by the same function.
+        - **Failure:** a failed send is logged and alerted (`reportErrorSilently`), never retried,
+          the same posture as `notifyNewEvent` today.
+    15. **Favorites and the group surface** (added 2026-10-19). `[ADOPTED, user-directed;
+        invariant on undo PROPOSED]`
+        - **Favorites are per event, never per group**; calendar additions stay per schedule (and
+          carry both `schedule_id` and `event_id`, AD-38 Rule 4). When the AD-38 splitter splits an
+          event, the user's favorite is **copied to every child**, keeping the source `created_at`
+          (the Favorites list orders by it). `undoEventSplit` restores by invariant: every user
+          with an active favorite on any child ends with exactly one on the original. Where a
+          favorite count is a ranking input, a series counts `count(distinct user_id)` over its
+          members, not the sum.
+        - **The group surface is new UI**, because the Discovery collapse hides members that a user
+          may have favorited: the event page shows "part of <group>" with the active members (a
+          series by place and date, a programme by activity; a concurrent series lists its places
+          with the distance where a pin is trusted), and every member must be reachable from there. Layout and copy belong to the UX step; this rule fixes only that the surface
+          exists and reads from the separate on-demand query.
+    16. **Integrity: one writer, serialised creation, precedence, switches** (added 2026-10-19).
+        `[PROPOSED by the architect review]`
+        - **One writer.** `events.group_id`, `event_groups.member_count`, `.status`,
+          `.anchor_event_id` and `.confirmed_at` are written only by
+          `apps/backend/src/lib/groups/group-membership.ts`, as AD-30 Rule 2 does for
+          `events.post_id`. `member_count` is recomputed from `events` (`group_id = $g AND
+          deleted_at IS NULL`) under a `FOR UPDATE` lock on the group row, never incremented; the same call recomputes
+          `place_count` (distinct places by `isSamePlace`) and `concurrent`. Every
+          path calls it: attach, detach, dissolve, place split and its undo, merge and its undo,
+          soft delete and restore, permanent delete (a pre-delete hook; the FK only sets null), and
+          post or account erasure. A source-scan ratchet fails any other writer; a consistency
+          query runs in CI and nightly.
+        - **Creation is serialised** by the lock of Rule 17.3 (corrected 2026-10-20: the earlier
+          formula `hashtextextended(organizer || '|' || stem, 0)` is NULL for a group with no
+          organizer and then takes no lock at all). A place-split group id is deterministic from
+          `(source post id, source ordinal k, country key)` (UUID v5) and inserted
+          `ON CONFLICT (id) DO NOTHING`, so the siblings of one post never race. A programme takes the
+          lock on `(detector, country, normalized umbrella)`. A partial unique index on the open
+          series key is not possible (series roll), so the nightly job is a reconcile (Rule 17.3), and
+          the moderator "merge groups" action (Rule 5) repoints members, journaled.
+        - **Precedence.** `moderator > place_split > series_stem / title_pattern >
+          keyword_organizer > extraction_field > series_phrase` (Rule 17.4). An event that already has a group is never moved by
+          a lower creator; `source` records the winner. A place split of an already-grouped event
+          puts every child in that same group.
+        - **Detectors, one table.**
+
+          | Detector | `confidence_tier` | `source` | `kind` | `confirmed_at` at creation |
+          |---|---|---|---|---|
+          | title pattern ("Umbrella - Child", 2+ children) | `title_pattern` | `title_pattern` | `programme` unless the Rule 12 test passes | set |
+          | series stem rule (Rule 12 test passes) | `deterministic` | `series_stem` | `series` | set |
+          | AD-38 place split | `deterministic` | `place_split` | `series` | set |
+          | cross-account series (Rule 12) | `deterministic` | `series_phrase` | `series` | null; collapse is the member's `group_collapse_key` (Rule 17.1) |
+          | seeded anchor (Tier 2) | `keyword_organizer` | `keyword_organizer` | `programme` | null until a moderator confirms |
+          | extraction field (Tier 3, reserved) | `extraction_field` | `extraction_field` | `programme` | null |
+          | moderator | `moderator` | `moderator` | moderator's choice | set |
+
+          `confirmed_at IS NOT NULL` is Rule 4's "confirmed". `event_groups` also carries
+          `keyword text null` (the Tier 2 seed).
+        - **Dissolve** (`status = 'dissolved'`) nulls members' `group_id`; the journal lists them so
+          the undo restores them, and restores only into an **active** group. Soft-deleting an
+          anchor clears `anchor_event_id`.
+        - **Switches.** One configuration flag per detector, read with `parseBooleanDefaultOn` in
+          `env.ts`, makes that detector a no-op; a daily cap bounds **creations** per detector (never joins; an
+          event refused by the cap is marked `group_attach_pending`, retried by the nightly job, and a cap
+          hit raises an alert).
+        - **Tooling.** `getTablesInDeleteOrder` (`packages/database/delete-order.ts`) skips foreign
+          keys whose `onDelete` is `set null`, because `events.group_id` and
+          `event_groups.anchor_event_id` form a cycle that otherwise throws and breaks the CI
+          row-count ratchet and the seed; the story that adds the tables runs both on the new
+          schema.
+        - **Enforced by:** the ratchet and consistency query above; tests that every detector is a
+          no-op when its flag is off; the Rule 12 fixture; a guard that refuses the IDEA-084 backlog
+          job unless the Rule 10 gate query (`event-insight-poc/results/
+          prod-findings-review-2026-10-19-queries/recall-classes.sql`, class 4) passes; the
+          `getTablesInDeleteOrder` fixture test.
+    17. **Corrections from review R4** (added 2026-10-20; `reviews/review-r4-adversarial-two-units.md`,
+        `reviews/review-r4-data-integrity.md`, triage `reviews/triage-r4.md`). `[PROPOSED by the
+        review]` unless marked; the owner's adopted decisions (cross-account series, collapse
+        option B, the hashtag rule, the country scope) are not changed, their mechanism is.
+        1. **The carrier of option B is the member.** `events.group_collapse_key text null`, written
+           only by `group-membership.ts` in the statement that sets `group_id`: non-null only when
+           the event's `canonicalKey()` equals the group's `stem` (or a structural detector joined
+           it). Equal keys collapse; there is no closure beyond equality, so the Dum Dum triple
+           (1.00, 1.00 and 0.449) has a deterministic answer. Identical keys score 1.00 under any
+           weights, so the collapse tier cannot drift with the corpus; the link tier joins with a
+           null key. Every join writes a row of the **join journal** (`event_group_joins`: event,
+           group, detector, basis, score, weights version, evidence as `customJsonb` including a
+           shared tag and its post id), the group-review journal Rule 5 deferred. Re-attach is
+           **add-only** (it never moves or removes a member), one pass also pulls in existing
+           ungrouped events that match a new joiner, and a member that qualifies for two groups takes
+           the better score and raises a bridge item. A write of `event_name` or `location`
+           (correction, enrichment, `writeEventArea`) calls `group-membership.revalidate()`: a keyed
+           member whose key no longer equals the stem becomes link-only, a member that fails the
+           country test is detached, both journaled. Detach and dissolve write
+           `event_group_exclusions(event_id, stem)`, read by every detector and cleared only by a
+           moderator, so a dissolved group does not re-form around its freed members.
+        2. **Country is a stored fact enforced by the database.** `events.country_key text null`
+           (NULL = unsettled) with `country_source` (`area | pin | text | default`), written only by
+           `writeEventArea()` under AD-39 Rule 2's compare-and-set; `event_groups.country_key text
+           null`, fixed by the first attach, `UNIQUE (id, country_key)`. Hand-written in the
+           migration: `FOREIGN KEY (group_id, country_key) REFERENCES event_groups (id, country_key)
+           ON DELETE SET NULL (group_id)` and `CHECK (group_id IS NULL OR country_key IS NOT NULL)`.
+           Tested on the scratch database: a member of another country cannot be attached, a grouped
+           member's country cannot change unless `group_id` is cleared in the same statement, an
+           unsettled event cannot hold a group, deleting a group keeps the event's key. `ON DELETE
+           SET NULL (col)` needs PostgreSQL 15 or later: **production runs PostgreSQL 17.6** (owner,
+           2026-10-20), so the column list is usable; the scratch test ran on 16.15, and the
+           migration's own test runs on the CI image, which must be 15 or later too. Drizzle emits `ON DELETE SET NULL` for both columns, so the
+           migration hand-edits the column list and the schema builder keeps `onDelete: 'set null'`
+           so `getTablesInDeleteOrder` still skips the edge. Attach, merge-inherit (Rule 7),
+           `undoEventMerge`, dissolve-undo and the place split pre-check the country and **skip with
+           a journaled reason**, never fail a merge; `writeEventArea()` calls `detach(reason:
+           'country_changed')` before it changes a key. Changing the level (`country` to `region`) is
+           a re-key job with an explicit re-split step, not a flag. A late sibling never attaches to
+           a dissolved group (the writer checks `status`), and a place-split group is created only
+           when at least two same-country children exist. AD-39 Rule 7's switch step also requires
+           `count(*) WHERE country_key IS NULL AND deleted_at IS NULL AND area_status IS NOT NULL` to
+           be zero before any group detector flag is turned on. `eventCountry()` and AD-14 Rule 4
+           (e) share one function and one test table.
+        3. **Serialisation.** The lock is `pg_advisory_xact_lock(hashtextextended(concat_ws('|',
+           'series', detector, country_key, coalesce(organizer::text, '*')), 0))`: never NULL (a NULL
+           key makes the call return NULL, take no lock and raise nothing; checked on PostgreSQL
+           16.15) and one lock per (detector, country) for cross-account series, at about 50 events a
+           day. Sequence, in attach, sweep, backfill and moderator attach alike: `SET LOCAL
+           lock_timeout = '5s'` (the Lambda pool has `max: 1`, so a waiting transaction holds the
+           only connection); the advisory lock; the group row `FOR NO KEY UPDATE` (it conflicts with
+           other writers but not with the foreign key's `KEY SHARE`, so no deadlock; the same mode
+           for the event-row locks of AD-38 Rule 4 and AD-30 Rule 9); re-check `status = 'active'`;
+           then `UPDATE events SET group_id = $g ... WHERE id = $e AND group_id IS NULL`, and zero
+           rows means "lost the race: re-read and join the winner". Lock order: advisory, groups by
+           id, events by id. The ingestion transaction makes no external call, so a
+           transaction-scoped lock is safe behind the pooler (AD-32's objection concerns leases held
+           across calls). The candidate query for the series join is its own, indexed by canonical
+           key and token overlap; the matcher's `LIMIT 20` query would drop real members of a large
+           family. The nightly job is a **reconcile**: it re-runs attach for ungrouped events of the
+           last N days (including those refused by the cap) and flags two **open** series (latest
+           member plus `GAP` not before today) in one country with any member pair at or above the
+           bar; "merge groups" refuses an open and a non-open group, because a season roll keeps the
+           old season's group active by design.
+        4. **Detector order and the schema paragraph.** `series_phrase` is lowest in the precedence
+           line, so a programme member is never pulled into a series; its candidate pool is every
+           open series whatever its source; equal rank: the earlier `created_at` wins. The place
+           split writes `organizer_account_id` and `stem` and joins the open series of that key
+           (otherwise a weekly run split at three venues makes a card per week). `group_source_enum`
+           is created with all its values in the first `CREATE TYPE` (`title_pattern`,
+           `keyword_organizer`, `extraction_field`, `moderator`, `place_split`, `series_stem`,
+           `series_phrase`), because a value added later cannot be used by a backfill in the same
+           migration batch. `event_groups.name` is `NOT NULL` and falls back to `stem`. Rule 1's
+           schema paragraph gains `events.group_collapse_key`, `events.country_key`,
+           `events.country_source`, `events.notify_source_account_id`, `event_groups.country_key`, the
+           tables `event_group_joins` and `event_group_exclusions`, and `name_token_df`.
+           `event_groups` uses `status = 'dissolved'` instead of `deletedAt` on purpose (a dissolved
+           group's members are in a journal, not rows to hide). The new journals use `customJsonb`
+           and `uuid[]`; hand-written SQL (composite foreign key, partial indexes, checks) carries a
+           header comment naming its migration, as `schedules.oneMainPerEventIdx` does. The Rule 16
+           ratchet and AD-38 Rule 4's `INSERT ... SELECT` override list are reconciled: the split
+           calls `group-membership.ts` afterwards, and `notifyDueGroups()` lives in
+           `notify-new-event.ts` (AD-30 Rule 10: one notify helper).
+        5. **Notifications for cross-account groups.** The claim is "events whose **primary** post
+           is `$post`" (a roundup linking members whose primaries are elsewhere would claim them
+           for the wrong account), and `events.notify_source_account_id` is written when
+           `notify_due_at` is set, because `notifyDueGroups()` has no queue message to read it from.
+           **`[ADOPTED, user-directed 2026-10-20; scope adopted 2026-10-21, see the last paragraph]` Suppress per
+           `(user, group)`.** A user subscribed to three malls that post one promo is told once, not
+           once per `(group, post)`, for what Discovery shows as one card. Mechanism: `event_group_notifications (user_id, group_id,
+           first_event_id, sent_at, PRIMARY KEY (user_id, group_id))`, `ON DELETE CASCADE` from the
+           group and the user. The insert **is** the per-user claim: after the `(group, post)` claim
+           above returns rows, the sender runs `INSERT ... ON CONFLICT DO NOTHING RETURNING user_id`
+           for the source account's subscribers and sends only to the users returned, so two
+           concurrent claims for different posts cannot both notify one user. This changes
+           `getSubscribersForNotification()`, which returns FCM tokens only today (no user id) and
+           must return `(user_id, token)`; ungrouped events keep today's path and write no log row.
+           Consequences stated so the stories do not rediscover them: a user who subscribes to a
+           second mall after the first claim is still not told about that mall's branch (the group
+           was already announced to them); a user who subscribed to none of the earlier posters
+           is told at the first claim that reaches them; a **new season** is a new group (Rule 12), so
+           it notifies again; a dissolved group's rows are irrelevant (no later claims) and merging
+           two groups repoints the rows, keeping the earliest `sent_at` per user. The claim stays
+           before the send and a failed send is not retried (Rule 14), so the log can record a user
+           whose push failed: the same posture as `notified_at`.
+           **`[ADOPTED, user-directed 2026-10-21 ("all recommended")]` Scope.** Read literally, "once per
+           user per group until a new season" contradicted Rule 14 (a later post that adds members
+           notifies once for those members) and the programme kind (each SCH event is promoted
+           individually): a weekly series would send nothing after week 1. The suppression therefore
+           applies to **series only** (a programme is never suppressed) and only **within a window**
+           of the user's last push for that group (`sent_at` newer than 7 days, start value
+           `[ASSUMPTION]`), so the three-mall case collapses to one push while a weekly run keeps
+           its weekly push. The claim is `INSERT ... ON CONFLICT (user_id, group_id) DO UPDATE SET
+           sent_at = now() WHERE event_group_notifications.sent_at < now() - $window RETURNING
+           user_id`, which sends only to the users returned. **Size, 2026-10-21:** production has 2
+           registered users, both with push off, so this has no audience until push works for
+           anyone (BUG-073).
+        6. **Aggregates and page order.** `member_count`, `place_count` and `concurrent` are
+           recomputed by every writer of `events.deleted_at` (merge, the cancelled-report soft
+           delete, restore, hard delete: delete first, then recount, in one transaction), and the
+           source-scan ratchet covers `deletedAt` on `events`. They are stamped with what they were
+           derived with (`derived_with`, like `pin_evaluated_with`) and recomputed nightly, because
+           enrichment, a correction or a gazetteer change alters them without a membership change.
+           `place_count` is the size of a greedy cover (`isSamePlace` is not transitive); the label
+           counts read keyed members only. The unknown-area page cap (AD-39 Rule 4) runs as a member
+           filter before the Rule 13 window, so a series is not deleted whole when its best-ranked
+           member has an unknown area.
+        7. **Eligibility and ownership.** The shared organizer function returns the organizer
+           **account and the role that won** (publisher, or co-author where AD-31 Rule 3's
+           organizer-authored test says so); the group stores its organizer at creation, and a member
+           whose organizer changes by promotion is re-evaluated. Cross-account same-place duplicates
+           (one event posted by several accounts: 7 of the 24 clusters on the export) belong to the
+           matcher: IDEA-085 gains a **cross-poster duplicate rule** (normalized name equal,
+           `isSamePlace` = `same`, date ranges sharing a date, any posters) that yields `mid`; the
+           organizer weight is absent for different posters, so the best score without it is 0.40,
+           below `mid`.
+        8. **Safety net, made real.** The per-detector switch stops creation only;
+           `dissolveBySource(source, createdSince)` is the bulk undo that restores every member,
+           journaled. The "nightly list of newly created cross-account groups" needs a carrier now
+           (a table the owner opens, or an artifact); until IDEA-090 ships it is unobserved, and this
+           rule says so.
+*   **Considered and rejected:** Option B, reusing Story 3.6u's related events (shared-post-only,
+    cannot express a cross-post or cross-account group); Option C, `parent_event_id` on `events`
+    (requires the umbrella to exist as its own event — fails for an umbrella-less tournament); a
+    pre-approval gate for Tier-2/3 suggestions (rejected by user decision as inconsistent with the
+    spine's existing immediate-apply-with-oversight convention); a `group_id` join table for
+    multi-group membership (no observed case justifies it yet, Rule 1; a programme item held at two
+    places stays in the programme, Rule 12). Added 2026-10-19: a stored group cover or
+    representative (goes stale on every member change and filter, Rule 13); a per-page cap (re-shows
+    a series on page 2, Rule 13); one notification per event for grouped events (a burst of N pushes
+    for one poster, Rule 14); an SQS `DelaySeconds` notify message (no queue or sender supports it
+    and production drains on a 5-minute poll, Rule 14); kind derived from the creator or the title
+    shape (the Riot and SCH titles have the same shape, Rule 12); a third group kind for
+    concurrent branch promos (same Discovery policy as a series, only the label differs, Rule 12);
+    collapsing or capping a programme (each member has its own audience, Rule 13).
+*   **Deferred:** the group-review journal's exact shape (Rule 5); whether Tier 1 also notifies
+    moderators (Rule 4's `[ASSUMPTION]`); the Tier-3 `extraction_field` anchor itself (reserved, not
+    built — no story yet); the `program-lineup` reshape's migration and extraction-contract rewrite
+    (Rule 6) — its own architecture/story pass, timed with the IDEA-074 branch; whether
+    `event_groups` needs a dedicated undo-toast UI beyond the moderator "review group" action; the
+    backfill-vs-going-forward dedup-gate split (Rule 10's `[ASSUMPTION]`). Added 2026-10-19: the
+    values of `GAP` and the due delay (Rules 12 and 14), and the optional programme soft cap (Rule 13,
+    off by default), to calibrate after Round 3 item 13 and a shadow run of Discovery;
+    **cross-account series** (decided 2026-10-20, Rule 12: grouped, identical-core pairs collapse from the start, same-country scope; the carrier for a group that mixes identical-core and link-only members, the attach serialisation key when no organizer is shared, and the join rule against chaining are specified in Rules 12, 17.1 and 17.3, `[PROPOSED by review R4]`, awaiting the owner's yes); the labels' copy and the group-
+    surface UX (Rule 15); the carrier of the
+    moderator notifications of Rules 4 and 7: today a moderator is emailed for only five event types
+    (dangerous report, default-location change, two scraper alerts) and nothing reaches them about
+    queue items (BUG-069, IDEA-090), so "review after the fact" depends on IDEA-090;
+    `posts.extracted_event_count` stays the pre-split count, and "See all N events" reads
+    `relatedEventIds` (AD-30 Rule 11).
+*   **Follow-ups this AD creates (for `bmad-form-epics` to cluster):**
+    1.  **IDEA-084 core** — `event_groups` schema, the Tier-1/Tier-2 suggestion pipeline, the
+        non-blocking moderator notification + "review group" action (Rules 1–5).
+    2.  **Merge/group reconciliation** — the small addition to `mergeEvents()`/`undoEventMerge`
+        (Rule 7); naturally rides with Stories 3.6v/3.6w's existing surface.
+    3.  **`program-lineup` reshape** — the AD-30 Rule 5 amendment itself plus its migration and
+        extraction-contract change (Rule 6); sequence with the IDEA-074 personalization branch per
+        the user's explicit instruction, not as a standalone epic.
+    4.  **Group-based location inheritance** — a distinct, later idea gated behind BUG-068's fix and
+        reverification (Rule 9); do not bundle into the IDEA-084 core epic.
+    5.  **IDEA-085 (prerequisite)** — matcher recall + moderator-queue clearing; must land and be
+        verified before IDEA-084 runs against the existing event backlog (Rule 10).
+    6.  **BUG-068 (prerequisite)** — fix the `location_details` JSON-string encoding and verify the
+        mechanism; gates follow-up 4.
+    7.  **Tier-3 extraction-field anchor** — a new idea, not yet in the backlog; an AI-extraction
+        contract change, candidate for its own `IDEA-0xx` row when the team is ready to schedule it.
+    8.  **Group kinds, series identity and Discovery handling** (Rules 12–13) — the derivation
+        function, the window-function cap in `Query.events` and the group-level seen input; the
+        cap ships after the ranked list (IDEA-074/076/080) and with the AD-38 splitter.
+    9.  **Per-group notifications** (Rule 14) — `events.notify_due_at`, `notifyDueGroups()` in
+        the ingestor's drain, and the PRD change.
+    10. **Group surface** (Rule 15) — the on-demand members query and the event-page section
+        (UX step first).
+    11. **Group integrity** (Rule 16) — `group-membership.ts`, the advisory lock, the detector
+        switches, the `getTablesInDeleteOrder` fix; part of IDEA-084 core.
+
+---
+
+### AD-37: jsonb Columns Are Written Through `customJsonb` Only
+
+*   **Binds:** `packages/database/schema.ts` (all 30 jsonb columns); `customJsonb` in the same file;
+    the ratchet `packages/database/jsonb-columns.test.ts` and the regression test
+    `apps/backend/src/schema/jsonb-encoding.test.ts`; every `postgres()` client (`db/client.ts`,
+    scripts, seeds); any SQL that reads a jsonb column (`->>`, `jsonb_array_elements`, `@>`,
+    expression indexes: IDEA-073, IDEA-081, AD-39, AD-36 Rule 9) including the two that exist today,
+    the `adminArea`/`venueType` filters at `resolvers.ts:3401–3402`; the migration runbook
+    `_bmad-output/implementation-artifacts/backlog/BUG-068-jsonb-migration/`; BUG-068 (implemented
+    2026-10-19, commit `decbd76`, **not deployed**).
+*   **Prevents:** A jsonb *string* stored where an object was meant: with drizzle-orm 0.30.10 and
+    postgres.js 3.4.9 a plain `jsonb()` column is stringified twice, so production holds a string
+    in 2,231 of 2,231 non-null values of the four columns the read-only role can see
+    (`schedules.location_details` 1,460 of 1,460). Reads through Drizzle work in both shapes; any
+    reader evaluated inside PostgreSQL sees nothing, so the `venueType` filter is blind on old rows
+    today and every planned area, filter and index feature would be blind on old rows and silently
+    correct on new ones. Also prevents the next plain `jsonb()` column from reintroducing it, and a
+    Drizzle upgrade that turns `customJsonb` into a runtime error.
+*   **Rule:**
+    1.  **Every jsonb column uses `customJsonb<T>('col')`; a plain `jsonb()` is a regression.**
+        `toDriver` hands the **raw object** to postgres.js, which serializes it once; `fromDriver`
+        parses a legacy string, so a row is readable in either shape. `.notNull()` and
+        `.default([])` are kept. The type had been applied to the three
+        `unprocessed_scraper_payloads` columns since 2026-08-29 (`deferred-work.md`); BUG-068
+        completes it for the other 27. It is migration-neutral (`drizzle-kit generate` reports
+        nothing to migrate; re-checked on 0.21.4). **No jsonb column holds a top-level JSON string**
+        (`fromDriver` would parse it back to a number or object); a column that must is `text`.
+    2.  **A ratchet, not a convention.** `jsonb-columns.test.ts` enumerates the exported tables
+        (`is(v, PgTable)`, `getTableColumns`), keeps columns whose SQL type is `jsonb`, and fails if
+        any has `columnType === 'PgJsonb'`. A comment on `customJsonb` and a rule in
+        `project-context.md` point at it.
+    3.  **A Drizzle upgrade to 0.33 or later revisits `customJsonb` in the same change.** From 0.33.0
+        (the first release; confirmed in the tarballs of 0.33.0, 0.36.4, 0.44.7, 0.45.4 and
+        1.0.0-beta.22) the postgres-js driver installs pass-through serializers for OIDs 114 and
+        3802; `customJsonb` would then hand a raw object to a driver that expects a string and
+        raise `The "string" argument must be of type string…`. `jsonb-columns.test.ts` also asserts
+        the installed `drizzle-orm` minor is below 0.33 and its failure message points here, and
+        the backend CI job that has the `postgres:16` service runs `jsonb-encoding.test.ts`. A new
+        `postgres()` client must not set serializers for 114/3802.
+    4.  **Rows are converted by the runbook, after the writer is deployed, never before.** Order:
+        deploy the writer (every Lambda alias on the new build); `01-look.sql`; `02-apply.sql` (one
+        transaction, core columns first; it aborts rather than retries when a row changed under it,
+        and "nothing to convert" is success when `01-look` already shows zero, so a re-run is safe);
+        `01-look.sql` again; the production pack's "JSON encoding" item shows every row
+        `object`/`array`, `schedules` reports the same `pinned` count before and after, and the
+        `venueType` filter returns rows. `01-look.sql` must show zero unparseable strings before any
+        SQL reader ships. Keep `_bak_bug068` until the AD-39 Rule 7 switch has been verified.
+    5.  **No SQL-side jsonb reader ships before step 4 is verified.** A reader that must run earlier
+        uses one shared unwrap, `jsonbUnwrap(col)` in `packages/database`, defined as
+        `CASE WHEN jsonb_typeof(c) = 'string' THEN (CASE WHEN left(c #>> '{}', 1) IN ('{', '[')
+        THEN (c #>> '{}')::jsonb END) ELSE c END` (the guard matches `02-apply.sql`: an unguarded
+        cast aborts the whole statement on a non-JSON string such as `"Online"`). It replaces the
+        spelling in `project-context.md` and the inline copy in `queryUnprocessedPayloads`, and is
+        removed after the migration. Expression indexes are created after step 4, on the plain
+        expression. `[ASSUMPTION]` the fragment is needed only if a reader is pulled forward; the
+        default is to wait.
+*   **Enforced by:** `packages/database/jsonb-columns.test.ts` (fails on the old schema: 27 `PgJsonb`
+    columns; asserts the Drizzle minor); `jsonb-encoding.test.ts` (runs on a migrated scratch
+    database: `jsonb_typeof` is `object`/`array` for inserts into `schedules.location_details`,
+    `events.links`, `social_media_account_profiles.default_location`, `posts.additional_image_urls`;
+    SQL-side `->>` and `jsonb_array_elements` work; a legacy string row still reads parsed); the
+    runbook's `test-on-scratch-db.sh`.
+*   **Considered and rejected:** client-level pass-through serializers in every `postgres()` client
+    (the existing `customJsonb` would then error; covers future columns but needs every client,
+    seed and test to use the helper); upgrading Drizzle now. The pin is drizzle-orm 0.30.10
+    (latest stable 0.45.4) and drizzle-kit 0.21.4 (latest 0.31.11), and it is the cause of several
+    hand-written workarounds in this spine (partial-index predicates, operator classes, deferrable
+    foreign keys); the rejection is sound for one defect, and a later upgrade decision should weigh
+    that accumulation. The pass-through serializers stay in every later version checked, so the
+    Rule 3 gate does not expire. The cause is not `prepare: false` (the probe reproduces the double
+    encoding with it on and off); the 2026-08-29 attribution is withdrawn.
+*   **Deferred:** converting the `rest` columns' rows (journal, audit and payload tables) until the
+    look output gives their byte sizes; the `unknown`-typed ones (`raw_input`, `raw_output`,
+    `result`, `raw_payload`, `request_payload`, `result_data`, `filters`, `resolved_filter`) only
+    after sampling, because a legitimately stored string that starts with `{` is indistinguishable
+    from a double-encoded object; removing the defensive `->>` reads in `queryUnprocessedPayloads`
+    (keep until step 4 is verified); BUG-066 (wrong pins) and BUG-063 (`adminArea` never written, 0
+    of 1,460) are separate.
+*   **Verified:** `apps/backend/scripts/poc-event-insight/probe-jsonb-encoding.ts` on a scratch
+    PostgreSQL 16.15, 2026-10-19: Drizzle `jsonb()` and `$1::jsonb` with a JSON string store a
+    **string** with `prepare` on or off and with `max_lifetime`; `customJsonb` stores an **object**;
+    with serializers 114/3802 set to pass-through, `jsonb()` stores an object and `customJsonb`
+    errors. The 0.33.0 tarball's `postgres-js/driver.js` carries the serializers (reviewer
+    re-check 2026-10-20). The mechanism is driver-side, so CI's PostgreSQL 16 and production's 17.6
+    do not change it. Production confirmation: read-only role, 2026-10-19.
+
+---
+
+### AD-38: Event Identity — One Activity at One Place-Set, Enforced by a Deterministic Place Normalizer
+
+*   **Binds:** the extraction post-processing in `process-ai-job.ts` and `process-ingestion-job.ts`,
+    `build-event-insert-values.ts`; new pure modules in `packages/domain` (the place normalizer,
+    `isSamePlace`, `normalizeName`, `siblingOrdinal`); the gazetteer data file (AD-39); AD-30 Rule 5
+    (grouping rules), Rule 7 (matcher candidate exclusions, the sweep) and Rule 9 (`mergeEvents`,
+    enrichment); `notify-new-event.ts` (via AD-36 Rule 14); the split journal and the Moderator
+    Tools "split event" action; AD-36 (groups); `Query.events` location filters (BUG-064, via
+    AD-39); `diagrams/event-dedup-flow.html`; IDEA-086, IDEA-084, IDEA-085; the Gemini quota (AD-10,
+    AD-32). Evidence: `event-insight-poc/prod-check-results-review-2026-10-19.md`; the Riot Jogja
+    "Wednesday Night Run" case, reported by the product owner (prevalence unmeasured until Round 3
+    items 11 and 13).
+*   **Prevents:** An event whose schedules sit at several venues, so any filter that joins the main
+    schedule is wrong for it (BUG-064) and "different venue ⇒ separate events" (AD-30 Rule 5 (1))
+    holds only if the prompt obeys; one caption extracted into 7 events in one post and 10 in
+    another; programme items hidden as schedules where no list, filter or calendar can reach them
+    (`program-lineup`, 47 production posts); the matcher scoring two sibling places of one series as
+    duplicates; a split that strands calendar entries or leaves an event with no main schedule; two
+    units numbering sibling ordinals differently; a first-sibling notification announcing a partial
+    group; two units inventing their own meaning of "the same place".
+*   **Rule:**
+    1.  **Definition.** An **event is one activity at one place-set**; its **schedules are the
+        dates** of that activity at that place-set. `[ADOPTED, user-confirmed 2026-10-19]`
+
+        | Shape | Result | Group (AD-36) |
+        |---|---|---|
+        | one activity, one place, several dates | one event, N schedules | none |
+        | one activity, different places (Riot "Wednesday Night Run" at three venues) | one event per place | `series` |
+        | different activities under one named umbrella (SCH "8th Anniversary": circus, line dance, zumba, fireworks), even at one venue | one event per activity | `programme` |
+        | a route (extractor-flagged `isRoute`; start pin, passed-through areas) | one event; place-set = start pin + area set | none |
+        | dependent stages of one competition (AD-30 Rule 5 (4)) | one event; stages are schedules | none |
+        | a schedule with no place of its own | stays with the sibling that owns the earliest dated schedule of its event | none |
+
+        **One place predicate, one name normalizer, in `packages/domain`, and no others.**
+        `normalizeName(s)` (lower-case, diacritics stripped, whitespace collapsed) and
+        `isSamePlace(a, b): 'same' | 'different' | 'unresolved'` over a `PlaceRef` = (the venue name
+        as extracted, the area key resolved from the extracted text only). Coordinates are never an
+        input. `unresolved` when either side has no usable venue name (empty, a non-place, a generic
+        word) or the names are similar but an area key is missing; it never splits and never
+        excludes. `same` when the normalized names are equal, or similar above a start value
+        `[ASSUMPTION]` with equal area keys. `different` when both names are usable and not
+        similar, or the area keys are both resolved and unequal. A compound venue text ("Atrium &
+        Plaza Rama, Sleman City Hall") is one place. `place_key` is not stored: it is computed, and
+        the matcher (at most 20 candidates), the sweep and the backfill selector call the function.
+        The gazetteer is a versioned data file in `packages/domain`, Indonesia-only at first;
+        anything it does not cover is `unresolved`.
+    2.  **The place normalizer is deterministic code, after extraction, with no model call.** A pure
+        function of (the extractor output, the gazetteer version), invoked from `process-ai-job.ts`
+        **before** the per-event loop, so geocoding, timezone and the private-contact and performer
+        guards (AD-30 Rule 5) run per sibling, each sibling geocoding only its own place.
+        - **Place split:** the schedules of one extracted event are grouped by `isSamePlace`; more
+          than one place yields sibling events and a `series` group (AD-36 Rule 16). Never when the
+          post's `groupingReason` is `dependent-stages`, and never for an event flagged `isRoute`
+          (a new boolean in the extraction payload, AD-30 Rule 5; absent means false). A sibling's
+          name is the schedule title when it follows "Umbrella - Child", else `<event name> -
+          <venue name>`. At most 10 places per event and a post-split cap per post (start values
+          `[ASSUMPTION]`); schedules over the cap stay with the last kept sibling, none is dropped.
+        - **Activity split:** each distinct `program-lineup` item becomes an event of a `programme`
+          group. It does not run until the extraction contract carries a criterion for "distinct
+          activity" versus "one activity on several dates" (the PRD uses `program-lineup` for both),
+          so it is its own follow-up and not part of IDEA-086 core. Never for `dependent-stages`.
+        - **Both apply:** `group_id` is the programme; the place siblings are tied by the shared
+          source post and an identical normalized activity name (AD-36 Rule 12).
+        - The place split is a pure function; the activity split inherits the extractor's
+          non-determinism (7 events in one post, 10 in another from one caption).
+        - **The AD-40 re-extract preview runs the same normalizer** on its extraction result, so
+          it reports the sibling events (with their `siblingOrdinal`s) and the group the split
+          would create. It still writes nothing (AD-40 Rule 1): the group and siblings are
+          reported, not created.
+    3.  **Write-path order and ordinals.** `[ADOPTED, user-accepted order; ordinal formula
+        user-accepted 2026-10-20]`
+        ```mermaid
+        flowchart LR
+          A["Extraction<br/>1 Gemini call per post"] --> B["Place normalizer<br/>deterministic"]
+          B -->|"one place"| C
+          B -->|"N places"| S["N sibling events"]
+          S --> C["Per-event loop<br/>geocode, timezone, guards"]
+          C --> M["Per-event matcher<br/>AD-30 Rule 7: enrich / candidate / new"]
+          M --> D["Group attach<br/>AD-36 Rule 16"]
+          D --> E["notify_due_at set<br/>claimed by the drain<br/>AD-36 Rule 14"]
+        ```
+        The normalizer runs **before** the matcher so the matcher compares events of the same
+        shape (an unsplit three-place event never matches its per-place duplicates), and the group
+        is attached **after** the events exist.
+        **Ordinals are a pure function of two inputs** (AD-30 Rule 3 idempotency): `k`, the
+        extracted event's final ordinal from `assignExtractionOrdinals`, which still runs over the
+        **extracted** events, and `j`, the place rank, ordering the event's places by earliest start
+        date, then earliest start time (nulls last), then normalized venue name. `siblingOrdinal(k,
+        j) = k + 100 × j` (`j = 0` keeps `k`; 100 exceeds any per-post event cap, which is capped at
+        99; `smallint` allows `j` up to 327). The backfill computes the same function from each
+        linked post's stored ordinal and never uses `max + 1`. "Free" means no `event_posts` row for
+        that `(post, ordinal)`, soft-deleted events included. The split locks the post row
+        (`SELECT ... FOR UPDATE`), calls `insertEventWithPrimaryPost` with the explicit ordinal and
+        treats a `null` return or a swallowed link conflict as an error to retry, never as "already
+        represented". As stable as the extractor itself, the caveat AD-30 Rule 3 already carries.
+    4.  **Split mechanics for events that already exist** (backfill, and a moderator "split event"
+        action). `[PROPOSED direction; the favorites copy is ADOPTED, user-confirmed]`
+        - **Lock first.** `SELECT ... FOR UPDATE` on the original event, before its schedules are
+          read; enrichment takes the same lock (AD-30 Rule 9 amendment).
+        - The **original event stays the first child**: it keeps its id, slug, favorites and links.
+          Its schedules at other places **move** to new sibling events with their **schedule ids
+          unchanged**.
+        - **A move changes two pointers.** `schedules.event_id` and, for every
+          `calendar_additions` row on a moved schedule (active or soft-deleted),
+          `calendar_additions.event_id` (NOT NULL, read by four event-level calendar readers and by
+          My Calendar); the journal records `{calendarAdditionId, previousEventId}`. A consistency
+          query (no addition whose `event_id` differs from its schedule's) runs in the round-trip
+          test and after every backfill batch; only the split and merge helpers write
+          `schedules.event_id` or `calendar_additions.event_id` (ratchet).
+        - **One main schedule each.** After the move the original and every child have exactly one
+          `is_main_schedule` (the earliest schedule of that place, by the ingestion
+          `normalizeMainSchedule` rule), because the place filters read only the main schedule's
+          join; the flag changes are journaled and undo clears the child's flag before moving
+          schedules back. A consistency query (events with schedules and no main) runs per batch.
+        - **The child is an `INSERT ... SELECT` of the original** with an explicit override list
+          (`id`, `slug`, `event_name`, `location` recomputed from its own schedules,
+          `post_id`/`extraction_ordinal` by Rule 3, `group_id`, `merged_into_event_id`,
+          `deleted_at`, timestamps, area columns recomputed from its own place); every other column
+          is copied verbatim, `notified_at` and `contact_info`/`has_private_contact` included. A unit
+          test enumerates `getTableConfig(events).columns` and fails when one is in neither list.
+          `event_posts` rows are copied with ordinals by Rule 3; a child slug is the AD-16 `~ordinal`
+          form and is checked against `event_slug_aliases`.
+        - **Favorites are copied to every child**, keeping the source `created_at`.
+          `[ADOPTED, user-confirmed]` `undoEventSplit` restores by invariant (AD-36 Rule 15).
+        - **Corrections, reports, candidates.** Corrections whose targets are all moved schedules
+          are repointed to the child; applied event-level corrections are copied to every child as
+          applied; the backfill skips and lists events with pending reports or pending corrections;
+          pending `event_match_candidates` touching the original are closed as `superseded` and
+          re-evaluated.
+        - **Group:** AD-36 Rule 16 precedence; a place split of an already-grouped event puts every
+          child in that same group.
+        - **Immediate-apply with a journal and undo**, the AD-30 Rule 9 convention. The journal
+          records the moved schedule ids, created events and `event_posts` rows, repointed calendar
+          additions, main-flag changes, created favorites, the group (and whether the original was
+          its anchor), `run_id` and source; its event FKs are `ON DELETE SET NULL` with the ids also
+          stored as columns (a CASCADE would erase the undo record with `deleteEventPermanently`).
+          `undoEventSplit` is the exact inverse only for an **untouched** child (`updated_at`
+          unchanged and no row outside the journal references it); otherwise it is refused with
+          `SPLIT_DIVERGED` and the moderator uses the guarded merge (AD-30 Rule 9 amendment). It
+          soft-deletes created children (`merged_into_event_id` = original, slug registered as an
+          alias) and keeps their `(post, ordinal)` slots.
+        - The ingestion-time split writes the same journal row (`source = place_split`), so one
+          undo covers both paths.
+    5.  **Backfill: upcoming events only, in three gated steps, quota-bounded, never notifying.**
+        `[ADOPTED scope, user-directed; mechanics PROPOSED]`
+        - Scope: events with an open (upcoming) schedule, `deleted_at IS NULL`,
+          `merged_into_event_id IS NULL`. Past events are left as they are.
+        - **Gate:** AD-36 Rule 10 (deduplication first) before step 1; going-forward ingestion is
+          not gated.
+        - **Step 1, split without creating groups.** Events whose schedules already carry distinct
+          places are split by the Rule 2 function (no model call); the residual (the place exists
+          only in a schedule title) is re-extracted on Flash Lite. **Step 2, re-run the IDEA-085
+          sweep over the split output**: every backfill-created event also passes
+          `findMatchingEvent`, otherwise a split child and a live single-place event of the same
+          series are duplicates that nothing re-checks. **Step 3, group attach** (deterministic ids,
+          AD-36 Rule 16).
+        - **Two phases.** A dry run writes `event_split_proposals(event_id, post_id,
+          proposed_places, model_output, status)`: the work queue and the cache of model output (a
+          crash does not re-spend quota). A sample is reviewed; apply runs with a per-run cap, a
+          kill switch, `run_id` on every journal row, and a selector idempotent by state. The same
+          selector runs as a standing drift check until messages enqueued by the old AI Lambda have
+          drained. While area keys do not exist, a split needs two signals (distinct normalized
+          names and, with trusted pins, more than 500 m apart) `[ASSUMPTION]`.
+        - **Never notifies:** children inherit `notified_at`, and a backfill-created group is
+          inserted with its members already stamped.
+        - **Key and budget.** `[ADOPTED, user-directed 2026-10-20]` Re-extraction uses
+          **contributors' keys only, and only those of contributors who subscribe to the account
+          that posted it**: `callGemini` with that account's `subscriberUserIds`, the same
+          relationship live extraction already relies on (AD-10, PRD §3.7). `SYSTEM_GEMINI_API_KEY`
+          stays unreachable from extraction, so there is no AD-10 amendment and no platform ledger.
+          Consequences: a post whose account has no subscriber with a usable key is not re-extracted
+          (the dry run lists it as `unresolvable`; its event stays unsplit); the budget is each
+          contributor's own quota, which the platform does not control or measure, so the backfill is
+          low priority, capped per run and per key, and relies on `callGemini`'s existing backoff
+          and `AiGatewayExhaustedError` (the post is retried in a later run, never forced).
+          The owner's figures (Flash Lite 500 requests a day and 20 a minute, 20 a day for the
+          non-lite model, stated 2026-10-19) describe the owner's key, not contributors'
+          `[ASSUMPTION]`; quotas are per Google project and reset at midnight Pacific time. The model
+          is the extraction model (`GEMINI_MODEL`, default `gemini-3.5-flash-lite`), never the filter
+          model (`GEMINI_FILTER_MODEL`, default `gemini-3.5-flash`, which the user-facing AI filter
+          also spends). Re-extraction passes the same face-blur step as live extraction (PRD:
+          unpaid-tier content may be used by Google; FIND-066). Post volume is 2,337 posts over 7
+          weeks (about 47 a day, a ceiling proxy: 880 posts carry a `grouping_reason`). The Phase 0+1
+          forecast (about 813 posts a day) sizes BYOK key availability, and matters only if
+          extraction becomes platform-funded (CC-032).
+        - **Sized 2026-10-20 (Round 3 item 11): the backfill is about ten events.** `[PROPOSED]`
+          Events holding more than one place are 15 of 1,431 (about 1%), and 7 more have several
+          schedules and no place at all. Only 5 of the 15 have an open schedule, and one of those is
+          `dependent-stages` (never split); of the 7, at most 6 are open. So the backfill is about 4
+          events the Rule 2 function splits plus at most 6 that need the place read out of their
+          schedule titles. The proposals table, per-run and per-key caps and standing drift check above are
+          machinery for that size; the simpler path is a **script with a dry-run default** (like
+          `merge-events-by-slug.ts`) run by the owner on the ten, over the Rule 4 split helper
+          (journaled, undoable), keeping the proposals table only if a later count grows. Live
+          extraction made 27 to 48 calls a day (spikes of 409, 123 and 106; 1,124 in 15 days), so
+          ten re-extractions are invisible to any quota. **Review R4 (R4D-12, R4A-16) keeps what the
+          simplification would lose:** the dry run stays mandatory (it is the only place the owner
+          sees children, ordinals, favorites to copy, calendar entries moved and the group, and
+          `undoEventSplit` is refused with `SPLIT_DIVERGED` as soon as a child gains a favorite);
+          the helper takes the expected schedule ids and refuses a mismatch, and returns the
+          existing result when the slot's event is the journaled child (a null return from
+          `insertEventWithPrimaryPost` is otherwise an error to retry, which loops on a split that
+          already happened); the six events whose place sits only in the schedule titles need the
+          partition (schedule to place) **supplied by the owner**, since a 28-second API Lambda
+          should not host a model call, so the contributor-key discussion above is moot for them;
+          each child is reported against possible duplicates of a live single-place event of the
+          same series (not auto-merged); at split time `notified_at` is stamped `now()` on the
+          original and every child when NULL (legacy events have it NULL, and a child would
+          otherwise multiply AD-30 Rule 10's one future notification) and `notify_due_at` is reset;
+          the new columns are classified in the unit test that enumerates
+          `getTableConfig(events).columns` (`group_join`-style columns reset with `group_id`,
+          `country_key` recomputed from the child's own place); secondary `event_posts` links copy
+          with `siblingOrdinal(m, j)` too. The AD-36 Rule 10 gate belongs to **grouping**, not to
+          splitting: the moderator split is ungated. The standing drift query (events with more
+          than one place and an open schedule) stays as a nightly consistency query. Ordinals
+          use a frozen `ordinalSortKey()` (v1, snapshot-tested), not `normalizeName()` or the
+          gazetteer version, which are tuned for matching and would swap two events' ordinals on a
+          re-extraction (R4D-14).
+    6.  **The duplicate key, and pairs that are never duplicates.** Two events are duplicates when
+        they share the organizer (AD-36 Rule 12's definition), the normalized name, a date within 2
+        days and the place. A pair is **never** a candidate when (a) both are linked to the same
+        post under different ordinals (the extractor said they are distinct; already shipped in
+        `match-event-to-existing.ts`), or (b) their place sets are different: every cross pair of
+        places is `different` by `isSamePlace` (an `unresolved` pair keeps the candidate).
+        `[ASSUMPTION]` for (b); the consequence of being wrong is over-exclusion, which leaves a real
+        duplicate to a moderator merge. This is a candidate-generation exclusion in the matcher and in
+        the IDEA-085 sweep, not a change to the spine-fixed weights and thresholds (AD-30 Rule 7);
+        the venue test and the Tier 2 venue test call `isSamePlace`, and the Rule 10 gate metric
+        counts the pairs left after these exclusions. A moderator merge of siblings is guarded by
+        AD-30 Rule 9.
+    7.  **Consequences owned elsewhere.** Notifications per (group, source post) and favorites
+        (AD-36 Rules 14–15); the Discovery collapse (AD-36 Rule 13); area filters (AD-39 Rule 5:
+        with one place per event the main-schedule join of BUG-064 is correct for place filters; the
+        date leaves stay independent `EXISTS` subqueries); a PRD change for per-group notifications.
+    8.  **Rollout and recovery.** `[PROPOSED]` Each new capability ships behind a flag, default off
+        (PostHog or `parseBooleanDefaultOn` in `env.ts`): `place-normalizer`,
+        `discovery-group-collapse`, `group-notifications`, `area-exposure`. Backend metrics and alerts
+        (AD-5 covers only frontend product analytics, so this is a new list for the story): splits per post and cap hits, `unresolved` places, `pin_trust` distribution,
+        groups created, kill-switch state, notification claims and failures, backfill re-extractions per key and `unresolvable` posts,
+        ladder outcomes, and the window-query latency. The migration order is AD-39 Rule 7's
+        expand → derive → switch → contract, and applies to every new column and table of AD-36,
+        AD-38 and AD-39. `project-context.md` is updated with the new "never" rules (read `pin_trust`
+        only; one group writer; one name and one place function) and loses the stale "5%" wording.
+*   **Enforced by:** unit tests of the normalizer and `isSamePlace` (place split; no split for
+    `dependent-stages` or `isRoute`; the Riot Jogja and SCH fixtures from production; `siblingOrdinal`
+    for every `(k, j)`); a regression test that a re-run of one extractor output creates no new
+    event; a live-versus-backfill test that both address the same `(post, ordinal)` slots; matcher
+    tests for exclusions (a) and (b); a split/undo round trip on a scratch database with the
+    consistency queries; the `getTableConfig(events)` copy-list test; the `schedules.event_id` /
+    `calendar_additions.event_id` ratchet.
+*   **Considered and rejected:** a **schedule-scoped location predicate** (an event matches when any
+    schedule matches, with `matchedSchedule` and best-schedule ordering): touches the highest-traffic
+    endpoint and every event-level ranking key; withdrawn on 2026-10-19. **One event per schedule**
+    always: loses "one activity on several dates" (AD-30 Rule 5 (3)) and multiplies favorites and
+    notifications. **Prompt-only enforcement** of "different venue ⇒ separate": the extractor is not
+    deterministic. **A nested group for a poster's agenda heading:** one group per event (AD-36
+    Rule 1). **`max + 1` ordinals:** not reproducible between live ingestion and backfill.
+    **A stored `place_key`:** a derived value that drifts with the gazetteer version.
+*   **Deferred:** the `isSamePlace` similarity threshold and the venue-name normalization details;
+    backfill sizing, until Round 3 items 9, 11 and 12 (`events-place-quality.sql`,
+    `events-multi-place.sql`, `gemini-usage.sql`) are run; the extraction-contract criterion and the `isRoute` field; the exact shape of the split journal and
+    `event_split_proposals`.
+*   **Follow-ups this AD creates (for `bmad-form-epics`), in dependency order:**
+    1.  **IDEA-086 core** — `isSamePlace`, `normalizeName`, the gazetteer file (Indonesia-only), the
+        normalizer, `siblingOrdinal`, the cap and the write-path order (Rules 1–3), behind the
+        `place-normalizer` flag.
+    2.  **IDEA-085** — stub-vs-stub scoring, the Rule 6 exclusions, the sweep and its system user
+        (AD-30 Rule 7); needs follow-up 1 for `isSamePlace`.
+    3.  **Split and backfill** — the journal, `undoEventSplit`, the moderator action, the dry-run
+        queue and the per-run caps (Rules 4–5); gated by follow-up 2 (AD-36 Rule 10).
+    4.  **Activity split** — the extraction-contract criterion, the `isRoute` field and the
+        `program-lineup` reshape (AD-36 Rule 6); its own story, after follow-up 1.
+    5.  **IDEA-084 backlog run** — grouping the existing events, after follow-ups 2 and 3.
+    6.  **PRD change** — per-group notifications, favorites at split.
+
+---
+
+### AD-39: Place Model — Pin, Area and Provenance Are Three Independent Facts
+
+*   **Binds:** `schedules` (`pin_trust`, `pin_evaluated_with`, `location_source`) and `events`
+    (`area_status`, `area_keys`, `area_leaf_key`, `area_source`); `resolve-account-and-locations.ts`
+    and the two other places that apply an account default (`transformGeminiResponseToEventInfo`,
+    timezone tier 2); the `Query.events` location filters, tier ordering (the POC's `tierFor`) and
+    partial-match lane; the paid score's distance term; AD-14 (pin trust), AD-22 (Nearby), AD-24
+    (badge primitives), AD-34 (account types); the GraphQL `Event` and `Schedule` types; IDEA-073
+    (area ladder), IDEA-075 (audience-area enrichment), IDEA-081 (target-area resolver), IDEA-087
+    (new: place model), BUG-063, BUG-064, BUG-065, BUG-066. Reference implementations (POC, not
+    production): `apps/backend/scripts/poc-event-insight/area-resolver.ts`, `location-policy.ts`,
+    `audience-areas.ts`, `partial-match.ts`.
+*   **Prevents:** One nullable location read as "anywhere" by one unit and as "hidden" by another;
+    an account's default location applied to an event with no provenance in three places
+    (`resolveAccountAndLocations` re-geocodes it for every account type, not only curators;
+    `transformGeminiResponseToEventInfo` copies its address into `events.location`; timezone tier 2
+    uses it) and indistinguishable from a stated place (11 of the 17 production curators hold an
+    arbitrary default); a wrong-country pin driving the map link, the radius filter and the Nearby
+    badge (BUG-066); an area-level guess presented as a distance; a strict "in Sleman" filter that
+    admits a DIY-wide event; list and detail disagreeing about how exact a place is; seven writers
+    leaving the place columns inconsistent with each other.
+*   **Rule:**
+    1.  **Three independent facts, never inferred from one another.** `[ADOPTED, user-accepted]`
+        (a) The **pin**: coordinates plus `schedules.pin_trust` (AD-14 Rule 4). (b) The **area**:
+        `events.area_status` (`known | unknown`; `unknown` is a value, **never null read as
+        "national"**), `events.area_keys text[]` (ancestor-closed: a Sleman event stores
+        `{id, id-yo, id-yo-sleman}`; `inside X` is `area_keys @> {X}`), `events.area_leaf_key` (the
+        finest key, for `covers`) and `events.area_source` (`stated | pin | heading | account`).
+        `[ADOPTED, user-accepted 2026-10-20]` the storage shape is fixed now so the writer and the
+        filters cannot diverge; IDEA-087 may still revise it before the first migration. (c) The **provenance**:
+        `schedules.location_source`, written at ingestion: `stated` (the poster named the place or
+        a user picked it), `geocoded_from_text` (Geoapify resolved free text), `account_default`,
+        `account_audience_area`, `none`, and `legacy_unknown` (existing rows, Rule 7).
+        **Precision is derived, never stored:** `locationPrecision(pinTrust, areaStatus)` in
+        `packages/domain` returns `EXACT` iff the **main** schedule's pin is `trusted`, else `AREA`
+        iff `area_status = known`, else `UNKNOWN` (an event with no schedule is `UNKNOWN`); one
+        domain function and one SQL expression use it. The event-level pin trust and source are the
+        main schedule's, and ingestion copies the event's resolved place onto its main schedule when
+        that schedule has none.
+        **Legal combinations:** a `trusted` pin always yields `area_status = known` (keys from its
+        path, `area_source = pin`; if the path has no gazetteer key the pin is `untrusted`);
+        `account_audience_area` implies `pin_trust = none` and `area_status = known`;
+        `account_default` pins are `trusted` only under Rule 3's venue conditions, else `untrusted`;
+        `none` implies no pin. Enforced by CHECKs where one row holds both facts and by a
+        consistency query where it does not.
+    2.  **Area keys come from the first source that answers, in this order**
+        `[ASSUMPTION: derived from the confirmed decisions, not itself confirmed]`:
+        ```mermaid
+        flowchart TD
+          A["Event text and post"] --> B{"Stated area resolves<br/>in the gazetteer?"}
+          B -->|yes| K["area keys known"]
+          B -->|no| C{"Trusted pin?<br/>its administrative path"}
+          C -->|yes| K
+          C -->|no| D{"Roundup heading<br/>names an area?"}
+          D -->|yes| K
+          D -->|no| E{"Account fallback?<br/>Rule 3"}
+          E -->|yes| K
+          E -->|no| U["area_status = unknown<br/>Rule 4"]
+        ```
+        Area phrases ("DIY & Jawa Tengah", "Jabodetabek") are resolved by the gazetteer first and
+        are not sent to the geocoder (production: answered with a PLN office at 0.66). **Writes are
+        compare-and-set on rank** `stated > pin > heading > account`: an `UPDATE` applies only when
+        the new `area_source` outranks the stored one or the status is `unknown`, so a slow ladder
+        result cannot overwrite a stated area. A stated area and a pin must agree (AD-14 Rule 4
+        (c)); on conflict the pin is `untrusted`, not the text.
+    3.  **Account fallbacks are narrow, recorded and in one function.**
+        `[ADOPTED, user-directed and user-accepted; the "everything else" bullet accepted
+        2026-10-20]` The
+        account default location is read for an event's place only in `resolveEventPlace()`
+        (`packages/domain`), which `resolveAccountAndLocations`, `transformGeminiResponseToEventInfo`
+        and timezone tier 2 all call (a source-scan ratchet fails any other read).
+        - **Curators** (`CURATOR_GUIDE`): an event with no exact location does **not** take the
+          account's location (reverses today's fallback; BUG-065), and the audience area is
+          **never** derived with Geoapify (its pick for a curator is a different venue each time:
+          12 posts, 12 places). The account instead carries an **audience target area**, stored as
+          `social_media_account_profiles.audience_area_keys text[]` with `audience_area_source`
+          (`model | moderator`) and written only by one `setAudienceArea()` that records a change
+          row. A location-less curator event inherits it, with `location_source =
+          account_audience_area` and precision `AREA`.
+          **How the area is found.** `[ADOPTED, user-directed 2026-10-20: a model guess, validated
+          by the account's first posts, never Geoapify; the table is PROPOSED]` Two sources, both
+          resolved through the gazetteer (an ambiguous name such as "Yogyakarta", city or province,
+          takes the widest candidate `[ASSUMPTION]`, so a wrong guess lands in the partial lane
+          instead of hiding the event). **P, the profile:** Gemini names the areas the account
+          serves (`reachAreas`, each with verbatim evidence from the bio, name or captions), and a
+          guard drops any area not in the input. **Q, the first posts:** each of the account's
+          first extracted posts has an audience area (the post-level extraction, same guards); Q is
+          the narrowest area that contains the areas of at least `M` of the first `N` posts, never
+          the country (start values `N = 5`, `M = 3`, `[ASSUMPTION]`).
+
+          | P | Q | audience area | `audience_area_source` |
+          |---|---|---|---|
+          | resolved | consistent (every post area inside P) | P | `model` |
+          | resolved | contradicts (post areas outside P) | Q if it exists, else unresolved | `posts` / none |
+          | resolved | not available yet | P, provisional | `model` |
+          | none | resolved | Q | `posts` |
+          | none | none | unresolved | none |
+
+          It is re-validated after each of the first `N` posts and again at `N`: a provisional or
+          model area that the posts contradict becomes Q, or unresolved.
+          **Type confirmation and scraping never wait for the area.** `[ADOPTED, user-directed
+          2026-10-20]` A curator is safe to scrape and extract whether or not an area is known: the
+          area is a separate field, the AD-34 gate is unchanged, and no new curator is held in
+          `AWAITING_APPROVAL` for lack of one. `[ASSUMPTION]` P is produced by the classification
+          call (`classifyAccountType`, run by the AD-41 worker, same key order, so a sweep
+          re-drive uses the system key only); a missing or failed P leaves the area unresolved and
+          never changes the classification outcome or delays `CONFIRMED` or the first scrape
+          (AD-41 Rules 4 and 7).
+          **When no area was resolved** and the event states none either, the event is
+          **published** with `area_status = unknown` (default tier, ranking penalty, per-page cap;
+          Rule 4), and the account is listed for a moderator to set an area (the backstop, not the
+          mechanism). `[ADOPTED, user-directed 2026-10-21: publish rather than hold. Moderators resolved
+          0 of 147 queued candidates and receive no notification about queue items today (BUG-069),
+          so a hold would be indefinite and silent.]` An event that states its own area or venue keeps it
+          (`area_source = stated` or `pin`); only an event with no clue at all is `unknown`.
+          Moderator review of a model- or posts-derived area happens after the fact.
+          **Size on open events, 2026-10-21 (Round 4 ask 2):** of 466 open events, 159 are curator events
+          and only **3** carry the account default as their pin (`account_default`); 95 have a
+          place text and 61 are `legacy_unknown` (57 of them with a pin and no schedule text). The
+          fallback this rule removes therefore touches 3 open curator events; the derive job still
+          has to classify the 61 and the 30 unclassified `legacy_unknown` events.
+          **Evidence, and its limits.** The POC profile test (18 profiles, 3 runs each, one real
+          curator) never named a wrong country or zone (0 of 54) and returned a region for the real
+          curator in 3 of 3 runs, but the areas varied by run (a city, the province, a city plus
+          Central Java), and the sample is far too small for a rate. Hence the area is a proposal a
+          moderator can correct, and a real-curator evaluation is the gate for trusting it without
+          that pass (Deferred). For the 463 of the 466 legacy accounts that have no default location
+          (IDEA-075 bulk update) the same enrichment runs; where it resolves nothing the area stays
+          unset. Setting an area re-queues that account's `unknown` events once.
+        - **Venue accounts:** the account's default location may serve as the event's place (and its
+          pin may be `trusted`) only when `location_source = account_default`, the account is a
+          confirmed `ORGANIZER_VENUE_EVENT` of local or regional reach (the POC's reach guard: a
+          national company's head office is not where its webinar happens), and the event is
+          organizer-authored (AD-31 Rule 3).
+        - **Everything else** (never-classified, personal, awaiting-approval accounts, and venue
+          accounts outside those conditions): the default's **area**, never its pin, may fill the
+          area keys with `location_source = account_default`, `area_source = account`, pin
+          `untrusted` and precision at most `AREA`; such an event appears in "In your area" and the
+          partial lane and never in Nearby. This narrows the POC's `mayUseAccountLocation`, which
+          let never-classified accounts lend their location, an owner decision of 2026-10-18 that
+          this reverses for the (few, after IDEA-075) accounts it still affects.
+    4.  **Unknown area is shown, penalised and capped, and retried by a budgeted job.**
+        `[ADOPTED, user-accepted]` An event with no stated area, no usable place text ("usable" =
+        resolves to a key or a trusted pin) and no usable account fallback appears in the default
+        Discovery tier of national events (the POC's tier 1) with a ranking penalty and a per-page
+        cap (start values at story time, from Round 3 item 9). Resolution is retried by a nightly
+        `resolve-unknown-areas` job, at most N geocodes per run `[ASSUMPTION]`, in the order roundup
+        heading, then account area, keyed by `(step, input version)` so a later input (a new
+        audience area) re-queues once. (Qualifier stripping is AD-14 Rule 5 and happens before the
+        first geocode, so it is not a ladder step.) The moderator "needs location" list is a
+        **backstop, never the mechanism** (moderators resolved 0 of 147 queued candidates). The
+        `'Location not specified'` placeholder in `events.location` (NOT NULL) is not a second
+        source of truth: readers use `area_status`; removing the placeholder is a follow-up.
+        **Size, 2026-10-20 (Round 3 item 9).** 26 of 452 open events (6%) have no place at all (22
+        full, 4 stub) and 58 more have place text only; 155 (34%) have a pin the shipped test
+        trusts and 213 (47%) a pin it rejects. The count of `unknown` events is **larger than 26
+        once Rule 3 applies**, because curator events that carry an account-default pin today lose
+        it (BUG-065). The Rule 7 fingerprint counts size that before the switch (Round 4 ask 2).
+        The alternative to publishing (a hold) has no worker: moderators resolved 0 of 147 and
+        receive no queue notification.
+    5.  **Filter and lane semantics.** `[ADOPTED]`
+        - A strict "in X" area filter matches an event only when its area key is the **same as or
+          inside** X. `LocationFilterInput.adminArea` (never written, BUG-063) is replaced by
+          `areaKey`. An event whose area **covers** X (a DIY-wide curator event for a Sleman user)
+          goes to the **partial-match lane**, delivered as `matchLane: STRICT | PARTIAL` ordering
+          in the **same** query so the AD-36 Rule 13 collapse sees both; `sibling`, `other` and
+          `unknown` never match a strict filter. `tierFor` reads `area_status` first: an empty key
+          set is `unknown`, never national.
+        - **"In your area"** (the chip and default Discovery tier label) means `same` and `inside`.
+          `covers` and `sibling` events stay in the local ordering tier (the POC's tier 0) but are
+          not labelled "in your area". `[ADOPTED, user-accepted 2026-10-20]`
+        - **Nearby stays a pin-only distance claim** (AD-22, one shared computation, trusted pins
+          only). Events with area-only precision appear in a radius filter's partial lane as "no
+          exact location". The cover of a series (AD-36 Rule 13) is chosen by the same two
+          quantities, trusted-pin distance first, then area closeness, and its card shows its own
+          Nearby badge when its pin is trusted.
+        - The **paid score** uses area closeness in place of the distance term when there is no
+          trusted pin: same 1.0, inside 0.8, covers 0.5, sibling 0.3, other 0 (start values), and
+          never calls it distance. With one place-set per event (AD-38), place filters and this
+          term read one place per event.
+    6.  **Exposure.** GraphQL exposes `Event.locationPrecision: EXACT | AREA | UNKNOWN`, a
+        localized `areaLabel`, and `Schedule.pinTrust`; **not** `detail_level` (the extraction's
+        stub/full, a different fact). The list card shows an area badge whenever precision is not
+        `EXACT`; the roundup provenance ("from <roundup title>") stays on the detail page. The
+        precision label resolves through the enum translation namespace (the project-context i18n
+        rule); `areaLabel` comes from the gazetteer's localized name field, because a place name is
+        data, not an enum key. `[ADOPTED]`
+    7.  **One writer, and the migration.** `[PROPOSED]` The place columns
+        (`location`, `location_details`, `latitude`, `longitude`, `timezone`, `pin_trust`,
+        `pin_evaluated_with`, `location_source`) are written only by `writeSchedulePlace()`, and
+        `area_*` only by `writeEventArea()`; enrichment, the merge schedule copy, a correction that
+        edits `location` (it re-geocodes through the writer), the split and the ladder all call
+        them. `ENRICHABLE` and the merge copy list import the column list from one constant. A
+        source-scan ratchet (AD-30 Rule 2 style) fails any other write. A floor or gazetteer change
+        re-derives through the writers.
+        **Expand, derive, switch, contract**, for every new column and table of AD-36, AD-38 and
+        AD-39:
+
+        | Step | Action | Rollback |
+        |---|---|---|
+        | 1 Expand | one migration: `event_groups` and its enums, `events.group_id`, `notify_due_at`, the nullable place columns (no default; NULL means "not derived"), the journals; partial indexes hand-written | forward-only; leave the columns, redeploy the previous code |
+        | 2 Writers | deploy the AD-37 writer and the AD-39 writers, flags off | redeploy the previous build |
+        | 3 Rows | the AD-37 runbook (look, apply, look), re-run after every Lambda alias is on the new build | `03-rollback.sql`; keep `_bak_bug068` |
+        | 4 Derive | a TypeScript job (it reads both jsonb shapes through Drizzle), batches of 200, selector `IS NULL`, idempotent and resumable: `isPinTrusted()`, the area resolver, `location_source` by fingerprint; re-run once area keys exist because AD-14 (c) was vacuous | set the columns back to NULL |
+        | 5 Switch | readers move to the new columns behind one flag, enabled only when `count(*) WHERE area_status IS NULL AND deleted_at IS NULL = 0` | flag off |
+        | 6 Contract | `SET NOT NULL` and the CHECKs | drop the constraint |
+        | 7 Split | gated by AD-36 Rule 10 (AD-38 Rule 5): dry run, review, apply by `run_id` | undo by `run_id` |
+
+        **Legacy `location_source`** is unknowable for the 1,725 existing schedules; the derive job
+        uses a fingerprint: an empty schedule `location` and a pin matching the account default
+        (place id, or coordinates within about 150 m, after unwrapping the jsonb string) →
+        `account_default`; a non-empty `location` → `geocoded_from_text`; the remainder →
+        `legacy_unknown`. Readers never give `EXACT` to `account_default` outside Rule 3's venue test
+        and never to `legacy_unknown` on a non-venue account. The three counts are reported before
+        the switch. Rules: no migration SQL references an enum value added in the same release
+        (backfills are jobs, not migrations; drizzle's migrator runs all pending migrations in one
+        transaction); a CI check requires the migration journal `when` values to be strictly
+        increasing and greater than main's last entry (a late-merged parallel migration is otherwise
+        skipped silently); each gate (AD-36 Rules 9–10) is a flag or row a reader checks, with its
+        evidence query recorded.
+    8.  **Every event carries an audience country.** `[ADOPTED, user-directed 2026-10-21 (the
+        requirement and its wording); the storage, the extraction contract and the order it feeds
+        are AD-42, to be drafted and proven by the audience POC]` Each event has an **audience
+        country**: a country code or `international`. It says who the event is for, not where it
+        happens: a national competition held on a Yogyakarta campus and a webinar for Indonesian
+        residents are `id`; a conference for several countries is `international`.
+        - **Source order, first that answers:** (1) the audience the post states (a named country,
+          nationwide wording such as "se-Indonesia", several countries); an online event with no
+          stated audience is `international`; (2) the country of the event's known place: a trusted
+          pin's country or the single country named in the stated text (AD-14 Rule 4 (e)), or the
+          root key of its known area (area keys are ancestor-closed, Rule 1); (3) the account's own
+          country when it has one (IDEA-075); (4) the platform default country `id`, recorded with
+          source `default`.
+        - **A separate fact from the grouping country.** `events.country_key` (AD-36 Rule 17.2) is
+          where the event happens, strict, and NULL when unsettled; a defaulted audience country
+          never feeds grouping, a pin test or the Nearby claim.
+        - An event whose area is `unknown` still has an audience country; the ranking penalty and
+          page cap of Rule 4 stay, because the area is unknown. Existing events stay empty until
+          re-derived (no bulk default). A moderator can correct the value (source `moderator`).
+        - **What is not proven.** The audience-area POC (prompt v2: 57/60 on its core set, 18/18 on a
+          six-post held-out set) had no country field, and its posts were written or chosen by the
+          author. Curator captions are cleared after extraction (PRD 3.16), and on 2026-10-21 34% of
+          the open events came from curator accounts and 22% from unclassified ones, so the value
+          for those must be captured at ingestion or inferred from the place and the account. The
+          POC sequence (a larger labelled set from real events, two labellers, a pre-set threshold,
+          a held-out half, then architect and code review) comes before any story.
+*   **Enforced by:** `isPinTrusted` tests (AD-14); the area resolver's `relation` and `tierFor`
+    tests promoted from the POC, including the empty-key case; the `resolveEventPlace()` and
+    `writeSchedulePlace()` source-scan ratchets; CHECKs and the consistency query for the legal
+    combinations; an AST guard that GraphQL documents select `locationPrecision`/`areaLabel`/
+    `pinTrust` and not `detail_level` for location; filter tests for same, inside, covers, sibling,
+    other and unknown; the migration-journal CI check.
+*   **Considered and rejected:** reading a missing area as national, or hiding unknown-area events
+    (the first shows a local event to everyone, the second drops events whose posts only omit the
+    place); the account's location as a curator fallback (BUG-065; arbitrary defaults); one
+    `location_confidence` scalar for all three facts; a **stored** `location_precision` (a function
+    of two other columns on different tables; it drifts when the ladder resolves an area);
+    `detail_level` as the precision field; the moderator list as the mechanism; a Nearby badge for
+    area-only events; a `NOT NULL DEFAULT 'none'` for `pin_trust` (a straggling old Lambda would
+    write indistinguishable "no pin" rows during a rolling deploy).
+*   **Deferred:** the pin-trust floor and the `full_match` question were calibrated 2026-10-20
+    (`[PROPOSED]` in AD-14 Rule 4, awaiting the owner's yes), so they are no longer open here; a **real-curator
+    evaluation of the area guess** (the stored profiles of the 17 curators and a sample of the
+    legacy 463 through the profile-insight prompt and the gazetteer, compared with a person's
+    judgement) before the model-derived area is trusted without a moderator pass; the gazetteer's data
+    source, licence and coverage beyond the POC's sample list (versioned data file, Indonesia-only
+    first); **audience-area inheritance by group members** (a child with no stated area taking its
+    group's, AD-36 Rule 9; no coordinates involved, so not gated by BUG-068); deriving a schedule's
+    time zone from its area key when there is no pin `[ASSUMPTION]`; the penalty, per-page cap and
+    job-size values (Rule 4); removing the `'Location not specified'` placeholder.
+*   **Follow-ups this AD creates (for `bmad-form-epics`):**
+    1.  **IDEA-087 core** — the provenance fields, `area_*`, the area-key resolver, the gazetteer
+        file, `resolveEventPlace()` and the single writers (Rules 1–3, 7).
+    2.  **Curator audience area** — `audience_area_keys`, `setAudienceArea()`, the
+        P/Q validation, the legacy derivation and the removal of the account-
+        default fallback for curators (Rule 3; BUG-065, IDEA-075), and the real-curator evaluation
+        that gates confirming without review.
+    3.  **Derive and switch** — the Rule 7 job and the reader flip, after AD-37's row migration.
+    4.  **Filter, lane and score semantics** (Rule 5; BUG-064, IDEA-081).
+    5.  **Exposure and badge** (Rule 6) — with the UX step.
+
+---
+
 ### AD-40: Moderator Re-extract Is a Write-Free Preview That Never Keeps a Caption
 
 *   **Binds:** `Mutation.previewPostReextraction`, `Query.postReextractionPreview`
@@ -2276,14 +4033,17 @@ This document defines the core architectural invariants for the FestDaily applic
         (the run works from its in-memory copy, so a timeout or crash mid-run leaves nothing), and
         again in its `finally`, on a failed start, and on the lazy stale-job failure
         (`blankManualJobPayloadContent`), for correction jobs too. The one uncovered window, a job
-        inserted but never claimed and never polled, is deferred (FIND-086). (c) A stored caption of a
+        inserted but never claimed and never polled, is deferred (FIND-092). (c) A stored caption of a
         non-curator post is untouched.
     7.  **Moderator only.** Both operations call `requireModerator`.
 *   **Gotcha, recorded because it bit this work:** drizzle/postgres.js stores a jsonb column
     written from a JS object as a jsonb **string** holding the JSON (`events.links`,
     `manual_extraction_jobs.request_payload`). Raw SQL over such a column must unwrap it
     (`col #>> '{}'`) first; `jsonb_set` and `->>` on the raw column fail or return NULL. Read and
-    write through Drizzle, which unwraps and re-encodes consistently.
+    write through Drizzle, which unwraps and re-encodes consistently. **Amended 2026-10-20 by
+    AD-37:** new writes go through `customJsonb` and stop producing jsonb strings; the raw-SQL
+    unwrap above stays required, with the AD-37 guard on the first character, until the AD-37
+    row migration has run on the table.
 *   **Considered and rejected:** an apply/replace mode (soft-deleting a post's events risks
     favorites, calendar entries and slugs); writing the rescraped caption to `posts.content` and
     purging it afterward (a crash between the two leaves a curator caption stored; holding it only
