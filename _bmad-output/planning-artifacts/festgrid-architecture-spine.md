@@ -446,7 +446,8 @@ This document defines the core architectural invariants for the FestDaily applic
         derived from the pin itself (AD-39 Rule 2 step 2) never feed (c);
         (d) the pin did not come from an account's default location unless AD-39 Rule 3's
         venue-account conditions hold;
-        (e) `[PROPOSED 2026-10-20]` the pin's `countryCode` equals the **expected country**, and a
+        (e) `[ADOPTED, user-directed 2026-10-21 (the wrong-country test itself); the country-name list,
+        the narrowing, the alternatives and the result-type cap keep their own tags below]` the pin's `countryCode` equals the **expected country**, and a
         pin with no `countryCode` is untrusted. Expected country = the single country named in the
         **stated** location text of the schedule or, when that is empty, of its event (a short
         country-name list in `packages/domain/src/geolocation/`, English **and Indonesian**: Jepang,
@@ -475,7 +476,11 @@ This document defines the core architectural invariants for the FestDaily applic
         including 4 of 4 at 1.00; adding (e) to the shipped rule lifts weighted precision from 44%
         to 56% (84% counting a right city as right) and keeps every correct pin, on a sample of 15
         correct pins, so a direction and not a rate. Leg (e) needs only the stored country code and
-        runs without the area resolver. **Result type:** `[ASSUMPTION]` the mapper also stores
+        runs without the area resolver. **Sized on production 2026-10-21 (Round 4 ask 5):** of 432
+        pins outside the box, 8 have a country named in the schedule text, 88 only in the event
+        text (which can hold a geocoder's address, excluded above) and 336 (78%) name none; those
+        336 take the default expected country and are withheld, the cost of this rule for any
+        genuine foreign event whose text does not say where it is. **Result type:** `[ASSUMPTION]` the mapper also stores
         Geoapify's `result_type`, and a city, state or country result is capped at precision `AREA`
         (not a place for the map link or Nearby); 15 of the 87 labelled pins are the right city or
         neighbourhood but not the place, and nothing stored separates them today. Which result
@@ -1977,11 +1982,16 @@ This document defines the core architectural invariants for the FestDaily applic
             venue), the 0.40 ceiling the 2026-10-19 amendment predicted. `[PROPOSED]` the stub-vs-stub
             rule that amendment deferred: for a pair whose two items were posted by the **same
             account**, with the same `normalizeName()` and `isSamePlace` = `same`, a **same-poster
-            signal of 0.20** (half the organizer weight) replaces the discounted organizer term.
-            Pairs across different accounts never earn it, so BUG-058's intent holds. The ceiling
-            0.25 + 0.15 + 0.20 = 0.60 is below `high` (0.75): this signal alone makes a pair `mid` and
-            never auto-merges it. The weight is arithmetic, not yet replayed (Round 4 ask 1 replays
-            0.10 and 0.20).
+            signal** replaces the discounted organizer term. Pairs across different accounts never
+            earn it, so BUG-058's intent holds. **Replayed on production 2026-10-21 (Round 4 ask 1,
+            analysis `event-insight-poc/round-4-analysis-2026-10-21.md` section 2):** 114 of the 134
+            stub pairs are exact repeats, which the exact-repeat rule below handles, so the weight
+            decides only the other 20. At **0.10** no pair reaches `high` (ceiling 0.25 + 0.15 +
+            0.20 shared link + 0.10 = 0.70) and 6 of the 20 reach `mid`; at 0.20 six pairs that
+            share a link reach `high` (0.80) and merge through the matcher **without** the
+            exact-repeat preconditions, for two more `mid` pairs. `[PROPOSED]` **0.10** (the earlier
+            0.20, and the sentence "the ceiling 0.60 never auto-merges", assumed no shared link and
+            were wrong with one).
         *   **Exact repeats** `[ADOPTED, user-directed 2026-10-20, both paths; the preconditions come
             from review R4 and from the sample read on 2026-10-20]`: a same-poster pair with the
             same normalized name, `isSamePlace` = `same` and the **same date range and start time**
@@ -2002,6 +2012,15 @@ This document defines the core architectural invariants for the FestDaily applic
             promo and a sub-event or an extension, not repeats. With identical ranges: **195 pairs,
             56 clusters, 150 events, so an unattended first run would soft-delete about 94**
             (22 curator-guide clusters, 31 venue-event, 3 unknown; 38 of the 56 have already ended).
+            **On the production rows, 2026-10-21 (first version of the sizing query):** 40 groups,
+            110 events, 70 soft deletes, 32 of the 40 groups with no start time on the main
+            schedule, 1 group blocked by an exclusion, and the lenient pairs split 149 identical,
+            3 with a differing start time and 30 with differing ranges. That query counted two
+            events with **no place text** as the same place (9 of the 15 largest groups, all
+            curator posts: Allianz Malaysia Super 100 ×11, BWF World Junior ×7, Denmark Open); it is
+            fixed and the figures are an upper bound until it is re-run. Whether a curator stub with
+            the same poster, name, date range and start time and no place text on either side is a
+            repeat is an owner decision, open (analysis section 7).
             The 32 overlapping pairs stay `mid`. Start time is not in the export, so these counts are
             an upper bound; the place check is the author's crude stand-in; the sample was read by
             the author from names and dates only, so **the owner reads the dry-run list before the
@@ -3205,7 +3224,7 @@ This document defines the core architectural invariants for the FestDaily applic
            is `$post`" (a roundup linking members whose primaries are elsewhere would claim them
            for the wrong account), and `events.notify_source_account_id` is written when
            `notify_due_at` is set, because `notifyDueGroups()` has no queue message to read it from.
-           **`[ADOPTED, user-directed 2026-10-20; scope OPEN, see the last paragraph]` Suppress per
+           **`[ADOPTED, user-directed 2026-10-20; scope adopted 2026-10-21, see the last paragraph]` Suppress per
            `(user, group)`.** A user subscribed to three malls that post one promo is told once, not
            once per `(group, post)`, for what Discovery shows as one card. Mechanism: `event_group_notifications (user_id, group_id,
            first_event_id, sent_at, PRIMARY KEY (user_id, group_id))`, `ON DELETE CASCADE` from the
@@ -3223,18 +3242,18 @@ This document defines the core architectural invariants for the FestDaily applic
            two groups repoints the rows, keeping the earliest `sent_at` per user. The claim stays
            before the send and a failed send is not retried (Rule 14), so the log can record a user
            whose push failed: the same posture as `notified_at`.
-           **OPEN, found by the PRD extraction (2026-10-20): this contradicts Rule 14 and the
-           programme kind as written.** Rule 14 (ADOPTED) says a later post that adds members to an
-           existing group notifies once for those members; "once per user per group until a new
-           season" would send nothing for week 2 of a weekly series (Riot Jogja's Wednesday Night
-           Run, `GAP` 120 days) and nothing for the second event of a programme, although SCH is a
-           programme precisely because each of its events is promoted individually (Rule 12). The
-           owner's reason was the same promo posted by several accounts. Architect recommendation,
-           awaiting the owner: suppression applies to **series only** (programmes are never
-           suppressed), and only **within a window** of the user's last push for that group (start
-           value 7 days `[ASSUMPTION]`), so the three-mall case collapses to one push while a weekly
-           run keeps its weekly push. Until the owner decides, the PRD states the intent (one push
-           for what Discovery shows as one card) and not the span.
+           **`[ADOPTED, user-directed 2026-10-21 ("all recommended")]` Scope.** Read literally, "once per
+           user per group until a new season" contradicted Rule 14 (a later post that adds members
+           notifies once for those members) and the programme kind (each SCH event is promoted
+           individually): a weekly series would send nothing after week 1. The suppression therefore
+           applies to **series only** (a programme is never suppressed) and only **within a window**
+           of the user's last push for that group (`sent_at` newer than 7 days, start value
+           `[ASSUMPTION]`), so the three-mall case collapses to one push while a weekly run keeps
+           its weekly push. The claim is `INSERT ... ON CONFLICT (user_id, group_id) DO UPDATE SET
+           sent_at = now() WHERE event_group_notifications.sent_at < now() - $window RETURNING
+           user_id`, which sends only to the users returned. **Size, 2026-10-21:** production has 2
+           registered users, both with push off, so this has no audience until push works for
+           anyone (BUG-073).
         6. **Aggregates and page order.** `member_count`, `place_count` and `concurrent` are
            recomputed by every writer of `events.deleted_at` (merge, the cancelled-report soft
            delete, restore, hard delete: delete first, then recount, in one transaction), and the
@@ -3792,11 +3811,16 @@ This document defines the core architectural invariants for the FestDaily applic
           **When no area was resolved** and the event states none either, the event is
           **published** with `area_status = unknown` (default tier, ranking penalty, per-page cap;
           Rule 4), and the account is listed for a moderator to set an area (the backstop, not the
-          mechanism). `[PROPOSED: publish rather than hold. Moderators resolved 0 of 147 queued
-          candidates and receive no notification about queue items today (BUG-069), so a hold
-          would be indefinite and silent.]` An event that states its own area or venue keeps it
+          mechanism). `[ADOPTED, user-directed 2026-10-21: publish rather than hold. Moderators resolved
+          0 of 147 queued candidates and receive no notification about queue items today (BUG-069),
+          so a hold would be indefinite and silent.]` An event that states its own area or venue keeps it
           (`area_source = stated` or `pin`); only an event with no clue at all is `unknown`.
           Moderator review of a model- or posts-derived area happens after the fact.
+          **Size on open events, 2026-10-21 (Round 4 ask 2):** of 466 open events, 159 are curator events
+          and only **3** carry the account default as their pin (`account_default`); 95 have a
+          place text and 61 are `legacy_unknown` (57 of them with a pin and no schedule text). The
+          fallback this rule removes therefore touches 3 open curator events; the derive job still
+          has to classify the 61 and the 30 unclassified `legacy_unknown` events.
           **Evidence, and its limits.** The POC profile test (18 profiles, 3 runs each, one real
           curator) never named a wrong country or zone (0 of 54) and returned a region for the real
           curator in 3 of 3 runs, but the areas varied by run (a city, the province, a city plus
@@ -3896,6 +3920,32 @@ This document defines the core architectural invariants for the FestDaily applic
         increasing and greater than main's last entry (a late-merged parallel migration is otherwise
         skipped silently); each gate (AD-36 Rules 9–10) is a flag or row a reader checks, with its
         evidence query recorded.
+    8.  **Every event carries an audience country.** `[ADOPTED, user-directed 2026-10-21 (the
+        requirement and its wording); the storage, the extraction contract and the order it feeds
+        are AD-42, to be drafted and proven by the audience POC]` Each event has an **audience
+        country**: a country code or `international`. It says who the event is for, not where it
+        happens: a national competition held on a Yogyakarta campus and a webinar for Indonesian
+        residents are `id`; a conference for several countries is `international`.
+        - **Source order, first that answers:** (1) the audience the post states (a named country,
+          nationwide wording such as "se-Indonesia", several countries); an online event with no
+          stated audience is `international`; (2) the country of the event's known place: a trusted
+          pin's country or the single country named in the stated text (AD-14 Rule 4 (e)), or the
+          root key of its known area (area keys are ancestor-closed, Rule 1); (3) the account's own
+          country when it has one (IDEA-075); (4) the platform default country `id`, recorded with
+          source `default`.
+        - **A separate fact from the grouping country.** `events.country_key` (AD-36 Rule 17.2) is
+          where the event happens, strict, and NULL when unsettled; a defaulted audience country
+          never feeds grouping, a pin test or the Nearby claim.
+        - An event whose area is `unknown` still has an audience country; the ranking penalty and
+          page cap of Rule 4 stay, because the area is unknown. Existing events stay empty until
+          re-derived (no bulk default). A moderator can correct the value (source `moderator`).
+        - **What is not proven.** The audience-area POC (prompt v2: 57/60 on its core set, 18/18 on a
+          six-post held-out set) had no country field, and its posts were written or chosen by the
+          author. Curator captions are cleared after extraction (PRD 3.16), and on 2026-10-21 34% of
+          the open events came from curator accounts and 22% from unclassified ones, so the value
+          for those must be captured at ingestion or inferred from the place and the account. The
+          POC sequence (a larger labelled set from real events, two labellers, a pre-set threshold,
+          a held-out half, then architect and code review) comes before any story.
 *   **Enforced by:** `isPinTrusted` tests (AD-14); the area resolver's `relation` and `tierFor`
     tests promoted from the POC, including the empty-key case; the `resolveEventPlace()` and
     `writeSchedulePlace()` source-scan ratchets; CHECKs and the consistency query for the legal

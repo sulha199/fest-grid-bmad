@@ -2553,7 +2553,7 @@ items:
      title: "Moderator work-queue notifications: a digest email and a push for pending items, with delivery failures recorded",
      ref: [backlog/BUG-069-moderators-receive-no-email-or-push.md, planning-artifacts/festgrid-architecture-spine.md],
      touches: [app:backend, pkg:domain, web:moderation, web:settings, cross:notifications, cross:prd],
-     note: "Decided direction 2026-10-20 (AD-36 Rules 4 and 7 depend on it): a digest email and a push to moderators for pending queue items (candidates, corrections, reports, group suggestions, curators without an area); today only 5 event types are emailed. Needs BUG-069 first."}
+     note: "Direction 2026-10-20 (AD-36 Rules 4, 7): digest email and push to moderators for pending queue items; group suggestions count in the pending badge (2026-10-21). Needs BUG-069 and BUG-073 first (SES sandbox, no verified sender)."}
 
   BUG-072:
     {type: bug, status: backlog, created: 2026-10-20,
@@ -2562,6 +2562,14 @@ items:
      ref: [planning-artifacts/event-insight-poc/results/notification-and-session-investigation-2026-10-20.md, apps/web/src/lib/graphql-client.ts, apps/web/src/middleware.ts, apps/backend/src/lib/auth/verify-jwt.ts, apps/backend/src/lib/auth/jwks.ts],
      touches: [app:backend, web:auth, cross:notifications],
      note: "Confirmed in code, not reproduced in 3 minutes: a JWKS fetch failure or an expired token reads as UNAUTHENTICATED and signs out; only next-intl middleware is built, so a server getSession() can spend the refresh token. A logged-out page load saves no fcm token (BUG-069)."}
+
+  BUG-073:
+    {type: bug, status: backlog, created: 2026-10-21,
+     impact: user-visible, effort: s, blocks: [IDEA-090],
+     title: "Push notifications cannot be sent: the Ingestor and AIProcessor hold no Firebase credentials or alert address, SES is in the sandbox with no verified sender, and a failed start loses the event's notification",
+     ref: [backlog/BUG-073-push-pipeline-has-no-credentials-where-it-sends.md, planning-artifacts/event-insight-poc/results/notification-aws-and-owner-sql-findings-2026-10-21.md, apps/backend/src/lib/events/notify-new-event.ts, apps/backend/src/lib/firebase-admin.ts],
+     touches: [app:backend, app:infrastructure, cross:notifications],
+     note: "Logs 2026-10-07..16: ~40 failed Firebase initialisations a day in Ingestor/AIProcessor; since 10-16 every attempt finds no subscriber with a token. notified_at is claimed before the send, so those events never notify. Recommend releasing the claim when initialisation fails."}
 
   # ── 2026-10-18 (merged from master 2026-10-20, renumbered: dedup GembiRun Loka, re-extract preview) ──
   BUG-070:

@@ -40,3 +40,7 @@ Nothing was fixed or deployed. The owner-run SQL (`owner-notification-checks.sql
 - **Still true:** a failed send is silent (`Promise.allSettled` ignored, or `console.error` only).
 
 Owner checklist: section 6 of the report (SQL, SES sandbox and sender, Firebase variables, moderator role, Supabase auth settings, CloudWatch counts per day, browser steps).
+
+## Update 2026-10-21
+
+The local session's AWS checks and the owner's SQL (result set 4 only) found infrastructure causes, split out as **BUG-073**: the Ingestor and AIProcessor, which send the pushes, hold no Firebase credentials and no alert address; SES is in the sandbox with no verified identity; the claim before the send loses the notification when the start fails. Production also has 2 registered users, neither with push on. The owner's result sets 1 to 3 (does the owner have a token, push on, an untwinned subscription) are still missing: re-run the script with the e-mail typed in, one select at a time.
