@@ -2633,7 +2633,7 @@ items:
      title: "Tell the owner when a provider degrades or recovers without depending on SES: a CloudWatch alarm on the failover log lines, a vendor-agnostic 'no posts saved in 24 h' alarm, failure days counted by UTC date",
      ref: [backlog/IDEA-095-switch-to-the-other-scraper-when-one-returns-nothing.md, backlog/BUG-073-push-pipeline-has-no-credentials-where-it-sends.md, apps/infrastructure/lib/festgrid-backend-stack.ts],
      touches: [app:backend, app:infrastructure, cross:notifications],
-     note: "F7 and F8. After the hotfix nothing reaches a human in production: the e-mail path is blocked by SES (BUG-073), there is no CloudWatch alarm. A metric filter plus SNS needs no SES. consecutiveFailureDays counts batches, so a retry or re-run inflates it."}
+     note: "Alarms built (PR #95, prod only): provider degraded/recovered and no post saved in 24 h, via EMF lines and SNS, optional OPS_ALERT_EMAIL; needs the variable and a confirmed subscription. Left: failure days still count batches, so a retry inflates them (F8)."}
 
   IDEA-097:
     {type: idea, status: backlog, created: 2026-10-22,
