@@ -74,6 +74,10 @@ graph TD
     EB --> L_Notify
     L_Ingest -- new-event push --> FCM
     L_Notify --> SES
+    L_Ingest -- failure alert --> SES
+    L_Scrape -- audit-trail failure alert --> SES
+    L_HookA -- audit-trail failure alert --> SES
+    L_HookB -- audit-trail failure alert --> SES
     L_API --> DB
     L_API --> Geo
     L_API --> KMS
@@ -103,6 +107,7 @@ graph TD
 ## Known gaps between the sources
 - `high-level-overview.md` shows Apify only. The CDK stack and code also use Bright Data. Treat the code as correct, and fold Bright Data into that page.
 - The overview does not show the Notifier Lambda, KMS, the Bright Data path, or the S3 and CloudFront media stack. This page adds them from the CDK stack.
-- The Notifier Lambda sends quota-warning emails through SES. New-event push notifications to FCM are sent by the Ingestor after it commits. The API Lambda's exact FCM and SES wiring was not traced.
+- The Notifier Lambda sends quota-warning and provider-down emails through SES. New-event push notifications to FCM are sent by the Ingestor after it commits, so the Ingestor holds the Firebase variables (the private key from Secrets Manager); the AI processor never reaches the push or mail path and holds neither. Every Lambda that sends mail holds `SES_FROM_EMAIL_ADDRESS` and an `ses:SendEmail` grant on both the sending-domain identity and the From address identity (a verified address can send, which is what the SES sandbox allows); `festgrid-backend-stack.test.ts` fails for a sender address without its grant. The API Lambda's exact FCM and SES wiring was not traced.
+- SES state is not in the code. The stack creates only the domain identity (`festdaily.app`); whether it, the From address and the recipients are verified, and whether the account is still in the SES sandbox, are account settings (BUG-073).
 - Apify and Bright Data each have their own webhook Lambda (`apify-webhook.ts` and `webhook.ts`). Retries of the webhook deliveries themselves were not traced.
 - Result handling (Architecture Spine AD-43). The Bright Data webhook checks a delivery with no records against Bright Data's progress endpoint: a vendor failure is recorded FAILED and its profile re-queued to the ScrapingQueue (through the account-type gate, AD-34). The hourly stale-job sweep in the Scraper Lambda does the same for jobs whose webhook never arrived, for both vendors. A scrape starts from the newest stored post of the profile, never from the last run's finish time. A provider whose recent runs mostly failed or returned no posts is skipped, bar a few probe triggers, and recorded as a failure day in `scraper_provider_health`. The webhook Lambda therefore holds the Bright Data token and the ScrapingQueue send permission, asserted by `festgrid-backend-stack.test.ts`.

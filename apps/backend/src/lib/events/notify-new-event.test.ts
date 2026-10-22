@@ -81,6 +81,97 @@ test('notify-new-event integration tests', async (t) => {
     assert.ok(row.notifiedAt, 'events.notifiedAt should be non-null afterward');
   });
 
+  // BUG-073 / AD-30 Rule 10 (amended 2026-10-21): the claim stays before the send, with one exception --
+  // when the send fails before any FCM request is made (Firebase could not be initialised), the claim is
+  // released so a later drain or re-drive can notify. Every other outcome keeps the claim.
+  async function newClaimableEvent(label: string) {
+    const inserted = await insertEventWithPrimaryPost(db, {
+      eventName: `NNE ${label} ${suffix}`,
+      location: 'Nowhere',
+      hasPrivateContact: false,
+      postId: null,
+      sourceSocialMediaAccountId: profile.accountId,
+    });
+    assert.ok(inserted);
+    createdEventIds.push(inserted!.id);
+    return inserted!;
+  }
+
+  const eventArg = (e: { id: string; slug: string; eventName: string; description: string | null }) => ({
+    id: e.id,
+    slug: e.slug,
+    name: e.eventName,
+    description: e.description || '',
+  });
+
+  await t.test('Firebase initialisation fails: the claim is released, so a later re-drive can still notify', async () => {
+    const inserted = await newClaimableEvent('InitFails');
+    let sendCalls = 0;
+    setSendEventNotificationsSeam(async () => {
+      sendCalls += 1;
+      return { firebaseInitFailed: true };
+    });
+
+    await notifyNewEvent(db, eventArg(inserted), profile.accountId);
+
+    assert.strictEqual(sendCalls, 1, 'the send was attempted once');
+    const [afterFailure] = await db.select().from(events).where(eq(events.id, inserted.id));
+    assert.strictEqual(afterFailure.notifiedAt, null, 'the claim is released because nothing could be sent');
+
+    // The re-drive: Firebase works now, so the event notifies exactly once and stays claimed.
+    setSendEventNotificationsSeam(async () => {
+      sendCalls += 1;
+      return { firebaseInitFailed: false };
+    });
+    await notifyNewEvent(db, eventArg(inserted), profile.accountId);
+    await notifyNewEvent(db, eventArg(inserted), profile.accountId);
+
+    assert.strictEqual(sendCalls, 2, 'the re-drive sent once; the repeat did not send again');
+    const [afterRedrive] = await db.select().from(events).where(eq(events.id, inserted.id));
+    assert.ok(afterRedrive.notifiedAt, 'claimed again after the successful send');
+  });
+
+  await t.test('a failure after a request was made keeps the claim and is never retried (a double send stays impossible)', async () => {
+    const inserted = await newClaimableEvent('RequestFails');
+    let sendCalls = 0;
+    // sendEventNotifications reports a failed request as firebaseInitFailed: false.
+    setSendEventNotificationsSeam(async () => {
+      sendCalls += 1;
+      return { firebaseInitFailed: false };
+    });
+
+    await notifyNewEvent(db, eventArg(inserted), profile.accountId);
+    await notifyNewEvent(db, eventArg(inserted), profile.accountId);
+
+    assert.strictEqual(sendCalls, 1);
+    const [row] = await db.select().from(events).where(eq(events.id, inserted.id));
+    assert.ok(row.notifiedAt, 'the claim is kept');
+  });
+
+  await t.test('a send that reports nothing keeps the claim, as before', async () => {
+    const inserted = await newClaimableEvent('ReportsNothing');
+    setSendEventNotificationsSeam(async () => {});
+
+    await notifyNewEvent(db, eventArg(inserted), profile.accountId);
+
+    const [row] = await db.select().from(events).where(eq(events.id, inserted.id));
+    assert.ok(row.notifiedAt);
+  });
+
+  await t.test('the release only undoes this call\'s own claim: a marker someone else set meanwhile is left alone', async () => {
+    const inserted = await newClaimableEvent('OtherClaim');
+    const othersMarker = new Date(Date.now() + 3_600_000);
+    setSendEventNotificationsSeam(async () => {
+      await db.update(events).set({ notifiedAt: othersMarker }).where(eq(events.id, inserted.id));
+      return { firebaseInitFailed: true };
+    });
+
+    await notifyNewEvent(db, eventArg(inserted), profile.accountId);
+
+    const [row] = await db.select().from(events).where(eq(events.id, inserted.id));
+    assert.strictEqual(row.notifiedAt?.getTime(), othersMarker.getTime(), 'not nulled: it is not the claim this call made');
+  });
+
   await t.test('a second call on the same (now-claimed) event does not send again and notifiedAt stays unchanged', async () => {
     const inserted = await insertEventWithPrimaryPost(db, {
       eventName: 'NNE Second-Call ' + suffix,

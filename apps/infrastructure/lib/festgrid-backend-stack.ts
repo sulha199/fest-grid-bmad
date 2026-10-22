@@ -268,6 +268,57 @@ export class FestgridBackendStack extends cdk.Stack {
       SCRAPER_USAGE_CYCLE_DAYS: process.env.SCRAPER_USAGE_CYCLE_DAYS,
     });
 
+    // BUG-073 -- one source for what every Lambda that sends a push or an e-mail needs, so a Lambda
+    // given one half of it is given the other (an env var wired without its grant, or the reverse, is
+    // the incident shape). The Ingestor runs `notifyNewEvent` (Firebase) and reports failures by
+    // e-mail; the two webhooks report audit-trail failures to the moderators. Before this, only the
+    // Api Lambda held the Firebase variables: every initialisation in the Ingestor failed (about 40 a
+    // day in production, 2026-10-07 to 10-16) and every alert fell back to a log line.
+    //
+    // Least privilege: on this code the AI processor never reaches the push or the mail path (it only
+    // imports a type from the module that holds them), so it gets none of this. If a later change makes
+    // it call `notifyNewEvent` or send mail, give it `firebaseEnv`, `mailEnv`, `systemAlertEnv`,
+    // `grantSesSend` and the Firebase secret read in the same change: the walkers in
+    // festgrid-backend-stack.test.ts fail for an env var wired without its grant.
+    const firebaseEnv = {
+      FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || '',
+      FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL || '',
+      FIREBASE_PRIVATE_KEY: firebasePrivateKeySecret.secretValue.unsafeUnwrap(),
+    };
+    const mailEnv = {
+      SES_FROM_EMAIL_ADDRESS: process.env.SES_FROM_EMAIL_ADDRESS || '',
+      WEB_APP_BASE_URL: process.env.WEB_APP_BASE_URL || 'http://localhost:3000',
+    };
+    const systemAlertEnv = definedEnv({
+      SYSTEM_ERROR_ALERT_EMAIL: process.env.SYSTEM_ERROR_ALERT_EMAIL,
+    });
+
+    // SES authorises a send against the identity of the From address: the address itself when it is
+    // verified as one, otherwise its domain. This stack creates only the domain identity, and a domain
+    // identity whose DNS verification fails (the production state, BUG-073) cannot send. Covering the
+    // From address identity too lets a verified *address* send, which is what the SES sandbox allows
+    // (a sandbox account may send only from and to verified identities).
+    const sesSendIdentityArns = [
+      emailIdentity.emailIdentityArn,
+      ...(process.env.SES_FROM_EMAIL_ADDRESS
+        ? [
+            this.formatArn({
+              service: 'ses',
+              resource: 'identity',
+              resourceName: process.env.SES_FROM_EMAIL_ADDRESS,
+              arnFormat: cdk.ArnFormat.SLASH_RESOURCE_NAME,
+            }),
+          ]
+        : []),
+    ];
+    const grantSesSend = (fn: lambda.IFunction) =>
+      fn.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ['ses:SendEmail', 'ses:SendRawEmail', 'ses:SendTemplatedEmail'],
+          resources: sesSendIdentityArns,
+        })
+      );
+
     // L_API
     const apiLambda = new nodejs.NodejsFunction(this, `ApiLambda-${stageName}`, {
       entry: path.resolve(projectRoot, 'apps/backend/src/lambdas/api.ts'),
@@ -304,9 +355,7 @@ export class FestgridBackendStack extends cdk.Stack {
         DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
         GEOAPIFY_API_KEY: geoapifyApiKeySecret.secretValue.unsafeUnwrap(),
         SYSTEM_GEMINI_API_KEY: systemGeminiApiKeySecret.secretValue.unsafeUnwrap(),
-        FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || '',
-        FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL || '',
-        FIREBASE_PRIVATE_KEY: firebasePrivateKeySecret.secretValue.unsafeUnwrap(),
+        ...firebaseEnv,
         SES_FROM_EMAIL_ADDRESS: process.env.SES_FROM_EMAIL_ADDRESS || '',
         SYSTEM_ERROR_ALERT_EMAIL: process.env.SYSTEM_ERROR_ALERT_EMAIL,
         BYOK_KMS_KEY_ID: kmsKey.keyId,
@@ -517,6 +566,9 @@ export class FestgridBackendStack extends cdk.Stack {
         STAGE: stageName,
         BACKEND_PORT: '4000',
         DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
+        ...firebaseEnv,
+        ...mailEnv,
+        ...systemAlertEnv,
         SECRETS_SYNCED_AT: secretsSyncedAt,
       },
     });
@@ -686,9 +738,10 @@ export class FestgridBackendStack extends cdk.Stack {
     postMediaDistribution.grantCreateInvalidation(aiProcessorLambda);
 
     // SES Send Email Identity Grant
-    emailIdentity.grantSendEmail(apiLambda);
-    emailIdentity.grantSendEmail(notifierLambda);
-    emailIdentity.grantSendEmail(scraperLambda);
+    grantSesSend(apiLambda);
+    grantSesSend(notifierLambda);
+    grantSesSend(scraperLambda);
+    grantSesSend(ingestorLambda);
 
     // Secrets Manager Grants
     dbUrlSecret.grantRead(apiLambda);
@@ -704,6 +757,8 @@ export class FestgridBackendStack extends cdk.Stack {
     systemGeminiApiKeySecret.grantRead(scraperLambda);
 
     firebasePrivateKeySecret.grantRead(apiLambda);
+    // BUG-073: notifyNewEvent runs in the Ingestor, not in the Api Lambda.
+    firebasePrivateKeySecret.grantRead(ingestorLambda);
 
     apifyApiTokenSecret.grantRead(apiLambda);
     apifyApiTokenSecret.grantRead(scraperLambda);
@@ -769,6 +824,7 @@ export class FestgridBackendStack extends cdk.Stack {
         // throws, is read as inconclusive, and an outage is stored as a success exactly as before.
         BRIGHTDATA_API_TOKEN: brightdataApiTokenSecret.secretValue.unsafeUnwrap(),
         SCRAPING_QUEUE_URL: scrapingQueue.queueUrl,
+        ...mailEnv,
         ...usageCycleEnv,
         SECRETS_SYNCED_AT: secretsSyncedAt,
       },
@@ -778,6 +834,7 @@ export class FestgridBackendStack extends cdk.Stack {
     aiProcessingQueue.grantSendMessages(webhookLambda);
     brightdataApiTokenSecret.grantRead(webhookLambda);
     scrapingQueue.grantSendMessages(webhookLambda);
+    grantSesSend(webhookLambda);
 
     const apifyWebhookLambda = new nodejs.NodejsFunction(this, `ApifyWebhook-${stageName}`, {
       entry: path.resolve(projectRoot, 'apps/backend/src/lambdas/apify-webhook.ts'),
@@ -795,6 +852,7 @@ export class FestgridBackendStack extends cdk.Stack {
         AI_PROCESSING_QUEUE_URL: aiProcessingQueue.queueUrl,
         AI_PROCESSING_INLINE_FALLBACK_ENABLED: 'false',
         POST_EXTRACTION_CLAIM_TTL_MINUTES: process.env.POST_EXTRACTION_CLAIM_TTL_MINUTES || '30',
+        ...mailEnv,
         ...usageCycleEnv,
         SECRETS_SYNCED_AT: secretsSyncedAt,
       },
@@ -803,6 +861,7 @@ export class FestgridBackendStack extends cdk.Stack {
     dbUrlSecret.grantRead(apifyWebhookLambda);
     aiProcessingQueue.grantSendMessages(apifyWebhookLambda);
     apifyApiTokenSecret.grantRead(apifyWebhookLambda);
+    grantSesSend(apifyWebhookLambda);
 
     // Create webhooks resource and add webhook endpoints
     const webhooksResource = api.root.addResource('webhooks');
