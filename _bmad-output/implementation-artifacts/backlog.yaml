@@ -2572,28 +2572,100 @@ items:
      note: "Logs 2026-10-07..16: ~40 failed Firebase initialisations a day in Ingestor/AIProcessor; since 10-16 every attempt finds no subscriber with a token. notified_at is claimed before the send, so those events never notify. Recommend releasing the claim when initialisation fails."}
 
   BUG-074:
-    {type: bug, status: backlog, created: 2026-10-22,
-     impact: user-visible, effort: m, blocks: [IDEA-095],
+    {type: bug, status: done, created: 2026-10-22,
+     impact: user-visible, effort: m,
      title: "Bright Data returned 0 records for the whole fleet since 2026-10-21, every run is stored SUCCEEDED, and the cursor is the run's finish time, so the outage skips posts",
-     ref: [backlog/BUG-074-bright-data-zero-record-runs-succeed-and-the-cursor-is-a-run-timestamp.md, apps/backend/src/lambdas/webhook.ts, apps/backend/src/lib/scraper/trigger-brightdata-for-target.ts, apps/backend/src/lib/scraper/brightdata-client.ts],
-     touches: [app:backend, app:infrastructure],
-     note: "10-21 and 10-22: 38 of 38 runs a day empty, vendor-side (a /scrape probe also returned 0). Plan: cursor from newest stored post, posts_to_not_include, progress/log success check, fleet alert, re-scrape from 10-20."}
+     ref: [backlog/BUG-074-bright-data-zero-record-runs-succeed-and-the-cursor-is-a-run-timestamp.md, planning-artifacts/festgrid-architecture-spine.md, apps/backend/src/lambdas/webhook.ts, apps/backend/src/lib/scraper/trigger-brightdata-for-target.ts, apps/backend/src/lib/scraper/brightdata-client.ts],
+     touches: [app:backend, app:infrastructure, pkg:domain, cross:architecture],
+     note: "Fixed in the master hotfix (branch claude/master-hotfix-e8eh9h; AD-43). Not built: BUG-076..079, IDEA-096..099. Read the file's Before-deploying notes first: Bright Data reads as degraded on the first batch."}
 
   BUG-075:
-    {type: bug, status: backlog, created: 2026-10-22,
-     impact: latent, effort: s, parent: BUG-074,
+    {type: bug, status: done, created: 2026-10-22, parent: BUG-074,
+     impact: latent, effort: s,
      title: "The Apify scrape's cursor is the last run's finish time: a failed or empty run moves it, and it is not tied to the newest stored post",
-     ref: [backlog/BUG-075-apify-cursor-is-a-run-timestamp-and-an-empty-run-still-moves-it.md, apps/backend/src/lib/scraper/trigger-apify-for-target.ts, apps/backend/src/lambdas/apify-webhook.ts],
-     touches: [app:backend],
-     note: "No status filter on the lookup (the comment says successful); Apify last ran 10-19. Fix with BUG-074's shared cursor helper."}
+     ref: [backlog/BUG-075-apify-cursor-is-a-run-timestamp-and-an-empty-run-still-moves-it.md, apps/backend/src/lib/scraper/trigger-apify-for-target.ts],
+     touches: [app:backend, pkg:domain],
+     note: "Fixed with BUG-074's shared cursor. Not verified: whether onlyPostsNewerThan is inclusive (needs a paid Apify call); cursor is the exact newest-post timestamp."}
 
   IDEA-095:
-    {type: idea, status: backlog, created: 2026-10-22,
+    {type: idea, status: done, created: 2026-10-22,
      impact: user-visible, effort: m,
      title: "Switch to Apify when Bright Data returns nothing (and back), instead of only when a trigger fails",
-     ref: [backlog/IDEA-095-switch-to-the-other-scraper-when-one-returns-nothing.md, apps/backend/src/lib/scraper/trigger-scrape-for-account.ts, apps/backend/src/lib/scraper/scraper-provider-health-store.ts],
+     ref: [backlog/IDEA-095-switch-to-the-other-scraper-when-one-returns-nothing.md, planning-artifacts/festgrid-architecture-spine.md, apps/backend/src/lib/scraper/scraper-provider-health-store.ts],
+     touches: [app:backend, app:infrastructure, pkg:domain, cross:notifications],
+     note: "Built in the master hotfix (AD-43): derived health, skip with probes, failure day. Not built: IDEA-096 (alert without SES), IDEA-097 (persisted health, DB-lease probe, route resolver, owner override)."}
+
+  BUG-076:
+    {type: bug, status: backlog, created: 2026-10-22,
+     impact: latent, effort: s,
+     title: "The scrape cursor can run ahead of what a profile's own scrape captured: mappers stamp the scrape time on an undated item, and a post published by another profile counts toward it",
+     ref: [backlog/BUG-074-bright-data-zero-record-runs-succeed-and-the-cursor-is-a-run-timestamp.md, apps/backend/src/lib/scraper/brightdata-record-mapper.ts, apps/backend/src/lib/scraper/instagram-adapter.ts, apps/backend/src/lib/posts/persist-scraped-post.ts],
+     touches: [app:backend, pkg:domain, cross:architecture],
+     note: "From the AD-43 architecture review (F3). Read-only check first: posts with published_at within ~2 min of created_at and a scraper_actor_run_id; if any exist this is a blocker. Fix: mappers never invent a date; target a per-profile watermark."}
+
+  BUG-077:
+    {type: bug, status: backlog, created: 2026-10-22,
+     impact: latent, effort: s,
+     title: "Caption-less posts are rejected and never stored, so the post-based cursor never passes them: they are re-fetched and re-saved as an unprocessed payload every run",
+     ref: [backlog/BUG-074-bright-data-zero-record-runs-succeed-and-the-cursor-is-a-run-timestamp.md, apps/backend/src/lib/posts/persist-unprocessed-payload.ts, apps/backend/src/validation/scraped-post.schema.ts],
+     touches: [app:backend, web:posts],
+     note: "The one place the cursor change costs more than before (F13): no dedupe on unprocessed payloads, and a profile with no stored post re-requests its 7-day window daily. Fix: dedupe by (postUrl, parserVersion), or advance a watermark past rejected posts."}
+
+  BUG-078:
+    {type: bug, status: backlog, created: 2026-10-22,
+     impact: latent, effort: s,
+     title: "A failed vendor run is handled differently per vendor and not atomically: an Apify failure never re-queues, a redelivered webhook double-enqueues, and a failed SQS scrape still stamps lastScrapedAt",
+     ref: [backlog/BUG-074-bright-data-zero-record-runs-succeed-and-the-cursor-is-a-run-timestamp.md, apps/backend/src/lambdas/apify-webhook.ts, apps/backend/src/lib/scraper/process-scrape-job.ts],
+     touches: [app:backend, web:accounts],
+     note: "F10 and F12. Share one failed-run handler; make PENDING to terminal an atomic claim (UPDATE ... WHERE status='PENDING' RETURNING, as AD-41); stamp lastScrapedAt only on success (the PRD's inactive-account rule reads it)."}
+
+  BUG-079:
+    {type: bug, status: backlog, created: 2026-10-22,
+     impact: latent, effort: s,
+     title: "The scraper budget gate counts triggers, not delivered items, so it does not bound failover spend (the async gate effectively never closes)",
+     ref: [backlog/IDEA-095-switch-to-the-other-scraper-when-one-returns-nothing.md, apps/backend/src/lib/scraper/usage-store.ts, apps/backend/src/lib/scraper/trigger-apify-for-target.ts, apps/backend/src/lib/scraper/trigger-brightdata-for-target.ts],
+     touches: [app:backend],
+     note: "F11. Async triggers record 1 item each and no webhook records the delivered count; the sync adapter records items. Apify's own $5 cap and the Bright Data invoice are the only brakes. Fix: record delivered counts in both webhooks and the sweep."}
+
+  IDEA-096:
+    {type: idea, status: backlog, created: 2026-10-22,
+     impact: user-visible, effort: m,
+     title: "Tell the owner when a provider degrades or recovers without depending on SES: a CloudWatch alarm on the failover log lines, a vendor-agnostic 'no posts saved in 24 h' alarm, failure days counted by UTC date",
+     ref: [backlog/IDEA-095-switch-to-the-other-scraper-when-one-returns-nothing.md, backlog/BUG-073-push-pipeline-has-no-credentials-where-it-sends.md, apps/infrastructure/lib/festgrid-backend-stack.ts],
      touches: [app:backend, app:infrastructure, cross:notifications],
-     note: "Chain exists (Apify then Bright Data) but reacts only to a failed trigger. Apify FREE plan caps at $5 a month, shared with production; needs BUG-074 classification and the BUG-073 alert path."}
+     note: "F7 and F8. After the hotfix nothing reaches a human in production: the e-mail path is blocked by SES (BUG-073), there is no CloudWatch alarm. A metric filter plus SNS needs no SES. consecutiveFailureDays counts batches, so a retry or re-run inflates it."}
+
+  IDEA-097:
+    {type: idea, status: backlog, created: 2026-10-22,
+     impact: user-visible, effort: l,
+     title: "Make provider health a persisted state and failover one route: degraded_since, reason and last_probe_at on scraper_provider_health, a DB-lease probe on a canary profile, hysteresis, one route resolver for batch and on-demand, an owner override",
+     ref: [backlog/IDEA-095-switch-to-the-other-scraper-when-one-returns-nothing.md, planning-artifacts/festgrid-architecture-spine.md, apps/backend/src/lib/scraper/trigger-scrape-for-account.ts],
+     touches: [app:backend, pkg:domain, cross:architecture],
+     note: "F5, F6, F15 and IDEA-095 item 5. The probe claim is an in-process Map (AD-32 Rule 2 names that anti-pattern); the sample ignores triggerMode, so a healthy sync Apify run can clear a broken async actor; the chain order is encoded twice and differs."}
+
+  IDEA-098:
+    {type: idea, status: backlog, created: 2026-10-22,
+     impact: internal, effort: m,
+     title: "Store the classification evidence on every zero-record run, add an explicit inconclusive class, and move the vendor lookup and re-queue out of the webhook",
+     ref: [backlog/BUG-074-bright-data-zero-record-runs-succeed-and-the-cursor-is-a-run-timestamp.md, apps/backend/src/lambdas/webhook.ts],
+     touches: [app:backend, app:infrastructure, pkg:database, cross:architecture],
+     note: "F4 and F14, plus BUG-074 plan item 3's stored class. 'empty because dead_page' and 'empty because the lookup failed' are stored identically, so a drift of the provisional signature cannot be audited; the public webhook Lambda holds a vendor credential and an SQS role."}
+
+  IDEA-099:
+    {type: idea, status: backlog, created: 2026-10-22,
+     impact: internal, effort: s,
+     title: "Send posts_to_not_include to Bright Data so a run does not re-fetch stored posts (BUG-074 plan item 2)",
+     ref: [backlog/BUG-074-bright-data-zero-record-runs-succeed-and-the-cursor-is-a-run-timestamp.md, apps/backend/src/lib/scraper/brightdata-client.ts],
+     touches: [app:backend],
+     note: "Not built: the id format is unverified and a wrong value could fail every request. Test one stored id on a working day first; the fallback is de-duplicating by post_id after download. Re-fetch cost is small (about 8 % measured, plus the one-day margin)."}
+
+  FIND-095:
+    {type: finding, status: backlog, created: 2026-10-22,
+     impact: latent, effort: s,
+     title: "Smaller deferrals from the BUG-074 hotfix code review: the dead_page signature is provisional, the SQS re-queue can duplicate a scrape, the sweep trusts the snapshot body to be an array",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend],
+     note: "Deferred from: code review of the BUG-074/BUG-075/IDEA-095 hotfix (2026-10-22). 3 findings."}
 
   IDEA-092:
     {type: idea, status: backlog, created: 2026-10-21,

@@ -2,7 +2,7 @@
 title: "Architecture Spine: FestDaily"
 status: "draft"
 created: "2026-07-20T09:34:00Z"
-updated: "2026-10-20T00:00:00Z"
+updated: "2026-10-22T00:00:00Z"
 ---
 
 # Architecture Spine: FestDaily
@@ -2452,7 +2452,8 @@ This document defines the core architectural invariants for the FestDaily applic
     classify-then-scrape cascade (`subscribeToAccount`), the daily batch
     (`getBatchScrapeTargets`, `apps/backend/src/lib/scraper/get-scrape-targets.ts`), and the
     moderator-resolution first-scrape trigger (`resolveAccountTypeClassificationReview`,
-    `apps/backend/src/schema/resolvers.ts`, added 2026-10-20); Stories 3.4n
+    `apps/backend/src/schema/resolvers.ts`, added 2026-10-20), and the failed-run re-queue
+    (`enqueueFallbackScrape`, `apps/backend/src/lib/scraper/`, added 2026-10-22, Rule 7); Stories 3.4n
     (classification + gate), 3.4o (curator accounts become scrapable), 3.16.
 *   **Prevents:** The incident that created this AD (2026-10-15): Story 3.4o widened the gate in the
     batch's SQL only, so `triggerAccountScrape` and `subscribeToAccount` kept rejecting `CONFIRMED`
@@ -2473,7 +2474,8 @@ This document defines the core architectural invariants for the FestDaily applic
         combination (including `NULL`), so the two forms cannot drift unnoticed.
     4.  **A new code path that starts a scrape adopts the gate** (Rule 2 or Rule 3) in the same
         change. Paths that only *process* an already-started run (`stale-job-sweep.ts`, the Apify and
-        Bright Data result handlers) do not start one and are exempt.
+        Bright Data result handlers) do not start one and are exempt, **except for the part of them
+        that enqueues a new scrape (Rule 7)**.
     5.  **Distinct from AD-31's "curator-typed".** That predicate answers "was this post authored by
         an organizer?" and deliberately counts `AWAITING_APPROVAL` curators; this one answers "may we
         scrape this account?". Do not reuse one for the other.
@@ -2483,6 +2485,14 @@ This document defines the core architectural invariants for the FestDaily applic
         `isScrapableAccountType` takes a required third argument for this, and Rule 3's SQL form and
         its test gain the same dimension. The classification worker and the moderator-resolve path
         (AD-41 Rule 7) join the entry points that adopt the gate.
+    7.  **Amended 2026-10-22 by AD-43 Rule 6: a handler that enqueues a scrape starts one.** When a
+        vendor run fails, the Bright Data failed-run handler and the stale-job sweep (both vendors)
+        hand the profile to the scrape queue as a fallback. That is a scrape start, not the
+        processing of a finished run, so it goes through one helper, `enqueueFallbackScrape`, which
+        calls `isScrapableAccountType` on the profile it loads and requires an active subscription.
+        An account reclassified `PERSONAL`, or unsubscribed, between the original scrape and the
+        failure is not scraped on the fallback path. Rule 4's exemption covers only the
+        *processing* half of those handlers.
 *   **Enforced by:** the unit tests in Rule 1 and the lockstep tests in Rule 3. No lint or source-scan
     ratchet yet; see Deferred.
 *   **Deferred:** a source-scan ratchet forbidding a raw `accountTypeStatus === ` comparison outside
@@ -4415,6 +4425,94 @@ This document defines the core architectural invariants for the FestDaily applic
     6.  **Ranking** — the Epic 10 Phase B stories, rebuilt on this contract (Rule 9; IDEA-076 first).
     7.  **PRD second pass** — ranking, tracks, interests, the taxonomy and the Settings switch, after
         follow-up 1.
+
+---
+
+### AD-43: Scrape Results Are Verified, Not Trusted — Post-Based Cursor, Zero Is Not Success, Derived Provider Health
+
+*   **Binds:** `getScrapeCursor` (`apps/backend/src/lib/scraper/get-scrape-cursor.ts`) over
+    `resolveScrapeCursor` (`packages/domain/src/scraper/resolve-scrape-cursor.ts`);
+    `classifyBrightDataRun` (`apps/backend/src/lib/scraper/classify-brightdata-run.ts`) over
+    `classifyBrightDataResult` (`packages/domain/src/scraper/classify-brightdata-result.ts`);
+    `handleBrightDataFailedRun` and `enqueueFallbackScrape` (`apps/backend/src/lib/scraper/`);
+    `provider-run-health-store.ts` over `evaluateProviderRunHealth`
+    (`packages/domain/src/scraper/evaluate-provider-run-health.ts`);
+    `attemptBrightDataTrigger`, `attemptApifyAsyncTrigger`, the Bright Data webhook
+    (`lambdas/webhook.ts`), the stale-job sweep and the daily batch (`lambdas/scraper.ts`);
+    `scraper_actor_runs` and `scraper_provider_health`; the `Webhook-<stage>` Lambda's environment and
+    grants in `apps/infrastructure/lib/festgrid-backend-stack.ts`; AD-34 (amended by Rule 6) and AD-32.
+*   **Prevents:** The incident that created this AD (2026-10-21, Bright Data). The vendor returned zero
+    records for the whole fleet; every run was stored `SUCCEEDED`, and the next start date was the
+    previous run's **finish time**, so each empty run moved the cursor forward and the posts published
+    in between were never requested again. Nothing alerted: provider health counted only days on
+    which no *trigger* succeeded, and a vendor that accepts every trigger and returns nothing looks
+    healthy. Also prevents the same failure through a different door: a start date taken from any
+    time that is not "where the stored posts end", and a vendor outage that only a person reading
+    SQL can see.
+*   **Rule:**
+    1.  **A scrape starts from the newest stored post.** The cursor is `max(posts.published_at)` of
+        the profile, resolved only by `resolveScrapeCursor`: Bright Data minus one day (its `start_date`
+        is an inclusive calendar day in an undocumented time zone; the margin costs a re-fetch the
+        persist step de-duplicates), Apify the exact timestamp, a future-dated post clamped to now, and
+        the caller's lookback window when the profile has no stored post. **Never a run's finish
+        time, a vendor-reported time or the clock.** A new vendor trigger calls `getScrapeCursor`.
+    2.  **Zero is not success.** A Bright Data result with no records is classified `ok`, `empty` or
+        `vendor_failure` from the vendor's progress report (`error_codes.dead_page` = an account with
+        nothing new; no such error, or status `failed` = the vendor failed). A `vendor_failure` is
+        recorded **FAILED**, its pending job expired, `lastScrapedAt` left to the later scrape, and the
+        profile re-queued (Rule 6). **Anything inconclusive classes as `empty`**: the lookup failed or
+        timed out (it is capped at 8 s on the webhook path, whose budget is API Gateway's 29 s), the
+        snapshot is not in a terminal state, or progress reports records the delivery did not carry.
+        An outage is never declared on no evidence. The `dead_page` signature is **provisional**
+        (measured on a handful of snapshots, undocumented by the vendor).
+    3.  **Provider health is derived, not stored.** `evaluateProviderRunHealth` reads the newest 20
+        finished `scraper_actor_runs` of a vendor from the last 72 h (at least 10): degraded
+        `VENDOR_FAILURE` when >= 80 % failed, `ALL_EMPTY` when none returned a post (a whole sample of
+        accounts with nothing new is not normal; this also catches an outage whose failure signature
+        the classifier does not know). Recovery is by the newest run: one with posts clears any
+        degradation; one the vendor did not fail clears a `VENDOR_FAILURE` only. There is no second
+        write path and no new table.
+    4.  **Failover is a skip, except for probes.** A degraded provider is skipped by both trigger
+        functions (`PROVIDER_DEGRADED`) so the existing chains fall through, except for 3 probe
+        triggers per 6 h per process; a probe whose trigger fails before the vendor produced a result
+        gives its slot back. The daily batch records a provider degraded at its start, or skipped by any
+        target, as a full failure day in `scraper_provider_health` (a reason that names something else,
+        a closed DPA switch or a trigger error, keeps priority), so the existing provider-down alert
+        fires; the switch and the recovery are logged.
+    5.  **A Lambda that classifies or re-queues holds what it reads.** Every environment variable and
+        permission a handler needs is wired in the stack and asserted by
+        `festgrid-backend-stack.test.ts`. Unit tests set their own environment and cannot see a
+        missing Lambda config: the Bright Data webhook Lambda had no token and no queue, so its
+        classification would have silently reverted to the old behaviour in production.
+    6.  **Amends AD-34 (Rule 7).** A handler or sweep that enqueues a scrape starts one and goes through
+        `enqueueFallbackScrape` (the account-type gate and an active subscription). It also uses the
+        Apify budget guard the sync adapter already applies.
+*   **Enforced by:** the unit tests of the three domain modules (100 % coverage, `packages/domain`);
+    the backend tests of the cursor, the classification wiring (webhook, sweep), the probe gate,
+    the tally and the batch health recording, each shown to fail against the pre-fix code; the stack
+    test of Rule 5. No lint or ratchet forbids a run-derived start date; revisit if a fourth trigger
+    appears.
+*   **Deferred:** the ADs below are the *planned direction* of the 2026-10-22 architecture review and
+    are **not built**; each has a backlog row.
+    1.  **A per-profile watermark** (BUG-076): `max(published_at)` can run ahead of what a profile's own
+        scrape captured (the mappers stamp the scrape time on an undated item; a post published by
+        another profile counts toward the publisher). Target: a `scraped_through_at` advanced only from
+        vendor-supplied dates of records actually delivered, read by every scrape start, which also
+        replaces the five independent "newest post" readers.
+    2.  **Persisted classification evidence and an `inconclusive` class** (IDEA-098): the class is derived
+        (`FAILED`, or `SUCCEEDED` with 0 items), so "empty because `dead_page`" and "empty because the
+        lookup failed" are stored identically. Store the progress report on every zero-record row.
+    3.  **Persisted provider health, a DB-lease probe on a canary, hysteresis, one route resolver, an
+        owner override** (IDEA-097): the probe claim is an in-process `Map` (AD-32 Rule 2 names that
+        anti-pattern); the sample ignores `triggerMode`; the chain order is encoded twice and differs
+        (batch Bright Data first, on-demand Apify first).
+    4.  **Alerting that works without SES, and failure days by UTC date** (IDEA-096): until BUG-073 is
+        fixed nothing reaches a human in production when a provider degrades; a CloudWatch alarm on the
+        failover log lines and a vendor-agnostic "no posts saved in 24 h" alarm need no SES.
+    5.  **Webhooks acknowledge; the scraper Lambda classifies and re-queues** (IDEA-098), with every
+        PENDING-to-terminal transition an atomic claim (BUG-078).
+    6.  **The budget gate counts delivered items** (BUG-079), so failover spend is bounded by it.
+    7.  **`posts_to_not_include`** (IDEA-099), once its id format is verified.
 
 ---
 

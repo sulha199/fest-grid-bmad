@@ -26,3 +26,19 @@ Follow-up to the Bright Data outage of 2026-10-21 (BUG-074). The two scrapers ar
 ## Open
 
 The failover thresholds and the Apify budget (upgrade the plan or raise `monthlyBudgetUsd`); whether Apify should stay first in the order given its cap; whether the provider order should live in config or in a table.
+
+## Built, 2026-10-22 (hotfix cut from `master`; commits `8f8e0455`, `dba05bcc`, `@FIXCOMMIT@`)
+
+Built as part of the BUG-074 hotfix (see that file's "Fixed" section and AD-43). Against "What is missing":
+
+| Item | Result |
+|---|---|
+| 1. A result-level health signal per provider | **Built, as a derived signal.** `evaluateProviderRunHealth` (domain, 100 % covered) over the newest 20 finished `scraper_actor_runs` of a vendor, runs from the last 72 h, at least 10 of them. Degraded = >= 80 % failed (`VENDOR_FAILURE`) or no post at all (`ALL_EMPTY`). *Deviation:* a sliding sample, not "per day". No table of its own. |
+| 2. A switch to the other provider | **Built.** A degraded provider is skipped with `PROVIDER_DEGRADED` in both trigger functions, so the existing chains (batch: Bright Data, Apify, SQS; on-demand: Apify, Bright Data, SQS) fall through. A failed Bright Data run re-queues its profile to the SQS scrape path (behind the AD-34 gate and the Apify budget guard), which reads from the profile's own newest stored post. |
+| 3. A way back | **Built, simplified.** A degraded provider gets 3 probe triggers per 6 h per process (a failed probe gives its slot back); a probe's own result clears it (a run with posts clears any degradation; a run the vendor did not fail clears a failure-based one). *Deviation:* the probes are ordinary targets, not one known canary account, and the claim is in process memory. Carried by **IDEA-097**. |
+| 4. An alert at the first switch and at the return, with the cost note | **Partly.** The switch and the recovery are logged (`[Provider failover]`); a degraded day counts toward the existing provider-down e-mail (threshold 2 days, so a first alert about day 3). **No notification reaches a human in production** (SES, BUG-073). The Apify cost note is not in the alert text. Carried by **IDEA-096**. |
+| 5. A manual override (provider order or a pause switch) | **Not built.** `BRIGHTDATA_SCRAPING_CONFIRMED=false` is a de-facto pause but needs a deploy and misuses a compliance flag. Carried by **IDEA-097**. |
+
+"Open" items, answered: thresholds are provisional constants (20 / 10 / 0.8 / 72 h / 3 probes / 6 h); the provider order is still
+encoded in two places (a route resolver is IDEA-097); the Apify budget is unchanged, and the async gate counts triggers, not items,
+so it does not bound failover spend (**BUG-079**).

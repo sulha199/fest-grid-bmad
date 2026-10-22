@@ -80,3 +80,54 @@ Which time zone Bright Data uses for a day; whether `posts_to_not_include` takes
 ## Evidence
 
 The queries and calls are reproducible with `PROD_RO2_DATABASE_URL` and the Bright Data token: runs by day (`scraper_actor_runs` grouped by `completed_at::date`), `raw_output`/`raw_input` of the last 10 days for the inclusivity and repeat figures (both are double-encoded JSON strings, BUG-068), and the three calls in section 4.
+
+## Fixed, 2026-10-22 (hotfix cut from `master`; commits `8f8e0455`, `dba05bcc`, `@FIXCOMMIT@`)
+
+Done as a **code-only hotfix on `master`** (a worktree branch, `claude/master-hotfix-e8eh9h`), so none of this
+branch's planning material reaches `master`. Reviewed by the three `bmad-code-review` layers and by an
+architect-level review the same day; both are summarised in `deferred-work.md` and in AD-43. Verification:
+`packages/domain` 100 % line/branch/function on the three new modules; the full backend suite with the row-count
+ratchet; the infrastructure stack tests.
+
+### Plan section 5, item by item
+
+| Item | Result |
+|---|---|
+| 1. Cursor from the newest stored post | **Done.** `getScrapeCursor` (backend) over `resolveScrapeCursor` (domain): Bright Data = newest `posts.published_at` minus one day, Apify = exact, a future-dated post clamped to now, no stored post = the caller's window. Both triggers use it; no run-based cursor lookup remains. |
+| 2. `posts_to_not_include` | **Not built, on purpose.** The id format is unverified and a wrong value could fail every request. De-duplication by post URL already protects `posts`. Carried by **IDEA-099**. |
+| 3. Classify every Bright Data result | **Done, with one deviation.** `classifyBrightDataResult` (domain) reads `progress`: records > 0 is `ok`; `dead_page` is `empty`; otherwise `vendor_failure`, stored **FAILED**, pending job expired, profile re-queued through the AD-34 gate. Inconclusive input (lookup failed or timed out, a status that is not `ready`/`failed`, records the vendor reports that never arrived) is `empty`, never an outage. The webhook and the stale-job sweep share it. **Deviation:** the class is *derived* (`FAILED`, or `SUCCEEDED` with 0 items), not stored on `scraper_actor_runs`; that needs a migration and is carried by **IDEA-098**. |
+| 4. Fleet alert | **Partly done.** A provider whose newest finished runs mostly failed (>= 80 %) or all returned no posts is degraded; the daily batch records it as a failure day in `scraper_provider_health`, so the existing provider-down e-mail fires after `SCRAPER_PROVIDER_ALERT_THRESHOLD_DAYS` (default 2) days. The measure is a sliding sample, not "a day". The switch and the recovery are logged. **No notification reaches a human in production** until SES works (BUG-073): carried by **IDEA-096**. |
+| 5. Recover the gap | **Automatic, with a limit.** The cursor never moved past 2026-10-20, so the first healthy run per profile requests from there. A profile whose gap exceeds the per-run limit (`SCRAPE_RESULTS_LIMIT`, default 30) is truncated: re-run a manual scrape for it. |
+| 6. Tests | **Done** except the `posts_to_not_include` id list (item 2). The "all-zero day raises the alert" case is covered up to the failure-day row and the alert text; no test sends mail (SES). |
+
+### What the review added (all fixed in the same hotfix)
+
+* **The Bright Data webhook Lambda had no `BRIGHTDATA_API_TOKEN`, no `SCRAPING_QUEUE_URL` and no grants**, so in production
+  the progress lookup would have thrown, been read as inconclusive, and an outage stored as a success exactly as before.
+  Wired in the CDK stack; `festgrid-backend-stack.test.ts` now fails without it. *The unit tests could not see this: they
+  set the token and queue URL themselves.*
+* The re-queue now goes through the AD-34 scrape gate and needs an active subscription (it was a scrape start with no gate);
+  the sweep's Apify branch had the same hole and uses the same helper now.
+* A still-running snapshot that expires is recorded **TIMED_OUT** (it was `PENDING`, which health ignores), so a provider whose
+  snapshots never finish degrades like one that fails.
+* A degraded provider gets a few probes per interval (3 per 6 h per process), a failed probe gives its slot back, a quiet
+  account clears a failure-based degradation, runs older than 72 h are ignored. A closed DPA switch or a trigger error is no
+  longer relabelled as a vendor outage.
+* The progress lookup is capped at 8 s on the webhook path; the sweep reuses the report it already fetched.
+
+### Before deploying (read, do not act)
+
+1. **The first batch after deploy will already see Bright Data as degraded**: the 10-21 and 10-22 rows are `SUCCEEDED` with
+   0 items, which is `ALL_EMPTY`. Bright Data gets only its probes and the fleet goes to Apify. Confirm the Apify plan and its
+   $5 FREE cap first (with the post cursor, spend is roughly new posts x $0.0023, not the full-window estimate).
+2. Read-only checks (the owner's role): posts whose `published_at` is within about 2 minutes of `created_at` with a non-null
+   `scraper_actor_run_id` are synthesized dates (BUG-076); if any exist, treat BUG-076 as a blocker.
+3. The production deploy runs the infrastructure change too (the webhook Lambda's environment and grants).
+
+### Known limits, carried as rows
+
+BUG-076 (the cursor can run ahead of what a profile's own scrape captured), BUG-077 (caption-less posts pin the cursor),
+BUG-078 (failed-run handling differs per vendor and is not atomic), BUG-079 (the budget gate counts triggers, not items),
+IDEA-096 (alerting without SES), IDEA-097 (persisted health, DB-lease probe, one route resolver, owner override),
+IDEA-098 (store the classification evidence, an `inconclusive` class, webhook acknowledges only), IDEA-099
+(`posts_to_not_include`), FIND-095 (smaller review deferrals).
