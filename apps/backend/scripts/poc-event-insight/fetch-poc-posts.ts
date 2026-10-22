@@ -40,13 +40,14 @@ import {
 interface Args {
   since: string; perAccount: number; curators: number; venues: number; accounts: string[]; extra: string[]; extraLabel: string;
   noScrape: boolean; confirmScrape: number | null; outDir: string; envFile: string | null; dbEnv: string; yes: boolean; help: boolean;
+  vendor: 'brightdata' | 'apify';
 }
 
 function parseArgs(argv: string[]): Args {
   const a: Args = {
     since: new Date(Date.now() - 60 * 86_400_000).toISOString(), perAccount: 15, curators: 8, venues: 6, accounts: [], extra: [], extraLabel: 'extra',
     noScrape: false, confirmScrape: null, outDir: join(dirname(fileURLToPath(import.meta.url)), 'local'), envFile: null, dbEnv: 'PROD_RO2_DATABASE_URL',
-    yes: false, help: false,
+    yes: false, help: false, vendor: 'brightdata',
   };
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i];
@@ -64,6 +65,7 @@ function parseArgs(argv: string[]): Args {
     else if (k === '--env-file') a.envFile = resolve(v());
     else if (k === '--db-env') a.dbEnv = v();
     else if (k === '--yes') a.yes = true;
+    else if (k === '--vendor') { const x = v(); if (x !== 'brightdata' && x !== 'apify') throw new Error('--vendor must be brightdata or apify'); a.vendor = x; }
     else if (k === '--help' || k === '-h') a.help = true;
     else throw new Error(`unknown argument: ${k}`);
   }
@@ -81,6 +83,7 @@ const HELP = `fetch-poc-posts.ts: gather real posts for the audience/language/ta
   --extra-label <text>    stratum label for --extra (default "extra")
   --no-scrape             never start a new scrape
   --confirm-scrape <n>    confirm a new scrape of exactly n accounts without asking
+  --vendor <name>         vendor for a NEW scrape: brightdata (default) or apify (apify/instagram-api-scraper; price from APIFY_PRICE_PER_THOUSAND_RESULTS_USD, default 2.3)
   --out-dir <path>        output folder (default scripts/poc-event-insight/local, git-ignored)
   --env-file <path>       .env to read the vendor keys from (default: nearest .env above the current folder)
   --db-env <NAME>         environment variable holding the read-only database URL (default PROD_RO2_DATABASE_URL)
@@ -184,6 +187,18 @@ async function brightDataScrape(env: Record<string, string>, username: string, n
     if (p.status === 'failed') throw new Error('Bright Data snapshot failed');
   }
   throw new Error('Bright Data snapshot did not finish in 20 minutes; run again later, it will be downloaded by id');
+}
+
+/** A new Apify scrape of one account (no webhook, nothing reaches production). The run id is recorded before the items are read, so a re-run can fetch it again. */
+async function apifyScrape(token: string, username: string, n: number, since: string, onRun: (id: string) => void): Promise<{ runId: string; records: unknown[] }> {
+  const { ApifyClient } = await import('apify-client');
+  const client = new ApifyClient({ token });
+  const run = await client.actor('apify/instagram-api-scraper').start({ directUrls: [`https://www.instagram.com/${username}/`], resultsType: 'posts', resultsLimit: n, onlyPostsNewerThan: since });
+  onRun(run.id);
+  const done = await client.run(run.id).waitForFinish({ waitSecs: 600 });
+  if (done.status !== 'SUCCEEDED') throw new Error(`Apify run ended ${done.status}`);
+  const { items } = await client.dataset(done.defaultDatasetId).listItems({ clean: true, limit: 1000 });
+  return { runId: run.id, records: items as unknown[] };
 }
 
 async function apifyRunItems(runId: string, token: string): Promise<unknown[]> {
@@ -327,6 +342,24 @@ async function main(): Promise<void> {
       const records = short.length * args.perAccount;
       log(`\nStill short of ${args.perAccount} posts: ${short.map((p) => `${p.username} (${countFor(p.username)})`).join(', ')}`);
       if (args.noScrape) log('--no-scrape: no new scrape will be started.');
+      else if (args.vendor === 'apify') {
+        const apifyPrice = parseFloat(process.env.APIFY_PRICE_PER_THOUSAND_RESULTS_USD ?? '') || 2.3;
+        if (!apifyOk) log(env.APIFY_API_TOKEN ? 'Apify is disabled by APIFY_SCRAPING_CONFIRMED.' : 'No Apify key found: no new scrape is possible.');
+        else {
+          log(`A new Apify scrape (apify/instagram-api-scraper) of ${short.length} account(s), up to ${records} results, about $${estimateCostUsd(records, apifyPrice)} at $${apifyPrice} per 1,000 results. Nothing is sent to the production webhook.`);
+          const answer = args.confirmScrape !== null ? String(args.confirmScrape) : await rl.question(`Type ${short.length} to start the scrape (anything else skips): `);
+          if (answer.trim() === String(short.length)) {
+            for (const acct of short) {
+              try {
+                const res = await apifyScrape(env.APIFY_API_TOKEN, acct.username, args.perAccount, args.since, (id) => logEntry({ username: acct.username, source: 'new-scrape', vendor: 'APIFY', runId: id, fetched: 0, inWindow: 0, kept: 0 }));
+                const c = addRecords(acct, res.records, 'new-scrape');
+                logEntry({ username: acct.username, source: 'new-scrape', vendor: 'APIFY', runId: res.runId, fetched: c.fetched, inWindow: c.inWindow, kept: countFor(acct.username) });
+                log(`${acct.username}: scraped, ${c.fetched} returned, ${c.inWindow} in window`);
+              } catch (e) { log(`${acct.username}: scrape failed (${(e as Error).message})`); }
+            }
+          } else log('skipped.');
+        }
+      }
       else if (!bdOk) log(env.BRIGHTDATA_API_TOKEN ? 'Bright Data is disabled by BRIGHTDATA_SCRAPING_CONFIRMED.' : 'No Bright Data key found: no new scrape is possible.');
       else {
         log(`A new Bright Data scrape of ${short.length} account(s), up to ${records} records, about $${estimateCostUsd(records, price)} at $${price} per 1,000 (set BRIGHTDATA_PRICE_PER_THOUSAND_ITEMS_USD for your rate). Results are fetched by id; nothing is sent to the production webhook.`);

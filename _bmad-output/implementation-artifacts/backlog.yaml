@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-19"
+last_updated: "2026-10-22"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -2570,6 +2570,30 @@ items:
      ref: [backlog/BUG-073-push-pipeline-has-no-credentials-where-it-sends.md, planning-artifacts/event-insight-poc/results/notification-aws-and-owner-sql-findings-2026-10-21.md, apps/backend/src/lib/events/notify-new-event.ts, apps/backend/src/lib/firebase-admin.ts],
      touches: [app:backend, app:infrastructure, cross:notifications],
      note: "Logs 2026-10-07..16: ~40 failed Firebase initialisations a day in Ingestor/AIProcessor; since 10-16 every attempt finds no subscriber with a token. notified_at is claimed before the send, so those events never notify. Recommend releasing the claim when initialisation fails."}
+
+  BUG-074:
+    {type: bug, status: backlog, created: 2026-10-22,
+     impact: user-visible, effort: m, blocks: [IDEA-095],
+     title: "Bright Data returned 0 records for the whole fleet since 2026-10-21, every run is stored SUCCEEDED, and the cursor is the run's finish time, so the outage skips posts",
+     ref: [backlog/BUG-074-bright-data-zero-record-runs-succeed-and-the-cursor-is-a-run-timestamp.md, apps/backend/src/lambdas/webhook.ts, apps/backend/src/lib/scraper/trigger-brightdata-for-target.ts, apps/backend/src/lib/scraper/brightdata-client.ts],
+     touches: [app:backend, app:infrastructure],
+     note: "10-21 and 10-22: 38 of 38 runs a day empty, vendor-side (a /scrape probe also returned 0). Plan: cursor from newest stored post, posts_to_not_include, progress/log success check, fleet alert, re-scrape from 10-20."}
+
+  BUG-075:
+    {type: bug, status: backlog, created: 2026-10-22,
+     impact: latent, effort: s, parent: BUG-074,
+     title: "The Apify scrape's cursor is the last run's finish time: a failed or empty run moves it, and it is not tied to the newest stored post",
+     ref: [backlog/BUG-075-apify-cursor-is-a-run-timestamp-and-an-empty-run-still-moves-it.md, apps/backend/src/lib/scraper/trigger-apify-for-target.ts, apps/backend/src/lambdas/apify-webhook.ts],
+     touches: [app:backend],
+     note: "No status filter on the lookup (the comment says successful); Apify last ran 10-19. Fix with BUG-074's shared cursor helper."}
+
+  IDEA-095:
+    {type: idea, status: backlog, created: 2026-10-22,
+     impact: user-visible, effort: m,
+     title: "Switch to Apify when Bright Data returns nothing (and back), instead of only when a trigger fails",
+     ref: [backlog/IDEA-095-switch-to-the-other-scraper-when-one-returns-nothing.md, apps/backend/src/lib/scraper/trigger-scrape-for-account.ts, apps/backend/src/lib/scraper/scraper-provider-health-store.ts],
+     touches: [app:backend, app:infrastructure, cross:notifications],
+     note: "Chain exists (Apify then Bright Data) but reacts only to a failed trigger. Apify FREE plan caps at $5 a month, shared with production; needs BUG-074 classification and the BUG-073 alert path."}
 
   IDEA-092:
     {type: idea, status: backlog, created: 2026-10-21,
