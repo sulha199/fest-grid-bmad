@@ -365,6 +365,79 @@ test('FestgridBackendStack: every Lambda queue-url env var has a matching SQS IA
   assert.ok(checkedCount > 0, 'expected at least one *_QUEUE_URL env var to be walked across all Lambdas');
 });
 
+// BUG-074: the Bright Data webhook Lambda classifies a zero-record snapshot against Bright Data's
+// progress endpoint and, for a vendor failure, hands the profile to the scraping queue. Both need
+// config this Lambda did not have. Without it the progress lookup throws "BRIGHTDATA_API_TOKEN is not
+// set", the classifier reads that as inconclusive, and an outage is stored as a success exactly as
+// before -- the unit tests cannot see this, they set the token and queue URL themselves.
+test('FestgridBackendStack: the Bright Data webhook Lambda can classify a result and re-queue a failed profile (BUG-074)', () => {
+  const app = new cdk.App();
+  const stack = new FestgridBackendStack(app, 'TestStackWebhookClassification', {
+    stageName: 'dev',
+  });
+
+  const template = Template.fromStack(stack);
+  const resources = template.toJSON().Resources as Record<string, {
+    Type: string;
+    Properties?: Record<string, unknown>;
+  }>;
+
+  const webhookEntry = Object.entries(resources).find(
+    ([logicalId, r]) => r.Type === 'AWS::Lambda::Function' && logicalId.startsWith('Webhook')
+  );
+  assert.ok(webhookEntry, 'expected a "Webhook*" function in the synthesized template');
+  const [, webhook] = webhookEntry!;
+  const envVars = (webhook.Properties?.Environment as { Variables?: Record<string, unknown> } | undefined)?.Variables ?? {};
+
+  // A secret's `secretValue.unsafeUnwrap()` synthesizes as a dynamic reference, a string or an
+  // Fn::Join of one around the secret's logical id, so compare its serialized form.
+  const tokenReference = JSON.stringify(envVars.BRIGHTDATA_API_TOKEN ?? '');
+  assert.ok(
+    tokenReference.includes('secretsmanager') && tokenReference.includes('BrightdataApiTokenSecret'),
+    'the webhook Lambda needs BRIGHTDATA_API_TOKEN (the Bright Data token secret) to read the snapshot progress report'
+  );
+
+  const queueRef = (envVars.SCRAPING_QUEUE_URL as { Ref?: string } | undefined)?.Ref;
+  assert.ok(queueRef && queueRef.startsWith('ScrapingQueue'), 'the webhook Lambda needs SCRAPING_QUEUE_URL (the ScrapingQueue) to re-queue a failed profile');
+
+  const roleLogicalId = (webhook.Properties?.Role as { 'Fn::GetAtt'?: [string, string] } | undefined)?.['Fn::GetAtt']?.[0];
+  assert.ok(roleLogicalId, 'the webhook Lambda role should be an in-template Fn::GetAtt');
+
+  const grantsSendOnScrapingQueue = Object.values(resources).some((r) => {
+    if (r.Type !== 'AWS::IAM::Policy') return false;
+    const roles = (r.Properties?.Roles as Array<{ Ref?: string }> | undefined) ?? [];
+    if (!roles.some((role) => role?.Ref === roleLogicalId)) return false;
+    const statements = (r.Properties?.PolicyDocument as { Statement?: Array<Record<string, unknown>> } | undefined)?.Statement ?? [];
+    return statements.some((stmt) => {
+      const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
+      const resourcesOfStatement = Array.isArray(stmt.Resource) ? stmt.Resource : [stmt.Resource];
+      return (
+        stmt.Effect === 'Allow' &&
+        actions.includes('sqs:SendMessage') &&
+        resourcesOfStatement.some((res) => (res as { 'Fn::GetAtt'?: [string, string] })?.['Fn::GetAtt']?.[0] === queueRef)
+      );
+    });
+  });
+  assert.ok(grantsSendOnScrapingQueue, 'the webhook Lambda role needs sqs:SendMessage on the ScrapingQueue');
+
+  const grantsReadOfBrightDataToken = Object.values(resources).some((r) => {
+    if (r.Type !== 'AWS::IAM::Policy') return false;
+    const roles = (r.Properties?.Roles as Array<{ Ref?: string }> | undefined) ?? [];
+    if (!roles.some((role) => role?.Ref === roleLogicalId)) return false;
+    const statements = (r.Properties?.PolicyDocument as { Statement?: Array<Record<string, unknown>> } | undefined)?.Statement ?? [];
+    return statements.some((stmt) => {
+      const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
+      const resourcesOfStatement = Array.isArray(stmt.Resource) ? stmt.Resource : [stmt.Resource];
+      return (
+        stmt.Effect === 'Allow' &&
+        actions.includes('secretsmanager:GetSecretValue') &&
+        resourcesOfStatement.some((res) => typeof (res as { Ref?: string })?.Ref === 'string' && (res as { Ref: string }).Ref.startsWith('BrightdataApiTokenSecret'))
+      );
+    });
+  });
+  assert.ok(grantsReadOfBrightDataToken, 'the webhook Lambda role needs read access to the Bright Data API token secret');
+});
+
 test('FestgridBackendStack: dev stack with enableNonProdQueuePolling=true context enables the ESM (AC2)', () => {
   const app = new cdk.App({ context: { enableNonProdQueuePolling: 'true' } });
   const stack = new FestgridBackendStack(app, 'TestStackDevPollingEnabled', {

@@ -41,6 +41,13 @@ export interface BrightDataTriggerResponse {
 
 export interface BrightDataProgressResponse {
   status: 'scheduled' | 'building' | 'running' | 'ready' | 'failed';
+  // Reported once a snapshot has finished. A zero-record snapshot is told apart as an empty account
+  // (`error_codes.dead_page`) or a vendor failure (neither) from these (BUG-074,
+  // classifyBrightDataResult in @festgrid/domain). Only present when Bright Data sent them.
+  records?: number;
+  errors?: number;
+  errorCodes?: Record<string, number>;
+  errorMessage?: string;
 }
 
 // Test seams for mocking in tests
@@ -124,6 +131,16 @@ async function _triggerBrightDataJob(
   });
 }
 
+// `error_codes` is a map of error code to count (`{"dead_page":1}`). Anything else -- an array, a
+// string, a map with non-numeric values -- is not that, and is left out rather than read as one.
+function parseErrorCodes(value: unknown): Record<string, number> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+  const entries = Object.entries(value).filter(([, count]) => typeof count === 'number');
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
 async function _getBrightDataProgress(
   snapshotId: string
 ): Promise<BrightDataProgressResponse> {
@@ -156,10 +173,20 @@ async function _getBrightDataProgress(
         );
       }
 
-      const data = (await response.json()) as { status?: string };
+      const data = (await response.json()) as {
+        status?: string;
+        records?: number;
+        errors?: number;
+        error_codes?: Record<string, number>;
+        error_message?: string;
+      };
 
       return {
         status: (data.status || 'scheduled') as BrightDataProgressResponse['status'],
+        ...(typeof data.records === 'number' && { records: data.records }),
+        ...(typeof data.errors === 'number' && { errors: data.errors }),
+        ...(parseErrorCodes(data.error_codes) && { errorCodes: parseErrorCodes(data.error_codes) }),
+        ...(typeof data.error_message === 'string' && { errorMessage: data.error_message }),
       };
     },
   });

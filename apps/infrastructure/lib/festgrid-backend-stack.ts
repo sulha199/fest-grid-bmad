@@ -763,6 +763,12 @@ export class FestgridBackendStack extends cdk.Stack {
         AI_PROCESSING_QUEUE_URL: aiProcessingQueue.queueUrl,
         AI_PROCESSING_INLINE_FALLBACK_ENABLED: 'false',
         POST_EXTRACTION_CLAIM_TTL_MINUTES: process.env.POST_EXTRACTION_CLAIM_TTL_MINUTES || '30',
+        // BUG-074 -- a snapshot delivered with no records is classified against Bright Data's
+        // progress endpoint (needs the API token), and a vendor failure hands the profile to the
+        // scraping queue (needs its URL and send permission, below). Without both, the lookup
+        // throws, is read as inconclusive, and an outage is stored as a success exactly as before.
+        BRIGHTDATA_API_TOKEN: brightdataApiTokenSecret.secretValue.unsafeUnwrap(),
+        SCRAPING_QUEUE_URL: scrapingQueue.queueUrl,
         ...usageCycleEnv,
         SECRETS_SYNCED_AT: secretsSyncedAt,
       },
@@ -770,6 +776,8 @@ export class FestgridBackendStack extends cdk.Stack {
 
     dbUrlSecret.grantRead(webhookLambda);
     aiProcessingQueue.grantSendMessages(webhookLambda);
+    brightdataApiTokenSecret.grantRead(webhookLambda);
+    scrapingQueue.grantSendMessages(webhookLambda);
 
     const apifyWebhookLambda = new nodejs.NodejsFunction(this, `ApifyWebhook-${stageName}`, {
       entry: path.resolve(projectRoot, 'apps/backend/src/lambdas/apify-webhook.ts'),

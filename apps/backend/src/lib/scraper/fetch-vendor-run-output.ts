@@ -1,9 +1,12 @@
 import { callApifyClient } from './instagram-adapter.js';
-import { getBrightDataProgress, getBrightDataSnapshot } from './brightdata-client.js';
+import { getBrightDataProgress, getBrightDataSnapshot, type BrightDataProgressResponse } from './brightdata-client.js';
 
 export interface VendorRunOutput {
   status: 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'TIMED_OUT' | 'ABORTED' | 'unknown';
   items: unknown[];
+  // Bright Data only: the progress report this output was read after, so a caller that classifies the
+  // result does not fetch it a second time (BUG-074).
+  progress?: BrightDataProgressResponse;
 }
 
 /**
@@ -62,6 +65,7 @@ export async function fetchBrightDataRunOutput(snapshotId: string): Promise<Vend
       return {
         status: 'SUCCEEDED',
         items: items,
+        progress,
       };
     }
 
@@ -77,6 +81,7 @@ export async function fetchBrightDataRunOutput(snapshotId: string): Promise<Vend
     return {
       status: statusMap[progress.status] || 'unknown',
       items: [],
+      progress,
     };
   } catch (err) {
     console.error(`Failed to fetch Bright Data run output for snapshot ${snapshotId}:`, err);

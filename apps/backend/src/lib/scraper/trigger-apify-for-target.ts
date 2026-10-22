@@ -1,7 +1,6 @@
-import { db } from '../../db/client.js';
-import { scraperActorRuns } from '@festgrid/database';
-import { eq, desc } from 'drizzle-orm';
 import { callApifyClient } from './instagram-adapter.js';
+import { getScrapeCursor } from './get-scrape-cursor.js';
+import { gateDegradedProvider, releaseProviderProbe } from './provider-run-health-store.js';
 import { createPendingJob } from './apify-pending-jobs-store.js';
 import { recordProviderUsage, isProviderCapacityAvailable } from './usage-store.js';
 import { loadBackendEnv } from '../../env.js';
@@ -29,6 +28,15 @@ export let attemptApifyAsyncTrigger = async (
     return { success: false, failureReason: 'CAPACITY_EXHAUSTED' };
   }
 
+  // IDEA-095: a provider whose recent runs returned nothing or failed is skipped (bar one probe) so
+  // the next provider in the chain takes the target.
+  const gate = await gateDegradedProvider('APIFY');
+  if (gate === 'skip') {
+    console.log(`Apify is degraded; skipping ${target.username} in favour of another provider`);
+    return { success: false, failureReason: 'PROVIDER_DEGRADED' };
+  }
+  const isProbe = gate === 'probe';
+
   try {
     // Generate token BEFORE making the trigger call
     const webhookToken = generateWebhookToken();
@@ -36,14 +44,10 @@ export let attemptApifyAsyncTrigger = async (
     // Build webhook URL
     const webhookUrl = `${env.apifyWebhookBaseUrl}?jobToken=${webhookToken}`;
 
-    // Use the last successful scraper run timestamp as the cursor, falling back to newerThan
-    // This ensures we don't re-scrape posts already captured, regardless of vendor
-    const lastSuccessfulRun = await db.query.scraperActorRuns.findFirst({
-      where: eq(scraperActorRuns.profileId, target.profileId),
-      orderBy: desc(scraperActorRuns.completedAt),
-    });
-
-    const scrapeCursorTimestamp = lastSuccessfulRun?.completedAt?.toISOString() ?? newerThan;
+    // The cursor is where this profile's stored posts end, never when a run finished (BUG-075):
+    // an empty, failed or timed-out run must not move it. `newerThan` only matters for a profile
+    // with no stored post yet.
+    const scrapeCursorTimestamp = await getScrapeCursor('APIFY', target.profileId, newerThan);
 
     // Trigger async run with webhooks, routed through the shared guarded wrapper (AD-32).
     // maxAttempts: 1 -- `.start()` is not idempotent: retrying after a lost response (5xx /
@@ -98,6 +102,11 @@ export let attemptApifyAsyncTrigger = async (
 
     return { success: true };
   } catch (error) {
+    // A probe that failed before the vendor produced a result tests nothing: give its slot back so
+    // the next target can probe instead.
+    if (isProbe) {
+      releaseProviderProbe('APIFY');
+    }
     // Story 0.i2d (AC6) — a deliberate, self-imposed DPA-gate closure is not a real vendor
     // outage; map it to its own failure reason so the daily batch tally doesn't misreport it.
     if (error instanceof VendorDpaNotConfirmedError) {

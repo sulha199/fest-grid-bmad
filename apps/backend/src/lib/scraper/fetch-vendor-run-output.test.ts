@@ -105,6 +105,15 @@ test('fetch-vendor-run-output', async (t) => {
 
       assert.strictEqual(result.status, 'SUCCEEDED');
       assert.strictEqual(result.items.length, 1);
+      assert.deepStrictEqual(result.progress, { status: 'ready' }, 'the report it was read after is handed on, so a caller need not fetch it again');
+    });
+
+    await t.test('should hand on the progress report of a snapshot that is not finished too', async () => {
+      setGetBrightDataProgress(async () => ({ status: 'failed', errorMessage: 'boom' }));
+
+      const result = await fetchBrightDataRunOutput('snapshot-456');
+
+      assert.deepStrictEqual(result.progress, { status: 'failed', errorMessage: 'boom' });
     });
 
     await t.test('should map pending status', async () => {

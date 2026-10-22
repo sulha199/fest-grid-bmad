@@ -3,9 +3,11 @@ import {
   APIGatewayProxyResult,
   Context,
 } from 'aws-lambda';
-import { findPendingJobByToken, markPendingJobCompleted } from '../lib/scraper/brightdata-pending-jobs-store.js';
+import { findPendingJobByToken } from '../lib/scraper/brightdata-pending-jobs-store.js';
 import { processBrightDataResult } from '../lib/scraper/process-brightdata-result.js';
 import { recordActorRunResult } from '../lib/scraper/record-actor-run.js';
+import { classifyBrightDataRun, describeBrightDataVendorFailure } from '../lib/scraper/classify-brightdata-run.js';
+import { handleBrightDataFailedRun } from '../lib/scraper/handle-brightdata-failed-run.js';
 
 export const handler = async (
   event: APIGatewayProxyEvent,
@@ -45,7 +47,28 @@ export const handler = async (
     // Parse webhook payload
     let records: unknown[] = [];
     if (event.body) {
-      records = JSON.parse(event.body);
+      const parsed: unknown = JSON.parse(event.body);
+      records = Array.isArray(parsed) ? parsed : [];
+    }
+
+    // A snapshot with no records is not necessarily a good run (BUG-074): tell an account with
+    // nothing new from a vendor that returned nothing for everyone, and never store the latter as a
+    // success. The classification is a free progress lookup, made only when records is empty.
+    const { resultClass, progress } = await classifyBrightDataRun(pendingJob.snapshotId, records.length);
+
+    if (resultClass === 'vendor_failure') {
+      const reason = describeBrightDataVendorFailure(progress);
+      console.error(`Bright Data vendor failure for snapshot ${pendingJob.snapshotId}: ${reason}`);
+      await handleBrightDataFailedRun(pendingJob, {
+        status: 'FAILED',
+        rawOutput: records,
+        itemCount: 0,
+        errorMessage: reason,
+      });
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ status: 'vendor_failure' }),
+      };
     }
 
     // Record audit trail

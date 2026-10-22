@@ -146,3 +146,33 @@ test('scraper-provider-health-store tracking', async (t) => {
     assert.strictEqual(matching.lastFailureReason, 'TRIGGER_ERROR');
   });
 });
+
+// IDEA-095: the state a health check replaced, so the batch can log a switch or a recovery once.
+test('recordProviderHealthCheck returns the state it replaced', async (t) => {
+  const provider = 'test-provider-previous-' + Date.now();
+
+  t.after(async () => {
+    await db.delete(scraperProviderHealth).where(eq(scraperProviderHealth.provider, provider));
+  });
+
+  await t.test('the first check of a provider replaces nothing', async () => {
+    const previous = await recordProviderHealthCheck(provider, { attempted: 5, succeeded: 0, failureReason: 'PROVIDER_DEGRADED' });
+
+    assert.deepStrictEqual(previous, { consecutiveFailureDays: 0, lastFailureReason: null });
+  });
+
+  await t.test('a later check returns the day count and reason it replaced', async () => {
+    const previous = await recordProviderHealthCheck(provider, { attempted: 5, succeeded: 0, failureReason: 'PROVIDER_DEGRADED' });
+
+    assert.deepStrictEqual(previous, { consecutiveFailureDays: 1, lastFailureReason: 'PROVIDER_DEGRADED' });
+  });
+
+  await t.test('a recovery returns the failing state it cleared, and the row is reset', async () => {
+    const previous = await recordProviderHealthCheck(provider, { attempted: 5, succeeded: 5 });
+
+    assert.deepStrictEqual(previous, { consecutiveFailureDays: 2, lastFailureReason: 'PROVIDER_DEGRADED' });
+    const [row] = await db.select().from(scraperProviderHealth).where(eq(scraperProviderHealth.provider, provider));
+    assert.strictEqual(row.consecutiveFailureDays, 0);
+    assert.strictEqual(row.lastFailureReason, null);
+  });
+});

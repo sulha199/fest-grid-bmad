@@ -3,10 +3,17 @@ import { scraperProviderHealth } from '@festgrid/database';
 import { and, eq, gte, isNull, lt, or } from 'drizzle-orm';
 import type { ScraperTriggerFailureReason } from './scraper-trigger-result.js';
 
+// The state this check replaced, so the caller can tell a provider that just started failing (or just
+// recovered) from one that has been in the same state for days (IDEA-095: log the switch and the return).
+export interface ProviderHealthCheckPrevious {
+  consecutiveFailureDays: number;
+  lastFailureReason: string | null;
+}
+
 export async function recordProviderHealthCheck(
   provider: string,
   { attempted, succeeded, failureReason }: { attempted: number; succeeded: number; failureReason?: ScraperTriggerFailureReason }
-): Promise<void> {
+): Promise<ProviderHealthCheckPrevious> {
   const now = new Date();
   const isFullFailure = attempted > 0 && succeeded === 0;
 
@@ -25,7 +32,7 @@ export async function recordProviderHealthCheck(
       createdAt: now,
       updatedAt: now,
     });
-    return;
+    return { consecutiveFailureDays: 0, lastFailureReason: null };
   }
 
   await db
@@ -40,6 +47,8 @@ export async function recordProviderHealthCheck(
       updatedAt: now,
     })
     .where(eq(scraperProviderHealth.provider, provider));
+
+  return { consecutiveFailureDays: row.consecutiveFailureDays, lastFailureReason: row.lastFailureReason };
 }
 
 export async function getProvidersNeedingAlert(

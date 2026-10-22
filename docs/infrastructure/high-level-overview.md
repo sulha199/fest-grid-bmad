@@ -23,6 +23,7 @@ graph TD
             L_API[Lambda: API Logic]
             L_Scrape[Lambda: Scraper]
             L_ApifyWebhook[Lambda: Apify Webhook]
+            L_BDWebhook[Lambda: Bright Data Webhook]
             L_AI[Lambda: AI Processor]
             L_Ingest[Lambda: Ingestor]
         end
@@ -46,6 +47,7 @@ graph TD
         Geoapify[Geoapify]
         SES[Amazon SES]
         Apify[Apify Actor API]
+        BrightData[Bright Data Dataset API]
     end
 
     U --> V
@@ -58,6 +60,11 @@ graph TD
     L_Scrape -- polls/recovers (sweep) --> Apify
     Apify -- webhook callback --> L_ApifyWebhook
     L_ApifyWebhook -- persists scraped posts to --> Supabase
+    L_Scrape -- triggers async job (webhook endpoint) --> BrightData
+    BrightData -- webhook callback --> L_BDWebhook
+    L_BDWebhook -- persists scraped posts to --> Supabase
+    L_BDWebhook -- checks an empty result --> BrightData
+    L_BDWebhook -- re-queues a failed profile --> SQS_Scrape
     L_Scrape -- enqueues --> SQS_Scrape
     L_API -- triggers async job (on-demand backfill) --> Apify
     L_API -- enqueues (on-demand, new account) --> SQS_Scrape
