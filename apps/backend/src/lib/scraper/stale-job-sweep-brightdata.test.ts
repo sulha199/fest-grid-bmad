@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { randomBytes } from 'node:crypto';
 import { db } from '../../db/client.js';
-import { brightdataPendingJobs, scraperActorRuns, socialMediaAccountProfiles } from '@festgrid/database';
+import { brightdataPendingJobs, scraperActorRuns, socialMediaAccountProfiles, subscriptions, users } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import { runStaleJobSweep } from './stale-job-sweep.js';
 import { createPendingJob } from './brightdata-pending-jobs-store.js';
@@ -21,6 +21,7 @@ test('stale-job-sweep: Bright Data jobs', async (t) => {
   const originalQueueUrl = process.env.SCRAPING_QUEUE_URL;
 
   let profileId: string;
+  let subscriptionId: string;
   let progress: BrightDataProgressResponse;
   let progressCalls: number;
   let snapshotItems: unknown[];
@@ -47,6 +48,12 @@ test('stale-job-sweep: Bright Data jobs', async (t) => {
       })
       .returning({ id: socialMediaAccountProfiles.id });
     profileId = profile.id;
+
+    // The fallback re-queue is a scrape start (AD-34): it needs an active subscription.
+    const [seededUser] = await db.select().from(users).limit(1);
+    assert.ok(seededUser, 'Must have at least 1 seeded user for test');
+    const [sub] = await db.insert(subscriptions).values({ userId: seededUser.id, accountId: profile.id }).returning();
+    subscriptionId = sub.id;
   });
 
   t.beforeEach(() => {
@@ -71,6 +78,7 @@ test('stale-job-sweep: Bright Data jobs', async (t) => {
     } else {
       process.env.SCRAPING_QUEUE_URL = originalQueueUrl;
     }
+    await db.delete(subscriptions).where(eq(subscriptions.id, subscriptionId));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profileId));
   });
 
@@ -160,12 +168,32 @@ test('stale-job-sweep: Bright Data jobs', async (t) => {
     assert.strictEqual(sqsBodies.length, 1);
   });
 
-  await t.test('a snapshot still running keeps its existing handling: not a success, expired, re-queued', async () => {
+  await t.test('a failed snapshot on a profile that is not scrapable is recorded and expired but not re-queued (AD-34)', async () => {
+    await db
+      .update(socialMediaAccountProfiles)
+      .set({ accountType: 'PERSONAL', accountTypeStatus: 'CONFIRMED' })
+      .where(eq(socialMediaAccountProfiles.id, profileId));
+    progress = { status: 'failed' };
+    try {
+      const { run, job } = await sweepOneExpiredJob();
+
+      assert.strictEqual(run.status, 'FAILED');
+      assert.strictEqual(job.status, 'EXPIRED');
+      assert.deepStrictEqual(sqsBodies, []);
+    } finally {
+      await db
+        .update(socialMediaAccountProfiles)
+        .set({ accountType: null, accountTypeStatus: null })
+        .where(eq(socialMediaAccountProfiles.id, profileId));
+    }
+  });
+
+  await t.test('a snapshot still running at expiry is TIMED_OUT, expired and re-queued', async () => {
     progress = { status: 'running' };
 
     const { run, job } = await sweepOneExpiredJob();
 
-    assert.notStrictEqual(run.status, 'SUCCEEDED');
+    assert.strictEqual(run.status, 'TIMED_OUT', 'a snapshot still in flight at expiry never delivered: health must see it');
     assert.strictEqual(run.errorMessage, 'Run status from stale-job-sweep: PENDING');
     assert.strictEqual(job.status, 'EXPIRED');
     assert.strictEqual(sqsBodies.length, 1);

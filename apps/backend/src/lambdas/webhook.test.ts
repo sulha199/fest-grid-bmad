@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { randomBytes } from 'node:crypto';
 import type { APIGatewayProxyEvent, Context } from 'aws-lambda';
 import { db } from '../db/client.js';
-import { brightdataPendingJobs, scraperActorRuns, socialMediaAccountProfiles } from '@festgrid/database';
+import { brightdataPendingJobs, scraperActorRuns, socialMediaAccountProfiles, subscriptions, users } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import { handler } from './webhook.js';
 import { createPendingJob } from '../lib/scraper/brightdata-pending-jobs-store.js';
@@ -18,6 +18,7 @@ test('Bright Data webhook: result classification (BUG-074)', async (t) => {
   const originalQueueUrl = process.env.SCRAPING_QUEUE_URL;
 
   let profileId: string;
+  let subscriptionId: string;
   let progressCalls: string[];
   let progressResult: BrightDataProgressResponse | Error;
   let sqsMessages: Array<{ queueUrl: string; body: string }>;
@@ -53,6 +54,12 @@ test('Bright Data webhook: result classification (BUG-074)', async (t) => {
       })
       .returning({ id: socialMediaAccountProfiles.id });
     profileId = profile.id;
+
+    // The fallback re-queue is a scrape start (AD-34): it needs an active subscription.
+    const [seededUser] = await db.select().from(users).limit(1);
+    assert.ok(seededUser, 'Must have at least 1 seeded user for test');
+    const [sub] = await db.insert(subscriptions).values({ userId: seededUser.id, accountId: profile.id }).returning();
+    subscriptionId = sub.id;
   });
 
   t.beforeEach(() => {
@@ -66,7 +73,7 @@ test('Bright Data webhook: result classification (BUG-074)', async (t) => {
     await db.delete(scraperActorRuns).where(eq(scraperActorRuns.profileId, profileId));
     await db
       .update(socialMediaAccountProfiles)
-      .set({ lastScrapedAt: null })
+      .set({ lastScrapedAt: null, accountType: null, accountTypeStatus: null })
       .where(eq(socialMediaAccountProfiles.id, profileId));
   });
 
@@ -77,6 +84,7 @@ test('Bright Data webhook: result classification (BUG-074)', async (t) => {
     } else {
       process.env.SCRAPING_QUEUE_URL = originalQueueUrl;
     }
+    await db.delete(subscriptions).where(eq(subscriptions.id, subscriptionId));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profileId));
   });
 
@@ -162,6 +170,20 @@ test('Bright Data webhook: result classification (BUG-074)', async (t) => {
     assert.strictEqual(target.profileId, profileId);
     assert.strictEqual(target.username, 'bd_webhook_test_user');
     assert.strictEqual(target.platform, 'instagram');
+  });
+
+  await t.test('a vendor failure on a profile that is no longer scrapable is recorded but not re-queued (AD-34)', async () => {
+    progressResult = outage;
+    await db
+      .update(socialMediaAccountProfiles)
+      .set({ accountType: 'PERSONAL', accountTypeStatus: 'CONFIRMED' })
+      .where(eq(socialMediaAccountProfiles.id, profileId));
+
+    const { run, job } = await deliver('[]');
+
+    assert.strictEqual(run.status, 'FAILED', 'the failure itself is still recorded');
+    assert.strictEqual(job.status, 'EXPIRED');
+    assert.deepStrictEqual(sqsMessages, [], 'a personal account is never scraped, not even as a fallback');
   });
 
   await t.test('a snapshot Bright Data reports as failed is a vendor failure even when it lists a dead page', async () => {

@@ -1,9 +1,6 @@
-import { db } from '../../db/client.js';
-import { socialMediaAccountProfiles } from '@festgrid/database';
-import { eq } from 'drizzle-orm';
 import { markPendingJobExpired } from './brightdata-pending-jobs-store.js';
 import type { BrightdataPendingJob } from './brightdata-pending-jobs-store.js';
-import { enqueueScrapeJob } from './enqueue-scrape-job.js';
+import { enqueueFallbackScrape } from './enqueue-fallback-scrape.js';
 import { recordActorRunResult } from './record-actor-run.js';
 import type { RecordActorRunResultInput } from './record-actor-run.js';
 
@@ -16,9 +13,10 @@ import type { RecordActorRunResultInput } from './record-actor-run.js';
  * - the pending job is expired, not completed, and this function does not stamp `lastScrapedAt`: a
  *   failed run is not a scrape of the account. (The SQS job below stamps it itself when it finishes,
  *   which is accurate: by then the account has been scraped, on Apify.);
- * - an Instagram profile is handed to the SQS scrape queue right away, whose job reads from the
- *   profile's own newest stored post (IDEA-095: re-scrape the failed profile on the other provider),
- *   behind the same Apify budget guard as every other sync scrape (`assertProviderCapacityAvailable`).
+ * - an Instagram profile is handed to the SQS scrape queue right away (`enqueueFallbackScrape`, which
+ *   applies the AD-34 scrape gate and needs an active subscription), whose job reads from the profile's
+ *   own newest stored post (IDEA-095: re-scrape the failed profile on the other provider), behind the
+ *   same Apify budget guard as every other sync scrape (`assertProviderCapacityAvailable`).
  */
 export async function handleBrightDataFailedRun(
   job: BrightdataPendingJob,
@@ -31,21 +29,6 @@ export async function handleBrightDataFailedRun(
   });
   await markPendingJobExpired(job.id);
 
-  const [profile] = await db
-    .select()
-    .from(socialMediaAccountProfiles)
-    .where(eq(socialMediaAccountProfiles.id, job.profileId));
-
-  if (profile && profile.platform === 'instagram') {
-    try {
-      await enqueueScrapeJob({
-        profileId: profile.id,
-        accountId: profile.accountId,
-        username: profile.username,
-        platform: profile.platform,
-      });
-    } catch (error) {
-      console.error(`Fallback SQS enqueue failed for ${profile.username}:`, error);
-    }
-  }
+  // A scrape start like any other: behind the AD-34 gate and an active subscription (AD-43 Rule 6).
+  await enqueueFallbackScrape(job.profileId);
 }

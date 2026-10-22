@@ -4,10 +4,7 @@ import { getBrightDataProgress, getBrightDataSnapshot } from './brightdata-clien
 import { processBrightDataResult } from './process-brightdata-result.js';
 import { processApifyAsyncResult } from './process-apify-async-result.js';
 import { fetchApifyRunOutput, fetchBrightDataRunOutput } from './fetch-vendor-run-output.js';
-import { db } from '../../db/client.js';
-import { socialMediaAccountProfiles } from '@festgrid/database';
-import { eq } from 'drizzle-orm';
-import { enqueueScrapeJob } from './enqueue-scrape-job.js';
+import { enqueueFallbackScrape } from './enqueue-fallback-scrape.js';
 import { recordActorRunResult } from './record-actor-run.js';
 import { classifyBrightDataRun, describeBrightDataVendorFailure } from './classify-brightdata-run.js';
 import { handleBrightDataFailedRun } from './handle-brightdata-failed-run.js';
@@ -62,8 +59,11 @@ async function processSingleExpiredBrightDataJob(job: any): Promise<void> {
       await processBrightDataResult(job, output.items, job.scraperActorRunId);
     } else {
       // Job failed or still not ready - record, mark as expired and fall back to the SQS queue
+      // A snapshot that is still in flight when its job expires never delivered: TIMED_OUT, so
+      // provider health sees it (it ignores PENDING). A status this code does not know is FAILED.
+      const failedStatus = output.status === 'PENDING' ? 'TIMED_OUT' : output.status === 'unknown' ? 'FAILED' : output.status;
       await handleBrightDataFailedRun(job, {
-        status: output.status as any,
+        status: failedStatus,
         errorMessage: `Run status from stale-job-sweep: ${output.status}`,
       });
     }
@@ -97,25 +97,8 @@ async function processSingleExpiredApifyJob(job: any): Promise<void> {
       });
       await markApifyJobExpired(job.id);
 
-      // Fetch profile info for fallback
-      const [profile] = await db
-        .select()
-        .from(socialMediaAccountProfiles)
-        .where(eq(socialMediaAccountProfiles.id, job.profileId));
-
-      if (profile && profile.platform === 'instagram') {
-        try {
-          // Fall back to SQS queue
-          await enqueueScrapeJob({
-            profileId: profile.id,
-            accountId: profile.accountId,
-            username: profile.username,
-            platform: profile.platform,
-          });
-        } catch (error) {
-          console.error(`Fallback SQS enqueue failed for ${profile.username}:`, error);
-        }
-      }
+      // Fall back to the SQS queue (a scrape start: behind the AD-34 gate and an active subscription)
+      await enqueueFallbackScrape(job.profileId);
     }
   } catch (error) {
     console.error(`Error processing expired Apify job ${job.id}:`, error);
