@@ -40,7 +40,7 @@ async function processSingleExpiredBrightDataJob(job: any): Promise<void> {
     if (output.status === 'SUCCEEDED') {
       // A "ready" snapshot with no items is not necessarily a good run (BUG-074): a vendor that
       // returned nothing for everyone is a failure, handled like any other failed run below.
-      const { resultClass, progress } = await classifyBrightDataRun(job.snapshotId, output.items.length);
+      const { resultClass, progress } = await classifyBrightDataRun(job.snapshotId, output.items.length, { progress: output.progress });
       if (resultClass === 'vendor_failure') {
         await handleBrightDataFailedRun(job, {
           status: 'FAILED',

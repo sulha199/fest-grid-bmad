@@ -13,10 +13,12 @@ import type { RecordActorRunResultInput } from './record-actor-run.js';
  *
  * - the audit row is recorded with `status` (`FAILED` for a vendor failure), never `SUCCEEDED`, so
  *   provider health sees it and nothing mistakes it for a good run;
- * - the pending job is expired, not completed, and `lastScrapedAt` is deliberately NOT stamped, so
- *   the account is picked up again by the next batch instead of being skipped as freshly scraped;
+ * - the pending job is expired, not completed, and this function does not stamp `lastScrapedAt`: a
+ *   failed run is not a scrape of the account. (The SQS job below stamps it itself when it finishes,
+ *   which is accurate: by then the account has been scraped, on Apify.);
  * - an Instagram profile is handed to the SQS scrape queue right away, whose job reads from the
- *   profile's own newest stored post (IDEA-095: re-scrape the failed profile on the other provider).
+ *   profile's own newest stored post (IDEA-095: re-scrape the failed profile on the other provider),
+ *   behind the same Apify budget guard as every other sync scrape (`assertProviderCapacityAvailable`).
  */
 export async function handleBrightDataFailedRun(
   job: BrightdataPendingJob,

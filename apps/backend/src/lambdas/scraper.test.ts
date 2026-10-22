@@ -261,6 +261,8 @@ test('scraper lambda daily-batch branch: provider health after a degraded start 
   const providers = ['brightdata', 'apify'];
   let profileId: string;
   let subscriptionId: string;
+  let secondProfileId: string;
+  let secondSubscriptionId: string;
   // One start for the whole suite, not per batch: a subtest that runs the batch twice would otherwise
   // leave its first scraper_batch_runs row (opened before the second batch's start) behind.
   let suiteStart: Date;
@@ -311,12 +313,25 @@ test('scraper lambda daily-batch branch: provider health after a degraded start 
     const [sub] = await db.insert(subscriptions).values({ userId: seededUser.id, accountId: profile.id }).returning();
     subscriptionId = sub.id;
 
+    // A second target of our own, so a batch always has at least two to tell a probe from a skip.
+    const [secondProfile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'test-batch-health-2-' + Date.now(),
+      platform: 'instagram',
+      displayName: 'Batch Health Two',
+      username: 'batch_health_two_' + Date.now(),
+    }).returning();
+    secondProfileId = secondProfile.id;
+    const [secondSub] = await db.insert(subscriptions).values({ userId: seededUser.id, accountId: secondProfile.id }).returning();
+    secondSubscriptionId = secondSub.id;
+
     // Every trigger "succeeds": this is the single probe a degraded provider is sent.
     setAttemptBrightDataTrigger(async () => ({ success: true }));
     setAttemptApifyAsyncTrigger(async () => ({ success: true }));
   });
 
   t.afterEach(async () => {
+    setAttemptBrightDataTrigger(async () => ({ success: true }));
+    setAttemptApifyAsyncTrigger(async () => ({ success: true }));
     await db.delete(scraperActorRuns).where(eq(scraperActorRuns.profileId, profileId));
     await db.delete(scraperProviderHealth).where(inArray(scraperProviderHealth.provider, providers));
     await db.delete(scraperBatchRuns).where(gte(scraperBatchRuns.startedAt, suiteStart));
@@ -325,8 +340,8 @@ test('scraper lambda daily-batch branch: provider health after a degraded start 
   t.after(async () => {
     setAttemptBrightDataTrigger(originalAttemptBrightDataTrigger);
     setAttemptApifyAsyncTrigger(originalAttemptApifyAsyncTrigger);
-    await db.delete(subscriptions).where(eq(subscriptions.id, subscriptionId));
-    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profileId));
+    await db.delete(subscriptions).where(inArray(subscriptions.id, [subscriptionId, secondSubscriptionId]));
+    await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, [profileId, secondProfileId]));
     if (preExistingHealth.length > 0) {
       await db.insert(scraperProviderHealth).values(preExistingHealth);
     }
@@ -360,6 +375,40 @@ test('scraper lambda daily-batch branch: provider health after a degraded start 
     const row = await brightDataHealth();
     assert.strictEqual(row.consecutiveFailureDays, 0);
     assert.strictEqual(row.lastFailureReason, null);
+  });
+
+  await t.test('a provider whose triggers skipped targets as degraded is recorded as failing even when the start-of-batch read saw nothing', async () => {
+    // The database holds no failed runs, so the read made before the batch finds Bright Data healthy;
+    // only the triggers themselves report it degraded (as when that read fails). One probe goes
+    // through, the rest are skipped -- the tally alone would call that a success and reset the days.
+    let ourCalls = 0;
+    const ours = new Set<string>();
+    setAttemptBrightDataTrigger(async (target) => {
+      if (!target.username.startsWith('batch_health')) return { success: true };
+      ours.add(target.username);
+      ourCalls += 1;
+      return ourCalls === 1 ? { success: true } : { success: false, failureReason: 'PROVIDER_DEGRADED' };
+    });
+    setAttemptApifyAsyncTrigger(async () => ({ success: true }));
+
+    await runBatch();
+
+    assert.strictEqual(ours.size, 2, 'both of our targets were attempted on Bright Data');
+    const row = await brightDataHealth();
+    assert.strictEqual(row.consecutiveFailureDays, 1);
+    assert.strictEqual(row.lastFailureReason, 'PROVIDER_DEGRADED');
+  });
+
+  await t.test('a more specific failure reason is not relabelled as an outage (a closed DPA switch is not a vendor failure)', async () => {
+    await insertFailedBrightDataRuns(20);
+    setAttemptBrightDataTrigger(async () => ({ success: false, failureReason: 'DPA_NOT_CONFIRMED' }));
+    setAttemptApifyAsyncTrigger(async () => ({ success: true }));
+
+    await runBatch();
+
+    const row = await brightDataHealth();
+    assert.strictEqual(row.consecutiveFailureDays, 1);
+    assert.strictEqual(row.lastFailureReason, 'DPA_NOT_CONFIRMED');
   });
 
   await t.test('a provider that recovered (its newest run returned posts) is reset on the next batch', async () => {

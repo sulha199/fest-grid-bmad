@@ -1,6 +1,6 @@
 import { isProviderCapacityAvailable, recordProviderUsage } from './usage-store.js';
 import { getScrapeCursor } from './get-scrape-cursor.js';
-import { shouldSkipDegradedProvider } from './provider-run-health-store.js';
+import { gateDegradedProvider, releaseProviderProbe } from './provider-run-health-store.js';
 import { triggerBrightDataJob, mapBrightDataDateToStartDate } from './brightdata-client.js';
 import { createPendingJob } from './brightdata-pending-jobs-store.js';
 import { loadBackendEnv } from '../../env.js';
@@ -13,6 +13,8 @@ export let attemptBrightDataTrigger = async (
   target: { profileId: string; username: string },
   newerThan: string
 ): Promise<ScraperTriggerResult> => {
+  // True while this trigger holds one of a degraded provider's few probe slots (IDEA-095).
+  let isProbe = false;
   try {
     const hasCapacity = await isProviderCapacityAvailable('brightdata');
     if (!hasCapacity) {
@@ -22,10 +24,12 @@ export let attemptBrightDataTrigger = async (
 
     // IDEA-095: a provider whose recent runs returned nothing or failed is skipped (bar one probe) so
     // the next provider in the chain takes the target.
-    if (await shouldSkipDegradedProvider('BRIGHTDATA')) {
+    const gate = await gateDegradedProvider('BRIGHTDATA');
+    if (gate === 'skip') {
       console.log(`Bright Data is degraded; skipping ${target.username} in favour of another provider`);
       return { success: false, failureReason: 'PROVIDER_DEGRADED' };
     }
+    isProbe = gate === 'probe';
 
     const env = loadBackendEnv();
     const webhookToken = generateWebhookToken();
@@ -74,6 +78,11 @@ export let attemptBrightDataTrigger = async (
 
     return { success: true };
   } catch (error) {
+    // A probe that failed before the vendor produced a result tests nothing: give its slot back so
+    // the next target can probe instead.
+    if (isProbe) {
+      releaseProviderProbe('BRIGHTDATA');
+    }
     // Story 0.i2d (AC6) — a deliberate, self-imposed DPA-gate closure is not a real vendor
     // outage; map it to its own failure reason so the daily batch tally doesn't misreport it.
     if (error instanceof VendorDpaNotConfirmedError) {

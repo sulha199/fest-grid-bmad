@@ -59,3 +59,22 @@ test("a snapshot still in flight is inconclusive and classes as empty", () => {
     assert.equal(classifyBrightDataResult({ recordCount: 0, progress: { status } }), "empty");
   }
 });
+
+test("a status the classifier has never seen is inconclusive: only ready and failed are terminal", () => {
+  for (const status of ["starting", "collecting", "", "READY"]) {
+    assert.equal(classifyBrightDataResult({ recordCount: 0, progress: { status, errors: 0 } }), "empty");
+  }
+});
+
+test("progress that reports records the delivery did not carry is not a vendor failure (a truncated or unparseable body)", () => {
+  assert.equal(
+    classifyBrightDataResult({ recordCount: 0, progress: { status: "ready", records: 25, errors: 0, errorCodes: null } }),
+    "empty"
+  );
+});
+
+test("progress that reports zero records, or none, still decides on the dead_page signature", () => {
+  assert.equal(classifyBrightDataResult({ recordCount: 0, progress: { status: "ready", records: 0, errors: 0 } }), "vendor_failure");
+  assert.equal(classifyBrightDataResult({ recordCount: 0, progress: { status: "ready", records: null, errors: 0 } }), "vendor_failure");
+  assert.equal(classifyBrightDataResult({ recordCount: 0, progress: { status: "ready" } }), "vendor_failure");
+});

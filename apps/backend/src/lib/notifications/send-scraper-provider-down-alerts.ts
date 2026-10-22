@@ -17,7 +17,7 @@ export function describeFailureReason(reason: string | null | undefined): string
     return 'Every attempt returned a real trigger/API error (an actual vendor or credential problem, not a capacity limit).';
   }
   if (reason === 'PROVIDER_DEGRADED') {
-    return 'The provider accepted its scrapes but returned nothing, or its runs failed, across the whole fleet (its newest runs all came back empty or failed). Scraping was moved to the next provider and the provider is probed again every few hours until it returns posts. A vendor-side outage is the likely cause: check the vendor\'s status page and open a support ticket.';
+    return 'The provider\'s recent runs mostly failed or returned no posts across the fleet, so it is being treated as degraded: most scrapes go to the next provider (when there is one and it has capacity) and the provider is probed with a few triggers until one succeeds. A vendor-side outage is the likely cause; check the vendor\'s status page and the failed runs\' error messages before opening a support ticket.';
   }
   if (reason === 'DPA_NOT_CONFIRMED') {
     return 'Every attempt was blocked on purpose: the vendor scraping DPA switch (APIFY_SCRAPING_CONFIRMED / BRIGHTDATA_SCRAPING_CONFIRMED) is set to false. This is not a vendor outage -- set it back to true (or unset it) to resume scraping.';

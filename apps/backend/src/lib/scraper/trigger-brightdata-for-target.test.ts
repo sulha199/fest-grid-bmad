@@ -11,7 +11,7 @@ import {
 import { eq } from 'drizzle-orm';
 import { attemptBrightDataTrigger } from './trigger-brightdata-for-target.js';
 import { setTriggerBrightDataJob, type BrightDataTriggerInput } from './brightdata-client.js';
-import { resetProviderProbeClaimsForTests } from './provider-run-health-store.js';
+import { PROVIDER_PROBES_PER_INTERVAL, resetProviderProbeClaimsForTests } from './provider-run-health-store.js';
 
 // BUG-074: the Bright Data start date is derived from the newest stored post, never from the
 // finish time of an earlier run (the 2026-10-21 outage "succeeded" with zero items every day and
@@ -149,15 +149,49 @@ test('attemptBrightDataTrigger start date', async (t) => {
     );
   }
 
-  await t.test('a degraded provider is skipped with PROVIDER_DEGRADED, bar one probe', async () => {
+  await t.test('a degraded provider is skipped with PROVIDER_DEGRADED, bar its few probes', async () => {
     await insertFailedBrightDataRuns(20);
 
-    const probe = await attemptBrightDataTrigger(target(), '2026-10-13T00:00:00.000Z');
-    const skipped = await attemptBrightDataTrigger(target(), '2026-10-13T00:00:00.000Z');
+    const results = [];
+    for (let i = 0; i < PROVIDER_PROBES_PER_INTERVAL + 2; i += 1) {
+      results.push(await attemptBrightDataTrigger(target(), '2026-10-13T00:00:00.000Z'));
+    }
 
-    assert.deepStrictEqual(probe, { success: true }, 'the first trigger is the probe and goes through');
-    assert.deepStrictEqual(skipped, { success: false, failureReason: 'PROVIDER_DEGRADED' });
-    assert.strictEqual(triggerInputs.length, 1, 'nothing is sent to the vendor for the skipped target');
+    const probes = results.slice(0, PROVIDER_PROBES_PER_INTERVAL);
+    const skipped = results.slice(PROVIDER_PROBES_PER_INTERVAL);
+    assert.ok(probes.every((r) => r.success === true), 'the first triggers are the probes and go through');
+    assert.deepStrictEqual(skipped, [
+      { success: false, failureReason: 'PROVIDER_DEGRADED' },
+      { success: false, failureReason: 'PROVIDER_DEGRADED' },
+    ]);
+    assert.strictEqual(triggerInputs.length, PROVIDER_PROBES_PER_INTERVAL, 'nothing is sent to the vendor for a skipped target');
+  });
+
+  await t.test('a probe whose trigger fails gives its slot back, so a failing trigger cannot use up the probes', async () => {
+    await insertFailedBrightDataRuns(20);
+    setTriggerBrightDataJob(async () => {
+      throw new Error('Bright Data trigger failed');
+    });
+
+    const failures = [];
+    for (let i = 0; i < PROVIDER_PROBES_PER_INTERVAL + 2; i += 1) {
+      failures.push(await attemptBrightDataTrigger(target(), '2026-10-13T00:00:00.000Z'));
+    }
+    // Every failing probe released its slot, so none of these was skipped as degraded.
+    assert.ok(
+      failures.every((r) => r.success === false && r.failureReason === 'TRIGGER_ERROR'),
+      'each failed probe reports its own error and frees the slot'
+    );
+
+    setTriggerBrightDataJob(async (input) => {
+      triggerInputs.push(input);
+      return { snapshotId: `sd_trigger_test_after_${triggerInputs.length}_${Date.now()}` };
+    });
+    const afterwards = [];
+    for (let i = 0; i < PROVIDER_PROBES_PER_INTERVAL + 1; i += 1) {
+      afterwards.push(await attemptBrightDataTrigger(target(), '2026-10-13T00:00:00.000Z'));
+    }
+    assert.strictEqual(afterwards.filter((r) => r.success).length, PROVIDER_PROBES_PER_INTERVAL, 'the full number of probes is still available');
   });
 
   await t.test('a healthy provider is never skipped', async () => {

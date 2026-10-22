@@ -22,6 +22,7 @@ test('stale-job-sweep: Bright Data jobs', async (t) => {
 
   let profileId: string;
   let progress: BrightDataProgressResponse;
+  let progressCalls: number;
   let snapshotItems: unknown[];
   let sqsBodies: string[];
 
@@ -30,7 +31,10 @@ test('stale-job-sweep: Bright Data jobs', async (t) => {
     setSendSqsMessage(async (_queueUrl, body) => {
       sqsBodies.push(body);
     });
-    setGetBrightDataProgress(async () => progress);
+    setGetBrightDataProgress(async () => {
+      progressCalls += 1;
+      return progress;
+    });
     setGetBrightDataSnapshot(async () => snapshotItems);
 
     const [profile] = await db
@@ -46,6 +50,7 @@ test('stale-job-sweep: Bright Data jobs', async (t) => {
   });
 
   t.beforeEach(() => {
+    progressCalls = 0;
     sqsBodies = [];
     snapshotItems = [];
   });
@@ -141,6 +146,7 @@ test('stale-job-sweep: Bright Data jobs', async (t) => {
     assert.strictEqual(lastScrapedAt, null);
     assert.strictEqual(sqsBodies.length, 1);
     assert.strictEqual(JSON.parse(sqsBodies[0]).profileId, profileId);
+    assert.strictEqual(progressCalls, 1, 'the verdict is made on the report that said the snapshot was ready, not on a second lookup');
   });
 
   await t.test('a failed snapshot keeps its existing handling: FAILED, expired, re-queued', async () => {

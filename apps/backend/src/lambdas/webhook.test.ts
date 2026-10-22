@@ -190,6 +190,17 @@ test('Bright Data webhook: result classification (BUG-074)', async (t) => {
     assert.strictEqual(run.itemCount, 0);
   });
 
+  await t.test('records the vendor says it delivered but that never arrived are not a vendor failure (an unreadable body)', async () => {
+    progressResult = { status: 'ready', records: 25, errors: 0 };
+
+    const { run, job, response } = await deliver(JSON.stringify({ unexpected: 'envelope' }));
+
+    assert.strictEqual(response.statusCode, 200);
+    assert.strictEqual(run.status, 'SUCCEEDED', 'the vendor delivered; the loss is not the vendor failing, so no FAILED run');
+    assert.strictEqual(job.status, 'COMPLETED');
+    assert.deepStrictEqual(sqsMessages, [], 'no fallback scrape for a vendor that did not fail');
+  });
+
   await t.test('an unreadable progress report is inconclusive: kept as an empty success, never an outage', async () => {
     progressResult = new Error('progress endpoint down');
 

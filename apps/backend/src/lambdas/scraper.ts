@@ -18,6 +18,7 @@ import {
 } from '../lib/scraper/record-scraper-batch-run.js';
 import {
   applyProviderDegradation,
+  countProviderDegradedSkips,
   tallyScraperProviderResults,
   type ScraperProviderTally,
   type ScraperTargetProviderMarker,
@@ -40,10 +41,10 @@ function logProviderTransition(provider: string, previous: ProviderHealthCheckPr
   const failingNow = tally.attempted > 0 && tally.succeeded === 0;
   if (failingNow && tally.failureReason === 'PROVIDER_DEGRADED' && previous.consecutiveFailureDays === 0) {
     console.error(
-      `[Provider failover] ${provider} is degraded: its newest runs returned nothing or failed. New scrapes go to the next provider; ${provider} gets one probe every few hours until a run returns posts.`
+      `[Provider failover] ${provider} is degraded: its recent runs mostly failed or returned no posts. While it is, only a few probe triggers go to it per interval and the rest go to the next provider; a probe the vendor answers brings it back.`
     );
   } else if (!failingNow && previous.consecutiveFailureDays > 0 && previous.lastFailureReason === 'PROVIDER_DEGRADED') {
-    console.warn(`[Provider failover] ${provider} has recovered: its newest run returned posts, so it is back in the chain.`);
+    console.warn(`[Provider failover] ${provider} has recovered: its newest run was a good result, so it is back in the chain.`);
   }
 }
 
@@ -177,11 +178,13 @@ export const handler = async (
       // no change to the fallback control flow above.
       const fulfilledResults = results.filter((r) => r.status === 'fulfilled').map((r) => r.value);
 
-      // A provider that was degraded at the start has had a failure day whatever its triggers did:
-      // the one probe it was sent can only be judged by its result, which arrives after this batch.
+      // A provider that was degraded during the batch (at its start, or skipped by any target) has had
+      // a failure day whatever its triggers did: the probes it was sent can only be judged by their
+      // results, which arrive after this batch.
+      const brightDataMarkers = fulfilledResults.map((r) => r.brightData);
       const brightDataTally = applyProviderDegradation(
-        tallyScraperProviderResults(fulfilledResults.map((r) => r.brightData)),
-        degradedProviders.has('BRIGHTDATA')
+        tallyScraperProviderResults(brightDataMarkers),
+        degradedProviders.has('BRIGHTDATA') || countProviderDegradedSkips(brightDataMarkers) > 0
       );
       if (brightDataTally.attempted > 0) {
         try {
@@ -192,9 +195,10 @@ export const handler = async (
         }
       }
 
+      const apifyMarkers = fulfilledResults.map((r) => r.apify);
       const apifyTally = applyProviderDegradation(
-        tallyScraperProviderResults(fulfilledResults.map((r) => r.apify)),
-        degradedProviders.has('APIFY')
+        tallyScraperProviderResults(apifyMarkers),
+        degradedProviders.has('APIFY') || countProviderDegradedSkips(apifyMarkers) > 0
       );
       if (apifyTally.attempted > 0) {
         try {

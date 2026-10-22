@@ -121,6 +121,26 @@ test('sendScraperProviderDownAlerts tests', async (t) => {
     assert.ok(row.lastAlertSentAt, 'lastAlertSentAt should be stamped after a successful send');
   });
 
+  await t.test('a provider degraded by the result-level health check is alerted with its own explanation (BUG-074)', async () => {
+    await seedHealthRow(2, null, 'PROVIDER_DEGRADED');
+
+    const calls: any[] = [];
+    const mockSendTemplatedEmail = async (templateKey: string, to: string, variables: any) => {
+      calls.push({ templateKey, to, variables });
+      return 'mock-msg-id';
+    };
+
+    await sendScraperProviderDownAlerts({ sendTemplatedEmail: mockSendTemplatedEmail as any });
+
+    const providerCalls = calls.filter((c) => c.variables?.provider === provider);
+    assert.ok(providerCalls.length >= 2, 'the two test moderators are alerted');
+    providerCalls.forEach((c) => {
+      assert.strictEqual(c.variables.consecutiveFailureDays, 2, 'two failure days reach the default alert threshold');
+      assert.match(c.variables.failureReasonSummary, /treated as degraded/);
+      assert.match(c.variables.failureReasonSummary, /next provider/);
+    });
+  });
+
   await t.test('a send failure for one moderator does not prevent others from being alerted', async () => {
     await seedHealthRow(5);
 
@@ -218,8 +238,9 @@ test('describeFailureReason gives each stored reason its own sentence (Story 0.i
 
   assert.match(dpa, /APIFY_SCRAPING_CONFIRMED/);
   assert.match(dpa, /not a vendor outage/i);
-  assert.match(degraded, /returned nothing/);
+  assert.match(degraded, /no posts/);
   assert.match(degraded, /next provider/);
+  assert.doesNotMatch(degraded, /all came back empty/, 'the wording must not overstate: the trigger is a share of failed runs, not all of them');
   assert.strictEqual(new Set([capacity, trigger, dpa, degraded, fallback]).size, 5, 'every reason, and the null fallback, reads differently');
   assert.strictEqual(describeFailureReason('SOMETHING_NEW'), fallback, 'unknown reasons keep the generic fallback');
 });

@@ -1,6 +1,6 @@
 import { callApifyClient } from './instagram-adapter.js';
 import { getScrapeCursor } from './get-scrape-cursor.js';
-import { shouldSkipDegradedProvider } from './provider-run-health-store.js';
+import { gateDegradedProvider, releaseProviderProbe } from './provider-run-health-store.js';
 import { createPendingJob } from './apify-pending-jobs-store.js';
 import { recordProviderUsage, isProviderCapacityAvailable } from './usage-store.js';
 import { loadBackendEnv } from '../../env.js';
@@ -30,10 +30,12 @@ export let attemptApifyAsyncTrigger = async (
 
   // IDEA-095: a provider whose recent runs returned nothing or failed is skipped (bar one probe) so
   // the next provider in the chain takes the target.
-  if (await shouldSkipDegradedProvider('APIFY')) {
+  const gate = await gateDegradedProvider('APIFY');
+  if (gate === 'skip') {
     console.log(`Apify is degraded; skipping ${target.username} in favour of another provider`);
     return { success: false, failureReason: 'PROVIDER_DEGRADED' };
   }
+  const isProbe = gate === 'probe';
 
   try {
     // Generate token BEFORE making the trigger call
@@ -100,6 +102,11 @@ export let attemptApifyAsyncTrigger = async (
 
     return { success: true };
   } catch (error) {
+    // A probe that failed before the vendor produced a result tests nothing: give its slot back so
+    // the next target can probe instead.
+    if (isProbe) {
+      releaseProviderProbe('APIFY');
+    }
     // Story 0.i2d (AC6) — a deliberate, self-imposed DPA-gate closure is not a real vendor
     // outage; map it to its own failure reason so the daily batch tally doesn't misreport it.
     if (error instanceof VendorDpaNotConfirmedError) {

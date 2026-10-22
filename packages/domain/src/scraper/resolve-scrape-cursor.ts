@@ -17,16 +17,22 @@ export const BRIGHT_DATA_CURSOR_MARGIN_MS = 24 * 60 * 60 * 1000;
  *
  * - the profile has stored posts: the newest `publishedAt` (Bright Data: minus a one-day margin);
  * - it has none: `fallbackNewerThan`, the caller's initial-lookback window, unchanged.
+ *
+ * A stored `publishedAt` later than `now` (a parse or time-zone slip on one row) is treated as `now`:
+ * left alone it would push the cursor into the future and the vendor would return nothing for the
+ * profile until that day arrived.
  */
 export function resolveScrapeCursor(input: {
   vendor: ScrapeCursorVendor;
   newestPostPublishedAt: Date | null | undefined;
   fallbackNewerThan: string;
+  now?: Date;
 }): string {
-  const { vendor, newestPostPublishedAt, fallbackNewerThan } = input;
+  const { vendor, newestPostPublishedAt, fallbackNewerThan, now = new Date() } = input;
   if (!newestPostPublishedAt) {
     return fallbackNewerThan;
   }
   const margin = vendor === 'BRIGHTDATA' ? BRIGHT_DATA_CURSOR_MARGIN_MS : 0;
-  return new Date(newestPostPublishedAt.getTime() - margin).toISOString();
+  const newest = Math.min(newestPostPublishedAt.getTime(), now.getTime());
+  return new Date(newest - margin).toISOString();
 }

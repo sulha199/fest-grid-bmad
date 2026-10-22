@@ -34,6 +34,12 @@ export interface ProviderRunHealthOptions {
   minRuns: number;
   /** Share of the sample (0 to 1) that must have failed to call the provider failing. */
   failedShare: number;
+  /**
+   * Runs finished longer ago than this say nothing about the provider now and are left out. It keeps a
+   * rarely used fallback provider from being judged on weeks-old quiet runs, and lets a flag with no
+   * fresh evidence behind it expire instead of sticking.
+   */
+  maxAgeHours: number;
 }
 
 /**
@@ -45,6 +51,7 @@ export const DEFAULT_PROVIDER_RUN_HEALTH_OPTIONS: ProviderRunHealthOptions = {
   sampleSize: 20,
   minRuns: 10,
   failedShare: 0.8,
+  maxAgeHours: 72,
 };
 
 /**
@@ -66,20 +73,27 @@ export interface ProviderRunHealth {
 
 /**
  * Whether a provider is currently failing, judged from its newest finished runs across all profiles
- * (IDEA-095, BUG-074 section 5). Unfinished runs are ignored.
+ * (IDEA-095, BUG-074 section 5). Unfinished runs, and runs older than `maxAgeHours`, are ignored.
  *
- * The newest finished run decides first: one that returned posts proves the vendor is alive and clears
- * the flag at once. That is the way back, because a degraded provider is only ever sent a probe (see the
- * backend's `provider-run-health-store`), and the probe's own result must be able to reopen it.
+ * The newest finished run decides first, because a degraded provider is only ever sent a few probes (see
+ * the backend's `provider-run-health-store`) and a probe's own result must be able to reopen it:
+ * - a run that returned posts clears any degradation;
+ * - a run the vendor did not fail (a success that found nothing new) clears a `VENDOR_FAILURE`: the
+ *   vendor is answering, and a probe is as likely to land on a quiet account as on a busy one;
+ * - only a run with posts clears `ALL_EMPTY`, since an empty run is exactly what that state is made of.
  */
 export function evaluateProviderRunHealth(
   runs: ProviderRunSample[],
-  options: ProviderRunHealthOptions = DEFAULT_PROVIDER_RUN_HEALTH_OPTIONS
+  options: ProviderRunHealthOptions = DEFAULT_PROVIDER_RUN_HEALTH_OPTIONS,
+  now: Date = new Date()
 ): ProviderRunHealth {
+  const oldestCounted = now.getTime() - options.maxAgeHours * 60 * 60 * 1000;
   const finished = runs
     .flatMap((run) => {
       const outcome = classifyProviderRun(run);
-      return outcome === null || run.completedAt === null ? [] : [{ outcome, completedAt: run.completedAt }];
+      return outcome === null || run.completedAt === null || run.completedAt.getTime() < oldestCounted
+        ? []
+        : [{ outcome, completedAt: run.completedAt }];
     })
     .sort((a, b) => b.completedAt.getTime() - a.completedAt.getTime())
     .slice(0, options.sampleSize);
@@ -89,15 +103,16 @@ export function evaluateProviderRunHealth(
   const empty = count('empty');
   const failed = count('failed');
   const summary = { sampled: finished.length, ok, empty, failed };
+  const healthy = { degraded: false, reason: null, ...summary };
 
   if (finished.length === 0 || finished.length < options.minRuns || finished[0].outcome === 'ok') {
-    return { degraded: false, reason: null, ...summary };
+    return healthy;
   }
   if (failed / finished.length >= options.failedShare) {
-    return { degraded: true, reason: 'VENDOR_FAILURE', ...summary };
+    return finished[0].outcome === 'empty' ? healthy : { degraded: true, reason: 'VENDOR_FAILURE', ...summary };
   }
   if (ok === 0) {
     return { degraded: true, reason: 'ALL_EMPTY', ...summary };
   }
-  return { degraded: false, reason: null, ...summary };
+  return healthy;
 }

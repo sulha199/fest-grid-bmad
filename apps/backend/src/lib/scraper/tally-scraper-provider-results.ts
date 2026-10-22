@@ -70,20 +70,37 @@ export function tallyScraperProviderResults(
 }
 
 /**
- * A provider that was degraded when the batch started has had a full failure day, whatever its
- * triggers did (BUG-074, IDEA-095). A degraded provider is only sent a single probe, and a probe whose
- * trigger "succeeded" proves nothing about the results: they arrive after the batch, and decide
- * tomorrow's state. Without this, that one successful trigger would reset the provider's consecutive
- * failure days every day and the existing provider-down alert could never fire.
- *
- * A provider the batch never attempted stays unrecorded.
+ * How many targets skipped this provider because it was degraded (a `PROVIDER_DEGRADED` marker each).
+ * Evidence from the triggers themselves that the provider was degraded during the batch, independent
+ * of the one read made before it started.
  */
-export function applyProviderDegradation(
-  tally: ScraperProviderTally,
-  degradedAtBatchStart: boolean
-): ScraperProviderTally {
-  if (!degradedAtBatchStart || tally.attempted === 0) {
+export function countProviderDegradedSkips(markers: (ScraperTargetProviderMarker | undefined)[]): number {
+  return markers.filter((marker) => marker?.attempted && !marker.succeeded && marker.failureReason === 'PROVIDER_DEGRADED').length;
+}
+
+/**
+ * A provider that was degraded during the batch has had a full failure day, whatever its triggers did
+ * (BUG-074, IDEA-095). A degraded provider is only sent a few probes, and a probe whose trigger
+ * "succeeded" proves nothing about the results: they arrive after the batch, and decide tomorrow's
+ * state. Without this, those successful triggers would reset the provider's consecutive failure days
+ * every day and the existing provider-down alert could never fire.
+ *
+ * `degraded` is true when the provider was degraded at the batch start OR any target skipped it as
+ * degraded (see `countProviderDegradedSkips`). The second source covers a start-of-batch read that
+ * failed. A provider the batch never attempted stays unrecorded.
+ *
+ * A failure reason that names something other than the outage keeps priority: a team-controlled flag
+ * (`DPA_NOT_CONFIRMED`) or a real trigger error must not be relabelled as a vendor outage, since the
+ * alert tells the operator what to do about the reason it is given.
+ */
+export function applyProviderDegradation(tally: ScraperProviderTally, degraded: boolean): ScraperProviderTally {
+  if (!degraded || tally.attempted === 0) {
     return tally;
   }
-  return { attempted: tally.attempted, succeeded: 0, failureReason: 'PROVIDER_DEGRADED' };
+  const keepsOwnReason = tally.failureReason === 'DPA_NOT_CONFIRMED' || tally.failureReason === 'TRIGGER_ERROR';
+  return {
+    attempted: tally.attempted,
+    succeeded: 0,
+    failureReason: keepsOwnReason ? tally.failureReason : 'PROVIDER_DEGRADED',
+  };
 }

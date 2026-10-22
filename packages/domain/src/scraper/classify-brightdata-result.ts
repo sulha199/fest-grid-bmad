@@ -16,8 +16,6 @@ export interface BrightDataProgressSnapshot {
   errorMessage?: string | null;
 }
 
-const IN_FLIGHT_STATUSES = new Set(['scheduled', 'building', 'running']);
-
 /**
  * Classifies a finished Bright Data snapshot from the number of records it delivered and, when it
  * delivered none, from its progress report.
@@ -31,10 +29,14 @@ const IN_FLIGHT_STATUSES = new Set(['scheduled', 'building', 'running']);
  * | 0       | `error_codes.dead_page` present            | `empty`          |
  * | 0       | `status: failed`, or no `dead_page` error  | `vendor_failure` |
  *
- * Two inputs are deliberately inconclusive and class as `empty`, which is how every zero-record run
- * was treated before this classifier existed: the progress lookup failed (`progress` is null), or the
- * snapshot is still in flight. Declaring a vendor failure on no evidence would mark healthy runs
- * `FAILED` and send their accounts down the fallback path.
+ * Inputs that cannot support a verdict class as `empty`, which is how every zero-record run was
+ * treated before this classifier existed, instead of declaring a vendor failure on no evidence
+ * (that would mark healthy runs `FAILED` and send their accounts down the fallback path):
+ * - the progress lookup failed (`progress` is null);
+ * - the snapshot is not in a terminal state (`ready` or `failed`): `scheduled`, `building`,
+ *   `running`, or a status this code has never seen;
+ * - progress reports records the delivery did not carry (a truncated or unparseable body). The vendor
+ *   did deliver; the loss is ours, and it is not the vendor failing.
  */
 export function classifyBrightDataResult(input: {
   recordCount: number;
@@ -51,7 +53,10 @@ export function classifyBrightDataResult(input: {
   if (progress.status === 'failed') {
     return 'vendor_failure';
   }
-  if (IN_FLIGHT_STATUSES.has(progress.status)) {
+  if (progress.status !== 'ready') {
+    return 'empty';
+  }
+  if ((progress.records ?? 0) > 0) {
     return 'empty';
   }
   if ((progress.errorCodes?.dead_page ?? 0) > 0) {

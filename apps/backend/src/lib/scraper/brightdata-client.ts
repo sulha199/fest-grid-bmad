@@ -131,6 +131,16 @@ async function _triggerBrightDataJob(
   });
 }
 
+// `error_codes` is a map of error code to count (`{"dead_page":1}`). Anything else -- an array, a
+// string, a map with non-numeric values -- is not that, and is left out rather than read as one.
+function parseErrorCodes(value: unknown): Record<string, number> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+  const entries = Object.entries(value).filter(([, count]) => typeof count === 'number');
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
 async function _getBrightDataProgress(
   snapshotId: string
 ): Promise<BrightDataProgressResponse> {
@@ -175,7 +185,7 @@ async function _getBrightDataProgress(
         status: (data.status || 'scheduled') as BrightDataProgressResponse['status'],
         ...(typeof data.records === 'number' && { records: data.records }),
         ...(typeof data.errors === 'number' && { errors: data.errors }),
-        ...(data.error_codes && typeof data.error_codes === 'object' && { errorCodes: data.error_codes }),
+        ...(parseErrorCodes(data.error_codes) && { errorCodes: parseErrorCodes(data.error_codes) }),
         ...(typeof data.error_message === 'string' && { errorMessage: data.error_message }),
       };
     },

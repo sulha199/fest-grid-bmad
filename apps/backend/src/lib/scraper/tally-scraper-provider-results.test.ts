@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { applyProviderDegradation, tallyScraperProviderResults } from './tally-scraper-provider-results.js';
+import { applyProviderDegradation, countProviderDegradedSkips, tallyScraperProviderResults } from './tally-scraper-provider-results.js';
 
 test('tallyScraperProviderResults', async (t) => {
   await t.test('all succeeded: tallies attempts and successes, no failureReason', () => {
@@ -110,6 +110,28 @@ test('applyProviderDegradation', async (t) => {
     });
   });
 
+  await t.test('a more specific failure reason keeps priority: a flag the team controls or a real error is not an outage', () => {
+    assert.deepStrictEqual(
+      applyProviderDegradation({ attempted: 38, succeeded: 0, failureReason: 'DPA_NOT_CONFIRMED' }, true),
+      { attempted: 38, succeeded: 0, failureReason: 'DPA_NOT_CONFIRMED' }
+    );
+    assert.deepStrictEqual(
+      applyProviderDegradation({ attempted: 38, succeeded: 0, failureReason: 'TRIGGER_ERROR' }, true),
+      { attempted: 38, succeeded: 0, failureReason: 'TRIGGER_ERROR' }
+    );
+  });
+
+  await t.test('capacity exhaustion and plain skips are relabelled: the provider being degraded is the actionable fact', () => {
+    assert.deepStrictEqual(
+      applyProviderDegradation({ attempted: 38, succeeded: 0, failureReason: 'CAPACITY_EXHAUSTED' }, true),
+      { attempted: 38, succeeded: 0, failureReason: 'PROVIDER_DEGRADED' }
+    );
+    assert.deepStrictEqual(
+      applyProviderDegradation({ attempted: 38, succeeded: 0, failureReason: 'PROVIDER_DEGRADED' }, true),
+      { attempted: 38, succeeded: 0, failureReason: 'PROVIDER_DEGRADED' }
+    );
+  });
+
   await t.test('a healthy provider keeps its tally untouched', () => {
     const tally = { attempted: 38, succeeded: 36, failureReason: undefined };
     assert.strictEqual(applyProviderDegradation(tally, false), tally);
@@ -118,5 +140,25 @@ test('applyProviderDegradation', async (t) => {
   await t.test('a degraded provider the batch never attempted stays unrecorded', () => {
     const tally = { attempted: 0, succeeded: 0 };
     assert.strictEqual(applyProviderDegradation(tally, true), tally);
+  });
+});
+
+test('countProviderDegradedSkips', async (t) => {
+  await t.test('counts the targets that skipped the provider as degraded, and only those', () => {
+    const count = countProviderDegradedSkips([
+      { attempted: true, succeeded: true },
+      { attempted: true, succeeded: false, failureReason: 'PROVIDER_DEGRADED' },
+      { attempted: true, succeeded: false, failureReason: 'PROVIDER_DEGRADED' },
+      { attempted: true, succeeded: false, failureReason: 'TRIGGER_ERROR' },
+      { attempted: true, succeeded: false, failureReason: 'CAPACITY_EXHAUSTED' },
+      { attempted: false },
+      undefined,
+    ]);
+    assert.strictEqual(count, 2);
+  });
+
+  await t.test('is zero when nothing was skipped, or there are no markers', () => {
+    assert.strictEqual(countProviderDegradedSkips([{ attempted: true, succeeded: true }]), 0);
+    assert.strictEqual(countProviderDegradedSkips([]), 0);
   });
 });

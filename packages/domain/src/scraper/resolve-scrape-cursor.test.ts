@@ -32,3 +32,24 @@ test("the cursor depends only on the stored posts: the same inputs always give t
   const second = resolveScrapeCursor({ vendor: "BRIGHTDATA", newestPostPublishedAt: newest, fallbackNewerThan: "2020-01-01T00:00:00.000Z" });
   assert.equal(first, second);
 });
+
+test("a stored post dated in the future is treated as published now, so it cannot push the cursor ahead", () => {
+  const now = new Date("2026-10-22T12:00:00.000Z");
+  const future = new Date("2026-11-30T00:00:00.000Z");
+  assert.equal(
+    resolveScrapeCursor({ vendor: "APIFY", newestPostPublishedAt: future, fallbackNewerThan: fallback, now }),
+    "2026-10-22T12:00:00.000Z"
+  );
+  assert.equal(
+    resolveScrapeCursor({ vendor: "BRIGHTDATA", newestPostPublishedAt: future, fallbackNewerThan: fallback, now }),
+    "2026-10-21T12:00:00.000Z"
+  );
+});
+
+test("a post published before now is used as it is", () => {
+  const now = new Date("2026-10-22T12:00:00.000Z");
+  assert.equal(
+    resolveScrapeCursor({ vendor: "APIFY", newestPostPublishedAt: newest, fallbackNewerThan: fallback, now }),
+    "2026-10-20T15:30:00.000Z"
+  );
+});

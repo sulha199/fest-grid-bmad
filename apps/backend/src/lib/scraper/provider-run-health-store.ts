@@ -17,7 +17,7 @@ export type ScraperVendor = 'APIFY' | 'BRIGHTDATA';
 /** How long a degraded provider is left alone before one more trigger is let through to test it. */
 export const PROVIDER_PROBE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
-export async function getProviderRunHealth(vendor: ScraperVendor): Promise<ProviderRunHealth> {
+export async function getProviderRunHealth(vendor: ScraperVendor, now: Date = new Date()): Promise<ProviderRunHealth> {
   const runs = await db
     .select({
       status: scraperActorRuns.status,
@@ -35,7 +35,7 @@ export async function getProviderRunHealth(vendor: ScraperVendor): Promise<Provi
     .orderBy(desc(scraperActorRuns.completedAt))
     .limit(DEFAULT_PROVIDER_RUN_HEALTH_OPTIONS.sampleSize);
 
-  return evaluateProviderRunHealth(runs);
+  return evaluateProviderRunHealth(runs, DEFAULT_PROVIDER_RUN_HEALTH_OPTIONS, now);
 }
 
 /**
@@ -57,50 +57,74 @@ export async function getDegradedProviders(): Promise<Set<ScraperVendor>> {
   return degraded;
 }
 
-// The way back from a degraded state is a probe: while a provider is degraded exactly one trigger per
-// PROVIDER_PROBE_INTERVAL_MS gets through to it, the rest go to the next provider. The probe's own
-// result then decides: a run that returns posts becomes the newest finished run and clears the flag
-// (evaluateProviderRunHealth). The claim is per process -- a daily batch is one invocation, and an
-// extra probe from another Lambda instance costs one small scrape.
-const probeClaimedAt = new Map<ScraperVendor, number>();
+// The way back from a degraded state is a probe: while a provider is degraded only a few triggers per
+// PROVIDER_PROBE_INTERVAL_MS get through to it, the rest go to the next provider. A probe's own result
+// then decides (evaluateProviderRunHealth): it becomes the newest finished run and, if the vendor
+// answered, clears the flag. Several probes, not one, because a single probe can land on an account with
+// nothing new, which proves nothing about a provider that was degraded for returning no posts.
+//
+// The state is per process, on purpose and with its limit: a daily batch is one invocation, so it gets
+// exactly its probes; another warm or cold Lambda instance can send a few more, each a small scrape.
+// A probe whose trigger never reached the vendor gives its slot back (releaseProviderProbe), so a
+// misconfigured or failing trigger cannot use up the interval and leave nothing to test with.
+export const PROVIDER_PROBES_PER_INTERVAL = 3;
+
+const probeWindows = new Map<ScraperVendor, { since: number; used: number }>();
 
 function claimProviderProbe(vendor: ScraperVendor, now: number): boolean {
-  const last = probeClaimedAt.get(vendor);
-  if (last !== undefined && now - last < PROVIDER_PROBE_INTERVAL_MS) {
-    return false;
+  const window = probeWindows.get(vendor);
+  if (!window || now - window.since >= PROVIDER_PROBE_INTERVAL_MS) {
+    probeWindows.set(vendor, { since: now, used: 1 });
+    return true;
   }
-  probeClaimedAt.set(vendor, now);
-  return true;
+  if (window.used < PROVIDER_PROBES_PER_INTERVAL) {
+    window.used += 1;
+    return true;
+  }
+  return false;
 }
 
-/** Test seam: forget which providers already sent their probe. */
+/** Gives back the probe slot of a trigger that failed before the vendor could produce a result. */
+export function releaseProviderProbe(vendor: ScraperVendor): void {
+  const window = probeWindows.get(vendor);
+  if (window && window.used > 0) {
+    window.used -= 1;
+  }
+}
+
+/** Test seam: forget which providers already sent their probes. */
 export function resetProviderProbeClaimsForTests(): void {
-  probeClaimedAt.clear();
+  probeWindows.clear();
 }
 
 /**
- * Whether a trigger for `vendor` should be skipped in favour of the next provider (IDEA-095): true
- * while the provider is degraded, except for the one probe per interval. Fails open -- an unreadable
- * health lookup never blocks a scrape.
+ * What a trigger should do about a provider's health (IDEA-095):
+ * - `proceed`: the provider is healthy, or its health could not be read (fails open: an unreadable
+ *   lookup never blocks a scrape);
+ * - `probe`: the provider is degraded and this trigger is one of its few probes. If it fails before
+ *   reaching the vendor the caller must `releaseProviderProbe`;
+ * - `skip`: the provider is degraded and its probes are used up: take the next provider.
  */
-export async function shouldSkipDegradedProvider(vendor: ScraperVendor, now: number = Date.now()): Promise<boolean> {
+export type DegradedProviderGate = 'proceed' | 'probe' | 'skip';
+
+export async function gateDegradedProvider(vendor: ScraperVendor, now: number = Date.now()): Promise<DegradedProviderGate> {
   let health: ProviderRunHealth;
   try {
-    health = await getProviderRunHealth(vendor);
+    health = await getProviderRunHealth(vendor, new Date(now));
   } catch (error) {
     console.error(`[Provider failover] Could not read run health for ${vendor}; not skipping it:`, error);
-    return false;
+    return 'proceed';
   }
 
   if (!health.degraded) {
-    return false;
+    return 'proceed';
   }
 
   if (claimProviderProbe(vendor, now)) {
     console.warn(
-      `[Provider failover] ${vendor} is degraded (${health.reason}: ${health.failed} failed, ${health.empty} empty, ${health.ok} with posts of its last ${health.sampled} runs); sending one probe, the rest go to the next provider.`
+      `[Provider failover] ${vendor} is degraded (${health.reason}: ${health.failed} failed, ${health.empty} empty, ${health.ok} with posts of its last ${health.sampled} runs); this trigger is one of its probes, the rest go to the next provider.`
     );
-    return false;
+    return 'probe';
   }
-  return true;
+  return 'skip';
 }

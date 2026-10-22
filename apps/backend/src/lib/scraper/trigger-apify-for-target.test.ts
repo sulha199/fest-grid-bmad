@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm';
 import { attemptApifyAsyncTrigger, setAttemptApifyAsyncTrigger } from './trigger-apify-for-target.js';
 import { ScraperCapacityExceededError } from '@festgrid/domain';
 import { clearApifyProviderUsage, APIFY_TEST_PROVIDER } from './usage-store-test-helpers.js';
-import { resetProviderProbeClaimsForTests } from './provider-run-health-store.js';
+import { PROVIDER_PROBES_PER_INTERVAL, resetProviderProbeClaimsForTests } from './provider-run-health-store.js';
 
 test('trigger-apify-for-target tests', async (t) => {
   let testProfileId: string;
@@ -253,44 +253,73 @@ test('trigger-apify-for-target tests', async (t) => {
     }
   });
 
-  // IDEA-095: a provider whose recent runs all failed or came back empty is skipped, bar one probe.
-  await t.test('a degraded provider is skipped with PROVIDER_DEGRADED, bar one probe', async () => {
+  // IDEA-095: a provider whose recent runs all failed or came back empty is skipped, bar a few probes.
+  async function insertFailedApifyRuns(count: number) {
+    const now = Date.now();
+    await db.insert(scraperActorRuns).values(
+      Array.from({ length: count }, (_, index) => ({
+        vendor: 'APIFY' as const,
+        triggerMode: 'ASYNC' as const,
+        profileId: testProfileId,
+        runId: `apify-degraded-test-${index}-${now}`,
+        rawInput: {},
+        status: 'FAILED' as const,
+        itemCount: 0,
+        completedAt: new Date(now - index * 1000),
+      }))
+    );
+  }
+
+  await t.test('a degraded provider is skipped with PROVIDER_DEGRADED, bar its few probes; a failed probe gives its slot back', async () => {
     setAttemptApifyAsyncTrigger(originalAttemptApifyAsyncTrigger);
     resetProviderProbeClaimsForTests();
 
     const adapter = await import('./instagram-adapter.js');
     const savedGetApifyClient = adapter.getApifyClient;
     let startCalls = 0;
+    let failStarts = false;
     adapter.setGetApifyClient((() => ({
       actor: () => ({
         start: async () => {
+          if (failStarts) throw new Error('Apify start failed');
           startCalls += 1;
           return { id: 'run-degraded-' + startCalls + '-' + Date.now() };
         },
       }),
     })) as unknown as typeof savedGetApifyClient);
 
+    const trigger = () =>
+      attemptApifyAsyncTrigger({ profileId: testProfileId, username: 'test_user' }, '2026-10-13T00:00:00.000Z');
+
     try {
-      const now = Date.now();
-      await db.insert(scraperActorRuns).values(
-        Array.from({ length: 20 }, (_, index) => ({
-          vendor: 'APIFY' as const,
-          triggerMode: 'ASYNC' as const,
-          profileId: testProfileId,
-          runId: `apify-degraded-test-${index}-${now}`,
-          rawInput: {},
-          status: 'FAILED' as const,
-          itemCount: 0,
-          completedAt: new Date(now - index * 1000),
-        }))
+      await insertFailedApifyRuns(20);
+
+      const results = [];
+      for (let i = 0; i < PROVIDER_PROBES_PER_INTERVAL + 2; i += 1) {
+        results.push(await trigger());
+      }
+      assert.ok(
+        results.slice(0, PROVIDER_PROBES_PER_INTERVAL).every((r) => r.success === true),
+        'the first triggers are the probes and go through'
       );
+      assert.deepStrictEqual(results.slice(PROVIDER_PROBES_PER_INTERVAL), [
+        { success: false, failureReason: 'PROVIDER_DEGRADED' },
+        { success: false, failureReason: 'PROVIDER_DEGRADED' },
+      ]);
+      assert.strictEqual(startCalls, PROVIDER_PROBES_PER_INTERVAL, 'nothing is sent to the vendor for a skipped target');
 
-      const probe = await attemptApifyAsyncTrigger({ profileId: testProfileId, username: 'test_user' }, '2026-10-13T00:00:00.000Z');
-      const skipped = await attemptApifyAsyncTrigger({ profileId: testProfileId, username: 'test_user' }, '2026-10-13T00:00:00.000Z');
-
-      assert.deepStrictEqual(probe, { success: true }, 'the first trigger is the probe and goes through');
-      assert.deepStrictEqual(skipped, { success: false, failureReason: 'PROVIDER_DEGRADED' });
-      assert.strictEqual(startCalls, 1, 'nothing is sent to the vendor for the skipped target');
+      // A probe whose start fails frees its slot: with all slots used, nothing could probe, so a
+      // fresh interval is needed to show the release.
+      resetProviderProbeClaimsForTests();
+      failStarts = true;
+      const failures = [];
+      for (let i = 0; i < PROVIDER_PROBES_PER_INTERVAL + 2; i += 1) {
+        failures.push(await trigger());
+      }
+      assert.ok(
+        failures.every((r) => r.success === false && r.failureReason === 'TRIGGER_ERROR'),
+        'each failed probe reports its own error and frees the slot, so none is skipped as degraded'
+      );
     } finally {
       adapter.setGetApifyClient(savedGetApifyClient);
       resetProviderProbeClaimsForTests();
