@@ -438,6 +438,130 @@ test('FestgridBackendStack: the Bright Data webhook Lambda can classify a result
   assert.ok(grantsReadOfBrightDataToken, 'the webhook Lambda role needs read access to the Bright Data API token secret');
 });
 
+// BUG-073: the Lambdas that send mail or push must hold the config and the permissions to do it. The
+// Ingestor and the AI processor run `notifyNewEvent` (push) and report failures by e-mail, and the two
+// webhooks report audit-trail failures by e-mail; none of them had the Firebase variables, the sender
+// address, the alert address or an `ses:SendEmail` grant, so every Firebase initialisation failed (about
+// 40 a day in production) and every alert fell back to a log line.
+function withEnv<T>(vars: Record<string, string>, fn: () => T): T {
+  const saved: Record<string, string | undefined> = {};
+  for (const key of Object.keys(vars)) {
+    saved[key] = process.env[key];
+    process.env[key] = vars[key];
+  }
+  try {
+    return fn();
+  } finally {
+    for (const key of Object.keys(vars)) {
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+    }
+  }
+}
+
+type Resource = { Type: string; Properties?: Record<string, unknown> };
+
+function synthResources(id: string): Record<string, Resource> {
+  const app = new cdk.App();
+  const stack = new FestgridBackendStack(app, id, { stageName: 'dev' });
+  return Template.fromStack(stack).toJSON().Resources as Record<string, Resource>;
+}
+
+function lambdaByPrefix(resources: Record<string, Resource>, prefix: string): [string, Resource] {
+  const entry = Object.entries(resources).find(([logicalId, r]) => r.Type === 'AWS::Lambda::Function' && logicalId.startsWith(prefix));
+  assert.ok(entry, `expected a "${prefix}*" function in the synthesized template`);
+  return entry!;
+}
+
+function policyStatementsFor(resources: Record<string, Resource>, lambdaResource: Resource): Array<Record<string, unknown>> {
+  const roleLogicalId = (lambdaResource.Properties?.Role as { 'Fn::GetAtt'?: [string, string] } | undefined)?.['Fn::GetAtt']?.[0];
+  assert.ok(roleLogicalId, 'the Lambda role should be an in-template Fn::GetAtt');
+  return Object.values(resources).flatMap((r) => {
+    if (r.Type !== 'AWS::IAM::Policy') return [];
+    const roles = (r.Properties?.Roles as Array<{ Ref?: string }> | undefined) ?? [];
+    if (!roles.some((role) => role?.Ref === roleLogicalId)) return [];
+    return ((r.Properties?.PolicyDocument as { Statement?: Array<Record<string, unknown>> } | undefined)?.Statement ?? []);
+  });
+}
+
+const sendsMail = (statements: Array<Record<string, unknown>>) =>
+  statements.some((stmt) => {
+    const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
+    return stmt.Effect === 'Allow' && actions.includes('ses:SendEmail');
+  });
+
+test('FestgridBackendStack: every Lambda given a sender address can send mail, and the mailing Lambdas are all given one (BUG-073)', () => {
+  const resources = withEnv({ SES_FROM_EMAIL_ADDRESS: 'alerts@example.test' }, () => synthResources('TestStackMailWalker'));
+
+  // Generic: a wired SES_FROM_EMAIL_ADDRESS with no ses:SendEmail grant is the original incident shape.
+  let checked = 0;
+  for (const [logicalId, r] of Object.entries(resources)) {
+    if (r.Type !== 'AWS::Lambda::Function') continue;
+    const env = (r.Properties?.Environment as { Variables?: Record<string, unknown> } | undefined)?.Variables ?? {};
+    if (!('SES_FROM_EMAIL_ADDRESS' in env)) continue;
+    checked += 1;
+    assert.ok(sendsMail(policyStatementsFor(resources, r)), `Lambda "${logicalId}" has SES_FROM_EMAIL_ADDRESS but no ses:SendEmail grant`);
+  }
+  assert.ok(checked > 0, 'expected the walker to check at least one Lambda');
+
+  // Specific: the Lambdas that report failures by e-mail must be among them. (The AI processor is not:
+  // on this code it never reaches the push or mail path, so it is given neither the config nor the grant.)
+  for (const prefix of ['IngestorLambda', 'Webhook', 'ApifyWebhook', 'NotifierLambda', 'ScraperLambda']) {
+    const [logicalId, lambdaResource] = lambdaByPrefix(resources, prefix);
+    const env = (lambdaResource.Properties?.Environment as { Variables?: Record<string, unknown> } | undefined)?.Variables ?? {};
+    assert.strictEqual(env.SES_FROM_EMAIL_ADDRESS, 'alerts@example.test', `${logicalId} needs the sender address`);
+    assert.ok(typeof env.WEB_APP_BASE_URL === 'string' && env.WEB_APP_BASE_URL.length > 0, `${logicalId} needs WEB_APP_BASE_URL for its e-mail links`);
+    assert.ok(sendsMail(policyStatementsFor(resources, lambdaResource)), `${logicalId} needs ses:SendEmail`);
+  }
+});
+
+test('FestgridBackendStack: the send grant covers the sender address as an identity, so an SES sandbox (a verified address, not a verified domain) can send (BUG-073)', () => {
+  const resources = withEnv({ SES_FROM_EMAIL_ADDRESS: 'alerts@example.test' }, () => synthResources('TestStackSandboxSender'));
+  const [, notifier] = lambdaByPrefix(resources, 'NotifierLambda');
+
+  const sendStatements = policyStatementsFor(resources, notifier).filter((stmt) => {
+    const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
+    return actions.includes('ses:SendEmail');
+  });
+
+  const serialized = JSON.stringify(sendStatements);
+  assert.ok(serialized.includes('identity/alerts@example.test'), 'the grant must name the sender address identity, not only the sending domain');
+  assert.ok(serialized.includes('FestgridEmailIdentity'), 'the sending domain identity stays covered');
+});
+
+test('FestgridBackendStack: the Ingestor can initialise Firebase and report an alert, and the AI processor holds no Firebase credential (BUG-073)', () => {
+  const resources = withEnv(
+    {
+      FIREBASE_PROJECT_ID: 'festdaily-test',
+      FIREBASE_CLIENT_EMAIL: 'firebase-adminsdk@festdaily-test.iam.gserviceaccount.com',
+      SYSTEM_ERROR_ALERT_EMAIL: 'ops@example.test',
+      SES_FROM_EMAIL_ADDRESS: 'alerts@example.test',
+    },
+    () => synthResources('TestStackFirebaseWiring')
+  );
+
+  const [aiLogicalId, aiProcessor] = lambdaByPrefix(resources, 'AIProcessorLambda');
+  const aiEnv = (aiProcessor.Properties?.Environment as { Variables?: Record<string, unknown> } | undefined)?.Variables ?? {};
+  assert.ok(!('FIREBASE_PRIVATE_KEY' in aiEnv), `${aiLogicalId} never sends a push on this code, so it must not hold the Firebase private key`);
+
+  for (const prefix of ['IngestorLambda']) {
+    const [logicalId, lambdaResource] = lambdaByPrefix(resources, prefix);
+    const env = (lambdaResource.Properties?.Environment as { Variables?: Record<string, unknown> } | undefined)?.Variables ?? {};
+
+    assert.strictEqual(env.FIREBASE_PROJECT_ID, 'festdaily-test', `${logicalId} needs FIREBASE_PROJECT_ID`);
+    assert.strictEqual(env.FIREBASE_CLIENT_EMAIL, 'firebase-adminsdk@festdaily-test.iam.gserviceaccount.com', `${logicalId} needs FIREBASE_CLIENT_EMAIL`);
+    const privateKey = JSON.stringify(env.FIREBASE_PRIVATE_KEY ?? '');
+    assert.ok(privateKey.includes('secretsmanager') && privateKey.includes('FirebasePrivateKeySecret'), `${logicalId} needs FIREBASE_PRIVATE_KEY from the Firebase private key secret`);
+    assert.strictEqual(env.SYSTEM_ERROR_ALERT_EMAIL, 'ops@example.test', `${logicalId} needs SYSTEM_ERROR_ALERT_EMAIL to report a failure`);
+
+    const readsFirebaseSecret = policyStatementsFor(resources, lambdaResource).some((stmt) => {
+      const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
+      return actions.includes('secretsmanager:GetSecretValue') && JSON.stringify(stmt.Resource).includes('FirebasePrivateKeySecret');
+    });
+    assert.ok(readsFirebaseSecret, `${logicalId} needs read access to the Firebase private key secret`);
+  }
+});
+
 test('FestgridBackendStack: dev stack with enableNonProdQueuePolling=true context enables the ESM (AC2)', () => {
   const app = new cdk.App({ context: { enableNonProdQueuePolling: 'true' } });
   const stack = new FestgridBackendStack(app, 'TestStackDevPollingEnabled', {
