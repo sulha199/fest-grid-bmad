@@ -1,7 +1,6 @@
-import { db } from '../../db/client.js';
-import { scraperActorRuns } from '@festgrid/database';
-import { eq, desc } from 'drizzle-orm';
 import { isProviderCapacityAvailable, recordProviderUsage } from './usage-store.js';
+import { getScrapeCursor } from './get-scrape-cursor.js';
+import { shouldSkipDegradedProvider } from './provider-run-health-store.js';
 import { triggerBrightDataJob, mapBrightDataDateToStartDate } from './brightdata-client.js';
 import { createPendingJob } from './brightdata-pending-jobs-store.js';
 import { loadBackendEnv } from '../../env.js';
@@ -21,18 +20,21 @@ export let attemptBrightDataTrigger = async (
       return { success: false, failureReason: 'CAPACITY_EXHAUSTED' };
     }
 
+    // IDEA-095: a provider whose recent runs returned nothing or failed is skipped (bar one probe) so
+    // the next provider in the chain takes the target.
+    if (await shouldSkipDegradedProvider('BRIGHTDATA')) {
+      console.log(`Bright Data is degraded; skipping ${target.username} in favour of another provider`);
+      return { success: false, failureReason: 'PROVIDER_DEGRADED' };
+    }
+
     const env = loadBackendEnv();
     const webhookToken = generateWebhookToken();
     const webhookUrl = `${env.brightdataWebhookBaseUrl}?jobToken=${webhookToken}`;
 
-    // Use the last successful scraper run timestamp as the cursor, falling back to newerThan
-    // This ensures we don't re-scrape posts already captured, regardless of vendor
-    const lastSuccessfulRun = await db.query.scraperActorRuns.findFirst({
-      where: eq(scraperActorRuns.profileId, target.profileId),
-      orderBy: desc(scraperActorRuns.completedAt),
-    });
-
-    const scrapeCursorTimestamp = lastSuccessfulRun?.completedAt?.toISOString() ?? newerThan;
+    // The cursor is where this profile's stored posts end, never when a run finished (BUG-074):
+    // a run that returned nothing must not move it. `newerThan` only matters for a profile with
+    // no stored post yet.
+    const scrapeCursorTimestamp = await getScrapeCursor('BRIGHTDATA', target.profileId, newerThan);
     const startDate = mapBrightDataDateToStartDate(scrapeCursorTimestamp);
     const profileUrl = `https://www.instagram.com/${target.username}/`;
 

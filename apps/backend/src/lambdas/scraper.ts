@@ -7,13 +7,19 @@ import { pollAndDrainQueue, hasJobType } from '../lib/aws/poll-and-drain-queue.j
 import { attemptBrightDataTrigger } from '../lib/scraper/trigger-brightdata-for-target.js';
 import { attemptApifyAsyncTrigger } from '../lib/scraper/trigger-apify-for-target.js';
 import { runStaleJobSweep } from '../lib/scraper/stale-job-sweep.js';
-import { recordProviderHealthCheck } from '../lib/scraper/scraper-provider-health-store.js';
+import {
+  recordProviderHealthCheck,
+  type ProviderHealthCheckPrevious,
+} from '../lib/scraper/scraper-provider-health-store.js';
+import { getDegradedProviders } from '../lib/scraper/provider-run-health-store.js';
 import {
   recordScraperBatchRunStart,
   completeScraperBatchRun,
 } from '../lib/scraper/record-scraper-batch-run.js';
 import {
+  applyProviderDegradation,
   tallyScraperProviderResults,
+  type ScraperProviderTally,
   type ScraperTargetProviderMarker,
 } from '../lib/scraper/tally-scraper-provider-results.js';
 import { loadBackendEnv } from '../env.js';
@@ -25,6 +31,20 @@ function lookbackFallback(days: number): string {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
   return cutoff.toISOString();
+}
+
+// IDEA-095: the one-line record, in CloudWatch, of a provider being switched away from or coming back.
+// Only the day the state changes is logged; a provider that stays degraded is already visible in
+// scraper_provider_health and, after the alert threshold, in the provider-down e-mail.
+function logProviderTransition(provider: string, previous: ProviderHealthCheckPrevious, tally: ScraperProviderTally): void {
+  const failingNow = tally.attempted > 0 && tally.succeeded === 0;
+  if (failingNow && tally.failureReason === 'PROVIDER_DEGRADED' && previous.consecutiveFailureDays === 0) {
+    console.error(
+      `[Provider failover] ${provider} is degraded: its newest runs returned nothing or failed. New scrapes go to the next provider; ${provider} gets one probe every few hours until a run returns posts.`
+    );
+  } else if (!failingNow && previous.consecutiveFailureDays > 0 && previous.lastFailureReason === 'PROVIDER_DEGRADED') {
+    console.warn(`[Provider failover] ${provider} has recovered: its newest run returned posts, so it is back in the chain.`);
+  }
 }
 
 type PollAndDrainEvent = { jobType: 'poll-and-drain' };
@@ -86,6 +106,11 @@ export const handler = async (
 
       // FIND-035: loaded once for the whole batch, not per-target inside the map below.
       const env = loadBackendEnv();
+
+      // IDEA-095: which providers were already returning nothing or failing when this batch began.
+      // Their triggers are skipped (bar one probe) inside the attempt functions; the same state is
+      // used below to record the day as a failure for them. Never throws.
+      const degradedProviders = await getDegradedProviders();
 
       const results = await Promise.allSettled(
         targets.map(async (target): Promise<{ brightData: ScraperTargetProviderMarker; apify: ScraperTargetProviderMarker }> => {
@@ -152,23 +177,29 @@ export const handler = async (
       // no change to the fallback control flow above.
       const fulfilledResults = results.filter((r) => r.status === 'fulfilled').map((r) => r.value);
 
-      const brightDataTally = tallyScraperProviderResults(
-        fulfilledResults.map((r) => r.brightData)
+      // A provider that was degraded at the start has had a failure day whatever its triggers did:
+      // the one probe it was sent can only be judged by its result, which arrives after this batch.
+      const brightDataTally = applyProviderDegradation(
+        tallyScraperProviderResults(fulfilledResults.map((r) => r.brightData)),
+        degradedProviders.has('BRIGHTDATA')
       );
       if (brightDataTally.attempted > 0) {
         try {
-          await recordProviderHealthCheck('brightdata', brightDataTally);
+          const previous = await recordProviderHealthCheck('brightdata', brightDataTally);
+          logProviderTransition('brightdata', previous, brightDataTally);
         } catch (healthCheckErr) {
           console.error('Failed to record Bright Data provider health check:', healthCheckErr);
         }
       }
 
-      const apifyTally = tallyScraperProviderResults(
-        fulfilledResults.map((r) => r.apify)
+      const apifyTally = applyProviderDegradation(
+        tallyScraperProviderResults(fulfilledResults.map((r) => r.apify)),
+        degradedProviders.has('APIFY')
       );
       if (apifyTally.attempted > 0) {
         try {
-          await recordProviderHealthCheck('apify', apifyTally);
+          const previous = await recordProviderHealthCheck('apify', apifyTally);
+          logProviderTransition('apify', previous, apifyTally);
         } catch (healthCheckErr) {
           console.error('Failed to record Apify provider health check:', healthCheckErr);
         }

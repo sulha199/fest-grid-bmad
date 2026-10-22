@@ -41,6 +41,13 @@ export interface BrightDataTriggerResponse {
 
 export interface BrightDataProgressResponse {
   status: 'scheduled' | 'building' | 'running' | 'ready' | 'failed';
+  // Reported once a snapshot has finished. A zero-record snapshot is told apart as an empty account
+  // (`error_codes.dead_page`) or a vendor failure (neither) from these (BUG-074,
+  // classifyBrightDataResult in @festgrid/domain). Only present when Bright Data sent them.
+  records?: number;
+  errors?: number;
+  errorCodes?: Record<string, number>;
+  errorMessage?: string;
 }
 
 // Test seams for mocking in tests
@@ -156,10 +163,20 @@ async function _getBrightDataProgress(
         );
       }
 
-      const data = (await response.json()) as { status?: string };
+      const data = (await response.json()) as {
+        status?: string;
+        records?: number;
+        errors?: number;
+        error_codes?: Record<string, number>;
+        error_message?: string;
+      };
 
       return {
         status: (data.status || 'scheduled') as BrightDataProgressResponse['status'],
+        ...(typeof data.records === 'number' && { records: data.records }),
+        ...(typeof data.errors === 'number' && { errors: data.errors }),
+        ...(data.error_codes && typeof data.error_codes === 'object' && { errorCodes: data.error_codes }),
+        ...(typeof data.error_message === 'string' && { errorMessage: data.error_message }),
       };
     },
   });

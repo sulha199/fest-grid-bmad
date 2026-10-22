@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { tallyScraperProviderResults } from './tally-scraper-provider-results.js';
+import { applyProviderDegradation, tallyScraperProviderResults } from './tally-scraper-provider-results.js';
 
 test('tallyScraperProviderResults', async (t) => {
   await t.test('all succeeded: tallies attempts and successes, no failureReason', () => {
@@ -63,5 +63,60 @@ test('tallyScraperProviderResults', async (t) => {
       { attempted: true, succeeded: false, failureReason: 'DPA_NOT_CONFIRMED' },
     ]);
     assert.deepStrictEqual(tally, { attempted: 2, succeeded: 0, failureReason: 'DPA_NOT_CONFIRMED' });
+  });
+});
+
+// BUG-074 / IDEA-095
+test('tallyScraperProviderResults: PROVIDER_DEGRADED', async (t) => {
+  await t.test('all skipped as degraded: reports PROVIDER_DEGRADED', () => {
+    const tally = tallyScraperProviderResults([
+      { attempted: true, succeeded: false, failureReason: 'PROVIDER_DEGRADED' },
+      { attempted: true, succeeded: false, failureReason: 'PROVIDER_DEGRADED' },
+    ]);
+    assert.deepStrictEqual(tally, { attempted: 2, succeeded: 0, failureReason: 'PROVIDER_DEGRADED' });
+  });
+
+  await t.test('PROVIDER_DEGRADED outranks CAPACITY_EXHAUSTED but not TRIGGER_ERROR or DPA_NOT_CONFIRMED', () => {
+    assert.strictEqual(
+      tallyScraperProviderResults([
+        { attempted: true, succeeded: false, failureReason: 'CAPACITY_EXHAUSTED' },
+        { attempted: true, succeeded: false, failureReason: 'PROVIDER_DEGRADED' },
+      ]).failureReason,
+      'PROVIDER_DEGRADED'
+    );
+    assert.strictEqual(
+      tallyScraperProviderResults([
+        { attempted: true, succeeded: false, failureReason: 'PROVIDER_DEGRADED' },
+        { attempted: true, succeeded: false, failureReason: 'TRIGGER_ERROR' },
+      ]).failureReason,
+      'TRIGGER_ERROR'
+    );
+    assert.strictEqual(
+      tallyScraperProviderResults([
+        { attempted: true, succeeded: false, failureReason: 'PROVIDER_DEGRADED' },
+        { attempted: true, succeeded: false, failureReason: 'DPA_NOT_CONFIRMED' },
+      ]).failureReason,
+      'DPA_NOT_CONFIRMED'
+    );
+  });
+});
+
+test('applyProviderDegradation', async (t) => {
+  await t.test('a provider degraded at the batch start has a full failure day even though its probe trigger succeeded', () => {
+    assert.deepStrictEqual(applyProviderDegradation({ attempted: 38, succeeded: 1 }, true), {
+      attempted: 38,
+      succeeded: 0,
+      failureReason: 'PROVIDER_DEGRADED',
+    });
+  });
+
+  await t.test('a healthy provider keeps its tally untouched', () => {
+    const tally = { attempted: 38, succeeded: 36, failureReason: undefined };
+    assert.strictEqual(applyProviderDegradation(tally, false), tally);
+  });
+
+  await t.test('a degraded provider the batch never attempted stays unrecorded', () => {
+    const tally = { attempted: 0, succeeded: 0 };
+    assert.strictEqual(applyProviderDegradation(tally, true), tally);
   });
 });

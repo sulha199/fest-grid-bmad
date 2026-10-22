@@ -213,10 +213,13 @@ test('describeFailureReason gives each stored reason its own sentence (Story 0.i
   const capacity = describeFailureReason('CAPACITY_EXHAUSTED');
   const trigger = describeFailureReason('TRIGGER_ERROR');
   const dpa = describeFailureReason('DPA_NOT_CONFIRMED');
+  const degraded = describeFailureReason('PROVIDER_DEGRADED');
   const fallback = describeFailureReason(null);
 
   assert.match(dpa, /APIFY_SCRAPING_CONFIRMED/);
   assert.match(dpa, /not a vendor outage/i);
-  assert.strictEqual(new Set([capacity, trigger, dpa, fallback]).size, 4, 'every reason, and the null fallback, reads differently');
+  assert.match(degraded, /returned nothing/);
+  assert.match(degraded, /next provider/);
+  assert.strictEqual(new Set([capacity, trigger, dpa, degraded, fallback]).size, 5, 'every reason, and the null fallback, reads differently');
   assert.strictEqual(describeFailureReason('SOMETHING_NEW'), fallback, 'unknown reasons keep the generic fallback');
 });

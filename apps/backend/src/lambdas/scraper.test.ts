@@ -18,8 +18,8 @@ import {
 } from '../lib/scraper/trigger-apify-for-target.js';
 import { loadBackendEnv } from '../env.js';
 import { db } from '../db/client.js';
-import { users, socialMediaAccountProfiles, subscriptions, posts, scraperBatchRuns, scraperProviderHealth } from '@festgrid/database';
-import { inArray, gte } from 'drizzle-orm';
+import { users, socialMediaAccountProfiles, subscriptions, posts, scraperActorRuns, scraperBatchRuns, scraperProviderHealth } from '@festgrid/database';
+import { eq, inArray, gte } from 'drizzle-orm';
 import '../lib/scraper/register-adapters.js';
 
 // The handler records per-provider health (`scraper_provider_health`, one row per provider) as a side
@@ -248,5 +248,144 @@ test('scraper lambda daily-batch branch: per-target incremental newerThan (FIND-
       Math.abs(actualMs - expectedMs) < 60_000,
       `newerThan should be ~${env.scrapeInitialLookbackDays} days ago (lookback fallback), got ${capturedNewerThan[0]}`
     );
+  });
+});
+
+// BUG-074 / IDEA-095: a provider that was returning nothing when the batch began has had a failure day
+// whatever its triggers did. Its one probe trigger "succeeds", and without this that single success
+// would reset the provider's consecutive failure days every day, so the provider-down alert could
+// never fire for an outage that returns zero records.
+test('scraper lambda daily-batch branch: provider health after a degraded start (IDEA-095, BUG-074)', async (t) => {
+  const originalAttemptBrightDataTrigger = attemptBrightDataTrigger;
+  const originalAttemptApifyAsyncTrigger = attemptApifyAsyncTrigger;
+  const providers = ['brightdata', 'apify'];
+  let profileId: string;
+  let subscriptionId: string;
+  // One start for the whole suite, not per batch: a subtest that runs the batch twice would otherwise
+  // leave its first scraper_batch_runs row (opened before the second batch's start) behind.
+  let suiteStart: Date;
+  let preExistingHealth: Array<typeof scraperProviderHealth.$inferSelect> = [];
+
+  async function brightDataHealth() {
+    const [row] = await db.select().from(scraperProviderHealth).where(eq(scraperProviderHealth.provider, 'brightdata'));
+    return row;
+  }
+
+  async function insertFailedBrightDataRuns(count: number) {
+    const now = Date.now();
+    await db.insert(scraperActorRuns).values(
+      Array.from({ length: count }, (_, index) => ({
+        vendor: 'BRIGHTDATA' as const,
+        triggerMode: 'ASYNC' as const,
+        profileId,
+        runId: `batch-health-test-failed-${index}-${now}`,
+        rawInput: {},
+        status: 'FAILED' as const,
+        itemCount: 0,
+        completedAt: new Date(now - index * 1000),
+      }))
+    );
+  }
+
+  async function runBatch() {
+    await handler({} as any, {} as any);
+  }
+
+  t.before(async () => {
+    suiteStart = new Date();
+    const [seededUser] = await db.select().from(users).limit(1);
+    assert.ok(seededUser, 'Must have at least 1 seeded user for test');
+
+    // Provider health rows are global (one per provider): set any real ones aside and put them back.
+    preExistingHealth = await db.select().from(scraperProviderHealth).where(inArray(scraperProviderHealth.provider, providers));
+    await db.delete(scraperProviderHealth).where(inArray(scraperProviderHealth.provider, providers));
+
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'test-batch-health-' + Date.now(),
+      platform: 'instagram',
+      displayName: 'Batch Health',
+      username: 'batch_health_' + Date.now(),
+    }).returning();
+    profileId = profile.id;
+
+    const [sub] = await db.insert(subscriptions).values({ userId: seededUser.id, accountId: profile.id }).returning();
+    subscriptionId = sub.id;
+
+    // Every trigger "succeeds": this is the single probe a degraded provider is sent.
+    setAttemptBrightDataTrigger(async () => ({ success: true }));
+    setAttemptApifyAsyncTrigger(async () => ({ success: true }));
+  });
+
+  t.afterEach(async () => {
+    await db.delete(scraperActorRuns).where(eq(scraperActorRuns.profileId, profileId));
+    await db.delete(scraperProviderHealth).where(inArray(scraperProviderHealth.provider, providers));
+    await db.delete(scraperBatchRuns).where(gte(scraperBatchRuns.startedAt, suiteStart));
+  });
+
+  t.after(async () => {
+    setAttemptBrightDataTrigger(originalAttemptBrightDataTrigger);
+    setAttemptApifyAsyncTrigger(originalAttemptApifyAsyncTrigger);
+    await db.delete(subscriptions).where(eq(subscriptions.id, subscriptionId));
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profileId));
+    if (preExistingHealth.length > 0) {
+      await db.insert(scraperProviderHealth).values(preExistingHealth);
+    }
+  });
+
+  await t.test('a provider that was degraded at the start has a failure day even though its probe trigger succeeded', async () => {
+    await insertFailedBrightDataRuns(20);
+
+    await runBatch();
+
+    const row = await brightDataHealth();
+    assert.ok(row, 'a Bright Data health row was recorded');
+    assert.strictEqual(row.consecutiveFailureDays, 1);
+    assert.strictEqual(row.lastFailureReason, 'PROVIDER_DEGRADED');
+  });
+
+  await t.test('each further batch on a still-degraded provider adds a failure day, so the alert threshold is reachable', async () => {
+    await insertFailedBrightDataRuns(20);
+
+    await runBatch();
+    await runBatch();
+
+    const row = await brightDataHealth();
+    assert.strictEqual(row.consecutiveFailureDays, 2);
+    assert.strictEqual(row.lastFailureReason, 'PROVIDER_DEGRADED');
+  });
+
+  await t.test('a healthy provider is recorded healthy', async () => {
+    await runBatch();
+
+    const row = await brightDataHealth();
+    assert.strictEqual(row.consecutiveFailureDays, 0);
+    assert.strictEqual(row.lastFailureReason, null);
+  });
+
+  await t.test('a provider that recovered (its newest run returned posts) is reset on the next batch', async () => {
+    await db.insert(scraperProviderHealth).values({
+      provider: 'brightdata',
+      consecutiveFailureDays: 2,
+      lastFailureReason: 'PROVIDER_DEGRADED',
+      lastCheckedAt: new Date(),
+    });
+    // The probe's run came back with posts: it is now the newest finished run, older runs all failed.
+    await insertFailedBrightDataRuns(20);
+    await db.insert(scraperActorRuns).values({
+      vendor: 'BRIGHTDATA',
+      triggerMode: 'ASYNC',
+      profileId,
+      runId: 'batch-health-test-probe-ok-' + Date.now(),
+      rawInput: {},
+      status: 'SUCCEEDED',
+      itemCount: 4,
+      completedAt: new Date(Date.now() + 60_000),
+    });
+
+    await runBatch();
+
+    const row = await brightDataHealth();
+    assert.strictEqual(row.consecutiveFailureDays, 0);
+    assert.strictEqual(row.lastFailureReason, null);
   });
 });

@@ -2,11 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { randomBytes } from 'node:crypto';
 import { db } from '../../db/client.js';
-import { apifyPendingJobs, scraperProviderUsage, socialMediaAccountProfiles } from '@festgrid/database';
+import { apifyPendingJobs, posts, scraperActorRuns, scraperProviderUsage, socialMediaAccountProfiles } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import { attemptApifyAsyncTrigger, setAttemptApifyAsyncTrigger } from './trigger-apify-for-target.js';
 import { ScraperCapacityExceededError } from '@festgrid/domain';
 import { clearApifyProviderUsage, APIFY_TEST_PROVIDER } from './usage-store-test-helpers.js';
+import { resetProviderProbeClaimsForTests } from './provider-run-health-store.js';
 
 test('trigger-apify-for-target tests', async (t) => {
   let testProfileId: string;
@@ -168,5 +169,133 @@ test('trigger-apify-for-target tests', async (t) => {
       .where(eq(apifyPendingJobs.profileId, testProfileId));
 
     assert.strictEqual(jobs.length, 0);
+  });
+
+  // BUG-075: the Apify cursor is where the stored posts end, never when a run finished -- an empty,
+  // failed or timed-out run (it was never filtered by status) used to move it forward.
+  await t.test('onlyPostsNewerThan is the newest stored post, not the finish time of a later empty run (BUG-075)', async () => {
+    setAttemptApifyAsyncTrigger(originalAttemptApifyAsyncTrigger);
+
+    const adapter = await import('./instagram-adapter.js');
+    const savedGetApifyClient = adapter.getApifyClient;
+    const startInputs: Array<Record<string, unknown>> = [];
+    adapter.setGetApifyClient((() => ({
+      actor: () => ({
+        start: async (input: Record<string, unknown>) => {
+          startInputs.push(input);
+          return { id: 'run-cursor-' + Date.now() };
+        },
+      }),
+    })) as unknown as typeof savedGetApifyClient);
+
+    try {
+      await db.insert(posts).values({
+        accountId: testProfileId,
+        platform: 'instagram',
+        postUrl: 'https://www.instagram.com/p/apify-newest/',
+        publishedAt: new Date('2026-10-20T15:30:00.000Z'),
+      });
+      await db.insert(scraperActorRuns).values({
+        vendor: 'APIFY',
+        triggerMode: 'ASYNC',
+        profileId: testProfileId,
+        runId: 'apify-cursor-empty-run-' + Date.now(),
+        rawInput: {},
+        status: 'SUCCEEDED',
+        itemCount: 0,
+        completedAt: new Date('2026-10-22T05:00:00.000Z'),
+      });
+
+      const result = await attemptApifyAsyncTrigger(
+        { profileId: testProfileId, username: 'test_user' },
+        '2026-10-13T00:00:00.000Z'
+      );
+
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(startInputs.length, 1);
+      assert.strictEqual(startInputs[0].onlyPostsNewerThan, '2026-10-20T15:30:00.000Z');
+    } finally {
+      adapter.setGetApifyClient(savedGetApifyClient);
+      // The pending job references the audit run, so it goes first.
+      await db.delete(apifyPendingJobs).where(eq(apifyPendingJobs.profileId, testProfileId));
+      await db.delete(posts).where(eq(posts.accountId, testProfileId));
+      await db.delete(scraperActorRuns).where(eq(scraperActorRuns.profileId, testProfileId));
+    }
+  });
+
+  await t.test('a profile with no stored post starts at the caller\'s window', async () => {
+    setAttemptApifyAsyncTrigger(originalAttemptApifyAsyncTrigger);
+
+    const adapter = await import('./instagram-adapter.js');
+    const savedGetApifyClient = adapter.getApifyClient;
+    const startInputs: Array<Record<string, unknown>> = [];
+    adapter.setGetApifyClient((() => ({
+      actor: () => ({
+        start: async (input: Record<string, unknown>) => {
+          startInputs.push(input);
+          return { id: 'run-cursor-fallback-' + Date.now() };
+        },
+      }),
+    })) as unknown as typeof savedGetApifyClient);
+
+    try {
+      const result = await attemptApifyAsyncTrigger(
+        { profileId: testProfileId, username: 'test_user' },
+        '2026-10-13T00:00:00.000Z'
+      );
+
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(startInputs[0].onlyPostsNewerThan, '2026-10-13T00:00:00.000Z');
+    } finally {
+      adapter.setGetApifyClient(savedGetApifyClient);
+      await db.delete(apifyPendingJobs).where(eq(apifyPendingJobs.profileId, testProfileId));
+      await db.delete(scraperActorRuns).where(eq(scraperActorRuns.profileId, testProfileId));
+    }
+  });
+
+  // IDEA-095: a provider whose recent runs all failed or came back empty is skipped, bar one probe.
+  await t.test('a degraded provider is skipped with PROVIDER_DEGRADED, bar one probe', async () => {
+    setAttemptApifyAsyncTrigger(originalAttemptApifyAsyncTrigger);
+    resetProviderProbeClaimsForTests();
+
+    const adapter = await import('./instagram-adapter.js');
+    const savedGetApifyClient = adapter.getApifyClient;
+    let startCalls = 0;
+    adapter.setGetApifyClient((() => ({
+      actor: () => ({
+        start: async () => {
+          startCalls += 1;
+          return { id: 'run-degraded-' + startCalls + '-' + Date.now() };
+        },
+      }),
+    })) as unknown as typeof savedGetApifyClient);
+
+    try {
+      const now = Date.now();
+      await db.insert(scraperActorRuns).values(
+        Array.from({ length: 20 }, (_, index) => ({
+          vendor: 'APIFY' as const,
+          triggerMode: 'ASYNC' as const,
+          profileId: testProfileId,
+          runId: `apify-degraded-test-${index}-${now}`,
+          rawInput: {},
+          status: 'FAILED' as const,
+          itemCount: 0,
+          completedAt: new Date(now - index * 1000),
+        }))
+      );
+
+      const probe = await attemptApifyAsyncTrigger({ profileId: testProfileId, username: 'test_user' }, '2026-10-13T00:00:00.000Z');
+      const skipped = await attemptApifyAsyncTrigger({ profileId: testProfileId, username: 'test_user' }, '2026-10-13T00:00:00.000Z');
+
+      assert.deepStrictEqual(probe, { success: true }, 'the first trigger is the probe and goes through');
+      assert.deepStrictEqual(skipped, { success: false, failureReason: 'PROVIDER_DEGRADED' });
+      assert.strictEqual(startCalls, 1, 'nothing is sent to the vendor for the skipped target');
+    } finally {
+      adapter.setGetApifyClient(savedGetApifyClient);
+      resetProviderProbeClaimsForTests();
+      await db.delete(apifyPendingJobs).where(eq(apifyPendingJobs.profileId, testProfileId));
+      await db.delete(scraperActorRuns).where(eq(scraperActorRuns.profileId, testProfileId));
+    }
   });
 });

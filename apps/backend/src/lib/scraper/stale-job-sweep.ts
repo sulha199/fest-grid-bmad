@@ -1,4 +1,4 @@
-import { findExpiredPendingJobs, markPendingJobExpired } from './brightdata-pending-jobs-store.js';
+import { findExpiredPendingJobs } from './brightdata-pending-jobs-store.js';
 import { findExpiredPendingJobs as findExpiredApifyJobs, markPendingJobExpired as markApifyJobExpired } from './apify-pending-jobs-store.js';
 import { getBrightDataProgress, getBrightDataSnapshot } from './brightdata-client.js';
 import { processBrightDataResult } from './process-brightdata-result.js';
@@ -9,6 +9,8 @@ import { socialMediaAccountProfiles } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import { enqueueScrapeJob } from './enqueue-scrape-job.js';
 import { recordActorRunResult } from './record-actor-run.js';
+import { classifyBrightDataRun, describeBrightDataVendorFailure } from './classify-brightdata-run.js';
+import { handleBrightDataFailedRun } from './handle-brightdata-failed-run.js';
 
 export async function runStaleJobSweep(): Promise<void> {
   // Process Bright Data jobs
@@ -36,6 +38,19 @@ async function processSingleExpiredBrightDataJob(job: any): Promise<void> {
     const output = await fetchBrightDataRunOutput(job.snapshotId);
 
     if (output.status === 'SUCCEEDED') {
+      // A "ready" snapshot with no items is not necessarily a good run (BUG-074): a vendor that
+      // returned nothing for everyone is a failure, handled like any other failed run below.
+      const { resultClass, progress } = await classifyBrightDataRun(job.snapshotId, output.items.length);
+      if (resultClass === 'vendor_failure') {
+        await handleBrightDataFailedRun(job, {
+          status: 'FAILED',
+          rawOutput: output.items,
+          itemCount: 0,
+          errorMessage: describeBrightDataVendorFailure(progress),
+        });
+        return;
+      }
+
       // Job succeeded, process results
       await recordActorRunResult({
         vendor: 'BRIGHTDATA',
@@ -46,34 +61,11 @@ async function processSingleExpiredBrightDataJob(job: any): Promise<void> {
       });
       await processBrightDataResult(job, output.items, job.scraperActorRunId);
     } else {
-      // Job failed or still not ready - record and mark as expired
-      await recordActorRunResult({
-        vendor: 'BRIGHTDATA',
-        runId: job.snapshotId,
+      // Job failed or still not ready - record, mark as expired and fall back to the SQS queue
+      await handleBrightDataFailedRun(job, {
         status: output.status as any,
         errorMessage: `Run status from stale-job-sweep: ${output.status}`,
       });
-      await markPendingJobExpired(job.id);
-
-      // Fetch profile info for fallback
-      const [profile] = await db
-        .select()
-        .from(socialMediaAccountProfiles)
-        .where(eq(socialMediaAccountProfiles.id, job.profileId));
-
-      if (profile && profile.platform === 'instagram') {
-        try {
-          // Fall back to SQS queue
-          await enqueueScrapeJob({
-            profileId: profile.id,
-            accountId: profile.accountId,
-            username: profile.username,
-            platform: profile.platform,
-          });
-        } catch (error) {
-          console.error(`Fallback SQS enqueue failed for ${profile.username}:`, error);
-        }
-      }
     }
   } catch (error) {
     console.error(`Error processing expired Bright Data job ${job.id}:`, error);
