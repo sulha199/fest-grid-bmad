@@ -120,6 +120,7 @@ The following table summarizes the classification used in our application archit
 | `FIREBASE_PROJECT_ID` | Plain Environment Property | Public project identifier, not a credential. |
 | `SES_FROM_EMAIL_ADDRESS` | Plain Environment Property | Configured sender address, not a credential. |
 | `SYSTEM_ERROR_ALERT_EMAIL` | Plain Environment Property | Configured destination address for alerts, not a credential. |
+| `OPS_ALERT_EMAIL` | CDK deploy variable only (GitHub repository variable) | Optional. Subscribes this address to the prod SNS ops-alerts topic (provider degraded or recovered, no new posts in 24 h). Needs no SES: AWS e-mails a confirmation link that must be clicked once. Not read by any Lambda. |
 | `BYOK_KMS_KEY_ID` | Plain Environment Property | Handled via direct KMS Key construct attribute reference (`kmsKey.keyId`). |
 
 > **Note:** `L_Notifier` (the daily quota-exhaustion warning Lambda) reuses the exact same `dbUrlSecret` and `emailIdentity` constructs listed above — it introduces no new Secrets Manager entry and no new SES identity.

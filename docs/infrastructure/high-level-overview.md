@@ -46,6 +46,7 @@ graph TD
         Gemini[Google Gemini API]
         Geoapify[Geoapify]
         SES[Amazon SES]
+        CW[CloudWatch alarms and SNS ops topic that e-mails the owner, prod only]
         Apify[Apify Actor API]
         BrightData[Bright Data Dataset API]
     end
@@ -82,6 +83,7 @@ graph TD
     L_API -- interacts with --> Supabase
     L_API -- sends to --> FCM
     L_API -- sends to --> SES
+    L_Scrape -- provider and posts-saved metrics --> CW
     L_API -- resolves location via --> Geoapify
 
     U -- loads map tiles from --> Geoapify

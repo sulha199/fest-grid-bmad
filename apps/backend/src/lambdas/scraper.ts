@@ -24,6 +24,7 @@ import {
   type ScraperTargetProviderMarker,
 } from '../lib/scraper/tally-scraper-provider-results.js';
 import { loadBackendEnv } from '../env.js';
+import { emitOpsMetric, OpsMetric } from '../lib/metrics/emit-metric.js';
 
 // FIND-035: fallback window for a target with no `newestPostPublishedAt` (i.e. no posts
 // yet -- its first-ever scrape). Mirrors the fallback branch already proven correct in
@@ -43,8 +44,10 @@ function logProviderTransition(provider: string, previous: ProviderHealthCheckPr
     console.error(
       `[Provider failover] ${provider} is degraded: its recent runs mostly failed or returned no posts. While it is, only a few probe triggers go to it per interval and the rest go to the next provider; a probe the vendor answers brings it back.`
     );
+    emitOpsMetric(OpsMetric.ProviderDegraded, 1, { Provider: provider });
   } else if (!failingNow && previous.consecutiveFailureDays > 0 && previous.lastFailureReason === 'PROVIDER_DEGRADED') {
     console.warn(`[Provider failover] ${provider} has recovered: its newest run was a good result, so it is back in the chain.`);
+    emitOpsMetric(OpsMetric.ProviderRecovered, 1, { Provider: provider });
   }
 }
 

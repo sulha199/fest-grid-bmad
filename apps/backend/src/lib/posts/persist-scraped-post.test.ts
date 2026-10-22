@@ -926,4 +926,39 @@ test('persistScrapedPost integration tests', async (t) => {
     }
   });
 
+  // IDEA-096: the PostsSaved alarm needs exactly one count per newly inserted post, from every caller.
+  await t.test('(z) emits one PostsSaved metric for a new post and none when the post already existed', async () => {
+    const originalLog = console.log;
+    const originalFunctionName = process.env.AWS_LAMBDA_FUNCTION_NAME;
+    const metricLines: Array<Record<string, unknown>> = [];
+    process.env.AWS_LAMBDA_FUNCTION_NAME = 'ScraperLambda-test';
+    console.log = (...args: unknown[]) => {
+      const text = args.map(String).join(' ');
+      if (text.startsWith('{') && text.includes('"_aws"')) metricLines.push(JSON.parse(text));
+    };
+    const postUrl = 'https://instagram.com/p/test_post_metric_' + Date.now();
+    try {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const result = await persistScrapedPost({
+          accountId: profile.id,
+          platform: 'instagram',
+          content: 'Test content metric',
+          imageUrl: 'https://test.com/image.png',
+          postUrl,
+          publishedAt: new Date().toISOString(),
+        });
+        if (attempt === 0) createdPostIds.push(result.post.id);
+      }
+    } finally {
+      console.log = originalLog;
+      if (originalFunctionName === undefined) {
+        delete process.env.AWS_LAMBDA_FUNCTION_NAME;
+      } else {
+        process.env.AWS_LAMBDA_FUNCTION_NAME = originalFunctionName;
+      }
+    }
+
+    assert.strictEqual(metricLines.filter((line) => 'PostsSaved' in line).length, 1);
+  });
+
 });
