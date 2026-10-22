@@ -57,6 +57,8 @@ graph TD
     L_Scrape --> BD
     Apify -- webhook --> L_HookA
     BD -- webhook --> L_HookB
+    L_HookB -- progress lookup on an empty result --> BD
+    L_HookB -- re-queue a failed profile --> Q1
     L_HookA -- scraped posts --> DB
     L_HookB -- scraped posts --> DB
     L_Scrape -- scraped posts --> DB
@@ -102,4 +104,5 @@ graph TD
 - `high-level-overview.md` shows Apify only. The CDK stack and code also use Bright Data. Treat the code as correct, and fold Bright Data into that page.
 - The overview does not show the Notifier Lambda, KMS, the Bright Data path, or the S3 and CloudFront media stack. This page adds them from the CDK stack.
 - The Notifier Lambda sends quota-warning emails through SES. New-event push notifications to FCM are sent by the Ingestor after it commits. The API Lambda's exact FCM and SES wiring was not traced.
-- Apify and Bright Data each have their own webhook Lambda (`apify-webhook.ts` and `webhook.ts`). Retry and sweep behaviour of the scraper was not traced.
+- Apify and Bright Data each have their own webhook Lambda (`apify-webhook.ts` and `webhook.ts`). Retries of the webhook deliveries themselves were not traced.
+- Result handling (Architecture Spine AD-43). The Bright Data webhook checks a delivery with no records against Bright Data's progress endpoint: a vendor failure is recorded FAILED and its profile re-queued to the ScrapingQueue (through the account-type gate, AD-34). The hourly stale-job sweep in the Scraper Lambda does the same for jobs whose webhook never arrived, for both vendors. A scrape starts from the newest stored post of the profile, never from the last run's finish time. A provider whose recent runs mostly failed or returned no posts is skipped, bar a few probe triggers, and recorded as a failure day in `scraper_provider_health`. The webhook Lambda therefore holds the Bright Data token and the ScrapingQueue send permission, asserted by `festgrid-backend-stack.test.ts`.
