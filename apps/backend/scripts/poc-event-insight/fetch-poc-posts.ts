@@ -343,7 +343,7 @@ async function main(): Promise<void> {
       log(`\nStill short of ${args.perAccount} posts: ${short.map((p) => `${p.username} (${countFor(p.username)})`).join(', ')}`);
       if (args.noScrape) log('--no-scrape: no new scrape will be started.');
       else if (args.vendor === 'apify') {
-        const apifyPrice = parseFloat(process.env.APIFY_PRICE_PER_THOUSAND_RESULTS_USD ?? '') || 2.3;
+        const apifyPrice = parseFloat(env.APIFY_PRICE_PER_THOUSAND_RESULTS_USD ?? '') || 2.3;
         if (!apifyOk) log(env.APIFY_API_TOKEN ? 'Apify is disabled by APIFY_SCRAPING_CONFIRMED.' : 'No Apify key found: no new scrape is possible.');
         else {
           log(`A new Apify scrape (apify/instagram-api-scraper) of ${short.length} account(s), up to ${records} results, about $${estimateCostUsd(records, apifyPrice)} at $${apifyPrice} per 1,000 results. Nothing is sent to the production webhook.`);
