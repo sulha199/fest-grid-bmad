@@ -81,7 +81,7 @@ Which time zone Bright Data uses for a day; whether `posts_to_not_include` takes
 
 The queries and calls are reproducible with `PROD_RO2_DATABASE_URL` and the Bright Data token: runs by day (`scraper_actor_runs` grouped by `completed_at::date`), `raw_output`/`raw_input` of the last 10 days for the inclusivity and repeat figures (both are double-encoded JSON strings, BUG-068), and the three calls in section 4.
 
-## Fixed, 2026-10-22 (hotfix cut from `master`; commits `8f8e0455`, `dba05bcc`, `@FIXCOMMIT@`)
+## Fixed, 2026-10-22 (hotfix cut from `master`; commits `8f8e0455`, `dba05bcc`, `5f72e7da`, `5d3a8634`)
 
 Done as a **code-only hotfix on `master`** (a worktree branch, `claude/master-hotfix-e8eh9h`), so none of this
 branch's planning material reaches `master`. Reviewed by the three `bmad-code-review` layers and by an

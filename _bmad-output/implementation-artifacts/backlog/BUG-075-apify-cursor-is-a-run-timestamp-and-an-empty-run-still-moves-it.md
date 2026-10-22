@@ -29,7 +29,7 @@ Same mechanism as BUG-074 on the other vendor. Found while reading how both scra
 * Verify against the actor's input schema whether `onlyPostsNewerThan` is inclusive (a same-timestamp post), and add a small overlap if it is not.
 * Tests: a failed or empty run leaves the next `onlyPostsNewerThan` unchanged.
 
-## Fixed, 2026-10-22 (hotfix cut from `master`; commits `8f8e0455`, `dba05bcc`, `@FIXCOMMIT@`)
+## Fixed, 2026-10-22 (hotfix cut from `master`; commits `8f8e0455`, `dba05bcc`, `5f72e7da`, `5d3a8634`)
 
 Fixed together with BUG-074 by the one shared cursor; see that file's "Fixed" section for the verification and the
 review. Item by item against "Proposed fix":

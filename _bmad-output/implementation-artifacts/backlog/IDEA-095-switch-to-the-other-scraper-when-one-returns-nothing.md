@@ -27,7 +27,7 @@ Follow-up to the Bright Data outage of 2026-10-21 (BUG-074). The two scrapers ar
 
 The failover thresholds and the Apify budget (upgrade the plan or raise `monthlyBudgetUsd`); whether Apify should stay first in the order given its cap; whether the provider order should live in config or in a table.
 
-## Built, 2026-10-22 (hotfix cut from `master`; commits `8f8e0455`, `dba05bcc`, `@FIXCOMMIT@`)
+## Built, 2026-10-22 (hotfix cut from `master`; commits `8f8e0455`, `dba05bcc`, `5f72e7da`, `5d3a8634`)
 
 Built as part of the BUG-074 hotfix (see that file's "Fixed" section and AD-43). Against "What is missing":
 
