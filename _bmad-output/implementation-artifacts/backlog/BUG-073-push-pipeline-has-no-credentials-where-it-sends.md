@@ -30,3 +30,32 @@ Owner SQL (one row per user, 2 users, both `moderator`): `push_enabled` is **fal
 ## Blocks
 
 IDEA-090 (moderator queue notifications), the grouped-event notifications of AD-36 Rules 14 and 17.5, and the first-organizer-post notification itself.
+
+## Resolution 2026-10-22: code and CDK (sandbox-capable); the SES account steps stay with the owner
+
+Built on master as one commit, `784455c0`, PR [sulha199/fest-grid-bmad#93](https://github.com/sulha199/fest-grid-bmad/pull/93) (cut after the BUG-074 hotfix). This page's status stays `backlog`: the code half of the list under "What is wrong" is done, the SES account half is not.
+
+| Item | State |
+|---|---|
+| 1. Ingestor cannot start Firebase | Done. The Ingestor gets `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` (one `firebaseEnv` object shared with the Api) and the Firebase secret read. |
+| 1. AI processor (`process-ai-job.ts:552`) | **Not wired, on purpose:** that notify path is not on master (it lives on the planning branch). Whoever ships it must give that Lambda `firebaseEnv`, `mailEnv`, `systemAlertEnv` and `grantSesSend` in `festgrid-backend-stack.ts`; there is a comment at the spot. |
+| 2. Alert and mail env | Done for the Ingestor (`SES_FROM_EMAIL_ADDRESS`, `WEB_APP_BASE_URL`, `SYSTEM_ERROR_ALERT_EMAIL`) and the two webhooks (`mailEnv`). The values come from the deploy environment; unset means the same empty value as before, so nothing changes until the owner sets them. |
+| 3. No e-mail leaves SES | Code half done: every sending Lambda (Api, Ingestor, Notifier, Scraper, both webhooks) may `ses:SendEmail` on the domain identity **and** on the From address identity. Account half is the owner's, see "SES sandbox" below. |
+| 4. A failed start burns the notification | Done. `notifyNewEvent` claims `notified_at` before the send and releases it (compare-and-set on the claim time) only when `sendEventNotifications` reports `firebaseInitFailed`. A release failure is logged, never thrown. Both branches are tested. AD-30 Rule 10 is unchanged in meaning. |
+| 5. No tokens since 10-16 | Not a code defect found; owner SQL result sets 1 to 3 still decide it. |
+| "Tell a moderator or the owner when initialisation fails" | Not built. The failure alert now has an address and a grant but no SES to send through; see IDEA-096 for an alert that does not need SES. |
+
+### SES sandbox: what it takes (answer to "can we use sandbox mode?")
+
+Yes for the moderators, because the sandbox only restricts *who* can receive, not whether the app can send:
+
+- **Sender:** `SES_FROM_EMAIL_ADDRESS` must be a verified identity in the account's region, either the address itself (click-through verification, no DNS) or an address under a verified domain. The existing domain identity is `FAILED` (DNS), so verify the address, which is what the extra IAM grant on the address identity is for.
+- **Recipients:** each must be a verified identity too. The moderators have confirmed theirs; any other user's mail is rejected with `MessageRejected`.
+- **Limits:** 200 messages per 24 h, 1 per second. Enough for moderator mail and the failure alert; not for user-facing mail.
+- **Production access** (a console request, owner only) is needed for non-moderator mail and is the launch blocker for it, not for moderator mail.
+- **To switch it on:** set `SES_FROM_EMAIL_ADDRESS` and `SYSTEM_ERROR_ALERT_EMAIL` (a verified address) in the deploy environment and redeploy. The Lambdas need no other change.
+
+### Known gaps left
+
+- The Notifier and Scraper keep their existing wiring; only the grant was widened.
+- The owner-side checks (the `[Email Stub]` lines disappearing, a test send) cannot be done from the repository.

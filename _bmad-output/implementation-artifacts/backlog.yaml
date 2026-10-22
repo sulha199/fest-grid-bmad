@@ -2569,7 +2569,7 @@ items:
      title: "Push notifications cannot be sent: the Ingestor and AIProcessor hold no Firebase credentials or alert address, SES is in the sandbox with no verified sender, and a failed start loses the event's notification",
      ref: [backlog/BUG-073-push-pipeline-has-no-credentials-where-it-sends.md, planning-artifacts/event-insight-poc/results/notification-aws-and-owner-sql-findings-2026-10-21.md, apps/backend/src/lib/events/notify-new-event.ts, apps/backend/src/lib/firebase-admin.ts],
      touches: [app:backend, app:infrastructure, cross:notifications],
-     note: "Logs 2026-10-07..16: ~40 failed Firebase initialisations a day in Ingestor/AIProcessor; since 10-16 every attempt finds no subscriber with a token. notified_at is claimed before the send, so those events never notify. Recommend releasing the claim when initialisation fails."}
+     note: "Code half built on master (784455c0, PR #93): Firebase and mail env on the Ingestor, send grant on the From identity, claim released on init failure. Left: owner's SES steps (verified sender, sandbox ok for moderators) and the AI processor wiring when its notify path ships."}
 
   BUG-074:
     {type: bug, status: done, created: 2026-10-22,
