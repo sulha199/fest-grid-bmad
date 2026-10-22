@@ -33,7 +33,7 @@ IDEA-090 (moderator queue notifications), the grouped-event notifications of AD-
 
 ## Resolution 2026-10-22: code and CDK (sandbox-capable); the SES account steps stay with the owner
 
-Built on master as one commit, `784455c0`, PR [sulha199/fest-grid-bmad#93](https://github.com/sulha199/fest-grid-bmad/pull/93) (cut after the BUG-074 hotfix). This page's status stays `backlog`: the code half of the list under "What is wrong" is done, the SES account half is not.
+Built on master as one commit, `784455c0`, PR [sulha199/fest-grid-bmad#93](https://github.com/sulha199/fest-grid-bmad/pull/93) (cut after the BUG-074 hotfix), merged 2026-10-22 as `349f4f2e`. This page's status stays `backlog`: the code half of the list under "What is wrong" is done, the SES account half is not.
 
 | Item | State |
 |---|---|
