@@ -53,10 +53,12 @@ import { buildFilterExtractionSystemInstruction, buildFilterExtractionResponseSc
 import { callGeminiGenerateContent } from '../src/lib/ai-gateway/gemini-client.js';
 import { loadBackendEnv } from '../src/env.js';
 import { isEvalDailyQuotaError, nextEvalRetryDelayMs } from '../src/lib/ai-gateway/eval-retry-policy.js';
+import { truncateForLog } from '../src/lib/ai-gateway/eval-log-format.js';
 
-// Free-tier keys allow ~15 requests/minute, and a run with variants makes ~120 calls: space calls
-// out (default 4.5s ~= 13/min) instead of only reacting to 429s. Set GOLDEN_EVAL_MIN_INTERVAL_MS=0
-// for a paid key.
+// Free-tier keys cap requests/minute (15 on a lite model, fewer on flash -- the nightly workflow sets
+// 13s ~= 4.6/min for flash): space calls out instead of only reacting to 429s, since every retry
+// also spends the call budget below. The 4.5s default (~13/min) suits a 15/min key. Set
+// GOLDEN_EVAL_MIN_INTERVAL_MS=0 for a paid key.
 const MIN_INTERVAL_MS = Number(process.env.GOLDEN_EVAL_MIN_INTERVAL_MS ?? 4500);
 let lastCallAt = 0;
 
@@ -64,6 +66,9 @@ let lastCallAt = 0;
 const rawBudget = Number(process.env.GOLDEN_EVAL_DAILY_BUDGET ?? 0);
 const CALL_BUDGET = Number.isFinite(rawBudget) && rawBudget >= 1 ? Math.floor(rawBudget) : Infinity;
 let attemptsUsed = 0;
+
+// Longest Gemini error message / raw response echoed to the log (see truncateForLog).
+const RESPONSE_LOG_MAX_CHARS = 600;
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -86,7 +91,7 @@ async function callWithRetry<T>(call: () => Promise<T>): Promise<T> {
       if (isEvalDailyQuotaError(message)) throw new EvalStopped('Gemini reports the per-day quota is exhausted');
       const delayMs = nextEvalRetryDelayMs(message, attempt);
       if (delayMs === undefined) throw err;
-      console.log(`Gemini call failed (attempt ${attempt}); retrying in ${Math.round(delayMs / 1000)}s: ${String((err as Error)?.name)}`);
+      console.log(`Gemini call failed (attempt ${attempt}); retrying in ${Math.round(delayMs / 1000)}s: ${String((err as Error)?.name)}: ${truncateForLog(message, RESPONSE_LOG_MAX_CHARS)}`);
       await sleep(delayMs);
     }
   }
@@ -126,7 +131,7 @@ async function main(): Promise<void> {
   const onlyCategory = process.env.GOLDEN_EVAL_CATEGORY;
   const fixtures = onlyCategory ? GOLDEN_PROMPT_FIXTURES.filter((f) => f.category === onlyCategory) : GOLDEN_PROMPT_FIXTURES;
   console.log(`Golden-prompt live eval model: ${filterModel}; fixtures: ${fixtures.length}`);
-  const results: Array<{ fixtureId: string; drifted: boolean; details: string }> = [];
+  const results: Array<{ fixtureId: string; drifted: boolean; details: string; rawText?: string }> = [];
 
   // Same pipeline as `resolvePromptToEventFilter`: Gemini -> transform -> venueType guard.
   async function resolveLive(prompt: string) {
@@ -139,16 +144,17 @@ async function main(): Promise<void> {
         model: filterModel,
       })
     );
+    // `rawText` rides along so a drifted fixture can show exactly what the model returned.
+    const rawText = response.text.replace(/^\s*```json/, '').replace(/```\s*$/, '').trim();
     let parsed: unknown;
     try {
-      const rawText = response.text.replace(/^\s*```json/, '').replace(/```\s*$/, '').trim();
       parsed = JSON.parse(rawText);
     } catch {
-      return undefined;
+      return { rawText, result: undefined };
     }
     const transformed = transformGeminiResponseToFilterExpression(parsed);
     const guarded = dropUnsupportedVenueTypes(transformed.expression);
-    return { expression: guarded.expression, caveats: [...transformed.caveats, ...guarded.caveats] };
+    return { rawText, result: { expression: guarded.expression, caveats: [...transformed.caveats, ...guarded.caveats] } };
   }
 
   const runVariants = process.env.GOLDEN_EVAL_VARIANTS === 'true';
@@ -156,7 +162,7 @@ async function main(): Promise<void> {
   if (runVariants) {
     console.log(`Metamorphic variants enabled; seed=${seed} (re-run with GOLDEN_EVAL_VARIANT_SEED=${seed} to reproduce).`);
   }
-  const variantResults = [];
+  const variantResults: Array<{ fixtureId: string; kind: string; drifted: boolean; details: string; rawText?: string }> = [];
 
   // The ledger spans the whole suite, so a GOLDEN_EVAL_CATEGORY run never forgets the other categories.
   const ledger = loadLedger(GOLDEN_PROMPT_FIXTURES.map((f) => f.id));
@@ -172,21 +178,21 @@ async function main(): Promise<void> {
   let stoppedReason: string | undefined;
   try {
     for (const { fixture, index, withVariant } of window) {
-      const liveResult = await resolveLive(fixture.prompt);
-      const baseResult = liveResult
-        ? summarizeGoldenPromptDrift(fixture, liveResult)
+      const live = await resolveLive(fixture.prompt);
+      const baseResult = live.result
+        ? summarizeGoldenPromptDrift(fixture, live.result)
         : { fixtureId: fixture.id, drifted: true, details: 'live response was not valid JSON' };
-      results.push(baseResult);
+      results.push({ ...baseResult, rawText: live.rawText });
       // Recorded before the variant call, so a run that ends there still counts the base prompt as evaluated.
       nextLedger[fixture.id] = { lastEvaluatedAt: runAt, drifted: baseResult.drifted };
 
       const variant = runVariants && withVariant ? pickPromptVariant(fixture, index, seed) : undefined;
       if (variant) {
         const variantLive = await resolveLive(variant.prompt);
-        const variantResult = variantLive
-          ? summarizeMetamorphicDrift(fixture, variant, variantLive)
+        const variantResult = variantLive.result
+          ? summarizeMetamorphicDrift(fixture, variant, variantLive.result)
           : { fixtureId: fixture.id, kind: variant.kind, variantPrompt: variant.prompt, drifted: true, details: 'live response was not valid JSON' };
-        variantResults.push(variantResult);
+        variantResults.push({ ...variantResult, rawText: variantLive.rawText });
         nextLedger[fixture.id] = { lastEvaluatedAt: runAt, drifted: baseResult.drifted || variantResult.drifted };
       }
     }
@@ -202,6 +208,7 @@ async function main(): Promise<void> {
   console.log(`Golden-prompt live eval: ${results.length} fixtures, ${drifted.length} drifted.`);
   for (const r of drifted) {
     console.log(`::warning::Golden-prompt drift on "${r.fixtureId}": ${r.details}`);
+    console.log(`    model returned: ${truncateForLog(r.rawText ?? '', RESPONSE_LOG_MAX_CHARS)}`);
   }
   const driftedVariants = variantResults.filter((r) => r.drifted);
   if (runVariants) {
@@ -210,6 +217,7 @@ async function main(): Promise<void> {
     // reviewed expectation) into golden-prompt-fixtures.ts so the regression is pinned permanently.
     for (const r of driftedVariants) {
       console.log(`::warning::Metamorphic drift on "${r.fixtureId}" (${r.kind}, seed ${seed}): ${r.details}`);
+      console.log(`    model returned: ${truncateForLog(r.rawText ?? '', RESPONSE_LOG_MAX_CHARS)}`);
     }
   }
 

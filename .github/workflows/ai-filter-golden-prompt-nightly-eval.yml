@@ -67,9 +67,11 @@ jobs:
           GOLDEN_EVAL_LEDGER_PATH: ${{ github.workspace }}/.golden-eval-state/ledger.json
           # One rotating metamorphic variant per fixture (seed = UTC day); see the script header.
           GOLDEN_EVAL_VARIANTS: 'true'
-          # Paces calls (~13/min) to stay under a free-tier key's 15 requests/minute limit; set to '0' once
-          # GEMINI_NIGHTLY_EVAL_API_KEY is a paid key.
-          GOLDEN_EVAL_MIN_INTERVAL_MS: '4500'
+          # Paces calls (~4.6/min) to stay under the free-tier flash model's per-minute limit, assumed to be
+          # 5/min: at the old 4.5s (~13/min, a lite model's 15/min) the nightly hit per-minute 429s, and
+          # every retried request spends GOLDEN_EVAL_DAILY_BUDGET. 20 calls take ~4.5 minutes. Set to '0'
+          # once GEMINI_NIGHTLY_EVAL_API_KEY is a paid key.
+          GOLDEN_EVAL_MIN_INTERVAL_MS: '13000'
           GEMINI_NIGHTLY_EVAL_API_KEY: ${{ secrets.GEMINI_NIGHTLY_EVAL_API_KEY }}
           # loadBackendEnv() (invoked inside callGeminiGenerateContent) requires this; this
           # script never binds a port, so any valid number works (same note as
