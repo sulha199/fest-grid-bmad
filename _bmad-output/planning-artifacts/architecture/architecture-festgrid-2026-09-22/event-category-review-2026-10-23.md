@@ -117,9 +117,9 @@ Triggers (proposed, tune freely): add/keep `HOME_AND_LIVING` and `FASHION_AND_BE
 - **F-C** `FASHION_AND_BEAUTY`: **added**.
 - **F-D** Owner asked whether `SHOPPING_AND_RETAIL` is needed given `EventType` already has `MARKET` and `PROMOTION`. Conclusion: **no** — shopping is a form/intent, not a subject; a many-product sale is `OTHER` + `PROMOTION`/`MARKET`. Property is investment-adjacent: routed to `BUSINESS_AND_NETWORKING` by definition, no new value (`FINANCE_AND_INVESTMENT` deferred behind a trigger).
 
-## 8. Final taxonomy: 20 values
+## 8. Final taxonomy: 21 values
 
-Existing 18 unchanged (`TECHNOLOGY` definition widened) + `HOME_AND_LIVING` + `FASHION_AND_BEAUTY`, both inserted before `OTHER`.
+Existing 18 unchanged (`TECHNOLOGY` definition widened) + `HOME_AND_LIVING` + `FASHION_AND_BEAUTY` + `FINANCE_AND_INVESTMENT` (owner-directed 2026-10-23, property routed into it), all inserted before `OTHER`.
 
 ## 9. Coordination note
 
@@ -157,3 +157,7 @@ Reviews are in `reviews/`: `review-rubric-walker.md`, `review-reality-check.md`,
 | project-context states future state as current; record stale; wrong SQL column (reality M5–M7) | **Fixed.** Rule marked plan-only; record corrected. |
 
 Owner defaults to flip if wanted: cap 4 vs 3; esports → HOBBIES vs SPORTS; ID label for Home & Living.
+
+## 12. Owner decision 2026-10-23: finance and investment
+
+Added `FINANCE_AND_INVESTMENT` ("Finance & Investment" / "Keuangan & Investasi"). Property, KPR, stocks, funds, bonds, gold, crypto, forex and commodity trading route here; `BUSINESS_AND_NETWORKING` narrows to trade, B2B, networking, entrepreneurship. The name avoids "trading" (ambiguous with commerce). Story 0-52 keeps property/investment under `BUSINESS_AND_NETWORKING` as an interim (its ratchet forbids naming a value that does not exist yet); Story 0-53 moves them and is renamed to cover three values. Open: moderation posture for scam-prone finance events (not decided).

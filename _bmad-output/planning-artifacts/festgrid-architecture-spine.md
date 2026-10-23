@@ -2482,8 +2482,8 @@ This document defines the core architectural invariants for the FestDaily applic
         general, misc) and bare ambiguous nouns are refused. **Categories are defined by subject
         matter, never by who attends:** none is defined by gender, age or eligibility (that is AD-42
         `tracks`/`eligibility`, `[PROPOSED]`). `BUSINESS_AND_NETWORKING` is defined by its subject
-        matter — trade, B2B, networking, entrepreneurship, property and investment — not by the
-        audience's identity.
+        matter — trade, B2B, networking, entrepreneurship — not by the audience's identity.
+        Property and investment belong to `FINANCE_AND_INVESTMENT` (Rule 3).
     2.  **Cardinality.** An event carries **at most 4** categories, headline subject first; the prompt
         asks for at most 3 headline subjects and permits a fourth only for a multi-subject festival
         (the CC-024 reference festival carries four). `OTHER` is **exclusive**: it means "no single
@@ -2494,10 +2494,12 @@ This document defines the core architectural invariants for the FestDaily applic
         schema's Ajv validation and the **whole extraction is dropped**
         (`process-ai-job.ts:158-164`); it does not fall back to `OTHER`.
     3.  **Membership, `[ADOPTED, user-directed 2026-10-23]`:** `HOME_AND_LIVING` (EN "Home & Living",
-        ID "Rumah Tangga & Interior") and `FASHION_AND_BEAUTY` (EN "Fashion & Beauty", ID "Fashion &
-        Gaya", owner's choice) are added before `OTHER`, taking the set from 18 to 20. `TECHNOLOGY`
+        ID "Rumah Tangga & Interior"), `FASHION_AND_BEAUTY` (EN "Fashion & Beauty", ID "Fashion &
+        Gaya", owner's choice) and `FINANCE_AND_INVESTMENT` (EN "Finance & Investment", ID "Keuangan &
+        Investasi", owner-directed 2026-10-23; "trading" means financial trading, not commerce, and is
+        deliberately not in the name) are added before `OTHER`, taking the set from 18 to 21. `TECHNOLOGY`
         keeps its name and label and widens to consumer gadgets. No gadget, lifestyle or tool category
-        exists. Neither new value is a sensitive category under AD-42 Rule 8. A user-facing label is
+        exists. None of the three new values is a sensitive category under AD-42 Rule 8. A user-facing label is
         not a definition: the Indonesian "Fashion & Gaya" is softer than its definition (it does not
         say "beauty"), accepted by the owner; the definition, not the label, governs tagging.
     4.  **One definitions source, one renderer.** `packages/shared-types/src/event-category-definitions.ts`
@@ -2521,9 +2523,13 @@ This document defines the core architectural invariants for the FestDaily applic
         prompts, not a source grep, because the prompt files legitimately keep
         `Object.values(EventCategory)` for response schemas.
     5.  **Boundaries, in this order (stop at the first that matches), rendered into both prompts:**
-        1. *Named routing wins:* property, real-estate and KPR/mortgage expos or seminars →
-        `BUSINESS_AND_NETWORKING`, whoever the audience (the one routing that overrides the subject-of-
-        sale rule; property is investment-adjacent, `[ADOPTED, user-directed]`). 2. Otherwise the
+        1. *Named routing wins:* property and real-estate expos or seminars, KPR/mortgage, and
+        stock, mutual-fund, bond, gold, crypto, forex and commodity trading or investing events →
+        `FINANCE_AND_INVESTMENT`, whoever the audience (the one routing that overrides the subject-of-
+        sale rule; property is an asset class, `[ADOPTED, user-directed 2026-10-23]`). Cars and
+        motorcycles stay `AUTOMOTIVE`, art collecting stays `ARTS_AND_CULTURE`, and furniture, décor
+        and appliances stay `HOME_AND_LIVING`; a home expo that also lists properties may carry both
+        categories, headline first. 2. Otherwise the
         **subject of what is sold or shown** decides a consumer-facing sale, bazaar, expo or promo; a
         trade-day/public-day split does not change the subject. 3. Add `BUSINESS_AND_NETWORKING` only
         when the post states a trade, buyer, B2B, franchise, supplier or business-matching purpose;
@@ -2593,8 +2599,8 @@ This document defines the core architectural invariants for the FestDaily applic
         in the story, never a CI gate, and re-run whenever a definition or boundary line changes.
 *   **Alternatives considered:** a `GADGET_AND_LIFESTYLE` category (unbounded name; overlaps
     `TECHNOLOGY`); a bare `TOOL` or `TOOLS_AND_HARDWARE` now (ambiguous, no demand evidence in the
-    seed data); `SHOPPING_AND_RETAIL` (form, not subject); a separate `PROPERTY` category (property
-    sits with investment); a two-level category tree (cost without a 24-value problem yet);
+    seed data); `SHOPPING_AND_RETAIL` (form, not subject); a separate `PROPERTY` category (property is an
+    asset class inside `FINANCE_AND_INVESTMENT`); a two-level category tree (cost without a 24-value problem yet);
     relabeling `TECHNOLOGY` to "Technology & Gadgets" (offered, declined by the owner); a source grep
     as the ratchet (the prompt files legitimately keep `Object.values(EventCategory)`); a 14-day
     deprecation clock, a docs-side source register, a FilterHub empty-state hint and a one-time
@@ -2602,21 +2608,26 @@ This document defines the core architectural invariants for the FestDaily applic
     (rejected: no column uses it).
 *   **Deferred:** `TOOLS_AND_HARDWARE` — split out of `HOME_AND_LIVING` when tool/hardware events are at
     least 2% of events extracted after `taxonomyEffectiveFrom`, **and** at least 50 events from at least
-    3 distinct accounts; `FINANCE_AND_PROPERTY` (or `FINANCE_AND_INVESTMENT`) — earlier than
-    that if property or investment events reach the volume of home-expo events in the first sample,
-    since a consumer property fair is a sale; `SHOPPING_AND_RETAIL` — not planned; a prompt version
+    3 distinct accounts; `PROPERTY` — split out of `FINANCE_AND_INVESTMENT` under the same
+    measured gate when property events are at least 2% of events extracted after
+    `taxonomyEffectiveFrom`; a moderation posture for finance events (forex, crypto and "trading
+    robot" pitches are a common scam channel, so a dedicated category makes them easier to find as
+    well as to flag) — not decided here, an owner and moderation question; `SHOPPING_AND_RETAIL` — not planned; a prompt version
     stamp (nothing pins prompt text today; AD-42's proposed `insight_version` makes a prompt change a
     required bump once it lands); the other 13 definitions are written in Story 1 and reviewed there.
 *   **Follow-ups this AD creates (for `bmad-create-story` / `bmad-form-epics`):**
     1.  **Story 1 — definitions source, renderer, both prompts, ratchet, cardinality, metric.** Writes
         definitions correct for the **existing 18 values** and names only existing values (Rule 4
-        check (b) enforces this); amends nothing for the two new values. Its interim effect on live
-        extraction is real and accepted: `TECHNOLOGY` widens, `BUSINESS_AND_NETWORKING` narrows, and a
-        consumer furniture bazaar tags `OTHER` until Story 2. Acceptance includes the golden corpus
+        check (b) enforces this); amends nothing for the three new values. Its interim effect on live
+        extraction is real and accepted: `TECHNOLOGY` widens, `BUSINESS_AND_NETWORKING` narrows to
+        subject matter (and, because Rule 4 check (b) forbids naming `FINANCE_AND_INVESTMENT` here,
+        keeps property and investment as an interim routing that Story 2 moves), and a consumer
+        furniture bazaar tags `OTHER` until Story 2. Acceptance includes the golden corpus
         run on the 18-value set and the CC-024 reference posts.
-    2.  **Story 2 — the two new values across the register (Rule 6),** retiring the pgEnum, widening
-        the definitions and boundary table to name the new members, `taxonomyEffectiveFrom`, and the
-        corpus re-run on the 20-value set. Ships after Story 1.
+    2.  **Story 2 — the three new values across the register (Rule 6),** retiring the pgEnum,
+        widening the definitions and boundary table to name the new members, moving property and
+        investment from `BUSINESS_AND_NETWORKING` to `FINANCE_AND_INVESTMENT`, `taxonomyEffectiveFrom`,
+        and the corpus re-run on the 21-value set. Ships after Story 1.
     3.  **Docs** — correct the "Postgres enum irreversibility" note in `deferred-work.md`; update
         `project-context.md` as Stories 1 and 2 land (its rule is marked plan-only until then).
 
