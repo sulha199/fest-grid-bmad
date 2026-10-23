@@ -352,6 +352,11 @@
       "WEEK": "weeks",
       "MONTH": "months"
     },
+    "unitsSingular": {
+      "DAY": "day",
+      "WEEK": "week",
+      "MONTH": "month"
+    },
     "daysOfWeek": {
       "MON": "Mondays",
       "TUE": "Tuesdays",
@@ -368,6 +373,8 @@
     "weekdays": "weekdays",
     "dateRangeSpanOnlyTemplate": "the next {spanAmount} {spanUnit}",
     "dateRangeSpanExtensionTemplate": "{base}, extending {spanAmount} {spanUnit}",
+    "restOfMonth": "the rest of this month",
+    "expressionInvalidCaveat": "This link's filter could not be fully restored, so a simpler version is shown.",
     "temporalStatus": {
       "TODAY": "happening now",
       "UPCOMING": "upcoming"

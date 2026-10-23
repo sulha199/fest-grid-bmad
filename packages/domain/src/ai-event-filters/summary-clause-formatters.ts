@@ -14,10 +14,20 @@ import type { AIFilterSummaryLabels } from './render-ai-filter-summary.js';
  * dependency with this module (Dev Notes decision 6).
  */
 
+/**
+ * Fills `{name}` placeholders in one pass with a replacer function. `String.replace(token, value)`
+ * would interpret `$&`, `$'` and `` $` `` inside user-supplied text (a keyword of `Rock $' Roll`
+ * rendered as "Rock  Roll"), and chained `.replace` calls would re-scan text already inserted
+ * (Epic 9 review P22).
+ */
+function fillTemplate(template: string, values: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (match, name: string) => (name in values ? values[name] : match));
+}
+
 export function formatAccountIdClause(accountId: string, labels: AIFilterSummaryLabels): string {
   const accId = accountId.trim();
   if (labels.accountIdTemplate) {
-    return labels.accountIdTemplate.replace('{accountId}', accId);
+    return fillTemplate(labels.accountIdTemplate, { accountId: accId });
   }
   return (labels.accountIdPrefix ?? '') + accId;
 }
@@ -37,32 +47,52 @@ export function formatCategoriesClause(categories: EventCategory[], labels: AIFi
 export function formatKeywordClause(keyword: string, labels: AIFilterSummaryLabels): string {
   const kw = keyword.trim();
   if (labels.keywordTemplate) {
-    return labels.keywordTemplate.replace('{keyword}', kw);
+    return fillTemplate(labels.keywordTemplate, { keyword: kw });
   }
   return (labels.keywordPrefix ?? 'about ') + "'" + kw + "'";
+}
+
+function unitLabel(unit: string, amount: number, labels: AIFilterSummaryLabels): string {
+  if (amount === 1 && labels.unitsSingular && labels.unitsSingular[unit]) {
+    return labels.unitsSingular[unit];
+  }
+  return labels.units && labels.units[unit] ? labels.units[unit] : unit;
 }
 
 export function formatDateRangeClause(dateRange: DateRangeFilter, labels: AIFilterSummaryLabels): string {
   const { anchor, offsetAmount, offsetUnit, spanAmount, spanUnit } = dateRange;
   const anchorText = (labels.anchors && labels.anchors[anchor]) ? labels.anchors[anchor] : anchor;
   const hasSpan = spanAmount != null && spanUnit != null;
-  const spanUnitText = hasSpan ? ((labels.units && labels.units[spanUnit as string]) ? labels.units[spanUnit as string] : spanUnit) : '';
+  const spanUnitText = hasSpan ? unitLabel(spanUnit as string, spanAmount as number, labels) : '';
+  const spanValues = { spanAmount: String(spanAmount), spanUnit: spanUnitText };
   if (offsetAmount === 0) {
     if (hasSpan) {
-      return (labels.dateRangeSpanOnlyTemplate ?? 'the next {spanAmount} {spanUnit}')
-        .replace('{spanAmount}', String(spanAmount)).replace('{spanUnit}', spanUnitText as string);
+      // "Today, extending 1 month" is the rest of the current month, not the next 30 days.
+      if (anchor === 'TODAY' && spanUnit === 'MONTH' && spanAmount === 1 && labels.restOfMonth) {
+        return labels.restOfMonth;
+      }
+      if (anchor === 'TODAY') {
+        return fillTemplate(labels.dateRangeSpanOnlyTemplate ?? 'the next {spanAmount} {spanUnit}', spanValues);
+      }
+      // Any other anchor keeps its own wording ("this week, extending 1 week"), never "the next 1 week".
+      return fillTemplate(labels.dateRangeSpanExtensionTemplate ?? '{base}, extending {spanAmount} {spanUnit}', {
+        base: anchorText,
+        ...spanValues,
+      });
     }
     return anchorText;
   }
-  const unitText = (labels.units && labels.units[offsetUnit]) ? labels.units[offsetUnit] : offsetUnit;
-  const sign = offsetAmount >= 0 ? '+' : '-';
   const absAmount = Math.abs(offsetAmount);
+  const unitText = unitLabel(offsetUnit, absAmount, labels);
+  const sign = offsetAmount >= 0 ? '+' : '-';
   const base = labels.dateRangeTemplate
-    ? labels.dateRangeTemplate.replace('{anchor}', anchorText).replace('{sign}', sign).replace('{amount}', String(absAmount)).replace('{unit}', unitText)
+    ? fillTemplate(labels.dateRangeTemplate, { anchor: anchorText, sign, amount: String(absAmount), unit: unitText })
     : `${anchorText} ${sign} ${absAmount} ${unitText}`;
   if (hasSpan) {
-    return (labels.dateRangeSpanExtensionTemplate ?? '{base}, extending {spanAmount} {spanUnit}')
-      .replace('{base}', base).replace('{spanAmount}', String(spanAmount)).replace('{spanUnit}', spanUnitText as string);
+    return fillTemplate(labels.dateRangeSpanExtensionTemplate ?? '{base}, extending {spanAmount} {spanUnit}', {
+      base,
+      ...spanValues,
+    });
   }
   return base;
 }
@@ -90,20 +120,20 @@ export function formatTemporalFilterClause(temporalFilter: TemporalFilter | stri
 
 export function formatLocationAdminAreaClause(adminArea: string, labels: AIFilterSummaryLabels): string {
   const area = adminArea.trim();
-  return labels.adminAreaTemplate ? labels.adminAreaTemplate.replace('{adminArea}', area) : (labels.adminAreaPrefix ?? 'in ') + area;
+  return labels.adminAreaTemplate ? fillTemplate(labels.adminAreaTemplate, { adminArea: area }) : (labels.adminAreaPrefix ?? 'in ') + area;
 }
 
 export function formatLocationProximityClause(radiusMeters: number | null | undefined, labels: AIFilterSummaryLabels): string {
   if (radiusMeters !== undefined && radiusMeters !== null) {
     const radiusKm = radiusMeters / 1000;
-    return labels.nearMeWithRadiusTemplate ? labels.nearMeWithRadiusTemplate.replace('{radius}', String(radiusKm)) : (labels.nearMeWithRadiusPrefix ?? 'within ') + radiusKm + 'km of me';
+    return labels.nearMeWithRadiusTemplate ? fillTemplate(labels.nearMeWithRadiusTemplate, { radius: String(radiusKm) }) : (labels.nearMeWithRadiusPrefix ?? 'within ') + radiusKm + 'km of me';
   }
   return labels.nearMe ?? 'near me';
 }
 
 export function formatVenueTypeClause(venueType: string, labels: AIFilterSummaryLabels): string {
   const vt = venueType.trim();
-  return labels.venueTypeTemplate ? labels.venueTypeTemplate.replace('{venueType}', vt) : (labels.venueTypePrefix ?? 'at ') + vt;
+  return labels.venueTypeTemplate ? fillTemplate(labels.venueTypeTemplate, { venueType: vt }) : (labels.venueTypePrefix ?? 'at ') + vt;
 }
 
 export function formatIsFreeClause(isFree: boolean, labels: AIFilterSummaryLabels): string | undefined {

@@ -189,3 +189,59 @@ describe('summary-clause-formatters', () => {
     assert.equal(joinCaveats(['err1', 'err2'], { ...lbls, caveatPrefix: undefined, caveatSeparator: undefined }), 'err1\nerr2');
   });
 });
+
+describe('summary-clause-formatters: Epic 9 review P22', () => {
+  const labels: AIFilterSummaryLabels = {
+    noFilter: 'All events',
+    keywordTemplate: "about '{keyword}'",
+    accountIdTemplate: 'by {accountId}',
+    adminAreaTemplate: 'in {adminArea}',
+    anchors: { TODAY: 'today', THIS_WEEK: 'this week', THIS_MONTH: 'this month' },
+    units: { DAY: 'days', WEEK: 'weeks', MONTH: 'months' },
+    unitsSingular: { DAY: 'day', WEEK: 'week', MONTH: 'month' },
+    dateRangeTemplate: '{anchor} {sign} {amount} {unit}',
+    dateRangeSpanOnlyTemplate: 'the next {spanAmount} {spanUnit}',
+    dateRangeSpanExtensionTemplate: '{base}, extending {spanAmount} {spanUnit}',
+    restOfMonth: 'the rest of this month',
+  };
+
+  it('keeps `$` sequences in user text literal instead of treating them as replacement patterns', () => {
+    assert.equal(formatKeywordClause("Rock $' Roll", labels), "about 'Rock $' Roll'");
+    assert.equal(formatKeywordClause('cost $& more', labels), "about 'cost $& more'");
+    assert.equal(formatAccountIdClause('a$`b', labels), 'by a$`b');
+    assert.equal(formatLocationAdminAreaClause("O$'Brien", labels), "in O$'Brien");
+  });
+
+  it('does not re-scan inserted user text for other placeholders', () => {
+    assert.equal(formatKeywordClause('{keyword}{x}', labels), "about '{keyword}{x}'");
+  });
+
+  it('uses the singular unit word for an amount of exactly 1', () => {
+    assert.equal(
+      formatDateRangeClause({ anchor: DateAnchor.TODAY, offsetAmount: 0, offsetUnit: DateOffsetUnit.DAY, spanAmount: 1, spanUnit: DateOffsetUnit.DAY }, labels),
+      'the next 1 day'
+    );
+    assert.equal(
+      formatDateRangeClause({ anchor: DateAnchor.TODAY, offsetAmount: 0, offsetUnit: DateOffsetUnit.DAY, spanAmount: 2, spanUnit: DateOffsetUnit.WEEK }, labels),
+      'the next 2 weeks'
+    );
+    assert.equal(
+      formatDateRangeClause({ anchor: DateAnchor.TODAY, offsetAmount: 1, offsetUnit: DateOffsetUnit.WEEK }, labels),
+      'today + 1 week'
+    );
+  });
+
+  it('says "the rest of this month" for TODAY + a one-month span, which runs to month end', () => {
+    assert.equal(
+      formatDateRangeClause({ anchor: DateAnchor.TODAY, offsetAmount: 0, offsetUnit: DateOffsetUnit.DAY, spanAmount: 1, spanUnit: DateOffsetUnit.MONTH }, labels),
+      'the rest of this month'
+    );
+  });
+
+  it('keeps a non-TODAY anchor in a zero-offset span instead of "the next N ..."', () => {
+    assert.equal(
+      formatDateRangeClause({ anchor: DateAnchor.THIS_WEEK, offsetAmount: 0, offsetUnit: DateOffsetUnit.DAY, spanAmount: 1, spanUnit: DateOffsetUnit.WEEK }, labels),
+      'this week, extending 1 week'
+    );
+  });
+});

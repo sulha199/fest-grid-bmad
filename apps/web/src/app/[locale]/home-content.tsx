@@ -231,9 +231,9 @@ export function HomeContent() {
     queryKey: ['events', { q, types, categories, nearby: resolvedNearby, aiFilter: aiFilter.activeFilter, aiExpression: aiFilter.activeExpression, temporalFilter }, pagination.resetToken],
     queryFn: async ({ pageParam }) => {
       const condition = aiFilter.activeExpression
-        ? buildEventsQueryCondition({ expression: aiFilter.activeExpression })
+        ? buildEventsQueryCondition({ expression: aiFilter.activeExpression, search: q, temporalFilter })
         : aiFilter.activeFilter
-          ? buildEventsQueryCondition({ filter: { ...aiFilter.activeFilter, temporalFilter } })
+          ? buildEventsQueryCondition({ filter: { ...aiFilter.activeFilter, temporalFilter: temporalFilter ?? aiFilter.activeFilter.temporalFilter } })
           : buildEventsQueryCondition({ search: q, types, categories, nearby: resolvedNearby, temporalFilter });
       return graphqlClient.request<GetEventsQuery>(GetEventsDocument, {
         limit: 10,

@@ -137,6 +137,13 @@ describe('useAIFilter hook', () => {
 
   it('expands back to manual controls when the user edits the search box while an AI filter is active', () => {
     mockResolvedFilter = { types: ['FESTIVAL'], keyword: 'jazz' };
+    mockExpression = {
+      op: 'AND',
+      children: [
+        { field: 'type', value: ['FESTIVAL'] },
+        { field: 'keyword', value: 'jazz' },
+      ],
+    };
     const { result, rerender } = renderHook(() => useAIFilter(), {
       wrapper: NuqsTestingAdapter,
     });
@@ -176,6 +183,14 @@ describe('useAIFilter hook', () => {
   });
 
   it('clears activeExpression (null) after onAIExpand()', () => {
+    mockResolvedFilter = { types: ['FESTIVAL'], keyword: 'jazz' };
+    mockExpression = {
+      op: 'AND',
+      children: [
+        { field: 'type', value: ['FESTIVAL'] },
+        { field: 'keyword', value: 'jazz' },
+      ],
+    };
     const { result, rerender } = renderHook(() => useAIFilter(), {
       wrapper: NuqsTestingAdapter,
     });
@@ -325,5 +340,78 @@ describe('useAIFilter hook', () => {
     // Falls back to the flat ai_filter, so the summary still renders.
     expect(typeof result.current.filterHubProps.aiFilterSummary).toBe('string');
   });
-});
 
+  // Epic 9 review D2: "Edit / Expand" only exists where manual controls can represent the filter.
+  it('D2: offers no Expand for a compound (OR) filter, which manual controls cannot represent', () => {
+    mockResolvedFilter = {};
+    const { result } = renderHook(() => useAIFilter(), { wrapper: NuqsTestingAdapter });
+
+    act(() => {
+      result.current.overlayProps.onSubmit('festivals or concerts');
+    });
+
+    expect(result.current.activeExpression).toEqual(mockExpression);
+    expect(result.current.filterHubProps.onAIExpand).toBeUndefined();
+    // Clear still works.
+    expect(typeof result.current.filterHubProps.onAIClear).toBe('function');
+  });
+
+  it('D2: derives Expand from a flat-representable ai_expression even when ai_filter is missing from the URL', () => {
+    const { result } = renderHook(() => useAIFilter(), {
+      wrapper: withSearchParams({ ai_expression: JSON.stringify(cleanBadmintonTree) }),
+    });
+
+    expect(typeof result.current.filterHubProps.onAIExpand).toBe('function');
+    expect(typeof result.current.filterHubProps.aiFilterSummary).toBe('string');
+  });
+
+  it('D2: an ai_filter of "null" in the URL (older saved-filter links) does not break the summary or the expression', () => {
+    const { result } = renderHook(() => useAIFilter(), {
+      wrapper: withSearchParams({ ai_filter: 'null', ai_expression: JSON.stringify(cleanBadmintonTree) }),
+    });
+
+    expect(result.current.activeFilter).toBeNull();
+    expect(result.current.activeExpression).toEqual(cleanBadmintonTree);
+    expect(typeof result.current.filterHubProps.aiFilterSummary).toBe('string');
+  });
+
+  it('P20: says so when a shared ai_expression is invalid and the flat fallback is shown instead', () => {
+    const { result } = renderHook(() => useAIFilter(), {
+      wrapper: withSearchParams({
+        ai_filter: JSON.stringify({ keyword: 'jazz' }),
+        ai_expression: JSON.stringify({ op: 'AND', children: [] }),
+      }),
+    });
+
+    expect(result.current.activeExpression).toBeNull();
+    expect(result.current.filterHubProps.aiCaveatsText).toContain('expressionInvalidCaveat');
+  });
+
+  it('P6: a resolved filter with no flat form writes {} (not the string "null") as the ai_filter marker', () => {
+    mockResolvedFilter = null;
+    const { result } = renderHook(() => useAIFilter(), { wrapper: NuqsTestingAdapter });
+
+    act(() => {
+      result.current.overlayProps.onSubmit('festivals or concerts');
+    });
+
+    expect(result.current.activeFilter).toEqual({});
+  });
+
+  it('P16: cannot save a resolved filter that has no conditions', () => {
+    mockResolvedFilter = {};
+    mockExpression = { op: 'AND', children: [] };
+    const { result } = renderHook(() => useAIFilter(), { wrapper: NuqsTestingAdapter });
+
+    act(() => {
+      result.current.overlayProps.onSubmit('something unmappable');
+    });
+    expect(result.current.overlayProps.canSave).toBe(false);
+
+    mockExpression = { op: 'AND', children: [{ field: 'keyword', value: 'jazz' }] };
+    act(() => {
+      result.current.overlayProps.onSubmit('jazz');
+    });
+    expect(result.current.overlayProps.canSave).toBe(true);
+  });
+});
