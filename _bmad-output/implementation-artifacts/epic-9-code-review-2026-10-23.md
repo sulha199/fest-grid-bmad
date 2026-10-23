@@ -58,3 +58,50 @@ Low:
 ## Dismissed (15)
 
 By design or already handled: rate-limit check before the key lookup (mandated by 9.8); `ne`/`notIn` null-inclusive for public `query` callers (SPEC-mandated); flat `resolvedFilter: {}` for non-flat expressions (latent, web reads the expression); nightly eval abort on one Gemini error and its 429 handling, pacing and budget (fixed on master, counted as one); unlabelled `isFree` clause and `dayOfWeek: []` blank clause (labels always supplied, validator rejects empty); partial span or unknown unit in `resolveDateRangeFilter` (GraphQL enums gate it); second `dayOfWeek`/`dateRange` leaf in one AND (nonsense semantics); `resolveTodayISO` `en-CA` assumption; query-key resets on ignored inputs; 9.8 integration test overriding the env limit; malformed rate-limit env value throwing per request (same pattern as the other env knobs); `hasFavoritedEqTrue` ignoring `not` for client-supplied queries; golden-prompt fixtures using hand-authored responses.
+
+---
+
+# Re-review of the fixes — 2026-10-23 (second round)
+
+Scope: the fix delta `git diff origin/master...HEAD`, production source only (domain 2055 lines, backend 428, web/UI 561), after merging `origin/master` (4 commits, no conflicts). Method: `bmad-code-review` again, 3 chunks x 3 layers (Blind Hunter on the diff alone, Edge Case Hunter with read access to verify reachability, Acceptance Auditor against SPEC / vocabulary / stories / the D2-D3 decisions) = 9 layers, all completed. As before, severity is mine, every `high` or `medium` claim was reproduced or traced in the code before rating, and subagent output was treated as untrusted. Several claims were refuted by running them (see Dismissed).
+
+Result: **19 patch, 3 defer, 1 decision needed, ~30 dismissed.** All patches have a regression test that was red on the old code and green on the new.
+
+## Patched
+
+High:
+- **R1 The P17 weekday cap could be bypassed with a nested AND.** `AND(dayOfWeek[7], AND(dateRange +24 MONTH, isFree))` passed `validateFilterNode`, then the compiler flattened it and the builder backstop threw ("709 dates") on the public query. The cap is now also checked on the normalized tree.
+- **R2 A leaf `field` named like an `Object.prototype` member ("constructor", "toString", "__proto__") threw a `TypeError` out of `validateFilterNode`** (`NULLABLE_LEAF_VALUE_KEYS[field]` was not iterable): a 500 on the unauthenticated query, bypassing P14. Lookup is now own-property only.
+- **R3 A million-entry leaf `value` array cost ~20 s of CPU** (`value` is a free JSON scalar; Zod built an issue per element). The preflight now refuses a leaf with more than 64 values before Zod runs.
+
+Medium:
+- **R4 A hostile `op` made the validation message megabytes long or made `JSON.stringify` throw.** Now described by type or truncated.
+- **R5 A weekday-window repair under a NOT turned `NOT(range AND weekdays)` into `NOT(range)`** (excluding the whole range) with a caveat claiming a superset. It now voids the whole NOT, like every other repair.
+- **R6 The node-count trim reached inside a NOT** (`NOT(OR of 11)` lost a branch). Trimming now only touches groups outside a NOT; a bare over-limit NOT is dropped as a unit.
+- **R7 A NOT carrying `child: null` (Gemini emits explicit nulls) lost its operand silently, or lost the negation with no caveat.** `null` now counts as absent, and a NOT that still loses its operand is reported.
+- **R10 The rate limiter denied requests that were under the limit.** The compare-and-swap loop gave up after 4 rounds, so 8 parallel prompts on a limit of 10 let only 4 through. A lost round is not a verdict; the loop now retries up to `max + 2` rounds (each lost round is another request's recorded increment, which is what bounds it).
+- **R13 D3 follow-through.** `NOT(@unknown)` is "every event", yet the code left a nil-UUID leaf in the tree (shown in the summary and persisted on save) and the caveat said the part "matches no events". The stand-in is now folded through AND/OR/NOT and the caveat states what is true in every position.
+- **R14 Edit / Expand dropped conditions.** It was offered for any flat filter but copies only keyword, types and categories, so a date, place, price or account vanished and the list silently widened (SPEC CAP-5: "Expand exists only for a filter that manual controls can represent"). Now offered only when the whole filter is keyword/types/categories, and never for an unrestorable link.
+- **R15 Search and the Today/Upcoming toggle differed between the flat and expression paths** (the flat branches ignored the search; the toggle replaced the filter's own `temporalFilter`). A flat `ai_filter` is now exposed as its equivalent expression, so everything takes the ANDing path.
+- **R19 Specs and stories contradicted the code.** Amended SPEC, `filter-vocabulary.md` and the 9.2, 9.3, 9.4, 9.4a, 9.5, 9.6 and 9.8 story files (each carries an "Epic 9 code-review amendments" note).
+
+Low:
+- **R8** The drift signature now carries `isFree` / `temporalFilter` values (free turning into paid was invisible). **R9** Numeric strings from the model are parsed whole ("2.7" no longer becomes 2). **R11** The rate-limit window compare is at millisecond precision, so a `defaultNow()` timestamp (microseconds) cannot lock a user out. **R12** The rate-limit env knobs reject `1e3`, `10abc`, `1.5`, `0`. **R16** A fresh empty extraction no longer shows the false "could not be fully restored" banner. **R17** The invalid-link caveat shows even when `ai_filter` is missing. **R18** A non-array `ai_caveats` no longer throws during render.
+
+## Deferred (rows on the board)
+
+- **FIND-089 [user-visible]** `resolveStoredFilter` repairs a stored filter that no longer validates and sets `degraded: true`, but nothing reads it: the saved filter is silently replaced by a wider one. Needs a GraphQL field and a notice.
+- **FIND-090 [internal]** Five low items: the drift signature compares syntax not meaning; `MAX_RADIUS_METERS` is declared twice; `TODAY + 2 MONTH` renders "the next 2 months"; FilterHub's "Show more" is a character heuristic; Save is hidden for an empty extraction without a hint.
+
+## Decision needed
+
+- **D4 / FIND-091 [medium]** Leaf fields written on an OR node beside its children are joined to that OR as extra alternatives, so `{op:'OR', children:[jazz, blues], isFree:true}` becomes `OR(jazz, blues, isFree)` (every free event matches). Reproduced. It is Story 9.4's deliberate literal reading with a covering test, so it was not changed on a guess. (a) keep it and add a caveat, or (b) read a qualifier beside an OR's branches as applying to the whole group: `AND(OR(branches), fields)`.
+
+## Not done
+
+- **D1 stays open**: live extraction quality needs a Gemini key this session does not have. The mechanical hand-off items are done (NEGATION sentence, `radiusMeters` `minimum: 1`, operator/polarity drift signature, script header, workflow `permissions` and `timeout-minutes`). `minimum` is accepted by Gemini's response-schema format as far as I know, but only the next nightly run proves it; if that run returns a 400, remove the keyword (the transform-side radius guard is the real defence).
+
+## Dismissed (refuted by running or reading the code, or by design)
+
+Refuted: `NOT COALESCE(, false)` on an empty group (`parts.length === 0` returns first); unbounded `spanAmount` (the validator rejects it); legacy or expression-less saved rows turning into "match everything" (the backend `expression` field resolves them through `resolveStoredFilter`); `--filter backend` being the wrong package name (it is `backend`; ran it); workflow `permissions: contents: read` breaking failure reporting (the cache actions use the runtime token); the calendar tie-break allow-list dropping dates (single dates compile to `overlaps` or `and`; `or` only for multi-date weekday sets); `aiExpressionInvalid` being async (it is a `useMemo`); a missing `useMemo` import or hook-order break (tsc and lint pass); double-wrapping a compiled `and` (the parity tests pass).
+By design or accepted: `0` for the rate-limit knobs now failing at load (that is P12); the unresolved-account semantics differing by position (D3); `createWidget`/`updateWidget` treating `filters: null` as absent (P23); the write path rejecting what the read path repairs (documented in the 9.3 amendment); the weekday estimate being conservative near the cap; the drift check flagging paraphrases of the same meaning (accepted trade-off, FIND-090); `mapFilterLeaves` narrowing an OR after voiding a NOT (callers pass `insideOrOrNot` so it does not occur); an untested speculative `hasNoConditions` guard (reverted).

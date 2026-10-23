@@ -2367,3 +2367,27 @@ items:
      ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/epic-9-code-review-2026-10-23.md],
      touches: [pkg:domain, cross:ai-extraction],
      note: "Deferred from: code review of epic-9 (2026-10-23). 3 findings."}
+
+  FIND-089:
+    {type: finding, status: backlog, created: 2026-10-23, parent: FIND-088,
+     impact: user-visible, effort: m,
+     title: "A saved AI filter or widget that no longer validates is repaired silently: the degraded flag reaches no UI",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/epic-9-code-review-2026-10-23.md],
+     touches: [pkg:domain, app:backend, web:settings, cross:ai-extraction],
+     note: "Deferred from: re-review of the epic-9 fixes (2026-10-23). resolveStoredFilter sets degraded:true when it repairs a stored row but no UI reads it, so the saved filter is silently replaced by a wider one. Detail in deferred-work.md."}
+
+  FIND-090:
+    {type: finding, status: backlog, created: 2026-10-23, parent: FIND-088,
+     impact: internal, effort: s,
+     title: "Epic 9 re-review leftovers: syntactic drift signature, duplicated radius bound, month-span wording, FilterHub clamp heuristic, Save button hidden without a hint",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/epic-9-code-review-2026-10-23.md],
+     touches: [pkg:domain, pkg:ui, web:events],
+     note: "Deferred from: re-review of the epic-9 fixes (2026-10-23). 5 low findings."}
+
+  FIND-091:
+    {type: finding, status: triaged, created: 2026-10-23, parent: FIND-088,
+     impact: user-visible, effort: s,
+     title: "Decision needed: leaf fields written on an OR node beside its children join the OR as extra alternatives (\"free jazz or blues\" can match every free event)",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/epic-9-code-review-2026-10-23.md],
+     touches: [pkg:domain, cross:ai-extraction],
+     note: "Deferred from: re-review of the epic-9 fixes (2026-10-23). DECISION: node-level leaf fields on an OR join it as alternatives (Story 9.4 literal reading); the alternative is AND(OR(branches), fields). Detail in deferred-work.md."}

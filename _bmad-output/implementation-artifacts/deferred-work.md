@@ -738,3 +738,15 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: `_bmad-output/implementation-artifacts/epic-9-code-review-2026-10-23.md`
   summary: Three small internal items: caveat strings in the domain layer are English-only; `NOT(dayOfWeek)` negates a window bounded to the 90-day lookahead; the nightly eval runs under `environment: production`.
   evidence: Surfaced by Blind Hunter. Plan section 3.1 accepted "document, don't special-case" for NOT over time leaves; the caveat i18n gap is acknowledged in the 9.4 Dev Notes; the environment binding mirrors the peer workflows.
+
+## Deferred from: re-review of the epic-9 fixes (2026-10-23)
+
+- source_spec: `_bmad-output/implementation-artifacts/epic-9-code-review-2026-10-23.md`
+  summary: `resolveStoredFilter` repairs a stored filter that no longer validates and sets `degraded: true`, but no resolver, page or widget reads the flag, so the saved filter is silently replaced by a wider one and a re-save makes it permanent.
+  evidence: Surfaced by Acceptance Auditor (domain), Blind Hunter and Edge Case Hunter; confirmed by `grep degraded`. Exposing it needs a GraphQL field on `AIEventFilter` / `Widget` and a notice on the settings row; the repaired tree is at least what the page both shows and applies. (FIND-089)
+- source_spec: `_bmad-output/implementation-artifacts/epic-9-code-review-2026-10-23.md`
+  summary: Five low items: the drift signature compares syntax, not meaning (`AND(type, OR(cat, cat))` vs `OR(AND(type, cat), AND(type, cat))` read as drift); `MAX_RADIUS_METERS` is declared in two domain files; `TODAY + 2 MONTH` renders "the next 2 months" though the window ends at the end of next month; FilterHub's "Show more" uses a character threshold, not a measured clip; the overlay hides Save for an empty extraction without saying why.
+  evidence: Surfaced by Blind Hunter, Edge Case Hunter and Acceptance Auditor. None changes a result. (FIND-090)
+- source_spec: `_bmad-output/implementation-artifacts/epic-9-code-review-2026-10-23.md`
+  summary: DECISION NEEDED. Leaf fields written on an OR node beside its `children` are joined to that OR as additional alternatives, so `{op:'OR', children:[jazz, blues], isFree:true}` becomes `OR(jazz, blues, isFree)`.
+  evidence: Reproduced by Edge Case Hunter. It is Story 9.4's deliberate literal reading with a covering test, so it was not changed on a guess about the model's intent. (FIND-091)

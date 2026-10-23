@@ -365,3 +365,10 @@ claude-sonnet-5 (bmad-dev-story, Epic 9 batch dispatch)
 - `apps/web/src/app/[locale]/feed/feed-content.tsx` (UPDATE -- Task 7)
 - `apps/web/src/app/[locale]/favorites/favorites-content.tsx` (UPDATE -- Task 7)
 - (Task 8: `home-content.test.tsx`, `feed-content.test.tsx`, `favorites-content.test.tsx` checked -- none required an edit; none asserts an exact `filterLabels`/`useAIFilter()` shape that the two new additive fields would break)
+
+## Epic 9 code-review amendments (2026-10-23)
+
+The Epic 9 code review (`implementation-artifacts/epic-9-code-review-2026-10-23.md`) changed behaviour this story's text still describes. Read the code and this note, not the superseded wording below.
+
+- **Supersedes AC3 / Out of Scope ("does not touch `ai-filters-content.tsx`"):** see Story 9.5's amendment; the overlay hides *Save* for an extraction with no conditions (P16) and FilterHub resets its expanded state when the summary changes (P19).
+- **Edit / Expand (D2):** offered only when manual controls (keyword, types, categories) can represent the whole filter; a compound filter, or a flat one that also has a date, place, price or account, has no Expand, and the search box is ANDed onto it instead.
