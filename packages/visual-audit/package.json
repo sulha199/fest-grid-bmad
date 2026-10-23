@@ -14,6 +14,7 @@
     "build": "tsc",
     "test": "tsx --test *.test.ts",
     "test:manifests": "playwright test --config=playwright.config.ts",
+    "audit:page-overflow": "tsx src/cli/page-overflow-audit.ts",
     "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
     "build:vendor-tailwind": "tailwindcss -c vendor/tailwind.config.cjs -i vendor/tailwind-input.css -o vendor/tailwind.generated.css --minify"
   },

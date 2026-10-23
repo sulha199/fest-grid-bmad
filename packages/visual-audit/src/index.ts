@@ -53,3 +53,22 @@ export { runOverflowRule, type OverflowRuleResult, type OverflowVariantResult } 
 export { checkPlacementOrder, type PlacementOrderCheckResult } from './rules/placement-order.js';
 
 export { enumerateContentVariants, type ContentVariant } from './content-variants.js';
+
+export { detectPageOverflow, installEvaluateHelpers } from './compare/page-overflow.js';
+
+export {
+  formatSelectorPath,
+  rankOffenders,
+  buildPageOverflowResult,
+  isOverflowing,
+  classifyPageHealth,
+  shortenPath,
+  culpritKey,
+  OVERFLOW_EPSILON_PX,
+  type PageOverflowOffender,
+  type PageOverflowResult,
+  type RawOverflowCandidate,
+  type SelectorSegment,
+} from './rules/page-overflow.js';
+
+export { renderAuditReport, classifyResult, type AuditRow, type AuditRowStatus, type AuditReportMeta } from './rules/page-overflow-report.js';

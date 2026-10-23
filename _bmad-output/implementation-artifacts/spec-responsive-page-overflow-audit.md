@@ -2,7 +2,8 @@
 title: 'Responsive page-overflow audit: detector + route×viewport sweep'
 type: 'feature'
 created: '2026-10-23'
-status: 'draft'
+status: 'done'
+baseline_commit: 'eb7079960ba508dc616d42e2c4666142bf87cd23'
 review_loop_iteration: 0
 context:
   - '{project-root}/_bmad-output/project-context.md'
@@ -39,25 +40,24 @@ context:
 
 ## Code Map
 
-- `packages/visual-audit/src/page-overflow.ts` -- NEW: `detectPageOverflow(page)` (page.evaluate) + pure `rankOffenders`, `formatSelectorPath`
-- `packages/visual-audit/src/page-overflow-report.ts` -- NEW: pure markdown/JSON report renderer
-- `packages/visual-audit/src/cli/page-overflow-audit.ts` -- NEW: route×viewport sweep CLI (`BASE_URL`, `--routes`, `--out`)
-- `packages/visual-audit/src/index.ts` -- export new public API
-- `packages/visual-audit/page-overflow.test.ts` -- NEW: unit tests for pure parts
-- `packages/visual-audit/package.json` -- `audit:page-overflow` script
-- `apps/web/src/app/[locale]/**/page.tsx` -- route inventory source (read-only)
+- `packages/visual-audit/src/rules/page-overflow.ts` -- pure: `formatSelectorPath`, `rankOffenders`, `buildPageOverflowResult`, `classifyPageHealth`, `shortenPath`, `culpritKey`
+- `packages/visual-audit/src/compare/page-overflow.ts` -- `detectPageOverflow(page)` in-page DOM walk (+ `installEvaluateHelpers` for the tsx `__name` quirk)
+- `packages/visual-audit/src/rules/page-overflow-report.ts` -- pure markdown renderer (matrix, distinct culprits, per-route findings, caveats)
+- `packages/visual-audit/src/cli/page-overflow-audit.ts` -- route×viewport sweep CLI (`BASE_URL`, `CHROMIUM_EXECUTABLE_PATH`, `--routes`, `--widths`, `--out`)
+- `packages/visual-audit/page-overflow.test.ts` -- unit tests for the pure parts
+- `packages/visual-audit/src/index.ts`, `package.json` -- exports + `audit:page-overflow` script
 - `apps/web/e2e/discovery.spec.ts:29` -- existing BUG-045 check (read-only; superseded in step 2)
-- `_bmad-output/implementation-artifacts/page-overflow-audit-2026-10-23.md` -- NEW: generated findings report
+- `_bmad-output/implementation-artifacts/page-overflow-audit-2026-10-23.md` -- generated findings report
 
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `packages/visual-audit/src/page-overflow.ts` -- implement detector and pure helpers -- shared by CLI now and e2e spec in step 2
-- [ ] `packages/visual-audit/src/page-overflow-report.ts` -- render findings grouped by route → viewport → offenders -- human-readable audit output
-- [ ] `packages/visual-audit/src/cli/page-overflow-audit.ts` -- sweep public routes at 320/360/375/390/412/768/1024/1280/1440, resolve dynamic params (event slug, platform/username) from links found on `/en`, skip-and-record unreachable routes -- the audit
-- [ ] `packages/visual-audit/page-overflow.test.ts` -- cover each I/O matrix row for the pure functions -- Meta-Testing tier unit bar
-- [ ] `packages/visual-audit/src/index.ts`, `package.json` -- export + script -- usable from other packages
-- [ ] Run the sweep against local dev stack (Postgres seeded, backend :4001, web :3000) and commit the generated report -- real integration proof
+- [x] `packages/visual-audit/src/rules/page-overflow.ts`, `src/compare/page-overflow.ts` -- detector and pure helpers
+- [x] `packages/visual-audit/src/rules/page-overflow-report.ts` -- report renderer
+- [x] `packages/visual-audit/src/cli/page-overflow-audit.ts` -- sweep (static routes + event slug discovered by opening the first card; account route skipped when no link is found; gated routes recorded as caveats)
+- [x] `packages/visual-audit/page-overflow.test.ts` -- unit tests (76 pass package-wide)
+- [x] `packages/visual-audit/src/index.ts`, `package.json` -- export + script
+- [x] Run the sweep against the local dev stack and keep the report
 
 **Acceptance Criteria:**
 - Given a page whose `scrollWidth` exceeds `clientWidth`, when `detectPageOverflow` runs, then it returns the overflow in px and at least the element(s) whose right edge crosses the viewport, with a stable CSS selector path.
@@ -65,6 +65,8 @@ context:
 - Given `pnpm --filter @festgrid/visual-audit test` and `lint`, when run, then both pass.
 
 ## Design Notes
+
+Audit lessons baked into the tool: (1) a crashed or blank page reads as "no overflow", so `classifyPageHealth` turns uncaught page errors / the Next error screen into an `error` row; (2) client-side UI that appears late (the location banner) makes results timing-dependent, so the sweep waits for layout to stop changing before measuring.
 
 Document overflow = `documentElement.scrollWidth - documentElement.clientWidth`. Offender scan walks `document.body` descendants, keeps those with `rect.right > clientWidth + 0.5` and visible, drops any with a clipping ancestor (`overflow-x` not `visible`) strictly below `<body>`, and drops descendants of an already-reported offender so the report names the outermost cause plus the widest leaf.
 
@@ -74,3 +76,45 @@ Document overflow = `documentElement.scrollWidth - documentElement.clientWidth`.
 - `pnpm --filter @festgrid/visual-audit test` -- expected: pass
 - `pnpm --filter @festgrid/visual-audit lint` -- expected: 0 warnings
 - `pnpm --filter @festgrid/visual-audit audit:page-overflow` -- expected: report written, exit 0 even when overflow is found
+
+## Suggested Review Order
+
+**Detection (the core idea)**
+
+- In-page walk: finds elements whose right edge crosses the viewport, skipping clipped/fixed/hidden ones.
+  [`page-overflow.ts:48`](../../packages/visual-audit/src/compare/page-overflow.ts#L48)
+
+- Roots (no overflowing ancestor) rank first: that is where the overflow starts.
+  [`page-overflow.ts:82`](../../packages/visual-audit/src/rules/page-overflow.ts#L82)
+
+**Not trusting a clean result**
+
+- A crashed or blank page reads as "no overflow"; this turns it into an error row instead.
+  [`page-overflow.ts:124`](../../packages/visual-audit/src/rules/page-overflow.ts#L124)
+
+- Waits for layout to stop moving, because the location banner mounts about 1s after hydration.
+  [`page-overflow-audit.ts:53`](../../packages/visual-audit/src/cli/page-overflow-audit.ts#L53)
+
+**Sweep and report**
+
+- Route discovery clicks the first event card; account route is skipped when no link exists.
+  [`page-overflow-audit.ts:81`](../../packages/visual-audit/src/cli/page-overflow-audit.ts#L81)
+
+- Same element across routes collapses to one culprit instead of 85 repeated lines.
+  [`page-overflow-report.ts:87`](../../packages/visual-audit/src/rules/page-overflow-report.ts#L87)
+
+- Same-element grouping ignores sibling slot (`nth-of-type`) differences.
+  [`page-overflow.ts:139`](../../packages/visual-audit/src/rules/page-overflow.ts#L139)
+
+**Findings and wiring**
+
+- The generated audit report: one culprit, 85 of 153 checks overflowing.
+  [`page-overflow-audit-2026-10-23.md`](page-overflow-audit-2026-10-23.md)
+
+- Script entry point.
+  [`package.json:17`](../../packages/visual-audit/package.json#L17)
+
+**Tests**
+
+- Unit tests for the pure logic: ranking, grouping, health, report rendering.
+  [`page-overflow.test.ts:35`](../../packages/visual-audit/page-overflow.test.ts#L35)
