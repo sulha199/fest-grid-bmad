@@ -92,7 +92,7 @@ const cleanBadmintonTree = {
 const withSearchParams =
   (searchParams: Record<string, string>) =>
   ({ children }: { children: ReactNode }) =>
-    createElement(NuqsTestingAdapter, { searchParams }, children);
+    createElement(NuqsTestingAdapter, { searchParams, children });
 
 describe('useAIFilter hook', () => {
   beforeEach(() => {
@@ -154,7 +154,7 @@ describe('useAIFilter hook', () => {
     expect(result.current.activeFilter).toEqual(mockResolvedFilter);
 
     act(() => {
-      result.current.filterHubProps.onAIExpand();
+      result.current.filterHubProps.onAIExpand?.();
     });
     rerender();
     expect(result.current.activeFilter).toBeNull();
@@ -201,7 +201,7 @@ describe('useAIFilter hook', () => {
     expect(result.current.activeExpression).toEqual(mockExpression);
 
     act(() => {
-      result.current.filterHubProps.onAIExpand();
+      result.current.filterHubProps.onAIExpand?.();
     });
     rerender();
     expect(result.current.activeExpression).toBeNull();
