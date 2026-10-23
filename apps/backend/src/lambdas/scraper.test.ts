@@ -293,6 +293,29 @@ test('scraper lambda daily-batch branch: provider health after a degraded start 
     await handler({} as any, {} as any);
   }
 
+  // The ops metrics (IDEA-096) are EMF lines on stdout, written only inside a Lambda.
+  async function runBatchCapturingOpsMetrics(): Promise<Array<Record<string, unknown>>> {
+    const originalLog = console.log;
+    const originalFunctionName = process.env.AWS_LAMBDA_FUNCTION_NAME;
+    const metricLines: Array<Record<string, unknown>> = [];
+    process.env.AWS_LAMBDA_FUNCTION_NAME = 'ScraperLambda-test';
+    console.log = (...args: unknown[]) => {
+      const text = args.map(String).join(' ');
+      if (text.startsWith('{') && text.includes('"_aws"')) metricLines.push(JSON.parse(text));
+    };
+    try {
+      await runBatch();
+    } finally {
+      console.log = originalLog;
+      if (originalFunctionName === undefined) {
+        delete process.env.AWS_LAMBDA_FUNCTION_NAME;
+      } else {
+        process.env.AWS_LAMBDA_FUNCTION_NAME = originalFunctionName;
+      }
+    }
+    return metricLines;
+  }
+
   t.before(async () => {
     suiteStart = new Date();
     const [seededUser] = await db.select().from(users).limit(1);
@@ -436,5 +459,52 @@ test('scraper lambda daily-batch branch: provider health after a degraded start 
     const row = await brightDataHealth();
     assert.strictEqual(row.consecutiveFailureDays, 0);
     assert.strictEqual(row.lastFailureReason, null);
+  });
+
+  // IDEA-096: the CloudWatch alarms watch these two counters, so they must fire on the transition only.
+  await t.test('the day a provider turns degraded emits one ProviderDegraded metric, naming the provider', async () => {
+    await insertFailedBrightDataRuns(20);
+
+    const metrics = await runBatchCapturingOpsMetrics();
+
+    const degraded = metrics.filter((line) => 'ProviderDegraded' in line);
+    assert.strictEqual(degraded.length, 1);
+    assert.strictEqual(degraded[0].Provider, 'brightdata');
+    assert.deepStrictEqual(metrics.filter((line) => 'ProviderRecovered' in line), []);
+  });
+
+  await t.test('a provider that stays degraded emits no further ProviderDegraded metric', async () => {
+    await insertFailedBrightDataRuns(20);
+    await runBatch();
+
+    const metrics = await runBatchCapturingOpsMetrics();
+
+    assert.deepStrictEqual(metrics.filter((line) => 'ProviderDegraded' in line), []);
+  });
+
+  await t.test('a provider that comes back emits one ProviderRecovered metric', async () => {
+    await db.insert(scraperProviderHealth).values({
+      provider: 'brightdata',
+      consecutiveFailureDays: 2,
+      lastFailureReason: 'PROVIDER_DEGRADED',
+      lastCheckedAt: new Date(),
+    });
+    await insertFailedBrightDataRuns(20);
+    await db.insert(scraperActorRuns).values({
+      vendor: 'BRIGHTDATA',
+      triggerMode: 'ASYNC',
+      profileId,
+      runId: 'batch-health-test-probe-ok-metric-' + Date.now(),
+      rawInput: {},
+      status: 'SUCCEEDED',
+      itemCount: 4,
+      completedAt: new Date(Date.now() + 60_000),
+    });
+
+    const metrics = await runBatchCapturingOpsMetrics();
+
+    const recovered = metrics.filter((line) => 'ProviderRecovered' in line);
+    assert.strictEqual(recovered.length, 1);
+    assert.strictEqual(recovered[0].Provider, 'brightdata');
   });
 });

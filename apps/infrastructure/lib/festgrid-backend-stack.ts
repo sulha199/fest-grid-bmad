@@ -12,6 +12,10 @@ import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as ses from 'aws-cdk-lib/aws-ses';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as snsSubscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as cloudwatchActions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
@@ -920,5 +924,72 @@ export class FestgridBackendStack extends cdk.Stack {
       event: events.RuleTargetInput.fromObject({ jobType: 'stale-job-sweep' }),
     }));
 
+    // IDEA-096: the alert path that does not depend on SES (BUG-073). The Lambdas write CloudWatch
+    // Embedded Metric Format lines (apps/backend/src/lib/metrics/emit-metric.ts, same namespace and metric
+    // names), CloudWatch turns them into metrics, and these alarms publish to an SNS topic. An SNS e-mail
+    // subscription needs the recipient to click its confirmation link, not an SES identity, so it works
+    // while SES is still in the sandbox. Prod only: the other stages have no scheduled scraping to watch.
+    if (stageName === 'prod') {
+      const opsAlertsTopic = new sns.Topic(this, `OpsAlertsTopic-${stageName}`, {
+        displayName: 'FestGrid operations alerts',
+      });
+      // Optional, like SYSTEM_ERROR_ALERT_EMAIL: without it the topic and alarms still exist and the alarm
+      // state is visible in the CloudWatch console, it just reaches nobody.
+      if (process.env.OPS_ALERT_EMAIL) {
+        opsAlertsTopic.addSubscription(new snsSubscriptions.EmailSubscription(process.env.OPS_ALERT_EMAIL));
+      }
+      const notifyOps = new cloudwatchActions.SnsAction(opsAlertsTopic);
+
+      const opsMetric = (metricName: string, period: cdk.Duration) =>
+        new cloudwatch.Metric({
+          namespace: 'FestGrid/Backend',
+          metricName,
+          statistic: 'Sum',
+          period,
+        });
+
+      // The daily batch logs the transition once, so one datapoint is the whole story: any value at all is
+      // the alarm. The provider is a field of the log line, found with Logs Insights.
+      const providerDegradedAlarm = new cloudwatch.Alarm(this, `ProviderDegradedAlarm-${stageName}`, {
+        alarmName: `festgrid-${stageName}-scraper-provider-degraded`,
+        alarmDescription:
+          'A scraper provider (Bright Data or Apify) turned degraded: its recent runs mostly failed or returned no posts, so the batch is sending its profiles to the other provider. Find which in the Scraper Lambda log, "[Provider failover]". Check the other provider\'s plan and budget.',
+        metric: opsMetric('ProviderDegraded', cdk.Duration.hours(1)),
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      });
+      providerDegradedAlarm.addAlarmAction(notifyOps);
+
+      // The good news, as an alarm only because that is the one thing CloudWatch can send to SNS.
+      const providerRecoveredAlarm = new cloudwatch.Alarm(this, `ProviderRecoveredAlarm-${stageName}`, {
+        alarmName: `festgrid-${stageName}-scraper-provider-recovered`,
+        alarmDescription:
+          'Good news, no action needed: a scraper provider that was degraded returned a good result and is back in the chain.',
+        metric: opsMetric('ProviderRecovered', cdk.Duration.hours(1)),
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      });
+      providerRecoveredAlarm.addAlarmAction(notifyOps);
+
+      // Vendor-agnostic: whichever provider is in use, new posts must keep being saved. A missing metric
+      // is a day with nothing saved, so it breaches. Catches the failures the provider health rule cannot
+      // see (both providers empty, a webhook or the ingestion path down, a token expired).
+      const noPostsSavedAlarm = new cloudwatch.Alarm(this, `NoPostsSavedAlarm-${stageName}`, {
+        alarmName: `festgrid-${stageName}-no-new-posts-saved-24h`,
+        alarmDescription:
+          'No new post was saved in the last 24 hours. Check the scraper provider alarms, scraper_actor_runs (status and item_count) and the Webhook and ApifyWebhook Lambda logs. A quiet day with genuinely nothing new also trips it.',
+        metric: opsMetric('PostsSaved', cdk.Duration.hours(24)),
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+        treatMissingData: cloudwatch.TreatMissingData.BREACHING,
+      });
+      noPostsSavedAlarm.addAlarmAction(notifyOps);
+      noPostsSavedAlarm.addOkAction(notifyOps);
+    }
   }
 }

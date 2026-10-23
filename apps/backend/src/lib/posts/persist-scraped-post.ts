@@ -4,6 +4,7 @@ import { eq, or } from 'drizzle-orm';
 import { parseImageUrlExpiry, parsePlatformPostIdentity } from '@festgrid/domain/scraper';
 import { getOrCreateDiscoveredAccountProfile } from '../accounts/get-or-create-discovered-account-profile.js';
 import { persistPostAccountAssociations } from './persist-post-account-associations.js';
+import { emitOpsMetric, OpsMetric } from '../metrics/emit-metric.js';
 
 interface PersistScrapedPostParams {
   accountId: string;
@@ -281,6 +282,9 @@ export async function persistScrapedPost({
     coauthorAccountIds: coauthorProfileIds,
     scraperActorRunId,
   });
+
+  // IDEA-096: the vendor-agnostic "is data arriving" signal the PostsSaved alarm watches.
+  emitOpsMetric(OpsMetric.PostsSaved);
 
   return {
     post,
