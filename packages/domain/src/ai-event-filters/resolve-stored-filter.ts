@@ -1,11 +1,15 @@
 import type { EventFilterInput } from '../events/buildEventsQueryCondition.js';
 import { expressionFromFlatFilter, flatFilterFromExpression } from './flat-filter-conversion.js';
-import { stripNullNodeKeys, validateFilterNode } from './filter-node-schema.js';
+import { exceedsPreflightBounds, stripNullNodeKeys, validateFilterNode } from './filter-node-schema.js';
 import type { FilterNode } from './filter-node.js';
+import { dropInvalidNodes, repairToValidTree } from './sanitize-filter-node.js';
 
 export interface ResolvedStoredFilter {
   expression: FilterNode;
   flatFilter: EventFilterInput | null;
+  /** True when the stored value no longer passed validation and was repaired by dropping its
+   * unusable parts (or replaced by "no filter"); callers may want to log it. */
+  degraded?: boolean;
 }
 
 /**
@@ -16,10 +20,11 @@ export interface ResolvedStoredFilter {
  * `resolvedFilter`/`filters`/`expression` field resolvers route through, replacing the previous
  * `parent.filters as any` cast with real, enforced validation (Dev Notes decision 4/5/6).
  *
- * Throws (does not degrade) on a validation failure -- the stored value is already-persisted,
- * previously-accepted application data, so a failure here is a data-integrity concern, not an
- * untrusted-input one. The resolver's own generic try/catch surfaces this as
- * `INTERNAL_SERVER_ERROR`, never `BAD_USER_INPUT`.
+ * Never throws (Epic 9 review P7): the stored value is already-persisted application data that may
+ * predate a stricter schema (a `radiusMeters` of 0, a removed enum value, a null span), and one such
+ * row must not fail the whole `myAIEventFilters`/`myWidgets` list. A value that no longer validates
+ * is repaired by dropping its unusable parts -- or, if nothing usable is left, "no filter" -- and
+ * flagged `degraded`.
  */
 export function resolveStoredFilter(stored: unknown): ResolvedStoredFilter {
   const isV2 =
@@ -27,9 +32,14 @@ export function resolveStoredFilter(stored: unknown): ResolvedStoredFilter {
 
   // A v2 row may have been saved from a null-padded GraphQL `FilterNode` response before
   // `validateFilterNode` began normalizing it, so tolerate (and clean) that stored shape too.
-  const candidate = stripNullNodeKeys(
-    isV2 ? (stored as { expression: unknown }).expression : expressionFromFlatFilter((stored as EventFilterInput) ?? {})
-  );
+  let candidate: unknown;
+  try {
+    candidate = stripNullNodeKeys(
+      isV2 ? (stored as { expression: unknown }).expression : expressionFromFlatFilter((stored as EventFilterInput) ?? {})
+    );
+  } catch {
+    return { expression: { op: 'AND', children: [] }, flatFilter: {}, degraded: true };
+  }
 
   // An empty top-level AND group (no leaves -- an absent/empty legacy value, or an explicitly
   // empty v2 expression) is a legitimate "no filter active" state, not a malformed tree --
@@ -48,16 +58,28 @@ export function resolveStoredFilter(stored: unknown): ResolvedStoredFilter {
 
   const validation = validateFilterNode(candidate);
   if (!validation.valid) {
-    const issueText = validation.issues.map((i) => `${i.path.join('.')}: ${i.reason}`).join('; ');
-    throw new Error(`Stored filter failed FilterNode validation: ${issueText}`);
+    return degradeStoredFilter(candidate);
   }
 
-  let flatFilter: EventFilterInput | null;
+  return { expression: validation.node, flatFilter: flatFilterOrNull(validation.node) };
+}
+
+function flatFilterOrNull(expression: FilterNode): EventFilterInput | null {
   try {
-    flatFilter = flatFilterFromExpression(validation.node);
+    return flatFilterFromExpression(expression);
   } catch {
-    flatFilter = null;
+    return null;
   }
+}
 
-  return { expression: validation.node, flatFilter };
+function degradeStoredFilter(candidate: unknown): ResolvedStoredFilter {
+  const empty: FilterNode = { op: 'AND', children: [] };
+  const exceeded = exceedsPreflightBounds(candidate);
+  const kept = exceeded ? { node: undefined } : dropInvalidNodes(candidate);
+  const repaired = kept.node ? repairToValidTree(kept.node, () => undefined) : empty;
+  const validation = validateFilterNode(repaired);
+  const expression = validation.valid ? validation.node : empty;
+  // A valid tree never has an empty group, so "empty" is exactly the fallback above.
+  const isEmpty = expression === empty;
+  return { expression, flatFilter: isEmpty ? {} : flatFilterOrNull(expression), degraded: true };
 }

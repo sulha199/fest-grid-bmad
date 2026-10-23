@@ -116,4 +116,28 @@ describe('buildAccountEventsQueryCondition', () => {
       ],
     });
   });
+
+  it('Epic 9 review P1: a root OR expression stays ANDed with the profile scope', () => {
+    const expression: FilterNode = {
+      op: 'OR',
+      children: [
+        { field: 'locationAdminArea', value: 'Sleman' },
+        { field: 'locationAdminArea', value: 'Bantul' },
+      ],
+    };
+    const result = buildAccountEventsQueryCondition({
+      search: '',
+      types: [],
+      categories: [],
+      profileId: 'acc-uuid-1',
+      expression,
+    });
+    assert.deepEqual(result, {
+      operator: 'and',
+      conditions: [
+        { field: 'socialMediaAccountProfileId', operator: 'in', value: ['acc-uuid-1'] },
+        compileFilterNodeToQueryCondition(expression),
+      ],
+    });
+  });
 });

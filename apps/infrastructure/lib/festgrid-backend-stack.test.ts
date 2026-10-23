@@ -365,6 +365,203 @@ test('FestgridBackendStack: every Lambda queue-url env var has a matching SQS IA
   assert.ok(checkedCount > 0, 'expected at least one *_QUEUE_URL env var to be walked across all Lambdas');
 });
 
+// BUG-074: the Bright Data webhook Lambda classifies a zero-record snapshot against Bright Data's
+// progress endpoint and, for a vendor failure, hands the profile to the scraping queue. Both need
+// config this Lambda did not have. Without it the progress lookup throws "BRIGHTDATA_API_TOKEN is not
+// set", the classifier reads that as inconclusive, and an outage is stored as a success exactly as
+// before -- the unit tests cannot see this, they set the token and queue URL themselves.
+test('FestgridBackendStack: the Bright Data webhook Lambda can classify a result and re-queue a failed profile (BUG-074)', () => {
+  const app = new cdk.App();
+  const stack = new FestgridBackendStack(app, 'TestStackWebhookClassification', {
+    stageName: 'dev',
+  });
+
+  const template = Template.fromStack(stack);
+  const resources = template.toJSON().Resources as Record<string, {
+    Type: string;
+    Properties?: Record<string, unknown>;
+  }>;
+
+  const webhookEntry = Object.entries(resources).find(
+    ([logicalId, r]) => r.Type === 'AWS::Lambda::Function' && logicalId.startsWith('Webhook')
+  );
+  assert.ok(webhookEntry, 'expected a "Webhook*" function in the synthesized template');
+  const [, webhook] = webhookEntry!;
+  const envVars = (webhook.Properties?.Environment as { Variables?: Record<string, unknown> } | undefined)?.Variables ?? {};
+
+  // A secret's `secretValue.unsafeUnwrap()` synthesizes as a dynamic reference, a string or an
+  // Fn::Join of one around the secret's logical id, so compare its serialized form.
+  const tokenReference = JSON.stringify(envVars.BRIGHTDATA_API_TOKEN ?? '');
+  assert.ok(
+    tokenReference.includes('secretsmanager') && tokenReference.includes('BrightdataApiTokenSecret'),
+    'the webhook Lambda needs BRIGHTDATA_API_TOKEN (the Bright Data token secret) to read the snapshot progress report'
+  );
+
+  const queueRef = (envVars.SCRAPING_QUEUE_URL as { Ref?: string } | undefined)?.Ref;
+  assert.ok(queueRef && queueRef.startsWith('ScrapingQueue'), 'the webhook Lambda needs SCRAPING_QUEUE_URL (the ScrapingQueue) to re-queue a failed profile');
+
+  const roleLogicalId = (webhook.Properties?.Role as { 'Fn::GetAtt'?: [string, string] } | undefined)?.['Fn::GetAtt']?.[0];
+  assert.ok(roleLogicalId, 'the webhook Lambda role should be an in-template Fn::GetAtt');
+
+  const grantsSendOnScrapingQueue = Object.values(resources).some((r) => {
+    if (r.Type !== 'AWS::IAM::Policy') return false;
+    const roles = (r.Properties?.Roles as Array<{ Ref?: string }> | undefined) ?? [];
+    if (!roles.some((role) => role?.Ref === roleLogicalId)) return false;
+    const statements = (r.Properties?.PolicyDocument as { Statement?: Array<Record<string, unknown>> } | undefined)?.Statement ?? [];
+    return statements.some((stmt) => {
+      const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
+      const resourcesOfStatement = Array.isArray(stmt.Resource) ? stmt.Resource : [stmt.Resource];
+      return (
+        stmt.Effect === 'Allow' &&
+        actions.includes('sqs:SendMessage') &&
+        resourcesOfStatement.some((res) => (res as { 'Fn::GetAtt'?: [string, string] })?.['Fn::GetAtt']?.[0] === queueRef)
+      );
+    });
+  });
+  assert.ok(grantsSendOnScrapingQueue, 'the webhook Lambda role needs sqs:SendMessage on the ScrapingQueue');
+
+  const grantsReadOfBrightDataToken = Object.values(resources).some((r) => {
+    if (r.Type !== 'AWS::IAM::Policy') return false;
+    const roles = (r.Properties?.Roles as Array<{ Ref?: string }> | undefined) ?? [];
+    if (!roles.some((role) => role?.Ref === roleLogicalId)) return false;
+    const statements = (r.Properties?.PolicyDocument as { Statement?: Array<Record<string, unknown>> } | undefined)?.Statement ?? [];
+    return statements.some((stmt) => {
+      const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
+      const resourcesOfStatement = Array.isArray(stmt.Resource) ? stmt.Resource : [stmt.Resource];
+      return (
+        stmt.Effect === 'Allow' &&
+        actions.includes('secretsmanager:GetSecretValue') &&
+        resourcesOfStatement.some((res) => typeof (res as { Ref?: string })?.Ref === 'string' && (res as { Ref: string }).Ref.startsWith('BrightdataApiTokenSecret'))
+      );
+    });
+  });
+  assert.ok(grantsReadOfBrightDataToken, 'the webhook Lambda role needs read access to the Bright Data API token secret');
+});
+
+// BUG-073: the Lambdas that send mail or push must hold the config and the permissions to do it. The
+// Ingestor and the AI processor run `notifyNewEvent` (push) and report failures by e-mail, and the two
+// webhooks report audit-trail failures by e-mail; none of them had the Firebase variables, the sender
+// address, the alert address or an `ses:SendEmail` grant, so every Firebase initialisation failed (about
+// 40 a day in production) and every alert fell back to a log line.
+function withEnv<T>(vars: Record<string, string>, fn: () => T): T {
+  const saved: Record<string, string | undefined> = {};
+  for (const key of Object.keys(vars)) {
+    saved[key] = process.env[key];
+    process.env[key] = vars[key];
+  }
+  try {
+    return fn();
+  } finally {
+    for (const key of Object.keys(vars)) {
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+    }
+  }
+}
+
+type Resource = { Type: string; Properties?: Record<string, unknown> };
+
+function synthResources(id: string): Record<string, Resource> {
+  const app = new cdk.App();
+  const stack = new FestgridBackendStack(app, id, { stageName: 'dev' });
+  return Template.fromStack(stack).toJSON().Resources as Record<string, Resource>;
+}
+
+function lambdaByPrefix(resources: Record<string, Resource>, prefix: string): [string, Resource] {
+  const entry = Object.entries(resources).find(([logicalId, r]) => r.Type === 'AWS::Lambda::Function' && logicalId.startsWith(prefix));
+  assert.ok(entry, `expected a "${prefix}*" function in the synthesized template`);
+  return entry!;
+}
+
+function policyStatementsFor(resources: Record<string, Resource>, lambdaResource: Resource): Array<Record<string, unknown>> {
+  const roleLogicalId = (lambdaResource.Properties?.Role as { 'Fn::GetAtt'?: [string, string] } | undefined)?.['Fn::GetAtt']?.[0];
+  assert.ok(roleLogicalId, 'the Lambda role should be an in-template Fn::GetAtt');
+  return Object.values(resources).flatMap((r) => {
+    if (r.Type !== 'AWS::IAM::Policy') return [];
+    const roles = (r.Properties?.Roles as Array<{ Ref?: string }> | undefined) ?? [];
+    if (!roles.some((role) => role?.Ref === roleLogicalId)) return [];
+    return ((r.Properties?.PolicyDocument as { Statement?: Array<Record<string, unknown>> } | undefined)?.Statement ?? []);
+  });
+}
+
+const sendsMail = (statements: Array<Record<string, unknown>>) =>
+  statements.some((stmt) => {
+    const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
+    return stmt.Effect === 'Allow' && actions.includes('ses:SendEmail');
+  });
+
+test('FestgridBackendStack: every Lambda given a sender address can send mail, and the mailing Lambdas are all given one (BUG-073)', () => {
+  const resources = withEnv({ SES_FROM_EMAIL_ADDRESS: 'alerts@example.test' }, () => synthResources('TestStackMailWalker'));
+
+  // Generic: a wired SES_FROM_EMAIL_ADDRESS with no ses:SendEmail grant is the original incident shape.
+  let checked = 0;
+  for (const [logicalId, r] of Object.entries(resources)) {
+    if (r.Type !== 'AWS::Lambda::Function') continue;
+    const env = (r.Properties?.Environment as { Variables?: Record<string, unknown> } | undefined)?.Variables ?? {};
+    if (!('SES_FROM_EMAIL_ADDRESS' in env)) continue;
+    checked += 1;
+    assert.ok(sendsMail(policyStatementsFor(resources, r)), `Lambda "${logicalId}" has SES_FROM_EMAIL_ADDRESS but no ses:SendEmail grant`);
+  }
+  assert.ok(checked > 0, 'expected the walker to check at least one Lambda');
+
+  // Specific: the Lambdas that report failures by e-mail must be among them. (The AI processor is not:
+  // on this code it never reaches the push or mail path, so it is given neither the config nor the grant.)
+  for (const prefix of ['IngestorLambda', 'Webhook', 'ApifyWebhook', 'NotifierLambda', 'ScraperLambda']) {
+    const [logicalId, lambdaResource] = lambdaByPrefix(resources, prefix);
+    const env = (lambdaResource.Properties?.Environment as { Variables?: Record<string, unknown> } | undefined)?.Variables ?? {};
+    assert.strictEqual(env.SES_FROM_EMAIL_ADDRESS, 'alerts@example.test', `${logicalId} needs the sender address`);
+    assert.ok(typeof env.WEB_APP_BASE_URL === 'string' && env.WEB_APP_BASE_URL.length > 0, `${logicalId} needs WEB_APP_BASE_URL for its e-mail links`);
+    assert.ok(sendsMail(policyStatementsFor(resources, lambdaResource)), `${logicalId} needs ses:SendEmail`);
+  }
+});
+
+test('FestgridBackendStack: the send grant covers the sender address as an identity, so an SES sandbox (a verified address, not a verified domain) can send (BUG-073)', () => {
+  const resources = withEnv({ SES_FROM_EMAIL_ADDRESS: 'alerts@example.test' }, () => synthResources('TestStackSandboxSender'));
+  const [, notifier] = lambdaByPrefix(resources, 'NotifierLambda');
+
+  const sendStatements = policyStatementsFor(resources, notifier).filter((stmt) => {
+    const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
+    return actions.includes('ses:SendEmail');
+  });
+
+  const serialized = JSON.stringify(sendStatements);
+  assert.ok(serialized.includes('identity/alerts@example.test'), 'the grant must name the sender address identity, not only the sending domain');
+  assert.ok(serialized.includes('FestgridEmailIdentity'), 'the sending domain identity stays covered');
+});
+
+test('FestgridBackendStack: the Ingestor can initialise Firebase and report an alert, and the AI processor holds no Firebase credential (BUG-073)', () => {
+  const resources = withEnv(
+    {
+      FIREBASE_PROJECT_ID: 'festdaily-test',
+      FIREBASE_CLIENT_EMAIL: 'firebase-adminsdk@festdaily-test.iam.gserviceaccount.com',
+      SYSTEM_ERROR_ALERT_EMAIL: 'ops@example.test',
+      SES_FROM_EMAIL_ADDRESS: 'alerts@example.test',
+    },
+    () => synthResources('TestStackFirebaseWiring')
+  );
+
+  const [aiLogicalId, aiProcessor] = lambdaByPrefix(resources, 'AIProcessorLambda');
+  const aiEnv = (aiProcessor.Properties?.Environment as { Variables?: Record<string, unknown> } | undefined)?.Variables ?? {};
+  assert.ok(!('FIREBASE_PRIVATE_KEY' in aiEnv), `${aiLogicalId} never sends a push on this code, so it must not hold the Firebase private key`);
+
+  for (const prefix of ['IngestorLambda']) {
+    const [logicalId, lambdaResource] = lambdaByPrefix(resources, prefix);
+    const env = (lambdaResource.Properties?.Environment as { Variables?: Record<string, unknown> } | undefined)?.Variables ?? {};
+
+    assert.strictEqual(env.FIREBASE_PROJECT_ID, 'festdaily-test', `${logicalId} needs FIREBASE_PROJECT_ID`);
+    assert.strictEqual(env.FIREBASE_CLIENT_EMAIL, 'firebase-adminsdk@festdaily-test.iam.gserviceaccount.com', `${logicalId} needs FIREBASE_CLIENT_EMAIL`);
+    const privateKey = JSON.stringify(env.FIREBASE_PRIVATE_KEY ?? '');
+    assert.ok(privateKey.includes('secretsmanager') && privateKey.includes('FirebasePrivateKeySecret'), `${logicalId} needs FIREBASE_PRIVATE_KEY from the Firebase private key secret`);
+    assert.strictEqual(env.SYSTEM_ERROR_ALERT_EMAIL, 'ops@example.test', `${logicalId} needs SYSTEM_ERROR_ALERT_EMAIL to report a failure`);
+
+    const readsFirebaseSecret = policyStatementsFor(resources, lambdaResource).some((stmt) => {
+      const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
+      return actions.includes('secretsmanager:GetSecretValue') && JSON.stringify(stmt.Resource).includes('FirebasePrivateKeySecret');
+    });
+    assert.ok(readsFirebaseSecret, `${logicalId} needs read access to the Firebase private key secret`);
+  }
+});
+
 test('FestgridBackendStack: dev stack with enableNonProdQueuePolling=true context enables the ESM (AC2)', () => {
   const app = new cdk.App({ context: { enableNonProdQueuePolling: 'true' } });
   const stack = new FestgridBackendStack(app, 'TestStackDevPollingEnabled', {
@@ -543,9 +740,11 @@ test('FestgridBackendStack: aiProcessorLambda has the measurement-backed MemoryS
   assert.strictEqual(props.Timeout, 300, 'aiProcessorLambda Timeout should remain unchanged at 300s');
 
   // Regression guard: no OTHER Lambda in the stack gained a MemorySize/Architectures override
-  // from this change (AC1: "No other Lambda's configuration changes").
+  // from this change (AC1: "No other Lambda's configuration changes"). ScraperLambda is the one
+  // later, deliberate exception (see its own test below).
   for (const [logicalId, resource] of Object.entries(lambdaFunctions)) {
     if (logicalId.startsWith('AIProcessorLambda')) continue;
+    if (logicalId.startsWith('ScraperLambda')) continue;
     // CDK's own internal Custom::S3AutoDeleteObjects singleton handler (an automatic side
     // effect of postMediaBucket's autoDeleteObjects: true in non-prod stages, Story 0.33) --
     // not an application Lambda this file defines, and CDK bakes its own MemorySize: 128
@@ -564,6 +763,28 @@ test('FestgridBackendStack: aiProcessorLambda has the measurement-backed MemoryS
       `expected "${logicalId}" to have no explicit Architectures override (only aiProcessorLambda does, per AC1)`
     );
   }
+});
+
+// 2026-10-23: the scraper Lambda sat at the 128 MB default with Max Memory Used 124-128 MB on every
+// invocation. Only it gets the bump; the architecture stays the default.
+test('FestgridBackendStack: scraperLambda has an explicit 512 MB MemorySize and keeps its 300s timeout', () => {
+  const app = new cdk.App();
+  const stack = new FestgridBackendStack(app, 'TestStackScraperMemory', {
+    stageName: 'dev',
+  });
+
+  const template = Template.fromStack(stack);
+  const entry = Object.entries(template.findResources('AWS::Lambda::Function')).find(([logicalId]) =>
+    logicalId.startsWith('ScraperLambda')
+  );
+  assert.ok(entry, 'expected a "ScraperLambda*" function in the synthesized template');
+  const props = entry[1].Properties as Record<string, unknown> & { Environment: { Variables: Record<string, string> } };
+
+  assert.strictEqual(props.MemorySize, 512);
+  assert.strictEqual(props.Timeout, 300, 'the 300s poll-and-drain timeout is unchanged');
+  assert.strictEqual(props.Architectures, undefined);
+  assert.strictEqual(props.Environment.Variables.SCRAPE_TRIGGER_CONCURRENCY, '3');
+  assert.strictEqual(props.Environment.Variables.SCRAPE_QUEUE_APIFY_CALL_TIMEOUT_MS, '120000');
 });
 
 // Story 0.46 (AC2/AC3/AC6) + Story 3.6n (wires the real detection in, re-measures): the
@@ -785,4 +1006,81 @@ test('FestgridBackendStack: every usage-store Lambda gets API_KEY_USAGE_CYCLE_DA
       else process.env[key] = value;
     }
   }
+});
+
+// IDEA-096: an alert path that does not depend on SES. The metric names and namespace are written by
+// apps/backend/src/lib/metrics/emit-metric.ts (its test pins the same strings).
+const PROD_ENV = {
+  SUPABASE_URL: 'https://example.supabase.co',
+  FIREBASE_PROJECT_ID: 'test-project',
+  FIREBASE_CLIENT_EMAIL: 'test@example.com',
+  SES_FROM_EMAIL_ADDRESS: 'noreply@example.com',
+  WEB_APP_BASE_URL: 'https://example.com',
+};
+
+function synthProdTemplate(id: string, extraEnv: Record<string, string> = {}): Template {
+  return withEnv({ ...PROD_ENV, ...extraEnv }, () => {
+    const app = new cdk.App();
+    return Template.fromStack(new FestgridBackendStack(app, id, { stageName: 'prod' }));
+  });
+}
+
+test('FestgridBackendStack: prod has ops alarms that publish to an SNS topic with an e-mail subscription (IDEA-096)', () => {
+  const template = synthProdTemplate('TestStackOpsAlerts', { OPS_ALERT_EMAIL: 'owner@example.test' });
+
+  template.resourceCountIs('AWS::SNS::Topic', 1);
+  template.hasResourceProperties('AWS::SNS::Subscription', { Protocol: 'email', Endpoint: 'owner@example.test' });
+  template.resourceCountIs('AWS::CloudWatch::Alarm', 3);
+
+  const topicActions = [{ Ref: Match.stringLikeRegexp('^OpsAlertsTopic') }];
+
+  template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+    AlarmName: 'festgrid-prod-scraper-provider-degraded',
+    Namespace: 'FestGrid/Backend',
+    MetricName: 'ProviderDegraded',
+    Statistic: 'Sum',
+    Period: 3600,
+    Threshold: 1,
+    EvaluationPeriods: 1,
+    ComparisonOperator: 'GreaterThanOrEqualToThreshold',
+    TreatMissingData: 'notBreaching',
+    AlarmActions: topicActions,
+  });
+  template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+    AlarmName: 'festgrid-prod-scraper-provider-recovered',
+    Namespace: 'FestGrid/Backend',
+    MetricName: 'ProviderRecovered',
+    ComparisonOperator: 'GreaterThanOrEqualToThreshold',
+    TreatMissingData: 'notBreaching',
+    AlarmActions: topicActions,
+  });
+  // A day with no PostsSaved datapoint at all is the failure, and the OK transition is worth knowing too.
+  template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+    AlarmName: 'festgrid-prod-no-new-posts-saved-24h',
+    Namespace: 'FestGrid/Backend',
+    MetricName: 'PostsSaved',
+    Statistic: 'Sum',
+    Period: 86400,
+    Threshold: 1,
+    EvaluationPeriods: 1,
+    ComparisonOperator: 'LessThanThreshold',
+    TreatMissingData: 'breaching',
+    AlarmActions: topicActions,
+    OKActions: topicActions,
+  });
+});
+
+test('FestgridBackendStack: without OPS_ALERT_EMAIL the prod alarms still exist but nothing is subscribed (IDEA-096)', () => {
+  const template = synthProdTemplate('TestStackOpsAlertsNoEmail');
+
+  template.resourceCountIs('AWS::CloudWatch::Alarm', 3);
+  template.resourceCountIs('AWS::SNS::Subscription', 0);
+});
+
+test('FestgridBackendStack: dev has no ops alarms (IDEA-096)', () => {
+  const app = new cdk.App();
+  const template = Template.fromStack(new FestgridBackendStack(app, 'TestStackNoOpsAlertsInDev', { stageName: 'dev' }));
+
+  template.resourceCountIs('AWS::CloudWatch::Alarm', 0);
+  template.resourceCountIs('AWS::SNS::Topic', 0);
 });

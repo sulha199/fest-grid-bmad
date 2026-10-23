@@ -141,6 +141,66 @@ test('brightdata-client tests', async (t) => {
     }
   });
 
+  // BUG-074: a zero-record snapshot is told apart as an empty account (error_codes.dead_page) or a
+  // vendor failure from the finished snapshot's progress report -- measured 2026-10-22, undocumented.
+  await t.test('getBrightDataProgress maps records, errors, error_codes and error_message of a finished snapshot', async () => {
+    const mock = mockFetchOnce({
+      ok: true,
+      json: async () => ({
+        status: 'ready',
+        records: 0,
+        errors: 1,
+        error_codes: { dead_page: 1 },
+        error_message: 'No records found. The data may not be available or has changed...',
+        collection_duration: 12,
+      }),
+    });
+    try {
+      const result = await getBrightDataProgress('snap-123');
+      assert.deepStrictEqual(result, {
+        status: 'ready',
+        records: 0,
+        errors: 1,
+        errorCodes: { dead_page: 1 },
+        errorMessage: 'No records found. The data may not be available or has changed...',
+      });
+    } finally {
+      mock.restore();
+    }
+  });
+
+  await t.test('getBrightDataProgress leaves out fields of the wrong type instead of passing them on', async () => {
+    const mock = mockFetchOnce({
+      ok: true,
+      json: async () => ({ status: 'ready', records: '3', errors: null, error_codes: 'dead_page', error_message: 5 }),
+    });
+    try {
+      const result = await getBrightDataProgress('snap-123');
+      assert.deepStrictEqual(result, { status: 'ready' });
+    } finally {
+      mock.restore();
+    }
+  });
+
+  await t.test('getBrightDataProgress reads error_codes only when it is a map of codes to counts', async () => {
+    const cases: Array<[string, unknown, unknown]> = [
+      ['an array', ['dead_page'], undefined],
+      ['an empty map', {}, undefined],
+      ['a map of non-numbers', { dead_page: '1', other: true }, undefined],
+      ['a map with one valid count among junk', { dead_page: 1, other: 'x', nested: { a: 1 } }, { dead_page: 1 }],
+      ['a zero count', { dead_page: 0 }, { dead_page: 0 }],
+    ];
+    for (const [label, errorCodes, expected] of cases) {
+      const mock = mockFetchOnce({ ok: true, json: async () => ({ status: 'ready', error_codes: errorCodes }) });
+      try {
+        const result = await getBrightDataProgress('snap-123');
+        assert.deepStrictEqual(result.errorCodes, expected, label);
+      } finally {
+        mock.restore();
+      }
+    }
+  });
+
   await t.test('getBrightDataProgress throws BrightDataApiError with statusCode on a non-ok response', async () => {
     const mock = mockFetchOnce({ ok: false, status: 500, statusText: 'Internal Server Error', json: async () => ({}) });
     try {

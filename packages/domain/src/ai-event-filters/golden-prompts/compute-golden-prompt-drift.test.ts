@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import type { FilterNode } from '../filter-node.js';
 import type { GeminiFilterExtractionResult } from '../transform-gemini-response-to-filter-expression.js';
 import type { GoldenPromptFixture } from './golden-prompt-fixtures.js';
-import { computeFilterNodeFieldSignature, summarizeGoldenPromptDrift } from './compute-golden-prompt-drift.js';
+import {
+  computeFilterNodeFieldSignature,
+  computeFilterNodeShapeSignature,
+  summarizeGoldenPromptDrift,
+} from './compute-golden-prompt-drift.js';
 
 describe('computeFilterNodeFieldSignature', () => {
   it('returns the single field name for a bare leaf', () => {
@@ -101,5 +105,108 @@ describe('summarizeGoldenPromptDrift', () => {
     assert.equal(result.drifted, true);
     assert.equal(result.expectedHadCaveats, true);
     assert.equal(result.actualHadCaveats, false);
+  });
+});
+
+describe('computeFilterNodeShapeSignature', () => {
+  const kw = (value: string): FilterNode => ({ field: 'keyword', value });
+  const type: FilterNode = { field: 'type', value: ['WORKSHOP'] } as FilterNode;
+
+  it('is just the field name for a bare leaf, whatever its value', () => {
+    assert.equal(computeFilterNodeShapeSignature(kw('jazz')), 'keyword');
+    assert.equal(computeFilterNodeShapeSignature(kw('something else')), 'keyword');
+  });
+
+  it('keeps group operators and NOT wrappers, which the field set cannot see', () => {
+    assert.equal(computeFilterNodeShapeSignature({ op: 'NOT', child: type }), 'NOT(type)');
+    assert.equal(computeFilterNodeShapeSignature({ op: 'AND', children: [kw('a'), { op: 'NOT', child: type }] }), 'AND(NOT(type),keyword)');
+    assert.equal(computeFilterNodeShapeSignature({ op: 'OR', children: [kw('a'), type] }), 'OR(keyword,type)');
+  });
+
+  it('ignores child order inside a group', () => {
+    assert.equal(
+      computeFilterNodeShapeSignature({ op: 'AND', children: [kw('a'), type] }),
+      computeFilterNodeShapeSignature({ op: 'AND', children: [type, kw('a')] })
+    );
+  });
+
+  it('is insensitive to restructuring normalize() undoes', () => {
+    assert.equal(computeFilterNodeShapeSignature({ op: 'AND', children: [kw('a')] }), 'keyword');
+    assert.equal(
+      computeFilterNodeShapeSignature({ op: 'AND', children: [{ op: 'AND', children: [kw('a'), type] }, kw('b')] }),
+      'AND(keyword,keyword,type)'
+    );
+  });
+
+  it('keeps the value of the closed-value leaves, so free-vs-paid and today-vs-upcoming flips are visible', () => {
+    assert.equal(computeFilterNodeShapeSignature({ field: 'isFree', value: true }), 'isFree:true');
+    assert.equal(computeFilterNodeShapeSignature({ field: 'isFree', value: false }), 'isFree:false');
+    assert.equal(computeFilterNodeShapeSignature({ field: 'temporalFilter', value: 'TODAY' as never }), 'temporalFilter:TODAY');
+  });
+
+  it('renders an empty group', () => {
+    assert.equal(computeFilterNodeShapeSignature({ op: 'AND', children: [] }), 'AND()');
+  });
+});
+
+describe('summarizeGoldenPromptDrift sees operator and polarity changes', () => {
+  const kw = (value: string): FilterNode => ({ field: 'keyword', value });
+  const type: FilterNode = { field: 'type', value: ['WORKSHOP'] } as FilterNode;
+  const expected: FilterNode = { op: 'AND', children: [kw('jazz'), { op: 'NOT', child: type }] };
+  const fixture: GoldenPromptFixture = {
+    id: 'not-fixture',
+    lang: 'en',
+    category: 'NOT',
+    prompt: 'jazz, not workshops',
+    geminiResponse: {},
+    expected: { expression: expected, caveats: [] },
+  };
+  const live = (expression: FilterNode): GeminiFilterExtractionResult => ({ expression, caveats: [] });
+
+  it('reports no drift for the same shape with different free-text values', () => {
+    const result = summarizeGoldenPromptDrift(fixture, live({ op: 'AND', children: [kw('live jazz'), { op: 'NOT', child: type }] }));
+    assert.equal(result.drifted, false);
+  });
+
+  it('reports drift when the model drops the NOT but keeps the same fields', () => {
+    const result = summarizeGoldenPromptDrift(fixture, live({ op: 'AND', children: [kw('jazz'), type] }));
+    assert.equal(result.drifted, true);
+    assert.deepEqual(result.expectedFieldSignature, result.actualFieldSignature);
+    assert.equal(result.expectedShape, 'AND(NOT(type),keyword)');
+    assert.equal(result.actualShape, 'AND(keyword,type)');
+    assert.match(result.details, /shape expected=AND\(NOT\(type\),keyword\) actual=AND\(keyword,type\)/);
+  });
+
+  it('reports drift when an OR is flipped to an AND', () => {
+    const orFixture: GoldenPromptFixture = {
+      ...fixture,
+      expected: { expression: { op: 'OR', children: [kw('jazz'), kw('blues')] }, caveats: [] },
+    };
+    const result = summarizeGoldenPromptDrift(orFixture, live({ op: 'AND', children: [kw('jazz'), kw('blues')] }));
+    assert.equal(result.drifted, true);
+  });
+
+  it('reports drift when a NOT is turned positive', () => {
+    const result = summarizeGoldenPromptDrift(
+      { ...fixture, expected: { expression: { op: 'NOT', child: type }, caveats: [] } },
+      live(type)
+    );
+    assert.equal(result.drifted, true);
+  });
+});
+
+describe('summarizeGoldenPromptDrift sees closed-value polarity', () => {
+  it('reports drift when free turns into paid', () => {
+    const fixture: GoldenPromptFixture = {
+      id: 'free-fixture',
+      lang: 'en',
+      category: 'AND',
+      prompt: 'free events',
+      geminiResponse: {},
+      expected: { expression: { field: 'isFree', value: true }, caveats: [] },
+    };
+    const result = summarizeGoldenPromptDrift(fixture, { expression: { field: 'isFree', value: false }, caveats: [] });
+    assert.equal(result.drifted, true);
+    assert.deepEqual(result.expectedFieldSignature, result.actualFieldSignature);
   });
 });

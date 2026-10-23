@@ -120,6 +120,7 @@ The following table summarizes the classification used in our application archit
 | `FIREBASE_PROJECT_ID` | Plain Environment Property | Public project identifier, not a credential. |
 | `SES_FROM_EMAIL_ADDRESS` | Plain Environment Property | Configured sender address, not a credential. |
 | `SYSTEM_ERROR_ALERT_EMAIL` | Plain Environment Property | Configured destination address for alerts, not a credential. |
+| `OPS_ALERT_EMAIL` | CDK deploy variable only (GitHub repository variable) | Optional. Subscribes this address to the prod SNS ops-alerts topic (provider degraded or recovered, no new posts in 24 h). Needs no SES: AWS e-mails a confirmation link that must be clicked once. Not read by any Lambda. |
 | `BYOK_KMS_KEY_ID` | Plain Environment Property | Handled via direct KMS Key construct attribute reference (`kmsKey.keyId`). |
 
 > **Note:** `L_Notifier` (the daily quota-exhaustion warning Lambda) reuses the exact same `dbUrlSecret` and `emailIdentity` constructs listed above — it introduces no new Secrets Manager entry and no new SES identity.
@@ -337,6 +338,19 @@ repository secret** (`GEMINI_NIGHTLY_EVAL_API_KEY`) -- not an AWS Secrets Manage
 this key is consumed only by a CI workflow, never by a deployed Lambda. Structurally isolated
 from both BYOK keys and `SYSTEM_GEMINI_API_KEY`: it is never used for post extraction or
 default-location inference, only for the nightly eval script's own calls.
+
+*Free-tier quota (windowed runs):* a free-tier flash model allows only ~20 requests/day, far fewer
+than the ~90 calls of a full run (49 fixtures + their metamorphic variants). The workflow therefore
+sets `GOLDEN_EVAL_DAILY_BUDGET: '20'`: each night evaluates a window of the suite, and every fixture
+that did not fit stays pending for the next night. The window is chosen from a small ledger
+(`GOLDEN_EVAL_LEDGER_PATH`, kept between nights in the Actions cache): fixtures never evaluated
+first, then fixtures that drifted last time (capped at a quarter of the budget), then the stalest.
+A full rotation takes ~5 nights with variants on (~3 without -- unset `GOLDEN_EVAL_VARIANTS` to
+trade variant coverage for faster base-fixture coverage). If Gemini returns a per-day 429 the run
+stops early with a warning (it fails only if nothing was evaluated). Moving to a paid key: delete
+`GOLDEN_EVAL_DAILY_BUDGET` (and set `GOLDEN_EVAL_MIN_INTERVAL_MS` to `'0'`) to run the whole suite
+every night again. A manual `workflow_dispatch` on the same day spends the same daily quota a
+second time, so expect it to stop early.
 
 ## 9. Scraper Adapter (Apify)
 

@@ -1,5 +1,5 @@
 import type { GeminiFilterExtractionResult } from '../transform-gemini-response-to-filter-expression.js';
-import { computeFilterNodeFieldSignature } from './compute-golden-prompt-drift.js';
+import { computeFilterNodeFieldSignature, computeFilterNodeShapeSignature } from './compute-golden-prompt-drift.js';
 import type { GoldenPromptFixture } from './golden-prompt-fixtures.js';
 
 /**
@@ -50,6 +50,11 @@ const NEUTRAL_TYPOS: ReadonlyArray<readonly [string, string]> = [
  */
 const VARIANT_SKIPPED_CATEGORIES: ReadonlySet<GoldenPromptFixture['category']> = new Set(['over-limit', 'off-topic']);
 
+/** Whether `pickPromptVariant` can ever produce a variant for `fixture` -- lets a caller budget the extra call up front. */
+export function canHavePromptVariant(fixture: GoldenPromptFixture): boolean {
+  return !VARIANT_SKIPPED_CATEGORIES.has(fixture.category);
+}
+
 function applyTypo(prompt: string): string | undefined {
   for (const [word, typo] of NEUTRAL_TYPOS) {
     const pattern = new RegExp(`\\b${word}\\b`, 'i');
@@ -84,7 +89,7 @@ function build(fixture: GoldenPromptFixture, kind: PromptVariantKind, seed: numb
  * through to the next. Returns `undefined` only for categories variants cannot meaningfully test.
  */
 export function pickPromptVariant(fixture: GoldenPromptFixture, fixtureIndex: number, seed: number): PromptVariant | undefined {
-  if (VARIANT_SKIPPED_CATEGORIES.has(fixture.category)) {
+  if (!canHavePromptVariant(fixture)) {
     return undefined;
   }
   const start = fixtureIndex + seed;
@@ -96,6 +101,7 @@ export function pickPromptVariant(fixture: GoldenPromptFixture, fixtureIndex: nu
     }
   }
   // Unreachable: `uppercase` always applies, so some offset in the loop above always returns.
+  /* c8 ignore next */
   return undefined;
 }
 
@@ -118,13 +124,15 @@ export function summarizeMetamorphicDrift(
 ): MetamorphicDriftResult {
   const expectedFields = computeFilterNodeFieldSignature(fixture.expected.expression);
   const actualFields = computeFilterNodeFieldSignature(liveResult.expression);
-  const fieldsMatch = JSON.stringify(expectedFields) === JSON.stringify(actualFields);
+  const expectedShape = computeFilterNodeShapeSignature(fixture.expected.expression);
+  const actualShape = computeFilterNodeShapeSignature(liveResult.expression);
+  const shapeMatches = JSON.stringify(expectedFields) === JSON.stringify(actualFields) && expectedShape === actualShape;
   const actualHadCaveats = liveResult.caveats.length > 0;
   const expectedCaveats = variant.caveatExpectation === 'present' ? true : fixture.expected.caveats.length > 0;
   const caveatMatches = actualHadCaveats === expectedCaveats;
-  const drifted = !fieldsMatch || !caveatMatches;
+  const drifted = !shapeMatches || !caveatMatches;
   const details = drifted
-    ? `${variant.kind} variant "${variant.prompt}": fields expected=[${expectedFields.join(',')}] actual=[${actualFields.join(',')}]; caveatPresence expected=${expectedCaveats} actual=${actualHadCaveats}`
+    ? `${variant.kind} variant "${variant.prompt}": fields expected=[${expectedFields.join(',')}] actual=[${actualFields.join(',')}]; shape expected=${expectedShape} actual=${actualShape}; caveatPresence expected=${expectedCaveats} actual=${actualHadCaveats}`
     : 'no drift';
   return { fixtureId: fixture.id, kind: variant.kind, variantPrompt: variant.prompt, drifted, details };
 }

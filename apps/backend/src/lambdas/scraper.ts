@@ -6,17 +6,26 @@ import { processScrapeJob } from '../lib/scraper/process-scrape-job.js';
 import { pollAndDrainQueue, hasJobType } from '../lib/aws/poll-and-drain-queue.js';
 import { attemptBrightDataTrigger } from '../lib/scraper/trigger-brightdata-for-target.js';
 import { attemptApifyAsyncTrigger } from '../lib/scraper/trigger-apify-for-target.js';
+import { settleWithConcurrencyLimit } from '../lib/scraper/settle-with-concurrency-limit.js';
 import { runStaleJobSweep } from '../lib/scraper/stale-job-sweep.js';
-import { recordProviderHealthCheck } from '../lib/scraper/scraper-provider-health-store.js';
+import {
+  recordProviderHealthCheck,
+  type ProviderHealthCheckPrevious,
+} from '../lib/scraper/scraper-provider-health-store.js';
+import { getDegradedProviders } from '../lib/scraper/provider-run-health-store.js';
 import {
   recordScraperBatchRunStart,
   completeScraperBatchRun,
 } from '../lib/scraper/record-scraper-batch-run.js';
 import {
+  applyProviderDegradation,
+  countProviderDegradedSkips,
   tallyScraperProviderResults,
+  type ScraperProviderTally,
   type ScraperTargetProviderMarker,
 } from '../lib/scraper/tally-scraper-provider-results.js';
 import { loadBackendEnv } from '../env.js';
+import { emitOpsMetric, OpsMetric } from '../lib/metrics/emit-metric.js';
 
 // FIND-035: fallback window for a target with no `newestPostPublishedAt` (i.e. no posts
 // yet -- its first-ever scrape). Mirrors the fallback branch already proven correct in
@@ -25,6 +34,33 @@ function lookbackFallback(days: number): string {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
   return cutoff.toISOString();
+}
+
+// IDEA-095: the one-line record, in CloudWatch, of a provider being switched away from or coming back.
+// Only the day the state changes is logged; a provider that stays degraded is already visible in
+// scraper_provider_health and, after the alert threshold, in the provider-down e-mail.
+function logProviderTransition(provider: string, previous: ProviderHealthCheckPrevious, tally: ScraperProviderTally): void {
+  const failingNow = tally.attempted > 0 && tally.succeeded === 0;
+  if (failingNow && tally.failureReason === 'PROVIDER_DEGRADED' && previous.consecutiveFailureDays === 0) {
+    console.error(
+      `[Provider failover] ${provider} is degraded: its recent runs mostly failed or returned no posts. While it is, only a few probe triggers go to it per interval and the rest go to the next provider; a probe the vendor answers brings it back.`
+    );
+    emitOpsMetric(OpsMetric.ProviderDegraded, 1, { Provider: provider });
+  } else if (!failingNow && previous.consecutiveFailureDays > 0 && previous.lastFailureReason === 'PROVIDER_DEGRADED') {
+    console.warn(`[Provider failover] ${provider} has recovered: its newest run was a good result, so it is back in the chain.`);
+    emitOpsMetric(OpsMetric.ProviderRecovered, 1, { Provider: provider });
+  }
+}
+
+// Persisting a scrape's posts and enqueueing their extraction, on top of the vendor call itself.
+const QUEUE_JOB_OVERHEAD_MS = 15_000;
+
+// What one target's dispatch did: each provider's marker for the health tally, and whether the target
+// ended up on the scraping queue because no async vendor took it.
+interface DispatchOutcome {
+  brightData: ScraperTargetProviderMarker;
+  apify: ScraperTargetProviderMarker;
+  queued: boolean;
 }
 
 type PollAndDrainEvent = { jobType: 'poll-and-drain' };
@@ -49,10 +85,20 @@ export const handler = async (
   // exactly, just fed by pollAndDrainQueue's explicit receive/delete loop instead.
   if (hasJobType(event, 'poll-and-drain')) {
     console.log('Running poll-and-drain for scraping queue');
-    await pollAndDrainQueue(process.env.SCRAPING_QUEUE_URL!, async (body) => {
-      const target = JSON.parse(body);
-      await processScrapeJob(target);
-    });
+    const queueEnv = loadBackendEnv();
+    await pollAndDrainQueue(
+      process.env.SCRAPING_QUEUE_URL!,
+      async (body) => {
+        const target = JSON.parse(body);
+        // Rethrow a failed scrape: the message is then left undeleted and SQS redelivers it after the
+        // visibility timeout, up to maxReceiveCount (3) and then the DLQ. Swallowing it deleted the
+        // message and lost the account until the next daily batch.
+        await processScrapeJob(target, { rethrowOnFailure: true });
+      },
+      // One job is one Apify call (bounded by the queue budget) plus its persistence; size each receive so
+      // the whole batch finishes inside the poll-and-drain budget and the queue's 300s visibility timeout.
+      { perMessageBudgetMs: queueEnv.scrapeQueueApifyCallTimeoutMs + QUEUE_JOB_OVERHEAD_MS }
+    );
     return;
   }
 
@@ -87,8 +133,17 @@ export const handler = async (
       // FIND-035: loaded once for the whole batch, not per-target inside the map below.
       const env = loadBackendEnv();
 
-      const results = await Promise.allSettled(
-        targets.map(async (target): Promise<{ brightData: ScraperTargetProviderMarker; apify: ScraperTargetProviderMarker }> => {
+      // IDEA-095: which providers were already returning nothing or failing when this batch began.
+      // Their triggers are skipped (bar one probe) inside the attempt functions; the same state is
+      // used below to record the day as a failure for them. Never throws.
+      const degradedProviders = await getDegradedProviders();
+
+      // Bounded, not all at once: Apify caps the memory an account may run concurrently, and 35 triggers
+      // fired together got 31 of them refused with 402 `actor-memory-limit-exceeded` (2026-10-23).
+      const results = await settleWithConcurrencyLimit(
+        targets,
+        env.scrapeTriggerConcurrency,
+        async (target): Promise<DispatchOutcome> => {
           // FIND-035: incremental per-target window -- scrape from where we left off for
           // this account (newestPostPublishedAt) instead of a hardcoded window re-requested
           // by every account on every run. Only an account with no posts yet (first-ever
@@ -105,7 +160,7 @@ export const handler = async (
             const brightDataResult = await attemptBrightDataTrigger(target, newerThan);
             if (brightDataResult.success) {
               console.log(`Triggered Bright Data job for ${target.username}`);
-              return { brightData: { attempted: true, succeeded: true }, apify: { attempted: false } };
+              return { brightData: { attempted: true, succeeded: true }, apify: { attempted: false }, queued: false };
             }
 
             // Fall back to Apify async trigger for all platforms
@@ -115,6 +170,7 @@ export const handler = async (
               return {
                 brightData: { attempted: true, succeeded: false, failureReason: brightDataResult.failureReason },
                 apify: { attempted: true, succeeded: true },
+                queued: false,
               };
             }
 
@@ -123,6 +179,7 @@ export const handler = async (
             return {
               brightData: { attempted: true, succeeded: false, failureReason: brightDataResult.failureReason },
               apify: { attempted: true, succeeded: false, failureReason: apifyResult.failureReason },
+              queued: true,
             };
           }
 
@@ -130,13 +187,13 @@ export const handler = async (
           const apifyResult = await attemptApifyAsyncTrigger(target, newerThan);
           if (apifyResult.success) {
             console.log(`Triggered Apify async job for ${target.username}`);
-            return { brightData: { attempted: false }, apify: { attempted: true, succeeded: true } };
+            return { brightData: { attempted: false }, apify: { attempted: true, succeeded: true }, queued: false };
           }
 
           // Fall back to SQS queue if both async tiers fail
           await enqueueScrapeJob(target);
-          return { brightData: { attempted: false }, apify: { attempted: true, succeeded: false, failureReason: apifyResult.failureReason } };
-        })
+          return { brightData: { attempted: false }, apify: { attempted: true, succeeded: false, failureReason: apifyResult.failureReason }, queued: true };
+        }
       );
 
       const failedCount = results.filter((r) => r.status === 'rejected').length;
@@ -152,23 +209,32 @@ export const handler = async (
       // no change to the fallback control flow above.
       const fulfilledResults = results.filter((r) => r.status === 'fulfilled').map((r) => r.value);
 
-      const brightDataTally = tallyScraperProviderResults(
-        fulfilledResults.map((r) => r.brightData)
+      // A provider that was degraded during the batch (at its start, or skipped by any target) has had
+      // a failure day whatever its triggers did: the probes it was sent can only be judged by their
+      // results, which arrive after this batch.
+      const brightDataMarkers = fulfilledResults.map((r) => r.brightData);
+      const brightDataTally = applyProviderDegradation(
+        tallyScraperProviderResults(brightDataMarkers),
+        degradedProviders.has('BRIGHTDATA') || countProviderDegradedSkips(brightDataMarkers) > 0
       );
       if (brightDataTally.attempted > 0) {
         try {
-          await recordProviderHealthCheck('brightdata', brightDataTally);
+          const previous = await recordProviderHealthCheck('brightdata', brightDataTally);
+          logProviderTransition('brightdata', previous, brightDataTally);
         } catch (healthCheckErr) {
           console.error('Failed to record Bright Data provider health check:', healthCheckErr);
         }
       }
 
-      const apifyTally = tallyScraperProviderResults(
-        fulfilledResults.map((r) => r.apify)
+      const apifyMarkers = fulfilledResults.map((r) => r.apify);
+      const apifyTally = applyProviderDegradation(
+        tallyScraperProviderResults(apifyMarkers),
+        degradedProviders.has('APIFY') || countProviderDegradedSkips(apifyMarkers) > 0
       );
       if (apifyTally.attempted > 0) {
         try {
-          await recordProviderHealthCheck('apify', apifyTally);
+          const previous = await recordProviderHealthCheck('apify', apifyTally);
+          logProviderTransition('apify', previous, apifyTally);
         } catch (healthCheckErr) {
           console.error('Failed to record Apify provider health check:', healthCheckErr);
         }
@@ -180,7 +246,13 @@ export const handler = async (
       const dispatchedSucceeded = fulfilledResults.filter(
         (r) => r.brightData.succeeded || r.apify.succeeded
       ).length;
-      const dispatchedFailed = targets.length - dispatchedSucceeded;
+      // A target the async vendors declined but that reached the scraping queue is a working fallback
+      // (the queue worker scrapes it), so it is its own number: counting it as failed made a healthy
+      // fallback read as an outage (2026-10-23: 31 "failed", all 31 queued).
+      const dispatchedQueued = fulfilledResults.filter(
+        (r) => !r.brightData.succeeded && !r.apify.succeeded && r.queued
+      ).length;
+      const dispatchedFailed = targets.length - dispatchedSucceeded - dispatchedQueued;
 
       if (batchRunId) {
         try {
@@ -188,6 +260,7 @@ export const handler = async (
             targetsFound: targets.length,
             dispatchedSucceeded,
             dispatchedFailed,
+            dispatchedQueued,
           });
         } catch (completeErr) {
           console.error('Failed to record scraper batch run completion:', completeErr);

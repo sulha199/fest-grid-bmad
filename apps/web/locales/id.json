@@ -352,6 +352,11 @@
       "WEEK": "minggu",
       "MONTH": "bulan"
     },
+    "unitsSingular": {
+      "DAY": "hari",
+      "WEEK": "minggu",
+      "MONTH": "bulan"
+    },
     "daysOfWeek": {
       "MON": "Senin",
       "TUE": "Selasa",
@@ -368,6 +373,8 @@
     "weekdays": "hari kerja",
     "dateRangeSpanOnlyTemplate": "{spanAmount} {spanUnit} ke depan",
     "dateRangeSpanExtensionTemplate": "{base}, diperpanjang {spanAmount} {spanUnit}",
+    "restOfMonth": "sisa bulan ini",
+    "expressionInvalidCaveat": "Filter pada tautan ini tidak dapat dipulihkan sepenuhnya, jadi versi yang lebih sederhana ditampilkan.",
     "temporalStatus": {
       "TODAY": "sedang berlangsung",
       "UPCOMING": "akan datang"

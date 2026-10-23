@@ -849,7 +849,7 @@ test('instagram-adapter tests', async (t) => {
     const originalGetApifyClient = originalModule.getApifyClient;
 
     const hangingClient = {
-      actor: () => ({ call: () => new Promise(() => {}) }),
+      actor: () => ({ start: () => new Promise(() => {}) }),
       dataset: () => ({ listItems: () => new Promise(() => {}) }),
     };
     originalModule.setGetApifyClient(() => hangingClient as any);

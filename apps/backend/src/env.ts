@@ -70,6 +70,10 @@ export interface BackendEnv {
   dataIngestionInlineFallbackEnabled: boolean;
   apifyApiToken?: string;
   scrapeResultsLimit: number;
+  // Max Apify/Bright Data triggers in flight at once in the daily batch (account-wide Apify memory cap).
+  scrapeTriggerConcurrency: number;
+  // Budget for one synchronous Apify call on the scraper Lambda's queue path (not the API Lambda's 26s).
+  scrapeQueueApifyCallTimeoutMs: number;
   scrapeInitialLookbackDays: number;
   scrapeSkipRecentHours: number;
   scraperMonthlyBudgetUsd: number;
@@ -141,6 +145,17 @@ function parseNonNegativeInt(value: string | undefined, name: string, defaultVal
   const parsed = Number.parseInt(value || String(defaultValue), 10);
   if (!Number.isInteger(parsed) || parsed < 0) {
     throw new Error(`${name} must be a non-negative integer.`);
+  }
+  return parsed;
+}
+
+function parsePositiveInt(value: string | undefined, name: string, defaultValue: number): number {
+  const text = (value || String(defaultValue)).trim();
+  // `parseInt` alone would read "1e3" as 1 and "10abc" as 10: a typo must fail loudly, not quietly
+  // become a different limit.
+  const parsed = /^\d+$/.test(text) ? Number.parseInt(text, 10) : Number.NaN;
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    throw new Error(`${name} must be a positive integer (>= 1).`);
   }
   return parsed;
 }
@@ -237,13 +252,13 @@ export function loadBackendEnv(): BackendEnv {
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     apiKeyUsageCycleDays: parseInt(process.env.API_KEY_USAGE_CYCLE_DAYS || '30', 10),
     // Story 9.8 AC2 -- both figures configurable, default 10 requests / 10-minute window.
-    promptFilterRateLimitMaxRequests: parseNonNegativeInt(
+    promptFilterRateLimitMaxRequests: parsePositiveInt(
       // eslint-disable-next-line turbo/no-undeclared-env-vars
       process.env.PROMPT_FILTER_RATE_LIMIT_MAX_REQUESTS,
       'PROMPT_FILTER_RATE_LIMIT_MAX_REQUESTS',
       10
     ),
-    promptFilterRateLimitWindowMinutes: parseNonNegativeInt(
+    promptFilterRateLimitWindowMinutes: parsePositiveInt(
       // eslint-disable-next-line turbo/no-undeclared-env-vars
       process.env.PROMPT_FILTER_RATE_LIMIT_WINDOW_MINUTES,
       'PROMPT_FILTER_RATE_LIMIT_WINDOW_MINUTES',
@@ -271,6 +286,10 @@ export function loadBackendEnv(): BackendEnv {
     apifyApiToken: process.env.APIFY_API_TOKEN,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     scrapeResultsLimit: parseInt(process.env.SCRAPE_RESULTS_LIMIT || '30', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scrapeTriggerConcurrency: Math.max(1, parseInt(process.env.SCRAPE_TRIGGER_CONCURRENCY || '3', 10) || 3),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scrapeQueueApifyCallTimeoutMs: Math.max(1_000, parseInt(process.env.SCRAPE_QUEUE_APIFY_CALL_TIMEOUT_MS || '120000', 10) || 120_000),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     maxCarouselImages: parseInt(process.env.MAX_CAROUSEL_IMAGES || '5', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars

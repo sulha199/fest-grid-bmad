@@ -1,4 +1,5 @@
 import { QueryCondition, isGroupCondition } from '../query/queryDsl.js';
+import { scopeFilterCondition } from './scope-filter-condition.js';
 import { buildEventsQueryCondition } from './buildEventsQueryCondition.js';
 
 export interface BuildAccountCalendarQueryConditionInput {
@@ -28,23 +29,7 @@ export function buildAccountCalendarQueryCondition({
 
   const filterCondition = buildEventsQueryCondition({ search, types, categories });
 
-  let combinedCondition: QueryCondition;
-  if (!filterCondition) {
-    combinedCondition = {
-      operator: 'and',
-      conditions: baseConditions,
-    };
-  } else if (isGroupCondition(filterCondition)) {
-    combinedCondition = {
-      ...filterCondition,
-      conditions: [...baseConditions, ...filterCondition.conditions],
-    };
-  } else {
-    combinedCondition = {
-      operator: 'and',
-      conditions: [...baseConditions, filterCondition],
-    };
-  }
+  const combinedCondition = scopeFilterCondition(baseConditions, filterCondition);
 
   if (!weekStart || !weekEnd) {
     return combinedCondition;
@@ -63,8 +48,11 @@ export function buildAccountCalendarQueryCondition({
     };
   }
 
+  /* c8 ignore start -- defensive: `combinedCondition` is always a group built above, so the
+     `isGroupCondition` guard above always returns; kept for `QueryCondition` exhaustiveness. */
   return {
     operator: 'and',
     conditions: [combinedCondition, overlapCondition],
   };
+  /* c8 ignore stop */
 }

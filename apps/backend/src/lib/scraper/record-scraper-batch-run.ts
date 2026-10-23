@@ -29,6 +29,8 @@ export interface ScraperBatchRunCompletion {
   targetsFound: number;
   dispatchedSucceeded: number;
   dispatchedFailed: number;
+  /** Enqueued onto the scraping queue after the async vendors declined: a working fallback, not a failure. */
+  dispatchedQueued?: number;
 }
 
 /**
@@ -47,6 +49,7 @@ export async function completeScraperBatchRun(
       targetsFound: completion.targetsFound,
       dispatchedSucceeded: completion.dispatchedSucceeded,
       dispatchedFailed: completion.dispatchedFailed,
+      dispatchedQueued: completion.dispatchedQueued ?? 0,
       updatedAt: new Date(),
     })
     .where(eq(scraperBatchRuns.id, id));

@@ -249,6 +249,9 @@ export const scraperBatchRuns = pgTable('scraper_batch_runs', {
   targetsFound: integer('targets_found').default(0).notNull(),
   dispatchedSucceeded: integer('dispatched_succeeded').default(0).notNull(),
   dispatchedFailed: integer('dispatched_failed').default(0).notNull(),
+  // Targets no async vendor took that were enqueued onto the scraping queue instead -- a working
+  // fallback, not a failure. Counted in neither dispatched_succeeded nor dispatched_failed.
+  dispatchedQueued: integer('dispatched_queued').default(0).notNull(),
   ...timestamps,
 }, (t) => ({
   startedAtIdx: index('idx_scraper_batch_runs_started_at').on(t.startedAt),

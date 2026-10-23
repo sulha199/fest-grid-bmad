@@ -9,6 +9,10 @@ import {
   DATE_OFFSET_AMOUNT_BOUNDS,
   DAY_OF_WEEK_ONLY_LOOKAHEAD_DAYS,
   NO_MATCHING_WEEKDAY_SENTINEL_DATE,
+  MAX_WEEKDAY_DATE_TERMS,
+  estimateWeekdayDateTerms,
+  DateAnchor,
+  DateOffsetUnit,
   type EventFilterInput,
 } from './buildEventsQueryCondition.js';
 import { compileFilterNodeToQueryCondition } from '../ai-event-filters/compile-filter-node.js';
@@ -335,20 +339,45 @@ describe('buildEventsQueryCondition: expression branch (Story 9.4a, AC2, Task 9)
     assert.deepEqual(res, expected);
   });
 
-  it('when both filter and expression are supplied, expression wins and filter/search/types/categories/nearby/temporalFilter are all ignored', () => {
+  it('when both filter and expression are supplied, expression wins and filter/types/categories/nearby are ignored', () => {
     const expression: FilterNode = { field: 'isFree', value: true };
     const res = buildEventsQueryCondition({
       expression,
       filter: { types: ['FESTIVAL'], keyword: 'jazz' },
-      search: 'blues',
       types: ['CONCERT'],
       categories: ['MUSIC'],
       nearby: { latitude: -7.7, longitude: 110.3, radiusKm: 5 },
-      temporalFilter: 'TODAY',
     });
-    const expected = compileFilterNodeToQueryCondition(expression, {});
-    assert.deepEqual(res, expected);
     assert.deepEqual(res, { field: 'isFree', operator: 'eq', value: true });
+  });
+
+  it('Epic 9 review P13/D2: the search box and the Today/Upcoming toggle are ANDed onto the compiled expression', () => {
+    const expression: FilterNode = { field: 'isFree', value: true };
+    const res = buildEventsQueryCondition({ expression, search: 'blues', temporalFilter: 'TODAY', currentDate: new Date('2026-08-29T12:00:00Z') });
+    assert.ok(res && 'conditions' in res && res.operator === 'and');
+    const json = JSON.stringify(res);
+    assert.ok(json.includes('"blues"'), 'search is applied');
+    assert.ok(json.includes('scheduleEndedBoundary'), 'the TODAY toggle is applied');
+    assert.ok(json.includes('"isFree"'), 'the expression is kept');
+  });
+
+  it('Epic 9 review P13: a root OR expression is nested, not merged, when manual conditions are ANDed on', () => {
+    const expression: FilterNode = {
+      op: 'OR',
+      children: [
+        { field: 'locationAdminArea', value: 'Sleman' },
+        { field: 'locationAdminArea', value: 'Bantul' },
+      ],
+    };
+    const res = buildEventsQueryCondition({ expression, search: 'jazz' });
+    assert.ok(res && 'conditions' in res && res.operator === 'and');
+    assert.equal(res.conditions.length, 2);
+    assert.deepEqual(res.conditions[1], compileFilterNodeToQueryCondition(expression, {}));
+  });
+
+  it('ANDs the search onto an expression that compiles to nothing', () => {
+    const res = buildEventsQueryCondition({ expression: { op: 'AND', children: [] }, search: 'jazz' });
+    assert.ok(res && 'conditions' in res && res.operator === 'and' && res.conditions.length === 1);
   });
 
   it('an expression that compiles to undefined (an empty AND group) returns undefined, matching the existing "no conditions" return shape', () => {
@@ -362,5 +391,28 @@ describe('buildEventsQueryCondition: expression branch (Story 9.4a, AC2, Task 9)
     const expression: FilterNode = { field: 'dateRange', value: { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY' } };
     const res = buildEventsQueryCondition({ expression, currentDate: lateUtcInstant, timezone: 'Asia/Jakarta' });
     assert.deepEqual(res, { field: 'scheduleDateRange', operator: 'overlaps', value: { from: '2026-08-30', to: '2026-08-30' } });
+  });
+});
+
+describe('weekday expansion cap (Epic 9 review P17)', () => {
+  it('estimateWeekdayDateTerms is an upper bound that tracks the window and the weekday count', () => {
+    assert.equal(estimateWeekdayDateTerms(undefined, 7), 13 * 7);
+    assert.equal(estimateWeekdayDateTerms({ anchor: DateAnchor.TODAY }, 1), 1);
+    assert.ok(estimateWeekdayDateTerms({ anchor: DateAnchor.TODAY, spanAmount: 24, spanUnit: DateOffsetUnit.MONTH }, 7) > MAX_WEEKDAY_DATE_TERMS);
+    assert.ok(estimateWeekdayDateTerms({ anchor: DateAnchor.TODAY, spanAmount: 6, spanUnit: DateOffsetUnit.MONTH }, 5) <= MAX_WEEKDAY_DATE_TERMS);
+  });
+
+  it('refuses to build a condition with more date terms than the cap, instead of emitting hundreds of EXISTS terms', () => {
+    assert.throws(
+      () =>
+        buildEventsQueryCondition({
+          filter: {
+            dateRange: { anchor: DateAnchor.TODAY, offsetAmount: 0, offsetUnit: DateOffsetUnit.DAY, spanAmount: 24, spanUnit: DateOffsetUnit.MONTH },
+            dayOfWeek: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
+          },
+          currentDate: new Date('2026-10-23T00:00:00Z'),
+        }),
+      /more than the supported 150/
+    );
   });
 });

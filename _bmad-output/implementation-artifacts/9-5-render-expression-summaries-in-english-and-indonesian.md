@@ -488,3 +488,10 @@ Claude Sonnet 5 (claude-sonnet-5), via `bmad-dev-story`.
 ## Change Log
 
 - 2026-10-15 — Implemented via `bmad-dev-story`: all 11 tasks complete, all ACs satisfied and verified (`pnpm --filter @festgrid/domain test`/`lint`/`build`, `pnpm --filter @festgrid/web codegen`/`test`/`lint`/`build`, all green). Pre-Coding Approval Gate ticked per this session's Epic 9 batch dispatch instruction (approved as scoped: two new pure `packages/domain` files + tests, one extended existing `packages/domain` file + test, barrel export, en/id locale key additions, two `apps/web` call-site wirings incl. the `handleSave` persistence fix + their tests; no new components, no DB migration, no required GraphQL schema change — the `.graphql` client-document change needed by Task 8 was a conditional, pre-anticipated client-side call-site correction, not new schema). Status: review.
+
+## Epic 9 code-review amendments (2026-10-23)
+
+The Epic 9 code review (`implementation-artifacts/epic-9-code-review-2026-10-23.md`) changed behaviour this story's text still describes. Read the code and this note, not the superseded wording below.
+
+- **Settings page (supersedes "leave `handleRowClick` untouched"):** "My AI Filters" strips GraphQL's null padding and validates each row before rendering and before building the link, and omits `ai_filter` when the expression has no flat form (P6).
+- **Wording:** singular units ("the next 1 week") and the "rest of this month" phrasing for a zero-offset month span are labelled in en/id; user text in a template is inserted literally (`$&`-safe) (P22).

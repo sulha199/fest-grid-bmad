@@ -330,6 +330,7 @@ export type EventFilter = {
   isFree?: Maybe<Scalars['Boolean']['output']>;
   keyword?: Maybe<Scalars['String']['output']>;
   location?: Maybe<LocationFilter>;
+  temporalFilter?: Maybe<TemporalFilter>;
   types?: Maybe<Array<EventType>>;
   venueType?: Maybe<Scalars['String']['output']>;
 };
@@ -2119,6 +2120,7 @@ export type EventFilterResolvers<ContextType = GraphQLContext, ParentType extend
   isFree?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   keyword?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   location?: Resolver<Maybe<ResolversTypes['LocationFilter']>, ParentType, ContextType>;
+  temporalFilter?: Resolver<Maybe<ResolversTypes['TemporalFilter']>, ParentType, ContextType>;
   types?: Resolver<Maybe<Array<ResolversTypes['EventType']>>, ParentType, ContextType>;
   venueType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;

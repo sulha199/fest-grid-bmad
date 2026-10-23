@@ -372,9 +372,49 @@ test('process-scrape-job integration tests', async (t) => {
       await processScrapeJob(job);
     });
 
-    // Stamping still runs in finally block
+    // A failed scrape is not a completed one: it must not stamp lastScrapedAt (2026-10-23: a stamp on
+    // failure hid 11 accounts whose scrape had timed out from the next batch's skip-recent window).
     const [updatedProfile] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
-    assert.ok(updatedProfile.lastScrapedAt);
+    assert.strictEqual(updatedProfile.lastScrapedAt, null);
+
+    // The queue worker asks for the failure to propagate, so SQS redelivers the message.
+    await assert.rejects(() => processScrapeJob(job, { rethrowOnFailure: true }), /Fake adapter failure/);
+    const [afterRethrow] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+    assert.strictEqual(afterRethrow.lastScrapedAt, null);
+  });
+
+  await t.test('a completed scrape stamps lastScrapedAt even when it found nothing new', async () => {
+    const mockPlatform = 'test-fake-platform-stamp' as any;
+    registerScraperAdapter(mockPlatform, {
+      supportsNewerThanAndLimitFiltering: true,
+      async getNewestPosts(): Promise<ScrapedPost[]> {
+        return [];
+      },
+      async lookupAccountProfile(): Promise<AccountProfileLookupResult | null> {
+        return null;
+      },
+      async getAccountClassificationProfile(): Promise<any> {
+        return null;
+      },
+      async getPostByUrl(): Promise<ScrapedPost | null> {
+        return null;
+      },
+    });
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'fake-acc-stamp-' + Date.now(),
+      platform: mockPlatform,
+      displayName: 'Fake Account Stamp',
+      username: 'fake_acc_stamp',
+    }).returning();
+    createdProfiles.push(profile.id);
+
+    await processScrapeJob(
+      { profileId: profile.id, platform: mockPlatform, accountId: profile.accountId, username: profile.username },
+      { rethrowOnFailure: true }
+    );
+
+    const [updated] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+    assert.ok(updated.lastScrapedAt);
   });
 
   await t.test('persists hashtags and additionalImageUrls from a carousel ScrapedPost through the main scrape path (AC6 + carousel wiring)', async () => {

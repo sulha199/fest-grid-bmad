@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-22"
+last_updated: "2026-10-23"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -2296,13 +2296,12 @@ items:
      note: "Spawned by BUG-062. Metamorphic variants already landed in the nightly eval (#83); capture needs a privacy decision on logging prompts first."}
 
   FIND-085:
-    {type: finding, status: backlog, created: 2026-10-18,
+    {type: finding, status: done, created: 2026-10-18,
      impact: internal, effort: xs,
      title: "Nightly golden-prompt eval runs on a free-tier Gemini key: paced to ~13/min but a daily cap can still truncate the ~116-call run",
      ref: [.github/workflows/ai-filter-golden-prompt-nightly-eval.yml, apps/backend/scripts/run-golden-prompt-live-eval.ts],
      touches: [app:infrastructure, cross:process],
-     note: "Use a paid GEMINI_NIGHTLY_EVAL_API_KEY and set GOLDEN_EVAL_MIN_INTERVAL_MS to 0, or unset GOLDEN_EVAL_VARIANTS on most nights."}
-
+     note: "Fixed 2026-10-21 without needing a paid key: the free-tier flash cap is ~20 requests/day (the full run is 49 fixtures + 39 variants = 88 calls), so the nightly now runs a GOLDEN_EVAL_DAILY_BUDGET-sized window and leaves the rest pending. planGoldenEvalWindow (packages/domain) picks never-evaluated fixtures, then last night's drift (capped at 25% of the budget), then the stalest, rotating across categories; the ledger rides between nights in actions/cache; a per-day 429 ends the run early as a warning. Verified against a stubbed Gemini over a 7-night simulation (full rotation in 5 nights) -- the first live windowed run is the next scheduled nightly. Original advice follows: use a paid GEMINI_NIGHTLY_EVAL_API_KEY and set GOLDEN_EVAL_MIN_INTERVAL_MS to 0, or unset GOLDEN_EVAL_VARIANTS on most nights (now: remove GOLDEN_EVAL_DAILY_BUDGET)."}
   # ── 2026-10-18 (personalized-discovery proposal: area ladder, adminArea, online/multi-venue) ──
   BUG-063:
     {type: bug, status: backlog, created: 2026-10-18,
@@ -2667,3 +2666,100 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      touches: [app:backend, cross:architecture],
      note: "Master ID FIND-086 (renumbered 2026-10-20). Deferred from the quick-dev of the moderator re-extract preview (2026-10-18). 4 findings."}
+
+  # ── 2026-10-23 (code review of Epic 9; merged from master 2026-10-23, renumbered: master IDs BUG-065, BUG-066, FIND-087..FIND-091) ──
+  BUG-079:
+    {type: bug, status: backlog, created: 2026-10-23,
+     impact: user-visible, effort: m,
+     title: "Calendar tabs on Home and Feed ignore the active AI filter and expression",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/epic-9-code-review-2026-10-23.md],
+     touches: [web:events, cross:ai-extraction],
+     note: "Deferred from: code review of epic-9 (2026-10-23). Pre-existing for flat filters; compound filters widen the gap."}
+
+  BUG-080:
+    {type: bug, status: backlog, created: 2026-10-23,
+     impact: user-visible, effort: m,
+     title: "Embed widget page never applies the widget's saved filters or expression",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/epic-9-code-review-2026-10-23.md],
+     touches: [web:widgets, cross:ai-extraction],
+     note: "Deferred from: code review of epic-9 (2026-10-23). widget/[id]/page.tsx assigns filters and never reads it."}
+
+  FIND-095:
+    {type: finding, status: backlog, created: 2026-10-23, parent: FIND-083,
+     impact: user-visible, effort: m,
+     title: "AI filter relative dates resolve in UTC: no caller passes the viewer timezone to the compiler",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/epic-9-code-review-2026-10-23.md],
+     touches: [pkg:domain, app:backend, web:events, cross:ai-extraction],
+     note: "Deferred from: code review of epic-9 (2026-10-23). 9.1b added the optional parameter only; FIND-083 DW-074 wiring remains."}
+
+  FIND-096:
+    {type: finding, status: backlog, created: 2026-10-23,
+     impact: internal, effort: s,
+     title: "Epic 9 review deferrals: English-only domain caveats, NOT over dayOfWeek bounded to 90 days, eval environment binding",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/epic-9-code-review-2026-10-23.md],
+     touches: [pkg:domain, cross:ai-extraction],
+     note: "Deferred from: code review of epic-9 (2026-10-23). 3 findings."}
+
+  FIND-097:
+    {type: finding, status: backlog, created: 2026-10-23, parent: FIND-096,
+     impact: user-visible, effort: m,
+     title: "A saved AI filter or widget that no longer validates is repaired silently: the degraded flag reaches no UI",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/epic-9-code-review-2026-10-23.md],
+     touches: [pkg:domain, app:backend, web:settings, cross:ai-extraction],
+     note: "Deferred from: re-review of the epic-9 fixes (2026-10-23). resolveStoredFilter sets degraded:true when it repairs a stored row but no UI reads it, so the saved filter is silently replaced by a wider one. Detail in deferred-work.md."}
+
+  FIND-098:
+    {type: finding, status: backlog, created: 2026-10-23, parent: FIND-096,
+     impact: internal, effort: s,
+     title: "Epic 9 re-review leftovers: syntactic drift signature, duplicated radius bound, month-span wording, FilterHub clamp heuristic, Save button hidden without a hint",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/epic-9-code-review-2026-10-23.md],
+     touches: [pkg:domain, pkg:ui, web:events],
+     note: "Deferred from: re-review of the epic-9 fixes (2026-10-23). 5 low findings."}
+
+  FIND-099:
+    {type: finding, status: done, created: 2026-10-23, parent: FIND-096,
+     impact: user-visible, effort: s,
+     title: "Decision needed: leaf fields written on an OR node beside its children join the OR as extra alternatives (\"free jazz or blues\" can match every free event)",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/epic-9-code-review-2026-10-23.md],
+     touches: [pkg:domain, cross:ai-extraction],
+     note: "Deferred from: re-review of the epic-9 fixes (2026-10-23). Decided by the product owner and fixed: a qualifier beside an OR's branches applies to the whole group, AND(OR(branches), fields). See Story 9.4's amendment."}
+
+  BUG-076:
+    {type: bug, status: triaged, created: 2026-10-23,
+     impact: user-visible, effort: s,
+     title: "Daily batch fires every Apify trigger at once; the account's memory cap refuses most (402 actor-memory-limit-exceeded) and they are logged and classed as an outage",
+     ref: [apps/backend/src/lambdas/scraper.ts, apps/backend/src/lib/scraper/trigger-apify-for-target.ts],
+     touches: [app:backend],
+     note: "Prod 2026-10-23: 31 of 35 triggers refused. Fix on its PR: SCRAPE_TRIGGER_CONCURRENCY (default 3) and 402 mapped to CAPACITY_EXHAUSTED."}
+
+  BUG-077:
+    {type: bug, status: triaged, created: 2026-10-23,
+     impact: user-visible, effort: s, blocks: [BUG-078],
+     title: "Queue fallback drops an account silently when the Apify call exceeds 26s: no audit row, run not aborted, lastScrapedAt stamped, message deleted",
+     ref: [apps/backend/src/lib/scraper/process-scrape-job.ts, apps/backend/src/lib/scraper/instagram-adapter.ts, apps/backend/src/lib/aws/poll-and-drain-queue.ts],
+     touches: [app:backend, app:infrastructure],
+     note: "Prod 2026-10-23: 11 profiles hit VendorCallTimeoutError at 26000ms inside a 300s Lambda. Fix on its PR: 120s queue budget, abort, TIMED_OUT row, no stamp, rethrow to SQS."}
+
+  BUG-078:
+    {type: bug, status: triaged, created: 2026-10-23,
+     impact: internal, effort: xs,
+     title: "scraper_batch_runs counts targets that fell back to the scraping queue as dispatched_failed, so a working fallback reads as an outage",
+     ref: [apps/backend/src/lib/scraper/record-scraper-batch-run.ts, apps/backend/src/lambdas/scraper.ts],
+     touches: [app:backend, pkg:database],
+     note: "Fix on its PR: new dispatched_queued column (migration 0080); a 402 no longer counts as TRIGGER_ERROR in the Apify tally."}
+
+  IDEA-097:
+    {type: idea, status: triaged, created: 2026-10-23,
+     impact: internal, effort: xs,
+     title: "Scraper Lambda runs at the 128 MB default (Max Memory Used 124-128 MB, two poll-and-drain runs hit the full 300s): give it 512 MB",
+     ref: [apps/infrastructure/lib/festgrid-backend-stack.ts],
+     touches: [app:infrastructure],
+     note: "Fix on its PR. Memory only; no service added, so the architecture diagram is unchanged."}
+
+  IDEA-098:
+    {type: idea, status: backlog, created: 2026-10-23,
+     impact: internal, effort: s,
+     title: "Bright Data diagnostic script (with and without start_date) and a per-provider 'every run returned zero items' alarm",
+     ref: [apps/backend/scripts/debug-brightdata.ts, apps/infrastructure/lib/festgrid-backend-stack.ts],
+     touches: [app:backend, app:infrastructure],
+     note: "Script is on the PR for the owner to run with their own token; the alarm (and an alarm on the scraping DLQ depth) is proposed in the PR description, not built."}

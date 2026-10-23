@@ -1,5 +1,5 @@
 import { getAdminApp } from '../firebase-admin.js';
-import { getMessaging } from 'firebase-admin/messaging';
+import { getMessaging, type Messaging } from 'firebase-admin/messaging';
 import { buildFcmPayload } from '@festgrid/domain';
 import { getSubscribersForNotification } from './get-subscribers-for-notification.js';
 import { db } from '../../db/client.js';
@@ -26,21 +26,59 @@ async function reportErrorSilently(source: string, message: string, context: str
   }
 }
 
-export let sendEventNotificationsSeam = sendEventNotifications;
+/**
+ * What a send tells its caller. `firebaseInitFailed` is true only when Firebase could not be
+ * initialised, i.e. the send failed **before any FCM request was made**: nothing was delivered or even
+ * attempted, so the caller may release its claim on the event (AD-30 Rule 10, amended 2026-10-21).
+ * Every other outcome, including a failed request, keeps the claim and is not retried.
+ */
+export interface SendEventNotificationsResult {
+  firebaseInitFailed: boolean;
+}
 
-export function setSendEventNotificationsSeam(fn: typeof sendEventNotifications) {
+type SendEventNotificationsFn = (
+  event: { id: string; slug: string; name: string; description: string },
+  sourceAccountId: string
+) => Promise<SendEventNotificationsResult | void>;
+
+export let sendEventNotificationsSeam: SendEventNotificationsFn = sendEventNotifications;
+
+export function setSendEventNotificationsSeam(fn: SendEventNotificationsFn) {
   sendEventNotificationsSeam = fn;
+}
+
+// Test seam for the one place Firebase is initialised, so an initialisation failure can be simulated.
+export let getMessagingClient = (): Messaging => getMessaging(getAdminApp());
+
+export function setGetMessagingClient(fn: typeof getMessagingClient) {
+  getMessagingClient = fn;
 }
 
 export async function sendEventNotifications(
   event: { id: string; slug: string; name: string; description: string },
   sourceAccountId: string
-): Promise<void> {
+): Promise<SendEventNotificationsResult> {
   try {
     const tokens = await getSubscribersForNotification(sourceAccountId);
     if (tokens.length === 0) {
       console.log(`[sendEventNotifications] No subscribers with active device tokens found for sourceAccountId: ${sourceAccountId}`);
-      return;
+      return { firebaseInitFailed: false };
+    }
+
+    // Initialise Firebase once, before any request. A failure here (missing or invalid credentials) means
+    // nothing was sent or attempted, which is the one case the caller's claim on the event is released
+    // for; it is reported by e-mail like any other send failure (BUG-073).
+    let messaging: Messaging;
+    try {
+      messaging = getMessagingClient();
+    } catch (initError: any) {
+      console.error('[sendEventNotifications] Firebase initialisation failed, nothing was sent:', initError);
+      await reportErrorSilently(
+        'sendEventNotifications - Firebase initialisation',
+        initError.message || String(initError),
+        JSON.stringify({ event, sourceAccountId })
+      );
+      return { firebaseInitFailed: true };
     }
 
     // Batch tokens in groups of 500 (FCM limit)
@@ -49,7 +87,6 @@ export async function sendEventNotifications(
       const payload = buildFcmPayload(event, batch);
 
       try {
-        const messaging = getMessaging(getAdminApp());
         const result = await messaging.sendEachForMulticast(payload);
 
         const tokensToDelete: string[] = [];
@@ -76,6 +113,7 @@ export async function sendEventNotifications(
         );
       }
     }
+    return { firebaseInitFailed: false };
   } catch (error: any) {
     console.error('[sendEventNotifications] Notification process failed:', error);
     await reportErrorSilently(
@@ -83,5 +121,6 @@ export async function sendEventNotifications(
       error.message || String(error),
       JSON.stringify({ event, sourceAccountId })
     );
+    return { firebaseInitFailed: false };
   }
 }

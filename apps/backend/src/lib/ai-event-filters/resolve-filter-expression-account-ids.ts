@@ -8,6 +8,43 @@ import {
 } from '@festgrid/domain/ai-event-filters';
 import { resolveFilterAccountId } from './resolve-filter-account-id.js';
 
+/** A profile id no row can have: the stand-in for an account that could not be resolved, where
+ * dropping the leaf would be wrong (inside an OR / NOT). */
+const NO_ACCOUNT_ID = '00000000-0000-0000-0000-000000000000';
+
+const IMPOSSIBLE: FilterNode = { field: 'accountId', value: NO_ACCOUNT_ID };
+
+function isImpossible(node: FilterNode): boolean {
+  return isFilterLeaf(node) && node.field === 'accountId' && node.value === NO_ACCOUNT_ID;
+}
+
+const ALWAYS = Symbol('matches every event');
+
+/** Folds the never-matching stand-in through the operators, so the tree sent back carries it only
+ * when the WHOLE filter can match nothing:
+ *   AND(x, never) = never      OR(x, never) = x      NOT(never) = every event
+ *   AND(x, always) = x         OR(x, always) = always      NOT(always) = never
+ * An `always` that survives to the root means "no filter". */
+function simplifyImpossible(node: FilterNode): FilterNode | typeof ALWAYS {
+  if (isFilterNotNode(node)) {
+    const child = simplifyImpossible(node.child);
+    if (child === ALWAYS) return IMPOSSIBLE;
+    return isImpossible(child) ? ALWAYS : { op: 'NOT', child };
+  }
+  if (isFilterGroupNode(node)) {
+    const children = node.children.map(simplifyImpossible);
+    if (node.op === 'AND') {
+      if (children.some((child) => child !== ALWAYS && isImpossible(child))) return IMPOSSIBLE;
+      const kept = children.filter((child): child is FilterNode => child !== ALWAYS);
+      return kept.length === 0 ? ALWAYS : { op: 'AND', children: kept };
+    }
+    if (children.includes(ALWAYS)) return ALWAYS;
+    const possible = (children as FilterNode[]).filter((child) => !isImpossible(child));
+    return possible.length > 0 ? { op: 'OR', children: possible } : IMPOSSIBLE;
+  }
+  return node;
+}
+
 function collectAccountIdValues(node: FilterNode, values: Set<string>): void {
   if (isFilterLeaf(node)) {
     if (node.field === 'accountId') {
@@ -47,7 +84,12 @@ export async function resolveFilterExpressionAccountIds(
   const resolvedMap = new Map<string, string | null>(resolvedEntries);
 
   const caveats: string[] = [];
-  const mapped = mapFilterLeaves(node, (leaf) => {
+  const addCaveat = (message: string): void => {
+    if (!caveats.includes(message)) {
+      caveats.push(message);
+    }
+  };
+  const mapped = mapFilterLeaves(node, (leaf, context) => {
     if (leaf.field !== 'accountId') {
       return leaf;
     }
@@ -55,10 +97,19 @@ export async function resolveFilterExpressionAccountIds(
     if (resolved) {
       return { field: 'accountId', value: resolved };
     }
-    caveats.push(`Could not find an account matching "${leaf.value}", so events from all accounts are shown.`);
+    if (context.insideOrOrNot) {
+      // An account that does not exist matches no events. Inside an OR / NOT, merely dropping the
+      // leaf would change what the operator means, so keep an impossible leaf instead and let
+      // `simplifyImpossible` fold it through the operators. The wording holds in every position:
+      // it states what the account does, not what the surrounding operator then makes of it.
+      addCaveat(`Could not find an account matching "${leaf.value}", so it was treated as matching no events.`);
+      return { field: 'accountId', value: NO_ACCOUNT_ID };
+    }
+    addCaveat(`Could not find an account matching "${leaf.value}", so events from all accounts are shown.`);
     return undefined;
   });
 
-  const expression = normalize(mapped ?? { op: 'AND', children: [] });
+  const simplified = mapped ? simplifyImpossible(mapped) : ALWAYS;
+  const expression = normalize(simplified === ALWAYS ? { op: 'AND', children: [] } : simplified);
   return { expression, caveats };
 }

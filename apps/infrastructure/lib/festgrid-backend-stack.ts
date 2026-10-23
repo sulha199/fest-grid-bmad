@@ -12,6 +12,10 @@ import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as ses from 'aws-cdk-lib/aws-ses';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as snsSubscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as cloudwatchActions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
@@ -268,6 +272,57 @@ export class FestgridBackendStack extends cdk.Stack {
       SCRAPER_USAGE_CYCLE_DAYS: process.env.SCRAPER_USAGE_CYCLE_DAYS,
     });
 
+    // BUG-073 -- one source for what every Lambda that sends a push or an e-mail needs, so a Lambda
+    // given one half of it is given the other (an env var wired without its grant, or the reverse, is
+    // the incident shape). The Ingestor runs `notifyNewEvent` (Firebase) and reports failures by
+    // e-mail; the two webhooks report audit-trail failures to the moderators. Before this, only the
+    // Api Lambda held the Firebase variables: every initialisation in the Ingestor failed (about 40 a
+    // day in production, 2026-10-07 to 10-16) and every alert fell back to a log line.
+    //
+    // Least privilege: on this code the AI processor never reaches the push or the mail path (it only
+    // imports a type from the module that holds them), so it gets none of this. If a later change makes
+    // it call `notifyNewEvent` or send mail, give it `firebaseEnv`, `mailEnv`, `systemAlertEnv`,
+    // `grantSesSend` and the Firebase secret read in the same change: the walkers in
+    // festgrid-backend-stack.test.ts fail for an env var wired without its grant.
+    const firebaseEnv = {
+      FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || '',
+      FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL || '',
+      FIREBASE_PRIVATE_KEY: firebasePrivateKeySecret.secretValue.unsafeUnwrap(),
+    };
+    const mailEnv = {
+      SES_FROM_EMAIL_ADDRESS: process.env.SES_FROM_EMAIL_ADDRESS || '',
+      WEB_APP_BASE_URL: process.env.WEB_APP_BASE_URL || 'http://localhost:3000',
+    };
+    const systemAlertEnv = definedEnv({
+      SYSTEM_ERROR_ALERT_EMAIL: process.env.SYSTEM_ERROR_ALERT_EMAIL,
+    });
+
+    // SES authorises a send against the identity of the From address: the address itself when it is
+    // verified as one, otherwise its domain. This stack creates only the domain identity, and a domain
+    // identity whose DNS verification fails (the production state, BUG-073) cannot send. Covering the
+    // From address identity too lets a verified *address* send, which is what the SES sandbox allows
+    // (a sandbox account may send only from and to verified identities).
+    const sesSendIdentityArns = [
+      emailIdentity.emailIdentityArn,
+      ...(process.env.SES_FROM_EMAIL_ADDRESS
+        ? [
+            this.formatArn({
+              service: 'ses',
+              resource: 'identity',
+              resourceName: process.env.SES_FROM_EMAIL_ADDRESS,
+              arnFormat: cdk.ArnFormat.SLASH_RESOURCE_NAME,
+            }),
+          ]
+        : []),
+    ];
+    const grantSesSend = (fn: lambda.IFunction) =>
+      fn.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ['ses:SendEmail', 'ses:SendRawEmail', 'ses:SendTemplatedEmail'],
+          resources: sesSendIdentityArns,
+        })
+      );
+
     // L_API
     const apiLambda = new nodejs.NodejsFunction(this, `ApiLambda-${stageName}`, {
       entry: path.resolve(projectRoot, 'apps/backend/src/lambdas/api.ts'),
@@ -304,9 +359,7 @@ export class FestgridBackendStack extends cdk.Stack {
         DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
         GEOAPIFY_API_KEY: geoapifyApiKeySecret.secretValue.unsafeUnwrap(),
         SYSTEM_GEMINI_API_KEY: systemGeminiApiKeySecret.secretValue.unsafeUnwrap(),
-        FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || '',
-        FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL || '',
-        FIREBASE_PRIVATE_KEY: firebasePrivateKeySecret.secretValue.unsafeUnwrap(),
+        ...firebaseEnv,
         SES_FROM_EMAIL_ADDRESS: process.env.SES_FROM_EMAIL_ADDRESS || '',
         SYSTEM_ERROR_ALERT_EMAIL: process.env.SYSTEM_ERROR_ALERT_EMAIL,
         BYOK_KMS_KEY_ID: kmsKey.keyId,
@@ -355,6 +408,12 @@ export class FestgridBackendStack extends cdk.Stack {
       handler: 'handler',
       ...sharedLambdaProps,
       timeout: cdk.Duration.seconds(300),
+      // 2026-10-23: the 128 MB default showed Max Memory Used at 124-128 MB on every invocation, and
+      // two poll-and-drain invocations ran the full 300s. Lambda CPU scales with memory (128 MB is
+      // ~7% of a vCPU), and this Lambda does TLS, JSON and Drizzle work per scraped post. 512 MB is
+      // 4x the observed ceiling and ~29% of a vCPU: headroom without paying for the 2048 MB the AI
+      // Lambda needs. Bill is per GB-second, so a 4x bump is 4x per second of runtime.
+      memorySize: 512,
       environment: {
         STAGE: stageName,
         BACKEND_PORT: '4000',
@@ -374,6 +433,12 @@ export class FestgridBackendStack extends cdk.Stack {
         // cron cycle still catches up on everything posted since the last successful run,
         // instead of silently truncating to the newest N and losing older posts in between.
         SCRAPE_RESULTS_LIMIT: process.env.SCRAPE_RESULTS_LIMIT || '30',
+        // Vendor triggers in flight at once in the daily batch: Apify caps the account's concurrent
+        // memory and refused 31 of 35 simultaneous triggers on 2026-10-23.
+        SCRAPE_TRIGGER_CONCURRENCY: process.env.SCRAPE_TRIGGER_CONCURRENCY || '3',
+        // Budget for one synchronous Apify call on the queue path. Must stay well under the 300s
+        // Lambda and ScrapingQueue visibility timeouts: poll-and-drain sizes each receive from it.
+        SCRAPE_QUEUE_APIFY_CALL_TIMEOUT_MS: process.env.SCRAPE_QUEUE_APIFY_CALL_TIMEOUT_MS || '120000',
         // Story 3.6z — scraperLambda auto-enqueues newly scraped posts onto AIProcessingQueue
         // (subject to a key-availability pre-check), mirroring apiLambda's existing
         // selectPostsForExtraction caller. See the matching aiProcessingQueue.grantSendMessages
@@ -517,6 +582,9 @@ export class FestgridBackendStack extends cdk.Stack {
         STAGE: stageName,
         BACKEND_PORT: '4000',
         DATABASE_URL: dbUrlSecret.secretValue.unsafeUnwrap(),
+        ...firebaseEnv,
+        ...mailEnv,
+        ...systemAlertEnv,
         SECRETS_SYNCED_AT: secretsSyncedAt,
       },
     });
@@ -560,6 +628,10 @@ export class FestgridBackendStack extends cdk.Stack {
     if (stageName !== 'prod') {
       scraperLambda.addEventSource(new eventSources.SqsEventSource(scrapingQueue, {
         enabled: enableNonProdQueuePolling,
+        // The handler works a batch one record at a time and one record can take up to ~135s (the
+        // queue path's 120s Apify budget plus persistence); the default batch of 10 would outlast the
+        // Lambda's 300s timeout. Two fit (prod's poll-and-drain sizes its own receives the same way).
+        batchSize: 2,
       }));
     }
 
@@ -686,9 +758,10 @@ export class FestgridBackendStack extends cdk.Stack {
     postMediaDistribution.grantCreateInvalidation(aiProcessorLambda);
 
     // SES Send Email Identity Grant
-    emailIdentity.grantSendEmail(apiLambda);
-    emailIdentity.grantSendEmail(notifierLambda);
-    emailIdentity.grantSendEmail(scraperLambda);
+    grantSesSend(apiLambda);
+    grantSesSend(notifierLambda);
+    grantSesSend(scraperLambda);
+    grantSesSend(ingestorLambda);
 
     // Secrets Manager Grants
     dbUrlSecret.grantRead(apiLambda);
@@ -704,6 +777,8 @@ export class FestgridBackendStack extends cdk.Stack {
     systemGeminiApiKeySecret.grantRead(scraperLambda);
 
     firebasePrivateKeySecret.grantRead(apiLambda);
+    // BUG-073: notifyNewEvent runs in the Ingestor, not in the Api Lambda.
+    firebasePrivateKeySecret.grantRead(ingestorLambda);
 
     apifyApiTokenSecret.grantRead(apiLambda);
     apifyApiTokenSecret.grantRead(scraperLambda);
@@ -763,6 +838,13 @@ export class FestgridBackendStack extends cdk.Stack {
         AI_PROCESSING_QUEUE_URL: aiProcessingQueue.queueUrl,
         AI_PROCESSING_INLINE_FALLBACK_ENABLED: 'false',
         POST_EXTRACTION_CLAIM_TTL_MINUTES: process.env.POST_EXTRACTION_CLAIM_TTL_MINUTES || '30',
+        // BUG-074 -- a snapshot delivered with no records is classified against Bright Data's
+        // progress endpoint (needs the API token), and a vendor failure hands the profile to the
+        // scraping queue (needs its URL and send permission, below). Without both, the lookup
+        // throws, is read as inconclusive, and an outage is stored as a success exactly as before.
+        BRIGHTDATA_API_TOKEN: brightdataApiTokenSecret.secretValue.unsafeUnwrap(),
+        SCRAPING_QUEUE_URL: scrapingQueue.queueUrl,
+        ...mailEnv,
         ...usageCycleEnv,
         SECRETS_SYNCED_AT: secretsSyncedAt,
       },
@@ -770,6 +852,9 @@ export class FestgridBackendStack extends cdk.Stack {
 
     dbUrlSecret.grantRead(webhookLambda);
     aiProcessingQueue.grantSendMessages(webhookLambda);
+    brightdataApiTokenSecret.grantRead(webhookLambda);
+    scrapingQueue.grantSendMessages(webhookLambda);
+    grantSesSend(webhookLambda);
 
     const apifyWebhookLambda = new nodejs.NodejsFunction(this, `ApifyWebhook-${stageName}`, {
       entry: path.resolve(projectRoot, 'apps/backend/src/lambdas/apify-webhook.ts'),
@@ -787,6 +872,7 @@ export class FestgridBackendStack extends cdk.Stack {
         AI_PROCESSING_QUEUE_URL: aiProcessingQueue.queueUrl,
         AI_PROCESSING_INLINE_FALLBACK_ENABLED: 'false',
         POST_EXTRACTION_CLAIM_TTL_MINUTES: process.env.POST_EXTRACTION_CLAIM_TTL_MINUTES || '30',
+        ...mailEnv,
         ...usageCycleEnv,
         SECRETS_SYNCED_AT: secretsSyncedAt,
       },
@@ -795,6 +881,7 @@ export class FestgridBackendStack extends cdk.Stack {
     dbUrlSecret.grantRead(apifyWebhookLambda);
     aiProcessingQueue.grantSendMessages(apifyWebhookLambda);
     apifyApiTokenSecret.grantRead(apifyWebhookLambda);
+    grantSesSend(apifyWebhookLambda);
 
     // Create webhooks resource and add webhook endpoints
     const webhooksResource = api.root.addResource('webhooks');
@@ -853,5 +940,72 @@ export class FestgridBackendStack extends cdk.Stack {
       event: events.RuleTargetInput.fromObject({ jobType: 'stale-job-sweep' }),
     }));
 
+    // IDEA-096: the alert path that does not depend on SES (BUG-073). The Lambdas write CloudWatch
+    // Embedded Metric Format lines (apps/backend/src/lib/metrics/emit-metric.ts, same namespace and metric
+    // names), CloudWatch turns them into metrics, and these alarms publish to an SNS topic. An SNS e-mail
+    // subscription needs the recipient to click its confirmation link, not an SES identity, so it works
+    // while SES is still in the sandbox. Prod only: the other stages have no scheduled scraping to watch.
+    if (stageName === 'prod') {
+      const opsAlertsTopic = new sns.Topic(this, `OpsAlertsTopic-${stageName}`, {
+        displayName: 'FestGrid operations alerts',
+      });
+      // Optional, like SYSTEM_ERROR_ALERT_EMAIL: without it the topic and alarms still exist and the alarm
+      // state is visible in the CloudWatch console, it just reaches nobody.
+      if (process.env.OPS_ALERT_EMAIL) {
+        opsAlertsTopic.addSubscription(new snsSubscriptions.EmailSubscription(process.env.OPS_ALERT_EMAIL));
+      }
+      const notifyOps = new cloudwatchActions.SnsAction(opsAlertsTopic);
+
+      const opsMetric = (metricName: string, period: cdk.Duration) =>
+        new cloudwatch.Metric({
+          namespace: 'FestGrid/Backend',
+          metricName,
+          statistic: 'Sum',
+          period,
+        });
+
+      // The daily batch logs the transition once, so one datapoint is the whole story: any value at all is
+      // the alarm. The provider is a field of the log line, found with Logs Insights.
+      const providerDegradedAlarm = new cloudwatch.Alarm(this, `ProviderDegradedAlarm-${stageName}`, {
+        alarmName: `festgrid-${stageName}-scraper-provider-degraded`,
+        alarmDescription:
+          'A scraper provider (Bright Data or Apify) turned degraded: its recent runs mostly failed or returned no posts, so the batch is sending its profiles to the other provider. Find which in the Scraper Lambda log, "[Provider failover]". Check the other provider\'s plan and budget.',
+        metric: opsMetric('ProviderDegraded', cdk.Duration.hours(1)),
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      });
+      providerDegradedAlarm.addAlarmAction(notifyOps);
+
+      // The good news, as an alarm only because that is the one thing CloudWatch can send to SNS.
+      const providerRecoveredAlarm = new cloudwatch.Alarm(this, `ProviderRecoveredAlarm-${stageName}`, {
+        alarmName: `festgrid-${stageName}-scraper-provider-recovered`,
+        alarmDescription:
+          'Good news, no action needed: a scraper provider that was degraded returned a good result and is back in the chain.',
+        metric: opsMetric('ProviderRecovered', cdk.Duration.hours(1)),
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      });
+      providerRecoveredAlarm.addAlarmAction(notifyOps);
+
+      // Vendor-agnostic: whichever provider is in use, new posts must keep being saved. A missing metric
+      // is a day with nothing saved, so it breaches. Catches the failures the provider health rule cannot
+      // see (both providers empty, a webhook or the ingestion path down, a token expired).
+      const noPostsSavedAlarm = new cloudwatch.Alarm(this, `NoPostsSavedAlarm-${stageName}`, {
+        alarmName: `festgrid-${stageName}-no-new-posts-saved-24h`,
+        alarmDescription:
+          'No new post was saved in the last 24 hours. Check the scraper provider alarms, scraper_actor_runs (status and item_count) and the Webhook and ApifyWebhook Lambda logs. A quiet day with genuinely nothing new also trips it.',
+        metric: opsMetric('PostsSaved', cdk.Duration.hours(24)),
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+        treatMissingData: cloudwatch.TreatMissingData.BREACHING,
+      });
+      noPostsSavedAlarm.addAlarmAction(notifyOps);
+      noPostsSavedAlarm.addOkAction(notifyOps);
+    }
   }
 }

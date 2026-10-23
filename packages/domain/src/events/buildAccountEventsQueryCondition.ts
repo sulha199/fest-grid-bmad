@@ -1,6 +1,6 @@
-import { QueryCondition, isGroupCondition } from '../query/queryDsl.js';
+import { QueryCondition } from '../query/queryDsl.js';
+import { scopeFilterCondition } from './scope-filter-condition.js';
 import { buildEventsQueryCondition, EventFilterInput } from './buildEventsQueryCondition.js';
-import { compileFilterNodeToQueryCondition } from '../ai-event-filters/compile-filter-node.js';
 import type { FilterNode } from '../ai-event-filters/filter-node.js';
 
 export interface BuildAccountEventsQueryConditionInput {
@@ -35,25 +35,8 @@ export function buildAccountEventsQueryCondition({
   ];
 
   const filterCondition = expression
-    ? compileFilterNodeToQueryCondition(expression)
+    ? buildEventsQueryCondition({ expression, search, temporalFilter })
     : buildEventsQueryCondition({ search, types, categories, temporalFilter });
 
-  if (!filterCondition) {
-    return {
-      operator: 'and',
-      conditions: baseConditions,
-    };
-  }
-
-  if (isGroupCondition(filterCondition)) {
-    return {
-      ...filterCondition,
-      conditions: [...baseConditions, ...filterCondition.conditions],
-    };
-  }
-
-  return {
-    operator: 'and',
-    conditions: [...baseConditions, filterCondition],
-  };
+  return scopeFilterCondition(baseConditions, filterCondition);
 }

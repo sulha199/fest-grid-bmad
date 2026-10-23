@@ -61,7 +61,7 @@ function buildFavoritesQueryCondition(
   expression?: FilterNode | null
 ): EventQueryConditionInput {
   const dynamicQuery = (expression
-    ? buildEventsQueryCondition({ expression })
+    ? buildEventsQueryCondition({ expression, search: q, temporalFilter })
     : filter
       ? buildEventsQueryCondition({ filter: { ...filter, temporalFilter: temporalFilter ?? filter.temporalFilter } })
       : buildEventsQueryCondition({ search: q, types, categories, nearby, temporalFilter })) as
@@ -272,7 +272,7 @@ export function FavoritesContent() {
       }]
 
       const filterCondition = (aiFilter.activeExpression
-        ? buildEventsQueryCondition({ expression: aiFilter.activeExpression })
+        ? buildEventsQueryCondition({ expression: aiFilter.activeExpression, search: q, temporalFilter })
         : aiFilter.activeFilter
           ? buildEventsQueryCondition({ filter: { ...aiFilter.activeFilter, temporalFilter: temporalFilter ?? aiFilter.activeFilter.temporalFilter } })
           : buildEventsQueryCondition({ search: q, types, categories, nearby: resolvedNearby, temporalFilter })) as

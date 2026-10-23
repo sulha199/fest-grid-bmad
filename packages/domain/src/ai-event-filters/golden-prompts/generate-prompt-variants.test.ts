@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   PROMPT_VARIANT_KINDS,
+  canHavePromptVariant,
   pickPromptVariant,
   summarizeMetamorphicDrift,
   type PromptVariant,
@@ -85,6 +86,13 @@ describe('pickPromptVariant', () => {
     assert.equal(pickPromptVariant(fixture({ prompt: 'x', category: 'off-topic' }), 0, 0), undefined);
   });
 
+  it('canHavePromptVariant agrees with pickPromptVariant for every category', () => {
+    for (const category of ['AND', 'OR', 'NOT', 'nesting', 'precedence', 'over-limit', 'out-of-vocabulary', 'off-topic', 'vague-descriptor'] as const) {
+      const f = fixture({ prompt: 'free jazz events', category });
+      assert.equal(canHavePromptVariant(f), pickPromptVariant(f, 0, 0) !== undefined, category);
+    }
+  });
+
   it('is deterministic: the same (fixture, index, seed) always yields the same variant', () => {
     assert.deepEqual(pickPromptVariant(base, 5, 123), pickPromptVariant(base, 5, 123));
   });
@@ -132,7 +140,24 @@ describe('summarizeMetamorphicDrift', () => {
     });
     assert.equal(result.drifted, true);
     assert.match(result.details, /filler variant "please show me free jazz"/);
-    assert.match(result.details, /expected=\[isFree,keyword\] actual=\[venueType\]/);
+    assert.match(result.details, /expected=\[isFree,keyword\] actual=\[venueType\]; shape expected=AND\(isFree:true,keyword\) actual=venueType/);
+  });
+
+  it('flags a variant whose response lost the NOT even though the same fields are present', () => {
+    const withNot = fixture({
+      prompt: 'jazz, not workshops',
+      expected: {
+        expression: {
+          op: 'AND',
+          children: [{ field: 'keyword', value: 'jazz' }, { op: 'NOT', child: { field: 'venueType', value: 'x' } }],
+        },
+        caveats: [],
+      },
+    });
+    const lostNot = { op: 'AND' as const, children: [{ field: 'keyword' as const, value: 'jazz' }, { field: 'venueType' as const, value: 'x' }] };
+    const result = summarizeMetamorphicDrift(withNot, filler, { expression: lostNot, caveats: [] });
+    assert.equal(result.drifted, true);
+    assert.match(result.details, /shape expected=AND\(NOT\(venueType\),keyword\) actual=AND\(keyword,venueType\)/);
   });
 
   it('flags an unexpected caveat for a same-as-base variant', () => {

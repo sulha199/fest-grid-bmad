@@ -72,6 +72,12 @@ jobs:
           GEOAPIFY_API_KEY: 'test-geoapify-key'
         run: pnpm run test
 
+      # `pnpm run test` fails the build if packages/domain drops below 100% (packages/domain/.c8rc.json).
+      # This keeps the README's coverage badge honest: it fails if docs/badges/domain-coverage.json
+      # no longer matches the measured coverage.
+      - name: Verify coverage badge is current
+        run: node scripts/coverage-badge.mjs --check
+
   db-migrate:
     name: Database Migrations
     needs: ci
@@ -168,6 +174,7 @@ jobs:
           FIREBASE_CLIENT_EMAIL: ${{ vars.FIREBASE_CLIENT_EMAIL }}
           SES_FROM_EMAIL_ADDRESS: ${{ vars.SES_FROM_EMAIL_ADDRESS }}
           SYSTEM_ERROR_ALERT_EMAIL: ${{ vars.SYSTEM_ERROR_ALERT_EMAIL }}
+          OPS_ALERT_EMAIL: ${{ vars.OPS_ALERT_EMAIL }}
           WEB_APP_BASE_URL: ${{ vars.WEB_APP_BASE_URL }}
           API_KEY_USAGE_CYCLE_DAYS: ${{ vars.API_KEY_USAGE_CYCLE_DAYS }}
           SCRAPER_USAGE_CYCLE_DAYS: ${{ vars.SCRAPER_USAGE_CYCLE_DAYS }}

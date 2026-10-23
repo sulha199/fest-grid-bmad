@@ -1,6 +1,7 @@
 import { QueryCondition } from '../query/queryDsl.js';
 import { isValidIanaTimezone } from '../users/validateTimezone.js';
 import { compileFilterNodeToQueryCondition } from '../ai-event-filters/compile-filter-node.js';
+import { scopeFilterCondition } from './scope-filter-condition.js';
 import type { FilterNode } from '../ai-event-filters/filter-node.js';
 export type NearbyFilterInput =
   | { locationPreferenceId: string; radiusKm: number }
@@ -22,6 +23,36 @@ export const DATE_OFFSET_AMOUNT_BOUNDS: Record<'DAY' | 'WEEK' | 'MONTH', number>
  * numeric value as before -- this only makes the behavior explicit and testable.
  */
 export const DAY_OF_WEEK_ONLY_LOOKAHEAD_DAYS = 90;
+
+/**
+ * Epic 9 review (P17): a `dateRange` + `dayOfWeek` pair compiles to one `EXISTS` term per matching
+ * date, so a long window with many weekdays used to reach 700+ terms in a single (publicly
+ * reachable) query. Above this many dates the pair is refused -- 150 still allows "every weekday for
+ * the next six months" (about 130) while excluding the multi-year windows the bounds table permits.
+ */
+export const MAX_WEEKDAY_DATE_TERMS = 150;
+
+const ANCHOR_WINDOW_DAYS_UPPER: Record<string, number> = { TODAY: 1, THIS_WEEK: 7, THIS_MONTH: 31 };
+const UNIT_DAYS_UPPER: Record<string, number> = { DAY: 1, WEEK: 7, MONTH: 31 };
+
+/**
+ * Upper-bound estimate of how many date terms `dateRange` + `weekdayCount` weekdays expand to,
+ * computed from the leaf values alone (no clock), so it can run at validation time. Never lower
+ * than the real count; with no `dateRange` the weekday-only lookahead window applies.
+ */
+export function estimateWeekdayDateTerms(
+  dateRange: Pick<DateRangeFilter, 'anchor' | 'spanAmount' | 'spanUnit'> | null | undefined,
+  weekdayCount: number
+): number {
+  let windowDays = DAY_OF_WEEK_ONLY_LOOKAHEAD_DAYS;
+  if (dateRange) {
+    windowDays = ANCHOR_WINDOW_DAYS_UPPER[dateRange.anchor as string] ?? 31;
+    if (dateRange.spanAmount != null && dateRange.spanUnit != null) {
+      windowDays += dateRange.spanAmount * (UNIT_DAYS_UPPER[dateRange.spanUnit as string] ?? 31);
+    }
+  }
+  return Math.ceil(windowDays / 7) * weekdayCount;
+}
 /**
  * DW-076: the named, documented replacement for the inline magic `'1970-01-01'` literal used to
  * force zero results when no date in the resolved window matches the requested weekday(s). A
@@ -312,6 +343,11 @@ export function buildDateRangeAndDayOfWeekCondition(
   if (dayOfWeek) {
     const dowArray = Array.isArray(dayOfWeek) ? dayOfWeek : [dayOfWeek as DayOfWeek];
     const dates = getDays(r.from, r.to, dowArray);
+    if (dates.length > MAX_WEEKDAY_DATE_TERMS) {
+      throw new Error(
+        `The date range and weekdays select ${dates.length} dates, more than the supported ${MAX_WEEKDAY_DATE_TERMS}; shorten the range or pick fewer weekdays.`
+      );
+    }
     if (dates.length === 0) {
       return { field: 'scheduleDateRange', operator: 'overlaps', value: { from: NO_MATCHING_WEEKDAY_SENTINEL_DATE, to: NO_MATCHING_WEEKDAY_SENTINEL_DATE } };
     } else if (dates.length === 1) {
@@ -358,15 +394,44 @@ export function buildIsFreeCondition(isFree: boolean | null | undefined): QueryC
   return undefined;
 }
 
+/** The free-text search box: `#tag` is a hashtag match, anything else matches the event name,
+ * performers or location. Shared by the plain-search path and the expression path. */
+export function buildSearchCondition(search: string | null | undefined): QueryCondition | undefined {
+  const trimmed = (search ?? '').trim();
+  if (trimmed.startsWith('#')) {
+    const tag = trimmed.slice(1).trim().toLowerCase();
+    if (tag) return { field: 'hashtags', operator: 'in', value: [tag] };
+    return undefined;
+  }
+  if (trimmed) {
+    return {
+      operator: 'or',
+      conditions: [
+        { field: 'eventName', operator: 'contains', value: trimmed },
+        { field: 'performers', operator: 'contains', value: trimmed },
+        { field: 'location', operator: 'contains', value: trimmed }
+      ]
+    };
+  }
+  return undefined;
+}
+
 export function buildEventsQueryCondition({
   search, types, categories, nearby, filter, currentDate, temporalFilter, timezone, expression
 }: BuildEventsQueryConditionInput): QueryCondition | undefined {
-  // Story 9.4a (AC2, Dev Notes decision 2): short-circuits everything else -- `filter`/`search`/
-  // `types`/`categories`/`nearby`/`temporalFilter` are all ignored when `expression` is supplied,
-  // mirroring `buildFeedQueryCondition`/`buildAccountEventsQueryCondition`'s own expression-branch
-  // shape and the pre-existing flat-filter branch's own all-or-nothing precedent.
+  // Story 9.4a (AC2, Dev Notes decision 2): `expression` replaces `filter`/`types`/`categories`/
+  // `nearby` -- while an AI filter is shown, FilterHub hides those controls. Epic 9 review (P13,
+  // D2): the two controls that stay live beside it -- the search box and the Today/Upcoming toggle
+  // -- are ANDed onto the compiled expression instead of being silently ignored.
   if (expression) {
-    return compileFilterNodeToQueryCondition(expression, { currentDate, timezone });
+    const compiled = compileFilterNodeToQueryCondition(expression, { currentDate, timezone });
+    const manualConditions: QueryCondition[] = [];
+    const searchCondition = buildSearchCondition(search);
+    if (searchCondition) manualConditions.push(searchCondition);
+    const manualTemporalCondition = buildTemporalCondition(temporalFilter, currentDate ?? new Date(), timezone);
+    if (manualTemporalCondition) manualConditions.push(manualTemporalCondition);
+    if (manualConditions.length === 0) return compiled;
+    return scopeFilterCondition(manualConditions, compiled);
   }
   const conditions: QueryCondition[] = [];
   const now = currentDate ?? new Date();
@@ -398,20 +463,8 @@ export function buildEventsQueryCondition({
     const filterTemporalCondition = buildTemporalCondition(filter.temporalFilter, now, timezone);
     if (filterTemporalCondition) conditions.push(filterTemporalCondition);
   } else {
-    const trimmed = (search ?? '').trim();
-    if (trimmed.startsWith('#')) {
-      const tag = trimmed.slice(1).trim().toLowerCase();
-      if (tag) conditions.push({ field: 'hashtags', operator: 'in', value: [tag] });
-    } else if (trimmed) {
-      conditions.push({
-        operator: 'or',
-        conditions: [
-          { field: 'eventName', operator: 'contains', value: trimmed },
-          { field: 'performers', operator: 'contains', value: trimmed },
-          { field: 'location', operator: 'contains', value: trimmed }
-        ]
-      });
-    }
+    const searchCondition = buildSearchCondition(search);
+    if (searchCondition) conditions.push(searchCondition);
     if (types && types.length > 0) conditions.push({ field: 'types', operator: 'in', value: types });
     if (categories && categories.length > 0) conditions.push({ field: 'categories', operator: 'in', value: categories });
     if (nearby) conditions.push({ field: 'scheduleCoordinates', operator: 'withinRadius', value: nearby });

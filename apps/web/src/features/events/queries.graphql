@@ -352,6 +352,8 @@ query getMyAIEventFilters {
         anchor
         offsetAmount
         offsetUnit
+        spanAmount
+        spanUnit
       }
       dayOfWeek
       location {
@@ -364,6 +366,7 @@ query getMyAIEventFilters {
       }
       venueType
       isFree
+      temporalFilter
     }
     expression {
       op

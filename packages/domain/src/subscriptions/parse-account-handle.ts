@@ -7,7 +7,8 @@ export function parseSocialMediaAccountHandle(raw: string): string {
       trimmed = segments[segments.length - 1] || '';
     } catch {
       const segments = trimmed.split('/').filter(Boolean);
-      trimmed = segments[segments.length - 1] || trimmed;
+      // `trimmed` starts with "http", so it always yields at least one non-empty segment.
+      trimmed = segments[segments.length - 1];
     }
   }
   if (trimmed.startsWith('@')) {

@@ -1,7 +1,6 @@
-import { db } from '../../db/client.js';
-import { scraperActorRuns } from '@festgrid/database';
-import { eq, desc } from 'drizzle-orm';
 import { isProviderCapacityAvailable, recordProviderUsage } from './usage-store.js';
+import { getScrapeCursor } from './get-scrape-cursor.js';
+import { gateDegradedProvider, releaseProviderProbe } from './provider-run-health-store.js';
 import { triggerBrightDataJob, mapBrightDataDateToStartDate } from './brightdata-client.js';
 import { createPendingJob } from './brightdata-pending-jobs-store.js';
 import { loadBackendEnv } from '../../env.js';
@@ -14,6 +13,8 @@ export let attemptBrightDataTrigger = async (
   target: { profileId: string; username: string },
   newerThan: string
 ): Promise<ScraperTriggerResult> => {
+  // True while this trigger holds one of a degraded provider's few probe slots (IDEA-095).
+  let isProbe = false;
   try {
     const hasCapacity = await isProviderCapacityAvailable('brightdata');
     if (!hasCapacity) {
@@ -21,18 +22,23 @@ export let attemptBrightDataTrigger = async (
       return { success: false, failureReason: 'CAPACITY_EXHAUSTED' };
     }
 
+    // IDEA-095: a provider whose recent runs returned nothing or failed is skipped (bar one probe) so
+    // the next provider in the chain takes the target.
+    const gate = await gateDegradedProvider('BRIGHTDATA');
+    if (gate === 'skip') {
+      console.log(`Bright Data is degraded; skipping ${target.username} in favour of another provider`);
+      return { success: false, failureReason: 'PROVIDER_DEGRADED' };
+    }
+    isProbe = gate === 'probe';
+
     const env = loadBackendEnv();
     const webhookToken = generateWebhookToken();
     const webhookUrl = `${env.brightdataWebhookBaseUrl}?jobToken=${webhookToken}`;
 
-    // Use the last successful scraper run timestamp as the cursor, falling back to newerThan
-    // This ensures we don't re-scrape posts already captured, regardless of vendor
-    const lastSuccessfulRun = await db.query.scraperActorRuns.findFirst({
-      where: eq(scraperActorRuns.profileId, target.profileId),
-      orderBy: desc(scraperActorRuns.completedAt),
-    });
-
-    const scrapeCursorTimestamp = lastSuccessfulRun?.completedAt?.toISOString() ?? newerThan;
+    // The cursor is where this profile's stored posts end, never when a run finished (BUG-074):
+    // a run that returned nothing must not move it. `newerThan` only matters for a profile with
+    // no stored post yet.
+    const scrapeCursorTimestamp = await getScrapeCursor('BRIGHTDATA', target.profileId, newerThan);
     const startDate = mapBrightDataDateToStartDate(scrapeCursorTimestamp);
     const profileUrl = `https://www.instagram.com/${target.username}/`;
 
@@ -72,6 +78,11 @@ export let attemptBrightDataTrigger = async (
 
     return { success: true };
   } catch (error) {
+    // A probe that failed before the vendor produced a result tests nothing: give its slot back so
+    // the next target can probe instead.
+    if (isProbe) {
+      releaseProviderProbe('BRIGHTDATA');
+    }
     // Story 0.i2d (AC6) — a deliberate, self-imposed DPA-gate closure is not a real vendor
     // outage; map it to its own failure reason so the daily batch tally doesn't misreport it.
     if (error instanceof VendorDpaNotConfirmedError) {

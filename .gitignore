@@ -24,6 +24,9 @@ test-results/
 # Turbo
 .turbo
 
+# Nightly golden-prompt eval ledger (local runs with GOLDEN_EVAL_LEDGER_PATH)
+.golden-eval-state/
+
 # Vercel
 .vercel
 

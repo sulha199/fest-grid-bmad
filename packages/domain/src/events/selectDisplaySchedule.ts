@@ -60,11 +60,8 @@ export function selectDisplaySchedule<T extends SelectableSchedule>(
     return [...upcoming].sort(byEarliestStart)[0];
   }
 
-  return (
-    schedules.find((s) => s.isMainSchedule) ||
-    [...schedules].sort(byEarliestStart)[0] ||
-    null
-  );
+  // `schedules` is non-empty here (guarded above), so the sorted copy always has a first element.
+  return schedules.find((s) => s.isMainSchedule) || [...schedules].sort(byEarliestStart)[0];
 }
 
 /**

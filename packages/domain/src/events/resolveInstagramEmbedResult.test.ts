@@ -58,3 +58,14 @@ test('resolveInstagramEmbedResult', async (t) => {
     );
   });
 });
+
+test('resolveInstagramEmbedResult: an AVAILABLE adapter result without html yields html: null', () => {
+  assert.deepStrictEqual(
+    resolveInstagramEmbedResult({
+      adapterResult: { status: 'AVAILABLE' },
+      isImageStorageOptedIn: false,
+      durableImageUrl: null,
+    }),
+    { status: 'AVAILABLE', html: null, durableImageUrl: null }
+  );
+});

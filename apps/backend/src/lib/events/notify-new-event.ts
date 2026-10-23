@@ -18,15 +18,22 @@ import type { DbExecutor } from './set-event-primary-post.js';
  * at-least-once SQS redelivery racing a slow first attempt). Claiming first via a single atomic
  * `UPDATE ... WHERE notified_at IS NULL RETURNING` is the only point in this flow that gets real
  * atomicity from Postgres itself.
+ *
+ * One exception, adopted 2026-10-21 (BUG-073, AD-30 Rule 10 amended): when the send reports that
+ * Firebase could not be initialised, so no FCM request was made at all, the claim is released
+ * (`notified_at` back to NULL) so a later drain or re-drive can notify. Any failure after a request
+ * was made keeps the claim and is not retried, which is what keeps a double send impossible. The
+ * release only ever undoes *this* call's claim (it matches the exact timestamp it set).
  */
 export async function notifyNewEvent(
   executor: DbExecutor,
   event: { id: string; slug: string; name: string; description: string },
   sourceAccountId: string
 ): Promise<void> {
+  const claimedAt = new Date();
   const claimed = await executor
     .update(events)
-    .set({ notifiedAt: new Date() })
+    .set({ notifiedAt: claimedAt })
     .where(and(eq(events.id, event.id), isNull(events.notifiedAt)))
     .returning({ id: events.id });
 
@@ -34,5 +41,18 @@ export async function notifyNewEvent(
     return; // already notified -- never re-fire (AD-30 Rule 10)
   }
 
-  await sendEventNotificationsSeam(event, sourceAccountId);
+  const result = await sendEventNotificationsSeam(event, sourceAccountId);
+
+  if (result?.firebaseInitFailed) {
+    try {
+      await executor
+        .update(events)
+        .set({ notifiedAt: null })
+        .where(and(eq(events.id, event.id), eq(events.notifiedAt, claimedAt)));
+    } catch (releaseError) {
+      // The caller's work (an ingested event) must not fail because the claim could not be released:
+      // the event then stays claimed, exactly as before this release existed.
+      console.error(`[notifyNewEvent] Could not release the claim on event ${event.id} after a Firebase initialisation failure:`, releaseError);
+    }
+  }
 }

@@ -9,7 +9,7 @@ import { graphqlClient } from "@/lib/graphql-client";
 import { useGetMyAiEventFiltersQuery, useDeleteAiEventFilterMutation, SoftDeleteAction } from "@/generated/graphql";
 import { Sparkles, Trash2, ArrowRight } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { renderFilterExpressionSummary } from "@festgrid/domain/ai-event-filters";
+import { renderFilterExpressionSummary, resolveStoredFilter } from "@festgrid/domain/ai-event-filters";
 
 export function AiFiltersContent() {
   const t = useTranslations("MyAIFiltersPage");
@@ -49,7 +49,6 @@ export function AiFiltersContent() {
     },
   });
 
-  const filters = data?.myAIEventFilters || [];
 
   const handleDelete = async (filterId: string) => {
     try {
@@ -91,9 +90,24 @@ export function AiFiltersContent() {
     }
   };
 
+  // GraphQL serializes every declared FilterNode key on every node (absent ones as an explicit
+  // `null`), which the domain renderers/compilers read as a malformed group and crash on
+  // (Epic 9 review P6). Clean each row once, here, via the same path the server uses for stored
+  // filters: it strips the padding, validates, and degrades instead of throwing.
+  const cleanedFilters = useMemo(
+    () =>
+      (data?.myAIEventFilters ?? []).map((filter: any) => {
+        const stored = resolveStoredFilter({ version: 2, expression: filter.expression });
+        return { ...filter, expression: stored.expression, flatFilter: stored.flatFilter ?? {} };
+      }),
+    [data]
+  );
+
   const handleRowClick = (filter: any) => {
     if (isPending(filter.id)) return;
-    const filterParam = encodeURIComponent(JSON.stringify(filter.resolvedFilter));
+    // The flat `ai_filter` is only the marker/fallback (`{}` when the filter has no flat form,
+    // never the string "null"); the compact, null-free expression is what the page really applies.
+    const filterParam = encodeURIComponent(JSON.stringify(filter.flatFilter));
     const expressionParam = encodeURIComponent(JSON.stringify(filter.expression));
     router.push(`/?ai_filter=${filterParam}&ai_expression=${expressionParam}`);
   };
@@ -135,6 +149,12 @@ export function AiFiltersContent() {
       caveatSeparator: tSummary("caveatSeparator"),
       anchors,
       units,
+      unitsSingular: {
+        DAY: tSummary("unitsSingular.DAY"),
+        WEEK: tSummary("unitsSingular.WEEK"),
+        MONTH: tSummary("unitsSingular.MONTH"),
+      },
+      restOfMonth: tSummary("restOfMonth"),
       daysOfWeek,
       and: tSummary("and"),
       or: tSummary("or"),
@@ -174,7 +194,7 @@ export function AiFiltersContent() {
     <PageContainer fullWidth={false}>
       <PageHeader title={t("title")} />
 
-      {filters.length === 0 ? (
+      {cleanedFilters.length === 0 ? (
         <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-12 text-center space-y-4 bg-card text-card-foreground">
           <div className="inline-flex items-center justify-center p-3 bg-blue-50 dark:bg-blue-950/40 rounded-full text-blue-600 dark:text-blue-400 mb-2">
             <Sparkles className="w-8 h-8" />
@@ -190,7 +210,7 @@ export function AiFiltersContent() {
         </div>
       ) : (
         <div className="divide-y border rounded-lg overflow-hidden bg-card text-card-foreground shadow-sm">
-          {filters.map((filter: any) => {
+          {cleanedFilters.map((filter: any) => {
             const pending = isPending(filter.id);
             const rendered = renderFilterExpressionSummary(filter.expression, [], summaryLabels);
 

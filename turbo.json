@@ -61,6 +61,7 @@
     },
     "test": {
       "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
       "env": [
         "BACKEND_PORT",
         "TZ",
