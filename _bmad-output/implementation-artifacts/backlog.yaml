@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-18"
+last_updated: "2026-10-23"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -2391,3 +2391,43 @@ items:
      ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/epic-9-code-review-2026-10-23.md],
      touches: [pkg:domain, cross:ai-extraction],
      note: "Deferred from: re-review of the epic-9 fixes (2026-10-23). Decided by the product owner and fixed: a qualifier beside an OR's branches applies to the whole group, AND(OR(branches), fields). See Story 9.4's amendment."}
+
+  BUG-076:
+    {type: bug, status: triaged, created: 2026-10-23,
+     impact: user-visible, effort: s,
+     title: "Daily batch fires every Apify trigger at once; the account's memory cap refuses most (402 actor-memory-limit-exceeded) and they are logged and classed as an outage",
+     ref: [apps/backend/src/lambdas/scraper.ts, apps/backend/src/lib/scraper/trigger-apify-for-target.ts],
+     touches: [app:backend],
+     note: "Prod 2026-10-23: 31 of 35 triggers refused. Fix on its PR: SCRAPE_TRIGGER_CONCURRENCY (default 3) and 402 mapped to CAPACITY_EXHAUSTED."}
+
+  BUG-077:
+    {type: bug, status: triaged, created: 2026-10-23,
+     impact: user-visible, effort: s, blocks: [BUG-078],
+     title: "Queue fallback drops an account silently when the Apify call exceeds 26s: no audit row, run not aborted, lastScrapedAt stamped, message deleted",
+     ref: [apps/backend/src/lib/scraper/process-scrape-job.ts, apps/backend/src/lib/scraper/instagram-adapter.ts, apps/backend/src/lib/aws/poll-and-drain-queue.ts],
+     touches: [app:backend, app:infrastructure],
+     note: "Prod 2026-10-23: 11 profiles hit VendorCallTimeoutError at 26000ms inside a 300s Lambda. Fix on its PR: 120s queue budget, abort, TIMED_OUT row, no stamp, rethrow to SQS."}
+
+  BUG-078:
+    {type: bug, status: triaged, created: 2026-10-23,
+     impact: internal, effort: xs,
+     title: "scraper_batch_runs counts targets that fell back to the scraping queue as dispatched_failed, so a working fallback reads as an outage",
+     ref: [apps/backend/src/lib/scraper/record-scraper-batch-run.ts, apps/backend/src/lambdas/scraper.ts],
+     touches: [app:backend, pkg:database],
+     note: "Fix on its PR: new dispatched_queued column (migration 0080); a 402 no longer counts as TRIGGER_ERROR in the Apify tally."}
+
+  IDEA-097:
+    {type: idea, status: triaged, created: 2026-10-23,
+     impact: internal, effort: xs,
+     title: "Scraper Lambda runs at the 128 MB default (Max Memory Used 124-128 MB, two poll-and-drain runs hit the full 300s): give it 512 MB",
+     ref: [apps/infrastructure/lib/festgrid-backend-stack.ts],
+     touches: [app:infrastructure],
+     note: "Fix on its PR. Memory only; no service added, so the architecture diagram is unchanged."}
+
+  IDEA-098:
+    {type: idea, status: backlog, created: 2026-10-23,
+     impact: internal, effort: s,
+     title: "Bright Data diagnostic script (with and without start_date) and a per-provider 'every run returned zero items' alarm",
+     ref: [apps/backend/scripts/debug-brightdata.ts, apps/infrastructure/lib/festgrid-backend-stack.ts],
+     touches: [app:backend, app:infrastructure],
+     note: "Script is on the PR for the owner to run with their own token; the alarm (and an alarm on the scraping DLQ depth) is proposed in the PR description, not built."}

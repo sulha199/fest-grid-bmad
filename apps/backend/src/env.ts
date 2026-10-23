@@ -70,6 +70,10 @@ export interface BackendEnv {
   dataIngestionInlineFallbackEnabled: boolean;
   apifyApiToken?: string;
   scrapeResultsLimit: number;
+  // Max Apify/Bright Data triggers in flight at once in the daily batch (account-wide Apify memory cap).
+  scrapeTriggerConcurrency: number;
+  // Budget for one synchronous Apify call on the scraper Lambda's queue path (not the API Lambda's 26s).
+  scrapeQueueApifyCallTimeoutMs: number;
   scrapeInitialLookbackDays: number;
   scrapeSkipRecentHours: number;
   scraperMonthlyBudgetUsd: number;
@@ -282,6 +286,10 @@ export function loadBackendEnv(): BackendEnv {
     apifyApiToken: process.env.APIFY_API_TOKEN,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     scrapeResultsLimit: parseInt(process.env.SCRAPE_RESULTS_LIMIT || '30', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scrapeTriggerConcurrency: Math.max(1, parseInt(process.env.SCRAPE_TRIGGER_CONCURRENCY || '3', 10) || 3),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scrapeQueueApifyCallTimeoutMs: Math.max(1_000, parseInt(process.env.SCRAPE_QUEUE_APIFY_CALL_TIMEOUT_MS || '120000', 10) || 120_000),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     maxCarouselImages: parseInt(process.env.MAX_CAROUSEL_IMAGES || '5', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars

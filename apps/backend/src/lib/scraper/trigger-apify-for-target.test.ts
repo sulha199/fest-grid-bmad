@@ -5,6 +5,7 @@ import { db } from '../../db/client.js';
 import { apifyPendingJobs, posts, scraperActorRuns, scraperProviderUsage, socialMediaAccountProfiles } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import { attemptApifyAsyncTrigger, setAttemptApifyAsyncTrigger } from './trigger-apify-for-target.js';
+import { ApifyApiError } from 'apify-client';
 import { ScraperCapacityExceededError } from '@festgrid/domain';
 import { clearApifyProviderUsage, APIFY_TEST_PROVIDER } from './usage-store-test-helpers.js';
 import { PROVIDER_PROBES_PER_INTERVAL, resetProviderProbeClaimsForTests } from './provider-run-health-store.js';
@@ -324,6 +325,113 @@ test('trigger-apify-for-target tests', async (t) => {
       adapter.setGetApifyClient(savedGetApifyClient);
       resetProviderProbeClaimsForTests();
       await db.delete(apifyPendingJobs).where(eq(apifyPendingJobs.profileId, testProfileId));
+      await db.delete(scraperActorRuns).where(eq(scraperActorRuns.profileId, testProfileId));
+    }
+  });
+  // Prod 2026-10-23: the daily batch fired 35 triggers at once and Apify refused 31 of them with
+  // 402 `actor-memory-limit-exceeded` (its concurrent-memory cap), which was then reported as a
+  // TRIGGER_ERROR, i.e. a real outage, with a stack trace per target.
+  function apifyError(statusCode: number, type: string): ApifyApiError {
+    return new ApifyApiError(
+      {
+        status: statusCode,
+        data: { error: { type, message: 'Exceeded the memory limit' } },
+        config: { method: 'post', url: 'https://api.apify.com/v2/acts/apify~instagram-api-scraper/runs' },
+        headers: {},
+      } as never,
+      1
+    );
+  }
+
+  await t.test('a 402 actor-memory-limit-exceeded is CAPACITY_EXHAUSTED (not TRIGGER_ERROR), logs one line, and creates no job', async () => {
+    setAttemptApifyAsyncTrigger(originalAttemptApifyAsyncTrigger);
+
+    const adapter = await import('./instagram-adapter.js');
+    const savedGetApifyClient = adapter.getApifyClient;
+    adapter.setGetApifyClient((() => ({
+      actor: () => ({
+        start: async () => {
+          throw apifyError(402, 'actor-memory-limit-exceeded');
+        },
+      }),
+    })) as unknown as typeof savedGetApifyClient);
+
+    const errors: unknown[][] = [];
+    const warnings: unknown[][] = [];
+    const originalError = console.error;
+    const originalWarn = console.warn;
+    console.error = (...args: unknown[]) => { errors.push(args); };
+    console.warn = (...args: unknown[]) => { warnings.push(args); };
+
+    try {
+      const result = await attemptApifyAsyncTrigger(
+        { profileId: testProfileId, username: 'test_user' },
+        '2026-10-13T00:00:00.000Z'
+      );
+      assert.deepStrictEqual(result, { success: false, failureReason: 'CAPACITY_EXHAUSTED' });
+    } finally {
+      console.error = originalError;
+      console.warn = originalWarn;
+      adapter.setGetApifyClient(savedGetApifyClient);
+    }
+
+    assert.strictEqual(errors.length, 0, 'no stack trace for an expected capacity refusal');
+    assert.strictEqual(warnings.length, 1, 'one log line');
+    assert.ok(!(warnings[0][0] as string).includes('\n'));
+    const jobs = await db.select().from(apifyPendingJobs).where(eq(apifyPendingJobs.profileId, testProfileId));
+    assert.strictEqual(jobs.length, 0);
+  });
+
+  await t.test('other 402s (e.g. out of credit) and other errors stay TRIGGER_ERROR', async () => {
+    setAttemptApifyAsyncTrigger(originalAttemptApifyAsyncTrigger);
+
+    const adapter = await import('./instagram-adapter.js');
+    const savedGetApifyClient = adapter.getApifyClient;
+    const originalError = console.error;
+    console.error = () => {};
+    try {
+      for (const error of [apifyError(402, 'not-enough-usage-to-run-paid-actor'), apifyError(500, 'actor-memory-limit-exceeded')]) {
+        adapter.setGetApifyClient((() => ({
+          actor: () => ({ start: async () => { throw error; } }),
+        })) as unknown as typeof savedGetApifyClient);
+        const result = await attemptApifyAsyncTrigger(
+          { profileId: testProfileId, username: 'test_user' },
+          '2026-10-13T00:00:00.000Z'
+        );
+        assert.deepStrictEqual(result, { success: false, failureReason: 'TRIGGER_ERROR' });
+      }
+    } finally {
+      console.error = originalError;
+      adapter.setGetApifyClient(savedGetApifyClient);
+    }
+  });
+
+  await t.test('a probe refused for memory gives its probe slot back, like any other pre-vendor failure', async () => {
+    setAttemptApifyAsyncTrigger(originalAttemptApifyAsyncTrigger);
+    resetProviderProbeClaimsForTests();
+
+    const adapter = await import('./instagram-adapter.js');
+    const savedGetApifyClient = adapter.getApifyClient;
+    adapter.setGetApifyClient((() => ({
+      actor: () => ({ start: async () => { throw apifyError(402, 'actor-memory-limit-exceeded'); } }),
+    })) as unknown as typeof savedGetApifyClient);
+    const originalWarn = console.warn;
+    console.warn = () => {};
+
+    try {
+      await insertFailedApifyRuns(20);
+      const results = [];
+      for (let i = 0; i < PROVIDER_PROBES_PER_INTERVAL + 2; i += 1) {
+        results.push(await attemptApifyAsyncTrigger({ profileId: testProfileId, username: 'test_user' }, '2026-10-13T00:00:00.000Z'));
+      }
+      assert.ok(
+        results.every((r) => r.success === false && r.failureReason === 'CAPACITY_EXHAUSTED'),
+        'every refused probe frees its slot, so none is skipped as degraded'
+      );
+    } finally {
+      console.warn = originalWarn;
+      adapter.setGetApifyClient(savedGetApifyClient);
+      resetProviderProbeClaimsForTests();
       await db.delete(scraperActorRuns).where(eq(scraperActorRuns.profileId, testProfileId));
     }
   });

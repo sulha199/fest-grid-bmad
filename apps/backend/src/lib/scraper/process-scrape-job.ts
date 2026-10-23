@@ -53,9 +53,22 @@ async function persistScrapedPosts(job: ScrapeTarget, scrapedPosts: ScrapedPost[
   return persisted;
 }
 
-export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
+export interface ProcessScrapeJobOptions {
+  /**
+   * Rethrow a failed scrape instead of logging it. The queue worker sets this so the message stays
+   * undeleted and SQS redelivers it (up to the queue's maxReceiveCount, then the DLQ); a caller with
+   * no redelivery (the SQS-event-source branch, the local inline fallback) keeps AC7's log-and-continue.
+   */
+  rethrowOnFailure?: boolean;
+}
+
+export async function processScrapeJob(job: ScrapeTarget, options: ProcessScrapeJobOptions = {}): Promise<void> {
   const env = loadBackendEnv();
   const allScrapedPostsThisJob: ScrapedPost[] = [];
+  // Only a scrape that ran to the end stamps `lastScrapedAt`. A failed or timed-out one used to stamp it
+  // too, which hid the account from the next batch's SCRAPE_SKIP_RECENT_HOURS window as if it were done
+  // (2026-10-23: 11 accounts silently dropped). The stamp is the batch's "done" marker, nothing else.
+  let completed = false;
 
   async function runBackfill() {
     try {
@@ -87,7 +100,7 @@ export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
         cutoffDate.setDate(cutoffDate.getDate() - widestWindowDays);
         const newerThan = cutoffDate.toISOString();
 
-        setApifyAuditContext(job.profileId, 'SYNC');
+        setApifyAuditContext(job.profileId, 'SYNC', env.scrapeQueueApifyCallTimeoutMs);
         try {
           const scrapedPosts = await adapter.getNewestPosts(
             { accountId: job.accountId, username: job.username },
@@ -100,6 +113,7 @@ export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
         }
 
         await runBackfill();
+        completed = true;
         return;
       }
 
@@ -111,7 +125,7 @@ export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
         cutoffDate.setDate(cutoffDate.getDate() - days);
         const newerThan = cutoffDate.toISOString();
 
-        setApifyAuditContext(job.profileId, 'SYNC');
+        setApifyAuditContext(job.profileId, 'SYNC', env.scrapeQueueApifyCallTimeoutMs);
         try {
           const scrapedPosts = await adapter.getNewestPosts(
             { accountId: job.accountId, username: job.username },
@@ -138,6 +152,7 @@ export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
       }
 
       await runBackfill();
+      completed = true;
       return;
     }
 
@@ -150,7 +165,7 @@ export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
       newerThan = lookbackDate.toISOString();
     }
 
-    setApifyAuditContext(job.profileId, 'SYNC');
+    setApifyAuditContext(job.profileId, 'SYNC', env.scrapeQueueApifyCallTimeoutMs);
     try {
       const scrapedPosts = await adapter.getNewestPosts(
         { accountId: job.accountId, username: job.username },
@@ -164,20 +179,27 @@ export async function processScrapeJob(job: ScrapeTarget): Promise<void> {
     }
 
     await runBackfill();
+    completed = true;
   } catch (err) {
     console.error(`Error processing scrape job for account ${job.username} (${job.profileId}):`, err);
-    // AC7: catch and log, but do not rethrow to prevent failing other jobs in SQS batch
+    // AC7: catch and log, but do not rethrow to prevent failing other jobs in SQS batch -- unless the
+    // caller redelivers (options.rethrowOnFailure).
+    if (options.rethrowOnFailure) {
+      throw err;
+    }
   } finally {
-    try {
-      await db
-        .update(socialMediaAccountProfiles)
-        .set({
-          lastScrapedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(socialMediaAccountProfiles.id, job.profileId));
-    } catch (updateErr) {
-      console.error(`Failed to stamp lastScrapedAt for profile ${job.profileId}:`, updateErr);
+    if (completed) {
+      try {
+        await db
+          .update(socialMediaAccountProfiles)
+          .set({
+            lastScrapedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(socialMediaAccountProfiles.id, job.profileId));
+      } catch (updateErr) {
+        console.error(`Failed to stamp lastScrapedAt for profile ${job.profileId}:`, updateErr);
+      }
     }
   }
 }

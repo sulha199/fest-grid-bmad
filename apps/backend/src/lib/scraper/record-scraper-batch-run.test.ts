@@ -31,6 +31,7 @@ test('record-scraper-batch-run per-cycle audit row', async (t) => {
     assert.strictEqual(row.targetsFound, 0);
     assert.strictEqual(row.dispatchedSucceeded, 0);
     assert.strictEqual(row.dispatchedFailed, 0);
+    assert.strictEqual(row.dispatchedQueued, 0);
     assert.strictEqual(row.completedAt, null);
   });
 
@@ -54,6 +55,24 @@ test('record-scraper-batch-run per-cycle audit row', async (t) => {
     assert.strictEqual(row.targetsFound, 7);
     assert.strictEqual(row.dispatchedSucceeded, 5);
     assert.strictEqual(row.dispatchedFailed, 2);
+    assert.strictEqual(row.dispatchedQueued, 0, 'a caller that does not report queued targets leaves the count at 0');
+  });
+
+  await t.test('complete records targets that fell back to the queue separately from failures', async () => {
+    const id = await recordScraperBatchRunStart();
+    createdIds.push(id);
+
+    await completeScraperBatchRun(id, {
+      targetsFound: 38,
+      dispatchedSucceeded: 7,
+      dispatchedFailed: 0,
+      dispatchedQueued: 31,
+    });
+
+    const [row] = await db.select().from(scraperBatchRuns).where(eq(scraperBatchRuns.id, id));
+    assert.strictEqual(row.dispatchedSucceeded, 7);
+    assert.strictEqual(row.dispatchedFailed, 0);
+    assert.strictEqual(row.dispatchedQueued, 31);
   });
 });
 

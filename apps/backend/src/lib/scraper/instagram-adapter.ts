@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { ApifyApiError, ApifyClient } from 'apify-client';
 import { ScraperAdapter, ScraperAccountRef, ScrapedPost, AccountProfileLookupResult, ApifyRequestTimeoutError } from '@festgrid/domain';
 import { assertProviderCapacityAvailable, recordProviderUsage } from './usage-store.js';
@@ -197,6 +198,14 @@ export function isApifyErrorTransient(error: unknown): boolean {
   return false;
 }
 
+// Apify refuses a run with 402 + this type when the account's concurrent-memory cap is already in use
+// (prod 2026-10-23: 31 of 35 simultaneous triggers). The account's balance is fine and a later attempt
+// succeeds, so it is a capacity condition, not a vendor outage. Lives here because this is the only
+// module allowed to import apify-client (no-vendor-call-bypasses-wrapper ratchet).
+export function isApifyMemoryLimitError(error: unknown): boolean {
+  return error instanceof ApifyApiError && error.statusCode === 402 && error.type === 'actor-memory-limit-exceeded';
+}
+
 // Story 0.i2d (AD-32 Rule 1) — the single chokepoint every real Apify call site routes
 // through. No `opts.lockKey` is ever passed here (AC4): Apify has exactly one static,
 // always-valid credential, no multi-key pool to protect, and no candidate-exclusion retry
@@ -215,7 +224,9 @@ export async function callApifyClient<T>(
 }
 
 // Context for audit recording and run ID threading (set by callers that have profileId)
-export let apifyAuditContext: { profileId: string; triggerMode: 'SYNC' | 'ASYNC'; runId?: string } | undefined;
+export let apifyAuditContext:
+  | { profileId: string; triggerMode: 'SYNC' | 'ASYNC'; runId?: string; timeoutMs?: number }
+  | undefined;
 
 // The apify/instagram-profile-scraper actor is routinely blocked by Instagram on its first
 // request(s) and retries on a fresh session internally (prod 2026-10-15: two "Request blocked"
@@ -224,33 +235,77 @@ export let apifyAuditContext: { profileId: string; triggerMode: 'SYNC' | 'ASYNC'
 export const PROFILE_LOOKUP_TIMEOUT_MS = 25_000;
 export const APIFY_CALL_TIMEOUT_MS = 26_000;
 
+/** The bound on one synchronous Apify call: the queue worker's own budget if it set one, else the API Lambda's. */
+export function getApifyCallTimeoutMs(): number {
+  return apifyAuditContext?.timeoutMs ?? APIFY_CALL_TIMEOUT_MS;
+}
+
 export let callApifyActor = async <T extends ActorId>(actorId: T, input: ActorInputFor<T>): Promise<ActorOutputFor<T>> => {
-  // `timeoutMs: APIFY_CALL_TIMEOUT_MS` sits between the sync methods' outer `withTimeout`/
-  // `withTimeoutOrThrow` bounds (20_000 for post lookups, PROFILE_LOOKUP_TIMEOUT_MS for the two
-  // profile lookups -- both must still win the race, see the Task 2 regression guard) and
-  // `apiLambda`'s hard CDK timeout (28s, under API Gateway's 29s integration limit).
+  // `timeoutMs` defaults to APIFY_CALL_TIMEOUT_MS: it sits between the sync methods' outer
+  // `withTimeout`/`withTimeoutOrThrow` bounds (20_000 for post lookups, PROFILE_LOOKUP_TIMEOUT_MS for the
+  // two profile lookups -- both must still win the race, see the Task 2 regression guard) and
+  // `apiLambda`'s hard CDK timeout (28s, under API Gateway's 29s integration limit). Only the scraper
+  // Lambda's queue path, which runs under a 300s limit and sets `apifyAuditContext.timeoutMs`, gets more.
   // `maxAttempts: 1`: the budget cannot fit a second attempt plus backoff, and today's code has
   // zero retry on this path either -- no behavior regression.
-  const { run, items } = await callApifyClient(
-    { timeoutMs: APIFY_CALL_TIMEOUT_MS, maxAttempts: 1 },
-    async (client) => {
-      const runResult = await client.actor(actorId).call(input as unknown as Record<string, unknown>);
-      const datasetId = runResult.defaultDatasetId;
-      const runItems = datasetId
-        ? (await client.dataset(datasetId).listItems({ clean: true, limit: 1000 })).items as ActorOutputFor<T>
-        : ([] as ActorOutputFor<T>);
-      return { run: runResult, items: runItems };
+  const timeoutMs = getApifyCallTimeoutMs();
+  const auditProfileId = apifyAuditContext?.profileId;
+  let startedRunId: string | undefined;
+
+  let outcome: { run: { id: string; status: string; defaultDatasetId?: string }; items: ActorOutputFor<T> };
+  try {
+    outcome = await callApifyClient(
+      { timeoutMs, maxAttempts: 1 },
+      async (client, signal) => {
+        // start + waitForFinish, not `.call()`: `.call()` hides the run id, so a timeout could not stop
+        // the run, which would keep running (and billing) with its output thrown away.
+        const started = await client.actor(actorId).start(input as unknown as Record<string, unknown>);
+        startedRunId = started.id;
+        const abortRun = () => {
+          client.run(started.id).abort().catch((abortErr) => {
+            console.error(`Failed to abort Apify run ${started.id} after its call timed out:`, abortErr);
+          });
+        };
+        if (signal.aborted) {
+          abortRun();
+        } else {
+          signal.addEventListener('abort', abortRun, { once: true });
+        }
+        const runResult = await client.run(started.id).waitForFinish();
+        const datasetId = runResult.defaultDatasetId;
+        const runItems = datasetId
+          ? (await client.dataset(datasetId).listItems({ clean: true, limit: 1000 })).items as ActorOutputFor<T>
+          : ([] as ActorOutputFor<T>);
+        return { run: runResult, items: runItems };
+      }
+    );
+  } catch (err) {
+    // A failed or timed-out call used to leave no trace: no audit row, so provider health never saw it
+    // (2026-10-23: 11 profiles dropped on a 26s timeout). Recorded OUTSIDE the guarded call, like the
+    // success row below; the caller still gets the original error.
+    if (auditProfileId) {
+      await recordSyncActorRun({
+        vendor: 'APIFY',
+        profileId: auditProfileId,
+        runId: startedRunId ?? `sync-unstarted-${randomUUID()}`,
+        rawInput: input,
+        status: err instanceof VendorCallTimeoutError ? 'TIMED_OUT' : 'FAILED',
+        itemCount: 0,
+        errorMessage: err instanceof Error ? err.message : String(err),
+      });
     }
-  );
+    throw err;
+  }
+  const { run, items } = outcome;
 
   // Record audit trail if context is set (sync path with profileId available). This audit
   // write stays OUTSIDE/after the guarded call (same pattern as adapter.ts's callGemini:
   // recordSuccessfulUsage runs after callVendor returns, never inside the thunk) -- a
   // transient-retry must never risk writing a duplicate/stale audit row.
-  if (apifyAuditContext?.profileId) {
+  if (auditProfileId) {
     const auditRunId = await recordSyncActorRun({
       vendor: 'APIFY',
-      profileId: apifyAuditContext.profileId,
+      profileId: auditProfileId,
       runId: run.id,
       rawInput: input,
       status: run.status === 'SUCCEEDED' ? 'SUCCEEDED' : 'FAILED',
@@ -262,6 +317,11 @@ export let callApifyActor = async <T extends ActorId>(actorId: T, input: ActorIn
     if (auditRunId && apifyAuditContext) {
       apifyAuditContext.runId = auditRunId;
     }
+    // A run Apify itself ended as failed/timed out/aborted is not a scrape that found nothing: let the
+    // queue worker see it, so the account is not stamped as scraped.
+    if (run.status !== 'SUCCEEDED') {
+      throw new Error(`Apify run ${run.id} ended with status ${run.status}`);
+    }
   }
 
   return items;
@@ -271,8 +331,8 @@ export function setCallApifyActor(fn: typeof callApifyActor) {
   callApifyActor = fn;
 }
 
-export function setApifyAuditContext(profileId: string, triggerMode: 'SYNC' | 'ASYNC'): void {
-  apifyAuditContext = { profileId, triggerMode };
+export function setApifyAuditContext(profileId: string, triggerMode: 'SYNC' | 'ASYNC', timeoutMs?: number): void {
+  apifyAuditContext = { profileId, triggerMode, ...(timeoutMs !== undefined && { timeoutMs }) };
 }
 
 export function clearApifyAuditContext(): void {

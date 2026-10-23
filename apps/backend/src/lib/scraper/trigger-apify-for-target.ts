@@ -1,4 +1,4 @@
-import { callApifyClient } from './instagram-adapter.js';
+import { callApifyClient, isApifyMemoryLimitError } from './instagram-adapter.js';
 import { getScrapeCursor } from './get-scrape-cursor.js';
 import { gateDegradedProvider, releaseProviderProbe } from './provider-run-health-store.js';
 import { createPendingJob } from './apify-pending-jobs-store.js';
@@ -111,6 +111,10 @@ export let attemptApifyAsyncTrigger = async (
     // outage; map it to its own failure reason so the daily batch tally doesn't misreport it.
     if (error instanceof VendorDpaNotConfirmedError) {
       return { success: false, failureReason: 'DPA_NOT_CONFIRMED' };
+    }
+    if (isApifyMemoryLimitError(error)) {
+      console.warn(`Apify memory limit reached; ${target.username} falls back to the scraping queue`);
+      return { success: false, failureReason: 'CAPACITY_EXHAUSTED' };
     }
     console.error(`Failed to trigger Apify async job for ${target.username}:`, error);
     return { success: false, failureReason: 'TRIGGER_ERROR' };
