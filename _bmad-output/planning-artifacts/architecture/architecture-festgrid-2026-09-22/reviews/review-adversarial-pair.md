@@ -8,7 +8,7 @@ method: "construct two units that obey every Rule to the letter and still build 
 
 # Verdict
 
-AD-44 picks the right taxonomy (subject domains, audience-neutral, no `LIFESTYLE`/bare `TOOL`) and the right single-source idea, but as written it does NOT deliver its own stated goal ("two units tagging the same post differently"). Its enforcement is an existence check (every value has a non-empty string); its boundary rules contradict each other on exactly the posts Indonesian Instagram produces most (property, trade-and-public expos, UMKM bazaars, mall multi-brand sales, tradesperson tool roadshows); and Rules 5-7 rest on a measurement that cannot be taken and a "no backfill" premise the repo already contradicts. Nine of the twelve boundary cases below get an ambiguous, contradictory or silent answer. Fixable with about one page of tightened wording plus a boundary table, an alias list in the constant, and a content-level ratchet. Proposed wording is under each finding and consolidated in section 8.
+AD-44 picks the right taxonomy (subject domains, audience-neutral, no `LIFESTYLE`/bare `TOOL`) and the right single-source idea, but as written it does NOT deliver its own stated goal ("two units tagging the same post differently"). Its enforcement is an existence check (every value has a non-empty string); its boundary rules contradict each other on exactly the posts Indonesian Instagram produces most (property, trade-and-public expos, UMKM bazaars, mall multi-brand sales, tradesperson tool roadshows); and Rules 5-7 rest on a measurement that cannot be taken and a "no backfill" premise the repo already contradicts. Ten of the twelve boundary cases below get an ambiguous, contradictory or silent answer. Fixable with about one page of tightened wording plus a boundary table, an alias list in the constant, and a content-level ratchet. Proposed wording is under each finding and consolidated in section 8.
 
 # Grounding (code actually read)
 
@@ -196,7 +196,7 @@ Definitions are English one-sentences; posts are Indonesian ("bazar", "pameran",
 | 11 | **Wedding expo.** "Jogja Wedding Expo: 60 vendor gedung, katering, rias, busana, dekorasi, paket hemat" | none (record calls hotel wedding packages "out of scope (services)") | **SIL** | `[OTHER]` / `[FASHION_AND_BEAUTY, FOOD_AND_DRINK, HOME_AND_LIVING]` (décor) - systematically polluted `OTHER`. |
 | 12 | **Brand launch with makeup class.** "Launching Wardah Colorfit di Jogja City Mall: meet & greet, makeup class, doorprize, 12 Okt" | FASHION (cosmetics) | **A** | `[FASHION_AND_BEAUTY]` both; run 2 may add `EDUCATION` for "class" (no cap/exclusion). |
 
-Observation: 7 of 12 (rows 1, 2, 3, 7, 9 plus 5 and 8 on cardinality) fail on *precedence or cardinality*, not on missing categories; adding more category definitions would not fix them. Only rules 6, 12 are cleanly answered, and they are the easy ones.
+Observation: most of the ten failing rows (1, 2, 3, 5, 7, 8, 9 especially) fail on *precedence or cardinality*, not on missing categories; adding more category definitions would not fix them. Only rows 6 and 12 are cleanly answered, and they are the easy ones.
 
 ---
 
