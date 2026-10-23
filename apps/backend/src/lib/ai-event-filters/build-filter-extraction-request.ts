@@ -20,7 +20,7 @@ Each node in the tree is either a GROUP (has "op": "AND" or "OR" plus "children"
 - keyword: optional free-text search phrase string.
 - dateRange: optional object -- { anchor: one of ${Object.values(DateAnchor).join(', ')}, offsetAmount: integer (positive or negative), offsetUnit: one of ${Object.values(DateOffsetUnit).join(', ')}, spanAmount: optional positive integer widening the window (e.g. "next 7 days"), spanUnit: optional, same allowed values as offsetUnit, required together with spanAmount }.
 - dayOfWeek: optional array of one or more weekday strings: ${Object.values(DayOfWeek).join(', ')} (e.g. "weekends" -> ["SAT", "SUN"]).
-- location: optional object -- EITHER { adminArea: a province/city/regency string, e.g. Yogyakarta, Sleman, Bantul, Jakarta } OR { coordinates: { lat, lng }, radiusMeters: optional integer } -- never both on the same leaf.
+- location: optional object -- EITHER { adminArea: a province/city/regency string, e.g. Yogyakarta, Sleman, Bantul, Jakarta } OR { coordinates: { lat, lng }, radiusMeters: optional positive integer } -- never both on the same leaf.
 - isFree: optional boolean.
 - temporalFilter: optional string, one of ${Object.values(TemporalFilter).join(', ')} ("happening now" vs. "upcoming").
 
@@ -30,7 +30,7 @@ A leaf node may populate more than one of the fields above at once (e.g. a singl
 
 GROUPING GRAMMAR: combine leaves with AND/OR/NOT.
 - A GROUP node: { "op": "AND" | "OR", "children": [node, node, ...] }. Use OR when the user says "or" between alternatives of the SAME kind (e.g. two keywords, two locations). Use AND to require several different conditions together.
-- A NEGATION node: { "op": "NOT", "child": node }. NOT excludes everything matching its child, and ALSO excludes events that have NO VALUE at all for the negated field (NULL is never treated as a match for "not X"). Never nest a NOT directly inside another NOT.
+- A NEGATION node: { "op": "NOT", "child": node }. NOT excludes everything matching its child. An event that has NO VALUE at all for the negated field does not match the child, so NOT KEEPS it ("not workshops" still shows events with no type). Never nest a NOT directly inside another NOT.
 - The tree is at most ${FILTER_NODE_MAX_DEPTH} levels deep and at most ${FILTER_NODE_MAX_NODES} nodes in total. Keep your output within these bounds.
 - Any part of the prompt that cannot be mapped to the fields/grammar above MUST be listed as a plain-text caveat string in the parallel "caveats" array, instead of being guessed at.
 
@@ -106,7 +106,7 @@ function buildLeafProperties(): Record<string, object> {
             lng: { type: 'NUMBER' },
           },
         },
-        radiusMeters: { type: 'INTEGER' },
+        radiusMeters: { type: 'INTEGER', minimum: 1 },
         adminArea: { type: 'STRING' },
       },
     },

@@ -140,7 +140,24 @@ describe('summarizeMetamorphicDrift', () => {
     });
     assert.equal(result.drifted, true);
     assert.match(result.details, /filler variant "please show me free jazz"/);
-    assert.match(result.details, /expected=\[isFree,keyword\] actual=\[venueType\]/);
+    assert.match(result.details, /expected=\[isFree,keyword\] actual=\[venueType\]; shape expected=AND\(isFree,keyword\) actual=venueType/);
+  });
+
+  it('flags a variant whose response lost the NOT even though the same fields are present', () => {
+    const withNot = fixture({
+      prompt: 'jazz, not workshops',
+      expected: {
+        expression: {
+          op: 'AND',
+          children: [{ field: 'keyword', value: 'jazz' }, { op: 'NOT', child: { field: 'venueType', value: 'x' } }],
+        },
+        caveats: [],
+      },
+    });
+    const lostNot = { op: 'AND' as const, children: [{ field: 'keyword' as const, value: 'jazz' }, { field: 'venueType' as const, value: 'x' }] };
+    const result = summarizeMetamorphicDrift(withNot, filler, { expression: lostNot, caveats: [] });
+    assert.equal(result.drifted, true);
+    assert.match(result.details, /shape expected=AND\(NOT\(venueType\),keyword\) actual=AND\(keyword,venueType\)/);
   });
 
   it('flags an unexpected caveat for a same-as-base variant', () => {

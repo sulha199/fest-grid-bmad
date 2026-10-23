@@ -1,5 +1,5 @@
 import type { GeminiFilterExtractionResult } from '../transform-gemini-response-to-filter-expression.js';
-import { computeFilterNodeFieldSignature } from './compute-golden-prompt-drift.js';
+import { computeFilterNodeFieldSignature, computeFilterNodeShapeSignature } from './compute-golden-prompt-drift.js';
 import type { GoldenPromptFixture } from './golden-prompt-fixtures.js';
 
 /**
@@ -123,13 +123,15 @@ export function summarizeMetamorphicDrift(
 ): MetamorphicDriftResult {
   const expectedFields = computeFilterNodeFieldSignature(fixture.expected.expression);
   const actualFields = computeFilterNodeFieldSignature(liveResult.expression);
-  const fieldsMatch = JSON.stringify(expectedFields) === JSON.stringify(actualFields);
+  const expectedShape = computeFilterNodeShapeSignature(fixture.expected.expression);
+  const actualShape = computeFilterNodeShapeSignature(liveResult.expression);
+  const fieldsMatch = JSON.stringify(expectedFields) === JSON.stringify(actualFields) && expectedShape === actualShape;
   const actualHadCaveats = liveResult.caveats.length > 0;
   const expectedCaveats = variant.caveatExpectation === 'present' ? true : fixture.expected.caveats.length > 0;
   const caveatMatches = actualHadCaveats === expectedCaveats;
   const drifted = !fieldsMatch || !caveatMatches;
   const details = drifted
-    ? `${variant.kind} variant "${variant.prompt}": fields expected=[${expectedFields.join(',')}] actual=[${actualFields.join(',')}]; caveatPresence expected=${expectedCaveats} actual=${actualHadCaveats}`
+    ? `${variant.kind} variant "${variant.prompt}": fields expected=[${expectedFields.join(',')}] actual=[${actualFields.join(',')}]; shape expected=${expectedShape} actual=${actualShape}; caveatPresence expected=${expectedCaveats} actual=${actualHadCaveats}`
     : 'no drift';
   return { fixtureId: fixture.id, kind: variant.kind, variantPrompt: variant.prompt, drifted, details };
 }
