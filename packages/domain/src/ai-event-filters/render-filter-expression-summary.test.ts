@@ -267,3 +267,37 @@ describe('renderFilterExpressionSummary', () => {
     assert.equal(result.summary, 'All events');
   });
 });
+
+describe('renderFilterExpressionSummary: lossy ANDs keep every leaf (Epic 9 review P10)', () => {
+  it('renders both values of a repeated field instead of only the last', () => {
+    const result = renderFilterExpressionSummary(
+      {
+        op: 'AND',
+        children: [
+          { field: 'type', value: [EventType.FESTIVAL] },
+          { field: 'type', value: [EventType.WORKSHOP] },
+        ],
+      },
+      null,
+      EN_LABELS
+    );
+    assert.match(result.summary, /Festivals/);
+    assert.match(result.summary, /Workshops/);
+  });
+
+  it('renders both an area and a proximity leaf', () => {
+    const result = renderFilterExpressionSummary(
+      {
+        op: 'AND',
+        children: [
+          { field: 'locationAdminArea', value: 'Sleman' },
+          { field: 'locationProximity', value: { coordinates: { lat: -7.7, lng: 110.3 } } },
+        ],
+      },
+      null,
+      EN_LABELS
+    );
+    assert.match(result.summary, /Sleman/);
+    assert.match(result.summary, /near me/);
+  });
+});

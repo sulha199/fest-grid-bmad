@@ -335,20 +335,45 @@ describe('buildEventsQueryCondition: expression branch (Story 9.4a, AC2, Task 9)
     assert.deepEqual(res, expected);
   });
 
-  it('when both filter and expression are supplied, expression wins and filter/search/types/categories/nearby/temporalFilter are all ignored', () => {
+  it('when both filter and expression are supplied, expression wins and filter/types/categories/nearby are ignored', () => {
     const expression: FilterNode = { field: 'isFree', value: true };
     const res = buildEventsQueryCondition({
       expression,
       filter: { types: ['FESTIVAL'], keyword: 'jazz' },
-      search: 'blues',
       types: ['CONCERT'],
       categories: ['MUSIC'],
       nearby: { latitude: -7.7, longitude: 110.3, radiusKm: 5 },
-      temporalFilter: 'TODAY',
     });
-    const expected = compileFilterNodeToQueryCondition(expression, {});
-    assert.deepEqual(res, expected);
     assert.deepEqual(res, { field: 'isFree', operator: 'eq', value: true });
+  });
+
+  it('Epic 9 review P13/D2: the search box and the Today/Upcoming toggle are ANDed onto the compiled expression', () => {
+    const expression: FilterNode = { field: 'isFree', value: true };
+    const res = buildEventsQueryCondition({ expression, search: 'blues', temporalFilter: 'TODAY', currentDate: new Date('2026-08-29T12:00:00Z') });
+    assert.ok(res && 'conditions' in res && res.operator === 'and');
+    const json = JSON.stringify(res);
+    assert.ok(json.includes('"blues"'), 'search is applied');
+    assert.ok(json.includes('scheduleEndedBoundary'), 'the TODAY toggle is applied');
+    assert.ok(json.includes('"isFree"'), 'the expression is kept');
+  });
+
+  it('Epic 9 review P13: a root OR expression is nested, not merged, when manual conditions are ANDed on', () => {
+    const expression: FilterNode = {
+      op: 'OR',
+      children: [
+        { field: 'locationAdminArea', value: 'Sleman' },
+        { field: 'locationAdminArea', value: 'Bantul' },
+      ],
+    };
+    const res = buildEventsQueryCondition({ expression, search: 'jazz' });
+    assert.ok(res && 'conditions' in res && res.operator === 'and');
+    assert.equal(res.conditions.length, 2);
+    assert.deepEqual(res.conditions[1], compileFilterNodeToQueryCondition(expression, {}));
+  });
+
+  it('ANDs the search onto an expression that compiles to nothing', () => {
+    const res = buildEventsQueryCondition({ expression: { op: 'AND', children: [] }, search: 'jazz' });
+    assert.ok(res && 'conditions' in res && res.operator === 'and' && res.conditions.length === 1);
   });
 
   it('an expression that compiles to undefined (an empty AND group) returns undefined, matching the existing "no conditions" return shape', () => {

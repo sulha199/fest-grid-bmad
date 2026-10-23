@@ -243,6 +243,12 @@ describe('buildFeedQueryCondition', () => {
     assert.ok(JSON.stringify(aiOnly).includes('scheduleEndedBoundary'));
   });
 
+  it('Epic 9 review P13: the Today toggle still narrows results while an AI expression is active', () => {
+    const result = buildFeedQueryCondition({ expression: { field: 'isFree', value: true }, temporalFilter: 'TODAY' });
+    assert.ok(JSON.stringify(result).includes('scheduleEndedBoundary'));
+    assert.ok(JSON.stringify(result).includes('isFromSubscribedAccount'));
+  });
+
   describe('Epic 9 review P1: a non-AND compiled expression is scoped, never merged into', () => {
     const base = { field: 'isFromSubscribedAccount', operator: 'eq', value: true };
     const sleman: FilterNode = { field: 'locationAdminArea', value: 'Sleman' };

@@ -73,7 +73,7 @@ function collectFlatLeaves(node: FilterNode): FilterLeaf[] {
     return [node];
   }
   if (isFilterGroupNode(node) && node.op === 'AND') {
-    return node.children.map((child) => {
+    const leaves = node.children.map((child) => {
       if (!isFilterLeaf(child)) {
         throw new Error(
           'flatFilterFromExpression only supports a flat AND-of-leaves expression; OR/NOT/nested groups cannot be represented in the flat EventFilterInput shape (that is Story 9.2\'s compiler concern, not this conversion).'
@@ -81,6 +81,21 @@ function collectFlatLeaves(node: FilterNode): FilterLeaf[] {
       }
       return child;
     });
+    // Epic 9 review (P10): the flat shape holds ONE value per field. An AND that repeats a field
+    // (`type[A] AND type[B]`) or combines an area with a proximity (the flat `location` would hold
+    // both, which the flat builder rejects) is not flat-representable -- projecting it would keep
+    // only the last value and fabricate a filter that disagrees with the expression.
+    const fields = new Set<string>();
+    for (const leaf of leaves) {
+      if (fields.has(leaf.field)) {
+        throw new Error(`flatFilterFromExpression cannot represent an AND with a repeated "${leaf.field}" leaf.`);
+      }
+      fields.add(leaf.field);
+    }
+    if (fields.has('locationAdminArea') && fields.has('locationProximity')) {
+      throw new Error('flatFilterFromExpression cannot represent an AND of a locationAdminArea and a locationProximity leaf.');
+    }
+    return leaves;
   }
   throw new Error(
     'flatFilterFromExpression only supports a single leaf or a top-level AND-of-leaves expression.'

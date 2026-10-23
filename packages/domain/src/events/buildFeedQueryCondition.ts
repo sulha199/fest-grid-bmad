@@ -1,7 +1,6 @@
 import { QueryCondition } from '../query/queryDsl.js';
 import { scopeFilterCondition } from './scope-filter-condition.js';
 import { buildEventsQueryCondition, EventFilterInput, NearbyFilterInput } from './buildEventsQueryCondition.js';
-import { compileFilterNodeToQueryCondition } from '../ai-event-filters/compile-filter-node.js';
 import type { FilterNode } from '../ai-event-filters/filter-node.js';
 
 export interface BuildFeedQueryConditionInput {
@@ -49,7 +48,7 @@ export function buildFeedQueryCondition({
   }
 
   const filterCondition = expression
-    ? compileFilterNodeToQueryCondition(expression)
+    ? buildEventsQueryCondition({ expression, search, temporalFilter })
     : filter
       ? buildEventsQueryCondition({ filter: { ...filter, temporalFilter: temporalFilter ?? filter.temporalFilter } })
       : buildEventsQueryCondition({ search, types, categories, nearby, temporalFilter });
