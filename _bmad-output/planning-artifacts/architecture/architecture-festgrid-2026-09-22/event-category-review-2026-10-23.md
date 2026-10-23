@@ -74,7 +74,7 @@ No further blocking findings. Remaining items are owner decisions (§4).
 | Action | Value | EN label | ID label | Definition (for glossary) |
 |--------|-------|----------|----------|---------------------------|
 | **ADD** | `HOME_AND_LIVING` | Home & Living | Rumah & Hunian | Furniture, appliances, décor, interior, housewares, home improvement and consumer DIY/hardware tools, home expos. Excludes property/real estate and industrial machinery. |
-| **ADD** (F-C) | `FASHION_AND_BEAUTY` | Fashion & Beauty | Fashion & Kecantikan | Fashion shows/weeks, apparel & accessories sales, beauty/cosmetics launches and expos, grooming. |
+| **ADD** (F-C) | `FASHION_AND_BEAUTY` | Fashion & Beauty | Fashion & Gaya | Fashion shows/weeks, apparel & accessories sales, beauty/cosmetics launches and expos, grooming. |
 | **CLARIFY** (no enum change) | `TECHNOLOGY` | Technology & Gadgets | Teknologi & Gadget | Software/tech meetups, hackathons, conferences **and** consumer gadgets & electronics (phones, audio, laptops, gaming gear) incl. their promos. |
 | **DEFER** | `TOOLS_AND_HARDWARE` | — | — | Split out of `HOME_AND_LIVING` only if the §5 trigger fires. |
 | **REJECT** | `LIFESTYLE`, bare `TOOL`, `GADGET_AND_LIFESTYLE` | — | — | Unbounded / ambiguous / overlapping (R1-1, R1-4, R1-2). |
@@ -127,5 +127,5 @@ AD-42 (planning branch `claude/ecstatic-shannon-e8eh9h`, `[PROPOSED]`, not on ma
 
 ## 10. Follow-up questions (2026-10-23)
 
-- **Fashion & Beauty for male users:** yes by design. Categories are audience-neutral (the system has no user-gender concept; AD-42 models gender only as event `tracks`/`eligibility`). The definition now names menswear, streetwear, sneakers, barbershop and grooming explicitly. Open: the Indonesian label "Kecantikan" reads female-coded; see owner question.
+- **Fashion & Beauty for male users:** yes by design. Categories are audience-neutral (the system has no user-gender concept; AD-42 models gender only as event `tracks`/`eligibility`). The definition now names menswear, streetwear, sneakers, barbershop and grooming explicitly. Resolved 2026-10-23 (owner): Indonesian label is "Fashion & Gaya" ("Kecantikan" read as female-coded).
 - **Market/promo vs `BUSINESS_AND_NETWORKING`:** the name invites Gemini to tag any commercial event as business. AD-44 Rule 4 now limits it to a professional/trade audience; consumer bazaars, sales and promos take the subject of what is sold. Co-tagging is allowed only when a trade or business-matching purpose is stated. No repo data confirms the mis-tagging rate; the §5 query should also count `MARKET`/`PROMOTION` events carrying `BUSINESS_AND_NETWORKING`.

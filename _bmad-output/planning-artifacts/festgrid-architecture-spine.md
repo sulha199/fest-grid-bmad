@@ -2476,7 +2476,7 @@ This document defines the core architectural invariants for the FestDaily applic
         eligibility. Who an event is for is a separate axis (AD-42 `tracks`/`eligibility`,
         `[PROPOSED]`), never a category.
     2.  **Membership, `[ADOPTED, user-directed 2026-10-23]`:** `HOME_AND_LIVING` ("Home & Living" /
-        "Rumah & Hunian") and `FASHION_AND_BEAUTY` ("Fashion & Beauty" / "Fashion & Kecantikan") are
+        "Rumah & Hunian") and `FASHION_AND_BEAUTY` ("Fashion & Beauty" / "Fashion & Gaya") are
         added before `OTHER`, taking the set from 18 to 20. `TECHNOLOGY` keeps its name and label;
         only its definition widens to cover consumer gadgets and electronics. No gadget, lifestyle
         or tool category exists.
