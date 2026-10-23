@@ -634,21 +634,37 @@ export const GOLDEN_PROMPT_FIXTURES = [
         "op": "OR",
         "children": [
           {
-            "field": "type",
-            "value": [
-              "MARKET"
+            "op": "AND",
+            "children": [
+              {
+                "field": "type",
+                "value": [
+                  "MARKET"
+                ]
+              },
+              {
+                "field": "category",
+                "value": [
+                  "FOOD_AND_DRINK"
+                ]
+              }
             ]
           },
           {
-            "field": "category",
-            "value": [
-              "FOOD_AND_DRINK"
-            ]
-          },
-          {
-            "field": "category",
-            "value": [
-              "HOBBIES_AND_INTERESTS"
+            "op": "AND",
+            "children": [
+              {
+                "field": "type",
+                "value": [
+                  "MARKET"
+                ]
+              },
+              {
+                "field": "category",
+                "value": [
+                  "HOBBIES_AND_INTERESTS"
+                ]
+              }
             ]
           }
         ]
@@ -686,19 +702,33 @@ export const GOLDEN_PROMPT_FIXTURES = [
         "op": "OR",
         "children": [
           {
-            "field": "type",
-            "value": [
-              "PERFORMANCE"
+            "op": "AND",
+            "children": [
+              {
+                "field": "type",
+                "value": [
+                  "PERFORMANCE"
+                ]
+              },
+              {
+                "field": "isFree",
+                "value": true
+              }
             ]
           },
           {
-            "field": "isFree",
-            "value": true
-          },
-          {
-            "field": "type",
-            "value": [
-              "EXHIBITION"
+            "op": "AND",
+            "children": [
+              {
+                "field": "type",
+                "value": [
+                  "EXHIBITION"
+                ]
+              },
+              {
+                "field": "isFree",
+                "value": true
+              }
             ]
           }
         ]

@@ -49,11 +49,60 @@ describe('resolveStoredFilter', () => {
     assert.deepEqual(fromUndefined.flatFilter, {});
   });
 
-  it('throws on a structurally invalid candidate that fails validateFilterNode', () => {
-    assert.throws(
-      () => resolveStoredFilter({ version: 2, expression: { op: 'AND', children: [{ field: 'notAField', value: 1 }] } }),
-      /FilterNode validation/
-    );
+  it('P7: degrades (never throws) when the only leaf of a stored v2 expression is invalid', () => {
+    const result = resolveStoredFilter({
+      version: 2,
+      expression: { op: 'AND', children: [{ field: 'notAField', value: 1 }] },
+    });
+    assert.deepEqual(result.expression, { op: 'AND', children: [] });
+    assert.deepEqual(result.flatFilter, {});
+    assert.equal(result.degraded, true);
+  });
+
+  it('P7: keeps the valid leaves of a stored row and drops only the invalid one', () => {
+    const result = resolveStoredFilter({
+      version: 2,
+      expression: {
+        op: 'AND',
+        children: [
+          { field: 'keyword', value: 'jazz' },
+          { field: 'type', value: ['NO_LONGER_A_TYPE'] },
+        ],
+      },
+    });
+    assert.deepEqual(result.expression, { field: 'keyword', value: 'jazz' });
+    assert.deepEqual(result.flatFilter, { keyword: 'jazz' });
+    assert.equal(result.degraded, true);
+  });
+
+  it('P7: a legacy flat row with a null span reads back clean', () => {
+    const result = resolveStoredFilter({
+      dateRange: { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY', spanAmount: null, spanUnit: null },
+    });
+    assert.deepEqual(result.expression, {
+      op: 'AND',
+      children: [{ field: 'dateRange', value: { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY' } }],
+    });
+    assert.equal(result.degraded, undefined);
+  });
+
+  it('P7: a legacy flat row with a radius of 0 keeps its other fields', () => {
+    const result = resolveStoredFilter({
+      keyword: 'jazz',
+      location: { coordinates: { lat: -7.8, lng: 110.4 }, radiusMeters: 0 },
+    });
+    assert.deepEqual(result.expression, { field: 'keyword', value: 'jazz' });
+    assert.equal(result.degraded, true);
+  });
+
+  it('P7: a stored tree far beyond the size limits degrades to "no filter" without recursing into it', () => {
+    let node: unknown = { field: 'isFree', value: true };
+    for (let i = 0; i < 30000; i += 1) {
+      node = { op: 'NOT', child: node };
+    }
+    const result = resolveStoredFilter({ version: 2, expression: node });
+    assert.deepEqual(result.expression, { op: 'AND', children: [] });
+    assert.equal(result.degraded, true);
   });
 
   it('tolerates a v2 row saved from a null-padded GraphQL FilterNode and returns the clean tree', () => {
