@@ -56,8 +56,11 @@ export function buildFeedCalendarQueryCondition({
     };
   }
 
+  /* c8 ignore start -- defensive: `combinedCondition` is always a group built above, so the
+     `isGroupCondition` guard above always returns; kept for `QueryCondition` exhaustiveness. */
   return {
     operator: 'and',
     conditions: [combinedCondition, overlapCondition],
   };
+  /* c8 ignore stop */
 }

@@ -47,8 +47,12 @@ export function buildWeeklyCalendarQueryCondition({
     };
   }
 
+  /* c8 ignore start -- defensive: `buildEventsQueryCondition` (without `expression`) only ever
+     returns an `and` group or `undefined`, so a bare terminal `baseCondition` cannot occur; this
+     fallback exists to keep the `QueryCondition` union exhaustive. */
   return {
     operator: 'and',
     conditions: [baseCondition, overlapCondition],
   };
+  /* c8 ignore stop */
 }

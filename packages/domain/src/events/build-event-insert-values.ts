@@ -187,5 +187,6 @@ function compareNullableAscending(a: string | null | undefined, b: string | null
   if (b == null) {
     return -1;
   }
-  return a < b ? -1 : a > b ? 1 : 0;
+  // `a === b` returned above, so the two non-null strings differ and one is strictly smaller.
+  return a < b ? -1 : 1;
 }

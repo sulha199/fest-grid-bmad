@@ -9,7 +9,8 @@
     "build": "turbo run build --filter=!@festgrid/ai-dev-orchestrator",
     "dev": "turbo run dev",
     "lint": "turbo run lint --filter=!@festgrid/ai-dev-orchestrator",
-    "test": "turbo run test --filter=!@festgrid/ai-dev-orchestrator"
+    "test": "turbo run test --filter=!@festgrid/ai-dev-orchestrator",
+    "coverage:badge": "node scripts/coverage-badge.mjs"
   },
   "devDependencies": {
     "@festgrid/eslint-config": "workspace:*",
