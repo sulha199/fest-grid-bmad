@@ -2468,7 +2468,7 @@ This document defines the core architectural invariants for the FestDaily applic
     `claude/ecstatic-shannon-e8eh9h`, not merged — its "18 values" becomes 20 when both land).
 *   **Prevents:** Two units tagging the same post differently because the model saw only enum
     *names*. A second `OTHER` under a vague name ("lifestyle"). Two sibling categories claiming one
-    subject (gadgets vs `TECHNOLOGY`), which splits filter recall. A category named for a *form*
+    subject (gadgets vs `TECHNOLOGY`) with no stated boundary, which splits filter recall. A category named for a *form*
     (shopping, promo, market). A bare ambiguous noun ("tool"). Two boundary rules that contradict
     each other (property is both a consumer sale and an investment). The extraction prompt and the
     AI-filter prompt using different synonyms for one category (filter maps "properti" to a category
@@ -2497,9 +2497,14 @@ This document defines the core architectural invariants for the FestDaily applic
         ID "Rumah Tangga & Interior"), `FASHION_AND_BEAUTY` (EN "Fashion & Beauty", ID "Fashion &
         Gaya", owner's choice) and `FINANCE_AND_INVESTMENT` (EN "Finance & Investment", ID "Keuangan &
         Investasi", owner-directed 2026-10-23; "trading" means financial trading, not commerce, and is
-        deliberately not in the name) are added before `OTHER`, taking the set from 18 to 21. `TECHNOLOGY`
-        keeps its name and label and widens to consumer gadgets. No gadget, lifestyle or tool category
-        exists. None of the three new values is a sensitive category under AD-42 Rule 8. A user-facing label is
+        deliberately not in the name) and `GADGETS_AND_DEVICES` (EN "Gadgets & Devices", ID "Gadget &
+        Perangkat", owner-directed 2026-10-23) are added before `OTHER`, taking the set from 18 to 22.
+        `TECHNOLOGY` keeps its name and label; in Story 2 its definition narrows to software, AI,
+        startups, developer and tech-community events, hackathons and tech conferences, and consumer
+        hardware moves to `GADGETS_AND_DEVICES`. The owner first declined a separate gadget category
+        and reversed that once the shared definitions list (Rule 4) made two adjacent categories
+        enforceable. No lifestyle or tool category exists. None of the four new values is a sensitive
+        category under AD-42 Rule 8. A user-facing label is
         not a definition: the Indonesian "Fashion & Gaya" is softer than its definition (it does not
         say "beauty"), accepted by the owner; the definition, not the label, governs tagging.
     4.  **One definitions source, one renderer.** `packages/shared-types/src/event-category-definitions.ts`
@@ -2536,7 +2541,10 @@ This document defines the core architectural invariants for the FestDaily applic
         "UMKM", "support local" or a seller workshop alone do not count. 4. A sale or expo with no
         headline subject, or whose named subjects span more than four categories, is `[OTHER]` with its
         `EventType` (`PROMOTION`/`MARKET`) — correct, not a gap.
-        **Boundary table:** consumer gadgets, electronics, gaming gear and their promos → `TECHNOLOGY`;
+        **Boundary table:** consumer gadgets, phones, laptops, audio, cameras, wearables, gaming gear and their
+        launches, promos and expos → `GADGETS_AND_DEVICES`; software, apps, AI, startups, developer
+        and tech-community events, hackathons and tech conferences → `TECHNOLOGY`, and a launch whose
+        headline is both a device and its software may carry both, headline first;
         esports and gaming tournaments → `HOBBIES_AND_INTERESTS` `[default; owner may prefer
         SPORTS_AND_FITNESS]`; furniture, appliances, décor, interior, housewares, home improvement and
         tools sold to consumers or tradespeople (tukang, kontraktor) → `HOME_AND_LIVING`; machinery
@@ -2585,8 +2593,8 @@ This document defines the core architectural invariants for the FestDaily applic
         AD. Rolling back after a row carries a new value is the same problem: clean those rows first.
         Stored filters have two shapes (flat and a recursive tree) and an unknown leaf is **silently
         dropped**, which broadens an embedded widget with no error. Nothing is removed by this AD.
-        Widening `TECHNOLOGY` and narrowing `BUSINESS_AND_NETWORKING` change what stored filters match
-        going forward; this is accepted and not migrated.
+        Narrowing `TECHNOLOGY` (consumer hardware moves out) and `BUSINESS_AND_NETWORKING` change what
+        stored filters match going forward; this is accepted and not migrated.
     9.  **Finer subjects are not categories.** Tools, gadgets, property, plants and the like are
         reached by keyword search today and by AD-42's interest tags (which may name a parent
         category) if that is adopted. Revisit grouping the FilterHub chips if the set passes 24.
@@ -2601,7 +2609,8 @@ This document defines the core architectural invariants for the FestDaily applic
     `TECHNOLOGY`); a bare `TOOL` or `TOOLS_AND_HARDWARE` now (ambiguous, no demand evidence in the
     seed data); `SHOPPING_AND_RETAIL` (form, not subject); a separate `PROPERTY` category (property is an
     asset class inside `FINANCE_AND_INVESTMENT`); a two-level category tree (cost without a 24-value problem yet);
-    relabeling `TECHNOLOGY` to "Technology & Gadgets" (offered, declined by the owner); a source grep
+    relabeling `TECHNOLOGY` to "Technology & Gadgets" (offered, declined by the owner in favour of a
+    separate `GADGETS_AND_DEVICES`); a source grep
     as the ratchet (the prompt files legitimately keep `Object.values(EventCategory)`); a 14-day
     deprecation clock, a docs-side source register, a FilterHub empty-state hint and a one-time
     reclassification job (all rejected as cost without a measured need); extending the pgEnum
@@ -2618,16 +2627,18 @@ This document defines the core architectural invariants for the FestDaily applic
 *   **Follow-ups this AD creates (for `bmad-create-story` / `bmad-form-epics`):**
     1.  **Story 1 — definitions source, renderer, both prompts, ratchet, cardinality, metric.** Writes
         definitions correct for the **existing 18 values** and names only existing values (Rule 4
-        check (b) enforces this); amends nothing for the three new values. Its interim effect on live
-        extraction is real and accepted: `TECHNOLOGY` widens, `BUSINESS_AND_NETWORKING` narrows to
+        check (b) enforces this); amends nothing for the four new values. Its interim effect on live
+        extraction is real and accepted: `TECHNOLOGY` keeps its existing definition unchanged
+        (gadget promos stay with it until Story 2), `BUSINESS_AND_NETWORKING` narrows to
         subject matter (and, because Rule 4 check (b) forbids naming `FINANCE_AND_INVESTMENT` here,
         keeps property and investment as an interim routing that Story 2 moves), and a consumer
         furniture bazaar tags `OTHER` until Story 2. Acceptance includes the golden corpus
         run on the 18-value set and the CC-024 reference posts.
-    2.  **Story 2 — the three new values across the register (Rule 6),** retiring the pgEnum,
+    2.  **Story 2 — the four new values across the register (Rule 6),** retiring the pgEnum,
         widening the definitions and boundary table to name the new members, moving property and
-        investment from `BUSINESS_AND_NETWORKING` to `FINANCE_AND_INVESTMENT`, `taxonomyEffectiveFrom`,
-        and the corpus re-run on the 21-value set. Ships after Story 1.
+        investment from `BUSINESS_AND_NETWORKING` to `FINANCE_AND_INVESTMENT`, moving consumer
+        hardware from `TECHNOLOGY` to `GADGETS_AND_DEVICES`, `taxonomyEffectiveFrom`, and the corpus
+        re-run on the 22-value set. Ships after Story 1.
     3.  **Docs** — correct the "Postgres enum irreversibility" note in `deferred-work.md`; update
         `project-context.md` as Stories 1 and 2 land (its rule is marked plan-only until then).
 

@@ -117,7 +117,7 @@ Triggers (proposed, tune freely): add/keep `HOME_AND_LIVING` and `FASHION_AND_BE
 - **F-C** `FASHION_AND_BEAUTY`: **added**.
 - **F-D** Owner asked whether `SHOPPING_AND_RETAIL` is needed given `EventType` already has `MARKET` and `PROMOTION`. Conclusion: **no** — shopping is a form/intent, not a subject; a many-product sale is `OTHER` + `PROMOTION`/`MARKET`. Property is investment-adjacent: routed to `BUSINESS_AND_NETWORKING` by definition, no new value (`FINANCE_AND_INVESTMENT` deferred behind a trigger).
 
-## 8. Final taxonomy: 21 values
+## 8. Final taxonomy: 22 values
 
 Existing 18 unchanged (`TECHNOLOGY` definition widened) + `HOME_AND_LIVING` + `FASHION_AND_BEAUTY` + `FINANCE_AND_INVESTMENT` (owner-directed 2026-10-23, property routed into it), all inserted before `OTHER`.
 
@@ -161,3 +161,7 @@ Owner defaults to flip if wanted: cap 4 vs 3; esports → HOBBIES vs SPORTS; ID 
 ## 12. Owner decision 2026-10-23: finance and investment
 
 Added `FINANCE_AND_INVESTMENT` ("Finance & Investment" / "Keuangan & Investasi"). Property, KPR, stocks, funds, bonds, gold, crypto, forex and commodity trading route here; `BUSINESS_AND_NETWORKING` narrows to trade, B2B, networking, entrepreneurship. The name avoids "trading" (ambiguous with commerce). Story 0-52 keeps property/investment under `BUSINESS_AND_NETWORKING` as an interim (its ratchet forbids naming a value that does not exist yet); Story 0-53 moves them and is renamed to cover three values. Open: moderation posture for scam-prone finance events (not decided).
+
+## 13. Owner decision 2026-10-23: gadgets and devices (reverses F-A)
+
+Added `GADGETS_AND_DEVICES` ("Gadgets & Devices" / "Gadget & Perangkat"); 22 values. Reason for the reversal: widening `TECHNOLOGY` mixed gadget promos into hackathon/developer results, and the shared definitions list (AD-44 Rule 4) makes two adjacent categories enforceable. `TECHNOLOGY` is not widened; in Story 0-53 it narrows to software/AI/startups/developer events and consumer hardware moves out. Story 0-52 leaves `TECHNOLOGY` unchanged. Story 0-53 renamed again to cover four values.

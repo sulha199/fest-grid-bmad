@@ -366,7 +366,7 @@ development_status:
   # 0-52 ships first and names only the existing 18 values; 0-53 depends on it (not expressible in
   # epics.md: standalone Epic 0 stories, Story 0.34 precedent).
   0-52-build-the-event-category-definitions-source-renderer-and-ratchet: ready-for-dev
-  0-53-add-home-living-fashion-beauty-and-finance-event-categories: backlog
+  0-53-add-home-living-fashion-finance-and-gadget-event-categories: backlog
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.
