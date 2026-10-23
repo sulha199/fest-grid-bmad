@@ -72,6 +72,12 @@ jobs:
           GEOAPIFY_API_KEY: 'test-geoapify-key'
         run: pnpm run test
 
+      # `pnpm run test` fails the build if packages/domain drops below 100% (packages/domain/.c8rc.json).
+      # This keeps the README's coverage badge honest: it fails if docs/badges/domain-coverage.json
+      # no longer matches the measured coverage.
+      - name: Verify coverage badge is current
+        run: node scripts/coverage-badge.mjs --check
+
   db-migrate:
     name: Database Migrations
     needs: ci

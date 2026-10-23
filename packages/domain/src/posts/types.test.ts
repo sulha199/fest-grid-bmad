@@ -1,31 +1,49 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  postGroupingReasonToGraphQL,
-  POST_GROUPING_REASONS,
-  MANUAL_EXTRACTION_JOB_STATUSES,
   isManualExtractionJobTerminal,
+  isPostGroupingReason,
+  MANUAL_EXTRACTION_JOB_STATUSES,
+  POST_GROUPING_REASONS,
+  postGroupingReasonToGraphQL,
+  PostAlreadyExtractedError,
+  PostAlreadyQueuedError,
+  PostNotFoundError,
 } from './types.js';
 
-test('postGroupingReasonToGraphQL - maps every DB grouping reason to its GraphQL enum member (Story 3.6u)', () => {
-  assert.equal(postGroupingReasonToGraphQL('single-event'), 'SINGLE_EVENT');
-  assert.equal(postGroupingReasonToGraphQL('program-lineup'), 'PROGRAM_LINEUP');
-  assert.equal(postGroupingReasonToGraphQL('dependent-stages'), 'DEPENDENT_STAGES');
-  assert.equal(postGroupingReasonToGraphQL('separate-events'), 'SEPARATE_EVENTS');
-  assert.equal(postGroupingReasonToGraphQL('roundup'), 'ROUNDUP');
-});
-
-test('postGroupingReasonToGraphQL - covers every member of the closed POST_GROUPING_REASONS vocabulary (no silently-unmapped value)', () => {
+test('isPostGroupingReason accepts every known reason and nothing else', () => {
   for (const reason of POST_GROUPING_REASONS) {
-    const mapped = postGroupingReasonToGraphQL(reason);
-    assert.equal(typeof mapped, 'string');
-    assert.ok(mapped.length > 0);
+    assert.equal(isPostGroupingReason(reason), true);
   }
+  assert.equal(isPostGroupingReason('not-a-reason'), false);
+  assert.equal(isPostGroupingReason(''), false);
 });
 
-test('isManualExtractionJobTerminal - only SUCCEEDED and FAILED are terminal (Story 4.2b)', () => {
+for (const [ErrorClass, name, defaultMessage] of [
+  [PostNotFoundError, 'PostNotFoundError', 'Post not found'],
+  [PostAlreadyExtractedError, 'PostAlreadyExtractedError', 'Post has already been extracted'],
+  [PostAlreadyQueuedError, 'PostAlreadyQueuedError', 'Post is already queued for extraction'],
+] as const) {
+  test(`${name} carries its name and a default message`, () => {
+    const error = new ErrorClass();
+    assert.ok(error instanceof Error);
+    assert.equal(error.name, name);
+    assert.equal(error.message, defaultMessage);
+  });
+
+  test(`${name} prefers an explicit message`, () => {
+    assert.equal(new ErrorClass('custom').message, 'custom');
+  });
+}
+
+test('isManualExtractionJobTerminal is true only for SUCCEEDED and FAILED', () => {
   const terminal = MANUAL_EXTRACTION_JOB_STATUSES.filter(isManualExtractionJobTerminal);
   assert.deepEqual(terminal, ['SUCCEEDED', 'FAILED']);
-  assert.equal(isManualExtractionJobTerminal('PENDING'), false);
-  assert.equal(isManualExtractionJobTerminal('PROCESSING'), false);
+});
+
+test('postGroupingReasonToGraphQL maps every reason to its GraphQL enum literal', () => {
+  assert.deepEqual(
+    POST_GROUPING_REASONS.map(postGroupingReasonToGraphQL),
+    ['SINGLE_EVENT', 'PROGRAM_LINEUP', 'DEPENDENT_STAGES', 'SEPARATE_EVENTS', 'ROUNDUP']
+  );
 });

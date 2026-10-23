@@ -107,7 +107,7 @@ graph TD
 | Operations alerts | CloudWatch Embedded Metric Format lines from the Lambdas, three CloudWatch alarms and an SNS topic with an optional e-mail subscription (prod only; needs no SES) | CDK stack, `apps/backend/src/lib/metrics/emit-metric.ts` |
 | Geolocation | Geoapify (geocoding with a Postgres cache; map tiles) | docs/infrastructure/5-geolocation.md |
 | Validation | AJV / JSON Schema (backend), Zod (client) | package.json |
-| Testing | Vitest, Playwright | package.json |
+| Testing | Vitest, Playwright; `node:test` with c8 for `packages/domain`, whose 100% coverage gate runs in CI | package.json, packages/domain/.c8rc.json |
 | IaC | AWS CDK (TypeScript) | apps/infrastructure |
 
 ## Known gaps between the sources

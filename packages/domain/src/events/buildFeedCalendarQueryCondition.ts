@@ -47,12 +47,16 @@ export function buildFeedCalendarQueryCondition({
       ...filterCondition,
       conditions: [...baseConditions, ...filterCondition.conditions],
     };
+  /* c8 ignore start -- defensive: `buildEventsQueryCondition` (without `expression`) only ever
+     returns an `and` group or `undefined`, so a bare terminal `filterCondition` cannot occur;
+     this branch exists to keep the `QueryCondition` union exhaustive. */
   } else {
     combinedCondition = {
       operator: 'and',
       conditions: [...baseConditions, filterCondition],
     };
   }
+  /* c8 ignore stop */
 
   if (!weekStart || !weekEnd) {
     return combinedCondition;
@@ -71,8 +75,11 @@ export function buildFeedCalendarQueryCondition({
     };
   }
 
+  /* c8 ignore start -- defensive: `combinedCondition` is always a group built above, so the
+     `isGroupCondition` guard above always returns; kept for `QueryCondition` exhaustiveness. */
   return {
     operator: 'and',
     conditions: [combinedCondition, overlapCondition],
   };
+  /* c8 ignore stop */
 }

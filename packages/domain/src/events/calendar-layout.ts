@@ -127,7 +127,8 @@ export function layoutCalendarBands(
   items.forEach((item) => {
     if (keep.has(item.key)) return;
     const end = Math.min(columnCount, item.startCol + item.spanCount);
-    let band = naturalBand.get(item.key) ?? 0;
+    // Every item was given a natural band by the rank pass above.
+    let band = naturalBand.get(item.key) as number;
     for (let c = item.startCol; c < end; c++) band = Math.max(band, lowestBandByCol[c]);
 
     const floors = floorsOf(band);

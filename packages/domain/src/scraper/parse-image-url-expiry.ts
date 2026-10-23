@@ -26,10 +26,8 @@ export function parseImageUrlExpiry(
       return null;
     }
 
+    // `hexRegex` above guarantees at least one hex digit, so `parseInt` can never return NaN here.
     const timestampSeconds = parseInt(value, 16);
-    if (isNaN(timestampSeconds)) {
-      return null;
-    }
 
     return new Date(timestampSeconds * 1000);
   } catch {
