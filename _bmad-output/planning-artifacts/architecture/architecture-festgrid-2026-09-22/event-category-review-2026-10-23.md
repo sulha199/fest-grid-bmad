@@ -1,7 +1,7 @@
 ---
 title: EventCategory gap review (home & living, gadget & lifestyle, tool)
 date: 2026-10-23
-status: proposed — awaiting owner confirmation of forks F-A..F-D
+status: final — owner decisions recorded 2026-10-23; distilled into Architecture Spine AD-44
 altitude: cross-cutting taxonomy (shared-types, GraphQL, Gemini prompts, locales)
 ---
 
@@ -110,9 +110,17 @@ Triggers (proposed, tune freely): add/keep `HOME_AND_LIVING` and `FASHION_AND_BE
 8. No architecture-diagram change (no service/queue/provider change).
 9. Correct `deferred-work.md`: pgEnum is unused by any column.
 
-## 7. Owner forks
+## 7. Owner decisions (2026-10-23)
 
-- **F-A** Gadget: relabel `TECHNOLOGY` (recommended) vs new `GADGETS_AND_ELECTRONICS` enum value.
-- **F-B** Tool: defer + fold into `HOME_AND_LIVING` (recommended) vs add `TOOLS_AND_HARDWARE` now.
-- **F-C** Add `FASHION_AND_BEAUTY` as the replacement for "lifestyle" (recommended) vs skip.
-- **F-D** Whether `SHOPPING_AND_RETAIL` / `PROPERTY` deserve their own review (recommended: later, after §5 data).
+- **F-A** Gadget: **keep the existing `TECHNOLOGY` as is** (name and label unchanged). Its definition widens to consumer gadgets (AD-44 Rules 2, 4); no new value, no relabel.
+- **F-B** Tool: **fold** into `HOME_AND_LIVING`. `TOOLS_AND_HARDWARE` deferred behind an evidence trigger.
+- **F-C** `FASHION_AND_BEAUTY`: **added**.
+- **F-D** Owner asked whether `SHOPPING_AND_RETAIL` is needed given `EventType` already has `MARKET` and `PROMOTION`. Conclusion: **no** — shopping is a form/intent, not a subject; a many-product sale is `OTHER` + `PROMOTION`/`MARKET`. Property is investment-adjacent: routed to `BUSINESS_AND_NETWORKING` by definition, no new value (`FINANCE_AND_INVESTMENT` deferred behind a trigger).
+
+## 8. Final taxonomy: 20 values
+
+Existing 18 unchanged (`TECHNOLOGY` definition widened) + `HOME_AND_LIVING` + `FASHION_AND_BEAUTY`, both inserted before `OTHER`.
+
+## 9. Coordination note
+
+AD-42 (planning branch `claude/ecstatic-shannon-e8eh9h`, `[PROPOSED]`, not on master) says "the closed `EventCategory` (18 values) … stay as coarse facets" and lets interests name a parent category. Compatible; its "18" becomes 20 when both land. This decision took **AD-44** because AD-42 and AD-43 are taken on that branch.

@@ -2,7 +2,7 @@
 title: "Architecture Spine: FestDaily"
 status: "draft"
 created: "2026-07-20T09:34:00Z"
-updated: "2026-10-20T00:00:00Z"
+updated: "2026-10-23T00:00:00Z"
 ---
 
 # Architecture Spine: FestDaily
@@ -2448,6 +2448,81 @@ This document defines the core architectural invariants for the FestDaily applic
     5.  **Docs** — `docs/infrastructure/architecture-diagram.md` and `high-level-overview.md`
         (the API → scraper async-invoke edge and the sweep) in the same change as story 1
         (CLAUDE.md §4); the `project-context.md` rule added with this AD is updated by the same story.
+
+---
+
+### AD-44: EventCategory Is a Closed Subject Taxonomy With One Definitions Source
+
+*   **Binds:** `EventCategory` in `packages/shared-types/src/index.ts`; the GraphQL `EventCategory`
+    enum (`apps/backend/src/schema/events.graphql`) and its codegen output (web and backend); the
+    `next-intl` `EventCategory` namespace (`apps/web/locales/en.json`, `id.json`); the two prompts
+    that list categories to Gemini (`build-gemini-request.ts`, `build-filter-extraction-request.ts`);
+    `transformGeminiResponseToEventInfo` (unknown or empty falls back to `OTHER`); FilterHub's
+    category facet; the PRD `EventCategory` block. `events.categories` is `text[]`; the Postgres
+    `event_category` type is declared but used by no column. Interacts with AD-42 Rule 7 (interests
+    refine categories, `[PROPOSED]`).
+*   **Prevents:** Two units tagging the same post differently because the model saw only enum
+    *names* (today nothing sends it a definition). A second `OTHER` appearing under a vague name
+    ("lifestyle"). Two sibling categories claiming one subject (gadgets vs `TECHNOLOGY`), which
+    splits filter recall. A category named for a *form* (shopping, promo, market), which duplicates
+    `EventType` and overlaps every subject. A bare ambiguous noun ("tool": software tool, power tool
+    or machine tool). Removing a value later and breaking GraphQL serialization of stored rows.
+*   **Rule:**
+    1.  **A category is a subject domain, including that domain's product promotions.** The form of
+        an event (promotion, market, festival) is `EventType`'s job and is never a category. A
+        category must be a bounded subject a user would filter on; catch-all names (lifestyle,
+        general, misc) and bare ambiguous nouns are refused. Categories stay multi-valued; a post
+        may carry several.
+    2.  **Membership, `[ADOPTED, user-directed 2026-10-23]`:** `HOME_AND_LIVING` ("Home & Living" /
+        "Rumah & Hunian") and `FASHION_AND_BEAUTY` ("Fashion & Beauty" / "Fashion & Kecantikan") are
+        added before `OTHER`, taking the set from 18 to 20. `TECHNOLOGY` keeps its name and label;
+        only its definition widens to cover consumer gadgets and electronics. No gadget, lifestyle
+        or tool category exists.
+    3.  **One definitions source.** A single exported constant keyed by `EventCategory` (one
+        sentence per value, including its exclusions) lives beside the enum in `packages/shared-types`.
+        Both prompts render each allowed value as `NAME — definition` from it and from nowhere else.
+        A ratchet test fails if any `EventCategory` member has no non-empty entry, or if either prompt
+        builds its category list from anything but this constant.
+    4.  **Boundary rules the definitions must state:** consumer gadgets and electronics, gaming gear
+        and their promos → `TECHNOLOGY`; furniture, appliances, décor, interior, housewares, home
+        improvement and consumer DIY/hardware tools → `HOME_AND_LIVING`; industrial machinery and
+        trade shows, property and investment expos or seminars → `BUSINESS_AND_NETWORKING`
+        (property is investment-adjacent, `[ADOPTED, user-directed]`); car accessories and tools →
+        `AUTOMOTIVE`; plants as a pastime → `HOBBIES_AND_INTERESTS`, plants as décor →
+        `HOME_AND_LIVING`; a sale or festival spanning many unrelated products has no single subject
+        and is `OTHER` with type `PROMOTION` or `MARKET`, which is correct, not a gap.
+    5.  **Adding a value is one change across every source,** in the Story 0.34 pattern: shared-types,
+        GraphQL SDL, codegen, both locale files, the definitions constant, the PRD block, the
+        `ADD VALUE IF NOT EXISTS … BEFORE 'OTHER'` migration (kept for convention; the column is
+        `text[]`), and a seed fixture. The 0.34 consistency tests must fail if any is missed. A new
+        value needs evidence: a hand-read sample of `OTHER`-only events in production showing the
+        subject recurring across several accounts. Rule 2's two additions are adopted by the owner
+        ahead of that sample; the query is a pre-build sanity check, not a veto.
+    6.  **Removing or renaming a value is a data migration first:** rewrite the stored
+        `events.categories` (and `widgets.filters`, saved AI filters) before the GraphQL enum drops
+        the value; otherwise stored rows fail enum serialization. Nothing is removed by this AD.
+    7.  **No backfill.** Existing events keep their tags; events are short-lived and the facet fills as
+        new posts are extracted. Re-extraction is not run for a taxonomy change.
+    8.  **Finer subjects are not categories.** Tools, gadgets, property, plants and the like are
+        reached by keyword search today and by AD-42's interest tags (which may name a parent
+        category) if that is adopted. Revisit grouping the FilterHub chips if the set passes 24.
+*   **Alternatives considered:** a `GADGET_AND_LIFESTYLE` category (unbounded name; overlaps
+    `TECHNOLOGY`); a bare `TOOL` or `TOOLS_AND_HARDWARE` now (ambiguous, no demand evidence in the
+    seed data); `SHOPPING_AND_RETAIL` and `PROPERTY` categories (form, not subject; property sits with
+    investment); a two-level category tree (cost without a 24-value problem yet); relabeling
+    `TECHNOLOGY` to "Technology & Gadgets" (offered, declined by the owner).
+*   **Deferred:** `TOOLS_AND_HARDWARE` — split out of `HOME_AND_LIVING` if tool/hardware posts reach
+    roughly 2% of live events or three or more distinct accounts; `FINANCE_AND_INVESTMENT` — if
+    investment or property seminars outgrow `BUSINESS_AND_NETWORKING`; `SHOPPING_AND_RETAIL` — not
+    planned; the production evidence query and the 24-value grouping review. The "18 values" wording
+    in AD-42 Rule 7 (planning branch, not yet merged) becomes 20 when both land.
+*   **Follow-ups this AD creates (for `bmad-create-story` / `bmad-form-epics`):**
+    1.  **Taxonomy story** — Rule 2 members plus Rule 5's full ripple list, modelled on
+        `spec-religion-and-spirituality-category.md`.
+    2.  **Definitions-source story** — Rule 3's constant, both prompt changes and the ratchet test;
+        ship with or before story 1 so the new values are never offered to the model by name only.
+    3.  **Docs** — correct the "Postgres enum irreversibility" note in `deferred-work.md` (the type is
+        unused by any column); add the `project-context.md` rule (added with this AD).
 
 ---
 
