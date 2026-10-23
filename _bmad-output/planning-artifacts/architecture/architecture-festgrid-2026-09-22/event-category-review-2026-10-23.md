@@ -73,9 +73,9 @@ No further blocking findings. Remaining items are owner decisions (§4).
 
 | Action | Value | EN label | ID label | Definition (for glossary) |
 |--------|-------|----------|----------|---------------------------|
-| **ADD** | `HOME_AND_LIVING` | Home & Living | Rumah & Hunian | Furniture, appliances, décor, interior, housewares, home improvement and consumer DIY/hardware tools, home expos. Excludes property/real estate and industrial machinery. |
+| **ADD** | `HOME_AND_LIVING` | Home & Living | Rumah Tangga & Interior | Furniture, appliances, décor, interior, housewares, home improvement and consumer DIY/hardware tools, home expos. Excludes property/real estate and industrial machinery. |
 | **ADD** (F-C) | `FASHION_AND_BEAUTY` | Fashion & Beauty | Fashion & Gaya | Fashion shows/weeks, apparel & accessories sales, beauty/cosmetics launches and expos, grooming. |
-| **CLARIFY** (no enum change) | `TECHNOLOGY` | Technology & Gadgets | Teknologi & Gadget | Software/tech meetups, hackathons, conferences **and** consumer gadgets & electronics (phones, audio, laptops, gaming gear) incl. their promos. |
+| **CLARIFY** (no enum change; **label unchanged by owner decision** — see §7) | `TECHNOLOGY` | Technology | Teknologi | Software/tech meetups, hackathons, conferences **and** consumer gadgets & electronics (phones, audio, laptops, gaming gear) incl. their promos. |
 | **DEFER** | `TOOLS_AND_HARDWARE` | — | — | Split out of `HOME_AND_LIVING` only if the §5 trigger fires. |
 | **REJECT** | `LIFESTYLE`, bare `TOOL`, `GADGET_AND_LIFESTYLE` | — | — | Unbounded / ambiguous / overlapping (R1-1, R1-4, R1-2). |
 | **OPEN** | `SHOPPING_AND_RETAIL`, `PROPERTY` | — | — | Logged, not decided (F-D). |
@@ -91,7 +91,7 @@ GROUP BY 1 ORDER BY 2 DESC;
 
 -- OTHER-only events to sample by hand (~50): read eventName + source caption
 SELECT e.event_name, e.types, p.content
-FROM events e JOIN posts p ON p.id = e.primary_post_id
+FROM events e JOIN posts p ON p.id = e.post_id  -- events.postId is the PRIMARY-post pointer
 WHERE e.deleted_at IS NULL AND e.categories = ARRAY['OTHER']
 ORDER BY random() LIMIT 50;
 ```
@@ -129,3 +129,31 @@ AD-42 (planning branch `claude/ecstatic-shannon-e8eh9h`, `[PROPOSED]`, not on ma
 
 - **Fashion & Beauty for male users:** yes by design. Categories are audience-neutral (the system has no user-gender concept; AD-42 models gender only as event `tracks`/`eligibility`). The definition now names menswear, streetwear, sneakers, barbershop and grooming explicitly. Resolved 2026-10-23 (owner): Indonesian label is "Fashion & Gaya" ("Kecantikan" read as female-coded).
 - **Market/promo vs `BUSINESS_AND_NETWORKING`:** the name invites Gemini to tag any commercial event as business. AD-44 Rule 4 now limits it to a professional/trade audience; consumer bazaars, sales and promos take the subject of what is sold. Co-tagging is allowed only when a trade or business-matching purpose is stated. No repo data confirms the mis-tagging rate; the §5 query should also count `MARKET`/`PROMOTION` events carrying `BUSINESS_AND_NETWORKING`.
+
+## 11. Review cycle on AD-44 (2026-10-23): four independent reviewers, dispositions
+
+Reviews are in `reviews/`: `review-rubric-walker.md`, `review-reality-check.md`, `review-adversarial-pair.md`, `review-code-feasibility.md`. No critical finding survived verification as a defect in the *design*; several were defects in the AD's *wording* and are fixed. AD-44 was rewritten (10 Rules).
+
+| Finding (reviewer) | Disposition |
+|---|---|
+| Rule 4 contradicts itself on property / trade-vs-public fairs / tool roadshows (walker H4, adversarial C-1) | **Fixed.** Ordered decision procedure; property is the one named exception (Rule 5). |
+| Multi-label with no cap and a stale `OTHER` clause (adversarial C-2) | **Fixed, adjusted.** Cap 4 not 3 (the CC-024 festival has 4); `OTHER` exclusive; both enforced in the transform (Rule 2). |
+| Ratchet unbuildable / only checks non-empty / blind to prose (walker H5, adversarial C-3, code H3) | **Fixed.** Render-and-assert on built prompts, one shared renderer, bounded definitions, aliases, negative controls (Rule 4). |
+| "0.34 tests fail if any source is missed" is false (all four) | **Fixed.** Closed source register; new checks for codegen, locales (exact keys), seeds; hand-review list (Rule 6). |
+| Unknown value "falls back to OTHER" is false; Ajv drops the whole extraction (reality M1) — **verified by me** at `process-ai-job.ts:158-164` | **Fixed** (Rule 2). |
+| Removal failure mode mis-stated; store inventory incomplete (reality H2, adversarial M-6) | **Fixed.** Nulls the list not the row; widgets silently broaden; full store list (Rule 8). |
+| Deploy order / rollback undecided (walker H3) | **Fixed.** Accepted bounded window; rollback needs row cleanup (Rules 7, 8). |
+| pgEnum is dead; `drizzle-kit` emits plain `ADD VALUE` (reality M2) | **Decided: retire it** (`DROP TYPE IF EXISTS`, no cascade) rather than hand-edit a migration for a dead type (Rule 6). |
+| S1/S2 coupled; S1 is a live behaviour change (code H5) | **Fixed.** S1 names only the 18; S2 amends; interim effect accepted (Follow-ups). |
+| Four prose copies of definitions contradict the widened `TECHNOLOGY` (code H2) | **Fixed.** Comments become pointers (Rule 4). |
+| Tagging quality unmeasured; evidence rule unmeasurable; "2% or 3 accounts" fires instantly (walker H6, adversarial H-3) | **Fixed.** AND of 50 events / 3 accounts / 2%, post-cutoff window, structured log lines, golden corpus (Rules 6, 10; Deferred). |
+| Rule 7 "short-lived" contradicts Archive and re-extraction (walker, adversarial H-4) | **Fixed.** Premise dropped; sparse older facet accepted (Rule 7). |
+| Esports, batik, aesthetics, services expos, sports apparel silent (adversarial H-6) | **Fixed** in the boundary table; esports→HOBBIES is a default the owner may flip. |
+| "Rumah & Hunian" invites property expos into `HOME_AND_LIVING` (adversarial H-5) | **Fixed by me:** ID label is now "Rumah Tangga & Interior" (this label was my proposal, not the owner's). |
+| "Fashion & Gaya" drifts toward the rejected "lifestyle" (adversarial H-5) | **Kept — owner's explicit choice.** Risk recorded in Rule 3; the definition governs tagging. |
+| Property inside `BUSINESS_AND_NETWORKING` when it is a consumer sale (adversarial) | **Kept — owner-directed.** Earlier `FINANCE_AND_PROPERTY` split is a Deferred trigger. |
+| Prompt version stamp / token cost (walker M, code) | **Deferred.** Nothing pins prompt text; ~+0.5–1.0K tokens/call (estimate). |
+| Docs-side source register, 14-day deprecation clock, FilterHub empty-state hint, one-time reclassification, golden corpus as CI gate (adversarial) | **Rejected** as cost without measured need; the corpus runs live only manually/nightly. |
+| project-context states future state as current; record stale; wrong SQL column (reality M5–M7) | **Fixed.** Rule marked plan-only; record corrected. |
+
+Owner defaults to flip if wanted: cap 4 vs 3; esports → HOBBIES vs SPORTS; ID label for Home & Living.
