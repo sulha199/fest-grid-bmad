@@ -4,7 +4,7 @@ The locked set of fields the extraction task may populate on `EventFilterInput`.
 
 | Field | Shape | Source of truth | Existing or new | Degrade behavior if unparseable |
 |---|---|---|---|---|
-| `account` | account ID reference | Existing manual filter | Existing | Caveat if prompt names an account that doesn't match any subscribed/known account. |
+| `account` | account ID reference | Existing manual filter | Existing | Caveat if prompt names an account that doesn't match any subscribed/known account. An unresolved account directly under an `AND` is ignored (events from all accounts are shown); inside an `OR` or a `NOT` it matches no events, so the operator keeps its meaning. |
 | `type` | enum (`EventType`) | Existing manual filter | Existing | Caveat if prompt implies a type outside the enum. |
 | `category` | enum (`EventCategory`) | Existing manual filter | Existing | Caveat if prompt implies a category outside the enum. |
 | `keyword` | free text, partial match | Existing manual filter (event name/performers/location text) | Existing | N/A — keyword is itself the catch-all free-text match, not a closed vocabulary. |

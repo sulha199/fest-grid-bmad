@@ -32,7 +32,7 @@ sources: ['../../forge/ai-prompt-event-filter/forged-idea.md']
 
 - **CAP-5**
   - **intent:** The AI filter entry point adds zero permanent width to FilterHub, and an active AI filter replaces FilterHub's manual controls with one collapsed line rather than stacking alongside them.
-  - **success:** FilterHub shows only an icon-only trigger (no permanent label) when no AI filter is active, opening the prompt as an overlay; when an AI filter is active, FilterHub renders exactly one row — the live summary (CAP-4) plus clear/expand — never both the summary and the full manual control set at once; any manual FilterHub edit made after loading an AI filter changes only the session's query state and never mutates the saved filter entity.
+  - **success:** FilterHub shows only an icon-only trigger (no permanent label) when no AI filter is active, opening the prompt as an overlay; when an AI filter is active, FilterHub renders exactly one row — the live summary (CAP-4) plus clear/expand — never both the summary and the full manual control set at once; any manual FilterHub edit made after loading an AI filter changes only the session's query state and never mutates the saved filter entity. Expand exists only for a filter that manual controls can represent; the search box and the Today/Upcoming toggle remain live beside an active filter and are ANDed with it, not ignored.
 
 - **CAP-6**
   - **intent:** A prompt can combine locked-vocabulary fields with AND, OR and NOT, grouped to a bounded depth ("jazz or blues in Sleman or Bantul this weekend, not workshops"); a fragment that cannot be expressed is surfaced, not dropped, and does not discard the rest of the filter.

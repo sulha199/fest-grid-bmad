@@ -492,10 +492,19 @@ describe('FeedContent - Story 9.4a (AI filter expression wiring)', () => {
 
     const call = mockRequestSpy.mock.calls[mockRequestSpy.mock.calls.length - 1];
     const query = call[1]?.query;
+    // Epic 9 review P1: the OR stays a nested group beside the subscription scoping (ANDed), instead
+    // of the scoping being OR-ed in with the filter's alternatives.
+    expect(query.operator).toBe('and');
     expect(query.conditions).toEqual(
       expect.arrayContaining([
-        { field: 'types', operator: 'in', value: ['FESTIVAL'] },
-        { field: 'types', operator: 'in', value: ['PERFORMANCE'] },
+        { field: 'isFromSubscribedAccount', operator: 'eq', value: true },
+        {
+          operator: 'or',
+          conditions: [
+            { field: 'types', operator: 'in', value: ['FESTIVAL'] },
+            { field: 'types', operator: 'in', value: ['PERFORMANCE'] },
+          ],
+        },
       ])
     );
   });
