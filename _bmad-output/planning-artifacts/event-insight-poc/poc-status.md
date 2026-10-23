@@ -22,6 +22,8 @@ Last updated 2026-10-23. **Update this file at the end of every work session**, 
 
 ## What the owner does next
 
+Label in Excel: `local/label-sheet-owner-tuning-sample.xlsx` and `local/label-sheet-owner-heldout-subset.xlsx` have drop-downs (a `Guide` sheet has the rules). After saving, convert back before `check`/`compare`: `python scripts/poc-event-insight/sheet_xlsx.py to-csv local/<name>.xlsx local/<name>.csv` (needs `pip install openpyxl`; `to-xlsx` makes a sheet from a CSV). The CSV stays the file the tools read.
+
 1. Label `local/label-sheet-owner-tuning-sample.csv` (36 posts) **without looking at** `local/label-sheet-claude-tuning.csv`. Then `label-sheets.ts check`, and `compare --a local/label-sheet-owner-tuning-sample.csv --b local/label-sheet-claude-tuning.csv` to measure how far Claude's draft can be trusted (country agreement 95% or better = keep using it for tuning).
 2. Label `local/label-sheet-owner-heldout-subset.csv` (122 posts; the scored set). No pre-fill, no look at any model output.
 3. Second labeller (the owner's wife, if she agrees) labels the same 122 blind. Then `compare`, settle disagreements once, write `local/labels-final.csv`, run `label-sheets.ts freeze --sheet local/labels-final.csv`, **commit the printed hash** (`local/labels-frozen.sha256` holds it).
