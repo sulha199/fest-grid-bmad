@@ -750,3 +750,15 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: `_bmad-output/implementation-artifacts/epic-9-code-review-2026-10-23.md`
   summary: RESOLVED (product owner chose to apply the qualifier to the whole group; fixed in the transform, Story 9.4 amended). Leaf fields written on an OR node beside its `children` are joined to that OR as additional alternatives, so `{op:'OR', children:[jazz, blues], isFree:true}` becomes `OR(jazz, blues, isFree)`.
   evidence: Reproduced by Edge Case Hunter. It is Story 9.4's deliberate literal reading with a covering test, so it was not changed on a guess about the model's intent. (FIND-099)
+
+## Deferred from: code review of the BUG-074/BUG-075/IDEA-095 hotfix (2026-10-22)
+
+- source_spec: `_bmad-output/implementation-artifacts/backlog/BUG-074-bright-data-zero-record-runs-succeed-and-the-cursor-is-a-run-timestamp.md`
+  summary: Any zero-record Bright Data snapshot without `error_codes.dead_page` is classed a vendor failure (FAILED, job expired, profile re-queued), a rule measured on a handful of snapshots on one day and undocumented by Bright Data; a profile that reports a different code, or a private or restricted one, would fail and re-queue daily.
+  evidence: Surfaced by Blind Hunter. The fail-closed whitelist is the spec's own rule (BUG-074 section 5.3, "treat as provisional"); the cost of a wrong verdict is one Apify sync run per affected profile, behind the budget guard. Needs Bright Data's confirmation of the signature, and the stored class and evidence of IDEA-098 to audit drift.
+- source_spec: `_bmad-output/implementation-artifacts/backlog/BUG-074-bright-data-zero-record-runs-succeed-and-the-cursor-is-a-run-timestamp.md`
+  summary: Each vendor failure re-queues its profile to SQS at once and also leaves its job EXPIRED for the next batch, so a profile can be scraped twice (on Apify and again on the next batch), and nothing de-duplicates the queue message.
+  evidence: Surfaced by Blind Hunter and the architecture review. By design for the hotfix (IDEA-095: re-scrape the failed profile on the other provider) and bounded by the new-posts cursor and the Apify budget guard; the atomic-claim and shared-handler work of BUG-078 removes the double enqueue.
+- source_spec: `_bmad-output/implementation-artifacts/backlog/BUG-074-bright-data-zero-record-runs-succeed-and-the-cursor-is-a-run-timestamp.md`
+  summary: The stale-job sweep trusts `getBrightDataSnapshot` to return an array: a JSON object (for example a 202 "not ready" body) makes `output.items.length` undefined, classification is skipped, the run is stored SUCCEEDED with a null count, and `processBrightDataResult` throws on a non-iterable so the job stays PENDING and is retried hourly.
+  evidence: Surfaced by Edge Case Hunter. Pre-existing (the sweep never validated the body); the webhook path now guards with `Array.isArray`. Fix by validating in `getBrightDataSnapshot` and treating a non-array as "not ready".

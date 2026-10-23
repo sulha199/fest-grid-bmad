@@ -28,3 +28,19 @@ Same mechanism as BUG-074 on the other vendor. Found while reading how both scra
 * Classify an empty Apify result (`items.length = 0` on a `SUCCEEDED` run) as `empty`, not as a success that advances anything; the post-based cursor makes this harmless, and a day of empties raises the fleet alert (BUG-074 section 5).
 * Verify against the actor's input schema whether `onlyPostsNewerThan` is inclusive (a same-timestamp post), and add a small overlap if it is not.
 * Tests: a failed or empty run leaves the next `onlyPostsNewerThan` unchanged.
+
+## Fixed, 2026-10-22 (hotfix cut from `master`; commits `8f8e0455`, `dba05bcc`, `5f72e7da`, `5d3a8634`)
+
+Fixed together with BUG-074 by the one shared cursor; see that file's "Fixed" section for the verification and the
+review. Item by item against "Proposed fix":
+
+| Item | Result |
+|---|---|
+| One cursor helper shared with BUG-074: newest stored `posts.published_at`, as an exact timestamp for Apify, falling back to `newerThan` | **Done.** `getScrapeCursor('APIFY', ...)`; the run-timestamp lookup is gone from `trigger-apify-for-target.ts`. A post dated in the future is clamped to now. |
+| Filter any remaining run-based lookup to `SUCCEEDED` and `item_count > 0` | **Done by removal**: no run-based cursor lookup remains anywhere. |
+| Classify an empty Apify result as `empty` | **Implicit.** An Apify run stays `SUCCEEDED` with 0 items (there is no vendor signal to tell an empty account from a failure); health reads it as `empty`, and a whole sample of them degrades the provider (`ALL_EMPTY`). The webhook is unchanged. The class is not stored (IDEA-098). |
+| Verify whether `onlyPostsNewerThan` is inclusive; add a small overlap if not | **Not verified** (it needs a paid Apify call and the owner's confirmation). The cursor is the exact newest-post timestamp; a post published in the same second as the stored newest one could be missed. Verify on the next working Apify run before adding an overlap. |
+| Test: a failed or empty run leaves the next `onlyPostsNewerThan` unchanged | **Done**: `get-scrape-cursor.test.ts` and `trigger-apify-for-target.test.ts` (both fail against the old code). |
+
+Known limit, carried as a row: **BUG-076**. The Apify cursor is exact, so a mapper that stamps the scrape time on an undated item
+would move it to "now" (the Bright Data side has the same door).
