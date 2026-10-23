@@ -2431,3 +2431,13 @@ items:
      ref: [apps/backend/scripts/debug-brightdata.ts, apps/infrastructure/lib/festgrid-backend-stack.ts],
      touches: [app:backend, app:infrastructure],
      note: "Script is on the PR for the owner to run with their own token; the alarm (and an alarm on the scraping DLQ depth) is proposed in the PR description, not built."}
+
+  IDEA-100:
+    {type: idea, status: promoted, created: 2026-10-23,
+     title: "Add Home & Living and Fashion & Beauty event categories behind a single definitions source (Architecture Spine AD-44)",
+     ref: [planning-artifacts/festgrid-architecture-spine.md,
+           planning-artifacts/architecture/architecture-festgrid-2026-09-22/event-category-review-2026-10-23.md],
+     stories: [0-52-build-the-event-category-definitions-source-renderer-and-ratchet,
+               0-53-add-home-and-living-and-fashion-and-beauty-event-categories],
+     touches: [cross:ai-extraction, cross:i18n, pkg:shared-types, pkg:database, app:backend, web:events],
+     note: "AD-44 after a four-lens review. 0-52 ships first (definitions for the existing 18, one renderer, ratchet, cardinality, OTHER-share log lines); 0-53 adds the two values across the AD-44 source register and retires the unused event_category pgEnum. No epics.md section (Story 0.34 precedent)."}

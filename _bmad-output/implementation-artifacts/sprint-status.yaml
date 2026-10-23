@@ -362,6 +362,11 @@ development_status:
   # (2026-10-06): dedicated-test-DB idea rejected, scoped to fixing 4 leaking test files
   # + a permanent row-count ratchet instead. All three Story Split Gates run fresh.
   0-51-close-backend-test-row-leaks-and-add-a-permanent-row-count-ratchet: review
+  # Promotes IDEA-100 (Architecture Spine AD-44, 2026-10-23): EventCategory closed subject taxonomy.
+  # 0-52 ships first and names only the existing 18 values; 0-53 depends on it (not expressible in
+  # epics.md: standalone Epic 0 stories, Story 0.34 precedent).
+  0-52-build-the-event-category-definitions-source-renderer-and-ratchet: backlog
+  0-53-add-home-and-living-and-fashion-and-beauty-event-categories: backlog
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.
