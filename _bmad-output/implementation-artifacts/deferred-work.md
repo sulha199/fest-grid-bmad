@@ -723,3 +723,18 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: `_bmad-output/implementation-artifacts/spec-moderator-reextract-post-preview.md`
   summary: Post lookup by URL is exact equality, so a trailing slash, tracking query string or `/reel/` versus `/p/` variant of a stored post is treated as an unknown post (scraped again, no account signal) and bypasses the per-URL rescrape cooldown.
   evidence: Surfaced by Blind Hunter and Edge Case Hunter. Same behavior as the existing `extractEventDataFromUrl`; normalizing via the platform identity parser is the fix.
+
+## Deferred from: code review of epic-9 (2026-10-23)
+
+- source_spec: `_bmad-output/implementation-artifacts/epic-9-code-review-2026-10-23.md`
+  summary: The Home and Feed Calendar tabs (`CalendarView`, `FeedCalendarView`) take no AI filter or expression props, so the weekly calendar shows unfiltered events while the "AI filter active" row stays visible.
+  evidence: Surfaced by Blind Hunter and Acceptance Auditor (web). Pre-existing for flat AI filters; Epic 9 widens the gap because compound filters now exist. Wiring the compiled condition into the calendar fetch is a feature-sized change outside the review's patch scope.
+- source_spec: `_bmad-output/implementation-artifacts/epic-9-code-review-2026-10-23.md`
+  summary: The embed widget page `widget/[id]/page.tsx` assigns `const filters = widget.filters || {}` and never uses it, and has no `expression` handling, so an embedded widget ignores its saved filter.
+  evidence: Surfaced by Edge Case Hunter (backend). Verified by reading the page: `filters` has no other reference. Pre-existing stub behaviour; Epic 9 added `Widget.expression` but the embed was never wired to either field.
+- source_spec: `_bmad-output/implementation-artifacts/epic-9-code-review-2026-10-23.md`
+  summary: No caller passes `timezone` to `compileFilterNodeToQueryCondition` / `buildEventsQueryCondition` (resolvers, Home, Favorites, Feed), so "today", "next 7 days", "weekends" and "happening now" resolve against UTC; for WIB users this is wrong between 00:00 and 07:00.
+  evidence: Surfaced by Acceptance Auditor (domain) and Blind Hunter. Story 9.1b deliberately added only the optional parameter; FIND-083 is marked absorbed although the wiring is not done. Needs a decision on where the viewer timezone comes from.
+- source_spec: `_bmad-output/implementation-artifacts/epic-9-code-review-2026-10-23.md`
+  summary: Three small internal items: caveat strings in the domain layer are English-only; `NOT(dayOfWeek)` negates a window bounded to the 90-day lookahead; the nightly eval runs under `environment: production`.
+  evidence: Surfaced by Blind Hunter. Plan section 3.1 accepted "document, don't special-case" for NOT over time leaves; the caveat i18n gap is acknowledged in the 9.4 Dev Notes; the environment binding mirrors the peer workflows.
