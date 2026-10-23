@@ -101,6 +101,7 @@ export function pickPromptVariant(fixture: GoldenPromptFixture, fixtureIndex: nu
     }
   }
   // Unreachable: `uppercase` always applies, so some offset in the loop above always returns.
+  /* c8 ignore next */
   return undefined;
 }
 

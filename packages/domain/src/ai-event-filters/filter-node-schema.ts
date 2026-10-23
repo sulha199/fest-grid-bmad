@@ -141,14 +141,13 @@ export function stripNullNodeKeys(raw: unknown): unknown {
   return cleaned;
 }
 
-function describeLeafVocabularyOrShapeError(raw: Record<string, unknown>): string {
+/** `firstIssueMessage` is the first Zod issue of the failed `FilterLeafSchema.safeParse(raw)`. */
+function describeLeafVocabularyOrShapeError(raw: Record<string, unknown>, firstIssueMessage: string): string {
   const fieldValue = raw.field;
   if (typeof fieldValue !== 'string' || !(FILTER_LEAF_FIELDS as readonly string[]).includes(fieldValue)) {
     return `Leaf field ${JSON.stringify(fieldValue)} is outside the locked vocabulary (expected one of: ${FILTER_LEAF_FIELDS.join(', ')}).`;
   }
-  const result = FilterLeafSchema.safeParse(raw);
-  const firstIssue = result.success ? undefined : result.error.issues[0];
-  return `Leaf "${fieldValue}" has an invalid value${firstIssue ? `: ${firstIssue.message}` : '.'}`;
+  return `Leaf "${fieldValue}" has an invalid value: ${firstIssueMessage}`;
 }
 
 interface WalkOutcome {
@@ -206,7 +205,7 @@ function walkNode(raw: unknown, path: FilterValidationPath, issues: FilterValida
   if ('field' in raw) {
     const result = FilterLeafSchema.safeParse(raw);
     if (!result.success) {
-      issues.push({ path, reason: describeLeafVocabularyOrShapeError(raw) });
+      issues.push({ path, reason: describeLeafVocabularyOrShapeError(raw, result.error.issues[0].message) });
     }
     return { depth: 1, count: 1 };
   }

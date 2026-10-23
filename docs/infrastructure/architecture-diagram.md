@@ -101,7 +101,7 @@ graph TD
 | Notifications | Firebase Cloud Messaging (push); Amazon SES (email) | docs/infrastructure/4 and 6, backend lambdas |
 | Geolocation | Geoapify (geocoding with a Postgres cache; map tiles) | docs/infrastructure/5-geolocation.md |
 | Validation | AJV / JSON Schema (backend), Zod (client) | package.json |
-| Testing | Vitest, Playwright | package.json |
+| Testing | Vitest, Playwright; `node:test` with c8 for `packages/domain`, whose 100% coverage gate runs in CI | package.json, packages/domain/.c8rc.json |
 | IaC | AWS CDK (TypeScript) | apps/infrastructure |
 
 ## Known gaps between the sources
