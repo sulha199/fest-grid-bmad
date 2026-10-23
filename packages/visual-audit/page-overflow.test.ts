@@ -5,6 +5,7 @@ import {
   formatSelectorPath,
   isOverflowing,
   classifyPageHealth,
+  describeOverflow,
   shortenPath,
   culpritKey,
   rankOffenders,
@@ -166,5 +167,17 @@ test('classifyPageHealth', async (t) => {
   await t.test('Next error screen and blank body are both unhealthy', () => {
     assert.match(classifyPageHealth({ pageErrors: [], bodyText: 'Application error: a client-side exception has occurred' }) ?? '', /framework error/);
     assert.match(classifyPageHealth({ pageErrors: [], bodyText: '  \n ' }) ?? '', /no text content/);
+  });
+});
+
+test('describeOverflow', async (t) => {
+  await t.test('empty string for a healthy page so it can be used directly as an assertion message', () => {
+    assert.strictEqual(describeOverflow(buildPageOverflowResult({ scrollWidth: 375, clientWidth: 375, masked: false, candidates: [] })), '');
+  });
+  await t.test('names the overshoot and the root culprit, with the html > body scaffolding stripped', () => {
+    const result = buildPageOverflowResult({ scrollWidth: 513, clientWidth: 375, masked: false, candidates: [candidate('html > body > main > div.banner', 513)] });
+    const text = describeOverflow(result);
+    assert.match(text, /page is 138px wider than the viewport/);
+    assert.match(text, /culprit: main > div\.banner \(\+138px/);
   });
 });

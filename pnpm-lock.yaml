@@ -335,6 +335,9 @@ importers:
       '@festgrid/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
+      '@festgrid/visual-audit':
+        specifier: workspace:*
+        version: link:../../packages/visual-audit
       '@graphql-codegen/cli':
         specifier: ^5.0.2
         version: 5.0.7(@parcel/watcher@2.6.0)(@types/node@20.19.43)(graphql@16.14.2)(typescript@6.0.3)

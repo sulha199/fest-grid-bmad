@@ -8,10 +8,10 @@
  * found -- this is an audit, the permanent assertion lives in the e2e matrix spec.
  */
 
-import { chromium, type Browser, type Page } from '@playwright/test';
+import { chromium, type Browser } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import { detectPageOverflow, installEvaluateHelpers } from '../compare/page-overflow.js';
+import { detectPageOverflow, settleLayout } from '../compare/page-overflow.js';
 import { classifyPageHealth } from '../rules/page-overflow.js';
 import { classifyResult, renderAuditReport, type AuditRow } from '../rules/page-overflow-report.js';
 
@@ -19,7 +19,6 @@ const DEFAULT_WIDTHS = [320, 360, 375, 390, 412, 768, 1024, 1280, 1440];
 const VIEWPORT_HEIGHT = 900;
 const NAV_TIMEOUT_MS = 30_000;
 const SETTLE_TIMEOUT_MS = 8_000;
-const STABLE_MAX_MS = 6_000;
 
 /** Static routes under `apps/web/src/app/[locale]`. Dynamic ones are resolved from live links. */
 const STATIC_ROUTES = [
@@ -44,34 +43,6 @@ const STATIC_ROUTES = [
 function arg(name: string): string | undefined {
   const prefix = `--${name}=`;
   return process.argv.find((a) => a.startsWith(prefix))?.slice(prefix.length);
-}
-
-/**
- * Waits for layout to stop moving. Late client-side UI (the location banner appears ~1s after
- * hydration) would otherwise make results depend on when we happened to measure.
- */
-async function settle(page: Page): Promise<void> {
-  await page.waitForLoadState('networkidle', { timeout: SETTLE_TIMEOUT_MS }).catch(() => undefined);
-  await installEvaluateHelpers(page);
-  const stable = await page.evaluate(
-    ({ intervalMs, needed, maxMs }) =>
-      new Promise<boolean>((resolveStable) => {
-        const started = Date.now();
-        let last = '';
-        let same = 0;
-        const tick = () => {
-          const sig = `${document.documentElement.scrollWidth}x${document.documentElement.scrollHeight}x${document.body.getElementsByTagName('*').length}`;
-          same = sig === last ? same + 1 : 0;
-          last = sig;
-          if (same >= needed) return resolveStable(true);
-          if (Date.now() - started > maxMs) return resolveStable(false);
-          setTimeout(tick, intervalMs);
-        };
-        tick();
-      }),
-    { intervalMs: 150, needed: 5, maxMs: STABLE_MAX_MS }
-  );
-  if (!stable) console.warn(`  (layout still changing after ${STABLE_MAX_MS}ms at ${page.url()} -- measuring anyway)`);
 }
 
 /**
@@ -143,7 +114,7 @@ async function main(): Promise<void> {
         for (const width of widths) {
           try {
             await page.setViewportSize({ width, height: VIEWPORT_HEIGHT });
-            await settle(page);
+            await settleLayout(page);
             const unhealthy = classifyPageHealth({ pageErrors, bodyText: await page.locator('body').innerText() });
             if (unhealthy) {
               rows.push({ route, viewportWidth: width, status: 'error', error: unhealthy });

@@ -51,6 +51,7 @@
     "@festgrid/eslint-config": "workspace:*",
     "@festgrid/testing-config": "workspace:^",
     "@festgrid/typescript-config": "workspace:*",
+    "@festgrid/visual-audit": "workspace:*",
     "@graphql-codegen/cli": "^5.0.2",
     "@graphql-codegen/typescript": "^4.0.9",
     "@graphql-codegen/typescript-operations": "^6.1.2",

@@ -126,3 +126,34 @@ export async function detectPageOverflow(page: Page): Promise<PageOverflowResult
   }));
   return buildPageOverflowResult({ scrollWidth: raw.scrollWidth, clientWidth: raw.clientWidth, masked: raw.masked, candidates });
 }
+
+const NETWORK_IDLE_TIMEOUT_MS = 8_000;
+const STABLE_MAX_MS = 6_000;
+
+/**
+ * Waits for layout to stop moving. Late client-side UI (the location banner appears ~1s after
+ * hydration) would otherwise make results depend on when we happened to measure. Resolves `false`
+ * (and the caller measures anyway) if the layout never settles within the cap.
+ */
+export async function settleLayout(page: Page): Promise<boolean> {
+  await page.waitForLoadState('networkidle', { timeout: NETWORK_IDLE_TIMEOUT_MS }).catch(() => undefined);
+  await installEvaluateHelpers(page);
+  return page.evaluate(
+    ({ intervalMs, needed, maxMs }) =>
+      new Promise<boolean>((resolveStable) => {
+        const started = Date.now();
+        let last = '';
+        let same = 0;
+        const tick = () => {
+          const sig = `${document.documentElement.scrollWidth}x${document.documentElement.scrollHeight}x${document.body.getElementsByTagName('*').length}`;
+          same = sig === last ? same + 1 : 0;
+          last = sig;
+          if (same >= needed) return resolveStable(true);
+          if (Date.now() - started > maxMs) return resolveStable(false);
+          setTimeout(tick, intervalMs);
+        };
+        tick();
+      }),
+    { intervalMs: 150, needed: 5, maxMs: STABLE_MAX_MS }
+  );
+}

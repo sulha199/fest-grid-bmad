@@ -54,7 +54,7 @@ export { checkPlacementOrder, type PlacementOrderCheckResult } from './rules/pla
 
 export { enumerateContentVariants, type ContentVariant } from './content-variants.js';
 
-export { detectPageOverflow, installEvaluateHelpers } from './compare/page-overflow.js';
+export { detectPageOverflow, installEvaluateHelpers, settleLayout } from './compare/page-overflow.js';
 
 export {
   formatSelectorPath,
@@ -62,6 +62,7 @@ export {
   buildPageOverflowResult,
   isOverflowing,
   classifyPageHealth,
+  describeOverflow,
   shortenPath,
   culpritKey,
   OVERFLOW_EPSILON_PX,

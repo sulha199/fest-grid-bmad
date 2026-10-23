@@ -139,3 +139,16 @@ export function shortenPath(path: string): string {
 export function culpritKey(path: string): string {
   return shortenPath(path).replace(/:nth-of-type\(\d+\)/g, '');
 }
+
+const MAX_REPORTED_ROOTS = 3;
+
+/** One-line-per-culprit explanation for an assertion message; empty string when the page is fine. */
+export function describeOverflow(result: PageOverflowResult): string {
+  if (!isOverflowing(result)) return '';
+  const head = result.masked && result.overflowPx === 0
+    ? 'overflow is hidden by `overflow-x` on html/body'
+    : `page is ${result.overflowPx}px wider than the viewport (scrollWidth ${result.scrollWidth} vs clientWidth ${result.clientWidth})`;
+  const roots = result.offenders.filter((o) => o.isRoot).slice(0, MAX_REPORTED_ROOTS);
+  if (roots.length === 0) return head;
+  return [head, ...roots.map((o) => `  culprit: ${shortenPath(o.path)} (+${o.overflowPx}px, width ${Math.round(o.width)}px)`)].join('\n');
+}

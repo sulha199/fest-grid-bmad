@@ -8,6 +8,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./page-overflow": {
+      "types": "./src/page-overflow-entry.ts",
+      "default": "./src/page-overflow-entry.ts"
     }
   },
   "scripts": {
