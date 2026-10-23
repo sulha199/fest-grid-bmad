@@ -27,6 +27,8 @@ export interface AIFilterOverlayProps {
   resolvedSummary?: string | null;
   resolvedCaveats?: string | null;
   onSave?: () => void;
+  /** False when the resolved filter has nothing to save (an extraction that produced no condition). */
+  canSave?: boolean;
   isSaving?: boolean;
   saveSuccess?: boolean;
   saveError?: string | null;
@@ -45,6 +47,7 @@ export function AIFilterOverlay({
   resolvedSummary,
   resolvedCaveats,
   onSave,
+  canSave = true,
   isSaving = false,
   saveSuccess = false,
   saveError,
@@ -237,21 +240,23 @@ export function AIFilterOverlay({
                   {labels.rePrompt || 'Try another prompt'}
                 </Button>
                 
-                <Button
-                  type="button"
-                  variant={saveSuccess ? 'secondary' : 'outline'}
-                  onClick={onSave}
-                  disabled={isLoading || isSaving || saveSuccess}
-                  className="w-full sm:w-auto px-6 h-11 font-semibold flex items-center justify-center gap-2"
-                >
-                  {isSaving ? (
-                    <span>{labels.saving || 'Saving...'}</span>
-                  ) : saveSuccess ? (
-                    <span>{labels.saveSuccess || 'Saved!'}</span>
-                  ) : (
-                    <span>{labels.saveFilter || 'Save this filter'}</span>
-                  )}
-                </Button>
+                {canSave && (
+                  <Button
+                    type="button"
+                    variant={saveSuccess ? 'secondary' : 'outline'}
+                    onClick={onSave}
+                    disabled={isLoading || isSaving || saveSuccess}
+                    className="w-full sm:w-auto px-6 h-11 font-semibold flex items-center justify-center gap-2"
+                  >
+                    {isSaving ? (
+                      <span>{labels.saving || 'Saving...'}</span>
+                    ) : saveSuccess ? (
+                      <span>{labels.saveSuccess || 'Saved!'}</span>
+                    ) : (
+                      <span>{labels.saveFilter || 'Save this filter'}</span>
+                    )}
+                  </Button>
+                )}
 
                 <Button
                   type="button"

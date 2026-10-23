@@ -85,4 +85,23 @@ describe('mapFilterLeaves (AC3)', () => {
     assert.deepEqual(twice, once);
     assert.deepEqual(once, node);
   });
+
+  it('voids a NOT when a leaf was dropped anywhere beneath it, rather than negating only what survived (Epic 9 review)', () => {
+    const node: FilterNode = { op: 'NOT', child: { op: 'AND', children: [leafA, leafB] } };
+    const result = mapFilterLeaves(node, (leaf) => (leaf.field === 'venueType' ? undefined : leaf));
+    assert.equal(result, undefined);
+  });
+
+  it('tells mapLeaf whether the leaf sits under an OR or a NOT', () => {
+    const seen: Record<string, boolean> = {};
+    const node: FilterNode = {
+      op: 'AND',
+      children: [leafA, { op: 'OR', children: [leafB] }, { op: 'NOT', child: leafC }],
+    };
+    mapFilterLeaves(node, (leaf, context) => {
+      seen[leaf.field] = context.insideOrOrNot;
+      return leaf;
+    });
+    assert.deepEqual(seen, { keyword: false, venueType: true, isFree: true });
+  });
 });

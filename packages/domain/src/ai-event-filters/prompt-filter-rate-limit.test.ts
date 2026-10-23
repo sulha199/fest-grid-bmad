@@ -68,3 +68,14 @@ test('prompt-filter-rate-limit - evaluatePromptFilterRateLimit: boundary where n
   assert.equal(decision.allowed, true);
   assert.deepStrictEqual(decision.nextState, { requestCount: 1, windowStartAt: now.toISOString() });
 });
+
+test('Epic 9 review P12: a limit of 0 allows nothing, not even the first request of a window', () => {
+  const decision = evaluatePromptFilterRateLimit(null, 0, 10, new Date('2026-10-23T00:00:00Z'));
+  assert.strictEqual(decision.allowed, false);
+});
+
+test('Epic 9 review P12: a window of 0 minutes does not disable the limit', () => {
+  const now = new Date('2026-10-23T00:00:00Z');
+  const decision = evaluatePromptFilterRateLimit({ requestCount: 5, windowStartAt: now.toISOString() }, 5, 0, now);
+  assert.strictEqual(decision.allowed, false);
+});

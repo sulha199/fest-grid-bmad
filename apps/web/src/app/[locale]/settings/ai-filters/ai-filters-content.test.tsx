@@ -175,6 +175,63 @@ describe('AiFiltersContent', () => {
     expect(mockRouterPush).toHaveBeenCalledWith(`/?ai_filter=${expectedParam}&ai_expression=${expectedExpressionParam}`);
   });
 
+  // Epic 9 review P6: GraphQL returns EVERY declared FilterNode key, absent ones as explicit null.
+  // The page used to hand that straight to the renderer and crashed for any user with a saved filter.
+  describe('GraphQL null-padded rows (the real wire shape)', () => {
+    const pad = (node: any): any =>
+      node.op === 'AND' || node.op === 'OR'
+        ? { op: node.op, field: null, value: null, children: node.children.map(pad), child: null }
+        : { op: null, field: node.field, value: node.value, children: null, child: null };
+
+    function useDefaultsPadded(rows: any[]) {
+      server.use(
+        graphql.query('getMyAIEventFilters', () =>
+          HttpResponse.json({
+            data: {
+              myAIEventFilters: rows.map((row) => ({
+                ...row,
+                // A padded flat projection too: unset EventFilter fields arrive as null.
+                resolvedFilter: row.resolvedFilter && Object.keys(row.resolvedFilter).length > 0
+                  ? { accountId: null, types: null, categories: null, keyword: null, ...row.resolvedFilter }
+                  : null,
+                expression: pad(row.expression),
+              })),
+            },
+          })
+        )
+      );
+    }
+
+    it('renders both a flat and a compound saved filter without crashing', async () => {
+      mockSession = { user: { id: 'user-1' } };
+      useDefaultsPadded(mockFilters);
+      renderWithProviders(<AiFiltersContent />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/free rock concerts/i)).toBeInTheDocument();
+      });
+      expect(screen.getByText(/events in sleman or bantul/i)).toBeInTheDocument();
+      expect(screen.getByText(/in Sleman or in Bantul/i)).toBeInTheDocument();
+    });
+
+    it('opens a compound saved filter with a compact null-free expression and an {} ai_filter marker, never "null"', async () => {
+      mockSession = { user: { id: 'user-1' } };
+      useDefaultsPadded(mockFilters);
+      renderWithProviders(<AiFiltersContent />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/events in sleman or bantul/i)).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText(/events in sleman or bantul/i).closest('.cursor-pointer')!);
+
+      expect(mockRouterPush).toHaveBeenCalledTimes(1);
+      const url = mockRouterPush.mock.calls[0][0] as string;
+      expect(url).toContain(`ai_filter=${encodeURIComponent('{}')}`);
+      expect(url).not.toContain('null');
+      expect(url).toContain(`ai_expression=${encodeURIComponent(JSON.stringify(mockFilters[1].expression))}`);
+    });
+  });
+
   it('triggers soft delete immediately and RESTORE on Undo', async () => {
     mockSession = { user: { id: 'user-1' } };
     renderWithProviders(<AiFiltersContent />);

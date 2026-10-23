@@ -8,11 +8,31 @@ import {
   DATE_OFFSET_AMOUNT_BOUNDS,
 } from '../events/buildEventsQueryCondition.js';
 
-export function transformGeminiResponseToEventFilter(payload: unknown): EventFilterInput {
+const MAX_RADIUS_METERS = 1_000_000;
+
+/**
+ * `onDropped` (Epic 9 review P9) receives one plain-English sentence per fragment of the model's
+ * answer that had to be discarded as unusable, so the caller can surface it as a caveat instead of
+ * silently returning a wider filter than the user asked for (SPEC CAP-2). The returned filter is
+ * identical with or without it.
+ */
+/** A numeric value as the model wrote it: a number as-is, a numeric string parsed WHOLE (`parseInt`
+ * would turn "2.7" into 2 and "3 days" into 3 without anyone noticing), anything else NaN. */
+function toNumber(value: unknown): number {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string' && value.trim() !== '') return Number(value);
+  return Number.NaN;
+}
+
+export function transformGeminiResponseToEventFilter(
+  payload: unknown,
+  onDropped?: (message: string) => void
+): EventFilterInput {
   if (!payload || typeof payload !== 'object') {
     return {};
   }
   const source = payload as Record<string, unknown>;
+  const dropped = (message: string): void => onDropped?.(message);
 
   const result: EventFilterInput = {};
 
@@ -26,6 +46,9 @@ export function transformGeminiResponseToEventFilter(payload: unknown): EventFil
     const validTypes = source.types.filter((t: unknown): t is EventType =>
       Object.values(EventType).includes(t as EventType)
     );
+    if (validTypes.length < source.types.length) {
+      dropped('Some event types in your prompt are not supported and were ignored.');
+    }
     if (validTypes.length > 0) {
       result.types = validTypes;
     }
@@ -36,6 +59,9 @@ export function transformGeminiResponseToEventFilter(payload: unknown): EventFil
     const validCategories = source.categories.filter((c: unknown): c is EventCategory =>
       Object.values(EventCategory).includes(c as EventCategory)
     );
+    if (validCategories.length < source.categories.length) {
+      dropped('Some event categories in your prompt are not supported and were ignored.');
+    }
     if (validCategories.length > 0) {
       result.categories = validCategories;
     }
@@ -55,15 +81,21 @@ export function transformGeminiResponseToEventFilter(payload: unknown): EventFil
     const anchor = Object.values(DateAnchor).includes(dr.anchor as DateAnchor)
       ? (dr.anchor as DateAnchor)
       : undefined;
-    const offsetUnit = Object.values(DateOffsetUnit).includes(dr.offsetUnit as DateOffsetUnit)
+    let offsetUnit = Object.values(DateOffsetUnit).includes(dr.offsetUnit as DateOffsetUnit)
       ? (dr.offsetUnit as DateOffsetUnit)
       : undefined;
-    const offsetAmount = typeof dr.offsetAmount === 'number' ? dr.offsetAmount : parseInt(String(dr.offsetAmount), 10);
+    let offsetAmount = toNumber(dr.offsetAmount);
+    if (anchor && dr.offsetAmount == null && dr.offsetUnit == null) {
+      // The response schema does not require the offset, so a bare `{ anchor: "THIS_WEEK" }` is a
+      // legitimate answer meaning "the anchor window itself" -- not a reason to drop the whole date.
+      offsetAmount = 0;
+      offsetUnit = DateOffsetUnit.DAY;
+    }
 
     if (
       anchor &&
       offsetUnit &&
-      !isNaN(offsetAmount) &&
+      Number.isInteger(offsetAmount) &&
       Math.abs(offsetAmount) <= DATE_OFFSET_AMOUNT_BOUNDS[offsetUnit]
     ) {
       const dateRange: NonNullable<EventFilterInput['dateRange']> = { anchor, offsetAmount, offsetUnit };
@@ -74,7 +106,7 @@ export function transformGeminiResponseToEventFilter(payload: unknown): EventFil
       const spanUnit = Object.values(DateOffsetUnit).includes(dr.spanUnit as DateOffsetUnit)
         ? (dr.spanUnit as DateOffsetUnit)
         : undefined;
-      const spanAmount = typeof dr.spanAmount === 'number' ? dr.spanAmount : parseInt(String(dr.spanAmount), 10);
+      const spanAmount = toNumber(dr.spanAmount);
       if (
         spanUnit &&
         !isNaN(spanAmount) &&
@@ -84,9 +116,13 @@ export function transformGeminiResponseToEventFilter(payload: unknown): EventFil
       ) {
         dateRange.spanAmount = spanAmount;
         dateRange.spanUnit = spanUnit;
+      } else if (dr.spanAmount != null || dr.spanUnit != null) {
+        dropped('The date span in your prompt was out of range and was ignored.');
       }
 
       result.dateRange = dateRange;
+    } else {
+      dropped('The date range in your prompt could not be understood or is out of range, so it was ignored.');
     }
   }
 
@@ -98,12 +134,17 @@ export function transformGeminiResponseToEventFilter(payload: unknown): EventFil
     const dow = source.dayOfWeek.toUpperCase() as DayOfWeek;
     if (Object.values(DayOfWeek).includes(dow)) {
       result.dayOfWeek = dow;
+    } else {
+      dropped('The weekday in your prompt was not recognised and was ignored.');
     }
   } else if (Array.isArray(source.dayOfWeek)) {
     const validDows = source.dayOfWeek
       .filter((d): d is string => typeof d === 'string')
       .map((d) => d.toUpperCase() as DayOfWeek)
       .filter((d) => Object.values(DayOfWeek).includes(d));
+    if (validDows.length < source.dayOfWeek.length) {
+      dropped('Some weekdays in your prompt were not recognised and were ignored.');
+    }
     if (validDows.length === 1) {
       result.dayOfWeek = validDows[0];
     } else if (validDows.length > 1) {
@@ -117,6 +158,8 @@ export function transformGeminiResponseToEventFilter(payload: unknown): EventFil
     const tf = source.temporalFilter.toUpperCase() as TemporalFilter;
     if (Object.values(TemporalFilter).includes(tf)) {
       result.temporalFilter = tf;
+    } else {
+      dropped('The "happening now / upcoming" setting in your prompt was not recognised and was ignored.');
     }
   }
 
@@ -133,23 +176,28 @@ export function transformGeminiResponseToEventFilter(payload: unknown): EventFil
       const coords = loc.coordinates as Record<string, unknown>;
       const lat = typeof coords.lat === 'number' ? coords.lat : parseFloat(String(coords.lat));
       const lng = typeof coords.lng === 'number' ? coords.lng : parseFloat(String(coords.lng));
-      if (!isNaN(lat) && !isNaN(lng)) {
+      if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
         locationObj.coordinates = { lat, lng };
+      } else {
+        dropped('The coordinates in your prompt were invalid and were ignored.');
       }
     }
 
-    if (typeof loc.radiusMeters === 'number') {
-      locationObj.radiusMeters = loc.radiusMeters;
-    } else if (typeof loc.radiusMeters === 'string') {
-      const rad = parseInt(loc.radiusMeters, 10);
-      if (!isNaN(rad)) {
+    // A radius only means something when it is a positive, finite distance; anything else (0, a
+    // negative, NaN) is dropped so the default radius applies rather than a leaf the schema rejects.
+    if (loc.radiusMeters != null) {
+      const rad = typeof loc.radiusMeters === 'number' ? loc.radiusMeters : parseInt(String(loc.radiusMeters), 10);
+      if (Number.isFinite(rad) && rad > 0 && rad <= MAX_RADIUS_METERS) {
         locationObj.radiusMeters = rad;
+      } else {
+        dropped('The search radius in your prompt was invalid and was ignored.');
       }
     }
 
     // Mutual exclusivity: prioritize coordinates over adminArea
     if (locationObj.coordinates && locationObj.adminArea) {
       delete locationObj.adminArea;
+      dropped('Both an area name and coordinates were given; only the coordinates are used.');
     }
 
     if (Object.keys(locationObj).length > 0) {
@@ -167,6 +215,8 @@ export function transformGeminiResponseToEventFilter(payload: unknown): EventFil
     result.isFree = source.isFree;
   } else if (source.isFree === 'true' || source.isFree === 'false') {
     result.isFree = source.isFree === 'true';
+  } else if (source.isFree != null) {
+    dropped('The free/paid setting in your prompt was not understood and was ignored.');
   }
 
   return result;

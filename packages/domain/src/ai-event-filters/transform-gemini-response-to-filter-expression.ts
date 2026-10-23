@@ -1,5 +1,5 @@
 import { isFilterGroupNode, isFilterNotNode, type FilterGroupNode, type FilterNode } from './filter-node.js';
-import { validateFilterNode } from './filter-node-schema.js';
+import { repairToValidTree, type RepairKind } from './sanitize-filter-node.js';
 import { normalize } from './normalize-filter-node.js';
 import { expressionFromFlatFilter } from './flat-filter-conversion.js';
 import { transformGeminiResponseToEventFilter } from './transform-gemini-response-to-event-filter.js';
@@ -28,100 +28,119 @@ function isEmptyExpression(node: FilterNode): boolean {
   return isFilterGroupNode(node) && node.op === 'AND' && node.children.length === 0;
 }
 
+const DOUBLE_NEGATION_CAVEAT = 'A double negation in your prompt was simplified; the surrounding condition was dropped.';
+const TOO_COMPLEX_CAVEAT = 'Your prompt described more conditions than the filter supports, so some were dropped.';
+const INVALID_FRAGMENT_CAVEAT =
+  'Part of your prompt could not be turned into a valid filter condition, so it was ignored.';
+const WEEKDAY_WINDOW_CAVEAT =
+  'The weekdays in your prompt cover too long a period to apply, so they were ignored and the whole date range is shown.';
+const UNKNOWN_OPERATOR_CAVEAT = 'An unrecognised operator in your prompt was ignored.';
+
+function pushCaveat(caveats: string[], message: string): void {
+  if (!caveats.includes(message)) {
+    caveats.push(message);
+  }
+}
+
 /**
  * Leaf conditions carried directly on a raw object, via the existing (already-tested,
  * already-defensive) flat transform -- zero new per-field parsing. `expressionFromFlatFilter`
  * always returns its documented `{ op: 'AND', children }` shape (never a bare leaf); its return
  * type is the broader `FilterNode` union only because that's the shared return type every function
- * in this module uses.
+ * in this module uses. Anything the flat transform has to discard is reported as a caveat.
  */
-function leafChildrenOf(raw: Record<string, unknown>): FilterNode[] {
-  const flat = transformGeminiResponseToEventFilter(raw);
+function leafChildrenOf(raw: Record<string, unknown>, caveats: string[]): FilterNode[] {
+  const flat = transformGeminiResponseToEventFilter(raw, (message) => pushCaveat(caveats, message));
   return (expressionFromFlatFilter(flat) as FilterGroupNode).children;
+}
+
+/** The node's operator, case-insensitively; `undefined` for a leaf-shaped node. An operator string
+ * that is not AND/OR/NOT is reported and the node is then read as leaf-shaped. */
+function operatorOf(raw: Record<string, unknown>, caveats: string[]): 'AND' | 'OR' | 'NOT' | undefined {
+  if (typeof raw.op !== 'string' || raw.op.trim() === '') {
+    return undefined;
+  }
+  const op = raw.op.trim().toUpperCase();
+  if (op === 'AND' || op === 'OR' || op === 'NOT') {
+    return op;
+  }
+  pushCaveat(caveats, UNKNOWN_OPERATOR_CAVEAT);
+  return undefined;
 }
 
 /**
  * Converts one raw JSON value from Gemini's tree-shaped response into zero, one, or several
  * sibling `FilterNode`s (Story 9.4 AC2). Never returns a nested wrapper for a leaf position -- a
- * leaf-shaped raw object with 2+ populated fields expands into multiple sibling leaves spliced
- * directly into the caller's own children list (Dev Notes decision 3), never an extra group level.
+ * leaf-shaped raw object with 2+ populated fields expands into multiple sibling leaves, which the
+ * caller joins with its own operator: spliced into an `AND` (same meaning), but wrapped in an
+ * `AND` under an `OR`, where the fields of one object must stay together ("workshops in Sleman OR
+ * concerts in Bantul" is two ANDs, not four alternatives -- Epic 9 review P4).
  */
 function convertRawNode(raw: unknown, pushedCaveats: string[]): FilterNode[] {
   if (!isPlainObject(raw)) {
     return [];
   }
 
-  if (raw.op === 'AND' || raw.op === 'OR') {
+  const op = operatorOf(raw, pushedCaveats);
+
+  if (op === 'AND' || op === 'OR') {
     const rawChildren = Array.isArray(raw.children) ? raw.children : [];
     // The response schema gives every level BOTH the group keys and all leaf fields, so Gemini
     // can emit leaf fields directly on a group node (e.g. `{ op: "AND", categories: [...],
     // location: {...} }` with no `children`). Those conditions are real -- keep them as extra
     // children of THAT group, joined by its own operator (literal reading: the model put them on
     // this node), instead of silently dropping them (SPEC CAP-2: surfaced, never dropped).
-    const children = [
-      ...rawChildren.flatMap((child) => convertRawNode(child, pushedCaveats)),
-      ...leafChildrenOf(raw),
-    ];
+    const branches = rawChildren.flatMap((child) => {
+      const converted = convertRawNode(child, pushedCaveats);
+      return op === 'OR' && converted.length > 1 ? [{ op: 'AND' as const, children: converted }] : converted;
+    });
+    const ownFields = leafChildrenOf(raw, pushedCaveats);
+    if (op === 'OR' && branches.length > 0 && ownFields.length > 0) {
+      // "free jazz or blues": a qualifier written on the OR node beside its branches applies to the
+      // whole group (decided with the product owner, Epic 9 re-review D4). Read as one more
+      // alternative, `isFree` would match every free event -- silently far wider than asked.
+      return [{ op: 'AND', children: [{ op: 'OR', children: branches }, ...ownFields] }];
+    }
+    const children = [...branches, ...ownFields];
     if (children.length === 0) {
       return [];
     }
-    return [{ op: raw.op, children }];
+    return [{ op, children }];
   }
 
-  if (raw.op === 'NOT') {
-    const results = convertRawNode(raw.child, pushedCaveats);
+  if (op === 'NOT') {
+    // The schema gives every level both `child` and `children`; accept a model that put its single
+    // operand in `children` rather than silently dropping the negation.
+    const operand =
+      raw.child != null
+        ? raw.child
+        : Array.isArray(raw.children) && raw.children.length === 1
+          ? raw.children[0]
+          : undefined;
+    // Leaf fields written directly on the NOT node sit beside the negation, not inside it.
+    const siblings = leafChildrenOf(raw, pushedCaveats);
+    const results = convertRawNode(operand, pushedCaveats);
     if (results.length === 0) {
-      return [];
+      // The negation itself is lost (no operand, or one that converts to nothing): say so, or the
+      // user silently gets the positive, wider result.
+      pushCaveat(pushedCaveats, INVALID_FRAGMENT_CAVEAT);
+      return siblings;
     }
     const child: FilterNode = results.length === 1 ? results[0] : { op: 'AND', children: results };
     if (isFilterNotNode(child)) {
       // Structurally impossible from the schema's own shape (Task 4's bounded schema never emits
       // a `NOT` at a leaf position's immediate child) -- checked anyway since Gemini output is
       // untrusted (AC2).
-      pushedCaveats.push('A double negation in your prompt was simplified; the surrounding condition was dropped.');
-      return [];
+      pushCaveat(pushedCaveats, DOUBLE_NEGATION_CAVEAT);
+      return siblings;
     }
-    return [{ op: 'NOT', child }];
+    return [{ op: 'NOT', child }, ...siblings];
   }
 
   // Leaf-shaped (no recognized `op`): reuse the existing, already-tested, already-defensive flat
   // transform + flat-to-expression conversion verbatim (Dev Notes decision 2) -- zero new
   // per-field parsing/validation logic.
-  return leafChildrenOf(raw);
-}
-
-/** Finds the `AND`/`OR` group node (anywhere in the tree, including nested) with the most
- * immediate children -- the trim target when the assembled tree exceeds `FILTER_NODE_MAX_NODES`. */
-function findWidestGroupNode(node: FilterNode): FilterGroupNode | undefined {
-  let best: FilterGroupNode | undefined;
-  function visit(current: FilterNode): void {
-    if (isFilterGroupNode(current)) {
-      if (!best || current.children.length > best.children.length) {
-        best = current;
-      }
-      current.children.forEach(visit);
-    } else if (isFilterNotNode(current)) {
-      visit(current.child);
-    }
-  }
-  visit(node);
-  return best;
-}
-
-/** Rebuilds `node`, replacing `target` (found by object identity) with a copy of itself minus its
- * last child. `target` is always a node actually present in `node`'s own tree (found via
- * `findWidestGroupNode` against this same tree), so identity comparison is safe here. */
-function trimNodeByIdentity(node: FilterNode, target: FilterGroupNode): FilterNode {
-  if ((node as FilterNode) === (target as FilterNode)) {
-    return { op: target.op, children: target.children.slice(0, -1) };
-  }
-  if (isFilterGroupNode(node)) {
-    return { op: node.op, children: node.children.map((child) => trimNodeByIdentity(child, target)) };
-  }
-  if (isFilterNotNode(node)) {
-    return { op: 'NOT', child: trimNodeByIdentity(node.child, target) };
-  }
-  return node;
+  return leafChildrenOf(raw, pushedCaveats);
 }
 
 /**
@@ -145,7 +164,11 @@ export function transformGeminiResponseToFilterExpression(payload: unknown): Gem
   } else if (isPlainObject(payload) && 'resolvedFilter' in payload) {
     // Known-flat legacy shape (AC2's "v1 flat response still accepted") -- reuses the existing
     // flat pipeline directly, skipping `convertRawNode` entirely.
-    root = normalize(expressionFromFlatFilter(transformGeminiResponseToEventFilter(payload.resolvedFilter)));
+    root = normalize(
+      expressionFromFlatFilter(
+        transformGeminiResponseToEventFilter(payload.resolvedFilter, (message) => pushCaveat(pushedCaveats, message))
+      )
+    );
   } else if (isPlainObject(payload)) {
     // Neither `expression` nor `resolvedFilter`: the model answered with the flat v1 shape at the
     // top level (leaf fields + `caveats` side by side). Treat the payload itself as the node --
@@ -158,62 +181,20 @@ export function transformGeminiResponseToFilterExpression(payload: unknown): Gem
     root = { op: 'AND', children: [] };
   }
 
-  let current = root;
-  let validation = isEmptyExpression(current) ? ({ valid: true, node: current } as const) : validateFilterNode(current);
-
-  if (!validation.valid) {
-    const hasDepthIssue = validation.issues.some((issue) => /depth/i.test(issue.reason));
-    if (hasDepthIssue) {
-      // Depth cannot be violated by construction (the schema/splicing design in convertRawNode
-      // above) -- a depth issue here indicates a real bug in this function's own code, not
-      // untrusted-input shape, and is deliberately left to propagate (AC2) rather than swallowed.
-      throw new Error(
-        `transformGeminiResponseToFilterExpression produced an invalid tree depth, which should be structurally impossible: ${validation.issues
-          .map((issue) => issue.reason)
-          .join('; ')}`
-      );
-    }
-
-    let trimmedCaveatPushed = false;
-    while (!validation.valid) {
-      const hasDoubleNotIssue = validation.issues.some((issue) => /double not/i.test(issue.reason));
-      if (hasDoubleNotIssue) {
-        // `normalize()`'s single-child group collapse can expose a double-NOT that was not
-        // immediately adjacent in the raw input (e.g. a `NOT` wrapping a single-child `OR`
-        // wrapping a `NOT` -- the `OR` disappears on normalize, leaving the two `NOT`s directly
-        // adjacent). This issue can only ever be reported at the tree's own root: `NOT(NOT(leaf))`
-        // is already depth 3 (the maximum), so a double-NOT nested one level deeper inside an
-        // enclosing group/`NOT` would push the whole tree to depth 4+ and trip the depth guard
-        // above first. A root-level double-NOT's only child is itself the (now-dangling) `NOT`
-        // being negated away, so dropping it -- the same "drop the whole outer NOT" mechanism
-        // `convertRawNode` applies at construction time -- always empties the tree entirely,
-        // which is always immediately valid (see `isEmptyExpression`), so this branch of the loop
-        // never runs a second time -- no "already pushed" guard needed, unlike the node-count
-        // trim below.
-        current = { op: 'AND', children: [] };
-        pushedCaveats.push('A double negation in your prompt was simplified; the surrounding condition was dropped.');
-        validation = { valid: true, node: current };
-        continue;
-      }
-
-      // Depth and double-NOT issues are both handled above (the depth guard throws; the
-      // double-NOT guard `continue`s), so the only issue `validation` can still report here is a
-      // node-count violation -- which, given `FILTER_NODE_MAX_NODES` (12) and a max depth of 3,
-      // can only occur when some `AND`/`OR` group holds 2+ children (a leaf/`NOT`-only chain
-      // tops out at node count 3). `findWidestGroupNode` is therefore guaranteed to find one.
-      const widest = findWidestGroupNode(current) as FilterGroupNode;
-      current = normalize(trimNodeByIdentity(current, widest));
-      if (!trimmedCaveatPushed) {
-        pushedCaveats.push('Your prompt described more conditions than the filter supports, so some were dropped.');
-        trimmedCaveatPushed = true;
-      }
-      validation = validateFilterNode(current);
-    }
-  }
+  const repairCaveats: Record<RepairKind, string> = {
+    invalid: INVALID_FRAGMENT_CAVEAT,
+    'double-not': DOUBLE_NEGATION_CAVEAT,
+    'too-complex': TOO_COMPLEX_CAVEAT,
+    'weekday-window': WEEKDAY_WINDOW_CAVEAT,
+  };
+  const current = repairToValidTree(root, (kind) => pushCaveat(pushedCaveats, repairCaveats[kind]));
 
   const modelCaveats =
     isPlainObject(payload) && Array.isArray(payload.caveats)
-      ? payload.caveats.filter((caveat): caveat is string => typeof caveat === 'string')
+      ? payload.caveats
+          .filter((caveat): caveat is string => typeof caveat === 'string')
+          .map((caveat) => caveat.trim())
+          .filter((caveat) => caveat !== '')
       : [];
 
   // An empty filter that nobody explained is indistinguishable from "nothing happened" -- surface

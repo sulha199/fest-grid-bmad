@@ -1,12 +1,12 @@
 /*
  * Opt-in live-Gemini drift eval for the golden-prompt fixture suite (Story 9.7 AC2).
  *
- * NOT part of `pnpm --filter @festgrid/backend test`, `dev-story`'s verification, or PR CI --
+ * NOT part of `pnpm --filter backend test`, `dev-story`'s verification, or PR CI --
  * this script makes real, billable calls to the live Gemini API and is a strict no-op unless
  * explicitly opted into via RUN_LIVE_GEMINI_EVAL=true. Invoked by
  * .github/workflows/ai-filter-golden-prompt-nightly-eval.yml (schedule + workflow_dispatch) or
  * manually: `RUN_LIVE_GEMINI_EVAL=true GEMINI_NIGHTLY_EVAL_API_KEY=... BACKEND_PORT=4001
- * pnpm --filter @festgrid/backend exec tsx scripts/run-golden-prompt-live-eval.ts`.
+ * pnpm --filter backend exec tsx scripts/run-golden-prompt-live-eval.ts`.
  *
  * Deliberately bypasses the full callGemini()/BYOK key-selection orchestration
  * (apps/backend/src/lib/ai-gateway/adapter.ts) -- this script has no authenticated user and no

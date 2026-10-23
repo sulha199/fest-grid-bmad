@@ -84,6 +84,12 @@ export function FilterHub({
 }: FilterHubProps) {
   const [isSummaryExpanded, setIsSummaryExpanded] = React.useState(false);
 
+  // A new summary starts collapsed: the expanded state belongs to the summary the user opened,
+  // not to every long summary that follows it (Epic 9 review P19).
+  React.useEffect(() => {
+    setIsSummaryExpanded(false);
+  }, [aiFilterSummary]);
+
   // Hooks stay above the AI-summary early return so their order is identical on every render.
   const [selectedTypes, setSelectedTypes] = useQueryState(
     'types',
@@ -132,15 +138,17 @@ export function FilterHub({
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onAIExpand}
-            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 text-xs font-semibold h-8"
-          >
-            {aiExpandLabel || labels.aiExpandLabel || 'Edit / Expand'}
-          </Button>
+          {onAIExpand && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onAIExpand}
+              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 text-xs font-semibold h-8"
+            >
+              {aiExpandLabel || labels.aiExpandLabel || 'Edit / Expand'}
+            </Button>
+          )}
           <Button
             type="button"
             variant="ghost"

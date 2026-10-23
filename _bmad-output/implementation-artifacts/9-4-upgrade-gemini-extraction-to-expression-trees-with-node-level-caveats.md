@@ -324,3 +324,12 @@ Claude Sonnet 5 (claude-sonnet-5), via `bmad-dev-story`.
 
 - 2026-10-15 — Created via `bmad-create-story`, citing `epic-9-readiness.md` for Gate 1/3 and running Gate 2 fresh (Freya persona via `runSubagent`), which found a real gap (frontend query-building wiring) split into new Story 9.4a (`epics.md` + `sprint-status.yaml` updated in the same pass). Builds on Stories 9.1a/9.1b/9.2/9.3 (status: review).
 - 2026-10-15 — Implemented via `bmad-dev-story`: all 11 tasks complete, all ACs satisfied and verified. Pre-Coding Approval Gate ticked per this session's Epic 9 batch dispatch instruction (approved as scoped: two new domain functions, two new backend helpers, one resolver rewrite, one additive GraphQL field, codegen regeneration; zero `apps/web`/`packages/ui` hand-written files; zero DB migration). Status: review.
+
+## Epic 9 code-review amendments (2026-10-23)
+
+The Epic 9 code review (`implementation-artifacts/epic-9-code-review-2026-10-23.md`) changed behaviour this story's text still describes. Read the code and this note, not the superseded wording below.
+
+- **Unresolved `@account` (supersedes AC3 and Task 3 for OR/NOT):** directly under an AND it is still dropped with "events from all accounts are shown" (once per distinct handle). Inside an OR or NOT it is treated as matching no events and folded through the operators: `OR(@x, a)` is `a`, `NOT(@x)` is every event (no filter), `AND(@x, ...)` matches nothing. The caveat reads "...so it was treated as matching no events" (D3). `mapFilterLeaves` therefore takes a `context` argument.
+- **The transform never throws and never loops:** out-of-vocabulary leaves, out-of-bound dates and invalid fragments degrade node by node and each is reported as a caveat (supersedes the "silently dropped" and "rethrow a depth issue" wording); a NOT whose operand is lost is reported too (P2, P3, P9).
+- **Qualifier on an OR node (D4, decided with the product owner):** leaf fields written on an OR node beside its `children` apply to the whole group: `{op:'OR', children:[jazz, blues], isFree:true}` is `AND(OR(jazz, blues), isFree)`. This supersedes the earlier literal reading (the fields as extra OR alternatives). An OR with node-level fields and no branches still treats them as alternatives; an AND node is unchanged.
+- **Repairs never reach inside a NOT:** a trim or a weekday-window repair that would change what is negated drops the whole NOT instead.

@@ -351,3 +351,10 @@ The dev-story session ended while waiting on a background test run (which died w
 - Known accepted tradeoff (Dev Notes decision 2): the counter is a read-then-write, not a single atomic upsert, so two simultaneous requests from one user can both pass at the exact limit boundary.
 - Two existing test files (`rehost-post-image.test.ts`, `upload-face-blur-thumbnail.test.ts`) gained the two new `BackendEnv` fields in their env fixtures; that is a required knock-on of the new config fields.
 - No network or live Gemini call was made at any point.
+
+## Epic 9 code-review amendments (2026-10-23)
+
+The Epic 9 code review (`implementation-artifacts/epic-9-code-review-2026-10-23.md`) changed behaviour this story's text still describes. Read the code and this note, not the superseded wording below.
+
+- **Supersedes AC2's `parseNonNegativeInt` and the plain read-then-write (Task 4, decision 2 and the "known accepted tradeoff" note):** both env knobs are whole numbers >= 1 (`0` and typos like `1e3` are rejected at load), and the store is an optimistic compare-and-swap: a lost round only means another request advanced the counter, so the loop re-reads (up to `max + 2` rounds) and only the decision denies. The number allowed in a window can never exceed the maximum, and a user under the limit is not denied by contention (P12).
+- The check-before-key-lookup order is unchanged.

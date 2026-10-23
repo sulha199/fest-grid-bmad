@@ -69,6 +69,26 @@ describe('AIFilterOverlay', () => {
     expect(screen.getByText('Invalid natural language query')).toBeInTheDocument();
   });
 
+  it('Epic 9 review P16: offers no Save button when the resolved filter has nothing to save', () => {
+    render(
+      <AIFilterOverlay
+        isOpen={true}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        labels={{ ...defaultLabels, saveFilter: 'Save Filter', rePrompt: 'Try Another Prompt' }}
+        resolvedSummary="All events"
+        canSave={false}
+        onSave={vi.fn()}
+        onApply={vi.fn()}
+        onRePrompt={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: 'Save Filter' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try Another Prompt' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Apply Filter' })).toBeInTheDocument();
+  });
+
   it('renders resolved summary, and triggers save, apply, re-prompt', () => {
     const onSave = vi.fn();
     const onApply = vi.fn();

@@ -116,7 +116,9 @@ content = content.replace(/export type LocationFilterInput = \{\r?\n\s+adminArea
 // Replace duplicate FilterNodeInput (Story 9.3: recursive input type re-declared by the
 // operations-plugin for each operation that references it -- same dedup pattern as the other
 // shared input types above).
-content = content.replace(/export type FilterNodeInput = \{\r?\n\s+child\?\:[\s\S]*?\};\r?\n/g, '');
+// Matches both the multi-line generated declaration AND the one-line declaration this script
+// prepends below, so re-running the script on an already-patched file stays at exactly one copy.
+content = content.replace(/export type FilterNodeInput = \{[\s\S]*?\};\r?\n/g, '');
 content = "export type FilterNodeInput = { child?: InputMaybe<FilterNodeInput>; children?: InputMaybe<Array<FilterNodeInput>>; field?: InputMaybe<Scalars['String']['input']>; op?: InputMaybe<Scalars['String']['input']>; value?: InputMaybe<Scalars['JSON']['input']>; };\n" + content;
 
 fs.writeFileSync(file, content);

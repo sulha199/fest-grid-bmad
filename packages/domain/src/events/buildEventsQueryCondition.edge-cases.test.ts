@@ -1,6 +1,8 @@
 import { describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  buildSearchCondition,
+  estimateWeekdayDateTerms,
   buildKeywordCondition,
   buildLocationCondition,
   buildTemporalCondition,
@@ -70,5 +72,41 @@ describe('buildLocationCondition', () => {
       operator: 'withinRadius',
       value: { latitude: 1, longitude: 2, radiusKm: 10 },
     });
+  });
+});
+
+describe('buildSearchCondition', () => {
+  it('is a hashtag match for #tag, an OR of name/performers/location for text, and nothing otherwise', () => {
+    assert.deepEqual(buildSearchCondition(' #Jazz '), { field: 'hashtags', operator: 'in', value: ['jazz'] });
+    assert.equal(buildSearchCondition('#'), undefined);
+    assert.equal(buildSearchCondition('  #  '), undefined);
+    assert.equal(buildSearchCondition('   '), undefined);
+    assert.equal(buildSearchCondition(undefined), undefined);
+    assert.deepEqual(buildSearchCondition('jazz'), {
+      operator: 'or',
+      conditions: [
+        { field: 'eventName', operator: 'contains', value: 'jazz' },
+        { field: 'performers', operator: 'contains', value: 'jazz' },
+        { field: 'location', operator: 'contains', value: 'jazz' },
+      ],
+    });
+  });
+});
+
+describe('estimateWeekdayDateTerms', () => {
+  it('uses the weekday-only lookahead window when there is no date range', () => {
+    assert.equal(estimateWeekdayDateTerms(null, 2), Math.ceil(90 / 7) * 2);
+  });
+
+  it('adds the span to the anchor window, and treats an unknown anchor or unit as a whole month', () => {
+    assert.equal(estimateWeekdayDateTerms({ anchor: 'TODAY', spanAmount: 2, spanUnit: 'WEEK' }, 1), Math.ceil((1 + 14) / 7));
+    assert.equal(
+      estimateWeekdayDateTerms({ anchor: 'SOMEDAY' as never, spanAmount: 1, spanUnit: 'FORTNIGHT' as never }, 1),
+      Math.ceil((31 + 31) / 7)
+    );
+  });
+
+  it('ignores a half-specified span', () => {
+    assert.equal(estimateWeekdayDateTerms({ anchor: 'THIS_WEEK', spanAmount: 3, spanUnit: null }, 1), 1);
   });
 });

@@ -7,6 +7,12 @@ export default mergeConfig(
   defineConfig({
     plugins: [react()],
     test: {
+      // jsdom component tests (the weekly calendar paging ones render 20-25 events several times)
+      // take ~1 s locally but run 5-7x slower on a shared CI runner, where Turbo executes the other
+      // packages' suites at the same time. At vitest's 5 s default they timed out under that load
+      // (CI run 39899274665 and 39943272909) even though they are synchronous and pass. A realistic
+      // budget keeps every test running while a CPU-starved runner no longer turns slow into failed.
+      testTimeout: 20_000,
       // FIND-062: isEventEnded's shared ended-cases.ts fixture (packages/domain) is deliberately
       // asserted with timezone: undefined (see format-event-date.ts's zonedTimeToUtc -- "no
       // explicit timezone to target" falls back to the RUNNING PROCESS's own local system

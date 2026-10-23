@@ -345,3 +345,11 @@ Claude Sonnet 5 (claude-sonnet-5), via `bmad-dev-story`.
 ## Change Log
 
 - 2026-10-15 — Implemented via `bmad-dev-story`: all 12 tasks complete, all ACs satisfied and verified (`pnpm --filter @festgrid/domain test`/`lint`/`build`, `pnpm --filter web codegen`/`test`/`lint`/`build`, all green). Pre-Coding Approval Gate ticked per this session's Epic 9 batch dispatch instruction (approved as scoped: one additive `packages/domain` parameter + tests, `use-ai-filter` hook extension, client `.graphql` selection additions, the three page-level content files, settings-page URL param; no new components/schema/migration). Status: review.
+
+## Epic 9 code-review amendments (2026-10-23)
+
+The Epic 9 code review (`implementation-artifacts/epic-9-code-review-2026-10-23.md`) changed behaviour this story's text still describes. Read the code and this note, not the superseded wording below.
+
+- **Search and the Today/Upcoming toggle are merged (supersedes AC2, decisions 2 and 3, and the Task 5/6/8 snippets):** `buildEventsQueryCondition({ expression, search, temporalFilter })` ANDs the search box and the page-level toggle onto the compiled expression, as SPEC CAP-5 requires (P13, D2). Home, Favorites and Feed pass them.
+- **One query path:** `useAIFilter().activeExpression` is also the equivalent expression of a flat `ai_filter` (`expressionFromFlatFilter`), so the flat branches in the pages are only a fallback and the toggle no longer replaces a filter's own `temporalFilter`.
+- **Feed/account scoping:** the base scope is spliced only into an `and` root; any other root is nested (`and[base..., filter]`), so an OR/NOT expression can no longer leak or invert results (P1).

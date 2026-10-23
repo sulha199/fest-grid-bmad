@@ -372,6 +372,59 @@ describe('FilterHub', () => {
     expect(screen.getByText(longSummary)).toHaveClass('truncate');
   });
 
+  it('Epic 9 review P19: a new summary starts collapsed even after the previous long one was expanded', () => {
+    const first = 'Jazz or blues events in Sleman or Bantul this weekend, excluding workshops and meetups';
+    const second = 'Rock or metal concerts in Yogyakarta this month, excluding anything at a stadium venue';
+    const baseProps = {
+      labels: { ...defaultLabels, aiSummaryShowMoreLabel: 'Show more', aiSummaryShowLessLabel: 'Show less' },
+      types: mockTypes,
+      categories: mockCategories,
+      isAuthenticated: false,
+      isLoadingLocations: false,
+      savedLocations: [],
+      selectedValue: 'off',
+      radiusKm: 5,
+      isCapturingCurrentLocation: false,
+      currentLocationError: null,
+      onSelectLocation: vi.fn(),
+      onRadiusChange: vi.fn(),
+      onAIClear: vi.fn(),
+      onAIExpand: vi.fn(),
+    };
+    const { rerender } = render(<FilterHub {...baseProps} aiFilterSummary={first} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Show more' }));
+    expect(screen.getByRole('button', { name: 'Show less' })).toBeInTheDocument();
+
+    rerender(<FilterHub {...baseProps} aiFilterSummary={second} />);
+
+    expect(screen.getByRole('button', { name: 'Show more' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText(second)).toHaveClass('truncate');
+  });
+
+  it('Epic 9 review D2: renders no Edit / Expand button when the filter cannot be expanded', () => {
+    render(
+      <FilterHub
+        labels={defaultLabels}
+        types={mockTypes}
+        categories={mockCategories}
+        isAuthenticated={false}
+        isLoadingLocations={false}
+        savedLocations={[]}
+        selectedValue="off"
+        radiusKm={5}
+        isCapturingCurrentLocation={false}
+        currentLocationError={null}
+        onSelectLocation={vi.fn()}
+        onRadiusChange={vi.fn()}
+        aiFilterSummary="Festivals or concerts"
+        onAIClear={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: 'Edit / Expand' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Clear' })).toBeInTheDocument();
+  });
+
   it('keeps aiCaveatsText visible and unchanged across the Show more/Show less toggle', () => {
     const longSummary =
       'Jazz or blues events in Sleman or Bantul this weekend, excluding workshops and meetups';

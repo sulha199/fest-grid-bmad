@@ -8,6 +8,7 @@ import { isGroupCondition } from '../query/queryDsl.js';
 import {
   buildEventsQueryCondition,
   buildDateRangeAndDayOfWeekCondition,
+  type EventFilterInput,
   resolveZonedToday,
   DayOfWeek,
   TemporalFilter,
@@ -226,4 +227,22 @@ describe('compileFilterNodeToQueryCondition: normalization-before-compile', () =
     const flatResult = compileFilterNodeToQueryCondition(flat, { currentDate: MOCK_DATE });
     assert.deepEqual(nestedResult, flatResult);
   });
+});
+
+describe('compileFilterNodeToQueryCondition: single-leaf group parity (Epic 9 review P1)', () => {
+  const cases: Array<[string, EventFilterInput]> = [
+    ['keyword', { keyword: 'jazz' }],
+    ['temporalFilter', { temporalFilter: 'TODAY' }],
+    ['single weekday', { dayOfWeek: 'FRI' }],
+    ['multi weekday', { dayOfWeek: ['SAT', 'SUN'] }],
+  ];
+  for (const [name, flat] of cases) {
+    it(`a flat ${name} filter and its AND[leaf] expression compile to the same wrapped condition`, () => {
+      const flatCondition = buildEventsQueryCondition({ filter: flat, currentDate: MOCK_DATE });
+      const expressionCondition = compileFilterNodeToQueryCondition(expressionFromFlatFilter(flat), {
+        currentDate: MOCK_DATE,
+      });
+      assert.deepEqual(expressionCondition, flatCondition);
+    });
+  }
 });

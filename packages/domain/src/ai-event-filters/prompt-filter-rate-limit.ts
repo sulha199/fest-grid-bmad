@@ -24,7 +24,9 @@ export interface PromptFilterRateLimitDecision {
 
 export function isRateLimitWindowElapsed(windowStartAt: string, windowMinutes: number, now: Date): boolean {
   const startMs = new Date(windowStartAt).getTime();
-  const windowMs = windowMinutes * 60 * 1000;
+  // A window shorter than a minute would be "always elapsed", i.e. no limit at all (Epic 9 review
+  // P12) -- the configuration layer rejects it, and this clamps it for any other caller.
+  const windowMs = Math.max(1, windowMinutes) * 60 * 1000;
   return now.getTime() - startMs >= windowMs;
 }
 
@@ -34,6 +36,10 @@ export function evaluatePromptFilterRateLimit(
   windowMinutes: number,
   now: Date
 ): PromptFilterRateLimitDecision {
+  if (maxRequests < 1) {
+    // "Allow nothing" must mean nothing, including the first request of a fresh window.
+    return { allowed: false, nextState: state ?? { requestCount: 0, windowStartAt: now.toISOString() } };
+  }
   if (state === null || isRateLimitWindowElapsed(state.windowStartAt, windowMinutes, now)) {
     return { allowed: true, nextState: { requestCount: 1, windowStartAt: now.toISOString() } };
   }

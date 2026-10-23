@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { EventType } from '@festgrid/shared-types';
 import { DayOfWeek, type EventFilterInput } from '../events/buildEventsQueryCondition.js';
 import { EVENT_FILTER_FIXTURES } from '../events/buildEventsQueryCondition.test.js';
 import { expressionFromFlatFilter, flatFilterFromExpression } from './flat-filter-conversion.js';
@@ -83,5 +84,35 @@ describe('expressionFromFlatFilter / flatFilterFromExpression (AC3)', () => {
       ],
     };
     assert.throws(() => flatFilterFromExpression(node), /only supports a flat AND-of-leaves expression/);
+  });
+});
+
+describe('flatFilterFromExpression: lossy ANDs are not flat-representable (Epic 9 review P10)', () => {
+  it('rejects an AND that repeats a field instead of keeping only the last value', () => {
+    assert.throws(
+      () =>
+        flatFilterFromExpression({
+          op: 'AND',
+          children: [
+            { field: 'type', value: [EventType.FESTIVAL] },
+            { field: 'type', value: [EventType.WORKSHOP] },
+          ],
+        }),
+      /repeated "type"/
+    );
+  });
+
+  it('rejects an AND of an admin area and a proximity leaf', () => {
+    assert.throws(
+      () =>
+        flatFilterFromExpression({
+          op: 'AND',
+          children: [
+            { field: 'locationAdminArea', value: 'Sleman' },
+            { field: 'locationProximity', value: { coordinates: { lat: -7.7, lng: 110.3 } } },
+          ],
+        }),
+      /locationAdminArea and a locationProximity/
+    );
   });
 });

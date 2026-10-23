@@ -29,6 +29,10 @@ export interface AIFilterSummaryLabels {
   keywordTemplate?: string;
   anchors?: Record<string, string>;
   units?: Record<string, string>;
+  /** Singular unit words for an amount of exactly 1 ("1 week", not "1 weeks"); falls back to `units`. */
+  unitsSingular?: Record<string, string>;
+  /** Wording for TODAY + a 1-month span, which really runs to the end of the current month. */
+  restOfMonth?: string;
   dateRangeTemplate?: string;
   daysOfWeek?: Record<string, string>;
   adminAreaPrefix?: string;

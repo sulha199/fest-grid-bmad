@@ -355,7 +355,32 @@ test('buildDrizzleWhere', async (t) => {
     assert.ok(res !== undefined);
     const dialect = new PgDialect();
     const query = dialect.sqlToQuery(res!);
-    assert.match(query.sql, /NOT \(/);
+    assert.match(query.sql, /NOT COALESCE\(/);
+  });
+
+  await t.test("'not' group negates every child together, not just the first (Epic 9 review P1)", () => {
+    const condition: QueryCondition = {
+      operator: 'not',
+      conditions: [
+        { field: 'name', operator: 'eq', value: 'Fest' },
+        { field: 'types', operator: 'in', value: ['MUSIC'] },
+      ],
+    };
+    const res = buildDrizzleWhere(condition, fieldMap);
+    assert.ok(res !== undefined);
+    const query = new PgDialect().sqlToQuery(res!);
+    assert.match(query.sql, /NOT COALESCE\(\(.*"name".*and.*"types"/is);
+    assert.deepStrictEqual(query.params.slice(0, 2), ['Fest', 'MUSIC']);
+  });
+
+  await t.test("'not' group is null-inclusive: a NULL child result negates to TRUE (Epic 9 review P11)", () => {
+    const condition: QueryCondition = {
+      operator: 'not',
+      conditions: [{ field: 'name', operator: 'contains', value: 'jazz' }],
+    };
+    const res = buildDrizzleWhere(condition, fieldMap);
+    const query = new PgDialect().sqlToQuery(res!);
+    assert.match(query.sql, /NOT COALESCE\(.*, false\)/is);
   });
 
   await t.test("'not' group with zero compiled children returns undefined", () => {

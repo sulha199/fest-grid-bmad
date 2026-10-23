@@ -14,10 +14,17 @@ on:
     - cron: '17 19 * * *' # nightly, off-peak UTC
   workflow_dispatch: {}
 
+# The job only reads the repository (checkout) and uses the Actions cache; it needs no other scope.
+permissions:
+  contents: read
+
 jobs:
   golden-prompt-live-eval:
     name: Golden-Prompt Live Gemini Eval (nightly)
     runs-on: ubuntu-latest
+    # A full run is ~5 minutes of paced calls (see GOLDEN_EVAL_MIN_INTERVAL_MS); a hung Gemini call
+    # must not hold the runner for the default six hours.
+    timeout-minutes: 30
     environment: production
     steps:
       - name: Checkout Repository

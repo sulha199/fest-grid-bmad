@@ -284,3 +284,11 @@ Claude Sonnet 5 (claude-sonnet-5), via the `bmad-dev-story` workflow.
 - `packages/graphql-select/drizzle-where.ts` (UPDATED — Task 4: `'not'` group arm, null-inclusive `ne`/`notIn`; removed now-unused `ne` import)
 - `packages/graphql-select/drizzle-where.test.ts` (UPDATED — Task 8: new `'not'`/`ne`/`notIn` SQL-shape assertions)
 - `apps/backend/src/explain-events-queries.ts` (UPDATED — Task 5: two new AC4 scenarios + new imports)
+
+## Epic 9 code-review amendments (2026-10-23)
+
+The Epic 9 code review (`implementation-artifacts/epic-9-code-review-2026-10-23.md`) changed behaviour this story's text still describes. Read the code and this note, not the superseded wording below.
+
+- **NOT and NULL (supersedes decision 3 and the plain `NOT (...)` in AC1):** the `not` arm is `NOT COALESCE((child), false)`, so a NULL result (e.g. `withinRadius` over an event with no coordinates) negates to TRUE and NOT keeps events with no value, as SPEC CAP-6 says (P11).
+- **Re-wrapping:** the guard that re-wraps a top-level AND/OR compiled to a bare leaf now tests the *normalized* node, so `AND[keyword]` compiles to the same `and[or[...]]` shape as the flat form (P1).
+- **Weekday expansion:** a `dateRange` x `dayOfWeek` pair that selects more than `MAX_WEEKDAY_DATE_TERMS` (150) dates throws from the builder as a backstop; validation refuses it earlier (P17).
