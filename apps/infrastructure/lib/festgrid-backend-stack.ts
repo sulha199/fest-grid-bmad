@@ -408,6 +408,12 @@ export class FestgridBackendStack extends cdk.Stack {
       handler: 'handler',
       ...sharedLambdaProps,
       timeout: cdk.Duration.seconds(300),
+      // 2026-10-23: the 128 MB default showed Max Memory Used at 124-128 MB on every invocation, and
+      // two poll-and-drain invocations ran the full 300s. Lambda CPU scales with memory (128 MB is
+      // ~7% of a vCPU), and this Lambda does TLS, JSON and Drizzle work per scraped post. 512 MB is
+      // 4x the observed ceiling and ~29% of a vCPU: headroom without paying for the 2048 MB the AI
+      // Lambda needs. Bill is per GB-second, so a 4x bump is 4x per second of runtime.
+      memorySize: 512,
       environment: {
         STAGE: stageName,
         BACKEND_PORT: '4000',
@@ -427,6 +433,12 @@ export class FestgridBackendStack extends cdk.Stack {
         // cron cycle still catches up on everything posted since the last successful run,
         // instead of silently truncating to the newest N and losing older posts in between.
         SCRAPE_RESULTS_LIMIT: process.env.SCRAPE_RESULTS_LIMIT || '30',
+        // Vendor triggers in flight at once in the daily batch: Apify caps the account's concurrent
+        // memory and refused 31 of 35 simultaneous triggers on 2026-10-23.
+        SCRAPE_TRIGGER_CONCURRENCY: process.env.SCRAPE_TRIGGER_CONCURRENCY || '3',
+        // Budget for one synchronous Apify call on the queue path. Must stay well under the 300s
+        // Lambda and ScrapingQueue visibility timeouts: poll-and-drain sizes each receive from it.
+        SCRAPE_QUEUE_APIFY_CALL_TIMEOUT_MS: process.env.SCRAPE_QUEUE_APIFY_CALL_TIMEOUT_MS || '120000',
         // Story 3.6z — scraperLambda auto-enqueues newly scraped posts onto AIProcessingQueue
         // (subject to a key-availability pre-check), mirroring apiLambda's existing
         // selectPostsForExtraction caller. See the matching aiProcessingQueue.grantSendMessages
@@ -616,6 +628,10 @@ export class FestgridBackendStack extends cdk.Stack {
     if (stageName !== 'prod') {
       scraperLambda.addEventSource(new eventSources.SqsEventSource(scrapingQueue, {
         enabled: enableNonProdQueuePolling,
+        // The handler works a batch one record at a time and one record can take up to ~135s (the
+        // queue path's 120s Apify budget plus persistence); the default batch of 10 would outlast the
+        // Lambda's 300s timeout. Two fit (prod's poll-and-drain sizes its own receives the same way).
+        batchSize: 2,
       }));
     }
 

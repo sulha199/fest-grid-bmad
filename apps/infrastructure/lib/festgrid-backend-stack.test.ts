@@ -740,9 +740,11 @@ test('FestgridBackendStack: aiProcessorLambda has the measurement-backed MemoryS
   assert.strictEqual(props.Timeout, 300, 'aiProcessorLambda Timeout should remain unchanged at 300s');
 
   // Regression guard: no OTHER Lambda in the stack gained a MemorySize/Architectures override
-  // from this change (AC1: "No other Lambda's configuration changes").
+  // from this change (AC1: "No other Lambda's configuration changes"). ScraperLambda is the one
+  // later, deliberate exception (see its own test below).
   for (const [logicalId, resource] of Object.entries(lambdaFunctions)) {
     if (logicalId.startsWith('AIProcessorLambda')) continue;
+    if (logicalId.startsWith('ScraperLambda')) continue;
     // CDK's own internal Custom::S3AutoDeleteObjects singleton handler (an automatic side
     // effect of postMediaBucket's autoDeleteObjects: true in non-prod stages, Story 0.33) --
     // not an application Lambda this file defines, and CDK bakes its own MemorySize: 128
@@ -761,6 +763,28 @@ test('FestgridBackendStack: aiProcessorLambda has the measurement-backed MemoryS
       `expected "${logicalId}" to have no explicit Architectures override (only aiProcessorLambda does, per AC1)`
     );
   }
+});
+
+// 2026-10-23: the scraper Lambda sat at the 128 MB default with Max Memory Used 124-128 MB on every
+// invocation. Only it gets the bump; the architecture stays the default.
+test('FestgridBackendStack: scraperLambda has an explicit 512 MB MemorySize and keeps its 300s timeout', () => {
+  const app = new cdk.App();
+  const stack = new FestgridBackendStack(app, 'TestStackScraperMemory', {
+    stageName: 'dev',
+  });
+
+  const template = Template.fromStack(stack);
+  const entry = Object.entries(template.findResources('AWS::Lambda::Function')).find(([logicalId]) =>
+    logicalId.startsWith('ScraperLambda')
+  );
+  assert.ok(entry, 'expected a "ScraperLambda*" function in the synthesized template');
+  const props = entry[1].Properties as Record<string, unknown> & { Environment: { Variables: Record<string, string> } };
+
+  assert.strictEqual(props.MemorySize, 512);
+  assert.strictEqual(props.Timeout, 300, 'the 300s poll-and-drain timeout is unchanged');
+  assert.strictEqual(props.Architectures, undefined);
+  assert.strictEqual(props.Environment.Variables.SCRAPE_TRIGGER_CONCURRENCY, '3');
+  assert.strictEqual(props.Environment.Variables.SCRAPE_QUEUE_APIFY_CALL_TIMEOUT_MS, '120000');
 });
 
 // Story 0.46 (AC2/AC3/AC6) + Story 3.6n (wires the real detection in, re-measures): the

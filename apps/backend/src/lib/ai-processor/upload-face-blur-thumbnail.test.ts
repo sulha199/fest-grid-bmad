@@ -59,6 +59,8 @@ test('uploadFaceBlurThumbnail integration/unit tests', async (t) => {
     webAppBaseUrl: 'http://localhost:3000',
     locationInferenceConfidenceThreshold: 0.5,
     scrapeResultsLimit: 10,
+    scrapeTriggerConcurrency: 3,
+    scrapeQueueApifyCallTimeoutMs: 120_000,
     maxCarouselImages: 5,
     maxExtractedEventsPerPost: 10,
     geminiMaxOutputTokens: 8192,
