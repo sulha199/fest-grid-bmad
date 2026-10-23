@@ -33,6 +33,8 @@ mutation resolvePromptToEventFilter($prompt: String!) {
         anchor
         offsetAmount
         offsetUnit
+        spanAmount
+        spanUnit
       }
       dayOfWeek
       location {
@@ -45,6 +47,7 @@ mutation resolvePromptToEventFilter($prompt: String!) {
       }
       venueType
       isFree
+      temporalFilter
     }
     expression {
       op
@@ -84,6 +87,8 @@ mutation saveAIEventFilter($prompt: String!, $resolvedFilter: EventFilterInput, 
         anchor
         offsetAmount
         offsetUnit
+        spanAmount
+        spanUnit
       }
       dayOfWeek
       location {
@@ -96,6 +101,7 @@ mutation saveAIEventFilter($prompt: String!, $resolvedFilter: EventFilterInput, 
       }
       venueType
       isFree
+      temporalFilter
     }
     createdAt
     updatedAt

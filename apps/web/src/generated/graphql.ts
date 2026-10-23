@@ -352,6 +352,7 @@ export type EventFilter = {
   isFree?: Maybe<Scalars['Boolean']['output']>;
   keyword?: Maybe<Scalars['String']['output']>;
   location?: Maybe<LocationFilter>;
+  temporalFilter?: Maybe<TemporalFilter>;
   types?: Maybe<Array<EventType>>;
   venueType?: Maybe<Scalars['String']['output']>;
 };
@@ -1855,7 +1856,7 @@ export type ResolvePromptToEventFilterMutationVariables = Exact<{
 }>;
 
 
-export type ResolvePromptToEventFilterMutation = { resolvePromptToEventFilter: { caveats: Array<string>, resolvedFilter: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null }, expression: { op: string | null, field: string | null, value: unknown, children: Array<{ op: string | null, field: string | null, value: unknown, children: Array<{ op: string | null, field: string | null, value: unknown }> | null, child: { op: string | null, field: string | null, value: unknown } | null }> | null, child: { op: string | null, field: string | null, value: unknown, children: Array<{ op: string | null, field: string | null, value: unknown }> | null, child: { op: string | null, field: string | null, value: unknown } | null } | null } } };
+export type ResolvePromptToEventFilterMutation = { resolvePromptToEventFilter: { caveats: Array<string>, resolvedFilter: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, temporalFilter: TemporalFilter | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit, spanAmount: number | null, spanUnit: DateOffsetUnit | null } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null }, expression: { op: string | null, field: string | null, value: unknown, children: Array<{ op: string | null, field: string | null, value: unknown, children: Array<{ op: string | null, field: string | null, value: unknown }> | null, child: { op: string | null, field: string | null, value: unknown } | null }> | null, child: { op: string | null, field: string | null, value: unknown, children: Array<{ op: string | null, field: string | null, value: unknown }> | null, child: { op: string | null, field: string | null, value: unknown } | null } | null } } };
 
 export type SaveAiEventFilterMutationVariables = Exact<{
   prompt: string;
@@ -1864,7 +1865,7 @@ export type SaveAiEventFilterMutationVariables = Exact<{
 }>;
 
 
-export type SaveAiEventFilterMutation = { saveAIEventFilter: { id: string, ownerUserId: string, prompt: string, createdAt: string, updatedAt: string, deletedAt: string | null, resolvedFilter: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null } };
+export type SaveAiEventFilterMutation = { saveAIEventFilter: { id: string, ownerUserId: string, prompt: string, createdAt: string, updatedAt: string, deletedAt: string | null, resolvedFilter: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, temporalFilter: TemporalFilter | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit, spanAmount: number | null, spanUnit: DateOffsetUnit | null } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null } };
 
 export type DeleteAiEventFilterMutationVariables = Exact<{
   id: string | number;
@@ -1971,7 +1972,7 @@ export type GetArchivedEventsQuery = { events: { hasMore: boolean, totalCount: n
 export type GetMyAiEventFiltersQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetMyAiEventFiltersQuery = { myAIEventFilters: Array<{ id: string, ownerUserId: string, prompt: string, createdAt: string, updatedAt: string, deletedAt: string | null, resolvedFilter: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null, expression: { op: string | null, field: string | null, value: unknown, children: Array<{ op: string | null, field: string | null, value: unknown, children: Array<{ op: string | null, field: string | null, value: unknown }> | null, child: { op: string | null, field: string | null, value: unknown } | null }> | null, child: { op: string | null, field: string | null, value: unknown, children: Array<{ op: string | null, field: string | null, value: unknown }> | null, child: { op: string | null, field: string | null, value: unknown } | null } | null } }> };
+export type GetMyAiEventFiltersQuery = { myAIEventFilters: Array<{ id: string, ownerUserId: string, prompt: string, createdAt: string, updatedAt: string, deletedAt: string | null, resolvedFilter: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, temporalFilter: TemporalFilter | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit, spanAmount: number | null, spanUnit: DateOffsetUnit | null } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null, expression: { op: string | null, field: string | null, value: unknown, children: Array<{ op: string | null, field: string | null, value: unknown, children: Array<{ op: string | null, field: string | null, value: unknown }> | null, child: { op: string | null, field: string | null, value: unknown } | null }> | null, child: { op: string | null, field: string | null, value: unknown, children: Array<{ op: string | null, field: string | null, value: unknown }> | null, child: { op: string | null, field: string | null, value: unknown } | null } | null } }> };
 
 export type SubmitReportMutationVariables = Exact<{
   eventId: string | number;
@@ -2311,7 +2312,7 @@ export type CreateWidgetMutationVariables = Exact<{
 }>;
 
 
-export type CreateWidgetMutation = { createWidget: { id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null } };
+export type CreateWidgetMutation = { createWidget: { id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, temporalFilter: TemporalFilter | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit, spanAmount: number | null, spanUnit: DateOffsetUnit | null } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null } };
 
 export type UpdateWidgetMutationVariables = Exact<{
   id: string | number;
@@ -2319,7 +2320,7 @@ export type UpdateWidgetMutationVariables = Exact<{
 }>;
 
 
-export type UpdateWidgetMutation = { updateWidget: { id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null } };
+export type UpdateWidgetMutation = { updateWidget: { id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, temporalFilter: TemporalFilter | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit, spanAmount: number | null, spanUnit: DateOffsetUnit | null } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null } };
 
 export type DeleteWidgetMutationVariables = Exact<{
   id: string | number;
@@ -2332,14 +2333,14 @@ export type DeleteWidgetMutation = { deleteWidget: { id: string, deletedAt: stri
 export type MyWidgetsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type MyWidgetsQuery = { myWidgets: Array<{ id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null }> };
+export type MyWidgetsQuery = { myWidgets: Array<{ id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, temporalFilter: TemporalFilter | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit, spanAmount: number | null, spanUnit: DateOffsetUnit | null } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null }> };
 
 export type WidgetByIdQueryVariables = Exact<{
   id: string | number;
 }>;
 
 
-export type WidgetByIdQuery = { widgetById: { id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null } | null };
+export type WidgetByIdQuery = { widgetById: { id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, temporalFilter: TemporalFilter | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit, spanAmount: number | null, spanUnit: DateOffsetUnit | null } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null } | null };
 
 
 export class TypedDocumentString<TResult, TVariables>
@@ -3003,6 +3004,8 @@ export const ResolvePromptToEventFilterDocument = new TypedDocumentString(`
         anchor
         offsetAmount
         offsetUnit
+        spanAmount
+        spanUnit
       }
       dayOfWeek
       location {
@@ -3015,6 +3018,7 @@ export const ResolvePromptToEventFilterDocument = new TypedDocumentString(`
       }
       venueType
       isFree
+      temporalFilter
     }
     expression {
       op
@@ -3092,6 +3096,8 @@ export const SaveAiEventFilterDocument = new TypedDocumentString(`
         anchor
         offsetAmount
         offsetUnit
+        spanAmount
+        spanUnit
       }
       dayOfWeek
       location {
@@ -3104,6 +3110,7 @@ export const SaveAiEventFilterDocument = new TypedDocumentString(`
       }
       venueType
       isFree
+      temporalFilter
     }
     createdAt
     updatedAt
@@ -3745,6 +3752,8 @@ export const GetMyAiEventFiltersDocument = new TypedDocumentString(`
         anchor
         offsetAmount
         offsetUnit
+        spanAmount
+        spanUnit
       }
       dayOfWeek
       location {
@@ -3757,6 +3766,7 @@ export const GetMyAiEventFiltersDocument = new TypedDocumentString(`
       }
       venueType
       isFree
+      temporalFilter
     }
     expression {
       op
@@ -5310,6 +5320,8 @@ export const CreateWidgetDocument = new TypedDocumentString(`
         anchor
         offsetAmount
         offsetUnit
+        spanAmount
+        spanUnit
       }
       dayOfWeek
       location {
@@ -5322,6 +5334,7 @@ export const CreateWidgetDocument = new TypedDocumentString(`
       }
       venueType
       isFree
+      temporalFilter
     }
     displayMode
     theme
@@ -5361,6 +5374,8 @@ export const UpdateWidgetDocument = new TypedDocumentString(`
         anchor
         offsetAmount
         offsetUnit
+        spanAmount
+        spanUnit
       }
       dayOfWeek
       location {
@@ -5373,6 +5388,7 @@ export const UpdateWidgetDocument = new TypedDocumentString(`
       }
       venueType
       isFree
+      temporalFilter
     }
     displayMode
     theme
@@ -5438,6 +5454,8 @@ export const MyWidgetsDocument = new TypedDocumentString(`
         anchor
         offsetAmount
         offsetUnit
+        spanAmount
+        spanUnit
       }
       dayOfWeek
       location {
@@ -5450,6 +5468,7 @@ export const MyWidgetsDocument = new TypedDocumentString(`
       }
       venueType
       isFree
+      temporalFilter
     }
     displayMode
     theme
@@ -5490,6 +5509,8 @@ export const WidgetByIdDocument = new TypedDocumentString(`
         anchor
         offsetAmount
         offsetUnit
+        spanAmount
+        spanUnit
       }
       dayOfWeek
       location {
@@ -5502,6 +5523,7 @@ export const WidgetByIdDocument = new TypedDocumentString(`
       }
       venueType
       isFree
+      temporalFilter
     }
     displayMode
     theme

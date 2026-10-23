@@ -322,4 +322,5 @@ type EventFilter {
   location: LocationFilter
   venueType: String
   isFree: Boolean
+  temporalFilter: TemporalFilter
 }

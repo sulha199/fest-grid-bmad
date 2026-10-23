@@ -11,6 +11,8 @@ mutation createWidget($input: CreateWidgetInput!) {
         anchor
         offsetAmount
         offsetUnit
+        spanAmount
+        spanUnit
       }
       dayOfWeek
       location {
@@ -23,6 +25,7 @@ mutation createWidget($input: CreateWidgetInput!) {
       }
       venueType
       isFree
+      temporalFilter
     }
     displayMode
     theme
@@ -43,6 +46,8 @@ mutation updateWidget($id: ID!, $input: UpdateWidgetInput!) {
         anchor
         offsetAmount
         offsetUnit
+        spanAmount
+        spanUnit
       }
       dayOfWeek
       location {
@@ -55,6 +60,7 @@ mutation updateWidget($id: ID!, $input: UpdateWidgetInput!) {
       }
       venueType
       isFree
+      temporalFilter
     }
     displayMode
     theme
@@ -82,6 +88,8 @@ query myWidgets {
         anchor
         offsetAmount
         offsetUnit
+        spanAmount
+        spanUnit
       }
       dayOfWeek
       location {
@@ -94,6 +102,7 @@ query myWidgets {
       }
       venueType
       isFree
+      temporalFilter
     }
     displayMode
     theme
@@ -114,6 +123,8 @@ query widgetById($id: ID!) {
         anchor
         offsetAmount
         offsetUnit
+        spanAmount
+        spanUnit
       }
       dayOfWeek
       location {
@@ -126,6 +137,7 @@ query widgetById($id: ID!) {
       }
       venueType
       isFree
+      temporalFilter
     }
     displayMode
     theme
