@@ -296,6 +296,25 @@ test('widgets resolvers integration', async (t) => {
       assert.strictEqual(result.errors[0].extensions?.code, 'BAD_USER_INPUT');
     });
 
+    await t.test('Epic 9 review P17: a date range x weekdays filter that would expand past the cap is refused on create', async () => {
+      const res = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `mutation {
+            createWidget(input: { filters: {
+              dateRange: { anchor: TODAY, offsetAmount: 0, offsetUnit: DAY, spanAmount: 24, spanUnit: MONTH },
+              dayOfWeek: [MON, TUE, WED, THU, FRI, SAT, SUN]
+            } }) { id }
+          }`,
+        }),
+      });
+      const result = await res.json();
+      assert.ok(result.errors, 'an oversized weekday window should error');
+      assert.strictEqual(result.errors[0].extensions?.code, 'BAD_USER_INPUT');
+      assert.match(result.errors[0].message, /limit 150/);
+    });
+
     await t.test('Epic 9 review P23: updateWidget treats an explicit null filters as absent, like createWidget', async () => {
       const created = await createWithExpression({ field: 'keyword', value: 'ska' });
       assert.ok(!created.errors, JSON.stringify(created.errors));

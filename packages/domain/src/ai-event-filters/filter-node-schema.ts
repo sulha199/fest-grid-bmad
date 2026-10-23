@@ -6,6 +6,8 @@ import {
   DayOfWeek,
   TemporalFilter,
   DATE_OFFSET_AMOUNT_BOUNDS,
+  MAX_WEEKDAY_DATE_TERMS,
+  estimateWeekdayDateTerms,
 } from '../events/buildEventsQueryCondition.js';
 import {
   FILTER_LEAF_FIELDS,
@@ -211,6 +213,25 @@ function describeLeafVocabularyOrShapeError(raw: Record<string, unknown>): strin
   return `Leaf "${fieldValue}" has an invalid value${firstIssue ? `: ${firstIssue.message}` : '.'}`;
 }
 
+/**
+ * Epic 9 review (P17): an AND that carries both a `dateRange` and a `dayOfWeek` leaf compiles to
+ * one query term per matching date. Returns the estimated term count when it exceeds the limit.
+ */
+export function findOversizedWeekdayWindow(children: unknown[]): number | undefined {
+  const parsed = children
+    .filter((child): child is Record<string, unknown> => isPlainObject(child) && !('op' in child))
+    .map((child) => FilterLeafSchema.safeParse(child))
+    .filter((result) => result.success)
+    .map((result) => (result as { data: FilterLeaf }).data);
+  const dateRange = parsed.find((leaf) => leaf.field === 'dateRange');
+  const dayOfWeek = parsed.find((leaf) => leaf.field === 'dayOfWeek');
+  if (!dateRange || dateRange.field !== 'dateRange' || !dayOfWeek || dayOfWeek.field !== 'dayOfWeek') {
+    return undefined;
+  }
+  const estimate = estimateWeekdayDateTerms(dateRange.value, dayOfWeek.value.length);
+  return estimate > MAX_WEEKDAY_DATE_TERMS ? estimate : undefined;
+}
+
 interface WalkOutcome {
   depth: number;
   count: number;
@@ -255,6 +276,15 @@ function walkNode(raw: unknown, path: FilterValidationPath, issues: FilterValida
       maxChildDepth = Math.max(maxChildDepth, outcome.depth);
       totalCount += outcome.count;
     });
+    if (raw.op === 'AND') {
+      const oversized = findOversizedWeekdayWindow(children);
+      if (oversized !== undefined) {
+        pushIssue(issues, {
+          path,
+          reason: `A date range combined with weekdays would match about ${oversized} dates (limit ${MAX_WEEKDAY_DATE_TERMS}); shorten the date range or choose fewer weekdays.`,
+        });
+      }
+    }
     return { depth: 1 + maxChildDepth, count: totalCount };
   }
 

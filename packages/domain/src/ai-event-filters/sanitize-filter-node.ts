@@ -2,11 +2,12 @@ import {
   FILTER_NODE_MAX_DEPTH,
   FILTER_NODE_MAX_NODES,
   isFilterGroupNode,
+  isFilterLeaf,
   isFilterNotNode,
   type FilterGroupNode,
   type FilterNode,
 } from './filter-node.js';
-import { exceedsPreflightBounds, FilterLeafSchema, validateFilterNode } from './filter-node-schema.js';
+import { exceedsPreflightBounds, FilterLeafSchema, findOversizedWeekdayWindow, validateFilterNode } from './filter-node-schema.js';
 import { normalize } from './normalize-filter-node.js';
 
 /**
@@ -138,6 +139,30 @@ export function fitToMaxDepth(node: FilterNode, depth = 1): SanitizeResult {
   return { node: visit(node, depth), dropped: counter.dropped };
 }
 
+/**
+ * Drops the `dayOfWeek` leaf from every AND group whose date range x weekdays would expand past the
+ * term limit (Epic 9 review P17). The date range is kept, so the result is a superset of what was
+ * asked for -- reported through the caller's caveat rather than refused outright.
+ */
+export function fitWeekdayWindows(node: FilterNode): SanitizeResult {
+  let dropped = 0;
+  function visit(current: FilterNode): FilterNode {
+    if (isFilterNotNode(current)) {
+      return { op: 'NOT', child: visit(current.child) };
+    }
+    if (isFilterGroupNode(current)) {
+      let children = current.children.map(visit);
+      if (current.op === 'AND' && findOversizedWeekdayWindow(children) !== undefined) {
+        children = children.filter((child) => !(isFilterLeaf(child) && child.field === 'dayOfWeek'));
+        dropped += 1;
+      }
+      return { op: current.op, children };
+    }
+    return current;
+  }
+  return { node: visit(node), dropped };
+}
+
 function countNodes(node: FilterNode): number {
   if (isFilterGroupNode(node)) {
     return 1 + node.children.reduce((sum, child) => sum + countNodes(child), 0);
@@ -196,7 +221,7 @@ export function fitToMaxNodes(node: FilterNode): SanitizeResult {
   return { node: current, dropped };
 }
 
-export type RepairKind = 'invalid' | 'double-not' | 'too-complex';
+export type RepairKind = 'invalid' | 'double-not' | 'too-complex' | 'weekday-window';
 
 /**
  * Repairs `root` (a typed tree, e.g. built from model output or a legacy flat row) until it is a
@@ -240,6 +265,13 @@ export function repairToValidTree(root: FilterNode, onRepair: (kind: RepairKind)
     return empty;
   }
   current = normalize(shallow.node);
+
+  // 3b. A date range x weekdays combination that would expand into too many query terms.
+  const windowed = fitWeekdayWindows(current);
+  if (windowed.dropped > 0) {
+    onRepair('weekday-window');
+  }
+  current = normalize(windowed.node ?? current);
 
   // 4. Node count.
   const small = fitToMaxNodes(current);

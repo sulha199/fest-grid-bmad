@@ -9,6 +9,10 @@ import {
   DATE_OFFSET_AMOUNT_BOUNDS,
   DAY_OF_WEEK_ONLY_LOOKAHEAD_DAYS,
   NO_MATCHING_WEEKDAY_SENTINEL_DATE,
+  MAX_WEEKDAY_DATE_TERMS,
+  estimateWeekdayDateTerms,
+  DateAnchor,
+  DateOffsetUnit,
   type EventFilterInput,
 } from './buildEventsQueryCondition.js';
 import { compileFilterNodeToQueryCondition } from '../ai-event-filters/compile-filter-node.js';
@@ -387,5 +391,28 @@ describe('buildEventsQueryCondition: expression branch (Story 9.4a, AC2, Task 9)
     const expression: FilterNode = { field: 'dateRange', value: { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY' } };
     const res = buildEventsQueryCondition({ expression, currentDate: lateUtcInstant, timezone: 'Asia/Jakarta' });
     assert.deepEqual(res, { field: 'scheduleDateRange', operator: 'overlaps', value: { from: '2026-08-30', to: '2026-08-30' } });
+  });
+});
+
+describe('weekday expansion cap (Epic 9 review P17)', () => {
+  it('estimateWeekdayDateTerms is an upper bound that tracks the window and the weekday count', () => {
+    assert.equal(estimateWeekdayDateTerms(undefined, 7), 13 * 7);
+    assert.equal(estimateWeekdayDateTerms({ anchor: DateAnchor.TODAY }, 1), 1);
+    assert.ok(estimateWeekdayDateTerms({ anchor: DateAnchor.TODAY, spanAmount: 24, spanUnit: DateOffsetUnit.MONTH }, 7) > MAX_WEEKDAY_DATE_TERMS);
+    assert.ok(estimateWeekdayDateTerms({ anchor: DateAnchor.TODAY, spanAmount: 6, spanUnit: DateOffsetUnit.MONTH }, 5) <= MAX_WEEKDAY_DATE_TERMS);
+  });
+
+  it('refuses to build a condition with more date terms than the cap, instead of emitting hundreds of EXISTS terms', () => {
+    assert.throws(
+      () =>
+        buildEventsQueryCondition({
+          filter: {
+            dateRange: { anchor: DateAnchor.TODAY, offsetAmount: 0, offsetUnit: DateOffsetUnit.DAY, spanAmount: 24, spanUnit: DateOffsetUnit.MONTH },
+            dayOfWeek: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
+          },
+          currentDate: new Date('2026-10-23T00:00:00Z'),
+        }),
+      /more than the supported 150/
+    );
   });
 });

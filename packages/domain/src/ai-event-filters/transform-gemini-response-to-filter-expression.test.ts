@@ -321,6 +321,23 @@ describe('transformGeminiResponseToFilterExpression (AC2)', () => {
     assert.deepEqual(unknownOp.caveats, ['An unrecognised operator in your prompt was ignored.']);
   });
 
+  it('P17: weekdays over a window too long to expand are ignored with a caveat; the date range is kept', () => {
+    const result = transformGeminiResponseToFilterExpression({
+      expression: {
+        dateRange: { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY', spanAmount: 24, spanUnit: 'MONTH' },
+        dayOfWeek: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
+      },
+      caveats: [],
+    });
+    assert.deepEqual(result.expression, {
+      field: 'dateRange',
+      value: { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY', spanAmount: 24, spanUnit: 'MONTH' },
+    });
+    assert.deepEqual(result.caveats, [
+      'The weekdays in your prompt cover too long a period to apply, so they were ignored and the whole date range is shown.',
+    ]);
+  });
+
   it('P9: a bare anchor without offsets means the anchor window itself, not a dropped date', () => {
     const result = transformGeminiResponseToFilterExpression({
       expression: { dateRange: { anchor: 'THIS_WEEK' } },

@@ -433,3 +433,34 @@ describe('validateFilterNode: Epic 9 review hardening (P7, P8, P14)', () => {
     }
   });
 });
+
+describe('validateFilterNode: weekday expansion cap (Epic 9 review P17)', () => {
+  const allWeekdays = [DayOfWeek.MON, DayOfWeek.TUE, DayOfWeek.WED, DayOfWeek.THU, DayOfWeek.FRI, DayOfWeek.SAT, DayOfWeek.SUN];
+  const longWindow: FilterNode = {
+    field: 'dateRange',
+    value: { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY', spanAmount: 24, spanUnit: 'MONTH' },
+  };
+
+  it('rejects a date range x weekdays AND that would expand past the limit, naming the problem', () => {
+    const result = validateFilterNode({ op: 'AND', children: [longWindow, { field: 'dayOfWeek', value: allWeekdays }] });
+    assert.equal(result.valid, false);
+    if (!result.valid) {
+      assert.match(result.issues[0].reason, /would match about \d+ dates \(limit 150\)/);
+    }
+  });
+
+  it('accepts the realistic large requests: every weekend for 6 months, every weekday for 6 months', () => {
+    const sixMonths: FilterNode = {
+      field: 'dateRange',
+      value: { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY', spanAmount: 6, spanUnit: 'MONTH' },
+    };
+    for (const days of [[DayOfWeek.SAT, DayOfWeek.SUN], [DayOfWeek.MON, DayOfWeek.TUE, DayOfWeek.WED, DayOfWeek.THU, DayOfWeek.FRI]]) {
+      assert.equal(validateFilterNode({ op: 'AND', children: [sixMonths, { field: 'dayOfWeek', value: days }] }).valid, true);
+    }
+  });
+
+  it('does not penalise a long date range or a weekday leaf on its own', () => {
+    assert.equal(validateFilterNode(longWindow).valid, true);
+    assert.equal(validateFilterNode({ field: 'dayOfWeek', value: allWeekdays }).valid, true);
+  });
+});

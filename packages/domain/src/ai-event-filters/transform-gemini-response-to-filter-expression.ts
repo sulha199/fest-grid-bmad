@@ -32,6 +32,8 @@ const DOUBLE_NEGATION_CAVEAT = 'A double negation in your prompt was simplified;
 const TOO_COMPLEX_CAVEAT = 'Your prompt described more conditions than the filter supports, so some were dropped.';
 const INVALID_FRAGMENT_CAVEAT =
   'Part of your prompt could not be turned into a valid filter condition, so it was ignored.';
+const WEEKDAY_WINDOW_CAVEAT =
+  'The weekdays in your prompt cover too long a period to apply, so they were ignored and the whole date range is shown.';
 const UNKNOWN_OPERATOR_CAVEAT = 'An unrecognised operator in your prompt was ignored.';
 
 function pushCaveat(caveats: string[], message: string): void {
@@ -178,6 +180,7 @@ export function transformGeminiResponseToFilterExpression(payload: unknown): Gem
     invalid: INVALID_FRAGMENT_CAVEAT,
     'double-not': DOUBLE_NEGATION_CAVEAT,
     'too-complex': TOO_COMPLEX_CAVEAT,
+    'weekday-window': WEEKDAY_WINDOW_CAVEAT,
   };
   const current = repairToValidTree(root, (kind) => pushCaveat(pushedCaveats, repairCaveats[kind]));
 

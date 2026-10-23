@@ -23,6 +23,36 @@ export const DATE_OFFSET_AMOUNT_BOUNDS: Record<'DAY' | 'WEEK' | 'MONTH', number>
  * numeric value as before -- this only makes the behavior explicit and testable.
  */
 export const DAY_OF_WEEK_ONLY_LOOKAHEAD_DAYS = 90;
+
+/**
+ * Epic 9 review (P17): a `dateRange` + `dayOfWeek` pair compiles to one `EXISTS` term per matching
+ * date, so a long window with many weekdays used to reach 700+ terms in a single (publicly
+ * reachable) query. Above this many dates the pair is refused -- 150 still allows "every weekday for
+ * the next six months" (about 130) while excluding the multi-year windows the bounds table permits.
+ */
+export const MAX_WEEKDAY_DATE_TERMS = 150;
+
+const ANCHOR_WINDOW_DAYS_UPPER: Record<string, number> = { TODAY: 1, THIS_WEEK: 7, THIS_MONTH: 31 };
+const UNIT_DAYS_UPPER: Record<string, number> = { DAY: 1, WEEK: 7, MONTH: 31 };
+
+/**
+ * Upper-bound estimate of how many date terms `dateRange` + `weekdayCount` weekdays expand to,
+ * computed from the leaf values alone (no clock), so it can run at validation time. Never lower
+ * than the real count; with no `dateRange` the weekday-only lookahead window applies.
+ */
+export function estimateWeekdayDateTerms(
+  dateRange: Pick<DateRangeFilter, 'anchor' | 'spanAmount' | 'spanUnit'> | null | undefined,
+  weekdayCount: number
+): number {
+  let windowDays = DAY_OF_WEEK_ONLY_LOOKAHEAD_DAYS;
+  if (dateRange) {
+    windowDays = ANCHOR_WINDOW_DAYS_UPPER[dateRange.anchor as string] ?? 31;
+    if (dateRange.spanAmount != null && dateRange.spanUnit != null) {
+      windowDays += dateRange.spanAmount * (UNIT_DAYS_UPPER[dateRange.spanUnit as string] ?? 31);
+    }
+  }
+  return Math.ceil(windowDays / 7) * weekdayCount;
+}
 /**
  * DW-076: the named, documented replacement for the inline magic `'1970-01-01'` literal used to
  * force zero results when no date in the resolved window matches the requested weekday(s). A
@@ -313,6 +343,11 @@ export function buildDateRangeAndDayOfWeekCondition(
   if (dayOfWeek) {
     const dowArray = Array.isArray(dayOfWeek) ? dayOfWeek : [dayOfWeek as DayOfWeek];
     const dates = getDays(r.from, r.to, dowArray);
+    if (dates.length > MAX_WEEKDAY_DATE_TERMS) {
+      throw new Error(
+        `The date range and weekdays select ${dates.length} dates, more than the supported ${MAX_WEEKDAY_DATE_TERMS}; shorten the range or pick fewer weekdays.`
+      );
+    }
     if (dates.length === 0) {
       return { field: 'scheduleDateRange', operator: 'overlaps', value: { from: NO_MATCHING_WEEKDAY_SENTINEL_DATE, to: NO_MATCHING_WEEKDAY_SENTINEL_DATE } };
     } else if (dates.length === 1) {
