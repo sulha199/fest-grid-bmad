@@ -1,3 +1,4 @@
+import { ApifyApiError } from 'apify-client';
 import { callApifyClient } from './instagram-adapter.js';
 import { getScrapeCursor } from './get-scrape-cursor.js';
 import { gateDegradedProvider, releaseProviderProbe } from './provider-run-health-store.js';
@@ -11,6 +12,15 @@ import type { ScrapeTarget as FullScrapeTarget } from './get-scrape-targets.js';
 import type { ScraperTriggerResult } from './scraper-trigger-result.js';
 
 export type ScrapeTarget = Pick<FullScrapeTarget, 'profileId' | 'username'>;
+
+// Apify refuses a run with 402 + this type when the account's concurrent-memory cap is already in use
+// (prod 2026-10-23: 31 of 35 simultaneous triggers). The account's balance is fine and a later attempt
+// succeeds, so it is a capacity condition, not a vendor outage.
+const APIFY_MEMORY_LIMIT_ERROR_TYPE = 'actor-memory-limit-exceeded';
+
+function isApifyMemoryLimitError(error: unknown): boolean {
+  return error instanceof ApifyApiError && error.statusCode === 402 && error.type === APIFY_MEMORY_LIMIT_ERROR_TYPE;
+}
 
 export let attemptApifyAsyncTrigger = async (
   target: ScrapeTarget,
@@ -111,6 +121,10 @@ export let attemptApifyAsyncTrigger = async (
     // outage; map it to its own failure reason so the daily batch tally doesn't misreport it.
     if (error instanceof VendorDpaNotConfirmedError) {
       return { success: false, failureReason: 'DPA_NOT_CONFIRMED' };
+    }
+    if (isApifyMemoryLimitError(error)) {
+      console.warn(`Apify memory limit reached; ${target.username} falls back to the scraping queue`);
+      return { success: false, failureReason: 'CAPACITY_EXHAUSTED' };
     }
     console.error(`Failed to trigger Apify async job for ${target.username}:`, error);
     return { success: false, failureReason: 'TRIGGER_ERROR' };

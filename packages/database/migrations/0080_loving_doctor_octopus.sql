@@ -1,0 +1,1 @@
+ALTER TABLE "scraper_batch_runs" ADD COLUMN "dispatched_queued" integer DEFAULT 0 NOT NULL;

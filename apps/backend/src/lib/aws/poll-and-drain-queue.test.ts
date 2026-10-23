@@ -224,6 +224,51 @@ test('poll-and-drain-queue tests', async (t) => {
   });
 });
 
+test('poll-and-drain-queue per-message budget', async (t) => {
+  const originalReceiveSqsMessages = receiveSqsMessages;
+  const originalDeleteSqsMessage = deleteSqsMessage;
+  t.afterEach(() => {
+    setReceiveSqsMessages(originalReceiveSqsMessages);
+    setDeleteSqsMessage(originalDeleteSqsMessage);
+  });
+
+  await t.test('asks for only as many messages as fit in the time budget, so none is received and left unhandled', async () => {
+    const asked: Array<number | undefined> = [];
+    setReceiveSqsMessages(async (_queueUrl, maxMessages) => {
+      asked.push(maxMessages);
+      return asked.length === 1 ? [{ Body: 'm', ReceiptHandle: 'rh' }] : [];
+    });
+    setDeleteSqsMessage(async () => {});
+
+    // 270s budget / 135s per message = 2 messages per receive
+    await pollAndDrainQueue('https://queue', async () => {}, { timeBudgetMs: 270_000, perMessageBudgetMs: 135_000 });
+    assert.strictEqual(asked[0], 2);
+  });
+
+  await t.test('stops receiving once a further message no longer fits, but always makes the first receive', async () => {
+    let receives = 0;
+    setReceiveSqsMessages(async () => {
+      receives += 1;
+      return [{ Body: 'm', ReceiptHandle: 'rh' }];
+    });
+    setDeleteSqsMessage(async () => {});
+
+    // The budget is smaller than one message's worst case: still one receive, then stop.
+    await pollAndDrainQueue('https://queue', async () => {}, { timeBudgetMs: 100, perMessageBudgetMs: 10_000 });
+    assert.strictEqual(receives, 1);
+  });
+
+  await t.test('without a per-message budget the receive is the unchanged 10-message one', async () => {
+    const asked: Array<number | undefined> = [];
+    setReceiveSqsMessages(async (_queueUrl, maxMessages) => {
+      asked.push(maxMessages);
+      return [];
+    });
+    await pollAndDrainQueue('https://queue', async () => {});
+    assert.deepStrictEqual(asked, [undefined]);
+  });
+});
+
 test('hasJobType', () => {
   // Review Finding (Story 0.40 code review): isPollAndDrainEvent/isStaleJobSweepEvent were
   // copy-pasted verbatim across scraper.ts/ai-processor.ts/ingestor.ts; this shared generic

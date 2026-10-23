@@ -2,11 +2,11 @@ import { SQSClient, ReceiveMessageCommand, DeleteMessageCommand, type Message } 
 
 // Follows the exact same reassignable-function/setter test-seam convention already
 // established by send-sqs-message.ts's sendSqsMessage/setSendSqsMessage.
-export let receiveSqsMessages = async (queueUrl: string): Promise<Message[]> => {
+export let receiveSqsMessages = async (queueUrl: string, maxMessages = 10): Promise<Message[]> => {
   const client = new SQSClient({});
   const result = await client.send(new ReceiveMessageCommand({
     QueueUrl: queueUrl,
-    MaxNumberOfMessages: 10,
+    MaxNumberOfMessages: Math.min(10, Math.max(1, Math.floor(maxMessages))),
     WaitTimeSeconds: 20,
   }));
   return result.Messages ?? [];
@@ -48,6 +48,14 @@ const DEFAULT_TIME_BUDGET_MS = 270_000;
 
 export interface PollAndDrainQueueOptions {
   timeBudgetMs?: number;
+  /**
+   * The longest one message can take to handle. When set, each receive asks for only as many messages as
+   * fit in what is left of the time budget (at least one on the first receive), so every received
+   * message is handled before the budget ends. Without it a batch of 10 slow messages outlasts the
+   * queue's visibility timeout and the Lambda's own limit: the unhandled ones are redelivered, each
+   * redelivery spending one of the queue's maxReceiveCount without the message having been tried.
+   */
+  perMessageBudgetMs?: number;
 }
 
 /**
@@ -64,14 +72,28 @@ export async function pollAndDrainQueue(
 ): Promise<void> {
   const timeBudgetMs = opts.timeBudgetMs ?? DEFAULT_TIME_BUDGET_MS;
   const deadline = Date.now() + timeBudgetMs;
+  const perMessageBudgetMs = opts.perMessageBudgetMs;
+  let firstReceive = true;
 
   // The first receive always happens regardless of the time budget so a single short-lived
   // invocation still does useful work; the budget only governs whether the loop continues
   // past the batch it is currently processing.
   for (;;) {
     let messages: Message[];
+    // Only with a per-message budget: how many messages the rest of the time budget can hold.
+    let maxMessages: number | undefined;
+    if (perMessageBudgetMs !== undefined) {
+      const fits = Math.floor((deadline - Date.now()) / perMessageBudgetMs);
+      if (fits < 1 && !firstReceive) {
+        return;
+      }
+      maxMessages = Math.max(1, fits);
+    }
+    firstReceive = false;
     try {
-      messages = await receiveSqsMessages(queueUrl);
+      messages = maxMessages === undefined
+        ? await receiveSqsMessages(queueUrl)
+        : await receiveSqsMessages(queueUrl, maxMessages);
     } catch (error) {
       // A transient SQS error (throttling, network) should not fail the whole invocation --
       // log and stop this cycle; the next 5-minute-scheduled tick will retry.

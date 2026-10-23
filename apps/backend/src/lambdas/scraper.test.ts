@@ -20,7 +20,9 @@ import { loadBackendEnv } from '../env.js';
 import { db } from '../db/client.js';
 import { users, socialMediaAccountProfiles, subscriptions, posts, scraperActorRuns, scraperBatchRuns, scraperProviderHealth } from '@festgrid/database';
 import { eq, inArray, gte } from 'drizzle-orm';
+import { sendSqsMessage, setSendSqsMessage } from '../lib/aws/send-sqs-message.js';
 import '../lib/scraper/register-adapters.js';
+import { registerScraperAdapter } from '@festgrid/domain';
 
 // The handler records per-provider health (`scraper_provider_health`, one row per provider) as a side
 // effect of a run. Snapshot the existing row ids before a test and delete only rows that run created,
@@ -97,7 +99,38 @@ test('scraper lambda poll-and-drain branch', async (t) => {
       'https://sqs.mock-scraping-queue',
       'https://sqs.mock-scraping-queue',
     ]);
-    assert.deepStrictEqual(deletedHandles, ['rh-1']);
+    // The job failed (no adapter for the platform), and a failed scrape is rethrown so the message stays
+    // on the queue for SQS to redeliver instead of being deleted and lost until the next daily batch.
+    assert.deepStrictEqual(deletedHandles, []);
+  });
+
+  await t.test('deletes the message of a scrape that completed', async () => {
+    process.env.SCRAPING_QUEUE_URL = 'https://sqs.mock-scraping-queue';
+    registerScraperAdapter('poll-and-drain-ok-platform' as any, {
+      supportsNewerThanAndLimitFiltering: true,
+      async getNewestPosts() { return []; },
+      async lookupAccountProfile() { return null; },
+      async getAccountClassificationProfile() { return null; },
+      async getPostByUrl() { return null; },
+    });
+    let call = 0;
+    setReceiveSqsMessages(async () => {
+      call += 1;
+      return call === 1
+        ? [{
+            Body: JSON.stringify({ profileId: randomUUID(), platform: 'poll-and-drain-ok-platform', accountId: 'acc-2', username: 'ok_user' }),
+            ReceiptHandle: 'rh-ok',
+          }]
+        : [];
+    });
+    const deletedHandles: string[] = [];
+    setDeleteSqsMessage(async (_queueUrl, receiptHandle) => {
+      deletedHandles.push(receiptHandle);
+    });
+
+    await handler({ jobType: 'poll-and-drain' } as any, {} as any);
+
+    assert.deepStrictEqual(deletedHandles, ['rh-ok']);
   });
 
   await t.test('does not fall through to the SQS-Records/stale-job-sweep/daily-batch branches', async () => {
@@ -248,6 +281,108 @@ test('scraper lambda daily-batch branch: per-target incremental newerThan (FIND-
       Math.abs(actualMs - expectedMs) < 60_000,
       `newerThan should be ~${env.scrapeInitialLookbackDays} days ago (lookback fallback), got ${capturedNewerThan[0]}`
     );
+  });
+});
+
+// 2026-10-23: the batch fired every Apify trigger at once; Apify's concurrent-memory cap refused 31 of 35
+// (402), all 31 fell back to the scraping queue, and the batch row counted those 31 as "failed".
+test('scraper lambda daily-batch branch: bounded trigger concurrency and honest queue accounting', async (t) => {
+  const originalAttemptBrightDataTrigger = attemptBrightDataTrigger;
+  const originalAttemptApifyAsyncTrigger = attemptApifyAsyncTrigger;
+  const originalSendSqsMessage = sendSqsMessage;
+  const originalConcurrency = process.env.SCRAPE_TRIGGER_CONCURRENCY;
+  const originalQueueUrl = process.env.SCRAPING_QUEUE_URL;
+  const providerHealthBefore = await snapshotProviderHealthIds();
+  const createdProfiles: string[] = [];
+  const createdSubs: string[] = [];
+  const testStart = new Date();
+
+  t.after(async () => {
+    if (createdSubs.length > 0) await db.delete(subscriptions).where(inArray(subscriptions.id, createdSubs));
+    if (createdProfiles.length > 0) await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, createdProfiles));
+    await db.delete(scraperBatchRuns).where(gte(scraperBatchRuns.startedAt, testStart));
+    await deleteProviderHealthCreatedSince(providerHealthBefore);
+    setAttemptBrightDataTrigger(originalAttemptBrightDataTrigger);
+    setAttemptApifyAsyncTrigger(originalAttemptApifyAsyncTrigger);
+    setSendSqsMessage(originalSendSqsMessage);
+    if (originalConcurrency === undefined) delete process.env.SCRAPE_TRIGGER_CONCURRENCY;
+    else process.env.SCRAPE_TRIGGER_CONCURRENCY = originalConcurrency;
+    if (originalQueueUrl === undefined) delete process.env.SCRAPING_QUEUE_URL;
+    else process.env.SCRAPING_QUEUE_URL = originalQueueUrl;
+  });
+
+  const [seededUser] = await db.select().from(users).limit(1);
+  assert.ok(seededUser, 'Must have at least 1 seeded user for test');
+  for (let i = 0; i < 8; i += 1) {
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: `test-trigger-concurrency-${i}-${Date.now()}`,
+      platform: 'instagram',
+      displayName: `Trigger concurrency ${i}`,
+      username: `trigger_concurrency_${i}_${Date.now()}`,
+    }).returning();
+    createdProfiles.push(profile.id);
+    const [sub] = await db.insert(subscriptions).values({ userId: seededUser.id, accountId: profile.id }).returning();
+    createdSubs.push(sub.id);
+  }
+
+  await t.test('never has more triggers in flight than SCRAPE_TRIGGER_CONCURRENCY; a refused Apify trigger is queued, counted as queued, not failed', async () => {
+    process.env.SCRAPE_TRIGGER_CONCURRENCY = '2';
+    process.env.SCRAPING_QUEUE_URL = 'https://sqs.mock-scraping-queue';
+
+    let inFlight = 0;
+    let peak = 0;
+    let apifyCalls = 0;
+    setAttemptBrightDataTrigger(async () => ({ success: false, failureReason: 'PROVIDER_DEGRADED' }));
+    setAttemptApifyAsyncTrigger(async () => {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      apifyCalls += 1;
+      const accepted = apifyCalls <= 3;
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight -= 1;
+      return accepted ? { success: true } : { success: false, failureReason: 'CAPACITY_EXHAUSTED' };
+    });
+    const queued: string[] = [];
+    setSendSqsMessage(async (_queueUrl, body) => {
+      queued.push(body);
+    });
+
+    await handler({} as any, {} as any);
+
+    assert.ok(apifyCalls >= 8, 'every target reached the Apify tier');
+    assert.strictEqual(peak, 2, 'concurrency is capped at SCRAPE_TRIGGER_CONCURRENCY');
+    assert.strictEqual(queued.length, apifyCalls - 3, 'each refused target was enqueued');
+
+    const [batch] = await db.select().from(scraperBatchRuns).where(gte(scraperBatchRuns.startedAt, testStart));
+    assert.strictEqual(batch.targetsFound, apifyCalls);
+    assert.strictEqual(batch.dispatchedSucceeded, 3);
+    assert.strictEqual(batch.dispatchedQueued, apifyCalls - 3);
+    assert.strictEqual(batch.dispatchedFailed, 0, 'a working queue fallback is not a failure');
+  });
+
+  await t.test('a target whose enqueue also fails is the only kind counted as failed', async () => {
+    process.env.SCRAPE_TRIGGER_CONCURRENCY = '3';
+    process.env.SCRAPING_QUEUE_URL = 'https://sqs.mock-scraping-queue';
+    await db.delete(scraperBatchRuns).where(gte(scraperBatchRuns.startedAt, testStart));
+
+    setAttemptBrightDataTrigger(async () => ({ success: false, failureReason: 'PROVIDER_DEGRADED' }));
+    setAttemptApifyAsyncTrigger(async () => ({ success: false, failureReason: 'CAPACITY_EXHAUSTED' }));
+    setSendSqsMessage(async () => {
+      throw new Error('SQS unavailable');
+    });
+    const originalConsoleError = console.error;
+    console.error = () => {};
+    try {
+      await handler({} as any, {} as any);
+    } finally {
+      console.error = originalConsoleError;
+    }
+
+    const [batch] = await db.select().from(scraperBatchRuns).where(gte(scraperBatchRuns.startedAt, testStart));
+    assert.ok(batch.targetsFound >= 8);
+    assert.strictEqual(batch.dispatchedFailed, batch.targetsFound);
+    assert.strictEqual(batch.dispatchedQueued, 0);
+    assert.strictEqual(batch.dispatchedSucceeded, 0);
   });
 });
 
