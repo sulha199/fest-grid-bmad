@@ -137,7 +137,8 @@ components:
     # this rather than each restyling its own bar. Persistent, dismissible bar at the top of
     # <main>, below the global nav (packages/ui/src/core/app-shell/AppShell.tsx), across every
     # route -- but only ONE ask ever renders here at a time (the shared slot's own rule).
-    base: "w-full flex items-center justify-between gap-4 px-4 py-3 bg-violet-50 border-b border-violet-200 text-sm"
+    base: "w-full flex flex-col items-start gap-3 px-4 py-3 bg-violet-50 border-b border-violet-200 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4" # stacks and wraps below `sm` -- a single row of text + buttons is wider than a phone (page-overflow matrix, 2026-10-23)
+    actions: "flex flex-wrap items-center gap-2 sm:shrink-0" # the button row every ask places beside/under its message
     dismiss_permanent: "{components.button.secondary}" # "Not now" -- every ask's own permanent-suppression action
     dismiss_cooldown: "text-violet-700 underline text-xs font-medium" # "Remind me in 2 weeks" -- deliberately lower visual weight than the two real buttons either side of it, since it's a snooze not a decision
   pwa_install_banner:
