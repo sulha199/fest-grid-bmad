@@ -11,7 +11,7 @@ import { isVerbatimQuote } from './score.js';
 
 const AGE_WORDS = /(\busia\b|\bumur\b|\bage[ds]?\b|\btahun\b|\bthn\b|\byears?\b|\byrs?\b|\byo\b|\by\.o\b|\bth\b|di ?bawah|\bunder\b|ke ?atas|\babove\b|\bolder\b)/i;
 
-const RESTRICTION_CUE = /(khusus|hanya (untuk|bagi)|eksklusif|exclusive|internal|undangan|invitation|invite[- ]only|members? only|only for|anggota|tidak (terbuka )?untuk umum|not open to|wajib (membawa|memiliki|menunjukkan)|private event)/i;
+export const RESTRICTION_CUE = /(khusus|hanya (untuk|bagi)|eksklusif|exclusive|internal|undangan|invitation|invite[- ]only|members? only|only for|anggota|tidak (terbuka )?untuk umum|not open to|wajib (membawa|memiliki|menunjukkan)|private event)/i;
 
 const GENDER_CUE = /(khusus|hanya|only|exclusive|eksklusif).{0,24}(perempuan|wanita|women|woman|ladies|putri|laki|pria|\bmen\b)|(women|ladies|perempuan|wanita|putri)[ -]?only|for (women|ladies|men) only/i;
 

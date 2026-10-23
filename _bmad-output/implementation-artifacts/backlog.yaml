@@ -2834,4 +2834,4 @@ items:
      title: "Bright Data diagnostic script (with and without start_date) and a per-provider 'every run returned zero items' alarm",
      ref: [apps/backend/scripts/debug-brightdata.ts, apps/infrastructure/lib/festgrid-backend-stack.ts],
      touches: [app:backend, app:infrastructure],
-     note: "Script is on the PR for the owner to run with their own token; the alarm (and an alarm on the scraping DLQ depth) is proposed in the PR description, not built."}
+     note: "Script is on the PR for the owner to run with their own token; the alarm (and an alarm on the scraping DLQ depth) is proposed in the PR description, not built. Owner side, 2026-10-23: Bright Data support ticket #751032 opened (every discover_new snapshot on dataset gd_lk5ns7kz21pck8jpis returns 0 records since 2026-10-21 03:13 UTC, with and without start_date; credit review requested). Awaiting their reply."}
