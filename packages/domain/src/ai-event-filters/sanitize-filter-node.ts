@@ -143,24 +143,36 @@ export function fitToMaxDepth(node: FilterNode, depth = 1): SanitizeResult {
  * Drops the `dayOfWeek` leaf from every AND group whose date range x weekdays would expand past the
  * term limit (Epic 9 review P17). The date range is kept, so the result is a superset of what was
  * asked for -- reported through the caller's caveat rather than refused outright.
+ *
+ * Inside a `NOT` that "superset" is the wrong direction: `NOT(range AND weekdays)` becoming
+ * `NOT(range)` would exclude the whole range. A window repaired anywhere under a `NOT` therefore
+ * voids that `NOT` instead (counted in `voidedNots`, not `dropped`), like every other repair here.
  */
-export function fitWeekdayWindows(node: FilterNode): SanitizeResult {
+export function fitWeekdayWindows(node: FilterNode): SanitizeResult & { voidedNots: number } {
   let dropped = 0;
-  function visit(current: FilterNode): FilterNode {
+  let voidedNots = 0;
+  function visit(current: FilterNode): FilterNode | undefined {
     if (isFilterNotNode(current)) {
-      return { op: 'NOT', child: visit(current.child) };
+      const before = dropped;
+      const child = visit(current.child);
+      if (child === undefined || dropped !== before) {
+        dropped = before;
+        voidedNots += 1;
+        return undefined;
+      }
+      return { op: 'NOT', child };
     }
     if (isFilterGroupNode(current)) {
-      let children = current.children.map(visit);
+      let children = current.children.map(visit).filter((child): child is FilterNode => child !== undefined);
       if (current.op === 'AND' && findOversizedWeekdayWindow(children) !== undefined) {
         children = children.filter((child) => !(isFilterLeaf(child) && child.field === 'dayOfWeek'));
         dropped += 1;
       }
-      return { op: current.op, children };
+      return children.length === 0 ? undefined : { op: current.op, children };
     }
     return current;
   }
-  return { node: visit(node), dropped };
+  return { node: visit(node), dropped, voidedNots };
 }
 
 function countNodes(node: FilterNode): number {
@@ -173,6 +185,8 @@ function countNodes(node: FilterNode): number {
   return 1;
 }
 
+/** The widest group that may be trimmed: one under a `NOT` may not (trimming what is negated
+ * changes what is excluded), so those are never candidates. */
 function findWidestGroup(node: FilterNode): FilterGroupNode | undefined {
   let best: FilterGroupNode | undefined;
   function visit(current: FilterNode): void {
@@ -181,9 +195,8 @@ function findWidestGroup(node: FilterNode): FilterGroupNode | undefined {
         best = current;
       }
       current.children.forEach(visit);
-    } else if (isFilterNotNode(current)) {
-      visit(current.child);
     }
+    // A `NOT` is not descended into: nothing beneath it is a trim candidate.
   }
   visit(node);
   return best;
@@ -196,16 +209,15 @@ function dropLastChildOf(node: FilterNode, target: FilterGroupNode): FilterNode 
   if (isFilterGroupNode(node)) {
     return { op: node.op, children: node.children.map((child) => dropLastChildOf(child, target)) };
   }
-  if (isFilterNotNode(node)) {
-    return { op: 'NOT', child: dropLastChildOf(node.child, target) };
-  }
   return node;
 }
 
 /**
  * Trims a tree over `FILTER_NODE_MAX_NODES` by repeatedly removing the last child of its widest
- * group. Always terminates: each pass strictly shrinks the tree, and a tree with no group left to
- * trim is given up on (`node: undefined`).
+ * group that is not under a `NOT` -- trimming inside a `NOT` would change what is excluded. A group
+ * root is always such a candidate, so the only tree with nothing left to trim is a bare `NOT` root:
+ * that is given up on as a unit (`node: undefined`). Always terminates: each pass strictly shrinks
+ * the tree.
  */
 export function fitToMaxNodes(node: FilterNode): SanitizeResult {
   let current = node;
@@ -271,7 +283,13 @@ export function repairToValidTree(root: FilterNode, onRepair: (kind: RepairKind)
   if (windowed.dropped > 0) {
     onRepair('weekday-window');
   }
-  current = normalize(windowed.node ?? current);
+  if (windowed.voidedNots > 0) {
+    onRepair('too-complex');
+  }
+  if (!windowed.node) {
+    return empty;
+  }
+  current = normalize(windowed.node);
 
   // 4. Node count.
   const small = fitToMaxNodes(current);

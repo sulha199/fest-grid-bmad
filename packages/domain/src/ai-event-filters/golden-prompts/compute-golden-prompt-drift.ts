@@ -24,14 +24,21 @@ export function computeFilterNodeFieldSignature(node: FilterNode): string[] {
 
 /** Canonical operator/polarity shape of the tree, e.g. `AND(NOT(type),OR(keyword,keyword))`.
  * The field-name set alone cannot see the feature's core risks -- a dropped NOT, an OR flipped to
- * AND, a NOT turned positive -- so this keeps the group operators and NOT wrappers too. Free-text
- * and array values stay out of it (a live model's wording legitimately varies), children of an
+ * AND, a NOT turned positive, free turned paid -- so this keeps the group operators, NOT wrappers
+ * and the value of the two closed-value leaves (`isFree`, `temporalFilter`) too. Free-text and
+ * array values stay out of it (a live model's wording legitimately varies), children of an
  * AND/OR are sorted (their order carries no meaning), and the tree is `normalize`d first so a
  * harmless restructuring (a single-child group collapsing, a nested same-operator group flattening)
  * is not reported as drift. */
 export function computeFilterNodeShapeSignature(node: FilterNode): string {
   function shape(current: FilterNode): string {
-    if (isFilterLeaf(current)) return current.field;
+    if (isFilterLeaf(current)) {
+      // Closed-value leaves carry their value: free vs paid, today vs upcoming are polarity flips the
+      // bare field name cannot see. Free-text and array values stay out.
+      return current.field === 'isFree' || current.field === 'temporalFilter'
+        ? `${current.field}:${current.value}`
+        : current.field;
+    }
     if (isFilterNotNode(current)) return `NOT(${shape(current.child)})`;
     return `${current.op}(${current.children.map(shape).sort().join(',')})`;
   }

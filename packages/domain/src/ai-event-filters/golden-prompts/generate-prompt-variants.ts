@@ -125,11 +125,11 @@ export function summarizeMetamorphicDrift(
   const actualFields = computeFilterNodeFieldSignature(liveResult.expression);
   const expectedShape = computeFilterNodeShapeSignature(fixture.expected.expression);
   const actualShape = computeFilterNodeShapeSignature(liveResult.expression);
-  const fieldsMatch = JSON.stringify(expectedFields) === JSON.stringify(actualFields) && expectedShape === actualShape;
+  const shapeMatches = JSON.stringify(expectedFields) === JSON.stringify(actualFields) && expectedShape === actualShape;
   const actualHadCaveats = liveResult.caveats.length > 0;
   const expectedCaveats = variant.caveatExpectation === 'present' ? true : fixture.expected.caveats.length > 0;
   const caveatMatches = actualHadCaveats === expectedCaveats;
-  const drifted = !fieldsMatch || !caveatMatches;
+  const drifted = !shapeMatches || !caveatMatches;
   const details = drifted
     ? `${variant.kind} variant "${variant.prompt}": fields expected=[${expectedFields.join(',')}] actual=[${actualFields.join(',')}]; shape expected=${expectedShape} actual=${actualShape}; caveatPresence expected=${expectedCaveats} actual=${actualHadCaveats}`
     : 'no drift';

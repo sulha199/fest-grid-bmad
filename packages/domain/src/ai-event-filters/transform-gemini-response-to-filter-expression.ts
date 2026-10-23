@@ -107,7 +107,7 @@ function convertRawNode(raw: unknown, pushedCaveats: string[]): FilterNode[] {
     // The schema gives every level both `child` and `children`; accept a model that put its single
     // operand in `children` rather than silently dropping the negation.
     const operand =
-      raw.child !== undefined
+      raw.child != null
         ? raw.child
         : Array.isArray(raw.children) && raw.children.length === 1
           ? raw.children[0]
@@ -119,6 +119,9 @@ function convertRawNode(raw: unknown, pushedCaveats: string[]): FilterNode[] {
     const siblings = leafChildrenOf(raw, pushedCaveats);
     const results = convertRawNode(operand, pushedCaveats);
     if (results.length === 0) {
+      // The negation itself is lost (no operand, or one that converts to nothing): say so, or the
+      // user silently gets the positive, wider result.
+      pushCaveat(pushedCaveats, INVALID_FRAGMENT_CAVEAT);
       return siblings;
     }
     const child: FilterNode = results.length === 1 ? results[0] : { op: 'AND', children: results };

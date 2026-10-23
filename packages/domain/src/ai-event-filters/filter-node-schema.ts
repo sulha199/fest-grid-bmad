@@ -9,6 +9,7 @@ import {
   MAX_WEEKDAY_DATE_TERMS,
   estimateWeekdayDateTerms,
 } from '../events/buildEventsQueryCondition.js';
+import { normalize } from './normalize-filter-node.js';
 import {
   FILTER_LEAF_FIELDS,
   FILTER_NODE_MAX_DEPTH,
@@ -190,7 +191,12 @@ export function stripNullNodeKeys(raw: unknown, depth = 0): unknown {
   if ('child' in cleaned) {
     cleaned.child = stripNullNodeKeys(cleaned.child, depth + 1);
   }
-  const nullableKeys = typeof cleaned.field === 'string' ? NULLABLE_LEAF_VALUE_KEYS[cleaned.field] : undefined;
+  // `field` is attacker-controlled: an inherited key such as "constructor" must not resolve to an
+  // Object.prototype member (not iterable -> a TypeError that would escape as a 500).
+  const nullableKeys =
+    typeof cleaned.field === 'string' && Object.hasOwn(NULLABLE_LEAF_VALUE_KEYS, cleaned.field)
+      ? NULLABLE_LEAF_VALUE_KEYS[cleaned.field]
+      : undefined;
   if (nullableKeys && isPlainObject(cleaned.value)) {
     const value: Record<string, unknown> = { ...cleaned.value };
     for (const key of nullableKeys) {
@@ -240,6 +246,15 @@ interface WalkOutcome {
 /** A tree that is this broken has nothing more useful to say: cap the reported issues so a hostile
  * payload cannot make the validation message itself enormous (Epic 9 review P14). */
 const MAX_REPORTED_ISSUES = 25;
+
+/** `op` is attacker-controlled and only null-stripped: never echo it whole (a multi-megabyte string
+ * would make the message itself huge) and never `JSON.stringify` it (a deeply nested value throws). */
+function describeUnknownOp(op: unknown): string {
+  if (typeof op === 'string') {
+    return JSON.stringify(op.length > 20 ? `${op.slice(0, 20)}...` : op);
+  }
+  return `of type ${Array.isArray(op) ? 'array' : typeof op}`;
+}
 
 function pushIssue(issues: FilterValidationIssue[], issue: FilterValidationIssue): void {
   if (issues.length < MAX_REPORTED_ISSUES) {
@@ -306,7 +321,7 @@ function walkNode(raw: unknown, path: FilterValidationPath, issues: FilterValida
   if ('op' in raw) {
     pushIssue(issues, {
       path,
-      reason: `Unknown "op" value ${JSON.stringify(raw.op)} (expected "AND", "OR" or "NOT").`,
+      reason: `Unknown "op" value ${describeUnknownOp(raw.op)} (expected "AND", "OR" or "NOT").`,
     });
     return { depth: 1, count: 1 };
   }
@@ -331,6 +346,10 @@ function walkNode(raw: unknown, path: FilterValidationPath, issues: FilterValida
  * over-limit still gets its precise depth/node-count message from the normal walk below. */
 const PREFLIGHT_MAX_DEPTH = 32;
 const PREFLIGHT_MAX_NODES = 200;
+/** Largest legitimate leaf `value` array is a full enum (types/categories, a few dozen entries).
+ * `value` is a free-form JSON scalar on the public query, and Zod would otherwise walk -- and build
+ * an issue for -- every element of a million-entry array (about 20 s of CPU measured). */
+const PREFLIGHT_MAX_LEAF_VALUES = 64;
 
 /**
  * Iterative (explicit stack, no recursion) size/depth probe: lets `validateFilterNode` refuse a
@@ -348,6 +367,9 @@ export function exceedsPreflightBounds(root: unknown): boolean {
     }
     if (!isPlainObject(node)) {
       continue;
+    }
+    if (Array.isArray(node.value) && node.value.length > PREFLIGHT_MAX_LEAF_VALUES) {
+      return true;
     }
     if (Array.isArray(node.children)) {
       if (node.children.length > PREFLIGHT_MAX_NODES) {
@@ -400,7 +422,7 @@ export function validateFilterNode(rawCandidate: unknown): FilterValidationResul
       issues: [
         {
           path: [],
-          reason: `Filter tree is far over the limits (FILTER_NODE_MAX_DEPTH ${FILTER_NODE_MAX_DEPTH}, FILTER_NODE_MAX_NODES ${FILTER_NODE_MAX_NODES}) -- depth/node count exceeded; not inspected further.`,
+          reason: `Filter tree is far over the limits (FILTER_NODE_MAX_DEPTH ${FILTER_NODE_MAX_DEPTH}, FILTER_NODE_MAX_NODES ${FILTER_NODE_MAX_NODES}, ${PREFLIGHT_MAX_LEAF_VALUES} values per leaf) -- not inspected further.`,
         },
       ],
     };
@@ -425,5 +447,39 @@ export function validateFilterNode(rawCandidate: unknown): FilterValidationResul
   if (issues.length > 0) {
     return { valid: false, issues };
   }
-  return { valid: true, node: toCleanNode(candidate as Record<string, unknown>) };
+  const node = toCleanNode(candidate as Record<string, unknown>);
+  // The per-AND check in `walkNode` only sees a leaf pair that are direct siblings, but the compiler
+  // `normalize`s first: AND(dateRange, AND(dayOfWeek, ...)) flattens into one AND and would expand
+  // past the term cap (and throw at query time). Check the shape the compiler will actually see.
+  const oversized = findOversizedWeekdayWindowIn(normalize(node));
+  if (oversized !== undefined) {
+    return {
+      valid: false,
+      issues: [
+        {
+          path: [],
+          reason: `A date range combined with weekdays would match about ${oversized} dates (limit ${MAX_WEEKDAY_DATE_TERMS}); shorten the date range or choose fewer weekdays.`,
+        },
+      ],
+    };
+  }
+  return { valid: true, node };
+}
+
+/** `findOversizedWeekdayWindow` applied to every AND group of an already-normalized tree. */
+function findOversizedWeekdayWindowIn(node: FilterNode): number | undefined {
+  if ('op' in node) {
+    if (node.op === 'NOT') {
+      return findOversizedWeekdayWindowIn(node.child);
+    }
+    if (node.op === 'AND') {
+      const own = findOversizedWeekdayWindow(node.children);
+      if (own !== undefined) return own;
+    }
+    for (const child of node.children) {
+      const nested = findOversizedWeekdayWindowIn(child);
+      if (nested !== undefined) return nested;
+    }
+  }
+  return undefined;
 }

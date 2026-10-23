@@ -464,3 +464,82 @@ describe('validateFilterNode: weekday expansion cap (Epic 9 review P17)', () => 
     assert.equal(validateFilterNode({ field: 'dayOfWeek', value: allWeekdays }).valid, true);
   });
 });
+
+describe('Epic 9 re-review: validateFilterNode hardening', () => {
+  const allWeekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  const longRange = { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY', spanAmount: 24, spanUnit: 'MONTH' };
+
+  it('applies the weekday-window cap to the normalized tree: nested ANDs cannot hide a pair from it', () => {
+    const nested = {
+      op: 'AND',
+      children: [
+        { field: 'dayOfWeek', value: allWeekdays },
+        { op: 'AND', children: [{ field: 'dateRange', value: longRange }, { field: 'isFree', value: true }] },
+      ],
+    };
+    const result = validateFilterNode(nested);
+    assert.equal(result.valid, false);
+    if (!result.valid) {
+      assert.match(result.issues[0].reason, /would match about \d+ dates \(limit 150\)/);
+    }
+  });
+
+  it('finds an over-cap pair under a NOT and inside an OR branch', () => {
+    const pair = { op: 'AND', children: [{ field: 'dateRange', value: longRange }, { field: 'dayOfWeek', value: allWeekdays }] };
+    assert.equal(validateFilterNode({ op: 'NOT', child: pair }).valid, false);
+    assert.equal(validateFilterNode({ op: 'OR', children: [{ field: 'isFree', value: true }, pair] }).valid, false);
+  });
+
+  it('still accepts a nested pair that stays within the cap', () => {
+    const ok = {
+      op: 'AND',
+      children: [
+        { field: 'dayOfWeek', value: ['SAT', 'SUN'] },
+        { op: 'AND', children: [{ field: 'dateRange', value: { anchor: 'THIS_WEEK', offsetAmount: 0, offsetUnit: 'WEEK' } }, { field: 'isFree', value: true }] },
+      ],
+    };
+    assert.equal(validateFilterNode(ok).valid, true);
+  });
+
+  it('reports an Object.prototype key as an unknown leaf field instead of throwing', () => {
+    for (const field of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) {
+      const result = validateFilterNode({ op: 'AND', children: [{ field, value: {} }, { field: 'isFree', value: true }] });
+      assert.equal(result.valid, false, field);
+    }
+  });
+
+  it('refuses a leaf whose value array is far larger than any enum, without walking it', () => {
+    const started = Date.now();
+    const result = validateFilterNode({ field: 'type', value: Array.from({ length: 1_000_000 }, () => 'BOGUS') });
+    assert.equal(result.valid, false);
+    assert.ok(Date.now() - started < 2000, 'must be rejected by the preflight, not by 1e6 Zod element checks');
+    if (!result.valid) {
+      assert.match(result.issues[0].reason, /far over the limits/);
+    }
+  });
+
+  it('keeps a hostile "op" out of the message: truncated when long, described by type when not a string', () => {
+    const long = validateFilterNode({ op: 'x'.repeat(5_000_000), children: [] });
+    assert.equal(long.valid, false);
+    if (!long.valid) {
+      assert.ok(JSON.stringify(long.issues).length < 500);
+    }
+
+    let nestedOp: unknown = 'leaf';
+    for (let i = 0; i < 20_000; i += 1) nestedOp = [nestedOp];
+    const arrayOp = validateFilterNode({ op: nestedOp, children: [] });
+    assert.equal(arrayOp.valid, false);
+    if (!arrayOp.valid) {
+      assert.match(arrayOp.issues[0].reason, /of type array/);
+    }
+    const objectOp = validateFilterNode({ op: { nested: true }, children: [] });
+    assert.equal(objectOp.valid, false);
+    if (!objectOp.valid) {
+      assert.match(objectOp.issues[0].reason, /of type object/);
+    }
+    const shortOp = validateFilterNode({ op: 'XOR', children: [] });
+    if (!shortOp.valid) {
+      assert.match(shortOp.issues[0].reason, /"XOR"/);
+    }
+  });
+});

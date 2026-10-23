@@ -190,22 +190,93 @@ describe('transformGeminiResponseToFilterExpression (AC2)', () => {
     assert.deepEqual(result.caveats, [EMPTY_EXPRESSION_CAVEAT]);
   });
 
-  it('a NOT whose child is entirely out-of-vocabulary (not a double-NOT) degrades to an empty filter without the double-negation caveat', () => {
+  it('a NOT whose child is entirely out-of-vocabulary (not a double-NOT) degrades to an empty filter and says the negation was ignored, without the double-negation caveat', () => {
     const result = transformGeminiResponseToFilterExpression({
       expression: { op: 'NOT', child: { notARealField: 'xyz' } },
       caveats: [],
     });
     assert.deepEqual(result.expression, { op: 'AND', children: [] });
-    assert.deepEqual(result.caveats, [EMPTY_EXPRESSION_CAVEAT]);
+    assert.deepEqual(result.caveats, ['Part of your prompt could not be turned into a valid filter condition, so it was ignored.']);
   });
 
-  it('trims a widest group nested inside a NOT (exercising the NOT-recursion branch of the trim/widest-search logic)', () => {
-    const manyKeywords = Array.from({ length: 13 }, (_, i) => ({ keyword: `kw-${i}` }));
+  it('Epic 9 re-review: a NOT with an explicit null child still finds its operand in children', () => {
     const result = transformGeminiResponseToFilterExpression({
-      expression: { op: 'NOT', child: { op: 'OR', children: manyKeywords } },
+      expression: { op: 'AND', children: [{ keyword: 'jazz' }, { op: 'NOT', child: null, children: [{ types: ['WORKSHOP'] }] }] },
+      caveats: [],
+    });
+    assert.deepEqual(result.expression, {
+      op: 'AND',
+      children: [
+        { field: 'keyword', value: 'jazz' },
+        { op: 'NOT', child: { field: 'type', value: ['WORKSHOP'] } },
+      ],
+    });
+    assert.deepEqual(result.caveats, []);
+  });
+
+  it('Epic 9 re-review: a NOT that loses its operand entirely is reported, not silently widened', () => {
+    for (const not of [{ op: 'NOT', child: null }, { op: 'NOT', child: {} }, { op: 'NOT', children: [] }]) {
+      const result = transformGeminiResponseToFilterExpression({
+        expression: { op: 'AND', children: [{ keyword: 'jazz' }, not] },
+        caveats: [],
+      });
+      assert.deepEqual(result.expression, { field: 'keyword', value: 'jazz' });
+      assert.deepEqual(result.caveats, ['Part of your prompt could not be turned into a valid filter condition, so it was ignored.']);
+    }
+  });
+
+  it('Epic 9 re-review: a negated group over the node limit is dropped whole, never trimmed (NOT(a OR b) is not NOT(a))', () => {
+    for (const size of [11, 13]) {
+      const keywords = Array.from({ length: size }, (_, i) => ({ keyword: `kw-${i}` }));
+      const result = transformGeminiResponseToFilterExpression({
+        expression: { op: 'NOT', child: { op: 'OR', children: keywords } },
+        caveats: [],
+      });
+      assert.deepEqual(result.expression, { op: 'AND', children: [] });
+      assert.deepEqual(result.caveats, [
+        'Your prompt described more conditions than the filter supports, so some were dropped.',
+      ]);
+    }
+  });
+
+  it('Epic 9 re-review: an oversized tree is trimmed in a group outside the NOT and the NOT is kept intact', () => {
+    const manyKeywords = Array.from({ length: 11 }, (_, i) => ({ keyword: `kw-${i}` }));
+    const result = transformGeminiResponseToFilterExpression({
+      expression: {
+        op: 'AND',
+        children: [{ op: 'OR', children: manyKeywords }, { op: 'NOT', child: { keyword: 'workshop' } }],
+      },
       caveats: [],
     });
     assert.ok(validateFilterNode(result.expression).valid);
+    const children = (result.expression as { children: Array<{ op?: string; child?: unknown }> }).children;
+    assert.deepEqual(children.find((child) => child.op === 'NOT'), {
+      op: 'NOT',
+      child: { field: 'keyword', value: 'workshop' },
+    });
+    assert.deepEqual(result.caveats, [
+      'Your prompt described more conditions than the filter supports, so some were dropped.',
+    ]);
+  });
+
+  it('Epic 9 re-review: an over-cap weekday window under a NOT voids the NOT instead of widening what it excludes', () => {
+    const result = transformGeminiResponseToFilterExpression({
+      expression: {
+        op: 'AND',
+        children: [
+          { keyword: 'jazz' },
+          {
+            op: 'NOT',
+            child: {
+              dateRange: { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY', spanAmount: 24, spanUnit: 'MONTH' },
+              dayOfWeek: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
+            },
+          },
+        ],
+      },
+      caveats: [],
+    });
+    assert.deepEqual(result.expression, { field: 'keyword', value: 'jazz' });
     assert.deepEqual(result.caveats, [
       'Your prompt described more conditions than the filter supports, so some were dropped.',
     ]);

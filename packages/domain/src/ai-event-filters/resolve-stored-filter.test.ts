@@ -138,3 +138,24 @@ describe('resolveStoredFilter', () => {
     assert.deepEqual(result.flatFilter, {});
   });
 });
+
+describe('Epic 9 re-review: resolveStoredFilter keeps a negation exact', () => {
+  const longRange = {
+    field: 'dateRange',
+    value: { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY', spanAmount: 24, spanUnit: 'MONTH' },
+  };
+  const everyDay = { field: 'dayOfWeek', value: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] };
+
+  it('voids a stored NOT whose operand breaks the weekday cap instead of negating only the date range', () => {
+    const result = resolveStoredFilter({
+      version: 2,
+      expression: {
+        op: 'AND',
+        children: [{ field: 'keyword', value: 'jazz' }, { op: 'NOT', child: { op: 'AND', children: [longRange, everyDay] } }],
+      },
+    });
+
+    assert.equal(result.degraded, true);
+    assert.deepEqual(result.expression, { field: 'keyword', value: 'jazz' });
+  });
+});

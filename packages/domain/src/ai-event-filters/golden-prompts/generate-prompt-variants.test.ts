@@ -140,7 +140,7 @@ describe('summarizeMetamorphicDrift', () => {
     });
     assert.equal(result.drifted, true);
     assert.match(result.details, /filler variant "please show me free jazz"/);
-    assert.match(result.details, /expected=\[isFree,keyword\] actual=\[venueType\]; shape expected=AND\(isFree,keyword\) actual=venueType/);
+    assert.match(result.details, /expected=\[isFree,keyword\] actual=\[venueType\]; shape expected=AND\(isFree:true,keyword\) actual=venueType/);
   });
 
   it('flags a variant whose response lost the NOT even though the same fields are present', () => {

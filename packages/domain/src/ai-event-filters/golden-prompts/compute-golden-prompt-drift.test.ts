@@ -138,6 +138,12 @@ describe('computeFilterNodeShapeSignature', () => {
     );
   });
 
+  it('keeps the value of the closed-value leaves, so free-vs-paid and today-vs-upcoming flips are visible', () => {
+    assert.equal(computeFilterNodeShapeSignature({ field: 'isFree', value: true }), 'isFree:true');
+    assert.equal(computeFilterNodeShapeSignature({ field: 'isFree', value: false }), 'isFree:false');
+    assert.equal(computeFilterNodeShapeSignature({ field: 'temporalFilter', value: 'TODAY' as never }), 'temporalFilter:TODAY');
+  });
+
   it('renders an empty group', () => {
     assert.equal(computeFilterNodeShapeSignature({ op: 'AND', children: [] }), 'AND()');
   });
@@ -186,5 +192,21 @@ describe('summarizeGoldenPromptDrift sees operator and polarity changes', () => 
       live(type)
     );
     assert.equal(result.drifted, true);
+  });
+});
+
+describe('summarizeGoldenPromptDrift sees closed-value polarity', () => {
+  it('reports drift when free turns into paid', () => {
+    const fixture: GoldenPromptFixture = {
+      id: 'free-fixture',
+      lang: 'en',
+      category: 'AND',
+      prompt: 'free events',
+      geminiResponse: {},
+      expected: { expression: { field: 'isFree', value: true }, caveats: [] },
+    };
+    const result = summarizeGoldenPromptDrift(fixture, { expression: { field: 'isFree', value: false }, caveats: [] });
+    assert.equal(result.drifted, true);
+    assert.deepEqual(result.expectedFieldSignature, result.actualFieldSignature);
   });
 });

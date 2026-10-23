@@ -16,6 +16,14 @@ const MAX_RADIUS_METERS = 1_000_000;
  * silently returning a wider filter than the user asked for (SPEC CAP-2). The returned filter is
  * identical with or without it.
  */
+/** A numeric value as the model wrote it: a number as-is, a numeric string parsed WHOLE (`parseInt`
+ * would turn "2.7" into 2 and "3 days" into 3 without anyone noticing), anything else NaN. */
+function toNumber(value: unknown): number {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string' && value.trim() !== '') return Number(value);
+  return Number.NaN;
+}
+
 export function transformGeminiResponseToEventFilter(
   payload: unknown,
   onDropped?: (message: string) => void
@@ -76,7 +84,7 @@ export function transformGeminiResponseToEventFilter(
     let offsetUnit = Object.values(DateOffsetUnit).includes(dr.offsetUnit as DateOffsetUnit)
       ? (dr.offsetUnit as DateOffsetUnit)
       : undefined;
-    let offsetAmount = typeof dr.offsetAmount === 'number' ? dr.offsetAmount : parseInt(String(dr.offsetAmount), 10);
+    let offsetAmount = toNumber(dr.offsetAmount);
     if (anchor && dr.offsetAmount == null && dr.offsetUnit == null) {
       // The response schema does not require the offset, so a bare `{ anchor: "THIS_WEEK" }` is a
       // legitimate answer meaning "the anchor window itself" -- not a reason to drop the whole date.
@@ -98,7 +106,7 @@ export function transformGeminiResponseToEventFilter(
       const spanUnit = Object.values(DateOffsetUnit).includes(dr.spanUnit as DateOffsetUnit)
         ? (dr.spanUnit as DateOffsetUnit)
         : undefined;
-      const spanAmount = typeof dr.spanAmount === 'number' ? dr.spanAmount : parseInt(String(dr.spanAmount), 10);
+      const spanAmount = toNumber(dr.spanAmount);
       if (
         spanUnit &&
         !isNaN(spanAmount) &&
