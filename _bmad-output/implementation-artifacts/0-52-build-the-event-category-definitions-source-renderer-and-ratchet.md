@@ -1,3 +1,7 @@
+---
+baseline_commit: 030c2333ab5268d50c7890792e2db9f7b97124a8
+---
+
 # Story 0.52: Build the EventCategory definitions source, renderer, and ratchet
 
 ## Story Details
@@ -221,11 +225,11 @@ Do not touch (verified by AC10's `git diff --stat` check): `EventCategory`/`Even
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — this story is AD-44 Follow-up 1 only (18-value definitions, renderer, ratchet, cardinality, log lines, golden corpus, comment pointers); `HOME_AND_LIVING`, `FASHION_AND_BEAUTY`, `FINANCE_AND_INVESTMENT` are explicitly out of scope (Story 0.53).
-- [ ] Architecture and boundary confirmation — no GraphQL SDL/resolver change, no frontend change, no DB migration; renderer/ratchet placement (`apps/backend/src/lib/ai-gateway/`) and definitions placement (`packages/shared-types`) confirmed against package-boundary rules.
-- [ ] Testing plan confirmation — ratchet test (Checks A-D + negative controls), cap-4/OTHER-exclusivity unit tests, log-line tests, and the two opt-in live-Gemini runs (golden corpus + CC-024 regression), per Tasks 1-10.
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three gates ran fresh via subagent with "no gap found" (see Architecture & UX Gate Findings).
+- [x] Scope confirmation — this story is AD-44 Follow-up 1 only (18-value definitions, renderer, ratchet, cardinality, log lines, golden corpus, comment pointers); `HOME_AND_LIVING`, `FASHION_AND_BEAUTY`, `FINANCE_AND_INVESTMENT` are explicitly out of scope (Story 0.53).
+- [x] Architecture and boundary confirmation — no GraphQL SDL/resolver change, no frontend change, no DB migration; renderer/ratchet placement (`apps/backend/src/lib/ai-gateway/`) and definitions placement (`packages/shared-types`) confirmed against package-boundary rules.
+- [x] Testing plan confirmation — ratchet test (Checks A-D + negative controls), cap-4/OTHER-exclusivity unit tests, log-line tests, and the two opt-in live-Gemini runs (golden corpus + CC-024 regression), per Tasks 1-10.
+- [x] Explicit human approval state — approved by shulha, 2026-10-23.
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three gates ran fresh via subagent with "no gap found" (see Architecture & UX Gate Findings).
 
 ## Testing Requirements
 
