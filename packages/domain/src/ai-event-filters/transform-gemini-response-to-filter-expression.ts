@@ -1,5 +1,4 @@
 import { isFilterGroupNode, isFilterNotNode, type FilterGroupNode, type FilterNode } from './filter-node.js';
-import { validateFilterNode } from './filter-node-schema.js';
 import { repairToValidTree, type RepairKind } from './sanitize-filter-node.js';
 import { normalize } from './normalize-filter-node.js';
 import { expressionFromFlatFilter } from './flat-filter-conversion.js';
