@@ -2441,3 +2441,13 @@ items:
                0-53-add-home-living-fashion-finance-and-gadget-event-categories],
      touches: [cross:ai-extraction, cross:i18n, pkg:shared-types, pkg:database, app:backend, web:events],
      note: "AD-44 after a four-lens review. 0-52 ships first (definitions for the existing 18, one renderer, ratchet, cardinality, OTHER-share log lines); 0-53 adds the four values across the AD-44 source register and retires the unused event_category pgEnum. No epics.md section (Story 0.34 precedent)."}
+
+  BUG-080:
+    {type: bug, status: triaged, created: 2026-10-23,
+     impact: user-visible, effort: m,
+     title: "Online events get the posting account's default location and a map pin; the product has no attendance-mode (in person / online / hybrid) concept",
+     ref: [implementation-artifacts/backlog/BUG-080-online-events-get-the-accounts-default-location-pin.md,
+           packages/domain/src/events/transform-gemini-response-to-event-info.ts,
+           apps/backend/src/lib/ai-processor/resolve-account-and-locations.ts],
+     touches: [web:events, app:backend, pkg:domain, pkg:shared-types, pkg:database, cross:ai-extraction, cross:prd, cross:i18n],
+     note: "Traced in code, not yet reproduced. Proposal in the note: per-schedule AttendanceMode enum, not an EventType. Needs a PRD change, so route via bmad-correct-course."}
