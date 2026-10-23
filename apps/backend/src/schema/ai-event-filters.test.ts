@@ -172,6 +172,33 @@ test('ai event filters resolvers integration', async (t) => {
     assert.ok(leaves.some((l: any) => l.field === 'category' && JSON.stringify(l.value) === JSON.stringify(['MUSIC'])));
   });
 
+  await t.test('resolvePromptToEventFilter answers a single-weekday prompt as a one-element dayOfWeek list (Epic 9 review P5)', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+    setCallGeminiGenerateContent(async () => ({
+      text: JSON.stringify({ expression: { dayOfWeek: ['FRI'], isFree: true }, caveats: [] }),
+    }));
+
+    const res = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            resolvePromptToEventFilter(prompt: "free events on Fridays") {
+              resolvedFilter { dayOfWeek isFree }
+              expression { op children { field value } }
+              caveats
+            }
+          }
+        `,
+      }),
+    });
+    const result = await res.json();
+    assert.ok(!result.errors, `Should succeed without errors: ${JSON.stringify(result.errors)}`);
+    assert.deepStrictEqual(result.data.resolvePromptToEventFilter.resolvedFilter.dayOfWeek, ['FRI']);
+    assert.strictEqual(result.data.resolvePromptToEventFilter.resolvedFilter.isFree, true);
+  });
+
   await t.test('resolvePromptToEventFilter calls the dedicated filter model and reports a venueType as a caveat instead of applying it ("exiting outdoor event for kids in weekend")', async () => {
     mockUser = { userId: testUser.id, role: testUser.role };
 

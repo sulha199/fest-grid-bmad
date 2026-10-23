@@ -4628,6 +4628,20 @@ export const resolvers: Resolvers = {
     createdAt: (parent) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
     deletedAt: (parent) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
   },
+  EventFilter: {
+    // `EventFilter.dayOfWeek` is a list type, but the domain's flat shape deliberately carries a lone
+    // weekday as a bare string (the compiler accepts both). graphql-js refuses a scalar for a list
+    // field -- "Expected Iterable" -- which failed the whole response for a prompt as ordinary as
+    // "events on Fridays". Wrap at the boundary, once, for every place an `EventFilter` is returned
+    // (Epic 9 review P5).
+    dayOfWeek: (parent) => {
+      const value: unknown = parent.dayOfWeek;
+      if (value === null || value === undefined) {
+        return null;
+      }
+      return (Array.isArray(value) ? value : [value]) as Exclude<EventFilter['dayOfWeek'], undefined>;
+    },
+  },
   AIEventFilter: {
     resolvedFilter: (parent) => resolveStoredFilter(parent.resolvedFilter).flatFilter as EventFilter | null,
     expression: (parent) => resolveStoredFilter(parent.resolvedFilter).expression as FilterNode,
