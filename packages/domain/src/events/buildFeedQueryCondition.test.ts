@@ -242,4 +242,43 @@ describe('buildFeedQueryCondition', () => {
     const aiOnly = buildFeedQueryCondition({ filter: { types: ['FESTIVAL'], temporalFilter: 'TODAY' } });
     assert.ok(JSON.stringify(aiOnly).includes('scheduleEndedBoundary'));
   });
+
+  describe('Epic 9 review P1: a non-AND compiled expression is scoped, never merged into', () => {
+    const base = { field: 'isFromSubscribedAccount', operator: 'eq', value: true };
+    const sleman: FilterNode = { field: 'locationAdminArea', value: 'Sleman' };
+    const bantul: FilterNode = { field: 'locationAdminArea', value: 'Bantul' };
+
+    it('keeps the subscription constraint ANDed with a root OR instead of OR-ing it in', () => {
+      const expression: FilterNode = { op: 'OR', children: [sleman, bantul] };
+      const result = buildFeedQueryCondition({ expression, subscriptions: ['acc1'] });
+      assert.deepEqual(result, {
+        operator: 'and',
+        conditions: [
+          base,
+          { field: 'socialMediaAccountProfileId', operator: 'in', value: ['acc1'] },
+          compileFilterNodeToQueryCondition(expression),
+        ],
+      });
+    });
+
+    it('keeps the subscription constraint outside a lone keyword leaf (which compiles to an or group)', () => {
+      const expression: FilterNode = { field: 'keyword', value: 'jazz' };
+      const result = buildFeedQueryCondition({ expression });
+      assert.equal(result.operator, 'and');
+      assert.deepEqual(groupConditions(result)[0], base);
+      assert.equal(groupConditions(result).length, 2);
+    });
+
+    it('keeps the subscription constraint outside a root NOT group', () => {
+      const expression: FilterNode = {
+        op: 'NOT',
+        child: { field: 'dateRange', value: { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY' } },
+      };
+      const result = buildFeedQueryCondition({ expression });
+      assert.equal(result.operator, 'and');
+      const [first, second] = groupConditions(result);
+      assert.deepEqual(first, base);
+      assert.ok(isGroupCondition(second) && second.operator === 'not');
+    });
+  });
 });

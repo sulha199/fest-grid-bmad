@@ -27,12 +27,13 @@ export function buildDrizzleWhere(
     } else if (condition.operator === "or") {
       return or(...parts);
     } else if (condition.operator === "not") {
-      // Story 9.2 (AC1) -- a plain, non-null-aware `NOT (<child SQL>)` wrap. The null-inclusive
-      // guarantee ("NULL != x" keeps matching) is delivered entirely by the `ne`/`notIn` terminal
-      // cases below, not here -- see Dev Notes decision 3 for why this fallback deliberately
-      // stays non-null-aware (every leaf that reaches this path either always has a value, or --
-      // for `locationProximity` -- isn't the null-inclusive case this story's AC targets).
-      return parts.length > 0 ? sql`NOT (${parts[0]})` : undefined;
+      // Story 9.2 (AC1) -- negates the whole group (all children ANDed, not just the first: a
+      // hand-built `not` with several children means "none of these"). Epic 9 review (P11): the
+      // negated SQL is wrapped in COALESCE(..., false) so a NULL result -- e.g. a
+      // `withinRadius` BETWEEN over an event with no coordinates -- negates to TRUE instead of
+      // staying NULL and dropping the row, keeping "NOT includes events with no value" (SPEC)
+      // true for every leaf that reaches this fallback, not only the `ne`/`notIn` terminals.
+      return sql`NOT COALESCE(${and(...parts)}, false)`;
     }
     return undefined;
   }

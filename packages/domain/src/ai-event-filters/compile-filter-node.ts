@@ -173,10 +173,14 @@ export function compileFilterNodeToQueryCondition(
   // ever gets a chance to see it as a group at all (e.g. `expressionFromFlatFilter`'s
   // single-populated-field output, always wrapped as `{ op: 'AND', children: [oneLeaf] }`,
   // normalizes straight to the bare leaf). Re-wrap in that case so a top-level AND/OR group
-  // input still always compiles to a wrapped `{ operator, conditions: [...] }` shape -- matching
-  // the legacy flat path's own unconditional `{ operator: 'and', conditions }` return, which is
+  // input always compiles to a wrapped `{ operator, conditions: [...] }` shape -- matching the
+  // legacy flat path's own unconditional `{ operator: 'and', conditions }` return, which is
   // required for AC2's byte-identical parity test to hold for every single-field fixture.
-  if (isFilterGroupNode(node) && !isGroupCondition(compiled)) {
+  //
+  // The test is on the NORMALIZED node, not on the compiled shape: a lone `keyword` or
+  // multi-weekday leaf itself compiles to an `or` group, and checking the compiled shape let
+  // `AND[keyword]` through bare (Epic 9 review, P1).
+  if (isFilterGroupNode(node) && !isFilterGroupNode(normalized)) {
     return { operator: node.op === 'AND' ? 'and' : 'or', conditions: [compiled] };
   }
 
