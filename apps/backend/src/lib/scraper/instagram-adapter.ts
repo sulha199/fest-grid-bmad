@@ -198,6 +198,14 @@ export function isApifyErrorTransient(error: unknown): boolean {
   return false;
 }
 
+// Apify refuses a run with 402 + this type when the account's concurrent-memory cap is already in use
+// (prod 2026-10-23: 31 of 35 simultaneous triggers). The account's balance is fine and a later attempt
+// succeeds, so it is a capacity condition, not a vendor outage. Lives here because this is the only
+// module allowed to import apify-client (no-vendor-call-bypasses-wrapper ratchet).
+export function isApifyMemoryLimitError(error: unknown): boolean {
+  return error instanceof ApifyApiError && error.statusCode === 402 && error.type === 'actor-memory-limit-exceeded';
+}
+
 // Story 0.i2d (AD-32 Rule 1) — the single chokepoint every real Apify call site routes
 // through. No `opts.lockKey` is ever passed here (AC4): Apify has exactly one static,
 // always-valid credential, no multi-key pool to protect, and no candidate-exclusion retry

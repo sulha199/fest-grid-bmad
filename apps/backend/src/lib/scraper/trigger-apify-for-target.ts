@@ -1,5 +1,4 @@
-import { ApifyApiError } from 'apify-client';
-import { callApifyClient } from './instagram-adapter.js';
+import { callApifyClient, isApifyMemoryLimitError } from './instagram-adapter.js';
 import { getScrapeCursor } from './get-scrape-cursor.js';
 import { gateDegradedProvider, releaseProviderProbe } from './provider-run-health-store.js';
 import { createPendingJob } from './apify-pending-jobs-store.js';
@@ -12,15 +11,6 @@ import type { ScrapeTarget as FullScrapeTarget } from './get-scrape-targets.js';
 import type { ScraperTriggerResult } from './scraper-trigger-result.js';
 
 export type ScrapeTarget = Pick<FullScrapeTarget, 'profileId' | 'username'>;
-
-// Apify refuses a run with 402 + this type when the account's concurrent-memory cap is already in use
-// (prod 2026-10-23: 31 of 35 simultaneous triggers). The account's balance is fine and a later attempt
-// succeeds, so it is a capacity condition, not a vendor outage.
-const APIFY_MEMORY_LIMIT_ERROR_TYPE = 'actor-memory-limit-exceeded';
-
-function isApifyMemoryLimitError(error: unknown): boolean {
-  return error instanceof ApifyApiError && error.statusCode === 402 && error.type === APIFY_MEMORY_LIMIT_ERROR_TYPE;
-}
 
 export let attemptApifyAsyncTrigger = async (
   target: ScrapeTarget,
