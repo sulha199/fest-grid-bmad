@@ -62,4 +62,4 @@ Yes for the moderators, because the sandbox only restricts *who* can receive, no
 
 ### Alert without SES (IDEA-096), built 2026-10-22
 
-PR [sulha199/fest-grid-bmad#95](https://github.com/sulha199/fest-grid-bmad/pull/95), stacked on #93: CloudWatch alarms and an SNS topic reach the owner while SES is blocked. See IDEA-096 on the board.
+PR [sulha199/fest-grid-bmad#95](https://github.com/sulha199/fest-grid-bmad/pull/95), merged 2026-10-23 as `95bef1c0`: CloudWatch alarms and an SNS topic reach the owner while SES is blocked. See IDEA-096 on the board.
