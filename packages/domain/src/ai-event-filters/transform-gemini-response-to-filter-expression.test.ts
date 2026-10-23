@@ -534,16 +534,59 @@ describe('transformGeminiResponseToFilterExpression (AC2)', () => {
     });
   });
 
-  it('joins leaf fields carried on an OR node to that OR (its own operator), alongside its children', () => {
+  it('D4: leaf fields beside an OR node\'s branches qualify the whole group ("free jazz or blues")', () => {
+    const result = transformGeminiResponseToFilterExpression({
+      expression: { op: 'OR', isFree: true, children: [{ keyword: 'jazz' }, { keyword: 'blues' }] },
+      caveats: [],
+    });
+    assert.deepEqual(result.expression, {
+      op: 'AND',
+      children: [
+        { op: 'OR', children: [{ field: 'keyword', value: 'jazz' }, { field: 'keyword', value: 'blues' }] },
+        { field: 'isFree', value: true },
+      ],
+    });
+    assert.deepEqual(result.caveats, []);
+  });
+
+  it('D4: a single branch plus a node-level field collapses to a plain AND', () => {
     const result = transformGeminiResponseToFilterExpression({
       expression: { op: 'OR', keyword: 'jazz', children: [{ keyword: 'blues' }] },
       caveats: [],
     });
     assert.deepEqual(result.expression, {
-      op: 'OR',
+      op: 'AND',
       children: [
         { field: 'keyword', value: 'blues' },
         { field: 'keyword', value: 'jazz' },
+      ],
+    });
+  });
+
+  it('D4: an OR with only node-level fields and no branches keeps them as alternatives', () => {
+    const result = transformGeminiResponseToFilterExpression({
+      expression: { op: 'OR', types: ['FESTIVAL'], categories: ['MUSIC'] },
+      caveats: [],
+    });
+    assert.deepEqual(result.expression, {
+      op: 'OR',
+      children: [
+        { field: 'type', value: ['FESTIVAL'] },
+        { field: 'category', value: ['MUSIC'] },
+      ],
+    });
+  });
+
+  it('an AND node keeps its node-level fields beside its children, joined by AND (unchanged)', () => {
+    const result = transformGeminiResponseToFilterExpression({
+      expression: { op: 'AND', isFree: true, children: [{ keyword: 'jazz' }] },
+      caveats: [],
+    });
+    assert.deepEqual(result.expression, {
+      op: 'AND',
+      children: [
+        { field: 'keyword', value: 'jazz' },
+        { field: 'isFree', value: true },
       ],
     });
   });

@@ -2385,9 +2385,9 @@ items:
      note: "Deferred from: re-review of the epic-9 fixes (2026-10-23). 5 low findings."}
 
   FIND-091:
-    {type: finding, status: triaged, created: 2026-10-23, parent: FIND-088,
+    {type: finding, status: done, created: 2026-10-23, parent: FIND-088,
      impact: user-visible, effort: s,
      title: "Decision needed: leaf fields written on an OR node beside its children join the OR as extra alternatives (\"free jazz or blues\" can match every free event)",
      ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/epic-9-code-review-2026-10-23.md],
      touches: [pkg:domain, cross:ai-extraction],
-     note: "Deferred from: re-review of the epic-9 fixes (2026-10-23). DECISION: node-level leaf fields on an OR join it as alternatives (Story 9.4 literal reading); the alternative is AND(OR(branches), fields). Detail in deferred-work.md."}
+     note: "Deferred from: re-review of the epic-9 fixes (2026-10-23). Decided by the product owner and fixed: a qualifier beside an OR's branches applies to the whole group, AND(OR(branches), fields). See Story 9.4's amendment."}

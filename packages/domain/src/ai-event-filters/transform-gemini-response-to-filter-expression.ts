@@ -90,13 +90,18 @@ function convertRawNode(raw: unknown, pushedCaveats: string[]): FilterNode[] {
     // location: {...} }` with no `children`). Those conditions are real -- keep them as extra
     // children of THAT group, joined by its own operator (literal reading: the model put them on
     // this node), instead of silently dropping them (SPEC CAP-2: surfaced, never dropped).
-    const children = [
-      ...rawChildren.flatMap((child) => {
-        const converted = convertRawNode(child, pushedCaveats);
-        return op === 'OR' && converted.length > 1 ? [{ op: 'AND' as const, children: converted }] : converted;
-      }),
-      ...leafChildrenOf(raw, pushedCaveats),
-    ];
+    const branches = rawChildren.flatMap((child) => {
+      const converted = convertRawNode(child, pushedCaveats);
+      return op === 'OR' && converted.length > 1 ? [{ op: 'AND' as const, children: converted }] : converted;
+    });
+    const ownFields = leafChildrenOf(raw, pushedCaveats);
+    if (op === 'OR' && branches.length > 0 && ownFields.length > 0) {
+      // "free jazz or blues": a qualifier written on the OR node beside its branches applies to the
+      // whole group (decided with the product owner, Epic 9 re-review D4). Read as one more
+      // alternative, `isFree` would match every free event -- silently far wider than asked.
+      return [{ op: 'AND', children: [{ op: 'OR', children: branches }, ...ownFields] }];
+    }
+    const children = [...branches, ...ownFields];
     if (children.length === 0) {
       return [];
     }

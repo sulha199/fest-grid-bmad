@@ -65,7 +65,7 @@ By design or already handled: rate-limit check before the key lookup (mandated b
 
 Scope: the fix delta `git diff origin/master...HEAD`, production source only (domain 2055 lines, backend 428, web/UI 561), after merging `origin/master` (4 commits, no conflicts). Method: `bmad-code-review` again, 3 chunks x 3 layers (Blind Hunter on the diff alone, Edge Case Hunter with read access to verify reachability, Acceptance Auditor against SPEC / vocabulary / stories / the D2-D3 decisions) = 9 layers, all completed. As before, severity is mine, every `high` or `medium` claim was reproduced or traced in the code before rating, and subagent output was treated as untrusted. Several claims were refuted by running them (see Dismissed).
 
-Result: **19 patch, 3 defer, 1 decision needed, ~30 dismissed.** All patches have a regression test that was red on the old code and green on the new.
+Result: **20 patch (19 + D4), 2 defer, 1 decision (resolved), ~30 dismissed.** All patches have a regression test that was red on the old code and green on the new.
 
 ## Patched
 
@@ -95,7 +95,7 @@ Low:
 
 ## Decision needed
 
-- **D4 / FIND-091 [medium]** Leaf fields written on an OR node beside its children are joined to that OR as extra alternatives, so `{op:'OR', children:[jazz, blues], isFree:true}` becomes `OR(jazz, blues, isFree)` (every free event matches). Reproduced. It is Story 9.4's deliberate literal reading with a covering test, so it was not changed on a guess. (a) keep it and add a caveat, or (b) read a qualifier beside an OR's branches as applying to the whole group: `AND(OR(branches), fields)`.
+- **D4 / FIND-091 [medium] — RESOLVED the same day: the product owner chose (b), a qualifier beside an OR's branches applies to the whole group; implemented with regression tests (`AND(OR(jazz, blues), isFree)`) and Story 9.4 amended.** Original finding:  Leaf fields written on an OR node beside its children are joined to that OR as extra alternatives, so `{op:'OR', children:[jazz, blues], isFree:true}` becomes `OR(jazz, blues, isFree)` (every free event matches). Reproduced. It is Story 9.4's deliberate literal reading with a covering test, so it was not changed on a guess. (a) keep it and add a caveat, or (b) read a qualifier beside an OR's branches as applying to the whole group: `AND(OR(branches), fields)`.
 
 ## Not done
 
