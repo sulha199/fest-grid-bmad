@@ -124,3 +124,8 @@ Existing 18 unchanged (`TECHNOLOGY` definition widened) + `HOME_AND_LIVING` + `F
 ## 9. Coordination note
 
 AD-42 (planning branch `claude/ecstatic-shannon-e8eh9h`, `[PROPOSED]`, not on master) says "the closed `EventCategory` (18 values) … stay as coarse facets" and lets interests name a parent category. Compatible; its "18" becomes 20 when both land. This decision took **AD-44** because AD-42 and AD-43 are taken on that branch.
+
+## 10. Follow-up questions (2026-10-23)
+
+- **Fashion & Beauty for male users:** yes by design. Categories are audience-neutral (the system has no user-gender concept; AD-42 models gender only as event `tracks`/`eligibility`). The definition now names menswear, streetwear, sneakers, barbershop and grooming explicitly. Open: the Indonesian label "Kecantikan" reads female-coded; see owner question.
+- **Market/promo vs `BUSINESS_AND_NETWORKING`:** the name invites Gemini to tag any commercial event as business. AD-44 Rule 4 now limits it to a professional/trade audience; consumer bazaars, sales and promos take the subject of what is sold. Co-tagging is allowed only when a trade or business-matching purpose is stated. No repo data confirms the mis-tagging rate; the §5 query should also count `MARKET`/`PROMOTION` events carrying `BUSINESS_AND_NETWORKING`.

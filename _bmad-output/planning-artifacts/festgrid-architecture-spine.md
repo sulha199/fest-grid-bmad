@@ -2472,7 +2472,9 @@ This document defines the core architectural invariants for the FestDaily applic
         an event (promotion, market, festival) is `EventType`'s job and is never a category. A
         category must be a bounded subject a user would filter on; catch-all names (lifestyle,
         general, misc) and bare ambiguous nouns are refused. Categories stay multi-valued; a post
-        may carry several.
+        may carry several. **Categories are audience-neutral:** none is defined by gender, age or
+        eligibility. Who an event is for is a separate axis (AD-42 `tracks`/`eligibility`,
+        `[PROPOSED]`), never a category.
     2.  **Membership, `[ADOPTED, user-directed 2026-10-23]`:** `HOME_AND_LIVING` ("Home & Living" /
         "Rumah & Hunian") and `FASHION_AND_BEAUTY` ("Fashion & Beauty" / "Fashion & Kecantikan") are
         added before `OTHER`, taking the set from 18 to 20. `TECHNOLOGY` keeps its name and label;
@@ -2487,7 +2489,13 @@ This document defines the core architectural invariants for the FestDaily applic
         and their promos → `TECHNOLOGY`; furniture, appliances, décor, interior, housewares, home
         improvement and consumer DIY/hardware tools → `HOME_AND_LIVING`; industrial machinery and
         trade shows, property and investment expos or seminars → `BUSINESS_AND_NETWORKING`
-        (property is investment-adjacent, `[ADOPTED, user-directed]`); car accessories and tools →
+        (property is investment-adjacent, `[ADOPTED, user-directed]`); **`BUSINESS_AND_NETWORKING`
+        is for a professional or trade audience** (networking, entrepreneurship, B2B and trade
+        expos, franchise and UMKM business-matching, investor seminars) — a consumer-facing market,
+        bazaar, sale or promotion takes the subject of what is sold, not `BUSINESS_AND_NETWORKING`,
+        and carries it as well only when a trade or business-matching purpose is stated in the
+        post; `FASHION_AND_BEAUTY` covers menswear, womenswear, streetwear, sneakers, barbershop and
+        grooming, skincare and cosmetics alike; car accessories and tools →
         `AUTOMOTIVE`; plants as a pastime → `HOBBIES_AND_INTERESTS`, plants as décor →
         `HOME_AND_LIVING`; a sale or festival spanning many unrelated products has no single subject
         and is `OTHER` with type `PROMOTION` or `MARKET`, which is correct, not a gap.
