@@ -245,3 +245,21 @@ describe('summary-clause-formatters: Epic 9 review P22', () => {
     );
   });
 });
+
+describe('Epic 9 re-review: summary template details', () => {
+  const bare: AIFilterSummaryLabels = { noFilter: '' };
+
+  it('leaves a placeholder it has no value for untouched', () => {
+    assert.equal(formatKeywordClause('jazz', { ...bare, keywordTemplate: 'about {keyword} {unknown}' }), 'about jazz {unknown}');
+  });
+
+  it('keeps a non-TODAY anchor in the default span-extension wording', () => {
+    assert.equal(
+      formatDateRangeClause(
+        { anchor: DateAnchor.THIS_WEEK, offsetAmount: 0, offsetUnit: DateOffsetUnit.WEEK, spanAmount: 2, spanUnit: DateOffsetUnit.WEEK },
+        bare
+      ),
+      'THIS_WEEK, extending 2 WEEK'
+    );
+  });
+});

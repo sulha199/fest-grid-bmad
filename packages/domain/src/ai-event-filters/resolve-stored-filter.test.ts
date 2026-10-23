@@ -159,3 +159,29 @@ describe('Epic 9 re-review: resolveStoredFilter keeps a negation exact', () => {
     assert.deepEqual(result.expression, { field: 'keyword', value: 'jazz' });
   });
 });
+
+describe('Epic 9 re-review: resolveStoredFilter never throws', () => {
+  it('returns the empty, degraded filter for a stored value that blows up while being read', () => {
+    const hostile = {
+      get types(): never {
+        throw new Error('boom');
+      },
+    };
+    assert.deepEqual(resolveStoredFilter(hostile), {
+      expression: { op: 'AND', children: [] },
+      flatFilter: {},
+      degraded: true,
+    });
+  });
+
+  it('returns the empty, degraded filter when nothing in the stored expression survives repair', () => {
+    const result = resolveStoredFilter({ version: 2, expression: { field: 'keyword', value: '' } });
+    assert.deepEqual(result, { expression: { op: 'AND', children: [] }, flatFilter: {}, degraded: true });
+  });
+
+  it('gives a repaired, still non-empty filter its flat projection', () => {
+    const result = resolveStoredFilter({ keyword: 'x'.repeat(300), types: ['MARKET'] });
+    assert.equal(result.degraded, true);
+    assert.deepEqual(result.flatFilter, { types: ['MARKET'] });
+  });
+});

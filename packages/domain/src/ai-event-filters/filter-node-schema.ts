@@ -465,20 +465,9 @@ export function validateFilterNode(rawCandidate: unknown): FilterValidationResul
   return { valid: true, node };
 }
 
-/** `findOversizedWeekdayWindow` applied to every AND group of an already-normalized tree. */
+/** `findOversizedWeekdayWindow` for the root of an already-normalized tree. Only the root can hide a
+ * pair that `walkNode` could not see: the depth limit (3) leaves no room for an AND nested in an AND
+ * anywhere below it, so a pair only appears by flattening at the root. */
 function findOversizedWeekdayWindowIn(node: FilterNode): number | undefined {
-  if ('op' in node) {
-    if (node.op === 'NOT') {
-      return findOversizedWeekdayWindowIn(node.child);
-    }
-    if (node.op === 'AND') {
-      const own = findOversizedWeekdayWindow(node.children);
-      if (own !== undefined) return own;
-    }
-    for (const child of node.children) {
-      const nested = findOversizedWeekdayWindowIn(child);
-      if (nested !== undefined) return nested;
-    }
-  }
-  return undefined;
+  return 'op' in node && node.op === 'AND' ? findOversizedWeekdayWindow(node.children) : undefined;
 }

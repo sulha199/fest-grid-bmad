@@ -79,6 +79,7 @@ function degradeStoredFilter(candidate: unknown): ResolvedStoredFilter {
   const repaired = kept.node ? repairToValidTree(kept.node, () => undefined) : empty;
   const validation = validateFilterNode(repaired);
   const expression = validation.valid ? validation.node : empty;
-  const isEmpty = expression === empty || (expression as { children?: unknown[] }).children?.length === 0;
+  // A valid tree never has an empty group, so "empty" is exactly the fallback above.
+  const isEmpty = expression === empty;
   return { expression, flatFilter: isEmpty ? {} : flatFilterOrNull(expression), degraded: true };
 }

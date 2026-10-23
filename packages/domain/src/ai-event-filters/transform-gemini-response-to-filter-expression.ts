@@ -112,9 +112,6 @@ function convertRawNode(raw: unknown, pushedCaveats: string[]): FilterNode[] {
         : Array.isArray(raw.children) && raw.children.length === 1
           ? raw.children[0]
           : undefined;
-    if (operand === undefined && Array.isArray(raw.children) && raw.children.length > 1) {
-      pushCaveat(pushedCaveats, INVALID_FRAGMENT_CAVEAT);
-    }
     // Leaf fields written directly on the NOT node sit beside the negation, not inside it.
     const siblings = leafChildrenOf(raw, pushedCaveats);
     const results = convertRawNode(operand, pushedCaveats);

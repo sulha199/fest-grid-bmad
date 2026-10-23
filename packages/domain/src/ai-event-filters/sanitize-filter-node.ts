@@ -302,9 +302,14 @@ export function repairToValidTree(root: FilterNode, onRepair: (kind: RepairKind)
   current = normalize(small.node);
 
   // Belt and braces: whatever slipped through every repair above is not worth throwing over.
+  /* c8 ignore start -- defence in depth. Each step above leaves a tree the validator accepts; the one
+     way a later step could undo that (trimming collapses a group and `normalize` then flattens a new
+     dateRange x dayOfWeek pair past the cap) was not reproducible with any input, so this cannot be
+     reached by a test. It stays so a future repair step can never leak an invalid tree. */
   if (!validateFilterNode(current).valid) {
     onRepair('invalid');
     return empty;
   }
+  /* c8 ignore stop */
   return current;
 }
