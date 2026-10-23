@@ -1,5 +1,7 @@
 # Audience, language and taxonomy POC: the plan (2026-10-21)
 
+> **Where things stand: [poc-status.md](./poc-status.md)** (status, next steps, commands, hand-off notes). This plan is the design; that file is updated every session.
+
 Gate for AD-42 (`festgrid-architecture-spine.md`, Rule 10). Nothing in AD-42 Rules 2 to 8 ships before this has run, been reviewed and passed. Written by the cloud session. **The thresholds in section 5 were adopted by the owner on 2026-10-21 as proposed** (audience country at least 95% exact, at least 90% on the foreign and shared-language strata, no critical error); the other bars are start values until the first run.
 
 ## 1. What it has to decide
