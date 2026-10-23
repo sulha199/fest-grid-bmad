@@ -146,8 +146,11 @@ function parseNonNegativeInt(value: string | undefined, name: string, defaultVal
 }
 
 function parsePositiveInt(value: string | undefined, name: string, defaultValue: number): number {
-  const parsed = Number.parseInt(value || String(defaultValue), 10);
-  if (!Number.isInteger(parsed) || parsed < 1) {
+  const text = (value || String(defaultValue)).trim();
+  // `parseInt` alone would read "1e3" as 1 and "10abc" as 10: a typo must fail loudly, not quietly
+  // become a different limit.
+  const parsed = /^\d+$/.test(text) ? Number.parseInt(text, 10) : Number.NaN;
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
     throw new Error(`${name} must be a positive integer (>= 1).`);
   }
   return parsed;

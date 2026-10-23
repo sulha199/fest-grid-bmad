@@ -18,19 +18,28 @@ function isImpossible(node: FilterNode): boolean {
   return isFilterLeaf(node) && node.field === 'accountId' && node.value === NO_ACCOUNT_ID;
 }
 
-/** Folds the never-matching stand-in through AND / OR: `AND(x, impossible)` is impossible, and
- * `OR(x, impossible)` is just `x` (an OR of only impossible branches is impossible). `NOT` is left
- * for the query, which evaluates `NOT(impossible)` exactly. */
-function simplifyImpossible(node: FilterNode): FilterNode {
+const ALWAYS = Symbol('matches every event');
+
+/** Folds the never-matching stand-in through the operators, so the tree sent back carries it only
+ * when the WHOLE filter can match nothing:
+ *   AND(x, never) = never      OR(x, never) = x      NOT(never) = every event
+ *   AND(x, always) = x         OR(x, always) = always      NOT(always) = never
+ * An `always` that survives to the root means "no filter". */
+function simplifyImpossible(node: FilterNode): FilterNode | typeof ALWAYS {
   if (isFilterNotNode(node)) {
-    return { op: 'NOT', child: simplifyImpossible(node.child) };
+    const child = simplifyImpossible(node.child);
+    if (child === ALWAYS) return IMPOSSIBLE;
+    return isImpossible(child) ? ALWAYS : { op: 'NOT', child };
   }
   if (isFilterGroupNode(node)) {
     const children = node.children.map(simplifyImpossible);
     if (node.op === 'AND') {
-      return children.some(isImpossible) ? IMPOSSIBLE : { op: 'AND', children };
+      if (children.some((child) => child !== ALWAYS && isImpossible(child))) return IMPOSSIBLE;
+      const kept = children.filter((child): child is FilterNode => child !== ALWAYS);
+      return kept.length === 0 ? ALWAYS : { op: 'AND', children: kept };
     }
-    const possible = children.filter((child) => !isImpossible(child));
+    if (children.includes(ALWAYS)) return ALWAYS;
+    const possible = (children as FilterNode[]).filter((child) => !isImpossible(child));
     return possible.length > 0 ? { op: 'OR', children: possible } : IMPOSSIBLE;
   }
   return node;
@@ -90,15 +99,17 @@ export async function resolveFilterExpressionAccountIds(
     }
     if (context.insideOrOrNot) {
       // An account that does not exist matches no events. Inside an OR / NOT, merely dropping the
-      // leaf would change what the operator means, so keep an impossible leaf instead (pruned out
-      // of ORs below; evaluated exactly by the query everywhere else).
-      addCaveat(`Could not find an account matching "${leaf.value}", so that part of your filter matches no events.`);
+      // leaf would change what the operator means, so keep an impossible leaf instead and let
+      // `simplifyImpossible` fold it through the operators. The wording holds in every position:
+      // it states what the account does, not what the surrounding operator then makes of it.
+      addCaveat(`Could not find an account matching "${leaf.value}", so it was treated as matching no events.`);
       return { field: 'accountId', value: NO_ACCOUNT_ID };
     }
     addCaveat(`Could not find an account matching "${leaf.value}", so events from all accounts are shown.`);
     return undefined;
   });
 
-  const expression = normalize(mapped ? simplifyImpossible(mapped) : { op: 'AND', children: [] });
+  const simplified = mapped ? simplifyImpossible(mapped) : ALWAYS;
+  const expression = normalize(simplified === ALWAYS ? { op: 'AND', children: [] } : simplified);
   return { expression, caveats };
 }

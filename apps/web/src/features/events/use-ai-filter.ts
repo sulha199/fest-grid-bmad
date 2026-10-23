@@ -27,6 +27,21 @@ function hasNoConditions(expression: FilterNode): boolean {
   return 'op' in expression && expression.op === 'AND' && expression.children.length === 0;
 }
 
+/** The one filter the backend sends for "the prompt extracted nothing": an empty root AND. It is a
+ * legitimate no-filter state, though `validateFilterNode` (rightly) rejects an empty group. */
+function isEmptyRootAnd(value: unknown): boolean {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as { op?: unknown }).op === 'AND' &&
+    Array.isArray((value as { children?: unknown }).children) &&
+    (value as { children: unknown[] }).children.length === 0
+  );
+}
+
+/** What manual FilterHub controls can express, and so all that "Edit / Expand" can carry over. */
+const MANUAL_CONTROL_KEYS: ReadonlySet<string> = new Set(['keyword', 'types', 'categories']);
+
 export function useAIFilter() {
   const { hasApiKey, isLoading: isLoadingKey } = useApiKeyStatus();
   const [isOpen, setIsOpen] = useState(false);
@@ -65,7 +80,9 @@ export function useAIFilter() {
   const aiCaveats = useMemo(() => {
     if (!aiCaveatsStr) return null;
     try {
-      return JSON.parse(aiCaveatsStr) as string[];
+      const parsed: unknown = JSON.parse(aiCaveatsStr);
+      // The URL is untrusted: `{}` or `5` is valid JSON but would throw when spread into the list.
+      return Array.isArray(parsed) ? (parsed.filter((item) => typeof item === 'string') as string[]) : null;
     } catch {
       return null;
     }
@@ -78,7 +95,9 @@ export function useAIFilter() {
       // still carry GraphQL's `op: null` / `children: null` / `child: null` keys -- validate (which
       // also strips them) instead of casting, so a malformed or old-shape value degrades to "no
       // expression" rather than crashing the summary/query builders.
-      const validation = validateFilterNode(JSON.parse(aiExpressionStr));
+      const parsed: unknown = JSON.parse(aiExpressionStr);
+      if (isEmptyRootAnd(parsed)) return { op: 'AND', children: [] } as FilterNode;
+      const validation = validateFilterNode(parsed);
       return validation.valid ? validation.node : null;
     } catch {
       return null;
@@ -90,12 +109,28 @@ export function useAIFilter() {
   // compound prompt is only an approximation -- say so instead of silently showing a different filter.
   const aiExpressionInvalid = !!aiExpressionStr && aiExpression === null;
 
-  // What "Edit / Expand" can turn the filter into: manual controls only represent a flat
-  // filter. A compound (OR / NOT) expression has no such form, so it cannot be expanded.
+  // What "Edit / Expand" can turn the filter into. Manual controls only express a keyword, types and
+  // categories (SPEC CAP-5: "Expand exists only for a filter that manual controls can represent"):
+  // a compound expression (OR / NOT), or a flat one that also carries a date, weekday, place, price
+  // or account, has no such form -- expanding it would silently drop those conditions. An
+  // unrestorable link (`aiExpressionInvalid`) is only an approximation, so it is not expanded either.
   const flatForExpand = useMemo<EventFilterInput | null>(() => {
-    if (aiExpression) return tryFlatFilter(aiExpression);
-    return aiFilter;
-  }, [aiExpression, aiFilter]);
+    const flat = aiExpression ? tryFlatFilter(aiExpression) : aiExpressionInvalid ? null : aiFilter;
+    if (!flat) return null;
+    const representable = Object.entries(flat).every(
+      ([key, value]) => MANUAL_CONTROL_KEYS.has(key) || value === undefined || value === null
+    );
+    return representable ? flat : null;
+  }, [aiExpression, aiExpressionInvalid, aiFilter]);
+
+  // One query path: a flat filter is an implicit AND of leaves (`expressionFromFlatFilter`, proven
+  // to compile to the identical conditions), so the search box and the Today/Upcoming toggle are
+  // ANDed onto it exactly as they are onto an expression -- instead of the flat branches ignoring
+  // the search and letting the toggle replace the filter's own `temporalFilter`.
+  const activeExpression = useMemo<FilterNode | null>(
+    () => aiExpression ?? (aiFilter ? expressionFromFlatFilter(aiFilter) : null),
+    [aiExpression, aiFilter]
+  );
 
   const summaryLabels = useMemo(() => {
     const anchors = {
@@ -153,7 +188,7 @@ export function useAIFilter() {
   }, [tSummary]);
 
   const summaryResult = useMemo(() => {
-    if (!aiFilter && !aiExpression) return null;
+    if (!aiFilter && !aiExpression && !aiExpressionInvalid) return null;
     const node = aiExpression ?? expressionFromFlatFilter(aiFilter ?? {});
     const caveats = aiExpressionInvalid ? [...(aiCaveats ?? []), tSummary('expressionInvalidCaveat')] : aiCaveats;
     return renderFilterExpressionSummary(node, caveats, summaryLabels);
@@ -310,7 +345,7 @@ export function useAIFilter() {
   return {
     hasApiKey: hasApiKey && !isLoadingKey,
     activeFilter: aiFilter,
-    activeExpression: aiExpression,
+    activeExpression,
     isLoading,
     filterHubProps: {
       showAITrigger: hasApiKey && !isLoadingKey,

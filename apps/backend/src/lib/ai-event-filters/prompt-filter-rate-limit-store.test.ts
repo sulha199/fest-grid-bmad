@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { promptFilterRateLimits, users } from '@festgrid/database';
 import { db } from '../../db/client.js';
 import { checkAndRecordPromptFilterRateLimit } from './prompt-filter-rate-limit-store.js';
@@ -39,8 +39,34 @@ test('prompt-filter-rate-limit-store: concurrency', async (t) => {
 
     const results = await Promise.all(Array.from({ length: 10 }, () => checkAndRecordPromptFilterRateLimit(user.id)));
 
-    assert.ok(results.filter(Boolean).length <= 2, `allowed ${results.filter(Boolean).length}, budget was 2`);
+    assert.equal(results.filter(Boolean).length, 2, `allowed ${results.filter(Boolean).length}, budget was exactly 2`);
     const [row] = await db.select().from(promptFilterRateLimits).where(eq(promptFilterRateLimits.userId, user.id));
-    assert.ok(row.requestCount <= 5);
+    assert.equal(row.requestCount, 5);
+  });
+
+  await t.test('a burst well under the limit is never denied because of contention (Epic 9 re-review)', async () => {
+    process.env.PROMPT_FILTER_RATE_LIMIT_MAX_REQUESTS = '10';
+    await db.delete(promptFilterRateLimits).where(eq(promptFilterRateLimits.userId, user.id));
+    await db.insert(promptFilterRateLimits).values({ userId: user.id, requestCount: 1, windowStartAt: new Date() });
+
+    const results = await Promise.all(Array.from({ length: 8 }, () => checkAndRecordPromptFilterRateLimit(user.id)));
+
+    assert.equal(results.filter(Boolean).length, 8, '8 parallel requests on top of 1 used are 9 of 10: all allowed');
+    const [row] = await db.select().from(promptFilterRateLimits).where(eq(promptFilterRateLimits.userId, user.id));
+    assert.equal(row.requestCount, 9);
+  });
+
+  await t.test('a window_start_at with microsecond precision does not lock the user out (Epic 9 re-review)', async () => {
+    process.env.PROMPT_FILTER_RATE_LIMIT_MAX_REQUESTS = '5';
+    await db.delete(promptFilterRateLimits).where(eq(promptFilterRateLimits.userId, user.id));
+    // What the column's own `defaultNow()` writes: sub-millisecond digits a JS Date cannot hold.
+    await db.execute(
+      sql`insert into prompt_filter_rate_limits (user_id, request_count, window_start_at)
+          values (${user.id}, 0, now() - interval '1 minute' + interval '0.000789 seconds')`
+    );
+
+    assert.equal(await checkAndRecordPromptFilterRateLimit(user.id), true);
+    const [row] = await db.select().from(promptFilterRateLimits).where(eq(promptFilterRateLimits.userId, user.id));
+    assert.equal(row.requestCount, 1);
   });
 });

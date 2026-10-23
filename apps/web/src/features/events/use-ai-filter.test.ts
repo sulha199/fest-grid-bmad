@@ -329,16 +329,93 @@ describe('useAIFilter hook', () => {
   it.each([
     ['unparseable JSON', '{not json'],
     ['a non-node value', '"just a string"'],
-    ['an empty group', JSON.stringify({ op: 'AND', children: [] })],
     ['an out-of-vocabulary leaf', JSON.stringify({ field: 'price', value: 5 })],
   ])('treats an ai_expression URL param that is %s as no expression instead of throwing', (_label, raw) => {
     const { result } = renderHook(() => useAIFilter(), {
       wrapper: withSearchParams({ ai_filter: JSON.stringify({ keyword: 'jazz' }), ai_expression: raw }),
     });
 
-    expect(result.current.activeExpression).toBeNull();
-    // Falls back to the flat ai_filter, so the summary still renders.
+    // Falls back to the flat ai_filter -- exposed as its equivalent expression so every page takes one
+    // query path -- and the summary still renders.
+    expect(result.current.activeExpression).toEqual({ op: 'AND', children: [{ field: 'keyword', value: 'jazz' }] });
     expect(typeof result.current.filterHubProps.aiFilterSummary).toBe('string');
+  });
+
+  it('Epic 9 re-review: an empty root group is the valid "extracted nothing" state, not an invalid link', () => {
+    const { result } = renderHook(() => useAIFilter(), {
+      wrapper: withSearchParams({ ai_filter: '{}', ai_expression: JSON.stringify({ op: 'AND', children: [] }) }),
+    });
+
+    expect(result.current.activeExpression).toEqual({ op: 'AND', children: [] });
+    expect(result.current.filterHubProps.aiCaveatsText ?? '').not.toContain('expressionInvalidCaveat');
+  });
+
+  it('Epic 9 re-review: shows the invalid-link caveat even when ai_filter is missing too', () => {
+    const { result } = renderHook(() => useAIFilter(), {
+      wrapper: withSearchParams({ ai_expression: JSON.stringify({ field: 'price', value: 5 }) }),
+    });
+
+    expect(result.current.filterHubProps.aiCaveatsText).toContain('expressionInvalidCaveat');
+    expect(result.current.filterHubProps.onAIExpand).toBeUndefined();
+  });
+
+  it('Epic 9 re-review: ai_caveats that is valid JSON but not an array is ignored instead of crashing the render', () => {
+    for (const raw of ['{}', '5', '"text"', 'null']) {
+      const { result } = renderHook(() => useAIFilter(), {
+        wrapper: withSearchParams({
+          ai_filter: JSON.stringify({ keyword: 'jazz' }),
+          ai_caveats: raw,
+          ai_expression: JSON.stringify({ field: 'price', value: 5 }),
+        }),
+      });
+      expect(result.current.filterHubProps.aiCaveatsText).toContain('expressionInvalidCaveat');
+    }
+  });
+
+  it('Epic 9 re-review: only non-string entries are dropped from ai_caveats', () => {
+    const { result } = renderHook(() => useAIFilter(), {
+      wrapper: withSearchParams({
+        ai_filter: JSON.stringify({ keyword: 'jazz' }),
+        ai_caveats: JSON.stringify(['kept', 7, null]),
+      }),
+    });
+    expect(result.current.filterHubProps.aiCaveatsText).toContain('kept');
+  });
+
+  // CAP-5: Expand only for what manual controls (keyword, types, categories) can represent.
+  it('Epic 9 re-review: offers Expand for a keyword/types/categories filter but not once it also has a date, place or price', () => {
+    const representable = renderHook(() => useAIFilter(), {
+      wrapper: withSearchParams({ ai_filter: JSON.stringify({ keyword: 'jazz', types: ['FESTIVAL'] }) }),
+    });
+    expect(typeof representable.result.current.filterHubProps.onAIExpand).toBe('function');
+
+    for (const extra of [
+      { isFree: true },
+      { location: { adminArea: 'Sleman' } },
+      { dayOfWeek: ['SAT'] },
+      { dateRange: { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY' } },
+      { accountId: 'acc-1' },
+      { temporalFilter: 'TODAY' },
+    ]) {
+      const rich = renderHook(() => useAIFilter(), {
+        wrapper: withSearchParams({ ai_filter: JSON.stringify({ keyword: 'jazz', ...extra }) }),
+      });
+      expect(rich.result.current.filterHubProps.onAIExpand, JSON.stringify(extra)).toBeUndefined();
+    }
+  });
+
+  it('Epic 9 re-review: a flat filter is exposed as its equivalent expression, so search and the toggle AND onto it', () => {
+    const { result } = renderHook(() => useAIFilter(), {
+      wrapper: withSearchParams({ ai_filter: JSON.stringify({ isFree: true }) }),
+    });
+
+    expect(result.current.activeFilter).toEqual({ isFree: true });
+    expect(result.current.activeExpression).toEqual({ op: 'AND', children: [{ field: 'isFree', value: true }] });
+  });
+
+  it('Epic 9 re-review: no AI params at all means no active expression', () => {
+    const { result } = renderHook(() => useAIFilter(), { wrapper: NuqsTestingAdapter });
+    expect(result.current.activeExpression).toBeNull();
   });
 
   // Epic 9 review D2: "Edit / Expand" only exists where manual controls can represent the filter.
@@ -379,12 +456,14 @@ describe('useAIFilter hook', () => {
     const { result } = renderHook(() => useAIFilter(), {
       wrapper: withSearchParams({
         ai_filter: JSON.stringify({ keyword: 'jazz' }),
-        ai_expression: JSON.stringify({ op: 'AND', children: [] }),
+        ai_expression: JSON.stringify({ field: 'price', value: 5 }),
       }),
     });
 
-    expect(result.current.activeExpression).toBeNull();
+    expect(result.current.activeExpression).toEqual({ op: 'AND', children: [{ field: 'keyword', value: 'jazz' }] });
     expect(result.current.filterHubProps.aiCaveatsText).toContain('expressionInvalidCaveat');
+    // The fallback is only an approximation of the shared filter: Expand would wipe it.
+    expect(result.current.filterHubProps.onAIExpand).toBeUndefined();
   });
 
   it('P6: a resolved filter with no flat form writes {} (not the string "null") as the ai_filter marker', () => {
