@@ -57,4 +57,42 @@ test('resolveFilterExpressionAccountIds (AC3)', async (t) => {
     assert.equal(result.caveats.length, 1);
     assert.match(result.caveats[0], new RegExp(`no_such_account_anywhere_${stamp}`));
   });
+
+  const NO_ACCOUNT_ID = '00000000-0000-0000-0000-000000000000';
+  const unknownHandle = `@no_such_account_anywhere_${stamp}`;
+
+  await t.test('D3: an unresolved account directly under an AND is still dropped as an ignored constraint', async () => {
+    const node: FilterNode = {
+      op: 'AND',
+      children: [{ field: 'accountId', value: unknownHandle }, { field: 'keyword', value: 'jazz' }],
+    };
+    const result = await resolveFilterExpressionAccountIds(node, userId);
+    assert.deepEqual(result.expression, { field: 'keyword', value: 'jazz' });
+    assert.deepEqual(result.caveats, [`Could not find an account matching "${unknownHandle}", so events from all accounts are shown.`]);
+  });
+
+  await t.test('D3: an OR of only unresolved accounts matches no events, with one accurate caveat per distinct handle', async () => {
+    const node: FilterNode = {
+      op: 'OR',
+      children: [
+        { field: 'accountId', value: unknownHandle },
+        { op: 'AND', children: [{ field: 'accountId', value: unknownHandle }, { field: 'keyword', value: 'jazz' }] },
+      ],
+    };
+    const result = await resolveFilterExpressionAccountIds(node, userId);
+    assert.equal(result.caveats.length, 1);
+    assert.match(result.caveats[0], /matches no events/);
+    assert.deepEqual(result.expression, { field: 'accountId', value: NO_ACCOUNT_ID });
+  });
+
+  await t.test('D3: NOT over an AND containing an unresolved account keeps the negation of a never-matching branch (excludes nothing), not NOT of the rest', async () => {
+    const node: FilterNode = {
+      op: 'NOT',
+      child: { op: 'AND', children: [{ field: 'accountId', value: unknownHandle }, { field: 'keyword', value: 'jazz' }] },
+    };
+    const result = await resolveFilterExpressionAccountIds(node, userId);
+    // AND(impossible, jazz) is impossible, so the NOT excludes nothing.
+    assert.deepEqual(result.expression, { op: 'NOT', child: { field: 'accountId', value: NO_ACCOUNT_ID } });
+    assert.match(result.caveats[0], /matches no events/);
+  });
 });
