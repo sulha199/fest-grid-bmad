@@ -875,6 +875,32 @@ test('events resolver integration via Yoga', async (t) => {
       assert.ok(!/\bs5\./.test(itemsStatement!.sql), 'should NOT use the pinned-date ORDER BY (s5 alias)');
       assert.ok(/\bs2\./.test(itemsStatement!.sql), 'should use the default event-level ORDER BY (s2 alias)');
     });
+
+    await t.test('an OR containing an exact-date dateRange does not trigger the pinned-date ORDER BY path (Epic 9 review P18)', async () => {
+      // OR(dateRange TODAY, keyword) also matches events on other dates, so the single exact date
+      // in one branch must not pin the result set's ordering.
+      const captured: { sql: string; params: unknown[] }[] = [];
+      setSqlCaptureSink((sql, params) => captured.push({ sql, params }));
+      let result: any;
+      try {
+        result = await queryEventsRaw({
+          expression: {
+            op: 'OR',
+            children: [
+              { field: 'dateRange', value: { anchor: 'TODAY', offsetAmount: 0, offsetUnit: 'DAY' } },
+              { field: 'keyword', value: 'jazz' },
+            ],
+          },
+        });
+      } finally {
+        setSqlCaptureSink(null);
+      }
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+
+      const itemsStatement = captured.find((c) => /from\s+"events"/i.test(c.sql) && /order by/i.test(c.sql));
+      assert.ok(itemsStatement, 'expected to capture the items SELECT with an ORDER BY clause');
+      assert.ok(!/\bs5\./.test(itemsStatement!.sql), 'should NOT use the pinned-date ORDER BY (s5 alias)');
+    });
   });
 
   await t.test('event - fetch single event by ID with schedules', async () => {

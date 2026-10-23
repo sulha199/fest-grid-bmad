@@ -3320,7 +3320,9 @@ export const resolvers: Resolvers = {
           // positively pinned by it, so it must never reach the calendar-view ORDER BY tie-break
           // this collector feeds. Reachable now that `Query.events`'s new `expression` argument
           // can produce a `'not'`-operator group wrapping a `dateRange`/`dayOfWeek` leaf.
-          if (condition.operator === 'not') return;
+          // Epic 9 review (P18): the same holds for an `or` -- `OR(dateRange TODAY, keyword jazz)`
+          // matches events on other dates, so one branch's exact date does not pin the result set.
+          if (condition.operator !== 'and') return;
           for (const child of condition.conditions) {
             collectExactDates(child, found);
           }
