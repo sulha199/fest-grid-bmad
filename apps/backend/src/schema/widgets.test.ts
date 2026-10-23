@@ -283,6 +283,45 @@ test('widgets resolvers integration', async (t) => {
       assert.strictEqual(result.data.updateWidget.filters.keyword, 'reggae');
     });
 
+    await t.test('Epic 9 review P7: a legacy flat filter the validator rejects (radiusMeters 0) is refused on create', async () => {
+      const res = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `mutation { createWidget(input: { filters: { location: { coordinates: { lat: -7.7, lng: 110.3 }, radiusMeters: 0 } } }) { id } }`,
+        }),
+      });
+      const result = await res.json();
+      assert.ok(result.errors, 'an invalid flat filter should error');
+      assert.strictEqual(result.errors[0].extensions?.code, 'BAD_USER_INPUT');
+    });
+
+    await t.test('Epic 9 review P23: updateWidget treats an explicit null filters as absent, like createWidget', async () => {
+      const created = await createWithExpression({ field: 'keyword', value: 'ska' });
+      assert.ok(!created.errors, JSON.stringify(created.errors));
+      const widgetId = created.data.createWidget.id;
+      createdIds.push(widgetId);
+
+      const res = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation Update($id: ID!) {
+              updateWidget(id: $id, input: { filters: null, expression: { field: "keyword", value: "dub" } }) {
+                id
+                filters { keyword }
+              }
+            }
+          `,
+          variables: { id: widgetId },
+        }),
+      });
+      const result = await res.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.strictEqual(result.data.updateWidget.filters.keyword, 'dub');
+    });
+
     await t.test('updateWidget with both filters and expression in the same call returns BAD_USER_INPUT', async () => {
       const created = await createWithExpression({ field: 'keyword', value: 'folk' });
       assert.ok(!created.errors, JSON.stringify(created.errors));

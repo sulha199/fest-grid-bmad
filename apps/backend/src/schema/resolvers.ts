@@ -31,8 +31,9 @@ import { resolveInstagramOEmbed } from '../lib/instagram-oembed/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError, type GraphQLResolveInfo } from 'graphql';
 import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult, computePastEventThreshold, parsePlatformPrefixedEventSlug, sanitizeEventLinks } from '@festgrid/domain/events';
-import { transformGeminiResponseToFilterExpression, dropUnsupportedVenueTypes, validateFilterNode, compileFilterNodeToQueryCondition, resolveStoredFilter, flatFilterFromExpression } from '@festgrid/domain/ai-event-filters';
+import { transformGeminiResponseToFilterExpression, dropUnsupportedVenueTypes, validateFilterNode, compileFilterNodeToQueryCondition, resolveStoredFilter, flatFilterFromExpression, expressionFromFlatFilter, isFilterGroupNode } from '@festgrid/domain/ai-event-filters';
 import type { FilterValidationIssue } from '@festgrid/domain/ai-event-filters';
+import type { EventFilterInput } from '@festgrid/domain/events';
 import { SUPPORTED_PLATFORMS, type ScrapablePlatform, type SupportedPlatform } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText } from '@festgrid/domain';
 import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError, postGroupingReasonToGraphQL, isPostGroupingReason, type ReextractionPreviewResult } from '@festgrid/domain/posts';
@@ -73,6 +74,25 @@ const validateProposedEventCorrection = compileValidator<ProposedEventCorrection
  */
 function formatFilterValidationIssues(issues: FilterValidationIssue[]): string {
   return issues.map((i) => `${i.path.join('.')}: ${i.reason}`).join('; ');
+}
+
+/**
+ * Epic 9 review (P7) -- the legacy flat `resolvedFilter` / `filters` write paths used to store
+ * whatever the typed GraphQL input allowed (`radiusMeters: 0`, an unbounded offset, a span with no
+ * unit), which `resolveStoredFilter` then had to repair on every read. Reject it up front through
+ * the same validator as the expression paths. An empty flat filter ("no filter") stays valid.
+ */
+function assertValidFlatFilter(filter: unknown): void {
+  const expression = expressionFromFlatFilter((filter ?? {}) as EventFilterInput);
+  if (isFilterGroupNode(expression) && expression.children.length === 0) {
+    return;
+  }
+  const validation = validateFilterNode(expression);
+  if (!validation.valid) {
+    throw new GraphQLError(formatFilterValidationIssues(validation.issues), {
+      extensions: { code: 'BAD_USER_INPUT' }
+    });
+  }
 }
 
 /**
@@ -447,6 +467,8 @@ export const resolvers: Resolvers = {
           });
         }
         storedValue = { version: 2, expression: validation.node };
+      } else {
+        assertValidFlatFilter(resolvedFilter);
       }
 
       const [inserted] = await db.insert(aiEventFilters).values({
@@ -2426,6 +2448,8 @@ export const resolvers: Resolvers = {
         storedValue = { version: 2, expression: validation.node };
       } else if (typeof input.filters !== 'object' || input.filters === null) {
         throw new GraphQLError('Filters must be a valid JSON object', { extensions: { code: 'BAD_REQUEST' } });
+      } else {
+        assertValidFlatFilter(input.filters);
       }
 
       const [inserted] = await db.insert(widgets).values({
@@ -2447,14 +2471,16 @@ export const resolvers: Resolvers = {
         throw new GraphQLError('Cannot update a deleted widget', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
       }
 
-      if (input.filters !== undefined && input.expression !== undefined) {
+      // `!= null` (not `!== undefined`) so an explicit `null` -- which generated clients routinely
+      // send for an unset optional -- counts as absent, exactly as `createWidget` already treats it.
+      if (input.filters != null && input.expression != null) {
         throw new GraphQLError('Provide either filters or expression, not both, in the same call.', {
           extensions: { code: 'BAD_USER_INPUT' }
         });
       }
 
       const updateFields: any = {};
-      if (input.expression !== undefined) {
+      if (input.expression != null) {
         const validation = validateFilterNode(input.expression);
         if (!validation.valid) {
           throw new GraphQLError(formatFilterValidationIssues(validation.issues), {
@@ -2462,10 +2488,11 @@ export const resolvers: Resolvers = {
           });
         }
         updateFields.filters = { version: 2, expression: validation.node };
-      } else if (input.filters !== undefined) {
-        if (typeof input.filters !== 'object' || input.filters === null) {
+      } else if (input.filters != null) {
+        if (typeof input.filters !== 'object') {
           throw new GraphQLError('Filters must be a valid JSON object', { extensions: { code: 'BAD_REQUEST' } });
         }
+        assertValidFlatFilter(input.filters);
         updateFields.filters = input.filters;
       }
       if (input.displayMode !== undefined) {

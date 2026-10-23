@@ -543,6 +543,27 @@ test('ai event filters resolvers integration', async (t) => {
     }
   });
 
+  await t.test('Epic 9 review P7: saveAIEventFilter refuses a legacy flat filter the validator rejects', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+    const res = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            saveAIEventFilter(
+              prompt: "near me",
+              resolvedFilter: { location: { coordinates: { lat: -7.7, lng: 110.3 }, radiusMeters: 0 } }
+            ) { id }
+          }
+        `
+      })
+    });
+    const result = await res.json();
+    assert.ok(result.errors, 'an invalid flat filter should error');
+    assert.strictEqual(result.errors[0].extensions?.code, 'BAD_USER_INPUT');
+  });
+
   await t.test('saveAIEventFilter, myAIEventFilters, and deleteAIEventFilter flow', async () => {
     mockUser = { userId: testUser.id, role: testUser.role };
 

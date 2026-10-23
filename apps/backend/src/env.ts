@@ -145,6 +145,14 @@ function parseNonNegativeInt(value: string | undefined, name: string, defaultVal
   return parsed;
 }
 
+function parsePositiveInt(value: string | undefined, name: string, defaultValue: number): number {
+  const parsed = Number.parseInt(value || String(defaultValue), 10);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new Error(`${name} must be a positive integer (>= 1).`);
+  }
+  return parsed;
+}
+
 // Story 3.20 (Task 1.1) -- unlike this file's other boolean env vars (all default OFF via a
 // plain `=== 'true'` check), BLUR_FACES_BEFORE_AI defaults ON: unset -> true; only an explicit
 // 'false'/'0' (case-insensitive, trimmed) turns it off; any other value -> true.
@@ -237,13 +245,13 @@ export function loadBackendEnv(): BackendEnv {
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     apiKeyUsageCycleDays: parseInt(process.env.API_KEY_USAGE_CYCLE_DAYS || '30', 10),
     // Story 9.8 AC2 -- both figures configurable, default 10 requests / 10-minute window.
-    promptFilterRateLimitMaxRequests: parseNonNegativeInt(
+    promptFilterRateLimitMaxRequests: parsePositiveInt(
       // eslint-disable-next-line turbo/no-undeclared-env-vars
       process.env.PROMPT_FILTER_RATE_LIMIT_MAX_REQUESTS,
       'PROMPT_FILTER_RATE_LIMIT_MAX_REQUESTS',
       10
     ),
-    promptFilterRateLimitWindowMinutes: parseNonNegativeInt(
+    promptFilterRateLimitWindowMinutes: parsePositiveInt(
       // eslint-disable-next-line turbo/no-undeclared-env-vars
       process.env.PROMPT_FILTER_RATE_LIMIT_WINDOW_MINUTES,
       'PROMPT_FILTER_RATE_LIMIT_WINDOW_MINUTES',
