@@ -32,6 +32,7 @@ graph TD
         KMS["KMS: BYOK key encryption"]
         S3["S3 and CloudFront: post media"]
         SES["Amazon SES: email"]
+        OPS["CloudWatch alarms and SNS topic: ops alerts, prod only"]
     end
 
     subgraph Data
@@ -78,6 +79,10 @@ graph TD
     L_Scrape -- audit-trail failure alert --> SES
     L_HookA -- audit-trail failure alert --> SES
     L_HookB -- audit-trail failure alert --> SES
+    L_Scrape -- ProviderDegraded and ProviderRecovered metric lines --> OPS
+    L_HookA -- PostsSaved metric lines --> OPS
+    L_HookB -- PostsSaved metric lines --> OPS
+    L_Scrape -- PostsSaved metric lines --> OPS
     L_API --> DB
     L_API --> Geo
     L_API --> KMS
@@ -99,6 +104,7 @@ graph TD
 | Secrets and keys | AWS KMS for BYOK keys; Secrets Manager for provider tokens | CDK stack |
 | Media | S3 behind CloudFront (origin access control) for durable post media | CDK stack |
 | Notifications | Firebase Cloud Messaging (push); Amazon SES (email) | docs/infrastructure/4 and 6, backend lambdas |
+| Operations alerts | CloudWatch Embedded Metric Format lines from the Lambdas, three CloudWatch alarms and an SNS topic with an optional e-mail subscription (prod only; needs no SES) | CDK stack, `apps/backend/src/lib/metrics/emit-metric.ts` |
 | Geolocation | Geoapify (geocoding with a Postgres cache; map tiles) | docs/infrastructure/5-geolocation.md |
 | Validation | AJV / JSON Schema (backend), Zod (client) | package.json |
 | Testing | Vitest, Playwright | package.json |
@@ -108,6 +114,7 @@ graph TD
 - `high-level-overview.md` shows Apify only. The CDK stack and code also use Bright Data. Treat the code as correct, and fold Bright Data into that page.
 - The overview does not show the Notifier Lambda, KMS, the Bright Data path, or the S3 and CloudFront media stack. This page adds them from the CDK stack.
 - The Notifier Lambda sends quota-warning and provider-down emails through SES. New-event push notifications to FCM are sent by the Ingestor after it commits, so the Ingestor holds the Firebase variables (the private key from Secrets Manager); the AI processor never reaches the push or mail path and holds neither. Every Lambda that sends mail holds `SES_FROM_EMAIL_ADDRESS` and an `ses:SendEmail` grant on both the sending-domain identity and the From address identity (a verified address can send, which is what the SES sandbox allows); `festgrid-backend-stack.test.ts` fails for a sender address without its grant. The API Lambda's exact FCM and SES wiring was not traced.
+- The ops alarms (IDEA-096) are the one alert path that does not use SES: `OpsMetric` lines (`PostsSaved` per newly inserted post, `ProviderDegraded` and `ProviderRecovered` on the daily batch's transition) become CloudWatch metrics under the `FestGrid/Backend` namespace, and three prod-only alarms publish to an SNS topic. The e-mail subscription is created only when the deploy variable `OPS_ALERT_EMAIL` is set, and the recipient must click the confirmation link SNS sends. The `PostsSaved` alarm treats a day with no datapoint as a breach, so a quiet day with nothing new also trips it.
 - SES state is not in the code. The stack creates only the domain identity (`festdaily.app`); whether it, the From address and the recipients are verified, and whether the account is still in the SES sandbox, are account settings (BUG-073).
 - Apify and Bright Data each have their own webhook Lambda (`apify-webhook.ts` and `webhook.ts`). Retries of the webhook deliveries themselves were not traced.
 - Result handling (Architecture Spine AD-43). The Bright Data webhook checks a delivery with no records against Bright Data's progress endpoint: a vendor failure is recorded FAILED and its profile re-queued to the ScrapingQueue (through the account-type gate, AD-34). The hourly stale-job sweep in the Scraper Lambda does the same for jobs whose webhook never arrived, for both vendors. A scrape starts from the newest stored post of the profile, never from the last run's finish time. A provider whose recent runs mostly failed or returned no posts is skipped, bar a few probe triggers, and recorded as a failure day in `scraper_provider_health`. The webhook Lambda therefore holds the Bright Data token and the ScrapingQueue send permission, asserted by `festgrid-backend-stack.test.ts`.

@@ -983,3 +983,80 @@ test('FestgridBackendStack: every usage-store Lambda gets API_KEY_USAGE_CYCLE_DA
     }
   }
 });
+
+// IDEA-096: an alert path that does not depend on SES. The metric names and namespace are written by
+// apps/backend/src/lib/metrics/emit-metric.ts (its test pins the same strings).
+const PROD_ENV = {
+  SUPABASE_URL: 'https://example.supabase.co',
+  FIREBASE_PROJECT_ID: 'test-project',
+  FIREBASE_CLIENT_EMAIL: 'test@example.com',
+  SES_FROM_EMAIL_ADDRESS: 'noreply@example.com',
+  WEB_APP_BASE_URL: 'https://example.com',
+};
+
+function synthProdTemplate(id: string, extraEnv: Record<string, string> = {}): Template {
+  return withEnv({ ...PROD_ENV, ...extraEnv }, () => {
+    const app = new cdk.App();
+    return Template.fromStack(new FestgridBackendStack(app, id, { stageName: 'prod' }));
+  });
+}
+
+test('FestgridBackendStack: prod has ops alarms that publish to an SNS topic with an e-mail subscription (IDEA-096)', () => {
+  const template = synthProdTemplate('TestStackOpsAlerts', { OPS_ALERT_EMAIL: 'owner@example.test' });
+
+  template.resourceCountIs('AWS::SNS::Topic', 1);
+  template.hasResourceProperties('AWS::SNS::Subscription', { Protocol: 'email', Endpoint: 'owner@example.test' });
+  template.resourceCountIs('AWS::CloudWatch::Alarm', 3);
+
+  const topicActions = [{ Ref: Match.stringLikeRegexp('^OpsAlertsTopic') }];
+
+  template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+    AlarmName: 'festgrid-prod-scraper-provider-degraded',
+    Namespace: 'FestGrid/Backend',
+    MetricName: 'ProviderDegraded',
+    Statistic: 'Sum',
+    Period: 3600,
+    Threshold: 1,
+    EvaluationPeriods: 1,
+    ComparisonOperator: 'GreaterThanOrEqualToThreshold',
+    TreatMissingData: 'notBreaching',
+    AlarmActions: topicActions,
+  });
+  template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+    AlarmName: 'festgrid-prod-scraper-provider-recovered',
+    Namespace: 'FestGrid/Backend',
+    MetricName: 'ProviderRecovered',
+    ComparisonOperator: 'GreaterThanOrEqualToThreshold',
+    TreatMissingData: 'notBreaching',
+    AlarmActions: topicActions,
+  });
+  // A day with no PostsSaved datapoint at all is the failure, and the OK transition is worth knowing too.
+  template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+    AlarmName: 'festgrid-prod-no-new-posts-saved-24h',
+    Namespace: 'FestGrid/Backend',
+    MetricName: 'PostsSaved',
+    Statistic: 'Sum',
+    Period: 86400,
+    Threshold: 1,
+    EvaluationPeriods: 1,
+    ComparisonOperator: 'LessThanThreshold',
+    TreatMissingData: 'breaching',
+    AlarmActions: topicActions,
+    OKActions: topicActions,
+  });
+});
+
+test('FestgridBackendStack: without OPS_ALERT_EMAIL the prod alarms still exist but nothing is subscribed (IDEA-096)', () => {
+  const template = synthProdTemplate('TestStackOpsAlertsNoEmail');
+
+  template.resourceCountIs('AWS::CloudWatch::Alarm', 3);
+  template.resourceCountIs('AWS::SNS::Subscription', 0);
+});
+
+test('FestgridBackendStack: dev has no ops alarms (IDEA-096)', () => {
+  const app = new cdk.App();
+  const template = Template.fromStack(new FestgridBackendStack(app, 'TestStackNoOpsAlertsInDev', { stageName: 'dev' }));
+
+  template.resourceCountIs('AWS::CloudWatch::Alarm', 0);
+  template.resourceCountIs('AWS::SNS::Topic', 0);
+});
