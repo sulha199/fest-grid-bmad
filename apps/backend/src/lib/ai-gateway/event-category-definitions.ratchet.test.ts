@@ -153,6 +153,21 @@ test('Check B positive confirmation: all 4 of Story 0.53\'s new tokens appear in
   }
 });
 
+test('Check B positive confirmation (Story 0.54): SCIENCE_AND_ENGINEERING appears in real boundary/definition prose, unflagged', () => {
+  // Proves the behavior actually flipped from "forbidden" to "legal" for this token, rather than
+  // only inferring it from Check A/B passing overall -- same pattern as Story 0.53's own test above.
+  const token = 'SCIENCE_AND_ENGINEERING';
+
+  const allDefinitionText = Object.values(EVENT_CATEGORY_DEFINITIONS)
+    .map((entry) => entry.definition)
+    .join(' ');
+  const allBoundaryText = CATEGORY_BOUNDARIES.map((b) => b.rule).join(' ');
+  const haystack = `${allDefinitionText} ${allBoundaryText}`;
+
+  assert.ok(haystack.includes(token), `Expected ${token} to appear somewhere in real definitions/boundaries`);
+  assert.deepStrictEqual(findUnknownTokens(token), [], `Expected ${token} to no longer be flagged as an unknown token`);
+});
+
 // ---------------------------------------------------------------------------------------------
 // Check C/D: render-and-assert on the ACTUAL built prompts (not a source grep).
 // ---------------------------------------------------------------------------------------------
