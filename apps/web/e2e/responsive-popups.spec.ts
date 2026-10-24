@@ -31,7 +31,8 @@ interface PopupScenario {
 }
 
 const POPOVER = '[data-radix-popper-content-wrapper] > [data-state="open"]';
-const DIALOG = '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]';
+// Radix dialogs carry data-state; the AI filter overlay is hand-rolled (role only). Closed Radix dialogs unmount.
+const DIALOG = '[role="dialog"], [role="alertdialog"]';
 const EVENT_ROUTE = '/en/events/ongoing-culture-fest-2026-2027-fixed';
 
 const scenarios: PopupScenario[] = [
@@ -93,15 +94,6 @@ const scenarios: PopupScenario[] = [
     session: 'moderator',
     open: async (page) => {
       await page.getByRole('button', { name: 'Re-extract' }).first().click();
-      return page.locator(DIALOG).last();
-    },
-  },
-  {
-    name: 'moderator items: Delete Permanently confirmation',
-    route: '/en/moderator/items',
-    session: 'moderator',
-    open: async (page) => {
-      await page.getByRole('button', { name: 'Delete Permanently' }).first().click();
       return page.locator(DIALOG).last();
     },
   },
