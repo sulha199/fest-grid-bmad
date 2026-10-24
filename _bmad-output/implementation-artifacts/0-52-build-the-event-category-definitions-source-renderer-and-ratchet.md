@@ -34,65 +34,65 @@ so that the extraction prompt and the AI-filter prompt use the same vocabulary f
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Definitions source (AC: #1)
-  - [ ] Create `packages/shared-types/src/event-category-definitions.ts`. Import `EventCategory`/`EventType` from `./index.js` (or define alongside the enum in `index.ts` directly if that avoids an import cycle — AD-44's "beside the enum" wording permits either; prefer the separate file since AD-44 Rule 3's "Binds" clause names it explicitly as `event-category-definitions.ts`). Re-export from `src/index.ts`.
-  - [ ] Write a definition + ≥1 Indonesian alias for all 18 existing members. The following four need **specific, mandatory content** drawn from AD-44 Rule 5's boundary table (do not improvise different semantics for these):
+- [x] Task 1: Definitions source (AC: #1)
+  - [x] Create `packages/shared-types/src/event-category-definitions.ts`. Import `EventCategory`/`EventType` from `./index.js` (or define alongside the enum in `index.ts` directly if that avoids an import cycle — AD-44's "beside the enum" wording permits either; prefer the separate file since AD-44 Rule 3's "Binds" clause names it explicitly as `event-category-definitions.ts`). Re-export from `src/index.ts`.
+  - [x] Write a definition + ≥1 Indonesian alias for all 18 existing members. The following four need **specific, mandatory content** drawn from AD-44 Rule 5's boundary table (do not improvise different semantics for these):
     - `TECHNOLOGY`: keeps its EXISTING definition unchanged (tech product promos, hackathons, tech meetups/conferences) -- do NOT widen it to consumer gadgets. (Owner reversed the widening on 2026-10-23: consumer gadgets get their own `GADGETS_AND_DEVICES` category in Story 0.53, which will narrow `TECHNOLOGY` then. AD-44 Follow-up 1.)
     - `BUSINESS_AND_NETWORKING`: defined by subject matter only (trade, B2B, networking, entrepreneurship, property and investment) — **never** by the audience's identity (AD-44 Rule 1). State that property/real-estate/KPR-mortgage expos or seminars route here regardless of audience (named routing wins over the subject-of-sale default), and that machinery for factories/production lines also routes here. State explicitly that "UMKM", "support local", or a seller workshop **alone** do not trigger this category — a stated trade/buyer/B2B/franchise/supplier/business-matching purpose is required. (This narrows today's effective scope versus the current "Fundraisers..." era wording — the accepted "BUSINESS_AND_NETWORKING narrows" interim effect.)
     - `HOBBIES_AND_INTERESTS`: includes esports and gaming tournaments (owner-directed default; AUTOMOTIVE/SPORTS_AND_FITNESS alternates were considered and declined) and plant collecting/contests/breeding/gardening (tag the headline subject only when a plant fair mixes hobby and other framing).
     - `AUTOMOTIVE`: unchanged — car and motorcycle fairs/exhibitions, plus car/motorcycle accessories and tools.
     - `OTHER`: "no single subject" or "no valid value" — use AD-44 Rule 2's own phrasing; do not describe it as a catch-all users would filter on.
-  - [ ] For the remaining 13 (`MUSIC`, `ARTS_AND_CULTURE`, `FOOD_AND_DRINK`, `SPORTS_AND_FITNESS`, `FAMILY_AND_KIDS`, `HEALTH_AND_WELLNESS`, `HOLIDAY`, `CHARITY_AND_CAUSES`, `CIVIC_AND_COMMUNITY`, `RELIGION_AND_SPIRITUALITY`, `TRAVEL_AND_TOURISM`, `EDUCATION`, `CAREER`), write a definition following AD-44 Rule 1 (subject domain, not form, not audience) and Rule 3's style constraints. `CHARITY_AND_CAUSES`, `CIVIC_AND_COMMUNITY`, `RELIGION_AND_SPIRITUALITY`, `TRAVEL_AND_TOURISM`, `EDUCATION`, `CAREER` already have a one-line inline comment in `index.ts`/`events.graphql` today (being replaced per Task 8) that can seed the definition; `MUSIC`, `ARTS_AND_CULTURE`, `FOOD_AND_DRINK`, `SPORTS_AND_FITNESS`, `FAMILY_AND_KIDS`, `HEALTH_AND_WELLNESS`, `HOLIDAY` have none today and need a fresh definition. Two specific boundary exceptions belong on these: `ARTS_AND_CULTURE` must cover batik/tenun/wastra heritage events; `HEALTH_AND_WELLNESS` must cover clinical aesthetic/medical treatment (botox, laser, dermatology); `SPORTS_AND_FITNESS` must state that a participatory sport event (fun run, tournament) keeps this category even when branded gear or apparel is also launched at it.
-  - [ ] **Do not** name `HOME_AND_LIVING` or `FASHION_AND_BEAUTY` anywhere in this file (not in a definition, not in a boundary rule, not in a comment) — Task 4's ratchet Check (b) enforces this, and it is the concrete difference between this story and Story 0.53. Concretely, this means the following AD-44 Rule 5 boundary lines are **not** written in this story (they are Story 0.53's job): furniture/appliances/décor/interior/housewares/home-improvement/consumer-or-tradespeople tools; decorative planting sold as home décor; fashion/sneakers/barbershop/grooming/skincare/cosmetics; the heritage-apparel-runway add-on to `ARTS_AND_CULTURE`. Their absence is why a furniture bazaar or a barbershop promo correctly falls through to `OTHER` under this story (see Task 6's golden corpus derivation) — that gap is AD-44 Follow-up 1's accepted interim effect, not a bug to work around.
-  - [ ] Add a header comment marking the file as LLM-facing English text, never to be rendered in any UI (project-context.md requires every user-facing enum string to go through `next-intl`; this file is not that).
+  - [x] For the remaining 13 (`MUSIC`, `ARTS_AND_CULTURE`, `FOOD_AND_DRINK`, `SPORTS_AND_FITNESS`, `FAMILY_AND_KIDS`, `HEALTH_AND_WELLNESS`, `HOLIDAY`, `CHARITY_AND_CAUSES`, `CIVIC_AND_COMMUNITY`, `RELIGION_AND_SPIRITUALITY`, `TRAVEL_AND_TOURISM`, `EDUCATION`, `CAREER`), write a definition following AD-44 Rule 1 (subject domain, not form, not audience) and Rule 3's style constraints. `CHARITY_AND_CAUSES`, `CIVIC_AND_COMMUNITY`, `RELIGION_AND_SPIRITUALITY`, `TRAVEL_AND_TOURISM`, `EDUCATION`, `CAREER` already have a one-line inline comment in `index.ts`/`events.graphql` today (being replaced per Task 8) that can seed the definition; `MUSIC`, `ARTS_AND_CULTURE`, `FOOD_AND_DRINK`, `SPORTS_AND_FITNESS`, `FAMILY_AND_KIDS`, `HEALTH_AND_WELLNESS`, `HOLIDAY` have none today and need a fresh definition. Two specific boundary exceptions belong on these: `ARTS_AND_CULTURE` must cover batik/tenun/wastra heritage events; `HEALTH_AND_WELLNESS` must cover clinical aesthetic/medical treatment (botox, laser, dermatology); `SPORTS_AND_FITNESS` must state that a participatory sport event (fun run, tournament) keeps this category even when branded gear or apparel is also launched at it.
+  - [x] **Do not** name `HOME_AND_LIVING` or `FASHION_AND_BEAUTY` anywhere in this file (not in a definition, not in a boundary rule, not in a comment) — Task 4's ratchet Check (b) enforces this, and it is the concrete difference between this story and Story 0.53. Concretely, this means the following AD-44 Rule 5 boundary lines are **not** written in this story (they are Story 0.53's job): furniture/appliances/décor/interior/housewares/home-improvement/consumer-or-tradespeople tools; decorative planting sold as home décor; fashion/sneakers/barbershop/grooming/skincare/cosmetics; the heritage-apparel-runway add-on to `ARTS_AND_CULTURE`. Their absence is why a furniture bazaar or a barbershop promo correctly falls through to `OTHER` under this story (see Task 6's golden corpus derivation) — that gap is AD-44 Follow-up 1's accepted interim effect, not a bug to work around.
+  - [x] Add a header comment marking the file as LLM-facing English text, never to be rendered in any UI (project-context.md requires every user-facing enum string to go through `next-intl`; this file is not that).
 
-- [ ] Task 2: Renderer (AC: #2)
-  - [ ] Create `apps/backend/src/lib/ai-gateway/render-event-category-glossary.ts` exporting `renderEventCategoryGlossary(): string`. Format: one line per category in `Object.values(EventCategory)` declaration order, `  - NAME -- definition (also: alias1, alias2, ...)`, using ASCII ` -- ` (not U+2014 em dash) to match this codebase's existing prompt-prose dash convention (`build-gemini-request.ts`'s "-- the most common real-world case"). Followed by one line per `CATEGORY_BOUNDARIES` entry.
-  - [ ] Add a colocated `render-event-category-glossary.test.ts`: asserts declaration order, exactly one line per category, the exact separator, and that two calls return byte-identical output (determinism).
+- [x] Task 2: Renderer (AC: #2)
+  - [x] Create `apps/backend/src/lib/ai-gateway/render-event-category-glossary.ts` exporting `renderEventCategoryGlossary(): string`. Format: one line per category in `Object.values(EventCategory)` declaration order, `  - NAME -- definition (also: alias1, alias2, ...)`, using ASCII ` -- ` (not U+2014 em dash) to match this codebase's existing prompt-prose dash convention (`build-gemini-request.ts`'s "-- the most common real-world case"). Followed by one line per `CATEGORY_BOUNDARIES` entry.
+  - [x] Add a colocated `render-event-category-glossary.test.ts`: asserts declaration order, exactly one line per category, the exact separator, and that two calls return byte-identical output (determinism).
 
-- [ ] Task 3: Wire both prompts to the renderer (AC: #3)
-  - [ ] `build-gemini-request.ts`: replace line 199's `allowedCategories = Object.values(EventCategory).join(', ')` + the item-3 interpolation at line 223 with a call to `renderEventCategoryGlossary()`, placed in the system-instruction template **before** the `${publishDate}` interpolation (which sits later in the template) so any provider-side prefix caching still sees a stable prompt prefix. Update the item-3 wording from "select appropriate values from this allowed list" to something like "select every value that fits, using only the values below, each given as `NAME -- definition`:" followed by the rendered block. Leave line 27's `enum: Object.values(EventCategory)` untouched.
-  - [ ] `build-filter-extraction-request.ts`: replace line 19's inline `${Object.values(EventCategory).join(', ')}` with a call to `renderEventCategoryGlossary()`. Leave line 82's `enum: Object.values(EventCategory)` (and its 3-level unrolled repeats) untouched.
-  - [ ] Record in Dev Agent Record / Completion Notes: each prompt's system-instruction character length before and after this change (expect roughly +2.4 KB to +4.4 KB combined across both categories+boundaries text, per the feasibility review's estimate — actual depends on final definition lengths).
+- [x] Task 3: Wire both prompts to the renderer (AC: #3)
+  - [x] `build-gemini-request.ts`: replace line 199's `allowedCategories = Object.values(EventCategory).join(', ')` + the item-3 interpolation at line 223 with a call to `renderEventCategoryGlossary()`, placed in the system-instruction template **before** the `${publishDate}` interpolation (which sits later in the template) so any provider-side prefix caching still sees a stable prompt prefix. Update the item-3 wording from "select appropriate values from this allowed list" to something like "select every value that fits, using only the values below, each given as `NAME -- definition`:" followed by the rendered block. Leave line 27's `enum: Object.values(EventCategory)` untouched.
+  - [x] `build-filter-extraction-request.ts`: replace line 19's inline `${Object.values(EventCategory).join(', ')}` with a call to `renderEventCategoryGlossary()`. Leave line 82's `enum: Object.values(EventCategory)` (and its 3-level unrolled repeats) untouched.
+  - [x] Record in Dev Agent Record / Completion Notes: each prompt's system-instruction character length before and after this change (expect roughly +2.4 KB to +4.4 KB combined across both categories+boundaries text, per the feasibility review's estimate — actual depends on final definition lengths).
 
-- [ ] Task 4: Ratchet test (AC: #4)
-  - [ ] Create `apps/backend/src/lib/ai-gateway/event-category-definitions.ratchet.test.ts`, `node:test` + `node:assert`, matching this codebase's existing ratchet style (`no-vendor-call-bypasses-wrapper.ratchet.test.ts`, `filter-consumer-no-bypass.ratchet.test.ts`): offender-list assertion + a positive confirmation the scan isn't vacuous + negative controls on every regex/check.
-  - [ ] Check A (exhaustive/bounded): `Object.keys(EVENT_CATEGORY_DEFINITIONS).sort()` deep-equals `[...Object.values(EventCategory)].sort()`; every definition non-empty, ≤280 chars, single-line (no `\n`), ≥1 alias.
-  - [ ] Check B (no forward references): every `\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b` token found inside any definition or boundary rule string is a member of `EventCategory` or `EventType` — this is the check that fails loudly if `HOME_AND_LIVING`, `FASHION_AND_BEAUTY`, `FINANCE_AND_INVESTMENT` (or a typo) ever appears.
-  - [ ] Check C/D (render-and-assert on the built prompts, not a source grep): call `buildGeminiExtractionRequest()` with the same minimal text-only `ProcessingJobMessage` already used by `build-gemini-request.test.ts` Case A (no network/image mocking needed — confirmed callable text-only today), and `buildFilterExtractionSystemInstruction()`. For each built prompt: assert it `includes(renderEventCategoryGlossary())` exactly once; assert that outside that exact substring, fewer than 3 distinct `EventCategory` member names appear as bare/word-boundary tokens.
-  - [ ] Negative controls: a synthetic definitions record missing a key / with an empty string / over 280 chars fails Check A; a synthetic definition containing `HOME_AND_LIVING` fails Check B; a synthetic prompt string built without calling the renderer fails Check C; a synthetic prompt string with a second, separately-typed list of 3+ category names fails Check D.
+- [x] Task 4: Ratchet test (AC: #4)
+  - [x] Create `apps/backend/src/lib/ai-gateway/event-category-definitions.ratchet.test.ts`, `node:test` + `node:assert`, matching this codebase's existing ratchet style (`no-vendor-call-bypasses-wrapper.ratchet.test.ts`, `filter-consumer-no-bypass.ratchet.test.ts`): offender-list assertion + a positive confirmation the scan isn't vacuous + negative controls on every regex/check.
+  - [x] Check A (exhaustive/bounded): `Object.keys(EVENT_CATEGORY_DEFINITIONS).sort()` deep-equals `[...Object.values(EventCategory)].sort()`; every definition non-empty, ≤280 chars, single-line (no `\n`), ≥1 alias.
+  - [x] Check B (no forward references): every `\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b` token found inside any definition or boundary rule string is a member of `EventCategory` or `EventType` — this is the check that fails loudly if `HOME_AND_LIVING`, `FASHION_AND_BEAUTY`, `FINANCE_AND_INVESTMENT` (or a typo) ever appears.
+  - [x] Check C/D (render-and-assert on the built prompts, not a source grep): call `buildGeminiExtractionRequest()` with the same minimal text-only `ProcessingJobMessage` already used by `build-gemini-request.test.ts` Case A (no network/image mocking needed — confirmed callable text-only today), and `buildFilterExtractionSystemInstruction()`. For each built prompt: assert it `includes(renderEventCategoryGlossary())` exactly once; assert that outside that exact substring, fewer than 3 distinct `EventCategory` member names appear as bare/word-boundary tokens.
+  - [x] Negative controls: a synthetic definitions record missing a key / with an empty string / over 280 chars fails Check A; a synthetic definition containing `HOME_AND_LIVING` fails Check B; a synthetic prompt string built without calling the renderer fails Check C; a synthetic prompt string with a second, separately-typed list of 3+ category names fails Check D.
 
-- [ ] Task 5: Cardinality enforcement (AC: #5)
-  - [ ] In `transform-gemini-response-to-event-info.ts`, after the existing `validCategories` filter (today: filter to enum-valid, fallback to `[OTHER]` if empty), add: if `validCategories.length > 1`, drop `OTHER` from the array (filter it out) if present; then truncate the (possibly OTHER-filtered) array to its first 4 entries, preserving model/array order. Apply the empty-fallback check first (unchanged), the OTHER-drop second, the cap-4 truncation third — in that order, so a 5-category response that happens to include `OTHER` never wastes one of the 4 kept slots on it.
-  - [ ] Extend `transform-gemini-response-to-event-info.test.ts` (and/or the sibling `.edge-cases.test.ts`) with cases: 5 valid categories (headline-first) truncates to the first 4, in order; `[OTHER, MUSIC]` (or any 2+ including OTHER) drops `OTHER`, keeping `[MUSIC]`; `[OTHER]` alone stays `[OTHER]` (not dropped — the "never co-occurs with another category" rule doesn't apply when OTHER is the only entry); empty array still falls back to `[OTHER]` (regression check, unchanged behavior).
-  - [ ] `packages/domain` has a 100%-lines/branches/functions coverage gate (`.c8rc.json`, `all: true`) — confirm the new branches are exercised by the tests above, not just imported by the barrel test.
+- [x] Task 5: Cardinality enforcement (AC: #5)
+  - [x] In `transform-gemini-response-to-event-info.ts`, after the existing `validCategories` filter (today: filter to enum-valid, fallback to `[OTHER]` if empty), add: if `validCategories.length > 1`, drop `OTHER` from the array (filter it out) if present; then truncate the (possibly OTHER-filtered) array to its first 4 entries, preserving model/array order. Apply the empty-fallback check first (unchanged), the OTHER-drop second, the cap-4 truncation third — in that order, so a 5-category response that happens to include `OTHER` never wastes one of the 4 kept slots on it.
+  - [x] Extend `transform-gemini-response-to-event-info.test.ts` (and/or the sibling `.edge-cases.test.ts`) with cases: 5 valid categories (headline-first) truncates to the first 4, in order; `[OTHER, MUSIC]` (or any 2+ including OTHER) drops `OTHER`, keeping `[MUSIC]`; `[OTHER]` alone stays `[OTHER]` (not dropped — the "never co-occurs with another category" rule doesn't apply when OTHER is the only entry); empty array still falls back to `[OTHER]` (regression check, unchanged behavior).
+  - [x] `packages/domain` has a 100%-lines/branches/functions coverage gate (`.c8rc.json`, `all: true`) — confirm the new branches are exercised by the tests above, not just imported by the barrel test.
 
-- [ ] Task 6: Structured category-fallback log lines (AC: #6)
-  - [ ] In `process-ai-job.ts`'s per-event loop (around the existing `transformGeminiResponseToEventInfo(event, {...})` call), before or after that call, inspect the **raw** `event.categories` (already AJV-enum-validated by this point — see Dev Notes "Why the raw array is already enum-valid" below) and log: `console.info(\`[processAiJob] category-fallback post=${message.postId} event=${i} outcome=empty_list_fallback_to_other\`)` when `event.categories.length === 0`; `console.info(\`[processAiJob] category-fallback post=${message.postId} event=${i} outcome=deliberate_other\`)` when `event.categories.length === 1 && event.categories[0] === EventCategory.OTHER`. Neither line fires on any other case (don't log on every event — only these two outcomes).
-  - [ ] Add/extend a `process-ai-job.test.ts` case per outcome, asserting the exact log line via a `console.info` spy (matching however the existing suite already spies on `console.warn`/`console.error` in this file, if a precedent exists; otherwise a minimal spy). Confirm no existing test in this file (or elsewhere) asserts an exact `console.info` call count that this addition would break — unlike the `console.log`/`console.warn` counts the existing comment at the top of the loop warns about, but verify directly.
+- [x] Task 6: Structured category-fallback log lines (AC: #6)
+  - [x] In `process-ai-job.ts`'s per-event loop (around the existing `transformGeminiResponseToEventInfo(event, {...})` call), before or after that call, inspect the **raw** `event.categories` (already AJV-enum-validated by this point — see Dev Notes "Why the raw array is already enum-valid" below) and log: `console.info(\`[processAiJob] category-fallback post=${message.postId} event=${i} outcome=empty_list_fallback_to_other\`)` when `event.categories.length === 0`; `console.info(\`[processAiJob] category-fallback post=${message.postId} event=${i} outcome=deliberate_other\`)` when `event.categories.length === 1 && event.categories[0] === EventCategory.OTHER`. Neither line fires on any other case (don't log on every event — only these two outcomes).
+  - [x] Add/extend a `process-ai-job.test.ts` case per outcome, asserting the exact log line via a `console.info` spy (matching however the existing suite already spies on `console.warn`/`console.error` in this file, if a precedent exists; otherwise a minimal spy). Confirm no existing test in this file (or elsewhere) asserts an exact `console.info` call count that this addition would break — unlike the `console.log`/`console.warn` counts the existing comment at the top of the loop warns about, but verify directly.
 
-- [ ] Task 7: Golden category corpus (AC: #7)
-  - [ ] Create `apps/backend/src/lib/ai-processor/event-category-golden-corpus.fixtures.ts` with the 12 fixtures derived in Dev Notes "Golden category corpus derivation" below (caption text, `expected: EventCategory[]`, `mustNotInclude: EventCategory[]`, a short `rationale` string citing which AD-44 Rule 5 clause applies). Optionally include the bonus 13th ("6b", the aesthetic-clinic post) as a 13th fixture — AD-44 Rule 10 names "twelve," so keep it clearly marked optional/bonus if included.
-  - [ ] Create `event-category-golden-corpus.live-eval.test.ts`: gated by `RUN_LIVE_GEMINI_TESTS=true` + `SYSTEM_GEMINI_API_KEY` exactly like `build-gemini-request.live-cc024-regression.test.ts` (`t.skip(...)` otherwise, excluded from CI). For each fixture, build a minimal `ProcessingJobMessage` from the caption text (no image), call `buildGeminiExtractionRequest` + the real Gemini call, and assert the extracted event's categories include everything in `expected` and nothing in `mustNotInclude`.
-  - [ ] Run it once manually (`RUN_LIVE_GEMINI_TESTS=true SYSTEM_GEMINI_API_KEY=<key> pnpm --filter backend test`) before this story is marked done, and record the per-fixture pass/fail result in Completion Notes. Per Dev Notes, fixtures #2 and #5 are flagged as having a plausible second reading — if the live run disagrees with this story's derived `expected`/`mustNotInclude` for exactly those two, adjust the fixture (not the prompt) and re-run, rather than treating it as a story blocker; any other mismatch should be investigated as a real prompt/boundary-text defect before adjusting the fixture.
-  - [ ] Also run the existing opt-in `build-gemini-request.live-cc024-regression.test.ts` once after this story's prompt changes land, to confirm the prompt rewiring (Task 3) didn't regress CC-024's grouping/event-count behavior. Record the result in Completion Notes.
+- [x] Task 7: Golden category corpus (AC: #7)
+  - [x] Create `apps/backend/src/lib/ai-processor/event-category-golden-corpus.fixtures.ts` with the 12 fixtures derived in Dev Notes "Golden category corpus derivation" below (caption text, `expected: EventCategory[]`, `mustNotInclude: EventCategory[]`, a short `rationale` string citing which AD-44 Rule 5 clause applies). Optionally include the bonus 13th ("6b", the aesthetic-clinic post) as a 13th fixture — AD-44 Rule 10 names "twelve," so keep it clearly marked optional/bonus if included.
+  - [x] Create `event-category-golden-corpus.live-eval.test.ts`: gated by `RUN_LIVE_GEMINI_TESTS=true` + `SYSTEM_GEMINI_API_KEY` exactly like `build-gemini-request.live-cc024-regression.test.ts` (`t.skip(...)` otherwise, excluded from CI). For each fixture, build a minimal `ProcessingJobMessage` from the caption text (no image), call `buildGeminiExtractionRequest` + the real Gemini call, and assert the extracted event's categories include everything in `expected` and nothing in `mustNotInclude`.
+  - [x] Run it once manually (`RUN_LIVE_GEMINI_TESTS=true SYSTEM_GEMINI_API_KEY=<key> pnpm --filter backend test`) before this story is marked done, and record the per-fixture pass/fail result in Completion Notes. **Gating verified only — the actual live run is PENDING/MANUAL** (explicit environment policy denied spending live Gemini quota in this session; see Completion Notes). Per Dev Notes, fixtures #2 and #5 are flagged as having a plausible second reading — if the live run disagrees with this story's derived `expected`/`mustNotInclude` for exactly those two, adjust the fixture (not the prompt) and re-run, rather than treating it as a story blocker; any other mismatch should be investigated as a real prompt/boundary-text defect before adjusting the fixture.
+  - [x] Also run the existing opt-in `build-gemini-request.live-cc024-regression.test.ts` once after this story's prompt changes land, to confirm the prompt rewiring (Task 3) didn't regress CC-024's grouping/event-count behavior. Record the result in Completion Notes. **PENDING/MANUAL for the same reason above.**
 
-- [ ] Task 8: Replace the four duplicate prose-comment blocks with pointers (AC: #8)
-  - [ ] `packages/shared-types/src/index.ts` lines ~41-49: replace each trailing `// ... (New)` comment on `CHARITY_AND_CAUSES` through `AUTOMOTIVE` with a single comment above the `EventCategory` enum (or per-member, either is fine): `// see EVENT_CATEGORY_DEFINITIONS (./event-category-definitions.ts)`.
-  - [ ] `apps/backend/src/schema/events.graphql` lines ~53-58: replace the six inline `#` comments the same way. Confirm with a no-diff `codegen` run that a `#`-comment-only SDL change produces no generated-output diff (the review notes `#` comments produce no codegen output, unlike `"""` doc-comments).
-  - [ ] `packages/database/schema.ts` lines ~47-52 (the block above `eventCategoryEnum`): replace the 6-line comment block with one pointer line.
-  - [ ] `_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md` lines 368-375: replace the inline `// ... (New)` comments the same way.
+- [x] Task 8: Replace the four duplicate prose-comment blocks with pointers (AC: #8)
+  - [x] `packages/shared-types/src/index.ts` lines ~41-49: replace each trailing `// ... (New)` comment on `CHARITY_AND_CAUSES` through `AUTOMOTIVE` with a single comment above the `EventCategory` enum (or per-member, either is fine): `// see EVENT_CATEGORY_DEFINITIONS (./event-category-definitions.ts)`.
+  - [x] `apps/backend/src/schema/events.graphql` lines ~53-58: replace the six inline `#` comments the same way. Confirm with a no-diff `codegen` run that a `#`-comment-only SDL change produces no generated-output diff (the review notes `#` comments produce no codegen output, unlike `"""` doc-comments).
+  - [x] `packages/database/schema.ts` lines ~47-52 (the block above `eventCategoryEnum`): replace the 6-line comment block with one pointer line.
+  - [x] `_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md` lines 368-375: replace the inline `// ... (New)` comments the same way.
 
-- [ ] Task 9: Update project-context.md (AC: #9)
-  - [ ] Update the existing "Event categories" bullet (currently: "...plan only, not yet built... today's code has 18 values, no definitions constant and no ratchet...") to state that the definitions constant, renderer, and ratchet now exist for the 18-value set, and that `HOME_AND_LIVING`, `FASHION_AND_BEAUTY`, `FINANCE_AND_INVESTMENT` are still plan-only pending Story 0.53.
+- [x] Task 9: Update project-context.md (AC: #9)
+  - [x] Update the existing "Event categories" bullet (currently: "...plan only, not yet built... today's code has 18 values, no definitions constant and no ratchet...") to state that the definitions constant, renderer, and ratchet now exist for the 18-value set, and that `HOME_AND_LIVING`, `FASHION_AND_BEAUTY`, `FINANCE_AND_INVESTMENT` are still plan-only pending Story 0.53.
 
-- [ ] Task 10: Verification (AC: all)
-  - [ ] `git diff --stat` reviewed against AC10's exclusion list before committing.
-  - [ ] `pnpm --filter @festgrid/shared-types lint` (or whatever script exists — confirm `package.json`; shared-types has no `build`/`test` script today, only `lint`, per feasibility review §2).
-  - [ ] `pnpm --filter backend build` (`tsc`) — demonstrate once (then revert the demonstration) that deleting a key from `EVENT_CATEGORY_DEFINITIONS` fails the build; record this in Completion Notes per the feasibility review's S1 AC2.
-  - [ ] `pnpm --filter backend test` (row-count ratchet harness; this story's new tests write no DB rows) and `pnpm --filter @festgrid/domain test` (100% coverage gate) both pass.
-  - [ ] `pnpm lint` across `packages/shared-types`, `apps/backend`, `packages/domain`.
-  - [ ] State explicitly in Completion Notes: no `docs/infrastructure/*` or `architecture-diagram.md` change needed (AC11).
+- [x] Task 10: Verification (AC: all)
+  - [x] `git diff --stat` reviewed against AC10's exclusion list before committing.
+  - [x] `pnpm --filter @festgrid/shared-types lint` (or whatever script exists — confirm `package.json`; shared-types has no `build`/`test` script today, only `lint`, per feasibility review §2).
+  - [x] `pnpm --filter backend build` (`tsc`) — demonstrate once (then revert the demonstration) that deleting a key from `EVENT_CATEGORY_DEFINITIONS` fails the build; record this in Completion Notes per the feasibility review's S1 AC2.
+  - [x] `pnpm --filter backend test` (row-count ratchet harness; this story's new tests write no DB rows) and `pnpm --filter @festgrid/domain test` (100% coverage gate) both pass.
+  - [x] `pnpm lint` across `packages/shared-types`, `apps/backend`, `packages/domain`.
+  - [x] State explicitly in Completion Notes: no `docs/infrastructure/*` or `architecture-diagram.md` change needed (AC11).
 
 ## Dev Notes
 
@@ -233,22 +233,22 @@ Do not touch (verified by AC10's `git diff --stat` check): `EventCategory`/`Even
 
 ## Testing Requirements
 
-- [ ] Integration tests — `node:test` ratchet (`event-category-definitions.ratchet.test.ts`), renderer unit test, `transform-gemini-response-to-event-info` cap/OTHER-exclusivity cases, `process-ai-job.ts` log-line cases
-- [ ] E2E tests — not applicable (no UI/frontend change in this story)
-- [ ] Opt-in live-model tests (non-CI) — golden category corpus (12 fixtures) and the existing CC-024 regression, both run once manually before this story is marked done
+- [x] Integration tests — `node:test` ratchet (`event-category-definitions.ratchet.test.ts`), renderer unit test, `transform-gemini-response-to-event-info` cap/OTHER-exclusivity cases, `process-ai-job.ts` log-line cases — all passing.
+- [x] E2E tests — not applicable (no UI/frontend change in this story)
+- [ ] Opt-in live-model tests (non-CI) — golden category corpus (12 fixtures) and the existing CC-024 regression, both run once manually before this story is marked done. **Gating verified (correctly skips); actual runs PENDING/MANUAL** — owner explicitly denied spending live Gemini quota in this session. See Completion Notes.
 
 ## Deliverables Checklist
 
-- [ ] `packages/shared-types/src/event-category-definitions.ts` with 18 definitions + boundary table
-- [ ] `apps/backend/src/lib/ai-gateway/render-event-category-glossary.ts` + test
-- [ ] `apps/backend/src/lib/ai-gateway/event-category-definitions.ratchet.test.ts` (Checks A-D + negative controls)
-- [ ] `build-gemini-request.ts` and `build-filter-extraction-request.ts` both call the renderer
-- [ ] `transform-gemini-response-to-event-info.ts` cap-4 + OTHER-exclusivity enforcement + tests
-- [ ] `process-ai-job.ts` two new structured `console.info` log lines + tests
-- [ ] `event-category-golden-corpus.fixtures.ts` (12 fixtures) + `event-category-golden-corpus.live-eval.test.ts`, run once with results recorded
-- [ ] Four prose-comment blocks replaced with pointers (`index.ts`, `events.graphql`, `schema.ts`, `prd.md`)
-- [ ] `project-context.md` "Event categories" note updated
-- [ ] `sprint-status.yaml` updated per this workflow's completion step
+- [x] `packages/shared-types/src/event-category-definitions.ts` with 18 definitions + boundary table
+- [x] `apps/backend/src/lib/ai-gateway/render-event-category-glossary.ts` + test
+- [x] `apps/backend/src/lib/ai-gateway/event-category-definitions.ratchet.test.ts` (Checks A-D + negative controls)
+- [x] `build-gemini-request.ts` and `build-filter-extraction-request.ts` both call the renderer
+- [x] `transform-gemini-response-to-event-info.ts` cap-4 + OTHER-exclusivity enforcement + tests
+- [x] `process-ai-job.ts` two new structured `console.info` log lines + tests
+- [x] `event-category-golden-corpus.fixtures.ts` (12 fixtures) + `event-category-golden-corpus.live-eval.test.ts` created and gating verified; live run itself PENDING/MANUAL (see Completion Notes)
+- [x] Four prose-comment blocks replaced with pointers (`index.ts`, `events.graphql`, `schema.ts`, `prd.md`)
+- [x] `project-context.md` "Event categories" note updated
+- [x] `sprint-status.yaml` updated per this workflow's completion step
 
 ## Out of Scope
 
@@ -261,23 +261,64 @@ Do not touch (verified by AC10's `git diff --stat` check): `EventCategory`/`Even
 
 ## Definition of Done
 
-- [ ] AC1-AC11 satisfied and verified
-- [ ] Required tests passing: `apps/backend` (`node:test`, ratchet + unit + log-line tests, full suite via row-count-ratchet harness), `packages/domain` (100% coverage gate)
-- [ ] Lint and type checks passing for `packages/shared-types`, `apps/backend`, `packages/domain`
-- [ ] Both opt-in live-model runs (golden corpus, CC-024 regression) executed once and results recorded in Completion Notes
+- [x] AC1-AC11 satisfied and verified (AC7's live-eval runs are gated-and-verified but PENDING/MANUAL execution — see the line below)
+- [x] Required tests passing: `apps/backend` (`node:test`, ratchet + unit + log-line tests, full suite via row-count-ratchet harness), `packages/domain` (100% coverage gate)
+- [x] Lint and type checks passing for `packages/shared-types`, `apps/backend`, `packages/domain`
+- [ ] Both opt-in live-model runs (golden corpus, CC-024 regression) executed once and results recorded in Completion Notes — **PENDING/MANUAL**: gating verified (correctly `t.skip`s without `RUN_LIVE_GEMINI_TESTS=true`); the actual live runs were not executed in this session per explicit environment policy against spending live Gemini quota. Owner to run both manually before/along with final review.
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Complete (code, tests, lint, build, verification all done — two opt-in live-model runs pending/manual per owner policy, see Completion Notes)
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-(to be filled by dev-story)
+Claude Sonnet 5 (claude-sonnet-5)
 
 ### Debug Log References
 
+- `pnpm --filter @festgrid/domain build` / `pnpm --filter @festgrid/database build` / `pnpm --filter @festgrid/graphql-select build` then `pnpm --filter backend build` — all clean (tsc). Dependency packages needed a fresh `dist/` build in this environment before `backend build` could resolve `@festgrid/domain`, `@festgrid/database`, `@festgrid/graphql-select` — unrelated to this story's changes, just environment state.
+- Exhaustiveness demonstration (Task 10 / feasibility review S1 AC2): temporarily deleted the `OTHER` entry from `EVENT_CATEGORY_DEFINITIONS` → `pnpm --filter backend build` failed with `TS2741: Property 'OTHER' is missing in type '...'`. Reverted immediately; rebuilt clean.
+- `pnpm --filter @festgrid/domain test`: 1233 tests, 0 failures, 100% lines/statements/functions/branches coverage (unchanged gate, now also covering the new cap-4/OTHER-exclusivity branches).
+- Targeted `apps/backend` runs via `scripts/run-tests-with-row-count-ratchet.ts` (seeded DB, `GEOAPIFY_API_KEY=test-geoapify-key`): `render-event-category-glossary.test.ts` + `event-category-definitions.ratchet.test.ts` (12/12 pass after fixing one negative-control test that incorrectly expected a non-underscored typo, `MUSICC`, to trip the underscored-token regex — Check B only targets underscored ALL_CAPS tokens like `HOME_AND_LIVING`, by design); `build-gemini-request.test.ts` + `build-filter-extraction-request.test.ts` (35/35 pass); `process-ai-job.test.ts` full file (34/34 pass, including new Cases T/U/V).
+- Full unfiltered `pnpm --filter backend test` and fresh `pnpm --filter backend lint`/`pnpm lint` run at Step 9 before marking review (see Completion Notes for the final confirmed results).
+- `pnpm codegen` (apps/backend) confirmed the `events.graphql` `EventCategory` comment-only change produces a byte-identical `src/generated/resolvers-types.ts` (no diff).
+- `git diff <baseline> --stat` confirmed zero changes to any AC10-excluded path (locale files, migrations, `generated/`, seed files, enum membership).
+- Prompt character-length delta (Task 3): extraction prompt 12,053 → 15,783 chars (+3,730); filter prompt 4,632 → 8,353 chars (+3,721). Combined +7,451 chars (~7.3 KB) — higher than the feasibility review's rough +2.4–4.4 KB combined estimate, driven by the 10 `CATEGORY_BOUNDARIES` entries plus 18 definitions+aliases; not a correctness concern, just recorded per Task 3's instruction.
+
 ### Completion Notes List
 
+- AC1–AC5, AC8, AC9, AC10 fully implemented and verified exactly as scoped: 18-value `EVENT_CATEGORY_DEFINITIONS` + `CATEGORY_BOUNDARIES` (no `HOME_AND_LIVING`/`FASHION_AND_BEAUTY`/`FINANCE_AND_INVESTMENT` anywhere in the file, verified by the ratchet's Check B and by manual review); `renderEventCategoryGlossary()`; both prompt builders wired to it; the four duplicate prose-comment blocks replaced with pointers; cap-4 + OTHER-exclusivity cardinality enforcement in `transformGeminiResponseToEventInfo`; `project-context.md`'s "Event categories" note updated; `git diff --stat` against baseline shows zero changes outside this story's intended file set and none of AC10's excluded paths.
+- **Import-cycle resolution (not in the story's literal task text, but required to make AC1's `Record<EventCategory, ...>` type actually work)**: `index.ts` re-exports `event-category-definitions.ts`, which would create a runtime circular import if that file imported `EventCategory` as a *value*. Resolved with a type-only import (`import type { EventCategory } from './index.js'`) plus a template-literal key type (`` `${EventCategory}` ``) — fully erased at compile time, zero runtime cycle, and still fully exhaustive at `tsc` time (demonstrated in Debug Log References above). `EVENT_CATEGORY_DEFINITIONS`'s exported type signature is therefore `Readonly<Record<`${EventCategory}`, EventCategoryDefinition>>` rather than the AC1 text's literal `Record<EventCategory, ...>` spelling — structurally and functionally equivalent for every consumer (indexing by an `EventCategory` enum member works identically), chosen specifically to avoid the runtime cycle the Dev Notes flagged as a risk to watch for.
+- AC6 (structured log lines): implemented in `process-ai-job.ts`'s per-event loop, `console.info` only (matching the `logFaceBlurThumbnailOutcome` precedent), confirmed no existing test in this file or elsewhere asserts an exact `console.info` call count. Added Cases T/U/V to `process-ai-job.test.ts` (empty-list, deliberate-OTHER, and a normal-list negative case) — all pass.
+- AC7 (golden corpus): 12 fixtures (+1 optional bonus "6b") built from the *actual* captions in `review-adversarial-pair.md` §2, re-derived against this story's 18-value interim taxonomy and the rewritten Rule 5 (see the fixtures file's own header comment and the story's Dev Notes derivation table). The live-eval test (`event-category-golden-corpus.live-eval.test.ts`) is gated and confirmed to `t.skip()` correctly without `RUN_LIVE_GEMINI_TESTS=true`. **The two required opt-in live runs (this golden corpus, and the existing `build-gemini-request.live-cc024-regression.test.ts`) were NOT executed in this session** — the environment's owner explicitly denied spending live Gemini API quota for this task and instructed verifying the gating instead and recording this as pending. Owner should run both manually:
+  `RUN_LIVE_GEMINI_TESTS=true SYSTEM_GEMINI_API_KEY=<key> pnpm --filter backend test`
+  and update this section with per-fixture pass/fail results before (or as part of) code review / marking the story "done".
+- AC11: confirmed explicitly — this story adds no service, queue, Lambda, scraper, database, hosting provider, or major library; `docs/infrastructure/*.md`/`architecture-diagram.md` are untouched and require no update (CLAUDE.md §4 not triggered).
+- Final verification run (Step 9, fresh and unfiltered, immediately before marking status "review"): `pnpm --filter backend test` (full suite, row-count ratchet harness) and `pnpm --filter backend lint` / `pnpm --filter @festgrid/domain lint` / `pnpm --filter @festgrid/shared-types lint` / `pnpm --filter @festgrid/database lint` all passed clean — see the final tool-run output captured alongside this story's dev session for the full pass counts.
+
 ### File List
+
+**Created:**
+- `packages/shared-types/src/event-category-definitions.ts`
+- `apps/backend/src/lib/ai-gateway/render-event-category-glossary.ts`
+- `apps/backend/src/lib/ai-gateway/render-event-category-glossary.test.ts`
+- `apps/backend/src/lib/ai-gateway/event-category-definitions.ratchet.test.ts`
+- `apps/backend/src/lib/ai-processor/event-category-golden-corpus.fixtures.ts`
+- `apps/backend/src/lib/ai-processor/event-category-golden-corpus.live-eval.test.ts`
+
+**Modified:**
+- `packages/shared-types/src/index.ts`
+- `apps/backend/src/lib/ai-processor/build-gemini-request.ts`
+- `apps/backend/src/lib/ai-event-filters/build-filter-extraction-request.ts`
+- `apps/backend/src/lib/ai-processor/process-ai-job.ts`
+- `apps/backend/src/lib/ai-processor/process-ai-job.test.ts`
+- `packages/domain/src/events/transform-gemini-response-to-event-info.ts`
+- `packages/domain/src/events/transform-gemini-response-to-event-info.edge-cases.test.ts`
+- `apps/backend/src/schema/events.graphql`
+- `packages/database/schema.ts`
+- `_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md`
+- `_bmad-output/project-context.md`
+- `_bmad-output/implementation-artifacts/0-52-build-the-event-category-definitions-source-renderer-and-ratchet.md` (this story file: frontmatter, Pre-Coding Approval Gate, Tasks/Subtasks, Testing Requirements, Completion Status, Dev Agent Record, Status)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (status transitions)
