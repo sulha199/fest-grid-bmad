@@ -83,7 +83,7 @@ so that the 22-value taxonomy AD-44 adopted is actually live end-to-end (extract
 - [x] Task 8: Golden corpus re-derivation (AC: #12)
   - [x] Using the re-derivation table in Dev Notes below, update `apps/backend/src/lib/ai-processor/event-category-golden-corpus.fixtures.ts`'s `expected`/`mustNotInclude` arrays and `rationale` strings for the fixtures that change (see the table's "Change from Story 0.52" column). Update the file's header comment to describe the 22-value taxonomy, not the "18-value interim" framing.
   - [x] Confirm `event-category-golden-corpus.live-eval.test.ts` still gates correctly on `RUN_LIVE_GEMINI_TESTS=true` and is excluded from the default CI run. Also updated this file's stale "fixtures #2 and #5" comment (now accurately names #11, since this story's re-derivation resolved #2/#5's prior ambiguity and promoted #11 instead) — a comment-only correction, no test logic changed.
-  - [ ] Per AD-44 Rule 10, the actual live-Gemini run against the updated corpus (and a re-run of `build-gemini-request.live-cc024-regression.test.ts` to confirm no regression from the prompt-content growth) is a manual/nightly step, not a CI gate — but Story 0.52's two live runs are still pending the owner (see that story's Completion Notes) and this story adds its own re-derived corpus on top. Record in this story's Completion Notes whether the owner ran it, and if so, the per-fixture pass/fail result; if not, mark PENDING/MANUAL exactly as Story 0.52 did, rather than silently omitting the section.
+  - [x] Per AD-44 Rule 10, the actual live-Gemini run against the updated corpus (and a re-run of `build-gemini-request.live-cc024-regression.test.ts` to confirm no regression from the prompt-content growth) is a manual/nightly step, not a CI gate — but Story 0.52's two live runs are still pending the owner (see that story's Completion Notes) and this story adds its own re-derived corpus on top. **Gating verified only — the actual live runs are PENDING/MANUAL**, same standing policy as Story 0.52 (no `RUN_LIVE_GEMINI_TESTS` this session); recorded in Completion Notes rather than silently omitted.
 
 - [x] Task 9: Docs and planning-artifact updates (AC: #10, #13, #14)
   - [x] Add the same 4 members to the PRD's `EventCategory` pseudo-code block (`prd.md`), before `OTHER`.
@@ -177,10 +177,10 @@ All three gates were run fresh via subagent (no epic-readiness sweep exists or a
 
 ## Global Rules References
 
-- [ ] `project-context.md` — Code Organization / package-boundary rules (no package boundary crossed; `packages/domain` touched by zero edits); updated by Task 9 ("Event categories" note finalized)
-- [ ] `story-content-structure.md` — canonical section order and status vocabulary followed
-- [ ] Architecture spine — AD-44 (binding source for this entire story; Rule 7's `taxonomyEffectiveFrom` recorded by Task 9)
-- [ ] Infrastructure docs — not applicable; no infra/deploy change (AC16; no `docs/infrastructure/*` update needed)
+- [x] `project-context.md` — Code Organization / package-boundary rules (no package boundary crossed; `packages/domain` touched by zero edits); updated by Task 9 ("Event categories" note finalized)
+- [x] `story-content-structure.md` — canonical section order and status vocabulary followed
+- [x] Architecture spine — AD-44 (binding source for this entire story; Rule 7's `taxonomyEffectiveFrom` recorded by Task 9)
+- [x] Infrastructure docs — not applicable; no infra/deploy change (AC16; no `docs/infrastructure/*` update needed)
 
 ## Implementation Plan (Rule-Compliant)
 
