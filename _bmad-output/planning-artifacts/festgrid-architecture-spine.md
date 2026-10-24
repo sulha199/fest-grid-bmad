@@ -2508,6 +2508,8 @@ This document defines the core architectural invariants for the FestDaily applic
         not a definition: the Indonesian "Fashion & Gaya" is softer than its definition (it does not
         say "beauty"), accepted by the owner; the definition, not the label, governs tagging.
     4.  **One definitions source, one renderer.** `packages/shared-types/src/event-category-definitions.ts`
+        (relative imports inside shared-types are **extensionless**: it is consumed as raw TypeScript by
+        Next's webpack, which cannot resolve a `.js` specifier; ratchet Check E enforces it)
         exports `EVENT_CATEGORY_DEFINITIONS: Record<EventCategory, { definition: string; aliases:
         readonly string[] }>` (one to two English sentences, at most 280 characters, never rendered in
         any UI; `aliases` are trigger terms in English and Indonesian, at least one Indonesian) and

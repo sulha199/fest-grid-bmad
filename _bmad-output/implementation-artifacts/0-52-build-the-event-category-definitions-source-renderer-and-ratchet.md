@@ -354,3 +354,5 @@ Claude Sonnet 5 (claude-sonnet-5)
 - `_bmad-output/project-context.md`
 - `_bmad-output/implementation-artifacts/0-52-build-the-event-category-definitions-source-renderer-and-ratchet.md` (this story file: frontmatter, Pre-Coding Approval Gate, Tasks/Subtasks, Testing Requirements, Completion Status, Dev Agent Record, Status)
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` (status transitions)
+
+- **Post-review regression (found 2026-10-24 during Story 0.53, fixed there):** this story's `export * from './event-category-definitions.js'` in `packages/shared-types/src/index.ts` broke `pnpm --filter web build` (webpack cannot resolve `.js` -> `.ts` in a package whose `main` is raw TypeScript) and `drizzle-kit generate`. Neither the dev run nor the code review ran a web build. Fixed by removing the `.js` suffix (shared-types is CommonJS); guarded by Check E in the ratchet test. Any story touching shared-types must run `pnpm --filter web build`.

@@ -1,5 +1,7 @@
 import test from 'node:test';
 import * as assert from 'node:assert';
+import { readFileSync, readdirSync } from 'fs';
+import { resolve, join } from 'path';
 import { EventCategory, EventType, EVENT_CATEGORY_DEFINITIONS, CATEGORY_BOUNDARIES } from '@festgrid/shared-types';
 import { renderEventCategoryGlossary } from './render-event-category-glossary.js';
 import { buildGeminiExtractionRequest } from '../ai-processor/build-gemini-request.js';
@@ -214,4 +216,38 @@ test('Check D negative control: a synthetic prompt with a second, separately-typ
     outsideCategories.size >= 3,
     `Expected the synthetic second list to be detected as 3+ distinct categories outside the glossary, found: ${[...outsideCategories].join(', ')}`
   );
+});
+
+// Check E (found 2026-10-24: Story 0.52 added `export * from './event-category-definitions.js'` to
+// shared-types, which broke `next build` -- webpack cannot resolve a `.js` specifier against a raw
+// `.ts` file, and shared-types' `main` is its TypeScript source, not a compiled dist). shared-types
+// is a CommonJS package, so extensionless relative imports are legal under NodeNext too. Guard it.
+const RELATIVE_JS_IMPORT = /(?:from|import)\s*\(?\s*['"](\.{1,2}\/[^'"]*\.js)['"]/g;
+
+function findRelativeJsImports(source: string): string[] {
+  return [...source.matchAll(RELATIVE_JS_IMPORT)].map((m) => m[1]);
+}
+
+const SHARED_TYPES_SRC = resolve(process.cwd(), '..', '..', 'packages', 'shared-types', 'src');
+
+test('Check E: shared-types source files use no `.js`-suffixed relative imports (they break next build)', () => {
+  const files = readdirSync(SHARED_TYPES_SRC).filter((f) => f.endsWith('.ts') && !f.endsWith('.d.ts'));
+  assert.ok(files.length >= 2, `Expected to scan at least index.ts and event-category-definitions.ts, found: ${files.join(', ')}`);
+  const offenders: string[] = [];
+  let relativeImportsSeen = 0;
+  for (const file of files) {
+    const source = readFileSync(join(SHARED_TYPES_SRC, file), 'utf8');
+    relativeImportsSeen += (source.match(/(?:from|import)\s*\(?\s*['"]\.{1,2}\//g) ?? []).length;
+    for (const spec of findRelativeJsImports(source)) offenders.push(`${file}: ${spec}`);
+  }
+  // Positive confirmation the scan is not vacuous: shared-types does have relative imports today.
+  assert.ok(relativeImportsSeen >= 2, `Expected to see the index.ts re-export and the type-only import, saw ${relativeImportsSeen}`);
+  assert.deepStrictEqual(offenders, [], `Remove the .js extension from these shared-types imports: ${offenders.join('; ')}`);
+});
+
+test('Check E negative control: a synthetic `.js` relative import is flagged, an extensionless one is not', () => {
+  assert.deepStrictEqual(findRelativeJsImports("export * from './foo.js';"), ['./foo.js']);
+  assert.deepStrictEqual(findRelativeJsImports("import type { X } from '../bar.js';"), ['../bar.js']);
+  assert.deepStrictEqual(findRelativeJsImports("export * from './foo';"), []);
+  assert.deepStrictEqual(findRelativeJsImports("import x from 'some-package/thing.js';"), []);
 });

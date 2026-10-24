@@ -219,4 +219,4 @@ export interface CalendarEntry {
 }
 
 // Story 0.52 (AD-44 Rule 3) -- the one prose-definitions source for EventCategory.
-export * from './event-category-definitions.js';
+export * from './event-category-definitions';

@@ -3,7 +3,7 @@
 // would create a runtime import cycle if this file imported `EventCategory` as a VALUE. A
 // type-only import is erased entirely by the compiler/bundler, so there is no runtime edge here
 // -- only a compile-time one, which is exactly what we want for the exhaustiveness check below.
-import type { EventCategory } from './index.js';
+import type { EventCategory } from './index';
 
 /**
  * Story 0.52 (AD-44 Rule 3/4). This module is the ONE source of prose definitions for
