@@ -71,14 +71,14 @@ so that the taxonomy stops collapsing genuinely multi-subject posts into `OTHER`
   - [x] In `packages/shared-types/src/event-category-definitions.ts`'s `CATEGORY_BOUNDARIES`, rewrite `business-networking-umkm-exclusion` per AC8, `sports-branded-gear` per AC9, and `wedding-services-expo` per AC10.
   - [x] Run `apps/backend/src/lib/ai-gateway/event-category-definitions.ratchet.test.ts`'s Check C/D (render-and-assert on the actual built prompts) and confirm they still pass — the added build-gemini-request.ts prose names only `OTHER`, staying under Check D's "fewer than 3 distinct category names outside the glossary block" bound.
 
-- [ ] Task 5: Re-derive the golden corpus (AC: #15)
-  - [ ] Using the re-derivation table in Dev Notes below, update `apps/backend/src/lib/ai-processor/event-category-golden-corpus.fixtures.ts`'s fixtures `3-umkm-bazaar`, `5-fashion-week-heritage-textile`, `9-mall-multi-brand-sale`, `10-sneaker-launch-fun-run`, `11-wedding-expo` (`expected`/`mustNotInclude`/`rationale`), and add at least 2 new `SCIENCE_AND_ENGINEERING` fixtures (a 3rd, hackathon-vs-TECHNOLOGY fixture is optional/bonus, matching the existing "6b" bonus-fixture precedent). Update the file's header comment to describe the 23-value taxonomy and the amended (non-exclusive OTHER, cap-6) cardinality rule.
-  - [ ] Confirm `event-category-golden-corpus.live-eval.test.ts` still gates correctly on `RUN_LIVE_GEMINI_TESTS=true` and stays excluded from the default CI run — no logic change expected in this file beyond a possible stale-comment correction (it currently names "fixtures #2 and #5"/"#11" in a comment left by Story 0.53; update if it now refers to a resolved ambiguity).
+- [x] Task 5: Re-derive the golden corpus (AC: #15)
+  - [x] Using the re-derivation table in Dev Notes below, update `apps/backend/src/lib/ai-processor/event-category-golden-corpus.fixtures.ts`'s fixtures `3-umkm-bazaar`, `5-fashion-week-heritage-textile`, `9-mall-multi-brand-sale`, `10-sneaker-launch-fun-run`, `11-wedding-expo` (`expected`/`mustNotInclude`/`rationale`), and add at least 2 new `SCIENCE_AND_ENGINEERING` fixtures (a 3rd, hackathon-vs-TECHNOLOGY fixture is optional/bonus, matching the existing "6b" bonus-fixture precedent). Update the file's header comment to describe the 23-value taxonomy and the amended (non-exclusive OTHER, cap-6) cardinality rule.
+  - [x] Confirm `event-category-golden-corpus.live-eval.test.ts` still gates correctly on `RUN_LIVE_GEMINI_TESTS=true` and stays excluded from the default CI run — no logic change expected in this file beyond a possible stale-comment correction (it currently names "fixtures #2 and #5"/"#11" in a comment left by Story 0.53; update if it now refers to a resolved ambiguity).
 
-- [ ] Task 6: Docs and planning-artifact updates (AC: #18, #19, #20, #21)
-  - [ ] Update `_bmad-output/project-context.md`'s "Event categories" note per AC18.
-  - [ ] Confirm (do not edit unless genuinely needed) `packages/database/schema.ts`, `seed.ts`, `seed-volume.ts` need no change (AC20) — state this explicitly in Completion Notes.
-  - [ ] State explicitly in Completion Notes that no `docs/infrastructure/*` or `architecture-diagram.md` update is needed (AC21).
+- [x] Task 6: Docs and planning-artifact updates (AC: #18, #19, #20, #21)
+  - [x] Update `_bmad-output/project-context.md`'s "Event categories" note per AC18.
+  - [x] Confirm (do not edit unless genuinely needed) `packages/database/schema.ts`, `seed.ts`, `seed-volume.ts` need no change (AC20) — state this explicitly in Completion Notes.
+  - [x] State explicitly in Completion Notes that no `docs/infrastructure/*` or `architecture-diagram.md` update is needed (AC21).
 
 - [ ] Task 7: Verification (AC: all)
   - [ ] `pnpm --filter @festgrid/shared-types lint`
