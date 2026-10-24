@@ -548,6 +548,10 @@
     "EDUCATION": "Education",
     "CAREER": "Career",
     "AUTOMOTIVE": "Automotive",
+    "HOME_AND_LIVING": "Home & Living",
+    "FASHION_AND_BEAUTY": "Fashion & Beauty",
+    "FINANCE_AND_INVESTMENT": "Finance & Investment",
+    "GADGETS_AND_DEVICES": "Gadgets & Devices",
     "OTHER": "Other"
   },
   "EventCard": {
