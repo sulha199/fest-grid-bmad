@@ -2487,3 +2487,12 @@ items:
            implementation-artifacts/0-54-amend-event-category-cardinality-and-add-science-and-engineering.md],
      touches: [cross:ai-extraction, app:backend],
      note: "Needs a poc-ingestion-preview.ts --force re-scrape (scraper vendor quota) to refresh the 4 CC-024 posts' expired image links, then re-run live-cc024-regression.test.ts and the 23-value golden-corpus live-eval -- post-merge, not Story 0.54's scope."}
+
+  FIND-100:
+    {type: finding, status: backlog, created: 2026-10-24,
+     impact: internal, effort: s,
+     title: "Story 0.54 code review: fixture 11 empty mustNotInclude, ratchet Check D margin now 1-of-3",
+     ref: [implementation-artifacts/0-54-amend-event-category-cardinality-and-add-science-and-engineering.md,
+           implementation-artifacts/deferred-work.md],
+     touches: [cross:ai-extraction, app:backend, pkg:shared-types],
+     note: "2 low-severity findings deferred (the duplicate-OTHER log gap was fixed in the 0.54 patch pass); see deferred-work.md heading 'Deferred from: code review of 0-54-amend-event-category-cardinality-and-add-science-and-engineering (2026-10-24)'."}

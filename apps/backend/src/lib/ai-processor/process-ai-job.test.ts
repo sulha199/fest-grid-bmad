@@ -1958,6 +1958,49 @@ test('processAiJob orchestrator tests', async (t) => {
     assert.strictEqual(emptyFallbackMatches.length, 0, 'Should not ALSO log the empty-list outcome for a deliberate single-OTHER list');
   });
 
+  await t.test('Case U2 (Story 0.54 review patch): logs outcome=deliberate_other for a duplicate-OTHER-only raw list', async () => {
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-000000000022',
+      accountId: profile.id,
+      content: 'Duplicate OTHER check',
+      postUrl: 'https://test.com/pu',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    setCallGeminiSeam(async () => ({
+      text: JSON.stringify({
+        isEvent: true,
+        events: [
+          {
+            eventName: 'Duplicate Other Event',
+            types: ['OTHER'],
+            categories: ['OTHER', 'OTHER'],
+            schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-15' }],
+            confidenceScore: 0.9
+          }
+        ]
+      })
+    }));
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    const infoCalls: unknown[][] = [];
+    const infoMock = t.mock.method(console, 'info', (...args: unknown[]) => {
+      infoCalls.push(args);
+    });
+
+    try {
+      await processAiJob(message);
+    } finally {
+      infoMock.mock.restore();
+    }
+
+    const matching = infoCalls.filter((args) =>
+      String(args[0]).includes(`[processAiJob] category-fallback post=${message.postId} event=0 outcome=deliberate_other`)
+    );
+    assert.strictEqual(matching.length, 1, 'Expected exactly one deliberate_other log line for a duplicate-OTHER-only list');
+  });
+
   await t.test('Case V (Story 0.52 AC6): does NOT log a category-fallback line for a normal, non-fallback category list', async () => {
     const message: ProcessingJobMessage = {
       postId: '00000000-0000-4000-8000-000000000022',

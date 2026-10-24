@@ -198,6 +198,33 @@ test('transformGeminiResponseToEventInfo keeps OTHER and moves it to the end whe
   assert.deepEqual(result.categories, [EventCategory.MUSIC, EventCategory.OTHER]);
 });
 
+test('transformGeminiResponseToEventInfo: exactly 6 real categories plus OTHER are all kept (the cap is a no-op, OTHER costs no slot)', () => {
+  const result = transformGeminiResponseToEventInfo(
+    payload({
+      categories: [
+        EventCategory.MUSIC,
+        EventCategory.ARTS_AND_CULTURE,
+        EventCategory.FOOD_AND_DRINK,
+        EventCategory.SPORTS_AND_FITNESS,
+        EventCategory.FAMILY_AND_KIDS,
+        EventCategory.HOBBIES_AND_INTERESTS,
+        EventCategory.OTHER
+      ]
+    }),
+    context
+  );
+
+  assert.deepEqual(result.categories, [
+    EventCategory.MUSIC,
+    EventCategory.ARTS_AND_CULTURE,
+    EventCategory.FOOD_AND_DRINK,
+    EventCategory.SPORTS_AND_FITNESS,
+    EventCategory.FAMILY_AND_KIDS,
+    EventCategory.HOBBIES_AND_INTERESTS,
+    EventCategory.OTHER
+  ]);
+});
+
 test('transformGeminiResponseToEventInfo keeps a solo OTHER (never dropped when it is the only entry)', () => {
   const result = transformGeminiResponseToEventInfo(payload({ categories: [EventCategory.OTHER] }), context);
 

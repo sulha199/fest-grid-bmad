@@ -274,12 +274,15 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     // console.info on purpose, matching logFaceBlurThumbnailOutcome's convention above -- several
     // test files assert exact console.log/console.warn counts for unrelated features. These three
     // outcomes are mutually exclusive (empty, solo OTHER, >6 real categories can never co-occur).
-    if (event.categories.length === 0) {
+    // Deduped first, mirroring transformGeminiResponseToEventInfo, so a raw ['OTHER','OTHER']
+    // (which the transform collapses to a solo OTHER) is logged as deliberate_other too.
+    const distinctCategories = Array.from(new Set(event.categories));
+    if (distinctCategories.length === 0) {
       console.info(`[processAiJob] category-fallback post=${message.postId} event=${i} outcome=empty_list_fallback_to_other`);
-    } else if (event.categories.length === 1 && event.categories[0] === EventCategory.OTHER) {
+    } else if (distinctCategories.length === 1 && distinctCategories[0] === EventCategory.OTHER) {
       console.info(`[processAiJob] category-fallback post=${message.postId} event=${i} outcome=deliberate_other`);
     } else {
-      const realCategoryCount = Array.from(new Set(event.categories)).filter((c) => c !== EventCategory.OTHER).length;
+      const realCategoryCount = distinctCategories.filter((c) => c !== EventCategory.OTHER).length;
       if (realCategoryCount > 6) {
         console.info(
           `[processAiJob] category-fallback post=${message.postId} event=${i} outcome=truncated_to_safety_cap realCategoryCount=${realCategoryCount}`

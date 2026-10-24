@@ -135,7 +135,8 @@ export const EVENT_CATEGORY_DEFINITIONS: Readonly<Record<EventCategoryKey, Event
     aliases: ['teknik', 'rekayasa', 'riset', 'inovasi', 'sains']
   },
   OTHER: {
-    definition: 'No single subject applies, or no valid value could be determined for this event.',
+    definition:
+      'A stated subject that no other category covers (added beside the categories that do apply), or, alone, no identifiable subject or no valid value could be determined for this event.',
     aliases: ['lainnya', 'lain-lain']
   }
 };
@@ -201,7 +202,7 @@ export const CATEGORY_BOUNDARIES: readonly CategoryBoundaryRule[] = [
   {
     id: 'other-no-single-subject',
     rule:
-      'OTHER applies when there is no single subject (for example a mall-wide sale spanning many unrelated subjects with no single headline) or no valid value can be determined.'
+      'A multi-subject post (for example a mall-wide sale naming fashion, electronics, and home living) carries each stated subject category and is never collapsed to OTHER; OTHER stands alone only when the post has no identifiable subject or no valid value can be determined.'
   },
   {
     id: 'gadgets-and-devices',

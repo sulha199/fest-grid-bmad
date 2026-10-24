@@ -1,7 +1,8 @@
 import { EventCategory } from '@festgrid/shared-types';
 
 /**
- * Story 0.52/0.53/0.54 (AD-44 Rule 10, AC7/AC12/AC15). The 12 (plus three optional bonus) posts
+ * Story 0.52/0.53/0.54 (AD-44 Rule 10, AC7/AC12/AC15). The 12 posts (plus optional bonus fixtures
+ * 6b and 16, and the two mandatory SCIENCE_AND_ENGINEERING fixtures 14 and 15 added by Story 0.54)
  * from `reviews/review-adversarial-pair.md` §2 ("Ten (plus two) realistic Indonesian posts
  * against Rule 4"), re-derived against AD-44's amended Rule 2 (safety cap 6, non-exclusive OTHER)
  * and Rule 5 (ordered boundary procedure, now including SCIENCE_AND_ENGINEERING) across the full

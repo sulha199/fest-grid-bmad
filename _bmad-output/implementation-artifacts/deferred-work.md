@@ -2,6 +2,15 @@
 
 This file tracks work deferred from development stories, code reviews, and planning sessions.
 
+## Deferred from: code review of 0-54-amend-event-category-cardinality-and-add-science-and-engineering (2026-10-24)
+
+- source_spec: `_bmad-output/implementation-artifacts/0-54-amend-event-category-cardinality-and-add-science-and-engineering.md`
+  summary: Golden-corpus fixture `11-wedding-expo`'s `mustNotInclude: []` gives it no negative-boundary coverage, unlike its sibling amended fixtures (3, 5, 9, 10), which each keep at least one exclusion — a live run returning the 4 expected categories plus an unrelated one would still pass.
+  evidence: Surfaced by the Edge Case Hunter review pass. The story's own re-derivation table didn't specify `mustNotInclude` for this row and already flags fixture 11 "confirm on next live run" for the same wedding-expo boundary — best strengthened together once live-run evidence lands.
+- source_spec: `_bmad-output/implementation-artifacts/0-54-amend-event-category-cardinality-and-add-science-and-engineering.md`
+  summary: Ratchet Check D's "<3 distinct `EventCategory` names outside the glossary block" margin in the extraction prompt is now 1 of 3 (from this story's new `build-gemini-request.ts` item-3 prose naming `OTHER`), with no dedicated test pinned to this specific sentence's consumption of that margin.
+  evidence: Surfaced by the Edge Case Hunter review pass. Check D passes today (no violation) — this is a forward-looking margin observation for whoever next edits that prose, not a current defect.
+
 ## Deferred from: bmad-quick-dev IDEA-015 review (2026-09-18)
 
 - source_spec: none (one-shot route, no frozen spec)
