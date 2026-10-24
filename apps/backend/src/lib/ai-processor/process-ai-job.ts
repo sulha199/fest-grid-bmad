@@ -266,16 +266,25 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
       defaultLocation?.timezone
     );
 
-    // Story 0.52 (AD-44 Rule 10): inspect the RAW (pre-transform) category list -- already
-    // AJV-enum-validated by this point (see this file's own isValid check above), so the only way
-    // it's empty is a genuinely empty model response, and the only way it's exactly ['OTHER'] is
-    // a deliberate model choice. console.info on purpose, matching logFaceBlurThumbnailOutcome's
-    // convention above -- several test files assert exact console.log/console.warn counts for
-    // unrelated features.
+    // Story 0.52 (AD-44 Rule 10), extended by Story 0.54 (AD-44 Rule 2/10): inspect the RAW
+    // (pre-transform) category list -- already AJV-enum-validated by this point (see this file's
+    // own isValid check above), so the only way it's empty is a genuinely empty model response,
+    // the only way it's exactly ['OTHER'] is a deliberate model choice, and a deduped/OTHER-excluded
+    // count above the safety cap of 6 is the only way the real-category truncation applies.
+    // console.info on purpose, matching logFaceBlurThumbnailOutcome's convention above -- several
+    // test files assert exact console.log/console.warn counts for unrelated features. These three
+    // outcomes are mutually exclusive (empty, solo OTHER, >6 real categories can never co-occur).
     if (event.categories.length === 0) {
       console.info(`[processAiJob] category-fallback post=${message.postId} event=${i} outcome=empty_list_fallback_to_other`);
     } else if (event.categories.length === 1 && event.categories[0] === EventCategory.OTHER) {
       console.info(`[processAiJob] category-fallback post=${message.postId} event=${i} outcome=deliberate_other`);
+    } else {
+      const realCategoryCount = Array.from(new Set(event.categories)).filter((c) => c !== EventCategory.OTHER).length;
+      if (realCategoryCount > 6) {
+        console.info(
+          `[processAiJob] category-fallback post=${message.postId} event=${i} outcome=truncated_to_safety_cap realCategoryCount=${realCategoryCount}`
+        );
+      }
     }
 
     const eventMessage = transformGeminiResponseToEventInfo(event, {
