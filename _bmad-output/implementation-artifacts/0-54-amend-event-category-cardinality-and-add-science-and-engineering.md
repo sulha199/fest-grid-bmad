@@ -353,3 +353,21 @@ Claude Sonnet 5 (claude-sonnet-5), via `bmad-dev-story`.
 ## Change Log
 
 - 2026-10-24: Implemented Story 0.54 (AD-44 Follow-up 4) in full — rewrote the cardinality rule (safety cap 6, non-exclusive `OTHER`), added the `truncated_to_safety_cap` log outcome, added `SCIENCE_AND_ENGINEERING` as the 23rd `EventCategory` across the full AD-44 Rule 6 register, rewrote the UMKM/entrepreneurship, sports-branded-gear, and wedding-services-expo boundary rules, and re-derived the golden category corpus (fixtures 3/5/9/10/11 amended, fixtures 14/15/16 added) — resolving backlog finding FIND-098. All 7 tasks and all 23 ACs complete; status moved to `review`.
+
+### Live Gemini evaluation results (23-value corpus, run 2026-10-24 by the orchestrating session after the review patches)
+
+Run 1 (all 16 fixtures): **12 pass, 4 mismatch.** Run 2 hit Gemini `429 quota exceeded` for fixtures 14-16, so it is only partial evidence; no further live calls were made.
+
+Fixtures that failed last time (3 UMKM, 5 fashion week, 9 mall sale, 10 sneaker/fun run, 11 wedding expo) **all pass now, in both runs.** Also passing in both runs: 1, 2, 4, 6, 8, 12.
+
+| Fixture | Run 1 | Run 2 | Detail |
+|---|---|---|---|
+| 7-power-tools-roadshow | mismatch | mismatch (same) | Got `[HOME_AND_LIVING, BUSINESS_AND_NETWORKING]`; fixture forbids Business. Caption: "Makita Power Tools Roadshow: demo bor, gerinda; diskon 30% untuk tukang & kontraktor; workshop pasang keramik; Toko Bangunan Jaya Abadi, Bantul". It passed before the UMKM/entrepreneurship rule was loosened, so this may be a **regression from that loosening** (the model now reads "tukang & kontraktor" / a workshop as trade framing). Stable across two runs. |
+| 6b-bonus-aesthetic-clinic | mismatch | mismatch (same) | Got `[HEALTH_AND_WELLNESS, FASHION_AND_BEAUTY]`; fixture forbids Fashion. Caption: "Promo Glow Up Clinic: facial, botox, laser rejuvenation 50%, 17-19 Agustus". "Facial" is skincare, which the Fashion & Beauty definition names, so the co-tag is defensible. Passed in the 22-value run, so it may be sampling noise on a contestable fixture. |
+| 14-engineering-robotics-seminar | mismatch | 429 | Got `[SCIENCE_AND_ENGINEERING, TECHNOLOGY, EDUCATION]`; fixture forbids Technology and Education. Caption: "Seminar Nasional Teknik Robotika & IoT UGM: riset mahasiswa, pameran prototipe, 20 Nov, Fakultas Teknik". The new category is chosen first, which is the intended outcome; the extra tags are contestable (IoT/robotics touch technology, a university seminar touches education). |
+| 15-science-olympiad | mismatch | 429 | Got `[SCIENCE_AND_ENGINEERING, EDUCATION]`; fixture forbids Science & Engineering. Caption: "Olimpiade Sains Nasional (OSN) Tingkat SMA: fisika, kimia, biologi, matematika, 15 Sept". Education is correct; the Science & Engineering co-tag contradicts the boundary text ("academic olympiads ... stay EDUCATION even in science subjects"). Needs an owner decision: tighten the boundary or accept the co-tag. |
+| 16-hackathon | pass | 429 | |
+
+No prompt, boundary or fixture was changed in response to these results; they need owner decisions (7: prompt tightening vs fixture; 6b/14: relax fixtures; 15: boundary vs co-tag).
+
+CC-024 regression and rescrape: **not run.** Gemini quota is exhausted, so a regression could not complete; the rescrape (vendor quota) is deferred until Gemini quota is available, because the refreshed image links would expire again if the regression can't run soon after.
