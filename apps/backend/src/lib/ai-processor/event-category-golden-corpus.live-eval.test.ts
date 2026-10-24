@@ -15,12 +15,15 @@ import { EVENT_CATEGORY_GOLDEN_CORPUS } from './event-category-golden-corpus.fix
 // Run manually with:
 //   RUN_LIVE_GEMINI_TESTS=true SYSTEM_GEMINI_API_KEY=<key> pnpm --filter backend test
 //
-// Per this story's Dev Notes, fixtures #2 and #5 are flagged as having a plausible second reading
-// under AD-44's rewritten Rule 5. If the live run disagrees with this story's derived
-// expected/mustNotInclude for exactly those two, the fixture should be adjusted (not the prompt)
+// Story 0.53 re-derived the fixtures for the full 22-value taxonomy (see
+// event-category-golden-corpus.fixtures.ts's header and
+// 0-53-add-home-living-fashion-finance-and-gadget-event-categories.md's Dev Notes). As of that
+// re-derivation, fixture #11 (wedding-expo) is the one flagged as having a plausible second
+// reading under AD-44's rewritten Rule 5 -- if the live run disagrees with this story's derived
+// expected/mustNotInclude for exactly that one, the fixture should be adjusted (not the prompt)
 // -- any other mismatch should be investigated as a real prompt/boundary-text defect first.
 
-test('EventCategory golden corpus (opt-in live Gemini eval, Story 0.52 AC7)', async (t) => {
+test('EventCategory golden corpus (opt-in live Gemini eval, Story 0.52/0.53 AC7/AC12)', async (t) => {
   if (process.env.RUN_LIVE_GEMINI_TESTS !== 'true' || !process.env.SYSTEM_GEMINI_API_KEY) {
     t.skip('RUN_LIVE_GEMINI_TESTS/SYSTEM_GEMINI_API_KEY not set — live Gemini golden-corpus eval opted out');
     return;
