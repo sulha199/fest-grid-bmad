@@ -1900,8 +1900,11 @@ test('processAiJob orchestrator tests', async (t) => {
       infoCalls.push(args);
     });
 
-    await processAiJob(message);
-    infoMock.mock.restore();
+    try {
+      await processAiJob(message);
+    } finally {
+      infoMock.mock.restore();
+    }
 
     const matching = infoCalls.filter((args) =>
       String(args[0]).includes(`[processAiJob] category-fallback post=${message.postId} event=0 outcome=empty_list_fallback_to_other`)
@@ -1940,8 +1943,11 @@ test('processAiJob orchestrator tests', async (t) => {
       infoCalls.push(args);
     });
 
-    await processAiJob(message);
-    infoMock.mock.restore();
+    try {
+      await processAiJob(message);
+    } finally {
+      infoMock.mock.restore();
+    }
 
     const matching = infoCalls.filter((args) =>
       String(args[0]).includes(`[processAiJob] category-fallback post=${message.postId} event=0 outcome=deliberate_other`)
@@ -1983,8 +1989,11 @@ test('processAiJob orchestrator tests', async (t) => {
       infoCalls.push(args);
     });
 
-    await processAiJob(message);
-    infoMock.mock.restore();
+    try {
+      await processAiJob(message);
+    } finally {
+      infoMock.mock.restore();
+    }
 
     const matching = infoCalls.filter((args) => String(args[0]).includes('[processAiJob] category-fallback'));
     assert.strictEqual(matching.length, 0, 'Should not log a category-fallback line when the raw category list is a normal, non-empty, non-solo-OTHER list');

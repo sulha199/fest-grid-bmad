@@ -13,10 +13,11 @@ import type { EventCategory } from './index.js';
  * next-intl locale files (see `project-context.md`'s "Locale-Sensitive Data Rendering" rule);
  * this file has no relationship to that pipeline.
  *
- * Scope: this story's 18-value interim taxonomy only. `HOME_AND_LIVING`, `FASHION_AND_BEAUTY`,
- * and `FINANCE_AND_INVESTMENT` are Story 0.53's job and are deliberately never named here (not in
- * a definition, not in a boundary rule, not in a comment) -- the ratchet test's Check B fails
- * loudly if any of them (or a typo) ever appears in this file.
+ * Scope: this story's 18-value interim taxonomy only. The future category tokens that a later
+ * story (0.53) will add are deliberately never named anywhere in this file -- not in a
+ * definition, not in a boundary rule, not even in a comment like this one -- the ratchet test's
+ * Check B fails loudly if any forward-reference token (or a typo of a real member) ever appears
+ * in this file.
  */
 
 export interface EventCategoryDefinition {

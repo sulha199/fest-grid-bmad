@@ -110,6 +110,20 @@ test('Check B negative control: a synthetic forward-reference token is flagged, 
   const forbiddenSnippet = 'Furniture and décor route to HOME_AND_LIVING, not OTHER.';
   assert.deepStrictEqual(findUnknownTokens(forbiddenSnippet), ['HOME_AND_LIVING']);
 
+  // Review Findings patch 3 (Story 0.52): exercise each of the 4 forbidden future tokens by
+  // name, not just HOME_AND_LIVING -- same regex path, but a test-completeness nit flagged by
+  // review, since this story's own scope claim names all four.
+  assert.deepStrictEqual(findUnknownTokens('Clothing and makeup route to FASHION_AND_BEAUTY, not OTHER.'), [
+    'FASHION_AND_BEAUTY'
+  ]);
+  assert.deepStrictEqual(
+    findUnknownTokens('Stocks and loans route to FINANCE_AND_INVESTMENT, not OTHER.'),
+    ['FINANCE_AND_INVESTMENT']
+  );
+  assert.deepStrictEqual(findUnknownTokens('Phones and laptops route to GADGETS_AND_DEVICES, not OTHER.'), [
+    'GADGETS_AND_DEVICES'
+  ]);
+
   // The regex only targets underscored ALL_CAPS tokens (per AC4(b)'s own scope) -- a single-word
   // typo like "MUSICC" has no underscore and is intentionally out of scope for this check. An
   // underscored typo of a real member IS caught:

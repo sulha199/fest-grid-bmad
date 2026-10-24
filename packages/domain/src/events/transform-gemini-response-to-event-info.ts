@@ -28,14 +28,20 @@ export function transformGeminiResponseToEventInfo(
   const validCategories = payload.categories.filter((c): c is EventCategory =>
     Object.values(EventCategory).includes(c as EventCategory)
   );
-  // Story 0.52 (AD-44 Rule 2): empty-fallback first (unchanged), then OTHER-exclusivity, then the
-  // cap-4 truncation -- in that order, so a 5-category response that happens to include OTHER
-  // never wastes one of the 4 kept slots on it.
-  let categories = validCategories.length > 0 ? validCategories : [EventCategory.OTHER];
+  // Story 0.52 (AD-44 Rule 2), patched per code review: valid-category filter (above), then
+  // dedupe (preserving first occurrence / model order) so a repeated category can never
+  // displace a distinct one past the cap below nor silently empty out an all-duplicate-OTHER
+  // list, then OTHER-exclusivity, then the cap-4 truncation, then empty-fallback last -- in that
+  // order, so a 5-category response that happens to include OTHER never wastes one of the 4 kept
+  // slots on it, and a duplicate-only raw list (e.g. ['OTHER', 'OTHER']) never collapses to [].
+  let categories: EventCategory[] = Array.from(new Set(validCategories));
   if (categories.length > 1 && categories.includes(EventCategory.OTHER)) {
     categories = categories.filter((c) => c !== EventCategory.OTHER);
   }
   categories = categories.slice(0, 4);
+  if (categories.length === 0) {
+    categories = [EventCategory.OTHER];
+  }
 
   // 2. Resolve top-level location
   const location = payload.location || (context.defaultLocation
