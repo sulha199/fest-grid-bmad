@@ -169,11 +169,12 @@ export const CATEGORY_BOUNDARIES: readonly CategoryBoundaryRule[] = [
   {
     id: 'hobbies-plants',
     rule:
-      'Plant collecting, contests, breeding, and gardening route to HOBBIES_AND_INTERESTS; tag the headline subject only when a plant fair mixes hobby framing with other framing.'
+      'Plant collecting, contests, breeding, and gardening route to HOBBIES_AND_INTERESTS; tag the headline subject only when a plant fair mixes hobby framing with other framing; decorative planting sold as home decor routes to HOME_AND_LIVING instead.'
   },
   {
     id: 'arts-heritage',
-    rule: 'Batik, tenun, and wastra heritage textile events route to ARTS_AND_CULTURE.'
+    rule:
+      'Batik, tenun, and wastra heritage textile events route to ARTS_AND_CULTURE, plus FASHION_AND_BEAUTY only when a runway or apparel sale is the headline.'
   },
   {
     id: 'health-clinical-aesthetic',
@@ -187,5 +188,29 @@ export const CATEGORY_BOUNDARIES: readonly CategoryBoundaryRule[] = [
     id: 'other-no-single-subject',
     rule:
       'OTHER applies when there is no single subject (for example a mall-wide sale spanning many unrelated subjects with no single headline) or no valid value can be determined.'
+  },
+  {
+    id: 'gadgets-and-devices',
+    rule:
+      'Consumer gadgets, phones, laptops, audio, cameras, wearables, and gaming gear route to GADGETS_AND_DEVICES; software, AI, startups, developer events, hackathons, and tech conferences stay TECHNOLOGY; a device-and-software launch may carry both, headline first.'
+  },
+  {
+    id: 'home-living-tools-and-furniture',
+    rule:
+      'Furniture, appliances, decor, interior, housewares, home-improvement products, and tools sold to consumers or tradespeople (tukang, kontraktor) route to HOME_AND_LIVING.'
+  },
+  {
+    id: 'fashion-and-beauty',
+    rule:
+      'Fashion, sneakers (including sport-branded), barbershop, grooming, skincare, and cosmetics route to FASHION_AND_BEAUTY; clinical aesthetic or medical treatments still route to HEALTH_AND_WELLNESS, and a participatory sport event still keeps SPORTS_AND_FITNESS.'
+  },
+  {
+    id: 'automotive-unaffected',
+    rule: 'Car and motorcycle fairs, exhibitions, accessories, and tools stay AUTOMOTIVE, unaffected by the newer categories.'
+  },
+  {
+    id: 'wedding-services-expo',
+    rule:
+      'Wedding, bridal, and similar-services expos route to the dominant subject category when one clearly exists, otherwise OTHER.'
   }
 ];
