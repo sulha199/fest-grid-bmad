@@ -45,17 +45,6 @@ export const eventTypeEnum = pgEnum('event_type', [
   'SEMINAR', 'MARKET', 'GATHERING', 'PROMOTION', 'FUNDRAISER', 'CIVIC', 'OTHER'
 ]);
 
-// Per-value prose definitions live in EVENT_CATEGORY_DEFINITIONS
-// (packages/shared-types/src/event-category-definitions.ts) -- the one source both Gemini-facing
-// prompts render from (AD-44 Rule 3/4). Do not add per-value prose comments back here.
-export const eventCategoryEnum = pgEnum('event_category', [
-  'MUSIC', 'ARTS_AND_CULTURE', 'FOOD_AND_DRINK', 'SPORTS_AND_FITNESS',
-  'FAMILY_AND_KIDS', 'HOBBIES_AND_INTERESTS', 'BUSINESS_AND_NETWORKING',
-  'HEALTH_AND_WELLNESS', 'HOLIDAY', 'CHARITY_AND_CAUSES', 'CIVIC_AND_COMMUNITY',
-  'RELIGION_AND_SPIRITUALITY', 'TECHNOLOGY', 'TRAVEL_AND_TOURISM', 'EDUCATION',
-  'CAREER', 'AUTOMOTIVE', 'OTHER'
-]);
-
 export const userRoleEnum = pgEnum('user_role', ['user', 'moderator']);
 
 export const geolocationQueryTypeEnum = pgEnum('geolocation_query_type', ['GEOCODE', 'REVERSE_GEOCODE', 'PLACE_DETAILS']);
@@ -431,7 +420,8 @@ export const events = pgTable('events', {
   eventName: text('event_name').notNull(),
   // Drizzle doesn't perfectly support enum arrays, so we use text arrays but expect values from eventTypeEnum
   types: text('types').array(),
-  // Expect values from eventCategoryEnum
+  // Expect values from EventCategory (@festgrid/shared-types) -- never backed by a pgEnum;
+  // the event_category Postgres type was retired as unused (Story 0.53, AD-44 Rule 6/8).
   categories: text('categories').array(),
   // High-level summary of location (e.g. "Chicago, IL"). Specific coordinates are in schedules[n].locationDetails
   location: text('location').notNull(),
