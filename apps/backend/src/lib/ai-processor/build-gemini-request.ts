@@ -224,7 +224,7 @@ ROUNDUP HANDLING: when the post is a roundup/aggregator listing (groupingReason:
 For EACH identified event in the events array, extract:
 1. eventName (required).
 2. types: select appropriate values from this allowed list: ${allowedTypes}.
-3. categories: select every value that fits, using only the values below, each given as \`NAME -- definition\`:
+3. categories: select every value that fits, using only the values below, each given as \`NAME -- definition\`. Name every category whose subject the post states for THIS event, headline subject first -- never collapse a multi-subject post into OTHER just to save tags. If the post actually lists several distinct events (different dates, venues, or independent registration pipelines -- see the GROUPING DECISION in section 0 above), extract each as its own event with its own categories, rather than stacking every subject onto a single event entry:
 ${categoryGlossary}
 4. schedules: for each schedule, isMainSchedule (boolean) and eventStartDate (YYYY-MM-DD) are required. Extract title, eventEndDate (YYYY-MM-DD), eventStartTime (HH:MM:SS), eventEndTime (HH:MM:SS), performers (array), location, ticketPrice, and applicableDaysOfWeek if available.
    4a. Set a schedule's applicableDaysOfWeek only when the source text states that schedule recurs only on specific weekdays within a date span (e.g. "every Friday and Saturday, Oct 1-31") -- use values from this allowed list: ${allowedDaysOfWeek}. Leave it absent when the schedule is a single occurrence or the text does not state specific recurring weekdays.
