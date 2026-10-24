@@ -73,8 +73,10 @@ test('Check A negative control: a synthetic violating record is actually flagged
 // ---------------------------------------------------------------------------------------------
 // Check B: no forward references -- every underscored ALL_CAPS token inside any definition or
 // boundary rule string must be a real EventCategory or EventType member. This is the check that
-// fails loudly if HOME_AND_LIVING/FASHION_AND_BEAUTY/FINANCE_AND_INVESTMENT (Story 0.53's values)
-// or a typo ever appears here.
+// fails loudly if a not-yet-real token (e.g. TOOLS_AND_HARDWARE, SHOPPING_AND_RETAIL -- both
+// still Deferred/Rejected by AD-44) or a typo of a real member ever appears here. As of Story
+// 0.53, HOME_AND_LIVING/FASHION_AND_BEAUTY/FINANCE_AND_INVESTMENT/GADGETS_AND_DEVICES are real
+// members, so they are legal to name -- see the "positive confirmation" test below.
 // ---------------------------------------------------------------------------------------------
 
 test('Check B: no unknown ALL_CAPS tokens in any definition or boundary rule', () => {
@@ -107,22 +109,20 @@ test('Check B: no unknown ALL_CAPS tokens in any definition or boundary rule', (
 });
 
 test('Check B negative control: a synthetic forward-reference token is flagged, and a non-underscored word is not', () => {
-  const forbiddenSnippet = 'Furniture and décor route to HOME_AND_LIVING, not OTHER.';
-  assert.deepStrictEqual(findUnknownTokens(forbiddenSnippet), ['HOME_AND_LIVING']);
+  // Story 0.53: HOME_AND_LIVING, FASHION_AND_BEAUTY, FINANCE_AND_INVESTMENT, and
+  // GADGETS_AND_DEVICES are now real EventCategory members (added by this story), so
+  // findUnknownTokens correctly no longer flags them -- see the "positive confirmation" test
+  // below for that behavior flip. This negative control now exercises tokens that remain
+  // genuinely unknown at 22 values: TOOLS_AND_HARDWARE and SHOPPING_AND_RETAIL, both explicitly
+  // Deferred/Rejected by AD-44 (not planned without a further architecture change), so they are
+  // safe, stable choices that won't themselves become real members out from under this test.
+  const forbiddenSnippet = 'Hardware and power tools route to TOOLS_AND_HARDWARE, not OTHER.';
+  assert.deepStrictEqual(findUnknownTokens(forbiddenSnippet), ['TOOLS_AND_HARDWARE']);
 
-  // Review Findings patch 3 (Story 0.52): exercise each of the 4 forbidden future tokens by
-  // name, not just HOME_AND_LIVING -- same regex path, but a test-completeness nit flagged by
-  // review, since this story's own scope claim names all four.
-  assert.deepStrictEqual(findUnknownTokens('Clothing and makeup route to FASHION_AND_BEAUTY, not OTHER.'), [
-    'FASHION_AND_BEAUTY'
-  ]);
   assert.deepStrictEqual(
-    findUnknownTokens('Stocks and loans route to FINANCE_AND_INVESTMENT, not OTHER.'),
-    ['FINANCE_AND_INVESTMENT']
+    findUnknownTokens('Mall-wide sales route to SHOPPING_AND_RETAIL, not OTHER.'),
+    ['SHOPPING_AND_RETAIL']
   );
-  assert.deepStrictEqual(findUnknownTokens('Phones and laptops route to GADGETS_AND_DEVICES, not OTHER.'), [
-    'GADGETS_AND_DEVICES'
-  ]);
 
   // The regex only targets underscored ALL_CAPS tokens (per AC4(b)'s own scope) -- a single-word
   // typo like "MUSICC" has no underscore and is intentionally out of scope for this check. An
@@ -132,6 +132,23 @@ test('Check B negative control: a synthetic forward-reference token is flagged, 
 
   const safeSnippet = 'Route to MUSIC or OTHER when unsure, never UMKM alone.';
   assert.deepStrictEqual(findUnknownTokens(safeSnippet), []);
+});
+
+test('Check B positive confirmation: all 4 of Story 0.53\'s new tokens appear in real boundary/definition prose, unflagged', () => {
+  // Proves the behavior actually flipped from "forbidden" to "legal" for these four tokens,
+  // rather than only inferring it from Check A/B passing overall.
+  const newTokens = ['HOME_AND_LIVING', 'FASHION_AND_BEAUTY', 'FINANCE_AND_INVESTMENT', 'GADGETS_AND_DEVICES'] as const;
+
+  const allDefinitionText = Object.values(EVENT_CATEGORY_DEFINITIONS)
+    .map((entry) => entry.definition)
+    .join(' ');
+  const allBoundaryText = CATEGORY_BOUNDARIES.map((b) => b.rule).join(' ');
+  const haystack = `${allDefinitionText} ${allBoundaryText}`;
+
+  for (const token of newTokens) {
+    assert.ok(haystack.includes(token), `Expected ${token} to appear somewhere in real definitions/boundaries`);
+    assert.deepStrictEqual(findUnknownTokens(token), [], `Expected ${token} to no longer be flagged as an unknown token`);
+  }
 });
 
 // ---------------------------------------------------------------------------------------------
