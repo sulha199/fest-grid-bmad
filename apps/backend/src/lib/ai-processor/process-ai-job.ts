@@ -1,4 +1,5 @@
 import { type ProcessingJobMessage } from '@festgrid/domain/posts';
+import { EventCategory } from '@festgrid/shared-types';
 import { getActiveSubscriberUserIdsForPost } from '../subscriptions/get-active-subscriber-user-ids-for-post.js';
 import { buildGeminiExtractionRequest } from './build-gemini-request.js';
 import { callGemini as defaultCallGemini } from '../ai-gateway/adapter.js';
@@ -264,6 +265,18 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
       subscriberUserIds,
       defaultLocation?.timezone
     );
+
+    // Story 0.52 (AD-44 Rule 10): inspect the RAW (pre-transform) category list -- already
+    // AJV-enum-validated by this point (see this file's own isValid check above), so the only way
+    // it's empty is a genuinely empty model response, and the only way it's exactly ['OTHER'] is
+    // a deliberate model choice. console.info on purpose, matching logFaceBlurThumbnailOutcome's
+    // convention above -- several test files assert exact console.log/console.warn counts for
+    // unrelated features.
+    if (event.categories.length === 0) {
+      console.info(`[processAiJob] category-fallback post=${message.postId} event=${i} outcome=empty_list_fallback_to_other`);
+    } else if (event.categories.length === 1 && event.categories[0] === EventCategory.OTHER) {
+      console.info(`[processAiJob] category-fallback post=${message.postId} event=${i} outcome=deliberate_other`);
+    }
 
     const eventMessage = transformGeminiResponseToEventInfo(event, {
       postId: message.postId,

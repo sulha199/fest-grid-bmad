@@ -26,3 +26,65 @@ test('transformGeminiResponseToEventInfo falls back to OTHER when nothing recogn
   assert.deepEqual(result.types, [EventType.OTHER]);
   assert.deepEqual(result.categories, [EventCategory.OTHER]);
 });
+
+// Story 0.52 (AD-44 Rule 2): cardinality cap-4 + OTHER-exclusivity enforcement, applied AFTER the
+// existing empty-fallback check above.
+
+test('transformGeminiResponseToEventInfo truncates 5 valid categories to the first 4, preserving order', () => {
+  const result = transformGeminiResponseToEventInfo(
+    payload({
+      categories: [
+        EventCategory.MUSIC,
+        EventCategory.ARTS_AND_CULTURE,
+        EventCategory.FOOD_AND_DRINK,
+        EventCategory.SPORTS_AND_FITNESS,
+        EventCategory.FAMILY_AND_KIDS
+      ]
+    }),
+    context
+  );
+
+  assert.deepEqual(result.categories, [
+    EventCategory.MUSIC,
+    EventCategory.ARTS_AND_CULTURE,
+    EventCategory.FOOD_AND_DRINK,
+    EventCategory.SPORTS_AND_FITNESS
+  ]);
+});
+
+test('transformGeminiResponseToEventInfo drops OTHER when 2+ categories remain, keeping the others', () => {
+  const result = transformGeminiResponseToEventInfo(
+    payload({ categories: [EventCategory.OTHER, EventCategory.MUSIC] }),
+    context
+  );
+
+  assert.deepEqual(result.categories, [EventCategory.MUSIC]);
+});
+
+test('transformGeminiResponseToEventInfo keeps a solo OTHER (never dropped when it is the only entry)', () => {
+  const result = transformGeminiResponseToEventInfo(payload({ categories: [EventCategory.OTHER] }), context);
+
+  assert.deepEqual(result.categories, [EventCategory.OTHER]);
+});
+
+test('transformGeminiResponseToEventInfo: a 5-category list including OTHER drops OTHER before truncating, never wasting a kept slot on it', () => {
+  const result = transformGeminiResponseToEventInfo(
+    payload({
+      categories: [
+        EventCategory.OTHER,
+        EventCategory.MUSIC,
+        EventCategory.ARTS_AND_CULTURE,
+        EventCategory.FOOD_AND_DRINK,
+        EventCategory.SPORTS_AND_FITNESS
+      ]
+    }),
+    context
+  );
+
+  assert.deepEqual(result.categories, [
+    EventCategory.MUSIC,
+    EventCategory.ARTS_AND_CULTURE,
+    EventCategory.FOOD_AND_DRINK,
+    EventCategory.SPORTS_AND_FITNESS
+  ]);
+});

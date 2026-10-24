@@ -28,7 +28,14 @@ export function transformGeminiResponseToEventInfo(
   const validCategories = payload.categories.filter((c): c is EventCategory =>
     Object.values(EventCategory).includes(c as EventCategory)
   );
-  const categories = validCategories.length > 0 ? validCategories : [EventCategory.OTHER];
+  // Story 0.52 (AD-44 Rule 2): empty-fallback first (unchanged), then OTHER-exclusivity, then the
+  // cap-4 truncation -- in that order, so a 5-category response that happens to include OTHER
+  // never wastes one of the 4 kept slots on it.
+  let categories = validCategories.length > 0 ? validCategories : [EventCategory.OTHER];
+  if (categories.length > 1 && categories.includes(EventCategory.OTHER)) {
+    categories = categories.filter((c) => c !== EventCategory.OTHER);
+  }
+  categories = categories.slice(0, 4);
 
   // 2. Resolve top-level location
   const location = payload.location || (context.defaultLocation

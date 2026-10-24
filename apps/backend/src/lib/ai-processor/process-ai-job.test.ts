@@ -1868,5 +1868,126 @@ test('processAiJob orchestrator tests', async (t) => {
 
     assert.strictEqual(callGeminiCallCount, 1, 'processAiJob must call Gemini exactly once per post, regardless of how many events come back (AD-13)');
   });
+
+  await t.test('Case T (Story 0.52 AC6): logs outcome=empty_list_fallback_to_other when the raw category list is empty', async () => {
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-000000000020',
+      accountId: profile.id,
+      content: 'Empty categories check',
+      postUrl: 'https://test.com/pt',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    setCallGeminiSeam(async () => ({
+      text: JSON.stringify({
+        isEvent: true,
+        events: [
+          {
+            eventName: 'No Category Event',
+            types: ['OTHER'],
+            categories: [],
+            schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-15' }],
+            confidenceScore: 0.9
+          }
+        ]
+      })
+    }));
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    const infoCalls: unknown[][] = [];
+    const infoMock = t.mock.method(console, 'info', (...args: unknown[]) => {
+      infoCalls.push(args);
+    });
+
+    await processAiJob(message);
+    infoMock.mock.restore();
+
+    const matching = infoCalls.filter((args) =>
+      String(args[0]).includes(`[processAiJob] category-fallback post=${message.postId} event=0 outcome=empty_list_fallback_to_other`)
+    );
+    assert.strictEqual(matching.length, 1, 'Expected exactly one empty_list_fallback_to_other log line');
+  });
+
+  await t.test('Case U (Story 0.52 AC6): logs outcome=deliberate_other when the raw category list is exactly [OTHER]', async () => {
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-000000000021',
+      accountId: profile.id,
+      content: 'Deliberate OTHER check',
+      postUrl: 'https://test.com/pu',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    setCallGeminiSeam(async () => ({
+      text: JSON.stringify({
+        isEvent: true,
+        events: [
+          {
+            eventName: 'Deliberate Other Event',
+            types: ['OTHER'],
+            categories: ['OTHER'],
+            schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-15' }],
+            confidenceScore: 0.9
+          }
+        ]
+      })
+    }));
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    const infoCalls: unknown[][] = [];
+    const infoMock = t.mock.method(console, 'info', (...args: unknown[]) => {
+      infoCalls.push(args);
+    });
+
+    await processAiJob(message);
+    infoMock.mock.restore();
+
+    const matching = infoCalls.filter((args) =>
+      String(args[0]).includes(`[processAiJob] category-fallback post=${message.postId} event=0 outcome=deliberate_other`)
+    );
+    assert.strictEqual(matching.length, 1, 'Expected exactly one deliberate_other log line');
+
+    const emptyFallbackMatches = infoCalls.filter((args) => String(args[0]).includes('outcome=empty_list_fallback_to_other'));
+    assert.strictEqual(emptyFallbackMatches.length, 0, 'Should not ALSO log the empty-list outcome for a deliberate single-OTHER list');
+  });
+
+  await t.test('Case V (Story 0.52 AC6): does NOT log a category-fallback line for a normal, non-fallback category list', async () => {
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-000000000022',
+      accountId: profile.id,
+      content: 'Normal category check',
+      postUrl: 'https://test.com/pv',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    setCallGeminiSeam(async () => ({
+      text: JSON.stringify({
+        isEvent: true,
+        events: [
+          {
+            eventName: 'Normal Event',
+            types: ['PERFORMANCE'],
+            categories: ['MUSIC'],
+            schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-15' }],
+            confidenceScore: 0.9
+          }
+        ]
+      })
+    }));
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    const infoCalls: unknown[][] = [];
+    const infoMock = t.mock.method(console, 'info', (...args: unknown[]) => {
+      infoCalls.push(args);
+    });
+
+    await processAiJob(message);
+    infoMock.mock.restore();
+
+    const matching = infoCalls.filter((args) => String(args[0]).includes('[processAiJob] category-fallback'));
+    assert.strictEqual(matching.length, 0, 'Should not log a category-fallback line when the raw category list is a normal, non-empty, non-solo-OTHER list');
+  });
 });
 

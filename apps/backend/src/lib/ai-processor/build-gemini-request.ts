@@ -2,6 +2,7 @@ import { EventType, EventCategory } from '@festgrid/shared-types';
 import { type ProcessingJobMessage, POST_GROUPING_REASONS, type AiImageInput } from '@festgrid/domain/posts';
 import { DayOfWeek } from '@festgrid/domain/events';
 import { type GeminiCallRequest } from '../ai-gateway/gemini-client.js';
+import { renderEventCategoryGlossary } from '../ai-gateway/render-event-category-glossary.js';
 import { loadBackendEnv } from '../../env.js';
 // Story 3.20 (Task 3.6) -- detect-and-blur-faces.ts imports `@tensorflow/tfjs`/
 // `tfjs-backend-wasm`/`sharp`/`@vladmandic/face-api` at module top level. Fixed 2026-10-04
@@ -196,7 +197,10 @@ export async function buildGeminiExtractionRequest(
 ): Promise<BuildGeminiExtractionRequestResult> {
   const env = loadBackendEnv();
   const allowedTypes = Object.values(EventType).join(', ');
-  const allowedCategories = Object.values(EventCategory).join(', ');
+  // Story 0.52 (AD-44 Rule 4): rendered once here, before ${publishDate} is interpolated below
+  // (which appears later in the template), so any provider-side prefix caching still sees a
+  // stable prompt prefix.
+  const categoryGlossary = renderEventCategoryGlossary();
 
   const publishDate = message.publishedAt.substring(0, 10);
 
@@ -220,7 +224,8 @@ ROUNDUP HANDLING: when the post is a roundup/aggregator listing (groupingReason:
 For EACH identified event in the events array, extract:
 1. eventName (required).
 2. types: select appropriate values from this allowed list: ${allowedTypes}.
-3. categories: select appropriate values from this allowed list: ${allowedCategories}.
+3. categories: select every value that fits, using only the values below, each given as \`NAME -- definition\`:
+${categoryGlossary}
 4. schedules: for each schedule, isMainSchedule (boolean) and eventStartDate (YYYY-MM-DD) are required. Extract title, eventEndDate (YYYY-MM-DD), eventStartTime (HH:MM:SS), eventEndTime (HH:MM:SS), performers (array), location, ticketPrice, and applicableDaysOfWeek if available.
    4a. Set a schedule's applicableDaysOfWeek only when the source text states that schedule recurs only on specific weekdays within a date span (e.g. "every Friday and Saturday, Oct 1-31") -- use values from this allowed list: ${allowedDaysOfWeek}. Leave it absent when the schedule is a single occurrence or the text does not state specific recurring weekdays.
    4b. When a schedule runs past midnight (e.g. "21:00 - 02:00", "until late" with a stated end time earlier than the start time), set eventEndDate to the NEXT calendar day after eventStartDate, not to eventStartDate, and keep eventEndTime as the stated time. Do not set eventEndDate at all when the text gives no end time or end date.
