@@ -13,8 +13,9 @@ import type { EventCategory } from './index.js';
  * next-intl locale files (see `project-context.md`'s "Locale-Sensitive Data Rendering" rule);
  * this file has no relationship to that pipeline.
  *
- * Scope: this story's 18-value interim taxonomy only. The future category tokens that a later
- * story (0.53) will add are deliberately never named anywhere in this file -- not in a
+ * Scope: the 22-value taxonomy AD-44 adopted (Story 0.52's 18-value interim set, plus Story 0.53's
+ * `HOME_AND_LIVING`, `FASHION_AND_BEAUTY`, `FINANCE_AND_INVESTMENT`, and `GADGETS_AND_DEVICES`).
+ * Only real `EventCategory`/`EventType` members may be named anywhere in this file -- not in a
  * definition, not in a boundary rule, not even in a comment like this one -- the ratchet test's
  * Check B fails loudly if any forward-reference token (or a typo of a real member) ever appears
  * in this file.
@@ -64,7 +65,7 @@ export const EVENT_CATEGORY_DEFINITIONS: Readonly<Record<EventCategoryKey, Event
     aliases: ['hobi', 'komunitas hobi']
   },
   BUSINESS_AND_NETWORKING: {
-    definition: 'Trade, B2B, networking, entrepreneurship, property, and investment events, defined by subject matter rather than audience.',
+    definition: 'Trade, B2B, networking, and entrepreneurship events, defined by subject matter rather than audience.',
     aliases: ['bisnis', 'networking']
   },
   HEALTH_AND_WELLNESS: {
@@ -89,7 +90,7 @@ export const EVENT_CATEGORY_DEFINITIONS: Readonly<Record<EventCategoryKey, Event
     aliases: ['agama', 'rohani']
   },
   TECHNOLOGY: {
-    definition: 'Tech product promos, hackathons, and tech meetups or conferences.',
+    definition: 'Software, apps, AI, startups, developer and tech-community events, hackathons, and tech conferences.',
     aliases: ['teknologi', 'startup']
   },
   TRAVEL_AND_TOURISM: {
@@ -107,6 +108,23 @@ export const EVENT_CATEGORY_DEFINITIONS: Readonly<Record<EventCategoryKey, Event
   AUTOMOTIVE: {
     definition: 'Car and motorcycle fairs or exhibitions, plus car and motorcycle accessories and tools.',
     aliases: ['otomotif', 'motor']
+  },
+  HOME_AND_LIVING: {
+    definition: 'Furniture, appliances, decor, interior design, housewares, home-improvement products, and consumer or tradesperson tools.',
+    aliases: ['rumah tangga', 'interior']
+  },
+  FASHION_AND_BEAUTY: {
+    definition: 'Fashion, apparel, sneakers, barbershop and grooming, skincare, and cosmetics.',
+    aliases: ['gaya', 'kecantikan']
+  },
+  FINANCE_AND_INVESTMENT: {
+    definition:
+      'Property and real-estate expos, KPR/mortgage events, and stock, mutual-fund, bond, gold, crypto, forex, or commodity trading or investing events.',
+    aliases: ['investasi', 'keuangan']
+  },
+  GADGETS_AND_DEVICES: {
+    definition: 'Consumer electronics, phones, laptops, audio, cameras, wearables, and gaming gear, including their launches, promos, and expos.',
+    aliases: ['gadget', 'elektronik']
   },
   OTHER: {
     definition: 'No single subject applies, or no valid value could be determined for this event.',
@@ -131,9 +149,9 @@ export const CATEGORY_BOUNDARIES: readonly CategoryBoundaryRule[] = [
       'Select at most 4 categories per event; never select OTHER together with another category -- choose OTHER alone only when no other category applies.'
   },
   {
-    id: 'business-networking-property',
+    id: 'finance-investment-property-and-trading',
     rule:
-      'Property/KPR-mortgage expos or seminars route to BUSINESS_AND_NETWORKING by subject, regardless of audience -- named routing wins over the subject-of-sale default.'
+      'Property/KPR-mortgage expos or seminars, and stock, mutual-fund, bond, gold, crypto, forex, or commodity trading-or-investing events, route to FINANCE_AND_INVESTMENT by subject, regardless of audience -- named routing wins over the subject-of-sale default.'
   },
   {
     id: 'business-networking-machinery',
