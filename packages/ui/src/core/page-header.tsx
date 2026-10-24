@@ -20,6 +20,8 @@ export function PageHeader({ title, description, action }: PageHeaderProps) {
           type="button"
           onClick={action.onClick}
           disabled={action.disabled}
+          // The visible label is hidden below `sm`, which would leave an icon-only button with no accessible name.
+          aria-label={action.label}
           className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 disabled:opacity-50 disabled:pointer-events-none"
         >
           {action.icon}

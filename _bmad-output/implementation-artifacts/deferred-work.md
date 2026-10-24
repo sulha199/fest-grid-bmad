@@ -750,3 +750,19 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: `_bmad-output/implementation-artifacts/epic-9-code-review-2026-10-23.md`
   summary: RESOLVED (product owner chose to apply the qualifier to the whole group; fixed in the transform, Story 9.4 amended). Leaf fields written on an OR node beside its `children` are joined to that OR as additional alternatives, so `{op:'OR', children:[jazz, blues], isFree:true}` becomes `OR(jazz, blues, isFree)`.
   evidence: Reproduced by Edge Case Hunter. It is Story 9.4's deliberate literal reading with a covering test, so it was not changed on a guess about the model's intent. (FIND-091)
+
+## Deferred from: code review of the page-overflow audit, fake-auth fixture, responsive matrix and fixes (2026-10-24)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-responsive-page-overflow-audit.md`
+  summary: The page-overflow detector's v1 model has known blind spots: an absolutely positioned element that escapes a clipping ancestor widens the document but gets no culprit; only the right edge is checked (RTL / negative-direction overflow); an off-screen `translate-x-full` drawer reads as an offender when html/body masks overflow; the DOM walk recurses (a pathologically deep tree would overflow the stack).
+  evidence: Surfaced by Blind Hunter and Edge Case Hunter. The first limitation is documented in `detectPageOverflow`'s doc comment; none has produced a wrong result on the 17 audited routes. A containing-block-aware clip model would remove the first and third.
+- source_spec: `_bmad-output/implementation-artifacts/spec-responsive-page-overflow-audit.md`
+  summary: Selector paths are truncated (3 classes, no `__` hashes, no `nth-of-type` when the element is the only one of its tag), so `rankOffenders` ancestry (path prefix) and `culpritKey` grouping can merge two distinct elements that share a truncated path.
+  evidence: Surfaced by Blind Hunter and Edge Case Hunter. No collision on the audited routes; fix is to carry a real parent index from the in-page walk instead of inferring ancestry from the display string.
+- source_spec: `_bmad-output/implementation-artifacts/spec-responsive-overflow-e2e-matrix.md`
+  summary: `settleLayout`'s stability signature (scrollWidth x scrollHeight x element count) cannot see a class-only or text-only layout change; the route and width lists are duplicated between the audit CLI and the e2e matrix; the PWA/location tests hard-code English button labels and the two localStorage keys instead of importing them.
+  evidence: Surfaced by Blind Hunter and Edge Case Hunter. Each only matters when the app's copy, keys or late-mounting UI change; the matrix fails loudly (banner "should mount") rather than passing falsely.
+- source_spec: `_bmad-output/implementation-artifacts/spec-e2e-fake-auth-fixture.md`
+  summary: The fake-auth stub serves only the JWKS: it does not emulate `/auth/v1/user` or `/auth/v1/token`, so a future `auth.getUser()` or token refresh in the app would treat the fake session as signed out; the stub port (54321) is fixed and not configurable.
+  evidence: Surfaced by Blind Hunter and Edge Case Hunter. The app today only calls `getSession()` (verified by grep) and the minted tokens last 30 days, so nothing breaks now; the port clash now fails with an explanatory message.
+

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef } from 'react'
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { usePwaInstallStore } from '@/lib/state/pwa-install-store'
 import { detectInstallPlatform, type DetectableInstallPlatform } from '@/lib/pwa/detect-install-platform'
 import {
@@ -35,6 +35,14 @@ export interface UsePwaInstallPromptResult {
 export function usePwaInstallPrompt(): UsePwaInstallPromptResult {
   const deferredEvent = usePwaInstallStore((state) => state.deferredEvent)
   const [, forceRender] = useReducer((x: number) => x + 1, 0)
+
+  // Eligibility reads the user agent, localStorage and the visit counter, none of which exist on the
+  // server. Deriving `canShow` during the first client render would show the banner where the server
+  // rendered none (a hydration mismatch for returning iOS visitors), so it only turns true after mount.
+  const [hasMounted, setHasMounted] = useState(false)
+  useEffect(() => {
+    setHasMounted(true)
+  }, [])
 
   // AC4 — keep the visit counter to one increment per mount, guarding against
   // React strict-mode double-invoke / re-renders within the same mount.
@@ -79,6 +87,7 @@ export function usePwaInstallPrompt(): UsePwaInstallPromptResult {
   }, [])
 
   const canShow =
+    hasMounted &&
     !isPermanentlyDismissed() &&
     getRemindCooldownExpiry() == null &&
     ((platform === 'android' && deferredEvent !== null) ||

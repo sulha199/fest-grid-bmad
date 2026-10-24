@@ -2392,6 +2392,14 @@ items:
      touches: [pkg:domain, cross:ai-extraction],
      note: "Deferred from: re-review of the epic-9 fixes (2026-10-23). Decided by the product owner and fixed: a qualifier beside an OR's branches applies to the whole group, AND(OR(branches), fields). See Story 9.4's amendment."}
 
+  FIND-092:
+    {type: finding, status: backlog, created: 2026-10-24,
+     impact: internal, effort: m,
+     title: "Test-tooling blind spots from the responsive audit review: detector clip/RTL model, path-ambiguity ancestry, settle signature, duplicated lists, stub endpoints",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [pkg:visual-audit, web:system],
+     note: "Deferred from: code review of the page-overflow audit, fake-auth fixture, responsive matrix and fixes (2026-10-24). 4 findings."}
+
   BUG-076:
     {type: bug, status: triaged, created: 2026-10-23,
      impact: user-visible, effort: s,

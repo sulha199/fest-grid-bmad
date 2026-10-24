@@ -14,7 +14,9 @@
  * than compose). See Story 0.42 Dev Notes for the full rationale.
  */
 export const ambientCapabilityBannerTokens = {
-  base: 'w-full flex items-center justify-between gap-4 px-4 py-3 bg-violet-50 border-b border-violet-200 text-sm',
+  base: 'w-full flex flex-col items-start gap-3 px-4 py-3 bg-violet-50 border-b border-violet-200 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4',
+  /** Button row. Wraps and only refuses to shrink once the banner is a single row (`sm`+): a no-wrap, non-shrinking row wider than a phone stretches the whole page. */
+  actions: 'flex flex-wrap items-center gap-2 sm:shrink-0',
   dismissPermanent: 'py-2 px-4 rounded-md font-semibold bg-gray-200 text-gray-800',
   dismissCooldown: 'text-violet-700 underline text-xs font-medium',
 } as const;

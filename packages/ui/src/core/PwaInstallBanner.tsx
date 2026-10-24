@@ -53,7 +53,7 @@ export function PwaInstallBanner({
   return (
     <div className={ambientCapabilityBannerTokens.base}>
       <p className="flex-1">{labels.message}</p>
-      <div className="flex items-center gap-2 shrink-0">
+      <div className={ambientCapabilityBannerTokens.actions}>
         <button
           type="button"
           className={ambientCapabilityBannerTokens.dismissPermanent}
