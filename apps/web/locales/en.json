@@ -552,6 +552,7 @@
     "FASHION_AND_BEAUTY": "Fashion & Beauty",
     "FINANCE_AND_INVESTMENT": "Finance & Investment",
     "GADGETS_AND_DEVICES": "Gadgets & Devices",
+    "SCIENCE_AND_ENGINEERING": "Science & Engineering",
     "OTHER": "Other"
   },
   "EventCard": {
