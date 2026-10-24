@@ -15,15 +15,19 @@ import { EVENT_CATEGORY_GOLDEN_CORPUS } from './event-category-golden-corpus.fix
 // Run manually with:
 //   RUN_LIVE_GEMINI_TESTS=true SYSTEM_GEMINI_API_KEY=<key> pnpm --filter backend test
 //
-// Story 0.53 re-derived the fixtures for the full 22-value taxonomy (see
+// Story 0.54 re-derived the fixtures for the full 23-value taxonomy, including the amended
+// cardinality rule (safety cap 6, non-exclusive OTHER) and three rewritten boundary rules (see
 // event-category-golden-corpus.fixtures.ts's header and
-// 0-53-add-home-living-fashion-finance-and-gadget-event-categories.md's Dev Notes). As of that
-// re-derivation, fixture #11 (wedding-expo) is the one flagged as having a plausible second
-// reading under AD-44's rewritten Rule 5 -- if the live run disagrees with this story's derived
-// expected/mustNotInclude for exactly that one, the fixture should be adjusted (not the prompt)
-// -- any other mismatch should be investigated as a real prompt/boundary-text defect first.
+// 0-54-amend-event-category-cardinality-and-add-science-and-engineering.md's Dev Notes --
+// resolves backlog finding FIND-098). As of that re-derivation, fixture #11 (wedding-expo) is
+// still the one flagged "CONFIRM ON NEXT LIVE RUN": the live run that triggered this amendment
+// returned the three named subject categories but not OTHER, while this fixture still expects
+// OTHER for the uncovered venue subject per AD-44's own worked example -- if the next live run
+// disagrees with this story's derived expected/mustNotInclude for exactly that one, the fixture
+// should be adjusted (not the prompt) -- any other mismatch should be investigated as a real
+// prompt/boundary-text defect first.
 
-test('EventCategory golden corpus (opt-in live Gemini eval, Story 0.52/0.53 AC7/AC12)', async (t) => {
+test('EventCategory golden corpus (opt-in live Gemini eval, Story 0.52/0.53/0.54 AC7/AC12/AC15)', async (t) => {
   if (process.env.RUN_LIVE_GEMINI_TESTS !== 'true' || !process.env.SYSTEM_GEMINI_API_KEY) {
     t.skip('RUN_LIVE_GEMINI_TESTS/SYSTEM_GEMINI_API_KEY not set — live Gemini golden-corpus eval opted out');
     return;
